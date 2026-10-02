@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env*
+*.log
+.evidence-tmp/
+test-results/
+playwright-report/
+.data/
+.scaffold/
+.DS_Store
