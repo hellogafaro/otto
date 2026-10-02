@@ -1,10 +1,10 @@
 # Otto
 
-Otto is a proposed future app — a workspace combining flat project tasks,
-shared conversations, flexible documents/skills, saved artifacts, and native
-subscription coding agents. This directory is the canonical home for its
-product plan, research, and visual design. It does not change anything about
-the current Buzz application in this checkout.
+Otto is a fresh application repository for a workspace combining flat project
+tasks, shared conversations, flexible documents/skills, saved artifacts, and
+native subscription coding agents. This directory is the canonical home for
+its product plan, research, and visual design. The former Buzz checkout is
+preserved outside this repository; see [the backup record](../setup-backup.md).
 
 ## Canonical documents
 
@@ -98,13 +98,3 @@ record of how the canvases were produced, not a build tool.
 | Design-system sheet (SVG/PNG/PDF) | `design-system/` | Generated from `tokens.css` — don't hand-edit the PNG/PDF |
 | Foundation canvases (HTML) | `canvases/` | Exported snapshots of the Markdown — don't hand-edit, regenerate from source if ever needed |
 | Canvas builder scripts | `canvases/source/` | Historical record only, not rerunnable here |
-
-## Historical root-path stubs
-
-The six documents above previously lived at the repository root as
-`OTTO_PLAN.md`, `OTTO_FOUNDATION_RESEARCH.md`, `OTTO_REFERENCES.md`,
-`OTTO_STACK_OPTIONS.md`, `OTTO_CODE_PRINCIPLES.md`, and
-`OTTO_BRAND_GUIDELINES.md`. Each of those root paths is now a short stub
-pointing here, kept only so an old link or local reference doesn't dead-end
-silently. They are not duplicated full documents — the content above is the
-only authoritative copy.

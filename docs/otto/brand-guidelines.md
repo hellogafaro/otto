@@ -69,8 +69,8 @@ disagree, the CSS file is authoritative and this table is stale.
 
 All names map 1:1 to shadcn/ui's Tailwind v4 CSS-first token convention
 (`--background`/`--foreground` pairs consumed as `bg-background`,
-`text-foreground`, etc. via `@theme inline` in `apps/web`'s global stylesheet
-once the app exists). `--success*`, `--warning*`, `--neutral-run*` are Otto
+`text-foreground`, etc. via `@theme inline` in the generated shared stylesheet
+`packages/ui/src/styles/globals.css`). `--success*`, `--warning*`, `--neutral-run*` are Otto
 additions beyond the shadcn default set, needed for Run/Task status (§7);
 everything else is a direct shadcn slot.
 
