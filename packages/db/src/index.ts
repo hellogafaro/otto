@@ -14,24 +14,3 @@ export function openDatabase(config: PoolConfig) {
 }
 export type Database = ReturnType<typeof openDatabase>["db"];
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-export class DomainError extends Error {
-  constructor(
-    public readonly code:
-      | "forbidden"
-      | "not_found"
-      | "conflict"
-      | "unavailable"
-      | "invalid",
-    message: string = code,
-  ) {
-    super(message);
-  }
-}
-/** Requires a returned record without hiding a failed write or absent record. */
-export function required<T>(
-  value: T | undefined,
-  code: ConstructorParameters<typeof DomainError>[0] = "not_found",
-): T {
-  if (value === undefined) throw new DomainError(code);
-  return value;
-}

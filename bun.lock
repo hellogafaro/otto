@@ -20,6 +20,7 @@
       "devDependencies": {
         "@biomejs/biome": "2.5.15",
         "@otto/db": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@playwright/test": "1.63.0",
         "@types/bun": "1.4.2",
         "@types/pg": "8.23.1",
@@ -48,6 +49,7 @@
         "@otto/projects": "workspace:*",
         "@otto/runs": "workspace:*",
         "@otto/sessions": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/tasks": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "better-auth": "1.7.7",
@@ -80,8 +82,10 @@
       "name": "@otto/agents",
       "version": "0.0.1",
       "dependencies": {
+        "@otto/connections": "workspace:*",
         "@otto/db": "workspace:*",
         "@otto/projects": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
       },
@@ -95,6 +99,7 @@
         "@otto/db": "workspace:*",
         "@otto/projects": "workspace:*",
         "@otto/runs": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
       },
@@ -106,7 +111,9 @@
         "@otto/agents": "workspace:*",
         "@otto/conversations": "workspace:*",
         "@otto/db": "workspace:*",
+        "@otto/projects": "workspace:*",
         "@otto/runs": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "cron-parser": "5.10.1",
         "drizzle-orm": "0.45.3",
@@ -119,8 +126,11 @@
       "dependencies": {
         "@otto/agents": "workspace:*",
         "@otto/db": "workspace:*",
+        "@otto/runs": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
+        "zod": "4.6.5",
       },
     },
     "packages/conversations": {
@@ -130,6 +140,7 @@
         "@otto/agents": "workspace:*",
         "@otto/db": "workspace:*",
         "@otto/projects": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
       },
@@ -149,8 +160,10 @@
         "@otto/agents": "workspace:*",
         "@otto/db": "workspace:*",
         "@otto/projects": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
+        "zod": "4.6.5",
       },
     },
     "packages/environments": {
@@ -159,8 +172,10 @@
       "dependencies": {
         "@otto/agents": "workspace:*",
         "@otto/db": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
+        "zod": "4.6.5",
       },
     },
     "packages/projects": {
@@ -168,6 +183,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@otto/db": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
       },
@@ -177,26 +193,39 @@
       "version": "0.0.1",
       "dependencies": {
         "@otto/agents": "workspace:*",
+        "@otto/automations": "workspace:*",
         "@otto/connections": "workspace:*",
         "@otto/conversations": "workspace:*",
         "@otto/db": "workspace:*",
         "@otto/documents": "workspace:*",
         "@otto/environments": "workspace:*",
+        "@otto/projects": "workspace:*",
         "@otto/sessions": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/tasks": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
         "pg-boss": "12.35.1",
+        "zod": "4.6.5",
       },
     },
     "packages/sessions": {
       "name": "@otto/sessions",
       "version": "0.0.1",
       "dependencies": {
+        "@otto/agents": "workspace:*",
+        "@otto/connections": "workspace:*",
+        "@otto/conversations": "workspace:*",
         "@otto/db": "workspace:*",
+        "@otto/environments": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
       },
+    },
+    "packages/shared": {
+      "name": "@otto/shared",
+      "version": "0.0.1",
     },
     "packages/tasks": {
       "name": "@otto/tasks",
@@ -205,6 +234,7 @@
         "@otto/agents": "workspace:*",
         "@otto/db": "workspace:*",
         "@otto/projects": "workspace:*",
+        "@otto/shared": "workspace:*",
         "@otto/workspaces": "workspace:*",
         "drizzle-orm": "0.45.3",
       },
@@ -238,6 +268,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@otto/db": "workspace:*",
+        "@otto/shared": "workspace:*",
         "drizzle-orm": "0.45.3",
       },
     },
@@ -516,6 +547,8 @@
     "@otto/server": ["@otto/server@workspace:apps/server"],
 
     "@otto/sessions": ["@otto/sessions@workspace:packages/sessions"],
+
+    "@otto/shared": ["@otto/shared@workspace:packages/shared"],
 
     "@otto/tasks": ["@otto/tasks@workspace:packages/tasks"],
 

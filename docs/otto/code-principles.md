@@ -1,6 +1,6 @@
 # Otto code principles
 
-Guidance for the future Otto app. This does not replace the current Buzz checkout's instructions. Argus passed the documentation review with no findings, 9/10 across all criteria. Implementation remains unverified.
+Guidance for the Otto application in this repository. Canonical product scope is defined in the plan; runtime claims require implementation evidence.
 
 ## Scope and principles
 
@@ -18,7 +18,9 @@ Use small domain-owned adapters for agent harnesses, compute, external services/
 
 Changing a provider must preserve Otto's authorization, audience, billing, isolation, and recovery rules. Native Session context and login can remain provider-bound; never promise automatic portability or substitute accounts.
 
-Keep concrete library choices. Domain-owned Drizzle queries and inferred Hono RPC types need no generic repositories or duplicate models. Adapt actual integration boundaries, implement one provider first, and extend when needed. No universal plugin framework or wrapper around every dependency.
+Keep concrete library choices. Domain-owned Drizzle queries and inferred Hono RPC types need no generic repositories or duplicate models. Adapt actual integration boundaries and extend when needed. This phase stops at the typed computer connector and controlled fixtures; real cloud/local adapters, provisioning and native login await explicit provider selection. No universal plugin framework or wrapper around every dependency.
+
+Business-domain operation dependencies are acyclic; operations and transports use domain APIs rather than another domain's private tables. Schema-only lazy references may form physical relational cycles. Declare foreign keys, checks and indexes in owning Drizzle table builders, with one server schema composition entry. Keep schema imports declared and boundary-checked; no metadata mutation or after-push SQL patch. Before MVP, use native `bun db:push` for development with zero numbered application migrations. Sync only declared public tables; pg-boss owns its queue schema and internal upgrades. Never reset shared/live data or auto-approve destructive schema changes.
 
 ## Naming
 
@@ -28,11 +30,29 @@ Variables/functions use camelCase. Types, interfaces, components, and classes us
 
 Prefer short, meaningful names. Remove redundancy, but keep useful IDs, units, and distinctions: phone, connectionId, timeoutMs, phoneE164. Use domain nouns and plural collections. Use row only when database context makes its meaning clear.
 
-CRUD names use verb plus domain noun: getTask, getManyTasks, createTask, upsertTask, updateTask, deleteTask. Prefer get/getMany over list and delete over remove for records. Create means new only; upsert intentionally means create-or-update. Implement only supported operations, not a CRUD scaffold.
+CRUD names use verb plus domain noun: getTask, getTasks, createTask, upsertTask, updateTask, deleteTask. Use one bounded, filtered plural getter; no getMany prefix or parallel plural aliases. Delete records or memberships with deleteTask/deleteMember/deleteParticipant. Permission verbs describe their effect, such as grantConnectionAccess; handle is for transport/event handlers. Create means new only; upsert intentionally means create-or-update. Implement supported operations, not a CRUD scaffold.
 
-Prefer typed filter/options objects over getByX variants. Allowlist editable fields and bound queries. Separate distinct permissions, transitions, and side effects into explicit verbs such as assignTask, archiveProject, stopRun; avoid a giant update with unrelated flags.
+Prefer typed filter/options objects over getByX variants. Ordinary edits use one allowlisted partial update, returning the updated record. Require `editToken` when it prevents a demonstrated lost update or fences queued/configuration authority; do not add it to every record by habit. Keep field-specific authorization inside that atomic update: changing a Task owner requires a human current owner/admin and an eligible new human contributor. Do not add parallel owner, view or metadata setter endpoints. Separate actual permission changes, associations requiring audience checks, and control side effects into explicit verbs such as grantConnectionAccess, assignTask, archiveProject and stopRun; avoid a giant update with unrelated flags.
+
+Otto discriminators use `type`; configuration/edit fences use `editToken` (`agentEditToken` or `automationEditToken` only where the accepted reference needs disambiguation). Native account references use `connectionId`. A harness installation pin is `harnessVersion`, resolved from trusted server configuration and retained in accepted Run/Session bindings, not entered in an Agent browser form. Preserve external protocol names and immutable accepted authority; never silently refresh saved scope during a rename.
+
+Owned SQL tables use plural snake_case. Keep native queue delivery names inside the pg-boss boundary; `automation_history.id` is its delivery identity and records skipped/deduplicated outcomes, while Runs own execution detail. Mutually exclusive lifecycle configuration uses status, not redundant enabled/archive booleans. Disabled Automation schedules stay paused while explicit owner-authorized manual Runs remain possible; restore leaves status disabled.
+
+Agent owns reusable skillIds and Connection grants. No Project/manual Run skill overrides or Automation context arrays. Manual selected Document/message/Task content stays bounded, currently authorized and retained in immutable Run scope. Agents, skills and Connections use exactly `visibility: user | workspace` and server-derived owner identity. Sharing permits eligible current workspace use, never configuration ownership, private dependencies or credentials. Ordinary Document collaborator rules remain separate from skill visibility. Recheck source/recipient access after asynchronous I/O and on retained-context reuse.
 
 Use is/has for predicates, format for presentation, on for callback props, and handle for handlers. Include the subject where scope does not make it clear.
+
+Timestamps describe observed successful mutations: `createdAt`, `updatedAt`, and meaningful state times ending in `At`. Advance `updatedAt` in the same transaction as real successful changes; never fabricate historical timestamps when adding a field. Durations end in `Ms`; byte sizes and counts describe their unit. Numeric replay positions use `cursor`; numeric optimistic-concurrency tokens and Environment generations remain numeric and must not be replaced with timestamps. These fences are not user-facing version history.
+
+## Backend values, pages, and errors
+
+Domain operations return typed values and throw `DomainError` for expected authorization, input, state, and availability failures. Singular getters return a record or throw; they do not invent empty records. Database failures propagate. The server owns HTTP error translation and keeps raw provider errors and invalid values out of responses. One API entry supplies authentication, origin checks, dependencies and workspace transactions to cohesive typed route modules; public frozen-share routes mount before authentication. Reuse small primitive request validators without route-registration frameworks or factories for each module. Provider adapters may retain their own typed protocol errors internally.
+
+Ordinary discovery getters return `{ items, next }`, with `next: null` at the end. Accept a typed filter/options object: optional exclusive `after`, optional integer `limit` from 1 to 100, default 100. One ordinary HTTP page query accepts a bounded string cursor; the owning domain validates UUID or human-ID cursor semantics once with `parsePageOptions` before querying. Fetch `limit + 1` candidates, then use `getPage`; authorization filtering uses `filterPage` and preserves the cursor from scanned candidates even when the visible page is empty. Never infer continuation from visible item count. Numeric durable replay streams and fixed complete authorization snapshots are separate contracts: retain their ordering and overflow guards rather than silently paginating an authorization decision.
+
+Use the dependency-free `@otto/shared` primitives only for demonstrated repetition: `required`, `parseInput`, page handling, and `withCleanup`. Keep database queries, Hono, Zod schemas and provider SDKs in their owning modules. Do not add a universal repository, Result envelope, or service framework.
+
+Catch only to translate a known boundary failure, clean up, or retain a durable failure/uncertain/retry outcome. Propagate other failures. `withCleanup` releases an acquired resource and preserves both the original error and a cleanup error. Detached rejections must be observed by readiness/shutdown or a durable outcome; an empty result or success response is not error handling. Run the consistency scan for retired names, dependency direction and duplicate transport paths; its catch count is an audit inventory, not proof that error semantics are correct.
 
 ## Code and UI
 

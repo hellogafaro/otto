@@ -1,1 +1,0 @@
-ALTER TABLE "artifact" ADD COLUMN "labels" jsonb DEFAULT '[]'::jsonb NOT NULL;

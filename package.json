@@ -9,10 +9,10 @@
     "format": "bun --bun biome check --write .",
     "typecheck": "bun --bun tsc --noEmit && bun --bun run --cwd apps/web typecheck",
     "test": "bun --bun vitest run",
-    "db:generate": "bun --bun drizzle-kit generate",
-    "db:migrate": "bun scripts/migrate.ts",
     "test:browser": "bun --bun playwright test",
-    "check:boundaries": "bun scripts/check-boundaries.ts"
+    "check:boundaries": "bun scripts/check-boundaries.ts",
+    "check:consistency": "bun scripts/check-consistency.ts",
+    "db:push": "bun scripts/push.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
@@ -25,7 +25,8 @@
     "embedded-postgres": "18.4.0-beta.17",
     "typescript": "~6.0.2",
     "vitest": "5.0.3",
-    "ws": "8.22.0"
+    "ws": "8.22.0",
+    "@otto/shared": "workspace:*"
   },
   "packageManager": "bun@1.4.2",
   "engines": {

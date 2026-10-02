@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./runtime": "./src/runtime.ts",
+    "./acp": "./src/acp.ts"
   },
   "dependencies": {
     "@otto/db": "workspace:*",
@@ -18,6 +20,10 @@
     "@otto/tasks": "workspace:*",
     "@otto/workspaces": "workspace:*",
     "drizzle-orm": "0.45.3",
-    "pg-boss": "12.35.1"
+    "pg-boss": "12.35.1",
+    "zod": "4.6.5",
+    "@otto/projects": "workspace:*",
+    "@otto/shared": "workspace:*",
+    "@otto/automations": "workspace:*"
   }
 }

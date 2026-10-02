@@ -1,22 +1,22 @@
 import { eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startJobs } from "../apps/server/src/jobs";
-import { createAgent } from "../packages/agents/src";
-import { saveArtifact } from "../packages/artifacts/src";
+import { startQueue } from "../apps/server/src/queue";
+import { createAgent, getAgent, updateAgent } from "../packages/agents/src";
+import { createArtifact } from "../packages/artifacts/src";
 import {
   CRON_QUEUE,
   createAutomation,
-  deliverOccurrence,
+  deliverAutomation,
   reconcileSchedule,
-  saveAutomation,
+  updateAutomation,
   validateAutomation,
 } from "../packages/automations/src";
 import {
-  addParticipant,
   createConversation,
+  createParticipant,
 } from "../packages/conversations/src";
-import { createDocument, saveDocument } from "../packages/documents/src";
+import { createDocument, updateDocument } from "../packages/documents/src";
 import { createEnvironment } from "../packages/environments/src";
 import {
   admitRun,
@@ -28,6 +28,7 @@ import {
 import { runs } from "../packages/runs/src/schema";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
+import { harnesses } from "./fixtures/harnesses";
 import { startPostgres } from "./postgres";
 
 describe("real atomic Run and pg-boss admission", () => {
@@ -41,7 +42,10 @@ describe("real atomic Run and pg-boss admission", () => {
     inWorkspace(database.db, workspaceId, { userId: "owner" }, fn);
   beforeAll(async () => {
     database = await startPostgres();
-    boss = await startJobs(database.db, database.pool, false, true);
+    boss = await startQueue(database.db, database.pool, {
+      workers: false,
+      install: true,
+    });
     await database.db.insert(users).values({
       id: "owner",
       name: "Owner",
@@ -52,10 +56,10 @@ describe("real atomic Run and pg-boss admission", () => {
     await scope(async (c) => {
       agentId = (
         await createAgent(c, {
+          visibility: "workspace",
           name: "Worker",
           instructions: "Do work",
           harness: "codex-acp",
-          harnessRelease: "unqualified",
           model: "selected",
         })
       ).id;
@@ -63,15 +67,19 @@ describe("real atomic Run and pg-boss admission", () => {
       conversationId = (
         await createConversation(c, { title: "Shared", access: "inherited" })
       ).id;
-      await addParticipant(c, conversationId, { agentId, role: "contributor" });
+      await createParticipant(c, conversationId, {
+        agentId,
+        role: "contributor",
+      });
       skillId = (
         await createDocument(c, {
           title: "A skill",
           body: "Original instructions",
           skill: true,
-          access: "inherited",
+          visibility: "workspace",
         })
       ).id;
+      await updateAgent(c, agentId, { skillIds: [skillId], editToken: 0 });
     });
   });
   afterAll(async () => {
@@ -82,18 +90,17 @@ describe("real atomic Run and pg-boss admission", () => {
     requestId: crypto.randomUUID(),
     conversationId,
     agentId,
-    kind: "prompt" as const,
+    type: "prompt" as const,
     body: "Hello",
-    skillIds: [skillId],
   });
   it("rolls back Run, Session and queue job together", async () => {
     const input = request();
     const before = await database.pool.query(
-      "select count(*)::int as count from agent_session",
+      "select count(*)::int as count from agent_sessions",
     );
     await expect(
       scope(async (c) => {
-        await admitRun(c, boss, input);
+        await admitRun(c, boss, input, harnesses);
         throw new Error("forced rollback");
       }),
     ).rejects.toThrow("forced rollback");
@@ -105,18 +112,18 @@ describe("real atomic Run and pg-boss admission", () => {
     const jobs = await boss.findJobs<{ runId: string }>(RUN_QUEUE);
     expect(jobs).toHaveLength(0);
     const after = await database.pool.query(
-      "select count(*)::int as count from agent_session",
+      "select count(*)::int as count from agent_sessions",
     );
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
   });
   it("deduplicates admission and keeps skill instructions from the accepted attempt", async () => {
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input));
-    const same = await scope((c) => admitRun(c, boss, input));
+    const run = await scope((c) => admitRun(c, boss, input, harnesses));
+    const same = await scope((c) => admitRun(c, boss, input, harnesses));
     expect(same.id).toBe(run.id);
     expect((await boss.findJobs(RUN_QUEUE)).length).toBe(1);
     await scope((c) =>
-      saveDocument(c, skillId, {
+      updateDocument(c, skillId, {
         title: "A skill",
         body: "New instructions",
         editToken: 0,
@@ -136,7 +143,7 @@ describe("real atomic Run and pg-boss admission", () => {
     expect(duplicate).toEqual(first);
   });
   it("rejects stale attempt results and leaves the durable state unchanged", async () => {
-    const run = await scope((c) => admitRun(c, boss, request()));
+    const run = await scope((c) => admitRun(c, boss, request(), harnesses));
     await expect(
       scope((c) =>
         recordRunOutcome(c, {
@@ -159,30 +166,56 @@ describe("real atomic Run and pg-boss admission", () => {
       name: "Nightly",
       agentId,
       conversationId,
-      kind: "script" as const,
+      type: "script" as const,
       body: "echo hello",
-      skillIds: [],
+
       cron: "* * * * *",
       timezone: "Europe/Berlin",
-      enabled: true,
+      status: "enabled" as const,
     };
     const automation = await scope((c) => createAutomation(c, boss, input));
     await reconcileSchedule(database.db, boss, automation.id);
     const schedules = await boss.getSchedules(CRON_QUEUE);
     expect(schedules.some((s) => s.key === automation.id)).toBe(true);
+    const scheduled = await boss.getSchedule(CRON_QUEUE, automation.id);
+    expect(scheduled?.options?.missed).toBe("skip");
+    // Pinned library expression semantics, separate from the elapsed-clock delivery test.
+    expect(
+      boss
+        .previewSchedule("30 2 * * *", {
+          tz: "Europe/Berlin",
+          from: new Date("2026-03-28T23:00:00Z"),
+          count: 2,
+        })
+        .map((d) => d.toISOString()),
+    ).toEqual(["2026-03-29T01:30:00.000Z", "2026-03-30T00:30:00.000Z"]);
+    expect(
+      boss
+        .previewSchedule("30 2 * * *", {
+          tz: "Europe/Berlin",
+          from: new Date("2026-10-24T23:00:00Z"),
+          count: 2,
+        })
+        .map((d) => d.toISOString()),
+    ).toEqual(["2026-10-25T00:30:00.000Z", "2026-10-26T01:30:00.000Z"]);
     const tick = {
       automationId: automation.id,
-      token: 0,
-      jobId: crypto.randomUUID(),
+      editToken: 0,
+      id: crypto.randomUUID(),
     };
-    const first = await deliverOccurrence(database.db, boss, tick);
-    expect((await deliverOccurrence(database.db, boss, tick)).runId).toBe(
-      first.runId,
+    const first = await deliverAutomation(database.db, boss, tick, harnesses);
+    expect(
+      (await deliverAutomation(database.db, boss, tick, harnesses)).runId,
+    ).toBe(first.runId);
+    const next = await deliverAutomation(
+      database.db,
+      boss,
+      {
+        ...tick,
+        id: crypto.randomUUID(),
+      },
+      harnesses,
     );
-    const next = await deliverOccurrence(database.db, boss, {
-      ...tick,
-      jobId: crypto.randomUUID(),
-    });
     expect(next.runId).toBe(first.runId);
     const saved = (
       await database.db
@@ -192,17 +225,22 @@ describe("real atomic Run and pg-boss admission", () => {
     )[0];
     expect(saved?.sessionId).toBeNull();
     await scope((c) =>
-      saveAutomation(c, boss, automation.id, {
+      updateAutomation(c, boss, automation.id, {
         ...input,
-        enabled: false,
+        status: "disabled" as const,
         editToken: 0,
       }),
     );
     expect(
-      await deliverOccurrence(database.db, boss, {
-        ...tick,
-        jobId: crypto.randomUUID(),
-      }),
+      await deliverAutomation(
+        database.db,
+        boss,
+        {
+          ...tick,
+          id: crypto.randomUUID(),
+        },
+        harnesses,
+      ),
     ).toMatchObject({ outcome: "stale_configuration" });
     expect(
       await dispatchRun(database.db, first.runId ?? "", validateAutomation),
@@ -215,23 +253,34 @@ describe("real atomic Run and pg-boss admission", () => {
     ).toBe(false);
   });
   it("requires a fresh Session when retained skill scope changes", async () => {
-    const first = await scope((c) => admitRun(c, boss, request()));
+    const first = await scope((c) => admitRun(c, boss, request(), harnesses));
     const saved = (
       await database.db.select().from(runs).where(eq(runs.id, first.id))
     )[0];
+    await scope(async (c) => {
+      const agent = await getAgent(c, agentId);
+      await updateAgent(c, agentId, {
+        skillIds: [],
+        editToken: agent.editToken,
+      });
+    });
     await expect(
       scope((c) =>
-        admitRun(c, boss, {
-          ...request(),
-          sessionId: saved?.sessionId ?? undefined,
-          skillIds: [],
-        }),
+        admitRun(
+          c,
+          boss,
+          {
+            ...request(),
+            sessionId: saved?.sessionId ?? undefined,
+          },
+          harnesses,
+        ),
       ),
     ).rejects.toMatchObject({ code: "conflict" });
     await dispatchRun(database.db, first.id);
   });
   it("recovers bookkeeping without requeuing a possibly launched execution", async () => {
-    const run = await scope((c) => admitRun(c, boss, request()));
+    const run = await scope((c) => admitRun(c, boss, request(), harnesses));
     await database.db
       .update(runs)
       .set({ state: "launching" })
@@ -252,8 +301,8 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   it("processes real pg-boss delivery and duplicate delivery through the server worker", async () => {
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input));
-    const workers = await startJobs(database.db, database.pool, true);
+    const run = await scope((c) => admitRun(c, boss, input, harnesses));
+    const workers = await startQueue(database.db, database.pool);
     try {
       await expect
         .poll(
@@ -289,7 +338,7 @@ describe("real atomic Run and pg-boss admission", () => {
       email: "reader@example.test",
       emailVerified: true,
     });
-    const run = await scope((c) => admitRun(c, boss, request()));
+    const run = await scope((c) => admitRun(c, boss, request(), harnesses));
     await database.db
       .insert(members)
       .values({ workspaceId, userId: "new-reader", role: "viewer" });
@@ -302,7 +351,7 @@ describe("real atomic Run and pg-boss admission", () => {
       },
     };
     await expect(
-      saveArtifact(
+      createArtifact(
         database.db,
         storage,
         workspaceId,
@@ -311,7 +360,7 @@ describe("real atomic Run and pg-boss admission", () => {
           sourceRunId: run.id,
           requestId: crypto.randomUUID(),
           title: "Output",
-          kind: "text",
+          type: "text",
           mediaType: "text/plain",
           access: "inherited",
         },
@@ -321,7 +370,7 @@ describe("real atomic Run and pg-boss admission", () => {
     await dispatchRun(database.db, run.id);
   });
   it("rechecks sponsor membership on duplicate queue delivery", async () => {
-    const run = await scope((c) => admitRun(c, boss, request()));
+    const run = await scope((c) => admitRun(c, boss, request(), harnesses));
     await database.db.delete(members).where(eq(members.userId, "owner"));
     expect(await dispatchRun(database.db, run.id)).toMatchObject({
       state: "failed",

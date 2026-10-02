@@ -110,6 +110,10 @@ The existing harness does reasoning and its tool loop. Otto adds collaboration, 
 - Automation = what to start and when.
 - Session = continuing private context; Run = one attempt.
 
+Agents, skills and Connections use `visibility: user | workspace` within the existing workspace. The server assigns their human owner. User visibility restricts discovery/read/use to that owner; workspace visibility permits eligible current members subject to Project, Conversation and explicit Agent grants. Configuration and sharing remain owner-controlled. Sharing an Agent never shares a user-scoped dependency, credential or private Session. Skills remain Documents; their visibility replaces collaborator lists while ordinary Documents retain their own collaborator rules.
+
+Agent is the sole reusable skill/Connection configuration. Projects and manual Runs have no skill defaults or overrides. Bounded manual Run Document/message/Task selections are execution content with explicit current source and output-audience checks; they are not standing grants and are not moved into Agent fields.
+
 Skills never grant permissions. A tool is a scoped Otto operation, Environment operation, or assigned Connection capability. An MCP server needs no extra profile. A workflow initially means one prompt or script Automation; scripts may have ordinary code steps.
 
 ## Documents, collections, and skills
@@ -145,7 +149,7 @@ Save the launch identity before dispatch and the backend execution reference aft
 
 Pause stops or checkpoints the active Run before suspending compute and preserves files; running-process resume is conditional. Reset/replacement warns about unpublished local work. Saved Artifacts, messages, and pushed code survive independently; local files need retained volumes or backup. Working state from another permission scope cannot leak through files or browser history: isolate it or explicitly reset before reuse.
 
-[Mastra's workspace model](https://mastra.ai/docs/sandbox/overview) is a reference, not an adopted harness. Its default LocalSandbox runs on the application host without isolation; file-tool containment alone does not restrict shell commands. The first backend must prove isolation and lifecycle before adoption.
+[Mastra's workspace model](https://mastra.ai/docs/sandbox/overview) is a reference, not an adopted harness. Its default LocalSandbox runs on the application host without isolation; file-tool containment alone does not restrict shell commands. This backend phase implements models and the small typed internal computer boundary with controlled fixtures. Cloud/local provider selection, provisioning, native login and real isolation/lifecycle qualification are deferred; add no provider registry or automatic host-local fallback.
 
 ## External connections
 
@@ -182,7 +186,7 @@ flowchart TB
   O --> C[The automation's output conversation and run history]
 ```
 
-Automation stores its prompt or script body directly, with a required human owner and agent, optional Project, selected context/skills, one output Conversation, optional cron/timezone, and enabled state. No separate prompt Document or published execution version is required. Human editors configure unattended work; agents propose changes. Scripts run in the agent's scoped Environment without requiring an LLM or Session. Prompt automations start a fresh Session per accepted occurrence.
+Automation stores its prompt or script body directly, with a required human owner and Agent, one output Conversation, an optional Task reference, optional cron/timezone, and status `enabled`, `disabled` or `archived`. Agent owns reusable skills and Connection grants; Automations have no skill, Document or message override arrays. Restoring an archived Automation leaves it disabled. No separate prompt Document or published execution version is required. Human editors configure unattended work; agents propose changes. Scripts run in the agent's scoped Environment without requiring an LLM or Session. Prompt automations start a fresh Session per accepted occurrence.
 
 Use **pg-boss inside apps/server**, against the existing PostgreSQL database, for cron and durable jobs. No Redis, additional worker service, or homemade scheduler. Put pg-boss objects in a dedicated PostgreSQL schema. We control deployment/migration execution using the pinned library's construction/migration SQL and migrate: false at runtime; pg-boss owns its queue table structure, while Drizzle owns Otto's domain tables. Do not rename or redesign pg-boss internals or duplicate Run state into its job schema. Manual admission saves the Run, its exact inputs, and dispatch job in one Drizzle transaction. Cron delivery uses a stable job identity to admit one Run, then follows the same path; record the occurrence time where the selected release exposes it. Queue delivery owns dispatch; Run owns user-visible execution state. Never make the whole ACP stream a retryable job body.
 
@@ -316,7 +320,7 @@ Domains export functions and browser-safe types/validation; database, credential
 | Document editor | Tiptap open-source core and required extensions |
 | Formatting and lint | Biome |
 | Authentication | Better Auth in apps/server, Drizzle PostgreSQL adapter |
-| Data | PostgreSQL, Drizzle migrations/transactions, JSONB properties, full-text search |
+| Data | PostgreSQL, native Drizzle schema push before MVP, transactions, JSONB properties, full-text search |
 | Jobs and cron | pg-boss library, same PostgreSQL, inside server |
 | Agent integration | ACP client and existing native adapters; direct native bridge only when needed |
 | Compute | Provider-agnostic Environments; backend and VM choice deferred. Server owns lifecycle |

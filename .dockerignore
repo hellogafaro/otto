@@ -1,0 +1,11 @@
+.git
+node_modules
+**/node_modules
+**/dist
+.env*
+.infisical.json
+.evidence-tmp
+.data
+docs/evidence
+test-results
+playwright-report

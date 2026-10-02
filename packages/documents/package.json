@@ -8,10 +8,12 @@
     "./schema": "./src/schema.ts"
   },
   "dependencies": {
+    "@otto/agents": "workspace:*",
     "@otto/db": "workspace:*",
     "@otto/projects": "workspace:*",
     "@otto/workspaces": "workspace:*",
     "drizzle-orm": "0.45.3",
-    "@otto/agents": "workspace:*"
+    "zod": "4.6.5",
+    "@otto/shared": "workspace:*"
   }
 }

@@ -3,12 +3,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "@otto/db";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { getConstructionPlans } from "pg-boss";
 import { z } from "zod";
+import { pushDatabase } from "../scripts/push";
 
 /** Real PostgreSQL, isolated by a private 0700 socket directory, with TCP disabled. No credentials or shared services. */
-export async function startPostgres() {
+export async function startPostgres(options: { schema?: boolean } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "otto-pg-"));
   await chmod(directory, 0o700);
   const packagePath = Bun.resolveSync(
@@ -87,10 +87,11 @@ export async function startPostgres() {
       }
     }
     if (!ready) throw new Error("Private PostgreSQL did not become ready");
-    await migrate(database.db, {
-      migrationsFolder: new URL("../drizzle", import.meta.url).pathname,
-    });
-    await database.pool.query(getConstructionPlans("otto_jobs"));
+    if (options.schema !== false)
+      await pushDatabase(
+        `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(directory)}`,
+      );
+    await database.pool.query(getConstructionPlans("queue"));
     return { ...database, stop, directory };
   } catch (error) {
     await stop();

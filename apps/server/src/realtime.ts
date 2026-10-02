@@ -1,12 +1,13 @@
 import { getMessages } from "@otto/conversations";
-import { DomainError } from "@otto/db";
 import { getDocument } from "@otto/documents";
-import { getRunUpdates } from "@otto/runs";
+import { getRunActivity, getRuns } from "@otto/runs";
+import { DomainError } from "@otto/shared";
+
 import { getTask } from "@otto/tasks";
-import { getRevision, inWorkspace } from "@otto/workspaces";
+import { getCursor, inWorkspace } from "@otto/workspaces";
 import type { ServerWebSocket } from "bun";
 import { z } from "zod";
-import type { ApiOptions } from "./api";
+import type { ApiOptions } from "./http";
 
 const subscription = z.object({
   workspaceId: z.uuid(),
@@ -14,12 +15,13 @@ const subscription = z.object({
   after: z.coerce.number().int().nonnegative().default(0),
   taskId: z.uuid().optional(),
   documentId: z.uuid().optional(),
+  runId: z.uuid().optional(),
 });
 export interface RealtimeData {
   headers: Headers;
   userId: string;
   subscription: z.infer<typeof subscription>;
-  lastRevision: number;
+  cursor: number;
   timer?: ReturnType<typeof setInterval>;
   pumping: boolean;
 }
@@ -48,21 +50,26 @@ export function createRealtime(options: ApiOptions) {
             request.conversationId,
             request.after,
           );
-          const runs = await getRunUpdates(
-            c,
-            request.conversationId,
-            request.after,
-          );
-          const revision = await getRevision(c);
+          const { items: runs } = await getRuns(c, {
+            conversationId: request.conversationId,
+            cursor: request.after,
+          });
+          const activity = request.runId
+            ? await getRunActivity(c, request.runId, request.after)
+            : [];
+          const workspaceCursor = await getCursor(c);
           // Even an idle connection is reauthorized above. A gap explicitly re-fetches open current-record views.
-          if (ws.data.lastRevision === revision) return;
+          if (ws.data.cursor === workspaceCursor) return;
           let cursor = Math.min(
+            activity.length === 100
+              ? (activity.at(-1)?.cursor ?? workspaceCursor)
+              : workspaceCursor,
             messages.length === 100
-              ? (messages.at(-1)?.revision ?? revision)
-              : revision,
+              ? (messages.at(-1)?.cursor ?? workspaceCursor)
+              : workspaceCursor,
             runs.length === 100
-              ? (runs.at(-1)?.revision ?? revision)
-              : revision,
+              ? (runs.at(-1)?.cursor ?? workspaceCursor)
+              : workspaceCursor,
           );
           const views = {
             task: request.taskId ? await getTask(c, request.taskId) : undefined,
@@ -72,13 +79,13 @@ export function createRealtime(options: ApiOptions) {
           };
           const encoder = new TextEncoder();
           let frameBytes = encoder.encode(JSON.stringify(views)).length + 1024;
-          const records = [...messages, ...runs]
-            .filter((row) => row.revision <= cursor)
-            .sort((a, b) => a.revision - b.revision);
+          const records = [...messages, ...runs, ...activity]
+            .filter((row) => row.cursor <= cursor)
+            .sort((a, b) => a.cursor - b.cursor);
           for (const row of records) {
             const size = encoder.encode(JSON.stringify(row)).length + 1;
             if (frameBytes + size > 1024 * 1024) {
-              cursor = row.revision - 1;
+              cursor = row.cursor - 1;
               break;
             }
             frameBytes += size;
@@ -86,8 +93,9 @@ export function createRealtime(options: ApiOptions) {
           const payload = JSON.stringify({
             type: "snapshot",
             cursor,
-            messages: messages.filter((m) => m.revision <= cursor),
-            runs: runs.filter((r) => r.revision <= cursor),
+            messages: messages.filter((m) => m.cursor <= cursor),
+            runs: runs.filter((r) => r.cursor <= cursor),
+            activity: activity.filter((r) => r.cursor <= cursor),
             views,
             refreshCurrentViews: true,
           });
@@ -104,7 +112,7 @@ export function createRealtime(options: ApiOptions) {
             return;
           }
           request.after = cursor;
-          ws.data.lastRevision = cursor;
+          ws.data.cursor = cursor;
         },
         false,
       );
@@ -150,7 +158,7 @@ export function createRealtime(options: ApiOptions) {
         headers: request.headers,
         userId: session.user.id,
         subscription: parsed.data,
-        lastRevision: -1,
+        cursor: -1,
         pumping: false,
       };
     },

@@ -4,33 +4,33 @@ import { createAgent } from "../packages/agents/src";
 import {
   type ArtifactStorage,
   archiveArtifact,
+  createArtifact,
   getArtifact,
   getArtifacts,
   readArtifact,
-  saveArtifact,
 } from "../packages/artifacts/src";
 import { artifacts } from "../packages/artifacts/src/schema";
 import {
   createConnection,
   disconnectConnection,
-  grantConnection,
+  grantConnectionAccess,
   snapshotGrants,
 } from "../packages/connections/src";
 import { connections } from "../packages/connections/src/schema";
 import {
-  addParticipant,
   createConversation,
+  createParticipant,
+  deleteParticipant,
   getMessages,
-  removeParticipant,
 } from "../packages/conversations/src";
 import { participants } from "../packages/conversations/src/schema";
 import {
   createCollection,
   createDocument,
   getDocument,
-  putDocumentInCollection,
-  saveDocument,
   snapshotSkills,
+  updateDocument,
+  updateDocumentCollection,
 } from "../packages/documents/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
@@ -72,11 +72,11 @@ describe("persisted content and capability scope", () => {
       createDocument(c, { title: "Note", body: "old", access: "inherited" }),
     );
     await scope((c) =>
-      saveDocument(c, doc.id, { title: "Note", body: "new", editToken: 0 }),
+      updateDocument(c, doc.id, { title: "Note", body: "new", editToken: 0 }),
     );
     await expect(
       scope((c) =>
-        saveDocument(c, doc.id, {
+        updateDocument(c, doc.id, {
           title: "Note",
           body: "lost update",
           editToken: 0,
@@ -98,17 +98,19 @@ describe("persisted content and capability scope", () => {
     );
     await expect(
       scope((c) =>
-        putDocumentInCollection(
-          c,
-          doc.id,
-          collection.id,
-          { [fieldId]: "wrong type" },
-          0,
-        ),
+        updateDocumentCollection(c, doc.id, {
+          collectionId: collection.id,
+          properties: { [fieldId]: "wrong type" },
+          editToken: 0,
+        }),
       ),
     ).rejects.toMatchObject({ code: "invalid" });
     const saved = await scope((c) =>
-      putDocumentInCollection(c, doc.id, collection.id, { [fieldId]: 42 }, 0),
+      updateDocumentCollection(c, doc.id, {
+        collectionId: collection.id,
+        properties: { [fieldId]: 42 },
+        editToken: 0,
+      }),
     );
     expect(saved.properties[fieldId]).toBe(42);
   });
@@ -117,7 +119,7 @@ describe("persisted content and capability scope", () => {
       createDocument(c, {
         title: "private-skill",
         body: "private instructions",
-        access: "restricted",
+        visibility: "user",
         skill: true,
       }),
     );
@@ -148,13 +150,13 @@ describe("persisted content and capability scope", () => {
     const input = {
       requestId: crypto.randomUUID(),
       title: "Result",
-      kind: "text",
+      type: "text",
       access: "restricted" as const,
       mediaType: "text/plain",
     };
     const bytes = new TextEncoder().encode("durable output");
     await expect(
-      saveArtifact(
+      createArtifact(
         database.db,
         storage,
         workspaceId,
@@ -174,7 +176,7 @@ describe("persisted content and capability scope", () => {
       scope((c) => getArtifact(c, pending?.id ?? "")),
     ).rejects.toMatchObject({ code: "not_found" });
     fail = false;
-    const saved = await saveArtifact(
+    const saved = await createArtifact(
       database.db,
       storage,
       workspaceId,
@@ -184,7 +186,7 @@ describe("persisted content and capability scope", () => {
     );
     expect(
       (
-        await saveArtifact(
+        await createArtifact(
           database.db,
           storage,
           workspaceId,
@@ -222,7 +224,7 @@ describe("persisted content and capability scope", () => {
       ),
     ).toEqual(bytes);
     await expect(
-      saveArtifact(
+      createArtifact(
         database.db,
         storage,
         workspaceId,
@@ -237,7 +239,10 @@ describe("persisted content and capability scope", () => {
       createConversation(c, { title: "Private", access: "restricted" }),
     );
     await scope((c) =>
-      addParticipant(c, conversation.id, { userId: "other", role: "viewer" }),
+      createParticipant(c, conversation.id, {
+        userId: "other",
+        role: "viewer",
+      }),
     );
     expect(
       await scope((c) => getMessages(c, conversation.id), "other"),
@@ -249,7 +254,7 @@ describe("persisted content and capability scope", () => {
         .where(eq(participants.userId, "other"))
     )[0];
     await scope((c) =>
-      removeParticipant(c, conversation.id, participant?.id ?? ""),
+      deleteParticipant(c, conversation.id, participant?.id ?? ""),
     );
     await expect(
       scope((c) => getMessages(c, conversation.id), "other"),
@@ -261,26 +266,28 @@ describe("persisted content and capability scope", () => {
         name: "Worker",
         instructions: "Work",
         harness: "codex-acp",
-        harnessRelease: "unqualified",
         model: "selected",
       }),
     );
     const connection = await scope((c) =>
       createConnection(c, {
         name: "GitHub",
-        kind: "github",
+        type: "github",
         accountRef: "installation-reference",
-        mode: "service",
       }),
     );
     // Connected-state fixture only; provider connectivity is not qualified.
     await database.db
       .update(connections)
-      .set({ connected: true })
+      .set({
+        connected: true,
+        discovery: { actions: ["read", "write"], resources: ["repo:one"] },
+      })
       .where(eq(connections.id, connection.id));
     await scope((c) =>
-      grantConnection(c, connection.id, {
+      grantConnectionAccess(c, connection.id, {
         agentId: agent.id,
+        audience: { humans: ["owner"], agents: [agent.id] },
         resources: ["repo:one"],
         operations: { read: "allowed", write: "confirmation" },
       }),
@@ -291,8 +298,9 @@ describe("persisted content and capability scope", () => {
     await expect(
       scope(
         (c) =>
-          grantConnection(c, connection.id, {
+          grantConnectionAccess(c, connection.id, {
             agentId: agent.id,
+            audience: { humans: ["owner"], agents: [agent.id] },
             resources: ["repo:two"],
             operations: { read: "allowed" },
           }),

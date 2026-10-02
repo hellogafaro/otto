@@ -1,12 +1,17 @@
-import { DomainError } from "@otto/db";
+import { DomainError } from "@otto/shared";
+
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { ZodError } from "zod";
-import { type ApiOptions, createApi } from "./api";
+import { createApi } from "./api";
+import type { ApiOptions } from "./http";
 import { createLogger } from "./logger";
 /** Composes transport boundaries; domain operations remain in their owning packages. */
-export function createApp(options?: ApiOptions) {
+export function createApp(
+  options?: ApiOptions,
+  runtime?: { isReady(): Promise<boolean> },
+) {
   const logger = createLogger();
   let inFlight = 0;
   const app = new Hono()
@@ -44,6 +49,18 @@ export function createApp(options?: ApiOptions) {
         },
       }),
     );
+  app.get("/ready", async (c) => {
+    let ready = false;
+    try {
+      ready = (await runtime?.isReady()) ?? false;
+    } catch {
+      /* Dependency unavailable. */
+    }
+    return c.json(
+      { status: ready ? "ready" : "unavailable" },
+      ready ? 200 : 503,
+    );
+  });
   if (options) {
     app.on(["GET", "POST"], "/api/auth/*", (c) =>
       options.auth.handler(c.req.raw),

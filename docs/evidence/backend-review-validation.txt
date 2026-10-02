@@ -1,0 +1,40 @@
+Otto R1–R3 correction checkpoint,2026-10-02
+Baseline03192913bfc93a733e721d270b5cd1c98c0a2c34; uncommitted/unstaged. Independent affected-change recheck PENDING.
+Previous manifest04c161d42215304f316dded198c4ddf8a2041e354bbeddc1dacd9553d00ca343 remains unchanged. Its independent verdict was REQUEST CHANGES, exactly R1/R2/R3. All earlier gates were otherwise independently exercised; no broader refactor was requested.
+
+CHANGED PRODUCTION SCOPE
+packages/runs/src/runtime.ts: absent lookup retains uncertainty/lease, including fresh-runtime recovery while old launch is pending. Missing-launch acknowledgement survives transient inspection errors, unknown results and unconfirmed exits/Stop; authoritative stopped proof may release. Existing tool_cleanup_unconfirmed and terminal/attempt fences remain stronger.
+packages/runs/src/index.ts: getRunAudience intersects accepted human/Agent recipients with current Conversation recipients. Saved snapshot remains immutable, later invitations cannot widen it, explicit authorized human public sharing remains separate.
+Tests changed only execution-authority.test.ts and visibility.test.ts; current status docs/evidence updated. No schema, dependency, provider, UI or API framework change.
+
+PRODUCTION-SEAM INPUT -> OUTPUT
+R1: old runtime holds launch before registration; new runtime sees absent. Before: interrupted/released; after: uncertain/lease retained. Eventual false tree Stop retains fence; confirmed tree Stop releases. Both outcomes tested with real PG/HTTP admission and controlled computer.
+R2: lost launch ack -> throw OR unknown -> absent -> exited without stopped proof -> confirmed stopped exit. Before: diagnostic overwrote missing-ack fence, permitting later release. After: all unconfirmed stages preserve missing-ack uncertainty/lease; only final confirmed proof releases. Combined R1/R2 red4/4, green4/4 (2.95s).
+R3: remove original source recipient while retaining them in destination Conversation/Document/Artifact ACL. Before: each private publication path200 despite direct read403. After: message attachment/Document attachment/regrant403; cursor and record edit tokens unchanged. Restoring original recipient permits200; later invitation still cannot expand saved cap. Red3/3, green3/3 (3.07s). Real auth/HTTP/private PG, named storage/controlled computer.
+
+CHECKS
+bun run test -> bun --bun vitest run: exit0,214/214 across24 files,264.11s after last behavior changes. Includes full runtime, source publication/frozen human shares, native schema push/queue, recovery and all earlier gates. Vitest workers explicitly assert Bun.
+bun run check: exit0,136files after formatting-only correction.
+bun run typecheck: exit0,strict server+web types.
+bun run check:boundaries: exit0,15packages with operation DAG and explicit native schema-only cycle exception.
+bun run check:consistency: exit0,65backend files/113routes.
+No dependency/schema/generated web change from04c; its passing frozen install/build and controlled profile remain historical, not rerun or rebranded as new measurements. Runtime versions unchanged: Bun1.4.2,Vitest5.0.3,TS6.0.3,PostgreSQL18.4,Drizzle0.45.3/Kit0.31.11,pg-boss12.35.1.
+
+Full run output:
+Test Files  24 passed (24)
+      Tests  214 passed (214)
+   Start at  19:55:49
+   Duration  264.11s (tests 98%, import 2%)
+
+REVIEW INPUTS
+/home/g4f4r0/.bb/thread-storage/thr_dde6nihmhq/current-independent-review.md
+SHA256 6369a21b9520ea3994f3fcc0a17e9bc39fd2b3558a730dc396ddfd3e1cd6af7f
+/home/g4f4r0/.bb/thread-storage/thr_pgun4ni6vg/final-content-review/report.md
+SHA256 8a6d78616ffb9ad0cd50ff06bbcd5d6b5a0402138a90dbc22ef847631677f34e
+
+Raw correction logs, input review hashes and exact four-file patch: /home/g4f4r0/.bb/thread-storage/thr_kfugrrgbs4/recovery-review-corrections
+Qualification unchanged: controlled computer/storage peers qualify Otto behavior only. Compute provisioning/native login/isolation/billing/VM recovery deliberately deferred; live services/Garage durability unverified. No secrets, shared/live DB writes, staging/commit/push/deploy/Notion. Actual human work time unknown.
+New exact source: backend-review-source.json. No independent PASS until both assigned reviewers recheck this new frozen revision.
+
+SOURCE SHA256 cc992c89128efe04c469e2f6a9dc69fc52dafdd7c5ab6619dea6ba8f1f49826f
+217 fingerprints +2 self-describing evidence files. Only seven previous files changed: two production/two tests/three current status docs. Historical04c manifest/evidence, generated web/UI, dependencies/schema/config unchanged. Final diff and Biome exit0; bounded candidate scan no matches, 23 current local links resolve, staging/remotes empty.

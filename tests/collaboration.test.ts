@@ -2,9 +2,9 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuth } from "../apps/server/src/auth";
 import {
-  addProjectMember,
   createProject,
   getProject,
+  upsertProjectMember,
 } from "../packages/projects/src";
 import {
   assertNoOpenOwnedTasks,
@@ -16,8 +16,8 @@ import {
   acceptInvitation,
   claimInstallation,
   createInvitation,
+  deleteMember,
   inWorkspace,
-  removeMember,
 } from "../packages/workspaces/src";
 import { users } from "../packages/workspaces/src/schema";
 import { startPostgres } from "./postgres";
@@ -54,8 +54,8 @@ describe("persisted collaboration authorization", () => {
   afterAll(async () => {
     await database?.stop();
   });
-  it("reruns the production migration command without changing existing domain data", async () => {
-    const result = Bun.spawnSync([process.execPath, "scripts/migrate.ts"], {
+  it("reruns the production schema push command without changing existing domain data", async () => {
+    const result = Bun.spawnSync([process.execPath, "scripts/push.ts"], {
       cwd: new URL("../", import.meta.url).pathname,
       env: {
         PATH: process.env.PATH,
@@ -67,7 +67,7 @@ describe("persisted collaboration authorization", () => {
     });
     if (result.exitCode !== 0)
       throw new Error(
-        `Migration command failed: ${result.stderr.toString().slice(-2000)}`,
+        `Schema push command failed: ${result.stderr.toString().slice(-2000)}`,
       );
     expect(
       (await database.db.select().from(users).where(eq(users.id, "owner")))[0]
@@ -121,7 +121,7 @@ describe("persisted collaboration authorization", () => {
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     await inWorkspace(database.db, workspaceId, { userId: "owner" }, (c) =>
-      addProjectMember(c, projectId, "member", "contributor"),
+      upsertProjectMember(c, projectId, "member", "contributor"),
     );
   });
   it("keeps task ownership separate from assignment and human-only Done", async () => {
@@ -172,7 +172,7 @@ describe("persisted collaboration authorization", () => {
       { userId: "owner" },
       async (c) => {
         await assertNoOpenOwnedTasks(c, "member");
-        await removeMember(c, "member");
+        await deleteMember(c, "member");
       },
     );
     await expect(

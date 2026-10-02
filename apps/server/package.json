@@ -30,6 +30,7 @@
     "@otto/automations": "workspace:*",
     "@otto/artifacts": "workspace:*",
     "pg-boss": "12.35.1",
-    "@hono/zod-validator": "0.9.1"
+    "@hono/zod-validator": "0.9.1",
+    "@otto/shared": "workspace:*"
   }
 }

@@ -1,10 +1,13 @@
+import type { Database, Transaction } from "@otto/db";
 import {
-  type Database,
   DomainError,
+  getPage,
+  type PageOptions,
+  parsePageOptions,
   required,
-  type Transaction,
-} from "@otto/db";
-import { and, eq, sql } from "drizzle-orm";
+} from "@otto/shared";
+
+import { and, eq, gt, sql } from "drizzle-orm";
 import { invitations, members, setup, users, workspaces } from "./schema";
 
 export interface Actor {
@@ -102,13 +105,25 @@ export async function claimInstallation(
     return workspace;
   });
 }
-export async function getWorkspaces(db: Database, userId: string) {
-  return db
+export async function getWorkspaces(
+  db: Database,
+  userId: string,
+  options: PageOptions = {},
+) {
+  const { after, limit } = parsePageOptions(options);
+  const rows = await db
     .select({ id: workspaces.id, name: workspaces.name, role: members.role })
     .from(members)
     .innerJoin(workspaces, eq(workspaces.id, members.workspaceId))
-    .where(eq(members.userId, userId))
-    .limit(100);
+    .where(
+      and(
+        eq(members.userId, userId),
+        after ? gt(workspaces.id, after) : undefined,
+      ),
+    )
+    .orderBy(workspaces.id)
+    .limit(limit + 1);
+  return getPage(rows, (row) => row.id, limit);
 }
 export async function createInvitation(
   c: Context,
@@ -175,8 +190,14 @@ export async function acceptInvitation(
     return { workspaceId: current.workspaceId };
   });
 }
-export async function revokeInvitation(c: Context, id: string) {
-  requireAdmin(c);
+/** Admin-only status edit of a current invitation; recipient acceptance stays a separate transaction. */
+export async function updateInvitation(
+  c: Context,
+  id: string,
+  input: { status: "revoked" },
+) {
+  if (input.status !== "revoked") throw new DomainError("invalid");
+  await getInvitation(c, id);
   return required(
     (
       await c.tx
@@ -188,12 +209,12 @@ export async function revokeInvitation(c: Context, id: string) {
             eq(invitations.workspaceId, c.workspaceId),
           ),
         )
-        .returning({ id: invitations.id })
+        .returning()
     )[0],
   );
 }
 /** The server checks open owned Tasks and Automations before invoking this operation. */
-export async function removeMember(c: Context, userId: string) {
+export async function deleteMember(c: Context, userId: string) {
   requireAdmin(c);
   const member = await requireMember(c, userId);
   if (
@@ -223,28 +244,28 @@ export async function removeMember(c: Context, userId: string) {
         eq(invitations.email, user.email.toLowerCase()),
       ),
     );
-  await advanceRevision(c);
+  await advanceCursor(c);
 }
-export async function advanceRevision(c: Context) {
+export async function advanceCursor(c: Context) {
   return required(
     (
       await c.tx
         .update(workspaces)
-        .set({ revision: sql`${workspaces.revision}+1` })
+        .set({ cursor: sql`${workspaces.cursor}+1` })
         .where(eq(workspaces.id, c.workspaceId))
-        .returning({ revision: workspaces.revision })
+        .returning({ cursor: workspaces.cursor })
     )[0],
-  ).revision;
+  ).cursor;
 }
-export async function getRevision(c: Context) {
+export async function getCursor(c: Context) {
   return required(
     (
       await c.tx
-        .select({ revision: workspaces.revision })
+        .select({ cursor: workspaces.cursor })
         .from(workspaces)
         .where(eq(workspaces.id, c.workspaceId))
     )[0],
-  ).revision;
+  ).cursor;
 }
 
 /** Complete bounded audience; refuse an oversized audience rather than silently omitting recipients. */
@@ -258,4 +279,79 @@ export async function getWorkspaceAudience(c: Context) {
   if (audience.length > 500)
     throw new DomainError("unavailable", "Audience exceeds initial limit");
   return audience.map((row) => row.userId);
+}
+
+/** Bounded human member directory; auth account/session data is never returned. */
+export async function getMembers(c: Context, input: PageOptions = {}) {
+  requireHuman(c);
+  const { limit } = parsePageOptions(input, "text");
+  const rows = await c.tx
+    .select({ userId: members.userId, name: users.name, role: members.role })
+    .from(members)
+    .innerJoin(users, eq(users.id, members.userId))
+    .where(
+      and(
+        eq(members.workspaceId, c.workspaceId),
+        input.after ? gt(members.userId, input.after) : undefined,
+      ),
+    )
+    .orderBy(members.userId)
+    .limit(limit + 1);
+  return getPage(rows, (row) => row.userId, limit);
+}
+/** The server checks owned Tasks and Automations before a demotion to viewer. */
+export async function updateMemberRole(
+  c: Context,
+  userId: string,
+  role: "admin" | "contributor" | "viewer",
+) {
+  requireAdmin(c);
+  const member = await requireMember(c, userId);
+  if (
+    member.role === "owner" ||
+    ((member.role === "admin" || role === "admin") && c.role !== "owner")
+  )
+    throw new DomainError("forbidden");
+  const updated = required(
+    (
+      await c.tx
+        .update(members)
+        .set({ role })
+        .where(
+          and(
+            eq(members.workspaceId, c.workspaceId),
+            eq(members.userId, userId),
+          ),
+        )
+        .returning({ userId: members.userId, role: members.role })
+    )[0],
+  );
+  await advanceCursor(c);
+  return updated;
+}
+/** Rechecks the current invitation before an explicit delivery retry. */
+export async function getInvitation(c: Context, id: string) {
+  requireAdmin(c);
+  const invitation = required(
+    (
+      await c.tx
+        .select()
+        .from(invitations)
+        .where(
+          and(
+            eq(invitations.workspaceId, c.workspaceId),
+            eq(invitations.id, id),
+          ),
+        )
+    )[0],
+  );
+  if (
+    invitation.revokedAt ||
+    invitation.acceptedAt ||
+    invitation.expiresAt <= new Date()
+  )
+    throw new DomainError("conflict");
+  if (invitation.role === "admin" && c.role !== "owner")
+    throw new DomainError("forbidden");
+  return invitation;
 }

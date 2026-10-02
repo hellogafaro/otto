@@ -10,6 +10,11 @@
   "dependencies": {
     "@otto/db": "workspace:*",
     "@otto/workspaces": "workspace:*",
-    "drizzle-orm": "0.45.3"
+    "drizzle-orm": "0.45.3",
+    "@otto/conversations": "workspace:*",
+    "@otto/shared": "workspace:*",
+    "@otto/connections": "workspace:*",
+    "@otto/agents": "workspace:*",
+    "@otto/environments": "workspace:*"
   }
 }

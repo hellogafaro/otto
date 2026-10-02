@@ -8,15 +8,16 @@ import { z } from "zod";
 import type { RpcApp } from "../apps/server/src/api";
 import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
-import { startJobs } from "../apps/server/src/jobs";
+import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
 import {
   createConversation,
   createMessage,
 } from "../packages/conversations/src";
-import { createDocument, saveDocument } from "../packages/documents/src";
+import { createDocument, updateDocument } from "../packages/documents/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
+import { harnesses } from "./fixtures/harnesses";
 import { startPostgres } from "./postgres";
 
 describe("authenticated HTTP RPC and WebSocket replay", () => {
@@ -33,7 +34,10 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
   let app: ReturnType<typeof createApp>;
   beforeAll(async () => {
     database = await startPostgres();
-    boss = await startJobs(database.db, database.pool, false, true);
+    boss = await startQueue(database.db, database.pool, {
+      workers: false,
+      install: true,
+    });
     server = Bun.serve<RealtimeData>({
       hostname: "127.0.0.1",
       port: 0,
@@ -65,7 +69,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
       origin,
     );
     const options = { db: database.db, boss, auth, origin };
-    app = createApp(options);
+    app = createApp({ ...options, harnesses });
     realtime = createRealtime(options);
     const response = await fetch(`${origin}/api/auth/sign-up/email`, {
       method: "POST",
@@ -139,16 +143,20 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     expect(project.name).toBe("Live project");
     const read = await client.workspaces[":workspaceId"].projects.$get({
       param: { workspaceId },
+      query: {},
     });
-    expect(await read.json()).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: project.id })]),
-    );
+    expect(await read.json()).toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({ id: project.id }),
+      ]),
+    });
   });
   const snapshot = z
     .object({
       type: z.literal("snapshot"),
       cursor: z.number(),
       messages: z.array(z.object({ body: z.string() })),
+      activity: z.array(z.never()),
       views: z.object({ document: z.object({ body: z.string() }).optional() }),
       refreshCurrentViews: z.literal(true),
       runs: z.array(
@@ -158,10 +166,10 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
             conversationId: z.uuid(),
             agentId: z.uuid(),
             taskId: z.uuid().nullable(),
-            kind: z.enum(["prompt", "script"]),
+            type: z.enum(["prompt", "script"]),
             state: z.string(),
             outcome: z.string().nullable(),
-            revision: z.number(),
+            cursor: z.number(),
             createdAt: z.string(),
           })
           .strict(),
@@ -211,7 +219,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
         body: "during gap",
         requestId: crypto.randomUUID(),
       });
-      await saveDocument(c, documentId, {
+      await updateDocument(c, documentId, {
         title: "Document",
         body: "after gap",
         editToken: 0,

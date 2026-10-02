@@ -1,1 +1,0 @@
-ALTER TABLE "run" ADD COLUMN "requestIdentity" jsonb;

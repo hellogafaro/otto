@@ -1,13 +1,20 @@
-import { DomainError, required } from "@otto/db";
 import {
-  advanceRevision,
+  DomainError,
+  getPage,
+  type PageOptions,
+  parsePageOptions,
+  required,
+} from "@otto/shared";
+
+import {
+  advanceCursor,
   type Context,
   getWorkspaceAudience,
   requireAdmin,
   requireHuman,
   requireMember,
 } from "@otto/workspaces";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { projectMembers, projects } from "./schema";
 export async function getProject(c: Context, id: string, write = false) {
   const project = required(
@@ -33,8 +40,7 @@ export async function getProject(c: Context, id: string, write = false) {
   )[0];
   if (
     !membership ||
-    (write &&
-      (membership.role === "viewer" || c.role === "viewer" || project.archived))
+    (write && (membership.role === "viewer" || c.role === "viewer"))
   )
     throw new DomainError("forbidden");
   return project;
@@ -57,28 +63,10 @@ export async function createProject(
     userId: c.actor.userId,
     role: "contributor",
   });
-  await advanceRevision(c);
+  await advanceCursor(c);
   return project;
 }
-export async function getProjects(c: Context) {
-  return c.tx
-    .select({
-      id: projects.id,
-      name: projects.name,
-      archived: projects.archived,
-      repositoryUrl: projects.repositoryUrl,
-    })
-    .from(projects)
-    .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-    .where(
-      and(
-        eq(projects.workspaceId, c.workspaceId),
-        eq(projectMembers.userId, c.actor.userId),
-      ),
-    )
-    .limit(100);
-}
-export async function addProjectMember(
+export async function upsertProjectMember(
   c: Context,
   projectId: string,
   userId: string,
@@ -87,6 +75,22 @@ export async function addProjectMember(
   requireAdmin(c);
   await getProject(c, projectId, true);
   await requireMember(c, userId);
+  const existing = (
+    await c.tx
+      .select()
+      .from(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.userId, userId),
+        ),
+      )
+  )[0];
+  if (existing?.role === "contributor" && role === "viewer")
+    throw new DomainError(
+      "conflict",
+      "Use member role change with task ownership checks",
+    );
   await c.tx
     .insert(projectMembers)
     .values({ projectId, userId, role })
@@ -94,7 +98,7 @@ export async function addProjectMember(
       target: [projectMembers.projectId, projectMembers.userId],
       set: { role },
     });
-  await advanceRevision(c);
+  await advanceCursor(c);
 }
 export async function requireProjectMember(
   c: Context,
@@ -126,9 +130,12 @@ export async function archiveProject(
 ) {
   requireHuman(c);
   requireAdmin(c);
-  await getProject(c, id);
-  await c.tx.update(projects).set({ archived }).where(eq(projects.id, id));
-  await advanceRevision(c);
+  const project = await getProject(c, id, true);
+  await c.tx
+    .update(projects)
+    .set({ archived, editToken: project.editToken + 1 })
+    .where(eq(projects.id, id));
+  await advanceCursor(c);
 }
 
 export async function getProjectAudience(c: Context, projectId: string) {
@@ -142,4 +149,136 @@ export async function getProjectAudience(c: Context, projectId: string) {
     throw new DomainError("unavailable", "Audience exceeds initial limit");
   const active = await getWorkspaceAudience(c);
   return rows.map((r) => r.userId).filter((id) => active.includes(id));
+}
+
+export async function updateProject(
+  c: Context,
+  id: string,
+  input: {
+    name?: string;
+    repositoryUrl?: string | null;
+    editToken: number;
+  },
+) {
+  requireAdmin(c);
+  const project = await getProject(c, id, true);
+  if (project.editToken !== input.editToken) throw new DomainError("conflict");
+  if (input.name === undefined && input.repositoryUrl === undefined)
+    throw new DomainError("invalid", "No editable fields");
+  const updated = required(
+    (
+      await c.tx
+        .update(projects)
+        .set({
+          name: input.name,
+          repositoryUrl: input.repositoryUrl,
+          editToken: project.editToken + 1,
+        })
+        .where(eq(projects.id, id))
+        .returning()
+    )[0],
+  );
+  await advanceCursor(c);
+  return updated;
+}
+
+export async function getProjects(
+  c: Context,
+  filter: {
+    after?: string;
+    limit?: number;
+    archived?: boolean;
+    query?: string;
+  } = {},
+) {
+  const { limit } = parsePageOptions(filter);
+  const items = await c.tx
+    .select({
+      id: projects.id,
+      name: projects.name,
+      archived: projects.archived,
+      repositoryUrl: projects.repositoryUrl,
+      editToken: projects.editToken,
+    })
+    .from(projects)
+    .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+    .where(
+      and(
+        eq(projects.workspaceId, c.workspaceId),
+        eq(projectMembers.userId, c.actor.userId),
+        eq(projects.archived, filter.archived ?? false),
+        filter.after ? gt(projects.id, filter.after) : undefined,
+        filter.query
+          ? sql`to_tsvector('simple', ${projects.name}) @@ plainto_tsquery('simple', ${filter.query})`
+          : undefined,
+      ),
+    )
+    .orderBy(projects.id)
+    .limit(limit + 1);
+  return getPage(items, (row) => row.id, limit);
+}
+
+export async function getProjectMembers(
+  c: Context,
+  id: string,
+  options: PageOptions = {},
+) {
+  await getProject(c, id);
+  const { after, limit } = parsePageOptions(options, "text");
+  const rows = await c.tx
+    .select()
+    .from(projectMembers)
+    .where(
+      and(
+        eq(projectMembers.projectId, id),
+        after ? gt(projectMembers.userId, after) : undefined,
+      ),
+    )
+    .orderBy(projectMembers.userId)
+    .limit(limit + 1);
+  return getPage(rows, (row) => row.userId, limit);
+}
+/** Trusted server composition first checks open Task ownership before changing a member's eligibility. */
+export async function updateProjectMember(
+  c: Context,
+  id: string,
+  userId: string,
+  role: "viewer" | "contributor",
+) {
+  requireAdmin(c);
+  await getProject(c, id, true);
+  await requireMember(c, userId);
+  if (userId === c.actor.userId)
+    throw new DomainError(
+      "conflict",
+      "Project administrator cannot remove their own access",
+    );
+  await c.tx
+    .update(projectMembers)
+    .set({ role })
+    .where(
+      and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)),
+    );
+  await advanceCursor(c);
+}
+
+export async function deleteProjectMember(
+  c: Context,
+  id: string,
+  userId: string,
+) {
+  requireAdmin(c);
+  await getProject(c, id, true);
+  await requireMember(c, userId);
+  if (userId === c.actor.userId)
+    throw new DomainError(
+      "conflict",
+      "Project administrator cannot remove their own access",
+    );
+  await c.tx
+    .delete(projectMembers)
+    .where(
+      and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)),
+    );
+  await advanceCursor(c);
 }

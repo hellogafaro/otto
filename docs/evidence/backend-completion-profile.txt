@@ -1,0 +1,9 @@
+2026-10-02; isolated local PostgreSQL, controlled compute/storage where applicable.
+Invocation: bun --bun vitest run tests/runtime.test.ts -t "runs two Agents independently" --disableConsoleIntercept
+Linux x86_64, 8 logical CPUs, Bun1.4.2; two controlled active Agents and32 concurrent authenticated activity reads. Provider latency/isolation are not measured.
+ RUN  v5.0.3 /home/g4f4r0/projects/otto
+{"profile":"controlled-two-agent-32-reader","readCount":32,"readP95Ms":63.68275300000005,"stopMs":79.91811000000007,"rssBytes":162349056}
+ Test Files  1 passed (1)
+      Tests  1 passed | 20 skipped (21)
+   Start at  16:04:09
+   Duration  4.08s (tests 79%, transform 14%, import 7%)
