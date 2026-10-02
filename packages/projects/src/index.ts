@@ -2,6 +2,7 @@ import { DomainError, required } from "@otto/db";
 import {
   advanceRevision,
   type Context,
+  getWorkspaceAudience,
   requireAdmin,
   requireHuman,
   requireMember,
@@ -128,4 +129,17 @@ export async function archiveProject(
   await getProject(c, id);
   await c.tx.update(projects).set({ archived }).where(eq(projects.id, id));
   await advanceRevision(c);
+}
+
+export async function getProjectAudience(c: Context, projectId: string) {
+  await getProject(c, projectId);
+  const rows = await c.tx
+    .select({ userId: projectMembers.userId })
+    .from(projectMembers)
+    .where(eq(projectMembers.projectId, projectId))
+    .limit(501);
+  if (rows.length > 500)
+    throw new DomainError("unavailable", "Audience exceeds initial limit");
+  const active = await getWorkspaceAudience(c);
+  return rows.map((r) => r.userId).filter((id) => active.includes(id));
 }

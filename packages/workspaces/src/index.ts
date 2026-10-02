@@ -206,6 +206,23 @@ export async function removeMember(c: Context, userId: string) {
     .where(
       and(eq(members.workspaceId, c.workspaceId), eq(members.userId, userId)),
     );
+  const user = required(
+    (
+      await c.tx
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, userId))
+    )[0],
+  );
+  await c.tx
+    .update(invitations)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(invitations.workspaceId, c.workspaceId),
+        eq(invitations.email, user.email.toLowerCase()),
+      ),
+    );
   await advanceRevision(c);
 }
 export async function advanceRevision(c: Context) {
@@ -228,4 +245,17 @@ export async function getRevision(c: Context) {
         .where(eq(workspaces.id, c.workspaceId))
     )[0],
   ).revision;
+}
+
+/** Complete bounded audience; refuse an oversized audience rather than silently omitting recipients. */
+export async function getWorkspaceAudience(c: Context) {
+  const audience = await c.tx
+    .select({ userId: members.userId })
+    .from(members)
+    .where(eq(members.workspaceId, c.workspaceId))
+    .orderBy(members.userId)
+    .limit(501);
+  if (audience.length > 500)
+    throw new DomainError("unavailable", "Audience exceeds initial limit");
+  return audience.map((row) => row.userId);
 }

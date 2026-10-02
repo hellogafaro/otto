@@ -1,3 +1,4 @@
+import { getAgent } from "@otto/agents";
 import { DomainError, required } from "@otto/db";
 import { getProject, requireProjectMember } from "@otto/projects";
 import { advanceRevision, type Context, requireHuman } from "@otto/workspaces";
@@ -101,4 +102,36 @@ export async function assertNoOpenOwnedTasks(c: Context, userId: string) {
       "conflict",
       "Transfer open tasks before removing their owner",
     );
+}
+
+export async function assignTask(
+  c: Context,
+  id: string,
+  assignee: { userId?: string; agentId?: string },
+) {
+  requireHuman(c);
+  const task = await getTask(c, id, true);
+  if (assignee.userId && assignee.agentId) throw new DomainError("invalid");
+  if (assignee.userId)
+    await requireProjectMember(c, task.projectId, assignee.userId, true);
+  if (assignee.agentId) {
+    const agent = await getAgent(c, assignee.agentId);
+    if (agent.projectId && agent.projectId !== task.projectId)
+      throw new DomainError("forbidden");
+  }
+  const updated = required(
+    (
+      await c.tx
+        .update(tasks)
+        .set({
+          assigneeUserId: assignee.userId ?? null,
+          assigneeAgentId: assignee.agentId ?? null,
+          editToken: task.editToken + 1,
+        })
+        .where(eq(tasks.id, id))
+        .returning()
+    )[0],
+  );
+  await advanceRevision(c);
+  return updated;
 }

@@ -1,0 +1,23 @@
+{
+  "name": "@otto/runs",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "dependencies": {
+    "@otto/db": "workspace:*",
+    "@otto/agents": "workspace:*",
+    "@otto/conversations": "workspace:*",
+    "@otto/documents": "workspace:*",
+    "@otto/environments": "workspace:*",
+    "@otto/sessions": "workspace:*",
+    "@otto/connections": "workspace:*",
+    "@otto/tasks": "workspace:*",
+    "@otto/workspaces": "workspace:*",
+    "drizzle-orm": "0.45.3",
+    "pg-boss": "12.35.1"
+  }
+}

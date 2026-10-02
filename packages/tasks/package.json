@@ -11,6 +11,7 @@
     "@otto/db": "workspace:*",
     "@otto/workspaces": "workspace:*",
     "@otto/projects": "workspace:*",
-    "drizzle-orm": "0.45.3"
+    "drizzle-orm": "0.45.3",
+    "@otto/agents": "workspace:*"
   }
 }

@@ -4,10 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 45173",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc -b",
-    "preview": "vite preview"
+    "dev": "bun --bun vite --host 127.0.0.1 --port 45173",
+    "build": "bun --bun tsc -b && bun --bun vite build",
+    "typecheck": "bun --bun tsc -b",
+    "preview": "bun --bun vite preview"
   },
   "dependencies": {
     "@remixicon/react": "^4.9.0",

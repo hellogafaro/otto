@@ -17,7 +17,7 @@ Vitest runs explicitly under Bun and checks Bun identity. Checks use disposable 
 
 ## Progress
 
-- Read product plan and code principles. Local Docker, Podman and PostgreSQL binaries are not on PATH; locating an isolated database option while implementation proceeds.
+- Read product plan and code principles. Docker/Podman were unavailable. Integration tests now provision their own PostgreSQL 18.4 process using a private Unix socket, with TCP disabled.
 
 Historical intake reference: TSK-991. The user now reserves Notion tasks for client work; Otto progress stays in these docs and BB handoffs.
 
@@ -36,3 +36,27 @@ Verified on Bun 1.4.2: frozen-lockfile install, Biome, strict TypeScript includi
 All 33 canonical files survived promotion. A byte comparison found only the authorized platform-research.md historical link repair; local canonical Markdown links resolve. The new root has no Buzz remote, toolchain or application directories. The initial repo uses main and the existing configured author identity.
 
 Unverified at this checkpoint: real PostgreSQL migrations/authentication/domain permissions, queue admission/recovery, realtime, storage, native subscription login and compute isolation. The initial domain functions are typed implementation in progress, not a completed backend. No performance or combined-stack certification is claimed.
+
+## Backend checkpoint, 2 October 2026
+
+The initial backend checkpoint extended setup commit `2bdcb93124bcb0bfb300382695faab7bf0c2c87f` with then-uncommitted backend slices. Argus passed only the setup/documentation recheck at that commit. The first backend review later found four defects; see the correction checkpoint below.
+
+Verified: 31 Vitest tests under Bun against private PostgreSQL 18.4, Biome, strict TypeScript, the package-boundary check, frozen Bun installation, Vite production build and one Playwright test. Vitest and Playwright workers both assert Bun. The latest browser capture is [generated-web-playwright.png](evidence/generated-web-playwright.png).
+
+The runtime suite covers real Better Auth login, closed bootstrap, verified recipient/single-use invitations, removal revoking unused invitations, workspace/project permissions, human-owned Task completion, migration replay, stale Document edits, typed Collection values, scoped skills and Connection revocation. It also covers Run/Session/job rollback, immutable skill snapshots, duplicate admission and real pg-boss worker redelivery, Automation reconciliation/edit/pause fencing, Session scope changes, uncertain recovery state, HTTP validation/origin gates, WebSocket reconnect/current Document refresh, commit ordering, bounded frames and live/replay revocation, including restricted participants and saved Run output audiences.
+
+Artifact tests use real PostgreSQL with a named storage fixture. They prove pending/saved publication, retry identity, read permission and byte checks, archive behavior and immutable metadata. They do not prove Garage/S3 writes or restore. No provider, billing, native-login, VM recovery or performance certification is claimed.
+
+The pinned pg-boss scheduling boundary and the exact outstanding external capabilities are recorded in [backend notes](backend.md). The small missing credential decision is a verified Otto Infisical project, environment and service path; no other project's secrets were used. The compute provider remains deliberately deferred.
+
+Passing invocation summaries and tested source fingerprints are retained under [evidence](evidence/backend-validation.txt). Full product UI, rich editing, public shares, native tools and supporting skill-file workflows remain outside this backend checkpoint. The subsequent review and correction verdict are recorded below; broader qualification remains outside this checkpoint.
+
+## Backend review correction, 2 October 2026
+
+Argus reproduced four authorization/admission defects against the first backend checkpoint. Cody independently reran the original 31 tests and identified future provider prerequisites. The four corrections now have production-domain regressions: saved source-Run Artifact audience caps on metadata/list/read, agent denial for restricted Documents/Artifacts, disconnected Connection denial on grant/snapshot/request/approval, and complete normalized Run request identity. The agent-identity finding is a pre-integration domain defect; current HTTP actors contain only a human user ID.
+
+Verified after correction: 47 tests across six suites under Bun, private PostgreSQL migrations and replay, Biome (80 files), strict TypeScript and the 14-package boundary check. Before the fixes, the new regression suite reproduced the findings with 11 failing and three passing checks. Current checks have no failures. Tests retain the real Run/Session/job rollback and duplicate worker-delivery coverage. Storage remains an explicitly named fixture.
+
+Migration `0004_many_leech.sql` adds the saved caller request identity. Existing Runs without that identity reject retries with a conflict because selected defaults and requested Session controls cannot be safely reconstructed. New exact retries retain their admitted snapshot despite later source edits. Listing scans at most 100 Artifact candidates and advances its cursor over the scanned page, including filtered entries.
+
+Current evidence and source fingerprint: [validation](evidence/backend-validation.txt). The generated web and dependency files were unchanged in this correction; their browser/build/frozen-install proof remains the earlier scoped result. No new provider, native-login, storage durability or performance proof is claimed. Argus and Cody (Claude) both passed the focused independent rechecks with no remaining blockers. Each independently verified all 96 source fingerprints and reran all 47 tests. Argus also reran Biome, TypeScript and the 14-package boundary check, with scores of 9/9/9. Root authorized one signed-off local commit of this unchanged reviewed source. This checkpoint PASS does not certify VM/native execution, Garage, external writes, the full product or performance. No push, deployment or Notion action.

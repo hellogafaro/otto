@@ -3,14 +3,16 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "bun --filter \"@otto/*\" --parallel dev",
+    "dev": "bun --bun run --parallel --filter \"@otto/*\" dev",
     "build": "bun --bun run --cwd apps/web build",
     "check": "bun --bun biome check .",
     "format": "bun --bun biome check --write .",
     "typecheck": "bun --bun tsc --noEmit && bun --bun run --cwd apps/web typecheck",
     "test": "bun --bun vitest run",
     "db:generate": "bun --bun drizzle-kit generate",
-    "db:migrate": "bun scripts/migrate.ts"
+    "db:migrate": "bun scripts/migrate.ts",
+    "test:browser": "bun --bun playwright test",
+    "check:boundaries": "bun scripts/check-boundaries.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
@@ -18,10 +20,12 @@
     "@playwright/test": "1.63.0",
     "@types/bun": "1.4.2",
     "@types/pg": "8.23.1",
+    "@types/ws": "8.18.2",
     "drizzle-kit": "0.31.11",
     "embedded-postgres": "18.4.0-beta.17",
     "typescript": "~6.0.2",
-    "vitest": "5.0.3"
+    "vitest": "5.0.3",
+    "ws": "8.22.0"
   },
   "packageManager": "bun@1.4.2",
   "engines": {
