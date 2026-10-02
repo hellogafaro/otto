@@ -3,7 +3,6 @@ import {
   boolean,
   foreignKey,
   index,
-  integer,
   type PgTableExtraConfigValue,
   pgTable,
   primaryKey,
@@ -21,8 +20,7 @@ export const projects = pgTable(
     updatedAt: timestamp({ withTimezone: true })
       .$defaultFn(() => new Date())
       .$onUpdateFn(() => new Date()),
-    name: text().notNull(),
-    editToken: integer().notNull().default(0),
+    title: text("name").notNull(),
     archived: boolean().notNull().default(false),
     repositoryUrl: text(),
   },

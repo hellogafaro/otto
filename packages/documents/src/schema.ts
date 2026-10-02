@@ -27,11 +27,10 @@ export const documents = pgTable(
     projectId: uuid(),
     title: text().notNull(),
     body: text().notNull(),
-    ownerId: text().notNull(),
-    visibility: text({ enum: ["user", "workspace"] }),
-    access: text({ enum: ["inherited", "restricted"] }).notNull(),
-    readerIds: jsonb().$type<string[]>().notNull().default([]),
-    writerIds: jsonb().$type<string[]>().notNull().default([]),
+    createdBy: text().notNull(),
+    visibility: text({ enum: ["user", "workspace"] })
+      .notNull()
+      .default("user"),
     artifactIds: jsonb().$type<string[]>().notNull().default([]),
     skillMetadata: jsonb()
       .$type<Record<string, unknown>>()
@@ -51,10 +50,7 @@ export const documents = pgTable(
       .default([]),
   },
   (t): PgTableExtraConfigValue[] => [
-    check(
-      "documents_visibility",
-      sql`(${t.skill} and ${t.visibility} is not null and ${t.visibility} in ('user','workspace') and ${t.access} = 'inherited' and ${t.readerIds} = '[]'::jsonb and ${t.writerIds} = '[]'::jsonb) or (not ${t.skill} and ${t.visibility} is null)`,
-    ),
+    check("documents_visibility", sql`${t.visibility} in ('user','workspace')`),
     foreignKey({
       name: "documents_workspace_fk",
       columns: [t.workspaceId],
@@ -74,8 +70,8 @@ export const documents = pgTable(
       foreignColumns: [collections.id, collections.workspaceId],
     }),
     foreignKey({
-      name: "documents_ownerId_fk",
-      columns: [t.ownerId],
+      name: "documents_createdBy_fk",
+      columns: [t.createdBy],
       foreignColumns: [workspacesSchema.users.id],
     }),
     unique("documents_identity_workspace").on(t.id, t.workspaceId),
@@ -83,7 +79,7 @@ export const documents = pgTable(
 );
 export interface CollectionField {
   id: string;
-  name: string;
+  title: string;
   type:
     | "text"
     | "number"
@@ -107,7 +103,13 @@ export const collections = pgTable(
     archived: boolean().notNull().default(false),
     projectId: uuid(),
     title: text().notNull(),
-    fields: jsonb().$type<CollectionField[]>().notNull(),
+    fields: jsonb()
+      .$type<
+        Array<
+          CollectionField | (Omit<CollectionField, "title"> & { name: string })
+        >
+      >()
+      .notNull(),
     view: text({ enum: ["table", "list"] })
       .notNull()
       .default("table"),

@@ -63,7 +63,7 @@ describe("server operations on private PostgreSQL", () => {
     const sponsorId = crypto.randomUUID();
     await database.db
       .insert(workspaces)
-      .values({ id: workspaceId, name: "Recovery fixture" });
+      .values({ id: workspaceId, title: "Recovery fixture" });
     await database.db.insert(users).values({
       id: sponsorId,
       name: "Removed sponsor",
@@ -77,10 +77,9 @@ describe("server operations on private PostgreSQL", () => {
       .insert(connections)
       .values({
         workspaceId,
-        ownerId: sponsorId,
-        name: "Lost operation fixture",
+        createdBy: sponsorId,
+        title: "Lost operation fixture",
         type: "mcp",
-        mode: "service",
         accountRef: "fixture",
       })
       .returning();
@@ -94,7 +93,7 @@ describe("server operations on private PostgreSQL", () => {
       { userId: sponsorId },
       async (c) => {
         const agent = await createAgent(c, {
-          name: "Recovery",
+          title: "Recovery",
           instructions: "fixture",
           harness: "fixture",
           model: "fixture",
@@ -102,7 +101,7 @@ describe("server operations on private PostgreSQL", () => {
         await createEnvironment(c, agent.id);
         const conversation = await createConversation(c, {
           title: "Recovery",
-          access: "inherited",
+          visibility: "workspace",
         });
         await createParticipant(c, conversation.id, {
           agentId: agent.id,

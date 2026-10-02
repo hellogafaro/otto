@@ -89,13 +89,16 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     workspaceId = (await claimInstallation(database.db, userId, "Live")).id;
     await inWorkspace(database.db, workspaceId, { userId }, async (c) => {
       conversationId = (
-        await createConversation(c, { title: "Realtime", access: "inherited" })
+        await createConversation(c, {
+          title: "Realtime",
+          visibility: "workspace",
+        })
       ).id;
       documentId = (
         await createDocument(c, {
           title: "Document",
           body: "before gap",
-          access: "inherited",
+          visibility: "workspace",
         })
       ).id;
     });
@@ -117,7 +120,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
             Origin: "http://attacker.test",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ name: "Wrong" }),
+          body: JSON.stringify({ title: "Wrong" }),
         })
       ).status,
     ).toBe(403);
@@ -128,19 +131,19 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
       (
         await client.workspaces[":workspaceId"].projects.$post({
           param: { workspaceId },
-          json: { name: "" },
+          json: { title: "" },
         })
       ).status,
     ).toBe(400);
     const response = await client.workspaces[":workspaceId"].projects.$post({
       param: { workspaceId },
-      json: { name: "Live project" },
+      json: { title: "Live project" },
     });
     expect(response.status).toBe(200);
     const project = z
-      .object({ id: z.uuid(), name: z.string() })
+      .object({ id: z.uuid(), title: z.string() })
       .parse(await response.json());
-    expect(project.name).toBe("Live project");
+    expect(project.title).toBe("Live project");
     const read = await client.workspaces[":workspaceId"].projects.$get({
       param: { workspaceId },
       query: {},

@@ -32,7 +32,7 @@ import { getSessions } from "@otto/sessions";
 import { DomainError } from "@otto/shared";
 import {
   archiveTask,
-  assertNoOpenProjectTasks,
+  assertNoOpenOwnedTasks,
   assignTask,
   createTask,
   createTaskLink,
@@ -82,7 +82,7 @@ export const collaborationApi = new Hono<ApiEnv>()
     "/workspaces/:workspaceId/projects",
     validate(
       "json",
-      z.object({ name: title, repositoryUrl: z.url().max(2048).optional() }),
+      z.object({ title, repositoryUrl: z.url().max(2048).optional() }),
     ),
     async (c) =>
       c.json(
@@ -166,11 +166,13 @@ export const collaborationApi = new Hono<ApiEnv>()
     "/workspaces/:workspaceId/conversations",
     validate(
       "json",
-      z.object({
-        title,
-        projectId: id.optional(),
-        access: z.enum(["inherited", "restricted"]),
-      }),
+      z
+        .object({
+          title,
+          projectId: id.optional(),
+          visibility: z.enum(["workspace", "participants"]),
+        })
+        .strict(),
     ),
     async (c) =>
       c.json(
@@ -242,7 +244,6 @@ export const collaborationApi = new Hono<ApiEnv>()
           c,
           async (ctx) => {
             const conversationId = id.parse(c.req.param("id"));
-            await getConversation(ctx, conversationId);
             return getSessions(ctx, conversationId, c.req.valid("query"));
           },
           false,
@@ -290,7 +291,7 @@ export const collaborationApi = new Hono<ApiEnv>()
     async (c) => {
       await transact(c, async (ctx) => {
         const userId = z.string().max(128).parse(c.req.param("userId"));
-        await assertNoOpenProjectTasks(ctx, recordId(c), userId);
+        await assertNoOpenOwnedTasks(ctx, userId, recordId(c));
         await deleteProjectMember(ctx, recordId(c), userId);
       });
       return c.json({ ok: true });
@@ -303,7 +304,7 @@ export const collaborationApi = new Hono<ApiEnv>()
       await transact(c, async (ctx) => {
         const userId = z.string().max(128).parse(c.req.param("userId"));
         if (c.req.valid("json").role !== "contributor")
-          await assertNoOpenProjectTasks(ctx, recordId(c), userId);
+          await assertNoOpenOwnedTasks(ctx, userId, recordId(c));
         await updateProjectMember(
           ctx,
           recordId(c),
@@ -451,9 +452,8 @@ export const collaborationApi = new Hono<ApiEnv>()
       "json",
       z
         .object({
-          name: title.optional(),
+          title: title.optional(),
           repositoryUrl: z.url().max(2048).nullable().optional(),
-          editToken,
         })
         .strict(),
     ),
@@ -557,7 +557,7 @@ export const collaborationApi = new Hono<ApiEnv>()
   )
   .patch(
     "/workspaces/:workspaceId/conversations/:id",
-    validate("json", z.object({ title, editToken })),
+    validate("json", z.object({ title }).strict()),
     async (c) =>
       c.json(
         await transact(c, (ctx) =>
@@ -567,16 +567,11 @@ export const collaborationApi = new Hono<ApiEnv>()
   )
   .post(
     "/workspaces/:workspaceId/conversations/:id/archive",
-    validate("json", archive),
+    validate("json", z.object({ archived: z.boolean() })),
     async (c) =>
       c.json(
         await transact(c, (ctx) =>
-          archiveConversation(
-            ctx,
-            recordId(c),
-            c.req.valid("json").archived,
-            c.req.valid("json").editToken,
-          ),
+          archiveConversation(ctx, recordId(c), c.req.valid("json").archived),
         ),
       ),
   )

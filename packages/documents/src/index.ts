@@ -32,23 +32,14 @@ export async function createDocument(
     title: string;
     body: string;
     projectId?: string;
-    access?: "inherited" | "restricted";
     visibility?: "user" | "workspace";
-    readerIds?: string[];
     skill?: boolean;
     whenToUse?: string;
   },
 ) {
   requireHuman(c);
   requireWriter(c);
-  if (input.skill) {
-    if (input.access !== undefined || input.readerIds !== undefined)
-      throw new DomainError("invalid", "Skills use visibility");
-  } else if (input.access === undefined || input.visibility !== undefined) {
-    throw new DomainError("invalid", "Documents use access");
-  }
   if (input.projectId) await getProject(c, input.projectId, true);
-  for (const id of input.readerIds ?? []) await requireMember(c, id);
   const doc = required(
     (
       await c.tx
@@ -59,11 +50,9 @@ export async function createDocument(
           projectId: input.projectId,
           skill: input.skill,
           whenToUse: input.whenToUse,
-          access: input.access ?? "inherited",
-          visibility: input.skill ? (input.visibility ?? "user") : null,
-          readerIds: input.readerIds,
+          visibility: input.visibility ?? "user",
           workspaceId: c.workspaceId,
-          ownerId: c.actor.userId,
+          createdBy: c.actor.userId,
         })
         .returning()
     )[0],
@@ -83,35 +72,23 @@ export async function getDocument(c: Context, id: string, write = false) {
     )[0],
   );
   if (doc.projectId) await getProject(c, doc.projectId, write);
-  if (doc.skill) {
-    if (doc.visibility === "user" && doc.ownerId !== c.actor.userId)
-      throw new DomainError("forbidden");
-    if (c.actor.agentId) {
-      const agent = await getAgent(c, c.actor.agentId);
-      if (!agent.skillIds.includes(doc.id)) throw new DomainError("forbidden");
-    }
-  }
-  if (
-    !doc.skill &&
-    doc.access === "restricted" &&
-    (c.actor.agentId !== undefined ||
-      (doc.ownerId !== c.actor.userId &&
-        !doc.readerIds.includes(c.actor.userId) &&
-        !doc.writerIds.includes(c.actor.userId)))
-  )
+  await requireMember(c, doc.createdBy);
+  if (doc.visibility === "user" && doc.createdBy !== c.actor.userId)
     throw new DomainError("forbidden");
+  if (c.actor.agentId) {
+    if (doc.skill) {
+      const agent = await getAgent(c, c.actor.agentId);
+      if (
+        !agent.skillIds.includes(doc.id) ||
+        (doc.visibility === "user" && agent.createdBy !== doc.createdBy)
+      )
+        throw new DomainError("forbidden");
+    } else if (doc.visibility === "user") throw new DomainError("forbidden");
+  }
   if (write) {
     requireHuman(c);
     requireWriter(c);
-    if (doc.skill && doc.ownerId !== c.actor.userId)
-      throw new DomainError("forbidden");
-    if (
-      !doc.skill &&
-      doc.access === "restricted" &&
-      doc.ownerId !== c.actor.userId &&
-      !doc.writerIds.includes(c.actor.userId)
-    )
-      throw new DomainError("forbidden");
+    if (doc.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   }
   return doc;
 }
@@ -143,8 +120,6 @@ export async function updateDocument(
       Buffer.byteLength(input.whenToUse) > 100000)
   )
     throw new DomainError("invalid");
-  if (input.visibility !== undefined && !doc.skill)
-    throw new DomainError("invalid", "Only skills have visibility");
   const updated = required(
     (
       await c.tx
@@ -170,12 +145,12 @@ export async function validateSkillAccess(
   audience: { humans: string[]; agents: string[] },
 ) {
   const doc = await getDocument(c, id);
-  const available = await getDocumentAudience(c, id);
+  const available = await documentAudience(c, doc);
   if (audience.humans.some((userId) => !available.includes(userId)))
     throw new DomainError("forbidden", "Skill audience mismatch");
   for (const agentId of audience.agents) {
     const agent = await getAgent(c, agentId);
-    if (doc.visibility === "user" && agent.ownerId !== doc.ownerId)
+    if (doc.visibility === "user" && agent.createdBy !== doc.createdBy)
       throw new DomainError("forbidden", "User-scoped skill dependency");
   }
   return doc;
@@ -201,6 +176,18 @@ export async function snapshotSkills(
   }
   return snapshots;
 }
+/** Older JSON stores only the label under name; expose title without rewriting stored content. */
+function collectionView(collection: typeof collections.$inferSelect) {
+  return {
+    ...collection,
+    fields: collection.fields.map((field) => ({
+      id: field.id,
+      title: "title" in field ? field.title : field.name,
+      type: field.type,
+      ...(field.options ? { options: field.options } : {}),
+    })),
+  };
+}
 export async function createCollection(
   c: Context,
   input: { title: string; projectId?: string; fields: CollectionField[] },
@@ -219,7 +206,7 @@ export async function createCollection(
     )[0],
   );
   await advanceCursor(c);
-  return collection;
+  return collectionView(collection);
 }
 export async function updateDocumentCollection(
   c: Context,
@@ -233,19 +220,7 @@ export async function updateDocumentCollection(
   const { collectionId, properties, editToken } = input;
   const doc = await getDocument(c, id, true);
   if (doc.editToken !== editToken) throw new DomainError("conflict");
-  const collection = required(
-    (
-      await c.tx
-        .select()
-        .from(collections)
-        .where(
-          and(
-            eq(collections.id, collectionId),
-            eq(collections.workspaceId, c.workspaceId),
-          ),
-        )
-    )[0],
-  );
+  const collection = await getCollection(c, collectionId);
   if (collection.archived)
     throw new DomainError("conflict", "Collection archived");
   if (collection.projectId !== doc.projectId)
@@ -379,7 +354,7 @@ export async function getCollection(c: Context, id: string, write = false) {
     requireHuman(c);
     requireWriter(c);
   }
-  return collection;
+  return collectionView(collection);
 }
 export async function getCollections(
   c: Context,
@@ -462,7 +437,7 @@ export async function updateCollection(
     )[0],
   );
   await advanceCursor(c);
-  return updated;
+  return collectionView(updated);
 }
 export async function archiveCollection(
   c: Context,
@@ -482,7 +457,7 @@ export async function archiveCollection(
     )[0],
   );
   await advanceCursor(c);
-  return updated;
+  return collectionView(updated);
 }
 /** Trusted composition resolves immutable Artifact references before calling this in the same workspace transaction. */
 export async function setSkillFiles(
@@ -521,37 +496,6 @@ export async function setSkillFiles(
 
 export type { SkillFileReference } from "./schema";
 
-export async function setDocumentAccess(
-  c: Context,
-  id: string,
-  input: { readerIds: string[]; writerIds: string[]; editToken: number },
-) {
-  requireHuman(c);
-  requireWriter(c);
-  const doc = await getDocument(c, id, true);
-  if (doc.ownerId !== c.actor.userId) throw new DomainError("forbidden");
-  if (doc.editToken !== input.editToken) throw new DomainError("conflict");
-  if (doc.skill) throw new DomainError("invalid", "Skills use visibility");
-  if (input.readerIds.length + input.writerIds.length > 100)
-    throw new DomainError("invalid");
-  for (const userId of input.readerIds) await requireMember(c, userId);
-  for (const userId of input.writerIds) await requireMember(c, userId, true);
-  const updated = required(
-    (
-      await c.tx
-        .update(documents)
-        .set({
-          readerIds: input.readerIds,
-          writerIds: input.writerIds,
-          editToken: doc.editToken + 1,
-        })
-        .where(eq(documents.id, id))
-        .returning()
-    )[0],
-  );
-  await advanceCursor(c);
-  return updated;
-}
 export async function setDocumentAttachments(
   c: Context,
   id: string,
@@ -578,17 +522,18 @@ export async function setDocumentAttachments(
   return updated;
 }
 export async function getDocumentAudience(c: Context, id: string) {
-  const doc = await getDocument(c, id);
+  return documentAudience(c, await getDocument(c, id));
+}
+async function documentAudience(
+  c: Context,
+  doc: typeof documents.$inferSelect,
+) {
   const members = doc.projectId
     ? await getProjectAudience(c, doc.projectId)
     : await getWorkspaceAudience(c);
-  const recipients =
-    doc.skill && doc.visibility === "user"
-      ? [doc.ownerId]
-      : !doc.skill && doc.access === "restricted"
-        ? [doc.ownerId, ...doc.readerIds, ...doc.writerIds]
-        : members;
-  return members.filter((id) => recipients.includes(id));
+  return doc.visibility === "user"
+    ? members.filter((id) => id === doc.createdBy)
+    : members;
 }
 export async function importSkill(
   c: Context,

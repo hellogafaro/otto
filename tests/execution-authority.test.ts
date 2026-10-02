@@ -6,7 +6,6 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { createRunTools } from "../apps/server/src/tools";
-import { createConnection } from "../packages/connections/src";
 import { resolveDocumentProposal } from "../packages/documents/src";
 import { documentProposals } from "../packages/documents/src/schema";
 import type { ProcessInspection } from "../packages/environments/src";
@@ -18,6 +17,7 @@ import {
 } from "../packages/runs/src/runtime";
 import { runActivity, runs } from "../packages/runs/src/schema";
 import { required } from "../packages/shared/src";
+import { createSubscription } from "../packages/subscriptions/src";
 import { setTaskStatus } from "../packages/tasks/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
@@ -73,19 +73,19 @@ describe("execution authority and retained sources", () => {
     const agent = z.object({ agent: record }).parse(
       await post("/agents", {
         projectId,
-        name: "Authority fixture",
+        title: "Authority fixture",
         visibility: "workspace",
         instructions: "Work",
         harness: "fixture",
         model: "fixture",
-        connectionId: accountId,
+        subscriptionId: accountId,
       }),
     ).agent;
     await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
     const conversation = record.parse(
       await post("/conversations", {
         title: "Source",
-        access: "restricted",
+        visibility: "participants",
         projectId,
       }),
     );
@@ -208,11 +208,9 @@ describe("execution authority and retained sources", () => {
       .values({ workspaceId, userId: viewer.id, role: "contributor" });
     accountId = (
       await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
-        createConnection(c, {
-          name: "Fixture native",
+        createSubscription(c, {
+          title: "Fixture native",
           visibility: "workspace",
-          type: "model",
-          accountRef: "controlled-only",
         }),
       )
     ).id;
@@ -295,7 +293,7 @@ describe("execution authority and retained sources", () => {
       await database.db.select().from(runs).where(eq(runs.parentRunId, run.id)),
     ).toHaveLength(0);
   });
-  it.each(["skill", "connection"] as const)(
+  it.each(["skill", "subscription"] as const)(
     "denies inherited user %s dependencies on workspace peer Agents",
     async (resource) => {
       const source = await setup();
@@ -316,13 +314,10 @@ describe("execution authority and retained sources", () => {
           "PATCH",
         );
       }
-      const account = z
-        .object({ editToken: z.number() })
-        .parse(await (await request(`/connections/${accountId}`)).json());
-      if (resource === "connection")
+      if (resource === "subscription")
         await post(
-          `/connections/${accountId}`,
-          { visibility: "user", editToken: account.editToken },
+          `/subscriptions/${accountId}`,
+          { visibility: "user" },
           owner,
           "PATCH",
         );
@@ -346,36 +341,86 @@ describe("execution authority and retained sources", () => {
             .where(eq(runs.parentRunId, run.id)),
         ).toHaveLength(0);
       } finally {
-        if (resource === "connection")
+        if (resource === "subscription")
           await post(
-            `/connections/${accountId}`,
-            { visibility: "workspace", editToken: account.editToken + 1 },
+            `/subscriptions/${accountId}`,
+            { visibility: "workspace" },
             owner,
             "PATCH",
           );
       }
     },
   );
-  it("reauthorizes the accepted native Connection after Agent selection changes", async () => {
+  it("reauthorizes the accepted native Subscription after Agent selection changes", async () => {
     const source = await setup();
     const run = await launch(source, { body: "hold" });
     await expect.poll(async () => (await saved(run.id)).state).toBe("running");
     await post(
       `/agents/${source.agent.id}`,
-      { connectionId: null, editToken: 0 },
+      { subscriptionId: null, editToken: 0 },
       owner,
       "PATCH",
     );
-    await post(`/connections/${accountId}/disconnect`, {});
+    await post(
+      `/subscriptions/${accountId}`,
+      { status: "disabled" },
+      owner,
+      "PATCH",
+    );
     await expect
       .poll(async () => (await saved(run.id)).state, { timeout: 2000 })
       .toBe("interrupted");
+    await post(
+      `/subscriptions/${accountId}`,
+      { status: "needs_auth" },
+      owner,
+      "PATCH",
+    );
+  });
+  it("keeps noncreator participant Run controls and discussion after creator archive", async () => {
+    const source = await setup(undefined, "project");
+    const run = await launch(source, { body: "hold" });
+    await expect.poll(async () => (await saved(run.id)).state).toBe("running");
+    try {
+      await post(`/conversations/${source.conversation.id}/archive`, {
+        archived: true,
+      });
+      expect(
+        await post(
+          `/runs/${run.id}/steer`,
+          { requestId: crypto.randomUUID(), body: "Contributor control" },
+          viewer,
+        ),
+      ).toEqual({ delivered: true });
+      expect(
+        (
+          await request(
+            `/conversations/${source.conversation.id}/messages`,
+            {
+              requestId: crypto.randomUUID(),
+              body: "Archived contributor discussion",
+            },
+            viewer,
+          )
+        ).status,
+      ).toBe(200);
+      expect((await request(`/runs/${run.id}/stop`, {}, viewer)).status).toBe(
+        200,
+      );
+      expect((await terminal(run.id)).state).toBe("interrupted");
+      await post(`/conversations/${source.conversation.id}/archive`, {
+        archived: false,
+      });
+    } finally {
+      await post(`/runs/${run.id}/stop`, {});
+      await terminal(run.id);
+    }
   });
   it.each(["conversation", "project"] as const)(
     "denies %s viewers control without persisting or delivering it",
     async (role) => {
       const project = record.parse(
-        await post("/projects", { name: "Control" }),
+        await post("/projects", { title: "Control" }),
       );
       await post(`/projects/${project.id}/members`, {
         userId: viewer.id,
@@ -449,8 +494,7 @@ describe("execution authority and retained sources", () => {
         {
           title: "Retained private source",
           body: "Saved source",
-          access: "restricted",
-          readerIds: [owner.id],
+          visibility: "workspace",
         },
         viewer,
       ),
@@ -460,10 +504,10 @@ describe("execution authority and retained sources", () => {
     expect((await terminal(first.id)).state).toBe("finished");
     const launches = computer.launches;
     await post(
-      `/documents/${doc.id}/access`,
-      { readerIds: [], writerIds: [], editToken: 0 },
+      `/documents/${doc.id}`,
+      { visibility: "user", editToken: 0 },
       viewer,
-      "PUT",
+      "PATCH",
     );
     expect((await request(`/documents/${doc.id}`)).status).toBe(403);
     const next = await launch(source, { documentIds: [] });
@@ -505,7 +549,9 @@ describe("execution authority and retained sources", () => {
   );
 
   it("submits a scoped ACP skill proposal with Agent authorship for human-only application", async () => {
-    const project = record.parse(await post("/projects", { name: "Proposal" }));
+    const project = record.parse(
+      await post("/projects", { title: "Proposal" }),
+    );
     const doc = record.parse(
       await post("/documents", {
         projectId: project.id,
@@ -546,7 +592,7 @@ describe("execution authority and retained sources", () => {
   });
   it("retains Task scope across new Sessions and refuses incomplete legacy computer scope", async () => {
     const project = record.parse(
-      await post("/projects", { name: "Retained task" }),
+      await post("/projects", { title: "Retained task" }),
     );
     const task = record.parse(
       await post("/tasks", { projectId: project.id, title: "Accepted task" }),
@@ -577,14 +623,14 @@ describe("execution authority and retained sources", () => {
 
   it("limits live tool reads/proposals to accepted sources and keeps archive distinct from revoked authority", async () => {
     const project = record.parse(
-      await post("/projects", { name: "Scoped reads" }),
+      await post("/projects", { title: "Scoped reads" }),
     );
     const doc = record.parse(
       await post("/documents", {
         projectId: project.id,
         title: "selected",
         body: "Accepted text",
-        access: "inherited",
+        visibility: "workspace",
       }),
     );
     const other = record.parse(
@@ -592,7 +638,7 @@ describe("execution authority and retained sources", () => {
         projectId: project.id,
         title: "not selected",
         body: "Not supplied",
-        access: "inherited",
+        visibility: "workspace",
       }),
     );
     const task = record.parse(
@@ -664,7 +710,7 @@ describe("execution authority and retained sources", () => {
 
   it("creates an ACP Task owned by its eligible human sponsor and records Agent authorship", async () => {
     const project = record.parse(
-      await post("/projects", { name: "Agent Task" }),
+      await post("/projects", { title: "Agent Task" }),
     );
     const source = await setup(project.id);
     const run = await launch(source, {
@@ -736,14 +782,14 @@ describe("execution authority and retained sources", () => {
 
   it("keeps proposal application human-only and rejects stale source edits and publication to a wider audience", async () => {
     const project = record.parse(
-      await post("/projects", { name: "Proposal fencing" }),
+      await post("/projects", { title: "Proposal fencing" }),
     );
     const doc = record.parse(
       await post("/documents", {
         projectId: project.id,
         title: "selected",
         body: "Original",
-        access: "inherited",
+        visibility: "workspace",
       }),
     );
     const source = await setup(project.id);
@@ -798,7 +844,7 @@ describe("execution authority and retained sources", () => {
       await post("/documents", {
         title: "workspace source",
         body: "Shared",
-        access: "inherited",
+        visibility: "workspace",
       }),
     );
     const privateSource = await setup();
@@ -1152,7 +1198,7 @@ describe("execution authority and retained sources", () => {
 
   it("returns accepted Task content while retaining current Task authorization", async () => {
     const project = record.parse(
-      await post("/projects", { name: "Accepted task" }),
+      await post("/projects", { title: "Accepted task" }),
     );
     const task = record.parse(
       await post("/tasks", {

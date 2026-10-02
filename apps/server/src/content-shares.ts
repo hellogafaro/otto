@@ -23,7 +23,7 @@ import {
   requireHuman,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, isNotNull, sql } from "drizzle-orm";
 import {
   contentShares,
   type ShareSelection,
@@ -38,7 +38,6 @@ async function selectContent(
   requireWriter(c);
   if (selection.type === "document") {
     const doc = await getDocument(c, selection.targetId, true);
-    if (doc.ownerId !== c.actor.userId) throw new DomainError("forbidden");
     if (
       selection.start < 0 ||
       selection.end <= selection.start ||
@@ -155,7 +154,6 @@ export async function publishShare(c: Context, id: string, editToken: number) {
     .update(contentShares)
     .set({
       snapshot: row.preview,
-      published: true,
       editToken: row.editToken + 1,
     })
     .where(eq(contentShares.id, id));
@@ -166,7 +164,7 @@ export async function revokeShare(c: Context, id: string) {
   const row = await getOwnedShare(c, id);
   await c.tx
     .update(contentShares)
-    .set({ published: false, editToken: row.editToken + 1 })
+    .set({ snapshot: null, editToken: row.editToken + 1 })
     .where(eq(contentShares.id, id));
   await advanceCursor(c);
 }
@@ -177,7 +175,7 @@ export async function getShares(c: Context, options: PageOptions = {}) {
     .select({
       id: contentShares.id,
       selection: contentShares.selection,
-      published: contentShares.published,
+      published: sql<boolean>`${contentShares.snapshot} is not null`,
       editToken: contentShares.editToken,
     })
     .from(contentShares)
@@ -215,7 +213,7 @@ async function publicShare(db: Database, id: string) {
             .select()
             .from(contentShares)
             .where(
-              and(eq(contentShares.id, id), eq(contentShares.published, true)),
+              and(eq(contentShares.id, id), isNotNull(contentShares.snapshot)),
             )
         )[0],
       );

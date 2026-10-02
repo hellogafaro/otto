@@ -112,7 +112,7 @@ describe("persisted collaboration authorization", () => {
   it("persists projects and denies nonmembers even in the same workspace", async () => {
     projectId = (
       await inWorkspace(database.db, workspaceId, { userId: "owner" }, (c) =>
-        createProject(c, { name: "Private project" }),
+        createProject(c, { title: "Private project" }),
       )
     ).id;
     await expect(

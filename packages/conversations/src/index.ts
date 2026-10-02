@@ -29,7 +29,7 @@ export async function createConversation(
   input: {
     title: string;
     projectId?: string;
-    access: "inherited" | "restricted";
+    visibility: "workspace" | "participants";
   },
 ) {
   requireHuman(c);
@@ -39,7 +39,11 @@ export async function createConversation(
     (
       await c.tx
         .insert(conversations)
-        .values({ ...input, workspaceId: c.workspaceId })
+        .values({
+          ...input,
+          workspaceId: c.workspaceId,
+          createdBy: c.actor.userId,
+        })
         .returning()
     )[0],
   );
@@ -81,9 +85,17 @@ export async function getConversation(c: Context, id: string, write = false) {
         ),
       )
   )[0];
-  if (conversation.access === "restricted" || c.actor.agentId)
+  if (conversation.visibility === "participants" || c.actor.agentId)
     required(participant, "forbidden");
   if (write && participant?.role === "viewer")
+    throw new DomainError("forbidden");
+  return conversation;
+}
+/** Management belongs to the human creator; discussion/control uses the participant writer gate. */
+async function getManagedConversation(c: Context, id: string) {
+  requireHuman(c);
+  const conversation = await getConversation(c, id, true);
+  if (conversation.createdBy !== c.actor.userId)
     throw new DomainError("forbidden");
   return conversation;
 }
@@ -92,8 +104,7 @@ export async function createParticipant(
   conversationId: string,
   input: { userId?: string; agentId?: string; role: "contributor" | "viewer" },
 ) {
-  requireHuman(c);
-  const conversation = await getConversation(c, conversationId, true);
+  const conversation = await getManagedConversation(c, conversationId);
   if (Boolean(input.userId) === Boolean(input.agentId))
     throw new DomainError("invalid");
   if (input.userId) await requireMember(c, input.userId);
@@ -123,8 +134,7 @@ export async function deleteParticipant(
   conversationId: string,
   participantId: string,
 ) {
-  requireHuman(c);
-  await getConversation(c, conversationId, true);
+  await getManagedConversation(c, conversationId);
   await c.tx
     .delete(participants)
     .where(
@@ -148,7 +158,7 @@ export async function getConversationAudience(c: Context, id: string) {
   if (explicit.length > 100) throw new DomainError("unavailable");
   return {
     humans:
-      conversation.access === "inherited"
+      conversation.visibility === "workspace"
         ? humans
         : explicit.flatMap((p) =>
             p.userId && humans.includes(p.userId) ? [p.userId] : [],
@@ -292,17 +302,14 @@ export async function getConversations(
 export async function updateConversation(
   c: Context,
   id: string,
-  input: { title: string; editToken: number },
+  input: { title: string },
 ) {
-  requireHuman(c);
-  const conversation = await getConversation(c, id, true);
-  if (conversation.editToken !== input.editToken)
-    throw new DomainError("conflict");
+  await getManagedConversation(c, id);
   const updated = required(
     (
       await c.tx
         .update(conversations)
-        .set({ title: input.title, editToken: conversation.editToken + 1 })
+        .set({ title: input.title })
         .where(eq(conversations.id, id))
         .returning()
     )[0],
@@ -314,16 +321,13 @@ export async function archiveConversation(
   c: Context,
   id: string,
   archived: boolean,
-  editToken: number,
 ) {
-  requireHuman(c);
-  const conversation = await getConversation(c, id, true);
-  if (conversation.editToken !== editToken) throw new DomainError("conflict");
+  await getManagedConversation(c, id);
   const updated = required(
     (
       await c.tx
         .update(conversations)
-        .set({ archived, editToken: conversation.editToken + 1 })
+        .set({ archived })
         .where(eq(conversations.id, id))
         .returning()
     )[0],
@@ -494,8 +498,7 @@ export async function updateParticipant(
   participantId: string,
   role: "viewer" | "contributor",
 ) {
-  requireHuman(c);
-  await getConversation(c, id, true);
+  await getManagedConversation(c, id);
   const participant = required(
     (
       await c.tx

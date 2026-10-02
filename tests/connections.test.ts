@@ -50,6 +50,10 @@ import { environments } from "../packages/environments/src/schema";
 import { admitRun } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
 import {
+  createSubscription,
+  getSubscription,
+} from "../packages/subscriptions/src";
+import {
   type Context,
   claimInstallation,
   deleteMember,
@@ -128,7 +132,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
   async function makeConnection(config = githubConfig) {
     const row = await scope((c) =>
       createConnection(c, {
-        name: "Controlled fixture account",
+        title: "Controlled fixture account",
         type: config.type,
 
         accountRef:
@@ -147,7 +151,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
     await scope((c) =>
       updateConnection(c, row.id, {
         editToken: row.editToken,
-        name: row.name,
+        title: row.title,
         credentialRef: "fixture-reference",
         config,
       }),
@@ -377,7 +381,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       agentId = (
         await createAgent(c, {
           visibility: "workspace",
-          name: "Fixture agent",
+          title: "Fixture agent",
           instructions: "Public fixture",
           harness: "fixture",
           model: "fixture",
@@ -387,7 +391,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       conversationId = (
         await createConversation(c, {
           title: "Fixture audience",
-          access: "inherited",
+          visibility: "workspace",
         })
       ).id;
       await createParticipant(c, conversationId, {
@@ -534,22 +538,19 @@ describe("Connections production adapters with private PostgreSQL and controlled
     ).rejects.toMatchObject({ code: "unavailable" });
     expect(requests).toHaveLength(count);
   });
-  it("keeps model subscription association unavailable without a native adapter", async () => {
+  it("does not route Subscriptions through external Connection adapters", async () => {
     const row = await scope((c) =>
-      createConnection(c, {
-        name: "Private native association",
-        type: "model",
-
-        accountRef: "fixture-native-account",
+      createSubscription(c, {
+        title: "Native association",
       }),
     );
     const before = requests.length;
     await expect(service.connectConnection(row.id)).rejects.toMatchObject({
-      code: "unavailable",
+      code: "not_found",
     });
     expect(requests).toHaveLength(before);
-    expect((await scope((c) => getConnection(c, row.id))).connected).toBe(
-      false,
+    expect((await scope((c) => getSubscription(c, row.id))).status).toBe(
+      "needs_auth",
     );
   });
   it("deduplicates exact canonical arguments and rejects forged identity or modified approval", async () => {
@@ -595,6 +596,21 @@ describe("Connections production adapters with private PostgreSQL and controlled
       "awaiting_approval",
     );
     expect(issueWrites).toBe(0);
+  });
+  it("renames a Connection without invalidating its accepted grant or exact approval", async () => {
+    const row = await approved();
+    const before = await scope((c) => snapshotGrants(c, agentId));
+    await scope((c) =>
+      updateConnection(c, connectionId, { title: "Display only" }),
+    );
+    expect(await scope((c) => snapshotGrants(c, agentId))).toEqual(before);
+    expect((await service.executeOperation(row.id)).state).toBe("succeeded");
+    expect(issueWrites).toBe(1);
+    await expect(
+      scope((c) =>
+        updateConnection(c, connectionId, { visibility: "workspace" }),
+      ),
+    ).rejects.toMatchObject({ code: "conflict" });
   });
   it("executes an exact human approval once and saves a result atomically with publication", async () => {
     const row = await approved();
@@ -1118,7 +1134,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
     await scope((c) =>
       updateConnection(c, connectionId, {
         editToken: 1,
-        name: "Reconfigured fixture",
+        title: "Reconfigured fixture",
         credentialRef: "fixture-reference",
         config: githubConfig,
       }),
@@ -1163,14 +1179,14 @@ describe("Connections production adapters with private PostgreSQL and controlled
     const privateAudience = await scope(async (c) => {
       const other = await createAgent(c, {
         visibility: "workspace",
-        name: "Other audience",
+        title: "Other audience",
         instructions: "Fixture",
         harness: "fixture",
         model: "fixture",
       });
       const conversation = await createConversation(c, {
         title: "Wider saved audience",
-        access: "inherited",
+        visibility: "workspace",
       });
       await createParticipant(c, conversation.id, {
         agentId,
@@ -1300,7 +1316,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       // Ownership loss takes effect on both paged attention and the explicit Connection query.
       await database.db
         .update(connections)
-        .set({ ownerId: "attention-other" })
+        .set({ createdBy: "attention-other" })
         .where(eq(connections.id, secondConnection));
       expect(
         (
@@ -1321,7 +1337,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
     } finally {
       await database.db
         .update(connections)
-        .set({ ownerId: "owner" })
+        .set({ createdBy: "owner" })
         .where(eq(connections.id, secondConnection));
       await database.db
         .update(members)
@@ -1361,7 +1377,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       (
         await database.db
           .insert(workspaces)
-          .values({ name: "Foreign attention fixture" })
+          .values({ title: "Foreign attention fixture" })
           .returning()
       )[0],
     );
@@ -1376,7 +1392,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       { userId: "owner" },
       (c) =>
         createConnection(c, {
-          name: "Foreign fixture",
+          title: "Foreign fixture",
           type: "github",
 
           accountRef: "fixture",
@@ -1389,7 +1405,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       async (c) => {
         const agent = await createAgent(c, {
           visibility: "workspace",
-          name: "Foreign fixture",
+          title: "Foreign fixture",
           instructions: "Fixture",
           harness: "fixture",
           model: "fixture",
@@ -1397,7 +1413,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
         await createEnvironment(c, agent.id);
         const conversation = await createConversation(c, {
           title: "Foreign fixture",
-          access: "inherited",
+          visibility: "workspace",
         });
         await createParticipant(c, conversation.id, {
           agentId: agent.id,
@@ -1463,7 +1479,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       scope(async (c) => {
         const other = await createAgent(c, {
           visibility: "workspace",
-          name: "Later audience",
+          title: "Later audience",
           instructions: "Fixture",
           harness: "fixture",
           model: "fixture",
@@ -1497,7 +1513,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
     });
     await database.db
       .update(connections)
-      .set({ ownerId: "other-owner" })
+      .set({ createdBy: "other-owner" })
       .where(eq(connections.id, connectionId));
     await expect(
       scope((c) => getOperation(c, pending.id)),
@@ -1509,7 +1525,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
     ).rejects.toMatchObject({ code: "forbidden" });
     await database.db
       .update(connections)
-      .set({ ownerId: "owner" })
+      .set({ createdBy: "owner" })
       .where(eq(connections.id, connectionId));
   });
   async function mcpConnection() {

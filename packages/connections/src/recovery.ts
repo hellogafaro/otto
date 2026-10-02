@@ -47,13 +47,11 @@ async function recoverClaim(
     eq(operations.startedAt, claim.startedAt),
     lt(operations.startedAt, cutoff),
   );
-  const [row] = await tx.select().from(operations).where(fence);
-  if (!row) return 0;
   const now = new Date();
   const changed = await tx
     .update(operations)
     .set({
-      state: row.isWrite ? "uncertain" : "failed",
+      state: sql`case when ${operations.isWrite} then 'uncertain' else 'failed' end`,
       outcome: "execution_interrupted",
       executionToken: null,
       updatedAt: now,

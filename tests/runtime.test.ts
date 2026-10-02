@@ -14,7 +14,6 @@ import { createRunTools } from "../apps/server/src/tools";
 import type { ArtifactStorage } from "../packages/artifacts/src";
 import { artifacts } from "../packages/artifacts/src/schema";
 import { validateAutomation } from "../packages/automations/src";
-import { createConnection } from "../packages/connections/src";
 import { deleteParticipant } from "../packages/conversations/src";
 import { participants } from "../packages/conversations/src/schema";
 import { RUN_QUEUE } from "../packages/runs/src";
@@ -24,6 +23,7 @@ import {
   withRunAttempt,
 } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
+import { createSubscription } from "../packages/subscriptions/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
@@ -126,18 +126,18 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
         visibility: "workspace",
         projectId,
         skillIds,
-        name: "Fixture",
+        title: "Fixture",
         instructions: "Work",
         harness: "fixture",
         model: "fixture",
-        connectionId: accountId,
+        subscriptionId: accountId,
       }),
     ).agent;
     await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
     const conversation = record.parse(
       await post("/conversations", {
         title: "Runtime",
-        access: "inherited",
+        visibility: "workspace",
         projectId,
       }),
     );
@@ -222,12 +222,9 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     workspaceId = (await claimInstallation(database.db, userId, "Runtime")).id;
     accountId = (
       await inWorkspace(database.db, workspaceId, { userId }, (c) =>
-        createConnection(c, {
-          name: "Fixture native account",
+        createSubscription(c, {
+          title: "Fixture native account",
           visibility: "workspace",
-          type: "model",
-
-          accountRef: "fixture-only",
         }),
       )
     ).id;
@@ -450,11 +447,11 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       const agent = z.object({ agent: record }).parse(
         await post("/agents", {
           visibility: "workspace",
-          name: "Peer",
+          title: "Peer",
           instructions: "Work",
           harness: "fixture",
           model: "fixture",
-          connectionId: accountId,
+          subscriptionId: accountId,
         }),
       ).agent;
       await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
@@ -463,7 +460,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     const sender = await makeAgent();
     const receiver = await makeAgent();
     const conversation = record.parse(
-      await post("/conversations", { title: "Peers", access: "inherited" }),
+      await post("/conversations", { title: "Peers", visibility: "workspace" }),
     );
     for (const agent of [sender, receiver])
       await post(`/conversations/${conversation.id}/participants`, {
@@ -641,18 +638,18 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       const agent = z.object({ agent: record }).parse(
         await post("/agents", {
           visibility: "workspace",
-          name: "Connected",
+          title: "Connected",
           instructions: "Work",
           harness: "fixture",
           model: "fixture",
-          connectionId: accountId,
+          subscriptionId: accountId,
         }),
       ).agent;
       await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
       const conversation = record.parse(
         await post("/conversations", {
           title: "External result",
-          access: "inherited",
+          visibility: "workspace",
         }),
       );
       await post(`/conversations/${conversation.id}/participants`, {
@@ -662,7 +659,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       const connection = record.parse(
         await manage("/connections", {
           visibility: "workspace",
-          name: "MCP fixture",
+          title: "MCP fixture",
           type: "mcp",
           accountRef: "controlled-account",
         }),
@@ -677,7 +674,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
             "content-type": "application/json",
           },
           body: JSON.stringify({
-            name: "MCP fixture",
+            title: "MCP fixture",
             editToken: 0,
             credentialRef: "controlled-reference",
             config: {
@@ -932,7 +929,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       ).status,
     ).toBe(200);
     const project = record.parse(
-      await post("/projects", { name: "Combined backend proof" }),
+      await post("/projects", { title: "Combined backend proof" }),
     );
     await post(`/projects/${project.id}/members`, {
       userId: reader.id,
@@ -950,7 +947,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
         projectId: project.id,
         title: "Reference",
         type: "text",
-        access: "inherited",
+        visibility: "workspace",
         mediaType: "text/plain",
         bytes: Buffer.from("saved supporting bytes").toString("base64"),
       }),
@@ -969,7 +966,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
         projectId: project.id,
         title: "Selected context",
         body: "saved selected context",
-        access: "inherited",
+        visibility: "workspace",
       }),
     );
     const filesResponse = await fetch(
@@ -990,7 +987,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       requestId: crypto.randomUUID(),
       title: "Agent result",
       type: "text",
-      access: "inherited",
+      visibility: "workspace",
       mediaType: "text/plain",
       text: "saved agent output",
     };
@@ -1095,7 +1092,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       requestId: crypto.randomUUID(),
       title: "Stopped output",
       type: "text",
-      access: "inherited",
+      visibility: "workspace",
       mediaType: "text/plain",
       text: "must not publish",
     };
@@ -1293,7 +1290,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
         .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
         .toBe("finished");
       const config = {
-        name: `Clock ${type}`,
+        title: `Clock ${type}`,
         agentId: agent.id,
         conversationId: conversation.id,
         type,
@@ -1348,7 +1345,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
   }, 120000);
   it("archives launch sources and pauses Automation without implicitly stopping active work", async () => {
     const project = record.parse(
-      await post("/projects", { name: "Archive control" }),
+      await post("/projects", { title: "Archive control" }),
     );
     const task = record.parse(
       await post("/tasks", { projectId: project.id, title: "Running work" }),
@@ -1356,19 +1353,19 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     const agent = z.object({ agent: record }).parse(
       await post("/agents", {
         visibility: "workspace",
-        name: "Archive worker",
+        title: "Archive worker",
         instructions: "Work",
         harness: "fixture",
         model: "fixture",
         projectId: project.id,
-        connectionId: accountId,
+        subscriptionId: accountId,
       }),
     ).agent;
     await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
     const conversation = record.parse(
       await post("/conversations", {
         title: "Archive control",
-        access: "inherited",
+        visibility: "workspace",
         projectId: project.id,
       }),
     );
@@ -1391,7 +1388,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       "PATCH",
     );
     const config = {
-      name: "Running automation",
+      title: "Running automation",
       agentId: agent.id,
       conversationId: conversation.id,
       type: "prompt",

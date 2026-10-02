@@ -38,9 +38,105 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
         [projectId, workspaceId, "Source"],
       );
       await database.pool.query(
-        'insert into conversations(id,"workspaceId",title,access) values($1,$2,$3,$4)',
-        [conversationId, workspaceId, "Discussion", "inherited"],
+        'insert into conversations(id,"workspaceId",title,visibility,"createdBy") values($1,$2,$3,$4,$5)',
+        [
+          conversationId,
+          workspaceId,
+          "Discussion",
+          "workspace",
+          "schema-owner",
+        ],
       );
+      await expect(
+        database.pool.query(
+          'insert into conversations("workspaceId",title,visibility,"createdBy") values($1,$2,$3,$4)',
+          [workspaceId, "Invalid creator", "workspace", "absent-human"],
+        ),
+      ).rejects.toMatchObject({
+        code: "23503",
+        constraint: "conversations_createdBy_fk",
+      });
+      await expect(
+        database.pool.query(
+          'insert into conversations("workspaceId",title,visibility,"createdBy") values($1,$2,$3,$4)',
+          [workspaceId, "Invalid audience", "public", "schema-owner"],
+        ),
+      ).rejects.toMatchObject({
+        code: "23514",
+        constraint: "conversations_visibility",
+      });
+      const agentId = crypto.randomUUID();
+      const skillId = crypto.randomUUID();
+      await database.pool.query(
+        'insert into agents(id,"workspaceId","createdBy",name,instructions,harness,model) values($1,$2,$3,$4,$5,$6,$7)',
+        [
+          agentId,
+          workspaceId,
+          "schema-owner",
+          "Agent",
+          "Work",
+          "fixture",
+          "fixture",
+        ],
+      );
+      await database.pool.query(
+        'insert into documents(id,"workspaceId","createdBy",title,body,skill,visibility) values($1,$2,$3,$4,$5,true,$6)',
+        [
+          skillId,
+          workspaceId,
+          "schema-owner",
+          "Skill",
+          "Exact body",
+          "workspace",
+        ],
+      );
+      await database.pool.query(
+        'insert into agent_skills("workspaceId","agentId","skillId") values($1,$2,$3)',
+        [workspaceId, agentId, skillId],
+      );
+      const subscriptionId = crypto.randomUUID();
+      await database.pool.query(
+        'insert into subscriptions(id,"workspaceId","createdBy",name) values($1,$2,$3,$4)',
+        [subscriptionId, workspaceId, "schema-owner", "Native"],
+      );
+      await database.pool.query(
+        'update agents set "subscriptionId"=$1 where id=$2',
+        [subscriptionId, agentId],
+      );
+      await expect(
+        database.pool.query(
+          'insert into agents("workspaceId","createdBy",name,instructions,harness,model,"subscriptionId") values($1,$2,$3,$4,$5,$6,$7)',
+          [
+            otherWorkspaceId,
+            "schema-owner",
+            "Cross native",
+            "Work",
+            "fixture",
+            "fixture",
+            subscriptionId,
+          ],
+        ),
+      ).rejects.toMatchObject({
+        code: "23503",
+        constraint: "agents_subscriptionId_workspace_fk",
+      });
+      await expect(
+        database.pool.query("update subscriptions set status=$1 where id=$2", [
+          "active",
+          subscriptionId,
+        ]),
+      ).rejects.toMatchObject({
+        code: "23514",
+        constraint: "subscriptions_status",
+      });
+      const selection = async () =>
+        (
+          await database.pool.query(
+            'select a.id,a."createdBy",a."subscriptionId",s."skillId",d.body from agents a join agent_skills s on s."agentId"=a.id join documents d on d.id=s."skillId" where a.id=$1',
+            [agentId],
+          )
+        ).rows;
+      const savedSelection = await selection();
       const pending = await boss.send(
         RUN_QUEUE,
         { runId: crypto.randomUUID() },
@@ -68,6 +164,7 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
       await pushDatabase(url);
       await pushDatabase(url);
       expect(await definitions()).toEqual(before);
+      expect(await selection()).toEqual(savedSelection);
       expect(await boss.getJobById(RUN_QUEUE, pending ?? "missing")).toEqual(
         beforeJob,
       );
@@ -86,6 +183,71 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
           )
         ).rows,
       ).toEqual([{ history: null }]);
+      for (const table of [
+        "agents",
+        "documents",
+        "connections",
+        "subscriptions",
+      ] as const) {
+        const inputs = {
+          subscriptions: '"workspaceId",name,"createdBy"',
+          agents: '"workspaceId",name,instructions,harness,model,"createdBy"',
+          documents: '"workspaceId",title,body,"createdBy"',
+          connections: '"workspaceId",name,type,"accountRef","createdBy"',
+        };
+        const values = {
+          subscriptions: [workspaceId, "Native", "absent-human"],
+          agents: [
+            workspaceId,
+            "Bad",
+            "Work",
+            "fixture",
+            "fixture",
+            "absent-human",
+          ],
+          documents: [workspaceId, "Bad", "Body", "absent-human"],
+          connections: [workspaceId, "Bad", "mcp", "fixture", "absent-human"],
+        };
+        await expect(
+          database.pool.query(
+            `insert into ${table}(${inputs[table]}) values(${values[table].map((_, i) => `$${i + 1}`).join(",")})`,
+            values[table],
+          ),
+        ).rejects.toMatchObject({
+          code: "23503",
+          constraint: `${table}_createdBy_fk`,
+        });
+      }
+      const messageSql =
+        'insert into messages("workspaceId","conversationId","authorUserId",body,"requestId",cursor) values($1,$2,$3,$4,$5,$6)';
+      for (const [messageWorkspace, destination] of [
+        [workspaceId, crypto.randomUUID()],
+        [otherWorkspaceId, conversationId],
+      ]) {
+        await expect(
+          database.pool.query(messageSql, [
+            messageWorkspace,
+            destination,
+            "schema-owner",
+            "invalid",
+            crypto.randomUUID(),
+            1,
+          ]),
+        ).rejects.toMatchObject({
+          code: "23503",
+          constraint: "messages_conversationId_workspace_fk",
+        });
+      }
+      await database.pool.query(
+        'insert into conversation_reads("conversationId","userId",cursor) values($1,$2,1)',
+        [conversationId, "schema-owner"],
+      );
+      await expect(
+        database.pool.query(
+          'insert into conversation_reads("conversationId","userId",cursor) values($1,$2,0)',
+          [conversationId, "schema-owner"],
+        ),
+      ).rejects.toMatchObject({ code: "23505" });
       const task =
         'insert into tasks("workspaceId","projectId",title,"ownerId",status) values($1,$2,$3,$4,$5)';
       await expect(
@@ -144,14 +306,14 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
       ).rejects.toMatchObject({ code: "23514", constraint: "messages_size" });
       await expect(
         database.pool.query(
-          'insert into artifacts("workspaceId","ownerId","requestId",title,type,access,"objectKey",sha256,"byteLength","mediaType") values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+          'insert into artifacts("workspaceId","ownerId","requestId",title,type,visibility,"objectKey",sha256,"byteLength","mediaType",request) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,jsonb_build_object())',
           [
             workspaceId,
             "schema-owner",
             crypto.randomUUID(),
             "Large",
             "file",
-            "inherited",
+            "workspace",
             crypto.randomUUID(),
             "a".repeat(64),
             8388609,

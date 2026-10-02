@@ -18,7 +18,7 @@ export interface SessionBinding {
   scope: string;
   harness: string;
   harnessVersion: string;
-  connectionId: string | null;
+  subscriptionId: string | null;
 }
 /** Private harness bindings have no browser read endpoint and are not shared conversation history. */
 export async function createSession(c: Context, binding: SessionBinding) {
@@ -36,16 +36,7 @@ export async function requireSession(
   id: string,
   binding: SessionBinding,
 ) {
-  const session = required(
-    (
-      await c.tx
-        .select()
-        .from(sessions)
-        .where(
-          and(eq(sessions.id, id), eq(sessions.workspaceId, c.workspaceId)),
-        )
-    )[0],
-  );
+  const session = await getSessionContext(c, id);
   if (
     session.conversationId !== binding.conversationId ||
     session.agentId !== binding.agentId ||
@@ -54,7 +45,7 @@ export async function requireSession(
     session.scope !== binding.scope ||
     session.harness !== binding.harness ||
     session.harnessVersion !== binding.harnessVersion ||
-    session.connectionId !== binding.connectionId
+    session.subscriptionId !== binding.subscriptionId
   )
     throw new DomainError("conflict", "Fresh Session required");
   return session;
@@ -84,7 +75,7 @@ export async function bindSessionContext(
   await c.tx.update(sessions).set({ contextRef }).where(eq(sessions.id, id));
 }
 
-/** Caller must authorize the Conversation; native context/provider references remain private. */
+/** Authorizes the Conversation and exposes metadata only; native context/provider references remain private. */
 export async function getSessions(
   c: Context,
   conversationId: string,

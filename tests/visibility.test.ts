@@ -7,6 +7,7 @@ import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { readRunSkillFile } from "../apps/server/src/skill-files";
 import { createRunTools } from "../apps/server/src/tools";
+import { updateAgent } from "../packages/agents/src";
 import { agents } from "../packages/agents/src/schema";
 import type { ArtifactStorage } from "../packages/artifacts/src";
 import { connections } from "../packages/connections/src/schema";
@@ -22,7 +23,7 @@ import {
   getCursor,
   inWorkspace,
 } from "../packages/workspaces/src";
-import { members } from "../packages/workspaces/src/schema";
+import { members, workspaces } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
 import { harnesses } from "./fixtures/harnesses";
 import { startPostgres } from "./postgres";
@@ -57,7 +58,7 @@ describe("user/workspace resource visibility", () => {
   let outsider: typeof owner;
   const record = z.object({
     id: z.uuid(),
-    ownerId: z.string(),
+    createdBy: z.string(),
     visibility: z.enum(["user", "workspace"]),
     editToken: z.number(),
   });
@@ -96,13 +97,13 @@ describe("user/workspace resource visibility", () => {
           "/agents",
           "POST",
           {
-            name: "Agent",
+            title: "Agent",
             instructions: "Work",
             harness: "fixture",
             model: "fixture",
             visibility,
             skillIds,
-            connectionId: accountId,
+            subscriptionId: accountId,
           },
           human,
         ),
@@ -138,8 +139,8 @@ describe("user/workspace resource visibility", () => {
           "/connections",
           "POST",
           {
-            name: "Account metadata",
-            type: "model",
+            title: "Account metadata",
+            type: "mcp",
             accountRef: "fixture-account",
             visibility,
           },
@@ -147,6 +148,27 @@ describe("user/workspace resource visibility", () => {
         ),
       ),
     );
+  }
+  async function subscription(
+    visibility: "user" | "workspace" = "user",
+    human = owner,
+  ) {
+    return z
+      .object({
+        id: z.uuid(),
+        createdBy: z.string(),
+        visibility: z.enum(["user", "workspace"]),
+      })
+      .parse(
+        await value(
+          await request(
+            "/subscriptions",
+            "POST",
+            { title: "Native account", visibility },
+            human,
+          ),
+        ),
+      );
   }
   beforeAll(async () => {
     database = await startPostgres();
@@ -192,7 +214,7 @@ describe("user/workspace resource visibility", () => {
     await database.db
       .insert(members)
       .values({ workspaceId, userId: other.id, role: "contributor" });
-    accountId = (await connection("workspace")).id;
+    accountId = (await subscription("workspace")).id;
     computer = new ControlledComputer(accountId);
     runtime = createRunRuntime(database.db, {
       backend: computer,
@@ -215,6 +237,609 @@ describe("user/workspace resource visibility", () => {
       harnesses,
     });
   });
+  it("derives createdBy for reusable resources and rejects forged creator fields", async () => {
+    expect(process.versions.bun).toBeDefined();
+    for (const [path, payload] of [
+      [
+        "/agents",
+        {
+          title: "Creator",
+          instructions: "Work",
+          harness: "fixture",
+          model: "fixture",
+        },
+      ],
+      [
+        "/documents",
+        { title: "Creator", body: "Body", visibility: "workspace" },
+      ],
+      [
+        "/connections",
+        { title: "Creator", type: "mcp", accountRef: "fixture" },
+      ],
+    ] as const) {
+      for (const forged of [
+        { createdBy: other.id },
+        { createdById: other.id },
+      ]) {
+        expect(
+          (await request(path, "POST", { ...payload, ...forged })).status,
+        ).toBe(400);
+      }
+      const response = await value(await request(path, "POST", payload));
+      const created = path === "/agents" ? response.agent : response;
+      expect(created).toMatchObject({ createdBy: owner.id });
+      expect(created).not.toHaveProperty("ownerId");
+      const id = z.object({ id: z.uuid() }).parse(created).id;
+      expect(
+        (
+          await request(`${path}/${id}`, "PATCH", {
+            createdBy: other.id,
+            editToken: 0,
+          })
+        ).status,
+      ).toBe(400);
+    }
+  });
+
+  it("stores shared skill selections once in workspace-safe relations and replaces them atomically", async () => {
+    const first = await skill("workspace");
+    const second = await skill("workspace");
+    const selected = [first.id, second.id].sort();
+    const a = await agent("workspace", owner, [...selected].reverse());
+    const b = await agent("workspace", owner, [first.id]);
+    const read = async () =>
+      z
+        .object({ skillIds: z.array(z.uuid()), editToken: z.number() })
+        .parse(await value(await request(`/agents/${a.id}`)));
+    expect((await read()).skillIds).toEqual(selected);
+    const stored = await database.pool.query(
+      'select "agentId", "skillId" from agent_skills where "agentId" = any($1::uuid[]) order by "agentId", "skillId"',
+      [[a.id, b.id]],
+    );
+    expect(stored.rowCount).toBe(3);
+    const columns = await database.pool.query(
+      "select column_name from information_schema.columns where table_name='agents' and column_name='skillIds'",
+    );
+    expect(columns.rowCount).toBe(0);
+    expect(
+      (
+        await request(
+          `/agents/${a.id}`,
+          "PATCH",
+          { skillIds: [first.id], editToken: 0 },
+          other,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(`/agents/${a.id}`, "PATCH", {
+          skillIds: [first.id, first.id],
+          editToken: 0,
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(`/agents/${a.id}`, "PATCH", {
+          skillIds: Array.from({ length: 51 }, () => crypto.randomUUID()),
+          editToken: 0,
+        })
+      ).status,
+    ).toBe(400);
+    const before = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId: owner.id },
+      getCursor,
+    );
+    const changed = await request(`/agents/${a.id}`, "PATCH", {
+      skillIds: [second.id],
+      editToken: 0,
+    });
+    expect(changed.status).toBe(200);
+    expect(await read()).toEqual({ skillIds: [second.id], editToken: 1 });
+    expect(
+      (
+        await request(`/agents/${a.id}`, "PATCH", {
+          skillIds: [],
+          editToken: 0,
+        })
+      ).status,
+    ).toBe(409);
+    expect(await read()).toEqual({ skillIds: [second.id], editToken: 1 });
+    expect(
+      await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: owner.id },
+        getCursor,
+      ),
+    ).toBe(before + 1);
+    expect((await value(await request(`/agents/${b.id}`))).skillIds).toEqual([
+      first.id,
+    ]);
+    expect(
+      (
+        await request(`/agents/${a.id}`, "PATCH", {
+          skillIds: [],
+          editToken: 1,
+        })
+      ).status,
+    ).toBe(200);
+    expect(await read()).toEqual({ skillIds: [], editToken: 2 });
+  });
+
+  it("rejects invalid skill relations and rolls back replacement including the Agent edit fence", async () => {
+    const valid = await skill("workspace");
+    const privateSkill = await skill("user", other);
+    const a = await agent("workspace", owner, [valid.id]);
+    const foreignWorkspace = crypto.randomUUID();
+    await database.db
+      .insert(workspaces)
+      .values({ id: foreignWorkspace, title: "Foreign relation" });
+    const foreignSkill = crypto.randomUUID();
+    await database.db.insert(documents).values({
+      id: foreignSkill,
+      workspaceId: foreignWorkspace,
+      createdBy: owner.id,
+      title: "Foreign",
+      body: "No cross-workspace",
+      skill: true,
+      visibility: "workspace",
+    });
+    const ordinary = z.object({ id: z.uuid() }).parse(
+      await value(
+        await request("/documents", "POST", {
+          title: "Ordinary",
+          body: "No implicit skill",
+          visibility: "workspace",
+        }),
+      ),
+    );
+    const cursor = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId: owner.id },
+      getCursor,
+    );
+    for (const [skillId, status] of [
+      [privateSkill.id, 403],
+      [foreignSkill, 404],
+      [ordinary.id, 400],
+      [crypto.randomUUID(), 404],
+    ] as const) {
+      expect(
+        (
+          await request(`/agents/${a.id}`, "PATCH", {
+            skillIds: [skillId],
+            editToken: 0,
+          })
+        ).status,
+      ).toBe(status);
+    }
+    const insert =
+      'insert into agent_skills("workspaceId","agentId","skillId") values($1,$2,$3)';
+    await expect(
+      database.pool.query(insert, [workspaceId, a.id, valid.id]),
+    ).rejects.toMatchObject({ code: "23505" });
+    await expect(
+      database.pool.query(insert, [workspaceId, a.id, foreignSkill]),
+    ).rejects.toMatchObject({
+      code: "23503",
+      constraint: "agent_skills_document_workspace_fk",
+    });
+    await expect(
+      database.pool.query(insert, [foreignWorkspace, a.id, foreignSkill]),
+    ).rejects.toMatchObject({
+      code: "23503",
+      constraint: "agent_skills_agent_workspace_fk",
+    });
+    // The real mutation updates Agent then replaces the relation; FK failure must roll both back.
+    await expect(
+      inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
+        updateAgent(c, a.id, {
+          title: "Must roll back",
+          skillIds: [foreignSkill],
+          editToken: 0,
+        }),
+      ),
+    ).rejects.toMatchObject({ cause: { code: "23503" } });
+    const current = z
+      .object({
+        skillIds: z.array(z.uuid()),
+        editToken: z.number(),
+        title: z.string(),
+      })
+      .parse(await value(await request(`/agents/${a.id}`)));
+    expect(current).toEqual({
+      skillIds: [valid.id],
+      editToken: 0,
+      title: "Agent",
+    });
+    expect(
+      await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: owner.id },
+        getCursor,
+      ),
+    ).toBe(cursor);
+    const results = await Promise.all([
+      request(`/agents/${a.id}`, "PATCH", { skillIds: [], editToken: 0 }),
+      request(`/agents/${a.id}`, "PATCH", {
+        skillIds: [valid.id],
+        editToken: 0,
+      }),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    const winner = results.find((r) => r.status === 200);
+    if (!winner) throw new Error("Missing winning edit");
+    const expected = z
+      .object({ skillIds: z.array(z.uuid()), editToken: z.number() })
+      .parse(await winner.json());
+    expect(expected.editToken).toBe(1);
+    expect(
+      z
+        .object({ skillIds: z.array(z.uuid()), editToken: z.number() })
+        .parse(await value(await request(`/agents/${a.id}`))),
+    ).toEqual(expected);
+  });
+
+  it("hydrates all 50 selected skills in singular and paginated Agent projections without a second stored array", async () => {
+    const skills = Array.from({ length: 50 }, () => crypto.randomUUID());
+    await database.db.insert(documents).values(
+      skills.map((id) => ({
+        id,
+        workspaceId,
+        createdBy: owner.id,
+        title: "Bounded",
+        body: "Skill",
+        skill: true,
+        visibility: "workspace" as const,
+      })),
+    );
+    const a = await agent("workspace", owner, skills);
+    const projection = z.object({ id: z.uuid(), skillIds: z.array(z.uuid()) });
+    expect(
+      projection.parse(await value(await request(`/agents/${a.id}`))).skillIds,
+    ).toEqual([...skills].sort());
+    const list = z
+      .object({ items: z.array(projection), next: z.string().nullable() })
+      .parse(await value(await request("/agents?limit=100")));
+    expect(list.items.find((row) => row.id === a.id)?.skillIds).toEqual(
+      [...skills].sort(),
+    );
+    expect(
+      (
+        await request(`/agents/${a.id}`, "PATCH", {
+          skillIds: [...skills, crypto.randomUUID()],
+          editToken: 0,
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      projection.parse(await value(await request(`/agents/${a.id}`))).skillIds,
+    ).toEqual([...skills].sort());
+  });
+
+  it("canonicalizes UUID skill selections and rejects equivalent duplicates without mutation", async () => {
+    const selected = await skill("workspace");
+    const a = await agent("workspace");
+    const cursor = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId: owner.id },
+      getCursor,
+    );
+    expect(
+      (
+        await request(`/agents/${a.id}`, "PATCH", {
+          skillIds: [selected.id, selected.id.toUpperCase()],
+          editToken: 0,
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: owner.id },
+        getCursor,
+      ),
+    ).toBe(cursor);
+    const changed = z
+      .object({ skillIds: z.array(z.uuid()), editToken: z.number() })
+      .parse(
+        await value(
+          await request(`/agents/${a.id}`, "PATCH", {
+            skillIds: [selected.id.toUpperCase()],
+            editToken: 0,
+          }),
+        ),
+      );
+    expect(changed).toEqual({ skillIds: [selected.id], editToken: 1 });
+    expect(
+      z
+        .object({ skillIds: z.array(z.uuid()), editToken: z.number() })
+        .parse(await value(await request(`/agents/${a.id}`))),
+    ).toEqual(changed);
+  });
+
+  it("uses one Document audience and creator edits without collaborator ACLs", async () => {
+    const doc = z
+      .object({
+        id: z.uuid(),
+        visibility: z.literal("user"),
+        createdBy: z.string(),
+        editToken: z.number(),
+      })
+      .parse(
+        await value(
+          await request("/documents", "POST", {
+            title: "Personal",
+            body: "Source",
+          }),
+        ),
+      );
+    expect(doc.createdBy).toBe(owner.id);
+    expect(
+      (await request(`/documents/${doc.id}`, "GET", undefined, other)).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(`/documents/${doc.id}`, "PATCH", {
+          visibility: "workspace",
+          editToken: 0,
+        })
+      ).status,
+    ).toBe(200);
+    const shared = await value(
+      await request(`/documents/${doc.id}`, "GET", undefined, other),
+    );
+    for (const field of ["access", "readerIds", "writerIds"])
+      expect(shared).not.toHaveProperty(field);
+    expect(
+      (
+        await request(
+          `/documents/${doc.id}`,
+          "PATCH",
+          { body: "Denied", editToken: 1 },
+          other,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(`/documents/${doc.id}`, "PATCH", {
+          body: "Stale",
+          editToken: 0,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(`/documents/${doc.id}`, "PATCH", {
+          visibility: "user",
+          editToken: 1,
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await request(`/documents/${doc.id}`, "GET", undefined, other)).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(`/documents/${doc.id}/access`, "PUT", {
+          readerIds: [other.id],
+          writerIds: [],
+          editToken: 2,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await request("/documents", "POST", {
+          title: "Old ACL",
+          body: "No",
+          visibility: "participants",
+          readerIds: [other.id],
+        })
+      ).status,
+    ).toBe(400);
+  });
+
+  it("qualifies Subscriptions only from exact trusted computer proof and fences revocation during that probe", async () => {
+    const account = await subscription("workspace");
+    const view = z.object({
+      id: z.uuid(),
+      status: z.enum(["needs_auth", "enabled", "disabled"]),
+      createdBy: z.string(),
+    });
+    const read = async () =>
+      view.parse(await value(await request(`/subscriptions/${account.id}`)));
+    expect(await read()).toMatchObject({
+      status: "needs_auth",
+      createdBy: owner.id,
+    });
+    for (const forbidden of [
+      { status: "enabled" },
+      { createdBy: other.id },
+      { accountRef: "switched" },
+    ])
+      expect(
+        (
+          await request(`/subscriptions/${account.id}`, "PATCH", {
+            ...forbidden,
+          })
+        ).status,
+      ).toBe(400);
+    expect(
+      (
+        await request("/connections", "POST", {
+          title: "Native is not an app",
+          type: "model",
+          accountRef: "fixture",
+        })
+      ).status,
+    ).toBe(400);
+    const a = z.object({ agent: z.object({ id: z.uuid() }) }).parse(
+      await value(
+        await request("/agents", "POST", {
+          title: "Native qualification",
+          instructions: "Work",
+          harness: "fixture",
+          model: "fixture",
+          subscriptionId: account.id,
+        }),
+      ),
+    ).agent;
+    expect(
+      (await request(`/agents/${a.id}/computer`, "POST", { computerRef: a.id }))
+        .status,
+    ).toBe(403);
+    expect((await read()).status).toBe("needs_auth");
+    const original = computer.inspectComputer.bind(computer);
+    let release: () => void = () => {};
+    let entered = false;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    computer.inspectComputer = async () => {
+      entered = true;
+      await gate;
+      return {
+        ...(await original()),
+        account: {
+          subscriptionId: account.id,
+          mode: "native_subscription" as const,
+        },
+      };
+    };
+    try {
+      const binding = request(`/agents/${a.id}/computer`, "POST", {
+        computerRef: a.id,
+      });
+      await expect.poll(() => entered).toBe(true);
+      expect(
+        (
+          await request(`/subscriptions/${account.id}`, "PATCH", {
+            status: "disabled",
+          })
+        ).status,
+      ).toBe(200);
+      release();
+      expect((await binding).status).toBe(403);
+      expect(await read()).toMatchObject({ status: "disabled" });
+      expect(
+        (
+          await request(`/subscriptions/${account.id}`, "PATCH", {
+            status: "needs_auth",
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await request(`/subscriptions/${account.id}`, "PATCH", {
+            status: "needs_auth",
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await request(`/agents/${a.id}/computer`, "POST", {
+            computerRef: a.id,
+          })
+        ).status,
+      ).toBe(200);
+      expect(await read()).toMatchObject({ status: "enabled" });
+      const foreignAgent = z
+        .object({ agent: z.object({ id: z.uuid() }) })
+        .parse(
+          await value(
+            await request(
+              "/agents",
+              "POST",
+              {
+                title: "Foreign account binding",
+                instructions: "Work",
+                harness: "fixture",
+                model: "fixture",
+                subscriptionId: account.id,
+              },
+              other,
+            ),
+          ),
+        ).agent;
+      expect(
+        (
+          await request(
+            `/agents/${foreignAgent.id}/computer`,
+            "POST",
+            {
+              computerRef: foreignAgent.id,
+            },
+            other,
+          )
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await request(`/subscriptions/${account.id}`, "PATCH", {
+            title: "Display rename",
+          })
+        ).status,
+      ).toBe(200);
+    } finally {
+      release();
+      computer.inspectComputer = original;
+    }
+  });
+
+  it("keeps Subscription metadata creator-controlled and rechecks current creator membership", async () => {
+    const account = await subscription("workspace", other);
+    expect((await request(`/subscriptions/${account.id}`, "GET")).status).toBe(
+      200,
+    );
+    expect(
+      (
+        await request(`/subscriptions/${account.id}`, "PATCH", {
+          status: "disabled",
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(
+          `/subscriptions/${account.id}`,
+          "GET",
+          undefined,
+          outsider,
+        )
+      ).status,
+    ).toBe(403);
+    const body = await value(await request(`/subscriptions/${account.id}`));
+    for (const field of [
+      "accountRef",
+      "credentialRef",
+      "mode",
+      "connected",
+      "editToken",
+    ])
+      expect(body).not.toHaveProperty(field);
+    await database.db.delete(members).where(eq(members.userId, other.id));
+    try {
+      expect(
+        (await request(`/subscriptions/${account.id}`, "GET")).status,
+      ).toBe(403);
+    } finally {
+      await database.db
+        .insert(members)
+        .values({ workspaceId, userId: other.id, role: "contributor" });
+    }
+  });
+
   afterAll(async () => {
     afterRead = undefined;
     await worker?.stop({ graceful: false });
@@ -230,7 +855,7 @@ describe("user/workspace resource visibility", () => {
       [
         "/agents",
         {
-          name: "Agent",
+          title: "Agent",
           instructions: "Work",
           harness: "fixture",
           model: "fixture",
@@ -239,11 +864,11 @@ describe("user/workspace resource visibility", () => {
       ["/documents", { title: "Skill", body: "Secret", skill: true }],
       [
         "/connections",
-        { name: "Account", type: "model", accountRef: "fixture" },
+        { title: "Account", type: "mcp", accountRef: "fixture" },
       ],
     ] as const) {
       for (const extra of [
-        { ownerId: owner.id },
+        { createdBy: owner.id },
         { visibility: "shared" },
         { visibility: "personal" },
         { agentId: crypto.randomUUID() },
@@ -257,7 +882,10 @@ describe("user/workspace resource visibility", () => {
           ? z.object({ agent: record }).parse(response).agent
           : response,
       );
-      expect(created).toMatchObject({ ownerId: other.id, visibility: "user" });
+      expect(created).toMatchObject({
+        createdBy: other.id,
+        visibility: "user",
+      });
       expect(
         (await request(`${path}/${created.id}`, "GET", undefined, owner))
           .status,
@@ -273,8 +901,8 @@ describe("user/workspace resource visibility", () => {
           title: "Contradiction",
           body: "x",
           skill: true,
-          access: "inherited",
           visibility: "workspace",
+          access: "inherited",
         })
       ).status,
     ).toBe(400);
@@ -283,8 +911,8 @@ describe("user/workspace resource visibility", () => {
         await request("/documents", "POST", {
           title: "Ordinary",
           body: "x",
-          access: "inherited",
           visibility: "workspace",
+          access: "inherited",
         })
       ).status,
     ).toBe(400);
@@ -312,7 +940,7 @@ describe("user/workspace resource visibility", () => {
       expect(
         (
           await request(`${path}/${created.id}`, "PATCH", {
-            ownerId: other.id,
+            createdBy: other.id,
             editToken: 0,
           })
         ).status,
@@ -502,14 +1130,14 @@ describe("user/workspace resource visibility", () => {
           editToken: 0,
         })
       ).status,
-    ).toBe(400);
+    ).toBe(404);
     expect(
       (
         await request(
           "/agents",
           "POST",
           {
-            name: "Steal",
+            title: "Steal",
             instructions: "Work",
             harness: "fixture",
             model: "fixture",
@@ -527,7 +1155,7 @@ describe("user/workspace resource visibility", () => {
           await request(
             "/conversations",
             "POST",
-            { title: "Shared", access: "restricted" },
+            { title: "Shared", visibility: "participants" },
             other,
           ),
         ),
@@ -598,7 +1226,7 @@ describe("user/workspace resource visibility", () => {
             requestId: crypto.randomUUID(),
             title: "Skill bytes",
             type: "text",
-            access: "inherited",
+            visibility: "workspace",
             mediaType: "text/plain",
             bytes: Buffer.from("immutable instructions").toString("base64"),
           }),
@@ -624,7 +1252,7 @@ describe("user/workspace resource visibility", () => {
           await request(
             "/conversations",
             "POST",
-            { title: "Live visibility", access: "restricted" },
+            { title: "Live visibility", visibility: "participants" },
             other,
           ),
         ),
@@ -641,7 +1269,7 @@ describe("user/workspace resource visibility", () => {
   }
   const state = async (id: string) =>
     (await database.db.select().from(runs).where(eq(runs.id, id)))[0]?.state;
-  it.each(["agent", "skill", "connection", "membership"] as const)(
+  it.each(["agent", "skill", "subscription", "membership"] as const)(
     "revokes live %s authority through HTTP and the real queue/runtime",
     async (resource) => {
       const source = await runningSource();
@@ -675,9 +1303,6 @@ describe("user/workspace resource visibility", () => {
             ).length,
         )
         .toBe(1);
-      const current = record.parse(
-        await value(await request(`/connections/${accountId}`)),
-      );
       try {
         if (resource === "membership")
           await database.db.delete(members).where(eq(members.userId, other.id));
@@ -687,11 +1312,11 @@ describe("user/workspace resource visibility", () => {
               ? `/agents/${source.configured.id}`
               : resource === "skill"
                 ? `/documents/${source.selected.id}`
-                : `/connections/${accountId}`;
+                : `/subscriptions/${accountId}`;
           await value(
             await request(path, "PATCH", {
               visibility: "user",
-              editToken: resource === "connection" ? current.editToken : 0,
+              ...(resource === "subscription" ? {} : { editToken: 0 }),
             }),
           );
         }
@@ -727,11 +1352,10 @@ describe("user/workspace resource visibility", () => {
           await database.db
             .insert(members)
             .values({ workspaceId, userId: other.id, role: "contributor" });
-        if (resource === "connection")
+        if (resource === "subscription")
           await value(
-            await request(`/connections/${accountId}`, "PATCH", {
+            await request(`/subscriptions/${accountId}`, "PATCH", {
               visibility: "workspace",
-              editToken: current.editToken + 1,
             }),
           );
       }
@@ -792,7 +1416,7 @@ describe("user/workspace resource visibility", () => {
       await value(
         await request("/conversations", "POST", {
           title: "Manual",
-          access: "restricted",
+          visibility: "participants",
         }),
       ),
     );
@@ -803,7 +1427,7 @@ describe("user/workspace resource visibility", () => {
       }),
     );
     const input = {
-      name: "Manual",
+      title: "Manual",
       agentId: configured.id,
       conversationId: conversation.id,
       type: "script",
@@ -868,12 +1492,12 @@ describe("user/workspace resource visibility", () => {
       ).status,
     ).toBe(400);
   });
-  it("caps inherited Conversation writers by an explicit viewer row", async () => {
+  it("caps workspace Conversation writers by an explicit viewer row", async () => {
     const conversation = z.object({ id: z.uuid() }).parse(
       await value(
         await request("/conversations", "POST", {
           title: "Inherited viewer",
-          access: "inherited",
+          visibility: "workspace",
         }),
       ),
     );
@@ -958,7 +1582,7 @@ describe("user/workspace resource visibility", () => {
     const project = z
       .object({ id: z.uuid() })
       .parse(
-        await value(await request("/projects", "POST", { name: "Reopen" })),
+        await value(await request("/projects", "POST", { title: "Reopen" })),
       );
     await value(
       await request(`/projects/${project.id}/members`, "POST", {
@@ -1017,7 +1641,7 @@ describe("user/workspace resource visibility", () => {
       .object({ id: z.uuid() })
       .parse(
         await value(
-          await request("/projects", "POST", { name: "Archive authority" }),
+          await request("/projects", "POST", { title: "Archive authority" }),
         ),
       );
     await value(
@@ -1073,12 +1697,12 @@ describe("user/workspace resource visibility", () => {
         .where(eq(members.userId, other.id));
     }
   });
-  it("intersects selected restricted Document recipients with current Project membership", async () => {
+  it("intersects selected workspace Document recipients with current Project membership", async () => {
     const project = z
       .object({ id: z.uuid() })
       .parse(
         await value(
-          await request("/projects", "POST", { name: "Selected scope" }),
+          await request("/projects", "POST", { title: "Selected scope" }),
         ),
       );
     const doc = z.object({ id: z.uuid() }).parse(
@@ -1087,8 +1711,7 @@ describe("user/workspace resource visibility", () => {
           title: "Project secret",
           body: "Scoped bytes",
           projectId: project.id,
-          access: "restricted",
-          readerIds: [other.id],
+          visibility: "workspace",
         }),
       ),
     );
@@ -1097,7 +1720,7 @@ describe("user/workspace resource visibility", () => {
       await value(
         await request("/conversations", "POST", {
           title: "Wider output",
-          access: "inherited",
+          visibility: "workspace",
         }),
       ),
     );
@@ -1166,12 +1789,12 @@ describe("user/workspace resource visibility", () => {
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
   });
-  it("intersects restricted Artifact attachment recipients with current Project membership", async () => {
+  it("intersects workspace Artifact attachment recipients with current Project membership", async () => {
     const project = z
       .object({ id: z.uuid() })
       .parse(
         await value(
-          await request("/projects", "POST", { name: "Attachment scope" }),
+          await request("/projects", "POST", { title: "Attachment scope" }),
         ),
       );
     const artifact = z.object({ id: z.uuid() }).parse(
@@ -1180,7 +1803,7 @@ describe("user/workspace resource visibility", () => {
           requestId: crypto.randomUUID(),
           title: "Scoped",
           type: "text",
-          access: "restricted",
+          visibility: "user",
           projectId: project.id,
           mediaType: "text/plain",
           bytes: Buffer.from("private").toString("base64"),
@@ -1188,10 +1811,8 @@ describe("user/workspace resource visibility", () => {
       ),
     );
     await value(
-      await request(`/artifacts/${artifact.id}/access`, "PUT", {
-        readerIds: [other.id],
-        writerIds: [],
-        editToken: 0,
+      await request(`/artifacts/${artifact.id}`, "PATCH", {
+        visibility: "workspace",
       }),
     );
     const doc = z.object({ id: z.uuid() }).parse(
@@ -1199,7 +1820,7 @@ describe("user/workspace resource visibility", () => {
         await request("/documents", "POST", {
           title: "Workspace",
           body: "Reference",
-          access: "inherited",
+          visibility: "workspace",
         }),
       ),
     );
@@ -1234,7 +1855,7 @@ describe("user/workspace resource visibility", () => {
           requestId: crypto.randomUUID(),
           title: "User bytes",
           type: "text",
-          access: "restricted",
+          visibility: "user",
           mediaType: "text/plain",
           bytes: Buffer.from("owner-only supporting material").toString(
             "base64",
@@ -1271,10 +1892,8 @@ describe("user/workspace resource visibility", () => {
         .visibility,
     ).toBe("user");
     await value(
-      await request(`/artifacts/${file.id}/access`, "PUT", {
-        readerIds: [other.id],
-        writerIds: [],
-        editToken: 0,
+      await request(`/artifacts/${file.id}`, "PATCH", {
+        visibility: "workspace",
       }),
     );
     expect(
@@ -1294,7 +1913,7 @@ describe("user/workspace resource visibility", () => {
       await value(
         await request("/conversations", "POST", {
           title: "Shared file output",
-          access: "inherited",
+          visibility: "workspace",
         }),
       ),
     );
@@ -1333,10 +1952,8 @@ describe("user/workspace resource visibility", () => {
       afterRead = async () => {
         afterRead = undefined;
         await value(
-          await request(`/artifacts/${file.id}/access`, "PUT", {
-            readerIds: [],
-            writerIds: [],
-            editToken: 1,
+          await request(`/artifacts/${file.id}`, "PATCH", {
+            visibility: "user",
           }),
         );
       };
@@ -1363,7 +1980,7 @@ describe("user/workspace resource visibility", () => {
           await value(
             await request("/conversations", "POST", {
               title: "Private source output",
-              access: "restricted",
+              visibility: "participants",
             }),
           ),
         );
@@ -1396,7 +2013,7 @@ describe("user/workspace resource visibility", () => {
               requestId: crypto.randomUUID(),
               title: "Accepted output",
               type: "text",
-              access: "restricted",
+              visibility: "user",
               sourceRunId: runId,
               mediaType: "text/plain",
               bytes: Buffer.from("accepted output").toString("base64"),
@@ -1404,10 +2021,8 @@ describe("user/workspace resource visibility", () => {
           ),
         );
         await value(
-          await request(`/artifacts/${artifact.id}/access`, "PUT", {
-            readerIds: [other.id],
-            writerIds: [],
-            editToken: 0,
+          await request(`/artifacts/${artifact.id}`, "PATCH", {
+            visibility: "workspace",
           }),
         );
         expect(
@@ -1418,7 +2033,7 @@ describe("user/workspace resource visibility", () => {
           await value(
             await request("/conversations", "POST", {
               title: "Target output",
-              access: "restricted",
+              visibility: "participants",
             }),
           ),
         );
@@ -1434,8 +2049,7 @@ describe("user/workspace resource visibility", () => {
             await request("/documents", "POST", {
               title: "Target document",
               body: "Reference",
-              access: "restricted",
-              readerIds: [other.id],
+              visibility: "workspace",
             }),
           ),
         );
@@ -1475,10 +2089,8 @@ describe("user/workspace resource visibility", () => {
                   artifactIds: [artifact.id],
                   editToken: 0,
                 })
-              : request(`/artifacts/${artifact.id}/access`, "PUT", {
-                  readerIds: [other.id],
-                  writerIds: [],
-                  editToken: 1,
+              : request(`/artifacts/${artifact.id}`, "PATCH", {
+                  visibility: "workspace",
                 });
         const cursor = () =>
           inWorkspace(
@@ -1498,11 +2110,8 @@ describe("user/workspace resource visibility", () => {
             .editToken,
         ).toBe(0);
         expect(
-          z
-            .object({ editToken: z.number() })
-            .parse(await value(await request(`/artifacts/${artifact.id}`)))
-            .editToken,
-        ).toBe(1);
+          await value(await request(`/artifacts/${artifact.id}`)),
+        ).not.toHaveProperty("editToken");
         // An original recipient may regain current access, but a later invite never widens the saved cap.
         await value(
           await request(`/conversations/${source.id}/participants`, "POST", {
@@ -1521,16 +2130,11 @@ describe("user/workspace resource visibility", () => {
               role: "contributor",
             }),
           );
-          const current = z
-            .object({ editToken: z.number() })
-            .parse(await value(await request(`/artifacts/${artifact.id}`)));
           const beforeLate = await cursor();
           expect(
             (
-              await request(`/artifacts/${artifact.id}/access`, "PUT", {
-                readerIds: [other.id, outsider.id],
-                writerIds: [],
-                editToken: current.editToken,
+              await request(`/artifacts/${artifact.id}`, "PATCH", {
+                visibility: "workspace",
               })
             ).status,
           ).toBe(403);

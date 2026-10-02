@@ -28,15 +28,14 @@ export const connections = pgTable(
   {
     id: uuid().primaryKey().defaultRandom(),
     workspaceId: uuid().notNull(),
-    ownerId: text().notNull(),
+    createdBy: text().notNull(),
     visibility: text({ enum: ["user", "workspace"] })
       .notNull()
       .default("user"),
-    name: text().notNull(),
-    type: text({ enum: ["github", "mcp", "model"] }).notNull(),
+    title: text("name").notNull(),
+    type: text({ enum: ["github", "mcp"] }).notNull(),
     accountRef: text().notNull(),
     credentialRef: text(),
-    mode: text({ enum: ["service", "native_subscription"] }).notNull(),
     connected: boolean().notNull().default(false),
     editToken: integer().notNull().default(0),
     config: jsonb().$type<ConnectionConfig>(),
@@ -46,6 +45,7 @@ export const connections = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t): PgTableExtraConfigValue[] => [
+    check("connections_type", sql`${t.type} in ('github','mcp')`),
     check(
       "connections_visibility",
       sql`${t.visibility} in ('user','workspace')`,
@@ -56,8 +56,8 @@ export const connections = pgTable(
       foreignColumns: [workspacesSchema.workspaces.id],
     }),
     foreignKey({
-      name: "connections_ownerId_fk",
-      columns: [t.ownerId],
+      name: "connections_createdBy_fk",
+      columns: [t.createdBy],
       foreignColumns: [workspacesSchema.users.id],
     }),
     unique("connections_identity_workspace").on(t.id, t.workspaceId),
@@ -109,8 +109,6 @@ export const operations = pgTable(
     action: text().notNull(),
     target: text().notNull(),
     accountRef: text().notNull(),
-    editToken: integer(),
-    grantGeneration: integer(),
     attempt: integer(),
     launchKey: uuid(),
     audience: jsonb().$type<ConnectionAudience>(),
@@ -138,7 +136,6 @@ export const operations = pgTable(
     }).notNull(),
     approvedBy: text(),
     expiresAt: timestamp({ withTimezone: true }),
-    externalRef: text(),
   },
   (t): PgTableExtraConfigValue[] => [
     foreignKey({

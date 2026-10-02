@@ -21,10 +21,12 @@ import {
   DomainError,
   filterPage,
   getPage,
+  type PageOptions,
   parsePageOptions,
   required,
 } from "@otto/shared";
 
+import { getSubscription } from "@otto/subscriptions";
 import { getTask } from "@otto/tasks";
 import {
   advanceCursor,
@@ -108,14 +110,14 @@ export async function admitRun(
     input.conversationId,
     true,
   );
-  if (agent.connectionId) await getConnection(c, agent.connectionId);
+  if (agent.subscriptionId) await getSubscription(c, agent.subscriptionId);
   if (agent.archived) throw new DomainError("conflict", "Agent archived");
   if (agent.projectId && agent.projectId !== conversation.projectId)
     throw new DomainError("forbidden");
   const audience = await getConversationAudience(c, input.conversationId);
   if (
     agent.visibility === "user" &&
-    (audience.humans.some((id) => id !== agent.ownerId) ||
+    (audience.humans.some((id) => id !== agent.createdBy) ||
       audience.agents.some((id) => id !== agent.id))
   )
     throw new DomainError("forbidden", "User-scoped Agent audience");
@@ -182,7 +184,7 @@ export async function admitRun(
       scope,
       harness: agent.harness,
       harnessVersion: required(harnessVersion ?? undefined, "unavailable"),
-      connectionId: agent.connectionId,
+      subscriptionId: agent.subscriptionId,
     };
     session = input.sessionId
       ? await requireSession(c, input.sessionId, binding)
@@ -213,7 +215,7 @@ export async function admitRun(
             harness: agent.harness,
             harnessVersion: harnessVersion ?? null,
             model: agent.model,
-            connectionId: agent.connectionId,
+            subscriptionId: agent.subscriptionId,
             agentEditToken: agent.editToken,
             audience,
             skills,
@@ -325,24 +327,7 @@ export async function dispatchRun(
     if (!(error instanceof DomainError) || error.code !== "forbidden")
       throw error;
     // Removed sponsors cannot authorize a workspace transaction. A server-only fenced terminal write preserves the failure.
-    await db.transaction(async (tx) => {
-      await tx.execute(
-        sql`select id from workspaces where id=${descriptor.workspaceId} for update`,
-      );
-      const cursor = await tx.execute<{ cursor: number }>(
-        sql`update workspaces set cursor=cursor+1 where id=${descriptor.workspaceId} returning cursor`,
-      );
-      await tx
-        .update(runs)
-        .set({
-          cursor: required(cursor.rows[0]).cursor,
-          state: "failed",
-          outcome: "authorization_revoked",
-          updatedAt: new Date(),
-        })
-        .where(and(eq(runs.id, runId), eq(runs.state, "queued")));
-    });
-    return { id: runId, state: "failed", outcome: "authorization_revoked" };
+    return failQueuedRun(db, runId, "authorization_revoked");
   }
 }
 export async function stopRun(c: Context, id: string) {
@@ -377,59 +362,23 @@ export async function stopRun(c: Context, id: string) {
     "Cannot confirm process termination without the selected provider",
   );
 }
-/** Fences stale progress. Unknown write outcomes stay uncertain and cannot be redelivered as a fresh attempt. */
-export async function recordRunOutcome(
-  c: Context,
-  input: {
-    id: string;
-    attempt: number;
-    launchKey: string;
-    state: "finished" | "failed" | "uncertain";
-    outcome: string;
-  },
-) {
-  const cursor = await advanceCursor(c);
-  const updated = (
-    await c.tx
-      .update(runs)
-      .set({
-        state: input.state,
-        outcome: input.outcome,
-        cursor,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(runs.id, input.id),
-          eq(runs.workspaceId, c.workspaceId),
-          eq(runs.attempt, input.attempt),
-          eq(runs.launchKey, input.launchKey),
-          inArray(runs.state, ["launching", "running"]),
-        ),
-      )
-      .returning({ id: runs.id })
-  )[0];
-  if (!updated) throw new DomainError("conflict", "Stale execution");
-  return updated;
-}
-
 /** Server-only terminal admission outcome; it never changes an execution that may have launched. */
 export async function failQueuedRun(db: Database, id: string, outcome: string) {
   const row = required(
     (await db.select().from(runs).where(eq(runs.id, id)))[0],
   );
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await tx.execute(
       sql`select id from workspaces where id=${row.workspaceId} for update`,
     );
     const current = required(
       (await tx.select().from(runs).where(eq(runs.id, id)))[0],
     );
-    if (current.state !== "queued") return;
+    if (current.state !== "queued") return publicRun(current);
     const result = await tx.execute<{ cursor: number }>(
       sql`update workspaces set cursor=cursor+1 where id=${row.workspaceId} returning cursor`,
     );
-    await tx
+    const [updated] = await tx
       .update(runs)
       .set({
         state: "failed",
@@ -437,7 +386,9 @@ export async function failQueuedRun(db: Database, id: string, outcome: string) {
         updatedAt: new Date(),
         cursor: required(result.rows[0]).cursor,
       })
-      .where(eq(runs.id, id));
+      .where(eq(runs.id, id))
+      .returning();
+    return publicRun(required(updated));
   });
 }
 
@@ -545,7 +496,7 @@ async function snapshotContext(
     if (doc.skill) await validateSkillAccess(c, id, audience);
     if (
       audience.humans.some((id) => !available.includes(id)) ||
-      (!doc.skill && doc.access === "restricted" && audience.agents.length > 1)
+      (!doc.skill && doc.visibility === "user" && audience.agents.length > 1)
     )
       throw new DomainError("forbidden", "Document context audience mismatch");
     documents.push({
@@ -596,15 +547,11 @@ export async function validateRunSources(
   )
     throw new DomainError("conflict", "Source archived");
   const agent = await getAgent(c, run.agentId);
-  if (agent.connectionId !== run.inputs.connectionId)
+  if (agent.subscriptionId !== run.inputs.subscriptionId)
     throw new DomainError("conflict", "Accepted native account changed");
-  if (run.inputs.connectionId) {
-    const account = await getConnection(c, run.inputs.connectionId);
-    if (
-      !account.connected ||
-      account.type !== "model" ||
-      account.mode !== "native_subscription"
-    )
+  if (run.inputs.subscriptionId) {
+    const account = await getSubscription(c, run.inputs.subscriptionId);
+    if (account.status !== "enabled")
       throw new DomainError("forbidden", "Native account unavailable");
   }
   if (phase === "launch" && agent.archived)
@@ -618,7 +565,7 @@ export async function validateRunSources(
   const audience = await getConversationAudience(c, run.conversationId);
   if (
     agent.visibility === "user" &&
-    (audience.humans.some((id) => id !== agent.ownerId) ||
+    (audience.humans.some((id) => id !== agent.createdBy) ||
       audience.agents.some((id) => id !== agent.id))
   )
     throw new DomainError("forbidden", "User-scoped Agent audience");
@@ -808,10 +755,7 @@ export async function answerRunQuestion(c: Context, id: string, body: string) {
   });
   return answered;
 }
-export async function getRunQuestions(
-  c: Context,
-  filter: { after?: string } = {},
-) {
+export async function getRunQuestions(c: Context, filter: PageOptions = {}) {
   const { limit } = parsePageOptions(filter);
   requireHuman(c);
   const rows = await c.tx
@@ -878,7 +822,12 @@ export async function requestPeerRun(
       (grant) => grant.connectionId,
     ),
   );
-  if (target.connectionId) connections.add(target.connectionId);
+  if (
+    target.subscriptionId &&
+    (await getSubscription(sponsor, target.subscriptionId)).visibility ===
+      "user"
+  )
+    throw new DomainError("forbidden", "Peer Subscription is user-scoped");
   for (const id of connections)
     if ((await getConnection(sponsor, id)).visibility === "user")
       throw new DomainError("forbidden", "Peer Connection is user-scoped");
@@ -958,7 +907,7 @@ export async function getRuns(
   if (filter.after && filter.cursor !== undefined)
     throw new DomainError("invalid", "Choose one pagination position");
   const items = await c.tx
-    .select()
+    .select({ id: runs.id, cursor: runs.cursor })
     .from(runs)
     .where(
       and(

@@ -47,7 +47,7 @@ export interface RunInputs {
   harness: string;
   harnessVersion: string | null;
   model: string;
-  connectionId: string | null;
+  subscriptionId: string | null;
   agentEditToken: number;
   audience: { humans: string[]; agents: string[] };
   skills: {
@@ -212,7 +212,7 @@ export const runActivity = pgTable(
       .references(() => runs.id),
     requestId: text().notNull(),
     type: text({
-      enum: ["output", "steer", "peer", "tool", "question"],
+      enum: ["output", "steer", "question"],
     }).notNull(),
     body: text().notNull(),
     answer: text(),

@@ -92,7 +92,7 @@ export async function authorizeOperation(
     !grant.audience ||
     audience.humans.some((id) => !grant.audience?.humans.includes(id)) ||
     audience.agents.some((id) => !grant.audience?.agents.includes(id)) ||
-    grant.sponsorId !== connection.ownerId ||
+    grant.sponsorId !== connection.createdBy ||
     !grant.resources.includes(input.target) ||
     !policy ||
     policy === "disabled"
@@ -220,7 +220,7 @@ export async function getOperations(
         eq(operations.workspaceId, c.workspaceId),
         eq(connections.workspaceId, c.workspaceId),
         or(
-          eq(connections.ownerId, c.actor.userId),
+          eq(connections.createdBy, c.actor.userId),
           eq(connections.visibility, "workspace"),
         ),
         parsed.connectionId
@@ -275,8 +275,6 @@ export async function requestOperation(
           audience: authorized.audience,
           sponsorId: c.actor.userId,
           accountRef: authorized.connection.accountRef,
-          editToken: authorized.connection.editToken,
-          grantGeneration: authorized.grant.generation,
           identity: authorized.identity,
           isWrite: authorized.isWrite,
           state:

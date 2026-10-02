@@ -6,7 +6,6 @@ import {
   getSkillFileReference,
   readArtifact,
   requireArtifactAudience,
-  setArtifactAccess,
   updateArtifact,
 } from "@otto/artifacts";
 import {
@@ -24,7 +23,6 @@ import {
   importSkill,
   proposeDocumentChange,
   resolveDocumentProposal,
-  setDocumentAccess,
   setDocumentAttachments,
   setSkillFiles,
   updateCollection,
@@ -47,7 +45,7 @@ import { body, editToken, id, pageQuery, title, validate } from "./validation";
 
 const field = z.object({
   id,
-  name: title,
+  title,
   type: z.enum([
     "text",
     "number",
@@ -98,9 +96,7 @@ export const contentApi = new Hono<ApiEnv>()
           title,
           body,
           projectId: id.optional(),
-          access: z.enum(["inherited", "restricted"]).optional(),
           visibility: z.enum(["user", "workspace"]).optional(),
-          readerIds: z.array(z.string().max(128)).max(100).optional(),
           skill: z.boolean().optional(),
           whenToUse: body.optional(),
         })
@@ -142,8 +138,10 @@ export const contentApi = new Hono<ApiEnv>()
             recordId(c),
             c.req.valid("json"),
           );
-          if (doc.skill && c.req.valid("json").visibility !== undefined) {
+          if (c.req.valid("json").visibility !== undefined) {
             const audience = await getDocumentAudience(ctx, doc.id);
+            for (const artifactId of doc.artifactIds)
+              await requireArtifactAudience(ctx, artifactId, audience);
             for (const file of doc.supportingFiles)
               await requireArtifactAudience(ctx, file.artifactId, audience);
           }
@@ -215,7 +213,7 @@ export const contentApi = new Hono<ApiEnv>()
         type: title,
         labels: z.array(title).max(20).optional(),
         projectId: id.optional(),
-        access: z.enum(["inherited", "restricted"]),
+        visibility: z.enum(["user", "workspace"]).optional(),
         mediaType: title,
         bytes: z.string().max(700000),
         sourceRunId: id.optional(),
@@ -293,40 +291,6 @@ export const contentApi = new Hono<ApiEnv>()
       );
       return c.json({ ok: true });
     },
-  )
-  .put(
-    "/workspaces/:workspaceId/artifacts/:id/access",
-    validate(
-      "json",
-      z.object({
-        readerIds: z.array(z.string().max(128)).max(100),
-        writerIds: z.array(z.string().max(128)).max(100),
-        editToken,
-      }),
-    ),
-    async (c) =>
-      c.json(
-        await transact(c, (ctx) =>
-          setArtifactAccess(ctx, recordId(c), c.req.valid("json")),
-        ),
-      ),
-  )
-  .put(
-    "/workspaces/:workspaceId/documents/:id/access",
-    validate(
-      "json",
-      z.object({
-        readerIds: z.array(z.string().max(128)).max(100),
-        writerIds: z.array(z.string().max(128)).max(100),
-        editToken,
-      }),
-    ),
-    async (c) =>
-      c.json(
-        await transact(c, (ctx) =>
-          setDocumentAccess(ctx, recordId(c), c.req.valid("json")),
-        ),
-      ),
   )
   .put(
     "/workspaces/:workspaceId/documents/:id/attachments",
@@ -513,7 +477,7 @@ export const contentApi = new Hono<ApiEnv>()
         .object({
           title: title.optional(),
           labels: z.array(title).max(30).optional(),
-          editToken,
+          visibility: z.enum(["user", "workspace"]).optional(),
         })
         .strict(),
     ),

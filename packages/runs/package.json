@@ -24,6 +24,7 @@
     "zod": "4.6.5",
     "@otto/projects": "workspace:*",
     "@otto/shared": "workspace:*",
-    "@otto/automations": "workspace:*"
+    "@otto/automations": "workspace:*",
+    "@otto/subscriptions": "workspace:*"
   }
 }

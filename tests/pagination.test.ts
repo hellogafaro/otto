@@ -1,6 +1,17 @@
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { getAttention } from "../apps/server/src/attention";
+import { startQueue } from "../apps/server/src/queue";
+import { createAgent } from "../packages/agents/src";
+import {
+  createConversation,
+  createParticipant,
+} from "../packages/conversations/src";
 import { getDocuments } from "../packages/documents/src";
 import { documents } from "../packages/documents/src/schema";
+import { createEnvironment } from "../packages/environments/src";
+import { admitRun, createRunQuestion } from "../packages/runs/src";
+import { runs } from "../packages/runs/src/schema";
 import {
   claimInstallation,
   getMembers,
@@ -52,8 +63,8 @@ describe("discovery pagination on private PostgreSQL", () => {
         workspaceId,
         title: `Private ${i}`,
         body: "private",
-        ownerId: owner,
-        access: "restricted" as const,
+        createdBy: owner,
+        visibility: "user" as const,
       })),
     );
     expect(await read()).toEqual({ items: [], next: null });
@@ -71,8 +82,8 @@ describe("discovery pagination on private PostgreSQL", () => {
       workspaceId,
       title: "Visible",
       body: "shared",
-      ownerId: owner,
-      access: "inherited",
+      createdBy: owner,
+      visibility: "workspace",
     });
     const filtered = await read();
     expect(filtered).toEqual({ items: [], next: id(100) });
@@ -123,5 +134,111 @@ describe("discovery pagination on private PostgreSQL", () => {
     await expect(read("x".repeat(129))).rejects.toMatchObject({
       code: "invalid",
     });
+  });
+  it("honors one common attention limit and advances denied Run/question candidates", async () => {
+    const boss = await startQueue(database.db, database.pool, {
+      workers: false,
+      install: true,
+    });
+    try {
+      await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: owner },
+        async (c) => {
+          const conversation = await createConversation(c, {
+            title: "Private questions",
+            visibility: "participants",
+          });
+          const agent = await createAgent(c, {
+            title: "Attention",
+            instructions: "Work",
+            harness: "fixture",
+            model: "fixture",
+            visibility: "workspace",
+          });
+          await createParticipant(c, conversation.id, {
+            agentId: agent.id,
+            role: "contributor",
+          });
+          await createEnvironment(c, agent.id);
+          for (let i = 0; i < 2; i++) {
+            const run = await admitRun(c, boss, {
+              requestId: crypto.randomUUID(),
+              conversationId: conversation.id,
+              agentId: agent.id,
+              type: "script",
+              body: "fixture",
+            });
+            // Explicit running-state fixture; discovery must still authorize every saved question.
+            await c.tx
+              .update(runs)
+              .set({ state: "running" })
+              .where(eq(runs.id, run.id));
+            await createRunQuestion(
+              { ...c, actor: { userId: owner, agentId: agent.id } },
+              run.id,
+              { requestId: crypto.randomUUID(), body: `Question ${i}` },
+            );
+          }
+        },
+      );
+      const filter = { limit: 1 };
+      const first = await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: owner },
+        (c) => getAttention(c, filter),
+        false,
+      );
+      expect(first.runs.items).toHaveLength(1);
+      expect(first.questions.items).toHaveLength(1);
+      expect(first.runs.next).not.toBeNull();
+      expect(first.questions.next).not.toBeNull();
+      const last = await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: owner },
+        (c) =>
+          getAttention(c, {
+            ...filter,
+            runAfter: String(first.runs.next),
+            questionAfter: String(first.questions.next),
+          }),
+        false,
+      );
+      expect(last.runs.items).toHaveLength(1);
+      expect(last.questions.items).toHaveLength(1);
+      expect(last.runs.next).toBeNull();
+      expect(last.questions.next).toBeNull();
+      const denied = await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: reader },
+        (c) => getAttention(c, filter),
+        false,
+      );
+      expect(denied.runs).toEqual({ items: [], next: first.runs.next });
+      expect(denied.questions).toEqual({
+        items: [],
+        next: first.questions.next,
+      });
+      const deniedLast = await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: reader },
+        (c) =>
+          getAttention(c, {
+            ...filter,
+            runAfter: String(denied.runs.next),
+            questionAfter: String(denied.questions.next),
+          }),
+        false,
+      );
+      expect(deniedLast.runs).toEqual({ items: [], next: null });
+      expect(deniedLast.questions).toEqual({ items: [], next: null });
+    } finally {
+      await boss.stop();
+    }
   });
 });

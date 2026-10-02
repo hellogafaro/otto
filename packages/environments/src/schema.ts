@@ -22,7 +22,6 @@ export const environments = pgTable(
       .$onUpdate(() => new Date()),
     workspaceId: uuid().notNull(),
     agentId: uuid().notNull().unique(),
-    scope: text().notNull(),
     generation: integer().notNull().default(0),
     state: text({ enum: ["unavailable", "ready", "uncertain"] })
       .notNull()

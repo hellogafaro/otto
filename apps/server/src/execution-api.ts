@@ -33,7 +33,7 @@ import {
 
 const automationInput = z
   .object({
-    name: title,
+    title,
     agentId: id,
     conversationId: id,
     type: z.enum(["prompt", "script"]),
@@ -92,11 +92,11 @@ export const executionApi = new Hono<ApiEnv>()
       z
         .object({
           visibility: z.enum(["user", "workspace"]).optional(),
-          name: title.optional(),
+          title: title.optional(),
           instructions: body.optional(),
           harness: title.optional(),
           model: title.optional(),
-          connectionId: id.nullable().optional(),
+          subscriptionId: id.nullable().optional(),
           skillIds: ids.optional(),
           editToken,
         })
@@ -194,12 +194,12 @@ export const executionApi = new Hono<ApiEnv>()
       z
         .object({
           visibility: z.enum(["user", "workspace"]).optional(),
-          name: title,
+          title,
           instructions: body,
           harness: title,
           model: title,
           projectId: id.optional(),
-          connectionId: id.optional(),
+          subscriptionId: id.optional(),
           skillIds: ids.optional(),
         })
         .strict(),

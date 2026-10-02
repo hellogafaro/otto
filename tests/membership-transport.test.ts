@@ -212,7 +212,7 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
     ).toBe(403);
     const project = record.parse(
       await (
-        await post(`${path}/projects`, { name: "Owned work" }, owner.cookie)
+        await post(`${path}/projects`, { title: "Owned work" }, owner.cookie)
       ).json(),
     );
     expect(
@@ -268,7 +268,7 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
         await post(
           `${path}/agents`,
           {
-            name: "Agent",
+            title: "Agent",
             instructions: "Work",
             harness: "fixture",
             model: "fixture",
@@ -281,7 +281,7 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
       await (
         await post(
           `${path}/conversations`,
-          { title: "Automation", access: "inherited" },
+          { title: "Automation", visibility: "workspace" },
           human.cookie,
         )
       ).json(),
@@ -291,7 +291,7 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
         await post(
           `${path}/automations`,
           {
-            name: "Owned automation",
+            title: "Owned automation",
             agentId: agent.id,
             conversationId: conversation.id,
             type: "script",

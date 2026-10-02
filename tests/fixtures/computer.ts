@@ -37,13 +37,13 @@ export class ControlledComputer implements ComputerBackend {
       computerRef: string;
     }
   >();
-  constructor(readonly connectionId: string) {}
+  constructor(readonly subscriptionId: string) {}
   async inspectComputer() {
     await this.beforeInspect?.();
     return {
       capabilities: this.capabilities,
       account: {
-        connectionId: this.connectionId,
+        subscriptionId: this.subscriptionId,
         mode: "native_subscription" as const,
       },
     };

@@ -88,7 +88,7 @@ export async function requireMember(c: Context, userId: string, write = false) {
 export async function claimInstallation(
   db: Database,
   userId: string,
-  name: string,
+  title: string,
 ) {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(72183001)`);
@@ -96,7 +96,7 @@ export async function claimInstallation(
       throw new DomainError("conflict", "Installation already claimed");
     required((await tx.select().from(users).where(eq(users.id, userId)))[0]);
     const workspace = required(
-      (await tx.insert(workspaces).values({ name }).returning())[0],
+      (await tx.insert(workspaces).values({ title }).returning())[0],
     );
     await tx
       .insert(members)
@@ -112,7 +112,7 @@ export async function getWorkspaces(
 ) {
   const { after, limit } = parsePageOptions(options);
   const rows = await db
-    .select({ id: workspaces.id, name: workspaces.name, role: members.role })
+    .select({ id: workspaces.id, title: workspaces.title, role: members.role })
     .from(members)
     .innerJoin(workspaces, eq(workspaces.id, members.workspaceId))
     .where(

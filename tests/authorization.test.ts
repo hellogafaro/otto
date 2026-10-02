@@ -3,7 +3,7 @@ import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
-import { agents } from "../packages/agents/src/schema";
+import { agentSkills, agents } from "../packages/agents/src/schema";
 import {
   type ArtifactStorage,
   createArtifact,
@@ -60,6 +60,16 @@ describe("review authorization and admission regressions", () => {
     fn: Parameters<typeof inWorkspace<T>>[3],
     actor: Actor = { userId: "owner" },
   ) => inWorkspace(database.db, workspaceId, actor, fn);
+  const selectSkills = (skillIds: string[]) =>
+    scope(async (c) => {
+      await c.tx.delete(agentSkills).where(eq(agentSkills.agentId, agentId));
+      if (skillIds.length)
+        await c.tx
+          .insert(agentSkills)
+          .values(
+            skillIds.map((skillId) => ({ workspaceId, agentId, skillId })),
+          );
+    });
   const request = (): RunRequest => ({
     requestId: crypto.randomUUID(),
     conversationId,
@@ -97,7 +107,7 @@ describe("review authorization and admission regressions", () => {
       agentId = (
         await createAgent(c, {
           visibility: "workspace",
-          name: "Worker",
+          title: "Worker",
           instructions: "Work",
           harness: "fixture",
           model: "selected",
@@ -105,7 +115,7 @@ describe("review authorization and admission regressions", () => {
       ).id;
       await createEnvironment(c, agentId);
       conversationId = (
-        await createConversation(c, { title: "Work", access: "inherited" })
+        await createConversation(c, { title: "Work", visibility: "workspace" })
       ).id;
       await createParticipant(c, conversationId, {
         agentId,
@@ -136,7 +146,7 @@ describe("review authorization and admission regressions", () => {
       const original = await member();
       const project =
         type === "project"
-          ? await scope((c) => createProject(c, { name: "Output" }))
+          ? await scope((c) => createProject(c, { title: "Output" }))
           : undefined;
       if (project)
         await scope((c) =>
@@ -145,7 +155,7 @@ describe("review authorization and admission regressions", () => {
       const conversation = await scope(async (c) => {
         const row = await createConversation(c, {
           title: "Output",
-          access: "inherited",
+          visibility: "workspace",
           projectId: project?.id,
         });
         await createParticipant(c, row.id, { agentId, role: "contributor" });
@@ -169,7 +179,7 @@ describe("review authorization and admission regressions", () => {
           requestId: crypto.randomUUID(),
           title: "Saved output",
           type: "text",
-          access: "inherited",
+          visibility: "workspace",
           mediaType: "text/plain",
           sourceRunId: run.id,
           projectId: project?.id,
@@ -235,7 +245,7 @@ describe("review authorization and admission regressions", () => {
       await dispatchRun(database.db, run.id);
     },
   );
-  it("requires an agent grant for restricted Documents and Artifacts despite the sponsor's ownership", async () => {
+  it("requires an agent grant for user-scoped Documents and Artifacts despite the sponsor's ownership", async () => {
     const actor = { userId: "owner", agentId };
     const doc = await scope((c) =>
       createDocument(c, {
@@ -265,7 +275,7 @@ describe("review authorization and admission regressions", () => {
         requestId: crypto.randomUUID(),
         title: "Private",
         type: "text",
-        access: "restricted",
+        visibility: "user",
         mediaType: "text/plain",
       },
       new Uint8Array([4]),
@@ -292,15 +302,12 @@ describe("review authorization and admission regressions", () => {
     const conversation = await scope(async (c) => {
       const row = await createConversation(c, {
         title: "Private",
-        access: "restricted",
+        visibility: "participants",
       });
       await createParticipant(c, row.id, { agentId, role: "contributor" });
       return row;
     });
-    await database.db
-      .update(agents)
-      .set({ skillIds: [doc.id] })
-      .where(eq(agents.id, agentId));
+    await selectSkills([doc.id]);
     const run = await scope((c) =>
       admitRun(
         c,
@@ -317,16 +324,13 @@ describe("review authorization and admission regressions", () => {
         ?.inputs.skills[0]?.instructions,
     ).toBe("private");
     await dispatchRun(database.db, run.id);
-    await database.db
-      .update(agents)
-      .set({ skillIds: [] })
-      .where(eq(agents.id, agentId));
+    await selectSkills([]);
   });
   it("denies regrant, stale grants, requests and approvals for a disconnected Connection", async () => {
     const makeConnection = () =>
       scope((c) =>
         createConnection(c, {
-          name: "Fixture account",
+          title: "Fixture account",
           type: "mcp",
           accountRef: crypto.randomUUID(),
         }),
@@ -462,7 +466,7 @@ describe("review authorization and admission regressions", () => {
     },
   );
   it("pins explicit Task, Session, skill and Automation controls independently of resolved fields", async () => {
-    const project = await scope((c) => createProject(c, { name: "Identity" }));
+    const project = await scope((c) => createProject(c, { title: "Identity" }));
     const task = await scope((c) =>
       createTask(c, { projectId: project.id, title: "Task" }),
     );
@@ -477,7 +481,7 @@ describe("review authorization and admission regressions", () => {
     const conversation = await scope(async (c) => {
       const row = await createConversation(c, {
         title: "Identity",
-        access: "inherited",
+        visibility: "workspace",
         projectId: project.id,
       });
       await createParticipant(c, row.id, { agentId, role: "contributor" });
@@ -488,10 +492,7 @@ describe("review authorization and admission regressions", () => {
       conversationId: conversation.id,
       taskId: task.id,
     };
-    await database.db
-      .update(agents)
-      .set({ skillIds: [skill.id] })
-      .where(eq(agents.id, agentId));
+    await selectSkills([skill.id]);
     const seed = await scope((c) => admitRun(c, boss, initial, harnesses));
     const sessionId = (
       await database.db.select().from(runs).where(eq(runs.id, seed.id))
@@ -500,7 +501,7 @@ describe("review authorization and admission regressions", () => {
     await dispatchRun(database.db, seed.id);
     const automation = await scope((c) =>
       createAutomation(c, boss, {
-        name: "Manual",
+        title: "Manual",
         agentId,
         conversationId: conversation.id,
         type: "prompt",
@@ -581,10 +582,7 @@ describe("review authorization and admission regressions", () => {
         skill: true,
       }),
     );
-    await database.db
-      .update(agents)
-      .set({ skillIds: [skill.id] })
-      .where(eq(agents.id, agentId));
+    await selectSkills([skill.id]);
     const input = request();
     const run = await scope((c) => admitRun(c, boss, input, harnesses));
     const saved = (
@@ -597,9 +595,10 @@ describe("review authorization and admission regressions", () => {
         editToken: 0,
       }),
     );
+    await selectSkills([]);
     await database.db
       .update(agents)
-      .set({ skillIds: [], instructions: "Edited", editToken: 1 })
+      .set({ instructions: "Edited", editToken: 1 })
       .where(eq(agents.id, agentId));
     expect(
       (

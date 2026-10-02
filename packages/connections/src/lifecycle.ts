@@ -38,19 +38,18 @@ export async function getConnectionRecord(c: Context, id: string) {
         )
     )[0],
   );
-  await requireMember(c, row.ownerId);
-  if (row.visibility === "user" && row.ownerId !== c.actor.userId)
+  await requireMember(c, row.createdBy);
+  if (row.visibility === "user" && row.createdBy !== c.actor.userId)
     throw new DomainError("forbidden");
   return row;
 }
 export function connectionView(row: typeof connections.$inferSelect) {
   return {
     id: row.id,
-    ownerId: row.ownerId,
+    createdBy: row.createdBy,
     visibility: row.visibility,
-    name: row.name,
+    title: row.title,
     type: row.type,
-    mode: row.mode,
     connected: row.connected,
     editToken: row.editToken,
     expiresAt: row.expiresAt,
@@ -61,8 +60,8 @@ export function connectionView(row: typeof connections.$inferSelect) {
 export async function createConnection(
   c: Context,
   input: {
-    name: string;
-    type: "github" | "mcp" | "model";
+    title: string;
+    type: "github" | "mcp";
     accountRef: string;
     visibility?: "user" | "workspace";
   },
@@ -72,8 +71,8 @@ export async function createConnection(
   const parsed = parseInput(
     z
       .object({
-        name: z.string().min(1).max(200),
-        type: z.enum(["github", "mcp", "model"]),
+        title: z.string().min(1).max(200),
+        type: z.enum(["github", "mcp"]),
         accountRef: z.string().min(1).max(200),
         visibility: z.enum(["user", "workspace"]).default("user"),
       })
@@ -86,9 +85,8 @@ export async function createConnection(
         .insert(connections)
         .values({
           ...parsed,
-          mode: parsed.type === "model" ? "native_subscription" : "service",
           workspaceId: c.workspaceId,
-          ownerId: c.actor.userId,
+          createdBy: c.actor.userId,
         })
         .returning()
     )[0],
@@ -103,7 +101,7 @@ export async function getConnection(c: Context, id: string) {
 export async function getConnections(
   c: Context,
   filter: {
-    type?: "github" | "mcp" | "model";
+    type?: "github" | "mcp";
     limit?: number;
     after?: string;
   } = {},
@@ -114,7 +112,7 @@ export async function getConnections(
   const parsed = parseInput(
     z
       .object({
-        type: z.enum(["github", "mcp", "model"]).optional(),
+        type: z.enum(["github", "mcp"]).optional(),
       })
       .strict(),
     filters,
@@ -126,7 +124,7 @@ export async function getConnections(
       and(
         eq(connections.workspaceId, c.workspaceId),
         or(
-          eq(connections.ownerId, c.actor.userId),
+          eq(connections.createdBy, c.actor.userId),
           eq(connections.visibility, "workspace"),
         ),
         parsed.type ? eq(connections.type, parsed.type) : undefined,
@@ -143,38 +141,39 @@ export async function updateConnection(
   c: Context,
   id: string,
   input: {
-    name?: string;
+    title?: string;
     visibility?: "user" | "workspace";
     credentialRef?: string;
     config?: z.infer<typeof CONNECTION_CONFIG>;
-    editToken: number;
+    editToken?: number;
   },
 ) {
   requireHuman(c);
   requireWriter(c);
   const row = await getConnectionRecord(c, id);
-  if (row.ownerId !== c.actor.userId) throw new DomainError("forbidden");
+  if (row.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   const parsed = parseInput(
     z
       .object({
-        name: z.string().min(1).max(200).optional(),
+        title: z.string().min(1).max(200).optional(),
         visibility: z.enum(["user", "workspace"]).optional(),
-        editToken: z.number().int().nonnegative(),
+        editToken: z.number().int().nonnegative().optional(),
         credentialRef: z.string().min(1).max(200).optional(),
         config: CONNECTION_CONFIG.optional(),
       })
       .strict(),
     input,
   );
-  if (parsed.editToken !== row.editToken)
+  const policyChanged =
+    parsed.visibility !== undefined ||
+    parsed.config !== undefined ||
+    parsed.credentialRef !== undefined;
+  if (policyChanged && parsed.editToken !== row.editToken)
     throw new DomainError("conflict", "Connection changed");
   const { editToken: _editToken, ...changes } = parsed;
   if (Object.values(changes).every((value) => value === undefined))
     throw new DomainError("invalid", "No editable fields");
-  if (
-    parsed.config &&
-    (parsed.config.type !== row.type || row.mode !== "service")
-  )
+  if (parsed.config && parsed.config.type !== row.type)
     throw new DomainError("invalid");
   if (
     parsed.config?.type === "github" &&
@@ -188,14 +187,15 @@ export async function updateConnection(
       ...changes,
       connected: parsed.config || parsed.credentialRef ? false : undefined,
       discovery: parsed.config || parsed.credentialRef ? null : undefined,
-      editToken: row.editToken + 1,
+      editToken: policyChanged ? row.editToken + 1 : undefined,
       updatedAt: new Date(),
     })
     .where(eq(connections.id, id));
-  await c.tx
-    .update(grants)
-    .set({ revokedAt: new Date(), generation: sql`${grants.generation}+1` })
-    .where(eq(grants.connectionId, id));
+  if (policyChanged)
+    await c.tx
+      .update(grants)
+      .set({ revokedAt: new Date(), generation: sql`${grants.generation}+1` })
+      .where(eq(grants.connectionId, id));
   await advanceCursor(c);
   return getConnection(c, id);
 }
@@ -214,7 +214,7 @@ export async function grantConnectionAccess(
   const connection = await getConnectionRecord(c, connectionId);
   if (
     !connection.connected ||
-    connection.ownerId !== c.actor.userId ||
+    connection.createdBy !== c.actor.userId ||
     !connection.discovery
   )
     throw new DomainError("forbidden");
@@ -245,8 +245,8 @@ export async function grantConnectionAccess(
   const agent = await getAgent(c, parsed.agentId);
   if (
     connection.visibility === "user" &&
-    (agent.ownerId !== connection.ownerId ||
-      parsed.audience.humans.some((id) => id !== connection.ownerId))
+    (agent.createdBy !== connection.createdBy ||
+      parsed.audience.humans.some((id) => id !== connection.createdBy))
   )
     throw new DomainError("forbidden", "User-scoped Connection audience");
   for (const id of parsed.audience.humans) await requireMember(c, id);
@@ -254,7 +254,7 @@ export async function grantConnectionAccess(
     const recipient = await getAgent(c, id);
     if (
       connection.visibility === "user" &&
-      recipient.ownerId !== connection.ownerId
+      recipient.createdBy !== connection.createdBy
     )
       throw new DomainError("forbidden", "User-scoped Connection audience");
   }
@@ -281,7 +281,7 @@ export async function revokeConnectionAccess(
   requireHuman(c);
   requireWriter(c);
   const row = await getConnectionRecord(c, connectionId);
-  if (row.ownerId !== c.actor.userId) throw new DomainError("forbidden");
+  if (row.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   await c.tx
     .update(grants)
     .set({ revokedAt: new Date(), generation: sql`${grants.generation}+1` })
@@ -311,7 +311,7 @@ export async function snapshotGrants(c: Context, agentId: string) {
     await requireMember(c, row.grant.sponsorId, true);
     if (
       row.connection.visibility === "user" &&
-      row.connection.ownerId !== c.actor.userId
+      row.connection.createdBy !== c.actor.userId
     )
       throw new DomainError("forbidden", "User-scoped Connection dependency");
   }
@@ -329,7 +329,7 @@ export async function disconnectConnection(c: Context, id: string) {
   requireHuman(c);
   requireWriter(c);
   const row = await getConnectionRecord(c, id);
-  if (row.ownerId !== c.actor.userId) throw new DomainError("forbidden");
+  if (row.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   await c.tx
     .update(connections)
     .set({
@@ -345,20 +345,4 @@ export async function disconnectConnection(c: Context, id: string) {
   await advanceCursor(c);
   // GitHub installation tokens may remain valid until this deadline; they never leave the server.
   return { id, connected: false, externalCredentialExpiresAt: row.expiresAt };
-}
-
-/** Trusted computer inspection confirmed this exact native account; no login or fallback occurs here. */
-export async function connectNativeAccount(c: Context, id: string) {
-  requireHuman(c);
-  requireWriter(c);
-  const row = await getConnectionRecord(c, id);
-  if (row.type !== "model" || row.mode !== "native_subscription")
-    throw new DomainError("forbidden");
-  if (row.connected) return;
-  if (row.ownerId !== c.actor.userId) throw new DomainError("forbidden");
-  await c.tx
-    .update(connections)
-    .set({ connected: true, updatedAt: new Date() })
-    .where(eq(connections.id, id));
-  await advanceCursor(c);
 }

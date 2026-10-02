@@ -22,12 +22,12 @@ import {
   admitRun,
   dispatchRun,
   RUN_QUEUE,
-  recordRunOutcome,
   recoverRuns,
 } from "../packages/runs/src";
+import { withRunAttempt } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
-import { members, users } from "../packages/workspaces/src/schema";
+import { members, users, workspaces } from "../packages/workspaces/src/schema";
 import { harnesses } from "./fixtures/harnesses";
 import { startPostgres } from "./postgres";
 
@@ -57,7 +57,7 @@ describe("real atomic Run and pg-boss admission", () => {
       agentId = (
         await createAgent(c, {
           visibility: "workspace",
-          name: "Worker",
+          title: "Worker",
           instructions: "Do work",
           harness: "codex-acp",
           model: "selected",
@@ -65,7 +65,10 @@ describe("real atomic Run and pg-boss admission", () => {
       ).id;
       await createEnvironment(c, agentId);
       conversationId = (
-        await createConversation(c, { title: "Shared", access: "inherited" })
+        await createConversation(c, {
+          title: "Shared",
+          visibility: "workspace",
+        })
       ).id;
       await createParticipant(c, conversationId, {
         agentId,
@@ -145,16 +148,14 @@ describe("real atomic Run and pg-boss admission", () => {
   it("rejects stale attempt results and leaves the durable state unchanged", async () => {
     const run = await scope((c) => admitRun(c, boss, request(), harnesses));
     await expect(
-      scope((c) =>
-        recordRunOutcome(c, {
-          id: run.id,
-          attempt: 99,
-          launchKey: crypto.randomUUID(),
-          state: "finished",
-          outcome: "wrong attempt",
-        }),
+      withRunAttempt(
+        database.db,
+        { runId: run.id, agentId, attempt: 99, launchKey: crypto.randomUUID() },
+        async () => {
+          throw new Error("Stale attempt reached publication");
+        },
       ),
-    ).rejects.toMatchObject({ code: "conflict" });
+    ).rejects.toMatchObject({ code: "forbidden" });
     expect(
       (await database.db.select().from(runs).where(eq(runs.id, run.id)))[0]
         ?.state,
@@ -163,7 +164,7 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   it("deduplicates cron delivery, fences paused configuration and stores scripts without Sessions", async () => {
     const input = {
-      name: "Nightly",
+      title: "Nightly",
       agentId,
       conversationId,
       type: "script" as const,
@@ -362,7 +363,7 @@ describe("real atomic Run and pg-boss admission", () => {
           title: "Output",
           type: "text",
           mediaType: "text/plain",
-          access: "inherited",
+          visibility: "workspace",
         },
         new Uint8Array([1]),
       ),
@@ -371,6 +372,10 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   it("rechecks sponsor membership on duplicate queue delivery", async () => {
     const run = await scope((c) => admitRun(c, boss, request(), harnesses));
+    const terminal = await scope((c) =>
+      admitRun(c, boss, request(), harnesses),
+    );
+    const terminalResult = await dispatchRun(database.db, terminal.id);
     await database.db.delete(members).where(eq(members.userId, "owner"));
     expect(await dispatchRun(database.db, run.id)).toMatchObject({
       state: "failed",
@@ -380,5 +385,21 @@ describe("real atomic Run and pg-boss admission", () => {
       (await database.db.select().from(runs).where(eq(runs.id, run.id)))[0]
         ?.outcome,
     ).toBe("authorization_revoked");
+    const before = (
+      await database.db
+        .select()
+        .from(workspaces)
+        .where(eq(workspaces.id, workspaceId))
+    )[0]?.cursor;
+    expect(await dispatchRun(database.db, terminal.id)).toEqual(terminalResult);
+    await dispatchRun(database.db, run.id);
+    expect(
+      (
+        await database.db
+          .select()
+          .from(workspaces)
+          .where(eq(workspaces.id, workspaceId))
+      )[0]?.cursor,
+    ).toBe(before);
   });
 });

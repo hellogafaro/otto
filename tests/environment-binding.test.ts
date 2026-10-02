@@ -8,7 +8,7 @@ import { startQueue } from "../apps/server/src/queue";
 import {
   bindEnvironment,
   claimEnvironment,
-  markEnvironmentUncertain,
+  settleEnvironment,
 } from "../packages/environments/src";
 import { environments } from "../packages/environments/src/schema";
 import {
@@ -56,7 +56,7 @@ describe("exclusive computer binding and writer authorization", () => {
     const response = await request(
       "/agents",
       {
-        name: "Binding fixture",
+        title: "Binding fixture",
         visibility: "workspace",
         instructions: "Work",
         harness: "fixture",
@@ -67,7 +67,7 @@ describe("exclusive computer binding and writer authorization", () => {
     );
     expect(response.status).toBe(200);
     return z
-      .object({ agent: z.object({ id: z.uuid(), connectionId: z.null() }) })
+      .object({ agent: z.object({ id: z.uuid(), subscriptionId: z.null() }) })
       .parse(await response.json()).agent.id;
   }
   const bind = (
@@ -142,7 +142,7 @@ describe("exclusive computer binding and writer authorization", () => {
       (
         await database.db
           .insert(workspaces)
-          .values({ name: "Other binding workspace" })
+          .values({ title: "Other binding workspace" })
           .returning()
       )[0],
     ).id;
@@ -174,7 +174,10 @@ describe("exclusive computer binding and writer authorization", () => {
       { userId: owner.id },
       async (c) => {
         await claimEnvironment(c, first, runId, 0);
-        await markEnvironmentUncertain(c, first, runId);
+        await expect(
+          settleEnvironment(c.tx, workspaceId, first, runId, 99, true),
+        ).rejects.toMatchObject({ code: "conflict" });
+        await settleEnvironment(c.tx, workspaceId, first, runId, 0, false);
       },
     );
     const leased = await saved(first);

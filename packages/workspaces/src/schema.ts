@@ -57,7 +57,7 @@ export const verifications = pgTable("auth_verifications", {
 });
 export const workspaces = pgTable("workspaces", {
   id: uuid().primaryKey().defaultRandom(),
-  name: text().notNull(),
+  title: text("name").notNull(),
   cursor: integer().notNull().default(0),
 });
 export const members = pgTable(

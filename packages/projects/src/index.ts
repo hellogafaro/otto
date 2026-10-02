@@ -11,7 +11,6 @@ import {
   type Context,
   getWorkspaceAudience,
   requireAdmin,
-  requireHuman,
   requireMember,
 } from "@otto/workspaces";
 import { and, eq, gt, sql } from "drizzle-orm";
@@ -47,7 +46,7 @@ export async function getProject(c: Context, id: string, write = false) {
 }
 export async function createProject(
   c: Context,
-  input: { name: string; repositoryUrl?: string },
+  input: { title: string; repositoryUrl?: string },
 ) {
   requireAdmin(c);
   const project = required(
@@ -128,13 +127,9 @@ export async function archiveProject(
   id: string,
   archived: boolean,
 ) {
-  requireHuman(c);
   requireAdmin(c);
-  const project = await getProject(c, id, true);
-  await c.tx
-    .update(projects)
-    .set({ archived, editToken: project.editToken + 1 })
-    .where(eq(projects.id, id));
+  await getProject(c, id, true);
+  await c.tx.update(projects).set({ archived }).where(eq(projects.id, id));
   await advanceCursor(c);
 }
 
@@ -155,24 +150,21 @@ export async function updateProject(
   c: Context,
   id: string,
   input: {
-    name?: string;
+    title?: string;
     repositoryUrl?: string | null;
-    editToken: number;
   },
 ) {
   requireAdmin(c);
-  const project = await getProject(c, id, true);
-  if (project.editToken !== input.editToken) throw new DomainError("conflict");
-  if (input.name === undefined && input.repositoryUrl === undefined)
+  await getProject(c, id, true);
+  if (input.title === undefined && input.repositoryUrl === undefined)
     throw new DomainError("invalid", "No editable fields");
   const updated = required(
     (
       await c.tx
         .update(projects)
         .set({
-          name: input.name,
+          title: input.title,
           repositoryUrl: input.repositoryUrl,
-          editToken: project.editToken + 1,
         })
         .where(eq(projects.id, id))
         .returning()
@@ -195,10 +187,9 @@ export async function getProjects(
   const items = await c.tx
     .select({
       id: projects.id,
-      name: projects.name,
+      title: projects.title,
       archived: projects.archived,
       repositoryUrl: projects.repositoryUrl,
-      editToken: projects.editToken,
     })
     .from(projects)
     .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
@@ -209,7 +200,7 @@ export async function getProjects(
         eq(projects.archived, filter.archived ?? false),
         filter.after ? gt(projects.id, filter.after) : undefined,
         filter.query
-          ? sql`to_tsvector('simple', ${projects.name}) @@ plainto_tsquery('simple', ${filter.query})`
+          ? sql`to_tsvector('simple', ${projects.title}) @@ plainto_tsquery('simple', ${filter.query})`
           : undefined,
       ),
     )

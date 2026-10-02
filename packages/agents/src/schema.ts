@@ -1,5 +1,6 @@
-import * as connectionsSchema from "@otto/connections/schema";
+import * as documentsSchema from "@otto/documents/schema";
 import * as projectsSchema from "@otto/projects/schema";
+import * as subscriptionsSchema from "@otto/subscriptions/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
 import { sql } from "drizzle-orm";
 import {
@@ -7,9 +8,9 @@ import {
   check,
   foreignKey,
   integer,
-  jsonb,
   type PgTableExtraConfigValue,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -25,16 +26,15 @@ export const agents = pgTable(
       .$onUpdate(() => new Date()),
     workspaceId: uuid().notNull(),
     projectId: uuid(),
-    ownerId: text().notNull(),
+    createdBy: text().notNull(),
     visibility: text({ enum: ["user", "workspace"] })
       .notNull()
       .default("user"),
-    name: text().notNull(),
+    title: text("name").notNull(),
     instructions: text().notNull(),
     harness: text().notNull(),
     model: text().notNull(),
-    connectionId: uuid(),
-    skillIds: jsonb().$type<string[]>().notNull().default([]),
+    subscriptionId: uuid(),
     archived: boolean().notNull().default(false),
     editToken: integer().notNull().default(0),
   },
@@ -54,18 +54,44 @@ export const agents = pgTable(
       ],
     }),
     foreignKey({
-      name: "agents_connectionId_workspace_fk",
-      columns: [t.connectionId, t.workspaceId],
+      name: "agents_subscriptionId_workspace_fk",
+      columns: [t.subscriptionId, t.workspaceId],
       foreignColumns: [
-        connectionsSchema.connections.id,
-        connectionsSchema.connections.workspaceId,
+        subscriptionsSchema.subscriptions.id,
+        subscriptionsSchema.subscriptions.workspaceId,
       ],
     }),
     foreignKey({
-      name: "agents_ownerId_fk",
-      columns: [t.ownerId],
+      name: "agents_createdBy_fk",
+      columns: [t.createdBy],
       foreignColumns: [workspacesSchema.users.id],
     }),
     unique("agents_identity_workspace").on(t.id, t.workspaceId),
+  ],
+);
+
+/** Reusable selections; accepted Run instruction/file snapshots remain immutable. */
+export const agentSkills = pgTable(
+  "agent_skills",
+  {
+    workspaceId: uuid().notNull(),
+    agentId: uuid().notNull(),
+    skillId: uuid().notNull(),
+  },
+  (t): PgTableExtraConfigValue[] => [
+    primaryKey({ columns: [t.agentId, t.skillId] }),
+    foreignKey({
+      name: "agent_skills_agent_workspace_fk",
+      columns: [t.agentId, t.workspaceId],
+      foreignColumns: [agents.id, agents.workspaceId],
+    }),
+    foreignKey({
+      name: "agent_skills_document_workspace_fk",
+      columns: [t.skillId, t.workspaceId],
+      foreignColumns: [
+        documentsSchema.documents.id,
+        documentsSchema.documents.workspaceId,
+      ],
+    }),
   ],
 );

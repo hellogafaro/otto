@@ -1,6 +1,5 @@
 import * as agentsSchema from "@otto/agents/schema";
 import * as conversationsSchema from "@otto/conversations/schema";
-import * as projectsSchema from "@otto/projects/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
 import { sql } from "drizzle-orm";
 import {
@@ -27,8 +26,7 @@ export const automations = pgTable(
     ownerId: text().notNull(),
     agentId: uuid().notNull(),
     conversationId: uuid().notNull(),
-    projectId: uuid(),
-    name: text().notNull(),
+    title: text("name").notNull(),
     type: text({ enum: ["prompt", "script"] }).notNull(),
     body: text().notNull(),
     taskId: uuid(),
@@ -60,14 +58,6 @@ export const automations = pgTable(
       foreignColumns: [
         conversationsSchema.conversations.id,
         conversationsSchema.conversations.workspaceId,
-      ],
-    }),
-    foreignKey({
-      name: "automations_projectId_workspace_fk",
-      columns: [t.projectId, t.workspaceId],
-      foreignColumns: [
-        projectsSchema.projects.id,
-        projectsSchema.projects.workspaceId,
       ],
     }),
     foreignKey({

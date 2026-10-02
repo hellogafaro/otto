@@ -24,6 +24,7 @@ import { executionApi } from "./execution-api";
 import type { ApiOptions } from "./http";
 import { type ApiEnv, transact } from "./http";
 import { sendInvitation } from "./invitations";
+import { subscriptionApi } from "./subscription-api";
 import { id, pageQuery, validate } from "./validation";
 /** One authentication/origin boundary. Public shares expose frozen selections before it. */
 export function createApi(options: ApiOptions) {
@@ -55,6 +56,7 @@ export function createApi(options: ApiOptions) {
     .route("/", contentApi)
     .route("/", executionApi)
     .route("/", connectionApi)
+    .route("/", subscriptionApi)
     .get("/workspaces", validate("query", pageQuery), async (c) =>
       c.json(
         await getWorkspaces(options.db, c.get("userId"), c.req.valid("query")),

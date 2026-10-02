@@ -54,7 +54,7 @@ export function createConnectionService(options: {
   const mcp = createMcpClient({ http: options.http });
 
   async function prepare(row: typeof connections.$inferSelect) {
-    if (!row.config || !row.credentialRef || row.mode !== "service")
+    if (!row.config || !row.credentialRef)
       throw new DomainError("unavailable", "Connection adapter unavailable");
     const config = CONNECTION_CONFIG.parse(row.config);
     const controller = new AbortController();
@@ -125,7 +125,7 @@ export function createConnectionService(options: {
       requireHuman(c);
       requireWriter(c);
       const current = await getConnectionRecord(c, id);
-      if (current.ownerId !== c.actor.userId)
+      if (current.createdBy !== c.actor.userId)
         throw new DomainError("forbidden");
       await reserveCredentialLifetime(c, current);
       return current;
@@ -137,7 +137,7 @@ export function createConnectionService(options: {
         requireWriter(c);
         const current = await getConnectionRecord(c, id);
         if (
-          current.ownerId !== c.actor.userId ||
+          current.createdBy !== c.actor.userId ||
           current.editToken !== row.editToken
         )
           throw new DomainError("conflict");
@@ -161,7 +161,7 @@ export function createConnectionService(options: {
       requireHuman(c);
       requireWriter(c);
       const row = await getConnectionRecord(c, id);
-      if (row.ownerId !== c.actor.userId || !row.connected || !row.discovery)
+      if (row.createdBy !== c.actor.userId || !row.connected || !row.discovery)
         throw new DomainError("forbidden");
       return row.discovery;
     });
@@ -205,7 +205,11 @@ export function createConnectionService(options: {
           // Credential resolution, installation scope verification and discovery are asynchronous.
           await boundary.transact(async (c) => {
             const row = await getOperationRecord(c, id);
-            await validateOperation(c, row, boundary.validateRun);
+            const authorization = await validateOperation(
+              c,
+              row,
+              boundary.validateRun,
+            );
             if (
               row.state !== "executing" ||
               row.executionToken !== claimed.row.executionToken
@@ -220,7 +224,7 @@ export function createConnectionService(options: {
               .update(connections)
               .set({
                 expiresAt: latestExpiry(
-                  (await getConnectionRecord(c, row.connectionId)).expiresAt,
+                  authorization.connection.expiresAt,
                   prepared.expiresAt,
                 ),
                 updatedAt: new Date(),

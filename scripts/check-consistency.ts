@@ -2,6 +2,7 @@ import ts from "typescript";
 
 const retired = new Set([
   "saveDocument",
+  "createdById",
   "revokeInvitation",
   "saveAutomation",
   "saveSessionContext",
@@ -48,6 +49,21 @@ for (const root of ["packages", "apps/server/src"]) {
       )
         throw new Error(`Retired handwritten name ${node.text}: ${file}`);
       if (
+        file.endsWith("/schema.ts") &&
+        ts.isPropertyAssignment(node) &&
+        ts.isIdentifier(node.name) &&
+        node.name.text === "access"
+      )
+        throw new Error(
+          `Use domain visibility, not the retired access field: ${file}`,
+        );
+      if (
+        file.startsWith("packages/conversations/") &&
+        ts.isStringLiteral(node) &&
+        ["inherited", "restricted"].includes(node.text)
+      )
+        throw new Error(`Retired Conversation visibility value: ${file}`);
+      if (
         file.startsWith("packages/shared/") &&
         (ts.isImportDeclaration(node) || ts.isImportEqualsDeclaration(node))
       )
@@ -59,6 +75,22 @@ for (const root of ["packages", "apps/server/src"]) {
         ts.isIdentifier(node.expression) &&
         node.expression.text === "pgTable"
       ) {
+        const tableName = node.arguments[0];
+        const columns = node.arguments[1];
+        if (
+          tableName &&
+          ts.isStringLiteral(tableName) &&
+          tableName.text !== "auth_users" &&
+          columns &&
+          ts.isObjectLiteralExpression(columns) &&
+          columns.properties.some(
+            (column) =>
+              ts.isPropertyAssignment(column) &&
+              ts.isIdentifier(column.name) &&
+              column.name.text === "name",
+          )
+        )
+          throw new Error(`Owned display labels use title, not name: ${file}`);
         const name = node.arguments[0];
         if (
           !name ||
@@ -68,6 +100,18 @@ for (const root of ["packages", "apps/server/src"]) {
         )
           throw new Error(`Otto tables must use plural snake_case: ${file}`);
       }
+      if (
+        ts.isInterfaceDeclaration(node) &&
+        node.name.text === "CollectionField" &&
+        node.members.some(
+          (member) =>
+            ts.isPropertySignature(member) &&
+            member.name &&
+            ts.isIdentifier(member.name) &&
+            member.name.text === "name",
+        )
+      )
+        throw new Error(`Collection field labels use title: ${file}`);
       if (ts.isCatchClause(node)) catches++;
       if (
         ts.isCallExpression(node) &&

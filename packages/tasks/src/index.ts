@@ -65,7 +65,11 @@ export async function setTaskStatus(
   await advanceCursor(c);
   return updated;
 }
-export async function assertNoOpenOwnedTasks(c: Context, userId: string) {
+export async function assertNoOpenOwnedTasks(
+  c: Context,
+  userId: string,
+  projectId?: string,
+) {
   if (
     (
       await c.tx
@@ -75,6 +79,7 @@ export async function assertNoOpenOwnedTasks(c: Context, userId: string) {
           and(
             eq(tasks.workspaceId, c.workspaceId),
             eq(tasks.ownerId, userId),
+            projectId ? eq(tasks.projectId, projectId) : undefined,
             ne(tasks.status, "done"),
           ),
         )
@@ -228,29 +233,6 @@ export async function getTasks(
   return getPage(items, (row) => row.id, limit);
 }
 
-export async function assertNoOpenProjectTasks(
-  c: Context,
-  projectId: string,
-  userId: string,
-) {
-  const rows = await c.tx
-    .select({ id: tasks.id })
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.workspaceId, c.workspaceId),
-        eq(tasks.projectId, projectId),
-        eq(tasks.ownerId, userId),
-        ne(tasks.status, "done"),
-      ),
-    )
-    .limit(1);
-  if (rows.length)
-    throw new DomainError(
-      "conflict",
-      "Transfer open tasks before changing owner eligibility",
-    );
-}
 /** Links are references only; server composition authorizes each target independently on write and read. */
 export async function createTaskLink(
   c: Context,

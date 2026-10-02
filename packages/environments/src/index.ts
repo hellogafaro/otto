@@ -13,7 +13,7 @@ import { environments } from "./schema";
 /** Creates a durable unavailable Environment record. It does not provision a computer. */
 export async function createEnvironment(c: Context, agentId: string) {
   requireHuman(c);
-  const agent = await getAgent(c, agentId);
+  await getAgent(c, agentId);
   const environment = required(
     (
       await c.tx
@@ -21,7 +21,6 @@ export async function createEnvironment(c: Context, agentId: string) {
         .values({
           workspaceId: c.workspaceId,
           agentId,
-          scope: agent.projectId ?? c.workspaceId,
         })
         .returning()
     )[0],
@@ -64,20 +63,6 @@ export async function claimEnvironment(
     .where(eq(environments.id, environment.id));
   return environment;
 }
-/** No lease expiry can prove a remote process stopped. Keep uncertain Environments fenced. */
-export async function markEnvironmentUncertain(
-  c: Context,
-  agentId: string,
-  runId: string,
-) {
-  const environment = await getEnvironment(c, agentId);
-  if (environment.activeRunId !== runId) throw new DomainError("conflict");
-  await c.tx
-    .update(environments)
-    .set({ state: "uncertain" })
-    .where(eq(environments.id, environment.id));
-}
-
 export type {
   ComputerBackend,
   ComputerProcess,
@@ -95,7 +80,7 @@ export async function bindEnvironment(
   requireHuman(c);
   requireWriter(c);
   const agent = await getAgent(c, agentId);
-  if (agent.ownerId !== c.actor.userId) throw new DomainError("forbidden");
+  if (agent.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   const row = await getEnvironment(c, agentId);
   if (row.activeRunId || row.state === "uncertain")
     throw new DomainError(
@@ -129,21 +114,6 @@ export async function bindEnvironment(
     throw error;
   }
   await advanceCursor(c);
-}
-/** A terminal provider acknowledgement, never lease expiry, releases the computer. */
-export async function releaseEnvironment(
-  c: Context,
-  agentId: string,
-  runId: string,
-  generation: number,
-) {
-  const row = await getEnvironment(c, agentId);
-  if (row.generation !== generation || row.activeRunId !== runId)
-    throw new DomainError("conflict", "Stale Environment completion");
-  await c.tx
-    .update(environments)
-    .set({ activeRunId: null, state: "ready" })
-    .where(eq(environments.id, row.id));
 }
 export async function bindExecutionScope(
   c: Context,

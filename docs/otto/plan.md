@@ -16,16 +16,17 @@ Use a few records in several ways. A Conversation can look like a DM or channel 
 | --- | --- |
 | Project | Members, defaults, repository links, related work |
 | Task | Project, title, notes, required human owner, optional human/agent assignee, To do / Doing / Done, links |
-| Conversation | Workspace, optional project, participant relationships, messages, replies, mentions, attachments |
-| Document | Title, current body, basic properties, attachments, access; skills use this model |
+| Conversation | Workspace, creator, optional Project, workspace/participants visibility, participant roles, messages, replies, mentions, attachments |
+| Document | Title, current body, basic properties, attachments, visibility; skills use this model |
 | Collection | Fields and table/list views over Documents; not a general database builder |
 | Artifact | One saved output: files, title, kind, labels, creator, optional source Run, access |
 | Agent | Instructions, harness/model settings, skills, assigned Connections, own Environment |
 | Environment | An agent's isolated computer, persistent working files, browser state, lifecycle |
-| Connection | External account, credential management, adapter, scoped agent grants, enabled operations |
+| Connection | External GitHub/MCP account, credential management, adapter, scoped agent grants |
+| Subscription | Native AI account metadata, creator, visibility and trusted qualification status |
 | Session | One agent's private harness context, bound to a Conversation, Environment scope, and account |
 | Run | One prompt or script attempt: human sponsor, saved inputs, scope, state, execution reference, outcome |
-| Automation | Human owner, agent, optional project, output Conversation, prompt or script body, manual/cron trigger |
+| Automation | Human owner, Agent, output Conversation (which determines Project), prompt or script body, manual/cron trigger |
 
 Workspace membership supplies human identities. Human and agent references support participation, authorship, and assignment; no profile per feature. Messages, memberships, files, grants, jobs, and share links are supporting records. The library is a filtered Artifact view. The working directory and computer are parts of Environment.
 
@@ -81,7 +82,7 @@ flowchart LR
   X --> O
 ```
 
-Conversation owns shared messages and explicit participant relationships. Store memberships in a table with exactly one existing human or agent reference in the same workspace and a unique participant per Conversation; response arrays are only a convenience. DM/channel naming is presentation. Restricted conversations check participants; inherited conversations also check current Project or workspace membership. Joining never expands an agent's tool grants.
+Conversation owns shared messages and explicit participant relationships. Store memberships in a table with exactly one existing human or agent reference in the same workspace and a unique participant per Conversation; response arrays are only a convenience. DM/channel naming is presentation. Conversation visibility is `workspace` or `participants`; both intersect current workspace/Project membership. Agents always need an explicit participant row, and an explicit viewer role caps writes. Server-derived `createdBy` controls metadata, archive and participant management with current writer/Project authorization; eligible participants still discuss and control authorized Runs. Joining never expands an agent's tool grants.
 
 Session owns one agent's continuing native context. It records its Conversation, agent, Environment binding, permission scope, pinned harness, account, and provider context reference. Prompt admission validates these against the Run; create a fresh Session and Run atomically when needed. No implicit cross-conversation reuse. Several Sessions can use one agent's Environment queue.
 
@@ -110,9 +111,9 @@ The existing harness does reasoning and its tool loop. Otto adds collaboration, 
 - Automation = what to start and when.
 - Session = continuing private context; Run = one attempt.
 
-Agents, skills and Connections use `visibility: user | workspace` within the existing workspace. The server assigns their human owner. User visibility restricts discovery/read/use to that owner; workspace visibility permits eligible current members subject to Project, Conversation and explicit Agent grants. Configuration and sharing remain owner-controlled. Sharing an Agent never shares a user-scoped dependency, credential or private Session. Skills remain Documents; their visibility replaces collaborator lists while ordinary Documents retain their own collaborator rules.
+Agents, Documents (including skills), Artifacts, Connections and Subscriptions use `visibility: user | workspace` within the existing workspace. The server assigns their human creator/maintainer as `createdBy`; Artifacts retain the distinct human custodian/sponsor `ownerId` and optional `creatorAgentId`. User visibility restricts discovery/read/use to that human; workspace visibility permits eligible current members subject to Project, Conversation and explicit Agent grants. Configuration and sharing remain creator-controlled. Sharing an Agent never shares a user-scoped dependency, credential or private Session. Skills remain Documents. Documents and Artifacts use that same visibility and creator/custodian-controlled edits; per-user collaborator grants are deferred.
 
-Agent is the sole reusable skill/Connection configuration. Projects and manual Runs have no skill defaults or overrides. Bounded manual Run Document/message/Task selections are execution content with explicit current source and output-audience checks; they are not standing grants and are not moved into Agent fields.
+Agent is the sole reusable skill/Connection configuration. Connections use `type: github | mcp` and the existing many-to-many scoped `connection_grants`. Native AI accounts use Subscriptions, distinct from harnesses: one accepted `subscriptionId` per attempt/Session. Subscription status is `needs_auth | enabled | disabled`; only trusted exact native computer proof enables it, with no accountRef, client token, credentials or billing management. Models remain configured IDs. Projects and manual Runs have no skill defaults or overrides. Bounded manual Run Document/message/Task selections are execution content with explicit current source and output-audience checks; they are not standing grants and are not moved into Agent fields.
 
 Skills never grant permissions. A tool is a scoped Otto operation, Environment operation, or assigned Connection capability. An MCP server needs no extra profile. A workflow initially means one prompt or script Automation; scripts may have ordinary code steps.
 
@@ -120,7 +121,7 @@ Skills never grant permissions. A tool is a scoped Otto operation, Environment o
 
 Store the current Document body and basic typed properties. Use an established editor, table/list views, and text, number, date, checkbox, select, human/agent, and record-reference fields. Stable field IDs survive renaming. References grant no access. Save edits atomically and reject stale edits using an edit token; do not build a revision-history system.
 
-Skills are a Document preset: name, when to use it, human maintainer, instructions, and optional supporting files. Authorized humans edit; agents propose changes. Select skills on an Agent or Project, with an override at Run admission. No draft/publish ceremony or skill version browser.
+Skills are a Document preset: title, when to use it, human maintainer, instructions, and optional supporting files. Authorized humans edit; agents propose changes. Select reusable skills only on an Agent through the workspace-safe `agent_skills` relation; bounded `skillIds` is an input/projection, not another persisted array. No draft/publish ceremony or skill version browser.
 
 Support the [Agent Skills format](https://agentskills.io/specification): import/export SKILL.md and optional scripts, references, and assets. Documents remain authoritative; generated harness files are execution copies. Save the exact supplied prompt, skill instructions/catalog, and supporting file references with the Run, so later edits affect future attempts only. Lazy-loaded skill material must come from that saved input set, not the latest Document. Supporting-file references pin immutable stored bytes; edits save a new file key and never overwrite bytes referenced by a Run or public share. Retain those files while referenced. Track actual activation only when the harness reports it. Skill scripts obey the Environment and Connection rules.
 
@@ -167,7 +168,7 @@ Connect an account once, assign scoped resource/action grants to agents, and use
 
 Each operation is allowed, requires confirmation, or disabled. Both Otto's grant and the provider's permissions must allow it. Protected writes execute through the trusted server Connection boundary; native shells must not receive reusable credentials that bypass confirmation. Approval names the exact account, action, and target. Changed targets/accounts invalidate it. Recheck grants at execution; revoke future calls on disconnect and report any remaining external credential lifetime.
 
-Delegated access retains its sponsoring human and never substitutes another person's account after expiry. Provider subscription login is the qualified exception: the provider's supported native flow keeps authentication privately in its Environment; Connection metadata records account association and mode. Otto does not broker Claude subscription tokens. Credential values never enter messages, Documents, Artifacts, or ordinary metadata.
+Delegated access retains its sponsoring human and never substitutes another person's account after expiry. Provider subscription login is the qualified exception: the provider's supported native flow keeps authentication privately in its Environment; Subscription metadata records the association and qualification status; the trusted computer reports the exact Subscription ID and native billing mode. Otto does not broker Claude subscription tokens. Credential values never enter messages, Documents, Artifacts, or ordinary metadata.
 
 MCP uses the same Connection/grant model. Discover tools without enabling everything; scope local MCP processes and resources like other code. Before putting external results into shared context or output, check that the Conversation's current audience may receive them. An agent's access to a private source does not authorize sharing it.
 
@@ -186,7 +187,7 @@ flowchart TB
   O --> C[The automation's output conversation and run history]
 ```
 
-Automation stores its prompt or script body directly, with a required human owner and Agent, one output Conversation, an optional Task reference, optional cron/timezone, and status `enabled`, `disabled` or `archived`. Agent owns reusable skills and Connection grants; Automations have no skill, Document or message override arrays. Restoring an archived Automation leaves it disabled. No separate prompt Document or published execution version is required. Human editors configure unattended work; agents propose changes. Scripts run in the agent's scoped Environment without requiring an LLM or Session. Prompt automations start a fresh Session per accepted occurrence.
+Automation derives its Project from the output Conversation rather than storing a duplicate Project reference. It stores its prompt or script body directly, with a required human owner and Agent, one output Conversation, an optional Task reference, optional cron/timezone, and status `enabled`, `disabled` or `archived`. Agent owns reusable skills and Connection grants; Automations have no skill, Document or message override arrays. Restoring an archived Automation leaves it disabled. No separate prompt Document or published execution version is required. Human editors configure unattended work; agents propose changes. Scripts run in the agent's scoped Environment without requiring an LLM or Session. Prompt automations start a fresh Session per accepted occurrence.
 
 Use **pg-boss inside apps/server**, against the existing PostgreSQL database, for cron and durable jobs. No Redis, additional worker service, or homemade scheduler. Put pg-boss objects in a dedicated PostgreSQL schema. We control deployment/migration execution using the pinned library's construction/migration SQL and migrate: false at runtime; pg-boss owns its queue table structure, while Drizzle owns Otto's domain tables. Do not rename or redesign pg-boss internals or duplicate Run state into its job schema. Manual admission saves the Run, its exact inputs, and dispatch job in one Drizzle transaction. Cron delivery uses a stable job identity to admit one Run, then follows the same path; record the occurrence time where the selected release exposes it. Queue delivery owns dispatch; Run owns user-visible execution state. Never make the whole ACP stream a retryable job body.
 
@@ -267,7 +268,7 @@ flowchart LR
   X[Other linked records] -.->|stay private unless separately shared| S
 ```
 
-Conversations, Documents, and Artifacts use inherited workspace/Project access or an explicit restricted audience, plus an optional read-only public share. Viewers read; contributors write within their grant. Publishing and Project control remain human permissions. Agent membership grants no unrelated capability. Links/search results independently respect target access; inviting someone shows the visible history they will receive.
+Documents and Artifacts use creator/custodian-only `user` or eligible `workspace` visibility intersected with their Project, plus explicit selected read-only public shares. Source-Run Artifacts additionally retain their immutable accepted/current recipient cap. Conversations use `workspace` or `participants` visibility and retain explicit participant roles. Viewers read; contributors write within their grant. Publishing and Project control remain human permissions. Agent membership grants no unrelated capability. Links/search results independently respect target access; inviting someone shows the visible history they will receive.
 
 Public sharing saves a previewed selection of the current Document body, Conversation messages, or Artifact files. This frozen share is necessary for intentional publication, not a version-history feature. Update the share explicitly. Exclude secrets, raw tool traces, hidden Session context, and unshared linked records. Referenced bytes stay available while shared; reuse storage without copying or exposing permanent unguarded URLs.
 
@@ -340,7 +341,7 @@ Caddy serves the built frontend and proxies authenticated server operations and 
 
 Garage stores ordinary immutable file keys, no bucket or application versioning. Keep data and metadata volumes persistent, qualify write durability, and restore database plus saved bytes together. No admin dashboard. The one-host profile is non-redundant; Garage's official guide discourages production without redundancy. Use replicated storage or an external S3 service when required.
 
-Better Auth owns human login sessions/accounts; Otto owns workspace membership, agent identity, domain grants, and model-provider Connections. Login sessions are not Otto Sessions. Mount auth on the existing server. An operator-controlled first-owner setup closes once claimed; then use human-managed, recipient-bound, expiring, revocable, single-use invitations with explicit permitted roles. Registration cannot claim ownership. Membership removal blocks domain operations and live delivery, independently of login validity.
+Better Auth owns human login sessions/accounts; Otto owns workspace membership, agent identity, domain grants, and native-provider Subscriptions. Login sessions are not Otto Sessions. Mount auth on the existing server. An operator-controlled first-owner setup closes once claimed; then use human-managed, recipient-bound, expiring, revocable, single-use invitations with explicit permitted roles. Registration cannot claim ownership. Membership removal blocks domain operations and live delivery, independently of login validity.
 
 Build a fresh Otto app with selective reuse. This intentionally differs from Buzz's Nostr relay and self-hosted forge direction without changing Buzz itself. A broader market scan of existing platforms and a fork-vs-fresh-build decision are recorded in [platform research](platform-research.md); the recorded decision is an architecture choice, not a runtime/performance certification. Mastra/BB/T3 are references, not whole-app dependencies. Effect is optional only if it reduces lifecycle code. Responsive web first; Electron and Expo WebView are later separate objectives, including their own auth/deep-link/session-handoff proof.
 

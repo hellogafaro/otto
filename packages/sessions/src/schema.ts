@@ -1,7 +1,7 @@
 import * as agentsSchema from "@otto/agents/schema";
-import * as connectionsSchema from "@otto/connections/schema";
 import * as conversationsSchema from "@otto/conversations/schema";
 import * as environmentsSchema from "@otto/environments/schema";
+import * as subscriptionsSchema from "@otto/subscriptions/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
 import {
   foreignKey,
@@ -29,7 +29,7 @@ export const sessions = pgTable(
     scope: text().notNull(),
     harness: text().notNull(),
     harnessVersion: text().notNull(),
-    connectionId: uuid(),
+    subscriptionId: uuid(),
     contextRef: text(),
   },
   (t): PgTableExtraConfigValue[] => [
@@ -60,11 +60,11 @@ export const sessions = pgTable(
       ],
     }),
     foreignKey({
-      name: "agent_sessions_connectionId_workspace_fk",
-      columns: [t.connectionId, t.workspaceId],
+      name: "agent_sessions_subscriptionId_workspace_fk",
+      columns: [t.subscriptionId, t.workspaceId],
       foreignColumns: [
-        connectionsSchema.connections.id,
-        connectionsSchema.connections.workspaceId,
+        subscriptionsSchema.subscriptions.id,
+        subscriptionsSchema.subscriptions.workspaceId,
       ],
     }),
     unique("agent_sessions_identity_workspace").on(t.id, t.workspaceId),

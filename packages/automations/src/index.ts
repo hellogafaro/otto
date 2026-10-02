@@ -26,7 +26,7 @@ import { automationHistory, automations } from "./schema";
 export const CRON_QUEUE = "otto-automation-tick";
 export const SCHEDULE_QUEUE = "otto-automation-schedule";
 export interface AutomationInput {
-  name: string;
+  title: string;
   agentId: string;
   conversationId: string;
   type: "prompt" | "script";
@@ -59,13 +59,13 @@ export async function createAutomation(
   requireWriter(c);
   validateSchedule(input);
   await getAgent(c, input.agentId);
-  const conversation = await getConversation(c, input.conversationId, true);
+  await getConversation(c, input.conversationId, true);
   const row = required(
     (
       await c.tx
         .insert(automations)
         .values({
-          name: input.name,
+          title: input.title,
           agentId: input.agentId,
           conversationId: input.conversationId,
           type: input.type,
@@ -76,7 +76,6 @@ export async function createAutomation(
           status: input.status,
           workspaceId: c.workspaceId,
           ownerId: c.actor.userId,
-          projectId: conversation.projectId,
         })
         .returning()
     )[0],
@@ -138,7 +137,7 @@ export async function updateAutomation(
   };
   validateSchedule(next);
   await getAgent(c, next.agentId);
-  const conversation = await getConversation(c, next.conversationId, true);
+  await getConversation(c, next.conversationId, true);
   if (ownerId !== undefined) {
     await requireMember(c, ownerId, true);
     await getConversation(
@@ -152,7 +151,7 @@ export async function updateAutomation(
       await c.tx
         .update(automations)
         .set({
-          name: input.name,
+          title: input.title,
           agentId: input.agentId,
           conversationId: input.conversationId,
           type: input.type,
@@ -162,7 +161,6 @@ export async function updateAutomation(
           timezone: input.timezone,
           status: input.status,
           ownerId,
-          projectId: conversation.projectId,
           editToken: editToken + 1,
         })
         .where(eq(automations.id, id))

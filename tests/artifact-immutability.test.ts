@@ -48,7 +48,7 @@ describe("Artifact durable intent against an overwriting object-store fixture", 
       requestId: crypto.randomUUID(),
       title: "Original",
       type: "text",
-      access: "inherited" as const,
+      visibility: "workspace" as const,
       mediaType: "text/plain",
     };
     const bytes = new TextEncoder().encode("first immutable bytes");
@@ -91,7 +91,6 @@ describe("Artifact durable intent against an overwriting object-store fixture", 
       updateArtifact(c, saved.id, {
         title: "Renamed",
         labels: ["reviewed"],
-        editToken: 0,
       }),
     );
     expect(

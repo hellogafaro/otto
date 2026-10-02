@@ -30,22 +30,23 @@ export const artifacts = pgTable(
     ownerId: text().notNull(),
     creatorAgentId: uuid(),
     requestId: uuid().notNull(),
-    request: jsonb().$type<{
-      title: string;
-      type: string;
-      labels: string[];
-      projectId: string | null;
-      access: "inherited" | "restricted";
-      mediaType: string;
-      sourceRunId: string | null;
-    }>(),
+    request: jsonb()
+      .$type<{
+        title: string;
+        type: string;
+        labels: string[];
+        projectId: string | null;
+        visibility: "user" | "workspace";
+        mediaType: string;
+        sourceRunId: string | null;
+      }>()
+      .notNull(),
     title: text().notNull(),
-    editToken: integer().notNull().default(0),
     type: text().notNull(),
     labels: jsonb().$type<string[]>().notNull().default([]),
-    access: text({ enum: ["inherited", "restricted"] }).notNull(),
-    readerIds: jsonb().$type<string[]>().notNull().default([]),
-    writerIds: jsonb().$type<string[]>().notNull().default([]),
+    visibility: text({ enum: ["user", "workspace"] })
+      .notNull()
+      .default("user"),
     sourceRunId: uuid(),
     objectKey: text().notNull().unique(),
     sha256: text().notNull(),
@@ -57,6 +58,7 @@ export const artifacts = pgTable(
     archived: boolean().notNull().default(false),
   },
   (t): PgTableExtraConfigValue[] => [
+    check("artifacts_visibility", sql`${t.visibility} in ('user','workspace')`),
     foreignKey({
       name: "artifacts_workspace_fk",
       columns: [t.workspaceId],

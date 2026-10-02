@@ -11,6 +11,7 @@ import {
   jsonb,
   type PgTableExtraConfigValue,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -22,6 +23,7 @@ export const conversations = pgTable(
   {
     id: uuid().primaryKey().defaultRandom(),
     workspaceId: uuid().notNull(),
+    createdBy: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).$defaultFn(() => new Date()),
     updatedAt: timestamp({ withTimezone: true })
       .$defaultFn(() => new Date())
@@ -29,10 +31,18 @@ export const conversations = pgTable(
     archived: boolean().notNull().default(false),
     projectId: uuid(),
     title: text().notNull(),
-    editToken: integer().notNull().default(0),
-    access: text({ enum: ["inherited", "restricted"] }).notNull(),
+    visibility: text({ enum: ["workspace", "participants"] }).notNull(),
   },
   (t): PgTableExtraConfigValue[] => [
+    check(
+      "conversations_visibility",
+      sql`${t.visibility} in ('workspace','participants')`,
+    ),
+    foreignKey({
+      name: "conversations_createdBy_fk",
+      columns: [t.createdBy],
+      foreignColumns: [workspacesSchema.users.id],
+    }),
     foreignKey({
       name: "conversations_workspace_fk",
       columns: [t.workspaceId],
@@ -84,9 +94,7 @@ export const messages = pgTable(
   {
     id: uuid().primaryKey().defaultRandom(),
     workspaceId: uuid().notNull(),
-    conversationId: uuid()
-      .notNull()
-      .references(() => conversations.id),
+    conversationId: uuid().notNull(),
     authorUserId: text(),
     authorAgentId: uuid(),
     body: text().notNull(),
@@ -118,7 +126,6 @@ export const messages = pgTable(
       columns: [t.authorUserId],
       foreignColumns: [workspacesSchema.users.id],
     }),
-    unique("messages_identity_workspace").on(t.id, t.workspaceId),
     check("messages_size", sql`octet_length(${t.body})<=100000`),
     check(
       "messages_exactly_one_author",
@@ -132,7 +139,6 @@ export const messages = pgTable(
 export const conversationReads = pgTable(
   "conversation_reads",
   {
-    id: uuid().primaryKey().defaultRandom(),
     conversationId: uuid()
       .notNull()
       .references(() => conversations.id),
@@ -140,6 +146,6 @@ export const conversationReads = pgTable(
     cursor: integer().notNull().default(0),
   },
   (t): PgTableExtraConfigValue[] => [
-    uniqueIndex("conversation_reads_identity").on(t.conversationId, t.userId),
+    primaryKey({ columns: [t.conversationId, t.userId] }),
   ],
 );

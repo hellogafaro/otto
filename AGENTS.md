@@ -26,6 +26,7 @@ This is a fresh Otto Bun monorepo. Historical Buzz code and history stay outside
 - Use `getTask` / `getTasks`, never `getMany` or compatibility aliases. One bounded typed plural getter replaces duplicate variants.
 - Keep create, update, upsert and delete semantics explicit. Create means new only; upsert intentionally means create-or-update.
 - Ordinary edits use one allowlisted partial update with field-specific authorization, not separate owner, view or metadata setters. Real permission and control transitions may keep explicit verbs.
+- Otto display labels use `title`, including Collection fields; human names and native protocol/machine identifiers keep `name`. See code principles for the deliberate physical SQL mapping.
 - Otto discriminators use `type`. Timestamps record actual events as `createdAt`, `updatedAt` or meaningful `...At`; numeric replay positions use `cursor`.
 - Use `editToken` only for actual stale-edit, queued-policy or authority fences. Preserve distinct attempt and Environment generation fences; do not invent version history.
 - All Otto-owned SQL tables use plural snake_case. Keep native pg-boss vocabulary at its boundary; use server `queue.ts`, `startQueue`, `QUEUE_SCHEMA` and PostgreSQL schema `queue`.
@@ -34,12 +35,17 @@ This is a fresh Otto Bun monorepo. Historical Buzz code and history stay outside
 
 ## Configuration and access
 
-- Agent is the sole reusable configuration for `skillIds` and Connection grants. No manual skill overrides or Project defaults for those settings.
-- Automations hold trigger, body, Agent and output destination. Do not add skill, Document or message override arrays.
+- Creator/maintainer identity is server-derived `createdBy`, not `createdById`. Keep transferable Task/Automation `ownerId` and Artifact human custodian/sponsor separate from Agent authorship.
+- Agent skills persist only in the workspace-safe `agent_skills` junction; bounded `skillIds` is a selection/projection, not a second stored array. Accepted Run snapshots remain immutable. Agent is the sole reusable configuration for skills and Connection grants. No manual skill overrides or Project defaults for those settings.
+- Automations hold trigger, body, Agent and output destination; Project derives from the current output Conversation. Do not add skill, Document or message override arrays.
 - Bounded manual Run selections of Documents, messages and Tasks are execution content, not standing grants. Preserve immutable accepted snapshots, current reauthorization and isolation from retained computer sources.
 - Skills remain Documents; do not add a skill table.
-- Sharable Agents, skills and Connections use exactly `user` / `workspace` visibility with the existing workspace and authoritative creator/owner ID. No Organization entity, personal/shared/private/public aliases or duplicate owner/scope model.
+- Agents, Documents (including skills), Artifacts, Connections and Subscriptions use exactly `user` / `workspace` visibility with the existing workspace and authoritative human identity (`createdBy`, or Artifact custodial `ownerId`). No Organization entity, personal/shared/private/public aliases or duplicate owner/scope model.
+- Conversations use `workspace | participants` visibility. Server-derived `createdBy` controls metadata/archive/participant management with current writer/Project authority; participant contributors retain discussion and authorized Run controls, explicit viewers cannot write, and Agents always need membership.
 - The server derives creation identity. `user` visibility is creator-only. `workspace` visibility requires eligible current membership intersected with resource, role, audience and explicit grant checks.
+- Documents and Artifacts have one nonnullable visibility field and creator/custodian-controlled edits; per-user reader/writer ACLs are deferred. Artifact metadata/visibility carries no edit token; immutable upload requests/bytes and saved/current source-Run audiences remain separate fences. Internet publication remains explicit frozen selected shares.
+- Connections are external GitHub/MCP accounts with scoped grants. Subscriptions hold native AI account qualification (`needs_auth`, `enabled`, `disabled`), not credentials, billing or harnesses. Only trusted exact computer reports enable them; select one `subscriptionId` per Agent/accepted Run/Session. Models remain configured IDs.
+- Project/Conversation/Artifact metadata and Subscription display edits need no edit token. Connection title-only edits preserve grants/approvals; real Connection policy changes retain their fence.
 - Visibility never shares credentials, private Session context or native login, grants provider operations, or automatically shares private dependencies.
 
 ## Execution guarantees

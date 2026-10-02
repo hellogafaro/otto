@@ -64,7 +64,7 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
   async function setup() {
     const target = await scope(async (c) => {
       const agent = await createAgent(c, {
-        name: "Queue fixture",
+        title: "Queue fixture",
         instructions: "Controlled script only",
         harness: "fixture",
         model: "fixture",
@@ -72,7 +72,7 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
       await createEnvironment(c, agent.id);
       const conversation = await createConversation(c, {
         title: "Queue fixture",
-        access: "inherited",
+        visibility: "workspace",
       });
       await createParticipant(c, conversation.id, {
         agentId: agent.id,

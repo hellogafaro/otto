@@ -1,5 +1,4 @@
 export {
-  connectNativeAccount,
   createConnection,
   disconnectConnection,
   getConnection,

@@ -22,7 +22,6 @@ import {
   getWorkspaceAudience,
   inWorkspace,
   requireHuman,
-  requireMember,
   requireWriter,
 } from "@otto/workspaces";
 import { and, eq, gt, or, sql } from "drizzle-orm";
@@ -47,11 +46,8 @@ export async function getArtifact(c: Context, id: string) {
   );
   if (row.projectId) await getProject(c, row.projectId);
   if (
-    row.access === "restricted" &&
-    (c.actor.agentId !== undefined ||
-      (row.ownerId !== c.actor.userId &&
-        !row.readerIds.includes(c.actor.userId) &&
-        !row.writerIds.includes(c.actor.userId)))
+    row.visibility === "user" &&
+    (c.actor.agentId !== undefined || row.ownerId !== c.actor.userId)
   )
     throw new DomainError("forbidden");
   if (row.sourceRunId) {
@@ -71,9 +67,7 @@ export async function getArtifact(c: Context, id: string) {
     projectId: row.projectId,
     creatorAgentId: row.creatorAgentId,
     ownerId: row.ownerId,
-    access: row.access,
-    readerIds: row.readerIds,
-    writerIds: row.writerIds,
+    visibility: row.visibility,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     title: row.title,
@@ -84,7 +78,6 @@ export async function getArtifact(c: Context, id: string) {
     sha256: row.sha256,
     archived: row.archived,
     sourceRunId: row.sourceRunId,
-    editToken: row.editToken,
   };
 }
 /** Persist intent before I/O. Agent publication requires a trusted sponsor/attempt/launch/environment check in both transactions. */
@@ -99,7 +92,7 @@ export async function createArtifact(
     type: string;
     labels?: string[];
     projectId?: string;
-    access: "inherited" | "restricted";
+    visibility?: "user" | "workspace";
     mediaType: string;
     sourceRunId?: string;
   },
@@ -127,29 +120,17 @@ export async function createArtifact(
       if (
         existing.creatorAgentId !== (actor.agentId ?? null) ||
         existing.sha256 !== sha256 ||
-        !isDeepStrictEqual(
-          existing.request ?? {
-            title: existing.title,
-            type: existing.type,
-            labels: existing.labels,
-            projectId: existing.projectId,
-            access: existing.access,
-            mediaType: existing.mediaType,
-            sourceRunId: existing.sourceRunId,
-          },
-          {
-            title: input.title,
-            type: input.type,
-            labels: input.labels ?? [],
-            projectId: input.projectId ?? null,
-            access: input.access,
-            mediaType: input.mediaType,
-            sourceRunId: input.sourceRunId ?? null,
-          },
-        ) ||
+        !isDeepStrictEqual(existing.request, {
+          title: input.title,
+          type: input.type,
+          labels: input.labels ?? [],
+          projectId: input.projectId ?? null,
+          visibility: input.visibility ?? "user",
+          mediaType: input.mediaType,
+          sourceRunId: input.sourceRunId ?? null,
+        }) ||
         existing.mediaType !== input.mediaType ||
         existing.sourceRunId !== (input.sourceRunId ?? null) ||
-        existing.access !== input.access ||
         existing.projectId !== (input.projectId ?? null)
       )
         throw new DomainError("conflict");
@@ -161,6 +142,7 @@ export async function createArtifact(
           .insert(artifacts)
           .values({
             ...input,
+            visibility: input.visibility ?? "user",
             workspaceId,
             ownerId: actor.userId,
             creatorAgentId: actor.agentId,
@@ -169,7 +151,7 @@ export async function createArtifact(
               type: input.type,
               labels: input.labels ?? [],
               projectId: input.projectId ?? null,
-              access: input.access,
+              visibility: input.visibility ?? "user",
               mediaType: input.mediaType,
               sourceRunId: input.sourceRunId ?? null,
             },
@@ -271,7 +253,7 @@ async function requireSourceAudience(
   c: Context,
   input: {
     sourceRunId?: string;
-    access: "inherited" | "restricted";
+    visibility?: "user" | "workspace";
     projectId?: string;
   },
 ) {
@@ -280,7 +262,7 @@ async function requireSourceAudience(
   if (c.actor.agentId && !source.agents.includes(c.actor.agentId))
     throw new DomainError("forbidden", "Outside the saved source Run audience");
   const destination =
-    input.access === "restricted"
+    (input.visibility ?? "user") === "user"
       ? [c.actor.userId]
       : input.projectId
         ? await getProjectAudience(c, input.projectId)
@@ -299,11 +281,9 @@ export async function archiveArtifact(
   requireHuman(c);
   requireWriter(c);
   const row = await getArtifact(c, id);
+  if (row.projectId) await getProject(c, row.projectId, true);
   if (row.ownerId !== c.actor.userId) throw new DomainError("forbidden");
-  await c.tx
-    .update(artifacts)
-    .set({ archived, editToken: row.editToken + 1 })
-    .where(eq(artifacts.id, id));
+  await c.tx.update(artifacts).set({ archived }).where(eq(artifacts.id, id));
   await advanceCursor(c);
 }
 
@@ -346,13 +326,9 @@ export async function getArtifacts(
           ? eq(artifacts.projectId, filter.projectId)
           : undefined,
         or(
-          eq(artifacts.access, "inherited"),
+          eq(artifacts.visibility, "workspace"),
           c.actor.agentId === undefined
-            ? or(
-                eq(artifacts.ownerId, c.actor.userId),
-                sql`${artifacts.readerIds} @> ${JSON.stringify([c.actor.userId])}::jsonb`,
-                sql`${artifacts.writerIds} @> ${JSON.stringify([c.actor.userId])}::jsonb`,
-              )
+            ? eq(artifacts.ownerId, c.actor.userId)
             : undefined,
         ),
         filter.after ? gt(artifacts.id, filter.after) : undefined,
@@ -384,8 +360,7 @@ export async function getSkillFileReference(
   projectId: string | null,
   humans: string[],
 ) {
-  await requireArtifactAudience(c, id, humans);
-  const artifact = await getArtifact(c, id);
+  const artifact = await requireArtifactAudience(c, id, humans);
   if (
     artifact.projectId !== projectId ||
     artifact.sourceRunId ||
@@ -401,38 +376,35 @@ export async function getSkillFileReference(
 export async function updateArtifact(
   c: Context,
   id: string,
-  input: { title?: string; labels?: string[]; editToken: number },
+  input: {
+    title?: string;
+    labels?: string[];
+    visibility?: "user" | "workspace";
+  },
 ) {
   requireHuman(c);
   requireWriter(c);
-  await getArtifact(c, id);
-  const artifact = required(
-    (await c.tx.select().from(artifacts).where(eq(artifacts.id, id)))[0],
-  );
-  if (
-    artifact.ownerId !== c.actor.userId &&
-    !artifact.writerIds.includes(c.actor.userId)
-  )
-    throw new DomainError("forbidden");
+  const artifact = await getArtifact(c, id);
+  if (artifact.ownerId !== c.actor.userId) throw new DomainError("forbidden");
   if (artifact.projectId) await getProject(c, artifact.projectId, true);
-  if (artifact.editToken !== input.editToken) throw new DomainError("conflict");
-  if (input.title === undefined && input.labels === undefined)
+  if (
+    input.title === undefined &&
+    input.labels === undefined &&
+    input.visibility === undefined
+  )
     throw new DomainError("invalid", "No editable fields");
+  if (input.visibility !== undefined)
+    await requireSourceAudience(c, {
+      visibility: input.visibility,
+      projectId: artifact.projectId ?? undefined,
+      sourceRunId: artifact.sourceRunId ?? undefined,
+    });
   await c.tx
     .update(artifacts)
     .set({
       title: input.title,
       labels: input.labels,
-      request: artifact.request ?? {
-        title: artifact.title,
-        type: artifact.type,
-        labels: artifact.labels,
-        projectId: artifact.projectId,
-        access: artifact.access,
-        mediaType: artifact.mediaType,
-        sourceRunId: artifact.sourceRunId,
-      },
-      editToken: artifact.editToken + 1,
+      visibility: input.visibility,
     })
     .where(eq(artifacts.id, id));
   await advanceCursor(c);
@@ -465,11 +437,10 @@ export async function requireArtifactAudience(
   const members = artifact.projectId
     ? await getProjectAudience(c, artifact.projectId)
     : await getWorkspaceAudience(c);
-  const recipients =
-    artifact.access === "restricted"
-      ? [artifact.ownerId, ...artifact.readerIds, ...artifact.writerIds]
+  const audience =
+    artifact.visibility === "user"
+      ? members.filter((id) => id === artifact.ownerId)
       : members;
-  const audience = members.filter((id) => recipients.includes(id));
   if (humans.some((id) => !audience.includes(id)))
     throw new DomainError("forbidden", "Attachment audience mismatch");
   if (artifact.sourceRunId) {
@@ -477,39 +448,5 @@ export async function requireArtifactAudience(
     if (humans.some((id) => !source.humans.includes(id)))
       throw new DomainError("forbidden");
   }
-}
-
-export async function setArtifactAccess(
-  c: Context,
-  id: string,
-  input: { readerIds: string[]; writerIds: string[]; editToken: number },
-) {
-  requireHuman(c);
-  requireWriter(c);
-  const artifact = await getArtifact(c, id);
-  if (artifact.ownerId !== c.actor.userId) throw new DomainError("forbidden");
-  if (artifact.editToken !== input.editToken) throw new DomainError("conflict");
-  if (input.readerIds.length + input.writerIds.length > 100)
-    throw new DomainError("invalid");
-  for (const userId of input.readerIds) await requireMember(c, userId);
-  for (const userId of input.writerIds) await requireMember(c, userId, true);
-  if (artifact.sourceRunId) {
-    const audience = await getRunAudience(c, artifact.sourceRunId);
-    if (
-      [...input.readerIds, ...input.writerIds].some(
-        (id) => !audience.humans.includes(id),
-      )
-    )
-      throw new DomainError("forbidden");
-  }
-  await c.tx
-    .update(artifacts)
-    .set({
-      readerIds: input.readerIds,
-      writerIds: input.writerIds,
-      editToken: artifact.editToken + 1,
-    })
-    .where(eq(artifacts.id, id));
-  await advanceCursor(c);
-  return getArtifact(c, id);
+  return artifact;
 }

@@ -1,5 +1,4 @@
 import { getAgent } from "@otto/agents";
-import { connectNativeAccount } from "@otto/connections";
 import { getConversation } from "@otto/conversations";
 import type { Database } from "@otto/db";
 import {
@@ -15,6 +14,7 @@ import {
 } from "@otto/environments";
 import { bindSessionContext, getSessionContext } from "@otto/sessions";
 import { DomainError, required, withCleanup } from "@otto/shared";
+import { qualifySubscription } from "@otto/subscriptions/server";
 
 import {
   type Actor,
@@ -128,7 +128,7 @@ function executionScope(run: typeof runs.$inferSelect) {
   return JSON.stringify({
     sponsorId: run.sponsorId,
     conversationId: run.conversationId,
-    connectionId: run.inputs.connectionId,
+    subscriptionId: run.inputs.subscriptionId,
     humans: run.inputs.audience.humans.slice().sort(),
     agents: run.inputs.audience.agents.slice().sort(),
     grants: run.inputs.grants,
@@ -413,8 +413,8 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
       requireComputerCapabilities(computer.capabilities);
       if (
         row.type === "prompt" &&
-        (!row.inputs.connectionId ||
-          computer.account?.connectionId !== row.inputs.connectionId ||
+        (!row.inputs.subscriptionId ||
+          computer.account?.subscriptionId !== row.inputs.subscriptionId ||
           computer.account.mode !== "native_subscription")
       )
         throw new DomainError(
@@ -748,13 +748,13 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
       await inWorkspace(db, workspaceId, actor, async (c) => {
         const agent = await getAgent(c, agentId);
         // Explicit human binding uses the adapter's exact account report, never browser credentials.
-        if (agent.connectionId) {
+        if (agent.subscriptionId) {
           if (
-            info.account?.connectionId !== agent.connectionId ||
+            info.account?.subscriptionId !== agent.subscriptionId ||
             info.account.mode !== "native_subscription"
           )
             throw new DomainError("forbidden", "Native account mismatch");
-          await connectNativeAccount(c, agent.connectionId);
+          await qualifySubscription(c, agent.subscriptionId);
         }
         await bindEnvironment(
           c,

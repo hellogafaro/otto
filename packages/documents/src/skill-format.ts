@@ -32,11 +32,12 @@ export function parseSkillFile(source: string) {
   const parsed = metadata.safeParse(raw);
   if (!parsed.success)
     throw new DomainError("invalid", "Invalid skill metadata");
+  const { name, description, ...extra } = parsed.data;
   return {
-    title: parsed.data.name,
-    whenToUse: parsed.data.description,
+    title: name,
+    whenToUse: description,
     body: match[2],
-    metadata: parsed.data,
+    metadata: extra,
   };
 }
 export function formatSkillFile(input: {

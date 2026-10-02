@@ -41,7 +41,7 @@ export const connectionApi = new Hono<ApiEnv>()
     validate(
       "query",
       pageQuery.extend({
-        type: z.enum(["github", "mcp", "model"]).optional(),
+        type: z.enum(["github", "mcp"]).optional(),
       }),
     ),
     async (c) =>
@@ -62,8 +62,8 @@ export const connectionApi = new Hono<ApiEnv>()
       "json",
       z
         .object({
-          name: z.string().min(1).max(200),
-          type: z.enum(["github", "mcp", "model"]),
+          title: z.string().min(1).max(200),
+          type: z.enum(["github", "mcp"]),
           accountRef: z.string().min(1).max(200),
           visibility: z.enum(["user", "workspace"]).optional(),
         })
@@ -80,9 +80,9 @@ export const connectionApi = new Hono<ApiEnv>()
       "json",
       z
         .object({
-          name: z.string().min(1).max(200).optional(),
+          title: z.string().min(1).max(200).optional(),
           visibility: z.enum(["user", "workspace"]).optional(),
-          editToken,
+          editToken: editToken.optional(),
           credentialRef: z.string().min(1).max(200).optional(),
           config: CONNECTION_CONFIG.optional(),
         })

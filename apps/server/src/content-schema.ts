@@ -1,11 +1,4 @@
-import {
-  boolean,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, text, uuid } from "drizzle-orm/pg-core";
 
 export type ShareSelection =
   | { type: "document"; targetId: string; start: number; end: number }
@@ -30,5 +23,4 @@ export const contentShares = pgTable("content_shares", {
   preview: jsonb().$type<ShareSnapshot>().notNull(),
   snapshot: jsonb().$type<ShareSnapshot>(),
   editToken: integer().notNull().default(0),
-  published: boolean().notNull().default(false),
 });

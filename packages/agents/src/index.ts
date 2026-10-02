@@ -14,27 +14,33 @@ import {
   requireWriter,
 } from "@otto/workspaces";
 import { and, eq, gt } from "drizzle-orm";
-import { agents } from "./schema";
+import { agentSkills, agents } from "./schema";
+
+/** Skill selections are sets of canonical UUIDs, not an instruction priority list. */
+function normalizeSkillIds(ids?: string[]) {
+  if (ids === undefined) return undefined;
+  const selected = ids.map((id) => id.toLowerCase()).sort();
+  if (selected.length > 50 || new Set(selected).size !== selected.length)
+    throw new DomainError("invalid", "Agent selection limit");
+  return selected;
+}
+
 export async function createAgent(
   c: Context,
   input: {
     visibility?: "user" | "workspace";
-    name: string;
+    title: string;
     instructions: string;
     harness: string;
     model: string;
     projectId?: string;
-    connectionId?: string;
+    subscriptionId?: string;
     skillIds?: string[];
   },
 ) {
   requireHuman(c);
   requireWriter(c);
-  if (
-    (input.skillIds?.length ?? 0) > 50 ||
-    (input.skillIds && new Set(input.skillIds).size !== input.skillIds.length)
-  )
-    throw new DomainError("invalid", "Agent selection limit");
+  const skillIds = normalizeSkillIds(input.skillIds);
   if (input.projectId) await getProject(c, input.projectId, true);
   const agent = required(
     (
@@ -42,21 +48,28 @@ export async function createAgent(
         .insert(agents)
         .values({
           visibility: input.visibility,
-          name: input.name,
+          title: input.title,
           instructions: input.instructions,
           harness: input.harness,
           model: input.model,
           projectId: input.projectId,
-          connectionId: input.connectionId,
-          skillIds: input.skillIds,
+          subscriptionId: input.subscriptionId,
           workspaceId: c.workspaceId,
-          ownerId: c.actor.userId,
+          createdBy: c.actor.userId,
         })
         .returning()
     )[0],
   );
+  if (skillIds?.length)
+    await c.tx.insert(agentSkills).values(
+      skillIds.map((skillId) => ({
+        workspaceId: c.workspaceId,
+        agentId: agent.id,
+        skillId,
+      })),
+    );
   await advanceCursor(c);
-  return agent;
+  return getAgent(c, agent.id);
 }
 export async function getAgent(c: Context, id: string) {
   const agent = required(
@@ -67,10 +80,23 @@ export async function getAgent(c: Context, id: string) {
         .where(and(eq(agents.id, id), eq(agents.workspaceId, c.workspaceId)))
     )[0],
   );
-  if (agent.visibility === "user" && agent.ownerId !== c.actor.userId)
+  if (agent.visibility === "user" && agent.createdBy !== c.actor.userId)
     throw new DomainError("forbidden");
   if (agent.projectId) await getProject(c, agent.projectId);
-  return agent;
+  const selected = await c.tx
+    .select({ skillId: agentSkills.skillId })
+    .from(agentSkills)
+    .where(
+      and(
+        eq(agentSkills.agentId, id),
+        eq(agentSkills.workspaceId, c.workspaceId),
+      ),
+    )
+    .orderBy(agentSkills.skillId)
+    .limit(51);
+  if (selected.length > 50)
+    throw new DomainError("invalid", "Agent selection limit");
+  return { ...agent, skillIds: selected.map((row) => row.skillId) };
 }
 
 export async function getAgents(
@@ -85,7 +111,7 @@ export async function getAgents(
   const { limit } = parsePageOptions(filter);
   if (filter.projectId) await getProject(c, filter.projectId);
   const candidates = await c.tx
-    .select()
+    .select({ id: agents.id })
     .from(agents)
     .where(
       and(
@@ -99,10 +125,7 @@ export async function getAgents(
     .limit(limit + 1);
   return filterPage(
     getPage(candidates, (row) => row.id, limit),
-    async (agent) => {
-      await getAgent(c, agent.id);
-      return agent;
-    },
+    (agent) => getAgent(c, agent.id),
   );
 }
 export async function updateAgent(
@@ -110,35 +133,31 @@ export async function updateAgent(
   id: string,
   input: {
     visibility?: "user" | "workspace";
-    name?: string;
+    title?: string;
     instructions?: string;
     harness?: string;
     model?: string;
-    connectionId?: string | null;
+    subscriptionId?: string | null;
     skillIds?: string[];
     editToken: number;
   },
 ) {
   requireHuman(c);
   requireWriter(c);
-  if (
-    (input.skillIds?.length ?? 0) > 50 ||
-    (input.skillIds && new Set(input.skillIds).size !== input.skillIds.length)
-  )
-    throw new DomainError("invalid", "Agent selection limit");
+  const skillIds = normalizeSkillIds(input.skillIds);
   const current = await getAgent(c, id);
-  if (current.ownerId !== c.actor.userId) throw new DomainError("forbidden");
+  if (current.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   if (current.editToken !== input.editToken)
     throw new DomainError("conflict", "Agent changed");
   if (
     [
       input.visibility,
-      input.name,
+      input.title,
       input.instructions,
       input.harness,
       input.model,
-      input.connectionId,
-      input.skillIds,
+      input.subscriptionId,
+      skillIds,
     ].every((value) => value === undefined)
   )
     throw new DomainError("invalid", "No editable fields");
@@ -148,27 +167,47 @@ export async function updateAgent(
         .update(agents)
         .set({
           visibility: input.visibility,
-          name: input.name,
+          title: input.title,
           instructions: input.instructions,
           harness: input.harness,
           model: input.model,
-          connectionId: input.connectionId,
-          skillIds: input.skillIds,
+          subscriptionId: input.subscriptionId,
           editToken: current.editToken + 1,
         })
         .where(eq(agents.id, id))
         .returning()
     )[0],
   );
+  if (skillIds !== undefined) {
+    await c.tx
+      .delete(agentSkills)
+      .where(
+        and(
+          eq(agentSkills.agentId, id),
+          eq(agentSkills.workspaceId, c.workspaceId),
+        ),
+      );
+    if (skillIds.length)
+      await c.tx.insert(agentSkills).values(
+        skillIds.map((skillId) => ({
+          workspaceId: c.workspaceId,
+          agentId: id,
+          skillId,
+        })),
+      );
+  }
   await advanceCursor(c);
-  return updated;
+  return {
+    ...updated,
+    skillIds: skillIds ?? current.skillIds,
+  };
 }
 
 export async function archiveAgent(c: Context, id: string, archived: boolean) {
   requireHuman(c);
   requireWriter(c);
   const agent = await getAgent(c, id);
-  if (agent.ownerId !== c.actor.userId) throw new DomainError("forbidden");
+  if (agent.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   await c.tx
     .update(agents)
     .set({ archived, editToken: agent.editToken + 1 })

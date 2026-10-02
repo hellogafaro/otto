@@ -65,7 +65,7 @@ const toolInput = z.discriminatedUnion("name", [
       type: z.string().min(1).max(50),
       labels: z.array(z.string().max(80)).max(20).default([]),
       projectId: z.uuid().optional(),
-      access: z.enum(["inherited", "restricted"]),
+      visibility: z.enum(["user", "workspace"]),
       mediaType: z.enum([
         "text/plain",
         "text/markdown",
@@ -339,7 +339,7 @@ export function createRunTools(
                 "Document was not accepted for this Run",
               );
             // Ordinary direct reads still require the Agent's own access; accepted
-            // restricted input snapshots do not grant arbitrary live document access.
+            // user-scoped input snapshots do not grant arbitrary live Document access.
             const doc = await getDocument(c, input.documentId);
             const audience = await getDocumentAudience(c, input.documentId);
             if (run.inputs.audience.humans.some((id) => !audience.includes(id)))

@@ -14,6 +14,7 @@ import {
   type ArtifactStorage,
   previewArtifact,
 } from "../packages/artifacts/src";
+import { documents } from "../packages/documents/src/schema";
 import { runs } from "../packages/runs/src/schema";
 import { updateTask } from "../packages/tasks/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
@@ -90,10 +91,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
   };
   const createDoc = async (
     body = "visible body",
-    access: "inherited" | "restricted" = "inherited",
+    visibility: "user" | "workspace" = "workspace",
   ) =>
     saved(
-      await api("/documents", "POST", { title: "A document", body, access }),
+      await api("/documents", "POST", {
+        title: "A document",
+        body,
+        visibility,
+      }),
     );
   const createArtifact = async (
     text = "immutable bytes",
@@ -104,7 +109,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         requestId: crypto.randomUUID(),
         title: "Reference file",
         type: "text",
-        access: "inherited",
+        visibility: "workspace",
         mediaType: "text/plain",
         bytes: Buffer.from(text).toString("base64"),
         sourceRunId,
@@ -211,7 +216,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       expect(userId).toBeTruthy();
     }
     projectId = (
-      await saved(await api("/projects", "POST", { name: "Project alpha" }))
+      await saved(await api("/projects", "POST", { title: "Project alpha" }))
     ).id;
     for (const userId of [collaborator, viewer])
       expect(
@@ -226,7 +231,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       await saved(
         await api("/conversations", "POST", {
           title: "Content discussion",
-          access: "inherited",
+          visibility: "workspace",
           projectId,
         }),
       )
@@ -238,6 +243,309 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     await server?.stop(true);
     await boss?.stop();
     await database?.stop();
+  });
+
+  it("round-trips Otto titles through HTTP without renaming human names or native identifiers", async () => {
+    const project = await saved(
+      await api("/projects", "POST", { title: "Title contract" }),
+    );
+    const agent = z.object({ agent: record }).parse(
+      await (
+        await api("/agents", "POST", {
+          title: "Agent title",
+          instructions: "Work",
+          harness: "codex-acp",
+          model: "configured-id",
+        })
+      ).json(),
+    ).agent;
+    const connection = await saved(
+      await api("/connections", "POST", {
+        title: "App title",
+        type: "mcp",
+        accountRef: "fixture-account",
+      }),
+    );
+    const subscription = await saved(
+      await api("/subscriptions", "POST", { title: "Subscription title" }),
+    );
+    const automation = await saved(
+      await api("/automations", "POST", {
+        title: "Automation title",
+        agentId: agent.id,
+        conversationId,
+        type: "script",
+        body: "fixture",
+        status: "disabled",
+        timezone: "UTC",
+      }),
+    );
+    for (const [path, row] of [
+      ["projects", project],
+      ["agents", agent],
+      ["connections", connection],
+      ["subscriptions", subscription],
+      ["automations", automation],
+    ] as const) {
+      expect(row).toHaveProperty("title");
+      expect(row).not.toHaveProperty("name");
+      const changes =
+        path === "agents" || path === "automations"
+          ? { title: "Updated title", editToken: row.editToken }
+          : { title: "Updated title" };
+      const updated = await saved(
+        await api(`/${path}/${row.id}`, "PATCH", changes),
+      );
+      expect(updated.title).toBe("Updated title");
+      expect(updated).not.toHaveProperty("name");
+      const read = await saved(await api(`/${path}/${row.id}`));
+      expect(read.title).toBe("Updated title");
+      expect(read).not.toHaveProperty("name");
+      expect(
+        (
+          await database.pool.query(`select name from ${path} where id=$1`, [
+            row.id,
+          ])
+        ).rows[0]?.name,
+      ).toBe("Updated title");
+    }
+    const workspaces = page.parse(
+      await (await request("/api/workspaces")).json(),
+    );
+    expect(
+      workspaces.items.find((row) => row.id === workspaceId),
+    ).toMatchObject({ title: "Content transport" });
+    expect(
+      workspaces.items.find((row) => row.id === workspaceId),
+    ).not.toHaveProperty("name");
+    const humans = z
+      .object({
+        items: z.array(z.object({ userId: z.string(), name: z.string() })),
+      })
+      .parse(await (await api("/members")).json());
+    expect(humans.items.find((row) => row.userId === owner)).toHaveProperty(
+      "name",
+    );
+    expect(humans.items.find((row) => row.userId === owner)).not.toHaveProperty(
+      "title",
+    );
+    const fieldId = crypto.randomUUID();
+    const collection = await saved(
+      await api("/collections", "POST", {
+        title: "Collection",
+        fields: [{ id: fieldId, title: "Count", type: "number" }],
+      }),
+    );
+    expect(collection.fields).toEqual([
+      { id: fieldId, title: "Count", type: "number" },
+    ]);
+    const changed = await saved(
+      await api(`/collections/${collection.id}`, "PATCH", {
+        editToken: 0,
+        fields: [{ id: fieldId, title: "Total", type: "number" }],
+      }),
+    );
+    expect(changed.fields).toEqual([
+      { id: fieldId, title: "Total", type: "number" },
+    ]);
+    const legacyFields = [
+      { id: fieldId, name: "Legacy label", type: "number" },
+    ];
+    await database.pool.query("update collections set fields=$1 where id=$2", [
+      JSON.stringify(legacyFields),
+      collection.id,
+    ]);
+    const legacyRead = await saved(await api(`/collections/${collection.id}`));
+    expect(legacyRead.fields).toEqual([
+      { id: fieldId, title: "Legacy label", type: "number" },
+    ]);
+    expect(
+      (
+        await database.pool.query(
+          "select fields from collections where id=$1",
+          [collection.id],
+        )
+      ).rows[0]?.fields,
+    ).toEqual(legacyFields);
+  });
+
+  it("edits Project and Conversation display metadata without tokens while retaining writer and archive gates", async () => {
+    const project = await saved(
+      await api("/projects", "POST", { title: "Token-free" }),
+    );
+    const conversation = await saved(
+      await api("/conversations", "POST", {
+        title: "Before",
+        visibility: "workspace",
+      }),
+    );
+    for (const [path, changes, field] of [
+      [`/projects/${project.id}`, { title: "After" }, "title"],
+      [`/conversations/${conversation.id}`, { title: "After" }, "title"],
+    ] as const) {
+      const updated = await saved(await api(path, "PATCH", changes));
+      expect(updated).toHaveProperty(field, "After");
+      expect(updated).not.toHaveProperty("editToken");
+      expect(
+        (await api(path, "PATCH", { [field]: "Denied" }, viewerCookie)).status,
+      ).toBe(403);
+      expect(await saved(await api(path))).toHaveProperty(field, "After");
+      expect(
+        (await api(`${path}/archive`, "POST", { archived: true }, viewerCookie))
+          .status,
+      ).toBe(403);
+      expect(
+        (await api(`${path}/archive`, "POST", { archived: true })).status,
+      ).toBe(200);
+      expect(await saved(await api(path))).toHaveProperty("archived", true);
+      expect(
+        (await api(`${path}/archive`, "POST", { archived: false })).status,
+      ).toBe(200);
+    }
+  });
+
+  it("keeps Conversation management with its creator while participants can discuss", async () => {
+    const group = await saved(
+      await api("/conversations", "POST", {
+        title: "Creator group",
+        visibility: "participants",
+      }),
+    );
+    expect(
+      (
+        await api(`/conversations/${group.id}/participants`, "POST", {
+          userId: collaborator,
+          role: "contributor",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await api(
+          `/conversations/${group.id}`,
+          "PATCH",
+          { title: "Not creator" },
+          collaboratorCookie,
+        )
+      ).status,
+    ).toBe(403);
+    expect(group).toHaveProperty("createdBy", owner);
+    expect(group).not.toHaveProperty("access");
+    for (const [path, method, body] of [
+      [`/conversations/${group.id}/archive`, "POST", { archived: true }],
+      [
+        `/conversations/${group.id}/participants`,
+        "POST",
+        { userId: viewer, role: "contributor" },
+      ],
+    ] as const)
+      expect((await api(path, method, body, collaboratorCookie)).status).toBe(
+        403,
+      );
+    const discussion = await saved(
+      await api(
+        `/conversations/${group.id}/messages`,
+        "POST",
+        { requestId: crypto.randomUUID(), body: "Participant discussion" },
+        collaboratorCookie,
+      ),
+    );
+    expect(discussion.body).toBe("Participant discussion");
+    expect(
+      (await api(`/conversations/${group.id}`, "GET", undefined, viewerCookie))
+        .status,
+    ).toBe(403);
+    expect(
+      (
+        await api(`/conversations/${group.id}/participants`, "POST", {
+          userId: viewer,
+          role: "viewer",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await api(`/conversations/${group.id}`, "GET", undefined, viewerCookie))
+        .status,
+    ).toBe(200);
+    expect(
+      (
+        await api(
+          `/conversations/${group.id}/messages`,
+          "POST",
+          { requestId: crypto.randomUUID(), body: "Viewer denied" },
+          viewerCookie,
+        )
+      ).status,
+    ).toBe(403);
+    const listed = page.parse(
+      await (await api(`/conversations/${group.id}/participants`)).json(),
+    );
+    const peer = listed.items.find((item) => item.userId === collaborator);
+    expect(peer).toBeDefined();
+    expect(
+      (
+        await api(
+          `/conversations/${group.id}/participants/${peer?.id}`,
+          "DELETE",
+          undefined,
+          collaboratorCookie,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await api(
+          `/conversations/${group.id}/participants/${peer?.id}`,
+          "DELETE",
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await api(
+          `/conversations/${group.id}/messages?after=0`,
+          "GET",
+          undefined,
+          collaboratorCookie,
+        )
+      ).status,
+    ).toBe(403);
+    const workspace = await saved(
+      await api(
+        "/conversations",
+        "POST",
+        { title: "Workspace discussion", visibility: "workspace" },
+        collaboratorCookie,
+      ),
+    );
+    expect(workspace.createdBy).toBe(collaborator);
+    expect((await api(`/conversations/${workspace.id}`, "GET")).status).toBe(
+      200,
+    );
+    expect(
+      (
+        await api(`/conversations/${workspace.id}`, "PATCH", {
+          title: "Workspace owner cannot impersonate creator",
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await api(`/conversations/${workspace.id}/messages`, "POST", {
+          requestId: crypto.randomUUID(),
+          body: "Eligible workspace discussion",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await api("/conversations", "POST", {
+          title: "Forged",
+          visibility: "workspace",
+          createdBy: collaborator,
+        })
+      ).status,
+    ).toBe(400);
   });
 
   it("uses auth, current roles, origin checks and bounded input on new routes", async () => {
@@ -261,9 +569,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              name: "wrong",
+              title: "wrong",
               repositoryUrl: null,
-              editToken: 0,
             }),
           },
         )
@@ -274,7 +581,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         await content(
           `/projects/${projectId}`,
           "PATCH",
-          { name: "wrong", repositoryUrl: null, editToken: 0 },
+          { title: "wrong", repositoryUrl: null },
           viewerCookie,
         )
       ).status,
@@ -500,7 +807,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       await api("/documents", "POST", {
         title: "Ordinary",
         body: "",
-        access: "inherited",
+        visibility: "workspace",
       }),
     );
     expect(
@@ -535,7 +842,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         .status,
     ).toBe(400);
     const agentInput = {
-      name: "Worker",
+      title: "Worker",
       instructions: "original",
       harness: "fixture",
       model: "fixture",
@@ -555,10 +862,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         ).status,
       ).toBe(400);
     const connection = await saved(
-      await api("/connections", "POST", {
-        name: "Native",
-        type: "model",
-        accountRef: "fixture-account",
+      await api("/subscriptions", "POST", {
+        title: "Native",
       }),
     );
     const result = z
@@ -572,7 +877,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
           await api("/agents", "POST", {
             visibility: "workspace",
             ...agentInput,
-            connectionId: connection.id,
+            subscriptionId: connection.id,
           })
         ).json(),
       );
@@ -585,9 +890,9 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         }),
       ),
     ).toMatchObject({
-      name: "Worker",
+      title: "Worker",
       instructions: "edited",
-      connectionId: connection.id,
+      subscriptionId: connection.id,
       editToken: 1,
     });
     expect(
@@ -599,16 +904,15 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).status,
     ).toBe(409);
   });
-  it("supports restricted Document contributors and rejects viewers, stale grants and revoked readers", async () => {
-    const doc = await createDoc("private content", "restricted");
+  it("shares Document reads while retaining creator edits and stale-content denial", async () => {
+    const doc = await createDoc("private content", "user");
     expect(
       (await api(`/documents/${doc.id}`, "GET", undefined, collaboratorCookie))
         .status,
     ).toBe(403);
     await saved(
-      await content(`/documents/${doc.id}/access`, "PUT", {
-        readerIds: [viewer],
-        writerIds: [collaborator],
+      await content(`/documents/${doc.id}`, "PATCH", {
+        visibility: "workspace",
         editToken: 0,
       }),
     );
@@ -616,13 +920,22 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       (await api(`/documents/${doc.id}`, "GET", undefined, viewerCookie))
         .status,
     ).toBe(200);
+    expect(
+      (
+        await api(
+          `/documents/${doc.id}`,
+          "PATCH",
+          { title: "Denied", body: "contributor changed", editToken: 1 },
+          collaboratorCookie,
+        )
+      ).status,
+    ).toBe(403);
     await saved(
-      await api(
-        `/documents/${doc.id}`,
-        "PATCH",
-        { title: "Edited", body: "contributor changed", editToken: 1 },
-        collaboratorCookie,
-      ),
+      await api(`/documents/${doc.id}`, "PATCH", {
+        title: "Edited",
+        body: "creator changed",
+        editToken: 1,
+      }),
     );
     expect(
       (
@@ -636,17 +949,15 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(403);
     expect(
       (
-        await content(`/documents/${doc.id}/access`, "PUT", {
-          readerIds: [],
-          writerIds: [],
+        await content(`/documents/${doc.id}`, "PATCH", {
+          visibility: "user",
           editToken: 1,
         })
       ).status,
     ).toBe(409);
     await saved(
-      await content(`/documents/${doc.id}/access`, "PUT", {
-        readerIds: [],
-        writerIds: [],
+      await content(`/documents/${doc.id}`, "PATCH", {
+        visibility: "user",
         editToken: 2,
       }),
     );
@@ -670,7 +981,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).not.toContain(doc.id);
   });
   it("keeps preview unpublished, freezes selection, rejects stale publication and explicitly updates/revokes it", async () => {
-    const doc = await createDoc("PUBLIC private-tail", "restricted");
+    const doc = await createDoc("PUBLIC private-tail", "user");
     const draft = await preview({
       type: "document",
       targetId: doc.id,
@@ -703,6 +1014,19 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       { type: "document", targetId: doc.id, start: 0, end: 7 },
       { id: active.id, editToken: active.editToken ?? 0 },
     );
+    expect(
+      await (
+        await request(`/api/shares/${draft.id}`, "GET", undefined, "")
+      ).json(),
+    ).toEqual({ type: "document", title: "A document", body: "PUBLIC" });
+    const listed = z
+      .object({
+        items: z.array(z.object({ id: z.string(), published: z.boolean() })),
+      })
+      .parse(await (await content("/shares")).json());
+    expect(listed.items.find((item) => item.id === draft.id)?.published).toBe(
+      true,
+    );
     await saved(
       await api(`/documents/${doc.id}`, "PATCH", {
         title: "Changed again",
@@ -729,6 +1053,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       (await content(`/shares/${draft.id}/revoke`, "POST", {})).status,
     ).toBe(200);
     expect((await request(`/api/shares/${draft.id}`)).status).toBe(404);
+    const revoked = z
+      .object({
+        items: z.array(z.object({ id: z.string(), published: z.boolean() })),
+      })
+      .parse(await (await content("/shares")).json());
+    expect(revoked.items.find((item) => item.id === draft.id)?.published).toBe(
+      false,
+    );
     expect(
       (
         await content(`/shares/${fresh.id}/publish`, "POST", {
@@ -950,13 +1282,22 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         ),
       })
       .parse(await (await content(`/skills/${skill.id}/export`)).json());
-    expect(exported.skillMd).toContain('allowed-tools: "fake-tool"');
+    expect(exported.skillMd).toBe(
+      '---\nname: "review-skill"\ndescription: "Review code carefully"\nallowed-tools: "fake-tool"\n---\nRead references/guide.txt',
+    );
+    const skillRecord = await database.db
+      .select()
+      .from(documents)
+      .where(eq(documents.id, skill.id));
+    expect(skillRecord[0]?.skillMetadata).toEqual({
+      "allowed-tools": "fake-tool",
+    });
     expect(exported.files[0]?.artifactId).toBe(file.id);
     const created = z.object({ agent: record }).parse(
       await (
         await api("/agents", "POST", {
           visibility: "workspace",
-          name: "Content worker",
+          title: "Content worker",
           skillIds: [skill.id],
           instructions: "Work",
           harness: "codex-acp",
@@ -1123,7 +1464,6 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       await content(`/artifacts/${output.id}`, "PATCH", {
         title: "Later metadata",
         labels: ["new"],
-        editToken: 0,
       }),
     );
     expect(
@@ -1154,7 +1494,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     const collection = await saved(
       await api("/collections", "POST", {
         title: "Reading list",
-        fields: [{ id: fieldId, name: "Count", type: "number" }],
+        fields: [{ id: fieldId, title: "Count", type: "number" }],
       }),
     );
     const doc = await createDoc();
@@ -1168,7 +1508,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     await saved(
       await content(`/collections/${collection.id}`, "PATCH", {
         title: "Reading list",
-        fields: [{ id: fieldId, name: "Total", type: "number" }],
+        fields: [{ id: fieldId, title: "Total", type: "number" }],
         editToken: 0,
       }),
     );
@@ -1176,7 +1516,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       (
         await content(`/collections/${collection.id}`, "PATCH", {
           title: "Invalid",
-          fields: [{ id: fieldId, name: "Total", type: "text" }],
+          fields: [{ id: fieldId, title: "Total", type: "text" }],
           editToken: 1,
         })
       ).status,
@@ -1218,7 +1558,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     );
   });
   it("filters linked records independently and prevents capturing private messages into wider tasks", async () => {
-    const privateDoc = await createDoc("hidden", "restricted");
+    const privateDoc = await createDoc("hidden", "user");
     const task = await saved(
       await api("/tasks", "POST", { projectId, title: "Linked work" }),
     );
@@ -1240,15 +1580,15 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         )
       ).json(),
     ).toEqual({ items: [], next: null });
-    const restricted = await saved(
+    const group = await saved(
       await api("/conversations", "POST", {
         title: "Private source",
-        access: "restricted",
+        visibility: "participants",
         projectId,
       }),
     );
     const message = await saved(
-      await content(`/conversations/${restricted.id}/messages`, "POST", {
+      await content(`/conversations/${group.id}/messages`, "POST", {
         body: "private source text",
         requestId: crypto.randomUUID(),
       }),
@@ -1258,7 +1598,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         await content("/tasks/capture", "POST", {
           projectId,
           title: "Unsafe copy",
-          conversationId: restricted.id,
+          conversationId: group.id,
           messageId: message.id,
         })
       ).status,
@@ -1280,12 +1620,11 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(captured.notes).toBe("capture this once");
     expect(captured.ownerId).toBe(owner);
   });
-  it("refreshes authorized Document content over WebSocket and closes after grant removal", async () => {
-    const doc = await createDoc("before realtime", "restricted");
+  it("refreshes authorized Document content over WebSocket and closes after visibility removal", async () => {
+    const doc = await createDoc("before realtime", "user");
     await saved(
-      await content(`/documents/${doc.id}/access`, "PUT", {
-        readerIds: [collaborator],
-        writerIds: [],
+      await content(`/documents/${doc.id}`, "PATCH", {
+        visibility: "workspace",
         editToken: 0,
       }),
     );
@@ -1318,9 +1657,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         })
         .toBe(true);
       await saved(
-        await content(`/documents/${doc.id}/access`, "PUT", {
-          readerIds: [],
-          writerIds: [],
+        await content(`/documents/${doc.id}`, "PATCH", {
+          visibility: "user",
           editToken: 2,
         }),
       );
@@ -1339,7 +1677,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
             await api("/documents", "POST", {
               title: `Pagination record ${i}`,
               body: "needleable",
-              access: "inherited",
+              visibility: "workspace",
             }),
           )
         ).id,
@@ -1444,15 +1782,15 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(409);
   });
   it("handles Conversation role changes, ephemeral presence, archive/restore and rechecks attachments", async () => {
-    const restricted = await saved(
+    const group = await saved(
       await api("/conversations", "POST", {
         title: "Presence",
-        access: "restricted",
+        visibility: "participants",
       }),
     );
     expect(
       (
-        await api(`/conversations/${restricted.id}/participants`, "POST", {
+        await api(`/conversations/${group.id}/participants`, "POST", {
           userId: collaborator,
           role: "contributor",
         })
@@ -1461,7 +1799,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${restricted.id}/presence`,
+          `/conversations/${group.id}/presence`,
           "PUT",
           { typing: true },
           collaboratorCookie,
@@ -1469,7 +1807,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).status,
     ).toBe(200);
     expect(
-      await (await content(`/conversations/${restricted.id}/presence`)).json(),
+      await (await content(`/conversations/${group.id}/presence`)).json(),
     ).toEqual([{ userId: collaborator, typing: true }]);
     const participants = z
       .object({
@@ -1479,9 +1817,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         next: z.string().nullable(),
       })
       .parse(
-        await (
-          await content(`/conversations/${restricted.id}/participants`)
-        ).json(),
+        await (await content(`/conversations/${group.id}/participants`)).json(),
       );
     const participant = participants.items.find(
       (p) => p.userId === collaborator,
@@ -1490,7 +1826,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${restricted.id}/participants/${participant.id}`,
+          `/conversations/${group.id}/participants/${participant.id}`,
           "PATCH",
           { role: "viewer" },
         )
@@ -1499,7 +1835,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${restricted.id}/presence`,
+          `/conversations/${group.id}/presence`,
           "PUT",
           { typing: true },
           collaboratorCookie,
@@ -1509,7 +1845,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${restricted.id}/messages`,
+          `/conversations/${group.id}/messages`,
           "POST",
           { body: "viewer write", requestId: crypto.randomUUID() },
           collaboratorCookie,
@@ -1518,7 +1854,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(403);
     const file = await createArtifact("attachment bytes");
     const message = await saved(
-      await content(`/conversations/${restricted.id}/messages`, "POST", {
+      await content(`/conversations/${group.id}/messages`, "POST", {
         body: "file reference",
         requestId: crypto.randomUUID(),
         artifactIds: [file.id],
@@ -1526,14 +1862,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     );
     expect(message.artifactIds).toEqual([file.id]);
     await saved(
-      await content(`/conversations/${restricted.id}/archive`, "POST", {
+      await content(`/conversations/${group.id}/archive`, "POST", {
         archived: true,
         editToken: 0,
       }),
     );
     expect(
       (
-        await content(`/conversations/${restricted.id}/messages`, "POST", {
+        await content(`/conversations/${group.id}/messages`, "POST", {
           body: "discussion remains available while archived",
           requestId: crypto.randomUUID(),
         })
@@ -1542,16 +1878,16 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${restricted.id}/messages`,
+          `/conversations/${group.id}/messages`,
           "POST",
           { body: "viewer remains read-only", requestId: crypto.randomUUID() },
           collaboratorCookie,
         )
       ).status,
     ).toBe(403);
-    expect((await content(`/conversations/${restricted.id}`)).status).toBe(200);
+    expect((await content(`/conversations/${group.id}`)).status).toBe(200);
     await saved(
-      await content(`/conversations/${restricted.id}/archive`, "POST", {
+      await content(`/conversations/${group.id}/archive`, "POST", {
         archived: false,
         editToken: 1,
       }),
@@ -1559,86 +1895,35 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await api(
-          `/conversations/${restricted.id}/participants/${participant.id}`,
+          `/conversations/${group.id}/participants/${participant.id}`,
           "DELETE",
           {},
         )
       ).status,
     ).toBe(200);
     expect(
-      await (await content(`/conversations/${restricted.id}/presence`)).json(),
+      await (await content(`/conversations/${group.id}/presence`)).json(),
     ).toEqual([]);
   });
-  it("preserves Artifact role grants, metadata edits and independently guarded files", async () => {
-    const artifact = await saved(
-      await api("/artifacts", "POST", {
-        requestId: crypto.randomUUID(),
-        title: "Private artifact",
-        type: "text",
-        access: "restricted",
-        mediaType: "text/plain",
-        bytes: Buffer.from("private bytes").toString("base64"),
-      }),
-    );
-    await saved(
-      await content(`/artifacts/${artifact.id}/access`, "PUT", {
-        readerIds: [viewer],
-        writerIds: [collaborator],
-        editToken: 0,
-      }),
-    );
-    expect(
-      (await api(`/artifacts/${artifact.id}`, "GET", undefined, viewerCookie))
-        .status,
-    ).toBe(200);
-    await saved(
-      await content(
-        `/artifacts/${artifact.id}`,
-        "PATCH",
-        { title: "Artifact renamed", labels: ["selected"], editToken: 1 },
-        collaboratorCookie,
-      ),
-    );
-    expect(
-      (
-        await content(
-          `/artifacts/${artifact.id}`,
-          "PATCH",
-          { title: "Viewer write", labels: [], editToken: 2 },
-          viewerCookie,
-        )
-      ).status,
-    ).toBe(403);
-    expect(
-      page
-        .parse(
-          await (
-            await content(
-              `/artifacts?ownerId=${owner}&query=renamed`,
-              "GET",
-              undefined,
-              collaboratorCookie,
-            )
-          ).json(),
-        )
-        .items.map((item) => item.id),
-    ).toContain(artifact.id);
-    const doc = await createDoc();
-    expect(
-      (
-        await content(`/documents/${doc.id}/attachments`, "PUT", {
-          artifactIds: [artifact.id],
-          editToken: 0,
-        })
-      ).status,
-    ).toBe(200);
-    await saved(
-      await content(`/artifacts/${artifact.id}/access`, "PUT", {
-        readerIds: [],
-        writerIds: [],
-        editToken: 2,
-      }),
-    );
+  it("uses token-free custodial Artifact metadata and one current visibility without changing immutable receipts", async () => {
+    const input = {
+      requestId: crypto.randomUUID(),
+      title: "Private artifact",
+      type: "text",
+      visibility: "user",
+      mediaType: "text/plain",
+      bytes: Buffer.from("private bytes").toString("base64"),
+    };
+    const artifact = await saved(await api("/artifacts", "POST", input));
+    for (const field of [
+      "editToken",
+      "access",
+      "readerIds",
+      "writerIds",
+      "objectKey",
+      "request",
+    ])
+      expect(artifact).not.toHaveProperty(field);
     expect(
       (
         await api(
@@ -1649,10 +1934,86 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         )
       ).status,
     ).toBe(403);
+    await saved(
+      await api(`/artifacts/${artifact.id}`, "PATCH", {
+        visibility: "workspace",
+        title: "Renamed",
+        labels: ["selected"],
+      }),
+    );
+    expect(
+      (
+        await api(
+          `/artifacts/${artifact.id}/file`,
+          "GET",
+          undefined,
+          collaboratorCookie,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await api(
+          `/artifacts/${artifact.id}`,
+          "PATCH",
+          { title: "Denied" },
+          collaboratorCookie,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await api(
+          `/artifacts/${artifact.id}/archive`,
+          "POST",
+          { archived: true },
+          collaboratorCookie,
+        )
+      ).status,
+    ).toBe(403);
+    expect((await saved(await api("/artifacts", "POST", input))).title).toBe(
+      "Renamed",
+    );
+    expect(
+      (await api("/artifacts", "POST", { ...input, visibility: "workspace" }))
+        .status,
+    ).toBe(409);
+    const doc = await createDoc();
+    expect(
+      (
+        await content(`/documents/${doc.id}/attachments`, "PUT", {
+          artifactIds: [artifact.id],
+          editToken: 0,
+        })
+      ).status,
+    ).toBe(200);
+    await saved(
+      await api(`/artifacts/${artifact.id}`, "PATCH", { visibility: "user" }),
+    );
+    expect(
+      (
+        await api(
+          `/artifacts/${artifact.id}/file`,
+          "GET",
+          undefined,
+          collaboratorCookie,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await api(`/artifacts/${artifact.id}/access`, "PUT", {
+          readerIds: [collaborator],
+          writerIds: [],
+          editToken: 0,
+        })
+      ).status,
+    ).toBe(404);
   });
+
   it("persists Project defaults and uses real membership/archive gates", async () => {
     const project = await saved(
-      await api("/projects", "POST", { name: "Lifecycle project" }),
+      await api("/projects", "POST", { title: "Lifecycle project" }),
     );
     const skill = await saved(
       await content("/skills/import", "POST", {
@@ -1671,9 +2032,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(400);
     await saved(
       await content(`/projects/${project.id}`, "PATCH", {
-        name: "Edited project",
+        title: "Edited project",
         repositoryUrl: "https://example.test/repo",
-        editToken: 0,
       }),
     );
     expect(
@@ -1729,12 +2089,12 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
 
   it("preserves saved discussion and explicit Stop after Project and Conversation archive", async () => {
     const project = await saved(
-      await api("/projects", "POST", { name: "Archive controls" }),
+      await api("/projects", "POST", { title: "Archive controls" }),
     );
     const conversation = await saved(
       await api("/conversations", "POST", {
         title: "Admitted work",
-        access: "inherited",
+        visibility: "workspace",
         projectId: project.id,
       }),
     );
@@ -1742,7 +2102,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       await (
         await api("/agents", "POST", {
           visibility: "workspace",
-          name: "Archive worker",
+          title: "Archive worker",
           instructions: "Work",
           harness: "codex-acp",
           model: "unqualified",
@@ -1834,7 +2194,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         requestId: crypto.randomUUID(),
         title: "HTML result",
         type: "html",
-        access: "restricted",
+        visibility: "user",
         mediaType: "text/html",
         bytes: Buffer.from(html).toString("base64"),
       }),
@@ -1881,18 +2241,18 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     }
   });
 
-  it("closes a published Run Artifact when the publisher loses its restricted source Conversation", async () => {
+  it("closes a published Run Artifact when the publisher loses its group source Conversation", async () => {
     const conversation = await saved(
       await api("/conversations", "POST", {
         title: "Private Run source",
-        access: "restricted",
+        visibility: "participants",
       }),
     );
     const configured = z.object({ agent: record }).parse(
       await (
         await api("/agents", "POST", {
           visibility: "workspace",
-          name: "Source worker",
+          title: "Source worker",
           instructions: "Fixture",
           harness: "codex-acp",
           model: "unqualified",
@@ -1921,7 +2281,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         requestId: crypto.randomUUID(),
         title: "Selected source result",
         type: "text",
-        access: "restricted",
+        visibility: "user",
         sourceRunId: run.id,
         mediaType: "text/plain",
         bytes: Buffer.from("selected source bytes").toString("base64"),
@@ -1977,7 +2337,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       await api(
         "/documents",
         "POST",
-        { title: "Collaborator note", body: "selected", access: "restricted" },
+        { title: "Collaborator note", body: "selected", visibility: "user" },
         collaboratorCookie,
       ),
     );

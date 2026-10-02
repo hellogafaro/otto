@@ -69,7 +69,11 @@ describe("persisted content and capability scope", () => {
   });
   it("rejects stale Document edits and keeps one current body", async () => {
     const doc = await scope((c) =>
-      createDocument(c, { title: "Note", body: "old", access: "inherited" }),
+      createDocument(c, {
+        title: "Note",
+        body: "old",
+        visibility: "workspace",
+      }),
     );
     await scope((c) =>
       updateDocument(c, doc.id, { title: "Note", body: "new", editToken: 0 }),
@@ -90,11 +94,15 @@ describe("persisted content and capability scope", () => {
     const collection = await scope((c) =>
       createCollection(c, {
         title: "Library",
-        fields: [{ id: fieldId, name: "Size", type: "number" }],
+        fields: [{ id: fieldId, title: "Size", type: "number" }],
       }),
     );
     const doc = await scope((c) =>
-      createDocument(c, { title: "Spec", body: "body", access: "inherited" }),
+      createDocument(c, {
+        title: "Spec",
+        body: "body",
+        visibility: "workspace",
+      }),
     );
     await expect(
       scope((c) =>
@@ -151,7 +159,7 @@ describe("persisted content and capability scope", () => {
       requestId: crypto.randomUUID(),
       title: "Result",
       type: "text",
-      access: "restricted" as const,
+      visibility: "user" as const,
       mediaType: "text/plain",
     };
     const bytes = new TextEncoder().encode("durable output");
@@ -234,9 +242,9 @@ describe("persisted content and capability scope", () => {
       ),
     ).rejects.toMatchObject({ code: "conflict" });
   });
-  it("rechecks restricted Conversation participation on saved-history replay", async () => {
+  it("rechecks participants-only Conversation membership on saved-history replay", async () => {
     const conversation = await scope((c) =>
-      createConversation(c, { title: "Private", access: "restricted" }),
+      createConversation(c, { title: "Private", visibility: "participants" }),
     );
     await scope((c) =>
       createParticipant(c, conversation.id, {
@@ -263,7 +271,7 @@ describe("persisted content and capability scope", () => {
   it("scopes Connection grants and revokes them on disconnect", async () => {
     const agent = await scope((c) =>
       createAgent(c, {
-        name: "Worker",
+        title: "Worker",
         instructions: "Work",
         harness: "codex-acp",
         model: "selected",
@@ -271,7 +279,7 @@ describe("persisted content and capability scope", () => {
     );
     const connection = await scope((c) =>
       createConnection(c, {
-        name: "GitHub",
+        title: "GitHub",
         type: "github",
         accountRef: "installation-reference",
       }),

@@ -8,7 +8,6 @@
     "./schema": "./src/schema.ts"
   },
   "dependencies": {
-    "@otto/db": "workspace:*",
     "@otto/workspaces": "workspace:*",
     "@otto/projects": "workspace:*",
     "drizzle-orm": "0.45.3",

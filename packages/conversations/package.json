@@ -8,7 +8,6 @@
     "./schema": "./src/schema.ts"
   },
   "dependencies": {
-    "@otto/db": "workspace:*",
     "@otto/agents": "workspace:*",
     "@otto/projects": "workspace:*",
     "@otto/workspaces": "workspace:*",

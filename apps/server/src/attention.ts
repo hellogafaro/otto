@@ -8,6 +8,7 @@ export async function getAttention(
   c: Context,
   filter: {
     after?: string;
+    limit?: number;
     mentionsOnly?: boolean;
     runAfter?: string;
     questionAfter?: string;
@@ -16,12 +17,18 @@ export async function getAttention(
 ) {
   requireHuman(c);
   const messages = await getConversationAttention(c, filter);
-  const runs = await getRuns(c, { after: filter.runAfter });
-  const questions = await getRunQuestions(c, { after: filter.questionAfter });
+  const runs = await getRuns(c, {
+    after: filter.runAfter,
+    limit: filter.limit,
+  });
+  const questions = await getRunQuestions(c, {
+    after: filter.questionAfter,
+    limit: filter.limit,
+  });
   const approvals = await getOperations(c, {
     state: "awaiting_approval",
     after: filter.operationAfter,
-    limit: 100,
+    limit: filter.limit,
   });
   return {
     ...messages,

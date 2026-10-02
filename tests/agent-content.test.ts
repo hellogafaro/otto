@@ -90,7 +90,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
       for (const name of ["publisher", "other"]) {
         const agent = await createAgent(c, {
           visibility: "workspace",
-          name,
+          title: name,
           instructions: "Produce a file",
           harness: "codex-acp",
           model: "unqualified",
@@ -100,7 +100,10 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
         else otherAgentId = agent.id;
       }
       conversationId = (
-        await createConversation(c, { title: "Output", access: "restricted" })
+        await createConversation(c, {
+          title: "Output",
+          visibility: "participants",
+        })
       ).id;
       await createParticipant(c, conversationId, {
         agentId,
@@ -141,7 +144,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     requestId: crypto.randomUUID(),
     title: "Agent result",
     type: "text",
-    access: "restricted" as const,
+    visibility: "user" as const,
     mediaType: "text/plain",
     sourceRunId,
   });
@@ -160,7 +163,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     )
       throw new DomainError("forbidden");
   };
-  it("publishes for the exact agent without granting restricted reads or human retry impersonation", async () => {
+  it("publishes for the exact agent without granting user-scoped reads or human retry impersonation", async () => {
     const request = input(await runningRun());
     const actor = { ...human, agentId };
     const beforePuts = puts;
@@ -185,7 +188,6 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
       updateArtifact(c, saved.id, {
         title: "Private human metadata",
         labels: ["private human label"],
-        editToken: 0,
       }),
     );
     expect(
@@ -268,7 +270,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
         storage,
         workspaceId,
         actor,
-        { ...input(runId), access: "inherited" },
+        { ...input(runId), visibility: "workspace" },
         bytes,
         authorizeRun,
       ),
