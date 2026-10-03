@@ -1,0 +1,151 @@
+/* Editor typography on the 4px golden scale (4 · 8 · 12 · 20 · 32), theme colors only. */
+.otto-editor {
+  outline: none;
+  font-size: var(--text-sm);
+  line-height: 1.5rem;
+}
+
+.otto-editor > * + * {
+  margin-top: 0.75rem;
+}
+
+.otto-editor h1,
+.otto-editor h2,
+.otto-editor h3 {
+  margin-top: 1.25rem;
+  font-weight: 500;
+}
+
+/* Headings follow the golden type scale, below the page title (text-lg). */
+.otto-editor h1 {
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+}
+
+.otto-editor h2,
+.otto-editor h3 {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.otto-editor h3 {
+  color: var(--muted-foreground);
+}
+
+.otto-editor ul,
+.otto-editor ol {
+  padding-left: 1.25rem;
+}
+
+.otto-editor ul {
+  list-style: disc;
+}
+
+.otto-editor ol {
+  list-style: decimal;
+}
+
+.otto-editor blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.otto-editor code {
+  border-radius: 0.25rem;
+  background: var(--muted);
+  padding: 0.125rem 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.otto-editor pre {
+  border-radius: 0.5rem;
+  background: var(--muted);
+  padding: 0.75rem;
+}
+
+.otto-editor pre code {
+  background: none;
+  padding: 0;
+}
+
+.otto-editor hr {
+  border-top: 1px solid var(--border);
+}
+
+.otto-editor a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.otto-editor p.is-editor-empty:first-child::before,
+.otto-composer p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.otto-editor img {
+  max-width: 100%;
+  border-radius: 0.5rem;
+}
+
+.otto-editor img.ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+}
+
+.otto-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.otto-editor th,
+.otto-editor td {
+  position: relative;
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.otto-editor th {
+  background: var(--muted);
+  font-weight: 500;
+}
+
+.otto-editor .selectedCell::after {
+  position: absolute;
+  inset: 0;
+  background: var(--ring);
+  opacity: 0.15;
+  content: "";
+  pointer-events: none;
+}
+
+.otto-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.otto-editor ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.otto-editor ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.otto-editor ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+.otto-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
