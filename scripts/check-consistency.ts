@@ -20,12 +20,15 @@ const retired = new Set([
   "automationToken",
   "accountConnectionId",
   "harnessRelease",
+  "Harnesses",
+  "connectAcp",
+  "AcpHandlers",
+  "harnesses",
   "artifactKind",
   "memberPageQuery",
   "transferTask",
   "setCollectionView",
   "setProjectSkills",
-  "updateSkill",
   "createContentApi",
   "createConnectionApi",
   "transferAutomation",
@@ -91,6 +94,35 @@ for (const root of ["packages", "apps/server/src"]) {
           )
         )
           throw new Error(`Owned display labels use title, not name: ${file}`);
+        if (
+          tableName &&
+          ts.isStringLiteral(tableName) &&
+          tableName.text === "documents" &&
+          columns &&
+          ts.isObjectLiteralExpression(columns) &&
+          columns.properties.some(
+            (column) =>
+              ts.isPropertyAssignment(column) &&
+              ts.isIdentifier(column.name) &&
+              [
+                "skill",
+                "skillMetadata",
+                "whenToUse",
+                "supportingFiles",
+              ].includes(column.name.text),
+          )
+        )
+          throw new Error(
+            `Skills own their fields; Documents are ordinary content: ${file}`,
+          );
+        if (
+          tableName &&
+          ts.isStringLiteral(tableName) &&
+          tableName.text === "agent_skills"
+        )
+          throw new Error(
+            `Pure junction tables use plural entities: agents_skills: ${file}`,
+          );
         const name = node.arguments[0];
         if (
           !name ||

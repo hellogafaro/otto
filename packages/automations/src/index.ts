@@ -1,7 +1,7 @@
 import { getAgent } from "@otto/agents";
 import { getConversation } from "@otto/conversations";
 import type { Database } from "@otto/db";
-import { admitRun, type Harnesses } from "@otto/runs";
+import { admitRun, type PiInstallation, prepareRunModel } from "@otto/runs";
 import {
   DomainError,
   filterPage,
@@ -185,7 +185,7 @@ export async function runAutomation(
   boss: PgBoss,
   id: string,
   requestId: string,
-  harnesses: Harnesses = {},
+  pi?: PiInstallation,
 ) {
   const automation = await getAutomation(c, id);
   if (automation.status === "archived")
@@ -201,7 +201,7 @@ export async function runAutomation(
       automationId: id,
       automationEditToken: automation.editToken,
     },
-    harnesses,
+    pi,
   );
 }
 export async function validateAutomation(
@@ -272,7 +272,7 @@ export async function deliverAutomation(
   db: Database,
   boss: PgBoss,
   input: { automationId: string; editToken: number; id: string },
-  harnesses: Harnesses = {},
+  pi?: PiInstallation,
 ) {
   const descriptor = required(
     (
@@ -286,6 +286,35 @@ export async function deliverAutomation(
     )[0],
   );
   try {
+    const completed = (
+      await db
+        .select()
+        .from(automationHistory)
+        .where(eq(automationHistory.id, input.id))
+    )[0];
+    if (completed) return completed;
+    const selection = await inWorkspace(
+      db,
+      descriptor.workspaceId,
+      { userId: descriptor.ownerId },
+      async (c) => {
+        const current = await getAutomation(c, input.automationId);
+        return current.status === "enabled" &&
+          current.editToken === input.editToken
+          ? current
+          : null;
+      },
+      false,
+    );
+    const preparedPi = selection
+      ? await prepareRunModel(
+          db,
+          descriptor.workspaceId,
+          { userId: descriptor.ownerId },
+          { ...selection, requestId: `cron:${input.id}` },
+          pi,
+        )
+      : pi;
     return await inWorkspace(
       db,
       descriptor.workspaceId,
@@ -325,7 +354,7 @@ export async function deliverAutomation(
             automationEditToken: automation.editToken,
             requestId: `cron:${input.id}`,
           },
-          harnesses,
+          preparedPi,
         );
         return required(
           (

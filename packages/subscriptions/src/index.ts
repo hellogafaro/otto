@@ -21,6 +21,7 @@ import { subscriptions } from "./schema";
 export const SUBSCRIPTION_INPUT = z
   .object({
     title: z.string().min(1).max(200),
+    provider: z.literal("codex"),
     visibility: z.enum(["user", "workspace"]).optional(),
   })
   .strict();
@@ -62,6 +63,7 @@ export async function getSubscription(c: Context, id: string) {
           id: subscriptions.id,
           createdBy: subscriptions.createdBy,
           title: subscriptions.title,
+          provider: subscriptions.provider,
           visibility: subscriptions.visibility,
           status: subscriptions.status,
           createdAt: subscriptions.createdAt,
@@ -104,7 +106,7 @@ export async function getSubscriptions(c: Context, options: PageOptions = {}) {
     (row) => getSubscription(c, row.id),
   );
 }
-/** Human edits may revoke or request fresh verification, never assert native qualification. */
+/** Human edits may revoke or request fresh verification, never assert gateway qualification. */
 export async function updateSubscription(
   c: Context,
   id: string,

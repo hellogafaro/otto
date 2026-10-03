@@ -1,3 +1,4 @@
+import { DomainError } from "@otto/shared";
 import {
   createSubscription,
   getSubscription,
@@ -7,10 +8,75 @@ import {
   updateSubscription,
 } from "@otto/subscriptions";
 import { Hono } from "hono";
+import { z } from "zod";
 import { type ApiEnv, recordId, transact } from "./http";
 import { pageQuery, validate } from "./validation";
 
 export const subscriptionApi = new Hono<ApiEnv>()
+  .get("/workspaces/:workspaceId/subscriptions/:id/models", async (c) => {
+    const gateway = c.get("options").modelGateway;
+    if (!gateway)
+      throw new DomainError("unavailable", "Account models unavailable");
+    const subscriptionId = recordId(c);
+    await transact(c, (ctx) => getSubscription(ctx, subscriptionId), false);
+    const items = await gateway.getModels(subscriptionId, c.req.raw.signal);
+    await transact(c, (ctx) => getSubscription(ctx, subscriptionId), false);
+    return c.json({ items, next: null });
+  })
+  .post("/workspaces/:workspaceId/subscriptions/:id/login", async (c) => {
+    const service = c.get("options").subscriptionLogin;
+    if (!service)
+      throw new DomainError("unavailable", "Account login unavailable");
+    const workspaceId = z.uuid().parse(c.req.param("workspaceId"));
+    const id = recordId(c);
+    const actor = { userId: c.get("userId") };
+    const account = await service.authorize(workspaceId, actor, id);
+    if (account.status === "disabled") throw new DomainError("forbidden");
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    c.req.raw.signal.addEventListener("abort", abort, { once: true });
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(stream) {
+        let eventCount = 0;
+        void service
+          .login(
+            workspaceId,
+            actor,
+            id,
+            (event) => {
+              if (controller.signal.aborted) return;
+              if (++eventCount > 8) {
+                controller.abort();
+                return;
+              }
+              stream.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+            },
+            controller.signal,
+          )
+          .catch(() => {
+            if (!controller.signal.aborted)
+              stream.enqueue(
+                encoder.encode('{"type":"error","code":"login_failed"}\n'),
+              );
+          })
+          .finally(() => {
+            c.req.raw.signal.removeEventListener("abort", abort);
+            if (!controller.signal.aborted) stream.close();
+          });
+      },
+      cancel() {
+        controller.abort();
+      },
+    });
+    return new Response(body, {
+      headers: {
+        "Content-Type": "application/x-ndjson",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  })
   .get(
     "/workspaces/:workspaceId/subscriptions",
     validate("query", pageQuery),

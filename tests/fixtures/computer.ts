@@ -10,9 +10,10 @@ export class ControlledComputer implements ComputerBackend {
   launches = 0;
   readonly detachFailures = new Set<string>();
   readonly detached: string[] = [];
-  protocolVersion = 1;
+  bridgeReady = true;
   model = "fixture";
   replayOnLoad = false;
+  usageReplay: "none" | "same" | "changed" = "none";
   toolResults: unknown[] = [];
   readonly inputs: Parameters<ComputerBackend["launch"]>[0][] = [];
   loseNextAcknowledgement = false;
@@ -42,10 +43,6 @@ export class ControlledComputer implements ComputerBackend {
     await this.beforeInspect?.();
     return {
       capabilities: this.capabilities,
-      account: {
-        subscriptionId: this.subscriptionId,
-        mode: "native_subscription" as const,
-      },
     };
   }
   async launch(input: Parameters<ComputerBackend["launch"]>[0]) {
@@ -60,7 +57,9 @@ export class ControlledComputer implements ComputerBackend {
       resolveExit = resolve;
     });
     const sessionId = crypto.randomUUID();
-    let toolPromptId: number | undefined;
+    let toolPending = false;
+    let assistantOpen = false;
+    let sessionFile = `/private/${sessionId}.jsonl`;
     const send = (message: unknown) => {
       if (!streamClosed)
         controller?.enqueue(
@@ -79,22 +78,64 @@ export class ControlledComputer implements ComputerBackend {
       }
       resolveExit(0);
     };
-    const config = () => ({
-      configOptions: [
-        {
-          id: "model",
-          category: "model",
-          type: "select",
-          currentValue: this.model,
-          options: [{ value: "fixture" }],
-        },
-      ],
+    const assistant = (stopReason: string) => ({
+      role: "assistant",
+      provider: "codex",
+      model: this.model,
+      stopReason,
+      usage: {
+        input: 10,
+        output: 2,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 12,
+      },
     });
+    const beginAssistant = () => {
+      assistantOpen = true;
+      send({ type: "message_start", message: assistant("pending") });
+    };
+    const endAssistant = (stopReason: string) => {
+      assistantOpen = false;
+      const message = assistant(stopReason);
+      send({ type: "message_end", message });
+      if (this.usageReplay !== "none")
+        send({
+          type: "message_end",
+          message:
+            this.usageReplay === "same"
+              ? message
+              : {
+                  ...message,
+                  usage: { ...message.usage, output: 3, totalTokens: 13 },
+                },
+        });
+    };
+    const text = (delta: string) =>
+      send({
+        type: "message_update",
+        assistantMessageEvent: { type: "text_delta", delta },
+      });
+    const finish = (stopReason = "stop") => {
+      if (!assistantOpen) beginAssistant();
+      endAssistant(stopReason);
+      send({ type: "agent_end", messages: [], willRetry: false });
+      send({ type: "agent_settled" });
+    };
+    const ready = () =>
+      send({
+        type: "extension_ui_request",
+        id: crypto.randomUUID(),
+        method: "notify",
+        message: JSON.stringify({ bridge: "otto.bridge.v1", sessionId }),
+      });
+    const bridgeReady = this.bridgeReady;
     const process: ComputerProcess = {
       reference: input.launchKey,
       stdout: new ReadableStream({
         start(c) {
           controller = c;
+          if (bridgeReady) ready();
         },
         cancel() {
           streamClosed = true;
@@ -103,99 +144,84 @@ export class ControlledComputer implements ComputerBackend {
       exit,
       write: async (bytes) => {
         const request = JSON.parse(new TextDecoder().decode(bytes));
-        if (request.id === "otto-tool") {
-          this.toolResults.push(request.result ?? request.error);
-          if (toolPromptId !== undefined)
+        if (request.type === "extension_ui_response") {
+          const response = JSON.parse(request.value);
+          this.toolResults.push(response.success ? response.result : response);
+          if (toolPending) {
+            toolPending = false;
             send({
-              jsonrpc: "2.0",
-              id: toolPromptId,
-              result: { stopReason: "end_turn" },
+              type: "tool_execution_end",
+              toolCallId: "otto-tool",
+              toolName: "otto",
             });
+            finish();
+          }
           return;
         }
-        const result = (value: unknown) =>
-          send({ jsonrpc: "2.0", id: request.id, result: value });
-        if (request.method === "initialize")
-          result({
-            protocolVersion: this.protocolVersion,
-            agentCapabilities: {
-              loadSession: true,
-              _meta: { ottoTools: true, ottoSteer: true },
-            },
-          });
-        else if (request.method === "session/new")
-          result({ sessionId, ...config() });
-        else if (request.method === "session/load") {
-          if (this.replayOnLoad)
-            send({
-              jsonrpc: "2.0",
-              method: "session/update",
-              params: {
-                sessionId: request.params.sessionId,
-                update: {
-                  sessionUpdate: "agent_message_chunk",
-                  content: { type: "text", text: "PRIVATE NATIVE HISTORY" },
-                },
-              },
-            });
-          result(config());
-        } else if (request.method === "session/set_config_option") {
-          this.model = request.params.value;
-          result(config());
-        } else if (request.method === "session/prompt") {
-          const id = request.params.sessionId;
-          const text = request.params.prompt[0].text;
+        const response = (data?: unknown) =>
           send({
-            jsonrpc: "2.0",
-            method: "session/update",
-            params: {
-              sessionId: id,
-              update: {
-                sessionUpdate: "agent_message_chunk",
-                content: { type: "text", text: "fixture output" },
-              },
-            },
+            type: "response",
+            command: request.type,
+            id: request.id,
+            success: true,
+            data,
           });
-          if (text.includes("_tool=")) {
-            toolPromptId = request.id;
-            send({
-              jsonrpc: "2.0",
-              id: "otto-tool",
-              method: "_otto/tool",
-              params: {
-                sessionId: id,
-                input: JSON.parse(text.split("_tool=")[1]),
-              },
-            });
-          } else if (text.includes("oversized")) {
-            send({
-              jsonrpc: "2.0",
-              method: "session/update",
-              params: {
-                sessionId: id,
-                update: {
-                  sessionUpdate: "agent_message_chunk",
-                  content: { type: "text", text: "x".repeat(300000) },
-                },
-              },
-            });
-          } else if (!text.includes("hold")) result({ stopReason: "end_turn" });
-        } else if (request.method === "_otto/steer") {
-          send({
-            jsonrpc: "2.0",
-            method: "session/update",
-            params: {
-              sessionId: request.params.sessionId,
-              update: {
-                sessionUpdate: "agent_message_chunk",
-                content: {
-                  type: "text",
-                  text: `fixture after steer: ${request.params.text}`,
-                },
-              },
-            },
+        if (request.type === "get_state")
+          response({
+            sessionId,
+            sessionFile,
+            model: { provider: "codex", id: this.model },
+            isStreaming: false,
+            isCompacting: false,
+            pendingMessageCount: 0,
           });
-          result({});
+        else if (request.type === "switch_session") {
+          sessionFile = request.sessionPath;
+          ready();
+          response({ cancelled: false });
+        } else if (request.type === "prompt") {
+          response({ disposition: "started" });
+          send({ type: "agent_start" });
+          beginAssistant();
+          text("fixture output");
+          const body = request.message;
+          if (body.includes("_tool=")) {
+            const input = JSON.parse(body.split("_tool=")[1]);
+            endAssistant("toolUse");
+            toolPending = true;
+            send({
+              type: "tool_execution_start",
+              toolCallId: "otto-tool",
+              toolName: "otto",
+              args: { input },
+            });
+            send({
+              type: "extension_ui_request",
+              id: "otto-tool-dialog",
+              method: "input",
+              title: "otto.tool.v1",
+              placeholder: JSON.stringify({
+                sessionId,
+                toolCallId: "otto-tool",
+                input,
+              }),
+            });
+          } else if (body.includes("oversized")) text("x".repeat(300000));
+          else if (!body.includes("hold")) finish();
+        } else if (request.type === "steer") {
+          response({ disposition: "queued" });
+          if (!toolPending) text(`fixture after steer: ${request.message}`);
+        } else if (request.type === "abort") {
+          if (toolPending) {
+            toolPending = false;
+            send({
+              type: "tool_execution_end",
+              toolCallId: "otto-tool",
+              toolName: "otto",
+            });
+          }
+          finish("aborted");
+          response();
         }
       },
       stop: async () => {

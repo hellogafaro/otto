@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { createS3Storage } from "@otto/artifacts/storage";
 import { validateAutomation } from "@otto/automations";
 import { openDatabase } from "@otto/db";
@@ -9,11 +10,20 @@ import type { ServerConfig } from "./config";
 import type { ConnectionOptions } from "./connections";
 import { createLogger } from "./logger";
 import { createResendMail } from "./mail";
+import { createModelGateway, type ModelGateway } from "./model-gateway";
 import { startQueue } from "./queue";
 import { createRealtime, type RealtimeData } from "./realtime";
 import * as schema from "./schema";
 import { readRunSkillFile } from "./skill-files";
-import { createRunTools } from "./tools";
+import {
+  createSubscriptionLogin,
+  type SubscriptionLogin,
+} from "./subscription-login";
+import {
+  createInfisicalAccounts,
+  type InfisicalAccounts,
+} from "./subscription-secrets";
+import { createRunTools, runToolSchema } from "./tools";
 
 /** Acquires resources in dependency order and releases every acquired resource on failure. */
 export async function startServer(
@@ -21,9 +31,14 @@ export async function startServer(
   services: {
     execution?: Pick<
       Parameters<typeof createRunRuntime>[1],
-      "backend" | "harnesses" | "deadlineMs"
+      "backend" | "pi" | "deadlineMs"
     >;
     connections?: ConnectionOptions;
+    accounts?: InfisicalAccounts;
+    gateway?: Pick<
+      Parameters<typeof createModelGateway>[1],
+      "endpoint" | "key" | "allowLoopbackHttp" | "modelConfig"
+    > & { storeKey: string };
   } = {},
 ) {
   const { execution, connections } = services;
@@ -35,6 +50,8 @@ export async function startServer(
   let realtime: ReturnType<typeof createRealtime> | undefined;
   let storage: ReturnType<typeof createS3Storage> | undefined;
   let runtime: RunRuntime | undefined;
+  let subscriptionLogin: SubscriptionLogin | undefined;
+  let modelGateway: ModelGateway | undefined;
   let closing = false;
   let stopPromise: Promise<void> | undefined;
   let queueStopped = false;
@@ -69,6 +86,16 @@ export async function startServer(
     }
     try {
       await runtime?.close();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      await modelGateway?.close();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      await subscriptionLogin?.close();
     } catch (error) {
       errors.push(error);
     }
@@ -136,9 +163,61 @@ export async function startServer(
       });
       await storage.check();
     }
+    const accounts =
+      services.accounts ??
+      (config.INFISICAL_URL &&
+      config.INFISICAL_TOKEN &&
+      config.OTTO_ACCOUNT_SECRET_BINDINGS
+        ? createInfisicalAccounts({
+            endpoint: config.INFISICAL_URL,
+            bindings: config.OTTO_ACCOUNT_SECRET_BINDINGS,
+            getAccessToken: async () => {
+              if (!config.INFISICAL_TOKEN)
+                throw new Error("Account secret authentication unavailable");
+              return config.INFISICAL_TOKEN;
+            },
+          })
+        : undefined);
+    const gateway =
+      services.gateway ??
+      (config.OTTO_GATEWAY_URL &&
+      config.OTTO_GATEWAY_KEY &&
+      config.OTTO_GATEWAY_STORE_KEY
+        ? {
+            endpoint: config.OTTO_GATEWAY_URL,
+            // The packaged gateway shares this server's network namespace. HTTP is accepted only on loopback.
+            allowLoopbackHttp: true,
+            key: config.OTTO_GATEWAY_KEY,
+            storeKey: config.OTTO_GATEWAY_STORE_KEY,
+          }
+        : undefined);
+    if (accounts)
+      subscriptionLogin = createSubscriptionLogin(db, accounts, pool);
+    if (gateway && subscriptionLogin)
+      modelGateway = createModelGateway(db, {
+        ...gateway,
+        origin: config.OTTO_ORIGIN,
+        accounts: subscriptionLogin,
+      });
+    const pi = execution
+      ? {
+          ...execution.pi,
+          authorizeModel:
+            modelGateway?.authorizeModel ?? execution.pi.authorizeModel,
+        }
+      : undefined;
     if (execution)
       runtime = createRunRuntime(db, {
         ...execution,
+        pi: pi ?? execution.pi,
+        extensionSource: await Bun.file(
+          Bun.resolveSync(
+            "@otto/runs/pi-extension",
+            fileURLToPath(new URL(".", import.meta.url)),
+          ),
+        ).text(),
+        toolSchema: runToolSchema,
+        modelAccess: modelGateway?.issue,
         validateAutomation,
         readSkillFile: async (input) => {
           if (!storage) throw new Error("Skill storage unavailable");
@@ -149,13 +228,13 @@ export async function startServer(
           return createRunTools(db, boss, {
             connections,
             storage,
-            harnesses: execution?.harnesses,
+            pi,
           })(attempt, input, signal);
         },
       });
     boss = await startQueue(db, pool, {
       runtime,
-      harnesses: execution?.harnesses,
+      pi,
     });
     boss.on("stopped", () => {
       queueStopped = true;
@@ -174,9 +253,12 @@ export async function startServer(
       origin: config.OTTO_ORIGIN,
       storage,
       runtime,
-      harnesses: execution?.harnesses,
+      pi,
       connections,
       mail: mail ?? undefined,
+      subscriptionLogin,
+      modelGateway,
+      gatewayStoreKey: gateway?.storeKey,
     };
     let probe: Promise<boolean> | undefined;
     function isHealthy() {
@@ -195,6 +277,7 @@ export async function startServer(
         try {
           await pool.query("select version from queue.version");
           await storage?.check();
+          if (modelGateway && !(await modelGateway.isReady())) return false;
           return isHealthy();
         } catch {
           return false;

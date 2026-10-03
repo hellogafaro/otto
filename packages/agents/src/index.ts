@@ -31,7 +31,6 @@ export async function createAgent(
     visibility?: "user" | "workspace";
     title: string;
     instructions: string;
-    harness: string;
     model: string;
     projectId?: string;
     subscriptionId?: string;
@@ -50,7 +49,6 @@ export async function createAgent(
           visibility: input.visibility,
           title: input.title,
           instructions: input.instructions,
-          harness: input.harness,
           model: input.model,
           projectId: input.projectId,
           subscriptionId: input.subscriptionId,
@@ -135,7 +133,6 @@ export async function updateAgent(
     visibility?: "user" | "workspace";
     title?: string;
     instructions?: string;
-    harness?: string;
     model?: string;
     subscriptionId?: string | null;
     skillIds?: string[];
@@ -154,7 +151,6 @@ export async function updateAgent(
       input.visibility,
       input.title,
       input.instructions,
-      input.harness,
       input.model,
       input.subscriptionId,
       skillIds,
@@ -169,7 +165,6 @@ export async function updateAgent(
           visibility: input.visibility,
           title: input.title,
           instructions: input.instructions,
-          harness: input.harness,
           model: input.model,
           subscriptionId: input.subscriptionId,
           editToken: current.editToken + 1,

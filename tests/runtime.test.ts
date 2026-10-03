@@ -1,3 +1,4 @@
+import { DomainError } from "@otto/shared";
 import type { Server } from "bun";
 import { eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
@@ -16,6 +17,7 @@ import { artifacts } from "../packages/artifacts/src/schema";
 import { validateAutomation } from "../packages/automations/src";
 import { deleteParticipant } from "../packages/conversations/src";
 import { participants } from "../packages/conversations/src/schema";
+import { environments } from "../packages/environments/src/schema";
 import { RUN_QUEUE } from "../packages/runs/src";
 import {
   createRunRuntime,
@@ -24,13 +26,14 @@ import {
 } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
 import { createSubscription } from "../packages/subscriptions/src";
+import { subscriptions } from "../packages/subscriptions/src/schema";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
-import { harnesses } from "./fixtures/harnesses";
+import { pi, piRuntime } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
-describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
+describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let boss: PgBoss;
   let worker: PgBoss;
@@ -89,7 +92,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
   };
   const toolOptions: Parameters<typeof createRunTools>[2] = {
     storage,
-    harnesses,
+    pi,
   };
   const record = z.object({ id: z.string() });
   async function post(path: string, value = {}, method = "POST") {
@@ -128,7 +131,6 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
         skillIds,
         title: "Fixture",
         instructions: "Work",
-        harness: "fixture",
         model: "fixture",
         subscriptionId: accountId,
       }),
@@ -215,7 +217,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       request,
     );
     auth = createAuth(database.db, authSecret, origin, mail);
-    app = createApp({ harnesses, db: database.db, boss, auth, origin, mail });
+    app = createApp({ pi, db: database.db, boss, auth, origin, mail });
     const owner = await createHuman("runtime@example.test");
     cookie = owner.cookie;
     userId = owner.id;
@@ -223,22 +225,29 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     accountId = (
       await inWorkspace(database.db, workspaceId, { userId }, (c) =>
         createSubscription(c, {
+          provider: "codex",
           title: "Fixture native account",
           visibility: "workspace",
         }),
       )
     ).id;
+    // Controlled authenticated account datum; no live gateway/login qualification.
+    await database.db
+      .update(subscriptions)
+      .set({ status: "enabled" })
+      .where(eq(subscriptions.id, accountId));
     computer = new ControlledComputer(accountId);
     runtime = createRunRuntime(database.db, {
+      ...piRuntime,
       backend: computer,
-      harnesses,
+      pi,
       deadlineMs: 30000,
       validateAutomation,
       handleTool: createRunTools(database.db, boss, toolOptions),
       readSkillFile: (input) => readRunSkillFile(database.db, storage, input),
     });
     app = createApp({
-      harnesses,
+      pi,
       db: database.db,
       boss,
       auth,
@@ -257,7 +266,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     });
     worker = await startQueue(database.db, database.pool, {
       runtime,
-      harnesses,
+      pi,
     });
   });
   afterAll(async () => {
@@ -362,7 +371,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     expect((await saved(run.id))?.state).toBe("interrupted");
     expect(computer.launches).toBe(launches);
   });
-  it("invokes a scoped Otto message tool through ACP without accepting a browser Agent identity", async () => {
+  it("invokes a scoped Otto message tool through Pi without accepting a browser Agent identity", async () => {
     const { run, conversation, agent } = await setup(
       `_tool=${JSON.stringify({ name: "message.create", requestId: crypto.randomUUID(), body: "Scoped fixture message", agentId: crypto.randomUUID() })}`,
     );
@@ -423,33 +432,49 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
   });
-  it("bounds malformed/oversized ACP and rejects unsupported protocol without success", async () => {
-    computer.protocolVersion = 2;
-    const unsupported = await setup("finish");
-    await expect
-      .poll(async () => (await saved(unsupported.run.id))?.state, {
-        timeout: 10000,
-      })
-      .toBe("interrupted");
-    computer.protocolVersion = 1;
-    const oversized = await setup("oversized");
-    await expect
-      .poll(async () => (await saved(oversized.run.id))?.state, {
-        timeout: 10000,
-      })
-      .toBe("interrupted");
-    expect((await saved(oversized.run.id))?.outputBytes).toBeLessThanOrEqual(
-      1048576,
-    );
+  it("bounds malformed/oversized Pi and rejects a missing managed bridge without success", async () => {
+    await worker.stop({ graceful: false });
+    const isolated = createRunRuntime(database.db, {
+      ...piRuntime,
+      backend: computer,
+      pi,
+      deadlineMs: 30000,
+    });
+    try {
+      computer.bridgeReady = false;
+      const unsupported = await setup("finish");
+      await isolated.dispatch(unsupported.run.id);
+      await expect
+        .poll(async () => (await saved(unsupported.run.id))?.state, {
+          timeout: 10000,
+        })
+        .toBe("interrupted");
+      computer.bridgeReady = true;
+      const oversized = await setup("oversized");
+      await isolated.dispatch(oversized.run.id);
+      await expect
+        .poll(async () => (await saved(oversized.run.id))?.state, {
+          timeout: 10000,
+        })
+        .toBe("uncertain");
+      expect((await saved(oversized.run.id))?.outputBytes).toBeLessThanOrEqual(
+        1048576,
+      );
+    } finally {
+      computer.bridgeReady = true;
+      await expect(isolated.close()).rejects.toThrow(
+        "Runtime persistence/cleanup failed",
+      );
+      worker = await startQueue(database.db, database.pool, { runtime, pi });
+    }
   });
-  it("routes an ACP peer request to a second Agent through atomic admission and the real worker", async () => {
+  it("routes a Pi peer request to a second Agent through atomic admission and the real worker", async () => {
     const makeAgent = async () => {
       const agent = z.object({ agent: record }).parse(
         await post("/agents", {
           visibility: "workspace",
           title: "Peer",
           instructions: "Work",
-          harness: "fixture",
           model: "fixture",
           subscriptionId: accountId,
         }),
@@ -554,7 +579,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     expect(catchup.activity.every((a) => a.cursor > first.cursor)).toBe(true);
     await post(`/runs/${run.id}/stop`);
   });
-  it("executes a scoped MCP write only after exact human approval through HTTP and ACP", async () => {
+  it("executes a scoped MCP write only after exact human approval through HTTP and Pi", async () => {
     let writes = 0;
     const mcp = Bun.serve({
       hostname: "127.0.0.1",
@@ -606,7 +631,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       http: { allowedOrigins: [mcp.url.origin], allowLoopbackHttp: true },
     };
     app = createApp({
-      harnesses,
+      pi,
       db: database.db,
       boss,
       auth,
@@ -640,7 +665,6 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
           visibility: "workspace",
           title: "Connected",
           instructions: "Work",
-          harness: "fixture",
           model: "fixture",
           subscriptionId: accountId,
         }),
@@ -810,7 +834,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
         .where(eq(members.userId, maintainer.id));
       delete toolOptions.connections;
       app = createApp({
-        harnesses,
+        pi,
         db: database.db,
         boss,
         auth,
@@ -877,8 +901,9 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     await runtime.close();
     const launches = computer.launches;
     runtime = createRunRuntime(database.db, {
+      ...piRuntime,
       backend: computer,
-      harnesses,
+      pi,
       deadlineMs: 30000,
       validateAutomation,
       handleTool: createRunTools(database.db, boss, toolOptions),
@@ -887,7 +912,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     // Existing app closures are replaced exactly as a restarted process constructs them.
     auth = createAuth(database.db, authSecret, origin, mail);
     app = createApp({
-      harnesses,
+      pi,
       db: database.db,
       boss,
       auth,
@@ -906,7 +931,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     });
     worker = await startQueue(database.db, database.pool, {
       runtime,
-      harnesses,
+      pi,
     });
     expect((await saved(first.run.id))?.state).toBe("interrupted");
     expect(computer.launches).toBe(launches);
@@ -953,12 +978,11 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       }),
     );
     const skill = record.parse(
-      await post("/documents", {
+      await post("/skills", {
         projectId: project.id,
         title: "Accepted skill files",
-        body: "saved skill instructions",
+        instructions: "saved skill instructions",
         visibility: "workspace",
-        skill: true,
       }),
     );
     const selected = record.parse(
@@ -970,7 +994,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       }),
     );
     const filesResponse = await fetch(
-      `${origin}/api/workspaces/${workspaceId}/documents/${skill.id}/skill-files`,
+      `${origin}/api/workspaces/${workspaceId}/skills/${skill.id}/files`,
       {
         method: "PUT",
         headers: { cookie, origin, "content-type": "application/json" },
@@ -998,10 +1022,10 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       documentIds: [selected.id],
     });
     await post(
-      `/documents/${skill.id}`,
+      `/skills/${skill.id}`,
       {
         title: "Changed",
-        body: "later skill content",
+        instructions: "later skill content",
         editToken: 1,
       },
       "PATCH",
@@ -1017,7 +1041,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     );
     worker = await startQueue(database.db, database.pool, {
       runtime,
-      harnesses,
+      pi,
     });
     await expect
       .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
@@ -1110,7 +1134,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     try {
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        harnesses,
+        pi,
       });
       await expect
         .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
@@ -1133,6 +1157,105 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     } finally {
       afterPut = undefined;
       await stopResponse;
+    }
+  });
+  it("persists final usage once on exact replay and denies unauthorized aggregate reads", async () => {
+    computer.usageReplay = "same";
+    try {
+      const { run } = await setup("finish");
+      await expect
+        .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
+        .toBe("finished");
+      expect((await saved(run.id))?.usage).toHaveLength(1);
+      expect(await (await get(`/runs/${run.id}/usage`)).json()).toMatchObject({
+        provider: "codex",
+        model: "fixture",
+        complete: true,
+        messageCount: 1,
+        inputTokens: 10,
+        outputTokens: 2,
+        totalTokens: 12,
+      });
+      const outsider = await createHuman("usage-outsider@example.test");
+      const response = await fetch(
+        `${origin}/api/workspaces/${workspaceId}/runs/${run.id}/usage`,
+        {
+          headers: { cookie: outsider.cookie },
+        },
+      );
+      expect(response.status).toBe(403);
+      expect((await saved(run.id))?.usage).toHaveLength(1);
+    } finally {
+      computer.usageReplay = "none";
+    }
+  });
+  it("rejects conflicting native replay without publishing altered usage", async () => {
+    await worker.stop({ graceful: false });
+    computer.usageReplay = "changed";
+    const isolated = createRunRuntime(database.db, {
+      ...piRuntime,
+      backend: computer,
+      pi,
+    });
+    try {
+      const { run } = await setup("finish");
+      await isolated.dispatch(run.id);
+      await expect.poll(() => isolated.health().active).toBe(0);
+      const receipts = (await saved(run.id))?.usage ?? [];
+      // Protocol failure may precede the first DB commit. It must never commit
+      // the conflicting counters or count the same message twice.
+      expect(receipts.length).toBeLessThanOrEqual(1);
+      expect(
+        receipts.every((receipt) => receipt.tokens.totalTokens === 12),
+      ).toBe(true);
+      expect((await saved(run.id))?.state).toBe("uncertain");
+      const jobs = await boss.findJobs(RUN_QUEUE, { data: { runId: run.id } });
+      if (jobs.length)
+        await boss.cancel(
+          RUN_QUEUE,
+          jobs.map((job) => job.id),
+        );
+    } finally {
+      computer.usageReplay = "none";
+      await expect(isolated.close()).rejects.toThrow(
+        "Runtime persistence/cleanup failed",
+      );
+      worker = await startQueue(database.db, database.pool, { runtime, pi });
+    }
+  });
+  it("Stops during Pi startup without poisoning sibling execution", async () => {
+    await worker.stop({ graceful: false });
+    const isolated = createRunRuntime(database.db, {
+      ...piRuntime,
+      backend: computer,
+      pi,
+    });
+    try {
+      const first = await setup("hold");
+      await isolated.dispatch(first.run.id);
+      expect(
+        await isolated.stop(workspaceId, { userId }, first.run.id),
+      ).toEqual({ stopped: true });
+      await expect.poll(() => isolated.health().active).toBe(0);
+      expect(isolated.health().persistenceErrors).toBe(0);
+      const sibling = await setup("finish");
+      await isolated.dispatch(sibling.run.id);
+      await expect
+        .poll(async () => (await saved(sibling.run.id))?.state)
+        .toBe("finished");
+      for (const { run } of [first, sibling]) {
+        const jobs = await boss.findJobs(RUN_QUEUE, {
+          data: { runId: run.id },
+        });
+        if (jobs.length)
+          await boss.cancel(
+            RUN_QUEUE,
+            jobs.map((job) => job.id),
+          );
+      }
+    } finally {
+      await isolated.close();
+      worker = await startQueue(database.db, database.pool, { runtime, pi });
     }
   });
   it("bounds simultaneous pending computer launches before external I/O", async () => {
@@ -1160,7 +1283,16 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     } finally {
       release();
       computer.beforeInspect = undefined;
-      await results;
+      const dispatched = await results;
+      // Launch admission returns before the protocol handshake. Wait for the
+      // controlled pending prompts before exercising their normal Stop cleanup.
+      for (const [index, { run }] of admitted.entries())
+        if (dispatched[index]?.status === "fulfilled")
+          await expect
+            .poll(async () => (await saved(run.id))?.outputBytes ?? 0, {
+              timeout: 10000,
+            })
+            .toBeGreaterThan(0);
       for (const { run } of admitted) await post(`/runs/${run.id}/stop`);
       // These Runs were dispatched directly while their queue worker was stopped.
       // Cancel only their now-terminal fixture jobs before restarting that worker.
@@ -1178,11 +1310,11 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       }
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        harnesses,
+        pi,
       });
     }
   });
-  it("waits for an authorized human answer through saved activity and resumes the same ACP Run", async () => {
+  it("waits for an authorized human answer through saved activity and resumes the same Pi Run", async () => {
     const request = {
       name: "human.ask",
       requestId: crypto.randomUUID(),
@@ -1355,7 +1487,6 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
         visibility: "workspace",
         title: "Archive worker",
         instructions: "Work",
-        harness: "fixture",
         model: "fixture",
         projectId: project.id,
         subscriptionId: accountId,
@@ -1374,11 +1505,11 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       role: "contributor",
     });
     const skill = record.parse(
-      await post("/documents", {
+      await post("/skills", {
         title: "Accepted skill",
-        body: "Original accepted instructions",
+        instructions: "Original accepted instructions",
         visibility: "workspace",
-        skill: true,
+
         projectId: project.id,
       }),
     );
@@ -1415,7 +1546,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       },
       "PATCH",
     );
-    await post(`/documents/${skill.id}/archive`, {
+    await post(`/skills/${skill.id}/archive`, {
       archived: true,
       editToken: 0,
     });
@@ -1470,7 +1601,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       `projects/${project.id}`,
       `conversations/${conversation.id}`,
       `tasks/${task.id}`,
-      `documents/${skill.id}`,
+      `skills/${skill.id}`,
     ])
       await post(`/${path}/archive`, { archived: false, editToken: 1 });
   });
@@ -1499,7 +1630,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     } finally {
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        harnesses,
+        pi,
       });
     }
   });
@@ -1507,8 +1638,9 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
     await worker.stop({ graceful: false });
     const backend = new ControlledComputer(accountId);
     const local = createRunRuntime(database.db, {
+      ...piRuntime,
       backend,
-      harnesses,
+      pi,
       deadlineMs: 30000,
     });
     const first = await setup("hold");
@@ -1531,7 +1663,7 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       await local.reconcile(second.run.id);
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        harnesses,
+        pi,
       });
     }
   });
@@ -1545,4 +1677,163 @@ describe("HTTP to PostgreSQL queue to controlled ACP/computer runtime", () => {
       await database.pool.query("drop schema otto_jobs");
     }
   });
+  for (const racing of ["close", "revocation"] as const)
+    it(`preserves an actual receipt conflict during ${racing}`, async () => {
+      await worker.stop({ graceful: false });
+      let promptEntered: () => void = () => {};
+      let promptRelease: () => void = () => {};
+      let conflictEntered: () => void = () => {};
+      let conflictRelease: () => void = () => {};
+      const promptReady = new Promise<void>((resolve) => {
+        promptEntered = resolve;
+      });
+      const promptGate = new Promise<void>((resolve) => {
+        promptRelease = resolve;
+      });
+      const conflictReady = new Promise<void>((resolve) => {
+        conflictEntered = resolve;
+      });
+      const conflictGate = new Promise<void>((resolve) => {
+        conflictRelease = resolve;
+      });
+      let originalConflict = false;
+      const backend = new ControlledComputer(accountId);
+      const guarded = new Proxy(database.db, {
+        get(target, key, receiver) {
+          if (key === "transaction") {
+            const transaction: typeof database.db.transaction = async (
+              work,
+              config,
+            ) => {
+              try {
+                return await target.transaction(work, config);
+              } catch (error) {
+                if (
+                  !originalConflict &&
+                  error instanceof DomainError &&
+                  error.code === "conflict"
+                ) {
+                  originalConflict = true;
+                  conflictEntered();
+                  // Pause after the real PostgreSQL publication conflict; later
+                  // cancellation/authority must not change its original cause.
+                  await conflictGate;
+                }
+                throw error;
+              }
+            };
+            return transaction;
+          }
+          const value = Reflect.get(target, key, receiver);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+      const isolated = createRunRuntime(guarded, {
+        ...piRuntime,
+        pi,
+        backend: {
+          provider: backend.provider,
+          inspectComputer: backend.inspectComputer.bind(backend),
+          lookup: backend.lookup.bind(backend),
+          async launch(input) {
+            const process = await backend.launch(input);
+            return {
+              ...process,
+              async write(bytes) {
+                const message = z
+                  .object({ type: z.string() })
+                  .parse(JSON.parse(new TextDecoder().decode(bytes)));
+                if (message.type === "prompt") {
+                  promptEntered();
+                  await promptGate;
+                }
+                return process.write(bytes);
+              },
+            };
+          },
+        },
+      });
+      let runId: string | undefined;
+      let closing: Promise<{ rejected: boolean }> | undefined;
+      const close = () =>
+        isolated.close().then(
+          () => ({ rejected: false }),
+          () => ({ rejected: true }),
+        );
+      try {
+        const { run } = await setup("finish");
+        runId = run.id;
+        await isolated.dispatch(run.id);
+        await promptReady;
+        const row = await saved(run.id);
+        if (!row) throw new Error("Missing current attempt");
+        const tokens = {
+          inputTokens: 10,
+          outputTokens: 3,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalTokens: 13,
+        };
+        await database.db
+          .update(runs)
+          .set({ usage: [{ attempt: row.attempt, sequence: 1, tokens }] })
+          .where(eq(runs.id, run.id));
+        promptRelease();
+        await conflictReady;
+        if (racing === "close") {
+          closing = close();
+          await expect.poll(() => isolated.health().closing).toBe(true);
+        } else {
+          await post(
+            `/subscriptions/${accountId}`,
+            { status: "disabled" },
+            "PATCH",
+          );
+          await expect
+            .poll(() =>
+              [...backend.executions.values()].every(
+                (execution) => execution.exited,
+              ),
+            )
+            .toBe(true);
+        }
+        conflictRelease();
+        await expect
+          .poll(() => isolated.health().active, { timeout: 10000 })
+          .toBe(0);
+        const state = await saved(run.id);
+        expect(originalConflict).toBe(true);
+        expect(state?.usage).toEqual([
+          { attempt: row.attempt, sequence: 1, tokens },
+        ]);
+        expect(state?.state).toBe("uncertain");
+        expect(state?.outcome).toBe("tool_cleanup_unconfirmed");
+        expect(isolated.health().persistenceErrors).toBeGreaterThan(0);
+        expect(await (closing ?? close())).toEqual({ rejected: true });
+        const [environment] = await database.db
+          .select()
+          .from(environments)
+          .where(eq(environments.agentId, row.agentId));
+        expect(environment?.activeRunId).toBe(run.id);
+        expect(environment?.state).toBe("uncertain");
+      } finally {
+        promptRelease();
+        conflictRelease();
+        await close();
+        await backend.close();
+        await database.db
+          .update(subscriptions)
+          .set({ status: "enabled" })
+          .where(eq(subscriptions.id, accountId));
+        if (runId) {
+          const jobs = await boss.findJobs(RUN_QUEUE, { data: { runId } });
+          if (jobs.length)
+            await boss.cancel(
+              RUN_QUEUE,
+              jobs.map((job) => job.id),
+            );
+        }
+        worker = await startQueue(database.db, database.pool, { runtime, pi });
+      }
+    });
 });

@@ -2,9 +2,13 @@
 
 Researched 1 October 2026. The human selected the libraries below after the initial comparison. Earlier rankings remain reference material. Pino is now selected. Credential storage for a fresh installation remains open; execution is provider agnostic, with VM/backend selection deferred. No selected library is runtime-certified by this document.
 
+## Execution amendment — 3 October 2026
+
+Pi is selected as the body/runtime of every Otto Agent, including research, writing and tools. Package it with one managed account/model gateway; CLIProxyAPI is the single managed gateway, initially Codex OAuth/Responses; Magpie remains historical research. Users connect supported accounts through Otto and select the authorized account/model, without individual vendor CLI installation or harness selection. This intentionally replaces native-harness/login requirements, not their billing semantics by assumption. The model reasons, Pi runs its loop/tools, gateway supplies auth/model access, and Otto owns authority/collaboration. Current code uses Pi RPC and confirmed Infisical-backed OAuth qualification; Computer reports qualify compute capabilities. [The code replacement map](../pi-gateway-plan.md) records pins, the RPC recommendation, route-specific gaps and proof sequence. Earlier source observations/rankings below remain dated evidence.
+
 ## Fixed choices
 
-TypeScript, Bun workspaces/package management/lockfile/scripts/server runtime, React, Vite, Tailwind CSS v4, shadcn/ui, Better Auth, PostgreSQL, Drizzle, pg-boss, Garage, Caddy, and Docker Compose. Vitest is required. Native Codex/Claude/ACP adapter executables keep their own required runtime inside the isolated Environment; the Bun requirement applies to Otto's code and tool execution, not replacing those harnesses.
+TypeScript, Bun workspaces/package management/lockfile/scripts/server runtime, React, Vite, Tailwind CSS v4, shadcn/ui, Better Auth, PostgreSQL, Drizzle, pg-boss, Garage, Caddy, and Docker Compose. Vitest is required. Pi and the eventual single gateway must be packaged and runtime-qualified with Otto. Their precise integration transport is not yet adopted; do not install several native agent runtimes.
 
 ## Selected libraries
 
@@ -18,6 +22,8 @@ TypeScript, Bun workspaces/package management/lockfile/scripts/server runtime, R
 | Formatting and lint | Biome |
 | Browser workflow tests | Playwright alongside mandatory Vitest |
 | Structured logging | Pino, one server logger and JSON stdout |
+| Agent runtime | Pi for every Agent; pinned-source RPC recommendation, implementation pending |
+| Account/model access | One gateway; CLIProxyAPI or Magpie, selection and account-isolation qualification pending |
 
 These selections supplement the fixed choices. Keep handlers thin and domain logic internal. Query owns server records; React state owns temporary UI state. Do not install a second state store preemptively.
 
@@ -38,7 +44,7 @@ Connections keep the same product model either way: an account, scoped grants, a
 
 Infisical's [Compose template includes Infisical, PostgreSQL, and Redis](https://infisical.com/docs/self-hosting/overview). That is infrastructure we would add if the store did not already exist. Database storage removes that service dependency but does not remove key management. This alternative is not selected or implemented.
 
-If adopted, encrypt the credential payload on the server using a standard authenticated-encryption implementation, such as AES-GCM. Store ciphertext, its unique nonce, and key ID in server-only Connection storage. Bind the ciphertext to its Connection/workspace identity as authenticated associated data. Keep the encryption key outside PostgreSQL and agent Environments, inject it through deployment secret management, retain keys needed during rotation, and prove database-plus-key recovery. [Authenticated encryption](https://doc.libsodium.org/secret-key_cryptography/aead) detects tampering as well as concealing plaintext. A compromised server holding the key can still decrypt. Connection secret values must never reach browser/RPC responses, ordinary metadata, logs, messages, or artifacts. Existing secrets remain in Infisical; no credentials are read or moved for this discussion. Native provider subscription login remains private in its Environment rather than being copied into this store.
+If adopted, encrypt the credential payload on the server using a standard authenticated-encryption implementation, such as AES-GCM. Store ciphertext, its unique nonce, and key ID in server-only Connection storage. Bind the ciphertext to its Connection/workspace identity as authenticated associated data. Keep the encryption key outside PostgreSQL and agent Environments, inject it through deployment secret management, retain keys needed during rotation, and prove database-plus-key recovery. [Authenticated encryption](https://doc.libsodium.org/secret-key_cryptography/aead) detects tampering as well as concealing plaintext. A compromised server holding the key can still decrypt. Connection secret values must never reach browser/RPC responses, ordinary metadata, logs, messages, or artifacts. Existing secrets remain in Infisical; no credentials are read or moved for this discussion. The old native-login implementation is historical. Intended gateway account storage, supported login/refresh routes and scoped secret injection must be qualified with the existing Infisical boundary; this amendment moves no credentials.
 
 ## Compute provider model
 
@@ -46,7 +52,7 @@ VM/backend selection is deferred. Keep all Otto domain models independent of int
 
 The server uses a thin adapter for create/start, inspect, execute with stdin/stdout/stderr, stop, and reset. Reuse the chosen backend's existing operations. Check capabilities before exposing attach, resume, or desktop controls; do not promise every provider supports them. Start with one implementation when execution is built. No provider registry, plugin framework, or support for every backend is required now.
 
-Each backend must pass the same existing proof requirements: private persistent agent state, multiple isolated computers, interactive ACP streams, lost-launch acknowledgement reconciliation, targeted process-tree Stop, bounded execution after server loss, stale execution fencing, and recovery. Provider management access stays server-only. A provider identifier alone does not establish isolation or safe recovery. Agent networks cannot reach host control services, Otto's database, or other agents; shared output passes through scoped Otto operations.
+Each backend must pass the same existing proof requirements: private persistent agent state, multiple isolated computers, interactive Pi control streams, lost-launch acknowledgement reconciliation, targeted process-tree Stop, bounded execution after server loss, stale execution fencing, and recovery. Provider management access stays server-only. A provider identifier alone does not establish isolation or safe recovery. Agent networks cannot reach host control services, Otto's database, or other agents; shared output passes through scoped Otto operations.
 
 The earlier Incus, Firecracker, and container comparison is reference material, not a selection. [Incus VMs and containers have different kernel boundaries](https://linuxcontainers.org/incus/docs/main/explanation/containers_and_vms/). Its existing [guest execution agent](https://linuxcontainers.org/incus/docs/main/instance-exec/) is backend infrastructure, not an Otto runner. [Firecracker](https://github.com/firecracker-microvm/firecracker) is another possible backend. Do not treat these as interchangeable isolation guarantees. A future VM provider may require compatible host virtualization and setup beyond application Docker Compose. No compute provider was selected or operated here.
 
@@ -81,7 +87,7 @@ Hono RPC goes with Hono. If Elysia wins instead, use its [Eden client](https://e
 
 Use TanStack Query for server records, React state for temporary UI state, and validated URL parameters for saved/shareable filters. Do not mirror the same server records into another global store. The editor recommendation uses open-source core and selected extensions; no paid collaboration, history, AI service, or real-time co-editing is required. Additional managed secret stores are alternatives for other deployment needs, not extra services for this installation. Current credentials remain in Infisical; the database alternative above is discussion only.
 
-The execution backend ranking assumes the initial Linux self-hosted target. Podman's documented maximum container lifetime is useful evidence, not an Otto Run deadline proof. Validate persistent private homes, interactive ACP I/O, exact process identity, targeted tree stop, expired leases, reset/restart, and deadline behavior after server loss. Rootless containers share the host kernel; Incus VMs supply a different isolation boundary and require the existing incus-agent guest process for direct execution; this is a backend component, not a new Otto daemon. Never expose the container-engine socket to an agent. No backend was operated in this comparison.
+The execution backend ranking assumes the initial Linux self-hosted target. Podman's documented maximum container lifetime is useful evidence, not an Otto Run deadline proof. Validate persistent private homes, interactive agent I/O (ACP in that earlier comparison; Pi intended now), exact process identity, targeted tree stop, expired leases, reset/restart, and deadline behavior after server loss. Rootless containers share the host kernel; Incus VMs supply a different isolation boundary and require the existing incus-agent guest process for direct execution; this is a backend component, not a new Otto daemon. Never expose the container-engine socket to an agent. No backend was operated in this comparison.
 
 ## Bun and Vitest evidence
 

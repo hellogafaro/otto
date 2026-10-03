@@ -60,7 +60,7 @@ import {
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members, users, workspaces } from "../packages/workspaces/src/schema";
-import { harnesses } from "./fixtures/harnesses";
+import { pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 /** Controlled public test data only. This qualifies Otto HTTP/PG behavior, not GitHub/Infisical/MCP provider authentication. */
@@ -383,7 +383,6 @@ describe("Connections production adapters with private PostgreSQL and controlled
           visibility: "workspace",
           title: "Fixture agent",
           instructions: "Public fixture",
-          harness: "fixture",
           model: "fixture",
         })
       ).id;
@@ -492,7 +491,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
             type: "script",
             body: "fixture only",
           },
-          harnesses,
+          pi,
         ),
       )
     ).id;
@@ -541,6 +540,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
   it("does not route Subscriptions through external Connection adapters", async () => {
     const row = await scope((c) =>
       createSubscription(c, {
+        provider: "codex",
         title: "Native association",
       }),
     );
@@ -1181,7 +1181,6 @@ describe("Connections production adapters with private PostgreSQL and controlled
         visibility: "workspace",
         title: "Other audience",
         instructions: "Fixture",
-        harness: "fixture",
         model: "fixture",
       });
       const conversation = await createConversation(c, {
@@ -1210,7 +1209,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
             type: "script",
             body: "fixture",
           },
-          harnesses,
+          pi,
         ),
       )
     ).id;
@@ -1407,7 +1406,6 @@ describe("Connections production adapters with private PostgreSQL and controlled
           visibility: "workspace",
           title: "Foreign fixture",
           instructions: "Fixture",
-          harness: "fixture",
           model: "fixture",
         });
         await createEnvironment(c, agent.id);
@@ -1431,7 +1429,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
               type: "script",
               body: "fixture only",
             },
-            harnesses,
+            pi,
           ),
         };
       },
@@ -1481,7 +1479,6 @@ describe("Connections production adapters with private PostgreSQL and controlled
           visibility: "workspace",
           title: "Later audience",
           instructions: "Fixture",
-          harness: "fixture",
           model: "fixture",
         });
         await createParticipant(c, conversationId, {

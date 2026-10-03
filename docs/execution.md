@@ -1,5 +1,7 @@
 # Implementation checkpoint
 
+Current managed Pi/CLIProxyAPI implementation and qualification: [checkpoint](pi-implementation.md) and [source map](pi-gateway-plan.md). The earlier checkpoints and ACP/native-computer observations below are historical; they do not qualify the replacement.
+
 Otto is a fresh app at the repository root. The former Buzz checkout is preserved in the external backup recorded in setup-backup.md. Canonical docs remain under docs/otto/. The selected shadcn preset bIkg4yR and pointer option determine the generated UI. No compute provider is selected and no host-local execution will stand in for isolation.
 
 ## Done checks by slice

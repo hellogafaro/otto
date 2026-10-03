@@ -14,12 +14,12 @@ import {
   type ArtifactStorage,
   previewArtifact,
 } from "../packages/artifacts/src";
-import { documents } from "../packages/documents/src/schema";
 import { runs } from "../packages/runs/src/schema";
+import { skills } from "../packages/skills/src/schema";
 import { updateTask } from "../packages/tasks/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
-import { harnesses } from "./fixtures/harnesses";
+import { pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 const record = z
@@ -156,7 +156,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       origin,
     );
     const options = { db: database.db, boss, auth, origin, storage };
-    app = createApp({ ...options, harnesses });
+    app = createApp({ ...options, pi });
     realtime = createRealtime(options);
     async function signup(name: string) {
       const response = await request(
@@ -254,7 +254,6 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         await api("/agents", "POST", {
           title: "Agent title",
           instructions: "Work",
-          harness: "codex-acp",
           model: "configured-id",
         })
       ).json(),
@@ -267,7 +266,10 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       }),
     );
     const subscription = await saved(
-      await api("/subscriptions", "POST", { title: "Subscription title" }),
+      await api("/subscriptions", "POST", {
+        title: "Subscription title",
+        provider: "codex",
+      }),
     );
     const automation = await saved(
       await api("/automations", "POST", {
@@ -752,31 +754,143 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       editToken: 1,
     });
   });
+  it("keeps Skill and Document identities, discovery and strict payloads separate without admission side effects", async () => {
+    const skill = await saved(
+      await api("/skills", "POST", {
+        title: "Separate skill",
+        instructions: "distinct-skill-search",
+        whenToUse: "Review",
+        visibility: "workspace",
+      }),
+    );
+    const doc = await saved(
+      await api("/documents", "POST", {
+        title: "Ordinary document",
+        body: "distinct-document-search",
+        visibility: "workspace",
+      }),
+    );
+    expect((await api(`/documents/${skill.id}`)).status).toBe(404);
+    expect((await api(`/skills/${doc.id}`)).status).toBe(404);
+    expect(
+      page
+        .parse(await (await api("/skills?query=distinct-skill-search")).json())
+        .items.map((r) => r.id),
+    ).toContain(skill.id);
+    expect(
+      page
+        .parse(
+          await (await api("/documents?query=distinct-skill-search")).json(),
+        )
+        .items.map((r) => r.id),
+    ).not.toContain(skill.id);
+    for (const fields of [
+      { skill: true },
+      { whenToUse: "Retired" },
+      { supportingFiles: [] },
+      { skillMetadata: {} },
+    ]) {
+      expect(
+        (
+          await api("/documents", "POST", {
+            title: "Rejected",
+            body: "Body",
+            ...fields,
+          })
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await api(`/documents/${doc.id}`, "PATCH", {
+            editToken: 0,
+            ...fields,
+          })
+        ).status,
+      ).toBe(400);
+    }
+    for (const fields of [
+      { createdBy: collaborator },
+      { body: "No Document body" },
+      { collectionId: crypto.randomUUID() },
+    ])
+      expect(
+        (
+          await api("/skills", "POST", {
+            title: "Rejected",
+            instructions: "Instructions",
+            ...fields,
+          })
+        ).status,
+      ).toBe(400);
+    const agentResponse = await api("/agents", "POST", {
+      title: "Selected Skill",
+      instructions: "Work",
+      model: "unqualified",
+      visibility: "workspace",
+      skillIds: [skill.id],
+    });
+    expect(agentResponse.status).toBe(200);
+    const { agent } = z
+      .object({ agent: record })
+      .parse(await agentResponse.json());
+    const participant = await api(
+      `/conversations/${conversationId}/participants`,
+      "POST",
+      { agentId: agent.id, role: "contributor" },
+    );
+    expect(participant.status).toBe(200);
+    expect(
+      z.object({ saved: z.literal(true) }).parse(await participant.json())
+        .saved,
+    ).toBe(true);
+    const counts = async () =>
+      (
+        await database.pool.query(
+          "select (select count(*) from runs)::int as runs, (select count(*) from queue.job)::int as jobs",
+        )
+      ).rows;
+    const before = await counts();
+    expect(
+      (
+        await api("/runs", "POST", {
+          agentId: agent.id,
+          conversationId,
+          requestId: crypto.randomUUID(),
+          type: "script",
+          body: "No launch",
+          documentIds: [skill.id],
+        })
+      ).status,
+    ).toBe(404);
+    expect(await counts()).toEqual(before);
+    expect((await api(`/documents/${doc.id}`)).status).toBe(200);
+    expect((await api(`/skills/${skill.id}`)).status).toBe(200);
+  });
   it("uses token-checked partial record edits and rejects obsolete browser installation fields", async () => {
     const skill = await saved(
-      await api("/documents", "POST", {
+      await api("/skills", "POST", {
         title: "Skill",
-        body: "Original instructions",
-        skill: true,
+        instructions: "Original instructions",
+
         visibility: "workspace",
         whenToUse: "x".repeat(500),
       }),
     );
     const changed = await saved(
-      await api(`/documents/${skill.id}`, "PATCH", {
+      await api(`/skills/${skill.id}`, "PATCH", {
         whenToUse: "y".repeat(500),
         editToken: 0,
       }),
     );
     expect(changed).toMatchObject({
       title: "Skill",
-      body: "Original instructions",
+      instructions: "Original instructions",
       whenToUse: "y".repeat(500),
       editToken: 1,
     });
     expect(
       (
-        await api(`/documents/${skill.id}`, "PATCH", {
+        await api(`/skills/${skill.id}`, "PATCH", {
           whenToUse: "stale",
           editToken: 0,
         })
@@ -785,23 +899,23 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await api(
-          `/documents/${skill.id}`,
+          `/skills/${skill.id}`,
           "PATCH",
-          { body: "forbidden", editToken: 1 },
+          { instructions: "forbidden", editToken: 1 },
           viewerCookie,
         )
       ).status,
     ).toBe(403);
     expect(
       (
-        await api(`/documents/${skill.id}`, "PATCH", {
+        await api(`/skills/${skill.id}`, "PATCH", {
           whenToUse: "x".repeat(100001),
           editToken: 1,
         })
       ).status,
     ).toBe(400);
     expect(
-      (await api(`/documents/${skill.id}`, "PATCH", { editToken: 1 })).status,
+      (await api(`/skills/${skill.id}`, "PATCH", { editToken: 1 })).status,
     ).toBe(400);
     const ordinary = await saved(
       await api("/documents", "POST", {
@@ -844,10 +958,10 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     const agentInput = {
       title: "Worker",
       instructions: "original",
-      harness: "fixture",
       model: "fixture",
     };
     for (const extra of [
+      { harness: "browser-cli" },
       { harnessVersion: "browser-pin" },
       { documentIds: [] },
       { messageIds: [] },
@@ -863,6 +977,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).toBe(400);
     const connection = await saved(
       await api("/subscriptions", "POST", {
+        provider: "codex",
         title: "Native",
       }),
     );
@@ -1257,14 +1372,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     );
     const file = await createArtifact("original skill material");
     await saved(
-      await content(`/documents/${skill.id}/skill-files`, "PUT", {
+      await content(`/skills/${skill.id}/files`, "PUT", {
         editToken: 0,
         files: [{ path: "references/guide.txt", artifactId: file.id }],
       }),
     );
     expect(
       (
-        await content(`/documents/${skill.id}/skill-files`, "PUT", {
+        await content(`/skills/${skill.id}/files`, "PUT", {
           editToken: 1,
           files: [{ path: "references/../escape", artifactId: file.id }],
         })
@@ -1287,9 +1402,9 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     );
     const skillRecord = await database.db
       .select()
-      .from(documents)
-      .where(eq(documents.id, skill.id));
-    expect(skillRecord[0]?.skillMetadata).toEqual({
+      .from(skills)
+      .where(eq(skills.id, skill.id));
+    expect(skillRecord[0]?.metadata).toEqual({
       "allowed-tools": "fake-tool",
     });
     expect(exported.files[0]?.artifactId).toBe(file.id);
@@ -1300,7 +1415,6 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
           title: "Content worker",
           skillIds: [skill.id],
           instructions: "Work",
-          harness: "codex-acp",
           model: "unqualified",
         })
       ).json(),
@@ -1332,7 +1446,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     });
     const replacement = await createArtifact("replacement skill material");
     await saved(
-      await content(`/documents/${skill.id}/skill-files`, "PUT", {
+      await content(`/skills/${skill.id}/files`, "PUT", {
         editToken: 1,
         files: [{ path: "references/guide.txt", artifactId: replacement.id }],
       }),
@@ -1482,7 +1596,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     await database.db.delete(members).where(eq(members.userId, later));
     expect(
       (
-        await content(`/documents/${skill.id}/skill-files`, "PUT", {
+        await content(`/skills/${skill.id}/files`, "PUT", {
           editToken: 2,
           files: [{ path: "references/result", artifactId: output.id }],
         })
@@ -2104,7 +2218,6 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
           visibility: "workspace",
           title: "Archive worker",
           instructions: "Work",
-          harness: "codex-acp",
           model: "unqualified",
         })
       ).json(),
@@ -2254,7 +2367,6 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
           visibility: "workspace",
           title: "Source worker",
           instructions: "Fixture",
-          harness: "codex-acp",
           model: "unqualified",
         })
       ).json(),

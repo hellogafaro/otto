@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
     "./runtime": "./src/runtime.ts",
-    "./acp": "./src/acp.ts"
+    "./pi": "./src/pi.ts",
+    "./pi-extension": "./src/pi-extension.ts"
   },
   "dependencies": {
     "@otto/db": "workspace:*",
@@ -25,6 +26,7 @@
     "@otto/projects": "workspace:*",
     "@otto/shared": "workspace:*",
     "@otto/automations": "workspace:*",
-    "@otto/subscriptions": "workspace:*"
+    "@otto/subscriptions": "workspace:*",
+    "@otto/skills": "workspace:*"
   }
 }

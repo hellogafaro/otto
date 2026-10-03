@@ -5,6 +5,7 @@ import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { ZodError } from "zod";
 import { createApi } from "./api";
+import { createGatewayStoreApi } from "./gateway-store-api";
 import type { ApiOptions } from "./http";
 import { createLogger } from "./logger";
 /** Composes transport boundaries; domain operations remain in their owning packages. */
@@ -62,6 +63,11 @@ export function createApp(
     );
   });
   if (options) {
+    app.route("/internal/gateway", createGatewayStoreApi(options));
+    app.all("/model/*", (c) => {
+      if (!options.modelGateway) throw new DomainError("unavailable");
+      return options.modelGateway.handle(c.req.raw);
+    });
     app.on(["GET", "POST"], "/api/auth/*", (c) =>
       options.auth.handler(c.req.raw),
     );

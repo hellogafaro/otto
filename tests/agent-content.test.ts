@@ -18,23 +18,23 @@ import {
   updateParticipant,
 } from "../packages/conversations/src";
 import { participants } from "../packages/conversations/src/schema";
-import {
-  archiveDocument,
-  createDocument,
-  snapshotSkills,
-  updateDocument,
-  validateSkillAccess,
-} from "../packages/documents/src";
 import { createEnvironment } from "../packages/environments/src";
 import { admitRun } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
+import {
+  archiveSkill,
+  createSkill,
+  snapshotSkills,
+  updateSkill,
+  validateSkillAccess,
+} from "../packages/skills/src";
 import {
   type Context,
   claimInstallation,
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
-import { harnesses } from "./fixtures/harnesses";
+import { pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 describe("agent Artifact publication with real PostgreSQL/queue and explicit execution/storage fixtures", () => {
@@ -92,7 +92,6 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
           visibility: "workspace",
           title: name,
           instructions: "Produce a file",
-          harness: "codex-acp",
           model: "unqualified",
         });
         await createEnvironment(c, agent.id);
@@ -131,7 +130,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
           type: "script",
           body: "Execution is a controlled state fixture; no native process",
         },
-        harnesses,
+        pi,
       ),
     );
     await database.db
@@ -361,10 +360,10 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
   });
   it("keeps archived skill permission separate from new selection and still rejects revoked sources", async () => {
     const skill = await scope((c) =>
-      createDocument(c, {
+      createSkill(c, {
         title: "Accepted skill",
-        body: "Saved instructions",
-        skill: true,
+        instructions: "Saved instructions",
+
         visibility: "workspace",
       }),
     );
@@ -372,7 +371,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     const accepted = await scope((c) =>
       snapshotSkills(c, [skill.id], audience),
     );
-    await scope((c) => archiveDocument(c, skill.id, true, 0));
+    await scope((c) => archiveSkill(c, skill.id, true, 0));
     const reader = <T>(fn: (c: Context) => Promise<T>) =>
       inWorkspace(database.db, workspaceId, { userId: "skill-reader" }, fn);
     expect(
@@ -383,7 +382,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
       scope((c) => snapshotSkills(c, [skill.id], audience)),
     ).rejects.toMatchObject({ code: "invalid" });
     await scope((c) =>
-      updateDocument(c, skill.id, { visibility: "user", editToken: 1 }),
+      updateSkill(c, skill.id, { visibility: "user", editToken: 1 }),
     );
     await expect(
       reader((c) => validateSkillAccess(c, skill.id, audience)),

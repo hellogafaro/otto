@@ -8,12 +8,7 @@ import {
   getMessage,
 } from "@otto/conversations";
 import type { Database } from "@otto/db";
-import {
-  getDocument,
-  getDocumentAudience,
-  snapshotSkills,
-  validateSkillAccess,
-} from "@otto/documents";
+import { getDocument, getDocumentAudience } from "@otto/documents";
 import { getEnvironment } from "@otto/environments";
 import { getProject } from "@otto/projects";
 import { createSession, requireSession } from "@otto/sessions";
@@ -25,10 +20,12 @@ import {
   parsePageOptions,
   required,
 } from "@otto/shared";
+import { getSkill, snapshotSkills, validateSkillAccess } from "@otto/skills";
 
 import { getSubscription } from "@otto/subscriptions";
 import { getTask } from "@otto/tasks";
 import {
+  type Actor,
   advanceCursor,
   type Context,
   inWorkspace,
@@ -44,11 +41,19 @@ import {
   runs,
 } from "./schema";
 export const RUN_QUEUE = "otto-run-dispatch";
-export type { RunRequest } from "./schema";
-/** Trusted installed commands, supplied by server composition; never browser Agent fields. */
-export type Harnesses = Readonly<
-  Record<string, { version: string; argv: string[] }>
->;
+export type { ModelConfig, RunRequest } from "./schema";
+/** One managed Pi installation, supplied by trusted server composition. */
+export interface PiInstallation {
+  version: string;
+  argv: string[];
+  authorizeModel?: (
+    subscriptionId: string,
+    model: string,
+  ) => Promise<{
+    accountId: string;
+    modelConfig: import("./schema").ModelConfig;
+  }>;
+}
 
 function normalizeRequest(input: RunRequest): RunRequestIdentity {
   return {
@@ -65,13 +70,75 @@ function normalizeRequest(input: RunRequest): RunRequestIdentity {
     automationEditToken: input.automationEditToken ?? null,
   };
 }
+/** Resolve external account/model metadata before the atomic workspace admission; the returned lookup performs no I/O. */
+export async function prepareRunModel(
+  db: Database,
+  workspaceId: string,
+  actor: Actor,
+  input: Pick<RunRequest, "agentId" | "type" | "requestId">,
+  pi?: PiInstallation,
+): Promise<PiInstallation | undefined> {
+  if (input.type === "script" || !pi?.authorizeModel) return pi;
+  const selection = await inWorkspace(
+    db,
+    workspaceId,
+    actor,
+    async (c) => {
+      requireHuman(c);
+      requireWriter(c);
+      const existing = (
+        await c.tx
+          .select()
+          .from(runs)
+          .where(
+            and(
+              eq(runs.workspaceId, workspaceId),
+              eq(runs.sponsorId, actor.userId),
+              eq(runs.requestId, input.requestId),
+            ),
+          )
+      )[0];
+      if (existing) {
+        await getConversation(c, existing.conversationId, true);
+        return null;
+      }
+      const agent = await getAgent(c, input.agentId);
+      const subscriptionId = required(
+        agent.subscriptionId ?? undefined,
+        "unavailable",
+      );
+      const subscription = await getSubscription(c, subscriptionId);
+      if (subscription.status !== "enabled")
+        throw new DomainError("forbidden", "Subscription unavailable");
+      return { subscriptionId, model: agent.model };
+    },
+    false,
+  );
+  if (!selection) return pi;
+  const accepted = await pi.authorizeModel(
+    selection.subscriptionId,
+    selection.model,
+  );
+  return {
+    ...pi,
+    authorizeModel: async (subscriptionId, model) => {
+      if (
+        subscriptionId !== selection.subscriptionId ||
+        model !== selection.model
+      )
+        throw new DomainError("conflict", "Account/model selection changed");
+      return accepted;
+    },
+  };
+}
+
 const ACTIVE_STATES = ["queued", "launching", "running", "uncertain"] as const;
 /** Atomic Run, exact input snapshot, fresh Session when needed and pg-boss job admission. */
 export async function admitRun(
   c: Context,
   boss: PgBoss,
   input: RunRequest,
-  harnesses: Harnesses = {},
+  pi?: PiInstallation,
 ) {
   requireHuman(c);
   requireWriter(c);
@@ -110,7 +177,10 @@ export async function admitRun(
     input.conversationId,
     true,
   );
-  if (agent.subscriptionId) await getSubscription(c, agent.subscriptionId);
+  const subscription =
+    input.type === "prompt" && agent.subscriptionId
+      ? await getSubscription(c, agent.subscriptionId)
+      : null;
   if (agent.archived) throw new DomainError("conflict", "Agent archived");
   if (agent.projectId && agent.projectId !== conversation.projectId)
     throw new DomainError("forbidden");
@@ -168,12 +238,20 @@ export async function admitRun(
     documentIds: context.documents.map((d) => d.id).sort(),
     taskId: context.task?.id ?? null,
   });
-  const harnessVersion =
-    input.type === "prompt" ? harnesses[agent.harness]?.version : null;
-  if (input.type === "prompt" && !harnessVersion)
-    throw new DomainError("unavailable", "Pinned harness not configured");
+  const piVersion = input.type === "prompt" ? pi?.version : null;
+  if (input.type === "prompt" && (!piVersion || !subscription))
+    throw new DomainError("unavailable", "Managed Pi account not configured");
+  if (input.type === "prompt" && subscription?.status !== "enabled")
+    throw new DomainError("forbidden", "Subscription unavailable");
   if (input.type === "script" && input.sessionId)
     throw new DomainError("invalid");
+  const account =
+    input.type === "prompt"
+      ? await required(pi?.authorizeModel, "unavailable")(
+          required(agent.subscriptionId ?? undefined),
+          agent.model,
+        )
+      : null;
   let session: Awaited<ReturnType<typeof createSession>> | null = null;
   if (input.type === "prompt") {
     const binding = {
@@ -182,9 +260,11 @@ export async function admitRun(
       environmentId: environment.id,
       environmentGeneration: environment.generation,
       scope,
-      harness: agent.harness,
-      harnessVersion: required(harnessVersion ?? undefined, "unavailable"),
+      piVersion: required(piVersion ?? undefined, "unavailable"),
+      provider: required(subscription?.provider, "unavailable"),
+      model: agent.model,
       subscriptionId: agent.subscriptionId,
+      accountId: required(account?.accountId, "unavailable"),
     };
     session = input.sessionId
       ? await requireSession(c, input.sessionId, binding)
@@ -212,10 +292,13 @@ export async function admitRun(
           inputs: {
             body: input.body,
             instructions: agent.instructions,
-            harness: agent.harness,
-            harnessVersion: harnessVersion ?? null,
+            piVersion: piVersion ?? null,
+            provider: subscription?.provider ?? null,
             model: agent.model,
-            subscriptionId: agent.subscriptionId,
+            subscriptionId:
+              input.type === "prompt" ? agent.subscriptionId : null,
+            accountId: account?.accountId ?? null,
+            modelConfig: account?.modelConfig ?? null,
             agentEditToken: agent.editToken,
             audience,
             skills,
@@ -493,10 +576,9 @@ async function snapshotContext(
     if (phase === "launch" && doc.archived)
       throw new DomainError("conflict", "Document archived");
     const available = await getDocumentAudience(c, id);
-    if (doc.skill) await validateSkillAccess(c, id, audience);
     if (
       audience.humans.some((id) => !available.includes(id)) ||
-      (!doc.skill && doc.visibility === "user" && audience.agents.length > 1)
+      (doc.visibility === "user" && audience.agents.length > 1)
     )
       throw new DomainError("forbidden", "Document context audience mismatch");
     documents.push({
@@ -547,13 +629,20 @@ export async function validateRunSources(
   )
     throw new DomainError("conflict", "Source archived");
   const agent = await getAgent(c, run.agentId);
-  if (agent.subscriptionId !== run.inputs.subscriptionId)
-    throw new DomainError("conflict", "Accepted native account changed");
+  if (
+    run.type === "prompt" &&
+    agent.subscriptionId !== run.inputs.subscriptionId
+  )
+    throw new DomainError("conflict", "Accepted account changed");
   if (run.inputs.subscriptionId) {
     const account = await getSubscription(c, run.inputs.subscriptionId);
+    if (account.provider !== run.inputs.provider)
+      throw new DomainError("conflict", "Accepted provider changed");
     if (account.status !== "enabled")
-      throw new DomainError("forbidden", "Native account unavailable");
+      throw new DomainError("forbidden", "Account unavailable");
   }
+  if (phase === "launch" && agent.model !== run.inputs.model)
+    throw new DomainError("conflict", "Accepted model changed");
   if (phase === "launch" && agent.archived)
     throw new DomainError("conflict", "Agent archived");
   const environment = await getEnvironment(c, agent.id);
@@ -782,13 +871,11 @@ export async function getRunQuestions(c: Context, filter: PageOptions = {}) {
   );
 }
 
-/** Trusted tool composition calls this only after asserting the sending attempt in this transaction. */
-export async function requestPeerRun(
+/** Current peer authority before external model preflight, repeated during atomic child admission. */
+export async function authorizePeerRun(
   c: Context,
-  boss: PgBoss,
   parentId: string,
-  input: { agentId: string; requestId: string; body: string },
-  harnesses: Harnesses = {},
+  agentId: string,
 ) {
   if (!c.actor.agentId) throw new DomainError("forbidden");
   const parent = required(
@@ -803,19 +890,18 @@ export async function requestPeerRun(
     parent.agentId !== c.actor.agentId ||
     parent.sponsorId !== c.actor.userId ||
     parent.state !== "running" ||
-    input.agentId === parent.agentId
+    agentId === parent.agentId
   )
     throw new DomainError("forbidden");
   const audience = await getConversationAudience(c, parent.conversationId);
-  if (!audience.agents.includes(input.agentId))
-    throw new DomainError("forbidden");
-  const target = await getAgent(c, input.agentId);
+  if (!audience.agents.includes(agentId)) throw new DomainError("forbidden");
+  const target = await getAgent(c, agentId);
   if (target.visibility === "user")
     throw new DomainError("forbidden", "Peer Agent is user-scoped");
   // A peer request delegates only workspace resources; it cannot borrow the human's private dependencies.
   const sponsor = { ...c, actor: { userId: parent.sponsorId } };
   for (const id of target.skillIds)
-    if ((await getDocument(sponsor, id)).visibility === "user")
+    if ((await getSkill(sponsor, id)).visibility === "user")
       throw new DomainError("forbidden", "Peer skill is user-scoped");
   const connections = new Set(
     (await snapshotGrants(sponsor, target.id)).map(
@@ -831,6 +917,19 @@ export async function requestPeerRun(
   for (const id of connections)
     if ((await getConnection(sponsor, id)).visibility === "user")
       throw new DomainError("forbidden", "Peer Connection is user-scoped");
+  return parent;
+}
+
+/** Trusted tool composition calls this only after asserting the sending attempt in this transaction. */
+export async function requestPeerRun(
+  c: Context,
+  boss: PgBoss,
+  parentId: string,
+  input: { agentId: string; requestId: string; body: string },
+  pi?: PiInstallation,
+) {
+  const parent = await authorizePeerRun(c, parentId, input.agentId);
+  const sponsor = { ...c, actor: { userId: parent.sponsorId } };
   const requestId = `peer:${parent.id}:${input.requestId}`;
   const existing = (
     await c.tx
@@ -874,7 +973,7 @@ export async function requestPeerRun(
       type: "prompt",
       body: input.body,
     },
-    harnesses,
+    pi,
   );
   if (!existing)
     await c.tx
@@ -939,7 +1038,7 @@ export async function getRuns(
 export async function getRunSkillFile(
   c: Context,
   runId: string,
-  documentId: string,
+  skillId: string,
   path: string,
 ) {
   const run = required(
@@ -957,13 +1056,54 @@ export async function getRunSkillFile(
   )
     throw new DomainError("forbidden");
   const skill = required(
-    run.inputs.skills.find((s) => s.documentId === documentId),
+    run.inputs.skills.find((s) => s.documentId === skillId),
   );
   // The human sponsor explicitly admitted these skill inputs, including private one-agent material.
   await validateSkillAccess(
     { ...c, actor: { userId: run.sponsorId } },
-    documentId,
+    skillId,
     run.inputs.audience,
   );
   return required(skill.supportingFiles?.find((file) => file.path === path));
+}
+
+/** Whole-Run reported totals only after finished capture; observed receipts are not billed money. */
+export async function getRunUsage(c: Context, id: string) {
+  const audience = await getRunAudience(c, id);
+  if (
+    !audience.humans.includes(c.actor.userId) ||
+    (c.actor.agentId && !audience.agents.includes(c.actor.agentId))
+  )
+    throw new DomainError("forbidden");
+  const run = required(
+    (
+      await c.tx
+        .select()
+        .from(runs)
+        .where(and(eq(runs.id, id), eq(runs.workspaceId, c.workspaceId)))
+    )[0],
+  );
+  const complete = run.state === "finished" && run.usage.length > 0;
+  const total = (field: keyof import("./schema").UsageTokens) => {
+    if (
+      !complete ||
+      run.usage.some((message) => message.tokens[field] === null)
+    )
+      return null;
+    return run.usage.reduce(
+      (sum, message) => sum + (message.tokens[field] ?? 0),
+      0,
+    );
+  };
+  return {
+    provider: run.inputs.provider,
+    model: run.inputs.model,
+    complete,
+    messageCount: run.usage.length,
+    inputTokens: total("inputTokens"),
+    outputTokens: total("outputTokens"),
+    cacheReadTokens: total("cacheReadTokens"),
+    cacheWriteTokens: total("cacheWriteTokens"),
+    totalTokens: total("totalTokens"),
+  };
 }

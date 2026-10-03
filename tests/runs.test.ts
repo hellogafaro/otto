@@ -16,7 +16,6 @@ import {
   createConversation,
   createParticipant,
 } from "../packages/conversations/src";
-import { createDocument, updateDocument } from "../packages/documents/src";
 import { createEnvironment } from "../packages/environments/src";
 import {
   admitRun,
@@ -26,9 +25,10 @@ import {
 } from "../packages/runs/src";
 import { withRunAttempt } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
+import { createSkill, updateSkill } from "../packages/skills/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users, workspaces } from "../packages/workspaces/src/schema";
-import { harnesses } from "./fixtures/harnesses";
+import { controlledSubscription, pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 describe("real atomic Run and pg-boss admission", () => {
@@ -56,10 +56,10 @@ describe("real atomic Run and pg-boss admission", () => {
     await scope(async (c) => {
       agentId = (
         await createAgent(c, {
+          subscriptionId: await controlledSubscription(c),
           visibility: "workspace",
           title: "Worker",
           instructions: "Do work",
-          harness: "codex-acp",
           model: "selected",
         })
       ).id;
@@ -75,10 +75,10 @@ describe("real atomic Run and pg-boss admission", () => {
         role: "contributor",
       });
       skillId = (
-        await createDocument(c, {
+        await createSkill(c, {
           title: "A skill",
-          body: "Original instructions",
-          skill: true,
+          instructions: "Original instructions",
+
           visibility: "workspace",
         })
       ).id;
@@ -103,7 +103,7 @@ describe("real atomic Run and pg-boss admission", () => {
     );
     await expect(
       scope(async (c) => {
-        await admitRun(c, boss, input, harnesses);
+        await admitRun(c, boss, input, pi);
         throw new Error("forced rollback");
       }),
     ).rejects.toThrow("forced rollback");
@@ -121,14 +121,14 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   it("deduplicates admission and keeps skill instructions from the accepted attempt", async () => {
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input, harnesses));
-    const same = await scope((c) => admitRun(c, boss, input, harnesses));
+    const run = await scope((c) => admitRun(c, boss, input, pi));
+    const same = await scope((c) => admitRun(c, boss, input, pi));
     expect(same.id).toBe(run.id);
     expect((await boss.findJobs(RUN_QUEUE)).length).toBe(1);
     await scope((c) =>
-      updateDocument(c, skillId, {
+      updateSkill(c, skillId, {
         title: "A skill",
-        body: "New instructions",
+        instructions: "New instructions",
         editToken: 0,
       }),
     );
@@ -146,7 +146,7 @@ describe("real atomic Run and pg-boss admission", () => {
     expect(duplicate).toEqual(first);
   });
   it("rejects stale attempt results and leaves the durable state unchanged", async () => {
-    const run = await scope((c) => admitRun(c, boss, request(), harnesses));
+    const run = await scope((c) => admitRun(c, boss, request(), pi));
     await expect(
       withRunAttempt(
         database.db,
@@ -204,10 +204,10 @@ describe("real atomic Run and pg-boss admission", () => {
       editToken: 0,
       id: crypto.randomUUID(),
     };
-    const first = await deliverAutomation(database.db, boss, tick, harnesses);
-    expect(
-      (await deliverAutomation(database.db, boss, tick, harnesses)).runId,
-    ).toBe(first.runId);
+    const first = await deliverAutomation(database.db, boss, tick, pi);
+    expect((await deliverAutomation(database.db, boss, tick, pi)).runId).toBe(
+      first.runId,
+    );
     const next = await deliverAutomation(
       database.db,
       boss,
@@ -215,7 +215,7 @@ describe("real atomic Run and pg-boss admission", () => {
         ...tick,
         id: crypto.randomUUID(),
       },
-      harnesses,
+      pi,
     );
     expect(next.runId).toBe(first.runId);
     const saved = (
@@ -240,7 +240,7 @@ describe("real atomic Run and pg-boss admission", () => {
           ...tick,
           id: crypto.randomUUID(),
         },
-        harnesses,
+        pi,
       ),
     ).toMatchObject({ outcome: "stale_configuration" });
     expect(
@@ -254,7 +254,7 @@ describe("real atomic Run and pg-boss admission", () => {
     ).toBe(false);
   });
   it("requires a fresh Session when retained skill scope changes", async () => {
-    const first = await scope((c) => admitRun(c, boss, request(), harnesses));
+    const first = await scope((c) => admitRun(c, boss, request(), pi));
     const saved = (
       await database.db.select().from(runs).where(eq(runs.id, first.id))
     )[0];
@@ -274,14 +274,14 @@ describe("real atomic Run and pg-boss admission", () => {
             ...request(),
             sessionId: saved?.sessionId ?? undefined,
           },
-          harnesses,
+          pi,
         ),
       ),
     ).rejects.toMatchObject({ code: "conflict" });
     await dispatchRun(database.db, first.id);
   });
   it("recovers bookkeeping without requeuing a possibly launched execution", async () => {
-    const run = await scope((c) => admitRun(c, boss, request(), harnesses));
+    const run = await scope((c) => admitRun(c, boss, request(), pi));
     await database.db
       .update(runs)
       .set({ state: "launching" })
@@ -302,7 +302,7 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   it("processes real pg-boss delivery and duplicate delivery through the server worker", async () => {
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input, harnesses));
+    const run = await scope((c) => admitRun(c, boss, input, pi));
     const workers = await startQueue(database.db, database.pool);
     try {
       await expect
@@ -339,7 +339,7 @@ describe("real atomic Run and pg-boss admission", () => {
       email: "reader@example.test",
       emailVerified: true,
     });
-    const run = await scope((c) => admitRun(c, boss, request(), harnesses));
+    const run = await scope((c) => admitRun(c, boss, request(), pi));
     await database.db
       .insert(members)
       .values({ workspaceId, userId: "new-reader", role: "viewer" });
@@ -371,10 +371,8 @@ describe("real atomic Run and pg-boss admission", () => {
     await dispatchRun(database.db, run.id);
   });
   it("rechecks sponsor membership on duplicate queue delivery", async () => {
-    const run = await scope((c) => admitRun(c, boss, request(), harnesses));
-    const terminal = await scope((c) =>
-      admitRun(c, boss, request(), harnesses),
-    );
+    const run = await scope((c) => admitRun(c, boss, request(), pi));
+    const terminal = await scope((c) => admitRun(c, boss, request(), pi));
     const terminalResult = await dispatchRun(database.db, terminal.id);
     await database.db.delete(members).where(eq(members.userId, "owner"));
     expect(await dispatchRun(database.db, run.id)).toMatchObject({

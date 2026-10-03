@@ -23,9 +23,7 @@ import {
   collections,
   documentProposals,
   documents,
-  type SkillFileReference,
 } from "./schema";
-import { formatSkillFile, parseSkillFile } from "./skill-format";
 export async function createDocument(
   c: Context,
   input: {
@@ -33,8 +31,6 @@ export async function createDocument(
     body: string;
     projectId?: string;
     visibility?: "user" | "workspace";
-    skill?: boolean;
-    whenToUse?: string;
   },
 ) {
   requireHuman(c);
@@ -48,8 +44,6 @@ export async function createDocument(
           title: input.title,
           body: input.body,
           projectId: input.projectId,
-          skill: input.skill,
-          whenToUse: input.whenToUse,
           visibility: input.visibility ?? "user",
           workspaceId: c.workspaceId,
           createdBy: c.actor.userId,
@@ -75,16 +69,8 @@ export async function getDocument(c: Context, id: string, write = false) {
   await requireMember(c, doc.createdBy);
   if (doc.visibility === "user" && doc.createdBy !== c.actor.userId)
     throw new DomainError("forbidden");
-  if (c.actor.agentId) {
-    if (doc.skill) {
-      const agent = await getAgent(c, c.actor.agentId);
-      if (
-        !agent.skillIds.includes(doc.id) ||
-        (doc.visibility === "user" && agent.createdBy !== doc.createdBy)
-      )
-        throw new DomainError("forbidden");
-    } else if (doc.visibility === "user") throw new DomainError("forbidden");
-  }
+  if (c.actor.agentId && doc.visibility === "user")
+    throw new DomainError("forbidden");
   if (write) {
     requireHuman(c);
     requireWriter(c);
@@ -98,7 +84,6 @@ export async function updateDocument(
   input: {
     title?: string;
     body?: string;
-    whenToUse?: string;
     visibility?: "user" | "workspace";
     editToken: number;
   },
@@ -109,17 +94,9 @@ export async function updateDocument(
   if (
     input.title === undefined &&
     input.body === undefined &&
-    input.whenToUse === undefined &&
     input.visibility === undefined
   )
     throw new DomainError("invalid", "No editable fields");
-  if (
-    input.whenToUse !== undefined &&
-    (!doc.skill ||
-      input.whenToUse.length > 100000 ||
-      Buffer.byteLength(input.whenToUse) > 100000)
-  )
-    throw new DomainError("invalid");
   const updated = required(
     (
       await c.tx
@@ -127,7 +104,6 @@ export async function updateDocument(
         .set({
           title: input.title,
           body: input.body,
-          whenToUse: input.whenToUse,
           visibility: input.visibility,
           editToken: doc.editToken + 1,
         })
@@ -137,44 +113,6 @@ export async function updateDocument(
   );
   await advanceCursor(c);
   return updated;
-}
-/** Current skill source permission, independent of whether it remains selectable for new Runs. */
-export async function validateSkillAccess(
-  c: Context,
-  id: string,
-  audience: { humans: string[]; agents: string[] },
-) {
-  const doc = await getDocument(c, id);
-  const available = await documentAudience(c, doc);
-  if (audience.humans.some((userId) => !available.includes(userId)))
-    throw new DomainError("forbidden", "Skill audience mismatch");
-  for (const agentId of audience.agents) {
-    const agent = await getAgent(c, agentId);
-    if (doc.visibility === "user" && agent.createdBy !== doc.createdBy)
-      throw new DomainError("forbidden", "User-scoped skill dependency");
-  }
-  return doc;
-}
-export async function snapshotSkills(
-  c: Context,
-  ids: string[],
-  audience: { humans: string[]; agents: string[] },
-) {
-  const snapshots = [];
-  for (const id of ids) {
-    const doc = await validateSkillAccess(c, id, audience);
-    if (!doc.skill || doc.archived)
-      throw new DomainError("invalid", "Not a skill");
-    snapshots.push({
-      documentId: doc.id,
-      title: doc.title,
-      instructions: doc.body,
-      whenToUse: doc.whenToUse,
-      editToken: doc.editToken,
-      supportingFiles: doc.supportingFiles,
-    });
-  }
-  return snapshots;
 }
 /** Older JSON stores only the label under name; expose title without rewriting stored content. */
 function collectionView(collection: typeof collections.$inferSelect) {
@@ -268,7 +206,6 @@ export async function getDocuments(
     projectId?: string;
     collectionId?: string;
     archived?: boolean;
-    skill?: boolean;
     query?: string;
   },
 ) {
@@ -288,9 +225,6 @@ export async function getDocuments(
         filter.collectionId
           ? eq(documents.collectionId, filter.collectionId)
           : undefined,
-        filter.skill === undefined
-          ? undefined
-          : eq(documents.skill, filter.skill),
         filter.after ? gt(documents.id, filter.after) : undefined,
         filter.query
           ? sql`to_tsvector('simple', ${documents.title} || ' ' || ${documents.body}) @@ plainto_tsquery('simple', ${filter.query})`
@@ -308,7 +242,6 @@ export async function getDocuments(
         title: doc.title,
         projectId: doc.projectId,
         collectionId: doc.collectionId,
-        skill: doc.skill,
         archived: doc.archived,
         editToken: doc.editToken,
       };
@@ -459,43 +392,6 @@ export async function archiveCollection(
   await advanceCursor(c);
   return collectionView(updated);
 }
-/** Trusted composition resolves immutable Artifact references before calling this in the same workspace transaction. */
-export async function setSkillFiles(
-  c: Context,
-  id: string,
-  files: SkillFileReference[],
-  editToken: number,
-) {
-  const doc = await getDocument(c, id, true);
-  if (!doc.skill) throw new DomainError("invalid", "Not a skill");
-  if (doc.editToken !== editToken) throw new DomainError("conflict");
-  if (
-    files.length > 30 ||
-    new Set(files.map((f) => f.path)).size !== files.length ||
-    files.some(
-      (f) =>
-        !/^(scripts|references|assets)\/[a-zA-Z0-9._/-]+$/.test(f.path) ||
-        f.path.length > 240 ||
-        f.path.split("/").some((p) => p === ".." || p === "." || p === ""),
-    ) ||
-    files.reduce((sum, f) => sum + f.byteLength, 0) > 8 * 1024 * 1024
-  )
-    throw new DomainError("invalid", "Invalid supporting files");
-  const updated = required(
-    (
-      await c.tx
-        .update(documents)
-        .set({ supportingFiles: files, editToken: doc.editToken + 1 })
-        .where(eq(documents.id, id))
-        .returning()
-    )[0],
-  );
-  await advanceCursor(c);
-  return updated;
-}
-
-export type { SkillFileReference } from "./schema";
-
 export async function setDocumentAttachments(
   c: Context,
   id: string,
@@ -535,39 +431,6 @@ async function documentAudience(
     ? members.filter((id) => id === doc.createdBy)
     : members;
 }
-export async function importSkill(
-  c: Context,
-  input: {
-    skillMd: string;
-    projectId?: string;
-    visibility?: "user" | "workspace";
-  },
-) {
-  const parsed = parseSkillFile(input.skillMd);
-  const doc = await createDocument(c, {
-    title: parsed.title,
-    body: parsed.body,
-    whenToUse: parsed.whenToUse,
-    projectId: input.projectId,
-    visibility: input.visibility,
-    skill: true,
-  });
-  return required(
-    (
-      await c.tx
-        .update(documents)
-        .set({ skillMetadata: parsed.metadata })
-        .where(eq(documents.id, doc.id))
-        .returning()
-    )[0],
-  );
-}
-export async function exportSkill(c: Context, id: string) {
-  const doc = await getDocument(c, id);
-  if (!doc.skill) throw new DomainError("invalid");
-  return { skillMd: formatSkillFile(doc), files: doc.supportingFiles };
-}
-
 /** Proposed content has no effect until an authorized human applies it to the unchanged source. */
 export async function proposeDocumentChange(
   c: Context,

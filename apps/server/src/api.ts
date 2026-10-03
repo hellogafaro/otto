@@ -24,6 +24,7 @@ import { executionApi } from "./execution-api";
 import type { ApiOptions } from "./http";
 import { type ApiEnv, transact } from "./http";
 import { sendInvitation } from "./invitations";
+import { skillsApi } from "./skills-api";
 import { subscriptionApi } from "./subscription-api";
 import { id, pageQuery, validate } from "./validation";
 /** One authentication/origin boundary. Public shares expose frozen selections before it. */
@@ -54,6 +55,7 @@ export function createApi(options: ApiOptions) {
     })
     .route("/", collaborationApi)
     .route("/", contentApi)
+    .route("/", skillsApi)
     .route("/", executionApi)
     .route("/", connectionApi)
     .route("/", subscriptionApi)

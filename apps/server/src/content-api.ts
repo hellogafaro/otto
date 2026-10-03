@@ -3,7 +3,6 @@ import {
   createArtifact,
   getArtifact,
   getArtifacts,
-  getSkillFileReference,
   readArtifact,
   requireArtifactAudience,
   updateArtifact,
@@ -13,18 +12,15 @@ import {
   archiveDocument,
   createCollection,
   createDocument,
-  exportSkill,
   getCollection,
   getCollections,
   getDocument,
   getDocumentAudience,
   getDocumentProposals,
   getDocuments,
-  importSkill,
   proposeDocumentChange,
   resolveDocumentProposal,
   setDocumentAttachments,
-  setSkillFiles,
   updateCollection,
   updateDocument,
   updateDocumentCollection,
@@ -97,8 +93,6 @@ export const contentApi = new Hono<ApiEnv>()
           body,
           projectId: id.optional(),
           visibility: z.enum(["user", "workspace"]).optional(),
-          skill: z.boolean().optional(),
-          whenToUse: body.optional(),
         })
         .strict(),
     ),
@@ -124,7 +118,6 @@ export const contentApi = new Hono<ApiEnv>()
         .object({
           title: title.optional(),
           body: body.optional(),
-          whenToUse: body.optional(),
           visibility: z.enum(["user", "workspace"]).optional(),
           editToken,
         })
@@ -142,8 +135,6 @@ export const contentApi = new Hono<ApiEnv>()
             const audience = await getDocumentAudience(ctx, doc.id);
             for (const artifactId of doc.artifactIds)
               await requireArtifactAudience(ctx, artifactId, audience);
-            for (const file of doc.supportingFiles)
-              await requireArtifactAudience(ctx, file.artifactId, audience);
           }
           return doc;
         }),
@@ -310,34 +301,12 @@ export const contentApi = new Hono<ApiEnv>()
         }),
       ),
   )
-  .post(
-    "/workspaces/:workspaceId/skills/import",
-    validate(
-      "json",
-      z
-        .object({
-          skillMd: body,
-          projectId: id.optional(),
-          visibility: z.enum(["user", "workspace"]).optional(),
-        })
-        .strict(),
-    ),
-    async (c) =>
-      c.json(await transact(c, (ctx) => importSkill(ctx, c.req.valid("json")))),
-  )
-  .get("/workspaces/:workspaceId/skills/:id/export", async (c) =>
-    c.json(await transact(c, (ctx) => exportSkill(ctx, recordId(c)), false)),
-  )
   .get(
     "/workspaces/:workspaceId/documents",
     validate(
       "query",
       query.extend({
         collectionId: id.optional(),
-        skill: z
-          .enum(["true", "false"])
-          .transform((v) => v === "true")
-          .optional(),
       }),
     ),
     async (c) =>
@@ -362,42 +331,6 @@ export const contentApi = new Hono<ApiEnv>()
             c.req.valid("json").editToken,
           ),
         ),
-      ),
-  )
-  .put(
-    "/workspaces/:workspaceId/documents/:id/skill-files",
-    validate(
-      "json",
-      z.object({
-        editToken,
-        files: z
-          .array(z.object({ path: z.string().max(240), artifactId: id }))
-          .max(30),
-      }),
-    ),
-    async (c) =>
-      c.json(
-        await transact(c, async (ctx) => {
-          const doc = await getDocument(ctx, recordId(c), true);
-          const audience = await getDocumentAudience(ctx, doc.id);
-          const files = [];
-          for (const file of c.req.valid("json").files)
-            files.push({
-              path: file.path,
-              ...(await getSkillFileReference(
-                ctx,
-                file.artifactId,
-                doc.projectId,
-                audience,
-              )),
-            });
-          return setSkillFiles(
-            ctx,
-            doc.id,
-            files,
-            c.req.valid("json").editToken,
-          );
-        }),
       ),
   )
   .get(

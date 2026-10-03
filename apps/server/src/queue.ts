@@ -10,7 +10,7 @@ import type { Database } from "@otto/db";
 import {
   dispatchRun,
   failQueuedRun,
-  type Harnesses,
+  type PiInstallation,
   RUN_QUEUE,
   recoverRuns,
 } from "@otto/runs";
@@ -27,7 +27,7 @@ export async function startQueue(
   options: {
     workers?: boolean;
     install?: boolean;
-    harnesses?: Harnesses;
+    pi?: PiInstallation;
     runtime?: {
       dispatch(runId: string): Promise<void>;
       recover(): Promise<void>;
@@ -131,7 +131,7 @@ export async function startQueue(
             db,
             boss,
             { ...data, id: job.id },
-            options.harnesses,
+            options.pi,
           );
         }
       });

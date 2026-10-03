@@ -19,7 +19,7 @@ import * as runRuntime from "../packages/runs/src/runtime";
 import { inWorkspace } from "../packages/workspaces/src";
 import { members, users, workspaces } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
-import { harnesses } from "./fixtures/harnesses";
+import { pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 const cwd = new URL("../", import.meta.url).pathname;
@@ -95,7 +95,6 @@ describe("server operations on private PostgreSQL", () => {
         const agent = await createAgent(c, {
           title: "Recovery",
           instructions: "fixture",
-          harness: "fixture",
           model: "fixture",
         });
         await createEnvironment(c, agent.id);
@@ -117,7 +116,7 @@ describe("server operations on private PostgreSQL", () => {
             type: "script",
             body: "fixture",
           },
-          harnesses,
+          pi,
         );
         return { agentId: agent.id, runId: run.id };
       },
@@ -224,9 +223,14 @@ describe("server operations on private PostgreSQL", () => {
       { S3_ENDPOINT: "http://localhost:1" },
       { MAIL_FROM: "otto@example.test" },
     ]) {
-      expect(() => readConfig({ ...config(), PORT: "0", ...partial })).toThrow(
-        "Invalid configuration fields",
-      );
+      expect(() =>
+        readConfig({
+          ...config(),
+          PORT: "0",
+          OTTO_ACCOUNT_SECRET_BINDINGS: undefined,
+          ...partial,
+        }),
+      ).toThrow("Invalid configuration fields");
     }
   });
   it("refuses missing or mismatched declared schema without running DDL", async () => {
@@ -303,7 +307,7 @@ describe("server operations on private PostgreSQL", () => {
       server = await startServer(config(), {
         execution: {
           backend: new ControlledComputer(crypto.randomUUID()),
-          harnesses,
+          pi,
         },
       });
       capture.mockRestore();
@@ -478,7 +482,7 @@ describe("server operations on private PostgreSQL", () => {
     const boss = await startQueue(database.db, database.pool, {
       workers: false,
     });
-    app = createApp({ harnesses, db: database.db, boss, auth, origin });
+    app = createApp({ pi, db: database.db, boss, auth, origin });
     const password = crypto.randomUUID() + crypto.randomUUID();
     const nextPassword = crypto.randomUUID() + crypto.randomUUID();
     const post = (path: string, body: unknown) =>

@@ -1,5 +1,5 @@
-import * as documentsSchema from "@otto/documents/schema";
 import * as projectsSchema from "@otto/projects/schema";
+import * as skillsSchema from "@otto/skills/schema";
 import * as subscriptionsSchema from "@otto/subscriptions/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
 import { sql } from "drizzle-orm";
@@ -32,7 +32,6 @@ export const agents = pgTable(
       .default("user"),
     title: text("name").notNull(),
     instructions: text().notNull(),
-    harness: text().notNull(),
     model: text().notNull(),
     subscriptionId: uuid(),
     archived: boolean().notNull().default(false),
@@ -72,7 +71,7 @@ export const agents = pgTable(
 
 /** Reusable selections; accepted Run instruction/file snapshots remain immutable. */
 export const agentSkills = pgTable(
-  "agent_skills",
+  "agents_skills",
   {
     workspaceId: uuid().notNull(),
     agentId: uuid().notNull(),
@@ -81,17 +80,14 @@ export const agentSkills = pgTable(
   (t): PgTableExtraConfigValue[] => [
     primaryKey({ columns: [t.agentId, t.skillId] }),
     foreignKey({
-      name: "agent_skills_agent_workspace_fk",
+      name: "agents_skills_agent_workspace_fk",
       columns: [t.agentId, t.workspaceId],
       foreignColumns: [agents.id, agents.workspaceId],
     }),
     foreignKey({
-      name: "agent_skills_document_workspace_fk",
+      name: "agents_skills_skill_workspace_fk",
       columns: [t.skillId, t.workspaceId],
-      foreignColumns: [
-        documentsSchema.documents.id,
-        documentsSchema.documents.workspaceId,
-      ],
+      foreignColumns: [skillsSchema.skills.id, skillsSchema.skills.workspaceId],
     }),
   ],
 );

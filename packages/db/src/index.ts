@@ -1,4 +1,4 @@
-import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool, type PoolConfig } from "pg";
 
 /** Opens a bounded pool; credentials are supplied by the process secret wrapper. */
@@ -12,5 +12,5 @@ export function openDatabase(config: PoolConfig) {
   });
   return { db: drizzle(pool), pool };
 }
-export type Database = ReturnType<typeof openDatabase>["db"];
+export type Database = NodePgDatabase<Record<string, never>>;
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];

@@ -11,13 +11,14 @@ import { updateAgent } from "../packages/agents/src";
 import { agents } from "../packages/agents/src/schema";
 import type { ArtifactStorage } from "../packages/artifacts/src";
 import { connections } from "../packages/connections/src/schema";
-import { documents } from "../packages/documents/src/schema";
 import { RUN_QUEUE, validateRunSources } from "../packages/runs/src";
 import {
   createRunRuntime,
   type RunRuntime,
 } from "../packages/runs/src/runtime";
 import { runActivity, runs } from "../packages/runs/src/schema";
+import { skills as skillsTable } from "../packages/skills/src/schema";
+import { qualifySubscription } from "../packages/subscriptions/src/server";
 import {
   claimInstallation,
   getCursor,
@@ -25,7 +26,7 @@ import {
 } from "../packages/workspaces/src";
 import { members, workspaces } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
-import { harnesses } from "./fixtures/harnesses";
+import { pi, piRuntime } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 /** Real HTTP/auth/PG/queue, without a compute provider or external credential lookup. */
@@ -99,7 +100,6 @@ describe("user/workspace resource visibility", () => {
           {
             title: "Agent",
             instructions: "Work",
-            harness: "fixture",
             model: "fixture",
             visibility,
             skillIds,
@@ -164,7 +164,7 @@ describe("user/workspace resource visibility", () => {
           await request(
             "/subscriptions",
             "POST",
-            { title: "Native account", visibility },
+            { title: "Managed account", visibility, provider: "codex" },
             human,
           ),
         ),
@@ -187,7 +187,7 @@ describe("user/workspace resource visibility", () => {
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    app = createApp({ db: database.db, boss, auth, origin, harnesses });
+    app = createApp({ db: database.db, boss, auth, origin, pi });
     async function signup(name: string) {
       const response = await fetch(`${origin}/api/auth/sign-up/email`, {
         method: "POST",
@@ -215,12 +215,17 @@ describe("user/workspace resource visibility", () => {
       .insert(members)
       .values({ workspaceId, userId: other.id, role: "contributor" });
     accountId = (await subscription("workspace")).id;
+    // Explicit synthetic confirmed account: computer binding does not authenticate it.
+    await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
+      qualifySubscription(c, accountId, "codex"),
+    );
     computer = new ControlledComputer(accountId);
     runtime = createRunRuntime(database.db, {
+      ...piRuntime,
       backend: computer,
-      harnesses,
+      pi,
       deadlineMs: 30000,
-      handleTool: createRunTools(database.db, boss, { harnesses, storage }),
+      handleTool: createRunTools(database.db, boss, { pi, storage }),
       readSkillFile: (input) => readRunSkillFile(database.db, storage, input),
     });
     app = createApp({
@@ -228,13 +233,13 @@ describe("user/workspace resource visibility", () => {
       boss,
       auth,
       origin,
-      harnesses,
+      pi,
       runtime,
       storage,
     });
     worker = await startQueue(database.db, database.pool, {
       runtime,
-      harnesses,
+      pi,
     });
   });
   it("derives createdBy for reusable resources and rejects forged creator fields", async () => {
@@ -245,7 +250,6 @@ describe("user/workspace resource visibility", () => {
         {
           title: "Creator",
           instructions: "Work",
-          harness: "fixture",
           model: "fixture",
         },
       ],
@@ -294,7 +298,7 @@ describe("user/workspace resource visibility", () => {
         .parse(await value(await request(`/agents/${a.id}`)));
     expect((await read()).skillIds).toEqual(selected);
     const stored = await database.pool.query(
-      'select "agentId", "skillId" from agent_skills where "agentId" = any($1::uuid[]) order by "agentId", "skillId"',
+      'select "agentId", "skillId" from agents_skills where "agentId" = any($1::uuid[]) order by "agentId", "skillId"',
       [[a.id, b.id]],
     );
     expect(stored.rowCount).toBe(3);
@@ -380,13 +384,13 @@ describe("user/workspace resource visibility", () => {
       .insert(workspaces)
       .values({ id: foreignWorkspace, title: "Foreign relation" });
     const foreignSkill = crypto.randomUUID();
-    await database.db.insert(documents).values({
+    await database.db.insert(skillsTable).values({
       id: foreignSkill,
       workspaceId: foreignWorkspace,
       createdBy: owner.id,
       title: "Foreign",
-      body: "No cross-workspace",
-      skill: true,
+      instructions: "No cross-workspace",
+
       visibility: "workspace",
     });
     const ordinary = z.object({ id: z.uuid() }).parse(
@@ -407,7 +411,7 @@ describe("user/workspace resource visibility", () => {
     for (const [skillId, status] of [
       [privateSkill.id, 403],
       [foreignSkill, 404],
-      [ordinary.id, 400],
+      [ordinary.id, 404],
       [crypto.randomUUID(), 404],
     ] as const) {
       expect(
@@ -420,7 +424,7 @@ describe("user/workspace resource visibility", () => {
       ).toBe(status);
     }
     const insert =
-      'insert into agent_skills("workspaceId","agentId","skillId") values($1,$2,$3)';
+      'insert into agents_skills("workspaceId","agentId","skillId") values($1,$2,$3)';
     await expect(
       database.pool.query(insert, [workspaceId, a.id, valid.id]),
     ).rejects.toMatchObject({ code: "23505" });
@@ -428,13 +432,13 @@ describe("user/workspace resource visibility", () => {
       database.pool.query(insert, [workspaceId, a.id, foreignSkill]),
     ).rejects.toMatchObject({
       code: "23503",
-      constraint: "agent_skills_document_workspace_fk",
+      constraint: "agents_skills_skill_workspace_fk",
     });
     await expect(
       database.pool.query(insert, [foreignWorkspace, a.id, foreignSkill]),
     ).rejects.toMatchObject({
       code: "23503",
-      constraint: "agent_skills_agent_workspace_fk",
+      constraint: "agents_skills_agent_workspace_fk",
     });
     // The real mutation updates Agent then replaces the relation; FK failure must roll both back.
     await expect(
@@ -489,14 +493,14 @@ describe("user/workspace resource visibility", () => {
 
   it("hydrates all 50 selected skills in singular and paginated Agent projections without a second stored array", async () => {
     const skills = Array.from({ length: 50 }, () => crypto.randomUUID());
-    await database.db.insert(documents).values(
+    await database.db.insert(skillsTable).values(
       skills.map((id) => ({
         id,
         workspaceId,
         createdBy: owner.id,
         title: "Bounded",
-        body: "Skill",
-        skill: true,
+        instructions: "Skill",
+
         visibility: "workspace" as const,
       })),
     );
@@ -650,7 +654,7 @@ describe("user/workspace resource visibility", () => {
     ).toBe(400);
   });
 
-  it("qualifies Subscriptions only from exact trusted computer proof and fences revocation during that probe", async () => {
+  it("never authenticates accounts through computer binding and checks the creator even after qualification", async () => {
     const account = await subscription("workspace");
     const view = z.object({
       id: z.uuid(),
@@ -689,7 +693,6 @@ describe("user/workspace resource visibility", () => {
         await request("/agents", "POST", {
           title: "Native qualification",
           instructions: "Work",
-          harness: "fixture",
           model: "fixture",
           subscriptionId: account.id,
         }),
@@ -698,103 +701,46 @@ describe("user/workspace resource visibility", () => {
     expect(
       (await request(`/agents/${a.id}/computer`, "POST", { computerRef: a.id }))
         .status,
-    ).toBe(403);
+    ).toBe(200);
     expect((await read()).status).toBe("needs_auth");
-    const original = computer.inspectComputer.bind(computer);
-    let release: () => void = () => {};
-    let entered = false;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    computer.inspectComputer = async () => {
-      entered = true;
-      await gate;
-      return {
-        ...(await original()),
-        account: {
-          subscriptionId: account.id,
-          mode: "native_subscription" as const,
-        },
-      };
-    };
-    try {
-      const binding = request(`/agents/${a.id}/computer`, "POST", {
-        computerRef: a.id,
-      });
-      await expect.poll(() => entered).toBe(true);
-      expect(
-        (
-          await request(`/subscriptions/${account.id}`, "PATCH", {
-            status: "disabled",
-          })
-        ).status,
-      ).toBe(200);
-      release();
-      expect((await binding).status).toBe(403);
-      expect(await read()).toMatchObject({ status: "disabled" });
-      expect(
-        (
-          await request(`/subscriptions/${account.id}`, "PATCH", {
-            status: "needs_auth",
-          })
-        ).status,
-      ).toBe(200);
-      expect(
-        (
-          await request(`/subscriptions/${account.id}`, "PATCH", {
-            status: "needs_auth",
-          })
-        ).status,
-      ).toBe(200);
-      expect(
-        (
-          await request(`/agents/${a.id}/computer`, "POST", {
-            computerRef: a.id,
-          })
-        ).status,
-      ).toBe(200);
-      expect(await read()).toMatchObject({ status: "enabled" });
-      const foreignAgent = z
-        .object({ agent: z.object({ id: z.uuid() }) })
-        .parse(
-          await value(
-            await request(
-              "/agents",
-              "POST",
-              {
-                title: "Foreign account binding",
-                instructions: "Work",
-                harness: "fixture",
-                model: "fixture",
-                subscriptionId: account.id,
-              },
-              other,
-            ),
-          ),
-        ).agent;
-      expect(
-        (
-          await request(
-            `/agents/${foreignAgent.id}/computer`,
-            "POST",
-            {
-              computerRef: foreignAgent.id,
-            },
-            other,
-          )
-        ).status,
-      ).toBe(403);
-      expect(
-        (
-          await request(`/subscriptions/${account.id}`, "PATCH", {
-            title: "Display rename",
-          })
-        ).status,
-      ).toBe(200);
-    } finally {
-      release();
-      computer.inspectComputer = original;
-    }
+    // Controlled confirmed persistence event; the actual public SDK/Infisical path is exercised separately.
+    await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
+      qualifySubscription(c, account.id, "codex"),
+    );
+    expect((await read()).status).toBe("enabled");
+    await expect(
+      inWorkspace(database.db, workspaceId, { userId: other.id }, (c) =>
+        qualifySubscription(c, account.id, "codex"),
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(
+      (
+        await request(`/subscriptions/${account.id}`, "PATCH", {
+          status: "disabled",
+        })
+      ).status,
+    ).toBe(200);
+    await expect(
+      inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
+        qualifySubscription(c, account.id, "codex"),
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(
+      (await request(`/agents/${a.id}/computer`, "POST", { computerRef: a.id }))
+        .status,
+    ).toBe(200);
+    expect((await read()).status).toBe("disabled");
+    expect(
+      (
+        await request(`/subscriptions/${account.id}`, "PATCH", {
+          status: "needs_auth",
+        })
+      ).status,
+    ).toBe(200);
+    await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
+      qualifySubscription(c, account.id, "codex"),
+    );
+    expect((await read()).status).toBe("enabled");
   });
 
   it("keeps Subscription metadata creator-controlled and rechecks current creator membership", async () => {
@@ -857,11 +803,10 @@ describe("user/workspace resource visibility", () => {
         {
           title: "Agent",
           instructions: "Work",
-          harness: "fixture",
           model: "fixture",
         },
       ],
-      ["/documents", { title: "Skill", body: "Secret", skill: true }],
+      ["/skills", { title: "Skill", instructions: "Secret" }],
       [
         "/connections",
         { title: "Account", type: "mcp", accountRef: "fixture" },
@@ -897,10 +842,10 @@ describe("user/workspace resource visibility", () => {
     }
     expect(
       (
-        await request("/documents", "POST", {
+        await request("/skills", "POST", {
           title: "Contradiction",
-          body: "x",
-          skill: true,
+          instructions: "x",
+
           visibility: "workspace",
           access: "inherited",
         })
@@ -920,7 +865,7 @@ describe("user/workspace resource visibility", () => {
   it("workspace discovery/use never grants configuration; visibility edits are owner-only and stale-safe", async () => {
     for (const [path, created] of [
       ["/agents", await agent("workspace")],
-      ["/documents", await skill("workspace")],
+      ["/skills", await skill("workspace")],
       ["/connections", await connection("workspace")],
     ] as const) {
       expect(
@@ -987,9 +932,9 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(
-          `/documents/${shared.id}`,
+          `/skills/${shared.id}`,
           "PATCH",
-          { body: "overwrite", editToken: 0 },
+          { instructions: "overwrite", editToken: 0 },
           other,
         )
       ).status,
@@ -997,7 +942,7 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(
-          `/documents/${shared.id}/skill-files`,
+          `/skills/${shared.id}/files`,
           "PUT",
           { files: [], editToken: 0 },
           other,
@@ -1009,9 +954,9 @@ describe("user/workspace resource visibility", () => {
       .parse(
         await value(
           await request(
-            `/documents/${shared.id}/proposals`,
+            `/skills/${shared.id}/proposals`,
             "POST",
-            { title: "Suggested", body: "Proposed", editToken: 0 },
+            { title: "Suggested", instructions: "Proposed", editToken: 0 },
             other,
           ),
         ),
@@ -1019,7 +964,7 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(
-          `/documents/${shared.id}/proposals/${proposal.id}/resolve`,
+          `/skills/${shared.id}/proposals/${proposal.id}/resolve`,
           "POST",
           { accept: true },
           other,
@@ -1029,7 +974,7 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(
-          `/documents/${shared.id}/proposals/${proposal.id}/resolve`,
+          `/skills/${shared.id}/proposals/${proposal.id}/resolve`,
           "POST",
           { accept: true },
         )
@@ -1037,14 +982,14 @@ describe("user/workspace resource visibility", () => {
     ).toBe(200);
     expect(
       z
-        .object({ body: z.string() })
-        .parse(await value(await request(`/documents/${shared.id}`))).body,
+        .object({ instructions: z.string() })
+        .parse(await value(await request(`/skills/${shared.id}`))).instructions,
     ).toBe("Proposed");
   });
   it("advances filtered pages from scanned candidates, including an empty first page", async () => {
     for (const [path, create, table] of [
       ["/agents", agent, agents],
-      ["/documents", skill, documents],
+      ["/skills", skill, skillsTable],
       ["/connections", connection, connections],
     ] as const) {
       const hidden = await create("user");
@@ -1115,7 +1060,7 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(
-          `/documents/${privateSkill.id}/skill-files`,
+          `/skills/${privateSkill.id}/files`,
           "PUT",
           { files: [], editToken: 0 },
           other,
@@ -1124,7 +1069,7 @@ describe("user/workspace resource visibility", () => {
     ).toBe(403);
     expect(
       (
-        await request(`/documents/${privateSkill.id}/access`, "PUT", {
+        await request(`/skills/${privateSkill.id}/access`, "PUT", {
           readerIds: [other.id],
           writerIds: [],
           editToken: 0,
@@ -1139,7 +1084,6 @@ describe("user/workspace resource visibility", () => {
           {
             title: "Steal",
             instructions: "Work",
-            harness: "fixture",
             model: "fixture",
             skillIds: [privateSkill.id],
           },
@@ -1177,7 +1121,7 @@ describe("user/workspace resource visibility", () => {
     };
     expect((await request("/runs", "POST", run, other)).status).toBe(403);
     await value(
-      await request(`/documents/${privateSkill.id}`, "PATCH", {
+      await request(`/skills/${privateSkill.id}`, "PATCH", {
         visibility: "workspace",
         editToken: 0,
       }),
@@ -1201,7 +1145,7 @@ describe("user/workspace resource visibility", () => {
       ),
     );
     await value(
-      await request(`/documents/${privateSkill.id}`, "PATCH", {
+      await request(`/skills/${privateSkill.id}`, "PATCH", {
         visibility: "user",
         editToken: 1,
       }),
@@ -1233,7 +1177,7 @@ describe("user/workspace resource visibility", () => {
         ),
       );
       await value(
-        await request(`/documents/${selected.id}/skill-files`, "PUT", {
+        await request(`/skills/${selected.id}/files`, "PUT", {
           editToken: 0,
           files: [{ path: "references/source.txt", artifactId: file.id }],
         }),
@@ -1311,7 +1255,7 @@ describe("user/workspace resource visibility", () => {
             resource === "agent"
               ? `/agents/${source.configured.id}`
               : resource === "skill"
-                ? `/documents/${source.selected.id}`
+                ? `/skills/${source.selected.id}`
                 : `/subscriptions/${accountId}`;
           await value(
             await request(path, "PATCH", {
@@ -1392,7 +1336,7 @@ describe("user/workspace resource visibility", () => {
     try {
       await expect.poll(() => entered, { timeout: 10000 }).toBe(true);
       await value(
-        await request(`/documents/${source.selected.id}`, "PATCH", {
+        await request(`/skills/${source.selected.id}`, "PATCH", {
           visibility: "user",
           editToken: 1,
         }),
@@ -1865,7 +1809,7 @@ describe("user/workspace resource visibility", () => {
     );
     expect(
       (
-        await request(`/documents/${selected.id}/skill-files`, "PUT", {
+        await request(`/skills/${selected.id}/files`, "PUT", {
           editToken: 0,
           files: [{ path: "references/private.txt", artifactId: file.id }],
         })
@@ -1881,14 +1825,14 @@ describe("user/workspace resource visibility", () => {
     ).toBe(403);
     expect(
       (
-        await request(`/documents/${selected.id}`, "PATCH", {
+        await request(`/skills/${selected.id}`, "PATCH", {
           visibility: "workspace",
           editToken: 1,
         })
       ).status,
     ).toBe(403);
     expect(
-      record.parse(await value(await request(`/documents/${selected.id}`)))
+      record.parse(await value(await request(`/skills/${selected.id}`)))
         .visibility,
     ).toBe("user");
     await value(
@@ -1898,7 +1842,7 @@ describe("user/workspace resource visibility", () => {
     );
     expect(
       (
-        await request(`/documents/${selected.id}`, "PATCH", {
+        await request(`/skills/${selected.id}`, "PATCH", {
           visibility: "workspace",
           editToken: 1,
         })
@@ -1941,7 +1885,7 @@ describe("user/workspace resource visibility", () => {
         workspaceId,
         sponsorId: owner.id,
         runId,
-        documentId: selected.id,
+        skillId: selected.id,
         path: "references/private.txt",
       };
       expect(
@@ -1965,7 +1909,7 @@ describe("user/workspace resource visibility", () => {
       if (runId) await value(await request(`/runs/${runId}/stop`, "POST", {}));
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        harnesses,
+        pi,
       });
     }
   });
@@ -2149,7 +2093,7 @@ describe("user/workspace resource visibility", () => {
           await value(await request(`/runs/${runId}/stop`, "POST", {}));
         worker = await startQueue(database.db, database.pool, {
           runtime,
-          harnesses,
+          pi,
         });
       }
     },

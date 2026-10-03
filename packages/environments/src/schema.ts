@@ -43,9 +43,10 @@ export const environments = pgTable(
       foreignColumns: [agentsSchema.agents.id, agentsSchema.agents.workspaceId],
     }),
     unique("environments_identity_workspace").on(t.id, t.workspaceId),
+    // Match Kit 0.31.11 introspection order; either order enforces the same global pair.
     unique("environments_provider_computer_unique").on(
-      t.provider,
       t.computerRef,
+      t.provider,
     ),
     check(
       "environments_state_values",
