@@ -131,6 +131,7 @@ import {
 import { useChatUpload } from "@/lib/chat-upload";
 import { useDirectory } from "@/lib/directory";
 import { savedResource } from "@/lib/file-library";
+import { mentionUserIds } from "@/lib/mention-text";
 import { useWorkspace } from "@/lib/workspace";
 
 export function ago(createdAt?: string | null) {
@@ -888,14 +889,6 @@ export function useNewChat() {
       const signature = JSON.stringify([chat.id, input.body, fileIds]);
       if (signature !== request.current.signature)
         request.current = { signature, id: crypto.randomUUID() };
-      const mentionUserIds = [
-        ...new Set(
-          Array.from(
-            input.body.matchAll(/@\[[^\]]+\]\(user:([^)]+)\)/g),
-            (match) => match[1],
-          ),
-        ),
-      ];
       await read(
         await api.chats[":id"].messages.$post({
           param: { workspaceId, id: chat.id },
@@ -903,7 +896,7 @@ export function useNewChat() {
             body: input.body,
             fileIds,
             requestId: request.current.id,
-            mentionUserIds,
+            mentionUserIds: mentionUserIds(input.body),
           },
         }),
       );
