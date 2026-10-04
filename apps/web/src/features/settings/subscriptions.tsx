@@ -20,6 +20,7 @@ import {
   SettingsListControls,
   SettingsPaging,
   useSettingsAction,
+  useSettingsCreation,
   useSettingsList,
 } from "./controls";
 import { useDeviceLogin } from "./device-login";
@@ -166,7 +167,7 @@ export function NewSubscription({
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [visibility, setVisibility] = useState<"user" | "workspace">("user");
-  const action = useSettingsAction();
+  const action = useSettingsCreation();
   return (
     <SettingsDialog
       title="New account"
@@ -175,20 +176,23 @@ export function NewSubscription({
       onOpenChange={onOpenChange}
       pending={action.pending}
       error={action.error}
+      submitDisabled={action.blocked}
       onSubmit={async () => {
         if (
           await action.perform(async () => {
-            const account = await read(
-              await api.subscriptions.$post({
+            const account = await action.create(() =>
+              api.subscriptions.$post({
                 param: { workspaceId },
                 json: { title: title.trim(), provider: "codex", visibility },
               }),
             );
+            if (!action.isActive()) return;
             router.history.push(
               `/settings/models?account=${encodeURIComponent(account.id)}`,
             );
           }, "Account created")
         ) {
+          action.reset();
           setTitle("");
           setVisibility("user");
           onOpenChange(false);

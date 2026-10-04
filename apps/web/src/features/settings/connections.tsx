@@ -24,6 +24,7 @@ import {
   SettingsListControls,
   SettingsPaging,
   useSettingsAction,
+  useSettingsCreation,
   useSettingsList,
 } from "./controls";
 import {
@@ -187,7 +188,7 @@ export function NewConnection({
 }) {
   const { api, workspaceId } = useWorkspace();
   const router = useRouter();
-  const action = useSettingsAction();
+  const action = useSettingsCreation();
   const [title, setTitle] = useState("");
   const [type, setType] = useState<"github" | "mcp">("github");
   const [visibility, setVisibility] = useState<"user" | "workspace">("user");
@@ -202,6 +203,7 @@ export function NewConnection({
       onOpenChange={onOpenChange}
       pending={action.pending}
       error={action.error}
+      submitDisabled={action.blocked}
       onSubmit={async () => {
         if (
           await action.perform(async () => {
@@ -213,8 +215,8 @@ export function NewConnection({
               throw new Error(
                 "Enter an account association identifier without credentials.",
               );
-            const connection = await read(
-              await api.connections.$post({
+            const connection = await action.create(() =>
+              api.connections.$post({
                 param: { workspaceId },
                 json: {
                   title: title.trim(),
@@ -224,11 +226,13 @@ export function NewConnection({
                 },
               }),
             );
+            if (!action.isActive()) return;
             router.history.push(
               `/settings/connections?connection=${encodeURIComponent(connection.id)}`,
             );
           }, "Connection created")
         ) {
+          action.reset();
           setTitle("");
           setAccountRef("");
           setAccountId("");
@@ -519,9 +523,9 @@ function ConnectionCard({ connection }: { connection: Connection }) {
           </>
         )}
       </Group>
-      {editable && (
+      {editable && configOpen && (
         <ConnectionConfigDialog
-          key={`${connection.id}:${connection.editToken}`}
+          key={connection.id}
           connection={connection}
           open={configOpen}
           onOpenChange={setConfigOpen}
@@ -747,11 +751,12 @@ function RevokeGrant({ connection }: { connection: Connection }) {
           type="button"
           variant="outline"
           size="compact"
+          disabled={action.pending}
           onClick={() => setChoose((value) => !value)}
         >
           {selectedAgent?.title ?? "Select an agent"}
         </Button>
-        {choose && (
+        {choose && !action.pending && (
           <GrantAgents
             createdBy={connection.visibility === "user" ? user.id : undefined}
             enabled={choose}
@@ -776,7 +781,7 @@ function RevokeGrant({ connection }: { connection: Connection }) {
             if (!selectedAgent) return;
             const yes = await confirm({
               title: "Revoke agent grant?",
-              description: `${selectedAgent.title} and its active runs will lose this connection access.`,
+              description: `${selectedAgent.title} (${selectedAgent.id}) and its active runs will lose this connection access.`,
               action: "Revoke",
               destructive: true,
             });

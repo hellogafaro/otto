@@ -55,6 +55,8 @@ export function useDeviceLogin(id: string) {
           "The account service returned an invalid authentication stream.",
         );
       await consumeLoginEvents(response.body, async (event) => {
+        if (attempt.signal.aborted)
+          throw new DOMException("Authentication cancelled", "AbortError");
         if (event.type === "device_code") {
           setDevice({
             ...event,

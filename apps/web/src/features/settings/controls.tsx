@@ -42,7 +42,9 @@ import {
   useState,
 } from "react";
 import { useDebounced } from "@/components/debounce";
+import { read } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
+import { createSettingsAttempt } from "./creation-attempt";
 
 export function Group({
   title,
@@ -232,27 +234,59 @@ export function useSettingsAction() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const running = useRef(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
   const perform = async (work: () => Promise<unknown>, message?: string) => {
-    if (running.current) return false;
+    if (!active.current || running.current) return false;
     running.current = true;
     setPending(true);
     setError(null);
     try {
       await work();
       await invalidate();
-      if (message) toast.success(message, { id: "settings-saved" });
-      return true;
+      if (message && active.current)
+        toast.success(message, { id: "settings-saved" });
+      return active.current;
     } catch (cause) {
       const failure = settingsError(cause);
       setError(failure);
       toast.error(failure.message, { id: "settings-saved" });
+      // Lost acknowledgments and stale fences require an authoritative readback.
+      await invalidate().catch(() => {
+        setError(
+          new Error(
+            `${failure.message} Unable to refresh current settings. Reload before retrying.`,
+          ),
+        );
+      });
       return false;
     } finally {
       running.current = false;
       setPending(false);
     }
   };
-  return { pending, error, perform };
+  return { pending, error, perform, isActive: () => active.current };
+}
+export function useSettingsCreation() {
+  const action = useSettingsAction();
+  const attempt = useRef(createSettingsAttempt());
+  return {
+    ...action,
+    blocked: attempt.current.blocked,
+    reset: attempt.current.reset,
+    create: <T,>(
+      request: () => Promise<{
+        ok: boolean;
+        status: number;
+        json(): Promise<T>;
+      }>,
+    ) => attempt.current.send(request, read),
+  };
 }
 export function SaveState({
   pending,
@@ -320,6 +354,7 @@ export function SettingsDialog({
   pending,
   error,
   submitLabel = "Create",
+  submitDisabled = false,
   onSubmit,
   children,
 }: {
@@ -330,6 +365,7 @@ export function SettingsDialog({
   pending: boolean;
   error?: Error | null;
   submitLabel?: string;
+  submitDisabled?: boolean;
   onSubmit: () => Promise<unknown>;
   children: ReactNode;
 }) {
@@ -352,13 +388,19 @@ export function SettingsDialog({
           className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!pending) void onSubmit();
+            if (!pending && !submitDisabled) void onSubmit();
           }}
         >
           <fieldset disabled={pending}>
             <FieldGroup>{children}</FieldGroup>
           </fieldset>
           <SaveState error={error} />
+          {submitDisabled && !pending && (
+            <p role="alert" className="text-sm">
+              Creation cannot be repeated. Close this dialog and check the
+              current records; the request may already have created one.
+            </p>
+          )}
           <DialogFooter>
             <Button
               type="button"
@@ -368,7 +410,7 @@ export function SettingsDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending || submitDisabled}>
               {pending ? "Working" : submitLabel}
             </Button>
           </DialogFooter>

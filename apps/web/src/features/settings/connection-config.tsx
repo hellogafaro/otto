@@ -138,6 +138,7 @@ export function ConnectionConfigDialog({
 }) {
   const { api, workspaceId } = useWorkspace();
   const action = useSettingsAction();
+  const [editToken] = useState(connection.editToken);
   const [credentialRef, setCredentialRef] = useState("");
   const [appId, setAppId] = useState("");
   const [accountId, setAccountId] = useState("");
@@ -153,7 +154,7 @@ export function ConnectionConfigDialog({
   return (
     <SettingsDialog
       title={`Configure ${connection.title}`}
-      description="Saved configuration is private to the server and cannot be read here. A replacement disconnects the connection and revokes existing grants. Enter deployment-approved references only; never keys or tokens."
+      description="Saved configuration is private to the server and cannot be read here. A replacement disconnects the connection and revokes existing grants. Enter deployment-approved references only; never keys or tokens. If the policy changes while this form is open, cancel and reopen to review its new revision."
       open={open}
       onOpenChange={onOpenChange}
       pending={action.pending}
@@ -191,7 +192,7 @@ export function ConnectionConfigDialog({
               await api.connections[":id"].$patch({
                 param: { workspaceId, id: connection.id },
                 json: {
-                  editToken: connection.editToken,
+                  editToken,
                   credentialRef: credentialRef || undefined,
                   config,
                 },

@@ -47,6 +47,7 @@ import {
   SettingsListControls,
   SettingsPaging,
   useSettingsAction,
+  useSettingsCreation,
   useSettingsList,
 } from "@/features/settings/controls";
 import {
@@ -574,7 +575,7 @@ function InviteMember({
     delivery: string;
     email: string;
   } | null>(null);
-  const action = useSettingsAction();
+  const action = useSettingsCreation();
   return (
     <>
       {result && (
@@ -592,19 +593,21 @@ function InviteMember({
         onOpenChange={onOpenChange}
         pending={action.pending}
         error={action.error}
+        submitDisabled={action.blocked}
         submitLabel="Invite"
         onSubmit={async () => {
           if (
             await action.perform(async () => {
-              const invitation = await read(
-                await api.invitations.$post({
+              const invitation = await action.create(() =>
+                api.invitations.$post({
                   param: { workspaceId },
                   json: { email: email.trim(), role },
                 }),
               );
-              setResult(invitation);
+              if (action.isActive()) setResult(invitation);
             }, "Invitation created")
           ) {
+            action.reset();
             setEmail("");
             onOpenChange(false);
           }
@@ -651,6 +654,7 @@ function InvitationActions() {
       <Row title="Invitation ID">
         <SettingsField
           label="Invitation ID"
+          disabled={action.pending}
           value={id}
           onChange={(event) => {
             setId(event.target.value.trim());
@@ -729,6 +733,7 @@ function AcceptInvitation() {
       >
         <SettingsField
           label="Accept invitation ID"
+          disabled={action.pending}
           value={id}
           onChange={(event) => setId(event.target.value.trim())}
         />
@@ -742,7 +747,7 @@ function AcceptInvitation() {
                 await client.invitations[":id"].accept.$post({ param: { id } }),
               );
               await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-              selectWorkspace(result.workspaceId);
+              if (action.isActive()) selectWorkspace(result.workspaceId);
             }, "Invitation accepted")
           }
         >
