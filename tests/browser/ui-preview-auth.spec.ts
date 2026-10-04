@@ -159,3 +159,50 @@ test("BB loopback origin signs in and mutates; unrelated origins remain denied",
     page.getByRole("button", { name: "Open profile menu", exact: true }),
   ).toBeVisible();
 });
+
+test("embedded preview keeps its authenticated session", async ({
+  page,
+  fixture,
+}, testInfo) => {
+  const wrapper = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 45204,
+    fetch: () =>
+      new Response(
+        `<iframe title="Otto" src="${origin}" style="width:100%;height:100vh;border:0"></iframe>`,
+        { headers: { "content-type": "text/html" } },
+      ),
+  });
+  const email = `embedded-${crypto.randomUUID()}@example.test`;
+  const password = crypto.randomUUID() + crypto.randomUUID();
+  const response = await fixture.auth.api.signUpEmail({
+    body: { name: "Embedded preview", email, password },
+  });
+  await fixture.grant(response.user.id);
+  try {
+    // localhost and 127.0.0.1 are different sites, matching a BB app embedding its public preview.
+    await page.goto("http://localhost:45204");
+    const frame = page.frameLocator('iframe[title="Otto"]');
+    await frame.getByLabel("Email", { exact: true }).fill(email);
+    await frame.getByLabel("Password", { exact: true }).fill(password);
+    const signedIn = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/auth/sign-in/email") &&
+        response.request().method() === "POST",
+    );
+    await frame.getByRole("button", { name: "Sign in", exact: true }).click();
+    expect((await signedIn).status()).toBe(200);
+    await expect(
+      frame.getByRole("button", { name: "Open profile menu", exact: true }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      frame.getByRole("button", { name: "Open profile menu", exact: true }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath("embedded-authenticated.png"),
+    });
+  } finally {
+    wrapper.stop(true);
+  }
+});
