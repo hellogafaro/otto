@@ -1,5 +1,6 @@
 import {
   RiAddLine,
+  RiArchiveLine,
   RiBox3Line,
   RiChat1Line,
   RiFileTextLine,
@@ -8,6 +9,7 @@ import {
   RiFolderAddLine,
   RiLinkM,
   RiPriceTag3Line,
+  RiSearchLine,
   RiUploadLine,
 } from "@remixicon/react";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -32,8 +34,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
-import { Input } from "@workspace/ui/components/input";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
 import { useRef, useState } from "react";
+import { useCommandPalette } from "@/components/command-palette";
+import { EmptyPage } from "@/components/empty-page";
 import { FolderEdit } from "@/components/file-edit";
 import { FileUploads } from "@/components/file-uploads";
 import { FileGallery } from "@/components/files";
@@ -42,9 +51,11 @@ import {
   type FilterDef,
   FilterMenu,
   labelLooks,
+  NoResults,
 } from "@/components/filters";
 import { useAskAgent } from "@/components/floating-chat";
 import { GalleryItem } from "@/components/gallery";
+import { IconAction } from "@/components/icon-action";
 import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
 import { Topbar } from "@/components/topbar";
@@ -93,13 +104,14 @@ export function validateFilesSearch(
   };
 }
 
-type FilterKey = "project" | "label";
+type FilterKey = "project" | "label" | "archived";
 
 export function FilesPage({ search }: { search: FilesSearch }) {
   const { workspaceId, workspace, api, user, invalidate } = useWorkspace();
   const directory = useDirectory();
   const navigate = useNavigate({ from: "/files" });
   const ask = useAskAgent();
+  const openPalette = useCommandPalette();
   const picker = useRef<HTMLInputElement>(null);
   const [uploads, setUploads] = useState<File[]>();
   const [editing, setEditing] = useState<SavedFolder | "new">();
@@ -154,6 +166,18 @@ export function FilesPage({ search }: { search: FilesSearch }) {
       visibility: file.visibility,
     }));
   const canWrite = workspace.role !== "viewer";
+  const fileInput = (
+    <input
+      ref={picker}
+      type="file"
+      multiple
+      hidden
+      onChange={(event) => {
+        if (event.target.files?.length) setUploads([...event.target.files]);
+        event.target.value = "";
+      }}
+    />
+  );
   const projectId = folder?.projectId ?? search.project;
   const filters: FilterDef<FilterKey>[] = [
     {
@@ -178,11 +202,18 @@ export function FilesPage({ search }: { search: FilesSearch }) {
       ),
     },
   ];
+  filters.push({
+    key: "archived",
+    label: "Archive",
+    icon: RiArchiveLine,
+    options: { true: { label: "Archived", icon: RiArchiveLine } },
+  });
+  const values = { ...search, archived: search.archived ? "true" : undefined };
   const change = (key: FilterKey, value: string | undefined) =>
     navigate({
       search: (previous) => ({
         ...previous,
-        [key]: value,
+        [key]: key === "archived" ? value === "true" || undefined : value,
         ...(key === "project" ? { folder: undefined, open: undefined } : {}),
       }),
     });
@@ -217,6 +248,57 @@ export function FilesPage({ search }: { search: FilesSearch }) {
       );
       await invalidate();
     });
+  if (
+    !library.isPending &&
+    !library.error &&
+    !library.hasNextPage &&
+    entries.length === 0 &&
+    !search.folder &&
+    !search.project &&
+    !search.label &&
+    !search.query &&
+    !search.archived
+  )
+    return (
+      <>
+        <EmptyPage
+          icon={RiFolder3Line}
+          title="No files"
+          description="Files you upload and agents make collect here."
+          ask={
+            canWrite
+              ? {
+                  about: "your files",
+                  action: "New file",
+                  start: "Make a file with ",
+                }
+              : undefined
+          }
+        >
+          {canWrite && (
+            // Uploading is a person's own action, beside asking for one.
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => picker.current?.click()}
+            >
+              <RiUploadLine data-icon="inline-start" />
+              Upload file
+            </Button>
+          )}
+          {fileInput}
+        </EmptyPage>
+        {uploads && (
+          <FileUploads
+            files={uploads}
+            folderId={undefined}
+            projectId={undefined}
+            folderVisibility={undefined}
+            onClose={() => setUploads(undefined)}
+          />
+        )}
+      </>
+    );
   return (
     <>
       {folder && (
@@ -280,7 +362,12 @@ export function FilesPage({ search }: { search: FilesSearch }) {
         width="wide"
         actions={
           <>
-            <FilterMenu filters={filters} values={search} onChange={change} />
+            <FilterMenu filters={filters} values={values} onChange={change} />
+            <IconAction
+              label="Search"
+              icon={RiSearchLine}
+              onClick={() => openPalette("files")}
+            />
             {directory.projectsQuery.hasNextPage && (
               <Button
                 variant="ghost"
@@ -333,23 +420,13 @@ export function FilesPage({ search }: { search: FilesSearch }) {
                 Edit folder
               </Button>
             )}
-            <input
-              ref={picker}
-              type="file"
-              multiple
-              hidden
-              onChange={(event) => {
-                if (event.target.files?.length)
-                  setUploads([...event.target.files]);
-                event.target.value = "";
-              }}
-            />
+            {fileInput}
           </>
         }
       >
         <FilterBar
           filters={filters}
-          values={search}
+          values={values}
           onChange={change}
           onClear={() =>
             navigate({
@@ -357,99 +434,6 @@ export function FilesPage({ search }: { search: FilesSearch }) {
             })
           }
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            aria-label="Search files and documents by whole words"
-            placeholder="Search files and documents"
-            value={search.query ?? ""}
-            maxLength={200}
-            onChange={(event) =>
-              navigate({
-                search: (previous) => ({
-                  ...previous,
-                  query: event.target.value || undefined,
-                }),
-                replace: true,
-              })
-            }
-          />
-          <Input
-            aria-label="Filter by label"
-            placeholder="Label"
-            value={search.label ?? ""}
-            maxLength={200}
-            onChange={(event) =>
-              navigate({
-                search: (previous) => ({
-                  ...previous,
-                  label: event.target.value || undefined,
-                }),
-                replace: true,
-              })
-            }
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" />}>
-              Sort:{" "}
-              {search.sort === "createdAt"
-                ? "Added"
-                : search.sort === "updatedAt"
-                  ? "Updated"
-                  : "Title"}{" "}
-              · {search.order === "desc" ? "Descending" : "Ascending"}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuGroup>
-                {(["title", "createdAt", "updatedAt"] as const).map((sort) => (
-                  <DropdownMenuItem
-                    key={sort}
-                    onClick={() =>
-                      navigate({
-                        search: (previous) => ({ ...previous, sort }),
-                      })
-                    }
-                  >
-                    {sort === "title"
-                      ? "Title"
-                      : sort === "createdAt"
-                        ? "Added"
-                        : "Updated"}
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuItem
-                  onClick={() =>
-                    navigate({
-                      search: (previous) => ({
-                        ...previous,
-                        sort: previous.sort ?? "title",
-                        order: previous.order === "desc" ? "asc" : "desc",
-                      }),
-                    })
-                  }
-                >
-                  Reverse order
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            variant={search.archived ? "secondary" : "ghost"}
-            onClick={() =>
-              navigate({
-                search: (previous) => ({
-                  ...previous,
-                  archived: previous.archived ? undefined : true,
-                }),
-              })
-            }
-          >
-            Archived
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Folders, then files, then documents. Sorting applies within each kind;
-          search matches whole words in this folder.
-        </p>
         <QueryState
           pending={library.isPending}
           error={library.error ?? directory.error}
@@ -461,15 +445,29 @@ export function FilesPage({ search }: { search: FilesSearch }) {
           }}
         />
         {error && <p role="alert">{error.message}</p>}
-        {!library.isPending && !library.error && entries.length === 0 && (
-          <p className="text-muted-foreground">
-            {library.hasNextPage
-              ? "No readable items loaded. Load more to continue."
-              : search.query || search.label
-                ? "No matching files or documents."
-                : "This folder is empty."}
-          </p>
-        )}
+        {!library.isPending &&
+          !library.error &&
+          entries.length === 0 &&
+          !library.hasNextPage &&
+          (search.query || search.label || search.project || search.archived ? (
+            <NoResults
+              what="files and documents"
+              onClear={() =>
+                navigate({
+                  search: search.folder ? { folder: search.folder } : {},
+                })
+              }
+            />
+          ) : (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <RiFolder3Line />
+                </EmptyMedia>
+                <EmptyTitle>This folder is empty</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ))}
         <FileGallery
           resources={files}
           openId={search.open}
