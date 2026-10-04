@@ -309,6 +309,45 @@ test("pending human question does not block reader or steer, cancellation aborts
   expect(p.writes.some((w) => w.type === "extension_ui_response")).toBe(false);
 });
 
+test("runtime close after settlement waits for the pending abort acknowledgement", async () => {
+  const p = peer({ requestTimeoutMs: 500, cleanupTimeoutMs: 200 });
+  const { done } = await p.start();
+  p.manual();
+  // The runtime closes Pi as soon as prompt() resolves, independently of Stop.
+  const runtimeClose = done.then(() => p.client.close());
+  void runtimeClose.catch(() => {});
+  const cancellation = p.client.cancel();
+  void cancellation.catch(() => {});
+  await tick();
+  const abort = p.writes.find((frame) => frame.type === "abort");
+  if (!abort) throw new Error("Missing controlled abort command");
+  p.end("aborted");
+  // Native abort waits for idle: settlement can precede its RPC response.
+  const timer = setTimeout(() => {
+    try {
+      p.emit({
+        type: "response",
+        command: "abort",
+        id: abort.id,
+        success: true,
+      });
+    } catch {
+      // Premature close has already cancelled the stream in the broken ordering.
+    }
+  }, 20);
+  try {
+    const results = await Promise.allSettled([cancellation, runtimeClose]);
+    expect(results.map((result) => result.status)).toEqual([
+      "fulfilled",
+      "fulfilled",
+    ]);
+    expect(await done).toBe("aborted");
+  } finally {
+    clearTimeout(timer);
+    await p.client.close().catch(() => {});
+  }
+});
+
 test("cancel joins final usage arriving before the abort acknowledgement", async () => {
   const entered = deferred();
   const release = deferred();
