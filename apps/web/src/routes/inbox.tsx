@@ -1,5 +1,5 @@
 import { RiChat1Line, RiInboxLine, RiTimeLine } from "@remixicon/react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -28,15 +28,40 @@ export function InboxPage() {
   const directory = useDirectory();
   const [selectedProject, setSelectedProject] = useState("");
   const projectId = selectedProject || directory.projects[0]?.id;
-  const attention = useQuery({
+  const attention = useInfiniteQuery({
+    initialPageParam: {
+      after: undefined as string | undefined,
+      runAfter: undefined as string | undefined,
+      questionAfter: undefined as string | undefined,
+      operationAfter: undefined as string | undefined,
+    },
     queryKey: ["workspace", workspaceId, "attention"],
-    queryFn: async () =>
+    queryFn: async ({ pageParam }) =>
       read(
         await api.attention.$get({
           param: { workspaceId },
-          query: { limit: "20" },
+          query: { limit: "20", ...pageParam },
         }),
       ),
+    getNextPageParam: (last, _pages, previous) => {
+      if (
+        !last.next &&
+        typeof last.runs.next !== "string" &&
+        !last.questions.next &&
+        !last.approvals.next
+      )
+        return undefined;
+      // Exhausted groups keep their final request cursor; they never restart while another group continues.
+      return {
+        after: last.next ?? previous.after,
+        runAfter:
+          typeof last.runs.next === "string"
+            ? last.runs.next
+            : previous.runAfter,
+        questionAfter: last.questions.next ?? previous.questionAfter,
+        operationAfter: last.approvals.next ?? previous.operationAfter,
+      };
+    },
     refetchInterval: 10_000,
   });
   const taskQueries = useQueries({
@@ -93,19 +118,69 @@ export function InboxPage() {
         }}
       />
     );
-  const chats = attention.data.items;
-  const runs = attention.data.runs.items;
-  const questions = attention.data.questions.items;
-  // This preview renders only these scalar fields, not recursive provider arguments.
-  const approvals: { id: string; action: string; target: string }[] =
-    attention.data.approvals.items;
+  // Iterate the bounded projections without spreading the recursive Run response into generic inference.
+  const chatMap = new Map<
+    string,
+    {
+      chatId: string;
+      title: string;
+      unread: { body: string }[];
+    }
+  >();
+  for (const page of attention.data.pages)
+    for (const item of page.items) chatMap.set(item.chatId, item);
+  const chats = Array.from(chatMap.values());
+  const runMap = new Map<
+    string,
+    {
+      id: string;
+      chatId: string;
+      agentId: string;
+      outcome: string | null;
+      state: string;
+    }
+  >();
+  const questionMap = new Map<
+    string,
+    { id: string; runId: string; body: string }
+  >();
+  const approvalMap = new Map<
+    string,
+    { id: string; action: string; target: string }
+  >();
+  for (const page of attention.data.pages) {
+    for (const item of page.runs.items)
+      runMap.set(item.id, {
+        id: item.id,
+        chatId: item.chatId,
+        agentId: item.agentId,
+        outcome: item.outcome,
+        state: item.state,
+      });
+    for (const item of page.questions.items)
+      questionMap.set(item.id, {
+        id: item.id,
+        runId: item.runId,
+        body: item.body,
+      });
+    for (const item of page.approvals.items)
+      approvalMap.set(item.id, {
+        id: item.id,
+        action: item.action,
+        target: item.target,
+      });
+  }
+  const runs = Array.from(runMap.values());
+  const questions = Array.from(questionMap.values());
+  const approvals = Array.from(approvalMap.values());
   const taskFailure = taskQueries.find((result) => result.error);
   if (
     !directory.projects.length &&
     !chats.length &&
     !runs.length &&
     !questions.length &&
-    !approvals.length
+    !approvals.length &&
+    !attention.hasNextPage
   )
     return (
       <EmptyPage
@@ -197,7 +272,7 @@ export function InboxPage() {
           </li>
         ))}
       </Section>
-      {attention.data.next && <Link to="/chats">More chats</Link>}
+
       <Section title="Runs" count={runs.length}>
         {runs.map((run) => (
           <li key={run.id}>
@@ -244,6 +319,15 @@ export function InboxPage() {
           </li>
         ))}
       </Section>
+      {attention.hasNextPage && (
+        <Button
+          variant="outline"
+          disabled={attention.isFetchingNextPage}
+          onClick={() => attention.fetchNextPage()}
+        >
+          More attention items
+        </Button>
+      )}
     </Page>
   );
 }

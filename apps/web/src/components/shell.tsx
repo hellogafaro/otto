@@ -49,7 +49,7 @@ function WorkspaceShell() {
               <AppRail />
               {/* Pages scroll inside the card; top bars stay put. */}
               <SidebarInset className="mt-2 mr-2 mb-2 min-h-0 overflow-hidden rounded-xl shadow-xs ring-1 ring-foreground/10 group-data-desktop/sidebar-wrapper:mt-0">
-                <div className="flex min-h-0 flex-1">
+                <div className="flex min-h-0 flex-1 flex-col md:flex-row">
                   {inChats && <ChatsSidebar />}
                   {inSettings && <SettingsSidebar />}
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col">

@@ -922,3 +922,9 @@ Chats show metadata update time separately from message activity. New Chats requ
 ### Files and public frozen selections
 
 File uploads show pending, cancellation and retry of the same File/request identity; there is no simulated progress. Download uses the verified server route. Previews stay within 8 MiB, and HTML runs in a credential-free sandbox. Folder breadcrumbs and mixed lists keep Files, Documents and Folders grouped, with server sorting within kind. Sharing requires a preview of the explicit frozen selection before publishing; the anonymous share page shows only acknowledged frozen content and optional selected bytes, with revoked/unavailable and retry states. It sits outside authenticated workspace navigation.
+
+Inbox continues its four independent server attention cursors with one More attention items control. An exhausted group keeps its final cursor while other groups continue; counts describe loaded entries.
+
+The File share byte-selection control uses the shared Checkbox primitive, with its stock compact size and focus behavior, beside the descriptive label.
+
+On mobile, Chats and Settings section navigation opens in the shared Sheet from a compact section header; selecting a route closes it. The desktop section panel keeps its existing width. This leaves the page usable beside the app rail on narrow screens.

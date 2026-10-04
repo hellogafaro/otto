@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Button } from "@workspace/ui/components/button";
+import { Checkbox } from "@workspace/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -81,12 +82,11 @@ export function FileShares({
         </DialogHeader>
         <FieldGroup>
           <Field orientation="horizontal">
-            <Input
+            <Checkbox
               id="share-bytes"
-              type="checkbox"
               checked={includeFile}
               disabled={pending || Boolean(preview)}
-              onChange={(event) => setIncludeFile(event.target.checked)}
+              onCheckedChange={(checked) => setIncludeFile(checked)}
             />
             <FieldLabel htmlFor="share-bytes">
               Include downloadable file bytes
