@@ -6,7 +6,6 @@ import {
   RiSettings3Line,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
-import { Button } from "@workspace/ui/components/button";
 import {
   Command,
   CommandDialog,
@@ -25,6 +24,7 @@ import {
   useState,
 } from "react";
 import { destinations } from "@/components/app-rail";
+import { TabBar } from "@/components/tab-bar";
 import { ActorAvatar, resourceIcons, statuses } from "@/components/task-meta";
 import {
   agents,
@@ -147,21 +147,15 @@ function Palette({
       }}
     >
       <CommandInput placeholder="Search tasks, people, projects, documents, files and actions" />
-      {/* 28px tabs, 4px apart, 8px above and below; tab text lands 16px in like
-          everything else. */}
-      <div className="flex gap-1 px-1.75 py-2">
-        {categories.map((value) => (
-          <Button
-            key={value}
-            variant={value === category ? "secondary" : "ghost"}
-            size="compact"
-            aria-pressed={value === category}
-            onClick={() => onCategory(value)}
-          >
-            {labels[value]}
-          </Button>
-        ))}
-      </div>
+      {/* The shared tabs, 8px above and below; tab text lands 16px in like
+          everything else (7px + the 1px border + 8px). */}
+      <TabBar
+        label="Categories"
+        className="flex-nowrap px-1.75 py-2"
+        tabs={categories.map((value) => ({ value, label: labels[value] }))}
+        value={category}
+        onChange={onCategory}
+      />
       {/* The tab row already spaces 8px below; the list adds no top padding. */}
       <CommandList className="pt-0">
         <CommandEmpty>No results</CommandEmpty>

@@ -1,4 +1,8 @@
 import type { RemixiconComponentType } from "@remixicon/react";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+} from "@workspace/ui/components/context-menu";
 import { cn } from "@workspace/ui/lib/utils";
 import { cloneElement, type ReactElement, type ReactNode } from "react";
 
@@ -33,6 +37,7 @@ export function GalleryItem({
   icon: Icon,
   title,
   className,
+  menu,
 }: {
   /** What the item opens: a Link, or a button while there is no page. */
   render: ReactElement<{ className?: string; children?: ReactNode }>;
@@ -42,29 +47,34 @@ export function GalleryItem({
   title: string;
   /** The tile's shape and background, e.g. "aspect-video bg-muted". */
   className: string;
+  /** Its right-click menu (a ContextMenuContent), if it has one. */
+  menu?: ReactNode;
 }) {
+  const item = cloneElement(render, {
+    className:
+      "group/item flex w-full flex-col gap-2 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+    children: (
+      <>
+        <div
+          className={cn(
+            "overflow-hidden rounded-md ring-1 ring-foreground/10 transition-shadow group-hover/item:ring-foreground/20",
+            className,
+          )}
+        >
+          {tile}
+        </div>
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Icon className="shrink-0 text-muted-foreground" />
+          <span className="truncate">{title}</span>
+        </div>
+      </>
+    ),
+  });
+  if (!menu) return <li>{item}</li>;
   return (
-    <li>
-      {cloneElement(render, {
-        className:
-          "group/item flex w-full flex-col gap-2 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-        children: (
-          <>
-            <div
-              className={cn(
-                "overflow-hidden rounded-md ring-1 ring-foreground/10 transition-shadow group-hover/item:ring-foreground/20",
-                className,
-              )}
-            >
-              {tile}
-            </div>
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Icon className="shrink-0 text-muted-foreground" />
-              <span className="truncate">{title}</span>
-            </div>
-          </>
-        ),
-      })}
-    </li>
+    <ContextMenu>
+      <ContextMenuTrigger render={<li />}>{item}</ContextMenuTrigger>
+      {menu}
+    </ContextMenu>
   );
 }

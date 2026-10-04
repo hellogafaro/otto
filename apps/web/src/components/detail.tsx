@@ -2,9 +2,7 @@ import {
   type RemixiconComponentType,
   RiAddLine,
   RiArrowDownSLine,
-  RiDeleteBinLine,
   RiLayoutRightLine,
-  RiLinkM,
   RiMoreLine,
 } from "@remixicon/react";
 import {
@@ -32,7 +30,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -67,6 +64,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { ItemMenuItems } from "@/components/item-menu";
 import { Page } from "@/components/page";
 import { ActorAvatar, Count, type Look } from "@/components/task-meta";
 import { Topbar } from "@/components/topbar";
@@ -82,6 +80,8 @@ export function DetailView({
   children,
   panel,
   ask,
+  actions,
+  archives = false,
 }: {
   /** The section crumb: its icon, label and link (e.g. Tasks). */
   parent: { label: string; icon: RemixiconComponentType; link: ReactElement };
@@ -97,13 +97,18 @@ export function DetailView({
   /** The floating chat, set up for this item, e.g.
    * <FloatingChat about="this task" />. */
   ask: ReactNode;
+  /** Its own top bar actions, before More (e.g. a schedule's Run now). */
+  actions?: ReactNode;
+  /** It archives rather than deletes (schedules). */
+  archives?: boolean;
 }) {
   return (
     <WithPanel panel={panel}>
       <Topbar
         actions={
           <>
-            <MoreMenu />
+            {actions}
+            <MoreMenu name={title} archives={archives} />
             <PanelToggle />
           </>
         }
@@ -189,7 +194,13 @@ export function WithPanel({
 }
 
 // Page actions, kept to the main ones.
-export function MoreMenu() {
+export function MoreMenu({
+  name,
+  archives = false,
+}: {
+  name: string;
+  archives?: boolean;
+}) {
   return (
     <DropdownMenu>
       <Tooltip>
@@ -207,22 +218,14 @@ export function MoreMenu() {
         <TooltipContent>More</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            onClick={() => navigator.clipboard.writeText(location.href)}
-          >
-            <RiLinkM />
-            Copy link
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          {/* Not wired yet. */}
-          <DropdownMenuItem variant="destructive">
-            <RiDeleteBinLine />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
+        {/* The shared item menu: the page's link, then Archive or Delete
+            (not wired yet). */}
+        <ItemMenuItems
+          name={name}
+          link={location.pathname}
+          onArchive={archives ? () => {} : undefined}
+          onDelete={archives ? undefined : () => {}}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

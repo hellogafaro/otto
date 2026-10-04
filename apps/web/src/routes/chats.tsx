@@ -49,6 +49,11 @@ import {
   ComboboxSearch,
 } from "@workspace/ui/components/combobox";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@workspace/ui/components/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -115,6 +120,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar";
+import { toast } from "@workspace/ui/components/sonner";
 import {
   Tooltip,
   TooltipContent,
@@ -306,55 +312,63 @@ function ChatRow({ chat, onChange }: { chat: Chat; onChange: () => void }) {
     onChange();
   };
   return (
-    <SidebarMenuItem>
-      <HoverCard>
-        <HoverCardTrigger
-          delay={500}
-          render={
-            <SidebarMenuButton
-              isActive={Boolean(
-                matchRoute({
-                  to: "/chats/$chatId",
-                  params: { chatId: chat.id },
-                }),
-              )}
-              // Chat titles stay normal weight, even when open, and run to
-              // the row's edge under the status slot instead of truncating.
-              className="group-has-data-[sidebar=menu-action]/menu-item:pr-2 data-active:font-normal"
-              render={<Link to="/chats/$chatId" params={{ chatId: chat.id }} />}
-            />
-          }
-        >
-          <ChatIcon chat={chat} />
-          <span
-            className={cn(
-              "text-clip!",
-              (state === "unread" || urgent) && "text-foreground",
-            )}
+    // Right-click opens the chat's menu, as its More menu does.
+    <ContextMenu>
+      <ContextMenuTrigger render={<SidebarMenuItem />}>
+        <HoverCard>
+          <HoverCardTrigger
+            delay={500}
+            render={
+              <SidebarMenuButton
+                isActive={Boolean(
+                  matchRoute({
+                    to: "/chats/$chatId",
+                    params: { chatId: chat.id },
+                  }),
+                )}
+                // Chat titles stay normal weight, even when open, and run to
+                // the row's edge under the status slot instead of truncating.
+                className="group-has-data-[sidebar=menu-action]/menu-item:pr-2 data-active:font-normal"
+                render={
+                  <Link to="/chats/$chatId" params={{ chatId: chat.id }} />
+                }
+              />
+            }
           >
-            {chat.title}
+            <ChatIcon chat={chat} />
+            <span
+              className={cn(
+                "text-clip!",
+                (state === "unread" || urgent) && "text-foreground",
+              )}
+            >
+              {chat.title}
+            </span>
+          </HoverCardTrigger>
+          <HoverCardContent side="right" align="start" className="w-64 gap-1">
+            <ChatDetails chat={chat} />
+          </HoverCardContent>
+        </HoverCard>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-0.5 rounded-r-md bg-(--slot) pr-1 pl-1 text-xs text-muted-foreground [--slot:var(--background)] group-hover/menu-item:[--slot:var(--muted)] group-has-data-active/menu-item:[--slot:var(--secondary)] group-has-data-active/menu-item:group-hover/menu-item:[--slot:color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]! before:absolute before:inset-y-0 before:right-full before:w-6 before:bg-linear-to-r before:from-transparent before:to-(--slot) dark:group-hover/menu-item:[--slot:color-mix(in_oklch,var(--muted)_50%,var(--background))]">
+          <span className="flex min-w-5 items-center justify-center px-1 group-hover/menu-item:hidden group-has-focus-visible/menu-item:hidden group-has-[[aria-expanded=true]]/menu-item:hidden">
+            {status ? (
+              <>
+                <status.icon className={cn("size-3.5", status.className)} />
+                <span className="sr-only">{status.label}</span>
+              </>
+            ) : (
+              ago(last?.createdAt)
+            )}
           </span>
-        </HoverCardTrigger>
-        <HoverCardContent side="right" align="start" className="w-64 gap-1">
-          <ChatDetails chat={chat} />
-        </HoverCardContent>
-      </HoverCard>
-      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-0.5 rounded-r-md bg-(--slot) pr-1 pl-1 text-xs text-muted-foreground [--slot:var(--background)] group-hover/menu-item:[--slot:var(--muted)] group-has-data-active/menu-item:[--slot:var(--secondary)] group-has-data-active/menu-item:group-hover/menu-item:[--slot:color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]! before:absolute before:inset-y-0 before:right-full before:w-6 before:bg-linear-to-r before:from-transparent before:to-(--slot) dark:group-hover/menu-item:[--slot:color-mix(in_oklch,var(--muted)_50%,var(--background))]">
-        <span className="flex min-w-5 items-center justify-center px-1 group-hover/menu-item:hidden group-has-focus-visible/menu-item:hidden group-has-[[aria-expanded=true]]/menu-item:hidden">
-          {status ? (
-            <>
-              <status.icon className={cn("size-3.5", status.className)} />
-              <span className="sr-only">{status.label}</span>
-            </>
-          ) : (
-            ago(last?.createdAt)
-          )}
-        </span>
-        <span className="pointer-events-auto hidden items-center gap-0.5 group-hover/menu-item:flex group-has-focus-visible/menu-item:flex group-has-[[aria-expanded=true]]/menu-item:flex">
-          <ChatActions chat={chat} onChange={change} />
-        </span>
-      </div>
-    </SidebarMenuItem>
+          <span className="pointer-events-auto hidden items-center gap-0.5 group-hover/menu-item:flex group-has-focus-visible/menu-item:flex group-has-[[aria-expanded=true]]/menu-item:flex">
+            <ChatActions chat={chat} onChange={change} />
+          </span>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ChatMenuItems chat={chat} onChange={change} />
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -367,10 +381,6 @@ function ChatActions({
   chat: Chat;
   onChange: (update: Partial<Chat>) => void;
 }) {
-  const snoozeFor = (hours: number) =>
-    onChange({
-      snoozedUntil: new Date(Date.now() + hours * 3_600_000).toISOString(),
-    });
   return (
     <>
       <RowAction
@@ -379,10 +389,7 @@ function ChatActions({
       >
         {chat.pinned ? <RiUnpinLine /> : <RiPushpinLine />}
       </RowAction>
-      <RowAction
-        label="Archive"
-        onClick={() => onChange({ archived: true, pinned: false })}
-      >
+      <RowAction label="Archive" onClick={() => archive(chat, onChange)}>
         <RiArchiveLine />
       </RowAction>
       <DropdownMenu>
@@ -401,58 +408,98 @@ function ChatActions({
           <TooltipContent>More</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="start" side="right" className="w-48">
-          <DropdownMenuGroup>
-            <DropdownMenuItem
-              onClick={() =>
-                onChange({ done: !chat.done, snoozedUntil: undefined })
-              }
-            >
-              <RiCheckboxCircleLine />
-              {chat.done ? "Mark as active" : "Mark as done"}
-            </DropdownMenuItem>
-            {chat.snoozedUntil &&
-            chat.snoozedUntil > new Date().toISOString() ? (
-              <DropdownMenuItem
-                onClick={() => onChange({ snoozedUntil: undefined })}
-              >
-                <RiTimeLine />
-                Unsnooze
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <RiTimeLine />
-                  Snooze
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-40">
-                  <DropdownMenuItem onClick={() => snoozeFor(3)}>
-                    For 3 hours
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => snoozeFor(18)}>
-                    Until tomorrow
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => snoozeFor(24 * 7)}>
-                    For a week
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            )}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem
-              onClick={() =>
-                navigator.clipboard.writeText(
-                  `${location.origin}/chats/${chat.id}`,
-                )
-              }
-            >
-              <RiLinkM />
-              Copy link
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
+          <ChatMenuItems chat={chat} onChange={onChange} />
         </DropdownMenuContent>
       </DropdownMenu>
+    </>
+  );
+}
+
+// Archiving says so with a toast, wherever it starts.
+function archive(chat: Chat, onChange: (update: Partial<Chat>) => void) {
+  onChange({ archived: true, pinned: false });
+  toast.success(`“${chat.title}” archived`);
+}
+
+// A chat's menu, the same in its More menu and on right-click: Pin, Mark as
+// done, Snooze (or Unsnooze), Copy link; then Archive, apart. Keys on the
+// quick ones, live while the menu is open: P, E, C, A.
+export function ChatMenuItems({
+  chat,
+  onChange,
+}: {
+  chat: Chat;
+  onChange: (update: Partial<Chat>) => void;
+}) {
+  const snoozeFor = (hours: number) =>
+    onChange({
+      snoozedUntil: new Date(Date.now() + hours * 3_600_000).toISOString(),
+    });
+  return (
+    <>
+      <DropdownMenuGroup>
+        <DropdownMenuItem
+          shortcut="P"
+          onClick={() => onChange({ pinned: !chat.pinned })}
+        >
+          {chat.pinned ? <RiUnpinLine /> : <RiPushpinLine />}
+          {chat.pinned ? "Unpin" : "Pin"}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          shortcut="E"
+          onClick={() =>
+            onChange({ done: !chat.done, snoozedUntil: undefined })
+          }
+        >
+          <RiCheckboxCircleLine />
+          {chat.done ? "Mark as active" : "Mark as done"}
+        </DropdownMenuItem>
+        {chat.snoozedUntil && chat.snoozedUntil > new Date().toISOString() ? (
+          <DropdownMenuItem
+            onClick={() => onChange({ snoozedUntil: undefined })}
+          >
+            <RiTimeLine />
+            Unsnooze
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <RiTimeLine />
+              Snooze
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              <DropdownMenuItem onClick={() => snoozeFor(3)}>
+                For 3 hours
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => snoozeFor(18)}>
+                Until tomorrow
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => snoozeFor(24 * 7)}>
+                For a week
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        <DropdownMenuItem
+          shortcut="C"
+          onClick={() => {
+            navigator.clipboard.writeText(
+              `${location.origin}/chats/${chat.id}`,
+            );
+            toast.success("Link copied");
+          }}
+        >
+          <RiLinkM />
+          Copy link
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup>
+        <DropdownMenuItem shortcut="A" onClick={() => archive(chat, onChange)}>
+          <RiArchiveLine />
+          Archive
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
     </>
   );
 }

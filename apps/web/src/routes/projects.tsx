@@ -1,11 +1,14 @@
 import { RiAddLine, RiBox3Line, RiSearchLine } from "@remixicon/react";
-import { Link } from "@tanstack/react-router";
-import { Button } from "@workspace/ui/components/button";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ContextMenuContent } from "@workspace/ui/components/context-menu";
 import { useCommandPalette } from "@/components/command-palette";
 import { Dither } from "@/components/dither";
 import { EmptyPage } from "@/components/empty-page";
+import { useAskAgent } from "@/components/floating-chat";
 import { Gallery, GalleryItem } from "@/components/gallery";
 import { IconAction } from "@/components/icon-action";
+import { ItemMenuItems } from "@/components/item-menu";
+import { mention } from "@/components/mentions";
 import { Page } from "@/components/page";
 import { projects } from "@/mock/tasks";
 
@@ -21,12 +24,12 @@ export function ProjectsPage() {
         icon={RiBox3Line}
         title="No projects"
         description="Projects gather tasks, chats and documents around one goal."
-      >
-        <Button size="sm">
-          <RiAddLine data-icon="inline-start" />
-          New project
-        </Button>
-      </EmptyPage>
+        ask={{
+          about: "your projects",
+          action: "New project",
+          start: "Start a project to ",
+        }}
+      />
     );
   }
 
@@ -60,9 +63,30 @@ export function ProjectsPage() {
             }
             icon={RiBox3Line}
             title={project.title}
+            menu={<ProjectMenu id={id} title={project.title} />}
           />
         ))}
       </Gallery>
     </Page>
+  );
+}
+
+// A project's right-click menu: the shared item menu. Projects archive
+// rather than delete (not wired yet).
+function ProjectMenu({ id, title }: { id: string; title: string }) {
+  const navigate = useNavigate();
+  const ask = useAskAgent();
+  return (
+    <ContextMenuContent className="w-48">
+      <ItemMenuItems
+        name={title}
+        onOpen={() =>
+          navigate({ to: "/projects/$projectId", params: { projectId: id } })
+        }
+        onAsk={() => ask(`${mention({ type: "project", id, label: title })} `)}
+        link={`/projects/${id}`}
+        onArchive={() => {}}
+      />
+    </ContextMenuContent>
   );
 }

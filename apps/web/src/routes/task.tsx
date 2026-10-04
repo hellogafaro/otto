@@ -29,6 +29,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 import { useRef, useState } from "react";
+import { ActivityEvent, Timeline, TimelineItem } from "@/components/activity";
 import {
   Composer,
   type ComposerHandle,
@@ -252,24 +253,17 @@ function TaskView({ task }: { task: Task }) {
 
       <section className="flex flex-col gap-5">
         <h2 className="text-base font-medium">Activity</h2>
-        <ul className="flex flex-col gap-5">
+        <Timeline>
           {items.map((item) =>
             item.type === "event" ? (
-              // px-4 lines the avatar up with the avatars in comment cards.
-              <li
+              <ActivityEvent
                 key={item.id}
-                className="flex items-center gap-2 px-4 text-sm text-muted-foreground"
-              >
-                <ActorAvatar actorId={item.actorId} />
-                <span>
-                  {actorOf(item.actorId).name} {item.body} ·{" "}
-                  <span className="tabular-nums">
-                    {shortDate.format(new Date(item.createdAt))}
-                  </span>
-                </span>
-              </li>
+                actorId={item.actorId}
+                body={item.body}
+                createdAt={item.createdAt}
+              />
             ) : (
-              <li key={item.id}>
+              <TimelineItem key={item.id}>
                 <Card size="sm" className="relative">
                   <CardContent>
                     <div className="flex items-center gap-2">
@@ -307,19 +301,22 @@ function TaskView({ task }: { task: Task }) {
                     )}
                   </CardContent>
                 </Card>
-              </li>
+              </TimelineItem>
             ),
           )}
-        </ul>
+          {/* The comment composer ends the line, like the newest comment. */}
+          <TimelineItem>
+            <Composer
+              ref={composer}
+              placeholder="Leave a comment, @ to tag"
+              onSend={send}
+            />
+          </TimelineItem>
+        </Timeline>
         <Lightbox
           resources={commentFiles}
           openId={openFileId}
           onOpen={setOpenFileId}
-        />
-        <Composer
-          ref={composer}
-          placeholder="Leave a comment, @ to tag"
-          onSend={send}
         />
       </section>
     </DetailView>

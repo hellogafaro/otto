@@ -210,6 +210,8 @@ export type Activity = {
   body: string;
   files?: FileRef[];
   createdAt: string;
+  /** A schedule's run, shown as a card like a comment: how it went. */
+  run?: "done" | "failed";
 };
 
 export const activity: Record<string, Activity[]> = {
@@ -256,6 +258,9 @@ export type Doc = {
   content: string;
   image?: string;
   projectId?: string;
+  /** Free labels that find it across projects, like files' (UI-only until
+   * the API supports them). */
+  labels?: string[];
   visibility: DocumentVisibility;
   createdBy: string;
   updatedAt: string;
@@ -265,6 +270,7 @@ export const documents: Doc[] = [
   {
     id: "d1",
     title: "Design system notes",
+    labels: ["brand", "spec"],
     content: `Vanilla shadcn on the vega preset. Shared looks change in packages/ui with an Otto comment; instances only set layout. Visible edges sit 9px in, content 16px.
 
 ## Sizes
@@ -284,6 +290,7 @@ Primary is blue-600 in light mode and blue-500 in dark mode. Everything else sta
   {
     id: "d2",
     title: "Composer spec",
+    labels: ["spec"],
     content: `One composer for comments and asks. Enter sends, Shift+Enter breaks the line. @ tags people, agents, tasks and projects; files attach by drop or paste.
 
 ## Asking Otto
@@ -302,6 +309,7 @@ New items start in the composer: the button prefills "@Otto" and the request, an
   {
     id: "d3",
     title: "Launch plan",
+    labels: ["plan"],
     content: `Week one: landing page and pricing. Week two: FAQ from support conversations, then the welcome copy.
 
 ## Week one
@@ -323,6 +331,7 @@ New items start in the composer: the button prefills "@Otto" and the request, an
   {
     id: "d4",
     title: "Hiring notes",
+    labels: ["people"],
     content: `Private notes on the next hires: one designer who codes, one support lead.`,
     visibility: "user",
     createdBy: "u_johan",
@@ -330,9 +339,16 @@ New items start in the composer: the button prefills "@Otto" and the request, an
   },
 ];
 
-// Resources linked to a task: saved outputs, often from an agent's run (the
-// backend model is Artifact). Linking never copies files.
-export type ResourceKind = "video" | "audio" | "image" | "document" | "file";
+// Files: saved uploads and agent outputs (the backend's File). Linking a file
+// to a task or sharing it in a chat never copies it. A canvas is an agent's
+// HTML page (a report, a plan, a comparison).
+export type ResourceKind =
+  | "video"
+  | "audio"
+  | "image"
+  | "document"
+  | "canvas"
+  | "file";
 
 export type TaskResource = {
   id: string;
@@ -343,6 +359,20 @@ export type TaskResource = {
   /** The file itself, shown read-only in the viewer. */
   url?: string;
   createdAt: string;
+  /** Its project; a task's files are in the task's project. */
+  projectId?: string;
+  /** Free labels that find it across projects ("brand", "contract"). */
+  labels?: string[];
+  /** The person who keeps it (its custodian); you when not set. */
+  ownerId?: string;
+  /** The agent that made it, for agent output. */
+  agentId?: string;
+  /** The chat it was shared in. */
+  chatId?: string;
+  /** The folder it is in; none is the top of Files. */
+  folderId?: string;
+  /** Only its keeper, or the whole workspace (the default). */
+  visibility?: "user" | "workspace";
 };
 
 export const taskResources: Record<string, TaskResource[]> = {
@@ -351,6 +381,7 @@ export const taskResources: Record<string, TaskResource[]> = {
       id: "a1",
       title: "redirect-loop-repro.mp4",
       kind: "video",
+      agentId: "a_forge",
       // CC0 sample clip from MDN.
       url: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
       createdAt: daysAgo(2),
@@ -359,6 +390,7 @@ export const taskResources: Record<string, TaskResource[]> = {
       id: "a2",
       title: "Fix plan",
       kind: "document",
+      agentId: "a_forge",
       createdAt: daysAgo(1),
     },
   ],
@@ -367,6 +399,8 @@ export const taskResources: Record<string, TaskResource[]> = {
       id: "a3",
       title: "pricing-comparison.pdf",
       kind: "document",
+      folderId: "fo_research",
+      labels: ["research"],
       url: "/mock/pricing-comparison.pdf",
       createdAt: daysAgo(1),
     },
@@ -402,6 +436,9 @@ export const taskResources: Record<string, TaskResource[]> = {
       id: "a6",
       title: "wordmark-weights.png",
       kind: "image",
+      folderId: "fo_logos",
+      ownerId: "u_maya",
+      labels: ["brand"],
       preview:
         "https://images.unsplash.com/photo-1586717791821-3f44a563fa4c?w=1600&auto=format&fit=crop&q=70",
       createdAt: daysAgo(12),
@@ -418,20 +455,295 @@ export const taskResources: Record<string, TaskResource[]> = {
       id: "a8",
       title: "brand-notes.md",
       kind: "document",
+      labels: ["brand"],
       url: "/mock/brand-notes.md",
       createdAt: daysAgo(11),
     },
   ],
 };
 
-// Every resource with the task it came from, latest first.
+// Schedules (automations): on a time pattern, run a prompt (an agent you
+// pick answers it) or code, and post the result to a chat. Made and changed
+// by asking an agent; a person turns one on or off, picks its agent, repeat
+// and chat, or runs it now. Archived ones take no new runs. Its activity is a
+// task's: created, changes, and each run.
+export type ScheduleStatus = "active" | "paused" | "archived";
+
+export type Schedule = {
+  id: string;
+  title: string;
+  /** A prompt for an agent, or code that runs as it is. */
+  kind: "prompt" | "code";
+  /** The prompt, or the code. */
+  body: string;
+  /** When: an iCalendar rule (like a task's repeat) and the time of day. */
+  rule: string;
+  time: string;
+  status: ScheduleStatus;
+  /** The agent that answers a prompt; code needs none. */
+  agentId?: string;
+  /** The chat it posts its results to, or "new": a new chat each run. */
+  chatId: string;
+  ownerId: string;
+  /** Its next run, while active. */
+  nextAt?: string;
+  /** Created and changes (task events) and runs (cards), oldest first. */
+  activity: Activity[];
+};
+
+const inDays = (days: number, hour: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(hour, 0, 0, 0);
+  return date.toISOString();
+};
+
+const event = (
+  id: string,
+  actorId: string,
+  body: string,
+  createdAt: string,
+): Activity => ({ id, type: "event", actorId, body, createdAt });
+
+// A run: what the agent (or the code) posted, as a card.
+const run = (
+  id: string,
+  actorId: string,
+  body: string,
+  createdAt: string,
+  outcome: "done" | "failed" = "done",
+): Activity => ({
+  id,
+  type: "comment",
+  actorId,
+  body,
+  createdAt,
+  run: outcome,
+});
+
+export const schedules: Schedule[] = [
+  {
+    id: "sc1",
+    title: "Morning launch brief",
+    kind: "prompt",
+    body: "Every weekday morning, read what changed on the launch overnight (tasks, chats and files in Launch site) and post a short brief: what moved, what is blocked, and what needs a decision today. Keep it under 120 words.",
+    rule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+    time: "9:00",
+    status: "active",
+    agentId: "a_otto",
+    chatId: "c_launch",
+    ownerId: "u_johan",
+    nextAt: inDays(1, 9),
+    activity: [
+      event("e1", "u_johan", "created the schedule", daysAgo(14)),
+      run(
+        "e2",
+        "a_otto",
+        "Couldn't read the launch chat: the run timed out.",
+        inDays(-2, 9),
+        "failed",
+      ),
+      run(
+        "e3",
+        "a_otto",
+        "Hero copy approved. The pricing page is still blocked on numbers; Maya owns the call.",
+        inDays(-1, 9),
+      ),
+      run(
+        "e4",
+        "a_otto",
+        "Two tasks moved to review. The FAQ draft needs a tone pick before it goes out.",
+        inDays(0, 9),
+      ),
+    ],
+  },
+  {
+    id: "sc2",
+    title: "Weekly competitor pricing scan",
+    kind: "prompt",
+    body: "Every Monday, check the pricing pages of our five main competitors. Post what changed since last week as a short list, and update the competitor pricing canvas.",
+    rule: "FREQ=WEEKLY;BYDAY=MO",
+    time: "8:00",
+    status: "active",
+    agentId: "a_scout",
+    chatId: "c_review",
+    ownerId: "u_maya",
+    nextAt: inDays(3, 8),
+    activity: [
+      event("e5", "u_maya", "created the schedule", daysAgo(30)),
+      run(
+        "e6",
+        "a_scout",
+        "Globex raised Team to $32. The other four are unchanged.",
+        inDays(-4, 8),
+      ),
+    ],
+  },
+  {
+    id: "sc3",
+    title: "Nightly test report",
+    kind: "code",
+    body: "bun run test --reporter=summary\nbun run test:browser --reporter=summary",
+    rule: "FREQ=DAILY",
+    time: "2:00",
+    status: "paused",
+    chatId: "c_web",
+    ownerId: "u_johan",
+    activity: [
+      event("e7", "u_johan", "created the schedule", daysAgo(20)),
+      run("e8", "u_johan", "All 212 tests passed.", inDays(-6, 2)),
+      event("e9", "u_johan", "paused the schedule", daysAgo(5)),
+    ],
+  },
+  {
+    id: "sc4",
+    title: "Monthly invoice reminder",
+    kind: "prompt",
+    body: "On the first of each month, list the invoices still unpaid in Billing and draft a polite reminder for each.",
+    rule: "FREQ=MONTHLY",
+    time: "10:00",
+    status: "archived",
+    agentId: "a_quill",
+    chatId: "c_otto",
+    ownerId: "u_maya",
+    activity: [
+      event("e10", "u_maya", "created the schedule", daysAgo(90)),
+      event("e11", "u_maya", "archived the schedule", daysAgo(10)),
+    ],
+  },
+  {
+    id: "sc5",
+    title: "Daily wrap-up",
+    kind: "prompt",
+    body: "At the end of each day, sum up what the agents finished, what is waiting on a person and what starts tomorrow. Post it as a short list.",
+    rule: "FREQ=DAILY",
+    time: "18:00",
+    status: "active",
+    agentId: "a_otto",
+    chatId: "new",
+    ownerId: "u_johan",
+    // Later today, or tomorrow once 18:00 has passed.
+    nextAt: inDays(new Date().getHours() < 18 ? 0 : 1, 18),
+    activity: [event("e12", "u_johan", "created the schedule", daysAgo(3))],
+  },
+];
+
+// Folders in Files, nested to any depth (UI-only for now: the backend has no
+// folder model yet). A folder without a parent is at the top of Files.
+export type Folder = { id: string; title: string; parentId?: string };
+
+export const folders: Folder[] = [
+  { id: "fo_brand", title: "Brand" },
+  { id: "fo_logos", title: "Logos", parentId: "fo_brand" },
+  { id: "fo_press", title: "Press", parentId: "fo_brand" },
+  { id: "fo_company", title: "Company" },
+  { id: "fo_contracts", title: "Contracts", parentId: "fo_company" },
+  { id: "fo_invoices", title: "Invoices", parentId: "fo_company" },
+  { id: "fo_research", title: "Research" },
+];
+
+// Files not on a task: agents' canvases, files shared in chats, and company
+// assets kept with labels (some in no project, for the whole workspace).
+const looseFiles: TaskResource[] = [
+  {
+    id: "f1",
+    title: "Competitor pricing canvas",
+    kind: "canvas",
+    url: "/mock/pricing-canvas.html",
+    agentId: "a_scout",
+    chatId: "s1",
+    folderId: "fo_research",
+    projectId: "p_launch",
+    labels: ["research"],
+    createdAt: daysAgo(0),
+  },
+  {
+    id: "f2",
+    title: "Onboarding drop-off report",
+    kind: "canvas",
+    url: "/mock/pricing-canvas.html",
+    agentId: "a_quill",
+    projectId: "p_onboarding",
+    labels: ["report"],
+    createdAt: daysAgo(1),
+  },
+  {
+    id: "f3",
+    title: "composer-demo.mp4",
+    kind: "video",
+    url: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+    chatId: "c_launch",
+    projectId: "p_launch",
+    createdAt: daysAgo(0),
+  },
+  {
+    id: "f4",
+    title: "otto-logo-primary.png",
+    kind: "image",
+    folderId: "fo_logos",
+    preview:
+      "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=1600&auto=format&fit=crop&q=70",
+    ownerId: "u_maya",
+    labels: ["brand", "logo"],
+    createdAt: daysAgo(20),
+  },
+  {
+    id: "f5",
+    title: "Brand guidelines.pdf",
+    kind: "document",
+    folderId: "fo_brand",
+    url: "/mock/pricing-comparison.pdf",
+    ownerId: "u_maya",
+    projectId: "p_brand",
+    labels: ["brand"],
+    createdAt: daysAgo(18),
+  },
+  {
+    id: "f6",
+    title: "Supplier agreement 2026.pdf",
+    kind: "document",
+    folderId: "fo_contracts",
+    url: "/mock/pricing-comparison.pdf",
+    labels: ["contract"],
+    visibility: "user",
+    createdAt: daysAgo(30),
+  },
+  {
+    id: "f7",
+    title: "Invoice 2026-09.pdf",
+    kind: "document",
+    folderId: "fo_invoices",
+    url: "/mock/pricing-comparison.pdf",
+    projectId: "p_billing",
+    labels: ["invoice"],
+    createdAt: daysAgo(4),
+  },
+  {
+    id: "f8",
+    title: "press-kit-photo.jpg",
+    kind: "image",
+    folderId: "fo_press",
+    preview:
+      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1600&auto=format&fit=crop&q=70",
+    labels: ["press", "brand"],
+    createdAt: daysAgo(25),
+  },
+];
+
+// Every file, latest first; a task's files carry the task and its project.
 export type Resource = TaskResource & { taskId?: string };
 
-export const resources: Resource[] = Object.entries(taskResources)
-  .flatMap(([taskId, list]) =>
-    list.map((resource) => ({ ...resource, taskId })),
-  )
-  .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+export const resources: Resource[] = [
+  ...Object.entries(taskResources).flatMap(([taskId, list]) =>
+    list.map((resource) => ({
+      ...resource,
+      taskId,
+      projectId:
+        resource.projectId ?? tasks.find(({ id }) => id === taskId)?.projectId,
+    })),
+  ),
+  ...looseFiles,
+].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
 // Logged time (UI-only for now: the backend has no time entries).
 export type TimeEntry = {
@@ -1255,4 +1567,62 @@ export const chats: Chat[] = [
     ],
   },
   ...agentChats(),
+];
+
+// What happened that concerns you, outside your chats: mentions,
+// assignments, review requests and shares. UI-only for now: the backend has
+// no notification model yet.
+export type Notification = {
+  id: string;
+  actorId: string;
+  /** What they did, after their name: "mentioned you in". */
+  body: string;
+  target: { type: "task" | "document"; id: string; title: string };
+  createdAt: string;
+  read?: boolean;
+};
+
+export const notifications: Notification[] = [
+  {
+    id: "n1",
+    actorId: "a_forge",
+    body: "mentioned you in",
+    target: {
+      type: "task",
+      id: "t1",
+      title: "Fix sign-in redirect loop on Safari",
+    },
+    createdAt: minutesAgo(40),
+  },
+  {
+    id: "n2",
+    actorId: "a_scout",
+    body: "asked you to review",
+    target: {
+      type: "task",
+      id: "t2",
+      title: "Compare pricing pages of five competitors",
+    },
+    createdAt: minutesAgo(95),
+  },
+  {
+    id: "n3",
+    actorId: "u_maya",
+    body: "assigned you",
+    target: {
+      type: "task",
+      id: "t3",
+      title: "Check onboarding drop-off between steps 2 and 3",
+    },
+    createdAt: minutesAgo(60 * 3),
+    read: true,
+  },
+  {
+    id: "n4",
+    actorId: "u_maya",
+    body: "shared",
+    target: { type: "document", id: "d2", title: "Composer spec" },
+    createdAt: minutesAgo(60 * 5),
+    read: true,
+  },
 ];

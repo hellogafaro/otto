@@ -95,8 +95,9 @@ const SendOnEnter = Extension.create<{ onEnter: () => void }>({
 // Uploads are simulated until storage exists. `compact` is the one-line
 // floating bar (the floating chat): + on the left, the main button on the
 // right. `embedded` is the smaller composer inside a 12px card (the floating
-// chat's window): 4px in, so 8px corners; its 28px buttons 4px in, so 4px
-// corners (radius shrinks in proportion); text 12px in (16px from the card, like the panel's text); one
+// chat's window): 4px in, so 8px corners; its 28px buttons 6px in with the
+// 28px buttons' 6px corners, so they breathe and stay round; text 12px in
+// (16px from the card, like the panel's text), on the + icon's line; one
 // step lighter than the card it sits on. `idle` sits before the main button
 // only while the box is empty (no text or files).
 export function Composer({
@@ -120,9 +121,9 @@ export function Composer({
   embedded?: boolean;
   ref?: Ref<ComposerHandle>;
 }) {
-  // The embedded composer's buttons: 28px, 4px corners.
+  // The embedded composer's buttons: 28px, 6px corners.
   const button = embedded
-    ? ({ size: "icon-sm", className: "size-7 rounded-xs" } as const)
+    ? ({ size: "icon-sm", className: "size-7 rounded-sm" } as const)
     : ({ size: "icon-sm" } as const);
   const [files, setFiles] = useState<Pending[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -408,7 +409,10 @@ export function Composer({
         ) : (
           <>
             <EditorContent editor={editor} className="w-full" />
-            <InputGroupAddon align="block-end" className="p-1">
+            <InputGroupAddon
+              align="block-end"
+              className={embedded ? "p-1.5" : "p-1"}
+            >
               {dictation.listening ? (
                 listening
               ) : (

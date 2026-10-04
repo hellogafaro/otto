@@ -1,5 +1,7 @@
 import {
   type RemixiconComponentType,
+  RiArchiveLine,
+  RiArtboardLine,
   RiBox3Line,
   RiCheckboxCircleFill,
   RiCircleLine,
@@ -14,6 +16,7 @@ import {
   RiLoopRightLine,
   RiMusic2Line,
   RiPauseCircleLine,
+  RiPlayCircleLine,
   RiProgress4Line,
   RiProgress6Line,
   RiRobot3Line,
@@ -21,7 +24,16 @@ import {
   RiUserLine,
   RiVideoLine,
 } from "@remixicon/react";
-import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarGroup,
+} from "@workspace/ui/components/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip";
 import type { ComponentType, ReactNode } from "react";
 import { RRule } from "rrule";
 import {
@@ -32,6 +44,7 @@ import {
   type ProjectStatus,
   projects,
   type ResourceKind,
+  type ScheduleStatus,
   type TaskPriority,
   type TaskRecurrence,
   type TaskStatus,
@@ -253,6 +266,22 @@ export function ActorAvatar({
   );
 }
 
+// Who is involved in a list row (a task's owner and assignee, a schedule's
+// owner and agent): their avatars overlapped, named on hover.
+export function People({ ids }: { ids: string[] }) {
+  const names = ids.map((id) => actorOf(id).name).join(", ");
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<AvatarGroup />} aria-label={names}>
+        {ids.map((id) => (
+          <ActorAvatar key={id} actorId={id} />
+        ))}
+      </TooltipTrigger>
+      <TooltipContent>{names}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // An avatar as a menu option's icon (lists with avatars use 20px icon slots).
 function avatarIcon(actorId: string) {
   return function AvatarIcon() {
@@ -340,6 +369,7 @@ export const resourceIcons: Record<ResourceKind, RemixiconComponentType> = {
   audio: RiMusic2Line,
   image: RiImageLine,
   document: RiFileTextLine,
+  canvas: RiArtboardLine,
   file: RiFileLine,
 };
 
@@ -348,6 +378,7 @@ export function resourceKindOf(type: string): ResourceKind {
   if (type.startsWith("video/")) return "video";
   if (type.startsWith("audio/")) return "audio";
   if (type.startsWith("image/")) return "image";
+  if (type === "text/html") return "canvas";
   if (type.startsWith("text/") || type === "application/pdf") return "document";
   return "file";
 }
@@ -357,6 +388,7 @@ export const resourceTypes: Record<ResourceKind, string> = {
   audio: "Audio",
   image: "Image",
   document: "Document",
+  canvas: "Canvas",
   file: "File",
 };
 
@@ -472,4 +504,44 @@ export function Count({ children }: { children: ReactNode }) {
   return (
     <span className="text-muted-foreground/70 tabular-nums">{children}</span>
   );
+}
+
+// A schedule's state, in lifecycle order: running on its pattern, paused (no
+// timed runs; Run now still works), archived (no new runs).
+export const scheduleStatuses: Record<ScheduleStatus, Look> = {
+  active: {
+    label: "Active",
+    icon: RiPlayCircleLine,
+    className: "text-status-done",
+  },
+  paused: {
+    label: "Paused",
+    icon: RiPauseCircleLine,
+    className: "text-muted-foreground",
+  },
+  archived: {
+    label: "Archived",
+    icon: RiArchiveLine,
+    className: "text-muted-foreground",
+  },
+};
+
+// When a schedule runs, in words: "Every weekday at 9:00".
+export const whenOf = ({ rule, time }: { rule: string; time: string }) =>
+  `${repeatLook(rule).label} at ${time}`;
+
+// A coming run, short: "Today 9:00", "Tomorrow 9:00", "Mon 8:00".
+export function nextRunLabel(at: string) {
+  const date = new Date(at);
+  const days = Math.round(
+    (new Date(date).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) /
+      86_400_000,
+  );
+  const day =
+    days === 0
+      ? "Today"
+      : days === 1
+        ? "Tomorrow"
+        : date.toLocaleDateString("en", { weekday: "short" });
+  return `${day} ${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
 }

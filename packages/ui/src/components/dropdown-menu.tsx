@@ -45,8 +45,9 @@ function DropdownMenuContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
+          onKeyDownCapture={runMenuShortcut}
           className={cn(
-            "dark z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0 data-closed:zoom-out-95 animate-none! relative bg-popover/70 before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150 **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:focus:bg-foreground/10!",
+            "dark z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0 data-closed:zoom-out-95 animate-none! relative bg-popover/70 before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150 **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:focus:bg-destructive/20! **:data-[variant=destructive]:data-highlighted:bg-destructive/20!",
             className,
           )}
           {...props}
@@ -87,27 +88,60 @@ function DropdownMenuLabel({
   );
 }
 
-// Otto: highlighted items recolor their text only; colored icons keep their color.
+// Otto: a menu item's key ("P", "⌫" for Backspace or Delete) runs it
+// while its menu is open, ahead of typeahead.
+function runMenuShortcut(event: React.KeyboardEvent<HTMLElement>) {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const key =
+    event.key === "Backspace" || event.key === "Delete"
+      ? "⌫"
+      : event.key.length === 1
+        ? event.key.toUpperCase()
+        : undefined;
+  if (!key) return;
+  const item = event.currentTarget.querySelector<HTMLElement>(
+    `[data-shortcut="${key}"]:not([data-disabled])`,
+  );
+  if (!item) return;
+  event.preventDefault();
+  event.stopPropagation();
+  item.click();
+}
+
+// Otto: highlighted items recolor their text only; colored icons keep their
+// color. Destructive items (Delete) are always red, their highlight a red
+// tint. `shortcut` shows the item's key as a Kbd on the right and runs it.
 function DropdownMenuItem({
   className,
   inset,
   variant = "default",
+  shortcut,
+  children,
   ...props
 }: MenuPrimitive.Item.Props & {
   inset?: boolean;
   variant?: "default" | "destructive";
+  shortcut?: string;
 }) {
   return (
     <MenuPrimitive.Item
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
+      data-shortcut={shortcut}
       className={cn(
         "group/dropdown-menu-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1 text-sm outline-hidden select-none has-[>svg:first-child]:pl-1 [&>svg:first-child]:mx-0.75 has-[>[data-slot=dropdown-menu-shortcut]:last-child]:pr-1 focus:bg-accent focus:text-accent-foreground data-inset:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[variant=destructive]:*:[svg]:text-destructive",
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+      {shortcut && (
+        <Kbd data-slot="dropdown-menu-shortcut" className="ml-auto">
+          {shortcut}
+        </Kbd>
+      )}
+    </MenuPrimitive.Item>
   );
 }
 
@@ -219,6 +253,11 @@ function DropdownMenuRadioItem({
   return (
     <MenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
+      data-shortcut={
+        typeof shortcut === "string" || typeof shortcut === "number"
+          ? String(shortcut).toUpperCase()
+          : undefined
+      }
       data-inset={inset}
       className={cn(
         "relative flex cursor-default items-center gap-2 rounded-sm py-1 pr-8 pl-2 text-sm outline-hidden select-none has-[>svg:first-child]:pl-1 [&>svg:first-child]:mx-0.75 focus:bg-accent focus:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
@@ -285,4 +324,5 @@ export {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  runMenuShortcut,
 };

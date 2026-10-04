@@ -1,70 +1,35 @@
-import { RiAddLine } from "@remixicon/react";
 import {
   createRootRoute,
   createRoute,
   createRouter,
   redirect,
 } from "@tanstack/react-router";
-import { Button } from "@workspace/ui/components/button";
-import { destinations } from "@/components/app-rail";
-import { EmptyPage, NotFound } from "@/components/empty-page";
+import { NotFound } from "@/components/empty-page";
 import { Page } from "@/components/page";
 import { Shell } from "@/components/shell";
 import { chats } from "@/mock/tasks";
 import { ChatPage, NewChatPage } from "@/routes/chats";
 import { DocumentPage } from "@/routes/document";
-import { DocumentsPage } from "@/routes/documents";
+import { DocumentsPage, validateDocumentsSearch } from "@/routes/documents";
 import { FilesPage, validateFilesSearch } from "@/routes/files";
+import { InboxPage } from "@/routes/inbox";
 import { ProjectPage, validateProjectSearch } from "@/routes/project";
 import { ProjectsPage } from "@/routes/projects";
+import {
+  SchedulePage,
+  SchedulesPage,
+  validateSchedulesSearch,
+} from "@/routes/schedules";
 import { TaskPage } from "@/routes/task";
 import { TasksPage, validateTasksSearch } from "@/routes/tasks";
 
 const rootRoute = createRootRoute({ component: Shell });
 
-// Sections without data yet show their empty state: the rail icon, what
-// belongs there, and the one way to start.
-const empties: Record<
-  string,
-  { title: string; description: string; action: string }
-> = {
-  "/": {
-    title: "Nothing needs you",
-    description: "Tasks, mentions and reviews waiting on you show up here.",
-    action: "New task",
-  },
-
-  "/schedules": {
-    title: "No schedules",
-    description:
-      "Schedules run an agent on a trigger and post where you choose.",
-    action: "New schedule",
-  },
-};
-
-const sectionRoutes = destinations
-  .filter(
-    ({ to }) =>
-      !["/tasks", "/projects", "/chats", "/documents", "/files"].includes(to),
-  )
-  .map(({ to, icon }) =>
-    createRoute({
-      getParentRoute: () => rootRoute,
-      path: to,
-      component: () => (
-        <EmptyPage
-          icon={icon}
-          title={empties[to].title}
-          description={empties[to].description}
-        >
-          <Button size="sm">
-            <RiAddLine data-icon="inline-start" />
-            {empties[to].action}
-          </Button>
-        </EmptyPage>
-      ),
-    }),
-  );
+const inboxRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: InboxPage,
+});
 
 const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -89,7 +54,10 @@ const projectRoute = createRoute({
 const documentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/documents",
-  component: DocumentsPage,
+  validateSearch: validateDocumentsSearch,
+  component: function Documents() {
+    return <DocumentsPage search={documentsRoute.useSearch()} />;
+  },
 });
 
 const documentRoute = createRoute({
@@ -97,6 +65,24 @@ const documentRoute = createRoute({
   path: "/documents/$documentId",
   component: function Document() {
     return <DocumentPage documentId={documentRoute.useParams().documentId} />;
+  },
+});
+
+const schedulesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/schedules",
+  validateSearch: validateSchedulesSearch,
+  component: function Schedules() {
+    return <SchedulesPage search={schedulesRoute.useSearch()} />;
+  },
+});
+
+const scheduleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/schedules/$scheduleId",
+  component: function ScheduleRoute() {
+    const { scheduleId } = scheduleRoute.useParams();
+    return <SchedulePage scheduleId={scheduleId} />;
   },
 });
 
@@ -169,7 +155,7 @@ const settingsRoute = createRoute({
 export const router = createRouter({
   defaultNotFoundComponent: () => <NotFound />,
   routeTree: rootRoute.addChildren([
-    ...sectionRoutes,
+    inboxRoute,
     projectsRoute,
     projectRoute,
     chatsRoute,
@@ -178,6 +164,8 @@ export const router = createRouter({
     documentsRoute,
     documentRoute,
     filesRoute,
+    schedulesRoute,
+    scheduleRoute,
     tasksRoute,
     taskRoute,
     settingsRoute,

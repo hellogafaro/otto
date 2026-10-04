@@ -38,12 +38,12 @@ import { NotFound } from "@/components/empty-page";
 import { FileGallery } from "@/components/files";
 import { FloatingChat } from "@/components/floating-chat";
 import { Gallery } from "@/components/gallery";
+import { TabBar } from "@/components/tab-bar";
 import {
   ActorAvatar,
   actorOf,
   byUrgency,
   ChatIcon,
-  Count,
   chatKind,
   ownerLooks,
   priorities,
@@ -238,31 +238,21 @@ function ProjectView({
         </>
       }
     >
-      {/* 32px tabs, 4px apart, with icons; -ml-2.25 puts the first
-          icon on the title's left edge (8px padding + 1px border). */}
-      <div className="-ml-2.25 flex flex-wrap gap-1">
-        {tabs.map((value) => {
-          const { label, icon: Icon } = tabLooks[value];
-          return (
-            <Button
-              key={value}
-              variant={value === tab ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={value === tab}
-              onClick={() =>
-                navigate({
-                  search: value === "overview" ? {} : { tab: value },
-                })
-              }
-            >
-              <Icon data-icon="inline-start" />
-              {label}
-              {/* Counts only when there is something; Overview has none. */}
-              {!!counts[value] && <Count>{counts[value]}</Count>}
-            </Button>
-          );
-        })}
-      </div>
+      {/* -ml-2.25 puts the first icon on the title's left edge (8px
+          padding + 1px border). Overview has no count. */}
+      <TabBar
+        label="Project sections"
+        className="-ml-2.25"
+        tabs={tabs.map((value) => ({
+          value,
+          ...tabLooks[value],
+          count: counts[value],
+        }))}
+        value={tab}
+        onChange={(value) =>
+          navigate({ search: value === "overview" ? {} : { tab: value } })
+        }
+      />
 
       {tab === "overview" && (
         <Editor

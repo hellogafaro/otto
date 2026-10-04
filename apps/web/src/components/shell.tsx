@@ -3,9 +3,11 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@workspace/ui/components/sidebar";
+import { Toaster } from "@workspace/ui/components/sonner";
 import type { CSSProperties } from "react";
 import { AppRail } from "@/components/app-rail";
 import { CommandPaletteProvider } from "@/components/command-palette";
+import { ConfirmProvider } from "@/components/confirm";
 import { FloatingChatProvider } from "@/components/floating-chat";
 import { TITLE_BAR_HEIGHT, TitleBar, useDesktop } from "@/components/title-bar";
 import { ChatsSidebar } from "@/routes/chats";
@@ -20,31 +22,34 @@ export function Shell() {
   const inChats = Boolean(matchRoute({ to: "/chats", fuzzy: true }));
   return (
     <CommandPaletteProvider>
-      <FloatingChatProvider>
-        <SidebarProvider
-          data-desktop={desktop || undefined}
-          style={
-            {
-              "--titlebar": desktop ? TITLE_BAR_HEIGHT : "0px",
-            } as CSSProperties
-          }
-          className="h-svh min-h-0 flex-col bg-sidebar"
-        >
-          {desktop && <TitleBar />}
-          <div className="flex min-h-0 flex-1">
-            <AppRail />
-            {/* Pages scroll inside the card; top bars stay put. */}
-            <SidebarInset className="mt-2 mr-2 mb-2 min-h-0 overflow-hidden rounded-xl shadow-xs ring-1 ring-foreground/10 group-data-desktop/sidebar-wrapper:mt-0">
-              <div className="flex min-h-0 flex-1">
-                {inChats && <ChatsSidebar />}
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                  <Outlet />
+      <ConfirmProvider>
+        <FloatingChatProvider>
+          <SidebarProvider
+            data-desktop={desktop || undefined}
+            style={
+              {
+                "--titlebar": desktop ? TITLE_BAR_HEIGHT : "0px",
+              } as CSSProperties
+            }
+            className="h-svh min-h-0 flex-col bg-sidebar"
+          >
+            {desktop && <TitleBar />}
+            <div className="flex min-h-0 flex-1">
+              <AppRail />
+              {/* Pages scroll inside the card; top bars stay put. */}
+              <SidebarInset className="mt-2 mr-2 mb-2 min-h-0 overflow-hidden rounded-xl shadow-xs ring-1 ring-foreground/10 group-data-desktop/sidebar-wrapper:mt-0">
+                <div className="flex min-h-0 flex-1">
+                  {inChats && <ChatsSidebar />}
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                    <Outlet />
+                  </div>
                 </div>
-              </div>
-            </SidebarInset>
-          </div>
-        </SidebarProvider>
-      </FloatingChatProvider>
+              </SidebarInset>
+            </div>
+          </SidebarProvider>
+        </FloatingChatProvider>
+        <Toaster />
+      </ConfirmProvider>
     </CommandPaletteProvider>
   );
 }

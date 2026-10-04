@@ -1,48 +1,19 @@
 import {
-  type RemixiconComponentType,
   RiAddLine,
-  RiArrowDownSLine,
   RiBarChart2Line,
   RiBox3Line,
   RiCheckboxCircleLine,
-  RiCloseLine,
-  RiFilter3Line,
   RiSearchLine,
   RiUserFollowLine,
   RiUserLine,
 } from "@remixicon/react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { AvatarGroup } from "@workspace/ui/components/avatar";
 import { Badge } from "@workspace/ui/components/badge";
-import { Button } from "@workspace/ui/components/button";
 import {
-  ButtonGroup,
-  ButtonGroupText,
-} from "@workspace/ui/components/button-group";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@workspace/ui/components/collapsible";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty";
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@workspace/ui/components/context-menu";
 import {
   Item,
   ItemActions,
@@ -50,23 +21,26 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip";
 import { cn } from "@workspace/ui/lib/utils";
 import { useCommandPalette } from "@/components/command-palette";
 import { EmptyPage } from "@/components/empty-page";
+import {
+  FilterBar,
+  type FilterDef,
+  FilterMenu,
+  NoResults,
+  omit,
+} from "@/components/filters";
+import { useAskAgent } from "@/components/floating-chat";
 import { IconAction } from "@/components/icon-action";
+import { ItemMenuItems } from "@/components/item-menu";
+import { ListGroup } from "@/components/list-group";
+import { mention } from "@/components/mentions";
 import { Page } from "@/components/page";
 import {
-  ActorAvatar,
-  actorOf,
   assigneeLooks,
-  Count,
-  type Look,
   ownerLooks,
+  People,
   priorities,
   projectLooks,
   shortDate,
@@ -129,7 +103,9 @@ export function TasksPage({ search }: { search: TasksSearch }) {
   const navigate = useNavigate({ from: "/tasks" });
   const openPalette = useCommandPalette();
   const visible = allTasks.filter((task) => matches(task, search));
-  const filtered = Object.values(search).some(Boolean);
+  const change = (key: keyof TasksSearch, value: string | undefined) =>
+    navigate({ search: (prev) => ({ ...prev, [key]: value }) });
+  const clear = () => navigate({ search: {} });
 
   // The empty state is only for no tasks at all; filters with no matches keep
   // the page and show a quieter "no results" in the list instead.
@@ -139,12 +115,12 @@ export function TasksPage({ search }: { search: TasksSearch }) {
         icon={RiCheckboxCircleLine}
         title="No tasks"
         description="Tasks from you and your agents show up here, grouped by status."
-      >
-        <Button size="sm">
-          <RiAddLine data-icon="inline-start" />
-          New task
-        </Button>
-      </EmptyPage>
+        ask={{
+          about: "your tasks",
+          action: "New task",
+          start: "Add a task to ",
+        }}
+      />
     );
   }
 
@@ -154,7 +130,7 @@ export function TasksPage({ search }: { search: TasksSearch }) {
       width="wide"
       actions={
         <>
-          <FilterMenu search={search} pressed={filtered} />
+          <FilterMenu filters={filterMenus} values={search} onChange={change} />
           <IconAction
             label="Search"
             icon={RiSearchLine}
@@ -164,27 +140,14 @@ export function TasksPage({ search }: { search: TasksSearch }) {
         </>
       }
     >
-      {filtered && <FilterBar search={search} />}
+      <FilterBar
+        filters={filterMenus}
+        values={search}
+        onChange={change}
+        onClear={clear}
+      />
       {visible.length === 0 ? (
-        // No results: the empty state's shape, with a non-primary way back.
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <RiFilter3Line />
-            </EmptyMedia>
-            <EmptyTitle>No results</EmptyTitle>
-            <EmptyDescription>No tasks match these filters.</EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate({ search: {} })}
-            >
-              Clear filters
-            </Button>
-          </EmptyContent>
-        </Empty>
+        <NoResults what="tasks" onClear={clear} />
       ) : (
         <TaskGroups tasks={visible} />
       )}
@@ -193,16 +156,12 @@ export function TasksPage({ search }: { search: TasksSearch }) {
 }
 
 // One submenu per property, each with "Any" first.
-const filterMenus: {
-  key: keyof TasksSearch;
-  label: string;
-  icon: RemixiconComponentType;
-  options: Record<string, Look>;
-}[] = [
+const filterMenus: FilterDef<keyof TasksSearch>[] = [
   {
     key: "owner",
     label: "Owner",
     icon: RiUserLine,
+    people: true,
     options: {
       me: { ...ownerLooks[currentUserId], label: "Me" },
       ...omit(ownerLooks, currentUserId),
@@ -212,6 +171,7 @@ const filterMenus: {
     key: "assignee",
     label: "Assignee",
     icon: RiUserFollowLine,
+    people: true,
     options: {
       me: { ...assigneeLooks[currentUserId], label: "Me" },
       ...omit(assigneeLooks, currentUserId),
@@ -225,137 +185,6 @@ const filterMenus: {
     options: priorities,
   },
 ];
-
-function omit<T>(record: Record<string, T>, key: string) {
-  const { [key]: _omitted, ...rest } = record;
-  return rest;
-}
-
-// The filter menu, opened from the header's Filter button.
-function FilterMenu({
-  search,
-  pressed,
-}: {
-  search: TasksSearch;
-  pressed?: boolean;
-}) {
-  const navigate = useNavigate({ from: "/tasks" });
-
-  return (
-    <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Filter"
-                  aria-pressed={pressed}
-                />
-              }
-            />
-          }
-        >
-          <RiFilter3Line />
-        </TooltipTrigger>
-        <TooltipContent>Filter</TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuGroup>
-          {filterMenus.map(({ key, label, icon: KeyIcon, options }) => (
-            <DropdownMenuSub key={key}>
-              <DropdownMenuSubTrigger>
-                <KeyIcon />
-                {label}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-52">
-                <DropdownMenuRadioGroup
-                  value={search[key] ?? "any"}
-                  onValueChange={(value) =>
-                    navigate({
-                      search: (prev) => ({
-                        ...prev,
-                        [key]: value === "any" ? undefined : value,
-                      }),
-                    })
-                  }
-                >
-                  {/* "Any" shows the filter's icon, muted; in people menus it
-                      takes the avatars' 20px slot so labels line up. */}
-                  <DropdownMenuRadioItem value="any">
-                    {key === "owner" || key === "assignee" ? (
-                      <span className="flex size-5 items-center justify-center">
-                        <KeyIcon className="text-muted-foreground" />
-                      </span>
-                    ) : (
-                      <KeyIcon className="text-muted-foreground" />
-                    )}
-                    Any
-                  </DropdownMenuRadioItem>
-                  {Object.entries(options).map(([value, look]) => (
-                    <DropdownMenuRadioItem key={value} value={value}>
-                      <look.icon className={look.className} />
-                      {look.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ))}
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-// Active filters, read-only: one 28px group each (property | value | ×),
-// and Clear on the right. Changing filters happens in the Filter menu.
-function FilterBar({ search }: { search: TasksSearch }) {
-  const navigate = useNavigate({ from: "/tasks" });
-  const remove = (key: keyof TasksSearch) =>
-    navigate({ search: (prev) => ({ ...prev, [key]: undefined }) });
-
-  return (
-    <div className="-mt-2 flex flex-wrap items-center gap-2">
-      {filterMenus
-        .filter(({ key }) => search[key])
-        .map(({ key, label, options }) => {
-          const look = options[search[key] as string];
-          return (
-            <ButtonGroup key={key}>
-              {/* Property, value, remove: joined segments with dividers; only
-                  the value shows an icon. */}
-              <ButtonGroupText className="text-muted-foreground">
-                {label}
-              </ButtonGroupText>
-              <ButtonGroupText>
-                <look.icon className={look.className} />
-                {look.label}
-              </ButtonGroupText>
-              <Button
-                variant="outline"
-                size="icon-compact"
-                aria-label={`Remove ${label.toLowerCase()} filter`}
-                onClick={() => remove(key)}
-              >
-                <RiCloseLine />
-              </Button>
-            </ButtonGroup>
-          );
-        })}
-      <Button
-        variant="outline"
-        size="compact"
-        className="ml-auto"
-        onClick={() => navigate({ search: {} })}
-      >
-        Clear
-      </Button>
-    </div>
-  );
-}
 
 // Tasks grouped by status, in status order. Inside a project the rows leave
 // out the project badge.
@@ -380,9 +209,7 @@ export function TaskGroups({
   );
 }
 
-// Header and rows share one column grid: both have a 1px border and 8px
-// padding, the header chevron and the row spacer are 14px wide, and both use
-// an 8px gap, so status icons and titles line up without custom offsets.
+// One status's tasks, as a list group.
 function StatusGroup({
   status,
   tasks,
@@ -392,33 +219,16 @@ function StatusGroup({
   tasks: Task[];
   showProject: boolean;
 }) {
-  const { label, icon: Icon, className } = statuses[status];
-  if (tasks.length === 0) return null;
-
   return (
-    <Collapsible defaultOpen={status !== "done"}>
-      {/* The whole header row toggles the group. */}
-      <CollapsibleTrigger
-        render={
-          <Button
-            variant="secondary"
-            className="group/trigger w-full justify-start"
-          />
-        }
-      >
-        <RiArrowDownSLine className="-rotate-90 text-muted-foreground transition-transform group-data-panel-open/trigger:rotate-0" />
-        <Icon className={className} />
-        {label}
-        <Count>{tasks.length}</Count>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul className="flex flex-col pt-1">
-          {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} showProject={showProject} />
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
+    <ListGroup
+      look={statuses[status]}
+      count={tasks.length}
+      defaultOpen={status !== "done"}
+    >
+      {tasks.map((task) => (
+        <TaskRow key={task.id} task={task} showProject={showProject} />
+      ))}
+    </ListGroup>
   );
 }
 
@@ -431,53 +241,69 @@ function peopleOf(task: Task) {
   );
 }
 
-function TaskRow({ task, showProject }: { task: Task; showProject: boolean }) {
+// A task's row; right-click opens the shared item menu (Delete is not wired
+// yet).
+export function TaskRow({
+  task,
+  showProject,
+  grouped = true,
+}: {
+  task: Task;
+  showProject: boolean;
+  /** Under a list group's header (the chevron column); not on Home. */
+  grouped?: boolean;
+}) {
   const { icon: Icon, className, label } = statuses[task.status];
   const people = peopleOf(task);
+  const navigate = useNavigate();
+  const ask = useAskAgent();
 
   return (
-    <li>
-      <Item
-        size="xs"
-        render={<Link to="/tasks/$taskId" params={{ taskId: task.id }} />}
-      >
-        {/* Chevron column, so the status icon sits under the header's. */}
-        <span className="size-3.5 shrink-0" aria-hidden />
-        <ItemMedia variant="icon">
-          <Icon aria-label={label} className={className} />
-        </ItemMedia>
-        <ItemContent className="flex-row items-center group-data-[size=xs]/item:gap-2">
-          <ItemTitle
-            className={cn(task.status === "done" && "text-muted-foreground")}
-          >
-            {task.title}
-          </ItemTitle>
-          <Tooltip>
-            <TooltipTrigger
-              render={<AvatarGroup />}
-              aria-label={people.map((id) => actorOf(id).name).join(", ")}
+    <ContextMenu>
+      <ContextMenuTrigger render={<li />}>
+        <Item
+          size="xs"
+          render={<Link to="/tasks/$taskId" params={{ taskId: task.id }} />}
+        >
+          {/* Chevron column, so the status icon sits under the header's. */}
+          {grouped && <span className="size-3.5 shrink-0" aria-hidden />}
+          <ItemMedia variant="icon">
+            <Icon aria-label={label} className={className} />
+          </ItemMedia>
+          <ItemContent className="flex-row items-center group-data-[size=xs]/item:gap-2">
+            <ItemTitle
+              className={cn(task.status === "done" && "text-muted-foreground")}
             >
-              {people.map((id) => (
-                <ActorAvatar key={id} actorId={id} />
-              ))}
-            </TooltipTrigger>
-            <TooltipContent>
-              {people.map((id) => actorOf(id).name).join(", ")}
-            </TooltipContent>
-          </Tooltip>
-        </ItemContent>
-        <ItemActions>
-          {showProject && (
-            <Badge variant="outline" className="hidden sm:inline-flex">
-              <RiBox3Line data-icon="inline-start" />
-              {projects[task.projectId as keyof typeof projects].title}
-            </Badge>
-          )}
-          <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
-            {shortDate.format(new Date(task.updatedAt))}
-          </span>
-        </ItemActions>
-      </Item>
-    </li>
+              {task.title}
+            </ItemTitle>
+            <People ids={people} />
+          </ItemContent>
+          <ItemActions>
+            {showProject && (
+              <Badge variant="outline" className="hidden sm:inline-flex">
+                <RiBox3Line data-icon="inline-start" />
+                {projects[task.projectId as keyof typeof projects].title}
+              </Badge>
+            )}
+            <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
+              {shortDate.format(new Date(task.updatedAt))}
+            </span>
+          </ItemActions>
+        </Item>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ItemMenuItems
+          name={task.title}
+          onOpen={() =>
+            navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })
+          }
+          onAsk={() =>
+            ask(`${mention({ type: "task", id: task.id, label: task.title })} `)
+          }
+          link={`/tasks/${task.id}`}
+          onDelete={() => {}}
+        />
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

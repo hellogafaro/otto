@@ -379,10 +379,14 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   hairline ring and `shadow-xs`. Lower is darker.
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
-- **Controls are 32px**: bar buttons and sidebar rows. Task list and
+- **Controls are 32px**: bar buttons, sidebar rows and tabs. Task list and
   command palette rows are 36px. Dropdown, combobox and suggestion items and
-  dense bars (filter groups, palette tabs, composer pickers) use 28px, the
-  `compact` button; the smallest buttons are 24px (`xs`).
+  dense bars (filter groups, composer pickers) use 28px, the `compact`
+  button; the smallest buttons are 24px (`xs`).
+- **Tabs** (`TabBar`, one pattern everywhere: a project's sections, the
+  command palette's categories): 32px buttons 4px apart, the open one filled
+  (secondary), the rest ghost, an optional icon and a count right after the
+  label.
 - **Buttons** pad 8px on both sides, icon or text (6px at `xs`). Icon or
   avatar to label is 8px everywhere. Buttons in a bar sit 4px apart.
 - **Even insets in rows.** What leads or ends a row (avatar, icon, key,
@@ -442,8 +446,11 @@ Depth comes from translucency and hairlines, not heavy shadows.
   blur. The file viewer is a full-screen dialog (`fullScreen`) on the page
   background.
 - **The floating chat** floats on the command palette's glass (dark,
-  translucent, blurred, hairline ring, `shadow-md`) with nothing behind it:
-  content scrolls on under the glass. Only the bar takes clicks.
+  translucent, blurred, hairline ring, `shadow-md`) on a layer above the
+  scrolling page, never inside it (the page's fade mask, and the morph's
+  named elements, would stop the blur), with nothing behind it: content
+  scrolls on under the frost, keeping 88px free at its end. Only the bar
+  takes clicks; no overlay, so the page stays usable while you chat.
 
 ## Shapes
 
@@ -551,8 +558,8 @@ bar's surface (no change as it grows), the column plus 4px a side, fitting
 its content up to 30rem, with the panel's insets: a 40px top bar (32px
 buttons 4px in, the title 16px in), messages and the composer's text on the
 same 16px line, the embedded composer (`Composer embedded`) 4px in with 8px
-corners, 28px buttons 4px in with 4px corners (radius shrinks in proportion),
-one step lighter. The title switches chats: a search grouped like the Chats
+corners, 28px buttons 6px in with 6px corners (the 28px buttons' radius), one
+step lighter. The title switches chats: a search grouped like the Chats
 sidebar (Pinned, Waiting, Working, Snoozed, Done; no archived), one thing at
 each row's end (status, else time; the open chat shows the check). Then Chats
 (the list of chats waiting on your input or ready for your review, as 32px
@@ -573,11 +580,24 @@ behind it, so its translucent snapshot looks like the real surface at every
 frame: no flash at either end. Old snapshots leave quickly where both sides
 have content, so nothing shows twice.
 
-**Activity.** Events are muted single lines with a 20px avatar. Comments are
-cards with Copy and Reply in the top-right corner on the card insets. Replies
-stay flat: Reply tags the author. Comment attachments open in the file viewer.
+**Activity.** A timeline (`Timeline`), like Shopify's: one straight
+hairline down the left, under the cards' avatars. Cards (comments, a
+schedule's runs, the comment composer at the end) sit over it at full width,
+so it shows only between them; events are muted single lines on an 8px dot,
+their text lined up with the cards' names. Comment cards have Copy and Reply
+in the top-right corner on the card insets. Replies stay flat: Reply tags the
+author. Comment attachments open in the file viewer.
 
-**Inbox** is home ("/"): what needs you; empty, it reads "Nothing needs you".
+**Inbox** is home ("/"), like Notion's Home: your day under a centered
+greeting ("Good afternoon, Johan", the page title's size and spacing), in
+one section per kind: an h2 with its count, like Activity's, then rows the
+same as on their own pages, their icons lined up with the heading. Tasks:
+what you own or are assigned, still open, review first. Notifications:
+mentions, assignments, review requests and shares today ("Forge mentioned
+you in …", read ones muted). Chats: waiting on you (a question, a review, a
+failed run, with what it wants) or unread. Schedules: today's runs, done
+("Ran 9:00") or still to come ("Today 18:00"). Empty sections don't show;
+with nothing at all, it reads "Nothing needs you".
 
 **Chats.** One chat model for every kind: a project's one general chat
 (#name), group chats (any members, with or without a project) and direct
@@ -633,21 +653,46 @@ One chat:
   picker), Members (people, then agents; Add member) and Files shared in the
   chat, hidden until something is shared. A project's panel lists its chats.
 
+**Schedules.** Automations: on a time pattern, run a prompt (an agent you
+pick answers it) or code, and post the result to a chat: an existing one, or
+a new chat each run (a setting; nothing is made until it runs). No project
+row: less is more. Made and changed by asking an agent: + starts the floating
+chat with "Every ", and the prompt (or code, as a code block) shows
+read-only: that body is what tells them apart, so the panel has no type
+row. A person sets the state (Active or Paused), the agent (prompts
+only), Repeat (the tasks' dropdown, each preset with its time; Custom asks),
+and Chat, where it posts ("A new chat each run", then the chats; channels show their #
+icon, never a # in the name), and can Run now (then a toast). Its page
+follows the task's: owner and agent under the title, then Activity: created
+and each change as events, each run as a card like a comment (who ran
+it, when, Ran or Failed on the right, then what it said). The list is Tasks'
+pattern (`ListGroup`): Active, Paused, then Archived folded; rows show the
+owner's and agent's avatars, like a task's people, and the next run
+("Tomorrow 9:00"); filters by type, agent and owner; right-click opens the
+item menu. The next run ends the Activity timeline on a hollow dot, not a
+panel row: panel rows are controls, never read-only text. Picking a state
+on an archived schedule restores it.
+Schedules archive, never delete.
+
 **Empty states and 404.** `EmptyPage` is only for when a place has nothing at
 all (no tasks, not "no matches"). It replaces the whole page, title and
 actions included, with the stock `Empty` centered both ways: a 32px muted tile
 holding a 20px icon (32 / φ), a heading-size title, one line of description
 and one 32px primary button ("New task", "New project", "New schedule"…).
-Every main section starts this way. Missing pages and records use `NotFound`
+Every main section starts this way, with the floating chat there as on any
+page: the button starts the sentence in it ("Add a task to ", "Every "),
+never a form; a person's own action (Upload file) sits beside it. Missing pages and records use `NotFound`
 (the same, with "Go home").
 
 **No results.** When filters match nothing, the page, its header and the
 filter bar stay; the list area shows the same `Empty` shape: the filter icon
 tile, "No results", one line, and an outline "Clear filters".
 
-**Filters.** The header's Filter button opens a menu with a submenu per
-property (owner, assignee, project, priority); each starts with "Any" (the
-property's icon, muted) and lists options with their icons or avatars. Filters
+**Filters** (`FilterMenu`, `FilterBar`, `NoResults`; one shared set). The
+header's Filter button opens a menu with a submenu per property (Tasks:
+owner, assignee, project, priority; Documents: created by, project,
+label, visibility; Files: type, project, label, made by); each starts with "Any" (the property's icon, muted) and lists
+options with their icons or avatars. Filters
 live in the URL and are never saved. While any is set, a filter bar sits under
 the title: one read-only 28px `ButtonGroup` per filter (the property and value
 as text, then ×) and an outline 28px Clear on the right. Changing or adding
@@ -656,8 +701,8 @@ filters happens only in the menu.
 **Command palette** (`CommandPaletteProvider`). One palette for the whole app:
 ⌘K / Ctrl+K anywhere, or a page's search button with its category already
 selected. 720px wide, 15% from the top, card radius. A borderless 48px search
-field over a full-width divider; 28px category tabs (Tab switches) 8px above
-and below; 36px rows that match
+field over a full-width divider; the shared 32px tabs for categories (Tab
+switches) 8px above and below; 36px rows that match
 names containing the query, with edges that fade while more results scroll;
 a 48px footer with key hints. Categories: All, Tasks, People, Projects,
 Documents, Files, Actions. Picking a result goes there (a file opens
@@ -697,14 +742,62 @@ title under it; the ring darkens on hover. Projects are 16:9 covers;
 documents are 4:5 pages showing their image or opening text fading out;
 files are 4:5 showing their picture or their type ("PDF").
 
-**File viewer** (`Lightbox`). Full screen on the page background: the
-48px top bar (type icon, title, "Image · Oct 3"; Open task, Download, Close),
-the file centered with `md` corners and the ring, 48px from the sides
-where the previous and next arrows sit 9px in (← → too, except inside a
-player), and the floating chat at the bottom. Read-only previews: images, video and
+**File viewer** (`Lightbox`). Full screen on the page background, in two
+full-height columns. The file: its 40px top bar (type icon, title, "Image ·
+Oct 3"; Ask about this file, Open task, Download), then the file centered
+with `md` corners and the ring, 48px from the sides where the previous and
+next arrows sit 9px in (← → too, except inside a player). On wide screens a
+280px details panel with its own top bar (Details, then Close in the
+corner, like the panel toggle): one Properties list in Otto's words
+(folder, project, task, chat, created by, visibility, added; project, task
+and chat link to them, rows it lacks are left out), then Labels. No composer inside: Ask closes the viewer and starts the page's
+floating chat with a link to the file. Read-only previews: images, video and
 audio in the browser's players, PDFs in its viewer, Markdown rendered like a
-document; anything else shows its type. The open file is in the URL
-(`?open=`) on the Files page.
+document, canvases (an agent's HTML page) sandboxed as they are; anything
+else shows its type. The open file is in the URL (`?open=`) on the Files
+page.
+
+**Right-click menus** (`ContextMenu`, stock shadcn styled like the
+dropdown: 28px rows, even insets). Wherever an item has actions: chat rows,
+task rows, and document, project, file and folder tiles. A right-click menu
+and the item's More menu share one list (`ItemMenuItems`; chats'
+`ChatMenuItems`), short and in one order: Open, Ask about it (the page's
+floating chat), Download, Rename, Copy link; then Archive and Delete apart.
+Chats: Pin, Mark as done, Snooze, Copy link; then Archive. Projects
+archive, never delete.
+
+**Menu keys and Delete.** Quick actions show their key as a `Kbd` on the
+right, and the key runs them while the menu is open (ahead of typeahead):
+Rename R, Copy link C, Pin P, Mark as done E, Archive A, Delete ⌫ (Backspace
+or Delete); options with number keys pick by them too. Delete is always the
+destructive variant: red text and icon, a red-tinted highlight.
+
+**Alert dialog** (`AlertDialog`, stock shadcn, small; `useConfirm()`). The one
+place an action asks first: Delete, always. The question in sentence case
+with the name in quotes ("Delete “Fix plan”?"), one line ("This can't be
+undone."), Cancel (focused) and the action, red when it destroys. A plain
+darker overlay, no blur, like the dialog's.
+
+**Toasts** (stock shadcn `Toaster`, Sonner's own `toast.success()`, re-exported
+from `@workspace/ui/components/sonner`). One plain row and nothing else: the
+status icon in its color (a green check for done), a short sentence-case
+message ("Link copied", "“Fix plan” deleted"), and Close at the end. On the
+menus' surface in both themes with a card's 12px corners: Close is the 28px
+ghost button 6px in (nested), the message 12px in and wrapping, so the toast
+is as tall as its message (40px for one line); bottom right.
+Copy link, Archive and Delete say they are done with one.
+
+**Files.** Everything saved is a file: uploads, task and chat attachments,
+and agents' outputs, canvases included (never "artifact"). Like a drive:
+folders, nested to any depth, come first in the gallery as 4:5 tiles (a big
+folder and how many items it holds), then the files; inside a folder the top
+bar's breadcrumb (Files › Brand › Logos) is the way back up, and the page
+takes the folder's name. No side panel. Filters, the shared set (type,
+project, label, made by), search the open folder and everything inside it as
+one flat list. + is one menu: Upload file, or New folder, named in place on
+its tile (Enter makes it, Escape drops it); both land in the open folder.
+Folder, filters and open file live in the URL. Folders are UI-only for now:
+the backend has no folder model yet.
 
 ## Do's and Don'ts
 

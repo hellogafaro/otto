@@ -30,6 +30,7 @@ import {
   createContext,
   type ReactNode,
   type Ref,
+  type RefObject,
   useContext,
   useReducer,
   useRef,
@@ -73,6 +74,8 @@ type FloatingChatState = {
 type FloatingChatValue = FloatingChatState & {
   /** Moves to another state, morphing when its shape changes. */
   change: (next: Partial<FloatingChatState>) => void;
+  /** The page's floating chat composer, for others to prefill. */
+  composer: RefObject<ComposerHandle | null>;
 };
 
 const FloatingChatContext = createContext<FloatingChatValue | null>(null);
@@ -83,6 +86,7 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
     expanded: false,
     listing: false,
   });
+  const composer = useRef<ComposerHandle>(null);
   // Folding, growing and switching between a chat and the list morph
   // (View Transitions), unless reduced motion is asked for or the browser
   // can't. Only a change of shape morphs; replies just render.
@@ -109,10 +113,18 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
     document.startViewTransition(() => flushSync(apply));
   };
   return (
-    <FloatingChatContext value={{ ...state, change }}>
+    <FloatingChatContext value={{ ...state, change, composer }}>
       {children}
     </FloatingChatContext>
   );
+}
+
+// Prefills the page's floating chat, e.g. the file viewer's Ask, which
+// closes the viewer and starts the bar with a link to the file.
+export function useAskAgent() {
+  const { composer } = useFloatingChat();
+  // After the viewer has closed, so the bar can take focus.
+  return (text: string) => setTimeout(() => composer.current?.prefill(text));
 }
 
 function useFloatingChat() {
@@ -184,20 +196,23 @@ export function FloatingChat({
   about,
   projectId,
   subject,
-  onSent,
   ref,
 }: {
   /** What is open, e.g. "this task". */
   about: string;
   projectId?: string;
   subject?: Subject;
-  /** Only the bar, handing over after sending (the file viewer closes). */
-  onSent?: () => void;
   ref?: Ref<ComposerHandle>;
 }) {
   const navigate = useNavigate();
-  const { chatId, expanded: open, listing, change } = useFloatingChat();
-  const expanded = open && !onSent;
+  const { chatId, expanded, listing, change, composer } = useFloatingChat();
+  // The composer answers both the page's ref (page actions prefill it) and
+  // the shared one (the file viewer's Ask).
+  const setComposer = (handle: ComposerHandle | null) => {
+    composer.current = handle;
+    if (typeof ref === "function") ref(handle);
+    else if (ref) ref.current = handle;
+  };
   // Messages change the mock in memory; this redraws.
   const [, redraw] = useReducer((count: number) => count + 1, 0);
   const [withIds, setWithIds] = useState(["a_otto"]);
@@ -249,12 +264,10 @@ export function FloatingChat({
     } else {
       show(startChat(withIds, body, files, projectId, subject).id);
     }
-    onSent?.();
   };
 
-  // Named for the morph (View Transitions); the file viewer's bar is not.
-  const morphs = (name: string) =>
-    onSent ? undefined : { viewTransitionName: name };
+  // Named for the morph (View Transitions).
+  const morphs = (name: string) => ({ viewTransitionName: name });
   const chatsLabel = pending.length
     ? `Chats, ${pending.length} need you`
     : "Chats";
@@ -281,10 +294,14 @@ export function FloatingChat({
           aria-label="Chat"
           style={morphs("floating-chat")}
           className={cn(
-            "flex min-w-0 flex-1 flex-col",
+            // The frost always lives here, on the outermost morph-named
+            // element: a named element walls off what is behind it, so a
+            // blur inside it (the bar's own) would frost nothing. Folded,
+            // this is exactly the bar's box.
+            "flex min-w-0 flex-1 flex-col rounded-xl backdrop-blur-2xl backdrop-saturate-150",
             expanded &&
               // The command palette's surface.
-              "dark rounded-xl bg-popover/70 text-popover-foreground shadow-md ring-1 ring-foreground/10 backdrop-blur-2xl backdrop-saturate-150",
+              "dark bg-popover/70 text-popover-foreground shadow-md ring-1 ring-foreground/10",
           )}
           onKeyDown={(event) => {
             if (event.key === "Escape" && expanded)
@@ -407,29 +424,27 @@ export function FloatingChat({
               {expanded ? (
                 <Composer
                   embedded
-                  ref={ref}
+                  ref={setComposer}
                   placeholder={placeholder}
                   onSend={send}
                 />
               ) : (
                 <Composer
                   compact
-                  ref={ref}
+                  ref={setComposer}
                   placeholder={placeholder}
                   tools={
-                    chat && !onSent ? (
+                    chat ? (
                       <Resume chat={chat} onOpen={() => show(chat.id)} />
                     ) : undefined
                   }
                   idle={
-                    !onSent && (
-                      <Action
-                        label={chatsLabel}
-                        icon={RiInboxLine}
-                        dot={pending.length > 0}
-                        onClick={list}
-                      />
-                    )
+                    <Action
+                      label={chatsLabel}
+                      icon={RiInboxLine}
+                      dot={pending.length > 0}
+                      onClick={list}
+                    />
                   }
                   onSend={send}
                 />
