@@ -21,7 +21,7 @@ All production IDs come from validated URL state, authenticated Hono responses o
 | Visibility before upload | user/workspace | Defaults user; private folder disables workspace choice; selections freeze once any request starts |
 | Upload / Retry exact upload | Binary PUT files/requestId/content, current writer/Project authority | Native File is request body, no base64/arrayBuffer; <=100,000,000; no Saved until ACK; identical request, bytes and metadata on retry |
 | Abort / Close / Done | AbortSignal; local UI | Abort explicitly reports uncertain outcome; spinner only; pending Close blocked; exact retry retained while dialog stays open; unmount aborts |
-| New folder | POST folders; current writer with placement authority | Stock dialog title/visibility, current folder/Project; input retained on failure; Cancel; pending locked; depth 8 action disabled |
+| New folder | POST folders; current writer with placement authority | Stock dialog title/visibility, current folder/Project; definite 4xx correctable; network/5xx/undecoded ACK locks repeat creation in the open form and reconciles list; known ACK remains saved on navigation failure; Cancel; pending locked; depth 8 action disabled |
 | Folder Edit / rename / move / visibility | GET/PATCH folders; creator/current writer | One allowlisted partial update of changed draft fields only; bounded destination picker, fixed Project, parentId null for root; server checks cycles, depth and privacy atomically |
 | Folder empty archive / restore | POST folders/id/archive; creator/current writer | No recursive delete; hidden/archived children still block server archive; actual error retained; ACK then invalidate |
 | Folder Open / Ask / Copy link | Navigation, shared floating chat, native clipboard | Real folder title/ID; Ask is text context, not an access grant; clipboard errors surfaced |
@@ -36,7 +36,7 @@ All production IDs come from validated URL state, authenticated Hono responses o
 | Archive/restore File | POST files/id/archive; custodian/current writer | Pending fenced controls; ACK then workspace invalidation; no delete |
 | Preview image/video/audio/PDF/Markdown/HTML | Authenticated verified file GET | In-memory consumer max 8 MiB, actual streamed length checked; truncation/oversize fail; abort and object URL release; larger files explain download |
 | HTML preview | Bounded bytes -> srcDoc | Empty iframe sandbox, no-referrer, CSP forbids network/scripts/forms/base changes; only inline styles/data/blob images |
-| File share choose bytes / preview | POST shares/preview selection file/targetId/includeFile; current human writer | Metadata-only default; actual frozen preview reviewed before publishing; no automatic publication |
+| File share choose bytes / preview | POST shares/preview selection file/targetId/includeFile; current human writer | Metadata-only default; actual frozen preview reviewed before publishing; uncertain new-create ACK blocks repeat POST in this dialog; definite 4xx can retry; acknowledged preview retained on failed list refresh; no automatic publication |
 | Publish to internet | POST shares/id/publish with exact preview editToken; publisher | Explicit separate button with public-link warning; source change/conflict fails; ACK precedes published-link display |
 | Existing shares / more / refresh selection | GET shares type=file; POST preview existing id/editToken | Bounded publisher-owned pages; select target file locally; refresh recaptures current authorized selection before explicit republish; stale token fails; old preview clears before refresh/publish; unknown outcomes refetch server list |
 | Share Copy / Revoke / Close preview | Native clipboard; POST revoke; local close | No clipboard success before ACK; revoke closes published gate only; closing preview does not delete the saved draft; dialogs hold pending operations; revoke clears the matching preview/link even if its ACK is lost |
@@ -162,3 +162,26 @@ Followup SHA-256:
 | `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-viewer-before.log` | `17d1ee42aa4c82c5957e5df6b3d6bcdcaaea2815df14ac56c4f3009c33a235a7` |
 | `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-mutation-after.log` | `a2465c1647616f045af023a97537234d07ffd3c2b8ae81fdd765a33febddbb4c` |
 | `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-mutation-typecheck.log` | `3b6b08eb3eb1fe8e6d9ea6f267f898c4a838755784548447107b2900bf98a453` |
+
+## New-create uncertain outcome guard
+
+Signed source `5e34fd7b6e32362380c13211ddceb34d12f7421c` changes only file-edit.tsx and file-shares.tsx. No requestId is invented for Folder or share-preview creation. Network failure, decoded HTTP 5xx and undecodable ACK block another create POST in the same open form. A decoded ApiError 4xx is a definite refusal, so correction/retry remains available. Both outcomes reconcile authoritative lists. New Folder known ACK is remembered even if list refresh or closing/navigation subsequently fails; it cannot create twice. An exact acknowledged share preview keeps its id/editToken and explicit Publish action when list refresh fails, with actual refresh error and cleared pending state. Existing preview Refresh selection/Publish/Revoke remain update operations and are unaffected by the new-create guard.
+
+Unknown Folder creation shows Refresh Files and instructions to inspect the list before opening another create dialog. Unknown share-preview creation shows Refresh share list and allows reuse of an existing saved selection; repeated new creation stays blocked until this dialog is closed. Backend idempotency is still the pending seam for reliable recovery across a new dialog/reload, rather than a reason to leave uncertain repeats enabled.
+
+Controlled prior-source check fails because Save remains enabled after an uncertain create. Seven controlled actual-handler checks pass for network/5xx/undecoded Folder and share outcomes (one create POST only), decoded400 correction/retry, retained exact share preview after refresh failure, and known Folder ACK after navigation failure. All nine prior mutation/authority/upload handler checks also pass. Scoped Biome, serialized web typecheck and staged diff-check pass. Browser/build/PG/native/independent re-review remain UNVERIFIED for this source.
+
+13. In a new Folder and new share-preview form, lose the ACK after successful server creation, return503, and truncate the success JSON. Save/Preview selection must disable and no second POST may occur even if the same form is submitted again. Confirm list reconciliation and use explicit Refresh actions; inspect existing saved content before opening a new create dialog. Return decoded400, correct input and verify one deliberate retry. After a successful preview ACK, fail list refresh and confirm the exact id/editToken survives for explicit Publish. After a successful Folder ACK, fail closing/navigation and confirm Created state with no repeat POST. This browser scenario is UNVERIFIED.
+
+Create-guard SHA-256:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `apps/web/src/components/file-edit.tsx` | `deb88ba3f0dfd1c7c211e09e191e7b4654390e2190ef81075f64f6715d6b5d8d` |
+| `apps/web/src/components/file-shares.tsx` | `7153563cfb4429cd2613dcca6ec6d1af617046f5a2d2a759fad05f7ba7747394` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-create-check.tsx` | `dfcd9a36ab1af763c04f75e4f157480030a1e6ac7f4c7e39d6d120c95387f904` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-create-check.log` | `e5ff4e4ddc1cfa5c49de6e1c9f9c49fc4a634367786df76caecc0771da7f8d2e` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-create-before.tsx` | `07315b74e8792793456ccb0cda067a56a7f8d9e3cce42f0e7427d7984ed2a206` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-create-before.log` | `c0460a2caf14067c3259005e401775dff7f08996cf57d0895ff0ca14b53c4b85` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-create-regression.log` | `a2465c1647616f045af023a97537234d07ffd3c2b8ae81fdd765a33febddbb4c` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-create-typecheck.log` | `3b6b08eb3eb1fe8e6d9ea6f267f898c4a838755784548447107b2900bf98a453` |
