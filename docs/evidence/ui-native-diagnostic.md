@@ -100,3 +100,52 @@ production runtime code.
 Independent review belongs to the integrating root and is not claimed here.
 Full suite, real provider authorization, billing, storage durability and physical
 isolation are unverified by this bounded diagnosis.
+
+## Later integrated-suite failure and focused boundary
+
+The integrating root's later run completed in 1024.26 s: 47 files passed,
+1 failed; 410 tests passed, 10 failed. The native Pi file had 9 passes and
+10 failures. Its first failing case was `retains unconfirmed model I/O when
+its transport ignores cancellation`: its `finally` Stop returned HTTP 503
+with `{"error":"unavailable"}` instead of 200 at test line 1530. Suite closure
+also reported `Runtime persistence/cleanup failed`. Later Runs remained queued
+or produced no summary receipts; the controlled peer saw only 13 model requests.
+
+The production runtime retains cleanup/persistence errors and refuses subsequent
+dispatch when `errors.length > 0` (`packages/runs/src/runtime.ts:385`). This
+explains the observed cascade after the first failed Stop. It does not identify
+the underlying native cleanup error: the HTTP response intentionally exposes
+only `unavailable`, and the suite's aggregate report did not expand its cause.
+
+Integrated log:
+`/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/integrated-suite-final.log`.
+SHA-256: `75c9c0e2d43ac6bc12b609541eef38950c277a04739f2e636cf7270f512736e3`.
+
+After explicit runtime-slot release, the unchanged minimal fixture ran the two
+standalone cases in a fresh short private temporary base with a clean environment:
+
+```sh
+env -i PATH=/home/g4f4r0/.bun/bin:/usr/bin:/bin HOME=/home/g4f4r0 \
+TMPDIR=/home/g4f4r0/.bb/nd-oLOCib \
+OTTO_GATEWAY_FIXTURE_BINARY=/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/otto-gateway-fixture \
+/home/g4f4r0/.bun/bin/bun --bun vitest run tests/pi-gateway-runtime.test.ts \
+  -t 'retains unconfirmed model I/O|joins the actual native stream'
+```
+
+| Boundary check | Observed result |
+| --- | --- |
+| Both focused cases | Passed; 2 passed, 17 skipped; 21.77 s; exit 0 |
+| Unconfirmed transport case | Passed in 14.013 s, including both expected cleanup refusals, successful final Stop, zero active Runs and zero persistence errors |
+| Participant revocation case | Passed in 4.063 s, including joined native cleanup, no unauthorized output, healthy gateway and successful sibling script |
+| Controlled model requests | 2 |
+| Process completion | Suite cleanup passed; no remaining child of test PID 349327 |
+| Fixture bytes | Unchanged SHA-256 `590263467ecf3cd5013addbd85e6199df5df3501b94476bad14da85b78cc479e` |
+
+Boundary log:
+`/home/g4f4r0/.bb/thread-storage/thr_wm9j5vr85d/native-clean-boundary.log`.
+SHA-256: `1c1ad6284a5d18c23643c30f2e3f8cd52291ea52b9fa3708226bfe34781a87ce`.
+
+This boundary pass rules out an unconditional failure of these two cases with
+the corrected fixture. It changes both inherited environment and prior test
+history, so it cannot by itself assign the integrated failure to either one.
+No additional production correction is justified by the evidence collected here.
