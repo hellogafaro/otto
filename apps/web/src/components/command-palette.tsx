@@ -273,14 +273,16 @@ function Palette({
           />
         ))}
         {searching && (
-          <div
-            role="status"
-            aria-label="Searching"
-            className="flex flex-col gap-4 p-4"
-          >
-            <Skeleton className="h-4 w-48" />
-            <Skeleton className="h-4 w-64" />
-            <Skeleton className="h-4 w-40" />
+          <div role="status" aria-label="Searching">
+            <div className="px-3 py-1.5">
+              <Skeleton className="h-3 w-16" />
+            </div>
+            {["w-40", "w-56", "w-32"].map((width) => (
+              <div key={width} className="flex h-9 items-center gap-2 px-3">
+                <Skeleton className="size-5 shrink-0" />
+                <Skeleton className={`h-4 ${width}`} />
+              </div>
+            ))}
           </div>
         )}
         {query && !searching && errors.length === 0 && (
