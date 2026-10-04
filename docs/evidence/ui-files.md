@@ -22,7 +22,7 @@ All production IDs come from validated URL state, authenticated Hono responses o
 | Upload / Retry exact upload | Binary PUT files/requestId/content, current writer/Project authority | Native File is request body, no base64/arrayBuffer; <=100,000,000; no Saved until ACK; identical request, bytes and metadata on retry |
 | Abort / Close / Done | AbortSignal; local UI | Abort explicitly reports uncertain outcome; spinner only; pending Close blocked; exact retry retained while dialog stays open; unmount aborts |
 | New folder | POST folders; current writer with placement authority | Stock dialog title/visibility, current folder/Project; input retained on failure; Cancel; pending locked; depth 8 action disabled |
-| Folder Edit / rename / move / visibility | GET/PATCH folders; creator/current writer | One allowlisted partial update; bounded destination picker, fixed Project, parentId null for root; server checks cycles, depth and privacy atomically |
+| Folder Edit / rename / move / visibility | GET/PATCH folders; creator/current writer | One allowlisted partial update of changed draft fields only; bounded destination picker, fixed Project, parentId null for root; server checks cycles, depth and privacy atomically |
 | Folder empty archive / restore | POST folders/id/archive; creator/current writer | No recursive delete; hidden/archived children still block server archive; actual error retained; ACK then invalidate |
 | Folder Open / Ask / Copy link | Navigation, shared floating chat, native clipboard | Real folder title/ID; Ask is text context, not an access grant; clipboard errors surfaced |
 | Document gallery item | Real library document id -> document detail | Editable content/labels/visibility/move/archive and Document editToken stay with Document lane; no duplicate document model/editor |
@@ -32,14 +32,14 @@ All production IDs come from validated URL state, authenticated Hono responses o
 | Viewer/menu Ask / task backlink | Shared floating chat; originating real task prop | Actual file id/title; task link retained only from caller context; file mention discriminator from the lead’s common dependency |
 | Viewer details/widgets | GET file/folder; directory actorOf/Projects | Readable path, visibility, real creator/custodian/Agent, date, byte size and labels; folder/Project/label links; no task/chat mocks or fabricated counts |
 | Workspace writer gate | Authoritative useWorkspace().workspace.role | Add/folder actions, viewer Share/custodian Edit and tile Ask never depend on first-page directory members; obsolete More people role-discovery action removed |
-| Edit File title/labels/visibility/folder | PATCH files/id; custodian/current writer | One atomic allowlisted update, no editToken; fixed Project; same bounded folder picker; cancel/pending/error retains draft; no byte replacement |
+| Edit File title/labels/visibility/folder | PATCH files/id; custodian/current writer | One atomic allowlisted update of changed draft fields only, no editToken; fixed Project; same bounded folder picker; cancel/pending/error retains draft; no byte replacement |
 | Archive/restore File | POST files/id/archive; custodian/current writer | Pending fenced controls; ACK then workspace invalidation; no delete |
 | Preview image/video/audio/PDF/Markdown/HTML | Authenticated verified file GET | In-memory consumer max 8 MiB, actual streamed length checked; truncation/oversize fail; abort and object URL release; larger files explain download |
 | HTML preview | Bounded bytes -> srcDoc | Empty iframe sandbox, no-referrer, CSP forbids network/scripts/forms/base changes; only inline styles/data/blob images |
 | File share choose bytes / preview | POST shares/preview selection file/targetId/includeFile; current human writer | Metadata-only default; actual frozen preview reviewed before publishing; no automatic publication |
 | Publish to internet | POST shares/id/publish with exact preview editToken; publisher | Explicit separate button with public-link warning; source change/conflict fails; ACK precedes published-link display |
-| Existing shares / more / refresh selection | GET shares type=file; POST preview existing id/editToken | Bounded publisher-owned pages; select target file locally; refresh recaptures current authorized selection before explicit republish; stale token fails |
-| Share Copy / Revoke / Close preview | Native clipboard; POST revoke; local close | No clipboard success before ACK; revoke closes published gate only; closing preview does not delete the saved draft; dialogs hold pending operations |
+| Existing shares / more / refresh selection | GET shares type=file; POST preview existing id/editToken | Bounded publisher-owned pages; select target file locally; refresh recaptures current authorized selection before explicit republish; stale token fails; old preview clears before refresh/publish; unknown outcomes refetch server list |
+| Share Copy / Revoke / Close preview | Native clipboard; POST revoke; local close | No clipboard success before ACK; revoke closes published gate only; closing preview does not delete the saved draft; dialogs hold pending operations; revoke clears the matching preview/link even if its ACK is lost |
 | Public frozen selection | GET public shares/id, anonymous credentials omitted | Exported PublicSharePage, no WorkspaceBoundary/session assumption; frozen metadata/Document selection/Chat entries only; metadata-only selections expose no byte link; 404 unavailable state, loading/retry/Refresh |
 | Public bytes / HTML | Verified public shares/id/file | Explicit native byte-download link; HTML only on explicit Preview HTML, credentials omitted, bounded exact-length body <=8 MiB, same empty sandbox/CSP; Close preview; root registers /shares/$shareId outside Shell |
 
@@ -124,3 +124,41 @@ Final followup source and typecheck SHA-256:
 | `apps/web/src/routes/files.tsx` | `6e7962c85a0349b29b1376340f3874c977db827d78770bad1e69b96487ea41df` |
 | `apps/web/src/components/files.tsx` | `baa99c259e33763e5b12bac8de04dc11f99a6c0ab3cd84abd0021f27b4ffd955` |
 | `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-F1-typecheck.log` | `3b6b08eb3eb1fe8e6d9ea6f267f898c4a838755784548447107b2900bf98a453` |
+
+## Mutation audit and independent finding F4 correction
+
+Signed source `3447a024e3803d40c64d7307b86f6ee8f3ebefde` changes only components/files.tsx, file-edit.tsx and file-shares.tsx. The root-owned share checkbox correction is untouched.
+
+| Reproduction on prior source | Correction and observed controlled result |
+| --- | --- |
+| Open FileEdit, change only title, refetch labels/visibility changed in another tab, save. Actual old payload included stale original labels/visibility/folder. | Immutable per-dialog baseline identifies changed draft fields; actual new PATCH is only `{title:"Renamed"}`. Folder partial edits use the same rule and preserve an existing null parent instead of substituting the currently browsed folder. Empty edits cannot submit. |
+| Prepare share preview, request Refresh selection, lose/refuse ACK. Old preview stayed publishable under the new requested selection. | Clear old preview before refresh; any failed operation invalidates authoritative share list, retaining the actual error. Lost Publish ACK clears obsolete editToken and never claims publication. Revoke clears matching preview/link before request so unknown ACK cannot leave a claimed published link. |
+| Open cached private File viewer and editor, then refetch returns 401/403/404. Cached metadata, FileEdit and Preview remained rendered. | Hide retained metadata/dialogs/Preview immediately; clear dialog modes, remove bounded preview query (cancels active query), and release object URL on unmount/error. 503 keeps the open metadata draft with a truthful retry error. Reader Ask is hidden; pending metadata/share dialogs fence parent close/actions. |
+| Start actual upload, Abort, change incoming folder/Project props, Retry exact upload. | Existing upload implementation is correct: same request URL/requestId/native File/frozen scope, fresh AbortSignal, uncertain-abort text, Saved only after ACK, workspace invalidate exactly after ACK. No upload correction required. |
+
+Before checks fail at the expected stale-payload, retained-share-preview and retained-private-preview assertions. After checks run actual component handlers with controlled React hook state, API transport and query results: all nine assertions pass. They do not prove browser lifecycle, actual backend access or storage behavior. Scoped Biome on all three changed sources, serialized web typecheck and staged diff-check pass on `3447a024e3803d40c64d7307b86f6ee8f3ebefde`. Build/browser/PG/native and independent re-review are UNVERIFIED for this followup; root combined suites own them.
+
+New share preview creation and Folder creation have no requestId/idempotency seam. Unknown ACK can leave a saved draft/Folder; refresh the authoritative list before deliberately creating again. Exact duplicate-free retry for these creates needs a backend seam decision; this lane does not invent a key or claim cancellation. Existing-share refresh/publish retains server editToken fencing.
+
+Additional numbered integrated browser scenarios (UNVERIFIED):
+
+9. Open FileEdit and FolderEdit, modify title only, concurrently change untouched labels/visibility/placement, refresh the underlying query and Save. Inspect PATCH to contain only title; unrelated metadata persists. Edit a root Folder while browsing a child and verify it stays at root. No-op Save is disabled.
+10. Prepare preview A; fail Refresh selection for B; A must disappear and cannot Publish. Lose successful publish/revoke ACK, refetch shares and recover through current list/token. Revoking a prepared share removes its local preview; no published link is claimed after unknown revoke.
+11. Open private File bytes and edit/share dialog; revoke reader/custodian authority, trigger refetch403/404. Assert metadata, backlinks, dialogs and bytes disappear, active preview request aborts, object URL releases, and Close/Retry remain usable. Repeat with transient503: preserve the open metadata draft and show Retry.
+12. Start upload, Abort before ACK, change Files URL scope while dialog survives, Retry. Inspect identical requestId/native bytes/frozen original scope and fresh signal; server reconciles one saved File. Do not claim saved status or browser cancellation before ACK.
+
+Followup SHA-256:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `apps/web/src/components/files.tsx` | `d41a3ce0d7205c59a989e4233058f5ccc59f52426df50f1783fef30677b669e0` |
+| `apps/web/src/components/file-edit.tsx` | `405b635d3b79ec92223b716bad41be07a73bd4f05a492fdedeefc6ec1df6b96c` |
+| `apps/web/src/components/file-shares.tsx` | `39a3bca7e27ed753f5b93ab5aeb9dfe7864bc74b95fcd58cf9e799a4cddab69c` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-mutation-check.tsx` | `d58cedc0e36914c4f72d898eafe5cb6ee6b1cb9e7121d0b5c045193facdd8679` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-mutation-baseline.tsx` | `aac78188c8a42c4f7304797d52bf98828d0e384d02774fd6b4e02fa93b6d528b` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-viewer-before.tsx` | `9d3d8f3903682321426fab593b96c140a39399ee76a3b250a30e39abda69f6f6` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-mutation-before.log` | `793caca62398315850bf7472c5d783f1bfc9a29eb5c42bc2aeae4a190a24a9f4` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-share-before.log` | `d8045ae90b3a17d987782dca1a7e58a575b92cc4883f314ba247259755a7acc7` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-viewer-before.log` | `17d1ee42aa4c82c5957e5df6b3d6bcdcaaea2815df14ac56c4f3009c33a235a7` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-mutation-after.log` | `a2465c1647616f045af023a97537234d07ffd3c2b8ae81fdd765a33febddbb4c` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-mutation-typecheck.log` | `3b6b08eb3eb1fe8e6d9ea6f267f898c4a838755784548447107b2900bf98a453` |
