@@ -1,24 +1,37 @@
 import {
   RiAddLine,
+  RiArchiveLine,
   RiCalendarScheduleLine,
   RiChat1Line,
-  RiCheckboxCircleLine,
-  RiCloseCircleLine,
   RiCodeSSlashLine,
+  RiEditLine,
+  RiLinkM,
+  RiMoreLine,
+  RiPauseCircleLine,
   RiPlayLine,
   RiRobot3Line,
-  RiSearchLine,
   RiShapesLine,
   RiUserLine,
 } from "@remixicon/react";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { Button } from "@workspace/ui/components/button";
 import { Card, CardContent } from "@workspace/ui/components/card";
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
   ContextMenuTrigger,
 } from "@workspace/ui/components/context-menu";
-import { DropdownMenuItem } from "@workspace/ui/components/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu";
+import { Input } from "@workspace/ui/components/input";
 import {
   Item,
   ItemActions,
@@ -26,147 +39,173 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item";
-import { toast } from "@workspace/ui/components/sonner";
-import { cn } from "@workspace/ui/lib/utils";
-import { useReducer, useState } from "react";
-import { ActivityEvent, Timeline, TimelineItem } from "@/components/activity";
-import { useCommandPalette } from "@/components/command-palette";
 import {
-  ChoiceItem,
-  DetailView,
-  PersonPicker,
-  Section,
-} from "@/components/detail";
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@workspace/ui/components/sidebar";
+import { toast } from "@workspace/ui/components/sonner";
+import { useRef, useState } from "react";
+import { Timeline, TimelineItem } from "@/components/activity";
+import { ConfigurationChoice } from "@/components/agents-configuration-choice";
+import { DetailView, Section } from "@/components/detail";
 import { EmptyPage } from "@/components/empty-page";
 import {
   FilterBar,
   type FilterDef,
   FilterMenu,
   NoResults,
-  omit,
 } from "@/components/filters";
 import { FloatingChat, useAskAgent } from "@/components/floating-chat";
 import { IconAction } from "@/components/icon-action";
-import { ItemMenuItems } from "@/components/item-menu";
 import { ListGroup } from "@/components/list-group";
 import { Page } from "@/components/page";
-import {
-  ActorAvatar,
-  actorOf,
-  ChatIcon,
-  chatWithLooks,
-  type Look,
-  nextRunLabel,
-  ownerLooks,
-  People,
-  repeatLook,
-  repeatPresets,
-  scheduleStatuses,
-} from "@/components/task-meta";
-import {
-  type Activity,
-  agents,
-  chats,
-  currentUserId,
-  type Schedule,
-  type ScheduleStatus,
-  schedules,
-} from "@/mock/tasks";
+import { QueryState } from "@/components/query-state";
+import { type Schedule, ScheduleEditor } from "@/components/schedules-editor";
+import { type Look, People } from "@/components/task-meta";
+import { read } from "@/lib/api";
+import { useDirectory } from "@/lib/directory";
+import { useWorkspace } from "@/lib/workspace";
 
-// What a schedule runs: a prompt an agent answers, or code.
-const kinds: Record<Schedule["kind"], Look> = {
+const kinds: Record<Schedule["type"], Look> = {
   prompt: { label: "Prompt", icon: RiChat1Line },
-  code: { label: "Code", icon: RiCodeSSlashLine },
+  script: { label: "Script", icon: RiCodeSSlashLine },
 };
-
-// Filters live in the URL, like Tasks': its type (prompt or code), the agent
-// that answers it and its owner ("me" is you). A missing key means any.
+const states: Record<Schedule["status"], Look> = {
+  enabled: { label: "Enabled", icon: RiPlayLine },
+  disabled: { label: "Disabled", icon: RiPauseCircleLine },
+  archived: { label: "Archived", icon: RiArchiveLine },
+};
+const order: Schedule["status"][] = ["enabled", "disabled", "archived"];
 export type SchedulesSearch = {
-  type?: Schedule["kind"];
+  type?: Schedule["type"];
   agent?: string;
   owner?: string;
+  status?: Schedule["status"];
+  query?: string;
+  sort?: "title" | "createdAt" | "updatedAt";
+  order?: "asc" | "desc";
+  after?: string;
 };
-
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function validateSchedulesSearch(
   search: Record<string, unknown>,
 ): SchedulesSearch {
-  const pick = (value: unknown, valid: (value: string) => boolean) =>
-    typeof value === "string" && valid(value) ? value : undefined;
+  const string = (value: unknown, max: number) =>
+    typeof value === "string" && value.length > 0 && value.length <= max
+      ? value
+      : undefined;
+  const sort =
+    search.sort === "title" ||
+    search.sort === "createdAt" ||
+    search.sort === "updatedAt"
+      ? search.sort
+      : undefined;
   return {
-    type: pick(search.type, (v) => v in kinds) as Schedule["kind"] | undefined,
-    agent: pick(search.agent, (v) => v in agents),
-    owner: pick(search.owner, (v) => v === "me" || v in ownerLooks),
+    type:
+      search.type === "prompt" || search.type === "script"
+        ? search.type
+        : undefined,
+    agent:
+      typeof search.agent === "string" && uuid.test(search.agent)
+        ? search.agent
+        : undefined,
+    owner: string(search.owner, 128),
+    status:
+      search.status === "enabled" ||
+      search.status === "disabled" ||
+      search.status === "archived"
+        ? search.status
+        : undefined,
+    query: string(search.query, 200),
+    sort,
+    order:
+      sort && (search.order === "asc" || search.order === "desc")
+        ? search.order
+        : undefined,
+    after: string(search.after, 4096),
   };
 }
 
-const agentLooks: Record<string, Look> = Object.fromEntries(
-  Object.keys(agents).map((id) => [id, chatWithLooks[id]]),
-);
-
-const filters: FilterDef<keyof SchedulesSearch>[] = [
-  { key: "type", label: "Type", icon: RiShapesLine, options: kinds },
-  {
-    key: "agent",
-    label: "Agent",
-    icon: RiRobot3Line,
-    people: true,
-    options: agentLooks,
-  },
-  {
-    key: "owner",
-    label: "Owner",
-    icon: RiUserLine,
-    people: true,
-    options: {
-      me: { ...ownerLooks[currentUserId], label: "Me" },
-      ...omit(ownerLooks, currentUserId),
-    },
-  },
-];
-
-const order: ScheduleStatus[] = ["active", "paused", "archived"];
-
-// A new schedule starts as a sentence to an agent, never a form: + (and the
-// empty page) start the floating chat with "Every ".
-const NEW_SCHEDULE = "Every ";
-
-const lowerFirst = (text: string) =>
-  text.replace(/^[A-Z]/, (first) => first.toLowerCase());
-
-// Schedules like Tasks: grouped by state (Active, Paused, then Archived,
-// folded), filtered by type, agent and owner. Each row says when it
-// runs next.
 export function SchedulesPage({ search }: { search: SchedulesSearch }) {
+  const { api, workspaceId, user, workspace } = useWorkspace();
+  const directory = useDirectory();
   const navigate = useNavigate({ from: "/schedules" });
-  const openPalette = useCommandPalette();
-  const ask = useAskAgent();
-  const visible = schedules.filter(
-    (schedule) =>
-      (!search.type || schedule.kind === search.type) &&
-      (!search.agent || schedule.agentId === search.agent) &&
-      (!search.owner ||
-        schedule.ownerId ===
-          (search.owner === "me" ? currentUserId : search.owner)),
-  );
+  const [creating, setCreating] = useState(false);
+  const writer = workspace.role !== "viewer";
+  const list = useInfiniteQuery({
+    queryKey: ["workspace", workspaceId, "schedules", search],
+    initialPageParam: search.after,
+    queryFn: async ({ pageParam }) =>
+      read(
+        await api.schedules.$get({
+          param: { workspaceId },
+          query: {
+            limit: "100",
+            sort: search.sort ?? "title",
+            order: search.order ?? "asc",
+            after: pageParam,
+            type: search.type,
+            agentId: search.agent,
+            ownerId: search.owner === "me" ? user.id : search.owner,
+            status: search.status,
+            query: search.query,
+          },
+        }),
+      ),
+    getNextPageParam: (page) => page.next ?? undefined,
+  });
+  const visible = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const filters: FilterDef<"type" | "agent" | "owner" | "status">[] = [
+    { key: "type", label: "Type", icon: RiShapesLine, options: kinds },
+    {
+      key: "status",
+      label: "State",
+      icon: RiCalendarScheduleLine,
+      options: states,
+    },
+    {
+      key: "agent",
+      label: "Agent",
+      icon: RiRobot3Line,
+      people: true,
+      options: {
+        ...(search.agent
+          ? { [search.agent]: { label: "Selected Agent", icon: RiRobot3Line } }
+          : {}),
+        ...Object.fromEntries(
+          directory.agents.map((agent) => [
+            agent.id,
+            { label: agent.title, icon: RiRobot3Line },
+          ]),
+        ),
+      },
+    },
+    {
+      key: "owner",
+      label: "Owner",
+      icon: RiUserLine,
+      people: true,
+      options: {
+        ...(search.owner && search.owner !== "me"
+          ? { [search.owner]: { label: "Selected owner", icon: RiUserLine } }
+          : {}),
+        me: { label: "Me", icon: RiUserLine },
+        ...Object.fromEntries(
+          directory.members
+            .filter((member) => member.userId !== user.id)
+            .map((member) => [
+              member.userId,
+              { label: member.name, icon: RiUserLine },
+            ]),
+        ),
+      },
+    },
+  ];
   const change = (key: keyof SchedulesSearch, value: string | undefined) =>
-    navigate({ search: (prev) => ({ ...prev, [key]: value }) });
+    navigate({
+      search: (previous) => ({ ...previous, [key]: value, after: undefined }),
+    });
   const clear = () => navigate({ search: {} });
-
-  if (schedules.length === 0) {
-    return (
-      <EmptyPage
-        icon={RiCalendarScheduleLine}
-        title="No schedules"
-        description="Run a prompt or code on a schedule, and post the result to a chat."
-        ask={{
-          about: "your schedules",
-          action: "New schedule",
-          start: NEW_SCHEDULE,
-        }}
-      />
-    );
-  }
-
   return (
     <Page
       title="Schedules"
@@ -175,16 +214,13 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
       actions={
         <>
           <FilterMenu filters={filters} values={search} onChange={change} />
-          <IconAction
-            label="Search"
-            icon={RiSearchLine}
-            onClick={() => openPalette()}
-          />
-          <IconAction
-            label="New schedule"
-            icon={RiAddLine}
-            onClick={() => ask(NEW_SCHEDULE)}
-          />
+          {writer && (
+            <IconAction
+              label="New schedule"
+              icon={RiAddLine}
+              onClick={() => setCreating(true)}
+            />
+          )}
         </>
       }
     >
@@ -194,48 +230,143 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
         onChange={change}
         onClear={clear}
       />
-      {visible.length === 0 ? (
-        <NoResults what="schedules" onClear={clear} />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          aria-label="Search schedules by whole words"
+          placeholder="Search by whole words"
+          maxLength={200}
+          value={search.query ?? ""}
+          onChange={(event) => change("query", event.target.value || undefined)}
+          className="max-w-xs"
+        />
+        <ConfigurationChoice
+          label="Sort schedules"
+          value={search.sort ?? "title"}
+          options={{
+            title: "Title",
+            createdAt: "Created",
+            updatedAt: "Updated",
+          }}
+          onChange={(value) => change("sort", value)}
+        />
+        <ConfigurationChoice
+          label="Sort order"
+          value={search.order ?? "asc"}
+          options={{ asc: "Ascending", desc: "Descending" }}
+          onChange={(value) =>
+            navigate({
+              search: (previous) => ({
+                ...previous,
+                sort: previous.sort ?? "title",
+                order: value,
+                after: undefined,
+              }),
+            })
+          }
+        />
+      </div>
+      <QueryState
+        pending={list.isPending}
+        error={list.error ?? directory.error}
+        retry={() => {
+          void list.refetch();
+          void directory.agentsQuery.refetch();
+          void directory.membersQuery.refetch();
+        }}
+      />
+      {list.data && visible.length === 0 ? (
+        search.type ||
+        search.agent ||
+        search.owner ||
+        search.status ||
+        search.query ||
+        search.after ? (
+          <NoResults what="schedules" onClear={clear} />
+        ) : (
+          <EmptyPage
+            icon={RiCalendarScheduleLine}
+            title="No schedules"
+            description="Run a prompt or script and post the result to an existing Chat."
+          >
+            {writer && (
+              <Button onClick={() => setCreating(true)}>New schedule</Button>
+            )}
+          </EmptyPage>
+        )
       ) : (
         <div className="flex flex-col gap-2">
-          {order.map((status) => {
-            const group = visible.filter((item) => item.status === status);
-            return (
-              <ListGroup
-                key={status}
-                look={scheduleStatuses[status]}
-                count={group.length}
-                defaultOpen={status !== "archived"}
-              >
-                {group.map((schedule) => (
+          {order.map((status) => (
+            <ListGroup
+              key={status}
+              look={states[status]}
+              count={visible.filter((item) => item.status === status).length}
+              defaultOpen={status !== "archived"}
+            >
+              {visible
+                .filter((item) => item.status === status)
+                .map((schedule) => (
                   <ScheduleRow key={schedule.id} schedule={schedule} />
                 ))}
-              </ListGroup>
-            );
-          })}
+            </ListGroup>
+          ))}
         </div>
       )}
+      {list.hasNextPage && (
+        <Button
+          variant="outline"
+          className="self-start"
+          disabled={list.isFetchingNextPage}
+          onClick={() => list.fetchNextPage()}
+        >
+          {list.isFetchingNextPage ? "Loading" : "More schedules"}
+        </Button>
+      )}
+      <ScheduleEditor
+        open={creating}
+        onOpenChange={setCreating}
+        onSaved={(id) =>
+          navigate({ to: "/schedules/$scheduleId", params: { scheduleId: id } })
+        }
+      />
     </Page>
   );
 }
 
-// A schedule's row, like a task's: its state, title, owner and agent; then
-// when it runs next (or that it is paused). Right-click opens the shared
-// item menu; schedules archive, never delete.
 export function ScheduleRow({
   schedule,
   grouped = true,
   when,
 }: {
   schedule: Schedule;
-  /** Under a list group's header (the chevron column); not on Home. */
   grouped?: boolean;
-  /** What the right side says instead of the next run (Home: "Ran 9:00"). */
   when?: string;
 }) {
+  const { api, workspaceId, user, workspace, invalidate } = useWorkspace();
   const navigate = useNavigate();
   const ask = useAskAgent();
-  const status = scheduleStatuses[schedule.status];
+  const canEdit = schedule.ownerId === user.id && workspace.role !== "viewer";
+  const mutation = useMutation({
+    mutationFn: async () =>
+      read(
+        await api.schedules[":id"].$patch({
+          param: { workspaceId, id: schedule.id },
+          json: {
+            editToken: schedule.editToken,
+            status: schedule.status === "archived" ? "disabled" : "archived",
+          },
+        }),
+      ),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success(
+        schedule.status === "archived"
+          ? "Schedule restored disabled"
+          : "Schedule archived",
+      );
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const look = states[schedule.status];
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<li />}>
@@ -248,322 +379,456 @@ export function ScheduleRow({
             />
           }
         >
-          {/* Chevron column, so the state icon sits under the header's. */}
           {grouped && <span className="size-3.5 shrink-0" aria-hidden />}
           <ItemMedia variant="icon">
-            <status.icon
-              aria-label={status.label}
-              className={status.className}
-            />
+            <look.icon aria-label={look.label} />
           </ItemMedia>
           <ItemContent className="flex-row items-center group-data-[size=xs]/item:gap-2">
-            <ItemTitle
-              className={cn(
-                schedule.status === "archived" && "text-muted-foreground",
-              )}
-            >
-              {schedule.title}
-            </ItemTitle>
-            <People
-              ids={[schedule.ownerId, schedule.agentId].filter(
-                (id): id is string => !!id,
-              )}
-            />
+            <ItemTitle>{schedule.title}</ItemTitle>
+            <People ids={[schedule.ownerId, schedule.agentId]} />
           </ItemContent>
           <ItemActions>
-            <span className="w-28 text-right text-xs text-muted-foreground tabular-nums">
+            <span className="w-44 text-right text-xs text-muted-foreground">
               {when ??
-                (schedule.status === "active" && schedule.nextAt
-                  ? nextRunLabel(schedule.nextAt)
-                  : status.label)}
+                (schedule.cron
+                  ? `${schedule.cron} · ${schedule.timezone}`
+                  : "Manual only")}
             </span>
           </ItemActions>
         </Item>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-48">
-        <ItemMenuItems
-          type="schedule"
-          name={schedule.title}
-          onOpen={() =>
-            navigate({
-              to: "/schedules/$scheduleId",
-              params: { scheduleId: schedule.id },
-            })
-          }
-          onAsk={() => ask(`About the schedule “${schedule.title}”, `)}
-          link={`/schedules/${schedule.id}`}
-          onArchive={
-            schedule.status === "archived"
-              ? undefined
-              : () => {
-                  schedule.status = "archived";
-                }
-          }
-        />
+        <ContextMenuGroup>
+          <ContextMenuItem
+            onClick={() =>
+              navigate({
+                to: "/schedules/$scheduleId",
+                params: { scheduleId: schedule.id },
+              })
+            }
+          >
+            Open
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() => ask(`About the schedule “${schedule.title}”, `)}
+          >
+            Ask about it
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => copyScheduleLink(schedule.id)}>
+            Copy link
+          </ContextMenuItem>
+          {canEdit && (
+            <ContextMenuItem
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate()}
+            >
+              {schedule.status === "archived" ? "Restore disabled" : "Archive"}
+            </ContextMenuItem>
+          )}
+        </ContextMenuGroup>
       </ContextMenuContent>
     </ContextMenu>
   );
 }
 
-// One schedule, like a task's page: owner (and, for a prompt, its agent)
-// under the title; the prompt (or code) read-only; then its activity:
-// created and changes as event lines, runs as cards, then the next run (a
-// hollow dot). The panel: state (picking one restores an archived
-// schedule), repeat (the tasks' presets; Custom asks) and the chat it posts
-// to (an existing one, or a new chat each run). What it says changes by
-// asking an agent; Run now runs it at once.
+async function copyScheduleLink(id: string) {
+  try {
+    await navigator.clipboard.writeText(`${location.origin}/schedules/${id}`);
+    toast.success("Link copied");
+  } catch {
+    toast.error("Unable to copy the link.");
+  }
+}
+
 export function SchedulePage({ scheduleId }: { scheduleId: string }) {
-  const schedule = schedules.find(({ id }) => id === scheduleId);
-  if (!schedule) return null;
-  return <ScheduleView key={schedule.id} schedule={schedule} />;
-}
-
-function ScheduleView({ schedule }: { schedule: Schedule }) {
-  const ask = useAskAgent();
-  // Mock only: changes write to the schedule in memory; this redraws.
-  const [, redraw] = useReducer((count: number) => count + 1, 0);
-  const [ownerId, setOwnerId] = useState(schedule.ownerId);
-  // A line in its activity, now.
-  const log = (actorId: string, body: string) =>
-    schedule.activity.push({
-      id: crypto.randomUUID(),
-      type: "event",
-      actorId,
-      body,
-      createdAt: new Date().toISOString(),
-    });
-  // A change, and the line it adds to the activity.
-  const update = (change: Partial<Schedule>, body: string) => {
-    Object.assign(schedule, change);
-    log(currentUserId, body);
-    redraw();
-  };
-  const live = schedule.status !== "archived";
-  // Repeats like a task, never "doesn't repeat"; its time joins the label.
-  const repeats: Record<string, Look> = Object.fromEntries(
-    Object.entries({
-      ...repeatPresets,
-      [schedule.rule]: repeatLook(schedule.rule),
-    })
-      .filter(([rule]) => rule !== "none")
-      .map(([rule, look]) => [
-        rule,
-        { ...look, label: `${look.label} at ${schedule.time}` },
-      ]),
-  );
-  // Where it posts: a new chat each run, or any chat (channels show their #
-  // icon, never a # in the name).
-  const chatLooks: Record<string, Look> = {
-    new: { label: "A new chat each run", icon: RiAddLine },
-    ...Object.fromEntries(
-      chats
-        .filter(({ archived, parentId }) => !archived && !parentId)
-        .map((chat) => [
-          chat.id,
-          { label: chat.title, icon: () => <ChatIcon chat={chat} /> },
-        ]),
-    ),
-  };
-  // A new chat each run is a setting, not a chat made now.
-  const postTo = (chatId: string) =>
-    update(
-      { chatId },
-      chatId === "new"
-        ? "now posts to a new chat each run"
-        : `now posts to ${chats.find(({ id }) => id === chatId)?.title}`,
+  const { api, workspaceId } = useWorkspace();
+  const query = useQuery({
+    queryKey: ["workspace", workspaceId, "schedule", scheduleId],
+    queryFn: async () =>
+      read(
+        await api.schedules[":id"].$get({
+          param: { workspaceId, id: scheduleId },
+        }),
+      ),
+  });
+  if (!query.data)
+    return (
+      <QueryState
+        pending={query.isPending}
+        error={query.error}
+        retry={query.refetch}
+      />
     );
-  const runNow = () => {
-    // Mock only: the run lands at once, done.
-    schedule.activity.push({
-      id: crypto.randomUUID(),
-      type: "comment",
-      actorId: schedule.agentId ?? currentUserId,
-      body: "Ran on request.",
-      createdAt: new Date().toISOString(),
-      run: "done",
-    });
-    redraw();
-    toast.success(`“${schedule.title}” ran`);
-  };
-
   return (
-    <DetailView
-      parent={{
-        label: "Schedules",
-        icon: RiCalendarScheduleLine,
-        link: <Link to="/schedules" search={{}} />,
-      }}
-      current={scheduleStatuses[schedule.status]}
-      title={schedule.title}
-      type="schedule"
-      archives
-      actions={
-        live && (
-          <IconAction label="Run now" icon={RiPlayLine} onClick={runNow} />
-        )
-      }
-      ask={<FloatingChat about="this schedule" />}
-      people={
-        <>
-          <PersonPicker
-            label="Owner"
-            value={ownerId}
-            options={ownerLooks}
-            onChange={setOwnerId}
-            hotkey="o"
-          />
-          {schedule.kind === "prompt" && schedule.agentId && (
-            <PersonPicker
-              label="Agent"
-              value={schedule.agentId}
-              options={agentLooks}
-              onChange={(agentId) =>
-                update(
-                  { agentId },
-                  `changed the agent to ${actorOf(agentId).name}`,
-                )
-              }
-              hotkey="a"
-            />
-          )}
-        </>
-      }
-      panel={
-        <>
-          <Section title="Properties">
-            {/* Archive is in the More menu; picking Active or Paused on an
-                archived schedule restores it. */}
-            <ChoiceItem<Schedule["status"]>
-              label="State"
-              value={schedule.status}
-              options={
-                live
-                  ? (omit(
-                      scheduleStatuses,
-                      "archived",
-                    ) as typeof scheduleStatuses)
-                  : scheduleStatuses
-              }
-              onChange={(status) =>
-                status !== schedule.status &&
-                update(
-                  { status },
-                  !live
-                    ? "restored the schedule"
-                    : status === "paused"
-                      ? "paused the schedule"
-                      : "resumed the schedule",
-                )
-              }
-              hotkey="s"
-            />
-            <ChoiceItem
-              label="Repeat"
-              value={schedule.rule}
-              options={repeats}
-              onChange={(rule) =>
-                update(
-                  { rule },
-                  `now repeats ${lowerFirst(repeatLook(rule).label)}`,
-                )
-              }
-              hotkey="r"
-              extra={
-                <DropdownMenuItem
-                  onClick={() => ask(`Run “${schedule.title}” every `)}
+    <ScheduleView
+      key={query.data.id}
+      schedule={query.data}
+      reload={query.refetch}
+    />
+  );
+}
+
+function ScheduleView({
+  schedule,
+  reload,
+}: {
+  schedule: Schedule;
+  reload: () => unknown;
+}) {
+  const { api, workspaceId, user, workspace, invalidate } = useWorkspace();
+  const directory = useDirectory();
+  const [editing, setEditing] = useState(false);
+  const [manualRunId, setManualRunId] = useState<string>();
+  const requestId = useRef<string | undefined>(undefined);
+  const canEdit = schedule.ownerId === user.id && workspace.role !== "viewer";
+  const update = useMutation({
+    mutationFn: async (status: Schedule["status"]) =>
+      read(
+        await api.schedules[":id"].$patch({
+          param: { workspaceId, id: schedule.id },
+          json: { editToken: schedule.editToken, status },
+        }),
+      ),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success("Schedule saved");
+    },
+  });
+  const run = useMutation({
+    mutationFn: async () => {
+      requestId.current ??= crypto.randomUUID();
+      return read(
+        await api.schedules[":id"].run.$post({
+          param: { workspaceId, id: schedule.id },
+          json: { requestId: requestId.current },
+        }),
+      );
+    },
+    onSuccess: async (result) => {
+      setManualRunId(result.id);
+      requestId.current = undefined;
+      await invalidate();
+      toast.success("Run admitted");
+    },
+  });
+  const history = useInfiniteQuery({
+    queryKey: ["workspace", workspaceId, "schedule-history", schedule.id],
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) =>
+      read(
+        await api.schedules[":id"].history.$get({
+          param: { workspaceId, id: schedule.id },
+          query: {
+            limit: "100",
+            sort: "receivedAt",
+            order: "desc",
+            after: pageParam,
+          },
+        }),
+      ),
+    getNextPageParam: (page) => page.next ?? undefined,
+  });
+  const busy = update.isPending || run.isPending;
+  const state = states[schedule.status];
+  const kind = kinds[schedule.type];
+  const chat = useQuery({
+    queryKey: ["workspace", workspaceId, "chat", schedule.chatId],
+    queryFn: async () =>
+      read(
+        await api.chats[":id"].$get({
+          param: { workspaceId, id: schedule.chatId },
+        }),
+      ),
+  });
+  return (
+    <>
+      <DetailView
+        parent={{
+          label: "Schedules",
+          icon: RiCalendarScheduleLine,
+          link: <Link to="/schedules" search={{}} />,
+        }}
+        current={state}
+        title={schedule.title}
+        type="schedule"
+        archives
+        people={<People ids={[schedule.ownerId, schedule.agentId]} />}
+        ask={<FloatingChat about="this schedule" />}
+        panel={
+          <>
+            <Section title="Properties">
+              <SidebarMenuItem>
+                <SidebarMenuButton disabled>
+                  <state.icon />
+                  {state.label}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton disabled>
+                  <kind.icon />
+                  {kinds[schedule.type].label}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton disabled>
+                  <RiCalendarScheduleLine />
+                  <span>
+                    {schedule.cron
+                      ? `${schedule.cron} · ${schedule.timezone}`
+                      : "Manual only"}
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {canEdit && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    disabled={busy}
+                    onClick={() => setEditing(true)}
+                  >
+                    <RiEditLine />
+                    Edit properties
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+            </Section>
+            <Section title="Chat">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={
+                    <Link
+                      to="/chats/$chatId"
+                      params={{ chatId: schedule.chatId }}
+                    />
+                  }
                 >
-                  Custom
-                </DropdownMenuItem>
-              }
-              plain
-            />
-          </Section>
-          <Section title="Chat">
-            <ChoiceItem
-              label="Chat"
-              value={schedule.chatId}
-              options={chatLooks}
-              onChange={postTo}
-              searchable
-            />
-          </Section>
-        </>
-      }
-    >
-      {schedule.kind === "code" ? (
-        <pre className="-mx-4 overflow-x-auto rounded-md bg-muted p-4 font-mono text-xs">
-          {schedule.body}
-        </pre>
-      ) : (
-        <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-          {schedule.body}
-        </p>
-      )}
-      <section className="flex flex-col gap-5">
-        <h2 className="text-base font-medium">Activity</h2>
-        <Timeline>
-          {schedule.activity.map((item) =>
-            item.run ? (
-              <RunCard key={item.id} run={item} />
-            ) : (
-              <ActivityEvent
-                key={item.id}
-                actorId={item.actorId}
-                body={item.body}
-                createdAt={item.createdAt}
+                  <RiChat1Line />
+                  {chat.data?.title ?? "Output Chat"}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <QueryState
+                pending={chat.isPending}
+                error={chat.error}
+                retry={chat.refetch}
               />
-            ),
-          )}
-          {schedule.status === "active" && schedule.nextAt && (
-            <TimelineItem dot="next" className="text-sm text-muted-foreground">
-              Next run {lowerFirst(nextRunLabel(schedule.nextAt))}
-            </TimelineItem>
-          )}
-        </Timeline>
-      </section>
-    </DetailView>
-  );
-}
-
-// A run, as a card like a comment: who ran it (its agent, or the owner for
-// code), when, how it went (a red Failed when it failed), and what it
-// posted.
-function RunCard({ run }: { run: Activity }) {
-  const failed = run.run === "failed";
-  return (
-    <TimelineItem>
-      <Card size="sm">
-        <CardContent>
-          <div className="flex items-center gap-2">
-            <ActorAvatar actorId={run.actorId} />
-            <span className="font-medium">{actorOf(run.actorId).name}</span>
-            <span className="text-muted-foreground tabular-nums">
-              {runTime.format(new Date(run.createdAt))}
-            </span>
-            <span
-              className={cn(
-                "ml-auto flex items-center gap-1.5 text-xs",
-                failed ? "text-destructive" : "text-muted-foreground",
-              )}
+            </Section>
+          </>
+        }
+        actions={
+          canEdit &&
+          schedule.status !== "archived" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => run.mutate()}
             >
-              {failed ? (
-                <RiCloseCircleLine className="size-3.5" />
-              ) : (
-                <RiCheckboxCircleLine className="size-3.5 text-status-done" />
-              )}
-              {failed ? "Failed" : "Ran"}
-            </span>
-          </div>
-          <p className="whitespace-pre-line">{run.body}</p>
-        </CardContent>
-      </Card>
-    </TimelineItem>
+              <RiPlayLine data-icon="inline-start" />
+              {run.isPending
+                ? "Admitting"
+                : run.error
+                  ? "Retry Run"
+                  : "Run now"}
+            </Button>
+          )
+        }
+        more={
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="More" />
+              }
+            >
+              <RiMoreLine />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => copyScheduleLink(schedule.id)}>
+                  <RiLinkM />
+                  Copy link
+                </DropdownMenuItem>
+                {canEdit && (
+                  <>
+                    <DropdownMenuItem
+                      disabled={busy}
+                      onClick={() => setEditing(true)}
+                    >
+                      <RiEditLine />
+                      Edit schedule
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={busy}
+                      onClick={() =>
+                        update.mutate(
+                          schedule.status === "archived"
+                            ? "disabled"
+                            : "archived",
+                        )
+                      }
+                    >
+                      <RiArchiveLine />
+                      {schedule.status === "archived"
+                        ? "Restore disabled"
+                        : "Archive"}
+                    </DropdownMenuItem>
+                    {schedule.status !== "archived" && (
+                      <DropdownMenuItem
+                        disabled={busy}
+                        onClick={() =>
+                          update.mutate(
+                            schedule.status === "enabled"
+                              ? "disabled"
+                              : "enabled",
+                          )
+                        }
+                      >
+                        {schedule.status === "enabled" ? "Disable" : "Enable"}
+                      </DropdownMenuItem>
+                    )}
+                  </>
+                )}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      >
+        <QueryState
+          error={update.error ?? run.error ?? directory.error}
+          retry={() => {
+            void reload();
+            void directory.membersQuery.refetch();
+          }}
+        />
+        {run.error && (
+          <p>
+            Retry uses the same admission request until Otto acknowledges it.
+            Check the output Chat if the outcome is uncertain.
+          </p>
+        )}
+        {schedule.type === "script" ? (
+          <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs">
+            {schedule.body}
+          </pre>
+        ) : (
+          <p className="whitespace-pre-wrap">{schedule.body}</p>
+        )}
+        {manualRunId && (
+          <section className="flex flex-col gap-3">
+            <h2 className="text-base font-medium">Manual Run</h2>
+            <ScheduleRun id={manualRunId} canControl={canEdit} />
+          </section>
+        )}
+        <section className="flex flex-col gap-5">
+          <h2 className="text-base font-medium">Delivery history</h2>
+          <QueryState
+            pending={history.isPending}
+            error={history.error}
+            retry={history.refetch}
+          />
+          {history.data?.pages.every((page) => page.items.length === 0) && (
+            <p className="text-muted-foreground">
+              No scheduled deliveries yet.
+            </p>
+          )}
+          <Timeline>
+            {history.data?.pages
+              .flatMap((page) => page.items)
+              .map((item) => (
+                <TimelineItem key={item.id}>
+                  <Card size="sm">
+                    <CardContent>
+                      <p>
+                        {item.outcome} ·{" "}
+                        {new Date(item.receivedAt).toLocaleString()}
+                      </p>
+                      {item.runId && (
+                        <ScheduleRun id={item.runId} canControl={canEdit} />
+                      )}
+                    </CardContent>
+                  </Card>
+                </TimelineItem>
+              ))}
+          </Timeline>
+          {history.hasNextPage && (
+            <Button
+              variant="outline"
+              className="self-start"
+              disabled={history.isFetchingNextPage}
+              onClick={() => history.fetchNextPage()}
+            >
+              More history
+            </Button>
+          )}
+        </section>
+      </DetailView>
+      <ScheduleEditor
+        open={editing}
+        onOpenChange={setEditing}
+        schedule={schedule}
+      />
+    </>
   );
 }
 
-const runTime = new Intl.DateTimeFormat("en", {
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-});
+function ScheduleRun({ id, canControl }: { id: string; canControl: boolean }) {
+  const { api, workspaceId, invalidate } = useWorkspace();
+  const query = useQuery({
+    queryKey: ["workspace", workspaceId, "run", id],
+    queryFn: async () =>
+      read(await api.runs[":id"].$get({ param: { workspaceId, id } })),
+    refetchInterval: (query) =>
+      query.state.data &&
+      ["queued", "launching", "running"].includes(query.state.data.state)
+        ? 2000
+        : false,
+  });
+  const stop = useMutation({
+    mutationFn: async () =>
+      read(await api.runs[":id"].stop.$post({ param: { workspaceId, id } })),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success("Stop acknowledged");
+    },
+  });
+  if (!query.data)
+    return (
+      <QueryState
+        pending={query.isPending}
+        error={query.error}
+        retry={query.refetch}
+      />
+    );
+  return (
+    <div className="flex flex-col gap-2">
+      <p>
+        {query.data.state}
+        {query.data.outcome ? ` · ${query.data.outcome}` : ""}
+      </p>
+      <div className="flex gap-2">
+        <Button
+          variant="ghost"
+          size="compact"
+          nativeButton={false}
+          render={
+            <Link to="/chats/$chatId" params={{ chatId: query.data.chatId }} />
+          }
+        >
+          Open output Chat
+        </Button>
+        {canControl &&
+          ["queued", "launching", "running", "uncertain"].includes(
+            query.data.state,
+          ) && (
+            <Button
+              variant="outline"
+              size="compact"
+              disabled={stop.isPending}
+              onClick={() => stop.mutate()}
+            >
+              {stop.isPending ? "Stopping" : "Stop Run"}
+            </Button>
+          )}
+      </div>
+      <QueryState error={stop.error ?? query.error} retry={query.refetch} />
+    </div>
+  );
+}
