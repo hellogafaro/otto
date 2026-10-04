@@ -169,6 +169,12 @@ export function ChatsSidebar() {
   const selected = useChat(match ? match.chatId : undefined);
   const chats = useChats({ archived: "false" });
   const { workspace } = useWorkspace();
+  // No chats: no sidebar. The new-chat page is the whole screen.
+  if (
+    !chats.error &&
+    (chats.isPending || chats.data?.pages.every((page) => !page.items.length))
+  )
+    return null;
   return (
     <SectionSidebar
       title="Chats"
@@ -198,35 +204,34 @@ export function ChatsSidebar() {
         error={chats.error}
         retry={chats.refetch}
       />
-      {!chats.error &&
-        !chats.data?.pages.every((page) => page.items.length === 0) && (
-          <>
-            <SidebarGroupLabel>Chats</SidebarGroupLabel>
-            <SidebarMenu>
-              {chats.data?.pages
-                .flatMap((page) => page.items)
-                .map((chat) => (
-                  <ChatRow key={chat.id} chat={chat} />
-                ))}
-            </SidebarMenu>
-            {chats.hasNextPage && (
-              <Button
-                variant="ghost"
-                disabled={chats.isFetchingNextPage}
-                onClick={() => chats.fetchNextPage()}
-              >
-                Load more chats
-              </Button>
-            )}
+      {!chats.error && (
+        <>
+          <SidebarGroupLabel>Chats</SidebarGroupLabel>
+          <SidebarMenu>
+            {chats.data?.pages
+              .flatMap((page) => page.items)
+              .map((chat) => (
+                <ChatRow key={chat.id} chat={chat} />
+              ))}
+          </SidebarMenu>
+          {chats.hasNextPage && (
             <Button
               variant="ghost"
-              nativeButton={false}
-              render={<Link to="/chats" />}
+              disabled={chats.isFetchingNextPage}
+              onClick={() => chats.fetchNextPage()}
             >
-              Browse chats
+              Load more chats
             </Button>
-          </>
-        )}
+          )}
+          <Button
+            variant="ghost"
+            nativeButton={false}
+            render={<Link to="/chats" />}
+          >
+            Browse chats
+          </Button>
+        </>
+      )}
     </SectionSidebar>
   );
 }
