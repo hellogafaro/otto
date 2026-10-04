@@ -18,8 +18,8 @@ import { FloatingChat, useAskAgent } from "@/components/floating-chat";
 import { FloatingLayer } from "@/components/page";
 
 // A page with nothing to show: no title or actions, just the empty state
-// centered both ways, with one or two buttons. With `ask`, the floating chat
-// is there too, as on every page, and the main button starts it (AI-first:
+// centered both ways, with one or two buttons and the floating chat.
+// With `ask`, the main button starts it (AI-first:
 // "New schedule" puts "Every " in the bar, it doesn't open a form).
 export function EmptyPage({
   icon: Icon,
@@ -43,7 +43,7 @@ export function EmptyPage({
   children?: ReactNode;
 }) {
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col p-5">
+    <div className="relative flex min-h-0 flex-1 flex-col p-5 pb-22">
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
@@ -57,11 +57,9 @@ export function EmptyPage({
           {children}
         </EmptyContent>
       </Empty>
-      {ask && (
-        <FloatingLayer>
-          <FloatingChat about={ask.about} />
-        </FloatingLayer>
-      )}
+      <FloatingLayer>
+        <FloatingChat about={ask?.about ?? "this page"} />
+      </FloatingLayer>
     </div>
   );
 }

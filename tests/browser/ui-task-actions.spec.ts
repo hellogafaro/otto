@@ -33,15 +33,23 @@ async function openTask(
   const projectId: string = (await project.json()).id;
   await page.goto(`/tasks?project=${projectId}`);
   await page.getByRole("button", { name: "New task", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "New task", exact: true });
-  await dialog.getByLabel("Title", { exact: true }).fill(title);
-  await dialog
-    .getByLabel("Description", { exact: true })
-    .fill("Original persisted description");
-  await dialog
-    .getByRole("button", { name: "Create task", exact: true })
-    .click();
-  await page.waitForURL((url) => /\/tasks\/[0-9a-f-]{36}$/.test(url.pathname));
+  await expect(
+    page.getByRole("textbox", {
+      name: "Message about your tasks",
+      exact: true,
+    }),
+  ).toContainText("Create a task in");
+  await expect(
+    page.getByRole("dialog", { name: "New task", exact: true }),
+  ).toHaveCount(0);
+  // Execution needs a configured Agent/account; seed the persisted Task through the real API for detail checks.
+  const created = await page.request.post(`${base}/tasks`, {
+    headers: { origin: fixture.origin },
+    data: { projectId, title, notes: "Original persisted description" },
+  });
+  expect(created.status()).toBe(200);
+  const createdTask: Task = await created.json();
+  await page.goto(`/tasks/${createdTask.id}`);
   await expect(
     page.getByRole("heading", { name: title, exact: true }),
   ).toBeVisible();
@@ -190,11 +198,11 @@ test("Tasks without a Project stay readable during directory loading and on mobi
       page.getByText("Choose a project", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Project", exact: true }),
-    ).toHaveText("Choose");
+      page.getByRole("textbox", { name: "Search tasks", exact: true }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "New task", exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(
       page.getByText("Something went wrong!", { exact: true }),
     ).toHaveCount(0);
@@ -213,16 +221,17 @@ test("Tasks without a Project stay readable during directory loading and on mobi
   await page.goto("/tasks");
   await expect(
     page.getByRole("heading", { name: "Tasks", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  await expect(page.getByText("No tasks yet", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Choose a project", { exact: true }),
+    page.getByRole("textbox", {
+      name: "Message about your tasks",
+      exact: true,
+    }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Project", exact: true }),
-  ).toHaveText("Choose");
   await expect(
     page.getByRole("button", { name: "New task", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(
     page.getByRole("status", { name: "Loading", exact: true }),
   ).toHaveCount(0);

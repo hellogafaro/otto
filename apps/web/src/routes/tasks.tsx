@@ -1,8 +1,9 @@
 import {
   RiAddLine,
-  RiArrowUpDownLine,
+  RiArchiveLine,
   RiBox3Line,
   RiCheckboxCircleLine,
+  RiSearchLine,
   RiUserFollowLine,
   RiUserLine,
 } from "@remixicon/react";
@@ -23,7 +24,6 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@workspace/ui/components/empty";
-import { Input } from "@workspace/ui/components/input";
 import {
   Item,
   ItemActions,
@@ -33,7 +33,8 @@ import {
 } from "@workspace/ui/components/item";
 import { toast } from "@workspace/ui/components/sonner";
 import { cn } from "@workspace/ui/lib/utils";
-import { useState } from "react";
+import { useCommandPalette } from "@/components/command-palette";
+import { EmptyPage } from "@/components/empty-page";
 import {
   FilterBar,
   type FilterDef,
@@ -41,12 +42,13 @@ import {
   NoResults,
 } from "@/components/filters";
 import { useAskAgent } from "@/components/floating-chat";
+import { IconAction } from "@/components/icon-action";
 import { ListGroup } from "@/components/list-group";
 import { mention } from "@/components/mentions";
 import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
 import { People, shortDate, statuses } from "@/components/task-meta";
-import { TaskForm, TaskPicker } from "@/components/tasks/task-form";
+import { TaskPicker } from "@/components/tasks/task-form";
 import { read } from "@/lib/api";
 import { useDirectory } from "@/lib/directory";
 import {
@@ -61,10 +63,11 @@ export { type TasksSearch, validateTasksSearch } from "@/lib/task-data";
 
 export function TasksPage({ search }: { search: TasksSearch }) {
   const navigate = useNavigate({ from: "/tasks" });
-  const { api, workspaceId, user } = useWorkspace();
+  const { api, workspaceId, user, workspace } = useWorkspace();
   const directory = useDirectory();
   const project = useTaskProject(search.project);
-  const [creating, setCreating] = useState(false);
+  const ask = useAskAgent();
+  const openPalette = useCommandPalette();
   const change = (key: keyof TasksSearch, value: string | undefined) =>
     navigate({
       search: (prev) => ({ ...prev, [key]: value, after: undefined }),
@@ -170,6 +173,85 @@ export function TasksPage({ search }: { search: TasksSearch }) {
   );
   if (search.project && !projectOptions[search.project])
     projectOptions[search.project] = "Selected project";
+  filters.unshift({
+    key: "project",
+    label: "Project",
+    icon: RiBox3Line,
+    options: Object.fromEntries(
+      Object.entries(projectOptions).map(([id, title]) => [
+        id,
+        { label: title, icon: RiBox3Line },
+      ]),
+    ),
+  });
+  filters.push({
+    key: "archived",
+    label: "Archive",
+    icon: RiArchiveLine,
+    options: {
+      true: { label: "Archived", icon: RiArchiveLine },
+      false: { label: "Active", icon: RiArchiveLine },
+    },
+  });
+  const filtered = Boolean(
+    search.owner ||
+      search.assignee ||
+      search.status ||
+      search.query ||
+      search.archived === "true" ||
+      search.after,
+  );
+  const canCreate = search.project
+    ? project.canWrite
+    : workspace.role !== "viewer";
+  const createStart = search.project
+    ? `Create a task in ${mention({ type: "project", id: search.project, label: projectOptions[search.project] ?? "Project" })} `
+    : "Create a task ";
+  if (
+    !filtered &&
+    !directory.pending &&
+    !directory.error &&
+    !query.error &&
+    !project.query.error &&
+    (!search.project || query.data?.items.length === 0)
+  ) {
+    return (
+      <EmptyPage
+        icon={RiCheckboxCircleLine}
+        title={
+          !search.project && directory.projects.length
+            ? "Choose a project"
+            : "No tasks yet"
+        }
+        description={
+          !search.project && directory.projects.length
+            ? "Select a project to see its tasks."
+            : "Tasks keep your project work organized."
+        }
+        ask={
+          canCreate
+            ? { about: "your tasks", action: "New task", start: createStart }
+            : undefined
+        }
+      >
+        {!search.project ? (
+          directory.projects.length ? (
+            <TaskPicker
+              label="Project"
+              icon={RiBox3Line}
+              value=""
+              options={projectOptions}
+              onChange={(id) => change("project", id)}
+            />
+          ) : (
+            <Button nativeButton={false} render={<Link to="/projects" />}>
+              Go to projects
+            </Button>
+          )
+        ) : null}
+      </EmptyPage>
+    );
+  }
   return (
     <Page
       title="Tasks"
@@ -177,12 +259,17 @@ export function TasksPage({ search }: { search: TasksSearch }) {
       actions={
         <>
           <FilterMenu filters={filters} values={search} onChange={change} />
+          <IconAction
+            label="Search"
+            icon={RiSearchLine}
+            onClick={() => openPalette("tasks")}
+          />
           <Button
             variant="ghost"
             size="icon-sm"
             aria-label="New task"
-            disabled={!project.canWrite}
-            onClick={() => setCreating(true)}
+            disabled={!canCreate}
+            onClick={() => ask(createStart)}
           >
             <RiAddLine />
           </Button>
@@ -198,95 +285,6 @@ export function TasksPage({ search }: { search: TasksSearch }) {
           void directory.agentsQuery.refetch();
         }}
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <TaskPicker
-          label="Project"
-          icon={RiBox3Line}
-          value={search.project ?? ""}
-          options={projectOptions}
-          onChange={(id) => change("project", id)}
-        />
-        <form
-          key={search.query ?? ""}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void change(
-              "query",
-              String(
-                new FormData(event.currentTarget).get("query") ?? "",
-              ).trim() || undefined,
-            );
-          }}
-          className="flex items-center gap-1"
-        >
-          <Input
-            name="query"
-            aria-label="Search tasks by whole words"
-            placeholder="Search whole words"
-            maxLength={200}
-            defaultValue={search.query}
-          />
-          <Button variant="outline" type="submit">
-            Search
-          </Button>
-        </form>
-        <TaskPicker
-          label="Sort tasks"
-          icon={RiArrowUpDownLine}
-          value={search.sort ?? "updatedAt"}
-          options={{
-            title: "Title",
-            createdAt: "Created",
-            updatedAt: "Updated",
-            dueAt: "Due date",
-          }}
-          onChange={(value) => change("sort", value)}
-        />
-        <Button
-          variant="outline"
-          onClick={() =>
-            navigate({
-              search: (prev) => ({
-                ...prev,
-                sort: prev.sort ?? "updatedAt",
-                order: (prev.order ?? "desc") === "asc" ? "desc" : "asc",
-                after: undefined,
-              }),
-            })
-          }
-        >
-          {(search.order ?? "desc") === "asc" ? "Ascending" : "Descending"}
-        </Button>
-        <Button
-          variant="outline"
-          aria-pressed={search.archived === "true"}
-          onClick={() =>
-            change("archived", search.archived === "true" ? undefined : "true")
-          }
-        >
-          Archived
-        </Button>
-      </div>
-      {directory.projectsQuery.hasNextPage && (
-        <Button
-          variant="outline"
-          className="self-start"
-          disabled={directory.projectsQuery.isFetchingNextPage}
-          onClick={() => directory.projectsQuery.fetchNextPage()}
-        >
-          Load more projects
-        </Button>
-      )}
-      {directory.agentsQuery.hasNextPage && (
-        <Button
-          variant="outline"
-          className="self-start"
-          disabled={directory.agentsQuery.isFetchingNextPage}
-          onClick={() => directory.agentsQuery.fetchNextPage()}
-        >
-          Load more agents for filters
-        </Button>
-      )}
       <FilterBar
         filters={filters}
         values={search}
@@ -355,19 +353,6 @@ export function TasksPage({ search }: { search: TasksSearch }) {
             </Button>
           )}
         </>
-      )}
-      {creating && search.project && (
-        <TaskForm
-          key={search.project}
-          projectId={search.project}
-          onClose={() => setCreating(false)}
-          onCreated={(task) => {
-            void navigate({
-              to: "/tasks/$taskId",
-              params: { taskId: task.id },
-            });
-          }}
-        />
       )}
     </Page>
   );

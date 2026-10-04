@@ -911,7 +911,7 @@ continue through bounded pages instead of treating the first hundred as complete
 
 Composer mentions query real workspace members, Agents, Projects and Files, with at most three results per kind. Task suggestions require the composer's explicit Project scope. Searches follow server whole-word matching; empty results and request failures are visible. File mentions use the File discriminator and saved identity.
 
-Command search omits empty result groups and the redundant Task scope label. Its placeholder is “Search”; an entered query with no matches shows “No results found.” after loading completes. Search uses the shared 800 ms debounce and stock Skeletons for a category heading and three icon/title rows, matching result spacing while waiting.
+Command search omits empty result groups and the redundant Task scope label. Its placeholder is “Search”; an entered query with no matches shows a compact empty state (icon tile and “No results for “query””, no period) after loading completes. Search uses the shared 800 ms debounce and stock Skeletons for a category heading and three icon/title rows, matching result spacing while waiting.
 
 ### Accounts and workspace access
 
@@ -942,3 +942,5 @@ Private pages remain behind the session-loading state until the previous authent
 Mention chips preserve the exact selected display label, including brackets and backslashes, through editing, sending and notification delivery.
 
 Unknown creation outcomes disable another submission in the current form and direct the person to check saved records. A definite client refusal preserves the draft for correction. Relation writes and document content share one pending fence so an acknowledgement cannot overwrite a newly typed draft. Denied reads hide cached private content; transient read failures retain fenced drafts with Retry.
+
+Task lists use the centered, header-free EmptyPage when no data exists without active filters. Filtered no-results views retain the page header and active FilterBar. The header holds the Filter menu (Project, status, owner, assignee and archive state), a Search action that opens the command palette on Tasks, and New task; there is no permanent toolbar and no sort controls. Empty pages retain the floating AI bar. New task actions only prefill that bar, including the selected Project when present.

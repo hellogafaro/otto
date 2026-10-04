@@ -2,6 +2,7 @@ import {
   type RemixiconComponentType,
   RiBox3Line,
   RiFileTextLine,
+  RiSearchLine,
   RiSettings3Line,
 } from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import {
   CommandItem,
   CommandList,
 } from "@workspace/ui/components/command";
+import { Empty, EmptyMedia, EmptyTitle } from "@workspace/ui/components/empty";
 import { Kbd, KbdGroup } from "@workspace/ui/components/kbd";
 import {
   NativeSelect,
@@ -286,7 +288,16 @@ function Palette({
           </div>
         )}
         {query && !searching && errors.length === 0 && (
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty className="py-0">
+            <Empty className="gap-2 p-6">
+              <EmptyMedia variant="icon">
+                <RiSearchLine />
+              </EmptyMedia>
+              <EmptyTitle className="text-sm">
+                No results for “{query}”
+              </EmptyTitle>
+            </Empty>
+          </CommandEmpty>
         )}
         {!searching && shows("tasks") && Boolean(tasks.data?.items.length) && (
           <CommandGroup heading="Tasks">
