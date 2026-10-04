@@ -104,16 +104,36 @@ async function holdMutation(page: Page, path: string, method: string) {
 }
 
 async function assertDocumentLocked(page: Page) {
-  await expect(titleEditor(page)).toBeDisabled();
+  // A modal makes its underlying page aria-hidden. Inspect the real disabled
+  // controls there as well, so the assertion still verifies the shared lock.
+  await expect(
+    page.getByRole("textbox", {
+      name: "Title",
+      exact: true,
+      includeHidden: true,
+    }),
+  ).toBeDisabled();
   await expect(bodyEditor(page)).toHaveAttribute("contenteditable", "false");
   await expect(
-    page.getByRole("button", { name: "Save document", exact: true }),
+    page.getByRole("button", {
+      name: "Save document",
+      exact: true,
+      includeHidden: true,
+    }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Saving", exact: true }),
+    page.getByRole("button", {
+      name: "Saving",
+      exact: true,
+      includeHidden: true,
+    }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("button", { name: "Archive", exact: true }),
+    page.getByRole("button", {
+      name: "Archive",
+      exact: true,
+      includeHidden: true,
+    }),
   ).toBeDisabled();
 }
 
