@@ -1,11 +1,11 @@
 import { RiBox3Line, RiFileTextLine } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { AskOtto } from "@/components/ask-otto";
 import { ChoiceItem, DetailView, Section } from "@/components/detail";
 import { Cover } from "@/components/dither";
 import { Editor } from "@/components/editor/editor";
 import { NotFound } from "@/components/empty-page";
+import { FloatingChat } from "@/components/floating-chat";
 import {
   ActorAvatar,
   actorOf,
@@ -58,7 +58,12 @@ function DocumentView({ document }: { document: Doc }) {
       }}
       current={{ icon: RiFileTextLine }}
       title={document.title}
-      ask={<AskOtto about="this document" />}
+      ask={
+        <FloatingChat
+          about="this document"
+          projectId={projectId === "none" ? undefined : projectId}
+        />
+      }
       cover={document.image && <Cover src={document.image} />}
       people={
         // The author is set by the server and cannot change, so it is plain

@@ -12,6 +12,7 @@ import {
   RiFolder3Line,
   RiInboxFill,
   RiInboxLine,
+  RiSearchLine,
   RiTimeFill,
   RiTimeLine,
 } from "@remixicon/react";
@@ -23,7 +24,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
-import type { ReactElement, ReactNode } from "react";
+import { Fragment, type ReactElement, type ReactNode } from "react";
+import { useCommandPalette } from "@/components/command-palette";
 import { ProfileMenu } from "@/components/profile-menu";
 
 type Destination = {
@@ -113,6 +115,7 @@ function RailItem({
 export function AppRail() {
   const matchRoute = useMatchRoute();
   const { setOpen } = useSidebar();
+  const openPalette = useCommandPalette();
 
   return (
     // Bars share one rule: p-2 around 32px buttons spaced gap-1, so the rail
@@ -123,18 +126,37 @@ export function AppRail() {
       aria-label="App navigation"
       className="flex shrink-0 flex-col gap-1 p-2 pt-3 select-none group-data-desktop/sidebar-wrapper:pt-1"
     >
-      {destinations.map(({ to, label, icon, activeIcon }) => {
+      {destinations.map(({ to, label, icon, activeIcon }, index) => {
         const active = Boolean(matchRoute({ to, fuzzy: to !== "/" }));
         const Icon = active ? activeIcon : icon;
         return (
-          <RailItem
-            key={to}
-            label={label}
-            active={active}
-            render={<Link to={to} onClick={() => setOpen(true)} />}
-          >
-            <Icon />
-          </RailItem>
+          <Fragment key={to}>
+            <RailItem
+              label={label}
+              active={active}
+              render={<Link to={to} onClick={() => setOpen(true)} />}
+            >
+              <Icon />
+            </RailItem>
+            {/* Search (the command palette) second, right after home. */}
+            {index === 0 && (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Search"
+                      onClick={() => openPalette()}
+                    />
+                  }
+                >
+                  <RiSearchLine />
+                </TooltipTrigger>
+                <TooltipContent side="right">Search</TooltipContent>
+              </Tooltip>
+            )}
+          </Fragment>
         );
       })}
 

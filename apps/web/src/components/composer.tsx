@@ -93,30 +93,46 @@ const SendOnEnter = Extension.create<{ onEnter: () => void }>({
 // dictates while the box is empty, sends once there is text or a file, and
 // stops a reply while `busy`. `tools` sit next to + (model or agent pickers).
 // Uploads are simulated until storage exists. `compact` is the one-line
-// floating bar (Ask Otto): + on the left, the main button on the right.
+// floating bar (the floating chat): + on the left, the main button on the
+// right. `embedded` is the smaller composer inside a 12px card (the floating
+// chat's window): 4px in, so 8px corners; its 28px buttons 4px in, so 4px
+// corners (radius shrinks in proportion); text 12px in (16px from the card, like the panel's text); one
+// step lighter than the card it sits on. `idle` sits before the main button
+// only while the box is empty (no text or files).
 export function Composer({
   onSend,
   placeholder,
   tools,
+  idle,
   busy = false,
   onStop,
   compact = false,
+  embedded = false,
   ref,
 }: {
   onSend: (text: string, files: FileRef[]) => void;
   placeholder: string;
   tools?: ReactNode;
+  idle?: ReactNode;
   busy?: boolean;
   onStop?: () => void;
   compact?: boolean;
+  embedded?: boolean;
   ref?: Ref<ComposerHandle>;
 }) {
+  // The embedded composer's buttons: 28px, 4px corners.
+  const button = embedded
+    ? ({ size: "icon-sm", className: "size-7 rounded-xs" } as const)
+    : ({ size: "icon-sm" } as const);
   const [files, setFiles] = useState<Pending[]>([]);
   const [dragging, setDragging] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   // Latest handlers for the editor's key and paste hooks.
   const actions = useRef({ send: () => {}, add: (_: FileList) => {} });
 
+  // Read live, so a changed placeholder (a new chat's members) shows at once.
+  const placeholderText = useRef(placeholder);
+  placeholderText.current = placeholder;
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -131,7 +147,7 @@ export function Composer({
         // The compact bar is one line: no Shift+Enter breaks.
         hardBreak: compact ? false : undefined,
       }),
-      Placeholder.configure({ placeholder }),
+      Placeholder.configure({ placeholder: () => placeholderText.current }),
       Mentions,
       SendOnEnter.configure({ onEnter: () => actions.current.send() }),
     ],
@@ -141,7 +157,9 @@ export function Composer({
       attributes: {
         class: compact
           ? "otto-composer no-scrollbar overflow-x-auto overflow-y-hidden p-1 text-sm whitespace-pre! outline-none"
-          : "otto-composer max-h-60 overflow-y-auto px-4 pt-3 text-sm outline-none",
+          : cn(
+              "otto-composer max-h-60 overflow-y-auto p-3 pb-0 text-sm outline-none",
+            ),
         "aria-label": placeholder,
       },
       // Pasted lines join into one in the compact bar.
@@ -161,6 +179,12 @@ export function Composer({
       },
     },
   });
+  useEffect(() => {
+    if (!editor) return;
+    editor.view.dom.setAttribute("aria-label", placeholder);
+    // An empty transaction redraws the placeholder.
+    editor.view.dispatch(editor.state.tr);
+  }, [editor, placeholder]);
   const empty = useEditorState({
     editor,
     selector: ({ editor }) => editor?.isEmpty ?? true,
@@ -234,19 +258,20 @@ export function Composer({
 
   // One main action, in priority order.
   const main = busy ? (
-    <MainButton label="Stop" onClick={onStop}>
+    <MainButton {...button} label="Stop" onClick={onStop}>
       <RiStopFill />
     </MainButton>
   ) : dictation.listening ? (
-    <MainButton label="Done" onClick={dictation.stop}>
+    <MainButton {...button} label="Done" onClick={dictation.stop}>
       <RiCheckLine />
     </MainButton>
   ) : hasContent ? (
-    <MainButton label="Send" type="submit" disabled={!canSend}>
+    <MainButton {...button} label="Send" type="submit" disabled={!canSend}>
       <RiArrowUpLine />
     </MainButton>
   ) : (
     <MainButton
+      {...button}
       label={dictation.supported ? "Dictate" : "Dictation isn't available"}
       disabled={!dictation.supported}
       onClick={dictation.start}
@@ -263,7 +288,7 @@ export function Composer({
         <TooltipTrigger
           render={
             <InputGroupButton
-              size="icon-sm"
+              {...button}
               aria-label="Cancel dictation"
               onClick={dictation.cancel}
             />
@@ -295,6 +320,8 @@ export function Composer({
             key={file.id}
             file={file}
             state={file.state}
+            compact={compact || embedded}
+            nested={embedded}
             onRemove={() => remove(file.id)}
           />
         ))}
@@ -307,7 +334,7 @@ export function Composer({
       <TooltipTrigger
         render={
           <InputGroupButton
-            size="icon-sm"
+            {...button}
             aria-label="Add files"
             onClick={() => picker.current?.click()}
           />
@@ -335,8 +362,18 @@ export function Composer({
         data-dragging={dragging}
         className={cn(
           "border-0 bg-card ring-1 ring-foreground/10 data-[dragging=true]:ring-ring dark:bg-card",
-          "rounded-xl",
-          compact ? "h-auto shadow-md" : "shadow-xs",
+          embedded
+            ? // The hairline inside, so its visible edge sits 4px in, where
+              // the top bar's buttons sit.
+              "rounded-md shadow-none ring-inset dark:bg-muted/50"
+            : cn(
+                "rounded-xl",
+                compact
+                  ? // Floats on the command palette's surface: dark,
+                    // translucent, blurred.
+                    "dark h-auto bg-popover/70 text-popover-foreground shadow-md backdrop-blur-2xl backdrop-saturate-150 dark:bg-popover/70"
+                  : "shadow-xs",
+              ),
         )}
         onDragOver={(event) => {
           if (!event.dataTransfer.types.includes("Files")) return;
@@ -365,6 +402,7 @@ export function Composer({
               className={cn("min-w-0 flex-1", dictation.listening && "hidden")}
             />
             {!dictation.listening && tools}
+            {!dictation.listening && !hasContent && idle}
             {main}
           </div>
         ) : (
@@ -617,16 +655,69 @@ function fileSize(bytes: number) {
 export function FileAttachment({
   file,
   state = "done",
+  compact = false,
+  nested = false,
   onRemove,
   onOpen,
 }: {
   file: FileRef;
   state?: "uploading" | "done";
+  /** The compact bar's chip: 28px, its thumbnail and name. */
+  compact?: boolean;
+  /** The chip inside the embedded composer's 8px corners: 4px corners,
+   * its thumbnail 2px. */
+  nested?: boolean;
   onRemove?: () => void;
   onOpen?: () => void;
 }) {
   const Icon = resourceIcons[resourceKindOf(file.type)];
   const image = file.type.startsWith("image/");
+  if (compact)
+    // 28px like the compact buttons: a 20px thumbnail 4px in (4px corners
+    // inside its 8px, which sit 4px inside the bar's 12px), the name cut in
+    // the middle so its end and type stay, and a 20px remove.
+    return (
+      <Attachment
+        size="xs"
+        state={state}
+        // 3px + the 1px border puts the thumbnail 4px in: 28px in all.
+        className={cn(
+          "min-w-0 gap-1.5 text-xs has-data-[slot=attachment-media]:p-0.75",
+          nested && "rounded-xs",
+        )}
+        title={file.name}
+      >
+        <AttachmentMedia
+          variant={image ? "image" : "icon"}
+          className={cn(
+            "w-5 group-data-[size=xs]/attachment:w-5",
+            nested ? "rounded-[2px]" : "rounded-xs",
+          )}
+        >
+          {state === "uploading" ? (
+            <Spinner />
+          ) : image ? (
+            <img src={file.url} alt="" />
+          ) : (
+            <Icon />
+          )}
+        </AttachmentMedia>
+        <AttachmentContent>
+          <AttachmentTitle className="font-normal">
+            {middleCut(file.name)}
+          </AttachmentTitle>
+        </AttachmentContent>
+        {onRemove && (
+          <AttachmentAction
+            aria-label={`Remove ${file.name}`}
+            className="size-5 rounded-xs"
+            onClick={onRemove}
+          >
+            <RiCloseLine />
+          </AttachmentAction>
+        )}
+      </Attachment>
+    );
   return (
     <Attachment size="sm" state={state}>
       <AttachmentMedia variant={image ? "image" : "icon"}>
@@ -665,4 +756,10 @@ export function FileAttachment({
       )}
     </Attachment>
   );
+}
+
+// A long file name cut in the middle, keeping its end and type:
+// "Banner-mob…08-10.jpg".
+function middleCut(name: string) {
+  return name.length > 24 ? `${name.slice(0, 10)}…${name.slice(-10)}` : name;
 }

@@ -5,7 +5,6 @@ import {
   RiCheckboxCircleLine,
   RiFileTextLine,
   RiFolder3Line,
-  RiHashtag,
 } from "@remixicon/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AvatarGroup } from "@workspace/ui/components/avatar";
@@ -27,7 +26,6 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 import { useState } from "react";
-import { AskOtto } from "@/components/ask-otto";
 import {
   ChoiceItem,
   DetailView,
@@ -38,10 +36,15 @@ import { Cover } from "@/components/dither";
 import { Editor } from "@/components/editor/editor";
 import { NotFound } from "@/components/empty-page";
 import { FileGallery } from "@/components/files";
+import { FloatingChat } from "@/components/floating-chat";
 import { Gallery } from "@/components/gallery";
 import {
   ActorAvatar,
   actorOf,
+  byUrgency,
+  ChatIcon,
+  Count,
+  chatKind,
   ownerLooks,
   priorities,
   projectStatuses,
@@ -125,7 +128,15 @@ function ProjectView({
   const members = project.memberIds ?? [];
   const names = members.map((member) => actorOf(member).name).join(", ");
   const projectTasks = tasks.filter((task) => task.projectId === id);
-  const chat = chats.find((candidate) => candidate.projectId === id);
+  // The project's one channel first, then the chats working in it.
+  const projectChats = chats
+    // Sub-threads show inside their parent chat, not here.
+    .filter((chat) => chat.projectId === id && !chat.archived && !chat.parentId)
+    .sort(
+      (a, b) =>
+        Number(chatKind(b) === "channel") - Number(chatKind(a) === "channel") ||
+        byUrgency(a, b),
+    );
   const projectDocuments = documents.filter(
     (document) => document.projectId === id,
   );
@@ -149,7 +160,13 @@ function ProjectView({
       }}
       current={projectStatuses[status]}
       title={project.title}
-      ask={<AskOtto about="this project" />}
+      ask={
+        <FloatingChat
+          about="this project"
+          projectId={id}
+          subject={{ type: "project", id, label: project.title }}
+        />
+      }
       cover={project.cover && <Cover src={project.cover} />}
       people={
         <>
@@ -202,26 +219,21 @@ function ProjectView({
               firstKey={0}
             />
           </Section>
-          {/* The project's chat, in its own group; opening it lands in Chats. */}
-          <Section title="Chat">
-            <SidebarMenuItem>
-              {chat ? (
+          {/* Its channel and the chats working in it (an agent there works
+              with the project's context); opening one lands in Chats. */}
+          <Section title="Chats" count={projectChats.length}>
+            {projectChats.map((chat) => (
+              <SidebarMenuItem key={chat.id}>
                 <SidebarMenuButton
                   render={
                     <Link to="/chats/$chatId" params={{ chatId: chat.id }} />
                   }
-                  aria-label={`Chat: ${chat.title}`}
                 >
-                  <RiHashtag />
+                  <ChatIcon chat={chat} />
                   <span>{chat.title}</span>
                 </SidebarMenuButton>
-              ) : (
-                <SidebarMenuButton aria-disabled>
-                  <RiHashtag />
-                  <span>No chat</span>
-                </SidebarMenuButton>
-              )}
-            </SidebarMenuItem>
+              </SidebarMenuItem>
+            ))}
           </Section>
         </>
       }
@@ -246,11 +258,7 @@ function ProjectView({
               <Icon data-icon="inline-start" />
               {label}
               {/* Counts only when there is something; Overview has none. */}
-              {!!counts[value] && (
-                <span className="text-muted-foreground tabular-nums">
-                  {counts[value]}
-                </span>
-              )}
+              {!!counts[value] && <Count>{counts[value]}</Count>}
             </Button>
           );
         })}

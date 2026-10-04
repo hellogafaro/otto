@@ -29,7 +29,6 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 import { useRef, useState } from "react";
-import { AskOtto } from "@/components/ask-otto";
 import {
   Composer,
   type ComposerHandle,
@@ -46,6 +45,7 @@ import {
 import { Editor } from "@/components/editor/editor";
 import { NotFound } from "@/components/empty-page";
 import { FileItems, fileResource, Lightbox } from "@/components/files";
+import { FloatingChat } from "@/components/floating-chat";
 import { MentionText, mention } from "@/components/mentions";
 import {
   ActorAvatar,
@@ -164,7 +164,14 @@ function TaskView({ task }: { task: Task }) {
       }}
       current={current}
       title={task.title}
-      ask={<AskOtto about="this task" ref={ask} />}
+      ask={
+        <FloatingChat
+          ref={ask}
+          about="this task"
+          projectId={task.projectId}
+          subject={{ type: "task", id: task.id, label: task.title }}
+        />
+      }
       people={
         <>
           <PersonPicker

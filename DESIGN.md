@@ -309,9 +309,9 @@ accent, compact 32px controls.
 - **Less is more.** Show state clearly and keep controls few. No subtasks, no
   nested comments, no subtitles on data-heavy pages.
 - **AI-first.** Creating and editing go through a sentence to Otto, the
-  orchestrator agent, in the Ask Otto bar: "New …" rows prefill the start of
-  a sentence ("I spent ") instead of opening forms. Sending starts a new chat
-  with Otto about what is open; it is never a comment. Instant human actions
+  orchestrator agent, in the floating chat: "New …" rows prefill the start
+  of a sentence ("I spent ") instead of opening forms. Sending starts a chat
+  about what is open; it is never a comment. Instant human actions
   stay one click: delete, copy, pick a file, change a property.
 - **Domain words.** The UI names things as the product does: task, project,
   document, file, schedule, chat. Never resource, library, artifact,
@@ -379,28 +379,43 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   hairline ring and `shadow-xs`. Lower is darker.
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
-- **Controls are 32px**: bar buttons, menu items, sidebar rows. Task list and
-  command palette rows are 36px. Dense bars (filter groups, palette tabs) use
-  the 28px `compact` button; the smallest buttons are 24px (`xs`).
+- **Controls are 32px**: bar buttons and sidebar rows. Task list and
+  command palette rows are 36px. Dropdown, combobox and suggestion items and
+  dense bars (filter groups, palette tabs, composer pickers) use 28px, the
+  `compact` button; the smallest buttons are 24px (`xs`).
 - **Buttons** pad 8px on both sides, icon or text (6px at `xs`). Icon or
   avatar to label is 8px everywhere. Buttons in a bar sit 4px apart.
+- **Even insets in rows.** What leads or ends a row (avatar, icon, key,
+  check) sits in a 20px slot as far from the side as from the top: 4px in
+  28px menu, combobox and suggestion rows, 6px in 32px sidebar rows. A bare
+  14px icon gets 3px each side of the slot, so it is 7px (or 9px) from every
+  edge. Labels after a slot share one column (32px or 34px in), and a
+  combobox's search icon and text sit on the items' columns.
 - **Rail** (`AppRail`): 48px wide, 8px around 32px buttons, no labels.
-  Inbox (home), Tasks, Projects, Chats, Schedules, Documents, Files.
-- **Section sidebar** (`SectionSidebar`): a section's own navigation (Chats)
-  on the frame beside the rail, divided by a hairline; a 40px header lined up
-  with the card's top bar.
+  Inbox (home), Search (the command palette), Tasks, Projects, Chats,
+  Schedules, Documents, Files.
+- **Left and right panels.** The rail stays alone on the frame. Inside the
+  card, a left panel (`SectionSidebar`) holds a section's own navigation
+  (Chats) and the right panel holds details; both are 280px, in the card's
+  color, divided from the page by a hairline, with a 40px header level with
+  the page's top bar and the title 16px in. Left navigates, right details.
 - **Top bar** (`Topbar`): 40px, 32px controls 4px from every edge, no
   hairline. Breadcrumb on the left; page actions on the right, ending with
   the panel toggle.
+- **Right panel toggle** stays in the window's top right corner: in the
+  page's top bar while the panel is closed, in the panel's own top bar
+  ("Details" and the toggle) once open. The panel opens and closes at once,
+  with no slide.
 - **Desktop app.** The desktop app adds a 40px title strip above the shell
   (traffic lights, back and forward, one tab per open page); `?desktop`
   previews it in a browser. The web app has none.
-- **Widths follow φ**: the page column is 728px; Ask Otto is 728 ÷ φ = 450px;
+- **Widths follow φ**: the page column is 728px; the floating chat bar
+  is 728 ÷ φ = 450px;
   sidebars and the right panel are 450 ÷ φ = 280px.
 - **Page** (`Page`): a centered column, `default` (max 3xl) for reading and
   settings, `wide` (max 5xl) for lists. 20px between header and content;
   20px side padding, 52px top and bottom on desktop. An optional `cover` sits
-  above the title; an optional `floating` bar (Ask Otto) replaces the bottom
+  above the title; an optional `floating` bar (the floating chat) replaces the bottom
   padding and rests 16px above the bottom.
 - **Galleries** (`Gallery`): 3 columns for projects, 4 for documents and
   files; 12px between columns, 20px between rows so a title stays with its
@@ -426,9 +441,9 @@ Depth comes from translucency and hairlines, not heavy shadows.
 - **Dialogs** (the command palette) sit over a plain 50% black overlay, no
   blur. The file viewer is a full-screen dialog (`fullScreen`) on the page
   background.
-- **Ask Otto** floats: card surface, hairline ring and `shadow-md`, on a fade
-  from the page background (bottom) to transparent (32px above it), so
-  content scrolling under it fades out.
+- **The floating chat** floats on the command palette's glass (dark,
+  translucent, blurred, hairline ring, `shadow-md`) with nothing behind it:
+  content scrolls on under the glass. Only the bar takes clicks.
 
 ## Shapes
 
@@ -452,7 +467,7 @@ cards and have an 8px radius.
 - Gallery tiles, covers, attachments and media in the file viewer are `md` 8.
 - Avatars are rounded squares at about a quarter of their side: 20px `xs`,
   28px `sm`, 32px `md`, 40px `lg`. Badges stay pills.
-- Bars and inputs are never fully round: Ask Otto keeps the composer's `xl`.
+- Bars and inputs are never fully round: the floating chat keeps the composer's `xl`.
 
 ## Components
 
@@ -487,12 +502,14 @@ hotkey, then options with number-key shortcuts shown as keys; the selected
 option shows a check instead of its key. A searchable `Combobox` for long
 lists, topped by `ComboboxSearch`: like the command palette, a search icon on
 the item icon column and a transparent 36px input over a full-width bottom
-border. "/" and "@" suggestion lists use the same 32px rows.
+border. "/" and "@" suggestion lists use the same 28px rows.
 
 **Right panel.** A stock shadcn sidebar: collapsible `SidebarGroup` sections
-with stock spacing and no dividers; the first title lines up with the top
-bar's buttons. Muted section titles with an optional count, hidden when there
-is nothing (no "0"). Property rows open their menu; each
+with stock spacing and no dividers, under its own 40px top bar ("Details",
+its title on the section titles' line, and the panel toggle). Muted section
+titles with an optional count, hidden when there is nothing (no "0").
+Counts everywhere sit right after their label, softer than it
+(`Count`), the label's icon-to-label gap away. Property rows open their menu; each
 has a hotkey. A "New …" row ends a list. Row actions appear on hover (always on
 touch), and hovering one keeps its row highlighted. Repeat stores an iCalendar
 rule: presets plus Custom, which asks Otto.
@@ -507,7 +524,7 @@ and paste too), shown as `Attachment`s with upload state. The main button
 dictates when empty, sends with content and stops while `busy`. A `tools` slot
 after + holds pickers (model, agent). Enter sends, Shift+Enter adds a line.
 `@` opens a grouped palette (people, agents, tasks, projects, files). Otto is
-not in it: Otto is reached through Ask Otto, not tagged.
+not in it: Otto is reached through the floating chat, not tagged.
 
 **Tags** (`MentionChip`). Everywhere (composer, messages, comments): the type
 icon and label in primary on a soft primary tint (10%, 15% dark) with `xs`
@@ -518,13 +535,43 @@ bars 2px apart, the elapsed time and Done. The bars start flat (a row of 4px
 dots) and rise only with the mic level; the speech range (up to ~6 kHz) spans
 the width, mirrored from the center.
 
-**Ask Otto** (`AskOtto`, the `compact` composer). A floating bar at the bottom
-of task, project and document pages and the file viewer: "Ask Otto about
-this task / project / document / file". One line, 40px, 450px wide (the
-728px column ÷ φ), centered under the content; text scrolls sideways, never
-wraps. + on the left, the main button on the right, 4px from the edges.
-Attachments sit above the row. Page actions that Otto does (log time, a
-custom repeat) prefill it. Sending starts a new chat with Otto.
+**Floating chat** (`FloatingChat`). On every page but Chats (and in the file
+viewer): one row at the bottom, kept one line tall so it never covers the
+page, floating 16px above the bottom: the compact composer as a 40px, 450px
+bar (the 728px column ÷ φ), "Ask Otto about this task / page": +, the text,
+Chats (a red dot while any need you) as a ghost button before the main
+button, shown only while the bar is empty. Bar and window wear the command
+palette's surface: dark, translucent (popover at 70%), blurred. Attachments
+in the bar and the window are 28px chips: a 20px thumbnail, the name cut in
+the middle, and remove (in the embedded composer, 4px corners and a 2px
+thumbnail corner, to nest). Sending starts a chat with Otto in the page's
+project (fixed), the first message led by an inline link to the item, and the
+bar grows into a window up over the page. The window is a 12px card on the
+bar's surface (no change as it grows), the column plus 4px a side, fitting
+its content up to 30rem, with the panel's insets: a 40px top bar (32px
+buttons 4px in, the title 16px in), messages and the composer's text on the
+same 16px line, the embedded composer (`Composer embedded`) 4px in with 8px
+corners, 28px buttons 4px in with 4px corners (radius shrinks in proportion),
+one step lighter. The title switches chats: a search grouped like the Chats
+sidebar (Pinned, Waiting, Working, Snoozed, Done; no archived), one thing at
+each row's end (status, else time; the open chat shows the check). Then Chats
+(the list of chats waiting on your input or ready for your review, as 32px
+rows, with no composer; a row opens that chat), New chat (who it's with: Otto
+unless picked), Minimize, Open as a page and Close. Minimized, the bar reads
+"Reply to Otto" and shows the chat's status and title, which reopens it; the
+chat follows you from page to page. Escape minimizes. The agent sees the page
+you are on. Page actions (log time, a custom repeat) prefill it. The same
+chats as in Chats.
+
+**Morph.** Folding, growing and switching between a chat and Chats morph
+(View Transitions, 320ms ease-out, off with reduced motion;
+`floating-chat.css`): the window grows from the bar's box, widening evenly
+and rising; the composer morphs with its bottom edge pinned (its old and new
+boxes share it), its corners settling from 12px to 8px. Each part clips its
+snapshots, which keep their size, so nothing stretches, and blurs what is
+behind it, so its translucent snapshot looks like the real surface at every
+frame: no flash at either end. Old snapshots leave quickly where both sides
+have content, so nothing shows twice.
 
 **Activity.** Events are muted single lines with a 20px avatar. Comments are
 cards with Copy and Reply in the top-right corner on the card insets. Replies
@@ -532,8 +579,31 @@ stay flat: Reply tags the author. Comment attachments open in the file viewer.
 
 **Inbox** is home ("/"): what needs you; empty, it reads "Nothing needs you".
 
-**Chats.** Project chats (#name) and direct chats (with a person or an agent)
-in the Chats section sidebar; /chats opens the first. One chat:
+**Chats.** One chat model for every kind: a project's one general chat
+(#name), group chats (any members, with or without a project) and direct
+chats with a person or an agent; several chats with the same person or agent
+are fine. A chat may belong to a project and then works in its context.
+
+- **Sidebar**: Pinned, Waiting, Working, Snoozed and Done, collapsible, each
+  with its count. Rows are one line at normal weight (bright when unread or
+  waiting on you), the whole title running under the right slot instead of
+  truncating. Icons: # for a general chat, the group icon for group chats,
+  the avatar for direct chats. The slot is solid in the row's color, fading
+  in from the left, and holds one thing: the status (yellow circle waiting
+  on you, red warning when a run failed, purple part-filled circle while an
+  agent works, draft, green check when done) or else the time since the last
+  message; on hover, keyboard focus or an open menu only Pin, Archive and
+  More. Hovering a title shows a card: the title, what it is, then a divider,
+  the members and when it was last active. No status in the card.
+- **New chat** (`+`, /chats/new): a generic empty state, With (one or several
+  people and agents) and Project as 28px text-only pickers 8px above the
+  composer, on its text edge. Sending creates the chat.
+- **Sub-threads**: an agent's session opened from a chat is a child chat, one
+  level only, kept out of the sidebar. The parent shows it inline as a card
+  (agents, title, status, chevron) that opens it; its top bar leads back to
+  the parent.
+
+One chat:
 
 - **Messages** follow one pattern for everyone, like Slack, all on the left:
   a 28px avatar (its top 2px above the name's capitals), the name and time on
@@ -557,10 +627,11 @@ in the Chats section sidebar; /chats opens the first. One chat:
   question, then the choices as one bordered list of 40px rows split by
   hairlines (number keys pick), then Send on the right. Answered, it keeps the
   question and the picked row.
-- **Scroll to end**: a 32px outline button with its label, on the card color
-  with `shadow-md`, 16px above the composer, shown once you scroll up.
-- **Panel**: Project (project chats), Members (people, then agents; Add
-  member) and Files shared in the chat, hidden until something is shared.
+- **Scroll to end**: a 28px outline button with its label, on the card color
+  with `shadow-md`, 8px above the composer, shown once you scroll up.
+- **Panel**: Project (a link for general chats and sub-threads, else a
+  picker), Members (people, then agents; Add member) and Files shared in the
+  chat, hidden until something is shared. A project's panel lists its chats.
 
 **Empty states and 404.** `EmptyPage` is only for when a place has nothing at
 all (no tasks, not "no matches"). It replaces the whole page, title and
@@ -601,7 +672,7 @@ right. 20px avatars in a group overlap 4px.
 
 **Detail pages** (`DetailView`). Tasks, projects and documents share one shape:
 the top bar, then the page (optional cover, title, people row, body), the
-right panel and the Ask Otto bar.
+right panel and the floating chat.
 
 - **Task:** owner and assignee as avatar buttons (no labels; hover names the
   role and its key); the description (markdown editor with `/` blocks);
@@ -630,7 +701,7 @@ files are 4:5 showing their picture or their type ("PDF").
 48px top bar (type icon, title, "Image · Oct 3"; Open task, Download, Close),
 the file centered with `md` corners and the ring, 48px from the sides
 where the previous and next arrows sit 9px in (← → too, except inside a
-player), and Ask Otto at the bottom. Read-only previews: images, video and
+player), and the floating chat at the bottom. Read-only previews: images, video and
 audio in the browser's players, PDFs in its viewer, Markdown rendered like a
 document; anything else shows its type. The open file is in the URL
 (`?open=`) on the Files page.
@@ -649,7 +720,7 @@ document; anything else shows its type. The open file is in the URL
 - Do keep chat messages in one left-aligned pattern; don't right-align your
   own or bring back bubbles for some senders.
 - Do keep tooltips to one label; don't put metadata in a tooltip.
-- Do route creation through Ask Otto; don't add a form for something a
+- Do route creation through the floating chat; don't add a form for something a
   sentence can ask for, and don't send it as a comment.
 - Do use the domain words (task, project, document, file) in copy and
   prompts; don't call a file a resource or the Files section a library.

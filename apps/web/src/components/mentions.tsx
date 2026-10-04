@@ -242,7 +242,8 @@ function MentionList({ items, command, ref }: ListProps<Mentionable>) {
                 onClick={() => pick(item)}
               >
                 {/* With a hint the row takes two lines; the media stays on the
-                  title line (20px media, 20px title line). */}
+                  first title line. A long title wraps at 18px lines, tight
+                  like the hint under it; one line still makes a 28px row. */}
                 <ItemMedia
                   variant="icon"
                   className="group-has-data-[slot=item-description]/item:translate-y-0"
@@ -257,7 +258,7 @@ function MentionList({ items, command, ref }: ListProps<Mentionable>) {
                   )}
                 </ItemMedia>
                 <ItemContent className="min-w-0">
-                  <ItemTitle className="line-clamp-2 text-left leading-5 font-normal">
+                  <ItemTitle className="line-clamp-2 text-left leading-4.5 font-normal">
                     {item.label}
                   </ItemTitle>
                   {item.hint && <ItemDescription>{item.hint}</ItemDescription>}

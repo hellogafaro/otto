@@ -3,8 +3,12 @@ import {
   RiBox3Line,
   RiCheckboxCircleFill,
   RiCircleLine,
+  RiDraftLine,
+  RiErrorWarningLine,
   RiFileLine,
   RiFileTextLine,
+  RiGroupLine,
+  RiHashtag,
   RiImageLine,
   RiLockLine,
   RiLoopRightLine,
@@ -18,10 +22,12 @@ import {
   RiVideoLine,
 } from "@remixicon/react";
 import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { RRule } from "rrule";
 import {
   agents,
+  type Chat,
+  currentUserId,
   type DocumentVisibility,
   type ProjectStatus,
   projects,
@@ -262,6 +268,13 @@ export const ownerLooks: Record<string, Look> = Object.fromEntries(
   ]),
 );
 
+// Who a new chat is with: agents first, then people other than you.
+export const chatWithLooks: Record<string, Look> = Object.fromEntries(
+  [...Object.keys(agents), ...Object.keys(users)]
+    .filter((id) => id !== currentUserId)
+    .map((id) => [id, { label: actorOf(id).name, icon: avatarIcon(id) }]),
+);
+
 // Assignee picker: unassigned, then people, then agents.
 export const assigneeLooks: Record<string, Look> = {
   none: { label: "Unassigned", icon: avatarIcon("none") },
@@ -352,3 +365,111 @@ export const visibilityLooks: Record<DocumentVisibility, Look> = {
   user: { label: "Only me", icon: RiLockLine },
   workspace: { label: "Workspace", icon: RiTeamLine },
 };
+
+// How a chat reads, from its members (the server has one Chat model): you and
+// one agent or person is a one-to-one chat; anyone more makes a channel (a
+// project's one channel, or any group of people and agents).
+export function chatKind(chat: Chat): "channel" | "agent" | "person" {
+  const others = chat.memberIds.filter((id) => id !== currentUserId);
+  if (others.length !== 1) return "channel";
+  return others[0] in agents ? "agent" : "person";
+}
+
+// The agent or person on the other side of a one-to-one chat.
+export function chatOther(chat: Chat) {
+  return chat.memberIds.find((id) => id !== currentUserId);
+}
+
+// Where a chat stands, from its latest message: it needs you (a question, a
+// review or a failed run from an agent), an agent is working, it has news you
+// haven't read, or it is settled.
+export type ChatState =
+  | "question"
+  | "review"
+  | "failed"
+  | "working"
+  | "unread"
+  | "settled";
+
+export function chatState(chat: Chat): ChatState {
+  const last = chat.messages.at(-1);
+  if (!last || last.actorId === currentUserId) return "settled";
+  if (last.working) return "working";
+  if (last.question) return "question";
+  if (last.run?.failed) return "failed";
+  if (last.review) return "review";
+  if (!chat.readAt || last.createdAt > chat.readAt) return "unread";
+  return "settled";
+}
+
+export const needsYou = (state: ChatState) =>
+  state === "question" || state === "review" || state === "failed";
+
+// The Active order: what needs you, then what is working, then the most
+// recent activity.
+export function byUrgency(a: Chat, b: Chat) {
+  const rank = (chat: Chat) => {
+    const state = chatState(chat);
+    return needsYou(state) ? 0 : state === "working" ? 1 : 2;
+  };
+  const latest = (chat: Chat) =>
+    chat.messages.at(-1)?.createdAt ?? chat.createdAt ?? "";
+  return rank(a) - rank(b) || latest(b).localeCompare(latest(a));
+}
+
+// # for a project's general chat, the group icon for any other chat of
+// several, else the other one's avatar (an agent or a person). Icons get the
+// avatar's 20px slot so titles line up.
+export function ChatIcon({ chat }: { chat: Chat }) {
+  const other = chatOther(chat);
+  if (!chat.general && chatKind(chat) !== "channel" && other)
+    return <ActorAvatar actorId={other} />;
+  const Icon = chat.general ? RiHashtag : RiGroupLine;
+  return (
+    <span
+      data-slot="icon-slot"
+      className="flex size-5 shrink-0 items-center justify-center"
+    >
+      <Icon className="text-muted-foreground" />
+    </span>
+  );
+}
+
+// A chat's status, in the tasks' colors: red when a run failed, a yellow
+// circle when it waits on you (a question or a review), purple and part
+// filled while an agent works, your unsent draft, the green check once done.
+// None when nothing stands out.
+export function chatStatus(chat: Chat): Look | undefined {
+  const state = chatState(chat);
+  if (state === "failed")
+    return {
+      label: "A run failed",
+      icon: RiErrorWarningLine,
+      className: "text-destructive",
+    };
+  if (state === "question" || state === "review")
+    return {
+      label:
+        state === "question"
+          ? "Has a question for you"
+          : "Ready for your review",
+      icon: RiCircleLine,
+      className: "text-status-review",
+    };
+  if (state === "working") return { ...statuses.doing, label: "Working" };
+  if (chat.draft)
+    return {
+      label: "Draft",
+      icon: RiDraftLine,
+      className: "text-muted-foreground",
+    };
+  if (chat.done) return statuses.done;
+}
+
+// A count right after its label, softer than it, like "Pinned 2". It takes the
+// parent's gap, the same as icon to label, so the spacing stays proportional.
+export function Count({ children }: { children: ReactNode }) {
+  return (
+    <span className="text-muted-foreground/70 tabular-nums">{children}</span>
+  );
+}

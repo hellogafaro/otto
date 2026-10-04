@@ -11,7 +11,7 @@ import { EmptyPage, NotFound } from "@/components/empty-page";
 import { Page } from "@/components/page";
 import { Shell } from "@/components/shell";
 import { chats } from "@/mock/tasks";
-import { ChatPage } from "@/routes/chats";
+import { ChatPage, NewChatPage } from "@/routes/chats";
 import { DocumentPage } from "@/routes/document";
 import { DocumentsPage } from "@/routes/documents";
 import { FilesPage, validateFilesSearch } from "@/routes/files";
@@ -121,6 +121,19 @@ const chatsRoute = createRoute({
   },
 });
 
+// A new chat: who it is with and its project come in the URL (prefilled).
+const newChatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chats/new",
+  validateSearch: (search: Record<string, unknown>) => ({
+    with: typeof search.with === "string" ? search.with : undefined,
+    project: typeof search.project === "string" ? search.project : undefined,
+  }),
+  component: function NewChat() {
+    return <NewChatPage search={newChatRoute.useSearch()} />;
+  },
+});
+
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/chats/$chatId",
@@ -160,6 +173,7 @@ export const router = createRouter({
     projectsRoute,
     projectRoute,
     chatsRoute,
+    newChatRoute,
     chatRoute,
     documentsRoute,
     documentRoute,

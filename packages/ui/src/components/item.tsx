@@ -47,9 +47,9 @@ const itemVariants = cva(
         default: "gap-3.5 px-4 py-3.5",
         sm: "gap-2.5 px-3 py-2.5",
         // Otto: 8px sides like buttons. In suggestion lists ("/" and "@"), rows
-        // match dropdown items (32px,
-        // 6px radius; px-1.75 / py-1.25 + the 1px border = their 8px / 6px).
-        xs: "min-h-9 gap-2 px-2 py-1 in-data-[slot=dropdown-menu-content]:p-0 in-data-[slot=suggestion-list]:min-h-8 in-data-[slot=suggestion-list]:rounded-sm in-data-[slot=suggestion-list]:px-1.75 in-data-[slot=suggestion-list]:py-1.25",
+        // match dropdown items (28px, 6px radius, the 20px media slot 4px from
+        // the edges: px-0.75 / py-0.75 + the 1px border).
+        xs: "min-h-9 gap-2 px-2 py-1 in-data-[slot=dropdown-menu-content]:p-0 in-data-[slot=suggestion-list]:min-h-7 in-data-[slot=suggestion-list]:rounded-sm in-data-[slot=suggestion-list]:px-0.75 in-data-[slot=suggestion-list]:py-0.75",
       },
     },
     defaultVariants: {

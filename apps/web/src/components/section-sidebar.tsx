@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 
-// A section's own navigation (Chats), on the frame beside the rail: the layer
-// below the card, so it takes the frame's tone, divided from the rail by a
-// hairline. Its 40px header lines up with the card's top bar (8px down, like
-// the card; flush under the desktop strip). Rows and the header sit 8px from
-// its sides, so the gap to the card matches the card's margins.
+// The left panel: a section's own navigation (Chats), inside the card like
+// the right panel and mirroring it: the card's color, divided from the page
+// by a hairline, a 40px header level with the page's top bar (its title on
+// the right panel's 16px line). The rail stays alone on the frame. Left for
+// navigating the section, right for details.
 export function SectionSidebar({
   title,
   actions,
@@ -17,7 +17,7 @@ export function SectionSidebar({
 }) {
   return (
     // The sidebar width (280px) shared with the right panel.
-    <aside className="flex w-(--sidebar-width) shrink-0 flex-col border-l border-border pt-2 group-data-desktop/sidebar-wrapper:pt-0">
+    <aside className="flex w-(--sidebar-width) shrink-0 flex-col border-r">
       <header className="flex h-10 shrink-0 items-center justify-between gap-1 px-2">
         {/* pl-2 puts the title on the rows' icon line. */}
         <h2 className="truncate pl-2 text-sm font-medium">{title}</h2>

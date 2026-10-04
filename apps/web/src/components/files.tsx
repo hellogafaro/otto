@@ -25,10 +25,10 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner";
 import { cn } from "@workspace/ui/lib/utils";
 import { useEffect, useRef, useState } from "react";
-import { AskOtto } from "@/components/ask-otto";
 import type { FileRef } from "@/components/composer";
 import { Dither } from "@/components/dither";
 import { Editor } from "@/components/editor/editor";
+import { FloatingChat } from "@/components/floating-chat";
 import { Gallery, GalleryItem } from "@/components/gallery";
 import { IconAction } from "@/components/icon-action";
 import {
@@ -251,9 +251,18 @@ export function Lightbox({
               </>
             )}
           </div>
-          {/* Ask Otto 16px above the bottom, centered like on a page. */}
+          {/* The floating chat's bar 16px above the bottom, centered like on a page.
+              Sending closes the viewer to show the conversation. */}
           <div className="shrink-0 p-4">
-            <AskOtto about="this file" />
+            <FloatingChat
+              about="this file"
+              subject={{
+                type: "resource",
+                id: resource.id,
+                label: resource.title,
+              }}
+              onSent={() => onOpen(undefined)}
+            />
           </div>
         </DialogContent>
       )}

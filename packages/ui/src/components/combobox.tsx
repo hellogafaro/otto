@@ -97,10 +97,10 @@ function ComboboxSearch({
   return (
     <ComboboxInput
       showTrigger={false}
-      className={cn("[&>input]:pl-2!", className)}
+      className={cn("[&>input]:pl-2.75!", className)}
       {...props}
     >
-      <InputGroupAddon align="inline-start" className="pl-3">
+      <InputGroupAddon align="inline-start" className="pl-2.75">
         <RiSearchLine className="text-muted-foreground" />
       </InputGroupAddon>
     </ComboboxInput>
@@ -161,6 +161,8 @@ function ComboboxList({ className, ...props }: ComboboxPrimitive.List.Props) {
   );
 }
 
+// Otto: 28px items (py-1) with 20px slots 4px from their edges, like dropdown
+// menu items: a leading avatar or icon (3px each side) and the check.
 function ComboboxItem({
   className,
   children,
@@ -170,7 +172,7 @@ function ComboboxItem({
     <ComboboxPrimitive.Item
       data-slot="combobox-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground not-data-[variant=destructive]:data-highlighted:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1 pr-8 pl-2 text-sm outline-hidden select-none has-[>svg:first-child,>[data-slot=avatar]:first-child,>[data-slot=icon-slot]:first-child]:pl-1 [&>svg:first-child]:mx-0.75 data-highlighted:bg-accent data-highlighted:text-accent-foreground not-data-[variant=destructive]:data-highlighted:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         className,
       )}
       {...props}
@@ -178,7 +180,7 @@ function ComboboxItem({
       {children}
       <ComboboxPrimitive.ItemIndicator
         render={
-          <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
+          <span className="pointer-events-none absolute right-1 flex size-5 items-center justify-center" />
         }
       >
         <RiCheckLine className="pointer-events-none" />

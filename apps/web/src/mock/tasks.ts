@@ -493,29 +493,374 @@ export type ChatMessage = {
   question?: ChatQuestion;
   /** An agent still working on this; shown as live status. */
   working?: boolean;
+  /** An agent asking you to review what it did. */
+  review?: boolean;
+  /** The sub-thread an agent opened for this work (shown inline). */
+  threadId?: string;
   createdAt: string;
 };
 
+// One Chat model, as on the server: whether a chat reads as a channel or a
+// one-to-one chat derives from its members (chatKind). Each project has one
+// general chat (its channel, the only one that can't be duplicated); any
+// other chat may belong to a project too and works in its context.
 export type Chat = {
   id: string;
   title: string;
-  type: "project" | "direct";
   projectId?: string;
-  /** The person or agent on the other side of a direct chat. */
-  withId?: string;
   /** People and agents in the chat; agents always need membership. */
   memberIds: string[];
   messages: ChatMessage[];
+  archived?: boolean;
+  /** The project's one general chat. */
+  general?: boolean;
+  /** A sub-thread's parent chat; threads nest one level only. */
+  parentId?: string;
+  createdAt?: string;
+  /** Your read position: messages after it are unread. */
+  readAt?: string;
+  // How you organize it (yours alone): pinned on top, done, or snoozed out
+  // of Active until a time.
+  pinned?: boolean;
+  done?: boolean;
+  snoozedUntil?: string;
+  /** Your unsent message in its composer. */
+  draft?: string;
+  /** What it was started from ("task:t1"), asking an agent from that page;
+   * its project then stays fixed. */
+  origin?: string;
 };
 
 const minutesAgo = (minutes: number) =>
   new Date(Date.now() - minutes * 60_000).toISOString();
 
+// An agent chat: you ask, the agent answers (and maybe works, asks or fails).
+function agentChat(
+  id: string,
+  title: string,
+  agentId: string,
+  ask: string,
+  reply: Omit<ChatMessage, "id" | "actorId" | "createdAt">,
+  minutes: number,
+  extra: Partial<Chat> = {},
+): Chat {
+  return {
+    id,
+    title,
+    memberIds: [currentUserId, agentId],
+    messages: [
+      {
+        id: `${id}-1`,
+        actorId: currentUserId,
+        body: ask,
+        createdAt: minutesAgo(minutes + 3),
+      },
+      {
+        id: `${id}-2`,
+        actorId: agentId,
+        createdAt: minutesAgo(minutes),
+        ...reply,
+      },
+    ],
+    // Read up to now unless the chat says otherwise.
+    readAt: new Date().toISOString(),
+    ...extra,
+  };
+}
+
+// Agent chats in every state, so the queue can sort them: needs you
+// (review, a question, a failed run), working, unread and settled.
+function agentChats(): Chat[] {
+  const unread = { readAt: minutesAgo(60 * 24) };
+  return [
+    agentChat(
+      "f1",
+      "Fix Safari redirect loop",
+      "a_forge",
+      "Fix the Safari sign-in loop from @[Fix sign-in redirect loop on Safari](task:t1).",
+      {
+        body: "Ready for review: the guard now refreshes the session cookie before checking it. 38 tests pass.",
+        run: {
+          seconds: 412,
+          steps: [
+            "Reproduced the loop on Safari 17.4",
+            "Fixed the redirect guard",
+            "Ran 38 tests",
+          ],
+        },
+        review: true,
+      },
+      35,
+      { projectId: "p_web", ...unread },
+    ),
+    agentChat(
+      "f2",
+      "Add agent glyph to avatars",
+      "a_forge",
+      "Give agents a glyph in their avatars everywhere.",
+      {
+        body: "Updating the avatar component",
+        working: true,
+      },
+      2,
+      { projectId: "p_web" },
+    ),
+    agentChat(
+      "f3",
+      "Move settings into the profile menu",
+      "a_forge",
+      "Move settings into the profile menu and drop the sidebar link.",
+      {
+        body: "Two tests failed after the move: the settings route still expects the old sidebar link. Should I update the tests or keep the link?",
+        run: {
+          seconds: 161,
+          steps: ["Moved the settings entry", "Ran 38 tests"],
+          failed: true,
+        },
+      },
+      50,
+      { projectId: "p_web", ...unread },
+    ),
+    agentChat(
+      "f4",
+      "Upgrade Vite",
+      "a_forge",
+      "Upgrade Vite to the latest version.",
+      {
+        body: "Done: Vite 8 builds the app in under a second, and nothing else changed.",
+        run: { seconds: 96, steps: ["Upgraded Vite", "Built the app"] },
+      },
+      60 * 26,
+      { projectId: "p_web", done: true },
+    ),
+    agentChat(
+      "f5",
+      "Investigate slow task list",
+      "a_forge",
+      "Why does the task list feel slow with 500 tasks?",
+      {
+        body: "Each row re-renders on every filter change. Memoizing the rows cuts it from 180 ms to 12 ms; want me to do it?",
+        run: {
+          seconds: 230,
+          steps: ["Profiled the task list", "Found the re-renders"],
+        },
+      },
+      15,
+      { projectId: "p_web", ...unread },
+    ),
+    agentChat(
+      "f6",
+      "Flaky upload test",
+      "a_forge",
+      "The upload test fails one run in ten.",
+      {
+        body: "Fixed: it raced the upload's progress event.",
+      },
+      60 * 24 * 9,
+      { archived: true },
+    ),
+    agentChat(
+      "s1",
+      "Competitor pricing deep dive",
+      "a_scout",
+      "Go deeper on the five competitors' pricing.",
+      {
+        body: "I have the public plans. Two competitors only list enterprise pricing on request.",
+        run: {
+          seconds: 540,
+          steps: ["Read five pricing pages", "Compared plans and limits"],
+        },
+        question: {
+          name: "enterprise",
+          prompt: "Should I include enterprise plans?",
+          choices: [
+            { value: "yes", label: "Yes, estimate them" },
+            { value: "no", label: "No, public plans only" },
+          ],
+        },
+      },
+      25,
+      { projectId: "p_launch" },
+    ),
+    agentChat(
+      "s2",
+      "Onboarding drop-off analysis",
+      "a_scout",
+      "Where do people drop off between onboarding steps 2 and 3?",
+      {
+        body: "Reading the funnel events from the last 30 days",
+        working: true,
+      },
+      4,
+      { projectId: "p_onboarding" },
+    ),
+    agentChat(
+      "s3",
+      "Support themes, September",
+      "a_scout",
+      "Summarize September's support themes.",
+      {
+        body: "Billing changes, inviting teammates and what agents can access led again.",
+        run: {
+          seconds: 300,
+          steps: ["Read 198 conversations", "Grouped them by theme"],
+        },
+      },
+      60 * 30,
+      { projectId: "p_launch", done: true },
+    ),
+    agentChat(
+      "q1",
+      "Welcome email sequence",
+      "a_quill",
+      "Draft the welcome email sequence: three emails over a week.",
+      {
+        body: "Ready for review: three emails, under 120 words each, linking the guide and the templates.",
+        run: {
+          seconds: 186,
+          steps: ["Read the onboarding brief", "Drafted three emails"],
+        },
+        review: true,
+      },
+      70,
+      { projectId: "p_onboarding" },
+    ),
+    agentChat(
+      "q2",
+      "Launch blog post",
+      "a_quill",
+      "Write the launch blog post.",
+      {
+        body: "First draft is in the document, about 600 words, with the three benefits as sections.",
+        run: {
+          seconds: 410,
+          steps: ["Read the brand notes", "Wrote the draft"],
+        },
+      },
+      40,
+      {
+        projectId: "p_launch",
+        ...unread,
+        snoozedUntil: new Date(Date.now() + 18 * 3_600_000).toISOString(),
+      },
+    ),
+    agentChat(
+      "q3",
+      "Brand voice notes",
+      "a_quill",
+      "Turn the brand notes into a one-page voice guide.",
+      {
+        body: "Writing the do's and don'ts",
+        working: true,
+      },
+      1,
+      { projectId: "p_brand" },
+    ),
+    agentChat(
+      "o2",
+      "Weekly plan",
+      "a_otto",
+      "What should I focus on this week?",
+      {
+        body: "The Safari fix review, the welcome emails and the pricing decision; everything else can wait.",
+      },
+      60 * 50,
+      { done: true },
+    ),
+    agentChat(
+      "m2",
+      "Wordmark options",
+      "u_maya",
+      "Which wordmark weight did we land on?",
+      {
+        body: "Medium, with the tighter spacing. I'll share the files.",
+      },
+      90,
+      { draft: "Great, can you also export" },
+    ),
+    {
+      // Sub-threads: agent work opened from a message in a chat.
+      id: "t_faq",
+      title: "Draft the FAQ answers",
+      parentId: "c_launch",
+      projectId: "p_launch",
+      memberIds: [currentUserId, "a_quill", "a_scout"],
+      messages: [
+        {
+          id: "tf1",
+          actorId: "a_scout",
+          body: "Here are the ten questions, each with the conversations it came from.",
+          run: { seconds: 48, steps: ["Ranked the ten questions"] },
+          createdAt: minutesAgo(5),
+        },
+        {
+          id: "tf2",
+          actorId: "a_quill",
+          body: "Drafting answers 4 to 10",
+          working: true,
+          createdAt: minutesAgo(2),
+        },
+      ],
+      readAt: new Date().toISOString(),
+    },
+    {
+      id: "t_safari",
+      title: "Fix the Safari redirect loop",
+      parentId: "c_web",
+      projectId: "p_web",
+      memberIds: [currentUserId, "a_forge"],
+      messages: [
+        {
+          id: "ts1",
+          actorId: "a_forge",
+          body: "Reproduced it: an expired cookie bounces between /login and /callback.",
+          run: { seconds: 140, steps: ["Reproduced the loop on Safari 17.4"] },
+          createdAt: minutesAgo(130),
+        },
+        {
+          id: "ts2",
+          actorId: "a_forge",
+          body: "Fixed the guard and ran the 38 tests; ready for review.",
+          run: {
+            seconds: 260,
+            steps: ["Fixed the redirect guard", "Ran 38 tests"],
+          },
+          review: true,
+          createdAt: minutesAgo(91),
+        },
+      ],
+      readAt: new Date().toISOString(),
+    },
+    {
+      // A channel that is not a project's: two people and two agents.
+      id: "c_review",
+      readAt: new Date().toISOString(),
+      title: "launch-review",
+      memberIds: [currentUserId, "u_maya", "a_quill", "a_scout"],
+      messages: [
+        {
+          id: "r1",
+          actorId: "u_maya",
+          body: "Let's review the launch copy and the pricing page together here.",
+          createdAt: minutesAgo(200),
+        },
+        {
+          id: "r2",
+          actorId: "a_quill",
+          body: "I'll post the copy for each section as it's ready.",
+          createdAt: minutesAgo(190),
+        },
+      ],
+    },
+  ];
+}
+
 export const chats: Chat[] = [
   {
     id: "c_launch",
     title: "launch",
-    type: "project",
+    general: true,
+    pinned: true,
     projectId: "p_launch",
     memberIds: ["u_maya", "u_johan", "a_otto", "a_scout", "a_quill"],
     messages: [
@@ -817,16 +1162,18 @@ export const chats: Chat[] = [
       {
         id: "m3d",
         actorId: "a_quill",
-        body: "Drafting answers for the ten questions",
-        working: true,
+        body: "Drafting the answers with Scout in a thread.",
+        threadId: "t_faq",
         createdAt: minutesAgo(5),
       },
     ],
   },
   {
     id: "c_web",
+    readAt: new Date().toISOString(),
     title: "otto-web",
-    type: "project",
+    general: true,
+    pinned: true,
     projectId: "p_web",
     memberIds: ["u_johan", "u_maya", "a_forge", "a_otto"],
     messages: [
@@ -845,6 +1192,7 @@ export const chats: Chat[] = [
         id: "m4b",
         actorId: "a_forge",
         body: "The Safari redirect loop fix is ready for review: the guard now refreshes the session cookie before checking it.",
+        threadId: "t_safari",
         run: {
           seconds: 52,
           steps: [
@@ -874,9 +1222,9 @@ export const chats: Chat[] = [
   },
   {
     id: "c_otto",
-    title: "Otto",
-    type: "direct",
-    withId: "a_otto",
+    readAt: new Date().toISOString(),
+    title: "Launch site status",
+    projectId: "p_launch",
     memberIds: ["u_johan", "a_otto"],
     messages: [
       {
@@ -896,8 +1244,6 @@ export const chats: Chat[] = [
   {
     id: "c_maya",
     title: "Maya Lind",
-    type: "direct",
-    withId: "u_maya",
     memberIds: ["u_johan", "u_maya"],
     messages: [
       {
@@ -908,4 +1254,5 @@ export const chats: Chat[] = [
       },
     ],
   },
+  ...agentChats(),
 ];

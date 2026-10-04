@@ -1,5 +1,6 @@
 import { cn } from "@workspace/ui/lib/utils";
 import type { ReactNode } from "react";
+import { FloatingChat } from "@/components/floating-chat";
 
 // Scrollable page body: centered column with a title header (no subtitle).
 // Spacing follows the 4px-grid golden scale: 4 · 8 · 12 · 20 · 32 · 52.
@@ -10,15 +11,16 @@ export function Page({
   width = "default",
   cover,
   actions,
-  floating,
+  floating = <FloatingChat about="this page" />,
   children,
 }: {
   title: string;
   /** A block above the title, such as a cover image. */
   cover?: ReactNode;
   width?: "default" | "wide";
-  /** A bar that floats at the bottom of the view (Ask Otto); it rests under
-   * short content and stays 16px above the bottom while the page scrolls. */
+  /** The floating chat at the bottom of the view, set up for what is open
+   * (by default about "this page"); it rests under short content and stays
+   * 16px above the bottom while the page scrolls. */
   floating?: ReactNode;
   /** Page-level ghost icon buttons, shown right of the title. */
   actions?: ReactNode;
@@ -26,8 +28,8 @@ export function Page({
 }) {
   return (
     // Content fades as it scrolls under the top bar (and off the bottom). With
-    // a floating bar only the top fades: the bar brings its own gradient, and
-    // a bottom fade would dim the bar too.
+    // a floating bar only the top fades: content scrolls on under the bar's
+    // glass, and a bottom fade would dim the bar too.
     <div
       className={cn(
         "relative flex min-h-0 flex-1 flex-col overflow-y-auto",
@@ -49,10 +51,10 @@ export function Page({
         </header>
         {children}
         {floating && (
-          // Centered under the content. It rests 16px above the bottom on a
-          // column-wide fade from the page background (bottom) to transparent
-          // (32px above), so text scrolling under it fades out.
-          <div className="sticky bottom-0 z-10 -mx-5 mt-auto bg-linear-to-t from-background from-60% to-transparent px-5 pt-8 pb-4">
+          // Centered under the content, 16px above the bottom, with nothing
+          // behind it: content scrolls on under the bar's translucent glass.
+          // Only the bar takes clicks; the space around it passes them on.
+          <div className="pointer-events-none sticky bottom-0 z-10 -mx-5 mt-auto px-5 pt-8 pb-4">
             {floating}
           </div>
         )}

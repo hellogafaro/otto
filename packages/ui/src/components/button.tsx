@@ -15,6 +15,10 @@ const buttonVariants = cva(
         // Otto: muted at rest; foreground on hover, open, pressed or current.
         ghost:
           "text-muted-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground aria-pressed:text-foreground aria-[current=page]:text-foreground dark:hover:bg-muted/50",
+        // Otto: text only, never a fill: muted at rest, foreground on hover or
+        // open. For pickers above the composer.
+        plain:
+          "text-muted-foreground hover:text-foreground aria-expanded:text-foreground aria-pressed:text-foreground",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",

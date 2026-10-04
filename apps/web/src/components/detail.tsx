@@ -68,7 +68,7 @@ import {
   useState,
 } from "react";
 import { Page } from "@/components/page";
-import { ActorAvatar, type Look } from "@/components/task-meta";
+import { ActorAvatar, Count, type Look } from "@/components/task-meta";
 import { Topbar } from "@/components/topbar";
 
 // Shared detail page: top bar (breadcrumb, More, panel toggle), the page
@@ -94,7 +94,8 @@ export function DetailView({
   people: ReactNode;
   children?: ReactNode;
   panel: ReactNode;
-  /** The floating Ask Otto bar, e.g. <AskOtto about="this task" />. */
+  /** The floating chat, set up for this item, e.g.
+   * <FloatingChat about="this task" />. */
   ask: ReactNode;
 }) {
   return (
@@ -154,12 +155,17 @@ export function DetailView({
 export function WithPanel({
   children,
   panel,
+  title = "Details",
 }: {
   children: ReactNode;
   panel: ReactNode;
+  /** The panel's top bar title. */
+  title?: string;
 }) {
   return (
-    <SidebarProvider className="relative min-h-0 flex-1">
+    // The panel opens and closes at once, no slide: its toggle hands over
+    // from the page's top bar to the panel's in the same frame, in place.
+    <SidebarProvider className="relative min-h-0 flex-1 **:data-[slot=sidebar-container]:transition-none **:data-[slot=sidebar-gap]:transition-none">
       <SidebarInset className="min-h-0">{children}</SidebarInset>
 
       {/* A full-height column inside the card, divided from the page by a
@@ -169,10 +175,14 @@ export function WithPanel({
         side="right"
         className="absolute inset-y-0 h-auto *:data-[slot=sidebar-inner]:bg-transparent"
       >
+        {/* Its own top bar, level with the page's: the title on the section
+            titles' 16px line (4 + 12) and the toggle in the corner. */}
+        <Topbar actions={<PanelToggle inPanel />}>
+          <h2 className="truncate pl-3 text-sm font-medium">{title}</h2>
+        </Topbar>
         {/* Stock shadcn sidebar spacing, no dividers: groups set sections
-            apart. The one change: the first section starts 4px down (not 8),
-            so its title row lines up with the top bar's buttons. */}
-        <SidebarContent className="*:first:pt-1">{panel}</SidebarContent>
+            apart. */}
+        <SidebarContent>{panel}</SidebarContent>
       </Sidebar>
     </SidebarProvider>
   );
@@ -218,10 +228,14 @@ export function MoreMenu() {
   );
 }
 
-// Opens and closes the right panel; always the rightmost top bar action.
-export function PanelToggle() {
-  const { open, toggleSidebar } = useSidebar();
-  const label = open ? "Close panel" : "Open panel";
+// Opens and closes the right panel, always in the window's top right corner:
+// the page's top bar holds it while the panel is closed, the panel's own top
+// bar once it is open (on mobile the panel is a sheet over the page).
+export function PanelToggle({ inPanel = false }: { inPanel?: boolean }) {
+  const { open, openMobile, isMobile, toggleSidebar } = useSidebar();
+  const shown = isMobile ? openMobile : open;
+  if (!inPanel && shown && !isMobile) return null;
+  const label = shown ? "Close panel" : "Open panel";
   return (
     <Tooltip>
       <TooltipTrigger
@@ -230,7 +244,7 @@ export function PanelToggle() {
             variant="ghost"
             size="icon-sm"
             aria-label={label}
-            aria-expanded={open}
+            aria-expanded={shown}
             onClick={toggleSidebar}
           />
         }
@@ -270,15 +284,15 @@ export function Section({
 }) {
   return (
     <Collapsible defaultOpen render={<SidebarGroup />}>
+      {/* gap-2: the rows' icon-to-label gap, so the count sits as far from
+          the title as a row's label from its icon. */}
       <SidebarGroupLabel
-        render={<CollapsibleTrigger className="group/label" />}
+        render={<CollapsibleTrigger className="group/label gap-2" />}
       >
         {title}
-        <span className="ml-auto flex items-center gap-2">
-          {/* No count for an empty section (0 or none). */}
-          {!!count && <span className="tabular-nums">{count}</span>}
-          <RiArrowDownSLine className="-rotate-90 transition-transform group-data-panel-open/label:rotate-0" />
-        </span>
+        {/* No count for an empty section (0 or none). */}
+        {!!count && <Count>{count}</Count>}
+        <RiArrowDownSLine className="ml-auto -rotate-90 transition-transform group-data-panel-open/label:rotate-0" />
       </SidebarGroupLabel>
       <CollapsibleContent>
         <SidebarGroupContent>
@@ -357,10 +371,7 @@ export function ChoiceSearch<T extends string>({
             const look = options[key];
             return (
               <ComboboxItem key={key} value={key}>
-                {/* 20px slot: avatars are 20px, so icons get the same column. */}
-                <span className="flex size-5 shrink-0 items-center justify-center">
-                  <look.icon className={look.className} />
-                </span>
+                <look.icon className={look.className} />
                 {look.label}
               </ComboboxItem>
             );

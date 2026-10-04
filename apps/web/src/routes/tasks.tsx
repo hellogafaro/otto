@@ -64,6 +64,7 @@ import {
   ActorAvatar,
   actorOf,
   assigneeLooks,
+  Count,
   type Look,
   ownerLooks,
   priorities,
@@ -408,9 +409,7 @@ function StatusGroup({
         <RiArrowDownSLine className="-rotate-90 text-muted-foreground transition-transform group-data-panel-open/trigger:rotate-0" />
         <Icon className={className} />
         {label}
-        <span className="text-muted-foreground tabular-nums">
-          {tasks.length}
-        </span>
+        <Count>{tasks.length}</Count>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ul className="flex flex-col pt-1">
