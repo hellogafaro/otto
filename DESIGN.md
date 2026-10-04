@@ -932,3 +932,5 @@ On mobile, Chats and Settings section navigation opens in the shared Sheet from 
 Private pages remain behind the session-loading state until the previous authenticated session's requests and cache have been cleared. Current Project authority resolves independently of the displayed member page; incomplete pickers never decide who can edit.
 
 Mention chips preserve the exact selected display label, including brackets and backslashes, through editing, sending and notification delivery.
+
+Unknown creation outcomes disable another submission in the current form and direct the person to check saved records. A definite client refusal preserves the draft for correction. Relation writes and document content share one pending fence so an acknowledgement cannot overwrite a newly typed draft. Denied reads hide cached private content; transient read failures retain fenced drafts with Retry.
