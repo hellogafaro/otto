@@ -92,7 +92,7 @@ test("Current Project contributor after the first hundred keeps Task and Documen
   await page
     .getByRole("textbox", { name: "Title", exact: true })
     .fill("Paged Authority Saved");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save document", exact: true }).click();
   await page.reload();
   await expect(
     page.getByRole("textbox", { name: "Title", exact: true }),
