@@ -202,37 +202,35 @@ export function ChatsSidebar() {
         error={chats.error}
         retry={chats.refetch}
       />
-      {!chats.error && (
-        <>
-          <SidebarGroupLabel>Chats</SidebarGroupLabel>
-          <SidebarMenu>
-            {chats.data?.pages
-              .flatMap((page) => page.items)
-              .map((chat) => (
-                <ChatRow key={chat.id} chat={chat} />
-              ))}
-          </SidebarMenu>
-          {chats.data?.pages.every((page) => page.items.length === 0) && (
-            <p className="px-2">No chats yet.</p>
-          )}
-          {chats.hasNextPage && (
+      {!chats.error &&
+        !chats.data?.pages.every((page) => page.items.length === 0) && (
+          <>
+            <SidebarGroupLabel>Chats</SidebarGroupLabel>
+            <SidebarMenu>
+              {chats.data?.pages
+                .flatMap((page) => page.items)
+                .map((chat) => (
+                  <ChatRow key={chat.id} chat={chat} />
+                ))}
+            </SidebarMenu>
+            {chats.hasNextPage && (
+              <Button
+                variant="ghost"
+                disabled={chats.isFetchingNextPage}
+                onClick={() => chats.fetchNextPage()}
+              >
+                Load more chats
+              </Button>
+            )}
             <Button
               variant="ghost"
-              disabled={chats.isFetchingNextPage}
-              onClick={() => chats.fetchNextPage()}
+              nativeButton={false}
+              render={<Link to="/chats" />}
             >
-              Load more chats
+              Browse chats
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            nativeButton={false}
-            render={<Link to="/chats" />}
-          >
-            Browse chats
-          </Button>
-        </>
-      )}
+          </>
+        )}
     </SectionSidebar>
   );
 }
@@ -396,7 +394,7 @@ export function ChatsLandingPage({
       <EmptyPage
         icon={RiChat1Line}
         title="No chats"
-        description="Chats are where you and your agents work together."
+        description="Conversations with your team and agents live here."
         ask={{ about: "your chats", action: "New chat", start: "" }}
       />
     );
@@ -1510,7 +1508,10 @@ export function ChatThread({
               <MessageScrollerItem messageId="empty">
                 <Empty>
                   <EmptyHeader>
-                    <EmptyTitle>No messages yet</EmptyTitle>
+                    <EmptyTitle>No messages</EmptyTitle>
+                    <EmptyDescription>
+                      Messages in this chat show up here.
+                    </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               </MessageScrollerItem>

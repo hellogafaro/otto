@@ -609,8 +609,8 @@ function ProjectContent({
       />
       {list.data && !list.error && !list.data.items.length && (
         <ProjectEmpty
-          title={`No ${search.query ? "matching " : ""}${tab}`}
-          description={`Readable ${tab} in this project appear here.`}
+          title={`No ${tab}`}
+          description={`${tab[0]?.toUpperCase()}${tab.slice(1)} in this project show up here.`}
         />
       )}
       {tab === "tasks" && tasks.data && !tasks.error && (

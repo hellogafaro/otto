@@ -467,48 +467,11 @@ export function useSettingsList<S extends string>(
     request: { sort, order, query: query || undefined, after, limit: "100" },
   };
 }
-export function SettingsListControls<S extends string>({
-  list,
-  sorts,
-  children,
-}: {
-  list: ReturnType<typeof useSettingsList<S>>;
-  sorts: Record<S, string>;
-  children?: ReactNode;
-}) {
-  const [text, setText] = useState(list.query);
-  useEffect(() => setText(list.query), [list.query]);
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Input
-        className="w-56"
-        aria-label="Search settings"
-        placeholder="Search whole words"
-        maxLength={200}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onBlur={() => {
-          if (text !== list.query) list.update({ query: text });
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") list.update({ query: text });
-        }}
-      />
-      <Choice
-        label="Sort"
-        value={list.sort}
-        options={sorts}
-        onChange={(sort) => list.update({ sort })}
-      />
-      <Choice
-        label="Order"
-        value={list.order}
-        options={{ asc: "Ascending", desc: "Descending" }}
-        onChange={(order) => list.update({ order })}
-      />
-      {children}
-    </div>
-  );
+/** Page-specific filters only (role, archive, type); there is no search or sort toolbar. */
+export function SettingsFilters({ children }: { children?: ReactNode }) {
+  return children ? (
+    <div className="flex flex-wrap items-center gap-2">{children}</div>
+  ) : null;
 }
 export function SettingsPaging({
   next,

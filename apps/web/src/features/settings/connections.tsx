@@ -20,8 +20,8 @@ import {
   SaveState,
   SettingsDialog,
   SettingsField,
+  SettingsFilters,
   SettingsInput,
-  SettingsListControls,
   SettingsPaging,
   useSettingsAction,
   useSettingsCreation,
@@ -117,7 +117,7 @@ export function ConnectionSettings() {
     );
   return (
     <>
-      <SettingsListControls list={list} sorts={sorts}>
+      <SettingsFilters>
         <Choice
           label="Connection type"
           value={type ?? "all"}
@@ -150,7 +150,7 @@ export function ConnectionSettings() {
             })
           }
         />
-      </SettingsListControls>
+      </SettingsFilters>
       <QueryState
         pending={query.isPending}
         error={query.error}

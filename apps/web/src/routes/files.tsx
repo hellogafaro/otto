@@ -36,6 +36,7 @@ import {
 } from "@workspace/ui/components/dropdown-menu";
 import {
   Empty,
+  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -464,7 +465,10 @@ export function FilesPage({ search }: { search: FilesSearch }) {
                 <EmptyMedia variant="icon">
                   <RiFolder3Line />
                 </EmptyMedia>
-                <EmptyTitle>This folder is empty</EmptyTitle>
+                <EmptyTitle>No files</EmptyTitle>
+                <EmptyDescription>
+                  Files and documents you add to this folder show up here.
+                </EmptyDescription>
               </EmptyHeader>
             </Empty>
           ))}

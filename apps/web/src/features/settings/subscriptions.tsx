@@ -16,8 +16,8 @@ import {
   SaveState,
   SettingsDialog,
   SettingsField,
+  SettingsFilters,
   SettingsInput,
-  SettingsListControls,
   SettingsPaging,
   useSettingsAction,
   useSettingsCreation,
@@ -94,7 +94,7 @@ export function ModelSettings() {
     );
   return (
     <>
-      <SettingsListControls list={list} sorts={sorts}>
+      <SettingsFilters>
         <Choice
           label="Account status"
           value={status ?? "all"}
@@ -118,7 +118,7 @@ export function ModelSettings() {
             })
           }
         />
-      </SettingsListControls>
+      </SettingsFilters>
       <QueryState
         pending={accounts.isPending}
         error={accounts.error}

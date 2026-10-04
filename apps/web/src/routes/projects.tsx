@@ -164,7 +164,7 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
         <EmptyPage
           icon={RiBox3Line}
           title="No projects"
-          description="Projects gather tasks, chats, documents and files around one goal."
+          description="Projects gather tasks, chats and documents around one goal."
           create={
             admin
               ? { action: "New project", onClick: startCreating }

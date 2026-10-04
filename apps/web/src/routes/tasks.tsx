@@ -216,8 +216,8 @@ export function TasksPage({ search }: { search: TasksSearch }) {
     return (
       <EmptyPage
         icon={RiCheckboxCircleLine}
-        title="No tasks yet"
-        description="Tasks keep your project work organized."
+        title="No tasks"
+        description="Tasks from you and your agents show up here, grouped by status."
         ask={
           canCreate
             ? { about: "your tasks", action: "New task", start: createStart }

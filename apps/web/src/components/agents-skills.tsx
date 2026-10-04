@@ -119,7 +119,9 @@ export function AgentSkills({
           </Button>
         </Row>
       ))}
-      {list.data && items.length === 0 && <Row title="No matching skills" />}
+      {list.data && items.length === 0 && (
+        <Row title="No skills" description="Skills you add show up here." />
+      )}
       {list.hasNextPage && (
         <Button
           variant="ghost"
@@ -671,7 +673,12 @@ function SkillEditor({
               )}
             </Row>
           ))}
-          {!files.length && <Row title="No supporting files" />}
+          {!files.length && (
+            <Row
+              title="No files"
+              description="Files this skill uses show up here."
+            />
+          )}
           {canEdit && (
             <>
               <Row title="Find saved Files">
@@ -826,7 +833,10 @@ function SkillEditor({
               </Row>
             ))}
           {proposals.data?.pages.every((page) => page.items.length === 0) && (
-            <Row title="No proposals" />
+            <Row
+              title="No proposals"
+              description="Changes proposed to this skill show up here."
+            />
           )}
           {proposals.hasNextPage && (
             <Button

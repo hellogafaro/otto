@@ -43,8 +43,8 @@ import {
   SaveState,
   SettingsDialog,
   SettingsField,
+  SettingsFilters,
   SettingsInput,
-  SettingsListControls,
   SettingsPaging,
   useSettingsAction,
   useSettingsCreation,
@@ -330,14 +330,14 @@ function AgentSettings() {
   });
   return (
     <>
-      <SettingsListControls list={list} sorts={sorts}>
+      <SettingsFilters>
         <Choice
           label="Agent archive filter"
           value={archived}
           options={{ false: "Current agents", true: "Archived agents" }}
           onChange={(archived) => list.update({ archived })}
         />
-      </SettingsListControls>
+      </SettingsFilters>
       <QueryState
         pending={query.isPending}
         error={query.error}
@@ -368,11 +368,7 @@ function AgentSettings() {
             {!query.data.items.length && (
               <Row
                 title="No agents"
-                description={
-                  list.query
-                    ? "No agents match these whole words."
-                    : "Create an agent to get started."
-                }
+                description="Agents you create show up here."
               />
             )}
           </Group>
@@ -412,7 +408,7 @@ function MemberSettings() {
   });
   return (
     <>
-      <SettingsListControls list={list} sorts={sorts}>
+      <SettingsFilters>
         <Choice
           label="Role filter"
           value={role ?? "all"}
@@ -427,7 +423,7 @@ function MemberSettings() {
             list.update({ role: role === "all" ? undefined : role })
           }
         />
-      </SettingsListControls>
+      </SettingsFilters>
       <QueryState
         pending={members.isPending}
         error={members.error}
@@ -444,8 +440,8 @@ function MemberSettings() {
             ))}
             {!members.data.items.length && (
               <Row
-                title="No members match"
-                description="Try another whole word or role."
+                title="No members"
+                description="Members with this role show up here."
               />
             )}
           </Group>

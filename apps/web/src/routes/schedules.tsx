@@ -32,6 +32,12 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
+import {
   Item,
   ItemActions,
   ItemContent,
@@ -225,10 +231,14 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
         <EmptyPage
           icon={RiCalendarScheduleLine}
           title="No schedules"
-          description="Run a prompt or script and post the result to an existing Chat."
-          create={
+          description="Run a prompt or code on a schedule, and post the result to a chat."
+          ask={
             writer
-              ? { action: "New schedule", onClick: () => setCreating(true) }
+              ? {
+                  about: "your schedules",
+                  action: "New schedule",
+                  start: "Every ",
+                }
               : undefined
           }
         />
@@ -739,9 +749,14 @@ function ScheduleView({
             retry={history.refetch}
           />
           {history.data?.pages.every((page) => page.items.length === 0) && (
-            <p className="text-muted-foreground">
-              No scheduled deliveries yet.
-            </p>
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No deliveries</EmptyTitle>
+                <EmptyDescription>
+                  Scheduled deliveries show up here.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
           <Timeline>
             {(!isDeniedDomainRead(history.error)

@@ -186,7 +186,12 @@ export function InboxPage() {
       <EmptyPage
         icon={RiInboxLine}
         title="Nothing needs you"
-        description="Open tasks, unread chats, questions and approvals appear here."
+        description="Tasks, chats, questions and approvals waiting on you show up here."
+        ask={{
+          about: "this page",
+          action: "New task",
+          start: "Add a task to ",
+        }}
       />
     );
   return (
