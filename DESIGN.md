@@ -899,3 +899,7 @@ continue through bounded pages instead of treating the first hundred as complete
   screenshot guess.
 - Don't nest tasks or comments, add subtitles to data-heavy pages, or use
   ellipses in placeholders.
+
+### Live mention discovery
+
+Composer mentions query real workspace members, Agents, Projects and Files, with at most three results per kind. Task suggestions require the composer's explicit Project scope. Searches follow server whole-word matching; empty results and request failures are visible. File mentions use the File discriminator and saved identity.

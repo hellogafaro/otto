@@ -45,11 +45,18 @@ import {
   type Ref,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
-import { Mentions, mentionKey, toContent, toText } from "@/components/mentions";
+import {
+  createMentions,
+  mentionKey,
+  toContent,
+  toText,
+} from "@/components/mentions";
 import { resourceIcons, resourceKindOf } from "@/components/task-meta";
+import { useWorkspace } from "@/lib/workspace";
 import "@/components/editor/editor.css";
 
 export type FileRef = {
@@ -118,6 +125,7 @@ export function Composer({
   disabled = false,
   pending = false,
   upload,
+  projectId,
   ref,
 }: {
   onSend: (text: string, files: FileRef[]) => unknown;
@@ -130,6 +138,7 @@ export function Composer({
   embedded?: boolean;
   disabled?: boolean;
   pending?: boolean;
+  projectId?: string;
   upload?: (
     file: File,
     requestId: string,
@@ -137,6 +146,13 @@ export function Composer({
   ) => Promise<FileRef>;
   ref?: Ref<ComposerHandle>;
 }) {
+  const { workspaceId } = useWorkspace();
+  const mentionScope = useRef(projectId);
+  mentionScope.current = projectId;
+  const mentions = useMemo(
+    () => createMentions(workspaceId, () => mentionScope.current),
+    [workspaceId],
+  );
   // The embedded composer's buttons: 28px, 6px corners.
   const button = embedded
     ? ({ size: "icon-sm", className: "size-7 rounded-sm" } as const)
@@ -178,7 +194,7 @@ export function Composer({
         hardBreak: compact ? false : undefined,
       }),
       Placeholder.configure({ placeholder: () => placeholderText.current }),
-      Mentions,
+      mentions,
       SendOnEnter.configure({ onEnter: () => actions.current.send() }),
     ],
     editorProps: {

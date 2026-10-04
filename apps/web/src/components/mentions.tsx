@@ -21,6 +21,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item";
+import { toast } from "@workspace/ui/components/sonner";
 import { cn } from "@workspace/ui/lib/utils";
 import { Fragment } from "react";
 import {
@@ -30,11 +31,11 @@ import {
 } from "@/components/editor/suggestion-popup";
 import { menuSurface } from "@/components/editor/surface";
 import { ActorAvatar } from "@/components/task-meta";
-import { agents, projects, taskResources, tasks, users } from "@/mock/tasks";
+import { read, workspaceApi } from "@/lib/api";
 
 // "@" tags: people, agents, tasks, projects and files. In text a tag is
 // stored as @[label](type:id), so a comment stays a plain string.
-export type MentionType = "user" | "agent" | "task" | "project" | "resource";
+export type MentionType = "user" | "agent" | "task" | "project" | "file";
 
 type Mentionable = {
   type: MentionType;
@@ -48,7 +49,7 @@ const groups: { type: MentionType; title: string }[] = [
   { type: "agent", title: "Agents" },
   { type: "task", title: "Tasks" },
   { type: "project", title: "Projects" },
-  { type: "resource", title: "Files" },
+  { type: "file", title: "Files" },
 ];
 
 const mentionIcons: Record<MentionType, RemixiconComponentType> = {
@@ -56,60 +57,88 @@ const mentionIcons: Record<MentionType, RemixiconComponentType> = {
   agent: RiRobot3Line,
   task: RiCheckboxCircleLine,
   project: RiBox3Line,
-  resource: RiFileTextLine,
+  file: RiFileTextLine,
 };
 
-const mentionables: Mentionable[] = [
-  ...Object.entries(users).map(([id, user]) => ({
-    type: "user" as const,
-    id,
-    label: user.name,
-  })),
-  // Not Otto: it is reached through Ask Otto, not tagged in comments.
-  ...Object.entries(agents)
-    .filter(([id]) => id !== "a_otto")
-    .map(([id, agent]) => ({
-      type: "agent" as const,
-      id,
-      label: agent.title,
-    })),
-  ...tasks.map((task) => ({
-    type: "task" as const,
-    id: task.id,
-    label: task.title,
-    hint: projects[task.projectId as keyof typeof projects]?.title,
-  })),
-  ...Object.entries(projects).map(([id, project]) => ({
-    type: "project" as const,
-    id,
-    label: project.title,
-  })),
-  ...Object.values(taskResources)
-    .flat()
-    .map((resource) => ({
-      type: "resource" as const,
-      id: resource.id,
-      label: resource.title,
-    })),
-];
-
-// Up to three matches per group, in group order.
-function search(query: string) {
-  const needle = query.toLowerCase();
-  return groups.flatMap(({ type }) =>
-    mentionables
-      .filter(
-        (item) =>
-          item.type === type && item.label.toLowerCase().includes(needle),
-      )
-      .slice(0, 3),
-  );
+// Suggestions use each domain's bounded whole-word query. Tasks require an explicit Project.
+async function search(
+  workspaceId: string,
+  projectId: string | undefined,
+  query: string,
+): Promise<Mentionable[]> {
+  const param = { workspaceId };
+  const filter = { query: query || undefined, limit: "3" };
+  const results = await Promise.all([
+    read(
+      await workspaceApi.members.$get({
+        param,
+        query: { ...filter, sort: "name" },
+      }),
+    ).then((page) =>
+      page.items.map((item) => ({
+        type: "user" as const,
+        id: item.userId,
+        label: item.name,
+      })),
+    ),
+    read(
+      await workspaceApi.agents.$get({
+        param,
+        query: { ...filter, sort: "title" },
+      }),
+    ).then((page) =>
+      page.items.map((item) => ({
+        type: "agent" as const,
+        id: item.id,
+        label: item.title,
+      })),
+    ),
+    projectId
+      ? read(
+          await workspaceApi.tasks.$get({
+            param,
+            query: { ...filter, projectId, sort: "title" },
+          }),
+        ).then((page) =>
+          page.items.map((item) => ({
+            type: "task" as const,
+            id: item.id,
+            label: item.title,
+          })),
+        )
+      : Promise.resolve([]),
+    read(
+      await workspaceApi.projects.$get({
+        param,
+        query: { ...filter, sort: "title" },
+      }),
+    ).then((page) =>
+      page.items.map((item) => ({
+        type: "project" as const,
+        id: item.id,
+        label: item.title,
+      })),
+    ),
+    read(
+      await workspaceApi.files.$get({
+        param,
+        query: { ...filter, projectId, sort: "title" },
+      }),
+    ).then((page) =>
+      page.items.map((item) => ({
+        type: "file" as const,
+        id: item.id,
+        label: item.title,
+      })),
+    ),
+  ]);
+  return results.flat();
 }
 
 export const mention = (item: Pick<Mentionable, "type" | "id" | "label">) =>
   `@[${item.label}](${item.type}:${item.id})`;
 
-const token = /@\[([^\]]+)\]\((user|agent|task|project|resource):([^)]+)\)/g;
+const token = /@\[([^\]]+)\]\((user|agent|task|project|file):([^)]+)\)/g;
 
 // A tag inside text: the icon of its type and the label, in the primary color
 // on a soft primary tint with key-sized (xs 4) corners, so it reads as one
@@ -205,7 +234,12 @@ function MentionList({ items, command, ref }: ListProps<Mentionable>) {
   const pick = (item: Mentionable) =>
     command({ id: `${item.type}:${item.id}`, label: item.label });
   const [selected, setSelected] = useSuggestionKeys(ref, items, pick);
-  if (items.length === 0) return null;
+  if (items.length === 0)
+    return (
+      <div className={cn(menuSurface, "w-72 p-3")} role="status">
+        No readable matches.
+      </div>
+    );
 
   return (
     // The card stays solid; the list inside scrolls past 320px so it always
@@ -276,16 +310,29 @@ function MentionList({ items, command, ref }: ListProps<Mentionable>) {
 export const mentionKey = new PluginKey("mention");
 
 // Typing "@" opens the palette; a pick becomes a chip in the text.
-export const Mentions = Mention.extend({
-  addNodeView() {
-    return ReactNodeViewRenderer(MentionNodeView);
-  },
-}).configure({
-  renderText: ({ node }) => `@${node.attrs.label}`,
-  suggestion: {
-    char: "@",
-    pluginKey: mentionKey,
-    items: ({ query }) => search(query),
-    render: suggestionPopup(MentionList),
-  },
-});
+export const createMentions = (
+  workspaceId: string,
+  projectId?: () => string | undefined,
+) =>
+  Mention.extend({
+    addNodeView() {
+      return ReactNodeViewRenderer(MentionNodeView);
+    },
+  }).configure({
+    renderText: ({ node }) => `@${node.attrs.label}`,
+    suggestion: {
+      char: "@",
+      pluginKey: mentionKey,
+      items: async ({ query }) => {
+        try {
+          return await search(workspaceId, projectId?.(), query);
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : "Unable to load mentions.",
+          );
+          return [];
+        }
+      },
+      render: suggestionPopup(MentionList),
+    },
+  });
