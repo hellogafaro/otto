@@ -6,6 +6,9 @@ import { defineConfig } from "vite";
 // https://vite.dev/config/
 export default defineConfig({
   server: {
+    allowedHosts: process.env.OTTO_UI_ORIGIN
+      ? [new URL(process.env.OTTO_UI_ORIGIN).hostname]
+      : [],
     proxy: {
       "/api": {
         target: process.env.OTTO_API_ORIGIN ?? "http://127.0.0.1:45175",

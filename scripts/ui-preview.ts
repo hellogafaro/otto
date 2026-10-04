@@ -1,7 +1,7 @@
 import { startUiApp } from "../tests/fixtures/ui-app";
 
 // Disposable local preview only. Production signup, secrets and storage configuration are unchanged.
-const origin = "http://127.0.0.1:45173";
+const origin = process.env.OTTO_UI_ORIGIN ?? "http://127.0.0.1:45173";
 const fixture = await startUiApp(origin, 45175);
 const web = Bun.spawn(
   [
@@ -20,7 +20,11 @@ const web = Bun.spawn(
   {
     stdout: "ignore",
     stderr: "ignore",
-    env: { ...process.env, OTTO_API_ORIGIN: fixture.apiOrigin },
+    env: {
+      ...process.env,
+      OTTO_API_ORIGIN: fixture.apiOrigin,
+      OTTO_UI_ORIGIN: origin,
+    },
   },
 );
 let stopping = false;
