@@ -1,4 +1,9 @@
-import { RiAddLine, RiBox3Line } from "@remixicon/react";
+import {
+  RiAddLine,
+  RiArchiveLine,
+  RiBox3Line,
+  RiSearchLine,
+} from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
@@ -9,16 +14,22 @@ import {
 } from "@workspace/ui/components/context-menu";
 import { toast } from "@workspace/ui/components/sonner";
 import { useState } from "react";
+import { useCommandPalette } from "@/components/command-palette";
+import { EmptyPage } from "@/components/empty-page";
+import {
+  FilterBar,
+  type FilterDef,
+  FilterMenu,
+  NoResults,
+} from "@/components/filters";
 import { useAskAgent } from "@/components/floating-chat";
 import { Gallery, GalleryItem } from "@/components/gallery";
 import { IconAction } from "@/components/icon-action";
 import { mention } from "@/components/mentions";
 import { Page } from "@/components/page";
 import {
-  ProjectEmpty,
   type ProjectFilters,
   ProjectForm,
-  ProjectListFilters,
   validateProjectFilters,
 } from "@/components/project-controls";
 import { QueryState } from "@/components/query-state";
@@ -63,46 +74,131 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
       ),
   });
   const admin = workspace.role === "owner" || workspace.role === "admin";
+  const openPalette = useCommandPalette();
+  const startCreating = () => {
+    setCreatedProjectId(undefined);
+    setCreateUncertain(false);
+    setCreating(true);
+  };
+  const filters: FilterDef<"archived">[] = [
+    {
+      key: "archived",
+      label: "Archive",
+      icon: RiArchiveLine,
+      options: { true: { label: "Archived", icon: RiArchiveLine } },
+    },
+  ];
+  const values = { archived: search.archived ? "true" : undefined };
+  const change = (_key: "archived", value: string | undefined) =>
+    navigate({
+      search: {
+        ...search,
+        archived: value ? true : undefined,
+        after: undefined,
+      },
+    });
+  const clear = () => navigate({ search: {} });
+  const createDialog = creating && (
+    <ProjectForm
+      title="New project"
+      onClose={() => setCreating(false)}
+      creation={
+        createUncertain ? "uncertain" : createdProjectId ? "saved" : undefined
+      }
+      checkProjects={async (title) => {
+        await invalidate();
+        await navigate({
+          to: "/projects",
+          search: {
+            query: title || undefined,
+            sort: "title",
+            order: "asc",
+          },
+        });
+        setCreating(false);
+      }}
+      save={async (input) => {
+        let projectId = createdProjectId;
+        if (!projectId) {
+          try {
+            const project = await read(
+              await api.projects.$post({
+                param: { workspaceId },
+                json: {
+                  title: input.title,
+                  repositoryUrl: input.repositoryUrl || undefined,
+                },
+              }),
+            );
+            projectId = project.id;
+            setCreatedProjectId(project.id);
+          } catch (error) {
+            // Creation has no request identity: a lost ACK cannot safely repeat POST.
+            if (!(error instanceof ApiError) || error.status >= 500) {
+              setCreateUncertain(true);
+              throw new Error(
+                "Otto did not confirm whether the project was saved.",
+              );
+            }
+            throw error;
+          }
+        }
+        await invalidate();
+        await navigate({
+          to: "/projects/$projectId",
+          params: { projectId },
+        });
+      }}
+    />
+  );
+  if (
+    list.data &&
+    !list.error &&
+    list.data.items.length === 0 &&
+    !search.archived &&
+    !search.query &&
+    !search.after
+  )
+    return (
+      <>
+        <EmptyPage
+          icon={RiBox3Line}
+          title="No projects"
+          description="Projects gather tasks, chats, documents and files around one goal."
+        >
+          {admin && <Button onClick={startCreating}>New project</Button>}
+        </EmptyPage>
+        {createDialog}
+      </>
+    );
   return (
     <Page
       title="Projects"
       width="wide"
       actions={
-        admin && (
+        <>
+          <FilterMenu filters={filters} values={values} onChange={change} />
           <IconAction
-            label="New project"
-            icon={RiAddLine}
-            onClick={() => {
-              setCreatedProjectId(undefined);
-              setCreateUncertain(false);
-              setCreating(true);
-            }}
+            label="Search"
+            icon={RiSearchLine}
+            onClick={() => openPalette("projects")}
           />
-        )
+          {admin && (
+            <IconAction
+              label="New project"
+              icon={RiAddLine}
+              onClick={startCreating}
+            />
+          )}
+        </>
       }
     >
-      <ProjectListFilters
-        key={search.query ?? ""}
-        value={search}
-        onChange={(next) =>
-          navigate({ search: { ...next, archived: search.archived } })
-        }
+      <FilterBar
+        filters={filters}
+        values={values}
+        onChange={change}
+        onClear={clear}
       />
-      <Button
-        variant="ghost"
-        className="self-start"
-        onClick={() =>
-          navigate({
-            search: {
-              ...search,
-              archived: search.archived ? undefined : true,
-              after: undefined,
-            },
-          })
-        }
-      >
-        {search.archived ? "Show active projects" : "Show archived projects"}
-      </Button>
       <QueryState
         pending={list.isPending}
         error={list.error}
@@ -170,16 +266,7 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
             ))}
           </Gallery>
         ) : (
-          <ProjectEmpty
-            title={
-              search.query
-                ? "No matching projects"
-                : search.archived
-                  ? "No archived projects"
-                  : "No projects"
-            }
-            description="Projects gather tasks, chats, documents and files around one goal."
-          />
+          <NoResults what="projects" onClear={clear} />
         ))}
       {(search.after || (list.data && !list.error)) && (
         <div className="flex gap-2">
@@ -207,63 +294,7 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
           )}
         </div>
       )}
-      {creating && (
-        <ProjectForm
-          title="New project"
-          onClose={() => setCreating(false)}
-          creation={
-            createUncertain
-              ? "uncertain"
-              : createdProjectId
-                ? "saved"
-                : undefined
-          }
-          checkProjects={async (title) => {
-            await invalidate();
-            await navigate({
-              to: "/projects",
-              search: {
-                query: title || undefined,
-                sort: "title",
-                order: "asc",
-              },
-            });
-            setCreating(false);
-          }}
-          save={async (input) => {
-            let projectId = createdProjectId;
-            if (!projectId) {
-              try {
-                const project = await read(
-                  await api.projects.$post({
-                    param: { workspaceId },
-                    json: {
-                      title: input.title,
-                      repositoryUrl: input.repositoryUrl || undefined,
-                    },
-                  }),
-                );
-                projectId = project.id;
-                setCreatedProjectId(project.id);
-              } catch (error) {
-                // Creation has no request identity: a lost ACK cannot safely repeat POST.
-                if (!(error instanceof ApiError) || error.status >= 500) {
-                  setCreateUncertain(true);
-                  throw new Error(
-                    "Otto did not confirm whether the project was saved.",
-                  );
-                }
-                throw error;
-              }
-            }
-            await invalidate();
-            await navigate({
-              to: "/projects/$projectId",
-              params: { projectId },
-            });
-          }}
-        />
-      )}
+      {createDialog}
     </Page>
   );
 }
