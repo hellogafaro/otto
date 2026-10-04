@@ -123,6 +123,7 @@ export function Composer({
   compact = false,
   embedded = false,
   disabled = false,
+  sendable = true,
   pending = false,
   upload,
   projectId,
@@ -137,6 +138,8 @@ export function Composer({
   compact?: boolean;
   embedded?: boolean;
   disabled?: boolean;
+  /** False keeps Send disabled while the text stays editable (a form around the composer is incomplete). */
+  sendable?: boolean;
   pending?: boolean;
   projectId?: string;
   upload?: (
@@ -243,6 +246,7 @@ export function Composer({
   const uploading = files.some((file) => file.state !== "done");
   const hasContent = !empty || files.length > 0;
   const canSend =
+    sendable &&
     hasContent &&
     !uploading &&
     !busy &&
@@ -612,10 +616,10 @@ const supported =
   Boolean(navigator.mediaDevices?.getUserMedia);
 
 const dictationErrors: Record<string, string> = {
-  not_configured: "Dictation isn't set up on this server.",
-  timeout: "Transcription timed out. Try again.",
-  unavailable: "Transcription is unavailable right now. Try again in a moment.",
-  too_large: "That recording is too long to transcribe.",
+  not_configured: "Unable to transcribe. Dictation isn't set up.",
+  timeout: "Unable to transcribe. Try again.",
+  unavailable: "Unable to transcribe. Try again.",
+  too_large: "Unable to transcribe. The recording is too long.",
 };
 
 async function transcribe(audio: Blob) {
@@ -630,8 +634,7 @@ async function transcribe(audio: Blob) {
     .catch(() => ({}));
   if (!response.ok || typeof body.text !== "string")
     throw new Error(
-      dictationErrors[body.error ?? ""] ??
-        "Couldn't transcribe that. Try again.",
+      dictationErrors[body.error ?? ""] ?? "Unable to transcribe. Try again.",
     );
   return body.text.trim();
 }
@@ -648,7 +651,7 @@ function useDictation(editor: Editor | null) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      toast.error("Allow microphone access to dictate.");
+      toast.error("Unable to dictate. Allow microphone access.");
       return;
     }
     // Opens the provider connection while the user speaks.
@@ -680,7 +683,9 @@ function useDictation(editor: Editor | null) {
         }
       } catch (error) {
         toast.error(
-          error instanceof Error ? error.message : "Couldn't transcribe that.",
+          error instanceof Error
+            ? error.message
+            : "Unable to transcribe. Try again.",
         );
       } finally {
         setTranscribing(false);

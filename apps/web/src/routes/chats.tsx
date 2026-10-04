@@ -921,6 +921,8 @@ export function NewChatComposer({
             Boolean(directory.error) ||
             !validProject ||
             !validPeople,
+          // Starts disabled: someone (yourself counts) must be chosen under With. No project is a valid choice.
+          sendable: withIds.length > 0,
         }}
       />
     </>

@@ -572,7 +572,7 @@ bars 2px apart, the elapsed time and Done. The bars start flat (a row of 4px
 dots) and rise only with the mic level; the speech range (up to ~6 kHz) spans
 the width, mirrored from the center. Done stops the recording; the main
 button shows a spinner ("Transcribing") while the server transcribes it, then
-the text is typed in at the cursor. A failure is a toast (no retry action) and
+the text is typed in at the cursor. A failure is a toast in the usual "Unable to …" form (no retry action) and
 the recording is dropped; Cancel drops it too.
 
 **Floating chat** (`FloatingChat`). On every page but Chats (and in the file
@@ -650,7 +650,8 @@ are fine. A chat may belong to a project and then works in its context.
   the members and when it was last active. No status in the card.
 - **New chat** (`+`, /chats/new): a generic empty state, With (one or several
   people and agents) and Project as 28px text-only pickers 8px above the
-  composer, on its text edge. Sending creates the chat.
+  composer, on its text edge. Sending creates the chat and stays disabled until
+  someone is chosen under With (yourself counts); no project is a valid choice.
 - **Sub-threads**: an agent's session opened from a chat is a child chat, one
   level only, kept out of the sidebar. The parent shows it inline as a card
   (agents, title, status, chevron) that opens it; its top bar leads back to
