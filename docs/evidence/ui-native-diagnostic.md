@@ -5,7 +5,9 @@ whose parent is the requested `465c693` pin. The newer commit changes web code;
 the native fixture/runtime/test sources are unchanged between those revisions.
 Frozen local installation resolves packaged Pi **1.0.0**. The supplied, already
 built controlled Go helper was reused. No real credential reads or provider
-calls, shared database, shared temporary cleanup, or production changes occurred.
+calls, shared database, or shared temporary cleanup occurred. The initial fixture
+diagnosis changed no production code; the later owner-authorized bridge correction
+and its qualification are recorded below.
 
 ## Reproduction and mechanism
 
@@ -204,5 +206,45 @@ Corrected bridge SHA-256:
 Retained test file SHA-256:
 `c4b347ef97c7a1d0c1cf765fbaf0bdb7d0be58b747b6e8705e996764bf106915`.
 
-Independent review and the entire native Pi file recheck on this correction are
-still required; the unit proof does not claim either has passed.
+At this unit checkpoint, independent review and the entire native Pi file recheck
+were still required. Their later qualification is recorded below.
+
+## Entire native-file qualification after the correction
+
+The coordinating root reported independent read-only source review accepted for
+integrated revision `e3f3fa3`. Direct `git show` hashing confirmed that revision's
+Pi bridge, minimal native fixture and retained Pi unit file have exactly the
+same SHA-256 values as this author's qualification revision
+`1f2f892427809febff3a6db87e475ca341e8da66`: respectively `f61b7faf…`,
+`59026346…` and `c4b347ef…` (full hashes above). The verdict is owner-reported;
+the original review report remains with the integrating root.
+
+After explicit slot release, the entire native file ran once:
+
+```sh
+env -i PATH=/home/g4f4r0/.bun/bin:/usr/bin:/bin HOME=/home/g4f4r0 \
+TMPDIR=/home/g4f4r0/.bb/nd-T0GIw1 \
+OTTO_GATEWAY_FIXTURE_BINARY=/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/otto-gateway-fixture \
+/home/g4f4r0/.bun/bin/bun --bun vitest run tests/pi-gateway-runtime.test.ts
+```
+
+| Qualification check | Observed result |
+| --- | --- |
+| Entire native Pi file | 19 passed, 0 failed; 90.08 s; Vitest exit 0 |
+| Formerly failing unconfirmed-transport case | Passed, including final native Stop and zero retained persistence errors |
+| Later native flows | Participant revocation, all compaction variants, shared-account execution/revocation and refresh recovery passed |
+| Controlled upstream requests | 30 tool-bearing model requests; native summary requests also exercised |
+| Process completion | All afterAll cleanup passed, including confirmed Pi process-tree stop, private PostgreSQL join and controlled Go helper exit 0; no remaining child of test PID 361129 |
+| Source changes during qualification | None |
+
+Log:
+`/home/g4f4r0/.bb/thread-storage/thr_wm9j5vr85d/native-full-qualification.log`.
+SHA-256: `55318f664d58571122f62049328041b060a09163ac37831a50bde9405f23bf10`.
+Native stderr was discarded by the unmodified minimal fixture; logged native
+metadata contains request field names/counts, not credentials or protocol bodies.
+
+The deterministic red/green bridge regression and the entire native-file pass
+support the correction without weakening Stop, cleanup or admission fences.
+This author did not rerun the complete 48-file suite after the bridge correction;
+real provider authorization/billing, storage durability and physical isolation
+remain outside controlled-fixture qualification.
