@@ -20,15 +20,16 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@workspace/ui/components/native-select";
+import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
   createContext,
   type ReactNode,
   useContext,
-  useDeferredValue,
   useEffect,
   useState,
 } from "react";
 import { destinations } from "@/components/app-rail";
+import { useDebounced } from "@/components/debounce";
 import { QueryState } from "@/components/query-state";
 import { TabBar } from "@/components/tab-bar";
 import {
@@ -136,7 +137,8 @@ function Palette({
   const { api, workspaceId } = useWorkspace();
   const directory = useDirectory();
   const [text, setText] = useState("");
-  const query = useDeferredValue(text.trim().slice(0, 200));
+  const [query, setQuery] = useState("");
+  const debounced = useDebounced(setQuery, 800);
   const [projectSelection, setProjectSelection] = useState("");
   const projectId =
     projectSelection || params.projectId || directory.projects[0]?.id;
@@ -208,9 +210,11 @@ function Palette({
   );
   const showsSettings =
     !query || "go to settings".includes(query.toLowerCase());
-  const searching = [projects, tasks, documents, files, members, agents].some(
-    (result) => result.isFetching,
-  );
+  const searching =
+    text.trim().slice(0, 200) !== query ||
+    [projects, tasks, documents, files, members, agents].some(
+      (result) => result.isFetching,
+    );
   const go = (to: () => unknown) => () => {
     to();
     onDone();
@@ -229,7 +233,14 @@ function Palette({
         );
       }}
     >
-      <CommandInput value={text} onValueChange={setText} placeholder="Search" />
+      <CommandInput
+        value={text}
+        onValueChange={(value) => {
+          setText(value);
+          debounced.run(value.trim().slice(0, 200));
+        }}
+        placeholder="Search"
+      />
       <TabBar
         label="Categories"
         className="flex-nowrap px-1.75 py-2"
@@ -262,14 +273,20 @@ function Palette({
           />
         ))}
         {searching && (
-          <div role="status" className="px-4 py-2">
-            Searching
+          <div
+            role="status"
+            aria-label="Searching"
+            className="flex flex-col gap-4 p-4"
+          >
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-64" />
+            <Skeleton className="h-4 w-40" />
           </div>
         )}
         {query && !searching && errors.length === 0 && (
           <CommandEmpty>No results found.</CommandEmpty>
         )}
-        {shows("tasks") && Boolean(tasks.data?.items.length) && (
+        {!searching && shows("tasks") && Boolean(tasks.data?.items.length) && (
           <CommandGroup heading="Tasks">
             {tasks.data?.items.map((task) => {
               const status = statuses[task.status];
@@ -293,7 +310,8 @@ function Palette({
             })}
           </CommandGroup>
         )}
-        {shows("people") &&
+        {!searching &&
+          shows("people") &&
           Boolean(members.data?.items.length || agents.data?.items.length) && (
             <CommandGroup heading="People">
               {members.data?.items.map((member) => (
@@ -328,49 +346,53 @@ function Palette({
               ))}
             </CommandGroup>
           )}
-        {shows("projects") && Boolean(projects.data?.items.length) && (
-          <CommandGroup heading="Projects">
-            {projects.data?.items.map((project) => (
-              <CommandItem
-                key={project.id}
-                value={`project-${project.id}`}
-                onSelect={go(() =>
-                  navigate({
-                    to: "/projects/$projectId",
-                    params: { projectId: project.id },
-                  }),
-                )}
-              >
-                <Slot>
-                  <RiBox3Line />
-                </Slot>
-                {project.title}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        )}
-        {shows("documents") && Boolean(documents.data?.items.length) && (
-          <CommandGroup heading="Documents">
-            {documents.data?.items.map((document) => (
-              <CommandItem
-                key={document.id}
-                value={`document-${document.id}`}
-                onSelect={go(() =>
-                  navigate({
-                    to: "/documents/$documentId",
-                    params: { documentId: document.id },
-                  }),
-                )}
-              >
-                <Slot>
-                  <RiFileTextLine />
-                </Slot>
-                {document.title}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        )}
-        {shows("files") && Boolean(files.data?.items.length) && (
+        {!searching &&
+          shows("projects") &&
+          Boolean(projects.data?.items.length) && (
+            <CommandGroup heading="Projects">
+              {projects.data?.items.map((project) => (
+                <CommandItem
+                  key={project.id}
+                  value={`project-${project.id}`}
+                  onSelect={go(() =>
+                    navigate({
+                      to: "/projects/$projectId",
+                      params: { projectId: project.id },
+                    }),
+                  )}
+                >
+                  <Slot>
+                    <RiBox3Line />
+                  </Slot>
+                  {project.title}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+        {!searching &&
+          shows("documents") &&
+          Boolean(documents.data?.items.length) && (
+            <CommandGroup heading="Documents">
+              {documents.data?.items.map((document) => (
+                <CommandItem
+                  key={document.id}
+                  value={`document-${document.id}`}
+                  onSelect={go(() =>
+                    navigate({
+                      to: "/documents/$documentId",
+                      params: { documentId: document.id },
+                    }),
+                  )}
+                >
+                  <Slot>
+                    <RiFileTextLine />
+                  </Slot>
+                  {document.title}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+        {!searching && shows("files") && Boolean(files.data?.items.length) && (
           <CommandGroup heading="Files">
             {files.data?.items.map((file) => {
               const Icon = resourceIcons[resourceKindOf(file.mediaType)];
@@ -391,25 +413,27 @@ function Palette({
             })}
           </CommandGroup>
         )}
-        {shows("actions") && (actions.length > 0 || showsSettings) && (
-          <CommandGroup heading="Actions">
-            {actions.map(({ to, label, icon }) => (
-              <Action
-                key={to}
-                label={`Go to ${label}`}
-                icon={icon}
-                onSelect={go(() => navigate({ to }))}
-              />
-            ))}
-            {showsSettings && (
-              <Action
-                label="Go to Settings"
-                icon={RiSettings3Line}
-                onSelect={go(() => navigate({ to: "/settings" }))}
-              />
-            )}
-          </CommandGroup>
-        )}
+        {!searching &&
+          shows("actions") &&
+          (actions.length > 0 || showsSettings) && (
+            <CommandGroup heading="Actions">
+              {actions.map(({ to, label, icon }) => (
+                <Action
+                  key={to}
+                  label={`Go to ${label}`}
+                  icon={icon}
+                  onSelect={go(() => navigate({ to }))}
+                />
+              ))}
+              {showsSettings && (
+                <Action
+                  label="Go to Settings"
+                  icon={RiSettings3Line}
+                  onSelect={go(() => navigate({ to: "/settings" }))}
+                />
+              )}
+            </CommandGroup>
+          )}
       </CommandList>
       <div className="flex h-12 shrink-0 items-center justify-end gap-4 border-t border-foreground/10 px-4 text-xs text-muted-foreground">
         {hints.map(({ keys, label }) => (
