@@ -20,8 +20,12 @@ import { Input } from "@workspace/ui/components/input";
 import { toast } from "@workspace/ui/components/sonner";
 import { Textarea } from "@workspace/ui/components/textarea";
 import type { InferResponseType } from "hono/client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConfigurationChoice } from "@/components/agents-configuration-choice";
+import {
+  hasUncertainMutationOutcome,
+  isDeniedDomainRead,
+} from "@/components/agents-schedules-mutation-safety";
 import { AgentSkills } from "@/components/agents-skills";
 import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
@@ -41,7 +45,7 @@ export function AgentSettingsPage({ agentId }: { agentId: string }) {
         await api.agents[":id"].$get({ param: { workspaceId, id: agentId } }),
       ),
   });
-  if (!query.data)
+  if (isDeniedDomainRead(query.error) || !query.data)
     return (
       <QueryState
         pending={query.isPending}
@@ -50,11 +54,14 @@ export function AgentSettingsPage({ agentId }: { agentId: string }) {
       />
     );
   return (
-    <AgentSettings
-      key={query.data.id}
-      agent={query.data}
-      reload={query.refetch}
-    />
+    <>
+      <QueryState error={query.error} retry={query.refetch} />
+      <AgentSettings
+        key={query.data.id}
+        agent={query.data}
+        reload={query.refetch}
+      />
+    </>
   );
 }
 
@@ -240,10 +247,15 @@ function AccountTitle({ id }: { id: string }) {
     queryFn: async () =>
       read(await api.subscriptions[":id"].$get({ param: { workspaceId, id } })),
   });
+  if (isDeniedDomainRead(account.error))
+    return <QueryState error={account.error} retry={account.refetch} />;
   return account.data ? (
-    <span>
-      {account.data.title} · {account.data.status}
-    </span>
+    <>
+      <QueryState error={account.error} retry={account.refetch} />
+      <span>
+        {account.data.title} · {account.data.status}
+      </span>
+    </>
   ) : (
     <QueryState
       pending={account.isPending}
@@ -304,6 +316,8 @@ function AgentConfiguration({
 }) {
   const { api, workspaceId, invalidate } = useWorkspace();
   const directory = useDirectory();
+  const submitting = useRef(false);
+  const [createUncertain, setCreateUncertain] = useState(false);
   const [agent] = useState(initialAgent);
   const [title, setTitle] = useState(agent?.title ?? "");
   const [instructions, setInstructions] = useState(agent?.instructions ?? "");
@@ -406,6 +420,15 @@ function AgentConfiguration({
       );
       return result.agent;
     },
+    onError: (error) => {
+      if (!agent && hasUncertainMutationOutcome(error)) {
+        setCreateUncertain(true);
+        void invalidate();
+      }
+    },
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async (result) => {
       await invalidate();
       toast.success(agent ? "Agent saved" : "Agent created");
@@ -415,19 +438,28 @@ function AgentConfiguration({
   useEffect(() => {
     onPendingChange?.(mutation.isPending);
   }, [mutation.isPending, onPendingChange]);
-  const accounts =
-    subscriptions.data?.pages.flatMap((page) => page.items) ?? [];
-  const skillList = skills.data?.pages.flatMap((page) => page.items) ?? [];
+  const accounts = isDeniedDomainRead(subscriptions.error)
+    ? []
+    : (subscriptions.data?.pages.flatMap((page) => page.items) ?? []);
+  const skillList = isDeniedDomainRead(skills.error)
+    ? []
+    : (skills.data?.pages.flatMap((page) => page.items) ?? []);
   const savedAccount = agent?.subscriptionId === subscriptionId;
   const modelUnchanged = savedAccount && model === agent?.model;
   // An unchanged saved configuration may be edited even while its gateway is unavailable.
   const modelValid = !subscriptionId
     ? !!model.trim()
-    : modelUnchanged || !!models.data?.items.some((item) => item.id === model);
+    : modelUnchanged ||
+      !!(
+        !isDeniedDomainRead(models.error) ? models.data : undefined
+      )?.items.some((item) => item.id === model);
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
+        if (submitting.current || createUncertain) return;
+        submitting.current = true;
+        onPendingChange?.(true);
         mutation.mutate();
       }}
     >
@@ -462,7 +494,10 @@ function AgentConfiguration({
                   "": "Workspace",
                   ...Object.fromEntries(
                     (
-                      projects.data?.pages.flatMap((page) => page.items) ?? []
+                      (!isDeniedDomainRead(projects.error)
+                        ? projects.data
+                        : undefined
+                      )?.pages.flatMap((page) => page.items) ?? []
                     ).map((project) => [project.id, project.title]),
                   ),
                 }}
@@ -544,8 +579,10 @@ function AgentConfiguration({
                   options={{
                     ...(modelUnchanged ? { [model]: model } : {}),
                     ...Object.fromEntries(
-                      models.data?.items.map((item) => [item.id, item.id]) ??
-                        [],
+                      (!isDeniedDomainRead(models.error)
+                        ? models.data
+                        : undefined
+                      )?.items.map((item) => [item.id, item.id]) ?? [],
                     ),
                   }}
                   onChange={setModel}
@@ -639,6 +676,12 @@ function AgentConfiguration({
             void directory.projectsQuery.refetch();
           }}
         />
+        {createUncertain && (
+          <p role="alert">
+            Otto may have created this Agent. Close and check the Agents list
+            before creating again.
+          </p>
+        )}
         {mutation.error && (
           <p>
             Close and reopen this editor to load the latest configuration before
@@ -652,7 +695,11 @@ function AgentConfiguration({
           <Button
             type="submit"
             disabled={
-              !title.trim() || !modelValid || skills.isPending || !!skills.error
+              createUncertain ||
+              !title.trim() ||
+              !modelValid ||
+              skills.isPending ||
+              !!skills.error
             }
           >
             {mutation.isPending ? "Saving" : "Save agent"}

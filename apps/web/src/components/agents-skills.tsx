@@ -11,8 +11,12 @@ import { Input } from "@workspace/ui/components/input";
 import { toast } from "@workspace/ui/components/sonner";
 import { Textarea } from "@workspace/ui/components/textarea";
 import type { InferResponseType } from "hono/client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConfigurationChoice } from "@/components/agents-configuration-choice";
+import {
+  hasUncertainMutationOutcome,
+  isDeniedDomainRead,
+} from "@/components/agents-schedules-mutation-safety";
 import { QueryState } from "@/components/query-state";
 import { read, type workspaceApi } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
@@ -53,7 +57,15 @@ export function AgentSkills({
       ),
     getNextPageParam: (page) => page.next ?? undefined,
   });
-  const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = isDeniedDomainRead(list.error)
+    ? []
+    : (list.data?.pages.flatMap((page) => page.items) ?? []);
+  if (isDeniedDomainRead(list.error))
+    return (
+      <Group title="Skills">
+        <QueryState error={list.error} retry={list.refetch} />
+      </Group>
+    );
   return (
     <Group
       title="Skills"
@@ -182,6 +194,8 @@ function CreateSkill({
   onPendingChange: (pending: boolean) => void;
 }) {
   const { api, workspaceId, invalidate } = useWorkspace();
+  const submitting = useRef(false);
+  const [createUncertain, setCreateUncertain] = useState(false);
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
   const [whenToUse, setWhenToUse] = useState("");
@@ -209,6 +223,15 @@ function CreateSkill({
               },
             }),
           ),
+    onError: (error) => {
+      if (hasUncertainMutationOutcome(error)) {
+        setCreateUncertain(true);
+        void invalidate();
+      }
+    },
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async (skill) => {
       await invalidate();
       toast.success("Skill created");
@@ -223,6 +246,9 @@ function CreateSkill({
     <form
       onSubmit={(event) => {
         event.preventDefault();
+        if (submitting.current || createUncertain) return;
+        submitting.current = true;
+        onPendingChange(true);
         mutation.mutate();
       }}
     >
@@ -291,12 +317,18 @@ function CreateSkill({
               onChange={setVisibility}
             />
           </Field>
+          {createUncertain && (
+            <p role="alert">
+              Otto may have created this Skill. Close and check the Skills list
+              before creating again.
+            </p>
+          )}
           <QueryState error={mutation.error} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={cancel}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" disabled={createUncertain}>
               {mutation.isPending
                 ? "Creating"
                 : importing
@@ -327,7 +359,7 @@ function SkillDetail({
     queryFn: async () =>
       read(await api.skills[":id"].$get({ param: { workspaceId, id } })),
   });
-  if (!query.data)
+  if (isDeniedDomainRead(query.error) || !query.data)
     return (
       <QueryState
         pending={query.isPending}
@@ -336,13 +368,16 @@ function SkillDetail({
       />
     );
   return (
-    <SkillEditor
-      onPendingChange={onPendingChange}
-      key={id}
-      initial={query.data}
-      canManage={canManage}
-      close={close}
-    />
+    <>
+      <QueryState error={query.error} retry={query.refetch} />
+      <SkillEditor
+        onPendingChange={onPendingChange}
+        key={id}
+        initial={query.data}
+        canManage={canManage}
+        close={close}
+      />
+    </>
   );
 }
 
@@ -464,6 +499,10 @@ function SkillEditor({
     },
     onSuccess: async (result, action) => {
       if (result) setSkill(result);
+      if (action === "propose") {
+        setTitle(skill.title);
+        setInstructions(skill.instructions);
+      }
       await invalidate();
       toast.success(
         action === "archive"
@@ -658,7 +697,10 @@ function SkillEditor({
                   options={{
                     "": "Choose a saved File",
                     ...Object.fromEntries(
-                      sources.data?.pages
+                      (!isDeniedDomainRead(sources.error)
+                        ? sources.data
+                        : undefined
+                      )?.pages
                         .flatMap((page) => page.items)
                         .filter(
                           (file) =>
@@ -705,6 +747,7 @@ function SkillEditor({
                   disabled={
                     !fileId ||
                     !selectedFile.data ||
+                    isDeniedDomainRead(selectedFile.error) ||
                     selectedFile.data.sourceRunId !== null ||
                     files.reduce((total, file) => total + file.byteLength, 0) +
                       selectedFile.data.byteLength >
@@ -747,7 +790,10 @@ function SkillEditor({
             error={proposals.error}
             retry={proposals.refetch}
           />
-          {proposals.data?.pages
+          {(!isDeniedDomainRead(proposals.error)
+            ? proposals.data
+            : undefined
+          )?.pages
             .flatMap((page) => page.items)
             .map((item) => (
               <Row

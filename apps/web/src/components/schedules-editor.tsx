@@ -16,8 +16,12 @@ import { Input } from "@workspace/ui/components/input";
 import { toast } from "@workspace/ui/components/sonner";
 import { Textarea } from "@workspace/ui/components/textarea";
 import type { InferResponseType } from "hono/client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConfigurationChoice } from "@/components/agents-configuration-choice";
+import {
+  hasUncertainMutationOutcome,
+  isDeniedDomainRead,
+} from "@/components/agents-schedules-mutation-safety";
 import { QueryState } from "@/components/query-state";
 import { read, type workspaceApi } from "@/lib/api";
 import { useDirectory } from "@/lib/directory";
@@ -83,6 +87,8 @@ function ScheduleForm({
   const { api, workspaceId, invalidate } = useWorkspace();
   const directory = useDirectory();
   // The editor keeps the token it opened with; background refetch cannot bypass a stale edit fence.
+  const submitting = useRef(false);
+  const [createUncertain, setCreateUncertain] = useState(false);
   const [schedule] = useState(initial);
   const [title, setTitle] = useState(schedule?.title ?? "");
   const [body, setBody] = useState(schedule?.body ?? "");
@@ -155,7 +161,9 @@ function ScheduleForm({
     queryFn: async () =>
       read(await api.chats[":id"].$get({ param: { workspaceId, id: chatId } })),
   });
-  const projectId = outputChat.data?.projectId;
+  const projectId = isDeniedDomainRead(outputChat.error)
+    ? undefined
+    : outputChat.data?.projectId;
   const tasks = useInfiniteQuery({
     queryKey: ["workspace", workspaceId, "schedule-tasks", projectId],
     enabled: !!projectId,
@@ -199,6 +207,15 @@ function ScheduleForm({
         await api.schedules.$post({ param: { workspaceId }, json: input }),
       );
     },
+    onError: (error) => {
+      if (!schedule && hasUncertainMutationOutcome(error)) {
+        setCreateUncertain(true);
+        void invalidate();
+      }
+    },
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async (result) => {
       await invalidate();
       toast.success(schedule ? "Schedule saved" : "Schedule created");
@@ -216,9 +233,15 @@ function ScheduleForm({
     validTimezone = false;
   }
   const validCron = trigger !== "cron" || cron.trim().split(/\s+/).length === 5;
-  const agentList = agents.data?.pages.flatMap((page) => page.items) ?? [];
-  const chatList = chats.data?.pages.flatMap((page) => page.items) ?? [];
-  const taskList = tasks.data?.pages.flatMap((page) => page.items) ?? [];
+  const agentList = isDeniedDomainRead(agents.error)
+    ? []
+    : (agents.data?.pages.flatMap((page) => page.items) ?? []);
+  const chatList = isDeniedDomainRead(chats.error)
+    ? []
+    : (chats.data?.pages.flatMap((page) => page.items) ?? []);
+  const taskList = isDeniedDomainRead(tasks.error)
+    ? []
+    : (tasks.data?.pages.flatMap((page) => page.items) ?? []);
   const original = (id: string | undefined, label: string) =>
     id ? { [id]: label } : {};
   const statuses: Record<string, string> =
@@ -229,6 +252,9 @@ function ScheduleForm({
     <form
       onSubmit={(event) => {
         event.preventDefault();
+        if (submitting.current || createUncertain) return;
+        submitting.current = true;
+        onPendingChange(true);
         mutation.mutate();
       }}
     >
@@ -397,7 +423,12 @@ function ScheduleForm({
                 options={{
                   [schedule.ownerId]: directory.actorOf(schedule.ownerId).name,
                   ...Object.fromEntries(
-                    (owners.data?.pages.flatMap((page) => page.items) ?? [])
+                    (
+                      (!isDeniedDomainRead(owners.error)
+                        ? owners.data
+                        : undefined
+                      )?.pages.flatMap((page) => page.items) ?? []
+                    )
                       .filter((member) => member.role !== "viewer")
                       .map((member) => [member.userId, member.name]),
                   ),
@@ -482,6 +513,12 @@ function ScheduleForm({
             error={mutation.error ?? directory.error}
             retry={directory.membersQuery.refetch}
           />
+          {createUncertain && (
+            <p role="alert">
+              Otto may have created this Schedule. Close and check the Schedules
+              list before creating again.
+            </p>
+          )}
           {mutation.error && (
             <p>
               Input is retained. Close and reopen to reload the latest edit
@@ -495,6 +532,7 @@ function ScheduleForm({
             <Button
               type="submit"
               disabled={
+                createUncertain ||
                 !title.trim() ||
                 !body.trim() ||
                 !agentId ||

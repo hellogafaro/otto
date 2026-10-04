@@ -44,9 +44,14 @@ import {
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar";
 import { toast } from "@workspace/ui/components/sonner";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Timeline, TimelineItem } from "@/components/activity";
 import { ConfigurationChoice } from "@/components/agents-configuration-choice";
+import {
+  hasUncertainMutationOutcome,
+  isDeniedDomainRead,
+  isUnsettledScheduleRun,
+} from "@/components/agents-schedules-mutation-safety";
 import { DetailView, Section } from "@/components/detail";
 import { EmptyPage } from "@/components/empty-page";
 import {
@@ -154,7 +159,9 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
       ),
     getNextPageParam: (page) => page.next ?? undefined,
   });
-  const visible = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const visible = isDeniedDomainRead(list.error)
+    ? []
+    : (list.data?.pages.flatMap((page) => page.items) ?? []);
   const filters: FilterDef<"type" | "agent" | "owner" | "status">[] = [
     { key: "type", label: "Type", icon: RiShapesLine, options: kinds },
     {
@@ -206,6 +213,12 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
       search: (previous) => ({ ...previous, [key]: value, after: undefined }),
     });
   const clear = () => navigate({ search: {} });
+  if (isDeniedDomainRead(list.error))
+    return (
+      <Page title="Schedules">
+        <QueryState error={list.error} retry={list.refetch} />
+      </Page>
+    );
   return (
     <Page
       title="Schedules"
@@ -451,7 +464,7 @@ export function SchedulePage({ scheduleId }: { scheduleId: string }) {
         }),
       ),
   });
-  if (!query.data)
+  if (isDeniedDomainRead(query.error) || !query.data)
     return (
       <QueryState
         pending={query.isPending}
@@ -460,11 +473,14 @@ export function SchedulePage({ scheduleId }: { scheduleId: string }) {
       />
     );
   return (
-    <ScheduleView
-      key={query.data.id}
-      schedule={query.data}
-      reload={query.refetch}
-    />
+    <>
+      <QueryState error={query.error} retry={query.refetch} />
+      <ScheduleView
+        key={query.data.id}
+        schedule={query.data}
+        reload={query.refetch}
+      />
+    </>
   );
 }
 
@@ -479,6 +495,8 @@ function ScheduleView({
   const directory = useDirectory();
   const [editing, setEditing] = useState(false);
   const [manualRunId, setManualRunId] = useState<string>();
+  const [manualRunBlocking, setManualRunBlocking] = useState(false);
+  const [admissionUncertain, setAdmissionUncertain] = useState(false);
   const requestId = useRef<string | undefined>(undefined);
   const canEdit = schedule.ownerId === user.id && workspace.role !== "viewer";
   const update = useMutation({
@@ -504,7 +522,11 @@ function ScheduleView({
         }),
       );
     },
+    onError: (error) =>
+      setAdmissionUncertain(hasUncertainMutationOutcome(error)),
     onSuccess: async (result) => {
+      setAdmissionUncertain(false);
+      setManualRunBlocking(true);
       setManualRunId(result.id);
       requestId.current = undefined;
       await invalidate();
@@ -529,6 +551,7 @@ function ScheduleView({
     getNextPageParam: (page) => page.next ?? undefined,
   });
   const busy = update.isPending || run.isPending;
+  const policyBlocked = busy || admissionUncertain;
   const state = states[schedule.status];
   const kind = kinds[schedule.type];
   const chat = useQuery({
@@ -582,7 +605,7 @@ function ScheduleView({
               {canEdit && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    disabled={busy}
+                    disabled={policyBlocked}
                     onClick={() => setEditing(true)}
                   >
                     <RiEditLine />
@@ -602,7 +625,9 @@ function ScheduleView({
                   }
                 >
                   <RiChat1Line />
-                  {chat.data?.title ?? "Output Chat"}
+                  {(!isDeniedDomainRead(chat.error)
+                    ? chat.data?.title
+                    : undefined) ?? "Output Chat"}
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <QueryState
@@ -619,7 +644,7 @@ function ScheduleView({
             <Button
               variant="ghost"
               size="sm"
-              disabled={busy}
+              disabled={busy || manualRunBlocking}
               onClick={() => run.mutate()}
             >
               <RiPlayLine data-icon="inline-start" />
@@ -649,14 +674,14 @@ function ScheduleView({
                 {canEdit && (
                   <>
                     <DropdownMenuItem
-                      disabled={busy}
+                      disabled={policyBlocked}
                       onClick={() => setEditing(true)}
                     >
                       <RiEditLine />
                       Edit schedule
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      disabled={busy}
+                      disabled={policyBlocked}
                       onClick={() =>
                         update.mutate(
                           schedule.status === "archived"
@@ -672,7 +697,7 @@ function ScheduleView({
                     </DropdownMenuItem>
                     {schedule.status !== "archived" && (
                       <DropdownMenuItem
-                        disabled={busy}
+                        disabled={policyBlocked}
                         onClick={() =>
                           update.mutate(
                             schedule.status === "enabled"
@@ -704,6 +729,12 @@ function ScheduleView({
             Check the output Chat if the outcome is uncertain.
           </p>
         )}
+        {admissionUncertain && (
+          <p>
+            Schedule changes are paused until Otto acknowledges this admission.
+            Retry the same Run request or check its output Chat.
+          </p>
+        )}
         {schedule.type === "script" ? (
           <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs">
             {schedule.body}
@@ -714,7 +745,11 @@ function ScheduleView({
         {manualRunId && (
           <section className="flex flex-col gap-3">
             <h2 className="text-base font-medium">Manual Run</h2>
-            <ScheduleRun id={manualRunId} canControl={canEdit} />
+            <ScheduleRun
+              id={manualRunId}
+              canControl={canEdit}
+              onBlockingChange={setManualRunBlocking}
+            />
           </section>
         )}
         <section className="flex flex-col gap-5">
@@ -730,7 +765,10 @@ function ScheduleView({
             </p>
           )}
           <Timeline>
-            {history.data?.pages
+            {(!isDeniedDomainRead(history.error)
+              ? history.data
+              : undefined
+            )?.pages
               .flatMap((page) => page.items)
               .map((item) => (
                 <TimelineItem key={item.id}>
@@ -769,15 +807,22 @@ function ScheduleView({
   );
 }
 
-function ScheduleRun({ id, canControl }: { id: string; canControl: boolean }) {
+function ScheduleRun({
+  id,
+  canControl,
+  onBlockingChange,
+}: {
+  id: string;
+  canControl: boolean;
+  onBlockingChange?: (blocking: boolean) => void;
+}) {
   const { api, workspaceId, invalidate } = useWorkspace();
   const query = useQuery({
     queryKey: ["workspace", workspaceId, "run", id],
     queryFn: async () =>
       read(await api.runs[":id"].$get({ param: { workspaceId, id } })),
     refetchInterval: (query) =>
-      query.state.data &&
-      ["queued", "launching", "running"].includes(query.state.data.state)
+      query.state.data && isUnsettledScheduleRun(query.state.data.state)
         ? 2000
         : false,
   });
@@ -789,7 +834,15 @@ function ScheduleRun({ id, canControl }: { id: string; canControl: boolean }) {
       toast.success("Stop acknowledged");
     },
   });
-  if (!query.data)
+  useEffect(() => {
+    onBlockingChange?.(
+      !query.data ||
+        !!query.error ||
+        stop.isPending ||
+        isUnsettledScheduleRun(query.data.state),
+    );
+  }, [onBlockingChange, query.data, query.error, stop.isPending]);
+  if (isDeniedDomainRead(query.error) || !query.data)
     return (
       <QueryState
         pending={query.isPending}
@@ -814,19 +867,16 @@ function ScheduleRun({ id, canControl }: { id: string; canControl: boolean }) {
         >
           Open output Chat
         </Button>
-        {canControl &&
-          ["queued", "launching", "running", "uncertain"].includes(
-            query.data.state,
-          ) && (
-            <Button
-              variant="outline"
-              size="compact"
-              disabled={stop.isPending}
-              onClick={() => stop.mutate()}
-            >
-              {stop.isPending ? "Stopping" : "Stop Run"}
-            </Button>
-          )}
+        {canControl && isUnsettledScheduleRun(query.data.state) && (
+          <Button
+            variant="outline"
+            size="compact"
+            disabled={stop.isPending}
+            onClick={() => stop.mutate()}
+          >
+            {stop.isPending ? "Stopping" : "Stop Run"}
+          </Button>
+        )}
       </div>
       <QueryState error={stop.error ?? query.error} retry={query.refetch} />
     </div>
