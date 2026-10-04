@@ -8,7 +8,9 @@ import { z } from "zod";
 import { pushDatabase } from "../scripts/push";
 
 /** Real PostgreSQL, isolated by a private 0700 socket directory, with TCP disabled. No credentials or shared services. */
-export async function startPostgres(options: { schema?: boolean } = {}) {
+export async function startPostgres(
+  options: { schema?: boolean; poolMax?: number } = {},
+) {
   const directory = await mkdtemp(join(tmpdir(), "otto-pg-"));
   await chmod(directory, 0o700);
   const packagePath = Bun.resolveSync(
@@ -64,6 +66,7 @@ export async function startPostgres(options: { schema?: boolean } = {}) {
     { stdout: "ignore", stderr: "ignore" },
   );
   const database = openDatabase({
+    ...(options.poolMax === undefined ? {} : { max: options.poolMax }),
     host: directory,
     user: "otto_test",
     database: "postgres",

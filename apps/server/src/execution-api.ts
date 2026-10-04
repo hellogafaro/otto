@@ -13,10 +13,18 @@ import {
   runAutomation,
   updateAutomation,
 } from "@otto/automations";
-import { getDocument } from "@otto/documents";
 import { createEnvironment, getEnvironment } from "@otto/environments";
-import { admitRun, getRun, getRunActivity, getRuns, stopRun } from "@otto/runs";
+import {
+  admitRun,
+  getRun,
+  getRunActivity,
+  getRuns,
+  getRunUsage,
+  prepareRunModel,
+  stopRun,
+} from "@otto/runs";
 import { DomainError } from "@otto/shared";
+import { getSkill } from "@otto/skills";
 import type { Context } from "@otto/workspaces";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -47,9 +55,8 @@ const automationInput = z
 
 async function validateSkills(c: Context, selected: string[] = []) {
   for (const id of selected) {
-    const document = await getDocument(c, id);
-    if (!document.skill || document.archived)
-      throw new DomainError("invalid", "Skill unavailable");
+    const skill = await getSkill(c, id);
+    if (skill.archived) throw new DomainError("invalid", "Skill unavailable");
   }
 }
 
@@ -94,7 +101,6 @@ export const executionApi = new Hono<ApiEnv>()
           visibility: z.enum(["user", "workspace"]).optional(),
           title: title.optional(),
           instructions: body.optional(),
-          harness: title.optional(),
           model: title.optional(),
           subscriptionId: id.nullable().optional(),
           skillIds: ids.optional(),
@@ -196,7 +202,6 @@ export const executionApi = new Hono<ApiEnv>()
           visibility: z.enum(["user", "workspace"]).optional(),
           title,
           instructions: body,
-          harness: title,
           model: title,
           projectId: id.optional(),
           subscriptionId: id.optional(),
@@ -237,9 +242,16 @@ export const executionApi = new Hono<ApiEnv>()
     ),
     async (c) => {
       const options = c.get("options");
+      const pi = await prepareRunModel(
+        options.db,
+        id.parse(c.req.param("workspaceId")),
+        { userId: c.get("userId") },
+        c.req.valid("json"),
+        options.pi,
+      );
       return c.json(
         await transact(c, (ctx) =>
-          admitRun(ctx, options.boss, c.req.valid("json"), options.harnesses),
+          admitRun(ctx, options.boss, c.req.valid("json"), pi),
         ),
       );
     },
@@ -286,6 +298,15 @@ export const executionApi = new Hono<ApiEnv>()
           false,
         ),
       ),
+  )
+  .get("/workspaces/:workspaceId/runs/:id/usage", async (c) =>
+    c.json(
+      await transact(
+        c,
+        (ctx) => getRunUsage(ctx, id.parse(c.req.param("id"))),
+        false,
+      ),
+    ),
   )
   .post(
     "/workspaces/:workspaceId/runs/:id/steer",
@@ -369,6 +390,18 @@ export const executionApi = new Hono<ApiEnv>()
     validate("json", z.object({ requestId: id })),
     async (c) => {
       const options = c.get("options");
+      const automation = await transact(
+        c,
+        (ctx) => getAutomation(ctx, id.parse(c.req.param("id"))),
+        false,
+      );
+      const pi = await prepareRunModel(
+        options.db,
+        id.parse(c.req.param("workspaceId")),
+        { userId: c.get("userId") },
+        { ...automation, requestId: c.req.valid("json").requestId },
+        options.pi,
+      );
       return c.json(
         await transact(c, (ctx) =>
           runAutomation(
@@ -376,7 +409,7 @@ export const executionApi = new Hono<ApiEnv>()
             options.boss,
             id.parse(c.req.param("id")),
             c.req.valid("json").requestId,
-            options.harnesses,
+            pi,
           ),
         ),
       );

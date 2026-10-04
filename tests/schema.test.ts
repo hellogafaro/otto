@@ -68,19 +68,11 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
       const agentId = crypto.randomUUID();
       const skillId = crypto.randomUUID();
       await database.pool.query(
-        'insert into agents(id,"workspaceId","createdBy",name,instructions,harness,model) values($1,$2,$3,$4,$5,$6,$7)',
-        [
-          agentId,
-          workspaceId,
-          "schema-owner",
-          "Agent",
-          "Work",
-          "fixture",
-          "fixture",
-        ],
+        'insert into agents(id,"workspaceId","createdBy",name,instructions,model) values($1,$2,$3,$4,$5,$6)',
+        [agentId, workspaceId, "schema-owner", "Agent", "Work", "fixture"],
       );
       await database.pool.query(
-        'insert into documents(id,"workspaceId","createdBy",title,body,skill,visibility) values($1,$2,$3,$4,$5,true,$6)',
+        'insert into skills(id,"workspaceId","createdBy",title,instructions,visibility) values($1,$2,$3,$4,$5,$6)',
         [
           skillId,
           workspaceId,
@@ -91,13 +83,13 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
         ],
       );
       await database.pool.query(
-        'insert into agent_skills("workspaceId","agentId","skillId") values($1,$2,$3)',
+        'insert into agents_skills("workspaceId","agentId","skillId") values($1,$2,$3)',
         [workspaceId, agentId, skillId],
       );
       const subscriptionId = crypto.randomUUID();
       await database.pool.query(
-        'insert into subscriptions(id,"workspaceId","createdBy",name) values($1,$2,$3,$4)',
-        [subscriptionId, workspaceId, "schema-owner", "Native"],
+        'insert into subscriptions(id,"workspaceId","createdBy",name,provider) values($1,$2,$3,$4,$5)',
+        [subscriptionId, workspaceId, "schema-owner", "Native", "codex"],
       );
       await database.pool.query(
         'update agents set "subscriptionId"=$1 where id=$2',
@@ -105,13 +97,12 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
       );
       await expect(
         database.pool.query(
-          'insert into agents("workspaceId","createdBy",name,instructions,harness,model,"subscriptionId") values($1,$2,$3,$4,$5,$6,$7)',
+          'insert into agents("workspaceId","createdBy",name,instructions,model,"subscriptionId") values($1,$2,$3,$4,$5,$6)',
           [
             otherWorkspaceId,
             "schema-owner",
             "Cross native",
             "Work",
-            "fixture",
             "fixture",
             subscriptionId,
           ],
@@ -132,7 +123,7 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
       const selection = async () =>
         (
           await database.pool.query(
-            'select a.id,a."createdBy",a."subscriptionId",s."skillId",d.body from agents a join agent_skills s on s."agentId"=a.id join documents d on d.id=s."skillId" where a.id=$1',
+            'select a.id,a."createdBy",a."subscriptionId",s."skillId",d.instructions from agents a join agents_skills s on s."agentId"=a.id join skills d on d.id=s."skillId" where a.id=$1',
             [agentId],
           )
         ).rows;
@@ -190,21 +181,19 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
         "subscriptions",
       ] as const) {
         const inputs = {
-          subscriptions: '"workspaceId",name,"createdBy"',
-          agents: '"workspaceId",name,instructions,harness,model,"createdBy"',
+          subscriptions: '"workspaceId",name,provider,"createdBy"',
+          agents: '"workspaceId",name,instructions,model,"createdBy"',
           documents: '"workspaceId",title,body,"createdBy"',
           connections: '"workspaceId",name,type,"accountRef","createdBy"',
         };
         const values = {
-          subscriptions: [workspaceId, "Native", "absent-human"],
-          agents: [
+          subscriptions: [
             workspaceId,
-            "Bad",
-            "Work",
-            "fixture",
-            "fixture",
+            "Gateway account",
+            "codex",
             "absent-human",
           ],
+          agents: [workspaceId, "Bad", "Work", "fixture", "absent-human"],
           documents: [workspaceId, "Bad", "Body", "absent-human"],
           connections: [workspaceId, "Bad", "mcp", "fixture", "absent-human"],
         };

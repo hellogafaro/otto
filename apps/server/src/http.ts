@@ -1,6 +1,6 @@
 import type { ArtifactStorage } from "@otto/artifacts";
 import type { Database } from "@otto/db";
-import type { Harnesses } from "@otto/runs";
+import type { PiInstallation } from "@otto/runs";
 import type { RunRuntime } from "@otto/runs/runtime";
 import { type Context, inWorkspace } from "@otto/workspaces";
 import type { Context as HttpContext } from "hono";
@@ -9,6 +9,8 @@ import type { Auth } from "./auth";
 import type { ConnectionOptions } from "./connections";
 import type { createContentPresence } from "./content-presence";
 import type { Mail } from "./mail";
+import type { ModelGateway } from "./model-gateway";
+import type { SubscriptionLogin } from "./subscription-login";
 import { id } from "./validation";
 
 export interface ApiOptions {
@@ -18,9 +20,12 @@ export interface ApiOptions {
   origin: string;
   storage?: ArtifactStorage;
   runtime?: RunRuntime;
-  harnesses?: Harnesses;
+  pi?: PiInstallation;
   mail?: Mail;
   connections?: ConnectionOptions;
+  subscriptionLogin?: SubscriptionLogin;
+  gatewayStoreKey?: string;
+  modelGateway?: ModelGateway;
 }
 export interface ApiEnv {
   Variables: {

@@ -1,4 +1,4 @@
-import { getAgent } from "@otto/agents";
+import { isDeepStrictEqual } from "node:util";
 import { getConversation } from "@otto/conversations";
 import type { Database } from "@otto/db";
 import {
@@ -14,7 +14,6 @@ import {
 } from "@otto/environments";
 import { bindSessionContext, getSessionContext } from "@otto/sessions";
 import { DomainError, required, withCleanup } from "@otto/shared";
-import { qualifySubscription } from "@otto/subscriptions/server";
 
 import {
   type Actor,
@@ -25,14 +24,14 @@ import {
   requireWriter,
 } from "@otto/workspaces";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { connectAcp } from "./acp";
 import {
   failQueuedRun,
   getRun,
-  type Harnesses,
+  type PiInstallation,
   validateRunSources,
 } from "./index";
-import { runActivity, runs } from "./schema";
+import { connectPi } from "./pi";
+import { runActivity, runs, type UsageTokens } from "./schema";
 
 export interface Attempt {
   runId: string;
@@ -43,7 +42,7 @@ export interface Attempt {
 interface RuntimeOptions {
   backend: ComputerBackend;
   /** Server-configured pinned commands only; no browser command or credential interpolation. */
-  harnesses: Harnesses;
+  pi: PiInstallation;
   validateAutomation?: (
     c: Context,
     id: string,
@@ -58,13 +57,27 @@ interface RuntimeOptions {
     workspaceId: string;
     sponsorId: string;
     runId: string;
-    documentId: string;
+    skillId: string;
     path: string;
   }) => Promise<Uint8Array>;
+  /** Exact deployment source and owning server tool schema, materialized only in this retained scope. */
+  extensionSource?: string;
+  toolSchema?: unknown;
+  /** Attempt-only proxy access; never an upstream OAuth credential. */
+  modelAccess?: (attempt: Attempt) => Promise<{
+    baseUrl: string;
+    token: string;
+    release?: () => Promise<void>;
+  }>;
   deadlineMs?: number;
 }
 const MAX_OUTPUT_BYTES = 1048576;
 const MAX_ACTIVE = 16;
+export interface Usage extends UsageTokens {
+  sequence: number;
+  provider: string;
+  model: string;
+}
 /** Private trusted composition entry: no user supplied actor/agent/run pairing is accepted. */
 export async function withRunAttempt<T>(
   db: Database,
@@ -129,6 +142,7 @@ function executionScope(run: typeof runs.$inferSelect) {
     sponsorId: run.sponsorId,
     conversationId: run.conversationId,
     subscriptionId: run.inputs.subscriptionId,
+    accountId: run.inputs.accountId,
     humans: run.inputs.audience.humans.slice().sort(),
     agents: run.inputs.audience.agents.slice().sort(),
     grants: run.inputs.grants,
@@ -170,7 +184,9 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
     {
       process: ComputerProcess;
       controller: AbortController;
-      acp?: ReturnType<typeof connectAcp>;
+      pi?: ReturnType<typeof connectPi>;
+      promptStarted?: boolean;
+      releaseModel?: () => Promise<void>;
       done: Promise<void>;
       timer?: ReturnType<typeof setTimeout>;
       stopTimer?: ReturnType<typeof setInterval>;
@@ -238,31 +254,83 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         .where(eq(runs.id, row.id));
     });
   }
-  async function output(identity: Attempt, sequence: number, body: string) {
+  async function output(
+    c: Context,
+    run: typeof runs.$inferSelect,
+    identity: Attempt,
+    sequence: number,
+    body: string,
+  ) {
     if (!body) return;
-    await withRunAttempt(
-      db,
-      identity,
-      async (c, run) => {
-        const bytes = Buffer.byteLength(body);
-        if (bytes > 65536 || run.outputBytes + bytes > MAX_OUTPUT_BYTES)
-          throw new DomainError("unavailable", "Run output limit");
-        const cursor = await advanceCursor(c);
-        await c.tx.insert(runActivity).values({
-          workspaceId: c.workspaceId,
-          runId: run.id,
-          requestId: `output:${identity.attempt}:${sequence}`,
-          type: "output",
-          body,
-          cursor,
-        });
-        await c.tx
-          .update(runs)
-          .set({ outputBytes: run.outputBytes + bytes, cursor })
-          .where(eq(runs.id, run.id));
-      },
-      options.validateAutomation,
+    const bytes = Buffer.byteLength(body);
+    if (bytes > 65536 || run.outputBytes + bytes > MAX_OUTPUT_BYTES)
+      throw new DomainError("unavailable", "Run output limit");
+    const cursor = await advanceCursor(c);
+    await c.tx.insert(runActivity).values({
+      workspaceId: c.workspaceId,
+      runId: run.id,
+      requestId: `output:${identity.attempt}:${sequence}`,
+      type: "output",
+      body,
+      cursor,
+    });
+    await c.tx
+      .update(runs)
+      .set({ outputBytes: run.outputBytes + bytes, cursor })
+      .where(eq(runs.id, run.id));
+  }
+  async function usage(
+    c: Context,
+    run: typeof runs.$inferSelect,
+    identity: Attempt,
+    value: Usage,
+  ) {
+    if (
+      value.provider !== run.inputs.provider ||
+      value.model !== run.inputs.model ||
+      !Number.isSafeInteger(value.sequence) ||
+      value.sequence < 1 ||
+      value.sequence > 256
+    )
+      throw new DomainError("forbidden", "Usage attribution mismatch");
+    const tokens: UsageTokens = {
+      inputTokens: value.inputTokens,
+      outputTokens: value.outputTokens,
+      cacheReadTokens: value.cacheReadTokens,
+      cacheWriteTokens: value.cacheWriteTokens,
+      totalTokens: value.totalTokens,
+    };
+    if (
+      Object.values(tokens).some(
+        (n) =>
+          n !== null &&
+          (!Number.isSafeInteger(n) || n < 0 || n > 1_000_000_000_000),
+      )
+    )
+      throw new DomainError("invalid", "Invalid reported usage");
+    const prior = run.usage.find(
+      (message) =>
+        message.attempt === identity.attempt &&
+        message.sequence === value.sequence,
     );
+    if (prior) {
+      if (!isDeepStrictEqual(prior.tokens, tokens))
+        throw new DomainError("conflict", "Usage message already recorded");
+      return;
+    }
+    if (run.usage.length >= 256)
+      throw new DomainError("unavailable", "Run usage message limit");
+    const cursor = await advanceCursor(c);
+    await c.tx
+      .update(runs)
+      .set({
+        usage: [
+          ...run.usage,
+          { attempt: identity.attempt, sequence: value.sequence, tokens },
+        ],
+        cursor,
+      })
+      .where(eq(runs.id, run.id));
   }
   async function stopTree(process: ComputerProcess) {
     try {
@@ -287,10 +355,12 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
     // cannot prove an ignored-cancellation tool stopped producing side effects.
     const cleanup = await Promise.allSettled([
       stopTree(process),
-      entry?.acp?.close() ?? Promise.resolve(),
+      entry?.pi?.close() ?? Promise.resolve(),
+      entry?.releaseModel?.() ?? Promise.resolve(),
     ]);
     const treeStopped = cleanup[0].status === "fulfilled" && cleanup[0].value;
-    const toolsStopped = cleanup[1].status === "fulfilled";
+    const toolsStopped =
+      cleanup[1].status === "fulfilled" && cleanup[2].status === "fulfilled";
     const stopped = treeStopped && toolsStopped;
     await settle(
       identity,
@@ -353,12 +423,12 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           );
         const scope = executionScope(run);
         await bindExecutionScope(c, run.agentId, scope);
-        const harness = options.harnesses[run.inputs.harness];
+        const pi = options.pi;
         if (
           run.type === "prompt" &&
-          (!harness || harness.version !== run.inputs.harnessVersion)
+          (!pi || pi.version !== run.inputs.piVersion)
         )
-          throw new DomainError("unavailable", "Pinned harness not configured");
+          throw new DomainError("unavailable", "Managed Pi not configured");
         const cursor = await advanceCursor(c);
         const deadlineAt = new Date(Date.now() + deadlineMs);
         const attempt = run.attempt + 1;
@@ -381,7 +451,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           argv:
             run.type === "script"
               ? ["/bin/sh", "-c", run.inputs.body]
-              : required(harness).argv,
+              : pi.argv,
         };
       },
     ).catch(async (error: unknown) => {
@@ -404,6 +474,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
     };
     let process: ComputerProcess;
     let launchStarted = false;
+    let releaseModel: (() => Promise<void>) | undefined;
     try {
       const computer = await within(
         options.backend.inspectComputer(
@@ -411,18 +482,93 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         ),
       );
       requireComputerCapabilities(computer.capabilities);
-      if (
-        row.type === "prompt" &&
-        (!row.inputs.subscriptionId ||
-          computer.account?.subscriptionId !== row.inputs.subscriptionId ||
-          computer.account.mode !== "native_subscription")
-      )
-        throw new DomainError(
-          "forbidden",
-          "Native subscription account not qualified",
-        );
       const files: { path: string; bytes: Uint8Array }[] = [];
       let fileBytes = 0;
+      let env: Readonly<Record<string, string>> | undefined;
+      let argv = prepared.argv;
+      if (row.type === "prompt") {
+        if (
+          !options.extensionSource ||
+          !options.toolSchema ||
+          !options.modelAccess
+        )
+          throw new DomainError(
+            "unavailable",
+            "Managed Pi model/tool configuration unavailable",
+          );
+        const toolSchema = JSON.stringify(options.toolSchema);
+        if (new TextEncoder().encode(toolSchema).byteLength > 65536)
+          throw new DomainError("unavailable", "Managed tool schema limit");
+        const access = await within(options.modelAccess(identity));
+        releaseModel = access.release;
+        const directory = ".otto/pi";
+        argv = [
+          ...argv,
+          "--offline",
+          "--mode",
+          "rpc",
+          "--provider",
+          required(row.inputs.provider ?? undefined),
+          "--model",
+          row.inputs.model,
+          "--no-extensions",
+          "--no-skills",
+          "--no-prompt-templates",
+          "--no-themes",
+          "--no-context-files",
+          "--tools",
+          "read,write,edit,bash,otto",
+          "-e",
+          `${directory}/extension.ts`,
+          "--session",
+          `${directory}/sessions/${required(row.sessionId ?? undefined)}.jsonl`,
+        ];
+        env = {
+          PI_CODING_AGENT_DIR: directory,
+          PI_OFFLINE: "1",
+          OTTO_MODEL_TOKEN: access.token,
+          OTTO_TOOL_SCHEMA: toolSchema,
+        };
+        const modelConfig = {
+          providers: {
+            [required(row.inputs.provider ?? undefined)]: {
+              api: "openai-responses",
+              baseUrl: access.baseUrl,
+              apiKey: "$OTTO_MODEL_TOKEN",
+              models: [
+                {
+                  id: row.inputs.model,
+                  name: row.inputs.model,
+                  ...required(
+                    row.inputs.modelConfig ?? undefined,
+                    "unavailable",
+                  ),
+                },
+              ],
+            },
+          },
+        };
+        files.push(
+          {
+            path: `${directory}/extension.ts`,
+            bytes: new TextEncoder().encode(options.extensionSource),
+          },
+          {
+            path: `${directory}/models.json`,
+            bytes: new TextEncoder().encode(JSON.stringify(modelConfig)),
+          },
+          {
+            path: `${directory}/settings.json`,
+            bytes: new TextEncoder().encode(
+              JSON.stringify({ enableModelFallback: false }),
+            ),
+          },
+        );
+        fileBytes += files.reduce(
+          (total, file) => total + file.bytes.length,
+          0,
+        );
+      }
       for (const skill of row.inputs.skills) {
         const instructions = new TextEncoder().encode(
           `---\nname: ${JSON.stringify(skill.title)}\ndescription: ${JSON.stringify(skill.whenToUse ?? skill.title)}\n---\n${skill.instructions}`,
@@ -440,7 +586,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
               workspaceId: row.workspaceId,
               sponsorId: row.sponsorId,
               runId: id,
-              documentId: skill.documentId,
+              skillId: skill.documentId,
               path: file.path,
             }),
           );
@@ -486,7 +632,8 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           computerRef: required(prepared.env.computerRef ?? undefined),
           launchKey: row.launchKey,
           scope: prepared.scope,
-          argv: prepared.argv,
+          argv,
+          env,
           files,
           deadlineAt: prepared.deadlineAt,
           maxOutputBytes: MAX_OUTPUT_BYTES,
@@ -494,14 +641,20 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         15000,
       );
     } catch {
+      const cleanup = await Promise.allSettled([
+        releaseModel?.() ?? Promise.resolve(),
+      ]);
+      const joined = cleanup[0]?.status === "fulfilled";
       // Launch may have reached the computer. Persist uncertainty before any reconciliation.
       await settle(
         identity,
-        launchStarted ? "uncertain" : "failed",
-        launchStarted
-          ? "launch_acknowledgement_missing"
-          : "computer_or_account_unavailable",
-        !launchStarted,
+        launchStarted || !joined ? "uncertain" : "failed",
+        !joined
+          ? "tool_cleanup_unconfirmed"
+          : launchStarted
+            ? "launch_acknowledgement_missing"
+            : "computer_or_account_unavailable",
+        !launchStarted && joined,
       );
       return;
     }
@@ -544,18 +697,29 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
             process,
             "authorization_revoked_before_execution",
           ),
-        () => within(process.detach()),
+        () =>
+          withCleanup(
+            () => releaseModel?.() ?? Promise.resolve(),
+            () => within(process.detach()),
+          ),
       );
       return;
     }
     const entry: {
       process: ComputerProcess;
       controller: AbortController;
-      acp?: ReturnType<typeof connectAcp>;
+      pi?: ReturnType<typeof connectPi>;
+      promptStarted?: boolean;
+      releaseModel?: () => Promise<void>;
       done: Promise<void>;
       timer?: ReturnType<typeof setTimeout>;
       stopTimer?: ReturnType<typeof setInterval>;
-    } = { process, controller: new AbortController(), done: Promise.resolve() };
+    } = {
+      process,
+      controller: new AbortController(),
+      done: Promise.resolve(),
+      releaseModel,
+    };
     active.set(id, entry);
     let checking = false;
     entry.timer = setTimeout(
@@ -595,8 +759,49 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         let sequence = 0;
         try {
           if (row.type === "prompt") {
-            const acp = connectAcp(process, {
-              onOutput: (text) => output(identity, ++sequence, text),
+            const publish = async (
+              work: (
+                c: Context,
+                run: typeof runs.$inferSelect,
+              ) => Promise<void>,
+            ) => {
+              if (entry.controller.signal.aborted) return;
+              let authorized = false;
+              try {
+                await withRunAttempt(
+                  db,
+                  identity,
+                  (c, run) => {
+                    authorized = true;
+                    return work(c, run);
+                  },
+                  options.validateAutomation,
+                );
+              } catch (error) {
+                // Provenance belongs to this transaction: later cancellation or
+                // revocation cannot turn a publication error into an authority denial.
+                if (
+                  authorized ||
+                  !(error instanceof DomainError) ||
+                  !["forbidden", "conflict"].includes(error.code)
+                )
+                  throw error;
+                // A current authority denial publishes nothing and requests a
+                // durable Stop. Join outside this callback to avoid waiting on
+                // its own Pi output chain; unknown cleanup still retains the lease.
+                entry.controller.abort();
+                void stopProcess(
+                  identity,
+                  process,
+                  "authorization_revoked",
+                ).catch((failure: unknown) => rememberError(failure));
+              }
+            };
+            const pi = connectPi(process, {
+              onOutput: (text) =>
+                publish((c, run) => output(c, run, identity, ++sequence, text)),
+              onUsage: (value) =>
+                publish((c, run) => usage(c, run, identity, value)),
               handleTool: async (input, signal) => {
                 await withRunAttempt(
                   db,
@@ -616,18 +821,18 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
                 );
               },
             });
-            entry.acp = acp;
-            await acp.initialize();
+            entry.pi = pi;
+            await pi.initialize();
             const context = await inWorkspace(
               db,
               row.workspaceId,
               { userId: row.sponsorId },
               (c) => getSessionContext(c, required(row.sessionId ?? undefined)),
             );
-            const nativeRef = await acp.openSession(
-              context.contextRef,
-              row.inputs.model,
-            );
+            const nativeRef = await pi.openSession(context.contextRef, {
+              provider: required(row.inputs.provider ?? undefined),
+              model: row.inputs.model,
+            });
             await withRunAttempt(
               db,
               identity,
@@ -645,10 +850,15 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
               ...row.inputs.skills.map((s) => s.instructions),
               row.inputs.body,
             ].join("\n\n");
-            const reason = await acp.prompt(
+            if (entry.controller.signal.aborted) return;
+            entry.promptStarted = true;
+            const reason = await pi.prompt(
               prompt,
               Math.max(1, prepared.deadlineAt.getTime() - Date.now()),
             );
+            // Join the settled protocol/tool work and detach its stream before asking the remote tree to exit.
+            await pi.close();
+            await entry.releaseModel?.();
             // Finishing a turn is not proof its process tree is gone.
             const stopped = await stopTree(process);
             await withRunAttempt(
@@ -660,9 +870,11 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
             await settle(
               identity,
               stopped
-                ? reason === "end_turn"
+                ? reason === "finished"
                   ? "finished"
-                  : "interrupted"
+                  : reason === "failed"
+                    ? "failed"
+                    : "interrupted"
                 : "uncertain",
               stopped ? reason : "process_stop_unconfirmed",
               stopped,
@@ -674,10 +886,18 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
               while (true) {
                 const chunk = await reader.read();
                 if (chunk.done) break;
-                await output(
+                await withRunAttempt(
+                  db,
                   identity,
-                  ++sequence,
-                  decoder.decode(chunk.value, { stream: true }),
+                  (c, run) =>
+                    output(
+                      c,
+                      run,
+                      identity,
+                      ++sequence,
+                      decoder.decode(chunk.value, { stream: true }),
+                    ),
+                  options.validateAutomation,
                 );
               }
             } finally {
@@ -712,7 +932,8 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           await withCleanup(
             async () => {
               try {
-                await entry.acp?.close();
+                await entry.pi?.close();
+                await entry.releaseModel?.();
               } catch (error) {
                 await settle(
                   identity,
@@ -746,16 +967,6 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
       const info = await within(options.backend.inspectComputer(computerRef));
       requireComputerCapabilities(info.capabilities);
       await inWorkspace(db, workspaceId, actor, async (c) => {
-        const agent = await getAgent(c, agentId);
-        // Explicit human binding uses the adapter's exact account report, never browser credentials.
-        if (agent.subscriptionId) {
-          if (
-            info.account?.subscriptionId !== agent.subscriptionId ||
-            info.account.mode !== "native_subscription"
-          )
-            throw new DomainError("forbidden", "Native account mismatch");
-          await qualifySubscription(c, agent.subscriptionId);
-        }
         await bindEnvironment(
           c,
           agentId,
@@ -799,10 +1010,14 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
       };
       const running = active.get(id);
       if (running) {
+        running.controller.abort();
         let stopped = false;
         await withCleanup(
           async () => {
-            await running.acp?.cancel();
+            // A process may be running while its private Session handshake is
+            // still pending. Abort applies only after the Pi turn was submitted;
+            // stopProcess closes startup work and joins the remote tree either way.
+            if (running.promptStarted) await running.pi?.cancel();
           },
           async () => {
             stopped = await stopProcess(
@@ -863,9 +1078,9 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           cursor: await advanceCursor(c),
         });
       });
-      const acp = active.get(id)?.acp;
-      if (!acp) throw new DomainError("unavailable", "Run is not attached");
-      await acp.steer(body);
+      const pi = active.get(id)?.pi;
+      if (!pi) throw new DomainError("unavailable", "Run is not attached");
+      await pi.steer(body);
       return { delivered: true };
     },
     async reconcile(id: string) {
@@ -966,7 +1181,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         try {
           await withCleanup(
             async () => {
-              await entry.acp?.close();
+              await entry.pi?.close();
             },
             () => within(entry.process.detach()),
           );

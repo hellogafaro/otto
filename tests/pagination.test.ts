@@ -153,7 +153,6 @@ describe("discovery pagination on private PostgreSQL", () => {
           const agent = await createAgent(c, {
             title: "Attention",
             instructions: "Work",
-            harness: "fixture",
             model: "fixture",
             visibility: "workspace",
           });

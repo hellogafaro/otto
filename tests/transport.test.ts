@@ -17,7 +17,7 @@ import {
 import { createDocument, updateDocument } from "../packages/documents/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
-import { harnesses } from "./fixtures/harnesses";
+import { pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 describe("authenticated HTTP RPC and WebSocket replay", () => {
@@ -69,7 +69,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
       origin,
     );
     const options = { db: database.db, boss, auth, origin };
-    app = createApp({ ...options, harnesses });
+    app = createApp({ ...options, pi });
     realtime = createRealtime(options);
     const response = await fetch(`${origin}/api/auth/sign-up/email`, {
       method: "POST",

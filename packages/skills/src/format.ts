@@ -36,18 +36,18 @@ export function parseSkillFile(source: string) {
   return {
     title: name,
     whenToUse: description,
-    body: match[2],
+    instructions: match[2],
     metadata: extra,
   };
 }
 export function formatSkillFile(input: {
   title: string;
   whenToUse: string | null;
-  body: string;
-  skillMetadata: Record<string, unknown>;
+  instructions: string;
+  metadata: Record<string, unknown>;
 }) {
   const parsed = metadata.safeParse({
-    ...input.skillMetadata,
+    ...input.metadata,
     name: input.title,
     description: input.whenToUse,
   });
@@ -60,5 +60,5 @@ export function formatSkillFile(input: {
   const frontmatter = Object.entries(parsed.data)
     .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
     .join("\n");
-  return `---\n${frontmatter}\n---\n${input.body}`;
+  return `---\n${frontmatter}\n---\n${input.instructions}`;
 }

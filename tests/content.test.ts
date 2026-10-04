@@ -28,10 +28,10 @@ import {
   createCollection,
   createDocument,
   getDocument,
-  snapshotSkills,
   updateDocument,
   updateDocumentCollection,
 } from "../packages/documents/src";
+import { createSkill, snapshotSkills } from "../packages/skills/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
 import { startPostgres } from "./postgres";
@@ -124,11 +124,10 @@ describe("persisted content and capability scope", () => {
   });
   it("rejects skill material whose audience is narrower than the output Conversation", async () => {
     const skill = await scope((c) =>
-      createDocument(c, {
+      createSkill(c, {
         title: "private-skill",
-        body: "private instructions",
+        instructions: "private instructions",
         visibility: "user",
-        skill: true,
       }),
     );
     await expect(
@@ -273,7 +272,6 @@ describe("persisted content and capability scope", () => {
       createAgent(c, {
         title: "Worker",
         instructions: "Work",
-        harness: "codex-acp",
         model: "selected",
       }),
     );

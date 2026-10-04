@@ -14,7 +14,7 @@ import { runs } from "../packages/runs/src/schema";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { users } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
-import { harnesses } from "./fixtures/harnesses";
+import { pi, piRuntime } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 describe("pg-boss dispatch failure ownership with controlled compute", () => {
@@ -48,8 +48,9 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
     workspaceId = (await claimInstallation(database.db, "owner", "Queue")).id;
     computer = new ControlledComputer("script-fixture-no-account");
     runtime = createRunRuntime(database.db, {
+      ...piRuntime,
       backend: computer,
-      harnesses,
+      pi,
       deadlineMs: 20000,
     });
   });
@@ -66,7 +67,6 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
       const agent = await createAgent(c, {
         title: "Queue fixture",
         instructions: "Controlled script only",
-        harness: "fixture",
         model: "fixture",
       });
       await createEnvironment(c, agent.id);
@@ -99,7 +99,7 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
           type: "script",
           body,
         },
-        harnesses,
+        pi,
       ),
     );
 

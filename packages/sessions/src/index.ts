@@ -16,11 +16,13 @@ export interface SessionBinding {
   environmentId: string;
   environmentGeneration: number;
   scope: string;
-  harness: string;
-  harnessVersion: string;
+  piVersion: string;
+  provider: string;
+  model: string;
+  accountId: string;
   subscriptionId: string | null;
 }
-/** Private harness bindings have no browser read endpoint and are not shared conversation history. */
+/** Private Pi bindings have no browser read endpoint and are not shared conversation history. */
 export async function createSession(c: Context, binding: SessionBinding) {
   return required(
     (
@@ -43,8 +45,10 @@ export async function requireSession(
     session.environmentId !== binding.environmentId ||
     session.environmentGeneration !== binding.environmentGeneration ||
     session.scope !== binding.scope ||
-    session.harness !== binding.harness ||
-    session.harnessVersion !== binding.harnessVersion ||
+    session.piVersion !== binding.piVersion ||
+    session.provider !== binding.provider ||
+    session.model !== binding.model ||
+    session.accountId !== binding.accountId ||
     session.subscriptionId !== binding.subscriptionId
   )
     throw new DomainError("conflict", "Fresh Session required");
@@ -71,7 +75,7 @@ export async function bindSessionContext(
 ) {
   const row = await getSessionContext(c, id);
   if (row.contextRef && row.contextRef !== contextRef)
-    throw new DomainError("conflict", "Native context changed");
+    throw new DomainError("conflict", "Pi context changed");
   await c.tx.update(sessions).set({ contextRef }).where(eq(sessions.id, id));
 }
 

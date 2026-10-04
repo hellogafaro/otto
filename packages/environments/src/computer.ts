@@ -31,8 +31,6 @@ export interface ComputerBackend {
   provider: string;
   inspectComputer(reference: string): Promise<{
     capabilities: unknown;
-    /** Provider-native account association, never its credential. Null for scripts-only computers. */
-    account: { subscriptionId: string; mode: "native_subscription" } | null;
   }>;
   /** launchKey is durable/idempotent; deadline and scope isolation must survive server loss. */
   launch(input: {
@@ -40,6 +38,8 @@ export interface ComputerBackend {
     launchKey: string;
     scope: string;
     argv: string[];
+    /** Trusted attempt-only transport access; never upstream account credentials or browser input. */
+    env?: Readonly<Record<string, string>>;
     /** Execution copies in this scope; relative paths only, never credential files. */
     files: { path: string; bytes: Uint8Array }[];
     deadlineAt: Date;

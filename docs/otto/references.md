@@ -2,7 +2,7 @@
 
 Reviewed 30 September 2026; server-owned workspace and Garage references added 1 October 2026. This is a lookup guide for future design and implementation questions. The observations below come from official product documentation and repository documentation. They are not runtime verification or a decision to adopt a framework. Recommendations for Otto are our design judgments.
 
-The [foundation research](foundation-research.md) compares the candidates and recommends a small Otto app with an ACP bridge in its server runtime around existing coding harnesses. Multi-agent operation is a first-release requirement. The recommendation still needs the real-workflow proof recorded there.
+The [foundation research](foundation-research.md) preserves the earlier ACP/native-harness comparison. The 3 October decision now selects managed Pi for every Agent plus one account/model gateway; current code still follows the historical ACP/native path. Multi-agent operation and Otto authority/recovery remain required. See [the replacement map](../pi-gateway-plan.md) for the current recommendation and unverified gates.
 
 ## When stuck, start here
 
@@ -15,8 +15,9 @@ The [foundation research](foundation-research.md) compares the candidates and re
 | How should environments start, fail, recover, and retire? | BB / getbb | Environment provisioning, server and host ownership, thread lifecycle |
 | How should skills and MCP capabilities fit without another object model? | Agent Skills and MCP official specifications | Portable instruction bundles, optional resources, server capabilities and transports |
 | How should subscriptions, connection setup, skills, and remote sessions fit together? | Craft Agents and official provider authentication docs | Provider selection, native versus embedded harnesses, user-owned login, quotas, and headless session hosting |
-| How should the server bridge several native coding harnesses? | ACP adapters and T3 Code | Capability negotiation, provider correlation, steering, cancellation, resume, and approval |
-| How could we embed our own harness across model providers? | Pi | Coding-agent SDK, explicit resource loading, session storage, tools, and containment boundary |
+| How does the current native bridge behave? | ACP adapters and T3 Code (historical) | Existing capability, cancellation and recovery evidence; not the intended multi-harness product |
+| How should managed Pi expose Agent work and controls? | Pi pinned SDK/RPC sources | Settled events, scoped tools/resources, private Sessions and remote process transport |
+| Which single account/model gateway fits? | CLIProxyAPI and Magpie pinned sources | Exact account pinning, auth routes, no fallback, caller isolation and usage correlation |
 | How should operators keep terminal processes visible and controllable? | Herdr | Agent identity, terminal persistence, prompt submission, and ambiguous timeout behavior |
 
 Use the smallest relevant section. Follow its links into the implementation if needed. Record the source revision and the pattern chosen in the work's existing task or document. A reference is a way to answer a concrete question, not a requirement to import its complete architecture.
@@ -89,7 +90,7 @@ Use the smallest relevant section. Follow its links into the implementation if n
 
 **Check when:** integrating launch, resume, tool permissions, stream correlation, or native controls. The [ACP agent directory](https://agentclientprotocol.com/get-started/agents) lists several native implementations and adapters, including Pi. [Initialization](https://agentclientprotocol.com/protocol/initialization) negotiates protocol versions, capabilities, and authentication. The [Pi ACP adapter](https://github.com/svkozak/pi-acp) bridges Pi RPC and describes itself as an MVP with limitations; it is a reference, not an adopted dependency. The [Codex App Server guide](https://developers.openai.com/codex/app-server/) documents its direct protocol and version-specific schemas. The [Claude Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) distinguishes a coding harness from a model API and explains authentication constraints for third-party products.
 
-**Otto decision:** one trusted ACP client, configurable compatible agent executables, and several independent agents and computers. Presets and bring-your-own agents use the same configuration and Run boundary; advanced capabilities remain explicitly negotiated. ACP is the first transport; a direct native adapter is a fallback within the same boundary. Otto owns accepted requests, Run outcomes, access, schedules, peer messaging, and durable artifacts. Protocol permission prompts are not a substitute for containment or connection policy. Subscription use is required: Codex native ChatGPT login is the first proof candidate; the Claude SDK-based path remains conditional on permitted subscription integration. Follow [Codex authentication](https://developers.openai.com/codex/auth/) and [Claude hosting and credential conditions](https://code.claude.com/docs/en/legal-and-compliance), rather than assuming an adapter determines billing or permits token brokering.
+**Historical Otto decision, superseded by managed Pi on 3 October:** one trusted ACP client, configurable compatible agent executables, and several independent agents and computers. Presets and bring-your-own agents use the same configuration and Run boundary; advanced capabilities remain explicitly negotiated. ACP is the first transport; a direct native adapter is a fallback within the same boundary. Otto owns accepted requests, Run outcomes, access, schedules, peer messaging, and durable artifacts. Protocol permission prompts are not a substitute for containment or connection policy. Subscription use is required: Codex native ChatGPT login is the first proof candidate; the Claude SDK-based path remains conditional on permitted subscription integration. Follow [Codex authentication](https://developers.openai.com/codex/auth/) and [Claude hosting and credential conditions](https://code.claude.com/docs/en/legal-and-compliance), rather than assuming an adapter determines billing or permits token brokering.
 
 ## Pi
 
@@ -99,7 +100,17 @@ Use the smallest relevant section. Follow its links into the implementation if n
 
 **Check when:** embedding a different harness, replacing default skill discovery with pinned Otto resources, customizing tools, or distinguishing a settled session from an agent-loop end.
 
-**Otto decision:** strongest SDK alternative if owning our own harness becomes intentional. Using an OpenAI or Anthropic model through Pi does not mean using the native Codex or Claude harness. Preserve Otto's lifecycle and grant rules whichever harness executes.
+**Current Otto decision (3 October):** Pi is the runtime for every Agent, not an optional second harness. Keep the earlier pin above as observed history. The new read-only source pin is `a276dabe57911253350bffb93cb7d7aff6a73261`, coding-agent 1.0.0. Its [CLI integration guide](https://github.com/earendil-works/pi/blob/a276dabe57911253350bffb93cb7d7aff6a73261/packages/coding-agent/docs/cli-integration.md), [SDK](https://github.com/earendil-works/pi/blob/a276dabe57911253350bffb93cb7d7aff6a73261/packages/coding-agent/docs/sdk.md), [RPC](https://github.com/earendil-works/pi/blob/a276dabe57911253350bffb93cb7d7aff6a73261/packages/coding-agent/docs/rpc.md) and [events](https://github.com/earendil-works/pi/blob/a276dabe57911253350bffb93cb7d7aff6a73261/packages/coding-agent/docs/json.md) distinguish accepted prompt, low-level `agent_end` and session-level `agent_settled`. No runtime check was performed on this source. Using provider models through Pi/gateway is an intentional replacement of native execution/login, not equivalent behavior or billing proof.
+
+## Account/model gateway candidates — 3 October source inspection
+
+Integrate one candidate only after qualification. Neither is selected. Inspected local source pins, without installs, tests, credentials or network/provider requests:
+
+- **CLIProxyAPI** `2044a01f422998de79a5da8015141b878886534d`: [routing config](https://github.com/router-for-me/CLIProxyAPI/blob/2044a01f422998de79a5da8015141b878886534d/config.example.yaml) defaults to round-robin and documents session-affinity failover. [Handler context](https://github.com/router-for-me/CLIProxyAPI/blob/2044a01f422998de79a5da8015141b878886534d/sdk/api/handlers/handlers_context.go) has `WithPinnedAuthID`; an internal pin is not proof of a Pi HTTP caller's account boundary.
+- **pi-cliproxyapi-provider** `cfb449a22c7ef03a0d67c8ce23c1454c79c8562a`: [source](https://github.com/router-for-me/pi-cliproxyapi-provider/tree/cfb449a22c7ef03a0d67c8ce23c1454c79c8562a) is a compatibility/reference candidate, not a selected dependency or proof of tenant-safe pinning.
+- **Magpie** `33e59f93daf9840faa2fe10bafc9ef8127660b49`: [strict pin source tests](https://github.com/yetone/magpie/blob/33e59f93daf9840faa2fe10bafc9ef8127660b49/internal/gateway/pinned_account_test.go) cover `X-Magpie-Account`, unknown account and resting-account denial; those tests were read, not run here. [README](https://github.com/yetone/magpie/blob/33e59f93daf9840faa2fe10bafc9ef8127660b49/README.md) documents headless serving, permissive loopback and route-specific authentication. Its Claude subscription path launches local Claude Code, conflicting with the intended Pi-only loop; other routes and plugins differ. [Usage storage](https://github.com/yetone/magpie/blob/33e59f93daf9840faa2fe10bafc9ef8127660b49/internal/usage/usage.go) appends persistent records but swallows accounting write errors; this is not Otto durable accounting proof.
+
+The [qualification matrix](../pi-gateway-plan.md#gateway-qualification) covers strict selection and failures, header tampering, scoped model lists, attribution, refresh/revocation and lifecycle. A shared gateway caller key is not demonstrated upstream-account authorization. Pi TUI/events inform a later GUI, not terminal scraping or mandatory feature parity.
 
 ## Herdr
 
@@ -127,7 +138,7 @@ Use the smallest relevant section. Follow its links into the implementation if n
 
 **Check when:** designing connection selection, skill discovery, source setup, session persistence, or a remote thin client. Trace the chosen backend, authentication mode, token storage, and tool boundary separately.
 
-**Otto decision:** keep this as a product and implementation reference. Preserve Otto's flat tasks, human ownership, shared conversations, isolated computers, and subscription requirement. Reuse specific patterns after checking provider conditions. Another application's OAuth support does not authorize Otto to collect or intermediate subscription credentials.
+**Otto decision:** keep this as a product and implementation reference. Preserve Otto's flat tasks, human ownership, shared conversations, isolation rules and explicit selected account/billing authority. Reuse specific patterns after checking provider conditions. Another application's OAuth support does not authorize Otto to collect or intermediate subscription credentials.
 
 ## Huly / Platform-Collective
 
@@ -141,13 +152,13 @@ Use the smallest relevant section. Follow its links into the implementation if n
 
 **Observed:** Mastra's [sandboxes](https://mastra.ai/docs/sandbox/overview) and [filesystems](https://mastra.ai/docs/sandbox/filesystem) compose execution and working files through a Workspace. LocalSandbox runs on the application host by default; native isolation must be enabled or an isolated backend selected. Filesystem path checks do not contain shell commands. Persistence, computer capabilities, mounting, and recovery depend on the selected backend.
 
-**Otto decision:** separate apps/web and apps/server. The server owns agent execution through the Environment and Run domains: assign the workspace, start the native agent inside isolation, attach ACP, persist progress, stop, and reconcile. Use the backend's existing execution transport. Do not add apps/runner or require an Otto daemon in each agent computer. Domain packages export their own browser-safe types and validation; no catch-all contracts package is needed. Mastra is a composition reference, not an adopted model runtime.
+**Otto decision:** separate apps/web and apps/server. The server owns agent execution through the Environment and Run domains: assign the workspace, start managed Pi in the selected execution boundary, persist progress, stop and reconcile. The current code uses ACP; replacing that transport requires new proof. Use the backend's existing execution transport. Do not add apps/runner or require an Otto daemon in each agent computer. Domain packages export their own browser-safe types and validation; no catch-all contracts package is needed. Mastra is a composition reference, not an adopted model runtime.
 
 **Observed:** [Garage](https://garagehq.deuxfleurs.fr/) is self-contained S3-compatible storage with CLI and administration API management. Its [release list](https://garagehq.deuxfleurs.fr/_releases.html) includes v2.4.0 on 6 September 2026. Its [S3 compatibility guide](https://garagehq.deuxfleurs.fr/documentation/reference-manual/s3-compatibility/) documents object operations, multipart uploads, and presigned URLs, but no bucket versioning or AWS-style bucket policies. The [single-node quick start](https://garagehq.deuxfleurs.fr/documentation/quick-start/) warns about missing redundancy; example temporary directories are not a persistent production layout.
 
 **Otto decision:** Garage holds artifact bytes in private buckets with persistent data and metadata volumes. Otto owns Artifact metadata, access, and revocable delivery. Each Artifact is one immutable saved output, with no revision history. No dashboard is required. Qualify write durability and restore before deployment. The one-host profile is non-redundant; use replicated Garage or an external S3 store when redundancy is required. Do not infer durability or high availability from the presence of a Docker image.
 
-**Check when:** implementing workspace preparation, interactive native-agent I/O, process cleanup after server loss, artifact delivery, or self-hosted backups. Compare the exact selected backend and storage release against the proof in the plan. The server runtime's Bun compatibility remains unverified; native agents keep their own runtime dependencies.
+**Check when:** implementing workspace preparation, interactive native-agent I/O, process cleanup after server loss, artifact delivery, or self-hosted backups. Compare the exact selected backend and storage release against the proof in the plan. That dated source inspection did not qualify Bun or native agents; Pi/gateway compatibility needs fresh implementation proof.
 
 ## Evidence and limits
 
@@ -157,11 +168,15 @@ The foundation research adds further pinned source inspections and an existing C
 
 Eve's docs were returned as Markdown and were read directly when the browsing renderer could not display them. Public documentation changes independently of source pins. Recheck the relevant page and implementation revision when using a pattern later.
 
-These references complement [the plan](plan.md). Buzz's vision remains the contract for any changes made inside this checkout; the proposed Otto app is a separate product design.
+These references complement [the plan](plan.md). Buzz's vision applied to the old Buzz checkout, now preserved outside Otto. Current Otto guidance is authoritative here; old source observations remain historical.
+
+## Managed Pi implementation pins (3 October)
+
+The implemented dependency is the exact published coding-agent/pi-ai 1.0.0 artifact, gitHead `a13d35a742c6ef8462812a28fbe1d8c8b7431c32`, integrity-pinned in Bun's lockfile. It differs from the read-only `a276dabe…` checkout; selected core agent/RPC/Codex OAuth seams were compared, and the published CLI ran against controlled Responses peers. CLIProxyAPI v8.0.12 resolves inspected `2044a01f422998de79a5da8015141b878886534d`. The dedicated private Responses/models integration is selected; Magpie remains dated research. See [the current checkpoint](../pi-implementation.md) for integrated checks and review status. Controlled OAuth/account peers do not establish real provider eligibility or billing.
 
 ## Conversations, Sessions, and web authentication
 
-**Observed locally:** Buzz stores channels with a channel_type discriminator and participant membership separately. Its ACP harness selects provider sessions by channel scope by default; optional thread policy scopes channel work to individual threads while DMs remain conversation-scoped. The agent's session map is separate from shared channel messages. Sessions can share that agent's workspace while retaining independent model context. See schema/schema.sql, crates/buzz-acp/src/scope.rs, pool.rs, and session_model_thread.md in this checkout. This is source inspection, not exercised runtime evidence.
+**Observed locally:** Buzz stores channels with a channel_type discriminator and participant membership separately. Its ACP harness selects provider sessions by channel scope by default; optional thread policy scopes channel work to individual threads while DMs remain conversation-scoped. The agent's session map is separate from shared channel messages. Sessions can share that agent's workspace while retaining independent model context. The cited schema/schema.sql, crates/buzz-acp/src/scope.rs, pool.rs and session_model_thread.md belong to that historical Buzz checkout, not current Otto. This is source inspection, not exercised runtime evidence.
 
 **Otto decision:** Conversation has no type field and stores shared discussion and membership rows. Session is a distinct runtime record for one agent's continuing harness context in one Conversation and environment scope. Run is one attempt; prompt Runs reference Session, script Runs do not require one. Do not merge provider history into public/shared content or reuse retained context after its access scope becomes invalid. The agent owns its Environment; starting another Session does not create another computer.
 

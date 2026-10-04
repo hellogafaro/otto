@@ -32,22 +32,12 @@ export const documents = pgTable(
       .notNull()
       .default("user"),
     artifactIds: jsonb().$type<string[]>().notNull().default([]),
-    skillMetadata: jsonb()
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
-    skill: boolean().notNull().default(false),
-    whenToUse: text(),
     editToken: integer().notNull().default(0),
     properties: jsonb()
       .$type<Record<string, string | number | boolean | null>>()
       .notNull()
       .default({}),
     collectionId: uuid(),
-    supportingFiles: jsonb()
-      .$type<SkillFileReference[]>()
-      .notNull()
-      .default([]),
   },
   (t): PgTableExtraConfigValue[] => [
     check("documents_visibility", sql`${t.visibility} in ('user','workspace')`),
@@ -132,13 +122,6 @@ export const collections = pgTable(
     unique("collections_identity_workspace").on(t.id, t.workspaceId),
   ],
 );
-
-export interface SkillFileReference {
-  path: string;
-  artifactId: string;
-  sha256: string;
-  byteLength: number;
-}
 
 export const documentProposals = pgTable("document_proposals", {
   id: uuid().primaryKey().defaultRandom(),

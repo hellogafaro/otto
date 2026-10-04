@@ -1,9 +1,9 @@
 import * as agentsSchema from "@otto/agents/schema";
 import * as automationsSchema from "@otto/automations/schema";
 import * as conversationsSchema from "@otto/conversations/schema";
-import type { SkillFileReference } from "@otto/documents";
 import * as environmentsSchema from "@otto/environments/schema";
 import * as sessionsSchema from "@otto/sessions/schema";
+import type { SkillFileReference } from "@otto/skills";
 import * as tasksSchema from "@otto/tasks/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
 import { sql } from "drizzle-orm";
@@ -41,13 +41,21 @@ export type RunRequestIdentity = {
     | Exclude<RunRequest[Key], undefined>
     | (undefined extends RunRequest[Key] ? null : never);
 };
+export interface ModelConfig {
+  contextWindow: number;
+  maxTokens: number;
+  reasoning: boolean;
+  input: ("text" | "image")[];
+}
 export interface RunInputs {
   body: string;
   instructions: string;
-  harness: string;
-  harnessVersion: string | null;
+  piVersion: string | null;
+  provider: string | null;
   model: string;
   subscriptionId: string | null;
+  accountId: string | null;
+  modelConfig: ModelConfig | null;
   agentEditToken: number;
   audience: { humans: string[]; agents: string[] };
   skills: {
@@ -116,6 +124,7 @@ export const runs = pgTable(
     deadlineAt: timestamp({ withTimezone: true }),
     stopRequested: boolean().notNull().default(false),
     outputBytes: integer().notNull().default(0),
+    usage: jsonb().$type<UsageReceipt[]>().notNull().default([]),
     parentRunId: uuid(),
     handoffDepth: integer().notNull().default(0),
     outcome: text(),
@@ -184,6 +193,7 @@ export const runs = pgTable(
       "runs_state_values",
       sql`${t.state} IN ('queued','launching','running','finished','failed','interrupted','uncertain')`,
     ),
+    check("runs_usage_bound", sql`jsonb_array_length(${t.usage})<=256`),
     check("runs_input_size", sql`octet_length(${t.inputs}::text)<=1048576`),
     index("runs_environment_queue").on(t.environmentId, t.state),
     uniqueIndex("runs_request_unique").on(
@@ -226,3 +236,17 @@ export const runActivity = pgTable(
     index("run_activities_cursor").on(t.runId, t.cursor),
   ],
 );
+
+/** Final assistant-message usage only; null means the upstream did not report it. */
+export interface UsageTokens {
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheReadTokens: number | null;
+  cacheWriteTokens: number | null;
+  totalTokens: number | null;
+}
+export interface UsageReceipt {
+  attempt: number;
+  sequence: number;
+  tokens: UsageTokens;
+}

@@ -17,7 +17,7 @@ export async function readRunSkillFile(
     workspaceId: string;
     sponsorId: string;
     runId: string;
-    documentId: string;
+    skillId: string;
     path: string;
   },
 ) {
@@ -31,7 +31,7 @@ export async function readRunSkillFile(
         const reference = await getRunSkillFile(
           c,
           input.runId,
-          input.documentId,
+          input.skillId,
           input.path,
         );
         const audience = await getRunAudience(c, input.runId);

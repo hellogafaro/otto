@@ -25,12 +25,6 @@ import {
   createConversation,
   createParticipant,
 } from "../packages/conversations/src";
-import {
-  createDocument,
-  getDocument,
-  snapshotSkills,
-  updateDocument,
-} from "../packages/documents/src";
 import { createEnvironment } from "../packages/environments/src";
 import { createProject, upsertProjectMember } from "../packages/projects/src";
 import {
@@ -40,6 +34,12 @@ import {
   type RunRequest,
 } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
+import {
+  createSkill,
+  getSkill,
+  snapshotSkills,
+  updateSkill,
+} from "../packages/skills/src";
 import { createTask } from "../packages/tasks/src";
 import {
   type Actor,
@@ -47,7 +47,7 @@ import {
   inWorkspace,
 } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
-import { harnesses } from "./fixtures/harnesses";
+import { controlledSubscription, pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 describe("review authorization and admission regressions", () => {
@@ -106,10 +106,10 @@ describe("review authorization and admission regressions", () => {
     await scope(async (c) => {
       agentId = (
         await createAgent(c, {
+          subscriptionId: await controlledSubscription(c),
           visibility: "workspace",
           title: "Worker",
           instructions: "Work",
-          harness: "fixture",
           model: "selected",
         })
       ).id;
@@ -166,7 +166,7 @@ describe("review authorization and admission regressions", () => {
           c,
           boss,
           { ...request(), conversationId: conversation.id },
-          harnesses,
+          pi,
         ),
       );
       const bytes = new Uint8Array([1, 2, 3]);
@@ -248,16 +248,17 @@ describe("review authorization and admission regressions", () => {
   it("requires an agent grant for user-scoped Documents and Artifacts despite the sponsor's ownership", async () => {
     const actor = { userId: "owner", agentId };
     const doc = await scope((c) =>
-      createDocument(c, {
+      createSkill(c, {
         title: "Private",
-        body: "private",
+        instructions: "private",
         visibility: "user",
-        skill: true,
       }),
     );
-    expect((await scope((c) => getDocument(c, doc.id))).body).toBe("private");
+    expect((await scope((c) => getSkill(c, doc.id))).instructions).toBe(
+      "private",
+    );
     await expect(
-      scope((c) => getDocument(c, doc.id), actor),
+      scope((c) => getSkill(c, doc.id), actor),
     ).rejects.toMatchObject({ code: "forbidden" });
     await expect(
       scope(
@@ -316,7 +317,7 @@ describe("review authorization and admission regressions", () => {
           ...request(),
           conversationId: conversation.id,
         },
-        harnesses,
+        pi,
       ),
     );
     expect(
@@ -357,7 +358,7 @@ describe("review authorization and admission regressions", () => {
     };
     await scope((c) => grantConnectionAccess(c, connection.id, grant));
     await scope((c) => grantConnectionAccess(c, active.id, grant));
-    const run = await scope((c) => admitRun(c, boss, request(), harnesses));
+    const run = await scope((c) => admitRun(c, boss, request(), pi));
     const validateRun = async () => ({ agentId, audience: grant.audience });
     const input = {
       connectionId: connection.id,
@@ -448,14 +449,14 @@ describe("review authorization and admission regressions", () => {
     "conflicts on changed %s request controls without new side effects",
     async (_name, change) => {
       const input = request();
-      const run = await scope((c) => admitRun(c, boss, input, harnesses));
+      const run = await scope((c) => admitRun(c, boss, input, pi));
       const before = await database.pool.query(
         "select (select count(*) from runs)::int as runs, (select count(*) from agent_sessions)::int as sessions, (select count(*) from queue.job)::int as jobs",
       );
       await expect(
-        scope((c) => admitRun(c, boss, { ...input, ...change }, harnesses)),
+        scope((c) => admitRun(c, boss, { ...input, ...change }, pi)),
       ).rejects.toMatchObject({ code: "conflict" });
-      expect((await scope((c) => admitRun(c, boss, input, harnesses))).id).toBe(
+      expect((await scope((c) => admitRun(c, boss, input, pi))).id).toBe(
         run.id,
       );
       const after = await database.pool.query(
@@ -471,11 +472,10 @@ describe("review authorization and admission regressions", () => {
       createTask(c, { projectId: project.id, title: "Task" }),
     );
     const skill = await scope((c) =>
-      createDocument(c, {
+      createSkill(c, {
         title: "Skill",
-        body: "Exact",
+        instructions: "Exact",
         visibility: "workspace",
-        skill: true,
       }),
     );
     const conversation = await scope(async (c) => {
@@ -493,7 +493,7 @@ describe("review authorization and admission regressions", () => {
       taskId: task.id,
     };
     await selectSkills([skill.id]);
-    const seed = await scope((c) => admitRun(c, boss, initial, harnesses));
+    const seed = await scope((c) => admitRun(c, boss, initial, pi));
     const sessionId = (
       await database.db.select().from(runs).where(eq(runs.id, seed.id))
     )[0]?.sessionId;
@@ -518,7 +518,7 @@ describe("review authorization and admission regressions", () => {
       automationId: automation.id,
       automationEditToken: 0,
     };
-    const run = await scope((c) => admitRun(c, boss, input, harnesses));
+    const run = await scope((c) => admitRun(c, boss, input, pi));
     const stored = (
       await database.db.select().from(runs).where(eq(runs.id, run.id))
     )[0];
@@ -534,19 +534,13 @@ describe("review authorization and admission regressions", () => {
       "automationEditToken",
     ] as const) {
       await expect(
-        scope((c) =>
-          admitRun(c, boss, { ...input, [key]: undefined }, harnesses),
-        ),
+        scope((c) => admitRun(c, boss, { ...input, [key]: undefined }, pi)),
       ).rejects.toMatchObject({ code: "conflict" });
     }
     await expect(
-      scope((c) =>
-        admitRun(c, boss, { ...input, automationEditToken: 1 }, harnesses),
-      ),
+      scope((c) => admitRun(c, boss, { ...input, automationEditToken: 1 }, pi)),
     ).rejects.toMatchObject({ code: "conflict" });
-    expect((await scope((c) => admitRun(c, boss, input, harnesses))).id).toBe(
-      run.id,
-    );
+    expect((await scope((c) => admitRun(c, boss, input, pi))).id).toBe(run.id);
     expect(
       (await database.db.select().from(runs).where(eq(runs.id, run.id)))[0],
     ).toEqual(stored);
@@ -557,14 +551,14 @@ describe("review authorization and admission regressions", () => {
   });
   it("fails closed for legacy Runs whose original caller controls cannot be recovered", async () => {
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input, harnesses));
+    const run = await scope((c) => admitRun(c, boss, input, pi));
     // Represents an existing row after the additive nullable-column migration.
     await database.db
       .update(runs)
       .set({ requestIdentity: null })
       .where(eq(runs.id, run.id));
     await expect(
-      scope((c) => admitRun(c, boss, input, harnesses)),
+      scope((c) => admitRun(c, boss, input, pi)),
     ).rejects.toMatchObject({
       code: "conflict",
     });
@@ -575,23 +569,22 @@ describe("review authorization and admission regressions", () => {
   });
   it("normalizes omitted controls while preserving original default skills and source snapshots on retry", async () => {
     const skill = await scope((c) =>
-      createDocument(c, {
+      createSkill(c, {
         title: "Default skill",
-        body: "Original",
+        instructions: "Original",
         visibility: "workspace",
-        skill: true,
       }),
     );
     await selectSkills([skill.id]);
     const input = request();
-    const run = await scope((c) => admitRun(c, boss, input, harnesses));
+    const run = await scope((c) => admitRun(c, boss, input, pi));
     const saved = (
       await database.db.select().from(runs).where(eq(runs.id, run.id))
     )[0];
     await scope((c) =>
-      updateDocument(c, skill.id, {
+      updateSkill(c, skill.id, {
         title: "Default skill",
-        body: "Edited",
+        instructions: "Edited",
         editToken: 0,
       }),
     );
@@ -613,7 +606,7 @@ describe("review authorization and admission regressions", () => {
               automationId: undefined,
               automationEditToken: undefined,
             },
-            harnesses,
+            pi,
           ),
         )
       ).id,
@@ -630,7 +623,7 @@ describe("review authorization and admission regressions", () => {
           ...input,
           requestId: crypto.randomUUID(),
         },
-        harnesses,
+        pi,
       ),
     );
     expect(explicit.id).not.toBe(run.id);

@@ -11,7 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-/** Native AI-account metadata only; no credential, purchase, plan or billing management. */
+/** Managed AI-account metadata only; no credential, purchase, plan or billing management. */
 export const subscriptions = pgTable(
   "subscriptions",
   {
@@ -19,6 +19,7 @@ export const subscriptions = pgTable(
     workspaceId: uuid().notNull(),
     createdBy: text().notNull(),
     title: text("name").notNull(),
+    provider: text({ enum: ["codex"] }).notNull(),
     visibility: text({ enum: ["user", "workspace"] })
       .notNull()
       .default("user"),
@@ -29,6 +30,7 @@ export const subscriptions = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t): PgTableExtraConfigValue[] => [
+    check("subscriptions_provider", sql`${t.provider} = 'codex'`),
     check(
       "subscriptions_visibility",
       sql`${t.visibility} in ('user','workspace')`,

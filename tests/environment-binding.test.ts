@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { and, eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -7,10 +8,12 @@ import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import {
   bindEnvironment,
+  bindExecutionScope,
   claimEnvironment,
   settleEnvironment,
 } from "../packages/environments/src";
 import { environments } from "../packages/environments/src/schema";
+import { RUN_QUEUE } from "../packages/runs/src";
 import {
   createRunRuntime,
   type RunRuntime,
@@ -19,7 +22,7 @@ import { required } from "../packages/shared/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, workspaces } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
-import { harnesses } from "./fixtures/harnesses";
+import { pi, piRuntime } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 /** Real auth/HTTP/PG/runtime binding with a controlled connector; no provider isolation claim. */
@@ -59,7 +62,6 @@ describe("exclusive computer binding and writer authorization", () => {
         title: "Binding fixture",
         visibility: "workspace",
         instructions: "Work",
-        harness: "fixture",
         model: "fixture",
       },
       human,
@@ -87,15 +89,51 @@ describe("exclusive computer binding and writer authorization", () => {
       )[0],
     );
 
+  function push(native = false) {
+    const command = Bun.spawnSync(
+      [
+        process.execPath,
+        ...(native
+          ? [
+              "--bun",
+              "drizzle-kit",
+              "push",
+              "--config=drizzle.config.ts",
+              "--verbose",
+            ]
+          : ["scripts/push.ts"]),
+      ],
+      {
+        cwd: new URL("../", import.meta.url).pathname,
+        env: {
+          PATH: process.env.PATH,
+          DATABASE_URL: `postgresql://otto_test@localhost/postgres?host=${encodeURIComponent(database.directory)}`,
+        },
+        stdin: "ignore",
+        stdout: "pipe",
+        stderr: "pipe",
+        timeout: 30000,
+      },
+    );
+    const output = command.stdout.toString() + command.stderr.toString();
+    expect(command.exitCode, output).toBe(0);
+    return output;
+  }
+
   beforeAll(async () => {
     expect(process.versions.bun).toBeTruthy();
-    database = await startPostgres();
+    database = await startPostgres({ schema: false });
+    push();
     boss = await startQueue(database.db, database.pool, {
       workers: false,
       install: true,
     });
     computer = new ControlledComputer("unused-scripts-only-account");
-    runtime = createRunRuntime(database.db, { harnesses, backend: computer });
+    runtime = createRunRuntime(database.db, {
+      ...piRuntime,
+      pi,
+      backend: computer,
+    });
     server = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
@@ -112,7 +150,7 @@ describe("exclusive computer binding and writer authorization", () => {
       boss,
       auth,
       origin,
-      harnesses,
+      pi,
       runtime,
     });
     async function human(name: string) {
@@ -157,7 +195,136 @@ describe("exclusive computer binding and writer authorization", () => {
     await server?.stop(true);
     await boss?.stop();
     await database?.stop();
+    if (database) expect(existsSync(database.directory)).toBe(false);
   });
+
+  it.each(["declared", "existing provider-first"])(
+    "repeats native push with %s uniqueness and populated Environments, retaining leases, data and queue objects",
+    async (constraint) => {
+      const first = await agent();
+      const second = await agent(owner, otherWorkspaceId);
+      const third = await agent();
+      const ref = crypto.randomUUID();
+      expect((await bind(first, ref)).status).toBe(200);
+      expect((await bind(second, ref, owner, otherWorkspaceId)).status).toBe(
+        409,
+      );
+      const runId = crypto.randomUUID();
+      await inWorkspace(
+        database.db,
+        workspaceId,
+        { userId: owner.id },
+        async (c) => {
+          await bindExecutionScope(c, first, "retained-fixture-scope");
+          await claimEnvironment(c, first, runId, 0);
+          await settleEnvironment(c.tx, workspaceId, first, runId, 0, false);
+        },
+      );
+      expect(await saved(first)).toMatchObject({
+        activeRunId: runId,
+        state: "uncertain",
+        generation: 0,
+      });
+      for (const id of [second, third])
+        expect(await saved(id)).toMatchObject({
+          provider: null,
+          computerRef: null,
+          activeRunId: null,
+        });
+      const pending = await boss.send(
+        RUN_QUEUE,
+        { runId },
+        { startAfter: 3600 },
+      );
+      expect(pending).toBeTruthy();
+      await database.pool.query(
+        "create table if not exists public.unmanaged_probe (id integer primary key, value text not null)",
+      );
+      await database.pool.query(
+        "insert into public.unmanaged_probe values (1, 'must survive') on conflict do nothing",
+      );
+      if (constraint === "existing provider-first")
+        // Model the input revision's physical constraint on this private fixture only.
+        await database.pool.query(
+          'alter table environments drop constraint environments_provider_computer_unique, add constraint environments_provider_computer_unique unique(provider, "computerRef")',
+        );
+      const snapshot = async () => {
+        const tables = z
+          .array(z.object({ name: z.string() }))
+          .parse(
+            (
+              await database.pool.query(
+                "select format('%I.%I', schemaname, tablename) as name from pg_tables where schemaname in ('public','queue') order by schemaname,tablename",
+              )
+            ).rows,
+          );
+        const data = [];
+        for (const { name } of tables) {
+          // Native pg-boss startup updates queue.version service heartbeat times.
+          // Compare its schema version and every other table's complete row bytes.
+          const value =
+            name === "queue.version"
+              ? "t.version::text"
+              : "row_to_json(t)::text";
+          data.push({
+            name,
+            rows: (
+              await database.pool.query(
+                `select encode(sha256(convert_to(${value}, 'UTF8')), 'hex') as hash from ${name} t order by hash`,
+              )
+            ).rows,
+          });
+        }
+        return {
+          data,
+          bindingConstraint: (
+            await database.pool.query(
+              "select oid,conindid,pg_get_constraintdef(oid) as definition from pg_constraint where conname='environments_provider_computer_unique'",
+            )
+          ).rows,
+          constraints: (
+            await database.pool.query(
+              "select conrelid::regclass::text as table_name, conname, pg_get_constraintdef(oid) as definition from pg_constraint where connamespace in ('public'::regnamespace,'queue'::regnamespace) order by table_name,conname",
+            )
+          ).rows,
+          indexes: (
+            await database.pool.query(
+              "select schemaname,tablename,indexname,indexdef from pg_indexes where schemaname in ('public','queue') order by schemaname,tablename,indexname",
+            )
+          ).rows,
+          queue: (
+            await database.pool.query(
+              "select oid,relname,relkind from pg_class where relnamespace='queue'::regnamespace order by oid",
+            )
+          ).rows,
+        };
+      };
+      const before = await snapshot();
+      for (let attempt = 0; attempt < 2; attempt++) {
+        push();
+        expect(await snapshot()).toEqual(before);
+      }
+      const output = push(true);
+      expect(output).toMatch(/Changes applied|No changes detected/);
+      expect(output).not.toMatch(
+        /truncate|Do you want|environments_provider_computer_unique/i,
+      );
+      expect(await snapshot()).toEqual(before);
+      expect((await bind(second, ref, owner, otherWorkspaceId)).status).toBe(
+        409,
+      );
+      await expect(
+        database.pool.query(
+          'update environments set provider=$1, "computerRef"=$2 where "agentId"=$3',
+          [computer.provider, ref, second],
+        ),
+      ).rejects.toMatchObject({
+        code: "23505",
+        constraint: "environments_provider_computer_unique",
+      });
+      expect(await snapshot()).toEqual(before);
+    },
+  );
 
   it("rejects a second Agent on the same computer and preserves an uncertain lease", async () => {
     const first = await agent();

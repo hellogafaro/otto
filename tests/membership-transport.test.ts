@@ -7,7 +7,7 @@ import { createResendMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
 import { claimInstallation } from "../packages/workspaces/src";
 import { invitations } from "../packages/workspaces/src/schema";
-import { harnesses } from "./fixtures/harnesses";
+import { pi } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 it("delivers committed invitations through HTTP, verifies recipients and guards human ownership on role changes", async () => {
@@ -70,7 +70,7 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
     origin,
     mail,
   );
-  app = createApp({ harnesses, db: database.db, boss, auth, origin, mail });
+  app = createApp({ pi, db: database.db, boss, auth, origin, mail });
   const post = (path: string, body: unknown, cookie = "") =>
     fetch(`${origin}/api${path}`, {
       method: "POST",
@@ -270,7 +270,6 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
           {
             title: "Agent",
             instructions: "Work",
-            harness: "fixture",
             model: "fixture",
           },
           human.cookie,

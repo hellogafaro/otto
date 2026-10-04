@@ -14,9 +14,11 @@ import {
 } from "@otto/documents";
 import { getProjectAudience } from "@otto/projects";
 import {
+  authorizePeerRun,
   createRunQuestion,
   getRunQuestion,
-  type Harnesses,
+  type PiInstallation,
+  prepareRunModel,
   requestPeerRun,
 } from "@otto/runs";
 import {
@@ -25,6 +27,7 @@ import {
   withRunAttempt,
 } from "@otto/runs/runtime";
 import { DomainError, required } from "@otto/shared";
+import { getSkill, getSkillAudience, proposeSkillChange } from "@otto/skills";
 
 import { createTask, getTask } from "@otto/tasks";
 import { inWorkspace } from "@otto/workspaces";
@@ -34,6 +37,17 @@ import { type ConnectionOptions, connectionService } from "./connections";
 import { readRunSkillFile } from "./skill-files";
 
 const toolInput = z.discriminatedUnion("name", [
+  z.object({ name: z.literal("skill.get"), skillId: z.uuid() }).strict(),
+  z
+    .object({
+      name: z.literal("skill.proposeChange"),
+      skillId: z.uuid(),
+      title: z.string().min(1).max(200),
+      instructions: z.string().max(100000),
+      editToken: z.number().int().nonnegative(),
+    })
+    .strict(),
+
   z
     .object({
       name: z.literal("document.proposeChange"),
@@ -88,7 +102,7 @@ const toolInput = z.discriminatedUnion("name", [
   z
     .object({
       name: z.literal("skill.read"),
-      documentId: z.uuid(),
+      skillId: z.uuid(),
       path: z.string().max(500),
     })
     .strict(),
@@ -118,6 +132,9 @@ const toolInput = z.discriminatedUnion("name", [
   }),
   z.object({ name: z.literal("document.get"), documentId: z.uuid() }),
 ]);
+/** The managed Pi extension advertises this same owning validator; it never grants authority. */
+export const runToolSchema = z.toJSONSchema(toolInput, { io: "input" });
+
 /** Called from a trusted runtime closure; no browser-controlled agent identity or reusable tool token. */
 export function createRunTools(
   db: Database,
@@ -125,7 +142,7 @@ export function createRunTools(
   options: {
     connections?: ConnectionOptions;
     storage?: ArtifactStorage;
-    harnesses?: Harnesses;
+    pi?: PiInstallation;
   } = {},
 ) {
   return async (
@@ -134,6 +151,32 @@ export function createRunTools(
     signal: AbortSignal = AbortSignal.timeout(300000),
   ) => {
     const input = toolInput.parse(value);
+    if (input.name === "agent.request") {
+      const parent = await withRunAttempt(
+        db,
+        attempt,
+        (c, run) => authorizePeerRun(c, run.id, input.agentId),
+        validateAutomation,
+      );
+      const pi = await prepareRunModel(
+        db,
+        parent.workspaceId,
+        { userId: parent.sponsorId },
+        {
+          agentId: input.agentId,
+          type: "prompt",
+          requestId: `peer:${parent.id}:${input.requestId}`,
+        },
+        options.pi,
+      );
+      signal.throwIfAborted();
+      return withRunAttempt(
+        db,
+        attempt,
+        (c, run) => requestPeerRun(c, boss, run.id, input, pi),
+        validateAutomation,
+      );
+    }
     if (input.name === "human.ask") {
       const question = await withRunAttempt(
         db,
@@ -201,7 +244,7 @@ export function createRunTools(
         const bytes = await readRunSkillFile(db, options.storage, {
           ...scope,
           runId: attempt.runId,
-          documentId: input.documentId,
+          skillId: input.skillId,
           path: input.path,
         });
         await withRunAttempt(db, attempt, async () => {}, validateAutomation);
@@ -273,8 +316,6 @@ export function createRunTools(
             return getMessages(c, run.conversationId, input.after);
           case "message.create":
             return createMessage(c, run.conversationId, input);
-          case "agent.request":
-            return requestPeerRun(c, boss, run.id, input, options.harnesses);
           case "task.create": {
             const conversation = await getConversation(
               c,
@@ -325,15 +366,46 @@ export function createRunTools(
               });
             return required(run.inputs.context?.task ?? undefined, "forbidden");
           }
+          case "skill.get":
+          case "skill.proposeChange": {
+            // documentId is the retained private snapshot key, not a Document lookup.
+            const selected = required(
+              run.inputs.skills.find(
+                (skill) => skill.documentId === input.skillId,
+              ),
+              "forbidden",
+            );
+            const skill = await getSkill(c, input.skillId);
+            const audience = await getSkillAudience(c, skill.id);
+            if (run.inputs.audience.humans.some((id) => !audience.includes(id)))
+              throw new DomainError("forbidden", "Skill audience mismatch");
+            if (input.name === "skill.proposeChange") {
+              if (input.editToken !== selected.editToken)
+                throw new DomainError(
+                  "conflict",
+                  "Proposal does not match accepted source",
+                );
+              if (
+                audience.some((id) => !run.inputs.audience.humans.includes(id))
+              )
+                throw new DomainError(
+                  "forbidden",
+                  "Proposal publication widens the Run audience",
+                );
+              return proposeSkillChange(c, skill.id, input);
+            }
+            return {
+              id: skill.id,
+              title: selected.title,
+              instructions: selected.instructions,
+            };
+          }
           case "document.get":
           case "document.proposeChange": {
             const selected = run.inputs.context?.documents.find(
               (d) => d.id === input.documentId,
             );
-            const skill = run.inputs.skills.find(
-              (s) => s.documentId === input.documentId,
-            );
-            if (!selected && !skill)
+            if (!selected)
               throw new DomainError(
                 "forbidden",
                 "Document was not accepted for this Run",
@@ -345,7 +417,7 @@ export function createRunTools(
             if (run.inputs.audience.humans.some((id) => !audience.includes(id)))
               throw new DomainError("forbidden", "Document audience mismatch");
             if (input.name === "document.proposeChange") {
-              if (input.editToken !== (selected?.editToken ?? skill?.editToken))
+              if (input.editToken !== selected.editToken)
                 throw new DomainError(
                   "conflict",
                   "Proposal does not match accepted source",
@@ -361,8 +433,8 @@ export function createRunTools(
             }
             return {
               id: doc.id,
-              title: selected?.title ?? skill?.title,
-              body: selected?.body ?? skill?.instructions,
+              title: selected.title,
+              body: selected.body,
             };
           }
         }

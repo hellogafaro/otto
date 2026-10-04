@@ -17,12 +17,14 @@ import {
 } from "../packages/runs/src/runtime";
 import { runActivity, runs } from "../packages/runs/src/schema";
 import { required } from "../packages/shared/src";
+import { skillProposals } from "../packages/skills/src/schema";
 import { createSubscription } from "../packages/subscriptions/src";
+import { qualifySubscription } from "../packages/subscriptions/src/server";
 import { setTaskStatus } from "../packages/tasks/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
-import { harnesses } from "./fixtures/harnesses";
+import { pi, piRuntime } from "./fixtures/pi";
 import { startPostgres } from "./postgres";
 
 /** Real auth/HTTP/PG/queue/runtime; controlled computers prove Otto decisions, not VM containment. */
@@ -76,7 +78,6 @@ describe("execution authority and retained sources", () => {
         title: "Authority fixture",
         visibility: "workspace",
         instructions: "Work",
-        harness: "fixture",
         model: "fixture",
         subscriptionId: accountId,
       }),
@@ -179,7 +180,7 @@ describe("execution authority and retained sources", () => {
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    app = createApp({ db: database.db, boss, auth, origin, harnesses });
+    app = createApp({ db: database.db, boss, auth, origin, pi });
     async function human(name: string) {
       const response = await fetch(`${origin}/api/auth/sign-up/email`, {
         method: "POST",
@@ -209,16 +210,22 @@ describe("execution authority and retained sources", () => {
     accountId = (
       await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
         createSubscription(c, {
+          provider: "codex",
           title: "Fixture native",
           visibility: "workspace",
         }),
       )
     ).id;
+    // Explicit synthetic confirmed account: computer binding does not authenticate it.
+    await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
+      qualifySubscription(c, accountId, "codex"),
+    );
     computer = new ControlledComputer(accountId);
     runtime = createRunRuntime(database.db, {
-      harnesses,
+      ...piRuntime,
+      pi,
       deadlineMs: 20000,
-      handleTool: createRunTools(database.db, boss, { harnesses }),
+      handleTool: createRunTools(database.db, boss, { pi }),
       backend: {
         provider: computer.provider,
         inspectComputer: () => computer.inspectComputer(),
@@ -248,12 +255,12 @@ describe("execution authority and retained sources", () => {
       boss,
       auth,
       origin,
-      harnesses,
+      pi,
       runtime,
     });
     worker = await startQueue(database.db, database.pool, {
       runtime,
-      harnesses,
+      pi,
     });
   });
   afterAll(async () => {
@@ -265,7 +272,7 @@ describe("execution authority and retained sources", () => {
     await database?.stop();
   });
 
-  it("denies sponsor-inherited private Agent peer requests through the actual ACP tool", async () => {
+  it("denies sponsor-inherited private Agent peer requests through the actual Pi tool", async () => {
     const source = await setup();
     const target = await setup();
     await post(
@@ -284,10 +291,7 @@ describe("execution authority and retained sources", () => {
     });
     await terminal(run.id);
     expect(computer.toolResults.slice(before)).toContainEqual(
-      expect.objectContaining({
-        code: -32603,
-        message: "Otto operation denied or unavailable",
-      }),
+      expect.objectContaining({ success: false }),
     );
     expect(
       await database.db.select().from(runs).where(eq(runs.parentRunId, run.id)),
@@ -300,10 +304,10 @@ describe("execution authority and retained sources", () => {
       const target = await setup();
       if (resource === "skill") {
         const skill = record.parse(
-          await post("/documents", {
+          await post("/skills", {
             title: "User skill",
-            body: "Private",
-            skill: true,
+            instructions: "Private",
+
             visibility: "user",
           }),
         );
@@ -332,7 +336,7 @@ describe("execution authority and retained sources", () => {
         });
         await terminal(run.id);
         expect(computer.toolResults.slice(before)).toContainEqual(
-          expect.objectContaining({ code: -32603 }),
+          expect.objectContaining({ success: false }),
         );
         expect(
           await database.db
@@ -375,6 +379,9 @@ describe("execution authority and retained sources", () => {
       { status: "needs_auth" },
       owner,
       "PATCH",
+    );
+    await inWorkspace(database.db, workspaceId, { userId: owner.id }, (c) =>
+      qualifySubscription(c, accountId, "codex"),
     );
   });
   it("keeps noncreator participant Run controls and discussion after creator archive", async () => {
@@ -548,45 +555,44 @@ describe("execution authority and retained sources", () => {
     },
   );
 
-  it("submits a scoped ACP skill proposal with Agent authorship for human-only application", async () => {
+  it("submits a scoped Pi skill proposal with Agent authorship for human-only application", async () => {
     const project = record.parse(
       await post("/projects", { title: "Proposal" }),
     );
     const doc = record.parse(
-      await post("/documents", {
+      await post("/skills", {
         projectId: project.id,
         title: "accepted-skill",
-        body: "Original",
+        instructions: "Original",
         visibility: "workspace",
-        skill: true,
       }),
     );
     const source = await setup(project.id);
     const run = await launch(source, {
       skillIds: [doc.id],
-      body: `_tool=${JSON.stringify({ name: "document.proposeChange", documentId: doc.id, title: "accepted-skill", body: "Proposed", editToken: 0 })}`,
+      body: `_tool=${JSON.stringify({ name: "skill.proposeChange", skillId: doc.id, title: "accepted-skill", instructions: "Proposed", editToken: 0 })}`,
     });
     expect((await terminal(run.id)).state).toBe("finished");
     const proposals = await database.db
       .select()
-      .from(documentProposals)
-      .where(eq(documentProposals.documentId, doc.id));
+      .from(skillProposals)
+      .where(eq(skillProposals.skillId, doc.id));
     expect(proposals).toHaveLength(1);
     expect(proposals[0]).toMatchObject({
       agentId: source.agent.id,
       proposerId: owner.id,
-      body: "Proposed",
+      instructions: "Proposed",
       editToken: 0,
     });
-    expect(await (await request(`/documents/${doc.id}`)).json()).toMatchObject({
-      body: "Original",
+    expect(await (await request(`/skills/${doc.id}`)).json()).toMatchObject({
+      instructions: "Original",
     });
     await post(
-      `/documents/${doc.id}/proposals/${record.parse(proposals[0]).id}/resolve`,
+      `/skills/${doc.id}/proposals/${record.parse(proposals[0]).id}/resolve`,
       { accept: true },
     );
-    expect(await (await request(`/documents/${doc.id}`)).json()).toMatchObject({
-      body: "Proposed",
+    expect(await (await request(`/skills/${doc.id}`)).json()).toMatchObject({
+      instructions: "Proposed",
       editToken: 1,
     });
   });
@@ -656,7 +662,7 @@ describe("execution authority and retained sources", () => {
       attempt: row.attempt,
       launchKey: row.launchKey,
     };
-    const tool = createRunTools(database.db, boss, { harnesses });
+    const tool = createRunTools(database.db, boss, { pi });
     try {
       await expect(
         tool(identity, { name: "document.get", documentId: other.id }),
@@ -708,7 +714,7 @@ describe("execution authority and retained sources", () => {
     ).rejects.toMatchObject({ code: "forbidden" });
   });
 
-  it("creates an ACP Task owned by its eligible human sponsor and records Agent authorship", async () => {
+  it("creates an Pi Task owned by its eligible human sponsor and records Agent authorship", async () => {
     const project = record.parse(
       await post("/projects", { title: "Agent Task" }),
     );
@@ -751,7 +757,7 @@ describe("execution authority and retained sources", () => {
     const row = required(
       (await database.db.select().from(runs).where(eq(runs.id, holding.id)))[0],
     );
-    const tool = createRunTools(database.db, boss, { harnesses });
+    const tool = createRunTools(database.db, boss, { pi });
     const identity = {
       runId: row.id,
       agentId: row.agentId,
@@ -804,7 +810,7 @@ describe("execution authority and retained sources", () => {
       attempt: row.attempt,
       launchKey: row.launchKey,
     };
-    const tool = createRunTools(database.db, boss, { harnesses });
+    const tool = createRunTools(database.db, boss, { pi });
     const proposalInput = {
       name: "document.proposeChange",
       documentId: doc.id,
@@ -853,7 +859,7 @@ describe("execution authority and retained sources", () => {
       body: `_tool=${JSON.stringify({ ...proposalInput, documentId: wide.id, title: "workspace source" })}`,
     });
     await terminal(denied.id);
-    expect(computer.toolResults.at(-1)).toMatchObject({ code: -32603 });
+    expect(computer.toolResults.at(-1)).toMatchObject({ success: false });
     expect(
       await database.db
         .select()
@@ -873,8 +879,9 @@ describe("execution authority and retained sources", () => {
       entered = resolve;
     });
     const isolated = createRunRuntime(database.db, {
+      ...piRuntime,
       backend: computer,
-      harnesses,
+      pi,
       deadlineMs: 30000,
       handleTool: async () => {
         entered();
@@ -896,9 +903,9 @@ describe("execution authority and retained sources", () => {
       await isolated.dispatch(run.id);
       await started;
       const before = performance.now();
-      expect(
-        await isolated.stop(workspaceId, { userId: owner.id }, run.id),
-      ).toEqual({ stopped: false });
+      await expect(
+        isolated.stop(workspaceId, { userId: owner.id }, run.id),
+      ).rejects.toMatchObject({ code: "unavailable" });
       expect(performance.now() - before).toBeLessThan(8000);
       expect(await saved(run.id)).toMatchObject({
         state: "uncertain",
@@ -921,7 +928,7 @@ describe("execution authority and retained sources", () => {
       );
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        harnesses,
+        pi,
       });
     }
   });
@@ -938,7 +945,8 @@ describe("execution authority and retained sources", () => {
         entered = resolve;
       });
       const isolated = createRunRuntime(database.db, {
-        harnesses,
+        ...piRuntime,
+        pi,
         backend: {
           provider: computer.provider,
           inspectComputer: () => computer.inspectComputer(),
@@ -956,8 +964,9 @@ describe("execution authority and retained sources", () => {
         },
       });
       const restarted = createRunRuntime(database.db, {
+        ...piRuntime,
         backend: computer,
-        harnesses,
+        pi,
       });
       let dispatch: Promise<void> | undefined;
       try {
@@ -1029,7 +1038,7 @@ describe("execution authority and retained sources", () => {
         await restarted.close();
         worker = await startQueue(database.db, database.pool, {
           runtime,
-          harnesses,
+          pi,
         });
       }
     },
@@ -1046,8 +1055,9 @@ describe("execution authority and retained sources", () => {
       entered = resolve;
     });
     const isolated = createRunRuntime(database.db, {
+      ...piRuntime,
       backend: computer,
-      harnesses,
+      pi,
       handleTool: async () => {
         entered();
         await blocked;
@@ -1055,8 +1065,9 @@ describe("execution authority and retained sources", () => {
       },
     });
     const fresh = createRunRuntime(database.db, {
+      ...piRuntime,
       backend: computer,
-      harnesses,
+      pi,
     });
     try {
       const source = await setup();
@@ -1099,7 +1110,7 @@ describe("execution authority and retained sources", () => {
       await fresh.close();
       worker = await startQueue(database.db, database.pool, {
         runtime,
-        harnesses,
+        pi,
       });
     }
   });
@@ -1219,7 +1230,7 @@ describe("execution authority and retained sources", () => {
       attempt: row.attempt,
       launchKey: row.launchKey,
     };
-    const tools = createRunTools(database.db, boss, { harnesses });
+    const tools = createRunTools(database.db, boss, { pi });
     try {
       await post(
         `/tasks/${task.id}`,
@@ -1246,7 +1257,7 @@ describe("execution authority and retained sources", () => {
     });
   });
 
-  it("denies a directed ACP request to a viewer Agent without creating child work", async () => {
+  it("denies a directed Pi request to a viewer Agent without creating child work", async () => {
     const source = await setup();
     const target = await setup();
     await post(`/conversations/${source.conversation.id}/participants`, {
@@ -1259,7 +1270,7 @@ describe("execution authority and retained sources", () => {
     });
     await terminal(run.id);
     expect(computer.toolResults.slice(before)).toContainEqual(
-      expect.objectContaining({ code: -32603 }),
+      expect.objectContaining({ success: false }),
     );
     expect(
       await database.db.select().from(runs).where(eq(runs.parentRunId, run.id)),
@@ -1271,7 +1282,8 @@ describe("execution authority and retained sources", () => {
       await worker.stop({ graceful: false });
       let inspections = 0;
       const isolated = createRunRuntime(database.db, {
-        harnesses,
+        ...piRuntime,
+        pi,
         backend: {
           provider: computer.provider,
           inspectComputer: () => computer.inspectComputer(),
@@ -1355,7 +1367,7 @@ describe("execution authority and retained sources", () => {
         await isolated.close();
         worker = await startQueue(database.db, database.pool, {
           runtime,
-          harnesses,
+          pi,
         });
       }
     },

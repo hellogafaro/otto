@@ -1,10 +1,14 @@
 # Otto
 
 Otto is a fresh application repository for a workspace combining flat project
-tasks, shared conversations, flexible documents/skills, saved artifacts, and
-native subscription coding agents. This directory is the canonical home for
+tasks, shared conversations, documents, reusable skills, saved artifacts, and
+Pi-powered agents for coding, research, writing and tool work. This directory is the canonical home for
 its product plan, research, and visual design. The former Buzz checkout is
 preserved outside this repository; see [the backup record](../setup-backup.md).
+
+## Current execution direction
+
+The 3 October implementation replaces ACP with packaged Pi 1.0.0 and one managed CLIProxyAPI gateway, initially Codex OAuth/Responses. Users connect supported accounts through Otto and choose an authorized account/model; there is no vendor CLI installation or harness selector. [The integration map](../pi-gateway-plan.md) identifies the current boundaries, and [the checkpoint](../pi-implementation.md) records checks and review status. Earlier ACP evidence remains historical. Compute provisioning/isolation and real account eligibility/billing remain deferred.
 
 ## Canonical documents
 
@@ -98,3 +102,5 @@ record of how the canvases were produced, not a build tool.
 | Design-system sheet (SVG/PNG/PDF) | `design-system/` | Generated from `tokens.css` — don't hand-edit the PNG/PDF |
 | Foundation canvases (HTML) | `canvases/` | Exported snapshots of the Markdown — don't hand-edit, regenerate from source if ever needed |
 | Canvas builder scripts | `canvases/source/` | Historical record only, not rerunnable here |
+
+The current [Skills domain split](../skills.md) supersedes older skill-as-Document descriptions. Historical research, canvases and verdicts retain their captured behavior.
