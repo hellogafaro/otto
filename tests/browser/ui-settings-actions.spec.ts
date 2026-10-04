@@ -712,12 +712,26 @@ for (const kind of ["account", "connection", "invitation"] as const) {
       },
     );
     await page.goto(`/settings/${section}`);
+    const pageAction = page
+      .locator("header")
+      .filter({
+        has: page.getByRole("heading", {
+          name:
+            kind === "account"
+              ? "Models"
+              : kind === "connection"
+                ? "Connections"
+                : "Members",
+          exact: true,
+        }),
+      })
+      .getByRole("button", { name: trigger, exact: true });
     const dialog =
       kind === "connection"
         ? await openMcpCreation(page, title)
         : page.getByRole("dialog", { name: dialogName, exact: true });
     if (kind !== "connection") {
-      await page.getByRole("button", { name: trigger, exact: true }).click();
+      await pageAction.click();
       await dialog
         .getByLabel(kind === "invitation" ? "Email" : "Name", { exact: true })
         .fill(kind === "invitation" ? email : title);
@@ -767,7 +781,8 @@ for (const kind of ["account", "connection", "invitation"] as const) {
       ).toEqual([savedId]);
     }
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-    await page.getByRole("button", { name: trigger, exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await pageAction.click();
     await expect(
       dialog.getByRole("button", { name: submitName, exact: true }),
     ).toBeDisabled();
