@@ -13,6 +13,12 @@ This is a fresh Otto Bun monorepo. Historical Buzz code and history stay outside
 - Secrets live in Infisical. Read the secrets skill and use its wrapper before credential operations. Never put secret values in files, messages or logs.
 - Test PostgreSQL uses a private disposable data directory and socket, never a shared database.
 
+## UI and design
+
+- Follow [DESIGN.md](DESIGN.md): tokens, color, type, layout, elevation, shapes, components and do's and don'ts for the web UI.
+- Change shared looks in the `packages/ui` component with an `// Otto:` comment, never per instance; instance classes are for layout only.
+- Record every new or changed UI decision in DESIGN.md in the same change and keep it passing `bunx @google/design.md lint DESIGN.md`.
+
 ## Small, cohesive changes
 
 - Make the smallest correct change. Remove dead or duplicate code before adding more; reuse existing code or native mechanisms first.
