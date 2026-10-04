@@ -124,6 +124,92 @@ async function archive(page: Page, taskUrl: string, archived: boolean) {
   await page.keyboard.press("Escape");
 }
 
+test("Tasks without a Project stay readable during directory loading and on mobile", async ({
+  page,
+  fixture,
+}, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await register(page, fixture, "Empty Tasks owner");
+  let taskListReads = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "GET" &&
+      /\/api\/workspaces\/[^/]+\/tasks$/.test(new URL(request.url()).pathname)
+    )
+      taskListReads++;
+  });
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const projects = "**/api/workspaces/*/projects?*";
+  // Controlled read delay: real directory response, with no fake payload or domain outcome.
+  await page.route(projects, async (route) => {
+    const response = await route.fetch();
+    await held;
+    await route.fulfill({ response });
+  });
+  try {
+    await page.goto("/tasks");
+    await expect(
+      page.getByRole("heading", { name: "Tasks", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "Loading", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Choose a project", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Project", exact: true }),
+    ).toHaveText("Choose");
+    await expect(
+      page.getByRole("button", { name: "New task", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText("Something went wrong!", { exact: true }),
+    ).toHaveCount(0);
+    expect(taskListReads).toBe(0);
+  } finally {
+    release();
+    await page.unroute(projects);
+  }
+  await expect(
+    page.getByRole("status", { name: "Loading", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("tasks-no-project-desktop.png"),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/tasks");
+  await expect(
+    page.getByRole("heading", { name: "Tasks", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Choose a project", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Project", exact: true }),
+  ).toHaveText("Choose");
+  await expect(
+    page.getByRole("button", { name: "New task", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("status", { name: "Loading", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Something went wrong!", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(taskListReads).toBe(0);
+  expect(errors).toEqual([]);
+  await page.screenshot({
+    path: testInfo.outputPath("tasks-no-project-mobile.png"),
+  });
+});
+
 test("Task metadata, pending ACK, status, archive and restore persist", async ({
   page,
   fixture,
