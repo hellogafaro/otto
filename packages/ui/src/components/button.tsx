@@ -23,19 +23,20 @@ const buttonVariants = cva(
         // Otto: even horizontal padding on both sides, icon or text, and an
         // 8px icon-label gap (6px / 4px at xs), like rows and menu items.
         default: "h-9 gap-2 px-2 in-data-[slot=button-group]:rounded-md",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),8px)] px-1.5 text-xs in-data-[slot=button-group]:rounded-md [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-2 rounded-[min(var(--radius-md),10px)] px-2 in-data-[slot=button-group]:rounded-md",
+        // Otto: 32px buttons are md 8 (4px inside a 12px card, 8 + 4); 28px
+        // and 24px ones sm 6 (never fully round).
+        xs: "h-6 gap-1 rounded-sm px-1.5 text-xs in-data-[slot=button-group]:rounded-sm [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-8 gap-2 rounded-md px-2 in-data-[slot=button-group]:rounded-md",
         // Otto: 28px for dense bars (filter groups) between xs and sm.
         compact:
-          "h-7 gap-1.5 rounded-[min(var(--radius-md),8px)] px-2 in-data-[slot=button-group]:rounded-md",
+          "h-7 gap-1.5 rounded-sm px-2 in-data-[slot=button-group]:rounded-sm",
         lg: "h-10 gap-2 px-2.5",
         icon: "size-9",
         "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md",
+          "size-6 rounded-sm in-data-[slot=button-group]:rounded-sm [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm": "size-8 rounded-md in-data-[slot=button-group]:rounded-md",
         "icon-compact":
-          "size-7 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md",
+          "size-7 rounded-sm in-data-[slot=button-group]:rounded-sm",
         "icon-lg": "size-10",
       },
     },

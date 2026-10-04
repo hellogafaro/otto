@@ -1,13 +1,10 @@
 import {
-  type RemixiconComponentType,
   RiAddLine,
   RiArrowUpLine,
+  RiCheckLine,
   RiCloseLine,
-  RiFileLine,
-  RiFileTextLine,
   RiMicLine,
   RiStopFill,
-  RiVideoLine,
 } from "@remixicon/react";
 import { Placeholder } from "@tiptap/extensions";
 import {
@@ -45,11 +42,13 @@ import {
   type ComponentProps,
   type ReactNode,
   type Ref,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
 } from "react";
 import { Mentions, mentionKey, toContent, toText } from "@/components/mentions";
+import { resourceIcons, resourceKindOf } from "@/components/task-meta";
 import "@/components/editor/editor.css";
 
 export type FileRef = {
@@ -167,6 +166,7 @@ export function Composer({
     selector: ({ editor }) => editor?.isEmpty ?? true,
   });
   const dictation = useDictation(editor);
+  const elapsed = useElapsed(dictation.listening);
   const uploading = files.some((file) => file.state === "uploading");
   const hasContent = !empty || files.length > 0;
   const canSend = hasContent && !uploading && !busy;
@@ -238,8 +238,8 @@ export function Composer({
       <RiStopFill />
     </MainButton>
   ) : dictation.listening ? (
-    <MainButton label="Stop dictation" onClick={dictation.stop}>
-      <RiStopFill />
+    <MainButton label="Done" onClick={dictation.stop}>
+      <RiCheckLine />
     </MainButton>
   ) : hasContent ? (
     <MainButton label="Send" type="submit" disabled={!canSend}>
@@ -255,14 +255,39 @@ export function Composer({
     </MainButton>
   );
 
+  // While dictating: Cancel (takes the dictated text back), the waveform and
+  // the time; the main button turns into Done (keeps the text).
+  const listening = (
+    <>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <InputGroupButton
+              size="icon-sm"
+              aria-label="Cancel dictation"
+              onClick={dictation.cancel}
+            />
+          }
+        >
+          <RiCloseLine />
+        </TooltipTrigger>
+        <TooltipContent>Cancel</TooltipContent>
+      </Tooltip>
+      <Waveform />
+      <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+        {elapsed}
+      </span>
+    </>
+  );
+
   const attachments = files.length > 0 && (
-    // Attachment borders sit 9px in (top and sides), like the buttons'
-    // visible edges below; their file icons land on the 16px text line.
-    // AttachmentGroup adds 4px above, so pt-1.25 + 4 = 9. In the compact bar
-    // nothing pads below them: the row's own 8px is the gap.
+    // Attachments sit 4px in (top and sides), like the buttons below, so
+    // their 8px corners nest in the composer's 12px (8 + 4). AttachmentGroup
+    // adds the 4px above. In the compact bar nothing pads below them: the
+    // row's own 4px is the gap.
     <InputGroupAddon
       align="block-start"
-      className={cn("px-2.25 pt-1.25", compact && "pb-0")}
+      className={cn("px-1 pt-0", compact && "pb-0")}
     >
       <AttachmentGroup className={cn("w-full", compact && "pb-0")}>
         {files.map((file) => (
@@ -303,7 +328,8 @@ export function Composer({
     >
       {/* Same surface as a comment card (xl radius, card background, faint
           ring). Two insets: visible edges (attachment borders, button
-          backgrounds) sit 9px in; content (text, icons) sits 16px in. The
+          backgrounds) sit 4px in, so their 8px corners nest in its 12px;
+          content (text) sits 16px in. The
           compact bar keeps the corners and floats (shadow-md). */}
       <InputGroup
         data-dragging={dragging}
@@ -328,20 +354,31 @@ export function Composer({
       >
         {attachments}
         {compact ? (
-          // One row, 48px: buttons 9px from the visible edges, text 48px in
-          // (8px padding + 32px button + 4px gap + 4px text padding).
-          <div className="flex w-full items-center gap-1 p-2">
-            {plus}
-            <EditorContent editor={editor} className="min-w-0 flex-1" />
-            {tools}
+          // One row, 40px like a top bar: buttons 4px from the edges, text
+          // 44px in (4px padding + 32px button + 4px gap + 4px text padding).
+          <div className="flex w-full items-center gap-1 p-1">
+            {dictation.listening ? listening : plus}
+            {/* Kept mounted while dictating (the text lands here), but the
+                bar shows the waveform instead. */}
+            <EditorContent
+              editor={editor}
+              className={cn("min-w-0 flex-1", dictation.listening && "hidden")}
+            />
+            {!dictation.listening && tools}
             {main}
           </div>
         ) : (
           <>
             <EditorContent editor={editor} className="w-full" />
-            <InputGroupAddon align="block-end" className="p-2">
-              {plus}
-              {tools}
+            <InputGroupAddon align="block-end" className="p-1">
+              {dictation.listening ? (
+                listening
+              ) : (
+                <>
+                  {plus}
+                  {tools}
+                </>
+              )}
               <span className="ml-auto">{main}</span>
             </InputGroupAddon>
           </>
@@ -413,6 +450,8 @@ const SpeechRecognition =
 function useDictation(editor: Editor | null) {
   const [listening, setListening] = useState(false);
   const recognition = useRef<Recognition | null>(null);
+  // Where this session types and how much, so Cancel can take it back.
+  const typedRange = useRef({ at: 0, typed: 0 });
 
   const start = () => {
     if (!SpeechRecognition || !editor) return;
@@ -434,9 +473,11 @@ function useDictation(editor: Editor | null) {
         .insertContentAt(at, heard)
         .run();
       typed = heard.length;
+      typedRange.current = { at, typed };
     };
     session.onend = () => setListening(false);
     recognition.current = session;
+    typedRange.current = { at, typed: 0 };
     session.start();
     setListening(true);
   };
@@ -447,14 +488,117 @@ function useDictation(editor: Editor | null) {
     setListening(false);
   };
 
-  return { supported: Boolean(SpeechRecognition), listening, start, stop };
+  const cancel = () => {
+    stop();
+    const { at, typed } = typedRange.current;
+    editor
+      ?.chain()
+      .deleteRange({ from: at, to: at + typed })
+      .run();
+  };
+
+  return {
+    supported: Boolean(SpeechRecognition),
+    listening,
+    start,
+    stop,
+    cancel,
+  };
 }
 
-const fileIcons: [string, RemixiconComponentType][] = [
-  ["video/", RiVideoLine],
-  ["text/", RiFileTextLine],
-  ["application/pdf", RiFileTextLine],
-];
+// Seconds since `on` turned true, as m:ss.
+function useElapsed(on: boolean) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!on) return;
+    setSeconds(0);
+    const started = Date.now();
+    const timer = setInterval(
+      () => setSeconds(Math.floor((Date.now() - started) / 1000)),
+      250,
+    );
+    return () => clearInterval(timer);
+  }, [on]);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+// The voice as bars filling the space (4px bars, 2px apart), following the
+// mic level mirrored from the center. The speech range (up to ~6 kHz) spans
+// the width, so a voice moves them edge to edge. They start flat (a row of
+// 4px dots) and stay flat until there is a level to show (or without mic
+// access).
+function Waveform() {
+  const bars = useRef<HTMLDivElement>(null);
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const box = bars.current;
+    if (!box) return;
+    const observer = new ResizeObserver(() =>
+      // Inside the 8px padding: n bars and n - 1 gaps.
+      setCount(Math.floor((box.clientWidth - 16 + 2) / 6)),
+    );
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    let stream: MediaStream | undefined;
+    let context: AudioContext | undefined;
+    let frame = 0;
+    let stopped = false;
+    navigator.mediaDevices?.getUserMedia({ audio: true }).then(
+      (granted) => {
+        if (stopped) {
+          for (const track of granted.getTracks()) track.stop();
+          return;
+        }
+        stream = granted;
+        context = new AudioContext();
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 64;
+        context.createMediaStreamSource(granted).connect(analyser);
+        const levels = new Uint8Array(analyser.frequencyBinCount);
+        const draw = () => {
+          analyser.getByteFrequencyData(levels);
+          const children = bars.current?.children ?? [];
+          const half = children.length / 2;
+          for (let i = 0; i < children.length; i++) {
+            const fromCenter = Math.abs(i - half) / half;
+            // Bins are 750 Hz wide (fftSize 64 at 48 kHz): 0-7 hold speech.
+            const level = levels[Math.floor(fromCenter * 7.99)] / 255;
+            (children[i] as HTMLElement).style.transform =
+              `scaleY(${0.2 + level * 0.8})`;
+          }
+          frame = requestAnimationFrame(draw);
+        };
+        draw();
+      },
+      () => {},
+    );
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(frame);
+      for (const track of stream?.getTracks() ?? []) track.stop();
+      context?.close();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={bars}
+      aria-hidden
+      className="flex h-5 min-w-0 flex-1 items-center gap-0.5 overflow-hidden px-2"
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <span
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed, ordered bars.
+          key={i}
+          className="h-full w-1 shrink-0 rounded-full bg-muted-foreground transition-transform duration-75"
+          style={{ transform: "scaleY(0.2)" }}
+        />
+      ))}
+    </div>
+  );
+}
 
 // "PNG", "MD", "PDF": the extension, else the MIME subtype.
 function fileKind({ name, type }: FileRef) {
@@ -468,19 +612,20 @@ function fileSize(bytes: number) {
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 }
 
-// One file, pending in the composer (removable) or sent (opens the file).
+// One file, pending in the composer (removable) or sent (opens the resource
+// viewer, the same overlay as everywhere else).
 export function FileAttachment({
   file,
   state = "done",
   onRemove,
+  onOpen,
 }: {
   file: FileRef;
   state?: "uploading" | "done";
   onRemove?: () => void;
+  onOpen?: () => void;
 }) {
-  const Icon =
-    fileIcons.find(([prefix]) => file.type.startsWith(prefix))?.[1] ??
-    RiFileLine;
+  const Icon = resourceIcons[resourceKindOf(file.type)];
   const image = file.type.startsWith("image/");
   return (
     <Attachment size="sm" state={state}>
@@ -511,16 +656,12 @@ export function FileAttachment({
           </AttachmentAction>
         </AttachmentActions>
       ) : (
-        <AttachmentTrigger
-          render={
-            <a
-              href={file.url}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={`Open ${file.name}`}
-            />
-          }
-        />
+        onOpen && (
+          <AttachmentTrigger
+            aria-label={`Open ${file.name}`}
+            onClick={onOpen}
+          />
+        )
       )}
     </Attachment>
   );

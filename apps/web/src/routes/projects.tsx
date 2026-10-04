@@ -20,7 +20,7 @@ export function ProjectsPage() {
       <EmptyPage
         icon={RiBox3Line}
         title="No projects"
-        description="Projects gather tasks, conversations and documents around one goal."
+        description="Projects gather tasks, chats and documents around one goal."
       >
         <Button size="sm">
           <RiAddLine data-icon="inline-start" />

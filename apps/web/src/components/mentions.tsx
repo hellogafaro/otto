@@ -32,7 +32,7 @@ import { menuSurface } from "@/components/editor/surface";
 import { ActorAvatar } from "@/components/task-meta";
 import { agents, projects, taskResources, tasks, users } from "@/mock/tasks";
 
-// "@" tags: people, agents, tasks, projects and resources. In text a tag is
+// "@" tags: people, agents, tasks, projects and files. In text a tag is
 // stored as @[label](type:id), so a comment stays a plain string.
 export type MentionType = "user" | "agent" | "task" | "project" | "resource";
 
@@ -48,7 +48,7 @@ const groups: { type: MentionType; title: string }[] = [
   { type: "agent", title: "Agents" },
   { type: "task", title: "Tasks" },
   { type: "project", title: "Projects" },
-  { type: "resource", title: "Resources" },
+  { type: "resource", title: "Files" },
 ];
 
 const mentionIcons: Record<MentionType, RemixiconComponentType> = {
@@ -111,7 +111,9 @@ export const mention = (item: Pick<Mentionable, "type" | "id" | "label">) =>
 
 const token = /@\[([^\]]+)\]\((user|agent|task|project|resource):([^)]+)\)/g;
 
-// A tag inside text: the icon of its type and the label, in the primary color.
+// A tag inside text: the icon of its type and the label, in the primary color
+// on a soft primary tint with key-sized (xs 4) corners, so it reads as one
+// thing in the composer, messages and comments alike.
 export function MentionChip({
   type,
   label,
@@ -121,7 +123,7 @@ export function MentionChip({
 }) {
   const Icon = mentionIcons[type];
   return (
-    <span className="font-medium whitespace-nowrap text-primary">
+    <span className="rounded-xs bg-primary/10 px-1 py-px font-medium whitespace-nowrap text-primary dark:bg-primary/15">
       <Icon className="mr-1 inline -translate-y-px align-middle" />
       {label}
     </span>

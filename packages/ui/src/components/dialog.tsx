@@ -45,8 +45,9 @@ function DialogContent({
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
-  // Otto: a full-screen sheet on the page background (the resource viewer),
-  // fading in without the card's zoom.
+  // Otto: a full-screen sheet on the page background (the file viewer),
+  // fading in without the card's zoom; it starts under the desktop app's
+  // title strip (--titlebar, 0 on the web).
   fullScreen?: boolean;
 }) {
   return (
@@ -57,7 +58,7 @@ function DialogContent({
         className={cn(
           "fixed z-50 text-sm duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
           fullScreen
-            ? "inset-0 flex flex-col bg-background text-foreground"
+            ? "inset-x-0 top-(--titlebar,0px) bottom-0 flex flex-col bg-background text-foreground"
             : "top-1/2 left-1/2 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-xl bg-popover p-6 text-popover-foreground ring-1 ring-foreground/10 sm:max-w-md data-open:zoom-in-95 data-closed:zoom-out-95",
           className,
         )}

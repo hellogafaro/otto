@@ -2,14 +2,14 @@ import type { RemixiconComponentType } from "@remixicon/react";
 import { cn } from "@workspace/ui/lib/utils";
 import { cloneElement, type ReactElement, type ReactNode } from "react";
 
-// Gallery views (projects, documents, resources): not cards, but a tile with
+// Gallery views (projects, documents, files): not cards, but a tile with
 // the title under it. Tiles have 8px corners and a faint ring that darkens on
 // hover; columns sit 12px apart, rows 20px, so a title stays with its tile.
 export function Gallery({
   columns,
   children,
 }: {
-  /** 3 for projects; 4 for smaller things like documents and resources. */
+  /** 3 for projects; 4 for smaller things like documents and files. */
   columns: 3 | 4;
   children: ReactNode;
 }) {

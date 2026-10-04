@@ -229,7 +229,7 @@ export function ActorAvatar({
   size = "sm",
 }: {
   actorId: string;
-  size?: "sm" | "default";
+  size?: "sm" | "md" | "default";
 }) {
   const actor = actorId === "none" ? null : actorOf(actorId);
   return (
@@ -277,8 +277,14 @@ export const assigneeLooks: Record<string, Look> = {
 // People and agents: a name, initials, and whether it is an agent.
 export function actorOf(actorId: string) {
   if (actorId in agents) {
-    const { title } = agents[actorId as keyof typeof agents];
-    return { id: actorId, name: title, initials: title.charAt(0), agent: true };
+    const { title, color } = agents[actorId as keyof typeof agents];
+    return {
+      id: actorId,
+      name: title,
+      initials: title.charAt(0),
+      agent: true,
+      color,
+    };
   }
   const user = users[actorId as keyof typeof users];
   return {
@@ -286,8 +292,21 @@ export function actorOf(actorId: string) {
     name: user.name,
     initials: user.initials,
     agent: false,
+    color: user.color,
   };
 }
+
+// Name colors, one per person or agent (assigned, like Slack's), so a chat's
+// senders group at a glance. Six hues, each tuned per theme; none is the
+// primary blue, so a name never reads as an @tag.
+export const nameColors = [
+  "text-[oklch(0.55_0.18_25)] dark:text-[oklch(0.74_0.14_25)]", // red
+  "text-[oklch(0.58_0.15_60)] dark:text-[oklch(0.78_0.13_65)]", // orange
+  "text-[oklch(0.52_0.14_150)] dark:text-[oklch(0.77_0.14_150)]", // green
+  "text-[oklch(0.53_0.1_195)] dark:text-[oklch(0.77_0.1_195)]", // teal
+  "text-[oklch(0.52_0.18_300)] dark:text-[oklch(0.75_0.14_300)]", // purple
+  "text-[oklch(0.56_0.19_350)] dark:text-[oklch(0.75_0.15_350)]", // pink
+];
 
 export const shortDate = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -310,6 +329,15 @@ export const resourceIcons: Record<ResourceKind, RemixiconComponentType> = {
   document: RiFileTextLine,
   file: RiFileLine,
 };
+
+// A file's type from its MIME type.
+export function resourceKindOf(type: string): ResourceKind {
+  if (type.startsWith("video/")) return "video";
+  if (type.startsWith("audio/")) return "audio";
+  if (type.startsWith("image/")) return "image";
+  if (type.startsWith("text/") || type === "application/pdf") return "document";
+  return "file";
+}
 
 export const resourceTypes: Record<ResourceKind, string> = {
   video: "Video",

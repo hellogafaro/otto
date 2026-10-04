@@ -1,7 +1,7 @@
 import type { Ref } from "react";
 import { Composer, type ComposerHandle } from "@/components/composer";
 
-// The floating Ask Otto bar on tasks, projects, documents and the resource
+// The floating Ask Otto bar on tasks, projects, documents and the file
 // viewer: a shortcut that starts a new chat with Otto about what is open.
 // Page actions that Otto does (log time, a custom repeat) prefill it instead
 // of a form. It is not the item's comments.

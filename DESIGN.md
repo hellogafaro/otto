@@ -12,6 +12,8 @@ colors:
   background-dark: "oklch(0.145 0 0)"
   foreground: "oklch(0.145 0 0)"
   foreground-dark: "oklch(0.985 0 0)"
+  frame: "oklch(0.985 0 0)"
+  frame-dark: "oklch(0.11 0 0)"
   card: "oklch(1 0 0)"
   card-dark: "oklch(0.205 0 0)"
   popover-dark: "oklch(0.205 0 0)"
@@ -33,6 +35,11 @@ colors:
   status-done: "oklch(0.627 0.194 149.214)"
   status-done-dark: "oklch(0.723 0.219 149.579)"
 typography:
+  key:
+    fontFamily: Inter Variable
+    fontSize: 0.6875rem
+    fontWeight: 500
+    lineHeight: 1rem
   caption:
     fontFamily: Inter Variable
     fontSize: 0.75rem
@@ -63,11 +70,11 @@ typography:
     fontSize: 0.9em
     fontWeight: 400
 rounded:
-  xs: 2px
+  xs: 4px
   sm: 6px
   md: 8px
   lg: 10px
-  xl: 16px
+  xl: 12px
   full: 9999px
 spacing:
   xs: 4px
@@ -84,6 +91,16 @@ components:
   page-dark:
     backgroundColor: "{colors.background-dark}"
     textColor: "{colors.foreground-dark}"
+  frame:
+    backgroundColor: "{colors.frame}"
+  frame-dark:
+    backgroundColor: "{colors.frame-dark}"
+  page-card:
+    backgroundColor: "{colors.background}"
+    rounded: "{rounded.xl}"
+  top-bar:
+    height: 40px
+    padding: 4px
   card:
     backgroundColor: "{colors.card}"
     textColor: "{colors.foreground}"
@@ -122,9 +139,12 @@ components:
     rounded: "{rounded.md}"
     size: 32px
   button-compact:
-    rounded: "{rounded.md}"
+    rounded: "{rounded.sm}"
     height: 28px
     padding: 8px
+  button-xs:
+    rounded: "{rounded.sm}"
+    size: 24px
   command-palette:
     backgroundColor: "{colors.popover-dark}"
     textColor: "{colors.foreground-dark}"
@@ -151,7 +171,7 @@ components:
     textColor: "{colors.foreground-dark}"
   row-action:
     textColor: "{colors.muted-foreground}"
-    rounded: 4px
+    rounded: "{rounded.xs}"
     size: 24px
   list-row:
     typography: "{typography.body-medium}"
@@ -189,15 +209,18 @@ components:
   kbd:
     backgroundColor: "{colors.muted-dark}"
     textColor: "{colors.muted-foreground-dark}"
-    typography: "{typography.caption}"
+    typography: "{typography.key}"
     rounded: "{rounded.xs}"
     height: 20px
   input-invalid:
     textColor: "{colors.destructive}"
   avatar:
     textColor: "{colors.muted-foreground}"
-    rounded: "{rounded.full}"
+    rounded: "{rounded.xs}"
     size: 20px
+  avatar-message:
+    rounded: "{rounded.sm}"
+    size: 28px
   tag:
     textColor: "{colors.primary}"
     typography: "{typography.body-medium}"
@@ -210,7 +233,7 @@ components:
     padding: 8px
   attachment:
     backgroundColor: "{colors.card}"
-    rounded: 7px
+    rounded: "{rounded.md}"
   empty-state:
     textColor: "{colors.muted-foreground}"
     typography: "{typography.heading}"
@@ -218,15 +241,32 @@ components:
     backgroundColor: "{colors.card}"
     typography: "{typography.body}"
     rounded: "{rounded.xl}"
-    height: 48px
+    height: 40px
     width: 450px
-    padding: 8px
+    padding: 4px
+  section-sidebar:
+    backgroundColor: "{colors.frame}"
+    width: 280px
+  right-panel:
+    width: 280px
+  scroll-button:
+    backgroundColor: "{colors.card}"
+    rounded: "{rounded.md}"
+    height: 32px
+  question-card:
+    backgroundColor: "{colors.card}"
+    rounded: "{rounded.xl}"
+    padding: 12px
+  question-choice:
+    rounded: "{rounded.md}"
+    height: 40px
+    padding: 12px
   gallery-tile:
     backgroundColor: "{colors.card}"
     rounded: "{rounded.md}"
   cover:
     rounded: "{rounded.md}"
-  resource-viewer:
+  file-viewer:
     backgroundColor: "{colors.background}"
     textColor: "{colors.foreground}"
   status-icon-todo:
@@ -274,9 +314,10 @@ accent, compact 32px controls.
   with Otto about what is open; it is never a comment. Instant human actions
   stay one click: delete, copy, pick a file, change a property.
 - **Domain words.** The UI names things as the product does: task, project,
-  document, resource, schedule, conversation. Never file for a resource,
-  library, artifact, asset or automation. Prompts and placeholders use these
-  words so Otto gets the same meaning the person sees.
+  document, file, schedule, chat. Never resource, library, artifact,
+  asset or automation (the data model is still called Resource). Prompts
+  and placeholders use these words so Otto gets the same meaning the person
+  sees.
 - **Vanilla shadcn.** Preset `bIkg4yR` (base-vega, Remix icons). When
   something must look different everywhere, change the `packages/ui`
   component and mark it with an `// Otto:` comment. Instance classes are for
@@ -311,7 +352,8 @@ is fixed at 12px; 10.2px read too small.
 
 | Token | Tailwind | Size (desktop) | Use |
 | --- | --- | --- | --- |
-| caption | `text-xs` | 12px / 16px | Badges, keys, tooltips, small metadata |
+| key | `text-[0.6875rem]` | 11px / 16px | Keys (`Kbd`) and the questionnaire's number keys |
+| caption | `text-xs` | 12px / 16px | Badges, tooltips, times, day dividers, small metadata |
 | body | `text-sm` | 13px / 20px | All UI text: buttons, rows, menus, comments, body |
 | heading | `text-base` | 16.5px / 24px | Section headings (Activity), empty-state titles, editor H1 |
 | title | `text-lg` | 21px / 28px | Page titles |
@@ -331,45 +373,58 @@ is fixed at 12px; 10.2px read too small.
 
 Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 
-- **Two insets.** Visible edges (a button's background, a card's outline, an
-  attachment's border) sit **9px** inside their container. Content (text,
-  icons) sits **16px** inside. Buttons paint inside a 1px transparent border
-  and cards draw a 1px ring outside their box; classes compensate so the
-  visible result lands on these numbers.
-- **Controls are 32px**: bar buttons, menu items, sidebar rows, list rows in
-  menus. Rows may take two lines when a title needs it; the icon stays on the
-  first line. Task list and command palette rows are 36px. Dense bars (filter
-  groups, palette tabs) use the 28px `compact` / `icon-compact` button.
+- **Layers.** The frame (`bg-sidebar`) is the lowest and darkest layer; the
+  rail and any section sidebar sit on it. The page is a card on the frame:
+  `SidebarInset` 8px from the top, right and bottom, `xl` 12 corners, the
+  hairline ring and `shadow-xs`. Lower is darker.
+- **Insets.** Controls sit **4px** inside their bar or card, so their corners
+  nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
+- **Controls are 32px**: bar buttons, menu items, sidebar rows. Task list and
+  command palette rows are 36px. Dense bars (filter groups, palette tabs) use
+  the 28px `compact` button; the smallest buttons are 24px (`xs`).
 - **Buttons** pad 8px on both sides, icon or text (6px at `xs`). Icon or
   avatar to label is 8px everywhere. Buttons in a bar sit 4px apart.
-- **Shell.** App rail on the left (`AppRail`): 8px padding around 32px
-  buttons, so it is 48px wide. Then the page.
-- **Top bar** (`Topbar`): the same 8px padding, 48px tall. Breadcrumb on the
-  left; page actions on the right, ending with the panel toggle.
+- **Rail** (`AppRail`): 48px wide, 8px around 32px buttons, no labels.
+  Inbox (home), Tasks, Projects, Chats, Schedules, Documents, Files.
+- **Section sidebar** (`SectionSidebar`): a section's own navigation (Chats)
+  on the frame beside the rail, divided by a hairline; a 40px header lined up
+  with the card's top bar.
+- **Top bar** (`Topbar`): 40px, 32px controls 4px from every edge, no
+  hairline. Breadcrumb on the left; page actions on the right, ending with
+  the panel toggle.
+- **Desktop app.** The desktop app adds a 40px title strip above the shell
+  (traffic lights, back and forward, one tab per open page); `?desktop`
+  previews it in a browser. The web app has none.
+- **Widths follow φ**: the page column is 728px; Ask Otto is 728 ÷ φ = 450px;
+  sidebars and the right panel are 450 ÷ φ = 280px.
 - **Page** (`Page`): a centered column, `default` (max 3xl) for reading and
   settings, `wide` (max 5xl) for lists. 20px between header and content;
   20px side padding, 52px top and bottom on desktop. An optional `cover` sits
   above the title; an optional `floating` bar (Ask Otto) replaces the bottom
   padding and rests 16px above the bottom.
 - **Galleries** (`Gallery`): 3 columns for projects, 4 for documents and
-  resources; 12px between columns, 20px between rows so a title stays with its
+  files; 12px between columns, 20px between rows so a title stays with its
   tile.
-- **Right panel**: a floating `Sidebar` card directly under the top bar, 9px
-  from the screen edges, 256px wide.
+- **Right panel**: a full-height stock `Sidebar` inside the page card, beside
+  the top bar and page, 280px.
 
 ## Elevation & Depth
 
 Depth comes from translucency and hairlines, not heavy shadows.
 
-- **Page**: the background, flat.
-- **Cards** (comments, composer, side panel): card background, a
+- **Frame**: the darkest layer, flat. **Page card**: the background color on
+  the frame, hairline ring and `shadow-xs`.
+- **Cards** (comments, composer, question cards): card background, a
   `ring-foreground/10` hairline and `shadow-xs`.
+- **Scrolling** areas fade at the edge where more content waits (shadcn
+  `scroll-fade-*`): under the top bar and above the composer. With a floating
+  bar only the top fades; the bar brings its own fade.
 - **Floating surfaces** (dropdowns, combobox, popover, hover card, tooltip,
   editor menus): dark, `bg-popover/70`, `backdrop-blur-2xl` and saturation,
   `ring-foreground/10`, `shadow-md`, no entry animation.
 - A floating surface opens 4px from its trigger and never covers it.
 - **Dialogs** (the command palette) sit over a plain 50% black overlay, no
-  blur. The resource viewer is a full-screen dialog (`fullScreen`) on the page
+  blur. The file viewer is a full-screen dialog (`fullScreen`) on the page
   background.
 - **Ask Otto** floats: card surface, hairline ring and `shadow-md`, on a fade
   from the page background (bottom) to transparent (32px above it), so
@@ -377,27 +432,27 @@ Depth comes from translucency and hairlines, not heavy shadows.
 
 ## Shapes
 
-Radius tokens: `xs` 2 · `sm` 6 · `md` 8 · `lg` 10 · `xl` 16 · `full`.
+Radius tokens: `xs` 4 · `sm` 6 · `md` 8 · `lg` 10 · `xl` 12 · `full`.
 **Rule: inner radius = outer radius − the gap between them.** Never repeat the
-container's radius inside it. `xl` is 16 because controls sit 8px inside cards
-and have an 8px radius.
+container's radius inside it. `xl` is 12 because 32px controls sit 4px inside
+cards and have an 8px radius.
 
 | Container | Inside | Gap | Inner radius |
 | --- | --- | --- | --- |
-| Card, composer, side panel (`xl` 16) | Buttons, rows | 8px | `md` 8 |
-| Sidebar row (`md` 8) | Row action | 4px | 4px |
-| Composer (`xl` 16) | Attachment | 9px | 7px |
+| Page card, composer, card (`xl` 12) | 32px buttons, rows | 4px | `md` 8 |
+| Sidebar row (`md` 8) | Row action | 4px | `xs` 4 |
 | Menu, combobox, popover, hover card (`lg` 10) | Items, search field | 4px | `sm` 6 |
-| Command palette (`xl` 16) | Rows | 8px | `md` 8 |
-| Tooltip (`sm` 6) | Key | 4px | `xs` 2 |
+| Command palette (`xl` 12) | Rows | 4px | `md` 8 |
+| Tooltip (`sm` 6) | Key | 4px | `xs` 4 |
 
-- Elements only ~6px inside their container (keys, attachment thumbnails, the
-  attachment's remove button) use `xs`, never square.
+- Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6.
+- Keys are `xs` 4: a soft corner, short of a pill. Elements only a few pixels
+  inside their container (attachment thumbnails and remove button) use `xs`.
 - A tooltip is `sm` because it holds a label, not nested items.
-- Gallery tiles, covers and media in the resource viewer are `md` 8 with the
-  hairline ring.
-- Avatars are round (`full`). Bars and inputs are never fully round: Ask Otto
-  keeps the composer's `xl`.
+- Gallery tiles, covers, attachments and media in the file viewer are `md` 8.
+- Avatars are rounded squares at about a quarter of their side: 20px `xs`,
+  28px `sm`, 32px `md`, 40px `lg`. Badges stay pills.
+- Bars and inputs are never fully round: Ask Otto keeps the composer's `xl`.
 
 ## Components
 
@@ -408,9 +463,12 @@ Icon buttons are 32px with 14px icons.
 
 **Icons and avatars.** Remix icons at **14px** everywhere. Fixed icons: project
 `RiBox3Line`, repeat `RiLoopRightLine`, agent `RiRobot3Line`, time
-`RiTimeLine`, row remove `RiCloseLine`, add `RiAddLine`. **Avatars are at least
-20px** (`ActorAvatar`): people show initials, agents the robot, nobody a person
-outline. Lists mixing avatars and icons give icons a 20px slot so labels align.
+`RiTimeLine`, row remove `RiCloseLine`, add `RiAddLine`, files
+`RiFolder3Line`. **Avatars are at least 20px** (`ActorAvatar`): people show
+initials, agents the robot, nobody a person outline. Lists mixing avatars and
+icons give icons a 20px slot so labels align.
+
+**Keys** (`Kbd`). 20px (16px in tooltips), 11px text, `xs` corners.
 
 **Badges.** Pills sized like tooltips: 24px tall, 8px on both sides, 12px
 text, 14px icon with a 4px gap so it reads as one unit. Used for metadata on
@@ -431,9 +489,10 @@ lists, topped by `ComboboxSearch`: like the command palette, a search icon on
 the item icon column and a transparent 36px input over a full-width bottom
 border. "/" and "@" suggestion lists use the same 32px rows.
 
-**Right panel.** Collapsible sections divided by full-width separators; muted
-13px section titles with an optional count, hidden when there is nothing (no
-"0"). Property rows open their menu; each
+**Right panel.** A stock shadcn sidebar: collapsible `SidebarGroup` sections
+with stock spacing and no dividers; the first title lines up with the top
+bar's buttons. Muted section titles with an optional count, hidden when there
+is nothing (no "0"). Property rows open their menu; each
 has a hotkey. A "New …" row ends a list. Row actions appear on hover (always on
 touch), and hovering one keeps its row highlighted. Repeat stores an iCalendar
 rule: presets plus Custom, which asks Otto.
@@ -447,21 +506,61 @@ requests. Card surface; one line that grows to 240px. **+** adds files (drop
 and paste too), shown as `Attachment`s with upload state. The main button
 dictates when empty, sends with content and stops while `busy`. A `tools` slot
 after + holds pickers (model, agent). Enter sends, Shift+Enter adds a line.
-`@` opens a grouped palette (people, agents, tasks, projects, resources); a tag
-is a primary chip with its type icon, stored as `@[label](type:id)`. Otto is
+`@` opens a grouped palette (people, agents, tasks, projects, files). Otto is
 not in it: Otto is reached through Ask Otto, not tagged.
 
+**Tags** (`MentionChip`). Everywhere (composer, messages, comments): the type
+icon and label in primary on a soft primary tint (10%, 15% dark) with `xs`
+corners, stored as `@[label](type:id)`.
+
+**Dictation.** While listening the composer row shows ×, the level as 4px
+bars 2px apart, the elapsed time and Done. The bars start flat (a row of 4px
+dots) and rise only with the mic level; the speech range (up to ~6 kHz) spans
+the width, mirrored from the center.
+
 **Ask Otto** (`AskOtto`, the `compact` composer). A floating bar at the bottom
-of task, project and document pages and the resource viewer: "Ask Otto about
-this task / project / document / resource". One line, 48px, 450px wide (the
+of task, project and document pages and the file viewer: "Ask Otto about
+this task / project / document / file". One line, 40px, 450px wide (the
 728px column ÷ φ), centered under the content; text scrolls sideways, never
-wraps. + on the left, the main button on the right, 9px from the edges; text
-48px in. Attachments sit above the row, 8px from it. Page actions that Otto
-does (log time, a custom repeat) prefill it.
+wraps. + on the left, the main button on the right, 4px from the edges.
+Attachments sit above the row. Page actions that Otto does (log time, a
+custom repeat) prefill it. Sending starts a new chat with Otto.
 
 **Activity.** Events are muted single lines with a 20px avatar. Comments are
 cards with Copy and Reply in the top-right corner on the card insets. Replies
-stay flat: Reply tags the author.
+stay flat: Reply tags the author. Comment attachments open in the file viewer.
+
+**Inbox** is home ("/"): what needs you; empty, it reads "Nothing needs you".
+
+**Chats.** Project chats (#name) and direct chats (with a person or an agent)
+in the Chats section sidebar; /chats opens the first. One chat:
+
+- **Messages** follow one pattern for everyone, like Slack, all on the left:
+  a 28px avatar (its top 2px above the name's capitals), the name and time on
+  one line, then each message as plain text (shadcn `Message` with ghost
+  `Bubble`s), keeping line breaks. Consecutive messages from one sender within
+  five minutes form a turn. Copy shows on hover at the end of the name line.
+- **Names** carry an assigned color each (six hues tuned per theme, never the
+  primary blue); yours reads "You" in the plain text color.
+- **Rhythm**: 20px between turns and around day dividers. Turns keep 2px above
+  and 4px below inside their paint-contained items.
+- **Day dividers**: the stock shadcn separator `Marker` (Today, Yesterday,
+  then the weekday and date), its 12px label soft like the lines, with a 1px
+  highlight below.
+- **Agent runs**: "Worked for 52s" folds the run's steps (a `Marker` as the
+  collapsible trigger); a failed run reads "Failed after 2m 41s" in red. While
+  an agent works, one shimmering line opens on its real status, then fades
+  through playful lines, with the real status every third turn. No spinner.
+- **Files** in messages are attachment chips that open the file viewer, which
+  steps through everything shared in the chat.
+- **Questions** from agents: a compact card (stock small `Card` at 12px): the
+  question, then the choices as one bordered list of 40px rows split by
+  hairlines (number keys pick), then Send on the right. Answered, it keeps the
+  question and the picked row.
+- **Scroll to end**: a 32px outline button with its label, on the card color
+  with `shadow-md`, 16px above the composer, shown once you scroll up.
+- **Panel**: Project (project chats), Members (people, then agents; Add
+  member) and Files shared in the chat, hidden until something is shared.
 
 **Empty states and 404.** `EmptyPage` is only for when a place has nothing at
 all (no tasks, not "no matches"). It replaces the whole page, title and
@@ -490,7 +589,7 @@ field over a full-width divider; 28px category tabs (Tab switches) 8px above
 and below; 36px rows that match
 names containing the query, with edges that fade while more results scroll;
 a 48px footer with key hints. Categories: All, Tasks, People, Projects,
-Documents, Resources, Actions. Picking a result goes there (a resource opens
+Documents, Files, Actions. Picking a result goes there (a file opens
 in the viewer). Text and icons sit
 16px in throughout.
 
@@ -507,11 +606,11 @@ right panel and the Ask Otto bar.
 - **Task:** owner and assignee as avatar buttons (no labels; hover names the
   role and its key); the description (markdown editor with `/` blocks);
   Activity; the comment composer.
-- **Project:** cover, owner and members; 28px tabs with icons and muted counts
-  (Overview, Tasks, Documents, Resources), kept in the URL (`?tab=`). Overview
+- **Project:** cover, owner and members; 32px tabs with icons and muted counts
+  (Overview, Tasks, Documents, Files), kept in the URL (`?tab=`). Overview
   is the description; Tasks is the task list without the project badge;
-  Documents and Resources are galleries. Empty tabs show the `Empty` shape
-  without an action. Panel: Status, Priority, Channel.
+  Documents and Files are galleries. Empty tabs show the `Empty` shape
+  without an action. Panel: Properties (Status, Priority) and its Chat.
 - **Document:** cover when it has an image, the author as plain text (set by
   the server), the content in the editor. Panel: Project (or none) and
   Visibility (Only me / Workspace).
@@ -525,16 +624,16 @@ page title.
 **Galleries** (`Gallery`, `GalleryItem`). Not cards: a tile with its icon and
 title under it; the ring darkens on hover. Projects are 16:9 covers;
 documents are 4:5 pages showing their image or opening text fading out;
-resources are 4:5 showing their picture or their file type ("PDF").
+files are 4:5 showing their picture or their type ("PDF").
 
-**Resource viewer** (`Lightbox`). Full screen on the page background: the
+**File viewer** (`Lightbox`). Full screen on the page background: the
 48px top bar (type icon, title, "Image · Oct 3"; Open task, Download, Close),
-the resource centered with `md` corners and the ring, 48px from the sides
+the file centered with `md` corners and the ring, 48px from the sides
 where the previous and next arrows sit 9px in (← → too, except inside a
 player), and Ask Otto at the bottom. Read-only previews: images, video and
 audio in the browser's players, PDFs in its viewer, Markdown rendered like a
-document; anything else shows its type. The open resource is in the URL
-(`?open=`) on the Resources page.
+document; anything else shows its type. The open file is in the URL
+(`?open=`) on the Files page.
 
 ## Do's and Don'ts
 
@@ -547,11 +646,13 @@ document; anything else shows its type. The open resource is in the URL
 - Do keep primary for the main action and tags; don't use it for navigation,
   selection or decoration.
 - Do keep icons 14px and avatars at least 20px; don't mix icon sizes in a row.
+- Do keep chat messages in one left-aligned pattern; don't right-align your
+  own or bring back bubbles for some senders.
 - Do keep tooltips to one label; don't put metadata in a tooltip.
 - Do route creation through Ask Otto; don't add a form for something a
   sentence can ask for, and don't send it as a comment.
-- Do use the domain words (task, project, document, resource) in copy and
-  prompts; don't call a resource a file or the Resources section a library.
+- Do use the domain words (task, project, document, file) in copy and
+  prompts; don't call a file a resource or the Files section a library.
 - Do check a visible change in the browser and measure it; don't ship from a
   screenshot guess.
 - Don't nest tasks or comments, add subtitles to data-heavy pages, or use

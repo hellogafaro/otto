@@ -25,7 +25,15 @@ export function Page({
   children?: ReactNode;
 }) {
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
+    // Content fades as it scrolls under the top bar (and off the bottom). With
+    // a floating bar only the top fades: the bar brings its own gradient, and
+    // a bottom fade would dim the bar too.
+    <div
+      className={cn(
+        "relative flex min-h-0 flex-1 flex-col overflow-y-auto",
+        floating ? "scroll-fade-t" : "scroll-fade-y",
+      )}
+    >
       <div
         className={cn(
           // A floating bar brings its own bottom space.

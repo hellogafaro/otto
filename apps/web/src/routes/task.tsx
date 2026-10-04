@@ -22,9 +22,7 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
 } from "@workspace/ui/components/sidebar";
-import { Spinner } from "@workspace/ui/components/spinner";
 import {
   Tooltip,
   TooltipContent,
@@ -47,8 +45,8 @@ import {
 } from "@/components/detail";
 import { Editor } from "@/components/editor/editor";
 import { NotFound } from "@/components/empty-page";
+import { FileItems, fileResource, Lightbox } from "@/components/files";
 import { MentionText, mention } from "@/components/mentions";
-import { Lightbox, resourceKindOf } from "@/components/resources";
 import {
   ActorAvatar,
   actorOf,
@@ -59,8 +57,7 @@ import {
   projectLooks,
   repeatLook,
   repeatPresets,
-  resourceIcons,
-  resourceTypes,
+  resourceKindOf,
   shortDate,
   statuses,
 } from "@/components/task-meta";
@@ -122,6 +119,12 @@ function TaskView({ task }: { task: Task }) {
   );
   const composer = useRef<ComposerHandle>(null);
   const ask = useRef<ComposerHandle>(null);
+  // Files attached to comments open in the file viewer, stepping
+  // through all of them in order.
+  const commentFiles = items.flatMap(({ files = [], createdAt }) =>
+    files.map((file) => fileResource(file, createdAt)),
+  );
+  const [openFileId, setOpenFileId] = useState<string>();
 
   // AI-first: "New …" rows prefill Ask Otto (a new chat about this task, not
   // a comment) instead of opening a form: a sentence-case start the cursor
@@ -219,7 +222,6 @@ function TaskView({ task }: { task: Task }) {
               plain
             />
           </Section>
-          <SidebarSeparator />
           <Section title="Project">
             <ChoiceItem
               label="Project"
@@ -229,9 +231,7 @@ function TaskView({ task }: { task: Task }) {
               searchable
             />
           </Section>
-          <SidebarSeparator />
-          <ResourcesSection taskId={task.id} />
-          <SidebarSeparator />
+          <FilesSection taskId={task.id} />
           <TimeSection taskId={task.id} onNew={() => askOtto("I spent")} />
         </>
       }
@@ -290,7 +290,11 @@ function TaskView({ task }: { task: Task }) {
                     {item.files && item.files.length > 0 && (
                       <AttachmentGroup>
                         {item.files.map((file) => (
-                          <FileAttachment key={file.id} file={file} />
+                          <FileAttachment
+                            key={file.id}
+                            file={file}
+                            onOpen={() => setOpenFileId(file.id)}
+                          />
                         ))}
                       </AttachmentGroup>
                     )}
@@ -300,6 +304,11 @@ function TaskView({ task }: { task: Task }) {
             ),
           )}
         </ul>
+        <Lightbox
+          resources={commentFiles}
+          openId={openFileId}
+          onOpen={setOpenFileId}
+        />
         <Composer
           ref={composer}
           placeholder="Leave a comment, @ to tag"
@@ -310,8 +319,8 @@ function TaskView({ task }: { task: Task }) {
   );
 }
 
-// Corner actions on a comment card's insets: backgrounds 9px from the edges,
-// icons on the 16px content line. Revealed on hover/focus; always on touch.
+// Corner actions on a comment card: 4px from the edges, so their 8px
+// corners nest in the card's 12px (8 + 4). Revealed on hover/focus; always on touch.
 // Copy shows a check for a moment; Reply is left out on your own comments.
 function CommentActions({
   body,
@@ -328,7 +337,7 @@ function CommentActions({
   };
 
   return (
-    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover/card:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
       <Tooltip>
         <TooltipTrigger
           render={
@@ -365,15 +374,13 @@ function CommentActions({
   );
 }
 
-// "New resource" opens the file picker; picked files join the list at once.
-// A resource opens in the lightbox; hovering shows its details.
+// "New file" opens the file picker; picked files join the list at once.
 // Uploads are simulated (spinner icon) until file storage exists.
-function ResourcesSection({ taskId }: { taskId: string }) {
+function FilesSection({ taskId }: { taskId: string }) {
   const [resources, setResources] = useState<
     (TaskResource & { uploading?: boolean })[]
   >(taskResources[taskId] ?? []);
   const picker = useRef<HTMLInputElement>(null);
-  const [openId, setOpenId] = useState<string>();
 
   const add = (files: FileList) => {
     const added = [...files].map((file) => ({
@@ -398,37 +405,9 @@ function ResourcesSection({ taskId }: { taskId: string }) {
   };
 
   return (
-    <Section title="Resources" count={resources.length}>
-      {resources.map((resource) => {
-        const Icon = resource.uploading
-          ? Spinner
-          : resourceIcons[resource.kind];
-        return (
-          <SidebarMenuItem key={resource.id}>
-            {/* The icon shows the type; hovering shows the full title, then
-                type and date. */}
-            <HoverCard>
-              <HoverCardTrigger
-                render={
-                  <SidebarMenuButton onClick={() => setOpenId(resource.id)} />
-                }
-              >
-                <Icon />
-                <span>{resource.title}</span>
-              </HoverCardTrigger>
-              <HoverCardContent side="left" align="start">
-                <span className="font-medium">{resource.title}</span>
-                <span className="text-muted-foreground">
-                  {resourceTypes[resource.kind]} ·{" "}
-                  {shortDate.format(new Date(resource.createdAt))}
-                </span>
-              </HoverCardContent>
-            </HoverCard>
-          </SidebarMenuItem>
-        );
-      })}
-      <Lightbox resources={resources} openId={openId} onOpen={setOpenId} />
-      <NewItem label="New resource" onClick={() => picker.current?.click()}>
+    <Section title="Files" count={resources.length}>
+      <FileItems resources={resources} />
+      <NewItem label="New file" onClick={() => picker.current?.click()}>
         <input
           ref={picker}
           type="file"

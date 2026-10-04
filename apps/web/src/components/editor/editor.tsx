@@ -52,7 +52,7 @@ export function Editor({
   value: string;
   onChange?: (markdown: string) => void;
   placeholder?: string;
-  /** Rendered only (e.g. a Markdown file in the resource viewer). */
+  /** Rendered only (e.g. a Markdown file in the file viewer). */
   readOnly?: boolean;
 }) {
   const editor = useEditor({

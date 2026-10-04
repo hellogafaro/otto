@@ -12,8 +12,8 @@ import type * as React from "react";
 
 // Otto: the menu surface (dark, translucent, blurred) at card radius (xl):
 // a borderless 48px search field over a full-width divider, then 36px rows
-// with md radius inside the list's 8px padding (16 − 8). Text and icons sit
-// 16px in. 14px icons, foreground/10 highlight.
+// with md radius inside the list's 4px padding (12 − 4). Text and icons sit
+// 16px in (4 + 12). 14px icons, foreground/10 highlight.
 function Command({
   className,
   ...props
@@ -95,7 +95,7 @@ function CommandList({
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        "no-scrollbar max-h-[min(400px,60dvh)] scroll-fade-y scroll-py-2 overflow-x-hidden overflow-y-auto p-2 outline-none",
+        "no-scrollbar max-h-[min(400px,60dvh)] scroll-fade-y scroll-py-1 overflow-x-hidden overflow-y-auto p-1 outline-none",
         className,
       )}
       {...props}
@@ -124,7 +124,7 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        "overflow-hidden text-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground",
+        "overflow-hidden text-foreground **:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground",
         className,
       )}
       {...props}
@@ -154,7 +154,7 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-foreground/10 data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "group/command-item relative flex h-9 cursor-default items-center gap-2 rounded-md px-3 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-foreground/10 data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         className,
       )}
       {...props}

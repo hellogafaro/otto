@@ -27,22 +27,23 @@ export type Task = {
 
 export const currentUserId = "u_johan";
 
+// color: an index into the name colors, assigned once like Slack's.
 export const users = {
-  u_johan: { name: "Johan Gafaro", initials: "JG" },
-  u_maya: { name: "Maya Lind", initials: "ML" },
+  u_johan: { name: "Johan Gafaro", initials: "JG", color: 3 },
+  u_maya: { name: "Maya Lind", initials: "ML", color: 5 },
 } as const;
 
 export const agents = {
   // Otto orchestrates: asked with @Otto, it hands work to the other agents.
-  a_otto: { title: "Otto" },
-  a_forge: { title: "Forge" },
-  a_scout: { title: "Scout" },
-  a_quill: { title: "Quill" },
+  a_otto: { title: "Otto", color: 4 },
+  a_forge: { title: "Forge", color: 1 },
+  a_scout: { title: "Scout", color: 2 },
+  a_quill: { title: "Quill", color: 0 },
 } as const;
 
-// Projects follow a lifecycle like tasks. channel names the project's
-// Conversation; cover is an optional image for its card and its page. UI-only for now: the
-// backend Project has no status, priority or cover yet.
+// Projects follow a lifecycle like tasks; a project's chat is the chat with
+// its projectId. cover is an optional image for its card and its page.
+// UI-only for now: the backend Project has no status, priority or cover yet.
 export type ProjectStatus = "planned" | "active" | "paused" | "completed";
 
 export type Project = {
@@ -52,7 +53,6 @@ export type Project = {
   memberIds?: string[];
   status?: ProjectStatus;
   priority?: TaskPriority;
-  channel?: string;
   cover?: string;
 };
 
@@ -60,12 +60,11 @@ export const projects: Record<string, Project> = {
   p_web: {
     title: "Otto web",
     description:
-      "The Otto web app: tasks, projects, conversations and the composer, on the shared design system.",
+      "The Otto web app: tasks, projects, chats and the composer, on the shared design system.",
     ownerId: "u_johan",
     memberIds: ["u_maya", "a_forge", "a_otto"],
     status: "active",
     priority: "high",
-    channel: "otto-web",
     cover:
       "https://images.unsplash.com/photo-1557683316-973673baf926?w=900&auto=format&fit=crop&q=60",
   },
@@ -76,7 +75,6 @@ export const projects: Record<string, Project> = {
     memberIds: ["u_johan", "a_quill", "a_scout"],
     status: "planned",
     priority: "medium",
-    channel: "launch",
     cover:
       "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=900&auto=format&fit=crop&q=60",
   },
@@ -467,3 +465,447 @@ export const timeEntries: Record<string, TimeEntry[]> = {
     },
   ],
 };
+
+// Chats: a project's chat (shared with its people and agents) or a direct chat
+// with a person or an agent. UI-only for now; the backend model is
+// Conversation, being renamed to Chat.
+export type ChatQuestion = {
+  name: string;
+  prompt: string;
+  description?: string;
+  choices: { value: string; label: string }[];
+};
+
+// The work an agent did before replying: how long it ran and its steps.
+export type ChatRun = {
+  seconds: number;
+  steps: string[];
+  failed?: boolean;
+};
+
+export type ChatMessage = {
+  id: string;
+  actorId: string;
+  body: string;
+  files?: FileRef[];
+  run?: ChatRun;
+  /** An agent asking the chat to pick (answered as a reply). */
+  question?: ChatQuestion;
+  /** An agent still working on this; shown as live status. */
+  working?: boolean;
+  createdAt: string;
+};
+
+export type Chat = {
+  id: string;
+  title: string;
+  type: "project" | "direct";
+  projectId?: string;
+  /** The person or agent on the other side of a direct chat. */
+  withId?: string;
+  /** People and agents in the chat; agents always need membership. */
+  memberIds: string[];
+  messages: ChatMessage[];
+};
+
+const minutesAgo = (minutes: number) =>
+  new Date(Date.now() - minutes * 60_000).toISOString();
+
+export const chats: Chat[] = [
+  {
+    id: "c_launch",
+    title: "launch",
+    type: "project",
+    projectId: "p_launch",
+    memberIds: ["u_maya", "u_johan", "a_otto", "a_scout", "a_quill"],
+    messages: [
+      // Six days ago: kickoff, task setup, pricing research.
+      {
+        id: "k1",
+        actorId: "u_maya",
+        body: "Kicking off the launch site chat. Goal: landing page, pricing and FAQ live by the end of the month.",
+        createdAt: minutesAgo(8760),
+      },
+      {
+        id: "k2",
+        actorId: "u_maya",
+        body: "@[Otto](agent:a_otto) can you set up the tasks?",
+        createdAt: minutesAgo(8759),
+      },
+      {
+        id: "k3",
+        actorId: "a_otto",
+        body: "Done. I created four tasks:\n- @[Write welcome copy for the landing page](task:t4)\n- @[Compare pricing pages of five competitors](task:t2)\n- @[Draft FAQ from support conversations](task:t7)\n- @[Plan onboarding email sequence](task:t8)\nQuill has the copy, Scout the pricing research.",
+        run: {
+          seconds: 21,
+          steps: [
+            "Read the Launch site brief",
+            "Created 4 tasks",
+            "Assigned Quill and Scout",
+          ],
+        },
+        createdAt: minutesAgo(8757),
+      },
+      {
+        id: "k4",
+        actorId: "u_johan",
+        body: "Nice. I'll own the pricing one.",
+        createdAt: minutesAgo(8700),
+      },
+      {
+        id: "k5",
+        actorId: "u_johan",
+        body: "Brand notes for reference.",
+        files: [
+          {
+            id: "f_brand",
+            name: "brand-notes.md",
+            type: "text/markdown",
+            size: 4_200,
+            url: "/mock/brand-notes.md",
+          },
+        ],
+        createdAt: minutesAgo(8699),
+      },
+      {
+        id: "k6",
+        actorId: "a_scout",
+        body: "First pass on competitor pricing is in. Three of the five use a free tier capped by seats; two cap by usage instead.\n\nThe clearest page has three plans, one comparison table and the annual toggle on top. The weakest hides its prices behind a contact form.\n\nFull table attached.",
+        run: {
+          seconds: 192,
+          steps: [
+            "Found the five pricing pages",
+            "Read plans, limits and prices",
+            "Built the comparison table",
+          ],
+        },
+        files: [
+          {
+            id: "f_table",
+            name: "competitor-pricing.pdf",
+            type: "application/pdf",
+            size: 860_000,
+            url: "/mock/pricing-comparison.pdf",
+          },
+        ],
+        createdAt: minutesAgo(8620),
+      },
+      {
+        id: "k7",
+        actorId: "u_maya",
+        body: "This is great. Can we see it as a chart?",
+        createdAt: minutesAgo(8600),
+      },
+      {
+        id: "k8",
+        actorId: "a_scout",
+        body: "I couldn't draw the chart: two plans have no public price. I'll leave those out and try again.",
+        run: {
+          seconds: 41,
+          steps: ["Read the comparison table", "Drew the chart"],
+          failed: true,
+        },
+        createdAt: minutesAgo(8598),
+      },
+      {
+        id: "k9",
+        actorId: "a_scout",
+        body: "Here it is without the two hidden plans.",
+        run: { seconds: 18, steps: ["Drew the chart"] },
+        files: [
+          {
+            id: "f_chart",
+            name: "pricing-chart.png",
+            type: "image/png",
+            size: 96_000,
+            url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&auto=format&fit=crop&q=60",
+          },
+        ],
+        createdAt: minutesAgo(8590),
+      },
+      // Three days ago: copy review, a burst of short replies, a voiceover.
+      {
+        id: "k10",
+        actorId: "a_quill",
+        body: 'Draft welcome copy is ready for review in @[Write welcome copy for the landing page](task:t4). Headline: "Your team, plus agents that get work done."',
+        run: {
+          seconds: 65,
+          steps: [
+            "Read the brand notes",
+            "Wrote three headline options",
+            "Picked the strongest",
+          ],
+        },
+        createdAt: minutesAgo(4500),
+      },
+      {
+        id: "k11",
+        actorId: "u_maya",
+        body: "Love the headline",
+        createdAt: minutesAgo(4470),
+      },
+      {
+        id: "k12",
+        actorId: "u_maya",
+        body: "Maybe a shorter subhead?",
+        createdAt: minutesAgo(4469),
+      },
+      {
+        id: "k13",
+        actorId: "u_maya",
+        body: "Also the hero image feels too dark",
+        files: [
+          {
+            id: "f_hero",
+            name: "landing-hero.png",
+            type: "image/png",
+            size: 412_000,
+            url: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=900&auto=format&fit=crop&q=60",
+          },
+        ],
+        createdAt: minutesAgo(4468),
+      },
+      {
+        id: "k14",
+        actorId: "u_johan",
+        body: "Agree on the subhead. For the hero, what if we use a product screenshot instead of a photo? It shows what Otto actually does, and we can crop it to the composer so it still reads at small sizes. I can grab a clean one once the chat view settles.",
+        createdAt: minutesAgo(4440),
+      },
+      {
+        id: "k15",
+        actorId: "a_quill",
+        body: "Shorter subhead options:\n1. Plan, delegate and ship in one place.\n2. Tasks, chats and agents, together.\n3. Work with agents like teammates.",
+        createdAt: minutesAgo(4436),
+      },
+      {
+        id: "k16",
+        actorId: "u_maya",
+        body: "2 for me",
+        createdAt: minutesAgo(4420),
+      },
+      {
+        id: "k17",
+        actorId: "u_johan",
+        body: "Same, 2.",
+        createdAt: minutesAgo(4415),
+      },
+      {
+        id: "k18",
+        actorId: "a_quill",
+        body: "I recorded a first take of the launch voiceover: 42 seconds, friendly tone.",
+        run: {
+          seconds: 130,
+          steps: ["Wrote the script", "Recorded the voiceover"],
+        },
+        files: [
+          {
+            id: "f_voice",
+            name: "launch-voiceover.mp3",
+            type: "audio/mpeg",
+            size: 680_000,
+            url: "https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3",
+          },
+        ],
+        createdAt: minutesAgo(4300),
+      },
+      {
+        id: "m1",
+        actorId: "u_maya",
+        body: "Can someone draft the FAQ from last month's support conversations? Here's the export and the dashboard.",
+        files: [
+          {
+            id: "f_support",
+            name: "support-dashboard.png",
+            type: "image/png",
+            size: 248_000,
+            url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&auto=format&fit=crop&q=60",
+          },
+          {
+            id: "f_pricing",
+            name: "pricing-comparison.pdf",
+            type: "application/pdf",
+            size: 1_240_000,
+            url: "/mock/pricing-comparison.pdf",
+          },
+        ],
+        createdAt: minutesAgo(26 * 60),
+      },
+      {
+        id: "m2",
+        actorId: "a_otto",
+        body: "On it. Scout is pulling the ten most common questions and Quill will draft short answers. I'll post the draft here.",
+        run: {
+          seconds: 14,
+          steps: [
+            "Read the support export",
+            "Found 214 conversations from last month",
+            "Asked Scout and Quill to help",
+          ],
+        },
+        createdAt: minutesAgo(26 * 60 - 4),
+      },
+      {
+        id: "k19",
+        actorId: "a_scout",
+        body: "Pulled 214 conversations. The top three themes: billing changes, inviting teammates, and what agents can access.",
+        run: {
+          seconds: 400,
+          steps: [
+            "Read 214 support conversations",
+            "Grouped them by question",
+            "Ranked the ten most common",
+          ],
+        },
+        createdAt: minutesAgo(1500),
+      },
+      {
+        id: "k20",
+        actorId: "u_maya",
+        body: "@[Johan Gafaro](user:u_johan) can you sanity check the access answer? That one's sensitive.",
+        createdAt: minutesAgo(1440),
+      },
+      {
+        id: "k21",
+        actorId: "u_johan",
+        body: "Yes, I'll review it in @[Draft FAQ from support conversations](task:t7) before it goes out.",
+        createdAt: minutesAgo(1380),
+      },
+      {
+        id: "k22",
+        actorId: "u_johan",
+        body: "Screen recording of the new composer, for the hero.",
+        files: [
+          {
+            id: "f_loop",
+            name: "composer-demo.mp4",
+            type: "video/mp4",
+            size: 3_400_000,
+            url: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+          },
+        ],
+        createdAt: minutesAgo(1379),
+      },
+      {
+        id: "m3",
+        actorId: "u_johan",
+        body: "Keep each answer under 60 words, please.",
+        createdAt: minutesAgo(150),
+      },
+      {
+        id: "m3b",
+        actorId: "u_johan",
+        body: "And link the pricing page where it helps.",
+        createdAt: minutesAgo(149),
+      },
+      {
+        id: "m3c",
+        actorId: "a_otto",
+        body: "Got it: under 60 words, with pricing links where they help.",
+        run: { seconds: 9, steps: ["Updated the FAQ task brief"] },
+        question: {
+          name: "tone",
+          prompt: "Which tone should the answers use?",
+          description: "Quill will match it across the whole FAQ.",
+          choices: [
+            { value: "friendly", label: "Friendly" },
+            { value: "concise", label: "Concise" },
+            { value: "formal", label: "Formal" },
+          ],
+        },
+        createdAt: minutesAgo(148),
+      },
+      {
+        id: "m3d",
+        actorId: "a_quill",
+        body: "Drafting answers for the ten questions",
+        working: true,
+        createdAt: minutesAgo(5),
+      },
+    ],
+  },
+  {
+    id: "c_web",
+    title: "otto-web",
+    type: "project",
+    projectId: "p_web",
+    memberIds: ["u_johan", "u_maya", "a_forge", "a_otto"],
+    messages: [
+      {
+        id: "m4",
+        actorId: "a_forge",
+        body: "The preview deploy failed: the build ran out of memory. I'll retry on a larger machine.",
+        run: {
+          seconds: 161,
+          steps: ["Built the web app", "Deployed the preview"],
+          failed: true,
+        },
+        createdAt: minutesAgo(26 * 60),
+      },
+      {
+        id: "m4b",
+        actorId: "a_forge",
+        body: "The Safari redirect loop fix is ready for review: the guard now refreshes the session cookie before checking it.",
+        run: {
+          seconds: 52,
+          steps: [
+            "Reproduced the loop on Safari 17.4",
+            "Fixed the redirect guard",
+            "Ran 38 tests",
+          ],
+        },
+        files: [
+          {
+            id: "f_safari",
+            name: "safari-login.png",
+            type: "image/png",
+            size: 182_000,
+            url: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=900&auto=format&fit=crop&q=60",
+          },
+        ],
+        createdAt: minutesAgo(90),
+      },
+      {
+        id: "m5",
+        actorId: "u_johan",
+        body: "Nice, I'll look after lunch.",
+        createdAt: minutesAgo(60),
+      },
+    ],
+  },
+  {
+    id: "c_otto",
+    title: "Otto",
+    type: "direct",
+    withId: "a_otto",
+    memberIds: ["u_johan", "a_otto"],
+    messages: [
+      {
+        id: "m6",
+        actorId: "u_johan",
+        body: "What's left for the launch site?",
+        createdAt: minutesAgo(40),
+      },
+      {
+        id: "m7",
+        actorId: "a_otto",
+        body: "Four tasks are open: the FAQ draft, the pricing comparison (in review), the welcome copy (in review) and the onboarding email sequence.",
+        createdAt: minutesAgo(39),
+      },
+    ],
+  },
+  {
+    id: "c_maya",
+    title: "Maya Lind",
+    type: "direct",
+    withId: "u_maya",
+    memberIds: ["u_johan", "u_maya"],
+    messages: [
+      {
+        id: "m8",
+        actorId: "u_maya",
+        body: "Do we need a dark-mode wordmark?",
+        createdAt: minutesAgo(300),
+      },
+    ],
+  },
+];

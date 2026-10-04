@@ -44,6 +44,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
+  SidebarGroupContent,
   SidebarGroupLabel,
   SidebarInset,
   SidebarMenu,
@@ -97,7 +98,7 @@ export function DetailView({
   ask: ReactNode;
 }) {
   return (
-    <SidebarProvider className="min-h-0 flex-1 flex-col">
+    <WithPanel panel={panel}>
       <Topbar
         actions={
           <>
@@ -137,31 +138,42 @@ export function DetailView({
           </BreadcrumbList>
         </Breadcrumb>
       </Topbar>
+      <Page title={title} cover={cover} floating={ask}>
+        {/* -ml-2.25 puts the first avatar on the title's left edge (8px padding
+              + 1px border). */}
+        <div className="-mt-2 -ml-2.25 flex flex-wrap items-center gap-1 text-sm">
+          {people}
+        </div>
+        {children}
+      </Page>
+    </WithPanel>
+  );
+}
 
-      <div className="flex min-h-0 flex-1">
-        <SidebarInset>
-          <Page title={title} cover={cover} floating={ask}>
-            {/* -ml-2.25 puts the first avatar on the title's left edge (8px padding
-                + 1px border). */}
-            <div className="-mt-2 -ml-2.25 flex flex-wrap items-center gap-1 text-sm">
-              {people}
-            </div>
-            {children}
-          </Page>
-        </SidebarInset>
+// A page column (top bar and content) beside the full-height right panel.
+export function WithPanel({
+  children,
+  panel,
+}: {
+  children: ReactNode;
+  panel: ReactNode;
+}) {
+  return (
+    <SidebarProvider className="relative min-h-0 flex-1">
+      <SidebarInset className="min-h-0">{children}</SidebarInset>
 
-        {/* The card's 1px ring is drawn outside its box and bar buttons paint
-            inside a 1px transparent border, so pt-px and pr/pb-2.5 leave 9px of
-            visible space on every side, like the rail and top bar buttons. */}
-        <Sidebar
-          side="right"
-          variant="floating"
-          className="top-12 max-h-[calc(100svh-3rem)] pt-px pr-2.5 pb-2.5"
-        >
-          {/* Notion-style: full-width dividers between collapsible sections. */}
-          <SidebarContent className="gap-0">{panel}</SidebarContent>
-        </Sidebar>
-      </div>
+      {/* A full-height column inside the card, divided from the page by a
+          hairline (not a card in a card) and in the card's color: it is part
+          of the card, not a lower layer. */}
+      <Sidebar
+        side="right"
+        className="absolute inset-y-0 h-auto *:data-[slot=sidebar-inner]:bg-transparent"
+      >
+        {/* Stock shadcn sidebar spacing, no dividers: groups set sections
+            apart. The one change: the first section starts 4px down (not 8),
+            so its title row lines up with the top bar's buttons. */}
+        <SidebarContent className="*:first:pt-1">{panel}</SidebarContent>
+      </Sidebar>
     </SidebarProvider>
   );
 }
@@ -269,7 +281,9 @@ export function Section({
         </span>
       </SidebarGroupLabel>
       <CollapsibleContent>
-        <SidebarMenu>{children}</SidebarMenu>
+        <SidebarGroupContent>
+          <SidebarMenu>{children}</SidebarMenu>
+        </SidebarGroupContent>
       </CollapsibleContent>
     </Collapsible>
   );

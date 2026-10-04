@@ -3,17 +3,20 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  redirect,
 } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { destinations } from "@/components/app-rail";
 import { EmptyPage, NotFound } from "@/components/empty-page";
 import { Page } from "@/components/page";
 import { Shell } from "@/components/shell";
+import { chats } from "@/mock/tasks";
+import { ChatPage } from "@/routes/chats";
 import { DocumentPage } from "@/routes/document";
 import { DocumentsPage } from "@/routes/documents";
+import { FilesPage, validateFilesSearch } from "@/routes/files";
 import { ProjectPage, validateProjectSearch } from "@/routes/project";
 import { ProjectsPage } from "@/routes/projects";
-import { ResourcesPage, validateResourcesSearch } from "@/routes/resources";
 import { TaskPage } from "@/routes/task";
 import { TasksPage, validateTasksSearch } from "@/routes/tasks";
 
@@ -30,11 +33,7 @@ const empties: Record<
     description: "Tasks, mentions and reviews waiting on you show up here.",
     action: "New task",
   },
-  "/conversations": {
-    title: "No conversations",
-    description: "Talk things through with people and agents here.",
-    action: "New conversation",
-  },
+
   "/schedules": {
     title: "No schedules",
     description:
@@ -46,7 +45,7 @@ const empties: Record<
 const sectionRoutes = destinations
   .filter(
     ({ to }) =>
-      !["/tasks", "/projects", "/documents", "/resources"].includes(to),
+      !["/tasks", "/projects", "/chats", "/documents", "/files"].includes(to),
   )
   .map(({ to, icon }) =>
     createRoute({
@@ -101,12 +100,32 @@ const documentRoute = createRoute({
   },
 });
 
-const resourcesRoute = createRoute({
+const filesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/resources",
-  validateSearch: validateResourcesSearch,
-  component: function Resources() {
-    return <ResourcesPage search={resourcesRoute.useSearch()} />;
+  path: "/files",
+  validateSearch: validateFilesSearch,
+  component: function Files() {
+    return <FilesPage search={filesRoute.useSearch()} />;
+  },
+});
+
+// Chats always has one open: /chats opens the first.
+const chatsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chats",
+  beforeLoad: () => {
+    throw redirect({
+      to: "/chats/$chatId",
+      params: { chatId: chats[0].id },
+    });
+  },
+});
+
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chats/$chatId",
+  component: function Chat() {
+    return <ChatPage chatId={chatRoute.useParams().chatId} />;
   },
 });
 
@@ -140,9 +159,11 @@ export const router = createRouter({
     ...sectionRoutes,
     projectsRoute,
     projectRoute,
+    chatsRoute,
+    chatRoute,
     documentsRoute,
     documentRoute,
-    resourcesRoute,
+    filesRoute,
     tasksRoute,
     taskRoute,
     settingsRoute,

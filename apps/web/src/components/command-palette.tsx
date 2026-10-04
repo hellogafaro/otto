@@ -44,7 +44,7 @@ const categories = [
   "people",
   "projects",
   "documents",
-  "resources",
+  "files",
   "actions",
 ] as const;
 export type PaletteCategory = (typeof categories)[number];
@@ -55,7 +55,7 @@ const labels: Record<PaletteCategory, string> = {
   people: "People",
   projects: "Projects",
   documents: "Documents",
-  resources: "Resources",
+  files: "Files",
   actions: "Actions",
 };
 
@@ -146,7 +146,7 @@ function Palette({
         );
       }}
     >
-      <CommandInput placeholder="Search tasks, people, projects, documents, resources and actions" />
+      <CommandInput placeholder="Search tasks, people, projects, documents, files and actions" />
       {/* 28px tabs, 4px apart, 8px above and below; tab text lands 16px in like
           everything else. */}
       <div className="flex gap-1 px-1.75 py-2">
@@ -271,8 +271,8 @@ function Palette({
             ))}
           </CommandGroup>
         )}
-        {shows("resources") && (
-          <CommandGroup heading="Resources">
+        {shows("files") && (
+          <CommandGroup heading="Files">
             {resources.map((resource) => {
               const Icon = resourceIcons[resource.kind];
               return (
@@ -282,7 +282,7 @@ function Palette({
                   keywords={[resource.title]}
                   onSelect={go(() =>
                     navigate({
-                      to: "/resources",
+                      to: "/files",
                       search: { open: resource.id },
                     }),
                   )}

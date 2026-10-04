@@ -1,17 +1,17 @@
 import {
   type RemixiconComponentType,
-  RiBookShelfFill,
-  RiBookShelfLine,
   RiBox3Fill,
   RiBox3Line,
-  RiChat3Fill,
-  RiChat3Line,
+  RiChat1Fill,
+  RiChat1Line,
   RiCheckboxCircleFill,
   RiCheckboxCircleLine,
   RiFileTextFill,
   RiFileTextLine,
-  RiHome5Fill,
-  RiHome5Line,
+  RiFolder3Fill,
+  RiFolder3Line,
+  RiInboxFill,
+  RiInboxLine,
   RiTimeFill,
   RiTimeLine,
 } from "@remixicon/react";
@@ -36,9 +36,9 @@ type Destination = {
 export const destinations: Destination[] = [
   {
     to: "/",
-    label: "Home",
-    icon: RiHome5Line,
-    activeIcon: RiHome5Fill,
+    label: "Inbox",
+    icon: RiInboxLine,
+    activeIcon: RiInboxFill,
   },
   {
     to: "/tasks",
@@ -53,10 +53,10 @@ export const destinations: Destination[] = [
     activeIcon: RiBox3Fill,
   },
   {
-    to: "/conversations",
-    label: "Conversations",
-    icon: RiChat3Line,
-    activeIcon: RiChat3Fill,
+    to: "/chats",
+    label: "Chats",
+    icon: RiChat1Line,
+    activeIcon: RiChat1Fill,
   },
   {
     to: "/schedules",
@@ -71,10 +71,10 @@ export const destinations: Destination[] = [
     activeIcon: RiFileTextFill,
   },
   {
-    to: "/resources",
-    label: "Resources",
-    icon: RiBookShelfLine,
-    activeIcon: RiBookShelfFill,
+    to: "/files",
+    label: "Files",
+    icon: RiFolder3Line,
+    activeIcon: RiFolder3Fill,
   },
 ];
 
@@ -116,11 +116,12 @@ export function AppRail() {
 
   return (
     // Bars share one rule: p-2 around 32px buttons spaced gap-1, so the rail
-    // is 48px wide (the top bar is 48px tall) and its buttons sit 8px from
-    // every edge.
+    // is 48px wide. It sits on the frame; 12px on top puts its first button
+    // level with the card's top bar buttons (8px card margin + 4px padding;
+    // 4px under the desktop strip, where the card has no margin).
     <nav
       aria-label="App navigation"
-      className="sticky top-0 z-20 flex h-svh shrink-0 flex-col gap-1 bg-background p-2 select-none"
+      className="flex shrink-0 flex-col gap-1 p-2 pt-3 select-none group-data-desktop/sidebar-wrapper:pt-1"
     >
       {destinations.map(({ to, label, icon, activeIcon }) => {
         const active = Boolean(matchRoute({ to, fuzzy: to !== "/" }));

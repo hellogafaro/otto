@@ -1,10 +1,10 @@
 import {
   type RemixiconComponentType,
   RiAlignLeft,
-  RiBookShelfLine,
   RiBox3Line,
   RiCheckboxCircleLine,
   RiFileTextLine,
+  RiFolder3Line,
   RiHashtag,
 } from "@remixicon/react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -37,8 +37,8 @@ import {
 import { Cover } from "@/components/dither";
 import { Editor } from "@/components/editor/editor";
 import { NotFound } from "@/components/empty-page";
+import { FileGallery } from "@/components/files";
 import { Gallery } from "@/components/gallery";
-import { ResourceGallery } from "@/components/resources";
 import {
   ActorAvatar,
   actorOf,
@@ -47,6 +47,7 @@ import {
   projectStatuses,
 } from "@/components/task-meta";
 import {
+  chats,
   currentUserId,
   documents,
   type Project,
@@ -59,12 +60,9 @@ import {
 import { DocumentItem } from "@/routes/documents";
 import { TaskGroups } from "@/routes/tasks";
 
-// Section routes are built from the rail, so their paths are plain strings.
-const conversations: string = "/conversations";
-
 // The open tab lives in the URL; Overview (the description) is the default
 // and has no key.
-const tabs = ["overview", "tasks", "documents", "resources"] as const;
+const tabs = ["overview", "tasks", "documents", "files"] as const;
 type ProjectTab = (typeof tabs)[number];
 export type ProjectSearch = { tab?: Exclude<ProjectTab, "overview"> };
 
@@ -103,7 +101,7 @@ export function ProjectPage({
 }
 
 // Same shape as a task: cover, title, owner and members on top; tabs for the
-// description (Overview), tasks, documents and resources below; Status,
+// description (Overview), tasks, documents and files below; Status,
 // Priority and Channel in the panel. No activity yet.
 function ProjectView({
   id,
@@ -127,18 +125,19 @@ function ProjectView({
   const members = project.memberIds ?? [];
   const names = members.map((member) => actorOf(member).name).join(", ");
   const projectTasks = tasks.filter((task) => task.projectId === id);
+  const chat = chats.find((candidate) => candidate.projectId === id);
   const projectDocuments = documents.filter(
     (document) => document.projectId === id,
   );
-  // A project's resources are those linked to its tasks.
-  const projectResources = resources.filter((resource) =>
+  // A project's files are those linked to its tasks.
+  const projectFiles = resources.filter((resource) =>
     projectTasks.some((task) => task.id === resource.taskId),
   );
   const counts: Record<ProjectTab, number> = {
     overview: 0,
     tasks: projectTasks.length,
     documents: projectDocuments.length,
-    resources: projectResources.length,
+    files: projectFiles.length,
   };
 
   return (
@@ -185,36 +184,49 @@ function ProjectView({
         </>
       }
       panel={
-        <Section title="Properties">
-          <ChoiceItem
-            label="Status"
-            value={status}
-            options={projectStatuses}
-            onChange={setStatus}
-            hotkey="s"
-          />
-          <ChoiceItem
-            label="Priority"
-            value={priority}
-            options={priorities}
-            onChange={setPriority}
-            hotkey="p"
-            firstKey={0}
-          />
-          {/* The project's conversation; opening it lands in Conversations. */}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link to={conversations} />}
-              aria-label={`Channel: ${project.channel ?? "none"}`}
-            >
-              <RiHashtag />
-              <span>{project.channel ?? "No channel"}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </Section>
+        <>
+          <Section title="Properties">
+            <ChoiceItem
+              label="Status"
+              value={status}
+              options={projectStatuses}
+              onChange={setStatus}
+              hotkey="s"
+            />
+            <ChoiceItem
+              label="Priority"
+              value={priority}
+              options={priorities}
+              onChange={setPriority}
+              hotkey="p"
+              firstKey={0}
+            />
+          </Section>
+          {/* The project's chat, in its own group; opening it lands in Chats. */}
+          <Section title="Chat">
+            <SidebarMenuItem>
+              {chat ? (
+                <SidebarMenuButton
+                  render={
+                    <Link to="/chats/$chatId" params={{ chatId: chat.id }} />
+                  }
+                  aria-label={`Chat: ${chat.title}`}
+                >
+                  <RiHashtag />
+                  <span>{chat.title}</span>
+                </SidebarMenuButton>
+              ) : (
+                <SidebarMenuButton aria-disabled>
+                  <RiHashtag />
+                  <span>No chat</span>
+                </SidebarMenuButton>
+              )}
+            </SidebarMenuItem>
+          </Section>
+        </>
       }
     >
-      {/* Same 28px tabs as ⌘K, 4px apart, with icons; -ml-2.25 puts the first
+      {/* 32px tabs, 4px apart, with icons; -ml-2.25 puts the first
           icon on the title's left edge (8px padding + 1px border). */}
       <div className="-ml-2.25 flex flex-wrap gap-1">
         {tabs.map((value) => {
@@ -223,7 +235,7 @@ function ProjectView({
             <Button
               key={value}
               variant={value === tab ? "secondary" : "ghost"}
-              size="compact"
+              size="sm"
               aria-pressed={value === tab}
               onClick={() =>
                 navigate({
@@ -276,13 +288,13 @@ function ProjectView({
             description="Notes and specs for this project collect here."
           />
         ))}
-      {tab === "resources" &&
-        (projectResources.length > 0 ? (
-          <ResourceGallery resources={projectResources} />
+      {tab === "files" &&
+        (projectFiles.length > 0 ? (
+          <FileGallery resources={projectFiles} />
         ) : (
           <TabEmpty
-            icon={RiBookShelfLine}
-            title="No resources"
+            icon={RiFolder3Line}
+            title="No files"
             description="Files and results saved from this project's tasks collect here."
           />
         ))}
@@ -290,7 +302,7 @@ function ProjectView({
   );
 }
 
-// Tasks, Documents and Resources use their rail icons.
+// Tasks, Documents and Files use their rail icons.
 const tabLooks: Record<
   ProjectTab,
   { label: string; icon: RemixiconComponentType }
@@ -298,7 +310,7 @@ const tabLooks: Record<
   overview: { label: "Overview", icon: RiAlignLeft },
   tasks: { label: "Tasks", icon: RiCheckboxCircleLine },
   documents: { label: "Documents", icon: RiFileTextLine },
-  resources: { label: "Resources", icon: RiBookShelfLine },
+  files: { label: "Files", icon: RiFolder3Line },
 };
 
 // An empty tab: the empty state's shape, without an action.

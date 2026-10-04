@@ -13,27 +13,43 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@workspace/ui/components/dialog";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@workspace/ui/components/hover-card";
+import {
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@workspace/ui/components/sidebar";
+import { Spinner } from "@workspace/ui/components/spinner";
 import { cn } from "@workspace/ui/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { AskOtto } from "@/components/ask-otto";
+import type { FileRef } from "@/components/composer";
 import { Dither } from "@/components/dither";
 import { Editor } from "@/components/editor/editor";
 import { Gallery, GalleryItem } from "@/components/gallery";
 import { IconAction } from "@/components/icon-action";
 import {
   resourceIcons,
+  resourceKindOf,
   resourceTypes,
   shortDate,
 } from "@/components/task-meta";
 import { Topbar } from "@/components/topbar";
-import type { Resource, ResourceKind } from "@/mock/tasks";
+import type { Resource } from "@/mock/tasks";
 
-export function resourceKindOf(type: string): ResourceKind {
-  if (type.startsWith("video/")) return "video";
-  if (type.startsWith("audio/")) return "audio";
-  if (type.startsWith("image/")) return "image";
-  if (type.startsWith("text/") || type === "application/pdf") return "document";
-  return "file";
+// A file attached to a message or comment, as a resource for the viewer.
+export function fileResource(file: FileRef, createdAt: string): Resource {
+  return {
+    id: file.id,
+    title: file.name,
+    kind: resourceKindOf(file.type),
+    url: file.url,
+    preview: file.type.startsWith("image/") ? file.url : undefined,
+    createdAt,
+  };
 }
 
 // A file's extension, or its type when the title has none.
@@ -41,9 +57,55 @@ function fileType({ title, kind }: Resource) {
   return title.match(/\.(\w+)$/)?.[1] ?? resourceTypes[kind];
 }
 
-// Resources as a gallery; a tile opens the lightbox. The open resource can be
-// kept by the caller (the Resources page keeps it in the URL).
-export function ResourceGallery({
+// Files as panel rows (a task's, a chat's): the icon shows the type,
+// hovering shows the full title, then type and date; a row opens the
+// lightbox (its own, or the page's through onOpen, so other parts of the page
+// open the same one). Uploading rows show a spinner.
+export function FileItems({
+  resources,
+  onOpen,
+}: {
+  resources: (Resource & { uploading?: boolean })[];
+  onOpen?: (id: string) => void;
+}) {
+  const [openId, setOpenId] = useState<string>();
+  const open = onOpen ?? setOpenId;
+  return (
+    <>
+      {resources.map((resource) => {
+        const Icon = resource.uploading
+          ? Spinner
+          : resourceIcons[resource.kind];
+        return (
+          <SidebarMenuItem key={resource.id}>
+            <HoverCard>
+              <HoverCardTrigger
+                render={<SidebarMenuButton onClick={() => open(resource.id)} />}
+              >
+                <Icon />
+                <span>{resource.title}</span>
+              </HoverCardTrigger>
+              <HoverCardContent side="left" align="start">
+                <span className="font-medium">{resource.title}</span>
+                <span className="text-muted-foreground">
+                  {resourceTypes[resource.kind]} ·{" "}
+                  {shortDate.format(new Date(resource.createdAt))}
+                </span>
+              </HoverCardContent>
+            </HoverCard>
+          </SidebarMenuItem>
+        );
+      })}
+      {!onOpen && (
+        <Lightbox resources={resources} openId={openId} onOpen={setOpenId} />
+      )}
+    </>
+  );
+}
+
+// Files as a gallery; a tile opens the lightbox. The open file can be kept
+// by the caller (the Files page keeps it in the URL).
+export function FileGallery({
   resources,
   openId,
   onOpen,
@@ -85,7 +147,7 @@ export function ResourceGallery({
   );
 }
 
-// One resource full screen, like a page: the 48px top bar (icon, title and
+// One file full screen, like a page: the 44px top bar (icon, title and
 // details on the left, actions on the right), then its read-only preview
 // centered with the gallery's corners and ring. Arrows (buttons or ← →) step
 // through the others.
@@ -191,7 +253,7 @@ export function Lightbox({
           </div>
           {/* Ask Otto 16px above the bottom, centered like on a page. */}
           <div className="shrink-0 p-4">
-            <AskOtto about="this resource" />
+            <AskOtto about="this file" />
           </div>
         </DialogContent>
       )}
@@ -291,7 +353,7 @@ function MarkdownFile({ url }: { url: string }) {
   return (
     <div
       className={cn(
-        "h-full w-full max-w-3xl overflow-y-auto bg-card p-8",
+        "h-full w-full max-w-3xl scroll-fade-y overflow-y-auto bg-card p-8",
         frame,
       )}
     >
