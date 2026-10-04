@@ -131,7 +131,7 @@ import {
 import { useChatUpload } from "@/lib/chat-upload";
 import { useDirectory } from "@/lib/directory";
 import { savedResource } from "@/lib/file-library";
-import { mentionUserIds } from "@/lib/mention-text";
+import { mentionUserIds, parseMentions } from "@/lib/mention-text";
 import { useWorkspace } from "@/lib/workspace";
 
 export function ago(createdAt?: string | null) {
@@ -845,8 +845,14 @@ export function useNewChat() {
             await api.chats.$post({
               param: { workspaceId },
               json: {
-                title: input.body
-                  .replace(/@\[([^\]]+)\]\([^)]*\)/g, "$1")
+                title: parseMentions(input.body)
+                  .reduceRight(
+                    (text, item) =>
+                      text.slice(0, item.index) +
+                      item.label +
+                      text.slice(item.index + item.length),
+                    input.body,
+                  )
                   .split("\n")[0]
                   .slice(0, 200),
                 projectId: input.projectId,
