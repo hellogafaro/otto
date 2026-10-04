@@ -177,6 +177,9 @@ test("Every main route renders desktop and mobile in both themes; list failures 
       );
       for (const route of routes) {
         await page.goto(route);
+        await page
+          .getByRole("button", { name: "Open profile menu", exact: true })
+          .waitFor();
         await expect(page.locator("html")).toHaveClass(new RegExp(theme));
         await expect(
           page.getByRole("status", { name: "Loading", exact: true }),
