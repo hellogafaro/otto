@@ -55,6 +55,9 @@ export class NativePiComputer implements ComputerBackend {
         HOME: directory,
         XDG_CONFIG_HOME: directory,
         ...input.env,
+        TMPDIR: directory,
+        // jiti otherwise ignores TMPDIR when it equals cwd and falls back to /tmp.
+        JITI_RESPECT_TMPDIR_ENV: "1",
       },
       stdin: "pipe",
       stdout: "pipe",
