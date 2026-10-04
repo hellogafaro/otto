@@ -46,10 +46,15 @@ async function seedAgent(page: Page, workspaceId: string, title: string) {
   expect(response.status()).toBe(200);
   return ((await response.json()) as { agent: Agent }).agent;
 }
-async function seedChat(page: Page, workspaceId: string, title: string) {
+async function seedChat(
+  page: Page,
+  workspaceId: string,
+  title: string,
+  visibility: Chat["visibility"] = "workspace",
+) {
   const response = await page.request.post(path(workspaceId, "chats"), {
     headers: headers(page),
-    data: { title, visibility: "workspace" } satisfies InferRequestType<
+    data: { title, visibility } satisfies InferRequestType<
       WorkspaceApi["chats"]["$post"]
     >["json"],
   });
@@ -582,6 +587,7 @@ test("Schedule UI saves cron/manual policy, validates drafts, restores disabled 
     page,
     workspaceId,
     unique("Schedule output Chat"),
+    "participants",
   );
   const participant = await page.request.post(
     `${path(workspaceId, "chats", chat.id)}/participants`,
@@ -788,7 +794,32 @@ test("Schedule UI saves cron/manual policy, validates drafts, restores disabled 
   const context = await browser.newContext({ baseURL: fixture.origin });
   try {
     const contributor = await context.newPage();
-    await register(contributor, fixture, "Schedule QA Reader", "contributor");
+    const reader = await register(
+      contributor,
+      fixture,
+      "Schedule QA Reader",
+      "contributor",
+    );
+    const grant = await page.request.post(
+      `${path(workspaceId, "chats", chat.id)}/participants`,
+      {
+        headers: headers(page),
+        data: { userId: reader.userId, role: "viewer" },
+      },
+    );
+    expect(grant.status()).toBe(200);
+    const participants = await page.request.get(
+      `${path(workspaceId, "chats", chat.id)}/participants?limit=100&type=human`,
+    );
+    expect(participants.status()).toBe(200);
+    const audience = (await participants.json()) as InferResponseType<
+      WorkspaceApi["chats"][":id"]["participants"]["$get"]
+    >;
+    const participant = audience.items.find(
+      (item) => item.userId === reader.userId,
+    );
+    expect(participant).toBeDefined();
+    if (!participant) throw new Error("Reader participant missing after ACK");
     await contributor.goto(`/schedules/${id}`);
     await expect(
       contributor.getByText("Saved Schedule private body", { exact: true }),
@@ -796,12 +827,9 @@ test("Schedule UI saves cron/manual policy, validates drafts, restores disabled 
     await expect(
       contributor.getByRole("button", { name: "Run now", exact: true }),
     ).toHaveCount(0);
-    const revoke = await page.request.patch(
-      path(workspaceId, "chats", chat.id),
-      {
-        headers: headers(page),
-        data: { visibility: "participants" },
-      },
+    const revoke = await page.request.delete(
+      `${path(workspaceId, "chats", chat.id)}/participants/${participant.id}`,
+      { headers: headers(page) },
     );
     expect(revoke.status()).toBe(200);
     await refetchDenied(contributor, path(workspaceId, "schedules", id));
