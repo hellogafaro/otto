@@ -15,6 +15,7 @@ import type { InferRequestType, InferResponseType } from "hono/client";
 import { QueryState } from "@/components/query-state";
 import { read, type workspaceApi } from "@/lib/api";
 import { useDirectory } from "@/lib/directory";
+import { useProjectMembership } from "@/lib/project-membership";
 import { useWorkspace } from "@/lib/workspace";
 
 export type DocumentRecord = InferResponseType<
@@ -42,7 +43,8 @@ export function useDocument(id: string) {
 }
 
 export function useDocumentWriter(projectId?: string | null) {
-  const { api, workspaceId, user, workspace } = useWorkspace();
+  const { api, workspaceId, workspace } = useWorkspace();
+  const membership = useProjectMembership(projectId);
   const directory = useDirectory();
   const members = useInfiniteQuery({
     queryKey: ["workspace", workspaceId, "document-project-members", projectId],
@@ -57,16 +59,15 @@ export function useDocumentWriter(projectId?: string | null) {
     getNextPageParam: (page) => page.next ?? undefined,
     enabled: Boolean(projectId),
   });
-  const projectMember = members.data?.pages
-    .flatMap((page) => page.items)
-    .find((item) => item.userId === user.id);
   return {
     directory,
     canWrite: Boolean(
       workspace.role !== "viewer" &&
-        (!projectId || projectMember?.role === "contributor"),
+        (!projectId ||
+          (!membership.error && membership.data?.role === "contributor")),
     ),
     members,
+    membership,
   };
 }
 

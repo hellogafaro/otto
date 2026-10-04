@@ -928,3 +928,5 @@ Inbox continues its four independent server attention cursors with one More atte
 The File share byte-selection control uses the shared Checkbox primitive, with its stock compact size and focus behavior, beside the descriptive label.
 
 On mobile, Chats and Settings section navigation opens in the shared Sheet from a compact section header; selecting a route closes it. The desktop section panel keeps its existing width. This leaves the page usable beside the app rail on narrow screens.
+
+Private pages remain behind the session-loading state until the previous authenticated session's requests and cache have been cleared. Current Project authority resolves independently of the displayed member page; incomplete pickers never decide who can edit.

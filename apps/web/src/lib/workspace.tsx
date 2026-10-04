@@ -46,6 +46,23 @@ export function WorkspaceBoundary({ children }: { children: ReactNode }) {
   const session = authClient.useSession();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const sessionOwner = session.data
+    ? `${session.data.user.id}:${session.data.session.id}`
+    : null;
+  const [cacheOwner, setCacheOwner] = useState<string | null>();
+  // Block private rendering until every prior principal's request/cache is removed, including expiry and revocation.
+  useEffect(() => {
+    if (session.isPending || cacheOwner === sessionOwner) return;
+    let obsolete = false;
+    void queryClient.cancelQueries().then(() => {
+      if (obsolete) return;
+      queryClient.clear();
+      setCacheOwner(sessionOwner);
+    });
+    return () => {
+      obsolete = true;
+    };
+  }, [cacheOwner, sessionOwner, session.isPending, queryClient]);
   const [selectedId, setSelectedId] = useState(() =>
     localStorage.getItem("otto-workspace"),
   );
@@ -59,7 +76,7 @@ export function WorkspaceBoundary({ children }: { children: ReactNode }) {
         }),
       ),
     getNextPageParam: (last) => last.next ?? undefined,
-    enabled: Boolean(session.data),
+    enabled: Boolean(session.data) && cacheOwner === sessionOwner,
     retry: false,
   });
   const selectedMissing = Boolean(
@@ -78,7 +95,7 @@ export function WorkspaceBoundary({ children }: { children: ReactNode }) {
     )
       void workspaces.fetchNextPage();
   }, [selectedMissing, workspaces]);
-  if (session.isPending)
+  if (session.isPending || cacheOwner !== sessionOwner)
     return <BoundaryMessage>Loading your session</BoundaryMessage>;
   if (session.error)
     return (

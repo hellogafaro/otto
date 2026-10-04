@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InferRequestType, InferResponseType } from "hono/client";
 import { read, type workspaceApi } from "@/lib/api";
+import { useProjectMembership } from "@/lib/project-membership";
 import { useWorkspace } from "@/lib/workspace";
 
 export type Task = InferResponseType<
@@ -23,7 +24,8 @@ export const taskSorts = ["title", "createdAt", "updatedAt", "dueAt"] as const;
 
 /** Project membership is separate from workspace membership. Missing/loading authority never enables writes. */
 export function useTaskProject(projectId: string | undefined) {
-  const { api, workspaceId, workspace, user } = useWorkspace();
+  const { api, workspaceId, workspace } = useWorkspace();
+  const membership = useProjectMembership(projectId);
   const query = useInfiniteQuery({
     queryKey: ["workspace", workspaceId, "task-project-members", projectId],
     initialPageParam: undefined as string | undefined,
@@ -45,12 +47,11 @@ export function useTaskProject(projectId: string | undefined) {
   return {
     query,
     members,
+    membership,
     canWrite:
-      !query.error &&
+      !membership.error &&
       workspace.role !== "viewer" &&
-      members.some(
-        (member) => member.userId === user.id && member.role === "contributor",
-      ),
+      membership.data?.role === "contributor",
   };
 }
 

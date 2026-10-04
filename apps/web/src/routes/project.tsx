@@ -56,6 +56,7 @@ import { TabBar } from "@/components/tab-bar";
 import { ActorAvatar, statuses } from "@/components/task-meta";
 import { read } from "@/lib/api";
 import { useDirectory } from "@/lib/directory";
+import { useProjectMembership } from "@/lib/project-membership";
 import { useWorkspace } from "@/lib/workspace";
 
 const tabs = ["overview", "tasks", "documents", "files"] as const;
@@ -138,32 +139,7 @@ function ProjectView({
       ),
     getNextPageParam: (page) => page.next ?? undefined,
   });
-  // Read the actor's membership independently of which displayed member page is open.
-  const membership = useQuery({
-    queryKey: [
-      "workspace",
-      workspaceId,
-      "project",
-      project.id,
-      "membership",
-      user.id,
-    ],
-    queryFn: async () => {
-      let after: string | undefined;
-      do {
-        const page = await read(
-          await api.projects[":id"].members.$get({
-            param,
-            query: { limit: "100", after },
-          }),
-        );
-        const self = page.items.find((member) => member.userId === user.id);
-        if (self) return self;
-        after = page.next ?? undefined;
-      } while (after);
-      return null;
-    },
-  });
+  const membership = useProjectMembership(project.id);
   const admin =
     (workspace.role === "admin" || workspace.role === "owner") &&
     !membership.error &&
