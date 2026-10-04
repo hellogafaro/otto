@@ -1,5 +1,5 @@
+import type { LoginEvent } from "@otto/server/api";
 import { z } from "zod";
-import type { LoginEvent } from "../../../../server/src/subscription-login";
 
 const loginEvent = z.discriminatedUnion("type", [
   z

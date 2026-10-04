@@ -6,6 +6,7 @@ import {
   RiCloseLine,
   RiSettings3Line,
 } from "@remixicon/react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -16,7 +17,8 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { destinations } from "@/components/app-rail";
-import { chats, documents, projects, tasks } from "@/mock/tasks";
+import { read } from "@/lib/api";
+import { useWorkspace } from "@/lib/workspace";
 
 // The desktop app (Electron) adds a 40px title strip above the shell; the web
 // app has none (the browser has its own tabs and back). `?desktop` previews
@@ -44,15 +46,7 @@ function pageLook(path: string): {
   const section =
     destinations.find(({ to }) => to !== "/" && pathname.startsWith(to)) ??
     destinations[0];
-  const id = pathname.split("/")[2];
-  const title =
-    (id &&
-      (tasks.find((task) => task.id === id)?.title ??
-        projects[id]?.title ??
-        documents.find((document) => document.id === id)?.title ??
-        chats.find((chat) => chat.id === id)?.title)) ||
-    section.label;
-  return { icon: section.icon, title };
+  return { icon: section.icon, title: section.label };
 }
 
 type Tab = { id: number; path: string };
@@ -62,14 +56,10 @@ type Tab = { id: number; path: string };
 export function TitleBar() {
   const router = useRouter();
   const here = useLocation({ select: (location) => location.href });
-  const [tabs, setTabs] = useState<Tab[]>(() => [
-    { id: 1, path: here },
-    { id: 2, path: "/projects/p_launch" },
-    { id: 3, path: "/documents/d1" },
-  ]);
+  const [tabs, setTabs] = useState<Tab[]>(() => [{ id: 1, path: here }]);
   const [active, setActive] = useState(1);
   const activeRef = useRef(1);
-  const nextId = useRef(4);
+  const nextId = useRef(2);
 
   // The open tab follows navigation, like a browser tab.
   useEffect(() => {
@@ -134,7 +124,7 @@ export function TitleBar() {
                 onClick={() => show(tab)}
               >
                 <Icon data-icon="inline-start" />
-                <span className="truncate">{title}</span>
+                <TabTitle path={tab.path} fallback={title} />
               </Button>
               {/* 24px close, 4px inside the tab (sm 6, like every 24px button).
                   Shown on the open tab and on hover. */}
@@ -184,5 +174,40 @@ function StripButton({
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
+  );
+}
+
+function TabTitle({ path, fallback }: { path: string; fallback: string }) {
+  const { api, workspaceId } = useWorkspace();
+  const [kind, id] = path.split("?")[0].split("/").slice(1);
+  const supported =
+    ["tasks", "projects", "documents", "chats", "schedules"].includes(kind) &&
+    Boolean(id) &&
+    id !== "new";
+  const query = useQuery({
+    queryKey: ["workspace", workspaceId, "tab-title", kind, id],
+    enabled: supported,
+    queryFn: async () => {
+      const param = { workspaceId, id };
+      switch (kind) {
+        case "tasks":
+          return read(await api.tasks[":id"].$get({ param }));
+        case "projects":
+          return read(await api.projects[":id"].$get({ param }));
+        case "documents":
+          return read(await api.documents[":id"].$get({ param }));
+        case "chats":
+          return read(await api.chats[":id"].$get({ param }));
+        case "schedules":
+          return read(await api.schedules[":id"].$get({ param }));
+        default:
+          throw new Error("Unsupported title");
+      }
+    },
+  });
+  return (
+    <span className="truncate">
+      {query.error ? "Unavailable item" : (query.data?.title ?? fallback)}
+    </span>
   );
 }

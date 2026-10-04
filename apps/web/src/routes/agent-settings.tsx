@@ -25,10 +25,10 @@ import { ConfigurationChoice } from "@/components/agents-configuration-choice";
 import { AgentSkills } from "@/components/agents-skills";
 import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
+import { Group, Row } from "@/features/settings/controls";
 import { read, type workspaceApi } from "@/lib/api";
 import { useDirectory } from "@/lib/directory";
 import { useWorkspace } from "@/lib/workspace";
-import { Group, Row } from "@/routes/settings";
 
 type Agent = InferResponseType<(typeof workspaceApi.agents)[":id"]["$get"]>;
 

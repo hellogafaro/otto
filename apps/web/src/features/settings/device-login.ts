@@ -1,7 +1,7 @@
+import type { LoginEvent } from "@otto/server/api";
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
-import type { LoginEvent } from "../../../../server/src/subscription-login";
 import { settingsError } from "./controls";
 
 import { consumeLoginEvents } from "./subscription-auth-stream";

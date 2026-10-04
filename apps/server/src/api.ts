@@ -224,3 +224,5 @@ export function createApi(options: ApiOptions) {
     );
 }
 export type RpcApp = ReturnType<typeof createApi>;
+
+export type { LoginEvent } from "./subscription-login";

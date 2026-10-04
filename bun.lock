@@ -67,6 +67,7 @@
       "name": "@otto/web",
       "version": "0.0.1",
       "dependencies": {
+        "@otto/server": "workspace:*",
         "@remixicon/react": "^4.9.0",
         "@tanstack/react-query": "5.104.1",
         "@tanstack/react-router": "^1.170.41",
@@ -86,6 +87,7 @@
         "react": "^19.2.8",
         "react-dom": "^19.2.8",
         "rrule": "2.8.1",
+        "zod": "4.6.5",
       },
       "devDependencies": {
         "@tailwindcss/vite": "^4",

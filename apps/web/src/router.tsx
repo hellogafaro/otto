@@ -2,13 +2,19 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  Outlet,
   redirect,
 } from "@tanstack/react-router";
 import { NotFound } from "@/components/empty-page";
+import { PublicSharePage } from "@/components/public-share";
 import { Shell } from "@/components/shell";
-import { chats } from "@/mock/tasks";
 import { AgentSettingsPage } from "@/routes/agent-settings";
-import { ChatPage, NewChatPage } from "@/routes/chats";
+import {
+  ChatPage,
+  ChatsLandingPage,
+  NewChatPage,
+  validateChatsSearch,
+} from "@/routes/chats";
 import { DocumentPage } from "@/routes/document";
 import { DocumentsPage, validateDocumentsSearch } from "@/routes/documents";
 import { FilesPage, validateFilesSearch } from "@/routes/files";
@@ -24,16 +30,28 @@ import { isSettingsSection, SettingsPage } from "@/routes/settings";
 import { TaskPage } from "@/routes/task";
 import { TasksPage, validateTasksSearch } from "@/routes/tasks";
 
-const rootRoute = createRootRoute({ component: Shell });
+const rootRoute = createRootRoute({ component: Outlet });
+const appRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: "app",
+  component: Shell,
+});
+const publicShareRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/shares/$shareId",
+  component: function PublicShare() {
+    return <PublicSharePage shareId={publicShareRoute.useParams().shareId} />;
+  },
+});
 
 const inboxRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/",
   component: InboxPage,
 });
 
 const projectsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/projects",
   validateSearch: validateProjectsSearch,
   component: function Projects() {
@@ -42,7 +60,7 @@ const projectsRoute = createRoute({
 });
 
 const projectRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/projects/$projectId",
   validateSearch: validateProjectSearch,
   component: function Project() {
@@ -56,7 +74,7 @@ const projectRoute = createRoute({
 });
 
 const documentsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/documents",
   validateSearch: validateDocumentsSearch,
   component: function Documents() {
@@ -65,7 +83,7 @@ const documentsRoute = createRoute({
 });
 
 const documentRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/documents/$documentId",
   component: function Document() {
     return <DocumentPage documentId={documentRoute.useParams().documentId} />;
@@ -73,7 +91,7 @@ const documentRoute = createRoute({
 });
 
 const schedulesRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/schedules",
   validateSearch: validateSchedulesSearch,
   component: function Schedules() {
@@ -82,7 +100,7 @@ const schedulesRoute = createRoute({
 });
 
 const scheduleRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/schedules/$scheduleId",
   component: function ScheduleRoute() {
     const { scheduleId } = scheduleRoute.useParams();
@@ -91,7 +109,7 @@ const scheduleRoute = createRoute({
 });
 
 const filesRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/files",
   validateSearch: validateFilesSearch,
   component: function Files() {
@@ -99,21 +117,18 @@ const filesRoute = createRoute({
   },
 });
 
-// Chats always has one open: /chats opens the first.
 const chatsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/chats",
-  beforeLoad: () => {
-    throw redirect({
-      to: "/chats/$chatId",
-      params: { chatId: chats[0].id },
-    });
+  validateSearch: validateChatsSearch,
+  component: function Chats() {
+    return <ChatsLandingPage search={chatsRoute.useSearch()} />;
   },
 });
 
 // A new chat: who it is with and its project come in the URL (prefilled).
 const newChatRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/chats/new",
   validateSearch: (search: Record<string, unknown>) => ({
     with: typeof search.with === "string" ? search.with : undefined,
@@ -125,7 +140,7 @@ const newChatRoute = createRoute({
 });
 
 const chatRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/chats/$chatId",
   component: function Chat() {
     return <ChatPage chatId={chatRoute.useParams().chatId} />;
@@ -133,7 +148,7 @@ const chatRoute = createRoute({
 });
 
 const tasksRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/tasks",
   validateSearch: validateTasksSearch,
   component: function Tasks() {
@@ -142,7 +157,7 @@ const tasksRoute = createRoute({
 });
 
 const taskRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/tasks/$taskId",
   component: function Task() {
     return <TaskPage taskId={taskRoute.useParams().taskId} />;
@@ -151,7 +166,7 @@ const taskRoute = createRoute({
 
 // Opened from the profile menu, not the rail; "/settings" opens Profile.
 const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/settings",
   beforeLoad: () => {
     throw redirect({
@@ -162,7 +177,7 @@ const settingsRoute = createRoute({
 });
 
 const settingsSectionRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/settings/$section",
   component: function Settings() {
     const { section } = settingsSectionRoute.useParams();
@@ -175,7 +190,7 @@ const settingsSectionRoute = createRoute({
 });
 
 const agentSettingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/settings/agents/$agentId",
   component: function AgentSettings() {
     return (
@@ -187,22 +202,25 @@ const agentSettingsRoute = createRoute({
 export const router = createRouter({
   defaultNotFoundComponent: () => <NotFound />,
   routeTree: rootRoute.addChildren([
-    inboxRoute,
-    projectsRoute,
-    projectRoute,
-    chatsRoute,
-    newChatRoute,
-    chatRoute,
-    documentsRoute,
-    documentRoute,
-    filesRoute,
-    schedulesRoute,
-    scheduleRoute,
-    tasksRoute,
-    taskRoute,
-    settingsRoute,
-    settingsSectionRoute,
-    agentSettingsRoute,
+    publicShareRoute,
+    appRoute.addChildren([
+      inboxRoute,
+      projectsRoute,
+      projectRoute,
+      chatsRoute,
+      newChatRoute,
+      chatRoute,
+      documentsRoute,
+      documentRoute,
+      filesRoute,
+      schedulesRoute,
+      scheduleRoute,
+      tasksRoute,
+      taskRoute,
+      settingsRoute,
+      settingsSectionRoute,
+      agentSettingsRoute,
+    ]),
   ]),
 });
 

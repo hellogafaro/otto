@@ -912,3 +912,13 @@ Authentication uses the real account service for sign-in, registration and passw
 ### Fenced configuration and content
 
 Agent account/model/Skill selection and Schedule configuration use explicit Save/Cancel for one atomic change protected by the opening edit token. Document content, labels, visibility and folder are one fenced draft; Skill content and supporting Files have separate acknowledged fences. Failed or stale edits retain input. Unsupported decorative fields and fabricated activity are removed; Schedule timing shows the saved cron/timezone without guessing a next-run date.
+
+### Real workflow controls
+
+Task details show the server lifecycle Todo/In progress/Done, mixed assignees, occurrence links and human-owned manual time in whole minutes. Unsupported priority, review status, comments and decorative metadata have no mutable controls. Files and Documents retain folder/label organization and real creator identities. Avatar names come from the workspace directory; Agents use the existing robot sprite because the API has no mascot setting. Identity color is a stable display value derived from its ID, not saved configuration. Desktop tabs start with the current route and load the real item title.
+
+Chats show metadata update time separately from message activity. New Chats require explicit participants and scope; a configured Agent/account controls actual Run admission. Pending sends preserve the draft and uploaded File identities until acknowledgement. Failed creation with unknown outcome directs the person to inspect Chats before creating again. Pin/done/snooze/thread controls without persistence are unavailable. Settings show current server data, acknowledged autosave for profile fields, and explicit unavailable states for unsupported preferences or account/workspace changes. Connections and Codex accounts use their real setup and authorization flows, with exact scoped grants and provider-confirmed authentication.
+
+### Files and public frozen selections
+
+File uploads show pending, cancellation and retry of the same File/request identity; there is no simulated progress. Download uses the verified server route. Previews stay within 8 MiB, and HTML runs in a credential-free sandbox. Folder breadcrumbs and mixed lists keep Files, Documents and Folders grouped, with server sorting within kind. Sharing requires a preview of the explicit frozen selection before publishing; the anonymous share page shows only acknowledged frozen content and optional selected bytes, with revoked/unavailable and retry states. It sits outside authenticated workspace navigation.

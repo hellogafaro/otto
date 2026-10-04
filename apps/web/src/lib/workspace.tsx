@@ -3,7 +3,13 @@ import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { createContext, type ReactNode, useContext, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { Authentication } from "@/components/authentication";
 import { client, read, workspaceApi } from "@/lib/api";
 import { authClient } from "@/lib/auth";
@@ -56,6 +62,22 @@ export function WorkspaceBoundary({ children }: { children: ReactNode }) {
     enabled: Boolean(session.data),
     retry: false,
   });
+  const selectedMissing = Boolean(
+    selectedId &&
+      workspaces.data &&
+      !workspaces.data.pages.some((page) =>
+        page.items.some((item) => item.id === selectedId),
+      ),
+  );
+  useEffect(() => {
+    if (
+      selectedMissing &&
+      workspaces.hasNextPage &&
+      !workspaces.isFetchingNextPage &&
+      !workspaces.error
+    )
+      void workspaces.fetchNextPage();
+  }, [selectedMissing, workspaces]);
   if (session.isPending)
     return <BoundaryMessage>Loading your session</BoundaryMessage>;
   if (session.error)
@@ -66,7 +88,10 @@ export function WorkspaceBoundary({ children }: { children: ReactNode }) {
       </BoundaryMessage>
     );
   if (!session.data) return <Authentication />;
-  if (workspaces.isPending)
+  if (
+    workspaces.isPending ||
+    (selectedMissing && workspaces.hasNextPage && !workspaces.error)
+  )
     return <BoundaryMessage>Loading workspaces</BoundaryMessage>;
   if (workspaces.error)
     return (

@@ -307,7 +307,13 @@ export function ChatMenuItems({
   );
 }
 
-export function validateChatsSearch(input: Record<string, unknown>) {
+export function validateChatsSearch(input: Record<string, unknown>): {
+  query?: string;
+  project?: string;
+  archived?: "true" | "false";
+  sort?: "title" | "createdAt" | "updatedAt";
+  order?: "asc" | "desc";
+} {
   return {
     query:
       typeof input.query === "string" ? input.query.slice(0, 200) : undefined,
@@ -389,7 +395,7 @@ export function ChatsLandingPage({
           <DirectoryPages kind="projects" />
           <ContextPicker
             label="Sort"
-            value={search.sort}
+            value={search.sort ?? "updatedAt"}
             options={{
               title: { label: "Title", icon: RiChat1Line },
               createdAt: { label: "Created", icon: RiChat1Line },

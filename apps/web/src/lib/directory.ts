@@ -71,7 +71,11 @@ export function useDirectory() {
         .slice(0, 2)
         .join(""),
       agent: Boolean(bot),
-      color: 0,
+      color:
+        [...id].reduce(
+          (color, char) => (color * 31 + char.charCodeAt(0)) >>> 0,
+          0,
+        ) % 6,
     };
   };
   return {

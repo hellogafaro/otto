@@ -1,5 +1,5 @@
+import type { RpcApp } from "@otto/server/api";
 import { hc } from "hono/client";
-import type { RpcApp } from "../../../server/src/api";
 
 // Hono owns the request and response types; no browser domain model copy.
 export const client = hc<RpcApp>(new URL("/api", window.location.origin).href, {
