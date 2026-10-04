@@ -12,6 +12,11 @@ export const settings = {
 
 export type Settings = typeof settings;
 
+// Workspace members' roles (the owner's is fixed).
+export const memberRoles: Record<string, "admin" | "member"> = {
+  u_maya: "member",
+};
+
 export function saveSetting<K extends keyof Settings>(
   key: K,
   value: Settings[K],

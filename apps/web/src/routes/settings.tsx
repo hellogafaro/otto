@@ -54,6 +54,7 @@ import { ActorAvatar, visibilityLooks } from "@/components/task-meta";
 import { request } from "@/mock/api";
 import {
   agentConfigs,
+  memberRoles,
   type Settings,
   saveSetting,
   settings,
@@ -310,7 +311,7 @@ function SettingChoice<K extends KeysOf<string>>({
 
 // A choice of a few, as the profile menu's Appearance: a 28px outline button
 // (controls nested in a row are 28px, 6px corners) showing the current one,
-// opening a radio menu.
+// opening a radio menu that closes on a pick.
 export function Choice<T extends string>({
   label,
   value,
@@ -343,7 +344,7 @@ export function Choice<T extends string>({
           onValueChange={(next) => onChange(next as T)}
         >
           {(Object.keys(options) as T[]).map((key) => (
-            <DropdownMenuRadioItem key={key} value={key}>
+            <DropdownMenuRadioItem key={key} value={key} closeOnClick>
               {options[key]}
             </DropdownMenuRadioItem>
           ))}
@@ -575,7 +576,6 @@ const emails: Record<keyof typeof users, string> = {
 
 // People in the workspace (agents are under Agents) and their role.
 function MemberSettings() {
-  const [roles, setRoles] = useState<Record<string, "admin" | "member">>({});
   return (
     <Group>
       {(Object.keys(users) as (keyof typeof users)[]).map((id) => (
@@ -588,19 +588,27 @@ function MemberSettings() {
           {id === currentUserId ? (
             <span className="text-sm text-muted-foreground">Owner</span>
           ) : (
-            <Choice
-              label="Role"
-              value={roles[id] ?? "member"}
-              options={{ admin: "Admin", member: "Member" }}
-              onChange={(role) => {
-                setRoles({ ...roles, [id]: role });
-                toast.success("Settings saved", { id: "settings-saved" });
-              }}
-            />
+            <MemberRole id={id} />
           )}
         </Row>
       ))}
     </Group>
+  );
+}
+
+// A member's role, saved like every setting (the 800ms autosave and its
+// toast).
+function MemberRole({ id }: { id: string }) {
+  const role = useAutosave(memberRoles[id] ?? "member", (next) => {
+    memberRoles[id] = next;
+  });
+  return (
+    <Choice
+      label="Role"
+      value={role.value}
+      options={{ admin: "Admin", member: "Member" }}
+      onChange={role.change}
+    />
   );
 }
 
