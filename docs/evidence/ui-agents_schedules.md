@@ -51,7 +51,7 @@ All RPCs below are workspace-scoped `/api/workspaces/:workspaceId`; response/req
 
 ## Checks and pending items
 
-- Verified: frozen Bun install after checking root package name `otto`; lane Biome check; `git diff --check`; web TypeScript after shared dependencies. Production build is running under the shared flock and will be reported with its exact result in handoff.
+- Verified: frozen Bun install after checking root package name `otto`; lane Biome check (five source files, zero findings); `git diff --check`; `flock /tmp/otto-ui-wiring-check.lock -c 'bun --bun run --cwd apps/web typecheck'` (exit 0); the same lock with `bun --bun run --cwd apps/web build` (exit 0, 1,141 transformed modules). Build emits the existing large-chunk advisory; no runtime acceptance is implied.
 - Failed earlier checks: expected lead-owned Inbox mock Schedule prop mismatch; resolved by the coordinated dependency `d0e93b23da0a66fd4d635dc60ca5bc844bde9bae`. Other intermediate authoring errors were fixed before delivery.
 - Unverified: browser behavior/visible design, integrated permissions and stale-token HTTP scenarios, PostgreSQL/native/external gateway/compute, independent review. No browser/PG/native suite was started by this lane.
 - Required integration: settings lane mounts exported `AgentCreateDialog`; lead integrates the explicit multi-field Save/Cancel design exception. Connections settings owns Agent grants. Lead reruns checks and fresh browser/review on the combined revision.
@@ -88,9 +88,12 @@ Use the integrated server and disposable fixture workspace; test actual HTTP per
 
 ## Exact source hashes
 
-SHA-256 for delivered source bytes follows. Evidence file hash and lane commit are returned in the handoff to avoid self-reference.
+SHA-256 for delivered source bytes follows. Evidence file hash and lane commit are returned in the handoff to avoid self-reference. Implementation revision: `d5d14ec9b8eedac4e2dbd9e094bab2e33393d5d1`; unreviewed, awaiting root browser verification.
+
+```text
 71ec30c2061886541ed67b88c3103cef1fc264b28817e0339f76f90a7a300e87  apps/web/src/routes/agent-settings.tsx
 dce9791c73f93841b92370a0ec600dca6b9ab267c4ed8676d9f72509c1b13b8e  apps/web/src/routes/schedules.tsx
 e56d665e326149cde9dd67f5c0c4014c62552759326311c19b0a508ef0f0b60a  apps/web/src/components/agents-configuration-choice.tsx
 957a7efc581040a83471dc7c724fa9f7b9f12b6462ee7a12f0b7d1a9e51afe9a  apps/web/src/components/agents-skills.tsx
 022bcdfb7a7a2dba83fc7f64fbee30f64fcaa82d0eb56e8810fb8bfe5bcc9d55  apps/web/src/components/schedules-editor.tsx
+```
