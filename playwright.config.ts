@@ -9,6 +9,7 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:45183",
     headless: true,
     video: "on",
+    screenshot: "only-on-failure",
     trace: "off",
     viewport: { width: 1280, height: 800 },
   },
