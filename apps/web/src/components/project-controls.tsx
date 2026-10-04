@@ -25,7 +25,7 @@ import {
 } from "@workspace/ui/components/empty";
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export const PROJECT_SORTS = ["title", "createdAt", "updatedAt"] as const;
 export type ProjectSort = (typeof PROJECT_SORTS)[number];
@@ -173,6 +173,8 @@ export function ProjectForm({
   initial,
   onClose,
   save,
+  creation,
+  checkProjects,
 }: {
   title: string;
   initial?: { title: string; repositoryUrl: string | null };
@@ -181,6 +183,8 @@ export function ProjectForm({
     input: { title: string; repositoryUrl: string },
     changed: { title: boolean; repositoryUrl: boolean },
   ) => Promise<void>;
+  creation?: "saved" | "uncertain";
+  checkProjects?: (title: string) => Promise<void>;
 }) {
   const [original] = useState(initial);
   const [name, setName] = useState(initial?.title ?? "");
@@ -188,6 +192,7 @@ export function ProjectForm({
     initial?.repositoryUrl ?? "",
   );
   const [pending, setPending] = useState(false);
+  const inFlight = useRef(false);
   const [error, setError] = useState<string>();
   return (
     <Dialog
@@ -206,6 +211,8 @@ export function ProjectForm({
         <form
           onSubmit={async (event) => {
             event.preventDefault();
+            if (inFlight.current || creation === "uncertain") return;
+            inFlight.current = true;
             setPending(true);
             setError(undefined);
             try {
@@ -228,6 +235,7 @@ export function ProjectForm({
                   : "Unable to save the project.",
               );
             } finally {
+              inFlight.current = false;
               setPending(false);
             }
           }}
@@ -241,7 +249,7 @@ export function ProjectForm({
                 maxLength={200}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                disabled={pending}
+                disabled={pending || Boolean(creation)}
               />
             </Field>
             <Field>
@@ -254,10 +262,17 @@ export function ProjectForm({
                 maxLength={2048}
                 value={repositoryUrl}
                 onChange={(event) => setRepositoryUrl(event.target.value)}
-                disabled={pending}
+                disabled={pending || Boolean(creation)}
               />
             </Field>
             {error && <p role="alert">{error}</p>}
+            {creation === "uncertain" && (
+              <p role="alert">
+                The project may have been saved. Check projects before starting
+                another one.
+              </p>
+            )}
+            {creation === "saved" && <p>Project saved. Open it to continue.</p>}
             <DialogFooter>
               <Button
                 type="button"
@@ -265,10 +280,43 @@ export function ProjectForm({
                 disabled={pending}
                 onClick={onClose}
               >
-                Cancel
+                {creation ? "Close" : "Cancel"}
               </Button>
-              <Button type="submit" disabled={pending || !name.trim()}>
-                {pending ? "Saving" : "Save"}
+              {creation === "uncertain" && checkProjects && (
+                <Button
+                  type="button"
+                  disabled={pending}
+                  onClick={async () => {
+                    if (inFlight.current) return;
+                    inFlight.current = true;
+                    setPending(true);
+                    setError(undefined);
+                    try {
+                      await checkProjects(name.trim());
+                    } catch (error) {
+                      setError(
+                        error instanceof Error
+                          ? error.message
+                          : "Unable to load projects.",
+                      );
+                    } finally {
+                      inFlight.current = false;
+                      setPending(false);
+                    }
+                  }}
+                >
+                  {pending ? "Checking" : "Check projects"}
+                </Button>
+              )}
+              <Button
+                type="submit"
+                disabled={pending || !name.trim() || creation === "uncertain"}
+              >
+                {pending
+                  ? "Saving"
+                  : creation === "saved"
+                    ? "Open project"
+                    : "Save"}
               </Button>
             </DialogFooter>
           </FieldGroup>

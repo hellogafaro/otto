@@ -156,6 +156,7 @@ function ProjectView({
       await invalidate();
       toast.success(project.archived ? "Project restored" : "Project archived");
     },
+    onError: () => invalidate(),
   });
   const changeMember = useMutation({
     mutationFn: async (input: {
@@ -177,6 +178,7 @@ function ProjectView({
           );
     },
     onSuccess: () => invalidate(),
+    onError: () => invalidate(),
   });
   const chats = useInfiniteQuery({
     queryKey: ["workspace", workspaceId, "project", project.id, "chats"],
@@ -795,6 +797,7 @@ function AddProjectMember({
       await invalidate();
     },
     onSuccess: onClose,
+    onError: () => invalidate(),
   });
   return (
     <Dialog

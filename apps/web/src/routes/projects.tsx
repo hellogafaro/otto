@@ -22,7 +22,7 @@ import {
   validateProjectFilters,
 } from "@/components/project-controls";
 import { QueryState } from "@/components/query-state";
-import { read } from "@/lib/api";
+import { ApiError, read } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
 
 export interface ProjectsSearch extends ProjectFilters {
@@ -42,6 +42,8 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
   const { api, workspaceId, workspace, invalidate } = useWorkspace();
   const navigate = useNavigate({ from: "/projects" });
   const [creating, setCreating] = useState(false);
+  const [createdProjectId, setCreatedProjectId] = useState<string>();
+  const [createUncertain, setCreateUncertain] = useState(false);
   const ask = useAskAgent();
   const list = useQuery({
     queryKey: ["workspace", workspaceId, "projects", search],
@@ -70,7 +72,11 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
           <IconAction
             label="New project"
             icon={RiAddLine}
-            onClick={() => setCreating(true)}
+            onClick={() => {
+              setCreatedProjectId(undefined);
+              setCreateUncertain(false);
+              setCreating(true);
+            }}
           />
         )
       }
@@ -205,20 +211,55 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
         <ProjectForm
           title="New project"
           onClose={() => setCreating(false)}
+          creation={
+            createUncertain
+              ? "uncertain"
+              : createdProjectId
+                ? "saved"
+                : undefined
+          }
+          checkProjects={async (title) => {
+            await invalidate();
+            await navigate({
+              to: "/projects",
+              search: {
+                query: title || undefined,
+                sort: "title",
+                order: "asc",
+              },
+            });
+            setCreating(false);
+          }}
           save={async (input) => {
-            const project = await read(
-              await api.projects.$post({
-                param: { workspaceId },
-                json: {
-                  title: input.title,
-                  repositoryUrl: input.repositoryUrl || undefined,
-                },
-              }),
-            );
+            let projectId = createdProjectId;
+            if (!projectId) {
+              try {
+                const project = await read(
+                  await api.projects.$post({
+                    param: { workspaceId },
+                    json: {
+                      title: input.title,
+                      repositoryUrl: input.repositoryUrl || undefined,
+                    },
+                  }),
+                );
+                projectId = project.id;
+                setCreatedProjectId(project.id);
+              } catch (error) {
+                // Creation has no request identity: a lost ACK cannot safely repeat POST.
+                if (!(error instanceof ApiError) || error.status >= 500) {
+                  setCreateUncertain(true);
+                  throw new Error(
+                    "Otto did not confirm whether the project was saved.",
+                  );
+                }
+                throw error;
+              }
+            }
             await invalidate();
             await navigate({
               to: "/projects/$projectId",
-              params: { projectId: project.id },
+              params: { projectId },
             });
           }}
         />
