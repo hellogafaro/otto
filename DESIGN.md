@@ -487,12 +487,14 @@ cards and have an 8px radius.
 | Container | Inside | Gap | Inner radius |
 | --- | --- | --- | --- |
 | Page card, composer, card (`xl` 12) | 32px buttons, rows | 4px | `md` 8 |
-| Sidebar row (`md` 8) | Row action | 4px | `xs` 4 |
+| Sidebar row, 28px (`sm` 6) | 24px row action | 2px | `xs` 4 |
 | Menu, combobox, popover, hover card (`lg` 10) | Items, search field | 4px | `sm` 6 |
 | Command palette (`xl` 12) | Rows | 4px | `md` 8 |
 | Tooltip (`sm` 6) | Key | 4px | `xs` 4 |
 
-- Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6.
+- Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6, except
+  where a 24px button sits 2px inside a 28px row (a sidebar row action): `xs`
+  4, to nest.
 - Keys are `xs` 4: a soft corner, short of a pill. Elements only a few pixels
   inside their container (attachment thumbnails and remove button) use `xs`.
 - A tooltip is `sm` because it holds a label, not nested items.
