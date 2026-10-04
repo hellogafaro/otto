@@ -423,7 +423,8 @@
     "docs/evidence/ui-tasks-mobile-dark.png": "aa0fb79879179d104fab82ac98ec004cf67c98cb2318b63672e5e9ac365e1ff3",
     "docs/evidence/ui-tasks-mobile-light.png": "da0c5ccf961c4a9c5e16bb7f306f425eb7008076c1febe6e1dad8adbfb360ae5",
     "docs/evidence/ui-viewer-projects.png": "d4e104b53914c4aa6e07028cf3c90267ae4fa63baec95fd855dfea32933b60a0",
-    "docs/evidence/ui-workspace-isolation.png": "faa7b45bbd99d07e08a1b9fb1dc797170ddc065722666b2071e0360ad741c512"
+    "docs/evidence/ui-workspace-isolation.png": "faa7b45bbd99d07e08a1b9fb1dc797170ddc065722666b2071e0360ad741c512",
+    "docs/evidence/ui-preview-auth.png": "76e2d1cd18eed49d0373e52af4888f19e9a65b2baf6bf698ece8316b92831106"
   },
   "privateEvidence": {
     "/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/browser-rechecked-fixes.log": "0c364fc1d31b9fba8de2b89d92c67dfdf0feda0ca1d61f360c486893a7d95ffe",
@@ -441,7 +442,11 @@
     "/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/recordings/task-modal-keyboard.webm": "51d430be13b3280d0a1b68d27ef719f6e86c3f7e19a3d1dde5eb38a3d02bbb50",
     "/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/combined-accepted-revision.log": "19062fd2cdff596e1799dd72e2c3462d8320e9943d5c4fef9131169dee80c571",
     "/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/lists-lock-recheck.log": "2b4562932a25684543cbc0568b88235f47c6ffe6f35f49bc073ef50e93a6a7bd",
-    "/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/combined-final-serial.log": "346cc650243fba5ab0818b2b5fa27f37ce94254ffe1d7e95834775aff7a5c3c6"
+    "/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/combined-final-serial.log": "346cc650243fba5ab0818b2b5fa27f37ce94254ffe1d7e95834775aff7a5c3c6",
+    "/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/preview-check.log": "29c4a52dac441f038e5ad330951d0bfbb5c09220ecad3d43773c1eb1a0f04dab",
+    "/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/preview-local-check.log": "452ad482416168aeccd924dcc5f783d146adf358340e45862b8c693da46992a0"
   },
-  "note": "Final combined backend run joined successfully: 48 files/421 tests, 609.35 seconds, exit 0, on frozen source ce794fd. Earlier schema-startup failure and successful unchanged recheck are retained separately. Screenshots are captured in real UI runs; representative frames and retained flow recordings were visually inspected. External peers are controlled fixtures."
+  "note": "Final combined backend run joined successfully: 48 files/421 tests, 609.35 seconds, exit 0, on frozen source ce794fd. Earlier schema-startup failure and successful unchanged recheck are retained separately. Screenshots are captured in real UI runs; representative frames and retained flow recordings were visually inspected. External peers are controlled fixtures.",
+  "reviewedArtifactParent": "9ebf982901be1ba63f80f11d5eaac08ba05a9829",
+  "independentReview": "PASS; F1\u2013F6 closed. Final documentation-only child is re-reviewed separately."
 }

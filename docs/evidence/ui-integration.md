@@ -14,7 +14,7 @@ The application uses the existing typed Hono operations, Better Auth sessions an
 | Native Pi integration | Verified: 19/19 passed in 90.08 s on the identical reviewed Pi source bytes; real native requests, cancellation, authority, usage and joined cleanup | [Native evidence](ui-native-diagnostic.md) |
 | Final combined backend suite | Verified: 48/48 files and 421/421 tests passed together in 609.35 s, exit 0, on unchanged source. The preceding run had one private schema-startup failure; its exact recheck passed and the failure did not recur in this fully serialized run | Private `combined-accepted-revision.log`, `lists-lock-recheck.log`, `combined-final-serial.log` |
 | Types, formatting, boundaries, consistency, DESIGN and production build | Verified on the final source: Biome 335 files; boundaries 17 packages; consistency 86 backend files/139 routes; DESIGN 0 errors/warnings; build passes | Private `final-{types,check,boundaries,consistency,design,build}.log` |
-| Independent review | Source findings corrected and affected browser checks accepted; final verdict awaits the combined suite | Separate review thread `thr_9yr7shde7v`, private `independent-review.md` |
+| Independent review | Verified: independent PASS on artifact parent `9ebf982901be1ba63f80f11d5eaac08ba05a9829`; F1–F6 closed, final combined result accepted. The final documentation-only child receives exact-head re-review | [Independent verdict and evidence](ui-independent-review.md); separate review thread `thr_9yr7shde7v` |
 
 Each real-browser scenario owns a fresh private PostgreSQL/socket/data directory, queue, real Hono/Better Auth server and a controlled disk S3 peer through the actual storage adapter. Delayed acknowledgements continue the original request; fault scenarios deliberately inject a missing response or read failure and then verify actual persisted state. No production credentials or shared database were used. Controlled native/provider/storage results establish only the exercised contracts, not external account authorization, isolation, billing or storage certification. The production build retains its existing large-chunk warning.
 
@@ -44,3 +44,9 @@ Representative settled frames and the affected permission/editing frames were op
 Short real-flow recordings are retained privately at `/home/g4f4r0/.bb/thread-storage/thr_ea3andz7st/recordings/`: `files-upload-share.webm`, `document-edit-conflict.webm` and `task-modal-keyboard.webm`. Frames from each were decoded and inspected; the recordings include normal loading/pending transitions. Their hashes are in the manifest.
 
 The complete pending product decisions, missing API operations and external qualification prerequisites remain in [the pending register](../ui-wiring.md#pending-register); they are not treated as passing functional flows.
+
+## Private walkthrough entry
+
+The dev server runs the real app against a fresh private database and controlled disk S3 peer. The actual `bb connect expose 45173` result is https://g4f4r0--45173.getbb.app. Direct server HTTP returned 200 and the Otto sign-in form was opened and inspected: [preview entry](ui-preview-auth.png). Anonymous access to the remote URL correctly reaches the BB owner-sign-in gate (401); it does not expose fixture credentials.
+
+Use normal Otto signup after the BB gate. A new account initially has no workspace; the operator must enroll the confirmed account through the existing installation/bootstrap fixture before the whole-UI walkthrough. There is no public enrollment endpoint or invented browser workspace-create operation. Live compute/gateway and certified production storage are still outside this private preview.
