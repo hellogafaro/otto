@@ -85,6 +85,18 @@ async function openSkill(page: Page, title: string, archived = false) {
   await expect(dialog.getByLabel("Title", { exact: true })).toHaveValue(title);
   return dialog;
 }
+async function closeSkill(dialog: Locator) {
+  // A saved database value can be observed before mutation ACK/invalidation
+  // settles. Wait for the editor to unlock before using its footer Close.
+  await expect(
+    dialog.getByRole("button", { name: "Export SKILL.md", exact: true }),
+  ).toBeEnabled();
+  await dialog
+    .getByRole("button", { name: "Close", exact: true })
+    .first()
+    .click();
+  await expect(dialog).not.toBeVisible();
+}
 async function prepareAgent(page: Page, title: string) {
   await page.goto("/settings/agents");
   await page.getByRole("button", { name: "New agent", exact: true }).click();
@@ -310,10 +322,7 @@ test("Skill UI saves instructions, real supporting File references, export and A
   const file = (await upload.json()) as { id: string; byteLength: number };
   expect(file.byteLength).toBe(new TextEncoder().encode(bytes).byteLength);
   // Reopen to discover the newly saved File through the live bounded picker.
-  await detail
-    .getByRole("button", { name: "Close", exact: true })
-    .last()
-    .click();
+  await closeSkill(detail);
   const files = await openSkill(page, finalTitle);
   await files
     .getByRole("textbox", { name: "Search supporting files by whole words" })
@@ -347,10 +356,7 @@ test("Skill UI saves instructions, real supporting File references, export and A
   await expect
     .poll(async () => (await getSkill(page, workspaceId, id)).archived)
     .toBe(true);
-  await files
-    .getByRole("button", { name: "Close", exact: true })
-    .last()
-    .click();
+  await closeSkill(files);
   await choose(page, page, "Skill state", "Archived");
   const archived = await openSkill(page, finalTitle, true);
   await archived
@@ -359,10 +365,7 @@ test("Skill UI saves instructions, real supporting File references, export and A
   await expect
     .poll(async () => (await getSkill(page, workspaceId, id)).archived)
     .toBe(false);
-  await archived
-    .getByRole("button", { name: "Close", exact: true })
-    .last()
-    .click();
+  await closeSkill(archived);
   await choose(page, page, "Skill state", "Active");
   await page.getByRole("button", { name: "Edit agent", exact: true }).click();
   const agentEdit = page.getByRole("dialog", {
@@ -414,10 +417,7 @@ test("Skill proposals respect creator control and cached Agent/Skill reads fail 
   expect(list.status()).toBe(200);
   const id =
     ((await list.json()) as { items: { id: string }[] }).items[0]?.id ?? "";
-  await creator
-    .getByRole("button", { name: "Close", exact: true })
-    .last()
-    .click();
+  await closeSkill(creator);
 
   const context = await browser.newContext({ baseURL: fixture.origin });
   try {
@@ -488,10 +488,7 @@ test("Skill proposals respect creator control and cached Agent/Skill reads fail 
     );
 
     // A second proposal is rejected; rejection must not alter accepted content.
-    await proposal
-      .getByRole("button", { name: "Close", exact: true })
-      .last()
-      .click();
+    await closeSkill(proposal);
     await contributor.reload();
     proposal = await openSkill(contributor, proposedTitle);
     await proposal
@@ -506,10 +503,7 @@ test("Skill proposals respect creator control and cached Agent/Skill reads fail 
     await expect(
       proposal.getByLabel("Instructions", { exact: true }),
     ).toHaveValue("Proposed real instructions");
-    await resolution
-      .getByRole("button", { name: "Close", exact: true })
-      .last()
-      .click();
+    await closeSkill(resolution);
     await page.reload();
     const reject = await openSkill(page, proposedTitle);
     await reject.getByRole("button", { name: "Reject", exact: true }).click();
@@ -539,7 +533,8 @@ test("Skill proposals respect creator control and cached Agent/Skill reads fail 
     await expect(
       proposal.getByRole("button", { name: "Retry", exact: true }),
     ).toBeVisible();
-    await proposal.getByRole("button", { name: "Close", exact: true }).click();
+    await proposal.locator('[data-slot="dialog-close"]').click();
+    await expect(proposal).not.toBeVisible();
     const agentSnapshot = await getAgent(page, workspaceId, agent.id);
     const revokeAgent = await page.request.patch(
       path(workspaceId, "agents", agent.id),
