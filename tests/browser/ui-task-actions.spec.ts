@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import type { InferResponseType } from "hono/client";
 import type { workspaceApi } from "../../apps/web/src/lib/api";
 import type { startUiApp } from "../fixtures/ui-app";
@@ -124,6 +124,42 @@ async function archive(page: Page, taskUrl: string, archived: boolean) {
   await page.keyboard.press("Escape");
 }
 
+// Hold only the acknowledgement of a real response. Join every handler before
+// unregistering: unroute can otherwise handle a released route before fulfill.
+async function holdResponse(page: Page, pattern: string, method: string) {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let responses = 0;
+  const active = new Set<Promise<void>>();
+  const handler = (route: Route) => {
+    const operation = (async () => {
+      if (route.request().method() !== method) return route.continue();
+      const response = await route.fetch();
+      responses++;
+      await held;
+      await route.fulfill({ response });
+    })();
+    const tracked: Promise<void> = operation.finally(() => {
+      active.delete(tracked);
+    });
+    active.add(tracked);
+    return tracked;
+  };
+  await page.route(pattern, handler);
+  return {
+    async started() {
+      await expect.poll(() => responses).toBe(1);
+    },
+    async finish() {
+      release();
+      while (active.size) await Promise.all([...active]);
+      await page.unroute(pattern, handler);
+    },
+  };
+}
+
 test("Tasks without a Project stay readable during directory loading and on mobile", async ({
   page,
   fixture,
@@ -139,17 +175,9 @@ test("Tasks without a Project stay readable during directory loading and on mobi
     )
       taskListReads++;
   });
-  let release!: () => void;
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
   const projects = "**/api/workspaces/*/projects?*";
   // Controlled read delay: real directory response, with no fake payload or domain outcome.
-  await page.route(projects, async (route) => {
-    const response = await route.fetch();
-    await held;
-    await route.fulfill({ response });
-  });
+  const delay = await holdResponse(page, projects, "GET");
   try {
     await page.goto("/tasks");
     await expect(
@@ -172,8 +200,7 @@ test("Tasks without a Project stay readable during directory loading and on mobi
     ).toHaveCount(0);
     expect(taskListReads).toBe(0);
   } finally {
-    release();
-    await page.unroute(projects);
+    await delay.finish();
   }
   await expect(
     page.getByRole("status", { name: "Loading", exact: true }),
@@ -240,27 +267,13 @@ test("Task metadata, pending ACK, status, archive and restore persist", async ({
   const expectedDue = await page.evaluate(() =>
     new Date("2026-10-06T09:30").toISOString(),
   );
-  let arrived!: () => void;
-  let release!: () => void;
-  const reached = new Promise<void>((resolve) => {
-    arrived = resolve;
-  });
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
   // Controlled ACK delay only: route.fetch executes the actual Hono/DB mutation first.
-  await page.route(taskUrl, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    const response = await route.fetch();
-    arrived();
-    await held;
-    await route.fulfill({ response });
-  });
+  const delay = await holdResponse(page, taskUrl, "PATCH");
   try {
     await dialog
       .getByRole("button", { name: "Save task", exact: true })
       .click();
-    await reached;
+    await delay.started();
     await expect(
       dialog.getByRole("button", { name: "Saving", exact: true }),
     ).toBeDisabled();
@@ -279,8 +292,7 @@ test("Task metadata, pending ACK, status, archive and restore persist", async ({
     ).toBeVisible();
     expect((await readTask(page, taskUrl)).title).toBe("Task metadata saved");
   } finally {
-    release();
-    await page.unroute(taskUrl);
+    await delay.finish();
   }
   await expect(dialog).not.toBeVisible();
   expect(patches).toBe(1);
