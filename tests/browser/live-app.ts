@@ -1,10 +1,9 @@
 import { test as base } from "@playwright/test";
 import { startUiApp } from "../fixtures/ui-app";
 
-export const test = base.extend<
-  object,
-  { fixture: Awaited<ReturnType<typeof startUiApp>> }
->({
+export const test = base.extend<{
+  fixture: Awaited<ReturnType<typeof startUiApp>>;
+}>({
   fixture: [
     async ({ playwright: _playwright }, use) => {
       const fixture = await startUiApp("http://127.0.0.1:45183");
@@ -42,7 +41,8 @@ export const test = base.extend<
         await fixture.stop();
       }
     },
-    { scope: "worker", timeout: 120000 },
+    // Each scenario owns its database, queue and storage; population/error cases cannot contaminate later screens.
+    { scope: "test", timeout: 120000 },
   ],
 });
 export { expect } from "@playwright/test";
