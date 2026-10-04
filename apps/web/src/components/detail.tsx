@@ -365,11 +365,11 @@ export function ChoiceSearch<T extends string>({
     <Combobox
       autoHighlight
       items={Object.keys(options) as T[]}
-      value={value}
+      value={Object.hasOwn(options, value) ? value : null}
       onValueChange={(next) => next && onPick(next as T)}
       open={open}
       onOpenChange={onOpenChange}
-      itemToStringLabel={(key) => options[key as T].label}
+      itemToStringLabel={(key) => options[key as T]?.label ?? ""}
     >
       <ComboboxContent anchor={anchor} className="w-56">
         <ComboboxSearch placeholder={`Search ${label.toLowerCase()}`} />
