@@ -55,7 +55,7 @@ This is a fresh Otto Bun monorepo. Historical Buzz code and history stay outside
 - Documents and Files have one nonnullable visibility field and creator/custodian-controlled edits; per-user reader/writer ACLs are deferred. File metadata/visibility carries no edit token; immutable upload requests/bytes and saved/current source-Run audiences remain separate fences. Internet publication remains explicit frozen selected shares.
 - Connections are external GitHub/MCP accounts with scoped grants. Subscriptions identify authorized AI accounts, separate from Pi and external Connections; retain one accepted account/model/billing channel per Run/Session. Models remain configured IDs, not a new catalog. Qualification uses the managed CLIProxyAPI Codex route and confirmed Infisical-backed account authentication; Computer inspection proves compute capabilities only.
 - Project/Chat/File metadata and Subscription display edits need no edit token. Connection title-only edits preserve grants/approvals; real Connection policy changes retain their fence.
-- Visibility never shares credentials, private Session context or native login, grants provider operations, or automatically shares private dependencies.
+- Visibility never shares credentials, private Session context or native login, grants provider operations, or automatically shares private dependencies. The one exception is chat attachments: a File attached to a Message stays private to its custodian and is readable by that Chat's participants while they are participants; only the custodian attaches a private File.
 
 ## Execution guarantees
 

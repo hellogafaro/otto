@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import { getChat } from "@otto/chats";
+import { getChat, isAttachedToReadableChat } from "@otto/chats";
 import {
   authorizedPage,
   type Database,
@@ -68,7 +68,8 @@ export async function getFile(c: Context, id: string) {
   if (row.projectId) await getProject(c, row.projectId);
   if (
     row.visibility === "user" &&
-    (c.actor.agentId !== undefined || row.ownerId !== c.actor.userId)
+    (c.actor.agentId !== undefined || row.ownerId !== c.actor.userId) &&
+    !(await isAttachedToReadableChat(c, row.id))
   )
     throw new DomainError("forbidden");
   if (row.sourceRunId) {
@@ -587,17 +588,22 @@ export async function previewFile(c: Context, id: string) {
   };
 }
 
+/**
+ * Everyone in `humans` may read the File. `inChat` is a Message attachment: the custodian's private File is
+ * readable through the Chat, so only the Project and source-Run audiences still cap who can be in it.
+ */
 export async function requireFileAudience(
   c: Context,
   id: string,
   humans: string[],
+  inChat = false,
 ) {
   const file = await getFile(c, id);
   const members = file.projectId
     ? await getProjectAudience(c, file.projectId)
     : await getWorkspaceAudience(c);
   const audience =
-    file.visibility === "user"
+    file.visibility === "user" && !inChat
       ? members.filter((id) => id === file.ownerId)
       : members;
   if (humans.some((id) => !audience.includes(id)))

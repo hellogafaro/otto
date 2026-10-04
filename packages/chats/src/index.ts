@@ -57,6 +57,32 @@ export async function createChat(
   await advanceCursor(c);
   return chat;
 }
+/**
+ * A File attached to a Message is readable by the participants of that Chat for as long as they can read it:
+ * access follows the Chat's audience, never the File's own visibility, and ends with membership.
+ */
+export async function isAttachedToReadableChat(c: Context, fileId: string) {
+  const rows = await c.tx
+    .select({ chatId: messages.chatId })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.workspaceId, c.workspaceId),
+        sql`${messages.fileIds} @> ${JSON.stringify([fileId])}::jsonb`,
+      ),
+    )
+    .groupBy(messages.chatId)
+    .limit(20);
+  for (const row of rows)
+    try {
+      await getChat(c, row.chatId);
+      return true;
+    } catch (error) {
+      if (!(error instanceof DomainError) || error.code !== "forbidden")
+        throw error;
+    }
+  return false;
+}
 const readableChat = alias(chats, "readable_chat");
 /** `participant` is the actor's human identity (the sponsor, for an Agent) or the acting Agent. */
 const chatCondition = (

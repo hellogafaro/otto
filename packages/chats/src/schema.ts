@@ -133,6 +133,7 @@ export const messages = pgTable(
     ),
     uniqueIndex("messages_request_unique").on(t.chatId, t.requestId),
     index("messages_replay_idx").on(t.chatId, t.cursor),
+    index("messages_files_idx").using("gin", t.fileIds),
   ],
 );
 

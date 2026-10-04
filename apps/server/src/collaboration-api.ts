@@ -679,10 +679,22 @@ export const collaborationApi = new Hono<ApiEnv>()
       c.json(
         await transact(c, async (ctx) => {
           const input = c.req.valid("json");
+          // Participants read what is attached to the Chat; only the custodian attaches a private File.
           if (input.fileIds?.length) {
             const audience = await getChatAudience(ctx, recordId(c));
-            for (const fileId of input.fileIds)
-              await requireFileAudience(ctx, fileId, audience.humans);
+            for (const fileId of input.fileIds) {
+              const file = await requireFileAudience(
+                ctx,
+                fileId,
+                audience.humans,
+                true,
+              );
+              if (
+                file.ownerId !== ctx.actor.userId &&
+                file.visibility === "user"
+              )
+                throw new DomainError("forbidden");
+            }
           }
           return createMessage(ctx, recordId(c), input);
         }),

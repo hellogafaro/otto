@@ -953,3 +953,4 @@ Unknown creation outcomes disable another submission in the current form and dir
 6. Tasks list the first Project when none is chosen, so an empty page never asks for one. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
 7. The floating bar shows its Inbox button only while something needs attention (an unread chat or an unanswered question).
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
+9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.

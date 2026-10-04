@@ -629,9 +629,6 @@ export function ChatComposer({
           void typing(false);
       }}
     >
-      {!compact && (
-        <AttachmentVisibility {...upload} disabled={disabled || sending} />
-      )}
       <Composer
         ref={composerRef}
         projectId={chat.projectId ?? undefined}
@@ -660,35 +657,6 @@ export function ChatComposer({
         </p>
       )}
     </fieldset>
-  );
-}
-
-export function AttachmentVisibility({
-  visibility,
-  setVisibility,
-  disabled = false,
-}: {
-  visibility: "user" | "workspace";
-  setVisibility: (value: "user" | "workspace") => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <ContextPicker
-        label="New attachments"
-        value={visibility}
-        options={{
-          user: { label: "Only me", icon: RiChat1Line },
-          workspace: { label: "Workspace", icon: RiChat1Line },
-        }}
-        onPick={(value) => setVisibility(value as typeof visibility)}
-        disabled={disabled}
-      />
-      <span>
-        Attachments start private. Sharing with other people requires eligible
-        workspace visibility. Already uploaded files keep their visibility.
-      </span>
-    </div>
   );
 }
 
@@ -943,7 +911,6 @@ export function NewChatComposer({
         </p>
       )}
       <DirectoryPages kind="projects" />
-      <AttachmentVisibility {...upload} disabled={create.isPending} />
       <Composer
         upload={upload.upload}
         projectId={projectId}

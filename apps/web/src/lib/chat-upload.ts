@@ -1,29 +1,28 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { uploadFile } from "@/lib/file-upload";
 import { useWorkspace } from "@/lib/workspace";
 
-/** Freeze upload placement/visibility per request so a retry never changes accepted metadata. */
+/** Freeze upload placement per request so a retry never changes accepted metadata. */
 export function useChatUpload(projectId?: string) {
   const { workspaceId, invalidate } = useWorkspace();
-  const [visibility, setVisibility] = useState<"user" | "workspace">("user");
-  const requests = useRef(
-    new Map<string, { projectId?: string; visibility: "user" | "workspace" }>(),
-  );
+  const requests = useRef(new Map<string, { projectId?: string }>());
   const upload = async (file: File, requestId: string, signal: AbortSignal) => {
     let metadata = requests.current.get(requestId);
     if (!metadata) {
-      metadata = { projectId, visibility };
+      metadata = { projectId };
       requests.current.set(requestId, metadata);
     }
+    // The File stays private to its custodian; the Chat's participants read it through the Chat.
     const saved = await uploadFile({
       workspaceId,
       file,
       requestId,
       signal,
+      visibility: "user",
       ...metadata,
     });
     await invalidate();
     return saved;
   };
-  return { upload, visibility, setVisibility };
+  return { upload };
 }

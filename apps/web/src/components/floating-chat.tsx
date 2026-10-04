@@ -57,7 +57,6 @@ import {
 import { useChatUpload } from "@/lib/chat-upload";
 import { useWorkspace } from "@/lib/workspace";
 import {
-  AttachmentVisibility,
   ChatComposer,
   ChatPresence,
   ChatRunFeed,
@@ -415,10 +414,6 @@ export function FloatingChat({
                 </>
               ) : (
                 <div className="flex items-center gap-1 px-2 pt-3 pb-1">
-                  <AttachmentVisibility
-                    {...upload}
-                    disabled={newChat.isPending}
-                  />
                   <WithPicker
                     value={withIds}
                     onChange={setWithIds}
