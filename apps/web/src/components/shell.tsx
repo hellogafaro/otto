@@ -10,6 +10,7 @@ import { CommandPaletteProvider } from "@/components/command-palette";
 import { ConfirmProvider } from "@/components/confirm";
 import { FloatingChatProvider } from "@/components/floating-chat";
 import { TITLE_BAR_HEIGHT, TitleBar, useDesktop } from "@/components/title-bar";
+import { WorkspaceBoundary } from "@/lib/workspace";
 import { ChatsSidebar } from "@/routes/chats";
 import { SettingsSidebar } from "@/routes/settings";
 
@@ -18,6 +19,14 @@ import { SettingsSidebar } from "@/routes/settings";
 // strip). A section's own navigation (Chats, Settings) is the card's left panel. --titlebar is the strip's
 // height (0 on the web) for full-screen layers.
 export function Shell() {
+  return (
+    <WorkspaceBoundary>
+      <WorkspaceShell />
+    </WorkspaceBoundary>
+  );
+}
+
+function WorkspaceShell() {
   const desktop = useDesktop();
   const matchRoute = useMatchRoute();
   const inChats = Boolean(matchRoute({ to: "/chats", fuzzy: true }));

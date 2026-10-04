@@ -857,8 +857,17 @@ takes the folder's name. No side panel. Filters, the shared set (type,
 project, label, made by), search the open folder and everything inside it as
 one flat list. + is one menu: Upload file, or New folder, named in place on
 its tile (Enter makes it, Escape drops it); both land in the open folder.
-Folder, filters and open file live in the URL. Folders are UI-only for now:
-the backend has no folder model yet.
+Folder, filters and open file live in the URL. Folders persist through the
+backend, nest at most eight levels, and archive only when completely empty.
+
+**Live data states.** Server reads use the shared skeleton/loading and inline
+error with Retry; unavailable controls explain the missing capability and never
+show success. The authentication boundary uses the stock Field/Input/Button
+composition. Workspace switching clears prior workspace data and opens Inbox.
+The profile menu names the signed-in person and lists their accessible workspaces.
+When direct setup or creation is necessary before an Agent can run, a compact
+stock dialog may capture the backend's required fields. Ask remains available;
+direct controls use the same tokens and do not simulate an Agent response.
 
 ## Do's and Don'ts
 

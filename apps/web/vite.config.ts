@@ -5,6 +5,14 @@ import { defineConfig } from "vite";
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    proxy: {
+      "/api": {
+        target: process.env.OTTO_API_ORIGIN ?? "http://127.0.0.1:45175",
+        ws: true,
+      },
+    },
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
