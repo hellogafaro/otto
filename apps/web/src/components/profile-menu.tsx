@@ -74,40 +74,42 @@ export function ProfileMenu() {
       <DropdownMenuContent side="right" align="end" className="w-56">
         <DropdownMenuGroup>
           <DropdownMenuLabel>{user.name}</DropdownMenuLabel>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <RiTeamLine />
-              {workspace.title}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuRadioGroup
-                value={workspace.id}
-                onValueChange={selectWorkspace}
-              >
-                {workspaces.map((item) => (
-                  <DropdownMenuRadioItem key={item.id} value={item.id}>
-                    {item.title}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-              {moreWorkspaces && (
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    disabled={loadingWorkspaces}
-                    onClick={async () => {
-                      try {
-                        await loadWorkspaces();
-                      } catch {
-                        toast.error("Unable to load more workspaces.");
-                      }
-                    }}
-                  >
-                    More workspaces
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              )}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+          {(workspaces.length > 1 || moreWorkspaces) && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <RiTeamLine />
+                {workspace.title}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={workspace.id}
+                  onValueChange={selectWorkspace}
+                >
+                  {workspaces.map((item) => (
+                    <DropdownMenuRadioItem key={item.id} value={item.id}>
+                      {item.title}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+                {moreWorkspaces && (
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      disabled={loadingWorkspaces}
+                      onClick={async () => {
+                        try {
+                          await loadWorkspaces();
+                        } catch {
+                          toast.error("Unable to load more workspaces.");
+                        }
+                      }}
+                    >
+                      More workspaces
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
           <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
             <RiSettings3Line />
             Settings
