@@ -87,14 +87,17 @@ async function openSkill(page: Page, title: string, archived = false) {
 }
 async function closeSkill(dialog: Locator) {
   // A saved database value can be observed before mutation ACK/invalidation
-  // settles. Wait for the editor to unlock before using its footer Close.
-  await expect(
-    dialog.getByRole("button", { name: "Export SKILL.md", exact: true }),
-  ).toBeEnabled();
-  await dialog
-    .getByRole("button", { name: "Close", exact: true })
-    .first()
-    .click();
+  // settles. Wait for the editor to unlock before testing the stock Close.
+  const save = dialog.getByRole("button", {
+    name: "Save instructions",
+    exact: true,
+  });
+  if (await save.count()) await expect(save).toBeEnabled();
+  else
+    await expect(
+      dialog.getByRole("button", { name: "Export SKILL.md", exact: true }),
+    ).toBeEnabled();
+  await dialog.locator('[data-slot="dialog-close"]').click();
   await expect(dialog).not.toBeVisible();
 }
 async function prepareAgent(page: Page, title: string) {
