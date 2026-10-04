@@ -13,7 +13,7 @@ import { Input } from "@workspace/ui/components/input";
 import type { InferResponseType } from "hono/client";
 import { useState } from "react";
 import { QueryState } from "@/components/query-state";
-import { read, type workspaceApi } from "@/lib/api";
+import { ApiError, read, type workspaceApi } from "@/lib/api";
 import type { SavedFile } from "@/lib/file-library";
 import { useWorkspace } from "@/lib/workspace";
 
@@ -32,6 +32,7 @@ export function FileShares({
   const [published, setPublished] = useState<string>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error>();
+  const [createUncertain, setCreateUncertain] = useState(false);
   const shares = useInfiniteQuery({
     queryKey: ["workspace", workspaceId, "file-shares"],
     initialPageParam: undefined as string | undefined,
@@ -56,20 +57,44 @@ export function FileShares({
           share.selection.type === "file" &&
           share.selection.targetId === file.id,
       ) ?? [];
-  async function act(operation: () => Promise<unknown>) {
-    if (pending) return;
+  async function act(
+    operation: () => Promise<unknown>,
+    createsPreview = false,
+  ) {
+    if (pending || (createsPreview && createUncertain)) return;
     setPending(true);
     setError(undefined);
     try {
       await operation();
     } catch (cause) {
+      if (
+        createsPreview &&
+        !(
+          cause instanceof ApiError &&
+          cause.status >= 400 &&
+          cause.status < 500
+        )
+      )
+        setCreateUncertain(true);
       setError(
         cause instanceof Error ? cause : new Error("Unable to update share."),
       );
     } finally {
       // A lost ACK may still have changed the publication or editToken.
-      await invalidate();
-      setPending(false);
+      try {
+        await invalidate();
+      } catch (cause) {
+        // An exact acknowledged preview stays available when only refreshing fails.
+        setError(
+          (current) =>
+            current ??
+            (cause instanceof Error
+              ? cause
+              : new Error("Unable to refresh shares.")),
+        );
+      } finally {
+        setPending(false);
+      }
     }
   }
   return (
@@ -94,9 +119,16 @@ export function FileShares({
               Include downloadable file bytes
             </FieldLabel>
           </Field>
+          {createUncertain && (
+            <p role="alert">
+              Preview creation could not be confirmed. Refresh the share list
+              and reuse a saved preview below. Creating another preview is
+              blocked in this dialog to avoid duplicates.
+            </p>
+          )}
           {!preview && (
             <Button
-              disabled={pending}
+              disabled={pending || createUncertain}
               onClick={() =>
                 act(async () => {
                   setPublished(undefined);
@@ -114,7 +146,7 @@ export function FileShares({
                       }),
                     ),
                   );
-                })
+                }, true)
               }
             >
               {pending ? "Preparing" : "Preview selection"}
@@ -183,6 +215,15 @@ export function FileShares({
                 Copy published link
               </Button>
             </Field>
+          )}
+          {createUncertain && (
+            <Button
+              variant="outline"
+              disabled={pending || shares.isFetching}
+              onClick={() => shares.refetch()}
+            >
+              Refresh share list
+            </Button>
           )}
           <QueryState
             pending={shares.isPending}

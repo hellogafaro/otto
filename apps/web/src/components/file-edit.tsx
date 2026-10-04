@@ -11,7 +11,7 @@ import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
 import { useState } from "react";
 import { QueryState } from "@/components/query-state";
-import { read } from "@/lib/api";
+import { ApiError, read } from "@/lib/api";
 import type { SavedFile, SavedFolder } from "@/lib/file-library";
 import { useWorkspace } from "@/lib/workspace";
 
@@ -287,6 +287,9 @@ export function FolderEdit({
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error>();
+  const [creation, setCreation] = useState<"ready" | "uncertain" | "saved">(
+    "ready",
+  );
   const changed =
     !original ||
     title.trim() !== original.title ||
@@ -304,7 +307,8 @@ export function FolderEdit({
         <form
           onSubmit={async (event) => {
             event.preventDefault();
-            if (pending || !changed) return;
+            if (pending || !changed || (!folder && creation !== "ready"))
+              return;
             setPending(true);
             setError(undefined);
             try {
@@ -325,7 +329,7 @@ export function FolderEdit({
                     },
                   }),
                 );
-              else
+              else {
                 await read(
                   await api.folders.$post({
                     param: { workspaceId },
@@ -337,9 +341,28 @@ export function FolderEdit({
                     },
                   }),
                 );
+                setCreation("saved");
+              }
               await invalidate();
               onClose();
             } catch (cause) {
+              if (
+                !folder &&
+                !(
+                  cause instanceof ApiError &&
+                  cause.status >= 400 &&
+                  cause.status < 500
+                )
+              )
+                setCreation((current) =>
+                  current === "saved" ? current : "uncertain",
+                );
+              // Unknown create outcomes must reconcile without another POST.
+              try {
+                await invalidate();
+              } catch {
+                // Keep the original outcome; the explicit Refresh action can retry the read.
+              }
               setError(
                 cause instanceof Error ? cause : new Error("Unable to save."),
               );
@@ -375,6 +398,33 @@ export function FolderEdit({
               />
             )}
             {error && <p role="alert">{error.message}</p>}
+            {!folder && creation !== "ready" && (
+              <>
+                <p role="status">
+                  {creation === "saved"
+                    ? "Folder created. Refresh Files before closing this dialog."
+                    : "Folder creation could not be confirmed. Refresh Files before opening another create dialog; repeating creation here is blocked to avoid duplicates."}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={async () => {
+                    try {
+                      await invalidate();
+                    } catch (cause) {
+                      setError(
+                        cause instanceof Error
+                          ? cause
+                          : new Error("Unable to refresh Files."),
+                      );
+                    }
+                  }}
+                >
+                  Refresh Files
+                </Button>
+              </>
+            )}
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
@@ -386,7 +436,12 @@ export function FolderEdit({
               </Button>
               <Button
                 type="submit"
-                disabled={pending || !title.trim() || !changed}
+                disabled={
+                  pending ||
+                  !title.trim() ||
+                  !changed ||
+                  (!folder && creation !== "ready")
+                }
               >
                 {pending ? "Saving" : "Save"}
               </Button>
