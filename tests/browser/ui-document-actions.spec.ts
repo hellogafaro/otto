@@ -237,7 +237,7 @@ test("Document create, body and metadata save, Cancel and actual stale edit conf
   page.once("dialog", (dialog) => dialog.dismiss());
   await page
     .locator('[data-slot="breadcrumb"]')
-    .getByRole("link", { name: "Documents", exact: true })
+    .getByRole("button", { name: "Documents", exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`/documents/${id}$`));
   await expect(bodyEditor(page)).toHaveText("Discarded body");
@@ -815,7 +815,7 @@ test("Transient cached reads preserve dirty drafts, denied reads hide Document a
   page.once("dialog", (dialog) => dialog.dismiss());
   await page
     .locator('[data-slot="breadcrumb"]')
-    .getByRole("link", { name: "Documents", exact: true })
+    .getByRole("button", { name: "Documents", exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`/documents/${document.id}$`));
   await expect(
