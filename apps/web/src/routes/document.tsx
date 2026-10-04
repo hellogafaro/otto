@@ -5,7 +5,7 @@ import { Button } from "@workspace/ui/components/button";
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
 import { Textarea } from "@workspace/ui/components/textarea";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailView, Section } from "@/components/detail";
 import {
   DocumentChoice,
@@ -18,6 +18,10 @@ import {
   useDocument,
   useDocumentWriter,
 } from "@/components/documents/document-data";
+import {
+  canKeepDocumentDraft,
+  runDocumentOperation,
+} from "@/components/documents/document-operation";
 import { DocumentRelations } from "@/components/documents/document-relations";
 import { Editor } from "@/components/editor/editor";
 import { FloatingChat } from "@/components/floating-chat";
@@ -29,7 +33,10 @@ import { useWorkspace } from "@/lib/workspace";
 export function DocumentPage({ documentId }: { documentId: string }) {
   const { workspaceId } = useWorkspace();
   const document = useDocument(documentId);
-  if (!document.data || document.error)
+  if (
+    !document.data ||
+    (document.error && !canKeepDocumentDraft(document.error))
+  )
     return (
       <QueryState
         pending={document.isPending}
@@ -41,6 +48,7 @@ export function DocumentPage({ documentId }: { documentId: string }) {
     <DocumentView
       key={`${workspaceId}:${documentId}`}
       document={document.data}
+      readError={document.error}
       reload={() => document.refetch()}
     />
   );
@@ -48,9 +56,11 @@ export function DocumentPage({ documentId }: { documentId: string }) {
 
 function DocumentView({
   document,
+  readError,
   reload,
 }: {
   document: DocumentRecord;
+  readError: Error | null;
   reload(): unknown;
 }) {
   const { api, workspaceId, user, invalidate } = useWorkspace();
@@ -67,6 +77,14 @@ function DocumentView({
   const [folderId, setFolderId] = useState(document.folderId ?? "");
   const [editorRevision, setEditorRevision] = useState(0);
   const [pending, setPending] = useState(false);
+  const operation = useRef(false);
+  const perform = useCallback(
+    (action: () => Promise<void>) =>
+      runDocumentOperation(operation, action, setPending),
+    [],
+  );
+  const [propertiesDirty, setPropertiesDirty] = useState(false);
+  const locked = pending || Boolean(readError);
   const [error, setError] = useState<Error | null>(null);
   const editable = canWrite && document.createdBy === user.id;
   const dirty =
@@ -78,8 +96,10 @@ function DocumentView({
   const stale = source.editToken !== document.editToken;
   useBlocker({
     shouldBlockFn: () =>
-      dirty && !window.confirm("Discard unsaved document changes?"),
-    enableBeforeUnload: dirty,
+      pending ||
+      ((dirty || propertiesDirty) &&
+        !window.confirm("Discard unsaved document changes?")),
+    enableBeforeUnload: pending || dirty || propertiesDirty,
   });
   const reset = useCallback((next: DocumentRecord) => {
     setSource(next);
@@ -109,45 +129,45 @@ function DocumentView({
       setError(new Error(invalid));
       return;
     }
-    setPending(true);
     setError(null);
     try {
-      await acknowledge(
-        await read(
-          await api.documents[":id"].$patch({
-            param: { workspaceId, id: document.id },
-            json: {
-              title: title.trim(),
-              body,
-              labels: parsed,
-              visibility,
-              folderId: folderId || null,
-              editToken: source.editToken,
-            },
-          }),
+      await perform(async () =>
+        acknowledge(
+          await read(
+            await api.documents[":id"].$patch({
+              param: { workspaceId, id: document.id },
+              json: {
+                title: title.trim(),
+                body,
+                labels: parsed,
+                visibility,
+                folderId: folderId || null,
+                editToken: source.editToken,
+              },
+            }),
+          ),
         ),
       );
     } catch (error) {
       setError(
         error instanceof Error ? error : new Error("Unable to save document."),
       );
-    } finally {
-      setPending(false);
     }
   }
   async function archive() {
-    setPending(true);
     setError(null);
     try {
-      await acknowledge(
-        await read(
-          await api.documents[":id"].archive.$post({
-            param: { workspaceId, id: document.id },
-            json: {
-              archived: !document.archived,
-              editToken: document.editToken,
-            },
-          }),
+      await perform(async () =>
+        acknowledge(
+          await read(
+            await api.documents[":id"].archive.$post({
+              param: { workspaceId, id: document.id },
+              json: {
+                archived: !document.archived,
+                editToken: document.editToken,
+              },
+            }),
+          ),
         ),
       );
     } catch (error) {
@@ -156,8 +176,6 @@ function DocumentView({
           ? error
           : new Error("Unable to change archive state."),
       );
-    } finally {
-      setPending(false);
     }
   }
   return (
@@ -188,7 +206,7 @@ function DocumentView({
           <Button
             variant="ghost"
             size="sm"
-            disabled={pending || dirty}
+            disabled={locked || dirty || propertiesDirty}
             onClick={archive}
           >
             {document.archived ? "Restore" : "Archive"}
@@ -226,14 +244,14 @@ function DocumentView({
                     onChange={(value) =>
                       setVisibility(value as typeof visibility)
                     }
-                    disabled={pending}
+                    disabled={locked}
                   />
                   <FolderChoice
                     projectId={document.projectId}
                     visibility={visibility}
                     value={folderId}
                     onChange={setFolderId}
-                    disabled={pending}
+                    disabled={locked}
                   />
                   <Field>
                     <FieldLabel htmlFor="document-labels">
@@ -242,7 +260,7 @@ function DocumentView({
                     <Textarea
                       id="document-labels"
                       value={labels}
-                      disabled={pending}
+                      disabled={locked}
                       onChange={(event) => setLabels(event.target.value)}
                     />
                   </Field>
@@ -272,7 +290,7 @@ function DocumentView({
       }
     >
       <QueryState
-        error={error ?? directory.error ?? members.error}
+        error={readError ?? error ?? directory.error ?? members.error}
         retry={() => {
           reload();
           directory.membersQuery.refetch();
@@ -300,21 +318,21 @@ function DocumentView({
             id="document-title"
             value={title}
             maxLength={200}
-            disabled={pending}
+            disabled={locked}
             onChange={(event) => setTitle(event.target.value)}
           />
         </Field>
       )}
       <Editor
-        key={`${editorRevision}:${editable}:${pending}:${!editable ? document.editToken : "draft"}`}
+        key={`${editorRevision}:${editable}:${locked}:${!editable ? document.editToken : "draft"}`}
         value={editable ? body : document.body}
         onChange={setBody}
-        readOnly={!editable || pending}
+        readOnly={!editable || locked}
         placeholder="Start writing"
       />
       {editable && (
         <div className="flex items-center gap-2">
-          <Button disabled={pending || !dirty || stale} onClick={save}>
+          <Button disabled={locked || !dirty || stale} onClick={save}>
             {pending ? "Saving" : "Save document"}
           </Button>
           <Button
@@ -331,7 +349,9 @@ function DocumentView({
         document={document}
         canWrite={canWrite}
         editable={editable}
-        blocked={dirty || stale || pending}
+        blocked={dirty || stale || locked}
+        runOperation={perform}
+        onDirtyChange={setPropertiesDirty}
         onDocument={acknowledge}
       />
     </DetailView>

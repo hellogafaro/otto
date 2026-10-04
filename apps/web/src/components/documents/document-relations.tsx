@@ -21,6 +21,7 @@ import {
   type DocumentRecord,
   documentInputError,
 } from "@/components/documents/document-data";
+import { canKeepDocumentDraft } from "@/components/documents/document-operation";
 import { DocumentReferenceChoice } from "@/components/documents/document-reference-choice";
 import { Editor } from "@/components/editor/editor";
 import { QueryState } from "@/components/query-state";
@@ -33,12 +34,16 @@ export function DocumentRelations({
   editable,
   canWrite,
   blocked,
+  runOperation,
+  onDirtyChange,
   onDocument,
 }: {
   document: DocumentRecord;
   editable: boolean;
   canWrite: boolean;
   blocked: boolean;
+  runOperation(action: () => Promise<void>): Promise<void>;
+  onDirtyChange(dirty: boolean): void;
   onDocument(document: DocumentRecord): Promise<void>;
 }) {
   const { api, workspaceId, invalidate, workspace } = useWorkspace();
@@ -55,13 +60,10 @@ export function DocumentRelations({
   const [propertyDirty, setPropertyDirty] = useState(false);
   const [propertyToken, setPropertyToken] = useState(document.editToken);
   const propertyStale = propertyDirty && propertyToken !== document.editToken;
-  useBlocker({
-    shouldBlockFn: () =>
-      propertyDirty &&
-      !blocked &&
-      !window.confirm("Discard unsaved Collection properties?"),
-    enableBeforeUnload: propertyDirty,
-  });
+  function changePropertyDirty(dirty: boolean) {
+    setPropertyDirty(dirty);
+    onDirtyChange(dirty);
+  }
   useEffect(() => {
     if (!propertyDirty) {
       setCollectionId(document.collectionId ?? "");
@@ -145,12 +147,33 @@ export function DocumentRelations({
       ),
     getNextPageParam: (page) => page.next ?? undefined,
   });
+  const collectionData =
+    collection.error && !canKeepDocumentDraft(collection.error)
+      ? undefined
+      : collection.data;
+  const collectionReadFailed = Boolean(collection.error);
+  const listCollections =
+    collections.error && !canKeepDocumentDraft(collections.error)
+      ? undefined
+      : collections.data;
+  const listFiles =
+    files.error && !canKeepDocumentDraft(files.error) ? undefined : files.data;
+  const listProposals =
+    proposals.error && !canKeepDocumentDraft(proposals.error)
+      ? undefined
+      : proposals.data;
   const locked = blocked || pending;
   async function run(action: () => Promise<unknown>) {
     setPending(true);
     setError(null);
     try {
-      await action();
+      await runOperation(async () => {
+        try {
+          await action();
+        } finally {
+          await invalidate();
+        }
+      });
     } catch (error) {
       setError(
         error instanceof Error
@@ -158,15 +181,21 @@ export function DocumentRelations({
           : new Error("Unable to update document."),
       );
     } finally {
-      // Refresh even when an acknowledged control was followed by a failed read.
-      await invalidate();
       setPending(false);
     }
   }
   const options =
-    collections.data?.pages
+    listCollections?.pages
       .flatMap((page) => page.items)
-      .filter((item) => item.projectId === document.projectId)
+      .filter(
+        (item) =>
+          item.projectId === document.projectId &&
+          !(
+            collection.error &&
+            !canKeepDocumentDraft(collection.error) &&
+            item.id === collectionId
+          ),
+      )
       .map((item) => ({ id: item.id, title: item.title })) ?? [];
   const currentProperties = propertyDirty
     ? properties
@@ -176,7 +205,7 @@ export function DocumentRelations({
   function property(id: string, value: string | number | boolean | null) {
     setProperties({ ...currentProperties, [id]: value });
     if (!propertyDirty) setPropertyToken(document.editToken);
-    setPropertyDirty(true);
+    changePropertyDirty(true);
   }
   return (
     <div className="flex flex-col gap-5">
@@ -248,13 +277,13 @@ export function DocumentRelations({
               value={selectedFileId}
               options={[
                 { id: "", title: "Choose a file" },
-                ...(files.data?.pages
+                ...(listFiles?.pages
                   .flatMap((page) => page.items)
                   .filter((item) => !document.fileIds.includes(item.id))
                   .map((item) => ({ id: item.id, title: item.title })) ?? []),
               ]}
               onChange={setSelectedFileId}
-              disabled={locked}
+              disabled={locked || Boolean(files.error)}
             />
             <QueryState
               pending={files.isPending}
@@ -279,7 +308,7 @@ export function DocumentRelations({
                 Cancel
               </Button>
               <Button
-                disabled={locked || !selectedFileId}
+                disabled={locked || Boolean(files.error) || !selectedFileId}
                 onClick={() =>
                   run(async () => {
                     await onDocument(
@@ -342,12 +371,12 @@ export function DocumentRelations({
               setProperties(
                 id === document.collectionId ? document.properties : {},
               );
-              setPropertyDirty(true);
+              changePropertyDirty(true);
             }}
-            disabled={locked}
+            disabled={locked || Boolean(collections.error)}
           />
         ) : (
-          <p>{collection.data?.title ?? "No collection"}</p>
+          <p>{collectionData?.title ?? "No collection"}</p>
         )}
         {collections.hasNextPage && (
           <Button
@@ -358,14 +387,14 @@ export function DocumentRelations({
             Load more collections
           </Button>
         )}
-        {collection.data?.archived && (
+        {collectionData?.archived && (
           <p>
             This Collection is archived. Restore it before changing properties.
           </p>
         )}
-        {collection.data && (
+        {collectionData && (
           <FieldGroup>
-            {collection.data.fields.map((field) => (
+            {collectionData.fields.map((field) => (
               <Field key={field.id}>
                 <FieldLabel htmlFor={`property-${field.id}`}>
                   {field.title}
@@ -375,7 +404,10 @@ export function DocumentRelations({
                     id={`property-${field.id}`}
                     checked={currentProperties[field.id] === true}
                     disabled={
-                      !editable || locked || Boolean(collection.data?.archived)
+                      !editable ||
+                      locked ||
+                      collectionReadFailed ||
+                      Boolean(collectionData?.archived)
                     }
                     onCheckedChange={(value) =>
                       property(field.id, Boolean(value))
@@ -403,7 +435,10 @@ export function DocumentRelations({
                     ]}
                     onChange={(value) => property(field.id, value || null)}
                     disabled={
-                      !editable || locked || Boolean(collection.data?.archived)
+                      !editable ||
+                      locked ||
+                      collectionReadFailed ||
+                      Boolean(collectionData?.archived)
                     }
                   />
                 ) : field.type === "document" ? (
@@ -411,7 +446,10 @@ export function DocumentRelations({
                     label={field.title}
                     value={String(currentProperties[field.id] ?? "")}
                     disabled={
-                      !editable || locked || Boolean(collection.data?.archived)
+                      !editable ||
+                      locked ||
+                      collectionReadFailed ||
+                      Boolean(collectionData?.archived)
                     }
                     onChange={(value) => property(field.id, value || null)}
                   />
@@ -428,7 +466,10 @@ export function DocumentRelations({
                     value={String(currentProperties[field.id] ?? "")}
                     maxLength={5000}
                     disabled={
-                      !editable || locked || Boolean(collection.data?.archived)
+                      !editable ||
+                      locked ||
+                      collectionReadFailed ||
+                      Boolean(collectionData?.archived)
                     }
                     onChange={(event) =>
                       property(
@@ -447,10 +488,10 @@ export function DocumentRelations({
           </FieldGroup>
         )}
         <DocumentDirectoryPages
-          members={collection.data?.fields.some(
+          members={collectionData?.fields.some(
             (field) => field.type === "human",
           )}
-          agents={collection.data?.fields.some(
+          agents={collectionData?.fields.some(
             (field) => field.type === "agent",
           )}
         />
@@ -466,9 +507,10 @@ export function DocumentRelations({
               variant="outline"
               disabled={
                 locked ||
+                collectionReadFailed ||
                 !collectionId ||
-                !collection.data ||
-                collection.data.archived ||
+                !collectionData ||
+                collectionData.archived ||
                 !propertyDirty ||
                 propertyStale
               }
@@ -495,7 +537,7 @@ export function DocumentRelations({
                       }),
                     ),
                   );
-                  setPropertyDirty(false);
+                  changePropertyDirty(false);
                 })
               }
             >
@@ -507,20 +549,21 @@ export function DocumentRelations({
               onClick={() => {
                 setCollectionId(document.collectionId ?? "");
                 setProperties(document.properties);
-                setPropertyDirty(false);
+                changePropertyDirty(false);
               }}
             >
               Cancel properties
             </Button>
           </div>
         )}
-        {canWrite && (
-          <CollectionManager
-            projectId={document.projectId}
-            collection={collection.data}
-            disabled={locked || propertyDirty}
-          />
-        )}
+        {canWrite &&
+          (!collection.error || canKeepDocumentDraft(collection.error)) && (
+            <CollectionManager
+              projectId={document.projectId}
+              collection={collectionData}
+              disabled={locked || collectionReadFailed || propertyDirty}
+            />
+          )}
       </section>
       <section className="flex flex-col gap-3">
         <h2>Proposals</h2>
@@ -529,10 +572,10 @@ export function DocumentRelations({
           error={proposals.error}
           retry={() => proposals.refetch()}
         />
-        {proposals.data?.pages.flatMap((page) => page.items).length === 0 && (
+        {listProposals?.pages.flatMap((page) => page.items).length === 0 && (
           <p>No proposals</p>
         )}
-        {proposals.data?.pages
+        {listProposals?.pages
           .flatMap((page) => page.items)
           .map((proposal) => (
             <div key={proposal.id} className="flex flex-col gap-3">
@@ -549,7 +592,9 @@ export function DocumentRelations({
                   <Button
                     variant="outline"
                     disabled={
-                      locked || proposal.editToken !== document.editToken
+                      locked ||
+                      Boolean(proposals.error) ||
+                      proposal.editToken !== document.editToken
                     }
                     onClick={() =>
                       run(async () => {
@@ -579,7 +624,7 @@ export function DocumentRelations({
                   </Button>
                   <Button
                     variant="ghost"
-                    disabled={locked}
+                    disabled={locked || Boolean(proposals.error)}
                     onClick={() =>
                       run(async () => {
                         await read(
@@ -659,7 +704,9 @@ function Attachment({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Link to="/files" search={{ open: id, project: projectId ?? undefined }}>
-        {file.data?.title ?? "Attachment"}
+        {file.error && !canKeepDocumentDraft(file.error)
+          ? "Attachment unavailable"
+          : (file.data?.title ?? "Attachment")}
       </Link>
       <QueryState
         pending={file.isPending}
@@ -688,6 +735,12 @@ function ProposalDialog({
   const [body, setBody] = useState(document.body);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const dirty = title !== document.title || body !== document.body;
+  useBlocker({
+    shouldBlockFn: () =>
+      pending || (dirty && !window.confirm("Discard this proposal?")),
+    enableBeforeUnload: pending || dirty,
+  });
   async function submit() {
     const invalid = documentInputError(title, body, []);
     if (invalid) {

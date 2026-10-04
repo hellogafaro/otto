@@ -8,7 +8,7 @@ import {
   RiUserLine,
 } from "@remixicon/react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
@@ -28,7 +28,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
 import { Textarea } from "@workspace/ui/components/textarea";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DocumentChoice,
   DocumentDirectoryPages,
@@ -472,6 +472,16 @@ function CreateDocument({ onClose }: { onClose(): void }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { directory, canWrite, members } = useDocumentWriter(projectId);
+  const acknowledged = useRef(false);
+  const dirty = Boolean(
+    title || body || labels || projectId || folderId || visibility !== "user",
+  );
+  useBlocker({
+    shouldBlockFn: () =>
+      !acknowledged.current &&
+      (pending || (dirty && !window.confirm("Discard this new document?"))),
+    enableBeforeUnload: () => !acknowledged.current && (pending || dirty),
+  });
   async function create() {
     const parsed = parseDocumentLabels(labels);
     const invalid = documentInputError(title, body, parsed);
@@ -496,6 +506,7 @@ function CreateDocument({ onClose }: { onClose(): void }) {
         }),
       );
       await invalidate();
+      acknowledged.current = true;
       onClose();
       await navigate({
         to: "/documents/$documentId",

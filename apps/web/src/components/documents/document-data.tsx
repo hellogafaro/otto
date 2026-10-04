@@ -91,9 +91,10 @@ export function DocumentChoice({
     <Field>
       <FieldLabel>{label}</FieldLabel>
       <Combobox
+        disabled={disabled}
         items={choices.map((item) => item.id)}
         value={value}
-        onValueChange={(next) => next !== null && onChange(next)}
+        onValueChange={(next) => !disabled && next !== null && onChange(next)}
         itemToStringLabel={(id) =>
           choices.find((item) => item.id === id)?.title ??
           "Unavailable selection"

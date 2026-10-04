@@ -4,6 +4,7 @@ import { Field, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
 import { useState } from "react";
 import { DocumentChoice } from "@/components/documents/document-data";
+import { canKeepDocumentDraft } from "@/components/documents/document-operation";
 import { QueryState } from "@/components/query-state";
 import { read } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
@@ -47,13 +48,16 @@ export function DocumentReferenceChoice({
         value={value}
         options={[
           { id: "", title: "Unset" },
-          ...(documents.data?.pages
+          ...((documents.error && !canKeepDocumentDraft(documents.error)
+            ? undefined
+            : documents.data
+          )?.pages
             .flatMap((page) => page.items)
             .map((document) => ({ id: document.id, title: document.title })) ??
             []),
         ]}
         onChange={onChange}
-        disabled={disabled}
+        disabled={disabled || Boolean(documents.error)}
       />
       <Field>
         <FieldLabel>Find documents by whole words</FieldLabel>

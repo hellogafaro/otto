@@ -77,7 +77,7 @@ No hardcoded entity IDs remain. The only picker sentinels are empty string for n
 7. Document menus archive/restore and await acknowledgement; no Delete. Shared detail More remains copy-only with a visible archive/restore action in its header.
 8. Discovery has URL-backed whole-word search, typed filters, explicit sort/direction/page size, and server cursor navigation. Mixed Files library semantics are untouched.
 
-## Checks
+## Initial lane checks
 
 | Check | Status | Observed evidence |
 | --- | --- | --- |
@@ -127,16 +127,52 @@ The first plain Bun route import failed because the shared Composer reads window
 19. Disconnect network during read/mutation and restore it. Read errors use Retry; pending submit cannot be doubled; save/property/attachment/proposal drafts remain; refresh to reconcile uncertain create/control outcome before retrying.
 20. Repeat principal flows at narrow mobile and desktop widths; inspect stock dialogs, long labels/title wrapping, Project/folder picker pagination, panel toggle, Tiptap reset, keyboard Copy/Archive and real shared FloatingChat. Capture fresh root-owned screenshots and interaction recording.
 
+## Followup correction on root `76e6fbe`
+
+The followup uses root revision `76e6fbe` only as its local check dependency. The signed correction contains only owned Document routes/helpers and this evidence. Project membership paging/authority (`useDocumentWriter`, reviewer F1) remains root-owned and unchanged; the only `document-data.tsx` edit disables the entire DocumentChoice combobox and ignores late selection events while disabled.
+
+| Reachable finding | Correction / action state | Proof |
+| --- | --- | --- |
+| Attachment/property/Accept requests locked only child controls; main title/body remained editable and their ACK reset discarded newly typed text | One synchronous per-Document operation lock covers body/metadata/archive and relation mutations through acknowledgement and invalidation; main Tiptap/fields and relation actions disable during flight. Original editTokens remain captured | Production helper refuses a concurrent action before it executes, releases after ACK and actual shared read 409. Browser interaction unverified |
+| A transient Document refetch error unmounted the draft | Keep the same DocumentView mounted only for fetch TypeError/network or HTTP 5xx; show Retry and lock writes. Invalid JSON/unknown/nontransient errors hide detail | Actual QueryClient cached-refetch failure checks exercise 400/401/403/404/409/500/503; cached rows remain present, production error classifier distinguishes permitted lifetime |
+| Reviewer F4: failed Collection reads still rendered cached field titles/properties and enabled property writes | Denied/nontransient Collection reads hide title/schema/property readbacks and the captured management dialog; every Collection read failure locks property save/edit and management, including an already-open dialog. 5xx/network retains local property/modal drafts with disabled edits. Denied list/proposal/File/reference reads hide cached titles/bodies/options; affected write selectors/resolution lock on errors | Same actual QueryClient + real shared read checks verify retained sensitive data is excluded for denied reads and retained only for transient reads. React/browser authority transitions unverified |
+| Properties guard skipped when blocked by stale/main-read/main-pending state | Main guard accounts for both main and property dirtiness independent of blocked state; all Document writes prevent navigation while pending. Explicit property Cancel resets from current Document | Source inspection; root scenario 23 required |
+| Create, Collection and proposal dialogs could lose drafts on route/history/unload | Each modal guards dirty navigation and pending requests. Explicit Cancel remains available before a request. Create bypasses its guard only after ACK, before navigating to the actual returned Document ID | Source inspection; root scenarios 24–25 required |
+| An already-open combobox could dispatch selection after pending/authority disabled only its input | Disable Combobox itself and ignore disabled onValueChange | Source inspection; root scenario 26 required |
+
+Followup checks: repository name `otto` verified before explicit frozen install (exit 0, no manifest/lock changes). Scoped Bun Biome check passes. Serialized web typecheck and production build pass (exit 0); build retains the existing >500 kB chunk warning. The first typecheck against the root dependency failed before the workspace install refreshed `@otto/server` linkage; frozen install resolved it, with no source workaround. `git diff --check` and staged-content inspection are required before the signed commit. PostgreSQL/native/browser suites and independent acceptance remain **unverified** here by root coordination.
+
+The four controlled production checks use the real `read`/`ApiError`, `runDocumentOperation`, `canKeepDocumentDraft` and QueryClient. No mock runtime data, alternate API client, browser credentials or backend edits are introduced. The minimal import fixture supplies only window.location. Observed outputs:
+
+```text
+PASS synchronous pending lock refuses concurrent mutation and releases after ACK
+PASS production read conflict releases fence for deliberate retry
+PASS real QueryClient retains cached data after failure; denied readbacks are hidden, 500/503 survive
+PASS only network TypeError or server 5xx preserve draft; malformed/unknown errors do not
+```
+
+Additional numbered real browser scenarios for root:
+
+21. Delay an attachment add/remove, property save, and proposal acceptance response. Attempt title/body/labels/visibility/folder edits and another Document write during flight: every covered control must lock, navigation must remain blocked, and ACK must preserve the acknowledged content without dropping local keystrokes.
+22. With dirty main and property drafts, force Document GET and Collection GET to 503/network failure separately. Drafts remain, fields and writes lock, Retry recovers the same drafts and original tokens. Then return 401/403/404: Document detail disappears, or Collection title/schema/property readbacks and its management dialog disappear; no write becomes enabled from cached data. Also force denied proposal/File/reference/list reads and verify cached titles/bodies/options disappear.
+23. With only property changes, trigger an external editToken advance, a main refetch failure and a pending relation operation. Back/breadcrumb/link/unload must warn or stay blocked even though relation blocked is true. Cancel properties restores current authoritative values after successful read.
+24. Edit an unsaved new Document and attempt Back/link/unload; refusal retains input. During delayed create, close/navigation are blocked. After successful ACK, its own returned-ID navigation proceeds without a discard prompt.
+25. Edit Collection/proposal dialogs and attempt route/history/unload, then delayed submit, conflict and network error. Refusal/error retains inputs and original fences; pending blocks close/navigation; explicit Cancel before pending discards locally. During a Collection refetch 503, an already-open management dialog stays but Save/edit locks; denied read hides the captured dialog.
+26. Open Collection/File/visibility/property combobox, then start a covered request or cause an authority/read-error transition. Choosing an already-visible option cannot dispatch a change while disabled. Keyboard and narrow-mobile behavior require fresh inspected root evidence.
+
+Pending items remain those above: unsupported backend actions have no invented success, Collection table/list browsing needs a separately owned route if required, and fresh integrated browser/permission/review acceptance belongs to root. This correction introduces no new Project membership implementation or common-editor changes.
+
 ## Source hashes
 
 The exact signed lane commit identifies the implementation source; independent acceptance is still unverified. Dependency commits are excluded from root's lane cherry-pick list.
 
 | Owned source | SHA-256 |
 | --- | --- |
-| `apps/web/src/routes/documents.tsx` | `6bf86221810317e1bd2af6b1e3a083222136d4268bf5d3b9381d44c6377ec68f` |
-| `apps/web/src/routes/document.tsx` | `4159c51c6b149e7296a875310557eb8efe9f27477a72da712c874c5cd3e03057` |
-| `apps/web/src/components/documents/collection-manager.tsx` | `68fc91c2bab96ca18db91b51183e1c66daa4b23011afc704ae071ca5605579f7` |
-| `apps/web/src/components/documents/document-data.tsx` | `35472c8f2a970973de5087401bfd99d89c4c1caca955c68844865d8903b036be` |
+| `apps/web/src/routes/documents.tsx` | `a8dfe7326fd050f20271c2a5da80c9e21354392b01215be41566b0b828e27ac3` |
+| `apps/web/src/routes/document.tsx` | `4e7dd44a1e62aa2e10509137fbffe763b4bb39001461ca0d98655e79a2d27c7c` |
+| `apps/web/src/components/documents/collection-manager.tsx` | `16de26b40f3fa079f39f9463d93888580ee072e531ce15c128182959c6560b44` |
+| `apps/web/src/components/documents/document-data.tsx` | `d76cb74e177da13768c916ef6e88b7c4325b5ad84a6d51f67507f8e507500755` |
 | `apps/web/src/components/documents/document-menu.tsx` | `fd60c77c1dc66558d16be9187d23d9ac6e0c163ac87fdc167967213a5978c1ae` |
-| `apps/web/src/components/documents/document-reference-choice.tsx` | `00f9447a83a00d217789ecb13cc17e4f0a0b7d32b246d78ff40cdd0c0c0adb73` |
-| `apps/web/src/components/documents/document-relations.tsx` | `d955faedab648195519d99cc700a81c2c84ac9c12e0eafd041dc4bb34f0e0be5` |
+| `apps/web/src/components/documents/document-reference-choice.tsx` | `ac77fc1828747242177d5b70d672605e64777739c51e0870b9bac76e77071e02` |
+| `apps/web/src/components/documents/document-relations.tsx` | `ed618a4efb19e883b164d18ed4e23ab44abf6c7040626cb61ba52df242cca70d` |
+| `apps/web/src/components/documents/document-operation.ts` | `ca51a430c1c49291523cc157e65bf22081b8a0fd4ea73e75bbd55cb682883dbe` |

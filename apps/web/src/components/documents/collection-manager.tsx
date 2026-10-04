@@ -1,3 +1,4 @@
+import { useBlocker } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
@@ -53,6 +54,7 @@ export function CollectionManager({
       {open && (
         <CollectionDialog
           projectId={projectId}
+          disabled={disabled}
           collection={open === "edit" ? collection : undefined}
           onClose={() => setOpen(null)}
         />
@@ -62,11 +64,13 @@ export function CollectionManager({
 }
 function CollectionDialog({
   projectId,
+  disabled,
   collection: initialCollection,
   onClose,
 }: {
   projectId: string | null;
   collection?: CollectionRecord;
+  disabled: boolean;
   onClose(): void;
 }) {
   const { api, workspaceId, invalidate } = useWorkspace();
@@ -80,7 +84,17 @@ function CollectionDialog({
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const dirty =
+    title !== (collection?.title ?? "") ||
+    view !== (collection?.view ?? "table") ||
+    JSON.stringify(fields) !== JSON.stringify(collection?.fields ?? []);
+  useBlocker({
+    shouldBlockFn: () =>
+      pending || (dirty && !window.confirm("Discard Collection changes?")),
+    enableBeforeUnload: pending || dirty,
+  });
   async function write(archive?: boolean) {
+    if (pending || disabled) return;
     if (
       archive === undefined &&
       (!title.trim() ||
@@ -182,7 +196,7 @@ function CollectionDialog({
                 value={title}
                 maxLength={200}
                 required
-                disabled={pending}
+                disabled={pending || disabled}
                 onChange={(event) => setTitle(event.target.value)}
               />
             </Field>
@@ -195,7 +209,7 @@ function CollectionDialog({
                   { id: "list", title: "List" },
                 ]}
                 onChange={(value) => setView(value as typeof view)}
-                disabled={pending}
+                disabled={pending || disabled}
               />
             )}
             {fields.map((field, index) => {
@@ -213,7 +227,7 @@ function CollectionDialog({
                       value={field.title}
                       maxLength={200}
                       required
-                      disabled={pending}
+                      disabled={pending || disabled}
                       onChange={(event) =>
                         fieldAt(index, { ...field, title: event.target.value })
                       }
@@ -239,7 +253,7 @@ function CollectionDialog({
                         options: value === "select" ? [] : undefined,
                       })
                     }
-                    disabled={pending || existing}
+                    disabled={pending || disabled || existing}
                   />
                   {field.type === "select" && (
                     <Field>
@@ -249,7 +263,7 @@ function CollectionDialog({
                       <Textarea
                         id={`field-options-${field.id}`}
                         value={(field.options ?? []).join("\n")}
-                        disabled={pending}
+                        disabled={pending || disabled}
                         onChange={(event) =>
                           fieldAt(index, {
                             ...field,
@@ -263,7 +277,7 @@ function CollectionDialog({
                     <Button
                       type="button"
                       variant="ghost"
-                      disabled={pending}
+                      disabled={pending || disabled}
                       onClick={() =>
                         setFields(fields.filter((item) => item.id !== field.id))
                       }
@@ -277,7 +291,7 @@ function CollectionDialog({
             <Button
               type="button"
               variant="outline"
-              disabled={pending || fields.length >= 50}
+              disabled={pending || disabled || fields.length >= 50}
               onClick={() =>
                 setFields([
                   ...fields,
@@ -296,6 +310,7 @@ function CollectionDialog({
                 variant="outline"
                 disabled={
                   pending ||
+                  disabled ||
                   title !== collection.title ||
                   view !== collection.view ||
                   JSON.stringify(fields) !== JSON.stringify(collection.fields)
@@ -315,7 +330,7 @@ function CollectionDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending || disabled}>
               {pending ? "Saving" : "Save collection"}
             </Button>
           </DialogFooter>
