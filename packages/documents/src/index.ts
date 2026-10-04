@@ -300,6 +300,7 @@ export async function getDocuments(
       return {
         id: doc.id,
         title: doc.title,
+        createdBy: doc.createdBy,
         projectId: doc.projectId,
         folderId: doc.folderId,
         visibility: doc.visibility,

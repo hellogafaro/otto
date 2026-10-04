@@ -27,6 +27,64 @@ import {
 const KINDS = ["folder", "file", "document"] as const;
 type Kind = (typeof KINDS)[number];
 
+// Keep the transport projection inferred from each domain, including its discriminator.
+function folderItem(
+  row: Awaited<ReturnType<typeof getFolders>>["items"][number],
+) {
+  return {
+    type: "folder" as const,
+    id: row.id,
+    title: row.title,
+    folderId: row.parentId,
+    projectId: row.projectId,
+    visibility: row.visibility,
+    archived: row.archived,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    ownerId: row.createdBy,
+  };
+}
+function fileItem(row: Awaited<ReturnType<typeof getFiles>>["items"][number]) {
+  return {
+    type: "file" as const,
+    id: row.id,
+    title: row.title,
+    folderId: row.folderId,
+    projectId: row.projectId,
+    visibility: row.visibility,
+    archived: row.archived,
+    labels: row.labels,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    ownerId: row.ownerId,
+    fileType: row.type,
+    mediaType: row.mediaType,
+    byteLength: row.byteLength,
+  };
+}
+function documentItem(
+  row: Awaited<ReturnType<typeof getDocuments>>["items"][number],
+) {
+  return {
+    type: "document" as const,
+    id: row.id,
+    title: row.title,
+    folderId: row.folderId,
+    projectId: row.projectId,
+    visibility: row.visibility,
+    archived: row.archived,
+    labels: row.labels,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    ownerId: row.createdBy,
+    editToken: row.editToken,
+  };
+}
+type LibraryItem =
+  | ReturnType<typeof folderItem>
+  | ReturnType<typeof fileItem>
+  | ReturnType<typeof documentItem>;
+
 /**
  * One bounded browse page over folders, then Files, then Documents. The cursor is `<kind>:<child cursor>`
  * (empty = start of that kind); each kind is a keyset page from its owning domain, never a merged sort.
@@ -62,7 +120,7 @@ async function getLibrary(
   const projectId = folder ? folder.projectId : (filter.projectId ?? null);
   const parent = filter.folderId ?? null;
   const archived = filter.archived ?? false;
-  const items: Record<string, unknown>[] = [];
+  const items: LibraryItem[] = [];
   let next: string | null = null;
   for (let index = start; index < kinds.length; index++) {
     const phase = kinds[index] as Kind;
@@ -76,67 +134,29 @@ async function getLibrary(
     };
     const result =
       phase === "folder"
-        ? await getFolders(c, { ...page, parentId: parent, projectId })
+        ? await getFolders(c, { ...page, parentId: parent, projectId }).then(
+            (result) => ({ ...result, items: result.items.map(folderItem) }),
+          )
         : phase === "file"
           ? await getFiles(c, {
               ...page,
               folderId: parent,
               projectId,
               label: filter.label,
-            })
+            }).then((result) => ({
+              ...result,
+              items: result.items.map(fileItem),
+            }))
           : await getDocuments(c, {
               ...page,
               folderId: parent,
               projectId,
               label: filter.label,
-            });
-    for (const row of result.items as Record<string, unknown>[])
-      items.push(
-        phase === "folder"
-          ? {
-              type: "folder",
-              id: row.id,
-              title: row.title,
-              folderId: row.parentId,
-              projectId: row.projectId,
-              visibility: row.visibility,
-              archived: row.archived,
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt,
-              ownerId: row.createdBy,
-            }
-          : phase === "file"
-            ? {
-                type: "file",
-                id: row.id,
-                title: row.title,
-                folderId: row.folderId,
-                projectId: row.projectId,
-                visibility: row.visibility,
-                archived: row.archived,
-                labels: row.labels,
-                createdAt: row.createdAt,
-                updatedAt: row.updatedAt,
-                ownerId: row.ownerId,
-                fileType: row.type,
-                mediaType: row.mediaType,
-                byteLength: row.byteLength,
-              }
-            : {
-                type: "document",
-                id: row.id,
-                title: row.title,
-                folderId: row.folderId,
-                projectId: row.projectId,
-                visibility: row.visibility,
-                archived: row.archived,
-                labels: row.labels,
-                createdAt: row.createdAt,
-                updatedAt: row.updatedAt,
-                ownerId: row.createdBy,
-                editToken: row.editToken,
-              },
-      );
+            }).then((result) => ({
+              ...result,
+              items: result.items.map(documentItem),
+            }));
+    items.push(...result.items);
     if (result.next) {
       next = `${phase}:${result.next}`;
       break;
