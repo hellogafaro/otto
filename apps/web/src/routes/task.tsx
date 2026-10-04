@@ -324,6 +324,9 @@ function TaskNotes({ task, canWrite }: { task: Task; canWrite: boolean }) {
         }),
       );
     },
+    onError: async (error) => {
+      if (error instanceof ApiError && error.status === 409) await invalidate();
+    },
     onSuccess: async () => {
       await invalidate();
       setDraft(undefined);

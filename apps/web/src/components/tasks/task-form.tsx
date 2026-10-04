@@ -59,7 +59,7 @@ export function TaskPicker({
         variant="outline"
         disabled={disabled}
         aria-label={label}
-        aria-expanded={open}
+        aria-expanded={open && !disabled}
         onClick={() => setOpen(true)}
       >
         {options[value] ?? "Choose"}
@@ -74,10 +74,10 @@ export function TaskPicker({
           ]),
         )}
         onPick={(id) => {
-          onChange(id);
+          if (!disabled) onChange(id);
           setOpen(false);
         }}
-        open={open}
+        open={open && !disabled}
         onOpenChange={setOpen}
         anchor={anchor}
       />
@@ -193,6 +193,9 @@ export function TaskForm({
           "Could not confirm whether the task was saved. Check the task list before submitting again.",
         );
       }
+    },
+    onError: async (error) => {
+      if (error instanceof ApiError && error.status === 409) await invalidate();
     },
     onSuccess: async (saved) => {
       await invalidate();

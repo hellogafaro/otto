@@ -99,13 +99,40 @@ Scratch assertions ran from thread storage against production exports with a con
 14. Simulate loss of acknowledgement after a real Task/Timesheet creation reaches the server. Verify the form says persistence is unconfirmed, retains input and tells the person to inspect the list before another create. No automatic retry or success toast. Retry read failures and test delayed mutation ACKs across dialogs.
 15. Check Task row open/context Open/Ask/Copy and detail Copy (including denied Clipboard API), breadcrumb/occurrence links, Project navigation and panel toggles. Check Activity displays actual creation time without invented author/comments; FloatingChat must use actual Task/Project identifiers and the exact admitted account/model with no fallback. Test keyboard focus, labels, dismissal, narrow-screen layout and light/dark rendering; retain screenshots/interaction recordings on the integrated revision.
 
+## Follow-up: conflict recovery and disabled pickers
+
+The root requested an owned-control inspection after integrating the original lane commit `5f87e4f10c41a4f700863b407ed7421ca3401a47`. No shared membership, modal-hotkey, API-client or backend change belongs to this correction.
+
+| Reproduction on original owned source | Observed result | Correction |
+| --- | --- | --- |
+| Open metadata editor with editToken 7, another writer saves token 8, receive HTTP 409, cancel/reopen while the detail query still caches token 7 | No conflict invalidation; reopen could capture the same stale token and conflict repeatedly | Metadata 409 refreshes workspace queries while retaining the captured draft/token. Explicit reopen uses the newly fetched token. |
+| Open description draft with token 7, receive 409 after another write, cancel/reopen against the stale detail cache | Same missing cache refresh | Description 409 refreshes queries without clearing/rebasing the draft. Cancel/reopen captures the current version. |
+| Open TaskPicker, then change its disabled prop to true through permission/pending state | Popup remained open and its onPick still changed the selection | Popup/aria-expanded derive from open and enabled state; onPick refuses changes when disabled. |
+
+Controlled checks execute the exact production TaskForm, TaskPicker, TaskNotes, TaskView, TaskLinkForm and TimeEntryForm function declarations extracted with TypeScript and transpiled to React JSX. Hooks, mutation/query responses and UI leaf components are controlled fixtures; these are **not** DOM/browser, React Query integration or server-permission tests. The original source failed three checks and passed the pending/dismissal check. Corrected source passes all six checks: metadata conflict, description conflict, disabled popup selection, editor pending/cancel, status/archive tokens and authority/pending controls, and link/time Save authority/pending controls. Background refresh keeps token 7 until explicit reopen; reopened forms use token 8. Status/archive requests send the real Task id and token, with no invalidation before the ACK callback.
+
+Artifacts retained in `/home/g4f4r0/.bb/thread-storage/thr_z6xu7ypham/`:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `tasks-control-check.ts` | `bbe64b92d2c3e024909980d4d394c8b6b16683cd2ab94fc533951702d4911c46` |
+| `tasks-control-before.log` | `7f79485795b1d634b1592b861c7deba7ed0e933c42bf1a6e487f2f0752975559` |
+| `tasks-control-after.log` | `29b483336735e2f6ec293eeb162a1b455bb411a43986e1bdc633b8c64f4efba4` |
+
+Biome checked the two changed source files with zero diagnostics. Serialized web typecheck and build were rerun on this correction and both stopped at the same unowned `routes/project.tsx:268` mock Task[] caller, with no owned-source diagnostic; Vite did not run. The original inventory remains applicable; the initial Project-caller failures above describe this child's older shared dependencies, not the root's integrated revision. Root owns the membership-over-100 and shared modal-hotkey corrections, current integrated checks and independent acceptance. Browser/PG/native checks remain unverified in this follow-up.
+
+Additional root browser scenarios:
+
+16. Keep a metadata/description draft open without focusing away from the page; update the same Task through an independent API client. Submit the old draft, observe 409 plus a Task GET, and verify unsaved content stays intact. Cancel/reopen after the GET completes, save using the refreshed token and reload to verify persistence. Do not require a browser focus/refetch event or automatic token rebase for recovery.
+17. Open the owner/type/target picker, then make its parent disabled through a pending or refreshed-authority transition. Verify the popup disappears, aria-expanded becomes false and no selection can change while disabled. Restore access and check normal picking; exercise the server's authoritative denial independently.
+
 ## Source SHA-256
 
 | File | SHA-256 |
 | --- | --- |
 | `apps/web/src/routes/tasks.tsx` | `508b6071dfd3959567d2f4725ddd49af36ca7eab3fbdc4428a1bc866431f1514` |
-| `apps/web/src/routes/task.tsx` | `78709d03551b5dccdd879b051ff463fadbfde13cbead32582b02970ac09cd699` |
+| `apps/web/src/routes/task.tsx` | `0ed5fe81b7991974c5bda5b4dde4a2b354226938d0af7aef417520dfb70098b8` |
 | `apps/web/src/components/activity.tsx` | `52030dab5019d8ad887c648f725f6d58104c5d2140344967159a8355fa37ab7d` |
 | `apps/web/src/lib/task-data.ts` | `53ed6e3b7dbfd7eeea0e8b4cb15a6060775fb8bdcb93fabe4449ba73da42270c` |
-| `apps/web/src/components/tasks/task-form.tsx` | `0245026da050bc711924997350d6f265c27dd6a538f77942f2ea15a66955fdbe` |
+| `apps/web/src/components/tasks/task-form.tsx` | `e0c5fa28c9f0a3a22535e55593d397637e811c3dfe1612fbabaa866738d269a7` |
 | `apps/web/src/components/tasks/task-sections.tsx` | `604760549112beadaa4ec90fd84e56c68d528abba242ff36dd4f6c933a28cae4` |
