@@ -570,7 +570,7 @@ describe("folders, placement rules and the mixed library through real HTTP and p
       visibility: "user",
       folderId: undefined,
     });
-    const seen: { type: string; id: string }[] = [];
+    const seen: { type: string; id: string; ownerId: string }[] = [];
     let after: string | undefined;
     let pages = 0;
     do {
@@ -604,6 +604,9 @@ describe("folders, placement rules and the mixed library through real HTTP and p
       folderId: root.id,
       projectId,
     });
+    expect(seen.filter((item) => item.type === "document")).toHaveLength(2);
+    for (const item of seen.filter((item) => item.type === "document"))
+      expect(item.ownerId).toBe(owner.id);
     // The Project root and the workspace root are separate scopes.
     const projectRoot = await call(owner, `/library?projectId=${projectId}`);
     expect(projectRoot.items.map((i: { id: string }) => i.id)).toContain(
