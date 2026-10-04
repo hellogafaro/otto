@@ -14,7 +14,7 @@ import { DocumentsPage, validateDocumentsSearch } from "@/routes/documents";
 import { FilesPage, validateFilesSearch } from "@/routes/files";
 import { InboxPage } from "@/routes/inbox";
 import { ProjectPage, validateProjectSearch } from "@/routes/project";
-import { ProjectsPage } from "@/routes/projects";
+import { ProjectsPage, validateProjectsSearch } from "@/routes/projects";
 import {
   SchedulePage,
   SchedulesPage,
@@ -35,7 +35,10 @@ const inboxRoute = createRoute({
 const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/projects",
-  component: ProjectsPage,
+  validateSearch: validateProjectsSearch,
+  component: function Projects() {
+    return <ProjectsPage search={projectsRoute.useSearch()} />;
+  },
 });
 
 const projectRoute = createRoute({

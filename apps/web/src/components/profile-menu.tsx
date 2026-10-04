@@ -39,7 +39,15 @@ const themes = [
 export function ProfileMenu() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
-  const { user, workspace, workspaces, selectWorkspace } = useWorkspace();
+  const {
+    user,
+    workspace,
+    workspaces,
+    selectWorkspace,
+    moreWorkspaces,
+    loadingWorkspaces,
+    loadWorkspaces,
+  } = useWorkspace();
   const queryClient = useQueryClient();
 
   return (
@@ -82,6 +90,22 @@ export function ProfileMenu() {
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
+              {moreWorkspaces && (
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    disabled={loadingWorkspaces}
+                    onClick={async () => {
+                      try {
+                        await loadWorkspaces();
+                      } catch {
+                        toast.error("Unable to load more workspaces.");
+                      }
+                    }}
+                  >
+                    More workspaces
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              )}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>

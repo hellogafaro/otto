@@ -881,8 +881,9 @@ continue through bounded pages instead of treating the first hundred as complete
   rows and nested controls; don't invent values to make one screen fit.
 - Do start text on the page column's edge and let surfaces reach out by
   their own inset; don't push a card's text in past the title's line.
-- Do save settings as they change, with the one "Settings saved" toast;
-  don't add Save buttons.
+- Do save ordinary settings as they change, with the one "Settings saved" toast.
+  Multi-field Agent and Schedule configuration uses explicit Save/Cancel with one
+  captured edit token; Documents and Skill content preserve fenced drafts until Save.
 - Do nest radii (inner = outer − gap); don't reuse a container's radius inside
   it.
 - Do keep primary for the main action and tags; don't use it for navigation,
@@ -903,3 +904,11 @@ continue through bounded pages instead of treating the first hundred as complete
 ### Live mention discovery
 
 Composer mentions query real workspace members, Agents, Projects and Files, with at most three results per kind. Task suggestions require the composer's explicit Project scope. Searches follow server whole-word matching; empty results and request failures are visible. File mentions use the File discriminator and saved identity.
+
+### Accounts and workspace access
+
+Authentication uses the real account service for sign-in, registration and password reset, with acknowledged results and request errors. Registration does not grant installation or workspace authority. A person without workspace access can accept a known invitation ID. Workspace selection loads additional server pages and clears the previous workspace cache before navigation.
+
+### Fenced configuration and content
+
+Agent account/model/Skill selection and Schedule configuration use explicit Save/Cancel for one atomic change protected by the opening edit token. Document content, labels, visibility and folder are one fenced draft; Skill content and supporting Files have separate acknowledged fences. Failed or stale edits retain input. Unsupported decorative fields and fabricated activity are removed; Schedule timing shows the saved cron/timezone without guessing a next-run date.

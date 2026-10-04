@@ -1,9 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
 import { createContext, type ReactNode, useContext, useState } from "react";
+import { Authentication } from "@/components/authentication";
 import { client, read, workspaceApi } from "@/lib/api";
 import { authClient } from "@/lib/auth";
 
@@ -22,6 +23,9 @@ interface WorkspaceContext {
   user: { id: string; name: string; email: string };
   api: typeof workspaceApi;
   selectWorkspace(id: string): void;
+  moreWorkspaces: boolean;
+  loadingWorkspaces: boolean;
+  loadWorkspaces(): Promise<unknown>;
   invalidate(): Promise<void>;
 }
 const context = createContext<WorkspaceContext | null>(null);
@@ -39,14 +43,16 @@ export function WorkspaceBoundary({ children }: { children: ReactNode }) {
   const [selectedId, setSelectedId] = useState(() =>
     localStorage.getItem("otto-workspace"),
   );
-  const workspaces = useQuery({
+  const workspaces = useInfiniteQuery({
     queryKey: ["workspaces", session.data?.user.id],
-    queryFn: async () =>
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) =>
       read(
         await client.workspaces.$get({
-          query: { limit: "100", sort: "title" },
+          query: { limit: "100", sort: "title", after: pageParam },
         }),
       ),
+    getNextPageParam: (last) => last.next ?? undefined,
     enabled: Boolean(session.data),
     retry: false,
   });
@@ -59,7 +65,7 @@ export function WorkspaceBoundary({ children }: { children: ReactNode }) {
         <Button onClick={() => session.refetch()}>Retry</Button>
       </BoundaryMessage>
     );
-  if (!session.data) return <SignIn />;
+  if (!session.data) return <Authentication />;
   if (workspaces.isPending)
     return <BoundaryMessage>Loading workspaces</BoundaryMessage>;
   if (workspaces.error)
@@ -69,13 +75,14 @@ export function WorkspaceBoundary({ children }: { children: ReactNode }) {
         <Button onClick={() => workspaces.refetch()}>Retry</Button>
       </BoundaryMessage>
     );
-  const list = workspaces.data.items;
+  const list = workspaces.data.pages.flatMap((page) => page.items);
   const workspace = list.find((item) => item.id === selectedId) ?? list[0];
   if (!workspace)
     return (
       <BoundaryMessage>
         <p>No workspace access. Ask an owner for an invitation.</p>
         <p>Installation setup is performed by the server administrator.</p>
+        <InvitationJoin />
         <Button onClick={() => workspaces.refetch()}>Check again</Button>
         <Button variant="ghost" onClick={() => authClient.signOut()}>
           Log out
@@ -89,6 +96,9 @@ export function WorkspaceBoundary({ children }: { children: ReactNode }) {
         workspaceId: workspace.id,
         workspace,
         workspaces: list,
+        moreWorkspaces: workspaces.hasNextPage,
+        loadingWorkspaces: workspaces.isFetchingNextPage,
+        loadWorkspaces: () => workspaces.fetchNextPage(),
         user: session.data.user,
         api: workspaceApi,
         selectWorkspace: (id) => {
@@ -123,62 +133,52 @@ function BoundaryMessage({ children }: { children: ReactNode }) {
   );
 }
 
-function SignIn() {
+function InvitationJoin() {
+  const queryClient = useQueryClient();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   return (
-    <BoundaryMessage>
-      <h1>Sign in to Otto</h1>
-      <form
-        className="w-full max-w-sm"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          const form = new FormData(event.currentTarget);
-          setPending(true);
-          setError(undefined);
-          try {
-            const result = await authClient.signIn.email({
-              email: String(form.get("email")),
-              password: String(form.get("password")),
-            });
-            if (result.error)
-              setError(result.error.message ?? "Sign in failed.");
-          } catch {
-            setError("Unable to reach Otto. Try again.");
-          } finally {
-            setPending(false);
-          }
-        }}
-      >
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="username"
-              required
-              disabled={pending}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              disabled={pending}
-            />
-          </Field>
-          {error && <p role="alert">{error}</p>}
-          <Button type="submit" disabled={pending}>
-            {pending ? "Signing in" : "Sign in"}
-          </Button>
-        </FieldGroup>
-      </form>
-    </BoundaryMessage>
+    <form
+      className="w-full max-w-sm"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        const invitationId = String(form.get("invitationId")).trim();
+        setPending(true);
+        setError(undefined);
+        try {
+          await read(
+            await client.invitations[":id"].accept.$post({
+              param: { id: invitationId },
+            }),
+          );
+          await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+        } catch (error) {
+          setError(
+            error instanceof Error
+              ? error.message
+              : "Unable to join workspace.",
+          );
+        } finally {
+          setPending(false);
+        }
+      }}
+    >
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="invitation-id">Invitation ID</FieldLabel>
+          <Input
+            id="invitation-id"
+            name="invitationId"
+            required
+            disabled={pending}
+          />
+        </Field>
+        {error && <p role="alert">{error}</p>}
+        <Button disabled={pending} type="submit">
+          {pending ? "Joining" : "Accept invitation"}
+        </Button>
+      </FieldGroup>
+    </form>
   );
 }
