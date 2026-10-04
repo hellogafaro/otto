@@ -26,6 +26,7 @@ export function EmptyPage({
   title,
   description,
   ask,
+  create,
   children,
 }: {
   icon: RemixiconComponentType;
@@ -39,6 +40,8 @@ export function EmptyPage({
     /** How the sentence starts in the bar, e.g. "Every ". */
     start: string;
   };
+  /** The main button for a page whose creation is a form, drawn like the ask button. */
+  create?: { action: string; onClick: () => void };
   /** Other buttons (e.g. Upload file), after the main one. */
   children?: ReactNode;
 }) {
@@ -54,6 +57,9 @@ export function EmptyPage({
         </EmptyHeader>
         <EmptyContent>
           {ask && <AskButton action={ask.action} start={ask.start} />}
+          {create && (
+            <MainButton action={create.action} onClick={create.onClick} />
+          )}
           {children}
         </EmptyContent>
       </Empty>
@@ -64,14 +70,24 @@ export function EmptyPage({
   );
 }
 
-function AskButton({ action, start }: { action: string; start: string }) {
-  const askAgent = useAskAgent();
+function MainButton({
+  action,
+  onClick,
+}: {
+  action: string;
+  onClick: () => void;
+}) {
   return (
-    <Button size="sm" onClick={() => askAgent(start)}>
+    <Button size="sm" onClick={onClick}>
       <RiAddLine data-icon="inline-start" />
       {action}
     </Button>
   );
+}
+
+function AskButton({ action, start }: { action: string; start: string }) {
+  const askAgent = useAskAgent();
+  return <MainButton action={action} onClick={() => askAgent(start)} />;
 }
 
 // Missing pages and records, with a way home.

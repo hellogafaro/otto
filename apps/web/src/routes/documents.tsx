@@ -245,11 +245,12 @@ export function DocumentsPage({ search }: { search: DocumentsSearch }) {
           icon={RiFileTextLine}
           title="No documents"
           description="Notes and specs written by your team live here."
-        >
-          {workspace.role !== "viewer" && (
-            <Button onClick={() => setCreating(true)}>New document</Button>
-          )}
-        </EmptyPage>
+          create={
+            workspace.role !== "viewer"
+              ? { action: "New document", onClick: () => setCreating(true) }
+              : undefined
+          }
+        />
         {creating && <CreateDocument onClose={() => setCreating(false)} />}
       </>
     );

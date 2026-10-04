@@ -104,8 +104,16 @@ import {
   Section,
   WithPanel,
 } from "@/components/detail";
+import { EmptyPage } from "@/components/empty-page";
 import { Lightbox } from "@/components/files";
+import {
+  FilterBar,
+  type FilterDef,
+  FilterMenu,
+  NoResults,
+} from "@/components/filters";
 import { MentionText } from "@/components/mentions";
+import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
 import { SectionSidebar } from "@/components/section-sidebar";
 import { ActorAvatar, type Look } from "@/components/task-meta";
@@ -337,8 +345,6 @@ export function ChatsLandingPage({
   search?: ReturnType<typeof validateChatsSearch>;
 }) {
   const navigate = useNavigate();
-  const [query, setQuery] = useState(search.query ?? "");
-  useEffect(() => setQuery(search.query ?? ""), [search.query]);
   const directory = useDirectory();
   const filters: ChatFilters = {
     query: search.query || undefined,
@@ -351,114 +357,87 @@ export function ChatsLandingPage({
   // URL validation is installed by the router owner; this updater remains typed against its baseline.
   const update = (next: Partial<typeof search>) =>
     void navigate({ to: "/chats", search: { ...search, ...next } });
+  const items = chats.data?.pages.flatMap((page) => page.items) ?? [];
+  const filterDefs: FilterDef<"project" | "archived">[] = [
+    {
+      key: "project",
+      label: "Project",
+      icon: RiBox3Line,
+      options: Object.fromEntries(
+        directory.projects.map((project) => [
+          project.id,
+          { label: project.title, icon: RiBox3Line },
+        ]),
+      ),
+    },
+    {
+      key: "archived",
+      label: "Archive",
+      icon: RiArchiveLine,
+      options: { true: { label: "Archived", icon: RiArchiveLine } },
+    },
+  ];
+  const values = {
+    project: search.project,
+    archived: search.archived === "true" ? "true" : undefined,
+  };
+  const change = (key: "project" | "archived", value: string | undefined) =>
+    update(
+      key === "archived"
+        ? { archived: value ? "true" : "false" }
+        : { project: value },
+    );
+  const clear = () => update({ project: undefined, archived: "false" });
+  const filtered = Boolean(
+    search.query || search.project || search.archived === "true",
+  );
+  if (chats.data && !chats.error && items.length === 0 && !filtered)
+    return (
+      <EmptyPage
+        icon={RiChat1Line}
+        title="No chats"
+        description="Chats are where you and your agents work together."
+        ask={{ about: "your chats", action: "New chat", start: "" }}
+      />
+    );
   return (
-    <>
-      <Topbar>
-        <RiChat1Line /> Chats
-      </Topbar>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 p-5">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            update({ query: query || undefined });
-          }}
+    <Page
+      title="Chats"
+      actions={
+        <FilterMenu filters={filterDefs} values={values} onChange={change} />
+      }
+    >
+      <FilterBar
+        filters={filterDefs}
+        values={values}
+        onChange={change}
+        onClear={clear}
+      />
+      <QueryState
+        pending={chats.isPending}
+        error={chats.error}
+        retry={chats.refetch}
+      />
+      {!chats.error && items.length > 0 && (
+        <SidebarMenu>
+          {items.map((chat) => (
+            <ChatRow key={chat.id} chat={chat} />
+          ))}
+        </SidebarMenu>
+      )}
+      {chats.data && !chats.error && items.length === 0 && (
+        <NoResults what="chats" onClear={clear} />
+      )}
+      {chats.hasNextPage && (
+        <Button
+          variant="outline"
+          disabled={chats.isFetchingNextPage}
+          onClick={() => chats.fetchNextPage()}
         >
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="chat-search">
-                Search titles (whole words)
-              </FieldLabel>
-              <Input
-                id="chat-search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                maxLength={200}
-              />
-            </Field>
-            <Button type="submit">Search</Button>
-          </FieldGroup>
-        </form>
-        <div className="flex flex-wrap items-center gap-2">
-          <ContextPicker
-            label="Project"
-            value={search.project ?? "none"}
-            options={{
-              none: { label: "All projects", icon: RiBox3Line },
-              ...Object.fromEntries(
-                directory.projects.map((project) => [
-                  project.id,
-                  { label: project.title, icon: RiBox3Line },
-                ]),
-              ),
-            }}
-            onPick={(project) =>
-              update({ project: project === "none" ? undefined : project })
-            }
-          />
-          <DirectoryPages kind="projects" />
-          <ContextPicker
-            label="Sort"
-            value={search.sort ?? "updatedAt"}
-            options={{
-              title: { label: "Title", icon: RiChat1Line },
-              createdAt: { label: "Created", icon: RiChat1Line },
-              updatedAt: { label: "Metadata updated", icon: RiChat1Line },
-            }}
-            onPick={(sort) => update({ sort: sort as typeof search.sort })}
-          />
-          <Button
-            variant="ghost"
-            onClick={() =>
-              update({ order: search.order === "asc" ? "desc" : "asc" })
-            }
-          >
-            {search.order === "asc" ? "Ascending" : "Descending"}
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() =>
-              update({
-                archived: search.archived === "true" ? "false" : "true",
-              })
-            }
-          >
-            {search.archived === "true" ? "Show active" : "Show archived"}
-          </Button>
-        </div>
-        <QueryState
-          pending={chats.isPending}
-          error={chats.error}
-          retry={chats.refetch}
-        />
-        {!chats.error && (
-          <SidebarMenu>
-            {chats.data?.pages
-              .flatMap((page) => page.items)
-              .map((chat) => (
-                <ChatRow key={chat.id} chat={chat} />
-              ))}
-          </SidebarMenu>
-        )}
-        {chats.data?.pages.every((page) => !page.items.length) && (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>No chats</EmptyTitle>
-              <EmptyDescription>
-                Start a chat or change your filters.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
-        {chats.hasNextPage && (
-          <Button
-            disabled={chats.isFetchingNextPage}
-            onClick={() => chats.fetchNextPage()}
-          >
-            Load more
-          </Button>
-        )}
-      </div>
-    </>
+          Load more
+        </Button>
+      )}
+    </Page>
   );
 }
 

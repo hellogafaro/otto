@@ -165,9 +165,12 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
           icon={RiBox3Line}
           title="No projects"
           description="Projects gather tasks, chats, documents and files around one goal."
-        >
-          {admin && <Button onClick={startCreating}>New project</Button>}
-        </EmptyPage>
+          create={
+            admin
+              ? { action: "New project", onClick: startCreating }
+              : undefined
+          }
+        />
         {createDialog}
       </>
     );

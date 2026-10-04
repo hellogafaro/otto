@@ -226,11 +226,12 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
           icon={RiCalendarScheduleLine}
           title="No schedules"
           description="Run a prompt or script and post the result to an existing Chat."
-        >
-          {writer && (
-            <Button onClick={() => setCreating(true)}>New schedule</Button>
-          )}
-        </EmptyPage>
+          create={
+            writer
+              ? { action: "New schedule", onClick: () => setCreating(true) }
+              : undefined
+          }
+        />
         <ScheduleEditor
           open={creating}
           onOpenChange={setCreating}
