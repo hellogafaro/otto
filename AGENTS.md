@@ -17,7 +17,7 @@ This is a fresh Otto Bun monorepo. Historical Buzz code and history stay outside
 
 - Follow [DESIGN.md](DESIGN.md): tokens, color, type, layout, elevation, shapes, components and do's and don'ts for the web UI.
 - Change shared looks in the `packages/ui` component with an `// Otto:` comment, never per instance; instance classes are for layout only.
-- Empty states follow the binding "Empty-state rules" in DESIGN.md (title "No <things>", one description sentence, one main button, no permanent toolbar); `bun run check:consistency` enforces the copy.
+- Empty states follow the binding "Empty-state rules" in DESIGN.md (title "No <things>", one description sentence, one main button, no permanent toolbar).
 - Record every new or changed UI decision in DESIGN.md in the same change and keep it passing `bunx @google/design.md lint DESIGN.md`.
 
 ## Small, cohesive changes

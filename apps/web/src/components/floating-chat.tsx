@@ -467,12 +467,14 @@ export function FloatingChat({
                     ) : undefined
                   }
                   idle={
-                    <Action
-                      label={chatsLabel}
-                      icon={RiInboxLine}
-                      dot={pending.length > 0}
-                      onClick={list}
-                    />
+                    pending.length > 0 ? (
+                      <Action
+                        label={chatsLabel}
+                        icon={RiInboxLine}
+                        dot
+                        onClick={list}
+                      />
+                    ) : undefined
                   }
                 />
               ) : (
@@ -487,12 +489,14 @@ export function FloatingChat({
                   pending={newChat.isPending}
                   disabled={Boolean(chatId) || workspace.role === "viewer"}
                   idle={
-                    <Action
-                      label={chatsLabel}
-                      icon={RiInboxLine}
-                      dot={pending.length > 0}
-                      onClick={list}
-                    />
+                    pending.length > 0 ? (
+                      <Action
+                        label={chatsLabel}
+                        icon={RiInboxLine}
+                        dot
+                        onClick={list}
+                      />
+                    ) : undefined
                   }
                 />
               )}
