@@ -202,6 +202,15 @@ function Palette({
     { key: "members", result: members },
     { key: "agents", result: agents },
   ].filter(({ result }) => result.error);
+  const actions = destinations.filter(
+    ({ label }) =>
+      !query || `go to ${label}`.toLowerCase().includes(query.toLowerCase()),
+  );
+  const showsSettings =
+    !query || "go to settings".includes(query.toLowerCase());
+  const searching = [projects, tasks, documents, files, members, agents].some(
+    (result) => result.isFetching,
+  );
   const go = (to: () => unknown) => () => {
     to();
     onDone();
@@ -220,11 +229,7 @@ function Palette({
         );
       }}
     >
-      <CommandInput
-        value={text}
-        onValueChange={setText}
-        placeholder="Search whole words"
-      />
+      <CommandInput value={text} onValueChange={setText} placeholder="Search" />
       <TabBar
         label="Categories"
         className="flex-nowrap px-1.75 py-2"
@@ -232,9 +237,8 @@ function Palette({
         value={category}
         onChange={onCategory}
       />
-      {shows("tasks") && (
+      {shows("tasks") && directory.projects.length > 0 && (
         <div className="flex items-center gap-2 px-4 pb-2">
-          <span>Tasks in</span>
           <NativeSelect
             aria-label="Task search project"
             value={projectId ?? ""}
@@ -257,15 +261,15 @@ function Palette({
             retry={() => result.refetch()}
           />
         ))}
-        {[projects, tasks, documents, files, members, agents].some(
-          (result) => result.isFetching,
-        ) && (
+        {searching && (
           <div role="status" className="px-4 py-2">
             Searching
           </div>
         )}
-        <CommandEmpty>No results. Search matches whole words.</CommandEmpty>
-        {shows("tasks") && (
+        {query && !searching && errors.length === 0 && (
+          <CommandEmpty>No results found.</CommandEmpty>
+        )}
+        {shows("tasks") && Boolean(tasks.data?.items.length) && (
           <CommandGroup heading="Tasks">
             {tasks.data?.items.map((task) => {
               const status = statuses[task.status];
@@ -289,38 +293,42 @@ function Palette({
             })}
           </CommandGroup>
         )}
-        {shows("people") && (
-          <CommandGroup heading="People">
-            {members.data?.items.map((member) => (
-              <CommandItem
-                key={member.userId}
-                value={`person-${member.userId}`}
-                onSelect={go(() =>
-                  navigate({ to: "/tasks", search: { owner: member.userId } }),
-                )}
-              >
-                <ActorAvatar actorId={member.userId} />
-                {member.name}
-              </CommandItem>
-            ))}
-            {agents.data?.items.map((agent) => (
-              <CommandItem
-                key={agent.id}
-                value={`agent-${agent.id}`}
-                onSelect={go(() =>
-                  navigate({
-                    to: "/settings/agents/$agentId",
-                    params: { agentId: agent.id },
-                  }),
-                )}
-              >
-                <ActorAvatar actorId={agent.id} />
-                {agent.title}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        )}
-        {shows("projects") && (
+        {shows("people") &&
+          Boolean(members.data?.items.length || agents.data?.items.length) && (
+            <CommandGroup heading="People">
+              {members.data?.items.map((member) => (
+                <CommandItem
+                  key={member.userId}
+                  value={`person-${member.userId}`}
+                  onSelect={go(() =>
+                    navigate({
+                      to: "/tasks",
+                      search: { owner: member.userId },
+                    }),
+                  )}
+                >
+                  <ActorAvatar actorId={member.userId} />
+                  {member.name}
+                </CommandItem>
+              ))}
+              {agents.data?.items.map((agent) => (
+                <CommandItem
+                  key={agent.id}
+                  value={`agent-${agent.id}`}
+                  onSelect={go(() =>
+                    navigate({
+                      to: "/settings/agents/$agentId",
+                      params: { agentId: agent.id },
+                    }),
+                  )}
+                >
+                  <ActorAvatar actorId={agent.id} />
+                  {agent.title}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+        {shows("projects") && Boolean(projects.data?.items.length) && (
           <CommandGroup heading="Projects">
             {projects.data?.items.map((project) => (
               <CommandItem
@@ -341,7 +349,7 @@ function Palette({
             ))}
           </CommandGroup>
         )}
-        {shows("documents") && (
+        {shows("documents") && Boolean(documents.data?.items.length) && (
           <CommandGroup heading="Documents">
             {documents.data?.items.map((document) => (
               <CommandItem
@@ -362,7 +370,7 @@ function Palette({
             ))}
           </CommandGroup>
         )}
-        {shows("files") && (
+        {shows("files") && Boolean(files.data?.items.length) && (
           <CommandGroup heading="Files">
             {files.data?.items.map((file) => {
               const Icon = resourceIcons[resourceKindOf(file.mediaType)];
@@ -383,23 +391,17 @@ function Palette({
             })}
           </CommandGroup>
         )}
-        {shows("actions") && (
+        {shows("actions") && (actions.length > 0 || showsSettings) && (
           <CommandGroup heading="Actions">
-            {destinations
-              .filter(
-                ({ label }) =>
-                  !query ||
-                  `go to ${label}`.toLowerCase().includes(query.toLowerCase()),
-              )
-              .map(({ to, label, icon }) => (
-                <Action
-                  key={to}
-                  label={`Go to ${label}`}
-                  icon={icon}
-                  onSelect={go(() => navigate({ to }))}
-                />
-              ))}
-            {(!query || "go to settings".includes(query.toLowerCase())) && (
+            {actions.map(({ to, label, icon }) => (
+              <Action
+                key={to}
+                label={`Go to ${label}`}
+                icon={icon}
+                onSelect={go(() => navigate({ to }))}
+              />
+            ))}
+            {showsSettings && (
               <Action
                 label="Go to Settings"
                 icon={RiSettings3Line}

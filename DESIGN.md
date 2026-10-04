@@ -911,6 +911,8 @@ continue through bounded pages instead of treating the first hundred as complete
 
 Composer mentions query real workspace members, Agents, Projects and Files, with at most three results per kind. Task suggestions require the composer's explicit Project scope. Searches follow server whole-word matching; empty results and request failures are visible. File mentions use the File discriminator and saved identity.
 
+Command search omits empty result groups and the redundant Task scope label. Its placeholder is “Search”; an entered query with no matches shows “No results found.” after loading completes.
+
 ### Accounts and workspace access
 
 Authentication uses the real account service for sign-in, registration and password reset, with acknowledged results and request errors. Registration does not grant installation or workspace authority. A person without workspace access can accept a known invitation ID. Workspace selection loads additional server pages and clears the previous workspace cache before navigation. The profile menu omits workspace selection when there is only one workspace and no further page.
