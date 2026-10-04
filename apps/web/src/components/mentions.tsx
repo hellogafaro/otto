@@ -32,10 +32,15 @@ import {
 import { menuSurface } from "@/components/editor/surface";
 import { ActorAvatar } from "@/components/task-meta";
 import { read, workspaceApi } from "@/lib/api";
+import {
+  type MentionType,
+  parseMentions,
+  serializeMention,
+} from "@/lib/mention-text";
 
 // "@" tags: people, agents, tasks, projects and files. In text a tag is
 // stored as @[label](type:id), so a comment stays a plain string.
-export type MentionType = "user" | "agent" | "task" | "project" | "file";
+export type { MentionType } from "@/lib/mention-text";
 
 type Mentionable = {
   type: MentionType;
@@ -135,10 +140,7 @@ async function search(
   return results.flat();
 }
 
-export const mention = (item: Pick<Mentionable, "type" | "id" | "label">) =>
-  `@[${item.label}](${item.type}:${item.id})`;
-
-const token = /@\[([^\]]+)\]\((user|agent|task|project|file):([^)]+)\)/g;
+export const mention = serializeMention;
 
 // A tag inside text: the icon of its type and the label, in the primary color
 // on a soft primary tint with key-sized (xs 4) corners, so it reads as one
@@ -163,16 +165,12 @@ export function MentionChip({
 export function MentionText({ text }: { text: string }) {
   const parts: React.ReactNode[] = [];
   let last = 0;
-  for (const match of text.matchAll(token)) {
+  for (const match of parseMentions(text)) {
     parts.push(text.slice(last, match.index));
     parts.push(
-      <MentionChip
-        key={match.index}
-        type={match[2] as MentionType}
-        label={match[1]}
-      />,
+      <MentionChip key={match.index} type={match.type} label={match.label} />,
     );
-    last = match.index + match[0].length;
+    last = match.index + match.length;
   }
   parts.push(text.slice(last));
   return <>{parts}</>;
@@ -185,7 +183,10 @@ export function toText(doc: JSONContent): string {
       (block.content ?? [])
         .map((node) => {
           if (node.type === "mention") {
-            const [type, id] = String(node.attrs?.id).split(":");
+            const identity = String(node.attrs?.id);
+            const separator = identity.indexOf(":");
+            const type = identity.slice(0, separator);
+            const id = identity.slice(separator + 1);
             return mention({
               type: type as MentionType,
               id,
@@ -205,14 +206,14 @@ export function toContent(text: string): JSONContent {
     content: text.split("\n").map((line) => {
       const content: JSONContent[] = [];
       let last = 0;
-      for (const match of line.matchAll(token)) {
+      for (const match of parseMentions(line)) {
         if (match.index > last)
           content.push({ type: "text", text: line.slice(last, match.index) });
         content.push({
           type: "mention",
-          attrs: { id: `${match[2]}:${match[3]}`, label: match[1] },
+          attrs: { id: `${match.type}:${match.id}`, label: match.label },
         });
-        last = match.index + match[0].length;
+        last = match.index + match.length;
       }
       if (last < line.length)
         content.push({ type: "text", text: line.slice(last) });

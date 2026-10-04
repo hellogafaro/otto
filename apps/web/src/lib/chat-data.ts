@@ -7,6 +7,7 @@ import {
 import type { InferRequestType, InferResponseType } from "hono/client";
 import { useEffect, useRef } from "react";
 import { read, type workspaceApi } from "@/lib/api";
+import { mentionUserIds } from "@/lib/mention-text";
 import { useWorkspace } from "@/lib/workspace";
 
 export type LiveChat = InferResponseType<
@@ -151,21 +152,13 @@ export function useMessageSend(chatId?: string) {
       const signature = JSON.stringify([chatId, input]);
       if (signature !== attempt.current.signature)
         attempt.current = { signature, requestId: crypto.randomUUID() };
-      const mentionUserIds = [
-        ...new Set(
-          Array.from(
-            input.body.matchAll(/@\[[^\]]+\]\(user:([^)]+)\)/g),
-            (match) => match[1],
-          ),
-        ),
-      ];
       return read(
         await api.chats[":id"].messages.$post({
           param: { workspaceId, id: chatId },
           json: {
             ...input,
             requestId: attempt.current.requestId,
-            mentionUserIds,
+            mentionUserIds: mentionUserIds(input.body),
           },
         }),
       );
