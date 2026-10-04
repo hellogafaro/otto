@@ -47,6 +47,12 @@ async function readDocument(page: Page, workspaceId: string, id: string) {
 }
 
 async function choose(page: Page, trigger: Locator, option: string) {
+  // Native selects and Base UI combobox triggers share the accessible role.
+  // Use the control's actual DOM semantics, including popup options when custom.
+  if ((await trigger.evaluate((element) => element.tagName)) === "SELECT") {
+    await trigger.selectOption({ label: option });
+    return;
+  }
   await trigger.click();
   await page.getByRole("option", { name: option, exact: true }).click();
 }
@@ -158,7 +164,7 @@ test("Document create, body and metadata save, Cancel and actual stale edit conf
     .fill("First label");
   await choose(
     page,
-    dialog.getByRole("button", { name: "Visibility", exact: true }),
+    dialog.getByRole("combobox", { name: "Visibility", exact: true }),
     "Workspace",
   );
   await dialog
@@ -182,7 +188,7 @@ test("Document create, body and metadata save, Cancel and actual stale edit conf
     .fill("Design\nSpecification");
   await choose(
     page,
-    page.getByRole("button", { name: "Visibility", exact: true }),
+    page.getByRole("combobox", { name: "Visibility", exact: true }),
     "Only me",
   );
   const held = await holdMutation(page, documentPath(workspaceId, id), "PATCH");
@@ -196,7 +202,7 @@ test("Document create, body and metadata save, Cancel and actual stale edit conf
       page.getByLabel("Labels, one per line", { exact: true }),
     ).toBeDisabled();
     await expect(
-      page.getByRole("button", { name: "Visibility", exact: true }),
+      page.getByRole("combobox", { name: "Visibility", exact: true }),
     ).toBeDisabled();
   } finally {
     await held.finish();
@@ -316,7 +322,7 @@ test("Saved File attachment mutations lock the main draft until real acknowledge
   });
   await choose(
     page,
-    dialog.getByRole("button", { name: "File", exact: true }),
+    dialog.getByRole("combobox", { name: "File", exact: true }),
     file.title,
   );
   const path = `${documentPath(workspaceId, document.id)}/attachments`;
@@ -329,7 +335,7 @@ test("Saved File attachment mutations lock the main draft until real acknowledge
       dialog.getByRole("button", { name: "Cancel", exact: true }),
     ).toBeDisabled();
     await expect(
-      dialog.getByRole("button", { name: "File", exact: true }),
+      dialog.getByRole("combobox", { name: "File", exact: true }),
     ).toBeDisabled();
     await page.screenshot({
       path: testInfo.outputPath("attachment-pending-lock.png"),
@@ -408,7 +414,7 @@ test("Collection schema, typed properties, archive and restore persist through r
       await choose(
         page,
         dialog
-          .getByRole("button", { name: "Field type", exact: true })
+          .getByRole("combobox", { name: "Field type", exact: true })
           .nth(index),
         field.type,
       );
@@ -436,7 +442,7 @@ test("Collection schema, typed properties, archive and restore persist through r
   ]);
   await choose(
     page,
-    page.getByRole("button", { name: "Collection", exact: true }),
+    page.getByRole("combobox", { name: "Collection", exact: true }),
     title,
   );
   await page
@@ -446,7 +452,7 @@ test("Collection schema, typed properties, archive and restore persist through r
   await page.getByRole("checkbox", { name: "Reviewed", exact: true }).check();
   await choose(
     page,
-    page.getByRole("button", { name: "Stage", exact: true }),
+    page.getByRole("combobox", { name: "Stage", exact: true }),
     "Ready",
   );
   const held = await holdMutation(
@@ -490,7 +496,7 @@ test("Collection schema, typed properties, archive and restore persist through r
     page.getByRole("checkbox", { name: "Reviewed", exact: true }),
   ).toBeChecked();
   await expect(
-    page.getByRole("button", { name: "Stage", exact: true }),
+    page.getByRole("combobox", { name: "Stage", exact: true }),
   ).toContainText("Ready");
   await page
     .getByLabel("Risk note", { exact: true })
@@ -510,12 +516,12 @@ test("Collection schema, typed properties, archive and restore persist through r
     exact: true,
   });
   await expect(
-    manage.getByRole("button", { name: "Field type", exact: true }).first(),
+    manage.getByRole("combobox", { name: "Field type", exact: true }).first(),
   ).toBeDisabled();
   await manage.getByLabel("Title", { exact: true }).fill(`${title} renamed`);
   await choose(
     page,
-    manage.getByRole("button", { name: "View", exact: true }),
+    manage.getByRole("combobox", { name: "View", exact: true }),
     "List",
   );
   await manage
