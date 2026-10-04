@@ -1,6 +1,6 @@
 # Whole-UI wiring
 
-Source: BB `thr_ea3andz7st`, Johan's 4 October 2026 request; source brief `thr_g6sbbikxpg`. Execution owner: temporary UI engineering owner. Baseline: `3450a1fa0fd8bc5e3000a50872486da91846f1dd`. Work stays in the assigned worktree. No Notion, remote push, deployment, shared schema mutation, or agent-runtime time entries.
+Source: BB `thr_ea3andz7st`, Johan's 4 October 2026 request; source brief `thr_g6sbbikxpg`. Execution owner: temporary UI engineering owner. Baseline: `3450a1fa0fd8bc5e3000a50872486da91846f1dd`. Work stays in the assigned worktree. No Notion, deployment, shared schema mutation, or agent-runtime time entries. Johan subsequently authorized a signed final commit and remote branch push after verification; no merge or deployment is authorized.
 
 Accepted outcome: every reachable screen and action uses authorized backend data where supported; mutations persist; unsupported flows explain their real blocker; final integrated browser verification and independent review precede Johan's walkthrough.
 
@@ -8,16 +8,16 @@ Accepted outcome: every reachable screen and action uses authorized backend data
 
 | Surface | Backend seams / actions | Owner | Evidence |
 | --- | --- | --- | --- |
-| Session, workspace boundary, profile menu | Better Auth session/sign-in/sign-out/reset; known invitation acceptance; bounded workspace listing/switch | Lead | Actual signup/profile/persistence/switch/viewer/nonmember browser checks; independent session-transition correction under recheck |
-| Tasks, task detail, activity | Project-scoped list/filter/sort/page; create/edit/status/archive; assignees/recurrence; links/timesheets | Task lane | [Action inventory](evidence/ui-tasks.md); actual create/read/refresh browser proof; expanded action QA in progress |
+| Session, workspace boundary, profile menu | Better Auth session/sign-in/sign-out/reset; known invitation acceptance; bounded workspace listing/switch | Lead | Actual signup/profile/persistence/switch/viewer/nonmember checks pass; independent same-tab principal transition denies stale private content |
+| Tasks, task detail, activity | Project-scoped list/filter/sort/page; create/edit/status/archive; assignees/recurrence; links/timesheets | Task lane | [Action inventory](evidence/ui-tasks.md); Six actual-browser action scenarios pass, including stale drafts, all link kinds, timesheets and modal keyboard fences |
 | Projects, project detail/tabs | List/create/title/repository/archive; project membership; Tasks/Documents/Files tabs | Project lane | [Action inventory](evidence/ui-projects.md); actual create/refresh/add-viewer/denial checks |
-| Documents, document detail | List/filter/page; create/editToken/body/labels/visibility/folder/archive; Collections/proposals/attachments | Document lane | [Action inventory](evidence/ui-documents.md); actual create/refresh and HTTP stale-token rejection; expanded action QA in progress |
-| Files, viewer, folders/public shares | Mixed library paging; binary upload/retry/abort; custodian metadata/archive; verified download; frozen shares | File lane | [Action inventory](evidence/ui-files.md); actual folder/upload/download/edit/share/anonymous view checks; revoked-cache correction under recheck |
-| Chats, new chat, sidebar, floating chat | Create/read/messages/read cursor/participants/archive; private Sessions; Run admission/status/control/questions/usage | Chat lane | [Action inventory](evidence/ui-chats.md); actual send/refresh/reply/error-preserved draft/retry; expanded participant/mention QA in progress |
-| Schedules/detail | List/create/fenced edits/history/manual Run/archive; cron/timezone/output Chat | Schedule lane | [Action inventory](evidence/ui-agents_schedules.md); route/theme/mobile browser reads; expanded lifecycle QA in progress |
-| Settings/account/members | Profile; members/invitations; Connections policy/grants/operations; Subscriptions authentication/models | Settings lane | [Action inventory](evidence/ui-settings.md); all section/theme/mobile reads and profile/member checks; expanded setup QA in progress |
-| Agent settings/Skills | Agent fenced account/model/skill configuration; Skills lifecycle/files/proposals | Agent lane | [Action inventory](evidence/ui-agents_schedules.md); expanded lifecycle QA in progress |
-| Inbox, global search, mentions/shared widgets | Attention; compact typed searches; actual identities; navigation/loading/errors | Lead | Route/theme/mobile checks and production grammar tests; independent review in progress |
+| Documents, document detail | List/filter/page; create/editToken/body/labels/visibility/folder/archive; Collections/proposals/attachments | Document lane | [Action inventory](evidence/ui-documents.md); Five actual-browser scenarios pass: fenced editing, attachments, Collections, proposals, transient drafts and denied readbacks |
+| Files, viewer, folders/public shares | Mixed library paging; binary upload/retry/abort; custodian metadata/archive; verified download; frozen shares | File lane | [Action inventory](evidence/ui-files.md); Actual folder/upload/download/edit/share/anonymous view checks pass; independent revocation recheck hides retained private content |
+| Chats, new chat, sidebar, floating chat | Create/read/messages/read cursor/participants/archive; private Sessions; Run admission/status/control/questions/usage | Chat lane | [Action inventory](evidence/ui-chats.md); Actual send/refresh/reply/retry, 103-participant authority and special-label mention attention checks pass |
+| Schedules/detail | List/create/fenced edits/history/manual Run/archive; cron/timezone/output Chat | Schedule lane | [Action inventory](evidence/ui-agents_schedules.md); Actual cron/lifecycle/stale edits/manual admission/delivery reads and participant revocation checks pass; live execution qualification remains external |
+| Settings/account/members | Profile; members/invitations; Connections policy/grants/operations; Subscriptions authentication/models | Settings lane | [Action inventory](evidence/ui-settings.md); Eight actual-browser setup scenarios pass, including members/invitations, real unavailable service errors, lost ACKs and stale configuration |
+| Agent settings/Skills | Agent fenced account/model/skill configuration; Skills lifecycle/files/proposals | Agent lane | [Action inventory](evidence/ui-agents_schedules.md); Actual Agent/Skill lifecycle, files/export/proposals and denied cached content checks pass |
+| Inbox, global search, mentions/shared widgets | Attention; compact typed searches; actual identities; navigation/loading/errors | Lead | 56 route/theme/viewport checks and real attention/navigation/identity checks pass; independent findings corrected |
 
 Workers inventory their owned menus, dialogs and controls in `docs/evidence/ui-<lane>.md`, including API, current permission, evidence and exact pending items. The final integrating owner joins the inventory and verifies the actual artifact. This document is the brief/ownership record, not a substitute for closure by the closing agent.
 
@@ -63,3 +63,11 @@ Tasks require `projectId`; query is whole-word search. Task statuses are todo/do
 | BB browser worker uses full shared /tmp | BB live browser preview control | Direct Playwright Chromium real-browser evidence works with private disk scratch | BB runtime owner adds short per-session disk temp support; no unowned host cleanup performed |
 
 Further items must name their actual API/external/product blocker. Final evidence records exact integrated revision and source/evidence hashes.
+
+## Final integration verification
+
+Production source is frozen at `ce794fd81db2ecbe9fd33b9a032f8c5717edced1`. All 37 browser scenarios passed across serialized real-application runs; the final 12 affected Document/Task/workflow cases passed together on that revision in 67.1 seconds. The separate 56 route/theme/viewport checks passed. These were real Better Auth/Hono/private PostgreSQL/queue/storage-adapter flows, with explicitly controlled network faults and external storage/runtime peers. They were not one uninterrupted 37-case run.
+
+The 19-case native Pi file passed in 90.08 seconds on the reviewed cancellation correction. The final clean 48-file backend rerun and final independent verdict are recorded in [integration evidence](evidence/ui-integration.md). Lane inventories above carry every action and remaining product/API/external qualification decision.
+
+The requested remote push currently needs a valid noninteractive Infisical CLI session and a confirmed project/environment/path containing the Git credential authorized for `hellogafaro/otto`. A BB-owner read-only diagnosis confirmed that `authenticated:true` profile status does not validate the actual session. The HTTPS remote uses a global gh helper with no established Infisical provenance; it was not used as a credential fallback. No credential was read, rotated or exposed to solve this blocker.
