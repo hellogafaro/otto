@@ -31,7 +31,7 @@ All production IDs come from validated URL state, authenticated Hono responses o
 | Viewer Previous/Next/keyboard | Loaded readable File IDs | Wraps loaded Files only; no stepping for unlisted deep link; media/input/editor keys retained; controls blocked during mutation/dialog |
 | Viewer/menu Ask / task backlink | Shared floating chat; originating real task prop | Actual file id/title; task link retained only from caller context; file mention discriminator from the lead’s common dependency |
 | Viewer details/widgets | GET file/folder; directory actorOf/Projects | Readable path, visibility, real creator/custodian/Agent, date, byte size and labels; folder/Project/label links; no task/chat mocks or fabricated counts |
-| More people | Paged directory members | Accessible continuation if current actor role is not loaded; no guessed writer role |
+| Workspace writer gate | Authoritative useWorkspace().workspace.role | Add/folder actions, viewer Share/custodian Edit and tile Ask never depend on first-page directory members; obsolete More people role-discovery action removed |
 | Edit File title/labels/visibility/folder | PATCH files/id; custodian/current writer | One atomic allowlisted update, no editToken; fixed Project; same bounded folder picker; cancel/pending/error retains draft; no byte replacement |
 | Archive/restore File | POST files/id/archive; custodian/current writer | Pending fenced controls; ACK then workspace invalidation; no delete |
 | Preview image/video/audio/PDF/Markdown/HTML | Authenticated verified file GET | In-memory consumer max 8 MiB, actual streamed length checked; truncation/oversize fail; abort and object URL release; larger files explain download |
@@ -74,7 +74,7 @@ All production IDs come from validated URL state, authenticated Hono responses o
 
 ## Numbered integrated browser scenarios (all unverified here)
 
-1. Seed >100 readable mixed rows plus hidden private rows. Open Files as reader, load to completion; verify server within-kind sort/cursor, no missing/duplicate rows, URL search/label/project/archive, clear/back navigation, correct empty/denied/retry states and More projects/people beyond page one.
+1. Seed >100 readable mixed rows plus hidden private rows. Open Files as reader, load to completion; verify server within-kind sort/cursor, no missing/duplicate rows, URL search/label/project/archive, clear/back navigation, correct empty/denied/retry states and More projects beyond page one. With >100 members and the current writer absent from the loaded directory page, Add/Share/own custodian Edit/Ask remain available from workspace.role; a workspace viewer remains denied and a different File custodian cannot edit.
 2. Create a private folder, child folders through depth 8; reject a ninth level and cycle/cross-Project move. Rename, move and visibility-edit as creator; another member cannot manage. Move shared/other-owner content into private folder and verify rejection without partial metadata change.
 3. Attempt archive of a folder holding File, Document, hidden child and archived child. Each refusal must leave all items intact. Move contents out, archive empty folder, view archived root and restore; verify parent/archive constraints.
 4. Upload 0-byte, small image/Markdown/HTML, 50 MB and 100,000,000-byte Files; reject 100,000,001. Inspect binary PUT (not JSON), chosen scope/visibility and Saved only after ACK. Lose ACK/abort/storage-unavailable, retry same requestId/bytes/metadata and confirm one saved File; inspect no fabricated progress. Close/navigation warning and cleanup.
@@ -110,3 +110,17 @@ Controlled check artifacts in `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp`:
 | `file-public-render-check.log` | `c0e228aaed2ee5ae463f1a72d9e3ac51e501def64e85b177e1ee28cd69147dc3` |
 | `file-lane-typecheck.log` | `3b6b08eb3eb1fe8e6d9ea6f267f898c4a838755784548447107b2900bf98a453` |
 | `file-lane-build.log` | `8735fa5aaf04ad775eee1cdb1eb812cb9e29c652b8e5850a4585246192843d9d` |
+
+## Independent finding F1 correction
+
+Source commit `3ad03bd02152c0741c09fbdcfd20a2cb6b35ef52` fixes directory-pagination-dependent writer gates in FilesPage, Lightbox and FileMenu. All three use `useWorkspace().workspace.role`; File custodian `ownerId === user.id`, folder creator checks, pending fences and server authority remain intact. The extra More people buttons existed solely to discover the current workspace role and are removed. Directory identity/Project presentation still uses live directory data.
+
+Verified: scoped Biome on the two changed sources, serialized web typecheck and staged diff-check. Build/browser/PG/native suites were not rerun for this followup while root combined suites were active; fresh browser acceptance and independent re-review remain UNVERIFIED. The optional root `76e6fbe` dependency pick conflicted in unowned DESIGN.md and was aborted; no dependency/common source changes remain in this checkout.
+
+Final followup source and typecheck SHA-256:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `apps/web/src/routes/files.tsx` | `6e7962c85a0349b29b1376340f3874c977db827d78770bad1e69b96487ea41df` |
+| `apps/web/src/components/files.tsx` | `baa99c259e33763e5b12bac8de04dc11f99a6c0ab3cd84abd0021f27b4ffd955` |
+| `/home/g4f4r0/.bb/thread-storage/thr_2p4abcmvyp/file-lane-F1-typecheck.log` | `3b6b08eb3eb1fe8e6d9ea6f267f898c4a838755784548447107b2900bf98a453` |
