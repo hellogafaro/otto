@@ -49,24 +49,20 @@ test("Current Project contributor after the first hundred keeps Task and Documen
     email: `page-${crypto.randomUUID()}@example.test`,
   }));
   await fixture.database.db.insert(users).values(population);
-  await fixture.database.db
-    .insert(members)
-    .values(
-      population.map(({ id }) => ({
-        workspaceId,
-        userId: id,
-        role: "contributor" as const,
-      })),
-    );
-  await fixture.database.db
-    .insert(projectMembers)
-    .values(
-      population.map(({ id }) => ({
-        projectId: records.projectId,
-        userId: id,
-        role: "contributor" as const,
-      })),
-    );
+  await fixture.database.db.insert(members).values(
+    population.map(({ id }) => ({
+      workspaceId,
+      userId: id,
+      role: "contributor" as const,
+    })),
+  );
+  await fixture.database.db.insert(projectMembers).values(
+    population.map(({ id }) => ({
+      projectId: records.projectId,
+      userId: id,
+      role: "contributor" as const,
+    })),
+  );
   const first = await page.evaluate(
     async ({ workspaceId, projectId }) =>
       await (
@@ -92,7 +88,9 @@ test("Current Project contributor after the first hundred keeps Task and Documen
   await page
     .getByRole("textbox", { name: "Title", exact: true })
     .fill("Paged Authority Saved");
-  await page.getByRole("button", { name: "Save document", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Save document", exact: true })
+    .click();
   await page.reload();
   await expect(
     page.getByRole("textbox", { name: "Title", exact: true }),
