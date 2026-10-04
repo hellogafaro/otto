@@ -36,7 +36,8 @@ discarded. Failed-smoke log:
 `/home/g4f4r0/.bb/thread-storage/thr_wm9j5vr85d/native-diagnostic-smoke.log`.
 SHA-256: `8b324a5aa9b188211328ee2a06800d7f8329874c04827ffa208e45e197ea93bd`.
 
-Pi's bundled jiti 2.7.0 loader contains this guard in `prepareCacheDir`:
+Pi's bundled jiti 2.7.0 loader contains this guard in `prepareCacheDir`
+(the `os.tmpdir` import alias is expanded below):
 
 ```js
 if (process.env.TMPDIR && n2 === process.cwd() && !process.env.JITI_RESPECT_TMPDIR_ENV) {
@@ -65,7 +66,37 @@ after `input.env`. The existing pinned loader then keeps the cache inside the
 owned scratch directory. No global cache deletion, production backend change,
 or changed account/model route is needed.
 
-Verification on the original surface awaits the coordinating root's explicit
-runtime-slot authorization. Biome and `git diff --check` pass; the fix has not
-yet passed the native smoke or independent review. Full suite, real provider
-authorization, billing, storage durability and physical isolation are unverified.
+## Verification on the original surface
+
+After the coordinating root explicitly released the runtime slot again, the
+same focused command ran against signed commit
+`e8193d7480e1c8c6feb185dfcadb91a7e954f4c3`, with temporary diagnostics removed.
+The final fixture SHA-256 is
+`590263467ecf3cd5013addbd85e6199df5df3501b94476bad14da85b78cc479e`.
+
+| Observed production-seam assertion | Result |
+| --- | --- |
+| Focused smoke after correction | Passed in 9.75 s; 1 passed, 18 skipped; Vitest exit 0 |
+| Saved Run state | `finished` |
+| Controlled upstream model requests | Exactly 3 |
+| Native coding tool | `controlled.txt` contains `written by managed Pi\n` |
+| Scoped Otto tool | Model request includes `exact accepted content` from the accepted Document |
+| Saved usage | Complete; 3 receipts, 30 input + 6 output = 36 tokens |
+| Cost estimate | USD 0.00012; agrees with Pi's native price computation |
+| Exact retry | Same Run id; model request count remains 3 |
+| Runtime persistence health | 0 errors |
+| Native/Go/PostgreSQL cleanup | afterAll passed, including Go helper exit 0; no remaining child of test PID 337631 |
+| Formatting and whitespace | Biome and `git diff --check` pass |
+
+Verification log:
+`/home/g4f4r0/.bb/thread-storage/thr_wm9j5vr85d/native-verification-smoke.log`.
+SHA-256: `2a3b0a2514b8e1876221325c932f509d9ee00f7cd89eed179a3c2da9170c57dc`.
+The pass covers the existing assertions in `tests/pi-gateway-runtime.test.ts`
+for admission, actual queue dispatch, packaged Pi, coding/scoped tools, exact
+account routing, saved output/usage and joined cleanup. It confirms the
+extension-cache correction resolves the original failure without changing
+production runtime code.
+
+Independent review belongs to the integrating root and is not claimed here.
+Full suite, real provider authorization, billing, storage durability and physical
+isolation are unverified by this bounded diagnosis.
