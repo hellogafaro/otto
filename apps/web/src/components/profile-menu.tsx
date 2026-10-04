@@ -5,7 +5,9 @@ import {
   RiMoonLine,
   RiSettings3Line,
   RiSunLine,
+  RiTeamLine,
 } from "@remixicon/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar";
 import { Button } from "@workspace/ui/components/button";
@@ -23,7 +25,10 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
+import { toast } from "@workspace/ui/components/sonner";
 import { useTheme } from "@/components/theme-provider";
+import { authClient } from "@/lib/auth";
+import { useWorkspace } from "@/lib/workspace";
 
 const themes = [
   { value: "light", label: "Light", icon: RiSunLine },
@@ -34,6 +39,8 @@ const themes = [
 export function ProfileMenu() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { user, workspace, workspaces, selectWorkspace } = useWorkspace();
+  const queryClient = useQueryClient();
 
   return (
     <DropdownMenu>
@@ -47,12 +54,36 @@ export function ProfileMenu() {
         }
       >
         <Avatar size="sm">
-          <AvatarFallback>JG</AvatarFallback>
+          <AvatarFallback>
+            {user.name
+              .split(/\s+/)
+              .map((part) => part[0])
+              .slice(0, 2)
+              .join("")}
+          </AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="right" align="end" className="w-56">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Johan Gafaro</DropdownMenuLabel>
+          <DropdownMenuLabel>{user.name}</DropdownMenuLabel>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <RiTeamLine />
+              {workspace.title}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuRadioGroup
+                value={workspace.id}
+                onValueChange={selectWorkspace}
+              >
+                {workspaces.map((item) => (
+                  <DropdownMenuRadioItem key={item.id} value={item.id}>
+                    {item.title}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
             <RiSettings3Line />
             Settings
@@ -79,8 +110,19 @@ export function ProfileMenu() {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          {/* Not wired to auth yet. */}
-          <DropdownMenuItem variant="destructive">
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={async () => {
+              try {
+                const result = await authClient.signOut();
+                if (result.error) throw new Error(result.error.message);
+                await queryClient.cancelQueries();
+                queryClient.clear();
+              } catch {
+                toast.error("Unable to log out. Try again.");
+              }
+            }}
+          >
             <RiLogoutBoxRLine />
             Log out
           </DropdownMenuItem>

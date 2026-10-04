@@ -14,7 +14,6 @@ import {
 } from "@workspace/ui/components/dropdown-menu";
 import { toast } from "@workspace/ui/components/sonner";
 import { useConfirm } from "@/components/confirm";
-import { request } from "@/mock/api";
 
 // One menu for an item (a task, document, project, file or folder), the same
 // in its More menu and on right-click (a context menu takes these items as
@@ -45,8 +44,8 @@ export function ItemMenuItems({
   onRename?: () => void;
   /** Its path, e.g. "/tasks/t1"; Copy link copies the full URL. */
   link?: string;
-  onArchive?: () => void;
-  onDelete?: () => void;
+  onArchive?: () => unknown;
+  onDelete?: () => unknown;
 }) {
   const confirm = useConfirm();
   return (
@@ -79,9 +78,15 @@ export function ItemMenuItems({
         {link && (
           <DropdownMenuItem
             shortcut="C"
-            onClick={() => {
-              navigator.clipboard.writeText(`${location.origin}${link}`);
-              toast.success("Link copied");
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(
+                  new URL(link, location.origin).href,
+                );
+                toast.success("Link copied");
+              } catch {
+                toast.error("Unable to copy the link.");
+              }
             }}
           >
             <RiLinkM />
@@ -96,9 +101,17 @@ export function ItemMenuItems({
             {onArchive && (
               <DropdownMenuItem
                 shortcut="A"
-                onClick={() => {
-                  onArchive();
-                  toast.success(`“${name}” archived`);
+                onClick={async () => {
+                  try {
+                    await onArchive();
+                    toast.success(`“${name}” archived`);
+                  } catch (error) {
+                    toast.error(
+                      error instanceof Error
+                        ? error.message
+                        : "Unable to archive. Try again.",
+                    );
+                  }
                 }}
               >
                 <RiArchiveLine />
@@ -117,8 +130,7 @@ export function ItemMenuItems({
                     action: "Delete",
                     destructive: true,
                     run: async () => {
-                      await request();
-                      onDelete();
+                      await onDelete();
                     },
                   });
                   if (yes) toast.success(`“${name}” deleted`);

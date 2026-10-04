@@ -31,6 +31,7 @@ import {
   InputGroupAddon,
   InputGroupButton,
 } from "@workspace/ui/components/input-group";
+import { toast } from "@workspace/ui/components/sonner";
 import { Spinner } from "@workspace/ui/components/spinner";
 import {
   Tooltip,
@@ -60,7 +61,12 @@ export type FileRef = {
   url: string;
 };
 
-type Pending = FileRef & { state: "uploading" | "done" };
+type Pending = FileRef & {
+  state: "uploading" | "error" | "done";
+  requestId: string;
+  source: File;
+  error?: string;
+};
 
 // Text uses the stored form, with tags as @[label](type:id).
 export type ComposerHandle = {
@@ -92,7 +98,7 @@ const SendOnEnter = Extension.create<{ onEnter: () => void }>({
 // files. + adds files (also by dropping or pasting them). The main button
 // dictates while the box is empty, sends once there is text or a file, and
 // stops a reply while `busy`. `tools` sit next to + (model or agent pickers).
-// Uploads are simulated until storage exists. `compact` is the one-line
+// Upload callbacks save real bytes before a message can reference them. `compact` is the one-line
 // floating bar (the floating chat): + on the left, the main button on the
 // right. `embedded` is the smaller composer inside a 12px card (the floating
 // chat's window): 4px in, so 8px corners; its 28px buttons 6px in with the
@@ -109,9 +115,12 @@ export function Composer({
   onStop,
   compact = false,
   embedded = false,
+  disabled = false,
+  pending = false,
+  upload,
   ref,
 }: {
-  onSend: (text: string, files: FileRef[]) => void;
+  onSend: (text: string, files: FileRef[]) => unknown;
   placeholder: string;
   tools?: ReactNode;
   idle?: ReactNode;
@@ -119,6 +128,13 @@ export function Composer({
   onStop?: () => void;
   compact?: boolean;
   embedded?: boolean;
+  disabled?: boolean;
+  pending?: boolean;
+  upload?: (
+    file: File,
+    requestId: string,
+    signal: AbortSignal,
+  ) => Promise<FileRef>;
   ref?: Ref<ComposerHandle>;
 }) {
   // The embedded composer's buttons: 28px, 6px corners.
@@ -126,6 +142,19 @@ export function Composer({
     ? ({ size: "icon-sm", className: "size-7 rounded-sm" } as const)
     : ({ size: "icon-sm" } as const);
   const [files, setFiles] = useState<Pending[]>([]);
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const transfers = useRef(new Map<string, AbortController>());
+  const filesRef = useRef(files);
+  filesRef.current = files;
+  useEffect(
+    () => () => {
+      for (const transfer of transfers.current.values()) transfer.abort();
+      for (const file of filesRef.current)
+        if (file.url.startsWith("blob:")) URL.revokeObjectURL(file.url);
+    },
+    [],
+  );
   const [dragging, setDragging] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   // Latest handlers for the editor's key and paste hooks.
@@ -191,10 +220,14 @@ export function Composer({
     selector: ({ editor }) => editor?.isEmpty ?? true,
   });
   const dictation = useDictation(editor);
+  useEffect(() => {
+    editor?.setEditable(!disabled && !pending && !sending);
+  }, [editor, disabled, pending, sending]);
   const elapsed = useElapsed(dictation.listening);
-  const uploading = files.some((file) => file.state === "uploading");
+  const uploading = files.some((file) => file.state !== "done");
   const hasContent = !empty || files.length > 0;
-  const canSend = hasContent && !uploading && !busy;
+  const canSend =
+    hasContent && !uploading && !busy && !disabled && !pending && !sending;
 
   useImperativeHandle(ref, () => ({
     prefill: (text) => {
@@ -216,8 +249,15 @@ export function Composer({
   }));
 
   const add = (list: FileList | File[]) => {
+    if (disabled || pending || sending) return;
+    if (!upload) {
+      toast.error("Attachments are unavailable here.");
+      return;
+    }
     const added = [...list].map((file) => ({
       id: crypto.randomUUID(),
+      requestId: crypto.randomUUID(),
+      source: file,
       name: file.name,
       type: file.type,
       size: file.size,
@@ -225,61 +265,124 @@ export function Composer({
       state: "uploading" as const,
     }));
     setFiles((current) => [...current, ...added]);
-    for (const { id } of added) {
-      setTimeout(
-        () =>
-          setFiles((current) =>
-            current.map((file) =>
-              file.id === id ? { ...file, state: "done" } : file,
-            ),
-          ),
-        900,
+    for (const file of added) void transfer(file);
+  };
+
+  const transfer = async (file: Pending) => {
+    if (!upload) return;
+    const controller = new AbortController();
+    transfers.current.set(file.requestId, controller);
+    setFiles((current) =>
+      current.map((item) =>
+        item.requestId === file.requestId
+          ? { ...item, state: "uploading", error: undefined }
+          : item,
+      ),
+    );
+    try {
+      const saved = await upload(
+        file.source,
+        file.requestId,
+        controller.signal,
       );
+      if (controller.signal.aborted) return;
+      setFiles((current) =>
+        current.map((item) =>
+          item.requestId === file.requestId
+            ? { ...item, ...saved, state: "done" }
+            : item,
+        ),
+      );
+      if (file.url.startsWith("blob:")) URL.revokeObjectURL(file.url);
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Upload failed. Retry with the same file.";
+      setFiles((current) =>
+        current.map((item) =>
+          item.requestId === file.requestId
+            ? { ...item, state: "error", error: message }
+            : item,
+        ),
+      );
+    } finally {
+      transfers.current.delete(file.requestId);
     }
   };
 
   const remove = (id: string) =>
     setFiles((current) => {
       const file = current.find((candidate) => candidate.id === id);
-      if (file) URL.revokeObjectURL(file.url);
+      if (file) {
+        transfers.current.get(file.requestId)?.abort();
+        if (file.url.startsWith("blob:")) URL.revokeObjectURL(file.url);
+      }
       return current.filter((candidate) => candidate.id !== id);
     });
 
-  const send = () => {
-    if (!canSend || !editor) return;
+  const send = async () => {
+    if (!canSend || !editor || sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
     dictation.stop();
-    onSend(
-      toText(editor.getJSON()).trim(),
-      files.map(({ state: _state, ...file }) => file),
-    );
-    editor.commands.clearContent(true);
-    setFiles([]);
+    try {
+      await onSend(
+        toText(editor.getJSON()).trim(),
+        files.map(({ id, name, type, size, url }) => ({
+          id,
+          name,
+          type,
+          size,
+          url,
+        })),
+      );
+      editor.commands.clearContent(true);
+      for (const file of files)
+        if (file.url.startsWith("blob:")) URL.revokeObjectURL(file.url);
+      setFiles([]);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to send. Your draft is kept.",
+      );
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
   };
   actions.current = { send, add };
 
   // One main action, in priority order.
-  const main = busy ? (
-    <MainButton {...button} label="Stop" onClick={onStop}>
-      <RiStopFill />
-    </MainButton>
-  ) : dictation.listening ? (
-    <MainButton {...button} label="Done" onClick={dictation.stop}>
-      <RiCheckLine />
-    </MainButton>
-  ) : hasContent ? (
-    <MainButton {...button} label="Send" type="submit" disabled={!canSend}>
-      <RiArrowUpLine />
-    </MainButton>
-  ) : (
-    <MainButton
-      {...button}
-      label={dictation.supported ? "Dictate" : "Dictation isn't available"}
-      disabled={!dictation.supported}
-      onClick={dictation.start}
-    >
-      <RiMicLine />
-    </MainButton>
-  );
+  const main =
+    sending || pending ? (
+      <MainButton {...button} label="Sending" disabled>
+        <Spinner />
+      </MainButton>
+    ) : busy ? (
+      <MainButton {...button} label="Stop" onClick={onStop}>
+        <RiStopFill />
+      </MainButton>
+    ) : dictation.listening ? (
+      <MainButton {...button} label="Done" onClick={dictation.stop}>
+        <RiCheckLine />
+      </MainButton>
+    ) : hasContent ? (
+      <MainButton {...button} label="Send" type="submit" disabled={!canSend}>
+        <RiArrowUpLine />
+      </MainButton>
+    ) : (
+      <MainButton
+        {...button}
+        label={dictation.supported ? "Dictate" : "Dictation isn't available"}
+        disabled={!dictation.supported || disabled}
+        onClick={dictation.start}
+      >
+        <RiMicLine />
+      </MainButton>
+    );
 
   // While dictating: Cancel (takes the dictated text back), the waveform and
   // the time; the main button turns into Done (keeps the text).
@@ -317,14 +420,24 @@ export function Composer({
     >
       <AttachmentGroup className={cn("w-full", compact && "pb-0")}>
         {files.map((file) => (
-          <FileAttachment
-            key={file.id}
-            file={file}
-            state={file.state}
-            compact={compact || embedded}
-            nested={embedded}
-            onRemove={() => remove(file.id)}
-          />
+          <div key={file.requestId} className="flex flex-col gap-1">
+            <FileAttachment
+              key={file.id}
+              file={file}
+              state={file.state}
+              compact={compact || embedded}
+              nested={embedded}
+              onRemove={sending ? undefined : () => remove(file.id)}
+            />
+            {file.state === "error" && (
+              <>
+                <p role="alert">{file.error}</p>
+                <InputGroupButton onClick={() => void transfer(file)}>
+                  Retry upload
+                </InputGroupButton>
+              </>
+            )}
+          </div>
         ))}
       </AttachmentGroup>
     </InputGroupAddon>
@@ -337,6 +450,7 @@ export function Composer({
           <InputGroupButton
             {...button}
             aria-label="Add files"
+            disabled={!upload || disabled || pending || sending}
             onClick={() => picker.current?.click()}
           />
         }
@@ -351,7 +465,7 @@ export function Composer({
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        send();
+        void send();
       }}
     >
       {/* Same surface as a comment card (xl radius, card background, faint
@@ -665,7 +779,7 @@ export function FileAttachment({
   onOpen,
 }: {
   file: FileRef;
-  state?: "uploading" | "done";
+  state?: "uploading" | "error" | "done";
   /** The compact bar's chip: 28px, its thumbnail and name. */
   compact?: boolean;
   /** The chip inside the embedded composer's 8px corners: 4px corners,

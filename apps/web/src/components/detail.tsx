@@ -82,6 +82,7 @@ export function DetailView({
   panel,
   ask,
   actions,
+  more,
   archives = false,
 }: {
   /** The section crumb: its icon, label and link (e.g. Tasks). */
@@ -102,6 +103,8 @@ export function DetailView({
   ask: ReactNode;
   /** Its own top bar actions, before More (e.g. a schedule's Run now). */
   actions?: ReactNode;
+  /** Domain-owned acknowledged actions; null hides More. */
+  more?: ReactNode;
   /** It archives rather than deletes (schedules). */
   archives?: boolean;
 }) {
@@ -111,7 +114,11 @@ export function DetailView({
         actions={
           <>
             {actions}
-            <MoreMenu type={type} name={title} archives={archives} />
+            {more === undefined ? (
+              <MoreMenu type={type} name={title} archives={archives} />
+            ) : (
+              more
+            )}
             <PanelToggle />
           </>
         }
@@ -200,7 +207,6 @@ export function WithPanel({
 export function MoreMenu({
   type,
   name,
-  archives = false,
 }: {
   type: string;
   name: string;
@@ -223,15 +229,8 @@ export function MoreMenu({
         <TooltipContent>More</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-48">
-        {/* The shared item menu: the page's link, then Archive or Delete
-            (not wired yet). */}
-        <ItemMenuItems
-          type={type}
-          name={name}
-          link={location.pathname}
-          onArchive={archives ? () => {} : undefined}
-          onDelete={archives ? undefined : () => {}}
-        />
+        {/* Domain pages supply acknowledged mutations through DetailView.more. */}
+        <ItemMenuItems type={type} name={name} link={location.pathname} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
