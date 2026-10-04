@@ -214,8 +214,7 @@ export function Lightbox({
 }) {
   const navigate = useNavigate();
   const ask = useAskAgent();
-  const { workspaceId, api, user, invalidate } = useWorkspace();
-  const directory = useDirectory();
+  const { workspaceId, workspace, api, user, invalidate } = useWorkspace();
   const [editing, setEditing] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -230,13 +229,7 @@ export function Lightbox({
         }),
       ),
   });
-  const member = directory.members.find((member) => member.userId === user.id);
-  const canWrite = Boolean(
-    member &&
-      member.role !== "viewer" &&
-      !directory.membersQuery.isPending &&
-      !directory.membersQuery.error,
-  );
+  const canWrite = workspace.role !== "viewer";
   const canEdit = canWrite && saved.data?.ownerId === user.id;
   async function act(operation: () => Promise<unknown>) {
     if (busy) return;
@@ -326,15 +319,6 @@ export function Lightbox({
                           })
                         }
                       />
-                    )}
-                    {!member && directory.membersQuery.hasNextPage && (
-                      <Button
-                        variant="ghost"
-                        disabled={directory.membersQuery.isFetchingNextPage}
-                        onClick={() => directory.membersQuery.fetchNextPage()}
-                      >
-                        More people
-                      </Button>
                     )}
                     {saved.data && (
                       <>
@@ -500,13 +484,9 @@ function FileMenu({
   resource: FilePresentation;
   onOpen(): void;
 }) {
-  const { workspaceId, user } = useWorkspace();
-  const directory = useDirectory();
+  const { workspaceId, workspace } = useWorkspace();
   const ask = useAskAgent();
-  const member = directory.members.find((member) => member.userId === user.id);
-  const canAsk = Boolean(
-    member && member.role !== "viewer" && !directory.membersQuery.error,
-  );
+  const canAsk = workspace.role !== "viewer";
   const [error, setError] = useState<Error>();
   async function act(operation: () => Promise<unknown>) {
     try {

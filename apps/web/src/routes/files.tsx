@@ -96,7 +96,7 @@ export function validateFilesSearch(
 type FilterKey = "project" | "label";
 
 export function FilesPage({ search }: { search: FilesSearch }) {
-  const { workspaceId, api, user, invalidate } = useWorkspace();
+  const { workspaceId, workspace, api, user, invalidate } = useWorkspace();
   const directory = useDirectory();
   const navigate = useNavigate({ from: "/files" });
   const ask = useAskAgent();
@@ -153,10 +153,7 @@ export function FilesPage({ search }: { search: FilesSearch }) {
       labels: file.labels,
       visibility: file.visibility,
     }));
-  const member = directory.members.find((member) => member.userId === user.id);
-  const canWrite = Boolean(
-    member && member.role !== "viewer" && !directory.membersQuery.error,
-  );
+  const canWrite = workspace.role !== "viewer";
   const projectId = folder?.projectId ?? search.project;
   const filters: FilterDef<FilterKey>[] = [
     {
@@ -291,15 +288,6 @@ export function FilesPage({ search }: { search: FilesSearch }) {
                 onClick={() => directory.projectsQuery.fetchNextPage()}
               >
                 More projects
-              </Button>
-            )}
-            {!member && directory.membersQuery.hasNextPage && (
-              <Button
-                variant="ghost"
-                disabled={directory.membersQuery.isFetchingNextPage}
-                onClick={() => directory.membersQuery.fetchNextPage()}
-              >
-                More people
               </Button>
             )}
             <DropdownMenu>
