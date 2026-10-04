@@ -148,4 +148,61 @@ SHA-256: `1c1ad6284a5d18c23643c30f2e3f8cd52291ea52b9fa3708226bfe34781a87ce`.
 This boundary pass rules out an unconditional failure of these two cases with
 the corrected fixture. It changes both inherited environment and prior test
 history, so it cannot by itself assign the integrated failure to either one.
-No additional production correction is justified by the evidence collected here.
+The boundary result alone does not justify an additional production correction.
+
+## Deterministic abort acknowledgement ordering
+
+The published Pi RPC handler awaits `session.abort()` before emitting the abort
+response (`dist/modes/rpc/rpc-mode.js` cases `abort` and `handleCommand`).
+`session.abort()` waits for idle, so the native `agent_settled` event can precede
+that response. Otto resolves `prompt()` on settlement; its runtime immediately
+calls `close()`. Previously, `close()` rejected a pending abort request with
+`Pi detached`. Cancellation then retained that failure, matching the integrated
+Stop/cleanup failure shape. The original integrated stream's precise chunk
+ordering was not recorded.
+
+A scratch test copied the existing controlled Pi transport and reproduced this
+valid ordering: cancel, emit settlement, close when prompt resolves, emit the
+abort acknowledgement in a later chunk. It failed deterministically in 23 ms:
+both cancellation and close rejected, with `Pi detached`. No PostgreSQL, native
+Pi process, browser, or provider call was involved. Scratch source is retained
+outside the repository at
+`/home/g4f4r0/.bb/thread-storage/thr_wm9j5vr85d/pi-close-order-repro.test.ts`;
+SHA-256 `0812aea7a39280d60cdfd652a9d8558475341fe4be68fb9b953df67dd2487030`.
+Its log is `pi-close-order-repro.log` in that same directory;
+SHA-256 `92b7f44a3fc7da16fbe7b9e757805c4f761facd29625a3296e44f02b5b182e99`.
+
+The retained regression was committed first as
+`acd4c2e1dd800b12c51d164db39c4b4b1f51fc76` in `tests/pi.test.ts`. It drives the
+production bridge and reproduces the runtime's automatic close as
+`done.then(() => client.close())`, with settlement before the delayed abort ACK.
+Before the correction, both results were rejected; the test requires both to
+fulfill and retain the `aborted` outcome.
+
+The correction in `packages/runs/src/pi.ts` awaits the existing cancellation
+promise after callback joining and before resolving prompt completion. The
+reader remains live to correlate the abort response. Cancellation waits for its
+RPC acknowledgement and callback join, not prompt completion, so the dependency
+does not form a cycle. Existing cancellation deadlines and failure propagation
+remain in force.
+
+| Check | Observed result |
+| --- | --- |
+| Retained regression before correction | Failed; both cancellation and close rejected; Vitest 235 ms |
+| Entire Pi unit file after correction | 50 passed; Vitest 670 ms |
+| Existing failure/cleanup cases | Included in that passing file: ignored cancellation, late usage, callback drain, protocol faults and settlement/control ordering |
+| Backend TypeScript | `bun --bun tsc --noEmit` passed |
+| Formatting/whitespace | Biome and `git diff --check` pass |
+
+Red log: `pi-close-regression-red.log`, SHA-256
+`1bd8daa404ca74ef82ae51e27c36e56f9b0b5faea6254ff103ae13ab90e81900`.
+Green log: `pi-close-regression-green.log`, SHA-256
+`f3e98b65893054c687826a5c85ccffa44d40af46ce5c818defbf65ba71997238`.
+Both are under `/home/g4f4r0/.bb/thread-storage/thr_wm9j5vr85d/`.
+Corrected bridge SHA-256:
+`f61b7faf3f896337661c496fa25735eaaeb3f42134b0adbf0c28b33f4afa2c0d`.
+Retained test file SHA-256:
+`c4b347ef97c7a1d0c1cf765fbaf0bdb7d0be58b747b6e8705e996764bf106915`.
+
+Independent review and the entire native Pi file recheck on this correction are
+still required; the unit proof does not claim either has passed.

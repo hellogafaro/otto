@@ -304,7 +304,10 @@ export function connectPi(
       throw unavailable("Pi settled with native tools running");
     settled = true;
     void join()
-      .then(() => {
+      .then(async () => {
+        // Native settlement may precede abort's RPC reply. Join Stop before the
+        // runtime can close the stream and reject its pending acknowledgement.
+        await cancellation;
         active = false;
         completion?.resolve(cancelled ? "aborted" : terminal);
       })
