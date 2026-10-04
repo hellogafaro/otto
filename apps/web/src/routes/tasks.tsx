@@ -293,6 +293,7 @@ export function TaskRow({
       </ContextMenuTrigger>
       <ContextMenuContent className="w-48">
         <ItemMenuItems
+          type="task"
           name={task.title}
           onOpen={() =>
             navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })

@@ -200,6 +200,7 @@ function DocumentMenu({ document }: { document: Doc }) {
   return (
     <ContextMenuContent className="w-48">
       <ItemMenuItems
+        type="document"
         name={document.title}
         onOpen={() =>
           navigate({

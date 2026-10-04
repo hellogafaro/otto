@@ -39,8 +39,9 @@ export function Page({
           off the bottom. The floating chat sits above the page, outside this
           fade, so it never dims; content keeps 88px free at the end (the
           bar's 40px, 16px below it and 32px above) so the last of it clears
-          the bar. */}
-      <div className="flex min-h-0 flex-1 scroll-fade-y flex-col overflow-y-auto">
+          the bar. No scrollbar, like the side panels: the fade says there is
+          more, and the column never shifts when a page starts to scroll. */}
+      <div className="no-scrollbar flex min-h-0 flex-1 scroll-fade-y flex-col overflow-y-auto">
         <div
           className={cn(
             "mx-auto flex w-full flex-1 flex-col gap-5 px-5 pt-5 md:pt-13",
@@ -51,7 +52,7 @@ export function Page({
           {cover}
           <header
             className={cn(
-              "flex items-center justify-between gap-3",
+              "flex min-h-8 items-center justify-between gap-3",
               centered && "justify-center text-center",
             )}
           >

@@ -1,4 +1,5 @@
 import type { FileRef } from "@/components/composer";
+import type { Mascot } from "@/components/mascot";
 // Static fixtures for the unwired UI. Field names mirror the server schema
 // (packages/tasks, projects, agents) so wiring swaps the source, not the screens.
 
@@ -33,13 +34,41 @@ export const users = {
   u_maya: { name: "Maya Lind", initials: "ML", color: 5 },
 } as const;
 
+// An agent's look and what it is for; its mascot and color are its avatar.
+export type Agent = {
+  title: string;
+  color: number;
+  mascot: Mascot;
+  description: string;
+};
+
 export const agents = {
   // Otto orchestrates: asked with @Otto, it hands work to the other agents.
-  a_otto: { title: "Otto", color: 4 },
-  a_forge: { title: "Forge", color: 1 },
-  a_scout: { title: "Scout", color: 2 },
-  a_quill: { title: "Quill", color: 0 },
-} as const;
+  a_otto: {
+    title: "Otto",
+    color: 4,
+    mascot: "robot",
+    description: "Hands work to the other agents and keeps it moving.",
+  } as Agent,
+  a_forge: {
+    title: "Forge",
+    color: 1,
+    mascot: "rocket",
+    description: "Writes and fixes code.",
+  } as Agent,
+  a_scout: {
+    title: "Scout",
+    color: 2,
+    mascot: "cat",
+    description: "Researches and compares.",
+  } as Agent,
+  a_quill: {
+    title: "Quill",
+    color: 0,
+    mascot: "ghost",
+    description: "Writes copy and documents.",
+  } as Agent,
+};
 
 // Projects follow a lifecycle like tasks; a project's chat is the chat with
 // its projectId. cover is an optional image for its card and its page.

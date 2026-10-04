@@ -58,6 +58,7 @@ function DocumentView({ document }: { document: Doc }) {
       }}
       current={{ icon: RiFileTextLine }}
       title={document.title}
+      type="document"
       ask={
         <FloatingChat
           about="this document"

@@ -19,7 +19,6 @@ import {
   RiPlayCircleLine,
   RiProgress4Line,
   RiProgress6Line,
-  RiRobot3Line,
   RiTeamLine,
   RiUserLine,
   RiVideoLine,
@@ -36,6 +35,7 @@ import {
 } from "@workspace/ui/components/tooltip";
 import type { ComponentType, ReactNode } from "react";
 import { RRule } from "rrule";
+import { MascotIcon } from "@/components/mascot";
 import {
   agents,
   type Chat,
@@ -241,8 +241,8 @@ export const projectLooks: Record<string, Look> = Object.fromEntries(
   ]),
 );
 
-// People show their initials; agents always show the robot; "none" (nobody
-// assigned) is an empty avatar with a person outline.
+// People show their initials; agents their pixel mascot in their name color;
+// "none" (nobody assigned) is an empty avatar with a person outline.
 export function ActorAvatar({
   actorId,
   size = "sm",
@@ -257,7 +257,10 @@ export function ActorAvatar({
         {!actor ? (
           <RiUserLine />
         ) : actor.agent ? (
-          <RiRobot3Line />
+          <MascotIcon
+            mascot={agents[actorId as keyof typeof agents].mascot}
+            className={nameColors[actor.color]}
+          />
         ) : (
           actor.initials
         )}

@@ -5,9 +5,9 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { NotFound } from "@/components/empty-page";
-import { Page } from "@/components/page";
 import { Shell } from "@/components/shell";
 import { chats } from "@/mock/tasks";
+import { AgentSettingsPage } from "@/routes/agent-settings";
 import { ChatPage, NewChatPage } from "@/routes/chats";
 import { DocumentPage } from "@/routes/document";
 import { DocumentsPage, validateDocumentsSearch } from "@/routes/documents";
@@ -20,6 +20,7 @@ import {
   SchedulesPage,
   validateSchedulesSearch,
 } from "@/routes/schedules";
+import { isSettingsSection, SettingsPage } from "@/routes/settings";
 import { TaskPage } from "@/routes/task";
 import { TasksPage, validateTasksSearch } from "@/routes/tasks";
 
@@ -145,11 +146,39 @@ const taskRoute = createRoute({
   },
 });
 
-// Opened from the profile menu, not the rail.
+// Opened from the profile menu, not the rail; "/settings" opens Profile.
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
-  component: () => <Page title="Settings" />,
+  beforeLoad: () => {
+    throw redirect({
+      to: "/settings/$section",
+      params: { section: "profile" },
+    });
+  },
+});
+
+const settingsSectionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings/$section",
+  component: function Settings() {
+    const { section } = settingsSectionRoute.useParams();
+    return isSettingsSection(section) ? (
+      <SettingsPage section={section} />
+    ) : (
+      <NotFound />
+    );
+  },
+});
+
+const agentSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings/agents/$agentId",
+  component: function AgentSettings() {
+    return (
+      <AgentSettingsPage agentId={agentSettingsRoute.useParams().agentId} />
+    );
+  },
 });
 
 export const router = createRouter({
@@ -169,6 +198,8 @@ export const router = createRouter({
     tasksRoute,
     taskRoute,
     settingsRoute,
+    settingsSectionRoute,
+    agentSettingsRoute,
   ]),
 });
 

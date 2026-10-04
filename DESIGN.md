@@ -158,9 +158,9 @@ components:
   sidebar-row:
     textColor: "{colors.muted-foreground}"
     typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    height: 32px
-    padding: 8px
+    rounded: "{rounded.sm}"
+    height: 28px
+    padding: 4px
   sidebar-row-hover:
     backgroundColor: "{colors.muted}"
     textColor: "{colors.foreground}"
@@ -177,6 +177,16 @@ components:
     typography: "{typography.body-medium}"
     rounded: "{rounded.md}"
     height: 36px
+  settings-row:
+    typography: "{typography.body-medium}"
+    padding: 16px
+  nested-control:
+    rounded: "{rounded.sm}"
+    height: 28px
+  timeline-dot:
+    backgroundColor: "{colors.muted-foreground}"
+    rounded: "{rounded.full}"
+    size: 8px
   menu:
     backgroundColor: "{colors.popover-dark}"
     textColor: "{colors.foreground-dark}"
@@ -185,8 +195,8 @@ components:
   menu-item:
     typography: "{typography.body}"
     rounded: "{rounded.sm}"
-    height: 32px
-    padding: 8px
+    height: 28px
+    padding: 4px
   menu-item-highlighted:
     backgroundColor: "{colors.muted-dark}"
     textColor: "{colors.foreground-dark}"
@@ -379,10 +389,13 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   hairline ring and `shadow-xs`. Lower is darker.
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
-- **Controls are 32px**: bar buttons, sidebar rows and tabs. Task list and
-  command palette rows are 36px. Dropdown, combobox and suggestion items and
-  dense bars (filter groups, composer pickers) use 28px, the `compact`
-  button; the smallest buttons are 24px (`xs`).
+- **Controls are 32px**: bar buttons, the rail and tabs. Task list and
+  command palette rows are 36px. Sidebar rows (the left panels and the right
+  one, 2px apart, their group titles too), dropdown, combobox and suggestion
+  items, dense bars (filter groups, composer pickers) and controls nested in
+  a row (settings) use 28px with 6px corners, the `compact` button; the
+  smallest buttons are 24px (`xs`), like a sidebar row's actions, 2px inside
+  it.
 - **Tabs** (`TabBar`, one pattern everywhere: a project's sections, the
   command palette's categories): 32px buttons 4px apart, the open one filled
   (secondary), the rest ghost, an optional icon and a count right after the
@@ -391,9 +404,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   avatar to label is 8px everywhere. Buttons in a bar sit 4px apart.
 - **Even insets in rows.** What leads or ends a row (avatar, icon, key,
   check) sits in a 20px slot as far from the side as from the top: 4px in
-  28px menu, combobox and suggestion rows, 6px in 32px sidebar rows. A bare
-  14px icon gets 3px each side of the slot, so it is 7px (or 9px) from every
-  edge. Labels after a slot share one column (32px or 34px in), and a
+  28px sidebar, menu, combobox and suggestion rows. A bare 14px icon gets 3px
+  each side of the slot, so it is 7px from every edge. Labels after a slot
+  share one column (32px in), and a
   combobox's search icon and text sit on the items' columns.
 - **Rail** (`AppRail`): 48px wide, 8px around 32px buttons, no labels.
   Inbox (home), Search (the command palette), Tasks, Projects, Chats,
@@ -416,6 +429,15 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 - **Widths follow φ**: the page column is 728px; the floating chat bar
   is 728 ÷ φ = 450px;
   sidebars and the right panel are 450 ÷ φ = 280px.
+- **One left line.** The page title, headings, editor text, grid tiles and
+  their labels, and the text inside page-level surfaces all start on the
+  page column's edge. Surfaces reach out by their own inset instead of
+  pushing their text in, as Capy's settings do: cards (settings, comments,
+  runs, a code block) 16px, list group bars 9px (their border and 8px
+  padding), Home's rows 9px. A composer embedded in a timeline sits 4px in
+  from the cards' edge, as in the floating chat, so its text is on the line
+  too. The header is at least 32px tall, so a title stays put with or
+  without buttons.
 - **Page** (`Page`): a centered column, `default` (max 3xl) for reading and
   settings, `wide` (max 5xl) for lists. 20px between header and content;
   20px side padding, 52px top and bottom on desktop. An optional `cover` sits
@@ -436,8 +458,11 @@ Depth comes from translucency and hairlines, not heavy shadows.
 - **Cards** (comments, composer, question cards): card background, a
   `ring-foreground/10` hairline and `shadow-xs`.
 - **Scrolling** areas fade at the edge where more content waits (shadcn
-  `scroll-fade-*`): under the top bar and above the composer. With a floating
-  bar only the top fades; the bar brings its own fade.
+  `scroll-fade-*`): under the top bar and off the bottom, the floating chat
+  above the fade. The fade is the only sign: no scrollbar (`no-scrollbar`)
+  on pages, panels, the file viewer and the floating chat's list, so the
+  column never shifts when a page starts to scroll. The chat thread keeps the
+  stock message scroller's thin one.
 - **Floating surfaces** (dropdowns, combobox, popover, hover card, tooltip,
   editor menus): dark, `bg-popover/70`, `backdrop-blur-2xl` and saturation,
   `ring-foreground/10`, `shadow-md`, no entry animation.
@@ -487,7 +512,8 @@ Icon buttons are 32px with 14px icons.
 `RiBox3Line`, repeat `RiLoopRightLine`, agent `RiRobot3Line`, time
 `RiTimeLine`, row remove `RiCloseLine`, add `RiAddLine`, files
 `RiFolder3Line`. **Avatars are at least 20px** (`ActorAvatar`): people show
-initials, agents the robot, nobody a person outline. Lists mixing avatars and
+initials, agents their pixel mascot in their name color, nobody a person
+outline. Lists mixing avatars and
 icons give icons a 20px slot so labels align.
 
 **Keys** (`Kbd`). 20px (16px in tooltips), 11px text, `xs` corners.
@@ -562,8 +588,8 @@ corners, 28px buttons 6px in with 6px corners (the 28px buttons' radius), one
 step lighter. The title switches chats: a search grouped like the Chats
 sidebar (Pinned, Waiting, Working, Snoozed, Done; no archived), one thing at
 each row's end (status, else time; the open chat shows the check). Then Chats
-(the list of chats waiting on your input or ready for your review, as 32px
-rows, with no composer; a row opens that chat), New chat (who it's with: Otto
+(the list of chats waiting on your input or ready for your review, as 28px
+rows like the sidebar's, with no composer; a row opens that chat), New chat (who it's with: Otto
 unless picked), Minimize, Open as a page and Close. Minimized, the bar reads
 "Reply to Otto" and shows the chat's status and title, which reopens it; the
 chat follows you from page to page. Escape minimizes. The agent sees the page
@@ -674,6 +700,34 @@ panel row: panel rows are controls, never read-only text. Picking a state
 on an archived schedule restores it.
 Schedules archive, never delete.
 
+**Settings** (from the profile menu), as lean as the MVP allows: a left
+panel like Chats', Account (Profile, Notifications, Models, Connections,
+Agents) then Workspace (General, Members). The theme stays in the profile
+menu; usage and activity wait for a Reports page. Each section is a page
+titled with its name: optional h2 sections (Activity's size), each a 12px
+card of rows split by hairlines. One row pattern: what it is and a line on
+it on the left, one control on the right; rows listing things (agents,
+members, connections) lead with their avatar or icon. Controls nested in a
+row are 28px with 6px corners: a switch, a choice (an outline `compact`
+button opening a radio menu, as Appearance in the profile menu), a text
+field, or a `compact` button. Everything saves as you go, no Save button: a
+change waits 800ms for the next (`useDebounced`), blur or leaving saves at
+once, and a value flipped back sends nothing. Every save shows the
+"Settings saved" toast, one at a time: saves close together refresh it.
+Deleting sits last under "Danger zone" and asks first. Adding an agent, a
+connection or a member asks Otto.
+
+**Agents** (Settings › Agents). Each agent shows its pixel mascot (BB's ten
+8x8 sprites, MIT, from MonoCode) in its name color wherever its avatar
+appears. The list opens each agent's own page (its row a link with a
+chevron); "+" asks Otto to create one. An agent's page, in the settings
+patterns: Profile (name, description, the mascot and color pickers as 28px
+buttons, the chosen one filled, and who can use it), Instructions (the card
+is the field), Model, then Skills and Connections as checklists ("Can use 3
+of 8 skills.", All first, the whole row toggles). Everything saves as you go
+("Agent saved"). More holds Copy link and Delete; Otto, the default agent,
+has none.
+
 **Empty states and 404.** `EmptyPage` is only for when a place has nothing at
 all (no tasks, not "no matches"). It replaces the whole page, title and
 actions included, with the stock `Empty` centered both ways: a 32px muted tile
@@ -773,10 +827,15 @@ or Delete); options with number keys pick by them too. Delete is always the
 destructive variant: red text and icon, a red-tinted highlight.
 
 **Alert dialog** (`AlertDialog`, stock shadcn, small; `useConfirm()`). The one
-place an action asks first: Delete, always. The question in sentence case
-with the name in quotes ("Delete “Fix plan”?"), one line ("This can't be
-undone."), Cancel (focused) and the action, red when it destroys. A plain
-darker overlay, no blur, like the dialog's.
+place an action asks first: Delete, always. shadcn's destructive example as
+is: the bin on a red-tinted tile, then copy as plain as a toast's: a short
+question naming what it is, not which ("Delete file?", "Delete account?"),
+and one line ("This can't be undone."); Cancel and the action, red when it
+destroys. The work runs inside it: the action keeps its label and gains a
+spinner (shadcn's button spinner) while both buttons wait, then the dialog
+closes and the toast says it is done ("“Fix plan” deleted"); a failure stays
+open and says "Something went wrong. Try again.". A plain darker overlay, no
+blur, like the dialog's.
 
 **Toasts** (stock shadcn `Toaster`, Sonner's own `toast.success()`, re-exported
 from `@workspace/ui/components/sonner`). One plain row and nothing else: the
@@ -803,8 +862,12 @@ the backend has no folder model yet.
 
 - Do change shared looks in the `packages/ui` component with an `// Otto:`
   comment; don't override colors or type on one instance.
-- Do use only the spacing scale, the two insets and 32px controls; don't
-  invent values to make one screen fit.
+- Do use only the spacing scale, the two insets, 32px bar controls and 28px
+  rows and nested controls; don't invent values to make one screen fit.
+- Do start text on the page column's edge and let surfaces reach out by
+  their own inset; don't push a card's text in past the title's line.
+- Do save settings as they change, with the one "Settings saved" toast;
+  don't add Save buttons.
 - Do nest radii (inner = outer − gap); don't reuse a container's radius inside
   it.
 - Do keep primary for the main action and tags; don't use it for navigation,

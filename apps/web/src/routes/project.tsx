@@ -160,6 +160,7 @@ function ProjectView({
       }}
       current={projectStatuses[status]}
       title={project.title}
+      type="project"
       ask={
         <FloatingChat
           about="this project"

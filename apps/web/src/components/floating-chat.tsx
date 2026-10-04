@@ -372,7 +372,7 @@ export function FloatingChat({
               {listing ? (
                 pending.length ? (
                   // Rows like the sidebar's, their icons near the 16px line.
-                  <ul className="flex min-h-0 flex-col overflow-y-auto px-2 pb-2">
+                  <ul className="no-scrollbar flex min-h-0 scroll-fade-y flex-col gap-0.5 overflow-y-auto px-2 pb-2">
                     {pending.map((item) => {
                       const status = chatStatus(item);
                       return (

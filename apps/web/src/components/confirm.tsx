@@ -1,3 +1,4 @@
+import { RiDeleteBinLine } from "@remixicon/react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -6,19 +7,24 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog";
+import { toast } from "@workspace/ui/components/sonner";
+import { Spinner } from "@workspace/ui/components/spinner";
 import { createContext, type ReactNode, useContext, useState } from "react";
 
 type Question = {
-  /** A question in sentence case, e.g. "Delete “brand-notes.md”?". */
+  /** A short question, like the toasts: "Delete file?". */
   title: string;
-  /** One line on what happens, e.g. "This can't be undone.". */
+  /** One plain sentence on what happens: "This can't be undone.". */
   description: string;
-  /** The action's word, e.g. "Delete". */
+  /** The action's word, kept while it runs: "Delete". */
   action: string;
-  /** Red, for actions that destroy something. */
+  /** Red, with the bin, for actions that destroy something. */
   destructive?: boolean;
+  /** The work itself; the dialog stays open with a spinner until it ends. */
+  run?: () => Promise<void> | void;
 };
 
 type Pending = Question & { resolve: (yes: boolean) => void };
@@ -27,17 +33,37 @@ const ConfirmContext = createContext<(question: Question) => Promise<boolean>>(
   async () => false,
 );
 
-// One alert dialog for the whole app: an action that needs a yes (Delete)
-// asks with `useConfirm()` and waits. The stock shadcn alert dialog, small:
-// the question, one line, Cancel and the action (red when it destroys).
+// One alert dialog for the whole app, the stock shadcn one (its destructive
+// example: small, the red bin, the question, one line, Cancel and the
+// action). `useConfirm()` asks and waits: the action keeps its label and
+// shows a spinner while `run` works, the dialog closes when it is done, and
+// the caller then says so with a toast. A failure keeps it open and says so.
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   // The question stays while the dialog fades out; only `open` flips.
   const [pending, setPending] = useState<Pending>();
   const [open, setOpen] = useState(false);
-  const answer = (yes: boolean) => {
-    pending?.resolve(yes);
+  const [busy, setBusy] = useState(false);
+
+  const cancel = () => {
+    if (busy) return;
+    pending?.resolve(false);
     setOpen(false);
   };
+  const act = async () => {
+    if (!pending) return;
+    setBusy(true);
+    try {
+      await pending.run?.();
+    } catch {
+      toast.error("Something went wrong. Try again.");
+      return;
+    } finally {
+      setBusy(false);
+    }
+    pending.resolve(true);
+    setOpen(false);
+  };
+
   return (
     <ConfirmContext
       value={(question) =>
@@ -48,20 +74,27 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       }
     >
       {children}
-      <AlertDialog open={open} onOpenChange={(open) => !open && answer(false)}>
+      <AlertDialog open={open} onOpenChange={(next) => !next && cancel()}>
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
+            {pending?.destructive && (
+              <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
+                <RiDeleteBinLine />
+              </AlertDialogMedia>
+            )}
             <AlertDialogTitle>{pending?.title}</AlertDialogTitle>
             <AlertDialogDescription>
               {pending?.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant={pending?.destructive ? "destructive" : "default"}
-              onClick={() => answer(true)}
+              disabled={busy}
+              onClick={act}
             >
+              {busy && <Spinner data-icon="inline-start" />}
               {pending?.action}
             </AlertDialogAction>
           </AlertDialogFooter>

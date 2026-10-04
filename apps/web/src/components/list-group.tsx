@@ -12,8 +12,9 @@ import { Count, type Look } from "@/components/task-meta";
 // button: chevron, the group's icon, its name and count) that folds its
 // rows. Header and rows share one column grid: both have a 1px border and
 // 8px padding, the header chevron and the row spacer are 14px wide, and both
-// use an 8px gap, so status icons and titles line up without offsets. Empty
-// groups don't show.
+// use an 8px gap, so status icons and titles line up without offsets. The
+// group reaches 9px out of the page column (its 1px border and 8px padding)
+// so the chevron sits on the page title's line. Empty groups don't show.
 export function ListGroup({
   look,
   count,
@@ -27,7 +28,7 @@ export function ListGroup({
 }) {
   if (count === 0) return null;
   return (
-    <Collapsible defaultOpen={defaultOpen}>
+    <Collapsible defaultOpen={defaultOpen} className="-mx-[9px]">
       {/* The whole header row toggles the group. */}
       <CollapsibleTrigger
         render={

@@ -79,6 +79,7 @@ function ProjectMenu({ id, title }: { id: string; title: string }) {
   return (
     <ContextMenuContent className="w-48">
       <ItemMenuItems
+        type="project"
         name={title}
         onOpen={() =>
           navigate({ to: "/projects/$projectId", params: { projectId: id } })

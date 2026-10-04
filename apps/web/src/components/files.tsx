@@ -330,7 +330,7 @@ export function Lightbox({
               >
                 <h2 className="truncate pl-3 text-sm font-medium">Details</h2>
               </Topbar>
-              <div className="min-h-0 flex-1 scroll-fade-y overflow-y-auto">
+              <div className="no-scrollbar min-h-0 flex-1 scroll-fade-y overflow-y-auto">
                 <FileDetails resource={resource} />
               </div>
             </aside>
@@ -358,6 +358,7 @@ function FileMenu({
   return (
     <ContextMenuContent className="w-48">
       <ItemMenuItems
+        type="file"
         name={resource.title}
         onOpen={onOpen}
         onAsk={() =>
@@ -599,7 +600,7 @@ function MarkdownFile({ url }: { url: string }) {
   return (
     <div
       className={cn(
-        "h-full w-full max-w-3xl scroll-fade-y overflow-y-auto bg-card p-8",
+        "no-scrollbar h-full w-full max-w-3xl scroll-fade-y overflow-y-auto bg-card p-8",
         frame,
       )}
     >

@@ -472,6 +472,7 @@ function FolderItem({
       menu={
         <ContextMenuContent className="w-48">
           <ItemMenuItems
+            type="folder"
             name={folder.title}
             onOpen={() =>
               navigate({ to: "/files", search: { folder: folder.id } })

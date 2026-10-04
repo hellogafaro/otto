@@ -3,9 +3,10 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { ReactNode } from "react";
 
 // One row of a plain list in a card (the floating chat's chats that need
-// you): 32px, like a sidebar row. What leads or ends it sits in a 20px slot
-// 6px in (5px + the 1px border), as far from the side as from the top: its
-// icon or avatar, then one thing at the end (a status, else a time).
+// you): 28px with 6px corners, like a sidebar row. What leads or ends it sits
+// in a 20px slot 4px in (3px + the 1px border), as far from the side as from
+// the top: its icon or avatar, then one thing at the end (a status, else a
+// time). The label starts 32px in, 8px after the slot.
 export function ListRow({
   media,
   title,
@@ -21,8 +22,8 @@ export function ListRow({
     <li>
       <Button
         variant="ghost"
-        size="sm"
-        className="w-full justify-start px-1.25 font-normal text-foreground"
+        size="compact"
+        className="w-full justify-start gap-2 px-0.75 font-normal text-foreground"
         onClick={onClick}
       >
         <Slot>{media}</Slot>

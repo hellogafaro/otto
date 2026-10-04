@@ -349,7 +349,7 @@ function ChatRow({ chat, onChange }: { chat: Chat; onChange: () => void }) {
             <ChatDetails chat={chat} />
           </HoverCardContent>
         </HoverCard>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-0.5 rounded-r-md bg-(--slot) pr-1 pl-1 text-xs text-muted-foreground [--slot:var(--background)] group-hover/menu-item:[--slot:var(--muted)] group-has-data-active/menu-item:[--slot:var(--secondary)] group-has-data-active/menu-item:group-hover/menu-item:[--slot:color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]! before:absolute before:inset-y-0 before:right-full before:w-6 before:bg-linear-to-r before:from-transparent before:to-(--slot) dark:group-hover/menu-item:[--slot:color-mix(in_oklch,var(--muted)_50%,var(--background))]">
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-0.5 rounded-r-sm bg-(--slot) pr-0.5 pl-1 text-xs text-muted-foreground [--slot:var(--background)] group-hover/menu-item:[--slot:var(--muted)] group-has-data-active/menu-item:[--slot:var(--secondary)] group-has-data-active/menu-item:group-hover/menu-item:[--slot:color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]! before:absolute before:inset-y-0 before:right-full before:w-6 before:bg-linear-to-r before:from-transparent before:to-(--slot) dark:group-hover/menu-item:[--slot:color-mix(in_oklch,var(--muted)_50%,var(--background))]">
           <span className="flex min-w-5 items-center justify-center px-1 group-hover/menu-item:hidden group-has-focus-visible/menu-item:hidden group-has-[[aria-expanded=true]]/menu-item:hidden">
             {status ? (
               <>
@@ -372,8 +372,8 @@ function ChatRow({ chat, onChange }: { chat: Chat; onChange: () => void }) {
   );
 }
 
-// Pin, Archive and More (done, snooze, copy link): 24px, 2px apart, 4px
-// inside the 32px row (xs 4 corners).
+// Pin, Archive and More (done, snooze, copy link): 24px, 2px apart, 2px
+// inside the 28px row (xs 4 corners in its 6).
 function ChatActions({
   chat,
   onChange,

@@ -14,15 +14,18 @@ import {
 } from "@workspace/ui/components/dropdown-menu";
 import { toast } from "@workspace/ui/components/sonner";
 import { useConfirm } from "@/components/confirm";
+import { request } from "@/mock/api";
 
 // One menu for an item (a task, document, project, file or folder), the same
 // in its More menu and on right-click (a context menu takes these items as
 // they are). Short, in one order: Open, Ask about it (the page's floating
 // chat), Download, Rename, Copy link; then Archive and Delete, apart, Delete
-// always red and always asked first (an alert dialog). Copy link, Archive and
-// Delete say they are done with a toast. Keys on the quick ones, shown and
+// always red and always asked first ("Delete file?", the stock alert dialog,
+// which waits for it with a spinner). Copy link, Archive and Delete say they
+// are done with a toast. Keys on the quick ones, shown and
 // live while the menu is open: R, C, A, ⌫. Only the actions passed show.
 export function ItemMenuItems({
+  type,
   name,
   onOpen,
   onAsk,
@@ -32,7 +35,9 @@ export function ItemMenuItems({
   onArchive,
   onDelete,
 }: {
-  /** What it is called, for the Delete question and the toasts. */
+  /** What it is, for the Delete question: "file" asks "Delete file?". */
+  type: string;
+  /** What it is called, for the toasts. */
   name: string;
   onOpen?: () => void;
   onAsk?: () => void;
@@ -107,14 +112,16 @@ export function ItemMenuItems({
                 onClick={async () => {
                   // Delete always asks first, then says it is done.
                   const yes = await confirm({
-                    title: `Delete “${name}”?`,
+                    title: `Delete ${type}?`,
                     description: "This can't be undone.",
                     action: "Delete",
                     destructive: true,
+                    run: async () => {
+                      await request();
+                      onDelete();
+                    },
                   });
-                  if (!yes) return;
-                  onDelete();
-                  toast.success(`“${name}” deleted`);
+                  if (yes) toast.success(`“${name}” deleted`);
                 }}
               >
                 <RiDeleteBinLine />

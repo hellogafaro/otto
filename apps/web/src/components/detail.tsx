@@ -75,6 +75,7 @@ export function DetailView({
   parent,
   current,
   title,
+  type,
   cover,
   people,
   children,
@@ -88,6 +89,8 @@ export function DetailView({
   /** The current item's crumb icon (its status). */
   current: { icon: ComponentType<{ className?: string }>; className?: string };
   title: string;
+  /** What it is, for its menu's questions: "task". */
+  type: string;
   /** A block above the title (a project's cover). */
   cover?: ReactNode;
   /** Owner, assignee or members under the title. */
@@ -108,7 +111,7 @@ export function DetailView({
         actions={
           <>
             {actions}
-            <MoreMenu name={title} archives={archives} />
+            <MoreMenu type={type} name={title} archives={archives} />
             <PanelToggle />
           </>
         }
@@ -195,9 +198,11 @@ export function WithPanel({
 
 // Page actions, kept to the main ones.
 export function MoreMenu({
+  type,
   name,
   archives = false,
 }: {
+  type: string;
   name: string;
   archives?: boolean;
 }) {
@@ -221,6 +226,7 @@ export function MoreMenu({
         {/* The shared item menu: the page's link, then Archive or Delete
             (not wired yet). */}
         <ItemMenuItems
+          type={type}
           name={name}
           link={location.pathname}
           onArchive={archives ? () => {} : undefined}

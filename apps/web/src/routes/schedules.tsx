@@ -282,6 +282,7 @@ export function ScheduleRow({
       </ContextMenuTrigger>
       <ContextMenuContent className="w-48">
         <ItemMenuItems
+          type="schedule"
           name={schedule.title}
           onOpen={() =>
             navigate({
@@ -394,6 +395,7 @@ function ScheduleView({ schedule }: { schedule: Schedule }) {
       }}
       current={scheduleStatuses[schedule.status]}
       title={schedule.title}
+      type="schedule"
       archives
       actions={
         live && (
@@ -489,7 +491,7 @@ function ScheduleView({ schedule }: { schedule: Schedule }) {
       }
     >
       {schedule.kind === "code" ? (
-        <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
+        <pre className="-mx-4 overflow-x-auto rounded-md bg-muted p-4 font-mono text-xs">
           {schedule.body}
         </pre>
       ) : (

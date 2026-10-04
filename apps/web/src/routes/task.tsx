@@ -165,6 +165,7 @@ function TaskView({ task }: { task: Task }) {
       }}
       current={current}
       title={task.title}
+      type="task"
       ask={
         <FloatingChat
           ref={ask}
@@ -304,8 +305,10 @@ function TaskView({ task }: { task: Task }) {
               </TimelineItem>
             ),
           )}
-          {/* The comment composer ends the line, like the newest comment. */}
-          <TimelineItem>
+          {/* The comment composer ends the line, like the newest comment;
+              4px in from the cards' edge, so its text (12px in) is on the
+              title's line too. */}
+          <TimelineItem className="mx-1">
             <Composer
               ref={composer}
               placeholder="Leave a comment, @ to tag"
