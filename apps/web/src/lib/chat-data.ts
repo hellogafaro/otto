@@ -5,7 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import type { InferRequestType, InferResponseType } from "hono/client";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { read, type workspaceApi } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
 
@@ -64,20 +64,46 @@ export function useChat(chatId?: string) {
 }
 
 export function useParticipants(chatId?: string) {
-  const { api, workspaceId } = useWorkspace();
-  return useQuery({
+  const { api, workspaceId, user } = useWorkspace();
+  const query = useInfiniteQuery({
     queryKey: ["workspace", workspaceId, "chat", chatId, "participants"],
-    queryFn: async () =>
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam, signal }) =>
       read(
-        await api.chats[":id"].participants.$get({
-          param: { workspaceId, id: chatId ?? "" },
-          query: { limit: "100" },
-        }),
+        await api.chats[":id"].participants.$get(
+          {
+            param: { workspaceId, id: chatId ?? "" },
+            query: { limit: "100", after: pageParam },
+          },
+          { init: { signal } },
+        ),
       ),
+    getNextPageParam: (page) => page.next ?? undefined,
+    select: (data) => ({
+      items: data.pages.flatMap((page) => page.items),
+      next: data.pages.at(-1)?.next ?? null,
+    }),
     enabled: Boolean(chatId),
     refetchInterval: 5000,
     retry: false,
   });
+  const currentParticipant = query.data?.items.find(
+    (participant) => participant.userId === user.id,
+  );
+  // An unloaded explicit viewer must never inherit workspace contributor access.
+  // Absence is authoritative only after the sealed participant cursor is exhausted.
+  const authorityResolved = Boolean(
+    query.data && !query.error && (currentParticipant || !query.hasNextPage),
+  );
+  const authorityPending = !query.error && !authorityResolved;
+  const { fetchNextPage, hasNextPage, isFetching, error } = query;
+  useEffect(() => {
+    if (chatId && authorityPending && hasNextPage && !isFetching && !error) {
+      // Multiple Chat/menu/Run observers share this query; join an existing fetch.
+      void fetchNextPage({ cancelRefetch: false });
+    }
+  }, [chatId, authorityPending, hasNextPage, isFetching, error, fetchNextPage]);
+  return { ...query, currentParticipant, authorityResolved, authorityPending };
 }
 
 // Replay advances only to a cursor actually returned by this Chat. Each HTTP batch is bounded at 100.
@@ -206,13 +232,12 @@ export function useChatPermissions(
   participants: ReturnType<typeof useParticipants>,
 ) {
   const { workspace, user } = useWorkspace();
-  const explicit = participants.data?.items.find(
-    (item) => item.userId === user.id,
-  );
+  const explicit = participants.currentParticipant;
   const canWrite = Boolean(
     chat &&
       !participants.isPending &&
       !participants.error &&
+      participants.authorityResolved &&
       workspace.role !== "viewer" &&
       explicit?.role !== "viewer" &&
       (chat.visibility === "workspace" || explicit?.role === "contributor"),

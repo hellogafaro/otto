@@ -645,7 +645,10 @@ function ChatView({ chat }: { chat: LiveChat }) {
           />
         ) : (
           <p>
-            {participants.error?.message ?? "This chat is read-only for you."}
+            {participants.error?.message ??
+              (participants.authorityPending
+                ? "Checking your chat access…"
+                : "This chat is read-only for you.")}
           </p>
         )}
       </div>
@@ -1324,11 +1327,7 @@ function ChatPanel({
         </p>
       </Section>
       <Section title="Participants" count={participants.data?.items.length}>
-        <QueryState
-          pending={participants.isPending}
-          error={participants.error}
-          retry={participants.refetch}
-        />
+        <ParticipantPages participants={participants} />
         {!participants.error &&
           participants.data?.items.map((person) => {
             const id = person.userId ?? person.agentId ?? "";
@@ -1998,6 +1997,34 @@ function RunQuestion({
   );
 }
 
+function ParticipantPages({
+  participants,
+}: {
+  participants: ReturnType<typeof useParticipants>;
+}) {
+  return (
+    <>
+      <QueryState
+        pending={participants.isPending || participants.authorityPending}
+        error={participants.error}
+        retry={participants.refetch}
+      />
+      {!participants.error && participants.hasNextPage && (
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={participants.isFetching}
+          onClick={() => participants.fetchNextPage({ cancelRefetch: false })}
+        >
+          {participants.isFetchingNextPage
+            ? "Loading participants…"
+            : "More participants"}
+        </Button>
+      )}
+    </>
+  );
+}
+
 function RunAdmission({
   chat,
   messages,
@@ -2094,7 +2121,15 @@ function RunAdmission({
       await invalidate();
     },
   });
-  if (!canWrite) return <p>Run admission requires contributor access.</p>;
+  if (!canWrite)
+    return (
+      <>
+        <ParticipantPages participants={participants} />
+        {!participants.authorityPending && !participants.error && (
+          <p>Run admission requires contributor access.</p>
+        )}
+      </>
+    );
   return (
     <form
       onSubmit={(event) => {
@@ -2125,8 +2160,13 @@ function RunAdmission({
           />
         </Field>
         <DirectoryPages kind="agents" />
+        <ParticipantPages participants={participants} />
         {!available.length && (
-          <p>Add an eligible Agent as a contributor to this chat first.</p>
+          <p>
+            {participants.hasNextPage || directory.agentsQuery.hasNextPage
+              ? "Load more participants and Agents to find an eligible contributor."
+              : "Add an eligible Agent as a contributor to this chat first."}
+          </p>
         )}
         {selected && (
           <p>
