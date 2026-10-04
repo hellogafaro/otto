@@ -615,7 +615,7 @@ function CreateDocument({ onClose }: { onClose(): void }) {
               directory.membersQuery.refetch();
               directory.agentsQuery.refetch();
               directory.projectsQuery.refetch();
-              members.refetch();
+              if (projectId) members.refetch();
             }}
           />
           {members.hasNextPage && !canWrite && (

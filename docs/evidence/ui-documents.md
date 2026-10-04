@@ -162,17 +162,28 @@ Additional numbered real browser scenarios for root:
 
 Pending items remain those above: unsupported backend actions have no invented success, Collection table/list browsing needs a separately owned route if required, and fresh integrated browser/permission/review acceptance belongs to root. This correction introduces no new Project membership implementation or common-editor changes.
 
+## Retry caller correction on root `6254e91`
+
+Root's actual combined browser run passed Document creation/body/metadata/Cancel/409 (4.8 s), attachment add/remove/shared pending lock (4.0 s), Collection schema/property/archive/restore (7.1 s) and noncreator proposal/accept/stale reject (6.2 s). The fifth case confirmed dirty main/property drafts survive 503, then failed after recovery: detail Retry also called the disabled Project-member query for a Document with no Project. The real request returned 400 and created a new generic alert. This is a caller bug; the zero-alert assertion remains intact. Observed root artifacts: `browser-combined-current.log` and `browser-combined-pass1-results` under root thread storage. Credential headers must be redacted before inspecting/reporting error output.
+
+The user authorized exactly the two owned Retry guards: detail calls `members.refetch()` only when `document.projectId` exists, creation only when `projectId` exists. Workspace directory refresh and detail reload still execute. Project membership hooks, authority, router, API and backend remain unchanged. The existing fifth browser regression additionally records Project-member reads and requires none for its unscoped Document; it still requires both read alerts to clear and dirty drafts to remain.
+
+Focused production-source checks execute each actual Retry arrow extracted from its TSX AST. Null, undefined and empty Project values cause zero member reads; a real UUID causes exactly one. Both callers still refresh all three directory lists; detail still reloads once. A real QueryObserver with `enabled:false` executes its query function on manual `refetch()`, reproducing why the guard belongs in these callers. All three focused check groups passed. Private scratch evidence: child thread storage `documents-retry/check-retry.ts` and `check-retry.log`; no browser/DB runtime started by child.
+
+Scoped Bun Biome, serialized root TypeScript/web typecheck/production build and staged diff checks are recorded with this correction. The corrected fifth browser case and its 403/404 denial phase remain **unverified** until root reruns integrated bytes. No new UI composition or backend behavior is introduced, and no unsupported action is made available.
+
 ## Source hashes
 
 The exact signed lane commit identifies the implementation source; independent acceptance is still unverified. Dependency commits are excluded from root's lane cherry-pick list.
 
 | Owned source | SHA-256 |
 | --- | --- |
-| `apps/web/src/routes/documents.tsx` | `a8dfe7326fd050f20271c2a5da80c9e21354392b01215be41566b0b828e27ac3` |
-| `apps/web/src/routes/document.tsx` | `4e7dd44a1e62aa2e10509137fbffe763b4bb39001461ca0d98655e79a2d27c7c` |
+| `apps/web/src/routes/documents.tsx` | `b05a2fb4ef26d66702d3cab8f6e13d0a656511e6dbee9de0f3d0236fe433a5fa` |
+| `apps/web/src/routes/document.tsx` | `5aa7d51544931958c3111e5adc0a29c8d51c9c290312e03ee345e5e6148aaac9` |
 | `apps/web/src/components/documents/collection-manager.tsx` | `16de26b40f3fa079f39f9463d93888580ee072e531ce15c128182959c6560b44` |
 | `apps/web/src/components/documents/document-data.tsx` | `d76cb74e177da13768c916ef6e88b7c4325b5ad84a6d51f67507f8e507500755` |
 | `apps/web/src/components/documents/document-menu.tsx` | `fd60c77c1dc66558d16be9187d23d9ac6e0c163ac87fdc167967213a5978c1ae` |
 | `apps/web/src/components/documents/document-reference-choice.tsx` | `ac77fc1828747242177d5b70d672605e64777739c51e0870b9bac76e77071e02` |
 | `apps/web/src/components/documents/document-relations.tsx` | `ed618a4efb19e883b164d18ed4e23ab44abf6c7040626cb61ba52df242cca70d` |
 | `apps/web/src/components/documents/document-operation.ts` | `ca51a430c1c49291523cc157e65bf22081b8a0fd4ea73e75bbd55cb682883dbe` |
+| `tests/browser/ui-document-actions.spec.ts` | `bf57a10d0829539dee405ef462e8a9cd82fda2755fbe00dde5a0ad9b42f110e4` |

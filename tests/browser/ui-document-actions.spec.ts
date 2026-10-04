@@ -746,6 +746,15 @@ test("Transient cached reads preserve dirty drafts, denied reads hide Document a
     fixture,
     "Document Read Failure Owner",
   );
+  const projectMemberReads: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      path.startsWith(`/api/workspaces/${workspaceId}/projects/`) &&
+      path.endsWith("/members")
+    )
+      projectMemberReads.push(path);
+  });
   const document = await createDocument(page, workspaceId);
   const fieldId = crypto.randomUUID();
   const input: CollectionCreation = {
@@ -816,6 +825,9 @@ test("Transient cached reads preserve dirty drafts, denied reads hide Document a
   await collectionSection(page)
     .getByRole("button", { name: "Retry", exact: true })
     .click();
+  // Retry must respect the disabled Project-member query for an unscoped
+  // Document, rather than producing a new invalid-ID error after recovery.
+  expect(projectMemberReads).toEqual([]);
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(titleEditor(page)).toHaveValue("Dirty retained title");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();

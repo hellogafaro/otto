@@ -296,7 +296,7 @@ function DocumentView({
           directory.membersQuery.refetch();
           directory.agentsQuery.refetch();
           directory.projectsQuery.refetch();
-          members.refetch();
+          if (document.projectId) members.refetch();
         }}
       />
       <DocumentDirectoryPages members projects />
