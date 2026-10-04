@@ -299,7 +299,7 @@ test("Skill UI saves instructions, real supporting File references, export and A
   };
   expect(list.items).toHaveLength(1);
   const id = list.items[0]?.id ?? "";
-  const finalTitle = unique("Saved reusable skill");
+  const finalTitle = `saved-reusable-skill-${crypto.randomUUID()}`;
   await detail.getByLabel("Title", { exact: true }).fill(finalTitle);
   await detail
     .getByLabel("Instructions", { exact: true })
