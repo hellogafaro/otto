@@ -915,8 +915,6 @@ Composer mentions query real workspace members, Agents, Projects and Files, with
 
 Authentication uses the real account service for sign-in, registration and password reset, with acknowledged results and request errors. Registration does not grant installation or workspace authority. A person without workspace access can accept a known invitation ID. Workspace selection loads additional server pages and clears the previous workspace cache before navigation.
 
-The HTTPS development preview supports embedded sign-in with secure authentication cookies partitioned by the embedding site. Production cookie settings remain owned by the account service.
-
 ### Fenced configuration and content
 
 Agent account/model/Skill selection and Schedule configuration use explicit Save/Cancel for one atomic change protected by the opening edit token. Document content, labels, visibility and folder are one fenced draft; Skill content and supporting Files have separate acknowledged fences. Failed or stale edits retain input. Unsupported decorative fields and fabricated activity are removed; Schedule timing shows the saved cron/timezone without guessing a next-run date.
