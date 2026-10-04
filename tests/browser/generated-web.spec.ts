@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("generated preset renders with pointer behavior and keyboard theme toggle", async ({
+test("web app renders Home with pointer behavior and keyboard theme toggle", async ({
   page,
 }) => {
   expect(typeof Bun).toBe("object");
@@ -8,22 +8,36 @@ test("generated preset renders with pointer behavior and keyboard theme toggle",
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Project ready!" }),
+    page.getByRole("heading", {
+      level: 1,
+      name: /^Good (morning|afternoon|evening), Johan$/,
+    }),
   ).toBeVisible();
-  const button = page.getByRole("button", { name: "Button", exact: true });
+  const button = page.getByRole("button", { name: "Tasks", exact: true });
   await expect(button).toBeVisible();
   expect(
     await button.evaluate((element) => getComputedStyle(element).cursor),
   ).toBe("pointer");
-  await page.keyboard.press("Tab");
+  await button.focus();
   await expect(button).toBeFocused();
+  await page.keyboard.press("Escape");
   await page.keyboard.press("d");
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.keyboard.press("d");
   await expect(page.locator("html")).not.toHaveClass(/dark/);
   await page.evaluate(() =>
     Promise.all(
-      document.getAnimations().map((animation) => animation.finished),
+      // Only timed ones: scroll-driven fades and endless loops (a working
+      // agent's shimmer) never finish.
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.timeline === document.timeline &&
+            animation.effect?.getTiming().iterations !==
+              Number.POSITIVE_INFINITY,
+        )
+        .map((animation) => animation.finished),
     ),
   );
   await page.screenshot({ path: "docs/evidence/generated-web-playwright.png" });
