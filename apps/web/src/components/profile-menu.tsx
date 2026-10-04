@@ -99,7 +99,7 @@ export function ProfileMenu() {
                         try {
                           await loadWorkspaces();
                         } catch {
-                          toast.error("Unable to load more workspaces.");
+                          toast.error("Unable to load more workspaces");
                         }
                       }}
                     >
@@ -145,7 +145,7 @@ export function ProfileMenu() {
                 await queryClient.cancelQueries();
                 queryClient.clear();
               } catch {
-                toast.error("Unable to log out. Try again.");
+                toast.error("Unable to log out");
               }
             }}
           >

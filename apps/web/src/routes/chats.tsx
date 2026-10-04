@@ -8,6 +8,7 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiFileCopyLine,
+  RiGroupLine,
   RiMoreLine,
 } from "@remixicon/react";
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
@@ -299,7 +300,7 @@ export function ChatMenuItems({
             );
             toast.success("Chat link copied");
           } catch {
-            toast.error("Unable to copy the chat link. Try again.");
+            toast.error("Unable to copy the chat link");
           }
         }}
       >
@@ -723,7 +724,7 @@ export function useNewChat() {
         throw new Error("Add a message before creating a chat.");
       if (uncertainCreation.current)
         throw new Error(
-          "Chat creation was not acknowledged. Inspect Chats before explicitly starting another chat.",
+          "Chat creation was not acknowledged, inspect Chats before starting another.",
         );
       if (!created.current) {
         try {
@@ -750,7 +751,7 @@ export function useNewChat() {
           if (!(error instanceof ApiError) || error.status >= 500) {
             uncertainCreation.current = true;
             throw new Error(
-              "Chat creation was not acknowledged. Inspect Chats before explicitly starting another chat.",
+              "Chat creation was not acknowledged, inspect Chats before starting another.",
             );
           }
           throw error;
@@ -866,15 +867,6 @@ export function NewChatComposer({
           disabled={create.isPending || Boolean(create.createdChat)}
         />
       </div>
-      <QueryState
-        pending={directory.pending}
-        error={directory.error}
-        retry={() => {
-          void directory.membersQuery.refetch();
-          void directory.agentsQuery.refetch();
-          void directory.projectsQuery.refetch();
-        }}
-      />
       {(!validProject || !validPeople) && (
         <p role="alert">
           A selected project or participant is unavailable in this context.
@@ -1055,7 +1047,7 @@ export function WithPicker({
       .map((agent) => agent.id),
   ];
   const label = !value.length
-    ? "Choose participants"
+    ? "Participants"
     : value.length === 1
       ? directory.actorOf(value[0]).name
       : `${directory.actorOf(value[0]).name} and ${value.length - 1} more`;
@@ -1077,11 +1069,15 @@ export function WithPicker({
         onClick={() => setOpen(true)}
         aria-label={`With: ${label}`}
       >
-        <AvatarGroup>
-          {value.slice(0, 3).map((id) => (
-            <ActorAvatar key={id} actorId={id} />
-          ))}
-        </AvatarGroup>
+        {value.length ? (
+          <AvatarGroup>
+            {value.slice(0, 3).map((id) => (
+              <ActorAvatar key={id} actorId={id} />
+            ))}
+          </AvatarGroup>
+        ) : (
+          <RiGroupLine />
+        )}
         {label}
         <RiArrowDownSLine data-icon="inline-end" />
       </Button>

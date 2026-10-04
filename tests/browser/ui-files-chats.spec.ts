@@ -154,7 +154,7 @@ test("Chats persist acknowledged messages, reply and retain failed drafts", asyn
   await expect(
     page
       .getByRole("alert")
-      .filter({ hasText: "This service is unavailable. Try again later." }),
+      .filter({ hasText: "This service is unavailable, try again later." }),
   ).toBeVisible();
   await expect(active).toHaveText("Draft after failure");
   await page.unroute("**/messages");

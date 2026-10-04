@@ -278,7 +278,7 @@ export function Composer({
   const add = (list: FileList | File[]) => {
     if (disabled || pending || sending) return;
     if (!upload) {
-      toast.error("Attachments are unavailable here.");
+      toast.error("Attachments are unavailable here");
       return;
     }
     const added = [...list].map((file) => ({
@@ -372,7 +372,7 @@ export function Composer({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unable to send. Your draft is kept.",
+          : "Unable to send, your draft is kept",
       );
     } finally {
       sendingRef.current = false;
@@ -616,10 +616,10 @@ const supported =
   Boolean(navigator.mediaDevices?.getUserMedia);
 
 const dictationErrors: Record<string, string> = {
-  not_configured: "Unable to transcribe. Dictation isn't set up.",
-  timeout: "Unable to transcribe. Try again.",
-  unavailable: "Unable to transcribe. Try again.",
-  too_large: "Unable to transcribe. The recording is too long.",
+  not_configured: "Dictation isn't set up",
+  timeout: "Unable to transcribe",
+  unavailable: "Unable to transcribe",
+  too_large: "The recording is too long to transcribe",
 };
 
 async function transcribe(audio: Blob) {
@@ -634,7 +634,7 @@ async function transcribe(audio: Blob) {
     .catch(() => ({}));
   if (!response.ok || typeof body.text !== "string")
     throw new Error(
-      dictationErrors[body.error ?? ""] ?? "Unable to transcribe. Try again.",
+      dictationErrors[body.error ?? ""] ?? "Unable to transcribe",
     );
   return body.text.trim();
 }
@@ -651,7 +651,7 @@ function useDictation(editor: Editor | null) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      toast.error("Unable to dictate. Allow microphone access.");
+      toast.error("Allow microphone access to dictate");
       return;
     }
     // Opens the provider connection while the user speaks.
@@ -683,9 +683,7 @@ function useDictation(editor: Editor | null) {
         }
       } catch (error) {
         toast.error(
-          error instanceof Error
-            ? error.message
-            : "Unable to transcribe. Try again.",
+          error instanceof Error ? error.message : "Unable to transcribe",
         );
       } finally {
         setTranscribing(false);

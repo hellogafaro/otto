@@ -8,7 +8,7 @@ import {
 import { buttonVariants } from "@workspace/ui/components/button";
 import { cn } from "cn";
 import type * as React from "react";
-import { Toaster as Sonner, type ToasterProps, toast } from "sonner";
+import { Toaster as Sonner, toast as sonner, type ToasterProps } from "sonner";
 
 // Otto: stock shadcn Sonner; toasts come from Sonner's own `toast`
 // (`toast.success("Link copied")`), re-exported here. Each is one plain row
@@ -65,6 +65,19 @@ const Toaster = ({ ...props }: ToasterProps) => {
       {...props}
     />
   );
+};
+
+// Otto: a toast is one sentence with no period, whatever message reaches it
+// (server and form messages end in one).
+const plain =
+  <A extends unknown[], R>(show: (message: string, ...rest: A) => R) =>
+  (message: string, ...rest: A) =>
+    show(message.replace(/\.$/, ""), ...rest);
+const toast = {
+  success: plain(sonner.success),
+  error: plain(sonner.error),
+  info: plain(sonner.info),
+  warning: plain(sonner.warning),
 };
 
 export { Toaster, toast };

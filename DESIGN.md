@@ -572,7 +572,7 @@ bars 2px apart, the elapsed time and Done. The bars start flat (a row of 4px
 dots) and rise only with the mic level; the speech range (up to ~6 kHz) spans
 the width, mirrored from the center. Done stops the recording; the main
 button shows a spinner ("Transcribing") while the server transcribes it, then
-the text is typed in at the cursor. A failure is a toast in the usual "Unable to …" form (no retry action) and
+the text is typed in at the cursor. A failure is a toast ("Unable to transcribe", no retry action) and
 the recording is dropped; Cancel drops it too.
 
 **Floating chat** (`FloatingChat`). On every page but Chats (and in the file
@@ -848,7 +848,8 @@ blur, like the dialog's.
 **Toasts** (stock shadcn `Toaster`, Sonner's own `toast.success()`, re-exported
 from `@workspace/ui/components/sonner`). One plain row and nothing else: the
 status icon in its color (a green check for done), a short sentence-case
-message ("Link copied", "“Fix plan” deleted"), and Close at the end. On the
+message ("Link copied", "“Fix plan” deleted"; always one sentence with no period,
+which the shared `toast` enforces), and Close at the end. On the
 menus' surface in both themes with a card's 12px corners: Close is the 28px
 ghost button 6px in (nested), the message 12px in and wrapping, so the toast
 is as tall as its message (40px for one line); bottom right.

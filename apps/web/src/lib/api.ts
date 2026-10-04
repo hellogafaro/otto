@@ -19,10 +19,10 @@ export class ApiError extends Error {
           : status === 404
             ? "This item is no longer available."
             : status === 409
-              ? "This item changed. Reload before trying again."
+              ? "This item changed, reload before trying again."
               : status === 503
-                ? "This service is unavailable. Try again later."
-                : "The request failed. Check your input and try again.",
+                ? "This service is unavailable, try again later."
+                : "The request failed, check your input and try again.",
     );
     this.status = status;
     this.code = code;

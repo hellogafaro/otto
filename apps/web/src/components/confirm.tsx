@@ -55,7 +55,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     try {
       await pending.run?.();
     } catch {
-      toast.error("Something went wrong. Try again.");
+      toast.error("Something went wrong");
       return;
     } finally {
       setBusy(false);

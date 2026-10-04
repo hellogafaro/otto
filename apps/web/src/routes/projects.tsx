@@ -256,7 +256,7 @@ export function ProjectsPage({ search = {} }: { search?: ProjectsSearch }) {
                             );
                             toast.success("Link copied");
                           } catch {
-                            toast.error("Unable to copy the link.");
+                            toast.error("Unable to copy the link");
                           }
                         }}
                       >

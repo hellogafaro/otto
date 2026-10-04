@@ -287,7 +287,7 @@ test("Document create, body and metadata save, Cancel and actual stale edit conf
     .getByRole("button", { name: "Save document", exact: true })
     .click();
   expect((await conflict).status()).toBe(409);
-  await expect(page.getByRole("alert")).toContainText("This item changed.");
+  await expect(page.getByRole("alert")).toContainText("This item changed,");
   await expect(titleEditor(page)).toHaveValue(
     "Dirty title after competing write",
   );

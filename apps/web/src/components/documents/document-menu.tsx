@@ -47,7 +47,7 @@ export function DocumentMenu({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unable to change archive state.",
+          : "Unable to change archive state",
       );
     } finally {
       setPending(false);
@@ -84,7 +84,7 @@ export function DocumentMenu({
               );
               toast.success("Link copied");
             } catch {
-              toast.error("Unable to copy link.");
+              toast.error("Unable to copy the link");
             }
           }}
         >

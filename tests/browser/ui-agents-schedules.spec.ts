@@ -238,7 +238,7 @@ test("Agent UI saves explicit configuration, rejects a stale draft and archives/
   );
   await edit.getByRole("button", { name: "Save agent", exact: true }).click();
   await conflict;
-  await expect(edit.getByRole("alert")).toContainText("This item changed.");
+  await expect(edit.getByRole("alert")).toContainText("This item changed,");
   await expect(edit.getByRole("textbox", { name: "Agent title" })).toHaveValue(
     draft,
   );
@@ -672,7 +672,7 @@ test("Schedule UI saves cron/manual policy, validates drafts, restores disabled 
     .getByRole("button", { name: "Save schedule", exact: true })
     .click();
   await conflict;
-  await expect(edit.getByRole("alert")).toContainText("This item changed.");
+  await expect(edit.getByRole("alert")).toContainText("This item changed,");
   await expect(edit.getByLabel("Prompt", { exact: true })).toHaveValue(
     "Stale Schedule private draft",
   );
@@ -769,7 +769,7 @@ test("Schedule UI saves cron/manual policy, validates drafts, restores disabled 
     await expect(
       page
         .getByRole("alert")
-        .filter({ hasText: "This service is unavailable." }),
+        .filter({ hasText: "This service is unavailable," }),
     ).toBeVisible();
   }
   expect(requests).toHaveLength(2);

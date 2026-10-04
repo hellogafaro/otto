@@ -438,7 +438,7 @@ async function copyScheduleLink(id: string) {
     await navigator.clipboard.writeText(`${location.origin}/schedules/${id}`);
     toast.success("Link copied");
   } catch {
-    toast.error("Unable to copy the link.");
+    toast.error("Unable to copy the link");
   }
 }
 

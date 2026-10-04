@@ -407,7 +407,7 @@ test("Special-label first and later mentions render chips and retain real attent
     );
     await page.goto("/chats/new");
     await page
-      .getByRole("button", { name: "With: Choose participants", exact: true })
+      .getByRole("button", { name: "With: Participants", exact: true })
       .click();
     await page.getByRole("option").filter({ hasText: label }).click();
     await page.keyboard.press("Escape");
