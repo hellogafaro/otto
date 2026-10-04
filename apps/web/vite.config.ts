@@ -34,6 +34,18 @@ export default defineConfig({
         configure(proxy) {
           proxy.on("proxyReq", restorePreviewOrigin);
           proxy.on("proxyReqWs", restorePreviewOrigin);
+          proxy.on("proxyRes", (response) => {
+            // BB can embed the HTTPS preview on a different site. Keep auth cookies
+            // secure and isolate them by top-level site without changing production auth.
+            if (!publicOrigin?.startsWith("https://")) return;
+            const cookies = response.headers["set-cookie"];
+            if (cookies)
+              response.headers["set-cookie"] = cookies.map((cookie) =>
+                cookie.startsWith("__Secure-better-auth.")
+                  ? `${cookie.replace(/;\s*SameSite=Lax\b/i, "; SameSite=None")}; Partitioned`
+                  : cookie,
+              );
+          });
         },
       },
     },
