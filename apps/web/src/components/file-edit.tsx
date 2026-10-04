@@ -144,12 +144,18 @@ export function FileEdit({
   onClose(): void;
 }) {
   const { workspaceId, api, invalidate } = useWorkspace();
+  const [original] = useState(file);
   const [title, setTitle] = useState(file.title);
   const [labels, setLabels] = useState(file.labels.join(", "));
   const [visibility, setVisibility] = useState(file.visibility);
   const [folderId, setFolderId] = useState(file.folderId);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error>();
+  const changed =
+    title.trim() !== original.title ||
+    labels !== original.labels.join(", ") ||
+    visibility !== original.visibility ||
+    folderId !== original.folderId;
   return (
     <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
       <DialogContent showCloseButton={!pending}>
@@ -162,6 +168,7 @@ export function FileEdit({
         <form
           onSubmit={async (event) => {
             event.preventDefault();
+            if (pending || !changed) return;
             setPending(true);
             setError(undefined);
             try {
@@ -169,13 +176,21 @@ export function FileEdit({
                 await api.files[":id"].$patch({
                   param: { workspaceId, id: file.id },
                   json: {
-                    title: title.trim(),
-                    labels: labels
-                      .split(",")
-                      .map((label) => label.trim())
-                      .filter(Boolean),
-                    visibility,
-                    folderId,
+                    ...(title.trim() !== original.title
+                      ? { title: title.trim() }
+                      : {}),
+                    ...(labels !== original.labels.join(", ")
+                      ? {
+                          labels: labels
+                            .split(",")
+                            .map((label) => label.trim())
+                            .filter(Boolean),
+                        }
+                      : {}),
+                    ...(visibility !== original.visibility
+                      ? { visibility }
+                      : {}),
+                    ...(folderId !== original.folderId ? { folderId } : {}),
                   },
                 }),
               );
@@ -234,7 +249,10 @@ export function FileEdit({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={pending || !title.trim()}>
+              <Button
+                type="submit"
+                disabled={pending || !title.trim() || !changed}
+              >
                 {pending ? "Saving" : "Save"}
               </Button>
             </div>
@@ -259,15 +277,21 @@ export function FolderEdit({
   onClose(): void;
 }) {
   const { workspaceId, api, invalidate } = useWorkspace();
+  const [original] = useState(folder);
   const [title, setTitle] = useState(folder?.title ?? "");
   const [visibility, setVisibility] = useState(
     folder?.visibility ?? parentVisibility ?? "user",
   );
   const [destination, setDestination] = useState(
-    folder?.parentId ?? parentId ?? null,
+    folder ? folder.parentId : (parentId ?? null),
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error>();
+  const changed =
+    !original ||
+    title.trim() !== original.title ||
+    visibility !== original.visibility ||
+    destination !== original.parentId;
   return (
     <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
       <DialogContent showCloseButton={!pending}>
@@ -280,6 +304,7 @@ export function FolderEdit({
         <form
           onSubmit={async (event) => {
             event.preventDefault();
+            if (pending || !changed) return;
             setPending(true);
             setError(undefined);
             try {
@@ -288,9 +313,15 @@ export function FolderEdit({
                   await api.folders[":id"].$patch({
                     param: { workspaceId, id: folder.id },
                     json: {
-                      title: title.trim(),
-                      visibility,
-                      parentId: destination,
+                      ...(title.trim() !== original?.title
+                        ? { title: title.trim() }
+                        : {}),
+                      ...(visibility !== original?.visibility
+                        ? { visibility }
+                        : {}),
+                      ...(destination !== original?.parentId
+                        ? { parentId: destination }
+                        : {}),
                     },
                   }),
                 );
@@ -353,7 +384,10 @@ export function FolderEdit({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={pending || !title.trim()}>
+              <Button
+                type="submit"
+                disabled={pending || !title.trim() || !changed}
+              >
                 {pending ? "Saving" : "Save"}
               </Button>
             </div>

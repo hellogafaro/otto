@@ -49,7 +49,7 @@ export function FileShares({
     getNextPageParam: (page) => page.next ?? undefined,
   });
   const owned =
-    shares.data?.pages
+    (shares.error ? undefined : shares.data)?.pages
       .flatMap((page) => page.items)
       .filter(
         (share) =>
@@ -57,16 +57,18 @@ export function FileShares({
           share.selection.targetId === file.id,
       ) ?? [];
   async function act(operation: () => Promise<unknown>) {
+    if (pending) return;
     setPending(true);
     setError(undefined);
     try {
       await operation();
-      await invalidate();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause : new Error("Unable to update share."),
       );
     } finally {
+      // A lost ACK may still have changed the publication or editToken.
+      await invalidate();
       setPending(false);
     }
   }
@@ -135,6 +137,8 @@ export function FileShares({
                     disabled={pending}
                     onClick={() =>
                       act(async () => {
+                        // A failed ACK cannot leave a stale token publishable again.
+                        setPreview(undefined);
                         await read(
                           await api.shares[":id"].publish.$post({
                             param: { workspaceId, id: preview.id },
@@ -218,6 +222,7 @@ export function FileShares({
                     act(async () => {
                       if (share.selection.type !== "file") return;
                       setPublished(undefined);
+                      setPreview(undefined);
                       setIncludeFile(share.selection.includeFile);
                       setPreview(
                         await read(
@@ -243,12 +248,14 @@ export function FileShares({
                   disabled={pending}
                   onClick={() =>
                     act(async () => {
+                      // Even a lost revoke ACK makes the prior publication/token uncertain.
+                      if (published === share.id) setPublished(undefined);
+                      if (preview?.id === share.id) setPreview(undefined);
                       await read(
                         await api.shares[":id"].revoke.$post({
                           param: { workspaceId, id: share.id },
                         }),
                       );
-                      if (published === share.id) setPublished(undefined);
                     })
                   }
                 >

@@ -14,7 +14,7 @@ import {
   RiPriceTag3Line,
   RiShareLine,
 } from "@remixicon/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -61,7 +61,7 @@ import {
   visibilityLooks,
 } from "@/components/task-meta";
 import { Topbar } from "@/components/topbar";
-import { read } from "@/lib/api";
+import { ApiError, read } from "@/lib/api";
 import { useDirectory } from "@/lib/directory";
 import {
   downloadFile,
@@ -229,8 +229,24 @@ export function Lightbox({
         }),
       ),
   });
+  const queryClient = useQueryClient();
+  // Authority failures hide retained bytes; transient failures keep an open draft.
+  const denied =
+    saved.error instanceof ApiError &&
+    [401, 403, 404].includes(saved.error.status);
+  const file = denied ? undefined : saved.data;
+  useEffect(() => {
+    if (denied && openId) {
+      setEditing(false);
+      setSharing(false);
+      queryClient.removeQueries({
+        queryKey: ["workspace", workspaceId, "file-preview", openId],
+      });
+    }
+  }, [denied, openId, queryClient, workspaceId]);
+  const locked = busy || editing || sharing;
   const canWrite = workspace.role !== "viewer";
-  const canEdit = canWrite && saved.data?.ownerId === user.id;
+  const canEdit = canWrite && file?.ownerId === user.id;
   async function act(operation: () => Promise<unknown>) {
     if (busy) return;
     setBusy(true);
@@ -249,8 +265,12 @@ export function Lightbox({
   // would pop up and take the first Escape).
   const popup = useRef<HTMLDivElement>(null);
   const index = resources.findIndex(({ id }) => id === openId);
-  const resource = saved.data ? savedResource(saved.data) : resources[index];
-  const taskId = resources[index]?.taskId;
+  const resource = denied
+    ? undefined
+    : file
+      ? savedResource(file)
+      : resources[index];
+  const taskId = denied ? undefined : resources[index]?.taskId;
   const step = (by: number) =>
     onOpen(resources[(index + by + resources.length) % resources.length].id);
   const Icon = resource && resourceIcons[resource.kind];
@@ -258,7 +278,7 @@ export function Lightbox({
   return (
     <Dialog
       open={Boolean(openId)}
-      onOpenChange={(open) => !open && !busy && onOpen(undefined)}
+      onOpenChange={(open) => !open && !locked && onOpen(undefined)}
     >
       {openId && (
         <DialogContent
@@ -290,24 +310,25 @@ export function Lightbox({
               <Topbar
                 actions={
                   <>
-                    <IconAction
-                      label="Ask about this file"
-                      icon={RiChat1Line}
-                      onClick={() => {
-                        if (busy || !saved.data) return;
-                        // The page's floating chat takes it: the viewer
-                        // closes and the bar starts with a link to the file.
-                        onOpen(undefined);
-                        ask(
-                          `${mention({
-                            type: "file",
-                            id: saved.data?.id ?? openId,
-                            label:
-                              saved.data?.title ?? resource?.title ?? "File",
-                          })} `,
-                        );
-                      }}
-                    />
+                    {canWrite && file && (
+                      <IconAction
+                        label="Ask about this file"
+                        icon={RiChat1Line}
+                        onClick={() => {
+                          if (locked || !file) return;
+                          // The page's floating chat takes it: the viewer
+                          // closes and the bar starts with a link to the file.
+                          onOpen(undefined);
+                          ask(
+                            `${mention({
+                              type: "file",
+                              id: file?.id ?? openId,
+                              label: file?.title ?? resource?.title ?? "File",
+                            })} `,
+                          );
+                        }}
+                      />
+                    )}
                     {taskId && (
                       <IconAction
                         label="Open task"
@@ -320,18 +341,14 @@ export function Lightbox({
                         }
                       />
                     )}
-                    {saved.data && (
+                    {file && (
                       <>
                         <IconAction
                           label="Download"
                           icon={RiDownloadLine}
                           onClick={() =>
                             act(() =>
-                              downloadFile(
-                                workspaceId,
-                                saved.data.id,
-                                saved.data.title,
-                              ),
+                              downloadFile(workspaceId, file.id, file.title),
                             )
                           }
                         />
@@ -339,26 +356,26 @@ export function Lightbox({
                           <IconAction
                             label="Edit file"
                             icon={RiEditLine}
-                            onClick={() => !busy && setEditing(true)}
+                            onClick={() => !locked && setEditing(true)}
                           />
                         )}
                         {canWrite && (
                           <IconAction
                             label="Share selected file"
                             icon={RiShareLine}
-                            onClick={() => !busy && setSharing(true)}
+                            onClick={() => !locked && setSharing(true)}
                           />
                         )}
                         {canEdit && (
                           <Button
                             variant="ghost"
-                            disabled={busy}
+                            disabled={locked}
                             onClick={() =>
                               act(async () => {
                                 await read(
                                   await api.files[":id"].archive.$post({
-                                    param: { workspaceId, id: saved.data.id },
-                                    json: { archived: !saved.data.archived },
+                                    param: { workspaceId, id: file.id },
+                                    json: { archived: !file.archived },
                                   }),
                                 );
                                 await invalidate();
@@ -367,7 +384,7 @@ export function Lightbox({
                             }
                           >
                             <RiArchiveLine data-icon="inline-start" />
-                            {saved.data.archived ? "Restore" : "Archive"}
+                            {file.archived ? "Restore" : "Archive"}
                           </Button>
                         )}
                       </>
@@ -377,7 +394,7 @@ export function Lightbox({
                       <IconAction
                         label="Close"
                         icon={RiCloseLine}
-                        onClick={() => !busy && onOpen(undefined)}
+                        onClick={() => !locked && onOpen(undefined)}
                       />
                     </span>
                   </>
@@ -406,18 +423,18 @@ export function Lightbox({
                   retry={() => saved.refetch()}
                 />
                 {actionError && <p role="alert">{actionError.message}</p>}
-                {saved.data && <Preview file={saved.data} />}
-                {saved.data && editing && (
+                {file && <Preview file={file} />}
+                {file && editing && (
                   <FileEdit
-                    key={saved.data.id}
-                    file={saved.data}
+                    key={file.id}
+                    file={file}
                     onClose={() => setEditing(false)}
                   />
                 )}
-                {saved.data && sharing && (
+                {file && sharing && (
                   <FileShares
-                    key={saved.data.id}
-                    file={saved.data}
+                    key={file.id}
+                    file={file}
                     onClose={() => setSharing(false)}
                   />
                 )}
@@ -456,14 +473,14 @@ export function Lightbox({
                   <IconAction
                     label="Close"
                     icon={RiCloseLine}
-                    onClick={() => !busy && onOpen(undefined)}
+                    onClick={() => !locked && onOpen(undefined)}
                   />
                 }
               >
                 <h2 className="truncate pl-3 text-sm font-medium">Details</h2>
               </Topbar>
               <div className="no-scrollbar min-h-0 flex-1 scroll-fade-y overflow-y-auto">
-                {saved.data && <FileDetails file={saved.data} />}
+                {file && <FileDetails file={file} />}
               </div>
             </aside>
           </div>
@@ -691,14 +708,14 @@ function Preview({ file }: { file: SavedFile }) {
   });
   const [url, setUrl] = useState<string>();
   useEffect(() => {
-    if (!preview.data) {
+    if (!preview.data || preview.error) {
       setUrl(undefined);
       return;
     }
     const objectUrl = URL.createObjectURL(preview.data.blob);
     setUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
-  }, [preview.data]);
+  }, [preview.data, preview.error]);
   if (!previewable)
     return <p>This file type has no preview. Download it to open it.</p>;
   if (preview.error)
