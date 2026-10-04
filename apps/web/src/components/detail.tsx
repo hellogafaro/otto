@@ -327,9 +327,13 @@ export function useHotkey(hotkey: string | undefined, onPress: () => void) {
     if (!hotkey) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (
+        event.defaultPrevented ||
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
+        document.querySelector('[aria-modal="true"]') ||
+        (event.target instanceof HTMLElement &&
+          event.target.closest('[role="dialog"], [role="alertdialog"]')) ||
         isTyping(event.target)
       )
         return;

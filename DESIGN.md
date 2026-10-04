@@ -538,6 +538,8 @@ option shows a check instead of its key. A searchable `Combobox` for long
 lists, topped by `ComboboxSearch`: like the command palette, a search icon on
 the item icon column and a transparent 36px input over a full-width bottom
 border. "/" and "@" suggestion lists use the same 28px rows.
+Page shortcuts pause while a modal dialog or sheet is open, including when its
+buttons have focus; the modal keeps its own keyboard controls.
 
 **Right panel.** A stock shadcn sidebar: collapsible `SidebarGroup` sections
 with stock spacing and no dividers, under its own 40px top bar ("Details",
