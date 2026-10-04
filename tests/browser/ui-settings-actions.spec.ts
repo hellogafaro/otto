@@ -179,9 +179,11 @@ test("Members save real roles, reject viewer writes, remove members and manage k
       `/api/workspaces/${workspaceId}/invitations/${invitation.id}/send`,
     );
     await page.getByRole("button", { name: "Resend", exact: true }).click();
-    expect((await refusedResend).status()).toBe(403);
+    const revokedResponse = await refusedResend;
+    expect(revokedResponse.status()).toBe(409);
+    expect(await revokedResponse.json()).toMatchObject({ error: "conflict" });
     await expect(
-      page.getByRole("alert").filter({ hasText: "You do not have permission" }),
+      page.getByRole("alert").filter({ hasText: "This item changed." }),
     ).toBeVisible();
     await page
       .getByLabel("Accept invitation ID", { exact: true })
