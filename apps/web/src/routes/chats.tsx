@@ -450,7 +450,7 @@ function ChatView({ chat }: { chat: LiveChat }) {
             setEditing(true);
           }}
         >
-          <RiChat1Line />
+          <RiChat1Line data-icon="inline-start" />
           {chat.title}
         </Button>
       </Topbar>
@@ -695,7 +695,10 @@ export function NewChatPage({
   return (
     <>
       <Topbar>
-        <RiChat1Line /> New chat
+        <Button variant="ghost" size="sm" aria-current="page">
+          <RiChat1Line data-icon="inline-start" />
+          New chat
+        </Button>
       </Topbar>
       <NewChatEmpty />
       <div className="mx-auto w-full max-w-3xl px-5 pb-5">
