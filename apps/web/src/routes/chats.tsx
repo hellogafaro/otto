@@ -822,9 +822,6 @@ export function NewChatComposer({
   const { workspace } = useWorkspace();
   const [withIds, setWithIds] = useState<string[]>(withId ? [withId] : []);
   const [projectId, setProjectId] = useState(initialProjectId);
-  const [visibility, setVisibility] = useState<"participants" | "workspace">(
-    "participants",
-  );
   const create = useNewChat();
   const upload = useChatUpload(projectId);
   const validProject =
@@ -868,16 +865,6 @@ export function NewChatComposer({
           onPick={(next) => setProjectId(next === "none" ? undefined : next)}
           disabled={create.isPending || Boolean(create.createdChat)}
         />
-        <ContextPicker
-          label="Visibility"
-          value={visibility}
-          options={{
-            participants: { label: "Participants", icon: RiChat1Line },
-            workspace: { label: "Workspace", icon: RiChat1Line },
-          }}
-          onPick={(next) => setVisibility(next as typeof visibility)}
-          disabled={create.isPending || Boolean(create.createdChat)}
-        />
       </div>
       <QueryState
         pending={directory.pending}
@@ -919,7 +906,8 @@ export function NewChatComposer({
           const chat = await create.mutateAsync({
             memberIds: withIds,
             projectId,
-            visibility,
+            // Participants only: the project's own chat is the one that is open to the whole project.
+            visibility: "participants",
             body,
             files,
           });

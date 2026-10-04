@@ -12,19 +12,15 @@ export function QueryState({
 }) {
   if (pending)
     return (
-      <div
-        className="flex flex-col gap-3 p-5"
-        role="status"
-        aria-label="Loading"
-      >
-        <Skeleton className="h-8 w-52" />
-        <Skeleton className="h-8 w-full" />
-        <Skeleton className="h-8 w-full" />
+      <div className="flex flex-col gap-2" role="status" aria-label="Loading">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
       </div>
     );
   if (error)
     return (
-      <div className="flex flex-col items-start gap-3 p-5" role="alert">
+      <div className="flex flex-col items-start gap-3" role="alert">
         <p>{error.message}</p>
         {retry && (
           <Button variant="outline" onClick={() => retry()}>

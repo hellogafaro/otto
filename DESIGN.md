@@ -862,8 +862,8 @@ its tile (Enter makes it, Escape drops it); both land in the open folder.
 Folder, filters and open file live in the URL. Folders persist through the
 backend, nest at most eight levels, and archive only when completely empty.
 
-**Live data states.** Server reads use the shared skeleton/loading and inline
-error with Retry; unavailable controls explain the missing capability and never
+**Live data states.** Server reads use the shared skeleton (three full-width 40px rows, no
+extra padding so they align with the page title) and inline error with Retry; unavailable controls explain the missing capability and never
 show success. The authentication boundary uses the stock Field/Input/Button
 composition. Workspace switching clears prior workspace data and opens Inbox.
 Account forms use a centered 336px column, 24px side padding and 64px vertical
@@ -954,3 +954,4 @@ Unknown creation outcomes disable another submission in the current form and dir
 7. The floating bar shows its Inbox button only while something needs attention (an unread chat or an unanswered question).
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
 9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
+10. A new chat has two pickers, With and Project. It is always participants-only; the project's own chat is the one open to everyone in the project.
