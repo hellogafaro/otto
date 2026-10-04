@@ -1,6 +1,13 @@
 import { Button } from "@workspace/ui/components/button";
-import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
+import { PageTitle } from "@workspace/ui/components/page-title";
 import { useState } from "react";
 import { authClient } from "@/lib/auth";
 
@@ -21,166 +28,174 @@ export function Authentication() {
           ? "Choose a new password"
           : "Sign in to Otto";
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-5 p-5">
-      <h1>{heading}</h1>
-      <form
-        className="w-full max-w-sm"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          const form = new FormData(event.currentTarget);
-          setPending(true);
-          setError(undefined);
-          setMessage(undefined);
-          try {
-            const result =
-              mode === "signup"
-                ? await authClient.signUp.email({
-                    name: String(form.get("name")),
-                    email: String(form.get("email")),
-                    password: String(form.get("password")),
-                  })
-                : mode === "request"
-                  ? await authClient.requestPasswordReset({
+    <main className="flex min-h-svh min-w-0 flex-1 flex-col items-center overflow-y-auto px-6">
+      <div className="flex w-full max-w-84 flex-1 flex-col justify-center gap-6 py-16">
+        <header className="text-center">
+          <PageTitle>{heading}</PageTitle>
+        </header>
+        <form
+          className="w-full"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            setPending(true);
+            setError(undefined);
+            setMessage(undefined);
+            try {
+              const result =
+                mode === "signup"
+                  ? await authClient.signUp.email({
+                      name: String(form.get("name")),
                       email: String(form.get("email")),
-                      redirectTo: new URL("/", window.location.origin).href,
+                      password: String(form.get("password")),
                     })
-                  : mode === "reset"
-                    ? await authClient.resetPassword({
-                        newPassword: String(form.get("password")),
-                        token: token ?? "",
-                      })
-                    : await authClient.signIn.email({
+                  : mode === "request"
+                    ? await authClient.requestPasswordReset({
                         email: String(form.get("email")),
-                        password: String(form.get("password")),
-                      });
-            if (result.error)
-              setError(
-                result.error.message ?? "Unable to complete this request.",
-              );
-            else if (mode === "signup")
-              setMessage(
-                "Account created. Check your email if verification is required; workspace access is granted separately.",
-              );
-            else if (mode === "request")
-              setMessage(
-                "If this account can reset its password, instructions will arrive by email.",
-              );
-            else if (mode === "reset") {
-              setMessage("Password changed. Sign in with your new password.");
-              setMode("signin");
-              history.replaceState(null, "", window.location.pathname);
+                        redirectTo: new URL("/", window.location.origin).href,
+                      })
+                    : mode === "reset"
+                      ? await authClient.resetPassword({
+                          newPassword: String(form.get("password")),
+                          token: token ?? "",
+                        })
+                      : await authClient.signIn.email({
+                          email: String(form.get("email")),
+                          password: String(form.get("password")),
+                        });
+              if (result.error)
+                setError(
+                  result.error.message ?? "Unable to complete this request.",
+                );
+              else if (mode === "signup")
+                setMessage(
+                  "Account created. Check your email if verification is required; workspace access is granted separately.",
+                );
+              else if (mode === "request")
+                setMessage(
+                  "If this account can reset its password, instructions will arrive by email.",
+                );
+              else if (mode === "reset") {
+                setMessage("Password changed. Sign in with your new password.");
+                setMode("signin");
+                history.replaceState(null, "", window.location.pathname);
+              }
+            } catch {
+              setError("Unable to reach Otto. Try again.");
+            } finally {
+              setPending(false);
             }
-          } catch {
-            setError("Unable to reach Otto. Try again.");
-          } finally {
-            setPending(false);
-          }
-        }}
-      >
-        <FieldGroup>
-          {mode === "signup" && (
-            <Field>
-              <FieldLabel htmlFor="name">Name</FieldLabel>
-              <Input
-                id="name"
-                name="name"
-                autoComplete="name"
-                required
-                disabled={pending}
-                maxLength={200}
-              />
-            </Field>
-          )}
-          {mode !== "reset" && (
-            <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="username"
-                required
-                disabled={pending}
-                maxLength={254}
-              />
-            </Field>
-          )}
-          {mode !== "request" && (
-            <Field>
-              <FieldLabel htmlFor="password">
-                {mode === "reset" ? "New password" : "Password"}
-              </FieldLabel>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete={
-                  mode === "signup" || mode === "reset"
-                    ? "new-password"
-                    : "current-password"
-                }
-                minLength={mode === "signin" ? undefined : 12}
-                required
-                disabled={pending}
-              />
-            </Field>
-          )}
-          {error && <p role="alert">{error}</p>}
-          {message && <p role="status">{message}</p>}
-          <Button type="submit" disabled={pending}>
-            {pending
-              ? "Please wait"
-              : mode === "signup"
-                ? "Create account"
-                : mode === "request"
-                  ? "Send reset instructions"
-                  : mode === "reset"
-                    ? "Change password"
-                    : "Sign in"}
-          </Button>
-          <div className="flex flex-wrap gap-2">
-            {mode !== "signin" && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={pending}
-                onClick={() => {
-                  setMode("signin");
-                  setError(undefined);
-                }}
-              >
-                Sign in
-              </Button>
+          }}
+        >
+          <FieldGroup className="gap-3">
+            {mode === "signup" && (
+              <Field className="gap-2">
+                <FieldLabel htmlFor="name">Name</FieldLabel>
+                <Input
+                  id="name"
+                  name="name"
+                  autoComplete="name"
+                  required
+                  disabled={pending}
+                  maxLength={200}
+                />
+              </Field>
             )}
-            {mode === "signin" && (
-              <>
+            {mode !== "reset" && (
+              <Field className="gap-2">
+                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="username"
+                  required
+                  disabled={pending}
+                  maxLength={254}
+                />
+              </Field>
+            )}
+            {mode !== "request" && (
+              <Field className="gap-2">
+                <FieldLabel htmlFor="password">
+                  {mode === "reset" ? "New password" : "Password"}
+                </FieldLabel>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete={
+                    mode === "signup" || mode === "reset"
+                      ? "new-password"
+                      : "current-password"
+                  }
+                  minLength={mode === "signin" ? undefined : 12}
+                  required
+                  disabled={pending}
+                />
+              </Field>
+            )}
+            {error && <FieldError>{error}</FieldError>}
+            {message && (
+              <FieldDescription role="status">{message}</FieldDescription>
+            )}
+            <Button type="submit" disabled={pending}>
+              {pending
+                ? "Please wait"
+                : mode === "signup"
+                  ? "Create account"
+                  : mode === "request"
+                    ? "Send reset instructions"
+                    : mode === "reset"
+                      ? "Change password"
+                      : "Sign in"}
+            </Button>
+            <div className="flex flex-wrap justify-center gap-1">
+              {mode !== "signin" && (
                 <Button
                   type="button"
                   variant="ghost"
                   disabled={pending}
                   onClick={() => {
-                    setMode("signup");
+                    setMode("signin");
                     setError(undefined);
                   }}
                 >
-                  Create account
+                  Sign in
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={pending}
-                  onClick={() => {
-                    setMode("request");
-                    setError(undefined);
-                  }}
-                >
-                  Forgot password
-                </Button>
-              </>
-            )}
-          </div>
-        </FieldGroup>
-      </form>
+              )}
+              {mode === "signin" && (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => {
+                      setMode("signup");
+                      setError(undefined);
+                      setMessage(undefined);
+                    }}
+                  >
+                    Create account
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => {
+                      setMode("request");
+                      setError(undefined);
+                      setMessage(undefined);
+                    }}
+                  >
+                    Forgot password
+                  </Button>
+                </>
+              )}
+            </div>
+          </FieldGroup>
+        </form>
+      </div>
     </main>
   );
 }

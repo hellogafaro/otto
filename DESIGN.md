@@ -866,6 +866,10 @@ backend, nest at most eight levels, and archive only when completely empty.
 error with Retry; unavailable controls explain the missing capability and never
 show success. The authentication boundary uses the stock Field/Input/Button
 composition. Workspace switching clears prior workspace data and opens Inbox.
+Account forms use a centered 336px column, 24px side padding and 64px vertical
+padding, with the shared page-title typography and no logo. Labels stay above
+their inputs; the primary submission spans the column and secondary account
+actions center beneath it. Sign-in methods reflect configured backend support.
 The profile menu names the signed-in person and lists their accessible workspaces.
 When direct setup or creation is necessary before an Agent can run, a compact
 stock dialog may capture the backend's required fields. Ask remains available;

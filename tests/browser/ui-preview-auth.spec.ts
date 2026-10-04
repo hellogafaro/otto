@@ -56,7 +56,7 @@ test("BB loopback origin signs in and mutates; unrelated origins remain denied",
 }, testInfo) => {
   // BB Connect rewrites only the exact public Origin to this frontend loopback origin.
   const failed = await request.post(`${origin}/api/auth/sign-in/email`, {
-    headers: { origin },
+    headers: { origin, "x-forwarded-for": "192.0.2.240" },
     data: { email: "missing@example.test", password: crypto.randomUUID() },
   });
   expect(failed.status()).toBe(401);
@@ -65,11 +65,14 @@ test("BB loopback origin signs in and mutates; unrelated origins remain denied",
     "http://127.0.0.1:45204",
   ]) {
     const denied = await request.post(`${origin}/api/auth/sign-in/email`, {
-      headers: { origin: badOrigin },
+      headers: { origin: badOrigin, "x-forwarded-for": "192.0.2.240" },
       data: { email: "missing@example.test", password: crypto.randomUUID() },
     });
     expect(denied.status()).toBe(403);
   }
+  await page
+    .context()
+    .setExtraHTTPHeaders({ "x-forwarded-for": "192.0.2.241" });
   await page.goto(origin);
   await expect(
     page.getByRole("heading", { name: "Sign in to Otto" }),
@@ -117,21 +120,17 @@ test("BB loopback origin signs in and mutates; unrelated origins remain denied",
   await page.reload();
   const statuses = await page.evaluate(
     async ({ workspaceId }) => {
-      const create = (headers: Record<string, string>) =>
-        fetch(`/api/workspaces/${workspaceId}/projects`, {
+      return (
+        await fetch(`/api/workspaces/${workspaceId}/projects`, {
           method: "POST",
-          headers: { "content-type": "application/json", ...headers },
+          headers: { "content-type": "application/json" },
           body: JSON.stringify({ title: "Preview origin project" }),
-        });
-      return {
-        allowed: (await create({})).status,
-        denied: (await create({ origin: "https://unrelated.example.test" }))
-          .status,
-      };
+        })
+      ).status;
     },
     { workspaceId },
   );
-  expect(statuses.allowed).toBe(200);
+  expect(statuses).toBe(200);
   // Browsers cannot override Origin themselves; explicit hostile origins were exercised above over HTTP.
   const badMutation = await request.post(
     `${origin}/api/workspaces/${workspaceId}/projects`,
@@ -153,10 +152,10 @@ test("BB loopback origin signs in and mutates; unrelated origins remain denied",
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Inbox", exact: true }),
+    page.getByRole("button", { name: "Open profile menu", exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Inbox", exact: true }),
+    page.getByRole("button", { name: "Open profile menu", exact: true }),
   ).toBeVisible();
 });

@@ -1,3 +1,4 @@
+import { PageTitle } from "@workspace/ui/components/page-title";
 import { cn } from "@workspace/ui/lib/utils";
 import type { ReactNode } from "react";
 import { FloatingChat } from "@/components/floating-chat";
@@ -56,7 +57,7 @@ export function Page({
               centered && "justify-center text-center",
             )}
           >
-            <h1 className="min-w-0 text-lg font-medium">{title}</h1>
+            <PageTitle className="min-w-0">{title}</PageTitle>
             {actions && (
               <div className="flex items-center gap-1">{actions}</div>
             )}
