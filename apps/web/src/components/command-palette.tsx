@@ -217,6 +217,16 @@ function Palette({
     [projects, tasks, documents, files, members, agents].some(
       (result) => result.isFetching,
     );
+  // Every category came back empty: the tabs would only lead to more of nothing.
+  const nothing =
+    Boolean(query) &&
+    !searching &&
+    category === "all" &&
+    [tasks, members, agents, projects, documents, files].every(
+      (result) => !result.data?.items.length,
+    ) &&
+    actions.length === 0 &&
+    !showsSettings;
   const go = (to: () => unknown) => () => {
     to();
     onDone();
@@ -243,13 +253,15 @@ function Palette({
         }}
         placeholder="Search"
       />
-      <TabBar
-        label="Categories"
-        className="flex-nowrap px-1.75 py-2"
-        tabs={categories.map((value) => ({ value, label: labels[value] }))}
-        value={category}
-        onChange={onCategory}
-      />
+      {!nothing && (
+        <TabBar
+          label="Categories"
+          className="flex-nowrap px-1.75 py-2"
+          tabs={categories.map((value) => ({ value, label: labels[value] }))}
+          value={category}
+          onChange={onCategory}
+        />
+      )}
       {shows("tasks") && directory.projects.length > 0 && (
         <div className="flex items-center gap-2 px-4 pb-2">
           <NativeSelect

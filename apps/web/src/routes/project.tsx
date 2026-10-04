@@ -48,7 +48,6 @@ import {
   ProjectEmpty,
   type ProjectFilters,
   ProjectForm,
-  ProjectListFilters,
   validateProjectFilters,
 } from "@/components/project-controls";
 import { QueryState } from "@/components/query-state";
@@ -603,11 +602,6 @@ function ProjectContent({
   const directory = useDirectory();
   return (
     <>
-      <ProjectListFilters
-        key={search.query ?? ""}
-        value={search}
-        onChange={(next) => navigate({ search: { ...next, tab } })}
-      />
       <QueryState
         pending={list.isPending}
         error={list.error}

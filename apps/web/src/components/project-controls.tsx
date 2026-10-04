@@ -9,14 +9,6 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu";
-import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -50,101 +42,6 @@ export function validateProjectFilters(
         ? search.after
         : undefined,
   };
-}
-
-export function ProjectListFilters({
-  value,
-  onChange,
-}: {
-  value: ProjectFilters;
-  onChange: (value: ProjectFilters) => void;
-}) {
-  const [query, setQuery] = useState(value.query ?? "");
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        onChange({
-          ...value,
-          query: query.trim() || undefined,
-          after: undefined,
-        });
-      }}
-    >
-      <FieldGroup className="flex-row flex-wrap items-end gap-2">
-        <Field className="min-w-40 flex-1">
-          <FieldLabel htmlFor="project-query">Search by whole words</FieldLabel>
-          <Input
-            id="project-query"
-            maxLength={200}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </Field>
-        <Button type="submit" variant="outline">
-          Search
-        </Button>
-        {value.query && (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => {
-              setQuery("");
-              onChange({ ...value, query: undefined, after: undefined });
-            }}
-          >
-            Clear
-          </Button>
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<Button type="button" variant="ghost" />}
-          >
-            Sort:{" "}
-            {value.sort === "createdAt"
-              ? "Created"
-              : value.sort === "updatedAt"
-                ? "Updated"
-                : "Title"}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuGroup>
-              <DropdownMenuRadioGroup
-                value={value.sort ?? "title"}
-                onValueChange={(next) => {
-                  const sort = PROJECT_SORTS.find((sort) => sort === next);
-                  if (sort) onChange({ ...value, sort, after: undefined });
-                }}
-              >
-                {PROJECT_SORTS.map((sort) => (
-                  <DropdownMenuRadioItem key={sort} value={sort}>
-                    {sort === "createdAt"
-                      ? "Created"
-                      : sort === "updatedAt"
-                        ? "Updated"
-                        : "Title"}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              ...value,
-              order: value.order === "desc" ? "asc" : "desc",
-              after: undefined,
-            })
-          }
-        >
-          {value.order === "desc" ? "Descending" : "Ascending"}
-        </Button>
-      </FieldGroup>
-    </form>
-  );
 }
 
 export function ProjectEmpty({
