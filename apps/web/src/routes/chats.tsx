@@ -80,7 +80,6 @@ import {
   MessageScrollerViewport,
 } from "@workspace/ui/components/message-scroller";
 import {
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
@@ -109,6 +108,7 @@ import {
   Section,
   WithPanel,
 } from "@/components/detail";
+import { EmptyPage } from "@/components/empty-page";
 import { Lightbox } from "@/components/files";
 import { MentionText } from "@/components/mentions";
 import { QueryState } from "@/components/query-state";
@@ -206,7 +206,6 @@ export function ChatsSidebar() {
       />
       {!chats.error && (
         <>
-          <SidebarGroupLabel>Chats</SidebarGroupLabel>
           <SidebarMenu>
             {chats.data?.pages
               .flatMap((page) => page.items)
@@ -223,13 +222,6 @@ export function ChatsSidebar() {
               Load more chats
             </Button>
           )}
-          <Button
-            variant="ghost"
-            nativeButton={false}
-            render={<Link to="/chats" />}
-          >
-            Browse chats
-          </Button>
         </>
       )}
     </SectionSidebar>
@@ -343,6 +335,8 @@ export function ChatsLandingPage({
 }: {
   search?: ReturnType<typeof validateChatsSearch>;
 }) {
+  const navigate = useNavigate();
+  const { workspace } = useWorkspace();
   const chats = useChats({
     query: search.query || undefined,
     projectId: search.project,
@@ -350,7 +344,7 @@ export function ChatsLandingPage({
     sort: search.sort,
     order: search.order,
   });
-  // Chats always has one open: the first one, or the new-chat empty state.
+  // Chats always has one open: the first one, or the empty page with New chat.
   if (chats.error || chats.isPending)
     return (
       <QueryState
@@ -363,10 +357,22 @@ export function ChatsLandingPage({
   return first ? (
     <Navigate to="/chats/$chatId" params={{ chatId: first.id }} replace />
   ) : (
-    <Navigate
-      to="/chats/new"
-      search={{ with: undefined, project: search.project }}
-      replace
+    <EmptyPage
+      icon={RiChat1Line}
+      title="No chats"
+      description="Conversations with your team and agents live here."
+      create={
+        workspace.role === "viewer"
+          ? undefined
+          : {
+              action: "New chat",
+              onClick: () =>
+                void navigate({
+                  to: "/chats/new",
+                  search: { with: undefined, project: search.project },
+                }),
+            }
+      }
     />
   );
 }

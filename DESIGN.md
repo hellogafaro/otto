@@ -950,6 +950,6 @@ Unknown creation outcomes disable another submission in the current form and dir
 3. There is no permanent toolbar. A page header holds the Filter menu (real properties and archive state), a Search icon that opens the command palette on that category, and "+". Active filters show as chips in the filter bar; no search box, sort picker, order or page-size control is drawn on a page. Settings lists show only their own property filters.
 4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No <things>", one description line ending in a period, no action.
 5. Command palette: an entered search with no results shows a compact tile and "No results for “query”" with no period, and its category tabs are hidden when no category has results. Skeletons are stock and use the small radius.
-6. Tasks list the first Project when none is chosen, so an empty page never asks for one. Chats: `/chats` opens the first chat, or the new-chat empty state when there is none.
+6. Tasks list the first Project when none is chosen, so an empty page never asks for one. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
 7. The floating bar shows its Inbox button only while something needs attention (an unread chat or an unanswered question).
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
