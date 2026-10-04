@@ -86,6 +86,12 @@ const schema = z
       .optional(),
     MAIL_FROM: z.email().optional(),
     RESEND_API_KEY: z.string().min(1).optional(),
+    /** Dictation is unavailable without a key; the model is any OpenRouter speech-to-text model. */
+    OPENROUTER_API_KEY: z.string().min(1).optional(),
+    TRANSCRIPTION_MODEL: z
+      .string()
+      .min(1)
+      .default("mistralai/voxtral-mini-transcribe"),
   })
   .superRefine((config, ctx) => {
     for (const group of [

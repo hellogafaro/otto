@@ -12,6 +12,7 @@ import type { Mail } from "./mail";
 import type { ModelGateway } from "./model-gateway";
 import type { Spool, TransferLimits } from "./spool";
 import type { SubscriptionLogin } from "./subscription-login";
+import type { Transcriber } from "./transcription";
 import { id } from "./validation";
 
 export interface ApiOptions {
@@ -31,6 +32,8 @@ export interface ApiOptions {
   subscriptionLogin?: SubscriptionLogin;
   gatewayStoreKey?: string;
   modelGateway?: ModelGateway;
+  /** Speech to text for dictation; absent without OPENROUTER_API_KEY. */
+  transcriber?: Transcriber;
   /** Seals sorted list cursors; production derives it from the auth secret. Without it a sorted list is unavailable. */
   cursors?: CursorCodec;
 }

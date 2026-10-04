@@ -27,10 +27,11 @@ export function createApp(
         inFlight--;
       }
     })
-    // Every route keeps the small JSON cap except the one binary upload route, which streams to a bounded spool.
+    // Every route keeps the small JSON cap except the binary upload route (streamed to a bounded spool) and dictation audio (capped in its route).
     .use("*", (c, next) =>
-      c.req.method === "PUT" &&
-      /^\/api\/workspaces\/[^/]+\/files\/[^/]+\/content$/.test(c.req.path)
+      (c.req.method === "PUT" &&
+        /^\/api\/workspaces\/[^/]+\/files\/[^/]+\/content$/.test(c.req.path)) ||
+      (c.req.method === "POST" && c.req.path === "/api/transcriptions")
         ? next()
         : jsonLimit(c, next),
     )

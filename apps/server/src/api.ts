@@ -29,6 +29,7 @@ import { type ApiEnv, transact } from "./http";
 import { sendInvitation } from "./invitations";
 import { skillsApi } from "./skills-api";
 import { subscriptionApi } from "./subscription-api";
+import { transcriptionApi } from "./transcription-api";
 import { flag, id, listQuery, pageQuery, validate } from "./validation";
 /** One authentication/origin boundary. Public shares expose frozen selections before it. */
 export function createApi(options: ApiOptions) {
@@ -63,6 +64,7 @@ export function createApi(options: ApiOptions) {
     .route("/", executionApi)
     .route("/", connectionApi)
     .route("/", subscriptionApi)
+    .route("/", transcriptionApi)
     .get(
       "/workspaces",
       validate(

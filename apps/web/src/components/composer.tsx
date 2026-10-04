@@ -243,7 +243,14 @@ export function Composer({
   const uploading = files.some((file) => file.state !== "done");
   const hasContent = !empty || files.length > 0;
   const canSend =
-    hasContent && !uploading && !busy && !disabled && !pending && !sending;
+    hasContent &&
+    !uploading &&
+    !busy &&
+    !disabled &&
+    !pending &&
+    !sending &&
+    !dictation.listening &&
+    !dictation.transcribing;
 
   useImperativeHandle(ref, () => ({
     prefill: (text) => {
@@ -342,7 +349,6 @@ export function Composer({
     if (!canSend || !editor || sendingRef.current) return;
     sendingRef.current = true;
     setSending(true);
-    dictation.stop();
     try {
       await onSend(
         toText(editor.getJSON()).trim(),
@@ -380,6 +386,10 @@ export function Composer({
     ) : busy ? (
       <MainButton {...button} label="Stop" onClick={onStop}>
         <RiStopFill />
+      </MainButton>
+    ) : dictation.transcribing ? (
+      <MainButton {...button} label="Transcribing" disabled>
+        <Spinner />
       </MainButton>
     ) : dictation.listening ? (
       <MainButton {...button} label="Done" onClick={dictation.stop}>
@@ -595,87 +605,105 @@ function MainButton({
   );
 }
 
-// Browser speech-to-text (Web Speech API), typed in at the cursor.
-type Recognition = {
-  continuous: boolean;
-  interimResults: boolean;
-  onresult:
-    | ((event: {
-        results: ArrayLike<ArrayLike<{ transcript: string }>>;
-      }) => void)
-    | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
+// Dictation: the mic is recorded in the browser and transcribed by the server
+// when Done is pressed; the text is typed in at the cursor.
+const supported =
+  typeof MediaRecorder !== "undefined" &&
+  Boolean(navigator.mediaDevices?.getUserMedia);
+
+const dictationErrors: Record<string, string> = {
+  not_configured: "Dictation isn't set up on this server.",
+  timeout: "Transcription timed out. Try again.",
+  unavailable: "Transcription is unavailable right now. Try again in a moment.",
+  too_large: "That recording is too long to transcribe.",
 };
 
-const SpeechRecognition =
-  (
-    window as unknown as {
-      SpeechRecognition?: new () => Recognition;
-      webkitSpeechRecognition?: new () => Recognition;
-    }
-  ).SpeechRecognition ??
-  (window as unknown as { webkitSpeechRecognition?: new () => Recognition })
-    .webkitSpeechRecognition;
+async function transcribe(audio: Blob) {
+  const response = await fetch("/api/transcriptions", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": audio.type || "audio/webm" },
+    body: audio,
+  });
+  const body: { text?: string; error?: string } = await response
+    .json()
+    .catch(() => ({}));
+  if (!response.ok || typeof body.text !== "string")
+    throw new Error(
+      dictationErrors[body.error ?? ""] ??
+        "Couldn't transcribe that. Try again.",
+    );
+  return body.text.trim();
+}
 
 function useDictation(editor: Editor | null) {
   const [listening, setListening] = useState(false);
-  const recognition = useRef<Recognition | null>(null);
-  // Where this session types and how much, so Cancel can take it back.
-  const typedRange = useRef({ at: 0, typed: 0 });
+  const [transcribing, setTranscribing] = useState(false);
+  const recorder = useRef<MediaRecorder | null>(null);
+  const discard = useRef(false);
 
-  const start = () => {
-    if (!SpeechRecognition || !editor) return;
-    // Results replace what this session typed so far, at the cursor.
-    const at = editor.state.selection.to;
-    const before = editor.state.doc.textBetween(Math.max(0, at - 1), at);
-    const lead = before && before !== " " ? " " : "";
-    let typed = 0;
-    const session = new SpeechRecognition();
-    session.continuous = true;
-    session.interimResults = true;
-    session.onresult = (event) => {
-      const heard =
-        lead +
-        Array.from(event.results, (result) => result[0].transcript).join("");
-      editor
-        .chain()
-        .deleteRange({ from: at, to: at + typed })
-        .insertContentAt(at, heard)
-        .run();
-      typed = heard.length;
-      typedRange.current = { at, typed };
+  const start = async () => {
+    if (!supported || !editor || recorder.current) return;
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      toast.error("Allow microphone access to dictate.");
+      return;
+    }
+    // Opens the provider connection while the user speaks.
+    void fetch("/api/transcriptions/warmup", {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {});
+    const chunks: Blob[] = [];
+    const session = new MediaRecorder(stream);
+    session.ondataavailable = (event) => chunks.push(event.data);
+    session.onstop = async () => {
+      for (const track of stream.getTracks()) track.stop();
+      recorder.current = null;
+      setListening(false);
+      if (discard.current) return;
+      setTranscribing(true);
+      try {
+        const text = await transcribe(
+          new Blob(chunks, { type: session.mimeType }),
+        );
+        if (text) {
+          const at = editor.state.selection.to;
+          const before = editor.state.doc.textBetween(Math.max(0, at - 1), at);
+          editor
+            .chain()
+            .focus()
+            .insertContent((before && before !== " " ? " " : "") + text)
+            .run();
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't transcribe that.",
+        );
+      } finally {
+        setTranscribing(false);
+      }
     };
-    session.onend = () => setListening(false);
-    recognition.current = session;
-    typedRange.current = { at, typed: 0 };
+    discard.current = false;
+    recorder.current = session;
     session.start();
     setListening(true);
   };
 
-  const stop = () => {
-    recognition.current?.stop();
-    recognition.current = null;
-    setListening(false);
-  };
+  const stop = () => recorder.current?.stop();
 
   const cancel = () => {
+    discard.current = true;
     stop();
-    const { at, typed } = typedRange.current;
-    editor
-      ?.chain()
-      .deleteRange({ from: at, to: at + typed })
-      .run();
   };
 
-  return {
-    supported: Boolean(SpeechRecognition),
-    listening,
-    start,
-    stop,
-    cancel,
-  };
+  // Leaving the page releases the mic and drops the recording.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: unmount only
+  useEffect(() => cancel, []);
+
+  return { supported, listening, transcribing, start, stop, cancel };
 }
 
 // Seconds since `on` turned true, as m:ss.

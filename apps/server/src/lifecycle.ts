@@ -26,6 +26,7 @@ import {
   type InfisicalAccounts,
 } from "./subscription-secrets";
 import { createRunTools, runToolSchema } from "./tools";
+import { createOpenRouterTranscriber } from "./transcription";
 
 /** Acquires resources in dependency order and releases every acquired resource on failure. */
 export async function startServer(
@@ -275,6 +276,12 @@ export async function startServer(
       mail: mail ?? undefined,
       subscriptionLogin,
       modelGateway,
+      transcriber: config.OPENROUTER_API_KEY
+        ? createOpenRouterTranscriber({
+            apiKey: config.OPENROUTER_API_KEY,
+            model: config.TRANSCRIPTION_MODEL,
+          })
+        : undefined,
       gatewayStoreKey: gateway?.storeKey,
       cursors: createCursorCodec(config.BETTER_AUTH_SECRET),
     };
