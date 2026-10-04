@@ -266,7 +266,7 @@ test("Late explicit viewer fails closed through participant continuation error a
       .getByRole("button", { name: "Agent: Choose Agent", exact: true })
       .click();
     await expect(
-      page.getByRole("menuitemradio", { name: agent.title, exact: true }),
+      page.getByRole("option", { name: agent.title, exact: true }),
     ).toHaveCount(0);
     await page.keyboard.press("Escape");
     await page
@@ -277,7 +277,7 @@ test("Late explicit viewer fails closed through participant continuation error a
       .getByRole("button", { name: "Agent: Choose Agent", exact: true })
       .click();
     await expect(
-      page.getByRole("menuitemradio", { name: agent.title, exact: true }),
+      page.getByRole("option", { name: agent.title, exact: true }),
     ).toBeVisible();
     await page.keyboard.press("Escape");
 
@@ -355,7 +355,7 @@ test("Late explicit viewer fails closed through participant continuation error a
       })
       .click();
     await page
-      .getByRole("menuitemradio", { name: "Contributor", exact: true })
+      .getByRole("option", { name: "Contributor", exact: true })
       .click();
     await expect(
       page.getByRole("button", {
@@ -587,9 +587,7 @@ test("Run admission stays unavailable without an eligible configured account and
   await page
     .getByRole("button", { name: "Agent: Choose Agent", exact: true })
     .click();
-  await page
-    .getByRole("menuitemradio", { name: agent.title, exact: true })
-    .click();
+  await page.getByRole("option", { name: agent.title, exact: true }).click();
   await page
     .getByLabel("Prompt", { exact: true })
     .fill("Keep this explicit draft");
