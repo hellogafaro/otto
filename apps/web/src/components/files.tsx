@@ -1,4 +1,5 @@
 import {
+  RiArchiveLine,
   RiArrowLeftSLine,
   RiArrowRightSLine,
   RiBox3Line,
@@ -7,12 +8,20 @@ import {
   RiCheckboxCircleLine,
   RiCloseLine,
   RiDownloadLine,
+  RiEditLine,
   RiFolder3Line,
+  RiLinkM,
   RiPriceTag3Line,
+  RiShareLine,
 } from "@remixicon/react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
-import { ContextMenuContent } from "@workspace/ui/components/context-menu";
+import {
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+} from "@workspace/ui/components/context-menu";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +37,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar";
+import { toast } from "@workspace/ui/components/sonner";
 import { Spinner } from "@workspace/ui/components/spinner";
 import { cn } from "@workspace/ui/lib/utils";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -35,31 +45,32 @@ import type { FileRef } from "@/components/composer";
 import { Section } from "@/components/detail";
 import { Dither } from "@/components/dither";
 import { Editor } from "@/components/editor/editor";
+import { FileEdit } from "@/components/file-edit";
+import { FileShares } from "@/components/file-shares";
 import { useAskAgent } from "@/components/floating-chat";
 import { Gallery, GalleryItem } from "@/components/gallery";
 import { IconAction } from "@/components/icon-action";
-import { ItemMenuItems } from "@/components/item-menu";
 import { mention } from "@/components/mentions";
+import { QueryState } from "@/components/query-state";
 import {
   ActorAvatar,
-  actorOf,
-  ChatIcon,
-  projectLooks,
   resourceIcons,
   resourceKindOf,
   resourceTypes,
   shortDate,
-  statuses,
   visibilityLooks,
 } from "@/components/task-meta";
 import { Topbar } from "@/components/topbar";
+import { read } from "@/lib/api";
+import { useDirectory } from "@/lib/directory";
 import {
-  chats,
-  currentUserId,
-  folders,
-  type Resource,
-  tasks,
-} from "@/mock/tasks";
+  downloadFile,
+  previewBytes,
+  type SavedFile,
+  savedResource,
+} from "@/lib/file-library";
+import { useWorkspace } from "@/lib/workspace";
+import type { Resource } from "@/mock/tasks";
 
 // A file attached to a message or comment, as a resource for the viewer.
 export function fileResource(file: FileRef, createdAt: string): Resource {
@@ -101,7 +112,12 @@ export function FileItems({
           <SidebarMenuItem key={resource.id}>
             <HoverCard>
               <HoverCardTrigger
-                render={<SidebarMenuButton onClick={() => open(resource.id)} />}
+                render={
+                  <SidebarMenuButton
+                    disabled={resource.uploading}
+                    onClick={() => open(resource.id)}
+                  />
+                }
               >
                 <Icon />
                 <span>{resource.title}</span>
@@ -131,14 +147,15 @@ export function FileGallery({
   openId,
   onOpen,
   leading,
-  onDelete,
+  trailing,
 }: {
   resources: Resource[];
   openId?: string;
   onOpen?: (id: string | undefined) => void;
   /** Tiles before the files in the same grid (Files' folders). */
   leading?: ReactNode;
-  /** Deleting from the right-click menu; without it, no Delete. */
+  trailing?: ReactNode;
+  /** Retained for existing callers; File deletion has no API and is not exposed. */
   onDelete?: (id: string) => void;
 }) {
   const [localId, setLocalId] = useState<string>();
@@ -168,14 +185,11 @@ export function FileGallery({
             icon={resourceIcons[resource.kind]}
             title={resource.title}
             menu={
-              <FileMenu
-                resource={resource}
-                onOpen={() => open(resource.id)}
-                onDelete={onDelete && (() => onDelete(resource.id))}
-              />
+              <FileMenu resource={resource} onOpen={() => open(resource.id)} />
             }
           />
         ))}
+        {trailing}
       </Gallery>
       <Lightbox resources={resources} openId={shown} onOpen={open} />
     </>
@@ -197,21 +211,60 @@ export function Lightbox({
 }) {
   const navigate = useNavigate();
   const ask = useAskAgent();
+  const { workspaceId, api, user, invalidate } = useWorkspace();
+  const directory = useDirectory();
+  const [editing, setEditing] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<Error>();
+  const saved = useQuery({
+    queryKey: ["workspace", workspaceId, "file", openId],
+    enabled: Boolean(openId),
+    queryFn: async () =>
+      read(
+        await api.files[":id"].$get({
+          param: { workspaceId, id: openId ?? "" },
+        }),
+      ),
+  });
+  const member = directory.members.find((member) => member.userId === user.id);
+  const canWrite = Boolean(
+    member &&
+      member.role !== "viewer" &&
+      !directory.membersQuery.isPending &&
+      !directory.membersQuery.error,
+  );
+  const canEdit = canWrite && saved.data?.ownerId === user.id;
+  async function act(operation: () => Promise<unknown>) {
+    if (busy) return;
+    setBusy(true);
+    setActionError(undefined);
+    try {
+      await operation();
+    } catch (cause) {
+      setActionError(
+        cause instanceof Error ? cause : new Error("Unable to update file."),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   // Focus starts on the lightbox itself, not its first button (whose tooltip
   // would pop up and take the first Escape).
   const popup = useRef<HTMLDivElement>(null);
   const index = resources.findIndex(({ id }) => id === openId);
-  const resource = resources[index];
+  const resource = saved.data ? savedResource(saved.data) : resources[index];
+  const taskId = resources[index]?.taskId;
   const step = (by: number) =>
     onOpen(resources[(index + by + resources.length) % resources.length].id);
   const Icon = resource && resourceIcons[resource.kind];
 
   return (
     <Dialog
-      open={!!resource}
-      onOpenChange={(open) => !open && onOpen(undefined)}
+      open={Boolean(openId)}
+      onOpenChange={(open) => !open && !busy && onOpen(undefined)}
     >
-      {resource && (
+      {openId && (
         <DialogContent
           ref={popup}
           initialFocus={popup}
@@ -220,7 +273,15 @@ export function Lightbox({
           onKeyDown={(event) => {
             // Arrows inside a player seek; they don't change the resource.
             const target = event.target as HTMLElement;
-            if (resources.length < 2 || target.closest("video, audio")) return;
+            if (
+              resources.length < 2 ||
+              index < 0 ||
+              busy ||
+              editing ||
+              sharing ||
+              target.closest("video, audio, input, textarea, [contenteditable]")
+            )
+              return;
             if (event.key === "ArrowLeft") step(-1);
             if (event.key === "ArrowRight") step(1);
           }}
@@ -237,38 +298,99 @@ export function Lightbox({
                       label="Ask about this file"
                       icon={RiChat1Line}
                       onClick={() => {
+                        if (busy || !saved.data) return;
                         // The page's floating chat takes it: the viewer
                         // closes and the bar starts with a link to the file.
                         onOpen(undefined);
                         ask(
                           `${mention({
-                            type: "resource",
-                            id: resource.id,
-                            label: resource.title,
+                            type: "file",
+                            id: saved.data?.id ?? openId,
+                            label:
+                              saved.data?.title ?? resource?.title ?? "File",
                           })} `,
                         );
                       }}
                     />
-                    {resource.taskId && (
+                    {taskId && (
                       <IconAction
                         label="Open task"
                         icon={RiCheckboxCircleLine}
                         onClick={() =>
                           navigate({
                             to: "/tasks/$taskId",
-                            params: { taskId: resource.taskId as string },
+                            params: { taskId },
                           })
                         }
                       />
                     )}
-                    {/* Not wired yet. */}
-                    <IconAction label="Download" icon={RiDownloadLine} />
+                    {!member && directory.membersQuery.hasNextPage && (
+                      <Button
+                        variant="ghost"
+                        disabled={directory.membersQuery.isFetchingNextPage}
+                        onClick={() => directory.membersQuery.fetchNextPage()}
+                      >
+                        More people
+                      </Button>
+                    )}
+                    {saved.data && (
+                      <>
+                        <IconAction
+                          label="Download"
+                          icon={RiDownloadLine}
+                          onClick={() =>
+                            act(() =>
+                              downloadFile(
+                                workspaceId,
+                                saved.data.id,
+                                saved.data.title,
+                              ),
+                            )
+                          }
+                        />
+                        {canEdit && (
+                          <IconAction
+                            label="Edit file"
+                            icon={RiEditLine}
+                            onClick={() => !busy && setEditing(true)}
+                          />
+                        )}
+                        {canWrite && (
+                          <IconAction
+                            label="Share selected file"
+                            icon={RiShareLine}
+                            onClick={() => !busy && setSharing(true)}
+                          />
+                        )}
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            disabled={busy}
+                            onClick={() =>
+                              act(async () => {
+                                await read(
+                                  await api.files[":id"].archive.$post({
+                                    param: { workspaceId, id: saved.data.id },
+                                    json: { archived: !saved.data.archived },
+                                  }),
+                                );
+                                await invalidate();
+                                onOpen(undefined);
+                              })
+                            }
+                          >
+                            <RiArchiveLine data-icon="inline-start" />
+                            {saved.data.archived ? "Restore" : "Archive"}
+                          </Button>
+                        )}
+                      </>
+                    )}
                     {/* Without the panel, Close sits here. */}
                     <span className="lg:hidden">
                       <IconAction
                         label="Close"
                         icon={RiCloseLine}
-                        onClick={() => onOpen(undefined)}
+                        onClick={() => !busy && onOpen(undefined)}
                       />
                     </span>
                   </>
@@ -276,13 +398,14 @@ export function Lightbox({
               >
                 {/* px-2 puts the icon on the 16px content line. */}
                 <div className="flex min-w-0 items-center gap-2 px-2">
-                  <Icon className="shrink-0 text-muted-foreground" />
+                  {Icon && <Icon className="shrink-0 text-muted-foreground" />}
                   <DialogTitle className="truncate">
-                    {resource.title}
+                    {resource?.title ?? "File"}
                   </DialogTitle>
                   <DialogDescription className="shrink-0 tabular-nums">
-                    {resourceTypes[resource.kind]} ·{" "}
-                    {shortDate.format(new Date(resource.createdAt))}
+                    {resource && resourceTypes[resource.kind]} ·{" "}
+                    {resource?.createdAt &&
+                      shortDate.format(new Date(resource.createdAt))}
                   </DialogDescription>
                 </div>
               </Topbar>
@@ -290,14 +413,35 @@ export function Lightbox({
                   at the sides keeps the arrows (9px from the edges) clear of
                   the media. */}
               <div className="relative flex min-h-0 flex-1 items-center justify-center px-12 pb-5">
-                <Preview resource={resource} />
-                {resources.length > 1 && (
+                <QueryState
+                  pending={saved.isPending}
+                  error={saved.error}
+                  retry={() => saved.refetch()}
+                />
+                {actionError && <p role="alert">{actionError.message}</p>}
+                {saved.data && <Preview file={saved.data} />}
+                {saved.data && editing && (
+                  <FileEdit
+                    key={saved.data.id}
+                    file={saved.data}
+                    onClose={() => setEditing(false)}
+                  />
+                )}
+                {saved.data && sharing && (
+                  <FileShares
+                    key={saved.data.id}
+                    file={saved.data}
+                    onClose={() => setSharing(false)}
+                  />
+                )}
+                {resources.length > 1 && index >= 0 && (
                   <>
                     <Button
                       variant="outline"
                       size="icon-sm"
                       aria-label="Previous"
                       className="absolute left-2.25"
+                      disabled={busy || editing || sharing}
                       onClick={() => step(-1)}
                     >
                       <RiArrowLeftSLine />
@@ -307,6 +451,7 @@ export function Lightbox({
                       size="icon-sm"
                       aria-label="Next"
                       className="absolute right-2.25"
+                      disabled={busy || editing || sharing}
                       onClick={() => step(1)}
                     >
                       <RiArrowRightSLine />
@@ -324,14 +469,14 @@ export function Lightbox({
                   <IconAction
                     label="Close"
                     icon={RiCloseLine}
-                    onClick={() => onOpen(undefined)}
+                    onClick={() => !busy && onOpen(undefined)}
                   />
                 }
               >
                 <h2 className="truncate pl-3 text-sm font-medium">Details</h2>
               </Topbar>
               <div className="no-scrollbar min-h-0 flex-1 scroll-fade-y overflow-y-auto">
-                <FileDetails resource={resource} />
+                {saved.data && <FileDetails file={saved.data} />}
               </div>
             </aside>
           </div>
@@ -348,59 +493,89 @@ const frame = "rounded-md ring-1 ring-foreground/10";
 function FileMenu({
   resource,
   onOpen,
-  onDelete,
 }: {
   resource: Resource;
-  onOpen: () => void;
-  onDelete?: () => void;
+  onOpen(): void;
 }) {
+  const { workspaceId, user } = useWorkspace();
+  const directory = useDirectory();
   const ask = useAskAgent();
+  const member = directory.members.find((member) => member.userId === user.id);
+  const canAsk = Boolean(
+    member && member.role !== "viewer" && !directory.membersQuery.error,
+  );
+  const [error, setError] = useState<Error>();
+  async function act(operation: () => Promise<unknown>) {
+    try {
+      await operation();
+      setError(undefined);
+    } catch (cause) {
+      const error =
+        cause instanceof Error ? cause : new Error("Unable to perform action.");
+      setError(error);
+      toast.error(error.message);
+    }
+  }
   return (
     <ContextMenuContent className="w-48">
-      <ItemMenuItems
-        type="file"
-        name={resource.title}
-        onOpen={onOpen}
-        onAsk={() =>
-          ask(
-            `${mention({ type: "resource", id: resource.id, label: resource.title })} `,
-          )
-        }
-        // Not wired yet.
-        onDownload={() => {}}
-        link={`/files?open=${resource.id}`}
-        onDelete={onDelete}
-      />
+      <ContextMenuGroup>
+        <ContextMenuItem onClick={onOpen}>Open</ContextMenuItem>
+        {canAsk && (
+          <ContextMenuItem
+            onClick={() =>
+              ask(
+                `${mention({ type: "file", id: resource.id, label: resource.title })} `,
+              )
+            }
+          >
+            <RiChat1Line />
+            Ask about it
+          </ContextMenuItem>
+        )}
+        <ContextMenuItem
+          onClick={() =>
+            act(() => downloadFile(workspaceId, resource.id, resource.title))
+          }
+        >
+          <RiDownloadLine />
+          Download
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() =>
+            act(() =>
+              navigator.clipboard.writeText(
+                `${location.origin}/files?open=${encodeURIComponent(resource.id)}`,
+              ),
+            )
+          }
+        >
+          <RiLinkM />
+          Copy link
+        </ContextMenuItem>
+        {error && <ContextMenuItem disabled>{error.message}</ContextMenuItem>}
+      </ContextMenuGroup>
     </ContextMenuContent>
   );
 }
 
-// What a file is, in one Properties list, each row in Otto's words: its
-// folder, its project, its task and its chat (links, when it has them), who
-// created it (the agent that made it, else the person who added it), who
-// can see it and when it was added. Then its labels.
-function FileDetails({ resource }: { resource: Resource }) {
-  const project = resource.projectId
-    ? projectLooks[resource.projectId]
-    : undefined;
-  const creator = resource.agentId ?? resource.ownerId ?? currentUserId;
-  const visibility = visibilityLooks[resource.visibility ?? "workspace"];
-  const task = resource.taskId
-    ? tasks.find(({ id }) => id === resource.taskId)
-    : undefined;
-  const status = task && statuses[task.status];
-  const chat = resource.chatId
-    ? chats.find(({ id }) => id === resource.chatId)
-    : undefined;
-  const labels = resource.labels ?? [];
-  // Its folder's path, top first ("Brand › Logos"), or the top of Files.
-  const path: string[] = [];
-  for (
-    let folder = folders.find(({ id }) => id === resource.folderId);
-    folder;
-    folder = folders.find(({ id }) => id === folder?.parentId)
-  )
-    path.unshift(folder.title);
+function FileDetails({ file }: { file: SavedFile }) {
+  const { api, workspaceId } = useWorkspace();
+  const directory = useDirectory();
+  const folder = useQuery({
+    queryKey: ["workspace", workspaceId, "folder", file.folderId],
+    enabled: Boolean(file.folderId),
+    queryFn: async () =>
+      read(
+        await api.folders[":id"].$get({
+          param: { workspaceId, id: file.folderId ?? "" },
+        }),
+      ),
+  });
+  const project = directory.projects.find(
+    (project) => project.id === file.projectId,
+  );
+  const creator = file.creatorAgentId ?? file.ownerId;
+  const visibility = visibilityLooks[file.visibility];
   return (
     <>
       <Section title="Properties">
@@ -408,50 +583,41 @@ function FileDetails({ resource }: { resource: Resource }) {
           link={
             <Link
               to="/files"
-              search={resource.folderId ? { folder: resource.folderId } : {}}
+              search={{
+                folder: file.folderId ?? undefined,
+                project: file.projectId ?? undefined,
+              }}
             />
           }
         >
           <RiFolder3Line />
-          <span>{path.length ? path.join(" › ") : "Files"}</span>
+          <span>
+            {file.folderId
+              ? (folder.data?.path.map((step) => step.title).join(" › ") ??
+                "Folder unavailable")
+              : "Files"}
+          </span>
         </DetailRow>
-        {project && resource.projectId ? (
-          <DetailRow
-            link={
+        <QueryState error={folder.error} retry={() => folder.refetch()} />
+        <DetailRow
+          link={
+            project && (
               <Link
                 to="/projects/$projectId"
-                params={{ projectId: resource.projectId }}
+                params={{ projectId: project.id }}
               />
-            }
-          >
-            <project.icon className={project.className} />
-            <span>{project.label}</span>
-          </DetailRow>
-        ) : (
-          <DetailRow>
-            <RiBox3Line />
-            <span>No project</span>
-          </DetailRow>
-        )}
-        {task && status && (
-          <DetailRow
-            link={<Link to="/tasks/$taskId" params={{ taskId: task.id }} />}
-          >
-            <status.icon className={status.className} />
-            <span>{task.title}</span>
-          </DetailRow>
-        )}
-        {chat && (
-          <DetailRow
-            link={<Link to="/chats/$chatId" params={{ chatId: chat.id }} />}
-          >
-            <ChatIcon chat={chat} />
-            <span>{chat.title}</span>
-          </DetailRow>
-        )}
+            )
+          }
+        >
+          <RiBox3Line />
+          <span>
+            {project?.title ??
+              (file.projectId ? "Project unavailable" : "No project")}
+          </span>
+        </DetailRow>
         <DetailRow>
           <ActorAvatar actorId={creator} />
-          <span>Created by {actorOf(creator).name}</span>
+          <span>Created by {directory.actorOf(creator).name}</span>
         </DetailRow>
         <DetailRow>
           <visibility.icon />
@@ -459,15 +625,30 @@ function FileDetails({ resource }: { resource: Resource }) {
         </DetailRow>
         <DetailRow>
           <RiCalendarLine />
-          <span>Added {shortDate.format(new Date(resource.createdAt))}</span>
+          <span>
+            {file.createdAt && shortDate.format(new Date(file.createdAt))}
+          </span>
+        </DetailRow>
+        <DetailRow>
+          <RiDownloadLine />
+          <span>{file.byteLength.toLocaleString()} bytes</span>
         </DetailRow>
       </Section>
-      {labels.length > 0 && (
-        <Section title="Labels" count={labels.length}>
-          {labels.map((label) => (
+      {file.labels.length > 0 && (
+        <Section title="Labels" count={file.labels.length}>
+          {file.labels.map((label) => (
             <DetailRow
               key={label}
-              link={<Link to="/files" search={{ label }} />}
+              link={
+                <Link
+                  to="/files"
+                  search={{
+                    label,
+                    folder: file.folderId ?? undefined,
+                    project: file.projectId ?? undefined,
+                  }}
+                />
+              }
             >
               <RiPriceTag3Line />
               <span>{label}</span>
@@ -502,109 +683,93 @@ function DetailRow({
 // Read-only, by type: images as they are, video and audio in the browser's
 // players, PDFs in its PDF viewer, Markdown rendered like a document. Anything
 // else (or without a file) shows its type.
-function Preview({ resource }: { resource: Resource }) {
-  const { url, kind, title } = resource;
-  const type = fileType(resource).toLowerCase();
-
-  if (kind === "video" && url) {
-    return (
-      // biome-ignore lint/a11y/useMediaCaption: user files have no captions.
-      <video
-        src={url}
-        controls
-        className={cn("max-h-full max-w-full bg-black", frame)}
-      />
-    );
-  }
-  if (kind === "audio" && url) {
-    return (
-      <div className="flex w-80 flex-col gap-3">
-        <TypeTile resource={resource} className="aspect-square w-full" />
-        {/* biome-ignore lint/a11y/useMediaCaption: user files have no captions. */}
-        <audio src={url} controls className="w-full" />
-      </div>
-    );
-  }
-  if (url && type === "pdf") {
+function Preview({ file }: { file: SavedFile }) {
+  const { workspaceId } = useWorkspace();
+  const mediaType = file.mediaType.split(";")[0]?.trim() ?? file.mediaType;
+  const previewable =
+    /^(image|video|audio)\//.test(mediaType) ||
+    ["text/html", "text/markdown", "application/pdf"].includes(mediaType) ||
+    file.title.endsWith(".md");
+  const preview = useQuery({
+    queryKey: ["workspace", workspaceId, "file-preview", file.id, file.sha256],
+    enabled: previewable,
+    gcTime: 0,
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const blob = await previewBytes(workspaceId, file, signal);
+      const text =
+        mediaType === "text/html" ||
+        mediaType === "text/markdown" ||
+        file.title.endsWith(".md")
+          ? await blob.text()
+          : undefined;
+      return { blob, text };
+    },
+  });
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    if (!preview.data) {
+      setUrl(undefined);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(preview.data.blob);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [preview.data]);
+  if (!previewable)
+    return <p>This file type has no preview. Download it to open it.</p>;
+  if (preview.error)
+    return <QueryState error={preview.error} retry={() => preview.refetch()} />;
+  if (!preview.data || !url) return <Spinner aria-label="Loading preview" />;
+  if (mediaType === "text/html")
     return (
       <iframe
-        src={url}
-        title={title}
+        title={file.title}
+        sandbox=""
+        referrerPolicy="no-referrer"
+        srcDoc={`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">${preview.data.text ?? ""}`}
         className={cn("size-full max-w-4xl bg-card", frame)}
       />
     );
-  }
-  if (url && type === "md") return <MarkdownFile url={url} />;
-  // A canvas is an agent's HTML page, shown as it is, sandboxed.
-  if (url && kind === "canvas") {
+  if (preview.data.text !== undefined)
     return (
-      <iframe
-        src={url}
-        title={title}
-        sandbox=""
-        className={cn("size-full max-w-4xl bg-white", frame)}
-      />
+      <div
+        className={cn(
+          "no-scrollbar h-full w-full max-w-3xl overflow-y-auto bg-card p-8",
+          frame,
+        )}
+      >
+        <Editor key={file.id} value={preview.data.text} readOnly />
+      </div>
     );
-  }
-  const picture =
-    kind === "image" ? (url ?? resource.preview) : resource.preview;
-  if (picture) {
+  if (mediaType.startsWith("image/"))
     return (
       <img
-        src={picture}
-        alt={title}
+        src={url}
+        alt={file.title}
         className={cn("max-h-full max-w-full", frame)}
       />
     );
-  }
+  if (mediaType.startsWith("video/"))
+    return (
+      // biome-ignore lint/a11y/useMediaCaption: uploaded files do not include caption tracks.
+      <video
+        src={url}
+        controls
+        className={cn("max-h-full max-w-full", frame)}
+      />
+    );
+  if (mediaType.startsWith("audio/"))
+    return (
+      // biome-ignore lint/a11y/useMediaCaption: uploaded files do not include caption tracks.
+      <audio src={url} controls />
+    );
   return (
-    <TypeTile resource={resource} className="aspect-[4/5] h-full max-h-96" />
-  );
-}
-
-function TypeTile({
-  resource,
-  className,
-}: {
-  resource: Resource;
-  className: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center justify-center bg-muted",
-        frame,
-        className,
-      )}
-    >
-      <span className="text-xs font-medium text-muted-foreground uppercase">
-        {fileType(resource)}
-      </span>
-    </div>
-  );
-}
-
-// A Markdown file as a page: the document column on a card that scrolls.
-function MarkdownFile({ url }: { url: string }) {
-  const [text, setText] = useState<string>();
-  useEffect(() => {
-    let current = true;
-    fetch(url)
-      .then((response) => response.text())
-      .then((body) => current && setText(body));
-    return () => {
-      current = false;
-    };
-  }, [url]);
-
-  return (
-    <div
-      className={cn(
-        "no-scrollbar h-full w-full max-w-3xl scroll-fade-y overflow-y-auto bg-card p-8",
-        frame,
-      )}
-    >
-      {text !== undefined && <Editor key={url} value={text} readOnly />}
-    </div>
+    <iframe
+      src={url}
+      title={file.title}
+      sandbox=""
+      className={cn("size-full max-w-4xl bg-card", frame)}
+    />
   );
 }

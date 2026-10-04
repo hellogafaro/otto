@@ -53,7 +53,9 @@ export async function downloadFile(
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = title;
+  document.body.append(anchor);
   anchor.click();
+  anchor.remove();
 }
 
 /** Enforce the small-consumer limit while reading, even if the server sends an unexpected body. */
@@ -70,7 +72,20 @@ export async function previewBytes(
     credentials: "include",
     signal,
   });
+  return boundedFileBlob(response, file.byteLength, file.mediaType);
+}
+
+/** Shared by authenticated and anonymous frozen HTML previews; never reads an unbounded body. */
+export async function boundedFileBlob(
+  response: Pick<Response, "ok" | "status" | "body">,
+  byteLength: number,
+  mediaType: string,
+) {
   if (!response.ok) throw new ApiError(response.status, "preview_failed");
+  if (byteLength > PREVIEW_BYTES)
+    throw new Error(
+      "Preview is limited to 8 MiB. Download this file to open it.",
+    );
   const reader = response.body?.getReader();
   if (!reader) throw new Error("No file content was received.");
   const parts: Uint8Array<ArrayBuffer>[] = [];
@@ -80,13 +95,13 @@ export async function previewBytes(
       const chunk = await reader.read();
       if (chunk.done) break;
       length += chunk.value.byteLength;
-      if (length > PREVIEW_BYTES || length > file.byteLength)
+      if (length > PREVIEW_BYTES || length > byteLength)
         throw new Error("File content exceeded the saved size.");
       parts.push(new Uint8Array(chunk.value));
     }
-    if (length !== file.byteLength)
+    if (length !== byteLength)
       throw new Error("File transfer was incomplete. Retry the preview.");
-    return new Blob(parts, { type: file.mediaType });
+    return new Blob(parts, { type: mediaType });
   } finally {
     await reader.cancel();
     reader.releaseLock();

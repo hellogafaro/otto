@@ -20,6 +20,10 @@ export async function uploadFile({
   folderId?: string;
   visibility?: "user" | "workspace";
 }): Promise<FileRef> {
+  if (!file.name.trim() || file.name.trim().length > 200)
+    throw new Error(
+      "Rename this file to a title of 1–200 characters before uploading.",
+    );
   if (file.size > MAX_UPLOAD_BYTES)
     throw new Error("A file can be at most 100,000,000 bytes.");
   const path = `/api${workspaceApi.files[":requestId"].content.$path({ param: { workspaceId, requestId } })}`;

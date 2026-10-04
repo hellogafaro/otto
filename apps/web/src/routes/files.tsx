@@ -1,15 +1,16 @@
 import {
   RiAddLine,
   RiBox3Line,
-  RiFileLine,
+  RiChat1Line,
+  RiFileTextLine,
   RiFolder3Fill,
   RiFolder3Line,
   RiFolderAddLine,
+  RiLinkM,
   RiPriceTag3Line,
-  RiQuillPenLine,
-  RiSearchLine,
   RiUploadLine,
 } from "@remixicon/react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Breadcrumb,
@@ -19,7 +20,11 @@ import {
   BreadcrumbSeparator,
 } from "@workspace/ui/components/breadcrumb";
 import { Button } from "@workspace/ui/components/button";
-import { ContextMenuContent } from "@workspace/ui/components/context-menu";
+import {
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+} from "@workspace/ui/components/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,278 +32,248 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip";
-import { useReducer, useRef, useState } from "react";
-import { useCommandPalette } from "@/components/command-palette";
-import { EmptyPage } from "@/components/empty-page";
+import { Input } from "@workspace/ui/components/input";
+import { useRef, useState } from "react";
+import { FolderEdit } from "@/components/file-edit";
+import { FileUploads } from "@/components/file-uploads";
 import { FileGallery } from "@/components/files";
 import {
   FilterBar,
   type FilterDef,
   FilterMenu,
   labelLooks,
-  NoResults,
 } from "@/components/filters";
 import { useAskAgent } from "@/components/floating-chat";
 import { GalleryItem } from "@/components/gallery";
-import { IconAction } from "@/components/icon-action";
-import { ItemMenuItems } from "@/components/item-menu";
 import { Page } from "@/components/page";
-import {
-  chatWithLooks,
-  ownerLooks,
-  projectLooks,
-  resourceIcons,
-  resourceKindOf,
-  resourceTypes,
-} from "@/components/task-meta";
+import { QueryState } from "@/components/query-state";
 import { Topbar } from "@/components/topbar";
-import {
-  currentUserId,
-  type Folder,
-  folders,
-  type Resource,
-  type ResourceKind,
-  resources,
-} from "@/mock/tasks";
+import { read } from "@/lib/api";
+import { useDirectory } from "@/lib/directory";
+import { fileKind, type SavedFolder } from "@/lib/file-library";
+import { useWorkspace } from "@/lib/workspace";
 
-// Where you are in Files lives in the URL: the open folder (none is the top),
-// the filters, and the open file, so a viewer can be linked to.
 export type FilesSearch = {
   folder?: string;
-  type?: ResourceKind;
   project?: string;
   label?: string;
-  madeBy?: string;
   open?: string;
+  query?: string;
+  sort?: "title" | "createdAt" | "updatedAt";
+  order?: "asc" | "desc";
+  archived?: boolean;
 };
-
-type FilterKey = "type" | "project" | "label" | "madeBy";
 
 export function validateFilesSearch(
   search: Record<string, unknown>,
 ): FilesSearch {
-  const text = (key: string) =>
-    typeof search[key] === "string" ? (search[key] as string) : undefined;
-  const folder = text("folder");
-  const type = text("type");
+  const text = (key: string, max = 200) =>
+    typeof search[key] === "string" && search[key].length <= max
+      ? search[key]
+      : undefined;
+  const sort =
+    search.sort === "title" ||
+    search.sort === "createdAt" ||
+    search.sort === "updatedAt"
+      ? search.sort
+      : undefined;
   return {
-    folder: folders.some(({ id }) => id === folder) ? folder : undefined,
-    type: type && type in resourceTypes ? (type as ResourceKind) : undefined,
-    project: text("project"),
+    folder: text("folder", 128),
+    project: text("project", 128),
     label: text("label"),
-    madeBy: text("madeBy"),
-    open: text("open"),
+    open: text("open", 128),
+    query: text("query", 200),
+    sort,
+    order:
+      sort && (search.order === "asc" || search.order === "desc")
+        ? search.order
+        : undefined,
+    archived:
+      search.archived === true || search.archived === "true" ? true : undefined,
   };
 }
 
-// Who made a file: the agent that made it, else the person who keeps it.
-const makerOf = (file: Resource) =>
-  file.agentId ?? file.ownerId ?? currentUserId;
+type FilterKey = "project" | "label";
 
-// The folder and every folder inside it, to any depth.
-function subtree(folderId: string | undefined): (string | undefined)[] {
-  return [
-    folderId,
-    ...folders
-      .filter(({ parentId }) => parentId === folderId)
-      .flatMap(({ id }) => subtree(id)),
-  ];
-}
-
-// A folder and the folders above it, top first.
-function pathOf(folderId: string | undefined): Folder[] {
-  const folder = folders.find(({ id }) => id === folderId);
-  return folder ? [...pathOf(folder.parentId), folder] : [];
-}
-
-function filtersOf(): FilterDef<FilterKey>[] {
-  return [
-    {
-      key: "type",
-      label: "Type",
-      icon: RiFileLine,
-      options: Object.fromEntries(
-        (Object.keys(resourceTypes) as ResourceKind[]).map((kind) => [
-          kind,
-          { label: resourceTypes[kind], icon: resourceIcons[kind] },
-        ]),
+export function FilesPage({ search }: { search: FilesSearch }) {
+  const { workspaceId, api, user, invalidate } = useWorkspace();
+  const directory = useDirectory();
+  const navigate = useNavigate({ from: "/files" });
+  const ask = useAskAgent();
+  const picker = useRef<HTMLInputElement>(null);
+  const [uploads, setUploads] = useState<File[]>();
+  const [editing, setEditing] = useState<SavedFolder | "new">();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<Error>();
+  const library = useInfiniteQuery({
+    queryKey: [
+      "workspace",
+      workspaceId,
+      "library",
+      search.folder,
+      search.project,
+      search.label,
+      search.query,
+      search.archived,
+      search.sort,
+      search.order,
+    ],
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) =>
+      read(
+        await api.library.$get({
+          param: { workspaceId },
+          query: {
+            limit: "100",
+            ...(search.folder ? { folderId: search.folder } : {}),
+            ...(search.project ? { projectId: search.project } : {}),
+            ...(search.label ? { label: search.label } : {}),
+            ...(search.query ? { query: search.query } : {}),
+            archived: search.archived ? "true" : "false",
+            sort: search.sort ?? "title",
+            order: search.order ?? "asc",
+            ...(pageParam ? { after: pageParam } : {}),
+          },
+        }),
       ),
-    },
+    getNextPageParam: (page) => page.next ?? undefined,
+  });
+  const folder = library.data?.pages[0]?.folder;
+  const entries = library.data?.pages.flatMap((page) => page.items) ?? [];
+  const files = entries
+    .filter((entry) => entry.type === "file")
+    .map((file) => ({
+      id: file.id,
+      title: file.title,
+      kind: fileKind(file.mediaType),
+      createdAt: file.createdAt ?? "",
+      folderId: file.folderId ?? undefined,
+      projectId: file.projectId ?? undefined,
+      ownerId: file.ownerId,
+      labels: file.labels,
+      visibility: file.visibility,
+    }));
+  const member = directory.members.find((member) => member.userId === user.id);
+  const canWrite = Boolean(
+    member && member.role !== "viewer" && !directory.membersQuery.error,
+  );
+  const projectId = folder?.projectId ?? search.project;
+  const filters: FilterDef<FilterKey>[] = [
     {
       key: "project",
       label: "Project",
       icon: RiBox3Line,
-      options: projectLooks,
+      options: Object.fromEntries(
+        directory.projects.map((project) => [
+          project.id,
+          { label: project.title, icon: RiBox3Line },
+        ]),
+      ),
     },
     {
       key: "label",
       label: "Label",
       icon: RiPriceTag3Line,
-      options: labelLooks(resources.flatMap(({ labels = [] }) => labels)),
-    },
-    {
-      key: "madeBy",
-      label: "Made by",
-      icon: RiQuillPenLine,
-      people: true,
-      options: {
-        me: { ...ownerLooks[currentUserId], label: "Me" },
-        ...chatWithLooks,
-      },
+      options: labelLooks(
+        entries.flatMap((entry) =>
+          entry.type === "folder" ? [] : entry.labels,
+        ),
+      ),
     },
   ];
-}
-
-// Files like a drive: folders, nested to any depth, then files, in one
-// gallery; the top bar's breadcrumb is the way back up. Filters (type,
-// project, label, made by) search everything in the open folder and the
-// folders inside it, as one flat list. + uploads files or makes a folder
-// here; new files land in the open folder (local only until file storage
-// exists).
-export function FilesPage({ search }: { search: FilesSearch }) {
-  const navigate = useNavigate({ from: "/files" });
-  const openPalette = useCommandPalette();
-  // Adding changes the mock in memory; this redraws.
-  const [, redraw] = useReducer((count: number) => count + 1, 0);
-  const [naming, setNaming] = useState(false);
-  // The folder being renamed in place, if any.
-  const [renaming, setRenaming] = useState<string>();
-  const picker = useRef<HTMLInputElement>(null);
-  const filters = filtersOf();
-  const filtered = filters.some(({ key }) => search[key]);
-  const path = pathOf(search.folder);
-  const folder = path.at(-1);
-
-  const matches = (file: Resource) =>
-    (!search.type || file.kind === search.type) &&
-    (!search.project || file.projectId === search.project) &&
-    (!search.label || (file.labels?.includes(search.label) ?? false)) &&
-    (!search.madeBy ||
-      makerOf(file) ===
-        (search.madeBy === "me" ? currentUserId : search.madeBy));
-  const inside = subtree(search.folder);
-  const shown = filtered
-    ? resources.filter(
-        (file) => inside.includes(file.folderId) && matches(file),
-      )
-    : resources.filter((file) => file.folderId === search.folder);
-  const subfolders = filtered
-    ? []
-    : folders.filter(({ parentId }) => parentId === search.folder);
-
   const change = (key: FilterKey, value: string | undefined) =>
-    navigate({ search: (prev) => ({ ...prev, [key]: value }) });
-  const clear = () => navigate({ search: { folder: search.folder } });
-
-  const add = (files: FileList) => {
-    resources.unshift(
-      ...[...files].map((file): Resource => {
-        // Shown read-only in the viewer; an image also fills its tile.
-        const url = URL.createObjectURL(file);
-        return {
-          id: crypto.randomUUID(),
-          title: file.name,
-          kind: resourceKindOf(file.type),
-          url,
-          preview: file.type.startsWith("image/") ? url : undefined,
-          folderId: search.folder,
-          createdAt: new Date().toISOString(),
-        };
+    navigate({
+      search: (previous) => ({
+        ...previous,
+        [key]: value,
+        ...(key === "project" ? { folder: undefined, open: undefined } : {}),
       }),
-    );
-    redraw();
-  };
-  const renameFolder = (id: string, title: string) => {
-    setRenaming(undefined);
-    const target = folders.find((candidate) => candidate.id === id);
-    if (target && title.trim()) target.title = title.trim();
-  };
-  // Mock only: a folder goes with everything inside it.
-  const deleteFolder = (id: string) => {
-    const gone = subtree(id);
-    for (let i = folders.length - 1; i >= 0; i--)
-      if (gone.includes(folders[i].id)) folders.splice(i, 1);
-    for (let i = resources.length - 1; i >= 0; i--)
-      if (gone.includes(resources[i].folderId)) resources.splice(i, 1);
-    redraw();
-  };
-  const deleteFile = (id: string) => {
-    resources.splice(
-      resources.findIndex((file) => file.id === id),
-      1,
-    );
-    redraw();
-  };
-  const createFolder = (title: string) => {
-    setNaming(false);
-    if (!title.trim()) return;
-    folders.push({
-      id: crypto.randomUUID(),
-      title: title.trim(),
-      parentId: search.folder,
     });
-  };
-
-  const input = (
-    <input
-      ref={picker}
-      type="file"
-      multiple
-      hidden
-      onChange={(event) => {
-        if (event.target.files) add(event.target.files);
-        event.target.value = "";
-      }}
-    />
-  );
-
-  if (resources.length === 0 && folders.length === 0) {
-    return (
-      <EmptyPage
-        icon={RiFolder3Line}
-        title="No files"
-        description="Files you upload and agents make collect here."
-        ask={{
-          about: "your files",
-          action: "New file",
-          start: "Make a file with ",
-        }}
-      >
-        {/* Uploading is a person's own action, beside asking for one. */}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => picker.current?.click()}
-        >
-          Upload file
-        </Button>
-        {input}
-      </EmptyPage>
-    );
+  async function act(operation: () => Promise<unknown>) {
+    setPending(true);
+    setError(undefined);
+    try {
+      await operation();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause : new Error("Unable to update folder."),
+      );
+    } finally {
+      setPending(false);
+    }
   }
-
-  const empty = shown.length === 0 && subfolders.length === 0 && !naming;
+  const editFolder = (id: string) =>
+    act(async () =>
+      setEditing(
+        await read(
+          await api.folders[":id"].$get({ param: { workspaceId, id } }),
+        ),
+      ),
+    );
+  const archiveFolder = (id: string, archived: boolean) =>
+    act(async () => {
+      await read(
+        await api.folders[":id"].archive.$post({
+          param: { workspaceId, id },
+          json: { archived },
+        }),
+      );
+      await invalidate();
+    });
   return (
     <>
       {folder && (
-        // Inside a folder, the path is a breadcrumb: each step goes back up.
         <Topbar>
           <Breadcrumb>
             <BreadcrumbList>
-              {[undefined, ...path.slice(0, -1)].map((step) => (
-                <FolderCrumb key={step?.id ?? "top"} folder={step} />
-              ))}
               <BreadcrumbItem>
-                <Button variant="ghost" size="sm" aria-current="page">
-                  <RiFolder3Line data-icon="inline-start" />
-                  <span className="truncate">{folder.title}</span>
-                </Button>
+                <BreadcrumbLink
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      nativeButton={false}
+                      render={
+                        <Link
+                          to="/files"
+                          search={{ project: folder.projectId ?? undefined }}
+                        />
+                      }
+                    />
+                  }
+                >
+                  <RiFolder3Line />
+                  Files
+                </BreadcrumbLink>
               </BreadcrumbItem>
+              {folder.path.map((step) => (
+                <span key={step.id} className="contents">
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbLink
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          nativeButton={false}
+                          render={
+                            <Link
+                              to="/files"
+                              search={{
+                                folder: step.id,
+                                project: folder.projectId ?? undefined,
+                              }}
+                            />
+                          }
+                        />
+                      }
+                    >
+                      <RiFolder3Line />
+                      {step.title}
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                </span>
+              ))}
             </BreadcrumbList>
           </Breadcrumb>
         </Topbar>
@@ -309,16 +284,78 @@ export function FilesPage({ search }: { search: FilesSearch }) {
         actions={
           <>
             <FilterMenu filters={filters} values={search} onChange={change} />
-            <IconAction
-              label="Search"
-              icon={RiSearchLine}
-              onClick={() => openPalette("files")}
+            {directory.projectsQuery.hasNextPage && (
+              <Button
+                variant="ghost"
+                disabled={directory.projectsQuery.isFetchingNextPage}
+                onClick={() => directory.projectsQuery.fetchNextPage()}
+              >
+                More projects
+              </Button>
+            )}
+            {!member && directory.membersQuery.hasNextPage && (
+              <Button
+                variant="ghost"
+                disabled={directory.membersQuery.isFetchingNextPage}
+                onClick={() => directory.membersQuery.fetchNextPage()}
+              >
+                More people
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Add"
+                    disabled={
+                      !canWrite ||
+                      folder?.archived ||
+                      library.isPending ||
+                      Boolean(library.error)
+                    }
+                  />
+                }
+              >
+                <RiAddLine />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => picker.current?.click()}>
+                    <RiUploadLine />
+                    Upload file
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={(folder?.path.length ?? 0) >= 8}
+                    onClick={() => setEditing("new")}
+                  >
+                    <RiFolderAddLine />
+                    New folder
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {folder?.createdBy === user.id && canWrite && (
+              <Button
+                variant="ghost"
+                disabled={pending}
+                onClick={() => setEditing(folder)}
+              >
+                Edit folder
+              </Button>
+            )}
+            <input
+              ref={picker}
+              type="file"
+              multiple
+              hidden
+              onChange={(event) => {
+                if (event.target.files?.length)
+                  setUploads([...event.target.files]);
+                event.target.value = "";
+              }}
             />
-            <AddMenu
-              onUpload={() => picker.current?.click()}
-              onFolder={() => setNaming(true)}
-            />
-            {input}
           </>
         }
       >
@@ -326,216 +363,275 @@ export function FilesPage({ search }: { search: FilesSearch }) {
           filters={filters}
           values={search}
           onChange={change}
-          onClear={clear}
+          onClear={() =>
+            navigate({
+              search: { folder: search.folder, project: search.project },
+            })
+          }
         />
-        {filtered && shown.length === 0 ? (
-          <NoResults what="files" onClear={clear} />
-        ) : empty ? (
-          <p className="text-sm text-muted-foreground">
-            This folder is empty. Upload a file or make a folder with +.
-          </p>
-        ) : (
-          <FileGallery
-            resources={shown}
-            openId={search.open}
-            onOpen={(id) =>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            aria-label="Search files and documents by whole words"
+            placeholder="Search files and documents"
+            value={search.query ?? ""}
+            maxLength={200}
+            onChange={(event) =>
               navigate({
-                search: (prev) => ({ ...prev, open: id }),
+                search: (previous) => ({
+                  ...previous,
+                  query: event.target.value || undefined,
+                }),
                 replace: true,
               })
             }
-            onDelete={deleteFile}
-            leading={
-              <>
-                {subfolders.map((sub) =>
-                  renaming === sub.id ? (
-                    <FolderName
-                      key={sub.id}
-                      initial={sub.title}
-                      onDone={(title) => renameFolder(sub.id, title)}
-                    />
-                  ) : (
-                    <FolderItem
-                      key={sub.id}
-                      folder={sub}
-                      onRename={() => setRenaming(sub.id)}
-                      onDelete={() => deleteFolder(sub.id)}
-                    />
-                  ),
-                )}
-                {naming && <FolderName onDone={createFolder} />}
-              </>
+          />
+          <Input
+            aria-label="Filter by label"
+            placeholder="Label"
+            value={search.label ?? ""}
+            maxLength={200}
+            onChange={(event) =>
+              navigate({
+                search: (previous) => ({
+                  ...previous,
+                  label: event.target.value || undefined,
+                }),
+                replace: true,
+              })
             }
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" />}>
+              Sort:{" "}
+              {search.sort === "createdAt"
+                ? "Added"
+                : search.sort === "updatedAt"
+                  ? "Updated"
+                  : "Title"}{" "}
+              · {search.order === "desc" ? "Descending" : "Ascending"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuGroup>
+                {(["title", "createdAt", "updatedAt"] as const).map((sort) => (
+                  <DropdownMenuItem
+                    key={sort}
+                    onClick={() =>
+                      navigate({
+                        search: (previous) => ({ ...previous, sort }),
+                      })
+                    }
+                  >
+                    {sort === "title"
+                      ? "Title"
+                      : sort === "createdAt"
+                        ? "Added"
+                        : "Updated"}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  onClick={() =>
+                    navigate({
+                      search: (previous) => ({
+                        ...previous,
+                        sort: previous.sort ?? "title",
+                        order: previous.order === "desc" ? "asc" : "desc",
+                      }),
+                    })
+                  }
+                >
+                  Reverse order
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant={search.archived ? "secondary" : "ghost"}
+            onClick={() =>
+              navigate({
+                search: (previous) => ({
+                  ...previous,
+                  archived: previous.archived ? undefined : true,
+                }),
+              })
+            }
+          >
+            Archived
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Folders, then files, then documents. Sorting applies within each kind;
+          search matches whole words in this folder.
+        </p>
+        <QueryState
+          pending={library.isPending}
+          error={library.error ?? directory.error}
+          retry={() => {
+            void library.refetch();
+            void directory.membersQuery.refetch();
+            void directory.projectsQuery.refetch();
+            void directory.agentsQuery.refetch();
+          }}
+        />
+        {error && <p role="alert">{error.message}</p>}
+        {!library.isPending && !library.error && entries.length === 0 && (
+          <p className="text-muted-foreground">
+            {library.hasNextPage
+              ? "No readable items loaded. Load more to continue."
+              : search.query || search.label
+                ? "No matching files or documents."
+                : "This folder is empty."}
+          </p>
+        )}
+        <FileGallery
+          resources={files}
+          openId={search.open}
+          onOpen={(id) =>
+            navigate({
+              search: (previous) => ({ ...previous, open: id }),
+              replace: true,
+            })
+          }
+          leading={entries
+            .filter((entry) => entry.type === "folder")
+            .map((entry) => (
+              <GalleryItem
+                key={entry.id}
+                render={
+                  <Link
+                    to="/files"
+                    search={{
+                      folder: entry.id,
+                      project: entry.projectId ?? undefined,
+                      archived: search.archived,
+                    }}
+                  />
+                }
+                className="flex aspect-[4/5] flex-col items-center justify-center gap-2 bg-muted"
+                tile={
+                  <RiFolder3Fill className="size-10 text-muted-foreground" />
+                }
+                icon={RiFolder3Line}
+                title={entry.title}
+                menu={
+                  <ContextMenuContent>
+                    <ContextMenuGroup>
+                      <ContextMenuItem
+                        onClick={() =>
+                          navigate({
+                            to: "/files",
+                            search: {
+                              folder: entry.id,
+                              project: entry.projectId ?? undefined,
+                              archived: search.archived,
+                            },
+                          })
+                        }
+                      >
+                        Open
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() =>
+                          ask(
+                            `About the folder ${entry.title} (/files?folder=${entry.id}), `,
+                          )
+                        }
+                      >
+                        <RiChat1Line />
+                        Ask about it
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        disabled={pending}
+                        onClick={() =>
+                          act(() =>
+                            navigator.clipboard.writeText(
+                              `${location.origin}/files?folder=${encodeURIComponent(entry.id)}${entry.projectId ? `&project=${encodeURIComponent(entry.projectId)}` : ""}`,
+                            ),
+                          )
+                        }
+                      >
+                        <RiLinkM />
+                        Copy link
+                      </ContextMenuItem>
+                      {canWrite && entry.ownerId === user.id && (
+                        <>
+                          <ContextMenuItem
+                            disabled={pending}
+                            onClick={() => editFolder(entry.id)}
+                          >
+                            Edit folder
+                          </ContextMenuItem>
+                          <ContextMenuItem
+                            disabled={pending}
+                            onClick={() =>
+                              archiveFolder(entry.id, !entry.archived)
+                            }
+                          >
+                            {entry.archived
+                              ? "Restore"
+                              : "Archive empty folder"}
+                          </ContextMenuItem>
+                        </>
+                      )}
+                    </ContextMenuGroup>
+                  </ContextMenuContent>
+                }
+              />
+            ))}
+          trailing={entries
+            .filter((entry) => entry.type === "document")
+            .map((entry) => (
+              <GalleryItem
+                key={entry.id}
+                render={
+                  <Link
+                    to="/documents/$documentId"
+                    params={{ documentId: entry.id }}
+                  />
+                }
+                className="flex aspect-[4/5] items-center justify-center bg-muted"
+                tile={
+                  <RiFileTextLine className="size-10 text-muted-foreground" />
+                }
+                icon={RiFileTextLine}
+                title={entry.title}
+              />
+            ))}
+        />
+        {library.hasNextPage && (
+          <Button
+            variant="outline"
+            disabled={library.isFetchingNextPage}
+            onClick={() => library.fetchNextPage()}
+          >
+            {library.isFetchingNextPage ? "Loading" : "Load more"}
+          </Button>
+        )}
+        {library.isFetchNextPageError && (
+          <QueryState
+            error={library.error}
+            retry={() => library.fetchNextPage()}
           />
         )}
       </Page>
-    </>
-  );
-}
-
-// A step up the path: a 32px ghost button, like every crumb.
-function FolderCrumb({ folder }: { folder?: Folder }) {
-  return (
-    <>
-      <BreadcrumbItem>
-        <BreadcrumbLink
-          render={
-            <Button
-              variant="ghost"
-              size="sm"
-              nativeButton={false}
-              render={
-                <Link
-                  to="/files"
-                  search={folder ? { folder: folder.id } : {}}
-                />
-              }
-            />
-          }
-        >
-          <RiFolder3Line data-icon="inline-start" />
-          {folder?.title ?? "Files"}
-        </BreadcrumbLink>
-      </BreadcrumbItem>
-      <BreadcrumbSeparator />
-    </>
-  );
-}
-
-// + is one menu: upload files here, or make a folder here.
-function AddMenu({
-  onUpload,
-  onFolder,
-}: {
-  onUpload: () => void;
-  onFolder: () => void;
-}) {
-  return (
-    <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <DropdownMenuTrigger
-              render={
-                <Button variant="ghost" size="icon-sm" aria-label="Add" />
-              }
-            />
-          }
-        >
-          <RiAddLine />
-        </TooltipTrigger>
-        <TooltipContent>Add</TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuGroup>
-          <DropdownMenuItem onClick={onUpload}>
-            <RiUploadLine />
-            Upload file
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onFolder}>
-            <RiFolderAddLine />
-            New folder
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-// How many things a folder holds directly: its folders and its files.
-const itemsIn = (folderId: string) =>
-  folders.filter(({ parentId }) => parentId === folderId).length +
-  resources.filter((file) => file.folderId === folderId).length;
-
-// A folder's tile, the files' shape: a big folder and what it holds. Its
-// right-click menu is the shared item menu: open, ask an agent about it,
-// download it whole, rename in place, copy its link, delete (with everything
-// in it).
-function FolderItem({
-  folder,
-  onRename,
-  onDelete,
-}: {
-  folder: Folder;
-  onRename: () => void;
-  onDelete: () => void;
-}) {
-  const navigate = useNavigate();
-  const ask = useAskAgent();
-  return (
-    <GalleryItem
-      render={<Link to="/files" search={{ folder: folder.id }} />}
-      className="flex aspect-[4/5] flex-col items-center justify-center gap-2 bg-muted"
-      tile={<FolderTile count={itemsIn(folder.id)} />}
-      icon={RiFolder3Line}
-      title={folder.title}
-      menu={
-        <ContextMenuContent className="w-48">
-          <ItemMenuItems
-            type="folder"
-            name={folder.title}
-            onOpen={() =>
-              navigate({ to: "/files", search: { folder: folder.id } })
-            }
-            onAsk={() => ask(`In the ${folder.title} folder, `)}
-            // Not wired yet: the whole folder as one download.
-            onDownload={() => {}}
-            onRename={onRename}
-            link={`/files?folder=${folder.id}`}
-            onDelete={onDelete}
-          />
-        </ContextMenuContent>
-      }
-    />
-  );
-}
-
-function FolderTile({ count }: { count?: number }) {
-  return (
-    <>
-      <RiFolder3Fill className="size-10 text-muted-foreground/60" />
-      {count !== undefined && (
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {count === 0 ? "Empty" : `${count} ${count === 1 ? "item" : "items"}`}
-        </span>
+      {editing && (
+        <FolderEdit
+          key={editing === "new" ? "new" : editing.id}
+          folder={editing === "new" ? undefined : editing}
+          parentId={search.folder}
+          projectId={projectId ?? undefined}
+          parentVisibility={folder?.visibility}
+          onClose={() => setEditing(undefined)}
+        />
+      )}
+      {uploads && (
+        <FileUploads
+          files={uploads}
+          folderId={search.folder}
+          projectId={projectId ?? undefined}
+          folderVisibility={folder?.visibility}
+          onClose={() => setUploads(undefined)}
+        />
       )}
     </>
-  );
-}
-
-// A folder's tile named in place, new or renamed: Enter keeps the name,
-// Escape or an empty name drops the change.
-function FolderName({
-  initial = "",
-  onDone,
-}: {
-  initial?: string;
-  onDone: (title: string) => void;
-}) {
-  const [title, setTitle] = useState(initial);
-  return (
-    <li className="flex flex-col gap-2">
-      <div className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-md bg-muted ring-1 ring-ring/50">
-        <FolderTile />
-      </div>
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <RiFolder3Line className="shrink-0 text-muted-foreground" />
-        <input
-          // biome-ignore lint/a11y/noAutofocus: naming starts right away.
-          autoFocus
-          aria-label="Folder name"
-          placeholder="Folder name"
-          value={title}
-          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-          onChange={(event) => setTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") onDone(title);
-            if (event.key === "Escape") onDone("");
-          }}
-          onFocus={(event) => event.target.select()}
-          onBlur={() => onDone(title)}
-        />
-      </div>
-    </li>
   );
 }
