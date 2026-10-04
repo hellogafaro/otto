@@ -71,12 +71,21 @@ async function holdMutation(page: Page, path: string, method: string) {
     release = resolve;
   });
   let requests = 0;
+  const active = new Set<Promise<void>>();
   const pattern = `**${path}`;
-  const handler = async (route: Route) => {
-    if (route.request().method() !== method) return route.continue();
-    requests++;
-    await gate;
-    await route.continue();
+  const handler = (route: Route) => {
+    const continuation = (async () => {
+      if (route.request().method() === method) {
+        requests++;
+        await gate;
+      }
+      await route.continue();
+    })();
+    const tracked: Promise<void> = continuation.finally(() => {
+      active.delete(tracked);
+    });
+    active.add(tracked);
+    return tracked;
   };
   await page.route(pattern, handler);
   return {
@@ -85,6 +94,9 @@ async function holdMutation(page: Page, path: string, method: string) {
     },
     async finish() {
       release();
+      // Unregister only after continuation has completed; otherwise Playwright
+      // may auto-handle the paused route before this handler calls continue.
+      await Promise.all([...active]);
       await page.unroute(pattern, handler);
     },
     count: () => requests,
