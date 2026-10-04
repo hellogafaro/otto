@@ -15,7 +15,6 @@ function peer(reply: (n: number, request: Request) => Promise<Response>) {
     hostname: "127.0.0.1",
     port: 0,
     async fetch(request) {
-      if (request.method === "HEAD") return new Response(null);
       const form = await request.formData();
       const file = form.get("file");
       seen.push({
@@ -129,13 +128,11 @@ describe("transcription route", () => {
     reason: "timeout" | "unavailable" | "failed",
   ): Transcriber => ({
     transcribe: () => Promise.reject(new TranscriptionError(reason)),
-    warmup: async () => {},
   });
 
   it("answers with the transcript and maps each failure to its status", async () => {
     const works: Transcriber = {
       transcribe: async (blob) => `${blob.size} bytes as ${blob.type}`,
-      warmup: async () => {},
     };
     const done = await post(works, new Uint8Array(3));
     expect(await done.json()).toEqual({ text: "3 bytes as audio/webm" });

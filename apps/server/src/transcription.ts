@@ -15,8 +15,6 @@ export class TranscriptionError extends Error {
 }
 export interface Transcriber {
   transcribe(audio: Blob): Promise<string>;
-  /** Opens the provider connection ahead of the first request so dictation starts without a handshake. */
-  warmup(): Promise<void>;
 }
 
 const response = z.object({ text: z.string() });
@@ -93,14 +91,6 @@ export function createOpenRouterTranscriber(
         clearTimeout(hedge);
         cancel.abort();
       }
-    },
-    async warmup() {
-      await request(BASE, {
-        method: "HEAD",
-        signal: AbortSignal.timeout(5_000),
-      })
-        .then((reply) => reply.body?.cancel())
-        .catch(() => {});
     },
   };
 }

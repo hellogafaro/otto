@@ -1,6 +1,7 @@
 import { createApp } from "../../apps/server/src/app";
 import { createAuth } from "../../apps/server/src/auth";
 import { startQueue } from "../../apps/server/src/queue";
+import { createOpenRouterTranscriber } from "../../apps/server/src/transcription";
 import { createCursorCodec } from "../../packages/db/src";
 import { createS3Storage } from "../../packages/files/src/storage";
 import { claimInstallation } from "../../packages/workspaces/src";
@@ -36,6 +37,15 @@ export async function startUiApp(origin: string, port = 0) {
       storage,
       spool: transfers.spool,
       cursors: createCursorCodec(secret),
+      // Live dictation only when a key is injected; otherwise the route answers not_configured.
+      transcriber: process.env.OPENROUTER_API_KEY
+        ? createOpenRouterTranscriber({
+            apiKey: process.env.OPENROUTER_API_KEY,
+            model:
+              process.env.TRANSCRIPTION_MODEL ??
+              "mistralai/voxtral-mini-transcribe",
+          })
+        : undefined,
     },
     { isReady: async () => true },
   );

@@ -654,11 +654,6 @@ function useDictation(editor: Editor | null) {
       toast.error("Allow microphone access to dictate");
       return;
     }
-    // Opens the provider connection while the user speaks.
-    void fetch("/api/transcriptions/warmup", {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => {});
     const chunks: Blob[] = [];
     const session = new MediaRecorder(stream);
     session.ondataavailable = (event) => chunks.push(event.data);
@@ -672,7 +667,8 @@ function useDictation(editor: Editor | null) {
         const text = await transcribe(
           new Blob(chunks, { type: session.mimeType }),
         );
-        if (text) {
+        if (!text) toast.error("No speech detected");
+        else {
           const at = editor.state.selection.to;
           const before = editor.state.doc.textBetween(Math.max(0, at - 1), at);
           editor
@@ -691,7 +687,8 @@ function useDictation(editor: Editor | null) {
     };
     discard.current = false;
     recorder.current = session;
-    session.start();
+    // Chunks arrive while recording, so a stop never depends on one final flush.
+    session.start(250);
     setListening(true);
   };
 

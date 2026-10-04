@@ -17,6 +17,7 @@ import {
   Navigate,
   useMatchRoute,
   useNavigate,
+  useParams,
 } from "@tanstack/react-router";
 import { AttachmentGroup } from "@workspace/ui/components/attachment";
 import { AvatarGroup } from "@workspace/ui/components/avatar";
@@ -166,8 +167,9 @@ export function chatGroups(chats: LiveChat[] = []) {
 }
 
 export function ChatsSidebar() {
-  const match = useMatchRoute()({ to: "/chats/$chatId" });
-  const selected = useChat(match ? match.chatId : undefined);
+  // /chats/new has no chatId; a fuzzy match on /chats/$chatId would read "new" as one.
+  const { chatId } = useParams({ strict: false });
+  const selected = useChat(chatId);
   const chats = useChats({ archived: "false" });
   const { workspace } = useWorkspace();
   // No chats: no sidebar. The new-chat page is the whole screen.
