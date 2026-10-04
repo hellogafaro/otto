@@ -234,7 +234,10 @@ export function useRunActivity(run: LiveRun, enabled: boolean) {
     queryKey,
     queryFn: async () => {
       const previous = cache.getQueryData<LiveActivity[]>(queryKey) ?? [];
-      const after = Math.max(0, ...previous.map((item) => item.cursor));
+      const after = previous.reduce(
+        (cursor, item) => Math.max(cursor, item.cursor),
+        0,
+      );
       const batch = await read(
         await api.runs[":id"].activity.$get({
           param: { workspaceId, id: run.id },

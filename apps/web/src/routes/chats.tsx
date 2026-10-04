@@ -104,6 +104,7 @@ import {
   Section,
   WithPanel,
 } from "@/components/detail";
+import { Lightbox } from "@/components/files";
 import { MentionText } from "@/components/mentions";
 import { QueryState } from "@/components/query-state";
 import { SectionSidebar } from "@/components/section-sidebar";
@@ -129,6 +130,7 @@ import {
 } from "@/lib/chat-data";
 import { useChatUpload } from "@/lib/chat-upload";
 import { useDirectory } from "@/lib/directory";
+import { savedResource } from "@/lib/file-library";
 import { useWorkspace } from "@/lib/workspace";
 
 export function ago(createdAt?: string | null) {
@@ -1628,7 +1630,13 @@ function ReadReceipt({ chatId, cursor }: { chatId: string; cursor: number }) {
   const saved = useRef(false);
   const pending = useRef(false);
   const save = useCallback(async () => {
-    if (saved.current || pending.current || document.hidden) return;
+    if (
+      saved.current ||
+      pending.current ||
+      document.hidden ||
+      ref.current?.closest("[inert], [aria-hidden='true']")
+    )
+      return;
     pending.current = true;
     try {
       await read(
@@ -1663,9 +1671,11 @@ function ReadReceipt({ chatId, cursor }: { chatId: string; cursor: number }) {
       if (visible) void save();
     };
     document.addEventListener("visibilitychange", wake);
+    document.addEventListener("focusin", wake);
     return () => {
       observer.disconnect();
       document.removeEventListener("visibilitychange", wake);
+      document.removeEventListener("focusin", wake);
     };
   }, [save]);
   return (
@@ -1680,6 +1690,7 @@ function ReadReceipt({ chatId, cursor }: { chatId: string; cursor: number }) {
 }
 
 function SavedChatFile({ fileId }: { fileId: string }) {
+  const [open, setOpen] = useState(false);
   const { api, workspaceId } = useWorkspace();
   const file = useQuery({
     queryKey: ["workspace", workspaceId, "file", fileId],
@@ -1698,16 +1709,23 @@ function SavedChatFile({ fileId }: { fileId: string }) {
   const value = file.data;
   const url = `/api/workspaces/${encodeURIComponent(workspaceId)}/files/${encodeURIComponent(fileId)}/file`;
   return (
-    <FileAttachment
-      file={{
-        id: fileId,
-        name: value.title,
-        type: value.mediaType,
-        size: value.byteLength,
-        url,
-      }}
-      onOpen={() => window.open(url, "_blank", "noopener,noreferrer")}
-    />
+    <>
+      <FileAttachment
+        file={{
+          id: fileId,
+          name: value.title,
+          type: value.mediaType,
+          size: value.byteLength,
+          url,
+        }}
+        onOpen={() => setOpen(true)}
+      />
+      <Lightbox
+        resources={[savedResource(value)]}
+        openId={open ? fileId : undefined}
+        onOpen={(id) => setOpen(Boolean(id))}
+      />
+    </>
   );
 }
 
