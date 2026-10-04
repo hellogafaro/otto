@@ -19,12 +19,6 @@ import {
   ContextMenuTrigger,
 } from "@workspace/ui/components/context-menu";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@workspace/ui/components/empty";
-import {
   Item,
   ItemActions,
   ItemContent,
@@ -48,7 +42,6 @@ import { mention } from "@/components/mentions";
 import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
 import { People, shortDate, statuses } from "@/components/task-meta";
-import { TaskPicker } from "@/components/tasks/task-form";
 import { read } from "@/lib/api";
 import { useDirectory } from "@/lib/directory";
 import {
@@ -65,7 +58,9 @@ export function TasksPage({ search }: { search: TasksSearch }) {
   const navigate = useNavigate({ from: "/tasks" });
   const { api, workspaceId, user, workspace } = useWorkspace();
   const directory = useDirectory();
-  const project = useTaskProject(search.project);
+  // Tasks are listed within a Project; with none chosen, the first one.
+  const projectId = search.project ?? directory.projects[0]?.id;
+  const project = useTaskProject(projectId);
   const ask = useAskAgent();
   const openPalette = useCommandPalette();
   const change = (key: keyof TasksSearch, value: string | undefined) =>
@@ -76,14 +71,19 @@ export function TasksPage({ search }: { search: TasksSearch }) {
   const assignee =
     search.assignee === "me" ? `user:${user.id}` : search.assignee;
   const query = useQuery({
-    queryKey: ["workspace", workspaceId, "tasks", search],
+    queryKey: [
+      "workspace",
+      workspaceId,
+      "tasks",
+      { ...search, project: projectId },
+    ],
     queryFn: async ({ signal }) =>
       read(
         await api.tasks.$get(
           {
             param: { workspaceId },
             query: {
-              projectId: search.project ?? "",
+              projectId: projectId ?? "",
               ownerId: search.owner === "me" ? user.id : search.owner,
               assigneeUserId: assignee?.startsWith("user:")
                 ? assignee.slice(5)
@@ -103,7 +103,7 @@ export function TasksPage({ search }: { search: TasksSearch }) {
           { init: { signal } },
         ),
       ),
-    enabled: Boolean(search.project),
+    enabled: Boolean(projectId),
     retry: false,
   });
   const owners = Object.fromEntries(
@@ -201,11 +201,9 @@ export function TasksPage({ search }: { search: TasksSearch }) {
       search.archived === "true" ||
       search.after,
   );
-  const canCreate = search.project
-    ? project.canWrite
-    : workspace.role !== "viewer";
-  const createStart = search.project
-    ? `Create a task in ${mention({ type: "project", id: search.project, label: projectOptions[search.project] ?? "Project" })} `
+  const canCreate = projectId ? project.canWrite : workspace.role !== "viewer";
+  const createStart = projectId
+    ? `Create a task in ${mention({ type: "project", id: projectId, label: projectOptions[projectId] ?? "Project" })} `
     : "Create a task ";
   if (
     !filtered &&
@@ -213,43 +211,19 @@ export function TasksPage({ search }: { search: TasksSearch }) {
     !directory.error &&
     !query.error &&
     !project.query.error &&
-    (!search.project || query.data?.items.length === 0)
+    (!projectId || query.data?.items.length === 0)
   ) {
     return (
       <EmptyPage
         icon={RiCheckboxCircleLine}
-        title={
-          !search.project && directory.projects.length
-            ? "Choose a project"
-            : "No tasks yet"
-        }
-        description={
-          !search.project && directory.projects.length
-            ? "Select a project to see its tasks."
-            : "Tasks keep your project work organized."
-        }
+        title="No tasks yet"
+        description="Tasks keep your project work organized."
         ask={
           canCreate
             ? { about: "your tasks", action: "New task", start: createStart }
             : undefined
         }
-      >
-        {!search.project ? (
-          directory.projects.length ? (
-            <TaskPicker
-              label="Project"
-              icon={RiBox3Line}
-              value=""
-              options={projectOptions}
-              onChange={(id) => change("project", id)}
-            />
-          ) : (
-            <Button nativeButton={false} render={<Link to="/projects" />}>
-              Go to projects
-            </Button>
-          )
-        ) : null}
-      </EmptyPage>
+      />
     );
   }
   return (
@@ -291,16 +265,7 @@ export function TasksPage({ search }: { search: TasksSearch }) {
         onChange={change}
         onClear={clear}
       />
-      {!search.project ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>Choose a project</EmptyTitle>
-            <EmptyDescription>
-              Tasks are listed within an authorized project.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
+      {!projectId ? null : (
         <>
           <QueryState
             pending={query.isPending}
