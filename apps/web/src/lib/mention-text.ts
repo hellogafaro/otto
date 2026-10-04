@@ -22,7 +22,7 @@ export function parseMentions(text: string) {
       /@\[((?:\\.|[^\]\\])*)\]\((user|agent|task|project|file):([^)]+)\)/g,
     ),
     (match) => {
-      let id = match[3];
+      let id = match[3] ?? "";
       try {
         id = decodeURIComponent(id);
       } catch {
@@ -33,7 +33,7 @@ export function parseMentions(text: string) {
         length: match[0].length,
         type: match[2] as MentionType,
         id,
-        label: match[1].replace(/\\([\\[\]nr])/g, (_, value: string) =>
+        label: (match[1] ?? "").replace(/\\([\\[\]nr])/g, (_, value: string) =>
           value === "n" ? "\n" : value === "r" ? "\r" : value,
         ),
       };
