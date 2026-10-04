@@ -1,6 +1,6 @@
 import type { InferResponseType } from "hono/client";
+import type { resourceTypes } from "@/components/task-meta";
 import { ApiError, workspaceApi } from "@/lib/api";
-import type { Resource } from "@/mock/tasks";
 
 export type SavedFile = InferResponseType<
   (typeof workspaceApi.files)[":id"]["$get"]
@@ -11,10 +11,24 @@ export type SavedFolder = InferResponseType<
 export type SavedDocument = InferResponseType<
   (typeof workspaceApi.documents)[":id"]["$get"]
 >;
+/** View-only projection of an inferred File; optional references come from the originating screen. */
+export type FilePresentation = Pick<SavedFile, "id" | "title"> &
+  Partial<Pick<SavedFile, "ownerId" | "labels" | "visibility">> & {
+    kind: keyof typeof resourceTypes;
+    createdAt: string;
+    preview?: string;
+    url?: string;
+    projectId?: string;
+    folderId?: string;
+    agentId?: string;
+    chatId?: string;
+    taskId?: string;
+  };
+
 export const PREVIEW_BYTES = 8 * 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 100_000_000;
 
-export function fileKind(mediaType: string): Resource["kind"] {
+export function fileKind(mediaType: string): FilePresentation["kind"] {
   if (mediaType.startsWith("image/")) return "image";
   if (mediaType.startsWith("video/")) return "video";
   if (mediaType.startsWith("audio/")) return "audio";
@@ -22,7 +36,7 @@ export function fileKind(mediaType: string): Resource["kind"] {
   return "file";
 }
 
-export function savedResource(file: SavedFile): Resource {
+export function savedResource(file: SavedFile): FilePresentation {
   return {
     id: file.id,
     title: file.title,

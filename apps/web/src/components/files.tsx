@@ -65,15 +65,18 @@ import { read } from "@/lib/api";
 import { useDirectory } from "@/lib/directory";
 import {
   downloadFile,
+  type FilePresentation,
   previewBytes,
   type SavedFile,
   savedResource,
 } from "@/lib/file-library";
 import { useWorkspace } from "@/lib/workspace";
-import type { Resource } from "@/mock/tasks";
 
 // A file attached to a message or comment, as a resource for the viewer.
-export function fileResource(file: FileRef, createdAt: string): Resource {
+export function fileResource(
+  file: FileRef,
+  createdAt: string,
+): FilePresentation {
   return {
     id: file.id,
     title: file.name,
@@ -85,7 +88,7 @@ export function fileResource(file: FileRef, createdAt: string): Resource {
 }
 
 // A file's extension, or its type when the title has none.
-function fileType({ title, kind }: Resource) {
+function fileType({ title, kind }: FilePresentation) {
   return title.match(/\.(\w+)$/)?.[1] ?? resourceTypes[kind];
 }
 
@@ -97,7 +100,7 @@ export function FileItems({
   resources,
   onOpen,
 }: {
-  resources: (Resource & { uploading?: boolean })[];
+  resources: (FilePresentation & { uploading?: boolean })[];
   onOpen?: (id: string) => void;
 }) {
   const [openId, setOpenId] = useState<string>();
@@ -149,7 +152,7 @@ export function FileGallery({
   leading,
   trailing,
 }: {
-  resources: Resource[];
+  resources: FilePresentation[];
   openId?: string;
   onOpen?: (id: string | undefined) => void;
   /** Tiles before the files in the same grid (Files' folders). */
@@ -205,7 +208,7 @@ export function Lightbox({
   openId,
   onOpen,
 }: {
-  resources: Resource[];
+  resources: FilePresentation[];
   openId: string | undefined;
   onOpen: (id: string | undefined) => void;
 }) {
@@ -494,7 +497,7 @@ function FileMenu({
   resource,
   onOpen,
 }: {
-  resource: Resource;
+  resource: FilePresentation;
   onOpen(): void;
 }) {
   const { workspaceId, user } = useWorkspace();
