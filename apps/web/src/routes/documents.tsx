@@ -5,6 +5,7 @@ import {
   RiFileTextLine,
   RiPriceTag3Line,
   RiQuillPenLine,
+  RiSearchLine,
   RiUserLine,
 } from "@remixicon/react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -18,17 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty";
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
 import { Textarea } from "@workspace/ui/components/textarea";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useCommandPalette } from "@/components/command-palette";
 import {
   DocumentChoice,
   DocumentDirectoryPages,
@@ -40,6 +35,7 @@ import {
   useDocumentWriter,
 } from "@/components/documents/document-data";
 import { DocumentMenu } from "@/components/documents/document-menu";
+import { EmptyPage } from "@/components/empty-page";
 import {
   FilterBar,
   type FilterDef,
@@ -124,10 +120,7 @@ export function DocumentsPage({ search }: { search: DocumentsSearch }) {
   const navigate = useNavigate({ from: "/documents" });
   const directory = useDirectory();
   const [creating, setCreating] = useState(false);
-  const [queryText, setQueryText] = useState(search.query ?? "");
-  const [labelText, setLabelText] = useState(search.label ?? "");
-  useEffect(() => setQueryText(search.query ?? ""), [search.query]);
-  useEffect(() => setLabelText(search.label ?? ""), [search.label]);
+  const openPalette = useCommandPalette();
   const query: DocumentQuery = {
     projectId: search.project,
     createdBy: search.createdBy === "me" ? user.id : search.createdBy,
@@ -235,6 +228,31 @@ export function DocumentsPage({ search }: { search: DocumentsSearch }) {
         icon: filter.icon,
       };
   }
+  const filtered = Boolean(
+    search.createdBy ||
+      search.project ||
+      search.label ||
+      search.visibility ||
+      search.collectionId ||
+      search.archived ||
+      search.query ||
+      search.after,
+  );
+  if (list.data && !list.error && list.data.items.length === 0 && !filtered)
+    return (
+      <>
+        <EmptyPage
+          icon={RiFileTextLine}
+          title="No documents"
+          description="Notes and specs written by your team live here."
+        >
+          {workspace.role !== "viewer" && (
+            <Button onClick={() => setCreating(true)}>New document</Button>
+          )}
+        </EmptyPage>
+        {creating && <CreateDocument onClose={() => setCreating(false)} />}
+      </>
+    );
   return (
     <Page
       title="Documents"
@@ -242,6 +260,11 @@ export function DocumentsPage({ search }: { search: DocumentsSearch }) {
       actions={
         <>
           <FilterMenu filters={filters} values={search} onChange={change} />
+          <IconAction
+            label="Search"
+            icon={RiSearchLine}
+            onClick={() => openPalette("documents")}
+          />
           {workspace.role !== "viewer" && (
             <IconAction
               label="New document"
@@ -267,89 +290,6 @@ export function DocumentsPage({ search }: { search: DocumentsSearch }) {
         onChange={change}
         onClear={clear}
       />
-      <form
-        className="flex flex-wrap items-end gap-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          navigate({
-            search: (prev) => ({
-              ...prev,
-              query: queryText.trim() || undefined,
-              label: labelText.trim() || undefined,
-              after: undefined,
-            }),
-          });
-        }}
-      >
-        <Field>
-          <FieldLabel htmlFor="document-search">Search whole words</FieldLabel>
-          <Input
-            id="document-search"
-            value={queryText}
-            maxLength={200}
-            onChange={(event) => setQueryText(event.target.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="document-label-filter">Label (exact)</FieldLabel>
-          <Input
-            id="document-label-filter"
-            value={labelText}
-            maxLength={200}
-            onChange={(event) => setLabelText(event.target.value)}
-          />
-        </Field>
-        <Button variant="outline" type="submit">
-          Search
-        </Button>
-      </form>
-      <div className="flex flex-wrap gap-3">
-        <DocumentChoice
-          label="Sort"
-          value={search.sort ?? "updatedAt"}
-          options={[
-            { id: "updatedAt", title: "Last edited" },
-            { id: "createdAt", title: "Created" },
-            { id: "title", title: "Title" },
-          ]}
-          onChange={(value) =>
-            navigate({
-              search: (prev) => ({
-                ...prev,
-                sort: value as DocumentsSearch["sort"],
-                order: prev.order ?? "desc",
-                after: undefined,
-              }),
-            })
-          }
-        />
-        <DocumentChoice
-          label="Order"
-          value={search.order ?? (search.sort ? "asc" : "desc")}
-          options={[
-            { id: "asc", title: "Ascending" },
-            { id: "desc", title: "Descending" },
-          ]}
-          onChange={(value) =>
-            navigate({
-              search: (prev) => ({
-                ...prev,
-                sort: prev.sort ?? "updatedAt",
-                order: value as DocumentsSearch["order"],
-                after: undefined,
-              }),
-            })
-          }
-        />
-        <DocumentChoice
-          label="Page size"
-          value={search.limit ?? "24"}
-          options={[...new Set(["24", "50", "100", search.limit ?? "24"])].map(
-            (id) => ({ id, title: id }),
-          )}
-          onChange={(value) => change("limit", value)}
-        />
-      </div>
       <DocumentDirectoryPages members projects />
       <QueryState
         pending={list.isPending}
@@ -370,27 +310,8 @@ export function DocumentsPage({ search }: { search: DocumentsSearch }) {
               <DocumentItem key={document.id} document={document} />
             ))}
           </Gallery>
-        ) : search.createdBy ||
-          search.project ||
-          search.label ||
-          search.visibility ||
-          search.collectionId ||
-          search.archived ||
-          search.query ||
-          search.after ? (
-          <NoResults what="documents" onClear={clear} />
         ) : (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <RiFileTextLine />
-              </EmptyMedia>
-              <EmptyTitle>No documents</EmptyTitle>
-              <EmptyDescription>
-                Notes and specs written by your team live here.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <NoResults what="documents" onClear={clear} />
         ))}
       <div className="flex gap-2">
         {search.after && (
