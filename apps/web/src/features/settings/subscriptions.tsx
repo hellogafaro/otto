@@ -132,8 +132,8 @@ export function ModelSettings() {
           >
             {!accounts.data.items.length && (
               <Row
-                title="No accounts match"
-                description="Create an account or change the filters."
+                title="No accounts"
+                description="AI accounts you connect show up here."
               />
             )}
             {accounts.data.items.map((account) => (

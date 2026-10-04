@@ -11,7 +11,12 @@ import {
   RiMoreLine,
 } from "@remixicon/react";
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
+import {
+  Link,
+  Navigate,
+  useMatchRoute,
+  useNavigate,
+} from "@tanstack/react-router";
 import { AttachmentGroup } from "@workspace/ui/components/attachment";
 import { AvatarGroup } from "@workspace/ui/components/avatar";
 import { Bubble, BubbleContent } from "@workspace/ui/components/bubble";
@@ -104,16 +109,8 @@ import {
   Section,
   WithPanel,
 } from "@/components/detail";
-import { EmptyPage } from "@/components/empty-page";
 import { Lightbox } from "@/components/files";
-import {
-  FilterBar,
-  type FilterDef,
-  FilterMenu,
-  NoResults,
-} from "@/components/filters";
 import { MentionText } from "@/components/mentions";
-import { Page } from "@/components/page";
 import { QueryState } from "@/components/query-state";
 import { SectionSidebar } from "@/components/section-sidebar";
 import { ActorAvatar, type Look } from "@/components/task-meta";
@@ -121,7 +118,6 @@ import { Topbar } from "@/components/topbar";
 import { ApiError, read } from "@/lib/api";
 import {
   activeRun,
-  type ChatFilters,
   type LiveActivity,
   type LiveChat,
   type LiveMessage,
@@ -342,100 +338,31 @@ export function ChatsLandingPage({
 }: {
   search?: ReturnType<typeof validateChatsSearch>;
 }) {
-  const navigate = useNavigate();
-  const directory = useDirectory();
-  const filters: ChatFilters = {
+  const chats = useChats({
     query: search.query || undefined,
     projectId: search.project,
     archived: search.archived,
     sort: search.sort,
     order: search.order,
-  };
-  const chats = useChats(filters);
-  // URL validation is installed by the router owner; this updater remains typed against its baseline.
-  const update = (next: Partial<typeof search>) =>
-    void navigate({ to: "/chats", search: { ...search, ...next } });
-  const items = chats.data?.pages.flatMap((page) => page.items) ?? [];
-  const filterDefs: FilterDef<"project" | "archived">[] = [
-    {
-      key: "project",
-      label: "Project",
-      icon: RiBox3Line,
-      options: Object.fromEntries(
-        directory.projects.map((project) => [
-          project.id,
-          { label: project.title, icon: RiBox3Line },
-        ]),
-      ),
-    },
-    {
-      key: "archived",
-      label: "Archive",
-      icon: RiArchiveLine,
-      options: { true: { label: "Archived", icon: RiArchiveLine } },
-    },
-  ];
-  const values = {
-    project: search.project,
-    archived: search.archived === "true" ? "true" : undefined,
-  };
-  const change = (key: "project" | "archived", value: string | undefined) =>
-    update(
-      key === "archived"
-        ? { archived: value ? "true" : "false" }
-        : { project: value },
-    );
-  const clear = () => update({ project: undefined, archived: "false" });
-  const filtered = Boolean(
-    search.query || search.project || search.archived === "true",
-  );
-  if (chats.data && !chats.error && items.length === 0 && !filtered)
+  });
+  // Chats always has one open: the first one, or the new-chat empty state.
+  if (chats.error || chats.isPending)
     return (
-      <EmptyPage
-        icon={RiChat1Line}
-        title="No chats"
-        description="Conversations with your team and agents live here."
-        ask={{ about: "your chats", action: "New chat", start: "" }}
-      />
-    );
-  return (
-    <Page
-      title="Chats"
-      actions={
-        <FilterMenu filters={filterDefs} values={values} onChange={change} />
-      }
-    >
-      <FilterBar
-        filters={filterDefs}
-        values={values}
-        onChange={change}
-        onClear={clear}
-      />
       <QueryState
         pending={chats.isPending}
         error={chats.error}
         retry={chats.refetch}
       />
-      {!chats.error && items.length > 0 && (
-        <SidebarMenu>
-          {items.map((chat) => (
-            <ChatRow key={chat.id} chat={chat} />
-          ))}
-        </SidebarMenu>
-      )}
-      {chats.data && !chats.error && items.length === 0 && (
-        <NoResults what="chats" onClear={clear} />
-      )}
-      {chats.hasNextPage && (
-        <Button
-          variant="outline"
-          disabled={chats.isFetchingNextPage}
-          onClick={() => chats.fetchNextPage()}
-        >
-          Load more
-        </Button>
-      )}
-    </Page>
+    );
+  const first = chats.data.pages[0]?.items[0];
+  return first ? (
+    <Navigate to="/chats/$chatId" params={{ chatId: first.id }} replace />
+  ) : (
+    <Navigate
+      to="/chats/new"
+      search={{ with: undefined, project: search.project }}
+      replace
+    />
   );
 }
 

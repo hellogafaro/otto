@@ -218,6 +218,85 @@ for (const root of ["packages", "apps/server/src"]) {
     visit(ast);
   }
 }
+// Web empty-state rules (DESIGN.md "Empty-state rules"): titles read "No <things>",
+// descriptions are one sentence ending in a period, and a page has one main button.
+let emptyStates = 0;
+for await (const path of new Bun.Glob("**/*.tsx").scan("apps/web/src")) {
+  const file = `apps/web/src/${path}`;
+  const source = await Bun.file(file).text();
+  const ast = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const text = (node: ts.JsxAttribute | undefined) =>
+    node?.initializer && ts.isStringLiteral(node.initializer)
+      ? node.initializer.text
+      : undefined;
+  const attributes = (node: ts.JsxOpeningLikeElement) =>
+    new Map(
+      node.attributes.properties.flatMap((property) =>
+        ts.isJsxAttribute(property)
+          ? [[property.name.getText(), property]]
+          : [],
+      ),
+    );
+  const badTitle = (title: string) =>
+    !/^(No [a-z]|Nothing )/.test(title) || title.endsWith(".");
+  const visit = (node: ts.Node) => {
+    if (
+      (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) &&
+      node.tagName.getText() === "EmptyPage"
+    ) {
+      emptyStates++;
+      const props = attributes(node);
+      const title = text(props.get("title"));
+      const description = text(props.get("description"));
+      if (title !== undefined && badTitle(title))
+        throw new Error(`Empty page title reads "No <things>": ${file}`);
+      if (description !== undefined && !description.endsWith("."))
+        throw new Error(`Empty page description ends in a period: ${file}`);
+      if (props.has("ask") && props.has("create"))
+        throw new Error(`Empty page has one main button: ${file}`);
+    }
+    if (ts.isJsxElement(node)) {
+      const tag = node.openingElement.tagName.getText();
+      const spans = node.children.filter((item) => ts.isJsxText(item));
+      const clean = (item: ts.Node | undefined) =>
+        item?.getText().replace(/\s+/g, " ").trim();
+      const first = clean(spans[0]);
+      const last = clean(spans.at(-1));
+      if (
+        tag === "EmptyTitle" &&
+        first &&
+        first !== "New chat" &&
+        (badTitle(first) || last?.endsWith("."))
+      )
+        throw new Error(`Empty title reads "No <things>": ${file}`);
+      if (tag === "EmptyDescription" && last && !last.endsWith("."))
+        throw new Error(`Empty description ends in a period: ${file}`);
+    }
+    if (
+      (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) &&
+      node.tagName.getText() === "Row"
+    ) {
+      const props = attributes(node);
+      const title = text(props.get("title"));
+      const description = text(props.get("description"));
+      if (title?.startsWith("No ")) {
+        emptyStates++;
+        if (!description?.endsWith("."))
+          throw new Error(
+            `Empty row "${title}" has a one-line description: ${file}`,
+          );
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(ast);
+}
 console.log(
-  `Verified ${files} backend files: current names, dependency-free shared primitives, ${routes.size} unique transport paths. ${catches} catch/rejection sites require semantic review.`,
+  `Verified ${files} backend files: current names, dependency-free shared primitives, ${routes.size} unique transport paths. ${catches} catch/rejection sites require semantic review. ${emptyStates} web empty states follow the copy rules.`,
 );

@@ -164,8 +164,8 @@ export function ConnectionSettings() {
           {!query.data.items.length && (
             <Group>
               <Row
-                title="No connections match"
-                description="Create a GitHub or MCP connection, or change the filters."
+                title="No connections"
+                description="GitHub and MCP connections you add show up here."
               />
             </Group>
           )}
@@ -890,7 +890,12 @@ function ConnectionOperations({ connection }: { connection: Connection }) {
       />
       {query.data && !query.error && (
         <>
-          {!query.data.items.length && <Row title="No operations match" />}
+          {!query.data.items.length && (
+            <Row
+              title="No operations"
+              description="Operations your agents request show up here."
+            />
+          )}
           {query.data.items.map((operation) => (
             <OperationRow key={operation.id} operation={operation} />
           ))}
