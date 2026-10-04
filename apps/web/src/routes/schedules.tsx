@@ -31,7 +31,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
-import { Input } from "@workspace/ui/components/input";
 import {
   Item,
   ItemActions,
@@ -46,7 +45,6 @@ import {
 import { toast } from "@workspace/ui/components/sonner";
 import { useEffect, useRef, useState } from "react";
 import { Timeline, TimelineItem } from "@/components/activity";
-import { ConfigurationChoice } from "@/components/agents-configuration-choice";
 import {
   hasUncertainMutationOutcome,
   isDeniedDomainRead,
@@ -213,6 +211,38 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
       search: (previous) => ({ ...previous, [key]: value, after: undefined }),
     });
   const clear = () => navigate({ search: {} });
+  const filtered = Boolean(
+    search.type ||
+      search.agent ||
+      search.owner ||
+      search.status ||
+      search.query ||
+      search.after,
+  );
+  if (list.data && visible.length === 0 && !filtered && !list.error)
+    return (
+      <>
+        <EmptyPage
+          icon={RiCalendarScheduleLine}
+          title="No schedules"
+          description="Run a prompt or script and post the result to an existing Chat."
+        >
+          {writer && (
+            <Button onClick={() => setCreating(true)}>New schedule</Button>
+          )}
+        </EmptyPage>
+        <ScheduleEditor
+          open={creating}
+          onOpenChange={setCreating}
+          onSaved={(id) =>
+            navigate({
+              to: "/schedules/$scheduleId",
+              params: { scheduleId: id },
+            })
+          }
+        />
+      </>
+    );
   if (isDeniedDomainRead(list.error))
     return (
       <Page title="Schedules">
@@ -243,41 +273,6 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
         onChange={change}
         onClear={clear}
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          aria-label="Search schedules by whole words"
-          placeholder="Search by whole words"
-          maxLength={200}
-          value={search.query ?? ""}
-          onChange={(event) => change("query", event.target.value || undefined)}
-          className="max-w-xs"
-        />
-        <ConfigurationChoice
-          label="Sort schedules"
-          value={search.sort ?? "title"}
-          options={{
-            title: "Title",
-            createdAt: "Created",
-            updatedAt: "Updated",
-          }}
-          onChange={(value) => change("sort", value)}
-        />
-        <ConfigurationChoice
-          label="Sort order"
-          value={search.order ?? "asc"}
-          options={{ asc: "Ascending", desc: "Descending" }}
-          onChange={(value) =>
-            navigate({
-              search: (previous) => ({
-                ...previous,
-                sort: previous.sort ?? "title",
-                order: value,
-                after: undefined,
-              }),
-            })
-          }
-        />
-      </div>
       <QueryState
         pending={list.isPending}
         error={list.error ?? directory.error}
@@ -288,24 +283,7 @@ export function SchedulesPage({ search }: { search: SchedulesSearch }) {
         }}
       />
       {list.data && visible.length === 0 ? (
-        search.type ||
-        search.agent ||
-        search.owner ||
-        search.status ||
-        search.query ||
-        search.after ? (
-          <NoResults what="schedules" onClear={clear} />
-        ) : (
-          <EmptyPage
-            icon={RiCalendarScheduleLine}
-            title="No schedules"
-            description="Run a prompt or script and post the result to an existing Chat."
-          >
-            {writer && (
-              <Button onClick={() => setCreating(true)}>New schedule</Button>
-            )}
-          </EmptyPage>
-        )
+        <NoResults what="schedules" onClear={clear} />
       ) : (
         <div className="flex flex-col gap-2">
           {order.map((status) => (
