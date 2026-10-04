@@ -1,69 +1,66 @@
 import {
   type RemixiconComponentType,
   RiAddLine,
-  RiArrowDownSLine,
   RiArrowRightSLine,
   RiBuilding2Line,
-  RiClaudeFill,
   RiCpuLine,
-  RiGithubFill,
   RiNotification3Line,
-  RiNotionFill,
-  RiOpenaiFill,
-  RiPencilLine,
   RiRobot3Line,
   RiTeamLine,
   RiUserLine,
 } from "@remixicon/react";
-import { Link, useMatchRoute } from "@tanstack/react-router";
-import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar";
 import { Button } from "@workspace/ui/components/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu";
-import { Input } from "@workspace/ui/components/input";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item";
+import { Field, FieldLabel } from "@workspace/ui/components/field";
 import {
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar";
-import { toast } from "@workspace/ui/components/sonner";
-import { Switch } from "@workspace/ui/components/switch";
-import { type ReactElement, type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useConfirm } from "@/components/confirm";
-import { useDebounced } from "@/components/debounce";
-import { useAskAgent } from "@/components/floating-chat";
 import { IconAction } from "@/components/icon-action";
 import { RiConnectorLine } from "@/components/icons";
 import { Page } from "@/components/page";
+import { QueryState } from "@/components/query-state";
 import { SectionSidebar } from "@/components/section-sidebar";
-import { ActorAvatar, visibilityLooks } from "@/components/task-meta";
-import { request } from "@/mock/api";
+import { ActorAvatar } from "@/components/task-meta";
 import {
-  agentConfigs,
-  memberRoles,
-  type Settings,
-  saveSetting,
-  settings,
-} from "@/mock/settings";
-import { agents, currentUserId, users } from "@/mock/tasks";
+  ConnectionSettings,
+  NewConnection,
+} from "@/features/settings/connections";
+import {
+  Choice,
+  Group,
+  Row,
+  SaveState,
+  SettingsDialog,
+  SettingsField,
+  SettingsInput,
+  SettingsListControls,
+  SettingsPaging,
+  useSettingsAction,
+  useSettingsList,
+} from "@/features/settings/controls";
+import {
+  ModelSettings,
+  NewSubscription,
+} from "@/features/settings/subscriptions";
+import { client, read } from "@/lib/api";
+import { authClient } from "@/lib/auth";
+import { useDirectory } from "@/lib/directory";
+import { useWorkspace } from "@/lib/workspace";
+import { AgentCreateDialog } from "@/routes/agent-settings";
 
-// Settings, as lean as the MVP allows: what is yours (Account) and what the
-// workspace shares (Workspace). The theme stays in the profile menu; usage
-// and activity belong to a later Reports page.
+export { Choice, Group, Row, useAutosave } from "@/features/settings/controls";
+
 const sections = {
   profile: { group: "Account", label: "Profile", icon: RiUserLine },
   notifications: {
@@ -84,19 +81,15 @@ const sections = {
   string,
   { group: string; label: string; icon: RemixiconComponentType }
 >;
-
 export type SettingsSection = keyof typeof sections;
-
 export const isSettingsSection = (value: string): value is SettingsSection =>
-  value in sections;
+  Object.hasOwn(sections, value);
 
-// The left panel, like Chats': Account, then Workspace, one row per section.
 export function SettingsSidebar() {
   const matchRoute = useMatchRoute();
-  const groups = ["Account", "Workspace"] as const;
   return (
     <SectionSidebar title="Settings">
-      {groups.map((group) => (
+      {(["Account", "Workspace"] as const).map((group) => (
         <div key={group}>
           <SidebarGroupLabel>{group}</SidebarGroupLabel>
           <SidebarMenu>
@@ -109,7 +102,6 @@ export function SettingsSidebar() {
                       matchRoute({
                         to: "/settings/$section",
                         params: { section: id },
-                        // An agent's page stays under Agents.
                         fuzzy: true,
                       }),
                     )}
@@ -128,490 +120,639 @@ export function SettingsSidebar() {
     </SectionSidebar>
   );
 }
-
-// One section: its title, then its cards. Adding (an agent, a connection, a
-// member) asks Otto, like every "New …".
 export function SettingsPage({ section }: { section: SettingsSection }) {
-  const ask = useAskAgent();
-  const adds: Partial<Record<SettingsSection, [string, string]>> = {
-    connections: ["New connection", "Connect "],
-    agents: ["New agent", "Create an agent that "],
-    members: ["Invite", "Invite "],
+  const { workspace, workspaceId } = useWorkspace();
+  const navigate = useNavigate();
+  const [dialog, setDialog] = useState<SettingsSection | null>(null);
+  const open = dialog === section;
+  const setOpen = (next: boolean) => setDialog(next ? section : null);
+  const writer = workspace.role !== "viewer";
+  const admin = workspace.role === "owner" || workspace.role === "admin";
+  const adds = {
+    connections: "New connection",
+    models: "New account",
+    members: "Invite",
+    agents: "New agent",
   };
-  const add = adds[section];
+  const add = section in adds ? adds[section as keyof typeof adds] : undefined;
+  const allowed = section === "members" ? admin : writer;
   const Body = bodies[section];
   return (
     <Page
       title={sections[section].label}
       actions={
-        add && (
+        add &&
+        allowed && (
           <IconAction
-            label={add[0]}
+            label={add}
             icon={RiAddLine}
-            onClick={() => ask(add[1])}
+            onClick={() => setOpen(true)}
           />
         )
       }
     >
-      <div className="flex flex-col gap-8">
+      <div key={`${workspaceId}:${section}`} className="flex flex-col gap-8">
         <Body />
+        {section === "connections" && (
+          <NewConnection open={open} onOpenChange={setOpen} />
+        )}
+        {section === "models" && (
+          <NewSubscription open={open} onOpenChange={setOpen} />
+        )}
+        {section === "members" && (
+          <InviteMember open={open} onOpenChange={setOpen} />
+        )}
+        {section === "agents" && (
+          <AgentCreateDialog
+            open={open}
+            onOpenChange={setOpen}
+            onCreated={(agentId) => {
+              void navigate({
+                to: "/settings/agents/$agentId",
+                params: { agentId },
+              });
+            }}
+          />
+        )}
       </div>
     </Page>
   );
 }
-
-// A card of settings, under an optional h2 (Activity's size): rows on a
-// 12px card, a hairline between two (rows have a 1px border; between two,
-// the top one shows). Like every card on a page, it reaches 16px out of the
-// page column (its rows' 1px border and 15px padding), so their text sits on
-// the title's line.
-// An optional line under the heading says what the section holds.
-export function Group({
-  title,
-  description,
-  children,
-}: {
-  title?: string;
-  description?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      {title && (
-        <div className="flex flex-col gap-0.5">
-          <h2 className="text-base font-medium">{title}</h2>
-          {description && (
-            <p className="text-sm text-muted-foreground">{description}</p>
-          )}
-        </div>
-      )}
-      <div className="-mx-4 flex flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 [&>[data-slot=item]+[data-slot=item]]:border-t-border">
-        {children}
-      </div>
-    </section>
-  );
-}
-
-// One setting, the only row: what it is (and a line on it, 12px, 2px under)
-// on the left, its control on the right. Rows listing things (agents,
-// members, connections) add their avatar or icon on the left; one that opens
-// a page renders as its link.
-export function Row({
-  title,
-  description,
-  media,
-  render,
-  children,
-}: {
-  title: ReactNode;
-  description?: ReactNode;
-  media?: ReactNode;
-  render?: ReactElement;
-  children?: ReactNode;
-}) {
-  return (
-    <Item render={render} className="rounded-none px-[15px]">
-      {media && <ItemMedia>{media}</ItemMedia>}
-      <ItemContent className="gap-0.5">
-        <ItemTitle>{title}</ItemTitle>
-        {description && (
-          <ItemDescription className="text-xs">{description}</ItemDescription>
-        )}
-      </ItemContent>
-      {children && <ItemActions>{children}</ItemActions>}
-    </Item>
-  );
-}
-
-// A value saved as you go: every change waits 800ms for the next one
-// (typing, flipping back), and blur or leaving saves at once. A value back
-// where it was sends nothing. Every save says so, in one toast ("Settings
-// saved", or the page's own): saves close together refresh it instead of
-// stacking.
-export function useAutosave<T>(
-  initial: T,
-  save: (value: T) => void,
-  message = "Settings saved",
-) {
-  const [value, setValue] = useState(initial);
-  const last = useRef(JSON.stringify(initial));
-  const debounced = useDebounced((next: T) => {
-    const json = JSON.stringify(next);
-    if (json === last.current) return;
-    last.current = json;
-    save(next);
-    toast.success(message, { id: "settings-saved" });
-  });
-  const change = (next: T) => {
-    setValue(next);
-    debounced.run(next);
-  };
-  return { value, change, flush: debounced.flush };
-}
-
-type Key = keyof Settings;
-type KeysOf<V> = { [K in Key]: Settings[K] extends V ? K : never }[Key];
-
-// A setting's value, bound to its key.
-function useSetting<K extends Key>(key: K) {
-  return useAutosave(settings[key], (next) => saveSetting(key, next));
-}
-
-// The three controls a row takes, each bound to its setting.
-function SettingSwitch({
-  name,
-  label,
-}: {
-  name: KeysOf<boolean>;
-  label: string;
-}) {
-  const { value, change } = useSetting(name);
-  return (
-    <Switch
-      aria-label={label}
-      checked={value}
-      onCheckedChange={(checked) => change(checked)}
-    />
-  );
-}
-
-function SettingInput({
-  name,
-  label,
-}: {
-  name: KeysOf<string>;
-  label: string;
-}) {
-  const { value, change, flush } = useSetting(name);
-  return (
-    <Input
-      aria-label={label}
-      value={value}
-      onChange={(event) => change(event.target.value)}
-      onBlur={flush}
-      className="w-56"
-    />
-  );
-}
-
-function SettingChoice<K extends KeysOf<string>>({
-  name,
-  label,
-  options,
-}: {
-  name: K;
-  label: string;
-  options: Record<Settings[K], string>;
-}) {
-  const { value, change } = useSetting(name);
-  return (
-    <Choice label={label} value={value} options={options} onChange={change} />
-  );
-}
-
-// A choice of a few, as the profile menu's Appearance: a 28px outline button
-// (controls nested in a row are 28px, 6px corners) showing the current one,
-// opening a radio menu that closes on a pick.
-export function Choice<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: Record<T, string>;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            size="compact"
-            aria-label={`${label}: ${options[value]}`}
-            className="min-w-32 justify-between"
-          />
-        }
-      >
-        {options[value]}
-        <RiArrowDownSLine data-icon="inline-end" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={(next) => onChange(next as T)}
-        >
-          {(Object.keys(options) as T[]).map((key) => (
-            <DropdownMenuRadioItem key={key} value={key} closeOnClick>
-              {options[key]}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-// Deleting is the one action a settings page doesn't save as you go: it
-// asks first (the stock alert dialog, with a spinner while it works), then
-// says it is done.
-function DeleteRow({
-  type,
-  description,
-}: {
-  /** What goes: "account" reads "Delete account?" and "Account deleted". */
-  type: "account" | "workspace";
-  description: string;
-}) {
-  const confirm = useConfirm();
-  return (
-    <Row title={`Delete ${type}`} description={description}>
-      <Button
-        variant="destructive"
-        size="compact"
-        onClick={async () => {
-          const yes = await confirm({
-            title: `Delete ${type}?`,
-            description: "This can't be undone.",
-            action: "Delete",
-            destructive: true,
-            run: request,
-          });
-          if (yes)
-            toast.success(`${type[0].toUpperCase()}${type.slice(1)} deleted`);
-        }}
-      >
-        Delete
-      </Button>
-    </Row>
-  );
-}
-
 function ProfileSettings() {
-  const me = users[currentUserId];
-  const picker = useRef<HTMLInputElement>(null);
+  const { user, invalidate } = useWorkspace();
+  const session = authClient.useSession();
+  const me = session.data?.user;
+  const initials = user.name
+    .split(/\s+/)
+    .map((part) => part.charAt(0))
+    .slice(0, 2)
+    .join("");
+  const update = async (change: { name?: string; image?: string | null }) => {
+    if (change.name !== undefined && !change.name.trim())
+      throw new Error("Enter your name.");
+    if (change.image) {
+      let url: URL;
+      try {
+        url = new URL(change.image);
+      } catch {
+        throw new Error("Enter a valid HTTPS image URL.");
+      }
+      if (
+        url.protocol !== "https:" ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash
+      )
+        throw new Error(
+          "Use a public HTTPS image URL without credentials, query parameters or fragments.",
+        );
+    }
+    const result = await authClient.updateUser(change);
+    if (result.error)
+      throw new Error(result.error.message ?? "Unable to update your profile.");
+    await session.refetch();
+    await invalidate();
+  };
   return (
     <>
       <Group>
-        <Row title="Photo" description="Shown across Otto.">
+        <Row
+          title="Photo"
+          description="Use a public HTTPS image URL. Photo uploads are not available."
+        >
           <Avatar size="md">
-            <AvatarFallback>{me.initials}</AvatarFallback>
+            <AvatarImage src={me?.image ?? undefined} alt={user.name} />
+            <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
-          <Button
-            variant="ghost"
-            size="icon-compact"
-            aria-label="Change photo"
-            onClick={() => picker.current?.click()}
-          >
-            <RiPencilLine />
-          </Button>
-          <input ref={picker} type="file" accept="image/*" hidden />
+          <SettingsInput
+            label="Photo URL"
+            initial={me?.image ?? ""}
+            maxLength={2048}
+            save={(image) => update({ image: image || null })}
+          />
         </Row>
         <Row title="Name" description="Shown to your teammates and agents.">
-          <SettingInput name="name" label="Name" />
+          <SettingsInput
+            label="Name"
+            initial={user.name}
+            save={(name) => update({ name: name.trim() })}
+          />
         </Row>
-        <Row title="Email">
-          <span className="text-sm text-muted-foreground">
-            johan@hellogafaro.com
-          </span>
+        <Row title="Email" description="Email changes are not available.">
+          <span className="text-sm text-muted-foreground">{user.email}</span>
         </Row>
       </Group>
       <Group title="Danger zone">
-        <DeleteRow
-          type="account"
-          description="Your chats, documents and files go with it."
-        />
+        <Row
+          title="Delete account"
+          description="Account deletion is not enabled on this server."
+        >
+          <Button variant="outline" size="compact" disabled>
+            Unavailable
+          </Button>
+        </Row>
       </Group>
     </>
   );
 }
-
 function NotificationSettings() {
   return (
     <Group>
-      <Row
-        title="Mentions"
-        description="Someone tags you in a chat or a comment."
-      >
-        <SettingSwitch name="notifyMentions" label="Mentions" />
-      </Row>
-      <Row
-        title="Questions and reviews"
-        description="An agent needs your answer or your review."
-      >
-        <SettingSwitch name="notifyQuestions" label="Questions and reviews" />
-      </Row>
-      <Row
-        title="Failed runs"
-        description="An agent's or a schedule's run fails."
-      >
-        <SettingSwitch name="notifyFailures" label="Failed runs" />
-      </Row>
-      <Row
-        title="Assignments and shares"
-        description="A task is assigned to you or a document shared."
-      >
-        <SettingSwitch
-          name="notifyAssignments"
-          label="Assignments and shares"
-        />
-      </Row>
-    </Group>
-  );
-}
-
-// Your AI accounts (subscriptions Otto signs in with, each with its maker's
-// logo; one per run, never switched silently) and the model agents use
-// unless one says otherwise.
-function ModelSettings() {
-  return (
-    <>
-      <Group title="Accounts">
+      {[
+        "Mentions",
+        "Questions and reviews",
+        "Failed runs",
+        "Assignments and shares",
+      ].map((title) => (
         <Row
-          title="ChatGPT"
-          description="Connected as johan@hellogafaro.com"
-          media={<RiOpenaiFill className="size-5" />}
+          key={title}
+          title={title}
+          description="Notification preferences are not available yet."
         >
-          <Button variant="outline" size="compact">
-            Disconnect
-          </Button>
-        </Row>
-        <Row
-          title="Claude"
-          description="Not connected"
-          media={<RiClaudeFill className="size-5" />}
-        >
-          <Button variant="outline" size="compact">
-            Connect
-          </Button>
-        </Row>
-      </Group>
-      <Group title="Default">
-        <Row title="Model" description="Agents use it unless set otherwise.">
-          <SettingChoice
-            name="model"
-            label="Model"
-            options={{ "gpt-5.5": "GPT-5.5", "gpt-5.5-mini": "GPT-5.5 mini" }}
-          />
-        </Row>
-      </Group>
-    </>
-  );
-}
-
-// External accounts agents may use, each granted to the agents you pick.
-function ConnectionSettings() {
-  return (
-    <Group>
-      <Row
-        title="GitHub"
-        description="Connected as johan-gafaro · 3 agents"
-        media={<RiGithubFill className="size-5" />}
-      >
-        <Button variant="outline" size="compact">
-          Disconnect
-        </Button>
-      </Row>
-      <Row
-        title="Notion"
-        description="MCP server · 1 agent"
-        media={<RiNotionFill className="size-5" />}
-      >
-        <Button variant="outline" size="compact">
-          Disconnect
-        </Button>
-      </Row>
-    </Group>
-  );
-}
-
-// Agents you can use, each opening its own settings; creating one asks Otto.
-function AgentSettings() {
-  return (
-    <Group>
-      {(Object.keys(agents) as (keyof typeof agents)[]).map((id) => (
-        <Row
-          key={id}
-          title={agents[id].title}
-          description={agents[id].description}
-          media={<ActorAvatar actorId={id} size="default" />}
-          render={
-            <Link to="/settings/agents/$agentId" params={{ agentId: id }} />
-          }
-        >
-          <span className="text-sm text-muted-foreground">
-            {visibilityLooks[agentConfigs[id].visibility].label}
-          </span>
-          <RiArrowRightSLine className="size-3.5 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Unavailable</span>
         </Row>
       ))}
     </Group>
   );
 }
-
 function WorkspaceSettings() {
+  const { workspace } = useWorkspace();
   return (
     <>
       <Group>
-        <Row title="Name" description="Shown to everyone in the workspace.">
-          <SettingInput name="workspaceName" label="Workspace name" />
+        <Row
+          title="Name"
+          description="Workspace name editing is not available."
+        >
+          <span>{workspace.title}</span>
+        </Row>
+        <Row title="Your role">
+          <span>{workspace.role}</span>
         </Row>
       </Group>
       <Group title="Danger zone">
-        <DeleteRow
-          type="workspace"
-          description="Every project, chat, document and file in it goes too."
-        />
+        <Row
+          title="Delete workspace"
+          description="Workspace deletion is not available."
+        >
+          <Button variant="outline" size="compact" disabled>
+            Unavailable
+          </Button>
+        </Row>
       </Group>
     </>
   );
 }
-
-const emails: Record<keyof typeof users, string> = {
-  u_johan: "johan@hellogafaro.com",
-  u_maya: "maya@hellogafaro.com",
-};
-
-// People in the workspace (agents are under Agents) and their role.
-function MemberSettings() {
+function AgentSettings() {
+  const { api, workspaceId } = useWorkspace();
+  const directory = useDirectory();
+  const sorts = { title: "Name", createdAt: "Created", updatedAt: "Updated" };
+  const list = useSettingsList(sorts, "title");
+  const archived = list.params.get("archived") === "true" ? "true" : "false";
+  const query = useQuery({
+    queryKey: [
+      "workspace",
+      workspaceId,
+      "settings",
+      "agents",
+      list.request,
+      archived,
+    ],
+    queryFn: async () =>
+      read(
+        await api.agents.$get({
+          param: { workspaceId },
+          query: { ...list.request, archived },
+        }),
+      ),
+  });
   return (
-    <Group>
-      {(Object.keys(users) as (keyof typeof users)[]).map((id) => (
-        <Row
-          key={id}
-          title={users[id].name}
-          description={emails[id]}
-          media={<ActorAvatar actorId={id} size="default" />}
-        >
-          {id === currentUserId ? (
-            <span className="text-sm text-muted-foreground">Owner</span>
+    <>
+      <SettingsListControls list={list} sorts={sorts}>
+        <Choice
+          label="Agent archive filter"
+          value={archived}
+          options={{ false: "Current agents", true: "Archived agents" }}
+          onChange={(archived) => list.update({ archived })}
+        />
+      </SettingsListControls>
+      <QueryState
+        pending={query.isPending}
+        error={query.error}
+        retry={query.refetch}
+      />
+      {query.data && !query.error && (
+        <>
+          <Group>
+            {query.data.items.map((agent) => (
+              <Row
+                key={agent.id}
+                title={agent.title}
+                description={directory.actorOf(agent.createdBy).name}
+                media={<ActorAvatar actorId={agent.id} size="default" />}
+                render={
+                  <Link
+                    to="/settings/agents/$agentId"
+                    params={{ agentId: agent.id }}
+                  />
+                }
+              >
+                <span className="text-sm text-muted-foreground">
+                  {agent.visibility === "user" ? "Only you" : "Workspace"}
+                </span>
+                <RiArrowRightSLine className="size-3.5 text-muted-foreground" />
+              </Row>
+            ))}
+            {!query.data.items.length && (
+              <Row
+                title="No agents"
+                description={
+                  list.query
+                    ? "No agents match these whole words."
+                    : "Create an agent to get started."
+                }
+              />
+            )}
+          </Group>
+          <SettingsPaging
+            next={query.data.next}
+            after={list.after}
+            change={(after) => list.update({ after })}
+          />
+        </>
+      )}
+    </>
+  );
+}
+function MemberSettings() {
+  const { api, workspaceId, workspace } = useWorkspace();
+  const sorts = { name: "Name" };
+  const list = useSettingsList(sorts, "name");
+  const role = (["owner", "admin", "contributor", "viewer"] as const).find(
+    (role) => role === list.params.get("role"),
+  );
+  const members = useQuery({
+    queryKey: [
+      "workspace",
+      workspaceId,
+      "settings",
+      "members",
+      list.request,
+      role,
+    ],
+    queryFn: async () =>
+      read(
+        await api.members.$get({
+          param: { workspaceId },
+          query: { ...list.request, role },
+        }),
+      ),
+  });
+  return (
+    <>
+      <SettingsListControls list={list} sorts={sorts}>
+        <Choice
+          label="Role filter"
+          value={role ?? "all"}
+          options={{
+            all: "All roles",
+            owner: "Owner",
+            admin: "Admin",
+            contributor: "Contributor",
+            viewer: "Viewer",
+          }}
+          onChange={(role) =>
+            list.update({ role: role === "all" ? undefined : role })
+          }
+        />
+      </SettingsListControls>
+      <QueryState
+        pending={members.isPending}
+        error={members.error}
+        retry={members.refetch}
+      />
+      {members.data && !members.error && (
+        <>
+          <Group>
+            {members.data.items.map((member) => (
+              <MemberRow
+                key={`${member.userId}:${member.role}`}
+                member={member}
+              />
+            ))}
+            {!members.data.items.length && (
+              <Row
+                title="No members match"
+                description="Try another whole word or role."
+              />
+            )}
+          </Group>
+          <SettingsPaging
+            next={members.data.next}
+            after={list.after}
+            change={(after) => list.update({ after })}
+          />
+        </>
+      )}
+      {(workspace.role === "owner" || workspace.role === "admin") && (
+        <InvitationActions />
+      )}
+      <AcceptInvitation />
+    </>
+  );
+}
+type Member = ReturnType<typeof useDirectory>["members"][number];
+function MemberRow({ member }: { member: Member }) {
+  const { api, workspaceId, workspace, user } = useWorkspace();
+  const queryClient = useQueryClient();
+  const action = useSettingsAction();
+  const confirm = useConfirm();
+  const canManage =
+    member.role !== "owner" &&
+    (workspace.role === "owner" ||
+      (workspace.role === "admin" && member.role !== "admin"));
+  const options =
+    workspace.role === "owner"
+      ? { admin: "Admin", contributor: "Contributor", viewer: "Viewer" }
+      : { contributor: "Contributor", viewer: "Viewer" };
+  return (
+    <Row
+      title={member.name}
+      description={member.userId === user.id ? "You" : undefined}
+      media={<ActorAvatar actorId={member.userId} size="default" />}
+    >
+      <div className="flex flex-col items-end gap-2">
+        <div className="flex gap-2">
+          {canManage && member.role !== "owner" && member.role in options ? (
+            <Choice
+              label={`${member.name} role`}
+              value={member.role}
+              options={options}
+              disabled={action.pending}
+              onChange={async (role) => {
+                if (role === member.role) return;
+                const yes = await confirm({
+                  title: `Change ${member.name}'s role?`,
+                  description:
+                    "Viewer access requires transferring open tasks and schedules first.",
+                  action: "Change role",
+                });
+                if (yes)
+                  await action.perform(async () => {
+                    await read(
+                      await api.members[":userId"].role.$post({
+                        param: { workspaceId, userId: member.userId },
+                        json: { role },
+                      }),
+                    );
+                    if (member.userId === user.id)
+                      await queryClient.invalidateQueries({
+                        queryKey: ["workspaces"],
+                      });
+                  }, "Role saved");
+              }}
+            />
           ) : (
-            <MemberRole id={id} />
+            <span className="text-sm text-muted-foreground">{member.role}</span>
           )}
-        </Row>
-      ))}
+          {canManage && (
+            <Button
+              variant="outline"
+              size="compact"
+              disabled={action.pending}
+              onClick={async () => {
+                const yes = await confirm({
+                  title: `Remove ${member.name}?`,
+                  description:
+                    "Workspace access will be revoked. Transfer their open tasks and schedules first.",
+                  action: "Remove",
+                  destructive: true,
+                });
+                if (yes)
+                  await action.perform(async () => {
+                    await read(
+                      await api.members[":userId"].$delete({
+                        param: { workspaceId, userId: member.userId },
+                      }),
+                    );
+                    if (member.userId === user.id)
+                      await queryClient.invalidateQueries({
+                        queryKey: ["workspaces"],
+                      });
+                  }, "Member removed");
+              }}
+            >
+              Remove
+            </Button>
+          )}
+        </div>
+        <SaveState {...action} />
+      </div>
+    </Row>
+  );
+}
+const roleOptions = {
+  admin: "Admin",
+  contributor: "Contributor",
+  viewer: "Viewer",
+};
+function InviteMember({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { api, workspaceId, workspace } = useWorkspace();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "contributor" | "viewer">(
+    "contributor",
+  );
+  const [result, setResult] = useState<{
+    id: string;
+    delivery: string;
+    email: string;
+  } | null>(null);
+  const action = useSettingsAction();
+  return (
+    <>
+      {result && (
+        <Group title="Created invitation">
+          <Row
+            title={result.email}
+            description={`Delivery: ${result.delivery}. Invitation ID: ${result.id}`}
+          />
+        </Group>
+      )}
+      <SettingsDialog
+        title="Invite member"
+        description="The recipient must sign in with this email and verify it before accepting."
+        open={open}
+        onOpenChange={onOpenChange}
+        pending={action.pending}
+        error={action.error}
+        submitLabel="Invite"
+        onSubmit={async () => {
+          if (
+            await action.perform(async () => {
+              const invitation = await read(
+                await api.invitations.$post({
+                  param: { workspaceId },
+                  json: { email: email.trim(), role },
+                }),
+              );
+              setResult(invitation);
+            }, "Invitation created")
+          ) {
+            setEmail("");
+            onOpenChange(false);
+          }
+        }}
+      >
+        <SettingsField
+          label="Email"
+          type="email"
+          required
+          maxLength={254}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+        <Field>
+          <FieldLabel>Role</FieldLabel>
+          <Choice
+            label="Invitation role"
+            value={role}
+            options={
+              workspace.role === "owner"
+                ? roleOptions
+                : { contributor: "Contributor", viewer: "Viewer" }
+            }
+            onChange={setRole}
+          />
+        </Field>
+      </SettingsDialog>
+    </>
+  );
+}
+function InvitationActions() {
+  const { api, workspaceId } = useWorkspace();
+  const [id, setId] = useState("");
+  const [delivery, setDelivery] = useState<string>();
+  const action = useSettingsAction();
+  const confirm = useConfirm();
+  const valid =
+    /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(id);
+  return (
+    <Group
+      title="Invitations"
+      description="Saved invitation lists are not available. Use an invitation ID from the creation receipt."
+    >
+      <Row title="Invitation ID">
+        <SettingsField
+          label="Invitation ID"
+          value={id}
+          onChange={(event) => {
+            setId(event.target.value.trim());
+            setDelivery(undefined);
+          }}
+        />
+      </Row>
+      <Row
+        title="Delivery"
+        description={
+          delivery
+            ? `Delivery: ${delivery}`
+            : "Resend is explicit; uncertain delivery may already have sent an email."
+        }
+      >
+        <Button
+          variant="outline"
+          size="compact"
+          disabled={!valid || action.pending}
+          onClick={() =>
+            action.perform(async () => {
+              const result = await read(
+                await api.invitations[":id"].send.$post({
+                  param: { workspaceId, id },
+                }),
+              );
+              setDelivery(result.delivery);
+            })
+          }
+        >
+          Resend
+        </Button>
+        <Button
+          variant="outline"
+          size="compact"
+          disabled={!valid || action.pending}
+          onClick={async () => {
+            const yes = await confirm({
+              title: "Revoke invitation?",
+              description: "The recipient will no longer be able to accept it.",
+              action: "Revoke",
+              destructive: true,
+            });
+            if (yes)
+              await action.perform(
+                async () =>
+                  read(
+                    await api.invitations[":id"].$patch({
+                      param: { workspaceId, id },
+                      json: { status: "revoked" },
+                    }),
+                  ),
+                "Invitation revoked",
+              );
+          }}
+        >
+          Revoke
+        </Button>
+      </Row>
+      <SaveState {...action} />
     </Group>
   );
 }
-
-// A member's role, saved like every setting (the 800ms autosave and its
-// toast).
-function MemberRole({ id }: { id: string }) {
-  const role = useAutosave(memberRoles[id] ?? "member", (next) => {
-    memberRoles[id] = next;
-  });
+function AcceptInvitation() {
+  const { selectWorkspace } = useWorkspace();
+  const queryClient = useQueryClient();
+  const [id, setId] = useState("");
+  const action = useSettingsAction();
+  const valid =
+    /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(id);
   return (
-    <Choice
-      label="Role"
-      value={role.value}
-      options={{ admin: "Admin", member: "Member" }}
-      onChange={role.change}
-    />
+    <Group title="Accept invitation">
+      <Row
+        title="Invitation ID"
+        description="Use the ID sent to your verified email."
+      >
+        <SettingsField
+          label="Accept invitation ID"
+          value={id}
+          onChange={(event) => setId(event.target.value.trim())}
+        />
+        <Button
+          variant="outline"
+          size="compact"
+          disabled={!valid || action.pending}
+          onClick={() =>
+            action.perform(async () => {
+              const result = await read(
+                await client.invitations[":id"].accept.$post({ param: { id } }),
+              );
+              await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+              selectWorkspace(result.workspaceId);
+            }, "Invitation accepted")
+          }
+        >
+          Accept
+        </Button>
+      </Row>
+      <SaveState {...action} />
+    </Group>
   );
 }
-
 const bodies: Record<SettingsSection, () => ReactNode> = {
   profile: ProfileSettings,
   notifications: NotificationSettings,
