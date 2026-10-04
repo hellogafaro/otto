@@ -1,5 +1,5 @@
 import * as agentsSchema from "@otto/agents/schema";
-import * as conversationsSchema from "@otto/conversations/schema";
+import * as chatsSchema from "@otto/chats/schema";
 import * as environmentsSchema from "@otto/environments/schema";
 import * as subscriptionsSchema from "@otto/subscriptions/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
@@ -22,7 +22,7 @@ export const sessions = pgTable(
       .$defaultFn(() => new Date())
       .$onUpdate(() => new Date()),
     workspaceId: uuid().notNull(),
-    conversationId: uuid().notNull(),
+    chatId: uuid().notNull(),
     agentId: uuid().notNull(),
     environmentId: uuid().notNull(),
     environmentGeneration: integer().notNull(),
@@ -41,12 +41,9 @@ export const sessions = pgTable(
       foreignColumns: [workspacesSchema.workspaces.id],
     }),
     foreignKey({
-      name: "agent_sessions_conversationId_workspace_fk",
-      columns: [t.conversationId, t.workspaceId],
-      foreignColumns: [
-        conversationsSchema.conversations.id,
-        conversationsSchema.conversations.workspaceId,
-      ],
+      name: "agent_sessions_chatId_workspace_fk",
+      columns: [t.chatId, t.workspaceId],
+      foreignColumns: [chatsSchema.chats.id, chatsSchema.chats.workspaceId],
     }),
     foreignKey({
       name: "agent_sessions_agentId_workspace_fk",

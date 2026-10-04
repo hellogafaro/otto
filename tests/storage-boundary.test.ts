@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { createS3Storage } from "../packages/artifacts/src/storage";
+import { createS3Storage } from "../packages/files/src/storage";
 
 const hash = (bytes: Uint8Array) =>
   createHash("sha256").update(bytes).digest("hex");

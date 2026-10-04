@@ -1,6 +1,6 @@
 # Otto
 
-Otto combines flat project tasks, shared conversations, documents, saved outputs and native coding agents. This is a fresh Bun application. Product contracts and research live in [docs/otto](docs/otto/README.md).
+Otto combines flat project tasks, shared chats, documents, saved outputs and native coding agents. This is a fresh Bun application. Product contracts and research live in [docs/otto](docs/otto/README.md).
 
 - `apps/web`: generated React/Vite/shadcn app, preset `bIkg4yR`, pointer cursor enabled.
 - `apps/server`: Bun/Hono server and Better Auth composition.

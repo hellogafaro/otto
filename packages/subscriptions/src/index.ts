@@ -1,20 +1,27 @@
 import {
+  authorizedPage,
+  matchesText,
+  pageOf,
+  sortNames,
+  sortPlan,
+  textKey,
+  timeKey,
+} from "@otto/db";
+import {
   DomainError,
-  filterPage,
-  getPage,
   type PageOptions,
   parseInput,
-  parsePageOptions,
   required,
 } from "@otto/shared";
 import {
   advanceCursor,
   type Context,
+  creatorIsMember,
   requireHuman,
   requireMember,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, gt, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { subscriptions } from "./schema";
 
@@ -83,11 +90,35 @@ export async function getSubscription(c: Context, id: string) {
     throw new DomainError("forbidden");
   return row;
 }
-export async function getSubscriptions(c: Context, options: PageOptions = {}) {
+const subscriptionSorts = {
+  title: textKey(subscriptions.title),
+  createdAt: timeKey(subscriptions.createdAt),
+  updatedAt: timeKey(subscriptions.updatedAt),
+};
+export const SUBSCRIPTION_SORTS = sortNames(subscriptionSorts);
+/** Filters narrow only readable Subscriptions; the gateway account behind one is never filterable or returned. */
+export async function getSubscriptions(
+  c: Context,
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
+    status?: (typeof subscriptions.$inferSelect)["status"];
+    provider?: (typeof subscriptions.$inferSelect)["provider"];
+    visibility?: "user" | "workspace";
+    createdBy?: string;
+    query?: string;
+  } = {},
+) {
   requireHuman(c);
-  const { after, limit } = parsePageOptions(options);
+  const plan = sortPlan({
+    operation: "getSubscriptions",
+    scope: c,
+    filter,
+    keys: subscriptionSorts,
+    id: subscriptions.id,
+  });
   const rows = await c.tx
-    .select({ id: subscriptions.id })
+    .select({ id: subscriptions.id, position: plan.position })
     .from(subscriptions)
     .where(
       and(
@@ -96,14 +127,29 @@ export async function getSubscriptions(c: Context, options: PageOptions = {}) {
           eq(subscriptions.createdBy, c.actor.userId),
           eq(subscriptions.visibility, "workspace"),
         ),
-        after ? gt(subscriptions.id, after) : undefined,
+        creatorIsMember(c, subscriptions.createdBy),
+        filter.status ? eq(subscriptions.status, filter.status) : undefined,
+        filter.provider
+          ? eq(subscriptions.provider, filter.provider)
+          : undefined,
+        filter.visibility
+          ? eq(subscriptions.visibility, filter.visibility)
+          : undefined,
+        filter.createdBy
+          ? eq(subscriptions.createdBy, filter.createdBy)
+          : undefined,
+        filter.query
+          ? matchesText(subscriptions.title, filter.query)
+          : undefined,
+        plan.where,
       ),
     )
-    .orderBy(subscriptions.id)
-    .limit(limit + 1);
-  return filterPage(
-    getPage(rows, (row) => row.id, limit),
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return authorizedPage(
+    pageOf(rows, plan, (row) => row.id),
     (row) => getSubscription(c, row.id),
+    plan,
   );
 }
 /** Human edits may revoke or request fresh verification, never assert gateway qualification. */

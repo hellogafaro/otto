@@ -1,17 +1,12 @@
-import { type ArtifactStorage, createArtifact } from "@otto/artifacts";
-import { validateAutomation } from "@otto/automations";
+import { createMessage, getChat, getMessages } from "@otto/chats";
 import { getOperation } from "@otto/connections";
-import {
-  createMessage,
-  getConversation,
-  getMessages,
-} from "@otto/conversations";
 import type { Database } from "@otto/db";
 import {
   getDocument,
   getDocumentAudience,
   proposeDocumentChange,
 } from "@otto/documents";
+import { createFile, type FileStorage } from "@otto/files";
 import { getProjectAudience } from "@otto/projects";
 import {
   authorizePeerRun,
@@ -26,6 +21,7 @@ import {
   assertRunAttempt,
   withRunAttempt,
 } from "@otto/runs/runtime";
+import { validateSchedule } from "@otto/schedules";
 import { DomainError, required } from "@otto/shared";
 import { getSkill, getSkillAudience, proposeSkillChange } from "@otto/skills";
 
@@ -73,7 +69,7 @@ const toolInput = z.discriminatedUnion("name", [
     .strict(),
   z
     .object({
-      name: z.literal("artifact.create"),
+      name: z.literal("file.create"),
       requestId: z.uuid(),
       title: z.string().min(1).max(200),
       type: z.string().min(1).max(50),
@@ -108,7 +104,7 @@ const toolInput = z.discriminatedUnion("name", [
     .strict(),
   z
     .object({
-      name: z.literal("conversation.read"),
+      name: z.literal("chat.read"),
       after: z.number().int().nonnegative().default(0),
     })
     .strict(),
@@ -141,7 +137,7 @@ export function createRunTools(
   boss: PgBoss,
   options: {
     connections?: ConnectionOptions;
-    storage?: ArtifactStorage;
+    storage?: FileStorage;
     pi?: PiInstallation;
   } = {},
 ) {
@@ -156,7 +152,7 @@ export function createRunTools(
         db,
         attempt,
         (c, run) => authorizePeerRun(c, run.id, input.agentId),
-        validateAutomation,
+        validateSchedule,
       );
       const pi = await prepareRunModel(
         db,
@@ -174,7 +170,7 @@ export function createRunTools(
         db,
         attempt,
         (c, run) => requestPeerRun(c, boss, run.id, input, pi),
-        validateAutomation,
+        validateSchedule,
       );
     }
     if (input.name === "human.ask") {
@@ -182,7 +178,7 @@ export function createRunTools(
         db,
         attempt,
         (c, run) => createRunQuestion(c, run.id, input),
-        validateAutomation,
+        validateSchedule,
       );
       const deadline = Date.now() + 300000;
       while (Date.now() < deadline) {
@@ -191,16 +187,16 @@ export function createRunTools(
           db,
           attempt,
           (c) => getRunQuestion(c, question.id),
-          validateAutomation,
+          validateSchedule,
         );
         if (current.answer !== null) return { answer: current.answer };
         await Bun.sleep(250);
       }
       throw new DomainError("unavailable", "Human answer deadline");
     }
-    if (input.name === "artifact.create") {
+    if (input.name === "file.create") {
       if (!options.storage)
-        throw new DomainError("unavailable", "Artifact storage unavailable");
+        throw new DomainError("unavailable", "File storage unavailable");
       const scope = await withRunAttempt(
         db,
         attempt,
@@ -209,19 +205,19 @@ export function createRunTools(
           actor: c.actor,
           environmentGeneration: run.environmentGeneration,
         }),
-        validateAutomation,
+        validateSchedule,
       );
-      const { name: _name, text, ...artifact } = input;
-      return createArtifact(
+      const { name: _name, text, ...file } = input;
+      return createFile(
         db,
         options.storage,
         scope.workspaceId,
         scope.actor,
-        { ...artifact, sourceRunId: attempt.runId },
+        { ...file, sourceRunId: attempt.runId },
         new TextEncoder().encode(text),
         async (c, sourceRunId) => {
           if (sourceRunId !== attempt.runId) throw new DomainError("forbidden");
-          const run = await assertRunAttempt(c, attempt, validateAutomation);
+          const run = await assertRunAttempt(c, attempt, validateSchedule);
           if (run.environmentGeneration !== scope.environmentGeneration)
             throw new DomainError("forbidden", "Execution generation changed");
         },
@@ -236,7 +232,7 @@ export function createRunTools(
           sponsorId: c.actor.userId,
           environmentGeneration: run.environmentGeneration,
         }),
-        validateAutomation,
+        validateSchedule,
       );
       if (input.name === "skill.read") {
         if (!options.storage)
@@ -247,7 +243,7 @@ export function createRunTools(
           skillId: input.skillId,
           path: input.path,
         });
-        await withRunAttempt(db, attempt, async () => {}, validateAutomation);
+        await withRunAttempt(db, attempt, async () => {}, validateSchedule);
         return { base64: Buffer.from(bytes).toString("base64") };
       }
       if (!options.connections)
@@ -276,7 +272,7 @@ export function createRunTools(
         signal.throwIfAborted();
         if (Date.now() >= deadline)
           throw new DomainError("unavailable", "Operation approval deadline");
-        await withRunAttempt(db, attempt, async () => {}, validateAutomation);
+        await withRunAttempt(db, attempt, async () => {}, validateSchedule);
         if (operation.state === "approved")
           operation = await service.executeOperation(operation.id);
         if (
@@ -304,7 +300,7 @@ export function createRunTools(
           false,
         );
       }
-      await withRunAttempt(db, attempt, async () => {}, validateAutomation);
+      await withRunAttempt(db, attempt, async () => {}, validateSchedule);
       return operation;
     }
     return withRunAttempt(
@@ -312,37 +308,30 @@ export function createRunTools(
       attempt,
       async (c, run) => {
         switch (input.name) {
-          case "conversation.read":
-            return getMessages(c, run.conversationId, input.after);
+          case "chat.read":
+            return getMessages(c, run.chatId, input.after);
           case "message.create":
-            return createMessage(c, run.conversationId, input);
+            return createMessage(c, run.chatId, input);
           case "task.create": {
-            const conversation = await getConversation(
-              c,
-              run.conversationId,
-              true,
-            );
-            if (!conversation.projectId)
+            const chat = await getChat(c, run.chatId, true);
+            if (!chat.projectId)
               throw new DomainError(
                 "invalid",
                 "Task requires the accepted Project",
               );
-            const audience = await getProjectAudience(
-              c,
-              conversation.projectId,
-            );
+            const audience = await getProjectAudience(c, chat.projectId);
             if (audience.some((id) => !run.inputs.audience.humans.includes(id)))
               throw new DomainError(
                 "forbidden",
                 "Task publication widens the Run audience",
               );
             const task = await createTask(c, {
-              projectId: conversation.projectId,
+              projectId: chat.projectId,
               title: input.title,
               notes: input.notes,
               ownerId: run.sponsorId,
             });
-            await createMessage(c, run.conversationId, {
+            await createMessage(c, run.chatId, {
               requestId: crypto.randomUUID(),
               body: `Created Task ${task.id}: ${task.title}`,
             });
@@ -360,7 +349,7 @@ export function createRunTools(
             if (run.inputs.audience.humans.some((id) => !audience.includes(id)))
               throw new DomainError("forbidden", "Task audience mismatch");
             if (input.name === "task.proposeCompletion")
-              return createMessage(c, run.conversationId, {
+              return createMessage(c, run.chatId, {
                 requestId: input.requestId,
                 body: `Proposed completion of ${task.id}: ${input.body}`,
               });
@@ -439,7 +428,7 @@ export function createRunTools(
           }
         }
       },
-      validateAutomation,
+      validateSchedule,
     );
   };
 }

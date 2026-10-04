@@ -1,17 +1,12 @@
-import { getConversation } from "@otto/conversations";
-import {
-  DomainError,
-  getPage,
-  type PageOptions,
-  parsePageOptions,
-  required,
-} from "@otto/shared";
+import { getChat } from "@otto/chats";
+import { pageOf, sortNames, sortPlan, timeKey } from "@otto/db";
+import { DomainError, type PageOptions, required } from "@otto/shared";
 
 import type { Context } from "@otto/workspaces";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { sessions } from "./schema";
 export interface SessionBinding {
-  conversationId: string;
+  chatId: string;
   agentId: string;
   environmentId: string;
   environmentGeneration: number;
@@ -22,7 +17,7 @@ export interface SessionBinding {
   accountId: string;
   subscriptionId: string | null;
 }
-/** Private Pi bindings have no browser read endpoint and are not shared conversation history. */
+/** Private Pi bindings have no browser read endpoint and are not shared chat history. */
 export async function createSession(c: Context, binding: SessionBinding) {
   return required(
     (
@@ -40,7 +35,7 @@ export async function requireSession(
 ) {
   const session = await getSessionContext(c, id);
   if (
-    session.conversationId !== binding.conversationId ||
+    session.chatId !== binding.chatId ||
     session.agentId !== binding.agentId ||
     session.environmentId !== binding.environmentId ||
     session.environmentGeneration !== binding.environmentGeneration ||
@@ -79,30 +74,47 @@ export async function bindSessionContext(
   await c.tx.update(sessions).set({ contextRef }).where(eq(sessions.id, id));
 }
 
-/** Authorizes the Conversation and exposes metadata only; native context/provider references remain private. */
+const sessionSorts = {
+  createdAt: timeKey(sessions.createdAt),
+  updatedAt: timeKey(sessions.updatedAt),
+};
+export const SESSION_SORTS = sortNames(sessionSorts);
+/** Authorizes the Chat and exposes metadata only; native context/provider references remain private. */
 export async function getSessions(
   c: Context,
-  conversationId: string,
-  options: PageOptions = {},
+  chatId: string,
+  options: PageOptions & {
+    sort?: string;
+    order?: string;
+    agentId?: string;
+  } = {},
 ) {
-  const { after, limit } = parsePageOptions(options);
-  await getConversation(c, conversationId);
+  const plan = sortPlan({
+    operation: `getSessions:${chatId}`,
+    scope: c,
+    filter: options,
+    keys: sessionSorts,
+    id: sessions.id,
+  });
+  await getChat(c, chatId);
   const items = await c.tx
     .select({
       id: sessions.id,
       agentId: sessions.agentId,
-      conversationId: sessions.conversationId,
+      chatId: sessions.chatId,
       createdAt: sessions.createdAt,
+      position: plan.position,
     })
     .from(sessions)
     .where(
       and(
         eq(sessions.workspaceId, c.workspaceId),
-        eq(sessions.conversationId, conversationId),
-        after ? gt(sessions.id, after) : undefined,
+        eq(sessions.chatId, chatId),
+        options.agentId ? eq(sessions.agentId, options.agentId) : undefined,
+        plan.where,
       ),
     )
-    .orderBy(sessions.id)
-    .limit(limit + 1);
-  return getPage(items, (row) => row.id, limit);
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return pageOf(items, plan, (row) => row.id);
 }

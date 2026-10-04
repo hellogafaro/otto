@@ -20,6 +20,31 @@ const stateSchema = z.object({
   isCompacting: z.literal(false),
   pendingMessageCount: z.literal(0),
 });
+const tokenUsageSchema = z.object({
+  input: z.number().int().nonnegative(),
+  output: z.number().int().nonnegative(),
+  cacheRead: z.number().int().nonnegative(),
+  cacheWrite: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative(),
+});
+const compactionEndSchema = z
+  .object({
+    result: z.object({ usage: tokenUsageSchema.optional() }).optional(),
+  })
+  .passthrough();
+/**
+ * Pi emits exactly one compaction_end without a compaction_start: overflow recovery was already attempted, so no
+ * summary request was made (`_checkCompaction`, Pi 1.0.0). It is a notification, never a receipt.
+ */
+const unstartedCompactionEndSchema = z
+  .object({
+    reason: z.literal("overflow"),
+    result: z.never().optional(),
+    aborted: z.literal(false),
+    willRetry: z.literal(false),
+    errorMessage: z.string().min(1),
+  })
+  .passthrough();
 const assistantSchema = z.object({
   role: z.literal("assistant"),
   provider: id,
@@ -34,15 +59,7 @@ const assistantSchema = z.object({
     "aborted",
     "deferred",
   ]),
-  usage: z
-    .object({
-      input: z.number().int().nonnegative(),
-      output: z.number().int().nonnegative(),
-      cacheRead: z.number().int().nonnegative(),
-      cacheWrite: z.number().int().nonnegative(),
-      totalTokens: z.number().int().nonnegative(),
-    })
-    .optional(),
+  usage: tokenUsageSchema.optional(),
 });
 export interface PiUsage {
   sequence: number;
@@ -102,7 +119,9 @@ export function connectPi(
   let outcome: PiOutcome | undefined;
   let lastStopReason: z.infer<typeof assistantSchema>["stopReason"] | undefined;
   let usageSequence = 0;
+  let openSequence = 0;
   let assistantOpen = false;
+  let compacting = false;
   const finalMessages: { message: Record<string, unknown>; usage: PiUsage }[] =
     [];
   let outputBytes = 0;
@@ -243,9 +262,43 @@ export function connectPi(
     )
       throw new DomainError("forbidden", "Pi model changed; no fallback");
   };
+  const usageOf = (
+    sequence: number,
+    provider: string,
+    model: string,
+    tokens: z.infer<typeof tokenUsageSchema> | undefined,
+  ): PiUsage => ({
+    sequence,
+    provider,
+    model,
+    inputTokens: tokens?.input ?? null,
+    outputTokens: tokens?.output ?? null,
+    cacheReadTokens: tokens?.cacheRead ?? null,
+    cacheWriteTokens: tokens?.cacheWrite ?? null,
+    totalTokens: tokens?.totalTokens ?? null,
+  });
+  /**
+   * A compaction summary is a model request on the accepted account that never appears as an assistant
+   * message. It takes the next receipt sequence; unreported counts stay null rather than inferred.
+   */
+  const recordSummaryRequest = (
+    tokens: z.infer<typeof tokenUsageSchema> | undefined,
+  ) => {
+    if (!compacting || !selectedModel || assistantOpen)
+      throw unavailable("Uncorrelated Pi compaction");
+    if (usageSequence >= 1024) throw unavailable("Pi usage message limit");
+    const usage = usageOf(
+      ++usageSequence,
+      selectedModel.provider,
+      selectedModel.model,
+      tokens,
+    );
+    if (handlers.onUsage)
+      queueOutput(() => handlers.onUsage?.(usage) ?? Promise.resolve());
+  };
   const finish = () => {
     const terminal = cancelled ? "aborted" : outcome;
-    if (assistantOpen || !ended || !terminal)
+    if (assistantOpen || compacting || !ended || !terminal)
       throw unavailable("Pi settled without terminal outcome");
     if (nativeTools.size)
       throw unavailable("Pi settled with native tools running");
@@ -384,7 +437,7 @@ export function connectPi(
             throw unavailable("Duplicate Pi assistant message");
           if (usageSequence >= 1024)
             throw unavailable("Pi assistant message limit");
-          usageSequence++;
+          openSequence = ++usageSequence;
           assistantOpen = true;
           const assistant = assistantSchema.parse(start.message);
           verifyModel(
@@ -458,16 +511,12 @@ export function connectPi(
         )
           throw unavailable("Unsupported Pi final response");
         lastStopReason = assistant.stopReason;
-        const usage: PiUsage = {
-          sequence: usageSequence,
-          provider: assistant.provider,
-          model: assistant.model,
-          inputTokens: assistant.usage?.input ?? null,
-          outputTokens: assistant.usage?.output ?? null,
-          cacheReadTokens: assistant.usage?.cacheRead ?? null,
-          cacheWriteTokens: assistant.usage?.cacheWrite ?? null,
-          totalTokens: assistant.usage?.totalTokens ?? null,
-        };
+        const usage = usageOf(
+          openSequence,
+          assistant.provider,
+          assistant.model,
+          assistant.usage,
+        );
         finalMessages.push({ message: end.message, usage });
         if (handlers.onUsage)
           queueOutput(() => handlers.onUsage?.(usage) ?? Promise.resolve());
@@ -543,13 +592,32 @@ export function connectPi(
       case "agent_settled":
         finish();
         break;
-      // Private transcript, tool traces and compaction/retry details are never published.
+      case "compaction_start":
+        if (compacting || assistantOpen)
+          throw unavailable("Uncorrelated Pi compaction");
+        compacting = true;
+        break;
+      // Each failed summary request is unmeasured; the final one is the compaction_end below.
+      case "summarization_retry_scheduled":
+        recordSummaryRequest(undefined);
+        break;
+      case "compaction_end": {
+        if (!compacting && !assistantOpen) {
+          if (unstartedCompactionEndSchema.safeParse(message).success) break;
+          throw unavailable("Uncorrelated Pi compaction");
+        }
+        const end = compactionEndSchema.safeParse(message);
+        recordSummaryRequest(end.success ? end.data.result?.usage : undefined);
+        compacting = false;
+        break;
+      }
+      // Private transcript, tool traces and other compaction/retry details are never published.
       case "turn_start":
       case "turn_end":
       case "queue_update":
       case "entry_appended":
-      case "compaction_start":
-      case "compaction_end":
+      case "summarization_retry_attempt_start":
+      case "summarization_retry_finished":
       case "auto_retry_start":
       case "auto_retry_end":
         break;

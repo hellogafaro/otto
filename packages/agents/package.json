@@ -13,6 +13,7 @@
     "drizzle-orm": "0.45.3",
     "@otto/shared": "workspace:*",
     "@otto/subscriptions": "workspace:*",
-    "@otto/skills": "workspace:*"
+    "@otto/skills": "workspace:*",
+    "@otto/db": "workspace:*"
   }
 }

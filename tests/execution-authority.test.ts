@@ -71,7 +71,7 @@ describe("execution authority and retained sources", () => {
       throw new Error(`HTTP ${response.status}: ${await response.text()}`);
     return response.json();
   }
-  async function setup(projectId?: string, role?: "conversation" | "project") {
+  async function setup(projectId?: string, role?: "chat" | "project") {
     const agent = z.object({ agent: record }).parse(
       await post("/agents", {
         projectId,
@@ -83,23 +83,23 @@ describe("execution authority and retained sources", () => {
       }),
     ).agent;
     await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
-    const conversation = record.parse(
-      await post("/conversations", {
+    const chat = record.parse(
+      await post("/chats", {
         title: "Source",
         visibility: "participants",
         projectId,
       }),
     );
-    await post(`/conversations/${conversation.id}/participants`, {
+    await post(`/chats/${chat.id}/participants`, {
       agentId: agent.id,
       role: "contributor",
     });
     if (role)
-      await post(`/conversations/${conversation.id}/participants`, {
+      await post(`/chats/${chat.id}/participants`, {
         userId: viewer.id,
-        role: role === "conversation" ? "viewer" : "contributor",
+        role: role === "chat" ? "viewer" : "contributor",
       });
-    return { agent, conversation };
+    return { agent, chat };
   }
   const saved = async (id: string) =>
     z
@@ -142,7 +142,7 @@ describe("execution authority and retained sources", () => {
     const run = record.parse(
       await post("/runs", {
         agentId: source.agent.id,
-        conversationId: source.conversation.id,
+        chatId: source.chat.id,
         requestId: crypto.randomUUID(),
         type: "prompt",
         body: "finish",
@@ -281,7 +281,7 @@ describe("execution authority and retained sources", () => {
       owner,
       "PATCH",
     );
-    await post(`/conversations/${source.conversation.id}/participants`, {
+    await post(`/chats/${source.chat.id}/participants`, {
       agentId: target.agent.id,
       role: "contributor",
     });
@@ -326,7 +326,7 @@ describe("execution authority and retained sources", () => {
           "PATCH",
         );
       try {
-        await post(`/conversations/${source.conversation.id}/participants`, {
+        await post(`/chats/${source.chat.id}/participants`, {
           agentId: target.agent.id,
           role: "contributor",
         });
@@ -389,7 +389,7 @@ describe("execution authority and retained sources", () => {
     const run = await launch(source, { body: "hold" });
     await expect.poll(async () => (await saved(run.id)).state).toBe("running");
     try {
-      await post(`/conversations/${source.conversation.id}/archive`, {
+      await post(`/chats/${source.chat.id}/archive`, {
         archived: true,
       });
       expect(
@@ -402,7 +402,7 @@ describe("execution authority and retained sources", () => {
       expect(
         (
           await request(
-            `/conversations/${source.conversation.id}/messages`,
+            `/chats/${source.chat.id}/messages`,
             {
               requestId: crypto.randomUUID(),
               body: "Archived contributor discussion",
@@ -415,7 +415,7 @@ describe("execution authority and retained sources", () => {
         200,
       );
       expect((await terminal(run.id)).state).toBe("interrupted");
-      await post(`/conversations/${source.conversation.id}/archive`, {
+      await post(`/chats/${source.chat.id}/archive`, {
         archived: false,
       });
     } finally {
@@ -423,7 +423,7 @@ describe("execution authority and retained sources", () => {
       await terminal(run.id);
     }
   });
-  it.each(["conversation", "project"] as const)(
+  it.each(["chat", "project"] as const)(
     "denies %s viewers control without persisting or delivering it",
     async (role) => {
       const project = record.parse(
@@ -477,7 +477,7 @@ describe("execution authority and retained sources", () => {
             .where(eq(runActivity.runId, run.id)),
         ).toEqual(before);
         await post(`/projects/${project.id}/archive`, { archived: true });
-        await post(`/conversations/${source.conversation.id}/archive`, {
+        await post(`/chats/${source.chat.id}/archive`, {
           archived: true,
           editToken: 0,
         });
@@ -731,11 +731,7 @@ describe("execution authority and retained sources", () => {
       .array(
         z.object({ body: z.string(), authorAgentId: z.string().nullable() }),
       )
-      .parse(
-        await (
-          await request(`/conversations/${source.conversation.id}/messages`)
-        ).json(),
-      );
+      .parse(await (await request(`/chats/${source.chat.id}/messages`)).json());
     expect(messages).toContainEqual(
       expect.objectContaining({
         authorAgentId: source.agent.id,
@@ -894,7 +890,7 @@ describe("execution authority and retained sources", () => {
       const run = record.parse(
         await post("/runs", {
           agentId: source.agent.id,
-          conversationId: source.conversation.id,
+          chatId: source.chat.id,
           requestId: crypto.randomUUID(),
           type: "prompt",
           body: '_tool={"name":"human.ask","body":"Controlled blocked server I/O"}',
@@ -974,7 +970,7 @@ describe("execution authority and retained sources", () => {
         const run = record.parse(
           await post("/runs", {
             agentId: source.agent.id,
-            conversationId: source.conversation.id,
+            chatId: source.chat.id,
             requestId: crypto.randomUUID(),
             type: "prompt",
             body: "hold",
@@ -1018,7 +1014,7 @@ describe("execution authority and retained sources", () => {
           const next = record.parse(
             await post("/runs", {
               agentId: source.agent.id,
-              conversationId: source.conversation.id,
+              chatId: source.chat.id,
               requestId: crypto.randomUUID(),
               type: "prompt",
               body: "hold",
@@ -1074,7 +1070,7 @@ describe("execution authority and retained sources", () => {
       const run = record.parse(
         await post("/runs", {
           agentId: source.agent.id,
-          conversationId: source.conversation.id,
+          chatId: source.chat.id,
           requestId: crypto.randomUUID(),
           type: "prompt",
           body: '_tool={"name":"human.ask","body":"blocked shutdown"}',
@@ -1125,27 +1121,23 @@ describe("execution authority and retained sources", () => {
     const participant = required(
       page
         .parse(
-          await (
-            await request(
-              `/conversations/${source.conversation.id}/participants`,
-            )
-          ).json(),
+          await (await request(`/chats/${source.chat.id}/participants`)).json(),
         )
         .items.find((p) => p.agentId === source.agent.id),
     );
     await post(
-      `/conversations/${source.conversation.id}/participants/${participant.id}`,
+      `/chats/${source.chat.id}/participants/${participant.id}`,
       {},
       owner,
       "DELETE",
     );
-    await post(`/conversations/${source.conversation.id}/participants`, {
+    await post(`/chats/${source.chat.id}/participants`, {
       agentId: source.agent.id,
       role: "viewer",
     });
     const input = {
       agentId: source.agent.id,
-      conversationId: source.conversation.id,
+      chatId: source.chat.id,
       requestId: crypto.randomUUID(),
       type: "prompt",
       body: "hold",
@@ -1161,21 +1153,17 @@ describe("execution authority and retained sources", () => {
     const viewerParticipant = required(
       page
         .parse(
-          await (
-            await request(
-              `/conversations/${source.conversation.id}/participants`,
-            )
-          ).json(),
+          await (await request(`/chats/${source.chat.id}/participants`)).json(),
         )
         .items.find((p) => p.agentId === source.agent.id),
     );
     await post(
-      `/conversations/${source.conversation.id}/participants/${viewerParticipant.id}`,
+      `/chats/${source.chat.id}/participants/${viewerParticipant.id}`,
       {},
       owner,
       "DELETE",
     );
-    await post(`/conversations/${source.conversation.id}/participants`, {
+    await post(`/chats/${source.chat.id}/participants`, {
       agentId: source.agent.id,
       role: "contributor",
     });
@@ -1184,21 +1172,17 @@ describe("execution authority and retained sources", () => {
     const current = required(
       page
         .parse(
-          await (
-            await request(
-              `/conversations/${source.conversation.id}/participants`,
-            )
-          ).json(),
+          await (await request(`/chats/${source.chat.id}/participants`)).json(),
         )
         .items.find((p) => p.agentId === source.agent.id),
     );
     await post(
-      `/conversations/${source.conversation.id}/participants/${current.id}`,
+      `/chats/${source.chat.id}/participants/${current.id}`,
       {},
       owner,
       "DELETE",
     );
-    await post(`/conversations/${source.conversation.id}/participants`, {
+    await post(`/chats/${source.chat.id}/participants`, {
       agentId: source.agent.id,
       role: "viewer",
     });
@@ -1260,7 +1244,7 @@ describe("execution authority and retained sources", () => {
   it("denies a directed Pi request to a viewer Agent without creating child work", async () => {
     const source = await setup();
     const target = await setup();
-    await post(`/conversations/${source.conversation.id}/participants`, {
+    await post(`/chats/${source.chat.id}/participants`, {
       agentId: target.agent.id,
       role: "viewer",
     });
@@ -1314,7 +1298,7 @@ describe("execution authority and retained sources", () => {
         const run = record.parse(
           await post("/runs", {
             agentId: source.agent.id,
-            conversationId: source.conversation.id,
+            chatId: source.chat.id,
             requestId: crypto.randomUUID(),
             type: "script",
             body: "hold",

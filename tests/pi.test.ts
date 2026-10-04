@@ -834,6 +834,220 @@ test("exact final message replay reuses its original sequence and conflicting re
   await p.client.close();
 });
 
+// Lines below are verbatim from the published Pi 1.0.0 CLI over RPC against a controlled Responses peer
+// (automatic threshold compaction; summary retries after a 500). Only the long opaque summary text was shortened.
+const nativeCompactionStart = { type: "compaction_start", reason: "threshold" };
+const nativeCompactionEnd = {
+  type: "compaction_end",
+  reason: "threshold",
+  result: {
+    summary: "SUMMARY",
+    firstKeptEntryId: "65d9884f",
+    tokensBefore: 19505,
+    estimatedTokensAfter: 1055,
+    usage: {
+      input: 400,
+      output: 7,
+      cacheRead: 100,
+      cacheWrite: 0,
+      reasoning: 0,
+      totalTokens: 507,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+    details: { readFiles: [], modifiedFiles: [] },
+  },
+  aborted: false,
+  willRetry: false,
+};
+const nativeSummaryRetry = {
+  type: "summarization_retry_scheduled",
+  attempt: 1,
+  maxAttempts: 3,
+  delayMs: 2000,
+  errorMessage: "codex API error (500): 500 boom",
+};
+const nativeCompactionFailed = {
+  type: "compaction_end",
+  reason: "threshold",
+  aborted: false,
+  willRetry: false,
+  errorMessage:
+    "Auto-compaction failed: Summarization failed: codex API error (500): 500 boom",
+};
+function messageThen(p: ReturnType<typeof peer>, ...events: unknown[]) {
+  p.emit(
+    { type: "message_start", message: assistant("pending") },
+    { type: "message_end", message: assistant("stop", usage) },
+    { type: "agent_end", messages: [assistant()], willRetry: false },
+    ...events,
+  );
+}
+
+test("native automatic compaction summary is one extra receipt after the message, never colliding with its sequence", async () => {
+  const p = peer();
+  const { done } = await p.start();
+  messageThen(p, nativeCompactionStart, nativeCompactionEnd, {
+    type: "agent_settled",
+  });
+  expect(await done).toBe("finished");
+  expect(p.usages).toEqual([
+    {
+      sequence: 1,
+      provider: "controlled",
+      model: "exact",
+      inputTokens: 2,
+      outputTokens: 3,
+      cacheReadTokens: 4,
+      cacheWriteTokens: 5,
+      totalTokens: 14,
+    },
+    {
+      sequence: 2,
+      provider: "controlled",
+      model: "exact",
+      inputTokens: 400,
+      outputTokens: 7,
+      cacheReadTokens: 100,
+      cacheWriteTokens: 0,
+      totalTokens: 507,
+    },
+  ]);
+  await p.client.close();
+});
+
+test("native summary failure and retries record unmeasured requests, never inferred counts", async () => {
+  const p = peer();
+  const { done } = await p.start();
+  messageThen(
+    p,
+    nativeCompactionStart,
+    nativeSummaryRetry,
+    {
+      type: "summarization_retry_attempt_start",
+      source: "compaction",
+      reason: "threshold",
+    },
+    nativeSummaryRetry,
+    { type: "summarization_retry_finished" },
+    nativeCompactionFailed,
+    { type: "agent_settled" },
+  );
+  expect(await done).toBe("finished");
+  expect(p.usages.map((u) => [u.sequence, u.totalTokens])).toEqual([
+    [1, 14],
+    [2, null],
+    [3, null],
+    [4, null],
+  ]);
+  expect(
+    p.usages
+      .slice(1)
+      .every((u) => u.inputTokens === null && u.outputTokens === null),
+  ).toBe(true);
+  await p.client.close();
+});
+
+test("an interrupted compaction records one unmeasured request and the human stop outcome", async () => {
+  const p = peer();
+  const { done } = await p.start();
+  messageThen(p, nativeCompactionStart);
+  await tick();
+  const cancelled = p.client.cancel();
+  await tick();
+  p.emit(
+    {
+      type: "compaction_end",
+      reason: "threshold",
+      aborted: true,
+      willRetry: false,
+    },
+    { type: "agent_settled" },
+  );
+  await cancelled;
+  expect(await done).toBe("aborted");
+  expect(p.usages.map((u) => [u.sequence, u.totalTokens])).toEqual([
+    [1, 14],
+    [2, null],
+  ]);
+  await p.client.close();
+});
+
+// Verbatim from the published Pi 1.0.0 CLI after its one compact-and-retry already ran (evidence overflow-wire.txt):
+// a terminal notification with no compaction_start, because no summary request was made.
+const nativeOverflowRecoveryFailed = {
+  type: "compaction_end",
+  reason: "overflow",
+  aborted: false,
+  willRetry: false,
+  errorMessage:
+    "Context overflow recovery failed after one compact-and-retry attempt. Try reducing context or switching to a larger-context model.",
+};
+
+test("native overflow-recovery-failed notification without a start completes the Run and adds no receipt", async () => {
+  const p = peer();
+  const { done } = await p.start();
+  messageThen(
+    p,
+    nativeCompactionStart,
+    nativeCompactionEnd,
+    nativeOverflowRecoveryFailed,
+    { type: "agent_settled" },
+  );
+  expect(await done).toBe("finished");
+  expect(p.usages.map((u) => [u.sequence, u.totalTokens])).toEqual([
+    [1, 14],
+    [2, 507],
+  ]);
+  await p.client.close();
+});
+
+test.each([
+  ["a result", { result: nativeCompactionEnd.result }],
+  ["an aborted flag", { aborted: true }],
+  ["a retry", { willRetry: true }],
+  ["another reason", { reason: "threshold" }],
+  ["no message", { errorMessage: undefined }],
+])(
+  "an unstarted compaction end with %s is not the legitimate notification",
+  async (_name, change) => {
+    const p = peer();
+    const { done } = await p.start();
+    void done.catch(() => {});
+    messageThen(p, { ...nativeOverflowRecoveryFailed, ...change });
+    await expect(done).rejects.toThrow("compaction");
+    expect(p.usages.map((u) => u.sequence)).toEqual([1]);
+    await expect(p.client.close()).rejects.toThrow("compaction");
+  },
+);
+
+test("duplicate or uncorrelated native compaction events fail closed without another receipt", async () => {
+  const duplicate = peer();
+  const first = await duplicate.start();
+  void first.done.catch(() => {});
+  messageThen(
+    duplicate,
+    nativeCompactionStart,
+    nativeCompactionEnd,
+    nativeCompactionEnd,
+  );
+  await expect(first.done).rejects.toThrow("compaction");
+  expect(duplicate.usages.map((u) => u.sequence)).toEqual([1, 2]);
+  await expect(duplicate.client.close()).rejects.toThrow("compaction");
+  const orphan = peer();
+  const second = await orphan.start();
+  void second.done.catch(() => {});
+  orphan.emit(nativeCompactionEnd);
+  await expect(second.done).rejects.toThrow("compaction");
+  expect(orphan.usages).toEqual([]);
+  await expect(orphan.client.close()).rejects.toThrow("compaction");
+  const nested = peer();
+  const third = await nested.start();
+  void third.done.catch(() => {});
+  nested.emit(nativeCompactionStart, nativeCompactionStart);
+  await expect(third.done).rejects.toThrow("compaction");
+  await expect(nested.client.close()).rejects.toThrow("compaction");
+});
+
 test("approved native computer tool events stay private and cannot impersonate the scoped bridge", async () => {
   const p = peer();
   const { done } = await p.start();

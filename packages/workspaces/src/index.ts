@@ -1,13 +1,16 @@
-import type { Database, Transaction } from "@otto/db";
 import {
-  DomainError,
-  getPage,
-  type PageOptions,
-  parsePageOptions,
-  required,
-} from "@otto/shared";
+  type CursorCodec,
+  type Database,
+  matchesText,
+  pageOf,
+  sortNames,
+  sortPlan,
+  type Transaction,
+  textKey,
+} from "@otto/db";
+import { DomainError, type PageOptions, required } from "@otto/shared";
 
-import { and, eq, gt, sql } from "drizzle-orm";
+import { type AnyColumn, and, eq, sql } from "drizzle-orm";
 import { invitations, members, setup, users, workspaces } from "./schema";
 
 export interface Actor {
@@ -19,6 +22,8 @@ export interface Context {
   workspaceId: string;
   actor: Actor;
   role: "owner" | "admin" | "contributor" | "viewer";
+  /** Seals sorted list positions; the API composition supplies it, so a sorted list without it is unavailable. */
+  cursors?: CursorCodec;
 }
 /** Serializes workspace mutations and cursor advancement with permission changes. No network I/O belongs in this transaction. */
 export async function inWorkspace<T>(
@@ -27,6 +32,7 @@ export async function inWorkspace<T>(
   actor: Actor,
   fn: (context: Context) => Promise<T>,
   write = true,
+  cursors?: CursorCodec,
 ): Promise<T> {
   return db.transaction(async (tx) => {
     required(
@@ -52,7 +58,7 @@ export async function inWorkspace<T>(
       )[0],
       "forbidden",
     );
-    return fn({ tx, workspaceId, actor, role: member.role });
+    return fn({ tx, workspaceId, actor, role: member.role, cursors });
   });
 }
 export function requireHuman(c: Context) {
@@ -105,25 +111,56 @@ export async function claimInstallation(
     return workspace;
   });
 }
+/** SQL form of `requireMember`: the creator still holds a workspace membership. Narrowing only. */
+export const creatorIsMember = (c: Context, userId: AnyColumn) =>
+  sql`exists (select 1 from ${members} where ${members.workspaceId} = ${c.workspaceId} and ${members.userId} = ${userId})`;
+/** Display name for another domain's roster rows (sort and search); never email, credentials or sessions. */
+export const userNameOf = (userId: AnyColumn) =>
+  sql<string>`(select ${users.name} from ${users} where ${users.id} = ${userId})`;
+type Role = (typeof members.$inferSelect)["role"];
+const workspaceSorts = { title: textKey(workspaces.title) };
+export const WORKSPACE_SORTS = sortNames(workspaceSorts);
+/** The caller's own Workspaces; discovery filters narrow only memberships they already hold. */
 export async function getWorkspaces(
   db: Database,
   userId: string,
-  options: PageOptions = {},
+  options: PageOptions & {
+    sort?: string;
+    order?: string;
+    role?: Role;
+    query?: string;
+  } = {},
+  cursors?: CursorCodec,
 ) {
-  const { after, limit } = parsePageOptions(options);
+  const plan = sortPlan({
+    operation: "getWorkspaces",
+    scope: { workspaceId: "", actor: { userId }, cursors },
+    filter: options,
+    keys: workspaceSorts,
+    id: workspaces.id,
+  });
   const rows = await db
-    .select({ id: workspaces.id, title: workspaces.title, role: members.role })
+    .select({
+      id: workspaces.id,
+      title: workspaces.title,
+      role: members.role,
+      position: plan.position,
+    })
     .from(members)
     .innerJoin(workspaces, eq(workspaces.id, members.workspaceId))
     .where(
       and(
         eq(members.userId, userId),
-        after ? gt(workspaces.id, after) : undefined,
+        options.role ? eq(members.role, options.role) : undefined,
+        options.query
+          ? matchesText(workspaces.title, options.query)
+          : undefined,
+        plan.where,
       ),
     )
-    .orderBy(workspaces.id)
-    .limit(limit + 1);
-  return getPage(rows, (row) => row.id, limit);
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return pageOf(rows, plan, (row) => row.id);
 }
 export async function createInvitation(
   c: Context,
@@ -213,7 +250,7 @@ export async function updateInvitation(
     )[0],
   );
 }
-/** The server checks open owned Tasks and Automations before invoking this operation. */
+/** The server checks open owned Tasks and Schedules before invoking this operation. */
 export async function deleteMember(c: Context, userId: string) {
   requireAdmin(c);
   const member = await requireMember(c, userId);
@@ -281,25 +318,49 @@ export async function getWorkspaceAudience(c: Context) {
   return audience.map((row) => row.userId);
 }
 
+const memberSorts = { name: textKey(users.name) };
+export const MEMBER_SORTS = sortNames(memberSorts);
 /** Bounded human member directory; auth account/session data is never returned. */
-export async function getMembers(c: Context, input: PageOptions = {}) {
+export async function getMembers(
+  c: Context,
+  input: PageOptions & {
+    sort?: string;
+    order?: string;
+    role?: Role;
+    query?: string;
+  } = {},
+) {
   requireHuman(c);
-  const { limit } = parsePageOptions(input, "text");
+  const plan = sortPlan({
+    operation: "getMembers",
+    scope: c,
+    filter: input,
+    keys: memberSorts,
+    id: members.userId,
+    idKind: "text",
+  });
   const rows = await c.tx
-    .select({ userId: members.userId, name: users.name, role: members.role })
+    .select({
+      userId: members.userId,
+      name: users.name,
+      role: members.role,
+      position: plan.position,
+    })
     .from(members)
     .innerJoin(users, eq(users.id, members.userId))
     .where(
       and(
         eq(members.workspaceId, c.workspaceId),
-        input.after ? gt(members.userId, input.after) : undefined,
+        input.role ? eq(members.role, input.role) : undefined,
+        input.query ? matchesText(users.name, input.query) : undefined,
+        plan.where,
       ),
     )
-    .orderBy(members.userId)
-    .limit(limit + 1);
-  return getPage(rows, (row) => row.userId, limit);
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return pageOf(rows, plan, (row) => row.userId);
 }
-/** The server checks owned Tasks and Automations before a demotion to viewer. */
+/** The server checks owned Tasks and Schedules before a demotion to viewer. */
 export async function updateMemberRole(
   c: Context,
   userId: string,

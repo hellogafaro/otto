@@ -1,13 +1,13 @@
-import { validateAutomation } from "@otto/automations";
+import { createMessage } from "@otto/chats";
 import type { RunProof } from "@otto/connections";
 import {
   type ConnectionBoundary,
   createConnectionService,
 } from "@otto/connections/server";
-import { createMessage } from "@otto/conversations";
 import type { Database } from "@otto/db";
 import { getRun } from "@otto/runs";
 import { assertRunAttempt } from "@otto/runs/runtime";
+import { validateSchedule } from "@otto/schedules";
 import { DomainError } from "@otto/shared";
 
 import { type Actor, type Context, inWorkspace } from "@otto/workspaces";
@@ -22,7 +22,7 @@ export async function validateConnectionRun(c: Context, proof: RunProof) {
   const run = await assertRunAttempt(
     c,
     { ...proof, agentId: view.agentId },
-    validateAutomation,
+    validateSchedule,
   );
   if (run.environmentGeneration !== proof.environmentGeneration)
     throw new DomainError("forbidden", "Stale Environment");
@@ -55,7 +55,7 @@ export function connectionService(
         );
       await createMessage(
         { ...c, actor: { userId: c.actor.userId, agentId: run.agentId } },
-        run.conversationId,
+        run.chatId,
         { requestId: result.operationId, body },
       );
     },

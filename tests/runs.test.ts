@@ -3,20 +3,9 @@ import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent, getAgent, updateAgent } from "../packages/agents/src";
-import { createArtifact } from "../packages/artifacts/src";
-import {
-  CRON_QUEUE,
-  createAutomation,
-  deliverAutomation,
-  reconcileSchedule,
-  updateAutomation,
-  validateAutomation,
-} from "../packages/automations/src";
-import {
-  createConversation,
-  createParticipant,
-} from "../packages/conversations/src";
+import { createChat, createParticipant } from "../packages/chats/src";
 import { createEnvironment } from "../packages/environments/src";
+import { createFile } from "../packages/files/src";
 import {
   admitRun,
   dispatchRun,
@@ -25,10 +14,19 @@ import {
 } from "../packages/runs/src";
 import { withRunAttempt } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
+import {
+  CRON_QUEUE,
+  createSchedule,
+  deliverSchedule,
+  reconcileSchedule,
+  updateSchedule,
+  validateSchedule,
+} from "../packages/schedules/src";
 import { createSkill, updateSkill } from "../packages/skills/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users, workspaces } from "../packages/workspaces/src/schema";
 import { controlledSubscription, pi } from "./fixtures/pi";
+import { fixtureStorage } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
 describe("real atomic Run and pg-boss admission", () => {
@@ -36,7 +34,7 @@ describe("real atomic Run and pg-boss admission", () => {
   let boss: PgBoss;
   let workspaceId: string;
   let agentId: string;
-  let conversationId: string;
+  let chatId: string;
   let skillId: string;
   const scope = <T>(fn: Parameters<typeof inWorkspace<T>>[3]) =>
     inWorkspace(database.db, workspaceId, { userId: "owner" }, fn);
@@ -64,13 +62,13 @@ describe("real atomic Run and pg-boss admission", () => {
         })
       ).id;
       await createEnvironment(c, agentId);
-      conversationId = (
-        await createConversation(c, {
+      chatId = (
+        await createChat(c, {
           title: "Shared",
           visibility: "workspace",
         })
       ).id;
-      await createParticipant(c, conversationId, {
+      await createParticipant(c, chatId, {
         agentId,
         role: "contributor",
       });
@@ -91,7 +89,7 @@ describe("real atomic Run and pg-boss admission", () => {
   });
   const request = () => ({
     requestId: crypto.randomUUID(),
-    conversationId,
+    chatId,
     agentId,
     type: "prompt" as const,
     body: "Hello",
@@ -166,7 +164,7 @@ describe("real atomic Run and pg-boss admission", () => {
     const input = {
       title: "Nightly",
       agentId,
-      conversationId,
+      chatId,
       type: "script" as const,
       body: "echo hello",
 
@@ -174,11 +172,11 @@ describe("real atomic Run and pg-boss admission", () => {
       timezone: "Europe/Berlin",
       status: "enabled" as const,
     };
-    const automation = await scope((c) => createAutomation(c, boss, input));
-    await reconcileSchedule(database.db, boss, automation.id);
+    const schedule = await scope((c) => createSchedule(c, boss, input));
+    await reconcileSchedule(database.db, boss, schedule.id);
     const schedules = await boss.getSchedules(CRON_QUEUE);
-    expect(schedules.some((s) => s.key === automation.id)).toBe(true);
-    const scheduled = await boss.getSchedule(CRON_QUEUE, automation.id);
+    expect(schedules.some((s) => s.key === schedule.id)).toBe(true);
+    const scheduled = await boss.getSchedule(CRON_QUEUE, schedule.id);
     expect(scheduled?.options?.missed).toBe("skip");
     // Pinned library expression semantics, separate from the elapsed-clock delivery test.
     expect(
@@ -200,15 +198,15 @@ describe("real atomic Run and pg-boss admission", () => {
         .map((d) => d.toISOString()),
     ).toEqual(["2026-10-25T00:30:00.000Z", "2026-10-26T01:30:00.000Z"]);
     const tick = {
-      automationId: automation.id,
+      scheduleId: schedule.id,
       editToken: 0,
       id: crypto.randomUUID(),
     };
-    const first = await deliverAutomation(database.db, boss, tick, pi);
-    expect((await deliverAutomation(database.db, boss, tick, pi)).runId).toBe(
+    const first = await deliverSchedule(database.db, boss, tick, pi);
+    expect((await deliverSchedule(database.db, boss, tick, pi)).runId).toBe(
       first.runId,
     );
-    const next = await deliverAutomation(
+    const next = await deliverSchedule(
       database.db,
       boss,
       {
@@ -226,14 +224,14 @@ describe("real atomic Run and pg-boss admission", () => {
     )[0];
     expect(saved?.sessionId).toBeNull();
     await scope((c) =>
-      updateAutomation(c, boss, automation.id, {
+      updateSchedule(c, boss, schedule.id, {
         ...input,
         status: "disabled" as const,
         editToken: 0,
       }),
     );
     expect(
-      await deliverAutomation(
+      await deliverSchedule(
         database.db,
         boss,
         {
@@ -244,13 +242,11 @@ describe("real atomic Run and pg-boss admission", () => {
       ),
     ).toMatchObject({ outcome: "stale_configuration" });
     expect(
-      await dispatchRun(database.db, first.runId ?? "", validateAutomation),
+      await dispatchRun(database.db, first.runId ?? "", validateSchedule),
     ).toMatchObject({ outcome: "configuration_changed" });
-    await reconcileSchedule(database.db, boss, automation.id);
+    await reconcileSchedule(database.db, boss, schedule.id);
     expect(
-      (await boss.getSchedules(CRON_QUEUE)).some(
-        (s) => s.key === automation.id,
-      ),
+      (await boss.getSchedules(CRON_QUEUE)).some((s) => s.key === schedule.id),
     ).toBe(false);
   });
   it("requires a fresh Session when retained skill scope changes", async () => {
@@ -343,16 +339,16 @@ describe("real atomic Run and pg-boss admission", () => {
     await database.db
       .insert(members)
       .values({ workspaceId, userId: "new-reader", role: "viewer" });
-    const storage = {
+    const storage = fixtureStorage({
       async put() {
         throw new Error("Storage must not be reached");
       },
       async get() {
         return new Uint8Array();
       },
-    };
+    });
     await expect(
-      createArtifact(
+      createFile(
         database.db,
         storage,
         workspaceId,

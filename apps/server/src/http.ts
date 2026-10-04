@@ -1,5 +1,5 @@
-import type { ArtifactStorage } from "@otto/artifacts";
-import type { Database } from "@otto/db";
+import type { CursorCodec, Database } from "@otto/db";
+import type { FileStorage } from "@otto/files";
 import type { PiInstallation } from "@otto/runs";
 import type { RunRuntime } from "@otto/runs/runtime";
 import { type Context, inWorkspace } from "@otto/workspaces";
@@ -10,6 +10,7 @@ import type { ConnectionOptions } from "./connections";
 import type { createContentPresence } from "./content-presence";
 import type { Mail } from "./mail";
 import type { ModelGateway } from "./model-gateway";
+import type { Spool, TransferLimits } from "./spool";
 import type { SubscriptionLogin } from "./subscription-login";
 import { id } from "./validation";
 
@@ -18,7 +19,11 @@ export interface ApiOptions {
   auth: Auth;
   boss: PgBoss;
   origin: string;
-  storage?: ArtifactStorage;
+  storage?: FileStorage;
+  /** Private disk for in-flight uploads and verified downloads; required with storage for file bytes. */
+  spool?: Spool;
+  /** Deadlines for file transfers; defaults apply when omitted. */
+  transfer?: TransferLimits;
   runtime?: RunRuntime;
   pi?: PiInstallation;
   mail?: Mail;
@@ -26,6 +31,8 @@ export interface ApiOptions {
   subscriptionLogin?: SubscriptionLogin;
   gatewayStoreKey?: string;
   modelGateway?: ModelGateway;
+  /** Seals sorted list cursors; production derives it from the auth secret. Without it a sorted list is unavailable. */
+  cursors?: CursorCodec;
 }
 export interface ApiEnv {
   Variables: {
@@ -49,5 +56,6 @@ export function transact<T>(
     { userId: c.get("userId") },
     work,
     write,
+    c.get("options").cursors,
   );
 }

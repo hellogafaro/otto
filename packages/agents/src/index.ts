@@ -1,19 +1,22 @@
-import { getProject } from "@otto/projects";
 import {
-  DomainError,
-  filterPage,
-  getPage,
-  parsePageOptions,
-  required,
-} from "@otto/shared";
-
+  authorizedPage,
+  matchesText,
+  pageOf,
+  sortNames,
+  sortPlan,
+  textKey,
+  timeKey,
+} from "@otto/db";
+import { getProject, projectReadable } from "@otto/projects";
+import { DomainError, type PageOptions, required } from "@otto/shared";
+import { getSubscription } from "@otto/subscriptions";
 import {
   advanceCursor,
   type Context,
   requireHuman,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { agentSkills, agents } from "./schema";
 
 /** Skill selections are sets of canonical UUIDs, not an instruction priority list. */
@@ -41,6 +44,8 @@ export async function createAgent(
   requireWriter(c);
   const skillIds = normalizeSkillIds(input.skillIds);
   if (input.projectId) await getProject(c, input.projectId, true);
+  // An Agent may only name an account its author may use: shared, or their own.
+  if (input.subscriptionId) await getSubscription(c, input.subscriptionId);
   const agent = required(
     (
       await c.tx
@@ -97,33 +102,59 @@ export async function getAgent(c: Context, id: string) {
   return { ...agent, skillIds: selected.map((row) => row.skillId) };
 }
 
+const agentSorts = {
+  title: textKey(agents.title),
+  createdAt: timeKey(agents.createdAt),
+  updatedAt: timeKey(agents.updatedAt),
+};
+export const AGENT_SORTS = sortNames(agentSorts);
 export async function getAgents(
   c: Context,
-  filter: {
-    after?: string;
-    limit?: number;
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
     projectId?: string;
+    visibility?: "user" | "workspace";
+    createdBy?: string;
     archived?: boolean;
+    query?: string;
   } = {},
 ) {
-  const { limit } = parsePageOptions(filter);
-  if (filter.projectId) await getProject(c, filter.projectId);
+  const f = { ...filter, archived: filter.archived ?? false };
+  const plan = sortPlan({
+    operation: "getAgents",
+    scope: c,
+    filter: f,
+    keys: agentSorts,
+    id: agents.id,
+  });
+  if (f.projectId) await getProject(c, f.projectId);
   const candidates = await c.tx
-    .select({ id: agents.id })
+    .select({ id: agents.id, position: plan.position })
     .from(agents)
     .where(
       and(
         eq(agents.workspaceId, c.workspaceId),
-        eq(agents.archived, filter.archived ?? false),
-        filter.after ? gt(agents.id, filter.after) : undefined,
-        filter.projectId ? eq(agents.projectId, filter.projectId) : undefined,
+        eq(agents.archived, f.archived),
+        f.projectId ? eq(agents.projectId, f.projectId) : undefined,
+        projectReadable(c, agents.projectId),
+        f.visibility ? eq(agents.visibility, f.visibility) : undefined,
+        f.createdBy ? eq(agents.createdBy, f.createdBy) : undefined,
+        // Narrowing only: another person's private Agents are never scanned; getAgent stays the authority.
+        or(
+          eq(agents.visibility, "workspace"),
+          eq(agents.createdBy, c.actor.userId),
+        ),
+        f.query ? matchesText(agents.title, f.query) : undefined,
+        plan.where,
       ),
     )
-    .orderBy(agents.id)
-    .limit(limit + 1);
-  return filterPage(
-    getPage(candidates, (row) => row.id, limit),
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return authorizedPage(
+    pageOf(candidates, plan, (row) => row.id),
     (agent) => getAgent(c, agent.id),
+    plan,
   );
 }
 export async function updateAgent(
@@ -146,6 +177,7 @@ export async function updateAgent(
   if (current.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   if (current.editToken !== input.editToken)
     throw new DomainError("conflict", "Agent changed");
+  if (input.subscriptionId) await getSubscription(c, input.subscriptionId);
   if (
     [
       input.visibility,

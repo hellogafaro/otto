@@ -4,7 +4,17 @@ const retired = new Set([
   "saveDocument",
   "createdById",
   "revokeInvitation",
-  "saveAutomation",
+  "saveSchedule",
+  "createAutomation",
+  "getAutomation",
+  "getAutomations",
+  "updateAutomation",
+  "runAutomation",
+  "validateAutomation",
+  "deliverAutomation",
+  "getAutomationHistory",
+  "assertNoOwnedAutomations",
+  "AutomationInput",
   "saveSessionContext",
   "removeParticipant",
   "removeMember",
@@ -17,23 +27,52 @@ const retired = new Set([
   "kind",
   "configToken",
   "agentConfigToken",
-  "automationToken",
+  "scheduleToken",
   "accountConnectionId",
   "harnessRelease",
   "Harnesses",
   "connectAcp",
   "AcpHandlers",
   "harnesses",
+  "resourceKind",
   "artifactKind",
+  "createArtifact",
+  "getArtifact",
+  "getArtifacts",
+  "readArtifact",
+  "ArtifactStorage",
+  "archiveArtifact",
+  "previewArtifact",
+  "updateArtifact",
+  "requireArtifactAudience",
+  "artifactIds",
   "memberPageQuery",
   "transferTask",
   "setCollectionView",
   "setProjectSkills",
   "createContentApi",
   "createConnectionApi",
-  "transferAutomation",
-  "archiveAutomation",
+  "transferSchedule",
+  "archiveSchedule",
   "deliverOccurrence",
+  "createConversation",
+  "getConversation",
+  "getConversations",
+  "updateConversation",
+  "archiveConversation",
+  "getConversationAudience",
+  "getConversationAttention",
+  "markConversationRead",
+  "previewConversation",
+  "createResource",
+  "getResource",
+  "getResources",
+  "readResource",
+  "archiveResource",
+  "previewResource",
+  "updateResource",
+  "requireResourceAudience",
+  "ResourceStorage",
 ]);
 const routes = new Map<string, string>();
 let files = 0;
@@ -52,6 +91,14 @@ for (const root of ["packages", "apps/server/src"]) {
       )
         throw new Error(`Retired handwritten name ${node.text}: ${file}`);
       if (
+        ts.isStringLiteral(node) &&
+        (node.text.startsWith("@otto/artifacts") ||
+          node.text.startsWith("@otto/automations") ||
+          node.text.startsWith("@otto/conversations") ||
+          node.text.startsWith("@otto/resources"))
+      )
+        throw new Error(`Retired domain package: ${file}`);
+      if (
         file.endsWith("/schema.ts") &&
         ts.isPropertyAssignment(node) &&
         ts.isIdentifier(node.name) &&
@@ -61,11 +108,11 @@ for (const root of ["packages", "apps/server/src"]) {
           `Use domain visibility, not the retired access field: ${file}`,
         );
       if (
-        file.startsWith("packages/conversations/") &&
+        file.startsWith("packages/chats/") &&
         ts.isStringLiteral(node) &&
         ["inherited", "restricted"].includes(node.text)
       )
-        throw new Error(`Retired Conversation visibility value: ${file}`);
+        throw new Error(`Retired Chat visibility value: ${file}`);
       if (
         file.startsWith("packages/shared/") &&
         (ts.isImportDeclaration(node) || ts.isImportEqualsDeclaration(node))
@@ -127,7 +174,7 @@ for (const root of ["packages", "apps/server/src"]) {
         if (
           !name ||
           !ts.isStringLiteral(name) ||
-          (name.text !== "automation_history" &&
+          (name.text !== "schedule_history" &&
             !/^[a-z]+(?:_[a-z]+)*s$/.test(name.text))
         )
           throw new Error(`Otto tables must use plural snake_case: ${file}`);

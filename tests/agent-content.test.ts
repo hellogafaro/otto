@@ -5,20 +5,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import {
-  type ArtifactStorage,
-  createArtifact,
-  getArtifact,
-  updateArtifact,
-} from "../packages/artifacts/src";
-import { artifacts } from "../packages/artifacts/src/schema";
-import {
-  createConversation,
+  createChat,
   createParticipant,
   deleteParticipant,
   updateParticipant,
-} from "../packages/conversations/src";
-import { participants } from "../packages/conversations/src/schema";
+} from "../packages/chats/src";
+import { participants } from "../packages/chats/src/schema";
 import { createEnvironment } from "../packages/environments/src";
+import { createFile, getFile, updateFile } from "../packages/files/src";
+import { files } from "../packages/files/src/schema";
 import { admitRun } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
 import {
@@ -35,13 +30,14 @@ import {
 } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
 import { pi } from "./fixtures/pi";
+import { fixtureStorage } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
-describe("agent Artifact publication with real PostgreSQL/queue and explicit execution/storage fixtures", () => {
+describe("agent File publication with real PostgreSQL/queue and explicit execution/storage fixtures", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let boss: PgBoss;
   let workspaceId: string;
-  let conversationId: string;
+  let chatId: string;
   let agentId: string;
   let otherAgentId: string;
   const human = { userId: "publication-sponsor" };
@@ -50,7 +46,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
   const objects = new Map<string, Uint8Array>();
   let puts = 0;
   let afterPut: (() => Promise<void>) | undefined;
-  const storage: ArtifactStorage = {
+  const storage = fixtureStorage({
     async put(key, bytes) {
       puts++;
       objects.set(key, bytes.slice());
@@ -61,7 +57,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
       if (!bytes) throw new Error("Missing fixture bytes");
       return bytes.slice();
     },
-  };
+  });
   beforeAll(async () => {
     database = await startPostgres();
     boss = await startQueue(database.db, database.pool, {
@@ -98,17 +94,17 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
         if (name === "publisher") agentId = agent.id;
         else otherAgentId = agent.id;
       }
-      conversationId = (
-        await createConversation(c, {
+      chatId = (
+        await createChat(c, {
           title: "Output",
           visibility: "participants",
         })
       ).id;
-      await createParticipant(c, conversationId, {
+      await createParticipant(c, chatId, {
         agentId,
         role: "contributor",
       });
-      await createParticipant(c, conversationId, {
+      await createParticipant(c, chatId, {
         agentId: otherAgentId,
         role: "contributor",
       });
@@ -124,7 +120,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
         c,
         boss,
         {
-          conversationId,
+          chatId,
           agentId,
           requestId: crypto.randomUUID(),
           type: "script",
@@ -167,7 +163,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     const actor = { ...human, agentId };
     const beforePuts = puts;
     checks = 0;
-    const saved = await createArtifact(
+    const saved = await createFile(
       database.db,
       storage,
       workspaceId,
@@ -184,14 +180,14 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     expect(checks).toBe(2);
     expect(puts).toBe(beforePuts + 1);
     await scope((c) =>
-      updateArtifact(c, saved.id, {
+      updateFile(c, saved.id, {
         title: "Private human metadata",
         labels: ["private human label"],
       }),
     );
     expect(
       (
-        await createArtifact(
+        await createFile(
           database.db,
           storage,
           workspaceId,
@@ -204,7 +200,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     ).toBe(saved.id);
     expect(checks).toBe(4);
     expect(puts).toBe(beforePuts + 1);
-    const receipt = await createArtifact(
+    const receipt = await createFile(
       database.db,
       storage,
       workspaceId,
@@ -218,13 +214,11 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     expect(receipt).not.toHaveProperty("readerIds");
     expect(receipt).not.toHaveProperty("writerIds");
     await expect(
-      inWorkspace(database.db, workspaceId, actor, (c) =>
-        getArtifact(c, saved.id),
-      ),
+      inWorkspace(database.db, workspaceId, actor, (c) => getFile(c, saved.id)),
     ).rejects.toMatchObject({ code: "forbidden" });
-    expect((await scope((c) => getArtifact(c, saved.id))).id).toBe(saved.id);
+    expect((await scope((c) => getFile(c, saved.id))).id).toBe(saved.id);
     await expect(
-      createArtifact(database.db, storage, workspaceId, human, request, bytes),
+      createFile(database.db, storage, workspaceId, human, request, bytes),
     ).rejects.toMatchObject({ code: "conflict" });
   });
   it("rejects missing trusted authorization, absent source, a different agent and a non-running source before storage", async () => {
@@ -232,17 +226,10 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     const actor = { ...human, agentId };
     const beforePuts = puts;
     await expect(
-      createArtifact(
-        database.db,
-        storage,
-        workspaceId,
-        actor,
-        input(runId),
-        bytes,
-      ),
+      createFile(database.db, storage, workspaceId, actor, input(runId), bytes),
     ).rejects.toMatchObject({ code: "forbidden" });
     await expect(
-      createArtifact(
+      createFile(
         database.db,
         storage,
         workspaceId,
@@ -253,7 +240,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     await expect(
-      createArtifact(
+      createFile(
         database.db,
         storage,
         workspaceId,
@@ -264,7 +251,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     await expect(
-      createArtifact(
+      createFile(
         database.db,
         storage,
         workspaceId,
@@ -280,17 +267,15 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
         .from(participants)
         .where(
           and(
-            eq(participants.conversationId, conversationId),
+            eq(participants.chatId, chatId),
             eq(participants.agentId, agentId),
           ),
         )
     )[0];
     if (!participant) throw new Error("Missing agent participant");
-    await scope((c) =>
-      updateParticipant(c, conversationId, participant.id, "viewer"),
-    );
+    await scope((c) => updateParticipant(c, chatId, participant.id, "viewer"));
     await expect(
-      createArtifact(
+      createFile(
         database.db,
         storage,
         workspaceId,
@@ -301,14 +286,14 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     await scope((c) =>
-      updateParticipant(c, conversationId, participant.id, "contributor"),
+      updateParticipant(c, chatId, participant.id, "contributor"),
     );
     await database.db
       .update(runs)
       .set({ state: "finished" })
       .where(eq(runs.id, runId));
     await expect(
-      createArtifact(
+      createFile(
         database.db,
         storage,
         workspaceId,
@@ -332,7 +317,7 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     };
     try {
       await expect(
-        createArtifact(
+        createFile(
           database.db,
           storage,
           workspaceId,
@@ -349,13 +334,13 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
     const pending = (
       await database.db
         .select()
-        .from(artifacts)
-        .where(eq(artifacts.requestId, request.requestId))
+        .from(files)
+        .where(eq(files.requestId, request.requestId))
     )[0];
     expect(pending?.state).toBe("pending");
     expect(pending?.creatorAgentId).toBe(agentId);
     await expect(
-      scope((c) => getArtifact(c, pending?.id ?? "")),
+      scope((c) => getFile(c, pending?.id ?? "")),
     ).rejects.toMatchObject({ code: "not_found" });
   });
   it("keeps archived skill permission separate from new selection and still rejects revoked sources", async () => {
@@ -399,17 +384,16 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
         .from(participants)
         .where(
           and(
-            eq(participants.conversationId, conversationId),
+            eq(participants.chatId, chatId),
             eq(participants.agentId, agentId),
           ),
         )
     )[0];
     if (!participant) throw new Error("Missing agent participant");
-    afterPut = () =>
-      scope((c) => deleteParticipant(c, conversationId, participant.id));
+    afterPut = () => scope((c) => deleteParticipant(c, chatId, participant.id));
     try {
       await expect(
-        createArtifact(
+        createFile(
           database.db,
           storage,
           workspaceId,
@@ -426,8 +410,8 @@ describe("agent Artifact publication with real PostgreSQL/queue and explicit exe
       (
         await database.db
           .select()
-          .from(artifacts)
-          .where(eq(artifacts.requestId, request.requestId))
+          .from(files)
+          .where(eq(files.requestId, request.requestId))
       )[0]?.state,
     ).toBe("pending");
   });

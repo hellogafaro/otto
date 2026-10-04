@@ -1,9 +1,9 @@
 import * as agentsSchema from "@otto/agents/schema";
-import * as automationsSchema from "@otto/automations/schema";
-import * as conversationsSchema from "@otto/conversations/schema";
+import * as chatsSchema from "@otto/chats/schema";
 import * as environmentsSchema from "@otto/environments/schema";
+import * as schedulesSchema from "@otto/schedules/schema";
 import * as sessionsSchema from "@otto/sessions/schema";
-import type { SkillFileReference } from "@otto/skills";
+import type { AcceptedSkillFileReference } from "@otto/skills";
 import * as tasksSchema from "@otto/tasks/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
 import { sql } from "drizzle-orm";
@@ -23,7 +23,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 export interface RunRequest {
-  conversationId: string;
+  chatId: string;
   agentId: string;
   requestId: string;
   type: "prompt" | "script";
@@ -32,20 +32,37 @@ export interface RunRequest {
   sessionId?: string;
   documentIds?: string[];
   messageIds?: string[];
-  automationId?: string;
-  automationEditToken?: number;
+  scheduleId?: string;
+  scheduleEditToken?: number;
 }
 /** Caller controls only. Resolved Agent defaults and source contents belong in RunInputs. */
+type RequestControls = Omit<RunRequest, "scheduleId" | "scheduleEditToken">;
+/** Private accepted keys are retained; public Run controls use Schedule and Chat vocabulary only. */
 export type RunRequestIdentity = {
-  [Key in keyof Required<RunRequest>]:
-    | Exclude<RunRequest[Key], undefined>
-    | (undefined extends RunRequest[Key] ? null : never);
+  [Key in keyof Required<Omit<RequestControls, "chatId">>]:
+    | Exclude<RequestControls[Key], undefined>
+    | (undefined extends RequestControls[Key] ? null : never);
+} & {
+  conversationId: string;
+  automationId: string | null;
+  automationEditToken: number | null;
 };
+/** Catalog API list price in USD per million tokens. A price basis for estimates, never an account charge. */
+export interface ModelCostRates {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
 export interface ModelConfig {
   contextWindow: number;
   maxTokens: number;
   reasoning: boolean;
   input: ("text" | "image")[];
+  /** Accepted with the Run so later catalog changes never reprice it; absent means the price is unknown. */
+  cost?: ModelCostRates & {
+    tiers?: (ModelCostRates & { inputTokensAbove: number })[];
+  };
 }
 export interface RunInputs {
   body: string;
@@ -64,7 +81,7 @@ export interface RunInputs {
     instructions: string;
     whenToUse: string | null;
     editToken: number;
-    supportingFiles?: SkillFileReference[];
+    supportingFiles?: AcceptedSkillFileReference[];
   }[];
   context?: {
     task: { id: string; title: string; notes: string | null } | null;
@@ -91,12 +108,12 @@ export const runs = pgTable(
   {
     id: uuid().primaryKey().defaultRandom(),
     workspaceId: uuid().notNull(),
-    conversationId: uuid().notNull(),
+    chatId: uuid().notNull(),
     agentId: uuid().notNull(),
     sponsorId: text().notNull(),
     taskId: uuid(),
-    automationId: uuid(),
-    automationEditToken: integer(),
+    scheduleId: uuid(),
+    scheduleEditToken: integer(),
     sessionId: uuid(),
     environmentId: uuid().notNull(),
     environmentGeneration: integer().notNull(),
@@ -142,12 +159,9 @@ export const runs = pgTable(
       foreignColumns: [workspacesSchema.workspaces.id],
     }),
     foreignKey({
-      name: "runs_conversationId_workspace_fk",
-      columns: [t.conversationId, t.workspaceId],
-      foreignColumns: [
-        conversationsSchema.conversations.id,
-        conversationsSchema.conversations.workspaceId,
-      ],
+      name: "runs_chatId_workspace_fk",
+      columns: [t.chatId, t.workspaceId],
+      foreignColumns: [chatsSchema.chats.id, chatsSchema.chats.workspaceId],
     }),
     foreignKey({
       name: "runs_agentId_workspace_fk",
@@ -160,11 +174,11 @@ export const runs = pgTable(
       foreignColumns: [tasksSchema.tasks.id, tasksSchema.tasks.workspaceId],
     }),
     foreignKey({
-      name: "runs_automationId_workspace_fk",
-      columns: [t.automationId, t.workspaceId],
+      name: "runs_scheduleId_workspace_fk",
+      columns: [t.scheduleId, t.workspaceId],
       foreignColumns: [
-        automationsSchema.automations.id,
-        automationsSchema.automations.workspaceId,
+        schedulesSchema.schedules.id,
+        schedulesSchema.schedules.workspaceId,
       ],
     }),
     foreignKey({
@@ -201,14 +215,14 @@ export const runs = pgTable(
       t.sponsorId,
       t.requestId,
     ),
-    uniqueIndex("runs_automation_active")
-      .on(t.automationId)
+    uniqueIndex("runs_schedule_active")
+      .on(t.scheduleId)
       .where(sql`${t.state} in ('queued','launching','running','uncertain')`),
     check(
       "runs_prompt_session",
       sql`(${t.type}='prompt' and ${t.sessionId} is not null) or (${t.type}='script' and ${t.sessionId} is null)`,
     ),
-    index("runs_conversation_replay").on(t.conversationId, t.cursor),
+    index("runs_chat_replay").on(t.chatId, t.cursor),
   ],
 );
 

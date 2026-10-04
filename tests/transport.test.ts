@@ -10,10 +10,7 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
-import {
-  createConversation,
-  createMessage,
-} from "../packages/conversations/src";
+import { createChat, createMessage } from "../packages/chats/src";
 import { createDocument, updateDocument } from "../packages/documents/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
@@ -26,7 +23,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
   let server: Server<RealtimeData>;
   let realtime: ReturnType<typeof createRealtime>;
   let workspaceId: string;
-  let conversationId: string;
+  let chatId: string;
   let documentId: string;
   let userId: string;
   let cookie: string;
@@ -88,8 +85,8 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     userId = session?.user.id ?? "";
     workspaceId = (await claimInstallation(database.db, userId, "Live")).id;
     await inWorkspace(database.db, workspaceId, { userId }, async (c) => {
-      conversationId = (
-        await createConversation(c, {
+      chatId = (
+        await createChat(c, {
           title: "Realtime",
           visibility: "workspace",
         })
@@ -166,7 +163,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
         z
           .object({
             id: z.uuid(),
-            conversationId: z.uuid(),
+            chatId: z.uuid(),
             agentId: z.uuid(),
             taskId: z.uuid().nullable(),
             type: z.enum(["prompt", "script"]),
@@ -181,7 +178,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     .strict();
   function connect(after: number) {
     return new WebSocket(
-      `${origin.replace("http", "ws")}/api/realtime?workspaceId=${workspaceId}&conversationId=${conversationId}&documentId=${documentId}&after=${after}`,
+      `${origin.replace("http", "ws")}/api/realtime?workspaceId=${workspaceId}&chatId=${chatId}&documentId=${documentId}&after=${after}`,
       { headers: { Cookie: cookie, Origin: origin } },
     );
   }
@@ -218,7 +215,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     const first = await next(ws);
     ws.close();
     await inWorkspace(database.db, workspaceId, { userId }, async (c) => {
-      await createMessage(c, conversationId, {
+      await createMessage(c, chatId, {
         body: "during gap",
         requestId: crypto.randomUUID(),
       });
@@ -249,7 +246,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
       workspaceId,
       { userId },
       async (c) => {
-        await createMessage(c, conversationId, {
+        await createMessage(c, chatId, {
           body: "transaction one",
           requestId: crypto.randomUUID(),
         });
@@ -259,7 +256,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     );
     await ready;
     const second = inWorkspace(database.db, workspaceId, { userId }, (c) =>
-      createMessage(c, conversationId, {
+      createMessage(c, chatId, {
         body: "transaction two",
         requestId: crypto.randomUUID(),
       }),
@@ -278,7 +275,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     const prefix = "large-record-";
     await inWorkspace(database.db, workspaceId, { userId }, async (c) => {
       for (let index = 0; index < 15; index++)
-        await createMessage(c, conversationId, {
+        await createMessage(c, chatId, {
           body: `${prefix}${index}:${"x".repeat(90000)}`,
           requestId: crypto.randomUUID(),
         });
@@ -297,6 +294,17 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
       ws.close();
     }
   });
+  it("rejects the retired conversationId subscription field", async () => {
+    const response = await realtime.prepare(
+      new Request(
+        `${origin}/api/realtime?workspaceId=${workspaceId}&conversationId=${chatId}`,
+        { headers: { Cookie: cookie, Origin: origin } },
+      ),
+    );
+    expect(response).toBeInstanceOf(Response);
+    if (response instanceof Response)
+      expect(response.status).toBeGreaterThanOrEqual(400);
+  });
   it("revokes an open stream and rejects replay after membership removal", async () => {
     const ws = connect(0);
     await next(ws);
@@ -309,7 +317,7 @@ describe("authenticated HTTP RPC and WebSocket replay", () => {
     expect(await closed).toBe(4403);
     const response = await realtime.prepare(
       new Request(
-        `${origin}/api/realtime?workspaceId=${workspaceId}&conversationId=${conversationId}`,
+        `${origin}/api/realtime?workspaceId=${workspaceId}&chatId=${chatId}`,
         { headers: { Cookie: cookie, Origin: origin } },
       ),
     );

@@ -53,6 +53,13 @@ export function createModelGateway(
     }
   }
   const catalog = openaiCodexProvider().getModels();
+  const rate = z.number().min(0).max(1000000);
+  const rates = {
+    input: rate,
+    output: rate,
+    cacheRead: rate,
+    cacheWrite: rate,
+  };
   function modelConfig(id: string): ModelConfig | undefined {
     const configured = options.modelConfig?.[id];
     const pinned = catalog.find((model) => model.id === id);
@@ -64,6 +71,7 @@ export function createModelGateway(
             maxTokens: pinned.maxTokens,
             reasoning: pinned.reasoning,
             input: pinned.input,
+            cost: pinned.cost,
           }
         : undefined);
     if (!value) return undefined;
@@ -76,6 +84,20 @@ export function createModelGateway(
           .array(z.enum(["text", "image"]))
           .min(1)
           .max(2),
+        cost: z
+          .object({
+            ...rates,
+            tiers: z
+              .array(
+                z.object({
+                  inputTokensAbove: z.number().int().min(0),
+                  ...rates,
+                }),
+              )
+              .max(8)
+              .optional(),
+          })
+          .optional(),
       })
       .parse(value);
   }

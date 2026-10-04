@@ -13,7 +13,7 @@
   "dependencies": {
     "@otto/db": "workspace:*",
     "@otto/agents": "workspace:*",
-    "@otto/conversations": "workspace:*",
+    "@otto/chats": "workspace:*",
     "@otto/documents": "workspace:*",
     "@otto/environments": "workspace:*",
     "@otto/sessions": "workspace:*",
@@ -25,7 +25,7 @@
     "zod": "4.6.5",
     "@otto/projects": "workspace:*",
     "@otto/shared": "workspace:*",
-    "@otto/automations": "workspace:*",
+    "@otto/schedules": "workspace:*",
     "@otto/subscriptions": "workspace:*",
     "@otto/skills": "workspace:*"
   }

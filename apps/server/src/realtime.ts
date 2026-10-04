@@ -1,4 +1,4 @@
-import { getMessages } from "@otto/conversations";
+import { getMessages } from "@otto/chats";
 import { getDocument } from "@otto/documents";
 import { getRunActivity, getRuns } from "@otto/runs";
 import { DomainError } from "@otto/shared";
@@ -11,7 +11,7 @@ import type { ApiOptions } from "./http";
 
 const subscription = z.object({
   workspaceId: z.uuid(),
-  conversationId: z.uuid(),
+  chatId: z.uuid(),
   after: z.coerce.number().int().nonnegative().default(0),
   taskId: z.uuid().optional(),
   documentId: z.uuid().optional(),
@@ -45,13 +45,9 @@ export function createRealtime(options: ApiOptions) {
         request.workspaceId,
         { userId: session.user.id },
         async (c) => {
-          const messages = await getMessages(
-            c,
-            request.conversationId,
-            request.after,
-          );
+          const messages = await getMessages(c, request.chatId, request.after);
           const { items: runs } = await getRuns(c, {
-            conversationId: request.conversationId,
+            chatId: request.chatId,
             cursor: request.after,
           });
           const activity = request.runId
@@ -146,7 +142,7 @@ export function createRealtime(options: ApiOptions) {
           options.db,
           parsed.data.workspaceId,
           { userId: session.user.id },
-          (c) => getMessages(c, parsed.data.conversationId, parsed.data.after),
+          (c) => getMessages(c, parsed.data.chatId, parsed.data.after),
           false,
         );
       } catch (error) {

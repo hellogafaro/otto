@@ -27,6 +27,28 @@ const schema = z
     PORT: z.coerce.number().int().min(0).max(65535).default(43001),
     S3_ENDPOINT: httpUrl.optional(),
     S3_REGION: z.string().min(1).default("garage"),
+    /** Base directory for in-flight transfer spools; each instance owns a private subdirectory. */
+    UPLOAD_SPOOL_DIR: z.string().min(1).optional(),
+    /** Transfer deadlines: a fixed allowance plus time for the size at a minimum acceptable rate. */
+    TRANSFER_BASE_MS: z.coerce
+      .number()
+      .int()
+      .min(100)
+      .max(3_600_000)
+      .default(60000),
+    TRANSFER_MIN_BYTES_PER_SECOND: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(1_000_000_000)
+      .default(256 * 1024),
+    /** One disk budget for uploads and verified downloads together (default: five maximum-size files). */
+    UPLOAD_SPOOL_BYTES: z.coerce
+      .number()
+      .int()
+      .min(100_000_000)
+      .max(100_000_000_000)
+      .default(500_000_000),
     S3_BUCKET: z.string().min(1).optional(),
     S3_ACCESS_KEY_ID: z.string().min(1).optional(),
     S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),

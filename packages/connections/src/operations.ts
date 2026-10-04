@@ -1,15 +1,19 @@
 import { createHash } from "node:crypto";
+import { authorizedPage, pageOf, sortNames, sortPlan, timeKey } from "@otto/db";
 import {
   DomainError,
-  filterPage,
-  getPage,
+  type PageOptions,
   parseInput,
-  parsePageOptions,
   required,
 } from "@otto/shared";
 
-import { type Context, requireHuman, requireMember } from "@otto/workspaces";
-import { and, eq, gt, isNull, or } from "drizzle-orm";
+import {
+  type Context,
+  creatorIsMember,
+  requireHuman,
+  requireMember,
+} from "@otto/workspaces";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { githubAction } from "./github";
 import { getConnectionRecord } from "./lifecycle";
@@ -178,18 +182,28 @@ export async function getOperation(c: Context, id: string) {
   if (row.sponsorId !== c.actor.userId) throw new DomainError("forbidden");
   return operationView(row);
 }
+const operationSorts = {
+  createdAt: timeKey(operations.createdAt),
+  updatedAt: timeKey(operations.updatedAt),
+};
+export const OPERATION_SORTS = sortNames(operationSorts);
 export async function getOperations(
   c: Context,
-  filter: {
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
     connectionId?: string;
     state?: (typeof operations.$inferSelect)["state"];
-    after?: string;
-    limit?: number;
   } = {},
 ) {
   requireHuman(c);
-  const { after, limit } = parsePageOptions(filter);
-  const { after: _after, limit: _limit, ...filters } = filter;
+  const {
+    after: _after,
+    limit: _limit,
+    sort: _sort,
+    order: _order,
+    ...filters
+  } = filter;
   const parsed = parseInput(
     z
       .object({
@@ -208,11 +222,18 @@ export async function getOperations(
       .strict(),
     filters,
   );
+  const plan = sortPlan({
+    operation: "getOperations",
+    scope: c,
+    filter,
+    keys: operationSorts,
+    id: operations.id,
+  });
   if (parsed.connectionId) {
     await getConnectionRecord(c, parsed.connectionId);
   }
   const rows = await c.tx
-    .select({ operation: operations })
+    .select({ id: operations.id, position: plan.position })
     .from(operations)
     .innerJoin(connections, eq(connections.id, operations.connectionId))
     .where(
@@ -226,15 +247,19 @@ export async function getOperations(
         parsed.connectionId
           ? eq(operations.connectionId, parsed.connectionId)
           : undefined,
-        after ? gt(operations.id, after) : undefined,
+        creatorIsMember(c, connections.createdBy),
         eq(operations.sponsorId, c.actor.userId),
         parsed.state ? eq(operations.state, parsed.state) : undefined,
+        plan.where,
       ),
     )
-    .orderBy(operations.id)
-    .limit(limit + 1);
-  const page = getPage(rows, (row) => row.operation.id, limit);
-  return filterPage(page, ({ operation }) => getOperation(c, operation.id));
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return authorizedPage(
+    pageOf(rows, plan, (row) => row.id),
+    ({ id }) => getOperation(c, id),
+    plan,
+  );
 }
 export async function requestOperation(
   c: Context,

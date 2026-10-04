@@ -1,3 +1,4 @@
+import * as filesSchema from "@otto/files/schema";
 import * as projectsSchema from "@otto/projects/schema";
 import * as workspacesSchema from "@otto/workspaces/schema";
 import { sql } from "drizzle-orm";
@@ -31,13 +32,16 @@ export const documents = pgTable(
     visibility: text({ enum: ["user", "workspace"] })
       .notNull()
       .default("user"),
-    artifactIds: jsonb().$type<string[]>().notNull().default([]),
+    fileIds: jsonb().$type<string[]>().notNull().default([]),
+    labels: jsonb().$type<string[]>().notNull().default([]),
     editToken: integer().notNull().default(0),
     properties: jsonb()
       .$type<Record<string, string | number | boolean | null>>()
       .notNull()
       .default({}),
     collectionId: uuid(),
+    /** Organization only; validated by the Files folder rules in the server composition. */
+    folderId: uuid(),
   },
   (t): PgTableExtraConfigValue[] => [
     check("documents_visibility", sql`${t.visibility} in ('user','workspace')`),
@@ -58,6 +62,11 @@ export const documents = pgTable(
       name: "documents_collectionId_workspace_fk",
       columns: [t.collectionId, t.workspaceId],
       foreignColumns: [collections.id, collections.workspaceId],
+    }),
+    foreignKey({
+      name: "documents_folderId_workspace_fk",
+      columns: [t.folderId, t.workspaceId],
+      foreignColumns: [filesSchema.folders.id, filesSchema.folders.workspaceId],
     }),
     foreignKey({
       name: "documents_createdBy_fk",

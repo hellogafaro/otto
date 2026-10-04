@@ -10,39 +10,39 @@ Simplification pass: artifact and document history, skill publishing, and automa
 
 ## Purpose
 
-Otto combines shared project work, flexible documents, and Pi-powered agents. Keep tasks flat, reuse Pi, and make the normal path capture → run → discuss → save result. Questions and conversations need no task.
+Otto combines shared project work, flexible documents, and Pi-powered agents. Keep tasks flat, reuse Pi, and make the normal path capture → run → discuss → save result. Questions and chats need no task.
 
-Use a few records in several ways. A Conversation can look like a DM or channel without a type field. A Document can be a note, specification, or skill. A Session keeps one agent's private continuing context; a Run is one execution attempt. Views do not create copies.
+Use a few records in several ways. A Chat can look like a direct or group discussion without a type field. A Document can be a note, specification, or skill. A Session keeps one agent's private continuing context; a Run is one execution attempt. Views do not create copies.
 
 ## The primitives
 
 | Record | Minimum useful shape |
 | --- | --- |
 | Project | Members, defaults, repository links, related work |
-| Task | Project, title, notes, required human owner, optional human/agent assignee, To do / Doing / Done, links |
-| Conversation | Workspace, creator, optional Project, workspace/participants visibility, participant roles, messages, replies, mentions, attachments |
+| Task | Project, title, notes, required human owner, zero or many human/Agent assignees, optional due date and recurrence, To do / Doing / Done, links |
+| Chat | Workspace, creator, optional Project, workspace/participants visibility, participant roles, messages, replies, mentions, attachments |
 | Document | Title, current body, basic properties, attachments, visibility; skills use this model |
 | Collection | Fields and table/list views over Documents; not a general database builder |
-| Artifact | One saved output: files, title, kind, labels, creator, optional source Run, access |
+| File | One saved output: stored bytes, title, kind, labels, creator, optional source Run, access |
 | Agent | Instructions, authorized account/model, skills, assigned Connections, own Environment; managed Pi runtime |
 | Environment | An agent's isolated computer, persistent working files, browser state, lifecycle |
 | Connection | External GitHub/MCP account, credential management, adapter, scoped agent grants |
 | Subscription | AI account metadata, creator, visibility and trusted gateway qualification status (intended) |
-| Session | One agent's private harness context, bound to a Conversation, Environment scope, and account |
+| Session | One agent's private harness context, bound to a Chat, Environment scope, and account |
 | Run | One prompt or script attempt: human sponsor, saved inputs, scope, state, execution reference, outcome |
-| Automation | Human owner, Agent, output Conversation (which determines Project), prompt or script body, manual/cron trigger |
+| Schedule | Human owner, Agent, output Chat (which determines Project), prompt or script body, manual/cron trigger |
 
-Workspace membership supplies human identities. Human and agent references support participation, authorship, and assignment; no profile per feature. Messages, memberships, files, grants, jobs, and share links are supporting records. The library is a filtered Artifact view. The working directory and computer are parts of Environment.
+Workspace membership supplies human identities. Human and agent references support participation, authorship, and assignment; no profile per feature. Messages, memberships, files, grants, jobs, and share links are supporting records. The library is a filtered Resource view. The working directory and computer are parts of Environment.
 
 ## Relationships without nesting
 
 ```mermaid
 flowchart LR
   P[Project] --> T[Flat tasks]
-  P --> C[Conversations]
+  P --> C[Chats]
   P --> D[Documents]
   H[Human owner] --> T
-  A[Human or agent assignee] --> T
+  A[Human or Agent assignees] --> T
   T <-->|links| C
   T <-->|links| D
   K[Collection] -->|organizes| D
@@ -56,24 +56,26 @@ flowchart LR
   G --> E[Own isolated environment]
   R -->|executes in| E
   Q[Connection] -->|scoped external access| E
-  R -->|produces| F[Durable artifacts]
+  R -->|produces| F[Durable files]
   F --> L[Library view]
   R -->|optional work reference| T
 ```
 
-Tasks belong to a Project. Conversations, Documents, Collections, and Artifacts have a workspace home and optional Project. A Collection initially organizes Documents only; the Artifact library uses ordinary filters. Links stay within a workspace and never grant access.
+Tasks belong to a Project. Chats, Documents, Collections, and Files have a workspace home and optional Project. A Collection initially organizes Documents only; the File library uses ordinary filters. Links stay within a workspace and never grant access.
 
-Every Task has an eligible human owner. Human-created tasks default to their creator; agent-created tasks name a sponsoring human or fail creation. Reassignment changes the assignee, not ownership. Transfer open tasks before removing their owner. Agents can propose completion; only an authorized human marks Done.
+Every Task has an eligible human owner. Human-created tasks default to their creator; agent-created tasks name a sponsoring human or fail creation. Assignee edits change the assignee sets, not ownership. A recurring Task creates its next occurrence only when an authorized human completes it; see [Tasks](../tasks.md). Transfer open tasks before removing their owner. Agents can propose completion; only an authorized human marks Done.
 
-One Conversation can discuss several Tasks and hold several agents' Sessions. A Run belongs to a Conversation and agent, with optional Task and Automation references. Prompt Runs require a Session; scripts do not. Saved Artifacts can be linked from several places without copying their files.
+Tasks also own manual time entries in `timesheets`: workspace, Task, server-derived human `createdBy`, server logging `createdAt`, positive whole-minute `duration`, and optional notes (at most 4000 UTF-8 bytes). Only the author with current Task writer access can log/correct/remove their entries; admins cannot edit another person's time. Current Task readers can read them. Done and archived Tasks remain available for authorized logging/correction. Lookup requires a Task, with optional creator and logging-date filters, exclusive UUID pagination and bounded pages. There is no timer, billing, backdating, runtime-derived human time or reporting framework.
+
+One Chat can discuss several Tasks and hold several agents' Sessions. A Run belongs to a Chat and agent, with optional Task and Schedule references. Prompt Runs require a Session; scripts do not. Saved Files can be linked from several places without copying their files.
 
 Keep “Fix sign-in,” “Write welcome copy,” and “Check onboarding” as visible peer Tasks. Direct links and labels are enough; no subtask hierarchy.
 
-## Conversations and sessions
+## Chats and sessions
 
 ```mermaid
 flowchart LR
-  C[Conversation] --> M[Human and agent memberships]
+  C[Chat] --> M[Human and agent memberships]
   C --> T[Shared messages and files]
   C --> S[Sessions: private harness context]
   A[Agent] --> S
@@ -82,29 +84,29 @@ flowchart LR
   C --> X[Script Runs: no Session required]
   R --> E
   X --> E
-  R --> O[Selected messages and artifacts]
+  R --> O[Selected messages and files]
   X --> O
 ```
 
-Conversation owns shared messages and explicit participant relationships. Store memberships in a table with exactly one existing human or agent reference in the same workspace and a unique participant per Conversation; response arrays are only a convenience. DM/channel naming is presentation. Conversation visibility is `workspace` or `participants`; both intersect current workspace/Project membership. Agents always need an explicit participant row, and an explicit viewer role caps writes. Server-derived `createdBy` controls metadata, archive and participant management with current writer/Project authorization; eligible participants still discuss and control authorized Runs. Joining never expands an agent's tool grants.
+Chat owns shared messages and explicit participant relationships. Store memberships in a table with exactly one existing human or agent reference in the same workspace and a unique participant per Chat; response arrays are only a convenience. Direct or group presentation derives from participants, not a type field. Chat visibility is `workspace` or `participants`; both intersect current workspace/Project membership. Agents always need an explicit participant row, and an explicit viewer role caps writes. Server-derived `createdBy` controls metadata, archive and participant management with current writer/Project authorization; eligible participants still discuss and control authorized Runs. Joining never expands an agent's tool grants.
 
-Session owns one agent's continuing private Pi context in the intended implementation. It records its Conversation, agent, Environment binding, permission scope, pinned Pi installation, accepted account/model, and private context reference. Prompt admission validates these against the Run; create a fresh Session and Run atomically when needed. No implicit cross-conversation reuse. Several Sessions can use one agent's Environment queue.
+Session owns one agent's continuing private Pi context in the intended implementation. It records its Chat, agent, Environment binding, permission scope, pinned Pi installation, accepted account/model, and private context reference. Prompt admission validates these against the Run; create a fresh Session and Run atomically when needed. No implicit cross-chat reuse. Several Sessions can use one agent's Environment queue.
 
 Within the same permission scope, a fresh Session resets model context while retaining shared messages and working files. Changed permission scope requires separately isolated working state or an explicit reset. Before continuation, recheck the retained context's source permissions and output audience. Unauthorized retained context requires a fresh Session; filtering the next prompt cannot erase prior knowledge.
 
 People can supervise, steer, answer, and stop permitted Runs. Human chat, agent replies, and agent-to-agent requests use the same saved messages. Directed requests wake only their intended permitted agent, with saved acknowledgement, deduplicated delivery, and bounded handoffs. Informational messages do not wake every agent. Tool activity stays expandable. Public sharing selects visible messages and outputs, never private Session history.
 
-## How agents, skills, connections, and automations fit
+## How agents, skills, connections, and schedules fit
 
 ```mermaid
 flowchart TB
   S[Skills] --> A[Reusable agent configuration]
   C[Connections: MCP or provider adapters] -->|permitted tools| A
-  X[Manual action or cron automation] --> R[One saved Run]
+  X[Manual action or cron schedule] --> R[One saved Run]
   A --> R
   R --> E[Agent's scoped environment]
   E --> H[Pi for a prompt, or script process]
-  H --> O[Conversation results and saved artifacts]
+  H --> O[Chat results and saved files]
 ```
 
 The model supplies reasoning; Pi executes the Agent loop and tools. The selected gateway supplies upstream authentication/model access. Otto owns collaboration, accepted context, execution authority, scoped tools and saved results. Pi is used for every Agent, not just coding.
@@ -112,14 +114,14 @@ The model supplies reasoning; Pi executes the Agent loop and tools. The selected
 - Agent = who works, its instructions and selected authorized account/model; Pi is managed by Otto.
 - Skill = reusable instructions and supporting files in its own domain.
 - Connection = capabilities and external authentication; MCP is one adapter.
-- Automation = what to start and when.
+- Schedule = what to start and when.
 - Session = continuing private context; Run = one attempt.
 
-Agents, Skills, Documents, Artifacts, Connections and Subscriptions use `visibility: user | workspace` within the existing workspace. The server assigns their human creator/maintainer as `createdBy`; Artifacts retain the distinct human custodian/sponsor `ownerId` and optional `creatorAgentId`. User visibility restricts discovery/read/use to that human; workspace visibility permits eligible current members subject to Project, Conversation and explicit Agent grants. Configuration and sharing remain creator-controlled. Sharing an Agent never shares a user-scoped dependency, credential or private Session. Skills are a separate domain and table; Documents contain ordinary content and Collections. Documents and Artifacts use that same visibility and creator/custodian-controlled edits; per-user collaborator grants are deferred.
+Agents, Skills, Documents, Files, Connections and Subscriptions use `visibility: user | workspace` within the existing workspace. The server assigns their human creator/maintainer as `createdBy`; Files retain the distinct human custodian/sponsor `ownerId` and optional `creatorAgentId`. User visibility restricts discovery/read/use to that human; workspace visibility permits eligible current members subject to Project, Chat and explicit Agent grants. Configuration and sharing remain creator-controlled. Sharing an Agent never shares a user-scoped dependency, credential or private Session. Skills are a separate domain and table; Documents contain ordinary content and Collections. Documents and Files use that same visibility and creator/custodian-controlled edits; per-user collaborator grants are deferred.
 
 Agent is the sole reusable skill/Connection configuration. Connections use `type: github | mcp` and the existing many-to-many scoped `connection_grants`. AI accounts use Subscriptions, distinct from Pi and external Connections: one accepted `subscriptionId` per attempt/Session. Subscription status is `needs_auth | enabled | disabled`; the intended gateway integration enables it only after trusted account-specific qualification, never a browser status assertion. Current code still uses native Computer proof. No new credential/auth tables or billing-management product is implied. Models remain configured IDs. Projects and manual Runs have no skill defaults or overrides. Bounded manual Run Document/message/Task selections are execution content with explicit current source and output-audience checks; they are not standing grants and are not moved into Agent fields.
 
-Skills never grant permissions. A tool is a scoped Otto operation, Environment operation, or assigned Connection capability. An MCP server needs no extra profile. A workflow initially means one prompt or script Automation; scripts may have ordinary code steps.
+Skills never grant permissions. A tool is a scoped Otto operation, Environment operation, or assigned Connection capability. An MCP server needs no extra profile. A workflow initially means one prompt or script Schedule; scripts may have ordinary code steps.
 
 ## Documents, collections, and skills
 
@@ -138,10 +140,10 @@ flowchart LR
   A[Agent identity and instructions] --> E[Own Environment]
   E --> C[Dedicated computer]
   E --> W[Persistent working files and browser state]
-  R[Conversation run] -->|claims| E
+  R[Chat run] -->|claims| E
   G[Scoped connection grants] --> R
-  R --> F[Durable artifacts and code references]
-  F --> L[Shared library and conversation]
+  R --> F[Durable files and code references]
+  F --> L[Shared library and chat]
 ```
 
 The intended compute model gives each Agent its own computer, files, processes and browser profile. Upstream account authentication belongs to the managed gateway, not a required vendor login inside each computer. Several agents run concurrently from day one; initially lease each Environment to one active Run. Project checkouts use separate branches for parallel writers. A directory or worktree alone is not isolation.
@@ -152,7 +154,7 @@ Once a compute backend is selected and qualified, apps/server assigns the worksp
 
 Save the launch identity before dispatch and the backend execution reference afterward. Reconcile lost acknowledgements and server restarts rather than launching another copy. The backend must enforce the deadline if the server disappears. Replacement waits until the old execution is confirmed stopped or fenced from both execution and external operations; a database generation does not kill a process. Fence stale progress writes.
 
-Pause stops or checkpoints the active Run before suspending compute and preserves files; running-process resume is conditional. Reset/replacement warns about unpublished local work. Saved Artifacts, messages, and pushed code survive independently; local files need retained volumes or backup. Working state from another permission scope cannot leak through files or browser history: isolate it or explicitly reset before reuse.
+Pause stops or checkpoints the active Run before suspending compute and preserves files; running-process resume is conditional. Reset/replacement warns about unpublished local work. Saved Files, messages, and pushed code survive independently; local files need retained volumes or backup. Working state from another permission scope cannot leak through files or browser history: isolate it or explicitly reset before reuse.
 
 [Mastra's workspace model](https://mastra.ai/docs/sandbox/overview) is a reference, not an adopted harness. Its default LocalSandbox runs on the application host without isolation; file-tool containment alone does not restrict shell commands. This backend phase implements models and the small typed internal computer boundary with controlled fixtures. Cloud/local provider selection, provisioning and real isolation/lifecycle qualification are deferred; add no provider registry or automatic host-local fallback.
 
@@ -172,63 +174,63 @@ Connect an account once, assign scoped resource/action grants to agents, and use
 
 Each operation is allowed, requires confirmation, or disabled. Both Otto's grant and the provider's permissions must allow it. Protected writes execute through the trusted server Connection boundary; native shells must not receive reusable credentials that bypass confirmation. Approval names the exact account, action, and target. Changed targets/accounts invalidate it. Recheck grants at execution; revoke future calls on disconnect and report any remaining external credential lifetime.
 
-Delegated access retains its sponsoring human and never substitutes another person's account after expiry. AI Subscriptions are separate from these external Connections. Their intended authentication uses the selected managed gateway's supported account flow, qualified per route/provider; it replaces the old Environment-native login requirement. Do not infer permission, billing equivalence or CLI-free support from a gateway's model list. Keep credentials in the approved secret boundary, never messages, Documents, Artifacts, ordinary metadata or unscoped Agent tools.
+Delegated access retains its sponsoring human and never substitutes another person's account after expiry. AI Subscriptions are separate from these external Connections. Their intended authentication uses the selected managed gateway's supported account flow, qualified per route/provider; it replaces the old Environment-native login requirement. Do not infer permission, billing equivalence or CLI-free support from a gateway's model list. Keep credentials in the approved secret boundary, never messages, Documents, Resources, ordinary metadata or unscoped Agent tools.
 
-MCP uses the same Connection/grant model. Discover tools without enabling everything; scope local MCP processes and resources like other code. Before putting external results into shared context or output, check that the Conversation's current audience may receive them. An agent's access to a private source does not authorize sharing it.
+MCP uses the same Connection/grant model. Discover tools without enabling everything; scope local MCP processes and resources like other code. Before putting external results into shared context or output, check that the Chat's current audience may receive them. An agent's access to a private source does not authorize sharing it.
 
-## Automations and workflows
+## Schedules and workflows
 
 ```mermaid
 flowchart TB
-  T[Manual Run or cron tick] --> A[Saved Automation configuration]
+  T[Manual Run or cron tick] --> A[Saved Schedule configuration]
   A --> V[Check current owner access, scope, and config version]
   V --> R[Save Run and pg-boss job atomically]
   R --> E[Claim the agent's environment]
   E --> P[Prompt: managed Pi]
   E --> S[Script: bounded code process]
-  P --> O[Saved results, activity, and artifacts]
+  P --> O[Saved results, activity, and files]
   S --> O
-  O --> C[The automation's output conversation and run history]
+  O --> C[The schedule's output chat and run history]
 ```
 
-Automation derives its Project from the output Conversation rather than storing a duplicate Project reference. It stores its prompt or script body directly, with a required human owner and Agent, one output Conversation, an optional Task reference, optional cron/timezone, and status `enabled`, `disabled` or `archived`. Agent owns reusable skills and Connection grants; Automations have no skill, Document or message override arrays. Restoring an archived Automation leaves it disabled. No separate prompt Document or published execution version is required. Human editors configure unattended work; agents propose changes. Scripts run in the agent's scoped Environment without requiring an LLM or Session. Prompt automations start a fresh Session per accepted occurrence.
+Schedule derives its Project from the output Chat rather than storing a duplicate Project reference. It stores its prompt or script body directly, with a required human owner and Agent, one output Chat, an optional Task reference, optional cron/timezone, and status `enabled`, `disabled` or `archived`. Agent owns reusable skills and Connection grants; Schedules have no skill, Document or message override arrays. Restoring an archived Schedule leaves it disabled. No separate prompt Document or published execution version is required. Human editors configure unattended work; agents propose changes. Scripts run in the agent's scoped Environment without requiring an LLM or Session. Prompt schedules start a fresh Session per accepted occurrence.
 
 Use **pg-boss inside apps/server**, against the existing PostgreSQL database, for cron and durable jobs. No Redis, additional worker service, or homemade scheduler. Put pg-boss objects in a dedicated PostgreSQL schema. We control deployment/migration execution using the pinned library's construction/migration SQL and migrate: false at runtime; pg-boss owns its queue table structure, while Drizzle owns Otto's domain tables. Do not rename or redesign pg-boss internals or duplicate Run state into its job schema. Manual admission saves the Run, its exact inputs, and dispatch job in one Drizzle transaction. Cron delivery uses a stable job identity to admit one Run, then follows the same path; record the occurrence time where the selected release exposes it. Queue delivery owns dispatch; Run owns user-visible execution state. Never make the whole agent stream a retryable job body.
 
 The dispatch handler accepts only a Run ID, rechecks current owner access, agent/Connection grants, output audience, Project/Environment scope, and a current configuration token, then launches or reconciles that same attempt. Queue retries must not create another attempt or blindly replay native tools. Persist the backend execution reference before acknowledging dispatch. Startup recovery also reconciles nonterminal Runs after a dispatch job has completed; if recovery is unsupported, report interrupted or uncertain, never success. Unknown external outcomes require reconciliation or a human decision before retry.
 
-At most one queued or active Run per Automation. Skip ticks while that attempt is outstanding; repeated manual clicks open it. Bound the Environment queue. Use named timezones, UTC by default, minute-level cron, and no catch-up burst after downtime. Pausing or editing invalidates scheduled requests not yet launched. Schedule updates use the same transaction where supported; otherwise retain durable reconciliation work and reject stale schedule tokens. Pause affects future cron work; manual Run remains available and Stop separately targets active work. Cron never supplies a missing operation approval.
+At most one queued or active Run per Schedule. Skip ticks while that attempt is outstanding; repeated manual clicks open it. Bound the Environment queue. Use named timezones, UTC by default, minute-level cron, and no catch-up burst after downtime. Pausing or editing invalidates scheduled requests not yet launched. Schedule updates use the same transaction where supported; otherwise retain durable reconciliation work and reject stale schedule tokens. Pause affects future cron work; manual Run remains available and Stop separately targets active work. Cron never supplies a missing operation approval.
 
-DBOS is a valid embedded PostgreSQL workflow library. Its checkpointed steps and replay rules pay off for durable multi-step workflows or long waits. Our initial automation is one launch, so pg-boss is the narrower recommendation. Neither library supplies native-process isolation or makes external writes exactly once. The selected release's transaction, scheduling, retry, and runtime behavior still need proof. See [queue research](foundation-research.md).
+DBOS is a valid embedded PostgreSQL workflow library. Its checkpointed steps and replay rules pay off for durable multi-step workflows or long waits. Our initial schedule is one launch, so pg-boss is the narrower recommendation. Neither library supplies native-process isolation or makes external writes exactly once. The selected release's transaction, scheduling, retry, and runtime behavior still need proof. See [queue research](foundation-research.md).
 
 Connection-event triggers, step graphs, workflow designers, and another Workflow/WorkflowRun model wait.
 
-## Artifacts and the library
+## Files and the library
 
 ```mermaid
 flowchart LR
   C[Files on agent computer or human upload] --> U[Bounded durable upload]
-  U --> A[Saved Artifact and files]
-  A --> T[Task and conversation links]
+  U --> A[Saved File]
+  A --> T[Task and chat links]
   A --> L[Library filters]
   A --> P[Preview and download]
   A --> S[Explicit public snapshot]
 ```
 
-An Artifact is **one saved output**, including a canvas, image, report, recording, dataset, or file bundle. Keep a stable ID, title, kind, labels, creator, optional source Run, access, and stored-file metadata. No versions, revision table, replacement history, or asset-management workflow. A newly generated deliverable becomes another Artifact; title and labels can be edited.
+A File is **one saved output**, including a canvas, image, report, recording, dataset, or file bundle. Keep a stable ID, title, kind, labels, creator, optional source Run, access, and stored-file metadata. No versions, revision table, replacement history, or asset-management workflow. A newly generated deliverable becomes another File; title and labels can be edited.
 
-Save files durably before exposing the Artifact and its links. Idempotent save requests return the same Artifact on retry. Saved file bytes are immutable, so existing links and shares remain stable; source Documents and local files can keep changing. Incomplete uploads never appear saved; cleanup failures retain retry work. Attachments can use the same stored bytes without reuploading.
+Save files durably before exposing the File and its links. Idempotent save requests return the same File on retry. Saved file bytes are immutable, so existing links and shares remain stable; source Documents and local files can keep changing. Incomplete uploads never appear saved; cleanup failures retain retry work. Attachments can use the same stored bytes without reuploading.
 
-The library is an access-filtered Artifact list with search, kind/creator/label filters, preview, download, and a direct source link. No artifact Collections, folders, or provenance graph. Archive/restore preserves links and bytes. Saved outputs remain readable after compute stops.
+The library is an access-filtered File list with search, kind/creator/label filters, preview, download, and a direct source link. Simple nested Folders organize Files and Documents (see [Files](../files.md)); there are no file Collections or provenance graph. Archive/restore preserves links and bytes. Saved outputs remain readable after compute stops.
 
-Public sharing selects the Artifact's files. Generated HTML previews run in an isolated sandbox without Otto credentials or access to other files; opening a preview cannot call tools or reach the source computer.
+Public sharing selects the File's stored bytes. Generated HTML previews run in an isolated sandbox without Otto credentials or access to other files; opening a preview cannot call tools or reach the source computer.
 
 ## Working with the least friction
 
 1. Capture a Task from a list or message. Supply the human owner and Project; capture the relevant source text once. Assign when useful.
-2. Run is separate from assignment. Select the Conversation and agent, save the request, and open the existing attempt on repeat clicks. Starting work can move To do to Doing.
-3. Discuss, steer, answer, and stop in the shared Conversation. Create another peer Task when there is another independently owned deliverable.
-4. Return messages, Artifacts, and code links. An authorized human marks Done or starts another attempt.
+2. Run is separate from assignment. Select the Chat and agent, save the request, and open the existing attempt on repeat clicks. Starting work can move To do to Doing.
+3. Discuss, steer, answer, and stop in the shared Chat. Create another peer Task when there is another independently owned deliverable.
+4. Return messages, Files, and code links. An authorized human marks Done or starts another attempt.
 
 Keep the three Task states. Queued/running/waiting/finished/failed/interrupted are Run signals, not new Task stages. Read cursors, mentions, questions, approvals, failed Runs, and results awaiting decisions use existing records and a filtered attention view. No separate notification service.
 
@@ -238,7 +240,7 @@ Archive hides a record, preserves access/links, and blocks new launches targetin
 
 ```mermaid
 flowchart TB
-  U[People, agents, and automation triggers] --> W[Web app and authenticated server]
+  U[People, agents, and schedule triggers] --> W[Web app and authenticated server]
   W --> D[Internal domain commands]
   D --> S[Save records and pending work atomically]
   S --> B[(Database and file store)]
@@ -246,7 +248,7 @@ flowchart TB
   R --> C[Authorized context, saved skill inputs, and connection grants]
   C --> A[Agent executes in its own computer and workspace]
   Q[External connections] -->|permitted operations| A
-  A --> E[Save messages, artifacts, activity, and result]
+  A --> E[Save messages, files, activity, and result]
   E --> B
   B --> V[Authorized stream and catch-up]
   V --> U
@@ -255,7 +257,7 @@ flowchart TB
 1. The web app calls authenticated server operations. Agent tools use the same internal domain functions under scoped identities. Domains validate access and save each user action atomically.
 2. Run admission saves its exact inputs and pg-boss dispatch job together. The server claims the agent's Environment and assigns the workspace. Repeated delivery reconciles the same execution.
 3. Prepare bounded authorized task/message/Document/skill context. Keep saved input files available for the attempt; record the managed Pi version/account, Environment generation, checkout/commit, and grant references. Follow selected links only. Context and results must be shareable with the current output audience.
-4. Execute through the managed Pi integration or bounded script process in the scoped Environment; Pi RPC handles the managed loop. Connection calls enforce current grants. Save useful files to Garage and Artifact metadata to PostgreSQL.
+4. Execute through the managed Pi integration or bounded script process in the scoped Environment; Pi RPC handles the managed loop. Connection calls enforce current grants. Save useful files to Garage and File metadata to PostgreSQL.
 5. Save progress before streaming. Reconnect catches up from saved records and then follows live updates without a gap; removal stops future delivery. Presence and typing stay temporary.
 
 Use relational current records, Run input snapshots, saved messages/activity, and a small persisted update cursor for reconnect. No global event-sourced model, generalized revision framework, or custom command bus. PostgreSQL holds application metadata and pg-boss jobs. Garage holds saved bytes; Environment volumes hold mutable working state. Keep those storage purposes distinct.
@@ -264,7 +266,7 @@ Use relational current records, Run input snapshots, saved messages/activity, an
 
 ```mermaid
 flowchart LR
-  S[Private document, conversation, or artifact] --> P[Human previews selected content or messages]
+  S[Private document, chat, or file] --> P[Human previews selected content or messages]
   P --> F[Save published snapshot and selected files]
   F --> L[Read-only share link]
   L --> V[Public reader]
@@ -272,9 +274,9 @@ flowchart LR
   X[Other linked records] -.->|stay private unless separately shared| S
 ```
 
-Documents and Artifacts use creator/custodian-only `user` or eligible `workspace` visibility intersected with their Project, plus explicit selected read-only public shares. Source-Run Artifacts additionally retain their immutable accepted/current recipient cap. Conversations use `workspace` or `participants` visibility and retain explicit participant roles. Viewers read; contributors write within their grant. Publishing and Project control remain human permissions. Agent membership grants no unrelated capability. Links/search results independently respect target access; inviting someone shows the visible history they will receive.
+Documents and Files use creator/custodian-only `user` or eligible `workspace` visibility intersected with their Project, plus explicit selected read-only public shares. Source-Run Files additionally retain their immutable accepted/current recipient cap. Chats use `workspace` or `participants` visibility and retain explicit participant roles. Viewers read; contributors write within their grant. Publishing and Project control remain human permissions. Agent membership grants no unrelated capability. Links/search results independently respect target access; inviting someone shows the visible history they will receive.
 
-Public sharing saves a previewed selection of the current Document body, Conversation messages, or Artifact files. This frozen share is necessary for intentional publication, not a version-history feature. Update the share explicitly. Exclude secrets, raw tool traces, hidden Session context, and unshared linked records. Referenced bytes stay available while shared; reuse storage without copying or exposing permanent unguarded URLs.
+Public sharing saves a previewed selection of the current Document body, Chat messages, or File files. This frozen share is necessary for intentional publication, not a version-history feature. Update the share explicitly. Exclude secrets, raw tool traces, hidden Session context, and unshared linked records. Referenced bytes stay available while shared; reuse storage without copying or exposing permanent unguarded URLs.
 
 Serve private/shared content through Otto's current access check. Revocation stops future retrieval, though downloads cannot be recalled. Recheck reads, edits, subscriptions, search, and files; participant removal stops future delivery. Live collaboration uses authenticated membership. Computers, credentials, and private Session context are never public share targets.
 
@@ -285,10 +287,10 @@ flowchart TB
   W[apps/web] <--> S[apps/server]
   S --> D[Thin domain packages]
   D --> P[projects and tasks: separate packages]
-  D --> C[conversations]
-  D --> N[documents and artifacts: separate packages]
+  D --> C[chats]
+  D --> N[documents and files: separate packages]
   D --> A[agents, environments, sessions, runs]
-  D --> Q[connections and automations]
+  D --> Q[connections and schedules]
   S --> DB[(PostgreSQL + pg-boss)]
   S --> F[Garage]
   A --> E[Existing isolated sandbox backend]
@@ -300,17 +302,17 @@ Separate apps/web and apps/server. Packages follow cohesive domains, not broad �
 | --- | --- |
 | projects | Project membership, defaults, repository references |
 | tasks | Ownership, assignment, states, work links |
-| conversations | Participants, messages, replies, read state |
+| chats | Participants, messages, replies, read state |
 | documents | Ordinary editable content, basic Collections and Document proposals |
 | skills | Reusable instructions, format metadata, immutable supporting references, import/export and Skill proposals |
-| artifacts | Saved output metadata, file references, library queries |
+| files | Saved output metadata, file references, library queries |
 | agents | Reusable worker configuration, authorized account/model and managed Pi |
 | environments | Computer/workspace lifecycle, isolation and execution lease |
 | sessions | Continuing context and validated scope/provider bindings |
 | runs | Attempt admission/state, input snapshots, Pi/process controls and recovery (transport: Pi RPC) |
 | connections | External accounts, credential use, scoped operations and MCP |
 | subscriptions | AI account metadata, current authority and trusted qualification |
-| automations | Saved launch settings and pg-boss schedule integration |
+| schedules | Saved launch settings and pg-boss schedule integration |
 
 These are internal packages in **one server and one database**, not services. Session and Run are separate because context lifetime differs from attempt lifetime; scripts only need Runs. Documents keep basic Collections; Skills own reusable instructions and their file/format behavior. Workspace/auth setup and cross-domain composition live in apps/server. Tiny access/storage helpers stay near their callers; split only if actual reuse warrants it.
 
@@ -377,13 +379,13 @@ Keep provider eligibility and supported authentication explicit. No model catalo
 
 Build complete slices, keeping two independent agents in the first execution proof:
 
-1. Login, workspace membership, Projects, flat Tasks, and multiplayer Conversations.
+1. Login, workspace membership, Projects, flat Tasks, and multiplayer Chats.
 2. Agent/Environment/Session/Run flow: concurrent Pi execution, directed requests, steer/stop, reconnect and recovery.
-3. Documents, basic Collections and skills; immutable saved Artifacts and the library.
-4. GitHub and MCP Connections with scoped tools, then manual/cron prompt and script Automations.
+3. Documents, basic Collections and skills; immutable saved Files and the library.
+4. GitHub and MCP Connections with scoped tools, then manual/cron prompt and script Schedules.
 5. Read-only selected public shares with preview/revocation; integrated attention, archive/restore, search and filters.
 
-Next integration proof: two Pi Agents in separate controlled execution scopes, one Conversation, exact authorized gateway account/model selection, targeted controls, one peer request, one scoped Otto tool and one durable Artifact. Controlled process/gateway peers prove only those contracts. Real persistent computers and account/provider qualification remain separate deferred proofs; do not retain a second harness just for modularity.
+Next integration proof: two Pi Agents in separate controlled execution scopes, one Chat, exact authorized gateway account/model selection, targeted controls, one peer request, one scoped Otto tool and one durable File. Controlled process/gateway peers prove only those contracts. Real persistent computers and account/provider qualification remain separate deferred proofs; do not retain a second harness just for modularity.
 
 Before treating a choice as proven, exercise lost launch acknowledgement/server loss, deadline and process-tree cleanup, isolation, quota/no billing fallback, and saved output after compute stops. Qualify the pinned pg-boss release: atomic Run+job rollback, duplicate delivery, schedule edit/pause, busy agents, timezone/DST, downtime with skipped ticks, crash recovery and uncertain external writes. Test stale edits, Run skill input retention, audience changes/retained context, public preview/revocation, and PostgreSQL+Garage restore. An authorized human then tries the end-to-end workflow.
 
@@ -391,7 +393,7 @@ The first sandbox, adapter releases, editor extensions, and hosting/public-share
 
 ## Deliberate omissions
 
-No artifact/document version history, skill publishing flow, automation content-version store, nested Tasks, task dependency engine, artifact Collections/folders, generalized provenance graph, workflow builder, separate runner/worker service, custom scheduler, generic command/event framework, broad external sync, real-time document co-editing, public editing, user-facing hard deletion, native apps, or mandatory review ceremony.
+No file/document version history, skill publishing flow, schedule content-version store, nested Tasks, task dependency engine, file Collections, shortcuts, sync, generalized provenance graph, workflow builder, separate runner/worker service, custom scheduler, generic command/event framework, broad external sync, real-time document co-editing, public editing, user-facing hard deletion, native apps, or mandatory review ceremony.
 
 Keep snapshots only where their purpose is concrete: exact Run inputs and intentionally published content. Keep leases, deduplication, permission checks, bounded processes, and durable failed-work records because removing them can duplicate execution, leak content, or lose work. These stay inside the implementation.
 

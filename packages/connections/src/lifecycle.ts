@@ -1,21 +1,29 @@
 import { getAgent } from "@otto/agents";
 import {
+  authorizedPage,
+  matchesText,
+  pageOf,
+  sortNames,
+  sortPlan,
+  textKey,
+  timeKey,
+} from "@otto/db";
+import {
   DomainError,
-  filterPage,
-  getPage,
+  type PageOptions,
   parseInput,
-  parsePageOptions,
   required,
 } from "@otto/shared";
 
 import {
   advanceCursor,
   type Context,
+  creatorIsMember,
   requireHuman,
   requireMember,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { connections, grants } from "./schema";
 import {
@@ -98,27 +106,54 @@ export async function getConnection(c: Context, id: string) {
   const row = await getConnectionRecord(c, id);
   return connectionView(row);
 }
+const connectionSorts = {
+  title: textKey(connections.title),
+  createdAt: timeKey(connections.createdAt),
+  updatedAt: timeKey(connections.updatedAt),
+};
+export const CONNECTION_SORTS = sortNames(connectionSorts);
+/** Filters narrow only the caller's readable Connections; account and credential references are never filterable. */
 export async function getConnections(
   c: Context,
-  filter: {
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
     type?: "github" | "mcp";
-    limit?: number;
-    after?: string;
+    visibility?: "user" | "workspace";
+    createdBy?: string;
+    connected?: boolean;
+    query?: string;
   } = {},
 ) {
   requireHuman(c);
-  const { after, limit } = parsePageOptions(filter);
-  const { after: _after, limit: _limit, ...filters } = filter;
+  const {
+    after: _after,
+    limit: _limit,
+    sort: _sort,
+    order: _order,
+    ...filters
+  } = filter;
   const parsed = parseInput(
     z
       .object({
         type: z.enum(["github", "mcp"]).optional(),
+        visibility: z.enum(["user", "workspace"]).optional(),
+        createdBy: z.string().min(1).max(128).optional(),
+        connected: z.boolean().optional(),
+        query: z.string().max(200).optional(),
       })
       .strict(),
     filters,
   );
+  const plan = sortPlan({
+    operation: "getConnections",
+    scope: c,
+    filter,
+    keys: connectionSorts,
+    id: connections.id,
+  });
   const rows = await c.tx
-    .select()
+    .select({ id: connections.id, position: plan.position })
     .from(connections)
     .where(
       and(
@@ -127,14 +162,28 @@ export async function getConnections(
           eq(connections.createdBy, c.actor.userId),
           eq(connections.visibility, "workspace"),
         ),
+        creatorIsMember(c, connections.createdBy),
         parsed.type ? eq(connections.type, parsed.type) : undefined,
-        after ? gt(connections.id, after) : undefined,
+        parsed.visibility
+          ? eq(connections.visibility, parsed.visibility)
+          : undefined,
+        parsed.createdBy
+          ? eq(connections.createdBy, parsed.createdBy)
+          : undefined,
+        parsed.connected === undefined
+          ? undefined
+          : eq(connections.connected, parsed.connected),
+        parsed.query ? matchesText(connections.title, parsed.query) : undefined,
+        plan.where,
       ),
     )
-    .orderBy(connections.id)
-    .limit(limit + 1);
-  const page = getPage(rows, (row) => row.id, limit);
-  return filterPage(page, (row) => getConnection(c, row.id));
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return authorizedPage(
+    pageOf(rows, plan, (row) => row.id),
+    (row) => getConnection(c, row.id),
+    plan,
+  );
 }
 /** Deployment-approved credential references only; the resolver independently binds workspace and Connection. */
 export async function updateConnection(

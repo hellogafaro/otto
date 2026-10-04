@@ -4,13 +4,14 @@ import {
   getSubscription,
   getSubscriptions,
   SUBSCRIPTION_INPUT,
+  SUBSCRIPTION_SORTS,
   SUBSCRIPTION_UPDATE,
   updateSubscription,
 } from "@otto/subscriptions";
 import { Hono } from "hono";
 import { z } from "zod";
 import { type ApiEnv, recordId, transact } from "./http";
-import { pageQuery, validate } from "./validation";
+import { listQuery, validate, visibility } from "./validation";
 
 export const subscriptionApi = new Hono<ApiEnv>()
   .get("/workspaces/:workspaceId/subscriptions/:id/models", async (c) => {
@@ -79,7 +80,16 @@ export const subscriptionApi = new Hono<ApiEnv>()
   })
   .get(
     "/workspaces/:workspaceId/subscriptions",
-    validate("query", pageQuery),
+    validate(
+      "query",
+      listQuery(SUBSCRIPTION_SORTS, {
+        status: z.enum(["needs_auth", "enabled", "disabled"]).optional(),
+        provider: z.enum(["codex"]).optional(),
+        visibility: visibility.optional(),
+        createdBy: z.string().min(1).max(128).optional(),
+        query: z.string().max(200).optional(),
+      }),
+    ),
     async (c) =>
       c.json(
         await transact(

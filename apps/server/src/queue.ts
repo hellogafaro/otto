@@ -1,10 +1,3 @@
-import {
-  CRON_QUEUE,
-  deliverAutomation,
-  reconcileSchedule,
-  SCHEDULE_QUEUE,
-  validateAutomation,
-} from "@otto/automations";
 import { recoverConnectionOperations } from "@otto/connections/server";
 import type { Database } from "@otto/db";
 import {
@@ -14,6 +7,13 @@ import {
   RUN_QUEUE,
   recoverRuns,
 } from "@otto/runs";
+import {
+  CRON_QUEUE,
+  deliverSchedule,
+  reconcileSchedule,
+  SCHEDULE_QUEUE,
+  validateSchedule,
+} from "@otto/schedules";
 import type { Pool } from "pg";
 import { PgBoss } from "pg-boss";
 import { z } from "zod";
@@ -105,7 +105,7 @@ export async function startQueue(
             const { runId } = z.object({ runId: z.uuid() }).parse(job.data);
             try {
               if (runtime) await runtime.dispatch(runId);
-              else await dispatchRun(db, runId, validateAutomation);
+              else await dispatchRun(db, runId, validateSchedule);
             } catch (error) {
               if (job.retryCount >= job.retryLimit)
                 await failQueuedRun(db, runId, "dispatch_retries_exhausted");
@@ -127,10 +127,14 @@ export async function startQueue(
           const data = z
             .object({ automationId: z.uuid(), editToken: z.number().int() })
             .parse(job.data);
-          await deliverAutomation(
+          await deliverSchedule(
             db,
             boss,
-            { ...data, id: job.id },
+            {
+              scheduleId: data.automationId,
+              editToken: data.editToken,
+              id: job.id,
+            },
             options.pi,
           );
         }

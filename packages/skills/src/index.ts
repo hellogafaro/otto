@@ -1,23 +1,30 @@
 import { getAgent } from "@otto/agents";
-import { getProject, getProjectAudience } from "@otto/projects";
 import {
-  DomainError,
-  filterPage,
-  getPage,
-  type PageOptions,
-  parsePageOptions,
-  required,
-} from "@otto/shared";
+  authorizedPage,
+  matchesText,
+  pageOf,
+  sortNames,
+  sortPlan,
+  textKey,
+  timeKey,
+} from "@otto/db";
+import {
+  getProject,
+  getProjectAudience,
+  projectReadable,
+} from "@otto/projects";
+import { DomainError, type PageOptions, required } from "@otto/shared";
 
 import {
   advanceCursor,
   type Context,
+  creatorIsMember,
   getWorkspaceAudience,
   requireHuman,
   requireMember,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { formatSkillFile, parseSkillFile } from "./format";
 import { type SkillFileReference, skillProposals, skills } from "./schema";
 export async function createSkill(
@@ -50,7 +57,7 @@ export async function createSkill(
     )[0],
   );
   await advanceCursor(c);
-  return skill;
+  return projectSkill(skill);
 }
 export async function getSkill(c: Context, id: string, write = false) {
   const skill = required(
@@ -78,7 +85,7 @@ export async function getSkill(c: Context, id: string, write = false) {
     requireWriter(c);
     if (skill.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   }
-  return skill;
+  return projectSkill(skill);
 }
 export async function updateSkill(
   c: Context,
@@ -123,7 +130,7 @@ export async function updateSkill(
     )[0],
   );
   await advanceCursor(c);
-  return updated;
+  return projectSkill(updated);
 }
 /** Current skill source permission, independent of whether it remains selectable for new Runs. */
 export async function validateSkillAccess(
@@ -140,7 +147,7 @@ export async function validateSkillAccess(
     if (skill.visibility === "user" && agent.createdBy !== skill.createdBy)
       throw new DomainError("forbidden", "User-scoped skill dependency");
   }
-  return skill;
+  return projectSkill(skill);
 }
 export async function snapshotSkills(
   c: Context,
@@ -158,41 +165,92 @@ export async function snapshotSkills(
       instructions: skill.instructions,
       whenToUse: skill.whenToUse,
       editToken: skill.editToken,
-      supportingFiles: skill.supportingFiles,
+      supportingFiles: skill.supportingFiles.map((file) => ({
+        path: file.path,
+        artifactId: file.fileId,
+        sha256: file.sha256,
+        byteLength: file.byteLength,
+      })),
     });
   }
   return snapshots;
 }
+const skillSorts = {
+  title: textKey(skills.title),
+  createdAt: timeKey(skills.createdAt),
+  updatedAt: timeKey(skills.updatedAt),
+};
+export const SKILL_SORTS = sortNames(skillSorts);
 export async function getSkills(
   c: Context,
-  filter: {
-    after?: string;
-    limit?: number;
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
     projectId?: string;
+    visibility?: "user" | "workspace";
+    createdBy?: string;
     archived?: boolean;
     query?: string;
   } = {},
 ) {
-  const { limit } = parsePageOptions(filter);
-  if (filter.projectId) await getProject(c, filter.projectId);
+  const f = { ...filter, archived: filter.archived ?? false };
+  const plan = sortPlan({
+    operation: "getSkills",
+    scope: c,
+    filter: f,
+    keys: skillSorts,
+    id: skills.id,
+  });
+  if (f.projectId) await getProject(c, f.projectId);
+  // An Agent actor sees only its selected Skills (`getSkill`); an Agent it cannot read denies every Skill.
+  let selection: { skillIds: string[]; createdBy: string } | undefined;
+  if (c.actor.agentId) {
+    try {
+      const agent = await getAgent(c, c.actor.agentId);
+      selection = { skillIds: agent.skillIds, createdBy: agent.createdBy };
+    } catch (error) {
+      if (!(error instanceof DomainError) || error.code !== "forbidden")
+        throw error;
+    }
+    if (!selection?.skillIds.length) return { items: [], next: null };
+  }
   const rows = await c.tx
-    .select({ id: skills.id })
+    .select({ id: skills.id, position: plan.position })
     .from(skills)
     .where(
       and(
         eq(skills.workspaceId, c.workspaceId),
-        eq(skills.archived, filter.archived ?? false),
-        filter.projectId ? eq(skills.projectId, filter.projectId) : undefined,
-        filter.after ? gt(skills.id, filter.after) : undefined,
-        filter.query
-          ? sql`to_tsvector('simple', ${skills.title} || ' ' || ${skills.instructions}) @@ plainto_tsquery('simple', ${filter.query})`
+        eq(skills.archived, f.archived),
+        f.projectId ? eq(skills.projectId, f.projectId) : undefined,
+        f.visibility ? eq(skills.visibility, f.visibility) : undefined,
+        f.createdBy ? eq(skills.createdBy, f.createdBy) : undefined,
+        // Narrowing only: another person's private Skills are never scanned; getSkill stays the authority.
+        or(
+          eq(skills.visibility, "workspace"),
+          eq(skills.createdBy, c.actor.userId),
+        ),
+        projectReadable(c, skills.projectId),
+        creatorIsMember(c, skills.createdBy),
+        selection ? inArray(skills.id, selection.skillIds) : undefined,
+        selection
+          ? or(
+              eq(skills.visibility, "workspace"),
+              eq(skills.createdBy, selection.createdBy),
+            )
           : undefined,
+        f.query
+          ? matchesText(
+              sql`${skills.title} || ' ' || ${skills.instructions}`,
+              f.query,
+            )
+          : undefined,
+        plan.where,
       ),
     )
-    .orderBy(skills.id)
-    .limit(limit + 1);
-  return filterPage(
-    getPage(rows, (row) => row.id, limit),
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return authorizedPage(
+    pageOf(rows, plan, (row) => row.id),
     async (row) => {
       const skill = await getSkill(c, row.id);
       return {
@@ -203,6 +261,7 @@ export async function getSkills(
         editToken: skill.editToken,
       };
     },
+    plan,
   );
 }
 export async function archiveSkill(
@@ -223,9 +282,9 @@ export async function archiveSkill(
     )[0],
   );
   await advanceCursor(c);
-  return updated;
+  return projectSkill(updated);
 }
-/** Trusted composition resolves immutable Artifact references before calling this in the same workspace transaction. */
+/** Trusted composition resolves immutable File references before calling this in the same workspace transaction. */
 export async function setSkillFiles(
   c: Context,
   id: string,
@@ -256,10 +315,33 @@ export async function setSkillFiles(
     )[0],
   );
   await advanceCursor(c);
-  return updated;
+  return projectSkill(updated);
 }
 
-export type { SkillFileReference } from "./schema";
+export type { AcceptedSkillFileReference, SkillFileReference } from "./schema";
+
+/** Old stored Skill references project to the current API without rewriting accepted evidence. */
+function projectSkill(skill: typeof skills.$inferSelect) {
+  return {
+    ...skill,
+    supportingFiles: skill.supportingFiles.map((file) => {
+      // Exactly one persisted identity form is accepted; dual identities are ambiguous.
+      const ids = [
+        "fileId" in file ? file.fileId : undefined,
+        "resourceId" in file ? file.resourceId : undefined,
+        "artifactId" in file ? file.artifactId : undefined,
+      ].filter((id) => id !== undefined);
+      if (ids.length !== 1)
+        throw new DomainError("conflict", "Ambiguous supporting file identity");
+      return {
+        path: file.path,
+        fileId: ids[0] as string,
+        sha256: file.sha256,
+        byteLength: file.byteLength,
+      };
+    }),
+  };
+}
 
 export async function getSkillAudience(c: Context, id: string) {
   return skillAudience(c, await getSkill(c, id));
@@ -288,14 +370,16 @@ export async function importSkill(
     projectId: input.projectId,
     visibility: input.visibility,
   });
-  return required(
-    (
-      await c.tx
-        .update(skills)
-        .set({ metadata: parsed.metadata })
-        .where(eq(skills.id, skill.id))
-        .returning()
-    )[0],
+  return projectSkill(
+    required(
+      (
+        await c.tx
+          .update(skills)
+          .set({ metadata: parsed.metadata })
+          .where(eq(skills.id, skill.id))
+          .returning()
+      )[0],
+    ),
   );
 }
 export async function exportSkill(c: Context, id: string) {
@@ -346,25 +430,55 @@ export async function proposeSkillChange(
   await advanceCursor(c);
   return proposal;
 }
+const skillProposalSorts = { title: textKey(skillProposals.title) };
+export const SKILL_PROPOSAL_SORTS = sortNames(skillProposalSorts);
 export async function getSkillProposals(
   c: Context,
   id: string,
-  options: PageOptions = {},
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
+    proposerId?: string;
+    agentId?: string;
+    query?: string;
+  } = {},
 ) {
   await getSkill(c, id);
-  const { after, limit } = parsePageOptions(options);
+  const plan = sortPlan({
+    operation: `getSkillProposals:${id}`,
+    scope: c,
+    filter,
+    keys: skillProposalSorts,
+    id: skillProposals.id,
+  });
   const rows = await c.tx
-    .select()
+    .select({
+      id: skillProposals.id,
+      skillId: skillProposals.skillId,
+      proposerId: skillProposals.proposerId,
+      agentId: skillProposals.agentId,
+      title: skillProposals.title,
+      instructions: skillProposals.instructions,
+      editToken: skillProposals.editToken,
+      position: plan.position,
+    })
     .from(skillProposals)
     .where(
       and(
         eq(skillProposals.skillId, id),
-        after ? gt(skillProposals.id, after) : undefined,
+        filter.proposerId
+          ? eq(skillProposals.proposerId, filter.proposerId)
+          : undefined,
+        filter.agentId ? eq(skillProposals.agentId, filter.agentId) : undefined,
+        filter.query
+          ? matchesText(skillProposals.title, filter.query)
+          : undefined,
+        plan.where,
       ),
     )
-    .orderBy(skillProposals.id)
-    .limit(limit + 1);
-  return getPage(rows, (row) => row.id, limit);
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return pageOf(rows, plan, (row) => row.id);
 }
 export async function resolveSkillProposal(
   c: Context,

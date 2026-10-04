@@ -276,23 +276,23 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
         )
       ).json(),
     ).agent;
-    const conversation = record.parse(
+    const chat = record.parse(
       await (
         await post(
-          `${path}/conversations`,
-          { title: "Automation", visibility: "workspace" },
+          `${path}/chats`,
+          { title: "Schedule", visibility: "workspace" },
           human.cookie,
         )
       ).json(),
     );
-    const automation = record.parse(
+    const schedule = record.parse(
       await (
         await post(
-          `${path}/automations`,
+          `${path}/schedules`,
           {
-            title: "Owned automation",
+            title: "Owned schedule",
             agentId: agent.id,
-            conversationId: conversation.id,
+            chatId: chat.id,
             type: "script",
             body: "true",
           },
@@ -304,7 +304,7 @@ it("delivers committed invitations through HTTP, verifies recipients and guards 
     expect((await remove()).status).toBe(409);
     expect(
       (
-        await fetch(`${origin}/api${path}/automations/${automation.id}`, {
+        await fetch(`${origin}/api${path}/schedules/${schedule.id}`, {
           method: "PATCH",
           headers: {
             origin,

@@ -8,6 +8,8 @@ import { createApi } from "./api";
 import { createGatewayStoreApi } from "./gateway-store-api";
 import type { ApiOptions } from "./http";
 import { createLogger } from "./logger";
+
+const jsonLimit = bodyLimit({ maxSize: 1024 * 1024 });
 /** Composes transport boundaries; domain operations remain in their owning packages. */
 export function createApp(
   options?: ApiOptions,
@@ -25,7 +27,13 @@ export function createApp(
         inFlight--;
       }
     })
-    .use("*", bodyLimit({ maxSize: 1024 * 1024 }))
+    // Every route keeps the small JSON cap except the one binary upload route, which streams to a bounded spool.
+    .use("*", (c, next) =>
+      c.req.method === "PUT" &&
+      /^\/api\/workspaces\/[^/]+\/files\/[^/]+\/content$/.test(c.req.path)
+        ? next()
+        : jsonLimit(c, next),
+    )
     .use("*", async (c, next) => {
       const requestId = crypto.randomUUID();
       c.header("X-Request-Id", requestId);

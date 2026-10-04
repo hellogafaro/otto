@@ -1,6 +1,7 @@
 import {
   approveOperation,
   CONNECTION_AUDIENCE,
+  CONNECTION_SORTS,
   createConnection,
   disconnectConnection,
   getConnection,
@@ -9,6 +10,7 @@ import {
   getOperations,
   grantConnectionAccess,
   OPERATION_APPROVAL,
+  OPERATION_SORTS,
   retryOperation,
   revokeConnectionAccess,
   updateConnection,
@@ -19,7 +21,14 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { connectionService, validateConnectionRun } from "./connections";
 import { type ApiEnv, recordId, transact, workspaceId } from "./http";
-import { editToken, id, pageQuery, validate } from "./validation";
+import {
+  editToken,
+  flag,
+  id,
+  listQuery,
+  validate,
+  visibility,
+} from "./validation";
 
 function service(c: import("hono").Context<ApiEnv>) {
   const options = c.get("options");
@@ -40,8 +49,12 @@ export const connectionApi = new Hono<ApiEnv>()
     "/workspaces/:workspaceId/connections",
     validate(
       "query",
-      pageQuery.extend({
+      listQuery(CONNECTION_SORTS, {
         type: z.enum(["github", "mcp"]).optional(),
+        visibility: visibility.optional(),
+        createdBy: z.string().min(1).max(128).optional(),
+        connected: flag,
+        query: z.string().max(200).optional(),
       }),
     ),
     async (c) =>
@@ -144,7 +157,7 @@ export const connectionApi = new Hono<ApiEnv>()
     "/workspaces/:workspaceId/connections/:id/operations",
     validate(
       "query",
-      pageQuery.extend({
+      listQuery(OPERATION_SORTS, {
         state: z
           .enum([
             "awaiting_approval",

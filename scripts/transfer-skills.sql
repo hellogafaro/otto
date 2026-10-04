@@ -17,7 +17,7 @@ BEGIN
     RAISE EXCEPTION 'Ordinary Document has skill data; operator disposition required';
   END IF;
   IF EXISTS (SELECT 1 FROM documents WHERE skill AND
-    ("collectionId" IS NOT NULL OR properties <> '{}'::jsonb OR "artifactIds" <> '[]'::jsonb)) THEN
+    ("collectionId" IS NOT NULL OR properties <> '{}'::jsonb OR "resourceIds" <> '[]'::jsonb)) THEN
     RAISE EXCEPTION 'Skill has ordinary Document data; operator disposition required';
   END IF;
   IF EXISTS (SELECT 1 FROM content_shares s JOIN documents d ON lower(s.selection->>'targetId')=d.id::text

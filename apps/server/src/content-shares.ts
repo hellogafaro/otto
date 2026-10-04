@@ -1,12 +1,13 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-  type ArtifactStorage,
-  previewArtifact,
-  readArtifact,
-} from "@otto/artifacts";
-import { getConversation, previewConversation } from "@otto/conversations";
+import { getChat, previewChat } from "@otto/chats";
 import type { Database } from "@otto/db";
 import { getDocument } from "@otto/documents";
+import {
+  type FileStorage,
+  locateFile,
+  previewFile,
+  readFile,
+} from "@otto/files";
 import { requireProjectMember } from "@otto/projects";
 import {
   DomainError,
@@ -23,11 +24,13 @@ import {
   requireHuman,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, gt, isNotNull, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   contentShares,
   type ShareSelection,
   type ShareSnapshot,
+  type StoredShareSelection,
+  type StoredShareSnapshot,
 } from "./content-schema";
 
 async function selectContent(
@@ -50,26 +53,22 @@ async function selectContent(
       body: doc.body.slice(selection.start, selection.end),
     };
   }
-  if (selection.type === "conversation")
+  if (selection.type === "chat")
     return {
-      type: "conversation",
-      ...(await previewConversation(
-        c,
-        selection.targetId,
-        selection.messageIds,
-      )),
+      type: "chat",
+      ...(await previewChat(c, selection.targetId, selection.messageIds)),
     };
-  const artifact = await previewArtifact(c, selection.targetId);
+  const saved = await previewFile(c, selection.targetId);
   return {
-    type: "artifact",
-    title: artifact.title,
-    artifactType: artifact.type,
-    labels: artifact.labels,
+    type: "file",
+    title: saved.title,
+    fileType: saved.type,
+    labels: saved.labels,
     file: selection.includeFile
       ? {
-          mediaType: artifact.mediaType,
-          byteLength: artifact.byteLength,
-          sha256: artifact.sha256,
+          mediaType: saved.mediaType,
+          byteLength: saved.byteLength,
+          sha256: saved.sha256,
         }
       : null,
   };
@@ -96,7 +95,7 @@ async function getOwnedShare(c: Context, id: string) {
     c.role !== "admin"
   )
     throw new DomainError("forbidden");
-  return row;
+  return projectShare(row);
 }
 export async function upsertShare(
   c: Context,
@@ -124,7 +123,11 @@ export async function upsertShare(
       )[0],
     );
     await advanceCursor(c);
-    return { id: saved.id, preview: saved.preview, editToken: saved.editToken };
+    return {
+      id: saved.id,
+      preview: projectSnapshot(saved.preview),
+      editToken: saved.editToken,
+    };
   }
   const saved = required(
     (
@@ -140,7 +143,11 @@ export async function upsertShare(
     )[0],
   );
   await advanceCursor(c);
-  return { id: saved.id, preview: saved.preview, editToken: saved.editToken };
+  return {
+    id: saved.id,
+    preview: projectSnapshot(saved.preview),
+    editToken: saved.editToken,
+  };
 }
 export async function publishShare(c: Context, id: string, editToken: number) {
   const row = await getOwnedShare(c, id);
@@ -168,7 +175,20 @@ export async function revokeShare(c: Context, id: string) {
     .where(eq(contentShares.id, id));
   await advanceCursor(c);
 }
-export async function getShares(c: Context, options: PageOptions = {}) {
+/** Stored selections written before the Chat and File renames keep their old discriminators. */
+const SHARE_TYPES = {
+  document: ["document"],
+  chat: ["chat", "conversation"],
+  file: ["file", "resource", "artifact"],
+};
+/** Publisher-only list of frozen selections: no title or time column exists, so it filters but keeps id order. */
+export async function getShares(
+  c: Context,
+  options: PageOptions & {
+    published?: boolean;
+    type?: "document" | "chat" | "file";
+  } = {},
+) {
   requireHuman(c);
   const { after, limit } = parsePageOptions(options);
   const items = await c.tx
@@ -183,12 +203,30 @@ export async function getShares(c: Context, options: PageOptions = {}) {
       and(
         eq(contentShares.workspaceId, c.workspaceId),
         eq(contentShares.publisherId, c.actor.userId),
+        options.published === undefined
+          ? undefined
+          : options.published
+            ? isNotNull(contentShares.snapshot)
+            : isNull(contentShares.snapshot),
+        options.type
+          ? inArray(
+              sql`${contentShares.selection}->>'type'`,
+              SHARE_TYPES[options.type],
+            )
+          : undefined,
         after ? gt(contentShares.id, after) : undefined,
       ),
     )
     .orderBy(contentShares.id)
     .limit(limit + 1);
-  return getPage(items, (row) => row.id, limit);
+  return getPage(
+    items.map((row) => ({
+      ...row,
+      selection: projectSelection(row.selection),
+    })),
+    (row) => row.id,
+    limit,
+  );
 }
 async function publicShare(db: Database, id: string) {
   const initial = required(
@@ -219,25 +257,17 @@ async function publicShare(db: Database, id: string) {
       );
       requireWriter(c);
       // Source changes do not change frozen bytes; loss of the publisher's source access closes the gate.
-      if (share.selection.type === "document") {
-        const doc = await getDocument(c, share.selection.targetId);
+      const selection = projectSelection(share.selection);
+      if (selection.type === "document") {
+        const doc = await getDocument(c, selection.targetId);
         if (doc.projectId)
           await requireProjectMember(c, doc.projectId, c.actor.userId, true);
-      } else if (share.selection.type === "conversation") {
-        const conversation = await getConversation(
-          c,
-          share.selection.targetId,
-          true,
-        );
-        if (conversation.projectId)
-          await requireProjectMember(
-            c,
-            conversation.projectId,
-            c.actor.userId,
-            true,
-          );
-      } else await previewArtifact(c, share.selection.targetId);
-      return share;
+      } else if (selection.type === "chat") {
+        const chat = await getChat(c, selection.targetId, true);
+        if (chat.projectId)
+          await requireProjectMember(c, chat.projectId, c.actor.userId, true);
+      } else await previewFile(c, selection.targetId);
+      return projectShare(share);
     },
     false,
   );
@@ -254,20 +284,34 @@ export async function getShare(db: Database, id: string) {
     throw error;
   }
 }
+/** Not-found for every closed or revoked gate, so a public caller learns nothing about the source. */
+export async function publicFile<T>(work: () => Promise<T>) {
+  try {
+    return await work();
+  } catch (error) {
+    if (
+      error instanceof DomainError &&
+      ["forbidden", "not_found"].includes(error.code)
+    )
+      throw new DomainError("not_found");
+    throw error;
+  }
+}
+/** Bounded in-memory read for the sandboxed HTML preview. */
 export async function readShareFile(
   db: Database,
-  storage: ArtifactStorage,
+  storage: FileStorage,
   id: string,
 ) {
-  try {
+  return publicFile(async () => {
     const share = await publicShare(db, id);
     if (
-      share.selection.type !== "artifact" ||
-      share.snapshot?.type !== "artifact" ||
+      share.selection.type !== "file" ||
+      share.snapshot?.type !== "file" ||
       !share.snapshot.file
     )
       throw new DomainError("not_found");
-    const bytes = await readArtifact(
+    const bytes = await readFile(
       db,
       storage,
       share.workspaceId,
@@ -277,17 +321,57 @@ export async function readShareFile(
     const current = await publicShare(db, id);
     if (
       current.editToken !== share.editToken ||
-      current.snapshot?.type !== "artifact" ||
+      current.snapshot?.type !== "file" ||
       !current.snapshot.file
     )
       throw new DomainError("not_found");
     return bytes;
-  } catch (error) {
+  });
+}
+/** Current publication and source authority for a streamed public download; called repeatedly. */
+export async function locateShareFile(db: Database, id: string) {
+  return publicFile(async () => {
+    const share = await publicShare(db, id);
     if (
-      error instanceof DomainError &&
-      ["forbidden", "not_found"].includes(error.code)
+      share.selection.type !== "file" ||
+      share.snapshot?.type !== "file" ||
+      !share.snapshot.file
     )
       throw new DomainError("not_found");
-    throw error;
+    const located = await locateFile(
+      db,
+      share.workspaceId,
+      { userId: share.publisherId },
+      share.selection.targetId,
+    );
+    return { ...located, shareEditToken: share.editToken };
+  });
+}
+
+function projectSelection(selection: StoredShareSelection): ShareSelection {
+  if (selection.type === "artifact" || selection.type === "resource")
+    return { ...selection, type: "file" };
+  return selection.type === "conversation"
+    ? { ...selection, type: "chat" }
+    : selection;
+}
+function projectSnapshot(snapshot: StoredShareSnapshot): ShareSnapshot {
+  if (snapshot.type === "conversation") return { ...snapshot, type: "chat" };
+  if (snapshot.type === "resource") {
+    const { resourceType, ...content } = snapshot;
+    return { ...content, type: "file", fileType: resourceType };
   }
+  if (snapshot.type === "artifact") {
+    const { artifactType, ...content } = snapshot;
+    return { ...content, type: "file", fileType: artifactType };
+  }
+  return snapshot;
+}
+function projectShare(row: typeof contentShares.$inferSelect) {
+  return {
+    ...row,
+    selection: projectSelection(row.selection),
+    preview: projectSnapshot(row.preview),
+    snapshot: row.snapshot ? projectSnapshot(row.snapshot) : null,
+  };
 }

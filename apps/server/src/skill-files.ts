@@ -1,9 +1,5 @@
-import {
-  type ArtifactStorage,
-  readArtifact,
-  requireArtifactAudience,
-} from "@otto/artifacts";
 import type { Database } from "@otto/db";
+import { type FileStorage, readFile, requireFileAudience } from "@otto/files";
 import { getRunAudience, getRunSkillFile } from "@otto/runs";
 import { DomainError } from "@otto/shared";
 
@@ -12,7 +8,7 @@ import { inWorkspace } from "@otto/workspaces";
 /** Reads only an accepted immutable reference and rechecks source authorization after storage I/O. */
 export async function readRunSkillFile(
   db: Database,
-  storage: ArtifactStorage,
+  storage: FileStorage,
   input: {
     workspaceId: string;
     sponsorId: string;
@@ -35,22 +31,22 @@ export async function readRunSkillFile(
           input.path,
         );
         const audience = await getRunAudience(c, input.runId);
-        await requireArtifactAudience(c, reference.artifactId, audience.humans);
+        await requireFileAudience(c, reference.fileId, audience.humans);
         return reference;
       },
       false,
     );
   const reference = await authorize();
-  const bytes = await readArtifact(
+  const bytes = await readFile(
     db,
     storage,
     input.workspaceId,
     actor,
-    reference.artifactId,
+    reference.fileId,
   );
   const current = await authorize();
   if (
-    current.artifactId !== reference.artifactId ||
+    current.fileId !== reference.fileId ||
     bytes.length !== reference.byteLength ||
     new Bun.CryptoHasher("sha256").update(bytes).digest("hex") !==
       reference.sha256

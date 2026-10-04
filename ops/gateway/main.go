@@ -43,6 +43,7 @@ const maxFrameBytes = 256 << 10
 const requestTimeout = 5 * time.Minute
 
 var errUnavailable = errors.New("accepted account request unavailable")
+var errCancelledRead = errors.New("account store read cancelled")
 
 type credential struct {
 	Provider     string `json:"provider"`
@@ -152,6 +153,11 @@ func (s *accountStore) callback(ctx context.Context, method, id string, body any
 	req.Header.Set("Content-Type", "application/json")
 	resp, e := s.client.Do(req)
 	if e != nil {
+		// No answer was received: a failure whose cause is this request's own cancellation or deadline is not
+		// evidence about the account. An unrelated transport error that merely races the cancel still is.
+		if ctx.Err() != nil && (errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded)) {
+			return out, errCancelledRead
+		}
 		return out, errUnavailable
 	}
 	defer resp.Body.Close()
@@ -166,6 +172,12 @@ func (s *accountStore) callback(ctx context.Context, method, id string, body any
 }
 func (s *accountStore) read(ctx context.Context, id string) (savedCredential, error) {
 	out, e := s.callback(ctx, "GET", id, nil)
+	// Only a transport failure with no store answer, caused by this request's own cancellation or deadline, says
+	// nothing about the account: refuse the request without blocking later ones. Any received answer (non-200,
+	// malformed, invalid credential) still blocks until fresh authentication, even if the context is cancelled too.
+	if errors.Is(e, errCancelledRead) {
+		return savedCredential{}, errUnavailable
+	}
 	if e != nil || !out.Credential.valid() || out.Fingerprint != fingerprint(out.Credential) {
 		s.block(id)
 		return savedCredential{}, errUnavailable

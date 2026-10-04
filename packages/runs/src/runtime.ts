@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import { getConversation } from "@otto/conversations";
+import { getChat } from "@otto/chats";
 import type { Database } from "@otto/db";
 import {
   bindEnvironment,
@@ -43,7 +43,7 @@ interface RuntimeOptions {
   backend: ComputerBackend;
   /** Server-configured pinned commands only; no browser command or credential interpolation. */
   pi: PiInstallation;
-  validateAutomation?: (
+  validateSchedule?: (
     c: Context,
     id: string,
     editToken: number,
@@ -83,7 +83,7 @@ export async function withRunAttempt<T>(
   db: Database,
   identity: Attempt,
   action: (c: Context, run: typeof runs.$inferSelect) => Promise<T>,
-  validateAutomation?: RuntimeOptions["validateAutomation"],
+  validateSchedule?: RuntimeOptions["validateSchedule"],
 ) {
   const descriptor = required(
     (await db.select().from(runs).where(eq(runs.id, identity.runId)))[0],
@@ -93,7 +93,7 @@ export async function withRunAttempt<T>(
     descriptor.workspaceId,
     { userId: descriptor.sponsorId, agentId: identity.agentId },
     async (c) => {
-      const run = await assertRunAttempt(c, identity, validateAutomation);
+      const run = await assertRunAttempt(c, identity, validateSchedule);
       return action(c, run);
     },
   );
@@ -102,7 +102,7 @@ export async function withRunAttempt<T>(
 export async function assertRunAttempt(
   c: Context,
   identity: Attempt,
-  validateAutomation?: RuntimeOptions["validateAutomation"],
+  validateSchedule?: RuntimeOptions["validateSchedule"],
 ) {
   const run = required(
     (await c.tx.select().from(runs).where(eq(runs.id, identity.runId)))[0],
@@ -122,7 +122,7 @@ export async function assertRunAttempt(
   await validateRunSources(
     { ...c, actor: { userId: run.sponsorId } },
     run,
-    validateAutomation,
+    validateSchedule,
     "continue",
   );
   const env = await getEnvironment(c, run.agentId);
@@ -134,13 +134,17 @@ export async function assertRunAttempt(
     throw new DomainError("forbidden", "Execution lease lost");
   return run;
 }
-/** Exact accepted sources retained by this computer. Incomplete legacy scopes cannot be reused. */
+/**
+ * Exact accepted sources retained by this computer. Incomplete legacy scopes cannot be reused.
+ * The persisted serialization keeps its historical `conversationId` key for the Chat so retained
+ * scopes compare byte-equal across the rename; it is private storage, not a public alias.
+ */
 function executionScope(run: typeof runs.$inferSelect) {
   if (!run.inputs.context)
     throw new DomainError("conflict", "Retained source scope unavailable");
   return JSON.stringify({
     sponsorId: run.sponsorId,
-    conversationId: run.conversationId,
+    conversationId: run.chatId,
     subscriptionId: run.inputs.subscriptionId,
     accountId: run.inputs.accountId,
     humans: run.inputs.audience.humans.slice().sort(),
@@ -401,7 +405,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           (await c.tx.select().from(runs).where(eq(runs.id, id)))[0],
         );
         if (run.state !== "queued") return null;
-        await validateRunSources(c, run, options.validateAutomation);
+        await validateRunSources(c, run, options.validateSchedule);
         if (Date.now() - run.createdAt.getTime() > 600000)
           throw new DomainError("conflict", "Queue deadline exceeded");
         const currentEnvironment = await getEnvironment(c, run.agentId);
@@ -621,7 +625,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           await validateRunSources(
             c,
             current,
-            options.validateAutomation,
+            options.validateSchedule,
             "launch",
           );
         },
@@ -676,7 +680,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
           await validateRunSources(
             c,
             current,
-            options.validateAutomation,
+            options.validateSchedule,
             "continue",
           );
           await c.tx
@@ -739,7 +743,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
             db,
             identity,
             async () => {},
-            options.validateAutomation,
+            options.validateSchedule,
           );
         } catch {
           await stopProcess(
@@ -775,7 +779,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
                     authorized = true;
                     return work(c, run);
                   },
-                  options.validateAutomation,
+                  options.validateSchedule,
                 );
               } catch (error) {
                 // Provenance belongs to this transaction: later cancellation or
@@ -807,7 +811,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
                   db,
                   identity,
                   async () => {},
-                  options.validateAutomation,
+                  options.validateSchedule,
                 );
                 if (!options.handleTool)
                   throw new DomainError(
@@ -842,7 +846,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
                   required(row.sessionId ?? undefined),
                   nativeRef,
                 ),
-              options.validateAutomation,
+              options.validateSchedule,
             );
             const prompt = [
               row.inputs.instructions,
@@ -865,7 +869,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
               db,
               identity,
               async () => {},
-              options.validateAutomation,
+              options.validateSchedule,
             );
             await settle(
               identity,
@@ -897,7 +901,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
                       ++sequence,
                       decoder.decode(chunk.value, { stream: true }),
                     ),
-                  options.validateAutomation,
+                  options.validateSchedule,
                 );
               }
             } finally {
@@ -911,7 +915,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
               db,
               identity,
               async () => {},
-              options.validateAutomation,
+              options.validateSchedule,
             );
             await settle(
               identity,
@@ -981,7 +985,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         requireHuman(c);
         requireWriter(c);
         const permitted = await getRun(c, id);
-        await getConversation(c, permitted.conversationId, true);
+        await getChat(c, permitted.chatId, true);
         const row = required(
           (await c.tx.select().from(runs).where(eq(runs.id, id)))[0],
         );
@@ -1048,7 +1052,7 @@ export function createRunRuntime(db: Database, options: RuntimeOptions) {
         requireHuman(c);
         requireWriter(c);
         const permitted = await getRun(c, id);
-        await getConversation(c, permitted.conversationId, true);
+        await getChat(c, permitted.chatId, true);
         const run = required(
           (await c.tx.select().from(runs).where(eq(runs.id, id)))[0],
         );

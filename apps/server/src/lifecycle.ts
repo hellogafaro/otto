@@ -1,8 +1,9 @@
 import { fileURLToPath } from "node:url";
-import { createS3Storage } from "@otto/artifacts/storage";
-import { validateAutomation } from "@otto/automations";
-import { openDatabase } from "@otto/db";
+import { createCursorCodec, openDatabase } from "@otto/db";
+import { MAX_FILE_BYTES } from "@otto/files";
+import { createS3Storage } from "@otto/files/storage";
 import { createRunRuntime, type RunRuntime } from "@otto/runs/runtime";
+import { validateSchedule } from "@otto/schedules";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { createApp } from "./app";
 import { createAuth } from "./auth";
@@ -15,6 +16,7 @@ import { startQueue } from "./queue";
 import { createRealtime, type RealtimeData } from "./realtime";
 import * as schema from "./schema";
 import { readRunSkillFile } from "./skill-files";
+import { createSpool, type Spool } from "./spool";
 import {
   createSubscriptionLogin,
   type SubscriptionLogin,
@@ -49,6 +51,7 @@ export async function startServer(
   let server: Bun.Server<RealtimeData> | undefined;
   let realtime: ReturnType<typeof createRealtime> | undefined;
   let storage: ReturnType<typeof createS3Storage> | undefined;
+  let spool: Spool | undefined;
   let runtime: RunRuntime | undefined;
   let subscriptionLogin: SubscriptionLogin | undefined;
   let modelGateway: ModelGateway | undefined;
@@ -101,6 +104,11 @@ export async function startServer(
     }
     try {
       storage?.close();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      await spool?.close();
     } catch (error) {
       errors.push(error);
     }
@@ -162,6 +170,10 @@ export async function startServer(
         secretAccessKey: config.S3_SECRET_ACCESS_KEY,
       });
       await storage.check();
+      spool = await createSpool({
+        baseDir: config.UPLOAD_SPOOL_DIR,
+        budgetBytes: config.UPLOAD_SPOOL_BYTES,
+      });
     }
     const accounts =
       services.accounts ??
@@ -218,7 +230,7 @@ export async function startServer(
         ).text(),
         toolSchema: runToolSchema,
         modelAccess: modelGateway?.issue,
-        validateAutomation,
+        validateSchedule,
         readSkillFile: async (input) => {
           if (!storage) throw new Error("Skill storage unavailable");
           return readRunSkillFile(db, storage, input);
@@ -252,6 +264,11 @@ export async function startServer(
       auth: createAuth(db, config.BETTER_AUTH_SECRET, config.OTTO_ORIGIN, mail),
       origin: config.OTTO_ORIGIN,
       storage,
+      spool,
+      transfer: {
+        baseMs: config.TRANSFER_BASE_MS,
+        minBytesPerSecond: config.TRANSFER_MIN_BYTES_PER_SECOND,
+      },
       runtime,
       pi,
       connections,
@@ -259,6 +276,7 @@ export async function startServer(
       subscriptionLogin,
       modelGateway,
       gatewayStoreKey: gateway?.storeKey,
+      cursors: createCursorCodec(config.BETTER_AUTH_SECRET),
     };
     let probe: Promise<boolean> | undefined;
     function isHealthy() {
@@ -293,7 +311,8 @@ export async function startServer(
     server = Bun.serve<RealtimeData>({
       hostname: config.HOST,
       port: config.PORT,
-      maxRequestBodySize: 1024 * 1024,
+      // Only the binary upload route may stream more than the 1 MiB JSON cap enforced for every other route.
+      maxRequestBodySize: MAX_FILE_BYTES + 1024 * 1024,
       idleTimeout: 30,
       websocket: transport.websocket,
       async fetch(request, server) {

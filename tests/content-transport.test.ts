@@ -10,17 +10,17 @@ import { createApp } from "../apps/server/src/app";
 import { createAuth } from "../apps/server/src/auth";
 import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
-import {
-  type ArtifactStorage,
-  previewArtifact,
-} from "../packages/artifacts/src";
+import { previewFile } from "../packages/files/src";
 import { runs } from "../packages/runs/src/schema";
 import { skills } from "../packages/skills/src/schema";
 import { updateTask } from "../packages/tasks/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
 import { pi } from "./fixtures/pi";
+import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
+
+const transfers = await testSpool();
 
 const record = z
   .object({ id: z.string(), editToken: z.number().optional() })
@@ -42,10 +42,10 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
   let collaboratorCookie = "";
   let viewerCookie = "";
   let projectId: string;
-  let conversationId: string;
+  let chatId: string;
   const objects = new Map<string, Uint8Array>();
   let afterStorageRead: (() => Promise<void>) | undefined;
-  const storage: ArtifactStorage = {
+  const storage = fixtureStorage({
     async put(key, bytes) {
       if (!objects.has(key)) objects.set(key, bytes.slice());
     },
@@ -55,7 +55,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       await afterStorageRead?.();
       return value.slice();
     },
-  };
+  });
   const request = (
     path: string,
     method = "GET",
@@ -100,12 +100,9 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         visibility,
       }),
     );
-  const createArtifact = async (
-    text = "immutable bytes",
-    sourceRunId?: string,
-  ) =>
+  const createFile = async (text = "immutable bytes", sourceRunId?: string) =>
     saved(
-      await api("/artifacts", "POST", {
+      await api("/files", "POST", {
         requestId: crypto.randomUUID(),
         title: "Reference file",
         type: "text",
@@ -155,7 +152,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       crypto.randomUUID() + crypto.randomUUID(),
       origin,
     );
-    const options = { db: database.db, boss, auth, origin, storage };
+    const options = {
+      db: database.db,
+      boss,
+      auth,
+      origin,
+      storage,
+      spool: transfers.spool,
+    };
     app = createApp({ ...options, pi });
     realtime = createRealtime(options);
     async function signup(name: string) {
@@ -227,9 +231,9 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
           })
         ).status,
       ).toBe(200);
-    conversationId = (
+    chatId = (
       await saved(
-        await api("/conversations", "POST", {
+        await api("/chats", "POST", {
           title: "Content discussion",
           visibility: "workspace",
           projectId,
@@ -271,11 +275,11 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         provider: "codex",
       }),
     );
-    const automation = await saved(
-      await api("/automations", "POST", {
-        title: "Automation title",
+    const schedule = await saved(
+      await api("/schedules", "POST", {
+        title: "Schedule title",
         agentId: agent.id,
-        conversationId,
+        chatId,
         type: "script",
         body: "fixture",
         status: "disabled",
@@ -287,12 +291,12 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ["agents", agent],
       ["connections", connection],
       ["subscriptions", subscription],
-      ["automations", automation],
+      ["schedules", schedule],
     ] as const) {
       expect(row).toHaveProperty("title");
       expect(row).not.toHaveProperty("name");
       const changes =
-        path === "agents" || path === "automations"
+        path === "agents" || path === "schedules"
           ? { title: "Updated title", editToken: row.editToken }
           : { title: "Updated title" };
       const updated = await saved(
@@ -371,19 +375,19 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toEqual(legacyFields);
   });
 
-  it("edits Project and Conversation display metadata without tokens while retaining writer and archive gates", async () => {
+  it("edits Project and Chat display metadata without tokens while retaining writer and archive gates", async () => {
     const project = await saved(
       await api("/projects", "POST", { title: "Token-free" }),
     );
-    const conversation = await saved(
-      await api("/conversations", "POST", {
+    const chat = await saved(
+      await api("/chats", "POST", {
         title: "Before",
         visibility: "workspace",
       }),
     );
     for (const [path, changes, field] of [
       [`/projects/${project.id}`, { title: "After" }, "title"],
-      [`/conversations/${conversation.id}`, { title: "After" }, "title"],
+      [`/chats/${chat.id}`, { title: "After" }, "title"],
     ] as const) {
       const updated = await saved(await api(path, "PATCH", changes));
       expect(updated).toHaveProperty(field, "After");
@@ -406,16 +410,138 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     }
   });
 
-  it("keeps Conversation management with its creator while participants can discuss", async () => {
+  it("serves only Chat routes and fields: retired Conversation routes, inputs and discriminators are rejected without side effects", async () => {
+    const count = async (table: string) =>
+      (await database.pool.query(`select count(*)::int as n from ${table}`))
+        .rows[0]?.n;
+    const before = {
+      chats: await count("chats"),
+      runs: await count("runs"),
+      schedules: await count("schedules"),
+      shares: await count("content_shares"),
+      links: await count("task_links"),
+      messages: await count("messages"),
+    };
+    for (const [path, method, body] of [
+      ["/conversations", "GET"],
+      ["/conversations", "POST", { title: "Old", visibility: "workspace" }],
+      [`/conversations/${chatId}`, "GET"],
+      [
+        `/conversations/${chatId}/messages`,
+        "POST",
+        { requestId: crypto.randomUUID(), body: "Old" },
+      ],
+      [`/conversations/${chatId}/participants`, "GET"],
+      [`/conversations/${chatId}/read`, "POST", { cursor: 0 }],
+    ] as const)
+      expect((await api(path, method, body)).status, path).toBe(404);
+    const agent = z.object({ agent: record }).parse(
+      await (
+        await api("/agents", "POST", {
+          title: "Retired input Agent",
+          instructions: "Work",
+          model: "configured-id",
+          visibility: "workspace",
+        })
+      ).json(),
+    ).agent;
+    const task = await saved(
+      await api("/tasks", "POST", { projectId, title: "Retired link" }),
+    );
+    const run = {
+      agentId: agent.id,
+      requestId: crypto.randomUUID(),
+      type: "script",
+      body: "echo",
+    };
+    expect(
+      (await api("/runs", "POST", { ...run, conversationId: chatId })).status,
+    ).toBe(400);
+    expect(
+      (await api("/runs", "POST", { ...run, chatId, conversationId: chatId }))
+        .status,
+    ).toBe(400);
+    expect(
+      (
+        await api("/schedules", "POST", {
+          title: "Old",
+          agentId: agent.id,
+          conversationId: chatId,
+          type: "script",
+          body: "echo",
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await api(`/tasks/${task.id}/links`, "POST", {
+          type: "conversation",
+          reference: chatId,
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await api("/shares/preview", "POST", {
+          selection: {
+            type: "conversation",
+            targetId: chatId,
+            messageIds: [crypto.randomUUID()],
+          },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await api("/tasks/capture", "POST", {
+          projectId,
+          title: "Old",
+          conversationId: chatId,
+          messageId: crypto.randomUUID(),
+        })
+      ).status,
+    ).toBe(400);
+    expect({
+      chats: await count("chats"),
+      runs: await count("runs"),
+      schedules: await count("schedules"),
+      shares: await count("content_shares"),
+      links: await count("task_links"),
+      messages: await count("messages"),
+    }).toEqual(before);
+    // The current vocabulary is the only accepted one.
+    const own = await saved(
+      await api("/chats", "POST", {
+        title: "Run output",
+        visibility: "workspace",
+      }),
+    );
+    expect(
+      (
+        await api(`/chats/${own.id}/participants`, "POST", {
+          agentId: agent.id,
+          role: "contributor",
+        })
+      ).status,
+    ).toBe(200);
+    const readRun = await saved(
+      await api("/runs", "POST", { ...run, chatId: own.id }),
+    );
+    expect(readRun).toHaveProperty("chatId", own.id);
+    expect(readRun).not.toHaveProperty("conversationId");
+    expect((await api(`/chats/${chatId}`, "GET")).status).toBe(200);
+  });
+
+  it("keeps Chat management with its creator while participants can discuss", async () => {
     const group = await saved(
-      await api("/conversations", "POST", {
+      await api("/chats", "POST", {
         title: "Creator group",
         visibility: "participants",
       }),
     );
     expect(
       (
-        await api(`/conversations/${group.id}/participants`, "POST", {
+        await api(`/chats/${group.id}/participants`, "POST", {
           userId: collaborator,
           role: "contributor",
         })
@@ -424,7 +550,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await api(
-          `/conversations/${group.id}`,
+          `/chats/${group.id}`,
           "PATCH",
           { title: "Not creator" },
           collaboratorCookie,
@@ -434,9 +560,9 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(group).toHaveProperty("createdBy", owner);
     expect(group).not.toHaveProperty("access");
     for (const [path, method, body] of [
-      [`/conversations/${group.id}/archive`, "POST", { archived: true }],
+      [`/chats/${group.id}/archive`, "POST", { archived: true }],
       [
-        `/conversations/${group.id}/participants`,
+        `/chats/${group.id}/participants`,
         "POST",
         { userId: viewer, role: "contributor" },
       ],
@@ -446,7 +572,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       );
     const discussion = await saved(
       await api(
-        `/conversations/${group.id}/messages`,
+        `/chats/${group.id}/messages`,
         "POST",
         { requestId: crypto.randomUUID(), body: "Participant discussion" },
         collaboratorCookie,
@@ -454,25 +580,23 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     );
     expect(discussion.body).toBe("Participant discussion");
     expect(
-      (await api(`/conversations/${group.id}`, "GET", undefined, viewerCookie))
-        .status,
+      (await api(`/chats/${group.id}`, "GET", undefined, viewerCookie)).status,
     ).toBe(403);
     expect(
       (
-        await api(`/conversations/${group.id}/participants`, "POST", {
+        await api(`/chats/${group.id}/participants`, "POST", {
           userId: viewer,
           role: "viewer",
         })
       ).status,
     ).toBe(200);
     expect(
-      (await api(`/conversations/${group.id}`, "GET", undefined, viewerCookie))
-        .status,
+      (await api(`/chats/${group.id}`, "GET", undefined, viewerCookie)).status,
     ).toBe(200);
     expect(
       (
         await api(
-          `/conversations/${group.id}/messages`,
+          `/chats/${group.id}/messages`,
           "POST",
           { requestId: crypto.randomUUID(), body: "Viewer denied" },
           viewerCookie,
@@ -480,14 +604,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).status,
     ).toBe(403);
     const listed = page.parse(
-      await (await api(`/conversations/${group.id}/participants`)).json(),
+      await (await api(`/chats/${group.id}/participants`)).json(),
     );
     const peer = listed.items.find((item) => item.userId === collaborator);
     expect(peer).toBeDefined();
     expect(
       (
         await api(
-          `/conversations/${group.id}/participants/${peer?.id}`,
+          `/chats/${group.id}/participants/${peer?.id}`,
           "DELETE",
           undefined,
           collaboratorCookie,
@@ -495,17 +619,13 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).status,
     ).toBe(403);
     expect(
-      (
-        await api(
-          `/conversations/${group.id}/participants/${peer?.id}`,
-          "DELETE",
-        )
-      ).status,
+      (await api(`/chats/${group.id}/participants/${peer?.id}`, "DELETE"))
+        .status,
     ).toBe(200);
     expect(
       (
         await api(
-          `/conversations/${group.id}/messages?after=0`,
+          `/chats/${group.id}/messages?after=0`,
           "GET",
           undefined,
           collaboratorCookie,
@@ -514,26 +634,24 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(403);
     const workspace = await saved(
       await api(
-        "/conversations",
+        "/chats",
         "POST",
         { title: "Workspace discussion", visibility: "workspace" },
         collaboratorCookie,
       ),
     );
     expect(workspace.createdBy).toBe(collaborator);
-    expect((await api(`/conversations/${workspace.id}`, "GET")).status).toBe(
-      200,
-    );
+    expect((await api(`/chats/${workspace.id}`, "GET")).status).toBe(200);
     expect(
       (
-        await api(`/conversations/${workspace.id}`, "PATCH", {
+        await api(`/chats/${workspace.id}`, "PATCH", {
           title: "Workspace owner cannot impersonate creator",
         })
       ).status,
     ).toBe(403);
     expect(
       (
-        await api(`/conversations/${workspace.id}/messages`, "POST", {
+        await api(`/chats/${workspace.id}/messages`, "POST", {
           requestId: crypto.randomUUID(),
           body: "Eligible workspace discussion",
         })
@@ -541,7 +659,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(200);
     expect(
       (
-        await api("/conversations", "POST", {
+        await api("/chats", "POST", {
           title: "Forged",
           visibility: "workspace",
           createdBy: collaborator,
@@ -592,8 +710,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       (
         await content("/shares/preview", "POST", {
           selection: {
-            type: "conversation",
-            targetId: conversationId,
+            type: "chat",
+            targetId: chatId,
             messageIds: Array.from({ length: 51 }, () => crypto.randomUUID()),
           },
         })
@@ -833,11 +951,10 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     const { agent } = z
       .object({ agent: record })
       .parse(await agentResponse.json());
-    const participant = await api(
-      `/conversations/${conversationId}/participants`,
-      "POST",
-      { agentId: agent.id, role: "contributor" },
-    );
+    const participant = await api(`/chats/${chatId}/participants`, "POST", {
+      agentId: agent.id,
+      role: "contributor",
+    });
     expect(participant.status).toBe(200);
     expect(
       z.object({ saved: z.literal(true) }).parse(await participant.json())
@@ -854,7 +971,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       (
         await api("/runs", "POST", {
           agentId: agent.id,
-          conversationId,
+          chatId,
           requestId: crypto.randomUUID(),
           type: "script",
           body: "No launch",
@@ -1186,14 +1303,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
   });
   it("publishes only selected messages, excludes IDs/replies/attachments, and supports read/mention attention", async () => {
     const first = await saved(
-      await content(`/conversations/${conversationId}/messages`, "POST", {
+      await content(`/chats/${chatId}/messages`, "POST", {
         body: "hidden first",
         requestId: crypto.randomUUID(),
       }),
     );
     const requestId = crypto.randomUUID();
     const selected = await saved(
-      await content(`/conversations/${conversationId}/messages`, "POST", {
+      await content(`/chats/${chatId}/messages`, "POST", {
         body: "Selected result",
         requestId,
         replyTo: first.id,
@@ -1203,7 +1320,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await saved(
-          await content(`/conversations/${conversationId}/messages`, "POST", {
+          await content(`/chats/${chatId}/messages`, "POST", {
             body: "Selected result",
             requestId,
             replyTo: first.id,
@@ -1214,7 +1331,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(selected.id);
     expect(
       (
-        await content(`/conversations/${conversationId}/messages`, "POST", {
+        await content(`/chats/${chatId}/messages`, "POST", {
           body: "Selected result",
           requestId,
           mentionUserIds: [collaborator],
@@ -1222,8 +1339,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).status,
     ).toBe(409);
     const share = await preview({
-      type: "conversation",
-      targetId: conversationId,
+      type: "chat",
+      targetId: chatId,
       messageIds: [selected.id],
     });
     await publish(share);
@@ -1232,14 +1349,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         await request(`/api/shares/${share.id}`, "GET", undefined, "")
       ).json(),
     ).toEqual({
-      type: "conversation",
+      type: "chat",
       title: "Content discussion",
       messages: [{ body: "Selected result" }],
     });
     const attention = z
       .object({
         items: z.array(
-          z.object({ conversationId: z.string(), unread: z.array(record) }),
+          z.object({ chatId: z.string(), unread: z.array(record) }),
         ),
       })
       .parse(
@@ -1253,14 +1370,12 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         ).json(),
       );
     expect(
-      attention.items
-        .find((x) => x.conversationId === conversationId)
-        ?.unread.map((x) => x.id),
+      attention.items.find((x) => x.chatId === chatId)?.unread.map((x) => x.id),
     ).toContain(selected.id);
     expect(
       (
         await content(
-          `/conversations/${conversationId}/read`,
+          `/chats/${chatId}/read`,
           "POST",
           { cursor: selected.cursor },
           collaboratorCookie,
@@ -1270,7 +1385,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${conversationId}/read`,
+          `/chats/${chatId}/read`,
           "POST",
           { cursor: first.cursor },
           collaboratorCookie,
@@ -1290,7 +1405,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${conversationId}/read`,
+          `/chats/${chatId}/read`,
           "POST",
           { cursor: 999999 },
           collaboratorCookie,
@@ -1299,10 +1414,10 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(400);
   });
   it("guards public file bytes and rechecks revoke after storage I/O", async () => {
-    const artifact = await createArtifact();
+    const file = await createFile();
     const share = await preview({
-      type: "artifact",
-      targetId: artifact.id,
+      type: "file",
+      targetId: file.id,
       includeFile: true,
     });
     await publish(share);
@@ -1329,18 +1444,18 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         .status,
     ).toBe(404);
     const metadata = await preview({
-      type: "artifact",
-      targetId: artifact.id,
+      type: "file",
+      targetId: file.id,
       includeFile: false,
     });
     await publish(metadata);
     expect((await request(`/api/shares/${metadata.id}/file`)).status).toBe(404);
   });
   it("reports temporary public-file storage failure without converting it to missing content", async () => {
-    const artifact = await createArtifact("available after recovery");
+    const file = await createFile("available after recovery");
     const share = await preview({
-      type: "artifact",
-      targetId: artifact.id,
+      type: "file",
+      targetId: file.id,
       includeFile: true,
     });
     await publish(share);
@@ -1370,18 +1485,18 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         visibility: "workspace",
       }),
     );
-    const file = await createArtifact("original skill material");
+    const file = await createFile("original skill material");
     await saved(
       await content(`/skills/${skill.id}/files`, "PUT", {
         editToken: 0,
-        files: [{ path: "references/guide.txt", artifactId: file.id }],
+        files: [{ path: "references/guide.txt", fileId: file.id }],
       }),
     );
     expect(
       (
         await content(`/skills/${skill.id}/files`, "PUT", {
           editToken: 1,
-          files: [{ path: "references/../escape", artifactId: file.id }],
+          files: [{ path: "references/../escape", fileId: file.id }],
         })
       ).status,
     ).toBe(400);
@@ -1391,7 +1506,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         files: z.array(
           z.object({
             path: z.string(),
-            artifactId: z.string(),
+            fileId: z.string(),
             sha256: z.string(),
           }),
         ),
@@ -1407,7 +1522,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(skillRecord[0]?.metadata).toEqual({
       "allowed-tools": "fake-tool",
     });
-    expect(exported.files[0]?.artifactId).toBe(file.id);
+    expect(exported.files[0]?.fileId).toBe(file.id);
     const created = z.object({ agent: record }).parse(
       await (
         await api("/agents", "POST", {
@@ -1421,14 +1536,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     );
     expect(
       (
-        await api(`/conversations/${conversationId}/participants`, "POST", {
+        await api(`/chats/${chatId}/participants`, "POST", {
           agentId: created.agent.id,
           role: "contributor",
         })
       ).status,
     ).toBe(200);
     const input = {
-      conversationId,
+      chatId,
       agentId: created.agent.id,
       type: "script",
       body: "fixture only; no process launch",
@@ -1442,13 +1557,17 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(accepted?.inputs.grants).toEqual([]);
     expect(accepted?.inputs.skills[0]).toMatchObject({
       documentId: skill.id,
-      supportingFiles: exported.files.map((f) => ({ ...f, byteLength: 23 })),
+      supportingFiles: exported.files.map(({ fileId, ...f }) => ({
+        ...f,
+        artifactId: fileId,
+        byteLength: 23,
+      })),
     });
-    const replacement = await createArtifact("replacement skill material");
+    const replacement = await createFile("replacement skill material");
     await saved(
       await content(`/skills/${skill.id}/files`, "PUT", {
         editToken: 1,
-        files: [{ path: "references/guide.txt", artifactId: replacement.id }],
+        files: [{ path: "references/guide.txt", fileId: replacement.id }],
       }),
     );
     expect(
@@ -1463,13 +1582,13 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         )
       ).rows[0]?.count,
     ).toBe(1);
-    const output = await createArtifact("Run output", run.id);
+    const output = await createFile("Run output", run.id);
     await expect(
       inWorkspace(
         database.db,
         workspaceId,
         { userId: owner, agentId: created.agent.id },
-        (c) => previewArtifact(c, output.id),
+        (c) => previewFile(c, output.id),
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
     // The production Better Auth sign-up rule permits three requests per ten seconds.
@@ -1518,15 +1637,12 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).status,
     ).toBe(200);
     expect(
-      (await api(`/artifacts/${output.id}`, "GET", undefined, laterCookie))
-        .status,
+      (await api(`/files/${output.id}`, "GET", undefined, laterCookie)).status,
     ).toBe(403);
     expect(
       page
         .parse(
-          await (
-            await content("/artifacts", "GET", undefined, laterCookie)
-          ).json(),
+          await (await content("/files", "GET", undefined, laterCookie)).json(),
         )
         .items.map((item) => item.id),
     ).not.toContain(output.id);
@@ -1537,7 +1653,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
           "POST",
           {
             selection: {
-              type: "artifact",
+              type: "file",
               targetId: output.id,
               includeFile: true,
             },
@@ -1547,7 +1663,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).status,
     ).toBe(403);
     const runShare = await preview({
-      type: "artifact",
+      type: "file",
       targetId: output.id,
       includeFile: true,
     });
@@ -1565,7 +1681,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
             "POST",
             {
               selection: {
-                type: "artifact",
+                type: "file",
                 targetId: output.id,
                 includeFile: true,
               },
@@ -1575,7 +1691,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         ).status,
       ).toBe(403);
     await saved(
-      await content(`/artifacts/${output.id}`, "PATCH", {
+      await content(`/files/${output.id}`, "PATCH", {
         title: "Later metadata",
         labels: ["new"],
       }),
@@ -1598,7 +1714,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       (
         await content(`/skills/${skill.id}/files`, "PUT", {
           editToken: 2,
-          files: [{ path: "references/result", artifactId: output.id }],
+          files: [{ path: "references/result", fileId: output.id }],
         })
       ).status,
     ).toBe(403);
@@ -1695,14 +1811,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).json(),
     ).toEqual({ items: [], next: null });
     const group = await saved(
-      await api("/conversations", "POST", {
+      await api("/chats", "POST", {
         title: "Private source",
         visibility: "participants",
         projectId,
       }),
     );
     const message = await saved(
-      await content(`/conversations/${group.id}/messages`, "POST", {
+      await content(`/chats/${group.id}/messages`, "POST", {
         body: "private source text",
         requestId: crypto.randomUUID(),
       }),
@@ -1712,13 +1828,13 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         await content("/tasks/capture", "POST", {
           projectId,
           title: "Unsafe copy",
-          conversationId: group.id,
+          chatId: group.id,
           messageId: message.id,
         })
       ).status,
     ).toBe(403);
     const visible = await saved(
-      await content(`/conversations/${conversationId}/messages`, "POST", {
+      await content(`/chats/${chatId}/messages`, "POST", {
         body: "capture this once",
         requestId: crypto.randomUUID(),
       }),
@@ -1727,7 +1843,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       await content("/tasks/capture", "POST", {
         projectId,
         title: "Captured task",
-        conversationId,
+        chatId,
         messageId: visible.id,
       }),
     );
@@ -1745,7 +1861,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     const frames: string[] = [];
     let closeCode: number | undefined;
     const ws = new WebSocket(
-      `${origin.replace("http", "ws")}/api/realtime?workspaceId=${workspaceId}&conversationId=${conversationId}&documentId=${doc.id}`,
+      `${origin.replace("http", "ws")}/api/realtime?workspaceId=${workspaceId}&chatId=${chatId}&documentId=${doc.id}`,
       { headers: { Cookie: collaboratorCookie, Origin: origin } },
     );
     ws.on("message", (data) => frames.push(data.toString()));
@@ -1895,16 +2011,16 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       ).status,
     ).toBe(409);
   });
-  it("handles Conversation role changes, ephemeral presence, archive/restore and rechecks attachments", async () => {
+  it("handles Chat role changes, ephemeral presence, archive/restore and rechecks attachments", async () => {
     const group = await saved(
-      await api("/conversations", "POST", {
+      await api("/chats", "POST", {
         title: "Presence",
         visibility: "participants",
       }),
     );
     expect(
       (
-        await api(`/conversations/${group.id}/participants`, "POST", {
+        await api(`/chats/${group.id}/participants`, "POST", {
           userId: collaborator,
           role: "contributor",
         })
@@ -1913,16 +2029,16 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${group.id}/presence`,
+          `/chats/${group.id}/presence`,
           "PUT",
           { typing: true },
           collaboratorCookie,
         )
       ).status,
     ).toBe(200);
-    expect(
-      await (await content(`/conversations/${group.id}/presence`)).json(),
-    ).toEqual([{ userId: collaborator, typing: true }]);
+    expect(await (await content(`/chats/${group.id}/presence`)).json()).toEqual(
+      [{ userId: collaborator, typing: true }],
+    );
     const participants = z
       .object({
         items: z.array(
@@ -1930,9 +2046,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         ),
         next: z.string().nullable(),
       })
-      .parse(
-        await (await content(`/conversations/${group.id}/participants`)).json(),
-      );
+      .parse(await (await content(`/chats/${group.id}/participants`)).json());
     const participant = participants.items.find(
       (p) => p.userId === collaborator,
     );
@@ -1940,7 +2054,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${group.id}/participants/${participant.id}`,
+          `/chats/${group.id}/participants/${participant.id}`,
           "PATCH",
           { role: "viewer" },
         )
@@ -1949,7 +2063,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${group.id}/presence`,
+          `/chats/${group.id}/presence`,
           "PUT",
           { typing: true },
           collaboratorCookie,
@@ -1959,31 +2073,31 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${group.id}/messages`,
+          `/chats/${group.id}/messages`,
           "POST",
           { body: "viewer write", requestId: crypto.randomUUID() },
           collaboratorCookie,
         )
       ).status,
     ).toBe(403);
-    const file = await createArtifact("attachment bytes");
+    const file = await createFile("attachment bytes");
     const message = await saved(
-      await content(`/conversations/${group.id}/messages`, "POST", {
+      await content(`/chats/${group.id}/messages`, "POST", {
         body: "file reference",
         requestId: crypto.randomUUID(),
-        artifactIds: [file.id],
+        fileIds: [file.id],
       }),
     );
-    expect(message.artifactIds).toEqual([file.id]);
+    expect(message.fileIds).toEqual([file.id]);
     await saved(
-      await content(`/conversations/${group.id}/archive`, "POST", {
+      await content(`/chats/${group.id}/archive`, "POST", {
         archived: true,
         editToken: 0,
       }),
     );
     expect(
       (
-        await content(`/conversations/${group.id}/messages`, "POST", {
+        await content(`/chats/${group.id}/messages`, "POST", {
           body: "discussion remains available while archived",
           requestId: crypto.randomUUID(),
         })
@@ -1992,16 +2106,16 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await content(
-          `/conversations/${group.id}/messages`,
+          `/chats/${group.id}/messages`,
           "POST",
           { body: "viewer remains read-only", requestId: crypto.randomUUID() },
           collaboratorCookie,
         )
       ).status,
     ).toBe(403);
-    expect((await content(`/conversations/${group.id}`)).status).toBe(200);
+    expect((await content(`/chats/${group.id}`)).status).toBe(200);
     await saved(
-      await content(`/conversations/${group.id}/archive`, "POST", {
+      await content(`/chats/${group.id}/archive`, "POST", {
         archived: false,
         editToken: 1,
       }),
@@ -2009,26 +2123,26 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await api(
-          `/conversations/${group.id}/participants/${participant.id}`,
+          `/chats/${group.id}/participants/${participant.id}`,
           "DELETE",
           {},
         )
       ).status,
     ).toBe(200);
-    expect(
-      await (await content(`/conversations/${group.id}/presence`)).json(),
-    ).toEqual([]);
+    expect(await (await content(`/chats/${group.id}/presence`)).json()).toEqual(
+      [],
+    );
   });
-  it("uses token-free custodial Artifact metadata and one current visibility without changing immutable receipts", async () => {
+  it("uses token-free custodial File metadata and one current visibility without changing immutable receipts", async () => {
     const input = {
       requestId: crypto.randomUUID(),
-      title: "Private artifact",
+      title: "Private file",
       type: "text",
       visibility: "user",
       mediaType: "text/plain",
       bytes: Buffer.from("private bytes").toString("base64"),
     };
-    const artifact = await saved(await api("/artifacts", "POST", input));
+    const file = await saved(await api("/files", "POST", input));
     for (const field of [
       "editToken",
       "access",
@@ -2037,19 +2151,13 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       "objectKey",
       "request",
     ])
-      expect(artifact).not.toHaveProperty(field);
+      expect(file).not.toHaveProperty(field);
     expect(
-      (
-        await api(
-          `/artifacts/${artifact.id}`,
-          "GET",
-          undefined,
-          collaboratorCookie,
-        )
-      ).status,
+      (await api(`/files/${file.id}`, "GET", undefined, collaboratorCookie))
+        .status,
     ).toBe(403);
     await saved(
-      await api(`/artifacts/${artifact.id}`, "PATCH", {
+      await api(`/files/${file.id}`, "PATCH", {
         visibility: "workspace",
         title: "Renamed",
         labels: ["selected"],
@@ -2058,7 +2166,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await api(
-          `/artifacts/${artifact.id}/file`,
+          `/files/${file.id}/file`,
           "GET",
           undefined,
           collaboratorCookie,
@@ -2068,7 +2176,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await api(
-          `/artifacts/${artifact.id}`,
+          `/files/${file.id}`,
           "PATCH",
           { title: "Denied" },
           collaboratorCookie,
@@ -2078,36 +2186,36 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     expect(
       (
         await api(
-          `/artifacts/${artifact.id}/archive`,
+          `/files/${file.id}/archive`,
           "POST",
           { archived: true },
           collaboratorCookie,
         )
       ).status,
     ).toBe(403);
-    expect((await saved(await api("/artifacts", "POST", input))).title).toBe(
+    expect((await saved(await api("/files", "POST", input))).title).toBe(
       "Renamed",
     );
     expect(
-      (await api("/artifacts", "POST", { ...input, visibility: "workspace" }))
+      (await api("/files", "POST", { ...input, visibility: "workspace" }))
         .status,
     ).toBe(409);
     const doc = await createDoc();
     expect(
       (
         await content(`/documents/${doc.id}/attachments`, "PUT", {
-          artifactIds: [artifact.id],
+          fileIds: [file.id],
           editToken: 0,
         })
       ).status,
     ).toBe(200);
     await saved(
-      await api(`/artifacts/${artifact.id}`, "PATCH", { visibility: "user" }),
+      await api(`/files/${file.id}`, "PATCH", { visibility: "user" }),
     );
     expect(
       (
         await api(
-          `/artifacts/${artifact.id}/file`,
+          `/files/${file.id}/file`,
           "GET",
           undefined,
           collaboratorCookie,
@@ -2116,7 +2224,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(403);
     expect(
       (
-        await api(`/artifacts/${artifact.id}/access`, "PUT", {
+        await api(`/files/${file.id}/access`, "PUT", {
           readerIds: [collaborator],
           writerIds: [],
           editToken: 0,
@@ -2201,12 +2309,12 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(200);
   });
 
-  it("preserves saved discussion and explicit Stop after Project and Conversation archive", async () => {
+  it("preserves saved discussion and explicit Stop after Project and Chat archive", async () => {
     const project = await saved(
       await api("/projects", "POST", { title: "Archive controls" }),
     );
-    const conversation = await saved(
-      await api("/conversations", "POST", {
+    const chat = await saved(
+      await api("/chats", "POST", {
         title: "Admitted work",
         visibility: "workspace",
         projectId: project.id,
@@ -2224,14 +2332,14 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     );
     expect(
       (
-        await api(`/conversations/${conversation.id}/participants`, "POST", {
+        await api(`/chats/${chat.id}/participants`, "POST", {
           agentId: created.agent.id,
           role: "contributor",
         })
       ).status,
     ).toBe(200);
     const input = {
-      conversationId: conversation.id,
+      chatId: chat.id,
       agentId: created.agent.id,
       type: "script",
       body: "fixture only; no process launch",
@@ -2239,7 +2347,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     };
     const run = await saved(await api("/runs", "POST", input));
     await saved(
-      await content(`/conversations/${conversation.id}/archive`, "POST", {
+      await content(`/chats/${chat.id}/archive`, "POST", {
         archived: true,
         editToken: 0,
       }),
@@ -2264,20 +2372,12 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       requestId: crypto.randomUUID(),
     };
     const result = await saved(
-      await content(
-        `/conversations/${conversation.id}/messages`,
-        "POST",
-        message,
-      ),
+      await content(`/chats/${chat.id}/messages`, "POST", message),
     );
     expect(
       (
         await saved(
-          await content(
-            `/conversations/${conversation.id}/messages`,
-            "POST",
-            message,
-          ),
+          await content(`/chats/${chat.id}/messages`, "POST", message),
         )
       ).id,
     ).toBe(result.id);
@@ -2288,11 +2388,9 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       (await database.db.select().from(runs).where(eq(runs.id, run.id)))[0]
         ?.state,
     ).toBe("interrupted");
-    expect((await content(`/conversations/${conversation.id}`)).status).toBe(
-      200,
-    );
+    expect((await content(`/chats/${chat.id}`)).status).toBe(200);
     await saved(
-      await content(`/conversations/${conversation.id}/archive`, "POST", {
+      await content(`/chats/${chat.id}/archive`, "POST", {
         archived: false,
         editToken: 1,
       }),
@@ -2301,9 +2399,9 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
 
   it("renders selected HTML in a browser sandbox without scripts, cookies or network access", async () => {
     const html =
-      '<!doctype html><html><head><title>Frozen artifact proof</title></head><body><h1>Frozen artifact</h1><p>Only the selected file is shown.</p><script>document.body.dataset.executed="yes";fetch("/api/workspaces");</script></body></html>';
-    const artifact = await saved(
-      await api("/artifacts", "POST", {
+      '<!doctype html><html><head><title>Frozen file proof</title></head><body><h1>Frozen file</h1><p>Only the selected file is shown.</p><script>document.body.dataset.executed="yes";fetch("/api/workspaces");</script></body></html>';
+    const file = await saved(
+      await api("/files", "POST", {
         requestId: crypto.randomUUID(),
         title: "HTML result",
         type: "html",
@@ -2313,8 +2411,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       }),
     );
     const share = await preview({
-      type: "artifact",
-      targetId: artifact.id,
+      type: "file",
+      targetId: file.id,
       includeFile: true,
     });
     await publish(share);
@@ -2329,7 +2427,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         `${origin}/api/shares/${share.id}/preview`,
       );
       expect(response?.status()).toBe(200);
-      expect(await page.locator("h1").textContent()).toBe("Frozen artifact");
+      expect(await page.locator("h1").textContent()).toBe("Frozen file");
       expect(
         await page.locator("body").getAttribute("data-executed"),
       ).toBeNull();
@@ -2347,16 +2445,16 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         false,
       );
       await page.screenshot({
-        path: "docs/evidence/content-share-sandbox.png",
+        path: process.env.OTTO_SHARE_SCREENSHOT_PATH,
       });
     } finally {
       await browser.close();
     }
   });
 
-  it("closes a published Run Artifact when the publisher loses its group source Conversation", async () => {
-    const conversation = await saved(
-      await api("/conversations", "POST", {
+  it("closes a published Run File when the publisher loses its group source Chat", async () => {
+    const chat = await saved(
+      await api("/chats", "POST", {
         title: "Private Run source",
         visibility: "participants",
       }),
@@ -2373,7 +2471,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     );
     expect(
       (
-        await api(`/conversations/${conversation.id}/participants`, "POST", {
+        await api(`/chats/${chat.id}/participants`, "POST", {
           agentId: configured.agent.id,
           role: "contributor",
         })
@@ -2381,15 +2479,15 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
     ).toBe(200);
     const run = await saved(
       await api("/runs", "POST", {
-        conversationId: conversation.id,
+        chatId: chat.id,
         agentId: configured.agent.id,
         type: "script",
         body: "No native launch",
         requestId: crypto.randomUUID(),
       }),
     );
-    const artifact = await saved(
-      await api("/artifacts", "POST", {
+    const file = await saved(
+      await api("/files", "POST", {
         requestId: crypto.randomUUID(),
         title: "Selected source result",
         type: "text",
@@ -2400,8 +2498,8 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       }),
     );
     const share = await preview({
-      type: "artifact",
-      targetId: artifact.id,
+      type: "file",
+      targetId: file.id,
       includeFile: true,
     });
     await publish(share);
@@ -2417,20 +2515,11 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
         ),
         next: z.string().nullable(),
       })
-      .parse(
-        await (
-          await content(`/conversations/${conversation.id}/participants`)
-        ).json(),
-      );
+      .parse(await (await content(`/chats/${chat.id}/participants`)).json());
     const self = people.items.find((person) => person.userId === owner);
     if (!self) throw new Error("Missing source participant");
     expect(
-      (
-        await api(
-          `/conversations/${conversation.id}/participants/${self.id}`,
-          "DELETE",
-        )
-      ).status,
+      (await api(`/chats/${chat.id}/participants/${self.id}`, "DELETE")).status,
     ).toBe(200);
     expect(
       (await request(`/api/shares/${share.id}`, "GET", undefined, "")).status,
@@ -2439,7 +2528,7 @@ describe("content through real HTTP/WebSocket/PostgreSQL; object bytes use a nam
       (await request(`/api/shares/${share.id}/file`, "GET", undefined, ""))
         .status,
     ).toBe(404);
-    expect((await api(`/artifacts/${artifact.id}`)).status).toBe(403);
+    expect((await api(`/files/${file.id}`)).status).toBe(403);
     expect(
       (await content(`/shares/${share.id}/revoke`, "POST", {})).status,
     ).toBe(200);

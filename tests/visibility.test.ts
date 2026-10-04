@@ -9,7 +9,6 @@ import { readRunSkillFile } from "../apps/server/src/skill-files";
 import { createRunTools } from "../apps/server/src/tools";
 import { updateAgent } from "../packages/agents/src";
 import { agents } from "../packages/agents/src/schema";
-import type { ArtifactStorage } from "../packages/artifacts/src";
 import { connections } from "../packages/connections/src/schema";
 import { RUN_QUEUE, validateRunSources } from "../packages/runs/src";
 import {
@@ -27,10 +26,13 @@ import {
 import { members, workspaces } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
 import { pi, piRuntime } from "./fixtures/pi";
+import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
+const transfers = await testSpool();
+
 /** Real HTTP/auth/PG/queue, without a compute provider or external credential lookup. */
-describe("user/workspace resource visibility", () => {
+describe("user/workspace file visibility", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
   let boss: PgBoss;
   let worker: PgBoss;
@@ -39,7 +41,7 @@ describe("user/workspace resource visibility", () => {
   let accountId: string;
   let afterRead: (() => Promise<void>) | undefined;
   const objects = new Map<string, Uint8Array>();
-  const storage: ArtifactStorage = {
+  const storage = fixtureStorage({
     async put(key, bytes) {
       objects.set(key, bytes.slice());
     },
@@ -49,7 +51,7 @@ describe("user/workspace resource visibility", () => {
       await afterRead?.();
       return bytes.slice();
     },
-  };
+  });
   let app: ReturnType<typeof createApp>;
   let server: ReturnType<typeof Bun.serve>;
   let origin: string;
@@ -236,6 +238,7 @@ describe("user/workspace resource visibility", () => {
       pi,
       runtime,
       storage,
+      spool: transfers.spool,
     });
     worker = await startQueue(database.db, database.pool, {
       runtime,
@@ -986,7 +989,7 @@ describe("user/workspace resource visibility", () => {
         .parse(await value(await request(`/skills/${shared.id}`))).instructions,
     ).toBe("Proposed");
   });
-  it("advances filtered pages from scanned candidates, including an empty first page", async () => {
+  it("narrows private rows in SQL so a hidden first row is never scanned or named by a cursor", async () => {
     for (const [path, create, table] of [
       ["/agents", agent, agents],
       ["/skills", skill, skillsTable],
@@ -1029,9 +1032,10 @@ describe("user/workspace resource visibility", () => {
             ),
           ),
         );
-        if (firstPage && path !== "/connections") {
-          expect(result.items).toEqual([]);
-          expect(result.next).toBe(first);
+        // Private rows are narrowed in SQL, so the hidden first row is never scanned or named by a cursor.
+        if (firstPage) {
+          expect(result.items.map((item) => item.id)).toEqual([second]);
+          expect(result.next).not.toBe(first);
         }
         found.push(...result.items.map((item) => item.id));
         next = result.next;
@@ -1092,12 +1096,12 @@ describe("user/workspace resource visibility", () => {
       ).status,
     ).toBe(403);
     const sharedAgent = await agent("workspace", owner, [privateSkill.id]);
-    const conversation = z
+    const chat = z
       .object({ id: z.uuid() })
       .parse(
         await value(
           await request(
-            "/conversations",
+            "/chats",
             "POST",
             { title: "Shared", visibility: "participants" },
             other,
@@ -1106,7 +1110,7 @@ describe("user/workspace resource visibility", () => {
       );
     await value(
       await request(
-        `/conversations/${conversation.id}/participants`,
+        `/chats/${chat.id}/participants`,
         "POST",
         { agentId: sharedAgent.id, role: "contributor" },
         other,
@@ -1114,7 +1118,7 @@ describe("user/workspace resource visibility", () => {
     );
     const run = {
       agentId: sharedAgent.id,
-      conversationId: conversation.id,
+      chatId: chat.id,
       requestId: crypto.randomUUID(),
       type: "prompt",
       body: "Work",
@@ -1166,7 +1170,7 @@ describe("user/workspace resource visibility", () => {
     if (withFile) {
       const file = z.object({ id: z.uuid() }).parse(
         await value(
-          await request("/artifacts", "POST", {
+          await request("/files", "POST", {
             requestId: crypto.randomUUID(),
             title: "Skill bytes",
             type: "text",
@@ -1179,7 +1183,7 @@ describe("user/workspace resource visibility", () => {
       await value(
         await request(`/skills/${selected.id}/files`, "PUT", {
           editToken: 0,
-          files: [{ path: "references/source.txt", artifactId: file.id }],
+          files: [{ path: "references/source.txt", fileId: file.id }],
         }),
       );
     }
@@ -1189,12 +1193,12 @@ describe("user/workspace resource visibility", () => {
         computerRef: configured.id,
       }),
     );
-    const conversation = z
+    const chat = z
       .object({ id: z.uuid() })
       .parse(
         await value(
           await request(
-            "/conversations",
+            "/chats",
             "POST",
             { title: "Live visibility", visibility: "participants" },
             other,
@@ -1203,13 +1207,13 @@ describe("user/workspace resource visibility", () => {
       );
     await value(
       await request(
-        `/conversations/${conversation.id}/participants`,
+        `/chats/${chat.id}/participants`,
         "POST",
         { agentId: configured.id, role: "contributor" },
         other,
       ),
     );
-    return { selected, configured, conversation };
+    return { selected, configured, chat };
   }
   const state = async (id: string) =>
     (await database.db.select().from(runs).where(eq(runs.id, id)))[0]?.state;
@@ -1224,7 +1228,7 @@ describe("user/workspace resource visibility", () => {
             "POST",
             {
               agentId: source.configured.id,
-              conversationId: source.conversation.id,
+              chatId: source.chat.id,
               requestId: crypto.randomUUID(),
               type: "prompt",
               body: "hold",
@@ -1282,7 +1286,7 @@ describe("user/workspace resource visibility", () => {
               "POST",
               {
                 agentId: source.configured.id,
-                conversationId: source.conversation.id,
+                chatId: source.chat.id,
                 requestId: crypto.randomUUID(),
                 type: "prompt",
                 body: "finish",
@@ -1324,7 +1328,7 @@ describe("user/workspace resource visibility", () => {
           "POST",
           {
             agentId: source.configured.id,
-            conversationId: source.conversation.id,
+            chatId: source.chat.id,
             requestId: crypto.randomUUID(),
             type: "prompt",
             body: "finish",
@@ -1354,18 +1358,18 @@ describe("user/workspace resource visibility", () => {
         .where(eq(runActivity.runId, run.id)),
     ).toEqual([]);
   });
-  it("keeps disabled manual Automations available, archived launches denied, and obsolete capabilities invalid", async () => {
+  it("keeps disabled manual Schedules available, archived launches denied, and obsolete capabilities invalid", async () => {
     const configured = await agent();
-    const conversation = z.object({ id: z.uuid() }).parse(
+    const chat = z.object({ id: z.uuid() }).parse(
       await value(
-        await request("/conversations", "POST", {
+        await request("/chats", "POST", {
           title: "Manual",
           visibility: "participants",
         }),
       ),
     );
     await value(
-      await request(`/conversations/${conversation.id}/participants`, "POST", {
+      await request(`/chats/${chat.id}/participants`, "POST", {
         agentId: configured.id,
         role: "contributor",
       }),
@@ -1373,7 +1377,7 @@ describe("user/workspace resource visibility", () => {
     const input = {
       title: "Manual",
       agentId: configured.id,
-      conversationId: conversation.id,
+      chatId: chat.id,
       type: "script",
       body: "fixture",
       status: "disabled",
@@ -1384,41 +1388,41 @@ describe("user/workspace resource visibility", () => {
       { messageIds: [] },
     ])
       expect(
-        (await request("/automations", "POST", { ...input, ...extra })).status,
+        (await request("/schedules", "POST", { ...input, ...extra })).status,
       ).toBe(400);
-    const automation = z
+    const schedule = z
       .object({ id: z.uuid() })
-      .parse(await value(await request("/automations", "POST", input)));
+      .parse(await value(await request("/schedules", "POST", input)));
     expect(
       (
-        await request(`/automations/${automation.id}/run`, "POST", {
+        await request(`/schedules/${schedule.id}/run`, "POST", {
           requestId: crypto.randomUUID(),
         })
       ).status,
     ).toBe(200);
     await value(
-      await request(`/automations/${automation.id}`, "PATCH", {
+      await request(`/schedules/${schedule.id}`, "PATCH", {
         status: "archived",
         editToken: 0,
       }),
     );
     expect(
       (
-        await request(`/automations/${automation.id}/run`, "POST", {
+        await request(`/schedules/${schedule.id}/run`, "POST", {
           requestId: crypto.randomUUID(),
         })
       ).status,
     ).toBe(409);
     expect(
       (
-        await request(`/automations/${automation.id}`, "PATCH", {
+        await request(`/schedules/${schedule.id}`, "PATCH", {
           status: "enabled",
           editToken: 1,
         })
       ).status,
     ).toBe(409);
     await value(
-      await request(`/automations/${automation.id}`, "PATCH", {
+      await request(`/schedules/${schedule.id}`, "PATCH", {
         status: "disabled",
         editToken: 1,
       }),
@@ -1427,7 +1431,7 @@ describe("user/workspace resource visibility", () => {
       (
         await request("/runs", "POST", {
           agentId: configured.id,
-          conversationId: conversation.id,
+          chatId: chat.id,
           requestId: crypto.randomUUID(),
           type: "script",
           body: "fixture",
@@ -1436,17 +1440,17 @@ describe("user/workspace resource visibility", () => {
       ).status,
     ).toBe(400);
   });
-  it("caps workspace Conversation writers by an explicit viewer row", async () => {
-    const conversation = z.object({ id: z.uuid() }).parse(
+  it("caps workspace Chat writers by an explicit viewer row", async () => {
+    const chat = z.object({ id: z.uuid() }).parse(
       await value(
-        await request("/conversations", "POST", {
+        await request("/chats", "POST", {
           title: "Inherited viewer",
           visibility: "workspace",
         }),
       ),
     );
     await value(
-      await request(`/conversations/${conversation.id}/participants`, "POST", {
+      await request(`/chats/${chat.id}/participants`, "POST", {
         userId: other.id,
         role: "viewer",
       }),
@@ -1457,17 +1461,13 @@ describe("user/workspace resource visibility", () => {
           z.object({ id: z.uuid(), userId: z.string().nullable() }),
         ),
       })
-      .parse(
-        await value(
-          await request(`/conversations/${conversation.id}/participants`),
-        ),
-      );
+      .parse(await value(await request(`/chats/${chat.id}/participants`)));
     const viewer = participants.items.find((row) => row.userId === other.id);
     if (!viewer) throw new Error("No viewer");
     expect(
       (
         await request(
-          `/conversations/${conversation.id}/messages`,
+          `/chats/${chat.id}/messages`,
           "POST",
           { requestId: crypto.randomUUID(), body: "Forbidden" },
           other,
@@ -1477,7 +1477,7 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(
-          `/conversations/${conversation.id}/participants/${viewer.id}`,
+          `/chats/${chat.id}/participants/${viewer.id}`,
           "PATCH",
           { role: "contributor" },
           other,
@@ -1487,7 +1487,7 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(
-          `/conversations/${conversation.id}/participants/${viewer.id}`,
+          `/chats/${chat.id}/participants/${viewer.id}`,
           "DELETE",
           {},
           other,
@@ -1495,18 +1495,11 @@ describe("user/workspace resource visibility", () => {
       ).status,
     ).toBe(403);
     expect(
-      (
-        await request(
-          `/conversations/${conversation.id}`,
-          "GET",
-          undefined,
-          other,
-        )
-      ).status,
+      (await request(`/chats/${chat.id}`, "GET", undefined, other)).status,
     ).toBe(200);
     await value(
       await request(
-        `/conversations/${conversation.id}/participants/${viewer.id}`,
+        `/chats/${chat.id}/participants/${viewer.id}`,
         "DELETE",
         {},
       ),
@@ -1514,7 +1507,7 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(
-          `/conversations/${conversation.id}/messages`,
+          `/chats/${chat.id}/messages`,
           "POST",
           { requestId: crypto.randomUUID(), body: "Inherited contributor" },
           other,
@@ -1660,16 +1653,16 @@ describe("user/workspace resource visibility", () => {
       ),
     );
     const configured = await agent("workspace");
-    const conversation = z.object({ id: z.uuid() }).parse(
+    const chat = z.object({ id: z.uuid() }).parse(
       await value(
-        await request("/conversations", "POST", {
+        await request("/chats", "POST", {
           title: "Wider output",
           visibility: "workspace",
         }),
       ),
     );
     await value(
-      await request(`/conversations/${conversation.id}/participants`, "POST", {
+      await request(`/chats/${chat.id}/participants`, "POST", {
         agentId: configured.id,
         role: "contributor",
       }),
@@ -1685,7 +1678,7 @@ describe("user/workspace resource visibility", () => {
     const input = {
       requestId: crypto.randomUUID(),
       agentId: configured.id,
-      conversationId: conversation.id,
+      chatId: chat.id,
       type: "prompt",
       body: "Work",
       documentIds: [doc.id],
@@ -1733,7 +1726,7 @@ describe("user/workspace resource visibility", () => {
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
   });
-  it("intersects workspace Artifact attachment recipients with current Project membership", async () => {
+  it("intersects workspace File attachment recipients with current Project membership", async () => {
     const project = z
       .object({ id: z.uuid() })
       .parse(
@@ -1741,9 +1734,9 @@ describe("user/workspace resource visibility", () => {
           await request("/projects", "POST", { title: "Attachment scope" }),
         ),
       );
-    const artifact = z.object({ id: z.uuid() }).parse(
+    const file = z.object({ id: z.uuid() }).parse(
       await value(
-        await request("/artifacts", "POST", {
+        await request("/files", "POST", {
           requestId: crypto.randomUUID(),
           title: "Scoped",
           type: "text",
@@ -1755,7 +1748,7 @@ describe("user/workspace resource visibility", () => {
       ),
     );
     await value(
-      await request(`/artifacts/${artifact.id}`, "PATCH", {
+      await request(`/files/${file.id}`, "PATCH", {
         visibility: "workspace",
       }),
     );
@@ -1771,7 +1764,7 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(`/documents/${doc.id}/attachments`, "PUT", {
-          artifactIds: [artifact.id],
+          fileIds: [file.id],
           editToken: 0,
         })
       ).status,
@@ -1785,7 +1778,7 @@ describe("user/workspace resource visibility", () => {
     expect(
       (
         await request(`/documents/${doc.id}/attachments`, "PUT", {
-          artifactIds: [artifact.id],
+          fileIds: [file.id],
           editToken: 0,
         })
       ).status,
@@ -1795,7 +1788,7 @@ describe("user/workspace resource visibility", () => {
     const selected = await skill();
     const file = z.object({ id: z.uuid() }).parse(
       await value(
-        await request("/artifacts", "POST", {
+        await request("/files", "POST", {
           requestId: crypto.randomUUID(),
           title: "User bytes",
           type: "text",
@@ -1811,7 +1804,7 @@ describe("user/workspace resource visibility", () => {
       (
         await request(`/skills/${selected.id}/files`, "PUT", {
           editToken: 0,
-          files: [{ path: "references/private.txt", artifactId: file.id }],
+          files: [{ path: "references/private.txt", fileId: file.id }],
         })
       ).status,
     ).toBe(200);
@@ -1820,8 +1813,7 @@ describe("user/workspace resource visibility", () => {
         .status,
     ).toBe(403);
     expect(
-      (await request(`/artifacts/${file.id}/file`, "GET", undefined, other))
-        .status,
+      (await request(`/files/${file.id}/file`, "GET", undefined, other)).status,
     ).toBe(403);
     expect(
       (
@@ -1836,7 +1828,7 @@ describe("user/workspace resource visibility", () => {
         .visibility,
     ).toBe("user");
     await value(
-      await request(`/artifacts/${file.id}`, "PATCH", {
+      await request(`/files/${file.id}`, "PATCH", {
         visibility: "workspace",
       }),
     );
@@ -1853,16 +1845,16 @@ describe("user/workspace resource visibility", () => {
         .status,
     ).toBe(200);
     const configured = await agent("workspace", owner, [selected.id]);
-    const conversation = z.object({ id: z.uuid() }).parse(
+    const chat = z.object({ id: z.uuid() }).parse(
       await value(
-        await request("/conversations", "POST", {
+        await request("/chats", "POST", {
           title: "Shared file output",
           visibility: "workspace",
         }),
       ),
     );
     await value(
-      await request(`/conversations/${conversation.id}/participants`, "POST", {
+      await request(`/chats/${chat.id}/participants`, "POST", {
         agentId: configured.id,
         role: "contributor",
       }),
@@ -1874,7 +1866,7 @@ describe("user/workspace resource visibility", () => {
         await value(
           await request("/runs", "POST", {
             agentId: configured.id,
-            conversationId: conversation.id,
+            chatId: chat.id,
             requestId: crypto.randomUUID(),
             type: "prompt",
             body: "hold",
@@ -1896,7 +1888,7 @@ describe("user/workspace resource visibility", () => {
       afterRead = async () => {
         afterRead = undefined;
         await value(
-          await request(`/artifacts/${file.id}`, "PATCH", {
+          await request(`/files/${file.id}`, "PATCH", {
             visibility: "user",
           }),
         );
@@ -1914,7 +1906,7 @@ describe("user/workspace resource visibility", () => {
     }
   });
   it.each(["message", "document", "grant"] as const)(
-    "intersects saved and current source-Run recipients for private Artifact %s publication",
+    "intersects saved and current source-Run recipients for private File %s publication",
     async (target) => {
       await worker.stop({ graceful: false });
       let runId: string | undefined;
@@ -1922,20 +1914,20 @@ describe("user/workspace resource visibility", () => {
         const configured = await agent("workspace");
         const source = z.object({ id: z.uuid() }).parse(
           await value(
-            await request("/conversations", "POST", {
+            await request("/chats", "POST", {
               title: "Private source output",
               visibility: "participants",
             }),
           ),
         );
         await value(
-          await request(`/conversations/${source.id}/participants`, "POST", {
+          await request(`/chats/${source.id}/participants`, "POST", {
             userId: other.id,
             role: "contributor",
           }),
         );
         await value(
-          await request(`/conversations/${source.id}/participants`, "POST", {
+          await request(`/chats/${source.id}/participants`, "POST", {
             agentId: configured.id,
             role: "contributor",
           }),
@@ -1944,16 +1936,16 @@ describe("user/workspace resource visibility", () => {
           await value(
             await request("/runs", "POST", {
               agentId: configured.id,
-              conversationId: source.id,
+              chatId: source.id,
               requestId: crypto.randomUUID(),
               type: "prompt",
               body: "Source output",
             }),
           ),
         ).id;
-        const artifact = z.object({ id: z.uuid() }).parse(
+        const file = z.object({ id: z.uuid() }).parse(
           await value(
-            await request("/artifacts", "POST", {
+            await request("/files", "POST", {
               requestId: crypto.randomUUID(),
               title: "Accepted output",
               type: "text",
@@ -1965,28 +1957,26 @@ describe("user/workspace resource visibility", () => {
           ),
         );
         await value(
-          await request(`/artifacts/${artifact.id}`, "PATCH", {
+          await request(`/files/${file.id}`, "PATCH", {
             visibility: "workspace",
           }),
         );
         expect(
-          (await request(`/artifacts/${artifact.id}`, "GET", undefined, other))
-            .status,
+          (await request(`/files/${file.id}`, "GET", undefined, other)).status,
         ).toBe(200);
-        const conversation = z.object({ id: z.uuid() }).parse(
+        const chat = z.object({ id: z.uuid() }).parse(
           await value(
-            await request("/conversations", "POST", {
+            await request("/chats", "POST", {
               title: "Target output",
               visibility: "participants",
             }),
           ),
         );
         await value(
-          await request(
-            `/conversations/${conversation.id}/participants`,
-            "POST",
-            { userId: other.id, role: "contributor" },
-          ),
+          await request(`/chats/${chat.id}/participants`, "POST", {
+            userId: other.id,
+            role: "contributor",
+          }),
         );
         const doc = z.object({ id: z.uuid() }).parse(
           await value(
@@ -2004,36 +1994,33 @@ describe("user/workspace resource visibility", () => {
             ),
           })
           .parse(
-            await value(
-              await request(`/conversations/${source.id}/participants`),
-            ),
+            await value(await request(`/chats/${source.id}/participants`)),
           );
         const peer = participants.items.find((p) => p.userId === other.id);
         if (!peer) throw new Error("Missing peer");
         await value(
           await request(
-            `/conversations/${source.id}/participants/${peer.id}`,
+            `/chats/${source.id}/participants/${peer.id}`,
             "DELETE",
             {},
           ),
         );
         expect(
-          (await request(`/artifacts/${artifact.id}`, "GET", undefined, other))
-            .status,
+          (await request(`/files/${file.id}`, "GET", undefined, other)).status,
         ).toBe(403);
         const publish = () =>
           target === "message"
-            ? request(`/conversations/${conversation.id}/messages`, "POST", {
+            ? request(`/chats/${chat.id}/messages`, "POST", {
                 requestId: crypto.randomUUID(),
                 body: "Attached output",
-                artifactIds: [artifact.id],
+                fileIds: [file.id],
               })
             : target === "document"
               ? request(`/documents/${doc.id}/attachments`, "PUT", {
-                  artifactIds: [artifact.id],
+                  fileIds: [file.id],
                   editToken: 0,
                 })
-              : request(`/artifacts/${artifact.id}`, "PATCH", {
+              : request(`/files/${file.id}`, "PATCH", {
                   visibility: "workspace",
                 });
         const cursor = () =>
@@ -2054,11 +2041,11 @@ describe("user/workspace resource visibility", () => {
             .editToken,
         ).toBe(0);
         expect(
-          await value(await request(`/artifacts/${artifact.id}`)),
+          await value(await request(`/files/${file.id}`)),
         ).not.toHaveProperty("editToken");
         // An original recipient may regain current access, but a later invite never widens the saved cap.
         await value(
-          await request(`/conversations/${source.id}/participants`, "POST", {
+          await request(`/chats/${source.id}/participants`, "POST", {
             userId: other.id,
             role: "contributor",
           }),
@@ -2069,7 +2056,7 @@ describe("user/workspace resource visibility", () => {
           .values({ workspaceId, userId: outsider.id, role: "contributor" });
         try {
           await value(
-            await request(`/conversations/${source.id}/participants`, "POST", {
+            await request(`/chats/${source.id}/participants`, "POST", {
               userId: outsider.id,
               role: "contributor",
             }),
@@ -2077,7 +2064,7 @@ describe("user/workspace resource visibility", () => {
           const beforeLate = await cursor();
           expect(
             (
-              await request(`/artifacts/${artifact.id}`, "PATCH", {
+              await request(`/files/${file.id}`, "PATCH", {
                 visibility: "workspace",
               })
             ).status,

@@ -1,4 +1,5 @@
 export {
+  CONNECTION_SORTS,
   createConnection,
   disconnectConnection,
   getConnection,
@@ -12,6 +13,7 @@ export {
   approveOperation,
   getOperation,
   getOperations,
+  OPERATION_SORTS,
   requestOperation,
   retryOperation,
 } from "./operations";

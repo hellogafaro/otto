@@ -1,21 +1,23 @@
-import { getArtifact, requireArtifactAudience } from "@otto/artifacts";
 import {
-  archiveConversation,
-  createConversation,
+  archiveChat,
+  CHAT_SORTS,
+  createChat,
   createMessage,
   createParticipant,
   deleteParticipant,
-  getConversation,
-  getConversationAudience,
-  getConversations,
+  getChat,
+  getChatAudience,
+  getChats,
   getMessage,
   getMessages,
   getParticipants,
-  markConversationRead,
-  updateConversation,
+  markChatRead,
+  PARTICIPANT_SORTS,
+  updateChat,
   updateParticipant,
-} from "@otto/conversations";
+} from "@otto/chats";
 import { getDocument } from "@otto/documents";
+import { getFile, requireFileAudience } from "@otto/files";
 import {
   archiveProject,
   createProject,
@@ -24,53 +26,86 @@ import {
   getProjectAudience,
   getProjectMembers,
   getProjects,
+  PROJECT_MEMBER_SORTS,
+  PROJECT_SORTS,
   updateProject,
   updateProjectMember,
   upsertProjectMember,
 } from "@otto/projects";
-import { getSessions } from "@otto/sessions";
+import { getSessions, SESSION_SORTS } from "@otto/sessions";
 import { DomainError } from "@otto/shared";
 import {
   archiveTask,
   assertNoOpenOwnedTasks,
-  assignTask,
   createTask,
   createTaskLink,
+  createTimesheet,
   deleteTaskLink,
+  deleteTimesheet,
   getTask,
   getTaskLinks,
   getTasks,
+  getTimesheet,
+  getTimesheets,
   setTaskStatus,
+  TASK_LINK_SORTS,
+  TASK_SORTS,
+  TIMESHEET_SORTS,
   updateTask,
+  updateTimesheet,
 } from "@otto/tasks";
 import type { Context } from "@otto/workspaces";
 import { Hono } from "hono";
 import { z } from "zod";
 import { type ApiEnv, recordId, transact } from "./http";
-import { body, editToken, id, pageQuery, title, validate } from "./validation";
+import {
+  body,
+  editToken,
+  flag,
+  id,
+  listQuery,
+  title,
+  validate,
+} from "./validation";
 
 const archive = z.object({ archived: z.boolean(), editToken });
-const query = pageQuery.extend({
-  projectId: id.optional(),
-  archived: z
-    .enum(["true", "false"])
-    .transform((v) => v === "true")
+const taskSchedule = {
+  dueAt: z.iso
+    .datetime({ offset: true })
+    .transform((value) => new Date(value))
+    .nullable()
     .optional(),
-  query: z.string().max(200).optional(),
+  recurrence: z.string().max(400).nullable().optional(),
+};
+const assignees = {
+  assigneeUserIds: z.array(z.string().min(1).max(128)).max(20).optional(),
+  assigneeAgentIds: z.array(id).max(20).optional(),
+};
+const search = z.string().max(200).optional();
+const dateTime = z.iso
+  .datetime({ offset: true })
+  .transform((value) => new Date(value))
+  .optional();
+const timeEntry = z.object({
+  duration: z.number().int().min(1).max(2147483647),
+  notes: z
+    .string()
+    .max(4000)
+    .refine((value) => Buffer.byteLength(value) <= 4000)
+    .nullable()
+    .optional(),
 });
 const authorizeLink = async (
   ctx: Context,
   link: {
-    type: "document" | "conversation" | "artifact" | "url";
+    type: "document" | "chat" | "file" | "url";
     reference: string;
   },
 ) => {
   if (link.type === "document")
     await getDocument(ctx, id.parse(link.reference));
-  else if (link.type === "conversation")
-    await getConversation(ctx, id.parse(link.reference));
-  else if (link.type === "artifact")
-    await getArtifact(ctx, id.parse(link.reference));
+  else if (link.type === "chat") await getChat(ctx, id.parse(link.reference));
+  else if (link.type === "file") await getFile(ctx, id.parse(link.reference));
   else {
     const url = z.url().max(2048).parse(link.reference);
     if (!["https:", "http:"].includes(new URL(url).protocol))
@@ -119,6 +154,8 @@ export const collaborationApi = new Hono<ApiEnv>()
         title,
         notes: body.optional(),
         ownerId: z.string().max(128).optional(),
+        ...taskSchedule,
+        ...assignees,
       }),
     ),
     async (c) =>
@@ -134,21 +171,50 @@ export const collaborationApi = new Hono<ApiEnv>()
     ),
   )
   .post(
-    "/workspaces/:workspaceId/tasks/:id/assignee",
+    "/workspaces/:workspaceId/timesheets",
+    validate("json", timeEntry.extend({ taskId: id }).strict()),
+    async (c) =>
+      c.json(
+        await transact(c, (ctx) => createTimesheet(ctx, c.req.valid("json"))),
+      ),
+  )
+  .get(
+    "/workspaces/:workspaceId/timesheets",
     validate(
-      "json",
-      z.object({
-        userId: z.string().max(128).optional(),
-        agentId: id.optional(),
+      "query",
+      listQuery(TIMESHEET_SORTS, {
+        taskId: id,
+        createdBy: z.string().min(1).max(128).optional(),
+        from: dateTime,
+        to: dateTime,
       }),
     ),
     async (c) =>
       c.json(
-        await transact(c, (ctx) =>
-          assignTask(ctx, id.parse(c.req.param("id")), c.req.valid("json")),
+        await transact(
+          c,
+          (ctx) => getTimesheets(ctx, c.req.valid("query")),
+          false,
         ),
       ),
   )
+  .get("/workspaces/:workspaceId/timesheets/:id", async (c) =>
+    c.json(await transact(c, (ctx) => getTimesheet(ctx, recordId(c)), false)),
+  )
+  .patch(
+    "/workspaces/:workspaceId/timesheets/:id",
+    validate("json", timeEntry.partial().strict()),
+    async (c) =>
+      c.json(
+        await transact(c, (ctx) =>
+          updateTimesheet(ctx, recordId(c), c.req.valid("json")),
+        ),
+      ),
+  )
+  .delete("/workspaces/:workspaceId/timesheets/:id", async (c) => {
+    await transact(c, (ctx) => deleteTimesheet(ctx, recordId(c)));
+    return c.json({ removed: true });
+  })
   .post(
     "/workspaces/:workspaceId/tasks/:id/status",
     validate(
@@ -163,7 +229,7 @@ export const collaborationApi = new Hono<ApiEnv>()
       ),
   )
   .post(
-    "/workspaces/:workspaceId/conversations",
+    "/workspaces/:workspaceId/chats",
     validate(
       "json",
       z
@@ -175,14 +241,10 @@ export const collaborationApi = new Hono<ApiEnv>()
         .strict(),
     ),
     async (c) =>
-      c.json(
-        await transact(c, (ctx) =>
-          createConversation(ctx, c.req.valid("json")),
-        ),
-      ),
+      c.json(await transact(c, (ctx) => createChat(ctx, c.req.valid("json")))),
   )
   .post(
-    "/workspaces/:workspaceId/conversations/:id/participants",
+    "/workspaces/:workspaceId/chats/:id/participants",
     validate(
       "json",
       z.object({
@@ -203,7 +265,7 @@ export const collaborationApi = new Hono<ApiEnv>()
     },
   )
   .delete(
-    "/workspaces/:workspaceId/conversations/:id/participants/:participantId",
+    "/workspaces/:workspaceId/chats/:id/participants/:participantId",
     async (c) => {
       await transact(c, (ctx) =>
         deleteParticipant(
@@ -216,10 +278,12 @@ export const collaborationApi = new Hono<ApiEnv>()
     },
   )
   .get(
-    "/workspaces/:workspaceId/conversations/:id/messages",
+    "/workspaces/:workspaceId/chats/:id/messages",
     validate(
       "query",
-      z.object({ after: z.coerce.number().int().nonnegative().default(0) }),
+      z
+        .object({ after: z.coerce.number().int().nonnegative().default(0) })
+        .strict(),
     ),
     async (c) =>
       c.json(
@@ -236,22 +300,22 @@ export const collaborationApi = new Hono<ApiEnv>()
       ),
   )
   .get(
-    "/workspaces/:workspaceId/conversations/:id/sessions",
-    validate("query", pageQuery),
+    "/workspaces/:workspaceId/chats/:id/sessions",
+    validate("query", listQuery(SESSION_SORTS, { agentId: id.optional() })),
     async (c) =>
       c.json(
         await transact(
           c,
           async (ctx) => {
-            const conversationId = id.parse(c.req.param("id"));
-            return getSessions(ctx, conversationId, c.req.valid("query"));
+            const chatId = id.parse(c.req.param("id"));
+            return getSessions(ctx, chatId, c.req.valid("query"));
           },
           false,
         ),
       ),
   )
   .put(
-    "/workspaces/:workspaceId/conversations/:id/presence",
+    "/workspaces/:workspaceId/chats/:id/presence",
     validate("json", z.object({ typing: z.boolean() })),
     async (c) => {
       await transact(
@@ -265,7 +329,7 @@ export const collaborationApi = new Hono<ApiEnv>()
       return c.json({ ok: true });
     },
   )
-  .get("/workspaces/:workspaceId/conversations/:id/presence", async (c) =>
+  .get("/workspaces/:workspaceId/chats/:id/presence", async (c) =>
     c.json(
       await transact(
         c,
@@ -276,7 +340,13 @@ export const collaborationApi = new Hono<ApiEnv>()
   )
   .get(
     "/workspaces/:workspaceId/projects/:id/members",
-    validate("query", pageQuery),
+    validate(
+      "query",
+      listQuery(PROJECT_MEMBER_SORTS, {
+        role: z.enum(["contributor", "viewer"]).optional(),
+        query: search,
+      }),
+    ),
     async (c) =>
       c.json(
         await transact(
@@ -322,7 +392,7 @@ export const collaborationApi = new Hono<ApiEnv>()
       z.object({
         projectId: id,
         title,
-        conversationId: id,
+        chatId: id,
         messageId: id,
         ownerId: z.string().max(128).optional(),
       }),
@@ -331,15 +401,8 @@ export const collaborationApi = new Hono<ApiEnv>()
       c.json(
         await transact(c, async (ctx) => {
           const input = c.req.valid("json");
-          const message = await getMessage(
-            ctx,
-            input.conversationId,
-            input.messageId,
-          );
-          const audience = await getConversationAudience(
-            ctx,
-            input.conversationId,
-          );
+          const message = await getMessage(ctx, input.chatId, input.messageId);
+          const audience = await getChatAudience(ctx, input.chatId);
           const destination = await getProjectAudience(ctx, input.projectId);
           if (destination.some((userId) => !audience.humans.includes(userId)))
             throw new DomainError(
@@ -353,8 +416,8 @@ export const collaborationApi = new Hono<ApiEnv>()
             ownerId: input.ownerId,
           });
           await createTaskLink(ctx, task.id, {
-            type: "conversation",
-            reference: input.conversationId,
+            type: "chat",
+            reference: input.chatId,
           });
           return task;
         }),
@@ -365,7 +428,7 @@ export const collaborationApi = new Hono<ApiEnv>()
     validate(
       "json",
       z.object({
-        type: z.enum(["document", "conversation", "artifact", "url"]),
+        type: z.enum(["document", "chat", "file", "url"]),
         reference: z.string().max(2048),
       }),
     ),
@@ -380,7 +443,12 @@ export const collaborationApi = new Hono<ApiEnv>()
   )
   .get(
     "/workspaces/:workspaceId/tasks/:id/links",
-    validate("query", pageQuery),
+    validate(
+      "query",
+      listQuery(TASK_LINK_SORTS, {
+        type: z.enum(["document", "chat", "file", "url"]).optional(),
+      }),
+    ),
     async (c) =>
       c.json(
         await transact(
@@ -417,7 +485,7 @@ export const collaborationApi = new Hono<ApiEnv>()
     return c.json({ ok: true });
   })
   .patch(
-    "/workspaces/:workspaceId/conversations/:id/participants/:participantId",
+    "/workspaces/:workspaceId/chats/:id/participants/:participantId",
     validate("json", z.object({ role: z.enum(["viewer", "contributor"]) })),
     async (c) => {
       await transact(c, (ctx) =>
@@ -433,7 +501,10 @@ export const collaborationApi = new Hono<ApiEnv>()
   )
   .get(
     "/workspaces/:workspaceId/projects",
-    validate("query", query),
+    validate(
+      "query",
+      listQuery(PROJECT_SORTS, { archived: flag, query: search }),
+    ),
     async (c) =>
       c.json(
         await transact(
@@ -478,12 +549,16 @@ export const collaborationApi = new Hono<ApiEnv>()
     "/workspaces/:workspaceId/tasks",
     validate(
       "query",
-      query.extend({
+      listQuery(TASK_SORTS, {
         projectId: id,
+        archived: flag,
+        query: search,
         status: z.enum(["todo", "doing", "done"]).optional(),
         ownerId: z.string().max(128).optional(),
         assigneeUserId: z.string().max(128).optional(),
         assigneeAgentId: id.optional(),
+        dueFrom: dateTime,
+        dueTo: dateTime,
       }),
     ),
     async (c) =>
@@ -500,6 +575,8 @@ export const collaborationApi = new Hono<ApiEnv>()
           title: title.optional(),
           notes: body.optional(),
           ownerId: z.string().min(1).max(128).optional(),
+          ...taskSchedule,
+          ...assignees,
           editToken,
         })
         .strict(),
@@ -527,25 +604,34 @@ export const collaborationApi = new Hono<ApiEnv>()
       ),
   )
   .get(
-    "/workspaces/:workspaceId/conversations",
-    validate("query", query),
+    "/workspaces/:workspaceId/chats",
+    validate(
+      "query",
+      listQuery(CHAT_SORTS, {
+        projectId: id.optional(),
+        archived: flag,
+        query: search,
+        visibility: z.enum(["workspace", "participants"]).optional(),
+        createdBy: z.string().min(1).max(128).optional(),
+      }),
+    ),
     async (c) =>
       c.json(
-        await transact(
-          c,
-          (ctx) => getConversations(ctx, c.req.valid("query")),
-          false,
-        ),
+        await transact(c, (ctx) => getChats(ctx, c.req.valid("query")), false),
       ),
   )
-  .get("/workspaces/:workspaceId/conversations/:id", async (c) =>
-    c.json(
-      await transact(c, (ctx) => getConversation(ctx, recordId(c)), false),
-    ),
+  .get("/workspaces/:workspaceId/chats/:id", async (c) =>
+    c.json(await transact(c, (ctx) => getChat(ctx, recordId(c)), false)),
   )
   .get(
-    "/workspaces/:workspaceId/conversations/:id/participants",
-    validate("query", pageQuery),
+    "/workspaces/:workspaceId/chats/:id/participants",
+    validate(
+      "query",
+      listQuery(PARTICIPANT_SORTS, {
+        role: z.enum(["contributor", "viewer"]).optional(),
+        type: z.enum(["human", "agent"]).optional(),
+      }),
+    ),
     async (c) =>
       c.json(
         await transact(
@@ -556,56 +642,58 @@ export const collaborationApi = new Hono<ApiEnv>()
       ),
   )
   .patch(
-    "/workspaces/:workspaceId/conversations/:id",
+    "/workspaces/:workspaceId/chats/:id",
     validate("json", z.object({ title }).strict()),
     async (c) =>
       c.json(
         await transact(c, (ctx) =>
-          updateConversation(ctx, recordId(c), c.req.valid("json")),
+          updateChat(ctx, recordId(c), c.req.valid("json")),
         ),
       ),
   )
   .post(
-    "/workspaces/:workspaceId/conversations/:id/archive",
+    "/workspaces/:workspaceId/chats/:id/archive",
     validate("json", z.object({ archived: z.boolean() })),
     async (c) =>
       c.json(
         await transact(c, (ctx) =>
-          archiveConversation(ctx, recordId(c), c.req.valid("json").archived),
+          archiveChat(ctx, recordId(c), c.req.valid("json").archived),
         ),
       ),
   )
   .post(
-    "/workspaces/:workspaceId/conversations/:id/messages",
+    "/workspaces/:workspaceId/chats/:id/messages",
     validate(
       "json",
-      z.object({
-        body: body.min(1),
-        requestId: id,
-        replyTo: id.optional(),
-        mentionUserIds: z.array(z.string().max(128)).max(50).optional(),
-        artifactIds: z.array(id).max(30).optional(),
-      }),
+      z
+        .object({
+          body: body.min(1),
+          requestId: id,
+          replyTo: id.optional(),
+          mentionUserIds: z.array(z.string().max(128)).max(50).optional(),
+          fileIds: z.array(id).max(30).optional(),
+        })
+        .strict(),
     ),
     async (c) =>
       c.json(
         await transact(c, async (ctx) => {
           const input = c.req.valid("json");
-          if (input.artifactIds?.length) {
-            const audience = await getConversationAudience(ctx, recordId(c));
-            for (const artifactId of input.artifactIds)
-              await requireArtifactAudience(ctx, artifactId, audience.humans);
+          if (input.fileIds?.length) {
+            const audience = await getChatAudience(ctx, recordId(c));
+            for (const fileId of input.fileIds)
+              await requireFileAudience(ctx, fileId, audience.humans);
           }
           return createMessage(ctx, recordId(c), input);
         }),
       ),
   )
   .post(
-    "/workspaces/:workspaceId/conversations/:id/read",
+    "/workspaces/:workspaceId/chats/:id/read",
     validate("json", z.object({ cursor: editToken })),
     async (c) => {
       await transact(c, (ctx) =>
-        markConversationRead(ctx, recordId(c), c.req.valid("json").cursor),
+        markChatRead(ctx, recordId(c), c.req.valid("json").cursor),
       );
       return c.json({ ok: true });
     },

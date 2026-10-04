@@ -3,13 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getAttention } from "../apps/server/src/attention";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
-import {
-  createConversation,
-  createParticipant,
-} from "../packages/conversations/src";
+import { createChat, createParticipant } from "../packages/chats/src";
 import { getDocuments } from "../packages/documents/src";
 import { documents } from "../packages/documents/src/schema";
 import { createEnvironment } from "../packages/environments/src";
+import { createProject } from "../packages/projects/src";
 import { admitRun, createRunQuestion } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
 import {
@@ -57,14 +55,23 @@ describe("discovery pagination on private PostgreSQL", () => {
     );
   it("returns null for empty and exact boundaries, but advances an entirely filtered candidate page", async () => {
     expect(await read()).toEqual({ items: [], next: null });
+    // Workspace-visible Documents in a Project the reader does not belong to are still scanned candidates
+    // (private `user` Documents are narrowed in SQL and never scanned).
+    const hiddenProjectId = await inWorkspace(
+      database.db,
+      workspaceId,
+      { userId: owner },
+      async (c) => (await createProject(c, { title: "Hidden" })).id,
+    );
     await database.db.insert(documents).values(
       Array.from({ length: 100 }, (_, i) => ({
         id: id(i + 1),
         workspaceId,
+        projectId: hiddenProjectId,
         title: `Private ${i}`,
         body: "private",
         createdBy: owner,
-        visibility: "user" as const,
+        visibility: "workspace" as const,
       })),
     );
     expect(await read()).toEqual({ items: [], next: null });
@@ -85,11 +92,10 @@ describe("discovery pagination on private PostgreSQL", () => {
       createdBy: owner,
       visibility: "workspace",
     });
+    // The 100 hidden Documents are narrowed in SQL, so the visible one is the whole candidate page.
     const filtered = await read();
-    expect(filtered).toEqual({ items: [], next: id(100) });
-    const next = await read(filtered.next ?? undefined);
-    expect(next.items.map((item) => item.id)).toEqual([id(101)]);
-    expect(next.next).toBeNull();
+    expect(filtered.items.map((item) => item.id)).toEqual([id(101)]);
+    expect(filtered.next).toBeNull();
     expect(await read(id(101))).toEqual({ items: [], next: null });
   });
   it("paginates human IDs and validates bounds without truncating complete authorization audiences", async () => {
@@ -146,7 +152,7 @@ describe("discovery pagination on private PostgreSQL", () => {
         workspaceId,
         { userId: owner },
         async (c) => {
-          const conversation = await createConversation(c, {
+          const chat = await createChat(c, {
             title: "Private questions",
             visibility: "participants",
           });
@@ -156,7 +162,7 @@ describe("discovery pagination on private PostgreSQL", () => {
             model: "fixture",
             visibility: "workspace",
           });
-          await createParticipant(c, conversation.id, {
+          await createParticipant(c, chat.id, {
             agentId: agent.id,
             role: "contributor",
           });
@@ -164,7 +170,7 @@ describe("discovery pagination on private PostgreSQL", () => {
           for (let i = 0; i < 2; i++) {
             const run = await admitRun(c, boss, {
               requestId: crypto.randomUUID(),
-              conversationId: conversation.id,
+              chatId: chat.id,
               agentId: agent.id,
               type: "script",
               body: "fixture",
@@ -217,7 +223,8 @@ describe("discovery pagination on private PostgreSQL", () => {
         (c) => getAttention(c, filter),
         false,
       );
-      expect(denied.runs).toEqual({ items: [], next: first.runs.next });
+      // Runs in a Chat the reader cannot read are narrowed in SQL; saved question candidates still scan and advance.
+      expect(denied.runs).toEqual({ items: [], next: null });
       expect(denied.questions).toEqual({
         items: [],
         next: first.questions.next,
@@ -229,7 +236,6 @@ describe("discovery pagination on private PostgreSQL", () => {
         (c) =>
           getAttention(c, {
             ...filter,
-            runAfter: String(denied.runs.next),
             questionAfter: String(denied.questions.next),
           }),
         false,

@@ -1,5 +1,5 @@
-import { assertNoOwnedAutomations } from "@otto/automations";
 import { answerRunQuestion } from "@otto/runs";
+import { assertNoOwnedSchedules } from "@otto/schedules";
 import { DomainError } from "@otto/shared";
 import { assertNoOpenOwnedTasks } from "@otto/tasks";
 import {
@@ -9,8 +9,10 @@ import {
   getInvitation,
   getMembers,
   getWorkspaces,
+  MEMBER_SORTS,
   updateInvitation,
   updateMemberRole,
+  WORKSPACE_SORTS,
 } from "@otto/workspaces";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -20,13 +22,14 @@ import { connectionApi } from "./connection-api";
 import { contentApi, publicSharesApi } from "./content-api";
 import { createContentPresence } from "./content-presence";
 import { executionApi } from "./execution-api";
+import { foldersApi } from "./folders-api";
 
 import type { ApiOptions } from "./http";
 import { type ApiEnv, transact } from "./http";
 import { sendInvitation } from "./invitations";
 import { skillsApi } from "./skills-api";
 import { subscriptionApi } from "./subscription-api";
-import { id, pageQuery, validate } from "./validation";
+import { flag, id, listQuery, pageQuery, validate } from "./validation";
 /** One authentication/origin boundary. Public shares expose frozen selections before it. */
 export function createApi(options: ApiOptions) {
   const presence = createContentPresence();
@@ -55,14 +58,29 @@ export function createApi(options: ApiOptions) {
     })
     .route("/", collaborationApi)
     .route("/", contentApi)
+    .route("/", foldersApi)
     .route("/", skillsApi)
     .route("/", executionApi)
     .route("/", connectionApi)
     .route("/", subscriptionApi)
-    .get("/workspaces", validate("query", pageQuery), async (c) =>
-      c.json(
-        await getWorkspaces(options.db, c.get("userId"), c.req.valid("query")),
+    .get(
+      "/workspaces",
+      validate(
+        "query",
+        listQuery(WORKSPACE_SORTS, {
+          role: z.enum(["owner", "admin", "contributor", "viewer"]).optional(),
+          query: z.string().max(200).optional(),
+        }),
       ),
+      async (c) =>
+        c.json(
+          await getWorkspaces(
+            options.db,
+            c.get("userId"),
+            c.req.valid("query"),
+            options.cursors,
+          ),
+        ),
     )
     .post("/invitations/:id/accept", async (c) =>
       c.json(
@@ -124,7 +142,13 @@ export function createApi(options: ApiOptions) {
     )
     .get(
       "/workspaces/:workspaceId/members",
-      validate("query", pageQuery),
+      validate(
+        "query",
+        listQuery(MEMBER_SORTS, {
+          role: z.enum(["owner", "admin", "contributor", "viewer"]).optional(),
+          query: z.string().max(200).optional(),
+        }),
+      ),
       async (c) =>
         c.json(
           await transact(
@@ -146,7 +170,7 @@ export function createApi(options: ApiOptions) {
           const { role } = c.req.valid("json");
           if (role === "viewer") {
             await assertNoOpenOwnedTasks(ctx, userId);
-            await assertNoOwnedAutomations(ctx, userId);
+            await assertNoOwnedSchedules(ctx, userId);
           }
           return updateMemberRole(ctx, userId, role);
         });
@@ -157,7 +181,7 @@ export function createApi(options: ApiOptions) {
       await transact(c, async (ctx) => {
         const userId = c.req.param("userId");
         await assertNoOpenOwnedTasks(ctx, userId);
-        await assertNoOwnedAutomations(ctx, userId);
+        await assertNoOwnedSchedules(ctx, userId);
         await deleteMember(ctx, userId);
       });
       return c.json({ deleted: true });
@@ -180,15 +204,14 @@ export function createApi(options: ApiOptions) {
       "/workspaces/:workspaceId/attention",
       validate(
         "query",
-        pageQuery.extend({
-          runAfter: id.optional(),
-          questionAfter: id.optional(),
-          operationAfter: id.optional(),
-          mentionsOnly: z
-            .enum(["true", "false"])
-            .transform((v) => v === "true")
-            .optional(),
-        }),
+        pageQuery
+          .extend({
+            runAfter: id.optional(),
+            questionAfter: id.optional(),
+            operationAfter: id.optional(),
+            mentionsOnly: flag,
+          })
+          .strict(),
       ),
       async (c) =>
         c.json(

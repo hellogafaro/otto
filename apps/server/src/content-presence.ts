@@ -1,4 +1,4 @@
-import { getConversation } from "@otto/conversations";
+import { getChat } from "@otto/chats";
 import { DomainError } from "@otto/shared";
 
 import { type Context, requireHuman, requireMember } from "@otto/workspaces";
@@ -8,7 +8,7 @@ export function createContentPresence() {
     string,
     {
       workspaceId: string;
-      conversationId: string;
+      chatId: string;
       userId: string;
       typing: boolean;
       expiresAt: number;
@@ -19,37 +19,34 @@ export function createContentPresence() {
       if (value.expiresAt <= Date.now()) entries.delete(key);
   }
   return {
-    async update(c: Context, conversationId: string, typing: boolean) {
+    async update(c: Context, chatId: string, typing: boolean) {
       requireHuman(c);
-      await getConversation(c, conversationId, typing);
+      await getChat(c, chatId, typing);
       prune();
-      const key = `${conversationId}:${c.actor.userId}`;
+      const key = `${chatId}:${c.actor.userId}`;
       if (entries.size >= 5000 && !entries.has(key))
         throw new DomainError("unavailable");
       entries.set(key, {
         workspaceId: c.workspaceId,
-        conversationId,
+        chatId,
         userId: c.actor.userId,
         typing,
         expiresAt: Date.now() + 30000,
       });
     },
-    async get(c: Context, conversationId: string) {
+    async get(c: Context, chatId: string) {
       requireHuman(c);
-      await getConversation(c, conversationId);
+      await getChat(c, chatId);
       prune();
       const items = [];
       for (const [key, value] of entries) {
-        if (
-          value.workspaceId !== c.workspaceId ||
-          value.conversationId !== conversationId
-        )
+        if (value.workspaceId !== c.workspaceId || value.chatId !== chatId)
           continue;
         try {
           const member = await requireMember(c, value.userId);
-          await getConversation(
+          await getChat(
             { ...c, actor: { userId: value.userId }, role: member.role },
-            conversationId,
+            chatId,
           );
           items.push({ userId: value.userId, typing: value.typing });
         } catch (error) {

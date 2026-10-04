@@ -2,14 +2,12 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAgent } from "../packages/agents/src";
 import {
-  type ArtifactStorage,
-  archiveArtifact,
-  createArtifact,
-  getArtifact,
-  getArtifacts,
-  readArtifact,
-} from "../packages/artifacts/src";
-import { artifacts } from "../packages/artifacts/src/schema";
+  createChat,
+  createParticipant,
+  deleteParticipant,
+  getMessages,
+} from "../packages/chats/src";
+import { participants } from "../packages/chats/src/schema";
 import {
   createConnection,
   disconnectConnection,
@@ -18,22 +16,24 @@ import {
 } from "../packages/connections/src";
 import { connections } from "../packages/connections/src/schema";
 import {
-  createConversation,
-  createParticipant,
-  deleteParticipant,
-  getMessages,
-} from "../packages/conversations/src";
-import { participants } from "../packages/conversations/src/schema";
-import {
   createCollection,
   createDocument,
   getDocument,
   updateDocument,
   updateDocumentCollection,
 } from "../packages/documents/src";
+import {
+  archiveFile,
+  createFile,
+  getFile,
+  getFiles,
+  readFile,
+} from "../packages/files/src";
+import { files } from "../packages/files/src/schema";
 import { createSkill, snapshotSkills } from "../packages/skills/src";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
+import { fixtureStorage } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
 describe("persisted content and capability scope", () => {
@@ -122,7 +122,7 @@ describe("persisted content and capability scope", () => {
     );
     expect(saved.properties[fieldId]).toBe(42);
   });
-  it("rejects skill material whose audience is narrower than the output Conversation", async () => {
+  it("rejects skill material whose audience is narrower than the output Chat", async () => {
     const skill = await scope((c) =>
       createSkill(c, {
         title: "private-skill",
@@ -143,7 +143,7 @@ describe("persisted content and capability scope", () => {
     // This fixture tests PostgreSQL publication/retry behavior only, not Garage/S3 durability.
     const objects = new Map<string, Uint8Array>();
     let fail = true;
-    const storage: ArtifactStorage = {
+    const storage = fixtureStorage({
       async put(key, bytes) {
         if (fail) throw new Error("fixture storage unavailable");
         if (!objects.has(key)) objects.set(key, bytes.slice());
@@ -153,7 +153,7 @@ describe("persisted content and capability scope", () => {
         if (!bytes) throw new Error("missing fixture");
         return bytes;
       },
-    };
+    });
     const input = {
       requestId: crypto.randomUUID(),
       title: "Result",
@@ -163,7 +163,7 @@ describe("persisted content and capability scope", () => {
     };
     const bytes = new TextEncoder().encode("durable output");
     await expect(
-      createArtifact(
+      createFile(
         database.db,
         storage,
         workspaceId,
@@ -175,15 +175,15 @@ describe("persisted content and capability scope", () => {
     const pending = (
       await database.db
         .select()
-        .from(artifacts)
-        .where(eq(artifacts.requestId, input.requestId))
+        .from(files)
+        .where(eq(files.requestId, input.requestId))
     )[0];
     expect(pending?.state).toBe("pending");
     await expect(
-      scope((c) => getArtifact(c, pending?.id ?? "")),
+      scope((c) => getFile(c, pending?.id ?? "")),
     ).rejects.toMatchObject({ code: "not_found" });
     fail = false;
-    const saved = await createArtifact(
+    const saved = await createFile(
       database.db,
       storage,
       workspaceId,
@@ -193,7 +193,7 @@ describe("persisted content and capability scope", () => {
     );
     expect(
       (
-        await createArtifact(
+        await createFile(
           database.db,
           storage,
           workspaceId,
@@ -205,10 +205,10 @@ describe("persisted content and capability scope", () => {
     ).toBe(saved.id);
     expect(objects.size).toBe(1);
     await expect(
-      scope((c) => getArtifact(c, saved.id), "other"),
+      scope((c) => getFile(c, saved.id), "other"),
     ).rejects.toMatchObject({ code: "forbidden" });
     expect(
-      await readArtifact(
+      await readFile(
         database.db,
         storage,
         workspaceId,
@@ -216,13 +216,13 @@ describe("persisted content and capability scope", () => {
         saved.id,
       ),
     ).toEqual(bytes);
-    await scope((c) => archiveArtifact(c, saved.id, true));
-    expect((await scope((c) => getArtifacts(c, {}))).items).toHaveLength(0);
+    await scope((c) => archiveFile(c, saved.id, true));
+    expect((await scope((c) => getFiles(c, {}))).items).toHaveLength(0);
     expect(
-      (await scope((c) => getArtifacts(c, { archived: true }))).items,
+      (await scope((c) => getFiles(c, { archived: true }))).items,
     ).toHaveLength(1);
     expect(
-      await readArtifact(
+      await readFile(
         database.db,
         storage,
         workspaceId,
@@ -231,7 +231,7 @@ describe("persisted content and capability scope", () => {
       ),
     ).toEqual(bytes);
     await expect(
-      createArtifact(
+      createFile(
         database.db,
         storage,
         workspaceId,
@@ -241,30 +241,26 @@ describe("persisted content and capability scope", () => {
       ),
     ).rejects.toMatchObject({ code: "conflict" });
   });
-  it("rechecks participants-only Conversation membership on saved-history replay", async () => {
-    const conversation = await scope((c) =>
-      createConversation(c, { title: "Private", visibility: "participants" }),
+  it("rechecks participants-only Chat membership on saved-history replay", async () => {
+    const chat = await scope((c) =>
+      createChat(c, { title: "Private", visibility: "participants" }),
     );
     await scope((c) =>
-      createParticipant(c, conversation.id, {
+      createParticipant(c, chat.id, {
         userId: "other",
         role: "viewer",
       }),
     );
-    expect(
-      await scope((c) => getMessages(c, conversation.id), "other"),
-    ).toEqual([]);
+    expect(await scope((c) => getMessages(c, chat.id), "other")).toEqual([]);
     const participant = (
       await database.db
         .select()
         .from(participants)
         .where(eq(participants.userId, "other"))
     )[0];
-    await scope((c) =>
-      deleteParticipant(c, conversation.id, participant?.id ?? ""),
-    );
+    await scope((c) => deleteParticipant(c, chat.id, participant?.id ?? ""));
     await expect(
-      scope((c) => getMessages(c, conversation.id), "other"),
+      scope((c) => getMessages(c, chat.id), "other"),
     ).rejects.toMatchObject({ code: "forbidden" });
   });
   it("scopes Connection grants and revokes them on disconnect", async () => {

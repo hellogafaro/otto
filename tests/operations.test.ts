@@ -8,11 +8,8 @@ import { startServer } from "../apps/server/src/lifecycle";
 import { createResendMail } from "../apps/server/src/mail";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
+import { createChat, createParticipant } from "../packages/chats/src";
 import { connections, operations } from "../packages/connections/src/schema";
-import {
-  createConversation,
-  createParticipant,
-} from "../packages/conversations/src";
 import { createEnvironment } from "../packages/environments/src";
 import { admitRun } from "../packages/runs/src";
 import * as runRuntime from "../packages/runs/src/runtime";
@@ -98,11 +95,11 @@ describe("server operations on private PostgreSQL", () => {
           model: "fixture",
         });
         await createEnvironment(c, agent.id);
-        const conversation = await createConversation(c, {
+        const chat = await createChat(c, {
           title: "Recovery",
           visibility: "workspace",
         });
-        await createParticipant(c, conversation.id, {
+        await createParticipant(c, chat.id, {
           agentId: agent.id,
           role: "contributor",
         });
@@ -111,7 +108,7 @@ describe("server operations on private PostgreSQL", () => {
           queue,
           {
             agentId: agent.id,
-            conversationId: conversation.id,
+            chatId: chat.id,
             requestId: crypto.randomUUID(),
             type: "script",
             body: "fixture",
@@ -227,6 +224,9 @@ describe("server operations on private PostgreSQL", () => {
         readConfig({
           ...config(),
           PORT: "0",
+          UPLOAD_SPOOL_BYTES: undefined,
+          TRANSFER_BASE_MS: undefined,
+          TRANSFER_MIN_BYTES_PER_SECOND: undefined,
           OTTO_ACCOUNT_SECRET_BINDINGS: undefined,
           ...partial,
         }),

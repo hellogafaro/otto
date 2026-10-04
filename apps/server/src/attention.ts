@@ -1,5 +1,5 @@
+import { getChatAttention } from "@otto/chats";
 import { getOperations } from "@otto/connections";
-import { getConversationAttention } from "@otto/conversations";
 import { getRunQuestions, getRuns } from "@otto/runs";
 import { type Context, requireHuman } from "@otto/workspaces";
 
@@ -16,7 +16,7 @@ export async function getAttention(
   },
 ) {
   requireHuman(c);
-  const messages = await getConversationAttention(c, filter);
+  const messages = await getChatAttention(c, filter);
   const runs = await getRuns(c, {
     after: filter.runAfter,
     limit: filter.limit,

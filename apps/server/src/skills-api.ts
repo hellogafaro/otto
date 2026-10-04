@@ -1,7 +1,4 @@
-import {
-  getSkillFileReference,
-  requireArtifactAudience,
-} from "@otto/artifacts";
+import { getSkillFileReference, requireFileAudience } from "@otto/files";
 import {
   archiveSkill,
   createSkill,
@@ -13,15 +10,25 @@ import {
   importSkill,
   proposeSkillChange,
   resolveSkillProposal,
+  SKILL_PROPOSAL_SORTS,
+  SKILL_SORTS,
   setSkillFiles,
   updateSkill,
 } from "@otto/skills";
 import { Hono } from "hono";
 import { z } from "zod";
 import { type ApiEnv, recordId, transact } from "./http";
-import { body, editToken, id, pageQuery, title, validate } from "./validation";
+import {
+  body,
+  editToken,
+  flag,
+  id,
+  listQuery,
+  title,
+  validate,
+  visibility,
+} from "./validation";
 
-const visibility = z.enum(["user", "workspace"]);
 export const skillsApi = new Hono<ApiEnv>()
   .post(
     "/workspaces/:workspaceId/skills",
@@ -44,16 +51,13 @@ export const skillsApi = new Hono<ApiEnv>()
     "/workspaces/:workspaceId/skills",
     validate(
       "query",
-      pageQuery
-        .extend({
-          projectId: id.optional(),
-          archived: z
-            .enum(["true", "false"])
-            .transform((v) => v === "true")
-            .optional(),
-          query: z.string().max(200).optional(),
-        })
-        .strict(),
+      listQuery(SKILL_SORTS, {
+        projectId: id.optional(),
+        archived: flag,
+        query: z.string().max(200).optional(),
+        visibility: visibility.optional(),
+        createdBy: z.string().min(1).max(128).optional(),
+      }),
     ),
     async (c) =>
       c.json(
@@ -103,7 +107,7 @@ export const skillsApi = new Hono<ApiEnv>()
           if (c.req.valid("json").visibility !== undefined) {
             const audience = await getSkillAudience(ctx, skill.id);
             for (const file of skill.supportingFiles)
-              await requireArtifactAudience(ctx, file.artifactId, audience);
+              await requireFileAudience(ctx, file.fileId, audience);
           }
           return skill;
         }),
@@ -135,9 +139,7 @@ export const skillsApi = new Hono<ApiEnv>()
         .object({
           editToken,
           files: z
-            .array(
-              z.object({ path: z.string().max(240), artifactId: id }).strict(),
-            )
+            .array(z.object({ path: z.string().max(240), fileId: id }).strict())
             .max(30),
         })
         .strict(),
@@ -153,7 +155,7 @@ export const skillsApi = new Hono<ApiEnv>()
               path: file.path,
               ...(await getSkillFileReference(
                 ctx,
-                file.artifactId,
+                file.fileId,
                 skill.projectId,
                 audience,
               )),
@@ -182,7 +184,14 @@ export const skillsApi = new Hono<ApiEnv>()
   )
   .get(
     "/workspaces/:workspaceId/skills/:id/proposals",
-    validate("query", pageQuery),
+    validate(
+      "query",
+      listQuery(SKILL_PROPOSAL_SORTS, {
+        proposerId: z.string().min(1).max(128).optional(),
+        agentId: id.optional(),
+        query: z.string().max(200).optional(),
+      }),
+    ),
     async (c) =>
       c.json(
         await transact(

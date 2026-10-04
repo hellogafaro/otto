@@ -1,10 +1,12 @@
 # Otto
 
 Otto is a fresh application repository for a workspace combining flat project
-tasks, shared conversations, documents, reusable skills, saved artifacts, and
+tasks, shared chats, documents, reusable skills, saved files, and
 Pi-powered agents for coding, research, writing and tool work. This directory is the canonical home for
 its product plan, research, and visual design. The former Buzz checkout is
 preserved outside this repository; see [the backup record](../setup-backup.md).
+
+Manual human time entries belong to Tasks: whole minutes, an immutable server logging timestamp and creator-only corrections, with current Task access. [The plan](plan.md#relationships-without-nesting) defines the bounded lookup and Done/archive policy.
 
 ## Current execution direction
 
@@ -104,3 +106,7 @@ record of how the canvases were produced, not a build tool.
 | Canvas builder scripts | `canvases/source/` | Historical record only, not rerunnable here |
 
 The current [Skills domain split](../skills.md) supersedes older skill-as-Document descriptions. Historical research, canvases and verdicts retain their captured behavior.
+
+Saved files/outputs use the [Files domain](../files.md); older Artifact evidence remains historical.
+
+Reusable manual/cron execution configuration uses [Schedules](../schedules.md), separate from human Tasks.

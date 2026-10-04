@@ -7,6 +7,13 @@ import { z } from "zod";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import {
+  createChat,
+  createMessage,
+  createParticipant,
+  getChatAudience,
+} from "../packages/chats/src";
+import { messages } from "../packages/chats/src/schema";
+import {
   approveOperation,
   createConnection,
   disconnectConnection,
@@ -38,13 +45,6 @@ import type {
   ConnectionConfig,
   OperationRequest,
 } from "../packages/connections/src/types";
-import {
-  createConversation,
-  createMessage,
-  createParticipant,
-  getConversationAudience,
-} from "../packages/conversations/src";
-import { messages } from "../packages/conversations/src/schema";
 import { createEnvironment } from "../packages/environments/src";
 import { environments } from "../packages/environments/src/schema";
 import { admitRun } from "../packages/runs/src";
@@ -71,7 +71,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
   let workspaceId: string;
   let agentId: string;
   let environmentId: string;
-  let conversationId: string;
+  let chatId: string;
   let runId: string;
   let launchKey: string;
   let connectionId: string;
@@ -387,13 +387,13 @@ describe("Connections production adapters with private PostgreSQL and controlled
         })
       ).id;
       environmentId = (await createEnvironment(c, agentId)).id;
-      conversationId = (
-        await createConversation(c, {
+      chatId = (
+        await createChat(c, {
           title: "Fixture audience",
           visibility: "workspace",
         })
       ).id;
-      await createParticipant(c, conversationId, {
+      await createParticipant(c, chatId, {
         agentId,
         role: "contributor",
       });
@@ -434,7 +434,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
           environment.activeRunId !== run.id
         )
           throw new DomainError("forbidden");
-        const audience = await getConversationAudience(c, run.conversationId);
+        const audience = await getChatAudience(c, run.chatId);
         if (
           audience.humans.some(
             (id) => !run.inputs.audience.humans.includes(id),
@@ -446,7 +446,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
       },
       async publishResult(c, result) {
         if (denyPublication) throw new DomainError("forbidden");
-        await createMessage(c, conversationId, {
+        await createMessage(c, chatId, {
           requestId: result.operationId,
           body: JSON.stringify(result.value),
         });
@@ -486,7 +486,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
           boss,
           {
             requestId: crypto.randomUUID(),
-            conversationId,
+            chatId,
             agentId,
             type: "script",
             body: "fixture only",
@@ -1183,19 +1183,19 @@ describe("Connections production adapters with private PostgreSQL and controlled
         instructions: "Fixture",
         model: "fixture",
       });
-      const conversation = await createConversation(c, {
+      const chat = await createChat(c, {
         title: "Wider saved audience",
         visibility: "workspace",
       });
-      await createParticipant(c, conversation.id, {
+      await createParticipant(c, chat.id, {
         agentId,
         role: "contributor",
       });
-      await createParticipant(c, conversation.id, {
+      await createParticipant(c, chat.id, {
         agentId: other.id,
         role: "contributor",
       });
-      return conversation;
+      return chat;
     });
     runId = (
       await scope((c) =>
@@ -1204,7 +1204,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
           boss,
           {
             requestId: crypto.randomUUID(),
-            conversationId: privateAudience.id,
+            chatId: privateAudience.id,
             agentId,
             type: "script",
             body: "fixture",
@@ -1409,11 +1409,11 @@ describe("Connections production adapters with private PostgreSQL and controlled
           model: "fixture",
         });
         await createEnvironment(c, agent.id);
-        const conversation = await createConversation(c, {
+        const chat = await createChat(c, {
           title: "Foreign fixture",
           visibility: "workspace",
         });
-        await createParticipant(c, conversation.id, {
+        await createParticipant(c, chat.id, {
           agentId: agent.id,
           role: "contributor",
         });
@@ -1424,7 +1424,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
             boss,
             {
               requestId: crypto.randomUUID(),
-              conversationId: conversation.id,
+              chatId: chat.id,
               agentId: agent.id,
               type: "script",
               body: "fixture only",
@@ -1481,7 +1481,7 @@ describe("Connections production adapters with private PostgreSQL and controlled
           instructions: "Fixture",
           model: "fixture",
         });
-        await createParticipant(c, conversationId, {
+        await createParticipant(c, chatId, {
           agentId: other.id,
           role: "contributor",
         });
@@ -1497,10 +1497,10 @@ describe("Connections production adapters with private PostgreSQL and controlled
           .where(eq(operations.id, row.id))
       )[0]?.result,
     ).toBeNull();
-    // Remove only this test-created participant, preserving the suite's fixed Conversation scope.
+    // Remove only this test-created participant, preserving the suite's fixed Chat scope.
     await database.pool.query(
-      'delete from conversation_participants where "conversationId"=$1 and "agentId"!=$2',
-      [conversationId, agentId],
+      'delete from chat_participants where "chatId"=$1 and "agentId"!=$2',
+      [chatId, agentId],
     );
     await database.db.insert(users).values({
       id: "other-owner",

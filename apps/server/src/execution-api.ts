@@ -1,18 +1,11 @@
 import {
+  AGENT_SORTS,
   archiveAgent,
   createAgent,
   getAgent,
   getAgents,
   updateAgent,
 } from "@otto/agents";
-import {
-  createAutomation,
-  getAutomation,
-  getAutomationHistory,
-  getAutomations,
-  runAutomation,
-  updateAutomation,
-} from "@otto/automations";
 import { createEnvironment, getEnvironment } from "@otto/environments";
 import {
   admitRun,
@@ -21,8 +14,19 @@ import {
   getRuns,
   getRunUsage,
   prepareRunModel,
+  RUN_SORTS,
   stopRun,
 } from "@otto/runs";
+import {
+  createSchedule,
+  getSchedule,
+  getScheduleHistory,
+  getSchedules,
+  runSchedule,
+  SCHEDULE_HISTORY_SORTS,
+  SCHEDULE_SORTS,
+  updateSchedule,
+} from "@otto/schedules";
 import { DomainError } from "@otto/shared";
 import { getSkill } from "@otto/skills";
 import type { Context } from "@otto/workspaces";
@@ -32,18 +36,20 @@ import { type ApiEnv, transact } from "./http";
 import {
   body,
   editToken,
+  flag,
   id,
   ids,
-  pageQuery,
+  listQuery,
   title,
   validate,
+  visibility,
 } from "./validation";
 
-const automationInput = z
+const scheduleInput = z
   .object({
     title,
     agentId: id,
-    conversationId: id,
+    chatId: id,
     type: z.enum(["prompt", "script"]),
     body,
     taskId: id.optional(),
@@ -65,22 +71,17 @@ export const executionApi = new Hono<ApiEnv>()
     "/workspaces/:workspaceId/agents",
     validate(
       "query",
-      pageQuery.extend({
+      listQuery(AGENT_SORTS, {
         projectId: id.optional(),
-        archived: z.enum(["true", "false"]).optional(),
+        archived: flag,
+        query: z.string().max(200).optional(),
+        visibility: visibility.optional(),
+        createdBy: z.string().min(1).max(128).optional(),
       }),
     ),
     async (c) =>
       c.json(
-        await transact(
-          c,
-          (ctx) =>
-            getAgents(ctx, {
-              ...c.req.valid("query"),
-              archived: c.req.valid("query").archived === "true",
-            }),
-          false,
-        ),
+        await transact(c, (ctx) => getAgents(ctx, c.req.valid("query")), false),
       ),
   )
   .get("/workspaces/:workspaceId/agents/:id", async (c) =>
@@ -153,38 +154,67 @@ export const executionApi = new Hono<ApiEnv>()
   )
   .get(
     "/workspaces/:workspaceId/runs",
-    validate("query", pageQuery.extend({ conversationId: id.optional() })),
+    validate(
+      "query",
+      listQuery(RUN_SORTS, {
+        chatId: id.optional(),
+        state: z
+          .enum([
+            "queued",
+            "launching",
+            "running",
+            "finished",
+            "failed",
+            "interrupted",
+            "uncertain",
+          ])
+          .optional(),
+        agentId: id.optional(),
+        sponsorId: z.string().min(1).max(128).optional(),
+        type: z.enum(["prompt", "script"]).optional(),
+      }),
+    ),
     async (c) =>
       c.json(
         await transact(c, (ctx) => getRuns(ctx, c.req.valid("query")), false),
       ),
   )
   .get(
-    "/workspaces/:workspaceId/automations",
+    "/workspaces/:workspaceId/schedules",
     validate(
       "query",
-      pageQuery.extend({
+      listQuery(SCHEDULE_SORTS, {
         status: z.enum(["enabled", "disabled", "archived"]).optional(),
+        ownerId: z.string().min(1).max(128).optional(),
+        agentId: id.optional(),
+        type: z.enum(["prompt", "script"]).optional(),
+        query: z.string().max(200).optional(),
       }),
     ),
     async (c) =>
       c.json(
         await transact(
           c,
-          (ctx) => getAutomations(ctx, c.req.valid("query")),
+          (ctx) => getSchedules(ctx, c.req.valid("query")),
           false,
         ),
       ),
   )
   .get(
-    "/workspaces/:workspaceId/automations/:id/history",
-    validate("query", pageQuery),
+    "/workspaces/:workspaceId/schedules/:id/history",
+    validate(
+      "query",
+      listQuery(SCHEDULE_HISTORY_SORTS, {
+        outcome: z.string().min(1).max(200).optional(),
+        runId: id.optional(),
+      }),
+    ),
     async (c) =>
       c.json(
         await transact(
           c,
           (ctx) =>
-            getAutomationHistory(
+            getScheduleHistory(
               ctx,
               id.parse(c.req.param("id")),
               c.req.valid("query"),
@@ -228,7 +258,7 @@ export const executionApi = new Hono<ApiEnv>()
       "json",
       z
         .object({
-          conversationId: id,
+          chatId: id,
           agentId: id,
           requestId: id,
           type: z.enum(["prompt", "script"]),
@@ -283,7 +313,9 @@ export const executionApi = new Hono<ApiEnv>()
     "/workspaces/:workspaceId/runs/:id/activity",
     validate(
       "query",
-      z.object({ after: z.coerce.number().int().nonnegative().default(0) }),
+      z
+        .object({ after: z.coerce.number().int().nonnegative().default(0) })
+        .strict(),
     ),
     async (c) =>
       c.json(
@@ -343,31 +375,31 @@ export const executionApi = new Hono<ApiEnv>()
     },
   )
   .post(
-    "/workspaces/:workspaceId/automations",
-    validate("json", automationInput),
+    "/workspaces/:workspaceId/schedules",
+    validate("json", scheduleInput),
     async (c) => {
       const options = c.get("options");
       return c.json(
         await transact(c, (ctx) =>
-          createAutomation(ctx, options.boss, c.req.valid("json")),
+          createSchedule(ctx, options.boss, c.req.valid("json")),
         ),
       );
     },
   )
-  .get("/workspaces/:workspaceId/automations/:id", async (c) =>
+  .get("/workspaces/:workspaceId/schedules/:id", async (c) =>
     c.json(
       await transact(
         c,
-        (ctx) => getAutomation(ctx, id.parse(c.req.param("id"))),
+        (ctx) => getSchedule(ctx, id.parse(c.req.param("id"))),
         false,
       ),
     ),
   )
   .patch(
-    "/workspaces/:workspaceId/automations/:id",
+    "/workspaces/:workspaceId/schedules/:id",
     validate(
       "json",
-      automationInput
+      scheduleInput
         .partial()
         .extend({ editToken, ownerId: z.string().min(1).max(128).optional() }),
     ),
@@ -375,7 +407,7 @@ export const executionApi = new Hono<ApiEnv>()
       const options = c.get("options");
       return c.json(
         await transact(c, (ctx) =>
-          updateAutomation(
+          updateSchedule(
             ctx,
             options.boss,
             id.parse(c.req.param("id")),
@@ -386,25 +418,25 @@ export const executionApi = new Hono<ApiEnv>()
     },
   )
   .post(
-    "/workspaces/:workspaceId/automations/:id/run",
+    "/workspaces/:workspaceId/schedules/:id/run",
     validate("json", z.object({ requestId: id })),
     async (c) => {
       const options = c.get("options");
-      const automation = await transact(
+      const schedule = await transact(
         c,
-        (ctx) => getAutomation(ctx, id.parse(c.req.param("id"))),
+        (ctx) => getSchedule(ctx, id.parse(c.req.param("id"))),
         false,
       );
       const pi = await prepareRunModel(
         options.db,
         id.parse(c.req.param("workspaceId")),
         { userId: c.get("userId") },
-        { ...automation, requestId: c.req.valid("json").requestId },
+        { ...schedule, requestId: c.req.valid("json").requestId },
         options.pi,
       );
       return c.json(
         await transact(c, (ctx) =>
-          runAutomation(
+          runSchedule(
             ctx,
             options.boss,
             id.parse(c.req.param("id")),

@@ -3,10 +3,7 @@ import { expect, it } from "vitest";
 import { upsertShare } from "../apps/server/src/content-shares";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
-import {
-  createConversation,
-  createParticipant,
-} from "../packages/conversations/src";
+import { createChat, createParticipant } from "../packages/chats/src";
 import {
   createCollection,
   createDocument,
@@ -88,17 +85,17 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
       }),
     );
     await scope((c) => createEnvironment(c, agent.id));
-    const conversation = await scope((c) =>
-      createConversation(c, { title: "Output", visibility: "workspace" }),
+    const chat = await scope((c) =>
+      createChat(c, { title: "Output", visibility: "workspace" }),
     );
     await scope((c) =>
-      createParticipant(c, conversation.id, {
+      createParticipant(c, chat.id, {
         agentId: agent.id,
         role: "contributor",
       }),
     );
     const request = {
-      conversationId: conversation.id,
+      chatId: chat.id,
       agentId: agent.id,
       requestId: crypto.randomUUID(),
       type: "prompt" as const,
@@ -169,9 +166,27 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
     const sql = await Bun.file(
       new URL("../scripts/transfer-skills.sql", import.meta.url),
     ).text();
+    // The Skills script belongs to the Resources-era sequence: it sees the Resources attachment column name.
+    const transfer = async (client: {
+      query: (q: string) => Promise<unknown>;
+    }) => {
+      await client.query(
+        'alter table documents rename column "fileIds" to "resourceIds"',
+      );
+      try {
+        return await client.query(sql);
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      } finally {
+        await client.query(
+          'alter table documents rename column "resourceIds" to "fileIds"',
+        );
+      }
+    };
     const client = await database.pool.connect();
     try {
-      await expect(client.query(sql)).rejects.toThrow(
+      await expect(transfer(client)).rejects.toThrow(
         "Skill also referenced as ordinary Document",
       );
       await client.query("rollback");
@@ -214,7 +229,7 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
       const shareBefore = (
         await client.query("select row_to_json(s)::text from content_shares s")
       ).rows;
-      await expect(client.query(sql)).rejects.toThrow(
+      await expect(transfer(client)).rejects.toThrow(
         "Skill also referenced as ordinary Document",
       );
       await client.query("rollback");
@@ -237,7 +252,7 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
         [run.id, skill.id.toUpperCase()],
       );
       const contextBefore = await evidence();
-      await expect(client.query(sql)).rejects.toThrow(
+      await expect(transfer(client)).rejects.toThrow(
         "Skill also referenced as ordinary Document",
       );
       await client.query("rollback");
@@ -256,7 +271,7 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
         ],
       );
       const retainedBefore = await evidence();
-      await expect(client.query(sql)).rejects.toThrow(
+      await expect(transfer(client)).rejects.toThrow(
         "Skill also referenced as ordinary Document",
       );
       await client.query("rollback");
@@ -285,7 +300,7 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
           "select row_to_json(d)::text from documents d order by id",
         )
       ).rows;
-      await expect(client.query(sql)).rejects.toThrow(
+      await expect(transfer(client)).rejects.toThrow(
         "Skill also referenced as ordinary Document",
       );
       await client.query("rollback");
@@ -315,7 +330,7 @@ it("explicit offline transfer preserves skill IDs, accepted Run/Session bytes an
       if (!ambiguous) throw new Error("Missing linked legacy Skill");
       await scope((c) => deleteTaskLink(c, task.id, ambiguous.id));
       const ordinaryLinks = await scope((c) => getTaskLinks(c, task.id));
-      await client.query(sql);
+      await transfer(client);
       expect(await scope((c) => getTaskLinks(c, task.id))).toEqual(
         ordinaryLinks,
       );

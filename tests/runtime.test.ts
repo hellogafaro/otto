@@ -12,12 +12,10 @@ import { startQueue } from "../apps/server/src/queue";
 import { createRealtime, type RealtimeData } from "../apps/server/src/realtime";
 import { readRunSkillFile } from "../apps/server/src/skill-files";
 import { createRunTools } from "../apps/server/src/tools";
-import type { ArtifactStorage } from "../packages/artifacts/src";
-import { artifacts } from "../packages/artifacts/src/schema";
-import { validateAutomation } from "../packages/automations/src";
-import { deleteParticipant } from "../packages/conversations/src";
-import { participants } from "../packages/conversations/src/schema";
+import { deleteParticipant } from "../packages/chats/src";
+import { participants } from "../packages/chats/src/schema";
 import { environments } from "../packages/environments/src/schema";
+import { files } from "../packages/files/src/schema";
 import { RUN_QUEUE } from "../packages/runs/src";
 import {
   createRunRuntime,
@@ -25,13 +23,17 @@ import {
   withRunAttempt,
 } from "../packages/runs/src/runtime";
 import { runs } from "../packages/runs/src/schema";
+import { validateSchedule } from "../packages/schedules/src";
 import { createSubscription } from "../packages/subscriptions/src";
 import { subscriptions } from "../packages/subscriptions/src/schema";
 import { claimInstallation, inWorkspace } from "../packages/workspaces/src";
 import { members } from "../packages/workspaces/src/schema";
 import { ControlledComputer } from "./fixtures/computer";
 import { pi, piRuntime } from "./fixtures/pi";
+import { fixtureStorage, testSpool } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
+
+const transfers = await testSpool();
 
 describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
   let database: Awaited<ReturnType<typeof startPostgres>>;
@@ -79,7 +81,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
   let auth: ReturnType<typeof createAuth>;
   const objects = new Map<string, Uint8Array>();
   let afterPut: (() => Promise<void>) | undefined;
-  const storage: ArtifactStorage = {
+  const storage = fixtureStorage({
     async put(key, bytes) {
       objects.set(key, bytes.slice());
       await afterPut?.();
@@ -89,7 +91,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       if (!bytes) throw new Error("Missing fixture bytes");
       return bytes.slice();
     },
-  };
+  });
   const toolOptions: Parameters<typeof createRunTools>[2] = {
     storage,
     pi,
@@ -136,27 +138,27 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       }),
     ).agent;
     await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
-    const conversation = record.parse(
-      await post("/conversations", {
+    const chat = record.parse(
+      await post("/chats", {
         title: "Runtime",
         visibility: "workspace",
         projectId,
       }),
     );
-    await post(`/conversations/${conversation.id}/participants`, {
+    await post(`/chats/${chat.id}/participants`, {
       agentId: agent.id,
       role: "contributor",
     });
     const input = {
       ...selection,
       agentId: agent.id,
-      conversationId: conversation.id,
+      chatId: chat.id,
       requestId: crypto.randomUUID(),
       type,
       body,
     };
     const run = record.parse(await post("/runs", input));
-    return { agent, conversation, input, run };
+    return { agent, chat, input, run };
   }
   const saved = async (id: string) =>
     (await database.db.select().from(runs).where(eq(runs.id, id)))[0];
@@ -242,7 +244,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       backend: computer,
       pi,
       deadlineMs: 30000,
-      validateAutomation,
+      validateSchedule,
       handleTool: createRunTools(database.db, boss, toolOptions),
       readSkillFile: (input) => readRunSkillFile(database.db, storage, input),
     });
@@ -254,6 +256,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       origin,
       runtime,
       storage,
+      spool: transfers.spool,
       mail,
     });
     realtime = createRealtime({
@@ -372,13 +375,13 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     expect(computer.launches).toBe(launches);
   });
   it("invokes a scoped Otto message tool through Pi without accepting a browser Agent identity", async () => {
-    const { run, conversation, agent } = await setup(
+    const { run, chat, agent } = await setup(
       `_tool=${JSON.stringify({ name: "message.create", requestId: crypto.randomUUID(), body: "Scoped fixture message", agentId: crypto.randomUUID() })}`,
     );
     await expect
       .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
       .toBe("finished");
-    const response = await get(`/conversations/${conversation.id}/messages`);
+    const response = await get(`/chats/${chat.id}/messages`);
     const messages = z
       .array(
         z.object({
@@ -396,8 +399,30 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       }),
     );
   });
+  it("exposes the scoped Chat read tool and rejects the retired Conversation tool name", async () => {
+    const { run } = await setup("hold");
+    await expect
+      .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
+      .toBe("running");
+    const row = await saved(run.id);
+    if (!row) throw new Error("Missing Run");
+    const attempt = {
+      runId: row.id,
+      agentId: row.agentId,
+      attempt: row.attempt,
+      launchKey: row.launchKey,
+    };
+    const tools = createRunTools(database.db, boss);
+    expect(Array.isArray(await tools(attempt, { name: "chat.read" }))).toBe(
+      true,
+    );
+    await expect(
+      tools(attempt, { name: "conversation.read" }),
+    ).rejects.toMatchObject({ name: "ZodError" });
+    await post(`/runs/${run.id}/stop`);
+  });
   it("stops on permission revocation and rejects retained tool identities", async () => {
-    const { run, agent, conversation } = await setup("hold");
+    const { run, agent, chat } = await setup("hold");
     await expect
       .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
       .toBe("running");
@@ -411,7 +436,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
           .where(eq(participants.agentId, agent.id))
       )[0];
       if (!participant) throw new Error("Missing participant");
-      await deleteParticipant(c, conversation.id, participant.id);
+      await deleteParticipant(c, chat.id, participant.id);
     });
     await expect
       .poll(async () => (await saved(run.id))?.state)
@@ -484,17 +509,17 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     };
     const sender = await makeAgent();
     const receiver = await makeAgent();
-    const conversation = record.parse(
-      await post("/conversations", { title: "Peers", visibility: "workspace" }),
+    const chat = record.parse(
+      await post("/chats", { title: "Peers", visibility: "workspace" }),
     );
     for (const agent of [sender, receiver])
-      await post(`/conversations/${conversation.id}/participants`, {
+      await post(`/chats/${chat.id}/participants`, {
         agentId: agent.id,
         role: "contributor",
       });
     const parent = record.parse(
       await post("/runs", {
-        conversationId: conversation.id,
+        chatId: chat.id,
         agentId: sender.id,
         requestId: crypto.randomUUID(),
         type: "prompt",
@@ -521,7 +546,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     expect(computer.launches).toBe(launches);
   });
   it("streams persisted output and catches up after a WebSocket gap through current authorization", async () => {
-    const { run, conversation } = await setup("hold");
+    const { run, chat } = await setup("hold");
     await expect
       .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
       .toBe("running");
@@ -540,7 +565,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     });
     const readFrame = async (after: number) => {
       const ws = new WebSocket(
-        `${origin.replace("http:", "ws:")}/api/realtime?workspaceId=${workspaceId}&conversationId=${conversation.id}&runId=${run.id}&after=${after}`,
+        `${origin.replace("http:", "ws:")}/api/realtime?workspaceId=${workspaceId}&chatId=${chat.id}&runId=${run.id}&after=${after}`,
         { headers: { cookie, origin } },
       );
       try {
@@ -670,13 +695,13 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         }),
       ).agent;
       await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
-      const conversation = record.parse(
-        await post("/conversations", {
+      const chat = record.parse(
+        await post("/chats", {
           title: "External result",
           visibility: "workspace",
         }),
       );
-      await post(`/conversations/${conversation.id}/participants`, {
+      await post(`/chats/${chat.id}/participants`, {
         agentId: agent.id,
         role: "contributor",
       });
@@ -723,7 +748,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       await manage(`/connections/${connection.id}/grants`, grant);
       const start = () =>
         post("/runs", {
-          conversationId: conversation.id,
+          chatId: chat.id,
           agentId: agent.id,
           requestId: crypto.randomUUID(),
           type: "prompt",
@@ -784,9 +809,9 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
         .toBe("finished");
       expect(writes).toBe(1);
-      expect(
-        await (await get(`/conversations/${conversation.id}/messages`)).text(),
-      ).toContain("controlled MCP result");
+      expect(await (await get(`/chats/${chat.id}/messages`)).text()).toContain(
+        "controlled MCP result",
+      );
       expect(
         await (await get(`/connections/${connection.id}`)).text(),
       ).not.toContain("credentialRef");
@@ -841,6 +866,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         origin,
         runtime,
         storage,
+        spool: transfers.spool,
       });
     }
   });
@@ -905,7 +931,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       backend: computer,
       pi,
       deadlineMs: 30000,
-      validateAutomation,
+      validateSchedule,
       handleTool: createRunTools(database.db, boss, toolOptions),
       readSkillFile: (input) => readRunSkillFile(database.db, storage, input),
     });
@@ -919,6 +945,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       origin,
       runtime,
       storage,
+      spool: transfers.spool,
       mail,
     });
     realtime = createRealtime({
@@ -940,7 +967,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       .poll(async () => (await saved(next.run.id))?.state, { timeout: 10000 })
       .toBe("finished");
   });
-  it("materializes accepted immutable skill files and publishes an agent Artifact through the trusted runtime", async () => {
+  it("materializes accepted immutable skill files and publishes an agent File through the trusted runtime", async () => {
     const reader = await createHuman("runtime-reader@example.test");
     const invitation = record.parse(
       await post("/invitations", { email: reader.email, role: "viewer" }),
@@ -967,7 +994,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       }),
     );
     const file = record.parse(
-      await post("/artifacts", {
+      await post("/files", {
         requestId: crypto.randomUUID(),
         projectId: project.id,
         title: "Reference",
@@ -1000,14 +1027,14 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         headers: { cookie, origin, "content-type": "application/json" },
         body: JSON.stringify({
           editToken: 0,
-          files: [{ path: "references/example.txt", artifactId: file.id }],
+          files: [{ path: "references/example.txt", fileId: file.id }],
         }),
       },
     );
     expect(filesResponse.status).toBe(200);
     await worker.stop({ graceful: false });
     const request = {
-      name: "artifact.create",
+      name: "file.create",
       requestId: crypto.randomUUID(),
       title: "Agent result",
       type: "text",
@@ -1070,17 +1097,17 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       launch?.files.find((f) => f.path.endsWith("SKILL.md"))?.bytes,
     ).toBeDefined();
     const receipt = record.parse(computer.toolResults.at(-1));
-    expect(await (await get(`/artifacts/${receipt.id}/file`)).text()).toBe(
+    expect(await (await get(`/files/${receipt.id}/file`)).text()).toBe(
       "saved agent output",
     );
-    expect(await (await get(`/artifacts/${receipt.id}`)).json()).toMatchObject({
+    expect(await (await get(`/files/${receipt.id}`)).json()).toMatchObject({
       sourceRunId: run.id,
       creatorAgentId: accepted?.agentId,
     });
     const share = record.parse(
       await post("/shares/preview", {
         selection: {
-          type: "artifact",
+          type: "file",
           targetId: receipt.id,
           includeFile: true,
         },
@@ -1096,7 +1123,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     );
     const download = () =>
       fetch(
-        `${origin}/api/workspaces/${workspaceId}/artifacts/${receipt.id}/file`,
+        `${origin}/api/workspaces/${workspaceId}/files/${receipt.id}/file`,
         { headers: { cookie: reader.cookie } },
       );
     expect(await (await download()).text()).toBe("saved agent output");
@@ -1110,9 +1137,9 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     ).toBe(200);
     expect((await download()).status).toBe(403);
   });
-  it("withholds agent Artifact publication when Stop commits during storage I/O", async () => {
+  it("withholds agent File publication when Stop commits during storage I/O", async () => {
     const request = {
-      name: "artifact.create",
+      name: "file.create",
       requestId: crypto.randomUUID(),
       title: "Stopped output",
       type: "text",
@@ -1143,16 +1170,16 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         .object({
           items: z.array(z.object({ title: z.string() })),
         })
-        .parse(await (await get("/artifacts")).json());
+        .parse(await (await get("/files")).json());
       expect(
         library.items.some((item) => item.title === "Stopped output"),
       ).toBe(false);
       const [intent] = await database.db
         .select()
-        .from(artifacts)
-        .where(eq(artifacts.requestId, request.requestId));
+        .from(files)
+        .where(eq(files.requestId, request.requestId));
       expect(intent?.state).toBe("pending");
-      expect((await get(`/artifacts/${intent?.id}`)).status).toBe(404);
+      expect((await get(`/files/${intent?.id}`)).status).toBe(404);
       expect(await stopResponse).toEqual({ stopped: true });
     } finally {
       afterPut = undefined;
@@ -1384,9 +1411,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       .array(z.object({ body: z.string() }))
       .parse(
         await (
-          await get(
-            `/conversations/${(await saved(run.id))?.conversationId}/messages`,
-          )
+          await get(`/chats/${(await saved(run.id))?.chatId}/messages`)
         ).json(),
       );
     expect(
@@ -1414,28 +1439,28 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     expect(performance.now() - stopStarted).toBeLessThan(5000);
     expect((await saved(waiting.run.id))?.state).toBe("interrupted");
   });
-  it("fires prompt and script Automation occurrences through the real pg-boss clock", async () => {
+  it("fires prompt and script Schedule occurrences through the real pg-boss clock", async () => {
     const records = [];
     for (const type of ["prompt", "script"]) {
-      const { agent, conversation, run } = await setup("finish", type);
+      const { agent, chat, run } = await setup("finish", type);
       await expect
         .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
         .toBe("finished");
       const config = {
         title: `Clock ${type}`,
         agentId: agent.id,
-        conversationId: conversation.id,
+        chatId: chat.id,
         type,
         body: "finish",
         cron: "* * * * *",
         timezone: type === "prompt" ? "Europe/Berlin" : "UTC",
         status: "enabled",
       };
-      const automation = record.parse(await post("/automations", config));
-      records.push({ automation, config });
+      const schedule = record.parse(await post("/schedules", config));
+      records.push({ schedule, config });
     }
     try {
-      for (const { automation } of records) {
+      for (const { schedule } of records) {
         await expect
           .poll(
             async () => {
@@ -1445,9 +1470,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
                   next: z.string().nullable(),
                 })
                 .parse(
-                  await (
-                    await get(`/automations/${automation.id}/history`)
-                  ).json(),
+                  await (await get(`/schedules/${schedule.id}/history`)).json(),
                 );
               for (const occurrence of history.items) {
                 if (!occurrence.runId) continue;
@@ -1463,9 +1486,9 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
           .toBe(true);
       }
     } finally {
-      for (const { automation, config } of records)
+      for (const { schedule, config } of records)
         await post(
-          `/automations/${automation.id}`,
+          `/schedules/${schedule.id}`,
           {
             ...config,
             status: "disabled",
@@ -1475,7 +1498,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         );
     }
   }, 120000);
-  it("archives launch sources and pauses Automation without implicitly stopping active work", async () => {
+  it("archives launch sources and pauses Schedule without implicitly stopping active work", async () => {
     const project = record.parse(
       await post("/projects", { title: "Archive control" }),
     );
@@ -1493,14 +1516,14 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       }),
     ).agent;
     await post(`/agents/${agent.id}/computer`, { computerRef: agent.id });
-    const conversation = record.parse(
-      await post("/conversations", {
+    const chat = record.parse(
+      await post("/chats", {
         title: "Archive control",
         visibility: "workspace",
         projectId: project.id,
       }),
     );
-    await post(`/conversations/${conversation.id}/participants`, {
+    await post(`/chats/${chat.id}/participants`, {
       agentId: agent.id,
       role: "contributor",
     });
@@ -1519,18 +1542,18 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       "PATCH",
     );
     const config = {
-      title: "Running automation",
+      title: "Running schedule",
       agentId: agent.id,
-      conversationId: conversation.id,
+      chatId: chat.id,
       type: "prompt",
       body: "hold",
       taskId: task.id,
       timezone: "UTC",
       status: "enabled",
     };
-    const automation = record.parse(await post("/automations", config));
+    const schedule = record.parse(await post("/schedules", config));
     const run = record.parse(
-      await post(`/automations/${automation.id}/run`, {
+      await post(`/schedules/${schedule.id}/run`, {
         requestId: crypto.randomUUID(),
       }),
     );
@@ -1538,7 +1561,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       .poll(async () => (await saved(run.id))?.state, { timeout: 10000 })
       .toBe("running");
     await post(
-      `/automations/${automation.id}`,
+      `/schedules/${schedule.id}`,
       {
         ...config,
         status: "disabled",
@@ -1551,7 +1574,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
       editToken: 0,
     });
     await post(`/tasks/${task.id}/archive`, { archived: true, editToken: 0 });
-    await post(`/conversations/${conversation.id}/archive`, {
+    await post(`/chats/${chat.id}/archive`, {
       archived: true,
       editToken: 0,
     });
@@ -1567,14 +1590,14 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
         launchKey: row.launchKey,
       },
       async () => true,
-      validateAutomation,
+      validateSchedule,
     );
     expect((await saved(run.id))?.state).toBe("running");
     const denied = await fetch(`${origin}/api/workspaces/${workspaceId}/runs`, {
       method: "POST",
       headers: { cookie, origin, "content-type": "application/json" },
       body: JSON.stringify({
-        conversationId: conversation.id,
+        chatId: chat.id,
         agentId: agent.id,
         type: "prompt",
         body: "finish",
@@ -1599,7 +1622,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
     expect(await post(`/runs/${run.id}/stop`)).toEqual({ stopped: true });
     for (const path of [
       `projects/${project.id}`,
-      `conversations/${conversation.id}`,
+      `chats/${chat.id}`,
       `tasks/${task.id}`,
       `skills/${skill.id}`,
     ])
@@ -1608,7 +1631,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
   it("persists queued permission revocation without launch or endless retry", async () => {
     await worker.stop({ graceful: false });
     try {
-      const { run, agent, conversation } = await setup("hold");
+      const { run, agent, chat } = await setup("hold");
       const launches = computer.launches;
       const admittedAt = (await saved(run.id))?.updatedAt;
       await inWorkspace(database.db, workspaceId, { userId }, async (c) => {
@@ -1619,7 +1642,7 @@ describe("HTTP to PostgreSQL queue to controlled Pi/computer runtime", () => {
             .where(eq(participants.agentId, agent.id))
         )[0];
         if (!participant) throw new Error("Missing participant");
-        await deleteParticipant(c, conversation.id, participant.id);
+        await deleteParticipant(c, chat.id, participant.id);
       });
       await runtime.dispatch(run.id);
       expect((await saved(run.id))?.state).toBe("failed");

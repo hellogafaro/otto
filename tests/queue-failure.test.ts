@@ -3,10 +3,7 @@ import type { PgBoss } from "pg-boss";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
-import {
-  createConversation,
-  createParticipant,
-} from "../packages/conversations/src";
+import { createChat, createParticipant } from "../packages/chats/src";
 import { createEnvironment } from "../packages/environments/src";
 import { admitRun, RUN_QUEUE } from "../packages/runs/src";
 import { createRunRuntime } from "../packages/runs/src/runtime";
@@ -70,15 +67,15 @@ describe("pg-boss dispatch failure ownership with controlled compute", () => {
         model: "fixture",
       });
       await createEnvironment(c, agent.id);
-      const conversation = await createConversation(c, {
+      const chat = await createChat(c, {
         title: "Queue fixture",
         visibility: "workspace",
       });
-      await createParticipant(c, conversation.id, {
+      await createParticipant(c, chat.id, {
         agentId: agent.id,
         role: "contributor",
       });
-      return { agentId: agent.id, conversationId: conversation.id };
+      return { agentId: agent.id, chatId: chat.id };
     });
     await runtime.bind(
       workspaceId,

@@ -781,7 +781,7 @@ func TestGatewayProcessHelper(t *testing.T) {
 	base := http.DefaultTransport
 	transport := &fixtureTransport{base: base, peer: peer}
 	http.DefaultTransport = boundedTransport{base: transport}
-	store := &accountStore{base: os.Getenv("OTTO_FIXTURE_STORE"), key: "synthetic-store-key", client: &http.Client{Transport: transport, Timeout: time.Second}, saved: map[string]savedCredential{}, blocked: map[string]accountBlock{}}
+	store := &accountStore{base: os.Getenv("OTTO_FIXTURE_STORE"), key: "synthetic-store-key", client: &http.Client{Transport: transport, Timeout: 15 * time.Second}, saved: map[string]savedCredential{}, blocked: map[string]accountBlock{}}
 	g := &gateway{key: "synthetic-gateway-key", store: store, transport: transport, upstream: "https://chatgpt.com/backend-api/codex"}
 	root := t.TempDir()
 	os.WriteFile(filepath.Join(root, "config.yaml"), []byte("{}\n"), 0600)
@@ -1391,6 +1391,113 @@ func TestNativeSocketSSEFraming(t *testing.T) {
 			defer r.f.mu.Unlock()
 			if r.f.generation["A"] != 1 || r.f.generation["B"] != 0 {
 				t.Fatal("wrong account traffic")
+			}
+		})
+	}
+}
+
+// A store read cut short by the request's own cancellation must not block the account for later requests, while a
+// genuine failure of the store or credential still does until fresh authentication.
+func TestCancelledStoreReadDoesNotBlockAccount(t *testing.T) {
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"https://api.openai.com/auth":{"chatgpt_account_id":"acct"}}`))
+	cred := credential{Provider: "codex", AccountID: "acct", AccessToken: "h." + payload + ".s", RefreshToken: "r", Expired: "2030-01-01T00:00:00Z"}
+	saved := savedCredential{Credential: cred, Fingerprint: fingerprint(cred), AuthenticatedAt: "2026-10-03T00:00:00Z"}
+	mode := "slow"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch mode {
+		case "slow":
+			time.Sleep(300 * time.Millisecond)
+		case "fail":
+			w.WriteHeader(503)
+			return
+		}
+		json.NewEncoder(w).Encode(saved)
+	}))
+	defer server.Close()
+	store := &accountStore{base: server.URL, key: "k", client: server.Client(), saved: map[string]savedCredential{}, blocked: map[string]accountBlock{}}
+	mode = "ok"
+	if _, e := store.read(context.Background(), "sub"); e != nil {
+		t.Fatalf("initial read: %v", e)
+	}
+	mode = "slow"
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if _, e := store.read(ctx, "sub"); e == nil {
+		t.Fatal("cancelled read must refuse its own request")
+	}
+	mode = "ok"
+	if _, e := store.read(context.Background(), "sub"); e != nil {
+		t.Fatalf("a cancelled read blocked an unchanged valid account: %v", e)
+	}
+	mode = "fail"
+	if _, e := store.read(context.Background(), "sub"); e == nil {
+		t.Fatal("a failing store must refuse the request")
+	}
+	mode = "ok"
+	if _, e := store.read(context.Background(), "sub"); e == nil {
+		t.Fatal("a genuine store failure must keep the account blocked until fresh authentication")
+	}
+}
+
+type storeTransport func(*http.Request) (*http.Response, error)
+
+func (f storeTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// A genuine store answer (revoked/non-200, malformed body, invalid credential) still blocks the account even when the
+// request's own context is cancelled at the same time; only a missing answer caused by cancellation is exempt.
+func TestReceivedStoreFailureBlocksEvenWithConcurrentCancel(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+	}{{"non200-revoked", 403, ""}, {"corrupt-body", 200, "{"}, {"invalid-credential", 200, `{"credential":{},"fingerprint":"x","authenticatedAt":"2026-10-03T00:00:00Z"}`}} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			store := &accountStore{base: "http://store.invalid", key: "k", saved: map[string]savedCredential{}, blocked: map[string]accountBlock{}}
+			store.client = &http.Client{Transport: storeTransport(func(r *http.Request) (*http.Response, error) {
+				resp := &http.Response{StatusCode: tc.status, Body: io.NopCloser(strings.NewReader(tc.body)), Header: http.Header{}, Request: r}
+				cancel()
+				return resp, nil
+			})}
+			if _, e := store.read(ctx, "sub"); e == nil {
+				t.Fatal("a failed read must refuse the request")
+			}
+			store.mu.Lock()
+			_, blocked := store.blocked["sub"]
+			store.mu.Unlock()
+			if !blocked {
+				t.Fatal("a received store failure was reclassified as cancellation")
+			}
+		})
+	}
+}
+
+// Provenance, not timing: an unrelated transport failure that merely races the request's cancellation must still block;
+// only an error caused by that cancellation or deadline is exempt.
+func TestTransportFailureRacingCancelBlocksUnlessCausedByIt(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		fail        func(context.Context) error
+		wantBlocked bool
+	}{
+		{"unrelated-transport-error", func(context.Context) error { return errors.New("connection reset by peer") }, true},
+		{"caused-by-cancellation", func(ctx context.Context) error { return ctx.Err() }, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			store := &accountStore{base: "http://store.invalid", key: "k", saved: map[string]savedCredential{}, blocked: map[string]accountBlock{}}
+			store.client = &http.Client{Transport: storeTransport(func(r *http.Request) (*http.Response, error) {
+				cancel()
+				return nil, tc.fail(ctx)
+			})}
+			if _, e := store.read(ctx, "sub"); e == nil {
+				t.Fatal("a failed read must refuse the request")
+			}
+			store.mu.Lock()
+			_, blocked := store.blocked["sub"]
+			store.mu.Unlock()
+			if blocked != tc.wantBlocked {
+				t.Fatalf("blocked = %v, want %v", blocked, tc.wantBlocked)
 			}
 		})
 	}

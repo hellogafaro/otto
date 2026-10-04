@@ -4,14 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startQueue } from "../apps/server/src/queue";
 import { createAgent } from "../packages/agents/src";
 import { agentSkills, agents } from "../packages/agents/src/schema";
-import {
-  type ArtifactStorage,
-  createArtifact,
-  getArtifact,
-  getArtifacts,
-  readArtifact,
-} from "../packages/artifacts/src";
-import { createAutomation } from "../packages/automations/src";
+import { createChat, createParticipant } from "../packages/chats/src";
 import {
   approveOperation,
   createConnection,
@@ -21,11 +14,14 @@ import {
   snapshotGrants,
 } from "../packages/connections/src";
 import { connections, grants } from "../packages/connections/src/schema";
-import {
-  createConversation,
-  createParticipant,
-} from "../packages/conversations/src";
 import { createEnvironment } from "../packages/environments/src";
+import {
+  createFile,
+  type FileStorage,
+  getFile,
+  getFiles,
+  readFile,
+} from "../packages/files/src";
 import { createProject, upsertProjectMember } from "../packages/projects/src";
 import {
   admitRun,
@@ -34,6 +30,7 @@ import {
   type RunRequest,
 } from "../packages/runs/src";
 import { runs } from "../packages/runs/src/schema";
+import { createSchedule } from "../packages/schedules/src";
 import {
   createSkill,
   getSkill,
@@ -48,6 +45,7 @@ import {
 } from "../packages/workspaces/src";
 import { members, users } from "../packages/workspaces/src/schema";
 import { controlledSubscription, pi } from "./fixtures/pi";
+import { fixtureStorage } from "./fixtures/storage";
 import { startPostgres } from "./postgres";
 
 describe("review authorization and admission regressions", () => {
@@ -55,7 +53,7 @@ describe("review authorization and admission regressions", () => {
   let boss: PgBoss;
   let workspaceId: string;
   let agentId: string;
-  let conversationId: string;
+  let chatId: string;
   const scope = <T>(
     fn: Parameters<typeof inWorkspace<T>>[3],
     actor: Actor = { userId: "owner" },
@@ -72,14 +70,14 @@ describe("review authorization and admission regressions", () => {
     });
   const request = (): RunRequest => ({
     requestId: crypto.randomUUID(),
-    conversationId,
+    chatId,
     agentId,
     type: "prompt",
     body: "Work",
   });
   // Named in-memory storage fixture: tests authorization around I/O, not Garage.
   const objects = new Map<string, Uint8Array>();
-  const storage: ArtifactStorage = {
+  const storage = fixtureStorage({
     async put(key, bytes) {
       objects.set(key, bytes.slice());
     },
@@ -88,7 +86,7 @@ describe("review authorization and admission regressions", () => {
       if (!bytes) throw new Error("Missing fixture object");
       return bytes;
     },
-  };
+  });
   beforeAll(async () => {
     database = await startPostgres();
     boss = await startQueue(database.db, database.pool, {
@@ -114,10 +112,9 @@ describe("review authorization and admission regressions", () => {
         })
       ).id;
       await createEnvironment(c, agentId);
-      conversationId = (
-        await createConversation(c, { title: "Work", visibility: "workspace" })
-      ).id;
-      await createParticipant(c, conversationId, {
+      chatId = (await createChat(c, { title: "Work", visibility: "workspace" }))
+        .id;
+      await createParticipant(c, chatId, {
         agentId,
         role: "contributor",
       });
@@ -141,7 +138,7 @@ describe("review authorization and admission regressions", () => {
     return { userId: id };
   }
   it.each(["workspace", "project"] as const)(
-    "caps saved Run artifacts after later %s membership",
+    "caps saved Run files after later %s membership",
     async (type) => {
       const original = await member();
       const project =
@@ -152,8 +149,8 @@ describe("review authorization and admission regressions", () => {
         await scope((c) =>
           upsertProjectMember(c, project.id, original.userId, "viewer"),
         );
-      const conversation = await scope(async (c) => {
-        const row = await createConversation(c, {
+      const chat = await scope(async (c) => {
+        const row = await createChat(c, {
           title: "Output",
           visibility: "workspace",
           projectId: project?.id,
@@ -162,15 +159,10 @@ describe("review authorization and admission regressions", () => {
         return row;
       });
       const run = await scope((c) =>
-        admitRun(
-          c,
-          boss,
-          { ...request(), conversationId: conversation.id },
-          pi,
-        ),
+        admitRun(c, boss, { ...request(), chatId: chat.id }, pi),
       );
       const bytes = new Uint8Array([1, 2, 3]);
-      const artifact = await createArtifact(
+      const file = await createFile(
         database.db,
         storage,
         workspaceId,
@@ -193,34 +185,25 @@ describe("review authorization and admission regressions", () => {
         );
       expect(
         (
-          await scope((c) => getArtifacts(c, { projectId: project?.id }), later)
+          await scope((c) => getFiles(c, { projectId: project?.id }), later)
         ).items.map((a) => a.id),
-      ).not.toContain(artifact.id);
+      ).not.toContain(file.id);
       await expect(
-        scope((c) => getArtifact(c, artifact.id), later),
+        scope((c) => getFile(c, file.id), later),
       ).rejects.toMatchObject({ code: "forbidden" });
       await expect(
-        readArtifact(database.db, storage, workspaceId, later, artifact.id),
+        readFile(database.db, storage, workspaceId, later, file.id),
       ).rejects.toMatchObject({ code: "forbidden" });
       expect(
         (
-          await scope(
-            (c) => getArtifacts(c, { projectId: project?.id }),
-            original,
-          )
+          await scope((c) => getFiles(c, { projectId: project?.id }), original)
         ).items.map((a) => a.id),
-      ).toContain(artifact.id);
+      ).toContain(file.id);
       expect(
-        await readArtifact(
-          database.db,
-          storage,
-          workspaceId,
-          original,
-          artifact.id,
-        ),
+        await readFile(database.db, storage, workspaceId, original, file.id),
       ).toEqual(bytes);
       // Revoke during storage fetch: the second production authorization must reject.
-      const revoking: ArtifactStorage = {
+      const revoking: FileStorage = {
         ...storage,
         async get(key) {
           await scope(async (c) => {
@@ -237,15 +220,15 @@ describe("review authorization and admission regressions", () => {
         },
       };
       await expect(
-        readArtifact(database.db, revoking, workspaceId, original, artifact.id),
+        readFile(database.db, revoking, workspaceId, original, file.id),
       ).rejects.toMatchObject({ code: "forbidden" });
       await expect(
-        scope((c) => getArtifact(c, artifact.id), original),
+        scope((c) => getFile(c, file.id), original),
       ).rejects.toMatchObject({ code: "forbidden" });
       await dispatchRun(database.db, run.id);
     },
   );
-  it("requires an agent grant for user-scoped Documents and Artifacts despite the sponsor's ownership", async () => {
+  it("requires an agent grant for user-scoped Documents and Files despite the sponsor's ownership", async () => {
     const actor = { userId: "owner", agentId };
     const doc = await scope((c) =>
       createSkill(c, {
@@ -267,7 +250,7 @@ describe("review authorization and admission regressions", () => {
         actor,
       ),
     ).rejects.toMatchObject({ code: "forbidden" });
-    const artifact = await createArtifact(
+    const file = await createFile(
       database.db,
       storage,
       workspaceId,
@@ -282,26 +265,26 @@ describe("review authorization and admission regressions", () => {
       new Uint8Array([4]),
     );
     await expect(
-      scope((c) => getArtifact(c, artifact.id), actor),
+      scope((c) => getFile(c, file.id), actor),
     ).rejects.toMatchObject({ code: "forbidden" });
     expect(
-      (await scope((c) => getArtifacts(c, {}), actor)).items.map((a) => a.id),
-    ).not.toContain(artifact.id);
+      (await scope((c) => getFiles(c, {}), actor)).items.map((a) => a.id),
+    ).not.toContain(file.id);
     await expect(
-      readArtifact(database.db, storage, workspaceId, actor, artifact.id),
+      readFile(database.db, storage, workspaceId, actor, file.id),
     ).rejects.toMatchObject({ code: "forbidden" });
     expect(
-      await readArtifact(
+      await readFile(
         database.db,
         storage,
         workspaceId,
         { userId: "owner" },
-        artifact.id,
+        file.id,
       ),
     ).toEqual(new Uint8Array([4]));
     // Human-authorized one-agent Run input remains a separate explicit admission path.
-    const conversation = await scope(async (c) => {
-      const row = await createConversation(c, {
+    const chat = await scope(async (c) => {
+      const row = await createChat(c, {
         title: "Private",
         visibility: "participants",
       });
@@ -315,7 +298,7 @@ describe("review authorization and admission regressions", () => {
         boss,
         {
           ...request(),
-          conversationId: conversation.id,
+          chatId: chat.id,
         },
         pi,
       ),
@@ -434,7 +417,7 @@ describe("review authorization and admission regressions", () => {
     await dispatchRun(database.db, run.id);
   });
   const mutations: [string, Partial<RunRequest>][] = [
-    ["Conversation", { conversationId: crypto.randomUUID() }],
+    ["Chat", { chatId: crypto.randomUUID() }],
     ["Agent", { agentId: crypto.randomUUID() }],
     ["type", { type: "script" }],
     ["body", { body: "Different" }],
@@ -442,8 +425,8 @@ describe("review authorization and admission regressions", () => {
     ["Messages", { messageIds: [crypto.randomUUID()] }],
     ["Task", { taskId: crypto.randomUUID() }],
     ["Session", { sessionId: crypto.randomUUID() }],
-    ["Automation ID", { automationId: crypto.randomUUID() }],
-    ["Automation token", { automationEditToken: 1 }],
+    ["Schedule ID", { scheduleId: crypto.randomUUID() }],
+    ["Schedule token", { scheduleEditToken: 1 }],
   ];
   it.each(mutations)(
     "conflicts on changed %s request controls without new side effects",
@@ -466,7 +449,7 @@ describe("review authorization and admission regressions", () => {
       await dispatchRun(database.db, run.id);
     },
   );
-  it("pins explicit Task, Session, skill and Automation controls independently of resolved fields", async () => {
+  it("pins explicit Task, Session, skill and Schedule controls independently of resolved fields", async () => {
     const project = await scope((c) => createProject(c, { title: "Identity" }));
     const task = await scope((c) =>
       createTask(c, { projectId: project.id, title: "Task" }),
@@ -478,8 +461,8 @@ describe("review authorization and admission regressions", () => {
         visibility: "workspace",
       }),
     );
-    const conversation = await scope(async (c) => {
-      const row = await createConversation(c, {
+    const chat = await scope(async (c) => {
+      const row = await createChat(c, {
         title: "Identity",
         visibility: "workspace",
         projectId: project.id,
@@ -489,7 +472,7 @@ describe("review authorization and admission regressions", () => {
     });
     const initial = {
       ...request(),
-      conversationId: conversation.id,
+      chatId: chat.id,
       taskId: task.id,
     };
     await selectSkills([skill.id]);
@@ -499,11 +482,11 @@ describe("review authorization and admission regressions", () => {
     )[0]?.sessionId;
     if (!sessionId) throw new Error("Expected private Session");
     await dispatchRun(database.db, seed.id);
-    const automation = await scope((c) =>
-      createAutomation(c, boss, {
+    const schedule = await scope((c) =>
+      createSchedule(c, boss, {
         title: "Manual",
         agentId,
-        conversationId: conversation.id,
+        chatId: chat.id,
         type: "prompt",
         body: "Work",
         status: "disabled" as const,
@@ -515,30 +498,35 @@ describe("review authorization and admission regressions", () => {
       requestId: crypto.randomUUID(),
       taskId: task.id,
       sessionId,
-      automationId: automation.id,
-      automationEditToken: 0,
+      scheduleId: schedule.id,
+      scheduleEditToken: 0,
     };
     const run = await scope((c) => admitRun(c, boss, input, pi));
     const stored = (
       await database.db.select().from(runs).where(eq(runs.id, run.id))
     )[0];
+    const { chatId, scheduleId, scheduleEditToken, ...controls } = input;
+    // Private accepted identity keys keep the historical names so exact old retries still match.
     expect(stored?.requestIdentity).toEqual({
-      ...input,
+      ...controls,
+      conversationId: chatId,
+      automationId: scheduleId,
+      automationEditToken: scheduleEditToken,
       documentIds: [],
       messageIds: [],
     });
     for (const key of [
       "taskId",
       "sessionId",
-      "automationId",
-      "automationEditToken",
+      "scheduleId",
+      "scheduleEditToken",
     ] as const) {
       await expect(
         scope((c) => admitRun(c, boss, { ...input, [key]: undefined }, pi)),
       ).rejects.toMatchObject({ code: "conflict" });
     }
     await expect(
-      scope((c) => admitRun(c, boss, { ...input, automationEditToken: 1 }, pi)),
+      scope((c) => admitRun(c, boss, { ...input, scheduleEditToken: 1 }, pi)),
     ).rejects.toMatchObject({ code: "conflict" });
     expect((await scope((c) => admitRun(c, boss, input, pi))).id).toBe(run.id);
     expect(
@@ -603,8 +591,8 @@ describe("review authorization and admission regressions", () => {
               ...input,
               taskId: undefined,
               sessionId: undefined,
-              automationId: undefined,
-              automationEditToken: undefined,
+              scheduleId: undefined,
+              scheduleEditToken: undefined,
             },
             pi,
           ),

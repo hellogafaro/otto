@@ -1,23 +1,30 @@
 import { getAgent } from "@otto/agents";
-import { getProject, getProjectAudience } from "@otto/projects";
 import {
-  DomainError,
-  filterPage,
-  getPage,
-  type PageOptions,
-  parsePageOptions,
-  required,
-} from "@otto/shared";
+  authorizedPage,
+  matchesText,
+  pageOf,
+  sortNames,
+  sortPlan,
+  textKey,
+  timeKey,
+} from "@otto/db";
+import {
+  getProject,
+  getProjectAudience,
+  projectReadable,
+} from "@otto/projects";
+import { DomainError, type PageOptions, required } from "@otto/shared";
 
 import {
   advanceCursor,
   type Context,
+  creatorIsMember,
   getWorkspaceAudience,
   requireHuman,
   requireMember,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import {
   type CollectionField,
   collections,
@@ -29,8 +36,11 @@ export async function createDocument(
   input: {
     title: string;
     body: string;
+    labels?: string[];
     projectId?: string;
     visibility?: "user" | "workspace";
+    /** Organization only; the route validates placement with the Files folder rules before calling. */
+    folderId?: string;
   },
 ) {
   requireHuman(c);
@@ -43,7 +53,9 @@ export async function createDocument(
         .values({
           title: input.title,
           body: input.body,
+          labels: input.labels,
           projectId: input.projectId,
+          folderId: input.folderId,
           visibility: input.visibility ?? "user",
           workspaceId: c.workspaceId,
           createdBy: c.actor.userId,
@@ -84,7 +96,10 @@ export async function updateDocument(
   input: {
     title?: string;
     body?: string;
+    labels?: string[];
     visibility?: "user" | "workspace";
+    /** Organization: a destination folder or `null` for the top level. */
+    folderId?: string | null;
     editToken: number;
   },
 ) {
@@ -94,7 +109,9 @@ export async function updateDocument(
   if (
     input.title === undefined &&
     input.body === undefined &&
-    input.visibility === undefined
+    input.labels === undefined &&
+    input.visibility === undefined &&
+    input.folderId === undefined
   )
     throw new DomainError("invalid", "No editable fields");
   const updated = required(
@@ -104,7 +121,9 @@ export async function updateDocument(
         .set({
           title: input.title,
           body: input.body,
+          labels: input.labels,
           visibility: input.visibility,
+          folderId: input.folderId,
           editToken: doc.editToken + 1,
         })
         .where(eq(documents.id, id))
@@ -198,54 +217,101 @@ export async function updateDocumentCollection(
   return updated;
 }
 
+const documentSorts = {
+  title: textKey(documents.title),
+  createdAt: timeKey(documents.createdAt),
+  updatedAt: timeKey(documents.updatedAt),
+};
+export const DOCUMENT_SORTS = sortNames(documentSorts);
 export async function getDocuments(
   c: Context,
-  filter: {
-    after?: string;
-    limit?: number;
-    projectId?: string;
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
+    /** `null` selects Documents without a Project; undefined does not filter. */
+    projectId?: string | null;
+    /** `null` selects top-level Documents; undefined does not filter. */
+    folderId?: string | null;
     collectionId?: string;
+    visibility?: "user" | "workspace";
+    createdBy?: string;
+    label?: string;
     archived?: boolean;
     query?: string;
   },
 ) {
-  const { limit } = parsePageOptions(filter);
-  if (filter.projectId) await getProject(c, filter.projectId);
-  if (filter.collectionId) await getCollection(c, filter.collectionId);
+  const f = { ...filter, archived: filter.archived ?? false };
+  const plan = sortPlan({
+    operation: "getDocuments",
+    scope: c,
+    filter: f,
+    keys: documentSorts,
+    id: documents.id,
+  });
+  if (f.projectId) await getProject(c, f.projectId);
+  if (f.collectionId) await getCollection(c, f.collectionId);
   const rows = await c.tx
-    .select({ id: documents.id })
+    .select({ id: documents.id, position: plan.position })
     .from(documents)
     .where(
       and(
         eq(documents.workspaceId, c.workspaceId),
-        eq(documents.archived, filter.archived ?? false),
-        filter.projectId
-          ? eq(documents.projectId, filter.projectId)
+        eq(documents.archived, f.archived),
+        f.projectId === undefined
+          ? undefined
+          : f.projectId === null
+            ? isNull(documents.projectId)
+            : eq(documents.projectId, f.projectId),
+        f.folderId === undefined
+          ? undefined
+          : f.folderId === null
+            ? isNull(documents.folderId)
+            : eq(documents.folderId, f.folderId),
+        f.collectionId ? eq(documents.collectionId, f.collectionId) : undefined,
+        f.visibility ? eq(documents.visibility, f.visibility) : undefined,
+        f.createdBy ? eq(documents.createdBy, f.createdBy) : undefined,
+        // Narrowing only: a row getDocument would deny is never scanned; getDocument stays the authority.
+        or(
+          eq(documents.visibility, "workspace"),
+          c.actor.agentId === undefined
+            ? eq(documents.createdBy, c.actor.userId)
+            : undefined,
+        ),
+        projectReadable(c, documents.projectId),
+        creatorIsMember(c, documents.createdBy),
+        f.label
+          ? sql`${documents.labels} @> ${JSON.stringify([f.label])}::jsonb`
           : undefined,
-        filter.collectionId
-          ? eq(documents.collectionId, filter.collectionId)
+        f.query
+          ? matchesText(
+              sql`${documents.title} || ' ' || ${documents.body}`,
+              f.query,
+            )
           : undefined,
-        filter.after ? gt(documents.id, filter.after) : undefined,
-        filter.query
-          ? sql`to_tsvector('simple', ${documents.title} || ' ' || ${documents.body}) @@ plainto_tsquery('simple', ${filter.query})`
-          : undefined,
+        plan.where,
       ),
     )
-    .orderBy(documents.id)
-    .limit(limit + 1);
-  return filterPage(
-    getPage(rows, (row) => row.id, limit),
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return authorizedPage(
+    pageOf(rows, plan, (row) => row.id),
     async (row) => {
       const doc = await getDocument(c, row.id);
       return {
         id: doc.id,
         title: doc.title,
         projectId: doc.projectId,
+        folderId: doc.folderId,
+        visibility: doc.visibility,
+        labels: doc.labels,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
         collectionId: doc.collectionId,
         archived: doc.archived,
         editToken: doc.editToken,
       };
     },
+    plan,
   );
 }
 export async function archiveDocument(
@@ -289,36 +355,51 @@ export async function getCollection(c: Context, id: string, write = false) {
   }
   return collectionView(collection);
 }
+const collectionSorts = {
+  title: textKey(collections.title),
+  createdAt: timeKey(collections.createdAt),
+  updatedAt: timeKey(collections.updatedAt),
+};
+export const COLLECTION_SORTS = sortNames(collectionSorts);
 export async function getCollections(
   c: Context,
-  filter: {
-    after?: string;
-    limit?: number;
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
     projectId?: string;
     archived?: boolean;
+    query?: string;
   },
 ) {
-  const { limit } = parsePageOptions(filter);
+  const f = { ...filter, archived: filter.archived ?? false };
+  const plan = sortPlan({
+    operation: "getCollections",
+    scope: c,
+    filter: f,
+    keys: collectionSorts,
+    id: collections.id,
+  });
   const rows = await c.tx
-    .select({ id: collections.id })
+    .select({ id: collections.id, position: plan.position })
     .from(collections)
     .where(
       and(
         eq(collections.workspaceId, c.workspaceId),
-        eq(collections.archived, filter.archived ?? false),
-        filter.projectId
-          ? eq(collections.projectId, filter.projectId)
-          : undefined,
-        filter.after ? gt(collections.id, filter.after) : undefined,
+        eq(collections.archived, f.archived),
+        f.projectId ? eq(collections.projectId, f.projectId) : undefined,
+        f.query ? matchesText(collections.title, f.query) : undefined,
+        projectReadable(c, collections.projectId),
+        plan.where,
       ),
     )
-    .orderBy(collections.id)
-    .limit(limit + 1);
-  return filterPage(
-    getPage(rows, (row) => row.id, limit),
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return authorizedPage(
+    pageOf(rows, plan, (row) => row.id),
     async (row) => {
       return getCollection(c, row.id);
     },
+    plan,
   );
 }
 /** Field IDs and types remain stable; changing a type would reinterpret current Document values. */
@@ -395,21 +476,18 @@ export async function archiveCollection(
 export async function setDocumentAttachments(
   c: Context,
   id: string,
-  artifactIds: string[],
+  fileIds: string[],
   editToken: number,
 ) {
   const doc = await getDocument(c, id, true);
   if (doc.editToken !== editToken) throw new DomainError("conflict");
-  if (
-    artifactIds.length > 30 ||
-    new Set(artifactIds).size !== artifactIds.length
-  )
+  if (fileIds.length > 30 || new Set(fileIds).size !== fileIds.length)
     throw new DomainError("invalid");
   const updated = required(
     (
       await c.tx
         .update(documents)
-        .set({ artifactIds, editToken: doc.editToken + 1 })
+        .set({ fileIds, editToken: doc.editToken + 1 })
         .where(eq(documents.id, id))
         .returning()
     )[0],
@@ -474,25 +552,57 @@ export async function proposeDocumentChange(
   await advanceCursor(c);
   return proposal;
 }
+const proposalSorts = { title: textKey(documentProposals.title) };
+export const DOCUMENT_PROPOSAL_SORTS = sortNames(proposalSorts);
 export async function getDocumentProposals(
   c: Context,
   id: string,
-  options: PageOptions = {},
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
+    proposerId?: string;
+    agentId?: string;
+    query?: string;
+  } = {},
 ) {
   await getDocument(c, id);
-  const { after, limit } = parsePageOptions(options);
+  const plan = sortPlan({
+    operation: `getDocumentProposals:${id}`,
+    scope: c,
+    filter,
+    keys: proposalSorts,
+    id: documentProposals.id,
+  });
   const rows = await c.tx
-    .select()
+    .select({
+      id: documentProposals.id,
+      documentId: documentProposals.documentId,
+      proposerId: documentProposals.proposerId,
+      agentId: documentProposals.agentId,
+      title: documentProposals.title,
+      body: documentProposals.body,
+      editToken: documentProposals.editToken,
+      position: plan.position,
+    })
     .from(documentProposals)
     .where(
       and(
         eq(documentProposals.documentId, id),
-        after ? gt(documentProposals.id, after) : undefined,
+        filter.proposerId
+          ? eq(documentProposals.proposerId, filter.proposerId)
+          : undefined,
+        filter.agentId
+          ? eq(documentProposals.agentId, filter.agentId)
+          : undefined,
+        filter.query
+          ? matchesText(documentProposals.title, filter.query)
+          : undefined,
+        plan.where,
       ),
     )
-    .orderBy(documentProposals.id)
-    .limit(limit + 1);
-  return getPage(rows, (row) => row.id, limit);
+    .orderBy(...plan.orderBy)
+    .limit(plan.limit + 1);
+  return pageOf(rows, plan, (row) => row.id);
 }
 export async function resolveDocumentProposal(
   c: Context,
@@ -525,4 +635,24 @@ export async function resolveDocumentProposal(
     .delete(documentProposals)
     .where(eq(documentProposals.id, proposalId));
   await advanceCursor(c);
+}
+/** Counts Documents placed in a folder (any state, any visibility) for the folder emptiness and narrowing rules. */
+export async function getDocumentFolderUse(
+  c: Context,
+  folderId: string,
+  ownerId: string,
+) {
+  const rows = await c.tx
+    .select({
+      total: sql<number>`count(*)::int`,
+      exposed: sql<number>`count(*) filter (where ${documents.visibility} <> 'user' or ${documents.createdBy} <> ${ownerId})::int`,
+    })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.workspaceId, c.workspaceId),
+        eq(documents.folderId, folderId),
+      ),
+    );
+  return { total: rows[0]?.total ?? 0, exposed: rows[0]?.exposed ?? 0 };
 }

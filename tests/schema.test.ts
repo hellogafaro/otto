@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { z } from "zod";
 import { startQueue } from "../apps/server/src/queue";
+import { MAX_FILE_BYTES } from "../packages/files/src";
 import { RUN_QUEUE } from "../packages/runs/src";
 import { pushDatabase } from "../scripts/push";
 import { startPostgres } from "./postgres";
@@ -28,7 +29,7 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
       const workspaceId = crypto.randomUUID();
       const otherWorkspaceId = crypto.randomUUID();
       const projectId = crypto.randomUUID();
-      const conversationId = crypto.randomUUID();
+      const chatId = crypto.randomUUID();
       await database.pool.query(
         "insert into workspaces(id,name,cursor) values($1,'Source',42),($2,'Other',0)",
         [workspaceId, otherWorkspaceId],
@@ -38,32 +39,26 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
         [projectId, workspaceId, "Source"],
       );
       await database.pool.query(
-        'insert into conversations(id,"workspaceId",title,visibility,"createdBy") values($1,$2,$3,$4,$5)',
-        [
-          conversationId,
-          workspaceId,
-          "Discussion",
-          "workspace",
-          "schema-owner",
-        ],
+        'insert into chats(id,"workspaceId",title,visibility,"createdBy") values($1,$2,$3,$4,$5)',
+        [chatId, workspaceId, "Discussion", "workspace", "schema-owner"],
       );
       await expect(
         database.pool.query(
-          'insert into conversations("workspaceId",title,visibility,"createdBy") values($1,$2,$3,$4)',
+          'insert into chats("workspaceId",title,visibility,"createdBy") values($1,$2,$3,$4)',
           [workspaceId, "Invalid creator", "workspace", "absent-human"],
         ),
       ).rejects.toMatchObject({
         code: "23503",
-        constraint: "conversations_createdBy_fk",
+        constraint: "chats_createdBy_fk",
       });
       await expect(
         database.pool.query(
-          'insert into conversations("workspaceId",title,visibility,"createdBy") values($1,$2,$3,$4)',
+          'insert into chats("workspaceId",title,visibility,"createdBy") values($1,$2,$3,$4)',
           [workspaceId, "Invalid audience", "public", "schema-owner"],
         ),
       ).rejects.toMatchObject({
         code: "23514",
-        constraint: "conversations_visibility",
+        constraint: "chats_visibility",
       });
       const agentId = crypto.randomUUID();
       const skillId = crypto.randomUUID();
@@ -208,10 +203,10 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
         });
       }
       const messageSql =
-        'insert into messages("workspaceId","conversationId","authorUserId",body,"requestId",cursor) values($1,$2,$3,$4,$5,$6)';
+        'insert into messages("workspaceId","chatId","authorUserId",body,"requestId",cursor) values($1,$2,$3,$4,$5,$6)';
       for (const [messageWorkspace, destination] of [
         [workspaceId, crypto.randomUUID()],
-        [otherWorkspaceId, conversationId],
+        [otherWorkspaceId, chatId],
       ]) {
         await expect(
           database.pool.query(messageSql, [
@@ -224,17 +219,17 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
           ]),
         ).rejects.toMatchObject({
           code: "23503",
-          constraint: "messages_conversationId_workspace_fk",
+          constraint: "messages_chatId_workspace_fk",
         });
       }
       await database.pool.query(
-        'insert into conversation_reads("conversationId","userId",cursor) values($1,$2,1)',
-        [conversationId, "schema-owner"],
+        'insert into chat_reads("chatId","userId",cursor) values($1,$2,1)',
+        [chatId, "schema-owner"],
       );
       await expect(
         database.pool.query(
-          'insert into conversation_reads("conversationId","userId",cursor) values($1,$2,0)',
-          [conversationId, "schema-owner"],
+          'insert into chat_reads("chatId","userId",cursor) values($1,$2,0)',
+          [chatId, "schema-owner"],
         ),
       ).rejects.toMatchObject({ code: "23505" });
       const task =
@@ -289,33 +284,39 @@ it("pushes fresh declarative constraints, repeats without changing data/definiti
       ).rejects.toMatchObject({ code: "23514", constraint: "single_setup" });
       await expect(
         database.pool.query(
-          'insert into messages("workspaceId","conversationId","authorUserId",body,cursor,"requestId") values($1,$2,$3,$4,1,gen_random_uuid())',
-          [workspaceId, conversationId, "schema-owner", "x".repeat(100001)],
+          'insert into messages("workspaceId","chatId","authorUserId",body,cursor,"requestId") values($1,$2,$3,$4,1,gen_random_uuid())',
+          [workspaceId, chatId, "schema-owner", "x".repeat(100001)],
         ),
       ).rejects.toMatchObject({ code: "23514", constraint: "messages_size" });
-      await expect(
+      const insertFile = (byteLength: number) =>
         database.pool.query(
-          'insert into artifacts("workspaceId","ownerId","requestId",title,type,visibility,"objectKey",sha256,"byteLength","mediaType",request) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,jsonb_build_object())',
+          'insert into files("workspaceId","ownerId","requestId",title,type,visibility,"objectKey",sha256,"byteLength","mediaType",request) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,jsonb_build_object())',
           [
             workspaceId,
             "schema-owner",
             crypto.randomUUID(),
-            "Large",
+            "Sized",
             "file",
             "workspace",
             crypto.randomUUID(),
             "a".repeat(64),
-            8388609,
+            byteLength,
             "text/plain",
           ],
-        ),
-      ).rejects.toMatchObject({ code: "23514", constraint: "artifacts_size" });
+        );
+      // The storage maximum is enforced against direct writes by the one exported constant.
+      await insertFile(MAX_FILE_BYTES);
+      for (const invalid of [MAX_FILE_BYTES + 1, -1])
+        await expect(insertFile(invalid)).rejects.toMatchObject({
+          code: "23514",
+          constraint: `files_size_${MAX_FILE_BYTES}`,
+        });
       await expect(
         database.pool.query(
-          'insert into runs("workspaceId","conversationId","agentId","sponsorId","environmentId","environmentGeneration","requestId",type,inputs,cursor) values($1,$2,$3,$4,$5,0,$6,$7,$8,1)',
+          'insert into runs("workspaceId","chatId","agentId","sponsorId","environmentId","environmentGeneration","requestId",type,inputs,cursor) values($1,$2,$3,$4,$5,0,$6,$7,$8,1)',
           [
             workspaceId,
-            conversationId,
+            chatId,
             crypto.randomUUID(),
             "schema-owner",
             crypto.randomUUID(),

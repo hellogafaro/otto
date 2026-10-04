@@ -35,7 +35,7 @@ export const skills = pgTable(
     whenToUse: text(),
     editToken: integer().notNull().default(0),
     supportingFiles: jsonb()
-      .$type<SkillFileReference[]>()
+      .$type<StoredSkillFileReference[]>()
       .notNull()
       .default([]),
   },
@@ -64,10 +64,25 @@ export const skills = pgTable(
 );
 export interface SkillFileReference {
   path: string;
-  artifactId: string;
+  fileId: string;
   sha256: string;
   byteLength: number;
 }
+
+/** Resource-era stored Skill form; projected to `fileId` on read and never rewritten. */
+export type ResourceSkillFileReference = Omit<SkillFileReference, "fileId"> & {
+  resourceId: string;
+};
+/** Private accepted Run/Session file identity; preserve its historical JSON key and scope bytes. */
+export type AcceptedSkillFileReference = Omit<SkillFileReference, "fileId"> & {
+  artifactId: string;
+};
+
+/** Every persisted Skill file form: current, Resource-era and the earliest Artifact-era key. */
+export type StoredSkillFileReference =
+  | SkillFileReference
+  | ResourceSkillFileReference
+  | AcceptedSkillFileReference;
 
 export const skillProposals = pgTable("skill_proposals", {
   id: uuid().primaryKey().defaultRandom(),

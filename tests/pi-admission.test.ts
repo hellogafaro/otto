@@ -28,7 +28,7 @@ describe("managed Pi admission bindings", () => {
   let workspaceId: string;
   let agentId: string;
   let subscriptionId: string;
-  let conversationId: string;
+  let chatId: string;
   const record = z.object({ id: z.uuid() });
   async function request(path: string, value: unknown, method = "POST") {
     return fetch(`${origin}/api/workspaces/${workspaceId}${path}`, {
@@ -89,15 +89,15 @@ describe("managed Pi admission bindings", () => {
     expect(agent.status).toBe(200);
     const body = z.object({ agent: record }).parse(await agent.json());
     agentId = body.agent.id;
-    const conversation = await request("/conversations", {
+    const chat = await request("/chats", {
       title: "Work",
       visibility: "workspace",
     });
-    expect(conversation.status).toBe(200);
-    conversationId = record.parse(await conversation.json()).id;
+    expect(chat.status).toBe(200);
+    chatId = record.parse(await chat.json()).id;
     expect(
       (
-        await request(`/conversations/${conversationId}/participants`, {
+        await request(`/chats/${chatId}/participants`, {
           agentId,
           role: "contributor",
         })
@@ -111,7 +111,7 @@ describe("managed Pi admission bindings", () => {
   });
   const input = () => ({
     agentId,
-    conversationId,
+    chatId,
     type: "prompt" as const,
     body: "Work",
     requestId: crypto.randomUUID(),

@@ -1,13 +1,22 @@
 import { isDeepStrictEqual } from "node:util";
 import { getAgent } from "@otto/agents";
+import {
+  chatHasSponsor,
+  chatReadable,
+  createMessage,
+  getChat,
+  getChatAudience,
+  getMessage,
+} from "@otto/chats";
 import { getConnection, snapshotGrants } from "@otto/connections";
 import {
-  createMessage,
-  getConversation,
-  getConversationAudience,
-  getMessage,
-} from "@otto/conversations";
-import type { Database } from "@otto/db";
+  authorizedPage,
+  type Database,
+  pageOf,
+  sortNames,
+  sortPlan,
+  timeKey,
+} from "@otto/db";
 import { getDocument, getDocumentAudience } from "@otto/documents";
 import { getEnvironment } from "@otto/environments";
 import { getProject } from "@otto/projects";
@@ -32,13 +41,17 @@ import {
   requireHuman,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { type AnyColumn, and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { fromDrizzle, type PgBoss } from "pg-boss";
 import {
+  type ModelConfig,
+  type ModelCostRates,
   type RunRequest,
   type RunRequestIdentity,
   runActivity,
   runs,
+  type UsageReceipt,
 } from "./schema";
 export const RUN_QUEUE = "otto-run-dispatch";
 export type { ModelConfig, RunRequest } from "./schema";
@@ -58,7 +71,7 @@ export interface PiInstallation {
 function normalizeRequest(input: RunRequest): RunRequestIdentity {
   return {
     requestId: input.requestId,
-    conversationId: input.conversationId,
+    conversationId: input.chatId,
     agentId: input.agentId,
     type: input.type,
     body: input.body,
@@ -66,8 +79,8 @@ function normalizeRequest(input: RunRequest): RunRequestIdentity {
     sessionId: input.sessionId ?? null,
     documentIds: input.documentIds ?? [],
     messageIds: input.messageIds ?? [],
-    automationId: input.automationId ?? null,
-    automationEditToken: input.automationEditToken ?? null,
+    automationId: input.scheduleId ?? null,
+    automationEditToken: input.scheduleEditToken ?? null,
   };
 }
 /** Resolve external account/model metadata before the atomic workspace admission; the returned lookup performs no I/O. */
@@ -99,7 +112,7 @@ export async function prepareRunModel(
           )
       )[0];
       if (existing) {
-        await getConversation(c, existing.conversationId, true);
+        await getChat(c, existing.chatId, true);
         return null;
       }
       const agent = await getAgent(c, input.agentId);
@@ -161,20 +174,19 @@ export async function admitRun(
       !isDeepStrictEqual(existing.requestIdentity, requestIdentity)
     )
       throw new DomainError("conflict", "Request identity already used");
-    await getConversation(c, existing.conversationId, true);
+    await getChat(c, existing.chatId, true);
     return publicRun(existing);
   }
-  const conversation = await getConversation(c, input.conversationId, true);
+  const chat = await getChat(c, input.chatId, true);
   if (
-    conversation.archived ||
-    (conversation.projectId &&
-      (await getProject(c, conversation.projectId)).archived)
+    chat.archived ||
+    (chat.projectId && (await getProject(c, chat.projectId)).archived)
   )
     throw new DomainError("conflict", "Source archived");
   const agent = await getAgent(c, input.agentId);
-  await getConversation(
+  await getChat(
     { ...c, actor: { userId: c.actor.userId, agentId: agent.id } },
-    input.conversationId,
+    input.chatId,
     true,
   );
   const subscription =
@@ -182,9 +194,9 @@ export async function admitRun(
       ? await getSubscription(c, agent.subscriptionId)
       : null;
   if (agent.archived) throw new DomainError("conflict", "Agent archived");
-  if (agent.projectId && agent.projectId !== conversation.projectId)
+  if (agent.projectId && agent.projectId !== chat.projectId)
     throw new DomainError("forbidden");
-  const audience = await getConversationAudience(c, input.conversationId);
+  const audience = await getChatAudience(c, input.chatId);
   if (
     agent.visibility === "user" &&
     (audience.humans.some((id) => id !== agent.createdBy) ||
@@ -193,14 +205,14 @@ export async function admitRun(
     throw new DomainError("forbidden", "User-scoped Agent audience");
   if (!audience.agents.includes(agent.id))
     throw new DomainError("forbidden", "Agent must participate");
-  if (input.automationId) {
+  if (input.scheduleId) {
     const active = (
       await c.tx
         .select()
         .from(runs)
         .where(
           and(
-            eq(runs.automationId, input.automationId),
+            eq(runs.scheduleId, input.scheduleId),
             inArray(runs.state, [...ACTIVE_STATES]),
           ),
         )
@@ -210,8 +222,7 @@ export async function admitRun(
   if (input.taskId) {
     const task = await getTask(c, input.taskId, true);
     if (task.archived) throw new DomainError("conflict", "Task archived");
-    if (task.projectId !== conversation.projectId)
-      throw new DomainError("forbidden");
+    if (task.projectId !== chat.projectId) throw new DomainError("forbidden");
   }
   const context = await snapshotContext(c, input, audience);
   const environment = await getEnvironment(c, agent.id);
@@ -230,7 +241,7 @@ export async function admitRun(
   const skills = await snapshotSkills(c, agent.skillIds, audience);
   const grants = await snapshotGrants(c, agent.id);
   const scope = JSON.stringify({
-    projectId: conversation.projectId,
+    projectId: chat.projectId,
     humans: [...audience.humans].sort(),
     agents: [...audience.agents].sort(),
     grants,
@@ -255,7 +266,7 @@ export async function admitRun(
   let session: Awaited<ReturnType<typeof createSession>> | null = null;
   if (input.type === "prompt") {
     const binding = {
-      conversationId: conversation.id,
+      chatId: chat.id,
       agentId: agent.id,
       environmentId: environment.id,
       environmentGeneration: environment.generation,
@@ -277,12 +288,12 @@ export async function admitRun(
         .insert(runs)
         .values({
           workspaceId: c.workspaceId,
-          conversationId: conversation.id,
+          chatId: chat.id,
           agentId: agent.id,
           sponsorId: c.actor.userId,
           taskId: input.taskId,
-          automationId: input.automationId,
-          automationEditToken: input.automationEditToken,
+          scheduleId: input.scheduleId,
+          scheduleEditToken: input.scheduleEditToken,
           sessionId: session?.id,
           environmentId: environment.id,
           environmentGeneration: environment.generation,
@@ -328,7 +339,7 @@ export async function admitRun(
 function publicRun(run: typeof runs.$inferSelect) {
   return {
     id: run.id,
-    conversationId: run.conversationId,
+    chatId: run.chatId,
     agentId: run.agentId,
     taskId: run.taskId,
     type: run.type,
@@ -347,14 +358,14 @@ export async function getRun(c: Context, id: string) {
         .where(and(eq(runs.id, id), eq(runs.workspaceId, c.workspaceId)))
     )[0],
   );
-  await getConversation(c, run.conversationId);
+  await getChat(c, run.chatId);
   return publicRun(run);
 }
 /** Dispatch never starts host processes. A deferred provider produces a durable explicit failure. */
 export async function dispatchRun(
   db: Database,
   runId: string,
-  validateAutomation?: (
+  validateSchedule?: (
     c: Context,
     id: string,
     editToken: number,
@@ -380,7 +391,7 @@ export async function dispatchRun(
         if (run.state !== "queued") return publicRun(run);
         let outcome = "compute_provider_not_selected";
         try {
-          await validateRunSources(c, run, validateAutomation);
+          await validateRunSources(c, run, validateSchedule);
         } catch (error) {
           if (!(error instanceof DomainError)) throw error;
           outcome =
@@ -424,7 +435,7 @@ export async function stopRun(c: Context, id: string) {
         .where(and(eq(runs.id, id), eq(runs.workspaceId, c.workspaceId)))
     )[0],
   );
-  await getConversation(c, run.conversationId, true);
+  await getChat(c, run.chatId, true);
   if (run.state === "queued") {
     const cursor = await advanceCursor(c);
     await c.tx
@@ -536,6 +547,18 @@ export async function recoverRuns(db: Database, boss: PgBoss) {
 }
 
 /** Private outputs require both accepted and current source recipients; explicit human public selection is separate. */
+const audienceRun = alias(runs, "audience_run");
+/**
+ * SQL form of the `getFile` source-Run check (`getRunAudience`): the sponsor's human identity is in the saved
+ * audience and in the current human Chat audience and can read the Chat, and an Agent actor is also a saved
+ * Agent participant. Exact strings, this workspace only. Narrowing only; `getRunAudience` stays the authority.
+ */
+export const runAudienceHas = (c: Context, runId: AnyColumn) =>
+  sql`exists (select 1 from ${runs} "audience_run" where ${audienceRun.id} = ${runId} and ${audienceRun.workspaceId} = ${c.workspaceId} and ${audienceRun.inputs}->'audience'->'humans' @> to_jsonb(${c.actor.userId}::text) and ${chatReadable(c, audienceRun.chatId)}${
+    c.actor.agentId
+      ? sql` and ${audienceRun.inputs}->'audience'->'agents' @> to_jsonb(${c.actor.agentId}::text) and ${chatHasSponsor(c, audienceRun.chatId)}`
+      : sql``
+  })`;
 export async function getRunAudience(c: Context, id: string) {
   const run = required(
     (
@@ -545,7 +568,7 @@ export async function getRunAudience(c: Context, id: string) {
         .where(and(eq(runs.id, id), eq(runs.workspaceId, c.workspaceId)))
     )[0],
   );
-  const current = await getConversationAudience(c, run.conversationId);
+  const current = await getChatAudience(c, run.chatId);
   return {
     humans: run.inputs.audience.humans.filter((id) =>
       current.humans.includes(id),
@@ -558,10 +581,7 @@ export async function getRunAudience(c: Context, id: string) {
 
 async function snapshotContext(
   c: Context,
-  input: Pick<
-    RunRequest,
-    "conversationId" | "taskId" | "messageIds" | "documentIds"
-  >,
+  input: Pick<RunRequest, "chatId" | "taskId" | "messageIds" | "documentIds">,
   audience: { humans: string[]; agents: string[] },
   phase: "launch" | "continue" = "launch",
 ) {
@@ -590,7 +610,7 @@ async function snapshotContext(
   }
   const messages = [];
   for (const id of input.messageIds ?? []) {
-    const message = await getMessage(c, input.conversationId, id);
+    const message = await getMessage(c, input.chatId, id);
     messages.push({ id: message.id, body: message.body });
   }
   const task = input.taskId ? await getTask(c, input.taskId, true) : null;
@@ -607,7 +627,7 @@ async function snapshotContext(
 export async function validateRunSources(
   c: Context,
   run: typeof runs.$inferSelect,
-  validateAutomation?: (
+  validateSchedule?: (
     c: Context,
     id: string,
     editToken: number,
@@ -615,17 +635,16 @@ export async function validateRunSources(
   phase: "launch" | "continue" = "launch",
 ) {
   requireWriter(c);
-  const conversation = await getConversation(c, run.conversationId, true);
-  await getConversation(
+  const chat = await getChat(c, run.chatId, true);
+  await getChat(
     { ...c, actor: { userId: run.sponsorId, agentId: run.agentId } },
-    run.conversationId,
+    run.chatId,
     true,
   );
   if (
     phase === "launch" &&
-    (conversation.archived ||
-      (conversation.projectId &&
-        (await getProject(c, conversation.projectId)).archived))
+    (chat.archived ||
+      (chat.projectId && (await getProject(c, chat.projectId)).archived))
   )
     throw new DomainError("conflict", "Source archived");
   const agent = await getAgent(c, run.agentId);
@@ -646,12 +665,12 @@ export async function validateRunSources(
   if (phase === "launch" && agent.archived)
     throw new DomainError("conflict", "Agent archived");
   const environment = await getEnvironment(c, agent.id);
-  if (phase === "launch" && run.automationId) {
-    if (run.automationEditToken === null || !validateAutomation)
+  if (phase === "launch" && run.scheduleId) {
+    if (run.scheduleEditToken === null || !validateSchedule)
       throw new DomainError("conflict");
-    await validateAutomation(c, run.automationId, run.automationEditToken);
+    await validateSchedule(c, run.scheduleId, run.scheduleEditToken);
   }
-  const audience = await getConversationAudience(c, run.conversationId);
+  const audience = await getChatAudience(c, run.chatId);
   if (
     agent.visibility === "user" &&
     (audience.humans.some((id) => id !== agent.createdBy) ||
@@ -682,7 +701,7 @@ export async function validateRunSources(
     await snapshotContext(
       c,
       {
-        conversationId: run.conversationId,
+        chatId: run.chatId,
         taskId: run.taskId ?? undefined,
         documentIds: run.inputs.context.documents.map((d) => d.id),
         messageIds: run.inputs.context.messages.map((m) => m.id),
@@ -736,7 +755,7 @@ export async function createRunQuestion(
     throw new DomainError("forbidden");
   if (!input.body || Buffer.byteLength(input.body) > 16000)
     throw new DomainError("invalid");
-  await getConversation(c, run.conversationId, true);
+  await getChat(c, run.chatId, true);
   const prior = (
     await c.tx
       .select()
@@ -777,7 +796,7 @@ export async function createRunQuestion(
         .returning()
     )[0],
   );
-  await createMessage(c, run.conversationId, {
+  await createMessage(c, run.chatId, {
     requestId: question.id,
     body: `Question ${question.id}: ${input.body}`,
   });
@@ -823,7 +842,7 @@ export async function answerRunQuestion(c: Context, id: string, body: string) {
   );
   if (run.state !== "running" || run.stopRequested)
     throw new DomainError("conflict", "Run no longer awaits input");
-  await getConversation(c, run.conversationId, true);
+  await getChat(c, run.chatId, true);
   const answered = required(
     (
       await c.tx
@@ -838,7 +857,7 @@ export async function answerRunQuestion(c: Context, id: string, body: string) {
         .returning()
     )[0],
   );
-  await createMessage(c, run.conversationId, {
+  await createMessage(c, run.chatId, {
     requestId: crypto.randomUUID(),
     body: `Answer ${question.id}: ${body}`,
   });
@@ -893,7 +912,7 @@ export async function authorizePeerRun(
     agentId === parent.agentId
   )
     throw new DomainError("forbidden");
-  const audience = await getConversationAudience(c, parent.conversationId);
+  const audience = await getChatAudience(c, parent.chatId);
   if (!audience.agents.includes(agentId)) throw new DomainError("forbidden");
   const target = await getAgent(c, agentId);
   if (target.visibility === "user")
@@ -967,7 +986,7 @@ export async function requestPeerRun(
     sponsor,
     boss,
     {
-      conversationId: parent.conversationId,
+      chatId: parent.chatId,
       agentId: input.agentId,
       requestId,
       type: "prompt",
@@ -984,54 +1003,81 @@ export async function requestPeerRun(
         updatedAt: new Date(),
       })
       .where(eq(runs.id, child.id));
-  await createMessage(c, parent.conversationId, {
+  await createMessage(c, parent.chatId, {
     requestId: child.id,
     body: `Directed request to agent ${input.agentId}: ${input.body}`,
   });
   return { runId: child.id, acknowledged: true };
 }
 
+const runSorts = {
+  createdAt: timeKey(runs.createdAt),
+  updatedAt: timeKey(runs.updatedAt),
+};
+export const RUN_SORTS = sortNames(runSorts);
+/**
+ * Entity discovery (`after`, optional sort and filters) or ordered replay (`cursor`, always by the commit
+ * cursor). Replay takes no sort, `after` or filters beyond Chat and state, so its completeness never changes.
+ */
 export async function getRuns(
   c: Context,
-  filter: {
-    conversationId?: string;
-    after?: string;
-    limit?: number;
+  filter: PageOptions & {
+    sort?: string;
+    order?: string;
+    chatId?: string;
     cursor?: number;
     state?: typeof runs.$inferSelect.state;
+    agentId?: string;
+    sponsorId?: string;
+    type?: typeof runs.$inferSelect.type;
   },
 ) {
-  const { limit } = parsePageOptions(filter);
-  if (filter.conversationId) await getConversation(c, filter.conversationId);
-  if (filter.after && filter.cursor !== undefined)
+  const replay = filter.cursor !== undefined;
+  if (
+    replay &&
+    (filter.after !== undefined ||
+      filter.sort !== undefined ||
+      filter.order !== undefined ||
+      filter.agentId !== undefined ||
+      filter.sponsorId !== undefined ||
+      filter.type !== undefined)
+  )
     throw new DomainError("invalid", "Choose one pagination position");
+  const plan = sortPlan({
+    operation: "getRuns",
+    scope: c,
+    filter,
+    keys: runSorts,
+    id: runs.id,
+  });
+  if (filter.chatId) await getChat(c, filter.chatId);
   const items = await c.tx
-    .select({ id: runs.id, cursor: runs.cursor })
+    .select({ id: runs.id, cursor: runs.cursor, position: plan.position })
     .from(runs)
     .where(
       and(
         eq(runs.workspaceId, c.workspaceId),
-        filter.conversationId
-          ? eq(runs.conversationId, filter.conversationId)
-          : undefined,
-        filter.after ? gt(runs.id, filter.after) : undefined,
-        filter.cursor !== undefined
-          ? gt(runs.cursor, filter.cursor)
-          : undefined,
+        filter.chatId ? eq(runs.chatId, filter.chatId) : undefined,
+        replay
+          ? gt(runs.cursor, filter.cursor as number)
+          : and(plan.where, chatReadable(c, runs.chatId)),
         filter.state ? eq(runs.state, filter.state) : undefined,
+        filter.agentId ? eq(runs.agentId, filter.agentId) : undefined,
+        filter.sponsorId ? eq(runs.sponsorId, filter.sponsorId) : undefined,
+        filter.type ? eq(runs.type, filter.type) : undefined,
       ),
     )
-    .orderBy(filter.cursor !== undefined ? runs.cursor : runs.id)
-    .limit(limit + 1);
-  return filterPage(
-    getPage(
-      items,
-      (row) => (filter.cursor !== undefined ? row.cursor : row.id),
-      limit,
-    ),
+    .orderBy(...(replay ? [runs.cursor] : plan.orderBy))
+    .limit(plan.limit + 1);
+  const page: { items: { id: string }[]; next: string | number | null } = replay
+    ? getPage(items, (row) => row.cursor, plan.limit)
+    : pageOf(items, plan, (row) => row.id);
+  return authorizedPage(
+    page,
     async (item) => {
       return getRun(c, item.id);
     },
+    plan,
   );
 }
 
@@ -1049,7 +1095,7 @@ export async function getRunSkillFile(
         .where(and(eq(runs.id, runId), eq(runs.workspaceId, c.workspaceId)))
     )[0],
   );
-  await getConversation(c, run.conversationId);
+  await getChat(c, run.chatId);
   if (
     !run.inputs.audience.humans.includes(c.actor.userId) ||
     (c.actor.agentId && !run.inputs.audience.agents.includes(c.actor.agentId))
@@ -1064,10 +1110,66 @@ export async function getRunSkillFile(
     skillId,
     run.inputs.audience,
   );
-  return required(skill.supportingFiles?.find((file) => file.path === path));
+  const file = required(
+    skill.supportingFiles?.find((file) => file.path === path),
+  );
+  return {
+    path: file.path,
+    fileId: file.artifactId,
+    sha256: file.sha256,
+    byteLength: file.byteLength,
+  };
 }
 
-/** Whole-Run reported totals only after finished capture; observed receipts are not billed money. */
+/**
+ * USD estimate at the accepted catalog list price, per request like Pi's `calculateCost`: the highest tier whose
+ * input threshold the request's input + cacheRead + cacheWrite exceeds prices that request in full. Null when no
+ * price was accepted, any of the four priced counts (input, output, cacheRead, cacheWrite) is unreported or the
+ * result is not finite.
+ */
+export function estimateCost(
+  price: ModelConfig["cost"],
+  receipts: readonly UsageReceipt[],
+): number | null {
+  if (!price || receipts.length === 0) return null;
+  let amount = 0;
+  for (const { tokens } of receipts) {
+    const { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens } =
+      tokens;
+    if (
+      inputTokens === null ||
+      outputTokens === null ||
+      cacheReadTokens === null ||
+      cacheWriteTokens === null
+    )
+      return null;
+    const requestInput = inputTokens + cacheReadTokens + cacheWriteTokens;
+    let rates: ModelCostRates = price;
+    let threshold = -1;
+    for (const tier of price.tiers ?? [])
+      if (
+        requestInput > tier.inputTokensAbove &&
+        tier.inputTokensAbove > threshold
+      ) {
+        rates = tier;
+        threshold = tier.inputTokensAbove;
+      }
+    amount +=
+      (rates.input * inputTokens +
+        rates.output * outputTokens +
+        rates.cacheRead * cacheReadTokens +
+        rates.cacheWrite * cacheWriteTokens) /
+      1_000_000;
+  }
+  return Number.isFinite(amount) ? Math.round(amount * 1e9) / 1e9 : null;
+}
+/**
+ * Whole-Run totals of the model requests Pi reported, only after finished capture. They exclude retries inside the
+ * gateway and are not billed money.
+ * `estimatedCost` prices each message's reported tokens at the catalog API list price accepted with the Run
+ * (the highest tier whose input threshold the message exceeds). It is an estimate, not a subscription charge,
+ * and stays null when the Run is incomplete, any of the four priced counts is unreported or no price was accepted.
+ */
 export async function getRunUsage(c: Context, id: string) {
   const audience = await getRunAudience(c, id);
   if (
@@ -1095,15 +1197,32 @@ export async function getRunUsage(c: Context, id: string) {
       0,
     );
   };
+  const amount = complete
+    ? estimateCost(run.inputs.modelConfig?.cost, run.usage)
+    : null;
   return {
     provider: run.inputs.provider,
     model: run.inputs.model,
+    // Pi-observed model requests only: assistant messages and compaction summaries. Retries inside the
+    // gateway are not observed, so this is never provider-billed or whole-account consumption.
+    scope: "pi_observed" as const,
     complete,
     messageCount: run.usage.length,
+    unreportedCount: run.usage.filter((message) =>
+      Object.values(message.tokens).some((count) => count === null),
+    ).length,
     inputTokens: total("inputTokens"),
     outputTokens: total("outputTokens"),
     cacheReadTokens: total("cacheReadTokens"),
     cacheWriteTokens: total("cacheWriteTokens"),
     totalTokens: total("totalTokens"),
+    estimatedCost:
+      amount === null
+        ? null
+        : {
+            amount,
+            currency: "USD" as const,
+            basis: "api_list_price" as const,
+          },
   };
 }

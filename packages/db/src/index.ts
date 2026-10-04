@@ -14,3 +14,5 @@ export function openDatabase(config: PoolConfig) {
 }
 export type Database = NodePgDatabase<Record<string, never>>;
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+export * from "./cursor";
+export * from "./keyset";
