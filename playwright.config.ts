@@ -10,6 +10,7 @@ export default defineConfig({
     headless: true,
     video: "on",
     screenshot: "only-on-failure",
+    actionTimeout: 15000,
     trace: "off",
     viewport: { width: 1280, height: 800 },
   },
