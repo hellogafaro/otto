@@ -1,11 +1,11 @@
 import {
   type RemixiconComponentType,
-  RiAddLine,
   RiBox3Line,
   RiFileTextLine,
   RiSettings3Line,
 } from "@remixicon/react";
-import { useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   Command,
   CommandDialog,
@@ -17,23 +17,29 @@ import {
 } from "@workspace/ui/components/command";
 import { Kbd, KbdGroup } from "@workspace/ui/components/kbd";
 import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
+import {
   createContext,
   type ReactNode,
   useContext,
+  useDeferredValue,
   useEffect,
   useState,
 } from "react";
 import { destinations } from "@/components/app-rail";
+import { QueryState } from "@/components/query-state";
 import { TabBar } from "@/components/tab-bar";
-import { ActorAvatar, resourceIcons, statuses } from "@/components/task-meta";
 import {
-  agents,
-  documents,
-  projects,
-  resources,
-  tasks,
-  users,
-} from "@/mock/tasks";
+  ActorAvatar,
+  resourceIcons,
+  resourceKindOf,
+  statuses,
+} from "@/components/task-meta";
+import { read } from "@/lib/api";
+import { useDirectory } from "@/lib/directory";
+import { useWorkspace } from "@/lib/workspace";
 
 // One command palette for the whole app: ⌘K / Ctrl+K anywhere, or a page's
 // search button with its category already selected. Tab and Shift+Tab switch
@@ -105,6 +111,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       >
         <Palette
           category={category}
+          open={open}
           onCategory={setCategory}
           onDone={() => setOpen(false)}
         />
@@ -115,29 +122,96 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 
 function Palette({
   category,
+  open,
   onCategory,
   onDone,
 }: {
   category: PaletteCategory;
+  open: boolean;
   onCategory: (category: PaletteCategory) => void;
   onDone: () => void;
 }) {
   const navigate = useNavigate();
+  const params = useParams({ strict: false });
+  const { api, workspaceId } = useWorkspace();
+  const directory = useDirectory();
+  const [text, setText] = useState("");
+  const query = useDeferredValue(text.trim().slice(0, 200));
+  const [projectSelection, setProjectSelection] = useState("");
+  const projectId =
+    projectSelection || params.projectId || directory.projects[0]?.id;
   const shows = (group: PaletteCategory) =>
     category === "all" || category === group;
-  const go = (to: () => void) => () => {
+  const search = {
+    query: query || undefined,
+    limit: "5",
+    sort: "updatedAt" as const,
+    order: "desc" as const,
+  };
+  const projects = useQuery({
+    queryKey: ["workspace", workspaceId, "palette-projects", query],
+    enabled: open && shows("projects"),
+    queryFn: async () =>
+      read(await api.projects.$get({ param: { workspaceId }, query: search })),
+  });
+  const tasks = useQuery({
+    queryKey: ["workspace", workspaceId, "palette-tasks", projectId, query],
+    enabled: open && shows("tasks") && Boolean(projectId),
+    queryFn: async () =>
+      read(
+        await api.tasks.$get({
+          param: { workspaceId },
+          query: { ...search, projectId: projectId ?? "" },
+        }),
+      ),
+  });
+  const documents = useQuery({
+    queryKey: ["workspace", workspaceId, "palette-documents", query],
+    enabled: open && shows("documents"),
+    queryFn: async () =>
+      read(await api.documents.$get({ param: { workspaceId }, query: search })),
+  });
+  const files = useQuery({
+    queryKey: ["workspace", workspaceId, "palette-files", query],
+    enabled: open && shows("files"),
+    queryFn: async () =>
+      read(await api.files.$get({ param: { workspaceId }, query: search })),
+  });
+  const members = useQuery({
+    queryKey: ["workspace", workspaceId, "palette-members", query],
+    enabled: open && shows("people"),
+    queryFn: async () =>
+      read(
+        await api.members.$get({
+          param: { workspaceId },
+          query: { query: query || undefined, limit: "5", sort: "name" },
+        }),
+      ),
+  });
+  const agents = useQuery({
+    queryKey: ["workspace", workspaceId, "palette-agents", query],
+    enabled: open && shows("people"),
+    queryFn: async () =>
+      read(await api.agents.$get({ param: { workspaceId }, query: search })),
+  });
+  const errors = [
+    { key: "projects", result: projects },
+    { key: "tasks", result: tasks },
+    { key: "documents", result: documents },
+    { key: "files", result: files },
+    { key: "members", result: members },
+    { key: "agents", result: agents },
+  ].filter(({ result }) => result.error);
+  const go = (to: () => unknown) => () => {
     to();
     onDone();
   };
-
   return (
     <Command
-      // Plain "contains" matching on names, not fuzzy letters.
-      filter={(_value, search, keywords) =>
-        keywords?.join(" ").toLowerCase().includes(search.toLowerCase()) ? 1 : 0
-      }
+      shouldFilter={false}
       onKeyDown={(event) => {
-        if (event.key !== "Tab") return;
+        if (event.key !== "Tab" || event.target instanceof HTMLSelectElement)
+          return;
         event.preventDefault();
         const step = event.shiftKey ? -1 : 1;
         const index = categories.indexOf(category);
@@ -146,9 +220,11 @@ function Palette({
         );
       }}
     >
-      <CommandInput placeholder="Search tasks, people, projects, documents, files and actions" />
-      {/* The shared tabs, 8px above and below; tab text lands 16px in like
-          everything else (7px + the 1px border + 8px). */}
+      <CommandInput
+        value={text}
+        onValueChange={setText}
+        placeholder="Search whole words"
+      />
       <TabBar
         label="Categories"
         className="flex-nowrap px-1.75 py-2"
@@ -156,18 +232,47 @@ function Palette({
         value={category}
         onChange={onCategory}
       />
-      {/* The tab row already spaces 8px below; the list adds no top padding. */}
+      {shows("tasks") && (
+        <div className="flex items-center gap-2 px-4 pb-2">
+          <span>Tasks in</span>
+          <NativeSelect
+            aria-label="Task search project"
+            value={projectId ?? ""}
+            onChange={(event) => setProjectSelection(event.target.value)}
+          >
+            <NativeSelectOption value="">Choose project</NativeSelectOption>
+            {directory.projects.map((project) => (
+              <NativeSelectOption key={project.id} value={project.id}>
+                {project.title}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+      )}
       <CommandList className="pt-0">
-        <CommandEmpty>No results</CommandEmpty>
+        {errors.map(({ key, result }) => (
+          <QueryState
+            key={key}
+            error={result.error}
+            retry={() => result.refetch()}
+          />
+        ))}
+        {[projects, tasks, documents, files, members, agents].some(
+          (result) => result.isFetching,
+        ) && (
+          <div role="status" className="px-4 py-2">
+            Searching
+          </div>
+        )}
+        <CommandEmpty>No results. Search matches whole words.</CommandEmpty>
         {shows("tasks") && (
           <CommandGroup heading="Tasks">
-            {tasks.map((task) => {
+            {tasks.data?.items.map((task) => {
               const status = statuses[task.status];
               return (
                 <CommandItem
                   key={task.id}
                   value={`task-${task.id}`}
-                  keywords={[task.title]}
                   onSelect={go(() =>
                     navigate({
                       to: "/tasks/$taskId",
@@ -179,9 +284,6 @@ function Palette({
                     <status.icon className={status.className} />
                   </Slot>
                   <span className="min-w-0 truncate">{task.title}</span>
-                  <span className="ml-auto shrink-0 text-muted-foreground">
-                    {projects[task.projectId as keyof typeof projects].title}
-                  </span>
                 </CommandItem>
               );
             })}
@@ -189,44 +291,45 @@ function Palette({
         )}
         {shows("people") && (
           <CommandGroup heading="People">
-            {[...Object.entries(users), ...Object.entries(agents)].map(
-              ([id, actor]) => {
-                const name = "name" in actor ? actor.name : actor.title;
-                const agent = id in agents;
-                return (
-                  <CommandItem
-                    key={id}
-                    value={`person-${id}`}
-                    keywords={[name]}
-                    onSelect={go(() =>
-                      navigate({
-                        to: "/tasks",
-                        search: agent ? { assignee: id } : { owner: id },
-                      }),
-                    )}
-                  >
-                    <ActorAvatar actorId={id} />
-                    {name}
-                    <span className="ml-auto text-muted-foreground">
-                      {agent ? "Assigned tasks" : "Owned tasks"}
-                    </span>
-                  </CommandItem>
-                );
-              },
-            )}
+            {members.data?.items.map((member) => (
+              <CommandItem
+                key={member.userId}
+                value={`person-${member.userId}`}
+                onSelect={go(() =>
+                  navigate({ to: "/tasks", search: { owner: member.userId } }),
+                )}
+              >
+                <ActorAvatar actorId={member.userId} />
+                {member.name}
+              </CommandItem>
+            ))}
+            {agents.data?.items.map((agent) => (
+              <CommandItem
+                key={agent.id}
+                value={`agent-${agent.id}`}
+                onSelect={go(() =>
+                  navigate({
+                    to: "/settings/agents/$agentId",
+                    params: { agentId: agent.id },
+                  }),
+                )}
+              >
+                <ActorAvatar actorId={agent.id} />
+                {agent.title}
+              </CommandItem>
+            ))}
           </CommandGroup>
         )}
         {shows("projects") && (
           <CommandGroup heading="Projects">
-            {Object.entries(projects).map(([id, project]) => (
+            {projects.data?.items.map((project) => (
               <CommandItem
-                key={id}
-                value={`project-${id}`}
-                keywords={[project.title]}
+                key={project.id}
+                value={`project-${project.id}`}
                 onSelect={go(() =>
                   navigate({
                     to: "/projects/$projectId",
-                    params: { projectId: id },
+                    params: { projectId: project.id },
                   }),
                 )}
               >
@@ -240,11 +343,10 @@ function Palette({
         )}
         {shows("documents") && (
           <CommandGroup heading="Documents">
-            {documents.map((document) => (
+            {documents.data?.items.map((document) => (
               <CommandItem
                 key={document.id}
                 value={`document-${document.id}`}
-                keywords={[document.title]}
                 onSelect={go(() =>
                   navigate({
                     to: "/documents/$documentId",
@@ -255,36 +357,27 @@ function Palette({
                 <Slot>
                   <RiFileTextLine />
                 </Slot>
-                <span className="min-w-0 truncate">{document.title}</span>
-                {document.projectId && (
-                  <span className="ml-auto shrink-0 text-muted-foreground">
-                    {projects[document.projectId].title}
-                  </span>
-                )}
+                {document.title}
               </CommandItem>
             ))}
           </CommandGroup>
         )}
         {shows("files") && (
           <CommandGroup heading="Files">
-            {resources.map((resource) => {
-              const Icon = resourceIcons[resource.kind];
+            {files.data?.items.map((file) => {
+              const Icon = resourceIcons[resourceKindOf(file.mediaType)];
               return (
                 <CommandItem
-                  key={resource.id}
-                  value={`resource-${resource.id}`}
-                  keywords={[resource.title]}
+                  key={file.id}
+                  value={`file-${file.id}`}
                   onSelect={go(() =>
-                    navigate({
-                      to: "/files",
-                      search: { open: resource.id },
-                    }),
+                    navigate({ to: "/files", search: { open: file.id } }),
                   )}
                 >
                   <Slot>
                     <Icon />
                   </Slot>
-                  <span className="min-w-0 truncate">{resource.title}</span>
+                  {file.title}
                 </CommandItem>
               );
             })}
@@ -292,34 +385,30 @@ function Palette({
         )}
         {shows("actions") && (
           <CommandGroup heading="Actions">
-            {/* Not wired yet. */}
-            <CommandItem
-              value="action-new-task"
-              keywords={["New task"]}
-              onSelect={onDone}
-            >
-              <Slot>
-                <RiAddLine />
-              </Slot>
-              New task
-            </CommandItem>
-            {destinations.map(({ to, label, icon }) => (
+            {destinations
+              .filter(
+                ({ label }) =>
+                  !query ||
+                  `go to ${label}`.toLowerCase().includes(query.toLowerCase()),
+              )
+              .map(({ to, label, icon }) => (
+                <Action
+                  key={to}
+                  label={`Go to ${label}`}
+                  icon={icon}
+                  onSelect={go(() => navigate({ to }))}
+                />
+              ))}
+            {(!query || "go to settings".includes(query.toLowerCase())) && (
               <Action
-                key={to}
-                label={`Go to ${label}`}
-                icon={icon}
-                onSelect={go(() => navigate({ to }))}
+                label="Go to Settings"
+                icon={RiSettings3Line}
+                onSelect={go(() => navigate({ to: "/settings" }))}
               />
-            ))}
-            <Action
-              label="Go to Settings"
-              icon={RiSettings3Line}
-              onSelect={go(() => navigate({ to: "/settings" }))}
-            />
+            )}
           </CommandGroup>
         )}
       </CommandList>
-      {/* Full-width top border; 48px like the search bar, hints 16px in. */}
       <div className="flex h-12 shrink-0 items-center justify-end gap-4 border-t border-foreground/10 px-4 text-xs text-muted-foreground">
         {hints.map(({ keys, label }) => (
           <span key={label} className="flex items-center gap-2">

@@ -868,6 +868,10 @@ The profile menu names the signed-in person and lists their accessible workspace
 When direct setup or creation is necessary before an Agent can run, a compact
 stock dialog may capture the backend's required fields. Ask remains available;
 direct controls use the same tokens and do not simulate an Agent response.
+Native selects use the shared 32px control, or 28px when nested, with the
+corresponding 8px/6px corners. Task search and Inbox name one Project explicitly;
+search requests five matches per group and uses whole words. Directory pickers
+continue through bounded pages instead of treating the first hundred as complete.
 
 ## Do's and Don'ts
 

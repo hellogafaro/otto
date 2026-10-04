@@ -1,10 +1,7 @@
-import { RiInboxLine } from "@remixicon/react";
+import { RiChat1Line, RiInboxLine, RiTimeLine } from "@remixicon/react";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuTrigger,
-} from "@workspace/ui/components/context-menu";
+import { Button } from "@workspace/ui/components/button";
 import {
   Item,
   ItemActions,
@@ -12,176 +9,276 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item";
-import { cn } from "@workspace/ui/lib/utils";
-import { type ReactNode, useReducer } from "react";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
+import { type ReactNode, useState } from "react";
 import { EmptyPage } from "@/components/empty-page";
-import { FloatingChat } from "@/components/floating-chat";
 import { Page } from "@/components/page";
-import {
-  ActorAvatar,
-  actorOf,
-  byUrgency,
-  ChatIcon,
-  Count,
-  chatState,
-  chatStatus,
-  needsYou,
-} from "@/components/task-meta";
-import {
-  type Chat,
-  chats,
-  currentUserId,
-  type Notification,
-  notifications,
-  type Schedule,
-  schedules,
-  type TaskStatus,
-  tasks,
-  users,
-} from "@/mock/tasks";
-import { ago, ChatMenuItems } from "@/routes/chats";
-import { ScheduleRow } from "@/routes/schedules";
-import { TaskRow } from "@/routes/tasks";
+import { QueryState } from "@/components/query-state";
+import { ActorAvatar, Count, statuses } from "@/components/task-meta";
+import { read } from "@/lib/api";
+import { useDirectory } from "@/lib/directory";
+import { useWorkspace } from "@/lib/workspace";
 
-const isToday = (at: string) =>
-  new Date(at).toDateString() === new Date().toDateString();
-
-// "9:00", "18:30": the clock, as next runs show it.
-const time = (at: string) => {
-  const date = new Date(at);
-  return `${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
-};
-
-// Tasks that need you first: in review, then doing, then to do.
-const taskOrder: TaskStatus[] = ["review", "doing", "todo"];
-
-// Home ("/"), like Notion's: your day under a centered greeting, in one
-// section per kind, each row the same as on its own page. Tasks: what you
-// own or are assigned, still open, review first. Notifications: mentions,
-// assignments, review requests and shares today. Chats: those waiting on you
-// (a question, a review, a failed run) or unread. Schedules: today's runs,
-// done ("Ran 9:00") and still to come ("Today 18:00"). Empty sections don't
-// show; with nothing at all, the empty page.
+// Home composes saved attention and bounded, explicitly Project-scoped Task previews.
 export function InboxPage() {
-  // Organizing a chat (done, snooze…) changes the mock; this redraws.
-  const [, redraw] = useReducer((count: number) => count + 1, 0);
-  const myTasks = tasks
-    .filter(
-      (task) =>
-        (task.ownerId === currentUserId ||
-          task.assigneeUserId === currentUserId) &&
-        taskOrder.includes(task.status),
-    )
-    .sort(
-      (a, b) =>
-        taskOrder.indexOf(a.status) - taskOrder.indexOf(b.status) ||
-        b.updatedAt.localeCompare(a.updatedAt),
+  const { api, workspaceId, user } = useWorkspace();
+  const directory = useDirectory();
+  const [selectedProject, setSelectedProject] = useState("");
+  const projectId = selectedProject || directory.projects[0]?.id;
+  const attention = useQuery({
+    queryKey: ["workspace", workspaceId, "attention"],
+    queryFn: async () =>
+      read(
+        await api.attention.$get({
+          param: { workspaceId },
+          query: { limit: "20" },
+        }),
+      ),
+    refetchInterval: 10_000,
+  });
+  const taskQueries = useQueries({
+    queries: (["todo", "doing"] as const).flatMap((status) =>
+      (["owner", "assignee"] as const).map((role) => ({
+        queryKey: [
+          "workspace",
+          workspaceId,
+          "inbox-tasks",
+          projectId,
+          status,
+          role,
+          user.id,
+        ],
+        enabled: Boolean(projectId),
+        queryFn: async () =>
+          read(
+            await api.tasks.$get({
+              param: { workspaceId },
+              query: {
+                projectId: projectId ?? "",
+                status,
+                ...(role === "owner"
+                  ? { ownerId: user.id }
+                  : { assigneeUserId: user.id }),
+                limit: "5",
+                sort: "updatedAt",
+                order: "desc",
+              },
+            }),
+          ),
+      })),
+    ),
+  });
+  const tasks = [
+    ...new Map(
+      taskQueries
+        .flatMap((result) => result.data?.items ?? [])
+        .map((task) => [task.id, task]),
+    ).values(),
+  ];
+  const hours = new Date().getHours();
+  const greeting = `Good ${hours < 12 ? "morning" : hours < 18 ? "afternoon" : "evening"}, ${user.name.split(" ")[0]}`;
+  if (attention.isPending || directory.pending) return <QueryState pending />;
+  if (attention.error || directory.error)
+    return (
+      <QueryState
+        error={attention.error ?? directory.error}
+        retry={() => {
+          void attention.refetch();
+          void directory.membersQuery.refetch();
+          void directory.agentsQuery.refetch();
+          void directory.projectsQuery.refetch();
+        }}
+      />
     );
-  const today = notifications.filter(({ createdAt }) => isToday(createdAt));
-  const myChats = chats
-    .filter((chat) => {
-      const state = chatState(chat);
-      return (
-        !chat.archived &&
-        !chat.parentId &&
-        !chat.done &&
-        (needsYou(state) || state === "unread")
-      );
-    })
-    .sort(byUrgency);
-  const runs = todaysRuns();
-
-  if (myTasks.length + today.length + myChats.length + runs.length === 0) {
+  const chats = attention.data.items;
+  const runs = attention.data.runs.items;
+  const questions = attention.data.questions.items;
+  // This preview renders only these scalar fields, not recursive provider arguments.
+  const approvals: { id: string; action: string; target: string }[] =
+    attention.data.approvals.items;
+  const taskFailure = taskQueries.find((result) => result.error);
+  if (
+    !directory.projects.length &&
+    !chats.length &&
+    !runs.length &&
+    !questions.length &&
+    !approvals.length
+  )
     return (
       <EmptyPage
         icon={RiInboxLine}
         title="Nothing needs you"
-        description="Tasks, mentions and reviews waiting on you show up here."
-        ask={{
-          about: "this page",
-          action: "New task",
-          start: "Add a task to ",
-        }}
+        description="Open tasks, unread chats, questions and approvals appear here."
       />
     );
-  }
-
   return (
-    <Page
-      title={greeting()}
-      centered
-      floating={<FloatingChat about="your day" />}
-    >
-      <div className="flex flex-col gap-10 pt-5">
-        <Section title="Tasks" count={myTasks.length}>
-          {myTasks.map((task) => (
-            <TaskRow key={task.id} task={task} showProject grouped={false} />
-          ))}
-        </Section>
-        <Section title="Notifications" count={today.length}>
-          {today.map((notification) => (
-            <NotificationRow
-              key={notification.id}
-              notification={notification}
-            />
-          ))}
-        </Section>
-        <Section title="Chats" count={myChats.length}>
-          {myChats.map((chat) => (
-            <ChatRow key={chat.id} chat={chat} onChange={redraw} />
-          ))}
-        </Section>
-        <Section title="Schedules" count={runs.length}>
-          {runs.map(({ schedule, when }) => (
-            <ScheduleRow
-              key={schedule.id}
-              schedule={schedule}
-              when={when}
-              grouped={false}
-            />
-          ))}
-        </Section>
-      </div>
+    <Page title={greeting} centered>
+      {directory.projects.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span>Your tasks in</span>
+          <NativeSelect
+            aria-label="Inbox project"
+            value={projectId ?? ""}
+            onChange={(event) => setSelectedProject(event.target.value)}
+          >
+            {directory.projects.map((project) => (
+              <NativeSelectOption key={project.id} value={project.id}>
+                {project.title}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          {directory.projectsQuery.hasNextPage && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => directory.projectsQuery.fetchNextPage()}
+            >
+              More projects
+            </Button>
+          )}
+        </div>
+      )}
+      <QueryState
+        pending={taskQueries.some((result) => result.isFetching)}
+        error={taskFailure?.error}
+        retry={() => taskFailure?.refetch()}
+      />
+      <Section title="Tasks" count={tasks.length}>
+        {tasks.map((task) => {
+          const status = statuses[task.status];
+          return (
+            <li key={task.id}>
+              <Item
+                size="xs"
+                render={
+                  <Link to="/tasks/$taskId" params={{ taskId: task.id }} />
+                }
+              >
+                <ItemMedia>
+                  <status.icon className={status.className} />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>{task.title}</ItemTitle>
+                </ItemContent>
+                <ItemActions>
+                  <ActorAvatar actorId={task.ownerId} />
+                </ItemActions>
+              </Item>
+            </li>
+          );
+        })}
+      </Section>
+      {projectId && (
+        <Link to="/tasks" search={{ project: projectId }}>
+          All tasks in this project
+        </Link>
+      )}
+      <Section title="Unread chats" count={chats.length}>
+        {chats.map((chat) => (
+          <li key={chat.chatId}>
+            <Item
+              size="xs"
+              render={
+                <Link to="/chats/$chatId" params={{ chatId: chat.chatId }} />
+              }
+            >
+              <ItemMedia>
+                <RiChat1Line />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle>{chat.title}</ItemTitle>
+                <p>{chat.unread.at(-1)?.body}</p>
+              </ItemContent>
+              <ItemActions>{chat.unread.length}</ItemActions>
+            </Item>
+          </li>
+        ))}
+      </Section>
+      {attention.data.next && <Link to="/chats">More chats</Link>}
+      <Section title="Runs" count={runs.length}>
+        {runs.map((run) => (
+          <li key={run.id}>
+            <Item
+              size="xs"
+              render={
+                <Link to="/chats/$chatId" params={{ chatId: run.chatId }} />
+              }
+            >
+              <ItemMedia>
+                <ActorAvatar actorId={run.agentId} />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle>{directory.actorOf(run.agentId).name}</ItemTitle>
+                <p>{run.outcome}</p>
+              </ItemContent>
+              <ItemActions>{run.state}</ItemActions>
+            </Item>
+          </li>
+        ))}
+      </Section>
+      <Section title="Questions" count={questions.length}>
+        {questions.map((question) => (
+          <QuestionLink
+            key={question.id}
+            runId={question.runId}
+            body={question.body}
+          />
+        ))}
+      </Section>
+      <Section title="Approvals" count={approvals.length}>
+        {approvals.map((operation) => (
+          <li key={operation.id}>
+            <Item size="xs" render={<a href="/settings/connections" />}>
+              <ItemMedia>
+                <RiTimeLine />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle>{operation.action}</ItemTitle>
+                <p>{operation.target}</p>
+              </ItemContent>
+              <ItemActions>Awaiting approval</ItemActions>
+            </Item>
+          </li>
+        ))}
+      </Section>
     </Page>
   );
 }
 
-// "Good afternoon, Johan": the hour picks the word.
-function greeting() {
-  const hour = new Date().getHours();
-  const part = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
-  return `Good ${part}, ${users[currentUserId].name.split(" ")[0]}`;
+function QuestionLink({ runId, body }: { runId: string; body: string }) {
+  const { api, workspaceId } = useWorkspace();
+  const run = useQuery({
+    queryKey: ["workspace", workspaceId, "run", runId],
+    queryFn: async () =>
+      read(await api.runs[":id"].$get({ param: { workspaceId, id: runId } })),
+  });
+  return (
+    <li>
+      {run.data ? (
+        <Item
+          size="xs"
+          render={
+            <Link to="/chats/$chatId" params={{ chatId: run.data.chatId }} />
+          }
+        >
+          <ItemContent>
+            <ItemTitle>{body}</ItemTitle>
+          </ItemContent>
+        </Item>
+      ) : (
+        <QueryState
+          pending={run.isPending}
+          error={run.error}
+          retry={() => run.refetch()}
+        />
+      )}
+    </li>
+  );
 }
 
-// Each schedule with a run today, by time: its last run today if it ran
-// ("Ran 9:00", "Failed 9:00"), else its next run if that is today.
-function todaysRuns() {
-  return schedules
-    .flatMap(
-      (schedule): { schedule: Schedule; at: string; when?: string }[] => {
-        if (schedule.status !== "active") return [];
-        const ran = schedule.activity.findLast(
-          (item) => item.run && isToday(item.createdAt),
-        );
-        if (ran)
-          return [
-            {
-              schedule,
-              at: ran.createdAt,
-              when: `${ran.run === "failed" ? "Failed" : "Ran"} ${time(ran.createdAt)}`,
-            },
-          ];
-        return schedule.nextAt && isToday(schedule.nextAt)
-          ? [{ schedule, at: schedule.nextAt }]
-          : [];
-      },
-    )
-    .sort((a, b) => a.at.localeCompare(b.at));
-}
-
-// A section of the day: its heading (an h2 with its count, like Activity's)
-// and its rows, pulled out by the rows' 1px border and 8px padding so their
-// icons line up with the heading. Empty, it doesn't show.
 function Section({
   title,
   count,
@@ -191,7 +288,7 @@ function Section({
   count: number;
   children: ReactNode;
 }) {
-  if (count === 0) return null;
+  if (!count) return null;
   return (
     <section className="flex flex-col gap-2">
       <h2 className="flex items-center gap-2 text-base font-medium">
@@ -200,88 +297,5 @@ function Section({
       </h2>
       <ul className="-mx-[9px] flex flex-col">{children}</ul>
     </section>
-  );
-}
-
-// "Forge mentioned you in Fix sign-in…": who (their avatar and name), what
-// they did, and on what (it opens); then how long ago. Read ones are muted.
-function NotificationRow({ notification }: { notification: Notification }) {
-  const { actorId, body, target, createdAt, read } = notification;
-  return (
-    <li>
-      <Item
-        size="xs"
-        render={
-          target.type === "task" ? (
-            <Link to="/tasks/$taskId" params={{ taskId: target.id }} />
-          ) : (
-            <Link
-              to="/documents/$documentId"
-              params={{ documentId: target.id }}
-            />
-          )
-        }
-      >
-        <ItemMedia>
-          <ActorAvatar actorId={actorId} />
-        </ItemMedia>
-        <ItemContent>
-          <ItemTitle className={cn(read && "text-muted-foreground")}>
-            {actorOf(actorId).name}
-            <span className="font-normal text-muted-foreground">{body}</span>
-            {target.title}
-          </ItemTitle>
-        </ItemContent>
-        <ItemActions>
-          <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
-            {ago(createdAt)}
-          </span>
-        </ItemActions>
-      </Item>
-    </li>
-  );
-}
-
-// A chat, as a task's row: why it is here (its status icon, where a task's
-// status sits; none when just unread), its title and icon, then what it
-// wants and how long ago. Right-click opens the chat's menu, as in the Chats
-// sidebar.
-function ChatRow({ chat, onChange }: { chat: Chat; onChange: () => void }) {
-  const status = chatStatus(chat);
-  const last = chat.messages.at(-1);
-  const change = (update: Partial<Chat>) => {
-    Object.assign(chat, update);
-    onChange();
-  };
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger render={<li />}>
-        <Item
-          size="xs"
-          render={<Link to="/chats/$chatId" params={{ chatId: chat.id }} />}
-        >
-          <ItemMedia>
-            <ChatIcon chat={chat} />
-          </ItemMedia>
-          <ItemContent className="flex-row items-center group-data-[size=xs]/item:gap-2">
-            <ItemTitle>{chat.title}</ItemTitle>
-          </ItemContent>
-          <ItemActions>
-            {status && (
-              <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
-                <status.icon className={cn("size-3.5", status.className)} />
-                {status.label}
-              </span>
-            )}
-            <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
-              {ago(last?.createdAt)}
-            </span>
-          </ItemActions>
-        </Item>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-48">
-        <ChatMenuItems chat={chat} onChange={change} />
-      </ContextMenuContent>
-    </ContextMenu>
   );
 }

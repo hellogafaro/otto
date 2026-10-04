@@ -1,39 +1,57 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { read } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
 
 /** Real, workspace-scoped directory shared by pickers and identity presentation. */
 export function useDirectory() {
   const { api, workspaceId, user } = useWorkspace();
-  const members = useQuery({
-    queryKey: ["workspace", workspaceId, "members"],
-    queryFn: async () =>
+  const members = useInfiniteQuery({
+    queryKey: ["workspace", workspaceId, "directory", "members"],
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) =>
       read(
         await api.members.$get({
           param: { workspaceId },
-          query: { limit: "100", sort: "name" },
+          query: { limit: "100", sort: "name", after: pageParam },
         }),
       ),
+    getNextPageParam: (last) => last.next ?? undefined,
+    select: (data) => ({
+      items: data.pages.flatMap((page) => page.items),
+      next: data.pages.at(-1)?.next ?? null,
+    }),
   });
-  const agents = useQuery({
-    queryKey: ["workspace", workspaceId, "agents"],
-    queryFn: async () =>
+  const agents = useInfiniteQuery({
+    queryKey: ["workspace", workspaceId, "directory", "agents"],
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) =>
       read(
         await api.agents.$get({
           param: { workspaceId },
-          query: { limit: "100", sort: "title" },
+          query: { limit: "100", sort: "title", after: pageParam },
         }),
       ),
+    getNextPageParam: (last) => last.next ?? undefined,
+    select: (data) => ({
+      items: data.pages.flatMap((page) => page.items),
+      next: data.pages.at(-1)?.next ?? null,
+    }),
   });
-  const projects = useQuery({
-    queryKey: ["workspace", workspaceId, "projects"],
-    queryFn: async () =>
+  const projects = useInfiniteQuery({
+    queryKey: ["workspace", workspaceId, "directory", "projects"],
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) =>
       read(
         await api.projects.$get({
           param: { workspaceId },
-          query: { limit: "100", sort: "title" },
+          query: { limit: "100", sort: "title", after: pageParam },
         }),
       ),
+    getNextPageParam: (last) => last.next ?? undefined,
+    select: (data) => ({
+      items: data.pages.flatMap((page) => page.items),
+      next: data.pages.at(-1)?.next ?? null,
+    }),
   });
   const people = members.data?.items ?? [];
   const bots = agents.data?.items ?? [];
