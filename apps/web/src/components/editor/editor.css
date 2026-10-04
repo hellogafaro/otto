@@ -16,6 +16,11 @@
   font-weight: 500;
 }
 
+/* Nothing above the first block: a heading at the top starts flush. */
+.otto-editor > :first-child {
+  margin-top: 0;
+}
+
 /* Headings follow the golden type scale, below the page title (text-lg). */
 .otto-editor h1 {
   font-size: var(--text-base);

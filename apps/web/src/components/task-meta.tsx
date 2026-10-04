@@ -1,19 +1,31 @@
 import {
+  type RemixiconComponentType,
   RiBox3Line,
   RiCheckboxCircleFill,
   RiCircleLine,
+  RiFileLine,
+  RiFileTextLine,
+  RiImageLine,
+  RiLockLine,
   RiLoopRightLine,
+  RiMusic2Line,
+  RiPauseCircleLine,
   RiProgress4Line,
   RiProgress6Line,
   RiRobot3Line,
+  RiTeamLine,
   RiUserLine,
+  RiVideoLine,
 } from "@remixicon/react";
 import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar";
 import type { ComponentType } from "react";
 import { RRule } from "rrule";
 import {
   agents,
+  type DocumentVisibility,
+  type ProjectStatus,
   projects,
+  type ResourceKind,
   type TaskPriority,
   type TaskRecurrence,
   type TaskStatus,
@@ -178,6 +190,30 @@ export function repeatLook(rule: TaskRecurrence): Look {
   };
 }
 
+// Project lifecycle, also the number keys: 1 planned … 4 completed.
+export const projectStatuses: Record<ProjectStatus, Look> = {
+  planned: {
+    label: "Planned",
+    icon: RiCircleLine,
+    className: "text-status-todo",
+  },
+  active: {
+    label: "In progress",
+    icon: RiProgress4Line,
+    className: "text-status-doing",
+  },
+  paused: {
+    label: "Paused",
+    icon: RiPauseCircleLine,
+    className: "text-status-review",
+  },
+  completed: {
+    label: "Completed",
+    icon: RiCheckboxCircleFill,
+    className: "text-status-done",
+  },
+};
+
 // Every project, for the project picker.
 export const projectLooks: Record<string, Look> = Object.fromEntries(
   Object.entries(projects).map(([id, project]) => [
@@ -265,3 +301,26 @@ export function formatDuration(minutes: number) {
   if (hours && rest) return `${hours}h ${rest}m`;
   return hours ? `${hours}h` : `${rest}m`;
 }
+
+// A resource's type: its icon in lists, its name in hover details.
+export const resourceIcons: Record<ResourceKind, RemixiconComponentType> = {
+  video: RiVideoLine,
+  audio: RiMusic2Line,
+  image: RiImageLine,
+  document: RiFileTextLine,
+  file: RiFileLine,
+};
+
+export const resourceTypes: Record<ResourceKind, string> = {
+  video: "Video",
+  audio: "Audio",
+  image: "Image",
+  document: "Document",
+  file: "File",
+};
+
+// Who can see a document: only its creator, or the whole workspace.
+export const visibilityLooks: Record<DocumentVisibility, Look> = {
+  user: { label: "Only me", icon: RiLockLine },
+  workspace: { label: "Workspace", icon: RiTeamLine },
+};

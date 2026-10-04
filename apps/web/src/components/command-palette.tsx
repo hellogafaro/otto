@@ -2,6 +2,7 @@ import {
   type RemixiconComponentType,
   RiAddLine,
   RiBox3Line,
+  RiFileTextLine,
   RiSettings3Line,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
@@ -24,13 +25,28 @@ import {
   useState,
 } from "react";
 import { destinations } from "@/components/app-rail";
-import { ActorAvatar, statuses } from "@/components/task-meta";
-import { agents, projects, tasks, users } from "@/mock/tasks";
+import { ActorAvatar, resourceIcons, statuses } from "@/components/task-meta";
+import {
+  agents,
+  documents,
+  projects,
+  resources,
+  tasks,
+  users,
+} from "@/mock/tasks";
 
 // One command palette for the whole app: ⌘K / Ctrl+K anywhere, or a page's
 // search button with its category already selected. Tab and Shift+Tab switch
 // categories; picking a result goes there.
-const categories = ["all", "tasks", "people", "projects", "actions"] as const;
+const categories = [
+  "all",
+  "tasks",
+  "people",
+  "projects",
+  "documents",
+  "resources",
+  "actions",
+] as const;
 export type PaletteCategory = (typeof categories)[number];
 
 const labels: Record<PaletteCategory, string> = {
@@ -38,6 +54,8 @@ const labels: Record<PaletteCategory, string> = {
   tasks: "Tasks",
   people: "People",
   projects: "Projects",
+  documents: "Documents",
+  resources: "Resources",
   actions: "Actions",
 };
 
@@ -128,7 +146,7 @@ function Palette({
         );
       }}
     >
-      <CommandInput placeholder="Search tasks, people, projects and actions" />
+      <CommandInput placeholder="Search tasks, people, projects, documents, resources and actions" />
       {/* 28px tabs, 4px apart, 8px above and below; tab text lands 16px in like
           everything else. */}
       <div className="flex gap-1 px-1.75 py-2">
@@ -212,7 +230,10 @@ function Palette({
                 value={`project-${id}`}
                 keywords={[project.title]}
                 onSelect={go(() =>
-                  navigate({ to: "/tasks", search: { project: id } }),
+                  navigate({
+                    to: "/projects/$projectId",
+                    params: { projectId: id },
+                  }),
                 )}
               >
                 <Slot>
@@ -221,6 +242,58 @@ function Palette({
                 {project.title}
               </CommandItem>
             ))}
+          </CommandGroup>
+        )}
+        {shows("documents") && (
+          <CommandGroup heading="Documents">
+            {documents.map((document) => (
+              <CommandItem
+                key={document.id}
+                value={`document-${document.id}`}
+                keywords={[document.title]}
+                onSelect={go(() =>
+                  navigate({
+                    to: "/documents/$documentId",
+                    params: { documentId: document.id },
+                  }),
+                )}
+              >
+                <Slot>
+                  <RiFileTextLine />
+                </Slot>
+                <span className="min-w-0 truncate">{document.title}</span>
+                {document.projectId && (
+                  <span className="ml-auto shrink-0 text-muted-foreground">
+                    {projects[document.projectId].title}
+                  </span>
+                )}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {shows("resources") && (
+          <CommandGroup heading="Resources">
+            {resources.map((resource) => {
+              const Icon = resourceIcons[resource.kind];
+              return (
+                <CommandItem
+                  key={resource.id}
+                  value={`resource-${resource.id}`}
+                  keywords={[resource.title]}
+                  onSelect={go(() =>
+                    navigate({
+                      to: "/resources",
+                      search: { open: resource.id },
+                    }),
+                  )}
+                >
+                  <Slot>
+                    <Icon />
+                  </Slot>
+                  <span className="min-w-0 truncate">{resource.title}</span>
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
         )}
         {shows("actions") && (

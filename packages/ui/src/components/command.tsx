@@ -46,10 +46,6 @@ function CommandDialog({
 }) {
   return (
     <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
       <DialogContent
         className={cn(
           "dark top-[15dvh] translate-y-0 overflow-hidden rounded-xl! bg-popover/70 p-0 shadow-md backdrop-blur-2xl backdrop-saturate-150",
@@ -57,6 +53,11 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
+        {/* Otto: inside the content, so the hidden title exists only while open. */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
         {children}
       </DialogContent>
     </Dialog>

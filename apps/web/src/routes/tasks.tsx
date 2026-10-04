@@ -185,15 +185,7 @@ export function TasksPage({ search }: { search: TasksSearch }) {
           </EmptyContent>
         </Empty>
       ) : (
-        <div className="flex flex-col gap-2">
-          {statusOrder.map((status) => (
-            <StatusGroup
-              key={status}
-              status={status}
-              tasks={visible.filter((task) => task.status === status)}
-            />
-          ))}
-        </div>
+        <TaskGroups tasks={visible} />
       )}
     </Page>
   );
@@ -317,7 +309,7 @@ function FilterMenu({
   );
 }
 
-// Active filters, read-only: one 28px group each (what it filters, then ×),
+// Active filters, read-only: one 28px group each (property | value | ×),
 // and Clear on the right. Changing filters happens in the Filter menu.
 function FilterBar({ search }: { search: TasksSearch }) {
   const navigate = useNavigate({ from: "/tasks" });
@@ -328,13 +320,16 @@ function FilterBar({ search }: { search: TasksSearch }) {
     <div className="-mt-2 flex flex-wrap items-center gap-2">
       {filterMenus
         .filter(({ key }) => search[key])
-        .map(({ key, label, icon: KeyIcon, options }) => {
+        .map(({ key, label, options }) => {
           const look = options[search[key] as string];
           return (
             <ButtonGroup key={key}>
+              {/* Property, value, remove: joined segments with dividers; only
+                  the value shows an icon. */}
+              <ButtonGroupText className="text-muted-foreground">
+                {label}
+              </ButtonGroupText>
               <ButtonGroupText>
-                <KeyIcon className="text-muted-foreground" />
-                <span className="text-muted-foreground">{label}</span>
                 <look.icon className={look.className} />
                 {look.label}
               </ButtonGroupText>
@@ -361,10 +356,41 @@ function FilterBar({ search }: { search: TasksSearch }) {
   );
 }
 
+// Tasks grouped by status, in status order. Inside a project the rows leave
+// out the project badge.
+export function TaskGroups({
+  tasks,
+  showProject = true,
+}: {
+  tasks: Task[];
+  showProject?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {statusOrder.map((status) => (
+        <StatusGroup
+          key={status}
+          status={status}
+          tasks={tasks.filter((task) => task.status === status)}
+          showProject={showProject}
+        />
+      ))}
+    </div>
+  );
+}
+
 // Header and rows share one column grid: both have a 1px border and 8px
 // padding, the header chevron and the row spacer are 14px wide, and both use
 // an 8px gap, so status icons and titles line up without custom offsets.
-function StatusGroup({ status, tasks }: { status: TaskStatus; tasks: Task[] }) {
+function StatusGroup({
+  status,
+  tasks,
+  showProject,
+}: {
+  status: TaskStatus;
+  tasks: Task[];
+  showProject: boolean;
+}) {
   const { label, icon: Icon, className } = statuses[status];
   if (tasks.length === 0) return null;
 
@@ -389,7 +415,7 @@ function StatusGroup({ status, tasks }: { status: TaskStatus; tasks: Task[] }) {
       <CollapsibleContent>
         <ul className="flex flex-col pt-1">
           {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} />
+            <TaskRow key={task.id} task={task} showProject={showProject} />
           ))}
         </ul>
       </CollapsibleContent>
@@ -406,7 +432,7 @@ function peopleOf(task: Task) {
   );
 }
 
-function TaskRow({ task }: { task: Task }) {
+function TaskRow({ task, showProject }: { task: Task; showProject: boolean }) {
   const { icon: Icon, className, label } = statuses[task.status];
   const people = peopleOf(task);
 
@@ -442,10 +468,12 @@ function TaskRow({ task }: { task: Task }) {
           </Tooltip>
         </ItemContent>
         <ItemActions>
-          <Badge variant="outline" className="hidden sm:inline-flex">
-            <RiBox3Line data-icon="inline-start" />
-            {projects[task.projectId as keyof typeof projects].title}
-          </Badge>
+          {showProject && (
+            <Badge variant="outline" className="hidden sm:inline-flex">
+              <RiBox3Line data-icon="inline-start" />
+              {projects[task.projectId as keyof typeof projects].title}
+            </Badge>
+          )}
           <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
             {shortDate.format(new Date(task.updatedAt))}
           </span>

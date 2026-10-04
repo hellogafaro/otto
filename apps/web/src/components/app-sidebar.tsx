@@ -126,8 +126,8 @@ const sections: Record<string, Section> = {
     ],
     footer: { title: "Archive", icon: RiArchiveLine },
   },
-  "/library": {
-    title: "Library",
+  "/resources": {
+    title: "Resources",
     create: { title: "Upload", icon: RiAddLine },
     nav: [
       { title: "All", icon: RiBookOpenLine },

@@ -71,8 +71,8 @@ export const destinations: Destination[] = [
     activeIcon: RiFileTextFill,
   },
   {
-    to: "/library",
-    label: "Library",
+    to: "/resources",
+    label: "Resources",
     icon: RiBookShelfLine,
     activeIcon: RiBookShelfFill,
   },

@@ -65,11 +65,14 @@ const mentionables: Mentionable[] = [
     id,
     label: user.name,
   })),
-  ...Object.entries(agents).map(([id, agent]) => ({
-    type: "agent" as const,
-    id,
-    label: agent.title,
-  })),
+  // Not Otto: it is reached through Ask Otto, not tagged in comments.
+  ...Object.entries(agents)
+    .filter(([id]) => id !== "a_otto")
+    .map(([id, agent]) => ({
+      type: "agent" as const,
+      id,
+      label: agent.title,
+    })),
   ...tasks.map((task) => ({
     type: "task" as const,
     id: task.id,

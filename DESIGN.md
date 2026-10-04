@@ -214,6 +214,21 @@ components:
   empty-state:
     textColor: "{colors.muted-foreground}"
     typography: "{typography.heading}"
+  ask-otto:
+    backgroundColor: "{colors.card}"
+    typography: "{typography.body}"
+    rounded: "{rounded.xl}"
+    height: 48px
+    width: 450px
+    padding: 8px
+  gallery-tile:
+    backgroundColor: "{colors.card}"
+    rounded: "{rounded.md}"
+  cover:
+    rounded: "{rounded.md}"
+  resource-viewer:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
   status-icon-todo:
     textColor: "{colors.status-todo}"
     size: 14px
@@ -254,9 +269,14 @@ accent, compact 32px controls.
 - **Less is more.** Show state clearly and keep controls few. No subtasks, no
   nested comments, no subtitles on data-heavy pages.
 - **AI-first.** Creating and editing go through a sentence to Otto, the
-  orchestrator agent, in the composer: "New …" rows prefill `@Otto …` instead
-  of opening forms. Instant human actions stay one click: delete, copy, pick a
-  file, change a property.
+  orchestrator agent, in the Ask Otto bar: "New …" rows prefill the start of
+  a sentence ("I spent ") instead of opening forms. Sending starts a new chat
+  with Otto about what is open; it is never a comment. Instant human actions
+  stay one click: delete, copy, pick a file, change a property.
+- **Domain words.** The UI names things as the product does: task, project,
+  document, resource, schedule, conversation. Never file for a resource,
+  library, artifact, asset or automation. Prompts and placeholders use these
+  words so Otto gets the same meaning the person sees.
 - **Vanilla shadcn.** Preset `bIkg4yR` (base-vega, Remix icons). When
   something must look different everywhere, change the `packages/ui`
   component and mark it with an `// Otto:` comment. Instance classes are for
@@ -303,8 +323,9 @@ is fixed at 12px; 10.2px read too small.
 - Weight 500 for titles, names and section labels; 400 elsewhere.
 - Dates are date only: "Oct 1" in lists, "Oct 1, 2026" in detail. Numbers use
   `tabular-nums`.
-- Copy: no ellipses in placeholders; main calls to action read "New …"; agents
-  are never labeled "(agent)".
+- Copy: sentence case everywhere, prompts and prefills included, never all
+  lowercase; no ellipses in placeholders; main calls to action read "New …";
+  agents are never labeled "(agent)".
 
 ## Layout
 
@@ -327,7 +348,12 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   left; page actions on the right, ending with the panel toggle.
 - **Page** (`Page`): a centered column, `default` (max 3xl) for reading and
   settings, `wide` (max 5xl) for lists. 20px between header and content;
-  20px side padding, 52px top and bottom on desktop.
+  20px side padding, 52px top and bottom on desktop. An optional `cover` sits
+  above the title; an optional `floating` bar (Ask Otto) replaces the bottom
+  padding and rests 16px above the bottom.
+- **Galleries** (`Gallery`): 3 columns for projects, 4 for documents and
+  resources; 12px between columns, 20px between rows so a title stays with its
+  tile.
 - **Right panel**: a floating `Sidebar` card directly under the top bar, 9px
   from the screen edges, 256px wide.
 
@@ -343,7 +369,11 @@ Depth comes from translucency and hairlines, not heavy shadows.
   `ring-foreground/10`, `shadow-md`, no entry animation.
 - A floating surface opens 4px from its trigger and never covers it.
 - **Dialogs** (the command palette) sit over a plain 50% black overlay, no
-  blur.
+  blur. The resource viewer is a full-screen dialog (`fullScreen`) on the page
+  background.
+- **Ask Otto** floats: card surface, hairline ring and `shadow-md`, on a fade
+  from the page background (bottom) to transparent (32px above it), so
+  content scrolling under it fades out.
 
 ## Shapes
 
@@ -364,7 +394,10 @@ and have an 8px radius.
 - Elements only ~6px inside their container (keys, attachment thumbnails, the
   attachment's remove button) use `xs`, never square.
 - A tooltip is `sm` because it holds a label, not nested items.
-- Avatars are round (`full`).
+- Gallery tiles, covers and media in the resource viewer are `md` 8 with the
+  hairline ring.
+- Avatars are round (`full`). Bars and inputs are never fully round: Ask Otto
+  keeps the composer's `xl`.
 
 ## Components
 
@@ -399,7 +432,8 @@ the item icon column and a transparent 36px input over a full-width bottom
 border. "/" and "@" suggestion lists use the same 32px rows.
 
 **Right panel.** Collapsible sections divided by full-width separators; muted
-13px section titles with an optional count. Property rows open their menu; each
+13px section titles with an optional count, hidden when there is nothing (no
+"0"). Property rows open their menu; each
 has a hotkey. A "New …" row ends a list. Row actions appear on hover (always on
 touch), and hovering one keeps its row highlighted. Repeat stores an iCalendar
 rule: presets plus Custom, which asks Otto.
@@ -414,7 +448,16 @@ and paste too), shown as `Attachment`s with upload state. The main button
 dictates when empty, sends with content and stops while `busy`. A `tools` slot
 after + holds pickers (model, agent). Enter sends, Shift+Enter adds a line.
 `@` opens a grouped palette (people, agents, tasks, projects, resources); a tag
-is a primary chip with its type icon, stored as `@[label](type:id)`.
+is a primary chip with its type icon, stored as `@[label](type:id)`. Otto is
+not in it: Otto is reached through Ask Otto, not tagged.
+
+**Ask Otto** (`AskOtto`, the `compact` composer). A floating bar at the bottom
+of task, project and document pages and the resource viewer: "Ask Otto about
+this task / project / document / resource". One line, 48px, 450px wide (the
+728px column ÷ φ), centered under the content; text scrolls sideways, never
+wraps. + on the left, the main button on the right, 9px from the edges; text
+48px in. Attachments sit above the row, 8px from it. Page actions that Otto
+does (log time, a custom repeat) prefill it.
 
 **Activity.** Events are muted single lines with a 20px avatar. Comments are
 cards with Copy and Reply in the top-right corner on the card insets. Replies
@@ -443,10 +486,12 @@ filters happens only in the menu.
 **Command palette** (`CommandPaletteProvider`). One palette for the whole app:
 ⌘K / Ctrl+K anywhere, or a page's search button with its category already
 selected. 720px wide, 15% from the top, card radius. A borderless 48px search
-field over a full-width divider; 28px category tabs (All, Tasks, People,
-Projects, Actions; Tab switches) 8px above and below; 36px rows that match
+field over a full-width divider; 28px category tabs (Tab switches) 8px above
+and below; 36px rows that match
 names containing the query, with edges that fade while more results scroll;
-a 48px footer with key hints. Picking a result goes there. Text and icons sit
+a 48px footer with key hints. Categories: All, Tasks, People, Projects,
+Documents, Resources, Actions. Picking a result goes there (a resource opens
+in the viewer). Text and icons sit
 16px in throughout.
 
 **Task list.** Groups by status in lifecycle order under full-width
@@ -455,9 +500,41 @@ the title, then an avatar group of everyone involved (owner first, then
 assignees; one tooltip lists them), with the project badge and date on the
 right. 20px avatars in a group overlap 4px.
 
-**Task page.** Title; owner and assignee as avatar buttons (no labels; hover
-names the role and its key); the description (markdown editor with `/`
-blocks); Activity; the composer.
+**Detail pages** (`DetailView`). Tasks, projects and documents share one shape:
+the top bar, then the page (optional cover, title, people row, body), the
+right panel and the Ask Otto bar.
+
+- **Task:** owner and assignee as avatar buttons (no labels; hover names the
+  role and its key); the description (markdown editor with `/` blocks);
+  Activity; the comment composer.
+- **Project:** cover, owner and members; 28px tabs with icons and muted counts
+  (Overview, Tasks, Documents, Resources), kept in the URL (`?tab=`). Overview
+  is the description; Tasks is the task list without the project badge;
+  Documents and Resources are galleries. Empty tabs show the `Empty` shape
+  without an action. Panel: Status, Priority, Channel.
+- **Document:** cover when it has an image, the author as plain text (set by
+  the server), the content in the editor. Panel: Project (or none) and
+  Visibility (Only me / Workspace).
+
+**Dithered images** (`Dither`, `Cover`). Covers and previews are drawn once in
+the image's own colors with an 8×8 ordered dither in four steps, never
+animated. Each dot is a whole number of device pixels (3 on 2x screens, 2 on
+1x), so dots stay square and even at any size. `Cover` is a 4:1 banner above a
+page title.
+
+**Galleries** (`Gallery`, `GalleryItem`). Not cards: a tile with its icon and
+title under it; the ring darkens on hover. Projects are 16:9 covers;
+documents are 4:5 pages showing their image or opening text fading out;
+resources are 4:5 showing their picture or their file type ("PDF").
+
+**Resource viewer** (`Lightbox`). Full screen on the page background: the
+48px top bar (type icon, title, "Image · Oct 3"; Open task, Download, Close),
+the resource centered with `md` corners and the ring, 48px from the sides
+where the previous and next arrows sit 9px in (← → too, except inside a
+player), and Ask Otto at the bottom. Read-only previews: images, video and
+audio in the browser's players, PDFs in its viewer, Markdown rendered like a
+document; anything else shows its type. The open resource is in the URL
+(`?open=`) on the Resources page.
 
 ## Do's and Don'ts
 
@@ -471,8 +548,10 @@ blocks); Activity; the composer.
   selection or decoration.
 - Do keep icons 14px and avatars at least 20px; don't mix icon sizes in a row.
 - Do keep tooltips to one label; don't put metadata in a tooltip.
-- Do route creation through Otto in the composer; don't add a form for
-  something a sentence can ask for.
+- Do route creation through Ask Otto; don't add a form for something a
+  sentence can ask for, and don't send it as a comment.
+- Do use the domain words (task, project, document, resource) in copy and
+  prompts; don't call a resource a file or the Resources section a library.
 - Do check a visible change in the browser and measure it; don't ship from a
   screenshot guess.
 - Don't nest tasks or comments, add subtitles to data-heavy pages, or use

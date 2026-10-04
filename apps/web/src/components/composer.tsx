@@ -40,6 +40,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
+import { cn } from "@workspace/ui/lib/utils";
 import {
   type ComponentProps,
   type ReactNode,
@@ -92,13 +93,15 @@ const SendOnEnter = Extension.create<{ onEnter: () => void }>({
 // files. + adds files (also by dropping or pasting them). The main button
 // dictates while the box is empty, sends once there is text or a file, and
 // stops a reply while `busy`. `tools` sit next to + (model or agent pickers).
-// Uploads are simulated until storage exists.
+// Uploads are simulated until storage exists. `compact` is the one-line
+// floating bar (Ask Otto): + on the left, the main button on the right.
 export function Composer({
   onSend,
   placeholder,
   tools,
   busy = false,
   onStop,
+  compact = false,
   ref,
 }: {
   onSend: (text: string, files: FileRef[]) => void;
@@ -106,6 +109,7 @@ export function Composer({
   tools?: ReactNode;
   busy?: boolean;
   onStop?: () => void;
+  compact?: boolean;
   ref?: Ref<ComposerHandle>;
 }) {
   const [files, setFiles] = useState<Pending[]>([]);
@@ -125,18 +129,25 @@ export function Composer({
         codeBlock: false,
         horizontalRule: false,
         link: false,
+        // The compact bar is one line: no Shift+Enter breaks.
+        hardBreak: compact ? false : undefined,
       }),
       Placeholder.configure({ placeholder }),
       Mentions,
       SendOnEnter.configure({ onEnter: () => actions.current.send() }),
     ],
     editorProps: {
-      // One line tall until it grows with the text, up to 240px.
+      // One line tall until it grows with the text, up to 240px. The
+      // compact bar stays one line and scrolls sideways as you type.
       attributes: {
-        class:
-          "otto-composer max-h-60 overflow-y-auto px-4 pt-3 text-sm outline-none",
+        class: compact
+          ? "otto-composer no-scrollbar overflow-x-auto overflow-y-hidden p-1 text-sm whitespace-pre! outline-none"
+          : "otto-composer max-h-60 overflow-y-auto px-4 pt-3 text-sm outline-none",
         "aria-label": placeholder,
       },
+      // Pasted lines join into one in the compact bar.
+      transformPastedText: (text) =>
+        compact ? text.replace(/\s*\n\s*/g, " ") : text,
       handlePaste: (_view, event) => {
         const pasted = event.clipboardData?.files;
         if (!pasted?.length) return false;
@@ -244,6 +255,45 @@ export function Composer({
     </MainButton>
   );
 
+  const attachments = files.length > 0 && (
+    // Attachment borders sit 9px in (top and sides), like the buttons'
+    // visible edges below; their file icons land on the 16px text line.
+    // AttachmentGroup adds 4px above, so pt-1.25 + 4 = 9. In the compact bar
+    // nothing pads below them: the row's own 8px is the gap.
+    <InputGroupAddon
+      align="block-start"
+      className={cn("px-2.25 pt-1.25", compact && "pb-0")}
+    >
+      <AttachmentGroup className={cn("w-full", compact && "pb-0")}>
+        {files.map((file) => (
+          <FileAttachment
+            key={file.id}
+            file={file}
+            state={file.state}
+            onRemove={() => remove(file.id)}
+          />
+        ))}
+      </AttachmentGroup>
+    </InputGroupAddon>
+  );
+
+  const plus = (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <InputGroupButton
+            size="icon-sm"
+            aria-label="Add files"
+            onClick={() => picker.current?.click()}
+          />
+        }
+      >
+        <RiAddLine />
+      </TooltipTrigger>
+      <TooltipContent>Add files</TooltipContent>
+    </Tooltip>
+  );
+
   return (
     <form
       onSubmit={(event) => {
@@ -253,10 +303,15 @@ export function Composer({
     >
       {/* Same surface as a comment card (xl radius, card background, faint
           ring). Two insets: visible edges (attachment borders, button
-          backgrounds) sit 9px in; content (text, icons) sits 16px in. */}
+          backgrounds) sit 9px in; content (text, icons) sits 16px in. The
+          compact bar keeps the corners and floats (shadow-md). */}
       <InputGroup
         data-dragging={dragging}
-        className="rounded-xl border-0 bg-card shadow-xs ring-1 ring-foreground/10 data-[dragging=true]:ring-ring dark:bg-card"
+        className={cn(
+          "border-0 bg-card ring-1 ring-foreground/10 data-[dragging=true]:ring-ring dark:bg-card",
+          "rounded-xl",
+          compact ? "h-auto shadow-md" : "shadow-xs",
+        )}
         onDragOver={(event) => {
           if (!event.dataTransfer.types.includes("Files")) return;
           event.preventDefault();
@@ -271,42 +326,26 @@ export function Composer({
           add(event.dataTransfer.files);
         }}
       >
-        {files.length > 0 && (
-          // Attachment borders sit 9px in (top and sides), like the buttons'
-          // visible edges below; their file icons land on the 16px text line.
-          // AttachmentGroup adds 4px above, so pt-1.25 + 4 = 9.
-          <InputGroupAddon align="block-start" className="px-2.25 pt-1.25">
-            <AttachmentGroup className="w-full">
-              {files.map((file) => (
-                <FileAttachment
-                  key={file.id}
-                  file={file}
-                  state={file.state}
-                  onRemove={() => remove(file.id)}
-                />
-              ))}
-            </AttachmentGroup>
-          </InputGroupAddon>
+        {attachments}
+        {compact ? (
+          // One row, 48px: buttons 9px from the visible edges, text 48px in
+          // (8px padding + 32px button + 4px gap + 4px text padding).
+          <div className="flex w-full items-center gap-1 p-2">
+            {plus}
+            <EditorContent editor={editor} className="min-w-0 flex-1" />
+            {tools}
+            {main}
+          </div>
+        ) : (
+          <>
+            <EditorContent editor={editor} className="w-full" />
+            <InputGroupAddon align="block-end" className="p-2">
+              {plus}
+              {tools}
+              <span className="ml-auto">{main}</span>
+            </InputGroupAddon>
+          </>
         )}
-        <EditorContent editor={editor} className="w-full" />
-        <InputGroupAddon align="block-end" className="p-2">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <InputGroupButton
-                  size="icon-sm"
-                  aria-label="Add files"
-                  onClick={() => picker.current?.click()}
-                />
-              }
-            >
-              <RiAddLine />
-            </TooltipTrigger>
-            <TooltipContent>Add files</TooltipContent>
-          </Tooltip>
-          {tools}
-          <span className="ml-auto">{main}</span>
-        </InputGroupAddon>
       </InputGroup>
       {/* Outside the group: a direct <input> child changes its addon padding. */}
       <input

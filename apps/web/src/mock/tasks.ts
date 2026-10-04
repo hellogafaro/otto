@@ -40,11 +40,51 @@ export const agents = {
   a_quill: { title: "Quill" },
 } as const;
 
-export const projects = {
-  p_web: { title: "Otto web" },
-  p_launch: { title: "Launch site" },
+// Projects follow a lifecycle like tasks. channel names the project's
+// Conversation; cover is an optional image for its card and its page. UI-only for now: the
+// backend Project has no status, priority or cover yet.
+export type ProjectStatus = "planned" | "active" | "paused" | "completed";
+
+export type Project = {
+  title: string;
+  description?: string;
+  ownerId?: string;
+  memberIds?: string[];
+  status?: ProjectStatus;
+  priority?: TaskPriority;
+  channel?: string;
+  cover?: string;
+};
+
+export const projects: Record<string, Project> = {
+  p_web: {
+    title: "Otto web",
+    description:
+      "The Otto web app: tasks, projects, conversations and the composer, on the shared design system.",
+    ownerId: "u_johan",
+    memberIds: ["u_maya", "a_forge", "a_otto"],
+    status: "active",
+    priority: "high",
+    channel: "otto-web",
+    cover:
+      "https://images.unsplash.com/photo-1557683316-973673baf926?w=900&auto=format&fit=crop&q=60",
+  },
+  p_launch: {
+    title: "Launch site",
+    description: "Marketing site for launch: landing page, pricing and FAQ.",
+    ownerId: "u_maya",
+    memberIds: ["u_johan", "a_quill", "a_scout"],
+    status: "planned",
+    priority: "medium",
+    channel: "launch",
+    cover:
+      "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=900&auto=format&fit=crop&q=60",
+  },
   p_onboarding: { title: "Onboarding" },
-} as const;
+  p_brand: { title: "Brand refresh" },
+  p_billing: { title: "Billing" },
+  p_mobile: { title: "Mobile app" },
+};
 
 const notes: Record<string, string> = {
   t1: "Users on Safari 17 bounce between /login and /callback after the session cookie expires. Reproduce with a stale cookie, then fix the redirect guard.",
@@ -207,14 +247,103 @@ export const activity: Record<string, Activity[]> = {
   ],
 };
 
+// Documents: Markdown content written by members and agents, optionally in a
+// project. Visibility is "user" (only the creator) or "workspace"; image is an
+// optional picture from the document, shown as its cover.
+export type DocumentVisibility = "user" | "workspace";
+
+export type Doc = {
+  id: string;
+  title: string;
+  content: string;
+  image?: string;
+  projectId?: string;
+  visibility: DocumentVisibility;
+  createdBy: string;
+  updatedAt: string;
+};
+
+export const documents: Doc[] = [
+  {
+    id: "d1",
+    title: "Design system notes",
+    content: `Vanilla shadcn on the vega preset. Shared looks change in packages/ui with an Otto comment; instances only set layout. Visible edges sit 9px in, content 16px.
+
+## Sizes
+
+- Controls are 32px; dense bars use 28px.
+- Icons are 14px; avatars are at least 20px.
+- Radius steps: 2, 6, 8, 10 and 16px. Inner radius is the outer radius minus the gap.
+
+## Color
+
+Primary is blue-600 in light mode and blue-500 in dark mode. Everything else stays neutral.`,
+    projectId: "p_web",
+    visibility: "workspace",
+    createdBy: "u_johan",
+    updatedAt: daysAgo(2),
+  },
+  {
+    id: "d2",
+    title: "Composer spec",
+    content: `One composer for comments and asks. Enter sends, Shift+Enter breaks the line. @ tags people, agents, tasks and projects; files attach by drop or paste.
+
+## Asking Otto
+
+New items start in the composer: the button prefills "@Otto" and the request, and the cursor lands at the end.
+
+## Attachments
+
+- Drop, paste or pick files.
+- Uploads show a spinner until they finish.`,
+    projectId: "p_web",
+    visibility: "workspace",
+    createdBy: "a_otto",
+    updatedAt: daysAgo(5),
+  },
+  {
+    id: "d3",
+    title: "Launch plan",
+    content: `Week one: landing page and pricing. Week two: FAQ from support conversations, then the welcome copy.
+
+## Week one
+
+- [ ] Landing page
+- [ ] Pricing page
+
+## Week two
+
+- [ ] FAQ
+- [ ] Welcome copy`,
+    image:
+      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&auto=format&fit=crop&q=60",
+    projectId: "p_launch",
+    visibility: "workspace",
+    createdBy: "u_maya",
+    updatedAt: daysAgo(1),
+  },
+  {
+    id: "d4",
+    title: "Hiring notes",
+    content: `Private notes on the next hires: one designer who codes, one support lead.`,
+    visibility: "user",
+    createdBy: "u_johan",
+    updatedAt: daysAgo(7),
+  },
+];
+
 // Resources linked to a task: saved outputs, often from an agent's run (the
 // backend model is Artifact). Linking never copies files.
-export type ResourceKind = "video" | "image" | "document" | "file";
+export type ResourceKind = "video" | "audio" | "image" | "document" | "file";
 
 export type TaskResource = {
   id: string;
   title: string;
   kind: ResourceKind;
+  /** A picture of it (the image itself, a video frame), for galleries. */
+  preview?: string;
+  /** The file itself, shown read-only in the viewer. */
+  url?: string;
   createdAt: string;
 };
 
@@ -224,6 +353,8 @@ export const taskResources: Record<string, TaskResource[]> = {
       id: "a1",
       title: "redirect-loop-repro.mp4",
       kind: "video",
+      // CC0 sample clip from MDN.
+      url: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
       createdAt: daysAgo(2),
     },
     {
@@ -237,11 +368,72 @@ export const taskResources: Record<string, TaskResource[]> = {
     {
       id: "a3",
       title: "pricing-comparison.pdf",
-      kind: "file",
+      kind: "document",
+      url: "/mock/pricing-comparison.pdf",
+      createdAt: daysAgo(1),
+    },
+    {
+      id: "a4",
+      title: "landing-hero.png",
+      kind: "image",
+      preview:
+        "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1600&auto=format&fit=crop&q=70",
       createdAt: daysAgo(1),
     },
   ],
+  t5: [
+    {
+      id: "a5",
+      title: "avatar-glyphs.png",
+      kind: "image",
+      preview:
+        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1600&auto=format&fit=crop&q=70",
+      createdAt: daysAgo(3),
+    },
+  ],
+  t10: [
+    {
+      id: "a9",
+      title: "launch-voiceover.mp3",
+      kind: "audio",
+      // CC0 sample sound from MDN.
+      url: "https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3",
+      createdAt: daysAgo(9),
+    },
+    {
+      id: "a6",
+      title: "wordmark-weights.png",
+      kind: "image",
+      preview:
+        "https://images.unsplash.com/photo-1586717791821-3f44a563fa4c?w=1600&auto=format&fit=crop&q=70",
+      createdAt: daysAgo(12),
+    },
+    {
+      id: "a7",
+      title: "launch-metrics.png",
+      kind: "image",
+      preview:
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1600&auto=format&fit=crop&q=70",
+      createdAt: daysAgo(10),
+    },
+    {
+      id: "a8",
+      title: "brand-notes.md",
+      kind: "document",
+      url: "/mock/brand-notes.md",
+      createdAt: daysAgo(11),
+    },
+  ],
 };
+
+// Every resource with the task it came from, latest first.
+export type Resource = TaskResource & { taskId?: string };
+
+export const resources: Resource[] = Object.entries(taskResources)
+  .flatMap(([taskId, list]) =>
+    list.map((resource) => ({ ...resource, taskId })),
+  )
+  .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
 // Logged time (UI-only for now: the backend has no time entries).
 export type TimeEntry = {

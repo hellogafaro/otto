@@ -47,10 +47,13 @@ export function Editor({
   value,
   onChange,
   placeholder,
+  readOnly = false,
 }: {
   value: string;
   onChange?: (markdown: string) => void;
   placeholder?: string;
+  /** Rendered only (e.g. a Markdown file in the resource viewer). */
+  readOnly?: boolean;
 }) {
   const editor = useEditor({
     extensions: [
@@ -65,6 +68,7 @@ export function Editor({
     ],
     content: value,
     contentType: "markdown",
+    editable: !readOnly,
     editorProps: { attributes: { class: "otto-editor" } },
     onUpdate: ({ editor }) => onChange?.(editor.getMarkdown()),
   });
@@ -72,8 +76,8 @@ export function Editor({
   return (
     <>
       <EditorContent editor={editor} />
-      {editor && <FormatMenu editor={editor} />}
-      {editor && <TableMenu editor={editor} />}
+      {editor && !readOnly && <FormatMenu editor={editor} />}
+      {editor && !readOnly && <TableMenu editor={editor} />}
     </>
   );
 }
