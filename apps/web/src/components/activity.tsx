@@ -1,6 +1,7 @@
 import { cn } from "@workspace/ui/lib/utils";
 import type { ReactNode } from "react";
-import { actorOf, shortDate } from "@/components/task-meta";
+import { shortDate } from "@/components/task-meta";
+import { useDirectory } from "@/lib/directory";
 
 // Activity as a timeline: one straight hairline down the left, under the
 // cards' avatars (16px + 10px in). It reaches 16px out of the page column
@@ -56,6 +57,7 @@ export function ActivityEvent({
   body: string;
   createdAt: string;
 }) {
+  const { actorOf } = useDirectory();
   return (
     <TimelineItem dot="event" className="text-sm text-muted-foreground">
       {actorOf(actorId).name} {body} ·{" "}

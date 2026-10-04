@@ -1,19 +1,29 @@
 import {
   RiAddLine,
-  RiBarChart2Line,
+  RiArrowUpDownLine,
   RiBox3Line,
   RiCheckboxCircleLine,
-  RiSearchLine,
   RiUserFollowLine,
   RiUserLine,
 } from "@remixicon/react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Badge } from "@workspace/ui/components/badge";
+import { Button } from "@workspace/ui/components/button";
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
   ContextMenuTrigger,
 } from "@workspace/ui/components/context-menu";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
+import { Input } from "@workspace/ui/components/input";
 import {
   Item,
   ItemActions,
@@ -21,173 +31,348 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item";
+import { toast } from "@workspace/ui/components/sonner";
 import { cn } from "@workspace/ui/lib/utils";
-import { useCommandPalette } from "@/components/command-palette";
-import { EmptyPage } from "@/components/empty-page";
+import { useState } from "react";
 import {
   FilterBar,
   type FilterDef,
   FilterMenu,
   NoResults,
-  omit,
 } from "@/components/filters";
 import { useAskAgent } from "@/components/floating-chat";
-import { IconAction } from "@/components/icon-action";
-import { ItemMenuItems } from "@/components/item-menu";
 import { ListGroup } from "@/components/list-group";
 import { mention } from "@/components/mentions";
 import { Page } from "@/components/page";
+import { QueryState } from "@/components/query-state";
+import { People, shortDate, statuses } from "@/components/task-meta";
+import { TaskForm, TaskPicker } from "@/components/tasks/task-form";
+import { read } from "@/lib/api";
+import { useDirectory } from "@/lib/directory";
 import {
-  assigneeLooks,
-  ownerLooks,
-  People,
-  priorities,
-  projectLooks,
-  shortDate,
-  statuses,
-  statusOrder,
-} from "@/components/task-meta";
-import {
-  agents,
-  tasks as allTasks,
-  currentUserId,
-  projects,
   type Task,
-  type TaskPriority,
-  type TaskStatus,
-  users,
-} from "@/mock/tasks";
+  type TasksSearch,
+  taskStatusOrder,
+  useTaskProject,
+} from "@/lib/task-data";
+import { useWorkspace } from "@/lib/workspace";
 
-// Filters live in the URL; a missing key means any. "me" is the current
-// user; assignee also takes "none" (unassigned).
-export type TasksSearch = {
-  owner?: string;
-  assignee?: string;
-  project?: string;
-  priority?: TaskPriority;
-};
-
-const people = { ...users, ...agents };
-
-export function validateTasksSearch(
-  search: Record<string, unknown>,
-): TasksSearch {
-  const pick = (value: unknown, valid: (value: string) => boolean) =>
-    typeof value === "string" && valid(value) ? value : undefined;
-  return {
-    owner: pick(search.owner, (v) => v === "me" || v in users),
-    assignee: pick(
-      search.assignee,
-      (v) => v === "me" || v === "none" || v in people,
-    ),
-    project: pick(search.project, (v) => v in projects),
-    priority: pick(search.priority, (v) => v in priorities) as
-      | TaskPriority
-      | undefined,
-  };
-}
-
-const me = (id: string) => (id === "me" ? currentUserId : id);
-
-function matches(task: Task, search: TasksSearch) {
-  const assigneeId = task.assigneeAgentId ?? task.assigneeUserId ?? "none";
-  return (
-    (!search.owner || task.ownerId === me(search.owner)) &&
-    (!search.assignee || assigneeId === me(search.assignee)) &&
-    (!search.project || task.projectId === search.project) &&
-    (!search.priority || task.priority === search.priority)
-  );
-}
+export { type TasksSearch, validateTasksSearch } from "@/lib/task-data";
 
 export function TasksPage({ search }: { search: TasksSearch }) {
   const navigate = useNavigate({ from: "/tasks" });
-  const openPalette = useCommandPalette();
-  const visible = allTasks.filter((task) => matches(task, search));
+  const { api, workspaceId, user } = useWorkspace();
+  const directory = useDirectory();
+  const project = useTaskProject(search.project);
+  const [creating, setCreating] = useState(false);
   const change = (key: keyof TasksSearch, value: string | undefined) =>
-    navigate({ search: (prev) => ({ ...prev, [key]: value }) });
-  const clear = () => navigate({ search: {} });
-
-  // The empty state is only for no tasks at all; filters with no matches keep
-  // the page and show a quieter "no results" in the list instead.
-  if (allTasks.length === 0) {
-    return (
-      <EmptyPage
-        icon={RiCheckboxCircleLine}
-        title="No tasks"
-        description="Tasks from you and your agents show up here, grouped by status."
-        ask={{
-          about: "your tasks",
-          action: "New task",
-          start: "Add a task to ",
-        }}
-      />
-    );
-  }
-
+    navigate({
+      search: (prev) => ({ ...prev, [key]: value, after: undefined }),
+    });
+  const clear = () => navigate({ search: { project: search.project } });
+  const assignee =
+    search.assignee === "me" ? `user:${user.id}` : search.assignee;
+  const query = useQuery({
+    queryKey: ["workspace", workspaceId, "tasks", search],
+    queryFn: async ({ signal }) =>
+      read(
+        await api.tasks.$get(
+          {
+            param: { workspaceId },
+            query: {
+              projectId: search.project ?? "",
+              ownerId: search.owner === "me" ? user.id : search.owner,
+              assigneeUserId: assignee?.startsWith("user:")
+                ? assignee.slice(5)
+                : undefined,
+              assigneeAgentId: assignee?.startsWith("agent:")
+                ? assignee.slice(6)
+                : undefined,
+              query: search.query,
+              status: search.status,
+              archived: search.archived,
+              sort: search.sort ?? "updatedAt",
+              order: search.order ?? "desc",
+              after: search.after,
+              limit: search.limit ?? "100",
+            },
+          },
+          { init: { signal } },
+        ),
+      ),
+    enabled: Boolean(search.project),
+    retry: false,
+  });
+  const owners = Object.fromEntries(
+    project.members.map((person) => [
+      person.userId,
+      { label: person.name, icon: RiUserLine },
+    ]),
+  );
+  if (search.owner && search.owner !== "me" && !owners[search.owner])
+    owners[search.owner] = {
+      label: directory.actorOf(search.owner).name,
+      icon: RiUserLine,
+    };
+  const assignees = Object.fromEntries([
+    ...project.members.map(
+      (person) =>
+        [
+          `user:${person.userId}`,
+          { label: person.name, icon: RiUserLine },
+        ] as const,
+    ),
+    ...directory.agents.map(
+      (agent) =>
+        [
+          `agent:${agent.id}`,
+          { label: agent.title, icon: RiUserLine },
+        ] as const,
+    ),
+  ]);
+  if (
+    search.assignee &&
+    search.assignee !== "me" &&
+    !assignees[search.assignee]
+  )
+    assignees[search.assignee] = {
+      label: directory.actorOf(
+        search.assignee.slice(search.assignee.indexOf(":") + 1),
+      ).name,
+      icon: RiUserLine,
+    };
+  const filters: FilterDef<keyof TasksSearch>[] = [
+    {
+      key: "owner",
+      label: "Owner",
+      icon: RiUserLine,
+      people: true,
+      options: { me: { label: "Me", icon: RiUserLine }, ...owners },
+    },
+    {
+      key: "assignee",
+      label: "Assignee",
+      icon: RiUserFollowLine,
+      people: true,
+      options: { me: { label: "Me", icon: RiUserLine }, ...assignees },
+    },
+    {
+      key: "status",
+      label: "Status",
+      icon: RiCheckboxCircleLine,
+      options: Object.fromEntries(
+        taskStatusOrder.map((status) => [status, statuses[status]]),
+      ),
+    },
+  ];
+  const projectOptions = Object.fromEntries(
+    directory.projects.map((item) => [item.id, item.title]),
+  );
+  if (search.project && !projectOptions[search.project])
+    projectOptions[search.project] = "Selected project";
   return (
     <Page
       title="Tasks"
       width="wide"
       actions={
         <>
-          <FilterMenu filters={filterMenus} values={search} onChange={change} />
-          <IconAction
-            label="Search"
-            icon={RiSearchLine}
-            onClick={() => openPalette("tasks")}
-          />
-          <IconAction label="New task" icon={RiAddLine} />
+          <FilterMenu filters={filters} values={search} onChange={change} />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="New task"
+            disabled={!project.canWrite}
+            onClick={() => setCreating(true)}
+          >
+            <RiAddLine />
+          </Button>
         </>
       }
     >
+      <QueryState
+        pending={directory.pending}
+        error={directory.error}
+        retry={() => {
+          void directory.projectsQuery.refetch();
+          void directory.membersQuery.refetch();
+          void directory.agentsQuery.refetch();
+        }}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <TaskPicker
+          label="Project"
+          icon={RiBox3Line}
+          value={search.project ?? ""}
+          options={projectOptions}
+          onChange={(id) => change("project", id)}
+        />
+        <form
+          key={search.query ?? ""}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void change(
+              "query",
+              String(
+                new FormData(event.currentTarget).get("query") ?? "",
+              ).trim() || undefined,
+            );
+          }}
+          className="flex items-center gap-1"
+        >
+          <Input
+            name="query"
+            aria-label="Search tasks by whole words"
+            placeholder="Search whole words"
+            maxLength={200}
+            defaultValue={search.query}
+          />
+          <Button variant="outline" type="submit">
+            Search
+          </Button>
+        </form>
+        <TaskPicker
+          label="Sort tasks"
+          icon={RiArrowUpDownLine}
+          value={search.sort ?? "updatedAt"}
+          options={{
+            title: "Title",
+            createdAt: "Created",
+            updatedAt: "Updated",
+            dueAt: "Due date",
+          }}
+          onChange={(value) => change("sort", value)}
+        />
+        <Button
+          variant="outline"
+          onClick={() =>
+            navigate({
+              search: (prev) => ({
+                ...prev,
+                sort: prev.sort ?? "updatedAt",
+                order: (prev.order ?? "desc") === "asc" ? "desc" : "asc",
+                after: undefined,
+              }),
+            })
+          }
+        >
+          {(search.order ?? "desc") === "asc" ? "Ascending" : "Descending"}
+        </Button>
+        <Button
+          variant="outline"
+          aria-pressed={search.archived === "true"}
+          onClick={() =>
+            change("archived", search.archived === "true" ? undefined : "true")
+          }
+        >
+          Archived
+        </Button>
+      </div>
+      {directory.projectsQuery.hasNextPage && (
+        <Button
+          variant="outline"
+          className="self-start"
+          disabled={directory.projectsQuery.isFetchingNextPage}
+          onClick={() => directory.projectsQuery.fetchNextPage()}
+        >
+          Load more projects
+        </Button>
+      )}
+      {directory.agentsQuery.hasNextPage && (
+        <Button
+          variant="outline"
+          className="self-start"
+          disabled={directory.agentsQuery.isFetchingNextPage}
+          onClick={() => directory.agentsQuery.fetchNextPage()}
+        >
+          Load more agents for filters
+        </Button>
+      )}
       <FilterBar
-        filters={filterMenus}
+        filters={filters}
         values={search}
         onChange={change}
         onClear={clear}
       />
-      {visible.length === 0 ? (
-        <NoResults what="tasks" onClear={clear} />
+      {!search.project ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>Choose a project</EmptyTitle>
+            <EmptyDescription>
+              Tasks are listed within an authorized project.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <TaskGroups tasks={visible} />
+        <>
+          <QueryState
+            pending={query.isPending}
+            error={query.error ?? project.query.error}
+            retry={() => {
+              void query.refetch();
+              void project.query.refetch();
+            }}
+          />
+          {query.data &&
+            !query.error &&
+            (query.data.items.length ? (
+              <TaskGroups tasks={query.data.items} />
+            ) : (
+              <NoResults what="tasks" onClear={clear} />
+            ))}
+          <div className="flex gap-2">
+            {search.after && (
+              <Button
+                variant="outline"
+                onClick={() => change("after", undefined)}
+              >
+                First page
+              </Button>
+            )}
+            {query.data?.next && (
+              <Button
+                variant="outline"
+                disabled={query.isFetching}
+                onClick={() =>
+                  navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      after: query.data?.next ?? undefined,
+                    }),
+                  })
+                }
+              >
+                Next page
+              </Button>
+            )}
+          </div>
+          {project.query.hasNextPage && (
+            <Button
+              variant="outline"
+              disabled={project.query.isFetchingNextPage}
+              onClick={() => project.query.fetchNextPage()}
+            >
+              Load more project members
+            </Button>
+          )}
+        </>
+      )}
+      {creating && search.project && (
+        <TaskForm
+          key={search.project}
+          projectId={search.project}
+          onClose={() => setCreating(false)}
+          onCreated={(task) => {
+            void navigate({
+              to: "/tasks/$taskId",
+              params: { taskId: task.id },
+            });
+          }}
+        />
       )}
     </Page>
   );
 }
 
-// One submenu per property, each with "Any" first.
-const filterMenus: FilterDef<keyof TasksSearch>[] = [
-  {
-    key: "owner",
-    label: "Owner",
-    icon: RiUserLine,
-    people: true,
-    options: {
-      me: { ...ownerLooks[currentUserId], label: "Me" },
-      ...omit(ownerLooks, currentUserId),
-    },
-  },
-  {
-    key: "assignee",
-    label: "Assignee",
-    icon: RiUserFollowLine,
-    people: true,
-    options: {
-      me: { ...assigneeLooks[currentUserId], label: "Me" },
-      ...omit(assigneeLooks, currentUserId),
-    },
-  },
-  { key: "project", label: "Project", icon: RiBox3Line, options: projectLooks },
-  {
-    key: "priority",
-    label: "Priority",
-    icon: RiBarChart2Line,
-    options: priorities,
-  },
-];
-
-// Tasks grouped by status, in status order. Inside a project the rows leave
-// out the project badge.
 export function TaskGroups({
   tasks,
   showProject = true,
@@ -197,52 +382,25 @@ export function TaskGroups({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      {statusOrder.map((status) => (
-        <StatusGroup
-          key={status}
-          status={status}
-          tasks={tasks.filter((task) => task.status === status)}
-          showProject={showProject}
-        />
-      ))}
+      {taskStatusOrder.map((status) => {
+        const items = tasks.filter((task) => task.status === status);
+        return (
+          <ListGroup
+            key={status}
+            look={statuses[status]}
+            count={items.length}
+            defaultOpen={status !== "done"}
+          >
+            {items.map((task) => (
+              <TaskRow key={task.id} task={task} showProject={showProject} />
+            ))}
+          </ListGroup>
+        );
+      })}
     </div>
   );
 }
 
-// One status's tasks, as a list group.
-function StatusGroup({
-  status,
-  tasks,
-  showProject,
-}: {
-  status: TaskStatus;
-  tasks: Task[];
-  showProject: boolean;
-}) {
-  return (
-    <ListGroup
-      look={statuses[status]}
-      count={tasks.length}
-      defaultOpen={status !== "done"}
-    >
-      {tasks.map((task) => (
-        <TaskRow key={task.id} task={task} showProject={showProject} />
-      ))}
-    </ListGroup>
-  );
-}
-
-// Everyone involved, owner first, then the assignee (one today; the group
-// already fits several).
-function peopleOf(task: Task) {
-  const assigneeId = task.assigneeAgentId ?? task.assigneeUserId;
-  return [task.ownerId, assigneeId].filter(
-    (id, index, all): id is string => !!id && all.indexOf(id) === index,
-  );
-}
-
-// A task's row; right-click opens the shared item menu (Delete is not wired
-// yet).
 export function TaskRow({
   task,
   showProject,
@@ -250,14 +408,19 @@ export function TaskRow({
 }: {
   task: Task;
   showProject: boolean;
-  /** Under a list group's header (the chevron column); not on Home. */
   grouped?: boolean;
 }) {
-  const { icon: Icon, className, label } = statuses[task.status];
-  const people = peopleOf(task);
+  const directory = useDirectory();
   const navigate = useNavigate();
   const ask = useAskAgent();
-
+  const { icon: Icon, className, label } = statuses[task.status];
+  const people = [
+    ...new Set([
+      task.ownerId,
+      ...task.assigneeUserIds,
+      ...task.assigneeAgentIds,
+    ]),
+  ];
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<li />}>
@@ -265,7 +428,6 @@ export function TaskRow({
           size="xs"
           render={<Link to="/tasks/$taskId" params={{ taskId: task.id }} />}
         >
-          {/* Chevron column, so the status icon sits under the header's. */}
           {grouped && <span className="size-3.5 shrink-0" aria-hidden />}
           <ItemMedia variant="icon">
             <Icon aria-label={label} className={className} />
@@ -282,28 +444,50 @@ export function TaskRow({
             {showProject && (
               <Badge variant="outline" className="hidden sm:inline-flex">
                 <RiBox3Line data-icon="inline-start" />
-                {projects[task.projectId as keyof typeof projects].title}
+                {directory.projects.find(
+                  (project) => project.id === task.projectId,
+                )?.title ?? "Project"}
               </Badge>
             )}
             <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
-              {shortDate.format(new Date(task.updatedAt))}
+              {task.updatedAt ? shortDate.format(new Date(task.updatedAt)) : ""}
             </span>
           </ItemActions>
         </Item>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-48">
-        <ItemMenuItems
-          type="task"
-          name={task.title}
-          onOpen={() =>
-            navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })
-          }
-          onAsk={() =>
-            ask(`${mention({ type: "task", id: task.id, label: task.title })} `)
-          }
-          link={`/tasks/${task.id}`}
-          onDelete={() => {}}
-        />
+        <ContextMenuGroup>
+          <ContextMenuItem
+            onClick={() =>
+              navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })
+            }
+          >
+            Open
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() =>
+              ask(
+                `${mention({ type: "task", id: task.id, label: task.title })} `,
+              )
+            }
+          >
+            Ask about it
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(
+                  `${location.origin}/tasks/${task.id}`,
+                );
+                toast.success("Link copied");
+              } catch {
+                toast.error("Unable to copy link");
+              }
+            }}
+          >
+            Copy link
+          </ContextMenuItem>
+        </ContextMenuGroup>
       </ContextMenuContent>
     </ContextMenu>
   );
