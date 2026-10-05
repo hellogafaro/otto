@@ -584,16 +584,7 @@ export interface ElectronAPI {
   setRichToolDescriptions(enabled: boolean): Promise<void>
 
   // Prompt caching & context
-  getExtendedPromptCache(): Promise<boolean>
-  setExtendedPromptCache(enabled: boolean): Promise<void>
-  getEnable1MContext(): Promise<boolean>
-  setEnable1MContext(enabled: boolean): Promise<void>
 
-  // RTK token optimization
-  getRtkEnabled(): Promise<boolean>
-  setRtkEnabled(enabled: boolean): Promise<void>
-  getRtkStatus(opts?: { forceRecheck?: boolean }): Promise<{ installed: boolean; path: string | null; version: string | null; outdated: boolean; minSafeVersion: string; foundPath: string | null; updateCommand: string }>
-  getRtkGain(): Promise<{ totalCommands: number; totalInput: number; totalOutput: number; totalSaved: number; avgSavingsPct: number; totalTimeMs: number; avgTimeMs: number } | null>
 
   // Decision model (Jev / TypeSafe System One) — opt-in decision layer
   getDecisionLayerSettings(): Promise<DecisionLayerSettings>

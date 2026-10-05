@@ -312,16 +312,7 @@ export const CHANNEL_MAP = {
   setBrowserToolEnabled: invoke(RPC_CHANNELS.tools.SET_BROWSER_TOOL_ENABLED),
 
   // Prompt caching & context
-  getExtendedPromptCache: invoke(RPC_CHANNELS.caching.GET_EXTENDED_PROMPT_CACHE),
-  setExtendedPromptCache: invoke(RPC_CHANNELS.caching.SET_EXTENDED_PROMPT_CACHE),
-  getEnable1MContext: invoke(RPC_CHANNELS.caching.GET_ENABLE_1M_CONTEXT),
-  setEnable1MContext: invoke(RPC_CHANNELS.caching.SET_ENABLE_1M_CONTEXT),
 
-  // RTK token optimization
-  getRtkEnabled: invoke(RPC_CHANNELS.rtk.GET_ENABLED),
-  setRtkEnabled: invoke(RPC_CHANNELS.rtk.SET_ENABLED),
-  getRtkStatus: invoke(RPC_CHANNELS.rtk.GET_STATUS),
-  getRtkGain: invoke(RPC_CHANNELS.rtk.GET_GAIN),
 
   // Decision model (Jev)
   getDecisionLayerSettings: invoke(RPC_CHANNELS.decisions.GET_SETTINGS),
