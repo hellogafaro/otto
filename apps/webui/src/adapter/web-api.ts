@@ -169,18 +169,6 @@ export function createWebApi(options: WebApiOptions): {
 
     // Menu actions — no-ops (web has no native menu)
     menuQuit: () => Promise.resolve(),
-    menuMinimize: () => Promise.resolve(),
-    menuMaximize: () => Promise.resolve(),
-    menuZoomIn: () => Promise.resolve(),
-    menuZoomOut: () => Promise.resolve(),
-    menuZoomReset: () => Promise.resolve(),
-    menuToggleDevTools: () => Promise.resolve(),
-    menuUndo: () => { document.execCommand('undo'); return Promise.resolve() },
-    menuRedo: () => { document.execCommand('redo'); return Promise.resolve() },
-    menuCut: () => { document.execCommand('cut'); return Promise.resolve() },
-    menuCopy: () => { document.execCommand('copy'); return Promise.resolve() },
-    menuPaste: () => { document.execCommand('paste'); return Promise.resolve() },
-    menuSelectAll: () => { document.execCommand('selectAll'); return Promise.resolve() },
 
     // Badge — use document title
     refreshBadge: () => Promise.resolve(),

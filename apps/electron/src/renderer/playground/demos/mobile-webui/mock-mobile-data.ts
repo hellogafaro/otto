@@ -2,8 +2,7 @@
  * Mock data for the Mobile WebUI playground demos.
  *
  * Single source of truth for sessions, messages, labels and workspace data
- * shared across AppMenuMobilePreview, SessionListMobilePreview and
- * ChatDisplayMobilePreview. Keep shapes shallow — only fields the components
+ * shared across SessionListMobilePreview and ChatDisplayMobilePreview. Keep shapes shallow — only fields the components
  * actually read.
  */
 

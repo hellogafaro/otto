@@ -320,18 +320,6 @@ export const CHANNEL_MAP = {
 
   // Menu actions
   menuQuit: invoke(RPC_CHANNELS.menu.QUIT),
-  menuMinimize: invoke(RPC_CHANNELS.menu.MINIMIZE),
-  menuMaximize: invoke(RPC_CHANNELS.menu.MAXIMIZE),
-  menuZoomIn: invoke(RPC_CHANNELS.menu.ZOOM_IN),
-  menuZoomOut: invoke(RPC_CHANNELS.menu.ZOOM_OUT),
-  menuZoomReset: invoke(RPC_CHANNELS.menu.ZOOM_RESET),
-  menuToggleDevTools: invoke(RPC_CHANNELS.menu.TOGGLE_DEV_TOOLS),
-  menuUndo: invoke(RPC_CHANNELS.menu.UNDO),
-  menuRedo: invoke(RPC_CHANNELS.menu.REDO),
-  menuCut: invoke(RPC_CHANNELS.menu.CUT),
-  menuCopy: invoke(RPC_CHANNELS.menu.COPY),
-  menuPaste: invoke(RPC_CHANNELS.menu.PASTE),
-  menuSelectAll: invoke(RPC_CHANNELS.menu.SELECT_ALL),
 
   // Browser pane management
   'browserPane.create': invoke(RPC_CHANNELS.browserPane.CREATE),

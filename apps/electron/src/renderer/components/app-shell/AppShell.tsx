@@ -517,8 +517,6 @@ function AppShellContent({
     onRenameSession,
     onOpenSettings,
     onOpenKeyboardShortcuts,
-    onOpenStoredUserPreferences,
-    onReset,
     onSendMessage,
     openNewChat,
     pendingPermissions,
@@ -2315,17 +2313,11 @@ function AppShellContent({
           onWorkspaceCreated={() => onRefreshWorkspaces?.()}
           onWorkspaceRemoved={() => onRefreshWorkspaces?.()}
           activeSessionId={effectiveSessionId}
-          onNewChat={() => handleNewChat()}
-          onOpenSettings={onOpenSettings}
-          onOpenSettingsSubpage={handleSettingsClick}
-          onOpenKeyboardShortcuts={onOpenKeyboardShortcuts}
-          onOpenStoredUserPreferences={onOpenStoredUserPreferences}
           onBack={goBack}
           onForward={goForward}
           canGoBack={canGoBack}
           canGoForward={canGoForward}
           onToggleSidebar={handleToggleSidebar}
-          onToggleFocusMode={() => setIsSidebarAndNavigatorHidden(prev => !prev)}
           onAddSessionPanel={() => handleNewChat(true)}
           onAddBrowserPanel={() => { void handleNewBrowserWindow() }}
           isCompact={isAutoCompact}

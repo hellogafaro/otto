@@ -590,18 +590,6 @@ export interface ElectronAPI {
 
   // Menu actions (from renderer to main)
   menuQuit(): Promise<void>
-  menuMinimize(): Promise<void>
-  menuMaximize(): Promise<void>
-  menuZoomIn(): Promise<void>
-  menuZoomOut(): Promise<void>
-  menuZoomReset(): Promise<void>
-  menuToggleDevTools(): Promise<void>
-  menuUndo(): Promise<void>
-  menuRedo(): Promise<void>
-  menuCut(): Promise<void>
-  menuCopy(): Promise<void>
-  menuPaste(): Promise<void>
-  menuSelectAll(): Promise<void>
 
   // Browser pane management
   browserPane: {

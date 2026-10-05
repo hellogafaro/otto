@@ -1,7 +1,7 @@
 /**
  * TopBar - Persistent top bar above all panels (Slack-style)
  *
- * Layout: [Sidebar] [Menu] [Back] [Forward] [Workspace selector] ... [Browser strip] [+] [Help]
+ * Layout: [Sidebar] [Back] [Forward] [Workspace selector] ... [Browser strip] [+] [Help]
  *
  * Fixed at top of window, 48px tall.
  * macOS: offset left to avoid stoplight controls.
@@ -22,7 +22,6 @@ import {
   StyledDropdownMenuItem,
   StyledDropdownMenuSeparator,
 } from "@/components/ui/styled-dropdown"
-import type { SettingsMenuItem } from "../../../shared/menu-schema"
 import { SquarePenRounded } from "../icons/SquarePenRounded"
 import { useEffect, useRef, useState } from "react"
 import { BrowserTabStrip } from "../browser/BrowserTabStrip"
@@ -30,7 +29,6 @@ import type { Workspace } from "../../../shared/types"
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher"
 import { CompactWorkspaceSwitcher } from "./CompactWorkspaceSwitcher"
 import { getDocUrl } from "@craft-agent/shared/docs/doc-links"
-import { AppMenu } from "../AppMenu"
 
 const RIGHT_SLOT_FULL_BADGES_THRESHOLD = 420
 const RIGHT_SLOT_TWO_BADGES_THRESHOLD = 300
@@ -43,17 +41,11 @@ interface TopBarProps {
   onWorkspaceCreated?: (workspace: Workspace) => void
   onWorkspaceRemoved?: () => void
   activeSessionId?: string | null
-  onNewChat: () => void
-  onOpenSettings: () => void
-  onOpenSettingsSubpage: (subpage: SettingsMenuItem['id']) => void
-  onOpenKeyboardShortcuts: () => void
-  onOpenStoredUserPreferences: () => void
   onBack: () => void
   onForward: () => void
   canGoBack: boolean
   canGoForward: boolean
   onToggleSidebar: () => void
-  onToggleFocusMode: () => void
   onAddSessionPanel: () => void
   onAddBrowserPanel: () => void
   /** When true, hides controls that don't apply in compact/mobile layout */
@@ -68,17 +60,11 @@ export function TopBar({
   onWorkspaceCreated,
   onWorkspaceRemoved,
   activeSessionId,
-  onNewChat,
-  onOpenSettings,
-  onOpenSettingsSubpage,
-  onOpenKeyboardShortcuts,
-  onOpenStoredUserPreferences,
   onBack,
   onForward,
   canGoBack,
   canGoForward,
   onToggleSidebar,
-  onToggleFocusMode,
   onAddSessionPanel,
   onAddBrowserPanel,
   isCompact,
@@ -125,8 +111,8 @@ export function TopBar({
   // Stoplight padding clears macOS traffic-light controls, which only exist
   // in the Electron desktop window. The webui runs in a regular browser tab
   // and has no traffic lights regardless of host OS — collapse to a normal
-  // 12px inset so the logo sits at the edge.
-  const menuLeftPadding = isMac && !isWebUI ? 86 : 4
+  // 4px inset so the first control sits at the edge.
+  const leftPadding = isMac && !isWebUI ? 86 : 4
 
   return (
     <div
@@ -134,15 +120,14 @@ export function TopBar({
       style={{ height: 'var(--topbar-height)' }}
     >
       <div className="flex h-full w-full items-center justify-between gap-2">
-      {/* === LEFT: Sidebar + Menu + Navigation + Workspace === */}
+      {/* === LEFT: Sidebar + Navigation + Workspace === */}
       {/* Keep this container draggable. Only individual interactive controls should use titlebar-no-drag. */}
       {/* In compact mode the right slot is hidden, so we add right padding here
           so the workspace pill doesn't run flush against the viewport edge. */}
       <div
         className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1"
-        style={{ paddingLeft: menuLeftPadding, paddingRight: isCompact ? 12 : 0 }}
+        style={{ paddingLeft: leftPadding, paddingRight: isCompact ? 12 : 0 }}
       >
-        <div className="flex items-center gap-1">
         {!isCompact && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -153,17 +138,6 @@ export function TopBar({
           <TooltipContent side="bottom">{t("menu.toggleSidebar")}</TooltipContent>
         </Tooltip>
         )}
-
-        <AppMenu
-          onNewChat={onNewChat}
-          onOpenSettings={onOpenSettings}
-          onOpenSettingsSubpage={onOpenSettingsSubpage}
-          onOpenKeyboardShortcuts={onOpenKeyboardShortcuts}
-          onOpenStoredUserPreferences={onOpenStoredUserPreferences}
-          onToggleSidebar={onToggleSidebar}
-          onToggleFocusMode={onToggleFocusMode}
-        />
-        </div>
 
         {/* Back / Forward / Workspace selector (moved from center).
             In compact mode the back/forward buttons are dropped — the iOS-style

@@ -44,18 +44,6 @@ export const GUI_HANDLED_CHANNELS = [
   RPC_CHANNELS.notification.GET_ENABLED,
   RPC_CHANNELS.notification.SET_ENABLED,
   RPC_CHANNELS.menu.QUIT,
-  RPC_CHANNELS.menu.MINIMIZE,
-  RPC_CHANNELS.menu.MAXIMIZE,
-  RPC_CHANNELS.menu.ZOOM_IN,
-  RPC_CHANNELS.menu.ZOOM_OUT,
-  RPC_CHANNELS.menu.ZOOM_RESET,
-  RPC_CHANNELS.menu.TOGGLE_DEV_TOOLS,
-  RPC_CHANNELS.menu.UNDO,
-  RPC_CHANNELS.menu.REDO,
-  RPC_CHANNELS.menu.CUT,
-  RPC_CHANNELS.menu.COPY,
-  RPC_CHANNELS.menu.PASTE,
-  RPC_CHANNELS.menu.SELECT_ALL,
 ] as const
 
 export const HANDLED_CHANNELS = [
@@ -252,7 +240,6 @@ export function registerSystemCoreHandlers(server: RpcServer, deps: HandlerDeps)
 
 export function registerSystemGuiHandlers(server: RpcServer, deps: HandlerDeps): void {
   const { sessionManager } = deps
-  const windowManager = deps.windowManager
 
   // Auto-update handlers
   server.handle(RPC_CHANNELS.update.CHECK, async () => {
@@ -280,93 +267,9 @@ export function registerSystemGuiHandlers(server: RpcServer, deps: HandlerDeps):
     return getDismissedUpdateVersion()
   })
 
-  // Menu actions from renderer (for unified Craft menu)
+  // Quit, from the app.quit action
   server.handle(RPC_CHANNELS.menu.QUIT, async () => {
     deps.platform.quit?.()
-  })
-
-  server.handle(RPC_CHANNELS.menu.MINIMIZE, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    win?.minimize()
-  })
-
-  server.handle(RPC_CHANNELS.menu.MAXIMIZE, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    if (win) {
-      if (win.isMaximized()) {
-        win.unmaximize()
-      } else {
-        win.maximize()
-      }
-    }
-  })
-
-  server.handle(RPC_CHANNELS.menu.ZOOM_IN, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    if (win) {
-      const currentZoom = win.webContents.getZoomFactor()
-      win.webContents.setZoomFactor(Math.min(currentZoom + 0.1, 3.0))
-    }
-  })
-
-  server.handle(RPC_CHANNELS.menu.ZOOM_OUT, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    if (win) {
-      const currentZoom = win.webContents.getZoomFactor()
-      win.webContents.setZoomFactor(Math.max(currentZoom - 0.1, 0.5))
-    }
-  })
-
-  server.handle(RPC_CHANNELS.menu.ZOOM_RESET, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    win?.webContents.setZoomFactor(1.0)
-  })
-
-  server.handle(RPC_CHANNELS.menu.TOGGLE_DEV_TOOLS, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    win?.webContents.toggleDevTools()
-  })
-
-  server.handle(RPC_CHANNELS.menu.UNDO, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    win?.webContents.undo()
-  })
-
-  server.handle(RPC_CHANNELS.menu.REDO, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    win?.webContents.redo()
-  })
-
-  server.handle(RPC_CHANNELS.menu.CUT, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    win?.webContents.cut()
-  })
-
-  server.handle(RPC_CHANNELS.menu.COPY, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    win?.webContents.copy()
-  })
-
-  server.handle(RPC_CHANNELS.menu.PASTE, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    win?.webContents.paste()
-  })
-
-  server.handle(RPC_CHANNELS.menu.SELECT_ALL, async (ctx) => {
-    if (!windowManager) return
-    const win = windowManager.getWindowByWebContentsId(ctx.webContentsId!)
-    win?.webContents.selectAll()
   })
 
   // Notifications

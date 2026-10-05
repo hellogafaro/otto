@@ -63,13 +63,11 @@ const playgroundValue: AppShellContextType = {
   onSelectWorkspace: logCall('onSelectWorkspace'),
   onOpenSettings: logCall('onOpenSettings'),
   onOpenKeyboardShortcuts: logCall('onOpenKeyboardShortcuts'),
-  onOpenStoredUserPreferences: logCall('onOpenStoredUserPreferences'),
-  onReset: logCall('onReset'),
   onSessionOptionsChange: logCall('onSessionOptionsChange'),
   onInputChange: logCall('onInputChange'),
   onAttachmentsChange: logCall('onAttachmentsChange'),
-  // The mobile-webui demos rely on this signal to flip `AppMenu` into its
-  // compact layout; harmless for other demos that don't read it.
+  // The mobile-webui demos rely on this signal to render the compact layout;
+  // harmless for other demos that don't read it.
   isCompactMode: true,
 }
 

@@ -1725,15 +1725,6 @@ export default function App() {
     navigate(routes.view.settings('shortcuts'))
   }, [])
 
-  const handleOpenStoredUserPreferences = useCallback(() => {
-    navigate(routes.view.settings('preferences'))
-  }, [])
-
-  // Show reset confirmation dialog
-  const handleReset = useCallback(() => {
-    setShowResetDialog(true)
-  }, [])
-
   // Execute reset after user confirms in dialog
   const executeReset = useCallback(async () => {
     try {
@@ -1866,8 +1857,6 @@ export default function App() {
     // App actions
     onOpenSettings: handleOpenSettings,
     onOpenKeyboardShortcuts: handleOpenKeyboardShortcuts,
-    onOpenStoredUserPreferences: handleOpenStoredUserPreferences,
-    onReset: handleReset,
     // Session options
     onSessionOptionsChange: handleSessionOptionsChange,
     onInputChange: handleInputChange,
@@ -1908,8 +1897,6 @@ export default function App() {
     handleRefreshWorkspaces,
     handleOpenSettings,
     handleOpenKeyboardShortcuts,
-    handleOpenStoredUserPreferences,
-    handleReset,
     handleSessionOptionsChange,
     handleInputChange,
     handleAttachmentsChange,
@@ -2080,11 +2067,6 @@ export default function App() {
                 />
               )}
             </div>
-            <ResetConfirmationDialog
-              open={showResetDialog}
-              onConfirm={executeReset}
-              onCancel={() => setShowResetDialog(false)}
-            />
           </div>
 
           {/* File preview overlay — rendered by the link interceptor when a previewable file is clicked */}
