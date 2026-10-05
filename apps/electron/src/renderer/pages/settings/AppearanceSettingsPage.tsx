@@ -1,7 +1,7 @@
 /**
  * AppearanceSettingsPage
  *
- * Visual customization settings: theme mode, color theme, font,
+ * Visual customization settings: theme mode, color theme,
  * workspace-specific theme overrides, and CLI tool icon mappings.
  */
 
@@ -112,8 +112,6 @@ export default function AppearanceSettingsPage() {
     setMode,
     colorTheme,
     setColorTheme,
-    font,
-    setFont,
     activeWorkspaceId,
     setWorkspaceColorTheme,
     themeLoadError,
@@ -330,16 +328,6 @@ export default function AppearanceSettingsPage() {
                       value={colorTheme}
                       onValueChange={setColorTheme}
                       options={themeOptions}
-                    />
-                  </SettingsRow>
-                  <SettingsRow label={t("settings.appearance.font")}>
-                    <SettingsSegmentedControl
-                      value={font}
-                      onValueChange={setFont}
-                      options={[
-                        { value: 'inter', label: t("settings.appearance.fontInter") },
-                        { value: 'system', label: t("settings.appearance.fontSystem") },
-                      ]}
                     />
                   </SettingsRow>
                   <SettingsRow label={t("settings.appearance.language")}>

@@ -608,8 +608,8 @@ export interface ElectronAPI {
   onNotificationNavigate(callback: (data: { workspaceId: string; sessionId: string }) => void): () => void
 
   // Theme preferences sync across windows
-  broadcastThemePreferences(preferences: { mode: string; colorTheme: string; font: string }): Promise<void>
-  onThemePreferencesChange(callback: (preferences: { mode: string; colorTheme: string; font: string }) => void): () => void
+  broadcastThemePreferences(preferences: { mode: string; colorTheme: string }): Promise<void>
+  onThemePreferencesChange(callback: (preferences: { mode: string; colorTheme: string }) => void): () => void
 
   // Workspace theme sync across windows
   broadcastWorkspaceThemeChange(workspaceId: string, themeId: string | null): Promise<void>
