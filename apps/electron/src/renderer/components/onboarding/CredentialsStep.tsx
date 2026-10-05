@@ -103,7 +103,6 @@ export function CredentialsStep({
               onClick={() => onStartOAuth?.()}
               className="gap-2"
               loading={status === 'validating'}
-              loadingText={t("common.connecting")}
             >
               <ExternalLink className="size-4" />
               {t("onboarding.credentials.signInChatGPT")}
@@ -143,7 +142,6 @@ export function CredentialsStep({
               onClick={() => onStartOAuth?.()}
               className="gap-2"
               loading={status === 'validating'}
-              loadingText={t("onboarding.credentials.waitingForAuth")}
             >
               <ExternalLink className="size-4" />
               {t("onboarding.credentials.signInGitHub")}
@@ -210,7 +208,6 @@ export function CredentialsStep({
                 form="auth-code-form"
                 disabled={false}
                 loading={status === 'validating'}
-                loadingText={t("common.connecting")}
               />
             </>
           }
@@ -238,7 +235,6 @@ export function CredentialsStep({
               onClick={() => onStartOAuth?.()}
               className="gap-2"
               loading={status === 'validating'}
-              loadingText={t("common.connecting")}
             >
               <ExternalLink className="size-4" />
               {t("onboarding.credentials.signInClaude")}
@@ -286,7 +282,6 @@ export function CredentialsStep({
             form="api-key-form"
             disabled={false}
             loading={status === 'validating'}
-            loadingText={t("common.validating")}
           />
         </>
       }

@@ -36,6 +36,7 @@ import { HTMLPreviewOverlay } from '../overlay/HTMLPreviewOverlay'
 import { ItemNavigator } from '../overlay/ItemNavigator'
 import { usePlatform } from '../../context/PlatformContext'
 import { useTranslation } from 'react-i18next'
+import { Spinner } from '../ui/LoadingIndicator'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -229,7 +230,7 @@ export function MarkdownHtmlBlock({ code, className }: MarkdownHtmlBlockProps) {
 
           {/* Loading state for uncached active item */}
           {!activeHtml && loading && (
-            <div className="py-8 text-center text-muted-foreground text-[13px]">{t('common.loading')}</div>
+            <div className="flex justify-center py-8 text-muted-foreground text-[13px]"><Spinner /></div>
           )}
 
           {/* Error state for uncached active item */}

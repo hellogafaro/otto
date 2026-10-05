@@ -38,7 +38,7 @@ export function WelcomeStep({
           : t("onboarding.welcome.description")
       }
       actions={
-        <ContinueButton onClick={onContinue} className="w-full" loading={isLoading} loadingText={t("common.checking")}>
+        <ContinueButton onClick={onContinue} className="w-full" loading={isLoading}>
           {isExistingUser ? t("onboarding.welcome.continue") : t("onboarding.welcome.getStarted")}
         </ContinueButton>
       }

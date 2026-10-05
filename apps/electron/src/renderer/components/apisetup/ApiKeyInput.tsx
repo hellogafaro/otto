@@ -16,7 +16,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { SettingsCard, SettingsRow, SettingsMenuSelect, SettingsSegmentedControl } from "@/components/settings"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
+import { Spinner } from "@craft-agent/ui"
 import { pickTierDefaults, resolveTierModels, type PiModelInfo } from "./tier-models"
 import {
   resolveCustomEndpointPayload,
@@ -549,9 +550,9 @@ export function ApiKeyInput({
         {/* Models: three tiers for Pi providers, a list for custom endpoints */}
         {hasPiModels ? (
           piModelsLoading ? (
-            <FieldRow label={t("apiSetup.loadingModels")}>
-              <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-            </FieldRow>
+            <div className="flex justify-center py-3 text-muted-foreground">
+              <Spinner />
+            </div>
           ) : (
             tierConfigs.map(({ label, value, onChange }) => (
               <FieldRow key={label} label={label}>

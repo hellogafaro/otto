@@ -546,7 +546,7 @@ function WorkspaceOverrideCard({ workspace, llmConnections, onSettingsChange }: 
           <div className="text-left">
             <div className="text-sm font-medium">{workspace.name}</div>
             <div className="text-xs text-muted-foreground">
-              {isLoading ? t("common.loading") : getSummary()}
+              {isLoading ? <Spinner /> : getSummary()}
             </div>
           </div>
         </div>
@@ -1182,7 +1182,7 @@ export default function AiSettingsPage() {
   }, [decisionUsesLocalProvider, decisionStatus?.settings.provider, decisionStatus?.settings.baseUrl, probeDecisionServer])
 
   const decisionProbeDescription = decisionProbing || (decisionUsesLocalProvider && !decisionProbe)
-    ? t("common.checking")
+    ? undefined
     : decisionProbe?.reachable && decisionProbe.health
       ? t("settings.ai.decisions.localServerRunning", { url: decisionProbe.baseUrl, models: decisionProbe.health.loaded?.length ? decisionProbe.health.loaded.join(', ') : '—' })
       : decisionProbe?.reachable
@@ -1445,7 +1445,7 @@ export default function AiSettingsPage() {
                   ) : (
                     <SettingsRow
                       label={t("settings.ai.rtk.title")}
-                      description={rtkStatus === null ? t("common.checking") : t("settings.ai.rtk.notInstalledDesc")}
+                      description={rtkStatus === null ? undefined : t("settings.ai.rtk.notInstalledDesc")}
                     >
                       <Button
                         size="sm"
@@ -1460,7 +1460,7 @@ export default function AiSettingsPage() {
                         disabled={rtkRechecking || rtkStatus === null}
                         className="bg-background shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
                       >
-                        {rtkRechecking ? t("common.checking") : t("settings.ai.rtk.recheck")}
+                        {rtkRechecking ? <Spinner /> : t("settings.ai.rtk.recheck")}
                       </Button>
                     </SettingsRow>
                   )}
@@ -1517,7 +1517,7 @@ export default function AiSettingsPage() {
                           disabled={decisionProbing}
                           className="bg-background shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
                         >
-                          {decisionProbing ? t("common.checking") : t("settings.ai.decisions.recheck")}
+                          {decisionProbing ? <Spinner /> : t("settings.ai.decisions.recheck")}
                         </Button>
                       </SettingsRow>
                     )}
@@ -1584,7 +1584,7 @@ export default function AiSettingsPage() {
                         disabled={decisionTesting}
                         className="bg-background shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
                       >
-                        {decisionTesting ? t("common.checking") : t("settings.ai.decisions.testRun")}
+                        {decisionTesting ? <Spinner /> : t("settings.ai.decisions.testRun")}
                       </Button>
                     </SettingsRow>
                     <p className="px-4 pb-4 -mt-1 text-xs text-foreground/60">

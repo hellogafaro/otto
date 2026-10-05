@@ -29,6 +29,7 @@ import { ImagePreviewOverlay } from '../overlay/ImagePreviewOverlay'
 import { usePlatform } from '../../context/PlatformContext'
 import { ImageCardStack } from './ImageCardStack'
 import { useTranslation } from 'react-i18next'
+import { Spinner } from '../ui/LoadingIndicator'
 
 interface PreviewItem {
   src: string
@@ -259,7 +260,7 @@ export function MarkdownImageBlock({ code, className, onCreateRegionAnnotation: 
           )}
 
           {loading && (!activeDataUrl || (hasMultiple && stackItems.length === 0)) && (
-            <div className="py-8 text-center text-muted-foreground text-[13px]">{t('common.loading')}</div>
+            <div className="flex justify-center py-8 text-muted-foreground text-[13px]"><Spinner /></div>
           )}
 
           {!loading && error && (!activeDataUrl || (hasMultiple && stackItems.length === 0)) && (

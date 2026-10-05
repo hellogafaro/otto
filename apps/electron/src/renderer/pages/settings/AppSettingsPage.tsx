@@ -314,7 +314,7 @@ export default function AppSettingsPage() {
                   <SettingsRow label={t("settings.about.version")}>
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">
-                        {updateChecker.updateInfo?.currentVersion ?? t("common.loading")}
+                        {updateChecker.updateInfo?.currentVersion ?? <Spinner />}
                       </span>
                       {isElectron && updateChecker.isDownloading && updateChecker.updateInfo?.latestVersion && (
                         <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -333,10 +333,7 @@ export default function AppSettingsPage() {
                         disabled={isCheckingForUpdates}
                       >
                         {isCheckingForUpdates ? (
-                          <>
-                            <Spinner className="mr-1.5" />
-                            {t("common.checking")}
-                          </>
+                          <Spinner />
                         ) : (
                           t("settings.about.checkNow")
                         )}

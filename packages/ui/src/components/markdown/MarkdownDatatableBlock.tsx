@@ -46,6 +46,7 @@ import {
   StyledDropdownMenuSubContent,
 } from '../ui/StyledDropdown'
 import { useTranslation } from 'react-i18next'
+import { Spinner } from '../ui/LoadingIndicator'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -445,7 +446,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
         <div className="px-3 py-2 bg-muted/50 border-b">
           <span className="text-[12px] text-muted-foreground font-medium">{spec.title || t('datatable.defaultTitle')}</span>
         </div>
-        <div className="py-8 text-center text-muted-foreground text-[13px]">{t('datatable.loadingData')}</div>
+        <div className="flex justify-center py-8 text-muted-foreground text-[13px]"><Spinner /></div>
       </div>
     )
   }

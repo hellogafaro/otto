@@ -232,7 +232,7 @@ export function PageView({ pageSlug }: PageViewProps) {
             </button>
           </div>
         ) : (
-          <LoadingIndicator label={t('common.loading')} />
+          <LoadingIndicator />
         )}
       </div>
     )
@@ -423,7 +423,7 @@ export function PageView({ pageSlug }: PageViewProps) {
           </div>
         ) : !leaseState || !snapshotReady || !activeWorkspaceId ? (
           <div className="flex h-full items-center justify-center">
-            <LoadingIndicator label={t('common.loading')} />
+            <LoadingIndicator />
           </div>
         ) : (
           <div className="h-full w-full overflow-hidden rounded-lg border border-border/60 shadow-minimal">

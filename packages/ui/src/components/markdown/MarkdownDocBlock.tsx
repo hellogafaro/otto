@@ -27,6 +27,7 @@
  * recursing forever. Other preview blocks (datatable, mermaid, …) still work.
  */
 
+import { Spinner } from '../ui/LoadingIndicator'
 import * as React from 'react'
 import { FileText, Maximize2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
@@ -167,7 +168,7 @@ export function MarkdownDocBlock({ code, className, onUrlClick, onFileClick }: M
           )}
 
           {activeContent === undefined && loading && (
-            <div className="py-8 text-center text-muted-foreground text-[13px]">{t('common.loading')}</div>
+            <div className="flex justify-center py-8 text-muted-foreground text-[13px]"><Spinner /></div>
           )}
 
           {activeContent === undefined && !loading && error && (

@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next'
 import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { HeaderMenu } from '@/components/ui/HeaderMenu'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '@craft-agent/ui'
 import { useAppShellContext, useActiveWorkspace } from '@/context/AppShellContext'
 import { type PermissionsConfigFile } from '@craft-agent/shared/agent/modes'
 import {
@@ -211,7 +211,7 @@ export default function PermissionsSettingsPage() {
             <div className="space-y-8">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  <Spinner className="text-lg text-muted-foreground" />
                 </div>
               ) : (
                 <>

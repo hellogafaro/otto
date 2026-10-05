@@ -6,7 +6,8 @@
  */
 
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
+import { Spinner } from '@craft-agent/ui'
 import { Info_Alert } from '@/components/info'
 import { cn } from '@/lib/utils'
 import type { TestResult } from './types'
@@ -24,7 +25,7 @@ export function AutomationTestPanel({ result, className }: AutomationTestPanelPr
   if (result.state === 'running') {
     return (
       <div className={cn('flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground', className)}>
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <Spinner className="text-base" />
         <span>{t('automations.testRunning')}</span>
       </div>
     )

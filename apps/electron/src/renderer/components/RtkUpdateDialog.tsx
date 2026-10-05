@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useRegisterModal } from '@/context/ModalContext'
+import { Spinner } from '@craft-agent/ui'
 
 export interface RtkStatusInfo {
   installed: boolean
@@ -93,7 +94,7 @@ export function RtkUpdateDialog({ open, onOpenChange, status, onStatusChange, on
           </Button>
           <Button variant="outline" onClick={copyCommand}>{t('rtkUpdate.copy')}</Button>
           <Button onClick={() => { void recheck() }} disabled={rechecking}>
-            {rechecking ? t('common.checking') : t('rtkUpdate.recheck')}
+            {rechecking ? <Spinner /> : t('rtkUpdate.recheck')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -253,7 +253,6 @@ export function BackButton({ children = 'Back', className, ...props }: BackButto
 interface ContinueButtonProps extends Omit<ButtonProps, 'children'> {
   children?: React.ReactNode
   loading?: boolean
-  loadingText?: string
 }
 
 /**
@@ -262,21 +261,13 @@ interface ContinueButtonProps extends Omit<ButtonProps, 'children'> {
 export function ContinueButton({
   children = 'Continue',
   loading,
-  loadingText = 'Loading...',
   className,
   disabled,
   ...props
 }: ContinueButtonProps) {
   return (
     <Button className={cn("flex-1 max-w-[320px]", className)} disabled={disabled || loading} {...props}>
-      {loading ? (
-        <>
-          <Spinner className="mr-2" />
-          {loadingText}
-        </>
-      ) : (
-        children
-      )}
+      {loading ? <Spinner /> : children}
     </Button>
   )
 }

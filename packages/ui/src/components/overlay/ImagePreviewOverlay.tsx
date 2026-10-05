@@ -12,6 +12,7 @@ import { ItemNavigator } from './ItemNavigator'
 import { ZoomControls } from './ZoomControls'
 import { RICH_BLOCK_DEFAULTS } from './rich-block-interaction-spec'
 import { useRichBlockInteractions } from './useRichBlockInteractions'
+import { Spinner } from '../ui/LoadingIndicator'
 
 interface PreviewItem {
   src: string
@@ -174,7 +175,7 @@ export function ImagePreviewOverlay({
         }}
       >
         {!activeDataUrl && isLoading && (
-          <div className="text-muted-foreground text-sm">{t('preview.loadingImage')}</div>
+          <div className="flex justify-center text-muted-foreground text-sm"><Spinner /></div>
         )}
         {activeDataUrl && (
           <img

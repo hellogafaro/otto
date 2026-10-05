@@ -91,10 +91,7 @@ export function SessionSearchHeader({
       {searchQuery.length >= 2 && (
         <div className="px-2 pt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           {isSearching ? (
-            <>
-              <Spinner className="text-[9px] text-foreground/50" />
-              <span>{t('common.loading')}</span>
-            </>
+            <Spinner className="text-[9px] text-foreground/50" />
           ) : isUnavailable ? (
             <span className="text-destructive/70">{t('session.searchUnavailable')}</span>
           ) : (

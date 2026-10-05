@@ -66,7 +66,6 @@ export function FileViewer({ path }: FileViewerProps) {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-3">
               <Spinner className="text-lg" />
-              <span className="text-sm font-medium">{t("fileViewer.loadingContent")}</span>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center h-32 text-destructive gap-2">

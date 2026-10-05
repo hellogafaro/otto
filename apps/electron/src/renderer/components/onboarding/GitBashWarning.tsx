@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { StepFormLayout, BackButton } from "./primitives"
 import type { GitBashStatus } from "../../../shared/types"
+import { Spinner } from '@craft-agent/ui'
 
 export type { GitBashStatus }
 
@@ -124,8 +125,7 @@ export function GitBashWarning({
                 size="sm"
                 className="flex-1 bg-background text-foreground hover:bg-foreground/5 rounded-lg shadow-minimal"
               >
-                <RefreshCw className={`mr-2 size-4 ${isRechecking ? 'animate-spin' : ''}`} />
-                {isRechecking ? t("common.checking") : t("onboarding.gitBash.recheck")}
+                {isRechecking ? <Spinner /> : t("onboarding.gitBash.recheck")}
               </Button>
               <Button
                 onClick={handleBrowse}

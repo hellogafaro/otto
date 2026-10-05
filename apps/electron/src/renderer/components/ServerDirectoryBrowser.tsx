@@ -220,9 +220,8 @@ export function ServerDirectoryBrowser({
       <div className="border border-foreground/10 rounded-md overflow-hidden flex-1 min-h-0">
         <div className="overflow-y-auto max-h-[300px]">
           {loading && (
-            <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Spinner className="text-sm" />
-              Loading...
             </div>
           )}
 

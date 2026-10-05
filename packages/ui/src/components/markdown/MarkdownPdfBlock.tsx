@@ -41,6 +41,7 @@ import 'react-pdf/dist/Page/TextLayer.css'
 
 // Configure pdf.js worker using Vite's ?url import for cross-platform dev/prod compatibility
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import { Spinner } from '../ui/LoadingIndicator'
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -216,7 +217,7 @@ export function MarkdownPdfBlock({ code, className, onCreateRegionAnnotation: _o
 
           {/* Loading state for uncached active item */}
           {!activePdfData && loading && (
-            <div className="py-8 text-center text-muted-foreground text-[13px]">{t('common.loading')}</div>
+            <div className="flex justify-center py-8 text-muted-foreground text-[13px]"><Spinner /></div>
           )}
 
           {/* Error state for uncached active item */}

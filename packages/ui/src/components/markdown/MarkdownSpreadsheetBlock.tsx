@@ -31,6 +31,7 @@ import { useScrollFade } from './useScrollFade'
 import { TableExportDropdown } from './TableExportDropdown'
 import { usePlatform } from '../../context/PlatformContext'
 import { useTranslation } from 'react-i18next'
+import { Spinner } from '../ui/LoadingIndicator'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -196,7 +197,7 @@ export function MarkdownSpreadsheetBlock({ code, className }: MarkdownSpreadshee
         <div className="px-3 py-2 bg-muted/50 border-b">
           <span className="text-[12px] text-muted-foreground font-medium">{loadingLabel}</span>
         </div>
-        <div className="py-8 text-center text-muted-foreground text-[13px]">{t('datatable.loadingData')}</div>
+        <div className="flex justify-center py-8 text-muted-foreground text-[13px]"><Spinner /></div>
       </div>
     )
   }

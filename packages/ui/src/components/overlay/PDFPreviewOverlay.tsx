@@ -20,6 +20,7 @@ import 'react-pdf/dist/Page/TextLayer.css'
 
 // Configure pdf.js worker using Vite's ?url import for cross-platform dev/prod compatibility
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import { Spinner } from '../ui/LoadingIndicator'
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 interface PreviewItem {
@@ -138,7 +139,7 @@ export function PDFPreviewOverlay({
     >
       <div className="h-full flex flex-col items-center overflow-auto">
         {isLoading && (
-          <div className="text-muted-foreground text-sm">{t('preview.loadingPdf')}</div>
+          <div className="flex justify-center text-muted-foreground text-sm"><Spinner /></div>
         )}
         {fileObj && (
           <Document

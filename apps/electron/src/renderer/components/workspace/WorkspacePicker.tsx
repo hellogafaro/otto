@@ -56,7 +56,6 @@ export function WorkspacePicker({ onSelectWorkspace }: WorkspacePickerProps) {
       <div className="flex h-screen items-center justify-center bg-sidebar px-4">
         <AddWorkspaceContainer>
           <Spinner className="h-6 w-6" />
-          <p className="mt-3 text-sm text-muted-foreground">{t("workspace.loadingWorkspaces")}</p>
         </AddWorkspaceContainer>
       </div>
     )

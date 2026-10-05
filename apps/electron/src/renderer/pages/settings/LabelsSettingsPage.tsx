@@ -18,7 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { HeaderMenu } from '@/components/ui/HeaderMenu'
 import { EditPopover, EditButton, getEditConfig } from '@/components/ui/EditPopover'
 import { getDocUrl } from '@craft-agent/shared/docs/doc-links'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '@craft-agent/ui'
 import { useAppShellContext, useActiveWorkspace } from '@/context/AppShellContext'
 import { useLabels } from '@/hooks/useLabels'
 import {
@@ -63,7 +63,7 @@ export default function LabelsSettingsPage() {
             <div className="space-y-8">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  <Spinner className="text-lg text-muted-foreground" />
                 </div>
               ) : (
                 <>

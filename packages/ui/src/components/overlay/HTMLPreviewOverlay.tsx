@@ -16,6 +16,7 @@ import { Globe } from 'lucide-react'
 import { PreviewOverlay } from './PreviewOverlay'
 import { CopyButton } from './CopyButton'
 import { ItemNavigator } from './ItemNavigator'
+import { Spinner } from '../ui/LoadingIndicator'
 
 /**
  * Inject `<base target="_top">` so link clicks navigate the top frame,
@@ -184,7 +185,7 @@ export function HTMLPreviewOverlay({
     >
       <div className="px-6 pb-6">
         {loadingItem && !activeContent && (
-          <div className="py-12 text-center text-muted-foreground text-sm">{t('common.loading')}</div>
+          <div className="flex justify-center py-12 text-muted-foreground text-sm"><Spinner /></div>
         )}
         {loadError && !activeContent && (
           <div className="py-12 text-center text-destructive/70 text-sm">{loadError}</div>

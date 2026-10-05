@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Loader } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { cn } from "../../lib/utils"
 
@@ -21,43 +22,19 @@ export interface SpinnerProps {
 }
 
 /**
- * Spinner - 3x3 grid spinner based on SpinKit Grid
+ * Spinner - the lucide Loader, spinning. The one loading indicator.
  *
- * Features:
- * - Uses currentColor (inherits text color from parent)
- * - Uses em sizing (scales with font-size)
- * - 3x3 grid of cubes with staggered scale animation
- * - Pure CSS animation (no JS state)
- *
- * Usage:
- * ```tsx
- * // Inherits color and size from parent
- * <div className="text-muted-foreground text-sm">
- *   <Spinner />
- * </div>
- *
- * // Or override with className
- * <Spinner className="text-amber-500 text-lg" />
- * ```
+ * Inherits color (currentColor) and scales with font-size (1em); override
+ * either with className.
  */
 export function Spinner({ className }: SpinnerProps) {
   const { t } = useTranslation()
   return (
-    <span
-      className={cn("spinner", className)}
+    <Loader
       role="status"
       aria-label={t("common.loading")}
-    >
-      <span className="spinner-cube" />
-      <span className="spinner-cube" />
-      <span className="spinner-cube" />
-      <span className="spinner-cube" />
-      <span className="spinner-cube" />
-      <span className="spinner-cube" />
-      <span className="spinner-cube" />
-      <span className="spinner-cube" />
-      <span className="spinner-cube" />
-    </span>
+      className={cn("size-[1em] shrink-0 animate-spin", className)}
+    />
   )
 }
 

@@ -8,6 +8,7 @@
  * in the shared renderer components — no webui-specific layout hacks needed.
  */
 
+import { Loader } from 'lucide-react'
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createWebApi } from './adapter/web-api'
@@ -21,12 +22,9 @@ const ElectronApp = lazy(() => import('@/App'))
 type Phase = 'loading' | 'error' | 'ready'
 
 function LoadingScreen() {
-  const { t } = useTranslation()
-
   return (
-    <div className="flex flex-col items-center justify-center h-screen font-sans text-foreground/50 gap-3">
-      <div className="animate-spin w-6 h-6 border-2 border-current border-t-transparent rounded-full" />
-      <p className="text-[13px]">{t("webui.connectingToServer")}</p>
+    <div className="flex items-center justify-center h-screen text-foreground/50">
+      <Loader className="size-5 animate-spin" />
     </div>
   )
 }

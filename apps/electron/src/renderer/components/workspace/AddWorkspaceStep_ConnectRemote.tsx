@@ -182,7 +182,6 @@ export function AddWorkspaceStep_ConnectRemote({
 
   const showCreateMode = !isReconnectMode && (isCreateNew || isFreshServer)
   const buttonLabel = isReconnectMode ? 'Reconnect' : showCreateMode ? 'Create and Connect' : 'Connect'
-  const buttonLoadingLabel = isReconnectMode ? 'Reconnecting...' : showCreateMode ? 'Creating...' : 'Connecting...'
 
   return (
     <AddWorkspaceContainer>
@@ -357,7 +356,6 @@ export function AddWorkspaceStep_ConnectRemote({
           onClick={handleConnect}
           disabled={!canConnect}
           loading={isCreating}
-          loadingText={buttonLoadingLabel}
         >
           {buttonLabel}
         </AddWorkspacePrimaryButton>
