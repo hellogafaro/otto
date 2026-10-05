@@ -1676,7 +1676,7 @@ export default function AiSettingsPage() {
                   isWaitingForCode={apiSetupOnboarding.isWaitingForCode}
                   onSubmitAuthCode={apiSetupOnboarding.handleSubmitAuthCode}
                   onCancelOAuth={apiSetupOnboarding.handleCancelOAuth}
-                  copilotDeviceCode={apiSetupOnboarding.copilotDeviceCode}
+                  deviceCode={apiSetupOnboarding.deviceCode}
                   editInitialValues={editInitialValues}
                   className="h-full"
                 />

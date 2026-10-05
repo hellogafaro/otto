@@ -1,25 +1,26 @@
 /**
- * ChatGPT OAuth with PKCE
+ * ChatGPT sign-in (the Codex client) by device code.
  *
- * Implements PKCE-based OAuth for authenticating with ChatGPT Plus accounts
- * via the Codex app-server OAuth endpoint.
+ * Works the same in the desktop app, the browser and over a remote server, with
+ * no callback server or localhost redirect: the server asks OpenAI for a code,
+ * the person enters it at the verification page on any device, and the server
+ * polls until OpenAI hands back an authorization code to exchange.
  *
- * Architecture: server-owned flow.
- *   - prepareChatGptOAuth() — server generates PKCE + auth URL
- *   - Client opens browser + runs callback server (port 1455)
- *   - exchangeChatGptTokens() — server exchanges code for tokens
- *   - refreshChatGptTokens() — server refreshes expired tokens
+ *   - requestChatGptDeviceCode() — get the user code and verification URL
+ *   - pollChatGptDeviceAuth() — wait for approval, then exchange for tokens
+ *   - refreshChatGptTokens() — refresh expired tokens
  *   - exchangeIdTokenForApiKey() — converts idToken to OpenAI API key
  */
-import { randomBytes, createHash } from 'node:crypto';
 import { CHATGPT_OAUTH_CONFIG } from './chatgpt-oauth-config.ts';
 
 // OAuth configuration from shared config
 const CLIENT_ID = CHATGPT_OAUTH_CONFIG.CLIENT_ID;
-const AUTH_URL = CHATGPT_OAUTH_CONFIG.AUTH_URL;
 const TOKEN_URL = CHATGPT_OAUTH_CONFIG.TOKEN_URL;
-const REDIRECT_URI = CHATGPT_OAUTH_CONFIG.REDIRECT_URI;
-const OAUTH_SCOPES = CHATGPT_OAUTH_CONFIG.SCOPES;
+const ISSUER = CHATGPT_OAUTH_CONFIG.ISSUER;
+const DEVICE_USERCODE_URL = `${ISSUER}/api/accounts/deviceauth/usercode`;
+const DEVICE_TOKEN_URL = `${ISSUER}/api/accounts/deviceauth/token`;
+const DEVICE_VERIFICATION_URL = `${ISSUER}/codex/device`;
+const DEVICE_REDIRECT_URI = `${ISSUER}/deviceauth/callback`;
 
 export interface ChatGptTokens {
   /** JWT id_token containing user identity claims */
@@ -32,76 +33,100 @@ export interface ChatGptTokens {
   expiresAt?: number;
 }
 
-/**
- * Generate a secure random state parameter
- */
-function generateState(): string {
-  return randomBytes(32).toString('hex');
-}
-
-/**
- * Generate PKCE code verifier and challenge
- */
-function generatePKCE(): { codeVerifier: string; codeChallenge: string } {
-  // Use URL-safe base64 encoding for PKCE (43-128 characters)
-  const codeVerifier = randomBytes(32).toString('base64url');
-  const codeChallenge = createHash('sha256')
-    .update(codeVerifier)
-    .digest('base64url');
-  return { codeVerifier, codeChallenge };
-}
-
 // ---------------------------------------------------------------------------
-// Prepare / Exchange (server-owned flow)
+// Device code flow
 // ---------------------------------------------------------------------------
 
-export interface ChatGptPreparedFlow {
-  authUrl: string;
-  state: string;
-  codeVerifier: string;
+export interface ChatGptDeviceCode {
+  deviceAuthId: string;
+  /** The code the person types at the verification page */
+  userCode: string;
+  verificationUri: string;
+  /** Poll interval in ms */
+  intervalMs: number;
+  /** Unix ms when the code stops working */
+  expiresAt: number;
 }
 
-/**
- * Prepare a ChatGPT OAuth flow without side effects.
- * Returns PKCE parameters and auth URL — no callback server, no browser open.
- * Used by the server-owned flow where the client handles browser + callback.
- */
-export function prepareChatGptOAuth(): ChatGptPreparedFlow {
-  const state = generateState();
-  const { codeVerifier, codeChallenge } = generatePKCE();
-
-  const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    response_type: 'code',
-    redirect_uri: REDIRECT_URI,
-    scope: OAUTH_SCOPES,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    state,
-    codex_cli_simplified_flow: 'true',
-    id_token_add_organizations: 'true',
+async function postJson(url: string, body: unknown, signal?: AbortSignal): Promise<Response> {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+    signal,
   });
+}
 
+/** Ask OpenAI for a device code. */
+export async function requestChatGptDeviceCode(signal?: AbortSignal): Promise<ChatGptDeviceCode> {
+  const response = await postJson(DEVICE_USERCODE_URL, { client_id: CLIENT_ID }, signal);
+  if (!response.ok) {
+    throw new Error(`Could not start ChatGPT sign-in (${response.status})`);
+  }
+  const data = (await response.json()) as {
+    device_auth_id: string;
+    user_code?: string;
+    usercode?: string;
+    interval?: string | number;
+    expires_at?: string;
+  };
+  const userCode = data.user_code ?? data.usercode;
+  if (!data.device_auth_id || !userCode) throw new Error('Unexpected response starting ChatGPT sign-in');
+  const expiresAt = data.expires_at ? Date.parse(data.expires_at) : Date.now() + 15 * 60 * 1000;
   return {
-    authUrl: `${AUTH_URL}?${params.toString()}`,
-    state,
-    codeVerifier,
+    deviceAuthId: data.device_auth_id,
+    userCode,
+    verificationUri: DEVICE_VERIFICATION_URL,
+    intervalMs: Math.max(1, Number(data.interval) || 5) * 1000,
+    expiresAt,
   };
 }
 
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new Error('Cancelled'));
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(new Error('Cancelled'));
+    }, { once: true });
+  });
+}
+
 /**
- * Exchange an authorization code for ChatGPT tokens (stateless).
- * Accepts the codeVerifier directly — does not rely on module-level state.
+ * Wait until the code is approved, then exchange it for ChatGPT tokens.
+ * Resolves with tokens; rejects when the code expires, is denied or aborted.
  */
-export async function exchangeChatGptTokens(
+export async function pollChatGptDeviceAuth(
+  code: ChatGptDeviceCode,
+  signal?: AbortSignal,
+): Promise<ChatGptTokens> {
+  while (Date.now() < code.expiresAt) {
+    await sleep(code.intervalMs, signal);
+    const response = await postJson(
+      DEVICE_TOKEN_URL,
+      { device_auth_id: code.deviceAuthId, user_code: code.userCode },
+      signal,
+    );
+    // Not approved yet
+    if (response.status === 403 || response.status === 404) continue;
+    if (!response.ok) throw new Error(`ChatGPT sign-in failed (${response.status})`);
+    const grant = (await response.json()) as { authorization_code: string; code_verifier: string };
+    return exchangeAuthorizationCode(grant.authorization_code, grant.code_verifier, signal);
+  }
+  throw new Error('The ChatGPT sign-in code expired');
+}
+
+async function exchangeAuthorizationCode(
   code: string,
   codeVerifier: string,
+  signal?: AbortSignal,
 ): Promise<ChatGptTokens> {
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: CLIENT_ID,
     code,
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: DEVICE_REDIRECT_URI,
     code_verifier: codeVerifier,
   });
 
@@ -112,6 +137,7 @@ export async function exchangeChatGptTokens(
       Accept: 'application/json',
     },
     body: params.toString(),
+    signal,
   });
 
   if (!response.ok) {

@@ -51,7 +51,7 @@ interface OnboardingWizardProps {
   onCancelOAuth?: () => void
 
   // Copilot device flow
-  copilotDeviceCode?: { userCode: string; verificationUri: string }
+  deviceCode?: { userCode: string; verificationUri: string }
 
   // Git Bash (Windows)
   onBrowseGitBash?: () => Promise<string | null>
@@ -102,7 +102,7 @@ export function OnboardingWizard({
   onSubmitAuthCode,
   onCancelOAuth,
   // Copilot device flow
-  copilotDeviceCode,
+  deviceCode,
   // Git Bash (Windows)
   onBrowseGitBash,
   onUseGitBashPath,
@@ -173,7 +173,7 @@ export function OnboardingWizard({
             onSubmitAuthCode={onSubmitAuthCode}
             editInitialValues={editInitialValues}
             onCancelOAuth={onCancelOAuth}
-            copilotDeviceCode={copilotDeviceCode}
+            deviceCode={deviceCode}
           />
         )
 

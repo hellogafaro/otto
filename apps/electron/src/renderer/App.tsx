@@ -2013,7 +2013,7 @@ export default function App() {
             isWaitingForCode={onboarding.isWaitingForCode}
             onSubmitAuthCode={onboarding.handleSubmitAuthCode}
             onCancelOAuth={onboarding.handleCancelOAuth}
-            copilotDeviceCode={onboarding.copilotDeviceCode}
+            deviceCode={onboarding.deviceCode}
             onBrowseGitBash={onboarding.handleBrowseGitBash}
             onUseGitBashPath={onboarding.handleUseGitBashPath}
             onRecheckGitBash={onboarding.handleRecheckGitBash}

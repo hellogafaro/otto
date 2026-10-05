@@ -35,7 +35,7 @@ interface CredentialsStepProps {
   onSubmitAuthCode?: (code: string) => void
   onCancelOAuth?: () => void
   // Device flow (Copilot)
-  copilotDeviceCode?: { userCode: string; verificationUri: string }
+  deviceCode?: { userCode: string; verificationUri: string }
   // Edit mode (pre-fill existing connection values)
   editInitialValues?: {
     apiKey?: string
@@ -57,7 +57,7 @@ export function CredentialsStep({
   isWaitingForCode,
   onSubmitAuthCode,
   onCancelOAuth,
-  copilotDeviceCode,
+  deviceCode,
   editInitialValues,
 }: CredentialsStepProps) {
   const { t } = useTranslation()
@@ -73,97 +73,92 @@ export function CredentialsStep({
 
   // Auto-copy device code to clipboard when it appears
   useEffect(() => {
-    if (copilotDeviceCode?.userCode) {
-      navigator.clipboard.writeText(copilotDeviceCode.userCode).then(() => {
+    if (deviceCode?.userCode) {
+      navigator.clipboard.writeText(deviceCode.userCode).then(() => {
         setCopiedCode(true)
         setTimeout(() => setCopiedCode(false), 2000)
       }).catch(() => {
         // Clipboard write failed, user can still click to copy
       })
     }
-  }, [copilotDeviceCode?.userCode])
+  }, [deviceCode?.userCode])
 
   const handleCopyCode = () => {
-    if (copilotDeviceCode?.userCode) {
-      navigator.clipboard.writeText(copilotDeviceCode.userCode).then(() => {
+    if (deviceCode?.userCode) {
+      navigator.clipboard.writeText(deviceCode.userCode).then(() => {
         setCopiedCode(true)
         setTimeout(() => setCopiedCode(false), 2000)
       })
     }
   }
 
-  // --- ChatGPT OAuth flow (native browser OAuth) ---
-  if (isChatGptOAuth) {
-    return (
-      <StepFormLayout
-        title={t("onboarding.credentials.connectChatGPT")}
-        description={t("onboarding.credentials.connectChatGPTDesc")}
-        actions={
-          <>
-            <BackButton onClick={onBack} disabled={status === 'validating'} />
-            <ContinueButton
-              onClick={() => onStartOAuth?.()}
-              className="gap-2"
-              loading={status === 'validating'}
-            >
-              <ExternalLink className="size-4" />
-              {t("onboarding.credentials.signInChatGPT")}
-            </ContinueButton>
-          </>
+  // --- ChatGPT and Copilot: device code (the person approves the code on any device) ---
+  if (isChatGptOAuth || isCopilotOAuth) {
+    const provider = isChatGptOAuth
+      ? {
+          title: t("onboarding.credentials.connectChatGPT"),
+          description: t("onboarding.credentials.connectChatGPTDesc"),
+          signIn: t("onboarding.credentials.signInChatGPT"),
+          enterCode: t("onboarding.credentials.enterCodeOnChatGPT"),
+          waiting: t("onboarding.credentials.chatGPTInstructions"),
+          connected: t("onboarding.credentials.chatGPTConnected"),
         }
-      >
-        <div className="space-y-3 px-1 text-sm">
-          <p className="text-muted-foreground">{t("onboarding.credentials.chatGPTInstructions")}</p>
-          {status === 'error' && errorMessage && <p className="text-destructive">{errorMessage}</p>}
-          {status === 'success' && <p className="text-success">{t("onboarding.credentials.chatGPTConnected")}</p>}
-        </div>
-      </StepFormLayout>
-    )
-  }
-
-  // --- Copilot OAuth flow (device flow) ---
-  if (isCopilotOAuth) {
+      : {
+          title: t("onboarding.credentials.connectGitHub"),
+          description: t("onboarding.credentials.connectGitHubDesc"),
+          signIn: t("onboarding.credentials.signInGitHub"),
+          enterCode: t("onboarding.credentials.enterCodeOnGitHub"),
+          waiting: t("onboarding.credentials.clickToSignInGitHub"),
+          connected: t("onboarding.credentials.copilotConnected"),
+        }
+    const cancel = () => {
+      if (isChatGptOAuth) void window.electronAPI.cancelChatGptOAuth()
+      else void window.electronAPI.cancelCopilotOAuth()
+      onBack()
+    }
     return (
       <StepFormLayout
-        title={t("onboarding.credentials.connectGitHub")}
-        description={t("onboarding.credentials.connectGitHubDesc")}
+        title={provider.title}
+        description={provider.description}
         actions={
           <>
-            <BackButton onClick={onBack} disabled={status === 'validating'} />
+            <BackButton onClick={cancel} />
             <ContinueButton
               onClick={() => onStartOAuth?.()}
-              className="gap-2"
               loading={status === 'validating'}
             >
-              <ExternalLink className="size-4" />
-              {t("onboarding.credentials.signInGitHub")}
+              <ExternalLink />
+              {provider.signIn}
             </ContinueButton>
           </>
         }
       >
         <div className="space-y-3">
-          {copilotDeviceCode ? (
-            <>
-              <SettingsCard>
-                <SettingsRow label={t("onboarding.credentials.enterCodeOnGitHub")}>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={handleCopyCode}
-                    className="font-mono tracking-widest"
-                  >
-                    {copilotDeviceCode.userCode}
-                    {copiedCode ? <Check /> : <Copy />}
-                  </Button>
-                </SettingsRow>
-              </SettingsCard>
-              <p className="px-1 text-xs text-muted-foreground">{t("onboarding.credentials.browserOpenedGitHub")}</p>
-            </>
+          {deviceCode ? (
+            <SettingsCard>
+              <SettingsRow label={provider.enterCode}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleCopyCode}
+                  className="font-mono tracking-widest"
+                >
+                  {deviceCode.userCode}
+                  {copiedCode ? <Check /> : <Copy />}
+                </Button>
+              </SettingsRow>
+              <SettingsRow label={deviceCode.verificationUri.replace(/^https?:\/\//, "")}>
+                <Button type="button" variant="ghost" onClick={() => void window.electronAPI.openUrl(deviceCode.verificationUri)}>
+                  <ExternalLink />
+                  {t("common.open")}
+                </Button>
+              </SettingsRow>
+            </SettingsCard>
           ) : (
-            <p className="px-1 text-sm text-muted-foreground">{t("onboarding.credentials.clickToSignInGitHub")}</p>
+            <p className="px-1 text-sm text-muted-foreground">{provider.waiting}</p>
           )}
           {status === 'error' && errorMessage && <p className="px-1 text-sm text-destructive">{errorMessage}</p>}
-          {status === 'success' && <p className="px-1 text-sm text-success">{t("onboarding.credentials.copilotConnected")}</p>}
+          {status === 'success' && <p className="px-1 text-sm text-success">{provider.connected}</p>}
         </div>
       </StepFormLayout>
     )

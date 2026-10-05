@@ -64,6 +64,8 @@ export interface BroadcastEventMap {
   [RPC_CHANNELS.deeplink.NAVIGATE]: [navigation: DeepLinkNavigation]
 
   // Copilot device code event
+  [RPC_CHANNELS.chatgpt.DEVICE_CODE]: [data: { userCode: string; verificationUri: string }]
+  [RPC_CHANNELS.chatgpt.DEVICE_CODE]: [data: { userCode: string; verificationUri: string }]
   [RPC_CHANNELS.copilot.DEVICE_CODE]: [data: { userCode: string; verificationUri: string }]
 
   // Menu events (per-window, no payload)

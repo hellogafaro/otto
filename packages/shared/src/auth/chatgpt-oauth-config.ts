@@ -16,27 +16,9 @@ export const CHATGPT_OAUTH_CONFIG = {
   CLIENT_ID: 'app_EMoamEEZ73f0CkXaXp7hrann',
 
   /**
-   * Authorization URL - where users authenticate with their ChatGPT account
-   * Note: Must include /oauth/ in path
-   */
-  AUTH_URL: 'https://auth.openai.com/oauth/authorize',
-
-  /**
    * Token URL - for exchanging codes and refreshing tokens
    */
   TOKEN_URL: 'https://auth.openai.com/oauth/token',
-
-  /**
-   * Redirect URI - where OAuth flow redirects after authentication
-   * Must match Codex CLI's registered redirect URI (port 1455)
-   */
-  REDIRECT_URI: 'http://localhost:1455/auth/callback',
-
-  /**
-   * Default port for the OAuth callback server
-   * Must match Codex CLI's port (1455)
-   */
-  CALLBACK_PORT: 1455,
 
   /**
    * OAuth scopes requested during authentication

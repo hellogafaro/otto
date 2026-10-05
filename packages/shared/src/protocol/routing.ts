@@ -303,10 +303,10 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
 
   // chatgpt — OAuth via capability passthrough
   RPC_CHANNELS.chatgpt.START_OAUTH,
-  RPC_CHANNELS.chatgpt.COMPLETE_OAUTH,
   RPC_CHANNELS.chatgpt.CANCEL_OAUTH,
   RPC_CHANNELS.chatgpt.GET_AUTH_STATUS,
   RPC_CHANNELS.chatgpt.LOGOUT,
+  RPC_CHANNELS.chatgpt.DEVICE_CODE,
 
   // copilot — OAuth via capability passthrough
   RPC_CHANNELS.copilot.START_OAUTH,

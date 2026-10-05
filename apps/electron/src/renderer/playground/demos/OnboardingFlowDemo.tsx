@@ -173,7 +173,7 @@ export function OnboardingFlowDemo() {
             isWaitingForCode={false}
             onSubmitAuthCode={() => simulateOAuthSuccess()}
             onCancelOAuth={handleBack}
-            copilotDeviceCode={
+            deviceCode={
               method === 'pi_copilot_oauth' && credStatus === 'validating'
                 ? { userCode: 'DEMO-1234', verificationUri: 'https://github.com/login/device' }
                 : undefined

@@ -318,14 +318,6 @@ export function createWebApi(options: WebApiOptions): {
         }
       }
     },
-
-    // ChatGPT OAuth — requires localhost callback server, not possible in browser
-    startChatGptOAuth: async () => {
-      return {
-        success: false,
-        error: i18n.t('errors.chatGptOAuthNotAvailable'),
-      }
-    },
   }
 
   const api = { ...baseApi, ...webOverrides, ...oauthOverrides } as ElectronAPI

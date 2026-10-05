@@ -67,8 +67,8 @@ interface UseOnboardingReturn {
   handleSubmitAuthCode: (code: string) => void
   handleCancelOAuth: () => void
 
-  // Copilot device code (displayed during device flow)
-  copilotDeviceCode?: { userCode: string; verificationUri: string }
+  // Device code (ChatGPT and Copilot), shown while waiting for approval
+  deviceCode?: { userCode: string; verificationUri: string }
 
   // Git Bash (Windows)
   handleBrowseGitBash: () => Promise<string | null>
@@ -366,13 +366,18 @@ export function useOnboarding({
         }
         break
       case 'credentials':
+        // Stop a device-code sign-in that is still waiting for approval
+        if (state.credentialStatus === 'validating') {
+          if (state.apiSetupMethod === 'pi_chatgpt_oauth') void window.electronAPI.cancelChatGptOAuth()
+          if (state.apiSetupMethod === 'pi_copilot_oauth') void window.electronAPI.cancelCopilotOAuth()
+        }
         setState(s => ({ ...s, step: 'provider-select', credentialStatus: 'idle', errorMessage: undefined }))
         break
       case 'local-model':
         setState(s => ({ ...s, step: 'provider-select', credentialStatus: 'idle', errorMessage: undefined }))
         break
     }
-  }, [state.step, state.gitBashStatus, initialStep, onDismiss])
+  }, [state.step, state.gitBashStatus, state.credentialStatus, state.apiSetupMethod, initialStep, onDismiss])
 
   // Select API setup method (legacy — kept for direct edit flows)
   const handleSelectApiSetupMethod = useCallback((method: ApiSetupMethod) => {
@@ -526,7 +531,7 @@ export function useOnboarding({
   const [isWaitingForCode, setIsWaitingForCode] = useState(false)
 
   // Copilot device code (displayed during device flow)
-  const [copilotDeviceCode, setCopilotDeviceCode] = useState<{ userCode: string; verificationUri: string } | undefined>()
+  const [deviceCode, setDeviceCode] = useState<{ userCode: string; verificationUri: string } | undefined>()
 
   // Start OAuth flow (Claude or ChatGPT depending on selected method)
   const handleStartOAuth = useCallback(async (methodOverride?: ApiSetupMethod, connectionSlugOverride?: string) => {
@@ -554,21 +559,32 @@ export function useOnboarding({
     }
 
     try {
-      // ChatGPT OAuth (single-step flow - opens browser, captures tokens automatically)
+      // ChatGPT sign-in (device code, single step)
       if (effectiveMethod === 'pi_chatgpt_oauth') {
         const effectiveEditingSlug = connectionSlugOverride ?? editingSlug
         const isReauth = !!effectiveEditingSlug
         const connectionSlug = apiSetupMethodToConnectionSetup(effectiveMethod, {}, effectiveEditingSlug, existingSlugs).slug
-        const result = await window.electronAPI.startChatGptOAuth(connectionSlug)
 
-        if (result.success) {
-          await saveAndValidateConnection(connectionSlug, effectiveMethod, undefined, isReauth)
-        } else {
-          setState(s => ({
-            ...s,
-            credentialStatus: 'error',
-            errorMessage: result.error || 'ChatGPT authentication failed',
-          }))
+        // Device code: the server pushes the code, the person approves it on any device
+        const cleanup = window.electronAPI.onChatGptDeviceCode((data) => {
+          setDeviceCode(data)
+        })
+
+        try {
+          const result = await window.electronAPI.startChatGptOAuth(connectionSlug)
+
+          if (result.success) {
+            await saveAndValidateConnection(connectionSlug, effectiveMethod, undefined, isReauth)
+          } else if (result.error !== 'Cancelled') {
+            setState(s => ({
+              ...s,
+              credentialStatus: 'error',
+              errorMessage: result.error || 'ChatGPT authentication failed',
+            }))
+          }
+        } finally {
+          cleanup()
+          setDeviceCode(undefined)
         }
         return
       }
@@ -581,7 +597,7 @@ export function useOnboarding({
 
         // Subscribe to device code event before starting the flow
         const cleanup = window.electronAPI.onCopilotDeviceCode((data) => {
-          setCopilotDeviceCode(data)
+          setDeviceCode(data)
         })
 
         try {
@@ -589,7 +605,7 @@ export function useOnboarding({
 
           if (result.success) {
             await saveAndValidateConnection(connectionSlug, effectiveMethod, undefined, isReauth)
-          } else {
+          } else if (result.error !== 'Cancelled') {
             setState(s => ({
               ...s,
               credentialStatus: 'error',
@@ -598,7 +614,7 @@ export function useOnboarding({
           }
         } finally {
           cleanup()
-          setCopilotDeviceCode(undefined)
+          setDeviceCode(undefined)
         }
         return
       }
@@ -844,7 +860,7 @@ export function useOnboarding({
     handleSubmitAuthCode,
     handleCancelOAuth,
     // Copilot device code
-    copilotDeviceCode,
+    deviceCode,
     // Git Bash (Windows)
     handleBrowseGitBash,
     handleUseGitBashPath,

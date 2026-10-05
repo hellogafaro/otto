@@ -12,11 +12,11 @@ import { parseTestConnectionError, createBuiltInConnection, validateModelList, p
 import { getWorkspaceOrThrow, buildBackendHostRuntimeContext } from '@craft-agent/server-core/handlers'
 import { pushTyped, type RpcServer } from '@craft-agent/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
-import { randomUUID } from 'node:crypto'
 import { CLIENT_OPEN_EXTERNAL } from '@craft-agent/server-core/transport'
 
 // Local OAuth state
 let copilotOAuthAbort: AbortController | null = null
+let chatGptOAuthAbort: AbortController | null = null
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.llmConnections.LIST,
@@ -30,7 +30,6 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.llmConnections.SET_WORKSPACE_DEFAULT,
   RPC_CHANNELS.llmConnections.REFRESH_MODELS,
   RPC_CHANNELS.chatgpt.START_OAUTH,
-  RPC_CHANNELS.chatgpt.COMPLETE_OAUTH,
   RPC_CHANNELS.chatgpt.CANCEL_OAUTH,
   RPC_CHANNELS.chatgpt.GET_AUTH_STATUS,
   RPC_CHANNELS.chatgpt.LOGOUT,
@@ -627,107 +626,66 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // ============================================================
-  // ChatGPT OAuth (for Codex chatgptAuthTokens mode)
-  // Server-owned: prepare + exchange happen here, browser + callback on client.
+  // ChatGPT sign-in (for Codex chatgptAuthTokens mode)
+  // Device code, run entirely here: the client shows the code and the person
+  // approves it on any device, so it works in the browser and over remote too.
   // ============================================================
 
-  interface PendingChatGptFlow {
-    flowId: string
-    state: string
-    codeVerifier: string
-    connectionSlug: string
-    ownerClientId: string
-    createdAt: number
-  }
-  const pendingChatGptFlows = new Map<string, PendingChatGptFlow>()
-  const CHATGPT_FLOW_TTL_MS = 5 * 60 * 1000
-
-  function cleanupExpiredChatGptFlows() {
-    const now = Date.now()
-    for (const [state, flow] of pendingChatGptFlows) {
-      if (now - flow.createdAt > CHATGPT_FLOW_TTL_MS) {
-        pendingChatGptFlows.delete(state)
-      }
-    }
-  }
-
-  // chatgpt:startOAuth — prepare PKCE + auth URL, store flow, return to client
+  // chatgpt:startOAuth — get a device code, push it to the client, wait for
+  // approval, store the credentials
   server.handle(RPC_CHANNELS.chatgpt.START_OAUTH, async (ctx, connectionSlug: string): Promise<{
-    authUrl: string
-    state: string
-    flowId: string
+    success: boolean
+    error?: string
   }> => {
-    cleanupExpiredChatGptFlows()
-    const { prepareChatGptOAuth } = await import('@craft-agent/shared/auth')
-
-    const prepared = prepareChatGptOAuth()
-    const flowId = randomUUID()
-
-    pendingChatGptFlows.set(prepared.state, {
-      flowId,
-      state: prepared.state,
-      codeVerifier: prepared.codeVerifier,
-      connectionSlug,
-      ownerClientId: ctx.clientId,
-      createdAt: Date.now(),
-    })
-
-    deps.platform.logger?.info(`[ChatGPT OAuth] Flow started for ${connectionSlug} (flow=${flowId})`)
-    return { authUrl: prepared.authUrl, state: prepared.state, flowId }
-  })
-
-  // chatgpt:completeOAuth — exchange code for tokens and store credentials
-  server.handle(RPC_CHANNELS.chatgpt.COMPLETE_OAUTH, async (ctx, args: {
-    flowId: string
-    code: string
-    state: string
-  }): Promise<{ success: boolean; error?: string }> => {
-    const { flowId, code, state } = args
-    const flow = pendingChatGptFlows.get(state)
-
-    if (!flow) throw new Error('Unknown or expired ChatGPT OAuth flow')
-    if (flow.flowId !== flowId) throw new Error('Flow ID mismatch')
-    if (flow.ownerClientId !== ctx.clientId) throw new Error('OAuth flow owned by different client')
-    if (Date.now() - flow.createdAt > CHATGPT_FLOW_TTL_MS) {
-      pendingChatGptFlows.delete(state)
-      throw new Error('ChatGPT OAuth flow expired')
-    }
-
     try {
-      const { exchangeChatGptTokens } = await import('@craft-agent/shared/auth')
+      const { requestChatGptDeviceCode, pollChatGptDeviceAuth } = await import('@craft-agent/shared/auth')
       const credentialManager = getCredentialManager()
 
-      const tokens = await exchangeChatGptTokens(code, flow.codeVerifier)
+      // Cancel any previous in-flight flow
+      chatGptOAuthAbort?.abort()
+      const abort = new AbortController()
+      chatGptOAuthAbort = abort
 
-      await credentialManager.setLlmOAuth(flow.connectionSlug, {
+      const code = await requestChatGptDeviceCode(abort.signal)
+      deps.platform.logger?.info(`[ChatGPT OAuth] Device code issued for ${connectionSlug}`)
+      pushTyped(server, RPC_CHANNELS.chatgpt.DEVICE_CODE, { to: 'client', clientId: ctx.clientId }, {
+        userCode: code.userCode,
+        verificationUri: code.verificationUri,
+      })
+      // Open the verification page on the client's machine (the UI also offers a button)
+      server.invokeClient(ctx.clientId, CLIENT_OPEN_EXTERNAL, code.verificationUri).catch(err => {
+        deps.platform.logger?.warn(`Failed to open browser for ChatGPT sign-in: ${err}`)
+      })
+
+      const tokens = await pollChatGptDeviceAuth(code, abort.signal)
+      if (chatGptOAuthAbort === abort) chatGptOAuthAbort = null
+
+      await credentialManager.setLlmOAuth(connectionSlug, {
         accessToken: tokens.accessToken,
         idToken: tokens.idToken,
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.expiresAt,
       })
 
-      pendingChatGptFlows.delete(state)
-      deps.platform.logger?.info(`[ChatGPT OAuth] Flow complete for ${flow.connectionSlug}`)
-      refreshModelsInBackground(flow.connectionSlug, 'ChatGPT auth')
+      deps.platform.logger?.info(`[ChatGPT OAuth] Signed in for ${connectionSlug}`)
+      refreshModelsInBackground(connectionSlug, 'ChatGPT auth')
       return { success: true }
     } catch (error) {
-      pendingChatGptFlows.delete(state)
-      deps.platform.logger?.error('[ChatGPT OAuth] Token exchange failed:', error)
+      chatGptOAuthAbort = null
+      deps.platform.logger?.error('[ChatGPT OAuth] Sign-in failed:', error)
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Token exchange failed',
+        error: error instanceof Error ? error.message : 'ChatGPT sign-in failed',
       }
     }
   })
 
-  // Cancel ongoing ChatGPT OAuth flow
-  server.handle(RPC_CHANNELS.chatgpt.CANCEL_OAUTH, async (ctx, args?: { state?: string }): Promise<{ success: boolean }> => {
-    if (args?.state) {
-      const flow = pendingChatGptFlows.get(args.state)
-      if (flow && flow.ownerClientId === ctx.clientId) {
-        pendingChatGptFlows.delete(args.state)
-        deps.platform.logger?.info(`[ChatGPT OAuth] Flow cancelled for ${flow.connectionSlug}`)
-      }
+  // Cancel an ongoing ChatGPT sign-in
+  server.handle(RPC_CHANNELS.chatgpt.CANCEL_OAUTH, async (): Promise<{ success: boolean }> => {
+    if (chatGptOAuthAbort) {
+      chatGptOAuthAbort.abort()
+      chatGptOAuthAbort = null
+      deps.platform.logger?.info('[ChatGPT OAuth] Sign-in cancelled')
     }
     return { success: true }
   })

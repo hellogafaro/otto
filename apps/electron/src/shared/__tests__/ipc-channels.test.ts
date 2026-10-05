@@ -65,7 +65,7 @@ const EXPECTED_CHANNELS: string[] = [
   'caching:setEnable1MContext',
   'caching:setExtendedPromptCache',
   'chatgpt:cancelOAuth',
-  'chatgpt:completeOAuth',
+  'chatgpt:deviceCode',
   'chatgpt:getAuthStatus',
   'chatgpt:logout',
   'chatgpt:startOAuth',
