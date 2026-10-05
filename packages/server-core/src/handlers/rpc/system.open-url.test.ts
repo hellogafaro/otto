@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
-import { RPC_CHANNELS } from '@craft-agent/shared/protocol'
-import { CLIENT_OPEN_EXTERNAL } from '@craft-agent/server-core/transport'
-import type { RpcServer, HandlerFn, RequestContext } from '@craft-agent/server-core/transport'
+import { RPC_CHANNELS } from '@otto/shared/protocol'
+import { CLIENT_OPEN_EXTERNAL } from '@otto/server-core/transport'
+import type { RpcServer, HandlerFn, RequestContext } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 import { registerSystemCoreHandlers } from './system'
 
@@ -64,10 +64,10 @@ function createTestHarness(overrides?: { workspaceId?: string | null }) {
 }
 
 describe('registerSystemCoreHandlers OPEN_URL', () => {
-  it('routes craftagents action links internally via deeplink:navigate', async () => {
+  it('routes otto action links internally via deeplink:navigate', async () => {
     const { openUrl, ctx, invokeClientCalls, pushCalls } = createTestHarness()
 
-    await openUrl(ctx, 'craftagents://action/new-session?input=sg&send=true')
+    await openUrl(ctx, 'otto://action/new-session?input=sg&send=true')
 
     expect(invokeClientCalls).toHaveLength(0)
     expect(pushCalls).toHaveLength(1)
@@ -81,7 +81,7 @@ describe('registerSystemCoreHandlers OPEN_URL', () => {
   it('routes workspace deep links to workspace target when URL workspace differs', async () => {
     const { openUrl, ctx, invokeClientCalls, pushCalls } = createTestHarness({ workspaceId: 'ws-1' })
 
-    await openUrl(ctx, 'craftagents://workspace/ws-2/action/new-session?input=hello')
+    await openUrl(ctx, 'otto://workspace/ws-2/action/new-session?input=hello')
 
     expect(invokeClientCalls).toHaveLength(0)
     expect(pushCalls).toHaveLength(1)
@@ -92,17 +92,17 @@ describe('registerSystemCoreHandlers OPEN_URL', () => {
     })
   })
 
-  it('falls back to client openExternal for unknown craftagents link shapes', async () => {
+  it('falls back to client openExternal for unknown otto link shapes', async () => {
     const { openUrl, ctx, invokeClientCalls, pushCalls } = createTestHarness()
 
-    await openUrl(ctx, 'craftagents://unknown/thing')
+    await openUrl(ctx, 'otto://unknown/thing')
 
     expect(pushCalls).toHaveLength(0)
     expect(invokeClientCalls).toHaveLength(1)
     expect(invokeClientCalls[0]).toEqual({
       clientId: 'client-1',
       channel: CLIENT_OPEN_EXTERNAL,
-      args: ['craftagents://unknown/thing'],
+      args: ['otto://unknown/thing'],
     })
   })
 

@@ -5,9 +5,9 @@
  * Converts the flat Message[] array into grouped turns for email-like display.
  */
 
-import type { Message } from '@craft-agent/core'
-import { isParentTaskTool } from '@craft-agent/shared/utils/toolNames'
-import { storedToMessage } from '@craft-agent/core'
+import type { Message } from '@otto/core'
+import { isParentTaskTool } from '@otto/shared/utils/toolNames'
+import { storedToMessage } from '@otto/core'
 
 export { storedToMessage }
 import type { ActivityItem, ActivityStatus, ActivityType, ResponseContent, TodoItem } from './TurnCard'

@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
-import { Spinner } from '@craft-agent/ui'
+import { Spinner } from '@otto/ui'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { WorkspaceAvatar } from '@/components/ui/workspace-avatar'

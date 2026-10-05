@@ -51,7 +51,7 @@ export interface SystemOneClientOptions {
   fetch?: typeof globalThis.fetch;
 }
 
-const TRUNCATION_MARKER = '\n…[state truncated by Craft Agents]';
+const TRUNCATION_MARKER = '\n…[state truncated by Otto]';
 const MAX_ERROR_BODY_CHARS = 2_000;
 const MAX_ERROR_DETAIL_CHARS = 240;
 /** Cap on any server-controlled value echoed into an error detail. */

@@ -1,5 +1,5 @@
 /**
- * StyledDropdown - Shared dropdown components for @craft-agent/ui
+ * StyledDropdown - Shared dropdown components for @otto/ui
  *
  * Craft's "styled" names (and Radix-style `asChild` / `onSelect`) as thin
  * wrappers over the design system's Base UI dropdown menu

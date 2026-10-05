@@ -87,7 +87,7 @@ write(join(resources, 'source.png'), await appIcon(2048))
 write(join(resources, 'icon.ico'), await ico([16, 24, 32, 48, 64, 128, 256]))
 write(join(resources, 'icon.icns'), await icns())
 copyFileSync(join(brand, 'otto-app-icon.svg'), join(resources, 'icon.svg'))
-copyFileSync(join(brand, 'otto-app-icon.svg'), join(resources, 'tool-icons/craft-agent.svg'))
+copyFileSync(join(brand, 'otto-app-icon.svg'), join(resources, 'tool-icons/otto.svg'))
 
 // macOS 26 icon source: the white mark as the layer over the icon's base blue.
 const layer = `<?xml version="1.0" encoding="UTF-8"?>
@@ -96,10 +96,10 @@ const layer = `<?xml version="1.0" encoding="UTF-8"?>
 write(join(resources, 'icon.icon/Assets/icon.svg'), layer)
 
 // Branding images
-write(join(resources, 'craft-logos/craft_app_icon.png'), await appIcon(512))
-write(join(resources, 'craft-logos/craft_app_icon_dark.png'), await appIcon(512))
-write(join(resources, 'craft-logos/craft_logo_black.png'), await markPng('#000', 299, 300))
-write(join(resources, 'craft-logos/craft_logo_white.png'), await markPng('#fff', 299, 300))
+write(join(resources, 'otto-logos/otto_app_icon.png'), await appIcon(512))
+write(join(resources, 'otto-logos/otto_app_icon_dark.png'), await appIcon(512))
+write(join(resources, 'otto-logos/otto_logo_black.png'), await markPng('#000', 299, 300))
+write(join(resources, 'otto-logos/otto_logo_white.png'), await markPng('#fff', 299, 300))
 
 // Web app: tab icon (the mark, black or white by color scheme), the ICO
 // fallback, home-screen and manifest icons.

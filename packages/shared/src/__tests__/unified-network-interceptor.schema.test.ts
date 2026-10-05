@@ -6,7 +6,7 @@ let stripPromptCacheTtl: typeof import('../unified-network-interceptor.ts').stri
 
 describe('unified-network-interceptor schema metadata injection', () => {
   beforeAll(async () => {
-    process.env.CRAFT_INTERCEPTOR_DISABLE_AUTO_INSTALL = '1';
+    process.env.OTTO_INTERCEPTOR_DISABLE_AUTO_INSTALL = '1';
     ({ injectMetadataIntoToolSchema, sanitizeEmptyTextCacheControl, stripPromptCacheTtl } = await import('../unified-network-interceptor.ts'));
   });
 

@@ -7,8 +7,8 @@ import { Provider as JotaiProvider } from 'jotai'
 import App from './App'
 import { ThemeProvider } from './context/ThemeContext'
 import { Toaster } from '@/components/ui/sonner'
-import { setupI18n, i18n } from '@craft-agent/shared/i18n'
-import { redactSensitiveHeadersInPlace, redactSensitiveKeysInPlace } from '@craft-agent/shared/utils/redaction'
+import { setupI18n, i18n } from '@otto/shared/i18n'
+import { redactSensitiveHeadersInPlace, redactSensitiveKeysInPlace } from '@otto/shared/utils/redaction'
 import { initReactI18next } from 'react-i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import './index.css'
@@ -66,7 +66,7 @@ sentryInit(
 
       // Scrub sensitive data (shared logic with the main process hook).
       // The header scrub was previously missing here — renderer drift, fixed
-      // by moving both hooks onto @craft-agent/shared/utils redaction.ts.
+      // by moving both hooks onto @otto/shared/utils redaction.ts.
       if (event.request?.headers) {
         redactSensitiveHeadersInPlace(event.request.headers)
       }

@@ -37,13 +37,13 @@ import { resolveRequestContext } from './interceptor-request-utils.ts';
 type HeadersInitType = Headers | Record<string, string> | string[][];
 
 /**
- * When `CRAFT_DEBUG_SSE_RAW=1`, the OpenAI strip streams dump every raw SSE
+ * When `OTTO_DEBUG_SSE_RAW=1`, the OpenAI strip streams dump every raw SSE
  * line they see (in) and emit (out) to interceptor.log. Used to diagnose
  * upstream SSE shape issues (e.g. DeepSeek's two-phase tool_call emission).
  * Independent of the broader DEBUG flag — opt-in only because raw chunks are
  * verbose and may contain user prompts/tool args.
  */
-const DEBUG_SSE_RAW = process.env.CRAFT_DEBUG_SSE_RAW === '1';
+const DEBUG_SSE_RAW = process.env.OTTO_DEBUG_SSE_RAW === '1';
 
 // ============================================================================
 // API ADAPTER INTERFACE
@@ -1665,7 +1665,7 @@ const adapters: ApiAdapter[] = [anthropicAdapter, openAiResponsesAdapter, openAi
  * Example values: anthropic-messages, openai-completions, openai-responses.
  */
 function getPiApiHint(): string | undefined {
-  const hint = process.env.CRAFT_PI_MODEL_API?.trim();
+  const hint = process.env.OTTO_PI_MODEL_API?.trim();
   return hint || undefined;
 }
 
@@ -1817,7 +1817,7 @@ function headersToCurl(headers: HeadersInitType | undefined): string {
  * Request bodies are replaced by a size placeholder unless `fullBodies` is set —
  * they carry user prompts, tool arguments and base64 image payloads, and logging
  * them in full is what let this log grow into the tens of GiB (OSS #1033). Opt in
- * with `CRAFT_DEBUG_FULL_BODIES=1`.
+ * with `OTTO_DEBUG_FULL_BODIES=1`.
  */
 export function toCurl(url: string, init?: RequestInit, fullBodies: boolean = DEBUG_FULL_BODIES): string {
   const method = init?.method?.toUpperCase() ?? 'GET';
@@ -1991,7 +1991,7 @@ function synthesizeMalformedBodyResponse(
     error: {
       type: 'invalid_request_error',
       code: err.code,
-      message: `Craft Agents blocked an outgoing request that the API would reject: ${err.detail}. ` +
+      message: `Otto blocked an outgoing request that the API would reject: ${err.detail}. ` +
         `This typically indicates a streaming-reassembly bug in the upstream endpoint or a stale ` +
         `tool history. Try starting a new session or switching to a different model/endpoint.`,
       param: 'tool_calls',
@@ -2002,7 +2002,7 @@ function synthesizeMalformedBodyResponse(
 
   setStoredError({
     status: 400,
-    statusText: 'Bad Request (blocked by Craft Agents)',
+    statusText: 'Bad Request (blocked by Otto)',
     message: err.detail,
     timestamp: Date.now(),
   });
@@ -2152,7 +2152,7 @@ const fetchProxy = new Proxy(interceptedFetch, {
 });
 
 // Auto-install in runtime subprocesses. Tests can disable this side effect.
-if (process.env.CRAFT_INTERCEPTOR_DISABLE_AUTO_INSTALL !== '1') {
+if (process.env.OTTO_INTERCEPTOR_DISABLE_AUTO_INSTALL !== '1') {
   (globalThis as unknown as { fetch: unknown }).fetch = fetchProxy;
   debugLog('Unified fetch interceptor installed');
 }

@@ -4,7 +4,7 @@ import {
   normalizeDecisionLayerSettings,
   resolveDecisionEndpoint,
   type DecisionClientResolution,
-} from '@craft-agent/shared/decisions'
+} from '@otto/shared/decisions'
 import { pickTurnThinkingLevel } from './adaptive-thinking'
 
 function rated(score: number, confidence: number): () => Promise<DecisionClientResolution> {

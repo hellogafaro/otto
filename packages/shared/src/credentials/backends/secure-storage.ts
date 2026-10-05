@@ -1,7 +1,7 @@
 /**
  * Secure Storage Backend
  *
- * Stores credentials in an encrypted file at ~/.craft-agent/credentials.enc
+ * Stores credentials in an encrypted file at ~/.otto/credentials.enc
  * Uses AES-256-GCM for authenticated encryption.
  *
  * Encryption key is derived from OS-native hardware UUID using PBKDF2:
@@ -44,8 +44,8 @@ import { CONFIG_DIR, DEFAULT_CONFIG_DIR_NAME } from '../../config/paths.ts';
 // File location
 const CREDENTIALS_FILE = join(CONFIG_DIR, 'credentials.enc');
 
-// One-time migration: v0.13.5 always stored credentials in ~/.craft-agent even
-// when CRAFT_CONFIG_DIR was set. Copy on first start so credentials survive.
+// One-time migration: v0.13.5 always stored credentials in ~/.otto even
+// when OTTO_CONFIG_DIR was set. Copy on first start so credentials survive.
 const LEGACY_CREDENTIALS_FILE = join(homedir(), DEFAULT_CONFIG_DIR_NAME, 'credentials.enc');
 function migrateCredentialsIfNeeded(): void {
   if (CREDENTIALS_FILE === LEGACY_CREDENTIALS_FILE) return;

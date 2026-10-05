@@ -1,7 +1,7 @@
-# CLAUDE.md — `@craft-agent/core`
+# CLAUDE.md — `@otto/core`
 
 ## Purpose
-`@craft-agent/core` is the shared **type layer** used across the monorepo.
+`@otto/core` is the shared **type layer** used across the monorepo.
 
 ## Current scope
 - Type exports for workspaces, sessions, messages, and agent events. `AgentEvent.text_discard` targets one unfinished assistant by `turnId`; `retry` reports backoff/active/end explicitly; `context_usage` reports current occupancy separately from cumulative/billable `TokenUsage`. Stream consumers must discard failed partials without touching completed history and must not treat stale terminal usage as a fresh context snapshot.

@@ -27,7 +27,7 @@ function guidePath(slug: string): string {
 }
 
 function browserDocPath(): string {
-  return resolve(join(process.env.CRAFT_CONFIG_DIR || join(homedir(), '.craft-agent'), 'docs', 'browser-tools.md'));
+  return resolve(join(process.env.OTTO_CONFIG_DIR || join(homedir(), '.otto'), 'docs', 'browser-tools.md'));
 }
 
 describe('PrerequisiteManager', () => {

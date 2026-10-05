@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import type { RpcServer } from '@craft-agent/server-core/transport'
+import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 
 const registeredChannels: string[] = []
@@ -109,25 +109,25 @@ async function getExpectedChannels(): Promise<Set<string>> {
     pages,
     decisions,
   ] = await Promise.all([
-    import('@craft-agent/server-core/handlers/rpc/auth'),
-    import('@craft-agent/server-core/handlers/rpc/automations'),
-    import('@craft-agent/server-core/handlers/rpc/files'),
-    import('@craft-agent/server-core/handlers/rpc/labels'),
-    import('@craft-agent/server-core/handlers/rpc/llm-connections'),
-    import('@craft-agent/server-core/handlers/rpc/oauth'),
-    import('@craft-agent/server-core/handlers/rpc/sessions'),
-    import('@craft-agent/server-core/handlers/rpc/settings'),
-    import('@craft-agent/server-core/handlers/rpc/skills'),
-    import('@craft-agent/server-core/handlers/rpc/sources'),
-    import('@craft-agent/server-core/handlers/rpc/statuses'),
-    import('@craft-agent/server-core/handlers/rpc/system'),
-    import('@craft-agent/server-core/handlers/rpc/workspace'),
-    import('@craft-agent/server-core/handlers/rpc/onboarding'),
-    import('@craft-agent/server-core/handlers/rpc/resources'),
-    import('@craft-agent/server-core/handlers/rpc/transfer'),
-    import('@craft-agent/server-core/handlers/rpc/projects'),
-    import('@craft-agent/server-core/handlers/rpc/pages'),
-    import('@craft-agent/server-core/handlers/rpc/decisions'),
+    import('@otto/server-core/handlers/rpc/auth'),
+    import('@otto/server-core/handlers/rpc/automations'),
+    import('@otto/server-core/handlers/rpc/files'),
+    import('@otto/server-core/handlers/rpc/labels'),
+    import('@otto/server-core/handlers/rpc/llm-connections'),
+    import('@otto/server-core/handlers/rpc/oauth'),
+    import('@otto/server-core/handlers/rpc/sessions'),
+    import('@otto/server-core/handlers/rpc/settings'),
+    import('@otto/server-core/handlers/rpc/skills'),
+    import('@otto/server-core/handlers/rpc/sources'),
+    import('@otto/server-core/handlers/rpc/statuses'),
+    import('@otto/server-core/handlers/rpc/system'),
+    import('@otto/server-core/handlers/rpc/workspace'),
+    import('@otto/server-core/handlers/rpc/onboarding'),
+    import('@otto/server-core/handlers/rpc/resources'),
+    import('@otto/server-core/handlers/rpc/transfer'),
+    import('@otto/server-core/handlers/rpc/projects'),
+    import('@otto/server-core/handlers/rpc/pages'),
+    import('@otto/server-core/handlers/rpc/decisions'),
   ])
 
   // GUI handler channels (remain in electron)
@@ -199,7 +199,7 @@ describe('RPC handler registration', () => {
   })
 
   it('keeps onboarding channels in registration coverage', async () => {
-    const { HANDLED_CHANNELS } = await import('@craft-agent/server-core/handlers/rpc/onboarding')
+    const { HANDLED_CHANNELS } = await import('@otto/server-core/handlers/rpc/onboarding')
     const { registerAllRpcHandlers } = await import('../index')
 
     registerAllRpcHandlers(createMockServer(), createMockDeps())

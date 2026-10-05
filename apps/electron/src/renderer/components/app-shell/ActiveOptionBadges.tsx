@@ -5,14 +5,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { SlashCommandMenu, permissionModeCommandsFor, type SlashCommandId } from '@/components/ui/slash-command-menu'
 import { useAvailablePermissionModes } from '@/hooks/useAvailablePermissionModes'
 import { ChevronDown, Info } from 'lucide-react'
-import { PERMISSION_MODE_CONFIG, isPermissionMode, type PermissionMode } from '@craft-agent/shared/agent/modes'
+import { PERMISSION_MODE_CONFIG, isPermissionMode, type PermissionMode } from '@otto/shared/agent/modes'
 import { ActiveTasksBar, type BackgroundTask } from './ActiveTasksBar'
 import type { TerminalOverlayData } from './TaskActionMenu'
 import { LabelIcon, LabelValueTypeIcon } from '@/components/ui/label-icon'
 import { LabelValuePopover } from '@/components/ui/label-value-popover'
-import type { LabelConfig } from '@craft-agent/shared/labels'
-import { flattenLabels, parseLabelEntry, formatLabelEntry, formatDisplayValue } from '@craft-agent/shared/labels'
-import { resolveEntityColor } from '@craft-agent/shared/colors'
+import type { LabelConfig } from '@otto/shared/labels'
+import { flattenLabels, parseLabelEntry, formatLabelEntry, formatDisplayValue } from '@otto/shared/labels'
+import { resolveEntityColor } from '@otto/shared/colors'
 import { useTheme } from '@/context/ThemeContext'
 import { useDynamicStack } from '@/hooks/useDynamicStack'
 import type { SessionStatus } from '@/config/session-status-config'
@@ -385,7 +385,7 @@ function StateBadge({
         sideOffset={4}
         onCloseAutoFocus={(e) => {
           e.preventDefault()
-          window.dispatchEvent(new CustomEvent('craft:focus-input', {
+          window.dispatchEvent(new CustomEvent('otto:focus-input', {
             detail: { sessionId }
           }))
         }}
@@ -515,7 +515,7 @@ function PermissionModeDropdown({ permissionMode, onPermissionModeChange, sessio
           // Don't auto-focus the text input on touch devices — it pulls up the virtual keyboard
           const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
           if (!isTouchDevice) {
-            window.dispatchEvent(new CustomEvent('craft:focus-input', {
+            window.dispatchEvent(new CustomEvent('otto:focus-input', {
               detail: { sessionId }
             }))
           }

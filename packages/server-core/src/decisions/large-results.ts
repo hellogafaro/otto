@@ -8,8 +8,8 @@
  * summary; anything else summarizes as before.
  */
 
-import type { LargeResultSummaryGate } from '@craft-agent/shared/utils'
-import type { DecisionRequest } from '@craft-agent/shared/decisions'
+import type { LargeResultSummaryGate } from '@otto/shared/utils'
+import type { DecisionRequest } from '@otto/shared/decisions'
 import { openDecisionPoint, recordDecisionOutcome, type DecisionPointDeps } from './decision-point'
 
 /** "Preview is enough" needs this much confidence. */

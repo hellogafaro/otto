@@ -1,15 +1,15 @@
 {
-  "name": "@craft-agent/shared",
+  "name": "@otto/shared",
   "version": "0.1.0",
   "license": "Apache-2.0",
-  "description": "Shared business logic for Craft Agents - agent, auth, config, credentials, MCP integration",
+  "description": "Shared business logic for Otto - agent, auth, config, credentials, MCP integration",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "sync:craft-agent-bash-patterns": "bun run src/config/sync-craft-agent-bash-patterns.ts"
+    "sync:otto-bash-patterns": "bun run src/config/sync-otto-bash-patterns.ts"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -79,8 +79,8 @@
     "./resources": "./src/resources/index.ts"
   },
   "dependencies": {
-    "@craft-agent/core": "workspace:*",
-    "@craft-agent/session-tools-core": "workspace:*",
+    "@otto/core": "workspace:*",
+    "@otto/session-tools-core": "workspace:*",
     "@earendil-works/pi-agent-core": "0.87.1",
     "@earendil-works/pi-ai": "0.87.1",
     "@earendil-works/pi-coding-agent": "0.87.1",

@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { SettingsCard, SettingsRow, SettingsMenuSelect, SettingsSegmentedControl } from "@/components/settings"
 import { Eye, EyeOff } from "lucide-react"
-import { Spinner } from "@craft-agent/ui"
+import { Spinner } from "@otto/ui"
 import { resolveTierModels, type PiModelInfo } from "./tier-models"
 import {
   resolveCustomEndpointPayload,
@@ -131,7 +131,7 @@ const OPENAI_PRESETS: Preset[] = [
 
 // Pi provider presets - unified API for 20+ LLM providers
 const PI_PRESETS: Preset[] = [
-  { key: 'pi', label: 'Craft Agents Backend (Direct)', url: '' },
+  { key: 'pi', label: 'Otto Backend (Direct)', url: '' },
   { key: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/api' },
   { key: 'custom', label: 'Custom', url: '' },
 ]

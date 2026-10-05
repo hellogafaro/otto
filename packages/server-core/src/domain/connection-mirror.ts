@@ -1,16 +1,16 @@
-import type { LlmConnection } from '@craft-agent/shared/config'
-import { isLocalConnection } from '@craft-agent/shared/config'
-import type { ConnectionType } from '@craft-agent/shared/connections'
-import type { CredentialManager } from '@craft-agent/shared/credentials'
+import type { LlmConnection } from '@otto/shared/config'
+import { isLocalConnection } from '@otto/shared/config'
+import type { ConnectionType } from '@otto/shared/connections'
+import type { CredentialManager } from '@otto/shared/credentials'
 
 /**
- * Bridge: Craft's LLM connections (config.json + credential manager) are mirrored
+ * Bridge: Otto's LLM connections (config.json + credential manager) are mirrored
  * into the `connections` domain whenever one is set up, re-authenticated or
  * deleted. Sessions and Pi still read the old store; remove this file when they
  * read `connections` directly.
  */
 
-/** The catalog type a Craft connection corresponds to. */
+/** The catalog type an Otto connection corresponds to. */
 export function connectionTypeFor(
   connection: Pick<LlmConnection, 'providerType' | 'authType' | 'piAuthProvider' | 'baseUrl'>,
 ): ConnectionType {
@@ -33,7 +33,7 @@ type SecretSource = Pick<
   'getLlmOAuth' | 'getLlmApiKey' | 'getLlmIamCredentials' | 'getLlmServiceAccount'
 >
 
-/** The credential Craft holds for a connection, as one string (JSON for structured ones). */
+/** The credential Otto holds for a connection, as one string (JSON for structured ones). */
 export async function readConnectionSecret(
   connection: Pick<LlmConnection, 'slug' | 'authType'>,
   manager: SecretSource,
@@ -61,9 +61,9 @@ export async function readConnectionSecret(
   }
 }
 
-/** Create or update the `connections` row for a Craft connection. */
+/** Create or update the `connections` row for an Otto connection. */
 export async function mirrorConnection(connection: LlmConnection, manager: SecretSource): Promise<void> {
-  const { createConnection, updateConnection, getConnectionBySlug } = await import('@craft-agent/shared/connections')
+  const { createConnection, updateConnection, getConnectionBySlug } = await import('@otto/shared/connections')
   const secret = await readConnectionSecret(connection, manager)
   const existing = getConnectionBySlug(connection.slug)
   if (existing) {
@@ -79,9 +79,9 @@ export async function mirrorConnection(connection: LlmConnection, manager: Secre
   }
 }
 
-/** Remove the mirrored row (and its secret) for a Craft connection slug. */
+/** Remove the mirrored row (and its secret) for an Otto connection slug. */
 export async function unmirrorConnection(slug: string): Promise<void> {
-  const { getConnectionBySlug, deleteConnection } = await import('@craft-agent/shared/connections')
+  const { getConnectionBySlug, deleteConnection } = await import('@otto/shared/connections')
   const existing = getConnectionBySlug(slug)
   if (existing) deleteConnection(existing.id)
 }

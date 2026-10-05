@@ -4,8 +4,8 @@ import {
   createBuiltInConnection,
   validateModelList,
   validateSetupTestInput,
-} from '@craft-agent/server-core/domain'
-import type { ModelDefinition } from '@craft-agent/shared/config/models'
+} from '@otto/server-core/domain'
+import type { ModelDefinition } from '@otto/shared/config/models'
 
 // ============================================================
 // validateModelList

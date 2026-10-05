@@ -1,5 +1,5 @@
 import { X, Image as ImageIcon } from "lucide-react"
-import { Spinner, FileTypeIcon, getFileTypeLabel } from "@craft-agent/ui"
+import { Spinner, FileTypeIcon, getFileTypeLabel } from "@otto/ui"
 import { cn } from "@/lib/utils"
 import type { FileAttachment } from "../../../shared/types"
 

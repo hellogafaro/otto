@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { StepFormLayout, BackButton } from "./primitives"
 import type { GitBashStatus } from "../../../shared/types"
-import { Spinner } from '@craft-agent/ui'
+import { Spinner } from '@otto/ui'
 import { SettingsCard } from "@/components/settings"
 
 export type { GitBashStatus }

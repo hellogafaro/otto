@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, Plus } from "lucide-react"
-import { Spinner } from "@craft-agent/ui"
+import { Spinner } from "@otto/ui"
 import { slugify } from "@/lib/slugify"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -53,7 +53,7 @@ async function resolveUniqueSlug(baseName: string): Promise<{ slug: string; path
 }
 
 /**
- * AddWorkspaceStep_ConnectRemote - Connect to a remote Craft Agent Server
+ * AddWorkspaceStep_ConnectRemote - Connect to a remote Otto Server
  *
  * Two paths:
  * 1. Connect to existing workspace — select from dropdown, no name needed, auto-resolve local slug
@@ -150,7 +150,7 @@ export function AddWorkspaceStep_ConnectRemote({
     }
 
     if (!homeDir) return
-    const defaultBasePath = `${homeDir}/.craft-agent/workspaces`
+    const defaultBasePath = `${homeDir}/.otto/workspaces`
 
     if (isCreateNew || isFreshServer) {
       // Create new workspace on remote server via direct RPC, then connect locally
@@ -191,7 +191,7 @@ export function AddWorkspaceStep_ConnectRemote({
       title={isReconnectMode ? t("workspace.reconnect", { name: reconnectWorkspace!.name }) : "Connect to remote server"}
       description={isReconnectMode
         ? "Update the server URL or token to restore the connection."
-        : "Connect to a remote Craft Agent Server for this workspace."}
+        : "Connect to a remote Otto Server for this workspace."}
       actions={
         <>
           <BackButton onClick={onBack} disabled={isCreating}>{t("common.back")}</BackButton>

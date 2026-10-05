@@ -144,20 +144,20 @@ describe('McpClientPool.sync — config change detection', () => {
 
   it('handles add + remove + refresh in a single sync', async () => {
     await pool.sync({
-      craft: httpConfig('old-craft-token'),
+      craft: httpConfig('old-otto-token'),
       linear: httpConfig('linear-token', 'https://linear.example.com'),
     });
     pool.resetTracking();
 
     // craft: token refreshed, linear: removed, github: added
     await pool.sync({
-      craft: httpConfig('new-craft-token'),
+      craft: httpConfig('new-otto-token'),
       github: httpConfig('gh-token', 'https://github.example.com'),
     });
 
     expect(pool.disconnectCalls).toContain('linear');
     expect(pool.disconnectCalls).toContain('craft');
-    expect(pool.connectCalls.find(c => c.slug === 'craft')?.config.headers?.Authorization).toBe('Bearer new-craft-token');
+    expect(pool.connectCalls.find(c => c.slug === 'craft')?.config.headers?.Authorization).toBe('Bearer new-otto-token');
     expect(pool.connectCalls.find(c => c.slug === 'github')).toBeDefined();
     expect(pool.isConnected('craft')).toBe(true);
     expect(pool.isConnected('linear')).toBe(false);

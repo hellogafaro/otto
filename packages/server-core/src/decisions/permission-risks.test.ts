@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { DecisionResult } from '@craft-agent/shared/decisions'
+import type { DecisionResult } from '@otto/shared/decisions'
 import { assessPermissionRisks, buildPermissionRiskRequest, PERMISSION_RISK_MAX_CHARS, readPermissionRisks } from './permission-risks'
 
 function nouls(values: Record<string, number>): DecisionResult {

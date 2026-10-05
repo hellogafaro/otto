@@ -8,7 +8,7 @@
 import * as React from 'react'
 import { useState } from 'react'
 import { Circle, Flag, Globe, HardDrive, Zap, DatabaseZap, Search } from 'lucide-react'
-import { Spinner } from '@craft-agent/ui'
+import { Spinner } from '@otto/ui'
 import { cn } from '@/lib/utils'
 import { EntityRow } from '@/components/ui/entity-row'
 import { EntityList } from '@/components/ui/entity-list'

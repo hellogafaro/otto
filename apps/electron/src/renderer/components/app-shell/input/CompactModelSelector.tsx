@@ -7,7 +7,7 @@ import {
   ChevronRight,
   Image as ImageIcon,
 } from 'lucide-react'
-import { Spinner } from '@craft-agent/ui'
+import { Spinner } from '@otto/ui'
 import {
   Drawer,
   DrawerTrigger,
@@ -35,7 +35,7 @@ import {
 import {
   THINKING_LEVELS,
   type ThinkingLevel,
-} from '@craft-agent/shared/agent/thinking-levels'
+} from '@otto/shared/agent/thinking-levels'
 import { ConnectionIcon } from '@/components/icons/ConnectionIcon'
 import { derivePickerMode } from './picker-mode'
 import {

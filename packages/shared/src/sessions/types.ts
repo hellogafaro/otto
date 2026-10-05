@@ -11,7 +11,7 @@
 
 import type { PermissionMode } from '../agent/mode-manager.ts';
 import type { ThinkingLevel } from '../agent/thinking-levels.ts';
-import type { StoredMessage, ContextUsageSnapshot } from '@craft-agent/core/types';
+import type { StoredMessage, ContextUsageSnapshot } from '@otto/core/types';
 
 /**
  * Session fields that persist to disk.
@@ -95,9 +95,9 @@ export interface SessionTokenUsage {
 
 /**
  * Stored message format (simplified for persistence)
- * Re-exported from @craft-agent/core for convenience
+ * Re-exported from @otto/core for convenience
  */
-export type { StoredMessage } from '@craft-agent/core/types';
+export type { StoredMessage } from '@otto/core/types';
 
 /**
  * Session configuration (persisted metadata)
@@ -235,7 +235,7 @@ export interface SessionHeader {
   id: string;
   /** SDK session ID (captured after first message) */
   sdkSessionId?: string;
-  /** Workspace root path (stored as portable path, e.g., ~/.craft-agent/...) */
+  /** Workspace root path (stored as portable path, e.g., ~/.otto/...) */
   workspaceRootPath: string;
   /** Optional user-defined name */
   name?: string;

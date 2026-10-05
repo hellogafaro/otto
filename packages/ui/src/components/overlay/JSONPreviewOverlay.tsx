@@ -82,13 +82,13 @@ export interface JSONPreviewOverlayProps {
  * Custom theme that adapts to our app's CSS variables.
  * Falls back to VS Code dark theme colors for JSON-specific styling.
  */
-const craftAgentDarkTheme = {
+const ottoDarkTheme = {
   ...vscodeTheme,
   '--w-rjv-font-family': 'var(--font-mono, ui-monospace, monospace)',
   '--w-rjv-background-color': 'transparent',
 }
 
-const craftAgentLightTheme = {
+const ottoLightTheme = {
   ...githubLightTheme,
   '--w-rjv-font-family': 'var(--font-mono, ui-monospace, monospace)',
   '--w-rjv-background-color': 'transparent',
@@ -107,7 +107,7 @@ export function JSONPreviewOverlay({
   const { t } = useTranslation()
   // Select theme based on mode
   const jsonTheme = useMemo(() => {
-    return theme === 'dark' ? craftAgentDarkTheme : craftAgentLightTheme
+    return theme === 'dark' ? ottoDarkTheme : ottoLightTheme
   }, [theme])
 
   // Recursively parse any stringified JSON within the data for better display.

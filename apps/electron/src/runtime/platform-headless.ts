@@ -1,1 +1,1 @@
-export { createHeadlessPlatform } from '@craft-agent/server-core/runtime'
+export { createHeadlessPlatform } from '@otto/server-core/runtime'

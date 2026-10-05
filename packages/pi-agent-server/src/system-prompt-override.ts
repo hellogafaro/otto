@@ -6,7 +6,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 /**
- * Force a Craft-built system prompt onto a Pi AgentSession.
+ * Force an Otto-built system prompt onto a Pi AgentSession.
  *
  * Since Pi 0.86 the supported way to replace the whole prompt is a
  * `before_agent_start` extension handler that returns `{ systemPrompt }`. The SDK
@@ -15,11 +15,11 @@ import {
  * clears it when the run ends, so the handler is consulted again on every
  * `session.prompt()`. Pi 0.87 made `agent.state.systemPrompt` read-only and
  * replaced the `_baseSystemPrompt` string internals this module used to stamp
- * (craft-agents-oss#648), so the override now lives in an inline extension that
+ * (otto#648), so the override now lives in an inline extension that
  * is registered on the session's resource loader at creation time.
  */
 export interface SystemPromptOverride {
-  /** Inline extension to register via `createCraftResourceLoader`. */
+  /** Inline extension to register via `createOttoResourceLoader`. */
   readonly extension: InlineExtension;
   /** Replace the prompt forced onto the next and every later run. */
   set(prompt: string): void;
@@ -27,7 +27,7 @@ export interface SystemPromptOverride {
   current(): string | undefined;
 }
 
-export const CRAFT_SYSTEM_PROMPT_EXTENSION_NAME = 'craft-system-prompt';
+export const OTTO_SYSTEM_PROMPT_EXTENSION_NAME = 'otto-system-prompt';
 
 export function createSystemPromptOverride(): SystemPromptOverride {
   let current: string | undefined;
@@ -35,7 +35,7 @@ export function createSystemPromptOverride(): SystemPromptOverride {
     pi.on('before_agent_start', () => (current === undefined ? undefined : { systemPrompt: current }));
   };
   return {
-    extension: { name: CRAFT_SYSTEM_PROMPT_EXTENSION_NAME, factory, hidden: true },
+    extension: { name: OTTO_SYSTEM_PROMPT_EXTENSION_NAME, factory, hidden: true },
     set(prompt: string): void {
       current = prompt;
     },
@@ -48,7 +48,7 @@ export function createSystemPromptOverride(): SystemPromptOverride {
  * agentDir and settings), plus the system-prompt override extension. Discovery of
  * skills, context files and on-disk extensions is unchanged.
  */
-export async function createCraftResourceLoader(options: {
+export async function createOttoResourceLoader(options: {
   cwd: string;
   agentDir: string;
   settingsManager: SettingsManager;

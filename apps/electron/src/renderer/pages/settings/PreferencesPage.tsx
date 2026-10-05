@@ -1,7 +1,7 @@
 /**
  * PreferencesPage
  *
- * Form-based editor for stored user preferences (~/.craft-agent/preferences.json).
+ * Form-based editor for stored user preferences (~/.otto/preferences.json).
  * Features:
  * - Fixed input fields for known preferences (name, timezone, location, language)
  * - Free-form textarea for notes
@@ -12,7 +12,7 @@ import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Spinner } from '@craft-agent/ui'
+import { Spinner } from '@otto/ui'
 import {
   SettingsSection,
   SettingsCard,

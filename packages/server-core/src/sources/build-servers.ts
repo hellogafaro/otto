@@ -9,7 +9,7 @@
  * implementation, no drift.
  */
 
-import { createScopedLogger, CONSOLE_LOGGER, type Logger } from '@craft-agent/server-core/runtime'
+import { createScopedLogger, CONSOLE_LOGGER, type Logger } from '@otto/server-core/runtime'
 import {
   getSourceCredentialManager,
   getSourceServerBuilder,
@@ -21,8 +21,8 @@ import {
   type LoadedSource,
   type SourceWithCredential,
   type SummarizeCallback,
-} from '@craft-agent/shared/sources'
-import { perf } from '@craft-agent/shared/utils'
+} from '@otto/shared/sources'
+import { perf } from '@otto/shared/utils'
 
 const defaultLog = createScopedLogger(CONSOLE_LOGGER, 'sources')
 

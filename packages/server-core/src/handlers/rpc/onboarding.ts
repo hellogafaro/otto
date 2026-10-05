@@ -3,13 +3,13 @@
  *
  * Handles workspace setup and configuration persistence.
  */
-import { getAuthState, getSetupNeeds } from '@craft-agent/shared/auth'
-import { getCredentialManager } from '@craft-agent/shared/credentials'
-import { isSetupDeferred, setSetupDeferred } from '@craft-agent/shared/config'
-import { prepareClaudeOAuth, exchangeClaudeCode, hasValidOAuthState, clearOAuthState, prepareMcpOAuth } from '@craft-agent/shared/auth'
-import { validateMcpConnection } from '@craft-agent/shared/mcp'
-import { RPC_CHANNELS } from '@craft-agent/shared/protocol'
-import type { RpcServer } from '@craft-agent/server-core/transport'
+import { getAuthState, getSetupNeeds } from '@otto/shared/auth'
+import { getCredentialManager } from '@otto/shared/credentials'
+import { isSetupDeferred, setSetupDeferred } from '@otto/shared/config'
+import { prepareClaudeOAuth, exchangeClaudeCode, hasValidOAuthState, clearOAuthState, prepareMcpOAuth } from '@otto/shared/auth'
+import { validateMcpConnection } from '@otto/shared/mcp'
+import { RPC_CHANNELS } from '@otto/shared/protocol'
+import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 
 // ============================================

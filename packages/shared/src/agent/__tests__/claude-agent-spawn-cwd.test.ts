@@ -23,7 +23,7 @@ import {
 describe('isExistingDirectory', () => {
   let tempDir: string;
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'craft-spawn-helpers-'));
+    tempDir = mkdtempSync(join(tmpdir(), 'otto-spawn-helpers-'));
   });
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
@@ -68,7 +68,7 @@ describe('resolveSpawnCwd (simulated)', () => {
   let sdkCwd: string;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'craft-resolve-cwd-'));
+    tempDir = mkdtempSync(join(tmpdir(), 'otto-resolve-cwd-'));
     workspaceRoot = join(tempDir, 'ws');
     parentCwd = join(tempDir, 'parent');
     sdkCwd = join(tempDir, 'sdk-cwd');
@@ -188,9 +188,9 @@ describe('extractSdkReportedBinaryPath', () => {
 
   it('captures macOS .app bundle paths without truncating at the first dot', () => {
     const msg =
-      'Claude Code native binary not found at /Applications/Craft Agents.app/Contents/Resources/app/node_modules/@anthropic-ai/claude-agent-sdk-binary/claude';
+      'Claude Code native binary not found at /Applications/Otto.app/Contents/Resources/app/node_modules/@anthropic-ai/claude-agent-sdk-binary/claude';
     expect(extractSdkReportedBinaryPath(msg)).toBe(
-      '/Applications/Craft Agents.app/Contents/Resources/app/node_modules/@anthropic-ai/claude-agent-sdk-binary/claude',
+      '/Applications/Otto.app/Contents/Resources/app/node_modules/@anthropic-ai/claude-agent-sdk-binary/claude',
     );
   });
 

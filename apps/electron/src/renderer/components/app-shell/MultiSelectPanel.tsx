@@ -22,7 +22,7 @@ import {
   DropdownMenuSub,
 } from '@/components/ui/styled-dropdown'
 import type { SessionStatusId, SessionStatus } from '@/config/session-status-config'
-import type { LabelConfig } from '@craft-agent/shared/labels'
+import type { LabelConfig } from '@otto/shared/labels'
 import { LabelMenuItems, StatusMenuItems } from './SessionMenuParts'
 
 type MultiSelectEntityType = 'automation' | 'session' | 'skill' | 'source'

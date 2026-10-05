@@ -1,11 +1,11 @@
 {
-  "name": "@craft-agent/server",
+  "name": "@otto/server",
   "version": "0.1.0",
-  "description": "Standalone headless Craft Agent server (Bun runtime)",
+  "description": "Standalone headless Otto server (Bun runtime)",
   "type": "module",
   "main": "src/index.ts",
   "bin": {
-    "craft-server": "src/index.ts"
+    "otto-server": "src/index.ts"
   },
   "files": [
     "src/"
@@ -25,10 +25,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@craft-agent/core": "workspace:*",
-    "@craft-agent/messaging-gateway": "workspace:*",
-    "@craft-agent/server-core": "workspace:*",
-    "@craft-agent/shared": "workspace:*"
+    "@otto/core": "workspace:*",
+    "@otto/messaging-gateway": "workspace:*",
+    "@otto/server-core": "workspace:*",
+    "@otto/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.2",

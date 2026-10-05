@@ -33,7 +33,7 @@ function createSlackSource(): LoadedSource {
   };
 }
 
-// Regression for craft-agents-oss#1068: since the generic OAuth relay was
+// Regression for otto#1068: since the generic OAuth relay was
 // introduced, desktop Slack flows sent redirect_uri=https://thecraftagents.com/auth/callback,
 // which the Slack app does not have registered, so Slack rejected the request
 // before consent.

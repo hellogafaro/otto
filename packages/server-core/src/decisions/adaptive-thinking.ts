@@ -7,9 +7,9 @@
  * answer keeps the session level.
  */
 
-import type { ThinkingLevel } from '@craft-agent/shared/agent/thinking-levels'
-import { THINKING_LEVEL_IDS } from '@craft-agent/shared/agent/thinking-levels'
-import type { DecisionRequest } from '@craft-agent/shared/decisions'
+import type { ThinkingLevel } from '@otto/shared/agent/thinking-levels'
+import { THINKING_LEVEL_IDS } from '@otto/shared/agent/thinking-levels'
+import type { DecisionRequest } from '@otto/shared/decisions'
 import { FOREGROUND_MAX_DEADLINE_MS, openDecisionPoint, recordDecisionOutcome, type DecisionPointDeps } from './decision-point'
 
 /** The rated level must come with this much confidence. */

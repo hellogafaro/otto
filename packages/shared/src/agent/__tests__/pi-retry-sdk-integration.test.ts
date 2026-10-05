@@ -7,7 +7,7 @@
  * runtime keep these tests independent of disk state, credentials, and network.
  */
 import { describe, expect, it } from 'bun:test';
-import type { AgentEvent as CraftAgentEvent } from '@craft-agent/core/types';
+import type { AgentEvent as OttoEvent } from '@otto/core/types';
 import {
   createAgentSession,
   createExtensionRuntime,
@@ -56,14 +56,14 @@ interface Attempt {
 
 interface TraceEntry {
   sdkEvent: AgentSessionEvent;
-  adapted: CraftAgentEvent[];
+  adapted: OttoEvent[];
   completedQueue: boolean;
 }
 
 interface ScenarioResult {
   callCount: number;
   trace: TraceEntry[];
-  events: CraftAgentEvent[];
+  events: OttoEvent[];
   queueCompletionSdkEvents: AgentSessionEvent['type'][];
   isHoldingTurn: boolean;
   hasExtraQueueCompletion: boolean;

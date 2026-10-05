@@ -106,7 +106,7 @@ export class McpPoolServer {
    */
   private createMcpServer(): Server {
     const server = new Server(
-      { name: 'craft-pool-proxy', version: '1.0.0' },
+      { name: 'otto-pool-proxy', version: '1.0.0' },
       { capabilities: { tools: {} } }
     );
 

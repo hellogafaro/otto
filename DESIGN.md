@@ -1019,7 +1019,7 @@ Unknown creation outcomes disable another submission in the current form and dir
 
 ## Craft shell
 
-The app now runs on Craft Agents (see `UPSTREAM.md`); these are the Otto rules
+The app now runs on Otto (see `UPSTREAM.md`); these are the Otto rules
 that carry over, applied where Craft draws the same thing.
 
 - **Layers.** `--sidebar` (behind everything) is the darkest layer: the rail, the

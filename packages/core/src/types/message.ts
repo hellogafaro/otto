@@ -545,7 +545,7 @@ export interface PermissionRequest {
 }
 
 /**
- * Usage data emitted by CraftAgent in 'complete' events
+ * Usage data emitted by Otto in 'complete' events
  * Note: This is a subset of TokenUsage - totalTokens/contextTokens are computed by consumers
  */
 export interface AgentEventUsage {
@@ -559,7 +559,7 @@ export interface AgentEventUsage {
 }
 
 /**
- * Events emitted by CraftAgent during chat
+ * Events emitted by Otto during chat
  * turnId: Correlation ID from the API's message.id, groups all events in an assistant turn
  */
 export type AgentEvent =

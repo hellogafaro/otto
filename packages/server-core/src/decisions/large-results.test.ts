@@ -4,7 +4,7 @@ import {
   normalizeDecisionLayerSettings,
   resolveDecisionEndpoint,
   type DecisionClientResolution,
-} from '@craft-agent/shared/decisions'
+} from '@otto/shared/decisions'
 import { buildLargeResultRequest, buildLargeResultSummaryGate, LARGE_RESULT_SAMPLE_CHARS } from './large-results'
 
 function handling(choice: string, confidence: number): () => Promise<DecisionClientResolution> {

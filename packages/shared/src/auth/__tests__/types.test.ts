@@ -5,14 +5,14 @@ describe('buildOAuthDeeplinkUrl', () => {
   it('returns deeplink URL when sessionId and deeplinkScheme are provided', () => {
     const ctx: OAuthSessionContext = {
       sessionId: '260209-swift-river',
-      deeplinkScheme: 'craftagents',
+      deeplinkScheme: 'otto',
     };
-    expect(buildOAuthDeeplinkUrl(ctx)).toBe('craftagents://allSessions/session/260209-swift-river');
+    expect(buildOAuthDeeplinkUrl(ctx)).toBe('otto://allSessions/session/260209-swift-river');
   });
 
   it('returns undefined when sessionId is missing', () => {
     const ctx: OAuthSessionContext = {
-      deeplinkScheme: 'craftagents',
+      deeplinkScheme: 'otto',
     };
     expect(buildOAuthDeeplinkUrl(ctx)).toBeUndefined();
   });
@@ -35,33 +35,33 @@ describe('buildOAuthDeeplinkUrl', () => {
   it('uses custom deeplink scheme for multi-instance', () => {
     const ctx: OAuthSessionContext = {
       sessionId: 'test-session',
-      deeplinkScheme: 'craftagents1',
+      deeplinkScheme: 'otto1',
     };
-    expect(buildOAuthDeeplinkUrl(ctx)).toBe('craftagents1://allSessions/session/test-session');
+    expect(buildOAuthDeeplinkUrl(ctx)).toBe('otto1://allSessions/session/test-session');
   });
 
   // Edge cases for session IDs with special characters
   it('handles session ID with special characters (hyphens and numbers)', () => {
     const ctx: OAuthSessionContext = {
       sessionId: '260209-swift-river-42',
-      deeplinkScheme: 'craftagents',
+      deeplinkScheme: 'otto',
     };
-    expect(buildOAuthDeeplinkUrl(ctx)).toBe('craftagents://allSessions/session/260209-swift-river-42');
+    expect(buildOAuthDeeplinkUrl(ctx)).toBe('otto://allSessions/session/260209-swift-river-42');
   });
 
   it('handles session ID with URL-unsafe characters', () => {
     const ctx: OAuthSessionContext = {
       sessionId: 'session/with spaces&special=chars',
-      deeplinkScheme: 'craftagents',
+      deeplinkScheme: 'otto',
     };
     // The function does not encode - it passes through as-is
-    expect(buildOAuthDeeplinkUrl(ctx)).toBe('craftagents://allSessions/session/session/with spaces&special=chars');
+    expect(buildOAuthDeeplinkUrl(ctx)).toBe('otto://allSessions/session/session/with spaces&special=chars');
   });
 
   it('returns undefined when sessionId is empty string', () => {
     const ctx: OAuthSessionContext = {
       sessionId: '',
-      deeplinkScheme: 'craftagents',
+      deeplinkScheme: 'otto',
     };
     expect(buildOAuthDeeplinkUrl(ctx)).toBeUndefined();
   });
@@ -85,8 +85,8 @@ describe('buildOAuthDeeplinkUrl', () => {
   it('constructs correct URL format for instance 2', () => {
     const ctx: OAuthSessionContext = {
       sessionId: '260111-bold-moon',
-      deeplinkScheme: 'craftagents2',
+      deeplinkScheme: 'otto2',
     };
-    expect(buildOAuthDeeplinkUrl(ctx)).toBe('craftagents2://allSessions/session/260111-bold-moon');
+    expect(buildOAuthDeeplinkUrl(ctx)).toBe('otto2://allSessions/session/260111-bold-moon');
   });
 });

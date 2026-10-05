@@ -13,7 +13,7 @@
 import type { LLMQueryRequest, LLMQueryResult } from './llm-tool.ts';
 import type { SpawnSessionFn } from './spawn-session-tool.ts';
 import type { BrowserPaneFns } from './browser-tools.ts';
-import type { AuthRequest } from '@craft-agent/session-tools-core';
+import type { AuthRequest } from '@otto/session-tools-core';
 import { debug } from '../utils/debug.ts';
 
 /**
@@ -58,17 +58,17 @@ export interface SessionScopedToolCallbacks {
   /** Archive (archived=true) or unarchive (archived=false) a session by ID. */
   archiveSessionFn?: (sessionId: string, archived: boolean) => void | Promise<void>;
   /** Get detailed info about a session (defaults to current). */
-  getSessionInfoFn?: (sessionId?: string) => import('@craft-agent/session-tools-core').SessionInfo | null;
+  getSessionInfoFn?: (sessionId?: string) => import('@otto/session-tools-core').SessionInfo | null;
   /** List sessions in the workspace with pagination. */
-  listSessionsFn?: (options?: import('@craft-agent/session-tools-core').ListSessionsOptions) => import('@craft-agent/session-tools-core').ListSessionsResult;
+  listSessionsFn?: (options?: import('@otto/session-tools-core').ListSessionsOptions) => import('@otto/session-tools-core').ListSessionsResult;
   /** List background tasks (running + terminal) for a session from the main-process registry. */
-  listBackgroundTasksFn?: (sessionId?: string) => import('@craft-agent/session-tools-core').BackgroundTaskInfo[];
+  listBackgroundTasksFn?: (sessionId?: string) => import('@otto/session-tools-core').BackgroundTaskInfo[];
   /** Resolve label display names to IDs. */
-  resolveLabelsFn?: (labels: string[]) => import('@craft-agent/session-tools-core').ResolvedLabelsResult;
+  resolveLabelsFn?: (labels: string[]) => import('@otto/session-tools-core').ResolvedLabelsResult;
   /** Resolve a status display name to its ID. */
-  resolveStatusFn?: (status: string) => import('@craft-agent/session-tools-core').ResolvedStatusResult;
+  resolveStatusFn?: (status: string) => import('@otto/session-tools-core').ResolvedStatusResult;
   /** Send a message to another session (inter-session messaging). Resolves with delivery status. */
-  sendAgentMessageFn?: (sessionId: string, message: string, attachments?: Array<{ path: string; name?: string }>) => Promise<import('@craft-agent/session-tools-core').SendAgentMessageResult>;
+  sendAgentMessageFn?: (sessionId: string, message: string, attachments?: Array<{ path: string; name?: string }>) => Promise<import('@otto/session-tools-core').SendAgentMessageResult>;
   /**
    * Activate a source in the running session (source_test auto-enable flow).
    * Wired by SessionManager to the per-session onSourceActivationRequest callback
@@ -88,13 +88,13 @@ export interface SessionScopedToolCallbacks {
    * object because the six operations always ship together. Wired by
    * SessionManager to the invoking session's workspace.
    */
-  pages?: import('@craft-agent/session-tools-core').PagesToolCallbacks;
+  pages?: import('@otto/session-tools-core').PagesToolCallbacks;
   /**
    * Decision-layer callback for the `decide` tool (Jev / System One). Wired by
-   * SessionManager from `@craft-agent/shared/decisions`; gating (Settings switch,
+   * SessionManager from `@otto/shared/decisions`; gating (Settings switch,
    * feature toggle, key) happens inside the callback at call time.
    */
-  decide?: import('@craft-agent/session-tools-core').DecisionToolCallbacks;
+  decide?: import('@otto/session-tools-core').DecisionToolCallbacks;
 }
 
 // Registry of callbacks keyed by sessionId

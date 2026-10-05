@@ -15,13 +15,13 @@ const SIZE_MAP = {
   icon: "icon-sm",
 } as const
 
-type CraftSize = keyof typeof SIZE_MAP
-type ButtonSize = CraftSize | NonNullable<DsVariants["size"]> | null
+type OttoSize = keyof typeof SIZE_MAP
+type ButtonSize = OttoSize | NonNullable<DsVariants["size"]> | null
 type ButtonVariant = DsVariants["variant"]
 
 function resolveSize(size: ButtonSize | undefined): DsVariants["size"] {
   if (size == null) return SIZE_MAP.default
-  return size in SIZE_MAP ? SIZE_MAP[size as CraftSize] : (size as DsVariants["size"])
+  return size in SIZE_MAP ? SIZE_MAP[size as OttoSize] : (size as DsVariants["size"])
 }
 
 /** Class names for a button, for call sites that style non-button elements (calendar). */

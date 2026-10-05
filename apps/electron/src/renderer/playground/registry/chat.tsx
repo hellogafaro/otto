@@ -2,7 +2,7 @@ import * as React from 'react'
 import type { ComponentEntry } from './types'
 import { AttachmentPreview } from '@/components/app-shell/AttachmentPreview'
 import { SetupAuthBanner } from '@/components/app-shell/SetupAuthBanner'
-import { TurnCard, type ActivityItem } from '@craft-agent/ui'
+import { TurnCard, type ActivityItem } from '@otto/ui'
 import type { BackgroundTask } from '@/components/app-shell/ActiveTasksBar'
 import { ActiveOptionBadges } from '@/components/app-shell/ActiveOptionBadges'
 import { ChatInputZone, InputContainer } from '@/components/app-shell/input'
@@ -11,7 +11,7 @@ import type { StructuredResponse } from '@/components/app-shell/input/structured
 import { EmptyStateHint, getHintCount, getHintTemplate } from '@/components/chat/EmptyStateHint'
 import { Button } from '@/components/ui/button'
 import { Circle, Sparkles } from 'lucide-react'
-import type { LabelConfig } from '@craft-agent/shared/labels'
+import type { LabelConfig } from '@otto/shared/labels'
 import type { SessionStatus } from '@/config/session-status-config'
 import type { FileAttachment, PermissionRequest, PermissionMode } from '../../../shared/types'
 import { AppShellProvider } from '@/context/AppShellContext'
@@ -550,10 +550,10 @@ interface InputContainerPlaygroundProps {
 function InputContainerPlayground({
   disabled = false,
   isProcessing = false,
-  placeholder = 'Message Craft Agent...',
+  placeholder = 'Message Otto...',
   currentModel = 'claude-sonnet-4-6',
   permissionMode = 'ask',
-  workingDirectory = '/Users/demo/projects/craft-agent',
+  workingDirectory = '/Users/demo/projects/otto',
   inputMode = 'freeform',
   compactMode = false,
   showOptionBadges = true,
@@ -689,7 +689,7 @@ function InputContainerPlayground({
     if (!showAttachments || attachmentFiles.length === 0) return
 
     const timer = setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('craft:paste-files', {
+      window.dispatchEvent(new CustomEvent('otto:paste-files', {
         detail: {
           files: attachmentFiles,
           sessionId: playgroundSessionId,
@@ -821,7 +821,7 @@ function ActiveTasksBarContext({ tasks = sampleBackgroundTasks }: ActiveTasksBar
 
         {/* Real InputContainer */}
         <InputContainer
-          placeholder="Message Craft Agent..."
+          placeholder="Message Otto..."
           disabled={false}
           isProcessing={false}
           currentModel="claude-sonnet-4-6"
@@ -829,7 +829,7 @@ function ActiveTasksBarContext({ tasks = sampleBackgroundTasks }: ActiveTasksBar
           onPermissionModeChange={setPermissionMode}
           sources={mockSources}
           enabledSourceSlugs={['github-api', 'local-files']}
-          workingDirectory="/Users/demo/projects/craft-agent"
+          workingDirectory="/Users/demo/projects/otto"
           sessionId="playground-session"
           onSubmit={mockInputCallbacks.onSubmit}
           onModelChange={mockInputCallbacks.onModelChange}
@@ -923,7 +923,7 @@ function PermissionInputToggle({ autoToggle = false, autoToggleInterval = 3000, 
 
       {/* Real InputContainer - handles animation automatically */}
       <InputContainer
-        placeholder="Message Craft Agent..."
+        placeholder="Message Otto..."
         disabled={false}
         isProcessing={false}
         currentModel="claude-sonnet-4-6"
@@ -931,7 +931,7 @@ function PermissionInputToggle({ autoToggle = false, autoToggleInterval = 3000, 
         onPermissionModeChange={setPermissionMode}
         sources={mockSources}
         enabledSourceSlugs={['github-api', 'local-files']}
-        workingDirectory="/Users/demo/projects/craft-agent"
+        workingDirectory="/Users/demo/projects/otto"
         sessionId="playground-session"
         structuredInput={structuredInput}
         onStructuredResponse={handlePermissionResponse}
@@ -1274,7 +1274,7 @@ export const chatComponents: ComponentEntry[] = [
         name: 'placeholder',
         description: 'Textarea placeholder text',
         control: { type: 'string', placeholder: 'Message...' },
-        defaultValue: 'Message Craft Agent...',
+        defaultValue: 'Message Otto...',
       },
       {
         name: 'currentModel',
@@ -1355,7 +1355,7 @@ export const chatComponents: ComponentEntry[] = [
         name: 'workingDirectory',
         description: 'Current working directory',
         control: { type: 'string', placeholder: '/path/to/project' },
-        defaultValue: '/Users/demo/projects/craft-agent',
+        defaultValue: '/Users/demo/projects/otto',
       },
       {
         name: 'seedRecentDirs',

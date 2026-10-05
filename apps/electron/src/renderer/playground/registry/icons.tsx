@@ -5,10 +5,10 @@ import { SquarePenRounded } from '@/components/icons/SquarePenRounded'
 
 export const iconComponents: ComponentEntry[] = [
   {
-    id: 'craft-agents-logo',
+    id: 'otto-logo',
     name: 'CraftAgentsLogo',
     category: 'Icons',
-    description: 'Full Craft Agents branding logo with text',
+    description: 'Full Otto branding logo with text',
     component: CraftAgentsLogo,
     props: [
       {
@@ -25,10 +25,10 @@ export const iconComponents: ComponentEntry[] = [
     ],
   },
   {
-    id: 'craft-agents-symbol',
+    id: 'otto-symbol',
     name: 'CraftAgentsSymbol',
     category: 'Icons',
-    description: 'Craft Agents "E" pixel art symbol icon (brand color: #9570BE)',
+    description: 'Otto "E" pixel art symbol icon (brand color: #9570BE)',
     component: CraftAgentsSymbol,
     props: [
       {

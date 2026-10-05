@@ -9,8 +9,8 @@ import type {
   PageDataSnapshot,
   PageKind,
   PageRenderLease,
-} from '@craft-agent/shared/pages/types'
-import { isPageGrantUsable } from '@craft-agent/shared/pages/types'
+} from '@otto/shared/pages/types'
+import { isPageGrantUsable } from '@otto/shared/pages/types'
 import {
   PageActionRateLimiter,
   buildPageActionResultMessage,

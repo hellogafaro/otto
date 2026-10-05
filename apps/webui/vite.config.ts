@@ -17,14 +17,14 @@ export default defineConfig({
     {
       // Dev only, opt-in (WEBUI_LOCAL_WS=1): a browser on this machine reaches the
       // server directly. Off by default because the bb link also arrives as
-      // 127.0.0.1, and there the server's CRAFT_WEBUI_WS_URL (the public address)
+      // 127.0.0.1, and there the server's OTTO_WEBUI_WS_URL (the public address)
       // must be used as is.
       name: 'local-ws-url',
       configureServer(server) {
         if (!process.env.WEBUI_LOCAL_WS) return
         server.middlewares.use('/api/config', (_req, res) => {
           res.setHeader('content-type', 'application/json')
-          res.end(JSON.stringify({ wsUrl: `ws://127.0.0.1:${process.env.CRAFT_RPC_PORT ?? '9100'}` }))
+          res.end(JSON.stringify({ wsUrl: `ws://127.0.0.1:${process.env.OTTO_RPC_PORT ?? '9100'}` }))
         })
       },
     },
@@ -92,7 +92,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'jotai'],
-    exclude: ['@craft-agent/ui'],
+    exclude: ['@otto/ui'],
     esbuildOptions: {
       supported: { 'top-level-await': true },
       target: 'esnext',
@@ -105,12 +105,12 @@ export default defineConfig({
     // Dev only: reached through the bb link, whose host name changes.
     allowedHosts: true,
     // Proxy API + WS to the headless server so the dev bundle on :5175 works
-    // end-to-end with HMR. Target port follows CRAFT_RPC_PORT (default 9100).
-    // Auto-detects TLS: if the server has CRAFT_RPC_TLS_KEY/CERT set, we proxy
+    // end-to-end with HMR. Target port follows OTTO_RPC_PORT (default 9100).
+    // Auto-detects TLS: if the server has OTTO_RPC_TLS_KEY/CERT set, we proxy
     // over https/wss with secure:false to accept the self-signed dev cert.
     proxy: (() => {
-      const port = process.env.CRAFT_RPC_PORT ?? '9100'
-      const useTls = Boolean(process.env.CRAFT_RPC_TLS_KEY || process.env.CRAFT_RPC_TLS_CERT)
+      const port = process.env.OTTO_RPC_PORT ?? '9100'
+      const useTls = Boolean(process.env.OTTO_RPC_TLS_KEY || process.env.OTTO_RPC_TLS_CERT)
       const httpProto = useTls ? 'https' : 'http'
       const wsProto = useTls ? 'wss' : 'ws'
       const httpTarget = `${httpProto}://127.0.0.1:${port}`

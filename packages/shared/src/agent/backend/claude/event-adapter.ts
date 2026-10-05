@@ -1,7 +1,7 @@
 /**
  * Claude Event Adapter
  *
- * Maps Claude SDK messages (SDKMessage) to Craft Agent's AgentEvent format.
+ * Maps Claude SDK messages (SDKMessage) to Otto's AgentEvent format.
  * Extracted from ClaudeAgent.convertSDKMessage() for testability and to share
  * lifecycle scaffolding with PiEventAdapter via BaseEventAdapter.
  *
@@ -13,7 +13,7 @@
  */
 
 import type { SDKMessage, SDKAssistantMessageError } from '@anthropic-ai/claude-agent-sdk';
-import type { AgentEvent, ContextUsageSnapshot } from '@craft-agent/core/types';
+import type { AgentEvent, ContextUsageSnapshot } from '@otto/core/types';
 import { contextAfterCompaction, contextFromClaude } from '../../context-usage.ts';
 import type { AgentError } from '../../errors.ts';
 import { BaseEventAdapter } from '../base-event-adapter.ts';

@@ -8,9 +8,9 @@
  * recorded with feature `semantic_labels`; every failure yields no matches.
  */
 
-import type { DecisionResult } from '@craft-agent/shared/decisions'
-import type { LabelConfig } from '@craft-agent/shared/labels'
-import { collectSemanticAutoLabelRules, evaluateSemanticAutoLabels, semanticRuleEntry, type AutoLabelMatch } from '@craft-agent/shared/labels/auto'
+import type { DecisionResult } from '@otto/shared/decisions'
+import type { LabelConfig } from '@otto/shared/labels'
+import { collectSemanticAutoLabelRules, evaluateSemanticAutoLabels, semanticRuleEntry, type AutoLabelMatch } from '@otto/shared/labels/auto'
 import { openDecisionPoint, recordDecisionOutcome, type DecisionPointDeps } from './decision-point'
 
 export interface SemanticLabelsDeps extends DecisionPointDeps {

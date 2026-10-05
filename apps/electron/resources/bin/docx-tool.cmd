@@ -1,2 +1,2 @@
 @echo off
-"%CRAFT_UV%" run --python 3.12 "%CRAFT_SCRIPTS%\docx_tool.py" %*
+"%OTTO_UV%" run --python 3.12 "%OTTO_SCRIPTS%\docx_tool.py" %*

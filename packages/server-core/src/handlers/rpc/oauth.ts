@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { RPC_CHANNELS } from '@craft-agent/shared/protocol'
-import { getWorkspaceByNameOrId } from '@craft-agent/shared/config'
-import { loadSource, loadWorkspaceSources, getSourceCredentialManager } from '@craft-agent/shared/sources'
-import { createPendingFlow } from '@craft-agent/shared/auth'
-import { pushTyped, type RpcServer } from '@craft-agent/server-core/transport'
+import { RPC_CHANNELS } from '@otto/shared/protocol'
+import { getWorkspaceByNameOrId } from '@otto/shared/config'
+import { loadSource, loadWorkspaceSources, getSourceCredentialManager } from '@otto/shared/sources'
+import { createPendingFlow } from '@otto/shared/auth'
+import { pushTyped, type RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 
 export const HANDLED_CHANNELS = [

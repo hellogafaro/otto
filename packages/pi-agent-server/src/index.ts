@@ -69,8 +69,8 @@ import { resolvePiModel, isDeniedMiniModelId } from './model-resolution.ts';
 import { pickProviderAppropriateMiniModel } from './pick-mini-model.ts';
 import { queryMiniModel } from './mini-model-query.ts';
 import {
-  CRAFT_PI_EPHEMERAL_QUERY_DEADLINE_MS,
-  createCraftSettingsManager,
+  OTTO_PI_EPHEMERAL_QUERY_DEADLINE_MS,
+  createOttoSettingsManager,
 } from './session-settings.ts';
 import {
   EphemeralQueryCancelledError,
@@ -98,9 +98,9 @@ import { getDefaultSummarizationModel } from '../../shared/src/config/models.ts'
 import { createWebFetchTool } from './tools/web-fetch.ts';
 import { resolveSearchProvider } from './tools/search/resolve-provider.ts';
 import { createSearchTool } from './tools/search/create-search-tool.ts';
-import { allowCraftMetadataProperties, stripCraftMetadata } from './craft-metadata-schema.ts';
+import { allowOttoMetadataProperties, stripOttoMetadata } from './otto-metadata-schema.ts';
 import {
-  createCraftResourceLoader,
+  createOttoResourceLoader,
   createSystemPromptOverride,
   type SystemPromptOverride,
 } from './system-prompt-override.ts';
@@ -263,7 +263,7 @@ type OutboundMessage =
 // ============================================================
 
 let piSession: AgentSession | null = null;
-// Forces Craft's system prompt onto piSession (see system-prompt-override.ts);
+// Forces Otto's system prompt onto piSession (see system-prompt-override.ts);
 // recreated together with the session.
 let piSessionPromptOverride: SystemPromptOverride | null = null;
 // A stop must also cancel a manual compact still waiting for auto-compaction.
@@ -429,18 +429,18 @@ function shouldPreferCustomEndpoint(): boolean {
  */
 function setInterceptorApiHints(model: { api?: string; provider?: string; baseUrl?: string } | undefined): void {
   if (!model) {
-    delete process.env.CRAFT_PI_MODEL_API;
-    delete process.env.CRAFT_PI_MODEL_PROVIDER;
-    delete process.env.CRAFT_PI_MODEL_BASE_URL;
+    delete process.env.OTTO_PI_MODEL_API;
+    delete process.env.OTTO_PI_MODEL_PROVIDER;
+    delete process.env.OTTO_PI_MODEL_BASE_URL;
     return;
   }
 
-  process.env.CRAFT_PI_MODEL_API = model.api || '';
-  process.env.CRAFT_PI_MODEL_PROVIDER = model.provider || '';
-  process.env.CRAFT_PI_MODEL_BASE_URL = model.baseUrl || '';
+  process.env.OTTO_PI_MODEL_API = model.api || '';
+  process.env.OTTO_PI_MODEL_PROVIDER = model.provider || '';
+  process.env.OTTO_PI_MODEL_BASE_URL = model.baseUrl || '';
 
   debugLog(
-    `[interceptor-hint] api=${process.env.CRAFT_PI_MODEL_API || '-'} provider=${process.env.CRAFT_PI_MODEL_PROVIDER || '-'} baseUrl=${process.env.CRAFT_PI_MODEL_BASE_URL || '-'}`,
+    `[interceptor-hint] api=${process.env.OTTO_PI_MODEL_API || '-'} provider=${process.env.OTTO_PI_MODEL_PROVIDER || '-'} baseUrl=${process.env.OTTO_PI_MODEL_BASE_URL || '-'}`,
   );
 }
 
@@ -620,7 +620,7 @@ async function ensureSession(): Promise<AgentSession> {
   // IMPORTANT: resolve dynamically on each search call so token_update refreshes
   // are used without recreating the session.
   // The active model is passed so the ChatGPT backend search provider uses a model the
-  // account supports instead of a hardcoded one (craft-agents-oss#1023). Resolved per call
+  // account supports instead of a hardcoded one (otto#1023). Resolved per call
   // (alongside the provider) so set_model / token_update refreshes are picked up live.
   const activeSearchModel = () => (initConfig?.model ? stripPiPrefix(initConfig.model) : undefined);
   const searchProvider = {
@@ -664,7 +664,7 @@ async function ensureSession(): Promise<AgentSession> {
   // settingsManager: explicit in-memory settings (retry policy, compaction)
   // instead of the SDK default that merges `<cwd>/.pi/settings.json` from the
   // user's working directory and writes to `<agentDir>/settings.json`.
-  const settingsManager = createCraftSettingsManager('main');
+  const settingsManager = createOttoSettingsManager('main');
   const sessionOptions: CreateAgentSessionOptions = {
     cwd,
     modelRuntime,
@@ -680,7 +680,7 @@ async function ensureSession(): Promise<AgentSession> {
     mkdirSync(agentDir, { recursive: true });
     sessionOptions.agentDir = agentDir;
 
-    // Session resume: use a per-Craft-session directory so the Pi SDK can
+    // Session resume: use a per-Otto-session directory so the Pi SDK can
     // persist and resume its own session across subprocess restarts.
     // continueRecent() loads the existing session if one exists, otherwise
     // creates a new one — so this handles both first-run and resume.
@@ -754,11 +754,11 @@ async function ensureSession(): Promise<AgentSession> {
     sessionOptions.thinkingLevel = piThinkingLevel;
   }
 
-  // Craft's system prompt is forced through a before_agent_start extension
+  // Otto's system prompt is forced through a before_agent_start extension
   // registered on the resource loader (see system-prompt-override.ts). The
   // loader otherwise mirrors the one createAgentSession would build itself.
   const systemPromptOverride = createSystemPromptOverride();
-  sessionOptions.resourceLoader = await createCraftResourceLoader({
+  sessionOptions.resourceLoader = await createOttoResourceLoader({
     cwd,
     agentDir: sessionOptions.agentDir ?? getAgentDir(),
     settingsManager,
@@ -826,7 +826,7 @@ function wrapToolsWithHooks(tools: ToolDefinition<any, any>[]): ToolDefinition<a
 
 function wrapSingleTool(tool: ToolDefinition<any, any>): ToolDefinition<any, any> {
   const originalExecute = tool.execute;
-  const parameters = allowCraftMetadataProperties(tool.parameters);
+  const parameters = allowOttoMetadataProperties(tool.parameters);
 
   const wrappedExecute: ToolDefinition<any, any>['execute'] = async (
     toolCallId,
@@ -850,10 +850,10 @@ function wrapSingleTool(tool: ToolDefinition<any, any>): ToolDefinition<any, any
     // Send to main process for permission checking + transforms
     inputObj = await requestPreToolUseApproval(sdkToolName, inputObj, toolCallId);
 
-    // Metadata is for Craft UI only. Keep a final defensive strip here so the
+    // Metadata is for Otto UI only. Keep a final defensive strip here so the
     // upstream Pi tool implementation always receives clean executable args,
     // even if a future pre-tool-use path returns `allow` without modification.
-    inputObj = stripCraftMetadata(inputObj);
+    inputObj = stripOttoMetadata(inputObj);
 
     // Execute original tool with (potentially modified) input
     const result = await originalExecute(toolCallId, inputObj, signal, onUpdate, ctx);
@@ -1043,7 +1043,7 @@ async function queryLlm(
 
     // Create minimal ephemeral session. The resource loader mirrors the SDK
     // default (same cwd, default agentDir) plus the system-prompt override.
-    const ephemeralSettings = createCraftSettingsManager('ephemeral');
+    const ephemeralSettings = createOttoSettingsManager('ephemeral');
     const ephemeralPromptOverride = createSystemPromptOverride();
     const ephemeralOptions: CreateAgentSessionOptions = {
       cwd: resolvedCwd(),
@@ -1052,7 +1052,7 @@ async function queryLlm(
       sessionManager: PiSessionManager.inMemory(),
       settingsManager: ephemeralSettings,
       model: piModel,
-      resourceLoader: await createCraftResourceLoader({
+      resourceLoader: await createOttoResourceLoader({
         cwd: resolvedCwd(),
         agentDir: getAgentDir(),
         settingsManager: ephemeralSettings,
@@ -1157,7 +1157,7 @@ function runEphemeralLlmQuery(
 ): Promise<LLMQueryResult> {
   return ephemeralQueries.run(
     id,
-    CRAFT_PI_EPHEMERAL_QUERY_DEADLINE_MS,
+    OTTO_PI_EPHEMERAL_QUERY_DEADLINE_MS,
     lifecycle => queryLlm(request, lifecycle),
   );
 }
@@ -1229,7 +1229,7 @@ function handleSessionEvent(event: AgentSessionEvent): void {
       // a plain text turn is the user message that triggered the response.
       // Recording that wrong anchor and using it for `branch()` makes the next
       // turn a sibling of the assistant message, dropping the assistant reply
-      // from the LLM's view of history (craft-agents-oss#782).
+      // from the LLM's view of history (otto#782).
       //
       // Instead, attach the SDK's message id to the forwarded event so the main
       // process can correlate this turn, then queue a microtask to read the
@@ -1399,7 +1399,7 @@ async function handlePrompt(msg: Extract<InboundMessage, { type: 'prompt' }>): P
 
     const session = await ensureSession();
 
-    // Force the Craft-built system prompt onto the Pi session through the
+    // Force the Otto-built system prompt onto the Pi session through the
     // before_agent_start override created with it (see system-prompt-override.ts).
     if (msg.systemPrompt) {
       piSessionPromptOverride?.set(msg.systemPrompt);
@@ -1411,7 +1411,7 @@ async function handlePrompt(msg: Extract<InboundMessage, { type: 'prompt' }>): P
     }
     unsubscribeEvents = session.subscribe(handleSessionEvent);
 
-    // Wait for any in-flight auto-compaction to avoid race (craft-agents-oss#464)
+    // Wait for any in-flight auto-compaction to avoid race (otto#464)
     const compactionWait = await waitForCompaction(session, { timeoutMs: PROMPT_COMPACT_WAIT_MS, log: debugLog });
     if (compactionWait.timedOut) {
       debugLog('Proceeding with prompt while the compaction flag is still set');
@@ -1431,7 +1431,7 @@ async function handlePrompt(msg: Extract<InboundMessage, { type: 'prompt' }>): P
     // calls agent.continue() to retry once. Running our own session.compact()
     // in parallel raced against the SDK and is the documented cause of the
     // AbortController crash in `_runAutoCompaction` (see
-    // plans/fix-pi-gpt-compaction.md). PiEventAdapter holds the Craft event
+    // plans/fix-pi-gpt-compaction.md). PiEventAdapter holds the Otto event
     // queue open across the SDK's recovery flow so the recovered turn
     // reaches the UI.
 
@@ -1567,7 +1567,7 @@ async function handleCompact(msg: Extract<InboundMessage, { type: 'compact' }>):
     // it runs while _runAutoCompaction is suspended, agent state churns and
     // the SDK's race surface widens. The wait is capped well under the host's
     // 300 s RPC deadline: a stuck compaction used to eat the whole budget
-    // before compact() even started (craft-agents-oss#1060). Proceeding after
+    // before compact() even started (otto#1060). Proceeding after
     // the cap is deliberate, since compact() begins with abort() and thereby
     // cancels the stale compaction.
     const wait = await waitForCompaction(session, { timeoutMs: MANUAL_COMPACT_WAIT_MS, log: debugLog });

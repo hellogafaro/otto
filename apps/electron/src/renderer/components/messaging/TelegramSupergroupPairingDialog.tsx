@@ -10,7 +10,7 @@
  * while the dialog is open; on first non-null response we close + toast.
  */
 
-import { Spinner } from '@craft-agent/ui'
+import { Spinner } from '@otto/ui'
 import * as React from 'react'
 import { Copy, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'

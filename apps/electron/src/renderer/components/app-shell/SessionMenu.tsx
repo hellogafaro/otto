@@ -35,7 +35,7 @@ import {
 import { useMenuComponents } from '@/components/ui/menu-context'
 import { getStateColor, getStateIcon, type SessionStatusId } from '@/config/session-status-config'
 import type { SessionStatus } from '@/config/session-status-config'
-import type { LabelConfig } from '@craft-agent/shared/labels'
+import type { LabelConfig } from '@otto/shared/labels'
 import { LabelMenuItems, StatusMenuItems, ShareMenuItems } from './SessionMenuParts'
 import { getFileManagerName } from '@/lib/platform'
 import type { SessionMeta } from '@/atoms/sessions'

@@ -303,14 +303,14 @@ describe('BrowserPaneManager', () => {
     const openHandler = instance.pageView.webContents.setWindowOpenHandler.mock.calls[0][0]
 
     const result = openHandler({
-      url: 'craftagents://settings',
+      url: 'otto://settings',
       disposition: 'new-popup',
       frameName: '',
     })
 
     expect(result).toEqual({ action: 'deny' })
     await Bun.sleep(0)
-    expect(mockShellOpenExternal).toHaveBeenCalledWith('craftagents://settings')
+    expect(mockShellOpenExternal).toHaveBeenCalledWith('otto://settings')
   })
 
   it('destroys child popups when parent instance is destroyed', () => {
@@ -565,10 +565,10 @@ describe('BrowserPaneManager', () => {
 
   it('navigate treats plain text as search query', async () => {
     manager.createInstance('nav-2')
-    await manager.navigate('nav-2', 'craft agents browser tools')
+    await manager.navigate('nav-2', 'Otto browser tools')
     const instance = (manager as any).instances.get('nav-2')
     expect(instance.pageView.webContents.loadURL).toHaveBeenCalledWith(
-      'https://duckduckgo.com/?q=craft%20agents%20browser%20tools'
+      'https://duckduckgo.com/?q=Otto%20browser%20tools'
     )
   })
 
@@ -731,7 +731,7 @@ describe('BrowserPaneManager', () => {
     const instance = (manager as any).instances.get('theme-signal')
     instance.themeObserverToken = 'tok-1'
 
-    instance.pageView.webContents._emit('console-message', 1, '__craft_theme_color__:tok-1:#123456')
+    instance.pageView.webContents._emit('console-message', 1, '__otto_theme_color__:tok-1:#123456')
 
     expect(manager.listInstances().find(i => i.id === 'theme-signal')?.themeColor).toBe('#123456')
     expect(manager.getConsoleLogs('theme-signal', { level: 'all', limit: 10 })).toHaveLength(0)
@@ -742,10 +742,10 @@ describe('BrowserPaneManager', () => {
     const instance = (manager as any).instances.get('theme-dedupe')
     instance.themeObserverToken = 'tok-2'
 
-    instance.pageView.webContents._emit('console-message', 1, '__craft_theme_color__:tok-2:#445566')
+    instance.pageView.webContents._emit('console-message', 1, '__otto_theme_color__:tok-2:#445566')
     const sendCallsAfterFirst = instance.window.webContents.send.mock.calls.length
 
-    instance.pageView.webContents._emit('console-message', 1, '__craft_theme_color__:tok-2:#445566')
+    instance.pageView.webContents._emit('console-message', 1, '__otto_theme_color__:tok-2:#445566')
     const sendCallsAfterSecond = instance.window.webContents.send.mock.calls.length
 
     expect(sendCallsAfterSecond).toBe(sendCallsAfterFirst)
@@ -757,7 +757,7 @@ describe('BrowserPaneManager', () => {
     instance.themeObserverToken = 'tok-current'
     instance.themeColor = '#aaaaaa'
 
-    instance.pageView.webContents._emit('console-message', 1, '__craft_theme_color__:tok-old:#bbccdd')
+    instance.pageView.webContents._emit('console-message', 1, '__otto_theme_color__:tok-old:#bbccdd')
 
     expect(manager.listInstances().find(i => i.id === 'theme-stale-token')?.themeColor).toBe('#aaaaaa')
   })
@@ -767,10 +767,10 @@ describe('BrowserPaneManager', () => {
     const instance = (manager as any).instances.get('theme-null')
     instance.themeObserverToken = 'tok-null'
 
-    instance.pageView.webContents._emit('console-message', 1, '__craft_theme_color__:tok-null:#223344')
+    instance.pageView.webContents._emit('console-message', 1, '__otto_theme_color__:tok-null:#223344')
     expect(manager.listInstances().find(i => i.id === 'theme-null')?.themeColor).toBe('#223344')
 
-    instance.pageView.webContents._emit('console-message', 1, '__craft_theme_color__:tok-null:__NULL__')
+    instance.pageView.webContents._emit('console-message', 1, '__otto_theme_color__:tok-null:__NULL__')
     expect(manager.listInstances().find(i => i.id === 'theme-null')?.themeColor).toBeNull()
   })
 
@@ -807,7 +807,7 @@ describe('BrowserPaneManager', () => {
     const instance = (manager as any).instances.get('toolbar-finish-load-replay')
 
     instance.currentUrl = 'https://craft.do'
-    instance.title = 'Craft'
+    instance.title = 'Otto'
     instance.isLoading = true
     instance.canGoBack = true
     instance.canGoForward = true
@@ -823,7 +823,7 @@ describe('BrowserPaneManager', () => {
       'browser-toolbar:state-update',
       {
         url: 'https://craft.do',
-        title: 'Craft',
+        title: 'Otto',
         isLoading: true,
         canGoBack: true,
         canGoForward: true,

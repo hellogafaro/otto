@@ -9,7 +9,7 @@ import {
   resolveDecisionEndpoint,
   type DecisionClientResolution,
   type DecisionResult,
-} from '@craft-agent/shared/decisions'
+} from '@otto/shared/decisions'
 import {
   buildTurnOutcomeRequest,
   classifyTurnOutcome,

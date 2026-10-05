@@ -28,7 +28,7 @@ export function stripPiPrefixForDisplay(value: string): string {
 /**
  * Group connections by provider type for hierarchical picker rendering.
  * Each provider section can contain multiple connections (API Key, OAuth, …).
- * Order is significant for UI: Anthropic, Local, Craft Agents Backend.
+ * Order is significant for UI: Anthropic, Local, Otto Backend.
  * Empty groups are dropped.
  */
 export function groupConnectionsByProvider<T extends LlmConnection>(
@@ -37,7 +37,7 @@ export function groupConnectionsByProvider<T extends LlmConnection>(
   const groups: Record<string, T[]> = {
     'Anthropic': [],
     'Local': [],
-    'Craft Agents Backend': [],
+    'Otto Backend': [],
   }
   for (const conn of connections) {
     const provider = conn.providerType || 'anthropic'
@@ -46,7 +46,7 @@ export function groupConnectionsByProvider<T extends LlmConnection>(
     } else if (provider === 'pi_compat' && isLocalConnection(conn)) {
       groups['Local'].push(conn)
     } else if (provider === 'pi' || provider === 'pi_compat') {
-      groups['Craft Agents Backend'].push(conn)
+      groups['Otto Backend'].push(conn)
     }
   }
   return Object.entries(groups).filter(([, conns]) => conns.length > 0)

@@ -16,7 +16,7 @@ import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useTranslation } from 'react-i18next'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@craft-agent/ui'
+import { Spinner } from '@otto/ui'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 
 import {

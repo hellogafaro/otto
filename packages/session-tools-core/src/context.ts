@@ -155,7 +155,7 @@ export interface SessionToolContext {
   /** Unique session identifier */
   sessionId: string;
 
-  /** Absolute path to workspace folder (~/.craft-agent/workspaces/{id}) */
+  /** Absolute path to workspace folder (~/.otto/workspaces/{id}) */
   workspacePath: string;
 
   /** Path to sources folder within workspace */
@@ -292,7 +292,7 @@ export interface SessionToolContext {
 
   /**
    * Submit developer feedback. Injected by each backend:
-   * - Claude: writes JSON files to ~/.craft-agent/feedback/
+   * - Claude: writes JSON files to ~/.otto/feedback/
    * - Codex/Pi: could send over IPC or write directly
    */
   submitFeedback?(feedback: import('./types.ts').DeveloperFeedback): void;
@@ -358,7 +358,7 @@ export interface SessionToolContext {
   /**
    * Decision-layer callback for the `decide` tool (Jev / System One typed
    * judgments over text or JSON). Injected by the backend (SessionManager)
-   * from @craft-agent/shared/decisions; undefined in backends that don't run
+   * from @otto/shared/decisions; undefined in backends that don't run
    * alongside it — the handler tells the agent how the user can enable it.
    * Answers are hints for the agent and never grant authority.
    */
@@ -444,7 +444,7 @@ export interface ResolvedLabelsResult {
   available: string[];
   /**
    * Optional per-input rejection reason, keyed by the original input string.
-   * Populated by `resolveSessionLabels()` from `@craft-agent/shared/labels`.
+   * Populated by `resolveSessionLabels()` from `@otto/shared/labels`.
    * Handlers use this to build clearer errors (e.g. "label X doesn't accept a value").
    */
   reasons?: Record<string, string>;
@@ -472,7 +472,7 @@ export interface ResolvedStatusResult {
 // ============================================================
 // Pages Types
 // ============================================================
-// Plain JSON shapes mirroring @craft-agent/core page types — duplicated here
+// Plain JSON shapes mirroring @otto/core page types — duplicated here
 // on purpose so this package stays dependency-free. The backend maps real PageConfig/LoadedPage onto these.
 
 /** Scheduled refresh spec for a page (5-field cron → workspace-relative script). */
@@ -617,7 +617,7 @@ export interface PagesToolCallbacks {
 }
 
 // ============================================================
-// Decision Tool Types (mirror @craft-agent/shared/decisions — this package
+// Decision Tool Types (mirror @otto/shared/decisions — this package
 // must stay free of that dependency, same rule as pages)
 // ============================================================
 

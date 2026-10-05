@@ -15,9 +15,9 @@
  */
 
 import { join } from 'node:path'
-import type { DecisionRequest, DecisionResult } from '@craft-agent/shared/decisions'
-import type { LoadedSkill } from '@craft-agent/shared/skills'
-import { extractTagline, isSourceUsable, type LoadedSource } from '@craft-agent/shared/sources'
+import type { DecisionRequest, DecisionResult } from '@otto/shared/decisions'
+import type { LoadedSkill } from '@otto/shared/skills'
+import { extractTagline, isSourceUsable, type LoadedSource } from '@otto/shared/sources'
 import { FOREGROUND_MAX_DEADLINE_MS, openDecisionPoint, recordDecisionFollowUp, recordDecisionOutcome, type DecisionPointDeps } from './decision-point'
 
 /**

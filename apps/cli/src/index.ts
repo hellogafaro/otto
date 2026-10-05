@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * craft-cli — Terminal client for Craft Agent server.
+ * otto-cli — Terminal client for Otto server.
  *
- * Connects over WebSocket (ws:// or wss://) to a running Craft Agent server
+ * Connects over WebSocket (ws:// or wss://) to a running Otto server
  * and provides commands for listing resources, managing sessions, sending
  * messages with real-time streaming, and validating server health.
  */
@@ -146,9 +146,9 @@ export function parseArgs(argv: string[]): CliArgs {
   }
 
   // Env var fallbacks
-  if (!url) url = process.env.CRAFT_SERVER_URL ?? ''
-  if (!token) token = process.env.CRAFT_SERVER_TOKEN ?? ''
-  if (!tlsCa) tlsCa = process.env.CRAFT_TLS_CA
+  if (!url) url = process.env.OTTO_SERVER_URL ?? ''
+  if (!token) token = process.env.OTTO_SERVER_TOKEN ?? ''
+  if (!tlsCa) tlsCa = process.env.OTTO_TLS_CA
   if (!provider) provider = process.env.LLM_PROVIDER ?? 'anthropic'
   if (!model) model = process.env.LLM_MODEL ?? ''
   if (!apiKey) apiKey = process.env.LLM_API_KEY ?? ''
@@ -705,7 +705,7 @@ async function cmdRun(args: CliArgs): Promise<void> {
     const session = (await client.invoke('sessions:create', workspaceId, {
       permissionMode: args.mode || 'allow-all',
       enabledSourceSlugs: args.sources.length > 0 ? args.sources : undefined,
-      // `craft run` cannot answer permission prompts (sendAndStream ignores them).
+      // `otto-cli run` cannot answer permission prompts (sendAndStream ignores them).
       unattended: true,
     })) as { id: string }
     sessionId = session.id
@@ -1066,7 +1066,7 @@ export function getValidateSteps(): ValidateStep[] {
         // Auto-bootstrap a temp workspace for CI environments
         const { mkdtemp } = await import('fs/promises')
         const { tmpdir } = await import('os')
-        const tmpDir = await mkdtemp(`${tmpdir()}/craft-validate-`)
+        const tmpDir = await mkdtemp(`${tmpdir()}/otto-validate-`)
         const ws = (await client.invoke('workspaces:create', tmpDir, 'validate-workspace')) as { id: string }
         ctx.workspaceId = ws.id
         ctx.workspaceRootPath = tmpDir
@@ -1391,7 +1391,7 @@ export function getValidateSteps(): ValidateStep[] {
 mkdir -p "${skillDir}" && cat > "${skillDir}/SKILL.md" << 'SKILLEOF'
 ---
 name: "CLI Validate Skill"
-description: "Validation skill created by craft-cli"
+description: "Validation skill created by otto-cli"
 requiredSources:
   - "${sourceSlug}"
 ---
@@ -1910,13 +1910,13 @@ export async function runValidation(
 // ---------------------------------------------------------------------------
 
 function printHelp(): void {
-  process.stdout.write(`craft-cli — Terminal client for Craft Agent server
+  process.stdout.write(`otto-cli — Terminal client for Otto server
 
-Usage: craft-cli [options] <command> [args...]
+Usage: otto-cli [options] <command> [args...]
 
 Connection:
-  --url <ws[s]://...>    Server URL (default: $CRAFT_SERVER_URL)
-  --token <secret>       Auth token (default: $CRAFT_SERVER_TOKEN)
+  --url <ws[s]://...>    Server URL (default: $OTTO_SERVER_URL)
+  --token <secret>       Auth token (default: $OTTO_SERVER_TOKEN)
   --workspace <id>       Workspace ID (auto-detected if omitted)
   --timeout <ms>         Request timeout (default: 10000)
   --tls-ca <path>        Custom CA cert for self-signed TLS
@@ -1955,21 +1955,21 @@ Commands:
                          --verbose, -v       Show server stderr output
 
 Examples:
-  craft-cli run "What files are in the current directory?"
-  craft-cli run --source craft-kb "Summarize today's daily note"
-  craft-cli run --workspace-dir .github/agents --source craft-public "Read the doc"
-  craft-cli run --provider openai --model gpt-4o "Summarize this repo"
-  OPENAI_API_KEY=sk-... craft-cli run --provider openai "Hello"
-  GOOGLE_API_KEY=... craft-cli run --provider google --model gemini-2.0-flash "Hello"
-  DEEPSEEK_API_KEY=sk-... craft-cli run --provider deepseek --model deepseek-flash "Hello"
-  echo "Analyze this code" | craft-cli run
-  craft-cli ping
-  craft-cli sessions
-  craft-cli send abc-123 "What files are in the current directory?"
-  echo "Summarize this" | craft-cli send abc-123
-  craft-cli --validate-server
-  craft-cli invoke system:homeDir
-  craft-cli --json workspaces | jq '.[].name'
+  otto-cli run "What files are in the current directory?"
+  otto-cli run --source craft-kb "Summarize today's daily note"
+  otto-cli run --workspace-dir .github/agents --source craft-public "Read the doc"
+  otto-cli run --provider openai --model gpt-4o "Summarize this repo"
+  OPENAI_API_KEY=sk-... otto-cli run --provider openai "Hello"
+  GOOGLE_API_KEY=... otto-cli run --provider google --model gemini-2.0-flash "Hello"
+  DEEPSEEK_API_KEY=sk-... otto-cli run --provider deepseek --model deepseek-flash "Hello"
+  echo "Analyze this code" | otto-cli run
+  otto-cli ping
+  otto-cli sessions
+  otto-cli send abc-123 "What files are in the current directory?"
+  echo "Summarize this" | otto-cli send abc-123
+  otto-cli --validate-server
+  otto-cli invoke system:homeDir
+  otto-cli --json workspaces | jq '.[].name'
 `)
 }
 
@@ -2010,7 +2010,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
 
   // All other commands need a server URL
   if (!args.url) {
-    err('No server URL. Use --url <ws://...> or set $CRAFT_SERVER_URL')
+    err('No server URL. Use --url <ws://...> or set $OTTO_SERVER_URL')
     process.exit(1)
   }
 

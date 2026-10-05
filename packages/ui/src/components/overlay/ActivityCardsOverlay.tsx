@@ -23,13 +23,13 @@ export interface ActivityCardsOverlayProps {
   onOpenFile?: (path: string) => void
 }
 
-const craftAgentDarkTheme = {
+const ottoDarkTheme = {
   ...vscodeTheme,
   '--w-rjv-font-family': 'var(--font-mono, ui-monospace, monospace)',
   '--w-rjv-background-color': 'transparent',
 }
 
-const craftAgentLightTheme = {
+const ottoLightTheme = {
   ...githubLightTheme,
   '--w-rjv-font-family': 'var(--font-mono, ui-monospace, monospace)',
   '--w-rjv-background-color': 'transparent',
@@ -67,7 +67,7 @@ export function ActivityCardsOverlay({
   onOpenFile,
 }: ActivityCardsOverlayProps) {
   const { t } = useTranslation()
-  const jsonTheme = useMemo(() => (theme === 'dark' ? craftAgentDarkTheme : craftAgentLightTheme), [theme])
+  const jsonTheme = useMemo(() => (theme === 'dark' ? ottoDarkTheme : ottoLightTheme), [theme])
 
   const renderMarkdownCard = (card: OverlayCard, content: string) => {
     return (

@@ -1,4 +1,4 @@
-import type { ContextUsageSnapshot } from '@craft-agent/core/types'
+import type { ContextUsageSnapshot } from '@otto/core/types'
 import { formatTokenCount } from './model-picker-helpers'
 
 export interface ContextStatus {

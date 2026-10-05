@@ -5,7 +5,7 @@
  * All storage logic (slug generation, digests, SQLite writes, watcher
  * notifications, unpublish-on-delete) happens behind the injected ctx.pages
  * callbacks where the page primitives live — this package must stay
- * dependency-free of @craft-agent/shared.
+ * dependency-free of @otto/shared.
  */
 
 import type {

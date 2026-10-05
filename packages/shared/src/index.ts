@@ -1,20 +1,20 @@
 /**
- * @craft-agent/shared
+ * @otto/shared
  *
- * Shared business logic for Craft Agent.
+ * Shared business logic for Otto.
  * Used by the Electron app.
  *
  * Import specific modules via subpath exports:
- *   import { CraftAgent } from '@craft-agent/shared/agent';
- *   import { loadStoredConfig } from '@craft-agent/shared/config';
- *   import { getCredentialManager } from '@craft-agent/shared/credentials';
- *   import { CraftMcpClient } from '@craft-agent/shared/mcp';
- *   import { debug } from '@craft-agent/shared/utils';
- *   import { loadSource, createSource, getSourceCredentialManager } from '@craft-agent/shared/sources';
- *   import { createWorkspace, loadWorkspace } from '@craft-agent/shared/workspaces';
+ *   import { Otto } from '@otto/shared/agent';
+ *   import { loadStoredConfig } from '@otto/shared/config';
+ *   import { getCredentialManager } from '@otto/shared/credentials';
+ *   import { OttoMcpClient } from '@otto/shared/mcp';
+ *   import { debug } from '@otto/shared/utils';
+ *   import { loadSource, createSource, getSourceCredentialManager } from '@otto/shared/sources';
+ *   import { createWorkspace, loadWorkspace } from '@otto/shared/workspaces';
  *
  * Available modules:
- *   - agent: CraftAgent SDK wrapper, plan tools
+ *   - agent: Otto SDK wrapper, plan tools
  *   - auth: OAuth, token management, auth state
  *   - clients: Craft API client
  *   - config: Storage, models, preferences

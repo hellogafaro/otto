@@ -1,11 +1,11 @@
 /**
- * Pi SDK settings for Craft-embedded sessions.
+ * Pi SDK settings for Otto-embedded sessions.
  *
  * `createAgentSession` defaults to `SettingsManager.create(cwd, agentDir)`, which
  * merges the *working directory's* `.pi/settings.json` (project scope, trusted by
  * default) on top of `agentDir/settings.json`, and persists every SDK-side
  * settings write (e.g. `setModel` → defaultProvider/defaultModel) into the
- * session's `.pi-agent/` folder. Neither is wanted here: Craft owns model,
+ * session's `.pi-agent/` folder. Neither is wanted here: Otto owns model,
  * thinking level and compaction for its sessions, a repo checked out as the
  * working directory must not be able to flip retry/compaction/tool defaults,
  * and nothing should be written next to the session transcript.
@@ -19,14 +19,14 @@ import { LLM_QUERY_TIMEOUT_MS } from '../../shared/src/agent/llm-tool.ts';
 
 type PiSettings = NonNullable<Parameters<typeof SettingsManager.inMemory>[0]>;
 
-export type CraftPiSessionPurpose = 'main' | 'ephemeral';
+export type OttoPiSessionPurpose = 'main' | 'ephemeral';
 
 /**
  * Finish inside the host RPC timeout so the subprocess has time to serialize a
  * targeted result and the host can clear its pending request before its own
  * deadline fires.
  */
-export const CRAFT_PI_EPHEMERAL_QUERY_DEADLINE_MS = LLM_QUERY_TIMEOUT_MS - 5_000;
+export const OTTO_PI_EPHEMERAL_QUERY_DEADLINE_MS = LLM_QUERY_TIMEOUT_MS - 5_000;
 
 /**
  * Main-chat retry policy for transient provider/transport errors.
@@ -39,7 +39,7 @@ export const CRAFT_PI_EPHEMERAL_QUERY_DEADLINE_MS = LLM_QUERY_TIMEOUT_MS - 5_000
  * 408/409/429/5xx honoring `retry-after` up to `maxRetryDelayMs`, mirroring the
  * OpenAI/Anthropic SDK default of 2. (Pi SDK default: 0.)
  */
-export const CRAFT_PI_RETRY_SETTINGS = {
+export const OTTO_PI_RETRY_SETTINGS = {
   enabled: true,
   maxRetries: 4,
   baseDelayMs: 2_000,
@@ -58,7 +58,7 @@ export const CRAFT_PI_RETRY_SETTINGS = {
  * agent backoff consumes another 6 seconds, leaving headroom for request and
  * cleanup latency.
  */
-export const CRAFT_PI_EPHEMERAL_RETRY_SETTINGS = {
+export const OTTO_PI_EPHEMERAL_RETRY_SETTINGS = {
   enabled: true,
   maxRetries: 2,
   baseDelayMs: 2_000,
@@ -68,18 +68,18 @@ export const CRAFT_PI_EPHEMERAL_RETRY_SETTINGS = {
   },
 } as const;
 
-export const CRAFT_PI_EPHEMERAL_MAX_BACKOFF_MS =
-  CRAFT_PI_EPHEMERAL_RETRY_SETTINGS.provider.maxRetries *
-    CRAFT_PI_EPHEMERAL_RETRY_SETTINGS.provider.maxRetryDelayMs *
-    (CRAFT_PI_EPHEMERAL_RETRY_SETTINGS.maxRetries + 1) +
-  CRAFT_PI_EPHEMERAL_RETRY_SETTINGS.baseDelayMs *
-    (2 ** CRAFT_PI_EPHEMERAL_RETRY_SETTINGS.maxRetries - 1);
+export const OTTO_PI_EPHEMERAL_MAX_BACKOFF_MS =
+  OTTO_PI_EPHEMERAL_RETRY_SETTINGS.provider.maxRetries *
+    OTTO_PI_EPHEMERAL_RETRY_SETTINGS.provider.maxRetryDelayMs *
+    (OTTO_PI_EPHEMERAL_RETRY_SETTINGS.maxRetries + 1) +
+  OTTO_PI_EPHEMERAL_RETRY_SETTINGS.baseDelayMs *
+    (2 ** OTTO_PI_EPHEMERAL_RETRY_SETTINGS.maxRetries - 1);
 
 /** Settings applied to one Pi session, isolated from project/global Pi files. */
-export function buildCraftPiSettings(purpose: CraftPiSessionPurpose = 'main'): PiSettings {
+export function buildOttoPiSettings(purpose: OttoPiSessionPurpose = 'main'): PiSettings {
   const retry = purpose === 'ephemeral'
-    ? CRAFT_PI_EPHEMERAL_RETRY_SETTINGS
-    : CRAFT_PI_RETRY_SETTINGS;
+    ? OTTO_PI_EPHEMERAL_RETRY_SETTINGS
+    : OTTO_PI_RETRY_SETTINGS;
 
   return {
     // Deliver all steers pending at a turn boundary in one model call.
@@ -102,8 +102,8 @@ export function buildCraftPiSettings(purpose: CraftPiSessionPurpose = 'main'): P
  * shared between the main session and `queryLlm` ephemeral sessions so a
  * `setModel` on one can never leak a "default model" into the other.
  */
-export function createCraftSettingsManager(
-  purpose: CraftPiSessionPurpose = 'main',
+export function createOttoSettingsManager(
+  purpose: OttoPiSessionPurpose = 'main',
 ): SettingsManager {
-  return SettingsManager.inMemory(buildCraftPiSettings(purpose));
+  return SettingsManager.inMemory(buildOttoPiSettings(purpose));
 }

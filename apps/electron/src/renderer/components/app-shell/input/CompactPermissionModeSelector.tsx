@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import {
   PERMISSION_MODE_CONFIG,
   type PermissionMode,
-} from '@craft-agent/shared/agent/modes'
+} from '@otto/shared/agent/modes'
 import { useAvailablePermissionModes } from '@/hooks/useAvailablePermissionModes'
 
 // ============================================================================

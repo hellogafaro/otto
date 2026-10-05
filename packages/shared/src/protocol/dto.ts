@@ -2,8 +2,8 @@
  * Server DTO types — data shapes used by RPC handlers and SessionManager.
  *
  * These were previously in apps/electron/src/shared/types.ts.
- * Extracted here so handler code in @craft-agent/server-core can import
- * from @craft-agent/shared/protocol without reaching into the app.
+ * Extracted here so handler code in @otto/server-core can import
+ * from @otto/shared/protocol without reaching into the app.
  */
 
 import type {
@@ -14,7 +14,7 @@ import type {
   AnnotationV1,
   ContextUsageSnapshot,
   PermissionRequest as BasePermissionRequest,
-} from '@craft-agent/core/types'
+} from '@otto/core/types'
 import type { PermissionMode } from '../agent/mode-types'
 import type { ThinkingLevel } from '../agent/thinking-levels'
 import type { CustomEndpointConfig } from '../config/llm-connections'
@@ -25,7 +25,7 @@ import type {
 } from '../agent/index'
 
 // Re-export generateMessageId for handler convenience
-export { generateMessageId } from '@craft-agent/core/types'
+export { generateMessageId } from '@otto/core/types'
 
 // ---------------------------------------------------------------------------
 // Session types

@@ -7,9 +7,9 @@
 
 import { describe, test, expect } from 'bun:test'
 import { createPagesMcpExecutor, MCP_ACTION_BODY_MAX_CHARS } from '../mcp-executor'
-import type { McpClientPool, McpToolResult } from '@craft-agent/shared/mcp'
-import type { LoadedSource } from '@craft-agent/shared/sources'
-import type { Logger } from '@craft-agent/server-core/runtime'
+import type { McpClientPool, McpToolResult } from '@otto/shared/mcp'
+import type { LoadedSource } from '@otto/shared/sources'
+import type { Logger } from '@otto/server-core/runtime'
 
 const log: Logger = { debug() {}, info() {}, warn() {}, error() {} } as unknown as Logger
 

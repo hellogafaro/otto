@@ -1,2 +1,2 @@
 @echo off
-"%CRAFT_UV%" run --python 3.12 "%CRAFT_SCRIPTS%\ical_tool.py" %*
+"%OTTO_UV%" run --python 3.12 "%OTTO_SCRIPTS%\ical_tool.py" %*

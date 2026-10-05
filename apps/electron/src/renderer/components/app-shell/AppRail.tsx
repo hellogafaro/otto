@@ -10,7 +10,7 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@craft-agent/ui'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@otto/ui'
 import { cn } from '@/lib/utils'
 
 export type RailItemId =

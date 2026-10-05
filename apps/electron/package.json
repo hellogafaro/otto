@@ -1,7 +1,7 @@
 {
-  "name": "@craft-agent/electron",
+  "name": "@otto/electron",
   "version": "0.1.0",
-  "description": "Electron desktop app for Craft Agents",
+  "description": "Electron desktop app for Otto",
   "main": "dist/main.cjs",
   "private": true,
   "author": {
@@ -36,11 +36,11 @@
     "lint:fix": "eslint src/ --fix"
   },
   "dependencies": {
-    "@craft-agent/core": "workspace:*",
-    "@craft-agent/messaging-gateway": "workspace:*",
-    "@craft-agent/server-core": "workspace:*",
-    "@craft-agent/shared": "workspace:*",
-    "@craft-agent/ui": "workspace:*",
+    "@otto/core": "workspace:*",
+    "@otto/messaging-gateway": "workspace:*",
+    "@otto/server-core": "workspace:*",
+    "@otto/shared": "workspace:*",
+    "@otto/ui": "workspace:*",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

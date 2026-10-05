@@ -15,7 +15,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline';
-import type { AgentEvent } from '@craft-agent/core/types';
+import type { AgentEvent } from '@otto/core/types';
 import type { FileAttachment } from '../utils/files.ts';
 
 import type {
@@ -43,7 +43,7 @@ import type { PiCompactResult, PiLargeResultGateRequest, PiLargeResultGateRespon
 import { askLargeResultSummaryGate } from '../utils/large-response.ts';
 import { EventQueue } from './backend/event-queue.ts';
 
-// System prompt for Craft Agent context
+// System prompt for Otto context
 import { getSystemPrompt } from '../prompts/system.ts';
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
 import { loadProjectById, getProjectAssetsPath, listProjectAssets, getProjectMemoryPath, loadProjectMemory } from '../projects/storage.ts';
@@ -72,7 +72,7 @@ import {
   SESSION_BACKEND_TOOL_NAMES,
   SESSION_TOOL_REGISTRY,
   type ToolResult as SessionToolResult,
-} from '@craft-agent/session-tools-core';
+} from '@otto/session-tools-core';
 import { createClaudeContext, type SessionToolContext } from './claude-context.ts';
 import { getPermissionModeDiagnostics } from './mode-manager.ts';
 
@@ -127,7 +127,7 @@ function mapBrowserToolErrorCode(code: string): string | null {
     case 'BROWSER_NO_CAPABLE_CLIENT':
     case 'CAPABILITY_UNAVAILABLE':
       return 'No connected desktop client supports browser tools, or no client is currently connected. ' +
-        'Ask the user to open this workspace from the Craft Agent desktop app.';
+        'Ask the user to open this workspace from the Otto desktop app.';
     case 'CLIENT_DISCONNECTED':
       return 'The desktop client that owned this browser session disconnected. ' +
         'Ask the user to reconnect and retry.';
@@ -161,7 +161,7 @@ interface PendingEphemeralRequest<T> {
  * planning heuristics, config watching, usage tracking).
  */
 export class PiAgent extends BaseAgent {
-  protected backendName = 'Craft Agents Backend';
+  protected backendName = 'Otto Backend';
 
   // ============================================================
   // Subprocess State
@@ -247,7 +247,7 @@ export class PiAgent extends BaseAgent {
     this.promptDriftNotified = false;
   }
 
-  // Ring buffer of recent subprocess stderr. Always on (independent of CRAFT_DEBUG)
+  // Ring buffer of recent subprocess stderr. Always on (independent of OTTO_DEBUG)
   // so that connection-test and other failures can surface what the subprocess
   // actually said, instead of a bare "timed out" with no context.
   private stderrBuffer: string[] = [];
@@ -511,9 +511,9 @@ export class PiAgent extends BaseAgent {
         ...this.config.envOverrides,
         ...awsEnv,
         // Pass session dir for cross-process toolMetadataStore
-        ...(sessionDir ? { CRAFT_SESSION_DIR: sessionDir } : {}),
+        ...(sessionDir ? { OTTO_SESSION_DIR: sessionDir } : {}),
         // Propagate debug mode
-        CRAFT_DEBUG: (process.argv.includes('--debug') || process.env.CRAFT_DEBUG === '1') ? '1' : '0',
+        OTTO_DEBUG: (process.argv.includes('--debug') || process.env.OTTO_DEBUG === '1') ? '1' : '0',
       },
     });
 
@@ -531,7 +531,7 @@ export class PiAgent extends BaseAgent {
 
     // Always capture stderr into a bounded ring buffer so callers (e.g. the
     // connection-test timeout path in factory.ts) can surface it on failure.
-    // Keep the CRAFT_DEBUG-gated log for interactive dev work.
+    // Keep the OTTO_DEBUG-gated log for interactive dev work.
     child.stderr?.on('data', (data: Buffer) => {
       const text = data.toString();
       this.recordStderr(text);
@@ -642,9 +642,9 @@ export class PiAgent extends BaseAgent {
    * Returns a provider-aware credential object for the subprocess,
    * or null if no piAuthProvider is configured (falls back to legacy getApiKey).
    *
-   * OAuth tokens from Craft (Claude Max, ChatGPT Plus, Copilot) are passed as
+   * OAuth tokens from Otto (Claude Max, ChatGPT Plus, Copilot) are passed as
    * api_key type because they function as bearer tokens that the Pi SDK's provider
-   * modules use directly. The OAuth exchange happens on the Craft side; by the time
+   * modules use directly. The OAuth exchange happens on the Otto side; by the time
    * it reaches Pi, it's just an access token.
    */
   private async getPiAuth(): Promise<{
@@ -1133,7 +1133,7 @@ export class PiAgent extends BaseAgent {
    */
   private handleSubprocessEvent(event: Record<string, unknown>): void {
     // The subprocess sends Pi SDK AgentSessionEvent objects serialized as JSON.
-    // Feed them through PiEventAdapter to convert to Craft AgentEvents.
+    // Feed them through PiEventAdapter to convert to OttoEvents.
 
     // Detect session MCP tool completions (same pattern as in-process version)
     const eventType = event.type as string;
@@ -1177,7 +1177,7 @@ export class PiAgent extends BaseAgent {
       }
     }
 
-    // Adapt event to CraftAgentEvents
+    // Adapt event to OttoEvents
     // The event adapter expects typed PiAgentEvent/AgentSessionEvent objects,
     // but since we're receiving plain JSON, we cast through unknown.
     for (const agentEvent of this.adapter.adaptEvent(adaptedEvent as any)) {
@@ -1533,7 +1533,7 @@ export class PiAgent extends BaseAgent {
 
   /**
    * Execute a session-scoped tool by name.
-   * Uses the canonical registry from @craft-agent/session-tools-core.
+   * Uses the canonical registry from @otto/session-tools-core.
    */
   private async executeSessionTool(
     toolName: string,
@@ -2116,7 +2116,7 @@ export class PiAgent extends BaseAgent {
         this.config.workspace.rootPath,
         this.config.session?.workingDirectory,
         this.config.systemPromptPreset,
-        'Craft Agents Backend', // backendName
+        'Otto Backend', // backendName
         this.pinnedIncludeCoAuthoredBy ?? undefined,
         this.pinnedProjectContext ?? undefined,
       );

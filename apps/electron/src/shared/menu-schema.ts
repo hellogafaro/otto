@@ -10,7 +10,7 @@
  * Consumers must call i18n.t(item.labelKey) at build time.
  */
 
-import { FEATURE_FLAGS } from '@craft-agent/shared/feature-flags'
+import { FEATURE_FLAGS } from '@otto/shared/feature-flags'
 import { SETTINGS_PAGES, type SettingsSubpage } from './settings-registry'
 
 // ─────────────────────────────────────────────────────────────────────────────

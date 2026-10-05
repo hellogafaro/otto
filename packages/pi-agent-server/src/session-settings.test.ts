@@ -4,33 +4,33 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SettingsManager } from '@earendil-works/pi-coding-agent';
 import {
-  CRAFT_PI_EPHEMERAL_MAX_BACKOFF_MS,
-  CRAFT_PI_EPHEMERAL_QUERY_DEADLINE_MS,
-  CRAFT_PI_EPHEMERAL_RETRY_SETTINGS,
-  CRAFT_PI_RETRY_SETTINGS,
-  createCraftSettingsManager,
+  OTTO_PI_EPHEMERAL_MAX_BACKOFF_MS,
+  OTTO_PI_EPHEMERAL_QUERY_DEADLINE_MS,
+  OTTO_PI_EPHEMERAL_RETRY_SETTINGS,
+  OTTO_PI_RETRY_SETTINGS,
+  createOttoSettingsManager,
 } from './session-settings.ts';
 
-describe('createCraftSettingsManager', () => {
+describe('createOttoSettingsManager', () => {
   it('batches steering without changing follow-up defaults', () => {
-    expect(createCraftSettingsManager().getSteeringMode()).toBe('all');
-    expect(createCraftSettingsManager().getFollowUpMode()).toBe(SettingsManager.inMemory().getFollowUpMode());
+    expect(createOttoSettingsManager().getSteeringMode()).toBe('all');
+    expect(createOttoSettingsManager().getFollowUpMode()).toBe(SettingsManager.inMemory().getFollowUpMode());
   });
   it('pins the agent-level auto-retry policy', () => {
-    const settings = createCraftSettingsManager();
+    const settings = createOttoSettingsManager();
     expect(settings.getRetryEnabled()).toBe(true);
     expect(settings.getRetrySettings()).toEqual({
       enabled: true,
-      maxRetries: CRAFT_PI_RETRY_SETTINGS.maxRetries,
-      baseDelayMs: CRAFT_PI_RETRY_SETTINGS.baseDelayMs,
+      maxRetries: OTTO_PI_RETRY_SETTINGS.maxRetries,
+      baseDelayMs: OTTO_PI_RETRY_SETTINGS.baseDelayMs,
     });
   });
 
   it('enables provider-level (pre-stream) retries that the SDK leaves off by default', () => {
-    const settings = createCraftSettingsManager();
+    const settings = createOttoSettingsManager();
     expect(settings.getProviderRetrySettings()).toMatchObject({
-      maxRetries: CRAFT_PI_RETRY_SETTINGS.provider.maxRetries,
-      maxRetryDelayMs: CRAFT_PI_RETRY_SETTINGS.provider.maxRetryDelayMs,
+      maxRetries: OTTO_PI_RETRY_SETTINGS.provider.maxRetries,
+      maxRetryDelayMs: OTTO_PI_RETRY_SETTINGS.provider.maxRetryDelayMs,
     });
     // Documents the SDK default this policy overrides. If a future SDK turns
     // provider retries on by itself, this assertion is the cue to revisit.
@@ -38,34 +38,34 @@ describe('createCraftSettingsManager', () => {
   });
 
   it('uses a smaller retry policy for bounded ephemeral queries', () => {
-    const settings = createCraftSettingsManager('ephemeral');
+    const settings = createOttoSettingsManager('ephemeral');
     expect(settings.getRetrySettings()).toEqual({
       enabled: true,
-      maxRetries: CRAFT_PI_EPHEMERAL_RETRY_SETTINGS.maxRetries,
-      baseDelayMs: CRAFT_PI_EPHEMERAL_RETRY_SETTINGS.baseDelayMs,
+      maxRetries: OTTO_PI_EPHEMERAL_RETRY_SETTINGS.maxRetries,
+      baseDelayMs: OTTO_PI_EPHEMERAL_RETRY_SETTINGS.baseDelayMs,
     });
     expect(settings.getProviderRetrySettings()).toMatchObject({
-      maxRetries: CRAFT_PI_EPHEMERAL_RETRY_SETTINGS.provider.maxRetries,
-      maxRetryDelayMs: CRAFT_PI_EPHEMERAL_RETRY_SETTINGS.provider.maxRetryDelayMs,
+      maxRetries: OTTO_PI_EPHEMERAL_RETRY_SETTINGS.provider.maxRetries,
+      maxRetryDelayMs: OTTO_PI_EPHEMERAL_RETRY_SETTINGS.provider.maxRetryDelayMs,
     });
-    expect(CRAFT_PI_EPHEMERAL_MAX_BACKOFF_MS).toBe(66_000);
-    expect(CRAFT_PI_EPHEMERAL_QUERY_DEADLINE_MS).toBe(115_000);
-    expect(CRAFT_PI_EPHEMERAL_MAX_BACKOFF_MS).toBeLessThan(
-      CRAFT_PI_EPHEMERAL_QUERY_DEADLINE_MS,
+    expect(OTTO_PI_EPHEMERAL_MAX_BACKOFF_MS).toBe(66_000);
+    expect(OTTO_PI_EPHEMERAL_QUERY_DEADLINE_MS).toBe(115_000);
+    expect(OTTO_PI_EPHEMERAL_MAX_BACKOFF_MS).toBeLessThan(
+      OTTO_PI_EPHEMERAL_QUERY_DEADLINE_MS,
     );
   });
 
   it('keeps auto-compaction enabled', () => {
-    expect(createCraftSettingsManager().getCompactionEnabled()).toBe(true);
+    expect(createOttoSettingsManager().getCompactionEnabled()).toBe(true);
   });
 
   it('ignores a .pi/settings.json in the working directory', () => {
     // A repo used as the session's working directory may ship Pi project
     // settings. The SDK's default SettingsManager.create(cwd, agentDir) merges
     // them (project scope is trusted by default) — a repo could silently turn
-    // off retries or compaction for Craft sessions. The in-memory manager must
+    // off retries or compaction for Otto sessions. The in-memory manager must
     // not see them.
-    const cwd = mkdtempSync(join(tmpdir(), 'craft-pi-settings-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'otto-pi-settings-'));
     try {
       mkdirSync(join(cwd, '.pi'));
       writeFileSync(
@@ -78,8 +78,8 @@ describe('createCraftSettingsManager', () => {
       expect(fromDisk.getRetryEnabled()).toBe(false);
       expect(fromDisk.getCompactionEnabled()).toBe(false);
 
-      // …and that Craft's manager does not.
-      const settings = createCraftSettingsManager();
+      // …and that Otto's manager does not.
+      const settings = createOttoSettingsManager();
       expect(settings.getRetryEnabled()).toBe(true);
       expect(settings.getCompactionEnabled()).toBe(true);
     } finally {
@@ -88,8 +88,8 @@ describe('createCraftSettingsManager', () => {
   });
 
   it('returns a fresh manager per call so sessions cannot leak settings into each other', () => {
-    const a = createCraftSettingsManager('ephemeral');
-    const b = createCraftSettingsManager('ephemeral');
+    const a = createOttoSettingsManager('ephemeral');
+    const b = createOttoSettingsManager('ephemeral');
     expect(a).not.toBe(b);
     a.setRetryEnabled(false);
     expect(a.getRetryEnabled()).toBe(false);

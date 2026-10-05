@@ -2,10 +2,10 @@
  * Bounded wait for an in-flight Pi SDK compaction.
  *
  * Concurrent compactions crash the SDK on a shared AbortController
- * (craft-agents-oss#464), so prompts and manual /compact serialize behind
+ * (otto#464), so prompts and manual /compact serialize behind
  * `session.isCompacting`. The wait has a budget: a stuck compaction must not
  * consume the host's whole RPC deadline before the caller gets to act
- * (craft-agents-oss#1060). Callers decide what to do on `timedOut`.
+ * (otto#1060). Callers decide what to do on `timedOut`.
  */
 
 export interface CompactionWaitResult {

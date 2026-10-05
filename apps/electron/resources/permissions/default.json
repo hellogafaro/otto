@@ -102,44 +102,44 @@
       "comment": "CLI tools: bare invocation (prints help)"
     },
     {
-      "pattern": "^craft-agent\\s+label\\s+(list|get|auto-rule-list|auto-rule-validate)\\b",
-      "comment": "craft-agent label read-only operations"
+      "pattern": "^otto\\s+label\\s+(list|get|auto-rule-list|auto-rule-validate)\\b",
+      "comment": "otto label read-only operations"
     },
     {
-      "pattern": "^craft-agent\\s+source\\s+(list|get|validate|test|auth-help)\\b",
-      "comment": "craft-agent source read-only operations"
+      "pattern": "^otto\\s+source\\s+(list|get|validate|test|auth-help)\\b",
+      "comment": "otto source read-only operations"
     },
     {
-      "pattern": "^craft-agent\\s+skill\\s+(list|get|validate|where)\\b",
-      "comment": "craft-agent skill read-only operations"
+      "pattern": "^otto\\s+skill\\s+(list|get|validate|where)\\b",
+      "comment": "otto skill read-only operations"
     },
     {
-      "pattern": "^craft-agent\\s+automation\\s+(list|get|validate|history|last-executed|test|lint)\\b",
-      "comment": "craft-agent automation read-only operations"
+      "pattern": "^otto\\s+automation\\s+(list|get|validate|history|last-executed|test|lint)\\b",
+      "comment": "otto automation read-only operations"
     },
     {
-      "pattern": "^craft-agent\\s+permission\\s+(list|get|validate)\\b",
-      "comment": "craft-agent permission read-only operations"
+      "pattern": "^otto\\s+permission\\s+(list|get|validate)\\b",
+      "comment": "otto permission read-only operations"
     },
     {
-      "pattern": "^craft-agent\\s+theme\\s+(get|validate|list-presets|get-preset)\\b",
-      "comment": "craft-agent theme read-only operations"
+      "pattern": "^otto\\s+theme\\s+(get|validate|list-presets|get-preset)\\b",
+      "comment": "otto theme read-only operations"
     },
     {
-      "pattern": "^craft-agent\\s*$",
-      "comment": "craft-agent bare invocation (prints help)"
+      "pattern": "^otto\\s*$",
+      "comment": "otto bare invocation (prints help)"
     },
     {
-      "pattern": "^craft-agent\\s+(label|source|skill|automation|permission|theme)\\s*$",
-      "comment": "craft-agent entity help"
+      "pattern": "^otto\\s+(label|source|skill|automation|permission|theme)\\s*$",
+      "comment": "otto entity help"
     },
     {
-      "pattern": "^craft-agent\\s+(label|source|skill|automation|permission|theme)\\s+--help\\b",
-      "comment": "craft-agent entity help flags"
+      "pattern": "^otto\\s+(label|source|skill|automation|permission|theme)\\s+--help\\b",
+      "comment": "otto entity help flags"
     },
     {
-      "pattern": "^craft-agent\\s+--(help|version|discover)\\b",
-      "comment": "craft-agent global flags"
+      "pattern": "^otto\\s+--(help|version|discover)\\b",
+      "comment": "otto global flags"
     },
     {
       "pattern": "^find\\b",

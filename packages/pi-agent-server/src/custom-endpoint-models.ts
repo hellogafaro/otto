@@ -55,7 +55,7 @@ export function normalizeCustomEndpointModelEntry(model: CustomEndpointModelConf
  * For `openai-completions` endpoints we set `compat.supportsStore = false` so the
  * pi-ai driver omits the OpenAI-platform-specific `store` param entirely. Third-party
  * OpenAI-compatible gateways gain nothing from `store`, and strict ones reject unknown
- * params with a 400 — which made those connections unusable. See craft-agents-oss#1022.
+ * params with a 400 — which made those connections unusable. See otto#1022.
  */
 export function buildCustomEndpointModelDef(
   id: string,

@@ -8,11 +8,11 @@ function createConfig(sessionOverrides?: Record<string, unknown>): BackendConfig
     workspace: {
       id: 'ws-test',
       name: 'Test Workspace',
-      rootPath: '/tmp/craft-agent-test',
+      rootPath: '/tmp/otto-test',
     } as any,
     session: {
       id: 'session-test',
-      workspaceRootPath: '/tmp/craft-agent-test',
+      workspaceRootPath: '/tmp/otto-test',
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
       ...sessionOverrides,
@@ -42,7 +42,7 @@ describe('PiAgent branching capability', () => {
     const agent = new PiAgent(
       createConfig({
         branchFromMessageId: 'msg-parent',
-        branchFromSessionPath: '/tmp/craft-agent-test/sessions/parent',
+        branchFromSessionPath: '/tmp/otto-test/sessions/parent',
       })
     )
 

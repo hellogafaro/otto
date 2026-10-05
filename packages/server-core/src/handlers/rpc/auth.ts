@@ -1,11 +1,11 @@
 import { unlink } from 'fs/promises'
 import { join } from 'path'
-import { CONFIG_DIR } from '@craft-agent/shared/config/paths'
-import { RPC_CHANNELS } from '@craft-agent/shared/protocol'
-import { getCredentialManager } from '@craft-agent/shared/credentials'
-import type { RpcServer } from '@craft-agent/server-core/transport'
+import { CONFIG_DIR } from '@otto/shared/config/paths'
+import { RPC_CHANNELS } from '@otto/shared/protocol'
+import { getCredentialManager } from '@otto/shared/credentials'
+import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
-import { requestClientConfirmDialog } from '@craft-agent/server-core/transport'
+import { requestClientConfirmDialog } from '@otto/server-core/transport'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.auth.LOGOUT,

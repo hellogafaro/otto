@@ -9,7 +9,7 @@ import * as React from 'react'
 import { useTranslation } from "react-i18next"
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/components/ui/data-table'
-import { Spinner } from '@craft-agent/ui'
+import { Spinner } from '@otto/ui'
 import { cn } from '@/lib/utils'
 
 export interface Info_DataTableProps<TData, TValue> {

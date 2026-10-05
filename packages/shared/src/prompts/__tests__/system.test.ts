@@ -20,7 +20,7 @@ import {
 import type { ProjectPromptContext } from '../../projects/types.ts'
 
 const GIT_CONVENTIONS_HEADING = '## Git Conventions'
-const CO_AUTHOR_TRAILER = 'Co-Authored-By: Craft Agent <agents-noreply@craft.do>'
+const CO_AUTHOR_TRAILER = 'Co-Authored-By: Otto <agents-noreply@craft.do>'
 
 describe('system prompt guidance', () => {
   it('keeps the default static prompt below the budget', () => {
@@ -57,7 +57,7 @@ describe('system prompt guidance', () => {
     const prompt = getMiniAgentSystemPrompt('/tmp/workspace')
 
     expect(prompt).toContain('MCP tool calls require _displayName and _intent metadata')
-    expect(prompt).toContain('read the matching local doc in ~/.craft-agent/docs/')
+    expect(prompt).toContain('read the matching local doc in ~/.otto/docs/')
   })
 
   it('keeps automations defined as a first-class feature area', () => {
@@ -65,7 +65,7 @@ describe('system prompt guidance', () => {
 
     expect(prompt).toContain('## Automations')
     expect(prompt).toContain('Automations run prompts, webhooks, or workspace-local scripts')
-    expect(prompt).toContain('Read `~/.craft-agent/docs/automations.md` before creating or modifying automations.')
+    expect(prompt).toContain('Read `~/.otto/docs/automations.md` before creating or modifying automations.')
     expect(prompt).toContain('Script actions run workspace-local scripts, not arbitrary shell snippets.')
   })
 
@@ -153,7 +153,7 @@ describe('includeCoAuthoredBy handling', () => {
       '/tmp/workspace',
       '/tmp/workspace',
       undefined,
-      'Craft Agents Backend'
+      'Otto Backend'
       // 7th arg omitted — must not regress to `true` default
     )
 

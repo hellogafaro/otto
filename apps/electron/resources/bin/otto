@@ -1,0 +1,4 @@
+#!/bin/sh
+ENTRY="${OTTO_COMMANDS_ENTRY:-$OTTO_CLI_ENTRY}"
+export OTTO_CLI_JSON_ONLY="${OTTO_CLI_JSON_ONLY:-1}"
+exec "${OTTO_BUN:-bun}" run "$ENTRY" "$@"

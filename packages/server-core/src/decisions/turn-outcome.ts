@@ -10,7 +10,7 @@
  * Caller: SessionManager moves open sessions that need the user to Needs Review.
  */
 
-import type { DecisionRequest, DecisionResult } from '@craft-agent/shared/decisions'
+import type { DecisionRequest, DecisionResult } from '@otto/shared/decisions'
 import { openDecisionPoint, recordDecisionOutcome, type DecisionPointDeps } from './decision-point'
 
 export type TurnOutcome = 'finished' | 'needs_input' | 'blocked'

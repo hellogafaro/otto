@@ -2,14 +2,14 @@
  * Pi SDK Event Adapter
  *
  * Maps Pi Agent Core events (AgentEvent / AgentSessionEvent) to
- * Craft Agent's AgentEvent format for UI compatibility.
+ * Otto's AgentEvent format for UI compatibility.
  *
  * Pi emits fine-grained lifecycle events. We translate them into
  * the same event vocabulary the renderer already understands from
  * Claude / Codex / Copilot backends.
  */
 
-import type { AgentEvent as CraftAgentEvent, ContextUsageSnapshot } from '@craft-agent/core/types';
+import type { AgentEvent as OttoEvent, ContextUsageSnapshot } from '@otto/core/types';
 import { contextAfterCompaction, contextFromPi } from '../../context-usage.ts';
 import type { PiContextUsagePayload } from './protocol.ts';
 import type {
@@ -67,7 +67,7 @@ const RETRYABLE_PROVIDER_SIDE_PATTERN =
 type PiEvent = (PiAgentEvent | AgentSessionEvent | { type: 'context_usage' }) & PiContextUsagePayload;
 
 /**
- * Maps Pi SDK events to Craft AgentEvents for UI compatibility.
+ * Maps Pi SDK events to OttoEvents for UI compatibility.
  *
  * Event mapping:
  * - message_update (text_delta in assistantMessageEvent) → text_delta
@@ -106,7 +106,7 @@ export class PiEventAdapter extends BaseEventAdapter {
   private contextUsage: ContextUsageSnapshot | undefined;
 
   /** Normalize raw subprocess metadata at the host boundary (also used by manual RPC). */
-  *adaptContextUsage(payload: PiContextUsagePayload, afterCompaction = false, estimatedTokensAfter?: number): Generator<CraftAgentEvent> {
+  *adaptContextUsage(payload: PiContextUsagePayload, afterCompaction = false, estimatedTokensAfter?: number): Generator<OttoEvent> {
     const snapshot = contextFromPi(payload.contextUsage, payload.compactionSettings, estimatedTokensAfter)
       ?? (afterCompaction ? contextAfterCompaction(estimatedTokensAfter, this.contextUsage) : undefined);
     if (snapshot) {
@@ -157,7 +157,7 @@ export class PiEventAdapter extends BaseEventAdapter {
   //   recovering ──agent_end───────────► none          (normal complete)
   //   awaitingRetry|backoff ──auto_retry_end{success:false}──► none (release, complete)
   private retryState: 'none' | 'held' | 'awaitingRetry' | 'backoff' | 'recovering' = 'none';
-  private heldRetryError: CraftAgentEvent | null = null;
+  private heldRetryError: OttoEvent | null = null;
   private retryFallbackTimerId: ReturnType<typeof setTimeout> | null = null;
 
   /** Set when the adapter wants the caller to call `eventQueue.complete()`
@@ -167,7 +167,7 @@ export class PiEventAdapter extends BaseEventAdapter {
   /** Caller-supplied callbacks for the asynchronous fallback timer paths —
    *  the timers fire outside `adaptEvent()` so we can't yield through the
    *  generator. */
-  private onFallbackEvent: ((event: CraftAgentEvent) => void) | null = null;
+  private onFallbackEvent: ((event: OttoEvent) => void) | null = null;
   private onFallbackComplete: (() => void) | null = null;
 
   constructor() {
@@ -189,7 +189,7 @@ export class PiEventAdapter extends BaseEventAdapter {
    * parked error, then `onComplete` to terminate the iterator.
    */
   setRecoveryFallbackHandlers(
-    onEvent: (event: CraftAgentEvent) => void,
+    onEvent: (event: OttoEvent) => void,
     onComplete: () => void,
   ): void {
     this.onFallbackEvent = onEvent;
@@ -235,7 +235,7 @@ export class PiEventAdapter extends BaseEventAdapter {
    * machine. Used when the SDK will not retry (disabled/exhausted) or when a
    * retry was cancelled.
    */
-  private *releaseHeldRetryError(): Generator<CraftAgentEvent> {
+  private *releaseHeldRetryError(): Generator<OttoEvent> {
     const held = this.heldRetryError;
     this.heldRetryError = null;
     this.retryState = 'none';
@@ -255,7 +255,7 @@ export class PiEventAdapter extends BaseEventAdapter {
       this.retryFallbackTimerId = null;
       if (this.retryState !== armedState) return;
       this.log.warn(`Auto-retry fallback fired — ${reason}`, { timeoutMs, state: armedState });
-      const held: CraftAgentEvent = this.heldRetryError ?? {
+      const held: OttoEvent = this.heldRetryError ?? {
         type: 'error',
         message: 'The model request failed and the automatic retry did not start. Please try again.',
       };
@@ -283,7 +283,7 @@ export class PiEventAdapter extends BaseEventAdapter {
    * "socket hang up", "stream ended before message_stop", …) become typed
    * connection/service errors so the UI offers Retry instead of a raw string.
    */
-  private classifyAssistantError(message: AssistantMessage, errorMessage: string): CraftAgentEvent {
+  private classifyAssistantError(message: AssistantMessage, errorMessage: string): OttoEvent {
     const parsed = parseError(new Error(errorMessage));
     if (parsed.code !== 'unknown_error') {
       return { type: 'typed_error', error: parsed };
@@ -353,16 +353,16 @@ export class PiEventAdapter extends BaseEventAdapter {
     this.hasEmittedFinalText = false;
     this.subTurnCounter = 0;
     this.messageSubTurnId = null;
-    // A new Craft turn can only start once the previous queue completed (or
+    // A new Otto turn can only start once the previous queue completed (or
     // was force-aborted), so any recovery state left here is stale.
     this.resetRecoveryState();
     this.log.debug('Turn started', { turnIndex: this.turnIndex });
   }
 
   /**
-   * Adapt a Pi SDK event to zero or more Craft AgentEvents.
+   * Adapt a Pi SDK event to zero or more OttoEvents.
    */
-  *adaptEvent(event: PiEvent): Generator<CraftAgentEvent> {
+  *adaptEvent(event: PiEvent): Generator<OttoEvent> {
     // Occupancy metadata must arrive before completion can close the queue. A
     // compaction success uses its fresh result estimate below, not old API usage.
     if (event.type !== 'compaction_end') {
@@ -370,11 +370,11 @@ export class PiEventAdapter extends BaseEventAdapter {
     }
     if (event.type === 'context_usage') return;
 
-    // Craft-injected event from pi-agent-server (not part of the Pi SDK).
+    // Otto-injected event from pi-agent-server (not part of the Pi SDK).
     // The subprocess emits this immediately after each `message_end` to deliver
     // the correct `sdkTurnAnchor` (the leaf id AFTER the SDK has appended the
     // assistant entry). We forward it through as-is — SessionManager correlates
-    // it to a Craft assistant message via `sdkMessageId`. See craft-agents-oss#782.
+    // it to an Otto assistant message via `sdkMessageId`. See otto#782.
     if ((event as { type?: string }).type === 'pi_turn_anchor') {
       const e = event as unknown as { sdkMessageId?: string; sdkTurnAnchor?: string };
       if (e.sdkMessageId && e.sdkTurnAnchor) {
@@ -427,7 +427,7 @@ export class PiEventAdapter extends BaseEventAdapter {
         // Auto-retry: AgentSession stamps `willRetry` on agent_end
         // (`_willRetryAfterAgentEnd`). When true, `_prepareRetry` follows with
         // auto_retry_start, sleeps the backoff and re-runs the turn, so this
-        // agent_end is NOT the end of the Craft turn.
+        // agent_end is NOT the end of the Otto turn.
         const willRetry = (event as { willRetry?: boolean }).willRetry === true;
         if (willRetry && this.retryState !== 'awaitingRetry' && this.retryState !== 'backoff') {
           this.retryState = 'awaitingRetry';
@@ -483,7 +483,7 @@ export class PiEventAdapter extends BaseEventAdapter {
         // Emitting from both causes duplicate messages in session persistence.
         this.currentTurnId = null;
         this.hasEmittedFinalText = false;
-        // Keep sub-turn IDs unique across SDK turns/retries within this Craft
+        // Keep sub-turn IDs unique across SDK turns/retries within this Otto
         // turn. startTurn() is the only place the counter resets.
         this.messageSubTurnId = null;
         break;
@@ -518,7 +518,7 @@ export class PiEventAdapter extends BaseEventAdapter {
         const msg = event.message as { role?: string; stopReason?: string; errorMessage?: string; usage?: { input: number; output: number; cacheRead: number; cacheWrite: number; totalTokens: number; cost: { total: number } }; id?: string } | undefined;
         // SDK message id, set by pi-agent-server when forwarding the event.
         // SessionManager uses this to correlate the follow-up `pi_turn_anchor`
-        // event to the Craft assistant message created here (#782).
+        // event to the Otto assistant message created here (#782).
         const sdkMessageId = (event as { sdkMessageId?: string }).sdkMessageId ?? msg?.id;
         if (msg?.role !== 'assistant') break;
 
