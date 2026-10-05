@@ -124,7 +124,7 @@ export default function AppSettingsPage() {
                 <SettingsCard>
                   <SettingsRow label={t("settings.about.version")}>
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">
+                      <span className="text-sm text-muted-foreground">
                         {updateChecker.updateInfo?.currentVersion ?? <Spinner />}
                       </span>
                       {isElectron && updateChecker.isDownloading && updateChecker.updateInfo?.latestVersion && (
