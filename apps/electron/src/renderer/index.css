@@ -2,7 +2,7 @@
 @plugin "@tailwindcss/typography";
 
 /* Tell Tailwind where to scan for utility classes */
-@source "../renderer/App.tsx";
+@source "../renderer/app.tsx";
 @source "../renderer/main.tsx";
 @source "../renderer/components/**/*.{ts,tsx,jsx}";
 @source "../renderer/contexts/**/*.{ts,tsx,jsx}";
@@ -15,7 +15,7 @@
 @source "../../../../packages/ui/src/components/**/*.{ts,tsx,jsx}";
 @source "../../../../packages/ui/src/lib/**/*.{ts,tsx,jsx}";
 
-/* CSS Custom Highlight API styles are injected at runtime via ChatDisplay.tsx
+/* CSS Custom Highlight API styles are injected at runtime via chat-display.tsx
    to avoid LightningCSS warnings (::highlight is not yet recognized by the optimizer) */
 
 /* =============================================================================

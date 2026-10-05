@@ -13,7 +13,7 @@ import { asChildProps } from '../lib/as-child'
  *
  * Base UI tooltips work without a provider (a provider only shares the delay
  * between neighbouring tooltips), so call sites do not need one; the app root
- * still mounts one in App.tsx.
+ * still mounts one in app.tsx.
  */
 
 const DelayContext = React.createContext<number | undefined>(undefined)

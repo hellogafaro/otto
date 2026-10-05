@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
-import { App } from './App'
+import { App } from './app'
 import { setupI18n } from '@otto/shared/i18n'
 import { initReactI18next } from 'react-i18next'
 import './index.css'

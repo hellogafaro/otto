@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { parseLabelEntry, formatLabelEntry, formatDisplayValue } from "@otto/shared/labels"
 import { resolveEntityColor } from "@otto/shared/colors"
-import { useTheme } from "@/context/ThemeContext"
+import { useTheme } from "@/context/theme-context"
 import { cn } from "@/lib/utils"
 import { openLabelLink } from "@/lib/open-label-link"
 import { LabelValuePopover } from "./label-value-popover"

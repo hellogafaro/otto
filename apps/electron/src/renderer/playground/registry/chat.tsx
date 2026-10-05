@@ -1,21 +1,21 @@
 import * as React from 'react'
 import type { ComponentEntry } from './types'
-import { AttachmentPreview } from '@/components/app-shell/AttachmentPreview'
-import { SetupAuthBanner } from '@/components/app-shell/SetupAuthBanner'
+import { AttachmentPreview } from '@/components/app-shell/attachment-preview'
+import { SetupAuthBanner } from '@/components/app-shell/setup-auth-banner'
 import { TurnCard, type ActivityItem } from '@otto/ui'
-import type { BackgroundTask } from '@/components/app-shell/ActiveTasksBar'
-import { ActiveOptionBadges } from '@/components/app-shell/ActiveOptionBadges'
+import type { BackgroundTask } from '@/components/app-shell/active-tasks-bar'
+import { ActiveOptionBadges } from '@/components/app-shell/active-option-badges'
 import { ChatInputZone, InputContainer } from '@/components/app-shell/input'
 import { setRecentWorkingDirs } from '@/components/app-shell/input/working-directory-history'
 import type { StructuredResponse } from '@/components/app-shell/input/structured/types'
-import { EmptyStateHint, getHintCount, getHintTemplate } from '@/components/chat/EmptyStateHint'
+import { EmptyStateHint, getHintCount, getHintTemplate } from '@/components/chat/empty-state-hint'
 import { Button } from '@/components/ui/button'
 import { Circle, Sparkles } from 'lucide-react'
 import type { LabelConfig } from '@otto/shared/labels'
 import type { SessionStatus } from '@/config/session-status-config'
 import type { FileAttachment, PermissionRequest, PermissionMode } from '../../../shared/types'
-import { AppShellProvider } from '@/context/AppShellContext'
-import { ModalProvider } from '@/context/ModalContext'
+import { AppShellProvider } from '@/context/app-shell-context'
+import { ModalProvider } from '@/context/modal-context'
 import {
   ensureMockElectronAPI,
   mockInputCallbacks,
@@ -30,7 +30,7 @@ import { getRecentDirsForScenario, type RecentDirScenario } from '../recent-work
 const sampleCodeAttachment: FileAttachment = {
   type: 'text',
   path: '/Users/test/app.tsx',
-  name: 'App.tsx',
+  name: 'app.tsx',
   mimeType: 'text/typescript',
   size: 8500,
 }
@@ -218,7 +218,7 @@ const flatActivities: ActivityItem[] = [
     status: 'completed',
     toolName: 'Read',
     toolUseId: 'read-1',
-    toolInput: { file_path: 'src/components/App.tsx' },
+    toolInput: { file_path: 'src/components/app.tsx' },
     content: 'File contents...',
     timestamp: Date.now() - 3000,
     depth: 0,
@@ -240,7 +240,7 @@ const flatActivities: ActivityItem[] = [
     status: 'completed',
     toolName: 'Edit',
     toolUseId: 'edit-1',
-    toolInput: { file_path: 'src/components/App.tsx' },
+    toolInput: { file_path: 'src/components/app.tsx' },
     content: 'File updated',
     timestamp: Date.now() - 1000,
     depth: 0,

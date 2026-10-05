@@ -2,7 +2,7 @@
 @plugin "@tailwindcss/typography";
 
 /* Scan the Electron renderer components (shared via @ alias) */
-@source "../../electron/src/renderer/App.tsx";
+@source "../../electron/src/renderer/app.tsx";
 @source "../../electron/src/renderer/main.tsx";
 @source "../../electron/src/renderer/components/**/*.{ts,tsx,jsx}";
 @source "../../electron/src/renderer/contexts/**/*.{ts,tsx,jsx}";
@@ -14,7 +14,7 @@
 /* Scan our own web-specific components */
 @source "./components/**/*.{ts,tsx,jsx}";
 @source "./adapter/**/*.{ts,tsx}";
-@source "./App.tsx";
+@source "./app.tsx";
 @source "./main.tsx";
 
 /*

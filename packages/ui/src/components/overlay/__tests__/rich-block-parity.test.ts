@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RICH_BLOCK_DEFAULTS } from '../rich-block-interaction-spec'
-import { zoomStepScale } from '../useRichBlockInteractions'
+import { zoomStepScale } from '../use-rich-block-interactions'
 
 describe('rich block interaction parity defaults', () => {
   it('uses shared zoom presets for all rich blocks', () => {

@@ -364,7 +364,7 @@ export const markdownComponents: ComponentEntry[] = [
       { name: 'Variable', props: { children: 'useState' } },
       { name: 'Function', props: { children: 'handleClick()' } },
       { name: 'Type', props: { children: 'React.FC<Props>' } },
-      { name: 'Path', props: { children: 'src/components/App.tsx' } },
+      { name: 'Path', props: { children: 'src/components/app.tsx' } },
     ],
   },
   {

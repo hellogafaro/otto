@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AUTOMATIONS_HISTORY_FILE } from '../../../shared/src/automations/constants.ts'
-import { SessionManager } from './SessionManager.ts'
+import { SessionManager } from './session-manager.ts'
 
 // Prompt actions of one automation event: a matcher's semanticCondition is judged once (its prompt
 // actions all run or are all skipped), and prompts without a condition never wait for another check.

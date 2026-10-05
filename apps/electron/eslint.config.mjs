@@ -151,7 +151,7 @@ export default [
       'src/renderer/components/ui/sortable-list.tsx',
       'src/main/browser-pane-manager.ts',
       'src/shared/browser-live-fx.ts',
-      'src/renderer/components/KeyboardShortcutsDialog.tsx',
+      'src/renderer/components/keyboard-shortcuts-dialog.tsx',
       'src/renderer/playground/**/*.{ts,tsx}',
     ],
     rules: {

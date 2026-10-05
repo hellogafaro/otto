@@ -22,26 +22,26 @@ export {
   type SettingsSectionProps,
   type SettingsGroupProps,
   type SettingsDividerProps,
-} from './SettingsSection'
+} from './settings-section'
 
 export {
   SettingsCard,
   SettingsCardContent,
   SettingsCardFooter,
   type SettingsCardProps,
-} from './SettingsCard'
+} from './settings-card'
 
 // Rows
 export {
   SettingsRow,
   SettingsRowLabel,
   type SettingsRowProps,
-} from './SettingsRow'
+} from './settings-row'
 
 export {
   SettingsToggle,
   type SettingsToggleProps,
-} from './SettingsToggle'
+} from './settings-toggle'
 
 // Selection
 export {
@@ -51,7 +51,7 @@ export {
   type SettingsRadioGroupProps,
   type SettingsRadioCardProps,
   type SettingsRadioOptionProps,
-} from './SettingsRadioGroup'
+} from './settings-radio-group'
 
 export {
   SettingsSegmentedControl,
@@ -60,7 +60,7 @@ export {
   type SettingsSegmentedOption,
   type SettingsSegmentedControlCardProps,
   type SettingsSegmentedCardOption,
-} from './SettingsSegmentedControl'
+} from './settings-segmented-control'
 
 export {
   SettingsSelect,
@@ -68,7 +68,7 @@ export {
   type SettingsSelectProps,
   type SettingsSelectOption,
   type SettingsSelectRowProps,
-} from './SettingsSelect'
+} from './settings-select'
 
 export {
   SettingsMenuSelect,
@@ -76,7 +76,7 @@ export {
   type SettingsMenuSelectProps,
   type SettingsMenuSelectOption,
   type SettingsMenuSelectRowProps,
-} from './SettingsMenuSelect'
+} from './settings-menu-select'
 
 // Inputs
 export {
@@ -86,9 +86,9 @@ export {
   type SettingsInputProps,
   type SettingsInputRowProps,
   type SettingsSecretInputProps,
-} from './SettingsInput'
+} from './settings-input'
 
 export {
   SettingsTextarea,
   type SettingsTextareaProps,
-} from './SettingsTextarea'
+} from './settings-textarea'

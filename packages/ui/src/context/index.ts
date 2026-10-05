@@ -7,10 +7,10 @@ export {
   usePlatform,
   type PlatformActions,
   type PlatformProviderProps,
-} from './PlatformContext'
+} from './platform-context'
 
 export {
   ShikiThemeProvider,
   useShikiTheme,
   type ShikiThemeProviderProps,
-} from './ShikiThemeContext'
+} from './shiki-theme-context'

@@ -1,10 +1,10 @@
 import type { ComponentEntry } from './types'
-import { AllowListPreview } from '../demos/messaging/AllowListPreview'
-import { MessagingSettingsPagePreview } from '../demos/messaging/MessagingSettingsPagePreview'
-import { MessagingTelegramReworkedPreview } from '../demos/messaging/MessagingTelegramReworkedPreview'
-import { PairingCodeDialogPreview } from '../demos/messaging/PairingCodeDialogPreview'
-import { WhatsAppConnectDialogPreview } from '../demos/messaging/WhatsAppConnectDialogPreview'
-import { MessagingSubmenuPreview } from '../demos/messaging/MessagingSubmenuPreview'
+import { AllowListPreview } from '../demos/messaging/allow-list-preview'
+import { MessagingSettingsPagePreview } from '../demos/messaging/messaging-settings-page-preview'
+import { MessagingTelegramReworkedPreview } from '../demos/messaging/messaging-telegram-reworked-preview'
+import { PairingCodeDialogPreview } from '../demos/messaging/pairing-code-dialog-preview'
+import { WhatsAppConnectDialogPreview } from '../demos/messaging/whats-app-connect-dialog-preview'
+import { MessagingSubmenuPreview } from '../demos/messaging/messaging-submenu-preview'
 
 export const messagingComponents: ComponentEntry[] = [
   {

@@ -4,8 +4,8 @@
  * Export all page components for use in MainContentPanel.
  */
 
-export { default as ChatPage } from './ChatPage'
-export { default as SourceInfoPage } from './SourceInfoPage'
+export { default as ChatPage } from './chat-page'
+export { default as SourceInfoPage } from './source-info-page'
 // Settings pages
 export {
   SettingsNavigator,

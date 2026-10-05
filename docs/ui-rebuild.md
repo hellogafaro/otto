@@ -10,211 +10,211 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 
 ## Shell and chrome (45)
 
-- [ ] `components/app-shell/ActiveOptionBadges.tsx`
-- [ ] `components/app-shell/ActiveTasksBar.tsx`
-- [ ] `components/app-shell/AppRail.tsx`
-- [ ] `components/app-shell/AppShell.tsx`
-- [ ] `components/app-shell/AttachmentPreview.tsx`
-- [ ] `components/app-shell/BackgroundFinishedChip.tsx`
-- [ ] `components/app-shell/BatchSessionMenu.tsx`
-- [ ] `components/app-shell/ChatDisplay.tsx`
-- [ ] `components/app-shell/CompactPanelTransition.tsx`
-- [ ] `components/app-shell/CompactSessionListFilter.tsx`
-- [ ] `components/app-shell/CompactSessionMenu.tsx`
-- [ ] `components/app-shell/CompactWorkspaceSwitcher.tsx`
-- [ ] `components/app-shell/FabNewChat.tsx`
-- [ ] `components/app-shell/LeftSidebar.tsx`
-- [ ] `components/app-shell/MainContentPanel.tsx`
-- [ ] `components/app-shell/MultiSelectPanel.tsx`
+- [ ] `components/app-shell/active-option-badges.tsx`
+- [ ] `components/app-shell/active-tasks-bar.tsx`
+- [ ] `components/app-shell/app-rail.tsx`
+- [ ] `components/app-shell/app-shell.tsx`
+- [ ] `components/app-shell/attachment-preview.tsx`
+- [ ] `components/app-shell/background-finished-chip.tsx`
+- [ ] `components/app-shell/batch-session-menu.tsx`
+- [ ] `components/app-shell/chat-display.tsx`
+- [ ] `components/app-shell/compact-panel-transition.tsx`
+- [ ] `components/app-shell/compact-session-list-filter.tsx`
+- [ ] `components/app-shell/compact-session-menu.tsx`
+- [ ] `components/app-shell/compact-workspace-switcher.tsx`
+- [ ] `components/app-shell/fab-new-chat.tsx`
+- [ ] `components/app-shell/left-sidebar.tsx`
+- [ ] `components/app-shell/main-content-panel.tsx`
+- [ ] `components/app-shell/multi-select-panel.tsx`
 - [ ] `components/app-shell/NavigatorPanel.tsx`
-- [ ] `components/app-shell/Panel.tsx`
-- [ ] `components/app-shell/PanelHeader.tsx`
-- [ ] `components/app-shell/PanelResizeSash.tsx`
-- [ ] `components/app-shell/PanelSlot.tsx`
-- [ ] `components/app-shell/PanelStackContainer.tsx`
-- [ ] `components/app-shell/ProjectMultiSelectFilter.tsx`
-- [ ] `components/app-shell/ProjectsListPanel.tsx`
-- [ ] `components/app-shell/SendResourceToWorkspaceDialog.tsx`
-- [ ] `components/app-shell/SendToWorkspaceDialog.tsx`
-- [ ] `components/app-shell/SessionBadges.tsx`
-- [ ] `components/app-shell/SessionInfoPopover.tsx`
-- [ ] `components/app-shell/SessionItem.tsx`
-- [ ] `components/app-shell/SessionList.tsx`
-- [ ] `components/app-shell/SessionMenu.tsx`
-- [ ] `components/app-shell/SessionMenuParts.tsx`
-- [ ] `components/app-shell/SessionProjectColorWrapper.tsx`
-- [ ] `components/app-shell/SessionSearchHeader.tsx`
-- [ ] `components/app-shell/SessionStatusIcon.tsx`
-- [ ] `components/app-shell/SetupAuthBanner.tsx`
-- [ ] `components/app-shell/SidebarMenu.tsx`
-- [ ] `components/app-shell/SkillMenu.tsx`
-- [ ] `components/app-shell/SkillsListPanel.tsx`
-- [ ] `components/app-shell/SourceMenu.tsx`
-- [ ] `components/app-shell/SourcesListPanel.tsx`
-- [ ] `components/app-shell/TaskActionMenu.tsx`
-- [ ] `components/app-shell/TopBar.tsx`
-- [ ] `components/app-shell/TransportConnectionBanner.tsx`
-- [ ] `components/app-shell/WorkspaceSwitcher.tsx`
+- [ ] `components/app-shell/panel.tsx`
+- [ ] `components/app-shell/panel-header.tsx`
+- [ ] `components/app-shell/panel-resize-sash.tsx`
+- [ ] `components/app-shell/panel-slot.tsx`
+- [ ] `components/app-shell/panel-stack-container.tsx`
+- [ ] `components/app-shell/project-multi-select-filter.tsx`
+- [ ] `components/app-shell/projects-list-panel.tsx`
+- [ ] `components/app-shell/send-resource-to-workspace-dialog.tsx`
+- [ ] `components/app-shell/send-to-workspace-dialog.tsx`
+- [ ] `components/app-shell/session-badges.tsx`
+- [ ] `components/app-shell/session-info-popover.tsx`
+- [ ] `components/app-shell/session-item.tsx`
+- [ ] `components/app-shell/session-list.tsx`
+- [ ] `components/app-shell/session-menu.tsx`
+- [ ] `components/app-shell/session-menu-parts.tsx`
+- [ ] `components/app-shell/session-project-color-wrapper.tsx`
+- [ ] `components/app-shell/session-search-header.tsx`
+- [ ] `components/app-shell/session-status-icon.tsx`
+- [ ] `components/app-shell/setup-auth-banner.tsx`
+- [ ] `components/app-shell/sidebar-menu.tsx`
+- [ ] `components/app-shell/skill-menu.tsx`
+- [ ] `components/app-shell/skills-list-panel.tsx`
+- [ ] `components/app-shell/source-menu.tsx`
+- [ ] `components/app-shell/sources-list-panel.tsx`
+- [ ] `components/app-shell/task-action-menu.tsx`
+- [ ] `components/app-shell/top-bar.tsx`
+- [ ] `components/app-shell/transport-connection-banner.tsx`
+- [ ] `components/app-shell/workspace-switcher.tsx`
 
 ## Pages (5)
 
-- [ ] `pages/ChatPage.tsx`
-- [ ] `pages/ProjectInfoPage.tsx`
-- [ ] `pages/ShortcutsPage.tsx`
-- [ ] `pages/SkillInfoPage.tsx`
-- [ ] `pages/SourceInfoPage.tsx`
+- [ ] `pages/chat-page.tsx`
+- [ ] `pages/project-info-page.tsx`
+- [ ] `pages/shortcuts-page.tsx`
+- [ ] `pages/skill-info-page.tsx`
+- [ ] `pages/source-info-page.tsx`
 
 ## Settings pages (12)
 
-- [ ] `pages/settings/AiSettingsPage.tsx`
-- [ ] `pages/settings/AppSettingsPage.tsx`
-- [ ] `pages/settings/AppearanceSettingsPage.tsx`
-- [ ] `pages/settings/InputSettingsPage.tsx`
-- [ ] `pages/settings/LabelsSettingsPage.tsx`
-- [ ] `pages/settings/MessagingSettingsPage.tsx`
-- [ ] `pages/settings/PermissionsSettingsPage.tsx`
-- [ ] `pages/settings/PreferencesPage.tsx`
-- [ ] `pages/settings/ServerSettingsPage.tsx`
-- [ ] `pages/settings/SettingsNavigator.tsx`
-- [ ] `pages/settings/ShortcutsPage.tsx`
-- [ ] `pages/settings/WorkspaceSettingsPage.tsx`
+- [ ] `pages/settings/ai-settings-page.tsx`
+- [ ] `pages/settings/app-settings-page.tsx`
+- [ ] `pages/settings/appearance-settings-page.tsx`
+- [ ] `pages/settings/input-settings-page.tsx`
+- [ ] `pages/settings/labels-settings-page.tsx`
+- [ ] `pages/settings/messaging-settings-page.tsx`
+- [ ] `pages/settings/permissions-settings-page.tsx`
+- [ ] `pages/settings/preferences-page.tsx`
+- [ ] `pages/settings/server-settings-page.tsx`
+- [ ] `pages/settings/settings-navigator.tsx`
+- [ ] `pages/settings/shortcuts-page.tsx`
+- [ ] `pages/settings/workspace-settings-page.tsx`
 
 ## Onboarding and sign-in (10)
 
-- [ ] `components/onboarding/APISetupStep.tsx`
-- [ ] `components/onboarding/CompletionStep.tsx`
-- [ ] `components/onboarding/CredentialsStep.tsx`
-- [ ] `components/onboarding/GitBashWarning.tsx`
-- [ ] `components/onboarding/LocalModelStep.tsx`
-- [ ] `components/onboarding/OnboardingWizard.tsx`
-- [ ] `components/onboarding/ProviderSelectStep.tsx`
-- [ ] `components/onboarding/WelcomeStep.tsx`
+- [ ] `components/onboarding/api-setup-step.tsx`
+- [ ] `components/onboarding/completion-step.tsx`
+- [ ] `components/onboarding/credentials-step.tsx`
+- [ ] `components/onboarding/git-bash-warning.tsx`
+- [ ] `components/onboarding/local-model-step.tsx`
+- [ ] `components/onboarding/onboarding-wizard.tsx`
+- [ ] `components/onboarding/provider-select-step.tsx`
+- [ ] `components/onboarding/welcome-step.tsx`
 - [ ] `components/onboarding/primitives.tsx`
 
 ## Connection setup (2)
 
-- [ ] `components/apisetup/ApiKeyInput.tsx`
-- [ ] `components/apisetup/OAuthConnect.tsx`
+- [ ] `components/apisetup/api-key-input.tsx`
+- [ ] `components/apisetup/oauth-connect.tsx`
 
 ## Chat (2)
 
-- [ ] `components/chat/AuthRequestCard.tsx`
-- [ ] `components/chat/EmptyStateHint.tsx`
+- [ ] `components/chat/auth-request-card.tsx`
+- [ ] `components/chat/empty-state-hint.tsx`
 
 ## Session info (1)
 
-- [ ] `components/session-info/SessionFilesSection.tsx`
+- [ ] `components/session-info/session-files-section.tsx`
 
 ## Automations (13)
 
-- [ ] `components/automations/ActionTypeIcon.tsx`
-- [ ] `components/automations/AutomationActionPreview.tsx`
-- [ ] `components/automations/AutomationActionRow.tsx`
-- [ ] `components/automations/AutomationAvatar.tsx`
-- [ ] `components/automations/AutomationCard.tsx`
-- [ ] `components/automations/AutomationEventTimeline.tsx`
-- [ ] `components/automations/AutomationInfoPage.tsx`
-- [ ] `components/automations/AutomationMenu.tsx`
-- [ ] `components/automations/AutomationTestPanel.tsx`
-- [ ] `components/automations/AutomationsListPanel.tsx`
-- [ ] `components/automations/BatchAutomationMenu.tsx`
-- [ ] `components/automations/CronBuilder.tsx`
-- [ ] `components/automations/PhaseBadge.tsx`
+- [ ] `components/automations/action-type-icon.tsx`
+- [ ] `components/automations/automation-action-preview.tsx`
+- [ ] `components/automations/automation-action-row.tsx`
+- [ ] `components/automations/automation-avatar.tsx`
+- [ ] `components/automations/automation-card.tsx`
+- [ ] `components/automations/automation-event-timeline.tsx`
+- [ ] `components/automations/automation-info-page.tsx`
+- [ ] `components/automations/automation-menu.tsx`
+- [ ] `components/automations/automation-test-panel.tsx`
+- [ ] `components/automations/automations-list-panel.tsx`
+- [ ] `components/automations/batch-automation-menu.tsx`
+- [ ] `components/automations/cron-builder.tsx`
+- [ ] `components/automations/phase-badge.tsx`
 
 ## Projects (1)
 
-- [ ] `components/projects/CreateProjectDialog.tsx`
+- [ ] `components/projects/create-project-dialog.tsx`
 
 ## Workspace (8)
 
-- [x] `components/workspace/AddWorkspaceStep_Choice.tsx`
-- [x] `components/workspace/AddWorkspaceStep_ConnectRemote.tsx`
-- [x] `components/workspace/AddWorkspaceStep_CreateNew.tsx`
-- [x] `components/workspace/AddWorkspaceStep_OpenFolder.tsx`
-- [x] `components/workspace/AddWorkspace_RadioOption.tsx`
-- [x] `components/workspace/WorkspaceCreationScreen.tsx`
-- [x] `components/workspace/WorkspacePicker.tsx`
+- [x] `components/workspace/add-workspace-step-choice.tsx`
+- [x] `components/workspace/add-workspace-step-connect-remote.tsx`
+- [x] `components/workspace/add-workspace-step-create-new.tsx`
+- [x] `components/workspace/add-workspace-step-open-folder.tsx`
+- [x] `components/workspace/add-workspace-radio-option.tsx`
+- [x] `components/workspace/workspace-creation-screen.tsx`
+- [x] `components/workspace/workspace-picker.tsx`
 - [x] `components/workspace/primitives.tsx`
 
 ## Files and preview (1)
 
-- [ ] `components/files/FileViewer.tsx`
+- [ ] `components/files/file-viewer.tsx`
 
 ## Info panels (13)
 
-- [ ] `components/info/AutoRulesDataTable.tsx`
-- [ ] `components/info/Info_Alert.tsx`
-- [ ] `components/info/Info_Badge.tsx`
-- [ ] `components/info/Info_DataTable.tsx`
-- [ ] `components/info/Info_GroupedList.tsx`
-- [ ] `components/info/Info_Markdown.tsx`
-- [ ] `components/info/Info_Page.tsx`
-- [ ] `components/info/Info_Section.tsx`
-- [ ] `components/info/Info_StatusBadge.tsx`
-- [ ] `components/info/Info_Table.tsx`
-- [ ] `components/info/LabelsDataTable.tsx`
-- [ ] `components/info/PermissionsDataTable.tsx`
-- [ ] `components/info/ToolsDataTable.tsx`
+- [ ] `components/info/auto-rules-data-table.tsx`
+- [ ] `components/info/info-alert.tsx`
+- [ ] `components/info/info-badge.tsx`
+- [ ] `components/info/info-data-table.tsx`
+- [ ] `components/info/info-grouped-list.tsx`
+- [ ] `components/info/info-markdown.tsx`
+- [ ] `components/info/info-page.tsx`
+- [ ] `components/info/info-section.tsx`
+- [ ] `components/info/info-status-badge.tsx`
+- [ ] `components/info/info-table.tsx`
+- [ ] `components/info/labels-data-table.tsx`
+- [ ] `components/info/permissions-data-table.tsx`
+- [ ] `components/info/tools-data-table.tsx`
 
 ## Messaging (13)
 
-- [ ] `components/messaging/LarkConnectDialog.tsx`
-- [ ] `components/messaging/MessagingDialogHost.tsx`
-- [ ] `components/messaging/MessagingPlatformIcon.tsx`
-- [ ] `components/messaging/MessagingSessionMenuItem.tsx`
-- [ ] `components/messaging/PairingCodeDialog.tsx`
-- [ ] `components/messaging/TelegramConnectDialog.tsx`
-- [ ] `components/messaging/TelegramSupergroupPairingDialog.tsx`
-- [ ] `components/messaging/WhatsAppConnectDialog.tsx`
-- [ ] `components/messaging/access/AccessModeBanner.tsx`
-- [ ] `components/messaging/access/BindingAllowListPopover.tsx`
-- [ ] `components/messaging/access/OwnersListEditor.tsx`
-- [ ] `components/messaging/access/PendingSendersList.tsx`
-- [ ] `components/messaging/access/TelegramAccessSection.tsx`
+- [ ] `components/messaging/lark-connect-dialog.tsx`
+- [ ] `components/messaging/messaging-dialog-host.tsx`
+- [ ] `components/messaging/messaging-platform-icon.tsx`
+- [ ] `components/messaging/messaging-session-menu-item.tsx`
+- [ ] `components/messaging/pairing-code-dialog.tsx`
+- [ ] `components/messaging/telegram-connect-dialog.tsx`
+- [ ] `components/messaging/telegram-supergroup-pairing-dialog.tsx`
+- [ ] `components/messaging/whats-app-connect-dialog.tsx`
+- [ ] `components/messaging/access/access-mode-banner.tsx`
+- [ ] `components/messaging/access/binding-allow-list-popover.tsx`
+- [ ] `components/messaging/access/owners-list-editor.tsx`
+- [ ] `components/messaging/access/pending-senders-list.tsx`
+- [ ] `components/messaging/access/telegram-access-section.tsx`
 
 ## Browser (3)
 
-- [ ] `components/browser/BrowserTabBadge.tsx`
-- [ ] `components/browser/BrowserTabStrip.tsx`
-- [ ] `components/browser/BrowserToolbar.tsx`
+- [ ] `components/browser/browser-tab-badge.tsx`
+- [ ] `components/browser/browser-tab-strip.tsx`
+- [ ] `components/browser/browser-toolbar.tsx`
 
 ## Markdown (1)
 
-- [ ] `components/markdown/StreamingMarkdown.tsx`
+- [ ] `components/markdown/streaming-markdown.tsx`
 
 ## Settings building blocks (12)
 
-- [ ] `components/settings/SearchableModelInput.tsx`
-- [ ] `components/settings/SettingsCard.tsx`
-- [ ] `components/settings/SettingsEditRow.tsx`
-- [ ] `components/settings/SettingsInput.tsx`
-- [ ] `components/settings/SettingsMenuSelect.tsx`
-- [ ] `components/settings/SettingsRadioGroup.tsx`
-- [ ] `components/settings/SettingsRow.tsx`
-- [ ] `components/settings/SettingsSection.tsx`
-- [ ] `components/settings/SettingsSegmentedControl.tsx`
-- [ ] `components/settings/SettingsSelect.tsx`
-- [ ] `components/settings/SettingsTextarea.tsx`
-- [ ] `components/settings/SettingsToggle.tsx`
+- [ ] `components/settings/searchable-model-input.tsx`
+- [ ] `components/settings/settings-card.tsx`
+- [ ] `components/settings/settings-edit-row.tsx`
+- [ ] `components/settings/settings-input.tsx`
+- [ ] `components/settings/settings-menu-select.tsx`
+- [ ] `components/settings/settings-radio-group.tsx`
+- [ ] `components/settings/settings-row.tsx`
+- [ ] `components/settings/settings-section.tsx`
+- [ ] `components/settings/settings-segmented-control.tsx`
+- [ ] `components/settings/settings-select.tsx`
+- [ ] `components/settings/settings-textarea.tsx`
+- [ ] `components/settings/settings-toggle.tsx`
 
 ## Top-level components (5)
 
-- [ ] `components/KeyboardShortcuts.tsx`
-- [ ] `components/KeyboardShortcutsDialog.tsx`
-- [ ] `components/ServerDirectoryBrowser.tsx`
-- [ ] `components/SplashScreen.tsx`
+- [ ] `components/keyboard-shortcuts.tsx`
+- [ ] `components/keyboard-shortcuts-dialog.tsx`
+- [ ] `components/server-directory-browser.tsx`
+- [ ] `components/splash-screen.tsx`
 
 ## UI primitives to swap for the design system (72)
 
-- [ ] `components/ui/CompactSourceSelector.tsx`
-- [ ] `components/ui/CompactWorkingDirectorySelector.tsx`
-- [ ] `components/ui/EditPopover.tsx`
-- [ ] `components/ui/HeaderIconButton.tsx`
+- [ ] `components/ui/compact-source-selector.tsx`
+- [ ] `components/ui/compact-working-directory-selector.tsx`
+- [ ] `components/ui/edit-popover.tsx`
+- [ ] `components/ui/header-icon-button.tsx`
 - [ ] `components/ui/HeaderMenu.tsx`
-- [ ] `components/ui/PanelHeaderCenterButton.tsx`
+- [ ] `components/ui/panel-header-center-button.tsx`
 - [ ] `components/ui/SkillSelectorPopover.tsx`
-- [ ] `components/ui/SourceSelectorPopover.tsx`
-- [ ] `components/ui/TopBarButton.tsx`
+- [ ] `components/ui/source-selector-popover.tsx`
+- [ ] `components/ui/top-bar-button.tsx`
 - [ ] `components/ui/action-menu-item.tsx`
 - [ ] `components/ui/action-tooltip.tsx`
 - [ ] `components/ui/avatar-group.tsx`

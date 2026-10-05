@@ -1,6 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { useHorizontalResizeGradient } from "@/hooks/useHorizontalResizeGradient"
+import { useHorizontalResizeGradient } from "@/hooks/use-horizontal-resize-gradient"
 
 interface HorizontalResizeHandleProps {
   /** Called during drag with the delta Y (positive = moving down) */

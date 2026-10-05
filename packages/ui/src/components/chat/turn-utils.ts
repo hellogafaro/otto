@@ -6,11 +6,11 @@
  */
 
 import type { Message } from '@otto/core'
-import { isParentTaskTool } from '@otto/shared/utils/toolNames'
+import { isParentTaskTool } from '@otto/shared/utils/tool-names'
 import { storedToMessage } from '@otto/core'
 
 export { storedToMessage }
-import type { ActivityItem, ActivityStatus, ActivityType, ResponseContent, TodoItem } from './TurnCard'
+import type { ActivityItem, ActivityStatus, ActivityType, ResponseContent, TodoItem } from './turn-card'
 
 // Re-export ActivityItem for consumers
 export type { ActivityItem }

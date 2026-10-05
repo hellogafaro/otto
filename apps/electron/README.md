@@ -26,13 +26,13 @@ apps/electron/
 │   ├── preload/           # Context bridge (main ↔ renderer)
 │   │   └── index.ts       # Exposes electronAPI to renderer
 │   ├── renderer/          # React UI
-│   │   ├── App.tsx        # Main app, event handling
+│   │   ├── app.tsx        # Main app, event handling
 │   │   ├── components/
 │   │   │   ├── chat/      # Chat UI (ChatInput, ChatDisplay)
 │   │   │   ├── markdown/  # Markdown renderer with Shiki
 │   │   │   └── ui/        # shadcn/ui components (incl. source-avatar.tsx)
 │   │   ├── contexts/
-│   │   │   └── NavigationContext.tsx  # Type-safe routing and navigation
+│   │   │   └── navigation-context.tsx  # Type-safe routing and navigation
 │   │   ├── lib/
 │   │   │   └── navigate.ts  # Global navigate() function
 │   │   ├── hooks/
@@ -263,19 +263,19 @@ See `CLAUDE.md` for complete route reference.
 | `main/deep-link.ts` | Deep link URL parsing and handling |
 | `main/sources-service.ts` | Source loading and authentication service |
 | `preload/index.ts` | Context bridge API |
-| `renderer/App.tsx` | React root, state management |
-| `renderer/contexts/NavigationContext.tsx` | Type-safe routing and navigation handler |
+| `renderer/app.tsx` | React root, state management |
+| `renderer/contexts/navigation-context.tsx` | Type-safe routing and navigation handler |
 | `renderer/lib/navigate.ts` | Global navigate() function |
 | `renderer/hooks/useAgentState.ts` | Agent activation state machine (IPC-based) |
-| `renderer/hooks/useBackgroundTasks.ts` | Background task tracking |
-| `renderer/hooks/useStatuses.ts` | Workspace status configuration |
-| `renderer/hooks/useTheme.ts` | Cascading theme resolution |
+| `renderer/hooks/use-background-tasks.ts` | Background task tracking |
+| `renderer/hooks/use-statuses.ts` | Workspace status configuration |
+| `renderer/hooks/use-theme.ts` | Cascading theme resolution |
 | `renderer/components/chat/Chat.tsx` | Main chat layout with resizable panels |
 | `renderer/components/chat/ChatInput.tsx` | Message input with file attachments |
-| `renderer/components/chat/ChatDisplay.tsx` | Message list with markdown rendering |
-| `renderer/components/app-shell/input/structured/PermissionRequest.tsx` | Bash command approval UI |
-| `renderer/components/chat/SessionList.tsx` | Session sidebar with rename support |
-| `renderer/components/chat/AttachmentPreview.tsx` | File attachment bubbles |
+| `renderer/components/chat/chat-display.tsx` | Message list with markdown rendering |
+| `renderer/components/app-shell/input/structured/permission-request.tsx` | Bash command approval UI |
+| `renderer/components/chat/session-list.tsx` | Session sidebar with rename support |
+| `renderer/components/chat/attachment-preview.tsx` | File attachment bubbles |
 | `renderer/components/ui/source-avatar.tsx` | Unified source icon component |
 | `renderer/playground/` | Component development playground |
 | `shared/types.ts` | IPC channels, Message/Session/FileAttachment types |

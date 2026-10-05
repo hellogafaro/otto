@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { SessionManager, createManagedSession } from './SessionManager.ts'
+import { SessionManager, createManagedSession } from './session-manager.ts'
 
 // WS2 keep-alive: when a background agent finishes while the session is IDLE, the
 // completion is delivered between turns (via the persistent-query background sink →

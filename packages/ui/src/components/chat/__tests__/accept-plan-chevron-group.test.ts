@@ -9,8 +9,8 @@ import { join } from 'node:path'
 // (`group/accept` + `group-data-[state=open]/accept:rotate-180`). This is a
 // source-text guard because packages/ui has no RTL/jsdom harness.
 const files = [
-  join(__dirname, '../AcceptPlanDropdown.tsx'),
-  join(__dirname, '../CompactAcceptPlanDrawer.tsx'),
+  join(__dirname, '../accept-plan-dropdown.tsx'),
+  join(__dirname, '../compact-accept-plan-drawer.tsx'),
 ]
 
 describe('Accept-Plan chevron rotates on open (issue #840)', () => {

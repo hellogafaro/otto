@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { SessionManager, createManagedSession } from './SessionManager.ts'
+import { SessionManager, createManagedSession } from './session-manager.ts'
 
 // Regression tests for #710 — OAuth tokens expire without silent refresh.
 //
@@ -72,7 +72,7 @@ describe('sendMessage OAuth refresh ordering (#710)', () => {
 
   it('cold session: tokenRefreshManager runs before getOrCreateAgent', async () => {
     // Pre-fix this sequence was inverted: getOrCreateAgent's internal build
-    // (~SessionManager.ts:2956) ran first and saw stale tokens, triggering a
+    // (~session-manager.ts:2956) ran first and saw stale tokens, triggering a
     // spurious AUTH_REQUIRED → markSourceNeedsReauth → UI flicker.
     const sessionId = 'cold-oauth'
     const managed = buildSession(sessionId)

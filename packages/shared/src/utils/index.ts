@@ -11,5 +11,5 @@ export * from './perf.ts';
 export * from './summarize.ts';
 export * from './large-response.ts';
 export * from './title-generator.ts';
-export * from './toolNames.ts';
+export * from './tool-names.ts';
 export * from './workspace.ts';

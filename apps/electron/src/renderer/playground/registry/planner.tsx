@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/styled-dropdown'
 import { TiptapMarkdownEditor } from '@otto/ui'
 import { cn } from '@/lib/utils'
-import { getResizeGradientStyle } from '@/hooks/useResizeGradient'
+import { getResizeGradientStyle } from '@/hooks/use-resize-gradient'
 import {
   PANEL_GAP,
   PANEL_SASH_HALF_HIT_WIDTH,

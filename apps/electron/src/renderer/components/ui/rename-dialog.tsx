@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { useRegisterModal } from "@/context/ModalContext"
+import { useRegisterModal } from "@/context/modal-context"
 
 interface RenameDialogProps {
   open: boolean

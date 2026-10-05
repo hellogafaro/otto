@@ -2,13 +2,13 @@
  * UI primitives for @otto/ui
  */
 
-export { Spinner, type SpinnerProps, LoadingIndicator, type LoadingIndicatorProps } from './LoadingIndicator'
+export { Spinner, type SpinnerProps, LoadingIndicator, type LoadingIndicatorProps } from './loading-indicator'
 export {
   SimpleDropdown,
   SimpleDropdownItem,
   type SimpleDropdownProps,
   type SimpleDropdownItemProps,
-} from './SimpleDropdown'
+} from './simple-dropdown'
 export {
   PreviewHeader,
   PreviewHeaderBadge,
@@ -16,7 +16,7 @@ export {
   type PreviewHeaderProps,
   type PreviewHeaderBadgeProps,
   type PreviewBadgeVariant,
-} from './PreviewHeader'
+} from './preview-header'
 export {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -27,19 +27,19 @@ export {
   StyledDropdownMenuSeparator,
   StyledDropdownMenuSubTrigger,
   StyledDropdownMenuSubContent,
-} from './StyledDropdown'
-export { BrowserShader, type BrowserShaderProps } from './BrowserShader'
-export { BrowserControls, type BrowserControlsProps } from './BrowserControls'
+} from './styled-dropdown'
+export { BrowserShader, type BrowserShaderProps } from './browser-shader'
+export { BrowserControls, type BrowserControlsProps } from './browser-controls'
 export {
   BrowserEmptyStateCard,
   type BrowserEmptyStateCardProps,
   type BrowserEmptyPromptSample,
-} from './BrowserEmptyStateCard'
+} from './browser-empty-state-card'
 export {
   FilterableSelectPopover,
   type FilterableSelectPopoverProps,
   type FilterableSelectRenderState,
-} from './FilterableSelectPopover'
+} from './filterable-select-popover'
 export {
   Island,
   IslandContentView,
@@ -51,13 +51,13 @@ export {
   type IslandDialogBehavior,
   type AnchorX,
   type AnchorY,
-} from './Island'
+} from './island'
 export {
   IslandFollowUpContentView,
   type IslandFollowUpContentViewProps,
   type IslandFollowUpMode,
-} from './IslandFollowUpContentView'
+} from './island-follow-up-content-view'
 export {
   useIslandNavigation,
   type IslandNavigation,
-} from './useIslandNavigation'
+} from './use-island-navigation'

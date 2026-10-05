@@ -1,13 +1,13 @@
 import type { ComponentEntry } from './types'
-import { OnboardingFlowDemo } from '../demos/OnboardingFlowDemo'
-import { ProviderSelectStep } from '@/components/onboarding/ProviderSelectStep'
-import { WelcomeStep } from '@/components/onboarding/WelcomeStep'
-import { APISetupStep } from '@/components/onboarding/APISetupStep'
-import { CredentialsStep } from '@/components/onboarding/CredentialsStep'
-import { CompletionStep } from '@/components/onboarding/CompletionStep'
-import { GitBashWarning, type GitBashStatus } from '@/components/onboarding/GitBashWarning'
-import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
-import type { OnboardingState } from '@/components/onboarding/OnboardingWizard'
+import { OnboardingFlowDemo } from '../demos/onboarding-flow-demo'
+import { ProviderSelectStep } from '@/components/onboarding/provider-select-step'
+import { WelcomeStep } from '@/components/onboarding/welcome-step'
+import { APISetupStep } from '@/components/onboarding/api-setup-step'
+import { CredentialsStep } from '@/components/onboarding/credentials-step'
+import { CompletionStep } from '@/components/onboarding/completion-step'
+import { GitBashWarning, type GitBashStatus } from '@/components/onboarding/git-bash-warning'
+import { OnboardingWizard } from '@/components/onboarding/onboarding-wizard'
+import type { OnboardingState } from '@/components/onboarding/onboarding-wizard'
 
 const createOnboardingState = (overrides: Partial<OnboardingState> = {}): OnboardingState => ({
   step: 'welcome',

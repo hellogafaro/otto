@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils"
-import { AmbientBackdrop } from "../onboarding/AmbientBackdrop"
+import { AmbientBackdrop } from "../onboarding/ambient-backdrop"
 
 /**
  * AddWorkspacePage - the page every workspace screen sits on.

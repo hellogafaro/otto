@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { isAttendedSession } from './SessionManager.ts'
+import { isAttendedSession } from './session-manager.ts'
 
 type Fields = { id: string; parentSessionId?: string; triggeredBy?: object; hidden?: boolean; unattended?: boolean; systemPromptPreset?: string }
 

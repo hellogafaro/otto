@@ -17,12 +17,12 @@
 import type { AgentEvent } from '@otto/core/types';
 import { toolMetadataStore } from '../interceptor-common.ts';
 import { createLogger } from '../utils/debug.ts';
-import { isParentTaskTool } from '../utils/toolNames.ts';
+import { isParentTaskTool } from '../utils/tool-names.ts';
 
 const log = createLogger('tool-matching');
 
 // Re-export from browser-safe module (no Node deps) for backward compatibility
-export { PARENT_TASK_TOOLS, isParentTaskTool } from '../utils/toolNames.ts';
+export { PARENT_TASK_TOOLS, isParentTaskTool } from '../utils/tool-names.ts';
 
 /**
  * Parse the workflow run id (`wf_...`) from a subagent transcript path (or any
@@ -431,7 +431,7 @@ function detectBackgroundEvents(
   // Agent whose result text merely mentions "agentId:" (e.g. quoting a value it
   // found) has neither the background phrasing nor an output_file, so it is not
   // marked backgrounded. This mirrors the renderer's signature check in
-  // App.tsx (`isBackgroundingResult`). For both shapes a real task_completed
+  // app.tsx (`isBackgroundingResult`). For both shapes a real task_completed
   // notification eventually arrives; the WS3 registry + turn-end orphan backstop
   // cover the case where it does not.
   const wasRunInBackground = entry.input?.run_in_background === true;

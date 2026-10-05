@@ -4,8 +4,8 @@ import { init as sentryInit } from '@sentry/electron/renderer'
 import * as Sentry from '@sentry/react'
 import { captureConsoleIntegration } from '@sentry/react'
 import { Provider as JotaiProvider } from 'jotai'
-import App from './App'
-import { ThemeProvider } from './context/ThemeContext'
+import App from './app'
+import { ThemeProvider } from './context/theme-context'
 import { Toaster } from '@/components/ui/sonner'
 import { setupI18n, i18n } from '@otto/shared/i18n'
 import { redactSensitiveHeadersInPlace, redactSensitiveKeysInPlace } from '@otto/shared/utils/redaction'
@@ -105,7 +105,7 @@ function CrashFallback() {
 
 /**
  * Root component - renders App in the theme and toast providers
- * App.tsx handles window mode detection internally (main vs tab-content)
+ * app.tsx handles window mode detection internally (main vs tab-content)
  */
 function Root() {
   return (

@@ -8,7 +8,7 @@
  * No React state, no re-renders — just a synchronous snapshot.
  */
 
-import type { FocusZoneId } from '@/context/FocusContext'
+import type { FocusZoneId } from '@/context/focus-context'
 import { hasOpenOverlay } from '@/lib/overlay-detection'
 
 /**

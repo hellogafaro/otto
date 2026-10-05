@@ -11,7 +11,7 @@ import {
   SystemMessage,
 } from '@otto/ui'
 import { AnimatePresence, motion } from 'motion/react'
-import { AuthRequestCard } from '@/components/chat/AuthRequestCard'
+import { AuthRequestCard } from '@/components/chat/auth-request-card'
 import type { Message } from '../../../shared/types'
 
 // ============================================================================

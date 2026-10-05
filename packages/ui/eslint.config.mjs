@@ -47,7 +47,7 @@ export default [
         paths: [
           {
             name: '@radix-ui/react-dropdown-menu',
-            message: 'Use StyledDropdownMenuContent, StyledDropdownMenuItem, etc. from components/ui/StyledDropdown instead.',
+            message: 'Use StyledDropdownMenuContent, StyledDropdownMenuItem, etc. from components/ui/styled-dropdown instead.',
           },
         ],
       }],
@@ -81,8 +81,8 @@ export default [
   // Temporary exceptions for unresolved shadow migrations.
   {
     files: [
-      'src/components/ui/BrowserControls.tsx',
-      'src/components/markdown/ImageCardStack.tsx',
+      'src/components/ui/browser-controls.tsx',
+      'src/components/markdown/image-card-stack.tsx',
       'src/components/ui/__tests__/styled-dropdown.test.ts',
     ],
     rules: {
@@ -92,7 +92,7 @@ export default [
 
   // Allow raw Radix import in the styled wrapper itself
   {
-    files: ['src/components/ui/StyledDropdown.tsx'],
+    files: ['src/components/ui/styled-dropdown.tsx'],
     rules: {
       'no-restricted-imports': 'off',
     },

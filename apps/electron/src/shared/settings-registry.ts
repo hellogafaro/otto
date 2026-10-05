@@ -8,7 +8,7 @@
  * 1. Add an entry to SETTINGS_PAGES below
  * 2. Create the page component in renderer/pages/settings/
  * 3. Add to SETTINGS_PAGE_COMPONENTS in renderer/pages/settings/settings-pages.ts
- * 4. Add icon to SETTINGS_ICONS in renderer/components/icons/SettingsIcons.tsx
+ * 4. Add icon to SETTINGS_ICONS in renderer/components/icons/settings-icons.tsx
  *
  * That's it - types, routes, and validation are derived automatically.
  */

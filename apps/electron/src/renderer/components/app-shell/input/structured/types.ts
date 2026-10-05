@@ -1,5 +1,5 @@
 import type { PermissionRequest, CredentialRequest, CredentialResponse } from '../../../../../shared/types'
-import type { AdminApprovalRequestData } from './AdminApprovalRequest'
+import type { AdminApprovalRequestData } from './admin-approval-request'
 
 /**
  * Input mode determines which component is rendered in InputContainer

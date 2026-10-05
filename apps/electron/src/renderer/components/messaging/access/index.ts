@@ -1,8 +1,8 @@
-export { AccessModeBanner } from './AccessModeBanner'
-export { OwnersListEditor } from './OwnersListEditor'
-export { PendingSendersList } from './PendingSendersList'
-export { BindingAllowListPopover } from './BindingAllowListPopover'
-export { TelegramAccessSection } from './TelegramAccessSection'
+export { AccessModeBanner } from './access-mode-banner'
+export { OwnersListEditor } from './owners-list-editor'
+export { PendingSendersList } from './pending-senders-list'
+export { BindingAllowListPopover } from './binding-allow-list-popover'
+export { TelegramAccessSection } from './telegram-access-section'
 export type {
   BindingAccess,
   BindingAccessMode,

@@ -2,11 +2,11 @@
  * Event Processor
  *
  * Centralized event processing for agent events.
- * Replaces scattered event handling in App.tsx with pure functions.
+ * Replaces scattered event handling in app.tsx with pure functions.
  */
 
 export { processEvent } from './processor'
-export { useEventProcessor } from './useEventProcessor'
+export { useEventProcessor } from './use-event-processor'
 export type {
   SessionState,
   StreamingState,

@@ -1,14 +1,14 @@
 // Main components
-export { InputContainer } from './InputContainer'
-export { ChatInputZone } from './ChatInputZone'
-export { FreeFormInput } from './FreeFormInput'
-export { StructuredInput } from './StructuredInput'
+export { InputContainer } from './input-container'
+export { ChatInputZone } from './chat-input-zone'
+export { FreeFormInput } from './free-form-input'
+export { StructuredInput } from './structured-input'
 
 // Structured input components
-export { PermissionRequest } from './structured/PermissionRequest'
+export { PermissionRequest } from './structured/permission-request'
 
 // Hooks
-export { useAutoGrow } from './useAutoGrow'
+export { useAutoGrow } from './use-auto-grow'
 
 // Types
 export type {

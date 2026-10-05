@@ -13,7 +13,7 @@ import LanguageDetector from 'i18next-browser-languagedetector'
 import { setupI18n } from '@otto/shared/i18n'
 import { EyeOff, X, XCircle } from 'lucide-react'
 import { BrowserControls } from '@otto/ui'
-import { HeaderIconButton } from '@/components/ui/HeaderIconButton'
+import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import {
   DropdownMenu,
   DropdownMenuTrigger,

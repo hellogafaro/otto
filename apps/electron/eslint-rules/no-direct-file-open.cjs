@@ -7,8 +7,8 @@
  * supported file types instead of always opening in the default external app.
  *
  * Allowed in:
- *   - App.tsx (link interceptor implementation)
- *   - useLinkInterceptor.ts (link interceptor fallback)
+ *   - app.tsx (link interceptor implementation)
+ *   - use-link-interceptor.ts (link interceptor fallback)
  *
  * Bad:
  *   window.electronAPI.openFile(path)
@@ -38,7 +38,7 @@ module.exports = {
     // Allow direct calls in the interceptor implementation files
     const filename = context.filename || context.getFilename()
     const basename = filename.split('/').pop() || ''
-    if (basename === 'App.tsx' || basename === 'useLinkInterceptor.ts') {
+    if (basename === 'app.tsx' || basename === 'use-link-interceptor.ts') {
       return {}
     }
 

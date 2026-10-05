@@ -1,6 +1,6 @@
 import type { ComponentEntry } from './types'
-import { SessionListMobilePreview } from '../demos/mobile-webui/SessionListMobilePreview'
-import { ChatDisplayMobilePreview } from '../demos/mobile-webui/ChatDisplayMobilePreview'
+import { SessionListMobilePreview } from '../demos/mobile-webui/session-list-mobile-preview'
+import { ChatDisplayMobilePreview } from '../demos/mobile-webui/chat-display-mobile-preview'
 
 const DEVICE_OPTIONS = [
   { label: 'iPhone 15 (390×844)', value: 'iphone-15' },

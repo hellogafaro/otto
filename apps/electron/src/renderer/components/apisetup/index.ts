@@ -1,6 +1,6 @@
-export { ApiKeyInput, type ApiKeyInputProps, type ApiKeyStatus, type ApiKeySubmitData } from './ApiKeyInput'
+export { ApiKeyInput, type ApiKeyInputProps, type ApiKeyStatus, type ApiKeySubmitData } from './api-key-input'
 export {
   OAuthConnect,
   type OAuthConnectProps,
   type OAuthStatus,
-} from './OAuthConnect'
+} from './oauth-connect'

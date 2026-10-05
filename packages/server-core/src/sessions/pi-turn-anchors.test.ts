@@ -6,7 +6,7 @@ import {
   loadPiTurnAnchors,
   savePiTurnAnchor,
   copyPiTurnAnchorsForBranch,
-} from './SessionManager.ts'
+} from './session-manager.ts'
 
 let tmpRoot: string
 

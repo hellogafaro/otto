@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { ComponentEntry } from './types'
-import { TransportConnectionBanner } from '@/components/app-shell/TransportConnectionBanner'
+import { TransportConnectionBanner } from '@/components/app-shell/transport-connection-banner'
 import type { TransportConnectionState } from '../../../shared/types'
 import { HelpCircle, Plus } from 'lucide-react'
 
@@ -26,7 +26,7 @@ function MockTopBar() {
   )
 }
 
-/** Wrapper that provides the mock TopBar + pt-[48px] layout (matching the real App.tsx structure). */
+/** Wrapper that provides the mock TopBar + pt-[48px] layout (matching the real app.tsx structure). */
 function LayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative w-full h-[320px] border border-border rounded-lg overflow-hidden bg-background">

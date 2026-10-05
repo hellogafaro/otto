@@ -8,7 +8,7 @@
 import type { IconSize } from '@otto/shared/icons'
 import type { EntityColor } from '@otto/shared/colors'
 import { resolveEntityColor } from '@otto/shared/colors'
-import { useTheme } from '@/context/ThemeContext'
+import { useTheme } from '@/context/theme-context'
 import { cn } from '@/lib/utils'
 import { Hash, CalendarDays, Type, Link } from 'lucide-react'
 import type { LabelConfig } from '@otto/shared/labels'

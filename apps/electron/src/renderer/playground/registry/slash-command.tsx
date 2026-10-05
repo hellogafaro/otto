@@ -2,7 +2,7 @@ import * as React from 'react'
 import type { ComponentEntry } from './types'
 import { SquareSlash } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { FreeFormInput } from '@/components/app-shell/input/FreeFormInput'
+import { FreeFormInput } from '@/components/app-shell/input/free-form-input'
 import type { PermissionMode } from '@otto/shared/agent/modes'
 import { ensureMockElectronAPI } from '../mock-utils'
 import {

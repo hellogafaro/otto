@@ -33,7 +33,7 @@ const activeShadowSpecs: ShadowSpec[] = [
   {
     id: 'ui-browser-controls',
     component: 'BrowserControls focus ring',
-    file: 'packages/ui/components/ui/BrowserControls.tsx',
+    file: 'packages/ui/components/ui/browser-controls.tsx',
     kind: 'inline',
     shadow: "boxShadow: '0 0 0 1.5px var(--tb-focus-ring)'",
     border: "base state: 'border border-transparent'",
@@ -44,7 +44,7 @@ const activeShadowSpecs: ShadowSpec[] = [
   {
     id: 'ui-image-card-stack',
     component: 'ImageCardStack stacked card',
-    file: 'packages/ui/components/markdown/ImageCardStack.tsx',
+    file: 'packages/ui/components/markdown/image-card-stack.tsx',
     kind: 'arbitrary',
     shadow: 'shadow-[1px_3px_8px_rgba(0,0,0,0.28)]',
     border: 'none (card depth comes entirely from arbitrary shadow)',

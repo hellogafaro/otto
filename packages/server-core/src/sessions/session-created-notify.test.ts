@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { SessionManager } from './SessionManager.ts'
+import { SessionManager } from './session-manager.ts'
 
 // Locks the session_created emit primitive used by createSession's default announcement.
 // (createSession itself needs full workspace/storage wiring; the emit *decision* it makes is a

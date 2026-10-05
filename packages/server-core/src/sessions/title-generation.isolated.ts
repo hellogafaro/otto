@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import * as backend from '@otto/shared/agent/backend'
 import * as config from '@otto/shared/config'
-import { SessionManager, createManagedSession, setSessionPlatform } from './SessionManager.ts'
+import { SessionManager, createManagedSession, setSessionPlatform } from './session-manager.ts'
 
 // Run in isolation: setSessionPlatform is process-global and has no reset API.
 setSessionPlatform({

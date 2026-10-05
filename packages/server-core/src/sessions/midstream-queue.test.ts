@@ -12,7 +12,7 @@ import {
   resolveMidStreamDeliveryOutcome,
   shouldAttemptMidStreamSteer,
   canSteerTextPayload,
-} from './SessionManager.ts'
+} from './session-manager.ts'
 
 describe('mid-stream queue runtime invariants', () => {
   let tmpRoot: string

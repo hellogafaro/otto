@@ -2,7 +2,7 @@
  * Terminal output components for displaying command results.
  */
 
-export { TerminalOutput, type TerminalOutputProps, type ToolType } from './TerminalOutput'
+export { TerminalOutput, type TerminalOutputProps, type ToolType } from './terminal-output'
 export {
   parseAnsi,
   stripAnsi,

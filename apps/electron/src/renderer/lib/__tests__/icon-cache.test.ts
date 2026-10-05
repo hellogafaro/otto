@@ -158,7 +158,7 @@ describe('null guard patterns', () => {
   })
 
   /**
-   * Test the continue pattern used in WorkspaceSettingsPage.tsx:
+   * Test the continue pattern used in workspace-settings-page.tsx:
    *
    * ```ts
    * for (const ext of ICON_EXTENSIONS) {

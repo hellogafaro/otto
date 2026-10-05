@@ -2,5 +2,5 @@
  * Component exports for @otto/viewer
  */
 
-export { SessionUpload } from './SessionUpload'
-export { Header } from './Header'
+export { SessionUpload } from './session-upload'
+export { Header } from './header'

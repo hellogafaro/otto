@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test'
-import { createDismissibleLayerRegistry } from '../DismissibleLayerContext'
+import { createDismissibleLayerRegistry } from '../dismissible-layer-context'
 
 describe('createDismissibleLayerRegistry', () => {
   it('closes highest-priority open layer first', () => {

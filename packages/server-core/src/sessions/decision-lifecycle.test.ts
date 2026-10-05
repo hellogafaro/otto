@@ -6,7 +6,7 @@ import { saveSession } from '../../../shared/src/sessions/storage.ts'
 import * as backendFactory from '../../../shared/src/agent/backend/factory.ts'
 import * as midTurnMessages from '../decisions/mid-turn-messages.ts'
 import * as suggestions from '../decisions/suggestions.ts'
-import { SessionManager, createManagedSession, isInQueuedContinuation } from './SessionManager.ts'
+import { SessionManager, createManagedSession, isInQueuedContinuation } from './session-manager.ts'
 
 const tick = async (n = 5) => { for (let i = 0; i < n; i++) await new Promise(resolve => setImmediate(resolve)) }
 async function waitFor(condition: () => boolean, what: string): Promise<void> {

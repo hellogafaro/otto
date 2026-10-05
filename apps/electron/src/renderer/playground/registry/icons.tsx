@@ -1,6 +1,6 @@
 import type { ComponentEntry } from './types'
 import { Logo } from '@workspace/ui/components/logo'
-import { SquarePenRounded } from '@/components/icons/SquarePenRounded'
+import { SquarePenRounded } from '@/components/icons/square-pen-rounded'
 
 export const iconComponents: ComponentEntry[] = [
   {

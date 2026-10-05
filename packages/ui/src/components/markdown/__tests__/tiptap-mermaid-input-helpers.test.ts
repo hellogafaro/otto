@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { extractMermaidSource, isMermaidFilename } from '../TiptapMarkdownEditor'
+import { extractMermaidSource, isMermaidFilename } from '../tiptap-markdown-editor'
 import { normalizeMermaidSource } from '../mermaid-source'
 
 describe('tiptap mermaid input helpers', () => {

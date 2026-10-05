@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import { useDirectoryPicker } from '@/hooks/useDirectoryPicker'
+import { useDirectoryPicker } from '@/hooks/use-directory-picker'
 import { getPathBasename } from '@/lib/platform'
 
 import {

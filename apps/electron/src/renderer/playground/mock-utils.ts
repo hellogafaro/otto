@@ -204,7 +204,7 @@ export const playgroundAllowListHandle: PlaygroundAllowListHandle = {
 export const mockElectronAPI = {
   isDebugMode: async () => true,
 
-  // Called at module-load time by SessionFilesSection.tsx (and others) to
+  // Called at module-load time by session-files-section.tsx (and others) to
   // branch between Electron and web-UI rendering. Must be synchronous.
   getRuntimeEnvironment: (): 'electron' | 'web' => 'electron',
 
@@ -671,7 +671,7 @@ export const mockElectronAPI = {
  * IMPORTANT: this also runs as a top-level side effect when this module is
  * imported (see below), so that consumers relying on a synchronous
  * `window.electronAPI.*` read at module-load time (e.g.
- * `SessionFilesSection.tsx`'s top-level `getRuntimeEnvironment()` call) see
+ * `session-files-section.tsx`'s top-level `getRuntimeEnvironment()` call) see
  * the mock before their module is evaluated. The entry `playground.tsx`
  * must import this module before any component chain that touches
  * `window.electronAPI` at import time.

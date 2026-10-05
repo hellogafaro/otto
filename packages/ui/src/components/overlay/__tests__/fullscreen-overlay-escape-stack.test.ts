@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, mock } from 'bun:test'
-import { handleFullscreenEscapeWithStack } from '../FullscreenOverlayBase'
+import { handleFullscreenEscapeWithStack } from '../fullscreen-overlay-base'
 import { setDismissibleLayerBridge } from '../../../lib/dismissible-layer-bridge'
 
 afterEach(() => {

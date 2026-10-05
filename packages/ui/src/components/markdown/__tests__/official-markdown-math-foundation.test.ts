@@ -9,10 +9,10 @@ import { Markdown } from '@tiptap/markdown'
 import {
   preprocessMarkdownForOfficial,
   postprocessMarkdownFromOfficial,
-} from '../TiptapMarkdownEditor'
-import { tiptapCodeBlock } from '../TiptapCodeBlockView'
-import { MermaidBlock } from '../extensions/MermaidBlock'
-import { LatexBlock } from '../extensions/LatexBlock'
+} from '../tiptap-markdown-editor'
+import { tiptapCodeBlock } from '../tiptap-code-block-view'
+import { MermaidBlock } from '../extensions/mermaid-block'
+import { LatexBlock } from '../extensions/latex-block'
 
 describe('official markdown + mathematics foundation', () => {
   it('parses markdown content when contentType is markdown', () => {

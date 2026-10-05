@@ -20,7 +20,7 @@ import { parseLabelEntry, formatLabelEntry, formatDisplayValue } from '@otto/sha
 import { openLabelLink } from '@/lib/open-label-link'
 import type { LabelConfig } from '@otto/shared/labels'
 import { resolveEntityColor } from '@otto/shared/colors'
-import { useTheme } from '@/context/ThemeContext'
+import { useTheme } from '@/context/theme-context'
 import { cn } from '@/lib/utils'
 
 export interface LabelBadgeRowProps {

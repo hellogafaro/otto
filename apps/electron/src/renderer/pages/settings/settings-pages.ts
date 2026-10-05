@@ -8,23 +8,23 @@
  * 1. Add to SETTINGS_PAGES in shared/settings-registry.ts
  * 2. Create the page component (e.g., NewSettingsPage.tsx)
  * 3. Add to SETTINGS_PAGE_COMPONENTS below
- * 4. Add icon to SETTINGS_ICONS in components/icons/SettingsIcons.tsx
+ * 4. Add icon to SETTINGS_ICONS in components/icons/settings-icons.tsx
  */
 
 import type { ComponentType } from 'react'
 import type { SettingsSubpage } from '../../../shared/settings-registry'
 
-import AppSettingsPage from './AppSettingsPage'
-import AiSettingsPage from './AiSettingsPage'
-import AppearanceSettingsPage from './AppearanceSettingsPage'
-import InputSettingsPage from './InputSettingsPage'
-import WorkspaceSettingsPage from './WorkspaceSettingsPage'
-import PermissionsSettingsPage from './PermissionsSettingsPage'
-import LabelsSettingsPage from './LabelsSettingsPage'
-import MessagingSettingsPage from './MessagingSettingsPage'
-import ServerSettingsPage from './ServerSettingsPage'
-import ShortcutsPage from './ShortcutsPage'
-import PreferencesPage from './PreferencesPage'
+import AppSettingsPage from './app-settings-page'
+import AiSettingsPage from './ai-settings-page'
+import AppearanceSettingsPage from './appearance-settings-page'
+import InputSettingsPage from './input-settings-page'
+import WorkspaceSettingsPage from './workspace-settings-page'
+import PermissionsSettingsPage from './permissions-settings-page'
+import LabelsSettingsPage from './labels-settings-page'
+import MessagingSettingsPage from './messaging-settings-page'
+import ServerSettingsPage from './server-settings-page'
+import ShortcutsPage from './shortcuts-page'
+import PreferencesPage from './preferences-page'
 
 /**
  * Map of settings subpage IDs to their page components.

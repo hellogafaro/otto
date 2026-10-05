@@ -23,6 +23,7 @@ Otto is a Bun monorepo that started from Otto (see [UPSTREAM](UPSTREAM.md)) and 
 - No generic repositories, registries, frameworks or abstraction layers for one use.
 - Removing a feature removes the code behind it: the UI, its state and handlers, IPC channels, config keys, storage, tests, locale strings and docs. Nothing stays "dormant"; a leftover is a bug in the removal.
 - Fix the cause, not the symptom, and look for the same pattern elsewhere.
+- Files and directories are kebab-case (`panel-header.tsx`, `use-update-checker.ts`); component and hook identifiers keep their names. Exempt: conventional all-caps docs (README, AGENTS, ...), `Dockerfile*`, Python files, `__tests__`, GitHub templates, locale codes. `bun test scripts/file-names.test.ts` enforces it.
 
 ## Domains and data
 

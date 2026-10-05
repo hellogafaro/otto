@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test'
 import type { AgentEvent } from '@otto/core/types'
 import type { SessionEvent } from '@otto/shared/protocol'
-import { SessionManager, createManagedSession } from './SessionManager.ts'
+import { SessionManager, createManagedSession } from './session-manager.ts'
 
 type ManagedSession = ReturnType<typeof createManagedSession>
 type EventHarness = {

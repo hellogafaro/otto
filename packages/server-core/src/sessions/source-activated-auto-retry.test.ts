@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { SessionManager, createManagedSession, claimAutoRetryPending } from './SessionManager.ts'
+import { SessionManager, createManagedSession, claimAutoRetryPending } from './session-manager.ts'
 
 // Regression test for otto#804.
 //

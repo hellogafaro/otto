@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { SessionManager, createManagedSession } from './SessionManager.ts'
+import { SessionManager, createManagedSession } from './session-manager.ts'
 
 // Workflow visualization: a launched Workflow surfaces as a background task with
 // kind 'workflow' + a wf_ run id, and SubagentStop-derived `workflow_agent_completed`

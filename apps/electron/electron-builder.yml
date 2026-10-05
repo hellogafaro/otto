@@ -5,7 +5,7 @@ copyright: Copyright © 2026 Gafaro
 electronVersion: "39.2.7"
 
 # Hook to compile macOS 26+ Liquid Glass icon after packaging
-afterPack: scripts/afterPack.cjs
+afterPack: scripts/after-pack.cjs
 
 directories:
   output: release
@@ -80,7 +80,7 @@ mac:
   category: public.app-category.productivity
   icon: resources/icon.icns
   # macOS 26+ Liquid Glass: Tell macOS to look for icon in Assets.car
-  # The value must match --app-icon used in actool (see afterPack.js)
+  # The value must match --app-icon used in actool (see after-pack.cjs)
   extendInfo:
     CFBundleIconName: AppIcon
     # Required for macOS to list the app under Privacy & Security > Local Network

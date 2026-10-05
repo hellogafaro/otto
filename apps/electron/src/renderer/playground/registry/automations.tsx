@@ -7,13 +7,13 @@
 
 import { useState, type ReactNode } from 'react'
 import type { ComponentEntry } from './types'
-import { AutomationsListPanel } from '@/components/automations/AutomationsListPanel'
-import { AutomationInfoPage } from '@/components/automations/AutomationInfoPage'
-import { AutomationCard } from '@/components/automations/AutomationCard'
-import { AutomationAvatar } from '@/components/automations/AutomationAvatar'
-import { CronBuilder } from '@/components/automations/CronBuilder'
-import { AutomationTestPanel } from '@/components/automations/AutomationTestPanel'
-import { AutomationEventTimeline } from '@/components/automations/AutomationEventTimeline'
+import { AutomationsListPanel } from '@/components/automations/automations-list-panel'
+import { AutomationInfoPage } from '@/components/automations/automation-info-page'
+import { AutomationCard } from '@/components/automations/automation-card'
+import { AutomationAvatar } from '@/components/automations/automation-avatar'
+import { CronBuilder } from '@/components/automations/cron-builder'
+import { AutomationTestPanel } from '@/components/automations/automation-test-panel'
+import { AutomationEventTimeline } from '@/components/automations/automation-event-timeline'
 import { getEventDisplayName, type AutomationListItem, type ExecutionEntry, type TestResult, type AutomationTrigger } from '@/components/automations/types'
 
 // ============================================================================

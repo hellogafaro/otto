@@ -29,7 +29,7 @@ import { PI_PREFERRED_DEFAULTS } from '../../../../../shared/src/config/llm-conn
  *
  * If this payload changes, update:
  *   - ./chatgpt.test.ts
- *   - ../SEARCH_PAYLOAD_CONTRACT.md
+ *   - ../search-payload-contract.md
  */
 // Search model candidates for the ChatGPT backend, in preference order. Sourced from the
 // shared openai-codex catalog so they track the models the rest of the app offers and can't

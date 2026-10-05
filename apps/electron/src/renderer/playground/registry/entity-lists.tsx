@@ -14,7 +14,7 @@ import { EntityRow } from '@/components/ui/entity-row'
 import { EntityList } from '@/components/ui/entity-list'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { useMenuComponents } from '@/components/ui/menu-context'
-import { useEntityListInteractions } from '@/hooks/useEntityListInteractions'
+import { useEntityListInteractions } from '@/hooks/use-entity-list-interactions'
 import type { ComponentEntry } from './types'
 import type { SessionMeta } from '@/atoms/sessions'
 

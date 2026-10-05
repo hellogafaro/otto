@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { getSessionFilePath } from '@otto/shared/sessions/storage'
-import { SessionManager, createManagedSession } from './SessionManager.ts'
+import { SessionManager, createManagedSession } from './session-manager.ts'
 
 // Regression test for the High-severity finding in eb81086e:
 //

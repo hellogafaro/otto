@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { mirrorHoverToOpenStateClasses } from '../StyledDropdown'
+import { mirrorHoverToOpenStateClasses } from '../styled-dropdown'
 
 describe('mirrorHoverToOpenStateClasses', () => {
   it('mirrors supported hover utility classes to open state', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 import type { Editor } from '@tiptap/core'
-import { createSlashCommandItems, filterSlashCommandItems } from '../TiptapSlashMenu'
+import { createSlashCommandItems, filterSlashCommandItems } from '../tiptap-slash-menu'
 import { RICH_BLOCK_EDIT_EVENT } from '../rich-block-events'
 
 function createMockEditor() {

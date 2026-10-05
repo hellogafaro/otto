@@ -5,8 +5,8 @@
  * Used by both Electron and viewer apps for consistent overlay display.
  */
 
-import type { ActivityItem } from '../components/chat/TurnCard'
-import type { ToolType } from '../components/terminal/TerminalOutput'
+import type { ActivityItem } from '../components/chat/turn-card'
+import type { ToolType } from '../components/terminal/terminal-output'
 
 // ============================================================================
 // Individual Tool Parsers

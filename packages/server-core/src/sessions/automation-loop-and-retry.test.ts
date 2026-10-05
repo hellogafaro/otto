@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PendingPrompt } from '@otto/shared/automations'
-import { MAX_AUTOMATION_CHAIN_DEPTH, SessionManager, buildActivationRetryMessage, createManagedSession } from './SessionManager.ts'
+import { MAX_AUTOMATION_CHAIN_DEPTH, SessionManager, buildActivationRetryMessage, createManagedSession } from './session-manager.ts'
 
 // Found in a decision-harness test run: an automation's own session got the label it listens to
 // and re-triggered it, and source-activation retries re-ran per-message decisions and dropped

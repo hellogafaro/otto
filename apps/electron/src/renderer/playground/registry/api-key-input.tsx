@@ -1,5 +1,5 @@
 import type { ComponentEntry } from './types'
-import { ApiKeyInput, type ApiKeySubmitData } from '@/components/apisetup/ApiKeyInput'
+import { ApiKeyInput, type ApiKeySubmitData } from '@/components/apisetup/api-key-input'
 
 const logSubmit = (data: ApiKeySubmitData) => console.log('[Playground] Submit:', JSON.stringify(data, null, 2))
 

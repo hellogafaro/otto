@@ -9,7 +9,7 @@ import {
   type StoredSession,
 } from '@otto/shared/sessions'
 import type { StoredMessage } from '@otto/core/types'
-import { SessionManager, createManagedSession } from './SessionManager.ts'
+import { SessionManager, createManagedSession } from './session-manager.ts'
 
 // Regression test for the silent-drop bug in persistSession:
 //

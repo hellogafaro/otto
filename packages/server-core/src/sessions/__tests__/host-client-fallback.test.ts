@@ -47,7 +47,7 @@ class FakeServer {
 }
 
 // Mirror SessionManager.getBrowserHostClient — keep in sync with the real
-// implementation in SessionManager.ts.
+// implementation in session-manager.ts.
 function resolveHostClient(
   rpcServer: RpcServer,
   pinByCanvas: Map<string, string>,

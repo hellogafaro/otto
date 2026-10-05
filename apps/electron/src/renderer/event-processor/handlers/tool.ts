@@ -7,7 +7,7 @@
 
 import type { SessionState, ToolStartEvent, ToolResultEvent, TaskBackgroundedEvent, ShellBackgroundedEvent, TaskProgressEvent, TaskCompletedEvent } from '../types'
 import type { Message } from '../../../shared/types'
-import { isParentTaskTool } from '@otto/shared/utils/toolNames'
+import { isParentTaskTool } from '@otto/shared/utils/tool-names'
 import {
   findToolMessage,
   updateMessageAt,

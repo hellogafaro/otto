@@ -114,7 +114,7 @@ export function processEvent(
     }
 
     case 'workflow_agent_completed':
-      // Live workflow fan-out progress — the chip counter is updated in App.tsx's
+      // Live workflow fan-out progress — the chip counter is updated in app.tsx's
       // handleBackgroundTaskEvent; nothing to change in message/session state here.
       return { state, effects: [] }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { createManagedSession } from './SessionManager.ts'
+import { createManagedSession } from './session-manager.ts'
 
 describe('createManagedSession', () => {
   const workspace = {

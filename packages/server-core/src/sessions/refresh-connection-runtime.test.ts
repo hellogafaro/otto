@@ -4,7 +4,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { resolveBackendContext } from '@otto/shared/agent/backend'
 import { loadWorkspaceConfig } from '@otto/shared/workspaces'
-import { SessionManager, createManagedSession } from './SessionManager.ts'
+import { SessionManager, createManagedSession } from './session-manager.ts'
 import { buildRestartRequiredSignature } from './runtime-config.ts'
 
 // Regression coverage for the stale-Pi-subprocess bug where toggling

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { saveSession } from '../../../shared/src/sessions/storage.ts'
-import { SessionManager, createManagedSession } from './SessionManager.ts'
+import { SessionManager, createManagedSession } from './session-manager.ts'
 
 // Transient per-turn guidance (the interruption notice, decision-model suggestions) reaches the
 // agent as `ChatOptions.turnContext`, never inside the message: the message is what gets stored

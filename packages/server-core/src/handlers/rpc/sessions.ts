@@ -188,7 +188,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   // Create a new session
   server.handle(RPC_CHANNELS.sessions.CREATE, async (_ctx, workspaceId: string, options?: import('@otto/shared/protocol').CreateSessionOptions) => {
     const end = perf.start('rpc.createSession', { workspaceId })
-    // The renderer adds the session synchronously from this return value (App.tsx handleCreateSession),
+    // The renderer adds the session synchronously from this return value (app.tsx handleCreateSession),
     // so suppress the broadcast to avoid a redundant hydrate round-trip.
     const session = await sessionManager.createSession(workspaceId, options, { emitCreatedEvent: false })
     end()
