@@ -230,8 +230,8 @@ export function themeToCSS(theme: ThemeOverrides, isDark: boolean = false): stri
  * that visually match the DEFAULT_THEME oklch colors.
  */
 export const BACKGROUND_HEX = {
-  light: '#faf9fb', // matches oklch(0.98 0.003 265)
-  dark: '#302f33', // matches oklch(0.2 0.005 270)
+  light: '#ffffff', // matches oklch(1 0 0)
+  dark: '#0a0a0a', // matches oklch(0.145 0 0)
 } as const;
 
 /**
@@ -246,19 +246,19 @@ export function getBackgroundColor(isDark: boolean): string {
  * Default theme values (matches current index.css)
  */
 export const DEFAULT_THEME: ThemeOverrides = {
-  background: 'oklch(0.98 0.003 265)',
-  foreground: 'oklch(0.185 0.01 270)',
-  accent: 'oklch(0.58 0.22 293)',
-  info: 'oklch(0.75 0.16 70)',
-  success: 'oklch(0.55 0.17 145)',
-  destructive: 'oklch(0.58 0.24 28)',
+  background: 'oklch(1 0 0)',
+  foreground: 'oklch(0.145 0 0)',
+  accent: 'oklch(0.546 0.245 262.881)',
+  info: 'oklch(0.795 0.184 86.047)',
+  success: 'oklch(0.627 0.194 149.214)',
+  destructive: 'oklch(0.577 0.245 27.325)',
   dark: {
-    background: 'oklch(0.145 0.015 270)',
-    foreground: 'oklch(0.95 0.01 270)',
-    accent: 'oklch(0.65 0.22 293)',
-    info: 'oklch(0.78 0.14 70)',
-    success: 'oklch(0.60 0.17 145)',
-    destructive: 'oklch(0.65 0.22 28)',
+    background: 'oklch(0.145 0 0)',
+    foreground: 'oklch(0.985 0 0)',
+    accent: 'oklch(0.623 0.214 259.815)',
+    info: 'oklch(0.852 0.199 91.936)',
+    success: 'oklch(0.723 0.219 149.579)',
+    destructive: 'oklch(0.704 0.191 22.216)',
   },
 };
 
