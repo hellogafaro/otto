@@ -79,7 +79,7 @@ function ZoomDropdown({
           <button
             type="button"
             onClick={() => { onZoomToFit(); setIsOpen(false) }}
-            className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left text-[13px] rounded-[4px] hover:bg-foreground/[0.05] transition-colors"
+            className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left text-[13px] rounded-[4px] hover:bg-foreground/5 transition-colors"
           >
             {t('overlay.zoomToFit')}
           </button>
@@ -89,7 +89,7 @@ function ZoomDropdown({
               key={preset}
               type="button"
               onClick={() => { onZoomToPreset(preset); setIsOpen(false) }}
-              className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left text-[13px] rounded-[4px] hover:bg-foreground/[0.05] transition-colors"
+              className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left text-[13px] rounded-[4px] hover:bg-foreground/5 transition-colors"
             >
               <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
                 {activePreset === preset && <Check className="w-3.5 h-3.5" />}
@@ -123,7 +123,7 @@ export function ZoomControls({
   const activePreset = zoomPresets.find(p => p === zoomPercent)
 
   const resetBtnClass = cn(
-    'p-1.5 rounded-[6px] bg-background shadow-minimal cursor-pointer',
+    'p-1.5 rounded-[6px] card-surface bg-card cursor-pointer',
     'opacity-70 hover:opacity-100 transition-opacity',
     'disabled:opacity-30 disabled:cursor-not-allowed',
     'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring'
@@ -131,7 +131,7 @@ export function ZoomControls({
 
   return (
     <div className={cn('flex items-center gap-1.5', className)}>
-      <div className="flex items-center gap-px bg-background shadow-minimal rounded-[6px]">
+      <div className="flex items-center gap-px card-surface bg-card rounded-[6px]">
         <button
           onClick={onZoomOut}
           disabled={scale <= minScale}

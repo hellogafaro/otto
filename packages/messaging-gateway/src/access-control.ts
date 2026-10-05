@@ -9,6 +9,7 @@
  */
 
 import type { PendingSendersStore } from './pending-senders'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 import type {
   BindingConfig,
   IncomingMessage,
@@ -232,7 +233,7 @@ export function buildRejectionReply(reason: AccessRejectReason): string | null {
     case 'bot-sender':
       return null
     case 'not-owner':
-      return 'This bot is private. Ask the owner to invite you in the Otto app.'
+      return `This bot is private. Ask the owner to invite you in the ${PRODUCT_NAME} app.`
     case 'not-on-binding-allowlist':
       return "You're not on the allow-list for this conversation. Ask the owner to add you."
   }

@@ -19,6 +19,7 @@ import type { SessionStatus } from '@/config/session-status-config'
 import { getState } from '@/config/session-status-config'
 import { SessionStatusMenu } from '@/components/ui/session-status-menu'
 import { MetadataBadge } from '@/components/ui/metadata-badge'
+import { ToolbarChip } from '@/components/ui/toolbar-chip'
 import { openLabelLink } from '@/lib/open-label-link'
 import { SessionInfoPopover } from './session-info-popover'
 
@@ -196,18 +197,10 @@ export function ActiveOptionBadges({
          * useDynamicStack sets per-child marginLeft directly via ResizeObserver.
          * overflow: clip prevents scroll container while py/-my gives shadow room. */}
         {hasStackContent && (
-          <div
-            className="flex-1 min-w-0 max-w-full py-0.5 -my-0.5"
-            style={{
-              // shadow-minimal replicated as drop-shadow (traces masked alpha, no clipping).
-              // Ring uses higher blur+opacity for visible border feel (hard 1px ring can't be replicated exactly).
-              // Blur shadows use reduced blur+opacity to stay tight (accounting for no negative spread in drop-shadow).
-              filter: 'drop-shadow(0px 0px 0.5px rgba(var(--foreground-rgb), 0.3)) drop-shadow(0px 1px 0.1px rgba(0,0,0,0.04)) drop-shadow(0px 3px 0.2px rgba(0,0,0,0.03))',
-            }}
-          >
+          <div className="flex-1 min-w-0 max-w-full">
             <div
               ref={stackRef}
-              className="flex items-center min-w-0 py-1 -my-1"
+              className="flex items-center min-w-0"
               style={{ overflow: 'clip' }}
             >
               {/* Label badges */}
@@ -292,11 +285,13 @@ function LabelBadge({
   // Resolve label color for tinting background and text via CSS color-mix
   const resolvedColor = label.color
     ? resolveEntityColor(label.color, isDark)
-    : 'var(--foreground)'
+    : undefined
 
   const displayValue = value ? formatDisplayValue(value, label.valueType) : undefined
 
   return (
+    // Opaque base under the tint: stacked chips overlap, and a translucent one would show the text beneath.
+    <span className="flex shrink-0 rounded-sm bg-background">
     <LabelValuePopover
       label={label}
       value={value}
@@ -313,13 +308,11 @@ function LabelBadge({
         icon={<LabelIcon label={label} size="lg" />}
         valueHintIcon={label.valueType ? <LabelValueTypeIcon valueType={label.valueType} /> : undefined}
         badgeColor={resolvedColor}
-        interactive
-        isActive={open}
+        open={open}
         showChevron
-        shadow="none"
-        className="relative"
       />
     </LabelValuePopover>
+    </span>
   )
 }
 
@@ -352,7 +345,7 @@ function StateBadge({
   }, [onSessionStatusChange])
 
   // Use the state's resolved color for tinting (same color-mix pattern as labels)
-  const badgeColor = state.resolvedColor || 'var(--foreground)'
+  const badgeColor = state.resolvedColor || undefined
   const applyColor = state.iconColorable
 
   const DEFAULT_STATUS_IDS = new Set(['backlog', 'todo', 'needs-review', 'done', 'cancelled'])
@@ -364,8 +357,6 @@ function StateBadge({
         <MetadataBadge
           label={stateLabel}
           badgeColor={badgeColor}
-          interactive
-          isActive={open}
           showChevron
           icon={(
             <span
@@ -375,7 +366,6 @@ function StateBadge({
               {state.icon}
             </span>
           )}
-          className="pl-2.5"
         />
       </PopoverTrigger>
       <PopoverContent
@@ -410,19 +400,10 @@ function FilesPopoverButton({ sessionId, sessionFolderPath }: { sessionId?: stri
       sessionId={sessionId}
       sessionFolderPath={sessionFolderPath}
       trigger={(
-        <button
-          type="button"
-          className={cn(
-            "h-[30px] pl-[12px] pr-[14px] text-xs font-medium rounded-md flex items-center gap-1.5 shrink-0",
-            "outline-none select-none transition-colors shadow-minimal",
-            "hover:bg-foreground/5 data-[state=open]:bg-foreground/5",
-            "bg-[color-mix(in_srgb,var(--background)_97%,var(--foreground)_3%)]",
-            "text-foreground/80",
-          )}
-        >
-          <Info className="h-3.5 w-3.5 shrink-0" />
+        <ToolbarChip type="button">
+          <Info />
           <span className="whitespace-nowrap">{t("common.info")}</span>
-        </button>
+        </ToolbarChip>
       )}
     />
   )
@@ -467,23 +448,11 @@ function PermissionModeDropdown({ permissionMode, onPermissionModeChange, sessio
   // - ask (Ask to Edit): info color - amber, prompts for edits
   // - guarded (Guarded): success color - green, autonomy with the decision model's risk check
   // - allow-all (Execute): accent color - purple, full autonomy
-  const modeStyles: Record<PermissionMode, { className: string; shadowVar: string }> = {
-    'safe': {
-      className: 'bg-foreground/5 text-foreground/60',
-      shadowVar: 'var(--foreground-rgb)',
-    },
-    'ask': {
-      className: 'bg-info/10 text-info',
-      shadowVar: 'var(--info-rgb)',
-    },
-    'guarded': {
-      className: 'bg-success/10 text-success',
-      shadowVar: 'var(--success-rgb)',
-    },
-    'allow-all': {
-      className: 'bg-primary/5 text-primary',
-      shadowVar: 'var(--primary-rgb)',
-    },
+  const modeStyles: Record<PermissionMode, { className?: string; tint?: string }> = {
+    'safe': {},
+    'ask': { className: 'text-info', tint: 'var(--info)' },
+    'guarded': { className: 'text-success', tint: 'var(--success)' },
+    'allow-all': { className: 'text-primary', tint: 'var(--primary)' },
   }
   // A mode this build does not know (newer server) renders as Ask instead of crashing the input
   const currentStyle = modeStyles[optimisticMode] ?? modeStyles.ask
@@ -491,22 +460,19 @@ function PermissionModeDropdown({ permissionMode, onPermissionModeChange, sessio
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <ToolbarChip
           type="button"
           data-tutorial="permission-mode-dropdown"
-          className={cn(
-            "h-[30px] pl-2.5 pr-2 text-xs font-medium rounded-md flex items-center gap-1.5 shadow-tinted outline-none select-none",
-            currentStyle.className
-          )}
-          style={{ '--shadow-color': currentStyle.shadowVar } as React.CSSProperties}
+          tint={currentStyle.tint}
+          className={currentStyle.className}
         >
-          <PermissionModeIcon mode={optimisticMode} className="h-3.5 w-3.5" />
+          <PermissionModeIcon mode={optimisticMode} />
           <span>{t(`mode.${optimisticMode}`)}</span>
-          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-        </button>
+          <ChevronDown className="opacity-60" />
+        </ToolbarChip>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 rounded-md bg-popover text-foreground shadow-modal-small"
+        className="w-auto p-0 border-0 shadow-none bg-transparent"
         side="top"
         align="start"
         sideOffset={4}

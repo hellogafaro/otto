@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LabelIcon } from './label-icon'
+import { MENU_LABEL, MENU_LIST, MENU_ROW, MENU_ROW_HIGHLIGHT, MENU_SEPARATOR, MENU_SURFACE } from './menu-styles'
 import type { LabelConfig } from '@otto/shared/labels'
 import { createLabelMenuItems, filterItems, segmentScore, type LabelMenuItem } from './label-menu-utils'
 import { getStatusIconStyle, type SessionStatus } from '@/config/session-status-config'
@@ -31,15 +32,6 @@ export interface InlineLabelMenuProps {
   /** Callback when a state is selected */
   onSelectState?: (stateId: string) => void
 }
-
-// ============================================================================
-// Shared Styles (matching slash-command-menu and mention-menu)
-// ============================================================================
-
-const MENU_CONTAINER_STYLE = 'overflow-hidden rounded-md bg-popover text-foreground shadow-modal-small'
-const MENU_LIST_STYLE = 'max-h-[240px] overflow-y-auto py-1'
-const MENU_ITEM_STYLE = 'flex cursor-pointer select-none items-center gap-2.5 rounded-sm mx-1 px-2 py-1.5 text-[13px]'
-const MENU_ITEM_SELECTED = 'bg-foreground/5'
 
 // ============================================================================
 // Filter utilities
@@ -198,10 +190,10 @@ export function InlineLabelMenu({
     <div
       ref={menuRef}
       data-inline-menu
-      className={cn('fixed z-dropdown', MENU_CONTAINER_STYLE, className)}
+      className={cn('fixed z-dropdown', MENU_SURFACE, className)}
       style={{ left: Math.round(position.x) - 10, bottom: bottomPosition, minWidth: 200, maxWidth: 260 }}
     >
-      <div ref={listRef} className={MENU_LIST_STYLE}>
+      <div ref={listRef} className={MENU_LIST}>
         {showAddLabel ? (
           /* "Add New Label" fallback row when nothing matches the filter */
           <div
@@ -210,12 +202,12 @@ export function InlineLabelMenu({
               onAddLabel?.(filter)
               onOpenChange(false)
             }}
-            className={cn(MENU_ITEM_STYLE, MENU_ITEM_SELECTED)}
+            className={cn(MENU_ROW, MENU_ROW_HIGHLIGHT)}
           >
             <div className="shrink-0 text-muted-foreground">
               <Plus className="h-3.5 w-3.5" />
             </div>
-            <span className="text-[13px]">{t('sidebarMenu.addNewLabel')}</span>
+            <span>{t('sidebarMenu.addNewLabel')}</span>
           </div>
         ) : (
           <>
@@ -223,7 +215,7 @@ export function InlineLabelMenu({
             {filteredStates_.length > 0 && (
               <>
                 {showSectionHeaders && (
-                  <div className="px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                  <div className={MENU_LABEL}>
                     States
                   </div>
                 )}
@@ -239,11 +231,7 @@ export function InlineLabelMenu({
                         onOpenChange(false)
                       }}
                       onMouseEnter={() => setSelectedIndex(index)}
-                      className={cn(
-                        MENU_ITEM_STYLE,
-                        isSelected && MENU_ITEM_SELECTED,
-                        isActive && 'bg-foreground/7',
-                      )}
+                      className={cn(MENU_ROW, isSelected && MENU_ROW_HIGHLIGHT)}
                     >
                       {/* State icon with resolved color */}
                       <span
@@ -255,7 +243,7 @@ export function InlineLabelMenu({
                       <div className="flex-1 min-w-0 truncate">{state.label}</div>
                       {/* Checkmark on active state */}
                       {isActive && (
-                        <Check className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <Check className="shrink-0" />
                       )}
                     </div>
                   )
@@ -265,14 +253,14 @@ export function InlineLabelMenu({
 
             {/* ── Separator between sections ── */}
             {showSectionHeaders && (
-              <div className="my-1 mx-2 border-t border-border/40" />
+              <div className={MENU_SEPARATOR} />
             )}
 
             {/* ── Labels section ── */}
             {filteredItems.length > 0 && (
               <>
                 {showSectionHeaders && (
-                  <div className="px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                  <div className={MENU_LABEL}>
                     Labels
                   </div>
                 )}
@@ -289,10 +277,7 @@ export function InlineLabelMenu({
                         onOpenChange(false)
                       }}
                       onMouseEnter={() => setSelectedIndex(flatIndex)}
-                      className={cn(
-                        MENU_ITEM_STYLE,
-                        isSelected && MENU_ITEM_SELECTED
-                      )}
+                      className={cn(MENU_ROW, isSelected && MENU_ROW_HIGHLIGHT)}
                     >
                       {/* Label icon */}
                       <LabelIcon label={item.config} size="lg" />

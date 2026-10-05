@@ -84,7 +84,7 @@ export function SettingsTextarea({
         </div>
       )}
       <div className={cn(
-        'relative rounded-md shadow-minimal has-[:focus-visible]:bg-background',
+        'relative rounded-md',
         error && 'ring-1 ring-destructive',
         isOverLimit && 'ring-1 ring-destructive'
       )}>
@@ -96,7 +96,7 @@ export function SettingsTextarea({
           rows={rows}
           disabled={disabled}
           className={cn(
-            'bg-muted/50 border-0 shadow-none resize-y min-h-[120px] focus-visible:ring-0 focus-visible:outline-none focus-visible:bg-transparent',
+            'bg-input/50 border-0 shadow-none resize-y min-h-[120px] focus-visible:ring-0 focus-visible:outline-none',
             maxLength && 'pb-6'
           )}
         />

@@ -35,7 +35,7 @@ import { useTranslation } from 'react-i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AnimatePresence, motion } from 'motion/react'
 import { CheckCircle2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ToolbarChip } from '@/components/ui/toolbar-chip'
 import { NavigationContext } from '@/contexts/navigation-context'
 import { navigate, routes } from '@/lib/navigate'
 import { currentSessionIdAtom } from '@/atoms/current-route'
@@ -117,29 +117,23 @@ export function BackgroundFinishedChip({ sessionId }: BackgroundFinishedChipProp
       {entry && !exiting && (
         <motion.div
           key={entry.sessionId}
-          className="absolute right-2 top-2 z-20"
+          className="absolute right-2 top-2 z-20 rounded-sm bg-background"
           initial={{ opacity: 0, scale: 0.9, y: -4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: -4 }}
           transition={chipSpring}
         >
-          <button
+          <ToolbarChip
             type="button"
+            tint="var(--color-purple-500)"
             onClick={() => startDismiss(entry.sessionId)}
             title={`${entry.title} — ${t('chat.backgroundSessionFinished')}`}
             aria-label={`${entry.title} — ${t('chat.backgroundSessionFinished')}`}
-            className={cn(
-              'flex items-center gap-1.5 h-[26px] pl-2 pr-2.5 rounded-full',
-              'text-xs font-medium select-none outline-none transition-colors',
-              'text-purple-700 dark:text-purple-200',
-              'bg-purple-500/12 hover:bg-purple-500/20',
-              'ring-1 ring-inset ring-purple-400/30 dark:ring-purple-300/25',
-              'shadow-[0_2px_10px_rgba(147,51,234,0.20)] backdrop-blur-md',
-            )}
+            className="text-purple-700 dark:text-purple-200"
           >
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-purple-500 dark:text-purple-300" />
+            <CheckCircle2 className="text-purple-500 dark:text-purple-300" />
             <span className="truncate max-w-[150px]">{entry.title}</span>
-          </button>
+          </ToolbarChip>
         </motion.div>
       )}
     </AnimatePresence>

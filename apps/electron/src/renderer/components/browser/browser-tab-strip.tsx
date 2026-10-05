@@ -32,6 +32,7 @@ import { BrowserTabBadge } from './browser-tab-badge'
 import type { BrowserInstanceInfo } from '../../../shared/types'
 import { getHostname } from './utils'
 import { navigate, routes } from '@/lib/navigate'
+import { Button } from '@/components/ui/button'
 
 const DEFAULT_MAX_VISIBLE_BADGES = 3
 
@@ -284,12 +285,9 @@ export function BrowserTabStrip({
       {overflow.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="h-[26px] px-1.5 rounded-lg text-[11px] text-foreground/50 bg-card shadow-minimal hover:bg-foreground/5 transition-colors cursor-pointer titlebar-no-drag"
-            >
+            <Button variant="ghost" size="compact" className="titlebar-no-drag">
               +{overflow.length}
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <StyledDropdownMenuContent align="end" minWidth="min-w-64">
             {overflow.map((instance) => {

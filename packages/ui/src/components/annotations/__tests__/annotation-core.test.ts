@@ -55,7 +55,8 @@ describe('annotation core helpers', () => {
     const pending = getAnnotationChipVisual({ pendingFollowUp: true, sentFollowUp: false })
     const sent = getAnnotationChipVisual({ pendingFollowUp: false, sentFollowUp: true })
 
-    expect(pending.className.includes('shadow-tinted')).toBe(true)
+    expect(pending.className.includes('cursor-pointer')).toBe(true)
+    expect(sent.className.includes('cursor-default')).toBe(true)
     expect(String(pending.style.backgroundColor)).toContain('34%')
     expect(String(sent.style.backgroundColor)).toContain('14%')
   })

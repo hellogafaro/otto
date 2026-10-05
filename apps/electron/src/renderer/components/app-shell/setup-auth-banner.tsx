@@ -89,7 +89,7 @@ export function SetupAuthBanner({
           </p>
           <Button
             onClick={onAction}
-            size="sm"
+            size="compact"
             className="mt-4"
           >
             {getButtonText()}
@@ -107,8 +107,8 @@ export function SetupAuthBanner({
       </h3>
       <Button
         onClick={onAction}
-        size="sm"
-        className="shrink-0 text-xs rounded-md"
+        size="compact"
+        className="shrink-0 text-xs"
       >
         {getButtonText()}
       </Button>

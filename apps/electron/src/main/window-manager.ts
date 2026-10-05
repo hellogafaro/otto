@@ -1,13 +1,13 @@
 import { BrowserWindow, shell, nativeTheme, Menu, app } from 'electron'
 import { windowLog } from './logger'
-import { join, resolve, sep } from 'path'
+import { join } from 'path'
 import { existsSync } from 'fs'
 import { release } from 'os'
-import { fileURLToPath } from 'url'
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
 import { classifyExternalUrl, formatBlockedUrlError } from '@otto/shared/utils/url-safety'
 import { RPC_CHANNELS, type WindowCloseRequestSource } from '../shared/types'
 import type { SavedWindow } from './window-state'
+import { APP_ORIGIN, buildRendererUrl, isAppUrl } from './app-protocol'
 
 // Vite dev server URL for hot reload
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
@@ -95,24 +95,16 @@ export class WindowManager {
     }
   }
 
+  /** The URL a window loads: the Vite dev server in dev, otto://app/ when packaged. */
+  private rendererUrl(workspaceId: string, restoreUrl?: string): string {
+    return buildRendererUrl({ base: VITE_DEV_SERVER_URL ?? APP_ORIGIN, workspaceId, restoreUrl })
+  }
+
   private isRendererAppUrl(url: string): boolean {
-    if (VITE_DEV_SERVER_URL) {
-      try {
-        const parsed = new URL(url)
-        const devServer = new URL(VITE_DEV_SERVER_URL)
-        if (parsed.origin === devServer.origin) return true
-      } catch {
-        // Fall through to file:// handling below.
-      }
-    }
-
+    if (isAppUrl(url)) return true
+    if (!VITE_DEV_SERVER_URL) return false
     try {
-      const parsed = new URL(url)
-      if (parsed.protocol !== 'file:') return false
-
-      const filePath = resolve(fileURLToPath(parsed))
-      const rendererRoot = resolve(join(__dirname, 'renderer'))
-      return filePath === join(rendererRoot, 'index.html') || filePath.startsWith(rendererRoot + sep)
+      return new URL(url).origin === new URL(VITE_DEV_SERVER_URL).origin
     } catch {
       return false
     }
@@ -262,15 +254,17 @@ export class WindowManager {
     // schemes directly to shell.openExternal. Markdown normal-clicks go through
     // OPEN_URL; middle-clicks/window.open/top-navigation land here.
     window.webContents.setWindowOpenHandler((details) => {
+      // otto://app/* is the renderer origin, not an OS deep link: never hand it to shell.openExternal.
+      if (isAppUrl(details.url)) return { action: 'deny' }
       this.openExternalFromRenderer(details.url, 'window-open', window)
       return { action: 'deny' }
     })
 
     // Handle external navigation attempts from renderer WebContents
     window.webContents.on('will-navigate', (event, url) => {
-      // Allow only the actual app shell (file:// in prod, Vite dev server in dev).
-      // Any other navigation is treated as an external URL and goes through the
-      // same URL-safety classifier used by OPEN_URL.
+      // Allow only the actual app shell (otto://app/* in prod, Vite dev server in dev).
+      // Any other navigation is treated as an external URL and goes through the same URL-safety
+      // classifier used by OPEN_URL (an otto://<other-host> deep link is routed to the deep-link handler).
       if (this.isRendererAppUrl(url)) return
 
       event.preventDefault()
@@ -308,65 +302,24 @@ export class WindowManager {
     // from app name → workspace name as the count crosses 1 → 2.
     this.refreshWindowTitles()
 
-    // Load the renderer - use restoreUrl if provided, otherwise build from options
-    if (restoreUrl) {
-      // Restore from saved URL - need to adapt for dev vs prod
-      if (VITE_DEV_SERVER_URL) {
-        // In dev mode, replace the base URL but keep the path and query
-        try {
-          const savedUrl = new URL(restoreUrl)
-          const devUrl = new URL(VITE_DEV_SERVER_URL)
-          // Preserve pathname and search from saved URL, use dev server host
-          devUrl.pathname = savedUrl.pathname
-          devUrl.search = savedUrl.search
-          window.loadURL(devUrl.toString())
-        } catch {
-          // Fallback if URL parsing fails
-          windowLog.warn('Failed to parse restoreUrl, using default:', restoreUrl)
-          const params = new URLSearchParams({ workspaceId }).toString()
-          window.loadURL(`${VITE_DEV_SERVER_URL}?${params}`)
-        }
-      } else {
-        // In prod, always extract query params and load from current __dirname.
-        // Never load file:// URLs directly — the path may be stale (e.g. Linux AppImage
-        // mounts to a different /tmp dir on each launch). See #13.
-        try {
-          const savedUrl = new URL(restoreUrl)
-          const query: Record<string, string> = {}
-          savedUrl.searchParams.forEach((value, key) => { query[key] = value })
-          window.loadFile(join(__dirname, 'renderer/index.html'), { query })
-        } catch {
-          window.loadFile(join(__dirname, 'renderer/index.html'), { query: { workspaceId } })
-        }
-      }
-    } else {
-      // Build URL from options
-      const query: Record<string, string> = { workspaceId }
+    // Load the renderer. A saved URL is never loaded as-is: only its path and query are kept and
+    // rebuilt on the current origin (the install path or dev server port may have changed). See #13.
+    window.loadURL(this.rendererUrl(workspaceId, restoreUrl))
 
-      if (VITE_DEV_SERVER_URL) {
-        const params = new URLSearchParams(query).toString()
-        window.loadURL(`${VITE_DEV_SERVER_URL}?${params}`)
-      } else {
-        window.loadFile(join(__dirname, 'renderer/index.html'), { query })
-      }
-    }
-
-    // Fallback: if the renderer fails to load (e.g. stale path, disk error),
-    // recover gracefully by loading the default state instead of showing a white screen. See #13.
-    // In dev mode, retry the Vite dev server (it may not be ready yet) instead of falling back
-    // to file:// which doesn't exist during development.
+    // Fallback: if the renderer fails to load (e.g. disk error), recover gracefully by loading the
+    // default state instead of showing a white screen. See #13.
+    // In dev mode, retry the Vite dev server (it may not be ready yet). When packaged, retry the
+    // default URL once so a persistent failure cannot loop.
     let failLoadRetries = 0
     window.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
       windowLog.warn('Failed to load renderer:', errorCode, errorDescription)
       if (VITE_DEV_SERVER_URL && failLoadRetries < 5) {
         failLoadRetries++
         windowLog.info(`Retrying Vite dev server (attempt ${failLoadRetries}/5)...`)
-        setTimeout(() => {
-          const params = new URLSearchParams({ workspaceId }).toString()
-          window.loadURL(`${VITE_DEV_SERVER_URL}?${params}`)
-        }, 1000)
-      } else {
-        window.loadFile(join(__dirname, 'renderer/index.html'), { query: { workspaceId } })
+        setTimeout(() => window.loadURL(this.rendererUrl(workspaceId)), 1000)
+      } else if (!VITE_DEV_SERVER_URL && failLoadRetries < 1) {
+        failLoadRetries++
+        window.loadURL(this.rendererUrl(workspaceId))
       }
     })
 

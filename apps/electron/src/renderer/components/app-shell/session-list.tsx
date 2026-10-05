@@ -40,6 +40,7 @@ import { sessionListOrderAtom } from "@/atoms/list-context"
 import type { ViewConfig } from "@otto/shared/views"
 import type { SessionStatusId, SessionStatus } from "@/config/session-status-config"
 import { buildCollapsedGroupsScopeSuffix } from "@/utils/session-list-collapse"
+import { Button } from "@/components/ui/button"
 
 export interface SessionListRow {
   item: SessionMeta
@@ -821,17 +822,18 @@ export function SessionList({
         description={t("session.noSessionsYetDesc")}
         className="h-full"
       >
-        <button
+        <Button
+          variant="outline"
+          size="compact"
           onClick={() => {
             const params: { status?: string; label?: string } = {}
             if (currentFilter?.kind === 'state') params.status = currentFilter.stateId
             else if (currentFilter?.kind === 'label') params.label = currentFilter.labelId
             navigate(routes.action.newSession(Object.keys(params).length > 0 ? params : undefined))
           }}
-          className="inline-flex items-center h-7 px-3 text-xs font-medium rounded-md bg-card shadow-minimal hover:bg-foreground/5 transition-colors"
         >
           {t("session.newSession")}
-        </button>
+        </Button>
       </EntityListEmptyScreen>
     )
   }

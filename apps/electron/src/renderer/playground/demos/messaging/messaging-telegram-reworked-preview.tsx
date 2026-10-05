@@ -149,7 +149,7 @@ function BotHeader({ connected }: { connected: boolean }) {
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium">Telegram</div>
         <div className="mt-0.5 truncate text-xs text-foreground/50">
-          Bot API · {connected ? 'Valid bot: @OttoBot' : 'Not connected'}
+          Bot API · {connected ? 'Valid bot: @WorkspaceBot' : 'Not connected'}
         </div>
       </div>
       {connected ? (
@@ -161,7 +161,7 @@ function BotHeader({ connected }: { connected: boolean }) {
           <MoreHorizontal className="h-4 w-4 text-foreground/50" />
         </button>
       ) : (
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="compact">
           <Plus className="h-3.5 w-3.5" />
           Connect
         </Button>
@@ -240,13 +240,13 @@ function DirectSessionRow({ title }: { title: string }) {
 function RowActions() {
   return (
     <div className="flex items-center gap-1">
-      <Button variant="ghost" size="sm">
+      <Button variant="ghost" size="compact">
         <ArrowUpRight className="h-3.5 w-3.5" />
         Open
       </Button>
       <Button
         variant="ghost"
-        size="sm"
+        size="compact"
         className="text-destructive hover:text-destructive"
       >
         Disconnect
@@ -265,7 +265,7 @@ function UnpairedSupergroupRow() {
           Not configured — pair to route automation topics into Telegram.
         </div>
       </div>
-      <Button variant="outline" size="sm">
+      <Button variant="outline" size="compact">
         <Plus className="h-3.5 w-3.5" />
         Pair Supergroup
       </Button>
@@ -288,7 +288,7 @@ function PairedSupergroupSection({ topics }: { topics: TopicBinding[] }) {
         <SubRowIcon icon={MessagesSquare} />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
-            <div className="truncate text-sm font-medium">Otto</div>
+            <div className="truncate text-sm font-medium">Team</div>
             <div className="truncate text-xs text-foreground/50">(-1003783993623)</div>
           </div>
           <div className="mt-0.5 truncate text-xs text-foreground/50">
@@ -334,7 +334,7 @@ function PairedSupergroupSection({ topics }: { topics: TopicBinding[] }) {
               )}
               <div className="flex items-center gap-3 px-4 py-2">
                 <IconSpacer />
-                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                <Button variant="ghost" size="compact" className="text-destructive hover:text-destructive">
                   Unpair Supergroup
                 </Button>
               </div>

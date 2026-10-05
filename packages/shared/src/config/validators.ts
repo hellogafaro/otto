@@ -17,6 +17,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { CONFIG_DIR } from './paths.ts';
 import { safeJsonParse } from '../utils/files.ts';
+import { isValidEmail } from '../utils/email.ts';
 import { EntityColorSchema } from '../colors/validate.ts';
 import { THINKING_LEVEL_IDS } from '../agent/thinking-levels.ts';
 import { isValidProviderAuthCombination } from './llm-connections.ts';
@@ -117,6 +118,8 @@ const LocationSchema = z.object({
 
 export const UserPreferencesSchema = z.object({
   name: z.string().optional(),
+  // Empty (no email) or a basic email shape.
+  email: z.string().refine((value) => value === '' || isValidEmail(value), 'Enter a valid email address').optional(),
   timezone: z.string().optional(),  // TODO: Could validate against IANA timezone list
   location: LocationSchema.optional(),
   notes: z.string().optional(),
@@ -125,6 +128,22 @@ export const UserPreferencesSchema = z.object({
   uiLanguage: z.enum([...SUPPORTED_LANGUAGE_CODES] as [LanguageCode, ...LanguageCode[]]).optional(),
   updatedAt: z.number().int().min(0).optional(),
 }).passthrough();
+
+/**
+ * Check the text the Preferences page saves: JSON that is an object matching the
+ * preferences schema (so a malformed email is refused, whatever the client).
+ */
+export function validatePreferencesContent(content: string): { success: true } | { success: false; error: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Invalid JSON' };
+  }
+  const result = UserPreferencesSchema.safeParse(parsed);
+  if (result.success) return { success: true };
+  return { success: false, error: result.error.issues.map((issue) => `${issue.path.join('.') || 'root'}: ${issue.message}`).join('; ') };
+}
 
 // ============================================================
 // Validation Functions

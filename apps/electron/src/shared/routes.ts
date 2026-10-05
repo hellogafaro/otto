@@ -17,6 +17,7 @@
 
 import type { SettingsSubpage } from './settings-registry'
 import type { PermissionMode } from '@otto/shared/agent/mode-types'
+import { chatFiltersToQuery, normalizeChatFilters, type ChatFiltersInput } from './chat-filters'
 
 // Helper to build query strings from params
 function toQueryString(params?: Record<string, string | undefined>): string {
@@ -27,6 +28,17 @@ function toQueryString(params?: Record<string, string | undefined>): string {
     filtered as [string, string][]
   )
   return `?${searchParams.toString()}`
+}
+
+export type AllSessionsRoute = `allSessions${string}`
+
+/** `allSessions`, `allSessions/session/<id>`, `allSessions?<filters>`, `allSessions/session/<id>?<filters>`. */
+function allSessionsRoute(filters?: ChatFiltersInput): AllSessionsRoute
+function allSessionsRoute(sessionId?: string, filters?: ChatFiltersInput): AllSessionsRoute
+function allSessionsRoute(first?: string | ChatFiltersInput, second?: ChatFiltersInput): AllSessionsRoute {
+  const sessionId = typeof first === 'string' ? first : undefined
+  const filters = normalizeChatFilters(typeof first === 'string' ? second : first)
+  return `allSessions${sessionId ? `/session/${sessionId}` : ''}${chatFiltersToQuery(filters)}`
 }
 
 /**
@@ -93,9 +105,11 @@ export const routes = {
   // View Routes - Compound sidebar/navigator/details routes
   // ============================================
   view: {
-    /** All sessions view (sessions navigator, allSessions filter) */
-    allSessions: (sessionId?: string) =>
-      sessionId ? `allSessions/session/${sessionId}` as const : 'allSessions' as const,
+    /**
+     * The Chats index (sessions navigator), optionally with a chat open and/or filters (statuses and
+     * labels, any number, with flagged and archived, combined): `allSessions?status=todo&status=done&label=a`.
+     */
+    allSessions: allSessionsRoute,
 
     /** Flagged view (sessions navigator, flagged filter) */
     flagged: (sessionId?: string) =>
@@ -177,6 +191,9 @@ export const routes = {
       projectSlug
         ? `projects/project/${projectSlug}` as const
         : 'projects' as const,
+
+    /** Tasks view (tasks navigator) */
+    tasks: () => 'tasks' as const,
 
     /** Pages view (full-width library grid, or one page's embedded render) */
     pages: (pageSlug?: string) =>

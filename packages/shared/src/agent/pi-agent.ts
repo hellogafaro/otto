@@ -43,8 +43,9 @@ import type { PiCompactResult, PiLargeResultGateRequest, PiLargeResultGateRespon
 import { askLargeResultSummaryGate } from '../utils/large-response.ts';
 import { EventQueue } from './backend/event-queue.ts';
 
-// System prompt for Otto context
+// System prompt
 import { getSystemPrompt } from '../prompts/system.ts';
+import { PRODUCT_NAME, BACKEND_NAME } from '../branding.ts';
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
 import { loadProjectById, getProjectAssetsPath, listProjectAssets, getProjectMemoryPath, loadProjectMemory } from '../projects/storage.ts';
 import type { ProjectPromptContext } from '../projects/types.ts';
@@ -127,7 +128,7 @@ function mapBrowserToolErrorCode(code: string): string | null {
     case 'BROWSER_NO_CAPABLE_CLIENT':
     case 'CAPABILITY_UNAVAILABLE':
       return 'No connected desktop client supports browser tools, or no client is currently connected. ' +
-        'Ask the user to open this workspace from the Otto desktop app.';
+        `Ask the user to open this workspace from the ${PRODUCT_NAME} desktop app.`;
     case 'CLIENT_DISCONNECTED':
       return 'The desktop client that owned this browser session disconnected. ' +
         'Ask the user to reconnect and retry.';
@@ -161,7 +162,7 @@ interface PendingEphemeralRequest<T> {
  * planning heuristics, config watching, usage tracking).
  */
 export class PiAgent extends BaseAgent {
-  protected backendName = 'Otto Backend';
+  protected backendName = BACKEND_NAME;
 
   // ============================================================
   // Subprocess State
@@ -2116,7 +2117,7 @@ export class PiAgent extends BaseAgent {
         this.config.workspace.rootPath,
         this.config.session?.workingDirectory,
         this.config.systemPromptPreset,
-        'Otto Backend', // backendName
+        BACKEND_NAME, // backendName
         this.pinnedIncludeCoAuthoredBy ?? undefined,
         this.pinnedProjectContext ?? undefined,
       );

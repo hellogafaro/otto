@@ -120,15 +120,9 @@ export default [
         allowedClasses: [
           'shadow-none',
           'shadow-xs',
-          'shadow-minimal',
-          'shadow-tinted',
-          'shadow-thin',
           'shadow-middle',
           'shadow-strong',
-          'shadow-panel-focused',
           'shadow-modal-small',
-          'shadow-bottom-border',
-          'shadow-bottom-border-thin',
         ],
         allowInlineNone: true,
       }],
@@ -151,7 +145,6 @@ export default [
       'src/renderer/components/ui/sortable-list.tsx',
       'src/main/browser-pane-manager.ts',
       'src/shared/browser-live-fx.ts',
-      'src/renderer/components/keyboard-shortcuts-dialog.tsx',
       'src/renderer/playground/**/*.{ts,tsx}',
     ],
     rules: {

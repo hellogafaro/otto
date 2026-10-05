@@ -6,6 +6,7 @@ import { Icon_Folder } from '@otto/ui'
 
 import { ServerDirectoryBrowser } from '@/components/server-directory-browser'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { MENU_ROW, MENU_ROW_CMDK, MENU_SEPARATOR } from '@/components/ui/menu-styles'
 import { cn } from '@/lib/utils'
 import { PATH_SEP, getPathBasename } from '@/lib/platform'
 import { useWorkingDirectoryState } from './use-working-directory-state'
@@ -124,38 +125,36 @@ export function WorkingDirectorySelector({
     }
   }, [popoverOpen, showFilter])
 
-  // Styles matching todo-filter-menu.tsx for consistency
-  const MENU_CONTAINER_STYLE = 'min-w-[200px] max-w-[400px] overflow-hidden rounded-md bg-popover text-foreground shadow-modal-small p-0'
-  const MENU_LIST_STYLE = 'max-h-[200px] overflow-y-auto p-1 [&_[cmdk-list-sizer]]:space-y-px'
-  const MENU_ITEM_STYLE = 'flex cursor-pointer select-none items-center gap-2 rounded-sm px-3 py-1.5 text-[13px] outline-none'
-
   return (
     <>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
           {renderTrigger({ open: popoverOpen, hasFolder, folderName, workingDirectory, homeDir, gitBranch })}
         </PopoverTrigger>
-        <PopoverContent side={side} align={align} sideOffset={sideOffset} className={MENU_CONTAINER_STYLE}>
+        <PopoverContent side={side} align={align} sideOffset={sideOffset} className="w-auto min-w-[200px] max-w-[400px] gap-0">
           <CommandPrimitive shouldFilter={showFilter}>
             {/* Filter input - only shown when more than 5 recent folders */}
             {showFilter && (
-              <div className="border-b border-border/50 px-3 py-2">
-                <CommandPrimitive.Input
-                  ref={inputRef}
-                  value={filter}
-                  onValueChange={setFilter}
-                  placeholder={t('chat.filterFolders')}
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 placeholder:select-none"
-                />
-              </div>
+              <>
+                <div className="px-2 py-1.5">
+                  <CommandPrimitive.Input
+                    ref={inputRef}
+                    value={filter}
+                    onValueChange={setFilter}
+                    placeholder={t('chat.filterFolders')}
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground placeholder:select-none"
+                  />
+                </div>
+                <div className={MENU_SEPARATOR} />
+              </>
             )}
 
-            <CommandPrimitive.List className={MENU_LIST_STYLE}>
+            <CommandPrimitive.List className="max-h-[200px] overflow-y-auto [&_[cmdk-list-sizer]]:space-y-px">
               {/* Current Folder Display - shown at top with checkmark */}
               {hasFolder && (
                 <CommandPrimitive.Item
                   value={`current-${workingDirectory}`}
-                  className={cn(MENU_ITEM_STYLE, 'pointer-events-none bg-foreground/5')}
+                  className={cn(MENU_ROW_CMDK, 'pointer-events-none')}
                   disabled
                 >
                   <Icon_Folder className="size-3.5 shrink-0 text-muted-foreground" />
@@ -169,7 +168,7 @@ export function WorkingDirectorySelector({
 
               {/* Separator after current folder */}
               {hasFolder && filteredRecent.length > 0 && (
-                <div className="h-px bg-border my-1 mx-1" />
+                <div className={MENU_SEPARATOR} />
               )}
 
               {/* Recent Directories - filterable (current directory already filtered out via filteredRecent) */}
@@ -180,7 +179,7 @@ export function WorkingDirectorySelector({
                     key={path}
                     value={`${recentFolderName} ${path}`}
                     onSelect={() => handleSelectRecent(path)}
-                    className={cn(MENU_ITEM_STYLE, 'group/item data-[selected=true]:bg-foreground/5')}
+                    className={cn(MENU_ROW_CMDK, 'group/item')}
                   >
                     <Icon_Folder className="size-3.5 shrink-0 text-muted-foreground" />
                     <span className="flex-1 min-w-0 truncate">
@@ -191,9 +190,9 @@ export function WorkingDirectorySelector({
                       type="button"
                       onClick={(e) => handleRemoveRecent(e, path)}
                       data-touch-reveal="true"
-                      className="shrink-0 h-3 w-3 rounded-xs flex items-center justify-center opacity-0 group-hover/item:opacity-100 text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-all"
+                      className="shrink-0 size-5 rounded-xs flex items-center justify-center opacity-0 group-hover/item:opacity-100 group-data-[selected=true]/item:opacity-100 text-muted-foreground hover:text-foreground hover:bg-foreground/10 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring outline-none transition-all"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="size-3" />
                     </button>
                   </CommandPrimitive.Item>
                 )
@@ -208,11 +207,12 @@ export function WorkingDirectorySelector({
             </CommandPrimitive.List>
 
             {/* Bottom actions - always visible, outside scrollable area */}
-            <div className="border-t border-border/50 p-1">
+            <div className={MENU_SEPARATOR} />
+            <div>
               <button
                 type="button"
                 onClick={handleChooseFolder}
-                className={cn(MENU_ITEM_STYLE, 'w-full hover:bg-foreground/5')}
+                className={cn(MENU_ROW, 'w-full hover:bg-foreground/10 focus-visible:bg-foreground/10')}
               >
                 {t('chat.chooseFolder')}
               </button>
@@ -220,7 +220,7 @@ export function WorkingDirectorySelector({
                 <button
                   type="button"
                   onClick={handleReset}
-                  className={cn(MENU_ITEM_STYLE, 'w-full hover:bg-foreground/5')}
+                  className={cn(MENU_ROW, 'w-full hover:bg-foreground/10 focus-visible:bg-foreground/10')}
                 >
                   {t('common.reset')}
                 </button>

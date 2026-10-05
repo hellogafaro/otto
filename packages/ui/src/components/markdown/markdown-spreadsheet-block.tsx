@@ -252,7 +252,7 @@ export function MarkdownSpreadsheetBlock({ code, className }: MarkdownSpreadshee
         </thead>
         <tbody>
           {parsed.rows.map((row, i) => (
-            <tr key={i} className="border-b border-foreground/[0.03] last:border-0 hover:bg-foreground/[0.015] transition-colors">
+            <tr key={i} className="border-b border-foreground/[0.03] last:border-0 hover:bg-foreground/5 transition-colors">
               <td className="text-center py-1.5 px-2 text-muted-foreground/40 border-r border-foreground/[0.06] text-[11px] font-mono">{i + 2}</td>
               {parsed.columns.map((col) => {
                 const val = row[col.key]
@@ -283,7 +283,7 @@ export function MarkdownSpreadsheetBlock({ code, className }: MarkdownSpreadshee
           className={cn(
             "absolute top-[7px] right-2 p-1 rounded-[6px] transition-all z-10 select-none",
             "opacity-0 group-hover:opacity-100",
-            "bg-background shadow-minimal",
+            "card-surface bg-card",
             "text-muted-foreground/50 hover:text-foreground",
             "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:opacity-100"
           )}
@@ -310,7 +310,7 @@ export function MarkdownSpreadsheetBlock({ code, className }: MarkdownSpreadshee
         headerActions={<TableExportDropdown columns={parsed.columns} rows={parsed.rows} filename={parsed.filename || parsed.sheetName || t('spreadsheet.defaultTitle')} />}
       >
         <div className="px-6">
-          <div className="bg-background shadow-minimal rounded-[12px] overflow-hidden">
+          <div className="card-surface bg-card rounded-[12px] overflow-hidden">
             {tableContent(false)}
           </div>
         </div>

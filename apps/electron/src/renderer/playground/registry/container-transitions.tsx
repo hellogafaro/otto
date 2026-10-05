@@ -327,7 +327,7 @@ function ToolbarToConfirmTransitionDemo({ initialView = 'compact' }: ToolbarToCo
                         onClick={() => setAskScope('selection')}
                         className={cn(
                           'h-7 px-2.5 rounded-sm text-xs font-medium transition-colors',
-                          askScope === 'selection' ? 'bg-background text-foreground shadow-minimal' : 'text-foreground/65 hover:bg-foreground/5'
+                          askScope === 'selection' ? 'bg-foreground/10 text-foreground' : 'text-foreground/65 hover:bg-foreground/5'
                         )}
                       >
                         Selection only
@@ -337,14 +337,14 @@ function ToolbarToConfirmTransitionDemo({ initialView = 'compact' }: ToolbarToCo
                         onClick={() => setAskScope('full')}
                         className={cn(
                           'h-7 px-2.5 rounded-sm text-xs font-medium transition-colors',
-                          askScope === 'full' ? 'bg-background text-foreground shadow-minimal' : 'text-foreground/65 hover:bg-foreground/5'
+                          askScope === 'full' ? 'bg-foreground/10 text-foreground' : 'text-foreground/65 hover:bg-foreground/5'
                         )}
                       >
                         Full response
                       </button>
                     </div>
 
-                    <div className="rounded-md border border-border/70 px-3 py-2 bg-background shadow-minimal">
+                    <div className="rounded-md border border-border/70 px-3 py-2 bg-background">
                       <input
                         value={note}
                         onChange={(event) => setNote(event.target.value)}

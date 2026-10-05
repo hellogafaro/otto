@@ -9,7 +9,7 @@ import type { ViewRoute } from '../../shared/routes'
 
 export const currentRouteAtom = atom<ViewRoute | null>(null)
 
-export function parseSessionIdFromRoute(route: ViewRoute): string | null {
+export function parseSessionIdFromRoute(route: string): string | null {
   // Strip any query string first — a `?x=y` tail on the last segment would otherwise
   // leak into the extracted session id and poison every current-session consumer.
   const segments = route.split('?')[0].split('/')

@@ -65,24 +65,14 @@ function InputGroupAddon({
   )
 }
 
-const inputGroupButtonVariants = cva(
-  "flex items-center gap-2 rounded-md text-sm shadow-none",
-  {
-    variants: {
-      size: {
-        xs: "h-6 gap-1 rounded-sm px-1.5 [&>svg:not([class*='size-'])]:size-3.5",
-        // Otto: 32px like icon-sm and the menu rows (luma falls through to 36px).
-        sm: "h-8",
-        "icon-xs": "size-6 rounded-sm p-0 has-[>svg]:p-0",
-        // Otto: md 8 like every 32px button; the 24px ones sm 6, like buttons.
-        "icon-sm": "size-8 rounded-md p-0 has-[>svg]:p-0",
-      },
-    },
-    defaultVariants: {
-      size: "xs",
-    },
-  }
-)
+// Otto: addon buttons are plain `Button` sizes (padding included): 24px (`xs`),
+// 32px (`sm`, the default button) and their icon-only squares.
+const inputGroupButtonSizes = {
+  xs: "xs",
+  sm: "default",
+  "icon-xs": "icon-xs",
+  "icon-sm": "icon",
+} as const
 
 function InputGroupButton({
   className,
@@ -90,16 +80,17 @@ function InputGroupButton({
   variant = "ghost",
   size = "xs",
   ...props
-}: Omit<React.ComponentProps<typeof Button>, "size" | "type"> &
-  VariantProps<typeof inputGroupButtonVariants> & {
-    type?: "button" | "submit" | "reset"
-  }) {
+}: Omit<React.ComponentProps<typeof Button>, "size" | "type"> & {
+  size?: keyof typeof inputGroupButtonSizes
+  type?: "button" | "submit" | "reset"
+}) {
   return (
     <Button
       type={type}
       data-size={size}
       variant={variant}
-      className={cn(inputGroupButtonVariants({ size }), className)}
+      size={inputGroupButtonSizes[size]}
+      className={className}
       {...props}
     />
   )

@@ -35,6 +35,7 @@
  */
 
 import type { BrowserWindow } from 'electron'
+import { APP_HOST } from './app-protocol'
 import { mainLog } from './logger'
 import type { WindowManager } from './window-manager'
 import { RPC_CHANNELS } from '../shared/types'
@@ -82,6 +83,11 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
     // e.g., otto://allSessions/chat/abc → hostname='allSessions', pathname='/chat/abc'
     const host = parsed.hostname
     const pathParts = parsed.pathname.split('/').filter(Boolean)
+
+    // otto://app/... is the renderer's own origin (app-protocol.ts), never a deep-link action
+    if (host === APP_HOST) {
+      return null
+    }
 
     // otto://auth-callback?... (OAuth callbacks - return null to let existing handler process)
     if (host === 'auth-callback') {

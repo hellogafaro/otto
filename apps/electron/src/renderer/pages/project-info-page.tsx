@@ -238,7 +238,7 @@ export default function ProjectInfoPage({ projectSlug }: ProjectInfoPageProps) {
             <Info_Section
               title={t('projectInfo.tabSessions')}
               actions={
-                <Button size="sm" variant="ghost" onClick={handleStartSession}>
+                <Button size="compact" variant="ghost" onClick={handleStartSession}>
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   {t('projectInfo.newSessionButton', { name: project.config.name })}
                 </Button>
@@ -271,22 +271,22 @@ export default function ProjectInfoPage({ projectSlug }: ProjectInfoPageProps) {
             <Info_Section
               title={t('projectInfo.tabAssets')}
               actions={
-                <label
-                  className="inline-flex items-center gap-1 h-7 px-3 text-xs font-medium rounded-md bg-card shadow-minimal hover:bg-foreground/5 transition-colors cursor-pointer"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  {t('projectInfo.uploadAssets')}
-                  <input
-                    type="file"
-                    className="hidden"
-                    multiple
-                    onChange={async (e) => {
-                      const files = Array.from(e.target.files ?? [])
-                      for (const f of files) await handleUpload(f)
-                      e.target.value = ''
-                    }}
-                  />
-                </label>
+                <Button variant="outline" size="compact" asChild>
+                  <label className="cursor-pointer">
+                    <Upload />
+                    {t('projectInfo.uploadAssets')}
+                    <input
+                      type="file"
+                      className="hidden"
+                      multiple
+                      onChange={async (e) => {
+                        const files = Array.from(e.target.files ?? [])
+                        for (const f of files) await handleUpload(f)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                </Button>
               }
             >
               {assets.length === 0 ? (
@@ -304,7 +304,7 @@ export default function ProjectInfoPage({ projectSlug }: ProjectInfoPageProps) {
                         </div>
                       </div>
                       <Button
-                        size="sm"
+                        size="icon-compact"
                         variant="ghost"
                         onClick={() => handleDeleteAsset(a)}
                         className="text-destructive hover:text-destructive"
@@ -344,7 +344,7 @@ export default function ProjectInfoPage({ projectSlug }: ProjectInfoPageProps) {
                       placeholder={t('projectInfo.workingDirectoryPlaceholder')}
                       className="flex-1"
                     />
-                    <Button size="sm" variant="outline" onClick={handlePickWorkingDirectory}>
+                    <Button size="compact" variant="outline" onClick={handlePickWorkingDirectory}>
                       <FolderOpen className="h-3.5 w-3.5 mr-1" />
                       {t('projectInfo.workingDirectoryPicker')}
                     </Button>
@@ -400,14 +400,15 @@ export default function ProjectInfoPage({ projectSlug }: ProjectInfoPageProps) {
                   <span className="flex-1 min-w-0 truncate font-mono text-xs">{project.folderPath}</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-compact"
                         onClick={() => window.electronAPI.openFile(project.folderPath)}
-                        className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded text-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
                         aria-label={t('projectInfo.openLocation')}
                       >
-                        <FolderOpen className="h-3.5 w-3.5" />
-                      </button>
+                        <FolderOpen />
+                      </Button>
                     </TooltipTrigger>
                     <TooltipContent>{t('projectInfo.openLocation')}</TooltipContent>
                   </Tooltip>

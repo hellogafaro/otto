@@ -31,6 +31,7 @@ import {
   intentSchema,
 } from './interceptor-common.ts';
 import { FEATURE_FLAGS } from './feature-flags.ts';
+import { PRODUCT_NAME } from './branding.ts';
 import { resolveRequestContext } from './interceptor-request-utils.ts';
 
 // Type alias for fetch's HeadersInit
@@ -1991,7 +1992,7 @@ function synthesizeMalformedBodyResponse(
     error: {
       type: 'invalid_request_error',
       code: err.code,
-      message: `Otto blocked an outgoing request that the API would reject: ${err.detail}. ` +
+      message: `${PRODUCT_NAME} blocked an outgoing request that the API would reject: ${err.detail}. ` +
         `This typically indicates a streaming-reassembly bug in the upstream endpoint or a stale ` +
         `tool history. Try starting a new session or switching to a different model/endpoint.`,
       param: 'tool_calls',
@@ -2002,7 +2003,7 @@ function synthesizeMalformedBodyResponse(
 
   setStoredError({
     status: 400,
-    statusText: 'Bad Request (blocked by Otto)',
+    statusText: `Bad Request (blocked by ${PRODUCT_NAME})`,
     message: err.detail,
     timestamp: Date.now(),
   });

@@ -42,22 +42,18 @@ function ModeIcon({ mode, className }: { mode: PermissionMode; className?: strin
 // Trigger chip styling per mode (matches desktop PermissionModeDropdown)
 // ============================================================================
 
-const MODE_STYLES: Record<PermissionMode, { className: string; shadowVar: string }> = {
+const MODE_STYLES: Record<PermissionMode, { className: string }> = {
   safe: {
-    className: 'bg-foreground/5 text-foreground/60',
-    shadowVar: 'var(--foreground-rgb)',
+    className: 'text-muted-foreground',
   },
   ask: {
     className: 'bg-info/10 text-info',
-    shadowVar: 'var(--info-rgb)',
   },
   guarded: {
     className: 'bg-success/10 text-success',
-    shadowVar: 'var(--success-rgb)',
   },
   'allow-all': {
     className: 'bg-primary/5 text-primary',
-    shadowVar: 'var(--primary-rgb)',
   },
 }
 
@@ -111,10 +107,9 @@ export function CompactPermissionModeSelector({
           type="button"
           aria-label={`${t('mode.permissionMode')}: ${t(MODE_LABEL_KEYS[shownMode].name)}`}
           className={cn(
-            "h-7 pl-2 pr-2.5 text-xs font-medium rounded-sm flex items-center gap-1.5 shadow-tinted outline-none select-none shrink-0",
+            "h-7 pl-2 pr-2.5 text-xs font-medium rounded-sm flex items-center gap-1.5 outline-none select-none shrink-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
             style.className,
           )}
-          style={{ '--shadow-color': style.shadowVar } as React.CSSProperties}
         >
           <ModeIcon mode={shownMode} className="h-3.5 w-3.5" />
           <span>{t(MODE_LABEL_KEYS[shownMode].short)}</span>
@@ -135,7 +130,7 @@ export function CompactPermissionModeSelector({
                   type="button"
                   className={cn(
                     "flex items-center gap-3 w-full px-3 py-3 rounded-lg text-left transition-colors",
-                    isSelected ? "bg-foreground/5" : "hover:bg-foreground/5",
+                    "hover:bg-foreground/5 active:bg-foreground/10",
                   )}
                   onClick={() => handleSelect(mode)}
                 >

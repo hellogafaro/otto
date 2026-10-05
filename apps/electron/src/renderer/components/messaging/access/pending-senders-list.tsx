@@ -81,13 +81,13 @@ function PendingRow({
       })}
     >
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={onAllow}>
+        <Button variant="ghost" size="compact" onClick={onAllow}>
           <Check className="h-3.5 w-3.5" />
           {allowLabel}
         </Button>
         <Button
           variant="ghost"
-          size="sm"
+          size="compact"
           onClick={onIgnore}
           className="text-foreground/60 hover:text-foreground"
         >

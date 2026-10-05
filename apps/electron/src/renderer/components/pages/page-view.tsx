@@ -30,6 +30,7 @@ import { PageGrantsDialog } from './page-grants-dialog'
 import { PageSourceAuthBanner } from './page-source-auth-banner'
 import { SharePageDialog } from './share-page-dialog'
 import { useShareCapabilities } from '@/hooks/use-share-capabilities'
+import { Button } from '@/components/ui/button'
 
 interface PageViewProps {
   pageSlug: string
@@ -227,12 +228,9 @@ export function PageView({ pageSlug }: PageViewProps) {
         {fallbackResolved ? (
           <div className="flex flex-col items-center gap-3 text-sm text-foreground/50">
             <span>{t('pages.notFound')}</span>
-            <button
-              onClick={handleBack}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md bg-foreground/[0.02] px-3 text-xs font-medium shadow-minimal transition-colors hover:bg-foreground/[0.05]"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" /> {t('pages.backToPages')}
-            </button>
+            <Button variant="outline" size="compact" onClick={handleBack}>
+              <ArrowLeft /> {t('pages.backToPages')}
+            </Button>
           </div>
         ) : (
           <LoadingIndicator />
@@ -270,28 +268,24 @@ export function PageView({ pageSlug }: PageViewProps) {
           <>
             <PageFreshness config={config} className="hidden @[28rem]/panel:inline-flex" />
         {(sharingEnabled || (viewerConfigured && config.share)) && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="compact"
             onClick={() => setShareOpen(true)}
             aria-label={t('pages.share.title')}
             title={config.share ? t('pages.shared') : t('pages.share.title')}
-            className="flex h-7 items-center gap-1.5 rounded-md px-2 text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground"
           >
-            <Globe2 className={config.share ? 'size-3.5 text-sky-600 dark:text-sky-400' : 'size-3.5'} />
+            <Globe2 className={config.share ? 'text-sky-600 dark:text-sky-400' : undefined} />
             {config.share && (
-              <span className="hidden text-xs @[28rem]/panel:inline">{t('pages.shared')}</span>
+              <span className="hidden text-sm @[28rem]/panel:inline">{t('pages.shared')}</span>
             )}
-          </button>
+          </Button>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={t('common.more')}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground data-[state=open]:bg-foreground/5"
-            >
-              <MoreHorizontal className="size-3.5" />
-            </button>
+            <Button variant="ghost" size="icon-compact" aria-label={t('common.more')}>
+              <MoreHorizontal />
+            </Button>
           </DropdownMenuTrigger>
           <StyledDropdownMenuContent align="end">
             <StyledDropdownMenuItem onClick={() => setNameDraft(config.name)}>
@@ -382,22 +376,14 @@ export function PageView({ pageSlug }: PageViewProps) {
             <span className="text-sm font-medium text-foreground/70">{t('pages.noContentTitle')}</span>
             <span className="max-w-md text-xs text-foreground/50">{t('pages.noContentDescription')}</span>
             <div className="mt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDesignWithAgent}
-                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
+              <Button size="compact" onClick={handleDesignWithAgent}>
+                <Sparkles />
                 {t('pages.designWithAgent')}
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenFolder}
-                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-foreground/[0.02] px-3 text-xs font-medium shadow-minimal transition-colors hover:bg-foreground/[0.05]"
-              >
-                <FolderOpen className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="outline" size="compact" onClick={handleOpenFolder}>
+                <FolderOpen />
                 {t('pages.openFolder')}
-              </button>
+              </Button>
             </div>
           </div>
         ) : leaseError ? (
@@ -406,12 +392,9 @@ export function PageView({ pageSlug }: PageViewProps) {
               <Info_Alert.Title>{t('pages.loadFailed')}</Info_Alert.Title>
               <Info_Alert.Description className="break-all">{leaseError}</Info_Alert.Description>
             </Info_Alert>
-            <button
-              onClick={() => setLeaseRetry(n => n + 1)}
-              className="mt-3 inline-flex h-7 items-center rounded-md bg-foreground/[0.02] px-3 text-xs font-medium shadow-minimal transition-colors hover:bg-foreground/[0.05]"
-            >
+            <Button variant="outline" size="compact" className="mt-3" onClick={() => setLeaseRetry(n => n + 1)}>
               {t('common.retry')}
-            </button>
+            </Button>
           </div>
         ) : !leaseState || !snapshotReady || !activeWorkspaceId ? (
           <div className="flex h-full items-center justify-center">

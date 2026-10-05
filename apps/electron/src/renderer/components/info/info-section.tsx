@@ -40,7 +40,7 @@ export function Info_Section({
         </div>
         {actions}
       </div>
-      <div className="bg-card shadow-minimal rounded-md overflow-hidden">
+      <div className="card-surface bg-card rounded-md overflow-hidden">
         {children}
       </div>
     </section>

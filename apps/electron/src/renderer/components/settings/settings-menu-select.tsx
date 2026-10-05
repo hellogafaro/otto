@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next"
 import { Check, ChevronDown, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { MENU_ROW } from '@/components/ui/menu-styles'
 import { settingsUI } from './settings-ui-constants'
 
 export interface SettingsMenuSelectOption {
@@ -114,8 +115,8 @@ export function SettingsMenuSelect({
           type="button"
           className={cn(
             // Solid like an input: the same fill, no border; 28px, 6px corners when nested
-            'inline-flex h-7 items-center gap-1 rounded-sm bg-input/50 px-2 text-sm',
-            'transition-colors hover:bg-input/70',
+            'inline-flex h-7 items-center gap-1 rounded-sm bg-input/50 px-2 text-sm outline-none',
+            'transition-colors hover:bg-input/70 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
             'disabled:cursor-not-allowed disabled:opacity-50',
             isOpen && 'bg-input/70',
             className
@@ -162,11 +163,7 @@ export function SettingsMenuSelect({
                   type="button"
                   onClick={() => handleSelect(option.value)}
                   onMouseEnter={() => onHover?.(option.value)}
-                  className={cn(
-                    'flex h-7 w-full items-center justify-between gap-3 rounded-sm px-2 text-left text-sm',
-                    'transition-colors hover:bg-foreground/5',
-                    isSelected && 'bg-foreground/5'
-                  )}
+                  className={cn(MENU_ROW, 'w-full justify-between text-left hover:bg-foreground/10 focus-visible:bg-foreground/10')}
                 >
                   <span className="min-w-0 truncate">{option.label}</span>
                   {isSelected && <Check className="size-3.5 shrink-0" />}

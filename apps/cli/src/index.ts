@@ -8,6 +8,7 @@
  */
 
 import { resolve } from 'path'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 import { CliRpcClient } from './client.ts'
 
 // ---------------------------------------------------------------------------
@@ -1895,7 +1896,7 @@ export async function runValidation(
 // ---------------------------------------------------------------------------
 
 function printHelp(): void {
-  process.stdout.write(`otto-cli — Terminal client for Otto server
+  process.stdout.write(`otto-cli — Terminal client for ${PRODUCT_NAME} server
 
 Usage: otto-cli [options] <command> [args...]
 

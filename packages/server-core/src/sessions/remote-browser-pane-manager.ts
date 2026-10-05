@@ -14,6 +14,7 @@
  */
 
 import { CodedError } from '@otto/shared/protocol'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 import type { BrowserInstanceInfo } from '@otto/shared/protocol'
 import type {
   IBrowserPaneManager,
@@ -75,7 +76,7 @@ export class RemoteBrowserPaneManager implements IBrowserPaneManager {
       throw new CodedError(
         'BROWSER_NO_CAPABLE_CLIENT',
         'No connected desktop client supports browser tools for this session. ' +
-        'Open this workspace from the Otto desktop app and try again.',
+        `Open this workspace from the ${PRODUCT_NAME} desktop app and try again.`,
       )
     }
     if (!this.rpcServer.hasClientCapability(clientId, CLIENT_BROWSER_INVOKE)) {

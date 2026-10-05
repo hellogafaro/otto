@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import { automationSelection } from '@/hooks/use-entity-selection'
 import { APP_EVENTS, AGENT_EVENTS, getEventDisplayName, type AutomationListItem, type AutomationListFilter } from './types'
 import { formatShortRelativeTime } from './utils'
+import { Button } from '@/components/ui/button'
 
 const {
   useSelection: useAutomationSelection,
@@ -264,9 +265,9 @@ export function AutomationsListPanel({
             <EditPopover
               align="center"
               trigger={
-                <button className="inline-flex items-center h-7 px-3 text-xs font-medium rounded-md bg-card shadow-minimal hover:bg-foreground/5 transition-colors">
+                <Button variant="outline" size="compact">
                   {t('automations.addAutomation')}
-                </button>
+                </Button>
               }
               {...getEditConfig('automation-config', workspaceRootPath)}
             />

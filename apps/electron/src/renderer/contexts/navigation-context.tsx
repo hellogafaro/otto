@@ -4,17 +4,22 @@
  * Provides a global `navigate()` function that decouples components from
  * direct session/action imports. All navigation goes through typed routes.
  *
- * ONE VIEW:
- * The app shows one view at a time: its route lives in `currentRouteAtom` and
- * `navigate(route)` replaces it. The NavigationState (sidebar section, page
- * card content, header) is parsed from it.
+ * ROUTE STRINGS ARE THE INTERNAL API, URLS ARE REAL PATHS:
+ * `navigate('allSessions/session/abc')` opens `/{workspaceSlug}/chats/abc`. TanStack Router
+ * (`../router`) owns the URL and the browser history; `router/location.ts` maps route strings
+ * to URLs and back. The open route string is derived from the router's location (and mirrored
+ * to `currentRouteAtom` for the atoms that read it), and the NavigationState (sidebar section,
+ * page card content, header) is parsed from it.
  *
- * URL-DRIVEN HISTORY:
- * The URL is the source of truth. Every meaningful navigation pushes a
- * browser history entry via pushState. Back/forward uses the browser's
- * native popstate and sets the route from the URL. That one history stack is
- * what Back / Forward mean everywhere (the Electron buttons, the shortcuts, the
- * browser); the page header's Back is a different thing: the parent view.
+ * HISTORY:
+ * Back / Forward are the router history's (the Electron buttons, the shortcuts, the browser);
+ * the page header's Back is a different thing: the parent view.
+ *
+ * WORKSPACE:
+ * The URL's first segment is the workspace slug. A known slug that is not the active
+ * workspace switches to it (a back step, a pasted link); the switcher changing the active
+ * workspace moves the URL to the new workspace; an unknown slug, `/` or an unmappable URL is
+ * replaced with the active workspace's Chats.
  *
  * Usage:
  *   import { useNavigation, useNavigationState } from '@/contexts/navigation-context'
@@ -32,17 +37,17 @@ import {
   useContext,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useMemo,
   type ReactNode,
 } from 'react'
+import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useSession } from '@/hooks/use-session'
-import { useLabels } from '@/hooks/use-labels'
-import { matchesLabelFilter } from '@otto/shared/labels'
 import {
   parseRoute,
   parseRouteToNavigationState,
@@ -50,11 +55,18 @@ import {
   type ParsedRoute,
 } from '../../shared/route-parser'
 import { routes, type Route, type ViewRoute } from '../../shared/routes'
+import { SETTINGS_NAV_ORDER } from '../../shared/menu-schema'
+import type { SettingsSubpage } from '../../shared/settings-registry'
 import { parsePermissionMode } from '@otto/shared/agent/mode-types'
-import { NAVIGATE_EVENT, type NavigateOptions } from '../lib/navigate'
-import { normalizeRouteForReconcile } from './navigation-reconcile'
-import { buildSemanticHistoryKey, canRunInitialRestore } from './navigation-history'
-import * as storage from '@/lib/local-storage'
+import { NAVIGATE_EVENT } from '../lib/navigate'
+import { chatFiltersFromSessionFilter } from '../../shared/chat-filters'
+import {
+  canGoBack as positionCanGoBack,
+  canGoForward as positionCanGoForward,
+  initialHistoryPosition,
+  nextHistoryPosition,
+} from '../router/history-position'
+import { locationToRouteString, parseSearch, routeStringToLocation, workspaceSlugFromPathname } from '../router/location'
 import type {
   DeepLinkNavigation,
   Session,
@@ -71,14 +83,16 @@ import {
   isAutomationsNavigation,
   isProjectsNavigation,
   isPagesNavigation,
+  isTasksNavigation,
   DEFAULT_NAVIGATION_STATE,
 } from '../../shared/types'
-import { sessionMetaMapAtom, updateSessionMetaAtom, type SessionMeta } from '@/atoms/sessions'
+import { sessionMetaMapAtom, updateSessionMetaAtom } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
 import { sessionListOrderAtom } from '@/atoms/list-context'
 import { guardedModeAvailableAtom } from '@/atoms/permission-modes'
 import { currentRouteAtom, parseSessionIdFromRoute } from '@/atoms/current-route'
+
 
 // Re-export routes for convenience
 export { routes }
@@ -86,15 +100,20 @@ export type { Route }
 
 // Re-export navigation state types for consumers
 export type { NavigationState, SessionFilter }
-export { isSessionsNavigation, isSourcesNavigation, isSettingsNavigation, isSkillsNavigation, isAutomationsNavigation, isProjectsNavigation, isPagesNavigation }
+export { isSessionsNavigation, isSourcesNavigation, isSettingsNavigation, isSkillsNavigation, isAutomationsNavigation, isProjectsNavigation, isPagesNavigation, isTasksNavigation }
 
 // =============================================================================
 // Context
 // =============================================================================
 
+export interface NavigateOptions {
+  /** Replace the open history entry instead of adding one (a redirect, not a step). */
+  replace?: boolean
+}
+
 interface NavigationContextValue {
   /** Navigate to a route */
-  navigate: (route: Route, options?: NavigateOptions) => void | Promise<void>
+  navigate: (route: Route, opts?: NavigateOptions) => void | Promise<void>
   /** Check if navigation is ready */
   isReady: boolean
   /** Unified navigation state — parsed from the open route */
@@ -112,8 +131,8 @@ interface NavigationContextValue {
   /** Navigate to a session, preserving the current filter type */
   navigateToSession: (sessionId: string) => void
   /**
-   * Previous / next item in the list the open page came from (the Chats list as the
-   * sidebar shows it), or null when the open page is not an item of a list.
+   * Previous / next item in the list the open page came from (the Chats list or the
+   * settings pages, as the sidebar shows them), or null when the open page has no list.
    */
   listNav: ListNavigation | null
 }
@@ -131,10 +150,10 @@ interface NavigationProviderProps {
   children: ReactNode
   /** Current workspace ID */
   workspaceId: string | null
-  /** Current workspace slug (used for URL ?ws= param and localStorage) */
+  /** The active workspace's slug (the URL's first segment), null until the workspace is known */
   workspaceSlug: string | null
-  /** Switch to a workspace by slug (called on popstate when ?ws= changes) */
-  onSwitchWorkspaceBySlug?: (slug: string) => void
+  /** Switch to a workspace by slug (the URL names a workspace other than the active one). False when there is none. */
+  onSwitchWorkspaceBySlug?: (slug: string) => boolean
   /** Session creation handler */
   onCreateSession: (workspaceId: string, options?: import('../../shared/types').CreateSessionOptions) => Promise<Session>
   /** Input change handler for pre-filling chat input */
@@ -145,10 +164,25 @@ interface NavigationProviderProps {
   onAutoDeleteEmptySession?: (sessionId: string) => void
   /** Whether the app is ready to navigate */
   isReady?: boolean
-  /** Whether session metadata has been initialized (required for deterministic route restoration) */
+  /** Whether session metadata has been initialized (the workspace and its sessions are known) */
   isSessionsReady?: boolean
   /** Remote workspace ID — when set, sessions with this ID are also considered part of the workspace */
   remoteWorkspaceId?: string | null
+}
+
+/**
+ * The view a workspace switch lands on: the same settings page, otherwise the section's index
+ * (the old workspace's chat, filter and detail do not exist in the new one).
+ */
+function workspaceSwitchRoute(state: NavigationState): string {
+  switch (state.navigator) {
+    case 'settings':
+      return buildRouteFromNavigationState(state)
+    case 'sessions':
+      return routes.view.allSessions()
+    default:
+      return buildRouteFromNavigationState({ navigator: state.navigator, details: null })
+  }
 }
 
 export function NavigationProvider({
@@ -166,13 +200,9 @@ export function NavigationProvider({
 }: NavigationProviderProps) {
   const { t } = useTranslation()
   const [, setSession] = useSession()
+  const router = useRouter()
 
-  // Read session metadata directly from atom (reactive to session changes)
-  const sessionMetaMap = useAtomValue(sessionMetaMapAtom)
-  const sessionMetas = useMemo(() => Array.from(sessionMetaMap.values()), [sessionMetaMap])
   const updateSessionMeta = useSetAtom(updateSessionMetaAtom)
-  // Label tree for filter matching (auto-select must agree with the visible list).
-  const { labels: labelConfigs } = useLabels(workspaceId)
 
   // Store reference for reading fresh atom values in callbacks (avoids stale closures)
   const store = useStore()
@@ -184,10 +214,18 @@ export function NavigationProvider({
   const skills = useAtomValue(skillsAtom)
 
   // =========================================================================
-  // DERIVED NAVIGATION STATE (from the open route)
+  // DERIVED NAVIGATION STATE (from the router's location)
   // =========================================================================
 
-  const currentRoute = useAtomValue(currentRouteAtom)
+  const location = useRouterState({ select: (s) => s.location })
+
+  // The open view's route string, and the workspace slug the URL names. A URL that is not one of
+  // the app's views has no route (the effect below replaces it).
+  const currentRoute = useMemo(
+    () => locationToRouteString(location.pathname, location.search)?.routeString ?? null,
+    [location],
+  )
+  const urlSlug = workspaceSlugFromPathname(location.pathname)
 
   // NavigationState derived from the open route
   const navigationState: NavigationState = useMemo(() => {
@@ -196,157 +234,38 @@ export function NavigationProvider({
       : DEFAULT_NAVIGATION_STATE
   }, [currentRoute])
 
-  // =========================================================================
-  // BROWSER HISTORY TRACKING
-  // =========================================================================
-
-  const [canGoBack, setCanGoBack] = useState(false)
-  const [canGoForward, setCanGoForward] = useState(false)
-
-  // Sequence numbers stored in history.state for tracking position
-  const historySeqRef = useRef(0)                // Current history position
-  const historyMaxSeqRef = useRef(0)              // Highest pushed seq (for canGoForward)
-  const nextHistorySeqRef = useRef(1)             // Next seq to assign on pushState
-
-  // Suppress pushState in atom subscriptions during restore/reconciliation
-  const suppressPushRef = useRef(false)
-
-  // Coalesce route writes in one tick into a single pushState via microtask debounce
-  const pendingPushRef = useRef(false)
-
-  // Flag: workspace switch was triggered by popstate (URL already correct)
-  const isPopstateSwitchRef = useRef(false)
-
-  // Queue navigation if not ready yet
-  const pendingNavigationRef = useRef<ParsedRoute | null>(null)
-
-  // Suppress auto-select for one cycle (used by skipAutoSelect to prevent the effect from re-selecting)
-  const suppressAutoSelectRef = useRef(false)
-
-  // Track whether initial route restoration has been attempted
-  const initialRouteRestoredRef = useRef(false)
-
-  // Semantic key for the last history entry we intentionally pushed/reconciled.
-  const lastSemanticHistoryKeyRef = useRef('')
-
-  const updateCanGoBackForward = useCallback(() => {
-    setCanGoBack(historySeqRef.current > 0)
-    setCanGoForward(historySeqRef.current < historyMaxSeqRef.current)
-  }, [])
-
-  const getSemanticHistoryKey = useCallback(() => {
-    return buildSemanticHistoryKey({
-      workspaceSlug,
-      route: store.get(currentRouteAtom) ?? '',
-    })
-  }, [store, workspaceSlug])
+  // Mirror the route into the atom the pins, recents and session atoms read (before paint)
+  useLayoutEffect(() => {
+    store.set(currentRouteAtom, currentRoute as ViewRoute | null)
+  }, [store, currentRoute])
 
   // =========================================================================
-  // URL SYNC (builds URL from current state, push or replace)
+  // HISTORY (the router's: Back, Forward and what they can reach)
   // =========================================================================
 
-  /**
-   * Build the current URL from atom state and either push or replace.
-   *
-   * push=true: creates a new browser history entry (meaningful navigation)
-   * push=false: updates the current entry (resize, auto-select, etc.)
-   *
-   * Also persists the URL per-workspace in localStorage for workspace switch restoration.
-   */
-  const syncUrl = useCallback((push: boolean = false) => {
-    const route = store.get(currentRouteAtom)
-    if (!route) return
-
-    const url = new URL(window.location.href)
-
-    // ?ws= workspace slug
-    if (workspaceSlug) {
-      url.searchParams.set('ws', workspaceSlug)
-    }
-
-    // ?route= is the open route
-    url.searchParams.set('route', route)
-
-    const urlStr = url.toString()
-
-    if (push) {
-      const seq = nextHistorySeqRef.current++
-      history.pushState({ seq }, '', urlStr)
-      historySeqRef.current = seq
-      historyMaxSeqRef.current = seq // Forward history discarded by browser
-      updateCanGoBackForward()
-    } else {
-      history.replaceState({ ...history.state, seq: historySeqRef.current }, '', urlStr)
-    }
-
-    // Persist per-workspace URL for workspace switch restoration
-    if (workspaceSlug) {
-      storage.set(storage.KEYS.workspaceUrl, url.search, workspaceSlug)
-    }
-  }, [store, workspaceSlug, updateCanGoBackForward])
-
-  const syncUrlRef = useRef(syncUrl)
-  useEffect(() => { syncUrlRef.current = syncUrl }, [syncUrl])
-
-  const maybePushHistoryForSemanticChange = useCallback(() => {
-    const currentSemanticKey = getSemanticHistoryKey()
-    if (currentSemanticKey === lastSemanticHistoryKeyRef.current) return
-
-    syncUrlRef.current?.(true)
-    lastSemanticHistoryKeyRef.current = currentSemanticKey
-  }, [getSemanticHistoryKey])
-
-  // replaceState sync when the route changes (the push below decides if it is a new entry)
-  const currentRouteForSync = useAtomValue(currentRouteAtom)
-  useEffect(() => {
-    if (!initialRouteRestoredRef.current) return
-    syncUrlRef.current(false)
-  }, [currentRouteForSync])
-
-  // =========================================================================
-  // ATOM SUBSCRIPTIONS FOR pushState (meaningful navigation)
-  // =========================================================================
-
-  // Route changes: push a history entry
-  useEffect(() => {
-    let prevRoute = store.get(currentRouteAtom)
-    const unsub = store.sub(currentRouteAtom, () => {
-      if (suppressPushRef.current || !initialRouteRestoredRef.current) return
-      const route = store.get(currentRouteAtom)
-      if (route !== prevRoute) {
-        if (!pendingPushRef.current) {
-          pendingPushRef.current = true
-          queueMicrotask(() => { pendingPushRef.current = false; maybePushHistoryForSemanticChange() })
-        }
-      }
-      prevRoute = route
-    })
-    return unsub
-  }, [store, maybePushHistoryForSemanticChange])
-
-  // =========================================================================
-  // RESTORE THE ROUTE FROM URL PARAMS
-  // =========================================================================
-
-  /**
-   * Parse URL search params and set the open route (`?route=`), resolving the
-   * auto-selection the same way normal navigation does.
-   */
-  const reconcileFromUrlParams = useCallback(
-    (params: URLSearchParams) => {
-      const initialRoute = params.get('route')
-      if (!initialRoute) return
-      const navState = parseRouteToNavigationState(initialRoute)
-      if (!navState) return
-      const route = normalizeRouteForReconcile(initialRoute as ViewRoute, (state) => resolveAutoSelectionRef.current(state))
-      store.set(currentRouteAtom, route)
-    },
-    [store]
+  const [historyPosition, setHistoryPosition] = useState(() =>
+    initialHistoryPosition(router.history.location.state.__TSR_index),
   )
 
-  // Keep ref fresh for use in event handlers / effects that capture stale closures
-  const reconcileFromUrlParamsRef = useRef(reconcileFromUrlParams)
-  useEffect(() => { reconcileFromUrlParamsRef.current = reconcileFromUrlParams }, [reconcileFromUrlParams])
+  useEffect(
+    () =>
+      router.history.subscribe(({ location: next, action }) => {
+        setHistoryPosition((prev) => nextHistoryPosition(prev, action.type, next.state.__TSR_index))
+      }),
+    [router],
+  )
+
+  const canGoBack = positionCanGoBack(historyPosition)
+  const canGoForward = positionCanGoForward(historyPosition)
+
+  const goBack = useCallback(() => {
+    router.history.back()
+  }, [router])
+
+  const goForward = useCallback(() => {
+    router.history.forward()
+  }, [router])
+
 
   // =========================================================================
   // EMPTY SESSION CLEANUP (reactive — covers navigate, close tab, etc.)
@@ -382,80 +301,12 @@ export function NavigationProvider({
   useEffect(() => {
     if (isSessionsNavigation(navigationState) && navigationState.details) {
       setSession({ selected: navigationState.details.sessionId })
-      if (workspaceId) {
-        // Only persist if the session belongs to this workspace (prevents cross-workspace
-        // pollution during workspace switch, when workspaceId changed but navigationState
-        // still reflects the old workspace's view)
-        const meta = store.get(sessionMetaMapAtom).get(navigationState.details.sessionId)
-        if (meta && meta.workspaceId === workspaceId) {
-          storage.set(storage.KEYS.lastSelectedSessionId, navigationState.details.sessionId, workspaceId)
-        }
-      }
     }
-  }, [navigationState, setSession, workspaceId, store])
+  }, [navigationState, workspaceId, setSession])
 
   // =========================================================================
   // HELPERS
   // =========================================================================
-
-  // Helper: Filter sessions by SessionFilter
-  // Always excludes hidden sessions - they should never appear in navigation
-  const filterSessionsByFilter = useCallback(
-    (filter: SessionFilter): SessionMeta[] => {
-      // First filter out hidden sessions - they should never appear in any view
-      const visibleSessions = sessionMetas.filter(
-        s => !s.hidden && (!workspaceId || s.workspaceId === workspaceId)
-      )
-
-      return visibleSessions.filter((session) => {
-        switch (filter.kind) {
-          case 'allSessions':
-            return session.isArchived !== true
-          case 'flagged':
-            return session.isFlagged === true && session.isArchived !== true
-          case 'archived':
-            return session.isArchived === true
-          case 'state':
-            return session.sessionStatus === filter.stateId && session.isArchived !== true
-          case 'label': {
-            if (session.isArchived === true) return false
-            // Shared predicate — descendant-aware and project-scoped, matching
-            // exactly what the session list renders (auto-select must agree).
-            return matchesLabelFilter(session, filter, labelConfigs)
-          }
-          case 'view':
-            if (session.isArchived === true) return false
-            return true
-          default:
-            return false
-        }
-      })
-    },
-    [sessionMetas, workspaceId, labelConfigs]
-  )
-
-  const getFirstSessionId = useCallback(
-    (filter: SessionFilter): string | null => {
-      const filtered = filterSessionsByFilter(filter)
-      return filtered[0]?.id ?? null
-    },
-    [filterSessionsByFilter]
-  )
-
-  const getLastSelectedSessionId = useCallback(
-    (filter: SessionFilter): string | null => {
-      if (!workspaceId) return null
-      const storedId = storage.get<string | null>(
-        storage.KEYS.lastSelectedSessionId,
-        null,
-        workspaceId
-      )
-      if (!storedId) return null
-      const filtered = filterSessionsByFilter(filter)
-      return filtered.some(session => session.id === storedId) ? storedId : null
-    },
-    [workspaceId, filterSessionsByFilter]
-  )
 
   const getFirstSourceSlug = useCallback(
     (filter?: SourceFilter | null): string | null => {
@@ -480,12 +331,13 @@ export function NavigationProvider({
   // =========================================================================
 
   /**
-   * Resolve auto-selection for a NavigationState.
-   * When navigating to a filter without explicit details, auto-select the
-   * first available item. Returns the final state (no side effects).
+   * Resolve auto-selection for a NavigationState. A chat is never auto-selected (the
+   * Chats route is its index); Sources and Skills, which have no index yet, open their
+   * first item. A chat that no longer exists falls back to the index. Returns the
+   * final state (no side effects).
    */
   const resolveAutoSelection = useCallback(
-    (newState: NavigationState, options?: { skipAutoSelect?: boolean }): NavigationState => {
+    (newState: NavigationState): NavigationState => {
       let nextState = newState
 
       // Validate session exists in current workspace (local or remote ID)
@@ -500,22 +352,8 @@ export function NavigationProvider({
         }
       }
 
-      // Sessions: auto-select last/first session.
-      if (
-        isSessionsNavigation(nextState) &&
-        !nextState.details &&
-        !options?.skipAutoSelect
-      ) {
-        const lastSelectedSessionId = getLastSelectedSessionId(nextState.filter)
-        const fallbackSessionId = lastSelectedSessionId ?? getFirstSessionId(nextState.filter)
-        if (fallbackSessionId) {
-          return { ...nextState, details: { type: 'session', sessionId: fallbackSessionId } }
-        }
-        return nextState
-      }
-
       // Sources: auto-select first source
-      if (isSourcesNavigation(nextState) && !nextState.details && !options?.skipAutoSelect) {
+      if (isSourcesNavigation(nextState) && !nextState.details) {
         const firstSourceSlug = getFirstSourceSlug(nextState.filter)
         if (firstSourceSlug) {
           return { ...nextState, details: { type: 'source', sourceSlug: firstSourceSlug } }
@@ -524,7 +362,7 @@ export function NavigationProvider({
       }
 
       // Skills: auto-select first skill
-      if (isSkillsNavigation(nextState) && !nextState.details && !options?.skipAutoSelect) {
+      if (isSkillsNavigation(nextState) && !nextState.details) {
         const firstSkillSlug = getFirstSkillSlug()
         if (firstSkillSlug) {
           return { ...nextState, details: { type: 'skill', skillSlug: firstSkillSlug } }
@@ -534,12 +372,48 @@ export function NavigationProvider({
 
       return nextState
     },
-    [store, workspaceId, remoteWorkspaceId, getLastSelectedSessionId, getFirstSessionId, getFirstSourceSlug, getFirstSkillSlug]
+    [store, workspaceId, remoteWorkspaceId, getFirstSourceSlug, getFirstSkillSlug]
   )
 
-  // Ref keeps resolveAutoSelection fresh for reconcileFromUrlParams (defined earlier in the file)
-  const resolveAutoSelectionRef = useRef(resolveAutoSelection)
-  useEffect(() => { resolveAutoSelectionRef.current = resolveAutoSelection }, [resolveAutoSelection])
+  // =========================================================================
+  // OPEN A ROUTE (route string -> URL -> router)
+  // =========================================================================
+
+  /**
+   * Open a view route in a workspace: push the URL (replace it for a redirect). False when the route
+   * has no URL. Nothing happens when that is already the open view.
+   */
+  const openRouteIn = useCallback(
+    (route: string, slug: string, opts?: NavigateOptions): boolean => {
+      const next = routeStringToLocation(route, slug)
+      if (!next) return false
+      // The history knows a push before the router's state does, so read the history
+      const { pathname, search } = router.history.location
+      const open = locationToRouteString(pathname, parseSearch(search))
+      if (open?.routeString === route && open.workspaceSlug === slug) return true
+      void router.navigate({ to: next.pathname, search: next.search, replace: opts?.replace })
+      return true
+    },
+    [router],
+  )
+
+  /** Open a view route in the workspace the URL names (the active one when it names none). */
+  const openRoute = useCallback(
+    (route: string, opts?: NavigateOptions): boolean => {
+      const slug = workspaceSlugFromPathname(router.history.location.pathname) ?? workspaceSlug
+      return slug ? openRouteIn(route, slug, opts) : false
+    },
+    [router, workspaceSlug, openRouteIn],
+  )
+
+  // Sources and Skills have no index yet: opening their list root (a URL typed or restored, or
+  // before the lists loaded) opens the first item, as navigate() does.
+  useEffect(() => {
+    if (!isReady || (workspaceSlug && urlSlug !== workspaceSlug)) return
+    if (!(isSourcesNavigation(navigationState) || isSkillsNavigation(navigationState)) || navigationState.details) return
+    const resolved = resolveAutoSelection(navigationState)
+    if (resolved !== navigationState) openRoute(buildRouteFromNavigationState(resolved), { replace: true })
+  }, [isReady, workspaceSlug, urlSlug, navigationState, resolveAutoSelection, openRoute])
 
   // =========================================================================
   // ACTION NAVIGATION
@@ -608,7 +482,7 @@ export function NavigationProvider({
             filter,
             details: { type: 'session', sessionId: session.id },
           }
-          store.set(currentRouteAtom, buildRouteFromNavigationState(newState) as ViewRoute)
+          openRoute(buildRouteFromNavigationState(newState))
 
           // Parse badges from params
           let badges: ContentBadge[] | undefined
@@ -706,20 +580,19 @@ export function NavigationProvider({
           console.warn('[Navigation] Unknown action:', parsed.name)
       }
     },
-    [workspaceId, onCreateSession, onInputChange, store, updateSessionMeta]
+    [workspaceId, onCreateSession, onInputChange, openRoute, updateSessionMeta]
   )
 
   // =========================================================================
   // NAVIGATE
   // =========================================================================
 
-  const navigate = useCallback(
-    async (route: Route, options?: NavigateOptions) => {
-      // Reset auto-select suppression on any normal navigation
-      if (!options?.skipAutoSelect) {
-        suppressAutoSelectRef.current = false
-      }
+  // A navigation that cannot run yet (the app is not ready, or the workspace slug is not known):
+  // the last one waits.
+  const pendingNavigationRef = useRef<{ route: Route; opts?: NavigateOptions } | null>(null)
 
+  const navigate = useCallback(
+    async (route: Route, opts?: NavigateOptions) => {
       const parsed = parseRoute(route)
       if (!parsed) {
         console.warn('[Navigation] Invalid route:', route)
@@ -727,7 +600,7 @@ export function NavigationProvider({
       }
 
       if (!isReady) {
-        pendingNavigationRef.current = parsed
+        pendingNavigationRef.current = { route, opts }
         return
       }
 
@@ -737,213 +610,66 @@ export function NavigationProvider({
         return
       }
 
-      // Parse route to NavigationState. Bare `settings` produces `subpage: null` —
-      // navigator-only view in compact mode, App-page fallback on desktop. We
-      // intentionally do NOT auto-redirect to the last-visited subpage; doing so
-      // would defeat the compact-mode drill-in UX.
+      // Parse route to NavigationState. Bare `settings` produces `subpage: null`:
+      // the Settings index. It never redirects to a subpage.
       const newNavState = parseRouteToNavigationState(route)
 
-      // Suppress auto-select effect
-      if (options?.skipAutoSelect) {
-        suppressAutoSelectRef.current = true
-      }
-
       if (newNavState) {
-        // Resolve auto-selection (pure — no side effects)
-        const resolvedState = resolveAutoSelection(newNavState, options)
-        const finalRoute = buildRouteFromNavigationState(resolvedState) as ViewRoute
-
-        // Persist last selected session for auto-select on next visit
-        if (isSessionsNavigation(resolvedState) && resolvedState.details && workspaceId) {
-          storage.set(storage.KEYS.lastSelectedSessionId, resolvedState.details.sessionId, workspaceId)
-        }
-
-        // Open the route (the atom update is synchronous; its subscription pushes the history entry)
-        store.set(currentRouteAtom, finalRoute)
+        // Resolve auto-selection (pure — no side effects), then open its URL
+        const finalRoute = buildRouteFromNavigationState(resolveAutoSelection(newNavState))
+        if (!openRoute(finalRoute, opts)) pendingNavigationRef.current = { route, opts }
       }
     },
-    [isReady, handleActionNavigation, resolveAutoSelection, store, workspaceId]
+    [isReady, handleActionNavigation, resolveAutoSelection, openRoute]
   )
 
-  // =========================================================================
-  // BACK / FORWARD (browser history)
-  // =========================================================================
-
-  const goBack = useCallback(() => {
-    history.back()
-  }, [])
-
-  const goForward = useCallback(() => {
-    history.forward()
-  }, [])
+  useEffect(() => {
+    const pending = pendingNavigationRef.current
+    if (!pending || !isReady || !(urlSlug ?? workspaceSlug)) return
+    pendingNavigationRef.current = null
+    void navigate(pending.route, pending.opts)
+  }, [isReady, urlSlug, workspaceSlug, navigate])
 
   // =========================================================================
-  // POPSTATE HANDLER (browser back/forward)
+  // WORKSPACE (the URL's first segment and the active workspace agree)
   // =========================================================================
+
+  const workspaceSyncRef = useRef<{ url: string | null; active: string | null }>({ url: null, active: null })
+  const requestedSwitchRef = useRef<string | null>(null)
+  const onSwitchWorkspaceBySlugRef = useRef(onSwitchWorkspaceBySlug)
+  useEffect(() => { onSwitchWorkspaceBySlugRef.current = onSwitchWorkspaceBySlug }, [onSwitchWorkspaceBySlug])
 
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      // Update sequence tracking
-      const eventSeq = event.state?.seq ?? 0
-      historySeqRef.current = eventSeq
-      updateCanGoBackForward()
+    if (!isReady || !isSessionsReady || !workspaceId || !workspaceSlug) return
+    const prev = workspaceSyncRef.current
+    workspaceSyncRef.current = { url: urlSlug, active: workspaceSlug }
 
-      // Read state from URL (the browser already navigated to it)
-      const params = new URLSearchParams(window.location.search)
-      const wsSlug = params.get('ws')
-
-      // Check if workspace changed
-      if (wsSlug && wsSlug !== workspaceSlug && onSwitchWorkspaceBySlug) {
-        // Workspace boundary crossed — trigger workspace switch
-        // The workspace switch effect will handle reconciliation
-        isPopstateSwitchRef.current = true
-        onSwitchWorkspaceBySlug(wsSlug)
-        return
-      }
-
-      if (!isSessionsReady) {
-        // Session metadata is not initialized yet; initial restore will reconcile
-        // current URL state once metadata is available.
-        return
-      }
-
-      // Same workspace — open the route from the URL
-      suppressPushRef.current = true
-      reconcileFromUrlParamsRef.current(params)
-      lastSemanticHistoryKeyRef.current = getSemanticHistoryKey()
-      requestAnimationFrame(() => {
-        suppressPushRef.current = false
-      })
-    }
-
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [workspaceSlug, onSwitchWorkspaceBySlug, updateCanGoBackForward, getSemanticHistoryKey, isSessionsReady])
-
-  // =========================================================================
-  // WORKSPACE SWITCH
-  // =========================================================================
-
-  const previousWorkspaceSlugRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!workspaceId || !workspaceSlug || !isSessionsReady) return
-
-    if (previousWorkspaceSlugRef.current === null) {
-      // First mount — initial route restoration handles it
-      previousWorkspaceSlugRef.current = workspaceSlug
+    if (urlSlug === workspaceSlug) {
+      requestedSwitchRef.current = null
+      // The workspace is right but the URL is no view of the app (an unknown section, a bad settings page)
+      if (!currentRoute) openRouteIn(routes.view.allSessions(), workspaceSlug, { replace: true })
       return
     }
 
-    if (previousWorkspaceSlugRef.current === workspaceSlug) return
-    previousWorkspaceSlugRef.current = workspaceSlug
-
-    // Suppress pushState during reconciliation
-    suppressPushRef.current = true
-
-    if (isPopstateSwitchRef.current) {
-      // Popstate-triggered: URL is already correct, just reconcile from it
-      isPopstateSwitchRef.current = false
-      reconcileFromUrlParamsRef.current(new URLSearchParams(window.location.search))
-      lastSemanticHistoryKeyRef.current = getSemanticHistoryKey()
-    } else {
-      // UI-triggered: load stored URL for the new workspace, push history entry
-      const savedSearch = storage.get<string>(storage.KEYS.workspaceUrl, '', workspaceSlug)
-
-      const url = new URL(window.location.href)
-      if (savedSearch) {
-        // Replace all params with the saved workspace's URL
-        url.search = savedSearch
-      } else {
-        // No saved state — default to allSessions
-        for (const key of [...url.searchParams.keys()]) {
-          url.searchParams.delete(key)
-        }
-        url.searchParams.set('ws', workspaceSlug)
-        url.searchParams.set('route', 'allSessions')
-      }
-
-      // Push a new history entry for the workspace switch
-      const seq = nextHistorySeqRef.current++
-      history.pushState({ seq }, '', url.toString())
-      historySeqRef.current = seq
-      historyMaxSeqRef.current = seq
-      updateCanGoBackForward()
-
-      // Open the new workspace's route
-      reconcileFromUrlParamsRef.current(new URLSearchParams(url.search))
-      lastSemanticHistoryKeyRef.current = getSemanticHistoryKey()
+    // The active workspace changed (the switcher): the URL follows
+    if (prev.active !== null && prev.active !== workspaceSlug && prev.url === urlSlug) {
+      openRouteIn(workspaceSwitchRoute(navigationState), workspaceSlug)
+      return
     }
 
-    initialRouteRestoredRef.current = true
-
-    requestAnimationFrame(() => {
-      suppressPushRef.current = false
-      lastSemanticHistoryKeyRef.current = getSemanticHistoryKey()
-    })
-  }, [workspaceId, workspaceSlug, store, updateCanGoBackForward, getSemanticHistoryKey, isSessionsReady])
-
-  // =========================================================================
-  // INITIAL ROUTE RESTORATION (CMD+R reload)
-  // =========================================================================
-
-  useEffect(() => {
-    if (!canRunInitialRestore({
-      isReady,
-      isSessionsReady,
-      workspaceId,
-      initialRouteRestored: initialRouteRestoredRef.current,
-    })) return
-    initialRouteRestoredRef.current = true
-
-    // Suppress pushState during initial restoration
-    suppressPushRef.current = true
-
-    const params = new URLSearchParams(window.location.search)
-
-    // Open the route from the current URL
-    reconcileFromUrlParamsRef.current(params)
-    lastSemanticHistoryKeyRef.current = getSemanticHistoryKey()
-
-    // If nothing was in the URL, navigate to default
-    if (!params.get('route')) {
-      navigate(routes.view.allSessions())
-    }
-
-    // Initialize history with seq=0 (replaceState so we don't create an extra entry)
-    history.replaceState({ seq: 0 }, '', window.location.href)
-    historySeqRef.current = 0
-    historyMaxSeqRef.current = 0
-
-    requestAnimationFrame(() => {
-      suppressPushRef.current = false
-      lastSemanticHistoryKeyRef.current = getSemanticHistoryKey()
-    })
-  }, [isReady, isSessionsReady, workspaceId, navigate, store, getSemanticHistoryKey])
-
-  // =========================================================================
-  // PENDING NAVIGATION
-  // =========================================================================
-
-  useEffect(() => {
-    if (isReady && pendingNavigationRef.current) {
-      const pending = pendingNavigationRef.current
-      pendingNavigationRef.current = null
-
-      if (pending.type === 'action') {
-        handleActionNavigation(pending)
+    // The URL names another workspace (a back step, a pasted link, a restored window): switch to it
+    if (urlSlug) {
+      if (requestedSwitchRef.current === urlSlug) return
+      if (onSwitchWorkspaceBySlugRef.current?.(urlSlug)) {
+        requestedSwitchRef.current = urlSlug
         return
       }
-
-      const routeStr = `${pending.name}${pending.id ? `/${pending.id}` : ''}`
-      const navState = parseRouteToNavigationState(routeStr)
-      if (navState) {
-        const resolved = resolveAutoSelection(navState)
-        const finalRoute = buildRouteFromNavigationState(resolved) as ViewRoute
-        store.set(currentRouteAtom, finalRoute)
-      }
     }
-  }, [isReady, handleActionNavigation, resolveAutoSelection, store])
+
+    // The URL names no workspace (`/`, an unknown slug): this one's Chats
+    requestedSwitchRef.current = null
+    openRouteIn(routes.view.allSessions(), workspaceSlug, { replace: true })
+  }, [isReady, isSessionsReady, workspaceId, workspaceSlug, urlSlug, currentRoute, navigationState, openRouteIn])
 
   // =========================================================================
   // DEEP LINK LISTENER
@@ -991,11 +717,8 @@ export function NavigationProvider({
 
   useEffect(() => {
     const handleNavigateEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<{ route: Route } & NavigateOptions>
-      if (customEvent.detail?.route) {
-        const { route: r, ...options } = customEvent.detail
-        navigate(r, options)
-      }
+      const customEvent = event as CustomEvent<{ route: Route }>
+      if (customEvent.detail?.route) navigate(customEvent.detail.route)
     }
 
     window.addEventListener(NAVIGATE_EVENT, handleNavigateEvent)
@@ -1031,74 +754,44 @@ export function NavigationProvider({
       return
     }
 
-    const filter = navigationState.filter
-    switch (filter.kind) {
-      case 'allSessions':
-        navigate(routes.view.allSessions(sessionId))
-        break
-      case 'flagged':
-        navigate(routes.view.flagged(sessionId))
-        break
-      case 'archived':
-        navigate(routes.view.archived(sessionId))
-        break
-      case 'state':
-        navigate(routes.view.state(filter.stateId, sessionId))
-        break
-      case 'label':
-        navigate(routes.view.label(filter.labelId, sessionId))
-        break
-      case 'view':
-        navigate(routes.view.view(filter.viewId, sessionId))
-        break
-      default:
-        navigate(routes.view.allSessions(sessionId))
+    // The chat opens under the filters the index was showing
+    const { filter, filters } = navigationState
+    if (filter.kind === 'view') {
+      navigate(routes.view.view(filter.viewId, sessionId))
+    } else {
+      navigate(routes.view.allSessions(sessionId, filters ?? chatFiltersFromSessionFilter(filter)))
     }
   }, [navigationState, navigate])
 
   // =========================================================================
-  // LIST NAVIGATION (previous / next in the sidebar's list)
+  // LIST NAVIGATION (previous / next in the index the page was opened from)
   // =========================================================================
 
   const sessionListOrder = useAtomValue(sessionListOrderAtom)
   const listNav = useMemo<ListNavigation | null>(() => {
-    if (!isSessionsNavigation(navigationState) || !navigationState.details) return null
-    const index = sessionListOrder.indexOf(navigationState.details.sessionId)
+    // The list the open page is an item of: the Chats index's table as it shows it, or
+    // the settings pages in the Settings index's order (a fixed list).
+    let order: readonly string[] = []
+    let current: string | null = null
+    let open: (id: string) => void = () => {}
+    if (isSessionsNavigation(navigationState) && navigationState.details) {
+      order = sessionListOrder
+      current = navigationState.details.sessionId
+      open = navigateToSession
+    } else if (isSettingsNavigation(navigationState)) {
+      order = SETTINGS_NAV_ORDER
+      current = navigationState.subpage
+      open = (id) => navigate(routes.view.settings(id as SettingsSubpage))
+    }
+    const index = current === null ? -1 : order.indexOf(current)
     if (index === -1) return null
     return {
       hasPrev: index > 0,
-      hasNext: index < sessionListOrder.length - 1,
-      goPrev: () => { if (index > 0) navigateToSession(sessionListOrder[index - 1]) },
-      goNext: () => { if (index < sessionListOrder.length - 1) navigateToSession(sessionListOrder[index + 1]) },
+      hasNext: index < order.length - 1,
+      goPrev: () => { if (index > 0) open(order[index - 1]) },
+      goNext: () => { if (index < order.length - 1) open(order[index + 1]) },
     }
-  }, [navigationState, sessionListOrder, navigateToSession])
-
-  // =========================================================================
-  // AUTO-SELECT ON SESSION LOAD
-  // =========================================================================
-
-  useEffect(() => {
-    if (suppressAutoSelectRef.current) return
-    if (!isReady || !workspaceId) return
-    // Don't auto-select before a route is open
-    if (store.get(currentRouteAtom) === null) return
-    // Scoped to sessions with no explicit detail. resolveAutoSelection owns the
-    // selection decision (last/first fallback) so it lives in one
-    // place; this effect just applies it when the session list loads after
-    // navigation (workspace switch, lazy session load, etc.).
-    if (!isSessionsNavigation(navigationState) || navigationState.details) return
-
-    const resolved = resolveAutoSelection(navigationState)
-    if (isSessionsNavigation(resolved) && resolved.details) {
-      navigateToSession(resolved.details.sessionId)
-    }
-  }, [
-    isReady,
-    workspaceId,
-    navigationState,
-    resolveAutoSelection,
-    navigateToSession,
-  ])
+  }, [navigationState, sessionListOrder, navigateToSession, navigate])
 
   // =========================================================================
   // CONTEXT VALUE

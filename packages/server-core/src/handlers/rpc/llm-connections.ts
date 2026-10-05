@@ -1,6 +1,7 @@
 import { RPC_CHANNELS, type LlmConnectionSetup } from '@otto/shared/protocol'
 import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, touchLlmConnection, isCompatProvider, isAnthropicProvider, getDefaultModelsForConnection, getDefaultModelForConnection, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
 import { getCredentialManager } from '@otto/shared/credentials'
+import { BACKEND_NAME } from '@otto/shared/branding'
 import { setSetupDeferred } from '@otto/shared/config/storage'
 import {
   resolveSetupTestConnectionHint,
@@ -151,10 +152,10 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       // Skip when custom endpoint protocol is driving routing.
       if (setup.piAuthProvider && !isCustomEndpointCompat) {
         updates.piAuthProvider = setup.piAuthProvider
-        // Update connection name to show the actual provider (e.g. "Otto Backend (Google AI Studio)")
+        // Update connection name to show the actual provider (e.g. "<backend> (Google AI Studio)")
         const providerName = piAuthProviderDisplayName(setup.piAuthProvider)
         if (providerName) {
-          updates.name = `Otto Backend (${providerName})`
+          updates.name = `${BACKEND_NAME} (${providerName})`
         }
         // Only set default models when using standard Pi provider AND user didn't pick explicit models
         if (!hasConfiguredBaseUrl && !setup.models?.length) {

@@ -9,8 +9,7 @@
  *   SettingsSection,
  *   SettingsCard,
  *   SettingsToggle,
- *   SettingsRadioGroup,
- *   SettingsRadioCard,
+ *   SettingsSegmentedControl,
  * } from '@/components/settings'
  */
 
@@ -41,21 +40,9 @@ export {
 
 // Selection
 export {
-  SettingsRadioGroup,
-  SettingsRadioCard,
-  SettingsRadioOption,
-  type SettingsRadioGroupProps,
-  type SettingsRadioCardProps,
-  type SettingsRadioOptionProps,
-} from './settings-radio-group'
-
-export {
   SettingsSegmentedControl,
-  SettingsSegmentedControlCard,
   type SettingsSegmentedControlProps,
   type SettingsSegmentedOption,
-  type SettingsSegmentedControlCardProps,
-  type SettingsSegmentedCardOption,
 } from './settings-segmented-control'
 
 export {

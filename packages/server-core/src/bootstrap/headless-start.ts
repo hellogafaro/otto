@@ -4,6 +4,7 @@ import { uptime as osUptime } from 'node:os'
 import { join, basename } from 'node:path'
 import { lockHolderMatchesLock, parseTasklistImageName, type LockIdentity } from './lock-identity.ts'
 import { OAuthFlowStore } from '@otto/shared/auth'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 import { ensureConfigDir, loadStoredConfig, saveConfig } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { setBundledAssetsRoot } from '@otto/shared/utils'
@@ -421,7 +422,7 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
 
   modelRefreshService.startAll()
 
-  platform.logger.info(`Otto server listening on ${wsServer.protocol}://${rpcHost}:${wsServer.port}`)
+  platform.logger.info(`${PRODUCT_NAME} server listening on ${wsServer.protocol}://${rpcHost}:${wsServer.port}`)
 
   let stopped = false
   const stop = async (): Promise<void> => {

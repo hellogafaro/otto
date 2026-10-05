@@ -10,7 +10,7 @@ import { PageColumn } from '@workspace/ui/components/page'
 import { SettingsSection, SettingsCard, SettingsRow } from '@/components/settings'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import { isMac } from '@/lib/platform'
-import { actionsByCategory, useActionLabel, type ActionId } from '@/actions'
+import { actionsByCategory, JUMP_ACTION_IDS, useActionLabel, type ActionId } from '@/actions'
 import { Kbd } from '@/components/ui/kbd'
 
 export const meta: DetailsPageMeta = {
@@ -65,14 +65,12 @@ function useComponentSpecificSections(): ShortcutSection[] {
 // Map action IDs to i18n keys for translated labels
 const ACTION_LABEL_KEYS: Partial<Record<ActionId, string>> = {
   'app.newChat': 'shortcuts.action.newChat',
+  'app.commandPalette': 'shortcuts.action.commandPalette',
   'app.settings': 'shortcuts.action.settings',
   'app.toggleTheme': 'shortcuts.action.toggleTheme',
-  'app.search': 'shortcuts.action.search',
   'app.keyboardShortcuts': 'shortcuts.action.keyboardShortcuts',
   'app.quit': 'shortcuts.action.quit',
-  'nav.focusSidebar': 'shortcuts.action.focusSidebar',
-  'nav.focusNavigator': 'shortcuts.action.focusNavigator',
-  'nav.focusChat': 'shortcuts.action.focusChat',
+  'nav.jumpTo1': 'shortcuts.action.jumpTo',
   'nav.nextZone': 'shortcuts.action.focusNextZone',
   'nav.goBack': 'shortcuts.action.goBack',
   'nav.goForward': 'shortcuts.action.goForward',
@@ -86,6 +84,8 @@ const ACTION_LABEL_KEYS: Partial<Record<ActionId, string>> = {
   'chat.prevSearchMatch': 'shortcuts.action.prevSearchMatch',
 }
 
+const JUMP_REST = new Set<string>(JUMP_ACTION_IDS.slice(1))
+
 function ActionShortcutRow({ actionId }: { actionId: ActionId }) {
   const { t } = useTranslation()
   const { label, hotkey } = useActionLabel(actionId)
@@ -98,6 +98,8 @@ function ActionShortcutRow({ actionId }: { actionId: ActionId }) {
   const keys = isMac
     ? hotkey.match(/[⌘⇧⌥←→]|Tab|Esc|./g) || []
     : hotkey.split('+')
+  // The nine jump keys are one row: the modifier and 1–9.
+  if (actionId === 'nav.jumpTo1') keys[keys.length - 1] = '1–9'
 
   return (
     <SettingsRow label={ACTION_LABEL_KEYS[actionId] ? t(ACTION_LABEL_KEYS[actionId]!) : label}>
@@ -120,7 +122,7 @@ export default function ShortcutsPage() {
             {Object.entries(actionsByCategory).map(([category, actions]) => (
               <SettingsSection key={category} title={t(`shortcuts.category.${category.toLowerCase()}`)}>
                 <SettingsCard>
-                  {actions.map(action => (
+                  {actions.filter(action => !JUMP_REST.has(action.id)).map(action => (
                     <ActionShortcutRow key={action.id} actionId={action.id as ActionId} />
                   ))}
                 </SettingsCard>

@@ -193,7 +193,7 @@ export function ServerDirectoryBrowser({
           placeholder={t("common.enterPath")}
           className="flex-1 font-mono text-xs"
         />
-        <Button variant="outline" size="sm" onClick={handlePathSubmit} disabled={loading}>
+        <Button variant="outline" size="compact" onClick={handlePathSubmit} disabled={loading}>
           Go
         </Button>
       </div>

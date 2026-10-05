@@ -12,6 +12,7 @@ import { Maximize2 } from 'lucide-react'
 import { Markdown } from '@/components/markdown'
 import { DocumentFormattedMarkdownOverlay } from '@otto/ui'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 export interface Info_MarkdownProps {
   /** Markdown content */
@@ -53,19 +54,15 @@ export function Info_Markdown({
       >
         {/* Fullscreen button - visible on hover, positioned top-right */}
         {fullscreen && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-compact"
             onClick={() => setIsFullscreen(true)}
-            className={cn(
-              'absolute top-2 right-2 p-1 rounded-sm transition-all z-10',
-              'opacity-0 group-hover:opacity-100',
-              'bg-card shadow-minimal',
-              'text-muted-foreground/50 hover:text-foreground',
-              'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:opacity-100'
-            )}
+            className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             title={t("table.viewFullscreen")}
           >
-            <Maximize2 className="w-3.5 h-3.5" />
-          </button>
+            <Maximize2 />
+          </Button>
         )}
 
         <Markdown mode={mode}>{children}</Markdown>

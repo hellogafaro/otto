@@ -80,17 +80,15 @@ function MessageScrollerItem({
   );
 }
 
-// Otto: solid in dark mode too (the outline button's dark fill is 30% clear,
-// so text showed through), on the card color like the composer beside it (a
-// layer above the page), and lifted with the menus' shadow, as it floats
-// over messages. 8px from the edge (not 16), so it stays with the composer.
+// Otto: the outline button (solid card color, so text never shows through),
+// lifted with the menus' shadow as it floats over messages. 8px from the edge (not 16), so it stays with the composer.
 function MessageScrollerButton({
   direction = "end",
   className,
   children,
   render,
-  variant = "secondary",
-  size = "icon-sm",
+  variant = "outline",
+  size = "icon",
   ...props
 }: React.ComponentProps<typeof MessageScrollerPrimitive.Button> &
   Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
@@ -102,7 +100,7 @@ function MessageScrollerButton({
       data-size={size}
       direction={direction}
       className={cn(
-        "absolute inset-s-1/2 -translate-x-1/2 border-border bg-card text-foreground shadow-md transition-[translate,scale,opacity] duration-200 hover:bg-muted hover:text-foreground dark:bg-card dark:hover:bg-muted data-[active=false]:pointer-events-none data-[active=false]:scale-95 data-[active=false]:opacity-0 data-[active=false]:duration-400 data-[active=false]:ease-[cubic-bezier(0.7,0,0.84,0)] data-[active=true]:translate-y-0 data-[active=true]:scale-100 data-[active=true]:opacity-100 data-[active=true]:ease-[cubic-bezier(0.23,1,0.32,1)] data-[direction=end]:bottom-2 data-[direction=end]:data-[active=false]:translate-y-full data-[direction=start]:top-2 data-[direction=start]:data-[active=false]:-translate-y-full rtl:translate-x-1/2 data-[direction=start]:[&_svg]:rotate-180",
+        "absolute inset-s-1/2 -translate-x-1/2 shadow-md transition-[translate,scale,opacity] duration-200 data-[active=false]:pointer-events-none data-[active=false]:scale-95 data-[active=false]:opacity-0 data-[active=false]:duration-400 data-[active=false]:ease-[cubic-bezier(0.7,0,0.84,0)] data-[active=true]:translate-y-0 data-[active=true]:scale-100 data-[active=true]:opacity-100 data-[active=true]:ease-[cubic-bezier(0.23,1,0.32,1)] data-[direction=end]:bottom-2 data-[direction=end]:data-[active=false]:translate-y-full data-[direction=start]:top-2 data-[direction=start]:data-[active=false]:-translate-y-full rtl:translate-x-1/2 data-[direction=start]:[&_svg]:rotate-180",
         className,
       )}
       render={render ?? <Button variant={variant} size={size} />}

@@ -139,7 +139,7 @@ function SessionInfoPopoverContent({ sessionId, sessionFolderPath }: { sessionId
         <label className="text-xs font-medium text-muted-foreground block mb-1.5 select-none">
           {t("chat.title")}
         </label>
-        <div className="rounded-lg bg-input/50 has-[:focus]:bg-background shadow-minimal transition-colors">
+        <div className="rounded-lg bg-input/50">
           <Input
             value={name}
             onChange={handleNameChange}

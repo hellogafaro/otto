@@ -43,7 +43,7 @@ function getLiveFxPayload(scenario: Scenario, runState: RunState): { active: boo
 
     return {
       active: true,
-      label: 'Otto are working…',
+      label: 'Agents are working…',
       cursor: cursorByScenario[scenario],
     }
   }

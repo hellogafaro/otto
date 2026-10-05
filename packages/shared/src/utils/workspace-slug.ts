@@ -14,3 +14,15 @@ export function extractWorkspaceSlugFromPath(rootPath: string, fallbackId: strin
   const pathParts = rootPath.split(/[\\/]/).filter(Boolean);
   return pathParts[pathParts.length - 1] || fallbackId;
 }
+
+/**
+ * First URL segments the servers and the app own (`/{slug}/chats` is the app's URL scheme), so a
+ * workspace slug can never be one of them. See docs/routing.md.
+ */
+const RESERVED_WORKSPACE_SLUGS: ReadonlySet<string> = new Set([
+  'assets', 'api', 'ws', 'login', 'login-assets', 'health', 'index.html', 'manifest.json',
+])
+
+export function isReservedWorkspaceSlug(slug: string): boolean {
+  return RESERVED_WORKSPACE_SLUGS.has(slug) || slug.startsWith('favicon.')
+}

@@ -21,20 +21,15 @@ export type { Route }
 // Event name for internal navigation
 export const NAVIGATE_EVENT = 'otto-navigate'
 
-export interface NavigateOptions {
-  /** Skip auto-selecting the first item when navigating to a list view (Back from an item to its list) */
-  skipAutoSelect?: boolean
-}
-
 /**
  * Navigate to a route
  *
  * This dispatches a custom event that the NavigationContext listens for.
  * Can be called from anywhere in the app.
  */
-export function navigate(route: Route, options?: NavigateOptions): void {
+export function navigate(route: Route): void {
   const event = new CustomEvent(NAVIGATE_EVENT, {
-    detail: { route, ...options },
+    detail: { route },
     bubbles: true,
   })
   window.dispatchEvent(event)

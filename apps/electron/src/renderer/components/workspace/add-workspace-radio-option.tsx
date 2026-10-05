@@ -30,7 +30,7 @@ export function AddWorkspace_RadioOption({
   return (
     <label className={cn(
       "flex w-full cursor-pointer items-center gap-3 px-4 py-3 transition-colors",
-      "hover:bg-muted/70 has-[:focus-visible]:bg-muted/70",
+      "hover:bg-foreground/5 active:bg-foreground/10 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-ring",
       disabled && "cursor-not-allowed opacity-50"
     )}>
       <input

@@ -4,6 +4,7 @@ import { Command as CommandPrimitive } from 'cmdk'
 import { Check, Minimize2 } from 'lucide-react'
 import { Icon_Folder } from '@otto/ui'
 import { cn } from '@/lib/utils'
+import { MENU_LABEL, MENU_LIST, MENU_ROW, MENU_ROW_CMDK, MENU_ROW_HIGHLIGHT, MENU_SEPARATOR, MENU_SURFACE } from './menu-styles'
 import { DEFAULT_PERMISSION_MODES, PERMISSION_MODE_CONFIG, PERMISSION_MODE_ORDER, isPermissionMode, type PermissionMode } from '@otto/shared/agent/modes'
 
 // ============================================================================
@@ -114,16 +115,6 @@ export const DEFAULT_SLASH_COMMAND_GROUPS: CommandGroup[] = [
 ]
 
 // ============================================================================
-// Shared Styles
-// ============================================================================
-
-const MENU_CONTAINER_STYLE = 'min-w-[200px] overflow-hidden rounded-md bg-popover text-foreground shadow-modal-small'
-const MENU_LIST_STYLE = 'max-h-[260px] overflow-y-auto py-1'
-const MENU_ITEM_STYLE = 'flex cursor-pointer select-none items-center gap-2 rounded-sm mx-1 px-2 py-1.5 text-[13px]'
-const MENU_ITEM_SELECTED = 'bg-foreground/5'
-const MENU_SECTION_HEADER = 'px-3 py-1.5 mb-0.5 text-[12px] font-medium text-muted-foreground border-b border-foreground/5'
-
-// ============================================================================
 // Shared: Filter utilities
 // ============================================================================
 
@@ -176,11 +167,7 @@ function CommandItemContent({ command, isActive }: { command: SlashCommand; isAc
     <>
       <div className="shrink-0 text-muted-foreground">{command.icon}</div>
       <div className="flex-1 min-w-0">{label}</div>
-      {isActive && (
-        <div className="shrink-0 h-4 w-4 rounded-full bg-current flex items-center justify-center">
-          <Check className="h-2.5 w-2.5 text-white dark:text-black" strokeWidth={3} />
-        </div>
-      )}
+      {isActive && <Check className="shrink-0" />}
     </>
   )
 }
@@ -260,11 +247,7 @@ export function SlashCommandMenu({
         value={cmd.id}
         onSelect={() => onSelect(cmd.id)}
         data-tutorial={`permission-mode-${cmd.id}`}
-        className={cn(
-          MENU_ITEM_STYLE,
-          'outline-none',
-          'data-[selected=true]:bg-foreground/5'
-        )}
+        className={MENU_ROW_CMDK}
       >
         <CommandItemContent command={cmd} isActive={isActive} />
       </CommandPrimitive.Item>
@@ -273,12 +256,12 @@ export function SlashCommandMenu({
 
   return (
     <CommandPrimitive
-      className={cn(MENU_CONTAINER_STYLE, className)}
+      className={cn('relative min-w-[200px]', MENU_SURFACE, className)}
       shouldFilter={false}
       defaultValue={defaultValue}
     >
       {showFilter && (
-        <div className="border-b border-border/50 px-3 py-2">
+        <div className="px-2 py-1.5">
           <CommandPrimitive.Input
             ref={inputRef}
             value={filter}
@@ -288,9 +271,10 @@ export function SlashCommandMenu({
           />
         </div>
       )}
-      <CommandPrimitive.List className={MENU_LIST_STYLE}>
+      {showFilter && <div className={MENU_SEPARATOR} />}
+      <CommandPrimitive.List className={MENU_LIST}>
         {allFilteredCommands.length === 0 ? (
-          <CommandPrimitive.Empty className="py-4 text-center text-sm text-muted-foreground">
+          <CommandPrimitive.Empty className="py-3 text-center text-sm text-muted-foreground">
             No commands found
           </CommandPrimitive.Empty>
         ) : filteredGroups ? (
@@ -300,7 +284,7 @@ export function SlashCommandMenu({
               {group.commands.map(renderCommandItem)}
               {/* Separator: only show if there's another group after this one */}
               {groupIndex < filteredGroups.length - 1 && (
-                <div className="h-px bg-border/50 my-1 mx-2" />
+                <div className={MENU_SEPARATOR} />
               )}
             </React.Fragment>
           ))
@@ -432,14 +416,14 @@ export function InlineSlashCommand({
     <div
       ref={menuRef}
       data-inline-menu
-      className={cn('fixed z-dropdown', MENU_CONTAINER_STYLE, className)}
+      className={cn('fixed z-dropdown', MENU_SURFACE, className)}
       style={{ left: Math.round(position.x) - 10, bottom: bottomPosition, minWidth: 220, maxWidth: 260 }}
     >
-      <div ref={listRef} className={MENU_LIST_STYLE}>
+      <div ref={listRef} className={MENU_LIST}>
         {filteredSections.map((section, sectionIndex) => (
           <React.Fragment key={section.id}>
             {/* Section header */}
-            <div className={MENU_SECTION_HEADER}>
+            <div className={cn(MENU_LABEL, sectionIndex > 0 && 'mt-1')}>
               {section.label}
             </div>
 
@@ -456,10 +440,7 @@ export function InlineSlashCommand({
                     data-selected={isSelected}
                     onClick={() => handleSelect(item)}
                     onMouseEnter={() => setSelectedIndex(itemIndex)}
-                    className={cn(
-                      MENU_ITEM_STYLE,
-                      isSelected && MENU_ITEM_SELECTED
-                    )}
+                    className={cn(MENU_ROW, isSelected && MENU_ROW_HIGHLIGHT)}
                   >
                     <div className="shrink-0 text-muted-foreground">
                       <Icon_Folder className={MENU_ICON_SIZE} strokeWidth={1.75} />
@@ -479,10 +460,7 @@ export function InlineSlashCommand({
                     data-selected={isSelected}
                     onClick={() => handleSelect(item)}
                     onMouseEnter={() => setSelectedIndex(itemIndex)}
-                    className={cn(
-                      MENU_ITEM_STYLE,
-                      isSelected && MENU_ITEM_SELECTED
-                    )}
+                    className={cn(MENU_ROW, isSelected && MENU_ROW_HIGHLIGHT)}
                   >
                     <CommandItemContent command={item} isActive={isActive} />
                   </div>
@@ -494,8 +472,8 @@ export function InlineSlashCommand({
         ))}
       </div>
       {/* Always-visible footer hint for @ mentions */}
-      <div className="h-px bg-border/50 mx-2" />
-      <div className="px-3 py-2.5 select-none text-xs text-muted-foreground">
+      <div className={MENU_SEPARATOR} />
+      <div className={cn(MENU_LABEL, 'select-none font-normal')}>
         Use @ for skills and files
       </div>
     </div>

@@ -11,7 +11,8 @@ function Tabs({ className, ...props }: TabsPrimitive.Root.Props) {
   )
 }
 
-// Otto: tabs are 32px buttons 4px apart; the open one is filled (secondary).
+// Otto: tabs are 32px buttons (the Button's padding) 4px apart; the open one has the selected fill
+// (`foreground/10`), like every selected item.
 function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
   return (
     <TabsPrimitive.List
@@ -30,7 +31,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-transparent px-2 text-sm font-medium whitespace-nowrap text-muted-foreground transition-all outline-none select-none hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 data-active:bg-secondary data-active:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-transparent px-3 text-sm has-[>svg:first-child:not([data-icon=inline-end]),>[data-icon=inline-start]]:pl-2.5 has-[>svg:last-child:not(:first-child),>[data-icon=inline-end]]:pr-2.5 font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none select-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-active:bg-foreground/10 data-active:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         className
       )}
       {...props}

@@ -785,13 +785,18 @@ export type SessionFilter =
  */
 export type { SettingsSubpage } from './settings-registry'
 import { isValidSettingsSubpage, type SettingsSubpage } from './settings-registry'
+import type { ChatFilters } from './chat-filters'
+export type { ChatFilters }
 
 /**
  * Sessions navigation state
  */
 export interface SessionsNavigationState {
   navigator: 'sessions'
+  /** The single filter older consumers read (the first of `filters`); a `view` filter has no `filters`. */
   filter: SessionFilter
+  /** The Chats index filters, combined (parsed routes always set it; see chat-filters.ts). */
+  filters?: ChatFilters
   details: { type: 'session'; sessionId: string } | null
 }
 
@@ -858,6 +863,13 @@ export interface ProjectsNavigationState {
 }
 
 /**
+ * Tasks navigation state: the Tasks section root, no detail route yet
+ */
+export interface TasksNavigationState {
+  navigator: 'tasks'
+}
+
+/**
  * Pages navigation state
  *
  * Bare `pages` (details: null) shows the full-width library grid — it never
@@ -880,6 +892,7 @@ export type NavigationState =
   | AutomationsNavigationState
   | ProjectsNavigationState
   | PagesNavigationState
+  | TasksNavigationState
 
 export const isSessionsNavigation = (
   state: NavigationState
@@ -908,6 +921,10 @@ export const isProjectsNavigation = (
 export const isPagesNavigation = (
   state: NavigationState
 ): state is PagesNavigationState => state.navigator === 'pages'
+
+export const isTasksNavigation = (
+  state: NavigationState
+): state is TasksNavigationState => state.navigator === 'tasks'
 
 export const DEFAULT_NAVIGATION_STATE: NavigationState = {
   navigator: 'sessions',
@@ -946,6 +963,7 @@ export const getNavigationStateKey = (state: NavigationState): string => {
     }
     return 'pages'
   }
+  if (state.navigator === 'tasks') return 'tasks'
   if (state.navigator === 'settings') {
     if (state.subpage === null) return 'settings'
     return `settings:${state.subpage}`
@@ -1013,6 +1031,9 @@ export const parseNavigationStateKey = (key: string): NavigationState | null => 
     }
     return { navigator: 'pages', details: null }
   }
+
+  // Handle tasks
+  if (key === 'tasks') return { navigator: 'tasks' }
 
   // Handle settings
   if (key === 'settings') return { navigator: 'settings', subpage: null }

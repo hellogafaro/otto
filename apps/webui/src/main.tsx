@@ -1,7 +1,9 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Provider as JotaiProvider } from 'jotai'
+import { RouterProvider } from '@tanstack/react-router'
 import App from './app'
+import { createAppRouter } from '@/router/router'
 import { ThemeProvider } from '@/context/theme-context'
 import { Toaster } from '@/components/ui/sonner'
 import { setupI18n } from '@otto/shared/i18n'
@@ -22,7 +24,7 @@ function CrashFallback() {
       <p className="text-[13px]">{t("errors.pleaseReload")}</p>
       <button
         onClick={() => window.location.reload()}
-        className="mt-2 px-4 py-1.5 rounded-md bg-background shadow-minimal text-[13px] text-foreground/70 cursor-pointer"
+        className="mt-2 px-4 py-1.5 rounded-md bg-background text-[13px] text-foreground/70 cursor-pointer"
       >
         {t("common.reload")}
       </button>
@@ -38,6 +40,7 @@ function ErrorBoundary({ children }: { children: React.ReactNode }) {
   )
 }
 
+// The router's root route: it owns the URL and history above the app (see docs/routing.md).
 function Root() {
   return (
     <ThemeProvider>
@@ -47,6 +50,8 @@ function Root() {
   )
 }
 
+const router = createAppRouter(Root)
+
 const root = document.getElementById('root')!
 const cleanupViewport = installViewportRoot(root)
 if (import.meta.hot) import.meta.hot.dispose(cleanupViewport)
@@ -55,7 +60,7 @@ ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <ErrorBoundary>
       <JotaiProvider>
-        <Root />
+        <RouterProvider router={router} />
       </JotaiProvider>
     </ErrorBoundary>
   </React.StrictMode>,

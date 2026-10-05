@@ -11,6 +11,7 @@ import { type AuthType, getDefaultLlmConnection, getLlmConnection } from '../con
 import { getCredentialManager } from '../credentials/index.ts';
 import { validateAnthropicConnection } from '../config/llm-validation.ts';
 import type { LlmProviderType } from '../config/llm-connections.ts';
+import { BACKEND_NAME } from '../branding.ts';
 import { isAnthropicProvider } from '../config/llm-connections.ts';
 
 export type DiagnosticCode =
@@ -135,7 +136,7 @@ function getProviderLabelFromType(providerType?: LlmProviderType, baseUrl?: stri
     switch (providerType) {
       case 'anthropic': return 'Anthropic';
       case 'pi':
-      case 'pi_compat': return 'Otto Backend';
+      case 'pi_compat': return BACKEND_NAME;
     }
   }
   // Fallback: derive from base URL or default

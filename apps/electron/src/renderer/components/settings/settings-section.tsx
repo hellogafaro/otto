@@ -13,7 +13,7 @@ export interface SettingsSectionProps {
   title: string
   /** Optional description below title (supports ReactNode for inline links) */
   description?: React.ReactNode
-  /** Content - usually SettingsCard or SettingsRadioGroup */
+  /** Content - usually SettingsCard */
   children: React.ReactNode
   /** Additional className */
   className?: string

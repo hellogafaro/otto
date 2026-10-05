@@ -11,11 +11,13 @@ const buttonGroupVariants = cva(
     variants: {
       orientation: {
         // Otto: only the inner edges go square; the outer corners keep each
-        // item's own radius (md at 32px, sm at 28px), never a pill.
+        // item's own radius (md at 32px, sm at 28px), never a pill. A separator
+        // is the only divider between bordered items: the item before it drops
+        // its edge on that side.
         horizontal:
-          "[&>[data-slot]:has(~[data-slot])]:rounded-r-none [&>[data-slot]~[data-slot]]:rounded-l-none [&>[data-slot]~[data-slot]]:border-l-0",
+          "[&>[data-slot]:has(+[data-slot=button-group-separator])]:border-r-0 [&>[data-slot]:has(~[data-slot])]:rounded-r-none [&>[data-slot]~[data-slot]]:rounded-l-none [&>[data-slot]~[data-slot]]:border-l-0",
         vertical:
-          "flex-col [&>[data-slot]:has(~[data-slot])]:rounded-b-none [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0",
+          "flex-col [&>[data-slot]:has(+[data-slot=button-group-separator])]:border-b-0 [&>[data-slot]:has(~[data-slot])]:rounded-b-none [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0",
       },
     },
     defaultVariants: {
@@ -40,7 +42,7 @@ function ButtonGroup({
   )
 }
 
-// Otto: 8px sides and 14px icons, like buttons.
+// Otto: 12px sides and 14px icons, like a button.
 function ButtonGroupText({
   className,
   render,
@@ -51,7 +53,7 @@ function ButtonGroupText({
     props: mergeProps<"div">(
       {
         className: cn(
-          "flex items-center gap-2 rounded-sm border bg-muted px-2 text-sm font-medium shadow-xs [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-3.5",
+          "flex items-center gap-2 rounded-sm border bg-muted px-3 text-sm font-medium shadow-xs [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-3.5",
           className
         ),
       },

@@ -21,6 +21,10 @@ colors:
   muted-dark: "oklch(0.27 0 0)"
   muted-foreground: "oklch(0.556 0 0)"
   muted-foreground-dark: "oklch(0.708 0 0)"
+  fill-hover: "oklch(0.145 0 0 / 5%)"
+  fill-hover-dark: "oklch(0.985 0 0 / 5%)"
+  fill-selected: "oklch(0.145 0 0 / 10%)"
+  fill-selected-dark: "oklch(0.985 0 0 / 10%)"
   primary: "oklch(0.588 0.158 241.966)"
   primary-foreground: "oklch(0.985 0 0)"
   destructive: "oklch(0.577 0.245 27.325)"
@@ -126,30 +130,38 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.md}"
     height: 32px
-    padding: 8px
+    padding: 12px
   button-ghost-hover:
-    backgroundColor: "{colors.muted}"
+    backgroundColor: "{colors.fill-hover}"
+    textColor: "{colors.foreground}"
+  button-ghost-selected:
+    backgroundColor: "{colors.fill-selected}"
     textColor: "{colors.foreground}"
   button-ghost-dark:
     textColor: "{colors.muted-foreground-dark}"
   button-ghost-hover-dark:
-    backgroundColor: "{colors.muted-dark}"
+    backgroundColor: "{colors.fill-hover-dark}"
+    textColor: "{colors.foreground-dark}"
+  button-ghost-selected-dark:
+    backgroundColor: "{colors.fill-selected-dark}"
     textColor: "{colors.foreground-dark}"
   button-primary:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.primary-foreground}"
     rounded: "{rounded.md}"
-    size: 32px
+    height: 32px
+    padding: 12px
   button-icon:
     rounded: "{rounded.md}"
     size: 32px
   button-compact:
     rounded: "{rounded.sm}"
     height: 28px
-    padding: 8px
+    padding: 10px
   button-xs:
     rounded: "{rounded.sm}"
-    size: 24px
+    height: 24px
+    padding: 8px
   command-palette:
     backgroundColor: "{colors.popover-dark}"
     textColor: "{colors.foreground-dark}"
@@ -165,14 +177,20 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.sm}"
     height: 28px
-    padding: 4px
+    padding: 8px
   sidebar-row-hover:
-    backgroundColor: "{colors.muted}"
+    backgroundColor: "{colors.fill-hover}"
+    textColor: "{colors.foreground}"
+  sidebar-row-selected:
+    backgroundColor: "{colors.fill-selected}"
     textColor: "{colors.foreground}"
   sidebar-row-dark:
     textColor: "{colors.muted-foreground-dark}"
   sidebar-row-hover-dark:
-    backgroundColor: "{colors.muted-dark}"
+    backgroundColor: "{colors.fill-hover-dark}"
+    textColor: "{colors.foreground-dark}"
+  sidebar-row-selected-dark:
+    backgroundColor: "{colors.fill-selected-dark}"
     textColor: "{colors.foreground-dark}"
   row-action:
     textColor: "{colors.muted-foreground}"
@@ -203,7 +221,7 @@ components:
     height: 28px
     padding: 4px
   menu-item-highlighted:
-    backgroundColor: "{colors.muted-dark}"
+    backgroundColor: "{colors.fill-selected-dark}"
     textColor: "{colors.foreground-dark}"
   menu-item-destructive:
     textColor: "{colors.destructive-dark}"
@@ -320,16 +338,25 @@ accent, compact 32px controls.
 
 - **Less is more.** Show state clearly and keep controls few. No subtasks, no
   nested comments, no subtitles on data-heavy pages.
-- **AI-first.** Creating and editing go through a sentence to Otto, the
-  orchestrator agent, in the floating chat: "New …" rows prefill the start
+- **AI-first.** Creating and editing go through a sentence to an agent,
+  in the floating chat: "New …" rows prefill the start
   of a sentence ("I spent ") instead of opening forms. Sending starts a chat
   about what is open; it is never a comment. Instant human actions
   stay one click: delete, copy, pick a file, change a property.
 - **Domain words.** The UI names things as the product does: task, project,
-  document, file, schedule, chat. Never resource, library, artifact,
-  asset or automation (the data model is still called Resource). Prompts
-  and placeholders use these words so Otto gets the same meaning the person
+  document, file, routine, chat; the Library is the one place for documents and
+  files. Never resource, artifact, asset, schedule or automation (the data model
+  is still called Resource). Prompts
+  and placeholders use these words so an agent gets the same meaning the person
   sees.
+- **Names.** Never name the agent in copy: write "your agents" or "an agent", or
+  interpolate the name of the agent in context (the chosen one, else the default
+  agent's, `AGENT_DEFAULT_NAME`, only as the fallback), because there are several
+  agents. The product's name comes from `PRODUCT_NAME` (`@otto/shared/branding`),
+  typed nowhere else: i18n strings use `{{product}}`, code and prompts import the
+  constant, and the system prompt's identity, self-reference and co-author trailer
+  take the agent's name as a parameter. Static HTML (`index.html`, `login.html`,
+  `manifest.json`) cannot import it and keeps a literal.
 - **Vanilla shadcn.** Preset `b1VlItvM` (base-luma, Lucide icons). Luma's
   pill radii (the 2xl to 4xl steps) are replaced in each component by the
   tokens below (buttons and inputs `md`, nested ones `sm`, menus `lg`, cards
@@ -353,7 +380,8 @@ The UI is neutral; color carries meaning, never decoration. Use theme tokens
   below AA (4.5:1) for body-size text.
 - **Muted foreground** is the resting color of ghost buttons, sidebar rows,
   section titles and secondary text. **Foreground** is hover, open, pressed,
-  current and content.
+  current and content. The focus `--ring` is `oklch(0.55 0 0)` in light and
+  `oklch(0.556 0 0)` in dark: 3:1 on the white card and on the frame.
 - **Destructive** red is only for destructive menu items (Delete, Log out).
 - **Status** colors follow the task lifecycle and appear only on status icons:
   todo grey, doing purple, review yellow, done green. Lists, menus and number
@@ -370,24 +398,25 @@ never a heavy shadow. L is OKLCH lightness, measured from the rendered page.
 | Layer | Token and classes | Light L | Dark L |
 | --- | --- | --- | --- |
 | 0 Frame: `html`/`body` and the sidebar | `--sidebar` (`bg-sidebar`) | 0.96 | 0.12 |
-| 1 Fill on the frame: sidebar row hover (60%) and open row | `--sidebar-accent` + `ring-foreground/10` when open | 1.0 | 0.22 |
-| 2 Surface on the frame: `PageCard`, `PageCenterpiece`, `Card`, the composer card, the sidecar when it is a card or overlays, the empty-state tile | `--card` + `card-surface` (ring, `shadow-xs`) | 1.0 | 0.19 |
-| 2 Raised control on a surface (`shadow-minimal`) | `--card` + `ring-foreground/10` | 1.0 | 0.19 |
+| 2 Surface on the frame: `PageCard`, `PageCenterpiece`, `Card`, the composer card, the sidecar when it is a card or overlays, the empty-state tile | `--card` + `card-surface` (1px border, `shadow-xs`) | 1.0 | 0.19 |
+| 2 Outline control (`Button outline`) | `--card` + 1px `--card-ring` border, no shadow | 1.0 | 0.19 |
 | 3 Input and nested control well | `--input` at 50% (`bg-input/50`) | 0.96 | 0.27 on a card |
-| 3 Hover and open row fill | `--muted`, `--secondary`, `foreground/5` (hover), `foreground/7-10` (open) | 0.95-0.97 | 0.24-0.27 |
+| State fills (hover, pressed, open, selected) | not a layer: alphas of `foreground`, 5% hover, 10% pressed / open / selected | hover / selected: 0.92 / 0.88 on the frame, 0.96 / 0.91 on a card | 0.16 / 0.20 on the frame, 0.23 / 0.27 on a card |
 | 4 Floating: menu, popover, tooltip, toast | `--popover` at 70%, `dark` class, `shadow-md` | about 0.45 over white | about 0.21 over the page |
 | 5 Dialog | 50% black overlay, then the floating surface | | |
 
 There is no page layer: the page IS the frame (layer 0), and a surface sits on it
 directly. Rules that keep it true: a surface is `bg-card` (raised buttons and
 badges too; popup menus use `bg-popover`), never `bg-background`; a surface never
-contains another surface (siblings on the frame only; see Page anatomy); hover fills are 5% and open fills 7-10% of `foreground`, not
-2-3%; the Craft `shadow-minimal` ring is the same 10% hairline as `ring-foreground/10`.
+contains another surface (siblings on the frame only; see Page anatomy); state fills are alphas of `foreground`
+(hover 5%, selected 10%), never a layer token (`muted`, `secondary`, `sidebar-accent`), so they read the same on the
+frame, on a card and in dark.
 A card's edge is `card-surface` (tokens `--card-ring`, `--card-divider`): in dark the layer step is small (0.12
-to 0.19), so the ring is white 14% (it was 10%, which vanished on the frame).
-There is no inner top highlight: it follows the rounded corners and reads as a
-second line beside the ring. In light the white card on the 0.96 frame keeps
-the 10% ring and `shadow-xs`, which read crisp without a stronger shadow.
+to 0.19), so the border is white 14% over the frame, solid `oklch(0.281 0 0)` (it was 10%,
+which vanished on the frame). There is no inner top highlight: it follows the
+rounded corners and reads as a second line beside the border. In light the white
+card on the 0.96 frame keeps the same weight, solid `oklch(0.87 0 0)`, and
+`shadow-xs`, which read crisp without a stronger shadow.
 
 ## Typography
 
@@ -429,7 +458,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   darkest layer: the sidebar sits directly on it and so does the main region
   (`PageFrame`), the same color, with no card, divider, ring or seam between them.
   What a page puts on the frame is **surfaces** (`PageCard`, `PageCenterpiece`,
-  `bg-card`, hairline ring, `shadow-xs`, `xl` 12 corners), as siblings. Lower is
+  `bg-card`, hairline border, `shadow-xs`, `xl` 12 corners), as siblings. Lower is
   darker (values under Colors).
 - **The page frame** (`PageFrame`, the main region) lays out three tracks, a
   header row and a body (numbers are px at 1x):
@@ -440,12 +469,13 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     nothing is ever wider.
   - **The header row** is 52px, on the frame, above the column, 8px from the top
     of the window (so its title sits at y 18-50), and as wide as the column:
-    its left edge and right edge are the cards' edges, while its content (back
-    button, title, actions) is inset 16px (`PAGE_INSET`, the padding of a row in a
+    its left edge and right edge are the cards' edges, while its content (title,
+    actions) is inset 16px (`PAGE_INSET`, the padding of a row in a
     card) so it lines up with the cards' content. It is pinned (it does not
     scroll away). The body starts at y 60 and ends 8px above the window.
   - **The gutters** are the free space left and right of the column; they hold
-    the floating navigation (left) and the sidecar (right) and do not scroll:
+    the floating navigation (left) and the sidecar (right), both starting at the
+    **content start** (below), and do not scroll:
     only the column's body scrolls (a blocks page as a whole, a centerpiece in
     itself). Frame width is the region right of the sidebar (window - 256, or
     - 48 icons only, or the whole window on a phone).
@@ -454,27 +484,41 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     right track; while the gutter already is wider the column stays centered,
     else it shifts left (the column keeps 768px from a 1280px frame up). Under
     1280px of frame width the sidecar overlays the page instead. The floating
-    navigation needs a left gutter of 56px; narrower it moves into the header row.
+    navigation needs a left gutter of 56px; narrower it moves into the header
+    row's trailing actions.
+  - **The content start** is the top of the first block under the header row: the
+    first section's title row on a blocks page, the first card or the centerpiece
+    when there is no section title (28px under the body's top on blocks, 0 on a
+    centerpiece). Blocks mark themselves (`data-content-start`), `PageFrame`
+    measures the first one and publishes it as `--content-start`. The floating
+    navigation and the docked sidecar both start there, never at the header row.
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
 - **Controls are 32px**: bar buttons and tabs. Task list and
-  command palette rows are 36px. Sidebar rows (2px apart, their group titles too), dropdown, combobox and suggestion
+  command palette rows are 36px. Sidebar rows (28px, 2px apart; their group titles too) are 28px with
+  6px corners, the `compact` control; so are dropdown, combobox and suggestion
   items, dense bars (filter groups, composer pickers) and controls nested in
-  a row (settings) use 28px with 6px corners, the `compact` button; the
-  smallest buttons are 24px (`xs`), like a sidebar row's actions, 2px inside
-  it.
+  a row (settings); the smallest buttons are 24px (`xs`); a sidebar row's
+  actions and key are 20px, 4px inside the row on every side.
 - **Tabs** (`TabBar`, one pattern everywhere: a project's sections, the
-  command palette's categories): 32px buttons 4px apart, the open one filled
-  (secondary), the rest ghost, an optional icon and a count right after the
+  command palette's categories): 32px buttons 4px apart, the open one with the
+  selected fill (`foreground/10`), the rest ghost, an optional icon and a count right after the
   label.
-- **Buttons** pad 8px on both sides, icon or text (6px at `xs`). Icon or
-  avatar to label is 8px everywhere. Buttons in a bar sit 4px apart.
+- **Buttons** pad by their content (table under Components): text 12px at
+  32px (32 x 0.382 = 12.2, 1 / phi squared, on the 4 · 8 · 12 ladder), 10px at 28px,
+  8px at 24px; beside an icon the icon's side takes 10 / 8 / 6px. Icon to
+  label is 8px (6px at 28px, 4px at 24px) everywhere. Buttons in a bar sit 4px apart.
 - **Even insets in rows.** What leads or ends a row (avatar, icon, key,
   check) sits in a 20px slot as far from the side as from the top: 4px in
-  28px sidebar, menu, combobox and suggestion rows. A bare 14px icon gets 3px
-  each side of the slot, so it is 7px from every edge. Labels after a slot
+  28px menu, combobox and suggestion rows. A bare 14px icon gets 3px each side
+  of the slot, so it is 7px from the row's sides. Labels after a slot
   share one column (32px in), and a
-  combobox's search icon and text sit on the items' columns.
+  combobox's search icon and text sit on the items' columns. **The sidebar is
+  the exception** (it is tight, on the frame): a 14px icon, no slot, 8px
+  padding and an 8px gap to the label (8 / 14 is about 1 / φ, a step of the
+  4 · 8 · 12 · 20 ladder), so the icon's left edge is 16px and the label 38px
+  from the sidebar's edge on every row (the group titles start on the icon
+  line, 16px); two vertical lines, whatever the row.
 - **Sidebar** (`Sidebar`, design system). ONE width for every section and
   page: 256px expanded (also the sheet below 768px), 48px as icons only. It
   never changes with the page: no section sets `--sidebar-width`, and 256px is
@@ -496,80 +540,91 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     below them) and Back / Forward end it as two 28px ghost icon buttons with
     their keys in the tooltip (history back and forward, see Navigation). The
     web app has neither: the browser has its own.
-  - **Group 1, Inbox and Search**, only these two (Search opens the Chats
-    search; its `Kbd` in the tooltip).
-  - **Group 2, the pages**, in this order: Tasks, Projects, Chats, Schedules,
-    Documents, Files. Both groups are small arrays in `app-sidebar.tsx`
-    (`inboxSearch`, `pages`: id, icon, label, optional
-    handler). A row with no route yet (Inbox, Tasks, Files) is a placeholder,
+  - **Group 1, Inbox and Search**, only these two: Inbox is a placeholder for
+    now; Search opens the command palette on All (⌘K does the same).
+  - **Group 2, the pages**, in this order: Tasks, Projects, Chats, Routines
+    (`Clock`), Library (`Library`: documents and files in one place). Both groups
+    are small arrays in `app-sidebar.tsx` (`inboxSearch`, `pages`: id, icon, label,
+    optional handler). A row with no route yet (Inbox) is a placeholder,
     shown not linked: no handler, no pointer, no tab stop (`aria-disabled`),
     no open state, and still fully readable (not dimmed); the layout is final.
     There is no New chat row: New chat is the page header's button and ⌘N. Rows are 28px with
-    `sm` 6 corners, 14px icons in a 20px slot, muted at rest, foreground on
-    hover; hover is `--sidebar-accent` at 60%, the open area is `--sidebar-accent`
-    with the hairline ring. Schedules (automations) has its own row; Skills and
-    Sources live under Settings, and opening one keeps Settings filled.
-  - **Group 3, the page's own content** (`SidebarSection`), the only dynamic
-    group: it takes the height that is left and scrolls inside itself (with
-    the edge fade when its content is taller, e.g. an empty state on a short
-    window). It starts with a 28px title row in 12px muted text, the page's
-    name, with the page's own actions at its end (the Chats filter menu, a +
-    to add), then its content on the same 28px, 2px-apart rhythm and the
-    same left edge as groups 1 and 2. Chats: the status and label filters
-    (collapsed to "All Sessions" and "Labels" until opened; the title is
-    "Filters") above the session list, which is the list moved out of its old
-    panel. Both are `SidebarMenuButton` rows: a nested level (statuses, labels)
-    is indented by one icon slot (20px) with no guide line and the count is
-    muted at the end. The statuses reorder by drag; Flagged and Archived are
-    fixed after them, with no divider. A row whose menu (right click or More) is
-    open keeps the open fill (`--sidebar-accent`, no ring). A session row is 28px and one line: its status icon in the
-    slot (a checkbox while several are selected), the title (bright when
-    unread), then only what needs a look (a spinner while it runs, an unread
-    dot, a plan, a pending prompt, the project's color as a 6px dot), the time
-    and, on hover or focus, a 24px More button over the time. A session with
-    labels has them on a second 40px row, a dot and the name. The open session
-    is filled like an open page, with no accent bar or stripe. The list's group
-    labels (a day, a status) are 28px rows in 12px muted text on the same left
-    edge as the title row; a collapsible one shows its chevron on hover and its
-    count when closed. The search field is a 28px, 6px nested control on the
-    rows' edges. Settings: the settings pages, titled "Settings". Sources and
-    Skills (reached from Settings): their list, titled with the page's name.
-    A section that is not built yet (Projects, Schedules, Documents) has no
-    group at all: no title, list or +, no empty gap, the free space sits above
-    the footer. Hidden when icons only.
-  - **Footer** (group 4), pinned at the bottom: Settings, then the workspace row: a 32px `md` avatar in a 40px
-    `xl` row (8 + 4 = 12, nested), the name and an up-down chevron. It opens the
-    profile menu (`ProfileMenu`, 224px, the stock dark menu) upward, or to the
+    `sm` 6 corners, a 14px icon and an 8px gap (see Even insets: no slot),
+    muted at rest, foreground on hover; hover is `foreground/5`, the current
+    row and a row whose menu is open are `foreground/10`: a flat fill, no ring,
+    no shadow, no weight change, so the row never changes width. Only keyboard
+    focus draws a ring, inside the row (rows sit flush with the clipping edge
+    of the sidebar and of its scrolling group, so an outer ring would be cut
+    off on both sides). **A row with a shortcut (a pinned or recent row's number) shows its
+    `Kbd` at the row's end** (`SidebarMenuKbd`: the standard 20px key, muted,
+    absolute over the row, 4px from the top, the right edge and the bottom, so
+    the three are equal; it keeps the key's own `xs` 4 corners, the concentric
+    6 - 4 = 2 would read sharp; no width of its own so nothing shifts). **Keys show
+    only while the reveal key is held, never on hover or focus** (as in Otto v1): ⌘ in the desktop app on macOS,
+    Ctrl in the desktop app elsewhere, Option/Alt in the browser
+    (`useShortcutReveal`, which the sidebar passes to its rows as
+    `data-reveal-shortcuts`; it resets when the window loses focus), and
+    then every row's key fades in (100ms) at once. The row has **no tooltip**: its label is on the row, so
+    a tooltip would repeat it. Icons only the key is hidden and the tooltip shows
+    the label with its `Kbd`; rows without a shortcut show a plain label tooltip
+    then. Expanded and in the sheet no row has a tooltip. Routines (automations) have their own row; Skills and
+    Sources live under Settings, which opens from the workspace menu.
+  - **Group 3, the one dynamic group**: Pinned and Recent (see Pins and recents;
+    `SidebarPinsRecents`, after the pages, none when both are empty), the only
+    thing that scrolls, inside itself with the edge fade. **The sidebar carries no sub-navigation, ever**:
+    no filters, no session list, no settings pages, no skills or sources list. What
+    used to live here is an index page before the detail (see Page anatomy, Index
+    pages). Hidden when icons only.
+  - **Footer** (group 4), pinned at the bottom, **the workspace menu alone** (no Settings row: Settings is
+    in the menu, and ⌘, stays bound by the shell): the workspace row, a
+    standard 28px sidebar row (never taller) with a 20px avatar (`xs` 4) as its
+    icon, an 8px gap, the name in medium and an up-down chevron (14px, muted)
+    at the end. It opens the
+    **workspace menu** (`WorkspaceMenu`, 240px, the stock dark menu) upward, or to the
     right when icons only, where only the avatar shows, with the name in a
-    tooltip; in the sheet it is the same row and menu. In order: a label with
-    the workspace's name; **Workspace**, a submenu (Users icon) that is a radio
-    list of the workspaces (avatar, cloud state, unread dot, a check on the
-    active one, a trash on hover for the others) ending after a separator in
-    "Add Workspace…"; **Settings** with its `Kbd` (the same as the Settings row
-    above, which stays); **Appearance**, a submenu (Contrast icon) with a radio
-    group Light, Dark, System (Sun, Moon, Monitor), the Settings → Appearance
-    mode, applied at once; a separator; and **Log out** (destructive, LogOut
-    icon). Log out is on the web app only: it posts to `/api/auth/logout`, which
-    clears the session cookie, then opens `/login` (a failure toasts "Could not
-    log out"). Electron has no web session, so the item and its separator are
-    absent there. One click, no confirmation.
+    tooltip; in the sheet it is the same row and menu. It is a workspace menu,
+    not a user menu: in order, the **current workspace** as a static block (a 48px
+    row, 8px padding all round, 32px avatar, `md` 8, and its name in medium; no second line, since the folder
+    name only repeats it); a hairline; **Settings** (Settings icon) with its `Kbd` inline;
+    a hairline; the muted **Workspaces** label over the list of workspaces, 28px
+    rows (20px avatar, cloud state, unread dot, a check on the current one, a
+    trash on hover for the others; a disconnected one reopens its reconnect
+    flow), then **New workspace** (Plus icon; the existing add flow); a hairline;
+    the **account**, always shown (the Shopify shape): a 48px item (8px padding
+    all round, 8px gap), transparent at rest and filled `foreground/10` only
+    while highlighted, `md` 8 corners and the 4px menu inset, a 32px tile (`md` 8,
+    `bg-muted`) with the initials of the name, or a User icon when none is set, and
+    two lines, the name (14px medium) over the email (12px, muted, truncating), both
+    from Settings → Preferences (the web session carries neither). A field not set
+    shows its placeholder in muted text, "Your name" and "Add your email", so the
+    block is never absent and plainly editable; nothing is invented and nothing is
+    fetched (no gravatar). The Email field on that page is optional (empty or a basic
+    email shape; an invalid one shows an inline error and is not saved, the last saved one stays). It is a menu item (highlight `foreground/10`): it opens
+    Settings → Preferences; and **Log out**
+    (destructive, LogOut icon). Theme lives in Settings → Appearance, not here. Log out is on the web app
+    only: it posts to `/api/auth/logout`, which clears the session cookie, then
+    opens `/login` (a failure toasts "Could not log out"). Electron has no web
+    session, so the item is absent there (the account block stays). One click, no confirmation.
 - **The page header** (`PageHeaderRow`, drawn by `PageHeader`): the 52px row
-  above the column, on the frame (never inside a surface). Leading slot (the menu
-  button below 768px, Back on a drill-down page), the page title (`PageTitle`,
-  21px medium), a quiet crumb trail, and the page's actions at the right end,
-  all 28px controls on the column's edges. Pages call `PageHeader` and pass no
+  above the column, on the frame (never inside a surface): the page title
+  (`PageTitle`, 21px medium, with its chevron menu and badge where it has them)
+  and the page's actions at the right end, all 28px controls on the column's
+  edges. **The title never has a back button or a breadcrumb**; the only thing
+  before it is the menu button below 768px (the sidebar sheet's opener). Going
+  back and stepping through a list is the floating navigation. Pages call `PageHeader` and pass no
   handlers (see Navigation); it portals its row into the frame's header slot, so
   it can sit anywhere in the page. On Electron the whole top band is a drag
   region and the controls opt out.
 - **The sidecar** (`Sidecar`, undecided: canvas by default, `surface` wraps it in
   a card for testing), closed by default, is for an inspector or details (session
   info, files, a source's details). Docked in the right gutter it is a **canvas**:
-  no background, ring, shadow or corners, 296px wide, 20px from the column, level
-  with the header row; its title is the first subtitle (13px medium, Close a ghost
+  no background, ring, shadow or corners, 296px wide, 20px from the column,
+  starting at the content start (the line the floating navigation starts on, not
+  the header row); its title is the first subtitle (13px medium, Close a ghost
   28px icon at its end) and the blocks under it are quiet: small muted subtitles
   outside any surface, 13px text, flat rows, chips and avatars, bordered controls
   at most, never panels. Taller than the window it scrolls itself with the edge
-  fade. With `surface` the same content is a card (`bg-card`, hairline ring,
+  fade. With `surface` the same content is a card (`bg-card`, hairline border,
   `shadow-xs`, 12px corners, 16px padding, as tall as the column). Under 1280px
   of frame width it overlays the page, and an overlay always has a surface
   (`bg-card`, ring, `shadow-md`, no backdrop; below 768px it spans the width):
@@ -582,13 +637,19 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   its `Kbd`; ⌘N (`app.newChat`, bound by the shell, not the sidebar) does the
   same. There is no floating "+".
 - **Floating navigation** (`FloatingNav`): Superhuman's controls, in the left
-  gutter beside the column, level with the top of the body and 8px from the
-  column: a round 32px Back button and a vertical pill of Previous (up) and Next
-  (down), `bg-card`, hairline ring, `shadow-sm`, 14px icons, a tooltip each. Round
-  on purpose: they float free of rows and bars. They stay put while the center
-  scrolls. Shown on a page opened from a list (a chat) while the left gutter is
-  at least 56px wide; narrower, Back moves into the header's leading slot and
-  Previous / Next into its actions as 28px ghost buttons.
+  gutter beside the column, 8px from it, with their top on the content start (the
+  top of the first section title or, without one, of the first card or
+  centerpiece; not the header row). They are our standard raised icon button
+  (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
+  with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
+  Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
+  1px divider between them, in the buttons' own border color, edge to edge (the
+  group squares only the inner corners; the outer ones stay 8px). Disabled at the
+  ends (dimmed). They stay put while the center scrolls. Every page that has
+  anywhere to go shows them (Back when it has a parent, Previous / Next when it
+  has a list), none otherwise; narrower than a 56px gutter (or below 768px) they
+  move into the header row's trailing actions as 28px ghost icon buttons in the
+  same order (Back, Previous, Next), never leading and never beside the title.
 - **Widths**: the column is 768px for every page, the sidebar 256px on every
   page (48px as icons), the sidecar 296px. A centerpiece is never wider than the
   column.
@@ -623,9 +684,10 @@ no shadow.
   title (heading step 16.5px, medium, outside its card, inset 16px like the
   card's content) with an optional one-line muted body-size description and
   optional actions at the right end of that row, also on the inset ("View all",
-  "Create"), 12px above its `PageCard` (`bg-card`, hairline ring, `shadow-xs`,
+  "Create"), 12px above its `PageCard` (`bg-card`, hairline border, `shadow-xs`,
   `xl` 12). Stat strips and rows in a card are split by hairlines. A section
-  starts 28px under the header row and the last one ends 32px above the window's
+  starts 28px under the header row (the content start, where the floating
+  navigation and the sidecar start too) and the last one ends 32px above the window's
   bottom. `SettingsSection` and `SettingsCard` are `PageSection` and `PageCard`; the
   settings pages are the reference implementation.
 - **Centerpiece** (`PageCenterpiece`: the chat, a document): ONE card as wide as
@@ -633,19 +695,89 @@ no shadow.
   window's bottom), clipped, scrolling inside it with the edge fade. Never wider
   than the column. A toolbar is part of the header row, not a nested card.
   The chat adds a sibling card under it, 8px away: the composer (`bg-card`,
-  hairline ring, `shadow-sm`, `xl` 12, auto height, pinned at the bottom of the
+  hairline border, `shadow-sm`, `xl` 12, auto height, pinned at the bottom of the
   column) whose top row holds the session chips (mode, status, labels, Info) and
   whose body is the input; the composer is not inside the centerpiece. Messages
   are flat: assistant text sits straight on the surface (no bubble, ring or
   shadow), the user message is a muted fill, code blocks are flat muted blocks.
-- **Unbuilt sections** (Projects, Schedules, Documents) show only the empty state
+- **Unbuilt sections** (Tasks, Projects, Routines, Library) show only the empty state
   and its "New …" button until the page is designed: no header row (below 768px
-  the menu button alone, so the sidebar sheet stays reachable), no list, cards or
-  sidebar group 3. The state is the stock `Empty` (`SectionEmpty`) centered both
+  the menu button alone, so the sidebar sheet stays reachable), no list or
+  cards. The state is the stock `Empty` (`SectionEmpty`) centered both
   ways on the frame, not in a card: the section's Lucide icon in the 32px tile
-  (the usual 20px glyph), a heading-size title ("No projects"), one description
-  sentence and one primary 32px button ("New project"), which has no action yet
-  (enabled, no toast). The list and detail pages behind them are not routed.
+  (a 16px glyph, half the tile: CircleCheck, Folder, Clock, Library), a heading-size title, one
+  benefit-led description sentence, and one primary 32px button, which has no
+  action yet (enabled, no toast). The strings are in the table under the
+  Empty-state rules ("Tasks", "Projects", "Routines", "Library"). The list and detail pages behind them are not routed.
+- **Index pages.** Sub-navigation is an index page before the detail, never a
+  sidebar list: a data page of a grouped list or a grid of links that opens the
+  detail. Chats opens on its index (`ChatsIndexPage`: the header's ghost Filter, then
+  the chats grouped by status in one card; it never opens the first chat) and Settings on its index
+  (`SettingsIndexPage`: Account and Workspace as sections of cards, Skills and
+  Sources among the Workspace ones). The sidebar's rows open them; the detail's Back
+  returns to them.
+- **Data patterns.** Three ways to show a set of things, by what it is:
+  1. **Grouped list** (`ListGroup`, `ListRow`; Otto v1's table, Linear's and
+     Codex's pattern) for collections you work through: Chats, Tasks, Routines.
+     - **No toolbar.** The page header carries only 28px ghost icon buttons:
+       Filter (`FilterMenu`), Search (`CommandPaletteButton`: the command palette
+       on the page's category; tooltip "Search" and ⌘K), then "+" / New (Chats:
+       the header's New chat). No search box, no sort or view picker.
+       Active filters show as chips (`FilterBar`) on the frame under the header,
+       12px above the list, ONLY while one is set.
+     - **One card, content-sized.** The groups sit in ONE `PageCard` (`bg-card`,
+       hairline, `xl` 12, clipped) as wide as the column; it grows with its rows
+       and never stretches to the page's bottom (the page scrolls). Inside it
+       nothing is a surface: headers and rows are full-bleed rows, their fills
+       run edge to edge and are clipped by the card's corners; the first header
+       touches the card's top, the last row its bottom. Hairlines
+       (`--card-divider`) only between a group's header and its rows and between
+       groups; none between rows.
+     - **Proportions** (measured on Codex and Linear at 1x: rows 44, group
+       bands 36, metadata chips 24, body 13): body text 13px on its 20px line;
+       a row is 44px = 20 + 12 + 12, a group header 36px = 20 + 8 + 8, a
+       metadata badge 24px = 16 + 4 + 4: the padding steps down the 12 · 8 · 4 of
+       the golden ladder (row ≈ 28 × φ = 45, header ≈ 28 × √φ = 36, both on the
+       4px grid).
+     - **One left line, one grid.** Header and rows take `PAGE_INSET` (16px, the
+       page title's line): the 14px icon column ON that line (the group's icon,
+       the row's status icon or avatar), 8px, then the text at 38px (the group's
+       name, the row's title), so the page title, the icons and the texts line up.
+     - **Group header**: 36px, a `foreground/5` fill edge to edge, the whole row
+       toggles the group (Enter or Space): the group's icon, its name (medium),
+       its `Count`, then a muted chevron that points right when folded and down
+       when open. An optional 24px ghost action (Chats: "+", a new chat in that
+       status) sits 6px inside the row's end, shown on hover or focus (always on
+       touch). Empty groups are not drawn; a last group such as Archived starts
+       folded (open when Archived is the filter).
+     - **Row**: 44px, the whole row opens the item: icon, title (13px,
+       truncated; a read chat at `foreground/80`, an unread one at full
+       foreground with its blue dot), small marks after the title (working,
+       plan, flagged), then on the right the metadata badges 6px apart (outline
+       `Badge`s, 24px pills: two labels then "+n", then the model; hidden in a
+       column under 448px) and a 12px muted tabular relative time in a 40px
+       right-aligned column, 16px from the end. States are the ghost ones: hover
+       `foreground/5`, current and pressed `foreground/10`, an inset focus ring;
+       a 28px ghost ⋯ (the item's menu) covers the time on hover, focus or while
+       its menu is open (always on touch), 8px from the row's top, end and
+       bottom, and keeps the row highlighted while open.
+     - **Filters** combine: the fields AND together and the values of one field
+       OR together (Status: Todo, Done). They live in the route (Chats:
+       `useChatFilters`, one value as the route-string filter, more as
+       `allSessions?status=…&label=…` in the URL search), and the published
+       Previous / Next order is exactly the list shown.
+  2. **Grid** (`PageGrid`, `GridCard`) for navigation hubs: the Settings index.
+     Under a `PageSection` title, a grid of cards, 12px apart, three columns from
+     640px of column width, two from 400px, one below, equal heights. A card is the
+     standard card (`card-surface`, `bg-card`, `xl` 12, 16px padding) with the
+     page's own icon (the one the sidebar uses) in a 32px `md` `bg-muted` tile at
+     the top left and the TITLE INSIDE, 12px under it (`text-sm`, medium); the
+     whole card is the link, hover steps the fill to `foreground/5`, the current page
+     `foreground/10`, the focus ring is drawn inside. No description unless the page has one.
+  3. **Gallery** (`Gallery`, `GalleryItem`), reserved for Library and Projects and
+     not built yet. Not cards: a tile with its icon and the title UNDER it; the
+     ring darkens on hover; 16:9 covers for projects, 4:5 pages for documents and
+     files (3 columns for projects, 4 for documents and files).
 - **Radii**, one table (inner = outer - gap):
 
 | Surface | Radius | Inside it |
@@ -653,47 +785,126 @@ no shadow.
 | Card, centerpiece, composer, sidecar as card (`xl`) | 12 | Rows full-bleed, no radius; 28px controls |
 | Row in a card, nested control | 28px, `sm` 6 | 24px action, `xs` 4 |
 | Button | 32px, `md` 8 | 14px icon |
-| Sidebar row | 28px, `sm` 6 | 24px action, `xs` 4 |
-| Workspace row | 40px, `xl` 12 | 32px avatar, `md` 8 |
-| Floating navigation, only | round | 14px icon |
+| Sidebar row | 28px, `sm` 6 | 20px action and key, 4px in, `xs` 4 |
+| Workspace row (workspace menu) | 28px, `sm` 6 | 20px avatar, `xs` 4 |
 
 ## Navigation
 
 One history stack, one rule for Back, one place the lists live.
 
-- **History** is the navigation context's own (the URL; every view change
-  pushes an entry). Back and Forward mean history back and forward everywhere:
+- **URLs are real paths; TanStack Router owns the history; route strings are the internal
+  API.** A view is `/{workspace}/chats/{id}`, `/{workspace}/settings/appearance` and so on
+  (the table is in docs/routing.md), the same on the web and in Electron, so a reload, a
+  link and the browser's own buttons all work. The Chats filters live in the URL search and
+  combine: `?status=todo&status=done&label=research&flagged=1`. Code navigates with route
+  strings (`navigate(routes.view.settings('appearance'))`), never with URLs.
+- **History** is the router's (every view change pushes an entry; a redirect replaces
+  one). Back and Forward mean history back and forward everywhere:
   on Electron the two icon buttons in the sidebar header and their keys
   (⌘[ / ⌘] and ⌘← / ⌘→), on the web the browser's own buttons. The web app
   draws none.
-- **Back in the page header** is a different thing and is shown ONLY on a
-  drill-down view (a view with a parent), where it goes to the parent view by the
-  route hierarchy (`useParentView`): a settings page below the landing page goes
-  to Settings; a document goes to the Documents library; an item of a list (a
-  chat, a source, a skill, a project, a schedule) goes to its list. The list
-  lives in the sidebar, so below 768px (a sheet) Back opens the sheet on it;
-  otherwise it closes the item and leaves the list. Without a parent there is
-  no Back. Pages never pass handlers: `PageHeader` reads the route.
-- **Crumbs** are the quiet trail after the title: the parent's name as a link
-  to it (Settings, Sources, …). Next step: the trail starts with the Otto mark
-  (home, the default area) and the workspace name (it opens the workspace menu).
-- **Compact (below 768px)**: the leading slot is the sidebar sheet's menu
-  button. On a drill-down view Back replaces it: Back from a list item opens the
-  sheet on the list, so the sidebar stays one tap away; Back from a settings
-  page or a document goes to its parent, which has the menu button.
-- **Previous / Next** step through the list the page was opened from, as the
-  sidebar shows it (Chats: filtered, grouped and sorted there): the context
-  exposes `listNav` (`hasPrev`, `hasNext`, `goPrev`, `goNext`) from the session
-  list's published order, and both are disabled at the ends. They show as the
-  floating navigation. No keys are bound yet (none exist), so no `Kbd` shows.
+- **Back** is a different thing: the floating navigation's first button, shown
+  ONLY on a view with a parent, where it goes to the parent view by the route
+  hierarchy (`useParentView`): a chat goes to the Chats index (under the filter it was
+  opened with); a settings page, a skill or a source goes to the Settings index; a
+  library item goes to the Library; a project or a routine to its section.
+  The Chats and Settings indexes have no parent, so no Back. Sub-navigation is the
+  index page, never the sidebar, so Back is the same at every width. There is no back button and no breadcrumb in the header row: the
+  title is alone. Pages never pass handlers: `PageHeader` reads the route.
+- **Compact (below 768px)**: the header row's leading slot is only the sidebar
+  sheet's menu button; Back, Previous and Next are the ghost buttons at the end of
+  its actions. Back goes to the parent view like everywhere else.
+- **Previous / Next** step through the list the page belongs to, in the order its
+  index shows it, and are disabled at the ends: the context exposes `listNav` (`hasPrev`,
+  `hasNext`, `goPrev`, `goNext`). Chats: the Chats index's displayed order
+  (filtered and grouped by status there, Archived left out unless it is the filter), published
+  to `sessionListOrderAtom` while the index is open and kept when a chat opens (after a
+  reload, until the index has been open, a chat has none). Settings: the settings pages in the
+  Settings index's order (Account group, then Workspace group; `SETTINGS_NAV_ORDER`, a
+  fixed list, the Skills and Sources links are not part of it). Skills, Sources
+  and the other lists have none yet (Back only). A page with neither a parent nor
+  a list shows no navigation. They show as the floating navigation. No keys are
+  bound yet (none exist), so no `Kbd` shows.
   Quick actions in the Superhuman manner (next chat, next task, go back) are the
   next layer on this API.
-- Existing navigation APIs: `navigate(route, { skipAutoSelect })`,
+- Existing navigation APIs: `navigate(route, { replace? })`,
   `navigateToSession`, `navigateToSource`, `goBack` / `goForward`,
   `canGoBack` / `canGoForward`, `listNav`, `useNavigationState()`,
   `useParentView()`. There is one open route (`currentRouteAtom`); several
   panels side by side are gone, and so are open in a new panel, new chat in a
   panel and focus next / previous panel.
+
+### Pins and recents
+
+The sidebar's one dynamic group (`SidebarPinsRecents`, put in `SidebarContent`
+after the pages) is a **Pinned** group and a **Recent** group: any chat, and later
+any project, task, routine, library or settings page, in one list, with no
+sub-navigation sidebar. Each group has the usual 28px title row (12px muted) over
+the standard sidebar rows: the item's icon in the slot (a chat's status icon, other
+types a Lucide icon by type), the open item filled like an open page. An empty group draws nothing, and the whole group draws nothing when both are
+empty.
+
+**The row** is the chat row of Otto v1's sidebar ("one line at normal weight, the whole
+title running under the right slot instead of truncating"), a standard 28px row:
+
+- **Title**: one line, normal weight, never an ellipsis. It runs the full row width and
+  fades out under the right slot with a mask (`mask-image`, 16px = 8 x 2 fade, ending at
+  the slot's left edge), not a painted gradient, so it blends with the rest, hover,
+  selected and open fills in light and dark. It is `text-muted-foreground`, and
+  `text-foreground` when the chat is unread or waiting on the user (no weight change).
+  A short title is untouched: the fade only shows where the text reaches the slot.
+- **Right slot** (`SidebarMenuSlot`): a 20px lane 4px from the row's top, right and
+  bottom, holding **one thing at a time**, swapped by opacity (100ms) so the title and
+  the row height never move. At rest: the chat's status if one matters, else the time
+  since its last message. Status, most urgent first: waiting on you (a permission or
+  credential request pending: 8px amber dot, `--info`), failed (last message an error:
+  14px `TriangleAlert`, `destructive`), working (14px `Spinner`), unread (6px `primary`
+  dot). Time: 12px muted tabular, short, refreshed each minute (`now`, `5m`, `2h`,
+  `3d`, `2w`, `5mo`). With neither, the slot is empty. On row hover, keyboard focus
+  (`:focus-visible` inside) or while a menu of the row is open (always on touch): only
+  the actions, 20px ghost icon buttons (`SidebarMenuSlotAction`, `xs` 4 corners, 14px
+  icons, hover `foreground/10`, open `/10`, inset focus ring) 2px apart: **Pin / Unpin**,
+  **Archive / Unarchive** and **More** (the session menu, as on the Chats page rows).
+  Pin and Archive carry a tooltip with their label; they have no shortcut, so no
+  `Kbd`. A row that is not a chat has only Pin, and its context menu is Pin or Unpin.
+- **Key**: the ⌘1–⌘9 / Option+1–9 jump hint of the first nine rows replaces the slot's
+  content only while the reveal key is held (a `Kbd`, 20px, in the same 4px lane), never
+  on hover.
+- The right-click menu is the same session menu as More. A row whose menu is open is
+  filled like the current one.
+
+- **Item**: `{ type, id, title, route }`, stored with `pinnedAt` or `visitedAt`.
+  `type` is `chat`, `project`, `task`, `routine`, `library`, `settings` or a later
+  one; the key is `type:id`. A chat shows its live title and status, looked up by
+  id in the sessions store at render time (the stored title is the fallback); a chat
+  that no longer exists is not shown and is dropped from storage once the sessions
+  are loaded. Its route is always the canonical `allSessions/session/<id>`, whatever
+  filter it was opened from.
+- **Pinned** keeps the order the user set (new pins go last) and is reordered by
+  dragging a row. **Recent** is most recent first, deduped, at most 20, and never
+  repeats a pinned item (unpinning brings it back to its place). Pin and Unpin are
+  in a row's Pin button, its context menu and its ⋯ menu, and in the chat's menu (the header's
+  title menu and the compact drawer). No snooze.
+- **Recording** (`useRecordRecent`, once, in the shell): a visit to a chat is
+  recorded when its route opens and the chat has something in it (an empty new chat
+  is not). Other types are recorded by their own pages with the same call; nothing
+  else records.
+- **Storage**: two small lists per workspace in local storage
+  (`otto-pinned-items:<workspaceId>`, `otto-recent-items:<workspaceId>`), not synced.
+- **Jump keys**: the first nine items across both groups, in the order shown
+  (pinned first), open with **⌘1–⌘9** in the desktop app (Ctrl+1–9 on Windows and
+  Linux) and **Option/Alt+1–9** in the browser, where ⌘/Ctrl+digit belongs to the
+  browser's tabs (`nav.jumpTo1` … `nav.jumpTo9`, matched by physical key so
+  Option's special characters do not matter). They work from the chat input too; a
+  number with no item is not handled, so the key does what it always did; they pause
+  under a dialog, sheet or menu. A row's number is a `Kbd` in its slot, shown only
+  while the reveal key is held (see the row above). The shortcuts page lists them as one row (modifier and 1–9).
+
+The standard keys, one binding per action: **⌘K** (Ctrl+K) opens and closes the
+command palette (`app.commandPalette`; it was ⌘F, which the browser and every
+editor keep for find in the page),
+⌘N a new chat, ⌘, Settings, ⌘[ and ⌘] back and forward, ⌘/ the shortcuts. ⌘1–⌘3
+no longer focus the sidebar, navigator and chat zones (Tab still cycles them).
 
 ## Shell primitives
 
@@ -706,35 +917,52 @@ as a card).
 | --- | --- | --- |
 | `SidebarProvider` / `Sidebar` | | one width, 256px on every page (also the sheet below 768px), 48px as icons; a row with `aria-disabled` is a placeholder (no pointer, readable); no toggle, cookie or shortcut; absolute inside the shell; 8px container padding is the gutter; no border or ring |
 | `SidebarHeader`, `SidebarContent`, `SidebarFooter` | | header 8px above, 16px below; footer 16px above; content does not scroll, its groups do, and spaces them 16px apart (8px and a hairline icons only) |
-| `SidebarGroup`, `SidebarGroupLabel`, `SidebarGroupAction` | | no padding of its own; 28px title row, 12px medium muted; the action is a 24px ghost button, `xs` 4 corners, 2px inside the row |
-| `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton` | `isActive`, `size="default" \| "lg"`, `tooltip` (text, or `{ children, hidden }` for a label and `Kbd`) | 28px row, `sm` 6, 14px icon in a 20px slot; hover `sidebar-accent` 60%; active `sidebar-accent` + hairline ring + `shadow-xs`; `lg` is 40px, `xl` 12, for a 32px avatar; icons only: 32px square, label and trailing icons hidden, plain tooltips show |
-| `SidebarMenuAction` | | 24px, `xs` 4, 2px inside the row; shown on row hover or focus (always on touch) |
+| `SidebarGroup`, `SidebarGroupLabel` | | no padding of its own; 28px title row, 12px medium muted |
+| `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton` | `isActive`, `tooltip` (text, or `{ children }` for a label and `Kbd`; shown only icons only) | 28px row, `sm` 6, 8px padding, 14px icon and 8px gap (no slot); rest `text-muted-foreground`; hover `foreground/5`; active, current and open (`aria-expanded` on a menu trigger) `foreground/10`, flat (no ring, shadow or weight change); inset focus ring; icons only: 28px square centered (10 each side), label and trailing icons hidden, plain tooltips show |
+| `SidebarMenuAction` | | 20px, `xs` 4, 4px inside the 28px row; shown on row hover or focus (always on touch); hover `foreground/10`, which stacks on the row's fill |
+| `SidebarMenuKbd` | | a row's shortcut: the standard `Kbd` over the row's end, 4px from top, right and bottom, muted, shown only while the reveal key is held (`data-reveal-shortcuts` on the sidebar), never on hover or focus; hidden icons only (the tooltip carries it then) |
+| `SidebarMenuSlot`, `SidebarMenuSlotAction` | | the row's right slot: a 20px lane 4px from the row's top, right and bottom, one cell for stacked layers (status or time, actions, key) that swap by opacity; clicks pass through except on a visible layer; `SlotAction` is the 20px in-line ghost button (the look of `SidebarMenuAction`). The row fades its title under the lane with a mask, see Pins and recents |
 | `SidebarTrigger` | | the page header's menu button below 768px; 28px ghost |
 | `PageFrame` | `aside` | the main region on the frame: header slot, 768px column (`@container/panel`), left and right gutters; see Layout |
-| `PageHeaderRow` | `leading`, `title`, `crumbs`, `actions` | 52px, 28px controls, title is `PageTitle` (21px medium), on the column's edges |
-| `PageCrumbs`, `PageScroll` | `crumbs: { label, onClick }[]` | muted 13px trail divided by a slash; scroll region with edge fade, no scrollbar |
+| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions` | 52px, 28px controls, title is `PageTitle` (21px medium), on the column's edges; no back button, no crumbs |
+| `PageScroll` | | scroll region with edge fade, no scrollbar |
 | `PageColumn`, `PageSection`, `PageCard` | `title`, `description`, `action`, `danger` | blocks page; see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
+| `ListGroup`, `ListRow` | `icon`, `label`, `count`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | the grouped list in one content-sized `PageCard`: 36px group headers, 44px rows; see Data patterns |
+| `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
+| `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
+| `PageGrid`, `GridCard` | `icon`, `title`, `render` | the card grid of a navigation hub; see Data patterns |
 | `Sidecar` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel`, `surface` | canvas by default, `surface` wraps it in a card (undecided); see Layout; closed by default |
-| `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; needs a 56px left gutter |
+| `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 56px left gutter and starts at the content start, the buttons are its narrow form for the header's actions |
 
-In the renderer: `PageHeader` (the header with the route's Back, crumbs and list
-navigation wired), `AppSidebar`, `SidebarSection`, `useParentView`, `useSidecar` (and `SidecarHost`, the
+In the renderer: `PageHeader` (the header with the route's Back and the list
+navigation wired into the floating navigation), `AppSidebar`, `useParentView`, `useSidecar` (and `SidecarHost`, the
 `aside` of the shell's frame).
 
 ## Elevation & Depth
 
 Depth comes from translucency and hairlines, not heavy shadows.
+There are no `shadow-minimal` or `shadow-tinted` utilities: a card is `card-surface`
+(also for a small floating control over content, such as a copy or expand button), a
+chip or badge inside a message is a flat `bg-muted` (or `bg-destructive/10`,
+`bg-success/10` when tinted) with no ring or shadow, and an error or warning notice
+is a flat 10% tinted fill.
 
 - **Frame**: the darkest layer, flat: the sidebar and the main region are the
   same color, nothing wraps the page. **Surfaces** (`PageCard`,
   `PageCenterpiece`, `Card`, the composer, comments, question cards, the
   empty-state tile): card background and ONE shared edge, the `card-surface`
-  class in `globals.css`: a 1px ring (`--card-ring`, foreground 10% in light,
-  white 14% in dark) and the soft outer shadow
-  (`--card-shadow`, `shadow-xs`; the composer sets `shadow-sm`, the sidecar
-  overlay `shadow-md`). Rows inside split by `--card-divider` (10% light, white
-  12% dark). Change the edge there, never per component. Siblings on the
+  class in `globals.css`: a 1px **border** inside the card's own box
+  (`--card-ring`, a solid color: `oklch(0.87 0 0)` in light, `oklch(0.281 0 0)`
+  in dark) and the soft outer shadow (`--card-shadow`, `shadow-xs`; the composer
+  sets `shadow-sm`, the sidecar overlay `shadow-md`), with `background-clip:
+  padding-box`. Never a `box-shadow` ring: it is drawn outside the box, and a
+  scroller whose edge meets the card's (the page column fills the scroller, and
+  `overflow-y: auto` clips x too) cuts it off at the sides and corners. The
+  color is solid because the outer shadow is painted under a translucent border
+  and would tint each side differently. Only the shadow may be clipped. Rows
+  inside split by `--card-divider` (10% light, white 12% dark). Change the edge
+  there, never per component. Siblings on the
   frame, never one inside another. The sidecar is the exception
   that proves it: flat on the frame when docked, a card with `shadow-md` only
   when it overlays content.
@@ -768,14 +996,14 @@ cards and have an 8px radius.
 | Container | Inside | Gap | Inner radius |
 | --- | --- | --- | --- |
 | Card, centerpiece, composer (`xl` 12) | 32px buttons, rows | 4px | `md` 8 |
-| Sidebar row, 28px (`sm` 6) | 24px row action | 2px | `xs` 4 |
+| Sidebar row, 28px (`sm` 6) | 20px row action, key | 4px | `xs` 4 |
 | Menu, combobox, popover, hover card (`lg` 10) | Items, search field | 4px | `sm` 6 |
 | Command palette (`xl` 12) | Rows | 4px | `md` 8 |
 | Tooltip (`sm` 6) | Key | 4px | `xs` 4 |
 
 - Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6, except
-  where a 24px button sits 2px inside a 28px row (a sidebar row action): `xs`
-  4, to nest.
+  where a 20px button sits 4px inside a 28px row (a sidebar row action or
+  key): `xs` 4, a soft corner (6 - 4 = 2 would read sharp).
 - Keys are `xs` 4: a soft corner, short of a pill. Elements only a few pixels
   inside their container (attachment thumbnails and remove button) use `xs`.
 - A tooltip is `sm` because it holds a label, not nested items.
@@ -786,10 +1014,59 @@ cards and have an 8px radius.
 
 ## Components
 
-**Buttons.** Ghost for nearly everything, muted at rest; foreground on hover,
-while its menu is open, pressed or current. Active navigation is the
-`secondary` button. `default` (primary) only for a surface's main action.
-Icon buttons are 32px with 14px icons.
+**Buttons.** Ghost for nearly everything. `outline` is the raised look (a
+card-colored button with the card's hairline, flat), `secondary` a quiet fill,
+`default` (primary) only for a surface's main action. Two heights: 32px
+(`default`, `icon`, `md` 8) and 28px (`compact`, `icon-compact`, `sm` 6); 24px
+(`xs`) only for row actions. There is no 36px button and no other size. Padding follows the content and is
+set once, in the `Button` component, never per instance:
+
+| Size | Height | Text only | Icon beside text (icon side / text side) | Icon only | Gap | Icon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `default` | 32px | 12px | 10px / 12px | `icon` 32px square | 8px | 14px |
+| `compact` | 28px | 10px | 8px / 10px | `icon-compact` 28px square | 6px | 14px |
+| `xs` | 24px | 8px | 6px / 8px | `icon-xs` 24px square | 4px | 12px |
+
+The golden check: 32px height x 0.382 (1 / phi squared) = 12.2, so the text
+padding is 12px; the icon side steps down by 2px (a 14px glyph carries about 1px
+of its own padding) so icon and label balance optically. A leading `svg` is
+detected structurally, as is a trailing one that follows an element; CSS cannot
+see text nodes, so a trailing icon that follows bare text (a chevron after a
+label, `ArrowUpRight` after "Open") or a wrapped icon (an avatar stack) carries
+`data-icon="inline-end"` / `"inline-start"` on the icon or wrapper. Tabs and
+`ToolbarChip` are buttons and share this; toggles use the same padding (a lone
+bare icon is a square, marked icons beside text as for buttons), badges the
+`xs` row, a text addon in a button group and text inputs / select triggers the
+`default` text padding (12px; at 28px 10px, the select's chevron side 10 / 8px).
+Menu items keep the menu rule (8px). One
+state language for every interactive element (buttons, tabs, toggles, sidebar
+and list rows, chips, grid cards, radio options, select triggers):
+
+| State | Ghost (button, tab, toggle, nav row, list row, chip) | Outline | Secondary | Primary |
+| --- | --- | --- | --- | --- |
+| rest | `text-muted-foreground` (content rows `text-foreground`), no fill | `bg-card` + 1px `--card-ring` border | `bg-foreground/10 text-foreground` | `bg-primary` |
+| hover | `bg-foreground/5 text-foreground` | card + 5% | `bg-foreground/15` | `bg-primary/80` |
+| pressed (`:active`) | `bg-foreground/10` | card + 10% | `bg-foreground/20` | `bg-primary/70` |
+| selected / current (`aria-pressed`, `aria-checked`, `aria-selected`, `aria-current`, `data-active`, `data-state=on`) | `bg-foreground/10 text-foreground` | card + 10% | not a selected state | never selected |
+| open (`aria-expanded`: a menu or popover is open) | same as selected | card + 10% | `bg-foreground/15` | `/80` |
+| focus-visible | `ring-2 ring-inset ring-ring`, everywhere | same | same | same |
+| disabled | `opacity-50`, no pointer events | same | same | same |
+
+Four rules:
+
+1. State fills are alphas of `foreground` (5% hover, 10% pressed, open and
+   selected), never a layer token (`muted`, `secondary`, `sidebar-accent`), so
+   they read the same on the frame, on a card and in dark. A row action nested
+   in a row fills with `foreground/10`, which stacks on the row's fill.
+2. Open (a menu or popover on it) and pressed look like selected: one fill.
+   Tooltip triggers carry `data-popup-open` while their tooltip shows, so
+   "open" is `aria-expanded`, never `data-popup-open`.
+3. A ring means keyboard focus and nothing else: no ring, shadow, raised pill
+   or weight change (`font-medium`) marks hover, open or selected, and a row
+   never changes width.
+4. A fill says where you are (selected, current); a check icon says what is
+   chosen in a menu (no fill on the checked item). Badges are static; anything
+   you can click is a chip (a compact ghost button).
 
 **Icons and avatars.** Lucide icons at **14px** everywhere (the old Remix names below map to their Lucide twins). Fixed icons: project
 `RiBox3Line`, repeat `RiLoopRightLine`, agent `RiRobot3Line`, time
@@ -823,24 +1100,46 @@ light, `#060606` in dark.
 
 **Keys** (`Kbd`). 20px (16px in tooltips), 11px text, `xs` corners.
 
-**Badges.** Pills sized like tooltips: 24px tall, 8px on both sides, 12px
-text, 14px icon with a 4px gap so it reads as one unit. Used for metadata on
-list rows (the project).
+**Badges.** Pills sized like tooltips: 24px tall, 8px on both sides (6px beside
+an icon, like an `xs` button), 12px text, 14px icon with a 4px gap so it reads as one unit. Used for metadata on
+list rows (the project). Static: no hover, press or focus state.
 
-**Focus.** Text fields show no ring or border change; the caret shows focus.
-Buttons keep a keyboard-only focus ring. Invalid fields turn red.
+**Focus.** Text fields (`Input`) show no ring or border change; the caret shows
+focus. Everything else that takes focus (buttons, tabs, toggles, rows, select
+triggers, checkbox, radio, switch, cards) shows the one keyboard-only ring:
+2px, inset, `--ring`. Invalid fields turn red. Select triggers and native
+selects are solid fields (`bg-input/50`) that step to `/70` on hover and `/100`
+while open.
 
 **Tooltip vs hover card.** A tooltip is one label, optionally with its key
-(`Kbd`), 24px tall. Anything richer (metadata, notes) is a `HoverCard` at body
+(`Kbd`), 24px tall. The one exception to "a key lives in a tooltip": a sidebar
+row whose label is visible shows its `Kbd` on the row (only while ⌘ / Option is held, never on hover) and has no
+tooltip (see Sidebar); the tooltip with the `Kbd` is for icons only. Anything richer (metadata, notes) is a `HoverCard` at body
 size. Blocks of data inside it are split by a content-width divider (spans the
 text, not the card) with 8px above and below.
 
 **Menus.** `DropdownMenu` for short option sets: a label row with the menu's
 hotkey, then options with number-key shortcuts shown as keys; the selected
-option shows a check instead of its key. A searchable `Combobox` for long
+option shows a check instead of its key. Menu rows (DropdownMenu, ContextMenu,
+Select, Combobox, Command) are 28px with 6px corners inside the menu's 4px
+padding; the highlighted row (hover or arrow keys) is `foreground/10`, and a
+checked item shows only the check icon, no fill. Destructive items are red text
+and highlight in `destructive/20`. A searchable `Combobox` for long
 lists, topped by `ComboboxSearch`: like the command palette, a search icon on
 the item icon column and a transparent 36px input over a full-width bottom
 border. "/" and "@" suggestion lists use the same 28px rows.
+The caret-anchored lists (slash, mention, label) and the cmdk pickers
+(permission mode, status, working directory) keep their own key handling and
+share one copy of the menu look, `menu-styles.ts` (dark translucent surface,
+`lg` radius, 4px padding; 28px `sm` rows; highlight `foreground/10`): the
+highlighted row is the only fill, and the chosen one shows a check icon, never
+a fill, in every menu. A row that needs a second line (a description) goes on
+the same line, muted and truncating, after the label (the model picker's
+model and thinking rows: name, then description; menus cap at `max-w-sm`). Settings rows that open something
+(`SettingsRow` with `onClick`) hover `foreground/5`, press and open
+`foreground/10`, and show the keyboard ring inset; a settings segmented control
+is a row of 28px ghost buttons, the selected one `aria-checked`. Fields in
+settings use `bg-input/50`, with no ring and no fill change on focus.
 Page shortcuts pause while a modal dialog or sheet is open, including when its
 buttons have focus; the modal keeps its own keyboard controls.
 
@@ -850,15 +1149,16 @@ when there is nothing (no "0"). Counts everywhere sit right after their label,
 softer than it (`Count`), the label's icon-to-label gap away. Property rows open
 their menu; each has a hotkey. A "New …" row ends a list. Row actions appear on
 hover (always on touch), and hovering one keeps its row highlighted. Repeat
-stores an iCalendar rule: presets plus Custom, which asks Otto.
+stores an iCalendar rule: presets plus Custom, which asks an agent.
 
 **Composer** (`Composer`). The one input for comments, chats and agent
 requests. Card surface; one line that grows to 240px. **+** adds files (drop
 and paste too), shown as `Attachment`s with upload state. The main button
 dictates when empty, sends with content and stops while `busy`. A `tools` slot
 after + holds pickers (model, agent). Enter sends, Shift+Enter adds a line.
-`@` opens a grouped palette (people, agents, tasks, projects, files). Otto is
-not in it: Otto is reached through the floating chat, not tagged.
+`@` opens a grouped palette (people, agents, tasks, projects, files). Agents are
+chosen in the composer's agent picker (the `tools` slot) or reached through the
+floating chat, not tagged by name in the text.
 
 **Tags** (`MentionChip`). Everywhere (composer, messages, comments): the type
 icon and label in primary on a soft primary tint (10%, 15% dark) with `xs`
@@ -876,13 +1176,13 @@ the recording is dropped; Cancel drops it too.
 **Floating chat** (`FloatingChat`). On every page but Chats (and in the file
 viewer): one row at the bottom, kept one line tall so it never covers the
 page, floating 16px above the bottom: the compact composer as a 40px, 450px
-bar (the 728px column ÷ φ), "Ask Otto about this task / page": +, the text,
+bar (the 728px column ÷ φ), "Ask {agent} about this task / page" (the picked agent's name): +, the text,
 Chats (a red dot while any need you) as a ghost button before the main
 button, shown only while the bar is empty. Bar and window wear the command
 palette's surface: dark, translucent (popover at 70%), blurred. Attachments
 in the bar and the window are 28px chips: a 20px thumbnail, the name cut in
 the middle, and remove (in the embedded composer, 4px corners and a 2px
-thumbnail corner, to nest). Sending starts a chat with Otto in the page's
+thumbnail corner, to nest). Sending starts a chat with the picked agent in the page's
 project (fixed), the first message led by an inline link to the item, and the
 bar grows into a window up over the page. The window is a 12px card on the
 bar's surface (no change as it grows), the column plus 4px a side, fitting
@@ -894,9 +1194,9 @@ step lighter. The title switches chats: a search grouped like the Chats
 sidebar (Pinned, Waiting, Working, Snoozed, Done; no archived), one thing at
 each row's end (status, else time; the open chat shows the check). Then Chats
 (the list of chats waiting on your input or ready for your review, as 28px
-rows like the sidebar's, with no composer; a row opens that chat), New chat (who it's with: Otto
+rows like the sidebar's, with no composer; a row opens that chat), New chat (who it's with: the default agent
 unless picked), Minimize, Open as a page and Close. Minimized, the bar reads
-"Reply to Otto" and shows the chat's status and title, which reopens it; the
+"Reply to {agent}" and shows the chat's status and title, which reopens it; the
 chat follows you from page to page. Escape minimizes. The agent sees the page
 you are on. Page actions (log time, a custom repeat) prefill it. The same
 chats as in Chats.
@@ -1021,7 +1321,7 @@ change waits 800ms for the next (`useDebounced`), blur or leaving saves at
 once, and a value flipped back sends nothing. Every save shows the
 "Settings saved" toast, one at a time: saves close together refresh it.
 Deleting sits last under "Danger zone" and asks first. Adding an agent, a
-connection or a member asks Otto.
+connection or a member asks an agent.
 
 **Models** (Settings › Models). Two lists by who can use the account:
 "Your connections" (only you) and "Workspace connections" (everyone in the
@@ -1040,19 +1340,20 @@ page; the record stays only as history for sessions and runs pinned to it.
 **Agents** (Settings › Agents). Each agent shows its pixel mascot (BB's ten
 8x8 sprites, MIT, from MonoCode) in its name color wherever its avatar
 appears. The list opens each agent's own page (its row a link with a
-chevron); "+" asks Otto to create one. An agent's page, in the settings
+chevron); "+" asks an agent to create one. An agent's page, in the settings
 patterns: Profile (name, description, the mascot and color pickers as 28px
 buttons, the chosen one filled, and who can use it), Instructions (the card
 is the field), Model, then Skills and Connections as checklists ("Can use 3
 of 8 skills.", All first, the whole row toggles). Everything saves as you go
-("Agent saved"). More holds Copy link and Delete; Otto, the default agent,
+("Agent saved"). More holds Copy link and Delete; the default agent
 has none.
 
 **Empty states and 404.** `EmptyPage` is only for when a place has nothing at
 all (no tasks, not "no matches"). It replaces the whole page, title and
 actions included, with the stock `Empty` centered both ways: a 32px muted tile
-holding a 20px icon (32 / φ), a heading-size title, one line of description
-and one 32px primary button ("New task", "New project", "New schedule"…).
+holding a 16px icon, a heading-size title, one benefit-led sentence of
+description (the header is capped at 320px, so it wraps) and one 32px primary button ("New task", "New project", "New routine",
+"Add to library"…).
 Every main section starts this way, with the floating chat there as on any
 page: the button starts the sentence in it ("Add a task to ", "Every "),
 never a form; a person's own action (Upload file) sits beside it. Missing pages and records use `NotFound`
@@ -1060,28 +1361,74 @@ never a form; a person's own action (Upload file) sits beside it. Missing pages 
 
 **No results.** When filters match nothing, the page, its header and the
 filter bar stay; the list area shows the same `Empty` shape: the filter icon
-tile, "No results", one line, and an outline "Clear filters".
+tile, "No results", "Try changing or clearing your filters.", and an outline "Clear filters".
 
 **Filters** (`FilterMenu`, `FilterBar`, `NoResults`; one shared set). The
-header's Filter button opens a menu with a submenu per property (Tasks:
-owner, assignee, project, priority; Documents: created by, project,
-label, visibility; Files: type, project, label, made by); each starts with "Any" (the property's icon, muted) and lists
-options with their icons or avatars. Filters
-live in the URL and are never saved. While any is set, a filter bar sits under
-the title: one read-only 28px `ButtonGroup` per filter (the property and value
-as text, then ×) and an outline 28px Clear on the right. Changing or adding
-filters happens only in the menu.
+header's Filter button (a 28px ghost icon button, pressed while any filter is
+on) opens a menu with a submenu per property (Chats: Status, Labels, then
+Flagged and Archived as on/off items; Tasks: owner, assignee, project,
+priority; Documents: created by, project, label, visibility; Files: type,
+project, label, made by). A submenu lists the options with their icons and
+counts as checkable items: several can be on (the check is what is on, picking
+it again turns it off), and adding one never drops the others. Fields AND
+together, the values of one field OR together. Filters live in the URL and
+are never saved. While any is set, a filter bar sits under the title: one
+28px chip per field (`sm` 6, the outline button's card fill and hairline,
+segments split by hairlines): the property (icon and name, muted), "is" (or
+"is any of" with several values, muted), the values (their icons, then the
+labels joined by commas), which open the property's checkable values to add
+or remove one, and a 28px × that removes the whole property. Chips are 6px
+apart and wrap.
 
-**Command palette** (`CommandPaletteProvider`). One palette for the whole app:
-⌘K / Ctrl+K anywhere, or a page's search button with its category already
-selected. 720px wide, 15% from the top, card radius. A borderless 48px search
-field over a full-width divider; the shared 32px tabs for categories (Tab
-switches) 8px above and below; 36px rows that match
-names containing the query, with edges that fade while more results scroll;
-a 48px footer with key hints. Categories: All, Tasks, People, Projects,
-Documents, Files, Actions. Picking a result goes there (a file opens
-in the viewer). Text and icons sit
-16px in throughout.
+**Command palette** (`CommandPaletteProvider`, `components/command-palette/`).
+One palette for the whole app: ⌘K / Ctrl+K anywhere (it toggles; it never opens
+over another dialog or menu), the sidebar's Search row, or a page header's Search
+(`CommandPaletteButton`) with the page's category already selected
+(`useCommandPalette().open(category?)`).
+- **Anatomy.** A `CommandDialog`: 720px wide (on a phone the width minus 16px
+  each side), 15% from the top, `xl` 12 corners, the floating surface's dark
+  glass (`bg-popover/70`, blur, `ring-foreground/10`, `shadow-md`) in both
+  themes over the dialogs' plain 50% black overlay. Top to bottom: a borderless
+  48px search field (placeholder "Search", the 14px search icon on the rows' icon
+  line) over a full-width `foreground/10` divider; the category tabs (the shared
+  `Tabs`: 32px ghost triggers 4px apart, the open one `foreground/10`, 8px above
+  and below, text 16px in); the list (at most `min(400px, 60dvh)`, `scroll-fade-y`,
+  no scrollbar): 36px rows, `md` 8 corners in the list's 4px padding, 16px content
+  inset, a 14px icon, 8px, the title in `text-sm`, and at the end a chat's
+  12px muted time, an action's `Kbd` or the check of what is on; group headings
+  (12px medium muted, 16px in) only in All; a 48px footer with the keys as `Kbd`
+  (↑↓ Navigate, ↵ Open, Tab Category, Esc Close), hidden on phones.
+- **States.** The highlighted row (arrow keys or pointer) is `foreground/10`, no
+  ring. A search that finds nothing anywhere shows the compact empty state (the
+  32px icon tile with a search icon, "No results for “query”", no period) and no
+  tabs; one category with no match shows the same state under the tabs. An
+  empty category gets no tab (nor does anything but All when no other has
+  entries). No skeletons: the data is local and already loaded.
+- **Categories and data** (all local, matched instantly, nothing fetched):
+  **All**, then **Chats** (the workspace's chats from the sessions store: status
+  icon, title, relative time; archived last; opens the chat), **Pages** (the
+  sidebar's pages with its icons: Tasks, Projects, Chats, Routines, Library;
+  Inbox has no route yet; Tasks, Routines and Library have no data of their own
+  yet, so they are pages only), **Settings** (every page of `SETTINGS_NAV_GROUPS`
+  with the Settings index's icons; Shortcuts shows ⌘/), **Skills** and
+  **Sources** (the shell's loaded skills and sources with their avatars; opens
+  their page), **Actions** (New chat ⌘N, Open settings ⌘,, Light, Dark and System
+  theme with a check on the current one, Go back and Go forward while there is
+  history, Log out on the web, Quit in the desktop app). All lists each group's
+  first 5 in that order under its heading; with an empty field it opens with
+  **Pinned** and **Recent** (the sidebar's store, 5 recents), and its Chats group
+  leaves out the chats they show. A tab lists its category in full.
+- **Matching** (`palette-model.ts`, pure and unit-tested): case and accents
+  ignored; a name that starts with the query first, then one with a word that
+  does, then one containing it, then all the query's words in any order, then
+  the initials ("ks" finds Keyboard shortcuts); equal matches keep their order
+  (chats newest first).
+- **Keys.** Focus stays in the field (the tabs take no focus), so typing always
+  searches. ↑↓ move, Home / End jump, Enter picks and closes, Tab / Shift+Tab
+  switch the category (wrapping), Esc closes, ⌘K closes. While it is open every
+  other shortcut is paused. Closing returns focus where it was; a pick runs once
+  the dialog has closed, through `navigate(routes.view.*)` or the action
+  registry, so an action that moves focus (New chat) keeps it.
 
 **Task list.** Groups by status in lifecycle order under full-width
 `secondary` header buttons. Each row: its status icon (under the header's),
@@ -1122,7 +1469,7 @@ Oct 3"; Ask about this file, Open task, Download), then the file centered
 with `md` corners and the ring, 48px from the sides where the previous and
 next arrows sit 9px in (← → too, except inside a player). On wide screens a
 280px details panel with its own top bar (Details, then Close in the
-corner, like the panel toggle): one Properties list in Otto's words
+corner, like the panel toggle): one Properties list in plain words
 (folder, project, task, chat, created by, visibility, added; project, task
 and chat link to them, rows it lacks are left out), then Labels. No composer inside: Ask closes the viewer and starts the page's
 floating chat with a link to the file. Read-only previews: images, video and
@@ -1215,16 +1562,22 @@ content's left edge: icon tile, 20px, title, 4px, muted description, 32px, the
 content (a `SettingsCard` or form), then actions. Full-width buttons under the
 content stack main action first; a secondary action such as "Setup later" stays
 a full-width muted ghost button directly under the card (`mt-2`). The splash is not that tile: it shows the
-foreground-colored mark debossed (inset shading, never colored), 40px wide,
-centered on the page layer. The glyph is the page tinted with `foreground` at 8%
-in light, 6% in dark; a soft shadow falls inside its top-left edges (black at
-22% in light, 60% in dark, 0.8px blur, offset 0.8px down and right) and a 1px
-highlight catches the page just outside its bottom-right edges (white at 60% in
-light, where on white it only reads against the tint; 10% in dark). It is one SVG
-filter on `Logo` (`DebossedLogo` in `splash-screen.tsx`), copied into the pre-load
-loader of both `index.html` files so loader and splash are the same picture: the
-loader fades the mark in (300ms ease-out) and the splash continues at full
-opacity, then fades it out with a 1.04 scale (no scale with reduced motion). The completion step swaps the tile for a
+mark debossed, pressed into the page and lit from the top left (never colored),
+40px wide, centered on the page layer. The glyph is the recess floor: the
+foreground mixed into the page, 35% in light and 28% in dark (about 2.3:1 and
+2.4:1 against the page), so it is the foreground's family but sunk, never the
+full foreground and never a ghost. The wall casts a shadow inside the top-left
+edges (offset 1.4px down and right, 0.8px blur; black at 45% in light, 75% in
+dark), the bottom-right inner walls catch a rim (0.7px up and left, 0.35px blur;
+white at 90% in light, 35% in dark), and in dark a lip of light sits just outside
+the bottom-right edges (0.5px, 0.25px blur, white at 14%; none in light, where it
+would vanish on white). It is one SVG filter on `Logo` (`DebossedLogo` in
+`splash-screen.tsx`), copied into the pre-load loader of both `index.html` files
+with the same values, so loader and splash are pixel-identical: an inline script
+in both `<head>`s applies the saved theme class (`otto-theme`, else the OS
+scheme) before first paint, the loader fades the mark in (300ms ease-out) and
+the splash continues that fade on the same clock if it mounts mid-fade, then
+fades the mark out with a 1.04 scale (no scale with reduced motion). The completion step swaps the tile for a
 spinner while saving. Error and success lines under the content are `text-xs`,
 flush with the content's left edge (no extra padding), like the sign-in error.
 A control that opens something outside the app ends with ArrowUpRight (trailing,
@@ -1263,7 +1616,7 @@ continue through bounded pages instead of treating the first hundred as complete
 - Do route creation through the floating chat; don't add a form for something a
   sentence can ask for, and don't send it as a comment.
 - Do use the domain words (task, project, document, file) in copy and
-  prompts; don't call a file a resource or the Files section a library.
+  prompts; don't call a file a resource or a routine a schedule.
 - Do check a visible change in the browser and measure it; don't ship from a
   screenshot guess.
 - Don't nest tasks or comments, add subtitles to data-heavy pages, or use
@@ -1307,15 +1660,35 @@ Unknown creation outcomes disable another submission in the current form and dir
 
 **Empty-state rules (binding for every page).**
 
-1. Nothing exists and nothing is filtered: the header-free `EmptyPage`, with the floating chat kept. Title "No <things>" (sentence case, no period); description one sentence ending in a period, "<Things> … show up here." Exactly one 32px primary button, the "+ New <thing>" that prefills the floating bar (never a form); a person's own action (Upload file) sits beside it as a quiet outline button. Never a second primary button. The Inbox has no button ("Nothing needs you"); Projects is the one page whose button opens its form, because nothing exists yet to ask about.
-2. Something is filtered and nothing matches: the page, header and active filter bar stay and the list area shows `NoResults` ("No results", "No <things> match these filters.", Clear filters).
-3. There is no permanent toolbar. A page header holds the Filter menu (real properties and archive state), a Search icon that opens the command palette on that category, and "+". Active filters show as chips in the filter bar; no search box, sort picker, order or page-size control is drawn on a page. Settings lists show only their own property filters.
-4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No <things>", one description line ending in a period, no action.
+1. Nothing exists and nothing is filtered: the header-free `EmptyPage`, with the floating chat kept. The pattern is the same everywhere (below): title "No {plural}", description one benefit-led sentence, never a vague "<Things> you add show up here." Exactly one 32px primary button, the "+ New <thing>" that prefills the floating bar (never a form); a person's own action (Upload file) sits beside it as a quiet outline button. Never a second primary button. The Inbox has no button ("Nothing needs you"); Projects is the one page whose button opens its form, because nothing exists yet to ask about.
+2. Something is filtered and nothing matches: the page, header and active filter bar stay and the list area shows `NoResults` ("No results", "Try changing or clearing your filters.", Clear filters). A search or picker with no matches says "No results" too, never "No chats found".
+3. There is no permanent toolbar. A page header holds the Filter menu (real properties and archive state), a Search icon that opens the command palette on that page's category, and "+"; never a page's own search box. Active filters show as chips in the filter bar; no search box, sort picker, order or page-size control is drawn on a page. Settings lists show only their own property filters.
+4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No {plural} yet" (a table row or `Row` may be just that, "No labels yet"), one description line ending in a period, no action.
 5. Command palette: an entered search with no results shows a compact tile and "No results for “query”" with no period, and its category tabs are hidden when no category has results. Skeletons are stock and use the small radius.
 6. Tasks list the first Project when none is chosen, so an empty page never asks for one. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
 7. The floating bar shows its Inbox button only while something needs attention (an unread chat or an unanswered question).
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
 9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
+
+**Empty-state pattern (every empty state, built or not).**
+
+- **Header width.** `EmptyHeader` (the icon tile, title and description) is capped at 320px (`max-w-xs`, as in Otto v1) in the `design/ui` primitive, centered, so a description wraps to two or three short lines and never runs across the page. No instance widens it or sets its own cap.
+- **Title.** "No {plural noun} yet": sentence case, no "found", no "here", no period ("No projects yet", "No routines yet", "No chats yet", "No files yet"). When filters or a search match nothing, always "No results".
+- **Description.** One sentence of at most 14 words that ends in a period and leads with the benefit (what the person gets), not the feature or how it works. Second person and friendly ("you", "your"), plain words: no "prompt", "session", "workspace", "API", file paths or config names, and no list of features. Agents are "your agents" or "an agent", never a name; the product is `{{product}}`.
+- **Action.** At most one primary 32px button, verb-first and benefit-neutral ("New project", "New routine", "Add to library", "New chat"); "No results" has an outline "Clear filters" instead.
+
+| State | Title | Description | Button |
+| --- | --- | --- | --- |
+| Tasks | No tasks yet | Keep track of what needs doing, and hand the work to your agents. | New task |
+| Projects | No projects yet | Keep everything for one goal in one place, with everyone working on it. | New project |
+| Routines | No routines yet | Hand off recurring work and get the result in a chat, right on time. | New routine |
+| Library | No files yet | Everything you and your agents make, kept in one place and organized your way. | Add to library |
+| Chats | No chats yet | Pick up any conversation exactly where you left off. | New chat |
+| Filtered | No results | Try changing or clearing your filters. | Clear filters |
+| Skills | No skills yet | Teach your agents your way of working once and reuse it anywhere. | |
+| Sources | No sources yet | Let your agents work with the tools and data you already use. | |
+| Archived chats | No archived chats yet | Chats you archive stay here, out of your way. | |
+| Pages | No pages yet | Ask your agents for a live dashboard that keeps itself up to date. | |
 10. A new chat has two pickers, With and Project. It is always participants-only; the project's own chat is the one open to everyone in the project.
 
 ## Craft shell
@@ -1324,10 +1697,10 @@ The app now runs on Otto (see `UPSTREAM.md`); these are the Otto rules
 that carry over, applied where Craft draws the same thing.
 
 - **Layers and the sidebar**: see Layout. The sidebar's lists (Chats, Settings)
-  keep these row rules: 28px rows with 6px corners, a 20px icon slot, the open
+  keep these row rules: 28px rows with 6px corners, a 14px icon and an 8px gap, the open
   row filled; one line per row, no descriptions, no dividers.
 - **Settings pages.** Sections are an h2 (`text-base`, medium) with an optional
-  one-line description, then a 12px card with a hairline ring whose rows are
+  one-line description, then a 12px card with a hairline border whose rows are
   split by hairlines. A row is a label and one muted line on the left and one
   control on the right, 16px sides and 12px above and below.
   Hairlines are full-bleed `divide-y divide-foreground/10` drawn by the card

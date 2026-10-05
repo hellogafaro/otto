@@ -173,12 +173,11 @@ export function CompactModelSelector({
             ? t('common.unavailable')
             : `${t('common.model')}: ${currentModelDisplayName}`}
           className={cn(
-            'h-7 pl-2 pr-2 text-xs font-medium rounded-sm flex items-center gap-1.5 shadow-tinted outline-none select-none min-w-[64px] shrink',
+            'h-7 pl-2 pr-2 text-xs font-medium rounded-sm flex items-center gap-1.5 outline-none select-none min-w-[64px] shrink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
             connectionUnavailable
               ? 'bg-destructive/10 text-destructive'
-              : 'bg-foreground/5 text-foreground/70',
+              : 'text-muted-foreground',
           )}
-          style={{ '--shadow-color': 'var(--foreground-rgb)' } as React.CSSProperties}
         >
           {connectionUnavailable ? (
             <>
@@ -253,8 +252,7 @@ export function CompactModelSelector({
                         className={cn(
                           'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left transition-colors',
                           !isAuthenticated && 'opacity-50 cursor-not-allowed',
-                          isAuthenticated && 'hover:bg-foreground/5',
-                          isCurrentConnection && !isExpanded && 'bg-foreground/5',
+                          isAuthenticated && 'hover:bg-foreground/5 active:bg-foreground/10',
                         )}
                       >
                         <ConnectionIcon connection={conn} size={14} />
@@ -296,9 +294,7 @@ export function CompactModelSelector({
                                   onClick={() => handlePickSwitcherModel(conn.slug, modelId)}
                                   className={cn(
                                     'flex items-center justify-between w-full px-3 py-2 rounded-lg text-left transition-colors',
-                                    isSelectedModel
-                                      ? 'bg-foreground/5'
-                                      : 'hover:bg-foreground/5',
+                                    'hover:bg-foreground/5 active:bg-foreground/10',
                                   )}
                                 >
                                   <span className="text-sm font-medium truncate">{modelName}</span>
@@ -357,7 +353,7 @@ export function CompactModelSelector({
                     onClick={() => handlePickFlatModel(modelId)}
                     className={cn(
                       'flex items-center justify-between w-full px-3 py-2 rounded-lg text-left transition-colors',
-                      isSelected ? 'bg-foreground/5' : 'hover:bg-foreground/5',
+                      'hover:bg-foreground/5 active:bg-foreground/10',
                     )}
                   >
                     <div className="min-w-0">
@@ -410,8 +406,7 @@ export function CompactModelSelector({
                       className={cn(
                         'flex items-center justify-between w-full px-3 py-2 rounded-lg text-left transition-colors',
                         thinkingDisabled && 'opacity-50 cursor-not-allowed',
-                        !thinkingDisabled && isSelected && 'bg-foreground/5',
-                        !thinkingDisabled && !isSelected && 'hover:bg-foreground/5',
+                        !thinkingDisabled && 'hover:bg-foreground/5 active:bg-foreground/10',
                       )}
                     >
                       <div className="min-w-0">
@@ -508,7 +503,7 @@ function VisionToggle({
       aria-label={visionOn
         ? t('chat.modelPicker.supportsImagesOn')
         : t('chat.modelPicker.supportsImagesOff')}
-      className="inline-flex items-center justify-center p-2 rounded hover:bg-foreground/5 cursor-pointer"
+      className="inline-flex items-center justify-center p-2 rounded-sm hover:bg-foreground/5 active:bg-foreground/10 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       onClick={onToggle}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') onToggle(e)

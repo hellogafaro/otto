@@ -1,8 +1,9 @@
 import * as React from 'react'
 import { useTranslation } from "react-i18next"
 import { Command as CommandPrimitive } from 'cmdk'
-import { Archive, ArchiveRestore, Ban } from 'lucide-react'
+import { Archive, ArchiveRestore, Ban, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MENU_LIST, MENU_ROW_CMDK, MENU_SEPARATOR, MENU_SURFACE } from './menu-styles'
 import {
   type SessionStatusId,
   type SessionStatus,
@@ -15,20 +16,12 @@ import {
 export { type SessionStatusId, type SessionStatus, getStateIcon, getStateColor }
 
 // ============================================================================
-// Shared Styles (matching slash-command-menu)
-// ============================================================================
-
-const MENU_CONTAINER_STYLE = 'min-w-[180px] overflow-hidden rounded-md bg-popover text-foreground shadow-modal-small'
-const MENU_LIST_STYLE = 'max-h-[240px] overflow-y-auto p-1 [&_[cmdk-list-sizer]]:space-y-px'
-const MENU_ITEM_STYLE = 'flex cursor-pointer select-none items-center gap-3 rounded-sm px-3 py-1.5 text-[13px]'
-
-// ============================================================================
 // StateItemContent - Shared item rendering
 // ============================================================================
 
 const DEFAULT_STATUS_IDS = new Set(['backlog', 'todo', 'needs-review', 'done', 'cancelled'])
 
-function StateItemContent({ state }: { state: SessionStatus }) {
+function StateItemContent({ state, isActive }: { state: SessionStatus; isActive: boolean }) {
   const { t } = useTranslation()
   const label = DEFAULT_STATUS_IDS.has(state.id) ? t(`status.${state.id}`, state.label) : state.label
   return (
@@ -37,6 +30,7 @@ function StateItemContent({ state }: { state: SessionStatus }) {
         {state.icon}
       </span>
       <div className="flex-1 min-w-0">{label}</div>
+      {isActive && <Check className="shrink-0" />}
     </>
   )
 }
@@ -90,19 +84,20 @@ export function SessionStatusMenu({
 
   return (
     <CommandPrimitive
-      className={cn(MENU_CONTAINER_STYLE, className)}
+      className={cn('relative min-w-[180px]', MENU_SURFACE, className)}
       defaultValue={defaultValue}
     >
-      <div className="border-b border-border/50 px-3 py-2">
+      <div className="px-2 py-1.5">
         <CommandPrimitive.Input
           ref={inputRef}
           value={filter}
           onValueChange={setFilter}
           placeholder={t("status.filterStatuses")}
-          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
-      <CommandPrimitive.List className={MENU_LIST_STYLE}>
+      <div className={MENU_SEPARATOR} />
+      <CommandPrimitive.List className={cn(MENU_LIST, '[&_[cmdk-list-sizer]]:space-y-px')}>
         <CommandPrimitive.Empty className="py-3 text-center text-sm text-muted-foreground">
           No status found
         </CommandPrimitive.Empty>
@@ -113,51 +108,40 @@ export function SessionStatusMenu({
               key={state.id}
               value={state.label}
               onSelect={() => onSelect(state.id)}
-              className={cn(
-                MENU_ITEM_STYLE,
-                'outline-none',
-                isActive ? 'bg-foreground/7' : 'data-[selected=true]:bg-foreground/3'
-              )}
+              className={MENU_ROW_CMDK}
             >
-              <StateItemContent state={state} />
+              <StateItemContent state={state} isActive={isActive} />
             </CommandPrimitive.Item>
           )
         })}
         {/* Clear item - only shown when handler provided and no filter active */}
         {!filter && onClear && (
           <>
-            <div className="border-t border-border/50 mx-2 my-1" />
+            <div className={MENU_SEPARATOR} />
             <CommandPrimitive.Item
               value="clear-status"
               onSelect={() => onClear()}
-              className={cn(
-                MENU_ITEM_STYLE,
-                'outline-none',
-                !activeState ? 'bg-foreground/7' : 'data-[selected=true]:bg-foreground/3'
-              )}
+              className={MENU_ROW_CMDK}
             >
               <span className="shrink-0 flex items-center opacity-60">
-                <Ban className="w-3.5 h-3.5" />
+                <Ban />
               </span>
               <div className="flex-1 min-w-0">{clearLabel ?? 'Clear'}</div>
+              {!activeState && <Check className="shrink-0" />}
             </CommandPrimitive.Item>
           </>
         )}
         {/* Archive/Unarchive item - only shown when handler provided and no filter active */}
         {!filter && (isArchived ? onUnarchive : onArchive) && (
           <>
-            <div className="border-t border-border/50 mx-2 my-1" />
+            <div className={MENU_SEPARATOR} />
             <CommandPrimitive.Item
               value={isArchived ? "unarchive" : "archive"}
               onSelect={() => isArchived ? onUnarchive?.() : onArchive?.()}
-              className={cn(
-                MENU_ITEM_STYLE,
-                'outline-none',
-                'data-[selected=true]:bg-foreground/3'
-              )}
+              className={MENU_ROW_CMDK}
             >
               <span className="shrink-0 flex items-center opacity-60">
-                {isArchived ? <ArchiveRestore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                {isArchived ? <ArchiveRestore /> : <Archive />}
               </span>
               <div className="flex-1 min-w-0">{isArchived ? 'Unarchive' : 'Archive'}</div>
             </CommandPrimitive.Item>

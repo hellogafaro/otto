@@ -204,6 +204,9 @@ export const playgroundAllowListHandle: PlaygroundAllowListHandle = {
 export const mockElectronAPI = {
   isDebugMode: async () => true,
 
+  // The session menu reads it (sharing hidden: no viewer in the playground).
+  getPageShareCapabilities: async () => ({ sharingEnabled: false, viewerConfigured: false }),
+
   // Called at module-load time by session-files-section.tsx (and others) to
   // branch between Electron and web-UI rendering. Must be synchronous.
   getRuntimeEnvironment: (): 'electron' | 'web' => 'electron',

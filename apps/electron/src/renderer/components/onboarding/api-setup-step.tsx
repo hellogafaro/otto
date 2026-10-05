@@ -5,6 +5,7 @@ import { Check, CreditCard, Key, Cpu } from "lucide-react"
 import { StepFormLayout, BackButton, ContinueButton } from "./primitives"
 import type { LlmAuthType, LlmProviderType } from "@otto/shared/config/llm-connections"
 import { IconTile } from "@/components/ui/icon-tile"
+import { BACKEND_NAME } from "@otto/shared/branding"
 
 /** Provider segment for the segmented control */
 export type ProviderSegment = 'anthropic' | 'pi'
@@ -94,12 +95,11 @@ function OptionButton({
     <button
       onClick={() => onSelect(option.id)}
       className={cn(
-        "flex w-full items-center gap-3 rounded-xl p-4 text-left transition-all",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        "hover:bg-foreground/5 shadow-minimal",
+        "flex w-full items-center gap-3 card-surface rounded-xl p-4 text-left transition-colors",
+        "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         isSelected
-          ? "bg-background"
-          : "bg-foreground-2"
+          ? "bg-[color-mix(in_oklab,var(--card),var(--foreground)_10%)]"
+          : "bg-card hover:bg-[color-mix(in_oklab,var(--card),var(--foreground)_5%)]"
       )}
     >
       {/* Icon */}
@@ -155,8 +155,8 @@ function ProviderSegmentedControl({
           className={cn(
             "flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all",
             activeSegment === segment
-              ? "bg-card shadow-minimal text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-foreground/10 text-foreground"
+              : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
           )}
         >
           {segmentLabels[segment]}
@@ -186,7 +186,7 @@ export function APISetupStep({
 
   const SEGMENT_LABELS: Record<ProviderSegment, string> = {
     anthropic: t("onboarding.apiSetup.claude"),
-    pi: t("onboarding.apiSetup.ottoBackend"),
+    pi: BACKEND_NAME,
   }
 
   const SEGMENT_DESCRIPTIONS: Record<ProviderSegment, React.ReactNode> = {
@@ -261,7 +261,7 @@ export function APISetupStep({
       />
 
       {/* Segment description */}
-      <div className="bg-card rounded-md p-4 mb-3 shadow-minimal">
+      <div className="card-surface bg-card rounded-md p-4 mb-3">
         <p className="text-sm text-muted-foreground text-center">
           {SEGMENT_DESCRIPTIONS[activeSegment]}
         </p>

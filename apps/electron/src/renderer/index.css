@@ -85,34 +85,19 @@
   /* === 6 BASE COLORS === */
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
-  --foreground-rgb: 10, 10, 10;             /* RGB for shadow borders */
+  --foreground-rgb: 10, 10, 10;             /* RGB for rgba() rings */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
-  --primary-rgb: 26, 69, 165;               /* darkened RGB for shadow-tinted (70% of accent) */
   --info: oklch(0.795 0.184 86.047);        /* amber - warnings, Ask mode */
-  --info-rgb: 168, 124, 0;                 /* RGB for shadow-tinted */
+  --info-rgb: 168, 124, 0;                 /* RGB, for the toast tints */
   --success: oklch(0.627 0.194 149.214);    /* green - connected, checkmarks */
-  --success-rgb: 15, 114, 52;               /* RGB for shadow-tinted */
-  --destructive-rgb: 154, 27, 27;           /* RGB for shadow-tinted */
+  --success-rgb: 15, 114, 52;               /* RGB, for the toast tints */
+  --destructive-rgb: 154, 27, 27;           /* RGB, for the toast tints */
 
   /* === SHADOW OPACITY (light mode = subtle, dark mode = stronger) === */
-  --shadow-border-opacity: 0.08;            /* Border ring opacity */
   --shadow-blur-opacity: 0.06;              /* Blur/spread shadow opacity */
 
   /* === SHADOW VALUES (reusable across utility classes and component overrides) === */
-  --shadow-minimal:
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px,
-    rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 1px 1px -0.5px,
-    rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 3px 3px -1.5px;
-
-  /* Minimal shadow without blur layers — just the border ring */
-  --shadow-minimal-flat:
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px;
-
   --shadow-modal-small:
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
@@ -122,18 +107,6 @@
     rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 6px 6px 0px,
     rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 12px 12px 0px,
     rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 24px 24px 0px;
-
-  /* Drag-lift elevation — a card genuinely peeled off the surface. Used by the
-     Planner's in-place sortable (`--sortable-shadow-active`). Keeps the two
-     leading transparent layers so it matches `--shadow-minimal`'s 5-layer count and the Planner's
-     selected→grabbed `box-shadow` transition stays interpolatable. The ring uses
-     `--foreground-rgb`, which flips per theme, so light/dark are covered for free. */
-  --shadow-dragging:
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(var(--foreground-rgb), 0.13) 0px 0px 0px 1px,
-    rgba(0, 0, 0, 0.18) 0px 8px 10px -2px,
-    rgba(0, 0, 0, 0.24) 0px 18px 24px -10px;
 
   /* === MIX VARIANTS (solid interpolation toward background) === */
   /* Use -2, -3, -5, -10, -20, ..., -90, -95 for solid colors (e.g., separators, Explore mode) */
@@ -227,18 +200,16 @@
   /* === 6 BASE COLORS (must match DEFAULT_THEME.dark in theme.ts) === */
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
-  --foreground-rgb: 250, 250, 250;           /* RGB for shadow borders */
+  --foreground-rgb: 250, 250, 250;           /* RGB for rgba() rings */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
-  --primary-rgb: 41, 91, 172;               /* darkened RGB for shadow-tinted (70% of accent) */
   --info: oklch(0.852 0.199 91.936);         /* amber */
-  --info-rgb: 175, 143, 15;                  /* RGB for shadow-tinted */
+  --info-rgb: 175, 143, 15;                  /* RGB, for the toast tints */
   --success: oklch(0.723 0.219 149.579);     /* green */
-  --success-rgb: 24, 138, 66;               /* RGB for shadow-tinted */
-  --destructive-rgb: 174, 79, 79;            /* RGB for shadow-tinted */
+  --success-rgb: 24, 138, 66;               /* RGB, for the toast tints */
+  --destructive-rgb: 174, 79, 79;            /* RGB, for the toast tints */
 
   /* === SHADOW OPACITY (stronger in dark mode for visibility) === */
-  --shadow-border-opacity: 0.15;
   --shadow-blur-opacity: 0.12;
 
   /* === MIX VARIANTS === */
@@ -370,9 +341,6 @@ html[data-scenic] {
   --color-foreground-95: var(--foreground-95);
 
   /* === SEMANTIC SURFACE COLORS === */
-  /* Hover background for list rows on the page card (5% foreground, one step
-     under the open row's 7%) */
-  --color-sidebar-hover: oklch(from var(--foreground) l c h / 0.05);
   /* User message bubble background (overridden on unfocused panels) */
   --color-user-message-bubble: var(--user-message-bubble);
 
@@ -519,30 +487,8 @@ html[data-scenic] {
     -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 32px), transparent 100%);
   }
 
-  /* Custom shadow utilities
-     - Border layer (1px ring) uses foreground color with --shadow-border-opacity
-     - Blur/spread layers use black with --shadow-blur-opacity
-     - Dark mode has stronger values for visibility */
-  .shadow-thin {
-    box-shadow:
-      rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-      rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-      rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px;
-  }
-
-  /* Semantic inset separators for table rows/headers (border-like, but shadow-based) */
-  .shadow-bottom-border {
-    box-shadow: inset 0 -1.5px 0 var(--color-border);
-  }
-
-  .shadow-bottom-border-thin {
-    box-shadow: inset 0 -1px 0 var(--color-border);
-  }
-
-  .shadow-minimal {
-    box-shadow: var(--shadow-minimal);
-  }
-
+  /* Custom shadow utilities (Blur/spread layers use black with --shadow-blur-opacity;
+     dark mode has stronger values for visibility) */
   .shadow-middle {
     box-shadow:
       rgba(0, 0, 0, 0) 0px 0px 0px 0px,
@@ -551,30 +497,6 @@ html[data-scenic] {
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 1px 1px -0.5px,
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 3px 3px -1.5px,
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 6px 6px -3px;
-  }
-
-  /* Tinted shadow using CSS variable - use with style={{ '--shadow-color': 'r, g, b' }} */
-  .shadow-tinted {
-    --shadow-color: 0, 0, 0;
-    box-shadow:
-      rgba(var(--shadow-color), 0) 0px 0px 0px 0px,
-      rgba(var(--shadow-color), 0) 0px 0px 0px 0px,
-      rgba(var(--shadow-color), calc(var(--shadow-border-opacity) * 1.5)) 0px 0px 0px 1px,
-      rgba(var(--shadow-color), var(--shadow-border-opacity)) 0px 1px 1px -0.5px,
-      rgba(var(--shadow-color), var(--shadow-blur-opacity)) 0px 3px 3px -1.5px,
-      rgba(var(--shadow-color), calc(var(--shadow-blur-opacity) * 0.67)) 0px 6px 6px -3px;
-  }
-
-  /* Dark mode: outline only, no blur glow
-     Uses uniform lightness (0.5) for consistent border visibility across all colors */
-  .dark .shadow-tinted {
-    box-shadow:
-      rgba(var(--shadow-color), 0) 0px 0px 0px 0px,
-      rgba(var(--shadow-color), 0) 0px 0px 0px 0px,
-      oklch(from rgb(var(--shadow-color)) 0.425 c h / 0.6) 0px 0px 0px 1px,
-      rgba(var(--shadow-color), 0) 0px 1px 1px -0.5px,
-      rgba(var(--shadow-color), 0) 0px 3px 3px -1.5px,
-      rgba(var(--shadow-color), 0) 0px 6px 6px -3px;
   }
 
   .shadow-strong {
@@ -587,46 +509,6 @@ html[data-scenic] {
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 6px 6px -3px,
       rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 12px 12px -6px,
       rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 24px 24px -12px;
-  }
-
-  .shadow-panel-focused {
-    position: relative;
-    box-shadow:
-      rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-      rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-      rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-      rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 1px 1px -0.5px,
-      rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 3px 3px 1px,
-      rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.5)) 0px 6px 6px 2px,
-      rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.5)) 0px 12px 12px 3px,
-      rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 24px 24px 4px;
-  }
-
-  /* Gradient border: lighter at top, stronger at bottom */
-  .shadow-panel-focused::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(
-      to bottom,
-      rgba(var(--foreground-rgb), 0.1),
-      rgba(var(--foreground-rgb), 0.3)
-    );
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  /* Ensure content sits above the ::before pseudo-element */
-  .shadow-panel-focused > * {
-    position: relative;
-    z-index: 2;
   }
 
   .shadow-modal-small {
@@ -1011,8 +893,9 @@ html.dark[data-scenic] .fullscreen-overlay-background {
 
 [data-sonner-toast] [data-button],
 [data-sonner-toast] [data-cancel] {
-  background-color: var(--background) !important;
-  box-shadow: var(--shadow-minimal) !important;
+  background-color: var(--card) !important;
+  border: 1px solid var(--card-ring) !important;
+  box-shadow: none !important;
   color: oklch(from var(--foreground) l c h / 0.7) !important;
   transition: color 0.15s ease !important;
 }
@@ -1028,12 +911,10 @@ html.dark[data-scenic] .fullscreen-overlay-background {
   right: -14px !important;
   opacity: 0 !important;
   transition: opacity 0.15s ease, color 0.15s ease !important;
-  background-color: var(--background) !important;
+  background-color: var(--card) !important;
   color: oklch(from var(--foreground) l c h / 0.7) !important;
-  border: none !important;
-  box-shadow:
-    rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px,
-    var(--shadow-minimal) !important;
+  border: 1px solid var(--card-ring) !important;
+  box-shadow: none !important;
 }
 
 [data-sonner-toast].group:hover [data-close-button],
@@ -1052,9 +933,7 @@ html.dark[data-scenic] .fullscreen-overlay-background {
 }
 
 [data-sonner-toast] [data-close-button]:focus-visible {
-  box-shadow:
-    var(--shadow-minimal),
-    0 0 0 2px rgba(var(--foreground-rgb), 0.18) !important;
+  box-shadow: 0 0 0 2px rgba(var(--foreground-rgb), 0.18) !important;
 }
 
 /* Tinted backgrounds for toast states - use linear-gradient to layer

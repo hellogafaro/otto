@@ -89,7 +89,7 @@ export function SettingsSelect({
         </div>
       )}
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger id={id} className="w-full bg-muted/50">
+        <SelectTrigger id={id} className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>

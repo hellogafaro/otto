@@ -125,7 +125,7 @@ export function LarkConnectDialog({
             <div className="flex gap-2">
               <Button
                 variant={domain === 'lark' ? 'default' : 'outline'}
-                size="sm"
+                size="compact"
                 onClick={() => setDomain('lark')}
                 disabled={saving}
               >
@@ -133,7 +133,7 @@ export function LarkConnectDialog({
               </Button>
               <Button
                 variant={domain === 'feishu' ? 'default' : 'outline'}
-                size="sm"
+                size="compact"
                 onClick={() => setDomain('feishu')}
                 disabled={saving}
               >
@@ -169,7 +169,7 @@ export function LarkConnectDialog({
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              size="sm"
+              size="compact"
               onClick={handleTest}
               disabled={!ready || test.state === 'testing' || saving}
             >
@@ -193,12 +193,12 @@ export function LarkConnectDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button variant="outline" size="compact" onClick={() => onOpenChange(false)} disabled={saving}>
             {t('common.cancel')}
           </Button>
           <Button
             variant="outline"
-            size="sm"
+            size="compact"
             onClick={handleSave}
             disabled={!ready || test.state !== 'success' || saving}
           >

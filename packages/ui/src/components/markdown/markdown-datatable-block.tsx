@@ -465,7 +465,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
 
   const renderRows = (rows: Record<string, unknown>[]) =>
     rows.map((row, i) => (
-      <tr key={i} className="border-b border-foreground/[0.03] last:border-0 hover:bg-foreground/[0.015] transition-colors">
+      <tr key={i} className="border-b border-foreground/[0.03] last:border-0 hover:bg-foreground/5 transition-colors">
         {parsed.columns.map((col) => (
           <td key={col.key} className={cn('py-2 px-3 whitespace-nowrap', colAlign(col.type, col.align))}>
             {formatCell(row[col.key], col.type)}
@@ -536,10 +536,10 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
         <button
           className={cn(
             'p-1 rounded-[6px] transition-all select-none',
-            'bg-background shadow-minimal',
+            'card-surface bg-card',
             'data-[state=open]:opacity-100',
             hasActiveControls
-              ? 'opacity-100 bg-primary/5 text-primary shadow-tinted'
+              ? 'opacity-100 bg-primary/10 text-primary'
               : alwaysVisible
                 ? 'opacity-70 hover:opacity-100 transition-opacity'
                 : 'opacity-0 group-hover:opacity-100 text-muted-foreground/50 hover:text-foreground',
@@ -668,7 +668,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
           onClick={() => setIsFullscreen(true)}
           className={cn(
             "absolute top-[7px] right-2 p-1 rounded-[6px] transition-all z-10 select-none",
-            "bg-background shadow-minimal",
+            "card-surface bg-card",
             hasActiveControls ? "opacity-100" : "opacity-0 group-hover:opacity-100",
             "text-muted-foreground/50 hover:text-foreground",
             "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:opacity-100"
@@ -703,7 +703,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
         }
       >
         <div className="px-6">
-          <div className="bg-background shadow-minimal rounded-[12px] overflow-hidden">
+          <div className="card-surface bg-card rounded-[12px] overflow-hidden">
             {tableContent(false)}
           </div>
         </div>

@@ -20,12 +20,9 @@ export function getAnnotationRectVisual(rect: { pendingFollowUp?: boolean; sentF
   const isPendingFollowUp = !!rect.pendingFollowUp
 
   return {
-    className: cn('absolute', isPendingFollowUp ? 'shadow-tinted' : undefined),
+    className: cn('absolute', isPendingFollowUp ? 'border border-info/40' : undefined),
     style: {
       opacity: rect.sentFollowUp ? 0.58 : 1,
-      ['--shadow-color' as string]: 'var(--info-rgb)',
-      ['--shadow-border-opacity' as string]: isPendingFollowUp ? '0.14' : '0.08',
-      ['--shadow-blur-opacity' as string]: isPendingFollowUp ? '0.10' : '0.05',
     },
   }
 }
@@ -37,7 +34,7 @@ export function getAnnotationChipVisual(chip: { pendingFollowUp?: boolean; sentF
   return {
     className: cn(
       'absolute pointer-events-auto focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-      pending ? 'shadow-tinted cursor-pointer hover:bg-foreground/10' : undefined,
+      pending ? 'cursor-pointer hover:bg-foreground/10' : undefined,
       sent ? 'cursor-default hover:bg-foreground/5' : undefined,
       !pending && !sent ? 'cursor-pointer hover:bg-foreground/6' : undefined,
     ),
@@ -50,9 +47,6 @@ export function getAnnotationChipVisual(chip: { pendingFollowUp?: boolean; sentF
       color: sent
         ? 'var(--foreground)'
         : 'rgba(15, 23, 42, 0.95)',
-      ['--shadow-color' as string]: 'var(--info-rgb)',
-      ['--shadow-border-opacity' as string]: pending ? '0.14' : '0.05',
-      ['--shadow-blur-opacity' as string]: pending ? '0.10' : '0.03',
     },
   }
 }

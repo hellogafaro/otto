@@ -1501,13 +1501,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                         transition={compactMode ? { duration: 0 } : { duration: 0.1 }}
                         className="flex items-center justify-center h-64 px-4"
                       >
-                        <div
-                          className="max-w-sm rounded-md border border-destructive/20 px-4 py-3 text-center shadow-tinted"
-                          style={{
-                            backgroundColor: 'oklch(from var(--destructive) l c h / 0.03)',
-                            '--shadow-color': 'var(--destructive-rgb)',
-                          } as React.CSSProperties}
-                        >
+                        <div className="max-w-sm rounded-md bg-destructive/10 px-4 py-3 text-center">
                           <AlertTriangle className="mx-auto mb-2 size-3.5 text-destructive/70" />
                           <div className="text-sm font-medium text-destructive">{t("chat.failedToLoadConversation")}</div>
                           <p className="mt-1 break-words text-xs text-destructive/70">{messagesLoadError}</p>
@@ -2114,14 +2108,8 @@ function ErrorMessage({ message, onOpenUrl, sessionId, onRetry }: { message: Mes
 
   return (
     <div className="flex justify-start mt-4">
-      {/* Subtle bg (3% opacity) + tinted shadow for softer error appearance */}
-      <div
-        className="max-w-[80%] shadow-tinted rounded-md pl-5 pr-4 pt-2 pb-2.5 break-words"
-        style={{
-          backgroundColor: 'oklch(from var(--destructive) l c h / 0.03)',
-          '--shadow-color': 'var(--destructive-rgb)',
-        } as React.CSSProperties}
-      >
+      {/* Flat tinted fill, no ring or shadow */}
+      <div className="max-w-[80%] bg-destructive/10 rounded-md pl-5 pr-4 pt-2 pb-2.5 break-words">
         <div className="text-xs text-destructive/50 mb-0.5 font-semibold">
           {message.errorTitle || t('common.error')}
         </div>

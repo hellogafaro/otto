@@ -109,7 +109,7 @@ function OwnerRow({
       </div>
       <Button
         variant="ghost"
-        size="sm"
+        size="compact"
         onClick={onRemove}
         className="text-foreground/60 hover:text-destructive"
         aria-label={t('settings.messaging.telegram.access.owners.removeAria', { name: primary })}

@@ -84,7 +84,7 @@ export function SettingsToggle({
                 <button
                   type="button"
                   aria-label={t('common.info')}
-                  className="inline-flex rounded-sm text-foreground/40 hover:text-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex rounded-sm text-foreground/40 hover:text-foreground/70 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   onClick={(event) => event.preventDefault()}
                 >
                   <Info className="size-3.5" aria-hidden />

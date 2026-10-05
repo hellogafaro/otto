@@ -550,7 +550,7 @@ interface InputContainerPlaygroundProps {
 function InputContainerPlayground({
   disabled = false,
   isProcessing = false,
-  placeholder = 'Message Otto...',
+  placeholder = 'Type a message...',
   currentModel = 'claude-sonnet-4-6',
   permissionMode = 'ask',
   workingDirectory = '/Users/demo/projects/otto',
@@ -821,7 +821,7 @@ function ActiveTasksBarContext({ tasks = sampleBackgroundTasks }: ActiveTasksBar
 
         {/* Real InputContainer */}
         <InputContainer
-          placeholder="Message Otto..."
+          placeholder="Type a message..."
           disabled={false}
           isProcessing={false}
           currentModel="claude-sonnet-4-6"
@@ -894,18 +894,16 @@ function PermissionInputToggle({ autoToggle = false, autoToggleInterval = 3000, 
       <div className="flex items-center gap-2 mb-20">
         <Button
           variant={showPermission ? 'default' : 'outline'}
-          size="sm"
+          size="compact"
           onClick={() => setShowPermission(true)}
-          className="gap-1.5"
         >
           <Sparkles className="h-3.5 w-3.5" />
           Show Permission
         </Button>
         <Button
           variant={!showPermission ? 'default' : 'outline'}
-          size="sm"
+          size="compact"
           onClick={() => setShowPermission(false)}
-          className="gap-1.5"
         >
           Show Input
         </Button>
@@ -923,7 +921,7 @@ function PermissionInputToggle({ autoToggle = false, autoToggleInterval = 3000, 
 
       {/* Real InputContainer - handles animation automatically */}
       <InputContainer
-        placeholder="Message Otto..."
+        placeholder="Type a message..."
         disabled={false}
         isProcessing={false}
         currentModel="claude-sonnet-4-6"
@@ -1274,7 +1272,7 @@ export const chatComponents: ComponentEntry[] = [
         name: 'placeholder',
         description: 'Textarea placeholder text',
         control: { type: 'string', placeholder: 'Message...' },
-        defaultValue: 'Message Otto...',
+        defaultValue: 'Type a message...',
       },
       {
         name: 'currentModel',

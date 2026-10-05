@@ -15,11 +15,9 @@ export interface SavedWindow {
   type: 'main'
   workspaceId: string
   bounds: WindowBounds
-  // Full URL captured from webContents.getURL() at quit time.
-  // May be localhost (dev) or file:// (prod) — both are safe to store because
-  // createWindow() never loads this URL directly. It extracts query params
-  // (workspaceId, route, etc.) and rebuilds the URL from __dirname
-  // (prod) or the current dev server (dev). See window-manager.ts restoreUrl.
+  // Full URL captured from webContents.getURL() at quit time: the dev server, otto://app/...
+  // (prod) or a legacy file:// URL. createWindow() never loads it directly: it keeps the path and
+  // query and rebuilds the URL on the current origin. See buildRendererUrl in app-protocol.ts.
   url?: string
 }
 

@@ -95,9 +95,8 @@ export function PermissionRequest({ request, onResponse, unstyled = false }: Per
       {/* Action buttons */}
       <div className="shrink-0 flex flex-wrap items-center gap-2 px-3 py-2 border-t border-border/50">
         <Button
-          size="sm"
+          size="compact"
           variant="default"
-          className="h-7 gap-1.5"
           onClick={handleAllow}
           data-tutorial="permission-allow-button"
         >
@@ -106,9 +105,9 @@ export function PermissionRequest({ request, onResponse, unstyled = false }: Per
         </Button>
         {canRemember && (
           <Button
-            size="sm"
+            size="compact"
             variant="ghost"
-            className="h-7 gap-1.5 border border-foreground/10 hover:bg-foreground/5 active:bg-foreground/10"
+            className="border border-foreground/10 hover:bg-foreground/5 active:bg-foreground/10"
             onClick={handleAlwaysAllow}
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -116,9 +115,9 @@ export function PermissionRequest({ request, onResponse, unstyled = false }: Per
           </Button>
         )}
         <Button
-          size="sm"
+          size="compact"
           variant="ghost"
-          className="h-7 gap-1.5 text-destructive hover:text-destructive border border-dashed border-destructive/50 hover:bg-destructive/10 hover:border-destructive/70 active:bg-destructive/20"
+          className="text-destructive hover:text-destructive border border-dashed border-destructive/50 hover:bg-destructive/10 hover:border-destructive/70 active:bg-destructive/20"
           onClick={handleDeny}
         >
           <X className="h-3.5 w-3.5" />

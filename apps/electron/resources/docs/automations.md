@@ -96,7 +96,7 @@ otto automation validate
 
 ### Prompt Actions
 
-Send a prompt to Otto (creates a new session for scheduled prompts).
+Send a prompt to the agent (creates a new session for scheduled prompts).
 
 ```json
 {
@@ -819,7 +819,7 @@ Automations are validated when:
 
 **Using config_validate:**
 
-Ask Otto to validate your automations configuration:
+Ask the agent to validate your automations configuration:
 
 ```
 Validate my automations configuration

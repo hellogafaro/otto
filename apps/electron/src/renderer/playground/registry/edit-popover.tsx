@@ -320,7 +320,7 @@ function EditPopoverPreview({
           <div className="flex flex-col items-center gap-4">
             <EditPopover
               trigger={
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="compact">
                   <Pencil className="w-4 h-4 mr-2" />
                   {triggerLabel}
                 </Button>

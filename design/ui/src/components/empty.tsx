@@ -14,11 +14,13 @@ function Empty({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// Otto: the header is capped at 320px (max-w-xs, as in Otto v1) so a
+// description wraps to a short centered block, never one long line.
 function EmptyHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="empty-header"
-      className={cn("flex max-w-sm flex-col items-center gap-2", className)}
+      className={cn("flex w-full max-w-xs flex-col items-center gap-2", className)}
       {...props}
     />
   )
@@ -32,7 +34,7 @@ const emptyMediaVariants = cva(
     variants: {
       variant: {
         default: "bg-transparent",
-        icon: "flex size-8 shrink-0 items-center justify-center card-surface rounded-md bg-card text-foreground [&_svg:not([class*='size-'])]:size-5",
+        icon: "flex size-8 shrink-0 items-center justify-center card-surface rounded-md bg-card text-foreground [&_svg:not([class*='size-'])]:size-4",
       },
     },
     defaultVariants: {

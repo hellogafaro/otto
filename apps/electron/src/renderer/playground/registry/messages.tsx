@@ -23,7 +23,7 @@ import type { Message } from '../../../shared/types'
 function AssistantMessage({ content }: { content: string }) {
   return (
     <div className="flex justify-start group">
-      <div className="relative max-w-[80%] bg-white shadow-minimal rounded-md pl-6 pr-4 py-3 break-words min-w-0">
+      <div className="relative max-w-[80%] card-surface bg-white rounded-md pl-6 pr-4 py-3 break-words min-w-0">
         <CollapsibleMarkdownProvider>
           <Markdown
             mode="minimal"

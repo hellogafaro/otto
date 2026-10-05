@@ -2,6 +2,7 @@ import * as React from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@otto/ui'
 import { FadingText } from '@/components/ui/fading-text'
+import { ToolbarChip } from '@/components/ui/toolbar-chip'
 import { cn } from '@/lib/utils'
 
 export interface FreeFormInputContextBadgeProps {
@@ -35,10 +36,10 @@ export interface FreeFormInputContextBadgeProps {
  * FreeFormInputContextBadge - Unified context badge for Sources, Files, and Folder selectors
  *
  * Visual States:
- * - Expanded: Icon + Label + Chevron, no background, hover shows background
- * - Collapsed (no selection): Icon only, no background, hover shows background
- * - Collapsed (has selection): Icon + Label (fading), bg-card + shadow-minimal
- * - Open: bg-foreground/5 (like hover)
+ * - Expanded: Icon + Label + Chevron
+ * - Collapsed (no selection): Icon only
+ * - Collapsed (has selection): Icon + Label (fading)
+ * It is a ToolbarChip: hover, open and keyboard focus states come from the ghost button.
  */
 export const FreeFormInputContextBadge = React.forwardRef<HTMLButtonElement, FreeFormInputContextBadgeProps>(
   function FreeFormInputContextBadge(
@@ -65,30 +66,24 @@ export const FreeFormInputContextBadge = React.forwardRef<HTMLButtonElement, Fre
     const showLabel = isExpanded || hasSelection
 
     const button = (
-      <button
+      <ToolbarChip
         ref={mergedRef as React.Ref<HTMLButtonElement>}
         type="button"
         aria-label={label}
         onClick={onClick}
         disabled={disabled}
+        open={isOpen}
+        size={showLabel ? 'compact' : 'icon-compact'}
         data-tutorial={dataTutorial}
         className={cn(
-          // Base styles - shrink + min-w-0 allows badge to compress in tight layouts
-          "input-toolbar-btn inline-flex items-center gap-1.5 h-7 rounded-sm text-[13px] text-foreground transition-colors select-none shrink min-w-0",
-          "disabled:opacity-50 disabled:pointer-events-none",
-          // Padding: more padding when showing label
-          showLabel ? "px-2" : "px-1.5",
-          // Collapsed with selection: visible background + thin 1px border + margin
-          !isExpanded && hasSelection && "bg-background border border-foreground/5 mx-0.5",
-          // Hover state (when not already showing background from selection)
-          !(!isExpanded && hasSelection) && "hover:bg-foreground/5",
-          // Open state (dropdown shown)
-          isOpen && "bg-foreground/5",
+          // shrink + min-w-0 lets the chip compress in tight layouts
+          "input-toolbar-btn shrink min-w-0",
+          showLabel && "text-foreground",
           className
         )}
       >
         {/* Icon area */}
-        <span className="shrink-0 flex items-center">
+        <span data-icon="inline-start" className="shrink-0 flex items-center">
           {icon}
         </span>
 
@@ -109,9 +104,9 @@ export const FreeFormInputContextBadge = React.forwardRef<HTMLButtonElement, Fre
 
         {/* Optional chevron - only in expanded state */}
         {isExpanded && showChevron && (
-          <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+          <ChevronDown className="size-3 opacity-50 shrink-0" />
         )}
-      </button>
+      </ToolbarChip>
     )
 
     // Wrap with tooltip if provided (skip when dropdown is open to avoid showing tooltip)

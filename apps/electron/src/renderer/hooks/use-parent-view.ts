@@ -1,64 +1,55 @@
 /**
  * The parent of the open view, by the route hierarchy, and how to go to it.
  *
- * One rule for Back in the page header: Back goes to the parent view, and there is
- * no Back on a view without one.
- * - A settings page below the landing page: Settings.
+ * One rule for Back (the floating navigation's Back button): Back goes to the parent
+ * view, and there is no Back on a view without one. Sub-navigation is an index page
+ * before the detail, never a sidebar list, so the parents are:
+ * - A chat: the Chats index (the filter it was opened under).
+ * - A settings page, a skill or a source (also the empty Skills / Sources page): the Settings index.
  * - A document: the Documents library (the card's own page).
- * - An item of a list (a chat, a source, a skill, a project, an automation): its
- *   list. The list lives in the sidebar, so below 768px (where the sidebar is a
- *   sheet) Back opens the sheet on it; otherwise it closes the item, leaving the list.
+ * - A project or an automation: its section.
+ * The Chats and Settings indexes, and the Tasks section root, have no parent.
  *
  * Back is never history Back: that is the Electron buttons in the sidebar header and
  * the browser's own.
  */
 
 import { useCallback, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useSidebar } from '@workspace/ui/components/sidebar'
 import { useNavigation, useNavigationState } from '@/contexts/navigation-context'
 import { buildRouteFromNavigationState } from '../../shared/route-parser'
 import { routes } from '@/lib/navigate'
 import type { Route } from '../../shared/routes'
 
 export interface ParentView {
-  /** The parent's name for the crumb trail; none for a chat (the list has no page title). */
-  label?: string
   onBack: () => void
 }
 
 export function useParentView(): ParentView | null {
-  const { t } = useTranslation()
   const { navigate } = useNavigation()
   const navState = useNavigationState()
-  const { isMobile, setOpenMobile } = useSidebar()
 
-  const goToList = useCallback(() => {
-    if (isMobile) {
-      setOpenMobile(true)
-      return
-    }
-    navigate(buildRouteFromNavigationState({ ...navState, details: null } as typeof navState) as Route, { skipAutoSelect: true })
-  }, [isMobile, setOpenMobile, navigate, navState])
+  /** The open view without its details: the index the detail was opened from. */
+  const goToIndex = useCallback(() => {
+    navigate(buildRouteFromNavigationState({ ...navState, details: null } as typeof navState) as Route)
+  }, [navigate, navState])
 
   return useMemo(() => {
     switch (navState.navigator) {
       case 'settings':
-        if (navState.subpage === null || navState.subpage === 'app') return null
-        return { label: t('sidebar.settings'), onBack: () => navigate(routes.view.settings()) }
+        return navState.subpage === null ? null : { onBack: () => navigate(routes.view.settings()) }
       case 'pages':
         if (!navState.details) return null
-        return { label: t('sidebar.documents'), onBack: () => navigate(routes.view.pages()) }
+        return { onBack: () => navigate(routes.view.pages()) }
       case 'sessions':
-        return navState.details ? { onBack: goToList } : null
+        return navState.details ? { onBack: goToIndex } : null
       case 'sources':
-        return navState.details ? { label: t('sidebar.sources'), onBack: goToList } : null
       case 'skills':
-        return navState.details ? { label: t('sidebar.skills'), onBack: goToList } : null
+        return { onBack: () => navigate(routes.view.settings()) }
       case 'automations':
-        return navState.details ? { label: t('sidebar.automations'), onBack: goToList } : null
       case 'projects':
-        return navState.details ? { label: t('sidebar.projects'), onBack: goToList } : null
+        return navState.details ? { onBack: goToIndex } : null
+      case 'tasks':
+        return null
     }
-  }, [navState, t, navigate, goToList])
+  }, [navState, navigate, goToIndex])
 }

@@ -48,7 +48,7 @@ export function MentionBadge({
       className={cn(
         'inline-flex items-center gap-1.5 h-6 pl-1 pr-1.5 rounded-sm',
         'bg-foreground/5 text-[12px] text-foreground',
-        'transition-colors hover:bg-foreground/8',
+        'transition-colors hover:bg-foreground/10',
         className
       )}
     >

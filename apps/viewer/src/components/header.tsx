@@ -4,6 +4,7 @@
 
 import { Sun, Moon, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 
 /**
  * OttoLogo - the six-blade mark (design/brand/otto-mark.svg). The viewer cannot
@@ -16,7 +17,7 @@ function OttoLogo({ className }: { className?: string }) {
       viewBox="0 0 699 648"
       fill="currentColor"
       role="img"
-      aria-label="Otto"
+      aria-label={PRODUCT_NAME}
       xmlns="http://www.w3.org/2000/svg"
     >
       <path d="M455.72 308.552C434.87 362.176 432.085 421.138 447.785 476.488C463.485 531.839 496.814 580.557 542.713 615.248L592.532 549.333C560.978 525.484 538.066 491.993 527.273 453.942C516.48 415.891 518.395 375.357 532.728 338.493L455.72 308.552Z" />
@@ -57,7 +58,7 @@ export function Header({ hasSession, sessionTitle, isDark, onToggleTheme, onClea
         {hasSession && (
           <button
             onClick={onClear}
-            className="p-1.5 rounded-md bg-background shadow-minimal text-foreground/40 hover:text-foreground/70 transition-colors"
+            className="p-1.5 rounded-md card-surface bg-card text-foreground/40 hover:text-foreground/70 transition-colors"
             title={t('viewer.clearSession')}
           >
             <X className="w-4 h-4" />
@@ -67,7 +68,7 @@ export function Header({ hasSession, sessionTitle, isDark, onToggleTheme, onClea
         {/* Theme toggle */}
         <button
           onClick={onToggleTheme}
-          className="p-1.5 rounded-md bg-background shadow-minimal text-foreground/40 hover:text-foreground/70 transition-colors"
+          className="p-1.5 rounded-md card-surface bg-card text-foreground/40 hover:text-foreground/70 transition-colors"
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}

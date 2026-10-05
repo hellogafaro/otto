@@ -1,7 +1,28 @@
 /**
- * Centralized branding assets for Otto
- * Used by OAuth callback pages
+ * Centralized branding for Otto: the product name, the default agent's name and
+ * the logo used by OAuth callback pages.
  */
+
+/**
+ * The product (the app and the company-level things). Copy and prompts never
+ * type it: i18n strings use `{{product}}` (a default variable set in
+ * `setupI18n`), code imports this. Static HTML (login.html, index.html titles,
+ * manifest.json) cannot import it and keeps a literal.
+ */
+export const PRODUCT_NAME = 'Otto';
+
+/** The product's "Backend" provider (the Pi connection type), as shown in pickers and settings. */
+export const BACKEND_NAME = `${PRODUCT_NAME} Backend`;
+
+/** No-reply address on the commit co-author trailer; the name before it is the agent's. */
+export const PRODUCT_NOREPLY_EMAIL = 'noreply@hellogafaro.com';
+
+/**
+ * Display name of the DEFAULT agent. Only a fallback for when no agent name is
+ * available; copy never names an agent (write "your agents", or use the name of
+ * the agent in context).
+ */
+export const AGENT_DEFAULT_NAME = 'Otto';
 
 export const OTTO_LOGO = [
   '  ████████   ████████████ ████████████   ████████',

@@ -34,7 +34,9 @@ export default defineConfig({
     // }),
   ],
   root: resolve(__dirname, 'src/renderer'),
-  base: './',
+  // Absolute asset URLs: the renderer lives on path URLs (/{workspace}/chats/{id}) served by the
+  // otto://app protocol (src/main/app-protocol.ts), where './assets/x.js' would resolve under the route.
+  base: '/',
   build: {
     outDir: resolve(__dirname, 'dist/renderer'),
     emptyDirBeforeWrite: true,

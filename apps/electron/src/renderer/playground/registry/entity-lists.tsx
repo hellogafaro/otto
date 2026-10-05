@@ -354,8 +354,8 @@ function SourceEntityListPreview({
           <Empty className="flex-1">
             <EmptyHeader>
               <EmptyMedia variant="icon"><DatabaseZap /></EmptyMedia>
-              <EmptyTitle>No sources configured</EmptyTitle>
-              <EmptyDescription>Sources connect your agent to external data.</EmptyDescription>
+              <EmptyTitle>No sources yet</EmptyTitle>
+              <EmptyDescription>Let your agents work with the tools and data you already use.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         }
@@ -404,8 +404,8 @@ function SkillEntityListPreview({
           <Empty className="flex-1">
             <EmptyHeader>
               <EmptyMedia variant="icon"><Zap /></EmptyMedia>
-              <EmptyTitle>No skills configured</EmptyTitle>
-              <EmptyDescription>Skills teach your agent specialized behaviors.</EmptyDescription>
+              <EmptyTitle>No skills yet</EmptyTitle>
+              <EmptyDescription>Teach your agents your way of working once and reuse it anywhere.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         }
@@ -463,8 +463,8 @@ function MixedEntityListPreview({
             <Empty className="flex-1">
               <EmptyHeader>
                 <EmptyMedia variant="icon"><DatabaseZap /></EmptyMedia>
-                <EmptyTitle>Nothing here yet</EmptyTitle>
-                <EmptyDescription>Add sessions, sources, or skills to get started.</EmptyDescription>
+                <EmptyTitle>No chats yet</EmptyTitle>
+                <EmptyDescription>Pick up any conversation exactly where you left off.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           }
@@ -786,7 +786,7 @@ function InteractiveEntityListPreview({
               <EmptyHeader>
                 <EmptyMedia variant="icon"><Search /></EmptyMedia>
                 <EmptyTitle>No results</EmptyTitle>
-                <EmptyDescription>Try a different search term.</EmptyDescription>
+                <EmptyDescription>Try changing or clearing your filters.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           }

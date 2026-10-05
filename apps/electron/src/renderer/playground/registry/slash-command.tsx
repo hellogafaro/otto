@@ -91,8 +91,7 @@ function SlashCommandDemo() {
           <div className="relative">
             <Button
               variant="outline"
-              size="sm"
-              className="gap-2"
+              size="compact"
               onClick={() => setButtonMenuOpen(!buttonMenuOpen)}
             >
               <SquareSlash className="h-4 w-4" />

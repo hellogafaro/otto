@@ -130,7 +130,7 @@ export function PageSourceAuthBanner({ workspaceId, page, sources, className }: 
             </span>
             <Button
               variant="outline"
-              size="sm"
+              size="compact"
               className="shrink-0"
               disabled={busySlug !== null}
               onClick={() => handleReconnect(source)}

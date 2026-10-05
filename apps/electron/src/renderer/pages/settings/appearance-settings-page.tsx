@@ -200,7 +200,6 @@ export default function AppearanceSettingsPage() {
                     <SettingsSegmentedControl
                       value={mode}
                       onValueChange={setMode}
-                      size="sm"
                       options={[
                         { value: 'system', label: t("settings.appearance.system"), icon: <Monitor className="size-3.5" /> },
                         { value: 'light', label: t("settings.appearance.light"), icon: <Sun className="size-3.5" /> },

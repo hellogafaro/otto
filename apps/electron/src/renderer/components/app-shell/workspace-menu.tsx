@@ -1,39 +1,38 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useState, useCallback, useRef } from "react"
-import { FolderPlus, ChevronsUpDown, Cloud, CloudOff, Contrast, LogOut, Monitor, Moon, Settings, Sun, Trash2, Users } from "lucide-react"
+import { ChevronsUpDown, Cloud, CloudOff, LogOut, Plus, Settings, Trash2, User } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 import { useSetAtom } from "jotai"
 import { toast } from "sonner"
+import { logOut } from "@/lib/log-out"
 
 import { cn } from "@/lib/utils"
 import { fullscreenOverlayOpenAtom } from "@/atoms/overlay"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { WorkspaceAvatar } from "@/components/ui/workspace-avatar"
 import { SidebarMenuButton, useSidebar } from "@workspace/ui/components/sidebar"
 import { WorkspaceCreationScreen } from "@/components/workspace"
 import { useActionLabel } from "@/actions"
-import { useTheme, type ThemeMode } from "@/context/theme-context"
+import { navigate, routes } from "@/lib/navigate"
 import { isWebUI } from "@/lib/platform"
 import { waitForTransportConnected } from '@/lib/transport-wait'
 import { useWorkspaceIcons } from "@/hooks/use-workspace-icon"
 import { useTransportConnectionState } from "@/hooks/use-transport-connection-state"
 import type { Workspace } from "../../../shared/types"
 
-interface ProfileMenuProps {
+interface WorkspaceMenuProps {
   workspaces: Workspace[]
   activeWorkspaceId: string | null
   onSelect: (workspaceId: string) => void | Promise<void>
@@ -44,19 +43,21 @@ interface ProfileMenuProps {
   workspaceUnreadMap?: Record<string, boolean>
 }
 
-const THEME_MODES = [
-  { mode: 'light', labelKey: 'settings.appearance.light', icon: Sun },
-  { mode: 'dark', labelKey: 'settings.appearance.dark', icon: Moon },
-  { mode: 'system', labelKey: 'settings.appearance.system', icon: Monitor },
-] as const
+/** Up to two initials of a name ("Ada Lovelace" -> "AL"). */
+function getInitials(name: string): string {
+  return name.trim().split(/\s+/).slice(0, 2).map(word => word.charAt(0)).join('').toUpperCase()
+}
 
 /**
- * ProfileMenu - the sidebar footer's workspace row (32px avatar, name, up-down
- * chevron; the avatar alone when the sidebar is icons only) and the profile menu it
- * opens: the workspace's name, a Workspace submenu (the workspaces, remove, add),
- * Settings, an Appearance submenu (Light, Dark, System) and, on the web only, Log out.
+ * WorkspaceMenu - the sidebar footer's workspace row (20px avatar, name, up-down
+ * chevron; the avatar alone when the sidebar is icons only) and the menu it opens:
+ * the current workspace (avatar, name), Settings, the workspaces to switch
+ * to (a check on the current one, remove on hover for the others) with New
+ * workspace, then the account block (the name and email from Settings ->
+ * Preferences, a muted placeholder for each one not set; it opens that page)
+ * and, on the web only, Log out.
  */
-export function ProfileMenu({
+export function WorkspaceMenu({
   workspaces,
   activeWorkspaceId,
   onSelect,
@@ -64,12 +65,11 @@ export function ProfileMenu({
   onWorkspaceCreated,
   onWorkspaceRemoved,
   workspaceUnreadMap,
-}: ProfileMenuProps) {
+}: WorkspaceMenuProps) {
   const { t } = useTranslation()
   const { state, isMobile } = useSidebar()
   // The sheet (below 768px) always shows the full row, whatever the window's icon state.
   const iconsOnly = state === 'collapsed' && !isMobile
-  const { mode, setMode } = useTheme()
   const settingsHotkey = useActionLabel('app.settings').hotkey ?? undefined
   const [showCreationScreen, setShowCreationScreen] = useState(false)
   const [reconnectTarget, setReconnectTarget] = useState<Workspace | null>(null)
@@ -77,6 +77,7 @@ export function ProfileMenu({
   const selectedWorkspace = workspaces.find(w => w.id === activeWorkspaceId)
   const workspaceIconMap = useWorkspaceIcons(workspaces)
   const connectionState = useTransportConnectionState()
+  const [account, setAccount] = useState({ name: '', email: '' })
   const isRemote = connectionState?.mode === 'remote'
 
   // Health check results for non-active remote workspaces (checked on dropdown open)
@@ -113,6 +114,23 @@ export function ProfileMenu({
         })
     }
   }, [workspaces, activeWorkspaceId])
+
+  /** The name and email the person set in Settings -> Preferences (nothing else identifies them). */
+  const loadAccount = useCallback(() => {
+    const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
+    window.electronAPI.readPreferences()
+      .then(({ content }) => {
+        try {
+          const prefs = JSON.parse(content)
+          setAccount({ name: text(prefs.name), email: text(prefs.email) })
+        } catch {
+          setAccount({ name: '', email: '' })
+        }
+      })
+      .catch(() => setAccount({ name: '', email: '' }))
+  }, [])
+
+  React.useEffect(loadAccount, [loadAccount])
 
   /** Tooltip for disconnected remote workspaces — shows error kind. */
   const getDisconnectTooltip = (workspaceId: string): string => {
@@ -188,17 +206,6 @@ export function ProfileMenu({
     toast.success(t('toast.workspaceReconnected'))
   }, [activeWorkspaceId, handleCloseCreationScreen, onSelect])
 
-  /** Web only: the server clears the session cookie, then the login page takes over. */
-  const handleLogOut = useCallback(async () => {
-    try {
-      const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
-      if (!response.ok) throw new Error(`Log out failed (${response.status})`)
-      window.location.assign('/login')
-    } catch {
-      toast.error(t('toast.couldNotLogOut'))
-    }
-  }, [t])
-
   return (
     <>
       {/* Full-screen workspace creation overlay */}
@@ -213,20 +220,19 @@ export function ProfileMenu({
         )}
       </AnimatePresence>
 
-      <DropdownMenu onOpenChange={(open) => { if (open) checkRemoteHealth() }}>
+      <DropdownMenu onOpenChange={(open) => { if (open) { checkRemoteHealth(); loadAccount() } }}>
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton
-            size="lg"
-            aria-label={t('profileMenu.open')}
+            aria-label={t('workspaceMenu.open')}
             tooltip={selectedWorkspace?.name}
-            className="titlebar-no-drag data-popup-open:bg-sidebar-accent/60 data-popup-open:text-foreground"
+            className="titlebar-no-drag"
           >
             <WorkspaceAvatar
               workspaceId={selectedWorkspace?.id}
               workspaceName={selectedWorkspace?.name}
               src={selectedWorkspace ? workspaceIconMap.get(selectedWorkspace.id) : undefined}
-              className="size-8 rounded-md"
-              fallbackClassName="rounded-md text-sm"
+              className="size-5 rounded-xs"
+              fallbackClassName="rounded-xs"
             />
             <span className="flex min-w-0 flex-1 flex-col text-left">
               <span className="truncate text-sm font-medium text-foreground">{selectedWorkspace?.name || t('workspace.selectWorkspace')}</span>
@@ -245,108 +251,112 @@ export function ProfileMenu({
           side={iconsOnly ? 'right' : 'top'}
           align={iconsOnly ? 'end' : 'start'}
           sideOffset={4}
-          className="w-56"
+          className="w-60"
         >
-          <DropdownMenuLabel className="truncate">{selectedWorkspace?.name}</DropdownMenuLabel>
-
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Users />
-              {t('profileMenu.workspace')}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="min-w-56">
-              <DropdownMenuRadioGroup value={activeWorkspaceId ?? ''}>
-                {workspaces.map((workspace) => {
-                  const disconnected = isRemoteDisconnected(workspace.id)
-                  return (
-                    <DropdownMenuRadioItem
-                      key={workspace.id}
-                      value={workspace.id}
-                      closeOnClick
-                      onClick={() => {
-                        if (disconnected && workspace.remoteServer) {
-                          setReconnectTarget(workspace)
-                          setShowCreationScreen(true)
-                          setFullscreenOverlayOpen(true)
-                          return
-                        }
-                        if (disconnected) return
-                        onSelect(workspace.id)
-                      }}
-                      className={cn("group", disconnected && "opacity-60")}
-                    >
-                      <WorkspaceAvatar
-                        workspaceId={workspace.id}
-                        workspaceName={workspace.name}
-                        src={workspaceIconMap.get(workspace.id)}
-                        className="size-5 rounded-full ring-1 ring-border/50"
-                        fallbackClassName="rounded-full text-xs"
-                      />
-                      <span className="truncate">{workspace.name}</span>
-                      {workspace.remoteServer && (
-                        disconnected
-                          ? <span title={getDisconnectTooltip(workspace.id)} className="shrink-0"><CloudOff className="text-destructive" /></span>
-                          : <Cloud className="shrink-0 text-muted-foreground" />
-                      )}
-                      {workspaceUnreadMap?.[workspace.id] && <span className="size-2 shrink-0 rounded-full bg-primary" />}
-                      {/* Only non-active workspaces can be removed; it shows on hover, in the check's slot. */}
-                      {activeWorkspaceId !== workspace.id && (
-                        <button
-                          data-touch-reveal="true"
-                          className="absolute right-1 flex size-5 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleRemoveWorkspace(workspace)
-                          }}
-                          title={t("workspace.removeWorkspace")}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      )}
-                    </DropdownMenuRadioItem>
-                  )
-                })}
-              </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleNewWorkspace}>
-                <FolderPlus />
-                {t("workspace.addWorkspace")}
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+          {/* The current workspace: a static block, not a row. */}
+          <div className="flex h-12 items-center gap-2 rounded-md px-2 py-2">
+            <WorkspaceAvatar
+              workspaceId={selectedWorkspace?.id}
+              workspaceName={selectedWorkspace?.name}
+              src={selectedWorkspace ? workspaceIconMap.get(selectedWorkspace.id) : undefined}
+              className="size-8 rounded-md"
+              fallbackClassName="rounded-md text-sm"
+            />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">{selectedWorkspace?.name || t('workspace.selectWorkspace')}</span>
+          </div>
+          <DropdownMenuSeparator />
 
           <DropdownMenuItem onClick={onSettings}>
             <Settings />
             {t('sidebar.settings')}
             {settingsHotkey && <DropdownMenuShortcut>{settingsHotkey}</DropdownMenuShortcut>}
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
 
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Contrast />
-              {t('profileMenu.appearance')}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuRadioGroup value={mode} onValueChange={(value) => setMode(value as ThemeMode)}>
-                {THEME_MODES.map(({ mode: value, labelKey, icon: Icon }) => (
-                  <DropdownMenuRadioItem key={value} value={value}>
-                    <Icon />
-                    {t(labelKey)}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>{t('workspaceMenu.workspaces')}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={activeWorkspaceId ?? ''}>
+              {workspaces.map((workspace) => {
+                const disconnected = isRemoteDisconnected(workspace.id)
+                return (
+                  <DropdownMenuRadioItem
+                    key={workspace.id}
+                    value={workspace.id}
+                    closeOnClick
+                    onClick={() => {
+                      if (disconnected && workspace.remoteServer) {
+                        setReconnectTarget(workspace)
+                        setShowCreationScreen(true)
+                        setFullscreenOverlayOpen(true)
+                        return
+                      }
+                      if (disconnected) return
+                      onSelect(workspace.id)
+                    }}
+                    className={cn("group", disconnected && "opacity-60")}
+                  >
+                    <WorkspaceAvatar
+                      workspaceId={workspace.id}
+                      workspaceName={workspace.name}
+                      src={workspaceIconMap.get(workspace.id)}
+                      className="size-5 rounded-xs"
+                      fallbackClassName="rounded-xs"
+                    />
+                    <span className="truncate">{workspace.name}</span>
+                    {workspace.remoteServer && (
+                      disconnected
+                        ? <span title={getDisconnectTooltip(workspace.id)} className="shrink-0"><CloudOff className="text-destructive" /></span>
+                        : <Cloud className="shrink-0 text-muted-foreground" />
+                    )}
+                    {workspaceUnreadMap?.[workspace.id] && <span className="size-2 shrink-0 rounded-full bg-primary" />}
+                    {/* Only non-active workspaces can be removed; it shows on hover, in the check's slot. */}
+                    {activeWorkspaceId !== workspace.id && (
+                      <button
+                        data-touch-reveal="true"
+                        className="absolute right-1 flex size-5 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemoveWorkspace(workspace)
+                        }}
+                        title={t("workspace.removeWorkspace")}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
                   </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+                )
+              })}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+          <DropdownMenuItem onClick={handleNewWorkspace}>
+            <Plus />
+            {t('workspaceMenu.new')}
+          </DropdownMenuItem>
 
+          <DropdownMenuSeparator />
+          {/* The account: always shown, a muted placeholder for what is not set; it opens Settings -> Preferences. Same 48px rhythm as the workspace block above (8 + 32 + 8). */}
+          <DropdownMenuItem
+            className="h-12 gap-2 rounded-md py-2"
+            onClick={() => navigate(routes.view.settings('preferences'))}
+          >
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-medium text-muted-foreground">
+              {account.name ? getInitials(account.name) : <User className="size-4" />}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col text-left">
+              <span className={cn("truncate text-sm leading-[18px] font-medium", !account.name && "text-muted-foreground")}>
+                {account.name || t('workspaceMenu.accountNamePlaceholder')}
+              </span>
+              <span className="truncate text-xs leading-4 text-muted-foreground">
+                {account.email || t('workspaceMenu.accountEmailPlaceholder')}
+              </span>
+            </span>
+          </DropdownMenuItem>
           {/* Electron runs against its own local server: there is no web session to end. */}
           {isWebUI && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={handleLogOut}>
-                <LogOut />
-                {t('profileMenu.logOut')}
-              </DropdownMenuItem>
-            </>
+            <DropdownMenuItem variant="destructive" onClick={() => void logOut()}>
+              <LogOut />
+              {t('workspaceMenu.logOut')}
+            </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

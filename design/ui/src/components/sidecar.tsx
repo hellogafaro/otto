@@ -9,8 +9,9 @@ import * as React from "react"
 // source's details), on the sidelines of the column. Docked in the right gutter
 // it is a canvas, not a surface: no background, ring, shadow or corners, just
 // quiet metadata blocks floating on the frame beside the column, 296px wide,
-// 20px from it and level with the header row (its title is the first subtitle,
-// Close a ghost 28px icon at its end). A block is a small muted subtitle
+// 20px from it and starting at the content start (the top of the page's first
+// block, `--content-start`, the line the floating navigation starts on; not the
+// header row). Its title is the first subtitle, Close a ghost 28px icon at its end. A block is a small muted subtitle
 // outside any surface with flat rows, 13px text, chips and avatars under it;
 // controls in it may be bordered, panels never. It does not move while the
 // center scrolls (only the center column scrolls) and scrolls itself, with the
@@ -66,10 +67,10 @@ function Sidecar({
         "transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none",
         // Overlay (under 1280px): over the page, right and spanning on phones.
         "absolute inset-y-2 right-2 card-surface [--card-shadow:var(--shadow-md)] max-md:inset-x-2 max-md:w-auto max-md:max-w-none",
-        // Docked: a grid item of the right gutter, 20px from the column, no surface.
-        "@[1280px]/frame:static @[1280px]/frame:col-start-3 @[1280px]/frame:row-span-2 @[1280px]/frame:row-start-1 @[1280px]/frame:ml-5 @[1280px]/frame:[--card-shadow:var(--shadow-xs)]",
+        // Docked: a grid item of the right gutter beside the body, 20px from the column and starting at the content start, no surface.
+        "@[1280px]/frame:static @[1280px]/frame:col-start-3 @[1280px]/frame:row-start-2 @[1280px]/frame:mt-(--content-start) @[1280px]/frame:ml-5 @[1280px]/frame:[--card-shadow:var(--shadow-xs)]",
         !surface &&
-          "@[1280px]/frame:rounded-none @[1280px]/frame:bg-transparent @[1280px]/frame:[box-shadow:none]",
+          "@[1280px]/frame:rounded-none @[1280px]/frame:border-0 @[1280px]/frame:bg-transparent @[1280px]/frame:[box-shadow:none]",
         open
           ? "translate-x-0 opacity-100"
           : "pointer-events-none translate-x-4 opacity-0",
@@ -80,7 +81,7 @@ function Sidecar({
         data-slot="sidecar-header"
         className={cn(
           "flex h-13 shrink-0 items-center gap-1 pr-3.5 pl-4",
-          !surface && "@[1280px]/frame:px-0"
+          !surface && "@[1280px]/frame:h-7 @[1280px]/frame:px-0"
         )}
       >
         <h2 className="min-w-0 flex-1 truncate text-sm font-medium">

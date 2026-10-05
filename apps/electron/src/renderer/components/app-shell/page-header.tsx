@@ -5,12 +5,14 @@
  * a page passes no handlers. It renders where the page puts it but draws in the
  * `PageFrame`'s header slot (above the column, on the frame), so it never sits in
  * a card:
- * - leading: the menu button below 768px (the sidebar is a sheet there), or Back
- *   on a view with a parent (see `useParentView`; on a phone Back replaces the menu);
- * - crumbs: the parent's name as a link to it, after the title;
- * - a page opened from a list (a chat) also gets the floating Back / Previous / Next
- *   in the frame's left gutter when it is wide enough, and Previous / Next in the
- *   header's actions when it is not;
+ * - the row is the title (with its menu and badge) and the page's actions; the title
+ *   never has a Back button or crumbs, and the only thing before it is the menu
+ *   button below 768px (the sidebar is a sheet there);
+ * - going back and stepping through a list is the floating navigation: Back when the
+ *   view has a parent (see `useParentView`), Previous / Next when the page is an item of a
+ *   list (`listNav`: a chat in Chats, a page in Settings), in the frame's left gutter
+ *   at the content start when it is wide enough, and as ghost buttons at the end of
+ *   the header's actions (Back, Previous, Next) when it is not;
  * - on Chats, New chat is the last of the actions;
  * - on Electron the header is the window's drag region; the controls opt out.
  */
@@ -20,11 +22,11 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { ArrowLeft, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
-import { PageCrumbs, PageHeaderRow, usePageFrame } from '@workspace/ui/components/page-frame'
+import { PageHeaderRow, usePageFrame } from '@workspace/ui/components/page-frame'
 import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
-import { SidebarTrigger, useSidebar } from '@workspace/ui/components/sidebar'
+import { SidebarTrigger } from '@workspace/ui/components/sidebar'
 import { cn } from '@/lib/utils'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useSession } from '@/hooks/use-session'
@@ -67,7 +69,6 @@ export function PageHeader({
 }: PageHeaderProps) {
   const { t } = useTranslation()
   const { isCompactMode, onNewChat } = useAppShellContext()
-  const { isMobile } = useSidebar()
   const { listNav } = useNavigation()
   const navState = useNavigationState()
   const parent = useParentView()
@@ -100,11 +101,11 @@ export function PageHeader({
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              size="sm"
+              size="default"
               className="titlebar-no-drag -ml-[9px] max-w-full min-w-0 text-lg font-medium text-foreground"
             >
               {titleContent}
-              <ChevronDown className="shrink-0 text-muted-foreground" />
+              <ChevronDown data-icon="inline-end" className="shrink-0 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <StyledDropdownMenuContent align="start" sideOffset={4}>
@@ -114,44 +115,21 @@ export function PageHeader({
       )
       : titleContent
 
-  // A page opened from a list has its Back and Previous / Next in the gutter while it is wide.
-  const navInGutter = !!(parent && listNav && frame?.navFits)
+  // Back (a parent) and Previous / Next (a list): in the gutter while it is wide.
+  const back = parent ? { label: t('common.back'), onClick: parent.onBack } : undefined
+  const previous = listNav ? { label: t('common.previous'), onClick: listNav.goPrev, disabled: !listNav.hasPrev } : undefined
+  const next = listNav ? { label: t('common.next'), onClick: listNav.goNext, disabled: !listNav.hasNext } : undefined
+  const navInGutter = !!((back || listNav) && frame?.navFits)
 
   const row = (
     <PageHeaderRow
       className={cn('titlebar-drag-region', className)}
-      leading={
-        <>
-          {!(parent && isMobile) && <SidebarTrigger className="titlebar-no-drag" />}
-          {parent && !navInGutter && (
-            <Button
-              variant="ghost"
-              size="icon-compact"
-              className="titlebar-no-drag"
-              aria-label={t('common.back')}
-              onClick={parent.onBack}
-            >
-              <ArrowLeft />
-            </Button>
-          )}
-        </>
-      }
+      leading={<SidebarTrigger className="titlebar-no-drag" />}
       title={titleNode}
-      crumbs={parent?.label ? (
-        <PageCrumbs
-          className="titlebar-no-drag"
-          crumbs={[{ label: parent.label, onClick: parent.onBack }]}
-        />
-      ) : undefined}
       actions={
         <div className="titlebar-no-drag flex items-center gap-1">
           <BrowserTabStrip activeSessionId={session.selected} />
-          {listNav && !navInGutter && (
-            <FloatingNavButtons
-              previous={{ label: t('common.previous'), onClick: listNav.goPrev, disabled: !listNav.hasPrev }}
-              next={{ label: t('common.next'), onClick: listNav.goNext, disabled: !listNav.hasNext }}
-            />
-          )}
+          {!navInGutter && <FloatingNavButtons back={back} previous={previous} next={next} />}
           {actions}
           {onNewChat && isSessionsNavigation(navState) && <HeaderNewChat onClick={onNewChat} />}
         </div>
@@ -165,12 +143,8 @@ export function PageHeader({
   return (
     <>
       {frame.header && createPortal(row, frame.header)}
-      {navInGutter && parent && listNav && frame.nav && createPortal(
-        <FloatingNav
-          back={{ label: t('common.back'), onClick: parent.onBack }}
-          previous={{ label: t('common.previous'), onClick: listNav.goPrev, disabled: !listNav.hasPrev }}
-          next={{ label: t('common.next'), onClick: listNav.goNext, disabled: !listNav.hasNext }}
-        />,
+      {navInGutter && frame.nav && createPortal(
+        <FloatingNav back={back} previous={previous} next={next} />,
         frame.nav,
       )}
     </>

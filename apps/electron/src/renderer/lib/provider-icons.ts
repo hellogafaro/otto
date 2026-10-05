@@ -6,6 +6,7 @@
  */
 
 import awsIcon from '@/assets/provider-icons/aws.svg'
+import { BACKEND_NAME } from '@otto/shared/branding'
 import azureIcon from '@/assets/provider-icons/azure.svg'
 import claudeIcon from '@/assets/provider-icons/claude.svg'
 import copilotIcon from '@/assets/provider-icons/copilot.svg'
@@ -55,8 +56,8 @@ const providerDisplayNames: Record<string, string> = {
   minimax: 'Minimax',
   ollama: 'Ollama',
   openrouter: 'OpenRouter',
-  pi: 'Otto Backend',
-  pi_compat: 'Otto Backend',
+  pi: BACKEND_NAME,
+  pi_compat: BACKEND_NAME,
   vercel: 'Vercel',
 }
 

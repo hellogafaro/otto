@@ -12,6 +12,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Clock, AlertCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { describeCron as describeCronExpression, computeNextRuns } from './utils'
 
@@ -180,18 +181,15 @@ export function CronBuilder({
         </h4>
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map((preset) => (
-            <button
+            <Button
               key={preset.cron}
+              variant="outline"
+              size="compact"
+              aria-pressed={rawInput === preset.cron}
               onClick={() => handlePreset(preset.cron)}
-              className={cn(
-                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                rawInput === preset.cron
-                  ? 'bg-foreground/10 text-foreground ring-1 ring-border/50'
-                  : 'bg-foreground/[0.03] text-foreground/70 hover:bg-foreground/[0.06] shadow-minimal'
-              )}
             >
               {preset.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -240,7 +238,7 @@ export function CronBuilder({
       </div>
 
       {/* Summary */}
-      <div className="bg-card shadow-minimal rounded-md p-4 space-y-3">
+      <div className="card-surface bg-card rounded-md p-4 space-y-3">
         {/* Human-readable description */}
         <div className="flex items-center gap-2">
           <Clock className="size-3.5 text-muted-foreground" />

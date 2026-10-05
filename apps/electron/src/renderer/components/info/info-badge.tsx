@@ -21,36 +21,27 @@ export interface Info_BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const colorConfig: Record<
   BadgeColor,
-  { bg: string; text: string; shadow: string; shadowColor?: string }
+  { bg: string; text: string }
 > = {
   success: {
     bg: 'bg-[oklch(from_var(--success)_l_c_h_/_0.08)]',
     text: 'text-[var(--success-text)]',
-    shadow: 'shadow-tinted',
-    shadowColor: 'var(--success-rgb)',
   },
   warning: {
     bg: 'bg-[oklch(from_var(--info)_l_c_h_/_0.08)]',
     text: 'text-[var(--info-text)]',
-    shadow: 'shadow-tinted',
-    shadowColor: 'var(--info-rgb)',
   },
   destructive: {
     bg: 'bg-[oklch(from_var(--destructive)_l_c_h_/_0.08)]',
     text: 'text-[var(--destructive-text)]',
-    shadow: 'shadow-tinted',
-    shadowColor: 'var(--destructive-rgb)',
   },
   default: {
     bg: 'bg-foreground/10',
     text: 'text-foreground/70',
-    shadow: 'shadow-tinted',
-    shadowColor: 'var(--foreground-rgb)',
   },
   muted: {
-    bg: 'bg-background',
+    bg: 'bg-foreground/5',
     text: 'text-foreground/70',
-    shadow: 'shadow-minimal',
   },
 }
 
@@ -70,14 +61,9 @@ export function Info_Badge({
         'inline-flex items-center gap-1.5 rounded-sm pl-2.5 pr-3 py-1 text-xs font-medium',
         config.bg,
         config.text,
-        config.shadow,
         className
       )}
-      style={
-        config.shadowColor
-          ? ({ '--shadow-color': config.shadowColor, ...style } as React.CSSProperties)
-          : style
-      }
+      style={style}
       {...props}
     >
       {icon && <span className="shrink-0">{icon}</span>}

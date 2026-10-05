@@ -9,6 +9,8 @@
  */
 
 import { describe, it, expect, afterEach } from 'bun:test'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Subprocess } from 'bun'
 import WebSocket from 'ws'
@@ -33,6 +35,8 @@ async function spawnTestServer(extraEnv?: Record<string, string>): Promise<Spawn
     env: {
       ...parentEnv,
       ENCRYPTION_KEY: '0'.repeat(64),
+      // Its own config dir: a running dev server holds the lock on the default one.
+      OTTO_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'otto-smoke-')),
       ...extraEnv,
       OTTO_SERVER_TOKEN: token,
       OTTO_RPC_PORT: '0',

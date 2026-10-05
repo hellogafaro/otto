@@ -1,5 +1,21 @@
 import type { ActionDefinition } from './types'
 
+/**
+ * ⌘1–⌘9: the Nth item of the sidebar's pinned and recent list. In the browser ⌘/Ctrl+digit
+ * switches the browser's own tabs, so there it is Option/Alt+digit.
+ */
+function jumpTo(n: number) {
+  return {
+    id: `nav.jumpTo${n}`,
+    label: `Open Item ${n}`,
+    description: `Open pinned or recent item ${n}`,
+    defaultHotkey: `mod+${n}`,
+    webHotkey: `alt+${n}`,
+    category: 'Navigation',
+    when: '!menuOpen',  // not under a dialog, sheet or menu
+  } as const
+}
+
 export const actions = {
   // ═══════════════════════════════════════════
   // General
@@ -9,6 +25,13 @@ export const actions = {
     label: 'New Chat',
     description: 'Create a new chat session',
     defaultHotkey: 'mod+n',
+    category: 'General',
+  },
+  'app.commandPalette': {
+    id: 'app.commandPalette',
+    label: 'Search',
+    description: 'Open or close the command palette',
+    defaultHotkey: 'mod+k',
     category: 'General',
   },
   'app.settings': {
@@ -23,13 +46,6 @@ export const actions = {
     label: 'Toggle Theme',
     description: 'Switch between light and dark mode',
     defaultHotkey: 'mod+shift+a',
-    category: 'General',
-  },
-  'app.search': {
-    id: 'app.search',
-    label: 'Search',
-    description: 'Open search panel',
-    defaultHotkey: 'mod+f',
     category: 'General',
   },
   'app.keyboardShortcuts': {
@@ -50,24 +66,15 @@ export const actions = {
   // ═══════════════════════════════════════════
   // Navigation
   // ═══════════════════════════════════════════
-  'nav.focusSidebar': {
-    id: 'nav.focusSidebar',
-    label: 'Focus Sidebar',
-    defaultHotkey: 'mod+1',
-    category: 'Navigation',
-  },
-  'nav.focusNavigator': {
-    id: 'nav.focusNavigator',
-    label: 'Focus Navigator',
-    defaultHotkey: 'mod+2',
-    category: 'Navigation',
-  },
-  'nav.focusChat': {
-    id: 'nav.focusChat',
-    label: 'Focus Chat',
-    defaultHotkey: 'mod+3',
-    category: 'Navigation',
-  },
+  'nav.jumpTo1': jumpTo(1),
+  'nav.jumpTo2': jumpTo(2),
+  'nav.jumpTo3': jumpTo(3),
+  'nav.jumpTo4': jumpTo(4),
+  'nav.jumpTo5': jumpTo(5),
+  'nav.jumpTo6': jumpTo(6),
+  'nav.jumpTo7': jumpTo(7),
+  'nav.jumpTo8': jumpTo(8),
+  'nav.jumpTo9': jumpTo(9),
   'nav.nextZone': {
     id: 'nav.nextZone',
     label: 'Focus Next Zone',
@@ -160,8 +167,16 @@ export const actions = {
 
 } as const satisfies Record<string, ActionDefinition>
 
+/** The hotkey an action has here: the browser's own when it defines one, else the default. */
+export function hotkeyFor(action: ActionDefinition, webui: boolean): string | null {
+  return webui && action.webHotkey ? action.webHotkey : action.defaultHotkey
+}
+
 // Type-safe action IDs
 export type ActionId = keyof typeof actions
+
+/** `nav.jumpTo1` … `nav.jumpTo9`: the action for jump number n is at index n - 1. */
+export const JUMP_ACTION_IDS = (Object.keys(actions) as ActionId[]).filter(id => id.startsWith('nav.jumpTo'))
 
 // Get all actions as array (for shortcuts page)
 export const actionList = Object.values(actions)

@@ -79,7 +79,7 @@ export function AddWorkspaceStep_OpenFolder({
             <Button
               type="button"
               variant="secondary"
-              size="sm"
+              size="compact"
               onClick={pickDirectory}
               disabled={isCreating}
             >

@@ -118,9 +118,9 @@ export function AnnotationIslandMenu({
               type="button"
               onClick={onOpenFollowUp}
               className={cn(
-                'h-[30px] px-2.5 rounded-[8px] text-[13px] font-medium inline-flex items-center gap-1.5',
-                'text-foreground/85 hover:text-foreground hover:bg-foreground/5',
-                'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+                'h-7 px-2 rounded-sm text-sm font-medium inline-flex items-center gap-1.5',
+                'text-muted-foreground hover:text-foreground hover:bg-foreground/5 active:bg-foreground/10',
+                'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring'
               )}
             >
               <CornerDownRight className="h-3.5 w-3.5" />

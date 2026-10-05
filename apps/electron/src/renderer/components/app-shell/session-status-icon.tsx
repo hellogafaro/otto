@@ -30,7 +30,7 @@ export function SessionStatusIcon({ item }: SessionStatusIconProps) {
           type="button"
           className={cn(
             "flex size-5 items-center justify-center rounded-xs transition-colors cursor-pointer",
-            "hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "hover:bg-foreground/10 aria-expanded:bg-foreground/10 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
             "[&>svg]:size-3.5 [&>img]:size-3.5 [&>span]:text-sm",
           )}
           style={getStateIconStyle(status, ctx.sessionStatuses)}

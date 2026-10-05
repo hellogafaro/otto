@@ -94,3 +94,17 @@ export interface SettingsMenuItem {
 export const SETTINGS_ITEMS: SettingsMenuItem[] = SETTINGS_PAGES
   .filter(page => page.id !== 'server' || FEATURE_FLAGS.embeddedServer)
   .map(page => ({ id: page.id, labelKey: page.labelKey }))
+
+/** Pages that belong to you; everything else belongs to the workspace. */
+const ACCOUNT_SETTINGS_PAGES = new Set<string>(['app', 'ai', 'appearance', 'input', 'shortcuts', 'preferences'])
+
+/**
+ * The settings pages in the order the sidebar lists them: the Account group, then
+ * the Workspace group. `SettingsNavigator` draws it and Previous / Next step through it.
+ */
+export const SETTINGS_NAV_GROUPS: { title: 'Account' | 'Workspace'; items: SettingsMenuItem[] }[] = [
+  { title: 'Account', items: SETTINGS_ITEMS.filter(item => ACCOUNT_SETTINGS_PAGES.has(item.id)) },
+  { title: 'Workspace', items: SETTINGS_ITEMS.filter(item => !ACCOUNT_SETTINGS_PAGES.has(item.id)) },
+]
+
+export const SETTINGS_NAV_ORDER: SettingsSubpage[] = SETTINGS_NAV_GROUPS.flatMap(group => group.items.map(item => item.id))

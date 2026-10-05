@@ -211,7 +211,7 @@ export function DataTable<TData, TValue>({
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
-          size="sm"
+          size="compact"
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
@@ -222,7 +222,7 @@ export function DataTable<TData, TValue>({
         </span>
         <Button
           variant="outline"
-          size="sm"
+          size="compact"
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >
@@ -270,7 +270,7 @@ export function SortableHeader<TData, TValue>({
     <Button
       variant="ghost"
       onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      className={cn('w-full justify-start rounded-none p-1.5 pl-2.5', className)}
+      className={cn('w-full justify-start', className)}
     >
       {title}
     </Button>

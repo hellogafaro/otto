@@ -188,8 +188,7 @@ export default function ServerSettingsPage() {
                 <span className="flex-1">{t("settings.server.restartRequired")}</span>
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="h-6 text-[11px] px-2"
+                  size="compact"
                   onClick={() => window.electronAPI.relaunchApp()}
                 >
                   {t("settings.server.restartNow")}
@@ -216,8 +215,8 @@ export default function ServerSettingsPage() {
                         <code className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-xs">
                           {status.url}
                         </code>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleCopy(status.url, 'URL')}>
-                          <Copy className="h-3 w-3" />
+                        <Button variant="ghost" size="icon-compact" onClick={() => handleCopy(status.url, 'URL')}>
+                          <Copy />
                         </Button>
                       </div>
                     </SettingsRow>
@@ -227,11 +226,11 @@ export default function ServerSettingsPage() {
                         <code className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-xs max-w-[180px] truncate">
                           {tokenVisible ? status.token : '••••••••••••••••'}
                         </code>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setTokenVisible(v => !v)}>
-                          {tokenVisible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                        <Button variant="ghost" size="icon-compact" onClick={() => setTokenVisible(v => !v)}>
+                          {tokenVisible ? <EyeOff /> : <Eye />}
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleCopy(status.token, 'Token')}>
-                          <Copy className="h-3 w-3" />
+                        <Button variant="ghost" size="icon-compact" onClick={() => handleCopy(status.token, 'Token')}>
+                          <Copy />
                         </Button>
                       </div>
                     </SettingsRow>
@@ -243,7 +242,7 @@ export default function ServerSettingsPage() {
                     <span className="text-xs text-muted-foreground truncate max-w-[200px]">
                       {form.tlsCertPath || 'Not configured'}
                     </span>
-                    <Button variant="outline" size="sm" className="h-6 text-[11px] px-2 shrink-0" onClick={handleBrowseCert}>
+                    <Button variant="outline" size="compact" className="shrink-0" onClick={handleBrowseCert}>
                       Browse
                     </Button>
                   </div>
@@ -254,7 +253,7 @@ export default function ServerSettingsPage() {
                     <span className="text-xs text-muted-foreground truncate max-w-[200px]">
                       {form.tlsKeyPath || 'Not configured'}
                     </span>
-                    <Button variant="outline" size="sm" className="h-6 text-[11px] px-2 shrink-0" onClick={handleBrowseKey}>
+                    <Button variant="outline" size="compact" className="shrink-0" onClick={handleBrowseKey}>
                       Browse
                     </Button>
                   </div>
@@ -280,10 +279,10 @@ export default function ServerSettingsPage() {
           )}
           {(isDirty || error) && (
             <SettingsCardFooter>
-              <Button variant="outline" size="sm" onClick={handleReset} disabled={isSaving}>
+              <Button variant="outline" size="compact" onClick={handleReset} disabled={isSaving}>
                 Reset
               </Button>
-              <Button size="sm" onClick={handleSave} disabled={isSaving}>
+              <Button size="compact" onClick={handleSave} disabled={isSaving}>
                 {isSaving ? <Spinner className="mr-1.5" /> : null}
                 Save
               </Button>

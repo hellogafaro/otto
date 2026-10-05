@@ -7,6 +7,7 @@ import { PERMISSION_MODE_CONFIG } from '../agent/mode-types.ts';
 import { FEATURE_FLAGS } from '../feature-flags.ts';
 import { isDecisionFeatureActive } from '../decisions/resolve.ts';
 import { APP_VERSION } from '../version/index.ts';
+import { PRODUCT_NAME, AGENT_DEFAULT_NAME, PRODUCT_NOREPLY_EMAIL } from '../branding.ts';
 import { formatBytes } from '../utils/binary-detection.ts';
 import { globSync } from 'glob';
 import os from 'os';
@@ -365,7 +366,7 @@ export function getMiniAgentSystemPrompt(workspaceRootPath?: string): string {
     ? `\n## Workspace\nConfig files are in: \`${workspaceRootPath}\`\n- Statuses: \`statuses/config.json\`\n- Labels: \`labels/config.json\`\n- Permissions: \`permissions.json\`\n`
     : '';
 
-  return `You are a focused assistant for quick configuration edits in Otto.
+  return `You are a focused assistant for quick configuration edits in ${PRODUCT_NAME}.
 
 ## Your Role
 You help users make targeted changes to configuration files. Be concise and efficient.
@@ -399,6 +400,7 @@ Use config_validate to verify changes match the expected schema.
  * @param workingDirectory - Working directory for context file discovery
  * @param preset - System prompt preset ('default' | 'mini' | custom string)
  * @param backendName - Backend name for "powered by X" text (default: 'Claude Code')
+ * @param agentName - The agent's own name and identity line (default: the default agent's name)
  */
 export function getSystemPrompt(
   pinnedPreferencesPrompt?: string,
@@ -409,6 +411,7 @@ export function getSystemPrompt(
   backendName?: string,
   includeCoAuthoredBy?: boolean,
   projectContext?: ProjectPromptContext,
+  agentName: string = AGENT_DEFAULT_NAME,
 ): string {
   // Use mini agent prompt for quick edits (pass workspace root for config paths)
   if (preset === 'mini') {
@@ -433,7 +436,7 @@ export function getSystemPrompt(
   // Note: Date/time context is now added to user messages instead of system prompt
   // to enable prompt caching. The system prompt stays static and cacheable.
   // Safe Mode context is also in user messages for the same reason.
-  const basePrompt = getOttoAssistantPrompt(workspaceRootPath, backendName, resolvedIncludeCoAuthoredBy);
+  const basePrompt = getOttoAssistantPrompt(workspaceRootPath, backendName, resolvedIncludeCoAuthoredBy, agentName);
   const fullPrompt = `${basePrompt}${preferences}${projectBlock}${debugContext}${projectContextFiles}`;
 
   debug('[getSystemPrompt] full prompt length:', fullPrompt.length);
@@ -581,6 +584,7 @@ function getOttoEnvironmentMarker(): string {
  * @param workspaceRootPath - Root path of the workspace
  * @param backendName - Backend name for "powered by X" text (default: 'Claude Code')
  * @param includeCoAuthoredBy - Whether to include the Co-Authored-By git trailer instruction (default: true)
+ * @param agentName - The agent's name: the identity line, self-reference and co-author trailer
  */
 /**
  * Permission modes table and per-mode rules. Guarded is always listed: Claude snapshots the
@@ -613,7 +617,7 @@ Mode switching is normal. Apply the latest \`<session_state>\` immediately; \`mo
 **Path rule:** In Explore mode, do not write to \`.copilot-config/\`, \`session-state/\`, the session root, or arbitrary workspace paths. Use only the exact folders from \`<session_state>\`.`;
 }
 
-function getOttoAssistantPrompt(workspaceRootPath?: string, backendName: string = 'Claude Code', includeCoAuthoredBy: boolean = true): string {
+function getOttoAssistantPrompt(workspaceRootPath?: string, backendName: string = 'Claude Code', includeCoAuthoredBy: boolean = true, agentName: string = AGENT_DEFAULT_NAME): string {
   // Default to ${APP_ROOT}/workspaces/{id} if no path provided
   const workspacePath = workspaceRootPath || `${APP_ROOT}/workspaces/{id}`;
 
@@ -638,7 +642,7 @@ Lifecycle: use \`close\` when done, \`release\` when handing the page to the use
 
   return `${environmentMarker}
 
-You are Otto - an AI assistant that helps users connect and work across their data sources through a desktop interface.
+You are ${agentName} - an AI assistant that helps users connect and work across their data sources through a desktop interface.
 
 **Core capabilities:**
 - **Connect external sources** - MCP servers, REST APIs, local filesystems. Users can integrate Linear, GitHub, Notion, custom APIs, and more.
@@ -708,11 +712,11 @@ Read relevant context files using the Read tool - they contain architecture info
 | Browser Tools | \`${DOC_REFS.browserTools}\` | When using in-app browser tools (\`browser_tool\`) |
 | LLM Tool | \`${DOC_REFS.llmTool}\` | When using \`call_llm\` for subtasks |${decideToolActive ? `
 | Decision Model | \`${DOC_REFS.decisions}\` | When using \`decide\` to classify, route or score items |` : ''}${FEATURE_FLAGS.ottoCli ? `
-| Otto CLI | \`${DOC_REFS.ottoCli}\` | When managing labels/sources/skills/automations via \`otto\` |` : ''}
+| ${PRODUCT_NAME} CLI | \`${DOC_REFS.ottoCli}\` | When managing labels/sources/skills/automations via \`otto\` |` : ''}
 
 **IMPORTANT:** Always read the relevant doc file BEFORE making changes. Do NOT guess schemas - these have specific patterns that differ from standard approaches.${FEATURE_FLAGS.ottoCli ? `
 
-## Otto CLI
+## ${PRODUCT_NAME} CLI
 
 Prefer \`otto\` CLI over direct file edits for labels, sources, skills, and automations.
 
@@ -737,14 +741,14 @@ When you learn information about the user (their name, timezone, location, langu
 6. **Nice Markdown Formatting**: The user sees your responses rendered in markdown. Use headings, lists, bold/italic text, and code blocks for clarity. Basic HTML is also supported, but use sparingly.
 7. **Math Delimiters**: Use \`$$...$$\` for math expressions. Do NOT use single-dollar delimiters (\`$...$\`) in normal prose so currency values like \`$100\` or \`$2M–$4M\` stay plain text.
 
-!!IMPORTANT!!. You must refer to yourself as Otto when asked. You can acknowledge that you are powered by ${backendName}.
+!!IMPORTANT!!. You must refer to yourself as ${agentName} when asked. You can acknowledge that you are powered by ${backendName}.
 
 ${includeCoAuthoredBy ? `## Git Conventions
 
-When creating git commits, include Otto as a co-author:
+When creating git commits, include ${agentName} as a co-author:
 
 \`\`\`
-Co-Authored-By: Otto <noreply@hellogafaro.com>
+Co-Authored-By: ${agentName} <${PRODUCT_NOREPLY_EMAIL}>
 \`\`\`
 ` : ''}${getPermissionModesSection()}
 ${backendName === 'Codex' ? `
@@ -862,7 +866,7 @@ Reference: \`${DOC_REFS.decisions}\`
 ` : ''}${browserToolsSection}
 ## Session Self-Management
 
-Use session tools to inspect or update Otto sessions/tasks:
+Use session tools to inspect or update ${PRODUCT_NAME} sessions/tasks:
 
 - \`get_session_info\`: inspect current or target session metadata.
 - \`set_session_labels\`: replace labels; valued labels use \`id::value\` and must match the configured type.
@@ -943,7 +947,7 @@ These help with UI feedback and result summarization.${FEATURE_FLAGS.developerFe
 
 ## Developer Feedback
 
-You have a \`send_developer_feedback\` tool — a direct line to the Otto development team.
+You have a \`send_developer_feedback\` tool — a direct line to the ${PRODUCT_NAME} development team.
 
 **Share freely — issues, ideas, suggestions, anything:**
 - Tools returning wrong results, missing data, confusing behavior

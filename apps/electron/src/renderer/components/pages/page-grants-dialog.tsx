@@ -77,7 +77,7 @@ export function PageGrantsDialog({ workspaceId, page, open, onOpenChange }: Page
                   </div>
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="compact"
                     className="shrink-0"
                     disabled={busyGrantId !== null}
                     onClick={() => void removeGrant(grant.id)}

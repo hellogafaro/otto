@@ -13,7 +13,6 @@
  * - Header shows file path for single file, "N edits" summary for multiple files
  */
 
-import * as React from 'react'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { PencilLine, FilePlus, X } from 'lucide-react'
 import { parseDiffFromFile, type FileContents } from '@pierre/diffs'
@@ -336,15 +335,14 @@ export function MultiDiffPreviewOverlay({
                   <div
                     key={change.id}
                     ref={(el) => setChangeRef(change.id, el)}
-                    className="rounded-xl overflow-hidden bg-background shadow-minimal"
+                    className="rounded-xl overflow-hidden card-surface bg-card"
                     style={{ minHeight: change.error ? undefined : 200, borderRadius: 12 }}
                   >
                     {change.error ? (
                       // Errored change — tinted error banner
                       <div className="px-4 py-4">
                         <div
-                          className="flex items-start gap-3 px-4 py-3 rounded-[8px] bg-[color-mix(in_oklab,var(--destructive)_5%,var(--background))] shadow-tinted"
-                          style={{ '--shadow-color': 'var(--destructive-rgb)' } as React.CSSProperties}
+                          className="flex items-start gap-3 px-4 py-3 rounded-[8px] bg-destructive/10"
                         >
                           <X className="size-3.5 text-destructive shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">

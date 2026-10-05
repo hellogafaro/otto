@@ -6,6 +6,7 @@ import type { MenuItem } from '../shared/menu-schema'
 import type { WindowManager } from './window-manager'
 import type { EventSink } from '@otto/server-core/transport'
 import { mainLog, isDebugMode } from './logger'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 
 type ClientResolver = (webContentsId: number) => string | undefined
 
@@ -77,9 +78,9 @@ export async function rebuildMenu(): Promise<void> {
   const template: Electron.MenuItemConstructorOptions[] = [
     // App menu (macOS only)
     ...(isMac ? [{
-      label: 'Otto',
+      label: PRODUCT_NAME,
       submenu: [
-        { role: 'about' as const, label: i18n.t('menu.aboutOtto') },
+        { role: 'about' as const, label: i18n.t('menu.aboutProduct') },
         ...(updateInfo.enabled ? [updateMenuItem] : []),
         { type: 'separator' as const },
         {
@@ -89,11 +90,11 @@ export async function rebuildMenu(): Promise<void> {
           click: () => sendToRenderer(RPC_CHANNELS.menu.OPEN_SETTINGS)
         },
         { type: 'separator' as const },
-        { role: 'hide' as const, label: i18n.t('menu.hideOtto') },
+        { role: 'hide' as const, label: i18n.t('menu.hideProduct') },
         { role: 'hideOthers' as const },
         { role: 'unhide' as const },
         { type: 'separator' as const },
-        { role: 'quit' as const, label: i18n.t('menu.quitOtto') }
+        { role: 'quit' as const, label: i18n.t('menu.quitProduct') }
       ]
     }] : []),
 

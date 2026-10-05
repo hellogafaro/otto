@@ -12,10 +12,6 @@ const PREFIX = 'otto-'
 export const KEYS = {
   // Chat sidebar
   sidebarMode: 'sidebar-mode',
-  listFilter: 'list-filter',
-  labelFilter: 'label-filter',
-  viewFilters: 'view-filters', // Per-view filter map: { [viewKey]: { statuses, labels } }
-  collapsedSidebarItems: 'collapsed-sidebar-items',
   chatGroupingMode: 'chat-grouping-mode', // How to group chats: 'date' | 'status'
   collapsedSessionGroups: 'collapsed-session-groups', // Collapsed group keys in session list
 
@@ -31,14 +27,15 @@ export const KEYS = {
   // Tabs (workspace-scoped)
   tabs: 'tabs', // Used as: tabs-${workspaceId}
 
+  // Sidebar pins and recents (workspace-scoped via suffix = workspaceId)
+  pinnedItems: 'pinned-items',
+  recentItems: 'recent-items',
+
   // Working directory
   recentWorkingDirs: 'recent-working-dirs',
 
   // TurnCard expansion state (persisted across session switches)
   turnCardExpansion: 'turncard-expansion',
-
-  // Last selected session (workspace-scoped via suffix)
-  lastSelectedSessionId: 'last-selected-session-id',
 
   // Settings navigation
   lastSettingsSubpage: 'last-settings-subpage',
@@ -47,10 +44,6 @@ export const KEYS = {
   showConnectionIcons: 'show-connection-icons',
 
   // What's New
-
-  // Workspace navigation state (workspace-scoped via suffix = workspaceSlug)
-  // Stores the full URL search string so switching back restores panels/focus/sidebar
-  workspaceUrl: 'workspace-url',
 } as const
 
 export type StorageKey = typeof KEYS[keyof typeof KEYS]

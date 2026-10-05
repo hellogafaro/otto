@@ -1105,10 +1105,9 @@ export const EditButton = React.forwardRef<
   return (
     <Button
       ref={ref}
-      variant="ghost"
-      size="sm"
-      // Merge our base styles with any className from asChild props
-      className={cn("h-8 px-3 rounded-md bg-card shadow-minimal text-foreground/70 hover:text-foreground", className)}
+      variant="outline"
+      size="compact"
+      className={className}
       {...props}
     >
       {t("common.edit")}

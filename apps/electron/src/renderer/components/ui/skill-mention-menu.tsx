@@ -6,6 +6,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
+import { MENU_LIST, MENU_ROW, MENU_ROW_HIGHLIGHT, MENU_SURFACE } from './menu-styles'
 import type { LoadedSkill } from '../../../shared/types'
 
 // ============================================================================
@@ -22,15 +23,6 @@ export interface InlineSkillMentionProps {
   workspaceId?: string
   className?: string
 }
-
-// ============================================================================
-// Shared Styles (matching slash-command-menu)
-// ============================================================================
-
-const MENU_CONTAINER_STYLE = 'min-w-[240px] overflow-hidden rounded-md bg-popover text-foreground shadow-modal-small'
-const MENU_LIST_STYLE = 'max-h-[240px] overflow-y-auto p-1'
-const MENU_ITEM_STYLE = 'flex cursor-pointer select-none items-center gap-3 rounded-sm px-3 py-2 text-[13px]'
-const MENU_ITEM_SELECTED = 'bg-foreground/5'
 
 // ============================================================================
 // Filter skills utility
@@ -127,10 +119,10 @@ export function InlineSkillMention({
   return (
     <div
       ref={menuRef}
-      className={cn('fixed z-dropdown', MENU_CONTAINER_STYLE, className)}
+      className={cn('fixed z-dropdown min-w-[240px]', MENU_SURFACE, className)}
       style={{ left: Math.round(position.x) - 10, bottom: bottomPosition }}
     >
-      <div className={MENU_LIST_STYLE}>
+      <div className={MENU_LIST}>
         {filteredSkills.map((skill, index) => {
           const isSelected = index === selectedIndex
           return (
@@ -141,20 +133,15 @@ export function InlineSkillMention({
                 onOpenChange(false)
               }}
               onMouseEnter={() => setSelectedIndex(index)}
-              className={cn(
-                MENU_ITEM_STYLE,
-                isSelected && MENU_ITEM_SELECTED
-              )}
+              className={cn(MENU_ROW, isSelected && MENU_ROW_HIGHLIGHT)}
             >
               <div className="shrink-0">
                 <SkillAvatar skill={skill} size="sm" workspaceId={workspaceId} />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{skill.metadata.name}</div>
+              <div className="min-w-0 flex-1 truncate">
+                <span>{skill.metadata.name}</span>
                 {skill.metadata.description && (
-                  <div className="text-[11px] text-foreground/50 truncate">
-                    {skill.metadata.description}
-                  </div>
+                  <span className="ml-1.5 text-muted-foreground">{skill.metadata.description}</span>
                 )}
               </div>
             </div>

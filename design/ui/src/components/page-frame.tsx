@@ -15,7 +15,8 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 //
 // Three tracks make it: [left gutter | column | right gutter]. The left gutter
 // holds `FloatingNav` (portaled in by `PageHeader`); the right one holds the
-// `aside` (the `Sidecar`). Closed, both gutters are equal and the column
+// `aside` (the `Sidecar`). Both start at the CONTENT START, the top of the first
+// block under the header row (see `--content-start`), not at the header row. Closed, both gutters are equal and the column
 // is centered. An open aside reserves its 324px (20px gap, 296px canvas, 8px from
 // the window) in the right track: while the free space is wider than that the
 // column stays centered, otherwise it shifts left to make room (never narrower
@@ -43,6 +44,23 @@ type PageFrameContextValue = {
   navFits: boolean
 }
 
+// Otto: the content start. The first block under the header row (`data-content-start`:
+// a `PageSection`, `PageCard`, `PageCenterpiece`, or a page's own first block)
+// begins this far below the body's top (28px on a blocks page, 0 on a
+// centerpiece). The frame measures it, so the floating navigation and the
+// sidecar start on the same line whatever the page puts first, and publishes it
+// as `--content-start`.
+function measureContentStart(body: HTMLElement) {
+  const block = body.querySelector<HTMLElement>("[data-content-start]")
+  if (!block) return 0
+  let top = block.getBoundingClientRect().top - body.getBoundingClientRect().top
+  // A scrolled page: count back to where the block sits unscrolled.
+  for (let el = block.parentElement; el && el !== body; el = el.parentElement) {
+    top += el.scrollTop
+  }
+  return Math.max(0, top)
+}
+
 const PageFrameContext = React.createContext<PageFrameContextValue | null>(null)
 
 /** The frame around a page, or null outside the shell (a demo, a test). */
@@ -62,6 +80,28 @@ function PageFrame({
   const [header, setHeader] = React.useState<HTMLElement | null>(null)
   const [nav, setNav] = React.useState<HTMLElement | null>(null)
   const [navFits, setNavFits] = React.useState(false)
+  const [body, setBody] = React.useState<HTMLElement | null>(null)
+  const [contentStart, setContentStart] = React.useState(0)
+
+  React.useLayoutEffect(() => {
+    if (!body) return
+    let raf = 0
+    const measure = () => setContentStart(measureContentStart(body))
+    const schedule = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(measure)
+    }
+    measure()
+    const mutations = new MutationObserver(schedule)
+    mutations.observe(body, { childList: true, subtree: true })
+    const resizes = new ResizeObserver(schedule)
+    resizes.observe(body)
+    return () => {
+      cancelAnimationFrame(raf)
+      mutations.disconnect()
+      resizes.disconnect()
+    }
+  }, [body])
 
   React.useLayoutEffect(() => {
     if (!nav) return
@@ -99,6 +139,9 @@ function PageFrame({
             "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
             "@[1280px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:20.25rem]"
           )}
+          style={
+            { "--content-start": `${contentStart}px` } as React.CSSProperties
+          }
         >
           <div
             data-slot="page-header-slot"
@@ -108,10 +151,11 @@ function PageFrame({
           <div
             data-slot="floating-nav-slot"
             ref={setNav}
-            className="relative z-10 col-start-1 row-start-2 flex items-start justify-end pr-2"
+            className="relative z-10 col-start-1 row-start-2 flex items-start justify-end pt-(--content-start) pr-2"
           />
           <div
             data-slot="page-body"
+            ref={setBody}
             className="@container/panel relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col"
           >
             {children}
@@ -126,21 +170,19 @@ function PageFrame({
 // Otto: the 52px header row, on the frame above the column and as wide as it,
 // so its left and right edges are the cards' edges, with its content inset
 // (`PAGE_INSET`) to line up with the cards' content. From the left: a `leading`
-// slot (the menu button below 768px, the back button on a drill-down page),
-// the page title (`PageTitle`, 21px medium), a quiet trail of crumbs, and the
-// page's actions on the right. Controls are 28px.
+// slot (only the menu button below 768px, the sidebar sheet's opener), the page
+// title (`PageTitle`, 21px medium) and the page's actions on the right. The title
+// never has a back button or a trail of crumbs: going back and stepping through
+// a list is `FloatingNav`. Controls are 28px.
 function PageHeaderRow({
   leading,
   title,
-  crumbs,
   actions,
   className,
   ...props
 }: Omit<React.ComponentProps<"header">, "title"> & {
   leading?: React.ReactNode
   title?: React.ReactNode
-  /** The quiet trail after the title, e.g. `<PageCrumbs />`. */
-  crumbs?: React.ReactNode
   actions?: React.ReactNode
 }) {
   return (
@@ -156,7 +198,6 @@ function PageHeaderRow({
       {leading}
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <PageTitle className="min-w-0 truncate">{title}</PageTitle>
-        {crumbs}
       </div>
       {actions && (
         <div
@@ -167,46 +208,6 @@ function PageHeaderRow({
         </div>
       )}
     </header>
-  )
-}
-
-type Crumb = { label: string; onClick?: () => void }
-
-// Otto: a muted trail of the pages above this one, nearest first, each a link
-// to its page, divided by a slash. 13px, muted, foreground on hover.
-function PageCrumbs({
-  crumbs,
-  className,
-  ...props
-}: React.ComponentProps<"nav"> & { crumbs: Crumb[] }) {
-  return (
-    <nav
-      data-slot="page-crumbs"
-      className={cn(
-        "flex min-w-0 items-center text-sm text-muted-foreground",
-        className
-      )}
-      {...props}
-    >
-      {crumbs.map((crumb) => (
-        <span key={crumb.label} className="flex min-w-0 items-center">
-          <span aria-hidden className="mx-1.5">
-            /
-          </span>
-          {crumb.onClick ? (
-            <button
-              type="button"
-              onClick={crumb.onClick}
-              className="truncate rounded-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
-            >
-              {crumb.label}
-            </button>
-          ) : (
-            <span className="truncate">{crumb.label}</span>
-          )}
-        </span>
-      ))}
-    </nav>
   )
 }
 
@@ -225,12 +226,4 @@ function PageScroll({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export {
-  PAGE_INSET,
-  PageCrumbs,
-  PageFrame,
-  PageHeaderRow,
-  PageScroll,
-  usePageFrame,
-  type Crumb,
-}
+export { PAGE_INSET, PageFrame, PageHeaderRow, PageScroll, usePageFrame }

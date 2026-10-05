@@ -16,6 +16,7 @@ import { Popover, PopoverTrigger, PopoverContent } from './popover'
 import { Calendar } from './calendar'
 import { cn } from '@/lib/utils'
 import { openLabelLink } from '@/lib/open-label-link'
+import { MENU_ROW } from './menu-styles'
 import { parseDate } from 'chrono-node'
 import { format, parse } from 'date-fns'
 import type { LabelConfig } from '@otto/shared/labels'
@@ -180,7 +181,7 @@ export function LabelValuePopover({
       >
         {/* Date value editor — natural language input with nested calendar popover */}
         {label.valueType === 'date' && (
-          <div className="px-1.5 py-1.5 border-b border-border/50">
+          <div className="px-1.5 py-1.5 border-b border-foreground/5">
             {/* Text input with calendar popover trigger on the right */}
             <div className="flex items-center gap-1">
                 <input
@@ -209,7 +210,7 @@ export function LabelValuePopover({
                   }}
                   placeholder="tomorrow, next friday..."
                   className={cn(
-                    'flex-1 h-7 px-2 text-[13px]',
+                    'flex-1 h-7 px-2 text-sm',
                     'bg-transparent',
                     'text-foreground placeholder:text-foreground/30',
                     'outline-none'
@@ -224,8 +225,8 @@ export function LabelValuePopover({
                       className={cn(
                         'flex items-center justify-center w-7 h-7 rounded-sm',
                         'hover:bg-foreground/5 transition-colors cursor-pointer',
-                        'outline-none',
-                        calendarOpen && 'bg-foreground/5'
+                        'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                        calendarOpen && 'bg-foreground/10'
                       )}
                     >
                       <CalendarDays className="w-3.5 h-3.5 text-foreground/50" />
@@ -256,7 +257,7 @@ export function LabelValuePopover({
             </div>
             {/* Show the resolved date below the input when parsing succeeds */}
             {parsedDate && (
-              <div className="px-2 text-[11px] text-foreground/50">
+              <div className="px-2 text-xs text-muted-foreground">
                 {format(parsedDate, 'EEE, MMM d, yyyy')}
               </div>
             )}
@@ -265,7 +266,7 @@ export function LabelValuePopover({
 
         {/* Non-date value editor (number/string) */}
         {label.valueType && label.valueType !== 'date' && (
-          <div className="px-1.5 py-1.5 border-b border-border/50">
+          <div className="px-1.5 py-1.5 border-b border-foreground/5">
             <input
               ref={inputRef}
               type={label.valueType === 'number' ? 'number' : 'text'}
@@ -276,7 +277,7 @@ export function LabelValuePopover({
               onBlur={commitValue}
               placeholder={label.valueType === 'number' ? 'Enter number...' : label.valueType === 'link' ? 'Enter URL...' : 'Enter value...'}
               className={cn(
-                'w-full h-7 px-2 text-[13px]',
+                'w-full h-7 px-2 text-sm',
                 'bg-transparent',
                 'text-foreground placeholder:text-foreground/30',
                 'outline-none'
@@ -294,15 +295,10 @@ export function LabelValuePopover({
                 openLabelLink(value)
                 onOpenChange(false)
               }}
-              className={cn(
-                'w-full flex items-center gap-2 px-2 py-1.5 rounded-xs',
-                'text-[13px] text-foreground',
-                'hover:bg-foreground/5 focus:bg-foreground/5',
-                'transition-colors cursor-pointer outline-none'
-              )}
+              className={cn(MENU_ROW, 'w-full hover:bg-foreground/10 focus-visible:bg-foreground/10')}
             >
               <span>{t('common.openLink')}</span>
-              <ArrowUpRight className="w-3.5 h-3.5 ml-auto" />
+              <ArrowUpRight className="ml-auto" />
             </button>
           )}
           <button
@@ -312,14 +308,9 @@ export function LabelValuePopover({
               onRemove?.()
               onOpenChange(false)
             }}
-            className={cn(
-              'w-full flex items-center gap-2 px-2 py-1.5 rounded-xs',
-              'text-[13px] text-destructive',
-              'hover:bg-foreground/5 focus:bg-foreground/5',
-              'transition-colors cursor-pointer outline-none'
-            )}
+            className={cn(MENU_ROW, 'w-full text-destructive hover:bg-destructive/20 focus-visible:bg-destructive/20')}
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 />
             <span>{t('common.remove')}</span>
           </button>
         </div>

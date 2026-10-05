@@ -16,6 +16,8 @@ import { automationComponents } from './automations'
 import { entityListComponents } from './entity-lists'
 import { browserUiComponents } from './browser-ui'
 import { shellComponents } from './shell'
+import { pinsRecentsComponents } from './pins-recents'
+import { commandPaletteComponents } from './command-palette'
 import { customShadowsComponents } from './custom-shadows'
 import { transportBannerComponents } from './transport-banner'
 import { containerTransitionsComponents } from './container-transitions'
@@ -23,11 +25,15 @@ import { apiKeyInputComponents } from './api-key-input'
 import { messagingComponents } from './messaging'
 import { imageSupportComponents } from './image-support'
 import { mobileWebUIComponents } from './mobile-webui'
+import { statesComponents } from './states'
+import { listTableComponents } from './list-table'
 
 export * from './types'
 
 export const componentRegistry: ComponentEntry[] = [
   ...mobileWebUIComponents,
+  ...statesComponents,
+  ...listTableComponents,
   ...apiKeyInputComponents,
   ...onboardingComponents,
   ...chatComponents,
@@ -47,6 +53,8 @@ export const componentRegistry: ComponentEntry[] = [
   ...entityListComponents,
   ...browserUiComponents,
   ...shellComponents,
+  ...pinsRecentsComponents,
+  ...commandPaletteComponents,
   ...customShadowsComponents,
   ...transportBannerComponents,
   ...containerTransitionsComponents,

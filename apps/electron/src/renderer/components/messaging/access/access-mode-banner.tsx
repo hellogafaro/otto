@@ -27,7 +27,7 @@ export function AccessModeBanner({ onLockDown, description }: Props) {
           {description ?? t('settings.messaging.telegram.access.banner.description')}
         </div>
       </div>
-      <Button size="sm" variant="outline" onClick={onLockDown}>
+      <Button size="compact" variant="outline" onClick={onLockDown}>
         {t('settings.messaging.telegram.access.banner.lockDown')}
       </Button>
     </div>

@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { FadingText } from '@/components/ui/fading-text'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
 import { SourceAvatar } from '@/components/ui/source-avatar'
+import { MENU_LABEL, MENU_LIST, MENU_ROW, MENU_ROW_HIGHLIGHT, MENU_SURFACE } from './menu-styles'
 import type { LoadedSkill, LoadedSource, FileSearchResult } from '../../../shared/types'
 import { AGENTS_PLUGIN_NAME } from '@otto/shared/skills/types'
 
@@ -48,12 +49,8 @@ export interface InlineMentionMenuProps {
 // Shared Styles
 // ============================================================================
 
-const MENU_CONTAINER_STYLE = 'overflow-hidden rounded-md bg-popover text-foreground shadow-modal-small'
-const MENU_LIST_STYLE = 'max-h-[240px] overflow-y-auto py-1'
-const MENU_ITEM_STYLE = 'flex cursor-pointer select-none items-center gap-3 rounded-sm mx-1 px-2 py-1.5 text-[13px]'
-const MENU_ITEM_SELECTED = 'bg-foreground/5'
-// Type badge shown to the right of each item label (e.g. "Skill", "Source")
-const MENU_TYPE_BADGE = 'rounded-xs shadow-minimal bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground shrink-0'
+// Type shown at the end of a skill or source row
+const MENU_TYPE_LABEL = 'shrink-0 text-xs text-muted-foreground'
 
 // ============================================================================
 // Path utilities
@@ -290,7 +287,7 @@ export function InlineMentionMenu({
     <div
       ref={menuRef}
       data-inline-menu
-      className={cn('fixed z-dropdown', MENU_CONTAINER_STYLE, className)}
+      className={cn('fixed z-dropdown', MENU_SURFACE, className)}
       style={{
         left: Math.round(position.x) - 10,
         bottom: bottomPosition,
@@ -299,13 +296,13 @@ export function InlineMentionMenu({
       }}
     >
       {/* Menu header — sticky above scroll area */}
-      <div className="px-3 py-1.5 text-[12px] font-medium text-muted-foreground border-b border-foreground/5">
+      <div className={MENU_LABEL}>
         {t('chat.mentionFilesSkillsSources')}
       </div>
 
-      <div ref={listRef} className={MENU_LIST_STYLE}>
+      <div ref={listRef} className={MENU_LIST}>
         {flatItems.length === 0 && filter && (
-          <div className="px-3 py-2 text-[12px] text-muted-foreground/60">{t('chat.noResults')}</div>
+          <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('chat.noResults')}</div>
         )}
         {flatItems.map((item, itemIndex) => {
           const isSelected = itemIndex === selectedIndex
@@ -319,10 +316,7 @@ export function InlineMentionMenu({
                 onOpenChange(false)
               }}
               onMouseEnter={() => setSelectedIndex(itemIndex)}
-              className={cn(
-                MENU_ITEM_STYLE,
-                isSelected && MENU_ITEM_SELECTED
-              )}
+              className={cn(MENU_ROW, isSelected && MENU_ROW_HIGHLIGHT)}
             >
               {/* Icon based on type */}
               <div className="shrink-0">
@@ -348,7 +342,7 @@ export function InlineMentionMenu({
                   {/* File/folder: filename then parent path fading out on overflow */}
                   <span className="shrink-0">{item.label}</span>
                   {item.file?.relativePath && getParentDir(item.file.relativePath) && (
-                    <FadingText className="text-[11px] text-muted-foreground min-w-0 opacity-50" fadeWidth={20}>
+                    <FadingText className="text-xs text-muted-foreground min-w-0 opacity-50" fadeWidth={20}>
                       {getParentDir(item.file.relativePath)}
                     </FadingText>
                   )}
@@ -359,7 +353,7 @@ export function InlineMentionMenu({
                   <div className="flex-1 min-w-0">
                     <span className="truncate block">{item.label}</span>
                   </div>
-                  <span className={MENU_TYPE_BADGE}>
+                  <span className={MENU_TYPE_LABEL}>
                     {item.type === 'skill' ? t('common.skill') : t('common.source')}
                   </span>
                 </>

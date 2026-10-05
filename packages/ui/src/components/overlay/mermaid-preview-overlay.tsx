@@ -69,7 +69,7 @@ export function MermaidPreviewOverlay({
         resetDisabled={isDefaultView}
       />
 
-      <CopyButton content={code} title={t('common.copyCode')} className="bg-background shadow-minimal opacity-70 hover:opacity-100" />
+      <CopyButton content={code} title={t('common.copyCode')} className="card-surface bg-card opacity-70 hover:opacity-100" />
     </div>
   )
 

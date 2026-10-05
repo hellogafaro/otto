@@ -156,7 +156,7 @@ export function AddWorkspaceStep_CreateNew({
                 <Button
                   type="button"
                   variant="secondary"
-                  size="sm"
+                  size="compact"
                   onClick={(e) => {
                     e.preventDefault()
                     pickDirectory()

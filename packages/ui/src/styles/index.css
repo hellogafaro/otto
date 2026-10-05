@@ -34,15 +34,12 @@
   /* === 6 BASE COLORS === */
   --background: oklch(0.98 0.003 265);
   --foreground: oklch(0.185 0.01 270);
-  --foreground-rgb: 38, 36, 42;             /* RGB for shadow borders */
+  --foreground-rgb: 38, 36, 42;             /* RGB for rgba() rings */
   --accent: oklch(0.58 0.22 293);           /* purple - brand, Auto mode */
-  --accent-rgb: 104, 78, 133;               /* darkened RGB for shadow-tinted (70% of accent) */
+  --accent-rgb: 104, 78, 133;               /* darkened RGB of the accent (70%), for the browser shader */
   --info: oklch(0.75 0.16 70);              /* amber - warnings, Ask mode */
   --success: oklch(0.55 0.17 145);          /* green - connected, checkmarks */
   --destructive: oklch(0.58 0.24 28);       /* red - errors, failed */
-  --destructive-rgb: 180, 60, 50;           /* RGB for shadow-tinted */
-  --info-rgb: 180, 120, 40;                 /* RGB for shadow-tinted */
-  --success-rgb: 34, 120, 60;               /* RGB for shadow-tinted */
 
   /* === TEXT VARIANTS (mixed toward foreground for better contrast) === */
   --success-text: color-mix(in oklab, var(--success) 50%, var(--foreground));
@@ -50,22 +47,9 @@
   --info-text: color-mix(in oklab, var(--info) 50%, var(--foreground));
 
   /* === SHADOW OPACITY (light mode = subtle, dark mode = stronger) === */
-  --shadow-border-opacity: 0.08;            /* Border ring opacity */
   --shadow-blur-opacity: 0.06;              /* Blur layers opacity */
 
   /* === SHADOW VALUES (reusable across utility classes and component overrides) === */
-  --shadow-minimal:
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px,
-    rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 1px 1px -0.5px,
-    rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 3px 3px -1.5px;
-
-  --shadow-minimal-flat:
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px;
-
   --shadow-modal-small:
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
@@ -151,15 +135,12 @@
   /* === 6 BASE COLORS === */
   --background: oklch(0.2 0.005 270);
   --foreground: oklch(0.92 0.005 270);
-  --foreground-rgb: 227, 226, 229;           /* RGB for shadow borders */
+  --foreground-rgb: 227, 226, 229;           /* RGB for rgba() rings */
   --accent: oklch(0.65 0.20 293);            /* brighter purple in dark */
-  --accent-rgb: 118, 92, 147;                /* darkened RGB for shadow-tinted (70% of accent) */
+  --accent-rgb: 118, 92, 147;                /* darkened RGB of the accent (70%), for the browser shader */
   --info: oklch(0.70 0.16 70);               /* amber */
   --success: oklch(0.60 0.17 145);           /* green */
   --destructive: oklch(0.70 0.19 22);        /* brighter red in dark */
-  --destructive-rgb: 200, 80, 70;            /* RGB for shadow-tinted */
-  --info-rgb: 200, 140, 60;                  /* RGB for shadow-tinted */
-  --success-rgb: 50, 140, 80;                /* RGB for shadow-tinted */
 
   /* === TEXT VARIANTS (mixed toward foreground for better contrast) === */
   --success-text: color-mix(in oklab, var(--success) 50%, var(--foreground));
@@ -167,7 +148,6 @@
   --info-text: color-mix(in oklab, var(--info) 50%, var(--foreground));
 
   /* === SHADOW OPACITY (stronger in dark mode) === */
-  --shadow-border-opacity: 0.15;
   --shadow-blur-opacity: 0.12;
 
   /* === MIX VARIANTS === */
@@ -339,10 +319,15 @@
     background: var(--muted-foreground);
   }
 
-  /* Custom shadow utilities */
-  .shadow-minimal {
-    box-shadow: var(--shadow-minimal);
+  /* The card edge for the standalone viewer (the app takes `card-surface`
+     from design/ui, which defines it with the card tokens). */
+  .card-surface {
+    border: 1px solid var(--border);
+    background-clip: padding-box;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   }
+
+  /* Custom shadow utilities */
 
   .shadow-middle {
     box-shadow:
@@ -377,29 +362,6 @@
       rgba(0, 0, 0, 0.04) 0px 12px 12px -6px,
       rgba(0, 0, 0, 0.03) 0px 24px 32px -12px,
       rgba(0, 0, 0, 0.02) 0px 48px 64px -24px;
-  }
-
-  /* Tinted shadow using CSS variable - use with style={{ '--shadow-color': 'r, g, b' }} */
-  .shadow-tinted {
-    --shadow-color: 0, 0, 0;
-    box-shadow:
-      rgba(var(--shadow-color), 0) 0px 0px 0px 0px,
-      rgba(var(--shadow-color), 0) 0px 0px 0px 0px,
-      rgba(var(--shadow-color), calc(var(--shadow-border-opacity) * 1.5)) 0px 0px 0px 1px,
-      rgba(var(--shadow-color), var(--shadow-border-opacity)) 0px 1px 1px -0.5px,
-      rgba(var(--shadow-color), var(--shadow-blur-opacity)) 0px 3px 3px -1.5px,
-      rgba(var(--shadow-color), calc(var(--shadow-blur-opacity) * 0.67)) 0px 6px 6px -3px;
-  }
-
-  /* Dark mode: outline only, no blur glow, stronger border */
-  .dark .shadow-tinted {
-    box-shadow:
-      rgba(var(--shadow-color), 0) 0px 0px 0px 0px,
-      rgba(var(--shadow-color), 0) 0px 0px 0px 0px,
-      rgba(var(--shadow-color), calc(var(--shadow-border-opacity) * 3)) 0px 0px 0px 1px,
-      rgba(var(--shadow-color), 0) 0px 1px 1px -0.5px,
-      rgba(var(--shadow-color), 0) 0px 3px 3px -1.5px,
-      rgba(var(--shadow-color), 0) 0px 6px 6px -3px;
   }
 
   .shadow-strong {

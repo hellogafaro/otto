@@ -121,7 +121,7 @@ export function TelegramConnectDialog({
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              size="sm"
+              size="compact"
               onClick={handleTest}
               disabled={!token.trim() || test.state === 'testing' || saving}
             >
@@ -147,12 +147,12 @@ export function TelegramConnectDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button variant="outline" size="compact" onClick={() => onOpenChange(false)} disabled={saving}>
             {t('common.cancel')}
           </Button>
           <Button
             variant="outline"
-            size="sm"
+            size="compact"
             onClick={handleSave}
             disabled={!token.trim() || test.state !== 'success' || saving}
           >

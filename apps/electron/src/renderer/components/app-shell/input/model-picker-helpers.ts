@@ -2,6 +2,7 @@ import {
   isLocalConnection,
   type LlmConnection,
 } from '@config/llm-connections'
+import { BACKEND_NAME } from '@otto/shared/branding'
 
 /**
  * Format token count for display (e.g., 1500 -> "1.5k", 200000 -> "200k").
@@ -28,7 +29,7 @@ export function stripPiPrefixForDisplay(value: string): string {
 /**
  * Group connections by provider type for hierarchical picker rendering.
  * Each provider section can contain multiple connections (API Key, OAuth, …).
- * Order is significant for UI: Anthropic, Local, Otto Backend.
+ * Order is significant for UI: Anthropic, Local, Backend.
  * Empty groups are dropped.
  */
 export function groupConnectionsByProvider<T extends LlmConnection>(
@@ -37,7 +38,7 @@ export function groupConnectionsByProvider<T extends LlmConnection>(
   const groups: Record<string, T[]> = {
     'Anthropic': [],
     'Local': [],
-    'Otto Backend': [],
+    [BACKEND_NAME]: [],
   }
   for (const conn of connections) {
     const provider = conn.providerType || 'anthropic'
@@ -46,7 +47,7 @@ export function groupConnectionsByProvider<T extends LlmConnection>(
     } else if (provider === 'pi_compat' && isLocalConnection(conn)) {
       groups['Local'].push(conn)
     } else if (provider === 'pi' || provider === 'pi_compat') {
-      groups['Otto Backend'].push(conn)
+      groups[BACKEND_NAME].push(conn)
     }
   }
   return Object.entries(groups).filter(([, conns]) => conns.length > 0)

@@ -229,8 +229,8 @@ export function SendResourceToWorkspaceDialog({
                   onClick={() => setSelectedWorkspaceId(workspace.id)}
                   className={cn(
                     'flex items-center gap-2 w-full px-2 py-2 rounded-md text-left text-sm transition-colors',
-                    'hover:bg-foreground/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    isSelected && 'bg-foreground/10 ring-1 ring-foreground/15',
+                    'hover:bg-foreground/5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                    isSelected && 'bg-foreground/10 text-foreground',
                     isDisconnected && 'opacity-50 cursor-not-allowed hover:bg-transparent',
                   )}
                 >

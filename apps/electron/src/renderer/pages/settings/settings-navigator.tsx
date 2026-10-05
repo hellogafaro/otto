@@ -19,7 +19,7 @@ import {
 } from '@workspace/ui/components/sidebar'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import type { SettingsSubpage } from '../../../shared/types'
-import { SETTINGS_ITEMS } from '../../../shared/menu-schema'
+import { SETTINGS_NAV_GROUPS } from '../../../shared/menu-schema'
 import { SETTINGS_ICONS } from '@/components/icons/settings-icons'
 
 export const meta: DetailsPageMeta = {
@@ -55,9 +55,6 @@ interface Row {
   onSelect: () => void
 }
 
-/** Pages that belong to you; everything else belongs to the workspace. */
-const ACCOUNT_PAGES = new Set<string>(['app', 'ai', 'appearance', 'input', 'shortcuts', 'preferences'])
-
 export default function SettingsNavigator({
   selectedSubpage,
   onSelectSubpage,
@@ -65,24 +62,18 @@ export default function SettingsNavigator({
 }: SettingsNavigatorProps) {
   const { t } = useTranslation()
 
-  const groups = useMemo(() => {
-    const pages: Row[] = SETTINGS_ITEMS.map((item) => ({
+  const groups = useMemo(() => SETTINGS_NAV_GROUPS.map((group) => {
+    const rows: Row[] = group.items.map((item) => ({
       id: item.id,
       label: t(item.labelKey),
       icon: SETTINGS_ICONS[item.id],
-      onSelect: () => onSelectSubpage(item.id as SettingsSubpage),
+      onSelect: () => onSelectSubpage(item.id),
     }))
-    return [
-      { title: 'Account', rows: pages.filter((row) => ACCOUNT_PAGES.has(row.id)) },
-      {
-        title: 'Workspace',
-        rows: [
-          ...pages.filter((row) => !ACCOUNT_PAGES.has(row.id)),
-          ...areaLinks.map((link) => ({ ...link })),
-        ],
-      },
-    ]
-  }, [t, onSelectSubpage, areaLinks])
+    return {
+      title: group.title,
+      rows: group.title === 'Workspace' ? [...rows, ...areaLinks.map((link) => ({ ...link }))] : rows,
+    }
+  }), [t, onSelectSubpage, areaLinks])
 
   return (
     <nav aria-label="Settings" className="flex flex-col gap-0.5">

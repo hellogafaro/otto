@@ -164,7 +164,7 @@ export function HTMLPreviewOverlay({
   const headerActions = (
     <div className="flex items-center gap-2">
       <ItemNavigator items={resolvedItems} activeIndex={activeIdx} onSelect={setActiveIdx} size="md" />
-      <CopyButton content={activeContent || ''} label="Copy HTML" className="bg-background shadow-minimal" />
+      <CopyButton content={activeContent || ''} label="Copy HTML" className="card-surface bg-card" />
     </div>
   )
 
@@ -190,7 +190,7 @@ export function HTMLPreviewOverlay({
         )}
         {processedHtml && (
           <div
-            className="bg-white rounded-[12px] overflow-hidden shadow-minimal mx-auto"
+            className="bg-white card-surface rounded-[12px] overflow-hidden mx-auto"
             style={{
               maxWidth: contentSize?.width ? `${contentSize.width + 128}px` : undefined,
               padding: '24px 64px 36px',

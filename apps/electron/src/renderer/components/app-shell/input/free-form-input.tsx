@@ -16,6 +16,7 @@ import { Icon_Home, Spinner } from '@otto/ui'
 
 import * as storage from '@/lib/local-storage'
 import { Button } from '@/components/ui/button'
+import { ToolbarChip } from '@/components/ui/toolbar-chip'
 import {
   InlineSlashCommand,
   useInlineSlashCommand,
@@ -1622,7 +1623,7 @@ export function FreeFormInput({
                               <span
                                 role="button"
                                 tabIndex={0}
-                                className="inline-flex h-4 min-w-4 cursor-pointer items-center justify-center rounded-xs bg-card px-0.5 text-[10px] font-medium text-foreground shadow-minimal focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                className="inline-flex h-4 min-w-4 cursor-pointer items-center justify-center rounded-xs bg-card px-0.5 text-[10px] font-medium text-foreground card-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 onMouseDown={(event) => {
                                   event.preventDefault()
                                   event.stopPropagation()
@@ -1765,7 +1766,7 @@ export function FreeFormInput({
                             {displaySources.map((source, index) => (
                               <div
                                 key={source.config.slug}
-                                className={cn("relative h-5 w-5 rounded-xs bg-card shadow-minimal flex items-center justify-center", index > 0 && "-ml-1")}
+                                className={cn("relative h-5 w-5 rounded-xs bg-card card-surface flex items-center justify-center", index > 0 && "-ml-1")}
                                 style={{ zIndex: index + 1 }}
                               >
                                 <SourceAvatar source={source} size="xs" />
@@ -1773,7 +1774,7 @@ export function FreeFormInput({
                             ))}
                             {remainingCount > 0 && (
                               <div
-                                className="-ml-1 h-5 w-5 rounded-xs bg-card shadow-minimal flex items-center justify-center text-[8px] font-medium text-muted-foreground"
+                                className="-ml-1 h-5 w-5 rounded-xs bg-card card-surface flex items-center justify-center text-[8px] font-medium text-muted-foreground"
                                 style={{ zIndex: displaySources.length + 1 }}
                               >
                                 +{remainingCount}
@@ -1867,7 +1868,7 @@ export function FreeFormInput({
                             {displaySources.map((source, index) => (
                               <div
                                 key={source.config.slug}
-                                className={cn("relative h-5 w-5 rounded-xs bg-card shadow-minimal flex items-center justify-center", index > 0 && "-ml-1")}
+                                className={cn("relative h-5 w-5 rounded-xs bg-card card-surface flex items-center justify-center", index > 0 && "-ml-1")}
                                 style={{ zIndex: index + 1 }}
                               >
                                 <SourceAvatar source={source} size="xs" />
@@ -1875,7 +1876,7 @@ export function FreeFormInput({
                             ))}
                             {remainingCount > 0 && (
                               <div
-                                className="-ml-1 h-5 w-5 rounded-xs bg-card shadow-minimal flex items-center justify-center text-[8px] font-medium text-muted-foreground"
+                                className="-ml-1 h-5 w-5 rounded-xs bg-card card-surface flex items-center justify-center text-[8px] font-medium text-muted-foreground"
                                 style={{ zIndex: displaySources.length + 1 }}
                               >
                                 +{remainingCount}
@@ -1942,15 +1943,17 @@ export function FreeFormInput({
               collapsed during processing in compact mode, so the user can
               type a follow-up without waiting for the agent to finish. */}
           {isCollapsedInCompact ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="compact"
               onClick={onRequestExpand}
               onMouseEnter={onRequestExpand}
               aria-label={t('chat.tapToType')}
-              className="flex-1 h-7 mx-1 flex items-center justify-center text-foreground/30 hover:text-foreground/60 transition-colors cursor-pointer rounded-sm hover:bg-foreground/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex-1 mx-1"
             >
-              <ChevronUp className="size-3.5" />
-            </button>
+              <ChevronUp />
+            </Button>
           ) : (
             <div className="flex-1" />
           )}
@@ -1963,13 +1966,10 @@ export function FreeFormInput({
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <button
+                  <ToolbarChip
                     type="button"
-                    className={cn(
-                      "input-toolbar-btn inline-flex items-center h-7 px-1.5 gap-0.5 text-[13px] shrink-0 rounded-sm hover:bg-foreground/5 transition-colors select-none",
-                      modelDropdownOpen && "bg-foreground/5",
-                      connectionUnavailable && "text-destructive",
-                    )}
+                    open={modelDropdownOpen}
+                    className={cn("input-toolbar-btn", connectionUnavailable ? "text-destructive hover:text-destructive" : "text-foreground")}
                   >
                     {connectionUnavailable ? (
                       <>
@@ -1980,17 +1980,17 @@ export function FreeFormInput({
                       <>
                         {effectiveConnectionDetails && llmConnections.length > 1 && storage.get(storage.KEYS.showConnectionIcons, true) && <ConnectionIcon connection={effectiveConnectionDetails} size={14} showTooltip />}
                         {currentModelDisplayName}
-                        {pickerMode !== 'locked-single' && <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />}
+                        {pickerMode !== 'locked-single' && <ChevronDown className="size-3 opacity-50 shrink-0" />}
                       </>
                     )}
-                  </button>
+                  </ToolbarChip>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="top">
                 {t('common.model')}
               </TooltipContent>
             </Tooltip>
-            <StyledDropdownMenuContent side="top" align="end" sideOffset={8} className="min-w-[260px]">
+            <StyledDropdownMenuContent side="top" align="end" sideOffset={8} className="min-w-[260px] max-w-sm">
               {/* Connection unavailable message */}
               {pickerMode === 'unavailable' ? (
                 <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
@@ -2010,14 +2010,11 @@ export function FreeFormInput({
                     !!effectiveConnectionDetails && isCompatProvider(effectiveConnectionDetails.providerType)
                   const visionOn = showVisionToggle && modelSupportsImages(effectiveConnectionDetails!, connectionDefaultModel)
                   return (
-                    <StyledDropdownMenuItem
-                      disabled
-                      className="flex items-center justify-between px-2 py-2 rounded-lg"
-                    >
-                      <div className="text-left">
-                        <div className="font-medium text-sm">{stripPiPrefixForDisplay(connectionDefaultModel)}</div>
-                        <div className="text-xs text-muted-foreground">{t('chat.connectionDefault')}</div>
-                      </div>
+                    <StyledDropdownMenuItem disabled className="justify-between">
+                      <span className="flex min-w-0 items-baseline gap-2">
+                        <span className="truncate">{stripPiPrefixForDisplay(connectionDefaultModel)}</span>
+                        <span className="truncate text-muted-foreground">{t('chat.connectionDefault')}</span>
+                      </span>
                       <div className="flex items-center gap-1 ml-3 shrink-0">
                         {showVisionToggle && effectiveConnectionDetails && (
                           <Tooltip>
@@ -2028,7 +2025,7 @@ export function FreeFormInput({
                                 aria-label={visionOn
                                   ? t('chat.modelPicker.supportsImagesOn')
                                   : t('chat.modelPicker.supportsImagesOff')}
-                                className="inline-flex items-center justify-center p-1 rounded pointer-events-auto opacity-100 hover:bg-foreground/5 cursor-pointer"
+                                className="inline-flex items-center justify-center p-1 rounded-sm pointer-events-auto opacity-100 hover:bg-foreground/10 cursor-pointer"
                                 onClick={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
@@ -2055,7 +2052,7 @@ export function FreeFormInput({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        <Check className="h-3 w-3 text-foreground" />
+                        <Check />
                       </div>
                     </StyledDropdownMenuItem>
                   )
@@ -2073,26 +2070,16 @@ export function FreeFormInput({
                       const isAuthenticated = conn.isAuthenticated
                       return (
                         <DropdownMenuSub key={conn.slug}>
-                          <StyledDropdownMenuSubTrigger
-                            disabled={!isAuthenticated}
-                            className={cn(
-                              "flex items-center justify-between px-2 py-2 rounded-lg",
-                              isCurrentConnection && "bg-foreground/5"
+                          <StyledDropdownMenuSubTrigger disabled={!isAuthenticated}>
+                            <ConnectionIcon connection={conn} size={14} />
+                            <span className="truncate">{conn.name}</span>
+                            {!isAuthenticated && (
+                              <span className="truncate text-muted-foreground">{t('settings.ai.notAuthenticated')}</span>
                             )}
-                          >
-                            <div className="text-left flex-1">
-                              <div className="font-medium text-sm flex items-center gap-1.5">
-                                <ConnectionIcon connection={conn} size={14} />
-                                {conn.name}
-                                {isCurrentConnection && <Check className="h-3 w-3 text-foreground" />}
-                              </div>
-                              {!isAuthenticated && (
-                                <div className="text-xs text-muted-foreground">{t('settings.ai.notAuthenticated')}</div>
-                              )}
-                            </div>
+                            {isCurrentConnection && <Check className="size-3.5 shrink-0" />}
                           </StyledDropdownMenuSubTrigger>
                           {isAuthenticated && (
-                            <StyledDropdownMenuSubContent className="min-w-[220px]">
+                            <StyledDropdownMenuSubContent className="min-w-[220px] max-w-sm">
                               {/* Show models for this connection - use provider-specific models as fallback */}
                               {(conn.models || ANTHROPIC_MODELS).map((model) => {
                                 const modelId = typeof model === 'string' ? model : model.id
@@ -2113,9 +2100,9 @@ export function FreeFormInput({
                                       // Always pass connection with model for proper persistence
                                       onModelChange(modelId, conn.slug)
                                     }}
-                                    className="flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer"
+                                    className="justify-between"
                                   >
-                                    <div className="font-medium text-sm">{modelName}</div>
+                                    <span className="truncate">{modelName}</span>
                                     <div className="flex items-center gap-1 ml-3 shrink-0">
                                       {showVisionToggle && (
                                         <Tooltip>
@@ -2126,7 +2113,7 @@ export function FreeFormInput({
                                               aria-label={visionOn
                                                 ? t('chat.modelPicker.supportsImagesOn')
                                                 : t('chat.modelPicker.supportsImagesOff')}
-                                              className="inline-flex items-center justify-center p-1 rounded hover:bg-foreground/5 cursor-pointer"
+                                              className="inline-flex items-center justify-center p-1 rounded-sm hover:bg-foreground/10 cursor-pointer"
                                               onClick={(e) => {
                                                 e.preventDefault()
                                                 e.stopPropagation()
@@ -2154,7 +2141,7 @@ export function FreeFormInput({
                                         </Tooltip>
                                       )}
                                       {isSelectedModel && (
-                                        <Check className="h-3 w-3 text-foreground" />
+                                        <Check />
                                       )}
                                     </div>
                                   </StyledDropdownMenuItem>
@@ -2198,14 +2185,14 @@ export function FreeFormInput({
                       <StyledDropdownMenuItem
                         key={modelId}
                         onSelect={() => onModelChange(modelId, effectiveConnection)}
-                        className="flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer"
+                        className="justify-between"
                       >
-                        <div className="text-left">
-                          <div className="font-medium text-sm">{modelName}</div>
+                        <span className="flex min-w-0 items-baseline gap-2">
+                          <span className="shrink-0">{modelName}</span>
                           {description && (
-                            <div className="text-xs text-muted-foreground">{description}</div>
+                            <span className="truncate text-muted-foreground">{description}</span>
                           )}
-                        </div>
+                        </span>
                         <div className="flex items-center gap-1 ml-3 shrink-0">
                           {showVisionToggle && effectiveConnectionDetails && (
                             <Tooltip>
@@ -2216,7 +2203,7 @@ export function FreeFormInput({
                                   aria-label={visionOn
                                     ? t('chat.modelPicker.supportsImagesOn')
                                     : t('chat.modelPicker.supportsImagesOff')}
-                                  className="inline-flex items-center justify-center p-1 rounded hover:bg-foreground/5 cursor-pointer"
+                                  className="inline-flex items-center justify-center p-1 rounded-sm hover:bg-foreground/10 cursor-pointer"
                                   onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
@@ -2244,7 +2231,7 @@ export function FreeFormInput({
                             </Tooltip>
                           )}
                           {isSelected && (
-                            <Check className="h-3 w-3 text-foreground" />
+                            <Check />
                           )}
                         </div>
                       </StyledDropdownMenuItem>
@@ -2260,28 +2247,24 @@ export function FreeFormInput({
                   <StyledDropdownMenuSeparator className="my-1" />
 
                   <DropdownMenuSub>
-                    <StyledDropdownMenuSubTrigger disabled={thinkingDisabled} className={cn("flex items-center justify-between px-2 py-2 rounded-lg", thinkingDisabled && "opacity-50 cursor-not-allowed")}>
-                      <div className="text-left flex-1">
-                        <div className="font-medium text-sm">{t(getThinkingLevelNameKey(thinkingLevel))}</div>
-                        <div className="text-xs text-muted-foreground">{thinkingDisabled ? t('thinking.notSupported') : t('thinking.extendedDesc')}</div>
-                      </div>
+                    <StyledDropdownMenuSubTrigger disabled={thinkingDisabled}>
+                      <span className="shrink-0">{t(getThinkingLevelNameKey(thinkingLevel))}</span>
+                      <span className="truncate text-muted-foreground">{thinkingDisabled ? t('thinking.notSupported') : t('thinking.extendedDesc')}</span>
                     </StyledDropdownMenuSubTrigger>
-                    <StyledDropdownMenuSubContent className="min-w-[220px]">
+                    <StyledDropdownMenuSubContent className="min-w-[220px] max-w-sm">
                       {availableThinkingLevels.map(({ id, nameKey, descriptionKey }) => {
                         const isSelected = thinkingLevel === id
                         return (
                           <StyledDropdownMenuItem
                             key={id}
                             onSelect={() => onThinkingLevelChange?.(id)}
-                            className="flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer"
+                            className="justify-between"
                           >
-                            <div className="text-left">
-                              <div className="font-medium text-sm">{t(nameKey)}</div>
-                              <div className="text-xs text-muted-foreground">{t(descriptionKey)}</div>
-                            </div>
-                            {isSelected && (
-                              <Check className="h-3 w-3 text-foreground shrink-0 ml-3" />
-                            )}
+                            <span className="flex min-w-0 items-baseline gap-2">
+                              <span className="shrink-0">{t(nameKey)}</span>
+                              <span className="truncate text-muted-foreground">{t(descriptionKey)}</span>
+                            </span>
+                            {isSelected && <Check className="size-3.5 shrink-0" />}
                           </StyledDropdownMenuItem>
                         )
                       })}
@@ -2320,20 +2303,17 @@ export function FreeFormInput({
           {contextDisplay.showWarning && contextDisplay.percent !== null && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
+                <ToolbarChip
                   type="button"
+                  tint="var(--info)"
                   onClick={() => {
                     if (!isProcessing && contextDisplay.canCompact) onSubmit('/compact', [])
                   }}
                   disabled={isProcessing || !contextDisplay.canCompact}
-                  className="inline-flex items-center h-6 px-2 text-[12px] font-medium bg-info/10 rounded-sm shadow-tinted select-none cursor-pointer hover:bg-info/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    '--shadow-color': 'var(--info-rgb)',
-                    color: 'color-mix(in oklab, var(--info) 30%, var(--foreground))',
-                  } as React.CSSProperties}
+                  className="text-[color-mix(in_oklab,var(--info)_30%,var(--foreground))]"
                 >
                   {contextDisplay.percent}%
-                </button>
+                </ToolbarChip>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[260px]">
                 <div className="space-y-0.5">
@@ -2354,7 +2334,7 @@ export function FreeFormInput({
               size="icon"
               variant="secondary"
               aria-label={t('chat.stopResponse')}
-              className="send-btn h-7 w-7 rounded-full shrink-0 hover:bg-foreground/15 active:bg-foreground/20 ml-2"
+              className="send-btn ml-2"
               onClick={() => handleStop(false)}
             >
               <Square className="h-3 w-3 fill-current" />
@@ -2364,11 +2344,11 @@ export function FreeFormInput({
               type="submit"
               size="icon"
               aria-label={t('shortcuts.sendMessage')}
-              className="send-btn h-7 w-7 rounded-full shrink-0 ml-2"
+              className="send-btn ml-2"
               disabled={!hasContent || disabled || disableSend}
               data-tutorial="send-button"
             >
-              <ArrowUp className="size-3.5" />
+              <ArrowUp />
             </Button>
           )}
           </div>

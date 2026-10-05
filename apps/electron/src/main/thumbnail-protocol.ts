@@ -99,26 +99,22 @@ async function generateThumbnail(filePath: string, ext: string): Promise<Buffer 
 }
 
 /**
- * Register the thumbnail:// custom protocol scheme.
- * MUST be called before app.whenReady() — Electron requires scheme
- * registration during the earliest phase of app initialization.
+ * Privileges of the thumbnail:// scheme. Registered with the other custom schemes in a single
+ * `registerSchemesAsPrivileged` call (protocol-schemes.ts): Electron keeps only the last call,
+ * and it must happen before app.whenReady().
  */
-export function registerThumbnailScheme(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
-      scheme: 'thumbnail',
-      privileges: {
-        // Allow the renderer to fetch from this scheme
-        supportFetchAPI: true,
-        // Standard scheme allows normal URL parsing (host, path, etc.)
-        standard: true,
-        // Allow cross-origin access from the renderer
-        corsEnabled: true,
-        // Stream support for efficient response delivery
-        stream: true,
-      },
-    },
-  ])
+export const thumbnailScheme: Electron.CustomScheme = {
+  scheme: 'thumbnail',
+  privileges: {
+    // Allow the renderer to fetch from this scheme
+    supportFetchAPI: true,
+    // Standard scheme allows normal URL parsing (host, path, etc.)
+    standard: true,
+    // Allow cross-origin access from the renderer
+    corsEnabled: true,
+    // Stream support for efficient response delivery
+    stream: true,
+  },
 }
 
 /**

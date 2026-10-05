@@ -53,7 +53,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           // border, no fill until hovered.
           closeButton: cn(
             buttonVariants({ variant: "ghost", size: "icon-compact" }),
-            "order-last self-start border-transparent! bg-transparent! text-muted-foreground! hover:bg-muted/50! hover:text-foreground!"
+            "order-last self-start border-transparent! bg-transparent! text-muted-foreground! hover:bg-foreground/5! hover:text-foreground!"
           ),
         },
       }}

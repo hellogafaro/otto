@@ -11,6 +11,7 @@
  */
 
 import type { ISessionManager } from '@otto/server-core/handlers'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 import {
   evaluatePreBindingAccess,
   executeRejection,
@@ -425,7 +426,7 @@ export class Commands {
     if (!/^\d{6}$/.test(code)) {
       await adapter.sendText(
         msg.channelId,
-        'Usage: /pair <6-digit code>\n\nGenerate a code from the session menu or the Telegram supergroup setup in the Otto app.',
+        `Usage: /pair <6-digit code>\n\nGenerate a code from the session menu or the Telegram supergroup setup in the ${PRODUCT_NAME} app.`,
         replyOpts,
       )
       return
@@ -452,7 +453,7 @@ export class Commands {
       })
       await adapter.sendText(
         msg.channelId,
-        'Only existing bot owners can redeem pairing codes. Ask an owner to add you in the Otto app.',
+        `Only existing bot owners can redeem pairing codes. Ask an owner to add you in the ${PRODUCT_NAME} app.`,
         replyOpts,
       )
       return

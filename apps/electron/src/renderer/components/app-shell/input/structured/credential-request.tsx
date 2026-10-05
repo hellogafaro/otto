@@ -281,9 +281,8 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
         <div className="shrink-0 flex flex-wrap items-center gap-2 px-3 py-2 border-t border-border/50">
           <Button
             type="submit"
-            size="sm"
+            size="compact"
             variant="default"
-            className="h-7 gap-1.5"
             disabled={!isValid}
           >
             <Check className="h-3.5 w-3.5" />
@@ -291,9 +290,8 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
           </Button>
           <Button
             type="button"
-            size="sm"
+            size="compact"
             variant="ghost"
-            className="h-7 gap-1.5 text-muted-foreground hover:text-foreground"
             onClick={handleCancel}
           >
             <X className="h-3.5 w-3.5" />

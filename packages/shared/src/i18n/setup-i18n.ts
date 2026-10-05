@@ -1,6 +1,7 @@
 import i18n, { type i18n as I18nInstance, type InitOptions } from "i18next";
 import { LOCALE_REGISTRY } from "./registry";
 import { SUPPORTED_LANGUAGE_CODES } from "./languages";
+import { PRODUCT_NAME } from "../branding";
 
 // Build i18next resources from the locale registry.
 const resources = Object.fromEntries(
@@ -34,7 +35,8 @@ export function setupI18n(
     resources,
     fallbackLng: "en",
     supportedLngs: [...SUPPORTED_LANGUAGE_CODES],
-    interpolation: { escapeValue: false },
+    // `{{product}}` is available in every string: the product name has one source.
+    interpolation: { escapeValue: false, defaultVariables: { product: PRODUCT_NAME } },
     initImmediate: false, // synchronous init — resources are bundled inline
     detection: {
       order: ["localStorage", "navigator"],

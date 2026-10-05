@@ -8,6 +8,7 @@ type ContentBlockParam =
   | { type: 'document'; source: { type: 'base64'; media_type: string; data: string } };
 import { z } from 'zod';
 import { getSystemPrompt } from '../prompts/system.ts';
+import { PRODUCT_NAME } from '../branding.ts';
 import { BaseAgent, type MiniAgentConfig, MINI_AGENT_TOOLS, MINI_AGENT_MCP_KEYS } from './base-agent.ts';
 import type { BackendConfig, PostInitResult } from './backend/types.ts';
 // Plan types are used by UI components; not needed in otto.ts since Safe Mode is user-controlled
@@ -2244,7 +2245,7 @@ This is a branched conversation. All prior messages in this conversation are par
               message:
                 'The Claude Agent SDK binary expected on disk is not present. ' +
                 'This usually means the app bundle is incomplete (interrupted download, partial update, ' +
-                'or a security tool removed it). Reinstalling Otto typically fixes this.',
+                `or a security tool removed it). Reinstalling ${PRODUCT_NAME} typically fixes this.`,
               details: [
                 probedBinary ? `Expected binary: ${probedBinary}` : 'Binary path: unknown',
                 probedCwd ? `Subprocess cwd: ${probedCwd} (${cwdExists ? 'exists' : 'missing'})` : '',

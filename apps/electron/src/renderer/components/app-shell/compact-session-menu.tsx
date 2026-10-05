@@ -43,6 +43,8 @@ import {
   MailOpen,
   MessageSquare,
   Pencil,
+  Pin,
+  PinOff,
   RefreshCw,
   Send,
   Tag,
@@ -76,6 +78,9 @@ import { getFileManagerName } from '@/lib/platform'
 import { useMessagingConnect, type MessagingPlatform } from '@/components/messaging/messaging-session-menu-item'
 import { useSessionMenuActions } from '@/hooks/use-session-menu-actions'
 import { useShareCapabilities } from '@/hooks/use-share-capabilities'
+import { usePins } from '@/hooks/use-pins'
+import { chatItem } from '@/atoms/pins-recents'
+import { Button } from '@/components/ui/button'
 
 type View = 'root' | 'status' | 'labels' | 'share' | 'messaging'
 
@@ -180,6 +185,7 @@ export function CompactSessionMenu({
   const _hasUnread = hasUnreadMeta(item)
 
   const actions = useSessionMenuActions({ item, onLabelsChange })
+  const { isPinned, togglePin } = usePins()
 
   const flatLabelItems = React.useMemo(
     (): LabelMenuItem[] => createLabelMenuItems(labels),
@@ -232,14 +238,11 @@ export function CompactSessionMenu({
       ? <DrawerTrigger asChild>{trigger}</DrawerTrigger>
       : (
         <DrawerTrigger asChild>
-          <button
+          <Button
             type="button"
-            className={cn(
-              'flex items-center gap-1 px-2 py-1 rounded-md titlebar-no-drag min-w-0',
-              'hover:bg-foreground/5 transition-colors',
-              'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              'data-[state=open]:bg-foreground/[0.03]',
-            )}
+            variant="ghost"
+            size="compact"
+            className="titlebar-no-drag min-w-0 text-foreground"
             aria-label={title}
           >
             <motion.div
@@ -261,7 +264,7 @@ export function CompactSessionMenu({
             <span className="shrink-0 flex items-center justify-center">
               <ChevronDown className="h-3.5 w-3.5 text-foreground/50 translate-y-[1px]" />
             </span>
-          </button>
+          </Button>
         </DrawerTrigger>
       )
 
@@ -272,14 +275,16 @@ export function CompactSessionMenu({
       <DrawerContent className="max-h-[85vh]">
         <DrawerHeader className="!flex flex-row items-center gap-2 !text-left pr-3">
           {showBack && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setView('root')}
-              className="-ml-1 h-8 w-8 rounded-md flex items-center justify-center hover:bg-foreground/5 active:bg-foreground/10 transition-colors text-foreground/50"
+              className="-ml-1"
               aria-label={t('common.back')}
             >
-              <ChevronLeft className="size-3.5" />
-            </button>
+              <ChevronLeft />
+            </Button>
           )}
           <DrawerTitle className="flex-1 min-w-0 truncate">{headerTitle}</DrawerTitle>
         </DrawerHeader>
@@ -293,6 +298,7 @@ export function CompactSessionMenu({
               currentSessionStatus={currentSessionStatus}
               labelsCount={sessionLabels.length}
               hasLabels={labels.length > 0}
+              isPinned={isPinned({ type: 'chat', id: item.id })}
               isFlagged={isFlagged}
               isArchived={isArchived}
               hasMessages={_hasMessages}
@@ -305,6 +311,7 @@ export function CompactSessionMenu({
               onOpenStatusSub={() => setView('status')}
               onOpenLabelsSub={() => setView('labels')}
               onFlag={closeAfter(onFlag)}
+              onTogglePin={closeAfter(() => togglePin(chatItem(item)))}
               onUnflag={closeAfter(onUnflag)}
               onArchive={closeAfter(onArchive)}
               onUnarchive={closeAfter(onUnarchive)}
@@ -366,6 +373,7 @@ interface RootPaneProps {
   currentSessionStatus: SessionStatusId
   labelsCount: number
   hasLabels: boolean
+  isPinned: boolean
   isFlagged: boolean
   isArchived: boolean
   hasMessages: boolean
@@ -378,6 +386,7 @@ interface RootPaneProps {
   onOpenStatusSub: () => void
   onOpenLabelsSub: () => void
   onFlag?: () => void
+  onTogglePin?: () => void
   onUnflag?: () => void
   onArchive?: () => void
   onUnarchive?: () => void
@@ -396,6 +405,7 @@ function RootPane({
   currentSessionStatus,
   labelsCount,
   hasLabels,
+  isPinned,
   isFlagged,
   isArchived,
   hasMessages,
@@ -407,6 +417,7 @@ function RootPane({
   onOpenMessagingSub,
   onOpenStatusSub,
   onOpenLabelsSub,
+  onTogglePin,
   onFlag,
   onUnflag,
   onArchive,
@@ -471,6 +482,12 @@ function RootPane({
           onTap={onOpenLabelsSub}
         />
       )}
+
+      <Row
+        icon={isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+        label={isPinned ? t('menu.unpin') : t('menu.pin')}
+        onTap={onTogglePin}
+      />
 
       {!isFlagged ? (
         <Row icon={<Flag className="size-3.5 text-info" />} label={t('sessionMenu.flag')} onTap={onFlag} />

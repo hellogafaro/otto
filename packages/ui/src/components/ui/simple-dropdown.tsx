@@ -78,10 +78,10 @@ export function SimpleDropdownItem({
       onMouseEnter={handleMouseEnter}
       onFocus={() => dropdownCtx?.setHighlightedId(itemId)}
       className={cn(
-        'flex items-center gap-2 w-full px-2.5 py-1.5 text-left text-[13px] rounded-[4px]',
-        'hover:bg-foreground/[0.05] focus:bg-foreground/[0.05] focus:outline-none',
+        'flex h-7 items-center gap-2 w-full px-2 text-left text-sm rounded-sm',
+        'hover:bg-foreground/10 focus:bg-foreground/10 focus:outline-none',
         'transition-colors',
-        isHighlighted && 'bg-foreground/[0.05]',
+        isHighlighted && 'bg-foreground/10',
         variant === 'destructive' && 'text-destructive hover:text-destructive',
         className
       )}

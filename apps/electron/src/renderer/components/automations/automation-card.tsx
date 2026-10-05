@@ -13,6 +13,7 @@ import { AutomationAvatar } from './automation-avatar'
 import { AutomationActionPreview } from './automation-action-preview'
 import { Switch } from '@/components/ui/switch'
 import { getEventDisplayName, type AutomationListItem } from './types'
+import { Button } from '@/components/ui/button'
 
 export interface AutomationCardProps {
   automation: AutomationListItem
@@ -35,7 +36,7 @@ export function AutomationCard({
   return (
     <div
       className={cn(
-        'rounded-md bg-card shadow-minimal overflow-hidden transition-all',
+        'card-surface rounded-md bg-card overflow-hidden transition-all',
         !automation.enabled && 'opacity-50',
         className
       )}
@@ -43,7 +44,7 @@ export function AutomationCard({
       {/* Collapsed header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-foreground/2 transition-colors"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-foreground/5 active:bg-foreground/10 transition-colors"
       >
         {/* Expand chevron */}
         {expanded ? (
@@ -100,12 +101,9 @@ export function AutomationCard({
           {/* Actions bar */}
           <div className="flex items-center gap-2 pt-1">
             {onTest && (
-              <button
-                onClick={onTest}
-                className="px-2.5 py-1 text-xs font-medium rounded-md bg-foreground/[0.03] shadow-minimal hover:bg-foreground/[0.06] transition-colors"
-              >
+              <Button variant="outline" size="compact" onClick={onTest}>
                 {t('automations.runTest')}
-              </button>
+              </Button>
             )}
           </div>
         </div>

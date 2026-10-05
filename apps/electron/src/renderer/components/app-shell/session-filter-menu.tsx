@@ -10,6 +10,7 @@ import {
   Layers,
   ListFilter,
   MailOpen,
+  Plus,
   Search,
   Tag,
   Trash2,
@@ -30,6 +31,7 @@ import {
   StyledDropdownMenuSubContent,
 } from "@/components/ui/styled-dropdown"
 import { LabelIcon } from "@/components/ui/label-icon"
+import { MENU_LABEL, MENU_ROW, MENU_ROW_HIGHLIGHT, MENU_SEPARATOR } from "@/components/ui/menu-styles"
 import { filterSessionStatuses as filterLabelMenuStates } from "@/components/ui/label-menu"
 import { createLabelMenuItems, filterItems as filterLabelMenuItems, type LabelMenuItem } from "@/components/ui/label-menu-utils"
 import { findLabelById } from "@otto/shared/labels"
@@ -63,10 +65,9 @@ function FilterModeBadge({ mode }: { mode: FilterMode }) {
       className={cn(
         "flex items-center justify-center h-5 w-5 rounded-xs -mr-1",
         mode === 'include'
-          ? "bg-card text-foreground shadow-minimal"
-          : "bg-destructive/10 text-destructive shadow-tinted",
+          ? "bg-foreground/10 text-foreground"
+          : "bg-destructive/10 text-destructive",
       )}
-      style={mode === 'exclude' ? { '--shadow-color': 'var(--destructive-rgb)' } as React.CSSProperties : undefined}
     >
       {mode === 'include' ? <Check className="!h-2.5 !w-2.5" /> : <X className="!h-2.5 !w-2.5" />}
     </span>
@@ -93,17 +94,17 @@ function FilterModeSubMenuItems({
     <>
       <StyledDropdownMenuItem
         onClick={(e) => { e.preventDefault(); onChangeMode('include') }}
-        className={cn(mode === 'include' && "bg-foreground/5")}
       >
-        <Check className="h-3.5 w-3.5 shrink-0" />
+        <Plus className="h-3.5 w-3.5 shrink-0" />
         <span className="flex-1">{t("filter.include")}</span>
+        {mode === 'include' && <Check className="shrink-0" />}
       </StyledDropdownMenuItem>
       <StyledDropdownMenuItem
         onClick={(e) => { e.preventDefault(); onChangeMode('exclude') }}
-        className={cn(mode === 'exclude' && "bg-foreground/5")}
       >
         <X className="h-3.5 w-3.5 shrink-0" />
         <span className="flex-1">{t("filter.exclude")}</span>
+        {mode === 'exclude' && <Check className="shrink-0" />}
       </StyledDropdownMenuItem>
       <StyledDropdownMenuSeparator />
       <StyledDropdownMenuItem
@@ -432,7 +433,7 @@ export function SessionFilterMenu({
               <HeaderIconButton
                 icon={<ListFilter className="size-3.5" />}
                 tooltip={t("sidebar.filterChats")}
-                className={hasUserFilters ? "bg-muted text-foreground" : undefined}
+                className={hasUserFilters ? "bg-foreground/10 text-foreground" : undefined}
               />
             </DropdownMenuTrigger>
               <StyledDropdownMenuContent
@@ -477,7 +478,7 @@ export function SessionFilterMenu({
                 {/* Search input — typing switches from hierarchical submenus to a flat filtered list.
                     stopPropagation prevents Radix from intercepting keys. Arrow/Enter handled for navigation. */}
                 <div className="px-1 pb-3 border-b border-foreground/5">
-                  <div className="bg-card rounded-sm shadow-minimal px-2 py-1.5">
+                  <div className="rounded-sm bg-input/50 px-2 py-1.5">
                     <input
                       ref={filterDropdownInputRef}
                       type="text"
@@ -913,11 +914,11 @@ export function SessionFilterMenu({
                         No matching statuses or labels
                       </div>
                     ) : (
-                      <div ref={filterDropdownListRef} className="max-h-[240px] overflow-y-auto py-1">
+                      <div ref={filterDropdownListRef} className="max-h-[240px] overflow-y-auto">
                         {/* Matched statuses */}
                         {filterDropdownResults.states.length > 0 && (
                           <>
-                            <div className="px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                            <div className={MENU_LABEL}>
                               Statuses
                             </div>
                             {filterDropdownResults.states.map((state, index) => {
@@ -933,7 +934,7 @@ export function SessionFilterMenu({
                                     <StyledDropdownMenuSubTrigger
                                       data-filter-selected={isHighlighted}
                                       onMouseEnter={() => setFilterDropdownSelectedIdx(index)}
-                                      className={cn("mx-1", isHighlighted && "bg-foreground/5")}
+                                      className={cn(isHighlighted && "bg-foreground/10")}
                                       onClick={(e) => { e.preventDefault(); setListFilter(prev => { const next = new Map(prev); next.delete(state.id); return next }) }}
                                     >
                                       <FilterMenuRow
@@ -979,9 +980,8 @@ export function SessionFilterMenu({
                                       })
                                     }}
                                     className={cn(
-                                      // SVG sizing matches StyledDropdownMenuSubTrigger so icons render at the same size
-                                      "flex cursor-pointer select-none items-center gap-2 rounded-xs mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:shrink-0",
-                                      isHighlighted && "bg-foreground/5",
+                                                                            MENU_ROW,
+                                      isHighlighted && MENU_ROW_HIGHLIGHT,
                                       isPinned && "opacity-50 pointer-events-none",
                                     )}
                                   >
@@ -1000,12 +1000,12 @@ export function SessionFilterMenu({
                         )}
                         {/* Separator between sections */}
                         {filterDropdownResults.states.length > 0 && filterDropdownResults.labels.length > 0 && (
-                          <div className="my-1 mx-2 border-t border-border/40" />
+                          <div className={MENU_SEPARATOR} />
                         )}
                         {/* Matched labels — flat list with parent breadcrumbs */}
                         {filterDropdownResults.labels.length > 0 && (
                           <>
-                            <div className="px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                            <div className={MENU_LABEL}>
                               Labels
                             </div>
                             {filterDropdownResults.labels.map((item, index) => {
@@ -1025,7 +1025,7 @@ export function SessionFilterMenu({
                                     <StyledDropdownMenuSubTrigger
                                       data-filter-selected={isHighlighted}
                                       onMouseEnter={() => setFilterDropdownSelectedIdx(flatIndex)}
-                                      className={cn("mx-1", isHighlighted && "bg-foreground/5")}
+                                      className={cn(isHighlighted && "bg-foreground/10")}
                                       onClick={(e) => { e.preventDefault(); setLabelFilter(prev => { const next = new Map(prev); next.delete(item.id); return next }) }}
                                     >
                                       <FilterMenuRow
@@ -1069,9 +1069,8 @@ export function SessionFilterMenu({
                               })
                             }}
                             className={cn(
-                              // SVG sizing matches StyledDropdownMenuSubTrigger so icons render at the same size
-                              "flex cursor-pointer select-none items-center gap-2 rounded-xs mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:shrink-0",
-                              isHighlighted && "bg-foreground/5",
+                                                            MENU_ROW,
+                              isHighlighted && MENU_ROW_HIGHLIGHT,
                               isPinned && "opacity-50 pointer-events-none",
                             )}
                           >

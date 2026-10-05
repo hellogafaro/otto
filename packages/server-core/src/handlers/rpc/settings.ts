@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'path'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { getPreferencesPath, getSessionDraft, setSessionDraft, deleteSessionDraft, getAllSessionDrafts, getWorkspaceByNameOrId, getDefaultThinkingLevel, setDefaultThinkingLevel } from '@otto/shared/config'
+import { getPreferencesPath, validatePreferencesContent, getSessionDraft, setSessionDraft, deleteSessionDraft, getAllSessionDrafts, getWorkspaceByNameOrId, getDefaultThinkingLevel, setDefaultThinkingLevel } from '@otto/shared/config'
 import { isValidThinkingLevel, normalizeThinkingLevel, THINKING_LEVEL_IDS } from '@otto/shared/agent/thinking-levels'
 
 const VALID_THINKING_LEVELS_LIST = THINKING_LEVEL_IDS.map(id => `'${id}'`).join(', ')
@@ -175,10 +175,11 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
     return { content: readFileSync(path, 'utf-8'), exists: true, path }
   })
 
-  // Write user preferences file (validates JSON before saving)
+  // Write user preferences file (validates the content before saving)
   server.handle(RPC_CHANNELS.preferences.WRITE, async (_, content: string) => {
     try {
-      JSON.parse(content) // Validate JSON
+      const validation = validatePreferencesContent(content)
+      if (!validation.success) return validation
       const path = getPreferencesPath()
       mkdirSync(dirname(path), { recursive: true })
       writeFileSync(path, content, 'utf-8')

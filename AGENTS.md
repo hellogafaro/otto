@@ -15,6 +15,7 @@ Otto is a Bun monorepo that started from Otto (see [UPSTREAM](UPSTREAM.md)) and 
 - Change a shared look in the `design/ui` component, marked `// Otto:`; instance classes are for layout only.
 - The in-place rebuild and what to delete as each part is swapped is tracked in [docs/ui-rebuild.md](docs/ui-rebuild.md). A finished swap deletes its old dependency.
 - A shortcut or command is always shown with the `Kbd` component (in a tooltip: the label, then its `Kbd`), never as text like "(Esc)".
+- Copy never hardcodes the product or an agent's name: use `PRODUCT_NAME` (`@otto/shared/branding`; `{{product}}` in i18n strings) and the agent's name from state; write "your agents" where no agent is in context.
 - Record every new or changed UI decision in DESIGN.md in the same change. Open visible changes in a browser and look at them.
 
 ## Small, cohesive changes

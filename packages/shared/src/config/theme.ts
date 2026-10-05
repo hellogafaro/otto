@@ -140,10 +140,9 @@ export function resolveTheme(
 
 /**
  * Convert hex color to RGB values string (e.g., "255, 128, 0")
- * Optionally darkens the color by a factor (0-1, where 0.7 = 70% brightness)
  * Returns null if not a valid hex color
  */
-function hexToRgbValues(hex: string, darkenFactor: number = 1): string | null {
+function hexToRgbValues(hex: string): string | null {
   let r: number, g: number, b: number;
 
   // Match 6 digit hex colors
@@ -160,11 +159,6 @@ function hexToRgbValues(hex: string, darkenFactor: number = 1): string | null {
     g = parseInt(shortMatch[2]! + shortMatch[2]!, 16);
     b = parseInt(shortMatch[3]! + shortMatch[3]!, 16);
   }
-
-  // Apply darkening factor
-  r = Math.round(r * darkenFactor);
-  g = Math.round(g * darkenFactor);
-  b = Math.round(b * darkenFactor);
 
   return `${r}, ${g}, ${b}`;
 }
@@ -186,21 +180,13 @@ export function themeToCSS(theme: ThemeOverrides, isDark: boolean = false): stri
   if (colors.background) vars.push(`--background: ${colors.background};`);
   if (colors.foreground) {
     vars.push(`--foreground: ${colors.foreground};`);
-    // Also output RGB version for shadow borders (only works with hex colors)
+    // Also output the RGB version (only works with hex colors)
     const rgbValues = hexToRgbValues(colors.foreground);
     if (rgbValues) {
       vars.push(`--foreground-rgb: ${rgbValues};`);
     }
   }
-  if (colors.accent) {
-    vars.push(`--primary: ${colors.accent};`);
-    // Also output darkened RGB version for shadow-tinted (only works with hex colors)
-    // Use 70% brightness for a proper shadow effect
-    const rgbValues = hexToRgbValues(colors.accent, 0.7);
-    if (rgbValues) {
-      vars.push(`--primary-rgb: ${rgbValues};`);
-    }
-  }
+  if (colors.accent) vars.push(`--primary: ${colors.accent};`);
   if (colors.info) vars.push(`--info: ${colors.info};`);
   if (colors.success) vars.push(`--success: ${colors.success};`);
   if (colors.destructive) vars.push(`--destructive: ${colors.destructive};`);

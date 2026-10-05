@@ -146,7 +146,7 @@ function IconSpacer() {
 }
 
 function CardSeparator() {
-  return <div className="h-px bg-foreground/10" />
+  return <div className="h-px bg-(--card-divider)" />
 }
 
 function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceId: string }) {
@@ -309,13 +309,9 @@ function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceI
           {runtime.connected ? (
             <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
-                <button
-                  className="rounded-sm p-1.5 transition-colors hover:bg-foreground/[0.05] data-[state=open]:bg-foreground/[0.05]"
-                  data-state={menuOpen ? 'open' : 'closed'}
-                  aria-label={t('common.more')}
-                >
-                  <MoreHorizontal className="size-3.5 text-muted-foreground" />
-                </button>
+                <Button variant="ghost" size="icon-compact" aria-label={t('common.more')}>
+                  <MoreHorizontal />
+                </Button>
               </DropdownMenuTrigger>
               <StyledDropdownMenuContent align="end">
                 {platform === 'telegram' ? (
@@ -356,7 +352,7 @@ function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceI
               </StyledDropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button variant="outline" size="sm" onClick={handleConnect}>
+            <Button variant="outline" size="compact" onClick={handleConnect}>
               <Plus className="h-3.5 w-3.5" />
               {t('common.connect')}
             </Button>
@@ -592,7 +588,7 @@ function UnpairedSupergroupRow({ onPair }: { onPair: () => void }) {
         defaultValue: 'Not configured',
       })}
     >
-      <Button variant="outline" size="sm" onClick={onPair}>
+      <Button variant="outline" size="compact" onClick={onPair}>
         <Plus className="h-3.5 w-3.5" />
         {t('settings.messaging.telegram.supergroup.pair', { defaultValue: 'Pair Supergroup' })}
       </Button>
@@ -687,7 +683,7 @@ function PairedSupergroupSection({
                 <IconSpacer />
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="compact"
                   className="text-destructive hover:text-destructive"
                   onClick={onUnpair}
                 >
@@ -769,13 +765,13 @@ function RowActions({ onOpen, onUnbind }: { onOpen: () => void; onUnbind: () => 
   const { t } = useTranslation()
   return (
     <div className="flex items-center gap-1">
-      <Button variant="ghost" size="sm" onClick={onOpen}>
+      <Button variant="ghost" size="compact" onClick={onOpen}>
         <ArrowUpRight className="h-3.5 w-3.5" />
         {t('settings.messaging.bindings.openSession')}
       </Button>
       <Button
         variant="ghost"
-        size="sm"
+        size="compact"
         className="text-destructive hover:text-destructive"
         onClick={onUnbind}
       >

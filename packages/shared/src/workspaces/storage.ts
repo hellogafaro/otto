@@ -18,6 +18,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { expandPath, toPortablePath } from '../utils/paths.ts';
+import { isReservedWorkspaceSlug } from '../utils/workspace-slug.ts';
 import { atomicWriteFileSync, readJsonFileSync } from '../utils/files.ts';
 import { CONFIG_DIR, DEFAULT_CONFIG_DIR_NAME } from '../config/paths.ts';
 import { getDefaultStatusConfig, saveStatusConfig, ensureDefaultIconFiles } from '../statuses/storage.ts';
@@ -263,6 +264,11 @@ export function generateSlug(name: string): string {
 
   if (!slug) {
     slug = 'workspace';
+  }
+
+  // The first URL segment is the workspace slug, so it cannot be one the servers own.
+  if (isReservedWorkspaceSlug(slug)) {
+    slug = `${slug}-workspace`;
   }
 
   return slug;

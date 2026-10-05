@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { PageColumn } from '@workspace/ui/components/page'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Kbd } from '@/components/ui/kbd'
 import { X, MoreHorizontal, Pencil, Trash2, Star, CheckCircle2, AlertTriangle, RefreshCcw, Settings2, MessageSquareMore, Zap, Clock, Check } from 'lucide-react'
 import type { CredentialHealthIssue } from '../../../shared/types'
@@ -57,6 +58,7 @@ import { useAppShellContext } from '@/context/app-shell-context'
 import { getModelShortName, type ModelDefinition } from '@config/models'
 import { getModelsForProviderType, resolveMidStreamBehavior, type CustomEndpointApi, type MidStreamBehavior } from '@config/llm-connections'
 import { toast } from 'sonner'
+import { BACKEND_NAME } from '@otto/shared/branding'
 
 /**
  * Derive model dropdown options from a connection's models array,
@@ -135,7 +137,7 @@ function CredentialHealthBanner({ issues, onReauthenticate }: CredentialHealthBa
         </div>
         <Button
           variant="outline"
-          size="sm"
+          size="compact"
           onClick={onReauthenticate}
           className="flex-shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
         >
@@ -239,13 +241,13 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
         const piLabel = !isSubscription && connection.piAuthProvider
           ? PI_AUTH_PROVIDER_LABELS[connection.piAuthProvider]
           : null
-        parts.push(piLabel ?? 'Otto Backend')
+        parts.push(piLabel ?? BACKEND_NAME)
         break
       }
       case 'pi_compat':
         parts.push(connection.baseUrl?.toLowerCase().includes('manifest.build')
           ? 'Manifest'
-          : 'Otto Backend Compatible')
+          : `${BACKEND_NAME} Compatible`)
         break
       default: parts.push(provider || 'Unknown')
     }
@@ -292,9 +294,7 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
           <div className="flex items-center gap-1">
             <span>{connection.name}</span>
             {connection.isDefault && (
-              <span className="inline-flex items-center h-5 px-2 text-[11px] font-medium rounded-full bg-card shadow-minimal text-foreground/60">
-                {t("common.default")}
-              </span>
+              <Badge variant="outline">{t("common.default")}</Badge>
             )}
             {isDuplicateAccount && (
               <Tooltip>
@@ -314,14 +314,11 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
       )}
       description={getDescription()}
     >
-      <DropdownMenu modal={false} onOpenChange={setMenuOpen}>
+      <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
-          <button
-            className="p-1.5 rounded-sm hover:bg-foreground/[0.05] data-[state=open]:bg-foreground/[0.05] transition-colors"
-            data-state={menuOpen ? 'open' : 'closed'}
-          >
-            <MoreHorizontal className="size-3.5 text-muted-foreground" />
-          </button>
+          <Button variant="ghost" size="icon-compact" aria-label={t('common.more')}>
+            <MoreHorizontal />
+          </Button>
         </DropdownMenuTrigger>
         <StyledDropdownMenuContent align="end">
           <StyledDropdownMenuItem onClick={() => runAfterMenuClose(onRenameClick)}>
@@ -547,7 +544,7 @@ function WorkspaceOverrideCard({ workspace, llmConnections, onSettingsChange }: 
                     value: conn.slug,
                     label: conn.name,
                     description: conn.providerType === 'anthropic' ? 'Anthropic' :
-                                 conn.providerType === 'pi' ? 'Otto Backend' :
+                                 conn.providerType === 'pi' ? BACKEND_NAME :
                                  conn.providerType || 'Unknown',
                   })),
                 ]}
@@ -1198,8 +1195,8 @@ export default function AiSettingsPage() {
                       value: conn.slug,
                       label: conn.name,
                       description: conn.providerType === 'anthropic' ? 'Anthropic API' :
-                                   conn.providerType === 'pi' ? 'Otto Backend' :
-                                   conn.providerType === 'pi_compat' ? (conn.baseUrl?.toLowerCase().includes('manifest.build') ? 'Manifest' : 'Otto Backend Compatible') :
+                                   conn.providerType === 'pi' ? BACKEND_NAME :
+                                   conn.providerType === 'pi_compat' ? (conn.baseUrl?.toLowerCase().includes('manifest.build') ? 'Manifest' : `${BACKEND_NAME} Compatible`) :
                                    conn.providerType || 'Unknown',
                     }))}
                   />
@@ -1277,12 +1274,9 @@ export default function AiSettingsPage() {
                   )}
                 </SettingsCard>
                 <div className="pt-0">
-                  <button
-                    onClick={() => openApiSetup()}
-                    className="inline-flex items-center h-8 px-3 text-sm rounded-md bg-card shadow-minimal hover:bg-foreground/5 transition-colors"
-                  >
+                  <Button variant="outline" onClick={() => openApiSetup()}>
                     {t("settings.ai.addConnection")}
-                  </button>
+                  </Button>
                 </div>
               </SettingsSection>
 
@@ -1323,18 +1317,18 @@ export default function AiSettingsPage() {
                       >
                         {decisionPreset?.docsUrl && (
                           <Button
-                            size="sm"
+                            variant="outline"
+                            size="compact"
                             onClick={() => window.electronAPI?.openUrl(decisionPreset.docsUrl!)}
-                            className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                           >
                             {t("settings.ai.decisions.localServerDocs")}
                           </Button>
                         )}
                         <Button
-                          size="sm"
+                          variant="outline"
+                          size="compact"
                           onClick={() => { void probeDecisionServer(decisionBaseUrlDraft.trim() || undefined) }}
                           disabled={decisionProbing}
-                          className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                         >
                           {decisionProbing ? <Spinner /> : t("settings.ai.decisions.recheck")}
                         </Button>
@@ -1353,9 +1347,9 @@ export default function AiSettingsPage() {
                           description={t("settings.ai.decisions.apiKeySaved")}
                         >
                           <Button
-                            size="sm"
+                            variant="outline"
+                            size="compact"
                             onClick={handleRemoveDecisionKey}
-                            className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                           >
                             {t("settings.ai.decisions.removeKey")}
                           </Button>
@@ -1373,10 +1367,10 @@ export default function AiSettingsPage() {
                           placeholder={decisionPreset?.keyPlaceholder}
                           action={(
                             <Button
-                              size="sm"
+                              variant="outline"
+                              size="compact"
                               onClick={handleSaveDecisionKey}
                               disabled={!decisionKeyDraft.trim()}
-                              className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                             >
                               {t("settings.ai.decisions.saveKey")}
                             </Button>
@@ -1398,10 +1392,10 @@ export default function AiSettingsPage() {
                       description={decisionTestDescription}
                     >
                       <Button
-                        size="sm"
+                        variant="outline"
+                        size="compact"
                         onClick={handleTestDecision}
                         disabled={decisionTesting}
-                        className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                       >
                         {decisionTesting ? <Spinner /> : t("settings.ai.decisions.testRun")}
                       </Button>

@@ -13,6 +13,7 @@
   "dependencies": {
     "@otto/shared": "workspace:*",
     "@otto/ui": "workspace:*",
+    "@tanstack/react-router": "^1.170.41",
     "@workspace/ui": "workspace:*",
     "i18next": "^26.0.3",
     "i18next-browser-languagedetector": "^8.2.1",

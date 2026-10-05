@@ -28,6 +28,8 @@ export interface KeybindingContext {
   sidebarFocus: boolean
   /** A modal dialog or dropdown/popover is open */
   menuOpen: boolean
+  /** The command palette is open: it pauses every other shortcut */
+  paletteOpen: boolean
 }
 
 // ─────────────────────────────────────────────
@@ -100,6 +102,7 @@ export function getKeybindingContext(e: KeyboardEvent): KeybindingContext {
     navigatorFocus: _currentZone === 'navigator',
     sidebarFocus: _currentZone === 'sidebar',
     menuOpen: hasOpenOverlay(),
+    paletteOpen: document.querySelector('[data-command-palette]') !== null,
   }
 }
 

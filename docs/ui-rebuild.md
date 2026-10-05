@@ -25,7 +25,6 @@ yet).
 - [x] `components/app-shell/app-sidebar.tsx`
 - [x] `components/app-shell/page-header.tsx`
 - [x] `components/app-shell/session-filter-menu.tsx`
-- [x] `components/app-shell/sidebar-section.tsx`
 - [ ] `components/app-shell/active-option-badges.tsx`
 - [ ] `components/app-shell/active-tasks-bar.tsx`
 - [x] `components/app-shell/app-shell.tsx`
@@ -37,10 +36,7 @@ yet).
 - [x] `components/app-shell/header-new-chat.tsx`
 - [x] `components/app-shell/left-sidebar.tsx`
 - [x] `components/app-shell/main-content-panel.tsx`
-- [ ] `components/app-shell/multi-select-panel.tsx`
 - [ ] `components/app-shell/panel.tsx`
-- [ ] `components/app-shell/project-multi-select-filter.tsx`
-- [ ] `components/app-shell/projects-list-panel.tsx`
 - [ ] `components/app-shell/send-resource-to-workspace-dialog.tsx`
 - [ ] `components/app-shell/send-to-workspace-dialog.tsx`
 - [ ] `components/app-shell/session-badges.tsx`
@@ -54,18 +50,15 @@ yet).
 - [ ] `components/app-shell/setup-auth-banner.tsx`
 - [ ] `components/app-shell/sidebar-menu.tsx`
 - [ ] `components/app-shell/skill-menu.tsx`
-- [ ] `components/app-shell/skills-list-panel.tsx`
 - [ ] `components/app-shell/source-menu.tsx`
-- [ ] `components/app-shell/sources-list-panel.tsx`
 - [ ] `components/app-shell/task-action-menu.tsx`
 - [ ] `components/app-shell/transport-connection-banner.tsx`
-- [x] `components/app-shell/profile-menu.tsx`
+- [x] `components/app-shell/workspace-menu.tsx`
 
-## Pages (5)
+## Pages (4)
 
 - [ ] `pages/chat-page.tsx`
 - [ ] `pages/project-info-page.tsx`
-- [ ] `pages/shortcuts-page.tsx`
 - [ ] `pages/skill-info-page.tsx`
 - [ ] `pages/source-info-page.tsx`
 
@@ -187,14 +180,13 @@ yet).
 
 - [ ] `components/markdown/streaming-markdown.tsx`
 
-## Settings building blocks (12)
+## Settings building blocks (11)
 
 - [ ] `components/settings/searchable-model-input.tsx`
 - [ ] `components/settings/settings-card.tsx`
 - [ ] `components/settings/settings-edit-row.tsx`
 - [ ] `components/settings/settings-input.tsx`
 - [ ] `components/settings/settings-menu-select.tsx`
-- [ ] `components/settings/settings-radio-group.tsx`
 - [ ] `components/settings/settings-row.tsx`
 - [ ] `components/settings/settings-section.tsx`
 - [ ] `components/settings/settings-segmented-control.tsx`
@@ -202,10 +194,9 @@ yet).
 - [ ] `components/settings/settings-textarea.tsx`
 - [ ] `components/settings/settings-toggle.tsx`
 
-## Top-level components (5)
+## Top-level components (4)
 
 - [ ] `components/keyboard-shortcuts.tsx`
-- [ ] `components/keyboard-shortcuts-dialog.tsx`
 - [ ] `components/server-directory-browser.tsx`
 - [ ] `components/splash-screen.tsx`
 

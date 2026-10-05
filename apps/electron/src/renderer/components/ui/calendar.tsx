@@ -68,7 +68,7 @@ function Calendar({
         ),
         // Individual dropdown wrapper (month or year)
         dropdown_root: cn(
-          'relative rounded-sm shadow-minimal',
+          'relative rounded-sm bg-foreground/5',
           defaultClassNames.dropdown_root
         ),
         // The native <select> is visually hidden; the caption_label shows the displayed value
@@ -153,8 +153,8 @@ function CalendarDayButton({
         'h-[--cell-size] w-full min-w-[--cell-size] select-none',
         'hover:bg-foreground/5 transition-colors cursor-pointer',
         // Selection state from modifiers
-        modifiers.selected && 'bg-card shadow-minimal font-medium',
-        'outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        modifiers.selected && 'bg-foreground/10 text-foreground',
+        'outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
         className
       )}
       {...props}

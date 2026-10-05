@@ -1,0 +1,70 @@
+# Routing
+
+One URL scheme for web and Electron: real paths on browser history (`createBrowserHistory`). No hash router, no per-client code.
+
+**URLs:** `/{workspaceSlug}/chats`, `/{workspaceSlug}/chats/{id}`, `/{workspaceSlug}/settings/appearance`. Reserved first segments (never a workspace slug): `assets`, `api`, `ws`, `login`, `login-assets`, `health`, `index.html`, `favicon.*`, `manifest.json`.
+
+## How each client loads it
+
+| Client | Origin | Served by |
+| --- | --- | --- |
+| Web | the server's origin | `packages/server-core/src/webui/http-server.ts` |
+| Electron, packaged | `otto://app/` | `src/main/app-protocol.ts` via `protocol.handle` (`protocol-schemes.ts`) |
+| Electron, dev | `VITE_DEV_SERVER_URL` | Vite (history fallback built in); no dev scheme, since HMR needs the real dev origin |
+
+`otto://` is also the OS deep-link scheme. They coexist: OS links arrive through `open-url` / `second-instance`, never `protocol.handle`. The handler serves only host `app` (any other host is 404), the deep-link parser refuses host `app`, and the window guard allows `otto://app/*` only; any other navigation goes to the external-URL / deep-link path.
+
+## Fallback rules (same in both servers)
+
+1. A real file is served with its MIME type (`assets/*` is `immutable`, HTML is `no-cache`).
+2. A miss under `/assets/` or with a static extension (`.js .css .map .png .woff2 ...`) is 404, never `index.html`.
+3. Any other path is an app route and gets `index.html` 200 (trailing slash and dots in ids are fine). In Electron it must also be a navigation (`Accept: text/html`), so `fetch('/x')` 404s.
+4. Web only: `/api/*` and `/ws` misses are JSON 404; unauthenticated HTML requests redirect to `/login` (carrying `?next=` with the path asked for), other requests get 401. Public without a session: `/login`, `/login-assets/*`, `/favicon.{ico,svg}`, `/apple-touch-icon.png`, `/manifest.json`, `/icon-N.png`.
+5. Electron only: methods other than GET/HEAD are 405, decoded `..`, backslash, NUL or malformed escapes are 403.
+
+## The router (TanStack Router, code-based)
+
+`apps/electron/src/renderer/router/`: `router.ts` (`createAppRouter(Root, history?)`, the `Register` augmentation), `route-tree.ts` (typed routes), `location.ts` (the pure mappings), `history-position.ts` (Back / Forward availability). Both entries mount `<RouterProvider router={createAppRouter(Root)}>` at the top, above the app: `apps/electron/src/renderer/main.tsx` and `apps/webui/src/main.tsx`. The root route renders `Root` (the entry's own tree: theme, `App`, toaster), so the splash, onboarding and the web auth gate render inside it exactly as before, and `NavigationProvider` sits inside `App`. Always `createBrowserHistory()` (the playground's demos use memory history). `defaultPreload: false` (the routes carry no components, so there is nothing to split yet). `disableGlobalCatchBoundary`: a render error reaches the entry's own boundary (Sentry's, the crash screen).
+
+### URLs
+
+| View | URL |
+| --- | --- |
+| Chats | `/{ws}/chats`, `/{ws}/chats/{sessionId}`; filters in the search (below) |
+| Settings | `/{ws}/settings` (the index), `/{ws}/settings/{page}` (`app`, `ai`, `appearance`, `input`, `workspace`, `permissions`, `labels`, `messaging`, `server`, `shortcuts`, `preferences`) |
+| Tasks | `/{ws}/tasks` (the section root; no detail route yet) |
+| Projects | `/{ws}/projects`, `/{ws}/projects/{slug}` |
+| Routines (automations) | `/{ws}/routines`, `/{ws}/routines/{id}`; `?type=scheduled\|event\|agentic` |
+| Library (pages) | `/{ws}/library`, `/{ws}/library/{slug}` |
+| Skills | `/{ws}/skills`, `/{ws}/skills/{slug}` |
+| Sources | `/{ws}/sources`, `/{ws}/sources/{slug}`; `?type=api\|mcp\|local` |
+
+`/` and `/{ws}` redirect to `/{activeWorkspaceSlug}/chats` (`/{ws}` in the route tree, `/` by the navigation provider once the workspace is known, so the splash is not held back). An unknown slug, an unknown section or a bad settings page is replaced with the active workspace's Chats. A known slug other than the active workspace switches to it (back step, pasted link, restored window); the switcher changing the workspace moves the URL (same settings page, otherwise the section's index). Reserved first segments (`isReservedWorkspaceSlug`, `packages/shared/src/utils/workspace-slug.ts`) are never a workspace: the `$workspaceSlug` route throws `notFound()` for them, and `generateSlug` suffixes `-workspace` so a workspace can never get one.
+
+**Search.** Plain query strings (custom `parseSearch` / `stringifySearch`, repeated keys for lists, `true` is `1`), not TanStack's JSON form. Chats: `?status=todo&status=done&label=research&label=design&flagged=1&archived=1` (filters combine, lists hold several values; or one `?view=`). Validated by `validateChatsSearch` (arrays of distinct strings, `1`/`true` flags, unknown dropped).
+
+### Route strings stay the internal API
+
+`navigate('allSessions/session/abc')`, `routes.view.*`, `currentRouteAtom`, pins and recents all keep route strings (`shared/routes.ts`, `shared/route-parser.ts`). `router/location.ts` maps them to URLs and back (`routeStringToLocation(route, ws)`, `locationToRouteString(pathname, search)`, round-trip tested for every kind). The Chats filters are the same query in both: `allSessions[/session/{id}]?status=todo&status=done&label=a&flagged=1`; the older single-value strings (`state/{id}`, `label/{id}`, `flagged`, `archived`, and `allSessions/state/{id}` etc.) parse to it. `parseRouteToNavigationState` returns `filters: { status: string[]; label: string[]; flagged: boolean; archived: boolean }` for the Chats index (and keeps `filter`, the first of them, for older consumers). `routes.view.allSessions(filters?)` and `allSessions(sessionId, filters?)` build it.
+
+`NavigationProvider` derives everything from the router's location: `navigationState` is `parseRouteToNavigationState(routeString)`, `currentRouteAtom` mirrors the route string, `navigate(route, { replace? })` is `router.navigate(routeStringToLocation(...))` (actions still run their side effects and change no URL). `goBack` / `goForward` are the router history's; `canGoBack` / `canGoForward` come from the history index (`__TSR_index`) and the highest index seen (`history-position.ts`). After a reload the entries ahead are unknown, so Forward is off until the user goes back again.
+
+### Legacy and sign-in
+
+- `?ws=<slug>&route=<routeString>` (old `file://` state, saved window URLs, bookmarks) and the transitional `?workspaceId=` are translated once in `createAppRouter` with `replace` before the first match (`translateLegacyUrl`). Nothing writes them any more. The main process still adds `?workspaceId=` to the URL it loads (`buildRendererUrl`); the renderer drops it, nothing reads it, and it can go from main.
+- Web sign-in returns to the page asked for: the server redirects an unauthenticated HTML request to `/login?next=<encoded path+query>`, `login.html` sends `next` with the password, and `POST /api/auth` answers `{ ok, next }` with `next` checked by `safeNextPath` (a same-origin path starting with a single `/`, no backslash or control characters, never the login page; otherwise `/`). An expired session (`401` on `/api/config`) does the same from the app.
+
+### What the tests cover
+
+`router/__tests__` (mappings round-trip for every route kind and settings page, legacy strings, search validation, history position logic, the route tree on a memory history), `shared/__tests__/route-parser-chat-filters.test.ts`, `packages/server-core/src/webui/__tests__/login-next.test.ts`.
+
+## Contract notes for the renderer
+
+- Asset URLs are absolute (`base: '/'` in both Vite configs); the entry script is `/main.tsx` in `apps/electron/src/renderer/index.html`.
+- Initial URL: Electron opens `otto://app/?workspaceId={id}` (or a restored `otto://app/{path}?...`, see `buildRendererUrl`). Window state stores `webContents.getURL()`, so saved windows come back on their path.
+- History API only (`pushState` / `replaceState` / `popstate`, through the router); never `location.hash` for routes. `browser-empty-state.tsx` uses `#launch=` on its own page, not the router.
+- Path segments are percent-encoded by the mapping; ids contain no dots, but dots are tolerated.
+
+## Storage moves origin once
+
+`file://` (prod) becomes `otto://app` (Electron localStorage is per origin; dev stays on the Vite origin). Lost in the packaged app on first launch: every `otto-*` key of `lib/local-storage.ts` (sidebar mode, grouping, collapsed groups, theme, panel layouts, tabs, pins, recents, working dirs, turn-card expansion, last settings page, `workspace-url:*`) and i18next's `i18nextLng`. All are UI preferences that rebuild themselves. A migration is not worth it now. If wanted later, copy the old file:// localStorage once, as T3 Code does (`DesktopLegacyLocalStorage.ts` + `legacyLocalStorageMerge.ts` in pingdotgg/t3code).

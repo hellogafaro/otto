@@ -45,7 +45,7 @@ export function SettingsEditRow({
       action={
         <EditPopover
           trigger={
-            <Button variant="ghost" size="sm" className="h-7 px-2.5 rounded-sm bg-card shadow-minimal">
+            <Button variant="outline" size="compact">
               Edit
             </Button>
           }

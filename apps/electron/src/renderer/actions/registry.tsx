@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useCallback, useRef, useEffect } from 'react'
-import { actions, type ActionId } from './definitions'
+import { actions, hotkeyFor, type ActionId } from './definitions'
 import type { ActionDefinition, ActionHandler } from './types'
-import { isMac } from '@/lib/platform'
+import { isMac, isWebUI } from '@/lib/platform'
 import { getKeybindingContext, evaluateWhen } from './keybinding-context'
 
 interface ActionRegistryContextType {
@@ -61,7 +61,7 @@ export function ActionRegistryProvider({ children }: { children: React.ReactNode
     if (userOverrides.current.has(actionId)) {
       return userOverrides.current.get(actionId) ?? null
     }
-    return actions[actionId].defaultHotkey
+    return hotkeyFor(actions[actionId], isWebUI)
   }, [])
 
   // Get display string
@@ -89,6 +89,8 @@ export function ActionRegistryProvider({ children }: { children: React.ReactNode
 
         // Evaluate when-clause against current context
         if (!evaluateWhen((action as ActionDefinition).when, context)) continue
+        // The command palette pauses every other shortcut while it is open (its own key closes it).
+        if (context.paletteOpen && actionId !== 'app.commandPalette') continue
 
         const handlers = handlersRef.current.get(actionId as ActionId) || []
         for (const handler of handlers) {
@@ -135,14 +137,18 @@ export function useActionRegistry() {
 // Utility functions
 // ─────────────────────────────────────────────
 
-function matchesHotkey(e: KeyboardEvent, hotkey: string): boolean {
+export function matchesHotkey(
+  e: Pick<KeyboardEvent, 'key' | 'code' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
+  hotkey: string,
+  mac = isMac,
+): boolean {
   const parts = hotkey.toLowerCase().split('+')
   const key = parts[parts.length - 1]
   const needsMod = parts.includes('mod')
   const needsShift = parts.includes('shift')
   const needsAlt = parts.includes('alt')
 
-  const modPressed = isMac ? e.metaKey : e.ctrlKey
+  const modPressed = mac ? e.metaKey : e.ctrlKey
   const logicalKeyMatches = e.key.toLowerCase() === key
 
   // Handle special keys via physical code where logical values can vary by layout.
@@ -159,9 +165,10 @@ function matchesHotkey(e: KeyboardEvent, hotkey: string): boolean {
     'tab': 'Tab',
   }
 
-  const specialCode = specialKeys[key]
+  // Digits are physical too: with Option held, macOS reports ¡™£ as the key.
+  const specialCode = /^[0-9]$/.test(key) ? `Digit${key}` : specialKeys[key]
 
-  // Important: for text shortcuts (A-Z/0-9), match logical key only.
+  // Important: for text shortcuts (A-Z), match logical key only.
   // Mixing in physical code (e.g. KeyQ) causes AZERTY/QWERTZ collisions such as
   // Cmd+A incorrectly matching a Cmd+Q binding.
   const codeMatches = specialCode
@@ -176,13 +183,13 @@ function matchesHotkey(e: KeyboardEvent, hotkey: string): boolean {
   return codeMatches && modCorrect && shiftCorrect && altCorrect
 }
 
-function formatHotkeyDisplay(hotkey: string): string {
+export function formatHotkeyDisplay(hotkey: string, mac = isMac): string {
   const parts = hotkey.toLowerCase().split('+')
 
   const symbols = parts.map(part => {
-    if (part === 'mod') return isMac ? '⌘' : 'Ctrl'
-    if (part === 'shift') return isMac ? '⇧' : 'Shift'
-    if (part === 'alt') return isMac ? '⌥' : 'Alt'
+    if (part === 'mod') return mac ? '⌘' : 'Ctrl'
+    if (part === 'shift') return mac ? '⇧' : 'Shift'
+    if (part === 'alt') return mac ? '⌥' : 'Alt'
     if (part === 'escape') return 'Esc'
     if (part === 'tab') return 'Tab'
     if (part === 'left') return '←'
@@ -192,5 +199,5 @@ function formatHotkeyDisplay(hotkey: string): string {
     return part.toUpperCase()
   })
 
-  return isMac ? symbols.join('') : symbols.join('+')
+  return mac ? symbols.join('') : symbols.join('+')
 }

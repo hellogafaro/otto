@@ -257,7 +257,7 @@ export function SharePageDialog({
               <span className="text-sm">{t('pages.share.linkLabel')}</span>
               <div className="flex items-center gap-2">
                 <Input readOnly value={share.url} onFocus={e => e.currentTarget.select()} className="font-mono text-xs" />
-                <Button variant="outline" size="sm" onClick={copyLink} className="shrink-0">
+                <Button variant="outline" size="compact" onClick={copyLink} className="shrink-0">
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                   {t('pages.share.copyLink')}
                 </Button>
@@ -297,7 +297,7 @@ export function SharePageDialog({
                   </span>
                   <Button
                     variant={contentDrifted ? 'default' : 'outline'}
-                    size="sm"
+                    size="compact"
                     onClick={runPublish}
                     disabled={busy !== null || scriptGrants.length > 0}
                     className="shrink-0"
@@ -321,7 +321,7 @@ export function SharePageDialog({
                     />
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="compact"
                       onClick={() => void runSetPassword(password)}
                       disabled={busy !== null || password.length === 0 || passwordTooShort}
                       className="shrink-0"
@@ -338,7 +338,7 @@ export function SharePageDialog({
                   {share.passwordProtected && (
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="compact"
                       onClick={() => void runSetPassword(null)}
                       disabled={busy !== null}
                       className="self-start text-foreground/60"
@@ -423,7 +423,7 @@ function ScriptGrantsBlock({
             </span>
             <Button
               variant="outline"
-              size="sm"
+              size="compact"
               className="shrink-0"
               disabled={busyGrantId !== null}
               onClick={() => void onRemove(grant.id)}

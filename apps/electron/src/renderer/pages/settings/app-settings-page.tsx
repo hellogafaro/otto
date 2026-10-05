@@ -136,7 +136,7 @@ export default function AppSettingsPage() {
                     <SettingsRow label={t("settings.about.checkForUpdates")}>
                       <Button
                         variant="outline"
-                        size="sm"
+                        size="compact"
                         onClick={handleCheckForUpdates}
                         disabled={isCheckingForUpdates}
                       >
@@ -151,7 +151,7 @@ export default function AppSettingsPage() {
                   {isElectron && updateChecker.isReadyToInstall && updateChecker.updateInfo?.latestVersion && (
                     <SettingsRow label={t("settings.about.updateReady")}>
                       <Button
-                        size="sm"
+                        size="compact"
                         onClick={updateChecker.installUpdate}
                       >
                         {t("settings.about.restartToUpdate", { version: updateChecker.updateInfo.latestVersion })}

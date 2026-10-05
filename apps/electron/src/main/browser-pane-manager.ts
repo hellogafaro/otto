@@ -12,6 +12,8 @@ import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/han
 import { BrowserView, BrowserWindow, app, ipcMain, nativeTheme, session, shell, type Session as ElectronSession } from 'electron'
 import { mainLog } from './logger'
 import type { WindowManager } from './window-manager'
+import { APP_ORIGIN } from './app-protocol'
+import { handleAppProtocol } from './protocol-schemes'
 import { BrowserCDP, type AccessibilitySnapshot, type ElementGeometry } from './browser-cdp'
 import {
   type BrowserEmptyStateLaunchPayload,
@@ -383,6 +385,8 @@ export class BrowserPaneManager implements IBrowserPaneManager {
     const ses = session.fromPartition(SESSION_PARTITION)
     this.setupSessionPermissions(ses)
     this.setupSessionObservers(ses)
+    // The toolbar and empty-state pages are served from otto://app/ (handlers are per session)
+    handleAppProtocol(ses)
 
     // Match background to current OS theme to prevent black/white flash on open
     const bgColor = nativeTheme.shouldUseDarkColors ? '#2b292e' : '#fafafb'
@@ -2174,7 +2178,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
       return
     }
 
-    await instance.pageView.webContents.loadFile(join(__dirname, `renderer/${BROWSER_EMPTY_STATE_PAGE}`))
+    await instance.pageView.webContents.loadURL(`${APP_ORIGIN}/${BROWSER_EMPTY_STATE_PAGE}`)
   }
 
   private async handleDeepLinkUrl(url: string): Promise<void> {
@@ -2247,10 +2251,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
         if (VITE_DEV_SERVER_URL) {
           await instance.toolbarView.webContents.loadURL(`${VITE_DEV_SERVER_URL}/browser-toolbar.html?${query}`)
         } else {
-          await instance.toolbarView.webContents.loadFile(
-            join(__dirname, 'renderer/browser-toolbar.html'),
-            { query: { instanceId: instance.id } },
-          )
+          await instance.toolbarView.webContents.loadURL(`${APP_ORIGIN}/browser-toolbar.html?${query}`)
         }
 
         if (attempt > 0) {

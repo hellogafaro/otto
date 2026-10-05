@@ -23,7 +23,8 @@ describe('route-parser: label filter routes', () => {
     if (!state || !isSessionsNavigation(state)) throw new Error('expected sessions navigation state')
     expect(state.filter).toEqual({ kind: 'label', labelId: 'task' })
     expect(state.details).toEqual({ type: 'session', sessionId: 'abc123' })
-    expect(buildRouteFromNavigationState(state)).toBe('label/task/session/abc123')
+    // The older single-value string builds as its filter query
+    expect(buildRouteFromNavigationState(state)).toBe('allSessions/session/abc123?label=task')
   })
 
   it('builds label routes without details', () => {
@@ -33,7 +34,7 @@ describe('route-parser: label filter routes', () => {
         sessionFilter: { kind: 'label', labelId: 'task' },
         details: null,
       })
-    ).toBe('label/task')
+    ).toBe('allSessions?label=task')
   })
 
   it('a stray query tail never leaks into the parsed labelId (slash-segment invariant)', () => {

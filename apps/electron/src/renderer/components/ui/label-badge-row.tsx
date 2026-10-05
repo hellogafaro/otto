@@ -93,7 +93,7 @@ export function LabelBadgeRow({
         const displayValue = parsed.rawValue ? formatDisplayValue(parsed.rawValue, resolvedConfig.valueType) : undefined
         const resolvedColor = resolvedConfig.color
           ? resolveEntityColor(resolvedConfig.color, isDark)
-          : 'var(--foreground)'
+          : undefined
 
         return (
           <LabelValuePopover
@@ -112,8 +112,7 @@ export function LabelBadgeRow({
               icon={<LabelIcon label={resolvedConfig} size="lg" />}
               valueHintIcon={resolvedConfig.valueType ? <LabelValueTypeIcon valueType={resolvedConfig.valueType} /> : undefined}
               badgeColor={resolvedColor}
-              interactive
-              isActive={openIndex === index}
+              open={openIndex === index}
               showChevron
             />
           </LabelValuePopover>

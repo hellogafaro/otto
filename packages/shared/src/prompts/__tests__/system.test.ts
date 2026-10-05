@@ -18,9 +18,10 @@ import {
   formatProjectContextForPrompt,
 } from '../system'
 import type { ProjectPromptContext } from '../../projects/types.ts'
+import { AGENT_DEFAULT_NAME, BACKEND_NAME, PRODUCT_NAME, PRODUCT_NOREPLY_EMAIL } from '../../branding.ts'
 
 const GIT_CONVENTIONS_HEADING = '## Git Conventions'
-const CO_AUTHOR_TRAILER = 'Co-Authored-By: Otto <noreply@hellogafaro.com>'
+const CO_AUTHOR_TRAILER = `Co-Authored-By: ${AGENT_DEFAULT_NAME} <${PRODUCT_NOREPLY_EMAIL}>`
 
 describe('system prompt guidance', () => {
   it('keeps the default static prompt below the budget', () => {
@@ -153,7 +154,7 @@ describe('includeCoAuthoredBy handling', () => {
       '/tmp/workspace',
       '/tmp/workspace',
       undefined,
-      'Otto Backend'
+      BACKEND_NAME
       // 7th arg omitted — must not regress to `true` default
     )
 
@@ -173,6 +174,34 @@ describe('includeCoAuthoredBy handling', () => {
 
     expect(prompt).toContain(GIT_CONVENTIONS_HEADING)
     expect(prompt).toContain(CO_AUTHOR_TRAILER)
+  })
+})
+
+describe('agent identity', () => {
+  it('names the agent from the parameter, defaulting to the default agent', () => {
+    mockIncludeCoAuthoredBy = true
+    const args = [undefined, undefined, '/tmp/workspace', '/tmp/workspace', undefined, undefined, true, undefined] as const
+
+    const fallback = getSystemPrompt(...args)
+    expect(fallback).toContain(`You are ${AGENT_DEFAULT_NAME} - an AI assistant`)
+
+    const named = getSystemPrompt(...args, 'Sage')
+    expect(named).toContain('You are Sage - an AI assistant')
+    expect(named).toContain('You must refer to yourself as Sage when asked.')
+    expect(named).toContain(`Co-Authored-By: Sage <${PRODUCT_NOREPLY_EMAIL}>`)
+    expect(named).not.toContain(`You are ${AGENT_DEFAULT_NAME} - `)
+  })
+
+  it('names the agent nowhere but through the parameter', () => {
+    mockIncludeCoAuthoredBy = true
+    const prompt = getSystemPrompt(undefined, undefined, '/tmp/workspace', '/tmp/workspace', undefined, undefined, true, undefined, 'Sage')
+
+    // Product references stay (via PRODUCT_NAME); the default agent name never leaks in.
+    const withoutProduct = prompt
+      .replaceAll(`${PRODUCT_NAME} CLI`, '')
+      .replaceAll(`${PRODUCT_NAME} sessions`, '')
+      .replaceAll(`${PRODUCT_NAME} development`, '')
+    expect(withoutProduct).not.toContain(AGENT_DEFAULT_NAME)
   })
 })
 

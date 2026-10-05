@@ -55,10 +55,10 @@ export interface PreviewHeaderBadgeProps {
  * PreviewHeaderBadge - Badge component for preview headers
  *
  * Style specs:
- * - Height: 26px
- * - Padding: 10px horizontal
+ * - Height: 28px
+ * - Padding: 8px horizontal
  * - Border radius: 6px
- * - Font: Sans-serif, 13px, medium weight
+ * - Font: Sans-serif, 13px
  * - Truncation: CSS truncate, shrink, stay 1 line
  * - Clickable: underline on hover, pointer cursor
  */
@@ -73,7 +73,7 @@ export function PreviewHeaderBadge({
 }: PreviewHeaderBadgeProps) {
   const variantClasses = PREVIEW_BADGE_VARIANTS[variant]
   const baseClasses = cn(
-    'flex items-center gap-1.5 h-[26px] px-2.5 rounded-[6px] font-sans text-[13px] font-medium bg-background shadow-minimal',
+    'flex items-center gap-1.5 h-7 px-2 rounded-sm font-sans text-sm bg-foreground/5',
     variantClasses,
     className
   )
@@ -82,7 +82,7 @@ export function PreviewHeaderBadge({
     return (
       <button
         onClick={onClick}
-        className={cn(baseClasses, 'min-w-0 cursor-pointer group')}
+        className={cn(baseClasses, 'min-w-0 cursor-pointer group outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring')}
         title={title || label}
       >
         {Icon && <Icon className="w-3.5 h-3.5 shrink-0" />}
@@ -154,7 +154,7 @@ export function PreviewHeader({
           <button
             onClick={onClose}
             className={cn(
-              'p-1.5 rounded-[6px] bg-background shadow-minimal cursor-pointer',
+              'p-1.5 rounded-[6px] card-surface bg-card cursor-pointer',
               'opacity-70 hover:opacity-100 transition-opacity',
               'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring'
             )}

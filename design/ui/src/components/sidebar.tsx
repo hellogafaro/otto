@@ -3,6 +3,7 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { Button } from "@workspace/ui/components/button"
+import { Kbd } from "@workspace/ui/components/kbd"
 import {
   Sheet,
   SheetContent,
@@ -17,7 +18,6 @@ import {
 } from "@workspace/ui/components/tooltip"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
-import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 import * as React from "react"
 import { MenuIcon } from "lucide-react"
@@ -25,7 +25,7 @@ import { MenuIcon } from "lucide-react"
 // Otto: the shell's one sidebar, on the frame beside the page card (Threads'
 // layout). Widths are px so the root font size never changes them: ONE width
 // for every section and page, 256px (also the sheet below 768px; the Chats
-// list and the Settings pages both fit), 48px as icons only (8 | 32 | 8, the rail's old geometry). Nothing
+// list and the Settings pages both fit), 48px as icons only (10 | 28 | 10). Nothing
 // sets `--sidebar-width` per section. There is no manual toggle, cookie or shortcut: the
 // sidebar is expanded from 1024px up, icons only below, and below 768px it is a
 // sheet opened by the menu button in the page header. A row with
@@ -261,7 +261,7 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 // Otto: group titles are 12px, muted, 28px tall like the rows, their text on
-// the rows' label column.
+// the rows' icon line (the same 8px padding).
 function SidebarGroupLabel({
   className,
   render,
@@ -282,33 +282,6 @@ function SidebarGroupLabel({
     state: {
       slot: "sidebar-group-label",
       sidebar: "group-label",
-    },
-  })
-}
-
-// Otto: the section's own action ("Edit", a filter or an add button) at the end
-// of the group's title row: a 24px ghost button, muted until hovered, 2px
-// inside the 28px title row, corners `xs` (6 - 2).
-function SidebarGroupAction({
-  className,
-  render,
-  ...props
-}: useRender.ComponentProps<"button"> & React.ComponentProps<"button">) {
-  return useRender({
-    defaultTagName: "button",
-    props: mergeProps<"button">(
-      {
-        className: cn(
-          "absolute top-2.5 right-0 flex size-6 items-center justify-center rounded-xs p-0 text-xs font-medium text-muted-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 aria-expanded:bg-sidebar-accent aria-expanded:text-foreground [&>svg]:size-3.5 [&>svg]:shrink-0",
-          className
-        ),
-      },
-      props
-    ),
-    render,
-    state: {
-      slot: "sidebar-group-action",
-      sidebar: "group-action",
     },
   })
 }
@@ -351,33 +324,24 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 // Otto: rows are muted at rest and foreground on hover, open or active. They
-// sit on the frame, so their fills are the frame's layer: hover is
-// `--sidebar-accent` at 60%, the current row `--sidebar-accent` with the
-// hairline ring (white on the grey frame, 0.22 on the dark one). Rows are 28px
-// buttons with 6px corners (`sm`); what leads a row sits in a 20px slot 4px in,
-// the same as above and below it: avatars, icon slots, and bare icons (3px each
-// side, so 7px around a 14px icon). Labels start 32px in. Icons only (below
-// 1024px) the row is a 32px square, 8 | 32 | 8 in the 48px sidebar.
-const sidebarMenuButtonVariants = cva(
-  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-sm px-2 py-1 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] has-[>svg:first-child,>[data-slot=avatar]:first-child,>[data-slot=icon-slot]:first-child]:pl-1 [&>svg:first-child]:mx-0.75 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:[&>svg:not(:first-child)]:hidden group-data-[collapsible=icon]:[&>svg:first-child]:mx-0 hover:text-foreground not-data-active:group-hover/menu-item:bg-sidebar-accent/60 group-hover/menu-item:text-foreground aria-expanded:text-foreground focus-visible:ring-2 active:text-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-default data-active:bg-sidebar-accent data-popup-open:bg-sidebar-accent data-active:font-medium data-active:text-foreground data-active:shadow-xs data-active:ring-1 data-active:ring-foreground/10 [&_svg]:size-3.5 [&_svg]:shrink-0 [&>span:last-child]:truncate",
-  {
-    variants: {
-      size: {
-        default: "h-7 text-sm",
-        // Otto: a row that holds a 32px avatar, 4px inside (8 + 4 = 12 corners).
-        lg: "h-10 rounded-xl has-[>[data-slot=avatar]:first-child]:pl-1 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:rounded-md",
-      },
-    },
-    defaultVariants: {
-      size: "default",
-    },
-  }
-)
+// sit on the frame, so their fills are the shared state fills (alphas of
+// `foreground`, DESIGN.md Buttons): hover 5%, the current row, a row whose menu
+// is open and a pressed row 10%. A flat fill: no ring, no shadow, no weight
+// change (the row never changes width). The one ring is keyboard focus, drawn
+// INSET: rows sit flush with the clipping edge of the content and of the
+// scrolling group, so an outer ring would be cut off on both sides. Rows are
+// 28px buttons with 6px corners (`sm`), 8px padding, a 14px icon and an 8px gap
+// (14 / 8 is about 1 / golden ratio): the icon's left edge and the label's
+// start are the same two lines on every row, 16px and 38px from the sidebar's
+// edge. Icons only (below 1024px) the row is a 28px square centered in the
+// 48px sidebar (10 | 28 | 10). The user menu row is one of them too (a 20px
+// avatar is its icon).
+const sidebarMenuButton =
+  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-sm px-2 py-1 text-left text-sm text-muted-foreground outline-hidden transition-[width,height,padding] h-7 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-7! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:[&>svg:not(:first-child)]:hidden hover:text-foreground not-data-active:group-hover/menu-item:bg-foreground/5 group-hover/menu-item:text-foreground active:bg-foreground/10 active:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-default data-active:bg-foreground/10 data-active:text-foreground aria-[haspopup]:aria-expanded:bg-foreground/10 aria-[haspopup]:aria-expanded:text-foreground aria-[current=page]:bg-foreground/10 aria-[current=page]:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0 [&>[data-slot=icon-slot]]:size-3.5 [&>span:last-child]:truncate"
 
 function SidebarMenuButton({
   render,
   isActive = false,
-  size = "default",
   tooltip,
   className,
   ...props
@@ -385,13 +349,13 @@ function SidebarMenuButton({
   React.ComponentProps<"button"> & {
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
-  } & VariantProps<typeof sidebarMenuButtonVariants>) {
+  }) {
   const { isMobile, state } = useSidebar()
   const comp = useRender({
     defaultTagName: "button",
     props: mergeProps<"button">(
       {
-        className: cn(sidebarMenuButtonVariants({ size }), className),
+        className: cn(sidebarMenuButton, className),
       },
       props
     ),
@@ -399,7 +363,6 @@ function SidebarMenuButton({
     state: {
       slot: "sidebar-menu-button",
       sidebar: "menu-button",
-      size,
       active: isActive,
     },
   })
@@ -408,13 +371,13 @@ function SidebarMenuButton({
     return comp
   }
 
-  // Otto: a plain label shows only while the sidebar is icons only (the row
-  // has its own label otherwise); a tooltip passed as props (a label and its
-  // `Kbd`) shows in both.
-  const content: React.ComponentProps<typeof TooltipContent> =
-    typeof tooltip === "string"
-      ? { children: tooltip, hidden: state !== "collapsed" || isMobile }
-      : tooltip
+  // Otto: a tooltip (a label, or a label and its `Kbd` passed as props) shows
+  // only while the sidebar is icons only: expanded, the row has its own label
+  // and shows its key itself while the reveal key is held (`SidebarMenuKbd`), so a tooltip would repeat it.
+  const content: React.ComponentProps<typeof TooltipContent> = {
+    ...(typeof tooltip === "string" ? { children: tooltip } : tooltip),
+    hidden: state !== "collapsed" || isMobile,
+  }
 
   return (
     <Tooltip>
@@ -424,9 +387,34 @@ function SidebarMenuButton({
   )
 }
 
-// Otto: a row's own action (more, remove): 24px, 2px inside the 28px row on
-// every side, corners `xs` to nest. Hidden until the row is hovered or focused
-// (always on touch); the row keeps its hover while the pointer is on it.
+// Otto: a row's shortcut, a `Kbd` over the row's end, muted: the 20px key in a
+// 28px row is 4px from the top, the right and the bottom (its own `xs` corners;
+// the concentric 6 - 4 = 2px would look sharp on a key). Hidden until the
+// reveal key is held (Option in the browser, ⌘ on the desktop): the sidebar
+// carries `data-reveal-shortcuts="true"` then and every row's key fades in at
+// once, never on hover. It takes no width, so nothing shifts. Icons only it is
+// hidden: the tooltip carries the key then.
+function SidebarMenuKbd({ className, ...props }: React.ComponentProps<typeof Kbd>) {
+  return (
+    <Kbd
+      className={cn(
+        "absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition-opacity duration-100 in-data-[reveal-shortcuts=true]:opacity-100 group-data-[collapsible=icon]:hidden",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+// Otto: a row's own action (more, pin, archive): a 20px square, `xs` corners,
+// muted until hovered (`foreground/10`, which stacks on the row's fill), open
+// `foreground/10`, pressed `/20`, the shared inset focus ring, 14px icons.
+const sidebarRowAction =
+  "flex size-5 shrink-0 items-center justify-center rounded-xs p-0 text-muted-foreground outline-hidden hover:bg-foreground/10 hover:text-foreground active:bg-foreground/20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring aria-expanded:bg-foreground/10 aria-expanded:text-foreground [&>svg]:size-3.5 [&>svg]:shrink-0"
+
+// Otto: a row's own action, alone: 4px inside the 28px row on every side (like
+// the key). Hidden until the row is hovered or focused (always on touch); the
+// row keeps its hover while the pointer is on it.
 function SidebarMenuAction({
   className,
   render,
@@ -437,7 +425,8 @@ function SidebarMenuAction({
     props: mergeProps<"button">(
       {
         className: cn(
-          "absolute top-0.5 right-0.5 flex size-6 items-center justify-center rounded-xs p-0 text-muted-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-foreground hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 aria-expanded:opacity-100 pointer-fine:opacity-0 pointer-fine:group-focus-within/menu-item:opacity-100 pointer-fine:group-hover/menu-item:opacity-100 [&>svg]:size-3.5 [&>svg]:shrink-0",
+          sidebarRowAction,
+          "absolute top-1 right-1 group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-foreground aria-expanded:opacity-100 pointer-fine:opacity-0 pointer-fine:group-focus-within/menu-item:opacity-100 pointer-fine:group-hover/menu-item:opacity-100",
           className
         ),
       },
@@ -451,12 +440,48 @@ function SidebarMenuAction({
   })
 }
 
+// Otto: the right end of a row, for what a row shows over its title: a status,
+// a time, a key, or its actions (one thing at a time, which the row decides:
+// stack the layers in the one cell, `col-start-1 row-start-1`). 4px inside the
+// 28px row on the top, the right and the bottom (a 20px lane); it takes no
+// width of its own and lets clicks through to the row except where a layer
+// sets `pointer-events-auto`. The row fades its title under the lane with a
+// mask, so the lane needs no fill of its own and matches every row state.
+function SidebarMenuSlot({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="sidebar-menu-slot"
+      className={cn(
+        "pointer-events-none absolute inset-y-1 right-1 grid grid-cols-1 items-center justify-items-end group-data-[collapsible=icon]:hidden",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+// Otto: a button in a `SidebarMenuSlot` (the row's actions), 20px, in line.
+function SidebarMenuSlotAction({
+  className,
+  render,
+  ...props
+}: useRender.ComponentProps<"button"> & React.ComponentProps<"button">) {
+  return useRender({
+    defaultTagName: "button",
+    props: mergeProps<"button">({ className: cn(sidebarRowAction, className) }, props),
+    render,
+    state: {
+      slot: "sidebar-menu-slot-action",
+      sidebar: "menu-slot-action",
+    },
+  })
+}
+
 export {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
@@ -464,6 +489,9 @@ export {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuKbd,
+  SidebarMenuSlot,
+  SidebarMenuSlotAction,
   SidebarProvider,
   SidebarTrigger,
   useSidebar,

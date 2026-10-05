@@ -29,6 +29,7 @@ import { PERMISSION_MODE_ORDER } from '@otto/shared/agent/mode-types'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import { SourceAvatar } from '@/components/ui/source-avatar'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 
 import {
   SettingsSection,
@@ -360,33 +361,33 @@ export default function WorkspaceSettingsPage() {
                   label={t("common.name")}
                   description={wsName || t("settings.workspace.untitled")}
                   action={
-                    <button
-                      type="button"
+                    <Button
+                      variant="outline"
+                      size="compact"
                       onClick={() => {
                         setWsNameEditing(wsName)
                         setRenameDialogOpen(true)
                       }}
-                      className="inline-flex items-center h-7 px-2.5 text-sm rounded-sm bg-card shadow-minimal hover:bg-foreground/5 transition-colors"
                     >
                       {t("common.edit")}
-                    </button>
+                    </Button>
                   }
                 />
                 <SettingsRow
                   label={t("settings.workspace.icon")}
                   action={
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
-                        onChange={handleIconUpload}
-                        className="sr-only"
-                        disabled={isUploadingIcon}
-                      />
-                      <span className="inline-flex items-center h-7 px-2.5 text-sm rounded-sm bg-card shadow-minimal hover:bg-foreground/5 transition-colors">
+                    <Button variant="outline" size="compact" asChild>
+                      <label className="cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-ring">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                          onChange={handleIconUpload}
+                          className="sr-only"
+                          disabled={isUploadingIcon}
+                        />
                         {isUploadingIcon ? t("common.uploading") : t("common.change")}
-                      </span>
-                    </label>
+                      </label>
+                    </Button>
                   }
                 >
                   <div
@@ -520,21 +521,13 @@ export default function WorkspaceSettingsPage() {
                   action={
                     <div className="flex items-center gap-2">
                       {workingDirectory && (
-                        <button
-                          type="button"
-                          onClick={handleClearWorkingDirectory}
-                          className="inline-flex items-center h-7 px-2.5 text-sm rounded-sm bg-card shadow-minimal hover:bg-foreground/5 transition-colors text-foreground/60 hover:text-foreground"
-                        >
+                        <Button variant="outline" size="compact" onClick={handleClearWorkingDirectory}>
                           {t("common.clear")}
-                        </button>
+                        </Button>
                       )}
-                      <button
-                        type="button"
-                        onClick={handleChangeWorkingDirectory}
-                        className="inline-flex items-center h-7 px-2.5 text-sm rounded-sm bg-card shadow-minimal hover:bg-foreground/5 transition-colors"
-                      >
+                      <Button variant="outline" size="compact" onClick={handleChangeWorkingDirectory}>
                         {t("common.change")}
-                      </button>
+                      </Button>
                     </div>
                   }
                 />

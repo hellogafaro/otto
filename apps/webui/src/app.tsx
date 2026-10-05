@@ -39,7 +39,7 @@ function ErrorScreen({ message, onRetry }: { message: string; onRetry: () => voi
       <div className="flex gap-2 mt-2">
         <button
           onClick={onRetry}
-          className="px-4 py-1.5 rounded-md bg-background shadow-minimal text-[13px] text-foreground/70 cursor-pointer"
+          className="px-4 py-1.5 rounded-md bg-background text-[13px] text-foreground/70 cursor-pointer"
         >
           {t("common.retry")}
         </button>
@@ -49,7 +49,7 @@ function ErrorScreen({ message, onRetry }: { message: string; onRetry: () => voi
               window.location.href = '/login'
             })
           }}
-          className="px-4 py-1.5 rounded-md bg-background shadow-minimal text-[13px] text-foreground/70 cursor-pointer"
+          className="px-4 py-1.5 rounded-md bg-background text-[13px] text-foreground/70 cursor-pointer"
         >
           {t("webui.logOut")}
         </button>
@@ -73,8 +73,8 @@ export default function App() {
       const configRes = await fetch('/api/config', { credentials: 'same-origin' })
       if (!configRes.ok) {
         if (configRes.status === 401) {
-          // Session expired — redirect to login
-          window.location.href = '/login'
+          // Session expired — redirect to login, which returns to this page
+          window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`
           return
         }
         throw new Error(`Failed to fetch config: ${configRes.status}`)

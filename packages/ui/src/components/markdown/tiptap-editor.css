@@ -177,9 +177,8 @@
   gap: 0.25rem;
   min-height: 24px;
   border-radius: 6px;
-  border: none;
+  border: 1px solid var(--border);
   background: var(--background);
-  box-shadow: var(--shadow-minimal);
   color: color-mix(in oklch, var(--foreground) 65%, transparent);
   cursor: pointer;
   padding: 0.25rem 0.4rem;
@@ -392,11 +391,10 @@
   font-weight: 500;
   color: color-mix(in oklch, var(--foreground) 70%, transparent);
   background: var(--background);
-  border: none;
+  border: 1px solid var(--border);
   cursor: pointer;
   padding: 2px 8px;
   border-radius: 4px;
-  box-shadow: var(--shadow-minimal);
   transition: background-color 0.1s, color 0.1s;
 }
 
@@ -408,7 +406,7 @@
 .tiptap-bubble-textarea-shell {
   border-radius: 6px;
   background: var(--foreground-2);
-  box-shadow: var(--shadow-minimal);
+  border: 1px solid var(--border);
   transition: background-color 0.1s;
 }
 

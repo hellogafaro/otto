@@ -36,7 +36,7 @@ module.exports = {
       disallowedClass:
         'Disallowed shadow class "{{className}}". Use approved shadow classes only: {{allowed}}.',
       disallowedInline:
-        'Avoid inline boxShadow usage. Use approved shadow utility classes (for example shadow-minimal/shadow-modal-small).',
+        'Avoid inline boxShadow usage. Use approved shadow utility classes (for example shadow-xs/shadow-md).',
     },
   },
 
@@ -45,15 +45,9 @@ module.exports = {
     const allowedClasses = new Set(
       options.allowedClasses || [
         'shadow-none',
-        'shadow-minimal',
-        'shadow-tinted',
-        'shadow-thin',
         'shadow-middle',
         'shadow-strong',
-        'shadow-panel-focused',
         'shadow-modal-small',
-        'shadow-bottom-border',
-        'shadow-bottom-border-thin',
       ]
     )
 
@@ -82,7 +76,7 @@ module.exports = {
         const start = match.index
         const prev = start > 0 ? text[start - 1] : ''
 
-        // Ignore CSS custom property names like --shadow-color, --shadow-minimal-flat
+        // Ignore CSS custom property names like --shadow-color
         if (prev === '-') continue
 
         if (token.startsWith('shadow-[') && !allowedClasses.has(token)) {

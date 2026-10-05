@@ -52,7 +52,7 @@ export function ItemNavigator({ items, activeIndex, onSelect, size = 'sm' }: Ite
         onClick={goToPrev}
         disabled={activeIndex === 0}
         className={cn(
-          'bg-background shadow-minimal cursor-pointer',
+          'card-surface bg-card cursor-pointer',
           'text-foreground/50 hover:text-foreground transition-colors',
           'disabled:opacity-30 disabled:cursor-not-allowed',
           size === 'md' ? 'p-1.5 rounded-[8px]' : 'p-1 rounded-[6px]'
@@ -67,7 +67,7 @@ export function ItemNavigator({ items, activeIndex, onSelect, size = 'sm' }: Ite
           <button
             className={cn(
               'flex items-center text-muted-foreground font-medium',
-              'bg-background shadow-minimal cursor-pointer',
+              'card-surface bg-card cursor-pointer',
               'hover:opacity-80 transition-opacity',
               size === 'md' ? 'text-[13px] px-3 h-[28px] w-[144px] justify-center rounded-[8px]' : 'text-[12px] px-2.5 h-[22px] w-[112px] justify-center rounded-[6px]'
             )}
@@ -95,7 +95,7 @@ export function ItemNavigator({ items, activeIndex, onSelect, size = 'sm' }: Ite
         onClick={goToNext}
         disabled={activeIndex === items.length - 1}
         className={cn(
-          'bg-background shadow-minimal cursor-pointer',
+          'card-surface bg-card cursor-pointer',
           'text-foreground/50 hover:text-foreground transition-colors',
           'disabled:opacity-30 disabled:cursor-not-allowed',
           size === 'md' ? 'p-1.5 rounded-[8px]' : 'p-1 rounded-[6px]'

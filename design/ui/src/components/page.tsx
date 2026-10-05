@@ -11,6 +11,8 @@ import { cn } from "cn"
 //   bottom (the chat, a document). ONE card as wide as the column and as tall
 //   as the space under the header row, scrolling inside. The chat adds a
 //   sibling composer card under it.
+// The first block (`data-content-start`) is where the floating navigation and
+// the sidecar start: `PageFrame` measures it.
 function PageColumn({
   className,
   children,
@@ -39,6 +41,7 @@ function PageCenterpiece({
   return (
     <div
       data-slot="page-centerpiece"
+      data-content-start=""
       className={cn(
         "relative flex min-h-0 flex-1 flex-col overflow-hidden card-surface rounded-xl bg-card",
         className
@@ -69,6 +72,7 @@ function PageSection({
   return (
     <section
       data-slot="page-section"
+      data-content-start=""
       className={cn("space-y-3", className)}
       {...props}
     >
@@ -103,6 +107,7 @@ function PageCard({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="page-card"
+      data-content-start=""
       className={cn(
         "divide-y divide-(--card-divider) overflow-hidden card-surface rounded-xl bg-card",
         className

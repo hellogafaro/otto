@@ -89,7 +89,7 @@ export function InlineColorPickerRow({
       />
       {value && onClear && clearLabel && (
         <Button
-          size="sm"
+          size="compact"
           variant="ghost"
           onClick={onClear}
           className="text-foreground/60 hover:text-foreground"

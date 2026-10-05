@@ -260,7 +260,7 @@ function SessionLoadErrorScreen({
 
   return (
     <div className="flex h-full items-center justify-center p-6">
-      <div className="max-w-lg rounded-xl border border-border/50 bg-card shadow-minimal p-6 text-center">
+      <div className="card-surface max-w-lg rounded-xl bg-card p-6 text-center">
         <h2 className="text-lg font-semibold text-foreground">{t("errors.failedToLoadSessions")}</h2>
         <p className="mt-2 text-sm text-foreground/60">
           {t("errors.failedToLoadSessionsDesc")}
@@ -271,7 +271,7 @@ function SessionLoadErrorScreen({
         <button
           type="button"
           onClick={onRetry}
-          className="mt-4 inline-flex h-8 items-center justify-center rounded-md bg-foreground text-background px-3 text-sm font-medium hover:opacity-90 transition-opacity"
+          className="mt-4 inline-flex h-8 items-center justify-center rounded-md bg-primary text-primary-foreground px-3 text-sm font-medium hover:bg-primary/80 active:bg-primary/70 transition-colors"
         >
           {t("errors.retryLoadingSessions")}
         </button>
@@ -1738,12 +1738,13 @@ export default function App() {
     // in useEffect hooks.
   }, [windowWorkspaceId, setSession, store])
 
-  // Handle workspace switch by slug (called by NavigationContext on popstate when ?ws= changes)
+  // Handle workspace switch by slug (called by NavigationContext when the URL names another workspace).
+  // False when there is no such workspace.
   const handleSwitchWorkspaceBySlug = useCallback((slug: string) => {
     const target = workspaces.find(w => w.slug === slug)
-    if (target) {
-      handleSelectWorkspace(target.id)
-    }
+    if (!target) return false
+    handleSelectWorkspace(target.id)
+    return true
   }, [workspaces, handleSelectWorkspace])
 
   // Handle workspace refresh (e.g., after icon upload)
@@ -1937,7 +1938,7 @@ export default function App() {
         <TooltipProvider delayDuration={0}>
         <NavigationProvider
           workspaceId={windowWorkspaceId}
-          workspaceSlug={windowWorkspaceSlug}
+          workspaceSlug={windowWorkspaceId && workspaces.some(w => w.id === windowWorkspaceId) ? windowWorkspaceSlug : null}
           onSwitchWorkspaceBySlug={handleSwitchWorkspaceBySlug}
           onCreateSession={handleCreateSession}
           onInputChange={handleInputChange}

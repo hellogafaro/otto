@@ -106,7 +106,7 @@ function QuestionnaireChoice({
     <QuestionnairePrimitive.Choice
       data-slot="questionnaire-choice"
       className={cn(
-        "group/questionnaire-choice relative flex min-h-10 cursor-pointer items-center gap-2 px-3 py-2.5 text-start text-sm transition-colors outline-none select-none hover:bg-foreground/5 has-[>input:focus-visible]:inset-ring-2 has-[>input:focus-visible]:inset-ring-ring/50 data-invalid:text-destructive data-checked:bg-foreground/10",
+        "group/questionnaire-choice relative flex min-h-10 cursor-pointer items-center gap-2 px-3 py-2.5 text-start text-sm transition-colors outline-none select-none hover:bg-foreground/5 has-[>input:focus-visible]:inset-ring-2 has-[>input:focus-visible]:inset-ring-ring data-invalid:text-destructive data-checked:bg-foreground/10",
         "data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-disabled:opacity-50",
         className,
       )}
@@ -169,7 +169,7 @@ function QuestionnaireInput({
       <QuestionnairePrimitive.Input
         data-slot="questionnaire-input"
         className={cn(
-          "h-8 w-full min-w-0 rounded-md border border-input bg-transparent px-2.5 py-1 text-base shadow-xs transition-[color,box-shadow,background-color] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive sm:min-h-0 md:text-sm dark:bg-input/30 dark:aria-invalid:border-destructive/50",
+          "h-8 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base transition-[color,background-color] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive sm:min-h-0 md:text-sm dark:bg-input/30 dark:aria-invalid:border-destructive/50",
           "selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground",
           className,
         )}
@@ -211,7 +211,7 @@ function QuestionnaireActions({
 function QuestionnairePrevious({
   children,
   className,
-  size = "sm",
+  size = "default",
   variant = "outline",
   ...props
 }: React.ComponentProps<typeof QuestionnairePrimitive.Previous> &
@@ -236,7 +236,7 @@ function QuestionnairePrevious({
 function QuestionnaireSkip({
   children,
   className,
-  size = "sm",
+  size = "default",
   variant = "outline",
   ...props
 }: React.ComponentProps<typeof QuestionnairePrimitive.Skip> &
@@ -261,7 +261,7 @@ function QuestionnaireSkip({
 function QuestionnaireNext({
   children,
   className,
-  size = "sm",
+  size = "default",
   variant = "default",
   ...props
 }: React.ComponentProps<typeof QuestionnairePrimitive.Next> &
@@ -286,7 +286,7 @@ function QuestionnaireNext({
 function QuestionnaireSubmit({
   children,
   className,
-  size = "sm",
+  size = "default",
   variant = "default",
   ...props
 }: React.ComponentProps<typeof QuestionnairePrimitive.Submit> &

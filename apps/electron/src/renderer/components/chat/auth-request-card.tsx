@@ -17,11 +17,11 @@ import { validateBasicAuthCredentials, getPasswordValue, getPasswordLabel, getPa
 type AuthCardVariant = 'default' | 'success' | 'error' | 'muted'
 
 // Variant styles - bg colors are animated via Framer Motion, text via CSS transition
-const VARIANT_STYLES: Record<AuthCardVariant, { bg: string; textClass: string; shadowColor?: string }> = {
-  default: { bg: 'var(--background)', textClass: 'text-foreground shadow-minimal' },
-  success: { bg: 'oklch(from var(--success) l c h / 0.03)', textClass: 'text-[var(--success-text)] shadow-tinted', shadowColor: 'var(--success-rgb)' },
-  error: { bg: 'oklch(from var(--destructive) l c h / 0.03)', textClass: 'text-[var(--destructive-text)] shadow-tinted', shadowColor: 'var(--destructive-rgb)' },
-  muted: { bg: 'var(--foreground-3)', textClass: 'text-foreground/70 shadow-minimal' },
+const VARIANT_STYLES: Record<AuthCardVariant, { bg: string; textClass: string }> = {
+  default: { bg: 'var(--card)', textClass: 'text-foreground card-surface' },
+  success: { bg: 'oklch(from var(--success) l c h / 0.1)', textClass: 'text-[var(--success-text)]' },
+  error: { bg: 'oklch(from var(--destructive) l c h / 0.1)', textClass: 'text-[var(--destructive-text)]' },
+  muted: { bg: 'var(--foreground-3)', textClass: 'text-foreground/70' },
 }
 
 interface AuthCardHeaderProps {
@@ -99,9 +99,8 @@ function AuthCardActions({ primary, secondary, hint }: AuthCardActionsProps) {
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-t border-border/50">
       <Button
-        size="sm"
+        size="compact"
         variant="default"
-        className="h-7 gap-1.5"
         onClick={primary.onClick}
         disabled={primary.disabled}
         data-tutorial={primary.dataTutorial}
@@ -115,9 +114,8 @@ function AuthCardActions({ primary, secondary, hint }: AuthCardActionsProps) {
       </Button>
       {secondary && (
         <Button
-          size="sm"
+          size="compact"
           variant="ghost"
-          className="h-7 gap-1.5 text-muted-foreground hover:text-foreground"
           onClick={secondary.onClick}
           disabled={secondary.disabled}
         >
@@ -328,7 +326,7 @@ export function AuthRequestCard({ message, onRespondToCredential, sessionId, isI
     !isOAuth || !isSubmitting
   )
 
-  const { bg: variantBg, textClass: variantTextClass, shadowColor } = VARIANT_STYLES[variant]
+  const { bg: variantBg, textClass: variantTextClass } = VARIANT_STYLES[variant]
 
   // Compact card view for non-interactive terminal states (after user sends message)
   if (!isInteractive && authStatus !== 'pending') {
@@ -345,10 +343,7 @@ export function AuthRequestCard({ message, onRespondToCredential, sessionId, isI
     return (
       <div
         className={cn('rounded-md overflow-hidden w-fit select-none', variantTextClass)}
-        style={{
-          backgroundColor: variantBg,
-          ...(shadowColor ? { '--shadow-color': shadowColor } as React.CSSProperties : {})
-        }}
+        style={{ backgroundColor: variantBg }}
       >
         <div className="pl-4 pr-5 py-3">
           <AuthCardHeader
@@ -640,10 +635,7 @@ export function AuthRequestCard({ message, onRespondToCredential, sessionId, isI
   return (
     <div
       className={cn('rounded-md overflow-hidden', variantTextClass)}
-      style={{
-        backgroundColor: variantBg,
-        ...(shadowColor ? { '--shadow-color': shadowColor } as React.CSSProperties : {})
-      }}
+      style={{ backgroundColor: variantBg }}
     >
       {/* Form wrapper enables password manager (1Password) detection and autofill.
           action points to the source URL for domain-based credential matching. */}

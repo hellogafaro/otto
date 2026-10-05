@@ -7,7 +7,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search } from 'lucide-react'
+import { Check, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -106,8 +106,8 @@ export function SearchableModelInput({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            size="sm"
-            className="absolute right-1 top-1 h-7 rounded-xs"
+            size="compact"
+            className="absolute right-1 top-1"
             onClick={handleFetchClick}
             disabled={fetchDisabled || isLoading}
           >
@@ -133,9 +133,9 @@ export function SearchableModelInput({
                 placeholder={t("apiSetup.searchModels")}
                 className={cn(
                   'w-full h-8 pl-8 pr-3 text-sm rounded-sm',
-                  'bg-foreground/5 border-0',
-                  'placeholder:text-muted-foreground/50',
-                  'focus:outline-none focus:ring-1 focus:ring-foreground/20'
+                  'bg-input/50 border-0',
+                  'placeholder:text-muted-foreground',
+                  'outline-none'
                 )}
               />
             </div>
@@ -151,13 +151,14 @@ export function SearchableModelInput({
                     key={model.id}
                     type="button"
                     className={cn(
-                      'w-full px-2.5 py-2 text-left text-sm rounded-sm',
-                      'hover:bg-foreground/5 transition-colors',
-                      value === model.id && 'bg-foreground/3'
+                      'flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left text-sm rounded-sm outline-none',
+                      'transition-colors hover:bg-foreground/5 active:bg-foreground/10',
+                      'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring'
                     )}
                     onClick={() => handleSelect(model.id)}
                   >
-                    {model.name || model.id}
+                    <span className="min-w-0 truncate">{model.name || model.id}</span>
+                    {value === model.id && <Check className="size-3.5 shrink-0" />}
                   </button>
                 ))
               )}

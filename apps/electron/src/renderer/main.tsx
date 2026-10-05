@@ -4,13 +4,16 @@ import { init as sentryInit } from '@sentry/electron/renderer'
 import * as Sentry from '@sentry/react'
 import { captureConsoleIntegration } from '@sentry/react'
 import { Provider as JotaiProvider } from 'jotai'
+import { RouterProvider } from '@tanstack/react-router'
 import App from './app'
+import { createAppRouter } from './router/router'
 import { ThemeProvider } from './context/theme-context'
 import { Toaster } from '@/components/ui/sonner'
 import { setupI18n, i18n } from '@otto/shared/i18n'
 import { redactSensitiveHeadersInPlace, redactSensitiveKeysInPlace } from '@otto/shared/utils/redaction'
 import { initReactI18next } from 'react-i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
+import { Button } from '@/components/ui/button'
 import './index.css'
 
 // Initialize i18n before any React rendering
@@ -93,19 +96,16 @@ function CrashFallback() {
     <div className="flex flex-col items-center justify-center h-screen font-sans text-foreground/50 gap-3">
       <p className="text-base font-medium">{i18n.t('crash.somethingWentWrong')}</p>
       <p className="text-[13px]">{i18n.t('crash.restartPrompt')}</p>
-      <button
-        onClick={() => window.location.reload()}
-        className="mt-2 px-4 py-1.5 rounded-md bg-card shadow-minimal text-[13px] text-foreground/70 cursor-pointer"
-      >
+      <Button variant="outline" size="compact" className="mt-2" onClick={() => window.location.reload()}>
         {i18n.t('crash.reload')}
-      </button>
+      </Button>
     </div>
   )
 }
 
 /**
- * Root component - renders App in the theme and toast providers
- * app.tsx handles window mode detection internally (main vs tab-content)
+ * Root component - renders App in the theme and toast providers. It is the router's root route:
+ * the router owns the URL and history above the app, and the app renders one view from it.
  */
 function Root() {
   return (
@@ -116,11 +116,13 @@ function Root() {
   )
 }
 
+const router = createAppRouter(Root)
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary fallback={<CrashFallback />}>
       <JotaiProvider>
-        <Root />
+        <RouterProvider router={router} />
       </JotaiProvider>
     </Sentry.ErrorBoundary>
   </React.StrictMode>

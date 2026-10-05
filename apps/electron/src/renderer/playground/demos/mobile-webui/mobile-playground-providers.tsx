@@ -7,6 +7,8 @@ import { DismissibleLayerProvider } from '@/context/dismissible-layer-context'
 import { EscapeInterruptProvider } from '@/context/escape-interrupt-context'
 import { ActionRegistryProvider } from '@/actions/registry'
 import { NavigationProvider } from '@/contexts/navigation-context'
+import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
+import { createAppRouter } from '@/router/router'
 import { sessionMetaMapAtom, sessionAtomFamily, type SessionMeta } from '@/atoms/sessions'
 import type { LlmConnectionWithStatus } from '@config/llm-connections'
 import type { Session } from '../../../../shared/types'
@@ -69,6 +71,25 @@ function MobileAppShellOverride({ llmConnections, children }: MobileAppShellOver
   return <AppShellProvider value={value}>{children}</AppShellProvider>
 }
 
+const MobileRouterChildren = React.createContext<React.ReactNode>(null)
+
+function MobileRouterRoot() {
+  return <>{React.useContext(MobileRouterChildren)}</>
+}
+
+/** The router NavigationProvider needs: in memory, so a demo never moves the page's URL. */
+function MobileRouter({ children }: { children: React.ReactNode }) {
+  const router = React.useMemo(
+    () => createAppRouter(MobileRouterRoot, createMemoryHistory({ initialEntries: [`/${MOBILE_WORKSPACE_SLUG}/chats`] })),
+    [],
+  )
+  return (
+    <MobileRouterChildren.Provider value={children}>
+      <RouterProvider router={router} />
+    </MobileRouterChildren.Provider>
+  )
+}
+
 export interface MobilePlaygroundProvidersProps {
   /** Sessions to populate `sessionMetaMapAtom` with. */
   sessions?: SessionMeta[]
@@ -109,17 +130,19 @@ export function MobilePlaygroundProviders({
             <ModalProvider>
               <EscapeInterruptProvider>
                 <FocusProvider>
-                  <NavigationProvider
-                    workspaceId={MOBILE_WORKSPACE_ID}
-                    workspaceSlug={MOBILE_WORKSPACE_SLUG}
-                    onCreateSession={onCreateSession}
-                    isReady
-                    isSessionsReady
-                  >
-                    <MobileAppShellOverride llmConnections={llmConnections}>
-                      {children}
-                    </MobileAppShellOverride>
-                  </NavigationProvider>
+                  <MobileRouter>
+                    <NavigationProvider
+                      workspaceId={MOBILE_WORKSPACE_ID}
+                      workspaceSlug={MOBILE_WORKSPACE_SLUG}
+                      onCreateSession={onCreateSession}
+                      isReady
+                      isSessionsReady
+                    >
+                      <MobileAppShellOverride llmConnections={llmConnections}>
+                        {children}
+                      </MobileAppShellOverride>
+                    </NavigationProvider>
+                  </MobileRouter>
                 </FocusProvider>
               </EscapeInterruptProvider>
             </ModalProvider>

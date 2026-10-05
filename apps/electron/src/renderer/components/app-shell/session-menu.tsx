@@ -22,6 +22,8 @@ import {
   Flag,
   FlagOff,
   MailOpen,
+  Pin,
+  PinOff,
   FolderOpen,
   Copy,
   CloudUpload,
@@ -42,6 +44,8 @@ import { getSessionStatus, hasUnreadMeta, hasMessagesMeta } from '@/utils/sessio
 import { MessagingSessionMenuItem } from '@/components/messaging/messaging-session-menu-item'
 import { useSessionMenuActions } from '@/hooks/use-session-menu-actions'
 import { useShareCapabilities } from '@/hooks/use-share-capabilities'
+import { usePins } from '@/hooks/use-pins'
+import { chatItem } from '@/atoms/pins-recents'
 
 export interface SessionMenuProjectOption {
   id: string
@@ -111,6 +115,8 @@ export function SessionMenu({
   const _hasUnread = hasUnreadMeta(item)
 
   const actions = useSessionMenuActions({ item, onLabelsChange })
+  const { isPinned, togglePin } = usePins()
+  const pinned = isPinned({ type: 'chat', id: sessionId })
 
   // Get menu components from context (works with both DropdownMenu and ContextMenu)
   const { MenuItem, Separator, Sub, SubTrigger, SubContent } = useMenuComponents()
@@ -227,6 +233,12 @@ export function SessionMenu({
           </SubContent>
         </Sub>
       )}
+
+      {/* Pin/Unpin: keeps the chat in the sidebar's Pinned group */}
+      <MenuItem onClick={() => togglePin(chatItem(item))}>
+        {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+        <span className="flex-1">{pinned ? t("menu.unpin") : t("menu.pin")}</span>
+      </MenuItem>
 
       {/* Flag/Unflag */}
       {!isFlagged ? (

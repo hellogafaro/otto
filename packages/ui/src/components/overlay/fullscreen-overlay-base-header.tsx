@@ -152,9 +152,10 @@ function FilePathBadge({ filePath }: FilePathBadgeProps) {
             {/* Badge that responds to left-click (dropdown) and right-click (context menu) */}
             <button
               className={cn(
-                'flex items-center gap-1.5 h-[26px] px-2.5 rounded-[6px]',
-                'font-sans text-[13px] font-medium text-foreground/70',
-                'bg-background shadow-minimal',
+                'flex items-center gap-1.5 h-7 px-2 rounded-sm',
+                'font-sans text-sm text-foreground/70 bg-foreground/5',
+                'outline-none transition-colors hover:bg-foreground/10 aria-expanded:bg-foreground/10',
+                'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                 'min-w-0 cursor-pointer group'
               )}
               title={filePath}
@@ -209,7 +210,7 @@ export function FullscreenOverlayBaseHeader({
         <button
           onClick={handleCopy}
           className={cn(
-            'p-1.5 rounded-[6px] bg-background shadow-minimal cursor-pointer',
+            'p-1.5 rounded-[6px] card-surface bg-card cursor-pointer',
             'opacity-70 hover:opacity-100 transition-opacity',
             'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring'
           )}

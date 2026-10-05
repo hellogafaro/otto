@@ -9,7 +9,7 @@ import type * as React from "react";
 // corner (8px minus its 1px border). Media and the remove button sit ~7px in,
 // so they get the smallest radius (xs).
 const attachmentVariants = cva(
-  "group/attachment relative flex w-fit max-w-full min-w-0 shrink-0 flex-wrap rounded-md border bg-card text-card-foreground transition-colors focus-within:ring-1 focus-within:ring-ring/50 has-[>a,>button]:hover:bg-muted/50 data-[state=error]:border-destructive/30 data-[state=idle]:border-dashed",
+  "group/attachment relative flex w-fit max-w-full min-w-0 shrink-0 flex-wrap rounded-md border bg-card text-card-foreground transition-colors focus-within:ring-2 focus-within:ring-inset focus-within:ring-ring has-[>a,>button]:hover:bg-foreground/5 data-[state=error]:border-destructive/30 data-[state=idle]:border-dashed",
   {
     variants: {
       size: {

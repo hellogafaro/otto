@@ -12,14 +12,14 @@ function RadioGroup({ className, ...props }: RadioGroupPrimitive.Props) {
   )
 }
 
-// Otto: round by nature; a keyboard-only 2px focus ring, primary when checked,
+// Otto: round by nature; the shared keyboard-only focus ring, primary when checked,
 // invalid is a red border only.
 function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
   return (
     <RadioPrimitive.Root
       data-slot="radio-group-item"
       className={cn(
-        "group/radio-group-item peer relative flex aspect-square size-4 shrink-0 rounded-full border border-transparent bg-input/90 outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 data-checked:bg-primary data-checked:text-primary-foreground dark:data-checked:bg-primary",
+        "group/radio-group-item peer relative flex aspect-square size-4 shrink-0 rounded-full border border-transparent bg-input/90 outline-none group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 data-checked:bg-primary data-checked:text-primary-foreground dark:data-checked:bg-primary",
         className
       )}
       {...props}

@@ -79,7 +79,7 @@ function InputErrorFallback({
   const { t } = useTranslation()
 
   return (
-    <div className="rounded-xl border border-destructive/20 bg-card px-4 py-4 shadow-minimal">
+    <div className="card-surface rounded-xl bg-card px-4 py-4">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 rounded-full bg-destructive/10 p-2 text-destructive">
           <AlertCircle className="size-3.5" />
@@ -90,15 +90,15 @@ function InputErrorFallback({
             {t('chat.inputFailedDescription')}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant="secondary" onClick={onRetry}>
+            <Button type="button" size="compact" variant="secondary" onClick={onRetry}>
               <RefreshCw className="size-3.5" />
               {t('common.retry')}
             </Button>
-            <Button type="button" size="sm" variant="outline" onClick={onClearDraft}>
+            <Button type="button" size="compact" variant="outline" onClick={onClearDraft}>
               <Trash2 className="size-3.5" />
               {t('chat.clearDraft')}
             </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => window.location.reload()}>
+            <Button type="button" size="compact" variant="ghost" onClick={() => window.location.reload()}>
               {t('common.reload')}
             </Button>
           </div>

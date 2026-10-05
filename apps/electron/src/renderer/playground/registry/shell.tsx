@@ -1,17 +1,16 @@
 import * as React from 'react'
-import { MessagesSquare, MoreHorizontal, PanelRight, Plus, Search, Settings } from 'lucide-react'
+import { MessagesSquare, MoreHorizontal, PanelRight, Search, Settings } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { createPortal } from 'react-dom'
-import { FloatingNav } from '@workspace/ui/components/floating-nav'
+import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
 import { PageCard, PageCenterpiece, PageColumn, PageSection } from '@workspace/ui/components/page'
-import { PageCrumbs, PageFrame, PageHeaderRow, PageScroll, usePageFrame } from '@workspace/ui/components/page-frame'
+import { PageFrame, PageHeaderRow, PageScroll, usePageFrame } from '@workspace/ui/components/page-frame'
 import { Sidecar } from '@workspace/ui/components/sidecar'
 import { Logo } from '@workspace/ui/components/logo'
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
@@ -23,6 +22,7 @@ import {
   SidebarTrigger,
 } from '@workspace/ui/components/sidebar'
 import type { ComponentEntry } from './types'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 
 // =============================================================================
 // Shell primitives: Sidebar, PageFrame (the flat main region, with the header
@@ -39,20 +39,19 @@ interface ShellDemoProps {
   sidecarOpen: boolean
   sidecarSurface: boolean
   showNav: boolean
-  showCrumbs: boolean
 }
 
 // The shell's `PageHeader` does this: draw the header row (and the nav) in the
 // frame's slots, outside the column's body.
-function DemoHeader({ active, setActive, showNav, showCrumbs, onDetails }: {
+function DemoHeader({ active, setActive, showNav, onDetails }: {
   active: number
   setActive: React.Dispatch<React.SetStateAction<number>>
   showNav: boolean
-  showCrumbs: boolean
   onDetails: () => void
 }) {
   const frame = usePageFrame()
   const navInGutter = showNav && !!frame?.navFits
+  const back = { label: 'Back', onClick: () => {} }
   const prev = { label: 'Previous', onClick: () => setActive((i) => Math.max(0, i - 1)), disabled: active === 0 }
   const next = { label: 'Next', onClick: () => setActive((i) => Math.min(CHATS.length - 1, i + 1)), disabled: active === CHATS.length - 1 }
   return (
@@ -61,24 +60,26 @@ function DemoHeader({ active, setActive, showNav, showCrumbs, onDetails }: {
         <PageHeaderRow
           leading={<SidebarTrigger />}
           title={CHATS[active]}
-          crumbs={showCrumbs ? <PageCrumbs crumbs={[{ label: 'Chats', onClick: () => {} }]} /> : undefined}
           actions={
-            <Button variant="ghost" size="icon-compact" aria-label="Details" onClick={onDetails}>
-              <PanelRight />
-            </Button>
+            <>
+              {showNav && !navInGutter && <FloatingNavButtons back={back} previous={prev} next={next} />}
+              <Button variant="ghost" size="icon-compact" aria-label="Details" onClick={onDetails}>
+                <PanelRight />
+              </Button>
+            </>
           }
         />,
         frame.header,
       )}
       {navInGutter && frame?.nav && createPortal(
-        <FloatingNav back={{ label: 'Back', onClick: () => {} }} previous={prev} next={next} />,
+        <FloatingNav back={back} previous={prev} next={next} />,
         frame.nav,
       )}
     </>
   )
 }
 
-function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav, showCrumbs }: ShellDemoProps) {
+function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav }: ShellDemoProps) {
   const [open, setOpen] = React.useState(sidecarOpen)
   const [active, setActive] = React.useState(1)
   React.useEffect(() => setOpen(sidecarOpen), [sidecarOpen])
@@ -92,7 +93,7 @@ function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav, showCrumbs }: S
               <span className="flex size-5 items-center justify-center">
                 <Logo className="size-4 text-foreground" />
               </span>
-              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Otto</span>
+              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{PRODUCT_NAME}</span>
             </div>
           </SidebarHeader>
           <SidebarContent>
@@ -120,7 +121,6 @@ function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav, showCrumbs }: S
             </SidebarGroup>
             <SidebarGroup className="min-h-0 flex-1 group-data-[collapsible=icon]:hidden">
               <SidebarGroupLabel>All sessions</SidebarGroupLabel>
-              <SidebarGroupAction aria-label="Add"><Plus /></SidebarGroupAction>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {CHATS.map((chat, index) => (
@@ -147,13 +147,13 @@ function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav, showCrumbs }: S
                 </section>
                 <section className="space-y-1.5">
                   <h3 className="text-xs font-medium">Project</h3>
-                  <p>Otto</p>
+                  <p>{PRODUCT_NAME}</p>
                 </section>
               </div>
             </Sidecar>
           }
         >
-          <DemoHeader active={active} setActive={setActive} showNav={showNav} showCrumbs={showCrumbs} onDetails={() => setOpen((v) => !v)} />
+          <DemoHeader active={active} setActive={setActive} showNav={showNav} onDetails={() => setOpen((v) => !v)} />
           {page === 'blocks' ? (
             <PageColumn>
               <PageSection title="Interface" description="Surfaces are siblings on the frame.">
@@ -200,15 +200,14 @@ export const shellComponents: ComponentEntry[] = [
       { name: 'page', description: 'Page type', control: { type: 'select', options: [{ label: 'Blocks', value: 'blocks' }, { label: 'Centerpiece', value: 'centerpiece' }] }, defaultValue: 'blocks' },
       { name: 'sidecarOpen', description: 'Sidecar open', control: { type: 'boolean' }, defaultValue: false },
       { name: 'sidecarSurface', description: 'Sidecar wrapped in a card (A/B)', control: { type: 'boolean' }, defaultValue: false },
-      { name: 'showNav', description: 'Floating Back / Previous / Next', control: { type: 'boolean' }, defaultValue: true },
-      { name: 'showCrumbs', description: 'Crumb trail after the title', control: { type: 'boolean' }, defaultValue: false },
+      { name: 'showNav', description: 'Floating Back / Previous / Next (header buttons when the gutter is narrow)', control: { type: 'boolean' }, defaultValue: true },
     ],
     variants: [
-      { name: 'Blocks page', props: { page: 'blocks', sidecarOpen: false, sidecarSurface: false, showNav: true, showCrumbs: false } },
-      { name: 'Centerpiece page', props: { page: 'centerpiece', sidecarOpen: false, sidecarSurface: false, showNav: true, showCrumbs: false } },
-      { name: 'Sidecar as canvas', props: { page: 'centerpiece', sidecarOpen: true, sidecarSurface: false, showNav: true, showCrumbs: false } },
-      { name: 'Sidecar with surface', props: { page: 'centerpiece', sidecarOpen: true, sidecarSurface: true, showNav: true, showCrumbs: false } },
-      { name: 'Drill-down with crumbs', props: { page: 'blocks', sidecarOpen: false, sidecarSurface: false, showNav: false, showCrumbs: true } },
+      { name: 'Blocks page', props: { page: 'blocks', sidecarOpen: false, sidecarSurface: false, showNav: true } },
+      { name: 'Centerpiece page', props: { page: 'centerpiece', sidecarOpen: false, sidecarSurface: false, showNav: true } },
+      { name: 'Sidecar as canvas', props: { page: 'centerpiece', sidecarOpen: true, sidecarSurface: false, showNav: true } },
+      { name: 'Sidecar with surface', props: { page: 'centerpiece', sidecarOpen: true, sidecarSurface: true, showNav: true } },
+      { name: 'No navigation', props: { page: 'blocks', sidecarOpen: false, sidecarSurface: false, showNav: false } },
     ],
   },
 ]

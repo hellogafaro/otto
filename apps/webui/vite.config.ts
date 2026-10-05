@@ -16,7 +16,9 @@ export default defineConfig({
     tailwindcss(),
   ],
   root: resolve(__dirname, 'src'),
-  base: './',
+  // Absolute asset URLs: the app lives on path URLs (/{workspace}/chats/{id}), where './assets/x.js'
+  // would resolve to /{workspace}/chats/assets/x.js. Same in apps/electron/vite.config.ts.
+  base: '/',
   build: {
     outDir: resolve(__dirname, 'dist'),
     emptyDirBeforeWrite: true,
@@ -102,10 +104,12 @@ export default defineConfig({
       const wsProto = useTls ? 'wss' : 'ws'
       const httpTarget = `${httpProto}://127.0.0.1:${port}`
       const wsTarget = `${wsProto}://127.0.0.1:${port}`
+      // Anchored regexes (matched against the URL with its query): a workspace slug such as `wsl` or
+      // `login-co` must stay a client route.
       return {
-        '/api': { target: httpTarget, changeOrigin: true, secure: false },
-        '/login': { target: httpTarget, changeOrigin: true, secure: false },
-        '/ws': { target: wsTarget, ws: true, secure: false },
+        '^/api/': { target: httpTarget, changeOrigin: true, secure: false },
+        '^/login/?(\\?|$)': { target: httpTarget, changeOrigin: true, secure: false },
+        '^/ws(\\?|$)': { target: wsTarget, ws: true, secure: false },
       }
     })(),
   },

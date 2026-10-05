@@ -34,6 +34,7 @@ import {
   shouldFireLongPress,
 } from '@/components/ui/long-press-state'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 /** Window the long-press / right-click handler keeps `suppressNextActivation`
  *  asserted for after the drawer opens. Activation events (`onMouseDown` /
@@ -279,8 +280,8 @@ export function EntityRow({
           "entity-row-btn flex w-full items-start gap-2 pl-2 pr-4 py-3 text-left text-sm outline-none rounded-md",
           "transition-[background-color] duration-75",
           (isSelected || isInMultiSelect)
-            ? "bg-foreground/3"
-            : "hover:bg-foreground/2",
+            ? "bg-foreground/10"
+            : "hover:bg-foreground/5",
           (buttonProps as Record<string, unknown>)?.className as string | undefined,
         )}
         onMouseDown={wrappedOnMouseDown}
@@ -328,21 +329,23 @@ export function EntityRow({
                     onMouseDown={(e) => e.stopPropagation()}
                   >
                     {useCompactMenu ? (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-compact"
                         onClick={() => setCompactMenuOpen(true)}
-                        className="p-1 rounded-sm hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer"
+                        className="hover:bg-foreground/10"
                         aria-haspopup="dialog"
                         aria-expanded={compactMenuOpen}
                       >
-                        <MoreHorizontal className="h-3.5 w-3.5 text-foreground/40" />
-                      </button>
+                        <MoreHorizontal />
+                      </Button>
                     ) : (
                       <DropdownMenu modal={true} open={menuOpen} onOpenChange={setMenuOpen}>
                         <DropdownMenuTrigger asChild>
-                          <div className="p-1 rounded-sm hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer">
-                            <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                          </div>
+                          <Button variant="ghost" size="icon-compact" className="hover:bg-foreground/10">
+                            <MoreHorizontal />
+                          </Button>
                         </DropdownMenuTrigger>
                         <StyledDropdownMenuContent align="end">
                           <DropdownMenuProvider>
@@ -433,23 +436,25 @@ export function EntityRow({
           )}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center rounded-md overflow-hidden border border-transparent hover:border-border/50">
+          <div className="flex items-center">
             {useCompactMenu ? (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-compact"
                 onClick={() => setCompactMenuOpen(true)}
-                className="p-1.5 hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer"
+                className="hover:bg-foreground/10"
                 aria-haspopup="dialog"
                 aria-expanded={compactMenuOpen}
               >
-                <MoreHorizontal className="size-3.5 text-foreground/40" />
-              </button>
+                <MoreHorizontal />
+              </Button>
             ) : (
               <DropdownMenu modal={true} open={menuOpen} onOpenChange={setMenuOpen}>
                 <DropdownMenuTrigger asChild>
-                  <div className="p-1.5 hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer">
-                    <MoreHorizontal className="size-3.5 text-muted-foreground" />
-                  </div>
+                  <Button variant="ghost" size="icon-compact" className="hover:bg-foreground/10">
+                    <MoreHorizontal />
+                  </Button>
                 </DropdownMenuTrigger>
                 <StyledDropdownMenuContent align="end">
                   <DropdownMenuProvider>

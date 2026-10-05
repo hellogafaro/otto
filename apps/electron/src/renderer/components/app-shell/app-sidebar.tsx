@@ -3,28 +3,24 @@
  *
  * Top to bottom, five groups 16px apart: the header (the Otto mark; on Electron
  * the macOS traffic-light inset, the drag region and the history Back / Forward
- * buttons); Inbox and Search; the pages (ones with no route
- * yet are shown, not linked); the open page's own content (passed in as
- * `section`: Chats brings its filters and list, Settings its pages; none, no
- * group); and the footer (Settings, then the profile menu), pinned at the bottom.
- * Icons only below 1024px, a sheet below 768px (see the design system's
- * `Sidebar`).
+ * buttons); Inbox (a placeholder) and Search (opens the command palette); the pages (ones with no route yet are shown, not
+ * linked); Pinned and Recent (`SidebarPinsRecents`, the only group that scrolls,
+ * none when both are empty); and the footer (the workspace menu alone, Settings inside
+ * it), pinned at the bottom. Icons only below 1024px (Pinned and Recent hidden), a
+ * sheet below 768px (see the design system's `Sidebar`).
  */
 
-import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   ArrowRight,
   CircleCheck,
   Clock,
-  FileText,
   Folder,
-  FolderClosed,
   Inbox,
+  Library,
   MessagesSquare,
   Search,
-  Settings,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
@@ -41,22 +37,25 @@ import {
 } from '@workspace/ui/components/sidebar'
 import { cn } from '@/lib/utils'
 import { isMac, isWebUI } from '@/lib/platform'
-import { useActionLabel } from '@/actions'
+import { useShortcutReveal } from '@/hooks/use-shortcut-reveal'
 import { ActionTooltip } from '@/components/ui/action-tooltip'
-import { Kbd } from '@/components/ui/kbd'
+import type { SessionStatus } from '@/config/session-status-config'
 import type { Workspace } from '../../../shared/types'
-import { ProfileMenu } from './profile-menu'
+import { WorkspaceMenu } from './workspace-menu'
+import { SidebarPinsRecents } from './sidebar-pins-recents'
+import { useCommandPalette } from '@/components/command-palette/command-palette-provider'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 
-export type SidebarArea = 'chats' | 'projects' | 'schedules' | 'documents' | 'settings'
+export type SidebarArea = 'tasks' | 'chats' | 'projects' | 'routines' | 'library'
 
 interface AppSidebarProps {
   /** The area that is open (its row is filled). */
   active: SidebarArea | null
-  onSearch: () => void
+  onTasks: () => void
   onChats: () => void
   onProjects: () => void
-  onSchedules: () => void
-  onDocuments: () => void
+  onRoutines: () => void
+  onLibrary: () => void
   onSettings: () => void
   /** History navigation (Electron only: the browser has its own). */
   onBack: () => void
@@ -69,8 +68,8 @@ interface AppSidebarProps {
   workspaceUnreadMap?: Record<string, boolean>
   onWorkspaceCreated?: (workspace: Workspace) => void
   onWorkspaceRemoved?: () => void
-  /** The open page's own group (a `SidebarSection`: its filters, list or pages); none renders no group. */
-  section?: React.ReactNode
+  /** The workspace's session statuses, for the status icons of Pinned and Recent chats. */
+  sessionStatuses: SessionStatus[]
 }
 
 interface NavItem {
@@ -81,7 +80,6 @@ interface NavItem {
   area?: SidebarArea
   /** Rows without a handler are placeholders: shown, not linked yet. */
   onSelect?: () => void
-  hotkey?: string
 }
 
 // macOS draws its traffic lights over the window's top-left, only in the desktop
@@ -90,11 +88,11 @@ const clearsTrafficLights = isMac && !isWebUI
 
 export function AppSidebar({
   active,
-  onSearch,
+  onTasks,
   onChats,
   onProjects,
-  onSchedules,
-  onDocuments,
+  onRoutines,
+  onLibrary,
   onSettings,
   onBack,
   onForward,
@@ -106,34 +104,29 @@ export function AppSidebar({
   workspaceUnreadMap,
   onWorkspaceCreated,
   onWorkspaceRemoved,
-  section,
+  sessionStatuses,
 }: AppSidebarProps) {
   const { t } = useTranslation()
-  const searchHotkey = useActionLabel('app.search').hotkey ?? undefined
-  const settingsHotkey = useActionLabel('app.settings').hotkey ?? undefined
+  // Holding the reveal key (⌘ on desktop, Option in the browser) shows every row's key.
+  const revealShortcuts = useShortcutReveal()
+  const palette = useCommandPalette()
 
-  // A label and its key, in the tooltip, also while the row shows its label.
-  const withKey = (label: string, hotkey?: string) => hotkey
-    ? { children: <>{label}<Kbd>{hotkey}</Kbd></>, hidden: false }
-    : label
-
-  // Group 1: Search opens the Chats search; Inbox has no route yet.
+  // Group 1: Inbox (a placeholder until it lands) and Search, the command palette.
   const inboxSearch: NavItem[] = [
     { id: 'inbox', icon: Inbox, labelKey: 'sidebar.inbox' },
-    { id: 'search', icon: Search, labelKey: 'sidebar.search', onSelect: onSearch, hotkey: searchHotkey },
+    { id: 'search', icon: Search, labelKey: 'sidebar.search', onSelect: () => palette.open() },
   ]
   // Group 2: the pages, each with a route or a placeholder.
   const pages: NavItem[] = [
-    { id: 'tasks', icon: CircleCheck, labelKey: 'sidebar.tasks' },
+    { id: 'tasks', icon: CircleCheck, labelKey: 'sidebar.tasks', area: 'tasks', onSelect: onTasks },
     { id: 'projects', icon: Folder, labelKey: 'sidebar.projects', area: 'projects', onSelect: onProjects },
     { id: 'chats', icon: MessagesSquare, labelKey: 'sidebar.chats', area: 'chats', onSelect: onChats },
-    { id: 'schedules', icon: Clock, labelKey: 'sidebar.schedules', area: 'schedules', onSelect: onSchedules },
-    { id: 'documents', icon: FileText, labelKey: 'sidebar.documents', area: 'documents', onSelect: onDocuments },
-    { id: 'files', icon: FolderClosed, labelKey: 'sidebar.files' },
+    { id: 'routines', icon: Clock, labelKey: 'sidebar.routines', area: 'routines', onSelect: onRoutines },
+    { id: 'library', icon: Library, labelKey: 'sidebar.library', area: 'library', onSelect: onLibrary },
   ]
 
   return (
-    <Sidebar>
+    <Sidebar data-reveal-shortcuts={revealShortcuts}>
       <SidebarHeader
         className={cn(
           'titlebar-drag-region',
@@ -148,8 +141,8 @@ export function AppSidebar({
             clearsTrafficLights && 'pl-[68px] group-data-[collapsible=icon]:pl-0',
           )}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-2 pl-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-0">
-            <Logo className="size-5 text-foreground" title="Otto" />
+          <div className="flex min-w-0 flex-1 items-center gap-2 pl-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-0">
+            <Logo className="size-5 text-foreground" title={PRODUCT_NAME} />
           </div>
           {!isWebUI && (
             <div className="titlebar-no-drag flex shrink-0 items-center gap-0.5 group-data-[collapsible=icon]:hidden">
@@ -176,7 +169,7 @@ export function AppSidebar({
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     isActive={!!item.area && active === item.area}
-                    tooltip={withKey(t(item.labelKey), item.hotkey)}
+                    tooltip={t(item.labelKey)}
                     onClick={item.onSelect}
                     // A placeholder stays readable but is no tab stop and has no pointer.
                     {...(!item.onSelect && { 'aria-disabled': true, tabIndex: -1 })}
@@ -190,19 +183,13 @@ export function AppSidebar({
           </SidebarGroup>
         ))}
 
-        {section}
+        <SidebarPinsRecents sessionStatuses={sessionStatuses} />
       </SidebarContent>
 
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton isActive={active === 'settings'} tooltip={withKey(t('sidebar.settings'), settingsHotkey)} onClick={onSettings}>
-              <Settings />
-              <span>{t('sidebar.settings')}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <ProfileMenu
+            <WorkspaceMenu
               workspaces={workspaces}
               activeWorkspaceId={activeWorkspaceId}
               onSelect={onSelectWorkspace}

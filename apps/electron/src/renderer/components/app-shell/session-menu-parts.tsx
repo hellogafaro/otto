@@ -82,12 +82,12 @@ export function StatusMenuItems({
           <MenuItem
             key={state.id}
             onClick={() => onSelect(state.id)}
-            className={activeStateId === state.id ? 'bg-foreground/5' : ''}
           >
             <span style={getStatusIconStyle(state)}>
               {bareIcon}
             </span>
             <span className="flex-1">{state.label}</span>
+            {activeStateId === state.id && <Check className="size-3.5" />}
           </MenuItem>
         )
       })}

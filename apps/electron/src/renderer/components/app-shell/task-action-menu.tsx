@@ -10,7 +10,7 @@ import {
   StyledDropdownMenuSeparator,
 } from '@/components/ui/styled-dropdown'
 import { Spinner } from '@otto/ui'
-import { cn } from '@/lib/utils'
+import { ToolbarChip } from '@/components/ui/toolbar-chip'
 import { toast } from 'sonner'
 import type { BackgroundTask } from './active-tasks-bar'
 import { backgroundTasksAtomFamily } from '@/atoms/sessions'
@@ -140,13 +140,10 @@ export function TaskActionMenu({ task, sessionId, onKillTask, onInsertMessage, o
 
   // Status → icon + tint. Running shows the spinner; terminal/orphaned states
   // are visually distinct so a chip never falsely reads as "still running".
-  const statusTint = cn(
-    "bg-white dark:bg-white/10",
-    "hover:bg-white/80 dark:hover:bg-white/15",
-    "data-[state=open]:bg-white/80 dark:data-[state=open]:bg-white/15",
-    task.status === 'failed' && "bg-destructive/10 hover:bg-destructive/15 dark:bg-destructive/15",
-    (task.status === 'orphaned' || task.status === 'stale') && "bg-amber-500/10 hover:bg-amber-500/15 dark:bg-amber-500/15",
-  )
+  const statusTint =
+    task.status === 'failed' ? 'var(--destructive)'
+      : task.status === 'orphaned' || task.status === 'stale' ? 'var(--color-amber-500)'
+        : undefined
 
   const StatusIcon = () => {
     switch (task.status) {
@@ -181,19 +178,14 @@ export function TaskActionMenu({ task, sessionId, onKillTask, onInsertMessage, o
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
+        <ToolbarChip
           type="button"
-          className={cn(
-            "h-[30px] pl-2.5 pr-2 text-xs font-medium rounded-md",
-            "flex items-center gap-1.5 shrink-0 select-none",
-            "transition-all shadow-minimal cursor-pointer",
-            statusTint,
-            className
-          )}
+          tint={statusTint}
+          className={className}
           title={chipTitle}
         >
           {/* Status icon */}
-          <div className="flex items-center justify-center shrink-0">
+          <div data-icon="inline-start" className="flex items-center justify-center shrink-0">
             <StatusIcon />
           </div>
 
@@ -241,8 +233,8 @@ export function TaskActionMenu({ task, sessionId, onKillTask, onInsertMessage, o
           )}
 
           {/* Dropdown indicator */}
-          <ChevronDown className="h-3.5 w-3.5 opacity-60 ml-auto" />
-        </button>
+          <ChevronDown className="opacity-60 ml-auto" />
+        </ToolbarChip>
       </DropdownMenuTrigger>
       <StyledDropdownMenuContent align="start" sideOffset={4}>
         {/* View Output - Primary action */}

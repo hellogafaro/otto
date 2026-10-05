@@ -16,6 +16,7 @@
 import { getProviders, getModels } from '@earendil-works/pi-ai/compat';
 import type { Model, Api } from '@earendil-works/pi-ai';
 import type { ModelDefinition } from './models.ts';
+import { BACKEND_NAME } from '../branding.ts';
 
 // ============================================
 // PI MODEL DISCOVERY
@@ -32,7 +33,7 @@ function piModelToDefinition(m: Model<Api>): ModelDefinition {
     id: `pi/${m.id}`,
     name: m.name,
     shortName,
-    description: `${m.provider} model via Otto Backend`,
+    description: `${m.provider} model via ${BACKEND_NAME}`,
     provider: 'pi',
     contextWindow: m.contextWindow,
     supportsThinking: m.reasoning,

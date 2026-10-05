@@ -3,7 +3,7 @@
  *
  * Form-based editor for stored user preferences (~/.otto/preferences.json).
  * Features:
- * - Fixed input fields for known preferences (name, timezone, location, language)
+ * - Fixed input fields for known preferences (name, email, timezone, location, language)
  * - Free-form textarea for notes
  * - Auto-saves on change with debouncing
  */
@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageColumn } from '@workspace/ui/components/page'
 import { Spinner } from '@otto/ui'
+import { isValidEmail } from '@otto/shared/utils/email'
 import {
   SettingsSection,
   SettingsCard,
@@ -29,54 +30,78 @@ export const meta: DetailsPageMeta = {
 
 interface PreferencesFormState {
   name: string
+  email: string
   timezone: string
   city: string
   country: string
   notes: string
 }
 
+type StoredPreferences = Record<string, unknown>
+
 const emptyFormState: PreferencesFormState = {
   name: '',
+  email: '',
   timezone: '',
   city: '',
   country: '',
   notes: '',
 }
 
-// Parse JSON to form state
-function parsePreferences(json: string): PreferencesFormState {
+function parseStored(json: string): StoredPreferences {
   try {
     const prefs = JSON.parse(json)
-    return {
-      name: prefs.name || '',
-      timezone: prefs.timezone || '',
-      city: prefs.location?.city || '',
-      country: prefs.location?.country || '',
-      notes: prefs.notes || '',
-    }
+    return prefs && typeof prefs === 'object' && !Array.isArray(prefs) ? prefs : {}
   } catch {
-    return emptyFormState
+    return {}
   }
 }
 
-// Serialize form state to JSON
-function serializePreferences(state: PreferencesFormState): string {
-  const prefs: Record<string, unknown> = {}
+// Stored preferences to form state
+function toFormState(prefs: StoredPreferences): PreferencesFormState {
+  const location = (prefs.location ?? {}) as { city?: string; country?: string }
+  return {
+    name: (prefs.name as string) || '',
+    email: (prefs.email as string) || '',
+    timezone: (prefs.timezone as string) || '',
+    city: location.city || '',
+    country: location.country || '',
+    notes: (prefs.notes as string) || '',
+  }
+}
 
-  if (state.name) prefs.name = state.name
-  if (state.timezone) prefs.timezone = state.timezone
+/** Empty is fine (no email); otherwise it must have a basic email shape. */
+function isEmailAllowed(email: string): boolean {
+  return email.trim() === '' || isValidEmail(email)
+}
 
-  if (state.city || state.country) {
-    const location: Record<string, string> = {}
-    if (state.city) location.city = state.city
-    if (state.country) location.country = state.country
-    prefs.location = location
+/**
+ * Form state over the stored preferences: the fields this page does not edit
+ * (uiLanguage, diffViewer, location.region, ...) are kept as stored, and an
+ * email that is not valid yet keeps its last saved value instead of being saved.
+ */
+function buildPreferences(state: PreferencesFormState, stored: StoredPreferences): StoredPreferences {
+  const prefs: StoredPreferences = { ...stored }
+  const set = (key: string, value: string) => {
+    if (value) prefs[key] = value
+    else delete prefs[key]
   }
 
-  if (state.notes) prefs.notes = state.notes
-  prefs.updatedAt = Date.now()
+  set('name', state.name)
+  set('timezone', state.timezone)
+  set('notes', state.notes)
+  if (isEmailAllowed(state.email)) set('email', state.email.trim())
 
-  return JSON.stringify(prefs, null, 2)
+  const location: Record<string, unknown> = { ...(stored.location as object | undefined) }
+  for (const [key, value] of [['city', state.city], ['country', state.country]] as const) {
+    if (value) location[key] = value
+    else delete location[key]
+  }
+  if (Object.keys(location).length > 0) prefs.location = location
+  else delete prefs.location
+
+  delete prefs.updatedAt
+  return prefs
 }
 
 export default function PreferencesPage() {
@@ -88,6 +113,7 @@ export default function PreferencesPage() {
   const isInitialLoadRef = useRef(true)
   const formStateRef = useRef(formState)
   const lastSavedRef = useRef<string | null>(null)
+  const storedRef = useRef<StoredPreferences>({})
 
   // Keep formStateRef in sync for use in cleanup
   useEffect(() => {
@@ -99,10 +125,12 @@ export default function PreferencesPage() {
     const load = async () => {
       try {
         const result = await window.electronAPI.readPreferences()
-        const parsed = parsePreferences(result.content)
+        const stored = parseStored(result.content)
+        const parsed = toFormState(stored)
+        storedRef.current = stored
         setFormState(parsed)
         setPreferencesPath(result.path)
-        lastSavedRef.current = serializePreferences(parsed)
+        lastSavedRef.current = JSON.stringify(buildPreferences(parsed, stored))
       } catch (err) {
         console.error('Failed to load stored user preferences:', err)
         setFormState(emptyFormState)
@@ -130,10 +158,13 @@ export default function PreferencesPage() {
     // Debounce save by 500ms
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        const json = serializePreferences(formState)
-        const result = await window.electronAPI.writePreferences(json)
+        const prefs = buildPreferences(formState, storedRef.current)
+        const saved = JSON.stringify(prefs)
+        if (saved === lastSavedRef.current) return
+        const result = await window.electronAPI.writePreferences(JSON.stringify({ ...prefs, updatedAt: Date.now() }, null, 2))
         if (result.success) {
-          lastSavedRef.current = json
+          lastSavedRef.current = saved
+          storedRef.current = prefs
         } else {
           console.error('Failed to save preferences:', result.error)
         }
@@ -158,10 +189,10 @@ export default function PreferencesPage() {
       }
 
       // Check if there are unsaved changes and save immediately
-      const currentJson = serializePreferences(formStateRef.current)
-      if (lastSavedRef.current !== currentJson && !isInitialLoadRef.current) {
+      const prefs = buildPreferences(formStateRef.current, storedRef.current)
+      if (lastSavedRef.current !== JSON.stringify(prefs) && !isInitialLoadRef.current) {
         // Fire and forget - we can't await in cleanup
-        window.electronAPI.writePreferences(currentJson).catch((err) => {
+        window.electronAPI.writePreferences(JSON.stringify({ ...prefs, updatedAt: Date.now() }, null, 2)).catch((err) => {
           console.error('Failed to save preferences on unmount:', err)
         })
       }
@@ -198,6 +229,16 @@ export default function PreferencesPage() {
                 value={formState.name}
                 onChange={(v) => updateField('name', v)}
                 placeholder={t("settings.preferences.namePlaceholder")}
+                inCard
+              />
+              <SettingsInput
+                label={t("settings.preferences.email")}
+                description={t("settings.preferences.emailDesc")}
+                type="email"
+                value={formState.email}
+                onChange={(v) => updateField('email', v)}
+                placeholder={t("settings.preferences.emailPlaceholder")}
+                error={isEmailAllowed(formState.email) ? undefined : t("settings.preferences.emailInvalid")}
                 inCard
               />
               <SettingsInput

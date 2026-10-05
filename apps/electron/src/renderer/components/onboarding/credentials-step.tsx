@@ -126,7 +126,7 @@ export function CredentialsStep({
               loading={status === 'validating'}
             >
               {provider.signIn}
-              <ArrowUpRight />
+              <ArrowUpRight data-icon="inline-end" />
             </ContinueButton>
           </>
         }
@@ -142,13 +142,13 @@ export function CredentialsStep({
                   className="font-mono tracking-widest"
                 >
                   {deviceCode.userCode}
-                  {copiedCode ? <Check /> : <Copy />}
+                  {copiedCode ? <Check data-icon="inline-end" /> : <Copy data-icon="inline-end" />}
                 </Button>
               </SettingsRow>
               <SettingsRow label={deviceCode.verificationUri.replace(/^https?:\/\//, "")}>
                 <Button type="button" variant="ghost" onClick={() => void window.electronAPI.openUrl(deviceCode.verificationUri)}>
                   {t("common.open")}
-                  <ArrowUpRight />
+                  <ArrowUpRight data-icon="inline-end" />
                 </Button>
               </SettingsRow>
             </SettingsCard>
@@ -206,7 +206,7 @@ export function CredentialsStep({
               loading={status === 'validating'}
             >
               {t("onboarding.credentials.signInClaude")}
-              <ArrowUpRight />
+              <ArrowUpRight data-icon="inline-end" />
             </ContinueButton>
           </>
         }

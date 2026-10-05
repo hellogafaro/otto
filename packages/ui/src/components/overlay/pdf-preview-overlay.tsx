@@ -119,7 +119,7 @@ export function PDFPreviewOverlay({
   const headerActions = (
     <div className="flex items-center gap-2">
       <ItemNavigator items={resolvedItems} activeIndex={activeIdx} onSelect={setActiveIdx} size="md" />
-      <CopyButton content={activeItem?.src || filePath} title={t('common.copyPath')} className="bg-background shadow-minimal" />
+      <CopyButton content={activeItem?.src || filePath} title={t('common.copyPath')} className="card-surface bg-card" />
     </div>
   )
 

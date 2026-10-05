@@ -3,7 +3,7 @@
 import { loadShellEnv } from './shell-env'
 loadShellEnv()
 
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, session, shell } from 'electron'
 import { createHash, randomUUID } from 'crypto'
 import { hostname, homedir } from 'os'
 import * as Sentry from '@sentry/electron/main'
@@ -58,6 +58,7 @@ Sentry.init({
 // the main process silently stayed at English — breaking session title language,
 // the system prompt's "Preferred language" line, and the native menu.
 import { setupI18n, i18n, SUPPORTED_LANGUAGE_CODES, type LanguageCode } from '@otto/shared/i18n'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 import { getPersistedUiLanguage, setPersistedUiLanguage } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 setupI18n()
@@ -101,7 +102,8 @@ import { setPowerShellValidatorRoot } from '@otto/shared/agent'
 import { handleDeepLink } from './deep-link'
 import { BrowserPaneManager } from './browser-pane-manager'
 import { OAuthFlowStore } from '@otto/shared/auth'
-import { registerThumbnailScheme, registerThumbnailHandler } from './thumbnail-protocol'
+import { registerThumbnailHandler } from './thumbnail-protocol'
+import { registerPrivilegedSchemes, handleAppProtocol } from './protocol-schemes'
 import log, { isDebugMode, mainLog, getLogFilePath, getMessagingGatewayLogFilePath, messagingGatewayLog, autoUpdateLog } from './logger'
 import { setPerfEnabled, enableDebug } from '@otto/shared/utils'
 import { registerPiModelResolver } from '@otto/shared/config'
@@ -217,7 +219,7 @@ let pendingDeepLink: string | null = null
 
 // Set app name early (before app.whenReady) to ensure correct macOS menu bar title
 // Supports multi-instance dev: OTTO_APP_NAME env var (e.g., "Otto [1]")
-app.setName(process.env.OTTO_APP_NAME || 'Otto')
+app.setName(process.env.OTTO_APP_NAME || PRODUCT_NAME)
 
 // Register as default protocol client for otto:// URLs
 // This must be done before app.whenReady() on some platforms
@@ -268,9 +270,9 @@ if (process.env.OTTO_SERVER_URL) {
   }
 }
 
-// Register thumbnail:// custom protocol for file preview thumbnails in the sidebar.
+// Register the custom schemes (thumbnail:// previews, otto:// renderer origin) in one call.
 // Must happen before app.whenReady() — Electron requires early scheme registration.
-registerThumbnailScheme()
+registerPrivilegedSchemes()
 
 // Handle deeplink on macOS (when app is already running)
 app.on('open-url', (event, url) => {
@@ -401,6 +403,9 @@ app.whenReady().then(async () => {
 
   // Register thumbnail:// protocol handler (scheme was registered earlier, before app.whenReady)
   registerThumbnailHandler()
+
+  // Serve the packaged renderer from otto://app/ (dev loads the Vite dev server instead)
+  handleAppProtocol(session.defaultSession)
 
   // Note: electron-updater handles pending updates internally via autoInstallOnAppQuit
 
@@ -1117,7 +1122,7 @@ app.whenReady().then(async () => {
         type: 'error',
         title: 'Update failed',
         message: 'The update could not be installed.',
-        detail: 'Otto will restart now. The update will be retried on the next launch.',
+        detail: `${PRODUCT_NAME} will restart now. The update will be retried on the next launch.`,
       })
       app.relaunch()
       app.exit(0)

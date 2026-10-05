@@ -51,7 +51,7 @@ export function SettingsRowIcon({ twoLine, children }: { twoLine: boolean; child
  * <SettingsRow
  *   label="Working Directory"
  *   description="~/Documents"
- *   action={<Button variant="ghost" size="sm">Change</Button>}
+ *   action={<Button variant="ghost" size="compact">Change</Button>}
  * />
  */
 export function SettingsRow({
@@ -76,7 +76,7 @@ export function SettingsRow({
       className={cn(
         'w-full flex items-center justify-between text-left',
         inCard ? 'px-4 py-3' : 'py-3',
-        onClick && 'hover:bg-muted/70 transition-colors cursor-pointer',
+        onClick && 'cursor-pointer outline-none transition-colors hover:bg-foreground/5 active:bg-foreground/10 aria-expanded:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
         className
       )}
     >

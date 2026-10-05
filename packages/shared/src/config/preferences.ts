@@ -26,6 +26,8 @@ export interface DiffViewerPreferences {
 
 export interface UserPreferences {
   name?: string;
+  /** Shown in the workspace menu's account block; never sent anywhere. Empty or a basic email shape. */
+  email?: string;
   timezone?: string;
   location?: UserLocation;
   // Free-form notes the agent learns about the user

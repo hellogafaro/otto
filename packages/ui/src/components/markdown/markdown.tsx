@@ -506,7 +506,7 @@ function createComponents(
       <td className="py-3 px-4 text-sm">{children}</td>
     ),
     tr: ({ children }) => (
-      <tr className="hover:bg-muted/30 transition-colors">{children}</tr>
+      <tr className="hover:bg-foreground/5 transition-colors">{children}</tr>
     ),
     // Rich headings - H1/H2 same size, differentiated by weight
     h1: ({ children }) => (

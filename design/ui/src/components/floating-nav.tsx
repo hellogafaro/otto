@@ -1,5 +1,9 @@
 import { Button } from "@workspace/ui/components/button"
 import {
+  ButtonGroup,
+  ButtonGroupSeparator,
+} from "@workspace/ui/components/button-group"
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -9,14 +13,16 @@ import { ArrowLeftIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import * as React from "react"
 
 // Otto: Superhuman's detail controls, floating in the left gutter beside the
-// column: a round Back button and, under it, a vertical pill with previous (up)
-// and next (down). Card-colored with the hairline ring and `shadow-sm`; 32px
-// wide, 14px icons; round on purpose (they float free of the rows and bars,
-// which are never round). `PageHeader` portals it into the frame's left gutter,
-// 8px from the column and level with the top of the body, and only while that
-// gutter is at least 56px wide; narrower, the same actions move into the header
-// row (`FloatingNavButtons` for previous / next in its trailing actions, Back
-// in its leading slot).
+// column: Back and, under it, Previous (up) and Next (down) as a vertical
+// `ButtonGroup` with a separator between them. They are our standard raised
+// icon button (`outline`, 32px, md 8 corners, 14px icons), never round and
+// with no wrapper of their own, 8px apart. They are the page's only way back and
+// through its list: the header row has no back button and no crumbs.
+// `PageHeader` portals them into the frame's left gutter, 8px from the column,
+// with their top on the content start (the top of the first block under the
+// header row), and only while that gutter is at least 56px wide; narrower, the
+// same actions move into the header row's trailing actions
+// (`FloatingNavButtons`).
 type NavAction = {
   label: string
   onClick: () => void
@@ -28,23 +34,20 @@ type NavAction = {
 function NavButton({
   action,
   icon,
-  className,
 }: {
   action: NavAction
   icon: React.ReactNode
-  className?: string
 }) {
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <Button
-            variant="ghost"
-            size="icon-sm"
+            variant="outline"
+            size="icon"
             aria-label={action.label}
             disabled={action.disabled}
             onClick={action.onClick}
-            className={cn("rounded-full", className)}
           >
             {icon}
           </Button>
@@ -74,65 +77,67 @@ function FloatingNav({
       data-slot="floating-nav"
       className={cn("flex flex-col gap-2", className)}
     >
-      {back && (
-        <div className="rounded-full bg-card shadow-sm ring-1 ring-foreground/10">
-          <NavButton action={back} icon={<ArrowLeftIcon />} />
-        </div>
-      )}
+      {back && <NavButton action={back} icon={<ArrowLeftIcon />} />}
       {(previous || next) && (
-        <div className="flex flex-col rounded-full bg-card shadow-sm ring-1 ring-foreground/10">
+        <ButtonGroup orientation="vertical">
           {previous && (
             <NavButton action={previous} icon={<ChevronUpIcon />} />
           )}
+          {previous && next && (
+            <ButtonGroupSeparator orientation="horizontal" />
+          )}
           {next && <NavButton action={next} icon={<ChevronDownIcon />} />}
-        </div>
+        </ButtonGroup>
       )}
     </nav>
   )
 }
 
-// Otto: the narrow frame's previous / next: two 28px ghost buttons for the
-// header's actions, shown while `FloatingNav` is hidden.
+// Otto: the narrow frame's navigation: Back, previous and next as 28px ghost
+// buttons for the header's trailing actions (never leading, never beside the
+// title), shown while `FloatingNav` is hidden.
 function FloatingNavButtons({
+  back,
   previous,
   next,
   className,
 }: {
+  back?: NavAction
   previous?: NavAction
   next?: NavAction
   className?: string
 }) {
-  if (!previous && !next) return null
+  const items = [
+    back && { action: back, icon: <ArrowLeftIcon /> },
+    previous && { action: previous, icon: <ChevronUpIcon /> },
+    next && { action: next, icon: <ChevronDownIcon /> },
+  ].filter((item) => !!item)
+  if (items.length === 0) return null
   return (
     <div
       data-slot="floating-nav-buttons"
       className={cn("flex items-center gap-1", className)}
     >
-      {[
-        previous && { action: previous, icon: <ChevronUpIcon /> },
-        next && { action: next, icon: <ChevronDownIcon /> },
-      ]
-        .filter((item) => !!item)
-        .map(({ action, icon }) => (
-          <Tooltip key={action.label}>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-compact"
-                  aria-label={action.label}
-                  disabled={action.disabled}
-                  onClick={action.onClick}
-                >
-                  {icon}
-                </Button>
-              }
-            />
-            <TooltipContent side="bottom">
-              {action.tooltip ?? action.label}
-            </TooltipContent>
-          </Tooltip>
-        ))}
+      {items.map(({ action, icon }) => (
+        <Tooltip key={action.label}>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-compact"
+                aria-label={action.label}
+                disabled={action.disabled}
+                onClick={action.onClick}
+              >
+                {icon}
+              </Button>
+            }
+          />
+          <TooltipContent side="bottom">
+            {action.tooltip ?? action.label}
+          </TooltipContent>
+        </Tooltip>
+      ))}
     </div>
   )
 }

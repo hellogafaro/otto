@@ -149,7 +149,7 @@ function Info_PageContent({ children, className }: Info_PageContentProps) {
       >
         <ScrollArea className="h-full">
           <div className="pt-7 pb-10">
-            <div className={cn('space-y-6', className)}>{children}</div>
+            <div data-content-start="" className={cn('space-y-6', className)}>{children}</div>
           </div>
         </ScrollArea>
       </div>

@@ -232,7 +232,7 @@ function TurnCardModesDemo({
         {/* Playback Button */}
         <button
           onClick={hasPlaybackStarted ? resetPlayback : startPlayback}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-background shadow-minimal text-foreground hover:bg-foreground/5 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md card-surface bg-card text-foreground hover:bg-foreground/5 transition-colors"
         >
           {hasPlaybackStarted ? (
             <>
@@ -255,7 +255,7 @@ function TurnCardModesDemo({
           onClick={() => setMode('informative')}
           className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
             mode === 'informative'
-              ? 'bg-background shadow-minimal text-foreground'
+              ? 'bg-foreground/10 text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -265,7 +265,7 @@ function TurnCardModesDemo({
           onClick={() => setMode('detailed')}
           className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
             mode === 'detailed'
-              ? 'bg-background shadow-minimal text-foreground'
+              ? 'bg-foreground/10 text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >

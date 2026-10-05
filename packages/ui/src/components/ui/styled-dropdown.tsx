@@ -9,7 +9,8 @@
  * Mapping from Radix:
  * - `asChild` on the trigger -> Base UI `render`.
  * - item `onSelect(event)` -> `onClick`; `event.preventDefault()` keeps the menu open.
- * - `data-[state=open]:*` classes on a trigger -> `data-popup-open:*`.
+ * - `data-[state=open]:*` classes on a trigger -> `aria-expanded:*` (never `data-popup-open`: a tooltip on the
+ *   same trigger sets it while the tooltip shows).
  * - Dropped (no Base UI equivalent, accepted and ignored): `onInteractOutside`,
  *   `light`.
  */
@@ -59,9 +60,10 @@ export function mirrorHoverToOpenStateClasses(className?: string): string | unde
   return cn(...mirrored, className)
 }
 
-/** Base UI marks an open menu's trigger with `data-popup-open`, not Radix's `data-state=open`. */
-function openStateToPopupOpen(className?: string): string | undefined {
-  return className?.replace(/data-\[state=open\]:/g, 'data-popup-open:')
+/** Base UI marks an open menu's trigger with `aria-expanded` (not Radix's `data-state=open`;
+ * `data-popup-open` is also set by a tooltip on the trigger). */
+function openStateToExpanded(className?: string): string | undefined {
+  return className?.replace(/data-\[state=open\]:/g, 'aria-expanded:')
 }
 
 export { DropdownMenu, DropdownMenuSub, DropdownMenuShortcut }
@@ -83,7 +85,7 @@ export function DropdownMenuTrigger({
   ...props
 }: DropdownMenuTriggerProps) {
   const style = (value?: string) =>
-    openStateToPopupOpen(autoMirrorHoverToOpen ? mirrorHoverToOpenStateClasses(value) : value)
+    openStateToExpanded(autoMirrorHoverToOpen ? mirrorHoverToOpenStateClasses(value) : value)
 
   if (asChild && React.isValidElement(children)) {
     const child = children as React.ReactElement<{ className?: string }>

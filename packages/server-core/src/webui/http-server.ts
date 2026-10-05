@@ -10,7 +10,8 @@
  *    for separate-port deployments or development.
  */
 
-import { join, extname } from 'node:path'
+import { stat } from 'node:fs/promises'
+import { extname, join, resolve, sep } from 'node:path'
 import {
   RateLimiter,
   initPasswordHash,
@@ -48,6 +49,75 @@ const MIME_TYPES: Record<string, string> = {
 
 function getMimeType(path: string): string {
   return MIME_TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream'
+}
+
+/**
+ * A missing file under `/assets/` or with a known static extension is a real 404; every other
+ * unknown path is an app route (`/test/chats/abc`) and gets index.html. A dot in a route segment
+ * (`/x/chats/a.b`) is fine: only the extensions above count. Keep in sync with `isStaticAssetPath`
+ * in apps/electron/src/main/app-protocol.ts.
+ */
+function isStaticAssetPath(pathname: string): boolean {
+  if (pathname.startsWith('/assets/')) return true
+  const lastSegment = pathname.slice(pathname.lastIndexOf('/') + 1)
+  return extname(lastSegment).toLowerCase() in MIME_TYPES
+}
+
+/**
+ * Where sign-in returns to: a same-origin path (and query) the app opened, never another site.
+ * Anything else, and the login page itself, is the app's root.
+ */
+export function safeNextPath(next: unknown): string {
+  if (typeof next !== 'string' || next.length > 2048) return '/'
+  // `//host` and `/\host` are protocol-relative to a browser; control characters have no business in a path.
+  if (!next.startsWith('/') || next.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(next)) return '/'
+  try {
+    const parsed = new URL(next, 'http://app.invalid')
+    if (parsed.origin !== 'http://app.invalid') return '/'
+    if (/^\/(login|login\.html)\/?$/.test(parsed.pathname)) return '/'
+  } catch {
+    return '/'
+  }
+  return next
+}
+
+/** `/login`, carrying the app path the visitor asked for (nothing for the root) so sign-in can return to it. */
+function loginRedirectPath(url: URL): string {
+  const next = safeNextPath(url.pathname + url.search)
+  return next === '/' || url.pathname === '/index.html' ? '/login' : `/login?next=${encodeURIComponent(next)}`
+}
+
+/** Files the login page needs before sign-in (no auth). */
+function isPublicAsset(pathname: string): boolean {
+  return pathname.startsWith('/login-assets/')
+    || /^\/(favicon\.(ico|svg)|apple-touch-icon\.png|manifest\.json|icon-\d+\.png)$/.test(pathname)
+}
+
+/** Decode a URL pathname to an existing file inside `root`, or null (missing, directory, or escaping). */
+async function resolveStaticFile(root: string, pathname: string): Promise<string | null> {
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(pathname)
+  } catch {
+    return null
+  }
+  if (decoded.includes('\0') || decoded.includes('\\') || decoded.split('/').includes('..')) return null
+  const base = resolve(root)
+  const target = resolve(base, '.' + decoded)
+  if (target !== base && !target.startsWith(base + sep)) return null
+  try {
+    return (await stat(target)).isFile() ? target : null
+  } catch {
+    return null
+  }
+}
+
+/** Hashed bundle files never change; the HTML shell must always be revalidated. */
+function staticHeaders(pathname: string): Record<string, string> {
+  return {
+    'Content-Type': getMimeType(pathname),
+    'Cache-Control': pathname.startsWith('/assets/') ? 'private, max-age=31536000, immutable' : 'no-cache',
+  }
 }
 
 function getForwardedValue(req: Request, key: 'proto' | 'host'): string | null {
@@ -223,13 +293,11 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
       return new Response('Login page not found', { status: 404 })
     }
 
-    // ── Static assets that login page needs (no auth) ──
-    if (path === '/favicon.ico' || path.startsWith('/login-assets/')) {
-      const file = Bun.file(join(webuiDir, path))
-      if (await file.exists()) {
-        return new Response(file, {
-          headers: { 'Content-Type': getMimeType(path) },
-        })
+    // ── Static assets that the login page needs (no auth) ──
+    if (isPublicAsset(path)) {
+      const filePath = await resolveStaticFile(webuiDir, path)
+      if (filePath) {
+        return new Response(Bun.file(filePath), { headers: staticHeaders(path) })
       }
       return new Response('Not Found', { status: 404 })
     }
@@ -247,9 +315,9 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
         )
       }
 
-      let body: { password?: string }
+      let body: { password?: string; next?: string }
       try {
-        body = await req.json() as { password?: string }
+        body = await req.json() as { password?: string; next?: string }
       } catch {
         return Response.json({ error: 'Invalid request body' }, { status: 400 })
       }
@@ -266,7 +334,7 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
       const jwt = await createSessionToken(secret)
       logger.info(`[webui] Successful auth from ${ip}`)
 
-      return Response.json({ ok: true }, {
+      return Response.json({ ok: true, next: safeNextPath(body.next) }, {
         status: 200,
         headers: {
           'Set-Cookie': buildSessionCookie(jwt, useSecureCookies),
@@ -376,27 +444,29 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
     if (!session) {
       const accept = req.headers.get('accept') ?? ''
       if (accept.includes('text/html') || path === '/' || path === '') {
-        return Response.redirect('/login', 302)
+        return Response.redirect(loginRedirectPath(url), 302)
       }
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // ── Serve SPA static files ──
-    if (path !== '/') {
-      const file = Bun.file(join(webuiDir, path))
-      if (await file.exists()) {
-        return new Response(file, {
-          headers: { 'Content-Type': getMimeType(path) },
-        })
-      }
+    const filePath = await resolveStaticFile(webuiDir, path)
+    if (filePath) {
+      return new Response(Bun.file(filePath), { headers: staticHeaders(path) })
     }
 
-    // SPA fallback — serve index.html for all non-file routes
+    // Unknown API and socket paths are errors, never the app shell.
+    if (path.startsWith('/api/') || path === '/ws') {
+      return Response.json({ error: 'Not Found' }, { status: 404 })
+    }
+    if (isStaticAssetPath(path)) {
+      return new Response('Not Found', { status: 404 })
+    }
+
+    // SPA fallback — any other path is a client route (`/{workspace}/chats/{id}`): serve index.html
     const indexFile = Bun.file(join(webuiDir, 'index.html'))
     if (await indexFile.exists()) {
-      return new Response(indexFile, {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      })
+      return new Response(indexFile, { headers: staticHeaders('/index.html') })
     }
 
     return new Response('Not Found', { status: 404 })
