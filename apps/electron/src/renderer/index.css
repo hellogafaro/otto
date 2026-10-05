@@ -301,7 +301,7 @@
   --secondary-foreground: var(--foreground);
   --muted: oklch(from var(--foreground) l c h / 0.05);
   --muted-foreground: var(--foreground-50);
-  --card: var(--background);
+  --card: oklch(0.205 0 0);                 /* one layer above the page, as in DESIGN.md */
   --card-foreground: var(--foreground);
   --popover: var(--background);
   --popover-foreground: var(--foreground);

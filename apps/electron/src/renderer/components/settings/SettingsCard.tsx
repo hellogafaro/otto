@@ -32,14 +32,14 @@ export function SettingsCard({ children, className, divided = true }: SettingsCa
   return (
     <div
       className={cn(
-        'rounded-xl bg-background shadow-minimal overflow-hidden',
+        'rounded-xl bg-card ring-1 ring-foreground/10 overflow-hidden',
         className
       )}
     >
       {divided && childArray.length > 1
         ? childArray.map((child, index) => (
             <React.Fragment key={index}>
-              {index > 0 && <div className="h-px bg-border/50 mx-4" />}
+              {index > 0 && <div className="h-px bg-foreground/10" />}
               {child}
             </React.Fragment>
           ))

@@ -44,11 +44,11 @@ export function SettingsSection({
 }: SettingsSectionProps) {
   return (
     <section className={cn('space-y-3', className)}>
-      <div className="flex items-start justify-between gap-4 pl-1">
+      <div className="flex items-start justify-between gap-4">
         <div className="space-y-0.5">
           <h3
             className={cn(
-              'text-base font-semibold',
+              'text-base font-medium',
               variant === 'danger' && 'text-destructive'
             )}
           >

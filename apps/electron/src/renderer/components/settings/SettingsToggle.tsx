@@ -63,7 +63,7 @@ export function SettingsToggle({
       data-layout="settings-row"
       className={cn(
         'flex items-center justify-between',
-        inCard ? 'px-4 py-3.5' : 'py-3',
+        inCard ? 'px-4 py-3' : 'py-3',
         disabled && 'opacity-50',
         className
       )}

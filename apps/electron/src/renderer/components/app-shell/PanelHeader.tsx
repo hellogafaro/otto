@@ -148,7 +148,7 @@ export function PanelHeader({
       className="flex items-center gap-1"
     >
       <h1 className={cn(
-        "text-sm font-semibold truncate font-sans leading-tight",
+        "text-sm font-medium truncate font-sans leading-tight",
         isRegeneratingTitle && "animate-shimmer-text"
       )}>{title}</h1>
       {badge}
@@ -240,7 +240,7 @@ export function PanelHeader({
         </div>
       )}
       <div className="flex-1 min-w-0 flex items-center select-none">
-        <div className={cn("max-w-full overflow-hidden", !leadingAction && "mx-auto")}>
+        <div className="max-w-full overflow-hidden">
           {titleNode}
         </div>
       </div>
@@ -266,7 +266,7 @@ export function PanelHeader({
   const basePadding = leadingAction ? 8 : 16
 
   const baseClassName = cn(
-    'flex shrink-0 items-center pr-2 min-w-0 gap-1.5 relative z-panel h-[42px]',
+    'flex shrink-0 items-center pr-2 min-w-0 gap-1.5 relative z-panel h-10',
     // Only use static paddingLeft class when not animating
     !shouldCompensate && (paddingLeft || (leadingAction ? 'pl-2' : 'pl-4')),
     className

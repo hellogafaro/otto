@@ -1,22 +1,14 @@
 /**
  * SettingsNavigator
  *
- * Navigator panel content for settings. Displays a list of settings sections
- * (App, Workspace, Shortcuts, Preferences) that can be selected to show in the details panel.
- *
- * Styling follows SessionList/SourcesListPanel patterns for visual consistency.
+ * The left list of Settings: two groups (Account, Workspace) of one-line rows,
+ * an icon and a label each, the open one filled. No descriptions, no dividers.
+ * Skills, Sources and Automations are areas that live here; selecting one opens
+ * that area's own list and details.
  */
 
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MoreHorizontal, AppWindow } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  StyledDropdownMenuContent,
-  StyledDropdownMenuItem,
-} from '@/components/ui/styled-dropdown'
-import { DropdownMenuProvider } from '@/components/ui/menu-context'
 import { cn } from '@/lib/utils'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import type { SettingsSubpage } from '../../../shared/types'
@@ -28,6 +20,14 @@ export const meta: DetailsPageMeta = {
   slug: 'navigator',
 }
 
+/** Another area that lives under Settings: selecting it opens that area's own list and details. */
+export interface SettingsAreaLink {
+  id: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  onSelect: () => void
+}
+
 interface SettingsNavigatorProps {
   /**
    * Currently selected settings subpage. `null` means the bare `settings`
@@ -37,123 +37,39 @@ interface SettingsNavigatorProps {
   selectedSubpage: SettingsSubpage | null
   /** Called when a subpage is selected */
   onSelectSubpage: (subpage: SettingsSubpage) => void
-  /** Areas moved under Settings, listed after the settings pages. */
+  /** Areas moved under Settings (Workspace group, after the settings pages). */
   areaLinks?: SettingsAreaLink[]
 }
 
-interface SettingsItem {
-  id: string
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-  description: string
-  /** A link to another area (Skills, Sources, Automations), not a settings page: no "open in new window" menu. */
-  link?: boolean
-}
-
-/** Another area that lives under Settings: selecting it opens that area's own list and details. */
-export interface SettingsAreaLink {
+interface Row {
   id: string
   label: string
   icon: React.ComponentType<{ className?: string }>
   onSelect: () => void
 }
 
-interface SettingsItemRowProps {
-  item: SettingsItem
-  isSelected: boolean
-  isFirst: boolean
-  onSelect: () => void
-}
+/** Pages that belong to you; everything else belongs to the workspace. */
+const ACCOUNT_PAGES = new Set<string>(['app', 'ai', 'appearance', 'input', 'shortcuts', 'preferences'])
 
-/**
- * SettingsItemRow - Individual settings item with dropdown menu
- * Tracks menu open state to keep "..." button visible when menu is open
- */
-function SettingsItemRow({ item, isSelected, isFirst, onSelect }: SettingsItemRowProps) {
-  const { t } = useTranslation()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const Icon = item.icon
-
-  // Open settings page in a new window via deep link
-  const handleOpenInNewWindow = () => {
-    window.electronAPI.openUrl(`craftagents://settings/${item.id}?window=focused`)
-  }
-
+function SettingsRow({ row, active }: { row: Row; active: boolean }) {
+  const Icon = row.icon
   return (
-    <div className="settings-item" data-selected={isSelected || undefined}>
-      {/* Wrapper for button with proper margins */}
-      <div className="settings-content relative group select-none pl-2 mr-2">
-        {/* Icon - positioned absolutely for consistent alignment */}
-        <div className="absolute left-[20px] top-[14px] z-10">
-          <Icon
-            className={cn(
-              'w-4 h-4 shrink-0',
-              isSelected ? 'text-foreground' : 'text-muted-foreground'
-            )}
-          />
-        </div>
-        {/* Main content button */}
-        <button
-          type="button"
-          onClick={onSelect}
-          className={cn(
-            'flex w-full items-start gap-2 pl-2 pr-4 py-3 text-left text-sm outline-none rounded-[8px]',
-            // Fast hover transition (75ms vs default 150ms)
-            'transition-[background-color] duration-75',
-            isSelected
-              ? 'bg-foreground/5 hover:bg-foreground/7'
-              : 'hover:bg-foreground/2'
-          )}
-        >
-          {/* Spacer for icon */}
-          <div className="w-6 h-5 shrink-0" />
-          {/* Content column */}
-          <div className="flex flex-col min-w-0 flex-1">
-            <span
-              className={cn(
-                'font-medium',
-                isSelected ? 'text-foreground' : 'text-foreground/80'
-              )}
-            >
-              {item.label}
-            </span>
-            {item.description && (
-              <span className="text-xs text-foreground/60 line-clamp-1">
-                {item.description}
-              </span>
-            )}
-          </div>
-        </button>
-        {/* Action buttons - visible on hover or when menu is open */}
-        {!item.link && (
-        <div
-          data-touch-reveal="true"
-          className={cn(
-            'absolute right-2 top-2 transition-opacity z-10',
-            menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          )}
-        >
-          <div className="flex items-center rounded-[8px] overflow-hidden border border-transparent hover:border-border/50">
-            <DropdownMenu modal={true} onOpenChange={setMenuOpen}>
-              <DropdownMenuTrigger asChild>
-                <div className="p-1.5 hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer">
-                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </DropdownMenuTrigger>
-              <StyledDropdownMenuContent align="end">
-                <DropdownMenuProvider>
-                  <StyledDropdownMenuItem onClick={handleOpenInNewWindow}>
-                    <AppWindow className="h-3.5 w-3.5" />
-                    <span className="flex-1">{t("sessionMenu.openInNewWindow")}</span>
-                  </StyledDropdownMenuItem>
-                </DropdownMenuProvider>
-              </StyledDropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-        )}
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={row.onSelect}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex h-7 w-full select-none items-center gap-2 rounded-[6px] px-1 text-left text-[13px] outline-none',
+        'text-foreground/80 transition-colors duration-75 hover:bg-foreground/5',
+        'focus-visible:ring-1 focus-visible:ring-ring',
+        active && 'bg-foreground/8 text-foreground',
+      )}
+    >
+      <span className="flex size-5 shrink-0 items-center justify-center">
+        <Icon className="size-3.5 opacity-70" />
+      </span>
+      <span className="truncate">{row.label}</span>
+    </button>
   )
 }
 
@@ -164,40 +80,35 @@ export default function SettingsNavigator({
 }: SettingsNavigatorProps) {
   const { t } = useTranslation()
 
-  const settingsItems: SettingsItem[] = useMemo(() =>
-    SETTINGS_ITEMS.map((item) => ({
+  const groups = useMemo(() => {
+    const pages: Row[] = SETTINGS_ITEMS.map((item) => ({
       id: item.id,
       label: t(item.labelKey),
       icon: SETTINGS_ICONS[item.id],
-      description: t(item.descriptionKey),
-    })),
-    [t]
-  )
+      onSelect: () => onSelectSubpage(item.id as SettingsSubpage),
+    }))
+    return [
+      { title: 'Account', rows: pages.filter((row) => ACCOUNT_PAGES.has(row.id)) },
+      {
+        title: 'Workspace',
+        rows: [
+          ...pages.filter((row) => !ACCOUNT_PAGES.has(row.id)),
+          ...areaLinks.map((link) => ({ ...link })),
+        ],
+      },
+    ]
+  }, [t, onSelectSubpage, areaLinks])
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto">
-        <div className="pt-2">
-          {settingsItems.map((item, index) => (
-            <SettingsItemRow
-              key={item.id}
-              item={item}
-              isSelected={selectedSubpage === item.id}
-              isFirst={index === 0}
-              onSelect={() => onSelectSubpage(item.id as SettingsSubpage)}
-            />
-          ))}
-          {areaLinks.map((link) => (
-            <SettingsItemRow
-              key={link.id}
-              item={{ id: link.id, label: link.label, icon: link.icon, description: '', link: true }}
-              isSelected={false}
-              isFirst={false}
-              onSelect={link.onSelect}
-            />
+    <nav aria-label="Settings" className="flex h-full flex-col gap-3 overflow-y-auto px-2 pb-2">
+      {groups.map((group) => (
+        <div key={group.title} className="flex flex-col gap-0.5">
+          <div className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">{group.title}</div>
+          {group.rows.map((row) => (
+            <SettingsRow key={row.id} row={row} active={selectedSubpage === row.id} />
           ))}
         </div>
-      </div>
-    </div>
+      ))}
+    </nav>
   )
 }

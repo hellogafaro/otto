@@ -9,7 +9,7 @@ export const settingsUI = {
   label: 'text-sm font-medium',
 
   /** Description style for setting subtitles */
-  description: 'text-sm text-muted-foreground',
+  description: 'text-xs text-muted-foreground',
 
   /** Smaller description for compact contexts (e.g., menu options) */
   descriptionSmall: 'text-xs text-muted-foreground',

@@ -974,3 +974,24 @@ Unknown creation outcomes disable another submission in the current form and dir
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
 9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
 10. A new chat has two pickers, With and Project. It is always participants-only; the project's own chat is the one open to everyone in the project.
+
+## Craft shell
+
+The app now runs on Craft Agents (see `UPSTREAM.md`); these are the Otto rules
+that carry over, applied where Craft draws the same thing.
+
+- **Layers.** `--frame` (behind everything) is the darkest layer: the rail, the
+  top bar and the 8px gap sit on it. One card (`bg-background`, 12px corners,
+  hairline ring, `shadow-xs`) holds the sidebar, the list and the page, split by
+  hairlines. No floating panels, no gaps between them.
+- **Rail.** 48px wide, 32px buttons, 18px icons, no labels, Settings last at
+  the bottom. Sized in px: the root font size must not change it.
+- **Left lists** (Settings, sessions): a 40px header with the title left-aligned
+  16px in, then groups with a small muted title, rows 28px with 6px corners, a
+  20px icon slot, the open row filled. One line per row, no descriptions, no
+  dividers, no row menus.
+- **Settings pages.** Sections are an h2 (`text-base`, medium) with an optional
+  one-line description, then a 12px card with a hairline ring whose rows are
+  split by hairlines. A row is a label and one muted line on the left and one
+  control on the right, 16px sides and 12px above and below.
+- **Root font size** stays at Craft's 15px; Craft sizes in `rem`.
