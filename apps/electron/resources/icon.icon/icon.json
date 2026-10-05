@@ -1,6 +1,6 @@
 {
   "fill" : {
-    "automatic-gradient" : "srgb:1.00000,1.00000,1.00000,1.00000"
+    "automatic-gradient" : "srgb:0.20784,0.70980,0.93333,1.00000"
   },
   "groups" : [
     {
@@ -9,7 +9,7 @@
           "image-name" : "icon.svg",
           "name" : "icon",
           "position" : {
-            "scale" : 37,
+            "scale" : 1,
             "translation-in-points" : [
               0,
               0
