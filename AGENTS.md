@@ -27,7 +27,8 @@ Otto is a Bun monorepo that started from Craft Agents (see [UPSTREAM](UPSTREAM.m
 - A domain owns its tables and exposes plain functions; other domains call those functions and never read its tables.
 - Every row id is `createId()` from `@craft-agent/shared/id` (12 lowercase letters and digits). No uuids, autoincrement or other id shapes.
 - Tables are plural snake_case. Display labels are `title`, discriminators `type`, timestamps `createdAt` / `updatedAt`. Getters are `getThing` / `getThings`.
-- `secrets` is its own domain: `secrets(id, name, value)`, one `ENCRYPTION_KEY` env (32 bytes), AES-256-GCM, no rotation or versioning. Other domains keep a `secretId`; the value never leaves the server.
+- `secrets` is its own domain: `secrets(id, name, value)`, one `ENCRYPTION_KEY` env (32 bytes; the server refuses to boot without it; dev has a placeholder in Infisical), AES-256-GCM, no rotation or versioning. Other domains keep a `secretId`; the value never leaves the server.
+- No ORM or migration tool yet: a domain creates its table with `CREATE TABLE IF NOT EXISTS` when it starts. Add Drizzle migrations when a schema first has to change.
 - Pi stays lean: one protocol, one endpoint. Provider accounts, sign-in, model discovery and routing belong to the `providers` domain and the gateway that turns the Claude and Codex CLIs into APIs, never to Pi.
 
 ## Checks and delivery

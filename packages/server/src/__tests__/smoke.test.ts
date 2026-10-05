@@ -32,6 +32,7 @@ async function spawnTestServer(extraEnv?: Record<string, string>): Promise<Spawn
   const proc = Bun.spawn(['bun', 'run', SERVER_ENTRY], {
     env: {
       ...parentEnv,
+      ENCRYPTION_KEY: '0'.repeat(64),
       ...extraEnv,
       CRAFT_SERVER_TOKEN: token,
       CRAFT_RPC_PORT: '0',
@@ -154,6 +155,7 @@ describe('headless server smoke test', () => {
     const proc = Bun.spawn(['bun', 'run', SERVER_ENTRY], {
       env: {
         ...parentEnv,
+        ENCRYPTION_KEY: '0'.repeat(64),
         CRAFT_SERVER_TOKEN: token,
         CRAFT_RPC_PORT: '0',
         CRAFT_RPC_HOST: '127.0.0.1',
