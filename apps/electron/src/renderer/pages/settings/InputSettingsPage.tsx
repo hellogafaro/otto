@@ -10,8 +10,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useTranslation } from 'react-i18next'
-import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { isMac } from '@/lib/platform'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
@@ -82,7 +82,7 @@ export default function InputSettingsPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <PanelHeader title={t("settings.input.title")} />
+      <SettingsPageHeader subpage="input" />
       <div className="flex-1 min-h-0 mask-fade-y">
         <ScrollArea className="h-full">
           <div className="px-5 py-7 max-w-3xl mx-auto">

@@ -9,9 +9,9 @@
  */
 
 import * as React from 'react'
+import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Spinner } from '@craft-agent/ui'
 import {
@@ -186,7 +186,7 @@ export default function PreferencesPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <PanelHeader title={t("settings.preferences.title")} />
+      <SettingsPageHeader subpage="preferences" />
       <div className="flex-1 min-h-0 mask-fade-y">
         <ScrollArea className="h-full">
           <div className="px-5 py-7 max-w-3xl mx-auto space-y-8">

@@ -2,7 +2,7 @@
  * PanelHeader - Standardized header component for panels
  *
  * Provides consistent header styling with:
- * - Fixed 50px height
+ * - Fixed 44px height (28px controls, 8px from every edge)
  * - Title with optional badge
  * - Optional action buttons
  * - Optional title dropdown menu (renders chevron and makes title interactive)
@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { StyledDropdownMenuContent } from '@/components/ui/styled-dropdown'
+import { PanelBreadcrumb, type PanelCrumb } from './PanelBreadcrumb'
 
 // Spring transition for smooth animations (matches sidebar)
 const springTransition = { type: 'spring' as const, stiffness: 300, damping: 30 }
@@ -66,6 +67,8 @@ function compactTitleInset(controlCount: number): number {
 export interface PanelHeaderProps {
   /** Header title (undefined hides with animation) */
   title?: string
+  /** A breadcrumb in place of the title: small ghost buttons with icons, the last the current page */
+  crumbs?: PanelCrumb[]
   /** Optional badge element (e.g., agent badge) */
   badge?: React.ReactNode
   /** Optional dropdown menu content for interactive title (renders chevron when provided) */
@@ -103,6 +106,7 @@ export interface PanelHeaderProps {
  */
 export function PanelHeader({
   title,
+  crumbs,
   badge,
   titleMenu,
   compactTitleMenu,
@@ -186,7 +190,9 @@ export function PanelHeader({
     </DropdownMenu>
   ) : titleContent
 
-  const titleNode = (isCompactMode && compactTitleMenu) ? compactTitleMenu : desktopTitleNode
+  const titleNode = crumbs
+    ? <PanelBreadcrumb crumbs={crumbs} />
+    : (isCompactMode && compactTitleMenu) ? compactTitleMenu : desktopTitleNode
 
   // Compact (mobile) layout puts the title in an absolute-positioned overlay.
   // The side insets are based on the actual number of control slots so a long
@@ -263,12 +269,12 @@ export function PanelHeader({
   )
 
   // Base padding (16px = pl-4, matches pr-2 when leading action present for symmetry)
-  const basePadding = leadingAction ? 8 : 16
+  const basePadding = leadingAction || crumbs ? 8 : 16
 
   const baseClassName = cn(
-    'flex shrink-0 items-center pr-2 min-w-0 gap-1.5 relative z-panel h-10',
+    'flex shrink-0 items-center pr-2 min-w-0 gap-1.5 relative z-panel h-11',
     // Only use static paddingLeft class when not animating
-    !shouldCompensate && (paddingLeft || (leadingAction ? 'pl-2' : 'pl-4')),
+    !shouldCompensate && (paddingLeft || (leadingAction || crumbs ? 'pl-2' : 'pl-4')),
     className
   )
 

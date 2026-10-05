@@ -5,8 +5,8 @@
  */
 
 import * as React from 'react'
+import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useTranslation } from 'react-i18next'
-import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SettingsSection, SettingsCard, SettingsRow } from '@/components/settings'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
@@ -128,7 +128,7 @@ export default function ShortcutsPage() {
   const componentSpecificSections = useComponentSpecificSections()
   return (
     <div className="h-full flex flex-col">
-      <PanelHeader title={t("settings.shortcuts.title")} />
+      <SettingsPageHeader subpage="shortcuts" />
       <div className="flex-1 min-h-0 mask-fade-y">
         <ScrollArea className="h-full">
           <div className="px-5 py-7 max-w-3xl mx-auto space-y-8">

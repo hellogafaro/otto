@@ -5,8 +5,8 @@
  */
 
 import * as React from 'react'
+import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useTranslation } from 'react-i18next'
-import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { isMac } from '@/lib/platform'
@@ -102,7 +102,7 @@ export default function ShortcutsPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <PanelHeader title={t("shortcuts.title")} />
+      <SettingsPageHeader subpage="shortcuts" />
       <Separator />
       <ScrollArea className="flex-1">
         <div className="px-5 py-4">

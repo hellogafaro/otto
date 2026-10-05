@@ -6,10 +6,10 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useTranslation } from 'react-i18next'
 import { Copy, Eye, EyeOff, AlertTriangle, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
-import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@craft-agent/ui'
@@ -168,7 +168,7 @@ export default function ServerSettingsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PanelHeader title={t("settings.server.title")} />
+      <SettingsPageHeader subpage="server" />
       <ScrollArea className="flex-1">
         <div className="px-5 py-7 max-w-3xl mx-auto space-y-5">
 

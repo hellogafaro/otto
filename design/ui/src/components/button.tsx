@@ -24,7 +24,7 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 rounded-sm px-2.5 text-xs has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1 px-3 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         // Otto: 28px for dense bars (filter groups) between xs and sm.
-        compact: "h-7 gap-1 rounded-sm px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        compact: "h-7 gap-1.5 rounded-sm px-2 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-10 gap-1.5 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
         icon: "size-9",
         "icon-xs": "size-6 rounded-sm [&_svg:not([class*='size-'])]:size-3",

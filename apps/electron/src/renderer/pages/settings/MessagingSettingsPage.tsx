@@ -16,6 +16,7 @@
  */
 
 import * as React from 'react'
+import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -35,7 +36,6 @@ import {
   Settings2,
   Trash2,
 } from 'lucide-react'
-import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import {
@@ -111,7 +111,7 @@ export default function MessagingSettingsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <PanelHeader title={t('settings.messaging.title')} />
+      <SettingsPageHeader subpage="messaging" />
       <ScrollArea className="flex-1">
         <div className="space-y-6 p-6">
           <SettingsSection title={t('settings.messaging.title')}>
