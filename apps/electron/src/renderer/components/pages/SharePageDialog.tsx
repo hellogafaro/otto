@@ -29,10 +29,9 @@ import { describeGrantAction, useGrantRemoval } from './grant-visuals'
  */
 
 /**
- * Client-side mirror of the Worker's PASSWORD_MIN_LENGTH (workers/pages/
- * src/password.ts). UX only — the Worker re-validates on create/update and is
- * authoritative — but keep the two in sync so users get inline feedback rather
- * than a server error toast.
+ * Minimum password length for a shared page. UX only: the server re-validates
+ * on create/update and is authoritative, but checking here gives inline
+ * feedback rather than a server error toast.
  */
 const PAGE_PASSWORD_MIN_LENGTH = 8
 

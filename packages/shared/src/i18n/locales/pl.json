@@ -378,7 +378,6 @@
   "dialog.deleteAutomation.description": "Czy na pewno chcesz usunąć <strong>{{name}}</strong>? Spowoduje to usunięcie automatyzacji z konfiguracji automations.json.",
   "dialog.deleteAutomation.title": "Usuń automatyzację",
   "dialog.deleteSessionConfirmation": "Usunąć sesję \"{{name}}\"?",
-  "dialog.logoutConfirmation": "Czy na pewno chcesz się wylogować?",
   "dialog.pairingCode.expired": "Kod wygasł — wygeneruj nowy.",
   "dialog.pairingCode.expires": "Kod wygasa za",
   "dialog.pairingCode.expiresIn": "Kod wygaśnie za {{minutes}}:{{seconds}}",

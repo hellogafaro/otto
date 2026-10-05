@@ -5,28 +5,11 @@ import type { HandlerDeps } from '../handler-deps'
 import { requestClientConfirmDialog } from '@otto/server-core/transport'
 
 export const HANDLED_CHANNELS = [
-  RPC_CHANNELS.auth.SHOW_LOGOUT_CONFIRMATION,
   RPC_CHANNELS.auth.SHOW_DELETE_SESSION_CONFIRMATION,
   RPC_CHANNELS.credentials.HEALTH_CHECK,
 ] as const
 
 export function registerAuthHandlers(server: RpcServer, deps: HandlerDeps): void {
-  // Show logout confirmation dialog (routed to client)
-  server.handle(RPC_CHANNELS.auth.SHOW_LOGOUT_CONFIRMATION, async (ctx) => {
-    const result = await requestClientConfirmDialog(server, ctx.clientId, {
-      type: 'warning',
-      buttons: ['Cancel', 'Log Out'],
-      defaultId: 0,
-      cancelId: 0,
-      title: 'Log Out',
-      message: 'Are you sure you want to log out?',
-      detail: 'All conversations will be deleted. This action cannot be undone.',
-    })
-    // result.response is the index of the clicked button
-    // 0 = Cancel, 1 = Log Out
-    return result.response === 1
-  })
-
   // Show delete session confirmation dialog (routed to client)
   server.handle(RPC_CHANNELS.auth.SHOW_DELETE_SESSION_CONFIRMATION, async (ctx, name: string) => {
     const result = await requestClientConfirmDialog(server, ctx.clientId, {

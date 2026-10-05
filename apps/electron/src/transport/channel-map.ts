@@ -111,7 +111,6 @@ export const CHANNEL_MAP = {
   onDeepLinkNavigate: listener(RPC_CHANNELS.deeplink.NAVIGATE),
 
   // Auth
-  showLogoutConfirmation: invoke(RPC_CHANNELS.auth.SHOW_LOGOUT_CONFIRMATION),
   showDeleteSessionConfirmation: invoke(RPC_CHANNELS.auth.SHOW_DELETE_SESSION_CONFIRMATION),
   getCredentialHealth: invoke(RPC_CHANNELS.credentials.HEALTH_CHECK),
 

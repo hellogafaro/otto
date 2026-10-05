@@ -47,7 +47,6 @@ export const LOCAL_ONLY_CHANNELS = new Set<string>([
   RPC_CHANNELS.dialog.OPEN_FOLDER,
 
   // auth — local auth state + native dialogs
-  RPC_CHANNELS.auth.SHOW_LOGOUT_CONFIRMATION,
   RPC_CHANNELS.auth.SHOW_DELETE_SESSION_CONFIRMATION,
 
   // shell — local OS shell (openFile/showInFolder guarded for remote)

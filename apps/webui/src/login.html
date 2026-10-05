@@ -11,226 +11,189 @@
   <meta name="theme-color" content="#060606" media="(prefers-color-scheme: dark)" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500&display=swap" rel="stylesheet">
   <style>
+    /* Otto tokens, copied from design/ui/src/styles/globals.css (:root and .dark).
+       This page is static HTML served before sign-in, so it cannot load the app
+       stylesheet. Layers as in DESIGN.md: frame (--sidebar), card on it. */
     :root {
       color-scheme: light dark;
-      --page-bg: #f8f8fa;
-      --page-fg: #1a1a2e;
-      --card-bg: rgba(255, 255, 255, 0.86);
-      --card-border: rgba(228, 228, 232, 0.9);
-      --card-shadow: 0 32px 96px rgba(41, 25, 63, 0.14), 0 16px 40px rgba(41, 25, 63, 0.08);
-      --subtitle: rgba(26, 26, 46, 0.56);
-      --input-bg: rgba(255, 255, 255, 0.72);
-      --input-border: rgba(212, 212, 216, 0.95);
-      --placeholder: rgba(26, 26, 46, 0.34);
-      --accent: #6d5dfc;
-      --accent-hover: #5a4be0;
-      --ambient-strong: rgba(104, 78, 133, 0.18);
-      --ambient-soft: rgba(104, 78, 133, 0.1);
-      --grain-1: rgba(104, 78, 133, 0.055);
-      --grain-2: rgba(104, 78, 133, 0.03);
-      --error-bg: #fef2f2;
-      --error-border: #fecaca;
-      --error-fg: #b91c1c;
+      --foreground: oklch(0.145 0 0);
+      --card: oklch(1 0 0);
+      --sidebar: oklch(0.96 0 0);
+      --muted-foreground: oklch(0.556 0 0);
+      --primary: oklch(0.546 0.245 262.881);
+      --primary-foreground: oklch(0.985 0 0);
+      --input: oklch(0.922 0 0);
+      --ring: oklch(0.708 0 0);
+      --destructive: oklch(0.577 0.245 27.325);
+      --text-sm: 0.8125rem;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --foreground: oklch(0.985 0 0);
+        --card: oklch(0.22 0 0);
+        --sidebar: oklch(0.12 0 0);
+        --muted-foreground: oklch(0.708 0 0);
+        --primary: oklch(0.623 0.214 259.815);
+        --input: oklch(1 0 0 / 15%);
+        --ring: oklch(0.556 0 0);
+        --destructive: oklch(0.704 0.191 22.216);
+      }
+    }
+
+    @media (width < 48rem) {
+      :root { --text-sm: 0.875rem; }
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      overflow: hidden;
-      position: relative;
-      isolation: isolate;
-      background: var(--page-bg);
-      color: var(--page-fg);
+      min-height: 100dvh;
       padding: 16px;
+      background: var(--sidebar);
+      color: var(--foreground);
+      font-family: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: var(--text-sm);
+      line-height: 1.25rem;
+      -webkit-font-smoothing: antialiased;
     }
 
-    body::before,
-    body::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
-
-    body::before {
-      inset: -18%;
-      background:
-        radial-gradient(circle at 18% 20%, var(--ambient-strong) 0, transparent 34%),
-        radial-gradient(circle at 82% 18%, var(--ambient-soft) 0, transparent 28%),
-        radial-gradient(circle at 76% 76%, rgba(104, 78, 133, 0.16) 0, transparent 34%),
-        radial-gradient(circle at 30% 78%, rgba(104, 78, 133, 0.11) 0, transparent 30%);
-      filter: blur(44px);
-      opacity: 0.95;
-      transform: scale(1.08);
-      animation: drift 24s ease-in-out infinite alternate;
-    }
-
-    body::after {
-      background:
-        radial-gradient(circle at center, rgba(104, 78, 133, 0.06), transparent 58%),
-        repeating-linear-gradient(135deg, var(--grain-1) 0 1px, transparent 1px 7px),
-        repeating-linear-gradient(45deg, var(--grain-2) 0 1px, transparent 1px 11px);
-      opacity: 0.45;
-      mix-blend-mode: multiply;
-    }
-
+    /* Card: --card, 1px foreground/10 hairline ring, shadow-xs, 12px radius. */
     .card {
-      position: relative;
-      z-index: 1;
       width: 100%;
-      max-width: 28rem;
+      max-width: 25rem;
       padding: 32px;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 20px;
+      background: var(--card);
+      border-radius: 12px;
       text-align: center;
-      box-shadow: var(--card-shadow);
-      backdrop-filter: blur(24px) saturate(140%);
-      -webkit-backdrop-filter: blur(24px) saturate(140%);
+      box-shadow:
+        0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+        0 1px 2px 0 rgb(0 0 0 / 0.05);
+    }
+
+    .logo {
+      display: block;
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 20px;
+      color: var(--foreground);
     }
 
     h1 {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 4px;
+      font-size: calc(var(--text-sm) * 1.618);
+      line-height: 1.75rem;
+      font-weight: 500;
     }
 
     .subtitle {
-      margin: 0 auto 28px;
-      max-width: 20rem;
-      font-size: 13px;
-      line-height: 1.5;
-      color: var(--subtitle);
+      margin-top: 4px;
+      color: var(--muted-foreground);
     }
+
+    form { margin-top: 32px; }
 
     label {
       display: block;
+      margin-bottom: 8px;
       text-align: left;
-      font-size: 13px;
       font-weight: 500;
-      margin-bottom: 6px;
     }
 
+    /* Input: 32px, solid bg-input/50, 8px radius, no focus ring (the caret shows
+       focus), red border when invalid. */
     input {
       width: 100%;
-      padding: 10px 12px;
-      font-size: 14px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      border: 1px solid var(--input-border);
+      height: 32px;
+      padding: 4px 12px;
+      border: 1px solid transparent;
       border-radius: 8px;
       outline: none;
-      background: var(--input-bg);
-      color: var(--page-fg);
-      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+      background: color-mix(in oklab, var(--input) 50%, transparent);
+      color: var(--foreground);
+      font: inherit;
+      font-size: var(--text-sm);
+      transition: color 0.15s, background-color 0.15s, border-color 0.15s;
     }
 
-    input::placeholder {
-      color: var(--placeholder);
+    input::placeholder { color: var(--muted-foreground); }
+
+    .card:has(.error.visible) input {
+      border-color: var(--destructive);
     }
 
-    input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(109, 93, 252, 0.1);
+    @media (prefers-color-scheme: dark) {
+      .card:has(.error.visible) input {
+        border-color: color-mix(in oklab, var(--destructive) 50%, transparent);
+      }
     }
 
+    /* Primary button: 32px, 8px radius, hover primary/80, focus ring ring/30. */
     button {
       width: 100%;
+      height: 32px;
       margin-top: 20px;
-      padding: 10px;
-      font-size: 14px;
-      font-weight: 500;
-      font-family: 'Inter', sans-serif;
-      color: white;
-      background: linear-gradient(180deg, #7b6dff 0%, var(--accent) 100%);
-      border: none;
+      padding: 0 8px;
+      border: 1px solid transparent;
       border-radius: 8px;
+      outline: none;
+      background: var(--primary);
+      color: var(--primary-foreground);
+      font: inherit;
+      font-size: var(--text-sm);
+      font-weight: 500;
       cursor: pointer;
-      transition: transform 0.15s, filter 0.15s, background 0.15s;
-      box-shadow: 0 10px 24px rgba(109, 93, 252, 0.28);
+      transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
     }
 
-    button:hover {
-      background: linear-gradient(180deg, #705fff 0%, var(--accent-hover) 100%);
-      transform: translateY(-1px);
-      filter: brightness(1.02);
+    button:hover { background: color-mix(in oklab, var(--primary) 80%, transparent); }
+
+    button:focus-visible {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 30%, transparent);
     }
+
+    button:active { transform: translateY(1px); }
 
     button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-      filter: none;
+      opacity: 0.5;
+      cursor: default;
+      pointer-events: none;
     }
 
     .error {
       display: none;
-      margin-top: 16px;
-      padding: 10px 12px;
-      font-size: 13px;
-      background: var(--error-bg);
-      border: 1px solid var(--error-border);
-      border-radius: 8px;
-      color: var(--error-fg);
+      margin-top: 12px;
+      color: var(--destructive);
     }
 
     .error.visible { display: block; }
 
-    @keyframes drift {
-      from { transform: scale(1.08) translate3d(-2%, -1%, 0); }
-      to { transform: scale(1.12) translate3d(2%, 1.5%, 0); }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      body::before {
-        animation: none;
-      }
-
-      button {
-        transition: background 0.15s;
-      }
-
-      button:hover {
-        transform: none;
-        filter: none;
-      }
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --page-bg: #0f0f14;
-        --page-fg: #e0e0e8;
-        --card-bg: rgba(26, 26, 34, 0.82);
-        --card-border: rgba(42, 42, 53, 0.95);
-        --card-shadow: 0 32px 96px rgba(0, 0, 0, 0.42), 0 16px 40px rgba(0, 0, 0, 0.24);
-        --subtitle: rgba(224, 224, 232, 0.64);
-        --input-bg: rgba(15, 15, 20, 0.72);
-        --input-border: rgba(42, 42, 53, 0.95);
-        --placeholder: rgba(224, 224, 232, 0.32);
-        --ambient-strong: rgba(155, 123, 184, 0.22);
-        --ambient-soft: rgba(155, 123, 184, 0.12);
-        --grain-1: rgba(155, 123, 184, 0.06);
-        --grain-2: rgba(155, 123, 184, 0.035);
-        --error-bg: #2d1a1a;
-        --error-border: #5a2020;
-        --error-fg: #f5a0a0;
-      }
+    /* Inputs are at least 16px on phones (iOS zooms below that). */
+    @media (width < 48rem) {
+      input { font-size: 1rem; }
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Otto</h1>
+    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 699 648" fill="currentColor" aria-hidden="true">
+      <path d="M455.72 308.552C434.87 362.176 432.085 421.138 447.785 476.488C463.485 531.839 496.814 580.557 542.713 615.248L592.532 549.333C560.978 525.484 538.066 491.993 527.273 453.942C516.48 415.891 518.395 375.357 532.728 338.493L455.72 308.552Z"/>
+      <path d="M415.491 408.171C358.626 416.928 306.171 443.996 266.086 485.268C226.001 526.54 200.475 579.763 193.381 636.858L275.375 647.045C280.251 607.794 297.799 571.206 325.356 542.833C352.913 514.46 388.974 495.852 428.065 489.833L415.491 408.171Z"/>
+      <path d="M309.103 423.142C273.088 378.274 223.419 346.381 167.633 332.302C111.848 318.223 52.9928 322.728 0 345.133L32.1748 421.235C68.605 405.832 109.065 402.735 147.415 412.414C185.765 422.092 219.911 444.018 244.67 474.862L309.103 423.142Z"/>
+      <path d="M242.945 338.493C263.794 284.869 266.58 225.907 250.88 170.556C235.179 115.206 201.85 66.4879 155.951 31.7971L106.132 97.7121C137.686 121.561 160.598 155.052 171.392 193.103C182.185 231.154 180.27 271.688 165.937 308.552L242.945 338.493Z"/>
+      <path d="M283.174 238.874C340.038 230.117 392.493 203.049 432.578 161.777C472.663 120.505 498.19 67.2822 505.283 10.1867L423.29 0C418.413 39.2506 400.865 75.8389 373.308 104.212C345.752 132.584 309.691 151.193 270.599 157.212L283.174 238.874Z"/>
+      <path d="M389.561 223.903C425.576 268.771 475.246 300.664 531.031 314.743C586.816 328.822 645.672 324.317 698.664 301.912L666.49 225.81C630.059 241.213 589.599 244.309 551.249 234.631C512.899 224.953 478.753 203.027 453.995 172.183L389.561 223.903Z"/>
+    </svg>
+    <h1>Sign in to Otto</h1>
     <p class="subtitle">Enter your server token to continue</p>
 
     <form id="login-form">
-      <label for="password">Server Token</label>
+      <label for="password">Server token</label>
       <input
         id="password"
         name="password"
@@ -240,10 +203,10 @@
         autofocus
         required
       >
-      <button type="submit" id="submit-btn">Sign In</button>
+      <button type="submit" id="submit-btn">Sign in</button>
     </form>
 
-    <div id="error" class="error"></div>
+    <div id="error" class="error" role="alert"></div>
   </div>
 
   <script>
@@ -279,7 +242,7 @@
         errorEl.classList.add('visible');
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Sign In';
+        submitBtn.textContent = 'Sign in';
       }
     });
   </script>

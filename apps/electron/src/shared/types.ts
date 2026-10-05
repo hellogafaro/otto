@@ -374,7 +374,6 @@ export interface ElectronAPI {
   onDeepLinkNavigate(callback: (nav: DeepLinkNavigation) => void): () => void
 
   // Auth
-  showLogoutConfirmation(): Promise<boolean>
   showDeleteSessionConfirmation(name: string): Promise<boolean>
 
   // Credential health check (startup validation)

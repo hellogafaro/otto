@@ -934,6 +934,14 @@ Account forms use a centered 336px column, 24px side padding and 64px vertical
 padding, with the shared page-title typography and no logo. Labels stay above
 their inputs; the primary submission spans the column and secondary account
 actions center beneath it. Sign-in methods reflect configured backend support.
+The browser sign-in page (`apps/webui/src/login.html`) is static HTML served
+before the app, so it inlines the `:root` and `.dark` token values (light and dark
+by `prefers-color-scheme`) instead of loading the app stylesheet. It is a `bg-card`
+card (hairline ring, `shadow-xs`, `xl` 12 corners, 32px padding, 336px column)
+centered on the frame (`--sidebar`), the one place with a logo: the mark at 40px
+in `foreground`, never primary, over a title-size "Sign in to Otto". The input
+and primary button are 32px with `md` 8 corners; a failed sign-in turns the input
+border and the message beneath the button `destructive`.
 The profile menu names the signed-in person and lists their accessible workspaces.
 When direct setup or creation is necessary before an Agent can run, a compact
 stock dialog may capture the backend's required fields. Ask remains available;
