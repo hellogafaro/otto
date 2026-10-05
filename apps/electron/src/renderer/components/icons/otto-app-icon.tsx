@@ -3,8 +3,9 @@ import { cn } from '@/lib/utils'
 
 /**
  * The colored Otto app icon as a 40px tile with 9px corners (22.37% of the
- * side, the iOS icon radius) and a hairline ring. It heads the splash, the
- * sign-in page and every onboarding step; the black `Logo` mark is for in-app chrome.
+ * side, the iOS icon radius) and a hairline ring. It heads the
+ * sign-in page and every onboarding step; the black `Logo` mark is for in-app chrome
+ * and the splash (debossed).
  */
 export function OttoAppIcon({ className }: { className?: string }) {
   return (

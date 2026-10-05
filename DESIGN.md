@@ -562,7 +562,7 @@ decorative (`aria-hidden`) unless given a `title`. Sources live in
 raster from them. The colored glass app icon (`otto-app-icon.svg`) is the
 only colored version: it is the dock, window, installer, home-screen and
 web-manifest icon, full-bleed with no extra rounding or shadow, and, as a 40px
-tile (see Sign-in header), the head of the splash, sign-in and onboarding
+tile (see Sign-in header), the head of the sign-in and onboarding
 screens. In-app chrome uses the black mark, never the colored icon. The tab icon
 (`favicon.svg`) is the mark, black in light and white in dark; its `favicon.ico`
 fallback is the same mark in neutral gray (`#8a8a8e`) on transparent, so it
@@ -968,8 +968,17 @@ step's own width (28rem), centered in the window, header aligned with the
 content's left edge: icon tile, 20px, title, 4px, muted description, 32px, the
 content (a `SettingsCard` or form), then actions. Full-width buttons under the
 content stack main action first; a secondary action such as "Setup later" stays
-a full-width muted ghost button directly under the card (`mt-2`). The splash is the same
-tile centered on the page layer. The completion step swaps the tile for a
+a full-width muted ghost button directly under the card (`mt-2`). The splash is not that tile: it shows the
+foreground-colored mark debossed (inset shading, never colored), 40px wide,
+centered on the page layer. The glyph is the page tinted with `foreground` at 8%
+in light, 6% in dark; a soft shadow falls inside its top-left edges (black at
+22% in light, 60% in dark, 0.8px blur, offset 0.8px down and right) and a 1px
+highlight catches the page just outside its bottom-right edges (white at 60% in
+light, where on white it only reads against the tint; 10% in dark). It is one SVG
+filter on `Logo` (`DebossedLogo` in `splash-screen.tsx`), copied into the pre-load
+loader of both `index.html` files so loader and splash are the same picture: the
+loader fades the mark in (300ms ease-out) and the splash continues at full
+opacity, then fades it out with a 1.04 scale (no scale with reduced motion). The completion step swaps the tile for a
 spinner while saving. Error and success lines under the content are `text-xs`,
 flush with the content's left edge (no extra padding), like the sign-in error.
 A control that opens something outside the app ends with ArrowUpRight (trailing,
