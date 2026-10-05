@@ -68,4 +68,16 @@ html.dark {
     zoom: 1.2;
     --webui-css-zoom: 1.2;
   }
+
+  /* Popups (menus, tooltips, popovers) are placed in screen pixels, but the
+   * positioner sits inside the zoomed root and would be zoomed again, landing
+   * 20% off and out of the window at the bottom. Cancel the zoom on the
+   * positioner and restore it on the popup. */
+  [role="presentation"][data-side] {
+    zoom: calc(1 / var(--webui-css-zoom));
+  }
+
+  [role="presentation"][data-side] > * {
+    zoom: var(--webui-css-zoom);
+  }
 }

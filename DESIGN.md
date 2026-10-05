@@ -479,8 +479,20 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     Hidden when icons only.
   - **Footer**: Settings, then the workspace row: a 32px `md` avatar in a 40px
     `xl` row (8 + 4 = 12, nested), the name and an up-down chevron. It opens the
-    workspace menu (the workspaces, remove, add) upward, or to the right when
-    icons only, where only the avatar shows, with the name in a tooltip.
+    profile menu (`ProfileMenu`, 224px, the stock dark menu) upward, or to the
+    right when icons only, where only the avatar shows, with the name in a
+    tooltip; in the sheet it is the same row and menu. In order: a label with
+    the workspace's name; **Workspace**, a submenu (Users icon) that is a radio
+    list of the workspaces (avatar, cloud state, unread dot, a check on the
+    active one, a trash on hover for the others) ending after a separator in
+    "Add Workspace…"; **Settings** with its `Kbd` (the same as the Settings row
+    above, which stays); **Appearance**, a submenu (Contrast icon) with a radio
+    group Light, Dark, System (Sun, Moon, Monitor), the Settings → Appearance
+    mode, applied at once; a separator; and **Log out** (destructive, LogOut
+    icon). Log out is on the web app only: it posts to `/api/auth/logout`, which
+    clears the session cookie, then opens `/login` (a failure toasts "Could not
+    log out"). Electron has no web session, so the item and its separator are
+    absent there. One click, no confirmation.
 - **The page header** (`ContentCardHeader`): 44px at the top of the card, 28px
   controls 8px from every edge. Leading slot, title (heading size, medium, 16px
   in when nothing leads), a quiet crumb trail, actions on the right. Pages call

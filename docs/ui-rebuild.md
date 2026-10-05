@@ -57,7 +57,7 @@ the Documents library keep their own insets inside the card.
 - [ ] `components/app-shell/sources-list-panel.tsx`
 - [ ] `components/app-shell/task-action-menu.tsx`
 - [ ] `components/app-shell/transport-connection-banner.tsx`
-- [x] `components/app-shell/workspace-switcher.tsx`
+- [x] `components/app-shell/profile-menu.tsx`
 
 ## Pages (5)
 

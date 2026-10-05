@@ -6,7 +6,7 @@
  * the primary group (the areas, in the order of DESIGN.md; ones with no route
  * yet are shown, not linked), the section that belongs
  * to the open area (passed in as `section`: Chats brings its filters and list,
- * Settings its pages), and the footer (Settings, then the workspace menu).
+ * Settings its pages), and the footer (Settings, then the profile menu).
  * Icons only below 1024px, a sheet below 768px (see the design system's
  * `Sidebar`).
  */
@@ -45,7 +45,7 @@ import { useActionLabel } from '@/actions'
 import { ActionTooltip } from '@/components/ui/action-tooltip'
 import { Kbd } from '@/components/ui/kbd'
 import type { Workspace } from '../../../shared/types'
-import { WorkspaceSwitcher } from './workspace-switcher'
+import { ProfileMenu } from './profile-menu'
 
 export type SidebarArea = 'chats' | 'projects' | 'schedules' | 'documents' | 'settings'
 
@@ -196,10 +196,11 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <WorkspaceSwitcher
+            <ProfileMenu
               workspaces={workspaces}
               activeWorkspaceId={activeWorkspaceId}
               onSelect={onSelectWorkspace}
+              onSettings={onSettings}
               workspaceUnreadMap={workspaceUnreadMap}
               onWorkspaceCreated={onWorkspaceCreated}
               onWorkspaceRemoved={onWorkspaceRemoved}
