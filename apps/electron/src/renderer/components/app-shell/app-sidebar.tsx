@@ -1,7 +1,7 @@
 /**
  * AppSidebar - the shell's one sidebar, on the frame beside the page card.
  *
- * Top to bottom: the header (the Otto mark and name; on Electron the macOS
+ * Top to bottom: the header (the Otto mark; on Electron the macOS
  * traffic-light inset, the drag region and the history Back / Forward buttons),
  * the primary group (New chat, Search, then the areas), the section that belongs
  * to the open area (passed in as `section`: Chats brings its filters and list,
@@ -110,10 +110,7 @@ export function AppSidebar({
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2 pl-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-0">
-            <span className="flex size-5 shrink-0 items-center justify-center">
-              <Logo className="size-4 text-foreground" />
-            </span>
-            <span className="truncate text-sm font-medium group-data-[collapsible=icon]:hidden">Otto</span>
+            <Logo className="size-5 text-foreground" title="Otto" />
           </div>
           {!isWebUI && (
             <div className="titlebar-no-drag flex shrink-0 items-center gap-0.5 group-data-[collapsible=icon]:hidden">

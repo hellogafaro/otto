@@ -450,8 +450,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   toggle button, cookie or shortcut: the window decides. No resizing: the
   widths are fixed (set per section through `--sidebar-width`). Inside, 8px
   from the window's edges and from the card, top to bottom:
-  - **Header**: the Otto mark (14px in a 20px slot, `text-foreground`) and
-    "Otto" (13px, medium). On Electron the header is the window's drag region,
+  - **Header**: the Otto mark alone, 20px (`size-5`, `text-foreground`), no
+    name. On Electron the header is the window's drag region,
     its row clears the macOS traffic lights (68px in; icons only, the row sits
     below them) and Back / Forward end it as two 28px ghost icon buttons with
     their keys in the tooltip (history back and forward, see Navigation). The
