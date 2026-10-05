@@ -244,9 +244,8 @@ export function InputContainer({
       {/* Visible animated container */}
       <motion.div
         className={cn(
-          "input-container relative rounded-xl overflow-hidden transition-colors",
-          "shadow-middle",
-          "bg-card"
+          // The surface is the composer card around it (`ChatInputZone`).
+          "input-container relative overflow-hidden rounded-b-xl transition-colors"
         )}
         style={{
           height: heightMotionValue,

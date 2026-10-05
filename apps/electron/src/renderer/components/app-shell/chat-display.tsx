@@ -60,6 +60,7 @@ import { useNavigation } from "@/contexts/navigation-context"
 import { useAppShellContext } from "@/context/app-shell-context"
 import { routes } from "@/lib/navigate"
 import { CHAT_LAYOUT } from "@/config/layout"
+import { PageCenterpiece } from "@workspace/ui/components/page"
 import { collectFileChangesFromActivities, getFirstFileChangeIdForActivity } from "@/lib/file-changes"
 import { handleErrorMessageAction } from "./error-message-actions"
 
@@ -1452,9 +1453,9 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
       {session ? (
         <div className="flex flex-1 flex-col min-h-0 min-w-0 relative">
           {/* Content layer */}
-          <div className="flex flex-1 flex-col min-h-0 min-w-0 relative z-10">
-          {/* === MESSAGES AREA: Scrollable list of message bubbles === */}
-          <div className="relative flex-1 min-h-0">
+          <div className="flex flex-1 flex-col gap-2 min-h-0 min-w-0 relative z-10">
+          {/* === MESSAGES AREA: the centerpiece card, the transcript scrolls inside it === */}
+          <PageCenterpiece>
             {/* Mask wrapper - fades content at top and bottom over transparent/image backgrounds */}
             <div
               className="h-full"
@@ -1465,9 +1466,8 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
             >
               <ScrollArea className="h-full min-w-0" viewportRef={scrollViewportRef}>
               <div className={cn(
-                CHAT_LAYOUT.maxWidth,
-                "mx-auto min-w-0",
-                compactMode ? "px-3 py-4 space-y-2" : [CHAT_LAYOUT.containerPadding, CHAT_LAYOUT.messageSpacing]
+                "min-w-0",
+                compactMode ? "px-3 py-4 space-y-2" : [CHAT_LAYOUT.containerPaddingX, CHAT_LAYOUT.containerPaddingY, CHAT_LAYOUT.messageSpacing]
               )}>
                 {/* Session-level AnimatePresence: Prevents layout jump when switching sessions */}
                 <AnimatePresence mode={compactMode ? "sync" : "wait"} initial={false}>
@@ -1870,7 +1870,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
               </div>
               </ScrollArea>
             </div>
-          </div>
+          </PageCenterpiece>
 
           {/* === INPUT CONTAINER: FreeForm or Structured Input === */}
           <ChatInputZone
@@ -2205,7 +2205,7 @@ function MessageBubble({
   if (message.role === 'assistant') {
     return (
       <div className="flex justify-start group">
-        <div className="relative max-w-[90%] bg-card shadow-minimal rounded-md pl-6 pr-4 py-3 break-words min-w-0 select-text">
+        <div className="relative max-w-[90%] py-3 break-words min-w-0 select-text">
           {/* Use StreamingMarkdown for block-level memoization during streaming */}
           {message.isStreaming ? (
             <StreamingMarkdown

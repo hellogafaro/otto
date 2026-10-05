@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, X } from 'lucide-react'
 import { Spinner } from '@otto/ui'
+import { Input } from '@workspace/ui/components/input'
 
 /**
  * SessionSearchHeader - Presentational component for session list search UI.
@@ -59,12 +60,13 @@ export function SessionSearchHeader({
 }: SessionSearchHeaderProps) {
   const { t } = useTranslation()
   return (
-    <div className="shrink-0 px-2 pt-2 pb-1.5 border-b border-border/50">
-      {/* Search input */}
-      <div className="relative rounded-md shadow-minimal bg-muted/50 has-[:focus-visible]:bg-background">
-        {/* Search icon - always static, never changes to spinner */}
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <input
+    <div className="flex shrink-0 flex-col gap-0.5">
+      {/* A 28px field nested in the sidebar: 6px corners, the search icon in the rows' 20px slot, the text on the rows' label column. */}
+      <div className="relative">
+        <span className="pointer-events-none absolute top-1 left-1 flex size-5 items-center justify-center text-muted-foreground">
+          <Search className="size-3.5" />
+        </span>
+        <Input
           ref={inputRef}
           type="text"
           value={searchQuery}
@@ -74,22 +76,22 @@ export function SessionSearchHeader({
           onBlur={onBlur}
           readOnly={readOnly}
           placeholder={placeholder}
-          className="w-full h-8 pl-8 pr-8 text-sm bg-transparent border-0 rounded-md outline-none focus-visible:ring-0 focus-visible:outline-none placeholder:text-muted-foreground/50"
+          className="h-7 rounded-sm pr-8 pl-8"
         />
         {onSearchClose && (
           <button
             onClick={onSearchClose}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-foreground/10 rounded"
+            className="absolute top-0.5 right-0.5 flex size-6 items-center justify-center rounded-xs text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
             title={t("session.closeSearch")}
           >
-            <X className="h-3.5 w-3.5 text-muted-foreground" />
+            <X className="size-3.5" />
           </button>
         )}
       </div>
 
       {/* Search status row - shown when search mode is active (2+ characters) */}
       {searchQuery.length >= 2 && (
-        <div className="px-2 pt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex h-7 items-center gap-1.5 px-2 text-xs text-muted-foreground">
           {isSearching ? (
             <Spinner className="text-[9px] text-foreground/50" />
           ) : isUnavailable ? (

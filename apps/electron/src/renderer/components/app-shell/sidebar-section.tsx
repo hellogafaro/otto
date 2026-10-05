@@ -6,10 +6,11 @@ import {
 } from '@workspace/ui/components/sidebar'
 
 /**
- * SidebarSection - the sidebar's section for the open area: a group whose title row
- * ends in the area's own actions (a filter menu, an add button), then its content
- * (a list, the settings pages) taking the height that is left; content taller than
- * that (an empty state on a short window) scrolls with the edge fade.
+ * SidebarSection - the sidebar's third group, the open page's own content: a title
+ * row that ends in the page's actions (a filter menu, an add button), then its
+ * content (a list, the settings pages) taking the height that is left, scrolling
+ * inside itself with the edge fade. The groups above and below stay fixed. Hidden
+ * when icons only; a page with no section simply renders none, so no gap is left.
  */
 export function SidebarSection({
   title,
@@ -22,7 +23,7 @@ export function SidebarSection({
   children?: React.ReactNode
 }) {
   return (
-    <SidebarGroup className="min-h-0 flex-1 pb-0">
+    <SidebarGroup className="min-h-0 flex-1 group-data-[collapsible=icon]:hidden">
       {title && (
         <SidebarGroupLabel>
           <span className="min-w-0 flex-1 truncate">{title}</span>

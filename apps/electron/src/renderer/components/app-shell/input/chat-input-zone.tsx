@@ -1,6 +1,5 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { CHAT_LAYOUT } from '@/config/layout'
 import { flattenLabels, type LabelConfig } from '@otto/shared/labels'
 import type { PermissionMode } from '@otto/shared/agent/modes'
 import type { SessionStatus } from '@/config/session-status-config'
@@ -70,14 +69,14 @@ export function ChatInputZone({
   }, [labels, onLabelsChange, sessionLabels])
 
   return (
-    <div className={cn(
-      CHAT_LAYOUT.maxWidth,
-      'mx-auto w-full mt-1',
-      compactMode ? 'px-2 pb-3' : 'px-3 @xs/panel:px-4 pb-4',
-      className,
-    )}>
+    <div className={cn('w-full', className)}>
+      {/* The composer card: its own sibling surface under the transcript. The option
+       * badges are its top row, the input its body: rows and controls, no inner card. */}
+      <div className="rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
       {shouldShowOptionBadges && (
+        <div className="px-2 pt-2">
         <ActiveOptionBadges
+          className="mb-0"
           permissionMode={permissionMode}
           onPermissionModeChange={onPermissionModeChange}
           tasks={tasks}
@@ -98,6 +97,7 @@ export function ChatInputZone({
           currentSessionStatus={currentSessionStatus}
           onSessionStatusChange={onSessionStatusChange}
         />
+        </div>
       )}
 
       <InputErrorBoundary
@@ -118,6 +118,7 @@ export function ChatInputZone({
           currentSessionStatus={currentSessionStatus}
         />
       </InputErrorBoundary>
+      </div>
     </div>
   )
 }

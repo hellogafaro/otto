@@ -7,14 +7,17 @@ components and the rules in `DESIGN.md`, and was looked at in light and dark.
 **Order:** foundation (React 19, `@workspace/ui` in the renderer, Radix adapters) →
 shell → settings → connection sign-in → chat → everything else. Tick as you go.
 
-**Shell (done as a skeleton):** the sidebar on the frame, the one `ContentCard` with
-`PageHeader`, the `FloatingCard` slot, and floating Back / Previous / Next
-are in. The top bar, the rail and the panel stack (several panels
-side by side, open in a new panel, `?panels=`) are deleted. Pages move onto the
-page anatomy (DESIGN.md, Page anatomy) one by one; the settings pages are the
-reference. Interim: Sources, Skills, Projects and Schedules still render their
-old list panels in the sidebar's section; the chat transcript, the info pages and
-the Documents library keep their own insets inside the card.
+**Shell (done as a skeleton):** the sidebar and the flat `PageFrame` on the frame (no
+page card): `PageHeader` draws the 52px header row above the 768px column, pages are
+blocks (`PageColumn`) or a centerpiece (`PageCenterpiece`), the `Sidecar` canvas sits
+in the right gutter and the floating Back / Previous / Next in the left one. The top
+bar, the rail, the panel stack (several panels side by side, open in a new panel,
+`?panels=`) and the page-wide `ContentCard` are deleted. Pages move onto the page
+anatomy (DESIGN.md, Page anatomy) one by one; the settings pages are the reference.
+Interim: Sources, Skills, Projects and Schedules still render their old list panels in
+the sidebar's section and their info pages inside the column without a surface of
+their own; the session info stays a popover (the sidecar is wired, nothing opens it
+yet).
 
 
 ## Shell and chrome

@@ -127,7 +127,7 @@ export function PagesHome() {
   }, [activeWorkspaceId, pendingDelete, t])
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col">
       <PageHeader
         title={t('sidebar.documents')}
         actions={
@@ -172,7 +172,7 @@ export function PagesHome() {
             {t('pages.noMatches')}
           </div>
         ) : (
-          <div className="mx-auto grid w-full max-w-[1440px] grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 p-5">
+          <div className="grid w-full grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 pt-7 pb-5">
             {visiblePages.map(page => (
               <PageTile
                 key={page.config.id}

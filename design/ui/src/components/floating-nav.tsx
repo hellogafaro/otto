@@ -8,16 +8,15 @@ import { cn } from "cn"
 import { ArrowLeftIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import * as React from "react"
 
-// Otto: Superhuman's detail controls, floating in the card's left margin: a
-// round Back button and, under it, a vertical pill with previous (up) and next
-// (down). Card-colored with the hairline ring and `shadow-sm`; 32px wide, 14px
-// icons; round on purpose (they float free of the rows and bars, which are
-// never round). Place it inside a `ContentCard` (the card is its container):
-// it is absolutely positioned 56px from the top, 56px left of the 768px
-// content column, so it floats beside the column without taking any width. It
-// shows only while the card is at least 896px wide; narrower, it hides and the
-// same actions move into the header (`FloatingNavButtons` for previous / next
-// in its trailing actions, Back in its leading slot).
+// Otto: Superhuman's detail controls, floating in the left gutter beside the
+// column: a round Back button and, under it, a vertical pill with previous (up)
+// and next (down). Card-colored with the hairline ring and `shadow-sm`; 32px
+// wide, 14px icons; round on purpose (they float free of the rows and bars,
+// which are never round). `PageHeader` portals it into the frame's left gutter,
+// 8px from the column and level with the top of the body, and only while that
+// gutter is at least 56px wide; narrower, the same actions move into the header
+// row (`FloatingNavButtons` for previous / next in its trailing actions, Back
+// in its leading slot).
 type NavAction = {
   label: string
   onClick: () => void
@@ -73,11 +72,7 @@ function FloatingNav({
   return (
     <nav
       data-slot="floating-nav"
-      className={cn(
-        "absolute top-14 left-[max(0.75rem,calc(50%-24rem-3.5rem))] z-10 hidden flex-col gap-2",
-        "@[896px]/panel:flex",
-        className
-      )}
+      className={cn("flex flex-col gap-2", className)}
     >
       {back && (
         <div className="rounded-full bg-card shadow-sm ring-1 ring-foreground/10">
@@ -96,7 +91,7 @@ function FloatingNav({
   )
 }
 
-// Otto: the narrow card's previous / next: two 28px ghost buttons for the
+// Otto: the narrow frame's previous / next: two 28px ghost buttons for the
 // header's actions, shown while `FloatingNav` is hidden.
 function FloatingNavButtons({
   previous,
@@ -111,7 +106,7 @@ function FloatingNavButtons({
   return (
     <div
       data-slot="floating-nav-buttons"
-      className={cn("flex items-center gap-1", "@[896px]/panel:hidden", className)}
+      className={cn("flex items-center gap-1", className)}
     >
       {[
         previous && { action: previous, icon: <ChevronUpIcon /> },

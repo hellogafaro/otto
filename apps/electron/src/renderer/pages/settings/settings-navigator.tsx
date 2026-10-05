@@ -1,8 +1,9 @@
 /**
  * SettingsNavigator
  *
- * Settings' section of the sidebar: two groups (Account, Workspace) of one-line rows,
- * an icon and a label each, the open one filled. No descriptions, no dividers.
+ * Settings' section of the sidebar: two groups (Account, Workspace) of 28px rows like
+ * the pages above, an icon and a label each, the open one filled, each group under a
+ * quiet 28px label. No descriptions, no dividers; the section scrolls, not the list.
  * Skills, Sources and Automations are areas that live here; selecting one opens
  * that area's own list and details.
  */
@@ -84,9 +85,9 @@ export default function SettingsNavigator({
   }, [t, onSelectSubpage, areaLinks])
 
   return (
-    <nav aria-label="Settings" className="no-scrollbar flex min-h-0 flex-1 scroll-fade-y flex-col overflow-y-auto">
+    <nav aria-label="Settings" className="flex flex-col gap-0.5">
       {groups.map((group) => (
-        <SidebarGroup key={group.title} className="py-1">
+        <SidebarGroup key={group.title}>
           <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
           <SidebarMenu>
             {group.rows.map((row) => {

@@ -8,6 +8,7 @@ import { SessionSearchHeader } from '@/components/app-shell/session-search-heade
 import { SessionItem } from '@/components/app-shell/session-item'
 import { SessionListProvider, type SessionListContextValue } from '@/context/session-list-context'
 import { ActionRegistryProvider } from '@/actions/registry'
+import { SidebarProvider } from '@workspace/ui/components/sidebar'
 
 // ============================================================================
 // Mock Todo States (minimal set for playground)
@@ -157,8 +158,9 @@ function SessionListSearchPreview({
 
   return (
     <ActionRegistryProvider>
+      <SidebarProvider>
       <SessionListProvider value={ctx}>
-        <div className="w-[320px] h-[480px] flex flex-col border border-border rounded-lg overflow-hidden bg-background">
+        <div className="w-[320px] h-[480px] flex flex-col border border-border rounded-lg overflow-hidden bg-sidebar">
           {/* Search header - uses the SAME component as the real app */}
           {showSearchInput && (
             <SessionSearchHeader
@@ -194,10 +196,8 @@ function SessionListSearchPreview({
                   <SessionItem
                     key={session.id}
                     item={session}
-                    index={index}
                     itemProps={{ tabIndex: 0, onKeyDown: noopKeyDown }}
                     isSelected={session.id === selectedSessionId}
-                    isFirstInGroup={index === 0}
                     isInMultiSelect={false}
                     onSelect={() => {}}
                   />
@@ -207,6 +207,7 @@ function SessionListSearchPreview({
           </div>
         </div>
       </SessionListProvider>
+    </SidebarProvider>
     </ActionRegistryProvider>
   )
 }
@@ -255,17 +256,17 @@ function SessionItemPreview({
 
   return (
     <ActionRegistryProvider>
+      <SidebarProvider>
       <SessionListProvider value={ctx}>
         <SessionItem
           item={resolvedItem}
-          index={0}
           itemProps={{ tabIndex: 0, onKeyDown: noopKeyDown }}
           isSelected={isSelected}
-          isFirstInGroup
           isInMultiSelect={false}
           onSelect={() => {}}
         />
       </SessionListProvider>
+    </SidebarProvider>
     </ActionRegistryProvider>
   )
 }

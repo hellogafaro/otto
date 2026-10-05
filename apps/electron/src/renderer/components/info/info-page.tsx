@@ -12,7 +12,6 @@ import { PageHeader, type PageHeaderProps } from '@/components/app-shell/page-he
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Spinner } from '@otto/ui'
 import { cn } from '@/lib/utils'
-import { CHAT_LAYOUT } from '@/config/layout'
 
 export interface Info_PageProps {
   children: React.ReactNode
@@ -149,7 +148,7 @@ function Info_PageContent({ children, className }: Info_PageContentProps) {
         }}
       >
         <ScrollArea className="h-full">
-          <div className={cn(CHAT_LAYOUT.maxWidth, 'mx-auto px-5 pt-6 pb-10')}>
+          <div className="pt-7 pb-10">
             <div className={cn('space-y-6', className)}>{children}</div>
           </div>
         </ScrollArea>

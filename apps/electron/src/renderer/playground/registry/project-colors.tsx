@@ -7,6 +7,7 @@ import type { ContentSearchResult } from '@/hooks/use-session-search'
 import { SessionItem } from '@/components/app-shell/session-item'
 import { SessionListProvider, type SessionListContextValue } from '@/context/session-list-context'
 import { ActionRegistryProvider } from '@/actions/registry'
+import { SidebarProvider } from '@workspace/ui/components/sidebar'
 import { cn } from '@/lib/utils'
 
 // ============================================================================
@@ -333,8 +334,9 @@ function ProjectColorsPreview({ variant = 'stripe' }: ProjectColorsPreviewProps)
       <ProjectColorEditor projects={projects} onChange={setProjects} />
 
       <ActionRegistryProvider>
+      <SidebarProvider>
         <SessionListProvider value={ctx}>
-          <div className="w-full border border-border rounded-lg overflow-hidden bg-background">
+          <div className="w-full border border-border rounded-lg overflow-hidden bg-sidebar">
             <div className="px-4 py-2.5 border-b border-border/50">
               <span className="text-sm font-medium">All Sessions</span>
             </div>
@@ -359,10 +361,8 @@ function ProjectColorsPreview({ variant = 'stripe' }: ProjectColorsPreviewProps)
                           <ColoredRowWrapper key={session.id} color={color} variant={variant}>
                             <SessionItem
                               item={session}
-                              index={index}
                               itemProps={{ tabIndex: 0, onKeyDown: noopKeyDown }}
                               isSelected={isSelected}
-                              isFirstInGroup={index === 0}
                               isInMultiSelect={false}
                               onSelect={() => setSelectedSessionId(session.id)}
                             />
@@ -375,7 +375,8 @@ function ProjectColorsPreview({ variant = 'stripe' }: ProjectColorsPreviewProps)
             </div>
           </div>
         </SessionListProvider>
-      </ActionRegistryProvider>
+      </SidebarProvider>
+    </ActionRegistryProvider>
     </div>
   )
 }

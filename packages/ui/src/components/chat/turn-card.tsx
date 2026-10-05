@@ -2315,7 +2315,8 @@ export function ResponseCard({
 
     return (
       <>
-        <div className="bg-background shadow-minimal rounded-[8px] overflow-hidden relative group">
+        {/* Flat content on the page surface: a message is never a card in the card. */}
+        <div className="overflow-hidden relative group">
           {/* Fullscreen button - desktop only; compact mode keeps message chrome minimal */}
           {!compactMode && (
           <button
@@ -2352,7 +2353,7 @@ export function ResponseCard({
             data-search-root="response"
             onMouseDown={handleSelectionPointerDown}
             onMouseUp={handleTextSelection}
-            className="pl-[22px] pr-[16px] py-3 text-sm overflow-y-auto scrollbar-hover"
+            className="py-3 text-sm overflow-y-auto scrollbar-hover"
             style={{
               maxHeight: MAX_HEIGHT,
               // Subtle fade at top and bottom edges (16px) - only in dark mode for better contrast
@@ -2378,7 +2379,7 @@ export function ResponseCard({
               Compact mode falls through to the slim Accept-Plan-only footer below. */}
           {!compactMode && (
             <div className={cn(
-              "pl-4 pr-2.5 py-2 border-t border-border/30 flex items-center justify-between bg-muted/20",
+              "py-2 flex items-center justify-between",
               SIZE_CONFIG.fontSize
             )}>
               {/* Left side - Copy, View as Markdown, Annotation hint */}
@@ -2490,7 +2491,7 @@ export function ResponseCard({
   // Streaming response - show throttled content with spinner
   return (
     <>
-      <div className="bg-background shadow-minimal rounded-[8px] overflow-hidden group">
+      <div className="overflow-hidden group">
         {/* Content area - uses displayedText (throttled) for performance */}
         {/* Subtle fade at top and bottom edges (dark mode only) */}
         <div
@@ -2498,7 +2499,7 @@ export function ResponseCard({
           data-search-root="response"
           onMouseDown={handleSelectionPointerDown}
           onMouseUp={handleTextSelection}
-          className="pl-[22px] pr-4 py-3 text-sm overflow-y-auto scrollbar-hover"
+          className="py-3 text-sm overflow-y-auto scrollbar-hover"
           style={{
             maxHeight: MAX_HEIGHT,
             // Subtle fade at top and bottom edges (16px) - only in dark mode for better contrast

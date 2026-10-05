@@ -188,38 +188,20 @@ function SidebarTrigger({
   )
 }
 
-// Otto: 8px above and below, no side padding (the container pads the rows).
+// Otto: icons only, the groups are 8px apart and a 16px hairline centered in
+// the gap above each one marks the grouping without labels.
+const iconGroupRule =
+  "group-data-[collapsible=icon]:before:absolute group-data-[collapsible=icon]:before:-top-1 group-data-[collapsible=icon]:before:left-1/2 group-data-[collapsible=icon]:before:h-px group-data-[collapsible=icon]:before:w-4 group-data-[collapsible=icon]:before:-translate-x-1/2 group-data-[collapsible=icon]:before:bg-foreground/10"
+
+// Otto: the sidebar's first group, the mark: 8px above, 16px below (the gap
+// between groups), no side padding (the container pads the rows).
 function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-header"
       data-sidebar="header"
-      className={cn("flex flex-col gap-0.5 py-2", className)}
-      {...props}
-    />
-  )
-}
-
-function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="sidebar-footer"
-      data-sidebar="footer"
-      className={cn("flex flex-col gap-0.5 pt-2", className)}
-      {...props}
-    />
-  )
-}
-
-// Otto: does not scroll by itself: its groups do, so a list can take the
-// height that is left.
-function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="sidebar-content"
-      data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden",
+        "flex flex-col gap-0.5 pt-2 pb-4 group-data-[collapsible=icon]:pb-2",
         className
       )}
       {...props}
@@ -227,12 +209,52 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// Otto: the last group, 16px below the one above (8px icons only), with the
+// hairline above it like every group.
+function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="sidebar-footer"
+      data-sidebar="footer"
+      className={cn(
+        "relative mt-4 flex flex-col gap-0.5 group-data-[collapsible=icon]:mt-2",
+        iconGroupRule,
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+// Otto: the groups' column between the header and the footer. It does not
+// scroll by itself (its groups do, so a list can take the height that is left)
+// and the groups are 16px apart (8px icons only).
+function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="sidebar-content"
+      data-sidebar="content"
+      className={cn(
+        "flex min-h-0 flex-1 flex-col gap-4 overflow-hidden group-data-[collapsible=icon]:gap-2",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+// Otto: no padding of its own (the content's gap spaces the groups); a title
+// row and its rows are 2px apart like any two rows.
 function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-group"
       data-sidebar="group"
-      className={cn("relative flex w-full min-w-0 flex-col py-2", className)}
+      className={cn(
+        "relative flex w-full min-w-0 flex-col gap-0.5",
+        iconGroupRule,
+        className
+      )}
       {...props}
     />
   )

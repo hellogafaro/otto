@@ -1,12 +1,12 @@
 /**
  * AppSidebar - the shell's one sidebar, on the frame beside the page card.
  *
- * Top to bottom: the header (the Otto mark; on Electron the macOS
- * traffic-light inset, the drag region and the history Back / Forward buttons),
- * the primary group (the areas, in the order of DESIGN.md; ones with no route
- * yet are shown, not linked), the section that belongs
- * to the open area (passed in as `section`: Chats brings its filters and list,
- * Settings its pages), and the footer (Settings, then the profile menu).
+ * Top to bottom, five groups 16px apart: the header (the Otto mark; on Electron
+ * the macOS traffic-light inset, the drag region and the history Back / Forward
+ * buttons); Inbox and Search; the pages (ones with no route
+ * yet are shown, not linked); the open page's own content (passed in as
+ * `section`: Chats brings its filters and list, Settings its pages; none, no
+ * group); and the footer (Settings, then the profile menu), pinned at the bottom.
  * Icons only below 1024px, a sheet below 768px (see the design system's
  * `Sidebar`).
  */
@@ -69,11 +69,11 @@ interface AppSidebarProps {
   workspaceUnreadMap?: Record<string, boolean>
   onWorkspaceCreated?: (workspace: Workspace) => void
   onWorkspaceRemoved?: () => void
-  /** The open area's own section (its filters, list or pages). Hidden when icons only. */
+  /** The open page's own group (a `SidebarSection`: its filters, list or pages); none renders no group. */
   section?: React.ReactNode
 }
 
-interface PrimaryItem {
+interface NavItem {
   id: string
   icon: LucideIcon
   labelKey: string
@@ -117,10 +117,13 @@ export function AppSidebar({
     ? { children: <>{label}<Kbd>{hotkey}</Kbd></>, hidden: false }
     : label
 
-  // The rail's order. Search opens the Chats search; the rest have a route or are placeholders.
-  const primary: PrimaryItem[] = [
+  // Group 1: Search opens the Chats search; Inbox has no route yet.
+  const inboxSearch: NavItem[] = [
     { id: 'inbox', icon: Inbox, labelKey: 'sidebar.inbox' },
     { id: 'search', icon: Search, labelKey: 'sidebar.search', onSelect: onSearch, hotkey: searchHotkey },
+  ]
+  // Group 2: the pages, each with a route or a placeholder.
+  const pages: NavItem[] = [
     { id: 'tasks', icon: CircleCheck, labelKey: 'sidebar.tasks' },
     { id: 'projects', icon: Folder, labelKey: 'sidebar.projects', area: 'projects', onSelect: onProjects },
     { id: 'chats', icon: MessagesSquare, labelKey: 'sidebar.chats', area: 'chats', onSelect: onChats },
@@ -166,25 +169,28 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup className="shrink-0">
-          <SidebarMenu>
-            {primary.map((item) => (
-              <SidebarMenuItem key={item.id}>
-                <SidebarMenuButton
-                  isActive={!!item.area && active === item.area}
-                  tooltip={withKey(t(item.labelKey), item.hotkey)}
-                  onClick={item.onSelect}
-                  // A placeholder stays readable but is no tab stop and has no pointer.
-                  {...(!item.onSelect && { 'aria-disabled': true, tabIndex: -1 })}
-                >
-                  <item.icon />
-                  <span>{t(item.labelKey)}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-        <div className="flex min-h-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">{section}</div>
+        {[inboxSearch, pages].map((items, index) => (
+          <SidebarGroup key={index} className="shrink-0">
+            <SidebarMenu>
+              {items.map((item) => (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton
+                    isActive={!!item.area && active === item.area}
+                    tooltip={withKey(t(item.labelKey), item.hotkey)}
+                    onClick={item.onSelect}
+                    // A placeholder stays readable but is no tab stop and has no pointer.
+                    {...(!item.onSelect && { 'aria-disabled': true, tabIndex: -1 })}
+                  >
+                    <item.icon />
+                    <span>{t(item.labelKey)}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
+
+        {section}
       </SidebarContent>
 
       <SidebarFooter>

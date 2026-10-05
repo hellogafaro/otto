@@ -22,6 +22,7 @@ import {
 import { useProjects } from '@/hooks/use-projects'
 import type { LoadedPage, PageDataSnapshot, PageRenderLease } from '@otto/shared/pages/types'
 import { PageHeader } from '@/components/app-shell/page-header'
+import { PageCenterpiece } from '@workspace/ui/components/page'
 import { PageFrame } from './page-frame'
 import { PageFreshness, PageKindBadge } from './page-visuals'
 import { DeletePageDialog } from './delete-page-dialog'
@@ -244,7 +245,7 @@ export function PageView({ pageSlug }: PageViewProps) {
   const refreshFailed = config.lastRefresh && !config.lastRefresh.ok
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col">
       <PageHeader
         title={nameDraft !== null ? (
           <input
@@ -353,7 +354,7 @@ export function PageView({ pageSlug }: PageViewProps) {
           workspaceId={activeWorkspaceId}
           page={page}
           sources={enabledSources ?? []}
-          className="mx-3 mt-2"
+          className="mb-2"
         />
       )}
 
@@ -363,7 +364,7 @@ export function PageView({ pageSlug }: PageViewProps) {
           variant="error"
           inline
           icon={<AlertTriangle className="size-3.5" />}
-          className="mx-3 mt-2"
+          className="mb-2"
         >
           <Info_Alert.Title>{t('pages.refreshFailed')}</Info_Alert.Title>
           {config.lastRefresh?.error && (
@@ -374,8 +375,8 @@ export function PageView({ pageSlug }: PageViewProps) {
         </Info_Alert>
       )}
 
-      {/* Body: edge-to-edge sandboxed frame on a neutral canvas */}
-      <div className="relative min-h-0 flex-1 p-3">
+      {/* Body: the centerpiece card, the sandboxed document scrolls inside it */}
+      <PageCenterpiece>
         {!hasContent ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
             <span className="text-sm font-medium text-foreground/70">{t('pages.noContentTitle')}</span>
@@ -417,7 +418,7 @@ export function PageView({ pageSlug }: PageViewProps) {
             <LoadingIndicator />
           </div>
         ) : (
-          <div className="h-full w-full overflow-hidden rounded-lg border border-border/60 shadow-minimal">
+          <div className="h-full w-full overflow-hidden">
             <PageFrame
               key={leaseState.lease.leaseId}
               workspaceId={activeWorkspaceId}
@@ -428,7 +429,7 @@ export function PageView({ pageSlug }: PageViewProps) {
             />
           </div>
         )}
-      </div>
+      </PageCenterpiece>
 
       <DeletePageDialog
         pageName={confirmingDelete ? config.name : null}

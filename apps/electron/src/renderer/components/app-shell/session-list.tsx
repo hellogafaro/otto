@@ -4,8 +4,10 @@ import { useSetAtom } from "jotai"
 import { isToday, isYesterday, format, startOfDay } from "date-fns"
 import { getDateLocale } from "@otto/shared/i18n"
 import { useAction } from "@/actions"
-import { Inbox, Archive } from "lucide-react"
+import { Inbox, Archive, ChevronRight } from "lucide-react"
+import { SidebarGroupLabel } from "@workspace/ui/components/sidebar"
 
+import { cn } from "@/lib/utils"
 import { getSessionStatus } from "@/utils/session"
 import * as storage from "@/lib/local-storage"
 import { KEYS } from "@/lib/local-storage"
@@ -14,7 +16,13 @@ import { flattenLabels } from "@otto/shared/labels"
 import * as MultiSelect from "@/hooks/use-multi-select"
 import { Spinner } from "@otto/ui"
 import { EntityListEmptyScreen } from "@/components/ui/entity-list-empty"
-import { EntityList, type EntityListGroup } from "@/components/ui/entity-list"
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  StyledContextMenuContent,
+  StyledContextMenuItem,
+  StyledContextMenuSeparator,
+} from "@/components/ui/styled-context-menu"
 import { RenameDialog } from "@/components/ui/rename-dialog"
 import { SessionSearchHeader } from "./session-search-header"
 import { SessionItem } from "./session-item"
@@ -35,6 +43,17 @@ import { buildCollapsedGroupsScopeSuffix } from "@/utils/session-list-collapse"
 
 export interface SessionListRow {
   item: SessionMeta
+}
+
+/** A run of rows under one group label (a day, a status, a project). */
+interface SessionGroup {
+  key: string
+  label: string
+  items: SessionListRow[]
+  /** The label toggles the group (default: it is just a label). */
+  collapsible?: boolean
+  /** Rows hidden while collapsed (the group's items are then empty). */
+  collapsedCount?: number
 }
 
 /** Grouping mode for chat list */
@@ -104,6 +123,57 @@ function formatDateGroupLabel(date: Date, t: (key: string) => string, lang: stri
   if (isToday(date)) return t('common.today')
   if (isYesterday(date)) return t('common.yesterday')
   return format(date, 'MMM d', { locale: getDateLocale(lang) })
+}
+
+/**
+ * A group's label row: 28px, 12px muted, on the same column as the section's other labels.
+ * A collapsible one is a button that toggles the group (chevron on hover, the count when
+ * collapsed); right-click for Collapse all / Expand all.
+ */
+function GroupHeader({
+  group,
+  isCollapsed,
+  onToggle,
+  onCollapseAll,
+  onExpandAll,
+}: {
+  group: SessionGroup
+  isCollapsed: boolean
+  onToggle: () => void
+  onCollapseAll: () => void
+  onExpandAll: () => void
+}) {
+  if (!group.collapsible) return <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+
+  return (
+    <ContextMenu modal>
+      <ContextMenuTrigger asChild>
+        <SidebarGroupLabel
+          render={<button type="button" onClick={onToggle} aria-expanded={!isCollapsed} />}
+          className="group/header w-full cursor-pointer hover:text-foreground"
+        >
+          <span className="min-w-0 truncate">
+            {group.label}
+            {isCollapsed && <> · <span className="text-muted-foreground/60">{group.collapsedCount ?? 0}</span></>}
+          </span>
+          <ChevronRight
+            className={cn(
+              "ml-auto transition-[opacity,transform] group-focus-visible/header:opacity-100 group-hover/header:opacity-100",
+              isCollapsed ? "opacity-100" : "rotate-90 opacity-0",
+            )}
+          />
+        </SidebarGroupLabel>
+      </ContextMenuTrigger>
+      <StyledContextMenuContent>
+        <StyledContextMenuItem onClick={onToggle}>
+          {isCollapsed ? 'Expand' : 'Collapse'}
+        </StyledContextMenuItem>
+        <StyledContextMenuSeparator />
+        <StyledContextMenuItem onClick={onCollapseAll}>Collapse All</StyledContextMenuItem>
+        <StyledContextMenuItem onClick={onExpandAll}>Expand All</StyledContextMenuItem>
+      </StyledContextMenuContent>
+    </ContextMenu>
+  )
 }
 
 /**
@@ -268,7 +338,7 @@ export function SessionList({
       const matchingRows: SessionListRow[] = matchingFilterItems.map(item => ({ item }))
       const otherRows: SessionListRow[] = otherResultItems.map(item => ({ item }))
 
-      const groups: EntityListGroup<SessionListRow>[] = []
+      const groups: SessionGroup[] = []
       if (matchingRows.length > 0) {
         groups.push({ key: 'matching', label: t("session.inCurrentView"), items: matchingRows })
       }
@@ -310,7 +380,7 @@ export function SessionList({
       const unreadCount = collapsedUnread ? collapsedUnread.count : unreadRows.length
       const readCount = collapsedRead ? collapsedRead.count : readRows.length
 
-      const orderedGroups: EntityListGroup<SessionListRow>[] = [
+      const orderedGroups: SessionGroup[] = [
         {
           key: 'unread-yes',
           label: t('session.unreadGroup', { count: unreadCount }),
@@ -355,7 +425,7 @@ export function SessionList({
         }
       }
 
-      const orderedGroups: EntityListGroup<SessionListRow>[] = []
+      const orderedGroups: SessionGroup[] = []
       for (const [key, { rows: groupRows, statusId }] of groupsByKey) {
         const state = sessionStatuses.find(s => s.id === statusId)
         if (!state) continue
@@ -413,7 +483,7 @@ export function SessionList({
         }
       }
 
-      const orderedGroups: EntityListGroup<SessionListRow>[] = []
+      const orderedGroups: SessionGroup[] = []
       for (const [key, { rows: groupRows, projectId }] of groupsByKey) {
         groupRows.sort((a, b) => (b.item.lastMessageAt || 0) - (a.item.lastMessageAt || 0))
         const collapsedMeta = collapsedGroupsMeta.find(m => m.key === key)
@@ -448,7 +518,7 @@ export function SessionList({
     }
 
     // Default: group by date
-    const groupsByKey = new Map<string, EntityListGroup<SessionListRow>>()
+    const groupsByKey = new Map<string, SessionGroup>()
     const groupDates = new Map<string, Date>()
 
     for (const row of rows) {
@@ -730,7 +800,7 @@ export function SessionList({
     sessionOptions, contentSearchResults, activeChatMatchInfo, hasPendingPrompt,
   ])
 
-  // --- Empty state (non-search) — render before EntityList ---
+  // --- Empty state (non-search) — render before the list ---
   // Don't show empty state when there are collapsed groups with content
   if (flatRows.length === 0 && rowData.groups.length === 0 && !searchActive) {
     if (currentFilter?.kind === 'archived') {
@@ -767,90 +837,90 @@ export function SessionList({
   }
 
   // --- Render ---
+  const isEmptyResult = rowData.groups.length === 0
+  const noSearchResults = isEmptyResult && isSearchMode && !isSearchingContent
+
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex min-h-0 flex-1 flex-col gap-0.5">
       <SessionListProvider value={listContext}>
-      <EntityList<SessionListRow>
-        groups={rowData.groups}
-        getKey={(row) => row.item.id}
-        renderItem={(row, _indexInGroup, isFirstInGroup) => {
-          const flatIndex = rowIndexMap.get(row.item.id) ?? 0
-          const rowProps = interactions.getRowProps(row, flatIndex)
-          return (
-            <SessionItem
-              item={row.item}
-              index={flatIndex}
-              itemProps={rowProps.buttonProps as Record<string, unknown>}
-              isSelected={rowProps.isSelected}
-              isFirstInGroup={isFirstInGroup}
-              isInMultiSelect={rowProps.isInMultiSelect ?? false}
-              onSelect={() => handleSelectSession(row, flatIndex)}
-              onToggleSelect={() => handleToggleSelect(row, flatIndex)}
-              onRangeSelect={() => handleRangeSelect(flatIndex)}
-            />
-          )
-        }}
-        header={
-          <>
-            {searchActive && (
-              <SessionSearchHeader
-                searchQuery={searchQuery}
-                onSearchChange={onSearchChange}
-                onSearchClose={onSearchClose}
-                onKeyDown={handleSearchKeyDown}
-                onFocus={() => setIsSearchInputFocused(true)}
-                onBlur={() => setIsSearchInputFocused(false)}
-                isSearching={isSearchingContent}
-                isUnavailable={isSearchUnavailable}
-                resultCount={matchingFilterItems.length + otherResultItems.length}
-                exceededLimit={exceededSearchLimit}
-                inputRef={searchInputRef}
-              />
-            )}
-            {isSearchMode && matchingFilterItems.length === 0 && otherResultItems.length > 0 && (
-              <div className="px-4 py-3 text-sm text-muted-foreground">
-                {t("session.noResultsInFilter")}
+        {searchActive && (
+          <SessionSearchHeader
+            searchQuery={searchQuery}
+            onSearchChange={onSearchChange}
+            onSearchClose={onSearchClose}
+            onKeyDown={handleSearchKeyDown}
+            onFocus={() => setIsSearchInputFocused(true)}
+            onBlur={() => setIsSearchInputFocused(false)}
+            isSearching={isSearchingContent}
+            isUnavailable={isSearchUnavailable}
+            resultCount={matchingFilterItems.length + otherResultItems.length}
+            exceededLimit={exceededSearchLimit}
+            inputRef={searchInputRef}
+          />
+        )}
+        {isSearchMode && matchingFilterItems.length === 0 && otherResultItems.length > 0 && (
+          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+            {t("session.noResultsInFilter")}
+          </div>
+        )}
+        {noSearchResults ? (
+          <div className="flex flex-col items-center justify-center px-2 py-12">
+            <p className="text-sm text-muted-foreground">{t("session.noSessionsFound")}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground/60">
+              {t("session.noSessionsFoundDesc")}
+            </p>
+            <button
+              onClick={() => onSearchChange?.('')}
+              className="mt-2 text-xs text-foreground hover:underline"
+            >
+              {t("session.clearSearch")}
+            </button>
+          </div>
+        ) : (
+          <div ref={scrollViewportRef} className="no-scrollbar min-h-0 flex-1 scroll-fade-y overflow-y-auto select-none">
+            <div
+              ref={zoneRef}
+              data-focus-zone="navigator"
+              data-list-role="sessions"
+              role="listbox"
+              aria-label="Sessions"
+              className="flex flex-col gap-0.5"
+            >
+              {rowData.groups.map((group) => (
+                <div key={group.key} className="flex flex-col gap-0.5">
+                  <GroupHeader
+                    group={group}
+                    isCollapsed={collapsedGroups.has(group.key)}
+                    onToggle={() => toggleGroupCollapse(group.key)}
+                    onCollapseAll={collapseAllGroups}
+                    onExpandAll={expandAllGroups}
+                  />
+                  {group.items.map((row) => {
+                    const flatIndex = rowIndexMap.get(row.item.id) ?? 0
+                    const rowProps = interactions.getRowProps(row, flatIndex)
+                    return (
+                      <SessionItem
+                        key={row.item.id}
+                        item={row.item}
+                        itemProps={rowProps.buttonProps as Record<string, unknown>}
+                        isSelected={rowProps.isSelected}
+                        isInMultiSelect={rowProps.isInMultiSelect ?? false}
+                        onSelect={() => handleSelectSession(row, flatIndex)}
+                        onToggleSelect={() => handleToggleSelect(row, flatIndex)}
+                        onRangeSelect={() => handleRangeSelect(flatIndex)}
+                      />
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+            {hasMore && (
+              <div className="flex justify-center py-4">
+                <Spinner className="text-muted-foreground" />
               </div>
             )}
-          </>
-        }
-        emptyState={
-          isSearchMode && !isSearchingContent ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <p className="text-sm text-muted-foreground">{t("session.noSessionsFound")}</p>
-              <p className="text-xs text-muted-foreground/60 mt-0.5">
-                {t("session.noSessionsFoundDesc")}
-              </p>
-              <button
-                onClick={() => onSearchChange?.('')}
-                className="text-xs text-foreground hover:underline mt-2"
-              >
-                {t("session.clearSearch")}
-              </button>
-            </div>
-          ) : undefined
-        }
-        footer={
-          hasMore ? (
-            <div className="flex justify-center py-4">
-              <Spinner className="text-muted-foreground" />
-            </div>
-          ) : undefined
-        }
-        viewportRef={scrollViewportRef}
-        containerRef={zoneRef}
-        containerProps={{
-          'data-focus-zone': 'navigator',
-          'data-list-role': 'sessions',
-          role: 'listbox',
-          'aria-label': 'Sessions',
-        }}
-        scrollAreaClassName="select-none mask-fade-top-short"
-        collapsedGroups={collapsedGroups}
-        onToggleCollapse={toggleGroupCollapse}
-        onCollapseAll={collapseAllGroups}
-        onExpandAll={expandAllGroups}
-      />
+          </div>
+        )}
       </SessionListProvider>
 
       {/* Rename Dialog */}

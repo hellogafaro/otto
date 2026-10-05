@@ -5,6 +5,7 @@
  * - Chats navigator: ChatPage for selected session, or empty state
  * - Sources navigator: SourceInfoPage for selected source, or empty state
  * - Settings navigator: Settings, Preferences, or Shortcuts page
+ * - Projects, Schedules, Documents: not built yet, only `SectionEmpty`
  *
  * The NavigationState is the single source of truth for what to display.
  *
@@ -13,12 +14,14 @@
  */
 
 import * as React from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
+import { Clock, FileText, Folder } from 'lucide-react'
 import { Panel } from './panel'
 import { PageHeader } from './page-header'
 import { MultiSelectPanel } from './multi-select-panel'
+import { SectionEmpty } from './section-empty'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { sessionMetaMapAtom, type SessionMeta } from '@/atoms/sessions'
 import {
@@ -32,18 +35,12 @@ import {
   isPagesNavigation,
 } from '@/contexts/navigation-context'
 import { useSessionSelection, useIsMultiSelectActive, useSelectedIds, useSelectionCount } from '@/hooks/use-session'
-import { sourceSelection, skillSelection, automationSelection } from '@/hooks/use-entity-selection'
+import { sourceSelection, skillSelection } from '@/hooks/use-entity-selection'
 import { extractLabelId } from '@otto/shared/labels'
 import type { SessionStatusId } from '@/config/session-status-config'
 import { SourceInfoPage, ChatPage } from '@/pages'
 import SkillInfoPage from '@/pages/skill-info-page'
 import { getSettingsPageComponent } from '@/pages/settings/settings-pages'
-import { AutomationInfoPage } from '../automations/automation-info-page'
-import ProjectInfoPage from '@/pages/project-info-page'
-import { PagesHome } from '../pages/pages-home'
-import { PageView } from '../pages/page-view'
-import type { ExecutionEntry } from '../automations/types'
-import { automationsAtom } from '@/atoms/automations'
 import { SendResourceToWorkspaceDialog, type SendResourceType } from './send-resource-to-workspace-dialog'
 
 /** A section with nothing open: the section's title in the header, a quiet line in the card. */
@@ -84,13 +81,6 @@ export function MainContentPanel({
     onSessionLabelsChange,
     sessionStatuses,
     labels,
-    onTestAutomation,
-    onToggleAutomation,
-    onDuplicateAutomation,
-    onDeleteAutomation,
-    onReplayAutomation,
-    automationTestResults,
-    getAutomationHistory,
     activeSessionWorkingDirectory,
   } = useAppShellContext()
 
@@ -100,35 +90,6 @@ export function MainContentPanel({
   const selectionCount = useSelectionCount()
   const { clearMultiSelect } = useSessionSelection()
   const sessionMetaMap = useAtomValue(sessionMetaMapAtom)
-  const automations = useAtomValue(automationsAtom)
-
-  // Execution history for the selected automation
-  const selectedAutomationId = isAutomationsNavigation(navState) ? navState.details?.automationId : undefined
-  const [executions, setExecutions] = useState<ExecutionEntry[]>([])
-
-  useEffect(() => {
-    if (!selectedAutomationId || !getAutomationHistory) {
-      setExecutions([])
-      return
-    }
-    let stale = false
-
-    // Initial fetch
-    getAutomationHistory(selectedAutomationId).then(entries => {
-      if (!stale) setExecutions(entries)
-    })
-
-    // Re-fetch on automation changes (live updates when automations fire)
-    const cleanup = window.electronAPI.onAutomationsChanged(() => {
-      if (!stale) {
-        getAutomationHistory(selectedAutomationId).then(entries => {
-          if (!stale) setExecutions(entries)
-        })
-      }
-    })
-
-    return () => { stale = true; cleanup() }
-  }, [selectedAutomationId, getAutomationHistory])
 
   // Source multi-select state
   const isSourceMultiSelectActive = sourceSelection.useIsMultiSelectActive()
@@ -141,12 +102,6 @@ export function MainContentPanel({
   const skillSelectionCount = skillSelection.useSelectionCount()
   const selectedSkillIds = skillSelection.useSelectedIds()
   const { clearMultiSelect: clearSkillSelection } = skillSelection.useSelection()
-
-  // Automation multi-select state
-  const isAutomationMultiSelectActive = automationSelection.useIsMultiSelectActive()
-  const automationSelectionCount = automationSelection.useSelectionCount()
-  const selectedAutomationIds = automationSelection.useSelectedIds()
-  const { clearMultiSelect: clearAutomationSelection } = automationSelection.useSelection()
 
   // Send to Workspace dialog state (shared across resource types)
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
@@ -319,72 +274,34 @@ export function MainContentPanel({
     )
   }
 
-  // Automations navigator - show automation info, multi-select panel, or empty state
-  if (isAutomationsNavigation(navState)) {
-    if (isAutomationMultiSelectActive) {
-      return withSendDialog(
-        <Panel variant="grow" className={className}>
-          <MultiSelectPanel
-            count={automationSelectionCount}
-            entityType="automation"
-            onSendToWorkspace={hasOtherWorkspaces ? () => openSendDialog('automation', selectedAutomationIds) : undefined}
-            onClearSelection={clearAutomationSelection}
-          />
-        </Panel>
-      )
-    }
-    if (navState.details) {
-      const automation = automations.find(h => h.id === navState.details!.automationId)
-      if (automation) {
-        return withSendDialog(
-          <Panel variant="grow" className={className}>
-            <AutomationInfoPage
-              automation={automation}
-              executions={executions}
-              testResult={automationTestResults?.[automation.id]}
-              onTest={onTestAutomation ? () => onTestAutomation(automation.id) : undefined}
-              onToggleEnabled={onToggleAutomation ? () => onToggleAutomation(automation.id) : undefined}
-              onDuplicate={onDuplicateAutomation ? () => onDuplicateAutomation(automation.id) : undefined}
-              onDelete={onDeleteAutomation ? () => onDeleteAutomation(automation.id) : undefined}
-              onReplay={onReplayAutomation}
-            />
-          </Panel>
-        )
+  // Not built yet: Projects, Schedules (automations) and Documents (pages) show only
+  // their empty state and its New button, whatever the route's details.
+  const unbuilt = isProjectsNavigation(navState)
+    ? {
+        icon: Folder,
+        title: t("sectionEmpty.projectsTitle"),
+        description: t("sectionEmpty.projectsDescription"),
+        cta: t("sectionEmpty.newProject"),
       }
-    }
+    : isAutomationsNavigation(navState)
+      ? {
+          icon: Clock,
+          title: t("sectionEmpty.schedulesTitle"),
+          description: t("sectionEmpty.schedulesDescription"),
+          cta: t("sectionEmpty.newSchedule"),
+        }
+      : isPagesNavigation(navState)
+        ? {
+            icon: FileText,
+            title: t("sectionEmpty.documentsTitle"),
+            description: t("sectionEmpty.documentsDescription"),
+            cta: t("sectionEmpty.newDocument"),
+          }
+        : null
+  if (unbuilt) {
     return withSendDialog(
       <Panel variant="grow" className={className}>
-        <EmptyPanel title={t("sidebar.automations")} message={t("automations.noAutomationsConfigured")} />
-      </Panel>
-    )
-  }
-
-  // Pages navigator - full-width library grid, or one page's embedded render
-  if (isPagesNavigation(navState)) {
-    return withSendDialog(
-      <Panel variant="grow" className={className}>
-        {navState.details ? (
-          <PageView key={navState.details.pageSlug} pageSlug={navState.details.pageSlug} />
-        ) : (
-          <PagesHome />
-        )}
-      </Panel>
-    )
-  }
-
-  // Projects navigator - show project detail page or empty state
-  if (isProjectsNavigation(navState)) {
-    const projectDetails = navState.details
-    if (projectDetails && projectDetails.type === 'project') {
-      return withSendDialog(
-        <Panel variant="grow" className={className}>
-          <ProjectInfoPage projectSlug={projectDetails.projectSlug} />
-        </Panel>
-      )
-    }
-    return withSendDialog(
-      <Panel variant="grow" className={className}>
-        <EmptyPanel title={t("sidebar.projects")} message={t("projectsList.noProjectSelected")} />
+        <SectionEmpty {...unbuilt} />
       </Panel>
     )
   }

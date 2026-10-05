@@ -27,7 +27,7 @@ import { useAction } from "@/actions"
 import { useFocusZone } from "@/hooks/keyboard"
 import { useFocusContext } from "@/context/focus-context"
 import { useSetAtom } from "jotai"
-import type { LoadedSource, LoadedSkill, PermissionMode, SourceFilter, AutomationFilter } from "../../../shared/types"
+import type { LoadedSource, LoadedSkill, PermissionMode, SourceFilter } from "../../../shared/types"
 import { sessionMetaMapAtom, sendToWorkspaceAtom, type SessionMeta } from "@/atoms/sessions"
 import { sourcesAtom } from "@/atoms/sources"
 import { DECISION_SETTINGS_CHANGED_EVENT, guardedModeAvailableAtom } from "@/atoms/permission-modes"
@@ -39,7 +39,7 @@ import { useStatuses } from "@/hooks/use-statuses"
 import { useLabels } from "@/hooks/use-labels"
 import { useViews } from "@/hooks/use-views"
 import { LabelIcon, LabelValueTypeIcon } from "@/components/ui/label-icon"
-import { buildLabelTree, getDescendantIds, getLabelDisplayName, flattenLabels, extractLabelId, findLabelById, sortLabelsForDisplay, matchesLabelFilter } from "@otto/shared/labels"
+import { buildLabelTree, getDescendantIds, flattenLabels, extractLabelId, findLabelById, sortLabelsForDisplay, matchesLabelFilter } from "@otto/shared/labels"
 import type { LabelTreeNode } from "@otto/shared/labels"
 import * as storage from "@/lib/local-storage"
 import { toast } from "sonner"
@@ -58,24 +58,20 @@ import {
 import type { SettingsSubpage } from "../../../shared/types"
 import { SourcesListPanel } from "./sources-list-panel"
 import { SkillsListPanel } from "./skills-list-panel"
-import { AutomationsListPanel } from "../automations/automations-list-panel"
-import { ProjectsListPanel } from "./projects-list-panel"
-import { AUTOMATION_TYPE_TO_FILTER_KIND } from "../automations/types"
 import { useAutomations } from "@/hooks/use-automations"
 import { useProjects } from "@/hooks/use-projects"
 import { usePages } from "@/hooks/use-pages"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { SidebarProvider, useSidebar } from "@workspace/ui/components/sidebar"
-import { ContentCard } from "@workspace/ui/components/content-card"
+import { PageFrame } from "@workspace/ui/components/page-frame"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { AppSidebar, type SidebarArea } from "./app-sidebar"
 import { SidebarSection } from "./sidebar-section"
 import { SessionFilterMenu } from "./session-filter-menu"
 import { MainContentPanel } from "./main-content-panel"
-import { FloatingCardProvider } from "@/context/floating-card-context"
+import { SidecarHost, SidecarProvider } from "@/context/sidecar-context"
 import { isWebUI } from "@/lib/platform"
 import { SendToWorkspaceDialog } from "./send-to-workspace-dialog"
-import { CreateProjectDialog } from "../projects/create-project-dialog"
 import { MessagingDialogHost } from "@/components/messaging/messaging-dialog-host"
 import { EditPopover, getEditConfig, type EditContextKey } from "@/components/ui/edit-popover"
 import SettingsNavigator from "@/pages/settings/settings-navigator"
@@ -114,9 +110,9 @@ function CloseSheetOnNavigate() {
 }
 
 /**
- * AppShell - the shell: the sidebar and the page card
+ * AppShell - the shell: the sidebar and the page frame
  *
- * Layout: [Sidebar (header, areas, the open area's section, footer)] [ContentCard] [FloatingCard]
+ * Layout: [Sidebar (header, areas, the open area's section, footer)] [PageFrame: header row, page, sidecar]
  *
  * Session Filters:
  * - 'allSessions': Shows all sessions
@@ -194,9 +190,6 @@ function AppShellContent({
 
   // Derive source filter from navigation state (only when in sources navigator)
   const sourceFilter: SourceFilter | null = isSourcesNavigation(navState) ? navState.filter ?? null : null
-
-  // Derive automation filter from navigation state (only when in automations navigator)
-  const automationFilter: AutomationFilter | null = isAutomationsNavigation(navState) ? navState.filter ?? null : null
 
   // Per-view filter storage: each session list view (allSessions, flagged, state:X, label:X, view:X)
   // has its own independent set of status and label filters.
@@ -327,25 +320,6 @@ function AppShellContent({
     })
   }, [sessionFilterKey])
 
-  // Jump to All Sessions filtered by a single project. Used by the Projects list
-  // context menu — sets the allSessions view's project filter (preserving its
-  // other filters), then navigates.
-  const handleJumpToProjectSessions = useCallback((projectId: string) => {
-    setViewFiltersMap(prev => {
-      const existing = prev['allSessions']
-      return {
-        ...prev,
-        allSessions: {
-          statuses: existing?.statuses ?? {},
-          labels: existing?.labels ?? {},
-          projects: { [projectId]: 'include' },
-          groupingMode: existing?.groupingMode,
-        }
-      }
-    })
-    navigate(routes.view.allSessions())
-  }, [])
-
   // Search state for session list
   const [searchActive, setSearchActive] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
@@ -452,7 +426,7 @@ function AppShellContent({
     onSelectWorkspace(targetWorkspaceId)
   }, [onSelectWorkspace])
   const {
-    automations, automationTestResults,
+    automationTestResults,
     automationPendingDelete, pendingDeleteAutomation, setAutomationPendingDelete,
     handleTestAutomation, handleToggleAutomation, handleDuplicateAutomation, handleDeleteAutomation, confirmDeleteAutomation,
     getAutomationHistory, handleReplayAutomation,
@@ -670,13 +644,6 @@ function AppShellContent({
     if (!activeWorkspaceId) return
     navigate(routes.view.skills(skill.slug))
   }, [activeWorkspaceId, navigate])
-
-  // Handle selecting an automation from the list
-  const handleAutomationSelect = React.useCallback((automationId: string) => {
-    // Preserve current automation filter when selecting an automation
-    const type = isAutomationsNavigation(navState) ? navState.filter?.automationType : undefined
-    navigate(routes.view.automations({ automationId, type }))
-  }, [navState, navigate])
 
   // Focus zone management
   const { focusZone, focusNextZone } = useFocusContext()
@@ -1314,27 +1281,6 @@ function AppShellContent({
     }
   }, [activeWorkspace?.id])
 
-  // Handler for "Add Project" context menu action — creates a project directly
-  // Open the "Create Project" dialog so the user can provide a name up front.
-  // The previous flow auto-created with the default name and produced ugly
-  // permanent slugs (new-project, new-project-1, …).
-  const [createProjectDialogOpen, setCreateProjectDialogOpen] = useState(false)
-  const openAddProject = useCallback(() => {
-    if (!activeWorkspace?.id) return
-    setCreateProjectDialogOpen(true)
-  }, [activeWorkspace?.id])
-  const handleCreateProjectSubmit = useCallback(async (name: string) => {
-    if (!activeWorkspace?.id) return
-    setCreateProjectDialogOpen(false)
-    try {
-      const project = await window.electronAPI.createProject(activeWorkspace.id, { name })
-      navigate(routes.view.projects(project.slug))
-    } catch (err) {
-      console.error('[AppShell] Failed to create project:', err)
-      toast.error(t('projectsList.createFailed'))
-    }
-  }, [activeWorkspace?.id, navigate, t])
-
   // Delete Source - simplified since agents system is removed
   const handleDeleteSource = useCallback(async (sourceSlug: string) => {
     if (!activeWorkspace) return
@@ -1501,61 +1447,6 @@ function AppShellContent({
       })
     }
   }, [sidebarFocused, focusedSidebarItemId, unifiedSidebarItems])
-
-  // Get title based on navigation state
-  const listTitle = React.useMemo(() => {
-    // Sources navigator
-    if (isSourcesNavigation(navState)) {
-      return t("sidebar.sources")
-    }
-
-    // Skills navigator
-    if (isSkillsNavigation(navState)) {
-      return t("sidebar.allSkills")
-    }
-
-    // Projects navigator
-    if (isProjectsNavigation(navState)) {
-      return t("sidebar.allProjects")
-    }
-
-    // Pages navigator
-    if (isPagesNavigation(navState)) {
-      return t("sidebar.allPages")
-    }
-
-    // Automations navigator
-    if (isAutomationsNavigation(navState)) {
-      if (!automationFilter) return t("sidebar.allAutomations")
-      switch (automationFilter.automationType) {
-        case 'scheduled': return t("sidebar.scheduled")
-        case 'event': return t("sidebar.eventBased")
-        case 'agentic': return t("sidebar.agentic")
-        default: return t("sidebar.allAutomations")
-      }
-    }
-
-    // Settings navigator
-    if (isSettingsNavigation(navState)) return t("sidebar.settings")
-
-    // Sessions navigator - use sessionFilter
-    if (!sessionFilter) return t("sidebar.allSessions")
-
-    switch (sessionFilter.kind) {
-      case 'flagged':
-        return t("sidebar.flagged")
-      case 'state': {
-        const state = effectiveSessionStatuses.find(s => s.id === sessionFilter.stateId)
-        return state ? t(`status.${state.id}`, state.label) : t("sidebar.allSessions")
-      }
-      case 'label':
-        return sessionFilter.labelId === '__all__' ? t("sidebar.labels") : getLabelDisplayName(labelConfigs, sessionFilter.labelId)
-      case 'view':
-        return sessionFilter.viewId === '__all__' ? t("sidebar.views") : viewConfigs.find(v => v.id === sessionFilter.viewId)?.name || t("sidebar.views")
-      default:
-        return t("sidebar.allSessions")
-    }
-  }, [navState, t, sessionFilter, automationFilter, labelConfigs, viewConfigs, effectiveSessionStatuses])
 
   // Build recursive sidebar items from the shared display-sorted label tree.
   // Each node renders with condensed height (compact: true) since many labels expected.
@@ -1794,7 +1685,7 @@ function AppShellContent({
     )
   } else if (isSettingsNavigation(navState)) {
     sidebarSection = (
-      <SidebarSection>
+      <SidebarSection title={t('sidebar.settings')}>
         <SettingsNavigator
           selectedSubpage={navState.subpage ?? 'app'}
           onSelectSubpage={(subpage) => handleSettingsClick(subpage)}
@@ -1808,7 +1699,7 @@ function AppShellContent({
   } else if (isSourcesNavigation(navState)) {
     sidebarSection = (
       <SidebarSection
-        title={listTitle}
+        title={t('sidebar.sources')}
         actions={activeWorkspace && (
           <EditPopover
             trigger={
@@ -1839,7 +1730,7 @@ function AppShellContent({
   } else if (isSkillsNavigation(navState) && activeWorkspaceId) {
     sidebarSection = (
       <SidebarSection
-        title={listTitle}
+        title={t('sidebar.skills')}
         actions={activeWorkspace && (
           <EditPopover
             trigger={
@@ -1860,57 +1751,6 @@ function AppShellContent({
           onSkillClick={handleSkillSelect}
           onDeleteSkill={handleDeleteSkill}
           selectedSkillSlug={navState.details?.type === 'skill' ? navState.details.skillSlug : null}
-        />
-      </SidebarSection>
-    )
-  } else if (isProjectsNavigation(navState) && activeWorkspaceId) {
-    sidebarSection = (
-      <SidebarSection
-        title={listTitle}
-        actions={activeWorkspace && (
-          <HeaderIconButton
-            icon={<Plus className="size-3.5" />}
-            tooltip={t("sidebarMenu.addProject")}
-            onClick={openAddProject}
-          />
-        )}
-      >
-        <ProjectsListPanel
-          projects={projects}
-          workspaceId={activeWorkspaceId}
-          onProjectClick={(slug) => navigate(routes.view.projects(slug))}
-          onAddProject={openAddProject}
-          onJumpToSessions={handleJumpToProjectSessions}
-          selectedProjectSlug={navState.details?.projectSlug ?? null}
-        />
-      </SidebarSection>
-    )
-  } else if (isAutomationsNavigation(navState)) {
-    sidebarSection = (
-      <SidebarSection
-        title={listTitle}
-        actions={activeWorkspace && (
-          <EditPopover
-            trigger={
-              <HeaderIconButton
-                icon={<Plus className="size-3.5" />}
-                tooltip={t("sidebarMenu.addAutomation")}
-              />
-            }
-            {...getEditConfig('automation-config', activeWorkspace.rootPath)}
-          />
-        )}
-      >
-        <AutomationsListPanel
-          automations={automations}
-          automationFilter={automationFilter ? { kind: AUTOMATION_TYPE_TO_FILTER_KIND[automationFilter.automationType] ?? 'all' } : undefined}
-          onAutomationClick={handleAutomationSelect}
-          onTestAutomation={handleTestAutomation}
-          onToggleAutomation={handleToggleAutomation}
-          onDuplicateAutomation={handleDuplicateAutomation}
-          onDeleteAutomation={handleDeleteAutomation}
-          selectedAutomationId={navState.details ? navState.details.automationId : null}
-          workspaceRootPath={activeWorkspace?.rootPath}
         />
       </SidebarSection>
     )
@@ -1936,7 +1776,7 @@ function AppShellContent({
   return (
     <AppShellProvider value={appShellContextValue}>
       <SidebarProvider>
-        {/* Electron: the top 8px above the card is window drag space too (the headers are the rest). */}
+        {/* Electron: the top 8px above the header row is window drag space too (the header row is the rest). */}
         {!isWebUI && <div aria-hidden className="titlebar-drag-region fixed inset-x-0 top-0 z-50 h-2" />}
         <CloseSheetOnNavigate />
         <AppSidebar
@@ -1959,11 +1799,11 @@ function AppShellContent({
           onWorkspaceRemoved={() => onRefreshWorkspaces?.()}
           section={sidebarSection}
         />
-        <FloatingCardProvider>
-          <ContentCard>
+        <SidecarProvider>
+          <PageFrame aside={<SidecarHost />}>
             <MainContentPanel />
-          </ContentCard>
-        </FloatingCardProvider>
+          </PageFrame>
+        </SidecarProvider>
       </SidebarProvider>
 
       {/* ============================================================================
@@ -2100,13 +1940,6 @@ function AppShellContent({
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
         onTransferComplete={handleTransferComplete}
-      />
-
-      {/* Create Project dialog — prompts for a name so slugs stay meaningful */}
-      <CreateProjectDialog
-        open={createProjectDialogOpen}
-        onCancel={() => setCreateProjectDialogOpen(false)}
-        onSubmit={handleCreateProjectSubmit}
       />
 
       {/* Messaging dialogs (pairing-code + WA connect) — driven by messagingDialogAtom.

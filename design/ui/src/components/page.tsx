@@ -1,37 +1,57 @@
-import { ContentCardBody } from "@workspace/ui/components/content-card"
+import { PAGE_INSET, PageScroll } from "@workspace/ui/components/page-frame"
 import { cn } from "cn"
 
-// Otto: page anatomy. A page is the title in the `ContentCardHeader` (on the
-// card, above everything) and ONE centered column of sections under it. Two
-// surface levels only: the page card, then inner cards (`PageCard`); never a
-// card in a card, a panel in a panel, or a wrapper, divider or border around a
-// section. Sections are stacked 32px apart; the column is 768px (3xl) wide and
-// 20px from the card's sides, so an inner card's 12px corners sit well inside
-// the page card's 12px ones. A page that scrolls scrolls in the column's body,
-// edge fade and no scrollbar.
+// Otto: page anatomy. The page has no surface of its own: it is the frame, and
+// the column on it (`PageFrame`, 768px) is the header row, then surfaces, as
+// SIBLINGS. A surface (`PageCard`, `PageCenterpiece`) never contains another
+// surface. Two kinds of page:
+// - blocks (`PageColumn`): settings, lists, overviews. Stacked `PageSection`s
+//   (a small title above its `PageCard`) 32px apart, scrolling as a whole.
+// - a centerpiece (`PageCenterpiece`): long-form content read or written top to
+//   bottom (the chat, a document). ONE card as wide as the column and as tall
+//   as the space under the header row, scrolling inside. The chat adds a
+//   sibling composer card under it.
 function PageColumn({
   className,
   children,
   ...props
 }: React.ComponentProps<"div">) {
   return (
-    <ContentCardBody>
+    <PageScroll>
       <div
         data-slot="page-column"
-        className={cn(
-          "mx-auto flex w-full max-w-3xl flex-col gap-8 px-5 py-7",
-          className
-        )}
+        className={cn("flex w-full flex-col gap-8 pt-7 pb-8", className)}
         {...props}
       >
         {children}
       </div>
-    </ContentCardBody>
+    </PageScroll>
   )
 }
 
-// Otto: a small section title (heading size, medium) with an optional one-line
-// description, 12px above the section's card; `action` ends the title row.
+// Otto: the one big card of a centerpiece page: the `PageCard` surface, full
+// column width, filling the height that is left. Its content scrolls inside
+// (put a `PageScroll` or a scroll area in it); the edge fade is the only sign.
+function PageCenterpiece({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="page-centerpiece"
+      className={cn(
+        "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-foreground/10",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+// Otto: a section title (`text-base`, 16.5px, medium: the golden step between
+// body 13 and the page title 21) with an optional one-line body-size muted
+// description, 12px above the section's card; `action` ends the title row. The
+// row takes `PAGE_INSET` so title and action line up with the card's content.
 function PageSection({
   title,
   description,
@@ -52,7 +72,9 @@ function PageSection({
       className={cn("space-y-3", className)}
       {...props}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div
+        className={cn("flex items-start justify-between gap-4", PAGE_INSET)}
+      >
         <div className="space-y-0.5">
           <h2
             className={cn(
@@ -90,4 +112,4 @@ function PageCard({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { PageCard, PageColumn, PageSection }
+export { PageCard, PageCenterpiece, PageColumn, PageSection }

@@ -434,8 +434,8 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
   // Loading state for file-backed datatable
   if (spec?.src && fileLoading) {
     return (
-      <div className={cn('rounded-[8px] overflow-hidden border bg-muted/10', className)}>
-        <div className="px-3 py-2 bg-muted/50 border-b">
+      <div className={cn('rounded-[8px] overflow-hidden bg-muted/20', className)}>
+        <div className="px-3 py-2 bg-muted/50">
           <span className="text-[12px] text-muted-foreground font-medium">{spec.title || t('datatable.defaultTitle')}</span>
         </div>
         <div className="flex justify-center py-8 text-muted-foreground text-[13px]"><Spinner /></div>
@@ -446,8 +446,8 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
   // Error state for file-backed datatable
   if (spec?.src && fileError) {
     return (
-      <div className={cn('rounded-[8px] overflow-hidden border bg-muted/10', className)}>
-        <div className="px-3 py-2 bg-muted/50 border-b">
+      <div className={cn('rounded-[8px] overflow-hidden bg-muted/20', className)}>
+        <div className="px-3 py-2 bg-muted/50">
           <span className="text-[12px] text-muted-foreground font-medium">{spec.title || t('datatable.defaultTitle')}</span>
         </div>
         <div className="py-6 text-center text-destructive/70 text-[13px]">{fileError}</div>
@@ -657,7 +657,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
 
   return (
     <DatatableErrorBoundary fallback={fallback}>
-      <div className={cn('relative group rounded-[8px] overflow-hidden border bg-muted/10', className)}>
+      <div className={cn('relative group rounded-[8px] overflow-hidden bg-muted/20', className)}>
         {/* Control button */}
         <div className="absolute top-[7px] right-10 z-10">
           {renderControlsDropdown()}
@@ -679,7 +679,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
         </button>
 
         {/* Header */}
-        <div className="px-3 py-2 bg-muted/50 border-b">
+        <div className="px-3 py-2 bg-muted/50">
           <span className="text-[12px] text-muted-foreground font-medium">
             {parsed.title || t('datatable.defaultTitle')}
           </span>
