@@ -30,13 +30,7 @@ import { isDetailNavState } from '@/lib/nav-helpers'
 import { PanelSlot } from './PanelSlot'
 import { PanelResizeSash } from './PanelResizeSash'
 import { CompactPanelTransition } from './CompactPanelTransition'
-import {
-  PANEL_GAP,
-  PANEL_EDGE_INSET,
-  PANEL_STACK_VERTICAL_OVERFLOW,
-  RADIUS_EDGE,
-  RADIUS_INNER,
-} from './panel-constants'
+import { PANEL_STACK_VERTICAL_OVERFLOW, RADIUS_INNER } from './panel-constants'
 
 /** Spring transition matching AppShell's sidebar/navigator animation */
 const PANEL_SPRING = { type: 'spring' as const, stiffness: 600, damping: 49 }

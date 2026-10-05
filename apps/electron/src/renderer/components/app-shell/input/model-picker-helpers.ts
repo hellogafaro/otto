@@ -25,8 +25,6 @@ export function stripPiPrefixForDisplay(value: string): string {
   return value.startsWith('pi/') ? value.slice(3) : value
 }
 
-export type ConnectionGroup = [groupName: string, connections: LlmConnection[]]
-
 /**
  * Group connections by provider type for hierarchical picker rendering.
  * Each provider section can contain multiple connections (API Key, OAuth, …).

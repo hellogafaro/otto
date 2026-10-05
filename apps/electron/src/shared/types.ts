@@ -782,14 +782,6 @@ export type WhatsAppUiEvent =
 // =============================================================================
 
 /**
- * Right sidebar panel types
- */
-export type RightSidebarPanel =
-  | { type: 'files'; path?: string }
-  | { type: 'history' }
-  | { type: 'none' }
-
-/**
  * Session filter options
  */
 export type SessionFilter =
@@ -813,7 +805,6 @@ export interface SessionsNavigationState {
   navigator: 'sessions'
   filter: SessionFilter
   details: { type: 'session'; sessionId: string } | null
-  rightSidebar?: RightSidebarPanel
 }
 
 /**
@@ -839,7 +830,6 @@ export interface SourcesNavigationState {
   navigator: 'sources'
   filter?: SourceFilter
   details: { type: 'source'; sourceSlug: string } | null
-  rightSidebar?: RightSidebarPanel
 }
 
 /**
@@ -852,7 +842,6 @@ export interface SourcesNavigationState {
 export interface SettingsNavigationState {
   navigator: 'settings'
   subpage: SettingsSubpage | null
-  rightSidebar?: RightSidebarPanel
 }
 
 /**
@@ -861,7 +850,6 @@ export interface SettingsNavigationState {
 export interface SkillsNavigationState {
   navigator: 'skills'
   details: { type: 'skill'; skillSlug: string } | null
-  rightSidebar?: RightSidebarPanel
 }
 
 /**
@@ -871,7 +859,6 @@ export interface AutomationsNavigationState {
   navigator: 'automations'
   filter?: AutomationFilter
   details: { type: 'automation'; automationId: string } | null
-  rightSidebar?: RightSidebarPanel
 }
 
 /**
@@ -880,7 +867,6 @@ export interface AutomationsNavigationState {
 export interface ProjectsNavigationState {
   navigator: 'projects'
   details: { type: 'project'; projectSlug: string } | null
-  rightSidebar?: RightSidebarPanel
 }
 
 /**
@@ -893,7 +879,6 @@ export interface ProjectsNavigationState {
 export interface PagesNavigationState {
   navigator: 'pages'
   details: { type: 'page'; pageSlug: string } | null
-  rightSidebar?: RightSidebarPanel
 }
 
 /**

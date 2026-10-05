@@ -470,7 +470,7 @@ function FilterLabelItems({
 /**
  * AppShell - Main 3-panel layout container
  *
- * Layout: [LeftSidebar 20%] | [NavigatorPanel 32%] | [MainContentPanel 48%]
+ * Layout: [LeftSidebar 20%] | [Navigator 32%] | [MainContentPanel 48%]
  *
  * Session Filters:
  * - 'allSessions': Shows all sessions
@@ -1630,7 +1630,7 @@ function AppShellContent({
     return onDeleteSession(sessionId, skipConfirmation)
   }, [session.selected, setSession, onDeleteSession])
 
-  // Extend context value with local overrides (wrapped onDeleteSession, sources, skills, labels, enabledModes, rightSidebarOpenButton, effectiveSessionStatuses)
+  // Extend context value with local overrides (wrapped onDeleteSession, sources, skills, labels, enabledModes, effectiveSessionStatuses)
   const appShellContextValue = React.useMemo<AppShellContextType>(() => ({
     ...contextValue,
     onDeleteSession: handleDeleteSession,
@@ -1642,7 +1642,6 @@ function AppShellContent({
     enabledModes,
     sessionStatuses: effectiveSessionStatuses,
     onSessionSourcesChange: handleSessionSourcesChange,
-    rightSidebarButton: null,
     isCompactMode: isAutoCompact,
     // Search state for ChatDisplay highlighting
     sessionListSearchQuery: searchActive ? searchQuery : undefined,

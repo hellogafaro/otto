@@ -8,7 +8,7 @@
  * combined with min-width to prevent shrinking below PANEL_MIN_WIDTH.
  *
  * Each PanelSlot overrides AppShellContext to inject a per-panel close button
- * into PanelHeader's rightSidebarButton slot. All panels are equal — closing
+ * into PanelHeader's closeButton slot. All panels are equal — closing
  * any panel removes it from the stack. A reactive effect handles window close
  * when the stack becomes empty.
  */
@@ -84,7 +84,7 @@ export function PanelSlot({
   // back button (compact mode), and isFocusedPanel for input field appearance
   const contextOverride = useMemo(() => ({
     ...parentContext,
-    rightSidebarButton: closeButton,
+    closeButton,
     leadingAction: backButton,
     isFocusedPanel,
   }), [parentContext, closeButton, backButton, isFocusedPanel])

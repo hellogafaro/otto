@@ -48,8 +48,6 @@ export interface DeepLinkTarget {
   /** Action route (e.g., 'new-chat', 'delete-session') */
   action?: string
   actionParams?: Record<string, string>
-  /** Right sidebar param (e.g., 'files/path/to/file', 'history') */
-  rightSidebar?: string
 }
 
 export interface DeepLinkResult {
@@ -69,13 +67,6 @@ export interface DeepLinkNavigation {
 }
 
 /**
- * Parse right sidebar param from URL search params
- */
-function parseRightSidebar(parsed: URL): string | undefined {
-  return parsed.searchParams.get('sidebar') || undefined
-}
-
-/**
  * Parse a deep link URL into structured target
  */
 export function parseDeepLink(url: string): DeepLinkTarget | null {
@@ -91,7 +82,6 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
     // e.g., craftagents://allSessions/chat/abc → hostname='allSessions', pathname='/chat/abc'
     const host = parsed.hostname
     const pathParts = parsed.pathname.split('/').filter(Boolean)
-    const rightSidebar = parseRightSidebar(parsed)
 
     // craftagents://auth-callback?... (OAuth callbacks - return null to let existing handler process)
     if (host === 'auth-callback') {
@@ -110,7 +100,6 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
       return {
         workspaceId: undefined,
         view: viewRoute,
-        rightSidebar,
       }
     }
 
@@ -119,7 +108,7 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
       const workspaceId = pathParts[0]
       if (!workspaceId) return null
 
-      const result: DeepLinkTarget = { workspaceId, rightSidebar }
+      const result: DeepLinkTarget = { workspaceId }
 
       // Check what type of route follows the workspace ID
       const routeType = pathParts[1]
@@ -141,10 +130,7 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
           result.actionParams.id = pathParts[3]
         }
         parsed.searchParams.forEach((value, key) => {
-          // Skip the sidebar param - it's handled separately
-          if (key !== 'sidebar') {
-            result.actionParams![key] = value
-          }
+          result.actionParams![key] = value
         })
         return result
       }
@@ -158,7 +144,6 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
         workspaceId: undefined,
         action: pathParts[0],
         actionParams: {},
-        rightSidebar,
       }
 
       if (pathParts[1]) {
@@ -166,10 +151,7 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
       }
 
       parsed.searchParams.forEach((value, key) => {
-        // Skip the sidebar param - it's handled separately
-        if (key !== 'sidebar') {
-          result.actionParams![key] = value
-        }
+        result.actionParams![key] = value
       })
 
       return result

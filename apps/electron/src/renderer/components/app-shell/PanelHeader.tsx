@@ -76,8 +76,8 @@ export interface PanelHeaderProps {
   centerButton?: React.ReactNode
   /** Optional action buttons rendered on the right */
   actions?: React.ReactNode
-  /** Optional right sidebar button (rendered after actions) */
-  rightSidebarButton?: React.ReactNode
+  /** Optional per-panel close button (rendered after actions) */
+  closeButton?: React.ReactNode
   /** Optional className for additional styling */
   className?: string
   /** Whether title is being regenerated (shows shimmer effect) */
@@ -96,7 +96,7 @@ export function PanelHeader({
   leadingAction: explicitLeadingAction,
   centerButton,
   actions,
-  rightSidebarButton,
+  closeButton,
   className,
   isRegeneratingTitle,
 }: PanelHeaderProps) {
@@ -173,7 +173,7 @@ export function PanelHeader({
   // The side insets are based on the actual number of control slots so a long
   // title truncates before the right-side action cluster instead of overlapping it.
   const compactLeadingControlCount = leadingAction ? 1 : 0
-  const compactTrailingControlCount = [centerButton, actions, rightSidebarButton].filter(Boolean).length
+  const compactTrailingControlCount = [centerButton, actions, closeButton].filter(Boolean).length
   const compactTitleInsetStyle = isCompactMode
     ? {
         left: compactTitleInset(compactLeadingControlCount),
@@ -199,9 +199,9 @@ export function PanelHeader({
           {actions}
         </div>
       )}
-      {rightSidebarButton && (
+      {closeButton && (
         <div className="titlebar-no-drag shrink-0 z-[1]">
-          {rightSidebarButton}
+          {closeButton}
         </div>
       )}
       <div
@@ -235,9 +235,9 @@ export function PanelHeader({
           {actions}
         </div>
       )}
-      {rightSidebarButton && (
+      {closeButton && (
         <div className="titlebar-no-drag shrink-0">
-          {rightSidebarButton}
+          {closeButton}
         </div>
       )}
     </>
