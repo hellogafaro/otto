@@ -38,8 +38,6 @@ interface ParsedInternalDeepLink {
     actionParams?: Record<string, string>
   }
   workspaceId?: string
-  /** Use client shell.openExternal fallback (e.g. window=focused links). */
-  requiresExternalOpen?: boolean
   /** True when URL is intentionally consumed without navigation (auth callbacks). */
   handledNoop?: boolean
 }
@@ -58,7 +56,7 @@ function collectDeepLinkParams(parsed: URL, pathId?: string): Record<string, str
   if (pathId) params.id = pathId
 
   parsed.searchParams.forEach((value, key) => {
-    if (key === 'window' || key === 'sidebar') return
+    if (key === 'sidebar') return
     params[key] = value
   })
 
@@ -70,12 +68,6 @@ function parseInternalCraftAgentsDeepLink(parsed: URL): ParsedInternalDeepLink |
 
   const host = parsed.hostname
   const pathParts = parsed.pathname.split('/').filter(Boolean)
-  const windowMode = parsed.searchParams.get('window')
-
-  // Preserve window-specific behavior via OS protocol path.
-  if (windowMode === 'focused' || windowMode === 'full') {
-    return { requiresExternalOpen: true }
-  }
 
   // OAuth callback links are handled by auth flow code paths.
   if (host === 'auth-callback') {
@@ -293,8 +285,7 @@ export function registerSystemCoreHandlers(server: RpcServer, deps: HandlerDeps)
           return
         }
 
-        // For links requiring window management (e.g. window=focused/full), or
-        // unknown deep-link shapes, fall back to the client protocol handler.
+        // Unknown deep-link shapes fall back to the client protocol handler.
         deps.platform.logger.info('[OPEN_URL] Falling back to client openExternal for craftagents:// URL')
         const deepLinkResult = await requestClientOpenExternal(server, ctx.clientId, url)
         if (!deepLinkResult.opened) {

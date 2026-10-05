@@ -13,8 +13,6 @@
  * they have their own fixed/user-resizable widths managed by AppShell.
  * They just reduce the available width for content panels and scroll with everything else.
  *
- * The right sidebar stays OUTSIDE this container.
- *
  * Compact mode (mobile / narrow window):
  * The flex layout is replaced with an absolute-positioned, transform-animated
  * stack — navigator and the focused content panel both stay mounted and slide
@@ -51,7 +49,6 @@ interface PanelStackContainerProps {
   sidebarWidth: number
   navigatorSlot: React.ReactNode
   navigatorWidth: number
-  isRightSidebarVisible?: boolean
   /** Compact mode: single-panel, list/content toggle (mobile or narrow window) */
   isCompact?: boolean
   isResizing?: boolean
@@ -83,7 +80,6 @@ export function PanelStackContainer({
   sidebarWidth,
   navigatorSlot,
   navigatorWidth,
-  isRightSidebarVisible,
   isCompact = false,
   isResizing,
   onSidebarResizeStart,
@@ -115,7 +111,6 @@ export function PanelStackContainer({
   // animate both slots in lockstep.
   const hasNavigator = isCompact ? navigatorWidth > 0 : navigatorWidth > 0
   const isMultiPanel = visiblePanels.length > 1
-  const isLeftEdge = !hasSidebar && !hasNavigator
 
   // Auto-scroll to newly pushed content panel (desktop multi-panel only).
   // Compact mode is single-panel so there's nothing to scroll into view.
@@ -183,8 +178,6 @@ export function PanelStackContainer({
                 entry={focusedEntry}
                 isOnly={true}
                 isFocusedPanel={true}
-                isAtLeftEdge={isLeftEdge}
-                isAtRightEdge={!isRightSidebarVisible}
                 proportion={focusedEntry.proportion}
                 isCompact={true}
               />
@@ -274,8 +267,6 @@ export function PanelStackContainer({
               entry={entry}
               isOnly={visiblePanels.length === 1}
               isFocusedPanel={isMultiPanel ? entry.id === focusedPanelId : true}
-              isAtLeftEdge={index === 0 && isLeftEdge}
-              isAtRightEdge={index === visiblePanels.length - 1 && !isRightSidebarVisible}
               proportion={entry.proportion}
               isCompact={false}
               sash={index > 0 ? (

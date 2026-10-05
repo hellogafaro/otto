@@ -3324,7 +3324,6 @@ function AppShellContent({
             </div>
           }
           navigatorWidth={isAutoCompact ? sessionListWidth : (isPagesView ? 0 : sessionListWidth)}
-          isRightSidebarVisible={false}
           isCompact={isAutoCompact}
           isResizing={!!isResizing}
           onSidebarResizeStart={() => setIsResizing('sidebar')}

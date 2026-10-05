@@ -45,17 +45,12 @@ interface ManagedWindow {
 export interface CreateWindowOptions {
   /** The workspace to open (empty string for onboarding) */
   workspaceId: string
-  /** Whether to open in focused mode (smaller window, no sidebars) */
-  focused?: boolean
-  /** Deep link URL to navigate to after window loads (without ?window= param) */
-  initialDeepLink?: string
   /** Full URL to restore from saved state (preserves route/query params) */
   restoreUrl?: string
 }
 
 export class WindowManager {
   private windows: Map<number, ManagedWindow> = new Map()  // webContents.id → ManagedWindow
-  private focusedModeWindows: Set<number> = new Set()  // webContents.id of windows in focused mode
   private pendingCloseTimeouts: Map<number, NodeJS.Timeout> = new Map()  // Fallback timeouts for window close
   private eventSink: ((channel: string, target: import('@craft-agent/shared/protocol').PushTarget, ...args: any[]) => void) | null = null
   private clientResolver: ((wcId: number) => string | undefined) | null = null
@@ -193,7 +188,7 @@ export class WindowManager {
    * @param options - Window creation options
    */
   createWindow(options: CreateWindowOptions): BrowserWindow {
-    const { workspaceId, focused = false, initialDeepLink, restoreUrl } = options
+    const { workspaceId, restoreUrl } = options
 
     // Load platform-specific app icon
     // In packaged app, resources are at dist/resources/ (same level as __dirname)
@@ -215,18 +210,14 @@ export class WindowManager {
       windowLog.warn('App icon not found at:', iconPath)
     }
 
-    // Use smaller window size for focused mode (single session view)
-    const windowWidth = focused ? 900 : 1400
-    const windowHeight = focused ? 700 : 900
-
     // Platform-specific window options
     const isMac = process.platform === 'darwin'
     const isWindows = process.platform === 'win32'
     const windowsBackgroundMaterial = getWindowsBackgroundMaterial()
 
     const window = new BrowserWindow({
-      width: windowWidth,
-      height: windowHeight,
+      width: 1400,
+      height: 900,
       minWidth: 800,
       minHeight: 600,
       show: false, // Don't show until ready-to-show event (faster perceived startup)
@@ -317,11 +308,6 @@ export class WindowManager {
     // from app name → workspace name as the count crosses 1 → 2.
     this.refreshWindowTitles()
 
-    // Track focused mode state for persistence
-    if (focused) {
-      this.focusedModeWindows.add(webContentsId)
-    }
-
     // Load the renderer - use restoreUrl if provided, otherwise build from options
     if (restoreUrl) {
       // Restore from saved URL - need to adapt for dev vs prod
@@ -337,7 +323,7 @@ export class WindowManager {
         } catch {
           // Fallback if URL parsing fails
           windowLog.warn('Failed to parse restoreUrl, using default:', restoreUrl)
-          const params = new URLSearchParams({ workspaceId, ...(focused && { focused: 'true' }) }).toString()
+          const params = new URLSearchParams({ workspaceId }).toString()
           window.loadURL(`${VITE_DEV_SERVER_URL}?${params}`)
         }
       } else {
@@ -356,9 +342,6 @@ export class WindowManager {
     } else {
       // Build URL from options
       const query: Record<string, string> = { workspaceId }
-      if (focused) {
-        query.focused = 'true' // Open in focused mode (no sidebars)
-      }
 
       if (VITE_DEV_SERVER_URL) {
         const params = new URLSearchParams(query).toString()
@@ -386,26 +369,6 @@ export class WindowManager {
         window.loadFile(join(__dirname, 'renderer/index.html'), { query: { workspaceId } })
       }
     })
-
-    // If an initial deep link was provided, navigate to it after the window is ready
-    if (initialDeepLink) {
-      window.once('ready-to-show', () => {
-        // Import parseDeepLink dynamically to avoid circular dependency
-        import('./deep-link').then(({ parseDeepLink }) => {
-          const target = parseDeepLink(initialDeepLink)
-          if (target && (target.view || target.action)) {
-            // Wait a bit for React to mount and register IPC listeners
-            setTimeout(() => {
-              this.pushToWindow(window, RPC_CHANNELS.deeplink.NAVIGATE, {
-                view: target.view,
-                action: target.action,
-                actionParams: target.actionParams,
-              })
-            }, 100)
-          }
-        })
-      })
-    }
 
     // Listen for system theme changes and notify this window's renderer
     const themeHandler = () => {
@@ -504,14 +467,13 @@ export class WindowManager {
 
       nativeTheme.removeListener('updated', themeHandler)
       this.windows.delete(webContentsId)
-      this.focusedModeWindows.delete(webContentsId)
       // Re-apply window-title policy — surviving windows revert from workspace
       // name back to app name when the count drops from 2 → 1.
       this.refreshWindowTitles()
       windowLog.info(`Window closed for workspace ${workspaceId}`)
     })
 
-    windowLog.info(`Created window for workspace ${workspaceId} (focused: ${focused})`)
+    windowLog.info(`Created window for workspace ${workspaceId}`)
     return window
   }
 
@@ -613,16 +575,6 @@ export class WindowManager {
   }
 
   /**
-   * Close window for a specific workspace
-   */
-  closeWindowForWorkspace(workspaceId: string): void {
-    const window = this.getWindowByWorkspace(workspaceId)
-    if (window && !window.isDestroyed()) {
-      window.close()
-    }
-  }
-
-  /**
    * Update the workspace ID for an existing window (for in-window switching)
    * @param webContentsId - The webContents.id of the window
    * @param workspaceId - The new workspace ID
@@ -681,29 +633,19 @@ export class WindowManager {
   }
 
   /**
-   * Get window states for persistence (includes bounds and focused mode)
+   * Get window states for persistence (includes bounds and URL)
    * Used by window-state.ts to save/restore windows
    */
   getWindowStates(): SavedWindow[] {
     return this.getAllWindows().map(managed => {
-      const webContentsId = managed.window.webContents.id
-      const isFocused = this.focusedModeWindows.has(webContentsId)
       const url = managed.window.webContents.getURL()
       return {
         type: 'main' as const,
         workspaceId: managed.workspaceId,
         bounds: managed.window.getBounds(),
-        ...(isFocused && { focused: true }),
         ...(url && { url }),
       }
     })
-  }
-
-  /**
-   * Check if any windows are open
-   */
-  hasWindows(): boolean {
-    return this.getAllWindows().length > 0
   }
 
   /**

@@ -66,8 +66,6 @@ export const RPC_CHANNELS = {
   },
   window: {
     GET_WORKSPACE: 'window:getWorkspace',
-    GET_MODE: 'window:getMode',
-    OPEN_WORKSPACE: 'window:openWorkspace',
     SWITCH_WORKSPACE: 'window:switchWorkspace',
     CLOSE: 'window:close',
     CLOSE_REQUESTED: 'window:closeRequested',

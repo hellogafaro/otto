@@ -92,17 +92,17 @@ describe('registerSystemCoreHandlers OPEN_URL', () => {
     })
   })
 
-  it('falls back to client openExternal for craftagents window-mode links', async () => {
+  it('falls back to client openExternal for unknown craftagents link shapes', async () => {
     const { openUrl, ctx, invokeClientCalls, pushCalls } = createTestHarness()
 
-    await openUrl(ctx, 'craftagents://action/new-session?window=focused')
+    await openUrl(ctx, 'craftagents://unknown/thing')
 
     expect(pushCalls).toHaveLength(0)
     expect(invokeClientCalls).toHaveLength(1)
     expect(invokeClientCalls[0]).toEqual({
       clientId: 'client-1',
       channel: CLIENT_OPEN_EXTERNAL,
-      args: ['craftagents://action/new-session?window=focused'],
+      args: ['craftagents://unknown/thing'],
     })
   })
 

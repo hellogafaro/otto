@@ -48,8 +48,6 @@ export interface DeepLinkTarget {
   /** Action route (e.g., 'new-chat', 'delete-session') */
   action?: string
   actionParams?: Record<string, string>
-  /** Window mode - if set, opens in a new window instead of navigating in existing */
-  windowMode?: 'focused' | 'full'
   /** Right sidebar param (e.g., 'files/path/to/file', 'history') */
   rightSidebar?: string
 }
@@ -57,7 +55,6 @@ export interface DeepLinkTarget {
 export interface DeepLinkResult {
   success: boolean
   error?: string
-  windowId?: number
 }
 
 /**
@@ -69,17 +66,6 @@ export interface DeepLinkNavigation {
   /** Action route (e.g., 'new-chat', 'delete-session') */
   action?: string
   actionParams?: Record<string, string>
-}
-
-/**
- * Parse window mode from URL search params
- */
-function parseWindowMode(parsed: URL): 'focused' | 'full' | undefined {
-  const windowParam = parsed.searchParams.get('window')
-  if (windowParam === 'focused' || windowParam === 'full') {
-    return windowParam
-  }
-  return undefined
 }
 
 /**
@@ -105,7 +91,6 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
     // e.g., craftagents://allSessions/chat/abc → hostname='allSessions', pathname='/chat/abc'
     const host = parsed.hostname
     const pathParts = parsed.pathname.split('/').filter(Boolean)
-    const windowMode = parseWindowMode(parsed)
     const rightSidebar = parseRightSidebar(parsed)
 
     // craftagents://auth-callback?... (OAuth callbacks - return null to let existing handler process)
@@ -125,7 +110,6 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
       return {
         workspaceId: undefined,
         view: viewRoute,
-        windowMode,
         rightSidebar,
       }
     }
@@ -135,7 +119,7 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
       const workspaceId = pathParts[0]
       if (!workspaceId) return null
 
-      const result: DeepLinkTarget = { workspaceId, windowMode, rightSidebar }
+      const result: DeepLinkTarget = { workspaceId, rightSidebar }
 
       // Check what type of route follows the workspace ID
       const routeType = pathParts[1]
@@ -157,8 +141,8 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
           result.actionParams.id = pathParts[3]
         }
         parsed.searchParams.forEach((value, key) => {
-          // Skip the window and sidebar params - they're handled separately
-          if (key !== 'window' && key !== 'sidebar') {
+          // Skip the sidebar param - it's handled separately
+          if (key !== 'sidebar') {
             result.actionParams![key] = value
           }
         })
@@ -174,7 +158,6 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
         workspaceId: undefined,
         action: pathParts[0],
         actionParams: {},
-        windowMode,
         rightSidebar,
       }
 
@@ -183,8 +166,8 @@ export function parseDeepLink(url: string): DeepLinkTarget | null {
       }
 
       parsed.searchParams.forEach((value, key) => {
-        // Skip the window and sidebar params - they're handled separately
-        if (key !== 'window' && key !== 'sidebar') {
+        // Skip the sidebar param - it's handled separately
+        if (key !== 'sidebar') {
           result.actionParams![key] = value
         }
       })
@@ -221,15 +204,6 @@ function waitForWindowReady(window: BrowserWindow): Promise<void> {
 }
 
 /**
- * Build a deep link URL without the window query parameter
- */
-function buildDeepLinkWithoutWindowParam(url: string): string {
-  const parsed = new URL(url)
-  parsed.searchParams.delete('window')
-  return parsed.toString()
-}
-
-/**
  * Handle a deep link by navigating to the target
  */
 export async function handleDeepLink(
@@ -251,48 +225,7 @@ export async function handleDeepLink(
 
   mainLog.info('[DeepLink] Handling:', target)
 
-  // If windowMode is set, create a new window instead of navigating in existing
-  if (target.windowMode) {
-    mainLog.info('[DeepLink] windowMode detected:', target.windowMode)
-    // Get workspaceId from target or from current window
-    let wsId = target.workspaceId
-    if (!wsId) {
-      const focusedWindow = windowManager.getFocusedWindow()
-      mainLog.info('[DeepLink] focusedWindow:', focusedWindow?.id)
-      if (focusedWindow) {
-        wsId = windowManager.getWorkspaceForWindow(focusedWindow.webContents.id) ?? undefined
-        mainLog.info('[DeepLink] wsId from focused window:', wsId)
-      }
-      if (!wsId) {
-        const allWindows = windowManager.getAllWindows()
-        mainLog.info('[DeepLink] allWindows count:', allWindows.length)
-        if (allWindows.length > 0) {
-          wsId = allWindows[0].workspaceId
-          mainLog.info('[DeepLink] wsId from first window:', wsId)
-        }
-      }
-    }
-
-    if (!wsId) {
-      mainLog.error('[DeepLink] No workspace available for new window')
-      return { success: false, error: 'No workspace available for new window' }
-    }
-
-    // Build URL without window param for navigation inside the new window
-    const navUrl = buildDeepLinkWithoutWindowParam(url)
-    mainLog.info('[DeepLink] Creating new window with navUrl:', navUrl)
-
-    const window = windowManager.createWindow({
-      workspaceId: wsId,
-      focused: target.windowMode === 'focused',
-      initialDeepLink: navUrl,
-    })
-    mainLog.info('[DeepLink] Window created:', window.webContents.id)
-
-    return { success: true, windowId: window.webContents.id }
-  }
-
-  // 1. Get target window (existing behavior for non-window-mode links)
+  // 1. Get target window
   let window: BrowserWindow | null = null
 
   if (target.workspaceId) {
@@ -338,5 +271,5 @@ export async function handleDeepLink(
     }
   }
 
-  return { success: true, windowId: window.isDestroyed() ? -1 : window.webContents.id }
+  return { success: true }
 }

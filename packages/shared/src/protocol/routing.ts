@@ -26,8 +26,6 @@ export const LOCAL_ONLY_CHANNELS = new Set<string>([
 
   // window — Electron window management
   RPC_CHANNELS.window.GET_WORKSPACE,
-  RPC_CHANNELS.window.GET_MODE,
-  RPC_CHANNELS.window.OPEN_WORKSPACE,
   RPC_CHANNELS.window.SWITCH_WORKSPACE,
   RPC_CHANNELS.window.CLOSE,
   RPC_CHANNELS.window.CLOSE_REQUESTED,

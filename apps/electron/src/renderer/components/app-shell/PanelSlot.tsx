@@ -30,10 +30,6 @@ interface PanelSlotProps {
   isOnly: boolean
   /** Whether this panel is the focused panel in a multi-panel layout */
   isFocusedPanel: boolean
-  /** Whether this panel's left corners touch the window edge (no sidebar/navigator before it) */
-  isAtLeftEdge: boolean
-  /** Whether this panel's right corners touch the window edge (no right sidebar after it) */
-  isAtRightEdge: boolean
   /** Flex-grow weight for proportional sizing */
   proportion: number
   /** Optional sash element rendered before this panel */
@@ -46,8 +42,6 @@ export function PanelSlot({
   entry,
   isOnly,
   isFocusedPanel,
-  isAtLeftEdge,
-  isAtRightEdge,
   proportion,
   sash,
   isCompact,
@@ -123,8 +117,6 @@ export function PanelSlot({
               } as React.CSSProperties
             : {}
           ),
-          // Corner radii: edge corners (touching window boundary) vs interior corners.
-          // Compact mode panels run flush to the viewport floor — no rounded bottom.
           ...(isOnly
             ? { flexGrow: 1, minWidth: 0 }
             : { flexGrow: proportion, flexShrink: 1, flexBasis: 0, minWidth: PANEL_MIN_WIDTH }

@@ -14,7 +14,6 @@ export const CORE_HANDLED_CHANNELS = [
   RPC_CHANNELS.workspaces.CHECK_SLUG,
   RPC_CHANNELS.workspaces.UPDATE_REMOTE,
   RPC_CHANNELS.window.GET_WORKSPACE,
-  RPC_CHANNELS.window.GET_MODE,
   RPC_CHANNELS.window.SWITCH_WORKSPACE,
   RPC_CHANNELS.workspace.READ_IMAGE,
   RPC_CHANNELS.workspace.WRITE_IMAGE,
@@ -80,11 +79,6 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
       }
     }
     return workspaceId
-  })
-
-  // Get mode for the calling window (always 'main' now)
-  server.handle(RPC_CHANNELS.window.GET_MODE, () => {
-    return 'main'
   })
 
   // Switch workspace in current window (in-window switching)

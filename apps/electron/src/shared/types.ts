@@ -293,8 +293,6 @@ export interface ElectronAPI {
 
   // Window management
   getWindowWorkspace(): Promise<string | null>
-  getWindowMode(): Promise<string | null>
-  openWorkspace(workspaceId: string): Promise<void>
   switchWorkspace(workspaceId: string): Promise<void>
   closeWindow(): Promise<void>
   confirmCloseWindow(): Promise<void>
