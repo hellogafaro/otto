@@ -113,8 +113,18 @@ test('a returned connection never carries the secret', async () => {
   const created = store.createConnection({ type: 'openai', secret: 'sk-very-secret' })
   const updated = store.updateConnection(created.id, { secret: 'sk-even-more-secret' })
   for (const connection of [created, updated, store.getConnection(created.id), ...store.getConnections()]) {
-    expect(Object.keys(connection!).sort()).toEqual(['baseUrl', 'createdAt', 'hasSecret', 'id', 'title', 'type'])
+    expect(Object.keys(connection!).sort()).toEqual(['baseUrl', 'createdAt', 'hasSecret', 'id', 'slug', 'title', 'type'])
     expect(JSON.stringify(connection)).not.toContain('secret-')
     expect(JSON.stringify(connection)).not.toContain('sk-')
   }
+})
+
+test('a connection can carry a slug and be found by it', async () => {
+  const { store } = await setup()
+  const a = store.createConnection({ type: 'anthropic', slug: 'anthropic-api', secret: 'k' })
+  store.createConnection({ type: 'openai' })
+  expect(a.slug).toBe('anthropic-api')
+  expect(store.getConnectionBySlug('anthropic-api')?.id).toBe(a.id)
+  expect(store.getConnectionBySlug('nope')).toBeUndefined()
+  expect(() => store.createConnection({ type: 'ollama', slug: 'anthropic-api' })).toThrow()
 })

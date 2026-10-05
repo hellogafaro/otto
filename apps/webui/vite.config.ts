@@ -20,7 +20,10 @@ export default defineConfig({
       name: 'local-ws-url',
       configureServer(server) {
         server.middlewares.use('/api/config', (req, res, next) => {
-          const host = (req.headers.host ?? '').split(':')[0]
+          // Behind the bb link the original host arrives as x-forwarded-host.
+          const forwarded = req.headers['x-forwarded-host']
+          const host = String(forwarded ?? req.headers.host ?? '').split(',')[0]!.split(':')[0]
+          console.log('[local-ws-url]', { host: req.headers.host, forwarded })
           if (host !== '127.0.0.1' && host !== 'localhost') return next()
           res.setHeader('content-type', 'application/json')
           res.end(JSON.stringify({ wsUrl: `ws://127.0.0.1:${process.env.CRAFT_RPC_PORT ?? '9100'}` }))

@@ -8,7 +8,7 @@ import {
   validateStoredBackendConnection,
 } from '@craft-agent/shared/agent/backend'
 import { getModelRefreshService } from '@craft-agent/server-core/model-fetchers'
-import { parseTestConnectionError, createBuiltInConnection, validateModelList, piAuthProviderDisplayName, validateSetupTestInput, setupTestRequiresApiKey, resolveCustomEndpointSetup, resolveSetupTestApiKey, maskApiKey, isMaskedApiKey } from '@craft-agent/server-core/domain'
+import { parseTestConnectionError, createBuiltInConnection, validateModelList, piAuthProviderDisplayName, validateSetupTestInput, setupTestRequiresApiKey, resolveCustomEndpointSetup, resolveSetupTestApiKey, maskApiKey, isMaskedApiKey, mirrorConnection, unmirrorConnection } from '@craft-agent/server-core/domain'
 import { getWorkspaceOrThrow, buildBackendHostRuntimeContext } from '@craft-agent/server-core/handlers'
 import { pushTyped, type RpcServer } from '@craft-agent/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
@@ -287,6 +287,14 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         deps.platform.logger?.info('Saved IAM credentials to LLM connection')
       }
 
+      // Bridge: mirror into the `connections` domain (see domain/connection-mirror.ts).
+      // A failure here must not fail the setup.
+      try {
+        await mirrorConnection(pendingConnection, manager)
+      } catch (err) {
+        deps.platform.logger?.error(`Failed to mirror LLM connection ${setup.slug} into connections:`, err)
+      }
+
       // Set as default only if no default exists yet (first connection)
       if (!getDefaultLlmConnection()) {
         setDefaultLlmConnection(setup.slug)
@@ -519,11 +527,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         // Also delete associated credentials
         const credentialManager = getCredentialManager()
         await credentialManager.deleteLlmCredentials(slug)
-        // Bridge: the Claude subscription also lives in `connections`; remove it with the slug.
-        if (slug.startsWith('claude-max')) {
-          const { getConnections, deleteConnection } = await import('@craft-agent/shared/connections')
-          for (const c of getConnections()) if (c.type === 'claude') deleteConnection(c.id)
-        }
+        await unmirrorConnection(slug)
         deps.platform.logger?.info(`LLM connection deleted: ${slug}`)
       }
       return { success }
@@ -673,23 +677,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         expiresAt: tokens.expiresAt,
       })
 
-      // One ChatGPT connection at most for now. A failure here must not fail the
-      // sign-in: the credential manager above keeps the app working.
-      try {
-        const { getConnections, createConnection, updateConnection } = await import('@craft-agent/shared/connections')
-        const secret = JSON.stringify({
-          accessToken: tokens.accessToken,
-          idToken: tokens.idToken,
-          refreshToken: tokens.refreshToken,
-          expiresAt: tokens.expiresAt,
-        })
-        const existing = getConnections().find(c => c.type === 'chatgpt')
-        if (existing) updateConnection(existing.id, { secret })
-        else createConnection({ type: 'chatgpt', secret })
-      } catch (err) {
-        deps.platform.logger?.error('[ChatGPT OAuth] Failed to store the connection:', err)
-      }
-
       deps.platform.logger?.info(`[ChatGPT OAuth] Signed in for ${connectionSlug}`)
       refreshModelsInBackground(connectionSlug, 'ChatGPT auth')
       return { success: true }
@@ -746,10 +733,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     try {
       const credentialManager = getCredentialManager()
       await credentialManager.deleteLlmCredentials(connectionSlug)
-      const { getConnections, deleteConnection } = await import('@craft-agent/shared/connections')
-      for (const c of getConnections()) {
-        if (c.type === 'chatgpt') deleteConnection(c.id)
-      }
+      await unmirrorConnection(connectionSlug)
       deps.platform.logger?.info('ChatGPT credentials cleared')
       return { success: true }
     } catch (error) {

@@ -8,7 +8,7 @@ import { connections } from './schema.ts'
 /**
  * Connections: the accounts and endpoints Otto talks to (AI providers for now).
  *
- *   connections(id, type, title, baseUrl, secretId, createdAt)   (schema.ts)
+ *   connections(id, slug, type, title, baseUrl, secretId, createdAt)   (schema.ts)
  *
  * `type` is an id from the catalog (catalog.ts). The credential lives in the
  * secrets domain; a connection only keeps its `secretId`, and neither the id
@@ -16,10 +16,13 @@ import { connections } from './schema.ts'
  * the value with `getConnectionSecret`.
  */
 
+export type { ConnectionType } from './catalog.ts'
+
 type SecretsStore = ReturnType<typeof createSecretsStore>
 
 export type Connection = {
   id: string
+  slug: string | null
   type: ConnectionType
   title: string
   baseUrl: string | null
@@ -30,6 +33,7 @@ export type Connection = {
 function toConnection(row: typeof connections.$inferSelect): Connection {
   return {
     id: row.id,
+    slug: row.slug,
     type: row.type as ConnectionType,
     title: row.title,
     baseUrl: row.baseUrl,
@@ -42,7 +46,7 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
   const rowOf = (id: string) => db.select().from(connections).where(eq(connections.id, id)).get()
 
   return {
-    createConnection(input: { type: string; title?: string; baseUrl?: string; secret?: string }): Connection {
+    createConnection(input: { type: string; slug?: string; title?: string; baseUrl?: string; secret?: string }): Connection {
       const entry = getCatalogEntry(input.type)
       if (!entry) throw new Error(`Unknown connection type: ${input.type}`)
       const title = input.title ?? entry.title
@@ -52,6 +56,7 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
           .insert(connections)
           .values({
             id: createId(),
+            slug: input.slug ?? null,
             type: entry.id,
             title,
             baseUrl: input.baseUrl ?? entry.baseUrl ?? null,
@@ -69,6 +74,11 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
 
     getConnection(id: string): Connection | undefined {
       const row = rowOf(id)
+      return row && toConnection(row)
+    },
+
+    getConnectionBySlug(slug: string): Connection | undefined {
+      const row = db.select().from(connections).where(eq(connections.slug, slug)).get()
       return row && toConnection(row)
     },
 
@@ -120,9 +130,10 @@ function defaultStore() {
   return (store ??= createConnectionsStore(initDb(), initSecretsStore()))
 }
 
-export const createConnection = (input: { type: string; title?: string; baseUrl?: string; secret?: string }) =>
+export const createConnection = (input: { type: string; slug?: string; title?: string; baseUrl?: string; secret?: string }) =>
   defaultStore().createConnection(input)
 export const getConnection = (id: string) => defaultStore().getConnection(id)
+export const getConnectionBySlug = (slug: string) => defaultStore().getConnectionBySlug(slug)
 export const getConnections = () => defaultStore().getConnections()
 export const getConnectionSecret = (id: string) => defaultStore().getConnectionSecret(id)
 export const updateConnection = (id: string, patch: { title?: string; baseUrl?: string; secret?: string }) =>
