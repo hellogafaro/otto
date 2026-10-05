@@ -15,16 +15,14 @@ export default defineConfig({
     }),
     tailwindcss(),
     {
-      // Dev only: on this machine the browser reaches the server directly. Through the bb
-      // link the server's CRAFT_WEBUI_WS_URL (the public address) is used as is.
+      // Dev only, opt-in (WEBUI_LOCAL_WS=1): a browser on this machine reaches the
+      // server directly. Off by default because the bb link also arrives as
+      // 127.0.0.1, and there the server's CRAFT_WEBUI_WS_URL (the public address)
+      // must be used as is.
       name: 'local-ws-url',
       configureServer(server) {
-        server.middlewares.use('/api/config', (req, res, next) => {
-          // Behind the bb link the original host arrives as x-forwarded-host.
-          const forwarded = req.headers['x-forwarded-host']
-          const host = String(forwarded ?? req.headers.host ?? '').split(',')[0]!.split(':')[0]
-          console.log('[local-ws-url]', { host: req.headers.host, forwarded })
-          if (host !== '127.0.0.1' && host !== 'localhost') return next()
+        if (!process.env.WEBUI_LOCAL_WS) return
+        server.middlewares.use('/api/config', (_req, res) => {
           res.setHeader('content-type', 'application/json')
           res.end(JSON.stringify({ wsUrl: `ws://127.0.0.1:${process.env.CRAFT_RPC_PORT ?? '9100'}` }))
         })
