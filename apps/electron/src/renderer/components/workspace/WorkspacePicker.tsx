@@ -5,14 +5,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { Spinner } from '@craft-agent/ui'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { WorkspaceAvatar } from '@/components/ui/workspace-avatar'
+import { SettingsCard, SettingsRow } from '@/components/settings'
+import { StepFormLayout, ContinueButton } from '../onboarding/primitives'
 import type { WorkspaceInfo } from '../../../shared/types'
-import {
-  AddWorkspaceContainer,
-  AddWorkspaceStepHeader,
-  AddWorkspacePrimaryButton,
-} from './primitives'
+import { AddWorkspacePage } from './primitives'
 
 interface WorkspacePickerProps {
   onSelectWorkspace: (workspaceId: string) => void
@@ -53,72 +54,68 @@ export function WorkspacePicker({ onSelectWorkspace }: WorkspacePickerProps) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-sidebar px-4">
-        <AddWorkspaceContainer>
-          <Spinner className="h-6 w-6" />
-        </AddWorkspaceContainer>
-      </div>
+      <AddWorkspacePage className="h-dvh">
+        <Spinner />
+      </AddWorkspacePage>
     )
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-sidebar px-4">
-      <AddWorkspaceContainer>
-        <AddWorkspaceStepHeader
-          title={t("workspace.selectWorkspace")}
-          description={t("workspace.selectWorkspaceDesc")}
-        />
-
-        {error && (
-          <p className="mt-3 w-full text-center text-sm text-destructive">{error}</p>
-        )}
-
-        {/* Workspace list */}
-        {workspaces.length > 0 && (
-          <div className="mt-5 w-full space-y-1.5">
-            {workspaces.map(ws => (
-              <button
-                key={ws.id}
-                onClick={() => onSelectWorkspace(ws.id)}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-foreground/5"
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-semibold uppercase">
-                  {ws.name.charAt(0)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium">{ws.name}</div>
-                  <div className="truncate text-xs text-muted-foreground">{ws.slug}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Divider */}
-        <div className="mt-5 mb-4 w-full border-t" />
-
-        {/* Create new */}
-        <div className="w-full space-y-2">
-          <input
-            type="text"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleCreate()}
-            placeholder={t("workspace.newWorkspaceName")}
-            className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-          />
-          <AddWorkspacePrimaryButton
+    <AddWorkspacePage className="h-dvh">
+      <StepFormLayout
+        title={t("workspace.selectWorkspace")}
+        description={t("workspace.selectWorkspaceDesc")}
+        actions={
+          <ContinueButton
+            variant={workspaces.length > 0 ? 'secondary' : 'default'}
             onClick={handleCreate}
             disabled={!newName.trim()}
             loading={creating}
-            loadingText={t("workspace.creating")}
-            className="bg-primary hover:bg-primary/90 text-white"
           >
-            <Plus className="mr-1.5 h-4 w-4" />
             {t("workspace.createWorkspace")}
-          </AddWorkspacePrimaryButton>
+          </ContinueButton>
+        }
+      >
+        <div className="space-y-3">
+          {workspaces.length > 0 && (
+            <SettingsCard>
+              {workspaces.map(ws => (
+                <SettingsRow
+                  key={ws.id}
+                  icon={
+                    <WorkspaceAvatar
+                      workspaceId={ws.id}
+                      workspaceName={ws.name}
+                      className="size-5 rounded-xs"
+                      fallbackClassName="rounded-xs"
+                    />
+                  }
+                  label={ws.name}
+                  description={ws.slug}
+                  onClick={() => onSelectWorkspace(ws.id)}
+                >
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </SettingsRow>
+              ))}
+            </SettingsCard>
+          )}
+
+          <SettingsCard>
+            <SettingsRow label={<Label htmlFor="new-workspace-name">{t("workspace.nameLabel")}</Label>}>
+              <Input
+                id="new-workspace-name"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreate()}
+                placeholder={t("workspace.newWorkspaceName")}
+                className="w-60"
+              />
+            </SettingsRow>
+          </SettingsCard>
+
+          {error && <p className="px-1 text-sm text-destructive">{error}</p>}
         </div>
-      </AddWorkspaceContainer>
-    </div>
+      </StepFormLayout>
+    </AddWorkspacePage>
   )
 }

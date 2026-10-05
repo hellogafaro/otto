@@ -128,14 +128,14 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 
 ## Workspace (8)
 
-- [ ] `components/workspace/AddWorkspaceStep_Choice.tsx`
-- [ ] `components/workspace/AddWorkspaceStep_ConnectRemote.tsx`
-- [ ] `components/workspace/AddWorkspaceStep_CreateNew.tsx`
-- [ ] `components/workspace/AddWorkspaceStep_OpenFolder.tsx`
-- [ ] `components/workspace/AddWorkspace_RadioOption.tsx`
-- [ ] `components/workspace/WorkspaceCreationScreen.tsx`
-- [ ] `components/workspace/WorkspacePicker.tsx`
-- [ ] `components/workspace/primitives.tsx`
+- [x] `components/workspace/AddWorkspaceStep_Choice.tsx`
+- [x] `components/workspace/AddWorkspaceStep_ConnectRemote.tsx`
+- [x] `components/workspace/AddWorkspaceStep_CreateNew.tsx`
+- [x] `components/workspace/AddWorkspaceStep_OpenFolder.tsx`
+- [x] `components/workspace/AddWorkspace_RadioOption.tsx`
+- [x] `components/workspace/WorkspaceCreationScreen.tsx`
+- [x] `components/workspace/WorkspacePicker.tsx`
+- [x] `components/workspace/primitives.tsx`
 
 ## Files and preview (1)
 
@@ -198,16 +198,8 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 - [ ] `components/settings/SettingsTextarea.tsx`
 - [ ] `components/settings/SettingsToggle.tsx`
 
-## App menu (4)
+## Top-level components (5)
 
-- [ ] `components/app-menu/DesktopAppMenu.tsx`
-- [ ] `components/app-menu/MobileAppMenu.tsx`
-- [ ] `components/app-menu/MobileMenuItem.tsx`
-- [ ] `components/app-menu/MobileMenuPage.tsx`
-
-## Top-level components (6)
-
-- [ ] `components/AppMenu.tsx`
 - [ ] `components/KeyboardShortcuts.tsx`
 - [ ] `components/KeyboardShortcutsDialog.tsx`
 - [ ] `components/ResetConfirmationDialog.tsx`

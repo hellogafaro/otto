@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { settingsUI } from "@/components/settings/SettingsUIConstants"
 
 interface AddWorkspace_RadioOptionProps {
   name: string
@@ -12,10 +13,9 @@ interface AddWorkspace_RadioOptionProps {
 }
 
 /**
- * AddWorkspace_RadioOption - Shared radio button component for workspace creation flows
+ * AddWorkspace_RadioOption - A radio row for a SettingsCard in the workspace creation flows
  *
  * Used in:
- * - AddWorkspaceStep_OpenFolder: Browse/Create folder options + Location selection
  * - AddWorkspaceStep_CreateNew: Location selection
  */
 export function AddWorkspace_RadioOption({
@@ -29,13 +29,9 @@ export function AddWorkspace_RadioOption({
 }: AddWorkspace_RadioOptionProps) {
   return (
     <label className={cn(
-      "flex items-center gap-3 p-3 rounded-lg cursor-pointer",
-      "bg-background shadow-minimal",
-      "transition-all duration-150",
-      checked
-        ? "hover:bg-primary/5"
-        : "hover:bg-foreground/5",
-      disabled && "opacity-50 cursor-not-allowed"
+      "flex w-full cursor-pointer items-center gap-3 px-4 py-3 transition-colors",
+      "hover:bg-muted/70 has-[:focus-visible]:bg-muted/70",
+      disabled && "cursor-not-allowed opacity-50"
     )}>
       <input
         type="radio"
@@ -45,19 +41,15 @@ export function AddWorkspace_RadioOption({
         disabled={disabled}
         className="sr-only"
       />
-      <div className={cn(
-        "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
-        checked
-          ? "border-primary"
-          : "border-foreground/30"
+      <span className={cn(
+        "relative flex size-4 shrink-0 items-center justify-center rounded-full",
+        checked ? "bg-primary" : "bg-input/90"
       )}>
-        {checked && (
-          <div className="h-2 w-2 rounded-full bg-primary" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium">{title}</div>
-        <div className="text-xs text-muted-foreground mt-[-1px]">
+        {checked && <span className="size-2 rounded-full bg-primary-foreground" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className={settingsUI.label}>{title}</div>
+        <div className={cn(settingsUI.description, settingsUI.labelDescriptionGap)}>
           {typeof subtitle === 'string' ? (
             <div className="truncate">{subtitle}</div>
           ) : (

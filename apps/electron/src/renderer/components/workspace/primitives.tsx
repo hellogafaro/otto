@@ -1,147 +1,38 @@
 import { cn } from "@/lib/utils"
-import { Button, type ButtonProps } from "@/components/ui/button"
-import { Spinner } from "@craft-agent/ui"
-
-/* =============================================================================
-   ADD WORKSPACE PRIMITIVES
-
-   Shared components for consistent styling across the Add Workspace flow.
-   These primitives ensure:
-   - Unified visual design across all steps
-   - Easy global style updates
-   - Consistent spacing and typography
-============================================================================= */
-
-// =============================================================================
-// CONTAINER
-// =============================================================================
-
-interface AddWorkspaceContainerProps {
-  children: React.ReactNode
-  className?: string
-}
+import { AmbientBackdrop } from "../onboarding/AmbientBackdrop"
 
 /**
- * AddWorkspaceContainer - Main container for workspace creation steps
+ * AddWorkspacePage - the page every workspace screen sits on.
  *
- * Provides:
- * - Fixed width (28rem)
- * - Background with rounded corners
- * - Strong shadow for elevation
- * - Consistent padding
+ * The same page as the onboarding wizard: background, the ambient dithered
+ * backdrop and a centered column (steps bring their own `StepFormLayout`).
+ * `action` is a control pinned to the top right of the window.
  */
-export function AddWorkspaceContainer({ children, className }: AddWorkspaceContainerProps) {
-  return (
-    <div className={cn(
-      "flex w-full max-w-[28rem] flex-col items-center",
-      "bg-background rounded-[20px] shadow-strong p-8",
-      className
-    )}>
-      {children}
-    </div>
-  )
-}
-
-// =============================================================================
-// STEP HEADER
-// =============================================================================
-
-interface AddWorkspaceStepHeaderProps {
-  /** The main title */
-  title: string
-  /** Optional description below the title */
-  description?: React.ReactNode
-  className?: string
-}
-
-/**
- * AddWorkspaceStepHeader - Title and description for workspace steps
- *
- * Always center-aligned with tight spacing for visual consistency.
- */
-export function AddWorkspaceStepHeader({
-  title,
-  description,
-  className
-}: AddWorkspaceStepHeaderProps) {
-  return (
-    <div className={cn("text-center", className)}>
-      <h1 className="text-lg font-semibold tracking-tight">
-        {title}
-      </h1>
-      {description && (
-        <p className="mt-1 text-sm max-w-sm text-muted-foreground mx-auto">
-          {description}
-        </p>
-      )}
-    </div>
-  )
-}
-
-// =============================================================================
-// BUTTONS
-// =============================================================================
-
-interface AddWorkspacePrimaryButtonProps extends Omit<ButtonProps, 'variant' | 'children'> {
-  children?: React.ReactNode
-  loading?: boolean
-  loadingText?: string
-}
-
-/**
- * AddWorkspacePrimaryButton - Primary action button for workspace flow
- *
- * Used for main actions like "Create", "Open", etc.
- * Includes loading state with spinner.
- */
-export function AddWorkspacePrimaryButton({
-  children = 'Continue',
-  loading,
-  loadingText,
-  className,
-  disabled,
-  ...props
-}: AddWorkspacePrimaryButtonProps) {
-  return (
-    <Button
-      className={cn("w-full", className)}
-      disabled={disabled || loading}
-      {...props}
-    >
-      {loading ? (
-        <>
-          <Spinner className="mr-2" />
-          {loadingText || children}
-        </>
-      ) : (
-        children
-      )}
-    </Button>
-  )
-}
-
-interface AddWorkspaceSecondaryButtonProps extends Omit<ButtonProps, 'variant'> {
-  children?: React.ReactNode
-}
-
-/**
- * AddWorkspaceSecondaryButton - Secondary action button for workspace flow
- *
- * Used for actions like "Browse", or inline actions within forms.
- */
-export function AddWorkspaceSecondaryButton({
+export function AddWorkspacePage({
   children,
+  action,
   className,
-  ...props
-}: AddWorkspaceSecondaryButtonProps) {
+}: {
+  children: React.ReactNode
+  action?: React.ReactNode
+  className?: string
+}) {
   return (
-    <Button
-      variant="secondary"
-      size="sm"
-      className={cn("bg-background shadow-minimal", className)}
-      {...props}
-    >
-      {children}
-    </Button>
+    <div className={cn("relative overflow-y-auto bg-background", className)}>
+      {/* Draggable title bar region for transparent window (macOS) */}
+      <div className="titlebar-drag-region fixed top-0 left-0 right-0 h-[50px] z-titlebar" />
+      <AmbientBackdrop />
+      {/* A soft glow behind the dither, one shade off the background */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-2/3 bg-[radial-gradient(ellipse_70%_60%_at_50%_0%,color-mix(in_oklab,var(--foreground)_5%,transparent),transparent)]"
+      />
+      {action && (
+        <div className="titlebar-no-drag fixed top-2.5 right-4 z-titlebar">{action}</div>
+      )}
+      <main className="relative flex min-h-full items-center justify-center p-4 sm:p-8">
+        {children}
+      </main>
+    </div>
   )
 }

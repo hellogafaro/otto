@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, CheckCircle, XCircle, Plus } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { ArrowLeft, Plus } from "lucide-react"
+import { Spinner } from "@craft-agent/ui"
 import { slugify } from "@/lib/slugify"
-import { Input } from "../ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-import { AddWorkspaceContainer, AddWorkspaceStepHeader, AddWorkspacePrimaryButton, AddWorkspaceSecondaryButton } from "./primitives"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SettingsCard, SettingsRow } from "@/components/settings"
+import { StepFormLayout, BackButton, ContinueButton } from "../onboarding/primitives"
 
 const CREATE_NEW_VALUE = '__create_new__'
 
@@ -184,97 +187,72 @@ export function AddWorkspaceStep_ConnectRemote({
   const buttonLabel = isReconnectMode ? 'Reconnect' : showCreateMode ? 'Create and Connect' : 'Connect'
 
   return (
-    <AddWorkspaceContainer>
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        disabled={isCreating}
-        className={cn(
-          "self-start flex items-center gap-1 text-sm text-muted-foreground",
-          "hover:text-foreground transition-colors mb-4",
-          isCreating && "opacity-50 cursor-not-allowed"
-        )}
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
-
-      <AddWorkspaceStepHeader
-        title={isReconnectMode ? t("workspace.reconnect", { name: reconnectWorkspace!.name }) : "Connect to remote server"}
-        description={isReconnectMode
-          ? "Update the server URL or token to restore the connection."
-          : "Connect to a remote Craft Agent Server for this workspace."}
-      />
-
-      <div className="mt-6 w-full space-y-5">
-        {/* Server URL */}
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-foreground">
-            Server URL
-          </label>
-          <div className="bg-background shadow-minimal rounded-lg">
+    <StepFormLayout
+      title={isReconnectMode ? t("workspace.reconnect", { name: reconnectWorkspace!.name }) : "Connect to remote server"}
+      description={isReconnectMode
+        ? "Update the server URL or token to restore the connection."
+        : "Connect to a remote Craft Agent Server for this workspace."}
+      actions={
+        <>
+          <BackButton onClick={onBack} disabled={isCreating}>{t("common.back")}</BackButton>
+          {/* Connect / Create and Connect */}
+          <ContinueButton onClick={handleConnect} disabled={!canConnect} loading={isCreating}>
+            {buttonLabel}
+          </ContinueButton>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <SettingsCard>
+          {/* Server URL */}
+          <SettingsRow label={<Label htmlFor="remote-server-url">Server URL</Label>}>
             <Input
+              id="remote-server-url"
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
               placeholder="ws://192.168.1.100:9100"
               disabled={isCreating}
               autoFocus
-              className="border-0 bg-transparent shadow-none font-mono text-sm"
+              className="w-60 font-mono"
             />
-          </div>
-        </div>
+          </SettingsRow>
 
-        {/* Token */}
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-foreground">
-            Token
-          </label>
-          <div className="bg-background shadow-minimal rounded-lg">
+          {/* Token */}
+          <SettingsRow label={<Label htmlFor="remote-server-token">Token</Label>}>
             <Input
+              id="remote-server-token"
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder={t("workspace.serverAuthToken")}
               disabled={isCreating}
-              className="border-0 bg-transparent shadow-none"
+              className="w-60"
             />
-          </div>
-        </div>
+          </SettingsRow>
+        </SettingsCard>
 
         {/* Test Connection */}
-        <div className="flex items-center gap-3">
-          <AddWorkspaceSecondaryButton
-            onClick={handleTestConnection}
-            disabled={!serverUrl || !token || testState === 'testing' || isCreating}
-          >
-            {testState === 'testing' ? 'Testing...' : 'Test Connection'}
-          </AddWorkspaceSecondaryButton>
-          {testState === 'ok' && !isFreshServer && (
-            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-              <CheckCircle className="h-3.5 w-3.5" />
-              Connected{serverVersion ? ` — v${serverVersion}` : ''}
-            </span>
-          )}
-          {testState === 'ok' && isFreshServer && (
-            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-              <CheckCircle className="h-3.5 w-3.5" />
-              Connected{serverVersion ? ` — v${serverVersion}` : ''} — no workspaces yet
-            </span>
-          )}
-          {testState === 'error' && (
-            <span className="flex items-center gap-1 text-xs text-destructive">
-              <XCircle className="h-3.5 w-3.5" />
-              {testError || 'Failed'}
-            </span>
-          )}
-        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full"
+          onClick={handleTestConnection}
+          disabled={!serverUrl || !token || testState === 'testing' || isCreating}
+        >
+          {testState === 'testing' ? <Spinner /> : 'Test Connection'}
+        </Button>
+        {testState === 'ok' && (
+          <p className="px-1 text-sm text-success">
+            Connected{serverVersion ? ` — v${serverVersion}` : ''}{isFreshServer ? ' — no workspaces yet' : ''}
+          </p>
+        )}
+        {testState === 'error' && (
+          <p className="px-1 text-sm text-destructive">{testError || 'Failed'}</p>
+        )}
 
         {/* Old server warning */}
         {testState === 'ok' && !serverVersion && (
-          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-700 dark:text-yellow-400">
-            <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            <span>{t("workspace.olderServerWarning")}</span>
-          </div>
+          <p className="px-1 text-sm text-muted-foreground">{t("workspace.olderServerWarning")}</p>
         )}
 
         {/* Portal container for Select — must be inside the Dialog to receive pointer events */}
@@ -282,84 +260,78 @@ export function AddWorkspaceStep_ConnectRemote({
 
         {/* Workspace selector — pick existing or create new (hidden in reconnect mode) */}
         {!isReconnectMode && testState === 'ok' && remoteWorkspaces.length > 0 && !isCreateNew && (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground">
-              Workspace
-            </label>
-            <div className="bg-background shadow-minimal rounded-lg">
-              <Select
-                value={selectedValue ?? ''}
-                onValueChange={setSelectedValue}
-                disabled={isCreating}
-              >
-                <SelectTrigger className="border-0 bg-transparent shadow-none">
-                  <SelectValue placeholder={t("workspace.selectWorkspacePlaceholder")} />
-                </SelectTrigger>
-                <SelectContent container={selectPortalRef.current}>
-                  {remoteWorkspaces.map(ws => (
-                    <SelectItem key={ws.id} value={ws.id}>
-                      {ws.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <button
+          <>
+            <SettingsCard>
+              <SettingsRow label="Workspace">
+                <Select
+                  value={selectedValue ?? ''}
+                  onValueChange={setSelectedValue}
+                  disabled={isCreating}
+                >
+                  <SelectTrigger className="w-60">
+                    <SelectValue placeholder={t("workspace.selectWorkspacePlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent container={selectPortalRef.current}>
+                    {remoteWorkspaces.map(ws => (
+                      <SelectItem key={ws.id} value={ws.id}>
+                        {ws.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+            </SettingsCard>
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
               onClick={() => setSelectedValue(CREATE_NEW_VALUE)}
               disabled={isCreating}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Plus className="h-3 w-3" />
+              <Plus />
               Create new workspace on server
-            </button>
-          </div>
+            </Button>
+          </>
         )}
 
         {/* New workspace name — shown for fresh servers or "Create new" selection (hidden in reconnect mode) */}
         {!isReconnectMode && testState === 'ok' && showCreateMode && (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground">
-              Workspace name
-            </label>
-            <div className="bg-background shadow-minimal rounded-lg">
-              <Input
-                value={newWorkspaceName}
-                onChange={(e) => setNewWorkspaceName(e.target.value)}
-                placeholder={t("workspace.myRemoteWorkspace")}
-                disabled={isCreating}
-                className="border-0 bg-transparent shadow-none"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
+          <>
+            <SettingsCard>
+              <SettingsRow label={<Label htmlFor="remote-workspace-name">Workspace name</Label>}>
+                <Input
+                  id="remote-workspace-name"
+                  value={newWorkspaceName}
+                  onChange={(e) => setNewWorkspaceName(e.target.value)}
+                  placeholder={t("workspace.myRemoteWorkspace")}
+                  disabled={isCreating}
+                  className="w-60"
+                />
+              </SettingsRow>
+            </SettingsCard>
+            <p className="px-1 text-xs text-muted-foreground">
               A workspace will be created on the remote server with this name.
             </p>
             {isCreateNew && remoteWorkspaces.length > 0 && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
                 onClick={() => {
                   setSelectedValue(remoteWorkspaces.length === 1 ? remoteWorkspaces[0]!.id : null)
                   setNewWorkspaceName('')
                 }}
                 disabled={isCreating}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                <ArrowLeft className="h-3 w-3" />
+                <ArrowLeft />
                 Use existing workspace
-              </button>
+              </Button>
             )}
-          </div>
+          </>
         )}
-
-        {/* Connect / Create and Connect */}
-        <AddWorkspacePrimaryButton
-          onClick={handleConnect}
-          disabled={!canConnect}
-          loading={isCreating}
-        >
-          {buttonLabel}
-        </AddWorkspacePrimaryButton>
       </div>
-    </AddWorkspaceContainer>
+    </StepFormLayout>
   )
 }
