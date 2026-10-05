@@ -29,7 +29,6 @@ import { motion } from 'motion/react'
 import {
   Archive,
   ArchiveRestore,
-  AppWindow,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -103,7 +102,6 @@ export interface CompactSessionMenuProps {
   onUnarchive: () => void
   onMarkUnread: () => void
   onSessionStatusChange: (state: SessionStatusId) => void
-  onOpenInNewWindow: () => void
   onSendToWorkspace?: () => void
   onDelete: () => void
 
@@ -139,7 +137,6 @@ export function CompactSessionMenu({
   onUnarchive,
   onMarkUnread,
   onSessionStatusChange,
-  onOpenInNewWindow,
   onSendToWorkspace,
   onDelete,
   open: controlledOpen,
@@ -313,7 +310,6 @@ export function CompactSessionMenu({
               onRename={closeAfter(onRename)}
               onRefreshTitle={closeAfter(actions.refreshTitle)}
               onOpenInNewPanel={closeAfter(actions.openInNewPanel)}
-              onOpenInNewWindow={closeAfter(onOpenInNewWindow)}
               onShowInFinder={closeAfter(actions.showInFinder)}
               onCopyPath={closeAfter(actions.copyPath)}
               onDelete={closeAfter(onDelete)}
@@ -386,7 +382,6 @@ interface RootPaneProps {
   onRename?: () => void
   onRefreshTitle?: () => void
   onOpenInNewPanel?: () => void
-  onOpenInNewWindow?: () => void
   onShowInFinder?: () => void
   onCopyPath?: () => void
   onDelete?: () => void
@@ -417,7 +412,6 @@ function RootPane({
   onRename,
   onRefreshTitle,
   onOpenInNewPanel,
-  onOpenInNewWindow,
   onShowInFinder,
   onCopyPath,
   onDelete,
@@ -500,9 +494,6 @@ function RootPane({
       <Separator />
 
       <Row icon={<Columns2 className="h-4 w-4" />} label={t('sessionMenu.openInNewPanel')} onTap={onOpenInNewPanel} />
-      {onOpenInNewWindow && (
-        <Row icon={<AppWindow className="h-4 w-4" />} label={t('sessionMenu.openInNewWindow')} onTap={onOpenInNewWindow} />
-      )}
       <Row
         icon={<FolderOpen className="h-4 w-4" />}
         label={t('sessionMenu.showInFileManager', { fileManager: getFileManagerName() })}

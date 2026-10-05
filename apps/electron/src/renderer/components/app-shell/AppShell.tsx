@@ -56,13 +56,6 @@ import {
   StyledDropdownMenuSubTrigger,
   StyledDropdownMenuSubContent,
 } from "@/components/ui/styled-dropdown"
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-  StyledContextMenuContent,
-} from "@/components/ui/styled-context-menu"
-import { ContextMenuProvider } from "@/components/ui/menu-context"
-import { SidebarMenu } from "./SidebarMenu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { FadingText } from "@/components/ui/fading-text"
 import {
@@ -172,8 +165,6 @@ interface AppShellProps {
   defaultLayout?: number[]
   defaultCollapsed?: boolean
   menuNewChatTrigger?: number
-  /** Focused mode - hides sidebars, shows only the chat content */
-  isFocusedMode?: boolean
 }
 
 const altClickTooltipLabel = isMac ? '⌥ click to exclude' : 'Alt click to exclude'
@@ -507,7 +498,6 @@ function AppShellContent({
   defaultLayout = [20, 32, 48],
   defaultCollapsed = false,
   menuNewChatTrigger,
-  isFocusedMode = false,
 }: AppShellProps) {
   // Destructure commonly used values from context
   // Note: sessions is NOT destructured here - we use sessionMetaMapAtom instead
@@ -553,9 +543,9 @@ function AppShellContent({
   })
 
   // Hides both sidebar and navigator (CMD+. toggle)
-  // Seed from either focused window param or persisted preference, then keep it toggleable.
+  // Seeded from the persisted preference, then kept toggleable.
   const [isSidebarAndNavigatorHidden, setIsSidebarAndNavigatorHidden] = React.useState(() => {
-    return isFocusedMode || storage.get(storage.KEYS.focusModeEnabled, false)
+    return storage.get(storage.KEYS.focusModeEnabled, false)
   })
 
   // Auto-compact mode: shell width below mobile threshold hides sidebar/navigator
@@ -1264,9 +1254,6 @@ function AppShellContent({
 
   // Keyboard shortcuts
   useAction('app.keyboardShortcuts', onOpenKeyboardShortcuts)
-
-  // New window
-  useAction('app.newWindow', () => window.electronAPI.menuNewWindow())
 
   // Quit (note: also handled by native menu on macOS)
   useAction('app.quit', () => window.electronAPI.menuQuit())
@@ -2375,7 +2362,6 @@ function AppShellContent({
           onWorkspaceRemoved={() => onRefreshWorkspaces?.()}
           activeSessionId={effectiveSessionId}
           onNewChat={() => handleNewChat()}
-          onNewWindow={() => window.electronAPI.menuNewWindow()}
           onOpenSettings={onOpenSettings}
           onOpenSettingsSubpage={handleSettingsClick}
           onOpenKeyboardShortcuts={onOpenKeyboardShortcuts}
@@ -2435,29 +2421,20 @@ function AppShellContent({
             <div className="flex h-full flex-col select-none">
               {/* Sidebar Top Section */}
               <div className="flex-1 flex flex-col min-h-0">
-                {/* New Session Button - Gmail-style, with context menu for "Open in New Window" */}
+                {/* New Session Button - Gmail-style */}
                 <div className="px-2 pb-2 shrink-0">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div>
-                        <ContextMenu modal={true}>
-                          <ContextMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              onClick={(e) => handleNewChat(e.metaKey || e.ctrlKey)}
-                              className="h-7 w-full justify-start gap-2 py-0 px-2 text-[13px] font-normal rounded-[6px] shadow-none bg-foreground/5 hover:bg-foreground/10"
-                              data-tutorial="new-chat-button"
-                            >
-                              <SquarePenRounded className="h-3.5 w-3.5 shrink-0" />
-                              {t("session.newSession")}
-                            </Button>
-                          </ContextMenuTrigger>
-                          <StyledContextMenuContent>
-                            <ContextMenuProvider>
-                              <SidebarMenu type="newSession" />
-                            </ContextMenuProvider>
-                          </StyledContextMenuContent>
-                        </ContextMenu>
+                        <Button
+                          variant="ghost"
+                          onClick={(e) => handleNewChat(e.metaKey || e.ctrlKey)}
+                          className="h-7 w-full justify-start gap-2 py-0 px-2 text-[13px] font-normal rounded-[6px] shadow-none bg-foreground/5 hover:bg-foreground/10"
+                          data-tutorial="new-chat-button"
+                        >
+                          <SquarePenRounded className="h-3.5 w-3.5 shrink-0" />
+                          {t("session.newSession")}
+                        </Button>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="right">{newChatHotkey}</TooltipContent>
@@ -3424,11 +3401,6 @@ function AppShellContent({
                   }}
                   onSessionSelect={(selectedMeta) => {
                     navigateToSession(selectedMeta.id)
-                  }}
-                  onOpenInNewWindow={(selectedMeta) => {
-                    if (activeWorkspaceId) {
-                      window.electronAPI.openSessionInNewWindow(activeWorkspaceId, selectedMeta.id)
-                    }
                   }}
                   onNavigateToView={(view) => {
                     if (view === 'allSessions') {

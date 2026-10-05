@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useState, useCallback, useRef } from "react"
-import { Check, FolderPlus, ExternalLink, ChevronDown, Cloud, CloudOff, Trash2 } from "lucide-react"
+import { Check, FolderPlus, ChevronDown, Cloud, CloudOff, Trash2 } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 import { useSetAtom } from "jotai"
 import { toast } from "sonner"
@@ -26,7 +26,7 @@ import type { Workspace } from "../../../shared/types"
 interface CompactWorkspaceSwitcherProps {
   workspaces: Workspace[]
   activeWorkspaceId: string | null
-  onSelect: (workspaceId: string, openInNewWindow?: boolean) => void | Promise<void>
+  onSelect: (workspaceId: string) => void | Promise<void>
   onWorkspaceCreated?: (workspace: Workspace) => void
   onWorkspaceRemoved?: () => void
   workspaceUnreadMap?: Record<string, boolean>
@@ -263,16 +263,6 @@ export function CompactWorkspaceSwitcher({
                       aria-label={t("workspace.removeWorkspace")}
                     >
                       <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                  {!isActive && !disconnected && (
-                    <button
-                      type="button"
-                      onClick={() => { onSelect(workspace.id, true); setOpen(false) }}
-                      className="shrink-0 h-9 w-9 rounded-[8px] flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-foreground/10 transition-colors"
-                      aria-label={t("sidebarMenu.openInNewWindow")}
-                    >
-                      <ExternalLink className="h-4 w-4" />
                     </button>
                   )}
                   {isActive && (

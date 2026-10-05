@@ -491,17 +491,6 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     await onDeleteSession(sessionId)
   }, [sessionId, onDeleteSession])
 
-  const handleOpenInNewWindow = React.useCallback(async () => {
-    const route = routes.view.allSessions(sessionId)
-    const separator = route.includes('?') ? '&' : '?'
-    const url = `craftagents://${route}${separator}window=focused`
-    try {
-      await window.electronAPI?.openUrl(url)
-    } catch (error) {
-      console.error('[ChatPage] openUrl failed:', error)
-    }
-  }, [sessionId])
-
   // Share action handlers
   const handleShare = React.useCallback(async () => {
     const result = await window.electronAPI.sessionCommand(sessionId, { type: 'shareToViewer' }) as { success: boolean; url?: string; error?: string } | undefined
@@ -663,7 +652,6 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
       onUnarchive={handleUnarchive}
       onMarkUnread={handleMarkUnread}
       onSessionStatusChange={handleSessionStatusChange}
-      onOpenInNewWindow={handleOpenInNewWindow}
       onDelete={handleDelete}
     />
   ) : null, [
@@ -679,7 +667,6 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     handleUnarchive,
     handleMarkUnread,
     handleSessionStatusChange,
-    handleOpenInNewWindow,
     handleDelete,
   ])
 
@@ -698,7 +685,6 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
       onUnarchive={handleUnarchive}
       onMarkUnread={handleMarkUnread}
       onSessionStatusChange={handleSessionStatusChange}
-      onOpenInNewWindow={handleOpenInNewWindow}
       onDelete={handleDelete}
     />
   ) : null, [
@@ -716,7 +702,6 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     handleUnarchive,
     handleMarkUnread,
     handleSessionStatusChange,
-    handleOpenInNewWindow,
     handleDelete,
   ])
 

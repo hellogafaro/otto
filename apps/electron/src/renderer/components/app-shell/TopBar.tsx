@@ -38,13 +38,12 @@ const RIGHT_SLOT_TWO_BADGES_THRESHOLD = 300
 interface TopBarProps {
   workspaces: Workspace[]
   activeWorkspaceId: string | null
-  onSelectWorkspace: (workspaceId: string, openInNewWindow?: boolean) => void | Promise<void>
+  onSelectWorkspace: (workspaceId: string) => void | Promise<void>
   workspaceUnreadMap?: Record<string, boolean>
   onWorkspaceCreated?: (workspace: Workspace) => void
   onWorkspaceRemoved?: () => void
   activeSessionId?: string | null
   onNewChat: () => void
-  onNewWindow?: () => void
   onOpenSettings: () => void
   onOpenSettingsSubpage: (subpage: SettingsMenuItem['id']) => void
   onOpenKeyboardShortcuts: () => void
@@ -70,7 +69,6 @@ export function TopBar({
   onWorkspaceRemoved,
   activeSessionId,
   onNewChat,
-  onNewWindow,
   onOpenSettings,
   onOpenSettingsSubpage,
   onOpenKeyboardShortcuts,
@@ -158,7 +156,6 @@ export function TopBar({
 
         <AppMenu
           onNewChat={onNewChat}
-          onNewWindow={onNewWindow}
           onOpenSettings={onOpenSettings}
           onOpenSettingsSubpage={onOpenSettingsSubpage}
           onOpenKeyboardShortcuts={onOpenKeyboardShortcuts}

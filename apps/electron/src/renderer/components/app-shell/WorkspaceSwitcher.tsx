@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useState, useCallback, useRef } from "react"
-import { Check, FolderPlus, ExternalLink, ChevronDown, Cloud, CloudOff, Trash2 } from "lucide-react"
+import { Check, FolderPlus, ChevronDown, Cloud, CloudOff, Trash2 } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 import { useSetAtom } from "jotai"
 import { toast } from "sonner"
@@ -28,7 +28,7 @@ interface WorkspaceSwitcherProps {
   isCollapsed?: boolean
   workspaces: Workspace[]
   activeWorkspaceId: string | null
-  onSelect: (workspaceId: string, openInNewWindow?: boolean) => void | Promise<void>
+  onSelect: (workspaceId: string) => void | Promise<void>
   onWorkspaceCreated?: (workspace: Workspace) => void
   onWorkspaceRemoved?: () => void
   /** workspaceId -> has unread */
@@ -253,7 +253,7 @@ export function WorkspaceSwitcher({
             return (
               <StyledDropdownMenuItem
                 key={workspace.id}
-                onClick={(e) => {
+                onClick={() => {
                   if (disconnected && workspace.remoteServer) {
                     setReconnectTarget(workspace)
                     setShowCreationScreen(true)
@@ -261,8 +261,7 @@ export function WorkspaceSwitcher({
                     return
                   }
                   if (disconnected) return
-                  const openInNewWindow = e.metaKey || e.ctrlKey
-                  onSelect(workspace.id, openInNewWindow)
+                  onSelect(workspace.id)
                 }}
                 className={cn(
                   "justify-between group",
@@ -299,19 +298,6 @@ export function WorkspaceSwitcher({
                       title={t("workspace.removeWorkspace")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {activeWorkspaceId !== workspace.id && !disconnected && (
-                    <button
-                      data-touch-reveal="true"
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-foreground/10 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onSelect(workspace.id, true)
-                      }}
-                      title={t("sidebarMenu.openInNewWindow")}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
                     </button>
                   )}
                   {activeWorkspaceId === workspace.id && (

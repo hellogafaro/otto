@@ -109,20 +109,6 @@ export async function rebuildMenu(): Promise<void> {
           registerAccelerator: false,  // Action registry handles the keyboard shortcut
           click: () => sendToRenderer(RPC_CHANNELS.menu.NEW_CHAT)
         },
-        {
-          label: i18n.t("menu.newWindow"),
-          accelerator: 'CmdOrCtrl+Shift+N',
-          registerAccelerator: false,  // Action registry handles the keyboard shortcut
-          click: () => {
-            const focused = BrowserWindow.getFocusedWindow()
-            if (focused) {
-              const workspaceId = windowManager.getWorkspaceForWindow(focused.webContents.id)
-              if (workspaceId) {
-                windowManager.createWindow({ workspaceId })
-              }
-            }
-          }
-        },
         { type: 'separator' as const },
         isMac ? { role: 'close' as const } : { role: 'quit' as const }
       ]

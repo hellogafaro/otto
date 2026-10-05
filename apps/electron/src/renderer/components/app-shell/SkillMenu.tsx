@@ -9,7 +9,6 @@
  * primitives, allowing the same component to work in both scenarios.
  *
  * Provides consistent skill actions:
- * - Open in New Window
  * - Show in file manager
  * - Delete
  */
@@ -19,7 +18,6 @@ import { useTranslation } from "react-i18next"
 import {
   Trash2,
   FolderOpen,
-  AppWindow,
   Send,
 } from 'lucide-react'
 import { useMenuComponents } from '@/components/ui/menu-context'
@@ -31,7 +29,6 @@ export interface SkillMenuProps {
   /** Skill name for display */
   skillName: string
   /** Callbacks */
-  onOpenInNewWindow: () => void
   onShowInFinder: () => void | Promise<void>
   onDelete?: () => void
   canShowInFinder?: boolean
@@ -48,7 +45,6 @@ export interface SkillMenuProps {
 export function SkillMenu({
   skillSlug,
   skillName,
-  onOpenInNewWindow,
   onShowInFinder,
   onDelete,
   canShowInFinder = true,
@@ -63,12 +59,6 @@ export function SkillMenu({
 
   return (
     <>
-      {/* Open in New Window */}
-      <MenuItem onClick={onOpenInNewWindow}>
-        <AppWindow className="h-3.5 w-3.5" />
-        <span className="flex-1">{t("sidebarMenu.openInNewWindow")}</span>
-      </MenuItem>
-
       {/* Show in file manager */}
       <MenuItem onClick={onShowInFinder} disabled={!canShowInFinder}>
         <FolderOpen className="h-3.5 w-3.5" />

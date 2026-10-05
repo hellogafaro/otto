@@ -5,7 +5,6 @@ import type { HandlerDeps } from './handler-deps'
 export const GUI_HANDLED_CHANNELS = [
   RPC_CHANNELS.remote.TEST_CONNECTION,
   RPC_CHANNELS.window.OPEN_WORKSPACE,
-  RPC_CHANNELS.window.OPEN_SESSION_IN_NEW_WINDOW,
   RPC_CHANNELS.window.CLOSE,
   RPC_CHANNELS.window.CONFIRM_CLOSE,
   RPC_CHANNELS.window.CANCEL_CLOSE,
@@ -100,17 +99,6 @@ export function registerWorkspaceGuiHandlers(server: RpcServer, deps: HandlerDep
   server.handle(RPC_CHANNELS.window.OPEN_WORKSPACE, async (_ctx, workspaceId: string) => {
     if (!windowManager) return
     windowManager.focusOrCreateWindow(workspaceId)
-  })
-
-  // Open a session in a new window
-  server.handle(RPC_CHANNELS.window.OPEN_SESSION_IN_NEW_WINDOW, async (_ctx, workspaceId: string, sessionId: string) => {
-    if (!windowManager) return
-    const deepLink = `craftagents://allSessions/session/${sessionId}`
-    windowManager.createWindow({
-      workspaceId,
-      focused: true,
-      initialDeepLink: deepLink,
-    })
   })
 
   // Close the calling window (triggers close event which may be intercepted)

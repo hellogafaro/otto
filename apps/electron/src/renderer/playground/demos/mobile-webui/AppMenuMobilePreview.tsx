@@ -29,7 +29,6 @@ export function AppMenuMobilePreview({
           <div className="h-11 shrink-0 px-2 flex items-center border-b border-border bg-background">
             <AppMenu
               onNewChat={log('onNewChat')}
-              onNewWindow={log('onNewWindow')}
               onOpenSettings={log('onOpenSettings')}
               onOpenSettingsSubpage={(id) => console.log('[Mobile AppMenu] onOpenSettingsSubpage', id)}
               onOpenKeyboardShortcuts={log('onOpenKeyboardShortcuts')}

@@ -3,7 +3,6 @@
  *
  * Used by:
  * - LeftSidebar (context menu via right-click on nav items)
- * - AppShell (context menu for New Chat button)
  *
  * Uses MenuComponents context to render with either DropdownMenu or ContextMenu
  * primitives, allowing the same component to work in both scenarios.
@@ -12,13 +11,11 @@
  * - "Configure Statuses" (for allSessions/status/flagged items) - triggers EditPopover callback
  * - "Add Source" (for sources) - triggers EditPopover callback
  * - "Add Skill" (for skills) - triggers EditPopover callback
- * - "Open in New Window" (for newSession only) - uses deep link
  */
 
 import * as React from 'react'
 import { useTranslation } from "react-i18next"
 import {
-  AppWindow,
   CheckCheck,
   Settings2,
   Plus,
@@ -28,7 +25,7 @@ import {
 import { useMenuComponents } from '@/components/ui/menu-context'
 import { getDocUrl, type DocFeature } from '@craft-agent/shared/docs/doc-links'
 
-export type SidebarMenuType = 'allSessions' | 'flagged' | 'status' | 'sources' | 'skills' | 'automations' | 'projects' | 'labels' | 'views' | 'newSession'
+export type SidebarMenuType = 'allSessions' | 'flagged' | 'status' | 'sources' | 'skills' | 'automations' | 'projects' | 'labels' | 'views'
 
 export interface SidebarMenuProps {
   /** Type of sidebar item (determines available menu items) */
@@ -91,16 +88,6 @@ export function SidebarMenu({
 
   // Get menu components from context (works with both DropdownMenu and ContextMenu)
   const { MenuItem, Separator } = useMenuComponents()
-
-  // New Session: only shows "Open in New Window"
-  if (type === 'newSession') {
-    return (
-      <MenuItem onClick={() => window.electronAPI.openUrl('craftagents://action/new-session?window=focused')}>
-        <AppWindow className="h-3.5 w-3.5" />
-        <span className="flex-1">{t("sidebarMenu.openInNewWindow")}</span>
-      </MenuItem>
-    )
-  }
 
   // All Sessions / Status / Flagged: show "Configure Statuses" (+ "Mark All Read" for allSessions)
   if ((type === 'allSessions' || type === 'status' || type === 'flagged') && onConfigureStatuses) {

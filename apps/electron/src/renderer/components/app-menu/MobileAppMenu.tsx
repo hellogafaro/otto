@@ -106,8 +106,8 @@ export function MobileAppMenu(props: AppMenuProps) {
   }, [])
 
   const pages = useMemo(
-    () => buildMobileMenuPages({ hasNewWindow: !!props.onNewWindow, isDebugMode }),
-    [props.onNewWindow, isDebugMode],
+    () => buildMobileMenuPages({ isDebugMode }),
+    [isDebugMode],
   )
 
   const close = React.useCallback(() => dispatch({ type: 'close' }), [])
@@ -150,7 +150,6 @@ export function MobileAppMenu(props: AppMenuProps) {
       case 'callback':
         switch (row.action.key) {
           case 'newChat': props.onNewChat(); break
-          case 'newWindow': props.onNewWindow?.(); break
           case 'openSettings': props.onOpenSettings(); break
         }
         close()

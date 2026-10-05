@@ -150,7 +150,6 @@ export function SessionItem({
           onUnarchive={() => ctx.onUnarchive?.(item.id)}
           onMarkUnread={() => ctx.onMarkUnread(item.id)}
           onSessionStatusChange={(s) => ctx.onSessionStatusChange(item.id, s)}
-          onOpenInNewWindow={() => ctx.onOpenInNewWindow(item)}
           onSendToWorkspace={ctx.onSendToWorkspace ? () => ctx.onSendToWorkspace!([item.id]) : undefined}
           hasTransferTargets={canSendToWorkspace}
           onDelete={() => ctx.onDelete(item.id)}
@@ -178,7 +177,6 @@ export function SessionItem({
           onUnarchive={() => ctx.onUnarchive?.(item.id)}
           onMarkUnread={() => ctx.onMarkUnread(item.id)}
           onSessionStatusChange={(s) => ctx.onSessionStatusChange(item.id, s)}
-          onOpenInNewWindow={() => ctx.onOpenInNewWindow(item)}
           onSendToWorkspace={ctx.onSendToWorkspace ? () => ctx.onSendToWorkspace!([item.id]) : undefined}
           onDelete={() => ctx.onDelete(item.id)}
         />

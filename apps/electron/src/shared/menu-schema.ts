@@ -231,9 +231,9 @@ export const MENU_SECTIONS: MenuSection[] = [EDIT_MENU, VIEW_MENU, WINDOW_MENU]
  * Root-level leaf actions exposed in the Craft logo menu.
  *
  * Both DesktopAppMenu (dropdown) and MobileAppMenu (full-screen sheet) read from
- * this collection. Desktop renders all four directly inline. Mobile filters out
+ * this collection. Desktop renders all three directly inline. Mobile filters out
  * `quit` (no-op in a browser tab) and inserts navigation rows for Settings/Help/Debug
- * between `newWindow` and `keyboardShortcuts`.
+ * between `newChat` and `keyboardShortcuts`.
  *
  * Icons here are Lucide names. The `newChat` item maps to the local `SquarePenRounded`
  * component in the renderer; that's the one approved exception.
@@ -249,17 +249,6 @@ export const ROOT_MENU = {
     shortcutDisplayOther: 'Ctrl+N',
     ipcChannel: RPC_CHANNELS.menu.NEW_CHAT,
     icon: 'SquarePen',
-  },
-  newWindow: {
-    type: 'action',
-    id: 'newWindow',
-    actionId: 'app.newWindow',
-    labelKey: 'menu.newWindow',
-    shortcut: 'CmdOrCtrl+Shift+N',
-    shortcutDisplayMac: '⌘⇧N',
-    shortcutDisplayOther: 'Ctrl+Shift+N',
-    ipcChannel: RPC_CHANNELS.menu.NEW_WINDOW,
-    icon: 'AppWindow',
   },
   keyboardShortcuts: {
     type: 'action',

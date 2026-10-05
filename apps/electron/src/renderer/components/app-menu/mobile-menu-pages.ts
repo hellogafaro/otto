@@ -17,7 +17,7 @@ export type MobileMenuPageId = 'root' | 'settings' | 'help' | 'debug'
  */
 export type MobileMenuAction =
   | { kind: 'navigate'; to: MobileMenuPageId }
-  | { kind: 'callback'; key: 'newChat' | 'newWindow' | 'openSettings' }
+  | { kind: 'callback'; key: 'newChat' | 'openSettings' }
   | { kind: 'settingsSubpage'; subpage: SettingsMenuItem['id'] }
   | { kind: 'url'; url: string }
   | { kind: 'electronApi'; method: 'checkForUpdates' | 'installUpdate' | 'menuToggleDevTools' }
@@ -38,7 +38,6 @@ export interface MobileMenuPage {
 }
 
 interface BuildOptions {
-  hasNewWindow: boolean
   isDebugMode: boolean
 }
 
@@ -54,7 +53,7 @@ interface BuildOptions {
  * Adding a new help link requires only an addition to `HELP_LINKS`. Adding a new
  * settings page requires only an addition to `SETTINGS_PAGES`. Both fan out here.
  */
-export function buildMobileMenuPages({ hasNewWindow, isDebugMode }: BuildOptions): MobileMenuPage[] {
+export function buildMobileMenuPages({ isDebugMode }: BuildOptions): MobileMenuPage[] {
   const rootRows: MobileMenuRow[] = [
     {
       id: ROOT_MENU.newChat.id,
@@ -63,14 +62,6 @@ export function buildMobileMenuPages({ hasNewWindow, isDebugMode }: BuildOptions
       action: { kind: 'callback', key: 'newChat' },
     },
   ]
-  if (hasNewWindow) {
-    rootRows.push({
-      id: ROOT_MENU.newWindow.id,
-      iconName: ROOT_MENU.newWindow.icon,
-      labelKey: ROOT_MENU.newWindow.labelKey,
-      action: { kind: 'callback', key: 'newWindow' },
-    })
-  }
   // Touch users have no keyboard, so the Keyboard Shortcuts leaf is omitted
   // on mobile — the page would render but be useless.
   rootRows.push(

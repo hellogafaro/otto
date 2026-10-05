@@ -46,13 +46,6 @@ export const actions = {
     defaultHotkey: 'mod+/',
     category: 'General',
   },
-  'app.newWindow': {
-    id: 'app.newWindow',
-    label: 'New Window',
-    description: 'Open a new window',
-    defaultHotkey: 'mod+shift+n',
-    category: 'General',
-  },
   'app.quit': {
     id: 'app.quit',
     label: 'Quit',

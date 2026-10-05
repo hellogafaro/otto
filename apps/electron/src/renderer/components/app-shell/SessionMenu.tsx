@@ -24,7 +24,6 @@ import {
   MailOpen,
   FolderOpen,
   Copy,
-  AppWindow,
   Columns2,
   CloudUpload,
   RefreshCw,
@@ -73,7 +72,6 @@ export interface SessionMenuProps {
   onUnarchive: () => void
   onMarkUnread: () => void
   onSessionStatusChange: (state: SessionStatusId) => void
-  onOpenInNewWindow: () => void
   onSendToWorkspace?: () => void
   onDelete: () => void
 }
@@ -94,7 +92,6 @@ export function SessionMenu({
   onUnarchive,
   onMarkUnread,
   onSessionStatusChange,
-  onOpenInNewWindow,
   onSendToWorkspace,
   onDelete,
   hasTransferTargets,
@@ -284,12 +281,6 @@ export function SessionMenu({
       <MenuItem onClick={actions.openInNewPanel}>
         <Columns2 className="h-3.5 w-3.5" />
         <span className="flex-1">{t("sessionMenu.openInNewPanel")}</span>
-      </MenuItem>
-
-      {/* Open in New Window */}
-      <MenuItem onClick={onOpenInNewWindow}>
-        <AppWindow className="h-3.5 w-3.5" />
-        <span className="flex-1">{t("sessionMenu.openInNewWindow")}</span>
       </MenuItem>
 
       {/* Show in file manager */}

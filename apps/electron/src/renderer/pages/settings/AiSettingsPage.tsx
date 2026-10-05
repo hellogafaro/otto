@@ -16,8 +16,6 @@ import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
-import { HeaderMenu } from '@/components/ui/HeaderMenu'
-import { routes } from '@/lib/navigate'
 import { X, MoreHorizontal, Pencil, Trash2, Star, ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, RefreshCcw, Settings2, MessageSquareMore, Zap, Clock, Check } from 'lucide-react'
 import type { CredentialHealthStatus, CredentialHealthIssue } from '../../../shared/types'
 import { Spinner, Tooltip, TooltipTrigger, TooltipContent } from '@craft-agent/ui'
@@ -1200,7 +1198,7 @@ export default function AiSettingsPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <PanelHeader title={t("settings.ai.title")} actions={<HeaderMenu route={routes.view.settings('ai')} />} />
+      <PanelHeader title={t("settings.ai.title")} />
       <div className="flex-1 min-h-0 mask-fade-y">
         <ScrollArea className="h-full">
           <div className="px-5 py-7 max-w-3xl mx-auto">

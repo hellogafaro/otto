@@ -333,15 +333,6 @@ export default function App() {
     return workspace?.slug ?? windowWorkspaceId
   }, [windowWorkspaceId, workspaces])
 
-  // Get initial sessionId and focused mode from URL params (for "Open in New Window" feature)
-  const { initialSessionId, isFocusedMode } = useMemo(() => {
-    const params = new URLSearchParams(window.location.search)
-    return {
-      initialSessionId: params.get('sessionId'),
-      isFocusedMode: params.get('focused') === 'true',
-    }
-  }, [])
-
   // Derive remote workspace ID for session matching in NavigationContext
   const windowRemoteWorkspaceId = useMemo(() => {
     if (!windowWorkspaceId) return null
@@ -553,13 +544,6 @@ export default function App() {
       )
 
       setSessionsLoaded(true)
-
-      if (initialSessionId && windowWorkspaceId) {
-        const session = loadedSessions.find(s => s.id === initialSessionId)
-        if (session) {
-          navigate(routes.view.allSessions(session.id))
-        }
-      }
     } catch (err) {
       console.error('[App] Failed to load sessions:', err)
       const transportState = await window.electronAPI.getTransportConnectionState().catch(() => null)
@@ -574,7 +558,8 @@ export default function App() {
       setSessionLoadError(formatSessionLoadFailure(err))
       setSessionsLoaded(true)
     }
-  }, [initializeSessions, initialSessionId, reconcilePermissionModeState, windowWorkspaceId])
+  // windowWorkspaceId is a dependency on purpose: a workspace switch reloads the sessions
+  }, [initializeSessions, reconcilePermissionModeState, windowWorkspaceId])
 
   const refreshSessionListMetadataFromServer = useCallback(async (options: SessionListRefreshOptions = {}): Promise<Map<string, SessionMeta> | null> => {
     const {
@@ -1774,57 +1759,50 @@ export default function App() {
     }
   }, [onboarding, initializeSessions])
 
-  // Handle workspace selection
-  // - Default: switch workspace in same window (in-window switching)
-  // - With openInNewWindow=true: open in new window (or focus existing)
-  const handleSelectWorkspace = useCallback(async (workspaceId: string, openInNewWindow = false) => {
+  // Handle workspace selection: switch workspace in the same window (in-window switching)
+  const handleSelectWorkspace = useCallback(async (workspaceId: string) => {
     // If selecting current workspace, do nothing
     if (workspaceId === windowWorkspaceId) return
 
-    if (openInNewWindow) {
-      // Open (or focus) the window for the selected workspace
-      window.electronAPI.openWorkspace(workspaceId)
-    } else {
-      // Switch workspace in current window
-      // 1. Update the main process's window-workspace mapping
-      await window.electronAPI.switchWorkspace(workspaceId)
+    // Switch workspace in current window
+    // 1. Update the main process's window-workspace mapping
+    await window.electronAPI.switchWorkspace(workspaceId)
 
-      // 2. Update React state to trigger re-renders
-      setWindowWorkspaceId(workspaceId)
+    // 2. Update React state to trigger re-renders
+    setWindowWorkspaceId(workspaceId)
 
-      // 3. Clear selected session - the old session belongs to the previous workspace
-      // and should not remain selected when switching to a new workspace.
-      // This prevents showing stale session data from the wrong workspace.
-      setSession({ selected: null })
+    // 3. Clear selected session - the old session belongs to the previous workspace
+    // and should not remain selected when switching to a new workspace.
+    // This prevents showing stale session data from the wrong workspace.
+    setSession({ selected: null })
 
-      // 4. Clear pending permissions/credentials (not relevant to new workspace)
-      setPendingPermissions(new Map())
-      setPendingCredentials(new Map())
+    // 4. Clear pending permissions/credentials (not relevant to new workspace)
+    setPendingPermissions(new Map())
+    setPendingCredentials(new Map())
 
-      // 5. Clear session options from previous workspace
-      // (session IDs are unique UUIDs, but clearing prevents unbounded memory growth
-      // and ensures no stale state from old workspace persists)
-      setSessionOptions(new Map())
+    // 5. Clear session options from previous workspace
+    // (session IDs are unique UUIDs, but clearing prevents unbounded memory growth
+    // and ensures no stale state from old workspace persists)
+    setSessionOptions(new Map())
 
-      // 6. Clear message drafts from previous workspace
-      // (prevents memory growth on repeated workspace switches)
-      sessionDraftsRef.current.clear()
+    // 6. Clear message drafts from previous workspace
+    // (prevents memory growth on repeated workspace switches)
+    sessionDraftsRef.current.clear()
 
-      // 7. Reset sources and skills atoms to empty
-      // (prevents stale data flash during workspace switch - AppShell will reload)
-      store.set(sourcesAtom, [])
-      store.set(skillsAtom, [])
+    // 7. Reset sources and skills atoms to empty
+    // (prevents stale data flash during workspace switch - AppShell will reload)
+    store.set(sourcesAtom, [])
+    store.set(skillsAtom, [])
 
-      // 8. Clear session atoms BEFORE workspace switch
-      // This prevents stale session data from the previous workspace being visible.
-      store.set(sessionMetaMapAtom, new Map())
-      store.set(sessionIdsAtom, [])
+    // 8. Clear session atoms BEFORE workspace switch
+    // This prevents stale session data from the previous workspace being visible.
+    store.set(sessionMetaMapAtom, new Map())
+    store.set(sessionIdsAtom, [])
 
-      // Note: NavigationContext detects the workspaceId change and handles
-      // panel restoration from the stored workspace URL (or defaults to allSessions).
-      // Sessions and theme will reload automatically due to windowWorkspaceId dependency
-      // in useEffect hooks.
-    }
+    // Note: NavigationContext detects the workspaceId change and handles
+    // panel restoration from the stored workspace URL (or defaults to allSessions).
+    // Sessions and theme will reload automatically due to windowWorkspaceId dependency
+    // in useEffect hooks.
   }, [windowWorkspaceId, setSession, store])
 
   // Handle workspace switch by slug (called by NavigationContext on popstate when ?ws= changes)
@@ -2099,7 +2077,6 @@ export default function App() {
                   contextValue={appShellContextValue}
                   defaultLayout={[20, 32, 48]}
                   menuNewChatTrigger={menuNewChatTrigger}
-                  isFocusedMode={isFocusedMode}
                 />
               )}
             </div>

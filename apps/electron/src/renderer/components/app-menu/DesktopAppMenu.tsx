@@ -139,7 +139,6 @@ function renderMenuSection(
  */
 export function DesktopAppMenu({
   onNewChat,
-  onNewWindow,
   onOpenSettings,
   onOpenSettingsSubpage,
   onOpenKeyboardShortcuts,
@@ -150,7 +149,6 @@ export function DesktopAppMenu({
   const [isDebugMode, setIsDebugMode] = useState(false)
 
   const newChatHotkey = useActionLabel('app.newChat').hotkey
-  const newWindowHotkey = useActionLabel('app.newWindow').hotkey
   const settingsHotkey = useActionLabel('app.settings').hotkey
   const keyboardShortcutsHotkey = useActionLabel('app.keyboardShortcuts').hotkey
   const quitHotkey = useActionLabel('app.quit').hotkey
@@ -177,13 +175,6 @@ export function DesktopAppMenu({
           {t(ROOT_MENU.newChat.labelKey)}
           {newChatHotkey && <DropdownMenuShortcut className="pl-6">{newChatHotkey}</DropdownMenuShortcut>}
         </StyledDropdownMenuItem>
-        {onNewWindow && (
-          <StyledDropdownMenuItem onClick={onNewWindow}>
-            <Icons.AppWindow className="h-3.5 w-3.5" />
-            {t(ROOT_MENU.newWindow.labelKey)}
-            {newWindowHotkey && <DropdownMenuShortcut className="pl-6">{newWindowHotkey}</DropdownMenuShortcut>}
-          </StyledDropdownMenuItem>
-        )}
 
         <StyledDropdownMenuSeparator />
 

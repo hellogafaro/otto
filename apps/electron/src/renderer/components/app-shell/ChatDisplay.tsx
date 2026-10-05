@@ -8,7 +8,6 @@ import {
   ChevronRight,
   ChevronUp,
   CircleAlert,
-  ExternalLink,
   Info,
   X,
 } from "lucide-react"
@@ -1035,16 +1034,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     if (!overlayState || overlayState.type !== 'activity') return false
     return isStackedActivityTool(overlayState.activity)
   }, [overlayState])
-
-  // Pop-out handler - opens message in overlay (read-only markdown)
-  const handlePopOut = useCallback((message: Message) => {
-    if (!session) return
-    setOverlayState({
-      type: 'markdown',
-      content: message.content,
-      title: 'Message Preview',
-    })
-  }, [session])
 
   // Ref to track total turn count for scroll handler
   const totalTurnCountRef = React.useRef(0)
@@ -2137,10 +2126,6 @@ interface MessageBubbleProps {
    * @default 'minimal'
    */
   renderMode?: RenderMode
-  /**
-   * Callback to pop out message into a separate window
-   */
-  onPopOut?: (message: Message) => void
   /** Compact mode - reduces padding for popover embedding */
   compactMode?: boolean
   /** Callback to resend the user message that preceded an error */
@@ -2229,12 +2214,9 @@ function MessageBubble({
   onOpenUrl,
   sessionId,
   renderMode = 'minimal',
-  onPopOut,
   compactMode,
   onRetry,
 }: MessageBubbleProps) {
-  const { t } = useTranslation()
-
   // === USER MESSAGE: Right-aligned bubble with attachments above ===
   if (message.role === 'user') {
     return (
@@ -2256,17 +2238,6 @@ function MessageBubble({
     return (
       <div className="flex justify-start group">
         <div className="relative max-w-[90%] bg-background shadow-minimal rounded-[8px] pl-6 pr-4 py-3 break-words min-w-0 select-text">
-          {/* Pop-out button - visible on hover */}
-          {onPopOut && !message.isStreaming && (
-            <button
-              onClick={() => onPopOut(message)}
-              data-touch-reveal="true"
-              className="absolute top-2 right-2 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-foreground/5"
-              title={t("sidebarMenu.openInNewWindow")}
-            >
-              <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-            </button>
-          )}
           {/* Use StreamingMarkdown for block-level memoization during streaming */}
           {message.isStreaming ? (
             <StreamingMarkdown

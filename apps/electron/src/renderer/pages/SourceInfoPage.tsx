@@ -349,11 +349,6 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
     }
   }, [source, workspaceId, sourceSlug, onDelete, navigateToSource])
 
-  // Handle opening in new window
-  const handleOpenInNewWindow = useCallback(() => {
-    window.electronAPI.openUrl(`craftagents://sources/source/${sourceSlug}?window=focused`)
-  }, [sourceSlug])
-
   // Get source name for header
   const sourceName = source?.config.name || sourceSlug
 
@@ -369,7 +364,6 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
           <SourceMenu
             sourceSlug={sourceSlug}
             sourceName={sourceName}
-            onOpenInNewWindow={handleOpenInNewWindow}
             onShowInFinder={handleOpenSourceFolder}
             onDelete={handleDelete}
           />

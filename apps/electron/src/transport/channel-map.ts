@@ -73,7 +73,6 @@ export const CHANNEL_MAP = {
   getWindowWorkspace: invoke(RPC_CHANNELS.window.GET_WORKSPACE),
   getWindowMode: invoke(RPC_CHANNELS.window.GET_MODE),
   openWorkspace: invoke(RPC_CHANNELS.window.OPEN_WORKSPACE),
-  openSessionInNewWindow: invoke(RPC_CHANNELS.window.OPEN_SESSION_IN_NEW_WINDOW),
   switchWorkspace: invoke(RPC_CHANNELS.window.SWITCH_WORKSPACE),
   closeWindow: invoke(RPC_CHANNELS.window.CLOSE),
   confirmCloseWindow: invoke(RPC_CHANNELS.window.CONFIRM_CLOSE),
@@ -342,7 +341,6 @@ export const CHANNEL_MAP = {
 
   // Menu actions
   menuQuit: invoke(RPC_CHANNELS.menu.QUIT),
-  menuNewWindow: invoke(RPC_CHANNELS.menu.NEW_WINDOW),
   menuMinimize: invoke(RPC_CHANNELS.menu.MINIMIZE),
   menuMaximize: invoke(RPC_CHANNELS.menu.MAXIMIZE),
   menuZoomIn: invoke(RPC_CHANNELS.menu.ZOOM_IN),

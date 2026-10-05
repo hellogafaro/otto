@@ -319,7 +319,6 @@ export interface ElectronAPI {
   getWindowWorkspace(): Promise<string | null>
   getWindowMode(): Promise<string | null>
   openWorkspace(workspaceId: string): Promise<void>
-  openSessionInNewWindow(workspaceId: string, sessionId: string): Promise<void>
   switchWorkspace(workspaceId: string): Promise<void>
   closeWindow(): Promise<void>
   confirmCloseWindow(): Promise<void>
@@ -626,7 +625,6 @@ export interface ElectronAPI {
 
   // Menu actions (from renderer to main)
   menuQuit(): Promise<void>
-  menuNewWindow(): Promise<void>
   menuMinimize(): Promise<void>
   menuMaximize(): Promise<void>
   menuZoomIn(): Promise<void>

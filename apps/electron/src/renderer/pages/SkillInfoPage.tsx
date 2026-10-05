@@ -112,11 +112,6 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
     }
   }, [skill, workspaceId, skillSlug])
 
-  // Handle opening in new window
-  const handleOpenInNewWindow = useCallback(() => {
-    window.electronAPI.openUrl(`craftagents://skills/skill/${skillSlug}?window=focused`)
-  }, [skillSlug])
-
   // Get skill name for header
   const skillName = skill?.metadata.name || skillSlug
   const canDeleteSkill = skill?.source === 'workspace'
@@ -155,7 +150,6 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
           <SkillMenu
             skillSlug={skillSlug}
             skillName={skillName}
-            onOpenInNewWindow={handleOpenInNewWindow}
             onShowInFinder={handleOpenInFinder}
             canShowInFinder={canRevealLocally}
             onDelete={canDeleteSkill ? handleDelete : undefined}

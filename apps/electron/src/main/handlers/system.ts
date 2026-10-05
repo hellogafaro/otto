@@ -44,7 +44,6 @@ export const GUI_HANDLED_CHANNELS = [
   RPC_CHANNELS.notification.GET_ENABLED,
   RPC_CHANNELS.notification.SET_ENABLED,
   RPC_CHANNELS.menu.QUIT,
-  RPC_CHANNELS.menu.NEW_WINDOW,
   RPC_CHANNELS.menu.MINIMIZE,
   RPC_CHANNELS.menu.MAXIMIZE,
   RPC_CHANNELS.menu.ZOOM_IN,
@@ -284,14 +283,6 @@ export function registerSystemGuiHandlers(server: RpcServer, deps: HandlerDeps):
   // Menu actions from renderer (for unified Craft menu)
   server.handle(RPC_CHANNELS.menu.QUIT, async () => {
     deps.platform.quit?.()
-  })
-
-  server.handle(RPC_CHANNELS.menu.NEW_WINDOW, async (ctx) => {
-    if (!windowManager) return
-    const workspaceId = ctx.workspaceId ?? windowManager.getWorkspaceForWindow(ctx.webContentsId!)
-    if (workspaceId) {
-      windowManager.createWindow({ workspaceId })
-    }
   })
 
   server.handle(RPC_CHANNELS.menu.MINIMIZE, async (ctx) => {

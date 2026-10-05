@@ -21,7 +21,6 @@ export interface SessionListContextValue {
   /** Available workspace projects for the context-menu submenu */
   projects?: Array<{ id: string; slug: string; name: string; color?: string }>
   onSelectSessionById: (sessionId: string) => void
-  onOpenInNewWindow: (item: SessionMeta) => void
   onSendToWorkspace?: (sessionIds: string[]) => void
   onFocusZone: () => void
   onKeyDown: (e: React.KeyboardEvent, item: SessionMeta) => void

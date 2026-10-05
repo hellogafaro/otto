@@ -148,10 +148,6 @@ export function createWebApi(options: WebApiOptions): {
       await client.invoke('window:switchWorkspace', wsId)
     },
     openWorkspace: async () => {},
-    openSessionInNewWindow: async (_wsId: string, sessionId: string) => {
-      // Open in new tab
-      window.open(`${window.location.origin}/?session=${sessionId}`, '_blank')
-    },
 
     // Auto-update — not applicable to web (but expose server version for About page)
     checkForUpdates: () => Promise.resolve({ available: false, currentVersion: client.getServerVersion() ?? '' } as any),
@@ -173,7 +169,6 @@ export function createWebApi(options: WebApiOptions): {
 
     // Menu actions — no-ops (web has no native menu)
     menuQuit: () => Promise.resolve(),
-    menuNewWindow: () => { window.open(window.location.href, '_blank'); return Promise.resolve() },
     menuMinimize: () => Promise.resolve(),
     menuMaximize: () => Promise.resolve(),
     menuZoomIn: () => Promise.resolve(),

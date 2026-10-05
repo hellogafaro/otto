@@ -992,7 +992,7 @@ export function EditPopover({
     const workdirParam = workingDirectory ? `&workdir=${encodeURIComponent(workingDirectory)}` : ''
     const modelParam = model ? `&model=${encodeURIComponent(model)}` : ''
     const systemPromptParam = systemPromptPreset ? `&systemPrompt=${encodeURIComponent(systemPromptPreset)}` : ''
-    // Navigate in same window by omitting window=focused parameter
+    // Navigate in the same window
     const url = `craftagents://action/new-session?input=${encodedInput}&send=true&mode=${permissionMode}&badges=${encodedBadges}${workdirParam}${modelParam}${systemPromptParam}`
 
     window.electronAPI.openUrl(url)
