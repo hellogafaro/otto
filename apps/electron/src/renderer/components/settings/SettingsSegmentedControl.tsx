@@ -7,6 +7,7 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 export interface SettingsSegmentedOption<T extends string = string> {
   /** Value for this option */
@@ -60,38 +61,19 @@ export function SettingsSegmentedControl<T extends string = string>({
         const isSelected = option.value === value
 
         return (
-          <button
+          <Button
             key={option.value}
             type="button"
             role="radio"
             aria-checked={isSelected}
+            variant={isSelected ? 'secondary' : 'ghost'}
+            size={size === 'sm' ? 'sm' : 'default'}
             onClick={() => onValueChange(option.value)}
-            className={cn(
-              'flex items-center gap-1.5 rounded-lg transition-all',
-              size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm',
-              isSelected
-                ? 'bg-background shadow-minimal'
-                : 'bg-transparent hover:bg-foreground/5'
-            )}
+            className={isSelected ? undefined : 'text-muted-foreground'}
           >
-            {option.icon && (
-              <span
-                className={cn(
-                  'w-4 h-4',
-                  isSelected ? 'text-foreground' : 'text-muted-foreground'
-                )}
-              >
-                {option.icon}
-              </span>
-            )}
-            <span
-              className={cn(
-                isSelected ? 'text-foreground' : 'text-muted-foreground'
-              )}
-            >
-              {option.label}
-            </span>
-          </button>
+            {option.icon}
+            {option.label}
+          </Button>
         )
       })}
     </div>
