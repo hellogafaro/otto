@@ -1,8 +1,9 @@
 /**
  * SettingsCard
  *
- * Container card with muted background for grouping related settings.
- * Children are separated by internal dividers.
+ * Container card for grouping related settings. Rows are split by full-bleed
+ * hairlines drawn by `divide-y` between the children that exist in the DOM, so
+ * a child that renders nothing (a collapsed panel) leaves no stray line.
  */
 
 import * as React from 'react'
@@ -13,8 +14,6 @@ export interface SettingsCardProps {
   children: React.ReactNode
   /** Additional className */
   className?: string
-  /** Whether to add internal dividers between children */
-  divided?: boolean
 }
 
 /**
@@ -26,24 +25,15 @@ export interface SettingsCardProps {
  *   <SettingsToggle label="Option 2" ... />
  * </SettingsCard>
  */
-export function SettingsCard({ children, className, divided = true }: SettingsCardProps) {
-  const childArray = React.Children.toArray(children).filter(Boolean)
-
+export function SettingsCard({ children, className }: SettingsCardProps) {
   return (
     <div
       className={cn(
-        'rounded-xl bg-card ring-1 ring-foreground/10 shadow-xs overflow-hidden',
+        'rounded-xl bg-card ring-1 ring-foreground/10 shadow-xs overflow-hidden divide-y divide-foreground/10',
         className
       )}
     >
-      {divided && childArray.length > 1
-        ? childArray.map((child, index) => (
-            <React.Fragment key={index}>
-              {index > 0 && <div className="h-px bg-foreground/10" />}
-              {child}
-            </React.Fragment>
-          ))
-        : children}
+      {children}
     </div>
   )
 }

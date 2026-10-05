@@ -57,7 +57,7 @@ export function OwnersListEditor({ owners, enforced, onRemove, currentUserId }: 
   }
 
   return (
-    <div className="divide-y divide-border/50">
+    <div className="divide-y divide-foreground/10">
       {owners.map((owner) => (
         <OwnerRow
           key={owner.userId}

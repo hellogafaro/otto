@@ -184,7 +184,7 @@ function SubRowIcon({
 }
 
 function CardSeparator() {
-  return <div className="mx-4 h-px bg-border/50" />
+  return <div className="h-px bg-foreground/10" />
 }
 
 function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceId: string }) {
@@ -437,7 +437,7 @@ function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceI
         ) : platformBindings.length > 0 ? (
           <>
             <CardSeparator />
-            <div className="divide-y divide-border/50">
+            <div className="divide-y divide-foreground/10">
               {platformBindings.map((binding) => (
                 <FlatBindingRow
                   key={binding.id}
@@ -550,7 +550,7 @@ function TelegramBindingsBody({
       {directBindings.length > 0 && (
         <>
           <CardSeparator />
-          <div className="divide-y divide-border/50">
+          <div className="divide-y divide-foreground/10">
             {directBindings.map((binding) => (
               <DirectSessionRow
                 key={binding.id}
@@ -714,7 +714,7 @@ function PairedSupergroupSection({
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border/50">
+            <div className="border-t border-foreground/10">
               {topicBindings.length === 0 ? (
                 <div className="flex items-start gap-3 px-4 py-3 text-xs text-foreground/50">
                   <IconSpacer />
@@ -726,7 +726,7 @@ function PairedSupergroupSection({
                   </span>
                 </div>
               ) : (
-                <div className="divide-y divide-border/50">
+                <div className="divide-y divide-foreground/10">
                   {topicBindings.map((binding) => (
                     <TopicBindingRow
                       key={binding.id}

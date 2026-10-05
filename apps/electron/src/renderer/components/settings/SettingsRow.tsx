@@ -6,6 +6,7 @@
  */
 
 import * as React from 'react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { settingsUI } from './SettingsUIConstants'
 
@@ -26,6 +27,8 @@ export interface SettingsRowProps {
   className?: string
   /** Whether the row is inside a card (affects padding) */
   inCard?: boolean
+  /** Makes the row the header of a collapsible panel: sets aria-expanded and shows a chevron that turns when open */
+  expanded?: boolean
 }
 
 /**
@@ -47,6 +50,7 @@ export function SettingsRow({
   action,
   className,
   inCard = true,
+  expanded,
 }: SettingsRowProps) {
   const Component = onClick ? 'button' : 'div'
 
@@ -54,6 +58,7 @@ export function SettingsRow({
     <Component
       type={onClick ? 'button' : undefined}
       onClick={onClick}
+      aria-expanded={expanded}
       data-layout="settings-row"
       className={cn(
         'w-full flex items-center justify-between text-left',
@@ -76,6 +81,12 @@ export function SettingsRow({
           {children}
           {action}
         </div>
+      )}
+      {expanded !== undefined && (
+        <ChevronRight
+          aria-hidden
+          className={cn('ml-4 size-4 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')}
+        />
       )}
     </Component>
   )

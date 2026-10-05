@@ -258,7 +258,7 @@ function AllowedUsersCollapsible({
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border/50">
+            <div className="border-t border-foreground/10">
               <OwnersListEditor
                 owners={owners}
                 enforced={accessMode === 'owner-only'}
@@ -301,7 +301,7 @@ function SubRowIcon({
 }
 
 function SectionDivider() {
-  return <div className="mx-4 h-px bg-border/50" />
+  return <div className="h-px bg-foreground/10" />
 }
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {

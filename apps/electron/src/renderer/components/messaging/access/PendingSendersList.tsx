@@ -25,7 +25,7 @@ export function PendingSendersList({ pending, onAllow, onIgnore }: Props) {
   if (pending.length === 0) return null
 
   return (
-    <div className="divide-y divide-border/50">
+    <div className="divide-y divide-foreground/10">
       {pending.map((sender) => (
         <PendingRow
           // Composite key — same userId can appear multiple times across

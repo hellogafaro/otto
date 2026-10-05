@@ -194,7 +194,7 @@ export default function PreferencesPage() {
             title={t("settings.preferences.basicInfo")}
             description={t("settings.preferences.basicInfoDesc")}
           >
-            <SettingsCard divided>
+            <SettingsCard>
               <SettingsInput
                 label={t("settings.preferences.name")}
                 description={t("settings.preferences.nameDesc")}
@@ -219,7 +219,7 @@ export default function PreferencesPage() {
             title={t("settings.preferences.location")}
             description={t("settings.preferences.locationDesc")}
           >
-            <SettingsCard divided>
+            <SettingsCard>
               <SettingsInput
                 label={t("settings.preferences.city")}
                 description={t("settings.preferences.cityDesc")}
@@ -257,7 +257,7 @@ export default function PreferencesPage() {
               ) : null
             }
           >
-            <SettingsCard divided={false}>
+            <SettingsCard>
               <SettingsTextarea
                 value={formState.notes}
                 onChange={(v) => updateField('notes', v)}

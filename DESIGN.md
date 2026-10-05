@@ -1021,4 +1021,10 @@ that carry over, applied where Craft draws the same thing.
   one-line description, then a 12px card with a hairline ring whose rows are
   split by hairlines. A row is a label and one muted line on the left and one
   control on the right, 16px sides and 12px above and below.
+  Hairlines are full-bleed `divide-y divide-foreground/10` drawn by the card
+  itself (never `h-px` siblings, which leave a line under a collapsed panel).
+  A note under the last row is a plain row (16px sides, muted `text-xs`). A
+  collapsible card's header is a `SettingsRow` with `expanded` (chevron turns
+  90deg); its body is rows split by hairlines, with group titles as small
+  uppercase muted labels 16px in.
 - **Root font size** stays at Craft's 15px; Craft sizes in `rem`.
