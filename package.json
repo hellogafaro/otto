@@ -17,7 +17,8 @@
   ],
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "design/*"
   ],
   "scripts": {
     "dev": "infisical run --env dev -- bun run server:prod",
