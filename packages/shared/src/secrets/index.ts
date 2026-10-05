@@ -77,6 +77,9 @@ function defaultStore() {
   return (store ??= createSecretsStore(initDb(), parseEncryptionKey(process.env.ENCRYPTION_KEY)))
 }
 
+/** The process-wide secrets store, set up on first use. */
+export const initSecretsStore = defaultStore
+
 /** Set the secrets domain up at boot: fails now, not at the first read, when the key is missing or wrong. */
 export function initSecrets(): void {
   defaultStore()

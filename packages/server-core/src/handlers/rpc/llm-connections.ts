@@ -660,12 +660,30 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       const tokens = await pollChatGptDeviceAuth(code, abort.signal)
       if (chatGptOAuthAbort === abort) chatGptOAuthAbort = null
 
+      // Bridge: Pi still reads this; remove when sessions read connections
       await credentialManager.setLlmOAuth(connectionSlug, {
         accessToken: tokens.accessToken,
         idToken: tokens.idToken,
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.expiresAt,
       })
+
+      // One ChatGPT connection at most for now. A failure here must not fail the
+      // sign-in: the credential manager above keeps the app working.
+      try {
+        const { getConnections, createConnection, updateConnection } = await import('@craft-agent/shared/connections')
+        const secret = JSON.stringify({
+          accessToken: tokens.accessToken,
+          idToken: tokens.idToken,
+          refreshToken: tokens.refreshToken,
+          expiresAt: tokens.expiresAt,
+        })
+        const existing = getConnections().find(c => c.type === 'chatgpt')
+        if (existing) updateConnection(existing.id, { secret })
+        else createConnection({ type: 'chatgpt', secret })
+      } catch (err) {
+        deps.platform.logger?.error('[ChatGPT OAuth] Failed to store the connection:', err)
+      }
 
       deps.platform.logger?.info(`[ChatGPT OAuth] Signed in for ${connectionSlug}`)
       refreshModelsInBackground(connectionSlug, 'ChatGPT auth')
@@ -723,6 +741,10 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     try {
       const credentialManager = getCredentialManager()
       await credentialManager.deleteLlmCredentials(connectionSlug)
+      const { getConnections, deleteConnection } = await import('@craft-agent/shared/connections')
+      for (const c of getConnections()) {
+        if (c.type === 'chatgpt') deleteConnection(c.id)
+      }
       deps.platform.logger?.info('ChatGPT credentials cleared')
       return { success: true }
     } catch (error) {

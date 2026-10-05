@@ -23,6 +23,7 @@
     "./id": "./src/id.ts",
     "./db": "./src/db/index.ts",
     "./secrets": "./src/secrets/index.ts",
+    "./connections": "./src/connections/index.ts",
     "./config": "./src/config/index.ts",
     "./config/paths": "./src/config/paths.ts",
     "./docs": "./src/docs/index.ts",
