@@ -76,9 +76,6 @@ import {
   BUILT_IN_TOOLS,
 } from './core/pre-tool-use.ts';
 import { applyGuardedModeCheck, needsGuardedModeCheck } from './core/guarded-mode.ts';
-import { getRtkPath } from './core/rtk-detector.ts';
-import { getRtkEnabled, getRtkExcludeCommands } from '../config/storage.ts';
-import type { RtkContext } from './core/rtk-rewrite.ts';
 import { type ThinkingLevel, THINKING_TO_EFFORT, getThinkingTokens, DEFAULT_THINKING_LEVEL } from './thinking-levels.ts';
 import { generateConversationSummary } from './conversation-summary.ts';
 import type { LoadedSource } from '../sources/types.ts';
@@ -259,8 +256,6 @@ export interface ClaudeAgentConfig {
   mcpPool?: McpClientPool;
   /** LLM connection slug for credential lookup in postInit(). */
   connectionSlug?: string;
-  /** Enable 1M context window for current Opus models. Default: true. Set false to use 200K and conserve usage limits. */
-  enable1MContext?: boolean;
 }
 
 // Permission request tracking
@@ -1189,18 +1184,6 @@ export class ClaudeAgent extends BaseAgent {
         });
       }
 
-      // Enable 1M context window for models that support it.
-      // Despite Anthropic docs claiming 1M is GA, the API still defaults to 200k
-      // without an explicit opt-in. The betas header only works for API key users;
-      // for OAuth the [1m] model suffix is the way. Use the suffix unconditionally
-      // since it works for both auth paths. See: anthropics/claude-agent-sdk-typescript#238
-      // Gated by enable1MContext in global config (~/.craft-agent/config.json).
-      // The interceptor also reads this to strip the SDK-injected beta header.
-      const use1M = this.config.enable1MContext !== false;
-      const effectiveModel = use1M && getModelContextWindow(model) === 1_000_000
-        ? `${model}[1m]`
-        : model;
-
       // Capture the resolved spawn cwd here (rather than via an instance
       // field) so the catch handler reads the value passed to *this*
       // chatImpl invocation, not state left over from an earlier call.
@@ -1208,7 +1191,7 @@ export class ClaudeAgent extends BaseAgent {
 
       const options: Options = {
         ...getDefaultOptions(this.config.envOverrides),
-        model: effectiveModel,
+        model,
         // Capture stderr from SDK subprocess for error diagnostics
         // This helps identify why sessions fail with "process exited with code 1"
         stderr: (data: string) => {
@@ -1375,13 +1358,6 @@ export class ClaudeAgent extends BaseAgent {
 
               const toolInput = input.tool_input as Record<string, unknown>;
 
-              // Build RTK context fresh per call so toggling the preference
-              // takes effect without restart. `getRtkPath()` is cached per
-              // process; only the storage read happens each time.
-              const rtkContext: RtkContext | undefined = getRtkEnabled()
-                ? { enabled: true, path: getRtkPath(), exclude: getRtkExcludeCommands() }
-                : undefined;
-
               // Run centralized PreToolUse checks (plus the Guarded-mode risk check, when installed)
               const preToolUseInput: PreToolUseInput = {
                 toolName: input.tool_name,
@@ -1398,7 +1374,6 @@ export class ClaudeAgent extends BaseAgent {
                 hasSourceActivation: !!this.onSourceActivationRequest,
                 permissionManager: this.permissionManager,
                 prerequisiteManager: this.prerequisiteManager,
-                rtkContext,
                 onDebug: (msg) => this.onDebug?.(msg),
               };
               const baseResult = runPreToolUseChecks(preToolUseInput);

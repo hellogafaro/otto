@@ -172,7 +172,7 @@ export async function applyGuardedModeCheck(
 ): Promise<PreToolUseCheckResult> {
   if (!needsGuardedModeCheck(result, ctx, check)) return result;
 
-  // Judge what the agent asked for: a rewrite (e.g. rtk) only changes how it runs.
+  // Judge what the agent asked for: an input rewrite only changes how it runs.
   let call: GuardedModeCall | null;
   try {
     call = getGuardedModeCall(ctx.toolName, ctx.input, ctx);

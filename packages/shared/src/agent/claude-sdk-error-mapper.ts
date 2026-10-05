@@ -55,28 +55,8 @@ const NETWORK_HINTS = [
   'connection refused',
 ] as const;
 
-// Signals specific to the 1M context beta. When these fire, the user is told
-// to disable "Extended Context (1M)" in settings — only correct for users on
-// the 1M tier, so the matcher must be precise.
-const ONE_M_CONTEXT_HINTS = [
-  'context-1m',
-  'context_1m',
-] as const;
-
-// Phrases that, when paired with the word "tier", confirm the error is about
-// 1M context access specifically (vs. tier-gated images, models, audio,
-// document support, etc.). The bare word "tier" is far too broad on its own.
-const ONE_M_TIER_PHRASES = [
-  'context',
-  '1m',
-  'extended',
-  '200k',
-  '1000k',
-] as const;
-
-// Signals that the request exceeded the model's context window in general,
-// not specifically 1M. These map to a "Context Window Exceeded" error with
-// /compact + new-session advice — appropriate for any tier.
+// Signals that the request exceeded the model's context window. These map to
+// a "Context Window Exceeded" error with /compact + new-session advice.
 const CONTEXT_OVERFLOW_HINTS = [
   'context window',
   'context_window',
@@ -100,21 +80,6 @@ const ATTACHMENT_REJECTION_HINTS = [
   'unsupported format',
   'could not process',
 ] as const;
-
-function isOneMContextError(context: ClaudeSdkErrorContext): boolean {
-  const haystack = [
-    normalize(context.capturedApiError?.message),
-    normalize(context.actualError?.message),
-  ].join(' ');
-  if (includesAny(haystack, ONE_M_CONTEXT_HINTS)) return true;
-  // "tier" alone is ambiguous — only counts as 1M when it co-occurs with a
-  // context-window-specific phrase. Image/model/audio/feature-tier errors
-  // are deliberately excluded.
-  if (haystack.includes('tier') && includesAny(haystack, ONE_M_TIER_PHRASES)) {
-    return true;
-  }
-  return false;
-}
 
 function isContextOverflowError(context: ClaudeSdkErrorContext): boolean {
   const haystack = [
@@ -332,27 +297,6 @@ export function mapClaudeSdkAssistantError(
       };
 
     case 'invalid_request': {
-      if (isOneMContextError(context)) {
-        return {
-          code: 'invalid_request',
-          title: '1M Context Not Available',
-          message: 'The request exceeded the standard 200K context window, and 1M context is not available on your API tier.',
-          details: [
-            ...apiDetails,
-            'Disable "Extended Context (1M)" in AI Settings → Performance',
-            'Or start a new conversation, or run /compact to reduce context',
-          ],
-          actions: [
-            { key: 's', label: 'Settings', action: 'settings' },
-            { key: 'c', label: 'Compact', command: '/compact' },
-          ],
-          // Retrying the same payload won't help — user must change settings
-          // or compact history first. Hiding the button is correct UX.
-          canRetry: false,
-          providerInfo,
-        };
-      }
-
       if (isContextOverflowError(context)) {
         return {
           code: 'invalid_request',
@@ -366,8 +310,8 @@ export function mapClaudeSdkAssistantError(
           actions: [
             { key: 'c', label: 'Compact', command: '/compact' },
           ],
-          // Same as 1M case: retrying without changing the payload hits the
-          // same wall, so suppress the button.
+          // Retrying without changing the payload hits the same wall, so
+          // suppress the button.
           canRetry: false,
           providerInfo,
         };

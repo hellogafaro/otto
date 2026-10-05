@@ -1,6 +1,5 @@
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
-import { getBrowserToolEnabled, getRtkEnabled } from '../config/storage.ts';
-import { getRtkPath } from '../agent/core/rtk-detector.ts';
+import { getBrowserToolEnabled } from '../config/storage.ts';
 import { debug } from '../utils/debug.ts';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { dirname, join, relative, basename, resolve } from 'path';
@@ -629,9 +628,6 @@ function getCraftAssistantPrompt(workspaceRootPath?: string, backendName: string
   // Environment marker for SDK JSONL detection
   const environmentMarker = getCraftAgentEnvironmentMarker();
 
-  // rtk rewrites Bash commands behind the agent's back; say so, and how to get raw output.
-  const rtkActive = getRtkEnabled() && getRtkPath() !== null;
-
   // Decision layer (Jev): Settings switch + feature toggle, evaluated per prompt build.
   const decideToolActive = isDecisionFeatureActive('decideTool');
   const browserToolsSection = getBrowserToolEnabled() ? `
@@ -947,9 +943,7 @@ Each preview supports either \`"src": "/absolute/path"\` or an \`items\` array f
 Built-in document CLIs are available via Bash: \`markitdown\`, \`pdf-tool\`, \`xlsx-tool\`, \`docx-tool\`, \`pptx-tool\`, \`img-tool\`, \`doc-diff\`, \`ical-tool\`.
 
 Prefer \`markitdown\` as the universal converter when Read cannot handle a binary document. All tools support \`--help\`; most support \`-o <file>\` for output.
-${rtkActive ? `
-Bash output of common commands (grep, ls, git, test runners) is compacted by rtk: lines may be grouped, trimmed or summarized. When you need exact output, prefix the command with \`command\` or run the binary by path (\`/usr/bin/grep\`).
-` : ''}
+
 ## Tool Metadata
 
 All MCP tools require two metadata fields (schema-enforced):

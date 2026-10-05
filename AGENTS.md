@@ -21,6 +21,7 @@ Otto is a Bun monorepo that started from Craft Agents (see [UPSTREAM](UPSTREAM.m
 
 - Make the smallest correct change. Remove dead or duplicate code before adding more; reuse what exists. YAGNI: add nothing for a need that has not shown up.
 - No generic repositories, registries, frameworks or abstraction layers for one use.
+- Removing a feature removes the code behind it: the UI, its state and handlers, IPC channels, config keys, storage, tests, locale strings and docs. Nothing stays "dormant"; a leftover is a bug in the removal.
 - Fix the cause, not the symptom, and look for the same pattern elsewhere.
 
 ## Domains and data

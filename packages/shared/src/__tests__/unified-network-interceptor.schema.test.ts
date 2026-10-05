@@ -1,18 +1,13 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
-import { writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
+import { beforeAll, describe, expect, it } from 'bun:test';
 
 let injectMetadataIntoToolSchema: typeof import('../unified-network-interceptor.ts').injectMetadataIntoToolSchema;
 let sanitizeEmptyTextCacheControl: typeof import('../unified-network-interceptor.ts').sanitizeEmptyTextCacheControl;
-let upgradePromptCacheTtl: typeof import('../unified-network-interceptor.ts').upgradePromptCacheTtl;
-let _resetConfigCacheForTesting: typeof import('../interceptor-common.ts')._resetConfigCacheForTesting;
+let stripPromptCacheTtl: typeof import('../unified-network-interceptor.ts').stripPromptCacheTtl;
 
 describe('unified-network-interceptor schema metadata injection', () => {
   beforeAll(async () => {
     process.env.CRAFT_INTERCEPTOR_DISABLE_AUTO_INSTALL = '1';
-    ({ injectMetadataIntoToolSchema, sanitizeEmptyTextCacheControl, upgradePromptCacheTtl } = await import('../unified-network-interceptor.ts'));
-    ({ _resetConfigCacheForTesting } = await import('../interceptor-common.ts'));
+    ({ injectMetadataIntoToolSchema, sanitizeEmptyTextCacheControl, stripPromptCacheTtl } = await import('../unified-network-interceptor.ts'));
   });
 
   it('injects metadata fields into empty/zero-arg schemas', () => {
@@ -122,47 +117,8 @@ describe('sanitizeEmptyTextCacheControl', () => {
   });
 });
 
-describe('upgradePromptCacheTtl', () => {
-  const configFile = join(homedir(), '.craft-agent', 'config.json');
-  let originalConfig: string | null = null;
-
-  beforeEach(() => {
-    // Save original config if it exists
-    try {
-      originalConfig = require('node:fs').readFileSync(configFile, 'utf-8');
-    } catch {
-      originalConfig = null;
-    }
-  });
-
-  afterEach(() => {
-    // Restore original config
-    if (originalConfig !== null) {
-      writeFileSync(configFile, originalConfig);
-    } else {
-      try { unlinkSync(configFile); } catch { /* ignore */ }
-    }
-    _resetConfigCacheForTesting();
-  });
-
-  function enableExtendedCache() {
-    const dir = join(homedir(), '.craft-agent');
-    mkdirSync(dir, { recursive: true });
-    const existing = originalConfig ? JSON.parse(originalConfig) : {};
-    writeFileSync(configFile, JSON.stringify({ ...existing, extendedPromptCache: true }));
-    _resetConfigCacheForTesting();
-  }
-
-  function disableExtendedCache() {
-    const dir = join(homedir(), '.craft-agent');
-    mkdirSync(dir, { recursive: true });
-    const existing = originalConfig ? JSON.parse(originalConfig) : {};
-    writeFileSync(configFile, JSON.stringify({ ...existing, extendedPromptCache: false }));
-    _resetConfigCacheForTesting();
-  }
-
-  it('leaves blocks without ttl untouched when disabled', () => {
-    disableExtendedCache();
+describe('stripPromptCacheTtl', () => {
+  it('leaves blocks without ttl untouched', () => {
     const body = {
       messages: [{
         role: 'user',
@@ -172,14 +128,13 @@ describe('upgradePromptCacheTtl', () => {
       }],
     };
 
-    const result = upgradePromptCacheTtl(body);
+    const result = stripPromptCacheTtl(body);
 
     expect(result).toBe(0);
     expect((body.messages[0]!.content as any[])[0].cache_control).toEqual({ type: 'ephemeral' });
   });
 
-  it('strips ttl from message content when disabled', () => {
-    disableExtendedCache();
+  it('strips ttl from message content', () => {
     const body = {
       messages: [{
         role: 'user',
@@ -190,15 +145,14 @@ describe('upgradePromptCacheTtl', () => {
       }],
     };
 
-    const stripped = upgradePromptCacheTtl(body);
+    const stripped = stripPromptCacheTtl(body);
 
     expect(stripped).toBe(2);
     expect((body.messages[0]!.content as any[])[0].cache_control).toEqual({ type: 'ephemeral' });
     expect((body.messages[0]!.content as any[])[1].cache_control).toEqual({ type: 'ephemeral' });
   });
 
-  it('strips ttl from system prompt when disabled', () => {
-    disableExtendedCache();
+  it('strips ttl from system prompt', () => {
     const body = {
       system: [
         { type: 'text', text: 'You are helpful', cache_control: { type: 'ephemeral', ttl: '1h' } },
@@ -206,74 +160,25 @@ describe('upgradePromptCacheTtl', () => {
       messages: [],
     };
 
-    const stripped = upgradePromptCacheTtl(body);
+    const stripped = stripPromptCacheTtl(body);
 
     expect(stripped).toBe(1);
     expect((body.system as any[])[0].cache_control).toEqual({ type: 'ephemeral' });
   });
 
-  it('strips ttl from top-level cache_control when disabled', () => {
-    disableExtendedCache();
+  it('strips ttl from top-level cache_control', () => {
     const body = {
       cache_control: { type: 'ephemeral', ttl: '1h' },
       messages: [],
     };
 
-    const stripped = upgradePromptCacheTtl(body);
+    const stripped = stripPromptCacheTtl(body);
 
     expect(stripped).toBe(1);
     expect(body.cache_control as any).toEqual({ type: 'ephemeral' });
   });
 
-  it('upgrades message content cache_control to 1h when enabled', () => {
-    enableExtendedCache();
-    const body = {
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: 'hello', cache_control: { type: 'ephemeral' } },
-          { type: 'text', text: 'world', cache_control: { type: 'ephemeral' } },
-        ],
-      }],
-    };
-
-    const upgraded = upgradePromptCacheTtl(body);
-
-    expect(upgraded).toBe(2);
-    expect((body.messages[0]!.content as any[])[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
-    expect((body.messages[0]!.content as any[])[1].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
-  });
-
-  it('upgrades system prompt cache_control to 1h when enabled', () => {
-    enableExtendedCache();
-    const body = {
-      system: [
-        { type: 'text', text: 'You are helpful', cache_control: { type: 'ephemeral' } },
-      ],
-      messages: [],
-    };
-
-    const upgraded = upgradePromptCacheTtl(body);
-
-    expect(upgraded).toBe(1);
-    expect((body.system as any[])[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
-  });
-
-  it('upgrades top-level cache_control (auto-caching mode) when enabled', () => {
-    enableExtendedCache();
-    const body = {
-      cache_control: { type: 'ephemeral' },
-      messages: [],
-    };
-
-    const upgraded = upgradePromptCacheTtl(body);
-
-    expect(upgraded).toBe(1);
-    expect(body.cache_control as any).toEqual({ type: 'ephemeral', ttl: '1h' });
-  });
-
   it('leaves blocks without cache_control untouched', () => {
-    enableExtendedCache();
     const body = {
       messages: [{
         role: 'user',
@@ -283,62 +188,19 @@ describe('upgradePromptCacheTtl', () => {
       }],
     };
 
-    const upgraded = upgradePromptCacheTtl(body);
+    const stripped = stripPromptCacheTtl(body);
 
-    expect(upgraded).toBe(0);
+    expect(stripped).toBe(0);
     expect((body.messages[0]!.content as any[])[0].cache_control).toBeUndefined();
   });
 
-  it('does not upgrade blocks that already have 1h TTL', () => {
-    enableExtendedCache();
-    const body = {
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: 'already cached', cache_control: { type: 'ephemeral', ttl: '1h' } },
-        ],
-      }],
-    };
-
-    const upgraded = upgradePromptCacheTtl(body);
-
-    // Still counts as upgraded (idempotent set), but that's fine
-    expect(upgraded).toBe(1);
-    expect((body.messages[0]!.content as any[])[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
-  });
-
   it('returns 0 when no messages or system prompt', () => {
-    enableExtendedCache();
-    expect(upgradePromptCacheTtl({})).toBe(0);
+    expect(stripPromptCacheTtl({})).toBe(0);
   });
 
-  // Regression for the screenshot bug: when extendedPromptCache is enabled,
-  // we upgraded system+messages to 1h but left a 5m cache_control on a tool
-  // untouched. Anthropic processes blocks in order `tools → system → messages`
-  // and rejects "1h after 5m", so the tools walk has to keep up.
-  it('upgrades tool cache_control to 1h when enabled', () => {
-    enableExtendedCache();
-    const body = {
-      tools: [
-        { name: 'search', description: 'do a search', cache_control: { type: 'ephemeral' } },
-        { name: 'fetch', description: 'fetch a url', cache_control: { type: 'ephemeral' } },
-      ],
-      system: [
-        { type: 'text', text: 'You are helpful', cache_control: { type: 'ephemeral' } },
-      ],
-      messages: [],
-    };
-
-    const upgraded = upgradePromptCacheTtl(body);
-
-    expect(upgraded).toBe(3);
-    expect((body.tools as any[])[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
-    expect((body.tools as any[])[1].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
-    expect((body.system as any[])[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
-  });
-
-  it('strips ttl from tool cache_control when disabled', () => {
-    disableExtendedCache();
+  // Anthropic processes blocks in order `tools → system → messages` and
+  // rejects "1h after 5m", so every location must be stripped alike.
+  it('strips ttl from tool cache_control', () => {
     const body = {
       tools: [
         { name: 'search', description: 'do a search', cache_control: { type: 'ephemeral', ttl: '1h' } },
@@ -346,7 +208,7 @@ describe('upgradePromptCacheTtl', () => {
       messages: [],
     };
 
-    const stripped = upgradePromptCacheTtl(body);
+    const stripped = stripPromptCacheTtl(body);
 
     expect(stripped).toBe(1);
     expect((body.tools as any[])[0].cache_control).toEqual({ type: 'ephemeral' });

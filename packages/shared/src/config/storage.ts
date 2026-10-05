@@ -84,12 +84,6 @@ export interface StoredConfig {
   // Tools
   browserToolEnabled?: boolean;  // Enable built-in browser tool (default: true). Disable for Playwright/Puppeteer.
   allowRemoteEvaluate?: boolean;  // Allow remote agents to call `browser_tool evaluate` on local browser (default: true).
-  // Prompt caching & context
-  extendedPromptCache?: boolean;  // Use 1h prompt cache TTL instead of 5m (default: false)
-  enable1MContext?: boolean;  // Enable 1M context window for supported models (default: false — opt-in; requires Anthropic Tier 4+)
-  // Token optimization
-  rtkEnabled?: boolean;  // Route Bash commands through rtk to compress tool output (default: false). https://github.com/rtk-ai/rtk
-  rtkExcludeCommands?: string[];  // Base commands never routed through rtk, e.g. ["grep", "cat"] (default: none)
   // Decision layer (Jev / TypeSafe System One) — opt-in, off by default. See src/decisions/.
   decisionLayer?: DecisionLayerStoredSettings;
   // Network proxy
@@ -131,7 +125,6 @@ const FALLBACK_CONFIG_DEFAULTS: ConfigDefaults = {
     spellCheck: false,
     keepAwakeWhileRunning: false,
     richToolDescriptions: true,
-    extendedPromptCache: false,
     browserToolEnabled: true,
     allowRemoteEvaluate: true,
   },
@@ -481,26 +474,6 @@ export function setRichToolDescriptions(enabled: boolean): void {
 }
 
 /**
- * Get whether extended prompt cache (1h TTL) is enabled.
- * When enabled, the interceptor upgrades cache_control TTL from 5m to 1h.
- * Defaults to false if not set.
- */
-export function getExtendedPromptCache(): boolean {
-  const config = loadStoredConfig();
-  return config?.extendedPromptCache ?? false;
-}
-
-/**
- * Set whether extended prompt cache (1h TTL) is enabled.
- */
-export function setExtendedPromptCache(enabled: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.extendedPromptCache = enabled;
-  saveConfig(config);
-}
-
-/**
  * Get whether the built-in browser tool is enabled.
  * When disabled, browser_tool is not included in session tools.
  * Defaults to true if not set.
@@ -553,60 +526,6 @@ export function setAllowRemoteEvaluate(allowed: boolean): void {
 }
 
 /**
- * Get whether 1M context window is enabled.
- * When disabled, models use 200K context and the interceptor strips the context-1m beta header.
- * Defaults to false — the 1M beta requires Anthropic Tier 4+, and enabling it by default
- * causes 400 "Invalid Request" for lower-tier API keys on large contexts (issue #567).
- * Users opt in via AI Settings → Performance → Extended Context (1M).
- */
-export function getEnable1MContext(): boolean {
-  const config = loadStoredConfig();
-  return config?.enable1MContext === true;
-}
-
-/**
- * Set whether 1M context window is enabled.
- */
-export function setEnable1MContext(enabled: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.enable1MContext = enabled;
-  saveConfig(config);
-}
-
-/**
- * Get whether rtk Bash-output compression is enabled.
- * When enabled, the PreToolUse pipeline rewrites Bash commands to their `rtk` equivalents
- * to reduce token consumption on common dev commands (git, ls, grep, test runners, etc.).
- * Defaults to false — opt-in. Requires the `rtk` binary on PATH or bundled with the app.
- * https://github.com/rtk-ai/rtk
- */
-export function getRtkEnabled(): boolean {
-  const config = loadStoredConfig();
-  return config?.rtkEnabled === true;
-}
-
-/**
- * Base commands (first word) that are never routed through rtk, from
- * `rtkExcludeCommands` in config.json. Non-strings and blanks are ignored.
- */
-export function getRtkExcludeCommands(): string[] {
-  const value = loadStoredConfig()?.rtkExcludeCommands;
-  if (!Array.isArray(value)) return [];
-  return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0).map(entry => entry.trim());
-}
-
-/**
- * Set whether rtk Bash-output compression is enabled.
- */
-export function setRtkEnabled(enabled: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.rtkEnabled = enabled;
-  saveConfig(config);
-}
-
-/**
  * Decision layer (Jev / TypeSafe System One) settings with defaults applied.
  * Off by default; the `enabled` switch is the only master gate.
  * See `src/decisions/settings.ts` for the shape and `src/decisions/resolve.ts` for how it is used.
@@ -623,8 +542,7 @@ export function getDecisionLayerSettings(): DecisionLayerSettings {
 export function setDecisionLayerSettings(patch: Partial<Record<keyof DecisionLayerStoredSettings, unknown>>): DecisionLayerSettings {
   const config = loadStoredConfig();
   if (!config) {
-    // Unlike the void rtk setter, callers display the returned value — do not
-    // pretend a write happened.
+    // Callers display the returned value — do not pretend a write happened.
     throw new Error('Cannot save decision model settings: config.json is not initialized');
   }
   config.decisionLayer = mergeDecisionLayerSettings(config.decisionLayer, patch);

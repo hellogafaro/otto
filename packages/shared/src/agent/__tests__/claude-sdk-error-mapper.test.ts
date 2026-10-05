@@ -57,28 +57,8 @@ describe('mapClaudeSdkAssistantError', () => {
     expect(error.message.toLowerCase()).toContain('internet connection');
   });
 
-  describe('invalid_request — 1M context specialization', () => {
-    it('maps invalid_request with context-1m hint to 1M-context-specific error', () => {
-      const error = mapClaudeSdkAssistantError('invalid_request', {
-        ...baseContext,
-        capturedApiError: {
-          status: 400,
-          statusText: 'Bad Request',
-          message: 'The beta header context-1m-2025-08-07 is not available on your tier',
-          timestamp: Date.now(),
-        },
-      });
-
-      expect(error.code).toBe('invalid_request');
-      expect(error.title).toBe('1M Context Not Available');
-      expect(error.message).toContain('200K');
-      expect(error.details?.some(d => d.includes('Extended Context (1M)'))).toBe(true);
-      expect(error.actions?.some(a => a.action === 'settings')).toBe(true);
-    });
-
-    it('routes generic context_window phrasing to Context Window Exceeded (not 1M)', () => {
-      // Generic context-overflow without tier/1M-specific hints. The user
-      // shouldn't be told to disable 1M when they may not have it enabled.
+  describe('invalid_request — context overflow and attachments', () => {
+    it('routes generic context_window phrasing to Context Window Exceeded', () => {
       const error = mapClaudeSdkAssistantError('invalid_request', {
         ...baseContext,
         actualError: {
@@ -109,85 +89,7 @@ describe('mapClaudeSdkAssistantError', () => {
       expect(error.actions?.some(a => a.command === '/compact')).toBe(true);
     });
 
-    it('1M Context Not Available offers Settings + Compact, no Retry', () => {
-      const error = mapClaudeSdkAssistantError('invalid_request', {
-        ...baseContext,
-        capturedApiError: {
-          status: 400,
-          statusText: 'Bad Request',
-          message: 'context-1m beta requires a higher tier',
-          timestamp: Date.now(),
-        },
-      });
-
-      expect(error.title).toBe('1M Context Not Available');
-      expect(error.canRetry).toBe(false);
-      expect(error.actions?.some(a => a.action === 'retry')).toBe(false);
-      expect(error.actions?.some(a => a.action === 'settings')).toBe(true);
-      expect(error.actions?.some(a => a.command === '/compact')).toBe(true);
-    });
-
-    it('matches on tier hint when paired with a context phrase', () => {
-      const error = mapClaudeSdkAssistantError('invalid_request', {
-        ...baseContext,
-        capturedApiError: {
-          status: 400,
-          statusText: 'Bad Request',
-          message: 'Your tier does not have access to 1M context',
-          timestamp: Date.now(),
-        },
-      });
-
-      expect(error.title).toBe('1M Context Not Available');
-    });
-
-    it('matches on tier + extended phrase', () => {
-      const error = mapClaudeSdkAssistantError('invalid_request', {
-        ...baseContext,
-        capturedApiError: {
-          status: 400,
-          statusText: 'Bad Request',
-          message: 'Extended context is not available on your tier',
-          timestamp: Date.now(),
-        },
-      });
-
-      expect(error.title).toBe('1M Context Not Available');
-    });
-
-    it('does NOT route bare "tier does not have access to this feature" to 1M', () => {
-      // Reviewer-flagged regression: bare "tier" used to fire 1M routing,
-      // misleading users whose tier blocks something unrelated (audio,
-      // documents, beta tools, etc.).
-      const error = mapClaudeSdkAssistantError('invalid_request', {
-        ...baseContext,
-        capturedApiError: {
-          status: 400,
-          statusText: 'Bad Request',
-          message: 'Your tier does not have access to this feature',
-          timestamp: Date.now(),
-        },
-      });
-
-      expect(error.title).not.toBe('1M Context Not Available');
-      expect(error.title).toBe('Invalid Request');
-    });
-
-    it('does NOT route "tier does not have access to this model" to 1M', () => {
-      const error = mapClaudeSdkAssistantError('invalid_request', {
-        ...baseContext,
-        capturedApiError: {
-          status: 400,
-          statusText: 'Bad Request',
-          message: 'Your tier does not have access to this model',
-          timestamp: Date.now(),
-        },
-      });
-
-      expect(error.title).not.toBe('1M Context Not Available');
-    });
-
-    it('does NOT route "image input is not available on your tier" to 1M', () => {
+    it('maps "image input is not available on your tier" to the attachment advice', () => {
       const error = mapClaudeSdkAssistantError('invalid_request', {
         ...baseContext,
         capturedApiError: {
@@ -198,25 +100,10 @@ describe('mapClaudeSdkAssistantError', () => {
         },
       });
 
-      expect(error.title).not.toBe('1M Context Not Available');
       // "image" appears in the error → attachment-rejection path fires,
       // which is the correct disambiguation here.
       expect(error.title).toBe('Invalid Request');
       expect(error.details?.some(d => d.toLowerCase().includes('attachments'))).toBe(true);
-    });
-
-    it('does NOT route "this feature requires a higher tier" to 1M', () => {
-      const error = mapClaudeSdkAssistantError('invalid_request', {
-        ...baseContext,
-        capturedApiError: {
-          status: 400,
-          statusText: 'Bad Request',
-          message: 'This feature requires a higher tier',
-          timestamp: Date.now(),
-        },
-      });
-
-      expect(error.title).not.toBe('1M Context Not Available');
     });
 
     it('routes "prompt is too long" to Context Window Exceeded', () => {

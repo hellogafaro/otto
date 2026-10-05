@@ -205,13 +205,12 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 - [ ] `components/app-menu/MobileMenuItem.tsx`
 - [ ] `components/app-menu/MobileMenuPage.tsx`
 
-## Top-level components (7)
+## Top-level components (6)
 
 - [ ] `components/AppMenu.tsx`
 - [ ] `components/KeyboardShortcuts.tsx`
 - [ ] `components/KeyboardShortcutsDialog.tsx`
 - [ ] `components/ResetConfirmationDialog.tsx`
-- [ ] `components/RtkUpdateDialog.tsx`
 - [ ] `components/ServerDirectoryBrowser.tsx`
 - [ ] `components/SplashScreen.tsx`
 
