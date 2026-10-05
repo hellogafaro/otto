@@ -1,6 +1,6 @@
 "use client";
 
-import { RiCheckLine } from "@remixicon/react";
+import { Check } from "lucide-react";
 import { Questionnaire as QuestionnairePrimitive } from "@shadcn/react/questionnaire";
 import { type Button, buttonVariants } from "@workspace/ui/components/button";
 // Otto: fits our patterns: a 14px title (500); choices as one bordered list
@@ -125,7 +125,7 @@ function QuestionnaireChoice({
           data-slot="questionnaire-choice-indicator-dot"
           className="hidden size-1.5 rounded-full bg-primary-foreground group-data-[type=checkbox]/questionnaire-choice:hidden group-data-checked/questionnaire-choice:block"
         />
-        <RiCheckLine
+        <Check
           data-slot="questionnaire-choice-indicator-check"
           className="hidden size-3 group-data-[type=radio]/questionnaire-choice:hidden group-data-checked/questionnaire-choice:block"
         />

@@ -1,8 +1,7 @@
-import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
-import { cn } from "cn";
+import * as React from "react"
+import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area"
+import { cn } from "cn"
 
-// Otto: a 6px thumb in the hairline color, shown only while hovering or
-// scrolling; `viewportRef` reaches the scrolling element.
 function ScrollArea({
   className,
   children,
@@ -10,21 +9,21 @@ function ScrollArea({
   viewportClassName,
   ...props
 }: ScrollAreaPrimitive.Root.Props & {
-  viewportRef?: ScrollAreaPrimitive.Viewport.Props["ref"];
-  viewportClassName?: string;
+  viewportRef?: ScrollAreaPrimitive.Viewport.Props["ref"]
+  viewportClassName?: string
 }) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
-      className={cn("relative overflow-hidden", className)}
+      className={cn("relative", className)}
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
         ref={viewportRef}
         data-slot="scroll-area-viewport"
         className={cn(
-          "size-full rounded-[inherit] outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-          viewportClassName,
+          "size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1",
+          viewportClassName
         )}
       >
         {children}
@@ -32,7 +31,7 @@ function ScrollArea({
       <ScrollBar />
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
-  );
+  )
 }
 
 function ScrollBar({
@@ -46,8 +45,8 @@ function ScrollBar({
       data-orientation={orientation}
       orientation={orientation}
       className={cn(
-        "flex touch-none p-px opacity-0 transition-opacity select-none data-hovering:opacity-100 data-scrolling:opacity-100 data-horizontal:h-2.5 data-horizontal:flex-col data-vertical:w-2.5",
-        className,
+        "flex touch-none p-px transition-colors select-none data-horizontal:h-2.5 data-horizontal:flex-col data-horizontal:border-t data-horizontal:border-t-transparent data-vertical:h-full data-vertical:w-2.5 data-vertical:border-l data-vertical:border-l-transparent",
+        className
       )}
       {...props}
     >
@@ -56,7 +55,7 @@ function ScrollBar({
         className="relative flex-1 rounded-full bg-border"
       />
     </ScrollAreaPrimitive.Scrollbar>
-  );
+  )
 }
 
-export { ScrollArea, ScrollBar };
+export { ScrollArea, ScrollBar }

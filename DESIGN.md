@@ -3,7 +3,7 @@ version: alpha
 name: Otto
 description: >-
   Quiet, neutral workspace UI for people and AI agents. Vanilla shadcn
-  (preset bIkg4yR, base-vega, Remix icons) with one blue accent, a golden
+  (preset b1VlItvM, base-luma, Lucide icons) with one blue accent, a golden
   type and spacing scale, 32px controls and strictly nested radii. Light
   values are the defaults; "-dark" tokens are the dark theme. Floating
   surfaces (menus, tooltips, hover cards) are dark in both themes.
@@ -328,7 +328,9 @@ accent, compact 32px controls.
   asset or automation (the data model is still called Resource). Prompts
   and placeholders use these words so Otto gets the same meaning the person
   sees.
-- **Vanilla shadcn.** Preset `bIkg4yR` (base-vega, Remix icons). When
+- **Vanilla shadcn.** Preset `b1VlItvM` (base-luma, Lucide icons). Luma's
+  pill radii (the 2xl to 4xl steps) are remapped to the 12px xl step in
+  `design/ui/src/styles/globals.css`; its spacing, solid inputs and slider stay. When
   something must look different everywhere, change the `packages/ui`
   component and mark it with an `// Otto:` comment. Instance classes are for
   layout only.
@@ -510,7 +512,7 @@ while its menu is open, pressed or current. Active navigation is the
 `secondary` button. `default` (primary) only for a surface's main action.
 Icon buttons are 32px with 14px icons.
 
-**Icons and avatars.** Remix icons at **14px** everywhere. Fixed icons: project
+**Icons and avatars.** Lucide icons at **14px** everywhere (the old Remix names below map to their Lucide twins). Fixed icons: project
 `RiBox3Line`, repeat `RiLoopRightLine`, agent `RiRobot3Line`, time
 `RiTimeLine`, row remove `RiCloseLine`, add `RiAddLine`, files
 `RiFolder3Line`. **Avatars are at least 20px** (`ActorAvatar`): people show

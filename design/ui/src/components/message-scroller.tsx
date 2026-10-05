@@ -1,4 +1,4 @@
-import { RiArrowDownLine } from "@remixicon/react";
+import { ArrowDown } from "lucide-react";
 import {
   MessageScroller as MessageScrollerPrimitive,
   useMessageScroller,
@@ -110,7 +110,7 @@ function MessageScrollerButton({
     >
       {children ?? (
         <>
-          <RiArrowDownLine />
+          <ArrowDown />
           <span className="sr-only">
             {direction === "end" ? "Scroll to end" : "Scroll to start"}
           </span>
