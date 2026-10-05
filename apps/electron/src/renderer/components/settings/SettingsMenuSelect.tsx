@@ -113,11 +113,11 @@ export function SettingsMenuSelect({
         <button
           type="button"
           className={cn(
-            'inline-flex items-center h-8 px-3 gap-1 text-sm rounded-lg',
-            'bg-background shadow-minimal',
-            'hover:bg-foreground/[0.02] transition-colors',
+            'inline-flex items-center h-7 px-2 gap-1 text-sm rounded-[6px]',
+            'border border-foreground/15 bg-transparent',
+            'hover:bg-foreground/5 transition-colors',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            isOpen && 'bg-foreground/[0.02]',
+            isOpen && 'bg-foreground/5',
             className
           )}
         >

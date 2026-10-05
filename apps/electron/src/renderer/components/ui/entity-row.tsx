@@ -17,7 +17,6 @@
 import * as React from 'react'
 import { useState } from 'react'
 import { MoreHorizontal } from 'lucide-react'
-import { Separator } from '@/components/ui/separator'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -479,13 +478,6 @@ export function EntityRow({
       data-selected={isSelected || undefined}
       {...dataAttributes}
     >
-      {/* Separator */}
-      {showSeparator && (
-        <div className={separatorClassName}>
-          <Separator />
-        </div>
-      )}
-
       {/* Wrap with ContextMenu if menu content is provided */}
       {resolvedContextMenu ? (
         <ContextMenu modal={true} onOpenChange={setContextMenuOpen}>

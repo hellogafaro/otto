@@ -162,7 +162,7 @@ export function SettingsSelectRow({
       </div>
       <div data-layout="settings-control" className="ml-4 shrink-0">
         <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-          <SelectTrigger id={id} className="w-[180px] bg-muted/50">
+          <SelectTrigger id={id} className="h-7 w-[180px] rounded-[6px]">
             <SelectValue placeholder={placeholder} />
           </SelectTrigger>
           <SelectContent>

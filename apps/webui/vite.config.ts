@@ -14,6 +14,19 @@ export default defineConfig({
       },
     }),
     tailwindcss(),
+    {
+      // Dev only: on this machine the browser reaches the server directly. Through the bb
+      // link the server's CRAFT_WEBUI_WS_URL (the public address) is used as is.
+      name: 'local-ws-url',
+      configureServer(server) {
+        server.middlewares.use('/api/config', (req, res, next) => {
+          const host = (req.headers.host ?? '').split(':')[0]
+          if (host !== '127.0.0.1' && host !== 'localhost') return next()
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify({ wsUrl: `ws://127.0.0.1:${process.env.CRAFT_RPC_PORT ?? '9100'}` }))
+        })
+      },
+    },
   ],
   root: resolve(__dirname, 'src'),
   base: './',
@@ -88,6 +101,8 @@ export default defineConfig({
     port: 5175,
     open: false,
     host: true,
+    // Dev only: reached through the bb link, whose host name changes.
+    allowedHosts: true,
     // Proxy API + WS to the headless server so the dev bundle on :5175 works
     // end-to-end with HMR. Target port follows CRAFT_RPC_PORT (default 9100).
     // Auto-detects TLS: if the server has CRAFT_RPC_TLS_KEY/CERT set, we proxy

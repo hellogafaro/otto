@@ -128,7 +128,7 @@ export function TopBar({
   // in the Electron desktop window. The webui runs in a regular browser tab
   // and has no traffic lights regardless of host OS — collapse to a normal
   // 12px inset so the logo sits at the edge.
-  const menuLeftPadding = isMac && !isWebUI ? 86 : 12
+  const menuLeftPadding = isMac && !isWebUI ? 86 : 4
 
   return (
     <div
@@ -141,10 +141,10 @@ export function TopBar({
       {/* In compact mode the right slot is hidden, so we add right padding here
           so the workspace pill doesn't run flush against the viewport edge. */}
       <div
-        className="pointer-events-auto flex min-w-0 flex-1 items-center gap-0.5"
+        className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1"
         style={{ paddingLeft: menuLeftPadding, paddingRight: isCompact ? 12 : 0 }}
       >
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
         {!isCompact && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -229,7 +229,7 @@ export function TopBar({
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <TopBarButton aria-label={t("menu.addPanelMenu")} className="ml-1 h-[26px] w-[26px] rounded-lg">
+            <TopBarButton aria-label={t("menu.addPanelMenu")} className="ml-1">
               <Icons.Plus className="h-4 w-4 text-foreground/50" strokeWidth={1.5} />
             </TopBarButton>
           </DropdownMenuTrigger>
@@ -248,7 +248,7 @@ export function TopBar({
         {/* Help button */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <TopBarButton aria-label={t("menu.helpAndDocs")} className="h-[26px] w-[26px] rounded-lg">
+            <TopBarButton aria-label={t("menu.helpAndDocs")} >
               <Icons.HelpCircle className="h-4 w-4 text-foreground/50" strokeWidth={1.5} />
             </TopBarButton>
           </DropdownMenuTrigger>

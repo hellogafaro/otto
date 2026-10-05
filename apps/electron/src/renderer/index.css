@@ -1470,7 +1470,7 @@ html.dark[data-scenic] .fullscreen-overlay-background {
    fixed so the App content area reads the same variable for its padding-top.
    ========================================================================== */
 :root {
-  --topbar-height: 48px;
+  --topbar-height: 40px;
 }
 @media (max-width: 768px) {
   :root {

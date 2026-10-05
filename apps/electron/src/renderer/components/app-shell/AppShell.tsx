@@ -2446,7 +2446,7 @@ function AppShellContent({
                             <Button
                               variant="ghost"
                               onClick={(e) => handleNewChat(e.metaKey || e.ctrlKey)}
-                              className="w-full justify-start gap-2 py-[7px] px-2 text-[13px] font-normal rounded-[6px] shadow-minimal bg-background"
+                              className="h-7 w-full justify-start gap-2 py-0 px-2 text-[13px] font-normal rounded-[6px] shadow-none bg-foreground/5 hover:bg-foreground/10"
                               data-tutorial="new-chat-button"
                             >
                               <SquarePenRounded className="h-3.5 w-3.5 shrink-0" />
