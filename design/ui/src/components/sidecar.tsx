@@ -62,14 +62,14 @@ function Sidecar({
         }
       }}
       className={cn(
-        "z-20 flex w-74 max-w-[calc(100%-1rem)] flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10",
+        "z-20 flex w-74 max-w-[calc(100%-1rem)] flex-col overflow-hidden rounded-xl bg-card",
         "transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none",
         // Overlay (under 1280px): over the page, right and spanning on phones.
-        "absolute inset-y-2 right-2 shadow-md max-md:inset-x-2 max-md:w-auto max-md:max-w-none",
+        "absolute inset-y-2 right-2 card-surface [--card-shadow:var(--shadow-md)] max-md:inset-x-2 max-md:w-auto max-md:max-w-none",
         // Docked: a grid item of the right gutter, 20px from the column, no surface.
-        "@[1280px]/frame:static @[1280px]/frame:col-start-3 @[1280px]/frame:row-span-2 @[1280px]/frame:row-start-1 @[1280px]/frame:ml-5 @[1280px]/frame:shadow-xs",
+        "@[1280px]/frame:static @[1280px]/frame:col-start-3 @[1280px]/frame:row-span-2 @[1280px]/frame:row-start-1 @[1280px]/frame:ml-5 @[1280px]/frame:[--card-shadow:var(--shadow-xs)]",
         !surface &&
-          "@[1280px]/frame:rounded-none @[1280px]/frame:bg-transparent @[1280px]/frame:shadow-none @[1280px]/frame:ring-0",
+          "@[1280px]/frame:rounded-none @[1280px]/frame:bg-transparent @[1280px]/frame:[box-shadow:none]",
         open
           ? "translate-x-0 opacity-100"
           : "pointer-events-none translate-x-4 opacity-0",

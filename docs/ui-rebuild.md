@@ -49,7 +49,6 @@ yet).
 - [ ] `components/app-shell/session-list.tsx`
 - [ ] `components/app-shell/session-menu.tsx`
 - [ ] `components/app-shell/session-menu-parts.tsx`
-- [ ] `components/app-shell/session-project-color-wrapper.tsx`
 - [ ] `components/app-shell/session-search-header.tsx`
 - [ ] `components/app-shell/session-status-icon.tsx`
 - [ ] `components/app-shell/setup-auth-banner.tsx`
@@ -236,7 +235,6 @@ yet).
 - [ ] `components/ui/entity-icon.tsx`
 - [ ] `components/ui/entity-list-badge.tsx`
 - [ ] `components/ui/entity-list-empty.tsx`
-- [ ] `components/ui/entity-list-label-badge.tsx`
 - [ ] `components/ui/entity-list.tsx`
 - [ ] `components/ui/entity-panel.tsx`
 - [ ] `components/ui/entity-row.tsx`

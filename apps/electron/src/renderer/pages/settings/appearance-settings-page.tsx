@@ -28,8 +28,6 @@ import {
 import { useAtom } from 'jotai'
 import * as storage from '@/lib/local-storage'
 import { showBackgroundFinishedChipAtom } from '@/atoms/background-finished'
-import { setProjectColorTreatment, useProjectColorTreatment } from '@/hooks/use-project-color-treatment'
-import type { ProjectColorTreatment } from '@/utils/project-colors'
 import { Info_DataTable, SortableHeader } from '@/components/info/info-data-table'
 import { Info_Badge } from '@/components/info/info-badge'
 import type { PresetTheme } from '@config/theme'
@@ -127,12 +125,6 @@ export default function AppearanceSettingsPage() {
   const handleConnectionIconsChange = useCallback((checked: boolean) => {
     setShowConnectionIcons(checked)
     storage.set(storage.KEYS.showConnectionIcons, checked)
-  }, [])
-
-  // Project color treatment in the SessionList
-  const projectColorTreatment = useProjectColorTreatment()
-  const handleProjectColorTreatmentChange = useCallback((value: string) => {
-    setProjectColorTreatment(value as ProjectColorTreatment)
   }, [])
 
   // Rich tool descriptions toggle (persisted in config.json, read by SDK subprocess)
@@ -269,19 +261,6 @@ export default function AppearanceSettingsPage() {
                     checked={showBackgroundFinishedChip}
                     onCheckedChange={setShowBackgroundFinishedChip}
                   />
-                  <SettingsRow
-                    label={t("settings.appearance.projectColorTreatment")}
-                    description={t("settings.appearance.projectColorTreatmentDesc")}
-                  >
-                    <SettingsMenuSelect
-                      value={projectColorTreatment}
-                      onValueChange={handleProjectColorTreatmentChange}
-                      options={[
-                        { value: 'stripe', label: t("settings.appearance.projectColorStripe") },
-                        { value: 'stripe-tint', label: t("settings.appearance.projectColorStripeTint") },
-                      ]}
-                    />
-                  </SettingsRow>
                 </SettingsCard>
               </SettingsSection>
 

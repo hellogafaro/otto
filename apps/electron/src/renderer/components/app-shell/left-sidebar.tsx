@@ -40,7 +40,7 @@ export interface LinkItem {
   expandable?: boolean
   expanded?: boolean
   onToggle?: () => void
-  items?: SidebarItem[]    // Subitems as data (rendered as nested LeftSidebar) - supports separators
+  items?: LinkItem[]    // Subitems as data (rendered as nested LeftSidebar)
   // Tutorial system
   dataTutorial?: string // data-tutorial attribute for tutorial targeting
   // Context menu configuration (optional - if provided, right-click shows context menu)
@@ -49,22 +49,13 @@ export interface LinkItem {
   sortable?: SortableConfig
   // Optional element rendered after the title (e.g., label type icon), revealed on hover
   afterTitle?: React.ReactNode
+  /** In a sortable list: kept out of the drag order and rendered after it (Flagged, Archived) */
+  fixed?: boolean
 }
-
-export interface SeparatorItem {
-  id: string
-  type: 'separator'
-}
-
-export type SidebarItem = LinkItem | SeparatorItem
-
-export const isSeparatorItem = (item: SidebarItem): item is SeparatorItem =>
-  'type' in item && item.type === 'separator'
-
 
 interface LeftSidebarProps {
   isCollapsed: boolean
-  links: SidebarItem[]
+  links: LinkItem[]
   /** Get props for each item (from unified sidebar navigation) */
   getItemProps?: (id: string) => {
     tabIndex: number
@@ -96,8 +87,6 @@ export function LeftSidebar({ links, getItemProps, focusedItemId, isNested }: Om
       aria-label={isNested ? "Sub navigation" : "Main navigation"}
     >
       {links.map((item) => {
-        if (isSeparatorItem(item)) return null
-
         const link = item
         const expandedContent = link.expandable && link.items && link.expanded
           ? renderExpandedContent(link, getItemProps, focusedItemId)
@@ -139,19 +128,12 @@ function renderExpandedContent(
 ): React.ReactNode {
   // Flat sortable (e.g., statuses): wrap items in SortableList
   if (link.sortable && link.items) {
-    // Split at first separator: items before are sortable, items after are trailing (non-sortable)
-    const separatorIndex = link.items.findIndex(isSeparatorItem)
-    const sortableItems = separatorIndex >= 0 ? link.items.slice(0, separatorIndex) : link.items
-    const trailingItems = separatorIndex >= 0
-      ? link.items.slice(separatorIndex + 1).filter((item): item is LinkItem => !isSeparatorItem(item))
-      : []
-
     return (
       <SortableStatusList
-        items={sortableItems}
+        items={link.items.filter(item => !item.fixed)}
         onReorder={link.sortable.onReorder}
         getItemProps={getItemProps}
-        trailingItems={trailingItems.length > 0 ? trailingItems : undefined}
+        fixedItems={link.items.filter(item => item.fixed)}
       />
     )
   }
@@ -172,17 +154,14 @@ function renderExpandedContent(
 // ============================================================
 
 interface SortableStatusListProps {
-  items: SidebarItem[]
+  items: LinkItem[]
   onReorder: (orderedIds: string[]) => void
   getItemProps: LeftSidebarProps['getItemProps']
   /** Non-sortable items rendered after the sortable list (e.g., Flagged, Archived) */
-  trailingItems?: LinkItem[]
+  fixedItems: LinkItem[]
 }
 
-function SortableStatusList({ items, onReorder, getItemProps, trailingItems }: SortableStatusListProps) {
-  // Filter to LinkItems only (separators don't participate in DnD)
-  const sortableItems = items.filter((item): item is LinkItem => !isSeparatorItem(item))
-
+function SortableStatusList({ items, onReorder, getItemProps, fixedItems }: SortableStatusListProps) {
   const handleReorder = React.useCallback((newItems: LinkItem[]) => {
     // Extract the raw IDs (strip 'nav:state:' prefix) for the IPC call
     onReorder(newItems.map(item => item.id.split(':').at(-1)!))
@@ -191,13 +170,13 @@ function SortableStatusList({ items, onReorder, getItemProps, trailingItems }: S
   return (
     <div className="flex select-none flex-col gap-0.5 pl-5">
       <SortableList
-        items={sortableItems}
+        items={items}
         onReorder={handleReorder}
         className="flex flex-col gap-0.5"
         renderItem={(item) => <SidebarRow link={item} itemProps={getItemProps?.(item.id)} />}
         renderOverlay={(item) => <SidebarRow link={item} isOverlay />}
       />
-      {trailingItems?.map(item => (
+      {fixedItems.map(item => (
         <SidebarRow key={item.id} link={item} itemProps={getItemProps?.(item.id)} />
       ))}
     </div>

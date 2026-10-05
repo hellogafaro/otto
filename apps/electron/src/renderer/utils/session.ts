@@ -65,55 +65,6 @@ export function getSessionTitle(session: SessionLike | SessionMeta): string {
 }
 
 /**
- * Get a compact preview line for session-list rows.
- * Prefers the stored preview/first user message, but avoids duplicating the title.
- */
-export function getSessionPreviewText(session: SessionLike | SessionMeta, maxLength = 88): string | null {
-  const source = session.preview
-    || (('messages' in session && session.messages)
-      ? session.messages.find(m => m.role === 'user')?.content
-      : undefined)
-
-  if (!source) return null
-
-  const sanitized = sanitizePreview(source)
-  if (!sanitized) return null
-
-  const title = getSessionTitle(session).replace(/…$/, '').trim()
-  const normalizedTitle = sanitizePreview(title)
-  if (normalizedTitle) {
-    const sanitizedLower = sanitized.toLowerCase()
-    const titleLower = normalizedTitle.toLowerCase()
-    // Hide preview entirely if it exactly matches the title.
-    if (sanitizedLower === titleLower) {
-      return null
-    }
-    // Strip leading title prefix so "https://… Analyze the article" → "Analyze the article".
-    if (sanitizedLower.startsWith(titleLower)) {
-      let remainder = sanitized.slice(normalizedTitle.length)
-      // If the title was truncated mid-token (e.g. mid-URL), the next character
-      // continues that same token. Eat the rest of it so we don't render
-      // "alyze the feature" — the tail of "Analyze" — as the new preview start.
-      const titleEnd = sanitized.charAt(normalizedTitle.length - 1)
-      const remainderHead = remainder.charAt(0)
-      if (titleEnd && remainderHead && /\S/.test(titleEnd) && /\S/.test(remainderHead)) {
-        const partialToken = remainder.match(/^\S+/)
-        if (partialToken) {
-          remainder = remainder.slice(partialToken[0].length)
-        }
-      }
-      remainder = remainder.replace(/^[\s\-–—:|·•]+/, '').trim()
-      if (!remainder) return null
-      const trimmed = remainder.slice(0, maxLength)
-      return trimmed.length < remainder.length ? `${trimmed.trimEnd()}…` : trimmed
-    }
-  }
-
-  const trimmed = sanitized.slice(0, maxLength)
-  return trimmed.length < sanitized.length ? `${trimmed.trimEnd()}…` : trimmed
-}
-
-/**
  * Get the ID of the last final assistant or plan message (not intermediate)
  * Used for unread message tracking
  */

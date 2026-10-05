@@ -72,7 +72,7 @@ export function ChatInputZone({
     <div className={cn('w-full', className)}>
       {/* The composer card: its own sibling surface under the transcript. The option
        * badges are its top row, the input its body: rows and controls, no inner card. */}
-      <div className="rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
+      <div className="card-surface rounded-xl bg-card [--card-shadow:var(--shadow-sm)]">
       {shouldShowOptionBadges && (
         <div className="px-2 pt-2">
         <ActiveOptionBadges

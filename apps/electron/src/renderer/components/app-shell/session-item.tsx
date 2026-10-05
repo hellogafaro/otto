@@ -137,6 +137,9 @@ export function SessionItem({
         ;(itemProps as { onKeyDown: (event: React.KeyboardEvent) => void }).onKeyDown(e)
         ctx.onKeyDown(e, item)
       }}
+      // The ⋯ button is outside the row: mark the row while its menu is open, as the context menu's trigger does.
+      // Spread, not `data-popup-open={undefined}`: an unset prop would hide the trigger's own mark.
+      {...(menuOpen || compactMenuOpen ? { "data-popup-open": "" } : {})}
       // Compact mode has no context menu: the drawer opens instead.
       onContextMenu={isCompactMode ? (e: React.MouseEvent) => { e.preventDefault(); setCompactMenuOpen(true) } : undefined}
     >

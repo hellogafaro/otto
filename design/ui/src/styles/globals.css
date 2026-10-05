@@ -117,6 +117,10 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Otto: the card edge, ONE definition for every card (see `card-surface`):
+     a hairline ring and a row divider. */
+  --card-ring: oklch(0.145 0 0 / 10%);
+  --card-divider: oklch(0.145 0 0 / 10%);
   /* Task status (Otto): todo grey, in progress purple, in review yellow, done green. */
   --status-todo: oklch(0.556 0 0);
   --status-doing: oklch(0.558 0.288 302.321);
@@ -127,12 +131,11 @@
 .dark {
   /* Otto: native scrollbars and controls render dark too. */
   color-scheme: dark;
-  /* Otto: layers, lowest to highest, one 0.05 step each: frame 0.12 (--sidebar)
-     < page 0.17 < card 0.22 (also --popover) < hover and open fills 0.27
-     (--muted). */
+  /* Otto: layers, lowest to highest: frame 0.12 (--sidebar) < page 0.17 < card
+     0.19 < popover 0.22 < hover and open fills 0.27 (--muted). */
   --background: oklch(0.17 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.22 0 0);
+  --card: oklch(0.19 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.22 0 0);
   --popover-foreground: oklch(0.985 0 0);
@@ -161,10 +164,24 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --card-ring: oklch(1 0 0 / 14%);
+  --card-divider: oklch(1 0 0 / 12%);
   --status-todo: oklch(0.708 0 0);
   --status-doing: oklch(0.714 0.203 305.504);
   --status-review: oklch(0.852 0.199 91.936);
   --status-done: oklch(0.723 0.219 149.579);
+}
+
+/* Otto: the card edge. Every card (`PageCard`, `PageCenterpiece`, `Card`, the
+   composer, the sidecar surface, the empty-state tile) takes it, so the ring
+   and the shadow are one definition: a 1px ring (`--card-ring`) and the soft
+   outer shadow (`--card-shadow`, shadow-xs unless a card sets it). An inner top
+   highlight was tried and dropped: it follows the corners and reads as a
+   second line next to the ring. */
+@utility card-surface {
+  box-shadow:
+    0 0 0 1px var(--card-ring),
+    var(--card-shadow, var(--shadow-xs, 0 1px 2px 0 rgb(0 0 0 / 0.05)));
 }
 
 @media (width < 48rem) {

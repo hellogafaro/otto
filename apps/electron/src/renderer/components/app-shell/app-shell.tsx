@@ -1449,7 +1449,6 @@ function AppShellContent({
   }, [sidebarFocused, focusedSidebarItemId, unifiedSidebarItems])
 
   // Build recursive sidebar items from the shared display-sorted label tree.
-  // Each node renders with condensed height (compact: true) since many labels expected.
   // Clicking any label navigates to its filter view; the chevron toggles expand/collapse.
   const buildLabelSidebarItems = useCallback((nodes: LabelTreeNode[]): any[] => {
     return nodes.map(node => {
@@ -1480,7 +1479,6 @@ function AppShellContent({
           />
         ) : <Tag className="h-3.5 w-3.5" />,
         variant: isActive ? "default" : "ghost",
-        compact: true, // Reduced height for label items (many labels expected)
         // All labels navigate on click — parent and leaf alike
         onClick: () => handleLabelClick(node.fullId),
         contextMenu: {
@@ -1593,19 +1591,20 @@ function AppShellContent({
                       onConfigureStatuses: openConfigureStatuses,
                     },
                   })),
-                  // Separator: SortableStatusList splits here — items after become non-sortable trailingItems
-                  // Flagged (trailing, non-sortable)
+                  // Flagged (fixed: not part of the drag order)
                   {
                     id: "nav:flagged",
+                    fixed: true,
                     title: t("sidebar.flagged"),
                     label: String(flaggedCount),
                     icon: <Flag className="h-3.5 w-3.5" />,
                     variant: (sessionFilter?.kind === 'flagged' ? "default" : "ghost") as "default" | "ghost",
                     onClick: handleFlaggedClick,
                   },
-                  // Archived (trailing, non-sortable)
+                  // Archived (fixed: not part of the drag order)
                   {
                     id: "nav:archived",
+                    fixed: true,
                     title: t("sidebar.archived"),
                     label: archivedCount > 0 ? String(archivedCount) : undefined,
                     icon: Archive,

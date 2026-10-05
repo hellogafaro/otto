@@ -40,7 +40,7 @@ function PageCenterpiece({
     <div
       data-slot="page-centerpiece"
       className={cn(
-        "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-foreground/10",
+        "relative flex min-h-0 flex-1 flex-col overflow-hidden card-surface rounded-xl bg-card",
         className
       )}
       {...props}
@@ -95,7 +95,7 @@ function PageSection({
   )
 }
 
-// Otto: the inner card: `bg-card`, the hairline ring, `shadow-xs`, 12px corners.
+// Otto: the inner card: `bg-card`, the card edge (`card-surface`), 12px corners.
 // Only rows live in it, split by full-bleed hairlines (`divide-y`, drawn between
 // the children that exist, so a collapsed row leaves no line); controls nested
 // in a row are 28px with 6px corners.
@@ -104,7 +104,7 @@ function PageCard({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="page-card"
       className={cn(
-        "divide-y divide-foreground/10 overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-foreground/10",
+        "divide-y divide-(--card-divider) overflow-hidden card-surface rounded-xl bg-card",
         className
       )}
       {...props}

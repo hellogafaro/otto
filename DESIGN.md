@@ -15,7 +15,7 @@ colors:
   frame: "oklch(0.96 0 0)"
   frame-dark: "oklch(0.12 0 0)"
   card: "oklch(1 0 0)"
-  card-dark: "oklch(0.22 0 0)"
+  card-dark: "oklch(0.19 0 0)"
   popover-dark: "oklch(0.22 0 0)"
   muted: "oklch(0.97 0 0)"
   muted-dark: "oklch(0.27 0 0)"
@@ -371,9 +371,9 @@ never a heavy shadow. L is OKLCH lightness, measured from the rendered page.
 | --- | --- | --- | --- |
 | 0 Frame: `html`/`body` and the sidebar | `--sidebar` (`bg-sidebar`) | 0.96 | 0.12 |
 | 1 Fill on the frame: sidebar row hover (60%) and open row | `--sidebar-accent` + `ring-foreground/10` when open | 1.0 | 0.22 |
-| 2 Surface on the frame: `PageCard`, `PageCenterpiece`, the composer card, the sidecar when it is a card or overlays | `--card` + `ring-1 ring-foreground/10 shadow-xs` | 1.0 | 0.22 |
-| 2 Raised control on a surface (`shadow-minimal`) | `--card` + `ring-foreground/10` | 1.0 | 0.22 |
-| 3 Input and nested control well | `--input` at 50% (`bg-input/50`) | 0.96 | 0.29 on a card |
+| 2 Surface on the frame: `PageCard`, `PageCenterpiece`, `Card`, the composer card, the sidecar when it is a card or overlays, the empty-state tile | `--card` + `card-surface` (ring, `shadow-xs`) | 1.0 | 0.19 |
+| 2 Raised control on a surface (`shadow-minimal`) | `--card` + `ring-foreground/10` | 1.0 | 0.19 |
+| 3 Input and nested control well | `--input` at 50% (`bg-input/50`) | 0.96 | 0.27 on a card |
 | 3 Hover and open row fill | `--muted`, `--secondary`, `foreground/5` (hover), `foreground/7-10` (open) | 0.95-0.97 | 0.24-0.27 |
 | 4 Floating: menu, popover, tooltip, toast | `--popover` at 70%, `dark` class, `shadow-md` | about 0.45 over white | about 0.21 over the page |
 | 5 Dialog | 50% black overlay, then the floating surface | | |
@@ -383,6 +383,11 @@ directly. Rules that keep it true: a surface is `bg-card` (raised buttons and
 badges too; popup menus use `bg-popover`), never `bg-background`; a surface never
 contains another surface (siblings on the frame only; see Page anatomy); hover fills are 5% and open fills 7-10% of `foreground`, not
 2-3%; the Craft `shadow-minimal` ring is the same 10% hairline as `ring-foreground/10`.
+A card's edge is `card-surface` (tokens `--card-ring`, `--card-divider`): in dark the layer step is small (0.12
+to 0.19), so the ring is white 14% (it was 10%, which vanished on the frame).
+There is no inner top highlight: it follows the rounded corners and reads as a
+second line beside the ring. In light the white card on the 0.96 frame keeps
+the 10% ring and `shadow-xs`, which read crisp without a stronger shadow.
 
 ## Typography
 
@@ -515,7 +520,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     "Filters") above the session list, which is the list moved out of its old
     panel. Both are `SidebarMenuButton` rows: a nested level (statuses, labels)
     is indented by one icon slot (20px) with no guide line and the count is
-    muted at the end. A session row is 28px and one line: its status icon in the
+    muted at the end. The statuses reorder by drag; Flagged and Archived are
+    fixed after them, with no divider. A row whose menu (right click or More) is
+    open keeps the open fill (`--sidebar-accent`, no ring). A session row is 28px and one line: its status icon in the
     slot (a checkbox while several are selected), the title (bright when
     unread), then only what needs a look (a spinner while it runs, an unread
     dot, a plan, a pending prompt, the project's color as a 6px dot), the time
@@ -721,9 +728,14 @@ Depth comes from translucency and hairlines, not heavy shadows.
 
 - **Frame**: the darkest layer, flat: the sidebar and the main region are the
   same color, nothing wraps the page. **Surfaces** (`PageCard`,
-  `PageCenterpiece`, the composer, comments, question cards): card background,
-  a `ring-foreground/10` hairline and `shadow-xs` (the composer `shadow-sm`),
-  siblings on the frame, never one inside another. The sidecar is the exception
+  `PageCenterpiece`, `Card`, the composer, comments, question cards, the
+  empty-state tile): card background and ONE shared edge, the `card-surface`
+  class in `globals.css`: a 1px ring (`--card-ring`, foreground 10% in light,
+  white 14% in dark) and the soft outer shadow
+  (`--card-shadow`, `shadow-xs`; the composer sets `shadow-sm`, the sidecar
+  overlay `shadow-md`). Rows inside split by `--card-divider` (10% light, white
+  12% dark). Change the edge there, never per component. Siblings on the
+  frame, never one inside another. The sidecar is the exception
   that proves it: flat on the frame when docked, a card with `shadow-md` only
   when it overlays content.
 - **Scrolling** areas fade at the edge where more content waits (shadcn

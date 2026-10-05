@@ -1,10 +1,4 @@
-/**
- * Shared palette + treatment types for project accent colors.
- *
- * Projects optionally carry a `color` (hex string). Sessions bound to a project
- * are highlighted in the SessionList using this color. The user picks how the
- * highlight is drawn via Settings → Appearance ("Stripe only" / "Stripe + tint").
- */
+/** Palette of preset accent colors offered for a project (`color` is a hex string). */
 
 export const PROJECT_COLOR_PALETTE: readonly string[] = [
   '#6366f1', // indigo
@@ -16,7 +10,3 @@ export const PROJECT_COLOR_PALETTE: readonly string[] = [
   '#a855f7', // purple
   '#64748b', // slate
 ] as const
-
-export type ProjectColorTreatment = 'stripe' | 'stripe-tint'
-
-export const DEFAULT_PROJECT_COLOR_TREATMENT: ProjectColorTreatment = 'stripe'

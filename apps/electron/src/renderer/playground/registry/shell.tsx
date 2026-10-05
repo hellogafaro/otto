@@ -177,7 +177,7 @@ function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav, showCrumbs }: S
                   row. The transcript or the document scrolls inside it.
                 </PageScroll>
               </PageCenterpiece>
-              <div className="mt-2 rounded-xl bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm ring-1 ring-foreground/10">
+              <div className="mt-2 rounded-xl bg-card px-4 py-3 text-sm text-muted-foreground card-surface [--card-shadow:var(--shadow-sm)]">
                 The composer: a sibling card under the centerpiece, never inside it.
               </div>
             </>

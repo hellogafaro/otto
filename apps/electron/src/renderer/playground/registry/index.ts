@@ -11,7 +11,6 @@ import { iconComponents } from './icons'
 import { oauthComponents } from './oauth'
 import { toastsComponents } from './toasts'
 import { sessionListComponents } from './session-list'
-import { projectColorsComponents } from './project-colors'
 import { editPopoverComponents } from './edit-popover'
 import { automationComponents } from './automations'
 import { entityListComponents } from './entity-lists'
@@ -43,7 +42,6 @@ export const componentRegistry: ComponentEntry[] = [
   ...iconComponents,
   ...oauthComponents,
   ...sessionListComponents,
-  ...projectColorsComponents,
   ...editPopoverComponents,
   ...automationComponents,
   ...entityListComponents,
