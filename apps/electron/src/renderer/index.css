@@ -228,6 +228,9 @@
   --z-island: 400;
   --z-island-popover: 410;
   --z-splash: 600;
+  /* Design system parts: dialogs sit above the fullscreen overlay, popups above everything but the splash. */
+  --z-dialog: 380;
+  --z-popup: 500;
 
 }
 

@@ -129,31 +129,28 @@ export function SettingsMenuSelect({
         align="end"
         sideOffset={4}
         collisionPadding={8}
-        className="p-1.5"
+        className="gap-0! p-0"
         style={{ width: menuWidth }}
         onMouseLeave={() => onHover?.(null)}
       >
+        {/* Search docked at the top: icon on the item icon column, a transparent
+            36px input over a full-width bottom border (like the command palette) */}
         {showSearch && (
-          <div className="relative mb-1.5">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <div className="relative border-b border-border">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={effectiveSearchPlaceholder}
-              className={cn(
-                'w-full h-8 pl-8 pr-3 text-sm rounded-md',
-                'bg-foreground/5 border-0',
-                'placeholder:text-muted-foreground/50',
-                'focus:outline-none focus:ring-1 focus:ring-foreground/20'
-              )}
+              className="h-9 w-full bg-transparent pl-8 pr-3 text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
         )}
-        <div className="space-y-0.5 max-h-64 overflow-auto">
+        <div className="max-h-64 space-y-0.5 overflow-auto p-1">
           {filteredOptions.length === 0 ? (
-            <div className="px-2.5 py-3 text-sm text-muted-foreground text-center">
+            <div className="px-2 py-3 text-center text-sm text-muted-foreground">
               No results found
             </div>
           ) : (
@@ -166,22 +163,13 @@ export function SettingsMenuSelect({
                   onClick={() => handleSelect(option.value)}
                   onMouseEnter={() => onHover?.(option.value)}
                   className={cn(
-                    'w-full flex items-center justify-between px-2.5 py-2 rounded-lg',
-                    'hover:bg-foreground/5 transition-colors text-left',
-                    isSelected && 'bg-foreground/3'
+                    'flex h-7 w-full items-center justify-between gap-3 rounded-sm px-2 text-left text-sm',
+                    'transition-colors hover:bg-foreground/5',
+                    isSelected && 'bg-foreground/5'
                   )}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className={settingsUI.label}>{option.label}</div>
-                    {option.description && (
-                      <div className={cn(settingsUI.descriptionSmall, settingsUI.labelDescriptionGap)}>
-                        {option.description}
-                      </div>
-                    )}
-                  </div>
-                  {isSelected && (
-                    <Check className="size-4 text-foreground shrink-0 ml-3" />
-                  )}
+                  <span className="min-w-0 truncate">{option.label}</span>
+                  {isSelected && <Check className="size-3.5 shrink-0" />}
                 </button>
               )
             })
