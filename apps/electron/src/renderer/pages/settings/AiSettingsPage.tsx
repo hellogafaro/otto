@@ -1693,17 +1693,25 @@ export default function AiSettingsPage() {
                   editInitialValues={editInitialValues}
                   className="h-full"
                 />
+                {/* Level with the app's top-bar controls (28px, centered in the 28px strip) */}
                 <div
-                  className="fixed top-0 right-0 h-[50px] flex items-center pr-5 [-webkit-app-region:no-drag]"
+                  className="fixed top-0 right-2 flex h-7 items-center [-webkit-app-region:no-drag]"
                   style={{ zIndex: 'var(--z-fullscreen, 350)' }}
                 >
-                  <button
-                    onClick={handleCloseApiSetup}
-                    className="p-1.5 rounded-[6px] transition-all bg-background shadow-minimal text-muted-foreground/50 hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    title={t("common.closeEsc")}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-compact"
+                        onClick={handleCloseApiSetup}
+                        aria-label={t("common.closeEsc")}
+                        className="text-muted-foreground"
+                      >
+                        <X />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">{t("common.closeEsc")}</TooltipContent>
+                  </Tooltip>
                 </div>
               </div>,
               document.body
