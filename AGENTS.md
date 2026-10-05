@@ -14,6 +14,7 @@ Otto is a Bun monorepo that started from Craft Agents (see [UPSTREAM](UPSTREAM.m
 - Follow [DESIGN.md](DESIGN.md): tokens, type, layout, radii, components and do's and don'ts.
 - Change a shared look in the `design/ui` component, marked `// Otto:`; instance classes are for layout only.
 - The in-place rebuild and what to delete as each part is swapped is tracked in [docs/ui-rebuild.md](docs/ui-rebuild.md). A finished swap deletes its old dependency.
+- A shortcut or command is always shown with the `Kbd` component (in a tooltip: the label, then its `Kbd`), never as text like "(Esc)".
 - Record every new or changed UI decision in DESIGN.md in the same change. Open visible changes in a browser and look at them.
 
 ## Small, cohesive changes

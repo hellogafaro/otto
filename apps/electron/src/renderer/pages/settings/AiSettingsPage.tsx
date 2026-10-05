@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next'
 import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { HeaderMenu } from '@/components/ui/HeaderMenu'
 import { routes } from '@/lib/navigate'
 import { X, MoreHorizontal, Pencil, Trash2, Star, ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, RefreshCcw, Settings2, MessageSquareMore, Zap, Clock, Check } from 'lucide-react'
@@ -1704,12 +1705,15 @@ export default function AiSettingsPage() {
                         variant="secondary"
                         size="icon"
                         onClick={handleCloseApiSetup}
-                        aria-label={t("common.closeEsc")}
+                        aria-label={t("common.close")}
                       >
                         <X />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">{t("common.closeEsc")}</TooltipContent>
+                    <TooltipContent side="bottom">
+                      {t("common.close")}
+                      <Kbd>Esc</Kbd>
+                    </TooltipContent>
                   </Tooltip>
                 </div>
               </div>,
