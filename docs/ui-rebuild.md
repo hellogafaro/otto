@@ -289,3 +289,22 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 - [ ] `components/ui/textarea.tsx`
 - [ ] `components/ui/window-header-badge.tsx`
 - [ ] `components/ui/workspace-avatar.tsx`
+
+## Rule: finish a swap, delete what it replaced
+
+A swap is not done until the old thing is gone: no adapter, no import, no dependency.
+For each row, the last step is `grep` finding nothing, then removing the package from
+every `package.json` and running `bun install` so the lockfile drops it.
+
+| Old | Replaced by | Gone when |
+| --- | --- | --- |
+| `@radix-ui/*` (context-menu, dialog, dropdown-menu, label, popover, scroll-area, select, separator, slot, switch, tabs, tooltip, avatar, collapsible) | Base UI via `@workspace/ui` | `grep -r "@radix-ui" apps packages` is empty |
+| The `asChild` adapter (`components/ui/as-child.tsx`) and every `asChild` prop | `render` prop | no `asChild` left in `apps/electron` and `packages/ui` |
+| Craft's own primitives in `components/ui/` that have a design-system twin | `@workspace/ui/components/*` imported directly | the Craft file is deleted and call sites import the design system |
+| `lucide-react` (217 files) | `@remixicon/react` | `grep -r "lucide-react" apps packages` is empty |
+| `vaul` (drawer), `cmdk` duplicates, other Radix-adjacent helpers | the design system's sheet and command | no import left |
+| `packages/ui` primitives that duplicate `design/ui` | `design/ui` | file deleted |
+| Craft theme tokens that shadcn now owns | `design/ui/src/styles/globals.css` | no duplicate variable in `index.css` |
+
+Check before removing a dependency: `grep -rn "<package>" apps packages --include=*.ts --include=*.tsx --include=*.css`
+must be empty, then typecheck, tests and one look in the browser.
