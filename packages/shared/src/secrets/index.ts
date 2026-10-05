@@ -1,12 +1,13 @@
-import type { Database } from 'bun:sqlite'
+import { eq } from 'drizzle-orm'
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
-import { getDb } from '../db/index.ts'
+import { getDb, type Db } from '../db/index.ts'
 import { createId } from '../id.ts'
+import { secrets } from './schema.ts'
 
 /**
  * Secrets: keys, tokens and envs, encrypted at rest.
  *
- *   secrets(id, name, value)
+ *   secrets(id, name, value)   (schema.ts)
  *
  * `value` is one base64 string: nonce (12) + ciphertext + auth tag (16),
  * AES-256-GCM under `ENCRYPTION_KEY`. The row id is the authenticated data, so
@@ -26,13 +27,7 @@ export function parseEncryptionKey(raw: string | undefined): Buffer {
   return key
 }
 
-export function createSecretsStore(db: Database, key: Buffer) {
-  db.exec(`CREATE TABLE IF NOT EXISTS secrets (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    value TEXT NOT NULL
-  )`)
-
+export function createSecretsStore(db: Db, key: Buffer) {
   function encrypt(id: string, plain: string): string {
     const nonce = randomBytes(NONCE_BYTES)
     const cipher = createCipheriv('aes-256-gcm', key, nonce)
@@ -54,24 +49,24 @@ export function createSecretsStore(db: Database, key: Buffer) {
     /** Store a new secret; `name` is unique. Returns its id. */
     createSecret(name: string, value: string): string {
       const id = createId()
-      db.query('INSERT INTO secrets (id, name, value) VALUES (?, ?, ?)').run(id, name, encrypt(id, value))
+      db.insert(secrets).values({ id, name, value: encrypt(id, value) }).run()
       return id
     },
 
     /** The secret's value, or undefined when there is none. */
     getSecret(id: string): string | undefined {
-      const row = db.query('SELECT value FROM secrets WHERE id = ?').get(id) as { value: string } | null
+      const row = db.select({ value: secrets.value }).from(secrets).where(eq(secrets.id, id)).get()
       return row ? decrypt(id, row.value) : undefined
     },
 
     /** Replace the value of an existing secret. */
     updateSecret(id: string, value: string): void {
-      const result = db.query('UPDATE secrets SET value = ? WHERE id = ?').run(encrypt(id, value), id)
-      if (result.changes === 0) throw new Error(`Secret ${id} does not exist`)
+      const updated = db.update(secrets).set({ value: encrypt(id, value) }).where(eq(secrets.id, id)).returning({ id: secrets.id }).all()
+      if (updated.length === 0) throw new Error(`Secret ${id} does not exist`)
     },
 
     deleteSecret(id: string): void {
-      db.query('DELETE FROM secrets WHERE id = ?').run(id)
+      db.delete(secrets).where(eq(secrets.id, id)).run()
     },
   }
 }

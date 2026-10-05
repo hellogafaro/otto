@@ -5,7 +5,7 @@ Otto is a Bun monorepo that started from Craft Agents (see [UPSTREAM](UPSTREAM.m
 ## Stack and workspace
 
 - Bun and strict TypeScript. The renderer (`apps/electron/src/renderer`, served in the browser by `apps/webui`) is React 19 and Tailwind v4 on `design/ui` (shadcn, Base UI, Lucide).
-- Storage is `bun:sqlite`. Every install, generator or package change runs from the repository root after checking `package.json` is the monorepo's.
+- Storage is SQLite through Drizzle (below). Every install, generator or package change runs from the repository root after checking `package.json` is the monorepo's.
 - Secrets live in Infisical (project `otto`, env `dev`); use the secrets skill. Never put a value in a file, message, log or commit.
 - Run the app with `bun run dev`. Work only in the assigned checkout and owned files.
 
@@ -28,7 +28,8 @@ Otto is a Bun monorepo that started from Craft Agents (see [UPSTREAM](UPSTREAM.m
 - Every row id is `createId()` from `@craft-agent/shared/id` (12 lowercase letters and digits). No uuids, autoincrement or other id shapes.
 - Tables are plural snake_case. Display labels are `title`, discriminators `type`, timestamps `createdAt` / `updatedAt`. Getters are `getThing` / `getThings`.
 - `secrets` is its own domain: `secrets(id, name, value)`, one `ENCRYPTION_KEY` env (32 bytes; the server refuses to boot without it; dev has a placeholder in Infisical), AES-256-GCM, no rotation or versioning. Other domains keep a `secretId`; the value never leaves the server.
-- No ORM or migration tool yet: a domain creates its table with `CREATE TABLE IF NOT EXISTS` when it starts. Add Drizzle migrations when a schema first has to change.
+- Drizzle on `bun:sqlite`. Each domain keeps its tables in its own `schema.ts` and queries through `getDb()` from `@craft-agent/shared/db`; only `db/` and the `schema.ts` files know the database is SQLite, so Postgres later swaps the driver and the `sqlite-core` imports.
+- No migrations until the MVP is stable: `bun run db:push` (run by `bun run dev`) diffs every `schema.ts` against the database and applies it, and refuses data loss without `--force`. Tests build a `:memory:` db with `openDb(':memory:')` and `pushSchema`.
 - Pi stays lean: one protocol, one endpoint. Provider accounts, sign-in, model discovery and routing belong to the `providers` domain and the gateway that turns the Claude and Codex CLIs into APIs, never to Pi.
 
 ## Checks and delivery

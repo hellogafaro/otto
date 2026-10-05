@@ -21,7 +21,8 @@
     "design/*"
   ],
   "scripts": {
-    "dev": "infisical run --env dev -- bun run server:prod",
+    "db:push": "bun run scripts/db-push.ts",
+    "dev": "bun run db:push && infisical run --env dev -- bun run server:prod",
     "test": "bun test && for f in $(find . -name '*.isolated.ts' -not -path './node_modules/*'); do bun test \"$f\" || exit 1; done",
     "typecheck": "bun run typecheck:shared",
     "pages-worker:dev": "cd workers/pages && bun run dev",
@@ -130,6 +131,7 @@
     "@vitejs/plugin-react": "^5.1.2",
     "autoprefixer": "^10.4.23",
     "concurrently": "^9.2.1",
+    "drizzle-kit": "^0.31.11",
     "electron": "^39.2.7",
     "electron-builder": "^26.0.12",
     "esbuild": "^0.25.0",

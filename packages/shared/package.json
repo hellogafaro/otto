@@ -89,6 +89,7 @@
     "bash-parser": "^0.5.0",
     "croner": "^10.0.1",
     "date-fns": "^4.1.0",
+    "drizzle-orm": "^0.45.3",
     "filtrex": "^3.1.0",
     "glob": "^13.0.0",
     "i18next": "^26.0.3",
