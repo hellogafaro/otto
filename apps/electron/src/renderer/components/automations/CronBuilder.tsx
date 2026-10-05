@@ -243,7 +243,7 @@ export function CronBuilder({
       <div className="bg-card shadow-minimal rounded-md p-4 space-y-3">
         {/* Human-readable description */}
         <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-muted-foreground" />
+          <Clock className="size-3.5 text-muted-foreground" />
           <span className="text-sm font-medium">{description}</span>
         </div>
 

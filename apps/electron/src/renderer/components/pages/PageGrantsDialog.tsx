@@ -56,8 +56,8 @@ export function PageGrantsDialog({ workspaceId, page, open, onOpenChange }: Page
                   <Icon
                     className={
                       isScript
-                        ? 'mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-500'
-                        : 'mt-0.5 h-4 w-4 shrink-0 text-foreground/50'
+                        ? 'mt-0.5 size-3.5 shrink-0 text-red-600 dark:text-red-500'
+                        : 'mt-0.5 size-3.5 shrink-0 text-foreground/50'
                     }
                   />
                   <div className="min-w-0 flex-1 text-sm">

@@ -262,11 +262,11 @@ export function CompactWorkspaceSwitcher({
                       className="shrink-0 h-9 w-9 rounded-md flex items-center justify-center text-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
                       aria-label={t("workspace.removeWorkspace")}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="size-3.5" />
                     </button>
                   )}
                   {isActive && (
-                    <Check className="h-4 w-4 shrink-0 text-foreground/60 mr-2" />
+                    <Check className="size-3.5 shrink-0 text-foreground/60 mr-2" />
                   )}
                 </div>
               )
@@ -279,7 +279,7 @@ export function CompactWorkspaceSwitcher({
                 className="mt-1 flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-foreground/5 transition-colors text-left"
               >
                 <div className="h-7 w-7 rounded-full bg-foreground/5 flex items-center justify-center shrink-0">
-                  <FolderPlus className="h-4 w-4 text-foreground/60" />
+                  <FolderPlus className="size-3.5 text-foreground/60" />
                 </div>
                 <span className="text-sm font-medium">{t("workspace.addWorkspace")}</span>
               </button>

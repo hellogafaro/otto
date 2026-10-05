@@ -60,7 +60,7 @@ export function PanelSlot({
   const closeButton = useMemo(() => {
     return (
       <PanelHeaderCenterButton
-        icon={<X className="h-4 w-4" />}
+        icon={<X className="size-3.5" />}
         onClick={handleClose}
         tooltip={t("common.close")}
       />
@@ -73,7 +73,7 @@ export function PanelSlot({
     if (!isCompact) return undefined
     return (
       <PanelHeaderCenterButton
-        icon={<ChevronLeft className="h-4 w-4" />}
+        icon={<ChevronLeft className="size-3.5" />}
         onClick={handleClose}
         tooltip={t("common.backToList")}
       />

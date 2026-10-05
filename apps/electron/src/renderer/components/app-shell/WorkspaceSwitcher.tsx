@@ -314,7 +314,7 @@ export function WorkspaceSwitcher({
             onClick={handleNewWorkspace}
             className="font-sans"
           >
-            <FolderPlus className="h-4 w-4" />
+            <FolderPlus className="size-3.5" />
             {t("workspace.addWorkspace")}
           </StyledDropdownMenuItem>
         </StyledDropdownMenuContent>

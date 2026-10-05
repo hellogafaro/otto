@@ -91,7 +91,7 @@ export function CompactWorkingDirectorySelector({
   return (
     <>
       <FreeFormInputContextBadge
-        icon={<Icon_Home className="h-4 w-4" />}
+        icon={<Icon_Home className="size-3.5" />}
         label={displayFolderName}
         isExpanded={isEmptySession}
         hasSelection={hasFolder}
@@ -122,7 +122,7 @@ export function CompactWorkingDirectorySelector({
           {showFilter && (
             <div className="px-4 pb-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-foreground/40 pointer-events-none" />
                 <input
                   type="text"
                   value={filter}
@@ -138,7 +138,7 @@ export function CompactWorkingDirectorySelector({
             {/* Current folder — pinned at top, non-interactive */}
             {hasFolder && (
               <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-foreground/5">
-                <Icon_Folder className="h-5 w-5 shrink-0 text-foreground/60" />
+                <Icon_Folder className="size-3.5 shrink-0 text-foreground/60" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{displayFolderName}</div>
                   <div className="text-xs text-foreground/50 truncate">
@@ -150,7 +150,7 @@ export function CompactWorkingDirectorySelector({
                     </div>
                   )}
                 </div>
-                <Check className="h-4 w-4 shrink-0 text-foreground/60" />
+                <Check className="size-3.5 shrink-0 text-foreground/60" />
               </div>
             )}
 
@@ -171,7 +171,7 @@ export function CompactWorkingDirectorySelector({
                         'flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors hover:bg-foreground/5 group/row',
                       )}
                     >
-                      <Icon_Folder className="h-5 w-5 shrink-0 text-foreground/60" />
+                      <Icon_Folder className="size-3.5 shrink-0 text-foreground/60" />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{recentFolderName}</div>
                         <div className="text-xs text-foreground/50 truncate">
@@ -184,7 +184,7 @@ export function CompactWorkingDirectorySelector({
                         onClick={(e) => handleRemoveRecent(e, path)}
                         className="shrink-0 h-7 w-7 rounded-sm flex items-center justify-center text-foreground/30 hover:text-foreground/70 hover:bg-foreground/5 transition-colors"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="size-3.5" />
                       </button>
                     </button>
                   </DrawerClose>
@@ -200,7 +200,7 @@ export function CompactWorkingDirectorySelector({
               onClick={handleChooseFolder}
               className="w-full h-12 px-3 rounded-lg flex items-center gap-3 text-sm font-medium hover:bg-foreground/5 transition-colors"
             >
-              <Icon_Folder className="h-5 w-5 shrink-0 text-foreground/60" />
+              <Icon_Folder className="size-3.5 shrink-0 text-foreground/60" />
               <span>{t('chat.chooseFolder')}</span>
             </button>
             {showReset && (
@@ -209,7 +209,7 @@ export function CompactWorkingDirectorySelector({
                 onClick={handleReset}
                 className="w-full h-12 px-3 rounded-lg flex items-center gap-3 text-sm font-medium text-foreground/70 hover:bg-foreground/5 transition-colors"
               >
-                <Icon_Home className="h-5 w-5 shrink-0 text-foreground/60" />
+                <Icon_Home className="size-3.5 shrink-0 text-foreground/60" />
                 <span>{t('common.reset')}</span>
               </button>
             )}

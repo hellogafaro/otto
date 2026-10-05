@@ -61,11 +61,11 @@ interface ApiSetupOption {
 }
 
 const API_SETUP_ICONS: Record<ApiSetupMethod, React.ReactNode> = {
-  claude_oauth: <CreditCard className="size-4" />,
-  anthropic_api_key: <Key className="size-4" />,
-  pi_chatgpt_oauth: <Cpu className="size-4" />,
-  pi_copilot_oauth: <Cpu className="size-4" />,
-  pi_api_key: <Key className="size-4" />,
+  claude_oauth: <CreditCard />,
+  anthropic_api_key: <Key />,
+  pi_chatgpt_oauth: <Cpu />,
+  pi_copilot_oauth: <Cpu />,
+  pi_api_key: <Key />,
 }
 
 interface APISetupStepProps {
@@ -104,7 +104,7 @@ function OptionButton({
       {/* Icon */}
       <div
         className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-lg",
+          "flex size-10 shrink-0 items-center justify-center rounded-lg [&>svg]:size-3.5",
           isSelected ? "bg-foreground/10 text-foreground" : "bg-muted text-muted-foreground"
         )}
       >

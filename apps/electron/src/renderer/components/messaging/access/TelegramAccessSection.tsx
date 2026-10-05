@@ -243,9 +243,9 @@ function AllowedUsersCollapsible({
           <div className="mt-0.5 truncate text-xs text-foreground/50">{subtitle}</div>
         </div>
         {isExpanded ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-foreground/50" />
+          <ChevronDown className="size-3.5 shrink-0 text-foreground/50" />
         ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-foreground/50" />
+          <ChevronRight className="size-3.5 shrink-0 text-foreground/50" />
         )}
       </button>
 

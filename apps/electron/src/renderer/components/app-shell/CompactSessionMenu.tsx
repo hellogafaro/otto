@@ -277,7 +277,7 @@ export function CompactSessionMenu({
               className="-ml-1 h-8 w-8 rounded-md flex items-center justify-center hover:bg-foreground/5 active:bg-foreground/10 transition-colors text-foreground/50"
               aria-label={t('common.back')}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="size-3.5" />
             </button>
           )}
           <DrawerTitle className="flex-1 min-w-0 truncate">{headerTitle}</DrawerTitle>
@@ -430,10 +430,10 @@ function RootPane({
     <div className="flex flex-col">
       {/* Share / Shared */}
       {!sharedUrl ? (
-        <Row icon={<CloudUpload className="h-4 w-4" />} label={t('sessionMenu.share')} onTap={onShare} />
+        <Row icon={<CloudUpload className="size-3.5" />} label={t('sessionMenu.share')} onTap={onShare} />
       ) : (
         <Row
-          icon={<CloudUpload className="h-4 w-4" />}
+          icon={<CloudUpload className="size-3.5" />}
           label={t('sessionMenu.shared')}
           chevron
           onTap={onOpenShareSub}
@@ -441,11 +441,11 @@ function RootPane({
       )}
 
       {hasTransferTargets && onSendToWorkspace && (
-        <Row icon={<Send className="h-4 w-4" />} label={t('sessionMenu.sendToWorkspace')} onTap={onSendToWorkspace} />
+        <Row icon={<Send className="size-3.5" />} label={t('sessionMenu.sendToWorkspace')} onTap={onSendToWorkspace} />
       )}
 
       <Row
-        icon={<MessageSquare className="h-4 w-4" />}
+        icon={<MessageSquare className="size-3.5" />}
         label={t('sessionMenu.connectMessaging')}
         chevron
         onTap={onOpenMessagingSub}
@@ -462,7 +462,7 @@ function RootPane({
 
       {hasLabels && (
         <Row
-          icon={<Tag className="h-4 w-4" />}
+          icon={<Tag className="size-3.5" />}
           label={t('sessionMenu.labels')}
           trailing={labelsCount > 0 ? <CountBadge count={labelsCount} /> : undefined}
           chevron
@@ -471,40 +471,40 @@ function RootPane({
       )}
 
       {!isFlagged ? (
-        <Row icon={<Flag className="h-4 w-4 text-info" />} label={t('sessionMenu.flag')} onTap={onFlag} />
+        <Row icon={<Flag className="size-3.5 text-info" />} label={t('sessionMenu.flag')} onTap={onFlag} />
       ) : (
-        <Row icon={<FlagOff className="h-4 w-4" />} label={t('sessionMenu.unflag')} onTap={onUnflag} />
+        <Row icon={<FlagOff className="size-3.5" />} label={t('sessionMenu.unflag')} onTap={onUnflag} />
       )}
 
       {!isArchived ? (
-        <Row icon={<Archive className="h-4 w-4" />} label={t('sessionMenu.archive')} onTap={onArchive} />
+        <Row icon={<Archive className="size-3.5" />} label={t('sessionMenu.archive')} onTap={onArchive} />
       ) : (
-        <Row icon={<ArchiveRestore className="h-4 w-4" />} label={t('sessionMenu.unarchive')} onTap={onUnarchive} />
+        <Row icon={<ArchiveRestore className="size-3.5" />} label={t('sessionMenu.unarchive')} onTap={onUnarchive} />
       )}
 
       {!hasUnread && hasMessages && (
-        <Row icon={<MailOpen className="h-4 w-4" />} label={t('sessionMenu.markAsUnread')} onTap={onMarkUnread} />
+        <Row icon={<MailOpen className="size-3.5" />} label={t('sessionMenu.markAsUnread')} onTap={onMarkUnread} />
       )}
 
       <Separator />
 
-      <Row icon={<Pencil className="h-4 w-4" />} label={t('common.rename')} onTap={onRename} />
-      <Row icon={<RefreshCw className="h-4 w-4" />} label={t('sessionMenu.regenerateTitle')} onTap={onRefreshTitle} />
+      <Row icon={<Pencil className="size-3.5" />} label={t('common.rename')} onTap={onRename} />
+      <Row icon={<RefreshCw className="size-3.5" />} label={t('sessionMenu.regenerateTitle')} onTap={onRefreshTitle} />
 
       <Separator />
 
-      <Row icon={<Columns2 className="h-4 w-4" />} label={t('sessionMenu.openInNewPanel')} onTap={onOpenInNewPanel} />
+      <Row icon={<Columns2 className="size-3.5" />} label={t('sessionMenu.openInNewPanel')} onTap={onOpenInNewPanel} />
       <Row
-        icon={<FolderOpen className="h-4 w-4" />}
+        icon={<FolderOpen className="size-3.5" />}
         label={t('sessionMenu.showInFileManager', { fileManager: getFileManagerName() })}
         onTap={onShowInFinder}
       />
-      <Row icon={<Copy className="h-4 w-4" />} label={t('sessionMenu.copyPath')} onTap={onCopyPath} />
+      <Row icon={<Copy className="size-3.5" />} label={t('sessionMenu.copyPath')} onTap={onCopyPath} />
 
       <Separator />
 
       <Row
-        icon={<Trash2 className="h-4 w-4" />}
+        icon={<Trash2 className="size-3.5" />}
         label={t('common.delete')}
         destructive
         onTap={onDelete}
@@ -590,11 +590,11 @@ function SharePane({
   const { t } = useTranslation()
   return (
     <div className="flex flex-col">
-      <Row icon={<Globe className="h-4 w-4" />} label={t('sessionMenu.openInBrowser')} onTap={onOpenInBrowser} />
-      <Row icon={<Copy className="h-4 w-4" />} label={t('sessionMenu.copyLink')} onTap={onCopyLink} />
-      <Row icon={<RefreshCw className="h-4 w-4" />} label={t('sessionMenu.updateShare')} onTap={onUpdateShare} />
+      <Row icon={<Globe className="size-3.5" />} label={t('sessionMenu.openInBrowser')} onTap={onOpenInBrowser} />
+      <Row icon={<Copy className="size-3.5" />} label={t('sessionMenu.copyLink')} onTap={onCopyLink} />
+      <Row icon={<RefreshCw className="size-3.5" />} label={t('sessionMenu.updateShare')} onTap={onUpdateShare} />
       <Separator />
-      <Row icon={<Link2Off className="h-4 w-4" />} label={t('sessionMenu.stopSharing')} destructive onTap={onRevokeShare} />
+      <Row icon={<Link2Off className="size-3.5" />} label={t('sessionMenu.stopSharing')} destructive onTap={onRevokeShare} />
     </div>
   )
 }
@@ -602,9 +602,9 @@ function SharePane({
 function MessagingPane({ onConnect }: { onConnect: (platform: MessagingPlatform) => void }) {
   return (
     <div className="flex flex-col">
-      <Row icon={<MessageSquare className="h-4 w-4" />} label="Telegram" onTap={() => onConnect('telegram')} />
-      <Row icon={<MessageSquare className="h-4 w-4" />} label="WhatsApp" onTap={() => onConnect('whatsapp')} />
-      <Row icon={<MessageSquare className="h-4 w-4" />} label="Lark / Feishu" onTap={() => onConnect('lark')} />
+      <Row icon={<MessageSquare className="size-3.5" />} label="Telegram" onTap={() => onConnect('telegram')} />
+      <Row icon={<MessageSquare className="size-3.5" />} label="WhatsApp" onTap={() => onConnect('whatsapp')} />
+      <Row icon={<MessageSquare className="size-3.5" />} label="Lark / Feishu" onTap={() => onConnect('lark')} />
     </div>
   )
 }
@@ -648,8 +648,8 @@ function Row({
       </span>
       <span className="flex-1 min-w-0 text-sm truncate">{label}</span>
       {trailing}
-      {radioSelected && <Check className="h-4 w-4 shrink-0 text-foreground/70" />}
-      {chevron && <ChevronRight className="h-4 w-4 shrink-0 text-foreground/50" />}
+      {radioSelected && <Check className="size-3.5 shrink-0 text-foreground/70" />}
+      {chevron && <ChevronRight className="size-3.5 shrink-0 text-foreground/50" />}
     </button>
   )
 }

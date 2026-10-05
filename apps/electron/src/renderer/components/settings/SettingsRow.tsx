@@ -67,7 +67,12 @@ export function SettingsRow({
         className
       )}
     >
-      {icon && <span className="mr-3 flex size-5 shrink-0 items-center justify-center">{icon}</span>}
+      {/* One 20px slot for every leading icon: Lucide icons are forced to 14px here, brand logos (ProviderLogo) are 14px by default, avatars keep their 20px. */}
+      {icon && (
+        <span className="mr-3 flex size-5 shrink-0 items-center justify-center [&>svg]:size-3.5">
+          {icon}
+        </span>
+      )}
       <div className="flex-1 min-w-0">
         <div className={settingsUI.label}>{label}</div>
         {description && (
@@ -85,7 +90,7 @@ export function SettingsRow({
       {expanded !== undefined && (
         <ChevronRight
           aria-hidden
-          className={cn('ml-4 size-4 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')}
+          className={cn('ml-4 size-3.5 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')}
         />
       )}
     </Component>

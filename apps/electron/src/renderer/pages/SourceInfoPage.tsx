@@ -378,7 +378,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
 
           {/* Disabled Warning */}
           {source.config.mcp?.transport === 'stdio' && !localMcpEnabled && (
-            <Info_Alert variant="warning" icon={<AlertCircle className="h-4 w-4" />}>
+            <Info_Alert variant="warning" icon={<AlertCircle className="size-3.5" />}>
               <Info_Alert.Title>{t('sourceInfo.sourceDisabled')}</Info_Alert.Title>
               <Info_Alert.Description>
                 {t('sourceInfo.localMcpDisabled')}
@@ -406,7 +406,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
               footer={source.config.connectionError && (
                 <div className="px-4 py-2 border-t border-border/30 bg-destructive/5">
                   <div className="flex items-start gap-2 text-sm text-destructive">
-                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
                     <span>{source.config.connectionError}</span>
                   </div>
                 </div>

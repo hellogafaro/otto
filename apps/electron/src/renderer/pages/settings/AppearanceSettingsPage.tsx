@@ -213,9 +213,9 @@ export default function AppearanceSettingsPage() {
                       onValueChange={setMode}
                       size="sm"
                       options={[
-                        { value: 'system', label: t("settings.appearance.system"), icon: <Monitor className="w-4 h-4" /> },
-                        { value: 'light', label: t("settings.appearance.light"), icon: <Sun className="w-4 h-4" /> },
-                        { value: 'dark', label: t("settings.appearance.dark"), icon: <Moon className="w-4 h-4" /> },
+                        { value: 'system', label: t("settings.appearance.system"), icon: <Monitor className="size-3.5" /> },
+                        { value: 'light', label: t("settings.appearance.light"), icon: <Sun className="size-3.5" /> },
+                        { value: 'dark', label: t("settings.appearance.dark"), icon: <Moon className="size-3.5" /> },
                       ]}
                     />
                   </SettingsRow>

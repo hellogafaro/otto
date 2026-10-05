@@ -180,7 +180,7 @@ export function CompactSessionListFilter({
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
         <HeaderIconButton
-          icon={<ListFilter className="h-4 w-4" />}
+          icon={<ListFilter className="size-3.5" />}
           aria-label={t('sidebar.filterChats')}
           className={cn(
             'rounded-md',
@@ -213,7 +213,7 @@ export function CompactSessionListFilter({
 
         <div className="px-4 pb-2">
           <label className="bg-foreground/5 rounded-md px-3 h-10 flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Search className="size-3.5 text-muted-foreground shrink-0" />
             <input
               type="text"
               value={query}
@@ -304,19 +304,19 @@ export function CompactSessionListFilter({
           {!isSearching && !isStateSubView && (
             <Section title={t('sidebar.group')} icon={<Layers className="h-3.5 w-3.5" />}>
               <FilterRow
-                icon={<Calendar className="h-4 w-4" />}
+                icon={<Calendar className="size-3.5" />}
                 label={t('sidebar.groupByDate')}
                 radioSelected={chatGroupingMode === 'date'}
                 onTap={() => setChatGroupingMode('date')}
               />
               <FilterRow
-                icon={<Inbox className="h-4 w-4" />}
+                icon={<Inbox className="size-3.5" />}
                 label={t('sidebar.groupByStatus')}
                 radioSelected={chatGroupingMode === 'status'}
                 onTap={() => setChatGroupingMode('status')}
               />
               <FilterRow
-                icon={<MailOpen className="h-4 w-4" />}
+                icon={<MailOpen className="size-3.5" />}
                 label={t('sidebar.groupByUnread')}
                 radioSelected={chatGroupingMode === 'unread'}
                 onTap={() => setChatGroupingMode('unread')}
@@ -332,7 +332,7 @@ export function CompactSessionListFilter({
                   onClick={onOpenSearch}
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-foreground/5 active:bg-foreground/10 transition-colors text-left"
                 >
-                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Search className="size-3.5 text-muted-foreground shrink-0" />
                   <span className="text-sm font-medium">{t('sidebar.search')}</span>
                 </button>
               </DrawerClose>
@@ -411,8 +411,8 @@ function FilterRow({
     >
       {renderedIcon}
       <span className="flex-1 min-w-0 text-sm truncate">{label}</span>
-      {pinned && <Check className="h-4 w-4 text-muted-foreground shrink-0" />}
-      {!pinned && radioSelected && <Check className="h-4 w-4 text-foreground/70 shrink-0" />}
+      {pinned && <Check className="size-3.5 text-muted-foreground shrink-0" />}
+      {!pinned && radioSelected && <Check className="size-3.5 text-foreground/70 shrink-0" />}
       {!pinned && mode && (
         <button
           type="button"

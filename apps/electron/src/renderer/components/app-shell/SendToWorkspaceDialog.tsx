@@ -174,7 +174,7 @@ export function SendToWorkspaceDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Send className="h-4 w-4" />
+            <Send className="size-3.5" />
             {t("sendToWorkspace.title")}
           </DialogTitle>
           <DialogDescription>

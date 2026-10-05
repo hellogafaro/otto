@@ -94,7 +94,7 @@ export function WorkspacePicker({ onSelectWorkspace }: WorkspacePickerProps) {
                   description={ws.slug}
                   onClick={() => onSelectWorkspace(ws.id)}
                 >
-                  <ChevronRight className="size-4 text-muted-foreground" />
+                  <ChevronRight className="size-3.5 text-muted-foreground" />
                 </SettingsRow>
               ))}
             </SettingsCard>

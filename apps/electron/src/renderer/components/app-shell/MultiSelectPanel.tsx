@@ -129,7 +129,7 @@ export function MultiSelectPanel({
                 size="sm"
                 className="gap-2 bg-card shadow-minimal hover:bg-foreground/5"
               >
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="size-3.5" />
                 {t('multiSelect.changeStatus')}
               </Button>
             </DropdownMenuTrigger>
@@ -151,7 +151,7 @@ export function MultiSelectPanel({
                 size="sm"
                 className="gap-2 bg-card shadow-minimal hover:bg-foreground/5"
               >
-                <Tag className="w-4 h-4" />
+                <Tag className="size-3.5" />
                 {t('multiSelect.setLabels')}
               </Button>
             </DropdownMenuTrigger>
@@ -178,7 +178,7 @@ export function MultiSelectPanel({
             onClick={onSendToWorkspace}
             className="gap-2 bg-card shadow-minimal hover:bg-foreground/5"
           >
-            <Send className="w-4 h-4" />
+            <Send className="size-3.5" />
             {t('sessionMenu.sendToWorkspace')}
           </Button>
         )}
@@ -189,7 +189,7 @@ export function MultiSelectPanel({
             onClick={onArchive}
             className="gap-2 bg-card shadow-minimal hover:bg-foreground/5"
           >
-            <Archive className="w-4 h-4" />
+            <Archive className="size-3.5" />
             {t('sessionMenu.archive')}
           </Button>
         )}

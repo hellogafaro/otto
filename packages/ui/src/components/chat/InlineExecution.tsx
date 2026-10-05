@@ -127,7 +127,7 @@ export function InlineExecution({
       <div className={cn("space-y-3", className)}>
         {/* Header with checkmark */}
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-success" />
+          <CheckCircle2 className="size-3.5 text-success" />
           <span className={cn("text-foreground font-medium", SIZE_CONFIG.fontSize)}>
             {t('common.done')}
           </span>
@@ -163,7 +163,7 @@ export function InlineExecution({
     <div className={cn("space-y-3", className)}>
       {/* Header with error icon */}
       <div className="flex items-center gap-2">
-        <XCircle className="w-4 h-4 text-destructive" />
+        <XCircle className="size-3.5 text-destructive" />
         <span className={cn("text-foreground font-medium", SIZE_CONFIG.fontSize)}>
           {t('common.failed')}
         </span>

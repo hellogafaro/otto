@@ -158,12 +158,12 @@ export function WorkingDirectorySelector({
                   className={cn(MENU_ITEM_STYLE, 'pointer-events-none bg-foreground/5')}
                   disabled
                 >
-                  <Icon_Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Icon_Folder className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex-1 min-w-0 truncate">
                     <span>{folderName}</span>
                     <span className="text-muted-foreground ml-1.5">{formatPathForDisplay(workingDirectory, homeDir)}</span>
                   </span>
-                  <Check className="h-4 w-4 shrink-0" />
+                  <Check className="size-3.5 shrink-0" />
                 </CommandPrimitive.Item>
               )}
 
@@ -182,7 +182,7 @@ export function WorkingDirectorySelector({
                     onSelect={() => handleSelectRecent(path)}
                     className={cn(MENU_ITEM_STYLE, 'group/item data-[selected=true]:bg-foreground/5')}
                   >
-                    <Icon_Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Icon_Folder className="size-3.5 shrink-0 text-muted-foreground" />
                     <span className="flex-1 min-w-0 truncate">
                       <span>{recentFolderName}</span>
                       <span className="text-muted-foreground ml-1.5">{formatPathForDisplay(path, homeDir)}</span>

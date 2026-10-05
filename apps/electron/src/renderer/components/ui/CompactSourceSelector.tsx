@@ -59,7 +59,7 @@ export function CompactSourceSelector({
         {sources.length > 0 && (
           <div className="px-4 pb-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-foreground/40 pointer-events-none" />
               <input
                 type="text"
                 value={filter}
@@ -96,7 +96,7 @@ export function CompactSourceSelector({
                   <div className="shrink-0 flex items-center">
                     {source.config.slug
                       ? <SourceAvatar source={source} size="md" />
-                      : <DatabaseZap className="h-5 w-5 text-foreground/60" />}
+                      : <DatabaseZap className="size-3.5 text-foreground/60" />}
                   </div>
                   <div className="flex-1 min-w-0 text-sm font-medium truncate">
                     {source.config.name}

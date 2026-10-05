@@ -147,18 +147,18 @@ const PLATFORM_LABEL_KEYS: Record<Platform, string> = {
 // 16px outer padding (`px-4`) + 22px icon slot + 12px gap (`gap-3`).
 // Secondary icons render at 16px inside the same 22px slot for a clean
 // visual hierarchy without the column edge shifting.
-const ROW_ICON_SIZE = 22
-const SUB_ROW_ICON_SIZE = 16
+const ROW_ICON_SIZE = 20
+const SUB_ROW_ICON_SIZE = 14
 const SUB_ROW_ICON_STROKE = 1.5
 
-/** 22px-wide invisible spacer that lets a row inherit the icon column's
+/** 20px-wide invisible spacer that lets a row inherit the icon column's
  *  geometry without rendering an icon (used for topic rows that align to
  *  the supergroup name above). */
 function IconSpacer() {
   return <div className="shrink-0" style={{ width: ROW_ICON_SIZE, height: ROW_ICON_SIZE }} />
 }
 
-/** Wraps a Lucide icon at `SUB_ROW_ICON_SIZE` inside the row's 22px slot
+/** Wraps a Lucide icon at `SUB_ROW_ICON_SIZE` inside the row's 20px slot
  *  so it stays centred in the same column as the bot logo above. */
 function SubRowIcon({
   icon: Icon,
@@ -340,7 +340,9 @@ function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceI
     <>
       <div>
         <div className="flex items-center gap-3 px-4 py-3.5">
-          <MessagingPlatformIcon platform={platform} size={22} />
+          <div className="flex shrink-0 items-center justify-center" style={{ width: ROW_ICON_SIZE, height: ROW_ICON_SIZE }}>
+            <MessagingPlatformIcon platform={platform} size={SUB_ROW_ICON_SIZE} />
+          </div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium">{label}</div>
             <div className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -356,7 +358,7 @@ function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceI
                   data-state={menuOpen ? 'open' : 'closed'}
                   aria-label={t('common.more')}
                 >
-                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                  <MoreHorizontal className="size-3.5 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
               <StyledDropdownMenuContent align="end">
@@ -699,9 +701,9 @@ function PairedSupergroupSection({
           <div className="mt-0.5 truncate text-xs text-foreground/50">{subtitle}</div>
         </div>
         {isExpanded ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-foreground/50" />
+          <ChevronDown className="size-3.5 shrink-0 text-foreground/50" />
         ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-foreground/50" />
+          <ChevronRight className="size-3.5 shrink-0 text-foreground/50" />
         )}
       </button>
 

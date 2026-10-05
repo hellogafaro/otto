@@ -442,13 +442,13 @@ export function EntityRow({
                 aria-haspopup="dialog"
                 aria-expanded={compactMenuOpen}
               >
-                <MoreHorizontal className="h-4 w-4 text-foreground/40" />
+                <MoreHorizontal className="size-3.5 text-foreground/40" />
               </button>
             ) : (
               <DropdownMenu modal={true} open={menuOpen} onOpenChange={setMenuOpen}>
                 <DropdownMenuTrigger asChild>
                   <div className="p-1.5 hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer">
-                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                    <MoreHorizontal className="size-3.5 text-muted-foreground" />
                   </div>
                 </DropdownMenuTrigger>
                 <StyledDropdownMenuContent align="end">

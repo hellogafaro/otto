@@ -30,28 +30,28 @@ export function AddWorkspaceStep_Choice({
     >
       <SettingsCard>
         <SettingsRow
-          icon={<FolderPlus className="size-5" />}
+          icon={<FolderPlus className="size-3.5" />}
           label={t("workspace.createNew")}
           description={t("workspace.createNewDesc")}
           onClick={onCreateNew}
         >
-          <ChevronRight className="size-4 text-muted-foreground" />
+          <ChevronRight className="size-3.5 text-muted-foreground" />
         </SettingsRow>
         <SettingsRow
-          icon={<FolderOpen className="size-5" />}
+          icon={<FolderOpen className="size-3.5" />}
           label={t("workspace.openFolder")}
           description={t("workspace.openFolderDesc")}
           onClick={onOpenFolder}
         >
-          <ChevronRight className="size-4 text-muted-foreground" />
+          <ChevronRight className="size-3.5 text-muted-foreground" />
         </SettingsRow>
         <SettingsRow
-          icon={<Cloud className="size-5" />}
+          icon={<Cloud className="size-3.5" />}
           label={t("workspace.connectRemote")}
           description={t("workspace.connectRemoteDesc")}
           onClick={onConnectRemote}
         >
-          <ChevronRight className="size-4 text-muted-foreground" />
+          <ChevronRight className="size-3.5 text-muted-foreground" />
         </SettingsRow>
       </SettingsCard>
     </StepFormLayout>

@@ -215,7 +215,7 @@ export function FullscreenOverlayBaseHeader({
           )}
           title={copied ? t('common.copied') : t('common.copyAll')}
         >
-          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
         </button>
       )}
       {headerActions}

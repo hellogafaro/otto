@@ -1050,7 +1050,7 @@ export function EditPopover({
                   isDragging && "cursor-grabbing"
                 )}
               >
-                <GripHorizontal className="w-4 h-4 text-muted-foreground/30" />
+                <GripHorizontal className="size-3.5 text-muted-foreground/30" />
               </div>
 
               {/* Content area - always uses compact ChatDisplay */}

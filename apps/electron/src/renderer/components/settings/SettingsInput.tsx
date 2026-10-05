@@ -117,9 +117,9 @@ export function SettingsInput({
               tabIndex={-1}
             >
               {showPassword ? (
-                <EyeOff className="size-4" />
+                <EyeOff className="size-3.5" />
               ) : (
-                <Eye className="size-4" />
+                <Eye className="size-3.5" />
               )}
             </button>
           )}
@@ -291,9 +291,9 @@ export function SettingsSecretInput({
           tabIndex={-1}
         >
           {showValue ? (
-            <EyeOff className="size-4" />
+            <EyeOff className="size-3.5" />
           ) : (
-            <Eye className="size-4" />
+            <Eye className="size-3.5" />
           )}
         </button>
       </div>

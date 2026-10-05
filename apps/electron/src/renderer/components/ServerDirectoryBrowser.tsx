@@ -254,8 +254,8 @@ export function ServerDirectoryBrowser({
               }`}
             >
               {entry.isSymlink
-                ? <FolderSymlinkIcon className="size-4 shrink-0 text-muted-foreground" />
-                : <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
+                ? <FolderSymlinkIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                : <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
               }
               <span className="truncate">{entry.name}</span>
               {entry.isSymlink && (

@@ -157,7 +157,7 @@ function ModeRow({
       className="flex w-full items-start gap-3 px-3 py-2 text-left transition-colors hover:bg-foreground/[0.05]"
     >
       <Icon
-        className="mt-0.5 h-4 w-4 shrink-0 text-foreground/60"
+        className="mt-0.5 size-3.5 shrink-0 text-foreground/60"
         strokeWidth={1.5}
       />
       <div className="min-w-0 flex-1">

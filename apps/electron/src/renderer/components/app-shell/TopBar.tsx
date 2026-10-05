@@ -123,7 +123,7 @@ export function TopBar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <TopBarButton onClick={onBack} disabled={!canGoBack} aria-label={t("common.back")}>
-                    <Icons.ChevronLeft className="h-[18px] w-[18px] text-foreground/70" strokeWidth={1.5} />
+                    <Icons.ChevronLeft className="size-3.5 text-foreground/70" strokeWidth={1.5} />
                   </TopBarButton>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{t("common.back")} {goBackHotkey}</TooltipContent>
@@ -132,7 +132,7 @@ export function TopBar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <TopBarButton onClick={onForward} disabled={!canGoForward} aria-label={t("common.forward")}>
-                    <Icons.ChevronRight className="h-[18px] w-[18px] text-foreground/70" strokeWidth={1.5} />
+                    <Icons.ChevronRight className="size-3.5 text-foreground/70" strokeWidth={1.5} />
                   </TopBarButton>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{t("common.forward")} {goForwardHotkey}</TooltipContent>

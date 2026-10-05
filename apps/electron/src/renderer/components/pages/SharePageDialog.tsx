@@ -295,7 +295,7 @@ export function SharePageDialog({
             </div>
 
             {share.lastPublishError && (
-              <Info_Alert variant="error" inline icon={<AlertTriangle className="h-4 w-4" />}>
+              <Info_Alert variant="error" inline icon={<AlertTriangle className="size-3.5" />}>
                 <Info_Alert.Title>{t('pages.share.lastError')}</Info_Alert.Title>
                 <Info_Alert.Description className="break-all">{displayShareError(share.lastPublishError)}</Info_Alert.Description>
               </Info_Alert>
@@ -431,7 +431,7 @@ function ScriptGrantsBlock({
   return (
     <div className="flex flex-col gap-2 rounded-md border border-red-500/40 bg-red-500/[0.06] p-3">
       <div className="flex items-start gap-2">
-        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-500" />
+        <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-red-600 dark:text-red-500" />
         <div className="min-w-0 text-sm">
           <div className="font-medium">{t('pages.share.scriptBlockedTitle')}</div>
           <div className="mt-0.5 text-xs text-foreground/60">{t('pages.share.scriptBlocked')}</div>

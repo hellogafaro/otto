@@ -543,7 +543,22 @@ Icon buttons are 32px with 14px icons.
 `RiFolder3Line`. **Avatars are at least 20px** (`ActorAvatar`): people show
 initials, agents their pixel mascot in their name color, nobody a person
 outline. Lists mixing avatars and
-icons give icons a 20px slot so labels align.
+icons give icons a 20px slot so labels align. Brand logos follow the same
+rule: 14px, drawn to fill the same live area as a Lucide glyph (20 of 24, see
+`assets/provider-icons`), never a bigger size to make a logo look equal.
+
+**Logo** (`Logo`). The six-blade mark, drawn with `currentColor`, so it is
+dark in light mode and light in dark mode with `text-foreground` (or
+`text-background` on an inverted surface). It is never the primary or any
+brand color. It has no size of its own: use `size-4`, `size-5`, `size-6`,
+`size-8` or `size-10` (16, 20, 24, 32, 40px; the mark sits centered and
+letterboxed in the square), or `h-N w-auto` to fill a height. It is
+decorative (`aria-hidden`) unless given a `title`. Sources live in
+`design/brand/` and `bun scripts/generate-brand-assets.ts` rebuilds every
+raster from them. The colored glass app icon (`otto-app-icon.svg`) is the
+only colored version: it is the dock, window, installer, home-screen and
+web-manifest icon, full-bleed with no extra rounding or shadow. The tab icon
+(`favicon.svg`) is the mark, black in light and white in dark.
 
 **Keys** (`Kbd`). 20px (16px in tooltips), 11px text, `xs` corners.
 
@@ -1027,4 +1042,10 @@ that carry over, applied where Craft draws the same thing.
   collapsible card's header is a `SettingsRow` with `expanded` (chevron turns
   90deg); its body is rows split by hairlines, with group titles as small
   uppercase muted labels 16px in.
+- **Row icons.** The leading icon of a `SettingsRow` (and any row that lists
+  providers, workspaces or options) is a 14px glyph in a 20px slot, 12px before
+  the label, centered on the label and description block: Lucide icons and
+  brand logos (`ProviderLogo`) alike, so nothing is sized per instance. Avatars
+  keep their own 20px in that slot. The trailing chevron is 14px
+  (`size-3.5`).
 - **Root font size** stays at Craft's 15px; Craft sizes in `rem`.

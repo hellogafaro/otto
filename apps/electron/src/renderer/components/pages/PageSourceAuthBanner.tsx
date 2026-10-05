@@ -201,7 +201,7 @@ function ReconnectCredentialDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            <KeyRound className="size-3.5 text-amber-600 dark:text-amber-500" />
             {t('pages.auth.credentialTitle', { name: source?.config.name ?? '' })}
           </DialogTitle>
           <DialogDescription>{t('pages.auth.credentialDescription')}</DialogDescription>

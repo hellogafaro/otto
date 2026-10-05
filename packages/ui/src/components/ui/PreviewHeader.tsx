@@ -160,7 +160,7 @@ export function PreviewHeader({
             )}
             title={t('common.closeEsc')}
           >
-            <X className="w-4 h-4" />
+            <X className="size-3.5" />
           </button>
         )}
       </div>

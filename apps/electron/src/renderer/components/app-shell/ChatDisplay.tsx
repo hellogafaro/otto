@@ -1528,7 +1528,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                             '--shadow-color': 'var(--destructive-rgb)',
                           } as React.CSSProperties}
                         >
-                          <AlertTriangle className="mx-auto mb-2 h-4 w-4 text-destructive/70" />
+                          <AlertTriangle className="mx-auto mb-2 size-3.5 text-destructive/70" />
                           <div className="text-sm font-medium text-destructive">{t("chat.failedToLoadConversation")}</div>
                           <p className="mt-1 break-words text-xs text-destructive/70">{messagesLoadError}</p>
                           {onRetryMessagesLoad && (
@@ -1572,7 +1572,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                   {!compactMode && hasUnrenderedLoadedMessages && (
                     <div className="flex h-64 items-center justify-center px-4 text-center">
                       <div className="max-w-sm rounded-md border border-border/50 bg-foreground/[0.03] px-4 py-3">
-                        <CircleAlert className="mx-auto mb-2 h-4 w-4 text-foreground/50" />
+                        <CircleAlert className="mx-auto mb-2 size-3.5 text-foreground/50" />
                         <div className="text-sm font-medium text-foreground/70">Conversation loaded, but no renderable messages were found.</div>
                         <p className="mt-1 text-xs text-foreground/50">Try reloading the session. If this persists, the message history may contain an unsupported format.</p>
                       </div>

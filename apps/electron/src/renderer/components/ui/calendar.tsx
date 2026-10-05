@@ -109,10 +109,10 @@ function Calendar({
       components={{
         Chevron: ({ className, orientation, ...props }) => {
           if (orientation === 'left') {
-            return <ChevronLeftIcon className={cn('size-4', className)} {...props} />
+            return <ChevronLeftIcon className={cn('size-3.5', className)} {...props} />
           }
           if (orientation === 'right') {
-            return <ChevronRightIcon className={cn('size-4', className)} {...props} />
+            return <ChevronRightIcon className={cn('size-3.5', className)} {...props} />
           }
           // Down chevron used in dropdown caption labels
           return <ChevronDownIcon className={cn('size-3.5', className)} {...props} />

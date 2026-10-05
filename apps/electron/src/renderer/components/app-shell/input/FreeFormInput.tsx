@@ -1740,7 +1740,7 @@ export function FreeFormInput({
             />
           )}
           <FreeFormInputContextBadge
-            icon={<Paperclip className="h-4 w-4" />}
+            icon={<Paperclip className="size-3.5" />}
             label={attachments.length > 0
               ? t("chat.filesCount", { count: attachments.length })
               : t("chat.attach")
@@ -1758,7 +1758,7 @@ export function FreeFormInput({
                 buttonRef={sourceButtonRef}
                 icon={
                   optimisticSourceSlugs.length === 0 ? (
-                    <DatabaseZap className="h-4 w-4" />
+                    <DatabaseZap className="size-3.5" />
                   ) : (
                     <div className="flex items-center -ml-0.5">
                       {(() => {
@@ -1840,7 +1840,7 @@ export function FreeFormInput({
           <div className="flex items-center gap-1 min-w-32 shrink overflow-hidden">
           {/* 1. Attach Files Badge */}
           <FreeFormInputContextBadge
-            icon={<Paperclip className="h-4 w-4" />}
+            icon={<Paperclip className="size-3.5" />}
             label={attachments.length > 0
               ? t("chat.filesCount", { count: attachments.length })
               : t("chat.attachFiles")
@@ -1860,7 +1860,7 @@ export function FreeFormInput({
                 buttonRef={sourceButtonRef}
                 icon={
                   optimisticSourceSlugs.length === 0 ? (
-                    <DatabaseZap className="h-4 w-4" />
+                    <DatabaseZap className="size-3.5" />
                   ) : (
                     <div className="flex items-center -ml-0.5">
                       {(() => {
@@ -1954,7 +1954,7 @@ export function FreeFormInput({
               aria-label={t('chat.tapToType')}
               className="flex-1 h-7 mx-1 flex items-center justify-center text-foreground/30 hover:text-foreground/60 transition-colors cursor-pointer rounded-sm hover:bg-foreground/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              <ChevronUp className="h-4 w-4" />
+              <ChevronUp className="size-3.5" />
             </button>
           ) : (
             <div className="flex-1" />
@@ -2373,7 +2373,7 @@ export function FreeFormInput({
               disabled={!hasContent || disabled || disableSend}
               data-tutorial="send-button"
             >
-              <ArrowUp className="h-4 w-4" />
+              <ArrowUp className="size-3.5" />
             </Button>
           )}
           </div>
@@ -2414,7 +2414,7 @@ function WorkingDirectoryBadge({
       renderTrigger={({ open, hasFolder, folderName, workingDirectory: wd, homeDir, gitBranch }) => (
         <span className="shrink min-w-0 overflow-hidden">
           <FreeFormInputContextBadge
-            icon={<Icon_Home className="h-4 w-4" />}
+            icon={<Icon_Home className="size-3.5" />}
             label={folderName ?? t('chat.workInFolder')}
             isExpanded={isEmptySession}
             hasSelection={hasFolder}

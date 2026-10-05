@@ -34,7 +34,7 @@ export function AutomationTestPanel({ result, className }: AutomationTestPanelPr
   // Success state
   if (result.state === 'success') {
     return (
-      <Info_Alert variant="success" icon={<CheckCircle2 className="h-4 w-4" />} className={className}>
+      <Info_Alert variant="success" icon={<CheckCircle2 className="size-3.5" />} className={className}>
         <Info_Alert.Title>
           {t('automations.testPassed')}
           {result.duration != null && (
@@ -50,7 +50,7 @@ export function AutomationTestPanel({ result, className }: AutomationTestPanelPr
   // Error state
   if (result.state === 'error') {
     return (
-      <Info_Alert variant="error" icon={<XCircle className="h-4 w-4" />} className={className}>
+      <Info_Alert variant="error" icon={<XCircle className="size-3.5" />} className={className}>
         <Info_Alert.Title>{t('automations.testFailed')}</Info_Alert.Title>
         {result.stderr && (
           <Info_Alert.Description>

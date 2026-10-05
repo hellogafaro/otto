@@ -37,7 +37,7 @@ export function PageGrantRequestDialog({ pageName, requests, busy, onApprove, on
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            <KeyRound className="size-3.5 text-amber-600 dark:text-amber-500" />
             {t('pages.grants.title')}
           </DialogTitle>
           <DialogDescription>{t('pages.grants.description', { name: pageName })}</DialogDescription>
@@ -59,8 +59,8 @@ export function PageGrantRequestDialog({ pageName, requests, busy, onApprove, on
                 <Icon
                   className={
                     isScript
-                      ? 'mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-500'
-                      : 'mt-0.5 h-4 w-4 shrink-0 text-foreground/50'
+                      ? 'mt-0.5 size-3.5 shrink-0 text-red-600 dark:text-red-500'
+                      : 'mt-0.5 size-3.5 shrink-0 text-foreground/50'
                   }
                 />
                 <div className="min-w-0 text-sm">

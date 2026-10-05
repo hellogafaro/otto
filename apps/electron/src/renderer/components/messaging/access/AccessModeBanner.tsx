@@ -18,7 +18,7 @@ export function AccessModeBanner({ onLockDown, description }: Props) {
   const { t } = useTranslation()
   return (
     <div className="mx-4 my-3 flex items-start gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+      <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium">
           {t('settings.messaging.telegram.access.banner.title')}

@@ -251,7 +251,7 @@ export function PageView({ pageSlug }: PageViewProps) {
           aria-label={t('pages.backToPages')}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="size-3.5" />
         </button>
         {nameDraft !== null ? (
           <input
@@ -286,7 +286,7 @@ export function PageView({ pageSlug }: PageViewProps) {
               title={config.share ? t('pages.shared') : t('pages.share.title')}
               className="flex h-7 items-center gap-1.5 rounded-md px-2 text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground"
             >
-              <Globe2 className={config.share ? 'h-4 w-4 text-sky-600 dark:text-sky-400' : 'h-4 w-4'} />
+              <Globe2 className={config.share ? 'size-3.5 text-sky-600 dark:text-sky-400' : 'size-3.5'} />
               {config.share && (
                 <span className="hidden text-xs @[28rem]/panel:inline">{t('pages.shared')}</span>
               )}
@@ -299,7 +299,7 @@ export function PageView({ pageSlug }: PageViewProps) {
                 aria-label={t('common.more')}
                 className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground data-[state=open]:bg-foreground/5"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="size-3.5" />
               </button>
             </DropdownMenuTrigger>
             <StyledDropdownMenuContent align="end">
@@ -371,7 +371,7 @@ export function PageView({ pageSlug }: PageViewProps) {
         <Info_Alert
           variant="error"
           inline
-          icon={<AlertTriangle className="h-4 w-4" />}
+          icon={<AlertTriangle className="size-3.5" />}
           className="mx-3 mt-2"
         >
           <Info_Alert.Title>{t('pages.refreshFailed')}</Info_Alert.Title>
@@ -410,7 +410,7 @@ export function PageView({ pageSlug }: PageViewProps) {
           </div>
         ) : leaseError ? (
           <div className="mx-auto max-w-xl pt-8">
-            <Info_Alert variant="error" icon={<AlertTriangle className="h-4 w-4" />}>
+            <Info_Alert variant="error" icon={<AlertTriangle className="size-3.5" />}>
               <Info_Alert.Title>{t('pages.loadFailed')}</Info_Alert.Title>
               <Info_Alert.Description className="break-all">{leaseError}</Info_Alert.Description>
             </Info_Alert>

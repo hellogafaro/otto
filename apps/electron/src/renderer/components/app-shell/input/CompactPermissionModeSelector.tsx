@@ -139,14 +139,14 @@ export function CompactPermissionModeSelector({
                   onClick={() => handleSelect(mode)}
                 >
                   <span className={cn("shrink-0", PERMISSION_MODE_CONFIG[mode].colorClass.text)}>
-                    <ModeIcon mode={mode} className="h-5 w-5" />
+                    <ModeIcon mode={mode} className="size-3.5" />
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">{t(MODE_LABEL_KEYS[mode].name)}</div>
                     <div className="text-xs text-muted-foreground">{t(MODE_LABEL_KEYS[mode].desc)}</div>
                   </div>
                   {isSelected && (
-                    <Check className="h-4 w-4 shrink-0 text-foreground/60" />
+                    <Check className="size-3.5 shrink-0 text-foreground/60" />
                   )}
                 </button>
               </DrawerClose>

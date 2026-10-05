@@ -124,7 +124,7 @@ function CredentialHealthBanner({ issues, onReauthenticate }: CredentialHealthBa
   return (
     <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 mb-6">
       <div className="flex items-start gap-3">
-        <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+        <AlertTriangle className="size-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <h4 className="text-sm font-medium text-amber-700 dark:text-amber-400">
             {t("settings.ai.credentialIssue")}
@@ -320,7 +320,7 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
             className="p-1.5 rounded-sm hover:bg-foreground/[0.05] data-[state=open]:bg-foreground/[0.05] transition-colors"
             data-state={menuOpen ? 'open' : 'closed'}
           >
-            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+            <MoreHorizontal className="size-3.5 text-muted-foreground" />
           </button>
         </DropdownMenuTrigger>
         <StyledDropdownMenuContent align="end">
@@ -1420,7 +1420,7 @@ export default function AiSettingsPage() {
                     <SettingsRow
                       expanded={decisionAdvancedOpen}
                       onClick={() => setDecisionAdvancedOpen(open => !open)}
-                      icon={<Settings2 className="size-4 text-muted-foreground" />}
+                      icon={<Settings2 className="size-3.5 text-muted-foreground" />}
                       label={t("settings.ai.decisions.advanced")}
                       description={decisionStatus.settings.enabled
                         ? t("settings.ai.decisions.advancedSummary", { on: decisionFeaturesOn, total: decisionReportedToggles.length })

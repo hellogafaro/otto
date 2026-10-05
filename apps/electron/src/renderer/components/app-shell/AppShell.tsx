@@ -2301,7 +2301,7 @@ function AppShellContent({
                     <DropdownMenu onOpenChange={(open) => { if (!open) { setFilterDropdownQuery(''); setFilterAltHeld(false) } }}>
                       <DropdownMenuTrigger asChild>
                         <HeaderIconButton
-                          icon={<ListFilter className="h-4 w-4" />}
+                          icon={<ListFilter className="size-3.5" />}
                           className={(listFilter.size > 0 || labelFilter.size > 0 || projectFilter.size > 0) ? "bg-primary/5 text-primary rounded-md shadow-tinted" : "rounded-md"}
                           style={(listFilter.size > 0 || labelFilter.size > 0 || projectFilter.size > 0) ? { '--shadow-color': 'var(--primary-rgb)' } as React.CSSProperties : undefined}
                         />
@@ -2851,7 +2851,7 @@ function AppShellContent({
                                             }}
                                             className={cn(
                                               // SVG sizing matches StyledDropdownMenuSubTrigger so icons render at the same size
-                                              "flex cursor-pointer select-none items-center gap-2 rounded-xs mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
+                                              "flex cursor-pointer select-none items-center gap-2 rounded-xs mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:shrink-0",
                                               isHighlighted && "bg-foreground/5",
                                               isPinned && "opacity-50 pointer-events-none",
                                             )}
@@ -2941,7 +2941,7 @@ function AppShellContent({
                                             }}
                                             className={cn(
                                               // SVG sizing matches StyledDropdownMenuSubTrigger so icons render at the same size
-                                              "flex cursor-pointer select-none items-center gap-2 rounded-xs mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
+                                              "flex cursor-pointer select-none items-center gap-2 rounded-xs mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:shrink-0",
                                               isHighlighted && "bg-foreground/5",
                                               isPinned && "opacity-50 pointer-events-none",
                                             )}
@@ -2970,7 +2970,7 @@ function AppShellContent({
                     <EditPopover
                       trigger={
                         <HeaderIconButton
-                          icon={<Plus className="h-4 w-4" />}
+                          icon={<Plus className="size-3.5" />}
                           tooltip={t("sidebarMenu.addSource")}
                           data-tutorial="add-source-button"
                         />
@@ -2986,7 +2986,7 @@ function AppShellContent({
                     <EditPopover
                       trigger={
                         <HeaderIconButton
-                          icon={<Plus className="h-4 w-4" />}
+                          icon={<Plus className="size-3.5" />}
                           tooltip={t("sidebarMenu.addSkill")}
                           data-tutorial="add-skill-button"
                         />
@@ -2999,7 +2999,7 @@ function AppShellContent({
                     <EditPopover
                       trigger={
                         <HeaderIconButton
-                          icon={<Plus className="h-4 w-4" />}
+                          icon={<Plus className="size-3.5" />}
                           tooltip={t("sidebarMenu.addAutomation")}
                         />
                       }
@@ -3009,7 +3009,7 @@ function AppShellContent({
                   {/* Add Project button (only for projects mode) */}
                   {isProjectsNavigation(navState) && activeWorkspace && (
                     <HeaderIconButton
-                      icon={<Plus className="h-4 w-4" />}
+                      icon={<Plus className="size-3.5" />}
                       tooltip={t("sidebarMenu.addProject")}
                       onClick={openAddProject}
                     />

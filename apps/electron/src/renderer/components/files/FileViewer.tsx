@@ -54,7 +54,7 @@ export function FileViewer({ path }: FileViewerProps) {
     <div className="h-full flex flex-col">
       {/* File path header */}
       <div className="px-4 py-3 bg-muted/50 border-b flex items-center gap-2 shrink-0">
-        <FileText className="size-4 text-muted-foreground shrink-0" />
+        <FileText className="size-3.5 text-muted-foreground shrink-0" />
         <p className="text-xs font-mono text-muted-foreground truncate select-all" title={path}>
           {path}
         </p>

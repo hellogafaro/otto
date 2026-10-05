@@ -123,7 +123,7 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
           {/* Header */}
           <div className="flex items-start gap-3">
             <div className="shrink-0 mt-0.5">
-              <Key className="h-5 w-5 text-foreground" />
+              <Key className="size-3.5 text-foreground" />
             </div>
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-2">
@@ -150,7 +150,7 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
                     {usernameLabel}
                   </Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                     <Input
                       id="credential-username"
                       name="username"
@@ -171,7 +171,7 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
                     {passwordLabel}
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                     <Input
                       id="credential-password"
                       name="password"
@@ -189,7 +189,7 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       tabIndex={-1}
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                     </button>
                   </div>
                 </div>
@@ -203,7 +203,7 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
                       {headerName}
                     </Label>
                     <div className="relative">
-                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                       <Input
                         id={`credential-header-${index}`}
                         name={headerName}
@@ -225,7 +225,7 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         tabIndex={-1}
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                       </button>
                     </div>
                   </div>
@@ -243,7 +243,7 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
                   )}
                 </Label>
                 <div className="relative">
-                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                   <Input
                     id="credential-value"
                     name="credential"
@@ -262,7 +262,7 @@ export function CredentialRequest({ request, onResponse, unstyled = false }: Cre
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     tabIndex={-1}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                   </button>
                 </div>
               </div>

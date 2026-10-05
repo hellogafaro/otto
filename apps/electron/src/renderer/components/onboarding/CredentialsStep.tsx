@@ -206,7 +206,7 @@ export function CredentialsStep({
               className="gap-2"
               loading={status === 'validating'}
             >
-              <ExternalLink className="size-4" />
+              <ExternalLink className="size-3.5" />
               {t("onboarding.credentials.signInClaude")}
             </ContinueButton>
           </>

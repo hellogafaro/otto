@@ -247,7 +247,7 @@ export function InlineLabelMenu({
                     >
                       {/* State icon with resolved color */}
                       <span
-                        className="shrink-0 flex items-center w-4 h-4 [&>svg]:w-full [&>svg]:h-full [&>img]:w-full [&>img]:h-full [&>span]:text-sm"
+                        className="shrink-0 flex items-center size-3.5 [&>svg]:w-full [&>svg]:h-full [&>img]:w-full [&>img]:h-full [&>span]:text-sm"
                         style={getStatusIconStyle(state)}
                       >
                         {state.icon}

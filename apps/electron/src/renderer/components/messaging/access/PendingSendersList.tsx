@@ -63,7 +63,7 @@ function PendingRow({
   return (
     <div className="flex items-center gap-3 px-4 py-2.5">
       <div className="flex h-[22px] w-[22px] shrink-0 items-center justify-center">
-        <Clock className="h-4 w-4 text-foreground/50" strokeWidth={1.5} />
+        <Clock className="size-3.5 text-foreground/50" strokeWidth={1.5} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">

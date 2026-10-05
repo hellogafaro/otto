@@ -22,11 +22,11 @@ interface ProviderOption {
 }
 
 const PROVIDER_ICONS: Record<ProviderChoice, React.ReactNode> = {
-  claude: <ProviderLogo src={providerIcons.anthropic} className="size-5" />,
-  chatgpt: <ProviderLogo src={providerIcons.openai} className="size-5" />,
-  copilot: <ProviderLogo src={providerIcons.copilot} className="size-5" />,
-  api_key: <Key className="size-5" />,
-  local: <Monitor className="size-5" />,
+  claude: <ProviderLogo src={providerIcons.anthropic} />,
+  chatgpt: <ProviderLogo src={providerIcons.openai} />,
+  copilot: <ProviderLogo src={providerIcons.copilot} />,
+  api_key: <Key />,
+  local: <Monitor />,
 }
 
 interface ProviderSelectStepProps {
@@ -97,7 +97,7 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
             description={option.description}
             onClick={() => onSelect(option.id)}
           >
-            <ChevronRight className="size-4 text-muted-foreground" />
+            <ChevronRight className="size-3.5 text-muted-foreground" />
           </SettingsRow>
         ))}
       </SettingsCard>
