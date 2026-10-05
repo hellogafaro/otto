@@ -216,7 +216,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
                 <p className="text-xs text-muted-foreground mb-3">
                   {t('skillInfo.permissionModesDesc')}
                 </p>
-                <div className="rounded-[8px] border border-border/50 overflow-hidden">
+                <div className="rounded-md border border-border/50 overflow-hidden">
                   <table className="w-full text-sm">
                     <tbody>
                       <tr className="border-b border-border/30">

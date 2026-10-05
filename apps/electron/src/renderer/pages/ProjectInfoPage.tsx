@@ -272,7 +272,7 @@ export default function ProjectInfoPage({ projectSlug }: ProjectInfoPageProps) {
               title={t('projectInfo.tabAssets')}
               actions={
                 <label
-                  className="inline-flex items-center gap-1 h-7 px-3 text-xs font-medium rounded-[8px] bg-background shadow-minimal hover:bg-foreground/[0.03] transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 h-7 px-3 text-xs font-medium rounded-md bg-card shadow-minimal hover:bg-foreground/5 transition-colors cursor-pointer"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   {t('projectInfo.uploadAssets')}

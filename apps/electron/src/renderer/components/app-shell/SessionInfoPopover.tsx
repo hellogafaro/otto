@@ -18,13 +18,13 @@ interface SessionInfoPopoverProps {
   presentation?: 'popover' | 'drawer'
 }
 
-const DEFAULT_POPOVER_CONTENT_CLASS = 'w-[360px] h-[460px] min-w-[200px] max-w-[420px] overflow-hidden rounded-[8px] bg-background text-foreground shadow-modal-small p-0'
+const DEFAULT_POPOVER_CONTENT_CLASS = 'w-[360px] h-[460px] min-w-[200px] max-w-[420px] overflow-hidden rounded-md bg-popover text-foreground shadow-modal-small p-0'
 const DEFAULT_DRAWER_CONTENT_CLASS = [
   'data-[vaul-drawer-direction=bottom]:inset-x-2',
   'data-[vaul-drawer-direction=bottom]:bottom-2',
   'data-[vaul-drawer-direction=bottom]:mt-0',
   'data-[vaul-drawer-direction=bottom]:max-h-[min(82vh,42rem)]',
-  'overflow-hidden rounded-[14px] border border-border/60 bg-background shadow-modal-small',
+  'overflow-hidden rounded-[14px] border border-border/60 bg-popover shadow-modal-small',
 ].join(' ')
 
 export function SessionInfoPopover({
@@ -139,7 +139,7 @@ function SessionInfoPopoverContent({ sessionId, sessionFolderPath }: { sessionId
         <label className="text-xs font-medium text-muted-foreground block mb-1.5 select-none">
           {t("chat.title")}
         </label>
-        <div className="rounded-lg bg-foreground-2 has-[:focus]:bg-background shadow-minimal transition-colors">
+        <div className="rounded-lg bg-input/50 has-[:focus]:bg-background shadow-minimal transition-colors">
           <Input
             value={name}
             onChange={handleNameChange}

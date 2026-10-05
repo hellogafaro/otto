@@ -231,7 +231,7 @@ export function themeToCSS(theme: ThemeOverrides, isDark: boolean = false): stri
  */
 export const BACKGROUND_HEX = {
   light: '#ffffff', // matches oklch(1 0 0)
-  dark: '#0a0a0a', // matches oklch(0.145 0 0)
+  dark: '#0f0f0f', // matches oklch(0.17 0 0)
 } as const;
 
 /**
@@ -253,7 +253,7 @@ export const DEFAULT_THEME: ThemeOverrides = {
   success: 'oklch(0.627 0.194 149.214)',
   destructive: 'oklch(0.577 0.245 27.325)',
   dark: {
-    background: 'oklch(0.145 0 0)',
+    background: 'oklch(0.17 0 0)',
     foreground: 'oklch(0.985 0 0)',
     accent: 'oklch(0.623 0.214 259.815)',
     info: 'oklch(0.852 0.199 91.936)',

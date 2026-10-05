@@ -9,16 +9,16 @@ description: >-
   surfaces (menus, tooltips, hover cards) are dark in both themes.
 colors:
   background: "oklch(1 0 0)"
-  background-dark: "oklch(0.145 0 0)"
+  background-dark: "oklch(0.17 0 0)"
   foreground: "oklch(0.145 0 0)"
   foreground-dark: "oklch(0.985 0 0)"
-  frame: "oklch(0.985 0 0)"
-  frame-dark: "oklch(0.11 0 0)"
+  frame: "oklch(0.96 0 0)"
+  frame-dark: "oklch(0.12 0 0)"
   card: "oklch(1 0 0)"
-  card-dark: "oklch(0.205 0 0)"
-  popover-dark: "oklch(0.205 0 0)"
+  card-dark: "oklch(0.22 0 0)"
+  popover-dark: "oklch(0.22 0 0)"
   muted: "oklch(0.97 0 0)"
-  muted-dark: "oklch(0.269 0 0)"
+  muted-dark: "oklch(0.27 0 0)"
   muted-foreground: "oklch(0.556 0 0)"
   muted-foreground-dark: "oklch(0.708 0 0)"
   primary: "oklch(0.546 0.245 262.881)"
@@ -356,6 +356,28 @@ The UI is neutral; color carries meaning, never decoration. Use theme tokens
 - Floating surfaces render dark in both themes (`dark` class) at 70% opacity
   with a blur. Highlighted items use `foreground/10`; dividers `foreground/5`.
 
+**Layers, lowest to highest.** Each layer is one small step in lightness from
+the one under it, the same direction in both themes (higher is lighter in dark;
+in light the frame is the grey one and everything on it is white), and a layer
+the same color as its parent is separated by a 1px `foreground/10` hairline,
+never a heavy shadow. L is OKLCH lightness, measured from the rendered page.
+
+| Layer | Token and classes | Light L | Dark L |
+| --- | --- | --- | --- |
+| 0 Frame: `html`/`body`, rail, top bar | `--sidebar` (`bg-sidebar`) | 0.96 | 0.12 |
+| 1 Fill on the frame: rail hover (60%) and open item | `--sidebar-accent` + `ring-foreground/10` when open | 1.0 | 0.22 |
+| 2 Page card: status sidebar, list and page, split by hairlines | `--background` + `ring-1 ring-foreground/10 shadow-xs` | 1.0 | 0.17 |
+| 3 Card in a page: settings card, composer, raised control (`shadow-minimal`) | `--card` + `ring-foreground/10` | 1.0 | 0.22 |
+| 3 Input and nested control well | `--input` at 50% (`bg-input/50`) | 0.96 | 0.29 on a card |
+| 3 Hover and open row fill | `--muted`, `--secondary`, `foreground/5` (hover), `foreground/7-10` (open) | 0.95-0.97 | 0.24-0.27 |
+| 4 Floating: menu, popover, tooltip, toast | `--popover` at 70%, `dark` class, `shadow-md` | about 0.45 over white | about 0.21 over the page |
+| 5 Dialog | 50% black overlay, then the floating surface | | |
+
+Rules that keep it true: a page-level surface is `bg-card` (composer, raised
+buttons and badges, popup menus use `bg-popover`), never `bg-background`, which
+is the page itself; hover fills are 5% and open fills 7-10% of `foreground`, not
+2-3%; the Craft `shadow-minimal` ring is the same 10% hairline as `ring-foreground/10`.
+
 ## Typography
 
 Inter for everything; Geist Mono only for code. Sizes are theme tokens on a
@@ -389,7 +411,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 - **Layers.** The frame (`bg-sidebar`) is the lowest and darkest layer; the
   rail and any section sidebar sit on it. The page is a card on the frame:
   `SidebarInset` 8px from the top, right and bottom, `xl` 12 corners, the
-  hairline ring and `shadow-xs`. Lower is darker.
+  hairline ring and `shadow-xs`. Lower is darker (values under Colors).
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
 - **Controls are 32px**: bar buttons, the rail and tabs. Task list and
@@ -411,7 +433,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   each side of the slot, so it is 7px from every edge. Labels after a slot
   share one column (32px in), and a
   combobox's search icon and text sit on the items' columns.
-- **Rail** (`AppRail`): 48px wide, 8px around 32px buttons, no labels.
+- **Rail** (`AppRail`): 48px wide, 8px around 32px buttons (8 | 32 | 8, flush
+  against the page card, whose own 8px inset sits on the same line), 14px icons,
+  4px between buttons, the open one filled (`sidebar-accent`), no labels.
   Inbox (home), Search (the command palette), Tasks, Projects, Chats,
   Schedules, Documents, Files.
 - **Left and right panels.** The rail stays alone on the frame. Inside the
@@ -983,11 +1007,11 @@ Unknown creation outcomes disable another submission in the current form and dir
 The app now runs on Craft Agents (see `UPSTREAM.md`); these are the Otto rules
 that carry over, applied where Craft draws the same thing.
 
-- **Layers.** `--frame` (behind everything) is the darkest layer: the rail, the
+- **Layers.** `--sidebar` (behind everything) is the darkest layer: the rail, the
   top bar and the 8px gap sit on it. One card (`bg-background`, 12px corners,
   hairline ring, `shadow-xs`) holds the sidebar, the list and the page, split by
   hairlines. No floating panels, no gaps between them.
-- **Rail.** 48px wide, 32px buttons, 18px icons, no labels, Settings last at
+- **Rail.** 48px wide, 32px buttons, 14px icons, no labels, Settings last at
   the bottom. Sized in px: the root font size must not change it.
 - **Left lists** (Settings, sessions): a 40px header with the title left-aligned
   16px in, then groups with a small muted title, rows 28px with 6px corners, a

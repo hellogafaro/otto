@@ -352,7 +352,7 @@ function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceI
             <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="rounded-md p-1.5 transition-colors hover:bg-foreground/[0.05] data-[state=open]:bg-foreground/[0.05]"
+                  className="rounded-sm p-1.5 transition-colors hover:bg-foreground/[0.05] data-[state=open]:bg-foreground/[0.05]"
                   data-state={menuOpen ? 'open' : 'closed'}
                   aria-label={t('common.more')}
                 >
@@ -688,7 +688,7 @@ function PairedSupergroupSection({
       <button
         type="button"
         onClick={() => setIsExpanded((v) => !v)}
-        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-foreground/[0.02]"
+        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-foreground/5"
       >
         <SubRowIcon icon={MessagesSquare} />
         <div className="min-w-0 flex-1">

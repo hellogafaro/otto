@@ -140,7 +140,7 @@ export function LabelsDataTable({
     <button
       onClick={() => setIsFullscreen(true)}
       className={cn(
-        'p-1 rounded-[6px] transition-all',
+        'p-1 rounded-sm transition-all',
         'opacity-0 group-hover:opacity-100',
         'bg-background/80 backdrop-blur-sm shadow-minimal',
         'text-muted-foreground/50 hover:text-foreground',

@@ -4,7 +4,6 @@
  * Displays keyboard shortcuts reference from the centralized action registry.
  */
 
-import * as React from 'react'
 import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useTranslation } from 'react-i18next'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -12,6 +11,7 @@ import { SettingsSection, SettingsCard, SettingsRow } from '@/components/setting
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import { isMac } from '@/lib/platform'
 import { actionsByCategory, useActionLabel, type ActionId } from '@/actions'
+import { Kbd } from '@/components/ui/kbd'
 
 export const meta: DetailsPageMeta = {
   navigator: 'settings',
@@ -57,14 +57,6 @@ function useComponentSpecificSections(): ShortcutSection[] {
       ],
     },
   ]
-}
-
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-medium font-sans bg-muted border border-border rounded">
-      {children}
-    </kbd>
-  )
 }
 
 /**

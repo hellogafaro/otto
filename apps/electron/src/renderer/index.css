@@ -103,7 +103,7 @@
   --shadow-minimal:
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px,
+    rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px,
     rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 1px 1px -0.5px,
     rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 3px 3px -1.5px;
 
@@ -111,12 +111,12 @@
   --shadow-minimal-flat:
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px;
+    rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px;
 
   --shadow-modal-small:
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
     rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-    rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px,
+    rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px,
     rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 1px 1px -0.5px,
     rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 3px 3px 0px,
     rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 6px 6px 0px,
@@ -380,8 +380,9 @@ html[data-scenic] {
   --color-foreground-95: var(--foreground-95);
 
   /* === SEMANTIC SURFACE COLORS === */
-  /* Subtle hover background for sidebar list items (2% foreground opacity) */
-  --color-sidebar-hover: oklch(from var(--foreground) l c h / 0.02);
+  /* Hover background for list rows on the page card (5% foreground, one step
+     under the open row's 7%) */
+  --color-sidebar-hover: oklch(from var(--foreground) l c h / 0.05);
   /* User message bubble background (overridden on unfocused panels) */
   --color-user-message-bubble: var(--user-message-bubble);
 
@@ -536,7 +537,7 @@ html[data-scenic] {
     box-shadow:
       rgba(0, 0, 0, 0) 0px 0px 0px 0px,
       rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-      rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px;
+      rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px;
   }
 
   /* Semantic inset separators for table rows/headers (border-like, but shadow-based) */
@@ -556,7 +557,7 @@ html[data-scenic] {
     box-shadow:
       rgba(0, 0, 0, 0) 0px 0px 0px 0px,
       rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-      rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px,
+      rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px,
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 1px 1px -0.5px,
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 3px 3px -1.5px,
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 6px 6px -3px;
@@ -590,7 +591,7 @@ html[data-scenic] {
     box-shadow:
       rgba(0, 0, 0, 0) 0px 0px 0px 0px,
       rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-      rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px,
+      rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px,
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 1px 1px -0.5px,
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 3px 3px -1.5px,
       rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 6px 6px -3px,
@@ -660,7 +661,7 @@ html[data-scenic] {
     box-shadow:
       rgba(0, 0, 0, 0) 0px 0px 0px 0px,
       rgba(0, 0, 0, 0) 0px 0px 0px 0px,
-      rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px,
+      rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px,
       rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 1px 1px -0.5px,
       rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 3px 3px 0px,
       rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 6px 6px 0px,
@@ -1077,7 +1078,7 @@ html.dark[data-scenic] .fullscreen-overlay-background {
   color: oklch(from var(--foreground) l c h / 0.7) !important;
   border: none !important;
   box-shadow:
-    rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px,
+    rgba(var(--foreground-rgb), 0.1) 0px 0px 0px 1px,
     var(--shadow-minimal) !important;
 }
 

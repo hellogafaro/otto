@@ -1,4 +1,5 @@
 import { actionsByCategory, useActionLabel, type ActionId } from '@/actions'
+import { Kbd } from '@/components/ui/kbd'
 
 export function KeyboardShortcuts() {
   return (
@@ -31,7 +32,7 @@ function ShortcutRow({ actionId }: { actionId: ActionId }) {
         )}
       </div>
       {hotkey && (
-        <kbd className="px-2 py-1 text-xs bg-muted rounded">{hotkey}</kbd>
+        <Kbd>{hotkey}</Kbd>
       )}
     </div>
   )

@@ -1036,7 +1036,7 @@ export function EditPopover({
             {/* Container */}
             <div
               ref={popoverRef}
-              className="relative bg-foreground-2 overflow-hidden w-full h-full shadow-modal-small"
+              className="relative bg-card overflow-hidden w-full h-full shadow-modal-small"
               style={{
                 transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`,
                 borderRadius: 16,
@@ -1054,7 +1054,7 @@ export function EditPopover({
               </div>
 
               {/* Content area - always uses compact ChatDisplay */}
-              <div className="flex-1 flex flex-col bg-foreground-2" style={{ height: '100%' }}>
+              <div className="flex-1 flex flex-col bg-card" style={{ height: '100%' }}>
                 <ChatDisplay
                   session={displaySession}
                   onSendMessage={inlineExecution ? handleInlineSendMessage : handleLegacySendMessage}
@@ -1109,7 +1109,7 @@ export const EditButton = React.forwardRef<
       variant="ghost"
       size="sm"
       // Merge our base styles with any className from asChild props
-      className={cn("h-8 px-3 rounded-[6px] bg-background shadow-minimal text-foreground/70 hover:text-foreground", className)}
+      className={cn("h-8 px-3 rounded-md bg-card shadow-minimal text-foreground/70 hover:text-foreground", className)}
       {...props}
     >
       {t("common.edit")}

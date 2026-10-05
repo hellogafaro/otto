@@ -59,7 +59,7 @@ function SettingsRow({ row, active }: { row: Row; active: boolean }) {
       onClick={row.onSelect}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex h-7 w-full select-none items-center gap-2 rounded-[6px] px-1 text-left text-[13px] outline-none',
+        'flex h-7 w-full select-none items-center gap-2 rounded-sm px-1 text-left text-[13px] outline-none',
         'text-foreground/80 transition-colors duration-75 hover:bg-foreground/5',
         'focus-visible:ring-1 focus-visible:ring-ring',
         active && 'bg-foreground/8 text-foreground',

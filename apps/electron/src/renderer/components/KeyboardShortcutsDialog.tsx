@@ -8,6 +8,7 @@ import {
 import { useRegisterModal } from "@/context/ModalContext"
 import { isMac } from "@/lib/platform"
 import { actionsByCategory, useActionLabel, type ActionId } from "@/actions"
+import { Kbd } from '@/components/ui/kbd'
 
 interface KeyboardShortcutsDialogProps {
   open: boolean
@@ -63,14 +64,6 @@ function useComponentSpecificSections(): ShortcutSection[] {
       ],
     },
   ]
-}
-
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-medium font-sans bg-muted border border-border rounded shadow-sm">
-      {children}
-    </kbd>
-  )
 }
 
 /**

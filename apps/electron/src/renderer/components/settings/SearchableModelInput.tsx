@@ -107,7 +107,7 @@ export function SearchableModelInput({
           <Button
             variant="outline"
             size="sm"
-            className="absolute right-1 top-1 h-7"
+            className="absolute right-1 top-1 h-7 rounded-xs"
             onClick={handleFetchClick}
             disabled={fetchDisabled || isLoading}
           >
@@ -119,11 +119,11 @@ export function SearchableModelInput({
             align="end"
             sideOffset={4}
             collisionPadding={8}
-            className="p-1.5 w-[var(--radix-popover-trigger-width)]"
+            className="p-1 w-[var(--radix-popover-trigger-width)]"
             style={{ minWidth: 280 }}
           >
             {/* Search input */}
-            <div className="relative mb-1.5">
+            <div className="relative mb-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
               <input
                 ref={searchInputRef}
@@ -132,7 +132,7 @@ export function SearchableModelInput({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("apiSetup.searchModels")}
                 className={cn(
-                  'w-full h-8 pl-8 pr-3 text-sm rounded-md',
+                  'w-full h-8 pl-8 pr-3 text-sm rounded-sm',
                   'bg-foreground/5 border-0',
                   'placeholder:text-muted-foreground/50',
                   'focus:outline-none focus:ring-1 focus:ring-foreground/20'
@@ -151,7 +151,7 @@ export function SearchableModelInput({
                     key={model.id}
                     type="button"
                     className={cn(
-                      'w-full px-2.5 py-2 text-left text-sm rounded-lg',
+                      'w-full px-2.5 py-2 text-left text-sm rounded-sm',
                       'hover:bg-foreground/5 transition-colors',
                       value === model.id && 'bg-foreground/3'
                     )}

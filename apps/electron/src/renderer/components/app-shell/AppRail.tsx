@@ -5,7 +5,7 @@ import {
   FolderClosed,
   Folder,
   Inbox,
-  MessageCircle,
+  MessagesSquare,
   Search,
   Settings,
   type LucideIcon,
@@ -54,14 +54,14 @@ export function AppRail({
     { id: 'search', label: 'Search', icon: Search },
     { id: 'tasks', label: 'Tasks', icon: CircleCheck },
     { id: 'projects', label: 'Projects', icon: Folder, onSelect: onProjects },
-    { id: 'chats', label: 'Chats', icon: MessageCircle, onSelect: onChats },
+    { id: 'chats', label: 'Chats', icon: MessagesSquare, onSelect: onChats },
     { id: 'schedules', label: 'Schedules', icon: Clock },
     { id: 'documents', label: 'Documents', icon: FileText, onSelect: onDocuments },
     { id: 'files', label: 'Files', icon: FolderClosed },
   ]
   const settings: RailItem = { id: 'settings', label: 'Settings', icon: Settings, onSelect: onSettings }
   return (
-    <nav aria-label="Main" className="flex h-full w-[48px] shrink-0 select-none flex-col items-center justify-between py-2">
+    <nav aria-label="Main" className="flex h-full w-[48px] shrink-0 select-none flex-col items-center justify-between px-2 py-2">
       <div className="flex flex-col items-center gap-1">
         {main.map((item) => (
           <RailButton key={item.id} item={item} active={active === item.id} />
@@ -83,13 +83,13 @@ function RailButton({ item, active }: { item: RailItem; active: boolean }) {
           aria-current={active ? 'page' : undefined}
           onClick={item.onSelect}
           className={cn(
-            'flex size-[32px] items-center justify-center rounded-[8px] text-foreground/60 outline-none transition-colors',
-            'hover:bg-foreground/5 hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
-            active && 'bg-foreground/10 text-foreground',
+            'flex size-[32px] items-center justify-center rounded-md text-foreground/60 outline-none transition-colors',
+            'hover:bg-sidebar-accent/60 hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
+            active && 'bg-sidebar-accent text-foreground shadow-xs ring-1 ring-foreground/10',
             !item.onSelect && 'cursor-default',
           )}
         >
-          <Icon className="size-[18px]" />
+          <Icon className="size-3.5" />
         </button>
       </TooltipTrigger>
       <TooltipContent side="right">{item.label}</TooltipContent>

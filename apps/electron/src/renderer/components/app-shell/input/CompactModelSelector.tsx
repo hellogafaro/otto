@@ -173,7 +173,7 @@ export function CompactModelSelector({
             ? t('common.unavailable')
             : `${t('common.model')}: ${currentModelDisplayName}`}
           className={cn(
-            'h-7 pl-2 pr-2 text-xs font-medium rounded-[6px] flex items-center gap-1.5 shadow-tinted outline-none select-none min-w-[64px] shrink',
+            'h-7 pl-2 pr-2 text-xs font-medium rounded-sm flex items-center gap-1.5 shadow-tinted outline-none select-none min-w-[64px] shrink',
             connectionUnavailable
               ? 'bg-destructive/10 text-destructive'
               : 'bg-foreground/5 text-foreground/70',

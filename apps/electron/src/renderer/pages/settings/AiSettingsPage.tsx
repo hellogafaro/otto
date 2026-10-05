@@ -293,7 +293,7 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
             <ConnectionIcon connection={connection} size={14} />
             <span>{connection.name}</span>
             {connection.isDefault && (
-              <span className="inline-flex items-center h-5 px-2 text-[11px] font-medium rounded-[4px] bg-background shadow-minimal text-foreground/60">
+              <span className="inline-flex items-center h-5 px-2 text-[11px] font-medium rounded-full bg-card shadow-minimal text-foreground/60">
                 {t("common.default")}
               </span>
             )}
@@ -318,7 +318,7 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
       <DropdownMenu modal={false} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
           <button
-            className="p-1.5 rounded-md hover:bg-foreground/[0.05] data-[state=open]:bg-foreground/[0.05] transition-colors"
+            className="p-1.5 rounded-sm hover:bg-foreground/[0.05] data-[state=open]:bg-foreground/[0.05] transition-colors"
             data-state={menuOpen ? 'open' : 'closed'}
           >
             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
@@ -514,12 +514,12 @@ function WorkspaceOverrideCard({ workspace, llmConnections, onSettingsChange }: 
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between py-3 px-4 hover:bg-foreground/[0.02] transition-colors"
+        className="w-full flex items-center justify-between py-3 px-4 hover:bg-foreground/5 transition-colors"
       >
         <div className="flex items-center gap-3">
           <div
             className={cn(
-              'w-6 h-6 rounded-full overflow-hidden bg-foreground/5 flex items-center justify-center',
+              'w-6 h-6 rounded-sm overflow-hidden bg-foreground/5 flex items-center justify-center',
               'ring-1 ring-border/50'
             )}
           >
@@ -1301,7 +1301,7 @@ export default function AiSettingsPage() {
                 <div className="pt-0">
                   <button
                     onClick={() => openApiSetup()}
-                    className="inline-flex items-center h-8 px-3 text-sm rounded-lg bg-background shadow-minimal hover:bg-foreground/[0.02] transition-colors"
+                    className="inline-flex items-center h-8 px-3 text-sm rounded-md bg-card shadow-minimal hover:bg-foreground/5 transition-colors"
                   >
                     {t("settings.ai.addConnection")}
                   </button>
@@ -1347,7 +1347,7 @@ export default function AiSettingsPage() {
                           <Button
                             size="sm"
                             onClick={() => window.electronAPI?.openUrl(decisionPreset.docsUrl!)}
-                            className="bg-background shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
+                            className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                           >
                             {t("settings.ai.decisions.localServerDocs")}
                           </Button>
@@ -1356,7 +1356,7 @@ export default function AiSettingsPage() {
                           size="sm"
                           onClick={() => { void probeDecisionServer(decisionBaseUrlDraft.trim() || undefined) }}
                           disabled={decisionProbing}
-                          className="bg-background shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
+                          className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                         >
                           {decisionProbing ? <Spinner /> : t("settings.ai.decisions.recheck")}
                         </Button>
@@ -1377,7 +1377,7 @@ export default function AiSettingsPage() {
                           <Button
                             size="sm"
                             onClick={handleRemoveDecisionKey}
-                            className="bg-background shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
+                            className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                           >
                             {t("settings.ai.decisions.removeKey")}
                           </Button>
@@ -1398,7 +1398,7 @@ export default function AiSettingsPage() {
                               size="sm"
                               onClick={handleSaveDecisionKey}
                               disabled={!decisionKeyDraft.trim()}
-                              className="bg-background shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
+                              className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                             >
                               {t("settings.ai.decisions.saveKey")}
                             </Button>
@@ -1423,7 +1423,7 @@ export default function AiSettingsPage() {
                         size="sm"
                         onClick={handleTestDecision}
                         disabled={decisionTesting}
-                        className="bg-background shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
+                        className="bg-card shadow-minimal text-foreground hover:bg-foreground/5"
                       >
                         {decisionTesting ? <Spinner /> : t("settings.ai.decisions.testRun")}
                       </Button>
@@ -1440,10 +1440,10 @@ export default function AiSettingsPage() {
                       type="button"
                       aria-expanded={decisionAdvancedOpen}
                       onClick={() => setDecisionAdvancedOpen(open => !open)}
-                      className="w-full flex items-center justify-between py-3 px-4 hover:bg-foreground/[0.02] transition-colors"
+                      className="w-full flex items-center justify-between py-3 px-4 hover:bg-foreground/5 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-full bg-foreground/5 ring-1 ring-border/50 flex items-center justify-center">
+                        <div className="w-6 h-6 rounded-sm bg-foreground/5 ring-1 ring-border/50 flex items-center justify-center">
                           <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                         <div className="text-left">

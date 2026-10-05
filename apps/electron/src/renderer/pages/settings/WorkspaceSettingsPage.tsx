@@ -369,7 +369,7 @@ export default function WorkspaceSettingsPage() {
                         setWsNameEditing(wsName)
                         setRenameDialogOpen(true)
                       }}
-                      className="inline-flex items-center h-8 px-3 text-sm rounded-lg bg-background shadow-minimal hover:bg-foreground/[0.02] transition-colors"
+                      className="inline-flex items-center h-7 px-2.5 text-sm rounded-sm bg-card shadow-minimal hover:bg-foreground/5 transition-colors"
                     >
                       {t("common.edit")}
                     </button>
@@ -386,7 +386,7 @@ export default function WorkspaceSettingsPage() {
                         className="sr-only"
                         disabled={isUploadingIcon}
                       />
-                      <span className="inline-flex items-center h-8 px-3 text-sm rounded-lg bg-background shadow-minimal hover:bg-foreground/[0.02] transition-colors">
+                      <span className="inline-flex items-center h-7 px-2.5 text-sm rounded-sm bg-card shadow-minimal hover:bg-foreground/5 transition-colors">
                         {isUploadingIcon ? t("common.uploading") : t("common.change")}
                       </span>
                     </label>
@@ -394,7 +394,7 @@ export default function WorkspaceSettingsPage() {
                 >
                   <div
                     className={cn(
-                      'w-6 h-6 rounded-full overflow-hidden bg-foreground/5 flex items-center justify-center',
+                      'w-6 h-6 rounded-sm overflow-hidden bg-foreground/5 flex items-center justify-center',
                       'ring-1 ring-border/50'
                     )}
                   >
@@ -530,7 +530,7 @@ export default function WorkspaceSettingsPage() {
                         <button
                           type="button"
                           onClick={handleClearWorkingDirectory}
-                          className="inline-flex items-center h-8 px-3 text-sm rounded-lg bg-background shadow-minimal hover:bg-foreground/[0.02] transition-colors text-foreground/60 hover:text-foreground"
+                          className="inline-flex items-center h-7 px-2.5 text-sm rounded-sm bg-card shadow-minimal hover:bg-foreground/5 transition-colors text-foreground/60 hover:text-foreground"
                         >
                           {t("common.clear")}
                         </button>
@@ -538,7 +538,7 @@ export default function WorkspaceSettingsPage() {
                       <button
                         type="button"
                         onClick={handleChangeWorkingDirectory}
-                        className="inline-flex items-center h-8 px-3 text-sm rounded-lg bg-background shadow-minimal hover:bg-foreground/[0.02] transition-colors"
+                        className="inline-flex items-center h-7 px-2.5 text-sm rounded-sm bg-card shadow-minimal hover:bg-foreground/5 transition-colors"
                       >
                         {t("common.change")}
                       </button>

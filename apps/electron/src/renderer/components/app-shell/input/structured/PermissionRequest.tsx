@@ -57,7 +57,7 @@ export function PermissionRequest({ request, onResponse, unstyled = false }: Per
         'overflow-hidden h-full flex flex-col bg-info/5',
         unstyled
           ? 'border-0'
-          : 'border border-info/30 rounded-[8px] shadow-middle'
+          : 'border border-info/30 rounded-md shadow-middle'
       )}
       data-tutorial="permission-banner"
     >
@@ -76,7 +76,7 @@ export function PermissionRequest({ request, onResponse, unstyled = false }: Per
           {risks.length > 0 && (
             <div className="flex flex-wrap gap-1" title={t('chat.permissionRiskHint')}>
               {risks.map((risk) => (
-                <span key={risk} className="rounded-[4px] bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                <span key={risk} className="rounded-xs bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
                   {riskLabels[risk]}
                 </span>
               ))}

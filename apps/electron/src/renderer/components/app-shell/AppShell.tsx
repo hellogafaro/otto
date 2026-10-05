@@ -104,7 +104,6 @@ import { MessagingDialogHost } from "@/components/messaging/MessagingDialogHost"
 import { EditPopover, getEditConfig, type EditContextKey } from "@/components/ui/EditPopover"
 import SettingsNavigator from "@/pages/settings/SettingsNavigator"
 import {
-  PANEL_GAP,
   PANEL_EDGE_INSET,
   SIDEBAR_WIDTH,
   SIDEBAR_MIN,
@@ -158,9 +157,9 @@ function FilterModeBadge({ mode }: { mode: FilterMode }) {
   return (
     <span
       className={cn(
-        "flex items-center justify-center h-5 w-5 rounded-[4px] -mr-1",
+        "flex items-center justify-center h-5 w-5 rounded-xs -mr-1",
         mode === 'include'
-          ? "bg-background text-foreground shadow-minimal"
+          ? "bg-card text-foreground shadow-minimal"
           : "bg-destructive/10 text-destructive shadow-tinted",
       )}
       style={mode === 'exclude' ? { '--shadow-color': 'var(--destructive-rgb)' } as React.CSSProperties : undefined}
@@ -190,14 +189,14 @@ function FilterModeSubMenuItems({
     <>
       <StyledDropdownMenuItem
         onClick={(e) => { e.preventDefault(); onChangeMode('include') }}
-        className={cn(mode === 'include' && "bg-foreground/[0.03]")}
+        className={cn(mode === 'include' && "bg-foreground/5")}
       >
         <Check className="h-3.5 w-3.5 shrink-0" />
         <span className="flex-1">{t("filter.include")}</span>
       </StyledDropdownMenuItem>
       <StyledDropdownMenuItem
         onClick={(e) => { e.preventDefault(); onChangeMode('exclude') }}
-        className={cn(mode === 'exclude' && "bg-foreground/[0.03]")}
+        className={cn(mode === 'exclude' && "bg-foreground/5")}
       >
         <X className="h-3.5 w-3.5 shrink-0" />
         <span className="flex-1">{t("filter.exclude")}</span>
@@ -2097,7 +2096,6 @@ function AppShellContent({
           paddingRight: isAutoCompact ? 0 : PANEL_EDGE_INSET,
           paddingBottom: isAutoCompact ? 0 : PANEL_EDGE_INSET,
           paddingLeft: 0,
-          gap: PANEL_GAP,
         }}
       >
         {!isAutoCompact && (
@@ -2140,7 +2138,7 @@ function AppShellContent({
                         <Button
                           variant="ghost"
                           onClick={(e) => handleNewChat(e.metaKey || e.ctrlKey)}
-                          className="h-7 w-full justify-start gap-2 py-0 px-2 text-[13px] font-normal rounded-[6px] shadow-none bg-foreground/5 hover:bg-foreground/10"
+                          className="h-7 w-full justify-start gap-2 py-0 px-2 text-[13px] font-normal rounded-sm shadow-none bg-foreground/5 hover:bg-foreground/10"
                           data-tutorial="new-chat-button"
                         >
                           <SquarePenRounded className="h-3.5 w-3.5 shrink-0" />
@@ -2304,7 +2302,7 @@ function AppShellContent({
                       <DropdownMenuTrigger asChild>
                         <HeaderIconButton
                           icon={<ListFilter className="h-4 w-4" />}
-                          className={(listFilter.size > 0 || labelFilter.size > 0 || projectFilter.size > 0) ? "bg-primary/5 text-primary rounded-[8px] shadow-tinted" : "rounded-[8px]"}
+                          className={(listFilter.size > 0 || labelFilter.size > 0 || projectFilter.size > 0) ? "bg-primary/5 text-primary rounded-md shadow-tinted" : "rounded-md"}
                           style={(listFilter.size > 0 || labelFilter.size > 0 || projectFilter.size > 0) ? { '--shadow-color': 'var(--primary-rgb)' } as React.CSSProperties : undefined}
                         />
                       </DropdownMenuTrigger>
@@ -2350,7 +2348,7 @@ function AppShellContent({
                         {/* Search input — typing switches from hierarchical submenus to a flat filtered list.
                             stopPropagation prevents Radix from intercepting keys. Arrow/Enter handled for navigation. */}
                         <div className="px-1 pb-3 border-b border-foreground/5">
-                          <div className="bg-background rounded-[6px] shadow-minimal px-2 py-1.5">
+                          <div className="bg-card rounded-sm shadow-minimal px-2 py-1.5">
                             <input
                               ref={filterDropdownInputRef}
                               type="text"
@@ -2853,7 +2851,7 @@ function AppShellContent({
                                             }}
                                             className={cn(
                                               // SVG sizing matches StyledDropdownMenuSubTrigger so icons render at the same size
-                                              "flex cursor-pointer select-none items-center gap-2 rounded-[4px] mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
+                                              "flex cursor-pointer select-none items-center gap-2 rounded-xs mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
                                               isHighlighted && "bg-foreground/5",
                                               isPinned && "opacity-50 pointer-events-none",
                                             )}
@@ -2943,7 +2941,7 @@ function AppShellContent({
                                             }}
                                             className={cn(
                                               // SVG sizing matches StyledDropdownMenuSubTrigger so icons render at the same size
-                                              "flex cursor-pointer select-none items-center gap-2 rounded-[4px] mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
+                                              "flex cursor-pointer select-none items-center gap-2 rounded-xs mx-1 px-2 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
                                               isHighlighted && "bg-foreground/5",
                                               isPinned && "opacity-50 pointer-events-none",
                                             )}

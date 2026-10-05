@@ -37,7 +37,7 @@ export interface FreeFormInputContextBadgeProps {
  * Visual States:
  * - Expanded: Icon + Label + Chevron, no background, hover shows background
  * - Collapsed (no selection): Icon only, no background, hover shows background
- * - Collapsed (has selection): Icon + Label (fading), bg-background + shadow-minimal
+ * - Collapsed (has selection): Icon + Label (fading), bg-card + shadow-minimal
  * - Open: bg-foreground/5 (like hover)
  */
 export const FreeFormInputContextBadge = React.forwardRef<HTMLButtonElement, FreeFormInputContextBadgeProps>(
@@ -74,7 +74,7 @@ export const FreeFormInputContextBadge = React.forwardRef<HTMLButtonElement, Fre
         data-tutorial={dataTutorial}
         className={cn(
           // Base styles - shrink + min-w-0 allows badge to compress in tight layouts
-          "input-toolbar-btn inline-flex items-center gap-1.5 h-7 rounded-[6px] text-[13px] text-foreground transition-colors select-none shrink min-w-0",
+          "input-toolbar-btn inline-flex items-center gap-1.5 h-7 rounded-sm text-[13px] text-foreground transition-colors select-none shrink min-w-0",
           "disabled:opacity-50 disabled:pointer-events-none",
           // Padding: more padding when showing label
           showLabel ? "px-2" : "px-1.5",

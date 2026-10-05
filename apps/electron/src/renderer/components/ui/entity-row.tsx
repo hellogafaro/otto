@@ -276,7 +276,7 @@ export function EntityRow({
       <button
         {...(buttonProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
         className={cn(
-          "entity-row-btn flex w-full items-start gap-2 pl-2 pr-4 py-3 text-left text-sm outline-none rounded-[8px]",
+          "entity-row-btn flex w-full items-start gap-2 pl-2 pr-4 py-3 text-left text-sm outline-none rounded-md",
           "transition-[background-color] duration-75",
           (isSelected || isInMultiSelect)
             ? "bg-foreground/3"
@@ -331,7 +331,7 @@ export function EntityRow({
                       <button
                         type="button"
                         onClick={() => setCompactMenuOpen(true)}
-                        className="p-1 rounded-[6px] hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer"
+                        className="p-1 rounded-sm hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer"
                         aria-haspopup="dialog"
                         aria-expanded={compactMenuOpen}
                       >
@@ -340,7 +340,7 @@ export function EntityRow({
                     ) : (
                       <DropdownMenu modal={true} open={menuOpen} onOpenChange={setMenuOpen}>
                         <DropdownMenuTrigger asChild>
-                          <div className="p-1 rounded-[6px] hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer">
+                          <div className="p-1 rounded-sm hover:bg-foreground/10 data-[state=open]:bg-foreground/10 cursor-pointer">
                             <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                           </div>
                         </DropdownMenuTrigger>
@@ -433,7 +433,7 @@ export function EntityRow({
           )}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center rounded-[8px] overflow-hidden border border-transparent hover:border-border/50">
+          <div className="flex items-center rounded-md overflow-hidden border border-transparent hover:border-border/50">
             {useCompactMenu ? (
               <button
                 type="button"

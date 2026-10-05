@@ -122,7 +122,7 @@ export function AutomationEventTimeline({ entries, className, onReplay }: Automa
             <div
               className={cn(
                 'flex items-center gap-3 px-4 py-2.5 text-sm',
-                isWebhook && 'cursor-pointer hover:bg-foreground/[0.03] transition-colors',
+                isWebhook && 'cursor-pointer hover:bg-foreground/5 transition-colors',
               )}
               onClick={handleToggle}
               onKeyDown={handleKeyDown}

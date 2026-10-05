@@ -127,7 +127,7 @@ export function MultiSelectPanel({
               <Button
                 variant="ghost"
                 size="sm"
-                className="gap-2 bg-background shadow-minimal hover:bg-foreground/[0.03]"
+                className="gap-2 bg-card shadow-minimal hover:bg-foreground/5"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 {t('multiSelect.changeStatus')}
@@ -149,7 +149,7 @@ export function MultiSelectPanel({
               <Button
                 variant="ghost"
                 size="sm"
-                className="gap-2 bg-background shadow-minimal hover:bg-foreground/[0.03]"
+                className="gap-2 bg-card shadow-minimal hover:bg-foreground/5"
               >
                 <Tag className="w-4 h-4" />
                 {t('multiSelect.setLabels')}
@@ -176,7 +176,7 @@ export function MultiSelectPanel({
             variant="ghost"
             size="sm"
             onClick={onSendToWorkspace}
-            className="gap-2 bg-background shadow-minimal hover:bg-foreground/[0.03]"
+            className="gap-2 bg-card shadow-minimal hover:bg-foreground/5"
           >
             <Send className="w-4 h-4" />
             {t('sessionMenu.sendToWorkspace')}
@@ -187,7 +187,7 @@ export function MultiSelectPanel({
             variant="ghost"
             size="sm"
             onClick={onArchive}
-            className="gap-2 bg-background shadow-minimal hover:bg-foreground/[0.03]"
+            className="gap-2 bg-card shadow-minimal hover:bg-foreground/5"
           >
             <Archive className="w-4 h-4" />
             {t('sessionMenu.archive')}

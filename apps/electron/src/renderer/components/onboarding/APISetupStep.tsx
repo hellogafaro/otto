@@ -9,7 +9,7 @@ import type { LlmAuthType, LlmProviderType } from "@craft-agent/shared/config/ll
 export type ProviderSegment = 'anthropic' | 'pi'
 
 const BetaBadge = ({ label }: { label: string }) => (
-  <span className="inline px-1.5 pt-[2px] pb-[3px] text-[10px] font-accent font-bold rounded-[4px] bg-primary text-background ml-1 relative -top-[1px]">
+  <span className="inline px-1.5 pt-[2px] pb-[3px] text-[10px] font-accent font-bold rounded-xs bg-primary text-background ml-1 relative -top-[1px]">
     {label}
   </span>
 )
@@ -95,7 +95,7 @@ function OptionButton({
       className={cn(
         "flex w-full items-start gap-4 rounded-xl p-4 text-left transition-all",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        "hover:bg-foreground/[0.02] shadow-minimal",
+        "hover:bg-foreground/5 shadow-minimal",
         isSelected
           ? "bg-background"
           : "bg-foreground-2"
@@ -159,7 +159,7 @@ function ProviderSegmentedControl({
           className={cn(
             "flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all",
             activeSegment === segment
-              ? "bg-background shadow-minimal text-foreground"
+              ? "bg-card shadow-minimal text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
@@ -265,7 +265,7 @@ export function APISetupStep({
       />
 
       {/* Segment description */}
-      <div className="bg-foreground-2 rounded-[8px] p-4 mb-3">
+      <div className="bg-card rounded-md p-4 mb-3 shadow-minimal">
         <p className="text-sm text-muted-foreground text-center">
           {SEGMENT_DESCRIPTIONS[activeSegment]}
         </p>

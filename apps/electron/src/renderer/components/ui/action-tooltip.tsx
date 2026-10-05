@@ -1,3 +1,4 @@
+import { Kbd } from './kbd'
 import { useActionLabel } from '@/actions'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@craft-agent/ui'
 import type { ActionId } from '@/actions/definitions'
@@ -15,7 +16,7 @@ export function ActionTooltip({ action, children }: ActionTooltipProps) {
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent>
         {label}
-        {hotkey && <kbd className="ml-2 text-xs opacity-60">{hotkey}</kbd>}
+        {hotkey && <Kbd className="ml-2">{hotkey}</Kbd>}
       </TooltipContent>
     </Tooltip>
   )

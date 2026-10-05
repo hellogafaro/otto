@@ -40,7 +40,7 @@ export function ConnectionIcon({ connection, size = 16, className = '', showTool
     <ProviderLogo src={providerIcon} size={size} className={className} />
   ) : (
     <div
-      className={`rounded-[3px] bg-foreground/10 flex items-center justify-center flex-shrink-0 ${className}`}
+      className={`rounded-xs bg-foreground/10 flex items-center justify-center flex-shrink-0 ${className}`}
       style={{ width: size, height: size }}
     >
       <Brain

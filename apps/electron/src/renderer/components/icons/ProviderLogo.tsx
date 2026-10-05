@@ -16,7 +16,7 @@ interface ProviderLogoProps extends React.ComponentProps<'span'> {
 export function ProviderLogo({ src, size, className, style, ...props }: ProviderLogoProps) {
   const box = size ? { width: size, height: size } : undefined
   if (COLORED.has(src) || src.startsWith('http')) {
-    return <img src={src} alt="" aria-hidden className={cn('shrink-0 rounded-[2px]', className)} style={{ ...box, ...style }} {...(props as object)} />
+    return <img src={src} alt="" aria-hidden className={cn('shrink-0 rounded-xs', className)} style={{ ...box, ...style }} {...(props as object)} />
   }
   // Small SVGs are inlined as data URIs, which need the quotes.
   const mask = `url(${JSON.stringify(src)})`

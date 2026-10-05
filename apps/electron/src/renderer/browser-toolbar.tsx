@@ -196,7 +196,7 @@ function BrowserToolbarApp() {
                 <HeaderIconButton
                   icon={<X className="h-3.5 w-3.5" />}
                   aria-label={t('browser.windowOptions')}
-                  className={themeColor ? '' : 'bg-background shadow-minimal hover:bg-foreground/5'}
+                  className={themeColor ? '' : 'bg-card shadow-minimal hover:bg-foreground/5'}
                   style={themeColor ? { color: 'var(--tb-fg)' } : undefined}
                 />
               </DropdownMenuTrigger>

@@ -235,7 +235,7 @@ export function CompactSessionMenu({
             type="button"
             className={cn(
               'flex items-center gap-1 px-2 py-1 rounded-md titlebar-no-drag min-w-0',
-              'hover:bg-foreground/[0.03] transition-colors',
+              'hover:bg-foreground/5 transition-colors',
               'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               'data-[state=open]:bg-foreground/[0.03]',
             )}
@@ -638,7 +638,7 @@ function Row({
       type="button"
       onClick={onTap}
       className={cn(
-        'flex items-center gap-3 w-full px-3 py-3 rounded-[10px] text-left transition-colors',
+        'flex items-center gap-3 w-full px-3 py-3 rounded-lg text-left transition-colors',
         'hover:bg-foreground/5 active:bg-foreground/10',
         destructive && 'text-destructive hover:bg-destructive/10 active:bg-destructive/15',
       )}

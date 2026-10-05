@@ -108,7 +108,7 @@ export function SetupAuthBanner({
       <Button
         onClick={onAction}
         size="sm"
-        className="shrink-0 text-xs rounded-[8px]"
+        className="shrink-0 text-xs rounded-md"
       >
         {getButtonText()}
       </Button>

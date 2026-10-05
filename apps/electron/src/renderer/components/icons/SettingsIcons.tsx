@@ -8,7 +8,7 @@
 import {
   Building2,
   Keyboard,
-  MessageCircle,
+  MessagesSquare,
   Palette,
   Server,
   ShieldCheck,
@@ -28,7 +28,7 @@ export const InputIcon = ({ className }: IconProps) => <Keyboard className={clas
 export const WorkspaceIcon = ({ className }: IconProps) => <Building2 className={className} />
 export const PermissionsIcon = ({ className }: IconProps) => <ShieldCheck className={className} />
 export const LabelsIcon = ({ className }: IconProps) => <Tag className={className} />
-export const MessagingSettingsIcon = ({ className }: IconProps) => <MessageCircle className={className} />
+export const MessagingSettingsIcon = ({ className }: IconProps) => <MessagesSquare className={className} />
 export const ServerSettingsIcon = ({ className }: IconProps) => <Server className={className} />
 export const ShortcutsIcon = ({ className }: IconProps) => <Keyboard className={className} />
 export const PreferencesIcon = ({ className }: IconProps) => <UserCircle className={className} />

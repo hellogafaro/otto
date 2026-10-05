@@ -86,7 +86,7 @@ export function PageTile({ page, project, onOpen, onDelete }: PageTileProps) {
           aria-label={config.name}
           className={cn(
             'group relative flex flex-col overflow-hidden rounded-xl border border-foreground/[0.08] bg-card text-left shadow-minimal',
-            'cursor-pointer transition-colors duration-150 hover:border-foreground/20 hover:bg-foreground/[0.02]',
+            'cursor-pointer transition-colors duration-150 hover:border-foreground/20 hover:bg-foreground/5',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >

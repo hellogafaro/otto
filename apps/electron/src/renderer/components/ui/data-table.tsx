@@ -270,7 +270,7 @@ export function SortableHeader<TData, TValue>({
     <Button
       variant="ghost"
       onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      className={cn('w-full justify-start p-1.5 pl-2.5', className)}
+      className={cn('w-full justify-start rounded-none p-1.5 pl-2.5', className)}
     >
       {title}
     </Button>
