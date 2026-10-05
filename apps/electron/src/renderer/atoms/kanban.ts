@@ -6,9 +6,8 @@
  * stays applied when they return.
  *
  * Column colors and the live-pulse toggle are appearance *preferences*, so they
- * persist to localStorage via `atomWithStorage` (same pattern as
- * `workspaceAvatarColorsAtom`) — reactive, multi-window, no RPC/disk-config. They
- * are per-machine, not workspace-synced.
+ * persist to localStorage via `atomWithStorage` — reactive, multi-window, no
+ * RPC/disk-config. They are per-machine, not workspace-synced.
  */
 
 import { atom } from 'jotai'

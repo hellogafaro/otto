@@ -3,10 +3,9 @@ import ReactDOM from 'react-dom/client'
 import { init as sentryInit } from '@sentry/electron/renderer'
 import * as Sentry from '@sentry/react'
 import { captureConsoleIntegration } from '@sentry/react'
-import { Provider as JotaiProvider, useAtomValue } from 'jotai'
+import { Provider as JotaiProvider } from 'jotai'
 import App from './App'
 import { ThemeProvider } from './context/ThemeContext'
-import { windowWorkspaceIdAtom } from './atoms/sessions'
 import { Toaster } from '@/components/ui/sonner'
 import { setupI18n, i18n } from '@craft-agent/shared/i18n'
 import { redactSensitiveHeadersInPlace, redactSensitiveKeysInPlace } from '@craft-agent/shared/utils/redaction'
@@ -105,15 +104,12 @@ function CrashFallback() {
 }
 
 /**
- * Root component - loads workspace ID for theme context and renders App
+ * Root component - renders App in the theme and toast providers
  * App.tsx handles window mode detection internally (main vs tab-content)
  */
 function Root() {
-  // Shared atom — written by App on init & workspace switch, read here for ThemeProvider
-  const workspaceId = useAtomValue(windowWorkspaceIdAtom)
-
   return (
-    <ThemeProvider activeWorkspaceId={workspaceId}>
+    <ThemeProvider>
       <App />
       <Toaster />
     </ThemeProvider>

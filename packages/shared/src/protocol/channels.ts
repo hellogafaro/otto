@@ -120,11 +120,6 @@ export const RPC_CHANNELS = {
     SET_COLOR_THEME: 'theme:setColorTheme',
     BROADCAST_PREFERENCES: 'theme:broadcastPreferences',
     PREFERENCES_CHANGED: 'theme:preferencesChanged',
-    GET_WORKSPACE_COLOR_THEME: 'theme:getWorkspaceColorTheme',
-    SET_WORKSPACE_COLOR_THEME: 'theme:setWorkspaceColorTheme',
-    GET_ALL_WORKSPACE_THEMES: 'theme:getAllWorkspaceThemes',
-    BROADCAST_WORKSPACE_THEME: 'theme:broadcastWorkspaceTheme',
-    WORKSPACE_THEME_CHANGED: 'theme:workspaceThemeChanged',
   },
   system: {
     VERSIONS: 'system:versions',

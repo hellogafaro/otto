@@ -41,12 +41,9 @@ const FALLBACK_THEME_OPTIONS = [
 export function PlaygroundApp() {
   const categories = React.useMemo(() => getCategories(), [])
   const {
-    workspaceColorTheme,
     effectiveColorTheme,
     setColorTheme,
-    setWorkspaceColorTheme,
     setPreviewColorTheme,
-    activeWorkspaceId,
   } = useTheme()
   const [presetThemes, setPresetThemes] = React.useState<PresetTheme[]>([])
   const [selectedId, setSelectedId] = React.useState<string | null>(() => {
@@ -180,13 +177,6 @@ export function PlaygroundApp() {
 
     // Apply immediately regardless of persistence layer
     setPreviewColorTheme(normalized)
-
-    // Respect current precedence: if a workspace override is active, update that;
-    // otherwise update app default theme.
-    if (workspaceColorTheme !== null && activeWorkspaceId) {
-      setWorkspaceColorTheme(normalized)
-      return
-    }
 
     setColorTheme(nextTheme)
   }

@@ -9,10 +9,8 @@
  */
 
 import * as React from 'react'
-import { useAtomValue } from 'jotai'
 import { CrossfadeAvatar } from './avatar'
 import { cn } from '@/lib/utils'
-import { workspaceAvatarColorsAtom } from '@/atoms/workspace-avatar-colors'
 
 function hashString(str: string): number {
   let hash = 5381
@@ -43,14 +41,11 @@ export function WorkspaceAvatar({
   className,
   fallbackClassName,
 }: WorkspaceAvatarProps) {
-  const colorOverrides = useAtomValue(workspaceAvatarColorsAtom)
   const initial = (workspaceName?.trim().charAt(0) || 'W').toUpperCase()
   const hasId = !!workspaceId
-  const override = hasId ? colorOverrides[workspaceId!] : undefined
   const bgStyle = hasId
     ? {
-        backgroundColor:
-          override || `hsl(${getWorkspaceHue(workspaceId!)}, 45%, 52%)`,
+        backgroundColor: `hsl(${getWorkspaceHue(workspaceId!)}, 45%, 52%)`,
       }
     : undefined
 

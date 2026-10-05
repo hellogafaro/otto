@@ -275,15 +275,10 @@ export const CHANNEL_MAP = {
   loadPresetTheme: invoke(RPC_CHANNELS.theme.LOAD_PRESET),
   getColorTheme: invoke(RPC_CHANNELS.theme.GET_COLOR_THEME),
   setColorTheme: invoke(RPC_CHANNELS.theme.SET_COLOR_THEME),
-  getWorkspaceColorTheme: invoke(RPC_CHANNELS.theme.GET_WORKSPACE_COLOR_THEME),
-  setWorkspaceColorTheme: invoke(RPC_CHANNELS.theme.SET_WORKSPACE_COLOR_THEME),
-  getAllWorkspaceThemes: invoke(RPC_CHANNELS.theme.GET_ALL_WORKSPACE_THEMES),
   getLogoUrl: invoke(RPC_CHANNELS.logo.GET_URL),
   onAppThemeChange: listener(RPC_CHANNELS.theme.APP_CHANGED),
   broadcastThemePreferences: invoke(RPC_CHANNELS.theme.BROADCAST_PREFERENCES),
   onThemePreferencesChange: listener(RPC_CHANNELS.theme.PREFERENCES_CHANGED),
-  broadcastWorkspaceThemeChange: invoke(RPC_CHANNELS.theme.BROADCAST_WORKSPACE_THEME),
-  onWorkspaceThemeChange: listener(RPC_CHANNELS.theme.WORKSPACE_THEME_CHANGED),
 
   // Notifications
   showNotification: invoke(RPC_CHANNELS.notification.SHOW),

@@ -24,10 +24,6 @@ export const CORE_HANDLED_CHANNELS = [
   RPC_CHANNELS.theme.GET_COLOR_THEME,
   RPC_CHANNELS.theme.SET_COLOR_THEME,
   RPC_CHANNELS.theme.BROADCAST_PREFERENCES,
-  RPC_CHANNELS.theme.GET_WORKSPACE_COLOR_THEME,
-  RPC_CHANNELS.theme.SET_WORKSPACE_COLOR_THEME,
-  RPC_CHANNELS.theme.GET_ALL_WORKSPACE_THEMES,
-  RPC_CHANNELS.theme.BROADCAST_WORKSPACE_THEME,
   RPC_CHANNELS.views.LIST,
   RPC_CHANNELS.views.SAVE,
   RPC_CHANNELS.toolIcons.GET_MAPPINGS,
@@ -304,43 +300,8 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
   })
 
   // Broadcast theme preferences to all other windows (for cross-window sync)
-  server.handle(RPC_CHANNELS.theme.BROADCAST_PREFERENCES, async (ctx, preferences: { mode: string; colorTheme: string; font: string }) => {
+  server.handle(RPC_CHANNELS.theme.BROADCAST_PREFERENCES, async (ctx, preferences: { mode: string; colorTheme: string }) => {
     pushTyped(server, RPC_CHANNELS.theme.PREFERENCES_CHANGED, { to: 'all' }, preferences)
-  })
-
-  // Workspace-level theme overrides
-  server.handle(RPC_CHANNELS.theme.GET_WORKSPACE_COLOR_THEME, async (_ctx, workspaceId: string) => {
-    const { getWorkspaces } = await import('@craft-agent/shared/config/storage')
-    const { getWorkspaceColorTheme } = await import('@craft-agent/shared/workspaces/storage')
-    const workspaces = getWorkspaces()
-    const workspace = workspaces.find(w => w.id === workspaceId)
-    if (!workspace) return null
-    return getWorkspaceColorTheme(workspace.rootPath) ?? null
-  })
-
-  server.handle(RPC_CHANNELS.theme.SET_WORKSPACE_COLOR_THEME, async (_ctx, workspaceId: string, themeId: string | null) => {
-    const { getWorkspaces } = await import('@craft-agent/shared/config/storage')
-    const { setWorkspaceColorTheme } = await import('@craft-agent/shared/workspaces/storage')
-    const workspaces = getWorkspaces()
-    const workspace = workspaces.find(w => w.id === workspaceId)
-    if (!workspace) return
-    setWorkspaceColorTheme(workspace.rootPath, themeId ?? undefined)
-  })
-
-  server.handle(RPC_CHANNELS.theme.GET_ALL_WORKSPACE_THEMES, async () => {
-    const { getWorkspaces } = await import('@craft-agent/shared/config/storage')
-    const { getWorkspaceColorTheme } = await import('@craft-agent/shared/workspaces/storage')
-    const workspaces = getWorkspaces()
-    const themes: Record<string, string | undefined> = {}
-    for (const ws of workspaces) {
-      themes[ws.id] = getWorkspaceColorTheme(ws.rootPath)
-    }
-    return themes
-  })
-
-  // Broadcast workspace theme change to all other windows (for cross-window sync)
-  server.handle(RPC_CHANNELS.theme.BROADCAST_WORKSPACE_THEME, async (ctx, workspaceId: string, themeId: string | null) => {
-    pushTyped(server, RPC_CHANNELS.theme.WORKSPACE_THEME_CHANGED, { to: 'all' }, { workspaceId, themeId })
   })
 
   // ============================================================

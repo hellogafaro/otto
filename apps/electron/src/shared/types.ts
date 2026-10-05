@@ -547,9 +547,6 @@ export interface ElectronAPI {
   loadPresetTheme(themeId: string): Promise<import('@config/theme').PresetTheme | null>
   getColorTheme(): Promise<string>
   setColorTheme(themeId: string): Promise<void>
-  getWorkspaceColorTheme(workspaceId: string): Promise<string | null>
-  setWorkspaceColorTheme(workspaceId: string, themeId: string | null): Promise<void>
-  getAllWorkspaceThemes(): Promise<Record<string, string | undefined>>
 
   // Theme change listeners
   onAppThemeChange(callback: (theme: import('@config/theme').ThemeOverrides | null) => void): () => void
@@ -612,8 +609,6 @@ export interface ElectronAPI {
   onThemePreferencesChange(callback: (preferences: { mode: string; colorTheme: string }) => void): () => void
 
   // Workspace theme sync across windows
-  broadcastWorkspaceThemeChange(workspaceId: string, themeId: string | null): Promise<void>
-  onWorkspaceThemeChange(callback: (data: { workspaceId: string; themeId: string | null }) => void): () => void
 
   // Git operations
   getGitBranch(dirPath: string): Promise<string | null>

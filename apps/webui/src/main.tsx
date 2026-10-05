@@ -1,9 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { Provider as JotaiProvider, useAtomValue } from 'jotai'
+import { Provider as JotaiProvider } from 'jotai'
 import App from './App'
 import { ThemeProvider } from '@/context/ThemeContext'
-import { windowWorkspaceIdAtom } from '@/atoms/sessions'
 import { Toaster } from '@/components/ui/sonner'
 import { setupI18n } from '@craft-agent/shared/i18n'
 import { initReactI18next } from 'react-i18next'
@@ -40,10 +39,8 @@ function ErrorBoundary({ children }: { children: React.ReactNode }) {
 }
 
 function Root() {
-  const workspaceId = useAtomValue(windowWorkspaceIdAtom)
-
   return (
-    <ThemeProvider activeWorkspaceId={workspaceId}>
+    <ThemeProvider>
       <App />
       <Toaster />
     </ThemeProvider>
