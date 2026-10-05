@@ -10,7 +10,6 @@ import {
   DatabaseZap,
   Zap,
   Inbox,
-  ListTodo,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { HeaderIconButton } from "@/components/ui/header-icon-button"
@@ -103,11 +102,6 @@ interface AppShellProps {
   menuNewChatTrigger?: number
 }
 
-
-
-/** The sidebar's width: 232px, 288px where its section carries a list. */
-const SIDEBAR_WIDTH_DEFAULT = '232px'
-const SIDEBAR_WIDTH_LIST = '288px'
 
 /** Below 768px the sidebar is a sheet: choosing something closes it. */
 function CloseSheetOnNavigate() {
@@ -1099,6 +1093,34 @@ function AppShellContent({
     }
   }, [session.selected, ensureMessagesLoaded])
 
+  /**
+   * Resolve the "inherit sole active filter" rule for new sessions. Only
+   * include-mode filters are candidates — an excluded status/label/project must
+   * never be inherited (#970). See resolveInheritedFilterParams.
+   */
+  const resolveInheritedNewSessionParams = useCallback(
+    () => resolveInheritedFilterParams(listFilter, labelFilter, projectFilter),
+    [listFilter, labelFilter, projectFilter]
+  )
+
+  // Create a new chat and select it
+  const handleNewChat = useCallback(() => {
+    if (!activeWorkspace) return
+
+    // Exit search mode and switch to All Sessions
+    setSearchActive(false)
+    setSearchQuery('')
+
+    // Inherit sole-active filter into the new session when unambiguous.
+    const inherited = resolveInheritedNewSessionParams()
+
+    // Delegate to NavigationContext which handles session creation
+    navigate(routes.action.newSession(inherited ?? undefined))
+
+    // Focus the chat input after navigation completes
+    setTimeout(() => focusZone('chat', { intent: 'programmatic' }), 50)
+  }, [activeWorkspace, focusZone, navigate, resolveInheritedNewSessionParams])
+
   // Wrap delete handler to clear selection when deleting the currently selected session
   // This prevents stale state during re-renders that could cause crashes
   const handleDeleteSession = useCallback(async (sessionId: string, skipConfirmation?: boolean): Promise<boolean> => {
@@ -1122,6 +1144,7 @@ function AppShellContent({
     sessionStatuses: effectiveSessionStatuses,
     onSessionSourcesChange: handleSessionSourcesChange,
     isCompactMode: isAutoCompact,
+    onNewChat: handleNewChat,
     // Search state for ChatDisplay highlighting
     sessionListSearchQuery: searchActive ? searchQuery : undefined,
     isSearchModeActive: searchActive,
@@ -1134,7 +1157,7 @@ function AppShellContent({
     automationTestResults,
     getAutomationHistory,
     onReplayAutomation: handleReplayAutomation,
-  }), [contextValue, handleDeleteSession, sources, skills, activeSessionWorkingDirectory, displayLabelConfigs, handleSessionLabelsChange, enabledModes, effectiveSessionStatuses, handleSessionSourcesChange, isAutoCompact, searchActive, searchQuery, handleChatMatchInfoChange, handleTestAutomation, handleToggleAutomation, handleDuplicateAutomation, handleDeleteAutomation, automationTestResults, getAutomationHistory, handleReplayAutomation])
+  }), [contextValue, handleDeleteSession, handleNewChat, sources, skills, activeSessionWorkingDirectory, displayLabelConfigs, handleSessionLabelsChange, enabledModes, effectiveSessionStatuses, handleSessionSourcesChange, isAutoCompact, searchActive, searchQuery, handleChatMatchInfoChange, handleTestAutomation, handleToggleAutomation, handleDuplicateAutomation, handleDeleteAutomation, automationTestResults, getAutomationHistory, handleReplayAutomation])
 
   // Persist per-view filter map to localStorage (workspace-scoped)
   React.useEffect(() => {
@@ -1312,34 +1335,6 @@ function AppShellContent({
       toast.error(t('projectsList.createFailed'))
     }
   }, [activeWorkspace?.id, navigate, t])
-
-  /**
-   * Resolve the "inherit sole active filter" rule for new sessions. Only
-   * include-mode filters are candidates — an excluded status/label/project must
-   * never be inherited (#970). See resolveInheritedFilterParams.
-   */
-  const resolveInheritedNewSessionParams = useCallback(
-    () => resolveInheritedFilterParams(listFilter, labelFilter, projectFilter),
-    [listFilter, labelFilter, projectFilter]
-  )
-
-  // Create a new chat and select it
-  const handleNewChat = useCallback(() => {
-    if (!activeWorkspace) return
-
-    // Exit search mode and switch to All Sessions
-    setSearchActive(false)
-    setSearchQuery('')
-
-    // Inherit sole-active filter into the new session when unambiguous.
-    const inherited = resolveInheritedNewSessionParams()
-
-    // Delegate to NavigationContext which handles session creation
-    navigate(routes.action.newSession(inherited ?? undefined))
-
-    // Focus the chat input after navigation completes
-    setTimeout(() => focusZone('chat', { intent: 'programmatic' }), 50)
-  }, [activeWorkspace, focusZone, navigate, resolveInheritedNewSessionParams])
 
   // Delete Source - simplified since agents system is removed
   const handleDeleteSource = useCallback(async (sourceSlug: string) => {
@@ -1807,7 +1802,6 @@ function AppShellContent({
           areaLinks={[
             { id: 'skills', label: t("sidebar.skills"), icon: Zap, onSelect: handleSkillsClick },
             { id: 'sources', label: t("sidebar.sources"), icon: DatabaseZap, onSelect: handleSourcesClick },
-            { id: 'automations', label: t("sidebar.automations"), icon: ListTodo, onSelect: handleAutomationsClick },
           ]}
         />
       </SidebarSection>
@@ -1923,16 +1917,16 @@ function AppShellContent({
     )
   }
 
-  // The area whose row is filled: Sources, Skills and Schedules live under Settings.
+  // The area whose row is filled: Sources and Skills live under Settings.
   const sidebarArea: SidebarArea | null = isSessionsNavigation(navState)
     ? 'chats'
     : isProjectsNavigation(navState)
       ? 'projects'
-      : isPagesNavigation(navState)
-        ? 'documents'
-        : 'settings'
-  // Sections that carry a list get the wide sidebar.
-  const hasListSection = !isSettingsNavigation(navState) && !isPagesNavigation(navState)
+      : isAutomationsNavigation(navState)
+        ? 'schedules'
+        : isPagesNavigation(navState)
+          ? 'documents'
+          : 'settings'
 
   // Search lives in the Chats list: from another area, go there first.
   const handleSearchClick = useCallback(() => {
@@ -1942,18 +1936,16 @@ function AppShellContent({
 
   return (
     <AppShellProvider value={appShellContextValue}>
-      <SidebarProvider
-        style={{ '--sidebar-width': hasListSection ? SIDEBAR_WIDTH_LIST : SIDEBAR_WIDTH_DEFAULT } as React.CSSProperties}
-      >
+      <SidebarProvider>
         {/* Electron: the top 8px above the card is window drag space too (the headers are the rest). */}
         {!isWebUI && <div aria-hidden className="titlebar-drag-region fixed inset-x-0 top-0 z-50 h-2" />}
         <CloseSheetOnNavigate />
         <AppSidebar
           active={sidebarArea}
-          onNewChat={() => handleNewChat()}
           onSearch={handleSearchClick}
           onChats={handleAllSessionsClick}
           onProjects={handleProjectsClick}
+          onSchedules={handleAutomationsClick}
           onDocuments={handlePagesClick}
           onSettings={() => handleSettingsClick()}
           onBack={goBack}
@@ -1971,8 +1963,8 @@ function AppShellContent({
         <FloatingCardProvider>
           <ContentCard>
             <MainContentPanel />
-            {/* The one floating action on Chats: a new chat (the sidebar has it on a phone). */}
-            {isSessionsNavigation(navState) && !isAutoCompact && (
+            {/* The one floating action on Chats: a new chat (narrower than 930px the page header has it). */}
+            {isSessionsNavigation(navState) && (
               <FabNewChat onClick={() => handleNewChat()} />
             )}
           </ContentCard>

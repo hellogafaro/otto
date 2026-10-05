@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { MessagesSquare, MoreHorizontal, PanelRight, Plus, Search, Settings, SquarePen } from 'lucide-react'
+import { MessagesSquare, MoreHorizontal, PanelRight, Plus, Search, Settings } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { ContentCard, ContentCardBody, ContentCardCrumbs, ContentCardHeader } from '@workspace/ui/components/content-card'
 import { FloatingActionButton } from '@workspace/ui/components/floating-action-button'
@@ -61,12 +61,6 @@ function ShellDemo({ floatingOpen, showNav, showCrumbs, showFab }: ShellDemoProp
           <SidebarContent>
             <SidebarGroup className="shrink-0">
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton tooltip={{ children: <>New chat<Kbd>⌘N</Kbd></>, hidden: false }}>
-                    <SquarePen />
-                    <span>New chat</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton tooltip="Search">
                     <Search />

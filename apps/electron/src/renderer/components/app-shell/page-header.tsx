@@ -9,6 +9,8 @@
  * - a page opened from a list (a chat) also gets the floating Back / Previous / Next
  *   in the card's left margin when the card is wide, and Previous / Next in the
  *   header's actions when it is not;
+ * - on Chats, New chat in the actions while the card is narrower than 930px (the
+ *   floating "+" is hidden then; see `FabNewChat`);
  * - on Electron the header is the window's drag region; the controls opt out.
  */
 
@@ -24,11 +26,12 @@ import { SidebarTrigger, useSidebar } from '@workspace/ui/components/sidebar'
 import { cn } from '@/lib/utils'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useSession } from '@/hooks/use-session'
-import { useNavigation } from '@/contexts/navigation-context'
+import { isSessionsNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
 import { useParentView } from '@/hooks/use-parent-view'
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { StyledDropdownMenuContent } from '@/components/ui/styled-dropdown'
 import { BrowserTabStrip } from '../browser/browser-tab-strip'
+import { HeaderNewChat } from './fab-new-chat'
 
 export interface PageHeaderProps {
   /** Header title (undefined hides with animation) */
@@ -61,9 +64,10 @@ export function PageHeader({
   isRegeneratingTitle,
 }: PageHeaderProps) {
   const { t } = useTranslation()
-  const { isCompactMode } = useAppShellContext()
+  const { isCompactMode, onNewChat } = useAppShellContext()
   const { isMobile } = useSidebar()
   const { listNav } = useNavigation()
+  const navState = useNavigationState()
   const parent = useParentView()
   const [session] = useSession()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -147,6 +151,7 @@ export function PageHeader({
               />
             )}
             {actions}
+            {onNewChat && isSessionsNavigation(navState) && <HeaderNewChat onClick={onNewChat} />}
           </div>
         }
       />

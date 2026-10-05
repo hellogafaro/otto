@@ -3,7 +3,8 @@
  *
  * Top to bottom: the header (the Otto mark; on Electron the macOS
  * traffic-light inset, the drag region and the history Back / Forward buttons),
- * the primary group (New chat, Search, then the areas), the section that belongs
+ * the primary group (the areas, in the order of DESIGN.md; ones with no route
+ * yet are shown, not linked), the section that belongs
  * to the open area (passed in as `section`: Chats brings its filters and list,
  * Settings its pages), and the footer (Settings, then the workspace menu).
  * Icons only below 1024px, a sheet below 768px (see the design system's
@@ -12,7 +13,20 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, FileText, Folder, MessagesSquare, Search, Settings, SquarePen } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  CircleCheck,
+  Clock,
+  FileText,
+  Folder,
+  FolderClosed,
+  Inbox,
+  MessagesSquare,
+  Search,
+  Settings,
+  type LucideIcon,
+} from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { Logo } from '@workspace/ui/components/logo'
 import {
@@ -33,15 +47,15 @@ import { Kbd } from '@/components/ui/kbd'
 import type { Workspace } from '../../../shared/types'
 import { WorkspaceSwitcher } from './workspace-switcher'
 
-export type SidebarArea = 'chats' | 'projects' | 'documents' | 'settings'
+export type SidebarArea = 'chats' | 'projects' | 'schedules' | 'documents' | 'settings'
 
 interface AppSidebarProps {
   /** The area that is open (its row is filled). */
   active: SidebarArea | null
-  onNewChat: () => void
   onSearch: () => void
   onChats: () => void
   onProjects: () => void
+  onSchedules: () => void
   onDocuments: () => void
   onSettings: () => void
   /** History navigation (Electron only: the browser has its own). */
@@ -59,16 +73,27 @@ interface AppSidebarProps {
   section?: React.ReactNode
 }
 
+interface PrimaryItem {
+  id: string
+  icon: LucideIcon
+  labelKey: string
+  /** The area this row fills while open. */
+  area?: SidebarArea
+  /** Rows without a handler are placeholders: shown, not linked yet. */
+  onSelect?: () => void
+  hotkey?: string
+}
+
 // macOS draws its traffic lights over the window's top-left, only in the desktop
 // app: the header clears them (the browser has none, whatever the OS).
 const clearsTrafficLights = isMac && !isWebUI
 
 export function AppSidebar({
   active,
-  onNewChat,
   onSearch,
   onChats,
   onProjects,
+  onSchedules,
   onDocuments,
   onSettings,
   onBack,
@@ -84,7 +109,6 @@ export function AppSidebar({
   section,
 }: AppSidebarProps) {
   const { t } = useTranslation()
-  const newChatHotkey = useActionLabel('app.newChat').hotkey ?? undefined
   const searchHotkey = useActionLabel('app.search').hotkey ?? undefined
   const settingsHotkey = useActionLabel('app.settings').hotkey ?? undefined
 
@@ -92,6 +116,18 @@ export function AppSidebar({
   const withKey = (label: string, hotkey?: string) => hotkey
     ? { children: <>{label}<Kbd>{hotkey}</Kbd></>, hidden: false }
     : label
+
+  // The rail's order. Search opens the Chats search; the rest have a route or are placeholders.
+  const primary: PrimaryItem[] = [
+    { id: 'inbox', icon: Inbox, labelKey: 'sidebar.inbox' },
+    { id: 'search', icon: Search, labelKey: 'sidebar.search', onSelect: onSearch, hotkey: searchHotkey },
+    { id: 'tasks', icon: CircleCheck, labelKey: 'sidebar.tasks' },
+    { id: 'projects', icon: Folder, labelKey: 'sidebar.projects', area: 'projects', onSelect: onProjects },
+    { id: 'chats', icon: MessagesSquare, labelKey: 'sidebar.chats', area: 'chats', onSelect: onChats },
+    { id: 'schedules', icon: Clock, labelKey: 'sidebar.schedules', area: 'schedules', onSelect: onSchedules },
+    { id: 'documents', icon: FileText, labelKey: 'sidebar.documents', area: 'documents', onSelect: onDocuments },
+    { id: 'files', icon: FolderClosed, labelKey: 'sidebar.files' },
+  ]
 
   return (
     <Sidebar>
@@ -132,36 +168,20 @@ export function AppSidebar({
       <SidebarContent>
         <SidebarGroup className="shrink-0">
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton data-tutorial="new-chat-button" tooltip={withKey(t('menu.newChat'), newChatHotkey)} onClick={onNewChat}>
-                <SquarePen />
-                <span>{t('menu.newChat')}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton tooltip={withKey(t('sidebar.search'), searchHotkey)} onClick={onSearch}>
-                <Search />
-                <span>{t('sidebar.search')}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton isActive={active === 'chats'} tooltip={t('sidebar.chats')} onClick={onChats}>
-                <MessagesSquare />
-                <span>{t('sidebar.chats')}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton isActive={active === 'projects'} tooltip={t('sidebar.projects')} onClick={onProjects}>
-                <Folder />
-                <span>{t('sidebar.projects')}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton isActive={active === 'documents'} tooltip={t('sidebar.documents')} onClick={onDocuments}>
-                <FileText />
-                <span>{t('sidebar.documents')}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {primary.map((item) => (
+              <SidebarMenuItem key={item.id}>
+                <SidebarMenuButton
+                  isActive={!!item.area && active === item.area}
+                  tooltip={withKey(t(item.labelKey), item.hotkey)}
+                  onClick={item.onSelect}
+                  // A placeholder stays readable but is no tab stop and has no pointer.
+                  {...(!item.onSelect && { 'aria-disabled': true, tabIndex: -1 })}
+                >
+                  <item.icon />
+                  <span>{t(item.labelKey)}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
         </SidebarGroup>
         <div className="flex min-h-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">{section}</div>

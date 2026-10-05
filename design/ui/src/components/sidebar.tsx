@@ -23,14 +23,14 @@ import * as React from "react"
 import { MenuIcon } from "lucide-react"
 
 // Otto: the shell's one sidebar, on the frame beside the page card (Threads'
-// layout). Widths are px so the root font size never changes them: 232px,
-// 288px where a section carries its own list (set per section through
-// `--sidebar-width` on the provider), 48px as icons only (8 | 32 | 8, the
-// rail's old geometry). There is no manual toggle, cookie or shortcut: the
+// layout). Widths are px so the root font size never changes them: ONE width
+// for every section and page, 256px (also the sheet below 768px; the Chats
+// list and the Settings pages both fit), 48px as icons only (8 | 32 | 8, the rail's old geometry). Nothing
+// sets `--sidebar-width` per section. There is no manual toggle, cookie or shortcut: the
 // sidebar is expanded from 1024px up, icons only below, and below 768px it is a
-// sheet opened by the menu button in the page header.
-const SIDEBAR_WIDTH = "232px"
-const SIDEBAR_WIDTH_MOBILE = "288px"
+// sheet opened by the menu button in the page header. A row with
+// `aria-disabled` is an area not linked yet: shown, readable, no pointer.
+const SIDEBAR_WIDTH = "256px"
 const SIDEBAR_WIDTH_ICON = "48px"
 const SIDEBAR_EXPANDED_QUERY = "(min-width: 1024px)"
 
@@ -115,9 +115,7 @@ function Sidebar({
           initialFocus={false}
           className="bg-sidebar p-2 text-sidebar-foreground data-[side=left]:w-(--sidebar-width) [&>button]:hidden"
           style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-            } as React.CSSProperties
+            { "--sidebar-width": SIDEBAR_WIDTH } as React.CSSProperties
           }
           side="left"
         >
@@ -339,7 +337,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 // side, so 7px around a 14px icon). Labels start 32px in. Icons only (below
 // 1024px) the row is a 32px square, 8 | 32 | 8 in the 48px sidebar.
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-sm px-2 py-1 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] has-[>svg:first-child,>[data-slot=avatar]:first-child,>[data-slot=icon-slot]:first-child]:pl-1 [&>svg:first-child]:mx-0.75 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:[&>svg:not(:first-child)]:hidden group-data-[collapsible=icon]:[&>svg:first-child]:mx-0 hover:text-foreground not-data-active:group-hover/menu-item:bg-sidebar-accent/60 group-hover/menu-item:text-foreground aria-expanded:text-foreground focus-visible:ring-2 active:text-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-active:bg-sidebar-accent data-active:font-medium data-active:text-foreground data-active:shadow-xs data-active:ring-1 data-active:ring-foreground/10 [&_svg]:size-3.5 [&_svg]:shrink-0 [&>span:last-child]:truncate",
+  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-sm px-2 py-1 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] has-[>svg:first-child,>[data-slot=avatar]:first-child,>[data-slot=icon-slot]:first-child]:pl-1 [&>svg:first-child]:mx-0.75 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:[&>svg:not(:first-child)]:hidden group-data-[collapsible=icon]:[&>svg:first-child]:mx-0 hover:text-foreground not-data-active:group-hover/menu-item:bg-sidebar-accent/60 group-hover/menu-item:text-foreground aria-expanded:text-foreground focus-visible:ring-2 active:text-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-default data-active:bg-sidebar-accent data-active:font-medium data-active:text-foreground data-active:shadow-xs data-active:ring-1 data-active:ring-foreground/10 [&_svg]:size-3.5 [&_svg]:shrink-0 [&>span:last-child]:truncate",
   {
     variants: {
       size: {

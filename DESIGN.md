@@ -99,9 +99,7 @@ components:
     rounded: "{rounded.xl}"
   sidebar:
     backgroundColor: "{colors.frame}"
-    width: 232px
-  sidebar-list:
-    width: 288px
+    width: 256px
   sidebar-icons:
     width: 48px
   content-card-header:
@@ -443,28 +441,35 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   each side of the slot, so it is 7px from every edge. Labels after a slot
   share one column (32px in), and a
   combobox's search icon and text sit on the items' columns.
-- **Sidebar** (`Sidebar`, design system). 232px expanded, 288px while its
-  section carries a list (Chats, Projects, Sources, Skills, Schedules), 48px as
-  icons only. It is expanded from 1024px up and icons only below; below 768px
-  it is a sheet opened by the menu button in the page header. There is no
-  toggle button, cookie or shortcut: the window decides. No resizing: the
-  widths are fixed (set per section through `--sidebar-width`). Inside, 8px
-  from the window's edges and from the card, top to bottom:
+- **Sidebar** (`Sidebar`, design system). ONE width for every section and
+  page: 256px expanded (also the sheet below 768px), 48px as icons only. It
+  never changes with the page: no section sets `--sidebar-width`, and 256px is
+  the width at which both the Chats list and the Settings pages fit. It is
+  expanded from 1024px up and icons only below; below 768px it is a sheet
+  opened by the menu button in the page header. There is no toggle button,
+  cookie or shortcut: the window decides. No resizing. Inside, 8px from the
+  window's edges and from the card, top to bottom:
   - **Header**: the Otto mark alone, 20px (`size-5`, `text-foreground`), no
     name. On Electron the header is the window's drag region,
     its row clears the macOS traffic lights (68px in; icons only, the row sits
     below them) and Back / Forward end it as two 28px ghost icon buttons with
     their keys in the tooltip (history back and forward, see Navigation). The
     web app has neither: the browser has its own.
-  - **Primary group**: New chat and Search (each with its `Kbd` in the
-    tooltip), then the areas: Chats, Projects, Documents. Rows are 28px with
+  - **Primary group**, in this order: Inbox, Search (opens the Chats search;
+    its `Kbd` in the tooltip), Tasks, Projects, Chats, Schedules, Documents,
+    Files. It is one list in `app-sidebar.tsx` (id, icon, label, optional
+    handler). A row with no route yet (Inbox, Tasks, Files) is a placeholder,
+    shown not linked: no handler, no pointer, no tab stop (`aria-disabled`),
+    no open state, and still fully readable (not dimmed); the layout is final.
+    There is no New chat row: the floating "+" starts a chat (and the page
+    header's button when the card is narrow), as does ⌘N. Rows are 28px with
     `sm` 6 corners, 14px icons in a 20px slot, muted at rest, foreground on
     hover; hover is `--sidebar-accent` at 60%, the open area is `--sidebar-accent`
-    with the hairline ring. Areas with no route yet (Inbox, Tasks, Schedules,
-    Files) have no row. Skills, Sources and Schedules (automations) live under
-    Settings; opening one keeps Settings filled.
+    with the hairline ring. Schedules (automations) has its own row; Skills and
+    Sources live under Settings, and opening one keeps Settings filled.
   - **The area's section**, below, takes the height that is left and
-    scrolls inside itself: a 28px title row in 12px muted text with the
+    scrolls inside itself (with the edge fade when its content is taller, e.g. an
+    empty state on a short window): a 28px title row in 12px muted text with the
     area's own actions at its end (the Chats filter menu, a + to add), then its
     content. Chats: the status and label filters (collapsed to "All Sessions"
     and "Labels" until opened; the title is "Filters") above the session list,
@@ -496,7 +501,11 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   chat on Chats), bottom-right of the card, 16px from the corner. 40px,
   `bg-card`, `xl` corners, hairline ring, `shadow-sm`; tooltip to its left with
   the label and its `Kbd`. Hidden while the card is narrower than 930px (it
-  would sit on the composer) and below 768px, where the sidebar has New chat.
+  would sit on the composer), which includes everything below 768px: there the
+  page header's actions carry a ghost icon button New chat (`SquarePen`, 28px,
+  tooltip with the label and its `Kbd`) that replaces it. A chat can always
+  be started exactly once from the page: the "+" when wide, the header button
+  when narrow (and the ⌘N shortcut, bound by the shell, not the sidebar).
 - **Floating navigation** (`FloatingNav`): Superhuman's controls, in the page
   card's left margin below the header: a round 32px Back button and a vertical
   pill of Previous (up) and Next (down), `bg-card`, hairline ring, `shadow-sm`,
@@ -505,7 +514,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   896px wide (768px column + 2 × 56px); narrower, Back moves into the header's
   leading slot and Previous / Next into its actions as 28px ghost buttons.
 - **Widths**: the page column is 768px (3xl) for chat, lists and settings; the
-  sidebar is 232px, 288px with a list, 48px as icons; the floating card is
+  sidebar is 256px on every page, 48px as icons; the floating card is
   320px. Chat and settings share the column, so the floating navigation has
   the same margin everywhere.
 - **One left line.** The page title, headings, editor text, grid tiles and
@@ -602,7 +611,7 @@ the floating card follow it).
 
 | Primitive | API | Spec |
 | --- | --- | --- |
-| `SidebarProvider` / `Sidebar` | `style={{ '--sidebar-width': … }}` | 232px, 48px as icons, a sheet below 768px; no toggle, cookie or shortcut; absolute inside the shell; 8px container padding is the gutter; no border or ring |
+| `SidebarProvider` / `Sidebar` | | one width, 256px on every page (also the sheet below 768px), 48px as icons; a row with `aria-disabled` is a placeholder (no pointer, readable); no toggle, cookie or shortcut; absolute inside the shell; 8px container padding is the gutter; no border or ring |
 | `SidebarHeader`, `SidebarContent`, `SidebarFooter` | | 8px above and below (footer: above); content does not scroll, its groups do |
 | `SidebarGroup`, `SidebarGroupLabel`, `SidebarGroupAction` | | 28px title row, 12px medium muted; the action is a 24px ghost button, `xs` 4 corners, 2px inside the row |
 | `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton` | `isActive`, `size="default" \| "lg"`, `tooltip` (text, or `{ children, hidden }` for a label and `Kbd`) | 28px row, `sm` 6, 14px icon in a 20px slot; hover `sidebar-accent` 60%; active `sidebar-accent` + hairline ring + `shadow-xs`; `lg` is 40px, `xl` 12, for a 32px avatar; icons only: 32px square, label and trailing icons hidden, plain tooltips show |
