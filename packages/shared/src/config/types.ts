@@ -13,10 +13,3 @@ export type {
   OAuthCredentials,
 } from '@craft-agent/core/types';
 
-/** App-level network proxy configuration. */
-export interface NetworkProxySettings {
-  enabled: boolean;
-  httpProxy?: string;
-  httpsProxy?: string;
-  noProxy?: string;
-}

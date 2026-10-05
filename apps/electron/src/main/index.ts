@@ -231,10 +231,6 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient(DEEPLINK_SCHEME)
 }
 
-// Apply network proxy settings early (Node-level only — Electron sessions require app.whenReady)
-import { applyConfiguredProxySettings } from './network-proxy'
-void applyConfiguredProxySettings()
-
 // Accept self-signed / untrusted certificates when connecting to a user-configured remote server.
 // Only bypasses cert validation for the exact CRAFT_SERVER_URL origin — all other connections
 // use standard certificate verification. Without this, wss:// to self-signed servers fails with
@@ -407,10 +403,6 @@ app.whenReady().then(async () => {
 
   // Register thumbnail:// protocol handler (scheme was registered earlier, before app.whenReady)
   registerThumbnailHandler()
-
-  // Re-apply proxy settings now that Electron sessions are available
-  // (first call before app.whenReady only configured Node-level proxy)
-  await applyConfiguredProxySettings()
 
   // Note: electron-updater handles pending updates internally via autoInstallOnAppQuit
 

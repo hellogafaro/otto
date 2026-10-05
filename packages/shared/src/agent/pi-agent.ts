@@ -17,7 +17,6 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline';
 import type { AgentEvent } from '@craft-agent/core/types';
 import type { FileAttachment } from '../utils/files.ts';
-import { getProxyEnvVars } from '../config/proxy-env.ts';
 
 import type {
   BackendConfig,
@@ -516,7 +515,6 @@ export class PiAgent extends BaseAgent {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        ...getProxyEnvVars(),
         ...this.config.envOverrides,
         ...awsEnv,
         // Pass session dir for cross-process toolMetadataStore

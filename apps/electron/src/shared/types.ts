@@ -68,8 +68,8 @@ import type { ExportResourcesOptions, ExportResult, ResourceImportMode, Resource
 export type { ExportResourcesOptions, ExportResult, ResourceImportMode, ResourceBundle, ResourceImportResult };
 
 // LLM connection types
-import type { LlmConnection, LlmConnectionWithStatus, LlmAuthType, LlmProviderType, NetworkProxySettings } from '@craft-agent/shared/config';
-export type { LlmConnection, LlmConnectionWithStatus, LlmAuthType, LlmProviderType, NetworkProxySettings };
+import type { LlmConnection, LlmConnectionWithStatus, LlmAuthType, LlmProviderType } from '@craft-agent/shared/config';
+export type { LlmConnection, LlmConnectionWithStatus, LlmAuthType, LlmProviderType };
 import type {
   DecisionLayerFeature,
   DecisionLayerSettings,
@@ -567,10 +567,6 @@ export interface ElectronAPI {
   testDecisionConnection(options?: { settings?: DecisionLayerSettingsPatch; apiKey?: string }): Promise<DecisionTestResult>
   /** GET {baseUrl}/health of the configured local decision server (Laya / custom). Never rejects for network errors. */
   probeDecisionServer(options?: { baseUrl?: string }): Promise<DecisionServerProbe>
-
-  // Network proxy settings
-  getNetworkProxySettings(): Promise<NetworkProxySettings | undefined>
-  setNetworkProxySettings(settings: NetworkProxySettings): Promise<void>
 
   refreshBadge(): Promise<void>
   setDockIconWithBadge(dataUrl: string): Promise<void>

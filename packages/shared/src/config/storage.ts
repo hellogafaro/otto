@@ -86,8 +86,6 @@ export interface StoredConfig {
   allowRemoteEvaluate?: boolean;  // Allow remote agents to call `browser_tool evaluate` on local browser (default: true).
   // Decision layer (Jev / TypeSafe System One) — opt-in, off by default. See src/decisions/.
   decisionLayer?: DecisionLayerStoredSettings;
-  // Network proxy
-  networkProxy?: import('./types.ts').NetworkProxySettings;
   // Windows: path to Git Bash (bash.exe) for the SDK subprocess
   gitBashPath?: string;
   // User chose "Setup later" during onboarding — skip showing onboarding on next launch
@@ -2928,57 +2926,6 @@ export function touchLlmConnection(slug: string): void {
     connection.lastUsedAt = Date.now();
     saveConfig(config);
   }
-}
-
-// ============================================
-// Network Proxy Settings
-// ============================================
-
-import type { NetworkProxySettings } from './types.ts';
-
-function normalizeProxyString(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed || undefined;
-}
-
-function normalizeNetworkProxySettings(
-  settings: NetworkProxySettings,
-): NetworkProxySettings {
-  return {
-    enabled: Boolean(settings.enabled),
-    httpProxy: normalizeProxyString(settings.httpProxy),
-    httpsProxy: normalizeProxyString(settings.httpsProxy),
-    noProxy: normalizeProxyString(settings.noProxy),
-  };
-}
-
-/**
- * Get the current network proxy settings.
- * Returns undefined if not configured.
- */
-export function getNetworkProxySettings(): NetworkProxySettings | undefined {
-  const config = loadStoredConfig();
-  return config?.networkProxy;
-}
-
-/**
- * Persist network proxy settings.
- * Deletes the key when disabled and all proxy fields are empty.
- */
-export function setNetworkProxySettings(settings: NetworkProxySettings): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-
-  const normalized = normalizeNetworkProxySettings(settings);
-
-  // Remove the key entirely when proxy is disabled and all fields are blank
-  if (!normalized.enabled && !normalized.httpProxy && !normalized.httpsProxy && !normalized.noProxy) {
-    delete config.networkProxy;
-  } else {
-    config.networkProxy = normalized;
-  }
-
-  saveConfig(config);
 }
 
 // ============================================

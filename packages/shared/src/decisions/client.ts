@@ -7,11 +7,8 @@
  * maps HTTP failures to `DecisionFailureKind`. It never puts the API key or the
  * state into an error message.
  *
- * Network proxy: the client uses the host's global `fetch`. In the Electron
- * main process that already goes through the user's proxy — see
- * `apps/electron/src/main/network-proxy.ts` (`setGlobalDispatcher`) — so
- * decision traffic needs no proxy plumbing of its own. Headless Bun hosts
- * follow whatever their runtime does for `fetch`.
+ * Network: the client uses the host's global `fetch` and has no proxy
+ * plumbing of its own; each host follows whatever its runtime does for `fetch`.
  */
 
 import { z } from 'zod';

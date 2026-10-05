@@ -3,7 +3,6 @@ import { join } from "path";
 import { homedir } from "os";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from "fs";
 import { debug } from "../utils/debug";
-import { getProxyEnvVars } from "../config/proxy-env.ts";
 import { getGitBashPath } from "../config/storage.ts";
 
 declare const CRAFT_AGENT_CLI_VERSION: string | undefined;
@@ -188,7 +187,6 @@ export function buildClaudeSubprocessEnv(
 ): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = {
         ...process.env,
-        ...getProxyEnvVars(),
         ...envOverrides,
         // Propagate debug mode from argv flag OR existing env var
         CRAFT_DEBUG: (process.argv.includes('--debug') || process.env.CRAFT_DEBUG === '1') ? '1' : '0',

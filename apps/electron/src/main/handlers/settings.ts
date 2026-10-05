@@ -4,7 +4,6 @@ import type { HandlerDeps } from './handler-deps'
 
 export const GUI_HANDLED_CHANNELS = [
   RPC_CHANNELS.power.SET_KEEP_AWAKE,
-  RPC_CHANNELS.settings.SET_NETWORK_PROXY,
 ] as const
 
 // ============================================================
@@ -20,11 +19,5 @@ export function registerSettingsGuiHandlers(server: RpcServer, _deps: HandlerDep
     setKeepAwakeWhileRunning(enabled)
     // Update the power manager's cached value and power state
     setKeepAwakeSetting(enabled)
-  })
-
-  // Set network proxy settings (requires Electron session proxy)
-  server.handle(RPC_CHANNELS.settings.SET_NETWORK_PROXY, async (_ctx, settings: import('@craft-agent/shared/config/types').NetworkProxySettings) => {
-    const { updateConfiguredProxySettings } = await import('../network-proxy')
-    await updateConfiguredProxySettings(settings)
   })
 }
