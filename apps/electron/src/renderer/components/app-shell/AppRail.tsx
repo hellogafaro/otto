@@ -62,7 +62,7 @@ export function AppRail({
   ]
   const settings: RailItem = { id: 'settings', label: 'Settings', icon: Settings, onSelect: onSettings }
   return (
-    <nav aria-label="Main" className="flex h-full w-12 shrink-0 select-none flex-col items-center justify-between py-2">
+    <nav aria-label="Main" className="flex h-full w-[48px] shrink-0 select-none flex-col items-center justify-between py-2">
       <div className="flex flex-col items-center gap-1">
         {main.map((item) => (
           <RailButton key={item.id} item={item} active={active === item.id} />
@@ -84,13 +84,13 @@ function RailButton({ item, active }: { item: RailItem; active: boolean }) {
           aria-current={active ? 'page' : undefined}
           onClick={item.onSelect}
           className={cn(
-            'flex size-8 items-center justify-center rounded-[8px] text-foreground/60 outline-none transition-colors',
+            'flex size-[32px] items-center justify-center rounded-[8px] text-foreground/60 outline-none transition-colors',
             'hover:bg-foreground/5 hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
             active && 'bg-foreground/10 text-foreground',
             !item.onSelect && 'cursor-default',
           )}
         >
-          <Icon className="size-4" />
+          <Icon className="size-[18px]" />
         </button>
       </TooltipTrigger>
       <TooltipContent side="right">{item.label}</TooltipContent>

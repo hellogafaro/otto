@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/styled-dropdown'
 import { DropdownMenuProvider } from '@/components/ui/menu-context'
 import { cn } from '@/lib/utils'
-import { Separator } from '@/components/ui/separator'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import type { SettingsSubpage } from '../../../shared/types'
 import { SETTINGS_ITEMS } from '../../../shared/menu-schema'
@@ -82,12 +81,6 @@ function SettingsItemRow({ item, isSelected, isFirst, onSelect }: SettingsItemRo
 
   return (
     <div className="settings-item" data-selected={isSelected || undefined}>
-      {/* Separator - only show if not first */}
-      {!isFirst && (
-        <div className="settings-separator pl-12 pr-4">
-          <Separator />
-        </div>
-      )}
       {/* Wrapper for button with proper margins */}
       <div className="settings-content relative group select-none pl-2 mr-2">
         {/* Icon - positioned absolutely for consistent alignment */}

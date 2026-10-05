@@ -4,7 +4,7 @@ import { isMac } from '@/lib/platform'
 export const PANEL_GAP = 6
 
 /** Padding from window edges to outermost panels (right, bottom, left when sidebar hidden) */
-export const PANEL_EDGE_INSET = 6
+export const PANEL_EDGE_INSET = 8
 
 /** Corner radius for panel edges touching the window boundary (macOS native corners → larger) */
 export const RADIUS_EDGE = isMac ? 14 : 8

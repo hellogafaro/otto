@@ -203,7 +203,7 @@
   --font-default: var(--font-sans);
 
   /* Layout */
-  --font-size-base: 13px;
+  --font-size-base: 15px;
   --radius: 0.625rem;
   --spacing: 0.25rem;
   --tracking-normal: 0em;

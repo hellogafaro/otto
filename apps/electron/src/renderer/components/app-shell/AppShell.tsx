@@ -2522,7 +2522,6 @@ function AppShellContent({
                           },
                         })),
                         // Separator: SortableStatusList splits here — items after become non-sortable trailingItems
-                        { id: 'separator:states-flagged', type: 'separator' as const },
                         // Flagged (trailing, non-sortable)
                         {
                           id: "nav:flagged",

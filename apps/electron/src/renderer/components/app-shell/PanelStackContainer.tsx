@@ -193,12 +193,13 @@ export function PanelStackContainer({
         marginRight: -8,
       }}
     >
+      {/* One card on the frame: the sidebar, the list and the page share it, split by hairlines. */}
       <motion.div
-        className="flex h-full"
+        className="flex h-full overflow-hidden bg-background ring-1 ring-foreground/10 shadow-xs"
         initial={false}
-        animate={{ paddingLeft: !hasSidebar ? PANEL_EDGE_INSET : 0 }}
+        animate={{ paddingLeft: 0 }}
         transition={transition}
-        style={{ gap: PANEL_GAP, flexGrow: 1, minWidth: 0 }}
+        style={{ flexGrow: 1, minWidth: 0, borderRadius: 12 }}
       >
         {/* === SIDEBAR SLOT === */}
         <motion.div
@@ -210,7 +211,7 @@ export function PanelStackContainer({
             opacity: hasSidebar ? 1 : 0,
           }}
           transition={transition}
-          className="h-full relative shrink-0"
+          className={cn('h-full relative shrink-0', hasSidebar && 'border-r border-foreground/10')}
           style={{ overflowX: 'clip', overflowY: 'visible' }}
         >
           <div className="h-full" style={{ width: sidebarWidth }}>
@@ -230,14 +231,8 @@ export function PanelStackContainer({
           transition={transition}
           className={cn(
             'h-full overflow-hidden relative shrink-0 z-[2]',
-            'bg-background shadow-middle',
+            hasNavigator && 'border-r border-foreground/10',
           )}
-          style={{
-            borderTopLeftRadius: RADIUS_INNER,
-            borderBottomLeftRadius: !hasSidebar ? RADIUS_EDGE : RADIUS_INNER,
-            borderTopRightRadius: RADIUS_INNER,
-            borderBottomRightRadius: RADIUS_INNER,
-          }}
         >
           <div className="h-full" style={{ width: navigatorWidth }}>
             {navigatorSlot}
