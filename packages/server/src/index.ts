@@ -33,7 +33,7 @@ import { bootstrapServer, startHealthHttpServer, generateServerToken } from '@cr
 import { validateSession, createWebuiHandler, nodeHttpAdapter } from '@craft-agent/server-core/webui'
 import type { WebuiHandler } from '@craft-agent/server-core/webui'
 import { getCredentialManager } from '@craft-agent/shared/credentials'
-import { assertSecretsReady } from '@craft-agent/shared/secrets'
+import { initSecrets } from '@craft-agent/shared/secrets'
 import { getWorkspaces } from '@craft-agent/shared/config'
 import { CONFIG_DIR } from '@craft-agent/shared/config/paths'
 import { createMessagingBootstrap, type MessagingBootstrapHandle } from '@craft-agent/messaging-gateway'
@@ -114,7 +114,7 @@ if (tlsCertPath || tlsKeyPath) {
 
 // Secrets are encrypted under ENCRYPTION_KEY: fail now, not at the first read.
 try {
-  assertSecretsReady()
+  initSecrets()
 } catch (err) {
   console.error(err instanceof Error ? err.message : err)
   process.exit(1)

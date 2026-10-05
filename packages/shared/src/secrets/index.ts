@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
-import { getDb, type Db } from '../db/index.ts'
+import { initDb, type Db } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { secrets } from './schema.ts'
 
@@ -74,11 +74,11 @@ export function createSecretsStore(db: Db, key: Buffer) {
 let store: ReturnType<typeof createSecretsStore> | undefined
 
 function defaultStore() {
-  return (store ??= createSecretsStore(getDb(), parseEncryptionKey(process.env.ENCRYPTION_KEY)))
+  return (store ??= createSecretsStore(initDb(), parseEncryptionKey(process.env.ENCRYPTION_KEY)))
 }
 
-/** Fail at boot, not at the first read, when the key is missing or wrong. */
-export function assertSecretsReady(): void {
+/** Set the secrets domain up at boot: fails now, not at the first read, when the key is missing or wrong. */
+export function initSecrets(): void {
   defaultStore()
 }
 

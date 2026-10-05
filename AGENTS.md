@@ -26,9 +26,9 @@ Otto is a Bun monorepo that started from Craft Agents (see [UPSTREAM](UPSTREAM.m
 
 - A domain owns its tables and exposes plain functions; other domains call those functions and never read its tables.
 - Every row id is `createId()` from `@craft-agent/shared/id` (12 lowercase letters and digits). No uuids, autoincrement or other id shapes.
-- Tables are plural snake_case. Display labels are `title`, discriminators `type`, timestamps `createdAt` / `updatedAt`. Getters are `getThing` / `getThings`.
+- Tables are plural snake_case. Display labels are `title`, discriminators `type`, timestamps `createdAt` / `updatedAt`. `getThing` / `getThings` only read existing data; when a function does more than read, name what it does: `init…` (set up once, at boot or first use), `create…`, `update…`, `delete…`, `run…`, `handle…`.
 - `secrets` is its own domain: `secrets(id, name, value)`, one `ENCRYPTION_KEY` env (32 bytes; the server refuses to boot without it; dev has a placeholder in Infisical), AES-256-GCM, no rotation or versioning. Other domains keep a `secretId`; the value never leaves the server.
-- Drizzle on `bun:sqlite`. Each domain keeps its tables in its own `schema.ts` and queries through `getDb()` from `@craft-agent/shared/db`; only `db/` and the `schema.ts` files know the database is SQLite, so Postgres later swaps the driver and the `sqlite-core` imports.
+- Drizzle on `bun:sqlite`. Each domain keeps its tables in its own `schema.ts` and queries through `initDb()` from `@craft-agent/shared/db`; only `db/` and the `schema.ts` files know the database is SQLite, so Postgres later swaps the driver and the `sqlite-core` imports.
 - No migrations until the MVP is stable: `bun run db:push` (run by `bun run dev`) diffs every `schema.ts` against the database and applies it, and refuses data loss without `--force`. Tests build a `:memory:` db with `openDb(':memory:')` and `pushSchema`.
 - Pi stays lean: one protocol, one endpoint. Provider accounts, sign-in, model discovery and routing belong to the `providers` domain and the gateway that turns the Claude and Codex CLIs into APIs, never to Pi.
 

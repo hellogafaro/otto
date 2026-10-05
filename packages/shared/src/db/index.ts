@@ -26,7 +26,7 @@ export type Db = ReturnType<typeof openDb>
 
 let shared: Db | undefined
 
-/** The process-wide database, opened on first use. */
-export function getDb(): Db {
+/** Open the process-wide database on first call and return it on every call after. */
+export function initDb(): Db {
   return (shared ??= openDb())
 }
