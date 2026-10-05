@@ -206,7 +206,7 @@ test("Every main route renders desktop and mobile in both themes; list failures 
   );
   await page.goto("/projects");
   await expect(page.getByRole("alert")).toContainText(
-    "This service is unavailable.",
+    "This service is unavailable,",
   );
   await page.unroute("**/projects?*");
   await page.getByRole("button", { name: "Retry", exact: true }).click();

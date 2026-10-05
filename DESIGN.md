@@ -725,6 +725,20 @@ once, and a value flipped back sends nothing. Every save shows the
 Deleting sits last under "Danger zone" and asks first. Adding an agent, a
 connection or a member asks Otto.
 
+**Models** (Settings › Models). Two lists by who can use the account:
+"Your connections" (only you) and "Workspace connections" (everyone in the
+workspace), each a card whose first row says "1 connection" / "No
+connections" with a ghost + that opens the providers (Codex). No filters, no
+priority order, no fallback and no "runs out" setting: an agent names its one
+account and model. A connection row leads with its provider icon, then the
+name, one line of state ("Connected", "Sign-in needed", "Disabled", plus
+"Added by <name>" when it is someone else's), a "Reconnect needed" badge while
+signed out, a ghost ⋯ menu (Reconnect or Enable, Share with workspace or Make
+private, Disable, then a red Disconnect, all asked first) and a chevron that
+opens its name, sign-in and models. Adding one signs in at once, in its open
+row. Disconnect removes the stored sign-in for good and takes the row off the
+page; the record stays only as history for sessions and runs pinned to it.
+
 **Agents** (Settings › Agents). Each agent shows its pixel mascot (BB's ten
 8x8 sprites, MIT, from MonoCode) in its name color wherever its avatar
 appears. The list opens each agent's own page (its row a link with a

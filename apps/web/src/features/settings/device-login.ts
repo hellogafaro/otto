@@ -20,6 +20,8 @@ export function useDeviceLogin(id: string) {
   useEffect(
     () => () => {
       controller.current?.abort();
+      // A remount (dev StrictMode) starts a fresh attempt; the aborted one must not block it.
+      controller.current = null;
     },
     [],
   );

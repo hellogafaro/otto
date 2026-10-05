@@ -183,7 +183,7 @@ test("Members save real roles, reject viewer writes, remove members and manage k
     expect(revokedResponse.status()).toBe(409);
     expect(await revokedResponse.json()).toMatchObject({ error: "conflict" });
     await expect(
-      page.getByRole("alert").filter({ hasText: "This item changed." }),
+      page.getByRole("alert").filter({ hasText: "This item changed," }),
     ).toBeVisible();
     await page
       .getByLabel("Accept invitation ID", { exact: true })
@@ -341,7 +341,7 @@ test("Known invitation acceptance uses the verified exact recipient and consumes
   }
 });
 
-test("Exact Codex account persists display and visibility, reports missing login/models services, and disables", async ({
+test("Exact Codex account persists display and visibility, reports missing login/models services, disables and disconnects", async ({
   page,
   fixture,
   browser,
@@ -351,16 +351,26 @@ test("Exact Codex account persists display and visibility, reports missing login
     fixture,
     "Settings Account Owner",
   );
-  await page.goto("/settings/models?status=disabled");
-  await page.getByRole("button", { name: "New account", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "New account", exact: true });
-  await dialog.getByLabel("Name", { exact: true }).fill("Settings Exact Codex");
+  const mine = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Your connections", exact: true }),
+  });
+  const shared = page.locator("section").filter({
+    has: page.getByRole("heading", {
+      name: "Workspace connections",
+      exact: true,
+    }),
+  });
+  await page.goto("/settings/models");
+  await expect(page.getByText("No connections", { exact: true })).toHaveCount(
+    2,
+  );
   const creationAck = responseFor(
     page,
     "POST",
     `/api/workspaces/${workspaceId}/subscriptions`,
   );
-  await dialog.getByRole("button", { name: "Create", exact: true }).click();
+  await mine.getByRole("button", { name: "Add connection" }).click();
+  await page.getByRole("menuitem", { name: "Codex", exact: true }).click();
   const creation = await creationAck;
   expect(creation.status()).toBe(200);
   const account = await creation.json();
@@ -370,45 +380,22 @@ test("Exact Codex account persists display and visibility, reports missing login
     visibility: "user",
     createdBy: userId,
   });
-  await page.waitForURL(
-    (url) => url.searchParams.get("account") === account.id,
-  );
-  await expect(
-    page.getByText("Codex · Needs authentication · Only creator", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Models", exact: true }),
-  ).toBeDisabled();
-  const loginAck = responseFor(
-    page,
-    "POST",
-    `/api/workspaces/${workspaceId}/subscriptions/${account.id}/login`,
-  );
-  await page.getByRole("button", { name: "Authenticate", exact: true }).click();
-  expect((await loginAck).status()).toBe(503);
+  await expect(mine.getByText("Sign-in needed", { exact: true })).toBeVisible();
+  // The new connection signs in at once; with no login service it says so and shows no device code.
   await expect(
     page.getByRole("alert").filter({ hasText: "This service is unavailable" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Codex · Needs authentication · Only creator", {
-      exact: true,
-    }),
   ).toBeVisible();
   await expect(page.getByText("Device code:", { exact: false })).toHaveCount(0);
 
   await page
-    .getByRole("textbox", { name: "Settings Exact Codex name", exact: true })
+    .getByRole("textbox", { name: "Codex name", exact: true })
     .fill("Settings Renamed Codex");
   const renameAck = responseFor(
     page,
     "PATCH",
     `/api/workspaces/${workspaceId}/subscriptions/${account.id}`,
   );
-  await page
-    .getByRole("textbox", { name: "Settings Exact Codex name", exact: true })
-    .blur();
+  await page.getByRole("textbox", { name: "Codex name", exact: true }).blur();
   expect((await renameAck).status()).toBe(200);
   await expect(
     page.getByRole("textbox", {
@@ -418,12 +405,12 @@ test("Exact Codex account persists display and visibility, reports missing login
   ).toHaveValue("Settings Renamed Codex");
   await page
     .getByRole("button", {
-      name: "Settings Renamed Codex visibility: Only you",
+      name: "Actions for Settings Renamed Codex",
       exact: true,
     })
     .click();
   await page
-    .getByRole("menuitemradio", { name: "Workspace", exact: true })
+    .getByRole("menuitem", { name: "Share with workspace", exact: true })
     .click();
   const sharingAck = responseFor(
     page,
@@ -437,8 +424,9 @@ test("Exact Codex account persists display and visibility, reports missing login
   expect((await sharingAck).status()).toBe(200);
   await page.reload();
   await expect(
-    page.getByText("Codex · Needs authentication · Workspace", { exact: true }),
+    shared.getByText("Settings Renamed Codex", { exact: true }),
   ).toBeVisible();
+  await expect(mine.getByText("No connections", { exact: true })).toBeVisible();
 
   const reader = await browser.newContext();
   try {
@@ -449,17 +437,14 @@ test("Exact Codex account persists display and visibility, reports missing login
       "Settings Account Reader",
       "contributor",
     );
-    await readerPage.goto(`/settings/models?account=${account.id}`);
+    await readerPage.goto("/settings/models");
     await expect(
-      readerPage.getByText("Codex · Needs authentication · Workspace", {
+      readerPage.getByText("Sign-in needed · Added by Settings Account Owner", {
         exact: true,
       }),
     ).toBeVisible();
     await expect(
-      readerPage.getByRole("button", { name: "Authenticate", exact: true }),
-    ).toHaveCount(0);
-    await expect(
-      readerPage.getByRole("button", { name: "Disable", exact: true }),
+      readerPage.getByRole("button", { name: /^Actions for / }),
     ).toHaveCount(0);
     const denied = await readerPage.evaluate(
       async ({ workspaceId, id }) =>
@@ -490,16 +475,21 @@ test("Exact Codex account persists display and visibility, reports missing login
     "GET",
     `/api/workspaces/${workspaceId}/subscriptions/${account.id}/models`,
   );
-  await page.getByRole("button", { name: "Models", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Expand Settings Renamed Codex" })
+    .click();
   expect((await modelsAck).status()).toBe(503);
   await expect(
     page.getByRole("alert").filter({ hasText: "This service is unavailable" }),
   ).toBeVisible();
-  await expect(page.getByText("Available models", { exact: true })).toHaveCount(
-    0,
-  );
   await expect(page.getByText(/gpt-|claude-/)).toHaveCount(0);
-  await page.getByRole("button", { name: "Disable", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Actions for Settings Renamed Codex",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("menuitem", { name: "Disable", exact: true }).click();
   const disableAck = responseFor(
     page,
     "PATCH",
@@ -510,16 +500,9 @@ test("Exact Codex account persists display and visibility, reports missing login
     .getByRole("button", { name: "Disable", exact: true })
     .click();
   expect((await disableAck).status()).toBe(200);
-  await expect(
-    page.getByText("Codex · Disabled · Workspace", { exact: true }),
-  ).toBeVisible();
+  await expect(shared.getByText("Disabled", { exact: true })).toBeVisible();
   await page.reload();
-  await expect(
-    page.getByText("Codex · Disabled · Workspace", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Models", exact: true }),
-  ).toBeDisabled();
+  await expect(shared.getByText("Disabled", { exact: true })).toBeVisible();
   const current = await page.evaluate(
     async ({ workspaceId, id }) =>
       await (
@@ -537,6 +520,39 @@ test("Exact Codex account persists display and visibility, reports missing login
     body: await page.screenshot(),
     contentType: "image/png",
   });
+
+  // Disconnect ends the account for good and takes it off the page.
+  await page
+    .getByRole("button", {
+      name: "Actions for Settings Renamed Codex",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("menuitem", { name: "Disconnect", exact: true }).click();
+  const disconnectAck = responseFor(
+    page,
+    "POST",
+    `/api/workspaces/${workspaceId}/subscriptions/${account.id}/disconnect`,
+  );
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Disconnect", exact: true })
+    .click();
+  expect((await disconnectAck).status()).toBe(200);
+  await expect(page.getByText("No connections", { exact: true })).toHaveCount(
+    2,
+  );
+  expect(
+    (
+      await page.evaluate(
+        async ({ workspaceId, id }) =>
+          await (
+            await fetch(`/api/workspaces/${workspaceId}/subscriptions/${id}`)
+          ).json(),
+        { workspaceId, id: account.id },
+      )
+    ).status,
+  ).toBe("disconnected");
 });
 
 test("MCP creation and configuration persist, missing discovery/connect services never imply connected", async ({
@@ -663,7 +679,7 @@ test("MCP creation and configuration persist, missing discovery/connect services
   });
 });
 
-for (const kind of ["account", "connection", "invitation"] as const) {
+for (const kind of ["connection", "invitation"] as const) {
   test(`Controlled lost ACK after real ${kind} commit never replays its creation POST`, async ({
     page,
     fixture,
@@ -673,27 +689,12 @@ for (const kind of ["account", "connection", "invitation"] as const) {
       fixture,
       `Settings Lost ACK ${kind}`,
     );
-    const section =
-      kind === "account"
-        ? "models"
-        : kind === "connection"
-          ? "connections"
-          : "members";
-    const collection =
-      kind === "account"
-        ? "subscriptions"
-        : kind === "connection"
-          ? "connections"
-          : "invitations";
+    const section = kind === "connection" ? "connections" : "members";
+    const collection = kind === "connection" ? "connections" : "invitations";
     const path = `/api/workspaces/${workspaceId}/${collection}`;
     const title = `Settings Lost ACK ${kind} Record`;
     const email = `lost-${crypto.randomUUID()}@example.test`;
-    const trigger =
-      kind === "account"
-        ? "New account"
-        : kind === "connection"
-          ? "New connection"
-          : "Invite";
+    const trigger = kind === "connection" ? "New connection" : "Invite";
     const dialogName = kind === "invitation" ? "Invite member" : trigger;
     const submitName = kind === "invitation" ? "Invite" : "Create";
     let posts = 0;
@@ -716,12 +717,7 @@ for (const kind of ["account", "connection", "invitation"] as const) {
       .locator("header")
       .filter({
         has: page.getByRole("heading", {
-          name:
-            kind === "account"
-              ? "Models"
-              : kind === "connection"
-                ? "Connections"
-                : "Members",
+          name: kind === "connection" ? "Connections" : "Members",
           exact: true,
         }),
       })
@@ -874,7 +870,7 @@ test("Connection configuration keeps its draft and opening editToken across a re
   expect(rejected.request().postDataJSON().editToken).toBe(
     connection.editToken,
   );
-  await expect(dialog.getByRole("alert")).toContainText("This item changed.");
+  await expect(dialog.getByRole("alert")).toContainText("This item changed,");
   await expect(
     dialog.getByLabel("Credential reference", { exact: true }),
   ).toHaveValue("qa:settings:unsaved-binding");

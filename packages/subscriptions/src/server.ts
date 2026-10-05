@@ -22,8 +22,8 @@ export async function qualifySubscription(
   const row = await getSubscription(c, id);
   if (row.provider !== provider)
     throw new DomainError("forbidden", "Account provider mismatch");
-  if (row.status === "disabled")
-    throw new DomainError("forbidden", "Subscription disabled");
+  if (row.status === "disabled" || row.status === "disconnected")
+    throw new DomainError("forbidden", "Subscription unavailable");
   if (row.createdBy !== c.actor.userId) throw new DomainError("forbidden");
   if (row.status === "enabled") return;
   await c.tx

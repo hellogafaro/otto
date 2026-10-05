@@ -33,6 +33,7 @@ describe("account credential persistence authority", () => {
   let id: string;
   let stored: AccountAuth;
   let writeHook: (() => Promise<Response | undefined>) | undefined;
+  let removed = false;
   const machineKey = crypto.randomUUID();
   function credential(
     accountId = "controlled-account",
@@ -60,6 +61,7 @@ describe("account credential persistence authority", () => {
   }
   async function enabled() {
     writeHook = undefined;
+    removed = false;
     stored = {
       credential: credential(),
       authenticatedAt: "2026-10-03T00:00:00.000Z",
@@ -109,9 +111,14 @@ describe("account credential persistence authority", () => {
         expect(url.pathname).toBe(
           `/api/v4/secrets/OTTO_ACCOUNT_${id.replaceAll("-", "_")}`,
         );
+        if (request.method === "DELETE") {
+          removed = true;
+          return Response.json({});
+        }
         if (request.method === "GET") {
           expect(url.searchParams.get("projectId")).toBe("controlled-project");
           expect(url.searchParams.get("includeImports")).toBe("false");
+          if (removed) return new Response(null, { status: 404 });
         } else {
           const body = z
             .object({
@@ -594,5 +601,32 @@ describe("account credential persistence authority", () => {
         throw new Error("Unexpected OAuth endpoint");
       },
     );
+  });
+  it("disconnect stops the account first, removes the stored credential and ends it for good", async () => {
+    await enabled();
+    const post = (path: string, method = "POST", body?: unknown) =>
+      fetch(`${origin}/api/workspaces/${workspaceId}/subscriptions${path}`, {
+        method,
+        headers: { cookie, origin, "content-type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    const ids = async (query = "") =>
+      z
+        .object({ items: z.array(z.object({ id: z.string() })) })
+        .parse(await (await post(query, "GET")).json())
+        .items.map((item) => item.id);
+    expect(await ids()).toContain(id);
+    const response = await post(`/${id}/disconnect`);
+    expect(response.status).toBe(200);
+    expect(await status()).toBe("disconnected");
+    expect(removed).toBe(true);
+    // Gone from the default list and from the gateway; only an explicit status filter finds it.
+    expect(await ids()).not.toContain(id);
+    expect(await ids("?status=disconnected")).toContain(id);
+    expect((await callback()).status).toBe(403);
+    // Terminal: no login, no edit, no second disconnect side effects.
+    expect((await login()).status).toBe(403);
+    expect((await post(`/${id}`, "PATCH", { title: "Back" })).status).toBe(403);
+    expect((await post(`/${id}/disconnect`)).status).toBe(200);
   });
 });

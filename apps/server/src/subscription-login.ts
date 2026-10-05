@@ -1,7 +1,11 @@
 import { openaiCodexProvider } from "@earendil-works/pi-ai/providers/openai-codex";
 import type { Database } from "@otto/db";
 import { DomainError, required, withCleanup } from "@otto/shared";
-import { getSubscription, updateSubscription } from "@otto/subscriptions";
+import {
+  disconnectSubscription,
+  getSubscription,
+  updateSubscription,
+} from "@otto/subscriptions";
 import {
   getGatewaySubscription,
   qualifySubscription,
@@ -107,7 +111,7 @@ export function createSubscriptionLogin(
         throw new DomainError("unavailable", "Account login capacity");
       if (logins.has(id))
         throw new DomainError("conflict", "Account login pending");
-      if (account.status === "disabled")
+      if (account.status === "disabled" || account.status === "disconnected")
         throw new DomainError("forbidden", "Request reauthentication first");
       const controller = new AbortController();
       const abort = () => controller.abort();
@@ -225,6 +229,25 @@ export function createSubscriptionLogin(
         logins.delete(id);
         joined();
       }
+    },
+    /** Fails closed: the account stops serving before its stored credential is removed, and removal is read back. */
+    async disconnect(
+      workspaceId: string,
+      actor: Actor,
+      id: string,
+      signal: AbortSignal,
+    ) {
+      await creator(workspaceId, actor, id);
+      const pending = logins.get(id);
+      pending?.controller.abort();
+      await pending?.done;
+      return lock(id, async (database) => {
+        const account = await inWorkspace(database, workspaceId, actor, (c) =>
+          disconnectSubscription(c, id),
+        );
+        await secrets.remove(workspaceId, id, signal);
+        return account;
+      });
     },
     async read(id: string, signal: AbortSignal) {
       const before = await getGatewaySubscription(db, id);

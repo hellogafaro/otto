@@ -73,7 +73,7 @@ export function createInfisicalAccounts(options: {
   async function request(
     workspaceId: string,
     id: string,
-    method: "GET" | "POST" | "PATCH",
+    method: "GET" | "POST" | "PATCH" | "DELETE",
     signal: AbortSignal,
     auth?: AccountAuth,
   ) {
@@ -115,12 +115,23 @@ export function createInfisicalAccounts(options: {
       body:
         method === "GET"
           ? undefined
-          : JSON.stringify({
-              ...fields,
-              secretValue: JSON.stringify(auth),
-              skipMultilineEncoding: true,
-            }),
+          : JSON.stringify(
+              method === "DELETE"
+                ? fields
+                : {
+                    ...fields,
+                    secretValue: JSON.stringify(auth),
+                    skipMultilineEncoding: true,
+                  },
+            ),
     });
+    if (method === "DELETE") {
+      await response.body?.cancel();
+      // An already-missing secret is the state we want.
+      if (!response.ok && response.status !== 404)
+        throw new DomainError("unavailable", "Account secret operation failed");
+      return null;
+    }
     if (method === "GET" && response.status === 404) {
       await response.body?.cancel();
       return null;
@@ -145,6 +156,11 @@ export function createInfisicalAccounts(options: {
   return {
     read: (workspaceId: string, id: string, signal: AbortSignal) =>
       request(workspaceId, id, "GET", signal),
+    async remove(workspaceId: string, id: string, signal: AbortSignal) {
+      await request(workspaceId, id, "DELETE", signal);
+      if (await request(workspaceId, id, "GET", signal))
+        throw new DomainError("unavailable", "Account removal unconfirmed");
+    },
     async write(
       workspaceId: string,
       id: string,

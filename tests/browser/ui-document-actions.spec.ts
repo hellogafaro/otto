@@ -797,7 +797,7 @@ test("Transient cached reads preserve dirty drafts, denied reads hide Document a
   await expect(
     page
       .getByRole("alert")
-      .filter({ hasText: "This service is unavailable." })
+      .filter({ hasText: "This service is unavailable," })
       .first(),
   ).toBeVisible();
   await expect(titleEditor(page)).toHaveValue("Dirty retained title");

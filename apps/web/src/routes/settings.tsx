@@ -50,10 +50,7 @@ import {
   useSettingsCreation,
   useSettingsList,
 } from "@/features/settings/controls";
-import {
-  ModelSettings,
-  NewSubscription,
-} from "@/features/settings/subscriptions";
+import { ModelSettings } from "@/features/settings/subscriptions";
 import { client, read } from "@/lib/api";
 import { authClient } from "@/lib/auth";
 import { useDirectory } from "@/lib/directory";
@@ -131,7 +128,6 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
   const admin = workspace.role === "owner" || workspace.role === "admin";
   const adds = {
     connections: "New connection",
-    models: "New account",
     members: "Invite",
     agents: "New agent",
   };
@@ -156,9 +152,6 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
         <Body />
         {section === "connections" && (
           <NewConnection open={open} onOpenChange={setOpen} />
-        )}
-        {section === "models" && (
-          <NewSubscription open={open} onOpenChange={setOpen} />
         )}
         {section === "members" && (
           <InviteMember open={open} onOpenChange={setOpen} />

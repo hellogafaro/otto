@@ -21,7 +21,7 @@ import {
   requireMember,
   requireWriter,
 } from "@otto/workspaces";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { subscriptions } from "./schema";
 
@@ -40,6 +40,20 @@ export const SUBSCRIPTION_UPDATE = z
   })
   .strict();
 
+/** Disconnected is terminal: the credential is gone and only history (pinned Sessions, past Runs) keeps the row. */
+export async function disconnectSubscription(c: Context, id: string) {
+  requireHuman(c);
+  requireWriter(c);
+  const row = await getSubscription(c, id);
+  if (row.createdBy !== c.actor.userId) throw new DomainError("forbidden");
+  if (row.status === "disconnected") return row;
+  await c.tx
+    .update(subscriptions)
+    .set({ status: "disconnected", updatedAt: new Date() })
+    .where(eq(subscriptions.id, id));
+  await advanceCursor(c);
+  return getSubscription(c, id);
+}
 export async function createSubscription(
   c: Context,
   input: z.infer<typeof SUBSCRIPTION_INPUT>,
@@ -128,7 +142,10 @@ export async function getSubscriptions(
           eq(subscriptions.visibility, "workspace"),
         ),
         creatorIsMember(c, subscriptions.createdBy),
-        filter.status ? eq(subscriptions.status, filter.status) : undefined,
+        // A disconnected account is history; it only lists when asked for by status.
+        filter.status
+          ? eq(subscriptions.status, filter.status)
+          : ne(subscriptions.status, "disconnected"),
         filter.provider
           ? eq(subscriptions.provider, filter.provider)
           : undefined,
@@ -162,6 +179,8 @@ export async function updateSubscription(
   requireWriter(c);
   const row = await getSubscription(c, id);
   if (row.createdBy !== c.actor.userId) throw new DomainError("forbidden");
+  if (row.status === "disconnected")
+    throw new DomainError("forbidden", "Account disconnected");
   const parsed = parseInput(SUBSCRIPTION_UPDATE, input);
   const changes = parsed;
   if (Object.values(changes).every((v) => v === undefined))

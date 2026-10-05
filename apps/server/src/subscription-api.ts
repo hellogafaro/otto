@@ -1,6 +1,7 @@
 import { DomainError } from "@otto/shared";
 import {
   createSubscription,
+  disconnectSubscription,
   getSubscription,
   getSubscriptions,
   SUBSCRIPTION_INPUT,
@@ -32,7 +33,8 @@ export const subscriptionApi = new Hono<ApiEnv>()
     const id = recordId(c);
     const actor = { userId: c.get("userId") };
     const account = await service.authorize(workspaceId, actor, id);
-    if (account.status === "disabled") throw new DomainError("forbidden");
+    if (account.status === "disabled" || account.status === "disconnected")
+      throw new DomainError("forbidden");
     const controller = new AbortController();
     const abort = () => controller.abort();
     c.req.raw.signal.addEventListener("abort", abort, { once: true });
@@ -78,12 +80,30 @@ export const subscriptionApi = new Hono<ApiEnv>()
       },
     });
   })
+  .post("/workspaces/:workspaceId/subscriptions/:id/disconnect", async (c) => {
+    const service = c.get("options").subscriptionLogin;
+    // Without account storage there is no credential to remove, only the status.
+    if (!service)
+      return c.json(
+        await transact(c, (ctx) => disconnectSubscription(ctx, recordId(c))),
+      );
+    return c.json(
+      await service.disconnect(
+        z.uuid().parse(c.req.param("workspaceId")),
+        { userId: c.get("userId") },
+        recordId(c),
+        c.req.raw.signal,
+      ),
+    );
+  })
   .get(
     "/workspaces/:workspaceId/subscriptions",
     validate(
       "query",
       listQuery(SUBSCRIPTION_SORTS, {
-        status: z.enum(["needs_auth", "enabled", "disabled"]).optional(),
+        status: z
+          .enum(["needs_auth", "enabled", "disabled", "disconnected"])
+          .optional(),
         provider: z.enum(["codex"]).optional(),
         visibility: visibility.optional(),
         createdBy: z.string().min(1).max(128).optional(),

@@ -1,229 +1,190 @@
-import { RiOpenaiFill } from "@remixicon/react";
+import {
+  RiAddLine,
+  RiArrowDownSLine,
+  RiMoreLine,
+  RiOpenaiFill,
+} from "@remixicon/react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "@tanstack/react-router";
+import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
-import { Field, FieldLabel } from "@workspace/ui/components/field";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu";
 import type { InferResponseType } from "hono/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useConfirm } from "@/components/confirm";
 import { QueryState } from "@/components/query-state";
 import { read, type workspaceApi } from "@/lib/api";
+import { useDirectory } from "@/lib/directory";
 import { useWorkspace } from "@/lib/workspace";
 import {
-  Choice,
   Group,
   Row,
   SaveState,
-  SettingsDialog,
-  SettingsField,
-  SettingsFilters,
   SettingsInput,
-  SettingsPaging,
   useSettingsAction,
-  useSettingsCreation,
-  useSettingsList,
 } from "./controls";
 import { useDeviceLogin } from "./device-login";
 
 type Subscription = InferResponseType<
   typeof workspaceApi.subscriptions.$get
 >["items"][number];
-const sorts = { title: "Name", createdAt: "Created", updatedAt: "Updated" };
-const visibilityOptions = { user: "Only you", workspace: "Workspace" };
+type Visibility = Subscription["visibility"];
+
+/** Two lists by who can use the account: yours alone, or everyone in the workspace. */
 export function ModelSettings() {
-  const { api, workspaceId } = useWorkspace();
-  const list = useSettingsList(sorts, "title");
-  const id = list.params.get("account") || undefined;
-  const selected = useQuery({
-    queryKey: ["workspace", workspaceId, "settings", "subscription", id],
-    queryFn: async () => {
-      if (!id) throw new Error("Select an account.");
-      return read(
-        await api.subscriptions[":id"].$get({ param: { workspaceId, id } }),
-      );
-    },
-    enabled: Boolean(id),
-  });
-  const status = (["needs_auth", "enabled", "disabled"] as const).find(
-    (value) => value === list.params.get("status"),
-  );
-  const visibility = (["user", "workspace"] as const).find(
-    (value) => value === list.params.get("visibility"),
-  );
+  const { api, workspaceId, workspace } = useWorkspace();
+  const [fresh, setFresh] = useState<string>();
   const accounts = useQuery({
-    queryKey: [
-      "workspace",
-      workspaceId,
-      "settings",
-      "subscriptions",
-      list.request,
-      status,
-      visibility,
-    ],
-    enabled: !id,
+    queryKey: ["workspace", workspaceId, "settings", "subscriptions"],
     queryFn: async () =>
       read(
         await api.subscriptions.$get({
           param: { workspaceId },
-          query: { ...list.request, status, visibility },
+          query: { sort: "createdAt", order: "asc" },
         }),
       ),
   });
-  if (id)
+  if (accounts.isPending || accounts.error)
     return (
-      <>
-        <Button
-          className="self-start"
-          variant="outline"
-          size="compact"
-          onClick={() => list.update({ account: undefined })}
-        >
-          All accounts
-        </Button>
-        <QueryState
-          pending={selected.isPending}
-          error={selected.error}
-          retry={selected.refetch}
-        />
-        {selected.data && !selected.error && (
-          <Group title="Selected account">
-            <SubscriptionCard key={selected.data.id} account={selected.data} />
-          </Group>
-        )}
-      </>
-    );
-  return (
-    <>
-      <SettingsFilters>
-        <Choice
-          label="Account status"
-          value={status ?? "all"}
-          options={{
-            all: "All statuses",
-            needs_auth: "Needs authentication",
-            enabled: "Enabled",
-            disabled: "Disabled",
-          }}
-          onChange={(status) =>
-            list.update({ status: status === "all" ? undefined : status })
-          }
-        />
-        <Choice
-          label="Account visibility"
-          value={visibility ?? "all"}
-          options={{ all: "All accounts", ...visibilityOptions }}
-          onChange={(visibility) =>
-            list.update({
-              visibility: visibility === "all" ? undefined : visibility,
-            })
-          }
-        />
-      </SettingsFilters>
       <QueryState
         pending={accounts.isPending}
         error={accounts.error}
         retry={accounts.refetch}
       />
-      {accounts.data && !accounts.error && (
-        <>
-          <Group
-            title="Accounts"
-            description="Each run uses its selected account and model. Only Codex is supported."
-          >
-            {!accounts.data.items.length && (
-              <Row
-                title="No accounts"
-                description="AI accounts you connect show up here."
-              />
-            )}
-            {accounts.data.items.map((account) => (
-              <SubscriptionCard key={account.id} account={account} />
-            ))}
-          </Group>
-          <SettingsPaging
-            next={accounts.data.next}
-            after={list.after}
-            change={(after) => list.update({ after })}
-          />
-        </>
-      )}
-      <Group title="Default">
-        <Row
-          title="Model"
-          description="Choose an authorized account and one of its actual models in each agent's settings. Workspace default models are not available."
-        />
-      </Group>
+    );
+  const canAdd = workspace.role !== "viewer";
+  const section = (visibility: Visibility) => ({
+    visibility,
+    accounts: accounts.data.items.filter(
+      (account) => account.visibility === visibility,
+    ),
+    canAdd,
+    fresh,
+    onCreated: setFresh,
+  });
+  return (
+    <>
+      <Connections
+        title="Your connections"
+        description="Only you can run agents on these"
+        {...section("user")}
+      />
+      <Connections
+        title="Workspace connections"
+        description="Everyone in the workspace can run agents on these"
+        {...section("workspace")}
+      />
     </>
   );
 }
-export function NewSubscription({
-  open,
-  onOpenChange,
+
+function Connections({
+  title,
+  description,
+  visibility,
+  accounts,
+  canAdd,
+  fresh,
+  onCreated,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  visibility: Visibility;
+  accounts: Subscription[];
+  canAdd: boolean;
+  fresh?: string;
+  onCreated: (id: string) => void;
 }) {
   const { api, workspaceId } = useWorkspace();
-  const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [visibility, setVisibility] = useState<"user" | "workspace">("user");
-  const action = useSettingsCreation();
+  const action = useSettingsAction();
+  const add = () =>
+    action.perform(async () => {
+      const account = await read(
+        await api.subscriptions.$post({
+          param: { workspaceId },
+          json: { title: "Codex", provider: "codex", visibility },
+        }),
+      );
+      onCreated(account.id);
+    });
   return (
-    <SettingsDialog
-      title="New account"
-      description="Create a Codex account, then authenticate it with the device flow. Sharing uses your account's billing channel."
-      open={open}
-      onOpenChange={onOpenChange}
-      pending={action.pending}
-      error={action.error}
-      submitDisabled={action.blocked}
-      onSubmit={async () => {
-        if (
-          await action.perform(async () => {
-            const account = await action.create(() =>
-              api.subscriptions.$post({
-                param: { workspaceId },
-                json: { title: title.trim(), provider: "codex", visibility },
-              }),
-            );
-            if (!action.isActive()) return;
-            router.history.push(
-              `/settings/models?account=${encodeURIComponent(account.id)}`,
-            );
-          }, "Account created")
-        ) {
-          action.reset();
-          setTitle("");
-          setVisibility("user");
-          onOpenChange(false);
+    <Group title={title} description={description}>
+      <Row
+        title={
+          accounts.length === 1
+            ? "1 connection"
+            : accounts.length
+              ? `${accounts.length} connections`
+              : "No connections"
         }
-      }}
-    >
-      <SettingsField
-        label="Name"
-        required
-        maxLength={200}
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-      />
-      <Field>
-        <FieldLabel>Who can use it</FieldLabel>
-        <Choice
-          label="Account visibility"
-          value={visibility}
-          options={visibilityOptions}
-          onChange={setVisibility}
+      >
+        {canAdd && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Add connection"
+                  disabled={action.pending}
+                />
+              }
+            >
+              <RiAddLine />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={add}>
+                  <RiOpenaiFill />
+                  Codex
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </Row>
+      {accounts.map((account) => (
+        <Connection
+          key={account.id}
+          account={account}
+          autoConnect={account.id === fresh}
         />
-      </Field>
-    </SettingsDialog>
+      ))}
+    </Group>
   );
 }
-function SubscriptionCard({ account }: { account: Subscription }) {
+
+const states = {
+  enabled: "Connected",
+  needs_auth: "Sign-in needed",
+  disabled: "Disabled",
+  disconnected: "Disconnected",
+} as const;
+
+function Connection({
+  account,
+  autoConnect,
+}: {
+  account: Subscription;
+  autoConnect: boolean;
+}) {
   const { api, workspaceId, user, workspace, invalidate } = useWorkspace();
+  const directory = useDirectory();
   const action = useSettingsAction();
   const confirm = useConfirm();
   const login = useDeviceLogin(account.id);
-  const [showModels, setShowModels] = useState(false);
+  const [open, setOpen] = useState(autoConnect);
+  // A connection just added signs in at once, in the open row.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, on mount
+  useEffect(() => {
+    if (autoConnect) void login.start();
+  }, []);
   const editable = account.createdBy === user.id && workspace.role !== "viewer";
   const busy = action.pending || login.pending;
   const models = useQuery({
@@ -234,12 +195,12 @@ function SubscriptionCard({ account }: { account: Subscription }) {
           param: { workspaceId, id: account.id },
         }),
       ),
-    enabled: showModels && account.status === "enabled",
+    enabled: open && account.status === "enabled",
     retry: false,
   });
   const patch = async (json: {
     title?: string;
-    visibility?: "user" | "workspace";
+    visibility?: Visibility;
     status?: "disabled" | "needs_auth";
   }) => {
     await read(
@@ -249,182 +210,221 @@ function SubscriptionCard({ account }: { account: Subscription }) {
       }),
     );
   };
+  const shared = account.visibility === "workspace";
+  const by =
+    account.createdBy === user.id
+      ? ""
+      : directory.actorOf(account.createdBy).name;
   return (
     <>
       <Row
         title={account.title}
-        description={`Codex · ${account.status === "enabled" ? "Enabled" : account.status === "disabled" ? "Disabled" : "Needs authentication"} · ${account.visibility === "workspace" ? "Workspace" : "Only creator"}`}
+        description={[states[account.status], by && `Added by ${by}`]
+          .filter(Boolean)
+          .join(" · ")}
         media={<RiOpenaiFill className="size-5" />}
       >
-        <div className="flex flex-wrap gap-2">
-          {editable && (
-            <>
-              {account.status === "disabled" ? (
+        {account.status === "needs_auth" && (
+          <Badge variant="outline">Reconnect needed</Badge>
+        )}
+        {editable && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
                 <Button
-                  variant="outline"
-                  size="compact"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Actions for ${account.title}`}
                   disabled={busy}
-                  onClick={() =>
-                    action.perform(
-                      () => patch({ status: "needs_auth" }),
-                      "Authentication required",
-                    )
-                  }
-                >
-                  Enable login
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="compact"
-                  disabled={busy}
-                  onClick={() => login.start()}
-                >
-                  {account.status === "enabled"
-                    ? "Reauthenticate"
-                    : "Authenticate"}
-                </Button>
-              )}
-              {account.status !== "disabled" && (
-                <Button
-                  variant="outline"
-                  size="compact"
-                  disabled={busy}
+                />
+              }
+            >
+              <RiMoreLine />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuGroup>
+                {account.status === "disabled" ? (
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      const ok = await action.perform(() =>
+                        patch({ status: "needs_auth" }),
+                      );
+                      if (ok) {
+                        setOpen(true);
+                        void login.start();
+                      }
+                    }}
+                  >
+                    Enable
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOpen(true);
+                      void login.start();
+                    }}
+                  >
+                    Reconnect
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
                   onClick={async () => {
                     const yes = await confirm({
-                      title: `Disable ${account.title}?`,
+                      title: shared ? "Make private?" : "Share with workspace?",
+                      description: shared
+                        ? "Other members and their active runs lose access to this account."
+                        : "Everyone in the workspace can run agents on this account, without seeing its sign-in.",
+                      action: shared ? "Make private" : "Share",
+                    });
+                    if (yes)
+                      await action.perform(() =>
+                        patch({ visibility: shared ? "user" : "workspace" }),
+                      );
+                  }}
+                >
+                  {shared ? "Make private" : "Share with workspace"}
+                </DropdownMenuItem>
+                {account.status !== "disabled" && (
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      const yes = await confirm({
+                        title: `Disable ${account.title}?`,
+                        description:
+                          "New runs are blocked and active runs lose this account on their next model request.",
+                        action: "Disable",
+                        destructive: true,
+                      });
+                      if (yes)
+                        await action.perform(() =>
+                          patch({ status: "disabled" }),
+                        );
+                    }}
+                  >
+                    Disable
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={async () => {
+                    const yes = await confirm({
+                      title: `Disconnect ${account.title}?`,
                       description:
-                        "New runs will be blocked and active runs lose account access on their next model request.",
-                      action: "Disable",
+                        "Its stored sign-in is removed for good. Agents that use it can't run until you pick another account.",
+                      action: "Disconnect",
                       destructive: true,
                     });
                     if (yes)
                       await action.perform(
-                        () => patch({ status: "disabled" }),
-                        "Account disabled",
+                        async () =>
+                          read(
+                            await api.subscriptions[":id"].disconnect.$post({
+                              param: { workspaceId, id: account.id },
+                            }),
+                          ),
+                        `${account.title} disconnected`,
                       );
                   }}
                 >
-                  Disable
-                </Button>
-              )}
-            </>
-          )}
-          <Button
-            variant="outline"
-            size="compact"
-            disabled={account.status !== "enabled"}
-            onClick={() => setShowModels((value) => !value)}
-          >
-            {showModels ? "Hide models" : "Models"}
-          </Button>
-        </div>
+                  Disconnect
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`${open ? "Collapse" : "Expand"} ${account.title}`}
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <RiArrowDownSLine className={open ? "rotate-180" : undefined} />
+        </Button>
       </Row>
-      {editable && (
+      {open && (
         <>
-          <Row title={`${account.title} name`}>
-            <SettingsInput
-              label={`${account.title} name`}
-              initial={account.title}
-              disabled={busy}
-              save={async (title) => {
-                await patch({ title: title.trim() });
-                await invalidate();
-              }}
-            />
-          </Row>
-          <Row
-            title="Who can use this account"
-            description="Workspace members use your credentials without seeing them or your private context."
-          >
-            <Choice
-              label={`${account.title} visibility`}
-              value={account.visibility}
-              options={visibilityOptions}
-              disabled={busy}
-              onChange={async (visibility) => {
-                if (visibility === account.visibility) return;
-                const yes = await confirm({
-                  title:
-                    visibility === "workspace"
-                      ? "Share account?"
-                      : "Stop sharing account?",
-                  description:
-                    visibility === "workspace"
-                      ? "Current workspace members will be able to run agents using this exact account."
-                      : "Other members and their active runs will lose access immediately.",
-                  action: visibility === "workspace" ? "Share" : "Stop sharing",
-                });
-                if (yes)
-                  await action.perform(
-                    () => patch({ visibility }),
-                    "Account visibility saved",
-                  );
-              }}
-            />
-          </Row>
-        </>
-      )}
-      {(action.pending || action.error) && (
-        <Row title="Account update">
-          <SaveState {...action} />
-        </Row>
-      )}
-      {(login.pending || login.status || login.error) && (
-        <Row title="Authentication" description={login.status}>
-          <div className="flex flex-col items-start gap-2">
-            {login.device && (
-              <>
-                <a
-                  href={login.device.verificationUri}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open verification page
-                </a>
-                <span>
-                  Device code: <code>{login.device.userCode}</code>
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Expires at{" "}
-                  {new Date(login.device.expiresAt).toLocaleTimeString()}
-                </span>
-              </>
-            )}
-            <SaveState
-              error={login.error}
-              retry={!login.pending && editable ? login.start : undefined}
-            />
-            {login.pending && (
-              <Button variant="outline" size="compact" onClick={login.cancel}>
-                Cancel authentication
-              </Button>
-            )}
-          </div>
-        </Row>
-      )}
-      {showModels && account.status === "enabled" && (
-        <>
-          <QueryState
-            pending={models.isPending}
-            error={models.error}
-            retry={models.refetch}
-          />
-          {models.data && !models.error && (
-            <Row
-              title="Available models"
-              description="Offered by this exact account and recognized by the server."
-            >
-              <div className="flex flex-col gap-1">
-                {models.data.items.length ? (
-                  models.data.items.map((model) => (
-                    <span key={model.id}>{model.id}</span>
-                  ))
-                ) : (
-                  <span>No models available</span>
+          {editable && (
+            <Row title="Name">
+              <SettingsInput
+                label={`${account.title} name`}
+                initial={account.title}
+                disabled={busy}
+                save={async (title) => {
+                  await patch({ title: title.trim() });
+                  await invalidate();
+                }}
+              />
+            </Row>
+          )}
+          {(action.pending || action.error) && (
+            <Row title="Update">
+              <SaveState {...action} />
+            </Row>
+          )}
+          {(login.pending || login.status || login.error) && (
+            <Row title="Sign-in" description={login.status}>
+              <div className="flex flex-col items-start gap-2">
+                {login.device && (
+                  <>
+                    <a
+                      href={login.device.verificationUri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open verification page
+                    </a>
+                    <span>
+                      Device code: <code>{login.device.userCode}</code>
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Expires at{" "}
+                      {new Date(login.device.expiresAt).toLocaleTimeString()}
+                    </span>
+                  </>
+                )}
+                <SaveState
+                  error={login.error}
+                  retry={!login.pending && editable ? login.start : undefined}
+                />
+                {login.pending && (
+                  <Button
+                    variant="outline"
+                    size="compact"
+                    onClick={login.cancel}
+                  >
+                    Cancel sign-in
+                  </Button>
                 )}
               </div>
             </Row>
+          )}
+          {account.status === "enabled" && (
+            <>
+              <QueryState
+                pending={models.isPending}
+                error={models.error}
+                retry={models.refetch}
+              />
+              {models.data && !models.error && (
+                <Row
+                  title="Models"
+                  description="What this account offers, as the server recognizes it"
+                >
+                  <div className="flex flex-col items-end gap-1 text-sm">
+                    {models.data.items.length ? (
+                      models.data.items.map((model) => (
+                        <span key={model.id}>{model.id}</span>
+                      ))
+                    ) : (
+                      <span>No models</span>
+                    )}
+                  </div>
+                </Row>
+              )}
+            </>
           )}
         </>
       )}

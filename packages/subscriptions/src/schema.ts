@@ -23,7 +23,9 @@ export const subscriptions = pgTable(
     visibility: text({ enum: ["user", "workspace"] })
       .notNull()
       .default("user"),
-    status: text({ enum: ["needs_auth", "enabled", "disabled"] })
+    status: text({
+      enum: ["needs_auth", "enabled", "disabled", "disconnected"],
+    })
       .notNull()
       .default("needs_auth"),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -37,7 +39,7 @@ export const subscriptions = pgTable(
     ),
     check(
       "subscriptions_status",
-      sql`${t.status} in ('needs_auth','enabled','disabled')`,
+      sql`${t.status} in ('needs_auth','enabled','disabled','disconnected')`,
     ),
     foreignKey({
       name: "subscriptions_workspace_fk",
