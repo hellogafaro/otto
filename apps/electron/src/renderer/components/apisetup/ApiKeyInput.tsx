@@ -635,16 +635,18 @@ function SecretInput({
         disabled={disabled}
         autoFocus={autoFocus}
       />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground"
-        tabIndex={-1}
-        onClick={() => setShown(!shown)}
-      >
-        {shown ? <EyeOff /> : <Eye />}
-      </Button>
+      <div className="absolute inset-y-0 right-1.5 flex items-center">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground"
+          tabIndex={-1}
+          onClick={() => setShown(!shown)}
+        >
+          {shown ? <EyeOff /> : <Eye />}
+        </Button>
+      </div>
     </div>
   )
 }
