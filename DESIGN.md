@@ -942,12 +942,20 @@ their inputs; the primary submission spans the column and secondary account
 actions center beneath it. Sign-in methods reflect configured backend support.
 The browser sign-in page (`apps/webui/src/login.html`) is static HTML served
 before the app, so it inlines the `:root` and `.dark` token values (light and dark
-by `prefers-color-scheme`) instead of loading the app stylesheet. It is a `bg-card`
-card (hairline ring, `shadow-xs`, `xl` 12 corners, 32px padding, 336px column)
-centered on the frame (`--sidebar`), the one place with a logo: the mark at 40px
-in `foreground`, never primary, over a title-size "Sign in to Otto". The input
-and primary button are 32px with `md` 8 corners; a failed sign-in turns the input
-border and the message beneath the button `destructive`.
+by `prefers-color-scheme`) instead of loading the app stylesheet. It has no card:
+a left-aligned 336px column with 24px side padding, centered on the page layer
+(`--background`). It is the one place with a logo, and it is the colored app icon
+(never the mark): a 40px tile with `9px` corners (22.37% of the side, the iOS icon
+radius, not an avatar radius) and a `foreground/10` hairline, from
+`/login-assets/otto-app-icon.png`, the only path besides `/favicon.ico` served
+without a session. Below it, 20px apart, "Sign in to Otto" in the heading token
+(`text-base`, weight 500, never the title size) and a muted body line. The form is
+placeholder-only (no label; `aria-label` keeps the name): one 32px `md` 8 field
+(`bg-input/50`, no focus ring) with a nested 28px `sm` 6 ghost eye button on the
+right that shows or hides the password, then the full-width 32px primary button 12px
+below. A failed sign-in fills the field with `destructive/10` (`destructive/20` in
+dark) and a `destructive` border (`/50` in dark), and shows the message beneath
+the field in `text-xs` `destructive`, above the button.
 The profile menu names the signed-in person and lists their accessible workspaces.
 When direct setup or creation is necessary before an Agent can run, a compact
 stock dialog may capture the backend's required fields. Ask remains available;

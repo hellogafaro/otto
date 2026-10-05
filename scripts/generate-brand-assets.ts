@@ -1,5 +1,5 @@
 import sharp from 'sharp'
-import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // bun scripts/generate-brand-assets.ts
@@ -80,7 +80,7 @@ const layer = `<?xml version="1.0" encoding="UTF-8"?>
 write(join(resources, 'icon.icon/Assets/icon.svg'), layer)
 
 // Web app: tab icon (the mark, black or white by color scheme), the ICO
-// fallback, home-screen and manifest icons. The ICO is the mark alone in a
+// fallback, home-screen and manifest icons, and the sign-in page icon. The ICO is the mark alone in a
 // neutral gray on transparent, so it reads on light and dark tab strips (the
 // browser picks the SVG when it supports it, and the ICO otherwise).
 const faviconPaths = [...markSvg.matchAll(/<path d="[^"]+"\/>/g)].map((m) => m[0]).join('')
@@ -100,5 +100,10 @@ write(join(webPublic, 'favicon.ico'), await ico([16, 32, 48], grayMark))
 write(join(webPublic, 'apple-touch-icon.png'), await appIcon(180))
 write(join(webPublic, 'icon-192.png'), await appIcon(192))
 write(join(webPublic, 'icon-512.png'), await appIcon(512))
+
+// Sign-in page icon: 40px at 3x. Served before sign-in from /login-assets/ (the
+// only path besides /favicon.ico that needs no session).
+mkdirSync(join(webPublic, 'login-assets'), { recursive: true })
+write(join(webPublic, 'login-assets/otto-app-icon.png'), await appIcon(120))
 
 console.log('Brand assets generated')

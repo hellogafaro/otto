@@ -15,26 +15,26 @@
   <style>
     /* Otto tokens, copied from design/ui/src/styles/globals.css (:root and .dark).
        This page is static HTML served before sign-in, so it cannot load the app
-       stylesheet. Layers as in DESIGN.md: frame (--sidebar), card on it. */
+       stylesheet. No card: the form sits on the page layer (--background). */
     :root {
       color-scheme: light dark;
+      --background: oklch(1 0 0);
       --foreground: oklch(0.145 0 0);
-      --card: oklch(1 0 0);
-      --sidebar: oklch(0.96 0 0);
       --muted-foreground: oklch(0.556 0 0);
       --primary: oklch(0.546 0.245 262.881);
       --primary-foreground: oklch(0.985 0 0);
       --input: oklch(0.922 0 0);
       --ring: oklch(0.708 0 0);
       --destructive: oklch(0.577 0.245 27.325);
+      --text-xs: 0.75rem;
       --text-sm: 0.8125rem;
+      --text-base: calc(var(--text-sm) * 1.272);
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
+        --background: oklch(0.17 0 0);
         --foreground: oklch(0.985 0 0);
-        --card: oklch(0.22 0 0);
-        --sidebar: oklch(0.12 0 0);
         --muted-foreground: oklch(0.708 0 0);
         --primary: oklch(0.623 0.214 259.815);
         --input: oklch(1 0 0 / 15%);
@@ -54,8 +54,8 @@
       align-items: center;
       justify-content: center;
       min-height: 100dvh;
-      padding: 16px;
-      background: var(--sidebar);
+      padding: 24px;
+      background: var(--background);
       color: var(--foreground);
       font-family: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: var(--text-sm);
@@ -63,30 +63,26 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Card: --card, 1px foreground/10 hairline ring, shadow-xs, 12px radius. */
-    .card {
+    /* Narrow left-aligned column, no card. */
+    main {
       width: 100%;
-      max-width: 25rem;
-      padding: 32px;
-      background: var(--card);
-      border-radius: 12px;
-      text-align: center;
-      box-shadow:
-        0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
-        0 1px 2px 0 rgb(0 0 0 / 0.05);
+      max-width: 21rem;
     }
 
-    .logo {
+    /* App icon tile: 40px, 9px corners (22.37% of the side, the iOS icon radius). */
+    .app-icon {
       display: block;
       width: 40px;
       height: 40px;
-      margin: 0 auto 20px;
-      color: var(--foreground);
+      margin-bottom: 20px;
+      border-radius: 9px;
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
     }
 
+    /* Heading token: text-base, 24px line, weight 500. */
     h1 {
-      font-size: calc(var(--text-sm) * 1.618);
-      line-height: 1.75rem;
+      font-size: var(--text-base);
+      line-height: 1.5rem;
       font-weight: 500;
     }
 
@@ -95,71 +91,104 @@
       color: var(--muted-foreground);
     }
 
-    form { margin-top: 32px; }
+    form { margin-top: 20px; }
 
-    label {
-      display: block;
-      margin-bottom: 8px;
-      text-align: left;
-      font-weight: 500;
-    }
-
-    /* Input: 32px, solid bg-input/50, 8px radius, no focus ring (the caret shows
-       focus), red border when invalid. */
-    input {
-      width: 100%;
+    /* Field: 32px, solid bg-input/50, 8px radius, no focus ring (the caret shows
+       focus). The bare input and the 28px eye button sit inside it, so the 6px
+       button corners nest in the 8px field. */
+    .field {
+      display: flex;
+      align-items: center;
       height: 32px;
-      padding: 4px 12px;
+      padding-right: 2px;
       border: 1px solid transparent;
       border-radius: 8px;
-      outline: none;
       background: color-mix(in oklab, var(--input) 50%, transparent);
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      padding: 0 12px;
+      border: 0;
+      outline: none;
+      background: transparent;
       color: var(--foreground);
       font: inherit;
       font-size: var(--text-sm);
-      transition: color 0.15s, background-color 0.15s, border-color 0.15s;
     }
 
     input::placeholder { color: var(--muted-foreground); }
 
-    .card:has(.error.visible) input {
+    /* Failed sign-in: destructive/10 fill and border (destructive/20 fill and
+       destructive/50 border in dark). */
+    form:has(.error.visible) .field {
       border-color: var(--destructive);
+      background: color-mix(in oklab, var(--destructive) 10%, transparent);
     }
 
     @media (prefers-color-scheme: dark) {
-      .card:has(.error.visible) input {
+      form:has(.error.visible) .field {
         border-color: color-mix(in oklab, var(--destructive) 50%, transparent);
+        background: color-mix(in oklab, var(--destructive) 20%, transparent);
       }
     }
 
-    /* Primary button: 32px, 8px radius, hover primary/80, focus ring ring/30. */
     button {
-      width: 100%;
-      height: 32px;
-      margin-top: 20px;
-      padding: 0 8px;
       border: 1px solid transparent;
-      border-radius: 8px;
       outline: none;
-      background: var(--primary);
-      color: var(--primary-foreground);
       font: inherit;
       font-size: var(--text-sm);
       font-weight: 500;
       cursor: pointer;
-      transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+      transition: color 0.15s, background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
     }
-
-    button:hover { background: color-mix(in oklab, var(--primary) 80%, transparent); }
 
     button:focus-visible {
       border-color: var(--ring);
       box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 30%, transparent);
     }
 
-    button:active { transform: translateY(1px); }
+    /* Ghost icon button: 28px, 6px radius, muted, foreground/5 on hover. It does
+       not move on press. */
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted-foreground);
+    }
 
-    button:disabled {
+    .toggle:hover {
+      background: color-mix(in oklab, var(--foreground) 5%, transparent);
+      color: var(--foreground);
+    }
+
+    .toggle svg { width: 14px; height: 14px; }
+    .toggle .hide, .toggle[aria-pressed="true"] .show { display: none; }
+    .toggle[aria-pressed="true"] .hide { display: block; }
+
+    /* Primary button: 32px, 8px radius, hover primary/80. */
+    .submit {
+      width: 100%;
+      height: 32px;
+      margin-top: 12px;
+      padding: 0 8px;
+      border-radius: 8px;
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+
+    .submit:hover { background: color-mix(in oklab, var(--primary) 80%, transparent); }
+    .submit:active { transform: translateY(1px); }
+
+    .submit:disabled {
       opacity: 0.5;
       cursor: default;
       pointer-events: none;
@@ -167,8 +196,10 @@
 
     .error {
       display: none;
-      margin-top: 12px;
+      margin-top: 8px;
       color: var(--destructive);
+      font-size: var(--text-xs);
+      line-height: 1rem;
     }
 
     .error.visible { display: block; }
@@ -180,39 +211,47 @@
   </style>
 </head>
 <body>
-  <div class="card">
-    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 699 648" fill="currentColor" aria-hidden="true">
-      <path d="M455.72 308.552C434.87 362.176 432.085 421.138 447.785 476.488C463.485 531.839 496.814 580.557 542.713 615.248L592.532 549.333C560.978 525.484 538.066 491.993 527.273 453.942C516.48 415.891 518.395 375.357 532.728 338.493L455.72 308.552Z"/>
-      <path d="M415.491 408.171C358.626 416.928 306.171 443.996 266.086 485.268C226.001 526.54 200.475 579.763 193.381 636.858L275.375 647.045C280.251 607.794 297.799 571.206 325.356 542.833C352.913 514.46 388.974 495.852 428.065 489.833L415.491 408.171Z"/>
-      <path d="M309.103 423.142C273.088 378.274 223.419 346.381 167.633 332.302C111.848 318.223 52.9928 322.728 0 345.133L32.1748 421.235C68.605 405.832 109.065 402.735 147.415 412.414C185.765 422.092 219.911 444.018 244.67 474.862L309.103 423.142Z"/>
-      <path d="M242.945 338.493C263.794 284.869 266.58 225.907 250.88 170.556C235.179 115.206 201.85 66.4879 155.951 31.7971L106.132 97.7121C137.686 121.561 160.598 155.052 171.392 193.103C182.185 231.154 180.27 271.688 165.937 308.552L242.945 338.493Z"/>
-      <path d="M283.174 238.874C340.038 230.117 392.493 203.049 432.578 161.777C472.663 120.505 498.19 67.2822 505.283 10.1867L423.29 0C418.413 39.2506 400.865 75.8389 373.308 104.212C345.752 132.584 309.691 151.193 270.599 157.212L283.174 238.874Z"/>
-      <path d="M389.561 223.903C425.576 268.771 475.246 300.664 531.031 314.743C586.816 328.822 645.672 324.317 698.664 301.912L666.49 225.81C630.059 241.213 589.599 244.309 551.249 234.631C512.899 224.953 478.753 203.027 453.995 172.183L389.561 223.903Z"/>
-    </svg>
+  <main>
+    <img class="app-icon" src="/login-assets/otto-app-icon.png" width="40" height="40" alt="">
     <h1>Sign in to Otto</h1>
-    <p class="subtitle">Enter your server token to continue</p>
+    <p class="subtitle">Enter the server password to continue.</p>
 
     <form id="login-form">
-      <label for="password">Server token</label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        placeholder="Enter OTTO_SERVER_TOKEN"
-        autocomplete="current-password"
-        autofocus
-        required
-      >
-      <button type="submit" id="submit-btn">Sign in</button>
+      <div class="field">
+        <input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="Server password"
+          aria-label="Server password"
+          autocomplete="current-password"
+          autofocus
+          required
+        >
+        <button type="button" id="toggle-btn" class="toggle" aria-label="Show password" aria-pressed="false">
+          <svg class="show" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="hide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>
+        </button>
+      </div>
+      <div id="error" class="error" role="alert"></div>
+      <button type="submit" id="submit-btn" class="submit">Sign in</button>
     </form>
-
-    <div id="error" class="error" role="alert"></div>
-  </div>
+  </main>
 
   <script>
     const form = document.getElementById('login-form');
     const errorEl = document.getElementById('error');
     const submitBtn = document.getElementById('submit-btn');
+    const passwordEl = document.getElementById('password');
+    const toggleBtn = document.getElementById('toggle-btn');
+
+    toggleBtn.addEventListener('click', () => {
+      const show = passwordEl.type === 'password';
+      passwordEl.type = show ? 'text' : 'password';
+      toggleBtn.setAttribute('aria-pressed', String(show));
+      toggleBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      passwordEl.focus();
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -221,7 +260,7 @@
       submitBtn.textContent = 'Signing in...';
 
       try {
-        const password = document.getElementById('password').value;
+        const password = passwordEl.value;
         const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
