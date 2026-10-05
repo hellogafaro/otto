@@ -97,7 +97,6 @@ import { parseError, type AgentError } from './errors.ts';
 import { runPreToolUseChecks, type PreToolUseCheckResult, type PreToolUseInput } from './core/pre-tool-use.ts';
 import type { PermissionRemember } from './core/permission-remember.ts';
 import { applyGuardedModeCheck, needsGuardedModeCheck } from './core/guarded-mode.ts';
-import { getBrowserToolEnabled } from '../config/storage.ts';
 
 // Workspace slug extraction for skill qualification
 import { extractWorkspaceSlug } from '../utils/workspace.ts';
@@ -609,15 +608,7 @@ export class PiAgent extends BaseAgent {
     // These tools (SubmitPlan, config_validate, source auth, call_llm, etc.)
     // are executed in the main process when the LLM calls them.
     this.assertBackendSessionToolParity();
-    let sessionToolDefs = getSessionToolProxyDefs();
-
-    // Mirror Claude's gate: hide `browser_tool` when the user has disabled
-    // the built-in browser tool. Without this filter, Pi would still advertise
-    // `mcp__session__browser_tool` while Claude doesn't — sessions would behave
-    // inconsistently depending on backend.
-    if (!getBrowserToolEnabled()) {
-      sessionToolDefs = sessionToolDefs.filter(d => d.name !== 'mcp__session__browser_tool');
-    }
+    const sessionToolDefs = getSessionToolProxyDefs();
 
     // Patch call_llm description with provider-specific model hint
     if (this.config.miniModel) {

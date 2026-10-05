@@ -82,7 +82,6 @@ export interface StoredConfig {
   // Tool metadata
   richToolDescriptions?: boolean;  // Add intent/action metadata to all tool calls (default: true)
   // Tools
-  browserToolEnabled?: boolean;  // Enable built-in browser tool (default: true). Disable for Playwright/Puppeteer.
   allowRemoteEvaluate?: boolean;  // Allow remote agents to call `browser_tool evaluate` on local browser (default: true).
   // Decision layer (Jev / TypeSafe System One) — opt-in, off by default. See src/decisions/.
   decisionLayer?: DecisionLayerStoredSettings;
@@ -123,7 +122,6 @@ const FALLBACK_CONFIG_DEFAULTS: ConfigDefaults = {
     spellCheck: false,
     keepAwakeWhileRunning: false,
     richToolDescriptions: true,
-    browserToolEnabled: true,
     allowRemoteEvaluate: true,
   },
   workspaceDefaults: {
@@ -469,34 +467,6 @@ export function setRichToolDescriptions(enabled: boolean): void {
   if (!config) return;
   config.richToolDescriptions = enabled;
   saveConfig(config);
-}
-
-/**
- * Get whether the built-in browser tool is enabled.
- * When disabled, browser_tool is not included in session tools.
- * Defaults to true if not set.
- */
-export function getBrowserToolEnabled(): boolean {
-  const config = loadStoredConfig();
-  if (config?.browserToolEnabled !== undefined) {
-    return config.browserToolEnabled;
-  }
-  const defaults = loadConfigDefaults();
-  return defaults.defaults.browserToolEnabled;
-}
-
-/**
- * Set whether the built-in browser tool is enabled.
- */
-export function setBrowserToolEnabled(enabled: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.browserToolEnabled = enabled;
-  saveConfig(config);
-
-  // Clear session tool caches so all sessions pick up the change immediately.
-  // Lazy import to avoid circular dependency (storage ← session-scoped-tools ← storage).
-  import('../agent/session-scoped-tools.ts').then(m => m.invalidateAllSessionToolsCaches()).catch(() => {});
 }
 
 /**

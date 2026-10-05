@@ -300,8 +300,6 @@ export const RPC_CHANNELS = {
     SET_RICH_TOOL_DESCRIPTIONS: 'appearance:setRichToolDescriptions',
   },
   tools: {
-    GET_BROWSER_TOOL_ENABLED: 'tools:getBrowserToolEnabled',
-    SET_BROWSER_TOOL_ENABLED: 'tools:setBrowserToolEnabled',
   },
   decisions: {
     GET_SETTINGS: 'decisions:getSettings',

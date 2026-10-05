@@ -1,5 +1,4 @@
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
-import { getBrowserToolEnabled } from '../config/storage.ts';
 import { debug } from '../utils/debug.ts';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { dirname, join, relative, basename, resolve } from 'path';
@@ -630,7 +629,7 @@ function getCraftAssistantPrompt(workspaceRootPath?: string, backendName: string
 
   // Decision layer (Jev): Settings switch + feature toggle, evaluated per prompt build.
   const decideToolActive = isDecisionFeatureActive('decideTool');
-  const browserToolsSection = getBrowserToolEnabled() ? `
+  const browserToolsSection = `
 ## Browser Tools
 
 Use \`browser_tool\` for one-off or UI-driven browser tasks, or as a fallback when source setup/API coverage is fragile.
@@ -642,7 +641,7 @@ Core flow: \`open\` → \`navigate <url>\` → \`snapshot\` → interact by refs
 Useful commands: \`find\`, \`click-at\`, \`type\`, \`paste\`, \`scroll\`, \`wait\`, \`key\`, \`console\`, \`network\`, \`screenshot --annotated\`, \`window-resize\`, \`downloads\`, \`windows\`, \`focus\`, \`hide\`, \`release\`, \`close\`.
 
 Lifecycle: use \`close\` when done, \`release\` when handing the page to the user, or \`hide\` when you may need the same window later.
-` : '';
+`;
 
   return `${environmentMarker}
 

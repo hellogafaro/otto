@@ -308,8 +308,6 @@ const EXPECTED_CHANNELS: string[] = [
   'theme:setColorTheme',
   'theme:systemChanged',
   'toolIcons:getMappings',
-  'tools:getBrowserToolEnabled',
-  'tools:setBrowserToolEnabled',
   'transfer:abort',
   'transfer:chunk',
   'transfer:commit',

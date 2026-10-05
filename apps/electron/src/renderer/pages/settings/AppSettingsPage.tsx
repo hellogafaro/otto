@@ -45,9 +45,6 @@ export default function AppSettingsPage() {
   // Power state
   const [keepAwakeEnabled, setKeepAwakeEnabled] = useState(false)
 
-  // Tools state
-  const [browserToolEnabled, setBrowserToolEnabled] = useState(true)
-
   // Auto-update state (Check Now / Update Ready only shown in Electron, not WebUI)
   const isElectron = window.electronAPI.getRuntimeEnvironment() === 'electron'
   const updateChecker = useUpdateChecker()
@@ -66,14 +63,12 @@ export default function AppSettingsPage() {
   const loadSettings = useCallback(async () => {
     if (!window.electronAPI) return
     try {
-      const [notificationsOn, keepAwakeOn, browserToolOn] = await Promise.all([
+      const [notificationsOn, keepAwakeOn] = await Promise.all([
         window.electronAPI.getNotificationsEnabled(),
         window.electronAPI.getKeepAwakeWhileRunning(),
-        window.electronAPI.getBrowserToolEnabled(),
       ])
       setNotificationsEnabled(notificationsOn)
       setKeepAwakeEnabled(keepAwakeOn)
-      setBrowserToolEnabled(browserToolOn)
     } catch (error) {
       console.error('Failed to load settings:', error)
     }
@@ -91,11 +86,6 @@ export default function AppSettingsPage() {
   const handleKeepAwakeEnabledChange = useCallback(async (enabled: boolean) => {
     setKeepAwakeEnabled(enabled)
     await window.electronAPI.setKeepAwakeWhileRunning(enabled)
-  }, [])
-
-  const handleBrowserToolEnabledChange = useCallback(async (enabled: boolean) => {
-    setBrowserToolEnabled(enabled)
-    await window.electronAPI.setBrowserToolEnabled(enabled)
   }, [])
 
   return (
@@ -125,18 +115,6 @@ export default function AppSettingsPage() {
                     description={t("settings.power.keepScreenAwakeDesc")}
                     checked={keepAwakeEnabled}
                     onCheckedChange={handleKeepAwakeEnabledChange}
-                  />
-                </SettingsCard>
-              </SettingsSection>
-
-              {/* Tools */}
-              <SettingsSection title={t("settings.tools.title")}>
-                <SettingsCard>
-                  <SettingsToggle
-                    label={t("settings.tools.builtInBrowser")}
-                    description={t("settings.tools.builtInBrowserDesc")}
-                    checked={browserToolEnabled}
-                    onCheckedChange={handleBrowserToolEnabledChange}
                   />
                 </SettingsCard>
               </SettingsSection>

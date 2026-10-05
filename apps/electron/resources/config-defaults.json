@@ -9,7 +9,6 @@
     "spellCheck": false,
     "keepAwakeWhileRunning": false,
     "richToolDescriptions": true,
-    "browserToolEnabled": true,
     "allowRemoteEvaluate": true
   },
   "workspaceDefaults": {

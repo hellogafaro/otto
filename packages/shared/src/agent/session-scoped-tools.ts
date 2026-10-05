@@ -35,7 +35,6 @@ import { createLLMTool, type LLMQueryRequest, type LLMQueryResult } from './llm-
 import { createSpawnSessionTool, type SpawnSessionFn } from './spawn-session-tool.ts';
 import { createBrowserTools, type BrowserPaneFns } from './browser-tools.ts';
 import { FEATURE_FLAGS } from '../feature-flags.ts';
-import { getBrowserToolEnabled } from '../config/storage.ts';
 import { isDecisionFeatureActive } from '../decisions/resolve.ts';
 
 // Re-export types for backward compatibility
@@ -172,14 +171,6 @@ function convertResult(result: ToolResult): { content: Array<{ type: 'text'; tex
 const sessionToolsCache = new Map<string, ReturnType<typeof tool>[]>();
 
 /**
- * Invalidate ALL session tool caches (e.g., when a global setting like browserToolEnabled changes).
- * This forces tools to be rebuilt on the next message for every session.
- */
-export function invalidateAllSessionToolsCaches(): void {
-  sessionToolsCache.clear();
-}
-
-/**
  * Clean up cached tools for a session
  */
 export function cleanupSessionScopedTools(sessionId: string): void {
@@ -296,9 +287,7 @@ export function getSessionScopedTools(
     );
 
     // Add browser_* tools — backend-specific (requires BrowserPaneManager in Electron)
-    // Gated by the "Built-in browser" setting so users with external browser tools
-    // (Playwright, Puppeteer, etc.) can disable the built-in one.
-    if (getBrowserToolEnabled()) {
+    {
       tools.push(
         ...createBrowserTools({
           sessionId,
