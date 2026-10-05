@@ -52,7 +52,7 @@ function IslandOptions({
   onClearIsland,
 }: IslandOptionsProps) {
   return (
-    <motion.div className="flex w-[280px] shrink-0 flex-col gap-3 rounded-2xl border border-border/50 bg-background/90 p-3 shadow-middle backdrop-blur-sm">
+    <motion.div className="flex w-[280px] shrink-0 flex-col gap-3 rounded-xl border border-border/50 bg-background/90 p-3 shadow-middle backdrop-blur-sm">
       <div className="flex items-center justify-between">
         <span className="size-4 text-foreground/50">
           <GripHorizontal className="size-4" />

@@ -72,7 +72,7 @@ export function SettingsRow({
         )}
       </div>
       {(children || action) && (
-        <div data-layout="settings-control" className="flex items-center gap-3 ml-4 shrink-0">
+        <div data-layout="settings-control" data-slot="item-actions" className="flex items-center gap-3 ml-4 shrink-0">
           {children}
           {action}
         </div>

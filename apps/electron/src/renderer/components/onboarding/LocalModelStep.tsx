@@ -112,7 +112,7 @@ export function LocalModelStep({
           </SettingsRow>
         </SettingsCard>
         <p className="px-1 text-xs text-muted-foreground">{t("onboarding.localModel.endpointHelper")}</p>
-        <p className="px-1 text-xs text-muted-foreground">{t("onboarding.localModel.modelHelper")}</p>
+        <p className="px-1 text-xs text-muted-foreground">{t("onboarding.localModel.modelHelper").replace(/<\/?code>/g, "")}</p>
         {(modelError || (status === 'error' && errorMessage)) && (
           <p className="px-1 text-sm text-destructive">{modelError ?? errorMessage}</p>
         )}

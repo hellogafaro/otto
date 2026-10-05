@@ -74,11 +74,6 @@
   /* Otto: cards are 12px: their 32px controls sit 4px in with 8px (md)
      corners, so they nest concentrically (8 + 4). */
   --radius-xl: calc(var(--radius) * 1.2);
-  /* Otto: the luma preset rounds buttons, inputs and cards by the 2xl to 4xl steps (pills);
-     here they are all the xl step (12px). */
-  --radius-2xl: calc(var(--radius) * 1.2);
-  --radius-3xl: calc(var(--radius) * 1.2);
-  --radius-4xl: calc(var(--radius) * 1.2);
   --font-sans: "Inter Variable", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 }

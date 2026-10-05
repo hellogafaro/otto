@@ -329,8 +329,9 @@ accent, compact 32px controls.
   and placeholders use these words so Otto gets the same meaning the person
   sees.
 - **Vanilla shadcn.** Preset `b1VlItvM` (base-luma, Lucide icons). Luma's
-  pill radii (the 2xl to 4xl steps) are remapped to the 12px xl step in
-  `design/ui/src/styles/globals.css`; its spacing, solid inputs and slider stay. When
+  pill radii (the 2xl to 4xl steps) are replaced in each component by the
+  tokens below (buttons and inputs `md`, nested ones `sm`, menus `lg`, cards
+  `xl`); its spacing, solid inputs and slider stay. When
   something must look different everywhere, change the `packages/ui`
   component and mark it with an `// Otto:` comment. Instance classes are for
   layout only.
