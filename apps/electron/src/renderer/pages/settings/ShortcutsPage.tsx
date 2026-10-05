@@ -87,8 +87,6 @@ const ACTION_LABEL_KEYS: Partial<Record<ActionId, string>> = {
   'nav.goForward': 'shortcuts.action.goForward',
   'nav.goBackAlt': 'shortcuts.action.goBack',
   'nav.goForwardAlt': 'shortcuts.action.goForward',
-  'view.toggleSidebar': 'shortcuts.action.toggleSidebar',
-  'view.toggleFocusMode': 'shortcuts.action.toggleFocusMode',
   'navigator.selectAll': 'shortcuts.action.selectAll',
   'navigator.clearSelection': 'shortcuts.action.clearSelection',
   'panel.focusNext': 'shortcuts.action.focusNextPanel',

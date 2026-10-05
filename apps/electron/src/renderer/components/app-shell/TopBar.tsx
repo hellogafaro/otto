@@ -1,7 +1,7 @@
 /**
  * TopBar - Persistent top bar above all panels (Slack-style)
  *
- * Layout: [Sidebar] [Back] [Forward] [Workspace selector] ... [Browser strip] [+] [Help]
+ * Layout: [Back] [Forward] [Workspace selector] ... [Browser strip] [+] [Help]
  *
  * Fixed at top of window, 48px tall.
  * macOS: offset left to avoid stoplight controls.
@@ -10,7 +10,6 @@
 import { useTranslation } from "react-i18next"
 import * as Icons from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@craft-agent/ui"
-import { PanelLeftRounded } from "../icons/PanelLeftRounded"
 import { TopBarButton } from "../ui/TopBarButton"
 import { cn } from "@/lib/utils"
 import { isMac, isWebUI } from "@/lib/platform"
@@ -45,7 +44,6 @@ interface TopBarProps {
   onForward: () => void
   canGoBack: boolean
   canGoForward: boolean
-  onToggleSidebar: () => void
   onAddSessionPanel: () => void
   onAddBrowserPanel: () => void
   /** When true, hides controls that don't apply in compact/mobile layout */
@@ -64,7 +62,6 @@ export function TopBar({
   onForward,
   canGoBack,
   canGoForward,
-  onToggleSidebar,
   onAddSessionPanel,
   onAddBrowserPanel,
   isCompact,
@@ -128,17 +125,6 @@ export function TopBar({
         className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1"
         style={{ paddingLeft: leftPadding, paddingRight: isCompact ? 12 : 0 }}
       >
-        {!isCompact && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <TopBarButton onClick={onToggleSidebar} aria-label={t("menu.toggleSidebar")}>
-              <PanelLeftRounded className="h-[18px] w-[18px] text-foreground/70" />
-            </TopBarButton>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{t("menu.toggleSidebar")}</TooltipContent>
-        </Tooltip>
-        )}
-
         {/* Back / Forward / Workspace selector (moved from center).
             In compact mode the back/forward buttons are dropped — the iOS-style
             drill-in chevron in PanelHeader plus the browser's native back gesture

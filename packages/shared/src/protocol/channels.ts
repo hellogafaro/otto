@@ -130,8 +130,6 @@ export const RPC_CHANNELS = {
     NEW_CHAT: 'menu:newChat',
     OPEN_SETTINGS: 'menu:openSettings',
     KEYBOARD_SHORTCUTS: 'menu:keyboardShortcuts',
-    TOGGLE_FOCUS_MODE: 'menu:toggleFocusMode',
-    TOGGLE_SIDEBAR: 'menu:toggleSidebar',
     QUIT: 'menu:quit',
   },
   deeplink: {

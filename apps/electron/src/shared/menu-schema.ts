@@ -22,7 +22,7 @@ import { SETTINGS_PAGES, type SettingsSubpage } from './settings-registry'
 export interface MenuItemAction {
   type: 'action'
   labelKey: string              // i18n key
-  shortcut: string              // Electron accelerator: 'CmdOrCtrl+B'
+  shortcut: string              // Electron accelerator: 'CmdOrCtrl+N'
   ipcChannel: string
 }
 
@@ -67,19 +67,6 @@ export const VIEW_MENU: MenuSection = {
     { type: 'role', role: 'zoomIn' },
     { type: 'role', role: 'zoomOut' },
     { type: 'role', role: 'resetZoom' },
-    { type: 'separator' },
-    {
-      type: 'action',
-      labelKey: 'menu.toggleFocusMode',
-      shortcut: 'CmdOrCtrl+.',
-      ipcChannel: RPC_CHANNELS.menu.TOGGLE_FOCUS_MODE,
-    },
-    {
-      type: 'action',
-      labelKey: 'menu.toggleSidebar',
-      shortcut: 'CmdOrCtrl+B',
-      ipcChannel: RPC_CHANNELS.menu.TOGGLE_SIDEBAR,
-    },
   ],
 }
 

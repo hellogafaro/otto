@@ -51,7 +51,6 @@ interface PanelStackContainerProps {
   sidebarWidth: number
   navigatorSlot: React.ReactNode
   navigatorWidth: number
-  isSidebarAndNavigatorHidden: boolean
   isRightSidebarVisible?: boolean
   /** Compact mode: single-panel, list/content toggle (mobile or narrow window) */
   isCompact?: boolean
@@ -84,7 +83,6 @@ export function PanelStackContainer({
   sidebarWidth,
   navigatorSlot,
   navigatorWidth,
-  isSidebarAndNavigatorHidden,
   isRightSidebarVisible,
   isCompact = false,
   isResizing,
@@ -185,7 +183,6 @@ export function PanelStackContainer({
                 entry={focusedEntry}
                 isOnly={true}
                 isFocusedPanel={true}
-                isSidebarAndNavigatorHidden={isSidebarAndNavigatorHidden}
                 isAtLeftEdge={isLeftEdge}
                 isAtRightEdge={!isRightSidebarVisible}
                 proportion={focusedEntry.proportion}
@@ -277,7 +274,6 @@ export function PanelStackContainer({
               entry={entry}
               isOnly={visiblePanels.length === 1}
               isFocusedPanel={isMultiPanel ? entry.id === focusedPanelId : true}
-              isSidebarAndNavigatorHidden={isSidebarAndNavigatorHidden}
               isAtLeftEdge={index === 0 && isLeftEdge}
               isAtRightEdge={index === visiblePanels.length - 1 && !isRightSidebarVisible}
               proportion={entry.proportion}

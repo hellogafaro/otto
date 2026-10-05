@@ -30,7 +30,6 @@ interface PanelSlotProps {
   isOnly: boolean
   /** Whether this panel is the focused panel in a multi-panel layout */
   isFocusedPanel: boolean
-  isSidebarAndNavigatorHidden: boolean
   /** Whether this panel's left corners touch the window edge (no sidebar/navigator before it) */
   isAtLeftEdge: boolean
   /** Whether this panel's right corners touch the window edge (no right sidebar after it) */
@@ -47,7 +46,6 @@ export function PanelSlot({
   entry,
   isOnly,
   isFocusedPanel,
-  isSidebarAndNavigatorHidden,
   isAtLeftEdge,
   isAtRightEdge,
   proportion,
@@ -135,10 +133,7 @@ export function PanelSlot({
       >
         <div className="h-full flex flex-col">
           <AppShellProvider value={contextOverride}>
-            <MainContentPanel
-              navStateOverride={navState}
-              isSidebarAndNavigatorHidden={isSidebarAndNavigatorHidden}
-            />
+            <MainContentPanel navStateOverride={navState} />
           </AppShellProvider>
         </div>
       </div>

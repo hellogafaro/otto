@@ -55,7 +55,6 @@ import {
 } from '@/components/ui/styled-dropdown'
 import { cn } from '@/lib/utils'
 import { coerceInputText } from '@/lib/input-text'
-import { isMac } from '@/lib/platform'
 import { applySmartTypography } from '@/lib/smart-typography'
 import { AttachmentPreview } from '../AttachmentPreview'
 import { ImageSupportWarningBanner } from './ImageSupportWarningBanner'
@@ -106,9 +105,6 @@ function formatFollowUpChipText(text: string, fallback: string, maxLength = 50):
     : normalized
 }
 
-
-/** Platform-specific modifier key for keyboard shortcuts */
-const cmdKey = isMac ? '⌘' : 'Ctrl'
 
 /** Default rotating placeholders are now generated inside FreeFormInput via useMemo + t() */
 
@@ -319,8 +315,6 @@ export function FreeFormInput({
     t("chatInput.placeholder.mention"),
     t("chatInput.placeholder.labels"),
     t("chatInput.placeholder.newLine"),
-    t("chatInput.placeholder.sidebar", { key: cmdKey }),
-    t("chatInput.placeholder.focusMode", { key: cmdKey }),
   ], [t])
 
   const effectivePlaceholderProp = placeholder ?? defaultPlaceholders
@@ -451,8 +445,6 @@ export function FreeFormInput({
       const lower = entry.toLowerCase()
       return !lower.includes('shift + tab')
         && !lower.includes('shift + return')
-        && !lower.includes('toggle the sidebar')
-        && !lower.includes('focus mode')
         && !lower.includes('⌘')
         && !lower.includes('ctrl')
     })

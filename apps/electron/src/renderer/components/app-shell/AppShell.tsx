@@ -161,7 +161,6 @@ interface AppShellProps {
   contextValue: AppShellContextType
   /** UI-specific props */
   defaultLayout?: number[]
-  defaultCollapsed?: boolean
   menuNewChatTrigger?: number
 }
 
@@ -494,7 +493,6 @@ export function AppShell(props: AppShellProps) {
 function AppShellContent({
   contextValue,
   defaultLayout = [20, 32, 48],
-  defaultCollapsed = false,
   menuNewChatTrigger,
 }: AppShellProps) {
   // Destructure commonly used values from context
@@ -527,20 +525,11 @@ function AppShellContent({
   // Get hotkey labels from centralized action registry
   const newChatHotkey = useActionLabel('app.newChat').hotkey
 
-  const [isSidebarVisible, setIsSidebarVisible] = React.useState(() => {
-    return storage.get(storage.KEYS.sidebarVisible, !defaultCollapsed)
-  })
   const [sidebarWidth, setSidebarWidth] = React.useState(() => {
     return storage.get(storage.KEYS.sidebarWidth, SIDEBAR_WIDTH)
   })
   const [sessionListWidth, setSessionListWidth] = React.useState(() => {
     return storage.get(storage.KEYS.sessionListWidth, LIST_WIDTH)
-  })
-
-  // Hides both sidebar and navigator (CMD+. toggle)
-  // Seeded from the persisted preference, then kept toggleable.
-  const [isSidebarAndNavigatorHidden, setIsSidebarAndNavigatorHidden] = React.useState(() => {
-    return storage.get(storage.KEYS.focusModeEnabled, false)
   })
 
   // Auto-compact mode: shell width below mobile threshold hides sidebar/navigator
@@ -550,8 +539,6 @@ function AppShellContent({
   const shellWidth = useContainerWidth(shellRef)
   const MOBILE_THRESHOLD = 768
   const isAutoCompact = shellWidth > 0 && shellWidth < MOBILE_THRESHOLD
-
-  const effectiveSidebarAndNavigatorHidden = isSidebarAndNavigatorHidden || isAutoCompact
 
   const [isResizing, setIsResizing] = React.useState<'sidebar' | 'session-list' | null>(null)
   const [session, setSession] = useSession()
@@ -565,7 +552,7 @@ function AppShellContent({
   // Derived from focused panel's route — all panels are peers
   const navState = useNavigationState()
   // The status sidebar belongs to chats; every other section brings its own single panel.
-  const showSidebar = isSidebarVisible && isSessionsNavigation(navState)
+  const showSidebar = isSessionsNavigation(navState)
 
   const store = useStore()
   const panelStack = useAtomValue(panelStackAtom)
@@ -1190,20 +1177,6 @@ function AppShellContent({
     }
   })
 
-  const handleToggleSidebar = useCallback(() => {
-    if (isSidebarAndNavigatorHidden) {
-      setIsSidebarAndNavigatorHidden(false)
-      return
-    }
-    setIsSidebarVisible(v => !v)
-  }, [isSidebarAndNavigatorHidden])
-
-  // Sidebar toggle (CMD+B)
-  useAction('view.toggleSidebar', handleToggleSidebar)
-
-  // Focus mode toggle (CMD+.) - hides both sidebars
-  useAction('view.toggleFocusMode', () => setIsSidebarAndNavigatorHidden(v => !v))
-
   // Panel focus navigation (CMD+SHIFT+[ / ])
   const focusNextPanel = useSetAtom(focusNextPanelAtom)
   const focusPrevPanel = useSetAtom(focusPrevPanelAtom)
@@ -1690,32 +1663,6 @@ function AppShellContent({
     if (!activeWorkspaceId) return
     storage.set(storage.KEYS.expandedFolders, [...expandedFolders], activeWorkspaceId)
   }, [expandedFolders, activeWorkspaceId])
-
-  // Persist sidebar visibility to localStorage
-  React.useEffect(() => {
-    storage.set(storage.KEYS.sidebarVisible, isSidebarVisible)
-  }, [isSidebarVisible])
-
-  // Persist focus mode state to localStorage
-  React.useEffect(() => {
-    storage.set(storage.KEYS.focusModeEnabled, isSidebarAndNavigatorHidden)
-  }, [isSidebarAndNavigatorHidden])
-
-  // Listen for focus mode toggle from menu (View → Focus Mode)
-  React.useEffect(() => {
-    const cleanup = window.electronAPI.onMenuToggleFocusMode?.(() => {
-      setIsSidebarAndNavigatorHidden(v => !v)
-    })
-    return cleanup
-  }, [])
-
-  // Listen for sidebar toggle from menu (View → Toggle Sidebar)
-  React.useEffect(() => {
-    const cleanup = window.electronAPI.onMenuToggleSidebar?.(() => {
-      handleToggleSidebar()
-    })
-    return cleanup
-  }, [handleToggleSidebar])
 
   // Persist per-view filter map to localStorage (workspace-scoped)
   React.useEffect(() => {
@@ -2317,7 +2264,6 @@ function AppShellContent({
           onForward={goForward}
           canGoBack={canGoBack}
           canGoForward={canGoForward}
-          onToggleSidebar={handleToggleSidebar}
           onAddSessionPanel={() => handleNewChat(true)}
           onAddBrowserPanel={() => { void handleNewBrowserWindow() }}
           isCompact={isAutoCompact}
@@ -2493,15 +2439,14 @@ function AppShellContent({
             </div>
           </div>
           }
-          sidebarWidth={effectiveSidebarAndNavigatorHidden ? 0 : (showSidebar ? sidebarWidth : 0)}
+          sidebarWidth={isAutoCompact ? 0 : (showSidebar ? sidebarWidth : 0)}
           navigatorSlot={
             <div
               style={{ width: isAutoCompact ? '100%' : sessionListWidth }}
               className="h-full flex flex-col min-w-0 relative z-panel"
             >
             <PanelHeader
-              title={showSidebar || !isSessionsNavigation(navState) ? listTitle : undefined}
-              compensateForStoplight={!isSidebarVisible && isSessionsNavigation(navState)}
+              title={listTitle}
               badge={automationFilter?.automationType === 'scheduled' ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -3378,8 +3323,7 @@ function AppShellContent({
             )}
             </div>
           }
-          navigatorWidth={isAutoCompact ? sessionListWidth : (effectiveSidebarAndNavigatorHidden || isPagesView ? 0 : sessionListWidth)}
-          isSidebarAndNavigatorHidden={effectiveSidebarAndNavigatorHidden}
+          navigatorWidth={isAutoCompact ? sessionListWidth : (isPagesView ? 0 : sessionListWidth)}
           isRightSidebarVisible={false}
           isCompact={isAutoCompact}
           isResizing={!!isResizing}

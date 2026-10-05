@@ -8,9 +8,6 @@
  *
  * The NavigationState is the single source of truth for what to display.
  *
- * In focused mode (single window), wraps content with StoplightProvider
- * so PanelHeader components automatically compensate for macOS traffic lights.
- *
  * When multiple sessions are selected (multi-select mode), shows the
  * MultiSelectPanel with batch action buttons instead of a single chat.
  */
@@ -23,7 +20,6 @@ import { Panel } from './Panel'
 import { MultiSelectPanel } from './MultiSelectPanel'
 import { useAppShellContext } from '@/context/AppShellContext'
 import { sessionMetaMapAtom, type SessionMeta } from '@/atoms/sessions'
-import { StoplightProvider } from '@/context/StoplightContext'
 import {
   useNavigationState,
   isSessionsNavigation,
@@ -50,8 +46,6 @@ import { automationsAtom } from '@/atoms/automations'
 import { SendResourceToWorkspaceDialog, type SendResourceType } from './SendResourceToWorkspaceDialog'
 
 export interface MainContentPanelProps {
-  /** Whether both sidebar and navigator are hidden (focus mode / CMD+.) */
-  isSidebarAndNavigatorHidden?: boolean
   /** Optional className for the container */
   className?: string
   /**
@@ -63,7 +57,6 @@ export interface MainContentPanelProps {
 }
 
 export function MainContentPanel({
-  isSidebarAndNavigatorHidden = false,
   className,
   navStateOverride,
 }: MainContentPanelProps) {
@@ -218,10 +211,9 @@ export function MainContentPanel({
     })
   }, [selectedMetas, onSessionLabelsChange])
 
-  // Wrap content with StoplightProvider so PanelHeaders auto-compensate in focused mode.
-  // Also renders the Send to Workspace dialog (portal-based, so it overlays regardless of position).
-  const wrapWithStoplight = (content: React.ReactNode) => (
-    <StoplightProvider value={isSidebarAndNavigatorHidden}>
+  // Renders the Send to Workspace dialog (portal-based, so it overlays regardless of position) beside the content.
+  const withSendDialog = (content: React.ReactNode) => (
+    <>
       {content}
       <SendResourceToWorkspaceDialog
         open={sendDialogOpen}
@@ -232,7 +224,7 @@ export function MainContentPanel({
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId || ''}
       />
-    </StoplightProvider>
+    </>
   )
 
   // Settings navigator - uses component map from settings-pages.ts.
@@ -242,7 +234,7 @@ export function MainContentPanel({
   if (isSettingsNavigation(navState)) {
     const subpage = navState.subpage ?? 'app'
     const SettingsPageComponent = getSettingsPageComponent(subpage)
-    return wrapWithStoplight(
+    return withSendDialog(
       <Panel variant="grow" className={className}>
         <SettingsPageComponent />
       </Panel>
@@ -252,7 +244,7 @@ export function MainContentPanel({
   // Sources navigator - show source info, multi-select panel, or empty state
   if (isSourcesNavigation(navState)) {
     if (isSourceMultiSelectActive) {
-      return wrapWithStoplight(
+      return withSendDialog(
         <Panel variant="grow" className={className}>
           <MultiSelectPanel
             count={sourceSelectionCount}
@@ -264,7 +256,7 @@ export function MainContentPanel({
       )
     }
     if (navState.details) {
-      return wrapWithStoplight(
+      return withSendDialog(
         <Panel variant="grow" className={className}>
           <SourceInfoPage
             sourceSlug={navState.details.sourceSlug}
@@ -274,7 +266,7 @@ export function MainContentPanel({
       )
     }
     // No source selected - empty state
-    return wrapWithStoplight(
+    return withSendDialog(
       <Panel variant="grow" className={className}>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <p className="text-sm">{t("sourcesList.noSourcesConfigured")}</p>
@@ -286,7 +278,7 @@ export function MainContentPanel({
   // Skills navigator - show skill info, multi-select panel, or empty state
   if (isSkillsNavigation(navState)) {
     if (isSkillMultiSelectActive) {
-      return wrapWithStoplight(
+      return withSendDialog(
         <Panel variant="grow" className={className}>
           <MultiSelectPanel
             count={skillSelectionCount}
@@ -298,7 +290,7 @@ export function MainContentPanel({
       )
     }
     if (navState.details?.type === 'skill') {
-      return wrapWithStoplight(
+      return withSendDialog(
         <Panel variant="grow" className={className}>
           <SkillInfoPage
             skillSlug={navState.details.skillSlug}
@@ -309,7 +301,7 @@ export function MainContentPanel({
       )
     }
     // No skill selected - empty state
-    return wrapWithStoplight(
+    return withSendDialog(
       <Panel variant="grow" className={className}>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <p className="text-sm">{t("skillsList.noSkillsConfigured")}</p>
@@ -321,7 +313,7 @@ export function MainContentPanel({
   // Automations navigator - show automation info, multi-select panel, or empty state
   if (isAutomationsNavigation(navState)) {
     if (isAutomationMultiSelectActive) {
-      return wrapWithStoplight(
+      return withSendDialog(
         <Panel variant="grow" className={className}>
           <MultiSelectPanel
             count={automationSelectionCount}
@@ -335,7 +327,7 @@ export function MainContentPanel({
     if (navState.details) {
       const automation = automations.find(h => h.id === navState.details!.automationId)
       if (automation) {
-        return wrapWithStoplight(
+        return withSendDialog(
           <Panel variant="grow" className={className}>
             <AutomationInfoPage
               automation={automation}
@@ -351,7 +343,7 @@ export function MainContentPanel({
         )
       }
     }
-    return wrapWithStoplight(
+    return withSendDialog(
       <Panel variant="grow" className={className}>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <p className="text-sm">{t("automations.noAutomationsConfigured")}</p>
@@ -362,7 +354,7 @@ export function MainContentPanel({
 
   // Pages navigator - full-width library grid, or one page's embedded render
   if (isPagesNavigation(navState)) {
-    return wrapWithStoplight(
+    return withSendDialog(
       <Panel variant="grow" className={className}>
         {navState.details ? (
           <PageView key={navState.details.pageSlug} pageSlug={navState.details.pageSlug} />
@@ -377,13 +369,13 @@ export function MainContentPanel({
   if (isProjectsNavigation(navState)) {
     const projectDetails = navState.details
     if (projectDetails && projectDetails.type === 'project') {
-      return wrapWithStoplight(
+      return withSendDialog(
         <Panel variant="grow" className={className}>
           <ProjectInfoPage projectSlug={projectDetails.projectSlug} />
         </Panel>
       )
     }
-    return wrapWithStoplight(
+    return withSendDialog(
       <Panel variant="grow" className={className}>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <p className="text-sm">{t("projectsList.noProjectSelected")}</p>
@@ -396,7 +388,7 @@ export function MainContentPanel({
   if (isSessionsNavigation(navState)) {
     // Multi-select mode: show batch actions panel
     if (isMultiSelectActive) {
-      return wrapWithStoplight(
+      return withSendDialog(
         <Panel variant="grow" className={className}>
           <MultiSelectPanel
             count={selectionCount}
@@ -414,14 +406,14 @@ export function MainContentPanel({
     }
 
     if (navState.details) {
-      return wrapWithStoplight(
+      return withSendDialog(
         <Panel variant="grow" className={className}>
           <ChatPage sessionId={navState.details.sessionId} />
         </Panel>
       )
     }
     // No session selected - empty state
-    return wrapWithStoplight(
+    return withSendDialog(
       <Panel variant="grow" className={className}>
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <p className="text-sm">{t("session.noSessionSelected")}</p>
@@ -431,7 +423,7 @@ export function MainContentPanel({
   }
 
   // Fallback (should not happen with proper NavigationState)
-  return wrapWithStoplight(
+  return withSendDialog(
     <Panel variant="grow" className={className}>
       <div className="flex items-center justify-center h-full text-muted-foreground">
         <p className="text-sm">{t("session.selectConversation")}</p>

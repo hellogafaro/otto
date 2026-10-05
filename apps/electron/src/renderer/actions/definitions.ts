@@ -114,23 +114,6 @@ export const actions = {
   },
 
   // ═══════════════════════════════════════════
-  // View
-  // ═══════════════════════════════════════════
-  'view.toggleSidebar': {
-    id: 'view.toggleSidebar',
-    label: 'Toggle Sidebar',
-    defaultHotkey: 'mod+b',
-    category: 'View',
-  },
-  'view.toggleFocusMode': {
-    id: 'view.toggleFocusMode',
-    label: 'Toggle Focus Mode',
-    description: 'Hide both sidebars for distraction-free work',
-    defaultHotkey: 'mod+.',
-    category: 'View',
-  },
-
-  // ═══════════════════════════════════════════
   // Navigator (scoped — active entity list in middle panel)
   // ═══════════════════════════════════════════
   'navigator.selectAll': {

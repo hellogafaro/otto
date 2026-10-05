@@ -6,7 +6,6 @@
  * - Title with optional badge
  * - Optional action buttons
  * - Optional title dropdown menu (renders chevron and makes title interactive)
- * - Automatic padding compensation for macOS traffic lights (via StoplightContext)
  *
  * Usage:
  * ```tsx
@@ -21,10 +20,6 @@
  *   titleMenu={<><MenuItem>Rename</MenuItem><MenuItem>Delete</MenuItem></>}
  * />
  * ```
- *
- * The header automatically compensates for macOS traffic lights when rendered
- * inside a StoplightProvider (e.g., in MainContentPanel during focused mode).
- * You can also explicitly control this with the `compensateForStoplight` prop.
  */
 
 import * as React from 'react'
@@ -32,7 +27,6 @@ import { useState } from 'react'
 import { motion } from 'motion/react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useCompensateForStoplight } from '@/context/StoplightContext'
 import { useAppShellContext } from '@/context/AppShellContext'
 import {
   DropdownMenu,
@@ -40,13 +34,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { StyledDropdownMenuContent } from '@/components/ui/styled-dropdown'
 import { PanelBreadcrumb, type PanelCrumb } from './PanelBreadcrumb'
-
-// Spring transition for smooth animations (matches sidebar)
-const springTransition = { type: 'spring' as const, stiffness: 300, damping: 30 }
-
-// Padding to compensate for macOS traffic lights (stoplight buttons)
-// Traffic lights positioned at x:18, ~52px wide = 70px + 14px gap
-const STOPLIGHT_PADDING = 84
 
 // Compact header controls are 44px touch targets with a 6px flex gap.
 // Reserve the real occupied width for the centered title so long titles truncate
@@ -91,10 +78,6 @@ export interface PanelHeaderProps {
   actions?: React.ReactNode
   /** Optional right sidebar button (rendered after actions) */
   rightSidebarButton?: React.ReactNode
-  /** When true, animates left margin to avoid macOS traffic lights (use when this is the first panel on screen) */
-  compensateForStoplight?: boolean
-  /** Left padding override (e.g., for focused mode with traffic lights) */
-  paddingLeft?: string
   /** Optional className for additional styling */
   className?: string
   /** Whether title is being regenerated (shows shimmer effect) */
@@ -114,8 +97,6 @@ export function PanelHeader({
   centerButton,
   actions,
   rightSidebarButton,
-  compensateForStoplight,
-  paddingLeft,
   className,
   isRegeneratingTitle,
 }: PanelHeaderProps) {
@@ -125,12 +106,6 @@ export function PanelHeader({
   // value, which overrides the context.
   const { leadingAction: contextLeadingAction, isCompactMode } = useAppShellContext()
   const leadingAction = explicitLeadingAction ?? contextLeadingAction
-
-  // Use context as fallback when prop is not explicitly set.
-  // Skip stoplight compensation when leadingAction is present — the back button
-  // occupies the space where traffic lights would be.
-  const contextCompensate = useCompensateForStoplight()
-  const shouldCompensate = leadingAction ? false : (compensateForStoplight ?? contextCompensate)
 
   // Controlled dropdown state for anchoring to chevron while keeping full title clickable
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -268,25 +243,16 @@ export function PanelHeader({
     </>
   )
 
-  // Base padding (16px = pl-4, matches pr-2 when leading action present for symmetry)
-  const basePadding = leadingAction || crumbs ? 8 : 16
-
   const baseClassName = cn(
     'flex shrink-0 items-center pr-2 min-w-0 gap-1.5 relative z-panel h-11',
-    // Only use static paddingLeft class when not animating
-    !shouldCompensate && (paddingLeft || (leadingAction || crumbs ? 'pl-2' : 'pl-4')),
+    // 16px left padding, 8px when a leading action or breadcrumb leads (matches pr-2 for symmetry)
+    leadingAction || crumbs ? 'pl-2' : 'pl-4',
     className
   )
 
-  // Use motion.div with animated paddingLeft to shift content while keeping background full-width
   return (
-    <motion.div
-      initial={false}
-      animate={{ paddingLeft: shouldCompensate ? STOPLIGHT_PADDING : basePadding }}
-      transition={springTransition}
-      className={baseClassName}
-    >
+    <div className={baseClassName}>
       {content}
-    </motion.div>
+    </div>
   )
 }

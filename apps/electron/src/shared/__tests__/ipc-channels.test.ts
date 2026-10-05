@@ -115,8 +115,6 @@ const EXPECTED_CHANNELS: string[] = [
   'menu:newChat',
   'menu:openSettings',
   'menu:quit',
-  'menu:toggleFocusMode',
-  'menu:toggleSidebar',
   'messaging:access:allowPending',
   'messaging:access:dismissPending',
   'messaging:access:getMode',

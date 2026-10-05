@@ -11,7 +11,6 @@ const PREFIX = 'craft-'
  */
 export const KEYS = {
   // Chat sidebar
-  sidebarVisible: 'sidebar-visible',
   sidebarWidth: 'sidebar-width',
   sessionListWidth: 'session-list-width',
   sidebarMode: 'sidebar-mode',
@@ -22,9 +21,6 @@ export const KEYS = {
   collapsedSidebarItems: 'collapsed-sidebar-items',
   chatGroupingMode: 'chat-grouping-mode', // How to group chats: 'date' | 'status'
   collapsedSessionGroups: 'collapsed-session-groups', // Collapsed group keys in session list
-
-  // Focus mode
-  focusModeEnabled: 'focus-mode-enabled',
 
   // Session files panel state
   sessionFilesExpandedFolders: 'session-files-expanded', // Expanded folders in session files tree (keyed by sessionId)

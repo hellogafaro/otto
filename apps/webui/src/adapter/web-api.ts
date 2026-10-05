@@ -163,8 +163,6 @@ export function createWebApi(options: WebApiOptions): {
     onMenuNewChat: () => () => {},
     onMenuOpenSettings: () => () => {},
     onMenuKeyboardShortcuts: () => () => {},
-    onMenuToggleFocusMode: () => () => {},
-    onMenuToggleSidebar: () => () => {},
     onDeepLinkNavigate: () => () => {},
 
     // Menu actions — no-ops (web has no native menu)

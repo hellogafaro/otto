@@ -95,7 +95,7 @@ Keys use **flat dot-notation** with a category prefix:
 | Prefix | Scope | Example |
 |--------|-------|---------|
 | `common.*` | Shared labels (Cancel, Save, Close, Edit, Loading...) | `common.cancel` |
-| `menu.*` | App menu items (File, Edit, View, Window) | `menu.toggleSidebar` |
+| `menu.*` | App menu items (File, Edit, View, Window) | `menu.newChat` |
 | `sidebar.*` | Left sidebar navigation items | `sidebar.allSessions` |
 | `sidebarMenu.*` | Sidebar context menu actions | `sidebarMenu.addSource` |
 | `sessionMenu.*` | Session context menu actions | `sessionMenu.archive` |
