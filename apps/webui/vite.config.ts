@@ -14,20 +14,6 @@ export default defineConfig({
       },
     }),
     tailwindcss(),
-    {
-      // Dev only, opt-in (WEBUI_LOCAL_WS=1): a browser on this machine reaches the
-      // server directly. Off by default because the bb link also arrives as
-      // 127.0.0.1, and there the server's OTTO_WEBUI_WS_URL (the public address)
-      // must be used as is.
-      name: 'local-ws-url',
-      configureServer(server) {
-        if (!process.env.WEBUI_LOCAL_WS) return
-        server.middlewares.use('/api/config', (_req, res) => {
-          res.setHeader('content-type', 'application/json')
-          res.end(JSON.stringify({ wsUrl: `ws://127.0.0.1:${process.env.OTTO_RPC_PORT ?? '9100'}` }))
-        })
-      },
-    },
   ],
   root: resolve(__dirname, 'src'),
   base: './',
@@ -105,7 +91,8 @@ export default defineConfig({
     // Dev only: reached through the bb link, whose host name changes.
     allowedHosts: true,
     // Proxy API + WS to the headless server so the dev bundle on :5175 works
-    // end-to-end with HMR. Target port follows OTTO_RPC_PORT (default 9100).
+    // end-to-end with HMR. The app connects to its own origin's /ws (see app.tsx),
+    // so the session cookie reaches the WebSocket upgrade. Target port follows OTTO_RPC_PORT (default 9100).
     // Auto-detects TLS: if the server has OTTO_RPC_TLS_KEY/CERT set, we proxy
     // over https/wss with secure:false to accept the self-signed dev cert.
     proxy: (() => {

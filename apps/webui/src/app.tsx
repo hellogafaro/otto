@@ -80,8 +80,13 @@ export default function App() {
         throw new Error(`Failed to fetch config: ${configRes.status}`)
       }
 
-      const { wsUrl } = await configRes.json() as { wsUrl: string }
-      if (!wsUrl) throw new Error('Server did not return a WebSocket URL')
+      const config = await configRes.json() as { wsUrl: string }
+      if (!config.wsUrl) throw new Error('Server did not return a WebSocket URL')
+      // Dev: the session cookie belongs to this origin, so connect through the
+      // Vite /ws proxy instead of the server's public address (another host).
+      const wsUrl = import.meta.env.DEV
+        ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
+        : config.wsUrl
 
       // 2. Determine workspace — check URL params first
       const params = new URLSearchParams(window.location.search)
