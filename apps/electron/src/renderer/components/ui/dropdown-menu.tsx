@@ -1,10 +1,41 @@
+/**
+ * Dropdown menu: Craft's Radix-style API (`asChild`, `onSelect`, `Sub*`,
+ * checkbox/radio items) as thin adapters over the design system's Base UI
+ * menu (`@workspace/ui/components/dropdown-menu`), which owns the look.
+ *
+ * Mapping from Radix:
+ * - `asChild` on the trigger -> Base UI `render`.
+ * - item `onSelect(event)` -> `onClick`; `event.preventDefault()` keeps the menu open.
+ * - `modal` and the other Root props are the same in Base UI.
+ * - `data-[state=open]:*` classes on a trigger -> `data-popup-open:*`.
+ * - A label outside a group gets its own group (Base UI requires one).
+ */
 import * as React from "react"
-import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
-
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem as DsCheckboxItem,
+  DropdownMenuContent as DsContent,
+  DropdownMenuGroup,
+  DropdownMenuItem as DsItem,
+  DropdownMenuLabel as DsLabel,
+  DropdownMenuPortal,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem as DsRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent as DsSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger as DsTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@/lib/utils"
 
 const SUPPORTED_HOVER_PREFIXES = ["bg-", "text-", "border-", "ring-", "opacity-"]
+
+/** Base UI marks an open menu's trigger with `data-popup-open`, not Radix's `data-state=open`. */
+function openStateToPopupOpen(className?: string): string | undefined {
+  return className?.replace(/data-\[state=open\]:/g, "data-popup-open:")
+}
 
 function mirrorHoverToOpenStateClasses(className?: string): string | undefined {
   if (!className) return className
@@ -27,268 +58,111 @@ function mirrorHoverToOpenStateClasses(className?: string): string | undefined {
   return cn(...mirrored, className)
 }
 
-function DropdownMenu({
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
+type TriggerProps = Omit<React.ComponentProps<typeof DsTrigger>, "render"> & {
+  /** Radix: render the child element as the trigger. */
+  asChild?: boolean
+  /** Auto-mirror hover:* classes to the open state while the menu is open. Default: true */
+  autoMirrorHoverToOpen?: boolean
 }
 
-function DropdownMenuPortal({
+function DropdownMenuTrigger({
+  className,
+  autoMirrorHoverToOpen = true,
+  asChild,
+  children,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
-  return (
-    <DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
-  )
-}
+}: TriggerProps) {
+  const style = (value?: string) =>
+    openStateToPopupOpen(autoMirrorHoverToOpen ? mirrorHoverToOpenStateClasses(value) : value)
 
-const DropdownMenuTrigger = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger> & {
-    /** Auto-mirror hover:* classes to data-[state=open]:* while menu is open. Default: true */
-    autoMirrorHoverToOpen?: boolean
-  }
->(({ className, autoMirrorHoverToOpen = true, asChild, children, ...props }, ref) => {
-  const triggerClassName = cn(
-    "select-none",
-    autoMirrorHoverToOpen ? mirrorHoverToOpenStateClasses(className) : className
-  )
-
-  if (asChild && autoMirrorHoverToOpen && React.isValidElement(children)) {
-    const childClassName = (children.props as { className?: string }).className
-    const mergedChildClassName = mirrorHoverToOpenStateClasses(cn("select-none", childClassName, className))
-
+  if (asChild && React.isValidElement(children)) {
+    const child = children as React.ReactElement<{ className?: string }>
+    const merged = style(cn("select-none", child.props.className, className))
+    // Base UI expects a <button> unless told otherwise.
+    const nativeButton = typeof child.type === "string" ? child.type === "button" : true
     return (
-      <DropdownMenuPrimitive.Trigger
-        ref={ref}
-        data-slot="dropdown-menu-trigger"
-        asChild
-        {...props}
-      >
-        {React.cloneElement(children as React.ReactElement<{ className?: string }>, {
-          className: mergedChildClassName,
-        })}
-      </DropdownMenuPrimitive.Trigger>
+      <DsTrigger nativeButton={nativeButton} {...props} render={React.cloneElement(child, { className: merged })} />
     )
   }
 
   return (
-    <DropdownMenuPrimitive.Trigger
-      ref={ref}
-      data-slot="dropdown-menu-trigger"
-      asChild={asChild}
-      className={triggerClassName}
-      {...props}
-    >
+    <DsTrigger className={style(cn("select-none", className))} {...props}>
       {children}
-    </DropdownMenuPrimitive.Trigger>
+    </DsTrigger>
   )
-})
-DropdownMenuTrigger.displayName = "DropdownMenuTrigger"
+}
 
+// Craft menus size to their content (min 8rem); the design system's match the
+// trigger's width.
 function DropdownMenuContent({
   className,
-  sideOffset = 4,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
-  return (
-    <DropdownMenuPrimitive.Portal>
-      <DropdownMenuPrimitive.Content
-        data-slot="dropdown-menu-content"
-        sideOffset={sideOffset}
-        className={cn(
-          "popover-styled data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-dropdown max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto p-1",
-          className
-        )}
-        {...props}
-      />
-    </DropdownMenuPrimitive.Portal>
-  )
-}
-
-function DropdownMenuGroup({
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Group>) {
-  return (
-    <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
-  )
-}
-
-function DropdownMenuItem({
-  className,
-  inset,
-  variant = "default",
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
-  inset?: boolean
-  variant?: "default" | "destructive"
-}) {
-  return (
-    <DropdownMenuPrimitive.Item
-      data-slot="dropdown-menu-item"
-      data-inset={inset}
-      data-variant={variant}
-      className={cn(
-        "focus:bg-foreground/5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&>svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-function DropdownMenuCheckboxItem({
-  className,
-  children,
-  checked,
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
-  return (
-    <DropdownMenuPrimitive.CheckboxItem
-      data-slot="dropdown-menu-checkbox-item"
-      className={cn(
-        "focus:bg-foreground/5 relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      checked={checked}
-      {...props}
-    >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-        <DropdownMenuPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </DropdownMenuPrimitive.CheckboxItem>
-  )
-}
-
-function DropdownMenuRadioGroup({
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
-  return (
-    <DropdownMenuPrimitive.RadioGroup
-      data-slot="dropdown-menu-radio-group"
-      {...props}
-    />
-  )
-}
-
-function DropdownMenuRadioItem({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
-  return (
-    <DropdownMenuPrimitive.RadioItem
-      data-slot="dropdown-menu-radio-item"
-      className={cn(
-        "focus:bg-foreground/5 relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-        <DropdownMenuPrimitive.ItemIndicator>
-          <CircleIcon className="size-2 fill-current" />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </DropdownMenuPrimitive.RadioItem>
-  )
-}
-
-function DropdownMenuLabel({
-  className,
-  inset,
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Label> & {
-  inset?: boolean
-}) {
-  return (
-    <DropdownMenuPrimitive.Label
-      data-slot="dropdown-menu-label"
-      data-inset={inset}
-      className={cn(
-        "px-2 py-1.5 text-sm font-medium data-[inset]:pl-8",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-function DropdownMenuSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
-  return (
-    <DropdownMenuPrimitive.Separator
-      data-slot="dropdown-menu-separator"
-      className={cn("bg-border -mx-1 my-1 h-px", className)}
-      {...props}
-    />
-  )
-}
-
-function DropdownMenuShortcut({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
-  return (
-    <span
-      data-slot="dropdown-menu-shortcut"
-      className={cn(
-        "text-muted-foreground ml-auto text-xs tracking-widest",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-function DropdownMenuSub({
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
-  return <DropdownMenuPrimitive.Sub data-slot="dropdown-menu-sub" {...props} />
-}
-
-function DropdownMenuSubTrigger({
-  className,
-  inset,
-  children,
-  ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
-  inset?: boolean
-}) {
-  return (
-    <DropdownMenuPrimitive.SubTrigger
-      data-slot="dropdown-menu-sub-trigger"
-      data-inset={inset}
-      className={cn(
-        "focus:bg-foreground/5 data-[state=open]:bg-foreground/5 [&>svg:not([class*='text-'])]:text-muted-foreground flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <ChevronRightIcon className="ml-auto size-4" />
-    </DropdownMenuPrimitive.SubTrigger>
-  )
+}: React.ComponentProps<typeof DsContent>) {
+  return <DsContent className={cn("w-fit", className)} {...props} />
 }
 
 function DropdownMenuSubContent({
   className,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
+}: React.ComponentProps<typeof DsSubContent>) {
+  return <DsSubContent className={cn("w-fit", className)} {...props} />
+}
+
+type SelectHandler = (event: Event) => void
+
+/**
+ * Radix `onSelect(event)` as Base UI `onClick`. Runs before Base UI's own
+ * click handling; `event.preventDefault()` there keeps the menu open.
+ */
+function useSelectClick<E extends React.SyntheticEvent & { preventBaseUIHandler?: () => void }>(
+  onClick: ((event: E) => void) | undefined,
+  onSelect: SelectHandler | undefined,
+) {
+  return React.useCallback(
+    (event: E) => {
+      onClick?.(event)
+      if (!onSelect) return
+      onSelect(event.nativeEvent)
+      if (event.nativeEvent.defaultPrevented) event.preventBaseUIHandler?.()
+    },
+    [onClick, onSelect],
+  )
+}
+
+type WithSelect<P> = Omit<P, "onSelect"> & { onSelect?: SelectHandler }
+
+function DropdownMenuItem({
+  onClick,
+  onSelect,
+  ...props
+}: WithSelect<React.ComponentProps<typeof DsItem>>) {
+  const handleClick = useSelectClick(onClick, onSelect)
+  return <DsItem onClick={handleClick} {...props} />
+}
+
+function DropdownMenuCheckboxItem({
+  onClick,
+  onSelect,
+  ...props
+}: WithSelect<React.ComponentProps<typeof DsCheckboxItem>>) {
+  const handleClick = useSelectClick(onClick, onSelect)
+  return <DsCheckboxItem onClick={handleClick} {...props} />
+}
+
+function DropdownMenuRadioItem({
+  onClick,
+  onSelect,
+  ...props
+}: WithSelect<React.ComponentProps<typeof DsRadioItem>>) {
+  const handleClick = useSelectClick(onClick, onSelect)
+  return <DsRadioItem onClick={handleClick} {...props} />
+}
+
+function DropdownMenuLabel(props: React.ComponentProps<typeof DsLabel>) {
   return (
-    <DropdownMenuPrimitive.SubContent
-      data-slot="dropdown-menu-sub-content"
-      className={cn(
-        "popover-styled data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-dropdown min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden p-1",
-        className
-      )}
-      {...props}
-    />
+    <DropdownMenuGroup>
+      <DsLabel {...props} />
+    </DropdownMenuGroup>
   )
 }
 
@@ -308,4 +182,8 @@ export {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
+  useSelectClick,
+  openStateToPopupOpen,
+  mirrorHoverToOpenStateClasses,
 }
+export type { SelectHandler, WithSelect }

@@ -1,59 +1,58 @@
 import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "@/lib/utils"
+import type { VariantProps } from "class-variance-authority"
+import { Button as DsButton, buttonVariants as dsButtonVariants } from "@workspace/ui/components/button"
+import { asChildProps } from "./as-child"
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[8px] text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 select-none",
-  {
-    variants: {
-      variant: {
-        default:
-          "bg-foreground text-background hover:bg-foreground/90",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline:
-          "border border-foreground/15 bg-background hover:bg-foreground/3",
-        secondary:
-          "bg-foreground/5 text-foreground hover:bg-foreground/10",
-        ghost: "hover:bg-foreground/3",
-        link: "text-foreground underline-offset-4 hover:underline",
-      },
-      size: {
-        // Otto sizes: 32px, 28px (compact, 6px corners), 24px; 8px sides.
-        default: "h-8 px-2",
-        sm: "h-7 rounded-[6px] px-2 text-xs",
-        xs: "h-6 rounded-[6px] px-1.5 text-xs",
-        lg: "h-9 px-3",
-        icon: "size-8",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  }
-)
+type DsVariants = VariantProps<typeof dsButtonVariants>
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+// Craft's sizes by pixel height, mapped onto the design system's:
+// default 32 -> sm, sm 28 -> compact, xs 24 -> xs, lg 36 -> default, icon 32 -> icon-sm.
+const SIZE_MAP = {
+  default: "sm",
+  sm: "compact",
+  xs: "xs",
+  lg: "default",
+  icon: "icon-sm",
+} as const
+
+type CraftSize = keyof typeof SIZE_MAP
+type ButtonSize = CraftSize | NonNullable<DsVariants["size"]> | null
+type ButtonVariant = DsVariants["variant"]
+
+function resolveSize(size: ButtonSize | undefined): DsVariants["size"] {
+  if (size == null) return SIZE_MAP.default
+  return size in SIZE_MAP ? SIZE_MAP[size as CraftSize] : (size as DsVariants["size"])
+}
+
+/** Class names for a button, for call sites that style non-button elements (calendar). */
+function buttonVariants({
+  variant,
+  size,
+  className,
+}: { variant?: ButtonVariant; size?: ButtonSize; className?: string } = {}) {
+  return dsButtonVariants({ variant, size: resolveSize(size), className })
+}
+
+type ButtonProps = Omit<React.ComponentProps<typeof DsButton>, "size" | "variant"> & {
+  variant?: ButtonVariant
+  size?: ButtonSize
+  /** Render the single child element instead of a `<button>` (Radix `asChild`). */
   asChild?: boolean
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
-    return (
-      <Comp
-        data-slot="button"
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    )
-  }
-)
-Button.displayName = "Button"
+function Button({ variant, size, nativeButton, ...props }: ButtonProps) {
+  const rest = asChildProps(props)
+  // Base UI warns when a non-button element is rendered as a native button.
+  const tag = React.isValidElement(rest.render) ? rest.render.type : "button"
+  return (
+    <DsButton
+      {...rest}
+      variant={variant}
+      size={resolveSize(size)}
+      nativeButton={nativeButton ?? tag === "button"}
+    />
+  )
+}
 
 export { Button, buttonVariants }
+export type { ButtonProps }

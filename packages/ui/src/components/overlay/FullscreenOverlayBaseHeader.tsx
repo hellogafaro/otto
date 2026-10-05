@@ -3,8 +3,8 @@
  *
  * Builds a badge row from structured props (typeBadge, filePath, title, subtitle).
  * The file path badge has a dual-trigger menu:
- * - Left-click → Radix DropdownMenu with "Open" / "Reveal in {file manager}"
- * - Right-click → Radix ContextMenu with the same items
+ * - Left-click → DropdownMenu with "Open" / "Reveal in {file manager}"
+ * - Right-click → ContextMenu (design system) with the same items
  *
  * Both menus share one internal items array, just wrapped differently.
  * onOpenFileExternal and onRevealInFinder come from PlatformContext — no per-overlay callbacks.
@@ -12,7 +12,12 @@
 
 import { useState, useCallback, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import * as ContextMenu from '@radix-ui/react-context-menu'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@workspace/ui/components/context-menu'
 import { Check, Copy, ExternalLink, FolderOpen, type LucideIcon } from 'lucide-react'
 import { PreviewHeader, PreviewHeaderBadge, type PreviewBadgeVariant } from '../ui/PreviewHeader'
 import {
@@ -66,23 +71,6 @@ function displayPath(filePath: string): string {
 }
 
 // ============================================================================
-// Shared context menu styling — matches StyledDropdown's popover-styled look
-// ============================================================================
-
-const contextMenuContentClasses = cn(
-  'popover-styled z-dropdown min-w-40 overflow-hidden p-1',
-  'w-fit font-sans whitespace-nowrap text-xs flex flex-col gap-0.5',
-  'animate-in fade-in-0 zoom-in-95'
-)
-
-const contextMenuItemClasses = cn(
-  'relative flex cursor-default items-center gap-2 px-2 py-1.5 text-sm outline-hidden select-none',
-  '[&_svg]:pointer-events-none [&_svg]:shrink-0',
-  'pr-4 rounded-[4px] hover:bg-foreground/[0.03] focus:bg-foreground/[0.03]',
-  '[&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0'
-)
-
-// ============================================================================
 // FilePathBadge — badge with dual-trigger menu (dropdown + context menu)
 // ============================================================================
 
@@ -93,8 +81,8 @@ interface FilePathBadgeProps {
 /**
  * FilePathBadge - Badge that opens a menu on both left-click and right-click.
  *
- * Implementation: Wraps a Radix DropdownMenu (left-click trigger) inside a
- * Radix ContextMenu (right-click trigger). Both render the same menu items.
+ * Implementation: Wraps a DropdownMenu (left-click trigger) inside a
+ * ContextMenu (right-click trigger). Both render the same menu items.
  * Uses onOpenFileExternal (not onOpenFile) from PlatformContext — when already
  * viewing a file in an overlay, "Open" should launch the system editor directly,
  * not re-trigger the in-app preview interceptor.
@@ -134,16 +122,16 @@ function FilePathBadge({ filePath }: FilePathBadgeProps) {
   const contextItems = (
     <>
       {onOpenFileExternal && (
-        <ContextMenu.Item className={contextMenuItemClasses} onSelect={handleOpen}>
+        <ContextMenuItem onClick={handleOpen}>
           <ExternalLink />
           Open
-        </ContextMenu.Item>
+        </ContextMenuItem>
       )}
       {onRevealInFinder && (
-        <ContextMenu.Item className={contextMenuItemClasses} onSelect={handleReveal}>
+        <ContextMenuItem onClick={handleReveal}>
           <FolderOpen />
           {revealLabel}
-        </ContextMenu.Item>
+        </ContextMenuItem>
       )}
     </>
   )
@@ -157,8 +145,8 @@ function FilePathBadge({ filePath }: FilePathBadgeProps) {
 
   // Wrap: ContextMenu (right-click) wraps DropdownMenu (left-click) wraps the badge
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
+    <ContextMenu>
+      <ContextMenuTrigger className="flex min-w-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             {/* Badge that responds to left-click (dropdown) and right-click (context menu) */}
@@ -178,13 +166,11 @@ function FilePathBadge({ filePath }: FilePathBadgeProps) {
             {dropdownItems}
           </StyledDropdownMenuContent>
         </DropdownMenu>
-      </ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content className={contextMenuContentClasses}>
-          {contextItems}
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
+      </ContextMenuTrigger>
+      <ContextMenuContent style={{ zIndex: 'var(--z-floating-menu, 400)' }}>
+        {contextItems}
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 

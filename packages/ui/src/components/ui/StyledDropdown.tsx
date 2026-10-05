@@ -1,25 +1,37 @@
 /**
- * StyledDropdown - Shared styled dropdown components
+ * StyledDropdown - Shared dropdown components for @craft-agent/ui
  *
- * Pre-styled Radix dropdown wrappers matching the app's vibrancy style:
- * - popover-styled background with blur
- * - Consistent item spacing and subtle hover states (foreground/[0.03])
- * - Icon sizing standardization (3.5 × 3.5)
+ * Craft's "styled" names (and Radix-style `asChild` / `onSelect`) as thin
+ * wrappers over the design system's Base UI dropdown menu
+ * (`@workspace/ui/components/dropdown-menu`). Surface, radii, item sizes and
+ * colors come from there; nothing here adds its own.
  *
- * Wraps raw @radix-ui/react-dropdown-menu primitives with the full class set
- * (shadcn base layer + styled additions) so consumers get the correct look
- * without depending on the shadcn wrapper layer in apps/electron.
+ * Mapping from Radix:
+ * - `asChild` on the trigger -> Base UI `render`.
+ * - item `onSelect(event)` -> `onClick`; `event.preventDefault()` keeps the menu open.
+ * - `data-[state=open]:*` classes on a trigger -> `data-popup-open:*`.
+ * - Dropped (no Base UI equivalent, accepted and ignored): `onInteractOutside`,
+ *   `light`.
  */
 
 import * as React from 'react'
-import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
-import { ChevronRightIcon } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger as DsTrigger,
+} from '@workspace/ui/components/dropdown-menu'
 import { cn } from '../../lib/utils'
 
 const SUPPORTED_HOVER_PREFIXES = ['bg-', 'text-', 'border-', 'ring-', 'opacity-']
 
 /**
- * Mirror hover styles to open-state styles for Radix triggers.
+ * Mirror hover styles to open-state styles for triggers.
  *
  * Example:
  * - hover:bg-foreground/5 -> data-[state=open]:bg-foreground/5
@@ -47,197 +59,108 @@ export function mirrorHoverToOpenStateClasses(className?: string): string | unde
   return cn(...mirrored, className)
 }
 
-// Re-export raw primitives that need no styling
-const DropdownMenu = DropdownMenuPrimitive.Root
-const DropdownMenuSub = DropdownMenuPrimitive.Sub
+/** Base UI marks an open menu's trigger with `data-popup-open`, not Radix's `data-state=open`. */
+function openStateToPopupOpen(className?: string): string | undefined {
+  return className?.replace(/data-\[state=open\]:/g, 'data-popup-open:')
+}
 
-interface DropdownMenuTriggerProps extends React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger> {
-  /** Auto-mirror hover:* classes to data-[state=open]:* while menu is open. Default: true */
+export { DropdownMenu, DropdownMenuSub, DropdownMenuShortcut }
+
+// ── Trigger ──────────────────────────────────────────────────────────────────
+
+interface DropdownMenuTriggerProps extends Omit<React.ComponentProps<typeof DsTrigger>, 'render'> {
+  /** Radix: render the child element as the trigger. */
+  asChild?: boolean
+  /** Auto-mirror hover:* classes to the open state while the menu is open. Default: true */
   autoMirrorHoverToOpen?: boolean
 }
 
-const DropdownMenuTrigger = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.Trigger>,
-  DropdownMenuTriggerProps
->(({ className, autoMirrorHoverToOpen = true, asChild, children, ...props }, ref) => {
-  const triggerClassName = autoMirrorHoverToOpen ? mirrorHoverToOpenStateClasses(className) : className
+export function DropdownMenuTrigger({
+  className,
+  autoMirrorHoverToOpen = true,
+  asChild,
+  children,
+  ...props
+}: DropdownMenuTriggerProps) {
+  const style = (value?: string) =>
+    openStateToPopupOpen(autoMirrorHoverToOpen ? mirrorHoverToOpenStateClasses(value) : value)
 
-  if (asChild && autoMirrorHoverToOpen && React.isValidElement(children)) {
-    const childClassName = (children.props as { className?: string }).className
-    const mergedChildClassName = mirrorHoverToOpenStateClasses(cn(childClassName, className))
-
+  if (asChild && React.isValidElement(children)) {
+    const child = children as React.ReactElement<{ className?: string }>
+    const merged = style(cn(child.props.className, className))
+    // Base UI expects a <button> unless told otherwise.
+    const nativeButton = typeof child.type === 'string' ? child.type === 'button' : true
     return (
-      <DropdownMenuPrimitive.Trigger
-        ref={ref}
-        asChild
-        {...props}
-      >
-        {React.cloneElement(children as React.ReactElement<{ className?: string }>, {
-          className: mergedChildClassName,
-        })}
-      </DropdownMenuPrimitive.Trigger>
+      <DsTrigger nativeButton={nativeButton} {...props} render={React.cloneElement(child, { className: merged })} />
     )
   }
 
   return (
-    <DropdownMenuPrimitive.Trigger
-      ref={ref}
-      asChild={asChild}
-      className={triggerClassName}
-      {...props}
-    >
+    <DsTrigger className={typeof className === 'function' ? className : style(className)} {...props}>
       {children}
-    </DropdownMenuPrimitive.Trigger>
+    </DsTrigger>
   )
-})
-DropdownMenuTrigger.displayName = 'DropdownMenuTrigger'
-
-export { DropdownMenu, DropdownMenuTrigger, DropdownMenuSub }
+}
 
 // ── Content ──────────────────────────────────────────────────────────────────
 
-interface StyledDropdownMenuContentProps
-  extends React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> {
+interface StyledDropdownMenuContentProps extends React.ComponentProps<typeof DropdownMenuContent> {
+  /** Minimum width class, e.g. "min-w-48". Defaults to the design system's. */
   minWidth?: string
-  /** Force light mode instead of dark */
+  /** Ignored: the design system's menus have one look. */
   light?: boolean
+  /** Ignored: Base UI closes on outside press. */
+  onInteractOutside?: unknown
 }
 
-export const StyledDropdownMenuContent = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.Content>,
-  StyledDropdownMenuContentProps
->(({ className, minWidth = 'min-w-40', light = false, sideOffset = 4, ...props }, ref) => (
-  <DropdownMenuPrimitive.Portal>
-    <DropdownMenuPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        // shadcn base layer
-        'popover-styled overflow-x-hidden overflow-y-auto p-1 z-dropdown',
-        'max-h-(--radix-dropdown-menu-content-available-height)',
-        'origin-(--radix-dropdown-menu-content-transform-origin)',
-        'data-[state=open]:animate-in data-[state=closed]:animate-out',
-        'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-        'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-        'data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2',
-        'data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-        // styled additions
-        'w-fit font-sans whitespace-nowrap text-xs flex flex-col gap-0.5',
-        minWidth,
-        className,
-      )}
-      {...props}
-    />
-  </DropdownMenuPrimitive.Portal>
-))
-StyledDropdownMenuContent.displayName = 'StyledDropdownMenuContent'
+export function StyledDropdownMenuContent({
+  className,
+  minWidth,
+  light: _light,
+  onInteractOutside: _onInteractOutside,
+  ...props
+}: StyledDropdownMenuContentProps) {
+  // Content sizes to its items (the design system's matches the trigger's width).
+  return <DropdownMenuContent className={cn('w-fit', minWidth, className)} {...props} />
+}
 
 // ── Item ─────────────────────────────────────────────────────────────────────
 
-interface StyledDropdownMenuItemProps
-  extends React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> {
-  variant?: 'default' | 'destructive'
+type StyledDropdownMenuItemProps = Omit<React.ComponentProps<typeof DropdownMenuItem>, 'onSelect'> & {
+  /** Radix: run on select; `event.preventDefault()` keeps the menu open. */
+  onSelect?: (event: Event) => void
 }
 
-export const StyledDropdownMenuItem = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.Item>,
-  StyledDropdownMenuItemProps
->(({ className, variant = 'default', ...props }, ref) => (
-  <DropdownMenuPrimitive.Item
-    ref={ref}
-    className={cn(
-      // shadcn base layer
-      'relative flex cursor-default items-center gap-2 px-2 py-1.5 text-sm outline-hidden select-none',
-      '[&_svg]:pointer-events-none [&_svg]:shrink-0',
-      'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-      // styled additions
-      'pr-4 rounded-[4px] hover:bg-foreground/[0.03] focus:bg-foreground/[0.03]',
-      '[&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0',
-      variant === 'destructive' && 'text-destructive focus:text-destructive hover:text-destructive [&_svg]:!text-destructive',
-      className,
-    )}
-    {...props}
-  />
-))
-StyledDropdownMenuItem.displayName = 'StyledDropdownMenuItem'
+export function StyledDropdownMenuItem({ onClick, onSelect, ...props }: StyledDropdownMenuItemProps) {
+  const handleClick = React.useCallback(
+    (event: Parameters<NonNullable<typeof onClick>>[0]) => {
+      onClick?.(event)
+      if (!onSelect) return
+      onSelect(event.nativeEvent)
+      if (event.nativeEvent.defaultPrevented) event.preventBaseUIHandler()
+    },
+    [onClick, onSelect],
+  )
+  return <DropdownMenuItem onClick={handleClick} {...props} />
+}
 
 // ── Separator ────────────────────────────────────────────────────────────────
 
-export const StyledDropdownMenuSeparator = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
->(({ className, ...props }, ref) => (
-  <DropdownMenuPrimitive.Separator
-    ref={ref}
-    className={cn('bg-foreground/10 -mx-1 my-1 h-px', className)}
-    {...props}
-  />
-))
-StyledDropdownMenuSeparator.displayName = 'StyledDropdownMenuSeparator'
+export function StyledDropdownMenuSeparator(props: React.ComponentProps<typeof DropdownMenuSeparator>) {
+  return <DropdownMenuSeparator {...props} />
+}
 
-// ── Sub-menu trigger ─────────────────────────────────────────────────────────
+// ── Sub-menu ─────────────────────────────────────────────────────────────────
 
-export const StyledDropdownMenuSubTrigger = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.SubTrigger>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger>
->(({ className, children, ...props }, ref) => (
-  <DropdownMenuPrimitive.SubTrigger
-    ref={ref}
-    className={cn(
-      'relative flex cursor-default items-center gap-2 px-2 py-1.5 text-sm outline-hidden select-none',
-      '[&_svg]:pointer-events-none [&_svg]:shrink-0',
-      'pr-1.5 rounded-[4px] hover:bg-foreground/10 focus:bg-foreground/10 data-[state=open]:bg-foreground/10',
-      '[&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0',
-      className,
-    )}
-    {...props}
-  >
-    {children}
-    <ChevronRightIcon className="ml-auto size-4" />
-  </DropdownMenuPrimitive.SubTrigger>
-))
-StyledDropdownMenuSubTrigger.displayName = 'StyledDropdownMenuSubTrigger'
+export function StyledDropdownMenuSubTrigger(props: React.ComponentProps<typeof DropdownMenuSubTrigger>) {
+  return <DropdownMenuSubTrigger {...props} />
+}
 
-// ── Sub-menu content ─────────────────────────────────────────────────────────
-
-interface StyledDropdownMenuSubContentProps
-  extends React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent> {
+interface StyledDropdownMenuSubContentProps extends React.ComponentProps<typeof DropdownMenuSubContent> {
+  /** Minimum width class, e.g. "min-w-48". Defaults to the design system's. */
   minWidth?: string
 }
 
-export const StyledDropdownMenuSubContent = React.forwardRef<
-  React.ComponentRef<typeof DropdownMenuPrimitive.SubContent>,
-  StyledDropdownMenuSubContentProps
->(({ className, minWidth = 'min-w-36', sideOffset = -4, ...props }, ref) => (
-  <DropdownMenuPrimitive.Portal>
-    <DropdownMenuPrimitive.SubContent
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        'popover-styled w-fit font-sans whitespace-nowrap text-xs flex flex-col gap-0.5 z-dropdown overflow-x-hidden overflow-y-auto p-1',
-        'max-h-(--radix-dropdown-menu-content-available-height)',
-        'data-[state=open]:animate-in data-[state=closed]:animate-out',
-        'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-        'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-        minWidth,
-        className,
-      )}
-      {...props}
-    />
-  </DropdownMenuPrimitive.Portal>
-))
-StyledDropdownMenuSubContent.displayName = 'StyledDropdownMenuSubContent'
-
-// ── Shortcut ─────────────────────────────────────────────────────────────────
-
-export function DropdownMenuShortcut({
-  className,
-  ...props
-}: React.ComponentProps<'span'>) {
-  return (
-    <span
-      className={cn('text-muted-foreground ml-auto text-xs tracking-widest', className)}
-      {...props}
-    />
-  )
+export function StyledDropdownMenuSubContent({ className, minWidth, ...props }: StyledDropdownMenuSubContentProps) {
+  return <DropdownMenuSubContent className={cn('w-fit', minWidth, className)} {...props} />
 }

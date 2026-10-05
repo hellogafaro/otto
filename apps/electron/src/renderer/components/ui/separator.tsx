@@ -1,26 +1,12 @@
 import * as React from "react"
-import * as SeparatorPrimitive from "@radix-ui/react-separator"
-import { cn } from "@/lib/utils"
+import { Separator as DsSeparator } from "@workspace/ui/components/separator"
 
+/** Radix's `decorative` is the default in Base UI (a plain separator), so it is accepted and dropped. */
 function Separator({
-  className,
-  orientation = "horizontal",
-  decorative = true,
+  decorative: _decorative,
   ...props
-}: React.ComponentProps<typeof SeparatorPrimitive.Root>) {
-  return (
-    <SeparatorPrimitive.Root
-      data-slot="separator"
-      decorative={decorative}
-      orientation={orientation}
-      className={cn(
-        "shrink-0 bg-border",
-        orientation === "horizontal" ? "h-[1px] w-full" : "h-full w-[1px]",
-        className
-      )}
-      {...props}
-    />
-  )
+}: React.ComponentProps<typeof DsSeparator> & { decorative?: boolean }) {
+  return <DsSeparator {...props} />
 }
 
 export { Separator }

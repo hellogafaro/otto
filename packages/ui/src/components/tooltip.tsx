@@ -1,44 +1,49 @@
-import * as React from "react"
-import * as TooltipPrimitive from "@radix-ui/react-tooltip"
-import { cn } from "../lib/utils"
+import * as React from 'react'
+import {
+  Tooltip as DSTooltip,
+  TooltipContent,
+  TooltipProvider as DSTooltipProvider,
+  TooltipTrigger as DSTooltipTrigger,
+} from '@workspace/ui/components/tooltip'
+import { asChildProps } from '../lib/as-child'
+
+/**
+ * Adapter over the design-system Tooltip (Base UI). Keeps the Radix-shaped API:
+ * `asChild` on TooltipTrigger, `delayDuration` on TooltipProvider and Tooltip.
+ *
+ * Base UI tooltips work without a provider (a provider only shares the delay
+ * between neighbouring tooltips), so call sites do not need one; the app root
+ * still mounts one in App.tsx.
+ */
+
+const DelayContext = React.createContext<number | undefined>(undefined)
 
 function TooltipProvider({
-  delayDuration = 300,
+  delayDuration,
+  delay,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+}: React.ComponentProps<typeof DSTooltipProvider> & { delayDuration?: number }) {
+  return <DSTooltipProvider delay={delay ?? delayDuration} {...props} />
+}
+
+function Tooltip({
+  delayDuration,
+  ...props
+}: React.ComponentProps<typeof DSTooltip> & { delayDuration?: number }) {
   return (
-    <TooltipPrimitive.Provider
-      delayDuration={delayDuration}
-      disableHoverableContent
-      {...props}
-    />
+    <DelayContext.Provider value={delayDuration}>
+      <DSTooltip {...props} />
+    </DelayContext.Provider>
   )
 }
 
-const Tooltip = TooltipPrimitive.Root
-
-const TooltipTrigger = TooltipPrimitive.Trigger
-
-function TooltipContent({
-  className,
-  sideOffset = 4,
+function TooltipTrigger({
+  asChild,
+  children,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
-  return (
-    <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Content
-        data-slot="tooltip-content"
-        sideOffset={sideOffset}
-        className={cn(
-          "z-tooltip overflow-hidden rounded-[8px] px-2.5 py-1.5 text-xs",
-          "dark bg-background/80 backdrop-blur-xl backdrop-saturate-150 border border-border/50 text-foreground shadow-modal-small",
-          "animate-in fade-in-0 duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-75",
-          className
-        )}
-        {...props}
-      />
-    </TooltipPrimitive.Portal>
-  )
+}: React.ComponentProps<typeof DSTooltipTrigger> & { asChild?: boolean }) {
+  const delay = React.useContext(DelayContext)
+  return <DSTooltipTrigger delay={delay} {...asChildProps({ asChild, children, ...props })} />
 }
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }

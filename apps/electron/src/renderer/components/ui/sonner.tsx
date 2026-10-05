@@ -1,40 +1,12 @@
-import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { useTheme } from "@/context/ThemeContext"
+import { Toaster as DSToaster } from "@workspace/ui/components/sonner"
 
-// Empty fragment to hide all toast icons
-const NoIcon = () => <></>
-
-const Toaster = ({ ...props }: ToasterProps) => {
-  const { resolvedMode } = useTheme()
-
-  return (
-    <Sonner
-      theme={resolvedMode as ToasterProps["theme"]}
-      position="top-right"
-      closeButton
-      richColors={false}
-      swipeDirections={["right"]}
-      className="toaster group"
-      icons={{
-        success: <NoIcon />,
-        info: <NoIcon />,
-        warning: <NoIcon />,
-        error: <NoIcon />,
-        loading: <NoIcon />,
-      }}
-      toastOptions={{
-        className: "!rounded-xl !backdrop-blur-xl group",
-      }}
-      style={
-        {
-          "--normal-bg": "transparent",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "transparent",
-        } as React.CSSProperties
-      }
-      {...props}
-    />
-  )
-}
+/**
+ * Adapter over the design-system Toaster. Its look (dark translucent surface in
+ * both themes, bottom right, status icons, ghost Close) is fixed by the design
+ * system, so this only forwards props. Call sites keep using `toast` from "sonner".
+ */
+const Toaster = (props: React.ComponentProps<typeof DSToaster>) => (
+  <DSToaster {...props} />
+)
 
 export { Toaster }

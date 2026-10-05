@@ -1,10 +1,10 @@
 /**
  * FullscreenOverlayBase - Base component for all fullscreen overlays
  *
- * Uses Radix Dialog primitives for proper:
+ * Uses the design-system Dialog (Base UI) for proper:
  * - Focus management (blur on open, restore on close)
  * - ESC key handling
- * - Coordination with other Radix components (popovers, dropdowns)
+ * - Coordination with other floating layers (popovers, dropdowns)
  * - Accessibility (role="dialog", aria-modal)
  *
  * Additionally handles:
@@ -20,7 +20,7 @@
  *   Content padding clears the header at rest so nothing is clipped initially.
  *
  * Layout:
- *   Dialog.Content (fixed inset-0, relative)
+ *   DialogContent (fixed inset-0, relative)
  *   ├── Masked area (absolute inset-0, CSS mask gradient)
  *   │   └── Scroll container (h-full, overflow-y-auto, paddingTop = header + fade)
  *   │       └── {error banner}
@@ -31,7 +31,7 @@
  */
 
 import { useEffect, useRef, type ReactNode } from 'react'
-import * as Dialog from '@radix-ui/react-dialog'
+import { Dialog, DialogContent, DialogTitle } from '@workspace/ui/components/dialog'
 import { usePlatform } from '../../context/PlatformContext'
 import { cn } from '../../lib/utils'
 import { getDismissibleLayerBridge } from '../../lib/dismissible-layer-bridge'
@@ -141,26 +141,32 @@ export function FullscreenOverlayBase({
   const contentPaddingTop = hasHeader ? HEADER_HEIGHT + FADE_SIZE : FADE_SIZE
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Content
-          className={cn(
-            'fixed inset-0 overflow-hidden outline-none',
-            'bg-foreground-3 fullscreen-overlay-background',
-            className
-          )}
-          style={{ zIndex: Z_FULLSCREEN }}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          onEscapeKeyDown={(event) => {
-            const handled = handleFullscreenEscapeWithStack()
-            if (!handled) return
-
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-        >
-          {/* Visually hidden title for accessibility - required by Radix Dialog */}
-          <Dialog.Title className="sr-only">{accessibleTitle}</Dialog.Title>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open, details) => {
+        if (open) return
+        // ESC goes through the dismissible-layer stack first: if it handled the
+        // key (closed a layer above or this one via onClose), don't also close here.
+        if (details.reason === 'escape-key' && handleFullscreenEscapeWithStack()) {
+          details.cancel()
+          return
+        }
+        onClose()
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        fullScreen
+        initialFocus={false}
+        className={cn(
+          'top-0 overflow-hidden',
+          'bg-foreground-3 fullscreen-overlay-background',
+          className
+        )}
+        style={{ zIndex: Z_FULLSCREEN }}
+      >
+          {/* Visually hidden title for accessibility */}
+          <DialogTitle className="sr-only">{accessibleTitle}</DialogTitle>
 
           {/* Full-viewport masked scroll area — covers the entire dialog including behind the header.
               The CSS mask gradient fades content at both edges (starting from y=0).
@@ -203,8 +209,7 @@ export function FullscreenOverlayBase({
               />
             </div>
           )}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,11 +1,23 @@
-import * as CollapsiblePrimitive from "@radix-ui/react-collapsible"
-import { motion, AnimatePresence } from "motion/react"
 import * as React from "react"
+import {
+  Collapsible,
+  CollapsibleContent as DsCollapsibleContent,
+  CollapsibleTrigger as DsCollapsibleTrigger,
+} from "@workspace/ui/components/collapsible"
+import { motion, AnimatePresence } from "motion/react"
+import { asChildProps } from "./as-child"
 
-// Radix primitives (unchanged)
-const Collapsible = CollapsiblePrimitive.Root
-const CollapsibleTrigger = CollapsiblePrimitive.CollapsibleTrigger
-const CollapsibleContent = CollapsiblePrimitive.CollapsibleContent
+type AsChild = { asChild?: boolean }
+
+function CollapsibleTrigger(props: React.ComponentProps<typeof DsCollapsibleTrigger> & AsChild) {
+  const rest = asChildProps(props)
+  const tag = React.isValidElement(rest.render) ? rest.render.type : "button"
+  return <DsCollapsibleTrigger nativeButton={tag === "button"} {...rest} />
+}
+
+function CollapsibleContent(props: React.ComponentProps<typeof DsCollapsibleContent> & AsChild) {
+  return <DsCollapsibleContent {...asChildProps(props)} />
+}
 
 // Spring config - snappy, no bounce
 const springTransition = {
