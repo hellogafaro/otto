@@ -2,57 +2,40 @@
 
 ## Reporting a Vulnerability
 
-We take security seriously. If you discover a security vulnerability in Craft Agents, please report it responsibly.
+If you find a security vulnerability in Otto, please report it responsibly.
 
-### How to Report
+**Do not report vulnerabilities through public GitHub issues.** Use either:
 
-**Please do NOT report security vulnerabilities through public GitHub issues.**
+- a private [security advisory](https://github.com/hellogafaro/otto/security/advisories/new), or
+- email **hello@hellogafaro.com**
 
-Instead, please send an email to: **security@craft.do**
+Include a description, steps to reproduce, the potential impact and, optionally, a suggested fix.
 
-Include the following information:
-- Description of the vulnerability
-- Steps to reproduce the issue
-- Potential impact
-- Any suggested fixes (optional)
+## What to Expect
 
-### What to Expect
+- **Acknowledgment** within 48 hours
+- **Initial assessment** within 7 days
+- **Resolution** of critical issues within 30 days
 
-- **Acknowledgment**: We will acknowledge receipt within 48 hours
-- **Initial Assessment**: We will provide an initial assessment within 7 days
-- **Resolution Timeline**: We aim to resolve critical issues within 30 days
+## Scope
 
-### Scope
+In scope: the Otto desktop app, the Otto server and web UI, and the packages and
+repositories under github.com/hellogafaro/otto.
 
-This policy applies to:
-- The Craft Agents desktop application
-- The `@craft-agent/*` npm packages
-- Official Craft Agents repositories
-
-### Out of Scope
-
-- Third-party dependencies (report to their maintainers)
-- Social engineering attacks
-- Denial of service attacks
+Out of scope: third-party dependencies (report to their maintainers), social
+engineering and denial of service attacks.
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| Latest  | :white_check_mark: |
-| < Latest | :x:               |
-
-We only provide security updates for the latest version. Please keep your installation up to date.
+Only the latest version receives security updates. Please keep your installation up to date.
 
 ## Security Best Practices
 
-When using Craft Agents:
-
-1. **Keep credentials secure**: Never commit `.env` files or credentials
-2. **Use environment variables**: Store secrets in environment variables
-3. **Review permissions**: Be cautious with "Execute" permission mode
-4. **Update regularly**: Keep the application updated
+1. **Keep credentials secure**: never commit `.env` files or credentials.
+2. **Use a secret manager or environment variables** for tokens and keys.
+3. **Review permissions**: be cautious with the Auto permission mode.
+4. **Update regularly.**
 
 ## Acknowledgments
 
-We appreciate responsible disclosure and will acknowledge security researchers who report valid vulnerabilities (with their permission).
+We acknowledge security researchers who report valid vulnerabilities, with their permission.

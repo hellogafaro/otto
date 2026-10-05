@@ -1,121 +1,46 @@
 # Contributing to Otto
 
-Thank you for your interest in contributing to Otto! This document provides guidelines and instructions for contributing.
+Thanks for your interest in Otto. [AGENTS.md](AGENTS.md) is the full contributor guide;
+this page is the short version.
 
-## Getting Started
+## Setup
 
-### Prerequisites
+You need [Bun](https://bun.sh) and the Infisical CLI (secrets live in Infisical, never in files).
 
-- [Bun](https://bun.sh/) runtime
-- Node.js 18+ (for some tooling)
-- macOS, Linux, or Windows
+```bash
+git clone https://github.com/hellogafaro/otto.git
+cd otto
+bun install
+bun run dev
+```
 
-### Development Setup
+Run installs, generators and package changes from the repository root.
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/hellogafaro/otto.git
-   cd otto
-   ```
+## Working rules
 
-2. Install dependencies:
-   ```bash
-   bun install
-   ```
+- **Small, cohesive changes.** Make the smallest correct change, reuse what exists and remove dead code before adding more. Removing a feature removes everything behind it (UI, state, IPC, config, storage, tests, strings, docs).
+- **Design system.** UI follows [DESIGN.md](DESIGN.md) and `design/ui`. Change a shared look in the `design/ui` component; instance classes are for layout only. Record UI decisions in DESIGN.md in the same change and look at visible changes in a browser.
+- **Domains and data.** A domain owns its tables and exposes plain functions. Ids come from `createId()`, storage is SQLite through Drizzle (`bun run db:push`).
+- **Strict TypeScript** and the existing patterns of the codebase.
 
-3. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your credentials
-   ```
+## Checks
 
-4. Run in development mode:
-   ```bash
-   bun run electron:dev
-   ```
-
-## Development Workflow
-
-### Branch Naming
-
-Use descriptive branch names:
-- `feature/add-new-tool` - New features
-- `fix/resolve-auth-issue` - Bug fixes
-- `refactor/simplify-agent-loop` - Code refactoring
-- `docs/update-readme` - Documentation updates
-
-### Making Changes
-
-1. Create a feature branch from `main`
-2. Make your changes
-3. Run type checking: `bun run typecheck:all`
-4. Commit your changes with clear, descriptive messages
-5. Push to your fork and create a pull request
-
-### Code Style
-
-- We use TypeScript throughout the codebase
-- Follow existing patterns in the codebase
-- Use meaningful variable and function names
-- Add comments for complex logic
-
-### Type Checking
-
-Before submitting a PR, ensure all type checks pass:
+Run the typecheck and the tests of what you touched, for example:
 
 ```bash
 bun run typecheck:all
+bun test
 ```
 
-## Pull Request Process
+## Pull requests
 
-1. **Title**: Use a clear, descriptive title
-2. **Description**: Explain what the PR does and why
-3. **Testing**: Describe how you tested the changes
-4. **Screenshots**: Include screenshots for UI changes
+1. Branch from `main` with a descriptive name (`feature/…`, `fix/…`, `docs/…`).
+2. Commit per cohesive change with a clear message.
+3. In the PR, say what changed and why, how you tested it, and include screenshots for UI changes.
+4. Do not push to the main repository, deploy or create remotes; maintainers do that.
 
-### PR Template
-
-```markdown
-## Summary
-Brief description of changes
-
-## Changes
-- Change 1
-- Change 2
-
-## Testing
-How you tested these changes
-
-## Screenshots (if applicable)
-```
-
-## Project Structure
-
-```
-otto/
-├── apps/
-│   ├── electron/    # Desktop GUI (primary interface)
-│   └── tui/         # Terminal CLI (deprecated)
-└── packages/
-    ├── core/        # @otto/core - Shared types
-    ├── shared/      # @otto/shared - Business logic
-    └── ui/          # @otto/ui - React components
-```
-
-## Key Areas
-
-- **Agent Logic**: `packages/shared/src/agent/`
-- **Authentication**: `packages/shared/src/auth/`
-- **MCP Integration**: `packages/shared/src/mcp/`
-- **UI Components**: `packages/ui/src/`
-- **Electron App**: `apps/electron/`
-
-## Questions?
-
-- Open an issue for bugs or feature requests
-- Start a discussion for questions or ideas
+Open an issue for bugs and feature requests.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing, you agree that your contributions are licensed under the Apache License 2.0.
