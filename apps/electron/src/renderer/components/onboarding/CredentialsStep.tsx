@@ -112,16 +112,16 @@ export function CredentialsStep({
         }
       >
         <div className="space-y-4">
-          <div className="rounded-xl bg-foreground-2 p-4 text-sm text-muted-foreground">
+          <div className="rounded-xl bg-card ring-1 ring-foreground/10 p-4 text-sm text-muted-foreground">
             <p>{t("onboarding.credentials.chatGPTInstructions")}</p>
           </div>
           {status === 'error' && errorMessage && (
-            <div className="rounded-lg bg-destructive/10 text-destructive text-sm p-3">
+            <div className="rounded-xl bg-destructive/10 text-destructive text-sm p-3">
               {errorMessage}
             </div>
           )}
           {status === 'success' && (
-            <div className="rounded-lg bg-success/10 text-success text-sm p-3">
+            <div className="rounded-xl bg-success/10 text-success text-sm p-3">
               {t("onboarding.credentials.chatGPTConnected")}
             </div>
           )}
@@ -153,7 +153,7 @@ export function CredentialsStep({
       >
         <div className="space-y-4">
           {copilotDeviceCode ? (
-            <div className="rounded-xl bg-foreground-2 p-4 text-sm space-y-3">
+            <div className="rounded-xl bg-card ring-1 ring-foreground/10 p-4 text-sm space-y-3">
               <p className="text-muted-foreground text-center">
                 {t("onboarding.credentials.enterCodeOnGitHub")}
               </p>
@@ -161,7 +161,7 @@ export function CredentialsStep({
                 <button
                   type="button"
                   onClick={handleCopyCode}
-                  className="text-2xl font-mono font-bold tracking-widest text-foreground px-4 py-2 rounded-lg bg-background border border-border hover:bg-foreground-2 transition-colors cursor-pointer"
+                  className="text-2xl font-mono font-bold tracking-widest text-foreground px-4 py-2 rounded-xl bg-muted hover:bg-muted/70 transition-colors cursor-pointer"
                 >
                   {copilotDeviceCode.userCode}
                 </button>
@@ -175,17 +175,17 @@ export function CredentialsStep({
               </p>
             </div>
           ) : (
-            <div className="rounded-xl bg-foreground-2 p-4 text-sm text-muted-foreground text-center">
+            <div className="rounded-xl bg-card ring-1 ring-foreground/10 p-4 text-sm text-muted-foreground text-center">
               <p>{t("onboarding.credentials.clickToSignInGitHub")}</p>
             </div>
           )}
           {status === 'error' && errorMessage && (
-            <div className="rounded-lg bg-destructive/10 text-destructive text-sm p-3 text-center">
+            <div className="rounded-xl bg-destructive/10 text-destructive text-sm p-3 text-center">
               {errorMessage}
             </div>
           )}
           {status === 'success' && (
-            <div className="rounded-lg bg-success/10 text-success text-sm p-3 text-center">
+            <div className="rounded-xl bg-success/10 text-success text-sm p-3 text-center">
               {t("onboarding.credentials.copilotConnected")}
             </div>
           )}

@@ -1,12 +1,12 @@
 import { useTranslation } from "react-i18next"
-import { cn } from "@/lib/utils"
-import { Key, Monitor } from "lucide-react"
+import { ChevronRight, Key, Monitor } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { SettingsCard, SettingsRow } from "@/components/settings"
 import { CraftAgentsSymbol } from "@/components/icons/CraftAgentsSymbol"
 import { StepFormLayout } from "./primitives"
 
-import claudeIcon from "@/assets/provider-icons/claude.svg"
-import openaiIcon from "@/assets/provider-icons/openai.svg"
-import copilotIcon from "@/assets/provider-icons/copilot.svg"
+import { providerIcons } from "@/lib/provider-icons"
+import { ProviderLogo } from "@/components/icons/ProviderLogo"
 
 /**
  * The high-level provider choice the user makes on first launch.
@@ -17,14 +17,13 @@ export type ProviderChoice = 'claude' | 'chatgpt' | 'copilot' | 'api_key' | 'loc
 interface ProviderOption {
   id: ProviderChoice
   name: string
-  description: string
   icon: React.ReactNode
 }
 
 const PROVIDER_ICONS: Record<ProviderChoice, React.ReactNode> = {
-  claude: <img src={claudeIcon} alt="" className="size-5 rounded-[3px]" />,
-  chatgpt: <img src={openaiIcon} alt="" className="size-5 rounded-[3px]" />,
-  copilot: <img src={copilotIcon} alt="" className="size-5 rounded-[3px]" />,
+  claude: <ProviderLogo src={providerIcons.anthropic} className="size-5" />,
+  chatgpt: <ProviderLogo src={providerIcons.openai} className="size-5" />,
+  copilot: <ProviderLogo src={providerIcons.copilot} className="size-5" />,
   api_key: <Key className="size-5" />,
   local: <Monitor className="size-5" />,
 }
@@ -49,31 +48,26 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
     {
       id: 'claude',
       name: t("onboarding.providerSelect.claudeProMax"),
-      description: t("onboarding.providerSelect.claudeProMaxDesc"),
       icon: PROVIDER_ICONS.claude,
     },
     {
       id: 'chatgpt',
       name: t("onboarding.providerSelect.codexChatGPT"),
-      description: t("onboarding.providerSelect.codexChatGPTDesc"),
       icon: PROVIDER_ICONS.chatgpt,
     },
     {
       id: 'copilot',
       name: t("onboarding.providerSelect.githubCopilot"),
-      description: t("onboarding.providerSelect.githubCopilotDesc"),
       icon: PROVIDER_ICONS.copilot,
     },
     {
       id: 'api_key',
       name: t("onboarding.providerSelect.otherProvider"),
-      description: 'Anthropic, AWS Bedrock, OpenRouter, Google or any compatible provider.',
       icon: PROVIDER_ICONS.api_key,
     },
     {
       id: 'local',
       name: t("onboarding.providerSelect.localModel"),
-      description: 'Run models locally with Ollama.',
       icon: PROVIDER_ICONS.local,
     },
   ]
@@ -88,42 +82,30 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
       title={t("onboarding.providerSelect.title")}
       description={t("onboarding.providerSelect.description")}
     >
-      <div className="space-y-2 sm:space-y-3">
+      <SettingsCard>
         {PROVIDER_OPTIONS.map((option) => (
-          <button
+          <SettingsRow
             key={option.id}
+            label={
+              <span className="flex items-center gap-3">
+                <span className="flex size-5 shrink-0 items-center justify-center text-foreground">
+                  {option.icon}
+                </span>
+                {option.name}
+              </span>
+            }
             onClick={() => onSelect(option.id)}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-xl bg-foreground-2 p-3 text-left transition-all",
-              "sm:items-start sm:gap-4 sm:p-4",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              "hover:bg-foreground/[0.02] shadow-minimal",
-            )}
           >
-            {/* Icon */}
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              {option.icon}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <span className="font-medium text-sm">{option.name}</span>
-              <p className="mt-0 hidden sm:block text-xs text-muted-foreground">
-                {option.description}
-              </p>
-            </div>
-          </button>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </SettingsRow>
         ))}
-      </div>
+      </SettingsCard>
 
       {onSkip && (
-        <div className="mt-4 text-center">
-          <button
-            onClick={onSkip}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
+        <div className="mt-4 flex justify-center">
+          <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
             {t("onboarding.providerSelect.setupLater")}
-          </button>
+          </Button>
         </div>
       )}
     </StepFormLayout>

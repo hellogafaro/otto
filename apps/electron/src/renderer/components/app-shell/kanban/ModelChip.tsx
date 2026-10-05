@@ -1,5 +1,6 @@
 import { getModelDisplayName, getModelShortName, getModelProvider } from '@config/models'
 import { getProviderIcon } from '@/lib/provider-icons'
+import { ProviderLogo } from '@/components/icons/ProviderLogo'
 import { cn } from '@/lib/utils'
 
 interface ModelChipProps {
@@ -29,7 +30,7 @@ export function ModelChip({ model, short = false, className }: ModelChipProps) {
       )}
     >
       {iconUrl ? (
-        <img src={iconUrl} alt="" className="h-3 w-3 shrink-0 rounded-[2px]" aria-hidden />
+        <ProviderLogo src={iconUrl} className="h-3 w-3" />
       ) : (
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/40" aria-hidden />
       )}

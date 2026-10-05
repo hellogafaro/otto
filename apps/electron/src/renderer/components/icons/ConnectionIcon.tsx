@@ -13,6 +13,7 @@
 
 import { Brain } from 'lucide-react'
 import { getProviderIcon } from '@/lib/provider-icons'
+import { ProviderLogo } from './ProviderLogo'
 import { getModelDisplayName } from '@config/models'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@craft-agent/ui'
 import type { LlmConnectionWithStatus } from '../../../shared/types'
@@ -36,14 +37,7 @@ export function ConnectionIcon({ connection, size = 16, className = '', showTool
   )
 
   const iconElement = providerIcon ? (
-    <img
-      src={providerIcon}
-      alt=""
-      width={size}
-      height={size}
-      className={`rounded-[3px] flex-shrink-0 ${className}`}
-      style={{ width: size, height: size }}
-    />
+    <ProviderLogo src={providerIcon} size={size} className={className} />
   ) : (
     <div
       className={`rounded-[3px] bg-foreground/10 flex items-center justify-center flex-shrink-0 ${className}`}

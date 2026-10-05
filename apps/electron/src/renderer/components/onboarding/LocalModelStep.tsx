@@ -9,7 +9,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
+import { SettingsCard, SettingsRow } from "@/components/settings"
 import { StepFormLayout, BackButton, ContinueButton } from "./primitives"
 
 export interface LocalModelSubmitData {
@@ -84,65 +84,38 @@ export function LocalModelStep({
         </>
       }
     >
-      <form id="local-model-form" onSubmit={handleSubmit} className="space-y-6">
-        {/* Endpoint URL */}
-        <div className="space-y-2">
-          <Label htmlFor="local-base-url">{t("onboarding.localModel.endpoint")}</Label>
-          <div className={cn(
-            "rounded-md shadow-minimal transition-colors",
-            "bg-foreground-2 focus-within:bg-background"
-          )}>
+      <form id="local-model-form" onSubmit={handleSubmit} className="space-y-3">
+        <SettingsCard>
+          <SettingsRow label={<Label htmlFor="local-base-url">{t("onboarding.localModel.endpoint")}</Label>}>
             <Input
               id="local-base-url"
-              type="text"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder={t("onboarding.localModel.endpointPlaceholder")}
-              className="border-0 bg-transparent shadow-none"
+              className="w-60"
               disabled={isDisabled}
               autoFocus
             />
-          </div>
-          <p className="text-xs text-foreground/30">
-            {t("onboarding.localModel.endpointHelper")}
-          </p>
-        </div>
-
-        {/* Model */}
-        <div className="space-y-2">
-          <Label htmlFor="local-model">
-            {t("onboarding.localModel.model")}{' '}
-            <span className="text-foreground/30">· {t("onboarding.localModel.required")}</span>
-          </Label>
-          <div className={cn(
-            "rounded-md shadow-minimal transition-colors",
-            "bg-foreground-2 focus-within:bg-background",
-            modelError && "ring-1 ring-destructive/40"
-          )}>
+          </SettingsRow>
+          <SettingsRow label={<Label htmlFor="local-model">{t("onboarding.localModel.model")}</Label>}>
             <Input
               id="local-model"
-              type="text"
               value={model}
               onChange={(e) => {
                 setModel(e.target.value)
                 setModelError(null)
               }}
               placeholder={t("onboarding.localModel.modelPlaceholder")}
-              className="border-0 bg-transparent shadow-none"
+              className="w-60"
+              aria-invalid={!!modelError || undefined}
               disabled={isDisabled}
             />
-          </div>
-          {modelError && (
-            <p className="text-xs text-destructive">{modelError}</p>
-          )}
-          <p className="text-xs text-foreground/30">
-            {t("onboarding.localModel.modelHelper")}
-          </p>
-        </div>
-
-        {/* Error message */}
-        {status === 'error' && errorMessage && (
-          <p className="text-sm text-destructive">{errorMessage}</p>
+          </SettingsRow>
+        </SettingsCard>
+        <p className="px-1 text-xs text-muted-foreground">{t("onboarding.localModel.endpointHelper")}</p>
+        <p className="px-1 text-xs text-muted-foreground">{t("onboarding.localModel.modelHelper")}</p>
+        {(modelError || (status === 'error' && errorMessage)) && (
+          <p className="px-1 text-sm text-destructive">{modelError ?? errorMessage}</p>
         )}
       </form>
     </StepFormLayout>

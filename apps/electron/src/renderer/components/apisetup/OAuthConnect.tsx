@@ -16,7 +16,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
+import { SettingsCard, SettingsRow } from "@/components/settings"
 
 export type OAuthStatus = 'idle' | 'validating' | 'success' | 'error'
 
@@ -57,31 +57,24 @@ export function OAuthConnect({
   // Auth code entry form — shown when waiting for the user to paste the code
   if (isWaitingForCode) {
     return (
-      <form id={formId} onSubmit={handleAuthCodeSubmit}>
-        <div className="space-y-2">
-          <Label htmlFor="auth-code">{t("apiSetup.authorizationCode")}</Label>
-          <div className={cn(
-            "relative rounded-md shadow-minimal transition-colors",
-            "bg-foreground-2 focus-within:bg-background"
-          )}>
+      <form id={formId} onSubmit={handleAuthCodeSubmit} className="space-y-3">
+        <SettingsCard>
+          <SettingsRow label={<Label htmlFor="auth-code">{t("apiSetup.authorizationCode")}</Label>}>
             <Input
               id="auth-code"
-              type="text"
               value={authCode}
               onChange={(e) => setAuthCode(e.target.value)}
               placeholder={t("apiSetup.pasteAuthCode")}
-              className={cn(
-                "border-0 bg-transparent shadow-none font-mono text-sm",
-                status === 'error' && "focus-visible:ring-destructive"
-              )}
+              className="w-60 font-mono"
+              aria-invalid={status === 'error' || undefined}
               disabled={status === 'validating'}
               autoFocus
             />
-          </div>
-          {status === 'error' && errorMessage && (
-            <p className="text-sm text-destructive">{errorMessage}</p>
-          )}
-        </div>
+          </SettingsRow>
+        </SettingsCard>
+        {status === 'error' && errorMessage && (
+          <p className="px-1 text-sm text-destructive">{errorMessage}</p>
+        )}
       </form>
     )
   }
@@ -95,7 +88,7 @@ export function OAuthConnect({
   return (
     <div className="space-y-3">
       {/* Error message displayed below content, matching the API key pattern */}
-      <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive text-center">
+      <div className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive text-center">
         {errorMessage}
       </div>
     </div>

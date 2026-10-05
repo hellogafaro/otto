@@ -6,6 +6,7 @@ import { formatDistanceToNowStrict, type Locale } from 'date-fns'
 import { DEFAULT_MODEL, getModelShortName } from '@config/models'
 import { cn } from '@/lib/utils'
 import { getProviderIcon } from '@/lib/provider-icons'
+import { ProviderLogo } from '@/components/icons/ProviderLogo'
 import { shortTimeLocale } from '@/utils/session'
 import { kanbanLivePulseAtom } from '@/atoms/kanban'
 import { useKanbanColumnColors } from '@/hooks/useKanbanColumnColors'
@@ -489,7 +490,7 @@ function AddSubtask({
                 className="inline-flex min-w-0 items-center gap-1 rounded-md border border-border/60 bg-background px-1.5 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
               >
                 {selectedIcon ? (
-                  <img src={selectedIcon} alt="" className="h-3 w-3 shrink-0 rounded-[2px]" aria-hidden />
+                  <ProviderLogo src={selectedIcon} className="h-3 w-3" />
                 ) : (
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/40" aria-hidden />
                 )}
@@ -503,12 +504,7 @@ function AddSubtask({
                   {gi > 0 && <DropdownMenuSeparator />}
                   <DropdownMenuLabel className="flex items-center gap-1.5 text-[11px] text-foreground/50">
                     {resolveProviderIcon(group.provider) && (
-                      <img
-                        src={resolveProviderIcon(group.provider)!}
-                        alt=""
-                        className="h-3 w-3 rounded-[2px]"
-                        aria-hidden
-                      />
+                      <ProviderLogo src={resolveProviderIcon(group.provider)!} className="h-3 w-3" />
                     )}
                     {group.label}
                   </DropdownMenuLabel>

@@ -12,17 +12,11 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { Command as CommandPrimitive } from "cmdk"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  StyledDropdownMenuContent,
-  StyledDropdownMenuItem,
-} from "@/components/ui/styled-dropdown"
-import { cn } from "@/lib/utils"
-import { Check, ChevronDown, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { SettingsCard, SettingsRow, SettingsMenuSelect, SettingsSegmentedControl } from "@/components/settings"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { pickTierDefaults, resolveTierModels, type PiModelInfo } from "./tier-models"
 import {
   resolveCustomEndpointPayload,
@@ -195,7 +189,6 @@ export function ApiKeyInput({
 
   const { t } = useTranslation()
   const [apiKey, setApiKey] = useState(initialValues?.apiKey ?? '')
-  const [showValue, setShowValue] = useState(false)
   const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl ?? defaultPreset.url)
   const [activePreset, setActivePreset] = useState<PresetKey>(initialPreset)
   const [lastNonCustomPreset, setLastNonCustomPreset] = useState<PresetKey | null>(
@@ -218,10 +211,6 @@ export function ApiKeyInput({
   const [bestModel, setBestModel] = useState('')
   const [defaultModel, setDefaultModel] = useState('')
   const [cheapModel, setCheapModel] = useState('')
-  const [openTier, setOpenTier] = useState<string | null>(null)
-  const [tierFilter, setTierFilter] = useState('')
-  const [tierDropdownPosition, setTierDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null)
-  const tierFilterInputRef = useRef<HTMLInputElement>(null)
   const hydratedTierProviderRef = useRef<string | null>(null)
 
   const isDisabled = disabled || status === 'validating'
@@ -423,410 +412,238 @@ export function ApiKeyInput({
   }
 
   const tierConfigs = [
-    { label: 'Best', desc: 'most capable', value: bestModel, onChange: setBestModel },
-    { label: 'Balanced', desc: 'good for everyday use', value: defaultModel, onChange: setDefaultModel },
-    { label: 'Fast', desc: 'summarization & utility', value: cheapModel, onChange: setCheapModel },
+    { label: 'Best', value: bestModel, onChange: setBestModel },
+    { label: 'Balanced', value: defaultModel, onChange: setDefaultModel },
+    { label: 'Fast', value: cheapModel, onChange: setCheapModel },
   ]
-  const activeTierConfig = openTier ? tierConfigs.find(t => t.label === openTier) : null
+  const modelOptions = piModels.map((m) => ({ value: m.id, label: m.reasoning ? `${m.name} · reasoning` : m.name }))
+  const hints = [
+    activePreset === 'custom' && !isDefaultProviderPreset && 'Most third-party APIs (Ollama, vLLM, DashScope) use OpenAI Compatible.',
+    !hasPiModels && !isDefaultProviderPreset && 'Comma-separated list. The first model is the default, the last is used for summarization.',
+    !hasPiModels && !isDefaultProviderPreset && (activePreset === 'custom' || !activePreset) && 'Required for custom endpoints. Use the provider-specific model ID.',
+    isBedrock && bedrockAuthMethod === 'environment' && 'Uses your AWS credential chain: ~/.aws/credentials, AWS_PROFILE, IAM roles, SSO sessions and environment variables.',
+  ].filter(Boolean) as string[]
+  const error = modelError ?? (status === 'error' ? errorMessage : null)
 
   return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-6">
-      {/* API Key — hidden for Bedrock (uses IAM/Environment auth) */}
-      {!isBedrock && (<div className="space-y-2">
-        <Label htmlFor="api-key">API Key</Label>
-        <div className={cn(
-          "relative rounded-md shadow-minimal transition-colors",
-          "bg-foreground-2 focus-within:bg-background"
-        )}>
-          <Input
-            id="api-key"
-            type={showValue ? 'text' : 'password'}
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={apiKeyPlaceholder}
-            className={cn(
-              "pr-10 border-0 bg-transparent shadow-none",
-              status === 'error' && "focus-visible:ring-destructive"
-            )}
-            disabled={isDisabled}
-            autoFocus
-          />
-          <button
-            type="button"
-            onClick={() => setShowValue(!showValue)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            tabIndex={-1}
-          >
-            {showValue ? (
-              <EyeOff className="size-4" />
-            ) : (
-              <Eye className="size-4" />
-            )}
-          </button>
-        </div>
-      </div>)}
-
-      {/* Endpoint/Provider Preset Selector - hidden when only one preset (e.g. Codex/OpenAI direct) */}
-      {presets.length > 1 && (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="base-url">Endpoint</Label>
-          <DropdownMenu>
-            <DropdownMenuTrigger
+    <form id={formId} onSubmit={handleSubmit} className="space-y-3">
+      <SettingsCard>
+        {/* API Key: hidden for Bedrock (IAM or environment auth) */}
+        {!isBedrock && (
+          <FieldRow label="API Key" htmlFor="api-key">
+            <SecretInput
+              id="api-key"
+              value={apiKey}
+              onChange={setApiKey}
+              placeholder={apiKeyPlaceholder}
               disabled={isDisabled}
-              className="flex h-6 items-center gap-1 rounded-[6px] bg-background shadow-minimal pl-2.5 pr-2 text-[12px] font-medium text-foreground/50 hover:bg-foreground/5 hover:text-foreground focus:outline-none"
-            >
-              {presets.find(p => p.key === activePreset)?.label}
-              <ChevronDown className="size-2.5 opacity-50" />
-            </DropdownMenuTrigger>
-            <StyledDropdownMenuContent align="end" className="z-floating-menu">
-              {presets.map((preset) => (
-                <StyledDropdownMenuItem
-                  key={preset.key}
-                  onClick={() => handlePresetSelect(preset)}
-                  className="justify-between"
-                >
-                  {preset.label}
-                  <Check className={cn("size-3", activePreset === preset.key ? "opacity-100" : "opacity-0")} />
-                </StyledDropdownMenuItem>
-              ))}
-            </StyledDropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        {/* Base URL input - hidden for default provider presets (Anthropic/OpenAI) and Bedrock */}
-        {!isDefaultProviderPreset && !isBedrock && (
-          <div className={cn(
-            "rounded-md shadow-minimal transition-colors",
-            "bg-foreground-2 focus-within:bg-background"
-          )}>
+              invalid={status === 'error'}
+              autoFocus
+            />
+          </FieldRow>
+        )}
+
+        {/* Provider preset: hidden when there is only one (e.g. OpenAI direct) */}
+        {presets.length > 1 && (
+          <FieldRow label="Endpoint">
+            <SettingsMenuSelect
+              value={activePreset}
+              onValueChange={(key) => {
+                const preset = presets.find((p) => p.key === key)
+                if (preset) handlePresetSelect(preset)
+              }}
+              options={presets.map((p) => ({ value: p.key, label: p.label }))}
+              disabled={isDisabled}
+            />
+          </FieldRow>
+        )}
+
+        {!isDefaultProviderPreset && !isBedrock && presets.length > 1 && (
+          <FieldRow label="Base URL" htmlFor="base-url">
             <Input
               id="base-url"
-              type="text"
               value={baseUrl}
               onChange={(e) => handleBaseUrlChange(e.target.value)}
               placeholder="https://your-api-endpoint.com"
-              className="border-0 bg-transparent shadow-none"
+              className="w-60"
               disabled={isDisabled}
             />
-          </div>
+          </FieldRow>
         )}
-      </div>
-      )}
 
-      {/* Protocol Toggle — visible as soon as Custom preset is selected */}
-      {activePreset === 'custom' && !isDefaultProviderPreset && (
-        <div className="space-y-2">
-          <Label>Protocol</Label>
-          <div className={cn(
-            "flex rounded-md shadow-minimal overflow-hidden",
-            "bg-foreground-2",
-            isDisabled && "opacity-50 pointer-events-none"
-          )}>
-            {([
-              { value: 'openai-completions' as const, label: 'OpenAI Compatible' },
-              { value: 'anthropic-messages' as const, label: 'Anthropic Compatible' },
-            ]).map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                disabled={isDisabled}
-                onClick={() => setCustomApi(value)}
-                className={cn(
-                  "flex-1 py-1.5 text-[12px] font-medium transition-colors",
-                  customApi === value
-                    ? "bg-background text-foreground shadow-minimal"
-                    : "text-foreground/50 hover:text-foreground/70"
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-foreground/30">
-            Most third-party APIs (Ollama, vLLM, DashScope) use OpenAI Compatible.
-          </p>
-        </div>
-      )}
+        {/* Protocol: as soon as Custom is selected */}
+        {activePreset === 'custom' && !isDefaultProviderPreset && (
+          <FieldRow label="Protocol">
+            <SettingsSegmentedControl
+              value={customApi}
+              onValueChange={setCustomApi}
+              size="sm"
+              options={[
+                { value: 'openai-completions', label: 'OpenAI' },
+                { value: 'anthropic-messages', label: 'Anthropic' },
+              ]}
+            />
+          </FieldRow>
+        )}
 
-      {/* Bedrock Auth Section */}
-      {isBedrock && (
-        <>
-          {/* Auth Method Toggle */}
-          <div className="space-y-2">
-            <Label>Authentication</Label>
-            <div className={cn(
-              "flex rounded-md shadow-minimal overflow-hidden",
-              "bg-foreground-2",
-              isDisabled && "opacity-50 pointer-events-none"
-            )}>
-              {([
-                { value: 'iam_credentials' as const, label: 'IAM Credentials' },
-                { value: 'environment' as const, label: 'Environment (AWS CLI)' },
-              ]).map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={isDisabled}
-                  onClick={() => setBedrockAuthMethod(value)}
-                  className={cn(
-                    "flex-1 py-1.5 text-[12px] font-medium transition-colors",
-                    bedrockAuthMethod === value
-                      ? "bg-background text-foreground shadow-minimal"
-                      : "text-foreground/50 hover:text-foreground/70"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* IAM Credential Fields */}
-          {bedrockAuthMethod === 'iam_credentials' && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="aws-access-key-id" className="text-muted-foreground font-normal text-xs">
-                  Access Key ID
-                </Label>
-                <div className={cn("rounded-md shadow-minimal transition-colors", "bg-foreground-2 focus-within:bg-background")}>
+        {isBedrock && (
+          <>
+            <FieldRow label="Authentication">
+              <SettingsSegmentedControl
+                value={bedrockAuthMethod}
+                onValueChange={setBedrockAuthMethod}
+                size="sm"
+                options={[
+                  { value: 'iam_credentials', label: 'IAM' },
+                  { value: 'environment', label: 'AWS CLI' },
+                ]}
+              />
+            </FieldRow>
+            {bedrockAuthMethod === 'iam_credentials' && (
+              <>
+                <FieldRow label="Access Key ID" htmlFor="aws-access-key-id">
                   <Input
                     id="aws-access-key-id"
-                    type="text"
                     value={awsAccessKeyId}
                     onChange={(e) => setAwsAccessKeyId(e.target.value)}
                     placeholder="AKIA..."
-                    className="border-0 bg-transparent shadow-none"
+                    className="w-60"
                     disabled={isDisabled}
                     autoFocus
                   />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="aws-secret-key" className="text-muted-foreground font-normal text-xs">
-                  Secret Access Key
-                </Label>
-                <div className={cn("relative rounded-md shadow-minimal transition-colors", "bg-foreground-2 focus-within:bg-background")}>
-                  <Input
+                </FieldRow>
+                <FieldRow label="Secret Access Key" htmlFor="aws-secret-key">
+                  <SecretInput
                     id="aws-secret-key"
-                    type={showValue ? 'text' : 'password'}
                     value={awsSecretAccessKey}
-                    onChange={(e) => setAwsSecretAccessKey(e.target.value)}
+                    onChange={setAwsSecretAccessKey}
                     placeholder={t("apiSetup.secretAccessKey")}
-                    className="pr-10 border-0 bg-transparent shadow-none"
                     disabled={isDisabled}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowValue(!showValue)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    tabIndex={-1}
-                  >
-                    {showValue ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="aws-session-token" className="text-muted-foreground font-normal text-xs">
-                  Session Token <span className="text-foreground/30">· optional</span>
-                </Label>
-                <div className={cn("rounded-md shadow-minimal transition-colors", "bg-foreground-2 focus-within:bg-background")}>
+                </FieldRow>
+                <FieldRow label="Session Token" htmlFor="aws-session-token">
                   <Input
                     id="aws-session-token"
-                    type="text"
                     value={awsSessionToken}
                     onChange={(e) => setAwsSessionToken(e.target.value)}
                     placeholder={t("apiSetup.temporaryCredentials")}
-                    className="border-0 bg-transparent shadow-none"
+                    className="w-60"
                     disabled={isDisabled}
                   />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Environment info */}
-          {bedrockAuthMethod === 'environment' && (
-            <div className="rounded-md bg-foreground-2 p-3">
-              <p className="text-xs text-foreground/50">
-                Uses your existing AWS credential chain — <code className="text-foreground/70">~/.aws/credentials</code>, <code className="text-foreground/70">AWS_PROFILE</code>, IAM roles, SSO sessions, and environment variables.
-              </p>
-            </div>
-          )}
-
-          {/* AWS Region */}
-          <div className="space-y-1.5">
-            <Label htmlFor="aws-region" className="text-muted-foreground font-normal text-xs">
-              AWS Region
-            </Label>
-            <div className={cn("rounded-md shadow-minimal transition-colors", "bg-foreground-2 focus-within:bg-background")}>
+                </FieldRow>
+              </>
+            )}
+            <FieldRow label="AWS Region" htmlFor="aws-region">
               <Input
                 id="aws-region"
-                type="text"
                 value={awsRegion}
                 onChange={(e) => setAwsRegion(e.target.value)}
                 placeholder="us-east-1"
-                className="border-0 bg-transparent shadow-none"
+                className="w-60"
                 disabled={isDisabled}
               />
-            </div>
-          </div>
-        </>
-      )}
+            </FieldRow>
+          </>
+        )}
 
-      {/* Model Selection — 3 tier dropdowns for Pi providers, text input for custom/compat */}
-      {hasPiModels ? (
-        <div className="space-y-3">
-          {piModelsLoading ? (
-            <div className="flex items-center gap-2 py-3 text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" />
-              <span className="text-xs">{t("apiSetup.loadingModels")}</span>
-            </div>
+        {/* Models: three tiers for Pi providers, a list for custom endpoints */}
+        {hasPiModels ? (
+          piModelsLoading ? (
+            <FieldRow label={t("apiSetup.loadingModels")}>
+              <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+            </FieldRow>
           ) : (
-            <>
-              {tierConfigs.map(({ label, desc, value }) => (
-                <div key={label} className="space-y-1.5">
-                  <Label className="text-muted-foreground font-normal text-xs">
-                    {label}{' '}
-                    <span className="text-foreground/30">· {desc}</span>
-                  </Label>
-                  <button
-                    type="button"
-                    disabled={isDisabled}
-                    onClick={(e) => {
-                      if (openTier === label) {
-                        setOpenTier(null)
-                        setTierFilter('')
-                      } else {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        setTierDropdownPosition({ top: rect.bottom + 4, left: rect.left, width: rect.width })
-                        setOpenTier(label)
-                        setTierFilter('')
-                        setTimeout(() => tierFilterInputRef.current?.focus(), 0)
-                      }
-                    }}
-                    className={cn(
-                      "flex h-9 w-full items-center justify-between rounded-md px-3 text-sm",
-                      "bg-foreground-2 shadow-minimal transition-colors",
-                      "hover:bg-background focus:outline-none focus:bg-background",
-                      isDisabled && "opacity-50 pointer-events-none"
-                    )}
-                  >
-                    <span className="truncate text-foreground">
-                      {piModels.find(m => m.id === value)?.name ?? 'Select model...'}
-                    </span>
-                    <ChevronDown className="size-3 opacity-50 shrink-0" />
-                  </button>
-                </div>
-              ))}
-              {activeTierConfig && tierDropdownPosition && (
-                <>
-                  <div
-                    className="fixed inset-0 z-floating-backdrop"
-                    onClick={() => { setOpenTier(null); setTierFilter('') }}
-                  />
-                  <div
-                    className="fixed z-floating-menu min-w-[200px] overflow-hidden rounded-[8px] bg-background text-foreground shadow-modal-small"
-                    style={{
-                      top: tierDropdownPosition.top,
-                      left: tierDropdownPosition.left,
-                      width: tierDropdownPosition.width,
-                    }}
-                  >
-                    <CommandPrimitive
-                      className="min-w-[200px]"
-                      shouldFilter={false}
-                    >
-                      <div className="border-b border-border/50 px-3 py-2">
-                        <CommandPrimitive.Input
-                          ref={tierFilterInputRef}
-                          value={tierFilter}
-                          onValueChange={setTierFilter}
-                          placeholder={t("apiSetup.searchModels")}
-                          autoFocus
-                          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground placeholder:select-none"
-                        />
-                      </div>
-                      <CommandPrimitive.List className="max-h-[240px] overflow-y-auto p-1">
-                        {piModels
-                          .filter(m => m.name.toLowerCase().includes(tierFilter.toLowerCase()))
-                          .map((model) => (
-                            <CommandPrimitive.Item
-                              key={model.id}
-                              value={model.id}
-                              onSelect={() => {
-                                activeTierConfig.onChange(model.id)
-                                setOpenTier(null)
-                                setTierFilter('')
-                              }}
-                              className={cn(
-                                "flex cursor-pointer select-none items-center justify-between gap-3 rounded-[6px] px-3 py-2 text-[13px]",
-                                "outline-none data-[selected=true]:bg-foreground/5"
-                              )}
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="truncate">{model.name}</span>
-                                {model.reasoning && (
-                                  <span className="text-[10px] text-foreground/30 shrink-0">reasoning</span>
-                                )}
-                              </div>
-                              <Check className={cn("size-3 shrink-0", activeTierConfig.value === model.id ? "opacity-100" : "opacity-0")} />
-                            </CommandPrimitive.Item>
-                          ))}
-                      </CommandPrimitive.List>
-                    </CommandPrimitive>
-                  </div>
-                </>
-              )}
-              {modelError && (
-                <p className="text-xs text-destructive">{modelError}</p>
-              )}
-            </>
-          )}
-        </div>
-      ) : !isDefaultProviderPreset && (
-        <div className="space-y-2">
-          <Label htmlFor="connection-default-model" className="text-muted-foreground font-normal">
-            Default Model{' '}
-            <span className="text-foreground/30">
-              · {!isBedrock && baseUrl.trim() ? 'required' : 'optional'}
-            </span>
-          </Label>
-          <div className={cn(
-            "rounded-md shadow-minimal transition-colors",
-            "bg-foreground-2 focus-within:bg-background",
-            modelError && "ring-1 ring-destructive/40"
-          )}>
-            <Input
-              id="connection-default-model"
-              type="text"
-              value={connectionDefaultModel}
-              onChange={(e) => {
-                setConnectionDefaultModel(e.target.value)
-                setModelError(null)
-              }}
-              placeholder="e.g. claude-opus-5-5, claude-opus-4-8, claude-sonnet-5, claude-haiku-4-5"
-              className="border-0 bg-transparent shadow-none"
-              disabled={isDisabled}
-            />
-          </div>
-          {modelError && (
-            <p className="text-xs text-destructive">{modelError}</p>
-          )}
-          <p className="text-xs text-foreground/30">
-            Comma-separated list. The first model is the default. The last is used for summarization.
-          </p>
-          {(activePreset === 'custom' || !activePreset) && (
-            <p className="text-xs text-foreground/30">
-              Required for custom endpoints. Use the provider-specific model ID.
-            </p>
-          )}
-        </div>
-      )}
+            tierConfigs.map(({ label, value, onChange }) => (
+              <FieldRow key={label} label={label}>
+                <SettingsMenuSelect
+                  value={value}
+                  onValueChange={onChange}
+                  options={modelOptions}
+                  placeholder="Select model..."
+                  searchPlaceholder={t("apiSetup.searchModels")}
+                  searchable
+                  disabled={isDisabled}
+                />
+              </FieldRow>
+            ))
+          )
+        ) : (
+          !isDefaultProviderPreset && (
+            <FieldRow label="Default Model" htmlFor="connection-default-model">
+              <Input
+                id="connection-default-model"
+                value={connectionDefaultModel}
+                onChange={(e) => {
+                  setConnectionDefaultModel(e.target.value)
+                  setModelError(null)
+                }}
+                placeholder={!isBedrock && baseUrl.trim() ? 'claude-opus-5-5' : 'optional'}
+                className="w-60"
+                disabled={isDisabled}
+              />
+            </FieldRow>
+          )
+        )}
+      </SettingsCard>
 
-      {/* Error message */}
-      {status === 'error' && errorMessage && (
-        <p className="text-sm text-destructive">{errorMessage}</p>
-      )}
+      {hints.map((hint) => (
+        <p key={hint} className="px-1 text-xs text-muted-foreground">{hint}</p>
+      ))}
+      {error && <p className="px-1 text-sm text-destructive">{error}</p>}
     </form>
+  )
+}
+
+/** A settings row: the label on the left, the control on the right. */
+function FieldRow({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
+  return (
+    <SettingsRow label={htmlFor ? <Label htmlFor={htmlFor}>{label}</Label> : label}>
+      {children}
+    </SettingsRow>
+  )
+}
+
+function SecretInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  invalid,
+  autoFocus,
+}: {
+  id: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  disabled?: boolean
+  invalid?: boolean
+  autoFocus?: boolean
+}) {
+  const [shown, setShown] = useState(false)
+  return (
+    <div className="relative w-60">
+      <Input
+        id={id}
+        type={shown ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="pr-9"
+        aria-invalid={invalid || undefined}
+        disabled={disabled}
+        autoFocus={autoFocus}
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground"
+        tabIndex={-1}
+        onClick={() => setShown(!shown)}
+      >
+        {shown ? <EyeOff /> : <Eye />}
+      </Button>
+    </div>
   )
 }
