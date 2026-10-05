@@ -248,14 +248,13 @@ export function getBackgroundColor(isDark: boolean): string {
 export const DEFAULT_THEME: ThemeOverrides = {
   background: 'oklch(1 0 0)',
   foreground: 'oklch(0.145 0 0)',
-  accent: 'oklch(0.546 0.245 262.881)',
+  accent: 'oklch(0.588 0.158 241.966)',
   info: 'oklch(0.795 0.184 86.047)',
   success: 'oklch(0.627 0.194 149.214)',
   destructive: 'oklch(0.577 0.245 27.325)',
   dark: {
     background: 'oklch(0.17 0 0)',
     foreground: 'oklch(0.985 0 0)',
-    accent: 'oklch(0.623 0.214 259.815)',
     info: 'oklch(0.852 0.199 91.936)',
     success: 'oklch(0.723 0.219 149.579)',
     destructive: 'oklch(0.704 0.191 22.216)',

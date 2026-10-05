@@ -41,7 +41,7 @@
 @property --primary {
   syntax: "<color>";
   inherits: true;
-  initial-value: oklch(0.546 0.245 262.881);
+  initial-value: oklch(0.588 0.158 241.966);
 }
 
 @property --info {

@@ -21,8 +21,7 @@ colors:
   muted-dark: "oklch(0.27 0 0)"
   muted-foreground: "oklch(0.556 0 0)"
   muted-foreground-dark: "oklch(0.708 0 0)"
-  primary: "oklch(0.546 0.245 262.881)"
-  primary-dark: "oklch(0.623 0.214 259.815)"
+  primary: "oklch(0.588 0.158 241.966)"
   primary-foreground: "oklch(0.985 0 0)"
   destructive: "oklch(0.577 0.245 27.325)"
   destructive-dark: "oklch(0.704 0.191 22.216)"
@@ -133,8 +132,6 @@ components:
     textColor: "{colors.primary-foreground}"
     rounded: "{rounded.md}"
     size: 32px
-  button-primary-dark:
-    backgroundColor: "{colors.primary-dark}"
   button-icon:
     rounded: "{rounded.md}"
     size: 32px
@@ -238,8 +235,6 @@ components:
   tag:
     textColor: "{colors.primary}"
     typography: "{typography.body-medium}"
-  tag-dark:
-    textColor: "{colors.primary-dark}"
   badge:
     typography: "{typography.caption}"
     rounded: "{rounded.full}"
@@ -347,9 +342,12 @@ accent, compact 32px controls.
 The UI is neutral; color carries meaning, never decoration. Use theme tokens
 (`bg-primary`, `text-muted-foreground`, `text-status-doing`), never raw values.
 
-- **Primary** (Tailwind `blue-600` light, `blue-500` dark, white text) marks
+- **Primary** (Tailwind `sky-600`, `oklch(0.588 0.158 241.966)`, in both
+  modes, with white text and white icons) marks
   the single main action of a surface (the composer's send and mic button) and
-  tags (`@` mentions). It is never a navigation or selection state.
+  tags (`@` mentions). It is never a navigation or selection state. White on it
+  is about 4.1:1: fine for UI components and the medium-weight 13px labels,
+  below AA (4.5:1) for body-size text.
 - **Muted foreground** is the resting color of ghost buttons, sidebar rows,
   section titles and secondary text. **Foreground** is hover, open, pressed,
   current and content.
@@ -616,7 +614,8 @@ not in it: Otto is reached through the floating chat, not tagged.
 
 **Tags** (`MentionChip`). Everywhere (composer, messages, comments): the type
 icon and label in primary on a soft primary tint (10%, 15% dark) with `xs`
-corners, stored as `@[label](type:id)`.
+corners, stored as `@[label](type:id)`. Tag text on its tint is 3.5:1 in light
+(4.4:1 dark), a known tradeoff of the sky tone: medium weight, 13px.
 
 **Dictation.** While listening the composer row shows ×, the level as 4px
 bars 2px apart, the elapsed time and Done. The bars start flat (a row of 4px
