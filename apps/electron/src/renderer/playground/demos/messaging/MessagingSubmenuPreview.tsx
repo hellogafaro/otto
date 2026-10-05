@@ -59,7 +59,7 @@ export function MessagingSubmenuPreview({
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-accent">
+          <button className="rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-primary">
             Session options
           </button>
         </DropdownMenuTrigger>

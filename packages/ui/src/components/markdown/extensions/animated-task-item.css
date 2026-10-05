@@ -69,7 +69,7 @@
   border-radius: var(--task-checkbox-radius);
   border: var(--task-checkbox-border-width) solid color-mix(in oklch, var(--foreground) 40%, transparent);
   background-color: transparent;
-  box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 0%, transparent);
+  box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 0%, transparent);
   transform: scale(1);
   transition:
     border-color 200ms ease,

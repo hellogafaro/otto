@@ -145,7 +145,7 @@ export function AutomationEventTimeline({ entries, className, onReplay }: Automa
               {/* Session deep link */}
               {entry.sessionId && (
                 <button
-                  className="shrink-0 text-[11px] text-accent hover:underline cursor-pointer"
+                  className="shrink-0 text-[11px] text-primary hover:underline cursor-pointer"
                   onClick={(e) => { e.stopPropagation(); navigateToSession(entry.sessionId!) }}
                 >
                   {t('automations.openSession')}
@@ -155,7 +155,7 @@ export function AutomationEventTimeline({ entries, className, onReplay }: Automa
               {/* Retry button for failed webhook entries */}
               {entry.status === 'error' && isWebhook && onReplay && (
                 <button
-                  className="shrink-0 text-[11px] text-accent hover:underline cursor-pointer"
+                  className="shrink-0 text-[11px] text-primary hover:underline cursor-pointer"
                   onClick={(e) => { e.stopPropagation(); onReplay(entry.automationId, entry.event) }}
                 >
                   {t('automations.retry')}

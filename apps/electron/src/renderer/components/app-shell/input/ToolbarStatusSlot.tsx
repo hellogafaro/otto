@@ -131,7 +131,7 @@ function BrowserStatusBar({
   // Compute styles based on whether we have a theme color
   const backgroundStyle = themeColor
     ? { backgroundColor: themeColor }
-    : { backgroundColor: 'color-mix(in srgb, var(--accent) 15%, var(--background))' }
+    : { backgroundColor: 'color-mix(in srgb, var(--primary) 15%, var(--background))' }
 
   const textColorClass = themeColor
     ? (isDarkTheme ? 'text-white/90' : 'text-black/80')
@@ -168,7 +168,7 @@ function BrowserStatusBar({
         <div
           className="h-full w-full animate-shimmer-loading"
           style={{
-            background: 'linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%)',
+            background: 'linear-gradient(90deg, transparent 0%, var(--primary) 50%, transparent 100%)',
           }}
         />
       </div>

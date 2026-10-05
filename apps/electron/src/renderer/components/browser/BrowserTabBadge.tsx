@@ -48,7 +48,7 @@ export const BrowserTabBadge = forwardRef<HTMLButtonElement, BrowserTabBadgeProp
         text-[11px] leading-tight transition-colors max-w-[160px] shadow-minimal
         bg-background
         ${foregroundClass}
-        ${instance.agentControlActive ? 'border border-accent' : ''}
+        ${instance.agentControlActive ? 'border border-primary' : ''}
         ${className ?? ''}
       `}
       style={{

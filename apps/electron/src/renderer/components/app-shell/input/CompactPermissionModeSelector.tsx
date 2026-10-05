@@ -55,8 +55,8 @@ const MODE_STYLES: Record<PermissionMode, { className: string; shadowVar: string
     shadowVar: 'var(--success-rgb)',
   },
   'allow-all': {
-    className: 'bg-accent/5 text-accent',
-    shadowVar: 'var(--accent-rgb)',
+    className: 'bg-primary/5 text-primary',
+    shadowVar: 'var(--primary-rgb)',
   },
 }
 

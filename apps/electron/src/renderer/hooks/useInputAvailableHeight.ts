@@ -4,7 +4,7 @@ import { getInputAvailableHeight, getViewportRect, measureInputAvailableHeight, 
 /** Measure against a stable chat panel (or an explicit host/playground bound).
  * Observe the input zone too: badges may grow without a window resize. Measuring
  * only its space OUTSIDE the input keeps composer growth out of its own budget. */
-export function useInputAvailableHeight(ref: React.RefObject<HTMLElement>, enabled = true): number {
+export function useInputAvailableHeight(ref: React.RefObject<HTMLElement | null>, enabled = true): number {
   const [height, setHeight] = React.useState(() => getInputAvailableHeight(getViewportRect()))
 
   React.useLayoutEffect(() => {

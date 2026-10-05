@@ -207,7 +207,7 @@ export function WorkspaceSwitcher({
                   : <Cloud className="h-3 w-3 opacity-60 shrink-0" />
               )}
               <ChevronDown data-slot="chevron" className="h-3 w-3 opacity-60 shrink-0" />
-              {hasUnreadInOtherWorkspaces && <span className="h-2 w-2 rounded-full bg-accent shrink-0" />}
+              {hasUnreadInOtherWorkspaces && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
             </button>
           ) : (
             <button
@@ -284,7 +284,7 @@ export function WorkspaceSwitcher({
                       ? <span title={getDisconnectTooltip(workspace.id)} className="shrink-0"><CloudOff className="h-3.5 w-3.5 text-destructive" /></span>
                       : <Cloud className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   )}
-                  {workspaceUnreadMap?.[workspace.id] && <span className="h-2 w-2 rounded-full bg-accent shrink-0" />}
+                  {workspaceUnreadMap?.[workspace.id] && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                 </div>
                 <div className="flex items-center gap-1">
                   {/* Action buttons - only visible on hover for non-active workspaces */}

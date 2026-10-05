@@ -194,7 +194,7 @@ export function CompactWorkspaceSwitcher({
                 : <Cloud className="h-3 w-3 opacity-60 shrink-0" />
             )}
             <ChevronDown data-slot="chevron" className="h-3 w-3 opacity-60 shrink-0" />
-            {hasUnreadInOtherWorkspaces && <span className="h-2 w-2 rounded-full bg-accent shrink-0" />}
+            {hasUnreadInOtherWorkspaces && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
           </button>
         </DrawerTrigger>
 
@@ -243,7 +243,7 @@ export function CompactWorkspaceSwitcher({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="truncate text-sm font-medium">{workspace.name}</span>
-                        {workspaceUnreadMap?.[workspace.id] && <span className="h-2 w-2 rounded-full bg-accent shrink-0" />}
+                        {workspaceUnreadMap?.[workspace.id] && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                       </div>
                       {workspace.remoteServer && (
                         <div className="flex items-center gap-1 text-xs text-foreground/50 mt-0.5">

@@ -29,7 +29,7 @@ export function FabNewChat({ onClick, className }: FabNewChatProps) {
       aria-label={t("menu.newChat")}
       className={cn(
         "fixed right-4 z-30 size-14 rounded-full",
-        "bg-accent text-white",
+        "bg-primary text-white",
         "flex items-center justify-center",
         // Layered shadow: ambient drop + accent-tinted glow + subtle inner highlight
         "shadow-[0_10px_30px_-8px_rgba(0,0,0,0.45),0_6px_18px_-6px_rgba(109,93,252,0.55),inset_0_1px_0_0_rgba(255,255,255,0.15)]",

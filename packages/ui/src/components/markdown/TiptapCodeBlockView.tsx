@@ -250,7 +250,7 @@ function TiptapCodeBlockView({ node, updateAttributes }: TiptapCodeBlockViewProp
                       languageOptionRefs.current[index] = el
                     }}
                     onMouseEnter={() => setHighlightedLanguageIndex(index)}
-                    className={cn('pl-2.5', isActive && 'text-accent', isHighlighted && 'bg-foreground/[0.05]')}
+                    className={cn('pl-2.5', isActive && 'text-primary', isHighlighted && 'bg-foreground/[0.05]')}
                   >
                     <span className="flex w-full items-center justify-between gap-2">
                       <span>{option.label}</span>

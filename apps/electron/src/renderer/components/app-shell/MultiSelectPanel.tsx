@@ -95,8 +95,8 @@ export function MultiSelectPanel({
     >
       {/* Selection count */}
       <div className="flex flex-col items-center gap-2">
-        <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
-          <span className="text-2xl font-semibold text-accent">{count}</span>
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+          <span className="text-2xl font-semibold text-primary">{count}</span>
         </div>
         <h2 className="text-lg font-medium text-foreground">
           {t(`multiSelect.selected.${entityType}`, { count })}

@@ -28,7 +28,7 @@ export function WelcomeStep({
     <StepFormLayout
       iconElement={
         <div className="flex size-16 items-center justify-center">
-          <CraftAgentsSymbol className="size-10 text-accent" />
+          <CraftAgentsSymbol className="size-10 text-primary" />
         </div>
       }
       title={isExistingUser ? t("onboarding.welcome.updateTitle") : t("onboarding.welcome.title")}

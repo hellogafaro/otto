@@ -838,16 +838,16 @@ export function ActivityStatusIcon({
       case 'backgrounded':
         return (
           <div className={cn(SIZE_CONFIG.iconSize, "flex items-center justify-center shrink-0")}>
-            <Spinner className={cn(SIZE_CONFIG.spinnerSize, "text-accent")} />
+            <Spinner className={cn(SIZE_CONFIG.spinnerSize, "text-primary")} />
           </div>
         )
       case 'completed':
         // Edit and Write tools get their own icons with accent color instead of green checkmark
         if (toolName === 'Edit') {
-          return <Pencil className={cn(SIZE_CONFIG.iconSize, "shrink-0 text-accent")} />
+          return <Pencil className={cn(SIZE_CONFIG.iconSize, "shrink-0 text-primary")} />
         }
         if (toolName === 'Write') {
-          return <FilePenLine className={cn(SIZE_CONFIG.iconSize, "shrink-0 text-accent")} />
+          return <FilePenLine className={cn(SIZE_CONFIG.iconSize, "shrink-0 text-primary")} />
         }
         return <CheckCircle2 className={cn(SIZE_CONFIG.iconSize, "shrink-0 text-success")} />
       case 'error':
@@ -1177,7 +1177,7 @@ function ActivityRow({ activity, onOpenDetails, isLastChild, sessionFolderPath, 
         {backgroundInfo && (
           <>
             <span className="opacity-60 shrink-0">·</span>
-            <span className="truncate min-w-0 max-w-[300px] text-accent">{backgroundInfo}</span>
+            <span className="truncate min-w-0 max-w-[300px] text-primary">{backgroundInfo}</span>
           </>
         )}
         {/* No spacer needed - both MCP/API and native tools now have flex-1 on their compound spans */}
@@ -2692,7 +2692,7 @@ function TodoStatusIcon({ status }: { status: TodoStatus }) {
         </div>
       )
     case 'completed':
-      return <CircleCheck className={cn(SIZE_CONFIG.iconSize, "shrink-0 text-accent")} />
+      return <CircleCheck className={cn(SIZE_CONFIG.iconSize, "shrink-0 text-primary")} />
     case 'interrupted':
       return <Ban className={cn(SIZE_CONFIG.iconSize, "shrink-0 text-muted-foreground/50")} />
   }

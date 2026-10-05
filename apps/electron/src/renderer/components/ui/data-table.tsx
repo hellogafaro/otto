@@ -184,7 +184,7 @@ export function DataTable<TData, TValue>({
                           'absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none',
                           'opacity-0 hover:opacity-100 transition-opacity',
                           'bg-border',
-                          header.column.getIsResizing() && 'opacity-100 bg-accent'
+                          header.column.getIsResizing() && 'opacity-100 bg-primary'
                         )}
                       />
                     )}

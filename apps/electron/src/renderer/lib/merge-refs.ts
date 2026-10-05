@@ -1,6 +1,6 @@
 import { type MutableRefObject, type RefCallback } from 'react'
 
-type Ref<T> = RefCallback<T> | MutableRefObject<T> | null | undefined
+type Ref<T> = RefCallback<T> | MutableRefObject<T | null> | null | undefined
 
 /**
  * Merges multiple refs into a single ref callback.

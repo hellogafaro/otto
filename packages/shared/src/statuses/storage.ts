@@ -153,7 +153,7 @@ export function loadStatusConfig(workspaceRootPath: string): WorkspaceStatusConf
       return getDefaultStatusConfig();
     }
 
-    // Auto-migrate old Tailwind class colors (e.g., "text-accent") to new EntityColor format.
+    // Auto-migrate old Tailwind class colors (e.g., "text-primary") to new EntityColor format.
     // If migration occurs, write the updated config back to disk.
     const migrated = migrateStatusColors(config);
     if (migrated) {

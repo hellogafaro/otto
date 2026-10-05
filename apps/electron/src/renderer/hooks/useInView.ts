@@ -10,8 +10,8 @@ import * as React from 'react'
  */
 export function useInView<T extends Element>(
   options?: { rootMargin?: string; triggerOnce?: boolean },
-): [React.RefObject<T>, boolean] {
-  // useRef<T>(null) → RefObject<T> (readonly current: T | null), which the DOM
+): [React.RefObject<T | null>, boolean] {
+  // useRef<T>(null) → RefObject<T | null> (readonly current: T | null), which the DOM
   // `ref` prop accepts; useRef<T | null> widens T and breaks that assignment.
   const ref = React.useRef<T>(null)
   const [inView, setInView] = React.useState(false)

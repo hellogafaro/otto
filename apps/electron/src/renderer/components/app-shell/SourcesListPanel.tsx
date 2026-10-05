@@ -14,7 +14,7 @@ import { EditPopover, getEditConfig, type EditContextKey } from '@/components/ui
 import type { LoadedSource, SourceConnectionStatus, SourceFilter } from '../../../shared/types'
 
 const SOURCE_TYPE_CONFIG: Record<string, { labelKey: string; colorClass: string }> = {
-  mcp: { labelKey: 'sourcesList.typeMcp', colorClass: 'bg-accent/10 text-accent' },
+  mcp: { labelKey: 'sourcesList.typeMcp', colorClass: 'bg-primary/10 text-primary' },
   api: { labelKey: 'sourcesList.typeApi', colorClass: 'bg-success/10 text-success' },
   local: { labelKey: 'sourcesList.typeLocal', colorClass: 'bg-info/10 text-info' },
 }

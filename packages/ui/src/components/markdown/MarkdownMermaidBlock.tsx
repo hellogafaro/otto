@@ -69,7 +69,7 @@ export function MarkdownMermaidBlock({ code, className, showExpandButton = true,
         svg: renderMermaidSVG(normalizeMermaidSource(code), {
           bg: 'var(--background)',
           fg: 'var(--foreground)',
-          accent: 'var(--accent)',
+          accent: 'var(--primary)',
           line: 'var(--foreground-30)',
           muted: 'var(--muted-foreground)',
           surface: 'var(--foreground-3)',

@@ -406,9 +406,9 @@ export const PERMISSION_MODE_CONFIG: Record<PermissionMode, {
     // Repeat icon from Lucide (loop)
     svgPath: 'm17 1 4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
     colorClass: {
-      text: 'text-accent',
-      bg: 'bg-accent',
-      border: 'border-accent',
+      text: 'text-primary',
+      bg: 'bg-primary',
+      border: 'border-primary',
     },
   },
 };

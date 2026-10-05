@@ -5,7 +5,7 @@
  * Called during config loading — if old format detected, migrates in-memory
  * and signals that the config should be written back to disk.
  *
- * Old format: "text-accent", "text-foreground/50", "#EF4444"
+ * Old format: "text-primary", "text-foreground/50", "#EF4444"
  * New format: "accent", "foreground/50", { light: "#EF4444" }
  */
 
@@ -16,7 +16,7 @@ import type { EntityColor } from './types.ts'
  * Covers all known patterns used in existing configs.
  */
 const TAILWIND_TO_ENTITY_COLOR: Record<string, EntityColor> = {
-  'text-accent': 'accent',
+  'text-primary': 'accent',
   'text-info': 'info',
   'text-success': 'success',
   'text-error': 'destructive',

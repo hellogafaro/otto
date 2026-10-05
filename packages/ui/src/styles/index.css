@@ -224,7 +224,7 @@ html[data-font="inter"] {
   /* === 6 BASE COLORS === */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-accent: var(--accent);
+  --color-accent: var(--primary);
   --color-info: var(--info);
   --color-success: var(--success);
   --color-destructive: var(--destructive);

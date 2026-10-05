@@ -105,7 +105,7 @@ function CronField({ field, value, onChange }: CronFieldProps) {
         onChange={(e) => onChange(e.target.value)}
         className={cn(
           'w-full px-2 py-1.5 text-xs font-mono text-center rounded-md border border-border/50',
-          'bg-background focus:outline-none focus:ring-1 focus:ring-accent/50',
+          'bg-background focus:outline-none focus:ring-1 focus:ring-primary/50',
         )}
         placeholder="*"
       />
@@ -229,7 +229,7 @@ export function CronBuilder({
             'bg-background focus:outline-none focus:ring-1',
             validationError
               ? 'border-destructive/50 focus:ring-destructive/30'
-              : 'border-border/50 focus:ring-accent/50'
+              : 'border-border/50 focus:ring-primary/50'
           )}
           placeholder="* * * * *"
         />

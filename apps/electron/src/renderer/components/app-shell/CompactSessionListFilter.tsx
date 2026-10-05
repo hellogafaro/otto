@@ -184,11 +184,11 @@ export function CompactSessionListFilter({
           aria-label={t('sidebar.filterChats')}
           className={cn(
             'rounded-[8px]',
-            hasUserFilter && 'bg-accent/5 text-accent shadow-tinted',
+            hasUserFilter && 'bg-primary/5 text-primary shadow-tinted',
           )}
           style={
             hasUserFilter
-              ? ({ '--shadow-color': 'var(--accent-rgb)' } as React.CSSProperties)
+              ? ({ '--shadow-color': 'var(--primary-rgb)' } as React.CSSProperties)
               : undefined
           }
         />

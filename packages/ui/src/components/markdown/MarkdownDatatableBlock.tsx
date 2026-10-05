@@ -546,7 +546,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
             'bg-background shadow-minimal',
             'data-[state=open]:opacity-100',
             hasActiveControls
-              ? 'opacity-100 bg-accent/5 text-accent shadow-tinted'
+              ? 'opacity-100 bg-primary/5 text-primary shadow-tinted'
               : alwaysVisible
                 ? 'opacity-70 hover:opacity-100 transition-opacity'
                 : 'opacity-0 group-hover:opacity-100 text-muted-foreground/50 hover:text-foreground',
@@ -563,7 +563,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
           <StyledDropdownMenuSubTrigger>
             <ArrowUpDown />
             <span className="flex-1">{t('table.sortBy')}</span>
-            {sortKey && sortDir && <Check className="w-3 h-3 text-accent" />}
+            {sortKey && sortDir && <Check className="w-3 h-3 text-primary" />}
           </StyledDropdownMenuSubTrigger>
           <StyledDropdownMenuSubContent style={{ zIndex: 'calc(var(--z-floating-menu, 400) + 1)' }}>
             {parsed.columns.map((col) => {
@@ -573,7 +573,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
                   key={`sort-${col.key}`}
                   onSelect={(e) => { e.preventDefault(); handleSort(col.key) }}
                 >
-                  <span className={cn('flex-1', isActive && 'text-accent font-medium')}>{col.label}</span>
+                  <span className={cn('flex-1', isActive && 'text-primary font-medium')}>{col.label}</span>
                   {isActive && <SortIcon dir={sortDir} />}
                 </StyledDropdownMenuItem>
               )
@@ -585,7 +585,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
           <StyledDropdownMenuSubTrigger>
             <Group />
             <span className="flex-1">{t('table.groupBy')}</span>
-            {groupKey && <Check className="w-3 h-3 text-accent" />}
+            {groupKey && <Check className="w-3 h-3 text-primary" />}
           </StyledDropdownMenuSubTrigger>
           <StyledDropdownMenuSubContent style={{ zIndex: 'calc(var(--z-floating-menu, 400) + 1)' }}>
             {parsed.columns.map((col) => {
@@ -597,8 +597,8 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
                 return (
                   <DropdownMenuSub key={`group-${col.key}`}>
                     <StyledDropdownMenuSubTrigger>
-                      <span className={cn('flex-1', isActive && 'text-accent font-medium')}>{col.label}</span>
-                      {isActive && <Check className="w-3 h-3 text-accent" />}
+                      <span className={cn('flex-1', isActive && 'text-primary font-medium')}>{col.label}</span>
+                      {isActive && <Check className="w-3 h-3 text-primary" />}
                     </StyledDropdownMenuSubTrigger>
                     <StyledDropdownMenuSubContent style={{ zIndex: 'calc(var(--z-floating-menu, 400) + 2)' }}>
                       {opts.map((opt) => {
@@ -617,8 +617,8 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
                               setCollapsedGroups(new Set())
                             }}
                           >
-                            <span className={cn('flex-1', optActive && 'text-accent font-medium')}>{opt.label}</span>
-                            {optActive && <Check className="w-3.5 h-3.5 text-accent" />}
+                            <span className={cn('flex-1', optActive && 'text-primary font-medium')}>{opt.label}</span>
+                            {optActive && <Check className="w-3.5 h-3.5 text-primary" />}
                           </StyledDropdownMenuItem>
                         )
                       })}
@@ -642,8 +642,8 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
                     setCollapsedGroups(new Set())
                   }}
                 >
-                  <span className={cn('flex-1', isActive && 'text-accent font-medium')}>{col.label}</span>
-                  {isActive && <Check className="w-3.5 h-3.5 text-accent" />}
+                  <span className={cn('flex-1', isActive && 'text-primary font-medium')}>{col.label}</span>
+                  {isActive && <Check className="w-3.5 h-3.5 text-primary" />}
                 </StyledDropdownMenuItem>
               )
             })}
@@ -654,7 +654,7 @@ export function MarkdownDatatableBlock({ code, className }: MarkdownDatatableBlo
           <>
             <StyledDropdownMenuSeparator />
             <StyledDropdownMenuItem onSelect={clearControls}>
-              <span className="text-accent">{t('common.clearAll')}</span>
+              <span className="text-primary">{t('common.clearAll')}</span>
             </StyledDropdownMenuItem>
           </>
         )}

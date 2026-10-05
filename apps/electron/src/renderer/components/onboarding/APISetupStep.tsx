@@ -9,7 +9,7 @@ import type { LlmAuthType, LlmProviderType } from "@craft-agent/shared/config/ll
 export type ProviderSegment = 'anthropic' | 'pi'
 
 const BetaBadge = ({ label }: { label: string }) => (
-  <span className="inline px-1.5 pt-[2px] pb-[3px] text-[10px] font-accent font-bold rounded-[4px] bg-accent text-background ml-1 relative -top-[1px]">
+  <span className="inline px-1.5 pt-[2px] pb-[3px] text-[10px] font-accent font-bold rounded-[4px] bg-primary text-background ml-1 relative -top-[1px]">
     {label}
   </span>
 )

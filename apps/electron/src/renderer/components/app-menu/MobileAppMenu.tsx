@@ -181,7 +181,7 @@ export function MobileAppMenu(props: AppMenuProps) {
         data-state={state.isOpen ? 'open' : 'closed'}
         className="rounded-[8px]"
       >
-        <CraftAgentsSymbol className="!h-5 !w-auto text-accent" />
+        <CraftAgentsSymbol className="!h-5 !w-auto text-primary" />
       </TopBarButton>
       <MobileMenuSheet
         state={state}

@@ -64,7 +64,7 @@ const runtimeShadowSpecs: ShadowSpec[] = [
     hasExplicitBorder: true,
     note: 'Main-process runtime overlay for browser live mode (not a React component).',
     previewClassName: 'rounded-[10px] bg-background px-3 py-2 text-sm border border-foreground/20',
-    previewStyle: { boxShadow: 'inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent), inset 0 0 20px color-mix(in oklab, var(--accent) 28%, transparent)' },
+    previewStyle: { boxShadow: 'inset 0 0 0 1px color-mix(in oklab, var(--primary) 45%, transparent), inset 0 0 20px color-mix(in oklab, var(--primary) 28%, transparent)' },
   },
 ]
 
@@ -72,7 +72,7 @@ const kindBadgeClass: Record<ShadowKind, string> = {
   class: 'bg-success/10 text-success',
   inline: 'bg-info/10 text-info',
   arbitrary: 'bg-destructive/10 text-destructive',
-  runtime: 'bg-accent/10 text-accent',
+  runtime: 'bg-primary/10 text-primary',
 }
 
 function ValueBlock({ label, value }: { label: string; value: string }) {
@@ -236,7 +236,7 @@ function VariantPreview({ variant }: { variant: AllowedShadowVariant }) {
   }
 
   const style: React.CSSProperties | undefined = variant.className === 'shadow-tinted'
-    ? { ['--shadow-color' as any]: 'var(--accent-rgb)' }
+    ? { ['--shadow-color' as any]: 'var(--primary-rgb)' }
     : undefined
 
   return (

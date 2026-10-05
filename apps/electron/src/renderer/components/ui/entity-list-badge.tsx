@@ -17,7 +17,7 @@ export interface EntityListBadgeProps {
   children: React.ReactNode
   /** "text" (default) = text pill, "icon" = 18×18 centered icon box */
   variant?: 'text' | 'icon'
-  /** Color classes, e.g. "bg-accent/10 text-accent" */
+  /** Color classes, e.g. "bg-primary/10 text-primary" */
   colorClass?: string
   /** Inline styles — for runtime-computed colors (e.g. label color-mix) */
   style?: React.CSSProperties

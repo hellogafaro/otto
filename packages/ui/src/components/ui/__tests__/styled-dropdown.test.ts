@@ -13,11 +13,11 @@ describe('mirrorHoverToOpenStateClasses', () => {
 
   it('preserves explicit open-state overrides from the original className', () => {
     const result = mirrorHoverToOpenStateClasses(
-      'hover:bg-foreground/5 data-[state=open]:bg-accent'
+      'hover:bg-foreground/5 data-[state=open]:bg-primary'
     )
 
     // twMerge should keep the explicit open class from input as winner
-    expect(result).toContain('data-[state=open]:bg-accent')
+    expect(result).toContain('data-[state=open]:bg-primary')
     expect(result).not.toContain('data-[state=open]:bg-foreground/5')
   })
 

@@ -93,7 +93,7 @@ export function PairingCodeDialog({
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-primary"
                   title={t('common.copy')}
                 >
                   <Copy className="h-3.5 w-3.5" />

@@ -21,11 +21,11 @@ import { type EntityColor, type SystemColor, type SystemColorName, SYSTEM_COLOR_
  *
  * @param color - The EntityColor value from config
  * @param isDark - Whether the current theme is dark mode
- * @returns CSS color string (e.g., "var(--accent)", "color-mix(...)", "#EF4444")
+ * @returns CSS color string (e.g., "var(--primary)", "color-mix(...)", "#EF4444")
  *
  * @example
  * // System color (auto light/dark)
- * resolveEntityColor('accent', false) // → "var(--accent)"
+ * resolveEntityColor('accent', false) // → "var(--primary)"
  *
  * // System color with opacity
  * resolveEntityColor('foreground/50', false) // → "color-mix(in oklch, var(--foreground) 50%, transparent)"

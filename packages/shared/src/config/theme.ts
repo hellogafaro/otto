@@ -193,12 +193,12 @@ export function themeToCSS(theme: ThemeOverrides, isDark: boolean = false): stri
     }
   }
   if (colors.accent) {
-    vars.push(`--accent: ${colors.accent};`);
+    vars.push(`--primary: ${colors.accent};`);
     // Also output darkened RGB version for shadow-tinted (only works with hex colors)
     // Use 70% brightness for a proper shadow effect
     const rgbValues = hexToRgbValues(colors.accent, 0.7);
     if (rgbValues) {
-      vars.push(`--accent-rgb: ${rgbValues};`);
+      vars.push(`--primary-rgb: ${rgbValues};`);
     }
   }
   if (colors.info) vars.push(`--info: ${colors.info};`);

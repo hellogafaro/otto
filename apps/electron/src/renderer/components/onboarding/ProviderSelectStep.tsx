@@ -82,7 +82,7 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
     <StepFormLayout
       iconElement={
         <div className="flex size-16 items-center justify-center">
-          <CraftAgentsSymbol className="size-10 text-accent" />
+          <CraftAgentsSymbol className="size-10 text-primary" />
         </div>
       }
       title={t("onboarding.providerSelect.title")}

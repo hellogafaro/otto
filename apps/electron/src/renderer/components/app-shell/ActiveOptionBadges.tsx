@@ -485,8 +485,8 @@ function PermissionModeDropdown({ permissionMode, onPermissionModeChange, sessio
       shadowVar: 'var(--success-rgb)',
     },
     'allow-all': {
-      className: 'bg-accent/5 text-accent',
-      shadowVar: 'var(--accent-rgb)',
+      className: 'bg-primary/5 text-primary',
+      shadowVar: 'var(--primary-rgb)',
     },
   }
   // A mode this build does not know (newer server) renders as Ask instead of crashing the input

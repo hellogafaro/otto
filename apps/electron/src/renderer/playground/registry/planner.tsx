@@ -393,7 +393,7 @@ const syncMeta: Record<SyncState, { label: string; icon: React.ComponentType<{ c
   local_only: { label: 'Local only', icon: CloudOff, cls: 'text-foreground/55 bg-foreground/7' },
   pending_upload: { label: 'Pending upload', icon: CloudUpload, cls: 'text-info bg-info/12' },
   uploaded: { label: 'Uploaded', icon: CloudCheck, cls: 'text-success bg-success/12' },
-  remote_only: { label: 'Remote only', icon: CloudCheck, cls: 'text-accent bg-accent/12' },
+  remote_only: { label: 'Remote only', icon: CloudCheck, cls: 'text-primary bg-primary/12' },
   unavailable: { label: 'Unavailable', icon: CloudAlert, cls: 'text-warning bg-warning/12' },
   upload_failed: { label: 'Upload failed', icon: CloudAlert, cls: 'text-destructive bg-destructive/12' },
 }

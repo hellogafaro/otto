@@ -27,14 +27,14 @@ function ChoiceCard({ icon, title, description, onClick, variant = 'secondary' }
         "transition-all duration-150",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         variant === 'primary'
-          ? "hover:bg-accent/5"
+          ? "hover:bg-primary/5"
           : "hover:bg-foreground/5"
       )}
     >
       <div className={cn(
         "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
         variant === 'primary'
-          ? "bg-accent/10 text-accent"
+          ? "bg-primary/10 text-primary"
           : "bg-foreground/5 text-foreground/70"
       )}>
         {icon}

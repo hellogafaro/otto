@@ -114,7 +114,7 @@ function AutomationItem({
             {getEventDisplayName(automation.event)}
           </MicroBadge>
           {automation.actions.some(a => a.type === 'prompt') && (
-            <MicroBadge colorClass="bg-accent/10 text-accent">
+            <MicroBadge colorClass="bg-primary/10 text-primary">
               {t('automations.badgePrompt')}
             </MicroBadge>
           )}

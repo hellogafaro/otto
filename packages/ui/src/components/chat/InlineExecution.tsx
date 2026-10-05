@@ -195,7 +195,7 @@ export function InlineExecution({
             type="button"
             onClick={onRetry}
             className={cn(
-              "px-2 py-1 rounded-md bg-accent/10 text-accent hover:bg-accent/20 transition-colors",
+              "px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
               SIZE_CONFIG.fontSize
             )}
           >

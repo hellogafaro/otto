@@ -168,7 +168,7 @@ function formatRelativeTime(timestamp: number): string {
 // ============================================================================
 
 const SOURCE_TYPE_CONFIG: Record<string, { label: string; colorClass: string }> = {
-  mcp: { label: 'MCP', colorClass: 'bg-accent/10 text-accent' },
+  mcp: { label: 'MCP', colorClass: 'bg-primary/10 text-primary' },
   api: { label: 'API', colorClass: 'bg-success/10 text-success' },
   local: { label: 'Local', colorClass: 'bg-info/10 text-info' },
 }
@@ -226,11 +226,11 @@ function EntityRowPreview({
   return (
     <div className="w-[320px] border border-border rounded-lg overflow-hidden bg-background py-2">
       <EntityRow
-        icon={showIcon ? <MockAvatar icon={Zap} color="text-accent" label="Entity" /> : undefined}
+        icon={showIcon ? <MockAvatar icon={Zap} color="text-primary" label="Entity" /> : undefined}
         title={title}
         badges={showBadges ? (
           <>
-            <TypeBadge label="MCP" colorClass="bg-accent/10 text-accent" />
+            <TypeBadge label="MCP" colorClass="bg-primary/10 text-primary" />
             <span className="truncate">{subtitle}</span>
           </>
         ) : subtitle ? <span className="truncate text-xs text-foreground/70">{subtitle}</span> : undefined}
@@ -281,7 +281,7 @@ function SessionEntityListPreview({
                     <Spinner className="text-[8px] text-foreground shrink-0" />
                   )}
                   {!session.isProcessing && session.hasUnread && (
-                    <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded bg-accent text-white">
+                    <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary text-white">
                       New
                     </span>
                   )}
@@ -500,7 +500,7 @@ function MixedEntityListPreview({
             title={session.name || 'Untitled'}
             badges={
               <>
-                {session.hasUnread && <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded bg-accent text-white">New</span>}
+                {session.hasUnread && <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary text-white">New</span>}
                 {session.isFlagged && (
                   <span className="shrink-0 h-[18px] w-[18px] flex items-center justify-center rounded bg-foreground/5">
                     <Flag className="h-[10px] w-[10px] text-info fill-info" />
@@ -680,7 +680,7 @@ function InteractiveEntityListPreview({
             title={item.name}
             badges={
               <>
-                {item.hasUnread && <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded bg-accent text-white">New</span>}
+                {item.hasUnread && <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary text-white">New</span>}
                 {item.isFlagged && (
                   <span className="shrink-0 h-[18px] w-[18px] flex items-center justify-center rounded bg-foreground/5">
                     <Flag className="h-[10px] w-[10px] text-info fill-info" />
@@ -745,9 +745,9 @@ function InteractiveEntityListPreview({
         {selection.isMultiSelectActive && (
           <>
             <span className="text-foreground/20">|</span>
-            <span className="text-accent">{selection.selectedIds.size} selected</span>
+            <span className="text-primary">{selection.selectedIds.size} selected</span>
             <button
-              className="text-accent hover:underline cursor-pointer"
+              className="text-primary hover:underline cursor-pointer"
               onClick={selection.clear}
             >
               Clear

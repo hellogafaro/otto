@@ -18,9 +18,9 @@ function makeStatus(overrides: Partial<SessionStatus>): SessionStatus {
 
 describe('session-status-config icon style helpers', () => {
   it('getStatusIconStyle returns color style for colorable icons', () => {
-    const status = makeStatus({ iconColorable: true, resolvedColor: 'var(--accent)' })
+    const status = makeStatus({ iconColorable: true, resolvedColor: 'var(--primary)' })
 
-    expect(getStatusIconStyle(status)).toEqual({ color: 'var(--accent)' })
+    expect(getStatusIconStyle(status)).toEqual({ color: 'var(--primary)' })
   })
 
   it('getStatusIconStyle returns undefined for non-colorable icons (emoji/images)', () => {

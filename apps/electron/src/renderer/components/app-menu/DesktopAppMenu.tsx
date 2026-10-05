@@ -168,7 +168,7 @@ export function DesktopAppMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <TopBarButton aria-label={t("menu.craftMenu")}>
-          <CraftAgentsSymbol className="h-4 text-accent" />
+          <CraftAgentsSymbol className="h-4 text-primary" />
         </TopBarButton>
       </DropdownMenuTrigger>
       <StyledDropdownMenuContent align="start" minWidth="min-w-48">

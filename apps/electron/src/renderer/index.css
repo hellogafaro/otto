@@ -1,6 +1,4 @@
-@import "tailwindcss" source(none);
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/geist-mono";
+@import "@workspace/ui/globals.css";
 @plugin "@tailwindcss/typography";
 
 /* Tell Tailwind where to scan for utility classes */
@@ -40,7 +38,7 @@
   initial-value: oklch(0.145 0 0);
 }
 
-@property --accent {
+@property --primary {
   syntax: "<color>";
   inherits: true;
   initial-value: oklch(0.546 0.245 262.881);
@@ -85,21 +83,16 @@
 /* Light Mode */
 :root {
   /* === 6 BASE COLORS === */
-  --background: oklch(1 0 0);
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
-  --foreground: oklch(0.145 0 0);
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
-  --frame: oklch(0.985 0 0);                /* behind the panels: rail, top bar, gaps */
   --foreground-rgb: 10, 10, 10;             /* RGB for shadow borders */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
-  --accent: oklch(0.546 0.245 262.881);     /* blue - brand, Auto mode */
-  --accent-rgb: 26, 69, 165;               /* darkened RGB for shadow-tinted (70% of accent) */
+  --primary-rgb: 26, 69, 165;               /* darkened RGB for shadow-tinted (70% of accent) */
   --info: oklch(0.795 0.184 86.047);        /* amber - warnings, Ask mode */
   --info-rgb: 168, 124, 0;                 /* RGB for shadow-tinted */
   --success: oklch(0.627 0.194 149.214);    /* green - connected, checkmarks */
   --success-rgb: 15, 114, 52;               /* RGB for shadow-tinted */
-  --destructive: oklch(0.577 0.245 27.325); /* red - errors, failed */
   --destructive-rgb: 154, 27, 27;           /* RGB for shadow-tinted */
 
   /* === SHADOW OPACITY (light mode = subtle, dark mode = stronger) === */
@@ -168,17 +161,6 @@
 
   /* === SHADCN COMPATIBILITY (derived from 6 base colors) === */
   /* These variables exist for shadcn/ui component updates */
-  --secondary: oklch(from var(--foreground) l c h / 0.05);
-  --secondary-foreground: var(--foreground);
-  --muted: oklch(from var(--foreground) l c h / 0.05);
-  --muted-foreground: var(--foreground-50);
-  --card: var(--background);
-  --card-foreground: var(--foreground);
-  --popover: var(--background);
-  --popover-foreground: var(--foreground);
-  --border: oklch(from var(--foreground) l c h / 0.05);
-  --input: oklch(from var(--foreground) l c h / 0.1);
-  --ring: oklch(from var(--foreground) l c h / 0.25);
   --ring-width: 1px;
   --ring-offset: 0px;
 
@@ -203,8 +185,7 @@
   --font-default: var(--font-sans);
 
   /* Layout */
-  --font-size-base: 15px;
-  --radius: 0.625rem;
+  --font-size-base: 16px;
   --spacing: 0.25rem;
   --tracking-normal: 0em;
 
@@ -253,21 +234,16 @@
 /* Dark Mode */
 .dark {
   /* === 6 BASE COLORS (must match DEFAULT_THEME.dark in theme.ts) === */
-  --background: oklch(0.145 0 0);
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
-  --foreground: oklch(0.985 0 0);
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
-  --frame: oklch(0.11 0 0);
   --foreground-rgb: 250, 250, 250;           /* RGB for shadow borders */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
-  --accent: oklch(0.623 0.214 259.815);      /* brighter blue in dark */
-  --accent-rgb: 41, 91, 172;               /* darkened RGB for shadow-tinted (70% of accent) */
+  --primary-rgb: 41, 91, 172;               /* darkened RGB for shadow-tinted (70% of accent) */
   --info: oklch(0.852 0.199 91.936);         /* amber */
   --info-rgb: 175, 143, 15;                  /* RGB for shadow-tinted */
   --success: oklch(0.723 0.219 149.579);     /* green */
   --success-rgb: 24, 138, 66;               /* RGB for shadow-tinted */
-  --destructive: oklch(0.704 0.191 22.216);  /* brighter red in dark */
   --destructive-rgb: 174, 79, 79;            /* RGB for shadow-tinted */
 
   /* === SHADOW OPACITY (stronger in dark mode for visibility) === */
@@ -297,17 +273,6 @@
   --info-text: color-mix(in oklab, var(--info) 50%, var(--foreground));
 
   /* === SHADCN COMPATIBILITY (derived from 6 base colors) === */
-  --secondary: oklch(from var(--foreground) l c h / 0.05);
-  --secondary-foreground: var(--foreground);
-  --muted: oklch(from var(--foreground) l c h / 0.05);
-  --muted-foreground: var(--foreground-50);
-  --card: oklch(0.205 0 0);                 /* one layer above the page, as in DESIGN.md */
-  --card-foreground: var(--foreground);
-  --popover: var(--background);
-  --popover-foreground: var(--foreground);
-  --border: oklch(from var(--foreground) l c h / 0.05);
-  --input: oklch(from var(--foreground) l c h / 0.1);
-  --ring: oklch(from var(--foreground) l c h / 0.25);
 
   /* Markdown list markers */
   --md-bullets: var(--foreground-50);

@@ -33,7 +33,7 @@ export function AddWorkspace_RadioOption({
       "bg-background shadow-minimal",
       "transition-all duration-150",
       checked
-        ? "hover:bg-accent/5"
+        ? "hover:bg-primary/5"
         : "hover:bg-foreground/5",
       disabled && "opacity-50 cursor-not-allowed"
     )}>
@@ -48,11 +48,11 @@ export function AddWorkspace_RadioOption({
       <div className={cn(
         "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
         checked
-          ? "border-accent"
+          ? "border-primary"
           : "border-foreground/30"
       )}>
         {checked && (
-          <div className="h-2 w-2 rounded-full bg-accent" />
+          <div className="h-2 w-2 rounded-full bg-primary" />
         )}
       </div>
       <div className="flex-1 min-w-0">

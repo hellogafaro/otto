@@ -228,7 +228,7 @@ function createComponents(
         <a
           href={safeHref}
           onClick={handleClick}
-          className="text-accent hover:underline cursor-pointer"
+          className="text-primary hover:underline cursor-pointer"
         >
           {children}
         </a>

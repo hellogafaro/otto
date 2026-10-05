@@ -33,7 +33,7 @@ export function CompletionStep({
         </div>
       ) : (
         <div className="flex size-16 items-center justify-center">
-          <CraftAgentsSymbol className="size-10 text-accent" />
+          <CraftAgentsSymbol className="size-10 text-primary" />
         </div>
       )}
       title={isSaving ? t("onboarding.completion.settingUp") : t("onboarding.completion.allSet")}

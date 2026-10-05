@@ -269,7 +269,7 @@ export function EntityRow({
           own leading stripe (e.g. project color) so they don't stack on top of
           each other. Background tint on the inner button still indicates selection. */}
       {(isSelected || isInMultiSelect) && !suppressSelectionBar && (
-        <div className="absolute left-0 inset-y-0 w-[2px] bg-accent" />
+        <div className="absolute left-0 inset-y-0 w-[2px] bg-primary" />
       )}
 
       {/* Main content button */}

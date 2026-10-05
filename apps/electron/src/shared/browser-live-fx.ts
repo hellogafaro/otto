@@ -10,15 +10,15 @@ export interface BrowserLiveFxCornerRadii {
 export const BROWSER_LIVE_FX_BORDER = {
   width: '1.5px',
   style: 'solid',
-  color: 'var(--accent)',
+  color: 'var(--primary)',
   boxShadow:
-    'inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent), inset 0 0 20px color-mix(in oklab, var(--accent) 28%, transparent)',
+    'inset 0 0 0 1px color-mix(in oklab, var(--primary) 45%, transparent), inset 0 0 20px color-mix(in oklab, var(--primary) 28%, transparent)',
 } as const
 
 /**
  * Return border color + boxShadow with a concrete accent color value.
  * Use this when injecting styles into a foreign DOM (e.g. CDP overlay)
- * where `var(--accent)` would resolve against the website's stylesheet.
+ * where `var(--primary)` would resolve against the website's stylesheet.
  */
 export function resolveBrowserLiveFxBorder(accentColor: string): { color: string; boxShadow: string } {
   return {

@@ -286,7 +286,7 @@ export function BrowserControls({
     <AnimatePresence>
       {loading && (
         <motion.div
-          className="pointer-events-none absolute left-0 right-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent"
+          className="pointer-events-none absolute left-0 right-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent"
           style={{ backgroundSize: '220% 100%' }}
           initial={{ opacity: 0 }}
           animate={{

@@ -32,7 +32,7 @@ function PromptText({ text, t }: { text: string; t: (key: string) => string }) {
     <span className="text-sm break-words">
       {parts.map((part, i) =>
         part.startsWith('@') ? (
-          <span key={i} className="text-accent font-medium">{part}</span>
+          <span key={i} className="text-primary font-medium">{part}</span>
         ) : (
           <span key={i}>{part}</span>
         )
@@ -45,7 +45,7 @@ function WebhookText({ action }: { action: Extract<AutomationAction, { type: 'we
   const method = action.method ?? DEFAULT_WEBHOOK_METHOD
   return (
     <span className="text-sm break-words">
-      <span className="font-mono font-medium text-accent">{method}</span>{' '}
+      <span className="font-mono font-medium text-primary">{method}</span>{' '}
       <span className="text-foreground/70">{action.url}</span>
       {action.bodyFormat && (
         <span className="text-foreground/40 ml-1">({action.bodyFormat})</span>

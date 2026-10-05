@@ -40,7 +40,7 @@ const sizeConfig: Record<AvatarSize, { container: string; icon: string }> = {
 
 const categoryConfig: Record<EventCategory, { icon: React.ElementType; bg: string; text: string }> = {
   scheduled:    { icon: Clock,          bg: 'bg-success/10',      text: 'text-success' },
-  label:        { icon: Tag,            bg: 'bg-accent/10',       text: 'text-accent' },
+  label:        { icon: Tag,            bg: 'bg-primary/10',       text: 'text-primary' },
   permission:   { icon: Shield,         bg: 'bg-warning/10',      text: 'text-warning' },
   flag:         { icon: Flag,           bg: 'bg-info/10',         text: 'text-info' },
   todo:         { icon: ListChecks,     bg: 'bg-info/10',         text: 'text-info' },
