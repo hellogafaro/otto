@@ -1,17 +1,18 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationDir": "./dist",
     "jsx": "react-jsx",
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "paths": {
-      "@workspace/ui/*": ["./src/*"]
+      "@craft-agent/core": ["../core/src/index.ts"],
+      "@craft-agent/core/*": ["../core/src/*"]
     }
   },
-  "include": ["."],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/**/__tests__"]
 }

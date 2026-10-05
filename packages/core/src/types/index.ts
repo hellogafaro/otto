@@ -1,0 +1,90 @@
+/**
+ * Re-export all types from @craft-agent/core
+ */
+
+// Workspace and config types
+export type {
+  WorkspaceInfo,
+  Workspace,
+  RemoteServerConfig,
+  McpAuthType,
+  AuthType,
+  OAuthCredentials,
+  StoredConfig,
+} from './workspace.ts';
+
+export type { ContextUsageSnapshot } from './context-usage.ts';
+
+// Session types
+export type {
+  Session,
+  StoredSession,
+  SessionMetadata,
+  SessionStatus,
+} from './session.ts';
+
+// Message types
+export type {
+  MessageRole,
+  ToolStatus,
+  ToolDisplayMeta,
+  AttachmentType,
+  MessageAttachment,
+  StoredAttachment,
+  ContentBadge,
+  AnnotationAuthor,
+  AnnotationBody,
+  AnnotationIntent,
+  AnnotationStatus,
+  AnnotationBlockType,
+  AnnotationSelector,
+  AnnotationTarget,
+  AnnotationV1,
+  Message,
+  StoredMessage,
+  TokenUsage,
+  AgentEventUsage,
+  RecoveryAction,
+  ErrorCode,
+  TypedError,
+  PermissionRequest,
+  PermissionRisk,
+  AgentEvent,
+  // Auth-related types
+  CredentialInputMode,
+  AuthRequestType,
+  AuthStatus,
+} from './message.ts';
+export { generateMessageId } from './message.ts';
+
+// Message persistence mappers
+export { messageToStored, storedToMessage } from './message-mapper.ts';
+
+// Server types (headless operations)
+export type {
+  ServerStatus,
+  ServerHealth,
+  SessionProcessingStatus,
+  ActiveSessionInfo,
+} from './server.ts';
+
+// Page types (workspace-scoped mini dashboards)
+export type {
+  PageKind,
+  PageScriptRuntime,
+  PageRefreshSpec,
+  PageRefreshStatus,
+  PageSeriesPoint,
+  PageDataSnapshot,
+  PageActionHttpMethod,
+  PageActionDescriptor,
+  PageActionGrant,
+  PageRenderLease,
+  PageActionInvocation,
+  PageActionRequest,
+  PageActionResult,
+  PageShareInfo,
+  PageThumbnailInfo,
+  PageConfig,
+} from './page.ts';
+

@@ -1,7 +1,0 @@
-2026-10-02; isolated local PostgreSQL, controlled compute/storage where applicable.
-Invocation: bun run test
- RUN  v5.0.3 /home/g4f4r0/projects/otto
- Test Files  19 passed (19)
-      Tests  149 passed (149)
-   Start at  16:00:39
-   Duration  145.54s (tests 97%, import 2%, transform 1%)
