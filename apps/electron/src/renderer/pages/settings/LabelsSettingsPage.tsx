@@ -110,7 +110,6 @@ export default function LabelsSettingsPage() {
                       {labels.length > 0 ? (
                         <LabelsDataTable
                           data={labels}
-                          searchable
                           maxHeight={350}
                           fullscreen
                           fullscreenTitle={t("settings.labels.labelHierarchy")}
@@ -145,7 +144,6 @@ export default function LabelsSettingsPage() {
                     <SettingsCard className="p-0">
                       <AutoRulesDataTable
                         data={labels}
-                        searchable
                         maxHeight={350}
                         fullscreen
                         fullscreenTitle={t("settings.labels.autoApplyRules")}

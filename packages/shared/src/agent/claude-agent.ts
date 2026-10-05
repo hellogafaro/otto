@@ -2301,7 +2301,7 @@ This is a branched conversation. All prior messages in this conversation are par
           debug('[SESSION_DEBUG] diagnostics.message:', diagnostics.message);
 
           // Get recovery actions based on diagnostic code
-          const actions = diagnostics.code === 'token_expired' || diagnostics.code === 'mcp_unreachable'
+          const actions = diagnostics.code === 'token_expired'
             ? [
                 { key: 'w', label: 'Open workspace menu', command: '/workspace' },
                 { key: 'r', label: 'Retry', action: 'retry' as const },

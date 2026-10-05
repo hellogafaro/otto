@@ -102,9 +102,9 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 - [ ] `components/chat/AuthRequestCard.tsx`
 - [ ] `components/chat/EmptyStateHint.tsx`
 
-## Right sidebar (1)
+## Session info (1)
 
-- [ ] `components/right-sidebar/SessionFilesSection.tsx`
+- [ ] `components/session-info/SessionFilesSection.tsx`
 
 ## Automations (13)
 

@@ -38,8 +38,6 @@ interface AutoRuleRow {
 interface AutoRulesDataTableProps {
   /** Label tree (root-level nodes with nested children) */
   data: LabelConfig[]
-  /** Show search input */
-  searchable?: boolean
   /** Max height with scroll */
   maxHeight?: number
   /** Enable fullscreen button */
@@ -199,7 +197,6 @@ function collectAutoRules(labels: LabelConfig[]): AutoRuleRow[] {
 
 export function AutoRulesDataTable({
   data,
-  searchable = false,
   maxHeight = 400,
   fullscreen = false,
   fullscreenTitle = 'Auto-Apply Rules',
@@ -235,7 +232,6 @@ export function AutoRulesDataTable({
       <Info_DataTable
         columns={columns}
         data={rows}
-        searchable={searchable ? { placeholder: t("table.searchRules") } : false}
         maxHeight={maxHeight}
         emptyContent={t("settings.labels.noAutoApplyRules")}
         floatingAction={fullscreenButton}
@@ -254,7 +250,6 @@ export function AutoRulesDataTable({
           <Info_DataTable
             columns={columns}
             data={rows}
-            searchable={searchable ? { placeholder: t("table.searchRules") } : false}
             emptyContent={t("settings.labels.noAutoApplyRules")}
           />
         </DataTableOverlay>

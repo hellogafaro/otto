@@ -803,10 +803,6 @@ export const mockInputCallbacks = {
     console.log('[Playground] Height changed:', height)
   },
 
-  onFocusChange: (focused: boolean) => {
-    console.log('[Playground] Focus changed:', focused)
-  },
-
   onPermissionModeChange: (mode: PermissionMode) => {
     console.log('[Playground] Permission mode changed:', mode)
   },

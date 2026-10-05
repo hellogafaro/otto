@@ -1,7 +1,6 @@
 import * as React from 'react'
 import type {
   ColumnDef,
-  ColumnFiltersState,
   ColumnSizingState,
   SortingState,
   PaginationState,
@@ -13,7 +12,6 @@ import type {
 import {
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getSortedRowModel,
   getPaginationRowModel,
   getExpandedRowModel,
@@ -33,12 +31,6 @@ import { cn } from '@/lib/utils'
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  /** Global filter value (searches across all columns) */
-  globalFilter?: string
-  /** Column ID to apply column-specific filter to */
-  filterColumn?: string
-  /** Column-specific filter value */
-  filterValue?: string
   /** Custom class for the table container */
   className?: string
   /** Empty state content */
@@ -65,9 +57,6 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
-  globalFilter,
-  filterValue,
-  filterColumn,
   className,
   emptyContent,
   onTableReady,
@@ -79,9 +68,7 @@ export function DataTable<TData, TValue>({
   defaultExpanded = true,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
-  const [internalGlobalFilter, setInternalGlobalFilter] = React.useState('')
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize,
@@ -91,49 +78,23 @@ export function DataTable<TData, TValue>({
     getSubRows && defaultExpanded ? true : {}
   )
 
-  // Sync external global filter and reset pagination
-  React.useEffect(() => {
-    if (globalFilter !== undefined) {
-      setInternalGlobalFilter(globalFilter)
-      // Reset to first page when filter changes
-      if (paginationEnabled) {
-        setPagination(prev => ({ ...prev, pageIndex: 0 }))
-      }
-    }
-  }, [globalFilter, paginationEnabled])
-
-  // Update column filter when filterValue changes
-  React.useEffect(() => {
-    if (filterColumn && filterValue !== undefined) {
-      setColumnFilters([{ id: filterColumn, value: filterValue }])
-    } else if (filterColumn) {
-      setColumnFilters([])
-    }
-  }, [filterValue, filterColumn])
-
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     ...(paginationEnabled && { getPaginationRowModel: getPaginationRowModel() }),
     // Tree/expand support: only enabled when getSubRows is provided
     ...(getSubRows && { getExpandedRowModel: getExpandedRowModel(), getSubRows }),
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
     onColumnSizingChange: setColumnSizing,
-    onGlobalFilterChange: setInternalGlobalFilter,
     ...(paginationEnabled && { onPaginationChange: setPagination }),
     ...(getSubRows && { onExpandedChange: setExpanded }),
-    globalFilterFn: 'includesString',
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
     state: {
       sorting,
-      columnFilters,
       columnSizing,
-      globalFilter: internalGlobalFilter,
       ...(paginationEnabled && { pagination }),
       ...(getSubRows && { expanded }),
     },
@@ -245,7 +206,7 @@ export function DataTable<TData, TValue>({
   const paginationControls = paginationEnabled && table.getPageCount() > 1 && (
     <div className="flex items-center justify-between px-2 py-3 border-t border-border">
       <div className="text-sm text-muted-foreground">
-        {table.getFilteredRowModel().rows.length} total
+        {table.getPrePaginationRowModel().rows.length} total
       </div>
       <div className="flex items-center gap-2">
         <Button

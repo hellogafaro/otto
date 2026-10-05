@@ -132,7 +132,6 @@ interface AppShellProps {
   /** All data and callbacks - passed directly to AppShellProvider */
   contextValue: AppShellContextType
   /** UI-specific props */
-  defaultLayout?: number[]
   menuNewChatTrigger?: number
 }
 

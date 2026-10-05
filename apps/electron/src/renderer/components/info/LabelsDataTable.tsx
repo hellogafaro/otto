@@ -22,8 +22,6 @@ import type { LabelConfig } from '@craft-agent/shared/labels'
 interface LabelsDataTableProps {
   /** Label tree (root-level nodes with nested children) */
   data: LabelConfig[]
-  /** Show search input */
-  searchable?: boolean
   /** Max height with scroll */
   maxHeight?: number
   /** Enable fullscreen button */
@@ -127,7 +125,6 @@ function getSubRows(row: LabelConfig): LabelConfig[] | undefined {
 
 export function LabelsDataTable({
   data,
-  searchable = false,
   maxHeight = 400,
   fullscreen = false,
   fullscreenTitle = 'Labels',
@@ -165,7 +162,6 @@ export function LabelsDataTable({
       <Info_DataTable
         columns={columns}
         data={data}
-        searchable={searchable ? { placeholder: t("table.searchLabels") } : false}
         maxHeight={maxHeight}
         emptyContent={t("table.noLabelsConfigured")}
         floatingAction={fullscreenButton}
@@ -185,7 +181,6 @@ export function LabelsDataTable({
           <Info_DataTable
             columns={columns}
             data={data}
-            searchable={searchable ? { placeholder: t("table.searchLabels") } : false}
             emptyContent={t("table.noLabelsConfigured")}
             getSubRows={getSubRows}
           />

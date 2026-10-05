@@ -1,8 +1,8 @@
 /**
  * Info_DataTable
  *
- * Enhanced data table for Info pages with built-in search, sort, and filter UI.
- * Wraps shadcn DataTable with Info-page styling and toolbar controls.
+ * Enhanced data table for Info pages with sortable columns.
+ * Wraps shadcn DataTable with Info-page styling.
  */
 
 import * as React from 'react'
@@ -17,13 +17,6 @@ export interface Info_DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   /** Table data */
   data: TData[]
-  /** Show search input in toolbar */
-  searchable?: boolean | {
-    /** Placeholder text */
-    placeholder?: string
-    /** Column ID to search (defaults to global search) */
-    column?: string
-  }
   /** Max height with scroll (similar to Info_Markdown) */
   maxHeight?: number
   /** Show loading state */
@@ -60,7 +53,6 @@ export interface Info_DataTableProps<TData, TValue> {
  * <Info_DataTable
  *   columns={columns}
  *   data={tools}
- *   searchable={{ placeholder: 'Search tools...' }}
  *   maxHeight={400}
  * />
  * ```
@@ -68,7 +60,6 @@ export interface Info_DataTableProps<TData, TValue> {
 export function Info_DataTable<TData, TValue>({
   columns,
   data,
-  searchable = false,
   maxHeight,
   loading = false,
   error,
@@ -78,21 +69,6 @@ export function Info_DataTable<TData, TValue>({
   className,
 }: Info_DataTableProps<TData, TValue>) {
   const { t } = useTranslation()
-  // Search text: the toolbar input was removed, so this stays empty (kept so `searchable` still maps to the DataTable filter props)
-  const [searchValue] = React.useState('')
-
-  // Parse searchable prop
-  const searchConfig = React.useMemo(() => {
-    if (!searchable) return null
-    if (searchable === true) {
-      return { placeholder: t("common.search"), column: undefined }
-    }
-    return {
-      placeholder: searchable.placeholder ?? t("common.search"),
-      column: searchable.column,
-    }
-  }, [searchable, t])
-
   // Loading state
   if (loading) {
     return (
@@ -142,9 +118,6 @@ export function Info_DataTable<TData, TValue>({
         <DataTable
           columns={columns}
           data={data}
-          globalFilter={searchConfig?.column ? undefined : searchValue}
-          filterColumn={searchConfig?.column}
-          filterValue={searchConfig?.column ? searchValue : undefined}
           emptyContent={emptyContent}
           getSubRows={getSubRows}
           noBorder

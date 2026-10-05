@@ -156,15 +156,6 @@ const ERROR_DEFINITIONS: Record<ErrorCode, Omit<AgentError, 'code' | 'originalEr
     ],
     canRetry: false,
   },
-  mcp_unreachable: {
-    title: 'MCP Server Unreachable',
-    message: 'Cannot connect to the Craft MCP server. Check your network connection.',
-    actions: [
-      { key: 'r', label: 'Retry', action: 'retry' },
-    ],
-    canRetry: true,
-    retryDelayMs: 2000,
-  },
   billing_error: {
     title: 'Payment Required',
     message: 'Your account has a billing issue. Check your provider account status.',

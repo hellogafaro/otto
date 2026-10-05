@@ -257,7 +257,6 @@ export default function PermissionsSettingsPage() {
                       {defaultPermissionsData.length > 0 ? (
                         <PermissionsDataTable
                           data={defaultPermissionsData}
-                          searchable
                           maxHeight={350}
                           fullscreen
                           fullscreenTitle={t("settings.permissions.defaultPermissions")}
@@ -300,7 +299,6 @@ export default function PermissionsSettingsPage() {
                       {customPermissionsData.length > 0 ? (
                         <PermissionsDataTable
                           data={customPermissionsData}
-                          searchable
                           maxHeight={350}
                           fullscreen
                           fullscreenTitle={t("settings.permissions.workspaceCustomizations")}

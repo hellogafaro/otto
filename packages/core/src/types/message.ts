@@ -469,7 +469,6 @@ export type ErrorCode =
   | 'network_error'
   | 'proxy_error'           // Proxy/firewall/captive portal intercepted the request
   | 'mcp_auth_required'
-  | 'mcp_unreachable'
   | 'billing_error'
   | 'model_no_tool_support'  // Model doesn't support tool/function calling
   | 'invalid_model'          // Model ID not found

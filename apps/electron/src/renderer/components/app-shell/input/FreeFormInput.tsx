@@ -170,8 +170,6 @@ export interface FreeFormInputProps {
   maxHeight?: number
   /** Callback when component height changes (for external animation sync) */
   onHeightChange?: (height: number) => void
-  /** Callback when focus state changes */
-  onFocusChange?: (focused: boolean) => void
   // Source selection
   /** Available sources (enabled only) */
   sources?: LoadedSource[]
@@ -275,7 +273,6 @@ export function FreeFormInput({
   onAttachmentsChange,
   unstyled = false,
   onHeightChange,
-  onFocusChange,
   maxHeight,
   sources = [],
   enabledSourceSlugs = [],
@@ -1682,11 +1679,9 @@ export function FreeFormInput({
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           onLongTextPaste={handleLongTextPaste}
-          onFocus={() => onFocusChange?.(true)}
           onBlur={() => {
             // Save caret position before losing focus (for restoration via craft:focus-input)
             lastCaretPositionRef.current = richInputRef.current?.selectionStart ?? null
-            onFocusChange?.(false)
           }}
           placeholder={effectivePlaceholder}
           disabled={disabled}

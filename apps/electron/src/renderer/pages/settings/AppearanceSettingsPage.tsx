@@ -308,7 +308,6 @@ export default function AppearanceSettingsPage() {
                   <Info_DataTable
                     columns={toolIconColumns}
                     data={toolIcons}
-                    searchable={{ placeholder: t("settings.appearance.searchTools") }}
                     maxHeight={480}
                     emptyContent={t("settings.appearance.noToolIcons")}
                   />

@@ -765,7 +765,6 @@ function InputContainerPlayground({
             onInputChange: setInputValue,
             inputValue,
             onHeightChange: mockInputCallbacks.onHeightChange,
-            onFocusChange: mockInputCallbacks.onFocusChange,
             onStop: mockInputCallbacks.onStop,
           }}
         />
@@ -836,7 +835,6 @@ function ActiveTasksBarContext({ tasks = sampleBackgroundTasks }: ActiveTasksBar
           onModelChange={mockInputCallbacks.onModelChange}
           onInputChange={mockInputCallbacks.onInputChange}
           onHeightChange={mockInputCallbacks.onHeightChange}
-          onFocusChange={mockInputCallbacks.onFocusChange}
           onSourcesChange={mockInputCallbacks.onSourcesChange}
           onWorkingDirectoryChange={mockInputCallbacks.onWorkingDirectoryChange}
           onStop={mockInputCallbacks.onStop}
@@ -941,7 +939,6 @@ function PermissionInputToggle({ autoToggle = false, autoToggleInterval = 3000, 
         onModelChange={mockInputCallbacks.onModelChange}
         onInputChange={mockInputCallbacks.onInputChange}
         onHeightChange={mockInputCallbacks.onHeightChange}
-        onFocusChange={mockInputCallbacks.onFocusChange}
         onSourcesChange={mockInputCallbacks.onSourcesChange}
         onWorkingDirectoryChange={mockInputCallbacks.onWorkingDirectoryChange}
         onStop={mockInputCallbacks.onStop}

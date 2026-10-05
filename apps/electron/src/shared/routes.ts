@@ -166,18 +166,6 @@ export const routes = {
       return base as 'automations' | `automations/${'scheduled' | 'event' | 'agentic'}`
     },
 
-    /** Scheduled automations view (automations navigator, scheduled filter) */
-    automationsScheduled: (automationId?: string) =>
-      automationId ? `automations/scheduled/automation/${automationId}` as const : 'automations/scheduled' as const,
-
-    /** Event-based automations view (automations navigator, event filter) */
-    automationsEvent: (automationId?: string) =>
-      automationId ? `automations/event/automation/${automationId}` as const : 'automations/event' as const,
-
-    /** Agentic automations view (automations navigator, agentic filter) */
-    automationsAgentic: (automationId?: string) =>
-      automationId ? `automations/agentic/automation/${automationId}` as const : 'automations/agentic' as const,
-
     /** Settings view (settings navigator) - uses SettingsSubpage from registry */
     settings: (subpage?: SettingsSubpage) =>
       subpage

@@ -2,7 +2,7 @@
  * ToolsDataTable
  *
  * Typed Data Table for displaying MCP tools.
- * Features: searchable tools, sortable columns, max-height scroll.
+ * Features: sortable columns, max-height scroll.
  */
 
 import { useMemo } from 'react'

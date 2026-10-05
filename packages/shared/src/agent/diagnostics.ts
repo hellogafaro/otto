@@ -18,7 +18,6 @@ export type DiagnosticCode =
   | 'token_expired'
   | 'invalid_credentials'
   | 'rate_limited'          // HTTP 429 from API
-  | 'mcp_unreachable'
   | 'service_unavailable'
   | 'unknown_error';
 

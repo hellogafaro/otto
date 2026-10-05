@@ -2,7 +2,7 @@
  * PermissionsDataTable
  *
  * Typed Data Table for displaying source permissions.
- * Features: searchable patterns, sortable columns, max-height scroll, fullscreen view.
+ * Features: sortable columns, max-height scroll, fullscreen view.
  */
 
 import { useState, useMemo } from 'react'
@@ -33,8 +33,6 @@ interface PermissionsDataTableProps {
   data: PermissionRow[]
   /** Hide the type column (for MCP sources that only show pattern/comment) */
   hideTypeColumn?: boolean
-  /** Show search input */
-  searchable?: boolean
   /** Max height with scroll */
   maxHeight?: number
   /** Enable fullscreen button (shows Maximize2 icon on hover) */
@@ -177,7 +175,6 @@ function getColumnsWithoutType(t: TFunction): ColumnDef<PermissionRow>[] {
 export function PermissionsDataTable({
   data,
   hideTypeColumn = false,
-  searchable = false,
   maxHeight = 400,
   fullscreen = false,
   fullscreenTitle = 'Permissions',
@@ -212,7 +209,6 @@ export function PermissionsDataTable({
       <Info_DataTable
         columns={columns}
         data={data}
-        searchable={searchable ? { placeholder: t("table.searchPatterns") } : false}
         maxHeight={maxHeight}
         emptyContent={t("table.noPermissionsConfigured")}
         floatingAction={fullscreenButton}
@@ -231,7 +227,6 @@ export function PermissionsDataTable({
           <Info_DataTable
             columns={columns}
             data={data}
-            searchable={searchable ? { placeholder: t("table.searchPatterns") } : false}
             emptyContent={t("table.noPermissionsConfigured")}
           />
         </DataTableOverlay>
