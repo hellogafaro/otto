@@ -1693,19 +1693,18 @@ export default function AiSettingsPage() {
                   editInitialValues={editInitialValues}
                   className="h-full"
                 />
-                {/* Level with the app's top-bar controls (28px, centered in the 28px strip) */}
+                {/* Same close as the dialogs: a solid 32px icon button, 16px from the corner */}
                 <div
-                  className="fixed top-0 right-2 flex h-7 items-center [-webkit-app-region:no-drag]"
+                  className="fixed top-4 right-4 [-webkit-app-region:no-drag]"
                   style={{ zIndex: 'var(--z-fullscreen, 350)' }}
                 >
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        variant="ghost"
-                        size="icon-compact"
+                        variant="secondary"
+                        size="icon"
                         onClick={handleCloseApiSetup}
                         aria-label={t("common.closeEsc")}
-                        className="text-muted-foreground"
                       >
                         <X />
                       </Button>
