@@ -12,6 +12,18 @@ export const RADIUS_EDGE = isMac ? 14 : 8
 /** Corner radius for interior corners between panels */
 export const RADIUS_INNER = 10
 
+/**
+ * Side panel widths on the golden ratio: the list is 280 and the status
+ * sidebar beside it is 280 / 1.618 ≈ 173, rounded to the 8px grid (176). The
+ * list grows up to 280 × 1.618 ≈ 453.
+ */
+export const SIDEBAR_WIDTH = 176
+export const SIDEBAR_MIN = 144
+export const SIDEBAR_MAX = 232
+export const LIST_WIDTH = 280
+export const LIST_MIN = 240
+export const LIST_MAX = 452
+
 /** Minimum width for any content panel */
 export const PANEL_MIN_WIDTH = 440
 

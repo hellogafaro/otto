@@ -56,6 +56,27 @@ interface PanelStackContainerProps {
   /** Compact mode: single-panel, list/content toggle (mobile or narrow window) */
   isCompact?: boolean
   isResizing?: boolean
+  /** Start dragging the sidebar's right edge / the navigator's right edge */
+  onSidebarResizeStart?: () => void
+  onNavigatorResizeStart?: () => void
+}
+
+/**
+ * The drag handle on a panel's right edge: an 8px hit area inside the panel,
+ * with its line on the divider itself, so it always sits where the panel ends.
+ */
+function ResizeSash({ onResizeStart }: { onResizeStart?: () => void }) {
+  if (!onResizeStart) return null
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      onMouseDown={(e) => { e.preventDefault(); onResizeStart() }}
+      className="group absolute inset-y-0 right-0 z-10 flex w-2 cursor-col-resize justify-end"
+    >
+      <div className="h-full w-px transition-colors group-hover:bg-primary/50 group-active:bg-primary" />
+    </div>
+  )
 }
 
 export function PanelStackContainer({
@@ -67,6 +88,8 @@ export function PanelStackContainer({
   isRightSidebarVisible,
   isCompact = false,
   isResizing,
+  onSidebarResizeStart,
+  onNavigatorResizeStart,
 }: PanelStackContainerProps) {
   const panelStack = useAtomValue(panelStackAtom)
   const focusedPanelId = useAtomValue(focusedPanelIdAtom)
@@ -191,6 +214,9 @@ export function PanelStackContainer({
         paddingBottom: 6,
         paddingRight: 8,
         marginRight: -8,
+        // Room for the card's 1px ring on the left; the scroll container would clip it
+        paddingLeft: 1,
+        marginLeft: -1,
       }}
     >
       {/* One card on the frame: the sidebar, the list and the page share it, split by hairlines. */}
@@ -207,7 +233,7 @@ export function PanelStackContainer({
           initial={false}
           animate={{
             width: hasSidebar ? sidebarWidth : 0,
-            marginRight: hasSidebar ? 0 : -PANEL_GAP,
+            marginRight: 0,
             opacity: hasSidebar ? 1 : 0,
           }}
           transition={transition}
@@ -217,6 +243,7 @@ export function PanelStackContainer({
           <div className="h-full" style={{ width: sidebarWidth }}>
             {sidebarSlot}
           </div>
+          {hasSidebar && <ResizeSash onResizeStart={onSidebarResizeStart} />}
         </motion.div>
 
         {/* === NAVIGATOR SLOT === */}
@@ -225,7 +252,7 @@ export function PanelStackContainer({
           initial={false}
           animate={{
             width: hasNavigator ? navigatorWidth : 0,
-            marginRight: hasNavigator ? 0 : -PANEL_GAP,
+            marginRight: 0,
             opacity: hasNavigator ? 1 : 0,
           }}
           transition={transition}
@@ -237,6 +264,7 @@ export function PanelStackContainer({
           <div className="h-full" style={{ width: navigatorWidth }}>
             {navigatorSlot}
           </div>
+          {hasNavigator && !isCompact && <ResizeSash onResizeStart={onNavigatorResizeStart} />}
         </motion.div>
 
         {/* === CONTENT PANELS WITH SASHES === */}
