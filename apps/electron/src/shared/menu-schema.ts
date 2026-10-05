@@ -10,7 +10,6 @@
  * Consumers must call i18n.t(item.labelKey) at build time.
  */
 
-import { RPC_CHANNELS } from './types'
 import { FEATURE_FLAGS } from '@craft-agent/shared/feature-flags'
 import { SETTINGS_PAGES, type SettingsSubpage } from './settings-registry'
 

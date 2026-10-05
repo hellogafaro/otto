@@ -5,7 +5,7 @@
  * Tests cover input validation, attachment processing, schema injection,
  * and the validateModel callback hook.
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, afterAll } from 'bun:test';
 import { buildCallLlmRequest } from '../llm-tool.ts';
 import { join } from 'path';
 import { writeFileSync, mkdirSync, rmSync } from 'fs';
@@ -34,7 +34,6 @@ function cleanupFixtures() {
 describe('buildCallLlmRequest()', () => {
   // Setup/teardown
   setupFixtures();
-  // Note: cleanup at end of file via process.on
 
   // --- Validation ---
 
@@ -220,7 +219,4 @@ describe('buildCallLlmRequest()', () => {
   });
 });
 
-// Cleanup
-process.on('exit', () => {
-  try { cleanupFixtures(); } catch {}
-});
+afterAll(cleanupFixtures);

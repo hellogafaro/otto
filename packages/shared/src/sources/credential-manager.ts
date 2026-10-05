@@ -28,7 +28,7 @@ import type { ApiCredential } from '@craft-agent/session-tools-core/api-auth';
 import { isMultiHeaderCredential, parseStoredApiCredential } from '@craft-agent/session-tools-core/api-auth';
 import type { CredentialId, StoredCredential } from '../credentials/types.ts';
 import { getCredentialManager } from '../credentials/index.ts';
-import { CraftOAuth, getMcpBaseUrl, prepareMcpOAuth, exchangeMcpOAuth, type OAuthCallbacks, type OAuthTokens } from '../auth/oauth.ts';
+import { CraftOAuth, prepareMcpOAuth, exchangeMcpOAuth, type OAuthCallbacks } from '../auth/oauth.ts';
 import { type OAuthSessionContext } from '../auth/types.ts';
 import { OAUTH_RELAY_CALLBACK_URL, wrapPreparedOAuthFlowForRelay } from '../auth/oauth-relay.ts';
 import type { PreparedOAuthFlow, OAuthExchangeParams, OAuthExchangeResult, OAuthProvider } from '../auth/oauth-flow-types.ts';

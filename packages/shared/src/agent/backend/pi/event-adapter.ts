@@ -86,9 +86,6 @@ export class PiEventAdapter extends BaseEventAdapter {
   // Track tool names from execution_start for proper tool_result correlation
   private toolNames: Map<string, string> = new Map();
 
-  // Track whether streaming deltas have been received for the current message
-  private hasStreamedDeltas: boolean = false;
-
   // Track whether a final (non-intermediate) text_complete has been emitted this turn
   private hasEmittedFinalText: boolean = false;
 
@@ -353,7 +350,6 @@ export class PiEventAdapter extends BaseEventAdapter {
 
   protected onTurnStart(): void {
     this.toolNames.clear();
-    this.hasStreamedDeltas = false;
     this.hasEmittedFinalText = false;
     this.subTurnCounter = 0;
     this.messageSubTurnId = null;
@@ -486,7 +482,6 @@ export class PiEventAdapter extends BaseEventAdapter {
         // Don't emit 'complete' here — agent_end handles it.
         // Emitting from both causes duplicate messages in session persistence.
         this.currentTurnId = null;
-        this.hasStreamedDeltas = false;
         this.hasEmittedFinalText = false;
         // Keep sub-turn IDs unique across SDK turns/retries within this Craft
         // turn. startTurn() is the only place the counter resets.
@@ -505,7 +500,6 @@ export class PiEventAdapter extends BaseEventAdapter {
         // Pi SDK emits message_update only for assistant messages (streaming deltas)
         const amEvent: AssistantMessageEvent = event.assistantMessageEvent;
         if (amEvent.type === 'text_delta' && amEvent.delta) {
-          this.hasStreamedDeltas = true;
           if (!this.messageSubTurnId) {
             this.messageSubTurnId = this.nextSubTurnId('m');
           }
@@ -536,7 +530,6 @@ export class PiEventAdapter extends BaseEventAdapter {
           if (this.messageSubTurnId) {
             yield { type: 'text_discard', turnId: this.messageSubTurnId };
             this.messageSubTurnId = null;
-            this.hasStreamedDeltas = false;
           }
           // Context overflow: hand recovery to the SDK's _runAutoCompaction
           // and keep the UI quiet until we know the outcome (recovered turn
@@ -589,7 +582,6 @@ export class PiEventAdapter extends BaseEventAdapter {
             turnId: mTurnId,
             sdkMessageId,
           };
-          this.hasStreamedDeltas = false;
         } else if (!textContent && !isIntermediate && !this.hasEmittedFinalText && msg.usage && (msg.usage as { output?: number }).output) {
           // The model used output tokens but produced no text. This typically means
           // reasoning consumed the entire output budget (observed with DeepSeek models

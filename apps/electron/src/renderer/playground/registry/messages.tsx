@@ -11,7 +11,6 @@ import {
   SystemMessage,
 } from '@craft-agent/ui'
 import { AnimatePresence, motion } from 'motion/react'
-import { cn } from '@/lib/utils'
 import { AuthRequestCard } from '@/components/chat/AuthRequestCard'
 import type { Message } from '../../../shared/types'
 

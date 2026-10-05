@@ -65,14 +65,12 @@ describe('resolveSpawnCwd (simulated)', () => {
   let tempDir: string;
   let workspaceRoot: string;
   let parentCwd: string;
-  let sessionPath: string;
   let sdkCwd: string;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'craft-resolve-cwd-'));
     workspaceRoot = join(tempDir, 'ws');
     parentCwd = join(tempDir, 'parent');
-    sessionPath = join(tempDir, 'session');
     sdkCwd = join(tempDir, 'sdk-cwd');
   });
   afterEach(() => {

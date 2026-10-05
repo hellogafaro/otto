@@ -1,13 +1,12 @@
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
 import { debug } from '../utils/debug.ts';
-import { existsSync, readFileSync, readdirSync } from 'fs';
-import { dirname, join, relative, basename, resolve } from 'path';
+import { readFileSync, readdirSync } from 'fs';
+import { dirname, join, relative, resolve } from 'path';
 import { DOC_REFS, APP_ROOT } from '../docs/index.ts';
 import { PERMISSION_MODE_CONFIG } from '../agent/mode-types.ts';
 import { FEATURE_FLAGS } from '../feature-flags.ts';
 import { isDecisionFeatureActive } from '../decisions/resolve.ts';
 import { APP_VERSION } from '../version/index.ts';
-import { readPluginName } from '../utils/workspace.ts';
 import { formatBytes } from '../utils/binary-detection.ts';
 import { globSync } from 'glob';
 import os from 'os';
@@ -617,12 +616,6 @@ Mode switching is normal. Apply the latest \`<session_state>\` immediately; \`mo
 function getCraftAssistantPrompt(workspaceRootPath?: string, backendName: string = 'Claude Code', includeCoAuthoredBy: boolean = true): string {
   // Default to ${APP_ROOT}/workspaces/{id} if no path provided
   const workspacePath = workspaceRootPath || `${APP_ROOT}/workspaces/{id}`;
-
-  // Read the SDK plugin name from .claude-plugin/plugin.json — this is what the SDK
-  // uses to resolve skills. Falls back to basename for backwards compatibility.
-  const workspaceId = (workspaceRootPath && readPluginName(workspaceRootPath))
-    || basename(workspacePath)
-    || '{workspaceId}';
 
   // Environment marker for SDK JSONL detection
   const environmentMarker = getCraftAgentEnvironmentMarker();

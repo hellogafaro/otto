@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test'
+import { describe, it, expect, mock } from 'bun:test'
 
 /**
  * Tests that all OAuth prepare functions correctly support callbackUrl

@@ -9,7 +9,6 @@
  * Custom patterns can be edited via workspace permissions.json file.
  */
 
-import * as React from 'react'
 import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'

@@ -712,7 +712,6 @@ export function runPreToolUseChecks(ctx: PreToolUseInput): PreToolUseCheckResult
     hasSourceActivation,
     permissionManager,
     prerequisiteManager,
-    backendMetadata,
     onDebug,
   } = ctx;
 

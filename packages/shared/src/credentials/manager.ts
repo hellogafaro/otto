@@ -6,7 +6,7 @@
  */
 
 import type { CredentialBackend } from './backends/types.ts';
-import type { CredentialId, CredentialType, StoredCredential, CredentialHealthStatus, CredentialHealthIssue } from './types.ts';
+import type { CredentialId, StoredCredential, CredentialHealthStatus, CredentialHealthIssue } from './types.ts';
 import type { LlmAuthType, LlmProviderType } from '../config/llm-connections.ts';
 import { SecureStorageBackend } from './backends/secure-storage.ts';
 import { debug } from '../utils/debug.ts';
@@ -556,7 +556,7 @@ export class CredentialManager {
 
       default:
         // Exhaustive check - TypeScript will error if we miss a case
-        const _exhaustive: never = authType;
+        authType satisfies never;
         return false;
     }
   }

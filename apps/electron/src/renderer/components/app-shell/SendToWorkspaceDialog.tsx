@@ -11,7 +11,6 @@
  * owning server, then import on the target (see session:transferToWorkspace).
  */
 
-import * as React from 'react'
 import { useTranslation } from "react-i18next"
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Cloud, CloudOff, Laptop, Send } from 'lucide-react'

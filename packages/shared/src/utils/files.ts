@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync, writeFileSync, unlinkSync, mkdtempSync, renameSync } from 'fs';
+import { existsSync, readFileSync, statSync, writeFileSync, unlinkSync, renameSync } from 'fs';
 import { extname, basename, resolve, join, relative, sep } from 'path';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react"
+import { createContext, useContext, useState, useCallback, useRef } from "react"
 import { setCurrentZone } from '@/actions/keybinding-context'
 
 /**

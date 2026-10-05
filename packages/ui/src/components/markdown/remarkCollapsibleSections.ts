@@ -13,7 +13,6 @@
  *   ## Next       -> section[depth=2]
  */
 
-import { visit } from 'unist-util-visit'
 import type { Plugin } from 'unified'
 import type { Root, Content, Heading, Parent } from 'mdast'
 

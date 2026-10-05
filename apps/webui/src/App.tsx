@@ -9,7 +9,7 @@
  */
 
 import { Loader } from 'lucide-react'
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createWebApi } from './adapter/web-api'
 import type { WsRpcClient } from '../../electron/src/transport/client'

@@ -11,7 +11,6 @@
  *   ColorPicker popover; selection auto-saves live during drag (no submit button).
  */
 
-import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { ColorPicker } from '@/components/ui/color-picker'
 

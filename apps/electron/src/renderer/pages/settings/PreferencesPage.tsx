@@ -8,7 +8,6 @@
  * - Auto-saves on change with debouncing
  */
 
-import * as React from 'react'
 import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'

@@ -28,7 +28,6 @@ import { AbortReason } from './backend/types.ts';
 import { getBackendRuntime } from './backend/internal/driver-types.ts';
 import { SourceActivationDrainController } from './source-activation-drain.ts';
 
-import type { PermissionMode } from './mode-manager.ts';
 import type { ThinkingLevel } from './thinking-levels.ts';
 
 // Import models from centralized registry
@@ -58,7 +57,6 @@ import { refreshChatGptTokens } from '../auth/chatgpt-oauth.ts';
 
 // Session-scoped tool callbacks (for SubmitPlan, source auth, etc.)
 import {
-  registerSessionScopedToolCallbacks,
   mergeSessionScopedToolCallbacks,
   unregisterSessionScopedToolCallbacks,
   setLastPlanFilePath,
@@ -94,7 +92,7 @@ import { getSessionDataPath, getSessionPath, getSessionPlansPath } from '../sess
 import { parseError, type AgentError } from './errors.ts';
 
 // Centralized PreToolUse pipeline
-import { runPreToolUseChecks, type PreToolUseCheckResult, type PreToolUseInput } from './core/pre-tool-use.ts';
+import { runPreToolUseChecks, type PreToolUseInput } from './core/pre-tool-use.ts';
 import type { PermissionRemember } from './core/permission-remember.ts';
 import { applyGuardedModeCheck, needsGuardedModeCheck } from './core/guarded-mode.ts';
 
@@ -177,9 +175,6 @@ export class PiAgent extends BaseAgent {
 
   // Pi session ID (managed by subprocess, reported back)
   private piSessionId: string | null = null;
-
-  // Callback server port (managed by subprocess)
-  private callbackPort: number = 0;
 
   // State
   private _isProcessing: boolean = false;
@@ -363,7 +358,6 @@ export class PiAgent extends BaseAgent {
   set onChatGptAuthRequired(cb: ((reason: string) => void) | null) {
     this.onBackendAuthRequired = cb;
   }
-  private tokenRefreshInProgress: Promise<void> | null = null;
 
   // Global mutex: keyed by connectionSlug so multiple PiAgent instances
   // sharing the same connection don't race concurrent token refreshes.
@@ -845,14 +839,12 @@ export class PiAgent extends BaseAgent {
       }
     })();
 
-    // Store in both instance and global mutex
-    this.tokenRefreshInProgress = refreshPromise;
+    // Store in the global mutex
     PiAgent.globalRefreshMutex.set(slug, refreshPromise);
 
     try {
       await refreshPromise;
     } finally {
-      this.tokenRefreshInProgress = null;
       // Only clear global if it's still our promise (no newer refresh started)
       if (PiAgent.globalRefreshMutex.get(slug) === refreshPromise) {
         PiAgent.globalRefreshMutex.delete(slug);
@@ -939,7 +931,6 @@ export class PiAgent extends BaseAgent {
     switch (type) {
       case 'ready':
         // Subprocess initialized, callback server listening
-        this.callbackPort = (msg.callbackPort as number) || 0;
         if (msg.sessionId) {
           this.piSessionId = msg.sessionId as string;
           this.config.onSdkSessionIdUpdate?.(this.piSessionId!);
@@ -2595,7 +2586,6 @@ export class PiAgent extends BaseAgent {
     }
     this.subprocessReady = null;
     this.subprocessReadyResolve = null;
-    this.callbackPort = 0;
     this.preToolMetadataByCallId.clear();
     this.adapter.resetRecoveryState();
 
@@ -2639,7 +2629,6 @@ export class PiAgent extends BaseAgent {
 
     this.subprocessReady = null;
     this.subprocessReadyResolve = null;
-    this.callbackPort = 0;
     this.preToolMetadataByCallId.clear();
 
     // Clear any in-flight overflow/auto-retry recovery state so a stale

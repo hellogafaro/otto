@@ -11,7 +11,6 @@
  * - Read-only mode support
  */
 
-import * as React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Editor from 'react-simple-code-editor'
 import { codeToHtml, bundledLanguages, type BundledLanguage } from 'shiki'

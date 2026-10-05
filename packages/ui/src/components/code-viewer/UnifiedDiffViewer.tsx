@@ -8,12 +8,10 @@
  * and renders via the FileDiff component with proper theming.
  */
 
-import * as React from 'react'
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { FileDiff, type FileDiffProps } from '@pierre/diffs/react'
-import { parsePatchFiles, DIFFS_TAG_NAME, registerCustomTheme, resolveTheme, type FileDiffMetadata } from '@pierre/diffs'
+import { parsePatchFiles, DIFFS_TAG_NAME, type FileDiffMetadata } from '@pierre/diffs'
 import { cn } from '../../lib/utils'
-import { LANGUAGE_MAP } from './language-map'
 
 // Register the diffs-container custom element if not already registered
 // (shared with ShikiDiffViewer - safe to call multiple times)
@@ -105,7 +103,7 @@ export function UnifiedDiffViewer({
   className,
 }: UnifiedDiffViewerProps) {
   const hasCalledReady = useRef(false)
-  const [isReady, setIsReady] = useState(false)
+  const [, setIsReady] = useState(false)
 
   // Parse the unified diff
   const fileDiff = useMemo(() => {

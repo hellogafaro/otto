@@ -127,8 +127,6 @@ interface UseNotificationsOptions {
 }
 
 interface UseNotificationsResult {
-  /** Whether the window is currently focused */
-  isWindowFocused: boolean
   /** Show a notification for a session */
   showSessionNotification: (session: Session, messagePreview?: string) => void
 }
@@ -238,7 +236,6 @@ export function useNotifications({
   }, [enabled, isWindowFocused, workspaceId, hasGuiChannels])
 
   return {
-    isWindowFocused,
     showSessionNotification,
   }
 }

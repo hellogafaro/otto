@@ -5,7 +5,6 @@
  * Collapsed: shows name + summary. Expanded: shows trigger, actions, and controls.
  */
 
-import * as React from 'react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight } from 'lucide-react'

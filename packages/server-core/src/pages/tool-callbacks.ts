@@ -23,7 +23,7 @@ import type {
   UpdatePageToolPatch,
   PageDataToolPatch,
 } from '@craft-agent/session-tools-core'
-import type { LoadedPage, PageConfig, PageDataSnapshot, PageKind, PageRefreshSpec, UpdatePagePatch } from '@craft-agent/shared/pages'
+import type { LoadedPage, PageDataSnapshot, PageKind, PageRefreshSpec, UpdatePagePatch } from '@craft-agent/shared/pages'
 import { isPageGrantUsable } from '@craft-agent/shared/pages/types'
 
 export interface PagesToolCallbacksDeps {

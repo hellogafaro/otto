@@ -401,9 +401,6 @@ const manyActivities75 = generateManyActivities(75)
 // Sample Todos (for TodoWrite visualization)
 // ============================================================================
 
-/** Empty state - no todos */
-const todosEmpty: TodoItem[] = []
-
 /** All pending - just started planning */
 const todosAllPending: TodoItem[] = [
   { content: 'Analyze authentication system', status: 'pending', activeForm: 'Analyzing authentication system' },

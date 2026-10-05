@@ -1,4 +1,4 @@
-import { readFile, writeFile, stat } from 'fs/promises'
+import { readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { RPC_CHANNELS, type FileAttachment, type SendMessageOptions, type SessionEvent } from '@craft-agent/shared/protocol'
 import type { StoredAttachment } from '@craft-agent/core/types'
@@ -382,10 +382,8 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
         return sessionManager.removeMessageAnnotation(sessionId, command.messageId, command.annotationId)
       case 'updateAnnotation':
         return sessionManager.updateMessageAnnotation(sessionId, command.messageId, command.annotationId, command.patch)
-      default: {
-        const _exhaustive: never = command
-        throw new Error(`Unknown session command: ${JSON.stringify(command)}`)
-      }
+      default:
+        throw new Error(`Unknown session command: ${JSON.stringify(command satisfies never)}`)
     }
   })
 

@@ -9,7 +9,6 @@
  * Plus human-readable summary and next-run preview.
  */
 
-import * as React from 'react'
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Clock, AlertCircle } from 'lucide-react'
@@ -72,7 +71,6 @@ function validateCron(cron: string): string | null {
   const parts = cron.trim().split(/\s+/)
   if (parts.length !== 5) return 'Schedule needs 5 parts: minute, hour, day, month, and weekday'
   // Basic validation per field
-  const ranges = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]]
   for (let i = 0; i < 5; i++) {
     const part = parts[i]
     if (part === '*') continue

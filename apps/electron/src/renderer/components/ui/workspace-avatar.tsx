@@ -8,7 +8,6 @@
  * Sizing/shape is fully controlled by `className` (e.g. `h-4 w-4 rounded-full`).
  */
 
-import * as React from 'react'
 import { CrossfadeAvatar } from './avatar'
 import { cn } from '@/lib/utils'
 

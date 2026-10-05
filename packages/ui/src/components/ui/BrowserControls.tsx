@@ -70,13 +70,6 @@ export interface BrowserControlsProps {
   /** Additional CSS classes on the URL bar group (reload + form) */
   urlBarClassName?: string
   /**
-   * Minimum left clearance in px. When set, enables window-center mode:
-   * back/forward are absolutely positioned and the reload + URL bar
-   * centers in the full component width via CSS max(), falling back
-   * to this clearance when the component is narrow.
-   */
-  leftClearance?: number
-  /**
    * Website theme color (from `<meta name="theme-color">`).
    * When set, tints the toolbar background like Safari/Chrome.
    * Text and icons automatically adjust for contrast.
@@ -141,9 +134,6 @@ function colorLuminance(color: string): number | null {
   return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
 }
 
-/** Half of the default URL bar max-width (600px), used for CSS max() centering calc */
-const HALF_MAX_WIDTH = 300
-
 export function BrowserControls({
   url: controlledUrl,
   loading = false,
@@ -160,7 +150,6 @@ export function BrowserControls({
   trailingContent,
   showProgressBar = true,
   urlBarClassName,
-  leftClearance,
   themeColor,
   className,
 }: BrowserControlsProps) {
@@ -221,7 +210,6 @@ export function BrowserControls({
   const safeThemeColor = safeCssColor(themeColor)
   const themeLum = safeThemeColor ? colorLuminance(safeThemeColor) : null
   const isDarkBg = themeLum != null && themeLum < 0.4
-  const useWindowCenter = leftClearance != null
 
   /* Shared: reload / stop button */
   const reloadButton = (

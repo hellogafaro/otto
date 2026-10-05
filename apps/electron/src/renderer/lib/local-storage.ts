@@ -17,7 +17,6 @@ export const KEYS = {
   listFilter: 'list-filter',
   labelFilter: 'label-filter',
   viewFilters: 'view-filters', // Per-view filter map: { [viewKey]: { statuses, labels } }
-  expandedFolders: 'expanded-folders',
   collapsedSidebarItems: 'collapsed-sidebar-items',
   chatGroupingMode: 'chat-grouping-mode', // How to group chats: 'date' | 'status'
   collapsedSessionGroups: 'collapsed-session-groups', // Collapsed group keys in session list

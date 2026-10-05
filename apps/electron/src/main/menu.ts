@@ -46,7 +46,6 @@ export function setMenuEventSink(sink: EventSink, resolver: ClientResolver): voi
 export async function rebuildMenu(): Promise<void> {
   if (!cachedWindowManager) return
 
-  const windowManager = cachedWindowManager
   const isMac = process.platform === 'darwin'
 
   // On Windows/Linux, hide the native menu entirely

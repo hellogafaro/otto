@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '@/hooks/useTheme'
 import type { ThemeOverrides } from '@config/theme'
@@ -32,7 +32,6 @@ import { stripMarkdown } from './utils/text'
 import { coerceInputText } from './lib/input-text'
 import { getSessionsToRefreshAfterStaleReconnect } from './lib/reconnect-recovery'
 import { formatSessionLoadFailure, shouldTreatSessionLoadFailureAsTransportFallback } from './lib/session-load'
-import { extractWorkspaceSlugFromPath } from '@craft-agent/shared/utils/workspace-slug'
 import { DEFAULT_THINKING_LEVEL } from '@craft-agent/shared/agent/thinking-levels'
 import { initRendererPerf } from './lib/perf'
 import {
@@ -344,13 +343,6 @@ export default function App() {
   const [llmConnections, setLlmConnections] = useState<LlmConnectionWithStatus[]>([])
   // Workspace default LLM connection (for new sessions)
   const [workspaceDefaultLlmConnection, setWorkspaceDefaultLlmConnection] = useState<string | undefined>()
-  // Global default LLM connection slug (from app config)
-  const [defaultLlmConnectionSlug, setDefaultLlmConnectionSlug] = useState<string | undefined>()
-
-  // Derive connection default model override from the default LLM connection
-  const defaultConnection = useMemo(() => {
-    return llmConnections.find(c => c.slug === defaultLlmConnectionSlug) ?? null
-  }, [llmConnections, defaultLlmConnectionSlug])
 
   const [menuNewChatTrigger, setMenuNewChatTrigger] = useState(0)
   // Permission requests per session (queue to handle multiple concurrent requests)
@@ -370,8 +362,8 @@ export default function App() {
   // Reset confirmation dialog
   const [showResetDialog, setShowResetDialog] = useState(false)
 
-  // Auto-update state
-  const updateChecker = useUpdateChecker()
+  // Auto-update: called for its side effects only (shows the "update ready" toast)
+  useUpdateChecker()
 
   // Splash screen state - tracks when app is fully ready (all data loaded)
   const [sessionsLoaded, setSessionsLoaded] = useState(false)
@@ -637,21 +629,16 @@ export default function App() {
 
   const DRAFT_SAVE_DEBOUNCE_MS = 500
 
-  const resolveDefaultConnectionSlug = useCallback((connections: LlmConnectionWithStatus[]) => {
-    return connections.find(c => c.isDefault)?.slug ?? connections[0]?.slug
-  }, [])
-
   // Refresh LLM connections from config (called on workspace change and after connection updates)
   const refreshLlmConnections = useCallback(async () => {
     const connections = await window.electronAPI.listLlmConnectionsWithStatus()
     setLlmConnections(connections)
-    setDefaultLlmConnectionSlug(resolveDefaultConnectionSlug(connections))
     // Also refresh workspace default
     if (windowWorkspaceId) {
       const settings = await window.electronAPI.getWorkspaceSettings(windowWorkspaceId)
       setWorkspaceDefaultLlmConnection(settings?.defaultLlmConnection)
     }
-  }, [resolveDefaultConnectionSlug, windowWorkspaceId])
+  }, [windowWorkspaceId])
 
   // Handle onboarding completion
   const handleOnboardingComplete = useCallback(async () => {
@@ -740,7 +727,7 @@ export default function App() {
     navigate(routes.view.allSessions(sessionId))
   }, [])
 
-  const { isWindowFocused, showSessionNotification } = useNotifications({
+  const { showSessionNotification } = useNotifications({
     workspaceId: windowWorkspaceId,
     // NOTE: sessions removed - hook now uses sessionMetaMapAtom internally
     // to prevent closures from retaining full message arrays
@@ -772,7 +759,6 @@ export default function App() {
     // Load LLM connections with authentication status
     window.electronAPI.listLlmConnectionsWithStatus().then((connections) => {
       setLlmConnections(connections)
-      setDefaultLlmConnectionSlug(resolveDefaultConnectionSlug(connections))
     })
     // Load persisted input drafts into ref (no re-render needed).
     // Attachment files are not read here — hydration happens lazily when the session
@@ -784,7 +770,7 @@ export default function App() {
     })
     // Load app-level theme
     window.electronAPI.getAppTheme().then(setAppTheme)
-  }, [appState, loadSessionsFromServer, resolveDefaultConnectionSlug])
+  }, [appState, loadSessionsFromServer])
 
   // Subscribe to theme change events (live updates when theme.json changes)
   useEffect(() => {
@@ -1808,11 +1794,6 @@ export default function App() {
   const handleRefreshWorkspaces = useCallback(() => {
     window.electronAPI.getWorkspaces().then(setWorkspaces)
   }, [])
-
-  // Handle cancel during onboarding
-  const handleOnboardingCancel = useCallback(() => {
-    onboarding.handleCancel()
-  }, [onboarding])
 
   // Build context value for AppShell component
   // This is memoized to prevent unnecessary re-renders

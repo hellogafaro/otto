@@ -125,14 +125,6 @@ export interface PathProcessorConfig {
 }
 
 /**
- * Configuration for ConfigValidator
- */
-export interface ConfigValidatorConfig {
-  /** Workspace path for config files */
-  workspacePath?: string;
-}
-
-/**
  * Result of config validation
  */
 export interface ConfigValidationResult {

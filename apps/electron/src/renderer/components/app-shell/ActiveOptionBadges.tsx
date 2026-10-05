@@ -402,7 +402,6 @@ function StateBadge({
 
 function FilesPopoverButton({ sessionId, sessionFolderPath }: { sessionId?: string; sessionFolderPath?: string }) {
   const { t } = useTranslation()
-  const [open, setOpen] = React.useState(false)
 
   if (!sessionId) return null
 
@@ -462,9 +461,6 @@ function PermissionModeDropdown({ permissionMode, onPermissionModeChange, sessio
     }
     setOpen(false)
   }, [onPermissionModeChange])
-
-  // Get config for current mode (use optimistic state for instant UI update)
-  const config = PERMISSION_MODE_CONFIG[optimisticMode] ?? PERMISSION_MODE_CONFIG.ask
 
   // Mode-specific styling using CSS variables (theme-aware)
   // - safe (Explore): foreground at 60% opacity - subtle, read-only feel

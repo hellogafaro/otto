@@ -6,9 +6,9 @@
  */
 
 import { openSync, readSync, closeSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'fs';
-import { open, readFile } from 'fs/promises';
+import { open } from 'fs/promises';
 import { dirname } from 'path';
-import type { SessionHeader, StoredSession, StoredMessage, SessionTokenUsage } from './types.ts';
+import type { SessionHeader, StoredSession, StoredMessage } from './types.ts';
 import type { PermissionMode } from '../agent/mode-types.ts';
 import { parsePermissionMode } from '../agent/mode-types.ts';
 import { toPortablePath, expandPath, normalizePath } from '../utils/paths.ts';

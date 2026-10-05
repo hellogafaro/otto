@@ -81,7 +81,6 @@ interface UseOnboardingReturn {
 
   // Completion
   handleFinish: () => void
-  handleCancel: () => void
 
   // Direct edit (skip method selection, jump to credentials)
   jumpToCredentials: (method: ApiSetupMethod) => void
@@ -812,11 +811,6 @@ export function useOnboarding({
     onComplete()
   }, [onComplete])
 
-  // Cancel onboarding
-  const handleCancel = useCallback(() => {
-    setState(s => ({ ...s, step: 'welcome' }))
-  }, [])
-
   // Jump directly to credentials step with a pre-set method (for editing existing connections)
   const jumpToCredentials = useCallback((method: ApiSetupMethod) => {
     setState(s => ({
@@ -868,7 +862,6 @@ export function useOnboarding({
     handleClearError,
     handleSkipSetup,
     handleFinish,
-    handleCancel,
     jumpToCredentials,
     reset,
   }

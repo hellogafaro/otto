@@ -207,7 +207,6 @@ export function LeftSidebar({ links, isCollapsed, getItemProps, focusedItemId, i
 
           const link = item
           const itemProps = getItemProps?.(link.id)
-          const isFocused = focusedItemId === link.id
 
           // Button element shared by both expandable and non-expandable items
           const buttonElement = (

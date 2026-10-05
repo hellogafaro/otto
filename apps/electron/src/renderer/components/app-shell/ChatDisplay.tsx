@@ -6,10 +6,8 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  ChevronUp,
   CircleAlert,
   Info,
-  X,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { toast } from "sonner"
@@ -21,10 +19,6 @@ import { Markdown, CollapsibleMarkdownProvider, StreamingMarkdown, type RenderMo
 import { AnimatedCollapsibleContent } from "@/components/ui/collapsible"
 import {
   Spinner,
-  parseReadResult,
-  parseBashResult,
-  parseGrepResult,
-  parseGlobResult,
   extractOverlayData,
   extractOverlayCards,
   ActivityCardsOverlay,
@@ -41,7 +35,7 @@ import {
 } from "@craft-agent/ui"
 import { useFocusZone } from "@/hooks/keyboard"
 import { useTheme } from "@/hooks/useTheme"
-import type { Session, Message, FileAttachment, StoredAttachment, PermissionRequest, CredentialRequest, CredentialResponse, LoadedSource, LoadedSkill } from "../../../shared/types"
+import type { Session, Message, FileAttachment, PermissionRequest, CredentialRequest, CredentialResponse, LoadedSource, LoadedSkill } from "../../../shared/types"
 import type { PermissionMode } from "@craft-agent/shared/agent/modes"
 import type { ThinkingLevel } from "@craft-agent/shared/agent/thinking-levels"
 import {
@@ -49,7 +43,6 @@ import {
   UserMessageBubble,
   groupMessagesByTurn,
   formatTurnAsMarkdown,
-  formatActivityAsMarkdown,
   getAssistantTurnUiKey,
   asRecord,
   getAnnotationNoteText,
@@ -57,10 +50,6 @@ import {
   extractAnnotationSelectedText,
   normalizeFollowUpText,
   type Turn,
-  type AssistantTurn,
-  type UserTurn,
-  type SystemTurn,
-  type AuthRequestTurn,
 } from "@craft-agent/ui"
 import { MemoizedAuthRequestCard } from "@/components/chat/AuthRequestCard"
 import { ChatInputZone, type StructuredInputState, type StructuredResponse, type PermissionResponse, type AdminApprovalResponse } from "./input"
@@ -69,7 +58,7 @@ import { useBackgroundTasks } from "@/hooks/useBackgroundTasks"
 import { useTurnCardExpansion } from "@/hooks/useTurnCardExpansion"
 import { useNavigation } from "@/contexts/NavigationContext"
 import { useAppShellContext } from "@/context/AppShellContext"
-import { navigate, routes } from "@/lib/navigate"
+import { routes } from "@/lib/navigate"
 import { CHAT_LAYOUT } from "@/config/layout"
 import { collectFileChangesFromActivities, getFirstFileChangeIdForActivity } from "@/lib/file-changes"
 import { resolveBranchNewPanelOption } from "./branching"
@@ -664,7 +653,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   // Returns array with unique matchId for each occurrence
   const matchingOccurrences = useMemo(() => {
     if (!searchQuery.trim() || !session?.messages) return []
-    const startTime = performance.now()
     const query = searchQuery.toLowerCase()
     const turns = groupMessagesByTurn(session.messages, { isSessionProcessing: session.isProcessing })
     const matches: { matchId: string; turnId: string; turnIndex: number; matchIndexInTurn: number }[] = []

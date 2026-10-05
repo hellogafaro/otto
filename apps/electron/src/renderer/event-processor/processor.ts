@@ -232,7 +232,7 @@ export function processEvent(
     default: {
       // Unknown event type - return state unchanged but as new reference
       // to ensure atom sync detects the "change"
-      const _exhaustiveCheck: never = event
+      event satisfies never
       return {
         state: { ...state, session: { ...state.session } },
         effects: [],

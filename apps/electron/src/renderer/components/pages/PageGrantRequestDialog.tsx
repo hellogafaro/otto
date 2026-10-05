@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {

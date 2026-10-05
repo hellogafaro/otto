@@ -97,7 +97,6 @@ function ActionShortcutRow({ actionId }: { actionId: ActionId }) {
 }
 
 export default function ShortcutsPage() {
-  const { t } = useTranslation()
   const componentSpecificSections = useComponentSpecificSections()
 
   return (

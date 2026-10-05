@@ -25,7 +25,7 @@ import type { PermissionMode, WorkspaceSettings, LoadedSource } from '../../../s
 import { useDirectoryPicker } from '@/hooks/useDirectoryPicker'
 import { useAvailablePermissionModes } from '@/hooks/useAvailablePermissionModes'
 import { ServerDirectoryBrowser } from '@/components/ServerDirectoryBrowser'
-import { PERMISSION_MODE_CONFIG, PERMISSION_MODE_ORDER } from '@craft-agent/shared/agent/mode-types'
+import { PERMISSION_MODE_ORDER } from '@craft-agent/shared/agent/mode-types'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import { SourceAvatar } from '@/components/ui/source-avatar'
 import { toast } from 'sonner'

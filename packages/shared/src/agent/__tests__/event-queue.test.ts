@@ -13,10 +13,6 @@ function textDelta(text: string): AgentEvent {
   return { type: 'text_delta', text };
 }
 
-function completeEvent(): AgentEvent {
-  return { type: 'complete' };
-}
-
 // Helper: collect all events from drain()
 async function collectDrain(queue: EventQueue): Promise<AgentEvent[]> {
   const events: AgentEvent[] = [];

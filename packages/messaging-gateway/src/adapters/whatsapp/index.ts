@@ -126,7 +126,6 @@ export class WhatsAppAdapter implements PlatformAdapter {
   private started = false
   private log: MessagingLogger = NOOP_LOGGER
   private messageHandler: ((msg: IncomingMessage) => Promise<void>) | null = null
-  private buttonHandler: ((press: ButtonPress) => Promise<void>) | null = null
   private eventHandlers = new Set<EventHandler>()
   private pending = new Map<string, PendingEntry>()
   private nextCmdId = 1
@@ -257,9 +256,8 @@ export class WhatsAppAdapter implements PlatformAdapter {
     this.messageHandler = handler
   }
 
-  onButtonPress(handler: (press: ButtonPress) => Promise<void>): void {
-    this.buttonHandler = handler
-  }
+  /** WhatsApp has no inline buttons (sendButtons falls back to numbered text), so presses never arrive. */
+  onButtonPress(_handler: (press: ButtonPress) => Promise<void>): void {}
 
   /** Subscribe to adapter-level events (QR, pairing code, unavailable, errors). */
   onEvent(handler: EventHandler): () => void {

@@ -16,7 +16,7 @@ import { resolveConfigDir } from '../config/paths.ts';
 import { join } from 'path';
 import { debug } from '../utils/debug.ts';
 import { isPlainMcpVerb } from './mcp-tool-names.ts';
-import { readJsonFileSync, safeJsonParse } from '../utils/files.ts';
+import { safeJsonParse } from '../utils/files.ts';
 import { CONFIG_DIR } from '../config/paths.ts';
 import { getBundledAssetsDir } from '../utils/paths.ts';
 import { getSourcePath } from '../sources/storage.ts';

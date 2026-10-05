@@ -261,7 +261,7 @@ export function providerTypeToAgentProvider(providerType: LlmProviderType): Agen
 
     default:
       // Exhaustive check
-      const _exhaustive: never = providerType;
+      providerType satisfies never;
       return 'anthropic';
   }
 }

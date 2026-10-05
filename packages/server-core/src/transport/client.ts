@@ -128,7 +128,6 @@ export class WsRpcClient implements RpcClient {
   private destroyed = false
   /** Set when server sends shuttingDown — prevents reconnection attempts. */
   private permanentlyClosed = false
-  private connectStarted = false
   private connectError: Error | null = null
   private readyPromise: Promise<void> | null = null
   private resolveReady: (() => void) | null = null
@@ -290,7 +289,6 @@ export class WsRpcClient implements RpcClient {
       this.reconnectTimer = null
     }
 
-    this.connectStarted = false
     this.connectError = null
 
     if (!this.ws) {
@@ -348,7 +346,6 @@ export class WsRpcClient implements RpcClient {
   connect(): void {
     if (this.destroyed) return
 
-    this.connectStarted = true
     this.connectError = null
     this.createReadyPromise()
 
@@ -473,7 +470,7 @@ export class WsRpcClient implements RpcClient {
     this.failReady(new Error('Client destroyed'))
 
     // Reject all pending requests
-    for (const [id, req] of this.pending) {
+    for (const req of this.pending.values()) {
       clearTimeout(req.timeout)
       req.reject(new Error('Client destroyed'))
     }
@@ -746,7 +743,7 @@ export class WsRpcClient implements RpcClient {
 
     // Reject all pending requests
     if (wasConnected) {
-      for (const [id, req] of this.pending) {
+      for (const req of this.pending.values()) {
         clearTimeout(req.timeout)
         req.reject(new Error('Connection lost'))
       }

@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { CONFIG_DIR } from './paths.ts';
-import { safeJsonParse, readJsonFileSync } from '../utils/files.ts';
+import { safeJsonParse } from '../utils/files.ts';
 import { EntityColorSchema } from '../colors/validate.ts';
 import { THINKING_LEVEL_IDS } from '../agent/thinking-levels.ts';
 import { isValidProviderAuthCombination } from './llm-connections.ts';
@@ -1171,19 +1171,6 @@ const BaseLabelConfigSchema = z.object({
 
 // Recursive schema: LabelConfig can have children which are also LabelConfigs.
 // Zod supports lazy() for recursive types.
-type LabelConfigSchemaType = z.ZodType<{
-  id: string;
-  name: string;
-  color?: unknown;
-  icon?: string;
-  valueType?: 'string' | 'number' | 'date' | 'link';
-  autoRules?: Array<
-    | { pattern: string; flags?: string; valueTemplate?: string; description?: string }
-    | { semantic: string; threshold?: number; value?: string; description?: string }
-  >;
-  children?: LabelConfigSchemaType[];
-}>;
-
 const LabelConfigSchema: z.ZodType<any> = BaseLabelConfigSchema.extend({
   children: z.lazy(() => z.array(LabelConfigSchema)).optional(),
 });

@@ -478,7 +478,6 @@ export function useInlineMention({
   workspaceId,
 }: UseInlineMentionOptions): UseInlineMentionReturn {
   const [isOpen, setIsOpen] = React.useState(false)
-  const [filter, setFilter] = React.useState('')
   // committedFilter: only updates when IPC returns (or immediately when no IPC needed).
   // Prevents visual jumps — the menu shows all items until results are ready,
   // then applies filter + file results in a single frame.
@@ -577,7 +576,6 @@ export function useInlineMention({
         const fileMatches = filterCacheResults(fileCache.current, filterText)
         if (fileMatches.length === 0) {
           setIsOpen(false)
-          setFilter('')
           setCommittedFilter('')
           setAtStart(-1)
           if (fileSearchTimeout.current) {
@@ -591,7 +589,6 @@ export function useInlineMention({
       }
 
       setAtStart(matchStart)
-      setFilter(filterText)
 
       // Cache-first file search: if cache has entries from a previous IPC call,
       // filter client-side instantly (no IPC, no debounce). Otherwise fire a
@@ -662,7 +659,6 @@ export function useInlineMention({
       setIsOpen(true)
     } else {
       setIsOpen(false)
-      setFilter('')
       setCommittedFilter('')
       setAtStart(-1)
       // Clear file search state and cache when menu closes
@@ -728,7 +724,6 @@ export function useInlineMention({
 
   const close = React.useCallback(() => {
     setIsOpen(false)
-    setFilter('')
     setCommittedFilter('')
     setAtStart(-1)
     // Clear file search state and cache to prevent stale results on next open

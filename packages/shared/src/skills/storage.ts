@@ -22,7 +22,6 @@ import {
   findIconFile,
   downloadIcon,
   needsIconDownload,
-  isIconUrl,
 } from '../utils/icon.ts';
 
 // ============================================================

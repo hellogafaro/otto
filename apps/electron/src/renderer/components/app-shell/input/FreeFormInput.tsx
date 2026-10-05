@@ -25,7 +25,6 @@ import {
   InlineMentionMenu,
   useInlineMention,
   type MentionItem,
-  type MentionItemType,
 } from '@/components/ui/mention-menu'
 import {
   InlineLabelMenu,
@@ -44,7 +43,6 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuSub,
-  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu'
 import {
   StyledDropdownMenuContent,
@@ -58,7 +56,7 @@ import { coerceInputText } from '@/lib/input-text'
 import { applySmartTypography } from '@/lib/smart-typography'
 import { AttachmentPreview } from '../AttachmentPreview'
 import { ImageSupportWarningBanner } from './ImageSupportWarningBanner'
-import { ANTHROPIC_MODELS, getModelShortName, getModelDisplayName, getModelContextWindow, type ModelDefinition } from '@config/models'
+import { ANTHROPIC_MODELS, getModelShortName, getModelDisplayName, getModelContextWindow } from '@config/models'
 import {
   resolveEffectiveConnectionSlug,
   isCompatProvider,
@@ -277,8 +275,8 @@ export function FreeFormInput({
   onAttachmentsChange,
   unstyled = false,
   onHeightChange,
-  maxHeight,
   onFocusChange,
+  maxHeight,
   sources = [],
   enabledSourceSlugs = [],
   onSourcesChange,
@@ -436,20 +434,6 @@ export function FreeFormInput({
   const isFocusedPanel = appShellContext?.isFocusedPanel ?? true
 
   // Shuffle placeholder order once per mount so each session feels fresh.
-  // In compact mode, suppress desktop-keyboard guidance that is noisy or misleading
-  // on narrow/mobile-like layouts.
-  const placeholderOptions = React.useMemo(() => {
-    if (!Array.isArray(placeholder)) return placeholder
-    if (!compactMode) return placeholder
-    return placeholder.filter((entry) => {
-      const lower = entry.toLowerCase()
-      return !lower.includes('shift + tab')
-        && !lower.includes('shift + return')
-        && !lower.includes('⌘')
-        && !lower.includes('ctrl')
-    })
-  }, [placeholder, compactMode])
-
   // Hide placeholder entirely when panel is unfocused in multi-panel layout
   const shuffledPlaceholder = React.useMemo(
     () => Array.isArray(effectivePlaceholderProp) ? shuffleArray(effectivePlaceholderProp) : effectivePlaceholderProp,
@@ -559,7 +543,6 @@ export function FreeFormInput({
   const [isDraggingOver, setIsDraggingOver] = React.useState(false)
   const [loadingCount, setLoadingCount] = React.useState(0)
   const [sourceDropdownOpen, setSourceDropdownOpen] = React.useState(false)
-  const [isFocused, setIsFocused] = React.useState(false)
   const [modelDropdownOpen, setModelDropdownOpen] = React.useState(false)
 
   // Input settings (loaded from config)
@@ -1699,11 +1682,10 @@ export function FreeFormInput({
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           onLongTextPaste={handleLongTextPaste}
-          onFocus={() => { setIsFocused(true); onFocusChange?.(true) }}
+          onFocus={() => onFocusChange?.(true)}
           onBlur={() => {
             // Save caret position before losing focus (for restoration via craft:focus-input)
             lastCaretPositionRef.current = richInputRef.current?.selectionStart ?? null
-            setIsFocused(false)
             onFocusChange?.(false)
           }}
           placeholder={effectivePlaceholder}

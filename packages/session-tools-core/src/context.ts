@@ -9,7 +9,6 @@
 
 import type {
   AuthRequest,
-  ToolResult,
   SourceConfig,
   GoogleService,
   SlackService,

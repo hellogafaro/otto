@@ -9,12 +9,12 @@ type ContentBlockParam =
 import { z } from 'zod';
 import { getSystemPrompt } from '../prompts/system.ts';
 import { BaseAgent, type MiniAgentConfig, MINI_AGENT_TOOLS, MINI_AGENT_MCP_KEYS } from './base-agent.ts';
-import type { BackendConfig, PostInitResult, PermissionRequestType, SdkMcpServerConfig } from './backend/types.ts';
+import type { BackendConfig, PostInitResult } from './backend/types.ts';
 // Plan types are used by UI components; not needed in craft-agent.ts since Safe Mode is user-controlled
 import { parseError, type AgentError } from './errors.ts';
 import { mapClaudeSdkAssistantError, type ClaudeSdkApiError } from './claude-sdk-error-mapper.ts';
 import { runErrorDiagnostics } from './diagnostics.ts';
-import { loadStoredConfig, loadConfigDefaults, type Workspace, type AuthType, getDefaultLlmConnection, getLlmConnection } from '../config/storage.ts';
+import { loadConfigDefaults, type Workspace, type AuthType, getDefaultLlmConnection, getLlmConnection } from '../config/storage.ts';
 import { getValidClaudeOAuthToken } from '../auth/state.ts';
 import {
   clearClaudeBedrockRoutingEnvVars,
@@ -22,11 +22,11 @@ import {
 } from '../config/llm-connections.ts';
 import type { McpClientPool } from '../mcp/mcp-pool.ts';
 import { proxyToolName } from '../mcp/proxy-tool-name.ts';
-import { loadPlanFromPath, type SessionConfig as Session } from '../sessions/storage.ts';
+import type { SessionConfig as Session } from '../sessions/storage.ts';
 import { loadProjectById, getProjectAssetsPath, listProjectAssets, getProjectMemoryPath, loadProjectMemory } from '../projects/storage.ts';
 import { DEFAULT_MODEL, isClaudeModel, isAdaptiveThinkingAlwaysOnModel, getDefaultSummarizationModel, getModelContextWindow } from '../config/models.ts';
 import { getCredentialManager } from '../credentials/index.ts';
-import { loadPreferences, formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
+import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
 import type { FileAttachment } from '../utils/files.ts';
 import type { LLMQueryRequest, LLMQueryResult } from './llm-tool.ts';
 import { consumeLlmQueryMessages } from './claude-llm-query.ts';
@@ -38,8 +38,6 @@ import { SourceActivationDrainController } from './source-activation-drain.ts';
 import { resolveKeepBackgroundTasksAlive, createPushableInputStream, type PushableInputStream } from './backend/claude/persistent-input.ts';
 import { classifyClaudeTaskNotification } from './backend/claude/task-notification.ts';
 import {
-  getSessionPlansDir,
-  getLastPlanFilePath,
   clearPlanFileState,
   registerSessionScopedToolCallbacks,
   unregisterSessionScopedToolCallbacks,
@@ -57,37 +55,22 @@ import {
   cleanupModeState,
   blockWithReason,
   type PermissionMode,
-  PERMISSION_MODE_CONFIG,
-  SAFE_MODE_CONFIG,
 } from './mode-manager.ts';
 import { getSessionDataPath, getSessionPlansPath, getSessionPath } from '../sessions/storage.ts';
 import { getLastApiError } from '../interceptor-common.ts';
 import { extractWorkspaceSlug } from '../utils/workspace.ts';
-import {
-  ConfigWatcher,
-  createConfigWatcher,
-  type ConfigWatcherCallbacks,
-} from '../config/watcher.ts';
 // Centralized PreToolUse pipeline
 import {
   runPreToolUseChecks,
-  type PreToolUseCheckResult,
   type PreToolUseInput,
-  BUILT_IN_TOOLS,
 } from './core/pre-tool-use.ts';
 import { applyGuardedModeCheck, needsGuardedModeCheck } from './core/guarded-mode.ts';
-import { type ThinkingLevel, THINKING_TO_EFFORT, getThinkingTokens, DEFAULT_THINKING_LEVEL } from './thinking-levels.ts';
+import { type ThinkingLevel, THINKING_TO_EFFORT, getThinkingTokens } from './thinking-levels.ts';
 import { generateConversationSummary } from './conversation-summary.ts';
 import type { LoadedSource } from '../sources/types.ts';
-import { sourceNeedsAuthentication } from '../sources/credential-manager.ts';
 import type {
-  AgentBackend,
   ChatOptions,
   PermissionCallback,
-  PlanCallback,
-  AuthCallback,
-  SourceChangeCallback,
-  SourceActivationCallback,
 } from './backend/types.ts';
 import { existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -160,7 +143,7 @@ export function resolveClaudeThinkingOptions(args: {
   providerType?: BackendConfig['providerType'];
   minimizeThinking: boolean;
 }): Partial<Options> {
-  const { thinkingLevel, model, providerType, minimizeThinking } = args;
+  const { thinkingLevel, model, minimizeThinking } = args;
   const isClaude = isClaudeModel(model);
   const effort = THINKING_TO_EFFORT[thinkingLevel];
   const isHaiku = model.toLowerCase().includes('haiku');
@@ -206,7 +189,6 @@ const LIVE_THINKING_UPDATE_TIMEOUT_MS = 2_000;
 export interface ClaudeAgentConfig {
   workspace: Workspace;
   session?: Session;           // Current session (primary isolation boundary)
-  mcpToken?: string;           // Override token (for testing)
   model?: string;
   thinkingLevel?: ThinkingLevel; // Initial thinking level (defaults to 'medium')
   onSdkSessionIdUpdate?: (sdkSessionId: string) => void;  // Callback when SDK session ID is captured
@@ -508,8 +490,6 @@ export class ClaudeAgent extends BaseAgent {
   // Source state tracking is now managed by this.sourceManager (inherited from BaseAgent)
   // Source MCP connections are managed by this.config.mcpPool (centralized in main process)
   // Both MCP sources and API sources are routed through the pool.
-  // Safe mode state - user-controlled read-only exploration mode
-  private safeMode: boolean = false;
   // Event adapter for SDK message → AgentEvent conversion (testable, pluggable)
   private eventAdapter!: ClaudeEventAdapter;
   // Thinking level is managed by BaseAgent
@@ -854,7 +834,6 @@ export class ClaudeAgent extends BaseAgent {
       session: config.session,
       model,
       thinkingLevel: config.thinkingLevel,
-      mcpToken: config.mcpToken,
       isHeadless: config.isHeadless,
       skipConfigWatcher: config.skipConfigWatcher,
       debugMode: config.debugMode,
@@ -910,8 +889,6 @@ export class ClaudeAgent extends BaseAgent {
 
     initializeModeState(sessionId, initialMode, {
       onStateChange: (state) => {
-        // Sync permission mode state with agent
-        this.safeMode = state.permissionMode === 'safe';
         // Notify UI of permission mode changes
         this.onPermissionModeChange?.(state.permissionMode);
       },
@@ -1018,12 +995,6 @@ export class ClaudeAgent extends BaseAgent {
   }
 
   // isInSafeMode() is now inherited from BaseAgent
-
-  private async getToken(): Promise<string | null> {
-    // Only return token if explicitly provided via config
-    // Sources handle their own authentication
-    return this.config.mcpToken ?? null;
-  }
 
   protected async *chatImpl(
     userMessage: string,
@@ -1784,7 +1755,7 @@ This is a branched conversation. All prior messages in this conversation are par
             const inactiveSourceError = this.detectInactiveSourceToolError(event, this.eventAdapter.getToolIndex());
 
             if (inactiveSourceError && this.onSourceActivationRequest) {
-              const { sourceSlug, toolName } = inactiveSourceError;
+              const { sourceSlug } = inactiveSourceError;
 
               this.onDebug?.(`Detected tool call to inactive source "${sourceSlug}", attempting activation...`);
 

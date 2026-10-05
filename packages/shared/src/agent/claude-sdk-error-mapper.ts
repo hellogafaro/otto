@@ -1,7 +1,7 @@
 import type { SDKAssistantMessageError } from '@anthropic-ai/claude-agent-sdk';
 import type { AgentError } from './errors.ts';
 import type { LastApiError } from '../interceptor-common.ts';
-import { getProviderMetadata, getProviderDisplayName } from '../config/provider-metadata.ts';
+import { getProviderMetadata } from '../config/provider-metadata.ts';
 
 // SDK 0.3.280 did not include these codes in the union type, but the Anthropic
 // backend can still return them. Accept them explicitly rather than widening to string.

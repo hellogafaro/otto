@@ -42,7 +42,6 @@ export function BatchSessionMenu({ onSendToWorkspace }: BatchSessionMenuProps = 
   const {
     onSessionStatusChange,
     onArchiveSession,
-    onUnarchiveSession,
     onFlagSession,
     onUnflagSession,
     onSessionLabelsChange,

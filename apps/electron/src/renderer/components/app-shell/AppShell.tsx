@@ -2,14 +2,8 @@ import * as React from "react"
 import { useTranslation, Trans } from "react-i18next"
 import { useRef, useState, useEffect, useCallback, useMemo } from "react"
 import { useAtomValue, useStore } from "jotai"
-import { motion, AnimatePresence } from "motion/react"
 import {
   Archive,
-  Settings,
-  ChevronRight,
-  ChevronDown,
-  MoreHorizontal,
-  RotateCw,
   Flag,
   ListFilter,
   Tag,
@@ -21,30 +15,20 @@ import {
   DatabaseZap,
   Zap,
   Inbox,
-  Globe,
-  FolderOpen,
   Calendar,
   Layers,
   ListTodo,
-  Clock,
-  Radio,
-  Bot,
   Info,
   MailOpen,
   Folder,
-  PanelsTopLeft,
 } from "lucide-react"
-// SessionStatusIcons no longer used - icons come from dynamic sessionStatuses
-import { SourceAvatar } from "@/components/ui/source-avatar"
 import { TopBar } from "./TopBar"
 import { SquarePenRounded } from "../icons/SquarePenRounded"
-import { McpIcon } from "../icons/McpIcon"
 import { cn } from "@/lib/utils"
 import { isMac } from "@/lib/platform"
 import { Button } from "@/components/ui/button"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import { resolveInheritedFilterParams, type FilterMode } from "./inherited-filter-params"
-import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@craft-agent/ui"
 import {
   DropdownMenu,
@@ -56,16 +40,7 @@ import {
   StyledDropdownMenuSubTrigger,
   StyledDropdownMenuSubContent,
 } from "@/components/ui/styled-dropdown"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { FadingText } from "@/components/ui/fading-text"
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  AnimatedCollapsibleContent,
-  springTransition as collapsibleSpring,
-} from "@/components/ui/collapsible"
 import { SessionList, type ChatGroupingMode } from "./SessionList"
-import { MainContentPanel } from "./MainContentPanel"
 import { PanelStackContainer } from "./PanelStackContainer"
 import { CompactSessionListFilter } from "./CompactSessionListFilter"
 import type { ChatDisplayHandle } from "./ChatDisplay"
@@ -78,9 +53,8 @@ import { useTheme } from "@/context/ThemeContext"
 import { useAction, useActionLabel } from "@/actions"
 import { useFocusZone } from "@/hooks/keyboard"
 import { useFocusContext } from "@/context/FocusContext"
-import { getSessionTitle } from "@/utils/session"
 import { useSetAtom } from "jotai"
-import type { Session, Workspace, FileAttachment, PermissionRequest, LoadedSource, LoadedSkill, PermissionMode, SourceFilter, AutomationFilter } from "../../../shared/types"
+import type { LoadedSource, LoadedSkill, PermissionMode, SourceFilter, AutomationFilter } from "../../../shared/types"
 import { sessionMetaMapAtom, sendToWorkspaceAtom, type SessionMeta } from "@/atoms/sessions"
 import { sourcesAtom } from "@/atoms/sources"
 import { DECISION_SETTINGS_CHANGED_EVENT, guardedModeAvailableAtom } from "@/atoms/permission-modes"
@@ -97,7 +71,6 @@ import { filterSessionStatuses as filterLabelMenuStates } from "@/components/ui/
 import { createLabelMenuItems, filterItems as filterLabelMenuItems, type LabelMenuItem } from "@/components/ui/label-menu-utils"
 import { buildLabelTree, getDescendantIds, getLabelDisplayName, flattenLabels, extractLabelId, findLabelById, sortLabelsForDisplay, matchesLabelFilter } from "@craft-agent/shared/labels"
 import type { LabelConfig, LabelTreeNode } from "@craft-agent/shared/labels"
-import { resolveEntityColor } from "@craft-agent/shared/colors"
 import * as storage from "@/lib/local-storage"
 import { AppRail } from "./AppRail"
 import { toast } from "sonner"
@@ -112,14 +85,13 @@ import {
   isAutomationsNavigation,
   isProjectsNavigation,
   isPagesNavigation,
-  type NavigationState,
 } from "@/contexts/NavigationContext"
 import type { SettingsSubpage } from "../../../shared/types"
 import { SourcesListPanel } from "./SourcesListPanel"
 import { SkillsListPanel } from "./SkillsListPanel"
 import { AutomationsListPanel } from "../automations/AutomationsListPanel"
 import { ProjectsListPanel } from "./ProjectsListPanel"
-import { APP_EVENTS, AGENT_EVENTS, type AutomationFilterKind, AUTOMATION_TYPE_TO_FILTER_KIND } from "../automations/types"
+import { AUTOMATION_TYPE_TO_FILTER_KIND } from "../automations/types"
 import { useAutomations } from "@/hooks/useAutomations"
 import { useProjects } from "@/hooks/useProjects"
 import { usePages } from "@/hooks/usePages"
@@ -492,7 +464,6 @@ export function AppShell(props: AppShellProps) {
  */
 function AppShellContent({
   contextValue,
-  defaultLayout = [20, 32, 48],
   menuNewChatTrigger,
 }: AppShellProps) {
   // Destructure commonly used values from context
@@ -509,14 +480,11 @@ function AppShellContent({
     onUnflagSession,
     onArchiveSession,
     onUnarchiveSession,
-    onMarkSessionRead,
     onMarkSessionUnread,
     onSessionStatusChange,
     onRenameSession,
     onOpenSettings,
     onOpenKeyboardShortcuts,
-    onSendMessage,
-    openNewChat,
     pendingPermissions,
   } = contextValue
 
@@ -555,7 +523,6 @@ function AppShellContent({
   const showSidebar = isSessionsNavigation(navState)
 
   const store = useStore()
-  const panelStack = useAtomValue(panelStackAtom)
   const panelCount = useAtomValue(panelCountAtom)
   const focusedSessionId = useAtomValue(focusedSessionIdAtom)
 
@@ -814,11 +781,6 @@ function AppShellContent({
   useAction('app.search', () => setSearchActive(true))
 
   // Unified sidebar keyboard navigation state
-  // Load expanded folders from localStorage (default: all collapsed)
-  const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(() => {
-    const saved = storage.get<string[]>(storage.KEYS.expandedFolders, [])
-    return new Set(saved)
-  })
   const [focusedSidebarItemId, setFocusedSidebarItemId] = React.useState<string | null>(null)
   const sidebarItemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
   // Track which expandable sidebar items are collapsed
@@ -869,7 +831,8 @@ function AppShellContent({
   } = useAutomations(activeWorkspaceId)
 
   const { projects } = useProjects(activeWorkspaceId)
-  const { pages } = usePages(activeWorkspaceId)
+  // Loads and syncs pagesAtom (read by the pages views); the list itself is not used here
+  usePages(activeWorkspaceId)
   const projectMenuOptions = useMemo(
     () => projects.map(p => ({ id: p.config.id, slug: p.config.slug, name: p.config.name, color: p.config.color })),
     [projects],
@@ -961,9 +924,6 @@ function AppShellContent({
       const newViewFilters = storage.get<ViewFiltersMap>(storage.KEYS.viewFilters, {}, activeWorkspaceId)
       setViewFiltersMap(newViewFilters)
 
-      const newExpandedFolders = storage.get<string[]>(storage.KEYS.expandedFolders, [], activeWorkspaceId)
-      setExpandedFolders(new Set(newExpandedFolders))
-
       const newCollapsedItems = storage.get<string[] | null>(storage.KEYS.collapsedSidebarItems, null, activeWorkspaceId)
       setCollapsedItems(newCollapsedItems !== null ? new Set(newCollapsedItems) : new Set(['nav:labels']))
     }
@@ -1023,7 +983,7 @@ function AppShellContent({
 
 
   // Load dynamic statuses from workspace config
-  const { statuses: statusConfigs, isLoading: isLoadingStatuses } = useStatuses(activeWorkspace?.id || null)
+  const { statuses: statusConfigs } = useStatuses(activeWorkspace?.id || null)
   const [sessionStatuses, setSessionStatuses] = React.useState<SessionStatus[]>([])
 
   // Convert StatusConfig to SessionStatus with resolved icons
@@ -1130,7 +1090,7 @@ function AppShellContent({
   }, [navState, navigate])
 
   // Focus zone management
-  const { focusZone, focusNextZone, focusPreviousZone } = useFocusContext()
+  const { focusZone, focusNextZone } = useFocusContext()
 
   // Register focus zones
   const { zoneRef: sidebarRef, isFocused: sidebarFocused } = useFocusZone({ zoneId: 'sidebar' })
@@ -1317,14 +1277,6 @@ function AppShellContent({
     sessionListWidth,
   ])
 
-  // Spring transition config - shared between sidebar and header
-  // Critical damping (no bounce): damping = 2 * sqrt(stiffness * mass)
-  const springTransition = {
-    type: "spring" as const,
-    stiffness: 600,
-    damping: 49,
-  }
-
   // Use session metadata from Jotai atom (lightweight, no messages)
   // This prevents closures from retaining full message arrays
   const sessionMetaMap = useAtomValue(sessionMetaMapAtom)
@@ -1410,7 +1362,6 @@ function AppShellContent({
   }, [workspaces])
 
   // Count sessions by todo state (scoped to workspace)
-  const isMetaDone = (s: SessionMeta) => s.sessionStatus === 'done' || s.sessionStatus === 'cancelled'
   const flaggedCount = activeSessionMetas.filter(s => s.isFlagged).length
   const archivedCount = workspaceSessionMetas.filter(s => s.isArchived).length
 
@@ -1456,29 +1407,6 @@ function AppShellContent({
     }
     return counts
   }, [activeSessionMetas, effectiveSessionStatuses])
-
-  // Count sources by type for the Sources dropdown subcategories
-  const sourceTypeCounts = useMemo(() => {
-    const counts = { api: 0, mcp: 0, local: 0 }
-    for (const source of sources) {
-      const t = source.config.type
-      if (t === 'api' || t === 'mcp' || t === 'local') {
-        counts[t]++
-      }
-    }
-    return counts
-  }, [sources])
-
-  // Count automations by type for the Automations dropdown subcategories
-  const automationTypeCounts = useMemo(() => {
-    const counts = { scheduled: 0, event: 0, agentic: 0 }
-    for (const automation of automations) {
-      if (automation.event === 'SchedulerTick') counts.scheduled++
-      else if ((APP_EVENTS as string[]).includes(automation.event)) counts.event++
-      else if ((AGENT_EVENTS as string[]).includes(automation.event)) counts.agentic++
-    }
-    return counts
-  }, [automations])
 
   // Filter session metadata based on sidebar mode and chat filter
   const filteredSessionMetas = useMemo(() => {
@@ -1657,12 +1585,6 @@ function AppShellContent({
     onReplayAutomation: handleReplayAutomation,
   }), [contextValue, handleDeleteSession, sources, skills, activeSessionWorkingDirectory, displayLabelConfigs, handleSessionLabelsChange, enabledModes, effectiveSessionStatuses, handleSessionSourcesChange, isAutoCompact, searchActive, searchQuery, handleChatMatchInfoChange, handleTestAutomation, handleToggleAutomation, handleDuplicateAutomation, handleDeleteAutomation, automationTestResults, getAutomationHistory, handleReplayAutomation])
 
-  // Persist expanded folders to localStorage (workspace-scoped)
-  React.useEffect(() => {
-    if (!activeWorkspaceId) return
-    storage.set(storage.KEYS.expandedFolders, [...expandedFolders], activeWorkspaceId)
-  }, [expandedFolders, activeWorkspaceId])
-
   // Persist per-view filter map to localStorage (workspace-scoped)
   React.useEffect(() => {
     if (!activeWorkspaceId) return
@@ -1697,10 +1619,6 @@ function AppShellContent({
     navigate(routes.view.label(labelId))
   }, [])
 
-  const handleViewClick = useCallback((viewId: string) => {
-    navigate(routes.view.view(viewId))
-  }, [])
-
   // DnD handler: reorder statuses (flat list drag-and-drop)
   // Sets optimistic order immediately for instant UI feedback, then fires IPC.
   const handleStatusReorder = useCallback((orderedIds: string[]) => {
@@ -1712,19 +1630,6 @@ function AppShellContent({
   // Handler for sources view (all sources)
   const handleSourcesClick = useCallback(() => {
     navigate(routes.view.sources())
-  }, [])
-
-  // Handlers for source type filter views (subcategories in Sources dropdown)
-  const handleSourcesApiClick = useCallback(() => {
-    navigate(routes.view.sourcesApi())
-  }, [])
-
-  const handleSourcesMcpClick = useCallback(() => {
-    navigate(routes.view.sourcesMcp())
-  }, [])
-
-  const handleSourcesLocalClick = useCallback(() => {
-    navigate(routes.view.sourcesLocal())
   }, [])
 
   // Handler for skills view
@@ -1747,18 +1652,6 @@ function AppShellContent({
     navigate(routes.view.pages())
   }, [])
 
-  const handleAutomationsScheduledClick = useCallback(() => {
-    navigate(routes.view.automationsScheduled())
-  }, [])
-
-  const handleAutomationsEventClick = useCallback(() => {
-    navigate(routes.view.automationsEvent())
-  }, [])
-
-  const handleAutomationsAgenticClick = useCallback(() => {
-    navigate(routes.view.automationsAgentic())
-  }, [])
-
   // Handler for settings view. With no arg → bare `settings` route (navigator-only
   // in compact mode, App fallback on desktop). With an arg → `settings/<subpage>`.
   const handleSettingsClick = useCallback((subpage?: SettingsSubpage) => {
@@ -1771,8 +1664,7 @@ function AppShellContent({
   // State to control which EditPopover is open (triggered from context menus).
   // We use controlled popovers instead of deep links so the user can type
   // their request in the popover UI before opening a new chat window.
-  // add-source variants: add-source (generic), add-source-api, add-source-mcp, add-source-local
-  const [editPopoverOpen, setEditPopoverOpen] = useState<'statuses' | 'labels' | 'views' | 'add-source' | 'add-source-api' | 'add-source-mcp' | 'add-source-local' | 'add-skill' | 'add-label' | 'automation-config' | 'add-project' | null>(null)
+  const [editPopoverOpen, setEditPopoverOpen] = useState<'statuses' | 'labels' | 'add-label' | null>(null)
 
   // Stores the Y position of the last right-clicked sidebar item so the EditPopover
   // appears near it rather than at a fixed location. Updated synchronously before
@@ -1829,25 +1721,6 @@ function AppShellContent({
     setTimeout(() => setEditPopoverOpen('labels'), 50)
   }, [captureContextMenuPosition])
 
-  // Handler for "Edit Views" context menu action
-  // Opens the EditPopover for view configuration
-  const openConfigureViews = useCallback(() => {
-    captureContextMenuPosition()
-    setTimeout(() => setEditPopoverOpen('views'), 50)
-  }, [captureContextMenuPosition])
-
-  // Handler for "Delete View" context menu action
-  // Removes the view from config by filtering it out and saving
-  const handleDeleteView = useCallback(async (viewId: string) => {
-    if (!activeWorkspace?.id) return
-    try {
-      const updated = viewConfigs.filter(v => v.id !== viewId)
-      await window.electronAPI.saveViews(activeWorkspace.id, updated)
-    } catch (err) {
-      console.error('[AppShell] Failed to delete view:', err)
-    }
-  }, [activeWorkspace?.id, viewConfigs])
-
   // Handler for "Add New Label" context menu action
   // Opens the EditPopover with 'add-label' context, storing which label was right-clicked
   // so the agent knows to add the new label relative to it
@@ -1867,29 +1740,6 @@ function AppShellContent({
       console.error('[AppShell] Failed to delete label:', err)
     }
   }, [activeWorkspace?.id])
-
-  // Handler for "Add Source" context menu action
-  // Opens the EditPopover for adding a new source
-  // Optional sourceType param allows filter-aware context (from subcategory menus or filtered views)
-  const openAddSource = useCallback((sourceType?: 'api' | 'mcp' | 'local') => {
-    captureContextMenuPosition()
-    const key = sourceType ? `add-source-${sourceType}` as const : 'add-source' as const
-    setTimeout(() => setEditPopoverOpen(key), 50)
-  }, [captureContextMenuPosition])
-
-  // Handler for "Add Skill" context menu action
-  // Opens the EditPopover for adding a new skill
-  const openAddSkill = useCallback(() => {
-    captureContextMenuPosition()
-    setTimeout(() => setEditPopoverOpen('add-skill'), 50)
-  }, [captureContextMenuPosition])
-
-  // Handler for "Add Automation" context menu action
-  // Opens the EditPopover for adding a new automation
-  const openAddAutomation = useCallback(() => {
-    captureContextMenuPosition()
-    setTimeout(() => setEditPopoverOpen('automation-config'), 50)
-  }, [captureContextMenuPosition])
 
   // Handler for "Add Project" context menu action — creates a project directly
   // Open the "Create Project" dialog so the user can provide a name up front.
@@ -2030,20 +1880,7 @@ function AppShellContent({
     result.push({ id: 'nav:settings', type: 'nav', action: () => handleSettingsClick() })
 
     return result
-  }, [handleAllSessionsClick, handleFlaggedClick, handleArchivedClick, handleSessionStatusClick, effectiveSessionStatuses, handleLabelClick, labelConfigs, labelTree, viewConfigs, handleViewClick, handleSourcesClick, handleSkillsClick, handleProjectsClick, handlePagesClick, handleAutomationsClick, handleSettingsClick])
-
-  // Toggle folder expanded state
-  const handleToggleFolder = React.useCallback((path: string) => {
-    setExpandedFolders(prev => {
-      const next = new Set(prev)
-      if (next.has(path)) {
-        next.delete(path)
-      } else {
-        next.add(path)
-      }
-      return next
-    })
-  }, [])
+  }, [handleAllSessionsClick, handleFlaggedClick, handleArchivedClick, handleSessionStatusClick, effectiveSessionStatuses, handleLabelClick, labelConfigs, labelTree, viewConfigs, handleSourcesClick, handleSkillsClick, handleProjectsClick, handlePagesClick, handleAutomationsClick, handleSettingsClick])
 
   // Get props for any sidebar item (unified roving tabindex pattern)
   const getSidebarItemProps = React.useCallback((id: string) => ({
@@ -3398,79 +3235,6 @@ function AppShellContent({
                 },
               }
             })()}
-          />
-          {/* Edit Views EditPopover - anchored near sidebar */}
-          <EditPopover
-            open={editPopoverOpen === 'views'}
-            onOpenChange={(isOpen) => setEditPopoverOpen(isOpen ? 'views' : null)}
-            modal={true}
-            trigger={
-              <div
-                className="fixed w-0 h-0 pointer-events-none"
-                style={{ left: sidebarWidth + 20, top: editPopoverAnchorY.current }}
-                aria-hidden="true"
-              />
-            }
-            side="bottom"
-            align="start"
-            secondaryAction={{
-              label: 'Edit File',
-              filePath: `${activeWorkspace.rootPath}/views.json`,
-            }}
-            {...getEditConfig('edit-views', activeWorkspace.rootPath)}
-          />
-          {/* Add Source EditPopovers - one for each variant (generic + filter-specific)
-           * editPopoverOpen can be: 'add-source', 'add-source-api', 'add-source-mcp', 'add-source-local'
-           * Each variant uses its corresponding EditContextKey for filter-aware agent context */}
-          {(['add-source', 'add-source-api', 'add-source-mcp', 'add-source-local'] as const).map((variant) => (
-            <EditPopover
-              key={variant}
-              open={editPopoverOpen === variant}
-              onOpenChange={(isOpen) => setEditPopoverOpen(isOpen ? variant : null)}
-              modal={true}
-              trigger={
-                <div
-                  className="fixed w-0 h-0 pointer-events-none"
-                  style={{ left: sidebarWidth + 20, top: editPopoverAnchorY.current }}
-                  aria-hidden="true"
-                />
-              }
-              side="bottom"
-              align="start"
-              {...getEditConfig(variant, activeWorkspace.rootPath)}
-            />
-          ))}
-          {/* Add Skill EditPopover */}
-          <EditPopover
-            open={editPopoverOpen === 'add-skill'}
-            onOpenChange={(isOpen) => setEditPopoverOpen(isOpen ? 'add-skill' : null)}
-            modal={true}
-            trigger={
-              <div
-                className="fixed w-0 h-0 pointer-events-none"
-                style={{ left: sidebarWidth + 20, top: editPopoverAnchorY.current }}
-                aria-hidden="true"
-              />
-            }
-            side="bottom"
-            align="start"
-            {...getEditConfig('add-skill', activeWorkspace.rootPath)}
-          />
-          {/* Add Automation EditPopover - triggered from "Add Automation" context menu in automations */}
-          <EditPopover
-            open={editPopoverOpen === 'automation-config'}
-            onOpenChange={(isOpen) => setEditPopoverOpen(isOpen ? 'automation-config' : null)}
-            modal={true}
-            trigger={
-              <div
-                className="fixed w-0 h-0 pointer-events-none"
-                style={{ left: sidebarWidth + 20, top: editPopoverAnchorY.current }}
-                aria-hidden="true"
-              />
-            }
-            side="bottom"
-            align="start"
-            {...getEditConfig('automation-config', activeWorkspace.rootPath)}
           />
           {/* Add Label EditPopover - triggered from "Add New Label" context menu on labels */}
           <EditPopover

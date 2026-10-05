@@ -11,7 +11,6 @@
  * Data is loaded via the useLabels hook which subscribes to live config changes.
  */
 
-import * as React from 'react'
 import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useTranslation } from 'react-i18next'
 import { ScrollArea } from '@/components/ui/scroll-area'

@@ -7,7 +7,7 @@
  * - LLM connection type mapping
  * - Available providers list
  */
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect } from 'bun:test';
 import { join } from 'node:path';
 import {
   detectProvider,
@@ -22,7 +22,6 @@ import {
   providerTypeToAgentProvider,
   resolveModelForProvider,
   resolveSetupTestConnectionHint,
-  createBackendFromConnection,
   testBackendConnection,
   validateStoredBackendConnection,
 } from '../factory.ts';

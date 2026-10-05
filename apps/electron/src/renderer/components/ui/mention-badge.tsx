@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SkillAvatar } from '@/components/ui/skill-avatar'

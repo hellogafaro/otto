@@ -26,7 +26,6 @@ export type {
   PromptBuilderConfig,
   ContextBlockOptions,
   PathProcessorConfig,
-  ConfigValidatorConfig,
   ConfigValidationResult,
   ConfigFileType,
   // Re-exported from mode-types

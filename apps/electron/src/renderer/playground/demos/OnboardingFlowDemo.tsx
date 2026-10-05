@@ -35,11 +35,7 @@ export function OnboardingFlowDemo() {
   const [localStatus, setLocalStatus] = useState<'idle' | 'validating' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | undefined>()
 
-  // Track history for the step indicator
-  const [providerChoice, setProviderChoice] = useState<ProviderChoice | null>(null)
-
   const handleProviderSelect = useCallback((choice: ProviderChoice) => {
-    setProviderChoice(choice)
     setCredStatus('idle')
     setLocalStatus('idle')
     setErrorMessage(undefined)
@@ -95,7 +91,6 @@ export function OnboardingFlowDemo() {
   const handleRestart = useCallback(() => {
     setStep('welcome')
     setMethod(null)
-    setProviderChoice(null)
     setCredStatus('idle')
     setLocalStatus('idle')
     setErrorMessage(undefined)

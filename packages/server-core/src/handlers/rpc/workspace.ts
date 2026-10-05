@@ -197,7 +197,7 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) throw new Error('Workspace not found')
 
-    const { writeFileSync, existsSync, unlinkSync, readdirSync } = await import('fs')
+    const { writeFileSync, unlinkSync, readdirSync } = await import('fs')
     const { join, normalize, basename } = await import('path')
 
     // Security: validate path

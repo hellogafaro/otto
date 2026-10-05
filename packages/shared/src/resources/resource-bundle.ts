@@ -30,7 +30,6 @@ import { AUTOMATIONS_CONFIG_FILE, AUTOMATIONS_HISTORY_FILE, AUTOMATIONS_RETRY_QU
 import { validateAutomationsConfig } from '../automations/validation.ts'
 import { generateShortId } from '../automations/resolve-config-path.ts'
 import { VALID_EVENTS } from '../automations/schemas.ts'
-import { debug } from '../utils/debug.ts'
 
 import type { FolderSourceConfig } from '../sources/types.ts'
 import type { AutomationMatcher } from '../automations/types.ts'

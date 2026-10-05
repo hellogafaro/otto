@@ -7,7 +7,7 @@
  * - Cleared on failed fork recovery
  * - Persisted and cleared via onSdkSessionIdUpdate callback
  */
-import { describe, it, expect, mock, beforeEach } from 'bun:test'
+import { describe, it, expect, mock } from 'bun:test'
 
 // ============================================================
 // Test A: onSdkSessionIdUpdate callback retires branch metadata

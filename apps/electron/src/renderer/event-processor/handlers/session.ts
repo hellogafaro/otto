@@ -939,7 +939,7 @@ export function handleAuthRequest(
   state: SessionState,
   event: AuthRequestEvent
 ): ProcessResult {
-  const { session, streaming } = state
+  const { session } = state
 
   // Add auth-request message to session
   return {

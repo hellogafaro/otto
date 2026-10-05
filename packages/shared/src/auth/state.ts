@@ -13,7 +13,6 @@
 
 import { getCredentialManager } from '../credentials/index.ts';
 import {
-  loadStoredConfig,
   getActiveWorkspace,
   getDefaultLlmConnection,
   getLlmConnection,
@@ -263,7 +262,6 @@ export async function getValidClaudeOAuthToken(connectionSlug: string): Promise<
  * Falls back to legacy global credentials for backwards compatibility.
  */
 export async function getAuthState(): Promise<AuthState> {
-  const config = loadStoredConfig();
   const manager = getCredentialManager();
   const activeWorkspace = getActiveWorkspace();
 

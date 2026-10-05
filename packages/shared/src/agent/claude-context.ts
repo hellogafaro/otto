@@ -9,7 +9,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from 'fs';
-import { join, basename } from 'path';
+import { join } from 'path';
 import { CONFIG_DIR } from '../config/paths.ts';
 import type {
   SessionToolContext,
@@ -22,7 +22,6 @@ import type {
   StdioValidationResult,
   HttpMcpConfig,
   McpValidationResult,
-  ApiTestResult,
   SourceConfig,
   DeveloperFeedback,
 } from '@craft-agent/session-tools-core';
@@ -34,7 +33,6 @@ import {
   validatePreferences,
   validateAll,
   validateSkill,
-  validateWorkspacePermissions,
   validateSourcePermissions,
   validateAllPermissions,
   validateToolIcons,
@@ -47,7 +45,6 @@ import {
 import {
   loadSourceConfig as loadSourceConfigImpl,
   saveSourceConfig as saveSourceConfigImpl,
-  getSourcePath,
 } from '../sources/storage.ts';
 import type { FolderSourceConfig, LoadedSource as SharedLoadedSource } from '../sources/types.ts';
 import { getSourceCredentialManager } from '../sources/index.ts';
@@ -89,7 +86,7 @@ export interface ClaudeContextOptions {
  * - Icon management
  */
 export function createClaudeContext(options: ClaudeContextOptions): SessionToolContext {
-  const { sessionId, workspacePath, workspaceId, onPlanSubmitted, onAuthRequest } = options;
+  const { sessionId, workspacePath, onPlanSubmitted, onAuthRequest } = options;
 
   // File system implementation
   const fs: FileSystemInterface = {

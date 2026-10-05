@@ -672,9 +672,6 @@ export interface BackendConfig extends CoreBackendConfig {
    */
   legacyAuthType?: 'api_key' | 'oauth_token';
 
-  /** MCP token override (for testing) */
-  mcpToken?: string;
-
   /**
    * Connection slug for credential routing.
    * Set by factory when creating from a connection.

@@ -25,14 +25,13 @@ import {
 import { join, basename } from 'path';
 import { getWorkspaceSessionsPath } from '../workspaces/storage.ts';
 import { generateUniqueSessionId } from './slug-generator.ts';
-import { toPortablePath, expandPath } from '../utils/paths.ts';
+import { expandPath } from '../utils/paths.ts';
 import { sanitizeSessionId } from './validation.ts';
 import { perf } from '../utils/perf.ts';
 import type {
   SessionConfig,
   StoredSession,
   SessionMetadata,
-  SessionTokenUsage,
   SessionHeader,
   SessionStatus,
 } from './types.ts';

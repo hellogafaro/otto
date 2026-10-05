@@ -3,7 +3,6 @@
  * kind glyphs/badges and the freshness indicator derived from PageConfig.
  */
 
-import * as React from 'react'
 import { Activity, FileText, MousePointerClick, type LucideIcon } from 'lucide-react'
 import { formatDistanceToNowStrict, type Locale } from 'date-fns'
 import { useTranslation } from 'react-i18next'

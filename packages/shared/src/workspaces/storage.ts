@@ -9,11 +9,9 @@
 import {
   existsSync,
   mkdirSync,
-  readFileSync,
   writeFileSync,
   readdirSync,
   rmSync,
-  statSync,
   cpSync,
 } from 'fs';
 import { join } from 'path';
@@ -29,7 +27,6 @@ import { parsePermissionMode, DEFAULT_PERMISSION_MODES } from '../agent/mode-typ
 import { normalizeThinkingLevel } from '../agent/thinking-levels.ts';
 import type {
   WorkspaceConfig,
-  CreateWorkspaceInput,
   LoadedWorkspace,
   WorkspaceSummary,
 } from './types.ts';

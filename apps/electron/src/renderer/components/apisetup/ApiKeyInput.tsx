@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { SettingsCard, SettingsRow, SettingsMenuSelect, SettingsSegmentedControl } from "@/components/settings"
 import { Eye, EyeOff } from "lucide-react"
 import { Spinner } from "@craft-agent/ui"
-import { pickTierDefaults, resolveTierModels, type PiModelInfo } from "./tier-models"
+import { resolveTierModels, type PiModelInfo } from "./tier-models"
 import {
   resolveCustomEndpointPayload,
   resolvePiAuthProviderForSubmit,

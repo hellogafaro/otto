@@ -16,7 +16,7 @@
 import * as React from 'react'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { PencilLine, FilePlus, X } from 'lucide-react'
-import { parseDiffFromFile, parsePatchFiles, type FileContents } from '@pierre/diffs'
+import { parseDiffFromFile, type FileContents } from '@pierre/diffs'
 import { ShikiDiffViewer, getDiffStats } from '../code-viewer/ShikiDiffViewer'
 import { UnifiedDiffViewer, getUnifiedDiffStats } from '../code-viewer/UnifiedDiffViewer'
 import { DiffViewerControls } from '../code-viewer/DiffViewerControls'

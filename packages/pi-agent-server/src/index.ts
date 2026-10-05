@@ -90,7 +90,7 @@ import {
 
 // Direct source imports from shared (bundled by bun build)
 import { handleLargeResponse, estimateTokens, tokenLimitFor, setLargeResultSummaryGate } from '../../shared/src/utils/large-response.ts';
-import { getSessionPlansPath, getSessionPath } from '../../shared/src/sessions/storage.ts';
+import { getSessionPath } from '../../shared/src/sessions/storage.ts';
 import { buildCallLlmRequest } from '../../shared/src/agent/llm-tool.ts';
 import type { LLMQueryRequest, LLMQueryResult } from '../../shared/src/agent/llm-tool.ts';
 import { PI_TOOL_NAME_MAP, THINKING_TO_PI } from '../../shared/src/agent/backend/pi/constants.ts';
@@ -822,13 +822,6 @@ async function requestPreToolUseApproval(
 
 function wrapToolsWithHooks(tools: ToolDefinition<any, any>[]): ToolDefinition<any, any>[] {
   return tools.map(tool => wrapSingleTool(tool));
-}
-
-function makeErrorResult(message: string): AgentToolResult<any> {
-  return {
-    content: [{ type: 'text', text: message }],
-    details: { isError: true },
-  };
 }
 
 function wrapSingleTool(tool: ToolDefinition<any, any>): ToolDefinition<any, any> {

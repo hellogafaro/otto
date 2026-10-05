@@ -8,7 +8,6 @@
  */
 
 import { Notification, app, BrowserWindow, nativeImage } from 'electron'
-import { join } from 'path'
 import { readFileSync } from 'fs'
 import { mainLog } from './logger'
 import { RPC_CHANNELS } from '../shared/types'
@@ -23,7 +22,6 @@ let clientResolver: ClientResolver | null = null
 let baseIconPath: string | null = null
 let baseIconDataUrl: string | null = null
 let currentBadgeCount: number = 0
-let instanceNumber: number | null = null  // Multi-instance dev: instance number for dock badge
 
 /**
  * Initialize the notification service with window manager reference
@@ -281,8 +279,6 @@ export function initInstanceBadge(number: number): void {
     // Instance badge only supported on macOS for now
     return
   }
-
-  instanceNumber = number
 
   try {
     // Use dock.setBadge() for simple text badge

@@ -13,7 +13,6 @@
  * - "Add Skill" (for skills) - triggers EditPopover callback
  */
 
-import * as React from 'react'
 import { useTranslation } from "react-i18next"
 import {
   CheckCheck,

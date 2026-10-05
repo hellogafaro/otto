@@ -8,7 +8,7 @@
  * They are never persisted on sessions — purely runtime-evaluated.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { ViewConfig } from './types.ts';
 import { getDefaultViews } from './defaults.ts';

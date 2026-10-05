@@ -64,7 +64,6 @@ export function InputContainer({
     compactMode ? FALLBACK_HEIGHTS['freeform-compact'] : FALLBACK_HEIGHTS.freeform
   )
   const [structuredHeight, setStructuredHeight] = React.useState<number | null>(null)
-  const [isFocused, setIsFocused] = React.useState(false)
   const hasInitializedRef = React.useRef(false)
 
   // Create a stable key for the current content
@@ -134,11 +133,6 @@ export function InputContainer({
     if (!hasInitializedRef.current) {
       hasInitializedRef.current = true
     }
-  }, [])
-
-  // Handle focus changes from FreeFormInput
-  const handleFocusChange = React.useCallback((focused: boolean) => {
-    setIsFocused(focused)
   }, [])
 
   // Use ResizeObserver only for structured inputs (freeform uses onHeightChange callback)
@@ -222,7 +216,6 @@ export function InputContainer({
           inputRef={forMeasuring ? undefined : textareaRef}
           maxHeight={maxHeight}
           onHeightChange={forMeasuring ? undefined : handleFreeformHeightChange}
-          onFocusChange={forMeasuring ? undefined : handleFocusChange}
           unstyled
         />
       )

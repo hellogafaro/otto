@@ -6,7 +6,6 @@ import {
   CalendarDays,
   CheckCircle2,
   Circle,
-  Clock3,
   CloudAlert,
   CloudCheck,
   CloudOff,
@@ -15,7 +14,6 @@ import {
   MoreHorizontal,
   Link2,
   ListTodo,
-  User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
