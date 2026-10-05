@@ -51,7 +51,8 @@ function DialogContent({
 }) {
   return (
     <DialogPortal>
-      <DialogOverlay />
+      {/* A full-screen sheet covers the page, so it needs no dimming layer */}
+      {!fullScreen && <DialogOverlay />}
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(

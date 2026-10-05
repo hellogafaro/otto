@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { PanelHeader } from '@/components/app-shell/PanelHeader'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -18,7 +19,7 @@ import { HeaderMenu } from '@/components/ui/HeaderMenu'
 import { routes } from '@/lib/navigate'
 import { X, MoreHorizontal, Pencil, Trash2, Star, ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, RefreshCcw, Settings2, MessageSquareMore, Zap, Clock, Check } from 'lucide-react'
 import type { CredentialHealthStatus, CredentialHealthIssue } from '../../../shared/types'
-import { Spinner, FullscreenOverlayBase, Tooltip, TooltipTrigger, TooltipContent } from '@craft-agent/ui'
+import { Spinner, Tooltip, TooltipTrigger, TooltipContent } from '@craft-agent/ui'
 import { useSetAtom } from 'jotai'
 import { fullscreenOverlayOpenAtom } from '@/atoms/overlay'
 import { DECISION_SETTINGS_CHANGED_EVENT } from '@/atoms/permission-modes'
@@ -782,6 +783,16 @@ export default function AiSettingsPage() {
     setIsDirectEdit(false)
     setEditInitialValues(undefined)
   }, [closeApiSetup, apiSetupOnboarding])
+
+  // Escape closes the setup sheet
+  useEffect(() => {
+    if (!showApiSetup) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleCloseApiSetup()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [showApiSetup, handleCloseApiSetup])
 
   // Handler for re-authenticate button in credential health banner
   const handleReauthenticate = useCallback(() => {
@@ -1658,10 +1669,12 @@ export default function AiSettingsPage() {
               )}
 
               {/* API Setup Fullscreen Overlay */}
-              <FullscreenOverlayBase
-                isOpen={showApiSetup}
-                onClose={handleCloseApiSetup}
-                className="z-splash flex flex-col bg-foreground-2"
+              {showApiSetup && createPortal(
+              <div
+                role="dialog"
+                aria-modal
+                className="fixed inset-0 bg-background"
+                style={{ zIndex: 'var(--z-fullscreen, 350)' }}
               >
                 <OnboardingWizard
                   state={apiSetupOnboarding.state}
@@ -1692,7 +1705,9 @@ export default function AiSettingsPage() {
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </FullscreenOverlayBase>
+              </div>,
+              document.body
+              )}
 
               {/* Rename Connection Dialog */}
               <RenameDialog
