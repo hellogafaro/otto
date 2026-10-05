@@ -62,7 +62,7 @@ describe('sendMessage OAuth refresh ordering (#710)', () => {
         name: slug,
         type: 'mcp',
         enabled: true,
-        provider: 'craft',
+        provider: 'example',
         isAuthenticated,
         mcp: { url: `https://${slug}.example.com`, authType: 'oauth' },
       }),

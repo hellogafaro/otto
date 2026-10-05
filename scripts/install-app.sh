@@ -2,7 +2,9 @@
 
 set -e
 
-VERSIONS_URL="https://thecraftagents.com/electron"
+# Release host serving /latest/<manifest>.yml and the installers. Must be set.
+VERSIONS_URL="${OTTO_DOWNLOAD_URL:-}"
+VERSIONS_URL="${VERSIONS_URL%/}"
 DOWNLOAD_DIR="$HOME/.otto/downloads"
 
 # Colors for output
@@ -17,6 +19,10 @@ info() { printf "%b\n" "${BLUE}>${NC} $1"; }
 success() { printf "%b\n" "${GREEN}>${NC} $1"; }
 warn() { printf "%b\n" "${YELLOW}!${NC} $1"; }
 error() { printf "%b\n" "${RED}x${NC} $1"; exit 1; }
+
+if [ -z "$VERSIONS_URL" ]; then
+    error "OTTO_DOWNLOAD_URL is not set. Set it to the release host that serves the Otto builds, then run this script again."
+fi
 
 # Detect OS
 OS="$(uname -s)"
@@ -351,7 +357,7 @@ ELECTRON_CACHE_ALT="$HOME/.cache/@otto"
 # Verify AppImage exists
 if [ ! -f "$APPIMAGE_PATH" ]; then
     echo "Error: Otto not found at $APPIMAGE_PATH"
-    echo "Reinstall: curl -fsSL https://thecraftagents.com/install-app.sh | bash"
+    echo "Reinstall: OTTO_DOWNLOAD_URL=<release host> bash scripts/install-app.sh"
     exit 1
 fi
 

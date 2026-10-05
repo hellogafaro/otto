@@ -377,7 +377,8 @@ export function registerPagesHandlers(server: RpcServer, deps: HandlerDeps): voi
   // Whether the renderer may offer publish/update UI (unpublish is always allowed)
   server.handle(RPC_CHANNELS.pages.GET_SHARE_CAPABILITIES, async () => {
     const { isPagesSharingEnabled } = await import('@otto/shared/feature-flags')
-    return { sharingEnabled: isPagesSharingEnabled() }
+    const { getViewerUrl } = await import('@otto/shared/branding')
+    return { sharingEnabled: isPagesSharingEnabled(), viewerConfigured: getViewerUrl() !== undefined }
   })
 
   // What would `includeData` publish, and does any of it look like a secret?

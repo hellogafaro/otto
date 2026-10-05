@@ -5,12 +5,24 @@
 process.env.SLACK_OAUTH_CLIENT_ID = 'slack-test-client';
 process.env.SLACK_OAUTH_CLIENT_SECRET = 'slack-test-secret';
 
-import { describe, expect, it } from 'bun:test';
-import { OAUTH_RELAY_CALLBACK_URL, isOAuthRelayState, decodeOAuthRelayState } from '../../auth/oauth-relay.ts';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { isOAuthRelayState, decodeOAuthRelayState } from '../../auth/oauth-relay.ts';
 import type { LoadedSource, FolderSourceConfig } from '../types.ts';
 
 const { SourceCredentialManager } = await import('../credential-manager.ts');
-const { SLACK_LEGACY_RELAY_CALLBACK_URL, slackLegacyRelayPortForReturnTo, slackLegacyRelayRedirectUri } = await import('../../auth/slack-oauth.ts');
+const { getSlackLegacyRelayCallbackUrl, slackLegacyRelayPortForReturnTo, slackLegacyRelayRedirectUri } = await import('../../auth/slack-oauth.ts');
+
+const RELAY_URL = 'https://relay.test';
+const OAUTH_RELAY_CALLBACK_URL = `${RELAY_URL}/auth/callback`;
+const SLACK_LEGACY_RELAY_CALLBACK_URL = `${RELAY_URL}/auth/slack/callback`;
+
+beforeEach(() => {
+  process.env.OTTO_OAUTH_RELAY_URL = RELAY_URL;
+});
+
+afterEach(() => {
+  delete process.env.OTTO_OAUTH_RELAY_URL;
+});
 
 function createSlackSource(): LoadedSource {
   return {
@@ -34,7 +46,7 @@ function createSlackSource(): LoadedSource {
 }
 
 // Regression for otto#1068: since the generic OAuth relay was
-// introduced, desktop Slack flows sent redirect_uri=https://thecraftagents.com/auth/callback,
+// introduced, desktop Slack flows sent redirect_uri=<relay>/auth/callback,
 // which the Slack app does not have registered, so Slack rejected the request
 // before consent.
 describe('slackLegacyRelayPortForReturnTo', () => {
@@ -44,7 +56,7 @@ describe('slackLegacyRelayPortForReturnTo', () => {
   });
 
   it('rejects targets the legacy relay cannot serve', () => {
-    expect(slackLegacyRelayPortForReturnTo('https://ghalmos.craftdocs-cf-t1.com/api/oauth/callback')).toBeUndefined();
+    expect(slackLegacyRelayPortForReturnTo('https://otto.example.com/api/oauth/callback')).toBeUndefined();
     expect(slackLegacyRelayPortForReturnTo('http://localhost:6477/oauth/callback')).toBeUndefined();
     expect(slackLegacyRelayPortForReturnTo('http://localhost/callback')).toBeUndefined();
     expect(slackLegacyRelayPortForReturnTo('http://localhost:80/callback')).toBeUndefined();
@@ -54,7 +66,14 @@ describe('slackLegacyRelayPortForReturnTo', () => {
   });
 
   it('builds the registered relay redirect for a port', () => {
+    expect(getSlackLegacyRelayCallbackUrl()).toBe(SLACK_LEGACY_RELAY_CALLBACK_URL);
     expect(slackLegacyRelayRedirectUri(6477)).toBe(`${SLACK_LEGACY_RELAY_CALLBACK_URL}?port=6477`);
+  });
+
+  it('falls back to the local callback when no relay is set', () => {
+    delete process.env.OTTO_OAUTH_RELAY_URL;
+    expect(getSlackLegacyRelayCallbackUrl()).toBeUndefined();
+    expect(slackLegacyRelayRedirectUri(6477)).toBe('http://localhost:6477/callback');
   });
 });
 
@@ -84,7 +103,7 @@ describe('SourceCredentialManager.prepareOAuth for Slack', () => {
   });
 
   it('WebUI flows keep the generic relay envelope', async () => {
-    const returnTo = 'https://ghalmos.craftdocs-cf-t1.com/api/oauth/callback';
+    const returnTo = 'https://otto.example.com/api/oauth/callback';
     const result = await credManager.prepareOAuth(createSlackSource(), { callbackUrl: returnTo });
 
     expect(result.redirectUri).toBe(OAUTH_RELAY_CALLBACK_URL);
@@ -93,5 +112,18 @@ describe('SourceCredentialManager.prepareOAuth for Slack', () => {
     const outerState = authUrl.searchParams.get('state')!;
     expect(isOAuthRelayState(outerState)).toBe(true);
     expect(decodeOAuthRelayState(outerState)).toEqual({ returnTo, innerState: result.state });
+  });
+
+  it('without a relay, flows use the callback directly as the Slack redirect', async () => {
+    delete process.env.OTTO_OAUTH_RELAY_URL;
+    const result = await credManager.prepareOAuth(createSlackSource(), {
+      callbackUrl: 'http://localhost:6477/callback',
+    });
+
+    expect(result.redirectUri).toBe('http://localhost:6477/callback');
+    expect(isOAuthRelayState(result.state)).toBe(false);
+    const authUrl = new URL(result.authUrl);
+    expect(authUrl.searchParams.get('redirect_uri')).toBe('http://localhost:6477/callback');
+    expect(authUrl.searchParams.get('state')).toBe(result.state);
   });
 });

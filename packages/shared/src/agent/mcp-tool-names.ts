@@ -14,7 +14,7 @@
  * Verbs that mark a tool as mutating even when its name also contains a read
  * verb (`get_or_create_issue`, `search_and_replace`, `run_query`,
  * `mark_as_read`). Words that are just as often nouns in read tools
- * (`get_commit`, `get_post`, `get_block`, `get_charge`, `list_trash`) are
+ * (`get_commit`, `get_post`, `get_page`, `get_charge`, `list_trash`) are
  * deliberately absent: a name without a read verb is never read-only anyway.
  */
 const MCP_WRITE_WORDS = new Set([

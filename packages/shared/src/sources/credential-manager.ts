@@ -30,7 +30,7 @@ import type { CredentialId, StoredCredential } from '../credentials/types.ts';
 import { getCredentialManager } from '../credentials/index.ts';
 import { OttoOAuth, prepareMcpOAuth, exchangeMcpOAuth, type OAuthCallbacks } from '../auth/oauth.ts';
 import { type OAuthSessionContext } from '../auth/types.ts';
-import { OAUTH_RELAY_CALLBACK_URL, wrapPreparedOAuthFlowForRelay } from '../auth/oauth-relay.ts';
+import { getOAuthRelayCallbackUrl, wrapPreparedOAuthFlowForRelay } from '../auth/oauth-relay.ts';
 import type { PreparedOAuthFlow, OAuthExchangeParams, OAuthExchangeResult, OAuthProvider } from '../auth/oauth-flow-types.ts';
 import {
   startGoogleOAuth,
@@ -389,11 +389,13 @@ export class SourceCredentialManager {
   ): Promise<PreparedOAuthFlow> {
     const { callbackPort } = options;
     const relayReturnTo = options.callbackUrl;
-    // When callbackUrl is provided (WebUI), keep the provider-facing redirect_uri
-    // stable so providers like Google only need a single registered callback.
-    // The relay unwraps the real server callback target from the outer state.
+    // When callbackUrl is provided and a relay is set (OTTO_OAUTH_RELAY_URL), keep
+    // the provider-facing redirect_uri stable so providers like Google only need a
+    // single registered callback; the relay unwraps the real callback target from
+    // the outer state. With no relay, the callback is the provider redirect_uri.
+    const relayCallbackUrl = getOAuthRelayCallbackUrl();
     const providerCallbackUrl = relayReturnTo
-      ? OAUTH_RELAY_CALLBACK_URL
+      ? (relayCallbackUrl ?? relayReturnTo)
       : undefined;
     const provider = this.detectProvider(source);
 
@@ -443,13 +445,13 @@ export class SourceCredentialManager {
           service = inferSlackServiceFromUrl(api?.baseUrl) || 'full';
         }
 
-        // The Slack app only has the legacy relay registered as a redirect URI
-        // (OSS #1068). Desktop flows hand us a localhost return target, which that
-        // relay serves directly (it redirects to http://localhost:<port>/callback),
-        // so use it and skip the generic relay envelope. WebUI (HTTPS) targets
-        // still need the generic relay, which requires
-        // https://thecraftagents.com/auth/callback to be registered in the Slack app.
-        const legacyRelayPort = slackLegacyRelayPortForReturnTo(relayReturnTo);
+        // With a relay set, the Slack app only has the legacy relay registered as a
+        // redirect URI (OSS #1068). Desktop flows hand us a localhost return target,
+        // which that relay serves directly (it redirects to
+        // http://localhost:<port>/callback), so use it and skip the generic relay
+        // envelope. WebUI (HTTPS) targets still need the generic relay, which
+        // requires <relay>/auth/callback to be registered in the Slack app.
+        const legacyRelayPort = relayCallbackUrl ? slackLegacyRelayPortForReturnTo(relayReturnTo) : undefined;
         if (legacyRelayPort !== undefined) {
           return prepareSlackOAuth({ service, userScopes, callbackPort: legacyRelayPort });
         }
@@ -508,8 +510,8 @@ export class SourceCredentialManager {
       }
     }
 
-    return relayReturnTo
-      ? wrapPreparedOAuthFlowForRelay(prepared, relayReturnTo)
+    return relayReturnTo && relayCallbackUrl
+      ? wrapPreparedOAuthFlowForRelay(prepared, relayReturnTo, relayCallbackUrl)
       : prepared;
   }
 

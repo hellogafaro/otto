@@ -12,9 +12,8 @@ import { useEventProcessor } from './event-processor'
 import type { AgentEvent, Effect } from './event-processor'
 import { AppShell } from '@/components/app-shell/AppShell'
 import type { AppShellContextType } from '@/context/AppShellContext'
-import { OnboardingWizard, ReauthScreen } from '@/components/onboarding'
+import { OnboardingWizard } from '@/components/onboarding'
 import { WorkspacePicker } from '@/components/workspace'
-import { ResetConfirmationDialog } from '@/components/ResetConfirmationDialog'
 import { SplashScreen } from '@/components/SplashScreen'
 import { TooltipProvider } from '@otto/ui'
 import { FocusProvider } from '@/context/FocusContext'
@@ -84,7 +83,7 @@ import { rendererLog } from '@/lib/logger'
 import { ActionRegistryProvider } from '@/actions'
 import { toast } from 'sonner'
 
-type AppState = 'loading' | 'onboarding' | 'reauth' | 'workspace-picker' | 'ready'
+type AppState = 'loading' | 'onboarding' | 'workspace-picker' | 'ready'
 
 /** Type for the Jotai store returned by useStore() */
 type JotaiStore = ReturnType<typeof getDefaultStore>
@@ -360,7 +359,6 @@ export default function App() {
   // Theme state (app-level only)
   const [appTheme, setAppTheme] = useState<ThemeOverrides | null>(null)
   // Reset confirmation dialog
-  const [showResetDialog, setShowResetDialog] = useState(false)
 
   // Auto-update: called for its side effects only (shows the "update ready" toast)
   useUpdateChecker()
@@ -667,23 +665,6 @@ export default function App() {
     onConfigSaved: refreshLlmConnections,
     initialSetupNeeds: setupNeeds || undefined,
   })
-
-  // Reauth login handler - placeholder (reauth is not currently used)
-  const handleReauthLogin = useCallback(async () => {
-    // Re-check setup needs
-    const needs = await window.electronAPI.getSetupNeeds()
-    if (needs.isFullyConfigured) {
-      setAppState('ready')
-    } else {
-      setSetupNeeds(needs)
-      setAppState('onboarding')
-    }
-  }, [])
-
-  // Reauth reset handler - open reset confirmation dialog
-  const handleReauthReset = useCallback(() => {
-    setShowResetDialog(true)
-  }, [])
 
   // Check auth state and get window's workspace ID on mount
   useEffect(() => {
@@ -1711,31 +1692,6 @@ export default function App() {
     navigate(routes.view.settings('shortcuts'))
   }, [])
 
-  // Execute reset after user confirms in dialog
-  const executeReset = useCallback(async () => {
-    try {
-      await window.electronAPI.logout()
-      // Reset all state
-      // Clear session atoms - initialize with empty array clears all per-session atoms
-      initializeSessions([])
-      setWorkspaces([])
-      setWindowWorkspaceId(null)
-      // Reset setupNeeds to force fresh onboarding start
-      setSetupNeeds({
-        needsBillingConfig: true,
-        needsCredentials: true,
-        isFullyConfigured: false,
-      })
-      // Reset onboarding hook state
-      onboarding.reset()
-      setAppState('onboarding')
-    } catch (error) {
-      console.error('Reset failed:', error)
-    } finally {
-      setShowResetDialog(false)
-    }
-  }, [onboarding, initializeSessions])
-
   // Handle workspace selection: switch workspace in the same window (in-window switching)
   const handleSelectWorkspace = useCallback(async (workspaceId: string) => {
     // If selecting current workspace, do nothing
@@ -1914,27 +1870,6 @@ export default function App() {
   // Loading state - show splash screen
   if (appState === 'loading') {
     return <SplashScreen isExiting={false} />
-  }
-
-  // Reauth state - session expired, need to re-login
-  // ModalProvider + WindowCloseHandler ensures X button works on Windows
-  if (appState === 'reauth') {
-    return (
-      <DismissibleLayerProvider>
-        <ModalProvider>
-          <WindowCloseHandler />
-          <ReauthScreen
-            onLogin={handleReauthLogin}
-            onReset={handleReauthReset}
-          />
-          <ResetConfirmationDialog
-            open={showResetDialog}
-            onConfirm={executeReset}
-            onCancel={() => setShowResetDialog(false)}
-          />
-        </ModalProvider>
-      </DismissibleLayerProvider>
-    )
   }
 
   // Onboarding state

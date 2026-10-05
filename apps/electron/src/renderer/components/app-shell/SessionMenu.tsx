@@ -42,6 +42,7 @@ import type { SessionMeta } from '@/atoms/sessions'
 import { getSessionStatus, hasUnreadMeta, hasMessagesMeta } from '@/utils/session'
 import { MessagingSessionMenuItem } from '@/components/messaging/MessagingSessionMenuItem'
 import { useSessionMenuActions } from '@/hooks/useSessionMenuActions'
+import { useShareCapabilities } from '@/hooks/useShareCapabilities'
 
 export interface SessionMenuProjectOption {
   id: string
@@ -104,6 +105,7 @@ export function SessionMenu({
   const isFlagged = item.isFlagged ?? false
   const isArchived = item.isArchived ?? false
   const sharedUrl = item.sharedUrl
+  const { viewerConfigured } = useShareCapabilities()
   const currentSessionStatus = getSessionStatus(item)
   const sessionLabels = item.labels ?? []
   const _hasMessages = hasMessagesMeta(item)
@@ -116,8 +118,8 @@ export function SessionMenu({
 
   return (
     <>
-      {/* Share/Shared based on shared state */}
-      {!sharedUrl ? (
+      {/* Share/Shared based on shared state; hidden when no viewer host is configured */}
+      {!viewerConfigured ? null : !sharedUrl ? (
         <MenuItem onClick={actions.share}>
           <CloudUpload className="h-3.5 w-3.5" />
           <span className="flex-1">{t("sessionMenu.share")}</span>

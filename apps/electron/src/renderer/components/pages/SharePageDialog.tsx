@@ -46,30 +46,6 @@ function displayShareError(err: unknown): string {
   return raw.replace(/^PAGE_[A-Z0-9_]+:\s*/, '')
 }
 
-// Module-level cache: the flag is server-evaluated and process-stable.
-let capabilitiesPromise: Promise<{ sharingEnabled: boolean }> | null = null
-
-export function usePageShareCapabilities(): { sharingEnabled: boolean; loaded: boolean } {
-  const [state, setState] = React.useState<{ sharingEnabled: boolean; loaded: boolean }>({
-    sharingEnabled: false,
-    loaded: false,
-  })
-  React.useEffect(() => {
-    let stale = false
-    if (!capabilitiesPromise) {
-      capabilitiesPromise = window.electronAPI.getPageShareCapabilities().catch(() => {
-        capabilitiesPromise = null
-        return { sharingEnabled: false }
-      })
-    }
-    void capabilitiesPromise.then(caps => {
-      if (!stale) setState({ sharingEnabled: caps.sharingEnabled, loaded: true })
-    })
-    return () => { stale = true }
-  }, [])
-  return state
-}
-
 interface SharePageDialogProps {
   workspaceId: string
   page: LoadedPage

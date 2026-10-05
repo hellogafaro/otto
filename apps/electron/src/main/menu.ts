@@ -1,4 +1,4 @@
-import { Menu, app, shell, BrowserWindow } from 'electron'
+import { Menu, app, BrowserWindow } from 'electron'
 import { i18n } from '@otto/shared/i18n'
 import { RPC_CHANNELS, type BroadcastEventMap } from '../shared/types'
 import { EDIT_MENU, VIEW_MENU, WINDOW_MENU } from '../shared/menu-schema'
@@ -80,7 +80,7 @@ export async function rebuildMenu(): Promise<void> {
       label: 'Otto',
       submenu: [
         { role: 'about' as const, label: i18n.t('menu.aboutOtto') },
-        updateMenuItem,
+        ...(updateInfo.enabled ? [updateMenuItem] : []),
         { type: 'separator' as const },
         {
           label: i18n.t("menu.settings"),
@@ -216,10 +216,6 @@ export async function rebuildMenu(): Promise<void> {
     {
       label: i18n.t("menu.help"),
       submenu: [
-        {
-          label: i18n.t("menu.helpAndDocs"),
-          click: () => shell.openExternal('https://thecraftagents.com/docs')
-        },
         {
           label: i18n.t("menu.keyboardShortcuts"),
           accelerator: 'CmdOrCtrl+/',

@@ -154,7 +154,7 @@ bun run sync-secrets
 
 **Creating your own OAuth credentials:**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
-2. Create OAuth Client ID (Web application type) — add `https://thecraftagents.com/auth/callback` as an authorized redirect URI
+2. Create OAuth Client ID (Web application type) — add your OAuth relay's `/auth/callback` URL as an authorized redirect URI
 3. Enable required scopes in OAuth consent screen:
    - `https://www.googleapis.com/auth/gmail.readonly`
    - `https://www.googleapis.com/auth/userinfo.email`
@@ -203,7 +203,7 @@ DevTools opens automatically (configured in `index.ts`). Remove `mainWindow.webC
 - **Session persistence** - Sessions, messages, and names are saved to disk
 - **File attachments** - Attach images, PDFs, and code files to messages
 - **AI-generated titles** - Sessions get automatic titles after first exchange
-- **Subagent support** - Load and apply agent definitions from Craft documents
+- **Subagent support** - Load and apply agent definitions from documents
 - **Shell integration** - Open URLs in browser, open files in default apps
 - **Permission modes** - Three-level permission system (Explore, Ask to Edit, Auto)
 - **Background tasks** - Run long-running tasks in background with progress tracking

@@ -29,13 +29,15 @@ export default defineConfig({
   server: {
     port: 5174, // Different from Electron dev server
     open: true,
-    proxy: {
-      // Proxy API requests to production R2 during local dev
-      '/s/api': {
-        target: 'https://thecraftagents.com',
-        changeOrigin: true,
-        secure: true,
-      },
-    },
+    // Proxy API requests to the viewer host during local dev (OTTO_VIEWER_URL; unset = no proxy)
+    proxy: process.env.OTTO_VIEWER_URL
+      ? {
+          '/s/api': {
+            target: process.env.OTTO_VIEWER_URL,
+            changeOrigin: true,
+            secure: true,
+          },
+        }
+      : undefined,
   },
 })

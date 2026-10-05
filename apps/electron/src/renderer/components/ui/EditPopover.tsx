@@ -312,7 +312,7 @@ const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
         'Follow the patterns in ~/.otto/docs/sources.md. ' +
         'After creating the source, call source_test with the source slug to verify the configuration.',
     },
-    example: 'Connect to my Craft space',
+    example: 'Connect to my Notion workspace',
     overridePlaceholder: 'What would you like to connect?',
     displayLabelKey: 'editPopover.label.addSource',
     exampleKey: 'editPopover.example.addSource',
@@ -366,7 +366,6 @@ const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
       filePath: `${location}/sources/`,
       context:
         'The user wants to add a local folder source. ' +
-        'First, look up the filesystem source guide in the product docs at https://thecraftagents.com/docs. ' +
         'Local folders are bookmarks - use type: "local" with a local.path field. ' +
         'They use existing Read, Write, Glob, Grep tools - no MCP server needed. ' +
         'If unclear, ask about the folder path they want to connect. ' +

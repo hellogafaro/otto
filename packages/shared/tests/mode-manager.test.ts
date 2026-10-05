@@ -208,8 +208,6 @@ const TEST_MODE_CONFIG = {
     { regex: /-h\b$/, source: '-h\\b$', comment: 'Display command help (short)' },
   ] as CompiledBashPattern[],
   readOnlyMcpPatterns: [
-    /blocks_read/, /blocks_list/, /blocks_get/,
-    /document_get/, /document_list/, /spaces_list/, /folders_list/,
     /search/, /list/, /get/, /read/, /view/, /query/, /fetch/, /describe/, /info/,
   ],
   allowedApiEndpoints: [],

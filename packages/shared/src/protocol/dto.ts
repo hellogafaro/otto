@@ -533,6 +533,8 @@ export interface GitBashStatus {
 }
 
 export interface UpdateInfo {
+  /** False when no update host is configured (OTTO_UPDATE_URL unset): no checks, no UI */
+  enabled: boolean
   available: boolean
   currentVersion: string
   latestVersion: string | null

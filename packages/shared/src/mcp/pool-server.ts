@@ -97,12 +97,12 @@ export class McpPoolServer {
 
   /**
    * Create an MCP Server instance wired to the pool.
-   * Tools from pool use `mcp__craft__search_spaces` naming internally.
+   * Tools from pool use `mcp__linear__list_issues` naming internally.
    * We strip the `mcp__` prefix so Codex (which adds its own `mcp__sources__`
    * prefix based on the POOL_SERVER_MCP_NAME) sees clean names:
-   *   pool internal: mcp__craft__search_spaces
-   *   exposed here:  craft__search_spaces
-   *   Codex sees:    mcp__sources__craft__search_spaces
+   *   pool internal: mcp__linear__list_issues
+   *   exposed here:  linear__list_issues
+   *   Codex sees:    mcp__sources__linear__list_issues
    */
   private createMcpServer(): Server {
     const server = new Server(

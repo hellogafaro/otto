@@ -376,7 +376,6 @@ export interface ElectronAPI {
   // Auth
   showLogoutConfirmation(): Promise<boolean>
   showDeleteSessionConfirmation(name: string): Promise<boolean>
-  logout(): Promise<void>
 
   // Credential health check (startup validation)
   getCredentialHealth(): Promise<CredentialHealthStatus>
@@ -635,7 +634,7 @@ export interface ElectronAPI {
   releasePageLease(workspaceId: string, leaseId: string): Promise<void>
   executePageAction(workspaceId: string, request: import('@otto/shared/pages/types').PageActionRequest): Promise<import('@otto/shared/pages/types').PageActionResult>
   cancelPageAction(workspaceId: string, requestId: string): Promise<boolean>
-  getPageShareCapabilities(): Promise<{ sharingEnabled: boolean }>
+  getPageShareCapabilities(): Promise<{ sharingEnabled: boolean; viewerConfigured: boolean }>
   /** What `includeData` would publish + key paths that look credential-bearing (warn-only). */
   getPageShareDataScan(workspaceId: string, pageSlug: string): Promise<{ snapshotBytes: number | null; secretCandidates: string[] }>
   publishPage(workspaceId: string, pageSlug: string, options: { includeData: boolean; password?: string; viewOnlyAcknowledged?: boolean }): Promise<import('@otto/shared/pages/types').PageConfig>

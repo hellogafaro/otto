@@ -14,22 +14,6 @@ const webPublic = join(root, 'apps/webui/src/public')
 
 const appIconSvg = readFileSync(join(brand, 'otto-app-icon.svg'))
 const markSvg = readFileSync(join(brand, 'otto-mark.svg'), 'utf8')
-const MARK_W = 699
-const MARK_H = 648
-
-// The mark with currentColor resolved, at a fixed pixel size.
-const markPng = (color: string, width: number, height: number) =>
-  sharp(
-    Buffer.from(
-      markSvg
-        .replaceAll('currentColor', color)
-        .replace('<svg ', `<svg width="${width}" height="${Math.round((width * MARK_H) / MARK_W)}" `),
-    ),
-  )
-    .resize(width, height, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .ensureAlpha()
-    .png()
-    .toBuffer()
 
 // Vector-render the app icon once at 2048 (the svg is 1024 wide, so double the
 // density), then lanczos-downscale to each size so every size shares one look.
@@ -40,8 +24,8 @@ const appIcon = (size: number) =>
 const write = (path: string, data: Buffer | string) => writeFileSync(path, data)
 
 // ICO: a directory of PNG-compressed images.
-async function ico(sizes: number[]) {
-  const images = await Promise.all(sizes.map(appIcon))
+async function ico(sizes: number[], render: (size: number) => Promise<Buffer> = appIcon) {
+  const images = await Promise.all(sizes.map(render))
   const header = Buffer.alloc(6 + 16 * sizes.length)
   header.writeUInt16LE(1, 2)
   header.writeUInt16LE(sizes.length, 4)
@@ -95,20 +79,24 @@ const layer = `<?xml version="1.0" encoding="UTF-8"?>
 `
 write(join(resources, 'icon.icon/Assets/icon.svg'), layer)
 
-// Branding images
-write(join(resources, 'otto-logos/otto_app_icon.png'), await appIcon(512))
-write(join(resources, 'otto-logos/otto_app_icon_dark.png'), await appIcon(512))
-write(join(resources, 'otto-logos/otto_logo_black.png'), await markPng('#000', 299, 300))
-write(join(resources, 'otto-logos/otto_logo_white.png'), await markPng('#fff', 299, 300))
-
 // Web app: tab icon (the mark, black or white by color scheme), the ICO
-// fallback, home-screen and manifest icons.
+// fallback, home-screen and manifest icons. The ICO is the mark alone in a
+// neutral gray on transparent, so it reads on light and dark tab strips (the
+// browser picks the SVG when it supports it, and the ICO otherwise).
 const faviconPaths = [...markSvg.matchAll(/<path d="[^"]+"\/>/g)].map((m) => m[0]).join('')
+const FAVICON_VIEWBOX = '-24 -49.5 747 747'
 write(
   join(webPublic, 'favicon.svg'),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-24 -49.5 747 747"><title>Otto</title><style>path{fill:#000}@media(prefers-color-scheme:dark){path{fill:#fff}}</style>${faviconPaths}</svg>\n`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${FAVICON_VIEWBOX}"><title>Otto</title><style>path{fill:#000}@media(prefers-color-scheme:dark){path{fill:#fff}}</style>${faviconPaths}</svg>\n`,
 )
-write(join(webPublic, 'favicon.ico'), await ico([16, 32, 48]))
+const grayMaster = await sharp(
+  Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2048" viewBox="-8 -33.5 715 715" fill="#8a8a8e">${faviconPaths}</svg>`),
+)
+  .png()
+  .toBuffer()
+const grayMark = (size: number) =>
+  sharp(grayMaster).resize(size, size, { kernel: 'lanczos3' }).ensureAlpha().png({ compressionLevel: 9 }).toBuffer()
+write(join(webPublic, 'favicon.ico'), await ico([16, 32, 48], grayMark))
 write(join(webPublic, 'apple-touch-icon.png'), await appIcon(180))
 write(join(webPublic, 'icon-192.png'), await appIcon(192))
 write(join(webPublic, 'icon-512.png'), await appIcon(512))

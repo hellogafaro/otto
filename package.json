@@ -2,7 +2,17 @@
   "name": "otto",
   "version": "0.1.0",
   "license": "Apache-2.0",
-  "description": "Claude Code-like agent for Otto",
+  "description": "Otto — an agent workspace for Claude, ChatGPT and local models",
+  "keywords": ["otto", "agent", "claude", "chatgpt", "codex", "mcp", "electron"],
+  "author": "Gafaro",
+  "homepage": "https://github.com/hellogafaro/otto",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hellogafaro/otto.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hellogafaro/otto/issues"
+  },
   "type": "module",
   "private": true,
   "trustedDependencies": [

@@ -33,7 +33,7 @@ describe('classifyExternalUrl — safe external (custom app schemes)', () => {
     ['things:///show?id=abc'],
     ['jetbrains://idea/navigate/reference?project=foo'],
     ['cursor://open?path=/tmp/x'],
-    ['craftdocs://open?docId=123'],
+    ['bear://open?id=123'],
   ])('classifies %s as safe-external', (url) => {
     expect(classifyExternalUrl(url).kind).toBe('safe-external')
   })

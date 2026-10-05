@@ -12,7 +12,7 @@ const DEFAULT_VERBS = ['search', 'list', 'get', 'read', 'info', 'describe', 'sho
 describe('mcp tool name parsing', () => {
   it('takes the part after mcp__<source>__', () => {
     expect(mcpToolActionName('mcp__budget__delete_all')).toBe('delete_all');
-    expect(mcpToolActionName('mcp__craft-kb__get_document')).toBe('get_document');
+    expect(mcpToolActionName('mcp__example-mcp__get_document')).toBe('get_document');
     expect(mcpToolActionName('get_issue')).toBe('get_issue');
   });
 

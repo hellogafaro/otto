@@ -76,6 +76,7 @@ import { getSessionStatus, hasUnreadMeta, hasMessagesMeta } from '@/utils/sessio
 import { getFileManagerName } from '@/lib/platform'
 import { useMessagingConnect, type MessagingPlatform } from '@/components/messaging/MessagingSessionMenuItem'
 import { useSessionMenuActions } from '@/hooks/useSessionMenuActions'
+import { useShareCapabilities } from '@/hooks/useShareCapabilities'
 
 type View = 'root' | 'status' | 'labels' | 'share' | 'messaging'
 
@@ -173,6 +174,7 @@ export function CompactSessionMenu({
   const isFlagged = item.isFlagged ?? false
   const isArchived = item.isArchived ?? false
   const sharedUrl = item.sharedUrl
+  const { viewerConfigured } = useShareCapabilities()
   const currentSessionStatus = getSessionStatus(item)
   const sessionLabels = item.labels ?? []
   const _hasMessages = hasMessagesMeta(item)
@@ -286,6 +288,7 @@ export function CompactSessionMenu({
         <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-6">
           {view === 'root' && (
             <RootPane
+              canShare={viewerConfigured}
               sharedUrl={sharedUrl}
               sessionStatuses={sessionStatuses}
               currentSessionStatus={currentSessionStatus}
@@ -358,6 +361,8 @@ export function CompactSessionMenu({
 // ---------------------------------------------------------------------------
 
 interface RootPaneProps {
+  /** False when no viewer host is configured: the share rows are hidden */
+  canShare: boolean
   sharedUrl?: string
   sessionStatuses: SessionStatus[]
   currentSessionStatus: SessionStatusId
@@ -388,6 +393,7 @@ interface RootPaneProps {
 }
 
 function RootPane({
+  canShare,
   sharedUrl,
   sessionStatuses,
   currentSessionStatus,
@@ -429,7 +435,7 @@ function RootPane({
   return (
     <div className="flex flex-col">
       {/* Share / Shared */}
-      {!sharedUrl ? (
+      {!canShare ? null : !sharedUrl ? (
         <Row icon={<CloudUpload className="size-3.5" />} label={t('sessionMenu.share')} onTap={onShare} />
       ) : (
         <Row

@@ -558,7 +558,10 @@ decorative (`aria-hidden`) unless given a `title`. Sources live in
 raster from them. The colored glass app icon (`otto-app-icon.svg`) is the
 only colored version: it is the dock, window, installer, home-screen and
 web-manifest icon, full-bleed with no extra rounding or shadow. The tab icon
-(`favicon.svg`) is the mark, black in light and white in dark.
+(`favicon.svg`) is the mark, black in light and white in dark; its `favicon.ico`
+fallback is the same mark in neutral gray (`#8a8a8e`) on transparent, so it
+reads on any tab strip. The page's `theme-color` is the frame: `#f2f2f2` in
+light, `#060606` in dark.
 
 **Keys** (`Kbd`). 20px (16px in tooltips), 11px text, `xs` corners.
 

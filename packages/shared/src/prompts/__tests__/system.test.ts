@@ -20,7 +20,7 @@ import {
 import type { ProjectPromptContext } from '../../projects/types.ts'
 
 const GIT_CONVENTIONS_HEADING = '## Git Conventions'
-const CO_AUTHOR_TRAILER = 'Co-Authored-By: Otto <agents-noreply@craft.do>'
+const CO_AUTHOR_TRAILER = 'Co-Authored-By: Otto <noreply@hellogafaro.com>'
 
 describe('system prompt guidance', () => {
   it('keeps the default static prompt below the budget', () => {

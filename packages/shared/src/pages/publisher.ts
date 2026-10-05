@@ -1,8 +1,8 @@
 /**
  * Page Publisher
  *
- * Client for the Cloudflare pages-share Worker (workers/pages). Owns the
- * local half of the publish/update/unpublish flow:
+ * Client for the pages-share API of the viewer host (`OTTO_VIEWER_URL`, see
+ * docs/sharing.md). Owns the local half of the publish/update/unpublish flow:
  *
  *   publish    → POST bundle → store admin token in the credential vault →
  *                write the local share pointer (page.json, atomic)
@@ -27,22 +27,18 @@
  */
 
 import type { PageConfig, PageShareInfo } from '@otto/core';
+import { getViewerUrl } from '../branding.ts';
 import { isPagesSharingEnabled } from '../feature-flags.ts';
 import { deletePage, loadPageConfig, setPageShareState } from './storage.ts';
 import { buildPageShareBundle, PageShareError } from './share-bundle.ts';
 
-/** Default publication API base (the agents-router forwards /p/* to the Worker) */
-export const DEFAULT_PAGES_SHARE_API_BASE_URL = 'https://thecraftagents.com/p/api';
-
 /**
- * Resolve the publication API base URL. `OTTO_PAGES_SHARE_API_URL` overrides
- * for local Worker development (e.g. http://localhost:8787/p/api).
+ * Resolve the publication API base URL (`<OTTO_VIEWER_URL>/p/api`), or
+ * undefined when no viewer host is configured (sharing disabled).
  */
-export function resolvePagesShareApiBaseUrl(): string {
-  const override =
-    typeof process !== 'undefined' ? process.env?.OTTO_PAGES_SHARE_API_URL : undefined;
-  const base = override?.trim() || DEFAULT_PAGES_SHARE_API_BASE_URL;
-  return base.replace(/\/+$/, '');
+export function resolvePagesShareApiBaseUrl(): string | undefined {
+  const viewerUrl = getViewerUrl();
+  return viewerUrl ? `${viewerUrl}/p/api` : undefined;
 }
 
 /** Minimal vault seam so tests can run without the real CredentialManager */
@@ -80,7 +76,7 @@ export interface PagePublisherOptions {
   tokenStore: PagePublishTokenStore;
   /** Injectable for tests (defaults to global fetch) */
   fetchFn?: typeof fetch;
-  /** Publication API base, e.g. https://thecraftagents.com/p/api */
+  /** Publication API base, e.g. https://viewer.example.com/p/api (default: from OTTO_VIEWER_URL) */
   apiBaseUrl?: string;
   log?: (message: string) => void;
 }
@@ -118,13 +114,13 @@ const ERROR_BODY_MAX_CHARS = 300;
 export class PagePublisher {
   private readonly tokenStore: PagePublishTokenStore;
   private readonly fetchFn: typeof fetch;
-  private readonly apiBaseUrl: string;
+  private readonly apiBaseUrl: string | undefined;
   private readonly log: (message: string) => void;
 
   constructor(options: PagePublisherOptions) {
     this.tokenStore = options.tokenStore;
     this.fetchFn = options.fetchFn ?? fetch;
-    this.apiBaseUrl = (options.apiBaseUrl ?? resolvePagesShareApiBaseUrl()).replace(/\/+$/, '');
+    this.apiBaseUrl = (options.apiBaseUrl ?? resolvePagesShareApiBaseUrl())?.replace(/\/+$/, '');
     this.log = options.log ?? (() => {});
   }
 
@@ -331,7 +327,7 @@ export class PagePublisher {
     if (!isPagesSharingEnabled()) {
       throw new PageShareError(
         'PAGE_SHARING_DISABLED',
-        'Pages sharing is disabled (set OTTO_FEATURE_PAGES_SHARING=1 to enable)',
+        'Pages sharing is disabled (set OTTO_VIEWER_URL to a viewer host to enable)',
       );
     }
   }
@@ -365,6 +361,12 @@ export class PagePublisher {
     path: string,
     options: { body?: FormData; adminToken?: string } = {},
   ): Promise<Response> {
+    if (!this.apiBaseUrl) {
+      throw new PageShareError(
+        'PAGE_SHARING_DISABLED',
+        'Pages sharing is not configured (set OTTO_VIEWER_URL)',
+      );
+    }
     const headers: Record<string, string> = {};
     if (options.adminToken) headers['Authorization'] = `Bearer ${options.adminToken}`;
     try {

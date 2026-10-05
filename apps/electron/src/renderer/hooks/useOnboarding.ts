@@ -822,7 +822,7 @@ export function useOnboarding({
     }))
   }, [])
 
-  // Reset onboarding to initial state (used after logout or modal close)
+  // Reset onboarding to initial state (used after modal close)
   const reset = useCallback(() => {
     setState({
       step: initialStep,

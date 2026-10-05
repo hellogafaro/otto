@@ -318,7 +318,7 @@ export const DEFAULT_MODEL = getModelIdByShortName('Opus');
 /**
  * Get the default summarization model ID (Haiku).
  * Used as fallback when no connection context is available
- * (e.g., url-validator, mcp/validation, summarize.ts without modelOverride).
+ * (e.g., mcp/validation, summarize.ts without modelOverride).
  *
  * For connection-aware summarization model resolution, use
  * getSummarizationModel(connection) from llm-connections.ts instead.

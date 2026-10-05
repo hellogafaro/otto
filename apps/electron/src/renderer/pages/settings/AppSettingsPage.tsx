@@ -135,7 +135,7 @@ export default function AppSettingsPage() {
                       )}
                     </div>
                   </SettingsRow>
-                  {isElectron && (
+                  {isElectron && updateChecker.updateInfo?.enabled && (
                     <SettingsRow label={t("settings.about.checkForUpdates")}>
                       <Button
                         variant="outline"

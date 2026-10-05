@@ -137,9 +137,9 @@ function handleGrants(list) { grants = list || []; /* enable/disable buttons */ 
 
 const NEEDS = [
   { key: 'read',  description: 'Refresh the task list',
-    action: { kind: 'mcp', sourceSlug: 'craft-private', toolName: 'craft_read' } },
+    action: { kind: 'mcp', sourceSlug: 'tasks-private', toolName: 'tasks_read' } },
   { key: 'write', description: 'Add and complete tasks',
-    action: { kind: 'mcp', sourceSlug: 'craft-private', toolName: 'craft_write' } },
+    action: { kind: 'mcp', sourceSlug: 'tasks-private', toolName: 'tasks_write' } },
 ];
 // After init: request anything still missing (max 8 entries per request).
 if (NEEDS.some(n => !grantFor(n.action))) {

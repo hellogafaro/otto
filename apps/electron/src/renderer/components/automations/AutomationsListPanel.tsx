@@ -259,7 +259,6 @@ export function AutomationsListPanel({
           icon={<Webhook />}
           title={t('automations.noAutomationsConfigured')}
           description={t('automations.emptyDescription')}
-          docKey="automations"
         >
           {workspaceRootPath && (
             <EditPopover

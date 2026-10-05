@@ -17,6 +17,7 @@ import { openUrl } from '../utils/open-url.ts';
 import { createCallbackServer, type AppType } from './callback-server.ts';
 import type { SlackService } from '../sources/types.ts';
 import { type OAuthSessionContext, buildOAuthDeeplinkUrl } from './types.ts';
+import { getOAuthRelayUrl } from './oauth-relay.ts';
 import type { PreparedOAuthFlow, OAuthExchangeParams, OAuthExchangeResult } from './oauth-flow-types.ts';
 
 // Re-export for convenience
@@ -31,17 +32,24 @@ const SLACK_CLIENT_SECRET = process.env.SLACK_OAUTH_CLIENT_SECRET || '';
 const SLACK_AUTH_URL = 'https://slack.com/oauth/v2/authorize';
 
 /**
- * The redirect URI registered in the Otto Slack app. Slack requires
- * HTTPS, so the agents-router worker relays it to the desktop callback server
- * (`http://localhost:<port>/callback`). The generic relay
- * (`https://thecraftagents.com/auth/callback`) is not registered there, which
- * is why desktop flows must keep using this one (OSS #1068).
+ * The redirect URI of the Slack relay (`<OTTO_OAUTH_RELAY_URL>/auth/slack/callback`),
+ * or undefined when no relay is set. Slack requires HTTPS, so the relay forwards
+ * it to the desktop callback server (`http://localhost:<port>/callback`). The
+ * generic relay callback is not registered in the Slack app, which is why desktop
+ * flows must keep using this one (OSS #1068).
  */
-export const SLACK_LEGACY_RELAY_CALLBACK_URL = 'https://thecraftagents.com/auth/slack/callback';
+export function getSlackLegacyRelayCallbackUrl(): string | undefined {
+  const base = getOAuthRelayUrl();
+  return base ? `${base}/auth/slack/callback` : undefined;
+}
 
-/** Redirect URI for a desktop flow whose callback server listens on `port`. */
+/**
+ * Redirect URI for a desktop flow whose callback server listens on `port`: the
+ * relay when one is set, else the local callback server directly.
+ */
 export function slackLegacyRelayRedirectUri(port: number): string {
-  return `${SLACK_LEGACY_RELAY_CALLBACK_URL}?port=${port}`;
+  const relay = getSlackLegacyRelayCallbackUrl();
+  return relay ? `${relay}?port=${port}` : `http://localhost:${port}/callback`;
 }
 
 /**
@@ -298,7 +306,7 @@ export function prepareSlackOAuth(options: PrepareSlackOAuthOptions): PreparedOA
   const userScopes = getSlackScopes(options);
   const state = generateState();
 
-  // Slack requires HTTPS → use the registered Cloudflare relay when using callbackPort
+  // Slack requires HTTPS → use the relay when one is set, else the local callback
   const redirectUri = options.callbackUrl
     ?? slackLegacyRelayRedirectUri(options.callbackPort!);
 
@@ -389,9 +397,9 @@ export async function startSlackOAuth(options: SlackOAuthOptions = {}): Promise<
     const localUrl = new URL(callbackServer.url);
     const port = localUrl.port;
 
-    // Use Cloudflare Worker relay for Slack OAuth (Slack requires HTTPS)
-    // The relay redirects: https://thecraftagents.com/auth/slack/callback → http://localhost:{port}/callback
-    const redirectUri = `https://thecraftagents.com/auth/slack/callback?port=${port}`;
+    // Slack requires HTTPS: with a relay set it redirects
+    // <relay>/auth/slack/callback → http://localhost:{port}/callback, else use the local callback
+    const redirectUri = slackLegacyRelayRedirectUri(Number(port));
 
     // Build authorization URL
     // Use user_scope (not scope) to get a user token instead of bot token

@@ -119,7 +119,7 @@ describe('updateLlmConnection – customEndpoint', () => {
 describe('updateLlmConnection – Anthropic OAuth identity (issue #838)', () => {
   const identity = {
     oauthAccountUuid: 'acct-uuid-123',
-    oauthAccountEmail: 'gyula@craft.do',
+    oauthAccountEmail: 'user@example.com',
     oauthOrganizationUuid: 'org-uuid-456',
     oauthOrganizationName: 'Otto',
     oauthProfileVerifiedAt: 1_700_000_000_000,

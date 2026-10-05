@@ -25,7 +25,6 @@ import {
   SettingsCard,
 } from '@/components/settings'
 import { EditPopover, EditButton, getEditConfig } from '@/components/ui/EditPopover'
-import { getDocUrl } from '@otto/shared/docs/doc-links'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 
 export const meta: DetailsPageMeta = {
@@ -221,15 +220,6 @@ export default function PermissionsSettingsPage() {
                         </p>
                         <p>
                           {t("settings.permissions.aboutText2")}
-                        </p>
-                        <p>
-                          <button
-                            type="button"
-                            onClick={() => window.electronAPI?.openUrl(getDocUrl('permissions'))}
-                            className="text-foreground/70 hover:text-foreground underline underline-offset-2"
-                          >
-                            {t("common.learnMore")}
-                          </button>
                         </p>
                       </div>
                     </SettingsCard>

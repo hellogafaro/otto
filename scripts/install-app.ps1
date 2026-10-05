@@ -1,10 +1,11 @@
 # Otto Windows Installer
-# Usage: irm https://thecraftagents.com/install-app.ps1 | iex
+# Usage: $env:OTTO_DOWNLOAD_URL = "<release host>"; .\install-app.ps1
 
 & {
 $ErrorActionPreference = "Stop"
 
-$VERSIONS_URL = "https://thecraftagents.com/electron"
+# Release host serving /latest/latest.yml and the installers. Must be set.
+$VERSIONS_URL = "$env:OTTO_DOWNLOAD_URL".TrimEnd("/")
 $DOWNLOAD_DIR = "$env:TEMP\otto-install"
 $APP_NAME = "Otto"
 
@@ -17,6 +18,10 @@ function Write-Err { Write-Host "x $args" -ForegroundColor Red; exit 1 }
 # Check for Windows
 if ($env:OS -ne "Windows_NT") {
     Write-Err "This installer is for Windows only."
+}
+
+if (-not $VERSIONS_URL) {
+    Write-Err "OTTO_DOWNLOAD_URL is not set. Set it to the release host that serves the Otto builds, then run this script again."
 }
 
 # Detect architecture

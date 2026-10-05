@@ -336,7 +336,7 @@ const MOCK_BROWSER_PRESETS: Record<BrowserTabStripMockPreset, BrowserInstanceInf
     },
     {
       id: 'mock-2',
-      url: 'https://linear.app/craft-docs/settings/teams',
+      url: 'https://linear.app/acme/settings/teams',
       title: 'Linear',
       favicon: null,
       isLoading: true,
@@ -351,7 +351,7 @@ const MOCK_BROWSER_PRESETS: Record<BrowserTabStripMockPreset, BrowserInstanceInf
     },
     {
       id: 'mock-3',
-      url: 'https://craftdocs.bamboohr.com/employees/pto/?id=132',
+      url: 'https://acme.bamboohr.com/employees/pto/?id=132',
       title: 'BambooHR',
       favicon: null,
       isLoading: false,
@@ -413,7 +413,7 @@ const MOCK_BROWSER_PRESETS: Record<BrowserTabStripMockPreset, BrowserInstanceInf
     },
     {
       id: 'long-2',
-      url: 'https://linear.app/craft-docs/issue/CHA-999/very-long-title-to-test-truncation-behavior-in-top-bar-badges',
+      url: 'https://linear.app/acme/issue/CHA-999/very-long-title-to-test-truncation-behavior-in-top-bar-badges',
       title: 'CHA-999 — Extremely Long Issue Title to Validate Ellipsis and Badge Width Constraints',
       favicon: null,
       isLoading: false,
@@ -460,7 +460,7 @@ const MOCK_BROWSER_PRESETS: Record<BrowserTabStripMockPreset, BrowserInstanceInf
     },
     {
       id: 'run-2',
-      url: 'https://linear.app/craft-docs/team/CHA/active',
+      url: 'https://linear.app/acme/team/CHA/active',
       title: 'Linear Active Issues',
       favicon: null,
       isLoading: true,
@@ -490,7 +490,7 @@ const MOCK_BROWSER_PRESETS: Record<BrowserTabStripMockPreset, BrowserInstanceInf
     },
     {
       id: 'run-4',
-      url: 'https://craftdocs.bamboohr.com/reports',
+      url: 'https://acme.bamboohr.com/reports',
       title: 'BambooHR Reports',
       favicon: null,
       isLoading: true,
@@ -537,7 +537,7 @@ const MOCK_BROWSER_PRESETS: Record<BrowserTabStripMockPreset, BrowserInstanceInf
     },
     {
       id: 'mix-2',
-      url: 'https://linear.app/craft-docs/settings/new-team',
+      url: 'https://linear.app/acme/settings/new-team',
       title: 'Add team',
       favicon: null,
       isLoading: true,
@@ -552,7 +552,7 @@ const MOCK_BROWSER_PRESETS: Record<BrowserTabStripMockPreset, BrowserInstanceInf
     },
     {
       id: 'mix-3',
-      url: 'https://craftdocs.bamboohr.com/employees/pto/?id=132',
+      url: 'https://acme.bamboohr.com/employees/pto/?id=132',
       title: 'Péter Bobula - Time Off',
       favicon: null,
       isLoading: false,

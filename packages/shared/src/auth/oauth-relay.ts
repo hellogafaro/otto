@@ -1,6 +1,21 @@
 import type { PreparedOAuthFlow } from './oauth-flow-types.ts';
 
-export const OAUTH_RELAY_CALLBACK_URL = 'https://thecraftagents.com/auth/callback';
+/**
+ * Base URL of the hosted OAuth relay, from `OTTO_OAUTH_RELAY_URL`. Undefined
+ * when unset: flows then use the local or server callback directly as the
+ * provider redirect URI (the provider app must have it registered).
+ */
+export function getOAuthRelayUrl(): string | undefined {
+  const value = typeof process !== 'undefined' ? process.env?.OTTO_OAUTH_RELAY_URL?.trim() : undefined;
+  return value ? value.replace(/\/+$/, '') : undefined;
+}
+
+/** Stable provider redirect URI served by the relay, or undefined when no relay is set. */
+export function getOAuthRelayCallbackUrl(): string | undefined {
+  const base = getOAuthRelayUrl();
+  return base ? `${base}/auth/callback` : undefined;
+}
+
 const OAUTH_RELAY_STATE_PREFIX = 'ca1.';
 const OAUTH_RELAY_STATE_VERSION = 1;
 
@@ -76,14 +91,15 @@ export function decodeOAuthRelayState(value: string): OAuthRelayState {
 export function wrapPreparedOAuthFlowForRelay(
   prepared: PreparedOAuthFlow,
   returnTo: string,
+  relayCallbackUrl: string,
 ): PreparedOAuthFlow {
   const authUrl = new URL(prepared.authUrl);
-  authUrl.searchParams.set('redirect_uri', OAUTH_RELAY_CALLBACK_URL);
+  authUrl.searchParams.set('redirect_uri', relayCallbackUrl);
   authUrl.searchParams.set('state', encodeOAuthRelayState(returnTo, prepared.state));
 
   return {
     ...prepared,
     authUrl: authUrl.toString(),
-    redirectUri: OAUTH_RELAY_CALLBACK_URL,
+    redirectUri: relayCallbackUrl,
   };
 }

@@ -92,7 +92,6 @@ export function SourcesListPanel({
           icon={<DatabaseZap />}
           title={emptyMessage}
           description={t('sourcesList.emptyDescription')}
-          docKey="sources"
         >
           {workspaceRootPath && (
             <EditPopover

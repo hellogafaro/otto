@@ -2,8 +2,9 @@
  * Auto-update module using electron-updater
  *
  * Handles checking for updates, downloading, and installing via the standard
- * electron-updater library. Updates are served from https://thecraftagents.com/electron/latest
- * using the generic provider (YAML manifests + binaries on R2/S3).
+ * electron-updater library. Updates are served from `${OTTO_UPDATE_URL}/latest`
+ * using the generic provider (YAML manifests + binaries). With OTTO_UPDATE_URL
+ * unset the updater is disabled: no feed, no checks, no network calls.
  *
  * Platform behavior:
  * - macOS: Downloads zip, extracts and swaps app bundle atomically
@@ -20,7 +21,7 @@ import { platform } from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import { mainLog, autoUpdateLog } from './logger'
-import { getAppVersion } from '@otto/shared/version'
+import { getAppVersion, getUpdateUrl } from '@otto/shared/version'
 import {
   getDismissedUpdateVersion,
   clearDismissedUpdateVersion,
@@ -54,7 +55,10 @@ function getUpdateCacheDir(): string {
 }
 
 // Module state — keeps track of update info for IPC queries
+const UPDATE_FEED_URL = getUpdateUrl() ? `${getUpdateUrl()}/latest` : undefined
+
 let updateInfo: UpdateInfo = {
+  enabled: UPDATE_FEED_URL !== undefined,
   available: false,
   currentVersion: getAppVersion(),
   latestVersion: null,
@@ -153,6 +157,9 @@ function broadcastDownloadProgress(progress: number): void {
 }
 
 // ─── Configure electron-updater ───────────────────────────────────────────────
+
+// The feed comes from OTTO_UPDATE_URL, not from a baked-in app-update.yml
+if (UPDATE_FEED_URL) autoUpdater.setFeedURL({ provider: 'generic', url: UPDATE_FEED_URL })
 
 // Auto-download updates in the background after detection
 autoUpdater.autoDownload = true
@@ -359,6 +366,8 @@ function checkForExistingDownload(): { exists: boolean; version?: string } {
 export async function checkForUpdates(options: CheckOptions = {}): Promise<UpdateInfo> {
   const { autoDownload = true } = options
 
+  if (!UPDATE_FEED_URL) return getUpdateInfo()
+
   // Temporarily override autoDownload for this check if needed
   // (e.g., manual check from settings shouldn't auto-download on metered connections)
   const previousAutoDownload = autoUpdater.autoDownload
@@ -491,6 +500,10 @@ export interface UpdateOnLaunchResult {
  * - Auto-downloads if update available
  */
 export async function checkForUpdatesOnLaunch(): Promise<UpdateOnLaunchResult> {
+  if (!UPDATE_FEED_URL) {
+    autoUpdateLog.info('Updates disabled (OTTO_UPDATE_URL unset)')
+    return { action: 'skipped', reason: 'updates-disabled' }
+  }
   autoUpdateLog.info('Checking for updates on launch...')
 
   const info = await checkForUpdates({ autoDownload: true })

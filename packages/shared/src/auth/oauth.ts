@@ -7,7 +7,7 @@ import { type OAuthSessionContext, buildOAuthDeeplinkUrl } from './types.ts';
 import type { PreparedOAuthFlow, OAuthExchangeParams, OAuthExchangeResult } from './oauth-flow-types.ts';
 
 export interface OAuthConfig {
-  mcpUrl: string; // Full MCP URL including path (e.g., https://mcp.craft.do/my/mcp)
+  mcpUrl: string; // Full MCP URL including path (e.g., https://mcp.example.com/mcp)
 }
 
 export interface OAuthTokens {
@@ -1105,7 +1105,7 @@ export async function discoverOAuthMetadata(
 
   onLog?.(`Discovering OAuth metadata for ${mcpUrl}`);
 
-  // 1. Try RFC 9728 protected resource discovery first (handles Craft MCP and other compliant servers)
+  // 1. Try RFC 9728 protected resource discovery first (handles compliant servers)
   const rfc9728Metadata = await discoverViaProtectedResource(mcpUrl, onLog);
   if (rfc9728Metadata) {
     return rfc9728Metadata;

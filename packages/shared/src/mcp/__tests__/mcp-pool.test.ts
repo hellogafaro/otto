@@ -33,26 +33,26 @@ function httpConfig(token: string): SdkMcpServerConfig {
 describe('McpClientPool.ensureConnected', () => {
   test('connects an absent source once', async () => {
     const pool = new TestPool();
-    await pool.ensureConnected('craft', httpConfig('a'));
+    await pool.ensureConnected('example-mcp', httpConfig('a'));
     expect(pool.connectCalls.length).toBe(1);
-    expect(pool.isConnected('craft')).toBe(true);
+    expect(pool.isConnected('example-mcp')).toBe(true);
   });
 
   test('is a no-op when already connected with an unchanged config', async () => {
     const pool = new TestPool();
-    await pool.ensureConnected('craft', httpConfig('a'));
-    await pool.ensureConnected('craft', httpConfig('a'));
+    await pool.ensureConnected('example-mcp', httpConfig('a'));
+    await pool.ensureConnected('example-mcp', httpConfig('a'));
     expect(pool.connectCalls.length).toBe(1);
     expect(pool.closedSlugs).toEqual([]);
   });
 
   test('reconnects when the auth header changed (token refresh)', async () => {
     const pool = new TestPool();
-    await pool.ensureConnected('craft', httpConfig('a'));
-    await pool.ensureConnected('craft', httpConfig('b'));
+    await pool.ensureConnected('example-mcp', httpConfig('a'));
+    await pool.ensureConnected('example-mcp', httpConfig('b'));
     expect(pool.connectCalls.length).toBe(2);
-    expect(pool.closedSlugs).toEqual(['craft']);
-    expect(pool.isConnected('craft')).toBe(true);
+    expect(pool.closedSlugs).toEqual(['example-mcp']);
+    expect(pool.isConnected('example-mcp')).toBe(true);
   });
 
   test('does not touch other pool members', async () => {

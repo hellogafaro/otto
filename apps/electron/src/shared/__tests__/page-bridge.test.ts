@@ -129,7 +129,7 @@ describe('parsePageBridgeMessage: grant-request', () => {
   const mcpEntry = {
     key: 'read',
     description: 'Refresh the task list',
-    action: { kind: 'mcp', sourceSlug: 'craft-private', toolName: 'craft_read' },
+    action: { kind: 'mcp', sourceSlug: 'tasks-private', toolName: 'tasks_read' },
   }
   const apiEntry = {
     key: 'weather',
@@ -142,7 +142,7 @@ describe('parsePageBridgeMessage: grant-request', () => {
       type: 'grant-request',
       nonce: 'n',
       requests: [
-        { key: 'read', description: 'Refresh the task list', action: { kind: 'mcp', sourceSlug: 'craft-private', toolName: 'craft_read' } },
+        { key: 'read', description: 'Refresh the task list', action: { kind: 'mcp', sourceSlug: 'tasks-private', toolName: 'tasks_read' } },
         { key: 'weather', action: { kind: 'api', sourceSlug: 'openweather', method: 'GET', pathPattern: '/data/2\\.5/weather.*' } },
       ],
     })
@@ -158,7 +158,7 @@ describe('parsePageBridgeMessage: grant-request', () => {
 
   test('rejects malformed descriptors', () => {
     const withAction = (action: unknown) => ({ ...valid, requests: [{ key: 'k', action }] })
-    expect(parsePageBridgeMessage(withAction({ kind: 'mcp', toolName: 'craft_read' }))).toBeNull() // no sourceSlug
+    expect(parsePageBridgeMessage(withAction({ kind: 'mcp', toolName: 'tasks_read' }))).toBeNull() // no sourceSlug
     expect(parsePageBridgeMessage(withAction({ kind: 'mcp', sourceSlug: 's' }))).toBeNull() // no toolName
     expect(parsePageBridgeMessage(withAction({ kind: 'api', sourceSlug: 's', method: 'FETCH', pathPattern: '/x' }))).toBeNull()
     expect(parsePageBridgeMessage(withAction({ kind: 'api', sourceSlug: 's', method: 'GET' }))).toBeNull() // no pathPattern

@@ -52,14 +52,14 @@ describe('ClaudeAgent large MCP tool results', () => {
   })
 
   it('keeps a string result a string', async () => {
-    const output = await agent().guardLargeMcpToolOutput(postToolUse('mcp__craft-kb__read_doc', big))
+    const output = await agent().guardLargeMcpToolOutput(postToolUse('mcp__example-mcp__read_doc', big))
     expect(typeof output.hookSpecificOutput?.updatedToolOutput).toBe('string')
   })
 
   it('leaves small results (even with embedded media) and non-MCP tools alone', async () => {
     expect(await agent().guardLargeMcpToolOutput(postToolUse('mcp__github__list_issues', [{ type: 'text', text: 'two issues' }]))).toEqual({ continue: true })
     const smallJsonWithImage = JSON.stringify({ title: 'Logo', image: `data:image/png;base64,${'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='.repeat(8)}` })
-    expect(await agent().guardLargeMcpToolOutput(postToolUse('mcp__craft-kb__get_block', [{ type: 'text', text: smallJsonWithImage }]))).toEqual({ continue: true })
+    expect(await agent().guardLargeMcpToolOutput(postToolUse('mcp__example-mcp__get_page', [{ type: 'text', text: smallJsonWithImage }]))).toEqual({ continue: true })
     expect(await agent().guardLargeMcpToolOutput(postToolUse('Bash', big))).toEqual({ continue: true })
     expect(summaries).toEqual([])
   })

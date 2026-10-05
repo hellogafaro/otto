@@ -15,7 +15,6 @@ import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { useTranslation } from 'react-i18next'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { EditPopover, EditButton, getEditConfig } from '@/components/ui/EditPopover'
-import { getDocUrl } from '@otto/shared/docs/doc-links'
 import { Spinner } from '@otto/ui'
 import { useAppShellContext, useActiveWorkspace } from '@/context/AppShellContext'
 import { useLabels } from '@/hooks/useLabels'
@@ -76,15 +75,6 @@ export default function LabelsSettingsPage() {
                         </p>
                         <p>
                           {t("settings.labels.aboutText3")}
-                        </p>
-                        <p>
-                          <button
-                            type="button"
-                            onClick={() => window.electronAPI?.openUrl(getDocUrl('labels'))}
-                            className="text-foreground/70 hover:text-foreground underline underline-offset-2"
-                          >
-                            {t("chat.learnMore")}
-                          </button>
                         </p>
                       </div>
                     </SettingsCard>

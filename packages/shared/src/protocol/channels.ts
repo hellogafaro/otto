@@ -134,7 +134,6 @@ export const RPC_CHANNELS = {
     NAVIGATE: 'deeplink:navigate',
   },
   auth: {
-    LOGOUT: 'auth:logout',
     SHOW_LOGOUT_CONFIRMATION: 'auth:showLogoutConfirmation',
     SHOW_DELETE_SESSION_CONFIRMATION: 'auth:showDeleteSessionConfirmation',
   },

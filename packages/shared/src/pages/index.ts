@@ -155,7 +155,6 @@ export {
   createCredentialPagePublishTokenStore,
   resolvePagesShareApiBaseUrl,
   deletePageWithUnpublish,
-  DEFAULT_PAGES_SHARE_API_BASE_URL,
   type PagePublisherOptions,
   type PagePublishTokenStore,
   type PublishPageOptions,

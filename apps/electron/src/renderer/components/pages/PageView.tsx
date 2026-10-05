@@ -26,7 +26,8 @@ import { PageFreshness, PageKindBadge } from './page-visuals'
 import { DeletePageDialog } from './DeletePageDialog'
 import { PageGrantsDialog } from './PageGrantsDialog'
 import { PageSourceAuthBanner } from './PageSourceAuthBanner'
-import { SharePageDialog, usePageShareCapabilities } from './SharePageDialog'
+import { SharePageDialog } from './SharePageDialog'
+import { useShareCapabilities } from '@/hooks/useShareCapabilities'
 
 interface PageViewProps {
   pageSlug: string
@@ -139,7 +140,7 @@ export function PageView({ pageSlug }: PageViewProps) {
   const [confirmingDelete, setConfirmingDelete] = React.useState(false)
   const [shareOpen, setShareOpen] = React.useState(false)
   const [grantsOpen, setGrantsOpen] = React.useState(false)
-  const { sharingEnabled } = usePageShareCapabilities()
+  const { sharingEnabled, viewerConfigured } = useShareCapabilities()
   const { projects } = useProjects(activeWorkspaceId)
 
   // Inline rename: null = display mode, string = the draft being edited.
@@ -278,7 +279,7 @@ export function PageView({ pageSlug }: PageViewProps) {
         <PageKindBadge kind={config.kind} />
         <PageFreshness config={config} className="hidden @[28rem]/panel:inline-flex" />
         <div className="ml-auto flex items-center gap-1">
-          {(sharingEnabled || config.share) && (
+          {(sharingEnabled || (viewerConfigured && config.share)) && (
             <button
               type="button"
               onClick={() => setShareOpen(true)}

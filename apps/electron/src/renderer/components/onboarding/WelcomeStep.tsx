@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { CraftAgentsSymbol } from "@/components/icons/CraftAgentsSymbol"
+import { Logo } from "@workspace/ui/components/logo"
 import { StepFormLayout, ContinueButton } from "./primitives"
 
 interface WelcomeStepProps {
@@ -28,7 +28,7 @@ export function WelcomeStep({
     <StepFormLayout
       iconElement={
         <div className="flex size-16 items-center justify-center">
-          <CraftAgentsSymbol className="size-10 text-primary" />
+          <Logo className="size-10 text-foreground" />
         </div>
       }
       title={isExistingUser ? t("onboarding.welcome.updateTitle") : t("onboarding.welcome.title")}

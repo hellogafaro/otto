@@ -1,47 +1,28 @@
 import type { ComponentEntry } from './types'
-import { CraftAgentsLogo } from '@/components/icons/CraftAgentsLogo'
-import { CraftAgentsSymbol } from '@/components/icons/CraftAgentsSymbol'
+import { Logo } from '@workspace/ui/components/logo'
 import { SquarePenRounded } from '@/components/icons/SquarePenRounded'
 
 export const iconComponents: ComponentEntry[] = [
   {
     id: 'otto-logo',
-    name: 'CraftAgentsLogo',
+    name: 'Logo',
     category: 'Icons',
-    description: 'Full Otto branding logo with text',
-    component: CraftAgentsLogo,
+    description: 'Otto mark (design/ui Logo). Drawn with currentColor: text-foreground, never the primary color',
+    component: Logo,
     props: [
       {
         name: 'className',
-        description: 'Tailwind classes for sizing and styling',
+        description: 'Tailwind classes for size and color',
         control: { type: 'string' },
-        defaultValue: 'h-8',
+        defaultValue: 'size-6 text-foreground',
       },
     ],
     variants: [
-      { name: 'Small', props: { className: 'h-6' } },
-      { name: 'Medium', props: { className: 'h-8' } },
-      { name: 'Large', props: { className: 'h-12' } },
-    ],
-  },
-  {
-    id: 'otto-symbol',
-    name: 'CraftAgentsSymbol',
-    category: 'Icons',
-    description: 'Otto "E" pixel art symbol icon (brand color: #9570BE)',
-    component: CraftAgentsSymbol,
-    props: [
-      {
-        name: 'className',
-        description: 'Tailwind classes for sizing',
-        control: { type: 'string' },
-        defaultValue: 'h-6 w-6',
-      },
-    ],
-    variants: [
-      { name: 'Small', props: { className: 'h-4 w-4' } },
-      { name: 'Medium', props: { className: 'h-6 w-6' } },
-      { name: 'Large', props: { className: 'h-10 w-10' } },
+      { name: 'size-4', props: { className: 'size-4 text-foreground' } },
+      { name: 'size-5', props: { className: 'size-5 text-foreground' } },
+      { name: 'size-6', props: { className: 'size-6 text-foreground' } },
+      { name: 'size-8', props: { className: 'size-8 text-foreground' } },
+      { name: 'size-10', props: { className: 'size-10 text-foreground' } },
     ],
   },
   {

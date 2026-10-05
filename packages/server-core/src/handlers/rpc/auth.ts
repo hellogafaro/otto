@@ -1,6 +1,3 @@
-import { unlink } from 'fs/promises'
-import { join } from 'path'
-import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { getCredentialManager } from '@otto/shared/credentials'
 import type { RpcServer } from '@otto/server-core/transport'
@@ -8,7 +5,6 @@ import type { HandlerDeps } from '../handler-deps'
 import { requestClientConfirmDialog } from '@otto/server-core/transport'
 
 export const HANDLED_CHANNELS = [
-  RPC_CHANNELS.auth.LOGOUT,
   RPC_CHANNELS.auth.SHOW_LOGOUT_CONFIRMATION,
   RPC_CHANNELS.auth.SHOW_DELETE_SESSION_CONFIRMATION,
   RPC_CHANNELS.credentials.HEALTH_CHECK,
@@ -45,30 +41,6 @@ export function registerAuthHandlers(server: RpcServer, deps: HandlerDeps): void
     // result.response is the index of the clicked button
     // 0 = Cancel, 1 = Delete
     return result.response === 1
-  })
-
-  // Logout - clear all credentials and config
-  server.handle(RPC_CHANNELS.auth.LOGOUT, async () => {
-    try {
-      const manager = getCredentialManager()
-
-      // List and delete all stored credentials
-      const allCredentials = await manager.list()
-      for (const credId of allCredentials) {
-        await manager.delete(credId)
-      }
-
-      // Delete the config file
-      const configPath = join(CONFIG_DIR, 'config.json')
-      await unlink(configPath).catch(() => {
-        // Ignore if file doesn't exist
-      })
-
-      deps.platform.logger.info('Logout complete - cleared all credentials and config')
-    } catch (error) {
-      deps.platform.logger.error('Logout error:', error)
-      throw error
-    }
   })
 
   // Credential health check - validates credential store is readable and usable

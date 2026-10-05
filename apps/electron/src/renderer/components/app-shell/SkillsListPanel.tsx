@@ -58,7 +58,6 @@ export function SkillsListPanel({
           icon={<Zap />}
           title={t('skillsList.noSkillsConfigured')}
           description={t('skillsList.emptyDescription')}
-          docKey="skills"
         >
           {workspaceRootPath && (
             <EditPopover

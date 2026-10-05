@@ -176,10 +176,10 @@ describe('source_activated auto-retry', () => {
       timestamp: Date.now(),
     } as never)
 
-    await fireSourceActivated(sessionId, 'craft-my-space', '')
+    await fireSourceActivated(sessionId, 'example-mcp', '')
     await new Promise(r => setTimeout(r, 150))
 
-    expect(calls).toEqual(['summarize my latest doc\n\n[craft-my-space activated]'])
+    expect(calls).toEqual(['summarize my latest doc\n\n[example-mcp activated]'])
   })
 
   it('legitimate user message preempts retry — skipped when follow-up arrived', async () => {

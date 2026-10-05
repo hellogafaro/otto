@@ -97,6 +97,7 @@ import { decideMidTurnDelivery, isContinuation } from '../decisions/mid-turn-mes
 import { candidatesUsedBy, collectSuggestionCandidates, formatSuggestionHint, pickSuggestion, suggestionFollowUp, wantsSuggestion, type SuggestionTrace } from '../decisions/suggestions'
 import { isDecisionFeatureActive, type DecisionLayerFeature } from '@otto/shared/decisions'
 import { setLargeResultSummaryGate } from '@otto/shared/utils'
+import { getViewerUrl } from '@otto/shared/branding'
 import { buildLargeResultSummaryGate } from '../decisions/large-results'
 import { buildGuardedModeCheck } from '../decisions/guarded-mode'
 import { assessPermissionRisks } from '../decisions/permission-risks'
@@ -1196,6 +1197,8 @@ export function canSteerTextPayload(
     return true
   })
 }
+
+const SHARING_NOT_CONFIGURED = 'Sharing is not configured (set OTTO_VIEWER_URL)'
 
 export class SessionManager implements ISessionManager {
   private sessions: Map<string, ManagedSession> = new Map()
@@ -5301,6 +5304,8 @@ export class SessionManager implements ISessionManager {
    * Uploads session data and returns shareable URL
    */
   async shareToViewer(sessionId: string): Promise<import('@otto/shared/protocol').ShareResult> {
+    const viewerUrl = getViewerUrl()
+    if (!viewerUrl) return { success: false, error: SHARING_NOT_CONFIGURED }
     const managed = this.sessions.get(sessionId)
     if (!managed) {
       return { success: false, error: 'Session not found' }
@@ -5317,8 +5322,7 @@ export class SessionManager implements ISessionManager {
         return { success: false, error: 'Session file not found' }
       }
 
-      const { VIEWER_URL } = await import('@otto/shared/branding')
-      const response = await fetch(`${VIEWER_URL}/s/api`, {
+      const response = await fetch(`${viewerUrl}/s/api`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(storedSession)
@@ -5362,6 +5366,8 @@ export class SessionManager implements ISessionManager {
    * Re-uploads session data to the same URL
    */
   async updateShare(sessionId: string): Promise<import('@otto/shared/protocol').ShareResult> {
+    const viewerUrl = getViewerUrl()
+    if (!viewerUrl) return { success: false, error: SHARING_NOT_CONFIGURED }
     const managed = this.sessions.get(sessionId)
     if (!managed) {
       return { success: false, error: 'Session not found' }
@@ -5381,8 +5387,7 @@ export class SessionManager implements ISessionManager {
         return { success: false, error: 'Session file not found' }
       }
 
-      const { VIEWER_URL } = await import('@otto/shared/branding')
-      const response = await fetch(`${VIEWER_URL}/s/api/${managed.sharedId}`, {
+      const response = await fetch(`${viewerUrl}/s/api/${managed.sharedId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(storedSession)
@@ -5413,6 +5418,8 @@ export class SessionManager implements ISessionManager {
    * Deletes from viewer and clears local shared state
    */
   async revokeShare(sessionId: string): Promise<import('@otto/shared/protocol').ShareResult> {
+    const viewerUrl = getViewerUrl()
+    if (!viewerUrl) return { success: false, error: SHARING_NOT_CONFIGURED }
     const managed = this.sessions.get(sessionId)
     if (!managed) {
       return { success: false, error: 'Session not found' }
@@ -5426,9 +5433,8 @@ export class SessionManager implements ISessionManager {
     this.sendEvent({ type: 'async_operation', sessionId, isOngoing: true }, managed.workspace.id)
 
     try {
-      const { VIEWER_URL } = await import('@otto/shared/branding')
       const response = await fetch(
-        `${VIEWER_URL}/s/api/${managed.sharedId}`,
+        `${viewerUrl}/s/api/${managed.sharedId}`,
         { method: 'DELETE' }
       )
 
@@ -6118,11 +6124,11 @@ export class SessionManager implements ISessionManager {
     }
 
     // Revoke share if session was shared (prevent orphaned viewer copies)
-    if (managed.sharedId) {
+    const viewerUrl = getViewerUrl()
+    if (managed.sharedId && viewerUrl) {
       try {
-        const { VIEWER_URL } = await import('@otto/shared/branding')
         const response = await fetch(
-          `${VIEWER_URL}/s/api/${managed.sharedId}`,
+          `${viewerUrl}/s/api/${managed.sharedId}`,
           { method: 'DELETE', signal: AbortSignal.timeout(5000) }
         )
         if (!response.ok) {

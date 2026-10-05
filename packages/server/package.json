@@ -14,11 +14,10 @@
     "bun": ">=1.0.0"
   },
   "author": {
-    "name": "Craft Docs Ltd.",
-    "email": "support@craft.do"
+    "name": "Gafaro",
+    "email": "hello@hellogafaro.com"
   },
   "license": "Apache-2.0",
-  "homepage": "https://thecraftagents.com",
   "scripts": {
     "start": "bun run src/index.ts",
     "generate-token": "bun run src/index.ts --generate-token",

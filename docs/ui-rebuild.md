@@ -88,7 +88,6 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 - [ ] `components/onboarding/LocalModelStep.tsx`
 - [ ] `components/onboarding/OnboardingWizard.tsx`
 - [ ] `components/onboarding/ProviderSelectStep.tsx`
-- [ ] `components/onboarding/ReauthScreen.tsx`
 - [ ] `components/onboarding/WelcomeStep.tsx`
 - [ ] `components/onboarding/primitives.tsx`
 
@@ -202,7 +201,6 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 
 - [ ] `components/KeyboardShortcuts.tsx`
 - [ ] `components/KeyboardShortcutsDialog.tsx`
-- [ ] `components/ResetConfirmationDialog.tsx`
 - [ ] `components/ServerDirectoryBrowser.tsx`
 - [ ] `components/SplashScreen.tsx`
 

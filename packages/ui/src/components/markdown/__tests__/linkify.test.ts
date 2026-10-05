@@ -74,9 +74,9 @@ describe('preprocessLinks', () => {
 
   describe('strips trailing markdown formatting from URLs', () => {
     it('does not include trailing ** from bold-wrapped URL', () => {
-      const input = 'PR created: **https://github.com/lukilabs/craft-growth/pull/1363**'
+      const input = 'PR created: **https://github.com/acme/growth/pull/1363**'
       const result = preprocessLinks(input)
-      expect(result).toBe('PR created: **[https://github.com/lukilabs/craft-growth/pull/1363](https://github.com/lukilabs/craft-growth/pull/1363)**')
+      expect(result).toBe('PR created: **[https://github.com/acme/growth/pull/1363](https://github.com/acme/growth/pull/1363)**')
     })
 
     it('does not include trailing * from italic-wrapped URL', () => {

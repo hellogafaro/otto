@@ -1,6 +1,6 @@
 appId: com.hellogafaro.otto
 productName: Otto
-copyright: Copyright © 2026 Craft Docs Ltd.
+copyright: Copyright © 2026 Gafaro
 
 electronVersion: "39.2.7"
 
@@ -70,10 +70,8 @@ files:
 extraMetadata:
   main: dist/main.cjs
 
-# Auto-update: electron-updater fetches from this URL for update manifests (.yml files)
-publish:
-  provider: generic
-  url: https://thecraftagents.com/electron/latest
+# Auto-update: no `publish` block. The feed URL is set at runtime from
+# OTTO_UPDATE_URL (src/main/auto-update.ts); unset = updater disabled.
 
 # Disable ASAR to avoid decompression overhead and click delays
 asar: false
@@ -194,7 +192,7 @@ nsis:
 linux:
   icon: resources/icon.png
   category: Utility
-  maintainer: "Craft Docs Ltd. <support@craft.do>"
+  maintainer: "Gafaro <hello@hellogafaro.com>"
   target:
     - target: AppImage
       arch:

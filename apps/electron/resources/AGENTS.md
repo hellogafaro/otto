@@ -35,7 +35,6 @@ These files are used by electron-builder or the app directly, not synced to user
 | `icon.*` | App icons (icns, ico, png, svg), generated from `design/brand` by `scripts/generate-brand-assets.ts` |
 | `Assets.car` | macOS compiled asset catalog (compile on a Mac from `icon.icon`; see `scripts/afterPack.cjs`) |
 | `dmg-background.*` | DMG installer background |
-| `otto-logos/` | Branding assets |
 | `source.png` | 2048px app icon render |
 
 ## Single Source of Truth

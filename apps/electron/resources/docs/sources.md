@@ -10,21 +10,7 @@ This guide explains how to configure sources (MCP servers, APIs, local filesyste
 
 When a user wants to add a new source, follow this conversational setup process to create a tailored, well-documented integration.
 
-### 0. Check for a Specialized Source Guide (REQUIRED FIRST STEP)
-
-**Before doing anything else**, check the product documentation at https://thecraftagents.com/docs for a service-specific setup guide (fetch pages with your web tools, e.g. search for "{service} source setup").
-
-**Available guides:** GitHub, Linear, Slack, Gmail, Google Calendar, Google Drive, Google Docs, Google Sheets, Outlook, Microsoft Calendar, Teams, SharePoint, Craft, Filesystem, Brave Search, Memory
-
-**If a guide exists for the service:**
-1. **Read the guide content** carefully
-2. **Pay special attention to the "Setup Hints" section** - it contains critical instructions
-3. **Follow any CRITICAL/MANDATORY instructions** before proceeding (e.g., GitHub requires checking for `gh` CLI first)
-4. **ALWAYS verify current API endpoints via WebSearch and/or in-app browser** - URLs and docs change frequently
-
-**Why this matters:** Some services have important prerequisites or gotchas that MUST be checked before creating a source. Skipping this step can lead to failed setups or redundant configurations.
-
-### 0.5. Choose Source vs Browser Path (RECOMMENDED PRE-FLIGHT)
+### 0. Choose Source vs Browser Path (RECOMMENDED PRE-FLIGHT)
 
 Sources remain the default for reusable integrations. Before building a new source, ask: **Is this repeatable integration work, or a one-off/UI-driven task?**
 
@@ -187,7 +173,7 @@ What data/functionality this provides. Include:
 ## Examples
 
 Concrete examples tailored to the user's workflow:
-- "To find issues in the Craft iOS project: ..."
+- "To find issues in the Acme iOS project: ..."
 - "To search for recent commits by the mobile team: ..."
 ```
 
@@ -204,30 +190,28 @@ Concrete examples tailored to the user's workflow:
 ```
 User: I want to add Linear
 
-Agent: [FIRST: Fetches the Linear setup guide from https://thecraftagents.com/docs]
-
-Agent: I found the Linear setup guide! A few questions:
+Agent: Great, a few questions:
 1. What will you primarily use Linear for? (issue tracking, sprint planning, reporting?)
 2. Are there specific teams or projects you want to focus on?
 3. Should I set it up for read-only exploration or full access?
 
-User: Issue tracking for my iOS team, project called "Craft iOS"
+User: Issue tracking for my iOS team, project called "Acme iOS"
 
 Agent: [Uses WebSearch to verify current Linear MCP URL]
 Agent: [Creates config.json with:
         - icon: (searches web for app icon or uses favicon)
-        - tagline: "Issue tracking for the Craft iOS team"
+        - tagline: "Issue tracking for the Acme iOS team"
         - OAuth authentication]
-Agent: [Writes guide.md mentioning "Craft iOS" project and iOS team context]
+Agent: [Writes guide.md mentioning "Acme iOS" project and iOS team context]
 Agent: [Sets up permissions.json for read-only listing in Explore mode]
 Agent: [MANDATORY: Runs source_test to validate]
        mcp__session__source_test({ sourceSlug: "linear" })
 Agent: [Triggers source_oauth_trigger for authentication]
        mcp__session__source_oauth_trigger({ sourceSlug: "linear" })
 
-Agent: Linear is now set up! I've configured it to focus on the "Craft iOS" project.
+Agent: Linear is now set up! I've configured it to focus on the "Acme iOS" project.
 You can use it to:
-- Search and view issues in Craft iOS
+- Search and view issues in Acme iOS
 - Track sprint progress for the iOS team
 - Create and update issues
 
@@ -529,11 +513,11 @@ For API sources that use OAuth 2.0 but aren't Google, Slack, or Microsoft. Two m
 
 ```json
 {
-  "name": "Craft Connect",
+  "name": "Example API",
   "type": "api",
-  "provider": "craft",
+  "provider": "example",
   "api": {
-    "baseUrl": "https://connect.craft.do/my/api/v1/",
+    "baseUrl": "https://api.example.com/v1/",
     "authType": "oauth"
   }
 }
@@ -833,7 +817,7 @@ Requires user-provided OAuth credentials in the source config:
 - `googleOAuthClientId`: Your Google OAuth Client ID
 - `googleOAuthClientSecret`: Your Google OAuth Client Secret
 
-Create credentials at [Google Cloud Console](https://console.cloud.google.com/apis/credentials) as a **Web application** client (not "Desktop app"), and add `https://thecraftagents.com/auth/callback` as an authorized redirect URI. A client secret is required.
+Create credentials at [Google Cloud Console](https://console.cloud.google.com/apis/credentials) as a **Web application** client (not "Desktop app"), and add the OAuth callback URL of your Otto server (or your configured OAuth relay) as an authorized redirect URI. A client secret is required.
 Uses OAuth via `source_google_oauth_trigger`.
 
 ### Linear

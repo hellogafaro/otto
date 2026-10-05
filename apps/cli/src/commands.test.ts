@@ -164,11 +164,11 @@ describe('parseArgs', () => {
   it('--source accumulates into array', () => {
     const args = parseArgs([
       'bun', 'index.ts',
-      '--source', 'craft-kb',
+      '--source', 'example-mcp',
       '--source', 'github',
       'run', 'do stuff',
     ])
-    expect(args.sources).toEqual(['craft-kb', 'github'])
+    expect(args.sources).toEqual(['example-mcp', 'github'])
   })
 
   it('defaults sources to empty array', () => {

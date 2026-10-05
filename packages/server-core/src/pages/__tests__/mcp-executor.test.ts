@@ -16,7 +16,7 @@ const log: Logger = { debug() {}, info() {}, warn() {}, error() {} } as unknown 
 function makeSource(overrides: Record<string, unknown> = {}): LoadedSource {
   return {
     config: {
-      slug: 'craft',
+      slug: 'example',
       type: 'mcp',
       enabled: true,
       isAuthenticated: true,
@@ -71,7 +71,7 @@ function makeExecutor(opts: {
     buildServers: (async () => {
       opts.onBuild?.()
       return {
-        mcpServers: { craft: { type: 'http', url: 'https://x.test' } },
+        mcpServers: { example: { type: 'http', url: 'https://x.test' } },
         apiServers: {},
         errors: [],
         ...opts.built,
@@ -87,10 +87,10 @@ describe('createPagesMcpExecutor', () => {
   test('executes a tool and returns the content string', async () => {
     const calls: string[] = []
     const { executor, ensured } = makeExecutor({ onCall: (name) => calls.push(name) })
-    const body = await executor({ sourceSlug: 'craft', toolName: 'craft_read', args: { command: 'x' } }, { signal })
+    const body = await executor({ sourceSlug: 'example', toolName: 'example_read', args: { command: 'x' } }, { signal })
     expect(body).toBe('ok')
-    expect(ensured).toEqual(['craft'])
-    expect(calls).toEqual(['mcp__craft__craft_read'])
+    expect(ensured).toEqual(['example'])
+    expect(calls).toEqual(['mcp__example__example_read'])
   })
 
   test('throws for an unknown source', async () => {
@@ -103,7 +103,7 @@ describe('createPagesMcpExecutor', () => {
   test('throws for a disabled source', async () => {
     const { executor } = makeExecutor({ sources: [makeSource({ enabled: false })] })
     await expect(
-      executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal }),
+      executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal }),
     ).rejects.toThrow(/disabled/)
   })
 
@@ -112,40 +112,40 @@ describe('createPagesMcpExecutor', () => {
     // The prefix is part of the page authoring contract (docs/pages.md) —
     // pages match on it to disable buttons and defer to the reconnect banner.
     await expect(
-      executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal }),
-    ).rejects.toThrow(/^source-auth-required: reconnect "craft" in the app$/)
+      executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal }),
+    ).rejects.toThrow(/^source-auth-required: reconnect "example" in the app$/)
   })
 
   test('directs api sources to api-kind grants', async () => {
     const { executor } = makeExecutor({
       sources: [makeSource({ type: 'api', api: { authType: 'none' } })],
-      built: { mcpServers: {}, apiServers: { craft: {} } },
+      built: { mcpServers: {}, apiServers: { example: {} } },
     })
     await expect(
-      executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal }),
+      executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal }),
     ).rejects.toThrow(/api-kind grant/)
   })
 
   test('surfaces non-auth build errors as connect prose', async () => {
     const { executor } = makeExecutor({
-      built: { mcpServers: {}, errors: [{ sourceSlug: 'craft', error: 'Connection refused' }] },
+      built: { mcpServers: {}, errors: [{ sourceSlug: 'example', error: 'Connection refused' }] },
     })
     await expect(
-      executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal }),
+      executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal }),
     ).rejects.toThrow(/not connectable: Connection refused/)
   })
 
   test('refreshes refreshable sources before building', async () => {
     const { executor, refreshed } = makeExecutor({})
-    await executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal })
-    expect(refreshed).toEqual(['craft'])
+    await executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal })
+    expect(refreshed).toEqual(['example'])
   })
 
   test('skips refresh for non-refreshable sources', async () => {
     const { executor, refreshed } = makeExecutor({
       sources: [makeSource({ mcp: { authType: 'none' } })],
     })
-    await executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal })
+    await executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal })
     expect(refreshed).toEqual([])
   })
 
@@ -160,7 +160,7 @@ describe('createPagesMcpExecutor', () => {
       },
     })
     await expect(
-      executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal }),
+      executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal }),
     ).rejects.toThrow(/^source-auth-required/)
   })
 
@@ -175,24 +175,24 @@ describe('createPagesMcpExecutor', () => {
         sources[0]!.config.isAuthenticated = false
         sources[0]!.config.connectionStatus = 'needs_auth'
       },
-      built: { mcpServers: {}, errors: [{ sourceSlug: 'craft', error: 'Authentication required' }] },
+      built: { mcpServers: {}, errors: [{ sourceSlug: 'example', error: 'Authentication required' }] },
     })
     await expect(
-      executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal }),
+      executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal }),
     ).rejects.toThrow(/^source-auth-required/)
   })
 
   test('throws when the tool result is an error', async () => {
     const { executor } = makeExecutor({ result: { content: 'boom', isError: true } })
     await expect(
-      executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal }),
+      executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal }),
     ).rejects.toThrow('boom')
   })
 
   test('caps oversized results', async () => {
     const big = 'x'.repeat(MCP_ACTION_BODY_MAX_CHARS * 2)
     const { executor } = makeExecutor({ result: { content: big, isError: false } })
-    const body = (await executor({ sourceSlug: 'craft', toolName: 't', args: {} }, { signal })) as string
+    const body = (await executor({ sourceSlug: 'example', toolName: 't', args: {} }, { signal })) as string
     expect(body.length).toBe(MCP_ACTION_BODY_MAX_CHARS)
     expect(body).toContain('…[truncated')
   })
