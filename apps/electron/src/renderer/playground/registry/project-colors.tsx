@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ChevronRight, Circle, FolderKanban } from 'lucide-react'
+import { ChevronRight, Circle, Folder } from 'lucide-react'
 import type { ComponentEntry } from './types'
 import type { SessionMeta } from '@/atoms/sessions'
 import type { SessionStatus } from '@/config/session-status-config'
@@ -164,7 +164,7 @@ function ProjectColorEditor({
       <ul className="space-y-2">
         {projects.map(project => (
           <li key={project.id} className="flex items-center gap-3 flex-wrap">
-            <FolderKanban className="h-3.5 w-3.5 text-foreground/40" />
+            <Folder className="h-3.5 w-3.5 text-foreground/40" />
             <span className="text-sm w-28 truncate">{project.name}</span>
             <div className="flex items-center gap-1">
               {PROJECT_PALETTE.map(swatch => {

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { AlertTriangle, ArrowLeft, Check, FolderKanban, FolderOpen, Globe2, KeyRound, MoreHorizontal, Pencil, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Folder, FolderOpen, Globe2, KeyRound, MoreHorizontal, Pencil, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -310,7 +310,7 @@ export function PageView({ pageSlug }: PageViewProps) {
               {projects.length > 0 && (
                 <DropdownMenuSub>
                   <StyledDropdownMenuSubTrigger>
-                    <FolderKanban className="h-3.5 w-3.5" />
+                    <Folder className="h-3.5 w-3.5" />
                     <span className="flex-1">{t('pages.moveToProject')}</span>
                   </StyledDropdownMenuSubTrigger>
                   <StyledDropdownMenuSubContent>

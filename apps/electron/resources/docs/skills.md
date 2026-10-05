@@ -287,7 +287,7 @@ When triaging issues:
 3. Suggest assignees based on expertise
 ```
 
-**Recommended icon**: Kanban board or list icon
+**Recommended icon**: a list icon
 
 When this skill is invoked, the `linear` source is automatically enabled for the
 session — no manual toggle needed.

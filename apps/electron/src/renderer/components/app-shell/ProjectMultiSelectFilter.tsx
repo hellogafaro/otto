@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ChevronDown, FolderKanban } from 'lucide-react'
+import { ChevronDown, Folder } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
@@ -32,7 +32,7 @@ interface ProjectMultiSelectFilterProps {
 }
 
 /**
- * Generic controlled multi-select project filter (board headers). Each project
+ * Generic controlled multi-select project filter. Each project
  * is a checkbox item that keeps the menu open on toggle (so several can be
  * picked in one go); the "All Projects" row clears the selection. An empty
  * selection means no filter — everything is shown.
@@ -59,10 +59,10 @@ export function ProjectMultiSelectFilter({
 
   const label =
     value.length === 0
-      ? t('kanban.allProjects')
+      ? t('sidebar.allProjects')
       : value.length === 1
-        ? selectionName(value[0]) ?? t('kanban.projectsSelected', { count: 1 })
-        : t('kanban.projectsSelected', { count: value.length })
+        ? selectionName(value[0]) ?? t('sidebar.projectsSelected', { count: 1 })
+        : t('sidebar.projectsSelected', { count: value.length })
 
   return (
     <DropdownMenu>
@@ -74,14 +74,14 @@ export function ProjectMultiSelectFilter({
             className
           )}
         >
-          <FolderKanban className="h-3.5 w-3.5 shrink-0 text-foreground/50" strokeWidth={2} />
+          <Folder className="h-3.5 w-3.5 shrink-0 text-foreground/50" strokeWidth={2} />
           <span className="truncate">{label}</span>
           <ChevronDown className="h-3 w-3 shrink-0 text-foreground/40" strokeWidth={2} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-w-[260px]">
         <DropdownMenuItem className="text-xs" disabled={value.length === 0} onSelect={() => onChange([])}>
-          {t('kanban.allProjects')}
+          {t('sidebar.allProjects')}
         </DropdownMenuItem>
         {(projects.length > 0 || unassignedId) && <DropdownMenuSeparator />}
         {unassignedId && (

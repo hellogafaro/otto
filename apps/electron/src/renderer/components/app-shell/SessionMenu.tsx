@@ -29,7 +29,7 @@ import {
   RefreshCw,
   Tag,
   Send,
-  FolderKanban,
+  Folder,
   Check,
 } from 'lucide-react'
 import { useMenuComponents } from '@/components/ui/menu-context'
@@ -203,7 +203,7 @@ export function SessionMenu({
       {projects.length > 0 && onSetProjectId && (
         <Sub>
           <SubTrigger className="pr-2">
-            <FolderKanban className="h-3.5 w-3.5" />
+            <Folder className="h-3.5 w-3.5" />
             <span className="flex-1">{t("sessionMenu.projects")}</span>
           </SubTrigger>
           <SubContent>

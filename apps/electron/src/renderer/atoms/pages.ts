@@ -5,10 +5,9 @@
  * `usePages` writes it and every consumer (sidebar count, grid, detail view)
  * reads it. There is deliberately no local-state mirror.
  *
- * `pagesProjectFilterAtom` follows the Kanban board's filter semantics
- * (empty = all), with one addition: the `PAGES_UNASSIGNED_PROJECT` sentinel
- * selects pages that have no project. It survives board remounts within a
- * session but is cleared on workspace switch (PagesHome owns the pruning).
+ * `pagesProjectFilterAtom` selects pages by project (empty = all), plus the
+ * `PAGES_UNASSIGNED_PROJECT` sentinel for pages that have no project. It is
+ * cleared on workspace switch (PagesHome owns the pruning).
  */
 
 import { atom } from 'jotai'

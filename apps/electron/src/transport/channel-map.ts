@@ -29,18 +29,6 @@ export const CHANNEL_MAP = {
   killShell: invoke(RPC_CHANNELS.sessions.KILL_SHELL),
   getTaskOutput: invoke(RPC_CHANNELS.tasks.GET_OUTPUT),
 
-  // Tasks (Conductor)
-  validateTask: invoke(RPC_CHANNELS.tasks.VALIDATE),
-  createTask: invoke(RPC_CHANNELS.tasks.CREATE),
-  generateTask: invoke(RPC_CHANNELS.tasks.GENERATE),
-  runTask: invoke(RPC_CHANNELS.tasks.RUN),
-  pauseTask: invoke(RPC_CHANNELS.tasks.PAUSE),
-  resumeTask: invoke(RPC_CHANNELS.tasks.RESUME),
-  stopTask: invoke(RPC_CHANNELS.tasks.STOP),
-  getTask: invoke(RPC_CHANNELS.tasks.GET),
-  listTasks: invoke(RPC_CHANNELS.tasks.LIST),
-  getTaskResults: invoke(RPC_CHANNELS.tasks.GET_RESULTS),
-  onTaskGenerated: listener(RPC_CHANNELS.tasks.GENERATED),
   respondToPermission: invoke(RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION),
   respondToCredential: invoke(RPC_CHANNELS.sessions.RESPOND_TO_CREDENTIAL),
   sessionCommand: invoke(RPC_CHANNELS.sessions.COMMAND),

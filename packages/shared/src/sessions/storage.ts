@@ -189,10 +189,6 @@ export async function createSession(
     isFlagged?: boolean;
     projectId?: string;
     parentSessionId?: string;
-    taskSlug?: string;
-    taskRunId?: string;
-    taskNodeId?: string;
-    taskDraft?: boolean;
   }
 ): Promise<SessionConfig> {
   ensureSessionsDir(workspaceRootPath);
@@ -226,10 +222,6 @@ export async function createSession(
     isFlagged: options?.isFlagged,
     projectId: options?.projectId,
     parentSessionId: options?.parentSessionId,
-    taskSlug: options?.taskSlug,
-    taskRunId: options?.taskRunId,
-    taskNodeId: options?.taskNodeId,
-    taskDraft: options?.taskDraft,
   };
 
   // Save empty session

@@ -83,10 +83,6 @@ export interface SessionScopedToolCallbacks {
   getMessagingBindingsFn?: (sessionId: string) => Array<{ platform: string; channelId: string; threadId?: number; channelName?: string; enabled: boolean }>;
   /** Unbind messaging channels from a session. Returns count of removed bindings. */
   unbindMessagingChannelFn?: (sessionId: string, platform?: string) => number;
-  /** Create a Craft Agents Task (board card + task.yaml + orchestrator session) without running it. */
-  createTaskFn?: (
-    input: import('@craft-agent/session-tools-core').CreateTaskInput
-  ) => Promise<import('@craft-agent/session-tools-core').CreateTaskResult>;
   /**
    * Pages tools (list/get/create/update/write data/delete) — grouped in one
    * object because the six operations always ship together. Wired by

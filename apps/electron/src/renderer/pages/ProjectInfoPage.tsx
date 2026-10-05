@@ -9,7 +9,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useAtomValue } from 'jotai'
-import { FolderKanban, FolderOpen, Plus, Trash2, Upload } from 'lucide-react'
+import { Folder, FolderOpen, Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveWorkspace, useAppShellContext } from '@/context/AppShellContext'
 import { navigate, routes } from '@/lib/navigate'
@@ -215,7 +215,7 @@ export default function ProjectInfoPage({ projectSlug }: ProjectInfoPageProps) {
       {project && (
         <Info_Page.Content>
           <Info_Page.Hero
-            avatar={<FolderKanban className="h-6 w-6 text-foreground/60" />}
+            avatar={<Folder className="h-6 w-6 text-foreground/60" />}
             title={project.config.name}
             tagline={project.config.description ?? t('projectInfo.taglineFallback')}
           />

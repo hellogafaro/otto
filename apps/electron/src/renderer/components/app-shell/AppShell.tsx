@@ -31,7 +31,7 @@ import {
   Bot,
   Info,
   MailOpen,
-  FolderKanban,
+  Folder,
   PanelsTopLeft,
 } from "lucide-react"
 // SessionStatusIcons no longer used - icons come from dynamic sessionStatuses
@@ -66,7 +66,6 @@ import {
 } from "@/components/ui/collapsible"
 import { SessionList, type ChatGroupingMode } from "./SessionList"
 import { MainContentPanel } from "./MainContentPanel"
-import { BoardListToggle } from "./kanban/BoardListToggle"
 import { PanelStackContainer } from "./PanelStackContainer"
 import { CompactSessionListFilter } from "./CompactSessionListFilter"
 import type { ChatDisplayHandle } from "./ChatDisplay"
@@ -608,12 +607,8 @@ function AppShellContent({
 
   const sessionFilter = sessionsContext?.filter ?? null
 
-  // Board view replaces the session-list navigator with the full-width Kanban panel,
-  // so the navigator (and its resize handle) collapse to zero width while it's active.
-  const isBoardView = isSessionsNavigation(navState) && navState.viewMode === 'board'
-
-  // Pages behaves the same way: both the library grid and an open page render
-  // full-width in the content area — there is no pages navigator list.
+  // Pages renders full-width: both the library grid and an open page fill the
+  // content area — there is no pages navigator list.
   const isPagesView = isPagesNavigation(navState)
 
   // Derive source filter from navigation state (only when in sources navigator)
@@ -769,30 +764,6 @@ function AppShellContent({
     })
     navigate(routes.view.allSessions())
   }, [])
-
-  // Jump to All Sessions scoped to a task: replace the allSessions view's label filter
-  // (and project filter, when the task is bound to one) with the task's scope, then open
-  // the session. These are the SAME user-clearable filters the list-header chips edit —
-  // clearing them afterwards works exactly like any hand-set filter. Mirrors
-  // handleJumpToProjectSessions; used by kanban tile/subtask clicks and post-create.
-  const handleJumpToTaskSessions = useCallback(
-    (sessionId: string, scope: { labelId: string; projectId?: string }) => {
-      setViewFiltersMap(prev => {
-        const existing = prev['allSessions']
-        return {
-          ...prev,
-          allSessions: {
-            statuses: existing?.statuses ?? {},
-            labels: { [scope.labelId]: 'include' },
-            projects: scope.projectId ? { [scope.projectId]: 'include' } : {},
-            groupingMode: existing?.groupingMode,
-          }
-        }
-      })
-      navigate(routes.view.allSessions(sessionId))
-    },
-    []
-  )
 
   // Search state for session list
   const [searchActive, setSearchActive] = React.useState(false)
@@ -1716,7 +1687,6 @@ function AppShellContent({
     enabledModes,
     sessionStatuses: effectiveSessionStatuses,
     onSessionSourcesChange: handleSessionSourcesChange,
-    onJumpToTaskSessions: handleJumpToTaskSessions,
     rightSidebarButton: null,
     isCompactMode: isAutoCompact,
     // Search state for ChatDisplay highlighting
@@ -1731,7 +1701,7 @@ function AppShellContent({
     automationTestResults,
     getAutomationHistory,
     onReplayAutomation: handleReplayAutomation,
-  }), [contextValue, handleDeleteSession, sources, skills, activeSessionWorkingDirectory, displayLabelConfigs, handleSessionLabelsChange, enabledModes, effectiveSessionStatuses, handleSessionSourcesChange, handleJumpToTaskSessions, isAutoCompact, searchActive, searchQuery, handleChatMatchInfoChange, handleTestAutomation, handleToggleAutomation, handleDuplicateAutomation, handleDeleteAutomation, automationTestResults, getAutomationHistory, handleReplayAutomation])
+  }), [contextValue, handleDeleteSession, sources, skills, activeSessionWorkingDirectory, displayLabelConfigs, handleSessionLabelsChange, enabledModes, effectiveSessionStatuses, handleSessionSourcesChange, isAutoCompact, searchActive, searchQuery, handleChatMatchInfoChange, handleTestAutomation, handleToggleAutomation, handleDuplicateAutomation, handleDeleteAutomation, automationTestResults, getAutomationHistory, handleReplayAutomation])
 
   // Persist expanded folders to localStorage (workspace-scoped)
   React.useEffect(() => {
@@ -2570,16 +2540,6 @@ function AppShellContent({
               ) : undefined}
               actions={
                 <>
-                  {/* List ⇄ Board view switch (sessions mode, desktop widths only).
-                      In board view the navigator is collapsed, so the board hosts its own copy. */}
-                  {!isAutoCompact && isSessionsNavigation(navState) && (
-                    <BoardListToggle
-                      value="list"
-                      onChange={view => {
-                        if (view === 'board') navigate(routes.view.board())
-                      }}
-                    />
-                  )}
                   {/* Filter dropdown - available in ALL chat views.
                       Shows user-added filters (removable) and pinned filters (non-removable, derived from route).
                       Pinned filters: state views pin a status, label views pin a label, flagged pins the flag. */}
@@ -2841,7 +2801,7 @@ function AppShellContent({
                                     <DropdownMenuSub key={`sel-project-${projectId}`}>
                                       <StyledDropdownMenuSubTrigger onClick={(e) => { e.preventDefault(); setProjectFilter(prev => { const next = new Map(prev); next.delete(projectId); return next }) }}>
                                         <FilterMenuRow
-                                          icon={<FolderKanban className="h-3.5 w-3.5" />}
+                                          icon={<Folder className="h-3.5 w-3.5" />}
                                           label={project.name}
                                           accessory={<FilterModeBadge mode={mode} />}
                                         />
@@ -2968,7 +2928,7 @@ function AppShellContent({
                             {projectMenuOptions.length > 0 && (
                               <DropdownMenuSub>
                                 <StyledDropdownMenuSubTrigger>
-                                  <FolderKanban className="h-3.5 w-3.5" />
+                                  <Folder className="h-3.5 w-3.5" />
                                   <span className="flex-1">{t("sidebar.projects")}</span>
                                 </StyledDropdownMenuSubTrigger>
                                 <StyledDropdownMenuSubContent minWidth="min-w-[180px]">
@@ -2980,7 +2940,7 @@ function AppShellContent({
                                         <DropdownMenuSub key={project.id}>
                                           <StyledDropdownMenuSubTrigger onClick={(e) => { e.preventDefault(); setProjectFilter(prev => { const next = new Map(prev); next.delete(project.id); return next }) }}>
                                             <FilterMenuRow
-                                              icon={<FolderKanban className="h-3.5 w-3.5" />}
+                                              icon={<Folder className="h-3.5 w-3.5" />}
                                               label={project.name}
                                               accessory={<FilterModeBadge mode={currentMode} />}
                                             />
@@ -3017,7 +2977,7 @@ function AppShellContent({
                                           }}
                                         >
                                           <FilterMenuRow
-                                            icon={<FolderKanban className="h-3.5 w-3.5" />}
+                                            icon={<Folder className="h-3.5 w-3.5" />}
                                             label={project.name}
                                           />
                                         </StyledDropdownMenuItem>
@@ -3055,7 +3015,7 @@ function AppShellContent({
                                     </StyledDropdownMenuItem>
                                     {projectMenuOptions.length > 0 && (
                                       <StyledDropdownMenuItem onClick={() => setChatGroupingMode('project')}>
-                                        <FolderKanban className="h-3.5 w-3.5" />
+                                        <Folder className="h-3.5 w-3.5" />
                                         <span className="flex-1">{t("sidebar.groupByProject")}</span>
                                         {chatGroupingMode === 'project' && <Check className="h-3 w-3 text-muted-foreground" />}
                                       </StyledDropdownMenuItem>
@@ -3442,7 +3402,7 @@ function AppShellContent({
             )}
             </div>
           }
-          navigatorWidth={isAutoCompact ? sessionListWidth : (effectiveSidebarAndNavigatorHidden || isBoardView || isPagesView ? 0 : sessionListWidth)}
+          navigatorWidth={isAutoCompact ? sessionListWidth : (effectiveSidebarAndNavigatorHidden || isPagesView ? 0 : sessionListWidth)}
           isSidebarAndNavigatorHidden={effectiveSidebarAndNavigatorHidden}
           isRightSidebarVisible={false}
           isCompact={isAutoCompact}
@@ -3482,8 +3442,8 @@ function AppShellContent({
         </div>
         )}
 
-        {/* Session List Resize Handle (absolute, hidden in focused mode, board view, and pages) */}
-        {!effectiveSidebarAndNavigatorHidden && !isBoardView && !isPagesView && (
+        {/* Session List Resize Handle (absolute, hidden in focused mode and pages) */}
+        {!effectiveSidebarAndNavigatorHidden && !isPagesView && (
         <div
           ref={sessionListHandleRef}
           onMouseDown={(e) => { e.preventDefault(); setIsResizing('session-list') }}

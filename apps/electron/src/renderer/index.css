@@ -123,10 +123,9 @@
     rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 12px 12px 0px,
     rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 24px 24px 0px;
 
-  /* Drag-lift elevation — a card genuinely peeled off the surface. Shared by the
-     Planner's in-place sortable (`--sortable-shadow-active`) and the Kanban's
-     DragOverlay clone (`.shadow-dragging`). Keeps the two leading transparent
-     layers so it matches `--shadow-minimal`'s 5-layer count and the Planner's
+  /* Drag-lift elevation — a card genuinely peeled off the surface. Used by the
+     Planner's in-place sortable (`--sortable-shadow-active`). Keeps the two
+     leading transparent layers so it matches `--shadow-minimal`'s 5-layer count and the Planner's
      selected→grabbed `box-shadow` transition stays interpolatable. The ring uses
      `--foreground-rgb`, which flips per theme, so light/dark are covered for free. */
   --shadow-dragging:
@@ -551,10 +550,6 @@ html[data-scenic] {
 
   .shadow-minimal {
     box-shadow: var(--shadow-minimal);
-  }
-
-  .shadow-dragging {
-    box-shadow: var(--shadow-dragging);
   }
 
   .shadow-middle {

@@ -23,7 +23,6 @@ import { registerSkillsHandlers } from './skills'
 import { registerSourcesHandlers } from './sources'
 import { registerStatusesHandlers } from './statuses'
 import { registerSystemCoreHandlers } from './system'
-import { registerTasksHandlers } from './tasks'
 import { registerTransferHandlers } from './transfer'
 import { registerWorkspaceCoreHandlers } from './workspace'
 import { registerMessagingHandlers } from './messaging'
@@ -51,7 +50,6 @@ export function registerCoreRpcHandlers(
   registerSourcesHandlers(server, deps)
   registerStatusesHandlers(server, deps)
   registerSystemCoreHandlers(server, deps)
-  registerTasksHandlers(server, deps)
   registerTransferHandlers(server)
   registerWorkspaceCoreHandlers(server, deps)
   registerMessagingHandlers(server, deps)

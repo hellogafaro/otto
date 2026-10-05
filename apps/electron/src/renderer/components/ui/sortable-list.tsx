@@ -49,7 +49,7 @@ function hasNoDndAncestor(element: HTMLElement | null): boolean {
   return false
 }
 
-export class SmartPointerSensor extends PointerSensor {
+class SmartPointerSensor extends PointerSensor {
   static activators = [
     {
       eventName: 'onPointerDown' as const,

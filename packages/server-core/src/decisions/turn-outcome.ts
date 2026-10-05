@@ -7,13 +7,10 @@
  * cannot fix, missing access, a refusal). Only a confident answer counts;
  * anything else is `null` and the caller behaves as before.
  *
- * Callers: SessionManager moves open sessions that need the user to
- * Needs Review; the Tasks Conductor refuses to mark a child node done when it
- * asked for input or gave up (children run unattended, nobody would answer).
+ * Caller: SessionManager moves open sessions that need the user to Needs Review.
  */
 
-import { isDecisionFeatureActive, type DecisionRequest, type DecisionResult } from '@craft-agent/shared/decisions'
-import type { NodeOutcomeFn } from '../tasks/TaskRunner'
+import type { DecisionRequest, DecisionResult } from '@craft-agent/shared/decisions'
 import { openDecisionPoint, recordDecisionOutcome, type DecisionPointDeps } from './decision-point'
 
 export type TurnOutcome = 'finished' | 'needs_input' | 'blocked'
@@ -84,18 +81,9 @@ export async function classifyTurnOutcome(input: { request?: string; reply: stri
   if (!decide) return null
   const result = await decide(buildTurnOutcomeRequest(input), deps.meta)
   const classified = readTurnOutcome(result)
-  // `changed`: the answer asks the caller to act (Needs Review, a failed node); the caller may still drop it.
+  // `changed`: the answer asks the caller to act (Needs Review); the caller may still drop it.
   recordDecisionOutcome(result, classified
     ? { action: classified.outcome, changed: classified.outcome !== 'finished' }
     : { action: 'unsure', changed: false })
   return classified
-}
-
-/** Conductor seam: how a child node's final turn ended, recorded with the run context. */
-export function buildNodeOutcomeClassifier(deps: DecisionPointDeps = {}): NodeOutcomeFn {
-  const classify: NodeOutcomeFn = async (finalText, context) =>
-    (await classifyTurnOutcome({ reply: finalText }, { ...deps, meta: context }))?.outcome ?? null
-  // With the toggle off, nodes complete synchronously as before.
-  classify.isActive = () => isDecisionFeatureActive('turnOutcome')
-  return classify
 }

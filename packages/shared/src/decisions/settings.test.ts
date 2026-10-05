@@ -26,7 +26,7 @@ describe('normalizeDecisionLayerSettings', () => {
       baseUrl: ' https://jev.local ',
       model: '',
       deadlineMs: 5,
-      features: { decideTool: false, taskVerdicts: 'x' as unknown as boolean },
+      features: { decideTool: false, semanticLabels: 'x' as unknown as boolean },
     });
     expect(settings.enabled).toBe(false);
     expect(settings.provider).toBe('typesafe');
@@ -42,8 +42,8 @@ describe('normalizeDecisionLayerSettings', () => {
 describe('mergeDecisionLayerSettings', () => {
   it('merges features key-wise and lets null clear optional strings', () => {
     const current = { enabled: true, provider: 'openrouter' as const, connectionSlug: 'openrouter-main', features: { decideTool: false } };
-    const merged = mergeDecisionLayerSettings(current, { connectionSlug: null, model: ' typesafe/jev-1.13 ', features: { taskVerdicts: false } });
-    expect(merged).toEqual({ enabled: true, provider: 'openrouter', model: 'typesafe/jev-1.13', features: { decideTool: false, taskVerdicts: false } });
+    const merged = mergeDecisionLayerSettings(current, { connectionSlug: null, model: ' typesafe/jev-1.13 ', features: { semanticLabels: false } });
+    expect(merged).toEqual({ enabled: true, provider: 'openrouter', model: 'typesafe/jev-1.13', features: { decideTool: false, semanticLabels: false } });
   });
 
   it('drops baseUrl/model overrides when the provider or connection changes, unless the patch sets them', () => {

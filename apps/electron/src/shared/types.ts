@@ -191,16 +191,6 @@ import type {
   Session,
   UnreadSummary,
   CreateSessionOptions,
-  TaskValidationResultDto,
-  TaskCreateRequest,
-  TaskCreateResult,
-  TaskGenerateRequest,
-  TaskGenerateAck,
-  TaskGenerateResult,
-  TaskRunRequest,
-  TaskRunSnapshotDto,
-  TaskGetResult,
-  TaskResultsDto,
   FileAttachment,
   SendMessageOptions,
   SessionEvent,
@@ -245,20 +235,6 @@ export interface ElectronAPI {
   cancelProcessing(sessionId: string, silent?: boolean): Promise<void>
   killShell(sessionId: string, shellId: string): Promise<{ success: boolean; error?: string }>
   getTaskOutput(taskId: string): Promise<string | null>
-
-  // Tasks (Conductor)
-  validateTask(workspaceId: string, yaml: string): Promise<TaskValidationResultDto>
-  createTask(workspaceId: string, req: TaskCreateRequest): Promise<TaskCreateResult>
-  generateTask(workspaceId: string, req: TaskGenerateRequest): Promise<TaskGenerateAck>
-  /** Async generate result (or error), keyed by orchestratorSessionId. Subscribe before/after generateTask. */
-  onTaskGenerated(callback: (workspaceId: string, result: TaskGenerateResult) => void): () => void
-  runTask(workspaceId: string, req: TaskRunRequest): Promise<TaskRunSnapshotDto>
-  pauseTask(workspaceId: string, slug: string, runId: string): Promise<void>
-  resumeTask(workspaceId: string, slug: string, runId: string): Promise<void>
-  stopTask(workspaceId: string, slug: string, runId: string): Promise<void>
-  getTask(workspaceId: string, slug: string, runId?: string): Promise<TaskGetResult>
-  listTasks(workspaceId: string): Promise<string[]>
-  getTaskResults(workspaceId: string, slug: string, runId?: string): Promise<TaskResultsDto>
 
   respondToPermission(sessionId: string, requestId: string, allowed: boolean, alwaysAllow: boolean, options?: PermissionResponseOptions): Promise<boolean>
   respondToCredential(sessionId: string, requestId: string, response: CredentialResponse): Promise<boolean>
@@ -860,12 +836,6 @@ export interface SessionsNavigationState {
   filter: SessionFilter
   details: { type: 'session'; sessionId: string } | null
   rightSidebar?: RightSidebarPanel
-  /**
-   * Presentation mode for the sessions navigator. `'board'` renders the Kanban
-   * board (all sessions, grouped into To Do / In Progress / Done columns) in the
-   * content area instead of the list + chat. Absent/`'list'` is the default.
-   */
-  viewMode?: 'list' | 'board'
 }
 
 /**
@@ -939,8 +909,8 @@ export interface ProjectsNavigationState {
  * Pages navigation state
  *
  * Bare `pages` (details: null) shows the full-width library grid — it never
- * auto-selects a page. Like board mode, the middle navigator collapses to
- * zero width while a pages route is active.
+ * auto-selects a page. The middle navigator collapses to zero width while a
+ * pages route is active.
  */
 export interface PagesNavigationState {
   navigator: 'pages'

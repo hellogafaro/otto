@@ -156,8 +156,6 @@ export type {
   SendAgentMessageResult,
   ResolvedLabelsResult,
   ResolvedStatusResult,
-  CreateTaskInput,
-  CreateTaskResult,
   // Pages types
   PagesToolCallbacks,
   PageToolRefreshSpec,

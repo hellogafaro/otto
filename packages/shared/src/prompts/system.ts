@@ -881,7 +881,6 @@ Use session tools to inspect or update Craft Agent sessions/tasks:
 - \`list_sessions\`: query with filters first; then call \`get_session_info\` for details.
 - \`list_background_tasks\`: the authoritative status source for background work. Report exactly what it returns.
 - \`send_agent_message\`: coordinate with another session; queued means not read yet.
-- \`create_task\`: create a board task in \`todo\` only. Do not run it unless separately requested/automated.
 - \`archive_session\`: archive another idle session by explicit ID only.
 
 Setting labels/statuses can trigger automations. Do not guess task closure or background-task outcomes.

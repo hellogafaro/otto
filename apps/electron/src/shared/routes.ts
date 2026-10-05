@@ -195,9 +195,6 @@ export const routes = {
       pageSlug
         ? `pages/page/${pageSlug}` as const
         : 'pages' as const,
-
-    /** Kanban board view (sessions navigator, board view mode, all sessions) */
-    board: () => 'board' as const,
   },
 } as const
 

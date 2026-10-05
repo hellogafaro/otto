@@ -26,11 +26,9 @@ import { DECISION_PROVIDER_PRESETS, buildSystemOneEndpoint, type DecisionProvide
 export interface DecisionLayerFeatureToggles {
   /** `decide` session tool (agent-initiated classification / routing / scoring). */
   decideTool: boolean;
-  /** Typed task verdicts when the orchestrator's text has no parseable verdict. */
-  taskVerdicts: boolean;
   /** Semantic auto-label rules next to regex rules. */
   semanticLabels: boolean;
-  /** How a turn ended (finished / needs input / blocked): Needs Review status, task nodes not marked done. */
+  /** How a turn ended (finished / needs input / blocked): Needs Review status. */
   turnOutcome: boolean;
   /**
    * Offer the Guarded permission mode: runs like Execute, but a non-read-only call the model
@@ -41,8 +39,6 @@ export interface DecisionLayerFeatureToggles {
   riskBadges: boolean;
   /** Automation `semanticCondition`: skip a prompt run whose condition the model answers below its threshold. */
   automationConditions: boolean;
-  /** Repair only the subtasks a FAIL verdict's reason implicates (when it names none). */
-  taskRepairs: boolean;
   /** Skip titling small talk; refresh automatic titles that no longer fit. */
   smartTitles: boolean;
   /** Lower the thinking level for a simple turn (never above the session's). */
@@ -59,13 +55,11 @@ export type DecisionLayerFeature = keyof DecisionLayerFeatureToggles;
 
 export const DECISION_LAYER_FEATURES: readonly DecisionLayerFeature[] = [
   'decideTool',
-  'taskVerdicts',
   'semanticLabels',
   'turnOutcome',
   'guardedMode',
   'riskBadges',
   'automationConditions',
-  'taskRepairs',
   'smartTitles',
   'adaptiveThinking',
   'midTurnMessages',
@@ -117,9 +111,9 @@ export const DEFAULT_DECISION_LAYER_SETTINGS: DecisionLayerSettings = {
   enabled: false,
   provider: 'typesafe',
   deadlineMs: DECISION_DEFAULT_DEADLINE_MS,
-  // The first three only act when invoked (agent tool call, unparsed verdict, a semantic rule
+  // The first two only act when invoked (agent tool call, a semantic rule
   // exists); the harness features change what the app does on their own, so they start off.
-  features: { decideTool: true, taskVerdicts: true, semanticLabels: true, turnOutcome: false, guardedMode: false, riskBadges: false, automationConditions: false, taskRepairs: false, smartTitles: false, adaptiveThinking: false, midTurnMessages: false, largeResults: false, suggestions: false },
+  features: { decideTool: true, semanticLabels: true, turnOutcome: false, guardedMode: false, riskBadges: false, automationConditions: false, smartTitles: false, adaptiveThinking: false, midTurnMessages: false, largeResults: false, suggestions: false },
 };
 
 function cleanString(value: unknown): string | undefined {

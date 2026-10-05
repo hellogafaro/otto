@@ -13,7 +13,6 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { EditPopover, EditButton, getEditConfig } from '@/components/ui/EditPopover'
 import { useTheme } from '@/context/ThemeContext'
-import { useAppShellContext } from '@/context/AppShellContext'
 import { Monitor, Sun, Moon } from 'lucide-react'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import type { ToolIconMapping } from '../../../shared/types'
@@ -28,14 +27,9 @@ import {
 } from '@/components/settings'
 import { useAtom } from 'jotai'
 import * as storage from '@/lib/local-storage'
-import { ColorPicker } from '@/components/ui/color-picker'
-import { kanbanColumnColorsAtom, kanbanColumnStatusAtom, kanbanLivePulseAtom } from '@/atoms/kanban'
 import { showBackgroundFinishedChipAtom } from '@/atoms/background-finished'
-import { KANBAN_COLUMNS } from '@/components/app-shell/kanban/status-column'
-import { DEFAULT_KANBAN_COLUMN_COLORS } from '@/components/app-shell/kanban/kanban-colors'
-import type { KanbanColumnId } from '@/components/app-shell/kanban/types'
 import { setProjectColorTreatment, useProjectColorTreatment } from '@/hooks/useProjectColorTreatment'
-import { PROJECT_COLOR_PALETTE, type ProjectColorTreatment } from '@/utils/project-colors'
+import type { ProjectColorTreatment } from '@/utils/project-colors'
 import { Info_DataTable, SortableHeader } from '@/components/info/Info_DataTable'
 import { Info_Badge } from '@/components/info/Info_Badge'
 import type { PresetTheme } from '@config/theme'
@@ -112,7 +106,6 @@ export default function AppearanceSettingsPage() {
     themeLoadError,
     themeResolvedFrom,
   } = useTheme()
-  const { sessionStatuses } = useAppShellContext()
 
   // Fetch workspace icons as data URLs (file:// URLs don't work in renderer)
 
@@ -141,39 +134,6 @@ export default function AppearanceSettingsPage() {
   const handleProjectColorTreatmentChange = useCallback((value: string) => {
     setProjectColorTreatment(value as ProjectColorTreatment)
   }, [])
-
-  // Kanban board appearance (persisted in localStorage via atomWithStorage).
-  const [kanbanColumnColors, setKanbanColumnColors] = useAtom(kanbanColumnColorsAtom)
-  const setKanbanColumnColor = useCallback((column: KanbanColumnId, hex: string) => {
-    setKanbanColumnColors(prev => ({ ...prev, [column]: hex }))
-  }, [setKanbanColumnColors])
-  const resetKanbanColumnColor = useCallback((column: KanbanColumnId) => {
-    setKanbanColumnColors(prev => {
-      const next = { ...prev }
-      delete next[column]
-      return next
-    })
-  }, [setKanbanColumnColors])
-  const [kanbanLivePulse, setKanbanLivePulse] = useAtom(kanbanLivePulseAtom)
-
-  // Per-column status applied when a task is dragged into that column. Empty
-  // selection ('') removes the mapping → status left unchanged on move.
-  const [kanbanColumnStatus, setKanbanColumnStatus] = useAtom(kanbanColumnStatusAtom)
-  const setColumnStatus = useCallback((column: KanbanColumnId, statusId: string) => {
-    setKanbanColumnStatus(prev => {
-      const next = { ...prev }
-      if (statusId) next[column] = statusId
-      else delete next[column]
-      return next
-    })
-  }, [setKanbanColumnStatus])
-  const columnStatusOptions = useMemo(
-    () => [
-      { value: '', label: t("settings.appearance.kanbanColumnStatusNone") },
-      ...(sessionStatuses ?? []).map(s => ({ value: s.id, label: s.label })),
-    ],
-    [sessionStatuses, t]
-  )
 
   // Rich tool descriptions toggle (persisted in config.json, read by SDK subprocess)
   const [richToolDescriptions, setRichToolDescriptions] = useState(true)
@@ -324,55 +284,6 @@ export default function AppearanceSettingsPage() {
                       ]}
                     />
                   </SettingsRow>
-                </SettingsCard>
-              </SettingsSection>
-
-              {/* Kanban board — column colors + live-pulse toggle */}
-              <SettingsSection
-                title={t("settings.appearance.kanbanBoard")}
-                description={t("settings.appearance.kanbanBoardDesc")}
-              >
-                <SettingsCard>
-                  {KANBAN_COLUMNS.map(column => {
-                    const merged = kanbanColumnColors[column.id] ?? DEFAULT_KANBAN_COLUMN_COLORS[column.id]
-                    return (
-                      <SettingsRow key={column.id} label={t(column.labelKey)}>
-                        <ColorPicker
-                          value={merged}
-                          onChange={(hex) => setKanbanColumnColor(column.id, hex)}
-                          onClear={kanbanColumnColors[column.id] ? () => resetKanbanColumnColor(column.id) : undefined}
-                          clearLabel={t("settings.appearance.kanbanColumnColorReset")}
-                          presets={PROJECT_COLOR_PALETTE}
-                          ariaLabel={t("settings.appearance.kanbanColumnColor", { column: t(column.labelKey) })}
-                          align="end"
-                        />
-                      </SettingsRow>
-                    )
-                  })}
-                  <SettingsToggle
-                    label={t("settings.appearance.kanbanLivePulse")}
-                    description={t("settings.appearance.kanbanLivePulseDesc")}
-                    checked={kanbanLivePulse}
-                    onCheckedChange={setKanbanLivePulse}
-                  />
-                </SettingsCard>
-              </SettingsSection>
-
-              {/* Kanban status automation — status applied on drag into a column */}
-              <SettingsSection
-                title={t("settings.appearance.kanbanColumnStatus")}
-                description={t("settings.appearance.kanbanColumnStatusDesc")}
-              >
-                <SettingsCard>
-                  {KANBAN_COLUMNS.map(column => (
-                    <SettingsRow key={column.id} label={t(column.labelKey)}>
-                      <SettingsMenuSelect
-                        value={kanbanColumnStatus[column.id] ?? ''}
-                        onValueChange={(value) => setColumnStatus(column.id, value)}
-                        options={columnStatusOptions}
-                      />
-                    </SettingsRow>
-                  ))}
                 </SettingsCard>
               </SettingsSection>
 

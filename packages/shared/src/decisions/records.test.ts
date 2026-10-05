@@ -84,7 +84,7 @@ describe('decision records', () => {
     const error = new DecisionError('timeout', 'Decision model did not answer within 1500 ms', {
       state: { sha256: 'def', bytes: 42, truncated: false },
     });
-    const record = buildDecisionRecord({ feature: 'task_verdict', provider: 'openrouter', model: 'typesafe/jev-1.13', questions: QUESTIONS, error, latencyMs: 1500 });
+    const record = buildDecisionRecord({ feature: 'semantic_labels', provider: 'openrouter', model: 'typesafe/jev-1.13', questions: QUESTIONS, error, latencyMs: 1500 });
     expect(record.ok).toBe(false);
     expect(record.error).toEqual({ kind: 'timeout', message: 'Decision model did not answer within 1500 ms' });
     expect(record.state).toEqual({ sha256: 'def', bytes: 42, truncated: false });

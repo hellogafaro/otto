@@ -74,8 +74,6 @@ import {
   pickSessionFields,
 } from '@craft-agent/shared/sessions'
 import { serializeHeaderCredential, loadWorkspaceSources, loadAllSources, getSourcesBySlugs, isSourceUsable, type LoadedSource, type McpServerConfig, getSourcesNeedingAuth, getSourceCredentialManager, TokenRefreshManager } from '@craft-agent/shared/sources'
-import { listTaskSlugs, parseTaskSpec, uniqueTaskSlug } from '@craft-agent/shared/tasks'
-import { createTaskFromSpec, resolveCreateTaskProjectId } from '../tasks'
 import { buildPagesToolCallbacks } from '../pages/tool-callbacks'
 import { buildDecisionToolCallbacks } from '../decisions/tool-callbacks'
 import { buildServersFromSources as buildServersFromSourcesShared } from '../sources/build-servers'
@@ -88,7 +86,7 @@ import { restoreFiles } from '@craft-agent/shared/utils/bundle-files'
 import { getCredentialManager } from '@craft-agent/shared/credentials'
 import { CraftMcpClient, McpClientPool, McpPoolServer } from '@craft-agent/shared/mcp'
 import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, generateMessageId } from '@craft-agent/shared/protocol'
-import { messageToStored, storedToMessage, type Message, type StoredAttachment, type ToolDisplayMeta, type TokenUsage } from '@craft-agent/core/types'
+import { messageToStored, storedToMessage, type Message, type StoredAttachment, type ToolDisplayMeta } from '@craft-agent/core/types'
 import { formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrlAsync, getEmojiIcon, resetSummarizationClient, resolveToolIcon, readFileAttachment, selectSpreadMessages, normalizePath } from '@craft-agent/shared/utils'
 import { loadAllSkills, loadSkillBySlug, invalidateSkillsCache, type LoadedSkill } from '@craft-agent/shared/skills'
 import { invalidateContextFileCache } from '@craft-agent/shared/prompts/system'
@@ -110,8 +108,8 @@ import { buildGuardedModeCheck } from '../decisions/guarded-mode'
 import { assessPermissionRisks } from '../decisions/permission-risks'
 import { checkAutomationCondition } from '../decisions/automation-condition'
 import { listLabels, loadLabelConfig } from '@craft-agent/shared/labels/storage'
-import { extractLabelId, resolveSessionLabels, findTaskItemLabelId, type LabelConfig } from '@craft-agent/shared/labels'
-import { ensureLabelsExist, ensureTaskItemLabel } from '@craft-agent/shared/labels/crud'
+import { extractLabelId, resolveSessionLabels, type LabelConfig } from '@craft-agent/shared/labels'
+import { ensureLabelsExist } from '@craft-agent/shared/labels/crud'
 import { loadStatusConfig } from '@craft-agent/shared/statuses/storage'
 import { AutomationSystem, createPromptHistoryEntry, appendAutomationHistoryEntry, type AutomationSystemMetadataSnapshot, type PendingPrompt } from '@craft-agent/shared/automations'
 import { buildBackendRuntimeSignature, buildRestartRequiredSignature, filterAttachmentsForModelInput } from './runtime-config'
@@ -781,18 +779,6 @@ interface ManagedSession {
   projectId?: string
   // Parent session id — when set, this session is a subtask of the parent (undefined = top-level task)
   parentSessionId?: string
-  // Kanban board column id ('todo' | 'in-progress' | 'done'); independent of sessionStatus
-  kanbanColumn?: string
-  // Tasks Conductor: slug of the task spec this session belongs to (orchestrator + child nodes)
-  taskSlug?: string
-  // Tasks Conductor: id of the run that spawned this child session (child nodes only)
-  taskRunId?: string
-  // Tasks Conductor: id of the DAG node this child session executes (child nodes only)
-  taskNodeId?: string
-  // Tasks Conductor: total DAG node count (orchestrator only) — stable board progress denominator
-  taskNodeCount?: number
-  // Tasks Conductor: hidden generate-time orchestrator awaiting validated adoption (off the board)
-  taskDraft?: boolean
   // Working directory for this session (used by agent for bash commands)
   workingDirectory?: string
   // SDK cwd for session storage - set once at creation, never changes.
@@ -1035,12 +1021,12 @@ export function buildActivationRetryMessage(original: string, steers: readonly s
 export const MAX_AUTOMATION_CHAIN_DEPTH = 3
 
 /**
- * Whether someone can answer a prompt in this session: not an automation, task-run, hidden, mini
+ * Whether someone can answer a prompt in this session: not an automation, hidden, mini
  * or unattended session. `unattended` marks `craft run` sessions and is inherited by sessions an
  * unattended session spawns (not by subtasks a user adds under it).
  */
 export function isAttendedSession(managed: ManagedSession): boolean {
-  return !(managed.triggeredBy || managed.taskRunId || managed.taskSlug || managed.hidden || managed.unattended
+  return !(managed.triggeredBy || managed.hidden || managed.unattended
     || managed.systemPromptPreset === 'mini')
 }
 
@@ -1157,27 +1143,6 @@ const DELTA_BATCH_INTERVAL_MS = 50  // Flush batched deltas every 50ms
 interface PendingDelta {
   delta: string
   turnId?: string
-}
-
-/**
- * In-process session-completion signal for the Tasks Conductor.
- *
- * Emitted once per turn from `onProcessingStopped` when the session's message
- * queue is empty (i.e. true completion, not a hand-off between queued turns),
- * carrying the stop `reason`. This is an internal, side-effect-free seam — it is
- * NOT a renderer event and NOT exposed to agents. The Conductor maps the reason
- * onto a node run-state: complete→done, error/timeout→failed, interrupted→cancelled.
- */
-export interface SessionCompletionEvent {
-  sessionId: string
-  workspaceId: string
-  reason: 'complete' | 'interrupted' | 'error' | 'timeout'
-  /** The final (non-intermediate) assistant message id for this turn, if any. */
-  finalMessageId?: string
-  /** Convenience copy of the final assistant message text (same as getSessionFinalText). */
-  finalText?: string
-  /** The session's cumulative token usage, so the Conductor can meter token_budget without re-fetching. */
-  tokenUsage?: TokenUsage
 }
 
 export interface MidStreamDeliveryOutcome {
@@ -1688,7 +1653,7 @@ export class SessionManager implements ISessionManager {
     const interactive = !managed.hidden && managed.systemPromptPreset !== 'mini'
     // Slash commands are instructions to the app, not requests to rate.
     const rateThinking = interactive && !message.trim().startsWith('/') && this.decisionFeatureActive('adaptiveThinking')
-    const suggest = interactive && !managed.taskRunId && !managed.taskSlug
+    const suggest = interactive
       && this.decisionFeatureActive('suggestions') && wantsSuggestion(message, options)
     // Nothing to ask: the caller skips the await entirely.
     if (!rateThinking && !suggest) return null
@@ -2009,12 +1974,6 @@ export class SessionManager implements ISessionManager {
     // Project binding (no dedicated event today — handled via metaChanged broadcast)
     if (managed.projectId !== header.projectId) {
       managed.projectId = header.projectId
-      changed = true
-    }
-
-    // Kanban column (mutable via drag; reconcile external/multi-window changes)
-    if (managed.kanbanColumn !== header.kanbanColumn) {
-      managed.kanbanColumn = header.kanbanColumn
       changed = true
     }
 
@@ -3119,8 +3078,8 @@ export class SessionManager implements ISessionManager {
     // explicit override). This lets "+ New session in {project}" reuse the project's
     // bound directory without duplicating logic on the renderer side.
     // Subtasks inherit the parent's project when the caller didn't bind one explicitly —
-    // a child of a project-bound task belongs to that project (board quick-add passes none),
-    // so project-scoped filtering sees the whole task family.
+    // a spawned child of a project-bound session belongs to that project,
+    // so project-scoped filtering sees the whole family.
     const inheritedProjectId = options?.parentSessionId
       ? this.sessions.get(options.parentSessionId)?.projectId
       : undefined
@@ -3346,11 +3305,7 @@ export class SessionManager implements ISessionManager {
       isFlagged: options?.isFlagged,
       projectId: resolvedProjectId,
       parentSessionId: options?.parentSessionId,
-      taskSlug: options?.taskSlug,
-      taskRunId: options?.taskRunId,
-      taskNodeId: options?.taskNodeId,
-      taskDraft: options?.taskDraft,
-      // Persist only an EXPLICIT selection (e.g. a task's spec.sources on its subtasks).
+      // Persist only an EXPLICIT selection.
       // The workspace-default fallback stays dynamic — freezing it into the header would
       // pin every ordinary session to the defaults as of its creation time.
       enabledSourceSlugs: options?.enabledSourceSlugs,
@@ -3517,21 +3472,6 @@ export class SessionManager implements ISessionManager {
       })
     }
 
-    // Reserved "Task" label: task flows opt in so the tile (and its subtasks, which inherit the
-    // parent's number) are filterable as tasks from the moment they exist. Applied before the
-    // created-event so the renderer hydrates the label with the rest of the metadata. Fail-soft:
-    // a label problem must never abort session creation.
-    if (options?.applyTaskLabel) {
-      try {
-        await this.applyTaskLabel(storedSession.id, { parentSessionId: options?.parentSessionId })
-      } catch (error) {
-        sessionLog.warn('Failed to apply Task label to new session', {
-          sessionId: storedSession.id,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-    }
-
     // Announce by default so the renderer hydrates full metadata (name, parentSessionId, …)
     // instead of fabricating a titleless "New Chat" from the first streamed event. Emitted at
     // the very end so a thrown branch-preflight failure above never announces an orphan.
@@ -3552,12 +3492,6 @@ export class SessionManager implements ISessionManager {
    */
   notifySessionCreated(workspaceId: string, sessionId: string): void {
     this.sendEvent({ type: 'session_created', sessionId }, workspaceId)
-  }
-
-  /** Resolved working directory of a live session (used by the Tasks Conductor so child
-   *  sessions inherit the orchestrator's cwd). Undefined if the session has none or is unknown. */
-  getSessionWorkingDirectory(sessionId: string): string | undefined {
-    return this.sessions.get(sessionId)?.workingDirectory
   }
 
   private async disposeManagedAgentRuntime(managed: ManagedSession, reason: string): Promise<void> {
@@ -4429,7 +4363,7 @@ export class SessionManager implements ISessionManager {
       // Set up permission handler to forward requests to renderer
       // Guarded-mode risk check (decision model, toggle `guardedMode`), used only while the
       // session is in Guarded mode. Only sessions with someone to answer a prompt are checked:
-      // automations, task runs and hidden/mini sessions run unattended, so they run as Execute.
+      // automations and hidden/mini sessions run unattended, so they run as Execute.
       managed.agent.guardedModeCheck = buildGuardedModeCheck({
         sessionId: managed.id,
         log: (line) => sessionLog.info(line),
@@ -4738,7 +4672,7 @@ export class SessionManager implements ISessionManager {
           projectId: request.projectId ?? managed.projectId,
           // Spawned sessions become subtasks of the spawning session.
           parentSessionId: managed.id,
-          // Nobody watches a session an automation, task or CLI run spawns either.
+          // Nobody watches a session an automation or CLI run spawns either.
           unattended: !isAttendedSession(managed) || undefined,
         })
 
@@ -4808,57 +4742,6 @@ export class SessionManager implements ISessionManager {
           } else {
             await this.unarchiveSession(sessionId)
           }
-        },
-        // create_task — create a Task (board card + task.yaml + orchestrator session)
-        // WITHOUT running it. Spec building happens here (not in session-tools-core,
-        // which must stay dependency-free of @craft-agent/shared); the creation flow
-        // itself is createTaskFromSpec, shared verbatim with the tasks:create RPC.
-        createTaskFn: async (input) => {
-          const ws = managed.workspace
-          // Match spawn_session: an explicit project wins, otherwise keep newly
-          // captured work in the project that owns the invoking session.
-          const projectId = resolveCreateTaskProjectId(input.projectId, managed.projectId)
-          // Slug is derived from the title and must never overwrite an existing task
-          // (unlike the TaskEditor, where re-saving the same slug is the edit flow).
-          const slug = uniqueTaskSlug(input.title, new Set(listTaskSlugs(ws.rootPath)))
-
-          // Fail-soft reference checks: unknown slugs warn, they don't block creation
-          // (matching the finish() philosophy in the tasks:create handler).
-          const warnings: string[] = []
-          if (input.sources?.length) {
-            const available = new Set(loadWorkspaceSources(ws.rootPath).map(s => s.config.slug))
-            const missing = input.sources.filter(s => !available.has(s))
-            if (missing.length) warnings.push(`Unknown sources (kept in the spec, but they don't exist in this workspace): ${missing.join(', ')}`)
-          }
-          if (input.skills?.length) {
-            // loadAllSkills matches dispatch-time [skill:slug] resolution (global + workspace).
-            const available = new Set(loadAllSkills(ws.rootPath).map(s => s.slug))
-            const missing = input.skills.filter(s => !available.has(s))
-            if (missing.length) warnings.push(`Unknown skills (kept in the spec, but they don't exist in this workspace): ${missing.join(', ')}`)
-          }
-
-          // A spec requires ≥1 node; synthesize the single executable node from the
-          // description. Multi-node DAG authoring stays with the TaskEditor/generate flow.
-          const parsed = parseTaskSpec({
-            id: slug,
-            title: input.title,
-            goal: input.description,
-            ...(input.acceptanceCriteria ? { acceptance_criteria: input.acceptanceCriteria } : {}),
-            ...(projectId ? { project: projectId } : {}),
-            ...(input.workingDirectory ? { cwd: input.workingDirectory } : {}),
-            ...(input.sources?.length ? { sources: input.sources } : {}),
-            ...(input.skills?.length ? { skills: input.skills } : {}),
-            ...(input.model || input.llmConnection
-              ? { defaults: { ...(input.model ? { model: input.model } : {}), ...(input.llmConnection ? { llmConnection: input.llmConnection } : {}) } }
-              : {}),
-            nodes: [{ id: 'main', title: input.title, prompt: input.description }],
-          })
-          if (!parsed.success) {
-            throw new Error(`Invalid task spec: ${parsed.error.issues.map(i => i.message).join('; ')}`)
-          }
-
-          const created = await createTaskFromSpec(this, ws.id, ws.rootPath, parsed.data)
-          return { ...created, warnings: [...warnings, ...created.warnings] }
         },
         // Pages tools (list_pages/get_page/create_page/update_page/
         // write_page_data/delete_page) — grouped callbacks bound to the
@@ -5676,20 +5559,6 @@ export class SessionManager implements ISessionManager {
       }
     }
     return undefined
-  }
-
-  /**
-   * Read a session's final assistant message TEXT (in-process output reader for
-   * the Tasks Conductor). `getLastFinalAssistantMessageId` is private and returns
-   * an id; this wraps it to return the message content. Never exposed to agents —
-   * child node output is read here, not via any tool/RPC.
-   */
-  getSessionFinalText(sessionId: string): string | undefined {
-    const managed = this.sessions.get(sessionId)
-    if (!managed) return undefined
-    const id = this.getLastFinalAssistantMessageId(managed.messages)
-    if (!id) return undefined
-    return managed.messages.find(m => m.id === id)?.content
   }
 
   /**
@@ -7202,39 +7071,6 @@ export class SessionManager implements ISessionManager {
     return true
   }
 
-  /**
-   * Listeners for the in-process session-completion seam (see SessionCompletionEvent).
-   * Used by the Tasks Conductor; empty until something subscribes, so zero overhead otherwise.
-   */
-  private sessionCompletionListeners = new Set<(evt: SessionCompletionEvent) => void>()
-
-  /**
-   * Subscribe to in-process session completion (Tasks Conductor seam).
-   * Returns an unsubscribe function. Not a renderer event; not agent-facing.
-   */
-  onSessionComplete(listener: (evt: SessionCompletionEvent) => void): () => void {
-    this.sessionCompletionListeners.add(listener)
-    return () => {
-      this.sessionCompletionListeners.delete(listener)
-    }
-  }
-
-  private emitSessionComplete(evt: SessionCompletionEvent): void {
-    if (this.sessionCompletionListeners.size === 0) return
-    // Iterate a snapshot: a listener that re-subscribes synchronously while handling this event
-    // (the Conductor re-attaches its one-shot verdict listener before re-asking the orchestrator)
-    // must see the NEXT completion, not be re-entered by this one. Live-Set iteration visits
-    // entries added mid-loop, which re-asked the same reply up to MAX_UNPARSED_REASKS+1 times and
-    // failed runs before the orchestrator could answer.
-    for (const listener of [...this.sessionCompletionListeners]) {
-      try {
-        listener(evt)
-      } catch (err) {
-        sessionLog.error(`onSessionComplete listener threw for session ${evt.sessionId}:`, err)
-      }
-    }
-  }
-
   /** Reconcile an accepted steer with its original bubble and full host payload. */
   private recoverUndeliveredSteer(managed: ManagedSession, steer: { message: string; messageId?: string }): void {
     const payload = steer.messageId ? managed.acceptedSteers?.get(steer.messageId) : { message: steer.message }
@@ -7367,8 +7203,7 @@ export class SessionManager implements ISessionManager {
       if (doneBpm) {
         // Teardown must never block completion. On a headless/WebUI server the BPM is
         // remote and these calls throw (BROWSER_NO_CAPABLE_CLIENT) when no desktop
-        // browser client is connected — which previously aborted onProcessingStopped
-        // before emitSessionComplete, hanging the Tasks Conductor completion seam.
+        // browser client is connected.
         try {
           await doneBpm.clearVisualsForSession(sessionId)
           doneBpm.unbindAllForSession(sessionId)
@@ -7390,23 +7225,9 @@ export class SessionManager implements ISessionManager {
         backgroundTasksAlive: this.keepBackgroundTasksAlive,
       }, managed.workspace.id)
 
-      // Tasks Conductor seam: signal true completion (queue empty) with the stop
-      // reason + this turn's final assistant message, so the Conductor can advance
-      // the corresponding node. In-process only; never sent to the renderer/agents.
-      this.emitSessionComplete({
-        sessionId,
-        workspaceId: managed.workspace.id,
-        reason,
-        finalMessageId: currentFinalMessageId,
-        finalText: currentFinalMessageId
-          ? managed.messages.find(m => m.id === currentFinalMessageId)?.content
-          : undefined,
-        tokenUsage: managed.tokenUsage,
-      })
-
-      // Hidden/mini sessions have no status worth changing; task sessions are the Conductor's.
+      // Hidden/mini sessions have no status worth changing.
       if (reason === 'complete' && didReceiveNewFinalMessage && currentFinalMessageId
-          && !managed.hidden && managed.systemPromptPreset !== 'mini' && !managed.taskRunId && !managed.taskSlug) {
+          && !managed.hidden && managed.systemPromptPreset !== 'mini') {
         void this.applyTurnOutcome(managed, currentFinalMessageId)
         if (!managed.triggeredBy) void this.refreshTitleIfDrifted(managed)
       }
@@ -7901,53 +7722,6 @@ export class SessionManager implements ISessionManager {
   }
 
   /**
-   * Apply the reserved Task labeling to a session. Every task gets its own ITEM label —
-   * a child of the root "Task" label named `TASK-<slug>-<N>` (plain boolean, no value) —
-   * and the task's whole family carries that same item label, so one label filters one
-   * task. Top-level sessions mint a fresh item label from their name; a session with
-   * `parentSessionId` inherits the parent's item label — and a parent that lacks one (a
-   * plain chat gaining its first subtask) is labeled in the same pass, so "becoming a
-   * task" holds by construction. Idempotent: a session already carrying an item label
-   * keeps it. Returns the resolved ITEM label id — slugs can collide-shift, so callers
-   * MUST use it rather than deriving ids themselves.
-   */
-  async applyTaskLabel(
-    sessionId: string,
-    opts?: { parentSessionId?: string },
-  ): Promise<{ labelId: string } | undefined> {
-    const managed = this.sessions.get(sessionId)
-    if (!managed) return undefined
-    const rootPath = managed.workspace.rootPath
-
-    const itemOf = (labels: string[] | undefined): string | undefined =>
-      findTaskItemLabelId(labels, loadLabelConfig(rootPath).labels)
-    const withItemEntry = (labels: string[] | undefined, itemId: string): string[] => [
-      ...(labels ?? []).filter(entry => extractLabelId(entry) !== itemId),
-      itemId,
-    ]
-
-    const existing = itemOf(managed.labels)
-    if (existing) return { labelId: existing }
-
-    let itemId: string
-    const parent = opts?.parentSessionId ? this.sessions.get(opts.parentSessionId) : undefined
-    if (parent) {
-      const parentItem = itemOf(parent.labels)
-      if (parentItem) {
-        itemId = parentItem
-      } else {
-        itemId = ensureTaskItemLabel(rootPath, parent.name || 'task').itemId
-        await this.setSessionLabels(parent.id, withItemEntry(parent.labels, itemId))
-      }
-    } else {
-      itemId = ensureTaskItemLabel(rootPath, managed.name || 'task').itemId
-    }
-
-    await this.setSessionLabels(sessionId, withItemEntry(managed.labels, itemId))
-    return { labelId: itemId }
-  }
-
-  /**
    * Bind or unbind a session to/from a workspace project.
    * Pass `null` to unbind. The session's working directory is NOT changed retroactively —
    * the project binding is only used as a default for newly created sessions.
@@ -7969,221 +7743,6 @@ export class SessionManager implements ISessionManager {
       const watcher = this.configWatchers.get(managed.workspace.rootPath)
       watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
     }
-  }
-
-  /**
-   * Set the kanban board column for a session ('todo' | 'in-progress' | 'done').
-   * Pass `null` to clear (board falls back to the default column). Independent of sessionStatus.
-   */
-  async setKanbanColumn(sessionId: string, column: string | null): Promise<void> {
-    const managed = this.sessions.get(sessionId)
-    if (managed) {
-      managed.kanbanColumn = column ?? undefined
-      this.setMetadataWriteGuard(managed)
-
-      this.persistSession(managed)
-      await this.flushSession(managed.id)
-      // Self-writes don't re-emit through the file watcher (kanbanColumn isn't in the header
-      // signature), so push a live metadata event for the board to consume.
-      this.sendEvent({ type: 'session_metadata_changed', sessionId, changes: { kanbanColumn: column ?? undefined } }, managed.workspace.id)
-      const watcher = this.configWatchers.get(managed.workspace.rootPath)
-      watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
-    }
-  }
-
-  /**
-   * Record the total DAG node count on a Conductor orchestrator session. The board uses this as a
-   * stable progress denominator so it doesn't grow as child sessions are spawned lazily at dispatch.
-   */
-  async setTaskNodeCount(sessionId: string, count: number): Promise<void> {
-    const managed = this.sessions.get(sessionId)
-    if (managed) {
-      managed.taskNodeCount = count
-      this.setMetadataWriteGuard(managed)
-
-      this.persistSession(managed)
-      await this.flushSession(managed.id)
-      // Self-writes don't re-emit through the file watcher (taskNodeCount isn't in the header
-      // signature), so push a live metadata event so the progress denominator updates immediately.
-      this.sendEvent({ type: 'session_metadata_changed', sessionId, changes: { taskNodeCount: count } }, managed.workspace.id)
-      const watcher = this.configWatchers.get(managed.workspace.rootPath)
-      watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
-    }
-  }
-
-  /**
-   * Promote a hidden generate-time orchestrator (`taskDraft`) into the real, board-visible
-   * orchestrator for `taskSlug`. This is the single narrow path that lets "Generate → Create & Run"
-   * reuse the draft session instead of minting a second top-level tile (#bug1).
-   *
-   * Returns `true` on success (including an idempotent re-adopt of the same slug). Returns `false`
-   * — leaving the session untouched — when the session is missing, isn't a draft, or is already
-   * bound to a *different* slug. Callers fall back to `createSession` on `false`.
-   *
-   * Deliberately does NOT touch tools/sources/capabilities: the orchestrator keeps everything it
-   * was created with so it can still author/verify the run.
-   */
-  async adoptGeneratedTaskOrchestrator(
-    sessionId: string,
-    taskSlug: string,
-    reconcile?: { name?: string; projectId?: string; workingDirectory?: string; model?: string; llmConnection?: string; permissionMode?: PermissionMode },
-  ): Promise<boolean> {
-    const managed = this.sessions.get(sessionId)
-    if (!managed) {
-      sessionLog.warn('adoptGeneratedTaskOrchestrator: session not found', { sessionId, taskSlug })
-      return false
-    }
-    // Idempotency: already bound to this slug → no-op success. Bound to a different slug → refuse,
-    // so a stale draft ref can't hijack an unrelated orchestrator.
-    if (managed.taskSlug) {
-      if (managed.taskSlug === taskSlug) return true
-      sessionLog.warn('adoptGeneratedTaskOrchestrator: slug mismatch, refusing to rebind', {
-        sessionId, existing: managed.taskSlug, requested: taskSlug,
-      })
-      return false
-    }
-    // Only hidden generate-time drafts are eligible. A non-draft session without a slug isn't a
-    // generate orchestrator and must not be silently captured.
-    if (!managed.taskDraft) {
-      sessionLog.warn('adoptGeneratedTaskOrchestrator: session is not a task draft', { sessionId, taskSlug })
-      return false
-    }
-
-    // What actually changes — so we fire canonical live-updates (agent + caches + per-field events)
-    // only when needed. With generate now seeding model/connection/mode, these are usually all false.
-    const modelChanged = Boolean(reconcile?.model && reconcile.model !== managed.model)
-    const connectionChanged = Boolean(
-      reconcile?.llmConnection && !managed.connectionLocked && reconcile.llmConnection !== managed.llmConnection,
-    )
-    const cwdChanged = Boolean(reconcile?.workingDirectory && reconcile.workingDirectory !== managed.workingDirectory)
-    const modeChanged = Boolean(reconcile?.permissionMode && reconcile.permissionMode !== managed.permissionMode)
-
-    // Promote task metadata (no canonical mutator for these). Connection is set directly because
-    // setSessionConnection() refuses a session that has already sent messages (a generate draft has);
-    // the connection_changed event below keeps the renderer in sync.
-    managed.taskSlug = taskSlug
-    managed.taskDraft = false
-    if (reconcile?.projectId !== undefined) managed.projectId = reconcile.projectId
-    if (connectionChanged) managed.llmConnection = reconcile!.llmConnection
-    const renamed = Boolean(reconcile?.name && reconcile.name !== managed.name)
-    if (renamed) managed.name = reconcile!.name!
-
-    // Route model / cwd / permission mode through the canonical mutators so the LIVE agent, caches,
-    // and per-field events stay consistent — not just the on-disk metadata (the split-brain the
-    // follow-up review flagged). Each targets only the changed field; persist below captures the mode.
-    if (modelChanged) await this.updateSessionModel(sessionId, managed.workspace.id, reconcile!.model!)
-    if (cwdChanged) this.updateWorkingDirectory(sessionId, reconcile!.workingDirectory!)
-    if (modeChanged) this.setSessionPermissionMode(sessionId, reconcile!.permissionMode!)
-
-    this.setMetadataWriteGuard(managed)
-    this.persistSession(managed)
-    await this.flushSession(managed.id)
-
-    // One-shot board promotion: clearing taskDraft (sent as `false`, never `undefined` — undefined
-    // is dropped over the JSON wire) reveals the already-announced tile; taskSlug/projectId
-    // reconcile its metadata. `false` is falsy for the board's `if (meta.taskDraft)` skip.
-    const changes: { taskDraft: boolean; taskSlug: string; projectId?: string } = { taskDraft: false, taskSlug }
-    if (reconcile?.projectId !== undefined) changes.projectId = reconcile.projectId
-    this.sendEvent({ type: 'session_metadata_changed', sessionId, changes }, managed.workspace.id)
-    if (renamed) {
-      this.sendEvent({ type: 'name_changed', sessionId, name: managed.name }, managed.workspace.id)
-    }
-    if (connectionChanged) {
-      this.sendEvent({
-        type: 'connection_changed',
-        sessionId,
-        connectionSlug: managed.llmConnection!,
-        supportsBranching: resolveSupportsBranching(managed),
-      }, managed.workspace.id)
-    }
-    const watcher = this.configWatchers.get(managed.workspace.rootPath)
-    watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
-    sessionLog.info('adoptGeneratedTaskOrchestrator: promoted draft', { sessionId, taskSlug, renamed, modelChanged, connectionChanged, cwdChanged, modeChanged })
-    return true
-  }
-
-  /**
-   * User-initiated bind of an *existing, visible* session (e.g. a quick-add tile) to a task slug.
-   *
-   * This is distinct from {@link adoptGeneratedTaskOrchestrator}, which is the narrow draft-only
-   * promotion path. A quick-add tile is a normal non-draft session with no `taskSlug`; the draft
-   * guard there correctly refuses it, so the editor's "save this spec onto this tile" flow needs
-   * its own path. The guard in the adopt method stays untouched.
-   *
-   * Returns `true` on success (including an idempotent re-bind of the same slug). Returns `false`
-   * — leaving the session untouched — when the session is missing or already bound to a *different*
-   * slug. Callers MUST treat `false` as a hard error and must NOT fall back to creating a fresh
-   * orchestrator (that would mint a duplicate tile).
-   *
-   * Unlike adopt, this reconciles `llmConnection` too (a fresh create sets it; adopt skips it) so
-   * the bound tile doesn't render a stale backend.
-   */
-  async bindExistingSessionToTask(
-    sessionId: string,
-    taskSlug: string,
-    reconcile?: { name?: string; projectId?: string; workingDirectory?: string; model?: string; llmConnection?: string; permissionMode?: PermissionMode },
-  ): Promise<boolean> {
-    const managed = this.sessions.get(sessionId)
-    if (!managed) {
-      sessionLog.warn('bindExistingSessionToTask: session not found', { sessionId, taskSlug })
-      return false
-    }
-    if (managed.taskSlug) {
-      if (managed.taskSlug === taskSlug) return true
-      sessionLog.warn('bindExistingSessionToTask: slug mismatch, refusing to rebind', {
-        sessionId, existing: managed.taskSlug, requested: taskSlug,
-      })
-      return false
-    }
-
-    // What actually changes — so we fire canonical live-updates (agent + caches + per-field events)
-    // only when needed. A quick-add tile is already live, so these keep its running agent in step.
-    const modelChanged = Boolean(reconcile?.model && reconcile.model !== managed.model)
-    const connectionChanged = Boolean(
-      reconcile?.llmConnection && !managed.connectionLocked && reconcile.llmConnection !== managed.llmConnection,
-    )
-    const cwdChanged = Boolean(reconcile?.workingDirectory && reconcile.workingDirectory !== managed.workingDirectory)
-    const modeChanged = Boolean(reconcile?.permissionMode && reconcile.permissionMode !== managed.permissionMode)
-
-    // Promote task metadata (no canonical mutator for these). Connection is set directly because
-    // setSessionConnection() refuses a session that has already sent messages (a quick-add tile has);
-    // the connection_changed event below keeps the renderer in sync.
-    managed.taskSlug = taskSlug
-    managed.taskDraft = false
-    if (reconcile?.projectId !== undefined) managed.projectId = reconcile.projectId
-    if (connectionChanged) managed.llmConnection = reconcile!.llmConnection
-    const renamed = Boolean(reconcile?.name && reconcile.name !== managed.name)
-    if (renamed) managed.name = reconcile!.name!
-
-    // Route model / cwd / permission mode through the canonical mutators so the LIVE agent, caches,
-    // and per-field events stay consistent — not just the on-disk metadata (the split-brain the
-    // follow-up review flagged). updateSessionModel emits session_model_changed itself.
-    if (modelChanged) await this.updateSessionModel(sessionId, managed.workspace.id, reconcile!.model!)
-    if (cwdChanged) this.updateWorkingDirectory(sessionId, reconcile!.workingDirectory!)
-    if (modeChanged) this.setSessionPermissionMode(sessionId, reconcile!.permissionMode!)
-
-    this.setMetadataWriteGuard(managed)
-    this.persistSession(managed)
-    await this.flushSession(managed.id)
-
-    const changes: { taskDraft: boolean; taskSlug: string; projectId?: string } = { taskDraft: false, taskSlug }
-    if (reconcile?.projectId !== undefined) changes.projectId = reconcile.projectId
-    this.sendEvent({ type: 'session_metadata_changed', sessionId, changes }, managed.workspace.id)
-    if (renamed) {
-      this.sendEvent({ type: 'name_changed', sessionId, name: managed.name }, managed.workspace.id)
-    }
-    if (connectionChanged) {
-      this.sendEvent({
-        type: 'connection_changed',
-        sessionId,
-        connectionSlug: managed.llmConnection!,
-        supportsBranching: resolveSupportsBranching(managed),
-      }, managed.workspace.id)
-    }
-    const watcher = this.configWatchers.get(managed.workspace.rootPath)
-    watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
-    sessionLog.info('bindExistingSessionToTask: bound existing session', { sessionId, taskSlug, renamed, modelChanged, connectionChanged, cwdChanged, modeChanged })
-    return true
   }
 
   /**

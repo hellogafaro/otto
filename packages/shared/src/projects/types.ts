@@ -11,25 +11,6 @@
  */
 
 /**
- * One Kanban column in a project's custom board layout.
- *
- * When a project defines `kanbanColumns`, that array is the *full ordered set*
- * of board columns for the single-project view. Each column carries a stable
- * `id` (reused as the persisted `kanbanColumn` placement value on sessions) and
- * a user-authored `name` (not translated, like the project name itself).
- */
-export interface KanbanColumnDef {
-  /** Stable slug, generated once and never reused after delete. The built-in seed reuses 'todo' | 'in-progress' | 'done' so existing placement survives the first customization. */
-  id: string;
-  /** User-facing label, shown verbatim (no i18n — user-authored). */
-  name: string;
-  /** Status auto-applied when a card is dropped here (per-project; replaces the global drop-status atom in project views). */
-  dropStatusId?: string;
-  /** Optional header accent (hex, e.g. "#6366f1"). */
-  color?: string;
-}
-
-/**
  * Main project configuration (stored in config.json)
  */
 export interface ProjectConfig {
@@ -50,8 +31,6 @@ export interface ProjectConfig {
   updatedAt: number;
   /** Set when project is archived (hidden from sidebar but kept on disk) */
   archivedAt?: number;
-  /** Per-project Kanban columns. Absent → the board uses the default 3 columns. */
-  kanbanColumns?: KanbanColumnDef[];
 }
 
 /**

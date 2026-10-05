@@ -44,7 +44,7 @@ export const DEFAULT_DECISIONS_LOG_PATH = join(CONFIG_DIR, 'logs', 'decisions.js
 export const DECISIONS_LOG_MAX_BYTES = 10 * 1024 * 1024;
 
 /** Well-known feature tags; free-form strings are allowed for future callers. */
-export type DecisionFeature = 'decide_tool' | 'settings_test' | 'task_verdict' | 'semantic_labels' | (string & {});
+export type DecisionFeature = 'decide_tool' | 'settings_test' | 'semantic_labels' | (string & {});
 
 /** Numbers and option keys only — never free text from the state. */
 export interface DecisionRecordAnswer {

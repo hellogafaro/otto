@@ -12,7 +12,7 @@ import { useWorkingDirectoryState } from './use-working-directory-state'
 
 /**
  * Format a path for display with the home directory shortened, e.g.
- * "in Workspace/kanban-view". Returns "" for an empty path.
+ * "in Workspace/my-project". Returns "" for an empty path.
  */
 export function formatPathForDisplay(path: string | undefined, homeDir: string): string {
   if (!path) return ''
