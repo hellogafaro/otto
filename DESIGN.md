@@ -461,8 +461,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     handler). A row with no route yet (Inbox, Tasks, Files) is a placeholder,
     shown not linked: no handler, no pointer, no tab stop (`aria-disabled`),
     no open state, and still fully readable (not dimmed); the layout is final.
-    There is no New chat row: the floating "+" starts a chat (and the page
-    header's button when the card is narrow), as does ⌘N. Rows are 28px with
+    There is no New chat row: New chat is the page header's button and ⌘N. Rows are 28px with
     `sm` 6 corners, 14px icons in a 20px slot, muted at rest, foreground on
     hover; hover is `--sidebar-accent` at 60%, the open area is `--sidebar-accent`
     with the hairline ring. Schedules (automations) has its own row; Skills and
@@ -509,15 +508,10 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   overlaid), none with reduced motion. Escape closes it while focus is inside,
   and it closes when the page changes. Pages open it through
   `useFloatingCard().openCard({ title, content })`.
-- **The floating action** (`FloatingActionButton`): the page's one "+" (New
-  chat on Chats), bottom-right of the card, 16px from the corner. 40px,
-  `bg-card`, `xl` corners, hairline ring, `shadow-sm`; tooltip to its left with
-  the label and its `Kbd`. Hidden while the card is narrower than 930px (it
-  would sit on the composer), which includes everything below 768px: there the
-  page header's actions carry a ghost icon button New chat (`SquarePen`, 28px,
-  tooltip with the label and its `Kbd`) that replaces it. A chat can always
-  be started exactly once from the page: the "+" when wide, the header button
-  when narrow (and the ⌘N shortcut, bound by the shell, not the sidebar).
+- **New chat** is on Chats only: a ghost icon button (`SquarePen`, 28px) last
+  in the page header's actions at every width, tooltip below with the label and
+  its `Kbd`; ⌘N (`app.newChat`, bound by the shell, not the sidebar) does the
+  same. There is no floating "+".
 - **Floating navigation** (`FloatingNav`): Superhuman's controls, in the page
   card's left margin below the header: a round 32px Back button and a vertical
   pill of Previous (up) and Next (down), `bg-card`, hairline ring, `shadow-sm`,
@@ -635,7 +629,6 @@ the floating card follow it).
 | `PageColumn`, `PageSection`, `PageCard` | `title`, `description`, `action`, `danger` | see Page anatomy |
 | `FloatingCard` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel` | see Layout; closed by default |
 | `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; shown from a 896px card |
-| `FloatingActionButton` | `tooltip` | see Layout |
 
 In the renderer: `PageHeader` (the header with the route's Back, crumbs and list
 navigation wired), `AppSidebar`, `SidebarSection`, `useFloatingCard`,

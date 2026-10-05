@@ -132,7 +132,7 @@ export interface AppShellContextType {
   /** Whether the shell is currently in compact/narrow mode */
   isCompactMode?: boolean
 
-  /** Start a new chat (the sidebar has no New chat; the floating "+" and the page header do) */
+  /** Start a new chat (the page header's button and ⌘N; the sidebar has no New chat) */
   onNewChat?: () => void
 
   // Session list search state (for ChatDisplay highlighting)

@@ -8,8 +8,8 @@ components and the rules in `DESIGN.md`, and was looked at in light and dark.
 shell → settings → connection sign-in → chat → everything else. Tick as you go.
 
 **Shell (done as a skeleton):** the sidebar on the frame, the one `ContentCard` with
-`PageHeader`, the `FloatingCard` slot, floating Back / Previous / Next and the
-floating action are in. The top bar, the rail and the panel stack (several panels
+`PageHeader`, the `FloatingCard` slot, and floating Back / Previous / Next
+are in. The top bar, the rail and the panel stack (several panels
 side by side, open in a new panel, `?panels=`) are deleted. Pages move onto the
 page anatomy (DESIGN.md, Page anatomy) one by one; the settings pages are the
 reference. Interim: Sources, Skills, Projects and Schedules still render their
@@ -31,7 +31,7 @@ the Documents library keep their own insets inside the card.
 - [ ] `components/app-shell/batch-session-menu.tsx`
 - [ ] `components/app-shell/chat-display.tsx`
 - [ ] `components/app-shell/compact-session-menu.tsx`
-- [x] `components/app-shell/fab-new-chat.tsx`
+- [x] `components/app-shell/header-new-chat.tsx`
 - [x] `components/app-shell/left-sidebar.tsx`
 - [x] `components/app-shell/main-content-panel.tsx`
 - [ ] `components/app-shell/multi-select-panel.tsx`

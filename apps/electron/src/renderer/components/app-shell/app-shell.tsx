@@ -65,7 +65,6 @@ import { useAutomations } from "@/hooks/use-automations"
 import { useProjects } from "@/hooks/use-projects"
 import { usePages } from "@/hooks/use-pages"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
-import { FabNewChat } from "./fab-new-chat"
 import { SidebarProvider, useSidebar } from "@workspace/ui/components/sidebar"
 import { ContentCard } from "@workspace/ui/components/content-card"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
@@ -1963,10 +1962,6 @@ function AppShellContent({
         <FloatingCardProvider>
           <ContentCard>
             <MainContentPanel />
-            {/* The one floating action on Chats: a new chat (narrower than 930px the page header has it). */}
-            {isSessionsNavigation(navState) && (
-              <FabNewChat onClick={() => handleNewChat()} />
-            )}
           </ContentCard>
         </FloatingCardProvider>
       </SidebarProvider>

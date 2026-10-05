@@ -2,10 +2,8 @@ import * as React from 'react'
 import { MessagesSquare, MoreHorizontal, PanelRight, Plus, Search, Settings } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { ContentCard, ContentCardBody, ContentCardCrumbs, ContentCardHeader } from '@workspace/ui/components/content-card'
-import { FloatingActionButton } from '@workspace/ui/components/floating-action-button'
 import { FloatingCard } from '@workspace/ui/components/floating-card'
 import { FloatingNav } from '@workspace/ui/components/floating-nav'
-import { Kbd } from '@workspace/ui/components/kbd'
 import { Logo } from '@workspace/ui/components/logo'
 import {
   Sidebar,
@@ -27,7 +25,7 @@ import type { ComponentEntry } from './types'
 
 // =============================================================================
 // Shell primitives: Sidebar, ContentCard (+ header, crumbs), FloatingCard,
-// FloatingNav and FloatingActionButton, in one frame. The sidebar follows the
+// and FloatingNav, in one frame. The sidebar follows the
 // window width (icons only below 1024px, a sheet below 768px); the page card's
 // container queries follow the frame. Resize the window to see both.
 // =============================================================================
@@ -38,10 +36,9 @@ interface ShellDemoProps {
   floatingOpen: boolean
   showNav: boolean
   showCrumbs: boolean
-  showFab: boolean
 }
 
-function ShellDemo({ floatingOpen, showNav, showCrumbs, showFab }: ShellDemoProps) {
+function ShellDemo({ floatingOpen, showNav, showCrumbs }: ShellDemoProps) {
   const [open, setOpen] = React.useState(floatingOpen)
   const [active, setActive] = React.useState(1)
   React.useEffect(() => setOpen(floatingOpen), [floatingOpen])
@@ -127,11 +124,6 @@ function ShellDemo({ floatingOpen, showNav, showCrumbs, showFab }: ShellDemoProp
               next={{ label: 'Next', onClick: () => setActive((i) => Math.min(CHATS.length - 1, i + 1)), disabled: active === CHATS.length - 1 }}
             />
           )}
-          {showFab && (
-            <FloatingActionButton aria-label="New chat" tooltip={<>New chat<Kbd>⌘N</Kbd></>}>
-              <Plus />
-            </FloatingActionButton>
-          )}
         </ContentCard>
 
         <FloatingCard open={open} onOpenChange={setOpen} title="Details">
@@ -147,7 +139,7 @@ function ShellDemo({ floatingOpen, showNav, showCrumbs, showFab }: ShellDemoProp
 export const shellComponents: ComponentEntry[] = [
   {
     id: 'shell-primitives',
-    name: 'Shell (Sidebar, ContentCard, FloatingCard, FloatingNav, FAB)',
+    name: 'Shell (Sidebar, ContentCard, FloatingCard, FloatingNav)',
     category: 'Shell',
     description: 'The shell primitives in one frame. The sidebar and the floating card follow the window width.',
     component: ShellDemo,
@@ -156,12 +148,11 @@ export const shellComponents: ComponentEntry[] = [
       { name: 'floatingOpen', description: 'Floating card open', control: { type: 'boolean' }, defaultValue: false },
       { name: 'showNav', description: 'Floating Back / Previous / Next', control: { type: 'boolean' }, defaultValue: true },
       { name: 'showCrumbs', description: 'Crumb trail after the title', control: { type: 'boolean' }, defaultValue: false },
-      { name: 'showFab', description: 'Floating action button', control: { type: 'boolean' }, defaultValue: true },
     ],
     variants: [
-      { name: 'Floating card closed', props: { floatingOpen: false, showNav: true, showCrumbs: false, showFab: true } },
-      { name: 'Floating card open', props: { floatingOpen: true, showNav: true, showCrumbs: false, showFab: true } },
-      { name: 'Drill-down with crumbs', props: { floatingOpen: false, showNav: false, showCrumbs: true, showFab: false } },
+      { name: 'Floating card closed', props: { floatingOpen: false, showNav: true, showCrumbs: false } },
+      { name: 'Floating card open', props: { floatingOpen: true, showNav: true, showCrumbs: false } },
+      { name: 'Drill-down with crumbs', props: { floatingOpen: false, showNav: false, showCrumbs: true } },
     ],
   },
 ]
