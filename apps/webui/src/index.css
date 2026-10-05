@@ -38,6 +38,15 @@ html {
   --webui-css-zoom: 1;
 }
 
+/* The desktop app is transparent over the window's vibrancy; a browser has nothing
+ * behind the page, so the page itself needs the theme's background. */
+html, body {
+  background-color: var(--background);
+}
+html.dark {
+  color-scheme: dark;
+}
+
 #root {
   position: fixed;
   top: var(--webui-viewport-top, 0px);
