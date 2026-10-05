@@ -7,7 +7,7 @@ import { secrets } from './schema.ts'
 /**
  * Secrets: keys, tokens and envs, encrypted at rest.
  *
- *   secrets(id, name, value)   (schema.ts)
+ *   secrets(id, title, value)   (schema.ts)
  *
  * `value` is one base64 string: nonce (12) + ciphertext + auth tag (16),
  * AES-256-GCM under `ENCRYPTION_KEY`. The row id is the authenticated data, so
@@ -46,10 +46,10 @@ export function createSecretsStore(db: Db, key: Buffer) {
   }
 
   return {
-    /** Store a new secret; `name` is unique. Returns its id. */
-    createSecret(name: string, value: string): string {
+    /** Store a new secret under a human `title`. Returns its id. */
+    createSecret(title: string, value: string): string {
       const id = createId()
-      db.insert(secrets).values({ id, name, value: encrypt(id, value) }).run()
+      db.insert(secrets).values({ id, title, value: encrypt(id, value) }).run()
       return id
     },
 
@@ -82,7 +82,7 @@ export function initSecrets(): void {
   defaultStore()
 }
 
-export const createSecret = (name: string, value: string) => defaultStore().createSecret(name, value)
+export const createSecret = (title: string, value: string) => defaultStore().createSecret(title, value)
 export const getSecret = (id: string) => defaultStore().getSecret(id)
 export const updateSecret = (id: string, value: string) => defaultStore().updateSecret(id, value)
 export const deleteSecret = (id: string) => defaultStore().deleteSecret(id)

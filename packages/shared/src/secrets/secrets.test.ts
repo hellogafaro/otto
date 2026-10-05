@@ -23,7 +23,7 @@ test('a secret round-trips and is not stored in plain text', async () => {
   expect(id).toMatch(/^[0-9a-z]{12}$/)
   expect(store.getSecret(id)).toBe('sk-ant-123')
   const row = rowOf(db, id)
-  expect(row.name).toBe('anthropic-key')
+  expect(row.title).toBe('anthropic-key')
   expect(row.value).not.toContain('sk-ant-123')
 })
 
@@ -35,10 +35,8 @@ test('the same value encrypts differently each time', async () => {
   expect(store.getSecret(a)).toBe(store.getSecret(b))
 })
 
-test('names are unique and a missing secret is undefined', async () => {
+test('a missing secret is undefined', async () => {
   const { store } = await setup()
-  store.createSecret('dup', 'x')
-  expect(() => store.createSecret('dup', 'y')).toThrow()
   expect(store.getSecret('nope')).toBeUndefined()
 })
 
