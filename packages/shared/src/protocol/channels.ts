@@ -309,7 +309,6 @@ export const RPC_CHANNELS = {
     SET_PATH: 'gitbash:setPath',
   },
   browserPane: {
-    CREATE: 'browser-pane:create',
     DESTROY: 'browser-pane:destroy',
     LIST: 'browser-pane:list',
     NAVIGATE: 'browser-pane:navigate',

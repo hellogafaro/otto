@@ -42,7 +42,6 @@ const EXPECTED_CHANNELS: string[] = [
   'badge:setIcon',
   'browser-empty-state:launch',
   'browser-pane:click',
-  'browser-pane:create',
   'browser-pane:destroy',
   'browser-pane:evaluate',
   'browser-pane:fill',

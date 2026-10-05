@@ -41,7 +41,7 @@ export function buildClientApi(
       fn = (...args: any[]) => client.invoke(entry.channel, ...args)
     }
 
-    // Dotted keys like "browserPane.create" become nested: api.browserPane.create
+    // Dotted keys like "browserPane.focus" become nested: api.browserPane.focus
     const dotIdx = key.indexOf('.')
     if (dotIdx !== -1) {
       const ns = key.slice(0, dotIdx)

@@ -126,7 +126,6 @@ export const LOCAL_ONLY_CHANNELS = new Set<string>([
   // tools — local tool settings
 
   // browserPane — Electron BrowserView
-  RPC_CHANNELS.browserPane.CREATE,
   RPC_CHANNELS.browserPane.DESTROY,
   RPC_CHANNELS.browserPane.LIST,
   RPC_CHANNELS.browserPane.NAVIGATE,

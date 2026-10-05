@@ -1,10 +1,9 @@
-import { RPC_CHANNELS, type BrowserPaneCreateOptions, type BrowserEmptyStateLaunchPayload } from '../../shared/types'
+import { RPC_CHANNELS, type BrowserEmptyStateLaunchPayload } from '../../shared/types'
 import type { BrowserScreenshotOptions } from '../browser-pane-manager'
 import { pushTyped, type RpcServer } from '@craft-agent/server-core/transport'
 import type { HandlerDeps } from './handler-deps'
 
 export const HANDLED_CHANNELS = [
-  RPC_CHANNELS.browserPane.CREATE,
   RPC_CHANNELS.browserPane.DESTROY,
   RPC_CHANNELS.browserPane.LIST,
   RPC_CHANNELS.browserPane.NAVIGATE,
@@ -26,27 +25,6 @@ export const HANDLED_CHANNELS = [
 export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): void {
   const { browserPaneManager, platform } = deps
   if (!browserPaneManager) return
-
-  server.handle(RPC_CHANNELS.browserPane.CREATE, (ctx, input?: string | BrowserPaneCreateOptions) => {
-    // Stamp the window with the requester's workspace so manual UI-opened
-    // tabs stay scoped to the workspace where the user clicked. If
-    // ctx.workspaceId is null (no workspace context — e.g. CLI / agent
-    // harness), the window stays globally visible (legacy behavior).
-    const workspaceId = ctx.workspaceId ?? null
-
-    if (typeof input === 'string') {
-      return browserPaneManager.createInstance(input, { workspaceId })
-    }
-
-    if (input?.bindToSessionId) {
-      return browserPaneManager.createForSession(input.bindToSessionId, {
-        show: input.show ?? false,
-        workspaceId,
-      })
-    }
-
-    return browserPaneManager.createInstance(input?.id, { show: input?.show, workspaceId })
-  })
 
   server.handle(RPC_CHANNELS.browserPane.DESTROY, (_ctx, id: string) => {
     browserPaneManager.destroyInstance(id)

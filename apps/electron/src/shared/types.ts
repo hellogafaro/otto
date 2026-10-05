@@ -112,15 +112,6 @@ export interface ToolIconMapping {
 }
 
 /**
- * Browser pane creation options
- */
-export interface BrowserPaneCreateOptions {
-  id?: string
-  show?: boolean
-  bindToSessionId?: string
-}
-
-/**
  * Empty-state launch request from the browser empty-state renderer.
  */
 export interface BrowserEmptyStateLaunchPayload {
@@ -589,7 +580,6 @@ export interface ElectronAPI {
 
   // Browser pane management
   browserPane: {
-    create(input?: string | BrowserPaneCreateOptions): Promise<string>
     destroy(id: string): Promise<void>
     list(): Promise<BrowserInstanceInfo[]>
     navigate(id: string, url: string): Promise<{ url: string; title: string }>
