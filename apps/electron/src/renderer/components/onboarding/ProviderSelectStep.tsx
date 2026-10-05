@@ -17,6 +17,7 @@ export type ProviderChoice = 'claude' | 'chatgpt' | 'copilot' | 'api_key' | 'loc
 interface ProviderOption {
   id: ProviderChoice
   name: string
+  description: string
   icon: React.ReactNode
 }
 
@@ -48,26 +49,31 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
     {
       id: 'claude',
       name: t("onboarding.providerSelect.claudeProMax"),
+      description: t("onboarding.providerSelect.claudeProMaxDesc"),
       icon: PROVIDER_ICONS.claude,
     },
     {
       id: 'chatgpt',
       name: t("onboarding.providerSelect.codexChatGPT"),
+      description: t("onboarding.providerSelect.codexChatGPTDesc"),
       icon: PROVIDER_ICONS.chatgpt,
     },
     {
       id: 'copilot',
       name: t("onboarding.providerSelect.githubCopilot"),
+      description: t("onboarding.providerSelect.githubCopilotDesc"),
       icon: PROVIDER_ICONS.copilot,
     },
     {
       id: 'api_key',
       name: t("onboarding.providerSelect.otherProvider"),
+      description: 'Anthropic, Bedrock, OpenRouter, Google and more',
       icon: PROVIDER_ICONS.api_key,
     },
     {
       id: 'local',
       name: t("onboarding.providerSelect.localModel"),
+      description: 'Run models locally with Ollama',
       icon: PROVIDER_ICONS.local,
     },
   ]
@@ -86,14 +92,9 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
         {PROVIDER_OPTIONS.map((option) => (
           <SettingsRow
             key={option.id}
-            label={
-              <span className="flex items-center gap-3">
-                <span className="flex size-5 shrink-0 items-center justify-center text-foreground">
-                  {option.icon}
-                </span>
-                {option.name}
-              </span>
-            }
+            icon={option.icon}
+            label={option.name}
+            description={option.description}
             onClick={() => onSelect(option.id)}
           >
             <ChevronRight className="size-4 text-muted-foreground" />
@@ -103,7 +104,7 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
 
       {onSkip && (
         <div className="mt-4 flex justify-center">
-          <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
+          <Button variant="ghost" onClick={onSkip} className="text-muted-foreground">
             {t("onboarding.providerSelect.setupLater")}
           </Button>
         </div>

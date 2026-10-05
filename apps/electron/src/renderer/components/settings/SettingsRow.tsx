@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils'
 import { settingsUI } from './SettingsUIConstants'
 
 export interface SettingsRowProps {
+  /** Leading icon, before the label */
+  icon?: React.ReactNode
   /** Row label (can be string or JSX for custom rendering) */
   label: React.ReactNode
   /** Optional description below label */
@@ -37,6 +39,7 @@ export interface SettingsRowProps {
  * />
  */
 export function SettingsRow({
+  icon,
   label,
   description,
   children,
@@ -59,6 +62,7 @@ export function SettingsRow({
         className
       )}
     >
+      {icon && <span className="mr-3 flex size-5 shrink-0 items-center justify-center">{icon}</span>}
       <div className="flex-1 min-w-0">
         <div className={settingsUI.label}>{label}</div>
         {description && (

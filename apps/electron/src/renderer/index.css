@@ -431,15 +431,6 @@ html[data-font="inter"] {
   --z-index-island-popover: var(--z-island-popover);
   --z-index-splash: var(--z-splash);
 
-  --shadow-2xs: var(--shadow-2xs);
-  --shadow-xs: var(--shadow-xs);
-  --shadow-sm: var(--shadow-sm);
-  --shadow: var(--shadow);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
-  --shadow-xl: var(--shadow-xl);
-  --shadow-2xl: var(--shadow-2xl);
-
   /* === CONTAINER QUERY BREAKPOINTS === */
   /* Custom breakpoints for responsive panel layouts.
    * Generates @panel-compact:, @panel-medium:, @mobile: Tailwind utility prefixes. */
@@ -501,14 +492,7 @@ html[data-font="inter"] {
   }
 }
 
-/* Override Tailwind ring width utilities to use theme variable */
 @layer utilities {
-  .ring-1, .ring-2, .ring-\[3px\], .ring-4 {
-    --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
-    --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(var(--ring-width) + var(--tw-ring-offset-width)) var(--tw-ring-color);
-    box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
-  }
-
   /* Thin horizontal scrollbar for panel stack */
   .panel-scroll::-webkit-scrollbar {
     height: 4px;

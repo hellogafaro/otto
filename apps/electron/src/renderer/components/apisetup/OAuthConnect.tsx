@@ -85,12 +85,5 @@ export function OAuthConnect({
   // Nothing to render — avoid empty wrapper div
   if (!showError) return null
 
-  return (
-    <div className="space-y-3">
-      {/* Error message displayed below content, matching the API key pattern */}
-      <div className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive text-center">
-        {errorMessage}
-      </div>
-    </div>
-  )
+  return <p className="px-1 text-sm text-destructive">{errorMessage}</p>
 }

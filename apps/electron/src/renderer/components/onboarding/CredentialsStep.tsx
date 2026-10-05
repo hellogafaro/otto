@@ -7,7 +7,9 @@
 
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Check, ExternalLink } from "lucide-react"
+import { Check, Copy, ExternalLink } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { SettingsCard, SettingsRow } from "@/components/settings"
 import type { ApiSetupMethod } from "./APISetupStep"
 import { StepFormLayout, BackButton, ContinueButton } from "./primitives"
 import {
@@ -110,20 +112,10 @@ export function CredentialsStep({
           </>
         }
       >
-        <div className="space-y-4">
-          <div className="rounded-xl bg-card ring-1 ring-foreground/10 p-4 text-sm text-muted-foreground">
-            <p>{t("onboarding.credentials.chatGPTInstructions")}</p>
-          </div>
-          {status === 'error' && errorMessage && (
-            <div className="rounded-xl bg-destructive/10 text-destructive text-sm p-3">
-              {errorMessage}
-            </div>
-          )}
-          {status === 'success' && (
-            <div className="rounded-xl bg-success/10 text-success text-sm p-3">
-              {t("onboarding.credentials.chatGPTConnected")}
-            </div>
-          )}
+        <div className="space-y-3 px-1 text-sm">
+          <p className="text-muted-foreground">{t("onboarding.credentials.chatGPTInstructions")}</p>
+          {status === 'error' && errorMessage && <p className="text-destructive">{errorMessage}</p>}
+          {status === 'success' && <p className="text-success">{t("onboarding.credentials.chatGPTConnected")}</p>}
         </div>
       </StepFormLayout>
     )
@@ -149,44 +141,29 @@ export function CredentialsStep({
           </>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           {copilotDeviceCode ? (
-            <div className="rounded-xl bg-card ring-1 ring-foreground/10 p-4 text-sm space-y-3">
-              <p className="text-muted-foreground text-center">
-                {t("onboarding.credentials.enterCodeOnGitHub")}
-              </p>
-              <div className="flex flex-col items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="text-2xl font-mono font-bold tracking-widest text-foreground px-4 py-2 rounded-xl bg-muted hover:bg-muted/70 transition-colors cursor-pointer"
-                >
-                  {copilotDeviceCode.userCode}
-                </button>
-                <span className={`text-xs text-muted-foreground flex items-center gap-1 transition-opacity ${copiedCode ? 'opacity-100' : 'opacity-0'}`}>
-                  <Check className="size-3" />
-                  {t("onboarding.credentials.copiedToClipboard")}
-                </span>
-              </div>
-              <p className="text-muted-foreground text-xs text-center">
-                {t("onboarding.credentials.browserOpenedGitHub")}
-              </p>
-            </div>
+            <>
+              <SettingsCard>
+                <SettingsRow label={t("onboarding.credentials.enterCodeOnGitHub")}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleCopyCode}
+                    className="font-mono tracking-widest"
+                  >
+                    {copilotDeviceCode.userCode}
+                    {copiedCode ? <Check /> : <Copy />}
+                  </Button>
+                </SettingsRow>
+              </SettingsCard>
+              <p className="px-1 text-xs text-muted-foreground">{t("onboarding.credentials.browserOpenedGitHub")}</p>
+            </>
           ) : (
-            <div className="rounded-xl bg-card ring-1 ring-foreground/10 p-4 text-sm text-muted-foreground text-center">
-              <p>{t("onboarding.credentials.clickToSignInGitHub")}</p>
-            </div>
+            <p className="px-1 text-sm text-muted-foreground">{t("onboarding.credentials.clickToSignInGitHub")}</p>
           )}
-          {status === 'error' && errorMessage && (
-            <div className="rounded-xl bg-destructive/10 text-destructive text-sm p-3 text-center">
-              {errorMessage}
-            </div>
-          )}
-          {status === 'success' && (
-            <div className="rounded-xl bg-success/10 text-success text-sm p-3 text-center">
-              {t("onboarding.credentials.copilotConnected")}
-            </div>
-          )}
+          {status === 'error' && errorMessage && <p className="px-1 text-sm text-destructive">{errorMessage}</p>}
+          {status === 'success' && <p className="px-1 text-sm text-success">{t("onboarding.credentials.copilotConnected")}</p>}
         </div>
       </StepFormLayout>
     )
