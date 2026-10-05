@@ -18,7 +18,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { AnimatePresence, motion, type Variants } from 'motion/react'
-import { File, Folder, FolderOpen, FileText, Image, FileCode, ChevronRight, ExternalLink } from 'lucide-react'
+import { File, Folder, FolderOpen, FileText, Image, FileCode, ChevronRight, ArrowUpRight } from 'lucide-react'
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -351,8 +351,8 @@ function FileTreeItem({
           {/* Open — files only (folders just show "Show in file manager") */}
           {file.type !== 'directory' && (
             <StyledContextMenuItem onSelect={() => onFileClick(file)}>
-              <ExternalLink className="h-3.5 w-3.5" />
               {t("chat.openFile")}
+              <ArrowUpRight className="ml-auto h-3.5 w-3.5" />
             </StyledContextMenuItem>
           )}
           {/* Show in file manager */}

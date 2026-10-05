@@ -18,7 +18,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@workspace/ui/components/context-menu'
-import { Check, Copy, ExternalLink, FolderOpen, type LucideIcon } from 'lucide-react'
+import { ArrowUpRight, Check, Copy, FolderOpen, type LucideIcon } from 'lucide-react'
 import { PreviewHeader, PreviewHeaderBadge, type PreviewBadgeVariant } from '../ui/preview-header'
 import {
   DropdownMenu,
@@ -106,8 +106,8 @@ function FilePathBadge({ filePath }: FilePathBadgeProps) {
     <>
       {onOpenFileExternal && (
         <StyledDropdownMenuItem onSelect={handleOpen}>
-          <ExternalLink />
           Open
+          <ArrowUpRight className="ml-auto" />
         </StyledDropdownMenuItem>
       )}
       {onRevealInFinder && (
@@ -123,8 +123,8 @@ function FilePathBadge({ filePath }: FilePathBadgeProps) {
     <>
       {onOpenFileExternal && (
         <ContextMenuItem onClick={handleOpen}>
-          <ExternalLink />
           Open
+          <ArrowUpRight className="ml-auto" />
         </ContextMenuItem>
       )}
       {onRevealInFinder && (

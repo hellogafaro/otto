@@ -11,7 +11,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Trash2, CalendarDays, ExternalLink } from 'lucide-react'
+import { Trash2, CalendarDays, ArrowUpRight } from 'lucide-react'
 import { Popover, PopoverTrigger, PopoverContent } from './popover'
 import { Calendar } from './calendar'
 import { cn } from '@/lib/utils'
@@ -301,8 +301,8 @@ export function LabelValuePopover({
                 'transition-colors cursor-pointer outline-none'
               )}
             >
-              <ExternalLink className="w-3.5 h-3.5" />
               <span>{t('common.openLink')}</span>
+              <ArrowUpRight className="w-3.5 h-3.5 ml-auto" />
             </button>
           )}
           <button

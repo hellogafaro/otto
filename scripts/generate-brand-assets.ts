@@ -80,7 +80,7 @@ const layer = `<?xml version="1.0" encoding="UTF-8"?>
 write(join(resources, 'icon.icon/Assets/icon.svg'), layer)
 
 // Web app: tab icon (the mark, black or white by color scheme), the ICO
-// fallback, home-screen and manifest icons, and the sign-in page icon. The ICO is the mark alone in a
+// fallback, home-screen and manifest icons, and the 40px tile icon. The ICO is the mark alone in a
 // neutral gray on transparent, so it reads on light and dark tab strips (the
 // browser picks the SVG when it supports it, and the ICO otherwise).
 const faviconPaths = [...markSvg.matchAll(/<path d="[^"]+"\/>/g)].map((m) => m[0]).join('')
@@ -101,9 +101,12 @@ write(join(webPublic, 'apple-touch-icon.png'), await appIcon(180))
 write(join(webPublic, 'icon-192.png'), await appIcon(192))
 write(join(webPublic, 'icon-512.png'), await appIcon(512))
 
-// Sign-in page icon: 40px at 3x. Served before sign-in from /login-assets/ (the
-// only path besides /favicon.ico that needs no session).
+// Sign-in, splash and onboarding icon: 40px at 3x. The sign-in page serves it
+// before sign-in from /login-assets/ (the only path besides /favicon.ico that
+// needs no session); the app imports its own copy.
 mkdirSync(join(webPublic, 'login-assets'), { recursive: true })
-write(join(webPublic, 'login-assets/otto-app-icon.png'), await appIcon(120))
+const tileIcon = await appIcon(120)
+write(join(webPublic, 'login-assets/otto-app-icon.png'), tileIcon)
+write(join(root, 'apps/electron/src/renderer/assets/otto-app-icon.png'), tileIcon)
 
 console.log('Brand assets generated')

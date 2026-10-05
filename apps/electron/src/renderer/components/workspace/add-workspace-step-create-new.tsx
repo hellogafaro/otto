@@ -128,7 +128,7 @@ export function AddWorkspaceStep_CreateNew({
               />
             </SettingsRow>
           </SettingsCard>
-          {error && <p className="px-1 text-sm text-destructive">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
 
         {/* Location selection */}

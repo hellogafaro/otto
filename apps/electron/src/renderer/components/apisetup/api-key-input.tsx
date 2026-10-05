@@ -590,7 +590,7 @@ export function ApiKeyInput({
       {hints.map((hint) => (
         <p key={hint} className="px-1 text-xs text-muted-foreground">{hint}</p>
       ))}
-      {error && <p className="px-1 text-sm text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </form>
   )
 }

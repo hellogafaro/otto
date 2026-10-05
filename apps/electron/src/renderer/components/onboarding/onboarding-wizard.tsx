@@ -8,7 +8,6 @@ import { CompletionStep } from "./completion-step"
 import { GitBashWarning, type GitBashStatus } from "./git-bash-warning"
 import type { ApiKeySubmitData } from "../apisetup"
 import type { CustomEndpointApi } from '@config/llm-connections'
-import { AmbientBackdrop } from "./ambient-backdrop"
 
 export type OnboardingStep =
   | 'welcome'
@@ -193,7 +192,7 @@ export function OnboardingWizard({
   return (
     <div
       className={cn(
-        "relative bg-background overflow-y-auto",
+        "overflow-y-auto bg-background text-foreground",
         !className?.includes('h-full') && "h-dvh",
         className
       )}
@@ -203,13 +202,7 @@ export function OnboardingWizard({
 
       {/* Main content — min-h-full + flex center means: center when content fits,
           natural flow + scroll when content is taller than the viewport (mobile). */}
-      <AmbientBackdrop />
-      {/* A soft glow behind the dither, one shade off the background */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-2/3 bg-[radial-gradient(ellipse_70%_60%_at_50%_0%,color-mix(in_oklab,var(--foreground)_5%,transparent),transparent)]"
-      />
-      <main className="relative flex min-h-full items-center justify-center p-4 sm:p-8">
+      <main className="flex min-h-full items-center justify-center p-4 sm:p-8">
         {renderStep()}
       </main>
     </div>

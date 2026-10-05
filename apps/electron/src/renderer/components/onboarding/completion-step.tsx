@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@otto/ui"
-import { Logo } from "@workspace/ui/components/logo"
 import { StepFormLayout } from "./primitives"
 
 interface CompletionStepProps {
@@ -27,15 +26,7 @@ export function CompletionStep({
 
   return (
     <StepFormLayout
-      iconElement={isSaving ? (
-        <div className="flex size-16 items-center justify-center">
-          <Spinner className="text-2xl text-foreground" />
-        </div>
-      ) : (
-        <div className="flex size-16 items-center justify-center">
-          <Logo className="size-10 text-foreground" />
-        </div>
-      )}
+      iconElement={isSaving ? <Spinner className="text-2xl text-foreground" /> : undefined}
       title={isSaving ? t("onboarding.completion.settingUp") : t("onboarding.completion.allSet")}
       description={
         isSaving ? (

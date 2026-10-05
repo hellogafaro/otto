@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils"
 import { Button, type ButtonProps } from "@/components/ui/button"
 import { Spinner } from "@otto/ui"
+import { OttoAppIcon } from "@/components/icons/otto-app-icon"
 
 /* =============================================================================
    ONBOARDING PRIMITIVES
@@ -13,115 +14,11 @@ import { Spinner } from "@otto/ui"
 ============================================================================= */
 
 // =============================================================================
-// STEP ICON
-// =============================================================================
-
-export type StepIconVariant = 'primary' | 'success' | 'error' | 'loading' | 'none'
-
-interface StepIconProps {
-  /** The icon to display (should be a lucide-react icon or SVG) */
-  children: React.ReactNode
-  /** Visual variant - affects icon color */
-  variant?: StepIconVariant
-  className?: string
-}
-
-const iconVariantStyles: Record<StepIconVariant, { container: string; icon: string }> = {
-  primary: {
-    container: '',
-    icon: 'text-foreground',
-  },
-  success: {
-    container: '',
-    icon: 'text-success',
-  },
-  error: {
-    container: '',
-    icon: 'text-destructive',
-  },
-  loading: {
-    container: '',
-    icon: 'text-foreground',
-  },
-  none: {
-    container: '',
-    icon: '',
-  },
-}
-
-/**
- * StepIcon - Circular icon container for step headers
- *
- * Use at the top of centered step layouts to provide visual context.
- */
-export function StepIcon({ children, variant = 'primary', className }: StepIconProps) {
-  const styles = iconVariantStyles[variant]
-
-  return (
-    <div
-      className={cn(
-        "step-icon",
-        "mb-6 flex size-16 items-center justify-center",
-        styles.container,
-        className
-      )}
-    >
-      <div className={cn("size-8 [&>svg]:size-full", styles.icon)}>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-// =============================================================================
-// STEP HEADER
-// =============================================================================
-
-interface StepHeaderProps {
-  /** The main title */
-  title: string
-  /** Optional description below the title */
-  description?: React.ReactNode
-  /** Whether to center the text (default: true) */
-  centered?: boolean
-  className?: string
-}
-
-/**
- * StepHeader - Title and description for steps
- *
- * Works for both centered layouts (with icon) and form layouts.
- */
-export function StepHeader({
-  title,
-  description,
-  centered = true,
-  className
-}: StepHeaderProps) {
-  return (
-    <div className={cn(centered && "text-center", className)}>
-      <h1 className="step-title text-lg font-semibold tracking-tight">
-        {title}
-      </h1>
-      {description && (
-        <p className="step-description mt-2 text-sm max-w-sm text-muted-foreground">
-          {description}
-        </p>
-      )}
-    </div>
-  )
-}
-
-// =============================================================================
 // STEP LAYOUT
 // =============================================================================
 
 interface StepFormLayoutProps {
-  /** Icon to display at the top, wrapped in StepIcon (optional) */
-  icon?: React.ReactNode
-  /** Icon variant */
-  iconVariant?: StepIconVariant
-  /** Raw icon element to display without StepIcon wrapper (optional) */
+  /** Replaces the app icon at the top (the completion step's spinner) */
   iconElement?: React.ReactNode
   /** Step title */
   title: string
@@ -141,15 +38,11 @@ interface StepFormLayoutProps {
 /**
  * StepFormLayout - Unified layout for onboarding steps
  *
- * Use for all steps. Supports:
- * - Optional icon at top (wrapped in StepIcon, or raw via iconElement)
- * - Centered header (title + description)
- * - Full-width content below (forms, lists, etc.)
- * - Flex action buttons at bottom
+ * The same left-aligned header as the sign-in page: the colored app icon
+ * (40px tile), 20px below it the title (`text-base`, weight 500), 4px below
+ * that the muted description, then the content 32px below and the actions.
  */
 export function StepFormLayout({
-  icon,
-  iconVariant = 'primary',
   iconElement,
   title,
   description,
@@ -161,29 +54,24 @@ export function StepFormLayout({
 }: StepFormLayoutProps) {
   return (
     <div className={cn(
-      "flex w-full max-w-[28rem] flex-col items-center",
+      "flex w-full max-w-[28rem] flex-col",
       grow && !fillHeight && "h-full max-h-[600px]",
       fillHeight && "h-full",
       className
     )}>
-      {iconElement && (
-        <div className="mb-6 shrink-0">
-          {iconElement}
-        </div>
-      )}
-      {icon && !iconElement && (
-        <StepIcon variant={iconVariant}>
-          {icon}
-        </StepIcon>
-      )}
-
       <div className="shrink-0">
-        <StepHeader title={title} description={description} />
+        <div className="mb-5 flex size-10 items-center">
+          {iconElement ?? <OttoAppIcon />}
+        </div>
+        <h1 className="text-base font-medium">{title}</h1>
+        {description && (
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        )}
       </div>
 
       {children && (
         <div className={cn(
-          "mt-6 w-full",
+          "mt-8 w-full empty:hidden",
           (grow || fillHeight) && "flex-1 min-h-0"
         )}>
           {children}
@@ -191,43 +79,11 @@ export function StepFormLayout({
       )}
 
       {actions && (
-        <StepActions variant="flex" className="mt-6 w-full shrink-0">
+        // The main action on top, Back (or Cancel) under it, both full width
+        <div className="mt-6 flex w-full shrink-0 flex-col-reverse gap-2">
           {actions}
-        </StepActions>
+        </div>
       )}
-    </div>
-  )
-}
-
-// =============================================================================
-// STEP ACTIONS
-// =============================================================================
-
-interface StepActionsProps {
-  children: React.ReactNode
-  /** Layout variant: 'stack' for vertical, 'flex' for horizontal with flex-1 buttons */
-  variant?: 'stack' | 'flex'
-  className?: string
-}
-
-/**
- * StepActions - Container for action buttons
- *
- * - 'stack' variant: Vertical stack, used for centered layouts with multiple CTAs
- * - 'flex' variant: Horizontal with flex-1 buttons, used for Back/Continue patterns
- */
-export function StepActions({ children, variant = 'stack', className }: StepActionsProps) {
-  return (
-    <div
-      className={cn(
-        "step-actions mt-8",
-        variant === 'stack' && "flex flex-col gap-3",
-        // Main action on top, Back (or Cancel) under it, both full width
-        variant === 'flex' && "flex flex-col-reverse gap-2",
-        className
-      )}
-    >
-      {children}
     </div>
   )
 }

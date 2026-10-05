@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { Logo } from '@workspace/ui/components/logo'
+import { OttoAppIcon } from '@/components/icons/otto-app-icon'
 
 interface SplashScreenProps {
   isExiting: boolean
@@ -7,10 +7,10 @@ interface SplashScreenProps {
 }
 
 /**
- * SplashScreen - Shows Otto symbol during app initialization
+ * SplashScreen - Shows the Otto app icon during app initialization
  *
- * Displays centered symbol on app background, fades out when app is fully ready.
- * On exit, the symbol scales up and fades out quickly while the background fades slower.
+ * Displays the centered icon on the app background, fades out when app is fully ready.
+ * On exit, the icon scales up and fades out quickly while the background fades slower.
  */
 export function SplashScreen({ isExiting, onExitComplete }: SplashScreenProps) {
   return (
@@ -36,7 +36,7 @@ export function SplashScreen({ isExiting, onExitComplete }: SplashScreenProps) {
           ease: [0.16, 1, 0.3, 1] // Exponential out curve
         }}
       >
-        <Logo className="size-10 text-foreground" />
+        <OttoAppIcon />
       </motion.div>
     </motion.div>
   )

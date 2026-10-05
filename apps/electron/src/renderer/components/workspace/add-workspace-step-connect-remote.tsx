@@ -242,12 +242,12 @@ export function AddWorkspaceStep_ConnectRemote({
           {testState === 'testing' ? <Spinner /> : 'Test Connection'}
         </Button>
         {testState === 'ok' && (
-          <p className="px-1 text-sm text-success">
+          <p className="text-xs text-success">
             Connected{serverVersion ? ` — v${serverVersion}` : ''}{isFreshServer ? ' — no workspaces yet' : ''}
           </p>
         )}
         {testState === 'error' && (
-          <p className="px-1 text-sm text-destructive">{testError || 'Failed'}</p>
+          <p className="text-xs text-destructive">{testError || 'Failed'}</p>
         )}
 
         {/* Old server warning */}

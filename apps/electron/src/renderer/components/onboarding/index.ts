@@ -1,12 +1,8 @@
 // Shared primitives for building step components
 export {
-  StepIcon,
-  StepHeader,
   StepFormLayout,
-  StepActions,
   BackButton,
   ContinueButton,
-  type StepIconVariant,
 } from './primitives'
 
 // Individual steps

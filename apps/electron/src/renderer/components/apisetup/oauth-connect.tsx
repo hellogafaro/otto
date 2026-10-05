@@ -73,7 +73,7 @@ export function OAuthConnect({
           </SettingsRow>
         </SettingsCard>
         {status === 'error' && errorMessage && (
-          <p className="px-1 text-sm text-destructive">{errorMessage}</p>
+          <p className="text-xs text-destructive">{errorMessage}</p>
         )}
       </form>
     )
@@ -85,5 +85,5 @@ export function OAuthConnect({
   // Nothing to render — avoid empty wrapper div
   if (!showError) return null
 
-  return <p className="px-1 text-sm text-destructive">{errorMessage}</p>
+  return <p className="text-xs text-destructive">{errorMessage}</p>
 }

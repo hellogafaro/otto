@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Check, Copy, ExternalLink } from "lucide-react"
+import { ArrowUpRight, Check, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SettingsCard, SettingsRow } from "@/components/settings"
 import type { ApiSetupMethod } from "./api-setup-step"
@@ -125,8 +125,8 @@ export function CredentialsStep({
               onClick={() => onStartOAuth?.()}
               loading={status === 'validating'}
             >
-              <ExternalLink />
               {provider.signIn}
+              <ArrowUpRight />
             </ContinueButton>
           </>
         }
@@ -147,16 +147,16 @@ export function CredentialsStep({
               </SettingsRow>
               <SettingsRow label={deviceCode.verificationUri.replace(/^https?:\/\//, "")}>
                 <Button type="button" variant="ghost" onClick={() => void window.electronAPI.openUrl(deviceCode.verificationUri)}>
-                  <ExternalLink />
                   {t("common.open")}
+                  <ArrowUpRight />
                 </Button>
               </SettingsRow>
             </SettingsCard>
           ) : (
-            <p className="px-1 text-sm text-muted-foreground">{provider.waiting}</p>
+            <p className="text-sm text-muted-foreground">{provider.waiting}</p>
           )}
-          {status === 'error' && errorMessage && <p className="px-1 text-sm text-destructive">{errorMessage}</p>}
-          {status === 'success' && <p className="px-1 text-sm text-success">{provider.connected}</p>}
+          {status === 'error' && errorMessage && <p className="text-xs text-destructive">{errorMessage}</p>}
+          {status === 'success' && <p className="text-xs text-success">{provider.connected}</p>}
         </div>
       </StepFormLayout>
     )
@@ -203,11 +203,10 @@ export function CredentialsStep({
             <BackButton onClick={onBack} disabled={status === 'validating'} />
             <ContinueButton
               onClick={() => onStartOAuth?.()}
-              className="gap-2"
               loading={status === 'validating'}
             >
-              <ExternalLink className="size-3.5" />
               {t("onboarding.credentials.signInClaude")}
+              <ArrowUpRight />
             </ContinueButton>
           </>
         }

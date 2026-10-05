@@ -561,7 +561,9 @@ decorative (`aria-hidden`) unless given a `title`. Sources live in
 `design/brand/` and `bun scripts/generate-brand-assets.ts` rebuilds every
 raster from them. The colored glass app icon (`otto-app-icon.svg`) is the
 only colored version: it is the dock, window, installer, home-screen and
-web-manifest icon, full-bleed with no extra rounding or shadow. The tab icon
+web-manifest icon, full-bleed with no extra rounding or shadow, and, as a 40px
+tile (see Sign-in header), the head of the splash, sign-in and onboarding
+screens. In-app chrome uses the black mark, never the colored icon. The tab icon
 (`favicon.svg`) is the mark, black in light and white in dark; its `favicon.ico`
 fallback is the same mark in neutral gray (`#8a8a8e`) on transparent, so it
 reads on any tab strip. The page's `theme-color` is the frame: `#f2f2f2` in
@@ -943,18 +945,36 @@ The browser sign-in page (`apps/webui/src/login.html`) is static HTML served
 before the app, so it inlines the `:root` and `.dark` token values (light and dark
 by `prefers-color-scheme`) instead of loading the app stylesheet. It has no card:
 a left-aligned 336px column with 24px side padding, centered on the page layer
-(`--background`). It is the one place with a logo, and it is the colored app icon
-(never the mark): a 40px tile with `9px` corners (22.37% of the side, the iOS icon
-radius, not an avatar radius) and a `foreground/10` hairline, from
-`/login-assets/otto-app-icon.png`, the only path besides `/favicon.ico` served
-without a session. Below it, 20px apart, "Sign in to Otto" in the heading token
-(`text-base`, weight 500, never the title size) and a muted body line. The form is
+(`--background`). Its header is the one every first-run screen shares (**Sign-in
+header**): the colored app icon (never the mark) as a 40px tile with `9px` corners
+(22.37% of the side, the iOS icon radius, not an avatar radius) and a
+`foreground/10` hairline, from `/login-assets/otto-app-icon.png` (the only path
+besides `/favicon.ico` served without a session; the app bundles its own copy).
+Below it, 20px apart, the title in the heading token
+(`text-base`, weight 500, never the title size), then 4px below a muted
+`text-sm` line, all left-aligned. The form is
 placeholder-only (no label; `aria-label` keeps the name): one 32px `md` 8 field
 (`bg-input/50`, no focus ring) with a nested 28px `sm` 6 ghost eye button on the
 right that shows or hides the password, then the full-width 32px primary button 12px
 below. A failed sign-in fills the field with `destructive/10` (`destructive/20` in
 dark) and a `destructive` border (`/50` in dark), and shows the message beneath
 the field in `text-xs` `destructive`, above the button.
+
+**Onboarding and workspace screens** (`StepFormLayout`: connection setup,
+Select Workspace, add workspace) use the same header and the plain page layer:
+`bg-background` with `text-foreground`, no card, gradient, dither or other
+ambient backdrop, in light and dark. The block is a left-aligned column of the
+step's own width (28rem), centered in the window, header aligned with the
+content's left edge: icon tile, 20px, title, 4px, muted description, 32px, the
+content (a `SettingsCard` or form), then actions. Full-width buttons under the
+content stack main action first; a secondary action such as "Setup later" stays
+a full-width muted ghost button directly under the card (`mt-2`). The splash is the same
+tile centered on the page layer. The completion step swaps the tile for a
+spinner while saving. Error and success lines under the content are `text-xs`,
+flush with the content's left edge (no extra padding), like the sign-in error.
+A control that opens something outside the app ends with ArrowUpRight (trailing,
+14px); never ExternalLink, never leading. In a menu item it sits at the right edge
+(`ml-auto`).
 The profile menu names the signed-in person and lists their accessible workspaces.
 When direct setup or creation is necessary before an Agent can run, a compact
 stock dialog may capture the backend's required fields. Ask remains available;

@@ -12,7 +12,7 @@
 
 import { Spinner } from '@otto/ui'
 import * as React from 'react'
-import { Copy, ExternalLink } from 'lucide-react'
+import { ArrowUpRight, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -170,8 +170,8 @@ export function TelegramSupergroupPairingDialog({ open, onOpenChange, botUsernam
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
                   @{botUsername}
+                  <ArrowUpRight className="h-3.5 w-3.5" />
                 </a>
               )}
 

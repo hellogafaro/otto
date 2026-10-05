@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next"
-import { Logo } from "@workspace/ui/components/logo"
 import { StepFormLayout, ContinueButton } from "./primitives"
 
 interface WelcomeStepProps {
@@ -26,11 +25,6 @@ export function WelcomeStep({
 
   return (
     <StepFormLayout
-      iconElement={
-        <div className="flex size-16 items-center justify-center">
-          <Logo className="size-10 text-foreground" />
-        </div>
-      }
       title={isExistingUser ? t("onboarding.welcome.updateTitle") : t("onboarding.welcome.title")}
       description={
         isExistingUser
