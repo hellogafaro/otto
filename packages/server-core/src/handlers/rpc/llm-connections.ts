@@ -519,6 +519,11 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         // Also delete associated credentials
         const credentialManager = getCredentialManager()
         await credentialManager.deleteLlmCredentials(slug)
+        // Bridge: the Claude subscription also lives in `connections`; remove it with the slug.
+        if (slug.startsWith('claude-max')) {
+          const { getConnections, deleteConnection } = await import('@craft-agent/shared/connections')
+          for (const c of getConnections()) if (c.type === 'claude') deleteConnection(c.id)
+        }
         deps.platform.logger?.info(`LLM connection deleted: ${slug}`)
       }
       return { success }

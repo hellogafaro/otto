@@ -142,6 +142,23 @@ export function registerOnboardingHandlers(server: RpcServer, deps: HandlerDeps)
         source: 'native',
       })
 
+      // One Claude connection at most for now. The credential manager above is a
+      // bridge (Pi and the Claude backend still read it); a failure here must
+      // not fail the sign-in.
+      try {
+        const { getConnections, createConnection, updateConnection } = await import('@craft-agent/shared/connections')
+        const secret = JSON.stringify({
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          expiresAt: tokens.expiresAt,
+        })
+        const existing = getConnections().find(c => c.type === 'claude')
+        if (existing) updateConnection(existing.id, { secret })
+        else createConnection({ type: 'claude', secret })
+      } catch (err) {
+        log.error('[Onboarding] Failed to store the Claude connection:', err)
+      }
+
       const expiresAtDate = tokens.expiresAt ? new Date(tokens.expiresAt).toISOString() : 'never'
       log.info(`[Onboarding] Claude OAuth saved to LLM connection (expires: ${expiresAtDate})`)
       // Forward resolved identity (issue #838) so the renderer can thread it into
