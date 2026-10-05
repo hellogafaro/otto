@@ -59,41 +59,25 @@ export function ReauthScreen({ onLogin, onReset }: ReauthScreenProps) {
             </>
           }
           actions={
-            <div className="flex flex-col gap-3 w-full">
-              <Button
-                onClick={handleLogin}
-                disabled={isLoading}
-                className="w-full max-w-[320px] bg-background shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
-                size="lg"
-              >
+            <div className="flex w-full flex-col gap-2">
+              <Button onClick={handleLogin} disabled={isLoading} className="w-full">
                 {isLoading ? (
-                  <>
-                    <Spinner className="mr-2" />
-                    {t("onboarding.reauth.loggingIn")}
-                  </>
+                  <Spinner />
                 ) : (
                   <>
-                    <RefreshCw className="mr-2 size-4" />
+                    <RefreshCw />
                     {t("onboarding.reauth.loginWithCraft")}
                   </>
                 )}
               </Button>
-              <Button
-                variant="ghost"
-                onClick={onReset}
-                disabled={isLoading}
-                className="w-full max-w-[320px] bg-foreground-2 shadow-minimal text-foreground hover:bg-foreground/5 rounded-lg"
-                size="sm"
-              >
+              <Button variant="ghost" onClick={onReset} disabled={isLoading} className="w-full">
                 {t("onboarding.reauth.resetApp")}
               </Button>
             </div>
           }
         >
           {error && (
-            <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
+            <p className="mt-4 px-1 text-sm text-destructive">{error}</p>
           )}
         </StepFormLayout>
       </main>

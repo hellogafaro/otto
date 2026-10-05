@@ -46,7 +46,7 @@ export function CompletionStep({
       }
       actions={
         status === 'complete' ? (
-          <Button onClick={onFinish} className="w-full max-w-[320px]">
+          <Button onClick={onFinish} className="w-full">
             {t("onboarding.welcome.getStarted")}
           </Button>
         ) : undefined

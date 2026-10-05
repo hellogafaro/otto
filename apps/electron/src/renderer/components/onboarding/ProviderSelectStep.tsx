@@ -103,11 +103,9 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
       </SettingsCard>
 
       {onSkip && (
-        <div className="mt-4 flex justify-center">
-          <Button variant="ghost" onClick={onSkip} className="text-muted-foreground">
-            {t("onboarding.providerSelect.setupLater")}
-          </Button>
-        </div>
+        <Button variant="ghost" onClick={onSkip} className="mt-2 w-full text-muted-foreground">
+          {t("onboarding.providerSelect.setupLater")}
+        </Button>
       )}
     </StepFormLayout>
   )
