@@ -20,6 +20,7 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "infisical run --env dev -- scripts/dev.sh",
     "test": "bun test && for f in $(find . -name '*.isolated.ts' -not -path './node_modules/*'); do bun test \"$f\" || exit 1; done",
     "typecheck": "bun run typecheck:shared",
     "pages-worker:dev": "cd workers/pages && bun run dev",
