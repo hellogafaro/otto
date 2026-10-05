@@ -68,6 +68,7 @@ function CrossfadeAvatar({
 
   return (
     <div
+      data-slot="avatar"
       className={cn(
         "relative flex shrink-0 overflow-hidden",
         className

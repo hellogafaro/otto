@@ -11,9 +11,12 @@ import { Info } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@otto/ui'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { SettingsRowIcon } from './settings-row'
 import { settingsUI } from './settings-ui-constants'
 
 export interface SettingsToggleProps {
+  /** Leading icon, before the label (see SettingsRowIcon) */
+  icon?: React.ReactNode
   /** Toggle label (string or JSX for custom rendering) */
   label: React.ReactNode
   /** Optional description below label */
@@ -46,6 +49,7 @@ export interface SettingsToggleProps {
  * </SettingsCard>
  */
 export function SettingsToggle({
+  icon,
   label,
   description,
   tooltip,
@@ -68,6 +72,7 @@ export function SettingsToggle({
         className
       )}
     >
+      {icon && <SettingsRowIcon twoLine={!!description}>{icon}</SettingsRowIcon>}
       <label htmlFor={id} className="flex-1 min-w-0 cursor-pointer select-none">
         <div className={cn(settingsUI.label, tooltip && 'flex items-center gap-1.5')}>
           {label}

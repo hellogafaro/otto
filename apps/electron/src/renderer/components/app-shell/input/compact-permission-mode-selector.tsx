@@ -10,6 +10,7 @@ import {
   DrawerClose,
 } from '@/components/ui/drawer'
 import { cn } from '@/lib/utils'
+import { IconTile } from '@/components/ui/icon-tile'
 import {
   PERMISSION_MODE_CONFIG,
   type PermissionMode,
@@ -138,9 +139,9 @@ export function CompactPermissionModeSelector({
                   )}
                   onClick={() => handleSelect(mode)}
                 >
-                  <span className={cn("shrink-0", PERMISSION_MODE_CONFIG[mode].colorClass.text)}>
-                    <ModeIcon mode={mode} className="size-3.5" />
-                  </span>
+                  <IconTile className={PERMISSION_MODE_CONFIG[mode].colorClass.text}>
+                    <ModeIcon mode={mode} />
+                  </IconTile>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">{t(MODE_LABEL_KEYS[mode].name)}</div>
                     <div className="text-xs text-muted-foreground">{t(MODE_LABEL_KEYS[mode].desc)}</div>

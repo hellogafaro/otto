@@ -23,8 +23,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
   ArrowUpRight,
-  ChevronDown,
-  ChevronRight,
   Hash,
   LockOpen,
   MessageSquare,
@@ -47,7 +45,7 @@ import {
   StyledDropdownMenuItem,
   StyledDropdownMenuSeparator,
 } from '@/components/ui/styled-dropdown'
-import { SettingsSection, SettingsCard } from '@/components/settings'
+import { SettingsSection, SettingsCard, SettingsRow } from '@/components/settings'
 import { MessagingPlatformIcon } from '@/components/messaging/messaging-platform-icon'
 import { TelegramConnectDialog } from '@/components/messaging/telegram-connect-dialog'
 import { LarkConnectDialog } from '@/components/messaging/lark-connect-dialog'
@@ -143,44 +141,10 @@ const PLATFORM_LABEL_KEYS: Record<Platform, string> = {
   lark: 'settings.messaging.lark.title',
 }
 
-// Row column geometry shared across the bot header and all child rows.
-// 16px outer padding (`px-4`) + 22px icon slot + 12px gap (`gap-3`).
-// Secondary icons render at 16px inside the same 22px slot for a clean
-// visual hierarchy without the column edge shifting.
-const ROW_ICON_SIZE = 20
-const SUB_ROW_ICON_SIZE = 14
-const SUB_ROW_ICON_STROKE = 1.5
-
-/** 20px-wide invisible spacer that lets a row inherit the icon column's
- *  geometry without rendering an icon (used for topic rows that align to
- *  the supergroup name above). */
+// Topic and binding rows have no icon of their own: this spacer lines their text up with the
+// supergroup's label above, past the 32px icon tile and its 12px gap.
 function IconSpacer() {
-  return <div className="shrink-0" style={{ width: ROW_ICON_SIZE, height: ROW_ICON_SIZE }} />
-}
-
-/** Wraps a Lucide icon at `SUB_ROW_ICON_SIZE` inside the row's 20px slot
- *  so it stays centred in the same column as the bot logo above. */
-function SubRowIcon({
-  icon: Icon,
-  size = SUB_ROW_ICON_SIZE,
-  strokeWidth = SUB_ROW_ICON_STROKE,
-}: {
-  icon: typeof MessageSquare
-  size?: number
-  strokeWidth?: number
-}) {
-  return (
-    <div
-      className="shrink-0 flex items-center justify-center"
-      style={{ width: ROW_ICON_SIZE, height: ROW_ICON_SIZE }}
-    >
-      <Icon
-        className="text-foreground/50"
-        strokeWidth={strokeWidth}
-        style={{ width: size, height: size }}
-      />
-    </div>
-  )
+  return <div className="size-8 shrink-0" />
 }
 
 function CardSeparator() {
@@ -339,17 +303,11 @@ function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceI
   return (
     <>
       <div>
-        <div className="flex items-center gap-3 px-4 py-3.5">
-          <div className="flex shrink-0 items-center justify-center" style={{ width: ROW_ICON_SIZE, height: ROW_ICON_SIZE }}>
-            <MessagingPlatformIcon platform={platform} size={SUB_ROW_ICON_SIZE} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">{label}</div>
-            <div className="mt-0.5 truncate text-xs text-muted-foreground">
-              {t(`settings.messaging.${platform}.apiType`)} · {description}
-            </div>
-          </div>
-
+        <SettingsRow
+          icon={<MessagingPlatformIcon platform={platform} />}
+          label={label}
+          description={`${t(`settings.messaging.${platform}.apiType`)} · ${description}`}
+        >
           {runtime.connected ? (
             <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
@@ -405,7 +363,7 @@ function PlatformRow({ platform, workspaceId }: { platform: Platform; workspaceI
               {t('common.connect')}
             </Button>
           )}
-        </div>
+        </SettingsRow>
 
         {platform === 'telegram' && runtime.connected ? (
           <>
@@ -609,46 +567,38 @@ function DirectSessionRow({
   // ("Direct message session") is the primary label, the session name drops
   // to the subtitle. Keeps Direct and Supergroup rows visually parallel.
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5">
-      <SubRowIcon icon={MessageSquare} />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm">
-          {t('settings.messaging.telegram.directSessionSubtitle', {
-            defaultValue: 'Direct message session',
-          })}
-        </div>
-        <div className="mt-0.5 truncate text-xs text-foreground/50">{sessionLabel}</div>
-      </div>
+    <SettingsRow
+      icon={<MessageSquare />}
+      label={t('settings.messaging.telegram.directSessionSubtitle', {
+        defaultValue: 'Direct message session',
+      })}
+      description={sessionLabel}
+    >
       <BindingAllowListPopover
         access={bindingToAccess(binding)}
         workspaceOwners={workspaceOwners}
         onChange={onAccessChange}
       />
       <RowActions onOpen={onOpen} onUnbind={onUnbind} />
-    </div>
+    </SettingsRow>
   )
 }
 
 function UnpairedSupergroupRow({ onPair }: { onPair: () => void }) {
   const { t } = useTranslation()
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5">
-      <SubRowIcon icon={MessagesSquare} />
-      <div className="min-w-0 flex-1">
-        <div className="text-sm">
-          {t('settings.messaging.telegram.supergroup.label', { defaultValue: 'Supergroup' })}
-        </div>
-        <div className="mt-0.5 truncate text-xs text-foreground/50">
-          {t('settings.messaging.telegram.supergroup.notConfigured', {
-            defaultValue: 'Not configured',
-          })}
-        </div>
-      </div>
+    <SettingsRow
+      icon={<MessagesSquare />}
+      label={t('settings.messaging.telegram.supergroup.label', { defaultValue: 'Supergroup' })}
+      description={t('settings.messaging.telegram.supergroup.notConfigured', {
+        defaultValue: 'Not configured',
+      })}
+    >
       <Button variant="outline" size="sm" onClick={onPair}>
         <Plus className="h-3.5 w-3.5" />
         {t('settings.messaging.telegram.supergroup.pair', { defaultValue: 'Pair Supergroup' })}
       </Button>
-    </div>
+    </SettingsRow>
   )
 }
 
@@ -687,25 +637,18 @@ function PairedSupergroupSection({
 
   return (
     <div>
-      <button
-        type="button"
+      <SettingsRow
+        icon={<MessagesSquare />}
+        label={
+          <span className="flex items-baseline gap-2">
+            <span className="truncate">{supergroup.title}</span>
+            <span className="truncate text-xs font-normal text-muted-foreground">({supergroup.chatId})</span>
+          </span>
+        }
+        description={subtitle}
+        expanded={isExpanded}
         onClick={() => setIsExpanded((v) => !v)}
-        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-foreground/5"
-      >
-        <SubRowIcon icon={MessagesSquare} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <div className="truncate text-sm font-medium">{supergroup.title}</div>
-            <div className="truncate text-xs text-foreground/50">({supergroup.chatId})</div>
-          </div>
-          <div className="mt-0.5 truncate text-xs text-foreground/50">{subtitle}</div>
-        </div>
-        {isExpanded ? (
-          <ChevronDown className="size-3.5 shrink-0 text-foreground/50" />
-        ) : (
-          <ChevronRight className="size-3.5 shrink-0 text-foreground/50" />
-        )}
-      </button>
+      />
 
       <AnimatePresence initial={false}>
         {isExpanded && (
@@ -817,7 +760,7 @@ function FlatBindingRow({
   const meta = sessionMetaMap.get(binding.sessionId)
   const sessionLabel = meta ? getSessionTitle(meta) : binding.channelName || binding.channelId
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-2.5 pl-[52px]">
+    <div className="flex items-center justify-between gap-4 px-4 py-2.5 pl-[60px]">
       <div className="min-w-0 truncate text-sm">{sessionLabel}</div>
       <RowActions onOpen={onOpen} onUnbind={onUnbind} />
     </div>

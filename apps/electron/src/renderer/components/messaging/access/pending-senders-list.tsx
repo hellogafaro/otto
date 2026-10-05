@@ -13,6 +13,7 @@
 import { useTranslation } from 'react-i18next'
 import { Check, Clock, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SettingsRow } from '@/components/settings'
 import type { PendingSender } from './types'
 
 interface Props {
@@ -61,27 +62,24 @@ function PendingRow({
     : t('settings.messaging.telegram.access.pending.allow')
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5">
-      <div className="flex h-[22px] w-[22px] shrink-0 items-center justify-center">
-        <Clock className="size-3.5 text-foreground/50" strokeWidth={1.5} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className="truncate text-sm">{primary}</span>
+    <SettingsRow
+      icon={<Clock />}
+      label={
+        <span className="flex items-baseline gap-2">
+          <span className="truncate">{primary}</span>
           {sender.username && (
-            <span className="shrink-0 truncate text-xs text-foreground/40">
+            <span className="shrink-0 truncate text-xs font-normal text-muted-foreground">
               @{sender.username}
             </span>
           )}
-        </div>
-        <div className="mt-0.5 truncate text-xs text-foreground/50">
-          {t('settings.messaging.telegram.access.pending.metaLine', {
-            attempts: attemptText,
-            relative: lastAttemptText,
-            userId: sender.userId,
-          })}
-        </div>
-      </div>
+        </span>
+      }
+      description={t('settings.messaging.telegram.access.pending.metaLine', {
+        attempts: attemptText,
+        relative: lastAttemptText,
+        userId: sender.userId,
+      })}
+    >
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="sm" onClick={onAllow}>
           <Check className="h-3.5 w-3.5" />
@@ -97,7 +95,7 @@ function PendingRow({
           {t('settings.messaging.telegram.access.pending.ignore')}
         </Button>
       </div>
-    </div>
+    </SettingsRow>
   )
 }
 

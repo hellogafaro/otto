@@ -286,10 +286,10 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
 
   return (
     <SettingsRow
+      icon={<ConnectionIcon connection={connection} />}
       label={(
         <div className="flex flex-col gap-0.5 min-w-0">
           <div className="flex items-center gap-1">
-            <ConnectionIcon connection={connection} size={14} />
             <span>{connection.name}</span>
             {connection.isDefault && (
               <span className="inline-flex items-center h-5 px-2 text-[11px] font-medium rounded-full bg-card shadow-minimal text-foreground/60">
@@ -515,9 +515,9 @@ function WorkspaceOverrideCard({ workspace, llmConnections, onSettingsChange }: 
         onClick={() => setIsExpanded(!isExpanded)}
         icon={
           iconUrl ? (
-            <img src={iconUrl} alt="" className="size-5 rounded-xs object-cover" />
+            <img src={iconUrl} alt="" data-slot="avatar" className="object-cover" />
           ) : (
-            <span className="flex size-5 items-center justify-center rounded-xs bg-foreground/5 text-xs font-medium text-muted-foreground">
+            <span data-slot="avatar" className="flex items-center justify-center text-sm font-medium text-muted-foreground">
               {workspace.name?.charAt(0)?.toUpperCase() || 'W'}
             </span>
           )
@@ -1420,7 +1420,7 @@ export default function AiSettingsPage() {
                     <SettingsRow
                       expanded={decisionAdvancedOpen}
                       onClick={() => setDecisionAdvancedOpen(open => !open)}
-                      icon={<Settings2 className="size-3.5 text-muted-foreground" />}
+                      icon={<Settings2 />}
                       label={t("settings.ai.decisions.advanced")}
                       description={decisionStatus.settings.enabled
                         ? t("settings.ai.decisions.advancedSummary", { on: decisionFeaturesOn, total: decisionReportedToggles.length })

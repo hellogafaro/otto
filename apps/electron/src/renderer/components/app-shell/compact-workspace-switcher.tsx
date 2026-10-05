@@ -7,6 +7,7 @@ import { useSetAtom } from "jotai"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
+import { IconTile } from "@/components/ui/icon-tile"
 import { fullscreenOverlayOpenAtom } from "@/atoms/overlay"
 import {
   Drawer,
@@ -237,8 +238,8 @@ export function CompactWorkspaceSwitcher({
                       workspaceId={workspace.id}
                       workspaceName={workspace.name}
                       src={workspaceIconMap.get(workspace.id)}
-                      className="h-7 w-7 rounded-full ring-1 ring-border/50 shrink-0"
-                      fallbackClassName="rounded-full text-sm"
+                      className="size-8 rounded-md ring-1 ring-border/50 shrink-0"
+                      fallbackClassName="text-sm"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
@@ -278,9 +279,9 @@ export function CompactWorkspaceSwitcher({
                 onClick={handleNewWorkspace}
                 className="mt-1 flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-foreground/5 transition-colors text-left"
               >
-                <div className="h-7 w-7 rounded-full bg-foreground/5 flex items-center justify-center shrink-0">
-                  <FolderPlus className="size-3.5 text-foreground/60" />
-                </div>
+                <IconTile>
+                  <FolderPlus />
+                </IconTile>
                 <span className="text-sm font-medium">{t("workspace.addWorkspace")}</span>
               </button>
             </DrawerClose>

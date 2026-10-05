@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { Check, CreditCard, Key, Cpu } from "lucide-react"
 import { StepFormLayout, BackButton, ContinueButton } from "./primitives"
 import type { LlmAuthType, LlmProviderType } from "@otto/shared/config/llm-connections"
+import { IconTile } from "@/components/ui/icon-tile"
 
 /** Provider segment for the segmented control */
 export type ProviderSegment = 'anthropic' | 'pi'
@@ -93,7 +94,7 @@ function OptionButton({
     <button
       onClick={() => onSelect(option.id)}
       className={cn(
-        "flex w-full items-start gap-4 rounded-xl p-4 text-left transition-all",
+        "flex w-full items-center gap-3 rounded-xl p-4 text-left transition-all",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         "hover:bg-foreground/5 shadow-minimal",
         isSelected
@@ -102,14 +103,9 @@ function OptionButton({
       )}
     >
       {/* Icon */}
-      <div
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-lg [&>svg]:size-3.5",
-          isSelected ? "bg-foreground/10 text-foreground" : "bg-muted text-muted-foreground"
-        )}
-      >
+      <IconTile className={isSelected ? "bg-foreground/10" : "text-muted-foreground"}>
         {option.icon}
-      </div>
+      </IconTile>
 
       {/* Content */}
       <div className="flex-1 min-w-0">

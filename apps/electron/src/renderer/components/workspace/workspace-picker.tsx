@@ -83,12 +83,7 @@ export function WorkspacePicker({ onSelectWorkspace }: WorkspacePickerProps) {
                 <SettingsRow
                   key={ws.id}
                   icon={
-                    <WorkspaceAvatar
-                      workspaceId={ws.id}
-                      workspaceName={ws.name}
-                      className="size-5 rounded-xs"
-                      fallbackClassName="rounded-xs"
-                    />
+                    <WorkspaceAvatar workspaceId={ws.id} workspaceName={ws.name} fallbackClassName="text-sm" />
                   }
                   label={ws.name}
                   description={ws.slug}

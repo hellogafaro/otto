@@ -20,9 +20,6 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { PlatformOwner } from './types'
 
-/** Width must match the icon column used by adjacent rows / parent headers. */
-const ROW_ICON_SLOT_PX = 22
-
 interface Props {
   owners: PlatformOwner[]
   /** Whether the gateway is gating on this list. When false, the list is shown
@@ -33,10 +30,10 @@ interface Props {
   currentUserId?: string
 }
 
-/** 22px-wide invisible spacer keeping rows aligned with the parent header's
- *  text column (no per-row icon, matching the topic-row pattern). */
+/** Invisible spacer keeping rows aligned with the parent header's text column: the 32px icon
+ *  tile of a two-line row (no per-row icon, matching the topic-row pattern). */
 function IconSpacer() {
-  return <div className="shrink-0" style={{ width: ROW_ICON_SLOT_PX, height: ROW_ICON_SLOT_PX }} />
+  return <div className="size-8 shrink-0" />
 }
 
 export function OwnersListEditor({ owners, enforced, onRemove, currentUserId }: Props) {

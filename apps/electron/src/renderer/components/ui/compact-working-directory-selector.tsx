@@ -15,6 +15,7 @@ import { useWorkingDirectoryState } from '../app-shell/input/use-working-directo
 import { ServerDirectoryBrowser } from '@/components/server-directory-browser'
 import { PATH_SEP, getPathBasename } from '@/lib/platform'
 import { cn } from '@/lib/utils'
+import { IconTile } from '@/components/ui/icon-tile'
 
 export interface CompactWorkingDirectorySelectorProps {
   workingDirectory?: string
@@ -138,7 +139,7 @@ export function CompactWorkingDirectorySelector({
             {/* Current folder — pinned at top, non-interactive */}
             {hasFolder && (
               <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-foreground/5">
-                <Icon_Folder className="size-3.5 shrink-0 text-foreground/60" />
+                <IconTile><Icon_Folder /></IconTile>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{displayFolderName}</div>
                   <div className="text-xs text-foreground/50 truncate">
@@ -171,7 +172,7 @@ export function CompactWorkingDirectorySelector({
                         'flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors hover:bg-foreground/5 group/row',
                       )}
                     >
-                      <Icon_Folder className="size-3.5 shrink-0 text-foreground/60" />
+                      <IconTile><Icon_Folder /></IconTile>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{recentFolderName}</div>
                         <div className="text-xs text-foreground/50 truncate">
@@ -200,7 +201,7 @@ export function CompactWorkingDirectorySelector({
               onClick={handleChooseFolder}
               className="w-full h-12 px-3 rounded-lg flex items-center gap-3 text-sm font-medium hover:bg-foreground/5 transition-colors"
             >
-              <Icon_Folder className="size-3.5 shrink-0 text-foreground/60" />
+              <IconTile><Icon_Folder /></IconTile>
               <span>{t('chat.chooseFolder')}</span>
             </button>
             {showReset && (

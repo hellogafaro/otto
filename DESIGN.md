@@ -231,6 +231,10 @@ components:
   avatar-message:
     rounded: "{rounded.sm}"
     size: 28px
+  icon-tile:
+    backgroundColor: "{colors.muted}"
+    rounded: "{rounded.md}"
+    size: 32px
   tag:
     textColor: "{colors.primary}"
     typography: "{typography.body-medium}"
@@ -545,7 +549,9 @@ initials, agents their pixel mascot in their name color, nobody a person
 outline. Lists mixing avatars and
 icons give icons a 20px slot so labels align. Brand logos follow the same
 rule: 14px, drawn to fill the same live area as a Lucide glyph (20 of 24, see
-`assets/provider-icons`), never a bigger size to make a logo look equal.
+`assets/provider-icons`), never a bigger size to make a logo look equal. The one
+exception is a row with two lines of text (label and description): its icon
+sits in a 32px tile, see Row icons.
 
 **Logo** (`Logo`). The six-blade mark, drawn with `currentColor`, so it is
 dark in light mode and light in dark mode with `text-foreground` (or
@@ -967,6 +973,7 @@ continue through bounded pages instead of treating the first hundred as complete
 - Do keep primary for the main action and tags; don't use it for navigation,
   selection or decoration.
 - Do keep icons 14px and avatars at least 20px; don't mix icon sizes in a row.
+  A row with a description puts its icon in a 32px tile with a 16px glyph.
 - Do keep chat messages in one left-aligned pattern; don't right-align your
   own or bring back bubbles for some senders.
 - Do keep tooltips to one label; don't put metadata in a tooltip.
@@ -1053,10 +1060,24 @@ that carry over, applied where Craft draws the same thing.
   collapsible card's header is a `SettingsRow` with `expanded` (chevron turns
   90deg); its body is rows split by hairlines, with group titles as small
   uppercase muted labels 16px in.
-- **Row icons.** The leading icon of a `SettingsRow` (and any row that lists
-  providers, workspaces or options) is a 14px glyph in a 20px slot, 12px before
-  the label, centered on the label and description block: Lucide icons and
-  brand logos (`ProviderLogo`) alike, so nothing is sized per instance. Avatars
-  keep their own 20px in that slot. The trailing chevron is 14px
-  (`size-3.5`).
+- **Row icons.** The leading icon of a `SettingsRow` or `SettingsToggle` (and
+  any row that lists providers, workspaces or options) is sized by the row, 12px
+  before the text and centered on it, so nothing is sized per instance: Lucide
+  icons and brand logos (`ProviderLogo`) alike.
+  - *One line:* a bare 14px glyph in a 20px slot, as in the sidebar and menus.
+  - *Two lines (label and description):* an `IconTile`, 32px square (the control
+    height), `rounded-md` (8px, the card's 12px inset keeps it nested) on
+    `bg-muted` (one step lifted from the `bg-card` row, no border), holding a 16px
+    glyph (`size-4`, half the tile, the same as the 32px avatar's fallback).
+    18px read as a size of its own and 20px (the empty-state tile) as too loud
+    beside 13px text; 14px alone looked lost next to the 40px text block. Brand logos
+    get the same 16px box and their live area (about 14px ink, like Lucide).
+    An avatar (`data-slot="avatar"`) fills the tile instead: 32px, `md` radius. The
+    row is `items-center`, so the tile and the label and description block share a
+    center; rows under it with no icon of their own (topics, owners) keep a 32px
+    spacer. Used by provider, workspace, connection, messaging and access rows, the
+    default-source toggles, and the mobile drawers' mode, folder and workspace rows.
+  - Entity rows in the left lists (sessions, sources, skills, projects) keep the
+    icon inline with the title (one icon beside two lines of a compact list, not a tile); the
+    chevron is 14px (`size-3.5`).
 - **Root font size** stays at Craft's 15px; Craft sizes in `rem`.

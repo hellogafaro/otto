@@ -17,7 +17,8 @@ import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronRight, MessageSquare, Users } from 'lucide-react'
+import { Users } from 'lucide-react'
+import { SettingsRow } from '@/components/settings'
 import { messagingBindingsAtom } from '@/atoms/messaging'
 import {
   AccessModeBanner,
@@ -27,10 +28,6 @@ import {
   type PlatformAccessMode,
   type PlatformOwner,
 } from './'
-
-const ROW_ICON_SIZE = 22
-const SUB_ROW_ICON_SIZE = 16
-const SUB_ROW_ICON_STROKE = 1.5
 
 /**
  * Two pending entries reference the same row when they share platform,
@@ -230,24 +227,13 @@ function AllowedUsersCollapsible({
 
   return (
     <div>
-      <button
-        type="button"
+      <SettingsRow
+        icon={<Users />}
+        label={t('settings.messaging.telegram.access.allowedUsersTitle')}
+        description={subtitle}
+        expanded={isExpanded}
         onClick={() => setIsExpanded((v) => !v)}
-        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-foreground/5"
-      >
-        <SubRowIcon icon={Users} />
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium">
-            {t('settings.messaging.telegram.access.allowedUsersTitle')}
-          </div>
-          <div className="mt-0.5 truncate text-xs text-foreground/50">{subtitle}</div>
-        </div>
-        {isExpanded ? (
-          <ChevronDown className="size-3.5 shrink-0 text-foreground/50" />
-        ) : (
-          <ChevronRight className="size-3.5 shrink-0 text-foreground/50" />
-        )}
-      </button>
+      />
 
       <AnimatePresence initial={false}>
         {isExpanded && (
@@ -268,34 +254,6 @@ function AllowedUsersCollapsible({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Shared row primitives — kept local to avoid pulling in the page-level ones
-// from MessagingSettingsPage. Matches geometry exactly (22px icon column).
-// ---------------------------------------------------------------------------
-
-function SubRowIcon({
-  icon: Icon,
-  size = SUB_ROW_ICON_SIZE,
-  strokeWidth = SUB_ROW_ICON_STROKE,
-}: {
-  icon: typeof MessageSquare
-  size?: number
-  strokeWidth?: number
-}) {
-  return (
-    <div
-      className="shrink-0 flex items-center justify-center"
-      style={{ width: ROW_ICON_SIZE, height: ROW_ICON_SIZE }}
-    >
-      <Icon
-        className="text-foreground/50"
-        strokeWidth={strokeWidth}
-        style={{ width: size, height: size }}
-      />
     </div>
   )
 }

@@ -8,6 +8,7 @@
 import * as React from 'react'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { IconTile } from '@/components/ui/icon-tile'
 import { settingsUI } from './settings-ui-constants'
 
 export interface SettingsRowProps {
@@ -29,6 +30,18 @@ export interface SettingsRowProps {
   inCard?: boolean
   /** Makes the row the header of a collapsible panel: sets aria-expanded and shows a chevron that turns when open */
   expanded?: boolean
+}
+
+/**
+ * SettingsRowIcon - Leading icon of a settings row, 12px before the text. One line: a bare glyph forced to
+ * 14px in a 20px slot (brand logos are 14px by default). Two lines (label and description): an `IconTile`.
+ */
+export function SettingsRowIcon({ twoLine, children }: { twoLine: boolean; children: React.ReactNode }) {
+  return twoLine ? (
+    <IconTile className="mr-3">{children}</IconTile>
+  ) : (
+    <span className="mr-3 flex size-5 shrink-0 items-center justify-center [&>svg]:size-3.5">{children}</span>
+  )
 }
 
 /**
@@ -67,12 +80,7 @@ export function SettingsRow({
         className
       )}
     >
-      {/* One 20px slot for every leading icon: Lucide icons are forced to 14px here, brand logos (ProviderLogo) are 14px by default, avatars keep their 20px. */}
-      {icon && (
-        <span className="mr-3 flex size-5 shrink-0 items-center justify-center [&>svg]:size-3.5">
-          {icon}
-        </span>
-      )}
+      {icon && <SettingsRowIcon twoLine={!!description}>{icon}</SettingsRowIcon>}
       <div className="flex-1 min-w-0">
         <div className={settingsUI.label}>{label}</div>
         {description && (

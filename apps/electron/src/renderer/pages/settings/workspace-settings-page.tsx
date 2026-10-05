@@ -501,12 +501,8 @@ export default function WorkspaceSettingsPage() {
                   {availableSources.map((source) => (
                     <SettingsToggle
                       key={source.config.slug}
-                      label={
-                        <span className="inline-flex items-center gap-2">
-                          <SourceAvatar source={source} size="xs" />
-                          {source.config.name}
-                        </span>
-                      }
+                      icon={<SourceAvatar source={source} />}
+                      label={source.config.name}
                       description={source.config.tagline}
                       checked={enabledSourceSlugs.includes(source.config.slug)}
                       onCheckedChange={(checked) => handleSourceToggle(source.config.slug, checked)}

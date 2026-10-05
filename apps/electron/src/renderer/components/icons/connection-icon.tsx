@@ -39,15 +39,7 @@ export function ConnectionIcon({ connection, size = 16, className = '', showTool
   const iconElement = providerIcon ? (
     <ProviderLogo src={providerIcon} size={size} className={className} />
   ) : (
-    <div
-      className={`rounded-xs bg-foreground/10 flex items-center justify-center flex-shrink-0 ${className}`}
-      style={{ width: size, height: size }}
-    >
-      <Brain
-        className="text-foreground/50 flex-shrink-0"
-        style={{ width: Math.round(size * 0.7), height: Math.round(size * 0.7) }}
-      />
-    </div>
+    <Brain className={`shrink-0 ${className}`} style={{ width: size, height: size }} />
   )
 
   if (!showTooltip) return iconElement
