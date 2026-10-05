@@ -1,6 +1,8 @@
 import * as React from "react"
 import { cn } from "cn"
 
+// Otto: no focus ring or border change; the caret shows focus; invalid is a red
+// border only.
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea

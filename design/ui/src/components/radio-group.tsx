@@ -12,6 +12,8 @@ function RadioGroup({ className, ...props }: RadioGroupPrimitive.Props) {
   )
 }
 
+// Otto: round by nature; a keyboard-only 2px focus ring, primary when checked,
+// invalid is a red border only.
 function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
   return (
     <RadioPrimitive.Root

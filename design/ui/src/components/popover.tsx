@@ -12,6 +12,8 @@ function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
 }
 
+// Otto: same surface as the dropdown and combobox menus (dark, translucent,
+// blurred) with their 4px rhythm and their faint separators.
 function PopoverContent({
   className,
   align = "center",
@@ -46,11 +48,12 @@ function PopoverContent({
   )
 }
 
+// Otto: headers read like menu labels (small, muted).
 function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="popover-header"
-      className={cn("flex flex-col gap-1 text-sm", className)}
+      className={cn("flex flex-col gap-0.5 px-2 py-1.5 text-xs", className)}
       {...props}
     />
   )
@@ -60,7 +63,7 @@ function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props) {
   return (
     <PopoverPrimitive.Title
       data-slot="popover-title"
-      className={cn("text-base font-medium", className)}
+      className={cn("font-medium text-muted-foreground", className)}
       {...props}
     />
   )

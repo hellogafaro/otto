@@ -6,6 +6,8 @@ type NativeSelectProps = Omit<React.ComponentProps<"select">, "size"> & {
   size?: "sm" | "default"
 }
 
+// Otto: selects follow the shared 32px/28px control scale and 8px/6px nested
+// radii; the chevron is a 14px icon like every icon.
 function NativeSelect({
   className,
   size = "default",
@@ -23,10 +25,14 @@ function NativeSelect({
       <select
         data-slot="native-select"
         data-size={size}
-        className="h-8 w-full min-w-0 appearance-none rounded-md in-data-[slot=item-actions]:h-7 in-data-[slot=item-actions]:rounded-sm in-data-[slot=item-actions]:px-2 border border-transparent bg-input/50 py-1 pr-8 pl-3 text-sm transition-[color,box-shadow,background-color] outline-none select-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed aria-invalid:border-destructive data-[size=sm]:h-8 dark:aria-invalid:border-destructive/50"
+        className="h-8 w-full min-w-0 appearance-none rounded-md in-data-[slot=item-actions]:h-7 in-data-[slot=item-actions]:rounded-sm in-data-[slot=item-actions]:pl-2 border border-transparent bg-input/50 py-1 pr-8 pl-3 text-sm transition-[color,box-shadow,background-color] outline-none select-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed aria-invalid:border-destructive data-[size=sm]:h-7 data-[size=sm]:rounded-sm dark:aria-invalid:border-destructive/50"
         {...props}
       />
-      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground select-none" aria-hidden="true" data-slot="native-select-icon" />
+      <ChevronDownIcon
+        className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground select-none in-data-[slot=item-actions]:right-2"
+        aria-hidden="true"
+        data-slot="native-select-icon"
+      />
     </div>
   )
 }

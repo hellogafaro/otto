@@ -2,6 +2,9 @@ import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
 import { cn } from "cn"
 
+// Otto: no focus ring or border change; the caret shows focus; invalid is a red
+// border only. 32px, and nested in a row's actions (settings) 28px with 6px
+// corners like the compact buttons beside it.
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <InputPrimitive
