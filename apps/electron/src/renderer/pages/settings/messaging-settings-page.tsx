@@ -34,7 +34,7 @@ import {
   Settings2,
   Trash2,
 } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { PageColumn } from '@workspace/ui/components/page'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -110,8 +110,7 @@ export default function MessagingSettingsPage() {
   return (
     <div className="flex h-full flex-col">
       <SettingsPageHeader subpage="messaging" />
-      <ScrollArea className="flex-1">
-        <div className="space-y-6 p-6">
+      <PageColumn>
           <SettingsSection title={t('settings.messaging.title')}>
             <SettingsCard>
               <PlatformRow platform="telegram" workspaceId={activeWorkspace.id} />
@@ -123,8 +122,7 @@ export default function MessagingSettingsPage() {
               <PlatformRow platform="lark" workspaceId={activeWorkspace.id} />
             </SettingsCard>
           </SettingsSection>
-        </div>
-      </ScrollArea>
+      </PageColumn>
     </div>
   )
 }

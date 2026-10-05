@@ -1,7 +1,7 @@
 /**
  * ChatPage
  *
- * Displays a single session's chat with a consistent PanelHeader.
+ * Displays a single session's chat under the page header.
  * Extracted from MainContentPanel for consistency with other pages.
  */
 
@@ -10,13 +10,13 @@ import { useTranslation } from 'react-i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AlertCircle, Globe, Copy, RefreshCw, Link2Off, Info } from 'lucide-react'
 import { ChatDisplay } from '@/components/app-shell/chat-display'
-import { PanelHeader } from '@/components/app-shell/panel-header'
+import { PageHeader } from '@/components/app-shell/page-header'
 import { SessionMenu } from '@/components/app-shell/session-menu'
 import { CompactSessionMenu } from '@/components/app-shell/compact-session-menu'
 import { SessionInfoPopover } from '@/components/app-shell/session-info-popover'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { toast } from 'sonner'
-import { PanelHeaderCenterButton } from '@/components/ui/panel-header-center-button'
+import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { StyledDropdownMenuContent, StyledDropdownMenuItem, StyledDropdownMenuSeparator } from '@/components/ui/styled-dropdown'
 import { useAppShellContext, usePendingPermission, usePendingCredential, useSessionOptionsFor, useSession as useSessionData } from '@/context/app-shell-context'
@@ -71,14 +71,11 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     onUnarchiveSession,
     onSessionStatusChange,
     onDeleteSession,
-    closeButton,
-    leadingAction,
     isCompactMode,
     sessionListSearchQuery,
     isSearchModeActive,
     chatDisplayRef,
     onChatMatchInfoChange,
-    isFocusedPanel,
   } = useAppShellContext()
 
   // Use the unified session options hook for clean access
@@ -197,11 +194,11 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   // 2. If processing → when it completes, main process will clear hasUnread
   // The main process handles all the logic; we just report viewing state.
   React.useEffect(() => {
-    if (session && isWindowFocused && isFocusedPanel !== false) {
+    if (session && isWindowFocused) {
       onSetActiveViewingSession(session.id)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, isWindowFocused, isFocusedPanel, onSetActiveViewingSession])
+  }, [session?.id, isWindowFocused, onSetActiveViewingSession])
 
   // Get pending permission and credential for this session
   const pendingPermission = usePendingPermission(sessionId)
@@ -508,11 +505,11 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     }
   }, [sessionId])
 
-  // Share button with dropdown menu rendered in PanelHeader actions slot
+  // Share button with dropdown menu rendered in the page header's actions slot
   const shareButton = React.useMemo(() => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <PanelHeaderCenterButton
+        <HeaderIconButton
           aria-label={sharedUrl ? 'Shared session options' : 'Share session'}
           icon={sharedUrl
             ? <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -569,7 +566,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
         sessionFolderPath={session?.sessionFolderPath}
         presentation="drawer"
         trigger={(
-          <PanelHeaderCenterButton
+          <HeaderIconButton
             icon={<Info className="size-3.5" />}
             aria-label={t("chat.sessionInfo")}
           />
@@ -581,7 +578,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   const headerActions = isCompactMode ? compactInfoButton : (viewerConfigured ? shareButton : undefined)
 
   // Build title menu content for chat sessions using shared SessionMenu.
-  // Desktop uses Radix DropdownMenu via PanelHeader; compact mode uses a
+  // Desktop uses Radix DropdownMenu via PageHeader; compact mode uses a
   // vaul Drawer (CompactSessionMenu) so submenus aren't clipped by the
   // panel container query on narrow viewports.
   const titleMenu = React.useMemo(() => (sessionMeta && !isCompactMode) ? (
@@ -671,7 +668,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
       return (
         <>
           <div className="h-full flex flex-col">
-            <PanelHeader  title={displayTitle} titleMenu={titleMenu} compactTitleMenu={compactTitleMenu} leadingAction={leadingAction} actions={headerActions} closeButton={closeButton} isRegeneratingTitle={isAsyncOperationOngoing} />
+            <PageHeader title={displayTitle} titleMenu={titleMenu} compactTitleMenu={compactTitleMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
             <div className="flex-1 flex flex-col min-h-0">
               <ChatDisplay
                 ref={chatDisplayRef}
@@ -733,7 +730,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     // Session truly doesn't exist
     return (
       <div className="h-full flex flex-col">
-        <PanelHeader  title={t('chat.session')} leadingAction={leadingAction} closeButton={closeButton} />
+        <PageHeader title={t('chat.session')} />
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
           <AlertCircle className="h-10 w-10" />
           <p className="text-sm">{t('chat.sessionNoLongerExists')}</p>
@@ -745,7 +742,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   return (
     <>
       <div className="h-full flex flex-col">
-        <PanelHeader  title={displayTitle} titleMenu={titleMenu} compactTitleMenu={compactTitleMenu} leadingAction={leadingAction} actions={headerActions} closeButton={closeButton} isRegeneratingTitle={isAsyncOperationOngoing} />
+        <PageHeader title={displayTitle} titleMenu={titleMenu} compactTitleMenu={compactTitleMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
         <div className="flex-1 flex flex-col min-h-0">
           <ChatDisplay
             ref={chatDisplayRef}

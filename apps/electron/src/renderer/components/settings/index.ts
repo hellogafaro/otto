@@ -17,11 +17,7 @@
 // Structure
 export {
   SettingsSection,
-  SettingsGroup,
-  SettingsDivider,
   type SettingsSectionProps,
-  type SettingsGroupProps,
-  type SettingsDividerProps,
 } from './settings-section'
 
 export {

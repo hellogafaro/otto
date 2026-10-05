@@ -4,16 +4,17 @@
  * Provides a global `navigate()` function that decouples components from
  * direct session/action imports. All navigation goes through typed routes.
  *
- * PEER PANEL MODEL:
- * All panels are equal. The **focused** panel drives the NavigationState
- * (which determines sidebar highlight, navigator content, etc.).
- * `navigate(route)` updates the focused panel's route.
+ * ONE VIEW:
+ * The app shows one view at a time: its route lives in `currentRouteAtom` and
+ * `navigate(route)` replaces it. The NavigationState (sidebar section, page
+ * card content, header) is parsed from it.
  *
  * URL-DRIVEN HISTORY:
  * The URL is the source of truth. Every meaningful navigation pushes a
  * browser history entry via pushState. Back/forward uses the browser's
- * native popstate, with smart panel reconciliation to preserve React keys
- * (and thus scroll position, streaming state, etc.).
+ * native popstate and sets the route from the URL. That one history stack is
+ * what Back / Forward mean everywhere (the Electron buttons, the shortcuts, the
+ * browser); the page header's Back is a different thing: the parent view.
  *
  * Usage:
  *   import { useNavigation, useNavigationState } from '@/contexts/navigation-context'
@@ -51,7 +52,7 @@ import {
 import { routes, type Route, type ViewRoute } from '../../shared/routes'
 import { parsePermissionMode } from '@otto/shared/agent/mode-types'
 import { NAVIGATE_EVENT, type NavigateOptions } from '../lib/navigate'
-import { normalizePanelRouteForReconcile } from './navigation-reconcile'
+import { normalizeRouteForReconcile } from './navigation-reconcile'
 import { buildSemanticHistoryKey, canRunInitialRestore } from './navigation-history'
 import * as storage from '@/lib/local-storage'
 import type {
@@ -75,17 +76,9 @@ import {
 import { sessionMetaMapAtom, updateSessionMetaAtom, type SessionMeta } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
+import { sessionListOrderAtom } from '@/atoms/list-context'
 import { guardedModeAvailableAtom } from '@/atoms/permission-modes'
-import {
-  panelStackAtom,
-  pushPanelAtom,
-  reconcilePanelStackAtom,
-  focusedPanelIdAtom,
-  focusedPanelRouteAtom,
-  focusedPanelIndexAtom,
-  updateFocusedPanelRouteAtom,
-  parseSessionIdFromRoute,
-} from '@/atoms/panel-stack'
+import { currentRouteAtom, parseSessionIdFromRoute } from '@/atoms/current-route'
 
 // Re-export routes for convenience
 export { routes }
@@ -104,7 +97,7 @@ interface NavigationContextValue {
   navigate: (route: Route, options?: NavigateOptions) => void | Promise<void>
   /** Check if navigation is ready */
   isReady: boolean
-  /** Unified navigation state — derived from the focused panel */
+  /** Unified navigation state — parsed from the open route */
   navigationState: NavigationState
   /** Whether we can go back in history */
   canGoBack: boolean
@@ -118,6 +111,18 @@ interface NavigationContextValue {
   navigateToSource: (sourceSlug?: string) => void
   /** Navigate to a session, preserving the current filter type */
   navigateToSession: (sessionId: string) => void
+  /**
+   * Previous / next item in the list the open page came from (the Chats list as the
+   * sidebar shows it), or null when the open page is not an item of a list.
+   */
+  listNav: ListNavigation | null
+}
+
+export interface ListNavigation {
+  hasPrev: boolean
+  hasNext: boolean
+  goPrev: () => void
+  goNext: () => void
 }
 
 export const NavigationContext = createContext<NavigationContextValue | null>(null)
@@ -169,8 +174,6 @@ export function NavigationProvider({
   // Label tree for filter matching (auto-select must agree with the visible list).
   const { labels: labelConfigs } = useLabels(workspaceId)
 
-  const pushPanel = useSetAtom(pushPanelAtom)
-
   // Store reference for reading fresh atom values in callbacks (avoids stale closures)
   const store = useStore()
 
@@ -181,17 +184,17 @@ export function NavigationProvider({
   const skills = useAtomValue(skillsAtom)
 
   // =========================================================================
-  // DERIVED NAVIGATION STATE (from the focused panel)
+  // DERIVED NAVIGATION STATE (from the open route)
   // =========================================================================
 
-  const focusedRoute = useAtomValue(focusedPanelRouteAtom)
+  const currentRoute = useAtomValue(currentRouteAtom)
 
-  // NavigationState derived from the focused panel's route
+  // NavigationState derived from the open route
   const navigationState: NavigationState = useMemo(() => {
-    return focusedRoute
-      ? parseRouteToNavigationState(focusedRoute) ?? DEFAULT_NAVIGATION_STATE
+    return currentRoute
+      ? parseRouteToNavigationState(currentRoute) ?? DEFAULT_NAVIGATION_STATE
       : DEFAULT_NAVIGATION_STATE
-  }, [focusedRoute])
+  }, [currentRoute])
 
   // =========================================================================
   // BROWSER HISTORY TRACKING
@@ -208,8 +211,7 @@ export function NavigationProvider({
   // Suppress pushState in atom subscriptions during restore/reconciliation
   const suppressPushRef = useRef(false)
 
-  // Coalesce compound atom writes (e.g. pushPanelAtom sets both panelStackAtom
-  // and focusedPanelIdAtom) into a single pushState via microtask debounce
+  // Coalesce route writes in one tick into a single pushState via microtask debounce
   const pendingPushRef = useRef(false)
 
   // Flag: workspace switch was triggered by popstate (URL already correct)
@@ -225,7 +227,6 @@ export function NavigationProvider({
   const initialRouteRestoredRef = useRef(false)
 
   // Semantic key for the last history entry we intentionally pushed/reconciled.
-  // Excludes layout-only values (like panel proportions) so resize does not create history entries.
   const lastSemanticHistoryKeyRef = useRef('')
 
   const updateCanGoBackForward = useCallback(() => {
@@ -234,12 +235,9 @@ export function NavigationProvider({
   }, [])
 
   const getSemanticHistoryKey = useCallback(() => {
-    const panels = store.get(panelStackAtom)
-    const focusedIdx = store.get(focusedPanelIndexAtom)
     return buildSemanticHistoryKey({
       workspaceSlug,
-      panelRoutes: panels.map(p => p.route),
-      focusedPanelIndex: focusedIdx,
+      route: store.get(currentRouteAtom) ?? '',
     })
   }, [store, workspaceSlug])
 
@@ -256,11 +254,9 @@ export function NavigationProvider({
    * Also persists the URL per-workspace in localStorage for workspace switch restoration.
    */
   const syncUrl = useCallback((push: boolean = false) => {
-    const panels = store.get(panelStackAtom)
-    const focusedIdx = store.get(focusedPanelIndexAtom)
-    if (panels.length === 0) return
+    const route = store.get(currentRouteAtom)
+    if (!route) return
 
-    const focusedPanel = panels[focusedIdx] ?? panels[0]
     const url = new URL(window.location.href)
 
     // ?ws= workspace slug
@@ -268,23 +264,8 @@ export function NavigationProvider({
       url.searchParams.set('ws', workspaceSlug)
     }
 
-    // ?route= is the focused panel's route
-    url.searchParams.set('route', focusedPanel.route)
-
-    // ?panels= encodes ALL panels in stack order
-    if (panels.length > 1) {
-      const encoded = panels.map(p => `${p.route}:${p.proportion.toFixed(4)}`).join(',')
-      url.searchParams.set('panels', encoded)
-    } else {
-      url.searchParams.delete('panels')
-    }
-
-    // ?fi= is focused panel index (for multi-panel layouts)
-    if (panels.length > 1) {
-      url.searchParams.set('fi', String(focusedIdx))
-    } else {
-      url.searchParams.delete('fi')
-    }
+    // ?route= is the open route
+    url.searchParams.set('route', route)
 
     const urlStr = url.toString()
 
@@ -315,114 +296,50 @@ export function NavigationProvider({
     lastSemanticHistoryKeyRef.current = currentSemanticKey
   }, [getSemanticHistoryKey])
 
-  // replaceState sync when panel stack or focus changes (catches resize, etc.)
-  const panelStack = useAtomValue(panelStackAtom)
-  const focusedPanelId = useAtomValue(focusedPanelIdAtom)
+  // replaceState sync when the route changes (the push below decides if it is a new entry)
+  const currentRouteForSync = useAtomValue(currentRouteAtom)
   useEffect(() => {
     if (!initialRouteRestoredRef.current) return
     syncUrlRef.current(false)
-  }, [panelStack, focusedPanelId])
+  }, [currentRouteForSync])
 
   // =========================================================================
   // ATOM SUBSCRIPTIONS FOR pushState (meaningful navigation)
   // =========================================================================
 
-  // Panel stack changes: push history on add/remove/route change (NOT resize)
+  // Route changes: push a history entry
   useEffect(() => {
-    let prevRoutes = store.get(panelStackAtom).map(p => p.route)
-    const unsub = store.sub(panelStackAtom, () => {
+    let prevRoute = store.get(currentRouteAtom)
+    const unsub = store.sub(currentRouteAtom, () => {
       if (suppressPushRef.current || !initialRouteRestoredRef.current) return
-      const currRoutes = store.get(panelStackAtom).map(p => p.route)
-      if (currRoutes.length !== prevRoutes.length || !currRoutes.every((r, i) => r === prevRoutes[i])) {
+      const route = store.get(currentRouteAtom)
+      if (route !== prevRoute) {
         if (!pendingPushRef.current) {
           pendingPushRef.current = true
           queueMicrotask(() => { pendingPushRef.current = false; maybePushHistoryForSemanticChange() })
         }
       }
-      prevRoutes = currRoutes
-    })
-    return unsub
-  }, [store, maybePushHistoryForSemanticChange])
-
-  // Focus changes: push history when active panel changes
-  useEffect(() => {
-    let prevFocusId = store.get(focusedPanelIdAtom)
-    const unsub = store.sub(focusedPanelIdAtom, () => {
-      if (suppressPushRef.current || !initialRouteRestoredRef.current) return
-      const newFocusId = store.get(focusedPanelIdAtom)
-      if (newFocusId !== prevFocusId) {
-        if (!pendingPushRef.current) {
-          pendingPushRef.current = true
-          queueMicrotask(() => { pendingPushRef.current = false; maybePushHistoryForSemanticChange() })
-        }
-        prevFocusId = newFocusId
-      }
+      prevRoute = route
     })
     return unsub
   }, [store, maybePushHistoryForSemanticChange])
 
   // =========================================================================
-  // RECONCILE PANELS FROM URL PARAMS
+  // RESTORE THE ROUTE FROM URL PARAMS
   // =========================================================================
 
   /**
-   * Parse URL search params and reconcile the panel stack.
-   * Uses reconcilePanelStackAtom for smart matching (preserves React keys).
+   * Parse URL search params and set the open route (`?route=`), resolving the
+   * auto-selection the same way normal navigation does.
    */
   const reconcileFromUrlParams = useCallback(
     (params: URLSearchParams) => {
       const initialRoute = params.get('route')
-      const panelsParam = params.get('panels')
-      const focusedIndexParam = params.get('fi')
-
-      // Parse panel entries from URL
-      let entries: { route: ViewRoute; proportion: number }[] = []
-      let focusedIndex = 0
-
-      if (panelsParam) {
-        // Canonical format: ?panels= contains ALL panels, ?fi= is focused index.
-        // We intentionally no longer support older mixed route/panels formats.
-        entries = panelsParam.split(',').filter(Boolean).map(entry => {
-          const colonIdx = entry.lastIndexOf(':')
-          if (colonIdx > 0) {
-            const proportion = parseFloat(entry.slice(colonIdx + 1))
-            if (!isNaN(proportion) && proportion > 0 && proportion < 1) {
-              const rawRoute = entry.slice(0, colonIdx) as ViewRoute
-              const route = normalizePanelRouteForReconcile(rawRoute, (state) => resolveAutoSelectionRef.current(state))
-              return { route, proportion }
-            }
-          }
-          const rawRoute = entry as ViewRoute
-          const route = normalizePanelRouteForReconcile(rawRoute, (state) => resolveAutoSelectionRef.current(state))
-          return { route, proportion: 0 }
-        })
-
-        const hasProportions = entries.some(e => e.proportion > 0)
-        if (!hasProportions) {
-          const equal = 1 / entries.length
-          entries.forEach(e => { e.proportion = equal })
-        } else {
-          const total = entries.reduce((s, e) => s + e.proportion, 0)
-          if (total > 0 && Math.abs(total - 1) > 0.001) {
-            entries.forEach(e => { e.proportion = e.proportion / total })
-          }
-        }
-
-        focusedIndex = focusedIndexParam != null ? (parseInt(focusedIndexParam, 10) || 0) : 0
-      } else if (initialRoute) {
-        // Single panel from ?route=
-        const navState = parseRouteToNavigationState(initialRoute)
-        if (navState) {
-          const finalRoute = ('details' in navState && navState.details)
-            ? (initialRoute as ViewRoute)
-            : (buildRouteFromNavigationState(resolveAutoSelectionRef.current(navState)) as ViewRoute)
-          entries = [{ route: finalRoute, proportion: 1 }]
-        }
-      }
-
-      if (entries.length > 0) {
-        store.set(reconcilePanelStackAtom, { entries, focusedIndex })
-      }
+      if (!initialRoute) return
+      const navState = parseRouteToNavigationState(initialRoute)
+      if (!navState) return
+      const route = normalizeRouteForReconcile(initialRoute as ViewRoute, (state) => resolveAutoSelectionRef.current(state))
+      store.set(currentRouteAtom, route)
     },
     [store]
   )
@@ -435,48 +352,40 @@ export function NavigationProvider({
   // EMPTY SESSION CLEANUP (reactive — covers navigate, close tab, etc.)
   // =========================================================================
 
-  // Track which session IDs are visible across all panels. When a session ID
-  // disappears (navigate away, close tab, Cmd+W), check if it was empty and
-  // auto-delete it. This is the single codepath for all navigate-away cleanup.
-  const prevVisibleSessionIdsRef = useRef<Set<string>>(new Set())
+  // When the open session changes (navigate away), check whether the one left was
+  // empty and auto-delete it. This is the single codepath for all navigate-away cleanup.
+  const prevSessionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    const currentIds = new Set<string>()
-    for (const entry of panelStack) {
-      const sessionId = parseSessionIdFromRoute(entry.route)
-      if (sessionId) currentIds.add(sessionId)
-    }
+    const sessionId = currentRoute ? parseSessionIdFromRoute(currentRoute) : null
+    const prevId = prevSessionIdRef.current
 
-    // Only check after we've seen at least one set of IDs
-    // (skip first render to avoid false positives during initialization)
-    if (onAutoDeleteEmptySession && prevVisibleSessionIdsRef.current.size > 0) {
-      for (const prevId of prevVisibleSessionIdsRef.current) {
-        if (!currentIds.has(prevId)) {
-          const meta = store.get(sessionMetaMapAtom).get(prevId)
-          const isEmpty = meta && !meta.lastFinalMessageId && !meta.name && !meta.isProcessing
-          const hasDraft = getDraft?.(prevId)?.trim()
-          if (isEmpty && !hasDraft) {
-            onAutoDeleteEmptySession(prevId)
-          }
-        }
+    // Only check after we've seen a session (skip first render to avoid false
+    // positives during initialization)
+    if (onAutoDeleteEmptySession && prevId && prevId !== sessionId) {
+      const meta = store.get(sessionMetaMapAtom).get(prevId)
+      const isEmpty = meta && !meta.lastFinalMessageId && !meta.name && !meta.isProcessing
+      const hasDraft = getDraft?.(prevId)?.trim()
+      if (isEmpty && !hasDraft) {
+        onAutoDeleteEmptySession(prevId)
       }
     }
 
-    prevVisibleSessionIdsRef.current = currentIds
-  }, [panelStack, onAutoDeleteEmptySession, store, getDraft])
+    prevSessionIdRef.current = sessionId
+  }, [currentRoute, onAutoDeleteEmptySession, store, getDraft])
 
   // =========================================================================
   // SESSION SELECTION SYNC
   // =========================================================================
 
-  // Keep the global session selection in sync with the focused panel
+  // Keep the global session selection in sync with the open view
   useEffect(() => {
     if (isSessionsNavigation(navigationState) && navigationState.details) {
       setSession({ selected: navigationState.details.sessionId })
       if (workspaceId) {
         // Only persist if the session belongs to this workspace (prevents cross-workspace
         // pollution during workspace switch, when workspaceId changed but navigationState
-        // still reflects the old workspace's focused panel)
+        // still reflects the old workspace's view)
         const meta = store.get(sessionMetaMapAtom).get(navigationState.details.sessionId)
         if (meta && meta.workspaceId === workspaceId) {
           storage.set(storage.KEYS.lastSelectedSessionId, navigationState.details.sessionId, workspaceId)
@@ -637,7 +546,7 @@ export function NavigationProvider({
   // =========================================================================
 
   const handleActionNavigation = useCallback(
-    async (parsed: ParsedRoute, options?: { newPanel?: boolean; targetLaneId?: 'main' }) => {
+    async (parsed: ParsedRoute) => {
       if (!workspaceId) return
 
       switch (parsed.name) {
@@ -693,24 +602,13 @@ export function NavigationProvider({
             parsed.params.label ? { kind: 'label', labelId: parsed.params.label } :
             { kind: 'allSessions' }
 
-          if (options?.newPanel) {
-            // Open the new session in a new panel using lane-aware routing (pushPanel auto-focuses it)
-            pushPanel({
-              route: routes.view.allSessions(session.id) as ViewRoute,
-              targetLaneId: options.targetLaneId,
-              intent: 'explicit',
-            })
-          } else {
-            // Navigate the focused panel to the new session
-            const newState: NavigationState = {
-              navigator: 'sessions',
-              filter,
-              details: { type: 'session', sessionId: session.id },
-            }
-            const route = buildRouteFromNavigationState(newState) as ViewRoute
-            store.set(updateFocusedPanelRouteAtom, route)
-            // Session selection sync handled by effect
+          // Open the new session (the session selection syncs in an effect)
+          const newState: NavigationState = {
+            navigator: 'sessions',
+            filter,
+            details: { type: 'session', sessionId: session.id },
           }
+          store.set(currentRouteAtom, buildRouteFromNavigationState(newState) as ViewRoute)
 
           // Parse badges from params
           let badges: ContentBadge[] | undefined
@@ -808,7 +706,7 @@ export function NavigationProvider({
           console.warn('[Navigation] Unknown action:', parsed.name)
       }
     },
-    [workspaceId, onCreateSession, onInputChange, pushPanel, store, updateSessionMeta]
+    [workspaceId, onCreateSession, onInputChange, store, updateSessionMeta]
   )
 
   // =========================================================================
@@ -835,22 +733,7 @@ export function NavigationProvider({
 
       // Handle actions (side effects)
       if (parsed.type === 'action') {
-        await handleActionNavigation(parsed, options)
-        return
-      }
-
-      // For view routes with newPanel: push a panel using lane-aware routing.
-      //
-      // Important distinction:
-      // - explicit opens (intent='explicit') can target a specific lane
-      // - implicit navigation (updateFocusedPanelRouteAtom path) applies lock/fallback
-      // This mirrors VS Code-style "locked group" behavior.
-      if (options?.newPanel) {
-        pushPanel({
-          route: route as ViewRoute,
-          targetLaneId: options.targetLaneId,
-          intent: 'explicit',
-        })
+        await handleActionNavigation(parsed)
         return
       }
 
@@ -875,12 +758,11 @@ export function NavigationProvider({
           storage.set(storage.KEYS.lastSelectedSessionId, resolvedState.details.sessionId, workspaceId)
         }
 
-        // Update the focused panel's route (atom update is synchronous)
-        // The panelStack atom subscription detects the route change and calls syncUrl(true)
-        store.set(updateFocusedPanelRouteAtom, finalRoute)
+        // Open the route (the atom update is synchronous; its subscription pushes the history entry)
+        store.set(currentRouteAtom, finalRoute)
       }
     },
-    [isReady, handleActionNavigation, resolveAutoSelection, store, pushPanel, workspaceId]
+    [isReady, handleActionNavigation, resolveAutoSelection, store, workspaceId]
   )
 
   // =========================================================================
@@ -925,7 +807,7 @@ export function NavigationProvider({
         return
       }
 
-      // Same workspace — reconcile panels from the URL
+      // Same workspace — open the route from the URL
       suppressPushRef.current = true
       reconcileFromUrlParamsRef.current(params)
       lastSemanticHistoryKeyRef.current = getSemanticHistoryKey()
@@ -988,7 +870,7 @@ export function NavigationProvider({
       historyMaxSeqRef.current = seq
       updateCanGoBackForward()
 
-      // Reconcile panels from the new URL
+      // Open the new workspace's route
       reconcileFromUrlParamsRef.current(new URLSearchParams(url.search))
       lastSemanticHistoryKeyRef.current = getSemanticHistoryKey()
     }
@@ -1019,12 +901,12 @@ export function NavigationProvider({
 
     const params = new URLSearchParams(window.location.search)
 
-    // Reconcile panels from current URL
+    // Open the route from the current URL
     reconcileFromUrlParamsRef.current(params)
     lastSemanticHistoryKeyRef.current = getSemanticHistoryKey()
 
     // If nothing was in the URL, navigate to default
-    if (!params.get('route') && !params.get('panels')) {
+    if (!params.get('route')) {
       navigate(routes.view.allSessions())
     }
 
@@ -1058,7 +940,7 @@ export function NavigationProvider({
       if (navState) {
         const resolved = resolveAutoSelection(navState)
         const finalRoute = buildRouteFromNavigationState(resolved) as ViewRoute
-        store.set(updateFocusedPanelRouteAtom, finalRoute)
+        store.set(currentRouteAtom, finalRoute)
       }
     }
   }, [isReady, handleActionNavigation, resolveAutoSelection, store])
@@ -1109,10 +991,10 @@ export function NavigationProvider({
 
   useEffect(() => {
     const handleNavigateEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<{ route: Route; newPanel?: boolean; targetLaneId?: 'main' }>
+      const customEvent = event as CustomEvent<{ route: Route } & NavigateOptions>
       if (customEvent.detail?.route) {
-        const { route: r, newPanel, targetLaneId } = customEvent.detail
-        navigate(r, newPanel ? { newPanel, targetLaneId } : undefined)
+        const { route: r, ...options } = customEvent.detail
+        navigate(r, options)
       }
     }
 
@@ -1175,14 +1057,31 @@ export function NavigationProvider({
   }, [navigationState, navigate])
 
   // =========================================================================
+  // LIST NAVIGATION (previous / next in the sidebar's list)
+  // =========================================================================
+
+  const sessionListOrder = useAtomValue(sessionListOrderAtom)
+  const listNav = useMemo<ListNavigation | null>(() => {
+    if (!isSessionsNavigation(navigationState) || !navigationState.details) return null
+    const index = sessionListOrder.indexOf(navigationState.details.sessionId)
+    if (index === -1) return null
+    return {
+      hasPrev: index > 0,
+      hasNext: index < sessionListOrder.length - 1,
+      goPrev: () => { if (index > 0) navigateToSession(sessionListOrder[index - 1]) },
+      goNext: () => { if (index < sessionListOrder.length - 1) navigateToSession(sessionListOrder[index + 1]) },
+    }
+  }, [navigationState, sessionListOrder, navigateToSession])
+
+  // =========================================================================
   // AUTO-SELECT ON SESSION LOAD
   // =========================================================================
 
   useEffect(() => {
     if (suppressAutoSelectRef.current) return
     if (!isReady || !workspaceId) return
-    // Don't auto-select when panel stack is empty (user closed all panels)
-    if (store.get(panelStackAtom).length === 0) return
+    // Don't auto-select before a route is open
+    if (store.get(currentRouteAtom) === null) return
     // Scoped to sessions with no explicit detail. resolveAutoSelection owns the
     // selection decision (last/first fallback) so it lives in one
     // place; this effect just applies it when the session list loads after
@@ -1217,6 +1116,7 @@ export function NavigationProvider({
         goForward,
         navigateToSource,
         navigateToSession,
+        listNav,
       }}
     >
       {children}

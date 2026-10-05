@@ -1,6 +1,5 @@
 export interface ScopedInputEventTarget {
   sessionId?: string | null
-  isFocusedPanel: boolean
   targetSessionId?: string
 }
 
@@ -10,13 +9,9 @@ export interface ScopedInputEventTarget {
  */
 export function shouldHandleScopedInputEvent({
   sessionId,
-  isFocusedPanel,
   targetSessionId,
 }: ScopedInputEventTarget): boolean {
-  if (targetSessionId) {
-    return targetSessionId === sessionId
-  }
-  return isFocusedPanel
+  return !targetSessionId || targetSessionId === sessionId
 }
 
 export interface RecallPromptArrowUpState {

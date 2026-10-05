@@ -10,7 +10,7 @@ import { SettingsPageHeader } from '@/components/settings/settings-page-header'
 import { useTranslation } from 'react-i18next'
 import { Copy, Eye, EyeOff, AlertTriangle, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { PageColumn } from '@workspace/ui/components/page'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@otto/ui'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
@@ -169,8 +169,7 @@ export default function ServerSettingsPage() {
   return (
     <div className="flex flex-col h-full">
       <SettingsPageHeader subpage="server" />
-      <ScrollArea className="flex-1">
-        <div className="px-5 py-7 max-w-3xl mx-auto space-y-5">
+      <PageColumn>
 
           {/* Enable toggle + restart banner */}
           <SettingsSection title={t("settings.server.remoteAccess")}>
@@ -291,8 +290,7 @@ export default function ServerSettingsPage() {
             </SettingsCardFooter>
           )}
 
-        </div>
-      </ScrollArea>
+      </PageColumn>
     </div>
   )
 }

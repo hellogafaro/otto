@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { SettingsPageHeader } from '@/components/settings/settings-page-header'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { PageColumn } from '@workspace/ui/components/page'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { X, MoreHorizontal, Pencil, Trash2, Star, CheckCircle2, AlertTriangle, RefreshCcw, Settings2, MessageSquareMore, Zap, Clock, Check } from 'lucide-react'
@@ -1178,10 +1178,7 @@ export default function AiSettingsPage() {
   return (
     <div className="h-full flex flex-col">
       <SettingsPageHeader subpage="ai" />
-      <div className="flex-1 min-h-0 mask-fade-y">
-        <ScrollArea className="h-full">
-          <div className="px-5 py-7 max-w-3xl mx-auto">
-            {/* Credential Health Warning Banner */}
+      <PageColumn>{/* Credential Health Warning Banner */}
             <CredentialHealthBanner
               issues={credentialHealthIssues}
               onReauthenticate={handleReauthenticate}
@@ -1527,9 +1524,7 @@ export default function AiSettingsPage() {
                 placeholder={t("settings.ai.enterConnectionName")}
               />
             </div>
-          </div>
-        </ScrollArea>
-      </div>
+          </PageColumn>
     </div>
   )
 }

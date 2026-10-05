@@ -129,15 +129,6 @@ export interface AppShellContextType {
   // Open a new chat with optional agent, name, and pre-filled input
   openNewChat?: (params?: NewChatActionParams) => Promise<void>
 
-  // Per-panel close button (for page headers)
-  closeButton?: React.ReactNode
-
-  // Leading action button for panel header (e.g., back button in compact mode)
-  leadingAction?: React.ReactNode
-
-  /** Whether this panel is the focused panel (for multi-panel visual differentiation) */
-  isFocusedPanel?: boolean
-
   /** Whether the shell is currently in compact/narrow mode */
   isCompactMode?: boolean
 

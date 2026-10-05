@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useState, useCallback, useRef } from "react"
-import { Check, FolderPlus, ChevronDown, Cloud, CloudOff, Trash2 } from "lucide-react"
+import { Check, FolderPlus, ChevronsUpDown, Cloud, CloudOff, Trash2 } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 import { useSetAtom } from "jotai"
 import { toast } from "sonner"
@@ -16,7 +16,7 @@ import {
   StyledDropdownMenuSeparator,
 } from "@/components/ui/styled-dropdown"
 import { WorkspaceAvatar } from "@/components/ui/workspace-avatar"
-import { FadingText } from "@/components/ui/fading-text"
+import { SidebarMenuButton, useSidebar } from "@workspace/ui/components/sidebar"
 import { WorkspaceCreationScreen } from "@/components/workspace"
 import { waitForTransportConnected } from '@/lib/transport-wait'
 import { useWorkspaceIcons } from "@/hooks/use-workspace-icon"
@@ -24,8 +24,6 @@ import { useTransportConnectionState } from "@/hooks/use-transport-connection-st
 import type { Workspace } from "../../../shared/types"
 
 interface WorkspaceSwitcherProps {
-  variant?: 'sidebar' | 'topbar'
-  isCollapsed?: boolean
   workspaces: Workspace[]
   activeWorkspaceId: string | null
   onSelect: (workspaceId: string) => void | Promise<void>
@@ -36,15 +34,11 @@ interface WorkspaceSwitcherProps {
 }
 
 /**
- * WorkspaceSwitcher - Dropdown to select active workspace.
- *
- * Supports two trigger variants:
- * - sidebar: bottom-left selector trigger
- * - topbar: center top-bar selector trigger
+ * WorkspaceSwitcher - the sidebar footer's workspace row (32px avatar, name, up-down
+ * chevron; the avatar alone when the sidebar is icons only) and the menu it opens:
+ * the workspaces, remove, and add.
  */
 export function WorkspaceSwitcher({
-  variant = 'sidebar',
-  isCollapsed = false,
   workspaces,
   activeWorkspaceId,
   onSelect,
@@ -53,6 +47,7 @@ export function WorkspaceSwitcher({
   workspaceUnreadMap,
 }: WorkspaceSwitcherProps) {
   const { t } = useTranslation()
+  const { state } = useSidebar()
   const [showCreationScreen, setShowCreationScreen] = useState(false)
   const [reconnectTarget, setReconnectTarget] = useState<Workspace | null>(null)
   const setFullscreenOverlayOpen = useSetAtom(fullscreenOverlayOpenAtom)
@@ -186,67 +181,37 @@ export function WorkspaceSwitcher({
 
       <DropdownMenu onOpenChange={(open) => { if (open) checkRemoteHealth() }}>
         <DropdownMenuTrigger asChild>
-          {variant === 'topbar' ? (
-            <button
-              type="button"
-              data-workspace-switcher="topbar"
-              className="header-icon-btn titlebar-no-drag ml-1 flex-1 min-w-0 flex items-center justify-start gap-0.5 h-[30px] px-3 rounded-md border border-foreground/6 text-[13px] text-foreground/50 hover:bg-foreground/5 hover:text-foreground transition-colors cursor-pointer data-[state=open]:bg-foreground/5 data-[state=open]:text-foreground"
-              aria-label={t('workspace.selectWorkspace')}
-            >
-              <WorkspaceAvatar
-                workspaceId={selectedWorkspace?.id}
-                workspaceName={selectedWorkspace?.name}
-                src={selectedWorkspace ? workspaceIconMap.get(selectedWorkspace.id) : undefined}
-                className="h-4 w-4 mr-1.5 rounded-full ring-1 ring-border/50"
-                fallbackClassName="rounded-full"
-              />
-              <span className="truncate min-w-0 flex-1 text-left">{selectedWorkspace?.name || 'Workspace'}</span>
-              {selectedWorkspace?.remoteServer && (
-                isRemoteDisconnected(selectedWorkspace.id)
-                  ? <CloudOff className="h-3 w-3 text-destructive shrink-0" />
-                  : <Cloud className="h-3 w-3 opacity-60 shrink-0" />
-              )}
-              <ChevronDown data-slot="chevron" className="h-3 w-3 opacity-60 shrink-0" />
-              {hasUnreadInOtherWorkspaces && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
-            </button>
-          ) : (
-            <button
-              className={cn(
-                "flex items-center gap-1 w-full min-w-0 justify-start px-2 py-1.5 rounded-md",
-                "text-foreground hover:bg-foreground/5 data-[state=open]:bg-foreground/5 transition-colors duration-150",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                isCollapsed && "h-9 w-9 shrink-0 justify-center p-0"
-              )}
-              aria-label={t('workspace.selectWorkspace')}
-            >
-              <WorkspaceAvatar
-                workspaceId={selectedWorkspace?.id}
-                workspaceName={selectedWorkspace?.name}
-                src={selectedWorkspace ? workspaceIconMap.get(selectedWorkspace.id) : undefined}
-                className="h-4 w-4 rounded-full ring-1 ring-border/50"
-                fallbackClassName="rounded-full"
-              />
-              {!isCollapsed && (
-                <>
-                  <FadingText className="ml-1 font-sans min-w-0 text-sm" fadeWidth={36}>
-                    {selectedWorkspace?.name || 'Select workspace'}
-                  </FadingText>
-                  {selectedWorkspace?.remoteServer && (
-                    isRemoteDisconnected(selectedWorkspace.id)
-                      ? <CloudOff className="h-3 w-3 text-destructive shrink-0" />
-                      : <Cloud className="h-3 w-3 text-muted-foreground shrink-0" />
-                  )}
-                  <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
-                </>
-              )}
-            </button>
-          )}
+          <SidebarMenuButton
+            size="lg"
+            aria-label={t('workspace.selectWorkspace')}
+            tooltip={selectedWorkspace?.name}
+            className="titlebar-no-drag data-popup-open:bg-sidebar-accent/60 data-popup-open:text-foreground"
+          >
+            <WorkspaceAvatar
+              workspaceId={selectedWorkspace?.id}
+              workspaceName={selectedWorkspace?.name}
+              src={selectedWorkspace ? workspaceIconMap.get(selectedWorkspace.id) : undefined}
+              className="size-8 rounded-md"
+              fallbackClassName="rounded-md text-sm"
+            />
+            <span className="flex min-w-0 flex-1 flex-col text-left">
+              <span className="truncate text-sm font-medium text-foreground">{selectedWorkspace?.name || t('workspace.selectWorkspace')}</span>
+            </span>
+            {selectedWorkspace?.remoteServer && (
+              isRemoteDisconnected(selectedWorkspace.id)
+                ? <CloudOff className="text-destructive" />
+                : <Cloud />
+            )}
+            {hasUnreadInOtherWorkspaces && <span className="size-2 shrink-0 rounded-full bg-primary" />}
+            <ChevronsUpDown className="shrink-0" />
+          </SidebarMenuButton>
         </DropdownMenuTrigger>
 
         <StyledDropdownMenuContent
-          align={variant === 'topbar' ? 'center' : 'start'}
-          sideOffset={variant === 'topbar' ? 6 : 4}
-          minWidth={variant === 'topbar' ? 'min-w-64' : undefined}
+          side={state === 'collapsed' ? 'right' : 'top'}
+          align={state === 'collapsed' ? 'end' : 'start'}
+          sideOffset={4}
+          minWidth="min-w-56"
         >
           {workspaces.map((workspace) => {
             const disconnected = isRemoteDisconnected(workspace.id)

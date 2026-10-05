@@ -27,7 +27,6 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { navigate, routes } from '@/lib/navigate'
 import { extractLabelId, toggleLabelInList } from '@otto/shared/labels'
 import type { SessionMeta } from '@/atoms/sessions'
 
@@ -45,7 +44,6 @@ export interface SessionMenuActions {
   showInFinder: () => void
   copyPath: () => Promise<void>
   refreshTitle: () => Promise<void>
-  openInNewPanel: () => void
   /** Open the session's published share URL in the system browser (no-op if not shared). */
   openSharedInBrowser: () => void
   /** Copy the session's published share URL to the clipboard (no-op if not shared). */
@@ -164,10 +162,6 @@ export function useSessionMenuActions({
     }
   }, [sessionId, t])
 
-  const openInNewPanel = React.useCallback(() => {
-    navigate(routes.view.allSessions(sessionId), { newPanel: true })
-  }, [sessionId])
-
   const openSharedInBrowser = React.useCallback(() => {
     if (!sharedUrl) return
     window.electronAPI.openUrl(sharedUrl)
@@ -206,7 +200,6 @@ export function useSessionMenuActions({
     showInFinder,
     copyPath,
     refreshTitle,
-    openInNewPanel,
     openSharedInBrowser,
     copySharedLink,
     updateShare,

@@ -6,7 +6,7 @@
 
 import { SettingsPageHeader } from '@/components/settings/settings-page-header'
 import { useTranslation } from 'react-i18next'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { PageColumn } from '@workspace/ui/components/page'
 import { SettingsSection, SettingsCard, SettingsRow } from '@/components/settings'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import { isMac } from '@/lib/platform'
@@ -65,7 +65,6 @@ function useComponentSpecificSections(): ShortcutSection[] {
 // Map action IDs to i18n keys for translated labels
 const ACTION_LABEL_KEYS: Partial<Record<ActionId, string>> = {
   'app.newChat': 'shortcuts.action.newChat',
-  'app.newChatInPanel': 'shortcuts.action.newChatInPanel',
   'app.settings': 'shortcuts.action.settings',
   'app.toggleTheme': 'shortcuts.action.toggleTheme',
   'app.search': 'shortcuts.action.search',
@@ -81,8 +80,6 @@ const ACTION_LABEL_KEYS: Partial<Record<ActionId, string>> = {
   'nav.goForwardAlt': 'shortcuts.action.goForward',
   'navigator.selectAll': 'shortcuts.action.selectAll',
   'navigator.clearSelection': 'shortcuts.action.clearSelection',
-  'panel.focusNext': 'shortcuts.action.focusNextPanel',
-  'panel.focusPrev': 'shortcuts.action.focusPrevPanel',
   'chat.stopProcessing': 'shortcuts.action.stopProcessing',
   'chat.cyclePermissionMode': 'shortcuts.action.cyclePermissionMode',
   'chat.nextSearchMatch': 'shortcuts.action.nextSearchMatch',
@@ -119,10 +116,7 @@ export default function ShortcutsPage() {
   return (
     <div className="h-full flex flex-col">
       <SettingsPageHeader subpage="shortcuts" />
-      <div className="flex-1 min-h-0 mask-fade-y">
-        <ScrollArea className="h-full">
-          <div className="px-5 py-7 max-w-3xl mx-auto space-y-8">
-            {/* Registry-driven sections */}
+      <PageColumn>{/* Registry-driven sections */}
             {Object.entries(actionsByCategory).map(([category, actions]) => (
               <SettingsSection key={category} title={t(`shortcuts.category.${category.toLowerCase()}`)}>
                 <SettingsCard>
@@ -149,9 +143,7 @@ export default function ShortcutsPage() {
                 </SettingsCard>
               </SettingsSection>
             ))}
-          </div>
-        </ScrollArea>
-      </div>
+          </PageColumn>
     </div>
   )
 }

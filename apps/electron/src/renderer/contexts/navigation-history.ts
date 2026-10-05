@@ -1,7 +1,6 @@
 interface SemanticHistoryKeyInput {
   workspaceSlug: string | null
-  panelRoutes: string[]
-  focusedPanelIndex: number
+  route: string
 }
 
 interface InitialRestoreGateInput {
@@ -12,21 +11,11 @@ interface InitialRestoreGateInput {
 }
 
 /**
- * Builds a semantic history key used to dedupe pushState entries.
- *
- * Includes focused panel index so states with duplicate routes remain distinct
- * when focus moves between panels.
+ * Builds a semantic history key used to dedupe pushState entries: the same
+ * workspace and route is the same history entry.
  */
-export function buildSemanticHistoryKey({
-  workspaceSlug,
-  panelRoutes,
-  focusedPanelIndex,
-}: SemanticHistoryKeyInput): string {
-  return [
-    workspaceSlug ?? '',
-    panelRoutes.join('|'),
-    String(focusedPanelIndex),
-  ].join('::')
+export function buildSemanticHistoryKey({ workspaceSlug, route }: SemanticHistoryKeyInput): string {
+  return [workspaceSlug ?? '', route].join('::')
 }
 
 /**

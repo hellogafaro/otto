@@ -11,7 +11,7 @@
 import { SettingsPageHeader } from '@/components/settings/settings-page-header'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { PageColumn } from '@workspace/ui/components/page'
 import { Spinner } from '@otto/ui'
 import {
   SettingsSection,
@@ -186,10 +186,7 @@ export default function PreferencesPage() {
   return (
     <div className="h-full flex flex-col">
       <SettingsPageHeader subpage="preferences" />
-      <div className="flex-1 min-h-0 mask-fade-y">
-        <ScrollArea className="h-full">
-          <div className="px-5 py-7 max-w-3xl mx-auto space-y-8">
-          {/* Basic Info */}
+      <PageColumn>{/* Basic Info */}
           <SettingsSection
             title={t("settings.preferences.basicInfo")}
             description={t("settings.preferences.basicInfoDesc")}
@@ -267,9 +264,7 @@ export default function PreferencesPage() {
               />
             </SettingsCard>
           </SettingsSection>
-        </div>
-        </ScrollArea>
-      </div>
+        </PageColumn>
     </div>
   )
 }

@@ -57,7 +57,7 @@ import {
   showBackgroundFinishedChipAtom,
   pushBackgroundFinishedAtom,
 } from '@/atoms/background-finished'
-import { visibleSessionIdsAtom } from '@/atoms/panel-stack'
+import { currentSessionIdAtom } from '@/atoms/current-route'
 import { getSessionTitle } from '@/utils/session'
 import { extractBadges } from '@/lib/mentions'
 import { getDefaultStore } from 'jotai'
@@ -986,12 +986,12 @@ export default function App() {
             showSessionNotification(updatedSession, preview)
 
             // In-app complement to the OS notification: when a *background*
-            // session (one not shown in any open panel) finishes, queue a chip
+            // session (one that is not the open chat) finishes, queue a chip
             // above the chat. The OS notification above is suppressed while the
             // window is focused, so the chip is the only completion signal then.
             if (
               store.get(showBackgroundFinishedChipAtom) &&
-              !store.get(visibleSessionIdsAtom).has(sessionId)
+              store.get(currentSessionIdAtom) !== sessionId
             ) {
               store.set(pushBackgroundFinishedAtom, {
                 sessionId,
@@ -1959,10 +1959,7 @@ export default function App() {
           )}
 
           {/* Main UI - always rendered, splash fades away to reveal it */}
-          <div
-            className="h-full flex flex-col text-foreground"
-            style={{ paddingTop: 'var(--topbar-height)' }}
-          >
+          <div className="h-full flex flex-col text-foreground">
             {showTransportConnectionBanner && connectionState && (
               <TransportConnectionBanner
                 state={connectionState}

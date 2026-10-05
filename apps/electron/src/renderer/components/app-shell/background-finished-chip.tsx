@@ -8,7 +8,7 @@
  * only fires when the whole app is unfocused.
  *
  * Behavior:
- * - Only the *focused* session's input renders the chip (`focusedSessionIdAtom`),
+ * - Only the *focused* session's input renders the chip (`currentSessionIdAtom`),
  *   so a split view never shows the same announcement twice. The completing
  *   session is never its own announcer — it's excluded from the queue lookup and
  *   the App-level detector already skips sessions visible in any panel.
@@ -38,7 +38,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NavigationContext } from '@/contexts/navigation-context'
 import { navigate, routes } from '@/lib/navigate'
-import { focusedSessionIdAtom } from '@/atoms/panel-stack'
+import { currentSessionIdAtom } from '@/atoms/current-route'
 import {
   backgroundFinishedAtom,
   dismissBackgroundFinishedAtom,
@@ -62,7 +62,7 @@ export function BackgroundFinishedChip({ sessionId }: BackgroundFinishedChipProp
   const nav = useContext(NavigationContext)
   const enabled = useAtomValue(showBackgroundFinishedChipAtom)
   const queue = useAtomValue(backgroundFinishedAtom)
-  const focusedSessionId = useAtomValue(focusedSessionIdAtom)
+  const currentSessionId = useAtomValue(currentSessionIdAtom)
   const dismiss = useSetAtom(dismissBackgroundFinishedAtom)
 
   // Opening a session acknowledges it: clear its queued entry whenever it's the
@@ -78,7 +78,7 @@ export function BackgroundFinishedChip({ sessionId }: BackgroundFinishedChipProp
 
   // Most-recent background completion that isn't the session on screen. Only the
   // focused session's row announces it, so split views don't double up.
-  const entry = enabled && focusedSessionId === sessionId
+  const entry = enabled && currentSessionId === sessionId
     ? [...queue].reverse().find(e => e.sessionId !== sessionId)
     : undefined
 

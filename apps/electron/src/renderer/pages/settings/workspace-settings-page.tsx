@@ -16,7 +16,7 @@ import { SettingsPageHeader } from '@/components/settings/settings-page-header'
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { PageColumn } from '@workspace/ui/components/page'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { cn } from '@/lib/utils'
 import { Spinner } from '@otto/ui'
@@ -352,10 +352,7 @@ export default function WorkspaceSettingsPage() {
   return (
     <div className="h-full flex flex-col">
       <SettingsPageHeader subpage="workspace" />
-      <div className="flex-1 min-h-0 mask-fade-y">
-        <ScrollArea className="h-full">
-          <div className="px-5 py-7 max-w-3xl mx-auto">
-          <div className="space-y-8">
+      <PageColumn>
             {/* Workspace Info */}
             <SettingsSection title={t("settings.workspace.workspaceInfo")}>
               <SettingsCard>
@@ -550,10 +547,7 @@ export default function WorkspaceSettingsPage() {
               </SettingsCard>
             </SettingsSection>
 
-          </div>
-        </div>
-        </ScrollArea>
-      </div>
+          </PageColumn>
       <ServerDirectoryBrowser
         open={showWdBrowser}
         mode={wdBrowserMode}

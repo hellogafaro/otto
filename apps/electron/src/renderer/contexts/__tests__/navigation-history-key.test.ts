@@ -2,35 +2,16 @@ import { describe, expect, it } from 'bun:test'
 import { buildSemanticHistoryKey, canRunInitialRestore } from '../navigation-history'
 
 describe('buildSemanticHistoryKey', () => {
-  it('changes when focused panel index changes even if routes are identical', () => {
-    const panelRoutes = ['allSessions/session/s1', 'allSessions/session/s1']
-
-    const keyA = buildSemanticHistoryKey({
-      workspaceSlug: 'ws',
-      panelRoutes,
-      focusedPanelIndex: 0,
-    })
-
-    const keyB = buildSemanticHistoryKey({
-      workspaceSlug: 'ws',
-      panelRoutes,
-      focusedPanelIndex: 1,
-    })
-
-    expect(keyA).not.toBe(keyB)
+  it('changes with the route and with the workspace', () => {
+    const base = { workspaceSlug: 'ws', route: 'allSessions/session/s1' }
+    expect(buildSemanticHistoryKey(base)).not.toBe(buildSemanticHistoryKey({ ...base, route: 'sources/source/github' }))
+    expect(buildSemanticHistoryKey(base)).not.toBe(buildSemanticHistoryKey({ ...base, workspaceSlug: 'other' }))
   })
 
   it('stays stable for identical semantic inputs', () => {
-    const input = {
-      workspaceSlug: 'ws',
-      panelRoutes: ['allSessions/session/s1', 'sources/source/github'],
-      focusedPanelIndex: 1,
-    }
+    const input = { workspaceSlug: 'ws', route: 'allSessions/session/s1' }
 
-    const keyA = buildSemanticHistoryKey(input)
-    const keyB = buildSemanticHistoryKey(input)
-
-    expect(keyA).toBe(keyB)
+    expect(buildSemanticHistoryKey(input)).toBe(buildSemanticHistoryKey(input))
   })
 })
 

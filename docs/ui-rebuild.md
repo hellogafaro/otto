@@ -7,31 +7,35 @@ components and the rules in `DESIGN.md`, and was looked at in light and dark.
 **Order:** foundation (React 19, `@workspace/ui` in the renderer, Radix adapters) →
 shell → settings → connection sign-in → chat → everything else. Tick as you go.
 
+**Shell (done as a skeleton):** the sidebar on the frame, the one `ContentCard` with
+`PageHeader`, the `FloatingCard` slot, floating Back / Previous / Next and the
+floating action are in. The top bar, the rail and the panel stack (several panels
+side by side, open in a new panel, `?panels=`) are deleted. Pages move onto the
+page anatomy (DESIGN.md, Page anatomy) one by one; the settings pages are the
+reference. Interim: Sources, Skills, Projects and Schedules still render their
+old list panels in the sidebar's section; the chat transcript, the info pages and
+the Documents library keep their own insets inside the card.
 
-## Shell and chrome (45)
 
+## Shell and chrome
+
+- [x] `components/app-shell/app-sidebar.tsx`
+- [x] `components/app-shell/page-header.tsx`
+- [x] `components/app-shell/session-filter-menu.tsx`
+- [x] `components/app-shell/sidebar-section.tsx`
 - [ ] `components/app-shell/active-option-badges.tsx`
 - [ ] `components/app-shell/active-tasks-bar.tsx`
-- [ ] `components/app-shell/app-rail.tsx`
-- [ ] `components/app-shell/app-shell.tsx`
+- [x] `components/app-shell/app-shell.tsx`
 - [ ] `components/app-shell/attachment-preview.tsx`
 - [ ] `components/app-shell/background-finished-chip.tsx`
 - [ ] `components/app-shell/batch-session-menu.tsx`
 - [ ] `components/app-shell/chat-display.tsx`
-- [ ] `components/app-shell/compact-panel-transition.tsx`
-- [ ] `components/app-shell/compact-session-list-filter.tsx`
 - [ ] `components/app-shell/compact-session-menu.tsx`
-- [ ] `components/app-shell/compact-workspace-switcher.tsx`
-- [ ] `components/app-shell/fab-new-chat.tsx`
-- [ ] `components/app-shell/left-sidebar.tsx`
-- [ ] `components/app-shell/main-content-panel.tsx`
+- [x] `components/app-shell/fab-new-chat.tsx`
+- [x] `components/app-shell/left-sidebar.tsx`
+- [x] `components/app-shell/main-content-panel.tsx`
 - [ ] `components/app-shell/multi-select-panel.tsx`
-- [ ] `components/app-shell/NavigatorPanel.tsx`
 - [ ] `components/app-shell/panel.tsx`
-- [ ] `components/app-shell/panel-header.tsx`
-- [ ] `components/app-shell/panel-resize-sash.tsx`
-- [ ] `components/app-shell/panel-slot.tsx`
-- [ ] `components/app-shell/panel-stack-container.tsx`
 - [ ] `components/app-shell/project-multi-select-filter.tsx`
 - [ ] `components/app-shell/projects-list-panel.tsx`
 - [ ] `components/app-shell/send-resource-to-workspace-dialog.tsx`
@@ -52,9 +56,8 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 - [ ] `components/app-shell/source-menu.tsx`
 - [ ] `components/app-shell/sources-list-panel.tsx`
 - [ ] `components/app-shell/task-action-menu.tsx`
-- [ ] `components/app-shell/top-bar.tsx`
 - [ ] `components/app-shell/transport-connection-banner.tsx`
-- [ ] `components/app-shell/workspace-switcher.tsx`
+- [x] `components/app-shell/workspace-switcher.tsx`
 
 ## Pages (5)
 
@@ -75,7 +78,7 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 - [ ] `pages/settings/permissions-settings-page.tsx`
 - [ ] `pages/settings/preferences-page.tsx`
 - [ ] `pages/settings/server-settings-page.tsx`
-- [ ] `pages/settings/settings-navigator.tsx`
+- [x] `pages/settings/settings-navigator.tsx`
 - [ ] `pages/settings/shortcuts-page.tsx`
 - [ ] `pages/settings/workspace-settings-page.tsx`
 
@@ -210,11 +213,7 @@ shell → settings → connection sign-in → chat → everything else. Tick as 
 - [ ] `components/ui/compact-working-directory-selector.tsx`
 - [ ] `components/ui/edit-popover.tsx`
 - [ ] `components/ui/header-icon-button.tsx`
-- [ ] `components/ui/HeaderMenu.tsx`
-- [ ] `components/ui/panel-header-center-button.tsx`
-- [ ] `components/ui/SkillSelectorPopover.tsx`
 - [ ] `components/ui/source-selector-popover.tsx`
-- [ ] `components/ui/top-bar-button.tsx`
 - [ ] `components/ui/action-menu-item.tsx`
 - [ ] `components/ui/action-tooltip.tsx`
 - [ ] `components/ui/avatar-group.tsx`

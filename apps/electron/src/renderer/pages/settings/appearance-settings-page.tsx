@@ -10,7 +10,7 @@ import { SettingsPageHeader } from '@/components/settings/settings-page-header'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES, type LanguageCode } from '@otto/shared/i18n'
 import type { ColumnDef } from '@tanstack/react-table'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { PageColumn } from '@workspace/ui/components/page'
 import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
 import { useTheme } from '@/context/theme-context'
 import { Monitor, Sun, Moon } from 'lucide-react'
@@ -199,10 +199,7 @@ export default function AppearanceSettingsPage() {
   return (
     <div className="h-full flex flex-col">
       <SettingsPageHeader subpage="appearance" />
-      <div className="flex-1 min-h-0 mask-fade-y">
-        <ScrollArea className="h-full">
-          <div className="px-5 py-7 max-w-3xl mx-auto">
-            <div className="space-y-8">
+      <PageColumn>
 
               {/* Default Theme */}
               <SettingsSection title={t("settings.appearance.defaultTheme")}>
@@ -315,10 +312,7 @@ export default function AppearanceSettingsPage() {
                 </SettingsCard>
               </SettingsSection>
 
-            </div>
-          </div>
-        </ScrollArea>
-      </div>
+            </PageColumn>
     </div>
   )
 }

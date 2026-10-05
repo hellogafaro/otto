@@ -34,7 +34,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CloudUpload,
-  Columns2,
   Copy,
   Flag,
   FlagOff,
@@ -312,7 +311,6 @@ export function CompactSessionMenu({
               onMarkUnread={closeAfter(onMarkUnread)}
               onRename={closeAfter(onRename)}
               onRefreshTitle={closeAfter(actions.refreshTitle)}
-              onOpenInNewPanel={closeAfter(actions.openInNewPanel)}
               onShowInFinder={closeAfter(actions.showInFinder)}
               onCopyPath={closeAfter(actions.copyPath)}
               onDelete={closeAfter(onDelete)}
@@ -386,7 +384,6 @@ interface RootPaneProps {
   onMarkUnread?: () => void
   onRename?: () => void
   onRefreshTitle?: () => void
-  onOpenInNewPanel?: () => void
   onShowInFinder?: () => void
   onCopyPath?: () => void
   onDelete?: () => void
@@ -417,7 +414,6 @@ function RootPane({
   onMarkUnread,
   onRename,
   onRefreshTitle,
-  onOpenInNewPanel,
   onShowInFinder,
   onCopyPath,
   onDelete,
@@ -499,7 +495,6 @@ function RootPane({
 
       <Separator />
 
-      <Row icon={<Columns2 className="size-3.5" />} label={t('sessionMenu.openInNewPanel')} onTap={onOpenInNewPanel} />
       <Row
         icon={<FolderOpen className="size-3.5" />}
         label={t('sessionMenu.showInFileManager', { fileManager: getFileManagerName() })}

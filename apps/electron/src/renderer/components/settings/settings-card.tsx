@@ -8,6 +8,7 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
+import { PageCard } from '@workspace/ui/components/page'
 
 export interface SettingsCardProps {
   /** Card content */
@@ -27,14 +28,7 @@ export interface SettingsCardProps {
  */
 export function SettingsCard({ children, className }: SettingsCardProps) {
   return (
-    <div
-      className={cn(
-        'rounded-xl bg-card ring-1 ring-foreground/10 shadow-xs overflow-hidden divide-y divide-foreground/10',
-        className
-      )}
-    >
-      {children}
-    </div>
+    <PageCard className={className}>{children}</PageCard>
   )
 }
 

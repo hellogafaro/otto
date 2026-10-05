@@ -61,7 +61,6 @@ import { useAppShellContext } from "@/context/app-shell-context"
 import { routes } from "@/lib/navigate"
 import { CHAT_LAYOUT } from "@/config/layout"
 import { collectFileChangesFromActivities, getFirstFileChangeIdForActivity } from "@/lib/file-changes"
-import { resolveBranchNewPanelOption } from "./branching"
 import { handleErrorMessageAction } from "./error-message-actions"
 
 // ============================================================================
@@ -488,10 +487,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   connectionUnavailable = false,
 }, ref) {
   const { t } = useTranslation()
-
-  // Panel focus state (for multi-panel auto-scroll behavior)
   const appShellContext = useAppShellContext()
-  const isFocusedPanel = appShellContext?.isFocusedPanel ?? true
 
   // Input is only disabled when explicitly disabled (e.g., agent needs activation)
   // User can type during streaming - submitting will stop the stream and send
@@ -504,9 +500,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   const [visibleTurnCount, setVisibleTurnCount] = React.useState(TURNS_PER_PAGE)
   // Sticky-bottom: When true, auto-scroll on content changes. Toggled by user scroll behavior.
   const isStickToBottomRef = React.useRef(true)
-  // Mirror isFocusedPanel into a ref so the ResizeObserver closure reads the latest value
-  const isFocusedPanelRef = React.useRef(isFocusedPanel)
-  isFocusedPanelRef.current = isFocusedPanel
   // Skip smooth scroll briefly after session switch (instant scroll already happened)
   const skipSmoothScrollUntilRef = React.useRef(0)
   // Track message commit boundaries so we can auto-scroll when a new user message
@@ -535,14 +528,10 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   const { isDark } = useTheme()
 
   // Register as focus zone - when zone gains focus, focus the textarea
-  // Guard with isFocusedPanelRef so only the focused panel responds in multi-panel layouts
   const { zoneRef, isFocused } = useFocusZone({
     zoneId: 'chat',
-    enabled: isFocusedPanel,
     focusFirst: () => {
-      if (isFocusedPanelRef.current) {
-        textareaRef.current?.focus()
-      }
+      textareaRef.current?.focus()
     },
   })
 
@@ -594,12 +583,11 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   // Does NOT auto-focus just because session changed (that would steal focus from SessionList)
   // Uses isSearchModeActive (prop) instead of isSearchActive (query-based) to prevent
   // focus stealing when search is open but query is empty
-  // In multi-panel layouts, only the focused panel should auto-focus its textarea
   useEffect(() => {
-    if (session && !isSearchModeActive && isFocused && isFocusedPanel) {
+    if (session && !isSearchModeActive && isFocused) {
       textareaRef.current?.focus()
     }
-  }, [session?.id, isFocused, isSearchModeActive, isFocusedPanel])
+  }, [session?.id, isFocused, isSearchModeActive])
 
   useEffect(() => {
     let isMounted = true
@@ -1133,12 +1121,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
     const resizeObserver = new ResizeObserver(() => {
-      // Unfocused panels: always scroll to bottom instantly (user isn't reading them)
-      if (!isFocusedPanelRef.current) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
-        return
-      }
-
       // Focused panel: respect sticky-bottom preference
       if (!isStickToBottomRef.current) return
 
@@ -1193,9 +1175,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     isStickToBottomRef.current = true
 
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: isFocusedPanelRef.current ? 'smooth' : 'instant',
-      })
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     })
   }, [session?.id, messageCount, lastMessageId, lastMessageRole])
 
@@ -1708,7 +1688,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                         compactMode={compactMode}
                         sendMessageKey={sendMessageKey}
                         openAnnotationRequest={openAnnotationRequest}
-                        onBranch={session?.supportsBranching ? async (messageId: string, options?: { newPanel?: boolean }) => {
+                        onBranch={session?.supportsBranching ? async (messageId: string) => {
                           if (!session) return
                           try {
                             const child = await appShellContext.onCreateSession(
@@ -1725,12 +1705,12 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                                 enabledSourceSlugs: session.enabledSourceSlugs,
                               }
                             )
-                            navigate(routes.view.allSessions(child.id), { newPanel: resolveBranchNewPanelOption(options) })
+                            navigate(routes.view.allSessions(child.id))
                           } catch (error) {
                             const rawMessage = error instanceof Error ? error.message : 'Failed to create branch'
                             const message = rawMessage.includes('source and target providers must match')
                               || rawMessage.includes('same provider/backend')
-                              ? 'Branching is only supported within the same provider/backend. Switch this panel connection and try again.'
+                              ? 'Branching is only supported within the same provider/backend. Switch the connection of this chat and try again.'
                               : rawMessage
                             toast.error(t('toast.couldNotCreateBranch'), { description: message })
                           }

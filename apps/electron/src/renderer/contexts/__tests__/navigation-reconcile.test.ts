@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { normalizePanelRouteForReconcile } from '../navigation-reconcile'
+import { normalizeRouteForReconcile } from '../navigation-reconcile'
 import type { NavigationState } from '../../../shared/types'
 
-describe('normalizePanelRouteForReconcile', () => {
+describe('normalizeRouteForReconcile', () => {
   it('auto-selects session details for filter-only session routes', () => {
     const resolver = (state: NavigationState): NavigationState => {
       if (state.navigator === 'sessions' && !state.details) {
@@ -14,7 +14,7 @@ describe('normalizePanelRouteForReconcile', () => {
       return state
     }
 
-    const normalized = normalizePanelRouteForReconcile('allSessions', resolver)
+    const normalized = normalizeRouteForReconcile('allSessions', resolver)
     expect(normalized).toBe('allSessions/session/s1')
   })
 
@@ -29,7 +29,7 @@ describe('normalizePanelRouteForReconcile', () => {
       return state
     }
 
-    const normalized = normalizePanelRouteForReconcile('allSessions/session/s2', resolver)
+    const normalized = normalizeRouteForReconcile('allSessions/session/s2', resolver)
     expect(normalized).toBe('allSessions/session/s2')
   })
 
@@ -46,7 +46,7 @@ describe('normalizePanelRouteForReconcile', () => {
     }
 
     const routes = ['allSessions', 'flagged'] as const
-    const normalized = routes.map((route) => normalizePanelRouteForReconcile(route, resolver))
+    const normalized = routes.map((route) => normalizeRouteForReconcile(route, resolver))
 
     expect(normalized).toEqual(['allSessions/session/all-1', 'flagged/session/flagged-1'])
   })
@@ -54,7 +54,7 @@ describe('normalizePanelRouteForReconcile', () => {
   it('keeps route unchanged when resolver leaves state without details', () => {
     const resolver = (state: NavigationState): NavigationState => state
 
-    const normalized = normalizePanelRouteForReconcile('allSessions', resolver)
+    const normalized = normalizeRouteForReconcile('allSessions', resolver)
     expect(normalized).toBe('allSessions')
   })
 
@@ -69,8 +69,8 @@ describe('normalizePanelRouteForReconcile', () => {
       return state
     }
 
-    expect(normalizePanelRouteForReconcile('settings', resolver)).toBe('settings')
-    expect(normalizePanelRouteForReconcile('sources', resolver)).toBe('sources')
+    expect(normalizeRouteForReconcile('settings', resolver)).toBe('settings')
+    expect(normalizeRouteForReconcile('sources', resolver)).toBe('sources')
   })
 
   it('keeps explicit detail route even if resolver tries to rewrite it', () => {
@@ -86,8 +86,8 @@ describe('normalizePanelRouteForReconcile', () => {
       return state
     }
 
-    expect(normalizePanelRouteForReconcile('allSessions/session/s2', resolver)).toBe('allSessions/session/s2')
-    expect(normalizePanelRouteForReconcile('sources/source/github', resolver)).toBe('sources/source/github')
+    expect(normalizeRouteForReconcile('allSessions/session/s2', resolver)).toBe('allSessions/session/s2')
+    expect(normalizeRouteForReconcile('sources/source/github', resolver)).toBe('sources/source/github')
   })
 
   it('keeps explicit detail routes distinct across multiple panels', () => {
@@ -100,7 +100,7 @@ describe('normalizePanelRouteForReconcile', () => {
     }
 
     const routes = ['allSessions/session/left', 'allSessions/session/right'] as const
-    const normalized = routes.map((route) => normalizePanelRouteForReconcile(route, resolver))
+    const normalized = routes.map((route) => normalizeRouteForReconcile(route, resolver))
 
     expect(normalized).toEqual(['allSessions/session/left', 'allSessions/session/right'])
   })

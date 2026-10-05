@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils'
 import { FreeFormInput, type FreeFormInputProps } from './free-form-input'
 import { StructuredInput } from './structured-input'
 import type { RichTextInputHandle } from '@/components/ui/rich-text-input'
-import { useOptionalAppShellContext } from '@/context/app-shell-context'
 import type { StructuredInputState, StructuredResponse, InputMode } from './structured/types'
 import { getComposerMaxHeight } from './composer-height'
 import { useInputAvailableHeight } from '@/hooks/use-input-available-height'
@@ -52,8 +51,6 @@ export function InputContainer({
   onAnimatedHeightChange,
   ...freeFormProps
 }: InputContainerProps) {
-  const appShellContext = useOptionalAppShellContext()
-  const isFocusedPanel = appShellContext?.isFocusedPanel ?? true
   const mode: InputMode = structuredInput ? 'structured' : 'freeform'
   const measureRef = React.useRef<HTMLDivElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -248,7 +245,7 @@ export function InputContainer({
       <motion.div
         className={cn(
           "input-container relative rounded-xl overflow-hidden transition-colors",
-          isFocusedPanel ? "shadow-middle" : "shadow-minimal",
+          "shadow-middle",
           "bg-card"
         )}
         style={{

@@ -28,6 +28,7 @@ import { useEscapeInterrupt } from "@/context/escape-interrupt-context"
 import { useNavigation, useNavigationState, routes, isSessionsNavigation } from "@/contexts/navigation-context"
 import { useFocusContext } from "@/context/focus-context"
 import { sendToWorkspaceAtom, type SessionMeta } from "@/atoms/sessions"
+import { sessionListOrderAtom } from "@/atoms/list-context"
 import type { ViewConfig } from "@otto/shared/views"
 import type { SessionStatusId, SessionStatus } from "@/config/session-status-config"
 import { buildCollapsedGroupsScopeSuffix } from "@/utils/session-list-collapse"
@@ -525,6 +526,13 @@ export function SessionList({
   const expandAllGroups = useCallback(() => {
     setCollapsedGroups(new Set())
   }, [])
+
+  // Publish the order shown here so the open chat's Previous / Next step through it.
+  const setSessionListOrder = useSetAtom(sessionListOrderAtom)
+  useEffect(() => {
+    setSessionListOrder(flatRows.map(row => row.item.id))
+    return () => setSessionListOrder([])
+  }, [flatRows, setSessionListOrder])
 
   const rowIndexMap = useMemo(() => {
     const map = new Map<string, number>()

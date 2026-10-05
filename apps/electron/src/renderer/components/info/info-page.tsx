@@ -8,7 +8,7 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle } from 'lucide-react'
-import { PanelHeader, type PanelHeaderProps } from '@/components/app-shell/panel-header'
+import { PageHeader, type PageHeaderProps } from '@/components/app-shell/page-header'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Spinner } from '@otto/ui'
 import { cn } from '@/lib/utils'
@@ -25,7 +25,7 @@ export interface Info_PageProps {
   className?: string
 }
 
-export interface Info_PageHeaderProps extends Omit<PanelHeaderProps, 'className'> {
+export interface Info_PageHeaderProps extends Omit<PageHeaderProps, 'className'> {
   className?: string
 }
 
@@ -112,7 +112,7 @@ function Info_PageRoot({
 }
 
 function Info_PageHeader({ className, ...props }: Info_PageHeaderProps) {
-  return <PanelHeader className={className} {...props} />
+  return <PageHeader className={className} {...props} />
 }
 
 function Info_PageHero({ avatar, title, tagline, className }: Info_PageHeroProps) {

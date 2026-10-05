@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/styled-dropdown'
 import { useProjects } from '@/hooks/use-projects'
 import type { LoadedPage, PageDataSnapshot, PageRenderLease } from '@otto/shared/pages/types'
+import { PageHeader } from '@/components/app-shell/page-header'
 import { PageFrame } from './page-frame'
 import { PageFreshness, PageKindBadge } from './page-visuals'
 import { DeletePageDialog } from './delete-page-dialog'
@@ -244,17 +245,8 @@ export function PageView({ pageSlug }: PageViewProps) {
 
   return (
     <div className="flex h-full flex-col bg-background">
-      {/* Header: back, title, kind, freshness, overflow */}
-      <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
-        <button
-          type="button"
-          onClick={handleBack}
-          aria-label={t('pages.backToPages')}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground"
-        >
-          <ArrowLeft className="size-3.5" />
-        </button>
-        {nameDraft !== null ? (
+      <PageHeader
+        title={nameDraft !== null ? (
           <input
             autoFocus
             value={nameDraft}
@@ -265,97 +257,95 @@ export function PageView({ pageSlug }: PageViewProps) {
               else if (e.key === 'Escape') setNameDraft(null)
             }}
             aria-label={t('pages.renamePage')}
-            className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm font-medium outline-none focus:border-ring"
+            className="titlebar-no-drag h-7 w-64 max-w-full rounded-sm bg-input/50 px-2 text-sm font-medium outline-none"
           />
         ) : (
-          <span
-            className="min-w-0 truncate text-sm font-medium"
-            title={t('pages.renamePage')}
-            onDoubleClick={() => setNameDraft(config.name)}
-          >
+          <span title={t('pages.renamePage')} onDoubleClick={() => setNameDraft(config.name)}>
             {config.name}
           </span>
         )}
-        <PageKindBadge kind={config.kind} />
-        <PageFreshness config={config} className="hidden @[28rem]/panel:inline-flex" />
-        <div className="ml-auto flex items-center gap-1">
-          {(sharingEnabled || (viewerConfigured && config.share)) && (
+        badge={<PageKindBadge kind={config.kind} />}
+        actions={
+          <>
+            <PageFreshness config={config} className="hidden @[28rem]/panel:inline-flex" />
+        {(sharingEnabled || (viewerConfigured && config.share)) && (
+          <button
+            type="button"
+            onClick={() => setShareOpen(true)}
+            aria-label={t('pages.share.title')}
+            title={config.share ? t('pages.shared') : t('pages.share.title')}
+            className="flex h-7 items-center gap-1.5 rounded-md px-2 text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground"
+          >
+            <Globe2 className={config.share ? 'size-3.5 text-sky-600 dark:text-sky-400' : 'size-3.5'} />
+            {config.share && (
+              <span className="hidden text-xs @[28rem]/panel:inline">{t('pages.shared')}</span>
+            )}
+          </button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
               type="button"
-              onClick={() => setShareOpen(true)}
-              aria-label={t('pages.share.title')}
-              title={config.share ? t('pages.shared') : t('pages.share.title')}
-              className="flex h-7 items-center gap-1.5 rounded-md px-2 text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground"
+              aria-label={t('common.more')}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground data-[state=open]:bg-foreground/5"
             >
-              <Globe2 className={config.share ? 'size-3.5 text-sky-600 dark:text-sky-400' : 'size-3.5'} />
-              {config.share && (
-                <span className="hidden text-xs @[28rem]/panel:inline">{t('pages.shared')}</span>
-              )}
+              <MoreHorizontal className="size-3.5" />
             </button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={t('common.more')}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground data-[state=open]:bg-foreground/5"
-              >
-                <MoreHorizontal className="size-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <StyledDropdownMenuContent align="end">
-              <StyledDropdownMenuItem onClick={() => setNameDraft(config.name)}>
-                <Pencil />
-                {t('pages.renamePage')}
+          </DropdownMenuTrigger>
+          <StyledDropdownMenuContent align="end">
+            <StyledDropdownMenuItem onClick={() => setNameDraft(config.name)}>
+              <Pencil />
+              {t('pages.renamePage')}
+            </StyledDropdownMenuItem>
+            {projects.length > 0 && (
+              <DropdownMenuSub>
+                <StyledDropdownMenuSubTrigger>
+                  <Folder className="h-3.5 w-3.5" />
+                  <span className="flex-1">{t('pages.moveToProject')}</span>
+                </StyledDropdownMenuSubTrigger>
+                <StyledDropdownMenuSubContent>
+                  <StyledDropdownMenuItem onClick={() => void moveToProject(null)}>
+                    {!config.projectId && <Check className="h-3.5 w-3.5" />}
+                    <span className={config.projectId ? 'flex-1 ml-[18px]' : 'flex-1'}>
+                      {t('sessionMenu.noProject')}
+                    </span>
+                  </StyledDropdownMenuItem>
+                  <StyledDropdownMenuSeparator />
+                  {projects.map(p => {
+                    const isBound = config.projectId === p.config.id
+                    return (
+                      <StyledDropdownMenuItem key={p.config.id} onClick={() => void moveToProject(p.config.id)}>
+                        {isBound && <Check className="h-3.5 w-3.5" />}
+                        <span className={isBound ? 'flex-1' : 'flex-1 ml-[18px]'}>{p.config.name}</span>
+                      </StyledDropdownMenuItem>
+                    )
+                  })}
+                </StyledDropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            <StyledDropdownMenuItem onClick={handleOpenFolder}>
+              <FolderOpen />
+              {t('pages.openFolder')}
+            </StyledDropdownMenuItem>
+            <StyledDropdownMenuItem onClick={handleRefreshPreview}>
+              <RefreshCw />
+              {t('pages.refreshPreview')}
+            </StyledDropdownMenuItem>
+            {(config.grants?.length ?? 0) > 0 && (
+              <StyledDropdownMenuItem onClick={() => setGrantsOpen(true)}>
+                <KeyRound />
+                {t('pages.grants.manage')}
               </StyledDropdownMenuItem>
-              {projects.length > 0 && (
-                <DropdownMenuSub>
-                  <StyledDropdownMenuSubTrigger>
-                    <Folder className="h-3.5 w-3.5" />
-                    <span className="flex-1">{t('pages.moveToProject')}</span>
-                  </StyledDropdownMenuSubTrigger>
-                  <StyledDropdownMenuSubContent>
-                    <StyledDropdownMenuItem onClick={() => void moveToProject(null)}>
-                      {!config.projectId && <Check className="h-3.5 w-3.5" />}
-                      <span className={config.projectId ? 'flex-1 ml-[18px]' : 'flex-1'}>
-                        {t('sessionMenu.noProject')}
-                      </span>
-                    </StyledDropdownMenuItem>
-                    <StyledDropdownMenuSeparator />
-                    {projects.map(p => {
-                      const isBound = config.projectId === p.config.id
-                      return (
-                        <StyledDropdownMenuItem key={p.config.id} onClick={() => void moveToProject(p.config.id)}>
-                          {isBound && <Check className="h-3.5 w-3.5" />}
-                          <span className={isBound ? 'flex-1' : 'flex-1 ml-[18px]'}>{p.config.name}</span>
-                        </StyledDropdownMenuItem>
-                      )
-                    })}
-                  </StyledDropdownMenuSubContent>
-                </DropdownMenuSub>
-              )}
-              <StyledDropdownMenuItem onClick={handleOpenFolder}>
-                <FolderOpen />
-                {t('pages.openFolder')}
-              </StyledDropdownMenuItem>
-              <StyledDropdownMenuItem onClick={handleRefreshPreview}>
-                <RefreshCw />
-                {t('pages.refreshPreview')}
-              </StyledDropdownMenuItem>
-              {(config.grants?.length ?? 0) > 0 && (
-                <StyledDropdownMenuItem onClick={() => setGrantsOpen(true)}>
-                  <KeyRound />
-                  {t('pages.grants.manage')}
-                </StyledDropdownMenuItem>
-              )}
-              <StyledDropdownMenuItem variant="destructive" onClick={() => setConfirmingDelete(true)}>
-                <Trash2 />
-                {t('pages.deletePage')}
-              </StyledDropdownMenuItem>
-            </StyledDropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+            )}
+            <StyledDropdownMenuItem variant="destructive" onClick={() => setConfirmingDelete(true)}>
+              <Trash2 />
+              {t('pages.deletePage')}
+            </StyledDropdownMenuItem>
+          </StyledDropdownMenuContent>
+        </DropdownMenu>
+          </>
+        }
+      />
 
       {/* Granted sources that lost auth get a reconnect row above the frame */}
       {activeWorkspaceId && (

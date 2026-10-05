@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { Panel } from './panel'
+import { PageHeader } from './page-header'
 import { MultiSelectPanel } from './multi-select-panel'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { sessionMetaMapAtom, type SessionMeta } from '@/atoms/sessions'
@@ -44,6 +45,18 @@ import { PageView } from '../pages/page-view'
 import type { ExecutionEntry } from '../automations/types'
 import { automationsAtom } from '@/atoms/automations'
 import { SendResourceToWorkspaceDialog, type SendResourceType } from './send-resource-to-workspace-dialog'
+
+/** A section with nothing open: the section's title in the header, a quiet line in the card. */
+function EmptyPanel({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader title={title} />
+      <div className="flex flex-1 items-center justify-center text-muted-foreground">
+        <p className="text-sm">{message}</p>
+      </div>
+    </div>
+  )
+}
 
 export interface MainContentPanelProps {
   /** Optional className for the container */
@@ -268,9 +281,7 @@ export function MainContentPanel({
     // No source selected - empty state
     return withSendDialog(
       <Panel variant="grow" className={className}>
-        <div className="flex items-center justify-center h-full text-muted-foreground">
-          <p className="text-sm">{t("sourcesList.noSourcesConfigured")}</p>
-        </div>
+        <EmptyPanel title={t("sidebar.sources")} message={t("sourcesList.noSourcesConfigured")} />
       </Panel>
     )
   }
@@ -303,9 +314,7 @@ export function MainContentPanel({
     // No skill selected - empty state
     return withSendDialog(
       <Panel variant="grow" className={className}>
-        <div className="flex items-center justify-center h-full text-muted-foreground">
-          <p className="text-sm">{t("skillsList.noSkillsConfigured")}</p>
-        </div>
+        <EmptyPanel title={t("sidebar.skills")} message={t("skillsList.noSkillsConfigured")} />
       </Panel>
     )
   }
@@ -345,9 +354,7 @@ export function MainContentPanel({
     }
     return withSendDialog(
       <Panel variant="grow" className={className}>
-        <div className="flex items-center justify-center h-full text-muted-foreground">
-          <p className="text-sm">{t("automations.noAutomationsConfigured")}</p>
-        </div>
+        <EmptyPanel title={t("sidebar.automations")} message={t("automations.noAutomationsConfigured")} />
       </Panel>
     )
   }
@@ -377,9 +384,7 @@ export function MainContentPanel({
     }
     return withSendDialog(
       <Panel variant="grow" className={className}>
-        <div className="flex items-center justify-center h-full text-muted-foreground">
-          <p className="text-sm">{t("projectsList.noProjectSelected")}</p>
-        </div>
+        <EmptyPanel title={t("sidebar.projects")} message={t("projectsList.noProjectSelected")} />
       </Panel>
     )
   }
@@ -415,9 +420,7 @@ export function MainContentPanel({
     // No session selected - empty state
     return withSendDialog(
       <Panel variant="grow" className={className}>
-        <div className="flex items-center justify-center h-full text-muted-foreground">
-          <p className="text-sm">{t("session.noSessionSelected")}</p>
-        </div>
+        <EmptyPanel title={t("sidebar.chats")} message={t("session.noSessionSelected")} />
       </Panel>
     )
   }
@@ -425,9 +428,7 @@ export function MainContentPanel({
   // Fallback (should not happen with proper NavigationState)
   return withSendDialog(
     <Panel variant="grow" className={className}>
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p className="text-sm">{t("session.selectConversation")}</p>
-      </div>
+      <EmptyPanel title={t("sidebar.chats")} message={t("session.selectConversation")} />
     </Panel>
   )
 }

@@ -11,8 +11,6 @@ const PREFIX = 'otto-'
  */
 export const KEYS = {
   // Chat sidebar
-  sidebarWidth: 'sidebar-width',
-  sessionListWidth: 'session-list-width',
   sidebarMode: 'sidebar-mode',
   listFilter: 'list-filter',
   labelFilter: 'label-filter',

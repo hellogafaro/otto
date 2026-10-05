@@ -8,6 +8,8 @@ import { useNavigation } from '@/contexts/navigation-context'
 import { routes } from '@/lib/navigate'
 import { pagesAtom, pagesProjectFilterAtom, PAGES_UNASSIGNED_PROJECT } from '@/atoms/pages'
 import { projectsAtom } from '@/atoms/projects'
+import { PageHeader } from '@/components/app-shell/page-header'
+import { Button } from '@/components/ui/button'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import {
   ProjectMultiSelectFilter,
@@ -126,29 +128,24 @@ export function PagesHome() {
 
   return (
     <div className="flex h-full flex-col bg-background">
-      {/* Sticky header: title + count, project filter, primary action */}
-      <div className="flex items-center justify-between gap-2 border-b border-border/50 px-4 py-2.5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="text-sm font-medium">{t('sidebar.pages')}</span>
-          <span className="text-xs text-foreground/40">{pages.length}</span>
-          {(projectOptions.length > 0 || projectFilter.length > 0) && (
-            <ProjectMultiSelectFilter
-              projects={projectOptions}
-              value={projectFilter}
-              onChange={setProjectFilter}
-              unassignedId={PAGES_UNASSIGNED_PROJECT}
-            />
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={handleCreatePage}
-          disabled={!activeWorkspaceId}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-foreground/5 disabled:opacity-50"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> {t('pages.newPage')}
-        </button>
-      </div>
+      <PageHeader
+        title={t('sidebar.documents')}
+        actions={
+          <>
+            {(projectOptions.length > 0 || projectFilter.length > 0) && (
+              <ProjectMultiSelectFilter
+                projects={projectOptions}
+                value={projectFilter}
+                onChange={setProjectFilter}
+                unassignedId={PAGES_UNASSIGNED_PROJECT}
+              />
+            )}
+            <Button variant="outline" size="compact" onClick={handleCreatePage} disabled={!activeWorkspaceId}>
+              <Plus /> {t('pages.newPage')}
+            </Button>
+          </>
+        }
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {pages.length === 0 ? (

@@ -24,7 +24,6 @@ import {
   MailOpen,
   FolderOpen,
   Copy,
-  Columns2,
   CloudUpload,
   RefreshCw,
   Tag,
@@ -278,12 +277,6 @@ export function SessionMenu({
       </MenuItem>
 
       <Separator />
-
-      {/* Open in New Panel */}
-      <MenuItem onClick={actions.openInNewPanel}>
-        <Columns2 className="h-3.5 w-3.5" />
-        <span className="flex-1">{t("sessionMenu.openInNewPanel")}</span>
-      </MenuItem>
 
       {/* Show in file manager */}
       <MenuItem onClick={actions.showInFinder}>

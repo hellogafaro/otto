@@ -97,9 +97,20 @@ components:
   page-card:
     backgroundColor: "{colors.background}"
     rounded: "{rounded.xl}"
-  top-bar:
-    height: 40px
-    padding: 4px
+  sidebar:
+    backgroundColor: "{colors.frame}"
+    width: 232px
+  sidebar-list:
+    width: 288px
+  sidebar-icons:
+    width: 48px
+  content-card-header:
+    height: 44px
+    padding: 8px
+  floating-card:
+    backgroundColor: "{colors.background}"
+    rounded: "{rounded.xl}"
+    width: 320px
   card:
     backgroundColor: "{colors.card}"
     textColor: "{colors.foreground}"
@@ -253,11 +264,6 @@ components:
     height: 40px
     width: 450px
     padding: 4px
-  section-sidebar:
-    backgroundColor: "{colors.frame}"
-    width: 280px
-  right-panel:
-    width: 280px
   scroll-button:
     backgroundColor: "{colors.card}"
     rounded: "{rounded.md}"
@@ -366,10 +372,10 @@ never a heavy shadow. L is OKLCH lightness, measured from the rendered page.
 
 | Layer | Token and classes | Light L | Dark L |
 | --- | --- | --- | --- |
-| 0 Frame: `html`/`body`, rail, top bar | `--sidebar` (`bg-sidebar`) | 0.96 | 0.12 |
-| 1 Fill on the frame: rail hover (60%) and open item | `--sidebar-accent` + `ring-foreground/10` when open | 1.0 | 0.22 |
-| 2 Page card: status sidebar, list and page, split by hairlines | `--background` + `ring-1 ring-foreground/10 shadow-xs` | 1.0 | 0.17 |
-| 3 Card in a page: settings card, composer, raised control (`shadow-minimal`) | `--card` + `ring-foreground/10` | 1.0 | 0.22 |
+| 0 Frame: `html`/`body` and the sidebar | `--sidebar` (`bg-sidebar`) | 0.96 | 0.12 |
+| 1 Fill on the frame: sidebar row hover (60%) and open row | `--sidebar-accent` + `ring-foreground/10` when open | 1.0 | 0.22 |
+| 2 Page card: the one `ContentCard` (and the `FloatingCard` beside it) | `--background` + `ring-1 ring-foreground/10 shadow-xs` | 1.0 | 0.17 |
+| 3 Inner card in a page: `PageCard` (settings card), composer, raised control (`shadow-minimal`) | `--card` + `ring-foreground/10` | 1.0 | 0.22 |
 | 3 Input and nested control well | `--input` at 50% (`bg-input/50`) | 0.96 | 0.29 on a card |
 | 3 Hover and open row fill | `--muted`, `--secondary`, `foreground/5` (hover), `foreground/7-10` (open) | 0.95-0.97 | 0.24-0.27 |
 | 4 Floating: menu, popover, tooltip, toast | `--popover` at 70%, `dark` class, `shadow-md` | about 0.45 over white | about 0.21 over the page |
@@ -410,15 +416,17 @@ is fixed at 12px; 10.2px read too small.
 
 Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 
-- **Layers.** The frame (`bg-sidebar`) is the lowest and darkest layer; the
-  rail and any section sidebar sit on it. The page is a card on the frame:
-  `SidebarInset` 8px from the top, right and bottom, `xl` 12 corners, the
-  hairline ring and `shadow-xs`. Lower is darker (values under Colors).
+- **The shell** is the Threads layout: `[Sidebar][ContentCard][FloatingCard]`.
+  There is no top bar, no rail and no panels. The frame (`bg-sidebar`) is the
+  lowest and darkest layer and the sidebar sits directly on it, with no card,
+  divider or ring against the page. The page is ONE card on the frame
+  (`ContentCard`): `bg-background`, the hairline ring, `shadow-xs`, `xl` 12
+  corners, 8px from the top, right and bottom and flush against the sidebar's
+  own 8px gutter. Lower is darker (values under Colors).
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
-- **Controls are 32px**: bar buttons, the rail and tabs. Task list and
-  command palette rows are 36px. Sidebar rows (the left panels and the right
-  one, 2px apart, their group titles too), dropdown, combobox and suggestion
+- **Controls are 32px**: bar buttons and tabs. Task list and
+  command palette rows are 36px. Sidebar rows (2px apart, their group titles too), dropdown, combobox and suggestion
   items, dense bars (filter groups, composer pickers) and controls nested in
   a row (settings) use 28px with 6px corners, the `compact` button; the
   smallest buttons are 24px (`xs`), like a sidebar row's actions, 2px inside
@@ -435,29 +443,71 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   each side of the slot, so it is 7px from every edge. Labels after a slot
   share one column (32px in), and a
   combobox's search icon and text sit on the items' columns.
-- **Rail** (`AppRail`): 48px wide, 8px around 32px buttons (8 | 32 | 8, flush
-  against the page card, whose own 8px inset sits on the same line), 14px icons,
-  4px between buttons, the open one filled (`sidebar-accent`), no labels.
-  Inbox (home), Search (the command palette), Tasks, Projects, Chats,
-  Schedules, Documents, Files.
-- **Left and right panels.** The rail stays alone on the frame. Inside the
-  card, a left panel (`SectionSidebar`) holds a section's own navigation
-  (Chats) and the right panel holds details; both are 280px, in the card's
-  color, divided from the page by a hairline, with a 40px header level with
-  the page's top bar and the title 16px in. Left navigates, right details.
-- **Top bar** (`Topbar`): 40px, 32px controls 4px from every edge, no
-  hairline. Breadcrumb on the left; page actions on the right, ending with
-  the panel toggle.
-- **Right panel toggle** stays in the window's top right corner: in the
-  page's top bar while the panel is closed, in the panel's own top bar
-  ("Details" and the toggle) once open. The panel opens and closes at once,
-  with no slide.
-- **Desktop app.** The desktop app adds a 40px title strip above the shell
-  (traffic lights, back and forward, one tab per open page); `?desktop`
-  previews it in a browser. The web app has none.
-- **Widths follow φ**: the page column is 728px; the floating chat bar
-  is 728 ÷ φ = 450px;
-  sidebars and the right panel are 450 ÷ φ = 280px.
+- **Sidebar** (`Sidebar`, design system). 232px expanded, 288px while its
+  section carries a list (Chats, Projects, Sources, Skills, Schedules), 48px as
+  icons only. It is expanded from 1024px up and icons only below; below 768px
+  it is a sheet opened by the menu button in the page header. There is no
+  toggle button, cookie or shortcut: the window decides. No resizing: the
+  widths are fixed (set per section through `--sidebar-width`). Inside, 8px
+  from the window's edges and from the card, top to bottom:
+  - **Header**: the Otto mark (14px in a 20px slot, `text-foreground`) and
+    "Otto" (13px, medium). On Electron the header is the window's drag region,
+    its row clears the macOS traffic lights (68px in; icons only, the row sits
+    below them) and Back / Forward end it as two 28px ghost icon buttons with
+    their keys in the tooltip (history back and forward, see Navigation). The
+    web app has neither: the browser has its own.
+  - **Primary group**: New chat and Search (each with its `Kbd` in the
+    tooltip), then the areas: Chats, Projects, Documents. Rows are 28px with
+    `sm` 6 corners, 14px icons in a 20px slot, muted at rest, foreground on
+    hover; hover is `--sidebar-accent` at 60%, the open area is `--sidebar-accent`
+    with the hairline ring. Areas with no route yet (Inbox, Tasks, Schedules,
+    Files) have no row. Skills, Sources and Schedules (automations) live under
+    Settings; opening one keeps Settings filled.
+  - **The area's section**, below, takes the height that is left and
+    scrolls inside itself: a 28px title row in 12px muted text with the
+    area's own actions at its end (the Chats filter menu, a + to add), then its
+    content. Chats: the status and label filters (collapsed to "All Sessions"
+    and "Labels" until opened; the title is "Filters") above the session list,
+    which is the list moved out of its old panel. Settings: Account and
+    Workspace groups of one-line rows. Projects, Sources, Skills and Schedules:
+    their existing list. Documents has no section: its library is the page.
+    Hidden when icons only.
+  - **Footer**: Settings, then the workspace row: a 32px `md` avatar in a 40px
+    `xl` row (8 + 4 = 12, nested), the name and an up-down chevron. It opens the
+    workspace menu (the workspaces, remove, add) upward, or to the right when
+    icons only, where only the avatar shows, with the name in a tooltip.
+- **The page header** (`ContentCardHeader`): 44px at the top of the card, 28px
+  controls 8px from every edge. Leading slot, title (heading size, medium, 16px
+  in when nothing leads), a quiet crumb trail, actions on the right. Pages call
+  `PageHeader` and pass no handlers (see Navigation). On Electron the header is
+  a drag region and the controls opt out; the 8px of frame above the card is
+  too.
+- **The floating card** (`FloatingCard`), closed by default, is for an
+  inspector or details (session info, files, a source's details): the page
+  card's sibling at its right, same surface, 8px away, 320px (25vw, 280–360),
+  with its own 44px header (title, Close) and scroll area. From 1280px up it is
+  a flex item and the page card shrinks to make room; below, it overlays the
+  page card (`shadow-md`, no backdrop) and below 768px it spans the width.
+  Opening and closing is 200ms of width and fade (slide and fade when
+  overlaid), none with reduced motion. Escape closes it while focus is inside,
+  and it closes when the page changes. Pages open it through
+  `useFloatingCard().openCard({ title, content })`.
+- **The floating action** (`FloatingActionButton`): the page's one "+" (New
+  chat on Chats), bottom-right of the card, 16px from the corner. 40px,
+  `bg-card`, `xl` corners, hairline ring, `shadow-sm`; tooltip to its left with
+  the label and its `Kbd`. Hidden while the card is narrower than 930px (it
+  would sit on the composer) and below 768px, where the sidebar has New chat.
+- **Floating navigation** (`FloatingNav`): Superhuman's controls, in the page
+  card's left margin below the header: a round 32px Back button and a vertical
+  pill of Previous (up) and Next (down), `bg-card`, hairline ring, `shadow-sm`,
+  14px icons, a tooltip each. Round on purpose: they float free of rows and
+  bars. Shown on a page opened from a list (a chat) while the card is at least
+  896px wide (768px column + 2 × 56px); narrower, Back moves into the header's
+  leading slot and Previous / Next into its actions as 28px ghost buttons.
+- **Widths**: the page column is 768px (3xl) for chat, lists and settings; the
+  sidebar is 232px, 288px with a list, 48px as icons; the floating card is
+  320px. Chat and settings share the column, so the floating navigation has
+  the same margin everywhere.
 - **One left line.** The page title, headings, editor text, grid tiles and
   their labels, and the text inside page-level surfaces all start on the
   page column's edge. Surfaces reach out by their own inset instead of
@@ -467,16 +517,108 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   from the cards' edge, as in the floating chat, so its text is on the line
   too. The header is at least 32px tall, so a title stays put with or
   without buttons.
-- **Page** (`Page`): a centered column, `default` (max 3xl) for reading and
-  settings, `wide` (max 5xl) for lists. 20px between header and content;
-  20px side padding, 52px top and bottom on desktop. An optional `cover` sits
-  above the title; an optional `floating` bar (the floating chat) replaces the bottom
-  padding and rests 16px above the bottom.
+- **Page**: see Page anatomy.
 - **Galleries** (`Gallery`): 3 columns for projects, 4 for documents and
   files; 12px between columns, 20px between rows so a title stays with its
   tile.
-- **Right panel**: a full-height stock `Sidebar` inside the page card, beside
-  the top bar and page, 280px.
+
+## Page anatomy
+
+Final and extremely simple, as the settings pages already are: **the title
+outside, inner cards in the center.** No wrapping, no nesting, easy radii.
+
+- **Two surface levels on a page.** The frame (the sidebar and everything
+  behind the page) → the one `ContentCard` → inner cards (`PageCard`: `bg-card`,
+  hairline ring, `xl` 12). Never a card in a card, a panel in a panel, or an
+  extra wrapper, divider or border around a section. Inside an inner card:
+  only rows split by full-bleed hairlines, and nested 28px controls.
+- **Every page** is the `PageHeader` title (on the card surface, above the
+  inner cards) and ONE centered column (`PageColumn`: 768px, 3xl; wider only
+  where a page says so) of sections stacked 32px apart. A section (`PageSection`)
+  is a small title (heading size, medium) with an optional one-line description
+  above its inner card; the title's action ends its row. The column sits 20px
+  from the card's sides and 28px from its top and bottom, and scrolls as a
+  whole inside the card (edge fade, no scrollbar). `SettingsSection` and
+  `SettingsCard` are `PageSection` and `PageCard`; the settings pages are the
+  reference implementation.
+- **Lists and detail views** that live in the card follow the same anatomy.
+  The exception is the chat: its transcript is the column, and the composer is
+  a floating inner card at the bottom of it.
+- **Radii**, one table (inner = outer − gap):
+
+| Surface | Radius | Inside it |
+| --- | --- | --- |
+| Page card, floating card (`xl`) | 12 | 28px header controls 8px in (6) |
+| Inner card (`xl`), 20px or more from the card's edge | 12 | Rows full-bleed, no radius |
+| Row in a card, nested control | 28px, `sm` 6 | 24px action, `xs` 4 |
+| Button | 32px, `md` 8 | 14px icon |
+| Sidebar row | 28px, `sm` 6 | 24px action, `xs` 4 |
+| Workspace row | 40px, `xl` 12 | 32px avatar, `md` 8 |
+| Floating navigation, only | round | 14px icon |
+
+## Navigation
+
+One history stack, one rule for Back, one place the lists live.
+
+- **History** is the navigation context's own (the URL; every view change
+  pushes an entry). Back and Forward mean history back and forward everywhere:
+  on Electron the two icon buttons in the sidebar header and their keys
+  (⌘[ / ⌘] and ⌘← / ⌘→), on the web the browser's own buttons. The web app
+  draws none.
+- **Back in the page header** is a different thing and is shown ONLY on a
+  drill-down view (a view with a parent), where it goes to the parent view by the
+  route hierarchy (`useParentView`): a settings page below the landing page goes
+  to Settings; a document goes to the Documents library; an item of a list (a
+  chat, a source, a skill, a project, a schedule) goes to its list. The list
+  lives in the sidebar, so below 768px (a sheet) Back opens the sheet on it;
+  otherwise it closes the item and leaves the list. Without a parent there is
+  no Back. Pages never pass handlers: `PageHeader` reads the route.
+- **Crumbs** are the quiet trail after the title: the parent's name as a link
+  to it (Settings, Sources, …). Next step: the trail starts with the Otto mark
+  (home, the default area) and the workspace name (it opens the workspace menu).
+- **Compact (below 768px)**: the leading slot is the sidebar sheet's menu
+  button. On a drill-down view Back replaces it: Back from a list item opens the
+  sheet on the list, so the sidebar stays one tap away; Back from a settings
+  page or a document goes to its parent, which has the menu button.
+- **Previous / Next** step through the list the page was opened from, as the
+  sidebar shows it (Chats: filtered, grouped and sorted there): the context
+  exposes `listNav` (`hasPrev`, `hasNext`, `goPrev`, `goNext`) from the session
+  list's published order, and both are disabled at the ends. They show as the
+  floating navigation. No keys are bound yet (none exist), so no `Kbd` shows.
+  Quick actions in the Superhuman manner (next chat, next task, go back) are the
+  next layer on this API.
+- Existing navigation APIs: `navigate(route, { skipAutoSelect })`,
+  `navigateToSession`, `navigateToSource`, `goBack` / `goForward`,
+  `canGoBack` / `canGoForward`, `listNav`, `useNavigationState()`,
+  `useParentView()`. There is one open route (`currentRouteAtom`); several
+  panels side by side are gone, and so are open in a new panel, new chat in a
+  panel and focus next / previous panel.
+
+## Shell primitives
+
+All in `design/ui` (`// Otto:` comments mark what differs from stock shadcn) and
+shown together in the playground under Shell (resize the window: the sidebar and
+the floating card follow it).
+
+| Primitive | API | Spec |
+| --- | --- | --- |
+| `SidebarProvider` / `Sidebar` | `style={{ '--sidebar-width': … }}` | 232px, 48px as icons, a sheet below 768px; no toggle, cookie or shortcut; absolute inside the shell; 8px container padding is the gutter; no border or ring |
+| `SidebarHeader`, `SidebarContent`, `SidebarFooter` | | 8px above and below (footer: above); content does not scroll, its groups do |
+| `SidebarGroup`, `SidebarGroupLabel`, `SidebarGroupAction` | | 28px title row, 12px medium muted; the action is a 24px ghost button, `xs` 4 corners, 2px inside the row |
+| `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton` | `isActive`, `size="default" \| "lg"`, `tooltip` (text, or `{ children, hidden }` for a label and `Kbd`) | 28px row, `sm` 6, 14px icon in a 20px slot; hover `sidebar-accent` 60%; active `sidebar-accent` + hairline ring + `shadow-xs`; `lg` is 40px, `xl` 12, for a 32px avatar; icons only: 32px square, label and trailing icons hidden, plain tooltips show |
+| `SidebarMenuAction` | | 24px, `xs` 4, 2px inside the row; shown on row hover or focus (always on touch) |
+| `SidebarTrigger` | | the page header's menu button below 768px; 28px ghost |
+| `ContentCard` | `className` | the page card; `@container/panel`; full bleed below 768px |
+| `ContentCardHeader` | `leading`, `title`, `crumbs`, `actions` | 44px, 28px controls 8px in, title heading size medium |
+| `ContentCardCrumbs`, `ContentCardBody` | `crumbs: { label, onClick }[]` | muted 13px trail divided by a slash; scroll region with edge fade, no scrollbar |
+| `PageColumn`, `PageSection`, `PageCard` | `title`, `description`, `action`, `danger` | see Page anatomy |
+| `FloatingCard` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel` | see Layout; closed by default |
+| `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; shown from a 896px card |
+| `FloatingActionButton` | `tooltip` | see Layout |
+
+In the renderer: `PageHeader` (the header with the route's Back, crumbs and list
+navigation wired), `AppSidebar`, `SidebarSection`, `useFloatingCard`,
+`useParentView`.
 
 ## Elevation & Depth
 
@@ -487,7 +629,7 @@ Depth comes from translucency and hairlines, not heavy shadows.
 - **Cards** (comments, composer, question cards): card background, a
   `ring-foreground/10` hairline and `shadow-xs`.
 - **Scrolling** areas fade at the edge where more content waits (shadcn
-  `scroll-fade-*`): under the top bar and off the bottom, the floating chat
+  `scroll-fade-*`): under the page header and off the bottom, the floating chat
   above the fade. The fade is the only sign: no scrollbar (`no-scrollbar`)
   on pages, panels, the file viewer and the floating chat's list, so the
   column never shifts when a page starts to scroll. The chat thread keeps the
@@ -592,19 +734,13 @@ border. "/" and "@" suggestion lists use the same 28px rows.
 Page shortcuts pause while a modal dialog or sheet is open, including when its
 buttons have focus; the modal keeps its own keyboard controls.
 
-**Right panel.** A stock shadcn sidebar: collapsible `SidebarGroup` sections
-with stock spacing and no dividers, under its own 40px top bar ("Details",
-its title on the section titles' line, and the panel toggle). Muted section
-titles with an optional count, hidden when there is nothing (no "0").
-Counts everywhere sit right after their label, softer than it
-(`Count`), the label's icon-to-label gap away. Property rows open their menu; each
-has a hotkey. A "New …" row ends a list. Row actions appear on hover (always on
-touch), and hovering one keeps its row highlighted. Repeat stores an iCalendar
-rule: presets plus Custom, which asks Otto.
-
-**Top bar.** Breadcrumb as small ghost buttons with icons; the current item
-shows its status icon. Right side: More (copy link, delete) and then the panel
-toggle, always rightmost, labeled "Open panel" / "Close panel".
+**Details** (inside the floating card). Collapsible sections with stock
+spacing and no dividers. Muted section titles with an optional count, hidden
+when there is nothing (no "0"). Counts everywhere sit right after their label,
+softer than it (`Count`), the label's icon-to-label gap away. Property rows open
+their menu; each has a hotkey. A "New …" row ends a list. Row actions appear on
+hover (always on touch), and hovering one keeps its row highlighted. Repeat
+stores an iCalendar rule: presets plus Custom, which asks Otto.
 
 **Composer** (`Composer`). The one input for comments, chats and agent
 requests. Card surface; one line that grows to 240px. **+** adds files (drop
@@ -1050,7 +1186,7 @@ Inbox continues its four independent server attention cursors with one More atte
 
 The File share byte-selection control uses the shared Checkbox primitive, with its stock compact size and focus behavior, beside the descriptive label.
 
-On mobile, Chats and Settings section navigation opens in the shared Sheet from a compact section header; selecting a route closes it. The desktop section panel keeps its existing width. This leaves the page usable beside the app rail on narrow screens.
+Below 768px the whole sidebar (areas, the open area's section, footer) is the shared Sheet, opened by the page header's menu button; choosing a route closes it.
 
 Private pages remain behind the session-loading state until the previous authenticated session's requests and cache have been cleared. Current Project authority resolves independently of the displayed member page; incomplete pickers never decide who can edit.
 
@@ -1076,16 +1212,9 @@ Unknown creation outcomes disable another submission in the current form and dir
 The app now runs on Otto (see `UPSTREAM.md`); these are the Otto rules
 that carry over, applied where Craft draws the same thing.
 
-- **Layers.** `--sidebar` (behind everything) is the darkest layer: the rail, the
-  top bar and the 8px gap sit on it. One card (`bg-background`, 12px corners,
-  hairline ring, `shadow-xs`) holds the sidebar, the list and the page, split by
-  hairlines. No floating panels, no gaps between them.
-- **Rail.** 48px wide, 32px buttons, 14px icons, no labels, Settings last at
-  the bottom. Sized in px: the root font size must not change it.
-- **Left lists** (Settings, sessions): a 40px header with the title left-aligned
-  16px in, then groups with a small muted title, rows 28px with 6px corners, a
-  20px icon slot, the open row filled. One line per row, no descriptions, no
-  dividers, no row menus.
+- **Layers and the sidebar**: see Layout. The sidebar's lists (Chats, Settings)
+  keep these row rules: 28px rows with 6px corners, a 20px icon slot, the open
+  row filled; one line per row, no descriptions, no dividers.
 - **Settings pages.** Sections are an h2 (`text-base`, medium) with an optional
   one-line description, then a 12px card with a hairline ring whose rows are
   split by hairlines. A row is a label and one muted line on the left and one

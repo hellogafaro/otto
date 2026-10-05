@@ -426,17 +426,12 @@ export function FreeFormInput({
     return appShellCtx.workspaces.find(w => w.id === workspaceId)?.slug ?? workspaceId
   }, [appShellCtx, workspaceId])
 
-  // Read panel focus state from context (for multi-panel unfocused styling)
-  const appShellContext = useOptionalAppShellContext()
-  const isFocusedPanel = appShellContext?.isFocusedPanel ?? true
-
   // Shuffle placeholder order once per mount so each session feels fresh.
-  // Hide placeholder entirely when panel is unfocused in multi-panel layout
   const shuffledPlaceholder = React.useMemo(
     () => Array.isArray(effectivePlaceholderProp) ? shuffleArray(effectivePlaceholderProp) : effectivePlaceholderProp,
     [] // eslint-disable-line react-hooks/exhaustive-deps -- intentionally shuffle only on mount
   )
-  const effectivePlaceholder = isFocusedPanel ? shuffledPlaceholder : ''
+  const effectivePlaceholder = shuffledPlaceholder
 
   // Performance optimization: Always use internal state for typing to avoid parent re-renders
   // Sync FROM parent on mount/change (for restoring drafts)
@@ -590,7 +585,7 @@ export function FreeFormInput({
   React.useEffect(() => {
     const handleInsertText = (e: CustomEvent<{ text: string; sessionId?: string }>) => {
       const targetSessionId = e.detail?.sessionId
-      if (!shouldHandleScopedInputEvent({ sessionId, isFocusedPanel, targetSessionId })) return
+      if (!shouldHandleScopedInputEvent({ sessionId, targetSessionId })) return
 
       const text = coerceInputText(e.detail?.text)
       setInput(text)
@@ -605,7 +600,7 @@ export function FreeFormInput({
 
     window.addEventListener('otto:insert-text', handleInsertText as EventListener)
     return () => window.removeEventListener('otto:insert-text', handleInsertText as EventListener)
-  }, [sessionId, isFocusedPanel, syncToParent, richInputRef])
+  }, [sessionId, syncToParent, richInputRef])
 
   const clearInputDraft = React.useCallback(() => {
     setInput('')
@@ -708,7 +703,7 @@ export function FreeFormInput({
     if (!sessionId) return
     let preparing = false
     const handleApprovePlanWithCompact = async (event: CustomEvent<PlanApprovalEventDetail>) => {
-      if (!shouldHandleScopedInputEvent({ sessionId, isFocusedPanel, targetSessionId: event.detail?.sessionId })) return
+      if (!shouldHandleScopedInputEvent({ sessionId, targetSessionId: event.detail?.sessionId })) return
       if (preparing || processingRef.current) return
       preparing = true
       try {
@@ -730,14 +725,14 @@ export function FreeFormInput({
     }
     window.addEventListener('otto:approve-plan-with-compact', handleApprovePlanWithCompact as unknown as EventListener)
     return () => window.removeEventListener('otto:approve-plan-with-compact', handleApprovePlanWithCompact as unknown as EventListener)
-  }, [sessionId, isFocusedPanel, permissionMode, previousPermissionMode, onPermissionModeChange, onSubmit, consumeInputDraftSnapshot])
+  }, [sessionId, permissionMode, previousPermissionMode, onPermissionModeChange, onSubmit, consumeInputDraftSnapshot])
 
   // Listen for otto:focus-input events (restore focus after popover/dropdown closes)
   React.useEffect(() => {
     const handleFocusInput = (e: Event) => {
       const detail = (e as CustomEvent<{ sessionId?: string }>).detail
       const targetSessionId = detail?.sessionId
-      if (!shouldHandleScopedInputEvent({ sessionId, isFocusedPanel, targetSessionId })) return
+      if (!shouldHandleScopedInputEvent({ sessionId, targetSessionId })) return
 
       if (targetSessionId) {
         clearPendingFocusForSession(targetSessionId)
@@ -756,7 +751,7 @@ export function FreeFormInput({
 
     window.addEventListener('otto:focus-input', handleFocusInput)
     return () => window.removeEventListener('otto:focus-input', handleFocusInput)
-  }, [sessionId, isFocusedPanel, richInputRef])
+  }, [sessionId, richInputRef])
 
   // Recover queued focus requests after session switch/mount races.
   React.useEffect(() => {
@@ -789,7 +784,7 @@ export function FreeFormInput({
       if (disabled) return
 
       const targetSessionId = e.detail?.sessionId
-      if (!shouldHandleScopedInputEvent({ sessionId, isFocusedPanel, targetSessionId })) return
+      if (!shouldHandleScopedInputEvent({ sessionId, targetSessionId })) return
 
       const { files } = e.detail
       if (!files || files.length === 0) return
@@ -824,7 +819,7 @@ export function FreeFormInput({
 
     window.addEventListener('otto:paste-files', handlePasteFiles as unknown as EventListener)
     return () => window.removeEventListener('otto:paste-files', handlePasteFiles as unknown as EventListener)
-  }, [disabled, sessionId, isFocusedPanel, richInputRef])
+  }, [disabled, sessionId, richInputRef])
 
   // Build active commands list for slash command menu
   const activeCommands = React.useMemo(() => {
@@ -1201,13 +1196,13 @@ export function FreeFormInput({
   React.useEffect(() => {
     const handleSubmitInput = (e: CustomEvent<{ sessionId?: string }>) => {
       const targetSessionId = e.detail?.sessionId
-      if (!shouldHandleScopedInputEvent({ sessionId, isFocusedPanel, targetSessionId })) return
+      if (!shouldHandleScopedInputEvent({ sessionId, targetSessionId })) return
       submitMessage()
     }
 
     window.addEventListener('otto:submit-input', handleSubmitInput as EventListener)
     return () => window.removeEventListener('otto:submit-input', handleSubmitInput as EventListener)
-  }, [sessionId, isFocusedPanel, submitMessage])
+  }, [sessionId, submitMessage])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
