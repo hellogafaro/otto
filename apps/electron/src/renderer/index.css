@@ -89,6 +89,7 @@
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
   --foreground: oklch(0.145 0 0);
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
+  --frame: oklch(0.985 0 0);                /* behind the panels: rail, top bar, gaps */
   --foreground-rgb: 10, 10, 10;             /* RGB for shadow borders */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
@@ -256,6 +257,7 @@
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
   --foreground: oklch(0.985 0 0);
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
+  --frame: oklch(0.11 0 0);
   --foreground-rgb: 250, 250, 250;           /* RGB for shadow borders */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);

@@ -231,8 +231,6 @@ const EXPECTED_CHANNELS: string[] = [
   'projects:listAssets',
   'projects:update',
   'projects:uploadAsset',
-  'releaseNotes:get',
-  'releaseNotes:getLatestVersion',
   'remote:testConnection',
   'resources:export',
   'resources:import',

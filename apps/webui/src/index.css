@@ -41,7 +41,7 @@ html {
 /* The desktop app is transparent over the window's vibrancy; a browser has nothing
  * behind the page, so the page itself needs the theme's background. */
 html, body {
-  background-color: var(--background);
+  background-color: var(--frame);
 }
 html.dark {
   color-scheme: dark;

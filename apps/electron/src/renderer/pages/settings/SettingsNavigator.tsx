@@ -38,13 +38,25 @@ interface SettingsNavigatorProps {
   selectedSubpage: SettingsSubpage | null
   /** Called when a subpage is selected */
   onSelectSubpage: (subpage: SettingsSubpage) => void
+  /** Areas moved under Settings, listed after the settings pages. */
+  areaLinks?: SettingsAreaLink[]
 }
 
 interface SettingsItem {
-  id: SettingsSubpage
+  id: string
   label: string
   icon: React.ComponentType<{ className?: string }>
   description: string
+  /** A link to another area (Skills, Sources, Automations), not a settings page: no "open in new window" menu. */
+  link?: boolean
+}
+
+/** Another area that lives under Settings: selecting it opens that area's own list and details. */
+export interface SettingsAreaLink {
+  id: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  onSelect: () => void
 }
 
 interface SettingsItemRowProps {
@@ -112,12 +124,15 @@ function SettingsItemRow({ item, isSelected, isFirst, onSelect }: SettingsItemRo
             >
               {item.label}
             </span>
-            <span className="text-xs text-foreground/60 line-clamp-1">
-              {item.description}
-            </span>
+            {item.description && (
+              <span className="text-xs text-foreground/60 line-clamp-1">
+                {item.description}
+              </span>
+            )}
           </div>
         </button>
         {/* Action buttons - visible on hover or when menu is open */}
+        {!item.link && (
         <div
           data-touch-reveal="true"
           className={cn(
@@ -143,6 +158,7 @@ function SettingsItemRow({ item, isSelected, isFirst, onSelect }: SettingsItemRo
             </DropdownMenu>
           </div>
         </div>
+        )}
       </div>
     </div>
   )
@@ -151,6 +167,7 @@ function SettingsItemRow({ item, isSelected, isFirst, onSelect }: SettingsItemRo
 export default function SettingsNavigator({
   selectedSubpage,
   onSelectSubpage,
+  areaLinks = [],
 }: SettingsNavigatorProps) {
   const { t } = useTranslation()
 
@@ -174,7 +191,16 @@ export default function SettingsNavigator({
               item={item}
               isSelected={selectedSubpage === item.id}
               isFirst={index === 0}
-              onSelect={() => onSelectSubpage(item.id)}
+              onSelect={() => onSelectSubpage(item.id as SettingsSubpage)}
+            />
+          ))}
+          {areaLinks.map((link) => (
+            <SettingsItemRow
+              key={link.id}
+              item={{ id: link.id, label: link.label, icon: link.icon, description: '', link: true }}
+              isSelected={false}
+              isFirst={false}
+              onSelect={link.onSelect}
             />
           ))}
         </div>

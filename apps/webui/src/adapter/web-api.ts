@@ -162,8 +162,6 @@ export function createWebApi(options: WebApiOptions): {
     onUpdateAvailable: () => () => {},
     onUpdateDownloadProgress: () => () => {},
     // Release notes — serve from server via RPC (same content as Electron)
-    getReleaseNotes: () => client.invoke('releaseNotes:get') as Promise<string>,
-    getLatestReleaseVersion: () => client.invoke('releaseNotes:getLatestVersion') as Promise<string | undefined>,
 
     // Menu events — register as keyboard shortcuts
     onMenuNewChat: () => () => {},
