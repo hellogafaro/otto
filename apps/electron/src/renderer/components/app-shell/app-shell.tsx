@@ -45,6 +45,7 @@ import { SidecarHost, SidecarProvider } from "@/context/sidecar-context"
 import { ComposerProvider } from "@/components/composer/composer-provider"
 import { ShellComposer } from "@/components/composer/shell-composer"
 import { isWebUI } from "@/lib/platform"
+import { InboxWallpaper } from "@/components/wallpaper/inbox-wallpaper"
 import { SendToWorkspaceDialog } from "./send-to-workspace-dialog"
 import { MessagingDialogHost } from "@/components/messaging/messaging-dialog-host"
 import { CommandPaletteProvider } from "@/components/command-palette/command-palette-provider"
@@ -320,9 +321,6 @@ function AppShellContent({
 
   // New chat
   useAction('app.newChat', () => handleNewChat())
-
-  // The Inbox (the composer bar's Inbox button shows this key while ⌘ or Option is held)
-  useAction('nav.inbox', () => navigate(routes.view.inbox()))
 
   // Settings
   useAction('app.settings', onOpenSettings)
@@ -613,6 +611,8 @@ function AppShellContent({
     <AppShellProvider value={appShellContextValue}>
       <CommandPaletteProvider>
       <SidebarProvider>
+        {/* The Inbox only: the photo under the whole window, first so the sidebar and the page paint over it. */}
+        {sidebarArea === 'inbox' && <InboxWallpaper />}
         {/* Electron: the window's top 8px is drag space everywhere (the gutters, the sidebar header and the chat's pinned row are the rest). */}
         {!isWebUI && <div aria-hidden className="titlebar-drag-region fixed inset-x-0 top-0 z-50 h-2" />}
         <CloseSheetOnNavigate />

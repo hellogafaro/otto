@@ -6,9 +6,12 @@
  * leaving shrinks it) with the text and files kept. It reads the page's context (`useComposerContext`), keeps a
  * browser draft per context, runs the compact bar's state machine (`composerReducer`), takes files (+, drop, paste:
  * the attachment rail), dictates (`useDictation`, `transcription:create`), and sends: the page's own `onSend` (the
- * chat), else the default, a new chat whose first line is the page's entity token, opened at once. Shortcuts (`Kbd`)
- * show only while ⌘/Ctrl or Option/Alt is held (`useModifierHeld`). The edit popover's mini chat (until it goes,
- * docs/composer.md W6) draws a second instance of it, full, not hosted. See docs/composer.md.
+ * chat), else the default, a new chat whose first line is the page's entity token, opened at once. While
+ * something needs you (`useAttention`) and nothing is written, the bar has the Inbox button; it (or ⌥I / ⌘I,
+ * `nav.inbox`) opens the Inbox list above the text in the same surface (Escape, the button again or a click
+ * outside closes it). Its one shortcut, the focus key (`Kbd`), shows only while ⌘/Ctrl or Option/Alt is held
+ * (`useModifierHeld`), in the Inbox's place. The chat draws an instance of its own, not hosted, when the shell has
+ * no composer. See docs/composer.md.
  */
 
 import * as React from 'react'
@@ -34,8 +37,9 @@ import { applySmartTypography } from '@/lib/smart-typography'
 import { AttachmentRail } from '@/components/composer/attachment-rail'
 import { useComposerCommands } from '@/components/composer/composer-commands'
 import type { ComposerHandle } from '@/components/composer/composer-provider'
-import { buildFirstMessage, composerReducer, mainAction, resolveShellSurface, sendKeyAction, type ComposerContext, type SendKey } from '@/components/composer/composer-state'
-import { InboxButton } from '@/components/composer/inbox-button'
+import { attentionSlot, buildFirstMessage, composerReducer, mainAction, resolveShellSurface, sendKeyAction, type ComposerContext, type SendKey } from '@/components/composer/composer-state'
+import { InboxButton, InboxList } from '@/components/composer/inbox-button'
+import { useAttention } from '@/components/composer/use-attention'
 import { useComposerDraft } from '@/components/composer/use-composer-draft'
 import { useComposerFiles } from '@/components/composer/use-composer-files'
 import { useDictation, useElapsed } from '@/components/composer/use-dictation'
@@ -58,6 +62,9 @@ export function FreeFormInput({ context, handleRef }: {
   const inputRef = React.useRef<RichTextInputHandle>(null)
   const pickerRef = React.useRef<HTMLInputElement>(null)
   const held = useModifierHeld()
+  const attention = useAttention()
+  const [inboxOpen, setInboxOpen] = React.useState(false)
+  const formRef = React.useRef<HTMLFormElement>(null)
   const surface = resolveShellSurface(context, view)
   const full = surface === 'full'
   const sessionId = context?.sessionId
@@ -66,7 +73,10 @@ export function FreeFormInput({ context, handleRef }: {
 
   // A new page starts collapsed (its draft comes with it).
   const contextKey = context?.key
-  React.useEffect(() => dispatch({ type: 'collapse' }), [contextKey])
+  React.useEffect(() => {
+    dispatch({ type: 'collapse' })
+    setInboxOpen(false)
+  }, [contextKey])
 
   // The chat input's settings: the send key, auto-capitalisation and spell check.
   const [settings, setSettings] = React.useState<{ sendKey: SendKey; capitalise: boolean; spellCheck: boolean }>({ sendKey: 'enter', capitalise: true, spellCheck: false })
@@ -133,6 +143,34 @@ export function FreeFormInput({ context, handleRef }: {
 
   useAction('composer.focus', () => focusAt(), { enabled: () => hosted && inputRef.current !== null })
   const focusKey = useHotkeyLabel('composer.focus')
+
+  // The Inbox list: over the bar (compact or expanded) while something needs you, never in full mode or while
+  // dictating. The Inbox key toggles it there; anywhere else (a full page, nothing to show) it opens the page.
+  const inboxShown = inboxOpen && attention.count > 0 && !full && !listening && !!context
+  useAction('nav.inbox', () => {
+    if (context && !full && attention.count > 0) setInboxOpen((open) => !open)
+    else navigate(routes.view.inbox())
+  }, { enabled: () => hosted })
+  React.useEffect(() => {
+    if (!inboxShown) return
+    const close = () => setInboxOpen(false)
+    const onPointer = (event: PointerEvent) => {
+      if (!formRef.current?.contains(event.target as Node)) close()
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.isComposing || hasOpenOverlay()) return
+      // Escape closes the list first, before anything else takes it.
+      event.preventDefault()
+      event.stopPropagation()
+      close()
+    }
+    document.addEventListener('pointerdown', onPointer)
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [inboxShown])
 
   const hasContent = text.trim() !== '' || files.items.length > 0 || !!context?.canSendEmpty
   const canSend = hasContent && files.ready && !sending && !context?.disabled && !listening && !dictation.transcribing
@@ -337,6 +375,7 @@ export function FreeFormInput({ context, handleRef }: {
     <>
       {commands.menus}
       <Composer
+        ref={formRef}
         variant={surface}
         dragging={dragging}
         aria-label={placeholder}
@@ -372,8 +411,12 @@ export function FreeFormInput({ context, handleRef }: {
             <span aria-live="off" className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{elapsed}</span>
           </>
         ) : surface === 'compact' ? null : context.tools}
-        hint={held && focusKey && !listening ? <Kbd className="mr-1">{focusKey}</Kbd> : null}
-        attention={listening ? null : <InboxButton showKey={held} />}
+        attention={{
+          key: focusKey ? <span className="flex h-8 min-w-8 items-center justify-center"><Kbd>{focusKey}</Kbd></span> : null,
+          inbox: <InboxButton count={attention.count} open={inboxShown} onToggle={() => setInboxOpen((open) => !open)} />,
+          none: null,
+        }[attentionSlot({ held, listening, empty, count: attention.count }) ?? 'none']}
+        panel={inboxShown ? <InboxList attention={attention} onPick={() => setInboxOpen(false)} /> : null}
         main={main}
       >
         <ComposerInput className={listening && surface === 'compact' ? 'hidden' : undefined}>

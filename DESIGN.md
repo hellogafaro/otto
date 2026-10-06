@@ -398,7 +398,8 @@ never a heavy shadow. L is OKLCH lightness, measured from the rendered page.
 | Layer | Token and classes | Light L | Dark L |
 | --- | --- | --- | --- |
 | 0 Frame: `html`/`body` and the sidebar | `--sidebar` (`bg-sidebar`) | 0.96 | 0.12 |
-| 2 Surface on the frame: `PageCard`, `PageCenterpiece`, `Card`, the composer card, the sidecar when it is a card or overlays, the empty-state tile | `--card` + `card-surface` (1px border, `shadow-xs`) | 1.0 | 0.19 |
+| 2 Surface on the frame: `PageCard`, `PageCenterpiece`, `Card`, the sidecar when it is a card or overlays, the empty-state tile | `--card` + `card-surface` (1px border, `shadow-xs`) | 1.0 | 0.19 |
+| 2 The composer, every look (v1's full composer) | `--card` + `ring-1 ring-foreground/10`, `shadow-xs` | 1.0 | 0.19 |
 | 2 Outline control (`Button outline`) | `--card` + 1px `--card-ring` border, no shadow | 1.0 | 0.19 |
 | 3 Input and nested control well | `--input` at 50% (`bg-input/50`) | 0.96 | 0.27 on a card |
 | State fills (hover, pressed, open, selected) | not a layer: alphas of `foreground`, 5% hover, 10% pressed / open / selected | hover / selected: 0.92 / 0.88 on the frame, 0.96 / 0.91 on a card | 0.16 / 0.20 on the frame, 0.23 / 0.27 on a card |
@@ -481,14 +482,14 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   - **Nothing is pinned above a page.** Its title row is the first block of the
     scrolling column (Capy's settings pattern) and scrolls away with the content;
     see The page header. The one exception is the **open chat**
-    (`/chats/<id>`): a compact 44px row pinned above its centerpiece, which
-    spans the whole 768px track with no side padding; it is the only page on the
-    compact spacing.
+    (`/chats/<id>`): a compact 58px header (`density="compact"`, see Density) pinned
+    above its transcript wrapper, which spans the whole 768px track; it is the only
+    page on the compact spacing.
   - **The top axis** (`--axis-y`, 34px, one CSS variable in `globals.css`): **the
-    sidebar's mark, the open chat's pinned title and its floating navigation's
-    Back share the center y 34**, and so do every title row and the sheet's menu
-    button below 768px. Each offsets from the variable by half its own height
-    (the chat's row: top 12, 44px; Back and a title row below 768px: top 18,
+    sidebar's mark** and, below 768px, every roomy title row and the sheet's menu
+    button share the center y 34 (the compact chat header is no longer on it: it
+    is the row between two equal 13px gaps, center 29). Each offsets from the variable by half its own height
+    (the chat's row: top 18, 32px; Back and a title row below 768px: top 18,
     32px; the mark's row: top 20, 28px), so changing it moves them all. The
     value is the sidebar's: its first row starts one group gap (20px) from the
     top, 20 + 28 / 2 = 34. From 768px every other page's title row is lower,
@@ -514,7 +515,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     first section's title row on a blocks page, the first card when there is no
     section title (y 136 at scroll 0 from 768px: the title row is 64 to 96, then
     40px; lower under an item's description), the centerpiece under the chat's
-    pinned row (y 56). Blocks mark themselves (`data-content-start`), `PageFrame`
+    pinned header (y 68). Blocks mark themselves (`data-content-start`), `PageFrame`
     measures the first one (unscrolled) and publishes it as `--content-start`.
     The docked sidecar starts there (it is the sidecar's line, not the floating
     navigation's: that one is level with the title row).
@@ -585,8 +586,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   header's bottom and the footer's top carry it); group 3 is hidden.
   - **Header** (group 0): the Otto mark alone, 20px (`size-5`, `text-foreground`), no
     name, in a 28px row 20px from the top of the window and 20px above the first
-    group, so its center is the top axis (y 34: the open chat's pinned title's
-    and Back's; other pages' titles sit at y 64 from 768px). The sheet below 768px keeps the same 8px inset (plus
+    group, so its center is the top axis (y 34; roomy titles sit at y 64 from 768px, the compact chat header's center is 29). The sheet below 768px keeps the same 8px inset (plus
     the iOS safe area), so its mark is on the axis of the page's menu button. On Electron the header is the window's drag region,
     its row clears the macOS traffic lights (68px in; icons only, the row sits
     below them) and Back / Forward end it as two 28px ghost icon buttons with
@@ -748,17 +748,41 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   body text 4px under the title in the same slot (inset like the title; one
   block, so the 40px gap comes after it), shown there once and never repeated
   in the page: the same pattern as a document, its title then its body.
-  - **The chat is the only exception** (`PageHeader pinned`): a **compact pinned
-    row**, 44px, its top 12px below the window's top (`--axis-y` - 22: the same
-    center, y 34), in the frame's header slot above the transcript card, which
-    starts at y 56. Same title (fading under the actions) and More actions. On
-    Electron it is the window's drag region and the controls opt out.
+  - **Density: ONE row, one `density` prop (`roomy` | `compact`), no per-page
+    override.** The spacing tokens live in ONE place, `FRAME_TOKENS` in
+    `page-frame.tsx` (published on the frame's grid, so the owner can tweak and
+    compare), on the golden scale 8, 13, 21, 34, 55 (`--gr-8` ... `--gr-55`, the
+    same steps as the type scale 13, 16.5, 21):
+
+    | Token | Value | What |
+    | --- | --- | --- |
+    | `--nav-gap` | 13 | the navigation's right edge to the column (owner: never above 16): its x is the same on EVERY page (x 339 at 1280) |
+    | `--nav-top-roomy` | 64 | roomy: the nav top and the title row's top |
+    | `--header-gap` | 13 | compact: the gap above the title row AND below it (equal) |
+    | `--header-compact` | 58 | compact: 13 + 32 + 13, where the wrapper's line starts |
+    | `--wrap-pad` | 21 | the wrapper's padding (line, padding, content start) |
+    | `--content-inset` | 22 | 1px line + `--wrap-pad`: the content's left edge and top inset |
+    | `--nav-top-compact` | 80 | `--header-compact` + `--content-inset`: the first content row's top |
+
+    **Roomy** (every page in the column: skill, source, routine, task, project,
+    library item, settings): the title row 64 down, the big title (21px), 16px in
+    to line up with the cards' text; the nav top is 64 (level with it).
+    **Compact** (the open chat, and any later page inside a bordered wrapper): the
+    row in the frame's header slot, the section title size (`text-base`, 16.5px),
+    its left edge on the content's left edge (22px in: the same x as the
+    transcript's text and the composer's side), and the nav top on the first
+    content row inside the wrapper (line 58, +1, +21 padding = 80: the first bubble's
+    top; the transcript's own padding is the same 21 less the 16px a turn row
+    carries, and it has none on the sides). Line, padding, content start is the
+    rhythm on both axes. The chat keeps its transcript wrapper (the whole 768px
+    track); only the header and the nav follow the density. On Electron the compact
+    row is the window's drag region and the controls opt out.
   - **Below 768px** the sidebar is a sheet, so its menu button must stay
     reachable without a pinned bar: a **32px raised icon button** (`outline`, as
     the floating navigation: content scrolls under it, so it needs the card
     fill) **fixed over the column's top-left**, 16px in, on the axis, outside the
     scroll (the frame's leading slot), and the title row clears it (its title
-    starts 56px in: 16 + 32 + 8). On the chat it leads the pinned row instead (a
+    starts 56px in: 16 + 32 + 8). On the chat it leads the compact row instead (a
     28px ghost button). A page showing only its empty state (`PageHeader` with no
     title) draws only this button.
 - **The sidecar** (`Sidecar`, undecided: canvas by default, `surface` wraps it in
@@ -784,13 +808,12 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   its `Kbd`; ⌘N (`app.newChat`, bound by the shell, not the sidebar) does the
   same. There is no floating "+".
 - **Floating navigation** (`FloatingNav`): Superhuman's controls, in the left
-  gutter beside the column, **20px from it**, **level with the title row**: Back's
+  gutter beside the column, **`--nav-gap` (13px) from it**, **level with the title row**: Back's
   top is y 64, the title row's top, so the two share a center at scroll 0. It is
   fixed to the frame, not to the title row or the first block, so the title
   scrolls away beside it. On the open chat (the one compact page, `PageFrame`
-  reads its pinned row, one rule) Back's center is the top axis instead
-  (`--axis-y`, y 34, top 18: the chat's pinned title's and the sidebar mark's
-  line). They are our standard raised icon button
+  reads its header's density, one rule) the top is `--nav-top-compact`
+  (80, the first content row inside the wrapper) instead; the x is the same. They are our standard raised icon button
   (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
   with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
   Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
@@ -803,8 +826,11 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   has a list), none otherwise; **Settings' own pages never show them** (its own sidebar lists the pages and
   leads with Back to app); **a skill and a source do** (the one exception in Settings, the owner's call:
   Back to their grid, Previous / Next through it), while their sidebar row stays filled; narrower than a 72px gutter (or below 768px) they
-  move into the title row's trailing actions (the chat's pinned row's) as 28px ghost icon buttons in the
-  same order (Back, Previous, Next), never leading and never beside the title.
+  move into the title row's trailing actions (the chat's compact row's) as 28px ghost icon buttons in the
+  same order (Back, Previous, Next), never leading and never beside the title. **Below 768px (phones)
+  the row keeps only the menu, Back, the title and More**: Previous and Next (and the chat's Session
+  info) are the first items of More (a dropdown; the chat's drawer), so the title gets the room. One
+  rule for every detail page.
 - **Widths**: the column track is 768px for every page (720px of content inside
   its 24px sides on every page but the open chat), the sidebar 256px on every
   page (48px as icons), the sidecar 296px. A centerpiece is never wider than the
@@ -873,14 +899,18 @@ no shadow.
   the height without scrolling as a whole; its title row is 64px down and the
   card 40px under it (y 136), like any page. A toolbar is part of the title
   row, not a nested card. **The open chat is the one compact page** and takes no
-  `PageColumn`: its title row is the compact pinned one (44px on the axis, see
-  The page header) and its transcript card spans the whole 768px track from y
-  56.
-  The chat adds a sibling card under it, 8px away: the composer (`bg-card`,
-  hairline border, `shadow-sm`, `xl` 12, auto height, pinned at the bottom of the
-  column) whose top row holds the session chips (mode, status, labels, Info) and
-  whose body is the input; the composer is not inside the centerpiece. Messages
-  are flat: assistant text sits straight on the surface (no bubble, ring or
+  `PageColumn`: its title row is the compact one (58px, see Density) and its transcript is **no card but the line wrapper** (TEST, the
+  owner's call: `PageWrap`, hairline, `2xl` 20, transparent, one `className`
+  in `chat-display.tsx`; revert = `PageCenterpiece`) spanning the whole 768px
+  track from y 58 to the frame's 8px bottom. **The floating composer sits INSIDE
+  the wrapper**, over its bottom: `chat-display.tsx` publishes `--wrap-inset`
+  (`--content-inset`, 22px: 1px line + 21px padding) on the frame's grid while the chat is mounted, and
+  the composer's slot uses it for its sides and bottom, so the composer is 12px
+  inside the line on every side, compact or full; the wrapper pads its top and
+  sides 12px, and the transcript's bottom padding is `--composer-lift` (the
+  slot's height, composer plus its gap) + 12px, so nothing hides behind it.
+  The composer is not a card of the page: it is the one surface in the wrapper.
+  Messages are flat: assistant text sits straight on the surface (no bubble, ring or
   shadow), the user message is a muted fill, code blocks are flat muted blocks.
 - **PageWrap: the line box of a dense list page.** A page of many small rows
   with small details (a list or table: Chats, Tasks and a project's Tasks tab,
@@ -1195,7 +1225,7 @@ One history stack, one rule for Back, one place the lists live.
   Back to app leaves. Sub-navigation is the index page (Settings: its sidebar), so Back is the same at every width. There is no back button and no breadcrumb in the title row: the
   title is alone. Pages never pass handlers: `PageHeader` reads the route.
 - **Compact (below 768px)**: the sidebar sheet's menu button is fixed at the
-  page's top-left on the axis (on the chat it leads the pinned row); Back,
+  page's top-left on the axis (on the chat it leads the compact row); Back,
   Previous and Next are the ghost buttons at the end of the title row's actions. Back goes to the parent view like everywhere else.
 - **Previous / Next** step through the list the page belongs to, in the order its
   index shows it, and are disabled at the ends: the context exposes `listNav` (`hasPrev`,
@@ -1306,14 +1336,14 @@ as a card).
 | `SidebarMenuAction` | | 20px, `xs` 4, 4px inside the 28px row; shown on row hover or focus (always on touch); hover `foreground/10`, which stacks on the row's fill |
 | `SidebarMenuKbd` | | a row's shortcut: the standard `Kbd` over the row's end, 4px from top, right and bottom, muted, shown only while the reveal key is held (`data-reveal-shortcuts` on the sidebar), never on hover or focus; hidden icons only (the tooltip carries it then) |
 | `SidebarMenuSlot`, `SidebarMenuSlotAction` | | the row's right slot: a 20px lane 4px from the row's top, right and bottom, one cell for stacked layers (status or time, actions, key) that swap by opacity; clicks pass through except on a visible layer; `SlotAction` is the 20px in-line ghost button (the look of `SidebarMenuAction`). The row fades its title under the lane with a mask, see Pins and recents |
-| `SidebarTrigger` | | the sheet's menu button below 768px: 28px ghost in the chat's pinned row; elsewhere 32px `outline`, fixed over the column's top-left on the axis |
+| `SidebarTrigger` | | the sheet's menu button below 768px: 28px ghost in the chat's compact row; elsewhere 32px `outline`, fixed over the column's top-left on the axis |
 | `PageFrame` | `aside` | the main region on the frame: the 768px column (`@container/panel`) and its title slot, the chat's header slot, the leading slot (the fixed menu button), left and right gutters; the top axis `--axis-y`; see Layout |
-| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `pinned` | the title row: 32px, the first block of the column, 64px down from 768px (centered on the axis below); `pinned` (the open chat only) 44px in the header slot, centered on the axis; 28px controls, title is `PageTitle` (21px medium), inset 16px; no back button, no crumbs |
+| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `density` (`roomy` \| `compact`) | the title row: 32px; `roomy` the first block of the column, 64px down from 768px (centered on the axis below), `PageTitle` 21px medium, inset 16px; `compact` (the open chat only) 58px in the header slot (13 + 32 + 13), 16.5px title inset to the wrapper's content (22px); 28px controls; no back button, no crumbs; tokens in `FRAME_TOKENS` |
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
 | `PageColumn`, `PageSection`, `PageCard` | `fill`; `title`, `description`, `action`, `danger` | every page but the open chat (the column's first child is the title slot): 24px sides from 768px, 40px gaps, 40px at the end; `fill` for a centerpiece page (fills the height, no scroll of its own); see Page anatomy |
 | `PageWrap` | `className` | the line-only wrapper of a dense list page (Chats, Tasks, Inbox): hairline, `2xl` 20, no fill, no hairlines inside, clips its rows; flush for a flat list, padded 12px for the grouped list (TEST); never around cards; see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
-| `ListGroup`, `ListRow`, `ListRowSkeleton` | `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | Otto v1's table in the `PageWrap`, no card, no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows; a `ListRow` outside a group is full-bleed and square (Inbox); the loading row; see Data patterns |
+| `ListGroup`, `ListRow`, `ListRowSkeleton` | `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | Otto v1's table in the `PageWrap`, no card, no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows; a `ListRow` outside a group is full-bleed and square (Inbox); `size="sm"` is the 32px rounded row for a list inside a surface (the composer's Inbox list); the loading row; see Data patterns |
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
 | `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
@@ -1326,6 +1356,37 @@ navigation wired into the floating navigation), `AppSidebar` (with `SettingsBack
 `SettingsSidebarContent` swapped in under Settings), `SettingsPage`, `useParentView`, `useSidecar` (and `SidecarHost`, the
 `aside` of the shell's frame).
 
+### Inbox wallpaper
+
+The Inbox (only the Inbox route, decided by the owner) shows a photo under the
+whole window, the sidebar included; every other page is the plain frame.
+
+- **Photo.** Clouds in light, the night sky in dark (`assets/wallpaper/`, 1920px
+  AVIF, about 140 KB and 57 KB; `scripts/compress-wallpaper.ts`; credits in
+  `NOTICE`). Dithered and slowly animated by BB's shader (an 8x8 Bayer pattern,
+  four brightness steps, the photo's own colors, 2px cells, half resolution
+  capped at 1920 x 1080, 30 fps). Paused while the tab is hidden; one still
+  frame under reduced motion; the plain photo without WebGL2.
+- **Mount.** `InboxWallpaper`, mounted by the shell on the Inbox only, first in
+  the sidebar wrapper. Leaving the Inbox removes the canvas and its WebGL
+  context; it fades in over 240ms once the photo is decoded.
+- **One overlay** over the photo, white in light and black in dark, of three
+  layers with a strength each (globals.css): `--wallpaper-overlay` uniform
+  (light 0.15, dark 0.2), `--wallpaper-fade` BB's vertical fade, none at the top
+  to full at the bottom (0.8, 0.85), and `--wallpaper-scrim`, a soft ellipse from
+  the top-left corner behind the sidebar and the title row (0.85 both), its
+  radii `--wallpaper-scrim-size` (`70rem 250%`; `28rem 40%` below 768px, where
+  there is no sidebar). The scrim falls off on a smoothstep, so it has no edge.
+- **The sidebar has no surface** on the wallpaper: no fill, tint, blur or edge,
+  only its text, icons and row fills over the photo. Muted text is one step
+  stronger there (`--muted-foreground` 0.42 light, 0.82 dark). The phone's sidebar
+  sheet floats over the page, so it is glass.
+- **Surfaces turn to glass** (`data-wallpaper` on `<html>`): the list's wrapper,
+  cards and the composer keep their layer color translucent (card 70% white in
+  light, 0.19 at 65% in dark) over `blur(24px)`, which smooths the dither under
+  their text; their edge is `foreground` 10% (light) or white 14% (dark) instead
+  of the solid grey ring. State fills stay `foreground` alphas.
+
 ## Elevation & Depth
 
 Depth comes from translucency and hairlines, not heavy shadows.
@@ -1337,12 +1398,12 @@ is a flat 10% tinted fill.
 
 - **Frame**: the darkest layer, flat: the sidebar and the main region are the
   same color, nothing wraps the page. **Surfaces** (`PageCard`,
-  `PageCenterpiece`, `Card`, the composer, comments, question cards, the
+  `PageCenterpiece`, `Card`, comments, question cards, the
   empty-state tile): card background and ONE shared edge, the `card-surface`
   class in `globals.css`: a 1px **border** inside the card's own box
   (`--card-ring`, a solid color: `oklch(0.87 0 0)` in light, `oklch(0.281 0 0)`
-  in dark) and the soft outer shadow (`--card-shadow`, `shadow-xs`; the composer
-  sets `shadow-sm`, the sidecar overlay `shadow-md`), with `background-clip:
+  in dark) and the soft outer shadow (`--card-shadow`, `shadow-xs`; the sidecar
+  overlay sets `shadow-md`), with `background-clip:
   padding-box`. Never a `box-shadow` ring: it is drawn outside the box, and a
   scroller whose edge meets the card's (the page column fills the scroller, and
   `overflow-y: auto` clips x too) cuts it off at the sides and corners. The
@@ -1352,7 +1413,10 @@ is a flat 10% tinted fill.
   there, never per component. Siblings on the
   frame, never one inside another. The sidecar is the exception
   that proves it: flat on the frame when docked, a card with `shadow-md` only
-  when it overlays content.
+  when it overlays content. The composer is the other: it keeps v1's full
+  composer edge exactly (Components, Composer), a 1px `foreground` 10% ring
+  with `shadow-xs` and no border; it sits in its own slot, outside every
+  scroller, so nothing clips the ring.
 - **Scrolling** areas fade at the edge where more content waits (shadcn
   `scroll-fade-*`): at the top edge once the page has scrolled (never at scroll 0, so the title is whole) and off the bottom, the floating chat
   above the fade. The fade is the only sign: no scrollbar (`no-scrollbar`)
@@ -1366,13 +1430,12 @@ is a flat 10% tinted fill.
 - **Dialogs** (the command palette) sit over a plain 50% black overlay, no
   blur. The file viewer is a full-screen dialog (`fullScreen`) on the page
   background.
-- **The composer bar** floats on the command palette's glass (dark,
-  translucent, blurred, hairline ring, `shadow-md`) in the frame's composer
-  slot, a layer above the scrolling page, never inside it (the page's fade
-  mask would stop the blur): content scrolls on under the frost, fading over
-  its last 80px, and a page ends 24px above the bar (see Components,
-  Composer, Clearance). Only the bar takes clicks; no overlay, so the page
-  stays usable.
+- **The composer bar** floats on the composer's one surface (the card color,
+  the 1px `foreground` 10% ring, `shadow-xs`; Components, Composer) in the
+  frame's composer slot, a layer above the scrolling page, never inside it:
+  content scrolls on under it, fading over its last 80px, and a page ends
+  24px above the bar (see Components, Composer, Clearance). Only the bar takes
+  clicks; no overlay, so the page stays usable.
 
 ## Shapes
 
@@ -1631,29 +1694,81 @@ mounted once by the shell (`ComposerProvider` around `PageFrame`;
 text field never remounts on navigation: opening a chat, the new chat or the
 Inbox grows the same instance into the full look, leaving shrinks it, the text
 and files kept. Exactly one composer shows on any page.
-Three looks of one structure (slots in fixed places: `attachments`, `leading`
-+, the text, `context`, `tools`, `hint`, `attention`, `main`):
+Three looks of one structure (slots in fixed places: `panel`, `attachments`,
+`leading` +, the text, `context`, `tools`, `attention`, `main`).
 
-- **Compact** (every page by default): the 40px bar, 448px (28rem), on the
-  command palette's glass (dark in both themes, `popover/70`, blurred,
-  `ring-foreground/10`, `shadow-md`, `xl` 12). One row 4px in: + (32px ghost),
-  the text (44px in, one line, no wrap; the placeholder ends in an
-  ellipsis), the Inbox slot (always, a red dot while something needs you), the
-  main button. Centered on the column's content, 16px above the window's
-  bottom (8px above the body's end); below 768px the column's width (20px from
-  each side).
-- **Expanded** (grows in place from compact): the same glass as wide as the
-  column's content (720px), its bottom edge where the bar's was; the text 16px
-  in, one line up to 240px, then the action row: +, the page's entity chip
-  (`EntityChip`), tools … Inbox, main.
-- **Full** (the chat, the new chat, the Inbox): v1's full composer, the
-  expanded anatomy on the card surface (`shadow-sm`), as wide as the column's
-  track, 8px above the window's bottom, in the layout: the frame measures it
-  and sets `--composer-clearance` to its height + 8, so the chat's centerpiece
-  ends 8px above it while it grows. Text 16px in, then the action row: +, the
-  chat's model picker (28px), … main. Never the Inbox icon. A pending
-  permission or credential request takes its place until answered; the
-  chat's background tasks and follow-ups sit as chips above the text.
+**Surface** (one set of classes, `SURFACE` in `DS/composer.tsx`, the same in
+every look): Otto v1's full composer exactly (`v1:apps/web/src/components/composer.tsx`,
+its `InputGroup`): `xl` 12 corners, `bg-card`, a 1px `ring-foreground/10`
+(no border), `shadow-xs`, controls 4px in. Checked against v1 in computed
+styles (12px radius, 0px border, the `foreground` 10% 1px ring and the
+`0 1px 2px` 5% shadow, light and dark; the full look 72px tall with one line,
+the text 12px in and 12px down, + 4px from the edge). The looks change only
+the size and what is inside, never the edge or the padding; v1's floating
+glass for the bar is gone.
+
+- **Compact** (every page by default): the 40px bar, 448px (28rem). One row:
+  + (32px ghost), the text (44px in, one line, no wrap; the placeholder ends
+  in an ellipsis), the attention slot (the Inbox, below), the main button.
+  Centered on the column's content, 16px above the window's bottom (8px above
+  the body's end); below 768px the column's width (20px from each side).
+- **Expanded** (grows in place from compact): as wide as the column's
+  content (720px), its bottom edge where the bar's was; the text 12px in and
+  down (v1's `p-3 pb-0`), one line up to 240px, touching the action row: +,
+  the page's entity chip (`EntityChip`), tools … Inbox, main, 8px apart (v1's
+  row gap).
+- **Full** (the chat, the new chat, the Inbox): the expanded anatomy, in the
+  layout: the frame measures the slot (the composer and its gap below) and
+  sets `--composer-clearance` to its height + 8, so a page's content ends 8px
+  above it while it grows. Never the Inbox. A
+  pending permission or credential request takes its place until answered;
+  the chat's background tasks and follow-ups sit as chips above the text.
+
+**Place** (the frame's composer slot, `DS/page-frame.tsx`): ONE place for
+every look, so compact, expanded and full share the bottom gap and the side
+edges and no page shifts it. The sides are the column's content edges (24px
+inside the 768px track from 768px wide, the frame's 20px gutter below), the
+bottom 8px above the body's end (16px above the window's). A page whose
+bordered wrapper runs to the body's end with the composer inside it (the
+chat) sets `--wrap-inset` (the wrapper's 1px border + 12px padding, 13px) on
+the root while mounted: the slot then pads by it on both sides and the
+bottom, so the composer sits on the wrapper's inner content edges. The slot's
+height (composer + bottom gap) is `--composer-lift`. Measured (1280×800): the
+compact bar is 448×40 at x 544, 16px above the window, on Tasks, a task,
+Projects, a project, Library, Routines, Settings, Skills and Chats alike, and
+unchanged on scroll; expanded and the Inbox's full composer are 720 wide on
+the column's edges (the Inbox's flush wrapper's), 16px above the window; the
+chat's (and the empty new chat's) full composer is 13px inside its wrapper on
+three sides. Phones (390×844, the root's 1.2 zoom): the bar 342 wide at x 24,
+19.2px above the window, the same on every page. A padded list wrapper
+(Tasks, Chats, Routines: `p-3 md:-mx-[9px]`) has its inner edge 4px further
+in than the expanded composer's.
+
+**Inbox** (W5; `components/composer/inbox-button.tsx`, `use-attention.ts`).
+What needs you, from data that exists: the workspace's chats waiting on you (a
+pending permission or credential request), its chats with news (`hasUnread`,
+newest first), then your unread notifications (the Inbox page's rows:
+mentions, assignments). The Inbox button (32px ghost `Inbox`, the 8px
+`bg-destructive` dot, `aria-label` and tooltip "Inbox, N need you", no key in
+the tooltip) shows in the attention slot only while that count is above 0 and
+nothing is written or attached (then Send has the slot alone); never in full
+mode, never while dictating. It does not open the Inbox page: it opens the
+**Inbox list** (`panel`) above the text in the same surface, which grows to
+the column's content width and the list's height on the same 320ms morph
+(bottom edge pinned); the input stays usable under it. The list is the
+Inbox's own rows in their compact size (`ListRow size="sm"`: 32px, `md` 8
+corners, 8px in, the same slots and ghost fills): a chat reads its
+`MessageSquare`, its title, an `info` dot (waiting) or the primary unread dot,
+its time; a notification is the Inbox page's row (`notification-row.tsx`:
+avatar, sentence, excerpt, dot, time). At most 320px (40% of a short
+viewport), then it scrolls; 4px in. Picking a row opens the chat, task or
+project (a notification is marked read) and closes the list; Escape (taken
+first, before anything else), the button again or a click outside close it;
+it also closes on a page change, or when nothing is left. The Inbox key
+(`nav.inbox`, ⌘I; Alt+I in the browser) toggles the list while the bar shows
+and something needs you; on a full page or with nothing to show it opens the
+Inbox page, which stays the full list. Phones: the list spans the bar's width
+and scrolls; the keyboard lift of the bar itself is still W7.
 
 **States.** compact idle → (focus, ⌘J) compact focused → (the text overflows
 the line, a line break from Shift+Enter or a paste, files, `expand()`)
@@ -1667,9 +1782,13 @@ expand the bar.
 
 **Shortcuts.** Never shown at rest. Only while ⌘ (Ctrl off the Mac) or
 Option/Alt is held (`useModifierHeld`; released on key up, window blur or a
-hidden tab) the compact bar shows its keys as `Kbd`: the Inbox slot swaps its
-icon for the Inbox key (`nav.inbox`, ⌘I; Alt+I in the browser) and the focus
-key (⌘J) shows after the text. Tooltips keep the label, then the `Kbd`.
+hidden tab) the bar shows exactly ONE `Kbd`, the composer's own key (focus,
+⌘J / Ctrl+J), in the attention slot: in the Inbox button's place, or there
+when the button is not showing (also while typing). No second key anywhere in
+the bar, none in full mode. An exception to the tooltip rule: the Inbox
+button's tooltip is its label only, because the composer's hints appear only
+while the modifier is held. The main button's tooltips keep the label, then
+the `Kbd`.
 
 **Main button.** One 32px primary icon button, its tooltip the label and its
 key, one action in v1's order: Sending (`loading`) › Stop (Square, Esc, while
@@ -1682,7 +1801,7 @@ available", where the browser cannot record).
 (its ring turns `ring-ring` while dragging) or a paste add files; a paste of
 over 100 lines becomes a text file. Each is read at once into the attachment
 the chat already stores at send time. The rail is `AttachmentGroup` (one row,
-sideways scroll, the edge fade) above the text, 4px in: in the glass 28px `xs`
+sideways scroll, the edge fade) above the text, 4px in: in compact and expanded 28px `xs`
 chips (20px thumbnail, the name cut in the middle, 20px remove), in the full
 card `sm` chips with the kind and size ("PNG · 120 KB"; "Adding" while read).
 A failed read is red with Retry. Files stay with the composer across pages
@@ -1694,7 +1813,7 @@ the command menu: Mode (Explore, Ask, Execute, Guarded when on; the current
 one checked), Status (the workspace's), Working directory (Choose folder…,
 then the recent ones) and Compact context in a chat; Add files everywhere.
 `@` mentions skills, sources (turned on for the chat when sent) and the
-working directory's files. The menus open above the composer, out of its glass
+working directory's files. The menus open above the composer, out of its surface
 (a portal), and keep the caret in the text.
 
 **Context.** A page says what it is about in one line,
@@ -1723,7 +1842,8 @@ with no draft of its own. A user message draws its typed references
 (`task:<id>`) as tags (`EntityText`).
 
 **Clearance.** While the bar shows, the frame sets `--composer-clearance`
-(56px: 8 under the bar, 40, 8 over it; the full composer's measured height + 8). A blocks page then ends 24px above
+(56px: 8 under the bar, 40, 8 over it; with the full composer the slot's
+measured height + 8). A blocks page then ends 24px above
 the bar (72px of bottom padding instead of 40) and its bottom fade grows to
 80px so content softens toward the bar; a centerpiece's card ends 8px above
 it. At a page's end nothing is under the bar. Layers: the bar is `z-10` on
@@ -1731,9 +1851,8 @@ the frame, outside the masked scroller (the blur needs it), under the
 overlaid sidecar (`z-20`), the sheet, popovers and dialogs; with the docked
 sidecar it stays on the column's center line.
 
-**Seams left open** (docs/composer.md (h)): the Inbox popover (the icon opens
-the Inbox page), prefill from page actions (W6), and phones' keyboard
-lift and safe area (W7). Entity mentions (people, tasks,
+**Seams left open** (docs/composer.md (h)): prefill from page actions (W6),
+and phones' keyboard lift and safe area (W7). Entity mentions (people, tasks,
 projects) in `@` come later.
 
 **Tags** (`EntityChip`, `components/entities/`). Everywhere a typed reference
@@ -1750,8 +1869,7 @@ without it, a muted "Unavailable" on `foreground/5`. `EntityText` draws markdown
 (the app's renderer) with every token outside code as a chip. Chips read the
 shared lists only; the surface that draws them loads them once
 (`useEntityData`). Tag text on its tint is 3.5:1 in light (4.4:1 dark), a known
-tradeoff of the sky tone. On the composer's dark glass a tag reads foreground
-on its tint (primary there falls under 3:1). A chat's title is plain text (a
+tradeoff of the sky tone. A chat's title is plain text (a
 header, a row, the palette, the window title draw no chips): the title made from
 its first message drops the tokens (`sanitizeForTitle`), so a chat started from a
 task reads "What is left here?", not "task:<id> What is left here?".
@@ -1776,8 +1894,9 @@ app's own pages and only for audio (never camera or screen), asking macOS first
 design, kept for reference: the compact bar is now the shell's `Composer` on
 every page with no exclusion, and a send from it opens a new chat as a page
 instead of growing into a window (docs/composer.md, open question 3). What
-still applies from it: the bar's glass and size, the Inbox icon (W5) and
-prefill from page actions (W6).
+still applies from it: the bar's size, the Inbox icon (W5, now a list in the
+composer's own surface) and prefill from page actions (W6). The bar no longer
+wears the glass: every look has v1's full composer surface.
 
 **Floating chat** (`FloatingChat`). On every page but Chats (and in the file
 viewer): one row at the bottom, kept one line tall so it never covers the
@@ -2533,7 +2652,7 @@ Unknown creation outcomes disable another submission in the current form and dir
 4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No {plural} yet" (a table row or `Row` may be just that, "No labels yet"), one description line ending in a period, no action.
 5. Command palette: an entered search with no results shows a compact tile and "No results for “query”" with no period, and its category tabs are hidden when no category has results. Skeletons are stock and use the small radius.
 6. Tasks list every project's tasks (filter by Project to narrow them), so an empty page never asks for one; with no project at all, the empty state's button is New project. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
-7. The composer bar's Inbox button (its `attention` slot, W5) shows only while something needs attention (an unread chat or an unanswered question); docs/composer.md open question 7 recommends always showing it, with a dot.
+7. The composer bar's Inbox button (its `attention` slot, W5) shows only while something needs you (a chat waiting on you or with news, an unread notification) and nothing is written or attached; with nothing, there is no button at all (the owner's call, over open question 7).
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
 9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
 

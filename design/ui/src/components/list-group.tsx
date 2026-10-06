@@ -117,7 +117,9 @@ function ListGroup({
 // (`active`) and pressed 10%, an inset focus ring (keyboard only). `actions` (a
 // 28px ⋯) covers the date on hover, focus or while its menu is open (always on
 // touch), 8px from the row's top, bottom and end, and keeps the row
-// highlighted while open.
+// highlighted while open. `size="sm"` is the compact variant for a list inside
+// a surface (the composer's Inbox list): 32px, rounded (`md` 8), 8px in, the
+// same slots and states.
 function ListRow({
   media,
   title,
@@ -127,9 +129,11 @@ function ListRow({
   actions,
   active,
   muted,
+  size = "default",
   className,
   ...props
 }: Omit<React.ComponentProps<"button">, "title" | "children"> & {
+  size?: "default" | "sm"
   media?: React.ReactNode
   title: React.ReactNode
   marks?: React.ReactNode
@@ -145,8 +149,8 @@ function ListRow({
         type="button"
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex h-11 w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-has-aria-expanded/row:bg-foreground/5 in-data-[slot=list-group]:rounded-md in-data-[slot=list-group]:px-3",
-          PAGE_INSET,
+          "flex w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-has-aria-expanded/row:bg-foreground/5 in-data-[slot=list-group]:rounded-md in-data-[slot=list-group]:px-3",
+          size === "sm" ? "h-8 rounded-md px-2" : ["h-11", PAGE_INSET],
           className
         )}
         {...props}

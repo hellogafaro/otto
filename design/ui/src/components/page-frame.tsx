@@ -15,14 +15,14 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 // Nothing is pinned above a page: its title row is the first block of the
 // column, 64px from the top, and scrolls away with it (`PageHeaderRow`;
 // `PageColumn` gives it its slot). The open chat is the one exception: a
-// compact pinned row (`PageHeaderRow pinned`, 44px) in the frame's header slot
-// above its centerpiece, on the TOP AXIS (`--axis-y`, 34px from the window's
-// top, see globals.css) with the sidebar's mark. Below 768px every title row
-// is on the axis, beside the sheet's menu button.
+// compact pinned header (`PageHeaderRow density="compact"`, 58px) in the frame's header slot
+// above its transcript wrapper (the row between two 13px gaps, not on the axis).
+// Below 768px every other title row is on the axis (`--axis-y`, see globals.css),
+// beside the sheet's menu button.
 //
 // Three tracks make it: [left gutter | column | right gutter]. The left gutter
 // holds `FloatingNav` (portaled in by `PageHeader`), Back level with the title
-// row (on the axis on the chat);
+// row (the first row of the wrapper's content on the chat);
 // the right one holds the `aside` (the `Sidecar`), which starts at the CONTENT
 // START, the top of the first block (see `--content-start`). Closed, both
 // gutters are equal and the column is centered. An open aside reserves its
@@ -40,6 +40,35 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 // The floating navigation's gutter: 20px from the window's sidebar side, the
 // 32px buttons, then 20px to the column.
 const NAV_GUTTER = 72
+
+// Otto: the frame's spacing tokens, ONE place to tweak and compare. The scale is
+// the golden ratio from 8 (8, 13, 21, 34, 55; the type scale's 13, 16.5, 21 are the
+// same steps). They are published on the frame's grid, so the header row, the nav
+// slot and the chat's wrapper (below it) all read them.
+// - `--gr-*`: the scale.
+// - roomy density: the title row and the pinned navigation sit 64px down
+//   (`--nav-top-roomy`), the big page title (21px).
+// - compact density (the chat's header, and any page inside a bordered wrapper): the
+//   header block is the 32px row between two equal gaps (`--header-gap`, 13: above
+//   the row and below it), so the wrapper's line starts at `--header-compact` (58); the
+//   title is the section size (16.5px) and starts at `--content-inset` (the wrapper's
+//   line + its padding `--wrap-pad`, 22px): the content's left edge. The navigation's top
+//   is the content's first row: line + padding (`--nav-top-compact`, 80px).
+// - the navigation is `--nav-gap` (13) from the column on every page, so its x never changes.
+const FRAME_TOKENS = {
+  "--gr-8": "0.5rem",
+  "--gr-13": "0.8125rem",
+  "--gr-21": "1.3125rem",
+  "--gr-34": "2.125rem",
+  "--gr-55": "3.4375rem",
+  "--wrap-pad": "var(--gr-21)",
+  "--content-inset": "calc(1px + var(--wrap-pad))",
+  "--header-gap": "var(--gr-13)",
+  "--header-compact": "calc(2 * var(--header-gap) + 2rem)",
+  "--nav-gap": "var(--gr-13)",
+  "--nav-top-roomy": "4rem",
+  "--nav-top-compact": "calc(var(--header-compact) + var(--content-inset))",
+} as React.CSSProperties
 
 // Otto: the page inset, ONE constant. 16px, the padding of a row inside a
 // card. The title row and every section header (title, description, action)
@@ -108,8 +137,9 @@ function PageFrame({
   const [fullClearance, setFullClearance] = React.useState<number | null>(null)
 
   // Otto: the full composer (the chat, the new chat, the Inbox) is in the
-  // layout: the column keeps its measured height free plus the 8px gap above
-  // it, frame by frame while it grows or shrinks (`--composer-clearance`).
+  // layout: the column keeps the slot's measured height (the composer and its
+  // gap below) free plus the 8px gap above it, frame by frame while it grows
+  // or shrinks (`--composer-clearance`).
   // The compact bar floats over the page instead (the class below, 56px).
   React.useLayoutEffect(() => {
     if (!composerSlot) return
@@ -233,7 +263,10 @@ function PageFrame({
         />
         <div
           className={cn(
-            "group/page relative grid h-full grid-cols-[minmax(1.25rem,1fr)_minmax(0,48rem)_minmax(var(--aside,1.25rem),1fr)] grid-rows-[auto_minmax(0,1fr)] pb-2",
+            // `--nav-top`: the ONE top of the pinned navigation (Back and the stacked Previous / Next),
+            // from 768px, by the density of the page's header row: roomy 64px (level with its title
+            // row), compact 77px (the first row of the wrapper's content). Its x never changes.
+            "group/page relative grid [--nav-top:var(--nav-top-roomy)] has-[[data-slot=page-header-row][data-density=compact]]:[--nav-top:var(--nav-top-compact)] h-full grid-cols-[minmax(1.25rem,1fr)_minmax(0,48rem)_minmax(var(--aside,1.25rem),1fr)] grid-rows-[auto_minmax(0,1fr)] pb-2",
             "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
             "@[1280px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:20.25rem]",
             // While the composer bar shows, the column keeps its band free (see `PageColumn`).
@@ -241,6 +274,7 @@ function PageFrame({
           )}
           style={
             {
+              ...FRAME_TOKENS,
               "--content-start": `${contentStart}px`,
               ...(fullClearance === null
                 ? {}
@@ -256,10 +290,10 @@ function PageFrame({
           <div
             data-slot="floating-nav-slot"
             ref={setNav}
-            // Spans the whole height: Back (32px) is level with the title row
-            // (64px down; on the axis beside the chat's pinned row), 20px from
-            // the column, and stays put while the column scrolls.
-            className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-16 pr-5 group-has-[[data-slot=page-header-row][data-pinned]]/page:pt-[calc(var(--axis-y)-1rem)]"
+            // Spans the whole height: the navigation is `--nav-gap` (13px) from the column (the same x on
+            // EVERY detail page, the chat included), its top `--nav-top` by density, and it
+            // stays put while the column scrolls.
+            className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-(--nav-top) pr-(--nav-gap)"
           />
           <div
             data-slot="page-body"
@@ -291,7 +325,15 @@ function PageFrame({
             // this page), it is nothing and the column keeps its own end. The
             // full composer spans the column's track and sits on the body's end
             // (8px above the window's), the padding moving with its grow.
-            className="pointer-events-none relative z-10 col-start-2 row-start-2 flex min-w-0 justify-center self-end pb-2 transition-[padding] duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] *:pointer-events-auto empty:hidden motion-reduce:transition-none md:px-6 has-[>[data-slot=composer][data-variant=full]]:p-0 md:has-[>[data-slot=composer][data-variant=full]]:px-0"
+            // ONE place for every look (compact, expanded, full): the sides
+            // on the column's content edges (24px in from 768px; the frame's
+            // 20px gutter below), 8px above the body's end (16px above the
+            // window's). A page whose wrapper runs to the body's end with the
+            // composer inside it (the chat) sets `--wrap-inset` (its border +
+            // padding) and the composer sits that far inside it on the sides
+            // and the bottom. The slot's height (composer + bottom gap) is
+            // published as `--composer-lift`.
+            className="pointer-events-none relative z-10 col-start-2 row-start-2 flex min-w-0 justify-center self-end px-(--wrap-inset,0px) pb-(--wrap-inset,0.5rem) transition-[padding] duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] *:pointer-events-auto empty:hidden motion-reduce:transition-none md:px-(--wrap-inset,1.5rem)"
           >
             {composer}
           </div>
@@ -302,49 +344,58 @@ function PageFrame({
   )
 }
 
-// Otto: a page's title row, inset (`PAGE_INSET`) to line up with the cards'
-// content. From the left: a `leading` slot (the chat's menu button below 768px,
-// the sidebar sheet's opener), the page title (`PageTitle`, 21px medium) and
-// the page's actions on the right (28px controls). The title is plain text on
+// Otto: a page's title row. From the left: a `leading` slot (the chat's menu
+// button below 768px, the sidebar sheet's opener), the page title (`PageTitle`)
+// and the page's actions on the right (28px controls). The title is plain text on
 // one line, never an ellipsis: it fades out over its last 16px, where the
 // actions start (a mask, as the sidebar's rows do; a short title is untouched).
 // It never has a dropdown, a back button or a trail of crumbs: going back and
-// stepping through a list is `FloatingNav`.
-// - By default it is the first block of the page's column, 32px tall, 64px
-//   from the top (below 768px its center is the axis, beside the sheet's menu
-//   button), 40px above the first block, and it scrolls away with the page.
-// - `pinned` (the open chat only) is the compact row in the frame's header
-//   slot: 44px, centered on the axis, pinned above the centerpiece.
+// stepping through a list is `FloatingNav`. ONE row, two densities (a prop, never
+// a per-page class; the numbers are `FRAME_TOKENS`):
+// - `roomy` (default): the first block of the page's column, inset 16px (to line
+//   up with the cards' content), 32px tall, 64px from the top (below 768px its
+//   center is the axis, beside the sheet's menu button), 40px above the first
+//   block; the big page title (21px medium); it scrolls away with the page.
+// - `compact` (the open chat; any page inside a bordered wrapper): the row in the
+//   frame's header slot, pinned above the wrapper: 32px between two 13px gaps (the
+//   block ends 58px from the top, where the wrapper's line starts); the section
+//   title size (16.5px medium), inset to the wrapper's content (line + padding, 22px).
 function PageHeaderRow({
   leading,
   title,
   actions,
-  pinned = false,
+  density = "roomy",
   className,
   ...props
 }: Omit<React.ComponentProps<"header">, "title"> & {
   leading?: React.ReactNode
   title?: React.ReactNode
   actions?: React.ReactNode
-  pinned?: boolean
+  density?: "roomy" | "compact"
 }) {
+  const compact = density === "compact"
   return (
     <header
       data-slot="page-header-row"
-      data-pinned={pinned || undefined}
+      data-density={density}
       className={cn(
         "flex items-center gap-1 select-none",
-        pinned
-          ? "mt-[calc(var(--axis-y)-1.375rem)] h-11"
-          : "mt-[calc(var(--axis-y)-1rem)] h-8 md:mt-16",
-        PAGE_INSET,
+        compact
+          ? "mt-(--header-gap) mb-(--header-gap) h-8 px-(--content-inset)"
+          : "mt-[calc(var(--axis-y)-1rem)] h-8 md:mt-(--nav-top-roomy)",
+        !compact && PAGE_INSET,
         className
       )}
       {...props}
     >
       {leading}
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <PageTitle className="min-w-0 flex-1 overflow-hidden whitespace-nowrap [mask-image:linear-gradient(to_right,#000_calc(100%_-_16px),transparent)]">
+        <PageTitle
+          className={cn(
+            "min-w-0 flex-1 overflow-hidden whitespace-nowrap [mask-image:linear-gradient(to_right,#000_calc(100%_-_16px),transparent)]",
+            compact && "text-base"
+          )}
+        >
           {title}
         </PageTitle>
       </div>

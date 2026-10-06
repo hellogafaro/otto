@@ -185,7 +185,8 @@
 }
 
 /* Otto: the card edge. Every card (`PageCard`, `PageCenterpiece`, `Card`, the
-   composer, the sidecar surface, the empty-state tile) takes it, so the
+   sidecar surface, the empty-state tile) takes it (not the composer: it keeps
+   Otto v1's full composer edge, a ring, outside every scroller), so the
    hairline and the shadow are one definition: a 1px BORDER (`--card-ring`)
    inside the card's own box, and the soft outer shadow (`--card-shadow`,
    shadow-xs unless a card sets it). The hairline is a border, never a
@@ -201,6 +202,91 @@
   border: 1px solid var(--card-ring);
   background-clip: padding-box;
   box-shadow: var(--card-shadow, var(--shadow-xs, 0 1px 2px 0 rgb(0 0 0 / 0.05)));
+}
+
+/* Otto: the Inbox wallpaper (`InboxWallpaper` in the app sets `data-wallpaper`
+   on <html> while it shows). The window is one image under one overlay
+   (`wallpaper-scrim`, white in light, black in dark) of three layers, each
+   with its own strength (0 to 1) to tune:
+   - `--wallpaper-overlay`: uniform over the whole photo (BB's top value);
+   - `--wallpaper-fade`: BB's vertical fade, from nothing at the top to the
+     strength at the bottom (36% / 66% / 100% of the height: 0.65 / 0.88 / 1);
+   - `--wallpaper-scrim`: a soft ellipse from the top-left corner, strongest
+     behind the sidebar and the title row, smoothstep falloff (flat at both
+     ends, 10% stops) so it has no edge; `--wallpaper-scrim-size` is its x and
+     y radii.
+   The sidebar has NO surface there (no fill, tint, blur or edge), only its
+   text, icons and `foreground`-alpha row fills; muted text is one step
+   stronger. The surfaces on the page (the list's wrapper, cards, the composer)
+   turn to glass: the same layer color, translucent, over a blur that smooths
+   the dither under the text; card edges become `foreground` alphas (a solid
+   grey ring reads as a seam on a photo). The phone's sidebar sheet floats over
+   the page, so it is glass too. Every other page keeps the opaque tokens. */
+html[data-wallpaper] {
+  --wallpaper-overlay: 0.15;
+  --wallpaper-fade: 0.8;
+  --wallpaper-scrim: 0.85;
+  --wallpaper-scrim-size: 70rem 250%;
+  --wallpaper-rgb: 255 255 255;
+}
+/* Phones have no sidebar beside the page: the scrim only backs the title row. */
+@media (width < 48rem) {
+  html[data-wallpaper] {
+    --wallpaper-scrim-size: 28rem 40%;
+  }
+}
+html.dark[data-wallpaper] {
+  --wallpaper-overlay: 0.2;
+  --wallpaper-fade: 0.85;
+  --wallpaper-scrim: 0.85;
+  --wallpaper-rgb: 0 0 0;
+}
+html[data-wallpaper] [data-slot="wallpaper-scrim"] {
+  --s: var(--wallpaper-rgb);
+  background:
+    radial-gradient(
+      ellipse var(--wallpaper-scrim-size) at 0 0,
+      rgb(var(--s) / var(--wallpaper-scrim)) 0%,
+      rgb(var(--s) / calc(var(--wallpaper-scrim) * 0.972)) 10%,
+      rgb(var(--s) / calc(var(--wallpaper-scrim) * 0.896)) 20%,
+      rgb(var(--s) / calc(var(--wallpaper-scrim) * 0.784)) 30%,
+      rgb(var(--s) / calc(var(--wallpaper-scrim) * 0.648)) 40%,
+      rgb(var(--s) / calc(var(--wallpaper-scrim) * 0.500)) 50%,
+      rgb(var(--s) / calc(var(--wallpaper-scrim) * 0.352)) 60%,
+      rgb(var(--s) / calc(var(--wallpaper-scrim) * 0.216)) 70%,
+      rgb(var(--s) / calc(var(--wallpaper-scrim) * 0.104)) 80%,
+      rgb(var(--s) / calc(var(--wallpaper-scrim) * 0.028)) 90%,
+      rgb(var(--s) / 0) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgb(var(--s) / 0) 0%,
+      rgb(var(--s) / calc(var(--wallpaper-fade) * 0.65)) 36%,
+      rgb(var(--s) / calc(var(--wallpaper-fade) * 0.88)) 66%,
+      rgb(var(--s) / var(--wallpaper-fade)) 100%
+    ),
+    rgb(var(--s) / var(--wallpaper-overlay));
+}
+html[data-wallpaper] :is([data-slot="sidebar-wrapper"], [data-slot="sidebar"][data-mobile]) {
+  --sidebar: oklch(0.96 0 0 / 70%);
+  --card: oklch(1 0 0 / 70%);
+  --muted-foreground: oklch(0.42 0 0);
+  --card-ring: oklch(0.145 0 0 / 10%);
+}
+html.dark[data-wallpaper] :is([data-slot="sidebar-wrapper"], [data-slot="sidebar"][data-mobile]) {
+  --sidebar: oklch(0.12 0 0 / 70%);
+  --card: oklch(0.19 0 0 / 65%);
+  --muted-foreground: oklch(0.82 0 0);
+  --card-ring: oklch(1 0 0 / 14%);
+}
+html[data-wallpaper] [data-slot="sidebar-inner"] {
+  background-color: transparent;
+}
+html[data-wallpaper] [data-slot="page-wrap"] {
+  background-color: var(--card);
+}
+html[data-wallpaper] :is([data-slot="sidebar"][data-mobile], [data-slot="page-wrap"], [data-slot="composer"], .card-surface) {
+  backdrop-filter: blur(24px) saturate(1.2);
 }
 
 @media (width < 48rem) {

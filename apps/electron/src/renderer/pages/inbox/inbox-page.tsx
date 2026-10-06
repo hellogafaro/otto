@@ -1,6 +1,6 @@
 /**
  * InboxPage - your notifications in the workspace, newest first, as one list in the line-only `PageWrap` (the
- * Chats index's 44px rows): who did it, the sentence ("Maria mentioned you in Fix login", the title looked up live) with the
+ * Chats index's 44px rows, `notification-row.tsx`, shared with the composer's Inbox list): who did it, the sentence ("Maria mentioned you in Fix login", the title looked up live) with the
  * comment's first line muted after a mention, an unread dot, the time. A row opens what it is about (a mention:
  * the task or project the comment is on) and marks it read; its ⋯ marks it read or unread, or clears it. The
  * title row: Mark all as read (an icon button, so the title keeps its room on a phone) and Filter (Unread, `?unread=1`). Nothing at all: the empty state.
@@ -22,18 +22,13 @@ import { ListRow, ListRowSkeleton } from '@workspace/ui/components/list-group'
 import { PageColumn, PageWrap } from '@workspace/ui/components/page'
 import { toast } from '@workspace/ui/components/sonner'
 import { PageHeader } from '@/components/app-shell/page-header'
-import { describeEntity, plainEntityText } from '@/components/entities/entity-tokens'
-import { useEntityData, useEntityLabel, useEntityLists } from '@/components/entities/entity-chip'
-import { ActorAvatar } from '@/components/people/actor-avatar'
+import { useEntityData } from '@/components/entities/entity-chip'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { isInboxNavigation, routes, useNavigation, useNavigationState } from '@/contexts/navigation-context'
 import { useNotifications } from '@/hooks/use-notifications'
-import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
-import { shortTimeAgo } from '@/utils/session'
-import type { Route } from '../../../shared/routes'
-import type { NotificationItem } from '../../../shared/types'
-import { filterNotifications, getNotificationLineKey, getNotificationTarget, isUnread } from './inbox-rules'
+import { filterNotifications, isUnread } from './inbox-rules'
+import { useNotificationRow } from './notification-row'
 
 export function InboxPage() {
   const { t } = useTranslation()
@@ -42,32 +37,12 @@ export function InboxPage() {
   const navState = useNavigationState()
   const unreadOnly = isInboxNavigation(navState) && !!navState.search.unread
   useEntityData()
-  const lists = useEntityLists()
-  const label = useEntityLabel()
-  const { nameOf } = useWorkspaceMembers()
   const { notifications, unreadCount, loaded, setStatus, clear } = useNotifications()
   const shown = filterNotifications(notifications, unreadOnly)
+  const rowOf = useNotificationRow(setStatus)
 
   const run = async (call: Promise<{ ok: boolean }>) => {
     if (!(await call).ok) toast.error(t('inbox.failed'))
-  }
-
-  /** The live title of what it is about (the server's while the list loads), "Unavailable" when gone. */
-  const titleOf = (item: NotificationItem) => {
-    const info = describeEntity(getNotificationTarget(item), lists)
-    if (info?.missing) return t('common.unavailable')
-    return info?.title ?? item.entityTitle ?? t('common.unavailable')
-  }
-  const excerptOf = (item: NotificationItem) =>
-    item.comment ? plainEntityText(item.comment.content, (entity) => {
-      const info = describeEntity(entity, lists)
-      return info ? label(info) : entity
-    }) : ''
-
-  const open = (item: NotificationItem) => {
-    const route = describeEntity(getNotificationTarget(item), lists)?.route
-    if (isUnread(item)) void run(setStatus([item.id], 'read'))
-    if (route) void navigate(route as Route)
   }
 
   const fields: FilterField[] = [{ key: 'unread', label: t('inbox.unread'), icon: <CircleDot />, count: unreadCount }]
@@ -118,22 +93,11 @@ export function InboxPage() {
               <ul>
                 {shown.map((item) => {
                   const unread = isUnread(item)
-                  const excerpt = excerptOf(item)
                   return (
                     <ListRow
                       key={item.id}
                       data-notification-id={item.id}
-                      media={<ActorAvatar actor={item.createdBy} name={nameOf(item.createdBy)} />}
-                      title={(
-                        <>
-                          {t(getNotificationLineKey(item.type), { name: nameOf(item.createdBy), title: titleOf(item) })}
-                          {excerpt && <span className="ms-2 text-muted-foreground">{excerpt}</span>}
-                        </>
-                      )}
-                      muted={!unread}
-                      marks={unread && <span aria-label={t('inbox.unread')} className="size-1.5 shrink-0 rounded-full bg-primary" />}
-                      end={shortTimeAgo(item.createdAt)}
-                      onClick={() => open(item)}
+                      {...rowOf(item)}
                       actions={(
                         <DropdownMenu>
                           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('common.moreActions')} />}>

@@ -7,8 +7,8 @@
  * - by default the row is the first block of the page's column (`PageColumn`'s
  *   title slot; in place when the page has no column), 64px from the top (on the
  *   top axis below 768px), and it scrolls away with the content: nothing is pinned;
- * - `pinned` (the chat only) draws the compact 44px row in the frame's header
- *   slot instead, pinned above the centerpiece;
+ * - `density="compact"` (the chat only) draws the compact 55px header (section-size title)
+ *   in the frame's header slot instead, pinned above the wrapper;
  * - the row is the title (plain text: one line that fades out under the actions,
  *   no dropdown, no Back button, no crumbs) and the page's actions. Below 768px
  *   the sidebar is a sheet and its menu button is fixed over the column's
@@ -33,7 +33,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { Ellipsis } from 'lucide-react'
+import { ChevronDown, ChevronUp, Ellipsis } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { PAGE_INSET, PageHeaderRow, usePageFrame } from '@workspace/ui/components/page-frame'
 import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
@@ -45,7 +45,7 @@ import { isSessionsNavigation, useNavigation, useNavigationState } from '@/conte
 import { useParentView } from '@/hooks/use-parent-view'
 import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { StyledDropdownMenuContent } from '@/components/ui/styled-dropdown'
+import { StyledDropdownMenuContent, StyledDropdownMenuItem, StyledDropdownMenuSeparator } from '@/components/ui/styled-dropdown'
 import { BrowserTabStrip } from '../browser/browser-tab-strip'
 import { HeaderNewChat } from './header-new-chat'
 
@@ -54,7 +54,7 @@ export interface PageHeaderProps {
   title?: React.ReactNode
   /** Optional badge element (e.g., agent badge) */
   badge?: React.ReactNode
-  /** The item's description, muted under the title (not with `pinned`). */
+  /** The item's description, muted under the title (not with `compact`). */
   description?: React.ReactNode
   /** The menu content of the page's "More actions" button (dropdown items). */
   menu?: React.ReactNode
@@ -70,8 +70,8 @@ export interface PageHeaderProps {
   className?: string
   /** Whether title is being regenerated (shows shimmer effect) */
   isRegeneratingTitle?: boolean
-  /** The chat's compact row, pinned above the centerpiece (no other page). */
-  pinned?: boolean
+  /** The row's density (`PageHeaderRow`): `compact` is the chat's, pinned above its wrapper (no other page yet). */
+  density?: 'roomy' | 'compact'
 }
 
 /** The header's "More actions": a 28px ghost icon button that opens the page's menu (the trigger of a dropdown or drawer). */
@@ -89,7 +89,7 @@ export function PageHeader({
   actions,
   className,
   isRegeneratingTitle,
-  pinned = false,
+  density = 'roomy',
 }: PageHeaderProps) {
   const { t } = useTranslation()
   const { isCompactMode, onNewChat } = useAppShellContext()
@@ -117,40 +117,57 @@ export function PageHeader({
     </motion.span>
   )
 
-  const moreActions = (isCompactMode && compactMenu)
-    ? compactMenu
-    : menu
-      ? (
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <HeaderMoreButton />
-          </DropdownMenuTrigger>
-          <StyledDropdownMenuContent align="end" sideOffset={4}>
-            {menu}
-          </StyledDropdownMenuContent>
-        </DropdownMenu>
-      )
-      : null
-
   // Back (a parent) and Previous / Next (a list): in the gutter while it is wide.
   const back = parent ? { label: t('common.back'), onClick: parent.onBack } : undefined
   const previous = listNav ? { label: t('common.previous'), onClick: listNav.goPrev, disabled: !listNav.hasPrev } : undefined
   const next = listNav ? { label: t('common.next'), onClick: listNav.goNext, disabled: !listNav.hasNext } : undefined
   const navInGutter = !!((back || listNav) && frame?.navFits)
 
+  // On a phone the row keeps the menu, Back, the title and More: Previous and Next are the first items of More.
+  const listInMore = isCompactMode && !navInGutter && !!listNav
+  const phoneListNav = listInMore && !compactMenu
+  const moreActions = (isCompactMode && compactMenu)
+    ? compactMenu
+    : (menu || phoneListNav)
+      ? (
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <HeaderMoreButton />
+          </DropdownMenuTrigger>
+          <StyledDropdownMenuContent align="end" sideOffset={4}>
+            {phoneListNav && (
+              <>
+                <StyledDropdownMenuItem disabled={!listNav.hasPrev} onClick={listNav.goPrev}>
+                  <ChevronUp className="h-3.5 w-3.5" />
+                  <span className="flex-1">{t('common.previous')}</span>
+                </StyledDropdownMenuItem>
+                <StyledDropdownMenuItem disabled={!listNav.hasNext} onClick={listNav.goNext}>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                  <span className="flex-1">{t('common.next')}</span>
+                </StyledDropdownMenuItem>
+                {menu && <StyledDropdownMenuSeparator />}
+              </>
+            )}
+            {menu}
+          </StyledDropdownMenuContent>
+        </DropdownMenu>
+      )
+      : null
+
   // In-content below 768px, the sheet's menu button is fixed over the column, raised
   // (outline, 32px, as the floating navigation) since content scrolls under it.
+  const pinned = density === 'compact'
   const fixedTrigger = !pinned && !!frame?.leading
   const row = (pinned || title !== undefined) && (
     <PageHeaderRow
-      pinned={pinned}
+      density={density}
       className={cn(pinned && 'titlebar-drag-region', fixedTrigger && 'max-md:pl-14', className)}
       leading={!fixedTrigger && <SidebarTrigger className="titlebar-no-drag" />}
       title={titleContent}
       actions={
         <div className="titlebar-no-drag flex items-center gap-1">
           <BrowserTabStrip activeSessionId={session.selected} />
-          {!navInGutter && <FloatingNavButtons back={back} previous={previous} next={next} />}
+          {!navInGutter && <FloatingNavButtons back={back} previous={listInMore ? undefined : previous} next={listInMore ? undefined : next} />}
           {actions}
           {onNewChat && isSessionsNavigation(navState) && !navState.details && <HeaderNewChat onClick={onNewChat} />}
           {moreActions}

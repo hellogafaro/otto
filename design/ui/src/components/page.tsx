@@ -23,7 +23,7 @@ import { cn } from "cn"
 //   frame's 8px bottom), scrolling inside.
 // The open chat is the one exception and takes no `PageColumn`: its compact
 // pinned row (`PageHeaderRow pinned`) sits in the frame's header slot and its
-// centerpiece and composer span the whole 768px track.
+// transcript wrapper (with the composer inside it) spans the whole 768px track.
 // The column's first child is the title slot: `PageHeader`, called anywhere in
 // the page, draws its row there, so the title scrolls with the content. It holds
 // the title row and, on an item's page, its description (the lead line, 4px

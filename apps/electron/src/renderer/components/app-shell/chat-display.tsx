@@ -66,7 +66,7 @@ import { useNavigation } from "@/contexts/navigation-context"
 import { useAppShellContext } from "@/context/app-shell-context"
 import { routes } from "@/lib/navigate"
 import { CHAT_LAYOUT } from "@/config/layout"
-import { PageCenterpiece } from "@workspace/ui/components/page"
+import { PageWrap } from "@workspace/ui/components/page"
 import { collectFileChangesFromActivities, getFirstFileChangeIdForActivity } from "@/lib/file-changes"
 import { handleErrorMessageAction } from "./error-message-actions"
 
@@ -1440,6 +1440,17 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     return () => observer.disconnect()
   }, [session?.id])
 
+  // The shell composer sits inside the wrapper: publish its inset (the wrapper's 1px border + its
+  // padding `--wrap-pad`, the frame's `--content-inset`) for the composer's slot, so its sides and bottom are that far from the line.
+  useEffect(() => {
+    if (!shellComposer) return
+    // On the frame's grid (where `--content-inset` is defined), not the root: a var() resolves where it is declared.
+    const grid = zoneRef.current?.closest<HTMLElement>('[data-slot=page-body]')?.parentElement
+    if (!grid) return
+    grid.style.setProperty('--wrap-inset', 'var(--content-inset)')
+    return () => { grid.style.removeProperty('--wrap-inset') }
+  }, [shellComposer])
+
   // Compute if we should skip scroll-to-bottom (when search is active on session switch)
   // At render time, prevSessionIdForScrollRef still has the OLD session ID, so we can detect the switch
   const isSessionSwitchForScroll = prevSessionIdForScrollRef.current !== null && prevSessionIdForScrollRef.current !== session?.id
@@ -1452,22 +1463,25 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     <div ref={zoneRef} className="flex h-full flex-col min-w-0" data-focus-zone="chat">
       {session ? (
         <div className="flex flex-1 flex-col min-h-0 min-w-0 relative">
-          {/* Content layer; on the chat page it ends 8px above the full composer (`--composer-clearance`). */}
-          <div className={cn("flex flex-1 flex-col gap-2 min-h-0 min-w-0 relative z-10", shellComposer && "pb-(--composer-clearance)")}>
-          {/* === MESSAGES AREA: the centerpiece card, the transcript scrolls inside it === */}
-          <PageCenterpiece>
+          {/* Content layer; on the chat page the shell composer floats inside the wrapper, over its bottom (`--composer-lift`). */}
+          <div className="flex flex-1 flex-col gap-2 min-h-0 min-w-0 relative z-10">
+          {/* === MESSAGES AREA: the line wrapper (TEST; revert: PageCenterpiece), the transcript scrolls inside it === */}
+          <PageWrap className="relative flex min-h-0 flex-1 flex-col px-(--wrap-pad)">
             {/* Mask wrapper - fades content at top and bottom over transparent/image backgrounds */}
             <div
               className="h-full"
               style={{
-                maskImage: 'linear-gradient(to bottom, transparent 0%, black 32px, black calc(100% - 32px), transparent 100%)',
-                WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 32px, black calc(100% - 32px), transparent 100%)'
+                maskImage: 'linear-gradient(to bottom, transparent 0%, black var(--wrap-pad, 32px), black calc(100% - 32px), transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black var(--wrap-pad, 32px), black calc(100% - 32px), transparent 100%)'
               }}
             >
               <ScrollArea className="h-full min-w-0" viewportRef={scrollViewportRef}>
               <div className={cn(
                 "min-w-0",
-                compactMode ? "px-3 py-4 space-y-2" : [CHAT_LAYOUT.containerPaddingX, CHAT_LAYOUT.containerPaddingY, CHAT_LAYOUT.messageSpacing]
+                compactMode ? "px-3 py-4 space-y-2" : [CHAT_LAYOUT.containerPaddingX, CHAT_LAYOUT.containerPaddingY, CHAT_LAYOUT.messageSpacing],
+                // The wrapper's padding is the transcript's inset (line, padding, content start): its top is the same padding less the 16px a turn row (`pt-4`) carries itself, so the first bubble starts on it (the top fade is as tall); none on the sides;
+                // the composer floats inside the wrapper, so the transcript ends a padding above it.
+                shellComposer && "px-0 pt-[calc(var(--wrap-pad)-1rem)] pb-[calc(var(--composer-lift,0px)+var(--wrap-pad))]"
               )}>
                 {/* Session-level AnimatePresence: Prevents layout jump when switching sessions */}
                 <AnimatePresence mode={compactMode ? "sync" : "wait"} initial={false}>
@@ -1852,7 +1866,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
               </div>
               </ScrollArea>
             </div>
-          </PageCenterpiece>
+          </PageWrap>
 
           {/* The chat page's input is the shell's composer (registered below); the edit popover draws its own instance. */}
           {!shellComposer && <FreeFormInput context={chatComposer} />}

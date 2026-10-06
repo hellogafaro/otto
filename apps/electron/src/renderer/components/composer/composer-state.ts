@@ -144,3 +144,14 @@ export function mainAction(state: {
   if (state.listening) return 'done'
   return state.hasContent ? 'send' : 'dictate'
 }
+
+/**
+ * What the bar's attention slot draws (compact and expanded): while ⌘/Ctrl or Option/Alt is held, the ONE key
+ * hint (the composer's own focus key); else the Inbox button while something needs you and nothing is written
+ * or attached (then Send has the slot to itself); else nothing. Never while dictating.
+ */
+export function attentionSlot(state: { held: boolean; listening: boolean; empty: boolean; count: number }): 'key' | 'inbox' | null {
+  if (state.listening) return null
+  if (state.held) return 'key'
+  return state.empty && state.count > 0 ? 'inbox' : null
+}

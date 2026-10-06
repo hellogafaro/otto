@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { buildFirstMessage, composerReducer, mainAction, resolveShellSurface, sendKeyAction, type ComposerEvent, type ComposerView } from '../composer-state'
+import { attentionSlot, buildFirstMessage, composerReducer, mainAction, resolveShellSurface, sendKeyAction, type ComposerEvent, type ComposerView } from '../composer-state'
 import { arrivingDraft, draftSuffix } from '../use-composer-draft'
 import { isHintModifier } from '../use-modifier-held'
 import { pastedName } from '../use-composer-files'
@@ -143,5 +143,21 @@ describe('dictation', () => {
     expect(dictationErrorKey('timeout')).toBe('composer.error.unable')
     expect(formatElapsed(7)).toBe('0:07')
     expect(formatElapsed(75)).toBe('1:15')
+  })
+})
+
+describe('attentionSlot', () => {
+  const at = { held: false, listening: false, empty: true, count: 2 }
+  it('shows the Inbox only while something needs you and nothing is written or attached', () => {
+    expect(attentionSlot(at)).toBe('inbox')
+    expect(attentionSlot({ ...at, count: 0 })).toBeNull()
+    expect(attentionSlot({ ...at, empty: false })).toBeNull()
+  })
+  it('swaps it for the one key hint while a modifier is held, Inbox or not', () => {
+    expect(attentionSlot({ ...at, held: true })).toBe('key')
+    expect(attentionSlot({ ...at, held: true, count: 0, empty: false })).toBe('key')
+  })
+  it('draws nothing while dictating', () => {
+    expect(attentionSlot({ ...at, listening: true, held: true })).toBeNull()
   })
 })

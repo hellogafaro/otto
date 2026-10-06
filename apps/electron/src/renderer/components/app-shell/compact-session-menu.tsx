@@ -104,6 +104,9 @@ export interface CompactSessionMenuProps {
   onSendToWorkspace?: () => void
   onDelete: () => void
 
+  /** Rows above the actions (the phone header's Previous, Next and Info: see `PageHeader`). */
+  lead?: React.ReactNode
+
   // ---------------------------------------------------------------------------
   // Controlled-component shim — used by EntityRow / SessionItem so a single
   // drawer instance can be driven from multiple triggers (`…` button + long-
@@ -135,6 +138,7 @@ export function CompactSessionMenu({
   onSessionStatusChange,
   onSendToWorkspace,
   onDelete,
+  lead,
   open: controlledOpen,
   onOpenChange,
   trigger,
@@ -243,6 +247,12 @@ export function CompactSessionMenu({
         </DrawerHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-6">
+          {view === 'root' && lead && (
+            <>
+              <div className="flex flex-col">{lead}</div>
+              <Separator />
+            </>
+          )}
           {view === 'root' && (
             <RootPane
               canShare={viewerConfigured}
@@ -396,9 +406,9 @@ function RootPane({
     <div className="flex flex-col">
       {/* Share / Shared */}
       {!canShare ? null : !sharedUrl ? (
-        <Row icon={<CloudUpload className="size-3.5" />} label={t('sessionMenu.share')} onTap={onShare} />
+        <CompactMenuRow icon={<CloudUpload className="size-3.5" />} label={t('sessionMenu.share')} onTap={onShare} />
       ) : (
-        <Row
+        <CompactMenuRow
           icon={<CloudUpload className="size-3.5" />}
           label={t('sessionMenu.shared')}
           chevron
@@ -407,10 +417,10 @@ function RootPane({
       )}
 
       {hasTransferTargets && onSendToWorkspace && (
-        <Row icon={<Send className="size-3.5" />} label={t('sessionMenu.sendToWorkspace')} onTap={onSendToWorkspace} />
+        <CompactMenuRow icon={<Send className="size-3.5" />} label={t('sessionMenu.sendToWorkspace')} onTap={onSendToWorkspace} />
       )}
 
-      <Row
+      <CompactMenuRow
         icon={<MessageSquare className="size-3.5" />}
         label={t('sessionMenu.connectMessaging')}
         chevron
@@ -419,7 +429,7 @@ function RootPane({
 
       <Separator />
 
-      <Row
+      <CompactMenuRow
         icon={<span style={statusColor ? { color: statusColor } : undefined}>{statusIconNode}</span>}
         label={t('sessionMenu.status')}
         chevron
@@ -427,7 +437,7 @@ function RootPane({
       />
 
       {hasLabels && (
-        <Row
+        <CompactMenuRow
           icon={<Tag className="size-3.5" />}
           label={t('sessionMenu.labels')}
           trailing={labelsCount > 0 ? <CountBadge count={labelsCount} /> : undefined}
@@ -436,45 +446,45 @@ function RootPane({
         />
       )}
 
-      <Row
+      <CompactMenuRow
         icon={isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
         label={isPinned ? t('menu.unpin') : t('menu.pin')}
         onTap={onTogglePin}
       />
 
       {!isFlagged ? (
-        <Row icon={<Flag className="size-3.5 text-info" />} label={t('sessionMenu.flag')} onTap={onFlag} />
+        <CompactMenuRow icon={<Flag className="size-3.5 text-info" />} label={t('sessionMenu.flag')} onTap={onFlag} />
       ) : (
-        <Row icon={<FlagOff className="size-3.5" />} label={t('sessionMenu.unflag')} onTap={onUnflag} />
+        <CompactMenuRow icon={<FlagOff className="size-3.5" />} label={t('sessionMenu.unflag')} onTap={onUnflag} />
       )}
 
       {!isArchived ? (
-        <Row icon={<Archive className="size-3.5" />} label={t('sessionMenu.archive')} onTap={onArchive} />
+        <CompactMenuRow icon={<Archive className="size-3.5" />} label={t('sessionMenu.archive')} onTap={onArchive} />
       ) : (
-        <Row icon={<ArchiveRestore className="size-3.5" />} label={t('sessionMenu.unarchive')} onTap={onUnarchive} />
+        <CompactMenuRow icon={<ArchiveRestore className="size-3.5" />} label={t('sessionMenu.unarchive')} onTap={onUnarchive} />
       )}
 
       {!hasUnread && hasMessages && (
-        <Row icon={<MailOpen className="size-3.5" />} label={t('sessionMenu.markAsUnread')} onTap={onMarkUnread} />
+        <CompactMenuRow icon={<MailOpen className="size-3.5" />} label={t('sessionMenu.markAsUnread')} onTap={onMarkUnread} />
       )}
 
       <Separator />
 
-      <Row icon={<Pencil className="size-3.5" />} label={t('common.rename')} onTap={onRename} />
-      <Row icon={<RefreshCw className="size-3.5" />} label={t('sessionMenu.regenerateTitle')} onTap={onRefreshTitle} />
+      <CompactMenuRow icon={<Pencil className="size-3.5" />} label={t('common.rename')} onTap={onRename} />
+      <CompactMenuRow icon={<RefreshCw className="size-3.5" />} label={t('sessionMenu.regenerateTitle')} onTap={onRefreshTitle} />
 
       <Separator />
 
-      <Row
+      <CompactMenuRow
         icon={<FolderOpen className="size-3.5" />}
         label={t('sessionMenu.showInFileManager', { fileManager: getFileManagerName() })}
         onTap={onShowInFinder}
       />
-      <Row icon={<Copy className="size-3.5" />} label={t('sessionMenu.copyPath')} onTap={onCopyPath} />
+      <CompactMenuRow icon={<Copy className="size-3.5" />} label={t('sessionMenu.copyPath')} onTap={onCopyPath} />
 
       <Separator />
 
-      <Row
+      <CompactMenuRow
         icon={<Trash2 className="size-3.5" />}
         label={t('common.delete')}
         destructive
@@ -500,7 +510,7 @@ function StatusPane({
           ? React.cloneElement(state.icon as React.ReactElement<{ bare?: boolean }>, { bare: true })
           : state.icon
         return (
-          <Row
+          <CompactMenuRow
             key={state.id}
             icon={<span style={getStatusIconStyle(state)}>{bareStateIcon}</span>}
             label={state.label}
@@ -529,7 +539,7 @@ function LabelsPane({
       {items.map((item) => {
         const isApplied = appliedLabelIds.has(item.id)
         return (
-          <Row
+          <CompactMenuRow
             key={item.id}
             icon={<LabelIcon label={item.config} size="lg" />}
             label={item.parentPath ? (
@@ -561,11 +571,11 @@ function SharePane({
   const { t } = useTranslation()
   return (
     <div className="flex flex-col">
-      <Row icon={<Globe className="size-3.5" />} label={t('sessionMenu.openInBrowser')} onTap={onOpenInBrowser} />
-      <Row icon={<Copy className="size-3.5" />} label={t('sessionMenu.copyLink')} onTap={onCopyLink} />
-      <Row icon={<RefreshCw className="size-3.5" />} label={t('sessionMenu.updateShare')} onTap={onUpdateShare} />
+      <CompactMenuRow icon={<Globe className="size-3.5" />} label={t('sessionMenu.openInBrowser')} onTap={onOpenInBrowser} />
+      <CompactMenuRow icon={<Copy className="size-3.5" />} label={t('sessionMenu.copyLink')} onTap={onCopyLink} />
+      <CompactMenuRow icon={<RefreshCw className="size-3.5" />} label={t('sessionMenu.updateShare')} onTap={onUpdateShare} />
       <Separator />
-      <Row icon={<Link2Off className="size-3.5" />} label={t('sessionMenu.stopSharing')} destructive onTap={onRevokeShare} />
+      <CompactMenuRow icon={<Link2Off className="size-3.5" />} label={t('sessionMenu.stopSharing')} destructive onTap={onRevokeShare} />
     </div>
   )
 }
@@ -573,9 +583,9 @@ function SharePane({
 function MessagingPane({ onConnect }: { onConnect: (platform: MessagingPlatform) => void }) {
   return (
     <div className="flex flex-col">
-      <Row icon={<MessageSquare className="size-3.5" />} label="Telegram" onTap={() => onConnect('telegram')} />
-      <Row icon={<MessageSquare className="size-3.5" />} label="WhatsApp" onTap={() => onConnect('whatsapp')} />
-      <Row icon={<MessageSquare className="size-3.5" />} label="Lark / Feishu" onTap={() => onConnect('lark')} />
+      <CompactMenuRow icon={<MessageSquare className="size-3.5" />} label="Telegram" onTap={() => onConnect('telegram')} />
+      <CompactMenuRow icon={<MessageSquare className="size-3.5" />} label="WhatsApp" onTap={() => onConnect('whatsapp')} />
+      <CompactMenuRow icon={<MessageSquare className="size-3.5" />} label="Lark / Feishu" onTap={() => onConnect('lark')} />
     </div>
   )
 }
@@ -584,7 +594,7 @@ function MessagingPane({ onConnect }: { onConnect: (platform: MessagingPlatform)
 // Primitives
 // ---------------------------------------------------------------------------
 
-interface RowProps {
+interface RowProps extends Omit<React.ComponentProps<'button'>, 'children' | 'onClick'> {
   icon: React.ReactNode
   label: React.ReactNode
   trailing?: React.ReactNode
@@ -592,9 +602,11 @@ interface RowProps {
   radioSelected?: boolean
   destructive?: boolean
   onTap?: () => void
+  /** Set by a drawer trigger (`asChild`) that wraps the row. */
+  onClick?: React.MouseEventHandler<HTMLButtonElement>
 }
 
-function Row({
+export function CompactMenuRow({
   icon,
   label,
   trailing,
@@ -602,16 +614,21 @@ function Row({
   radioSelected,
   destructive,
   onTap,
+  onClick,
+  className,
+  ...props
 }: RowProps) {
-  if (!onTap) return null
+  if (!onTap && !onClick) return null
   return (
     <button
       type="button"
-      onClick={onTap}
+      {...props}
+      onClick={onClick ?? (() => onTap?.())}
       className={cn(
         'flex items-center gap-3 w-full px-3 py-3 rounded-lg text-left transition-colors',
         'hover:bg-foreground/5 active:bg-foreground/10',
         destructive && 'text-destructive hover:bg-destructive/10 active:bg-destructive/15',
+        className,
       )}
     >
       <span className="shrink-0 inline-flex items-center justify-center h-5 w-5">

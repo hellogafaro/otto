@@ -62,7 +62,7 @@ function DemoHeader({ active, setActive, showNav, pinned, onDetails }: {
     <>
       {target && createPortal(
         <PageHeaderRow
-          pinned={pinned}
+          density={pinned ? 'compact' : 'roomy'}
           className={cn(!pinned && 'max-md:pl-14')}
           leading={pinned && <SidebarTrigger />}
           title={CHATS[active]}
