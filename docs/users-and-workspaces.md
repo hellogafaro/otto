@@ -2,6 +2,23 @@
 
 Status: proposal, nothing built. Evidence is cited as `file:line`; `v1:` means `git show otto-v1-archive:<path>`. Better Auth facts are from its docs as of 2026-10-06 (latest `better-auth` 1.7.7, 2026-09-30); none of it has been run in this repo yet.
 
+## Owner direction (2026-10-06, supersedes the sections below where they differ)
+
+- A workspace has members (`owner`, `member`). **Chats are private to the user who created them** (not shared, not visible to owners); everything else in a workspace (projects, tasks, library) is shared by its members.
+- **Settings → Members** (workspace owners only): the members with their role, remove, change role, and invitations (invite by email → copyable link; pending invitations with revoke). Members can leave; the last owner cannot.
+- **Tasks** use members: the assignee picker lists the workspace's members, and the server refuses an assignee that is not a member. `createdBy` and `assignees` hold `user:<id>`. Agents stay for later: `agent:<id>` is already a valid actor and nothing else is built for them now.
+- **Login** is today's `apps/webui/src/login.html` (same tokens, no card, 32px fields, eye button, error state), with an email field added and three modes on the same page: sign in, "Create the owner account" (first run only: name, email, password and `OTTO_SERVER_TOKEN`), and `/login?invite=<id>` (create the account for the invited email, or sign in, then the invitation is accepted). `OTTO_WEBUI_PASSWORD` and its JWT are deleted in phase 1, not kept alongside.
+- Phases are re-cut below ("Lean plan"); the rest of this document is the detail behind them.
+
+### Lean plan
+
+1. **Users and the login page.** `users` domain (Better Auth tables), `/api/auth/*`, the page gate and WebSocket upgrade resolve a user, first-owner bootstrap (adds `owner` rows, rewrites `'user'` to `user:<id>`), remove the password login. Proof: sign up, sign out, sign in, `?next=` kept, a second sign-up refused without an invitation.
+2. **Membership guard.** `workspaces_members`, `ctx.userId`, one wrapper around `server.handle` (member of the connection's workspace, and of an explicit `workspaceId` argument; `OWNER_CHANNELS`), `workspaces:get` filtered, switching guarded. Proof: the table-driven test over every registered channel.
+3. **Private chats.** The session header gets `createdBy` (`user:<id>`); `sessions:get` lists only the caller's chats; the channels whose first argument is a session id go through one `assertOwnsSession` in the same wrapper; push events for a session go only to its creator. Chats made before this (no `createdBy`) become the first owner's at bootstrap. This is the widest change in the plan (chats are files in the workspace folder, `packages/shared/src/sessions`, and many channels take a session id): count them first and list them in the test.
+4. **Members and invitations.** `workspaces_invitations`; RPCs `workspaces:getMembers`, `invite`, `revokeInvitation`, `acceptInvitation`, `removeMember`, `updateMemberRole`, `leave`; Settings → Members page (Opus, DESIGN.md); the task and project assignee pickers read `getMembers`; the server validates assignees.
+
+Later: remote desktop sign-in, agents as actors, API keys, OAuth, mail.
+
 ## (a) Recommendation
 
 Better Auth for identity only (email and password, sessions, bearer tokens), stored through the Drizzle SQLite adapter in a new `users` domain. Workspaces stay what they are today (a directory registered in the config, `packages/shared/src/config/storage.ts:613`) and gain one membership table, `workspaces_members`, plus `workspaces_invitations`, owned by the existing `workspaces` domain; we do not adopt the organization plugin. Every connection resolves to one user at the WebSocket handshake, and one guard in the transport checks membership before any handler runs. Two roles: `owner` and `member`. The first user becomes owner of every existing workspace and inherits every legacy `'user'` row. The desktop app in local mode never shows a login: its per-launch token maps to a local user.
@@ -58,7 +75,7 @@ Actors: `'user'` becomes `'user:<userId>'`; `'agent:<id>'` is unchanged. Justifi
 - Roles: workspace `owner` (members, invitations, workspace settings, sources and secrets, delete) and `member` (everything else); instance `admin` (server and provider settings, creating workspaces). Project roles (`projects_members.role`) stay data only. No viewer role until someone asks.
 - One place: the handshake resolves `{ userId }` (`validateToken` / `validateSessionCookie` return the user instead of a boolean, `transport/server.ts:85-94,430-449`) and `RequestContext` gains `userId` (`transport/types.ts:7-11`). One wrapper around `server.handle` checks, before the handler: the caller is a member of `ctx.workspaceId`, and of the first argument when that argument names a workspace (55 of the 241 handlers take an explicit `workspaceId`, e.g. `handlers/rpc/pages.ts`, `sources.ts`, `automations.ts`); channels listed in one `OWNER_CHANNELS` / `ADMIN_CHANNELS` set need that role. Handlers stay unaware; domain functions keep taking `workspaceId` first and never see users.
 - Isolation: the handshake `workspaceId` (`transport/server.ts`, client-supplied) and `window:switchWorkspace` (`handlers/rpc/workspace.ts:85-89`) are refused without membership; `workspaces:get` returns only the caller's workspaces; pushes already target a workspace. `workspaces:create` takes a server path from the client (`workspace.ts:42-53`): admin only, and in server mode only under `CONFIG_DIR/workspaces`.
-- Everything in a workspace is shared by its members (chats included). Per-user private chats are not in this plan.
+- Everything in a workspace is shared by its members except chats, which belong to the user who created them (see Owner direction, phase 3).
 
 ## (f) Migration
 
@@ -86,7 +103,7 @@ Later, when asked: API keys, Google or GitHub sign-in, magic links (need mail), 
 4. Keep `OTTO_SERVER_TOKEN`? **Yes, as the machine and CLI credential and the bootstrap proof**; drop `OTTO_WEBUI_PASSWORD`.
 5. Desktop local login? **None**; local token maps to the local user.
 6. How do people join? **Invitation link, copied by the owner; no email until a mail sender exists.**
-7. Private chats per user? **No**; members share the workspace.
+7. Private chats per user? **Yes (owner decision)**: a chat belongs to its creator, even owners do not see others' chats.
 8. Password reset without mail? **The admin makes a one-time reset link** (later; until then the CLI with the server token).
 9. `users.name` vs. our `title` rule? **Keep `name`** and list it as an exception.
 
