@@ -74,7 +74,8 @@ describe('createBuiltInConnection', () => {
   it('creates anthropic-api with correct defaults', () => {
     const conn = createBuiltInConnection('anthropic-api')
     expect(conn.slug).toBe('anthropic-api')
-    expect(conn.providerType).toBe('anthropic')
+    expect(conn.providerType).toBe('pi')
+    expect(conn.piAuthProvider).toBe('anthropic')
     expect(conn.authType).toBe('api_key')
     expect(conn.name).toBe('Anthropic (API Key)')
   })
@@ -86,10 +87,11 @@ describe('createBuiltInConnection', () => {
     expect(conn.name).toBe('Custom Anthropic-Compatible')
   })
 
-  it('creates claude-max with oauth', () => {
+  it('creates claude-max as the Pi claude-code provider with the CLI sign-in', () => {
     const conn = createBuiltInConnection('claude-max')
-    expect(conn.providerType).toBe('anthropic')
-    expect(conn.authType).toBe('oauth')
+    expect(conn.providerType).toBe('pi')
+    expect(conn.piAuthProvider).toBe('claude-code')
+    expect(conn.authType).toBe('cli_login')
   })
 
   it('creates pi-api-key with pi provider', () => {
@@ -102,7 +104,7 @@ describe('createBuiltInConnection', () => {
   it('handles numeric suffix slugs (anthropic-api-2) by deriving from base template', () => {
     const conn = createBuiltInConnection('anthropic-api-2')
     expect(conn.slug).toBe('anthropic-api-2')
-    expect(conn.providerType).toBe('anthropic')
+    expect(conn.providerType).toBe('pi')
     expect(conn.name).toBe('Anthropic (API Key) 2')
   })
 

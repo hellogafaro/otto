@@ -79,48 +79,6 @@ export function createPromptHistoryEntry(opts: {
   };
 }
 
-/**
- * Return a copy of a WebhookAction with all env-expandable string fields resolved.
- * Used before enqueueing for deferred retry so the retry scheduler doesn't need
- * the original event environment.
- */
-export function expandWebhookAction(action: WebhookAction, env: Record<string, string>): WebhookAction {
-  const expanded: WebhookAction = {
-    ...action,
-    url: expandEnvVars(action.url, env),
-  };
-
-  if (action.headers) {
-    expanded.headers = {};
-    for (const [key, value] of Object.entries(action.headers)) {
-      expanded.headers[key] = expandEnvVars(value, env);
-    }
-  }
-
-  if (typeof action.body === 'string') {
-    expanded.body = expandEnvVars(action.body, env);
-  } else if (action.body !== undefined && typeof action.body === 'object' && action.body !== null) {
-    expanded.body = JSON.parse(expandEnvVars(JSON.stringify(action.body), env));
-  }
-
-  if (action.auth) {
-    if (action.auth.type === 'basic') {
-      expanded.auth = {
-        type: 'basic',
-        username: expandEnvVars(action.auth.username, env),
-        password: expandEnvVars(action.auth.password, env),
-      };
-    } else if (action.auth.type === 'bearer') {
-      expanded.auth = {
-        type: 'bearer',
-        token: expandEnvVars(action.auth.token, env),
-      };
-    }
-  }
-
-  return expanded;
-}
-
 /** Default fetch timeout in milliseconds (30 seconds, matching Claude Code's HTTP hook default) */
 const DEFAULT_TIMEOUT_MS = 30_000;
 

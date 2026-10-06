@@ -88,29 +88,23 @@ export const messages = sqliteTable('messages', {
 ## 3. Harnesses: what each needs to resume
 
 - **Neither harness takes its history from our messages, today or in this plan.**
-  - Claude resumes from the SDK's own transcript: `resume: sdkSessionId`, and for a branch `forkSession` + `resumeSessionAt` (`S/agent/claude-agent.ts:1546-1556`). The transcript lives under `~/.claude/projects/<cwd-hash>/`, with cwd = `sdkCwd` (`S/sessions/storage.ts:191-194`). No `CLAUDE_CONFIG_DIR` is set anywhere.
+  - Claude: superseded, the Claude backend is deleted ([pi-only-plan](pi-only-plan.md)); old Claude chats continue in Pi with a recovery summary of their last messages (`recoverHistory`).
   - Pi resumes with `PiSessionManager.continueRecent(cwd, <chat>/.pi-sessions)` and forks with `forkFrom` + `branch(anchor)` (`packages/pi-agent-server/src/index.ts:687-717`). `updateRuntimeConfig` changes model and provider settings only, never history (`S/agent/pi-agent.ts:2290-2316`).
   - In the real data the Pi transcript of `vital-zenith` is 2.2 MB, against our 281 KB.
-- **Our rows are only used when a harness transcript is missing.** On "No conversation found" or an empty resume, the backend clears the SDK id and prepends `buildRecoveryContext()`: the last 6 user/assistant messages, 1000 chars each (`S/agent/base-agent.ts:702-729`, `SM:3910-3919`). A failed Claude branch fork is summarized from the parent's messages by the mini model.
-- **Conclusion.** `messages` is the display, search and export transcript. Model context stays with the harness: Claude's in the SDK's files, Pi's in the `transcripts` table below (recommended, pending the owner; today `.pi-sessions` files). That is correct: our rows are lossy for a model (tool results capped, paths made relative, no thinking blocks, signatures or compaction entries). Rebuilding Pi or Claude history from `messages` each turn would be a regression, so this design does **not** do it; `buildRecoveryContext` stays the only reader of `messages` on the resume path, and only when a transcript is missing.
+- **Our rows are only used when a harness transcript is missing.** On "No conversation found" or an empty resume, the backend clears the SDK id and prepends `buildRecoveryContext()`: the last 6 user/assistant messages, 1000 chars each (`S/agent/base-agent.ts:702-729`, `SM:3910-3919`).
+- **Conclusion.** `messages` is the display, search and export transcript. Model context stays with Pi: in the `transcripts` table below (recommended, pending the owner; today `.pi-sessions` files). That is correct: our rows are lossy for a model (tool results capped, paths made relative, no thinking blocks, signatures or compaction entries). Rebuilding Pi history from `messages` each turn would be a regression, so this design does **not** do it; `buildRecoveryContext` stays the only reader of `messages` on the resume path, and only when a transcript is missing.
 - **Restart mid-turn** (targets in data-architecture "Durability"; mechanisms in section 4).
   - The user message is durable (committed before the ack), and a resend with the same client id is not a second message or turn.
   - At most 500 ms of streamed text is lost: the partial answer is in its row, and boot recovery marks it interrupted.
   - Tool rows of the dead turn become `interrupted` at boot instead of staying `executing`.
   - `isQueued` user messages are re-queued on load (`SM:3007-3028`).
   - Nothing resumes the in-flight turn itself; the user prompts again. Continuing a run is what the `pi-durable` trial (data-architecture P8) would add.
-- **Claude transcript on a server.** On disk now, unchanged; one server process per install is assumed. In P7 (S3, or any host that can lose its disk), and only while the Claude harness exists, it becomes one opaque object per chat:
-  - Object key: `workspaces/<ws>/chats/<chatId>/harness/claude/<sdkSessionId>.jsonl`.
-  - Upload: the whole file, at turn end (in `onProcessingStopped`, after `complete`).
-  - Restore: before the agent is created, when the local file is missing, into `~/.claude/projects/<cwd-hash>/`.
-  - The disk FileStore runs the same code against `CONFIG_DIR/objects/` (data-architecture DECISION 7).
-  - Unverified: the SDK's exact cwd-hash rule. The names seen (`-home-g4f4r0-agents`) suggest every non-alphanumeric character becomes `-`. Either read it from the SDK or record the transcript path when `sdkSessionId` is captured.
-  - Pi needs no object: its entries are rows (below). With the alternative of open decision 2, the Pi file would take the same path under `.../harness/pi/`.
+- **Claude transcript on a server.** Superseded: no Claude harness and no P7 blob ([pi-only-plan](pi-only-plan.md)). Pi needs no object: its entries are rows (below). With the alternative of open decision 2, the Pi file would go under `workspaces/<ws>/chats/<chatId>/harness/pi/`.
 
 ### Relation to Pi sessions (`transcripts`)
 
 Two tables, two jobs, one writer (the server), one transaction:
-- **`messages`** = what people see: display, search, export and share. Lossy on purpose (caps, path tokens, images as library objects), and it also holds rows Pi does not have (`error`, `info`, `plan`, `auth-request`, Claude turns).
+- **`messages`** = what people see: display, search, export and share. Lossy on purpose (caps, path tokens, images as library objects), and it also holds rows Pi does not have (`error`, `info`, `plan`, `auth-request`, old Claude turns).
 - **`transcripts`** = what Pi needs to resume: Pi's own entries verbatim (`workspaceId, chatId, id, parentId, type, content, "order", createdAt`; schema and notes in data-architecture (c) "chats"). Resume seeds `SessionManager.inMemory(cwd, { id }, entries)`; `pi-agent-server` sends the new entries at `message_end`, `turn_end`, `compaction_end` and `agent_settled`, and the server inserts them in the same batch transaction as the `messages` rows. A branch copies rows up to its anchor; `/clear` and chat delete remove them with the chat's messages.
 - Neither is derived from the other: no `messages` row is rebuilt from Pi entries, and no Pi entry from `messages`. Status: recommended, pending the owner (data-architecture DECISION 16, open decision 2 here). Evidence: `docs/pi-research.md` 2a and 6.
 
@@ -118,9 +112,9 @@ Two tables, two jobs, one writer (the server), one transaction:
 
 The direction is in data-architecture (h): later, tools run in a container or VM per workspace (one `otto-agent` image), mounting only the workspace folder, with no database access, **no model key and no transcript**: the harness (Pi), `transcripts` and every credential stay on the server, and only the run's scoped token for the `otto` CLI is in the container's env. Desktop local mode stays on the host. For this design that means:
 - **The container never opens `otto.db` and holds no history.** The server owns `messages` and `transcripts` and is the only writer. The harness runs in the server, so its events never cross the container boundary; only tool calls and their results do.
-- **Nothing to restore before a resume.** Pi is seeded from `transcripts`. The Claude harness runs its tools inside its own CLI process, so whether it fits the tools-only split is **unverified** (data-architecture (h)); until that is settled or Claude runs through Pi, its transcript stays the P7 object above.
+- **Nothing to restore before a resume.** Pi is seeded from `transcripts`; the Claude harness is gone ([pi-only-plan](pi-only-plan.md)).
 - **The path token does the remapping.** `{{SESSION_PATH}}` maps message paths to whatever path the chat folder has inside the container.
-- **Claude through Pi (longer term).** If Claude runs through Pi via the providers-domain bridge (subject to a provider-terms check that is **not verified**), the only resume state left is the `transcripts` rows, with no blob at all: the Claude transcript object, the cwd-hash restore and the `forkSession`/`resumeSessionAt` branch path all go.
+- **Claude through Pi** (built, B2 and B3: the `claude-code` Pi provider, [pi-only-plan](pi-only-plan.md)). The only resume state left is Pi's entries, with no blob: the Claude transcript object, the cwd-hash restore and the `forkSession`/`resumeSessionAt` branch path are gone.
 
 ## 4. Write path
 
@@ -330,7 +324,7 @@ Risks:
 - Many tiny transactions under 50 streaming chats: the estimate is about 40% of one writer; the benchmark decides whether the group commit is needed.
 - The thumbnail endpoint is a plain HTTP `<img>` request: the web UI sends its session cookie, but how the Electron renderer authenticates it to the embedded server is **unverified**.
 - Folding chat search, DB-first reads, the thumbnail endpoint and durability into P3b makes it bigger. Split it into 4 M chunks: storage+importer, manager+queue (tail, LRU, dirty rows), RPC+renderer+search+thumbnails, durability (partial text, boot recovery, idempotent sends, `transcripts`, crash suite).
-- The Claude transcript stays host-local until P7: a Claude chat cannot resume on another host. Pi chats can once `transcripts` exists (DECISION 16).
+- Superseded: no Claude transcript ([pi-only-plan](pi-only-plan.md)). Pi chats resume on another host once `transcripts` exists (DECISION 16).
 - Partial text snapshots add writes: one debounced update per streaming chat every 500 ms, already inside the "2 debounced flushes/s" of the load estimate (section 6); the benchmark confirms it.
 - Pi entry mirroring has no per-entry hook in Pi; an entry type the four events miss would be absent on resume. The mirror test (section 8) guards it.
 - `transcripts` rows are large (whole tool results, inline images) and never compacted; resuming a long Pi chat reads all of them.

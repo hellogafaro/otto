@@ -19,7 +19,7 @@ Research 6 Oct 2026 (read-only, nothing built). Question: how to get a harness-a
 
 Keep Pi as the default harness on the server and give each agent one Docker container from one `otto-agent` image. Pi's `read/write/edit/bash/grep/find/ls` run inside the container through their `operations` (the plan in data-architecture (h)). For the browser, the agent runs a CLI through `bash` (`agent-browser`, which drives Chromium over CDP) and saves screenshots to files that Pi's `read` hands to the model as images, so no new tool is needed. A user watches the screen through noVNC.
 
-Claude subscriptions run as **Claude Code inside the same container**. The Claude Agent SDK stays on the server and starts the CLI in the box through `spawnClaudeCodeProcess`. The user signs in through Anthropic's own flow inside their box. This is the only route Anthropic's current terms explicitly allow, and it answers the "unverified" Claude question in (h). ChatGPT subscriptions keep going through Pi's native OAuth, which is already wired (`packages/pi-agent-server/src/adapt-credential.ts`).
+*Superseded by [pi-only-plan](pi-only-plan.md): Otto is Pi only; a Claude subscription is the `claude-code` Pi provider running the human's own `claude` outside the agent's box, with Claude's tools off. The rest of this section (the box, Pi tools in it, no proxy) still holds.* Claude subscriptions run as **Claude Code inside the same container**. The Claude Agent SDK stays on the server and starts the CLI in the box through `spawnClaudeCodeProcess`. The user signs in through Anthropic's own flow inside their box. This is the only route Anthropic's current terms explicitly allow, and it answers the "unverified" Claude question in (h). ChatGPT subscriptions keep going through Pi's native OAuth, which is already wired (`packages/pi-agent-server/src/adapt-credential.ts`).
 
 Drop the "gateway that turns the Claude CLI into an API" from AGENTS.md: Anthropic forbids it (section 5). Don't adopt Mastra as the harness either. It doesn't solve subscriptions, it means rewriting what Pi already does, and its computer use needs hosted E2B Desktop or Daytona. Adopt ACP later, only if a third CLI agent (Codex, Gemini) has to run in the box.
 
@@ -29,11 +29,11 @@ Drop the "gateway that turns the Claude CLI into an API" from AGENTS.md: Anthrop
 3. Ask the agent to open a page and screenshot it, then look at the image.
 4. Watch the same run live in noVNC.
 5. Kill the container mid-`bash` and check the turn survives with an error result.
-6. With any time left, run `claude` in the box through `spawnClaudeCodeProcess` (`docker exec -i ... claude`; the stdio must be pipes, not a TTY).
+6. *Superseded ([pi-only-plan](pi-only-plan.md) B5: `claude` runs in a per-human container, not the box).* With any time left, run `claude` in the box through `spawnClaudeCodeProcess` (`docker exec -i ... claude`; the stdio must be pipes, not a TTY).
 
 ## 3. Questions for the owner
 
-1. Do Claude-subscription agents run as Claude Code (its own tools, its transcript on the box volume), with Claude in Pi on an API key only? If yes, AGENTS.md's gateway line changes.
+1. *Answered by [pi-only-plan](pi-only-plan.md): no; Claude runs as a Pi provider and Pi runs every tool.* Do Claude-subscription agents run as Claude Code (its own tools, its transcript on the box volume), with Claude in Pi on an API key only? If yes, AGENTS.md's gateway line changes.
 2. How many computers: one per agent (what you described), one per workspace (plan (h)), or one per account shared by all agents (what Grok Bot does)?
 3. For hosted: Docker on our own hosts first, or a hosted sandbox (E2B)? Note that running Claude Code in hosted sandboxes requires accepting Anthropic's Commercial Terms.
 
@@ -82,6 +82,6 @@ So the open projects are split. The closest ones (OpenClaw, OpenMausBot) do what
 | [Cua](https://cua.ai/docs/cua/reference/desktop-sandbox/linux-container) | MIT | Docker Linux desktops with a computer-server HTTP API; macOS/Windows VMs | useful if we need a non-Linux desktop |
 | Modal, Fly Machines, Browserbase | no (hosted) | snapshots or volumes; Browserbase is a browser only | pay per use; lock-in |
 
-Shape for D. The server holds the harness, the transcripts, the secrets and the MCP pool. The box holds `bash`, files on a volume (the workspace cache), Chromium on `:99` with CDP on localhost, noVNC behind the server's auth proxy, the `otto` CLI with a scoped run token, and, only for Claude agents, Claude Code and that user's own Claude login. Egress is open by default, with an allow-list option later. Desktop local mode keeps tools on the host.
+Shape for D. The server holds the harness, the transcripts, the secrets and the MCP pool. The box holds `bash`, files on a volume (the workspace cache), Chromium on `:99` with CDP on localhost, noVNC behind the server's auth proxy, the `otto` CLI with a scoped run token; no Claude Code or Claude login ([pi-only-plan](pi-only-plan.md)). Egress is open by default, with an allow-list option later. Desktop local mode keeps tools on the host.
 
 Not verified: `agent-browser` inside Xvfb in our image; `spawnClaudeCodeProcess` with `docker exec` (only documented for VMs, [Freestyle guide](https://www.freestyle.sh/docs/guides/run-claude-code-in-a-sandbox)); that Anthropic counts the Agent SDK spawning the unmodified binary as the "unmodified Claude Code binary" case; Grok Bot internals.

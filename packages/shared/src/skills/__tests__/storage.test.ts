@@ -221,10 +221,8 @@ describe('loadAllSkills', () => {
     expect(loadAllSkills(workspaceRoot).map((s) => s.slug).sort()).toEqual(['commit', 'review']);
   });
 
-  it('is empty without a skills folder, and ignores a project root', () => {
+  it('is empty without a skills folder', () => {
     expect(loadAllSkills(join(tempDir, 'nonexistent'))).toEqual([]);
-    createSkill(join(tempDir, 'project', '.agents', 'skills'), 'proj-only');
-    expect(loadAllSkills(workspaceRoot, join(tempDir, 'project'))).toEqual([]);
   });
 });
 

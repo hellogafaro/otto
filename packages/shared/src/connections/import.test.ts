@@ -9,12 +9,12 @@ import { createSecretsStore, parseEncryptionKey } from '../secrets/index.ts'
 import { secrets } from '../secrets/schema.ts'
 import { getSetting, INSTALL } from '../settings/index.ts'
 import { createConnectionsStore } from './index.ts'
-import { initConnectionsImport } from './import.ts'
+import { initConnectionsImport, initConnectionsPiProviderImport } from './import.ts'
 import { connections } from './schema.ts'
 
 // The credential manager writes `credentials.enc` into the throwaway config dir of the test preload, never ~/.otto.
 const KEY = parseEncryptionKey('1'.repeat(64))
-const SECRET_VALUES = ['sk-or-secret-key', 'oauth-access-1', 'oauth-refresh-1', 'codex-access', 'codex-id', 'AKIASECRETID', 'aws-secret-key', '{"private_key":"gcp-secret"}', 'legacy-oauth-token', 'legacy-anthropic-key']
+const SECRET_VALUES = ['sk-or-secret-key', 'oauth-access-1', 'oauth-refresh-1', 'codex-access', 'codex-id', 'AKIASECRETID', 'aws-secret-key', '{"private_key":"gcp-secret"}', 'legacy-anthropic-key']
 
 const dir = mkdtempSync(join(tmpdir(), 'otto-import-'))
 const configPath = join(dir, 'config.json')
@@ -41,8 +41,7 @@ beforeAll(async () => {
   await manager.set({ type: 'llm_api_key', connectionSlug: 'openrouter' }, { value: 'sk-or-secret-key' })
   await manager.set({ type: 'llm_iam', connectionSlug: 'bedrock' }, { value: 'aws-secret-key', awsAccessKeyId: 'AKIASECRETID', awsRegion: 'us-east-1' })
   await manager.set({ type: 'llm_service_account', connectionSlug: 'vertex' }, { value: '{"private_key":"gcp-secret"}', gcpProjectId: 'p', gcpRegion: 'r', serviceAccountEmail: 'sa@x' })
-  // the two global entries of before connections: claude-max and anthropic-api have no `llm_*` entry
-  await manager.set({ type: 'claude_oauth' }, { value: 'legacy-oauth-token', refreshToken: 'oauth-refresh-1', expiresAt: 5, source: 'native' })
+  // the global entry of before connections: anthropic-api has no `llm_*` entry (a Claude subscription keeps no token)
   await manager.set({ type: 'anthropic_api_key' }, { value: 'legacy-anthropic-key' })
 })
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
@@ -60,27 +59,30 @@ test('imports the connections and their credentials of the old files', async () 
   expect(result).toEqual({ imported: 7, skipped: 2 })
 
   expect(store.getConnections().map((c) => c.slug)).toEqual(['claude-max', 'codex', 'openrouter', 'bedrock', 'vertex', 'ollama', 'anthropic-api'])
+  // a Claude subscription is the user's own `claude` login: no Otto-held token, no account
   expect(store.getConnection('claude-max')).toMatchObject({
     scope: 'install',
-    type: 'anthropic',
-    authType: 'oauth',
+    type: 'claude-code',
+    authType: 'cli_login',
     title: 'Claude Max',
     defaultModel: 'claude-opus-5-5',
     models: ['claude-opus-5-5'],
-    account: { oauthAccountEmail: 'me@x.test', verifiedAt: 7 },
-    hasSecret: true,
+    hasSecret: false,
   })
   expect(store.getConnection('claude-max')?.createdAt).toEqual(new Date(1000))
-  expect(store.getConnection('openrouter')?.config).toEqual({ piAuthProvider: 'openrouter', midStreamBehavior: 'queue' })
-  expect(store.getConnection('ollama')).toMatchObject({ type: 'pi_compat', baseUrl: 'http://localhost:11434/v1', config: { customEndpoint: { api: 'openai-completions' } }, hasSecret: false })
+  expect(store.getConnection('codex')).toMatchObject({ type: 'openai-codex', authType: 'oauth' })
+  expect(store.getConnection('openrouter')).toMatchObject({ type: 'openrouter', config: { midStreamBehavior: 'queue' } })
+  expect(store.getConnection('openrouter')?.config).toEqual({ midStreamBehavior: 'queue' })
+  expect(store.getConnection('anthropic-api')).toMatchObject({ type: 'anthropic', authType: 'api_key' })
+  expect(store.getConnection('ollama')).toMatchObject({ type: 'custom', baseUrl: 'http://localhost:11434/v1', config: { customEndpoint: { api: 'openai-completions' } }, hasSecret: false })
 
-  expect(store.getCredential('claude-max')).toEqual({ accessToken: 'legacy-oauth-token', refreshToken: 'oauth-refresh-1', expiresAt: 5 })
+  expect(store.getCredential('claude-max')).toBeUndefined()
   expect(store.getCredential('codex')).toEqual({ accessToken: 'codex-access', refreshToken: 'oauth-refresh-1', expiresAt: 99, idToken: 'codex-id' })
   expect(store.getCredential('openrouter')).toEqual({ apiKey: 'sk-or-secret-key' })
   expect(store.getCredential('bedrock')).toEqual({ accessKeyId: 'AKIASECRETID', secretAccessKey: 'aws-secret-key', region: 'us-east-1' })
   expect(store.getCredential('vertex')).toEqual({ serviceAccountJson: '{"private_key":"gcp-secret"}', projectId: 'p', region: 'r', email: 'sa@x' })
   expect(store.getCredential('anthropic-api')).toEqual({ apiKey: 'legacy-anthropic-key' })
-  expect(db.select().from(secrets).all()).toHaveLength(6)
+  expect(db.select().from(secrets).all()).toHaveLength(5)
   expect(getSetting(INSTALL, 'imports', db).connections).toBeGreaterThan(0)
 })
 
@@ -107,10 +109,42 @@ test('a run that stopped half-way is finished by the next one: rows are reused b
 
   await initConnectionsImport({ configDir: dir, db, store })
   expect(store.getConnections().filter((c) => c.slug === 'openrouter')).toHaveLength(1)
-  expect(store.getConnection('openrouter')).toMatchObject({ id: partial.id, title: 'OpenRouter', config: { piAuthProvider: 'openrouter' } })
+  expect(store.getConnection('openrouter')).toMatchObject({ id: partial.id, title: 'OpenRouter', type: 'openrouter' })
   expect(store.getCredential('openrouter')).toEqual({ apiKey: 'sk-or-secret-key' })
   expect(db.select().from(secrets).all().some((row) => row.id === secretId)).toBe(true)
-  expect(db.select().from(secrets).all()).toHaveLength(6)
+  expect(db.select().from(secrets).all()).toHaveLength(5)
+})
+
+test('rows written before Pi only get their Pi provider, once; the Claude OAuth token secret is deleted, no value is logged', async () => {
+  const { db, store } = await fresh()
+  const claude = store.createConnection({ slug: 'claude-max', type: 'anthropic', authType: 'oauth', title: 'Claude Max', config: { account: { oauthAccountEmail: 'me@x.test' } } as never }, { accessToken: 'claude-token-secret', refreshToken: 'claude-refresh-secret' })
+  store.createConnection({ slug: 'codex', type: 'pi', authType: 'oauth', title: 'ChatGPT', config: { piAuthProvider: 'openai-codex', midStreamBehavior: 'steer' } as never }, { accessToken: 'codex-token-secret' })
+  store.createConnection({ slug: 'local', type: 'pi_compat', authType: 'none', title: 'Local', baseUrl: 'http://localhost:11434/v1', config: { customEndpoint: { api: 'openai-completions' } } })
+  store.createConnection({ slug: 'key', type: 'anthropic', authType: 'api_key', title: 'Key' }, { apiKey: 'sk-ant-secret' })
+  expect(db.select().from(secrets).all()).toHaveLength(3)
+
+  const logged: string[] = []
+  const spies = (['log', 'warn', 'error', 'info'] as const).map((level) => spyOn(console, level).mockImplementation((...args: unknown[]) => void logged.push(args.map(String).join(' '))))
+  try {
+    expect(initConnectionsPiProviderImport(db, store)).toBe(3)
+  } finally {
+    for (const spy of spies) spy.mockRestore()
+  }
+  expect(store.getConnection('claude-max')).toMatchObject({ id: claude.id, type: 'claude-code', authType: 'cli_login', hasSecret: false, config: {} })
+  expect(db.select().from(connections).all().find((row) => row.id === claude.id)?.config).not.toContain('me@x.test')
+  expect(store.getConnection('codex')).toMatchObject({ type: 'openai-codex', authType: 'oauth', hasSecret: true, config: { midStreamBehavior: 'steer' } })
+  expect('piAuthProvider' in store.getConnection('codex')!.config).toBe(false)
+  expect(store.getConnection('local')).toMatchObject({ type: 'custom', authType: 'none', config: { customEndpoint: { api: 'openai-completions' } } })
+  expect(store.getConnection('key')).toMatchObject({ type: 'anthropic', authType: 'api_key', hasSecret: true })
+  expect(store.getCredential('codex')).toEqual({ accessToken: 'codex-token-secret' })
+  const values = JSON.stringify(db.select().from(secrets).all())
+  expect(db.select().from(secrets).all()).toHaveLength(2)
+  expect(values).not.toContain('claude-')
+  for (const value of ['claude-token-secret', 'codex-token-secret', 'sk-ant-secret']) expect(logged.join('\n')).not.toContain(value)
+
+  const rows = JSON.stringify(db.select().from(connections).all())
+  expect(initConnectionsPiProviderImport(db, store)).toBe(0)
+  expect(JSON.stringify(db.select().from(connections).all())).toBe(rows)
 })
 
 test('the old files are read and never changed; no secret is logged', async () => {

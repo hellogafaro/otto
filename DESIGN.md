@@ -1052,41 +1052,39 @@ status color (Archived neutral). A row (44px): the status icon
   id the workspace does not have shows the not-found page.
 - **Routines index** (`RoutinesPage`, `pages/routines/`; the owner's call: "the
   exact same table for tasks and for routines"): the workspace's routines (the
-  matchers of `automations.json` today, read through `useRoutines`, the one hook
-  that changes when they move to tables) as the grouped list in the padded
+  `routines` rows with their last runs, read through `useRoutines`) as the grouped list in the padded
   `PageWrap`, like Tasks. Actions: Filter (Type, one at a time, `?type=`) and "+"
   (New routine); no Search (the palette has no Routines category). Groups by what
   starts them, in order and only when not empty: Scheduled (`Clock`), Events
   (`Zap`, Otto's own events) and Agent events (`Bot`), neutral bands, no group
   "+". A row (44px): the state icon (`CirclePlay` green active, `CirclePause`
-  muted disabled, `CircleAlert` red failing: the last run that ran failed; a
-  skipped run does not count), the name (at 80% when disabled), then what starts
+  muted paused (`paused_at` set), `CircleAlert` red failing: the last run that ran failed; a
+  skipped or running run does not count), the name (at 80% when paused), then what starts
   it in muted text after the name ("Weekdays at 9:00 AM (Berlin)", "Label added
   matching ^bug$": the cron in words in the UI language, the expression itself
   for an uncommon one), its kinds of action as outline badges (Prompt, Script,
   Webhook), and when it last ran ("2h", else "Never") in the end column; the ⋯
-  menu: Open, Run now, Enable / Disable, then Delete (⌫) apart, asked first
-  ("Delete routine?", "This can't be undone."). Run now is the RPC's test run
-  ("Routine started"); Enable / Disable shows "Saved". Loading: three
+  menu: Open, Run now, Pause / Resume, then Delete (⌫) apart, asked first
+  ("Delete routine?", "This can't be undone."). Run now starts a run in the
+  background ("Routine started"; its end arrives as a live update); Pause / Resume shows "Saved". Loading: three
   `ListRowSkeleton`s in the wrapper. No routines at all: only the section's empty
   state, whose "New routine" is the same as "+": it prefills the composer ("Add a
   routine that "), where you say what should run and when, and an agent writes it
-  in a new chat (there is no create RPC and no form). A filter that keeps none:
+  in a new chat (no form). A filter that keeps none:
   `NoResults`.
 - **Routine page** (`RoutinePage`, `/{ws}/routines/{id}`): a blocks page. The
-  title row is the name (read-only: the automations RPCs cannot rename; changes go
+  title row is the name (read-only; changes go
   through Edit) with the trigger in words as the lead line; actions Details
-  (`PanelRight`, pressed while open) and More (Run now, Enable / Disable, then
+  (`PanelRight`, pressed while open) and More (Run now, Pause / Resume, then
   Delete, back to Routines after). Then **Actions**, a card with each action
   read-only (its kind over the prompt, or the webhook's URL or the script in mono;
   the section's Edit prefills the composer with "Edit the actions of the routine {name}
   to "), and **Run history**, a card of its last 20 runs, newest first:
-  the date and time, the error or why it was skipped under it, and a Ran / Failed /
+  the date and time, the error or why it was skipped under it, and a Running / Ran / Failed /
   Skipped badge; a run that started a chat opens it (chevron). None: "No runs
   yet". The Details sidecar: Properties, read-only rows (Trigger, the cron in mono
   or the event; Timezone for a schedule, "Local time" when unset; Actions; Labels)
-  and Enabled, the emerald `Switch`, applied at once with "Saved". There is no
-  Created row: the file has no dates. Back returns to the index under its type;
+  and Status (Active, Paused or Failing, read-only: Pause / Resume is in More). Back returns to the index under its type;
   Previous / Next step through its order. An id the workspace does not have shows
   the not-found page.
 - **Project page** (`ProjectPage`, `pages/projects/project-page.tsx`): a blocks

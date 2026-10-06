@@ -20,7 +20,7 @@ import type {
  * clients that show it reload. `userIds` (notifications only) are the people whose inbox changed.
  */
 export type DomainChange = {
-  domain: 'library' | 'projects' | 'tasks' | 'timesheets' | 'comments' | 'notifications' | 'members' | 'labels' | 'statuses' | 'permissions' | 'skills' | 'sources' | 'agents'
+  domain: 'library' | 'projects' | 'tasks' | 'timesheets' | 'comments' | 'notifications' | 'members' | 'labels' | 'statuses' | 'permissions' | 'skills' | 'sources' | 'agents' | 'routines'
   workspaceId: string
   userIds?: string[]
 }

@@ -163,40 +163,11 @@ export default [
             message: 'Use provider-agnostic APIs from @otto/shared/agent/backend instead.',
           },
           {
-            name: '@otto/shared/agent/claude-agent',
-            message: 'Provider backends must stay behind @otto/shared/agent/backend.',
-          },
-          {
             name: '@otto/shared/agent/pi-agent',
             message: 'Provider backends must stay behind @otto/shared/agent/backend.',
           },
         ],
       }],
-    },
-  },
-
-  // Keep main model fetchers provider-agnostic (delegate to shared backend APIs only).
-  {
-    files: ['src/main/model-fetchers/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-syntax': ['error',
-        {
-          selector: "CallExpression[callee.name='fetch']",
-          message: 'Do not call provider APIs directly in Electron model fetchers. Delegate to fetchBackendModels() from @otto/shared/agent/backend.',
-        },
-        {
-          selector: "ImportDeclaration[source.value='@anthropic-ai/claude-agent-sdk']",
-          message: 'Provider SDK usage must stay in backend drivers under packages/shared/src/agent/backend/internal/drivers.',
-        },
-        {
-          selector: "ImportDeclaration[source.value='@earendil-works/pi-ai']",
-          message: 'Provider SDK usage must stay in backend drivers under packages/shared/src/agent/backend/internal/drivers.',
-        },
-        {
-          selector: "ImportDeclaration[source.value='@earendil-works/pi-coding-agent']",
-          message: 'Provider SDK usage must stay in backend drivers under packages/shared/src/agent/backend/internal/drivers.',
-        },
-      ],
     },
   },
 ]

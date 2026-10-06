@@ -5,8 +5,6 @@ import {
   getDefaultModelForConnection,
   PI_PREFERRED_DEFAULTS,
   isCompatProvider,
-  isAnthropicProvider,
-  isPiProvider,
   toBedrockNativeId,
   fromBedrockNativeId,
   normalizeBedrockModelId,
@@ -19,14 +17,10 @@ import { ANTHROPIC_MODELS, getModelDisplayName, getModelContextWindow, getModelS
 // ============================================================
 
 describe('getDefaultModelsForConnection', () => {
-  it('anthropic returns ANTHROPIC_MODELS (ModelDefinition[])', () => {
-    const models = getDefaultModelsForConnection('anthropic')
-    expect(models).toEqual(ANTHROPIC_MODELS)
-    expect(models.length).toBeGreaterThan(0)
-    // Verify they are ModelDefinition objects, not strings
-    const first = models[0]!
-    expect(typeof first).toBe('object')
-    expect(typeof (first as any).id).toBe('string')
+  it('a Claude subscription (claude-code) lists the anthropic models in the same order', () => {
+    expect(getDefaultModelsForConnection('pi', 'claude-code').map(m => typeof m === 'string' ? m : m.id))
+      .toEqual(getDefaultModelsForConnection('pi', 'anthropic').map(m => typeof m === 'string' ? m : m.id))
+    expect(getDefaultModelForConnection('pi', 'claude-code')).toBe('pi/claude-opus-5-5')
   })
 
   it('pi with piAuthProvider returns filtered models including Opus 4.6', () => {
@@ -52,14 +46,6 @@ describe('getDefaultModelsForConnection', () => {
 // ============================================================
 
 describe('getDefaultModelForConnection', () => {
-  it('returns first model ID for anthropic', () => {
-    const modelId = getDefaultModelForConnection('anthropic')
-    expect(typeof modelId).toBe('string')
-    expect(modelId.length).toBeGreaterThan(0)
-    // Should match the first ANTHROPIC_MODELS entry
-    expect(modelId).toBe(ANTHROPIC_MODELS[0]!.id)
-  })
-
   // Regression: Pi 'anthropic' default must be present in its own model list
   it('regression: Pi anthropic default is in its own model list', () => {
     const defaultModel = getDefaultModelForConnection('pi', 'anthropic')
@@ -150,36 +136,8 @@ describe('isCompatProvider', () => {
     expect(isCompatProvider('pi_compat')).toBe(true)
   })
 
-  it('returns false for anthropic', () => {
-    expect(isCompatProvider('anthropic')).toBe(false)
-  })
-
   it('returns false for pi', () => {
     expect(isCompatProvider('pi')).toBe(false)
-  })
-})
-
-describe('isAnthropicProvider', () => {
-  it('returns true for anthropic', () => {
-    expect(isAnthropicProvider('anthropic')).toBe(true)
-  })
-
-  it('returns false for pi', () => {
-    expect(isAnthropicProvider('pi')).toBe(false)
-  })
-})
-
-describe('isPiProvider', () => {
-  it('returns true for pi', () => {
-    expect(isPiProvider('pi')).toBe(true)
-  })
-
-  it('returns true for pi_compat', () => {
-    expect(isPiProvider('pi_compat')).toBe(true)
-  })
-
-  it('returns false for anthropic', () => {
-    expect(isPiProvider('anthropic')).toBe(false)
   })
 })
 
@@ -390,7 +348,7 @@ describe('Claude Fable 5', () => {
   })
 
   it('does NOT become the Anthropic default (Opus 5.5 is the default)', () => {
-    expect(getDefaultModelForConnection('anthropic')).toBe('claude-opus-5-5')
+    expect(getDefaultModelForConnection('pi', 'anthropic')).toBe('pi/claude-opus-5-5')
   })
 
   it('round-trips through the Bedrock inference-profile mapping', () => {
@@ -434,7 +392,7 @@ describe('Claude Fable 5.1', () => {
   })
 
   it('does NOT become the Anthropic default (Opus 5.5 is the default)', () => {
-    expect(getDefaultModelForConnection('anthropic')).toBe('claude-opus-5-5')
+    expect(getDefaultModelForConnection('pi', 'anthropic')).toBe('pi/claude-opus-5-5')
   })
 
   it('round-trips through the Bedrock inference-profile mapping', () => {
@@ -476,7 +434,6 @@ describe('Claude Opus 5.5', () => {
     expect(ids[0]).toBe('claude-opus-5-5')
     expect(ids.indexOf('claude-opus-5-5')).toBeLessThan(ids.indexOf('claude-opus-5'))
     expect(ids.indexOf('claude-opus-5')).toBeLessThan(ids.indexOf('claude-opus-4-8'))
-    expect(getDefaultModelForConnection('anthropic')).toBe('claude-opus-5-5')
   })
 
   it('is the default for new Pi-backed Anthropic and Bedrock connections', () => {

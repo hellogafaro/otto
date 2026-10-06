@@ -19,7 +19,6 @@ const baseCompat: LlmConnection = {
 function sig(connection: LlmConnection) {
   return buildBackendRuntimeSignature({
     connection,
-    provider: 'pi',
     authType: 'api_key',
     resolvedModel: 'gemma',
   })

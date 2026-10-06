@@ -72,15 +72,15 @@ export const onboardingComponents: ComponentEntry[] = [
     }),
   },
   {
-    id: 'credentials-step-oauth',
-    name: 'Credentials - OAuth',
+    id: 'credentials-step-claude-code',
+    name: 'Credentials - Claude subscription',
     category: 'Onboarding',
-    description: 'Claude Max/Pro OAuth authentication flow',
+    description: 'Claude subscription through the user\'s own Claude Code sign-in (nothing to enter)',
     component: CredentialsStep,
     props: [
       {
         name: 'status',
-        description: 'OAuth status',
+        description: 'Save status',
         control: {
           type: 'select',
           options: [
@@ -93,12 +93,6 @@ export const onboardingComponents: ComponentEntry[] = [
         defaultValue: 'idle',
       },
       {
-        name: 'isWaitingForCode',
-        description: 'Show auth code entry form',
-        control: { type: 'boolean' },
-        defaultValue: false,
-      },
-      {
         name: 'errorMessage',
         description: 'Error message to display',
         control: { type: 'string', placeholder: 'Error message' },
@@ -106,21 +100,15 @@ export const onboardingComponents: ComponentEntry[] = [
       },
     ],
     variants: [
-      { name: 'Idle', props: { apiSetupMethod: 'claude_oauth', status: 'idle' } },
-      { name: 'Waiting for Code', props: { apiSetupMethod: 'claude_oauth', status: 'idle', isWaitingForCode: true } },
-      { name: 'Waiting for Code - Validating', props: { apiSetupMethod: 'claude_oauth', status: 'validating', isWaitingForCode: true } },
-      { name: 'Waiting for Code - Error', props: { apiSetupMethod: 'claude_oauth', status: 'error', isWaitingForCode: true, errorMessage: 'Invalid authorization code.' } },
-      { name: 'Validating', props: { apiSetupMethod: 'claude_oauth', status: 'validating' } },
-      { name: 'Success', props: { apiSetupMethod: 'claude_oauth', status: 'success' } },
-      { name: 'Error', props: { apiSetupMethod: 'claude_oauth', status: 'error', errorMessage: 'Authentication failed. Please try again.' } },
+      { name: 'Idle', props: { apiSetupMethod: 'claude_code', status: 'idle' } },
+      { name: 'Validating', props: { apiSetupMethod: 'claude_code', status: 'validating' } },
+      { name: 'Error', props: { apiSetupMethod: 'claude_code', status: 'error', errorMessage: 'Failed to save connection.' } },
     ],
     mockData: () => ({
-      apiSetupMethod: 'claude_oauth',
+      apiSetupMethod: 'claude_code',
       onSubmit: (data: { apiKey: string }) => console.log('[Playground] Submitted:', data),
       onStartOAuth: noopHandler,
       onBack: noopHandler,
-      onSubmitAuthCode: (code: string) => console.log('[Playground] Auth code:', code),
-      onCancelOAuth: noopHandler,
     }),
   },
   {
@@ -266,9 +254,9 @@ export const onboardingComponents: ComponentEntry[] = [
         },
       },
       {
-        name: 'Credentials - OAuth',
+        name: 'Credentials - Claude subscription',
         props: {
-          state: createOnboardingState({ step: 'credentials', apiSetupMethod: 'claude_oauth' }),
+          state: createOnboardingState({ step: 'credentials', apiSetupMethod: 'claude_code' }),
         },
       },
     ],

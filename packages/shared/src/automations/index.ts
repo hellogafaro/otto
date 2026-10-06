@@ -8,7 +8,7 @@
  * - utils.ts: Shared utilities (toSnakeCase, expandEnvVars, etc.)
  * - automation-system.ts: AutomationSystem facade (main entry point)
  * - event-bus.ts: WorkspaceEventBus
- * - handlers/: PromptHandler, WebhookHandler, EventLogHandler
+ * - handlers/: PromptHandler, WebhookHandler, ScriptHandler
  */
 
 // ============================================================================
@@ -76,9 +76,6 @@ export { parsePromptReferences, buildScriptEnv, type ScriptEnvOptions } from './
 // Re-exports from sub-modules
 // ============================================================================
 
-// Event logger
-export { AutomationEventLogger, type LoggedAutomationEvent, type LoggedAutomationEventInput } from './event-logger.ts';
-
 // Schemas
 export { AutomationsConfigSchema, AutomationConditionSchema, TimeConditionSchema, StateConditionSchema, ScriptActionSchema, zodErrorToIssues, VALID_EVENTS } from './schemas.ts';
 
@@ -101,14 +98,11 @@ export {
   type ScriptExecutionContext,
 } from './script-executor.ts';
 
-// Retry scheduler
-export { RetryScheduler, type RetryQueueEntry, type RetrySchedulerOptions } from './retry-scheduler.ts';
-
 // Config constants
-export { AUTOMATIONS_CONFIG_FILE, AUTOMATIONS_HISTORY_FILE, AUTOMATIONS_RETRY_QUEUE_FILE, HISTORY_FIELD_MAX_LENGTH, AUTOMATION_HISTORY_MAX_RUNS_PER_MATCHER, AUTOMATION_HISTORY_MAX_ENTRIES } from './constants.ts';
+export { AUTOMATIONS_CONFIG_FILE, HISTORY_FIELD_MAX_LENGTH } from './constants.ts';
 
-// History store
-export { appendAutomationHistoryEntry, compactAutomationHistory, compactAutomationHistorySync } from './history-store.ts';
+// History of event routine runs
+export { appendAutomationHistoryEntry } from './history-store.ts';
 
 // Config path resolution
 export { resolveAutomationsConfigPath, generateShortId } from './resolve-config-path.ts';
@@ -143,12 +137,10 @@ export {
 // Handlers
 export {
   PromptHandler,
-  EventLogHandler,
   WebhookHandler,
   ScriptHandler,
   type AutomationHandler,
   type PromptHandlerOptions,
-  type EventLogHandlerOptions,
   type WebhookHandlerOptions,
   type ScriptHandlerOptions,
   type AutomationsConfigProvider,

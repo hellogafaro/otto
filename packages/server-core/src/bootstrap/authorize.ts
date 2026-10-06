@@ -1,4 +1,5 @@
 import { canEditAgent, getAgent } from '@otto/shared/agents'
+import { canEditRoutine, getRoutine } from '@otto/shared/automations/routines'
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
 import { INSTALL_SCOPE, getConnection, narrowContext, userScope, workspaceScope } from '@otto/shared/connections'
 import { userActor } from '@otto/shared/actors'
@@ -16,7 +17,7 @@ import { getMemberRole, type WorkspaceRole } from '@otto/shared/workspaces'
  * to the workspace their argument names. Handlers never know about users.
  *
  * A workspace argument is an id or a name (`getWorkspaceByNameOrId`, as the handlers resolve it), or
- * for `automations:test` an object with a `workspaceId`. Which channels take one is declared here;
+ * an object with a `workspaceId`. Which channels take one is declared here;
  * `authorize.test.ts` registers every handler and fails when a handler with a workspace parameter
  * is missing from this map.
  */
@@ -25,8 +26,6 @@ import { getMemberRole, type WorkspaceRole } from '@otto/shared/workspaces'
 export const WORKSPACE_ARG_CHANNELS = new Map<string, number>([
   ...[
     C.llmConnections.SET_WORKSPACE_DEFAULT,
-    C.automations.GET, C.automations.TEST, C.automations.SET_ENABLED, C.automations.DUPLICATE, C.automations.DELETE,
-    C.automations.GET_HISTORY, C.automations.GET_LAST_EXECUTED, C.automations.REPLAY,
     C.labels.LIST, C.labels.CREATE, C.labels.DELETE,
     C.resources.EXPORT, C.resources.IMPORT,
     C.sessions.CREATE, C.sessions.IMPORT, C.sessions.IMPORT_REMOTE_TRANSFER, C.sessions.MARK_ALL_READ, C.sessions.SEARCH_CONTENT,
@@ -63,6 +62,13 @@ export const OWNER_CHANNELS = new Set<string>([
  * no agent of that workspace is let through: the handler answers `not_found`, to everyone alike.
  */
 export const AGENT_WRITE_CHANNELS = new Set<string>([C.agents.UPDATE, C.agents.DELETE])
+
+/**
+ * Channels that change or run one routine, naming it by id in their first argument: its creator or an owner of the
+ * connection's workspace may; every other member is refused. Any member lists, gets and creates routines. An id that
+ * is no routine of that workspace is let through: the handler answers `not_found`, to everyone alike.
+ */
+export const ROUTINE_WRITE_CHANNELS = new Set<string>([C.routines.UPDATE, C.routines.DELETE, C.routines.PAUSE, C.routines.RESUME, C.routines.RUN])
 
 /** Channels that change one skill: `(workspace, slug)`. Members read skills; the skill's creator or an owner of the workspace writes. */
 export const SKILL_WRITE_CHANNELS = new Set<string>([C.skills.DELETE])
@@ -119,9 +125,6 @@ export const CONNECTION_WRITE_CHANNELS = new Map<string, number>([
   [C.copilot.START_OAUTH, 0],
   [C.copilot.CANCEL_OAUTH, 0],
   [C.copilot.LOGOUT, 0],
-  [C.onboarding.START_CLAUDE_OAUTH, 0],
-  [C.onboarding.EXCHANGE_CLAUDE_CODE, 1],
-  [C.onboarding.CLEAR_CLAUDE_OAUTH_STATE, 0],
 ])
 
 /** Channels that address any settings entity by name: `(entity, key, ...)`. */
@@ -150,6 +153,13 @@ function assertAgentWrite(userId: string, workspaceRef: string | null, id: unkno
   const workspaceId = workspaceRef != null ? getWorkspaceByNameOrId(workspaceRef)?.id : undefined
   const agent = workspaceId && typeof id === 'string' ? getAgent(workspaceId, id) : undefined
   if (workspaceId && agent && !canEditAgent(workspaceId, agent, userId)) throw forbidden('Only the creator of this agent or an owner of this workspace can do that')
+}
+
+/** Throws `forbidden` unless the caller made the routine (`id`) or owns its workspace (the connection's, as the handler resolves it). */
+function assertRoutineWrite(userId: string, workspaceRef: string | null, id: unknown): void {
+  const workspaceId = workspaceRef != null ? getWorkspaceByNameOrId(workspaceRef)?.id : undefined
+  const routine = workspaceId && typeof id === 'string' ? getRoutine(workspaceId, id) : undefined
+  if (workspaceId && routine && !canEditRoutine(workspaceId, routine, userId)) throw forbidden('Only the creator of this routine or an owner of this workspace can do that')
 }
 
 /** Throws `forbidden` unless the caller made the source (`slug`) or owns its workspace. A source that is not there is the handler's `not_found`. */
@@ -213,6 +223,7 @@ export function authorize(ctx: { userId: string | null; workspaceId: string | nu
     const mode = SETTING_CHANNELS.get(channel)
     if (mode) assertSettingAccess(userId, args[0], args[1], mode)
     if (AGENT_WRITE_CHANNELS.has(channel)) assertAgentWrite(userId, ctx.workspaceId, args[0])
+    if (ROUTINE_WRITE_CHANNELS.has(channel)) assertRoutineWrite(userId, ctx.workspaceId, args[0])
     const sourceArgs = SOURCE_WRITE_CHANNELS.get(channel)?.(args, ctx.workspaceId)
     if (sourceArgs) assertSourceWrite(userId, ...sourceArgs)
     const connectionArg = CONNECTION_WRITE_CHANNELS.get(channel)

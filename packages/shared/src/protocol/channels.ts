@@ -172,10 +172,6 @@ export const RPC_CHANNELS = {
     GET_AUTH_STATE: 'onboarding:getAuthState',
     VALIDATE_MCP: 'onboarding:validateMcp',
     START_MCP_OAUTH: 'onboarding:startMcpOAuth',
-    START_CLAUDE_OAUTH: 'onboarding:startClaudeOAuth',
-    EXCHANGE_CLAUDE_CODE: 'onboarding:exchangeClaudeCode',
-    HAS_CLAUDE_OAUTH_STATE: 'onboarding:hasClaudeOAuthState',
-    CLEAR_CLAUDE_OAUTH_STATE: 'onboarding:clearClaudeOAuthState',
     DEFER_SETUP: 'onboarding:deferSetup',
   },
   llmConnections: {
@@ -356,15 +352,18 @@ export const RPC_CHANNELS = {
     REMOVED: 'browser-pane:removed',
     INTERACTED: 'browser-pane:interacted',
   },
+  routines: {
+    LIST: 'routines:list',
+    GET: 'routines:get',
+    CREATE: 'routines:create',
+    UPDATE: 'routines:update',
+    DELETE: 'routines:delete',
+    PAUSE: 'routines:pause',
+    RESUME: 'routines:resume',
+    RUN: 'routines:run',
+  },
+  // TODO: goes with the session manager's file watcher (automations.json is no longer read after the import).
   automations: {
-    GET: 'automations:get',
-    TEST: 'automations:test',
-    SET_ENABLED: 'automations:setEnabled',
-    DUPLICATE: 'automations:duplicate',
-    DELETE: 'automations:delete',
-    GET_HISTORY: 'automations:getHistory',
-    GET_LAST_EXECUTED: 'automations:getLastExecuted',
-    REPLAY: 'automations:replay',
     CHANGED: 'automations:changed',
   },
   resources: {

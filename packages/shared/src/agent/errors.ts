@@ -220,30 +220,6 @@ const ERROR_DEFINITIONS: Record<ErrorCode, Omit<AgentError, 'code' | 'originalEr
     ],
     canRetry: true,
   },
-  sdk_binary_missing: {
-    title: 'Claude Code binary missing from app bundle',
-    message:
-      'The Claude Agent SDK binary expected on disk is not present. ' +
-      'This usually means the app bundle is incomplete (interrupted download, partial update, ' +
-      `or a security tool removed it). Reinstalling ${PRODUCT_NAME} typically fixes this.`,
-    actions: [
-      { key: 'r', label: 'Retry', action: 'retry' },
-    ],
-    canRetry: true,
-    retryDelayMs: 1000,
-  },
-  sdk_cwd_missing: {
-    title: 'Branch source unavailable on this machine',
-    message:
-      "The folder this branched session was forked from doesn't exist on this machine. " +
-      'This typically happens after importing a session from another workspace. ' +
-      'Retrying will start a fresh fork from a summary of the parent conversation.',
-    actions: [
-      { key: 'r', label: 'Retry', action: 'retry' },
-    ],
-    canRetry: true,
-    retryDelayMs: 1000,
-  },
   unknown_error: {
     title: 'Error',
     message: 'Something went wrong. If this persists, check the provider status page or retry.',
@@ -449,7 +425,7 @@ export function parseError(
   // Resolve provider info from context
   const providerInfo = providerContext
     ? getProviderMetadata(
-        providerContext.providerType ?? 'anthropic',
+        providerContext.providerType ?? 'pi',
         providerContext.piAuthProvider,
       ) ?? undefined
     : undefined;
@@ -508,7 +484,7 @@ export function createAgentError(
   const definition = ERROR_DEFINITIONS[code]!;
   const providerInfo = providerContext
     ? getProviderMetadata(
-        providerContext.providerType ?? 'anthropic',
+        providerContext.providerType ?? 'pi',
         providerContext.piAuthProvider,
       ) ?? undefined
     : undefined;

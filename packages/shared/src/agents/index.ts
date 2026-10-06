@@ -202,10 +202,9 @@ export function initAgentsSeed(workspaceId: string, createdBy: string, provider:
   return db.transaction((tx) => (rowsOf(workspaceId, tx).length ? undefined : createAgent({ workspaceId, title: AGENT_DEFAULT_NAME, provider, createdBy }, tx)))
 }
 
-/** The provider a person's new agent starts with: the one their default connection signs in to (`FALLBACK_PROVIDER` with none). */
+/** The provider a person's new agent starts with: the Pi provider of their default connection (`FALLBACK_PROVIDER` with none). */
 export function getDefaultProvider(workspaceId: string, userId: string | null): string {
-  const connection = getDefaultConnection({ workspaceId, userId })
-  return connection?.config.piAuthProvider ?? connection?.type ?? FALLBACK_PROVIDER
+  return getDefaultConnection({ workspaceId, userId })?.type ?? FALLBACK_PROVIDER
 }
 
 /** The workspace's `instructions` setting: text every agent of it gets before its own. */

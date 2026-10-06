@@ -1,11 +1,9 @@
 /**
  * Model Fetcher — Centralized Model Discovery
  *
- * Type-safe plugin interface for fetching available models from providers.
- * Each provider (Anthropic, Pi) implements ModelFetcher.
- * The ModelFetcherMap enforces at compile time that every fetchable provider
- * has a registered fetcher — adding a new LlmProviderType without a fetcher
- * causes a type error.
+ * Interface for fetching a connection's available models (Pi's catalog, or
+ * Copilot's live list). The ModelFetcherMap enforces at compile time that every
+ * fetchable provider type has a fetcher.
  *
  * Compat providers (pi_compat) are excluded —
  * they point to arbitrary endpoints where users configure models manually.
@@ -53,8 +51,7 @@ export interface ModelFetcherCredentials {
 /**
  * Plugin interface for provider-specific model discovery.
  *
- * Implementations live in apps/electron/src/main/model-fetchers/.
- * Each provider implements fetchModels() with its own SDK/API call.
+ * The implementation lives in packages/server-core/src/model-fetchers/.
  */
 export interface ModelFetcher {
   /**

@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PendingPrompt } from '@otto/shared/automations'
+import { createRoutine, getRoutine } from '@otto/shared/automations/routines'
+import { addWorkspace, saveConfig } from '@otto/shared/config'
 import { MAX_AUTOMATION_CHAIN_DEPTH, SessionManager, buildActivationRetryMessage, createManagedSession } from './session-manager.ts'
 
 // Found in a decision-harness test run: an automation's own session got the label it listens to
@@ -60,23 +62,24 @@ describe('automation loop guard', () => {
     expect(verdict.reason).toContain('chain')
   })
 
-  it('skips a looping run before its condition check and records it as skipped', async () => {
-    sessionWith('auto-session', { automationName: 'Packing list', automationId: 'packing', depth: 1 })
+  it('skips a looping run before its condition check and records it as a skipped run of its routine', async () => {
+    saveConfig({ workspaces: [] })
+    const workspaceId = addWorkspace({ name: 'Loop', rootPath: tmpRoot }).id
+    const routine = createRoutine({ workspaceId, title: 'Packing list', config: { type: 'event', event: 'LabelAdd', actions: [{ type: 'prompt', prompt: 'x' }] }, createdBy: 'user:aaaaaaaaaaaa' })
+    sessionWith('auto-session', { automationName: 'Packing list', automationId: routine.id, depth: 1 })
     let created = 0
     ;(sm as any).executePromptAutomation = async () => { created++; return { sessionId: 'x' } }
     let conditionChecks = 0
     ;(sm as any).shouldRunPromptAutomation = async () => { conditionChecks++; return { run: true } }
 
-    await (sm as any).runReadyPrompts('ws-test', tmpRoot, [{ ...pending('auto-session'), semanticCondition: { question: 'Trip?' } }])
+    await (sm as any).runReadyPrompts(workspaceId, tmpRoot, [{ ...pending('auto-session', routine.id), semanticCondition: { question: 'Trip?' } }])
     await new Promise(resolve => setTimeout(resolve, 20))
 
     expect(created).toBe(0)
     expect(conditionChecks).toBe(0)
-    const history = join(tmpRoot, 'automations-history.jsonl')
-    expect(existsSync(history)).toBe(true)
-    const entry = JSON.parse(readFileSync(history, 'utf-8').trim().split('\n').at(-1)!)
-    expect(entry).toMatchObject({ id: 'packing', ok: true })
-    expect(entry.skipped).toContain('loop guard')
+    const [run] = getRoutine(workspaceId, routine.id)!.runs
+    expect(run).toMatchObject({ status: 'skipped' })
+    expect(run!.error).toContain('loop guard')
   })
 
   it('records the automation id and chain depth on the session it creates', async () => {

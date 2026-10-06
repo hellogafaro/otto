@@ -107,6 +107,8 @@ export interface Session {
   projectId?: string
   /** Parent session id — when set, this session is a subtask of the parent (undefined = top-level task) */
   parentSessionId?: string
+  /** The agent the chat talks to (an `agents` row id); undefined = the workspace's default agent */
+  agentId?: string
 }
 
 export interface CreateSessionOptions {
@@ -147,6 +149,8 @@ export interface CreateSessionOptions {
   projectId?: string
   /** Mark the new session as a subtask of this parent session (undefined = top-level task). */
   parentSessionId?: string
+  /** The agent the chat talks to (an agent of the workspace; anything else = the default agent). */
+  agentId?: string
 }
 
 export interface RemoteSessionTransferPayload {
@@ -186,7 +190,7 @@ export type SessionEvent =
   | { type: 'tool_result'; sessionId: string; toolUseId: string; toolName: string; result: string; turnId?: string; parentToolUseId?: string; isError?: boolean; timestamp?: number }
   | { type: 'error'; sessionId: string; error: string; timestamp?: number }
   | { type: 'typed_error'; sessionId: string; error: TypedError; timestamp?: number }
-  | { type: 'complete'; sessionId: string; tokenUsage?: Session['tokenUsage']; hasUnread?: boolean; backgroundTasksAlive?: boolean }
+  | { type: 'complete'; sessionId: string; tokenUsage?: Session['tokenUsage']; hasUnread?: boolean }
   | { type: 'interrupted'; sessionId: string; message?: Message; queuedMessages?: string[] }
   | { type: 'status'; sessionId: string; message: string; statusType?: 'compacting' }
   | { type: 'info'; sessionId: string; message: string; statusType?: 'compaction_complete'; level?: 'info' | 'warning' | 'error' | 'success'; timestamp?: number }
@@ -368,17 +372,6 @@ export interface FileSearchResult {
 // LLM connection types
 // ---------------------------------------------------------------------------
 
-/**
- * Resolved Anthropic OAuth identity (issue #838), captured from the
- * token-exchange response. Shape mirrors `ClaudeOAuthIdentity` in
- * `auth/claude-oauth.ts`; kept in the protocol layer so DTOs stay decoupled
- * from the auth module. All fields optional and fail-soft.
- */
-export interface ClaudeOAuthIdentityDto {
-  account?: { uuid?: string; emailAddress?: string }
-  organization?: { uuid?: string; name?: string }
-}
-
 export interface LlmConnectionSetup {
   slug: string
   /**
@@ -406,11 +399,6 @@ export interface LlmConnectionSetup {
   awsRegion?: string
   /** Bedrock authentication method — determines auth type for Pi+Bedrock connections */
   bedrockAuthMethod?: 'iam_credentials' | 'environment'
-  /**
-   * Resolved Anthropic OAuth identity (issue #838), threaded through setup so it
-   * persists for both new and re-auth connections. Optional and fail-soft.
-   */
-  oauthIdentity?: ClaudeOAuthIdentityDto
 }
 
 export interface TestLlmConnectionParams {
@@ -562,51 +550,6 @@ export interface WorkspaceSettings {
   localMcpEnabled?: boolean
   defaultLlmConnection?: string
   enabledSourceSlugs?: string[]
-}
-
-// ---------------------------------------------------------------------------
-// Auth result types
-// ---------------------------------------------------------------------------
-
-export interface ClaudeOAuthResult {
-  success: boolean
-  token?: string
-  error?: string
-  /**
-   * Resolved Anthropic identity (issue #838), forwarded to the renderer so it
-   * can thread it into the SETUP payload (which is what persists it). Present
-   * only when the token-exchange response carried identity.
-   */
-  identity?: ClaudeOAuthIdentityDto
-}
-
-// ---------------------------------------------------------------------------
-// Automation types
-// ---------------------------------------------------------------------------
-
-export type TestAutomationAction =
-  | { type: 'prompt'; prompt: string; llmConnection?: string; model?: string; thinkingLevel?: ThinkingLevel }
-  | { type: 'webhook'; url: string; method?: string; headers?: Record<string, string>; bodyFormat?: 'json' | 'form' | 'raw'; body?: unknown; captureResponse?: boolean; auth?: { type: 'basic'; username: string; password: string } | { type: 'bearer'; token: string } }
-  | { type: 'script'; script: string; args?: string[]; runtime?: 'bun' | 'node' | 'python3'; timeoutMs?: number; page?: string }
-
-export interface TestAutomationPayload {
-  workspaceId: string
-  automationId?: string
-  automationName?: string
-  actions: TestAutomationAction[]
-  permissionMode?: PermissionMode
-  labels?: string[]
-  /** Forwarded from the matcher; routes test-run sessions into a Telegram topic when paired. */
-  telegramTopic?: string
-}
-
-export type TestAutomationActionResult =
-  | { type: 'prompt'; success: boolean; stderr?: string; sessionId?: string; duration: number }
-  | { type: 'webhook'; success: boolean; url: string; statusCode: number; error?: string; duration: number }
-  | { type: 'script'; success: boolean; script: string; exitCode: number | null; stdout?: string; error?: string; duration: number }
-
-export interface TestAutomationResult {
-  actions: TestAutomationActionResult[]
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 /**
  * Core Agent Module
  *
- * Provides shared functionality for all agent backends (ClaudeAgent, PiAgent).
+ * Provides shared functionality for the agent (PiAgent).
  * These modules are provider-agnostic and can be composed into any agent implementation.
  *
  * Modules:
@@ -112,7 +112,6 @@ export {
   // Types
   type PreToolUseContext,
   type PathExpansionResult,
-  type SkillQualificationResult,
   type MetadataStrippingResult,
   type ConfigValidationResult as PreToolUseConfigValidationResult,
   // Centralized pipeline types
@@ -126,7 +125,6 @@ export {
   CONFIG_WRITE_TOOLS,
   // Functions
   expandToolPaths,
-  qualifySkillName,
   stripToolMetadata,
   stripMcpMetadata, // deprecated alias for backwards compatibility
   validateConfigWrite,
@@ -142,6 +140,3 @@ export type {
   PrerequisiteCheckResult,
   PrerequisiteManagerConfig,
 } from './prerequisite-manager.ts';
-
-// Re-export skill plugin constant (used by renderer for mention qualification)
-export { AGENTS_PLUGIN_NAME } from '../../skills/types.ts';

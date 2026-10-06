@@ -48,37 +48,11 @@ apps/electron/
 
 ## Key Learnings & Gotchas
 
-### 1. SDK Path Resolution (CRITICAL)
+### 1. Claude Code binary
 
-The Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) spawns a native `claude` binary from a per-platform optional dependency (`@anthropic-ai/claude-agent-sdk-{platform}-{arch}`). Packaged Electron builds must point the SDK at the staged binary because normal optional-dependency resolution does not work inside the packaged resource layout.
+Otto does not ship the Claude Agent SDK's per-platform native `claude` binary (`@anthropic-ai/claude-agent-sdk-{platform}-{arch}`, ~210 MB). The packaged app carries only the thin SDK core (`@anthropic-ai/claude-agent-sdk`); Claude subscriptions run the user's own installed `claude`, found on `PATH` or through `OTTO_CLAUDE_PATH`.
 
-**Runtime resolution:** `packages/shared/src/agent/backend/internal/runtime-resolver.ts` probes the build-script alias first:
-
-```text
-node_modules/@anthropic-ai/claude-agent-sdk-binary/{claude,claude.exe}
-```
-
-and falls back to the real per-arch package in dev. Once resolved, `applyAnthropicRuntimeBootstrap()` calls `setPathToClaudeCodeExecutable(path)` before any Claude agents are created.
-
-### 2. Authentication Environment Setup (CRITICAL)
-
-The SDK requires authentication environment variables to be set BEFORE creating agents. The Electron app must do this explicitly during initialization.
-
-```typescript
-import { getAuthState } from '../../../src/auth/state'
-
-// In initialize():
-const authState = await getAuthState()
-const { billing } = authState
-
-if (billing.type === 'oauth_token' && billing.claudeOAuthToken) {
-  process.env.CLAUDE_CODE_OAUTH_TOKEN = billing.claudeOAuthToken
-} else if (billing.apiKey) {
-  process.env.ANTHROPIC_API_KEY = billing.apiKey
-}
-```
-
-### 3. AgentEvent Type Mismatches
+### 2. AgentEvent Type Mismatches
 
 The `AgentEvent` types from `Otto` use different property names than you might expect:
 
@@ -103,7 +77,7 @@ const toolName = managed.pendingTools.get(event.toolUseId) || 'unknown'
 managed.pendingTools.delete(event.toolUseId)
 ```
 
-### 4. Otto Constructor
+### 3. Otto Constructor
 
 `Otto` expects the full `Workspace` object, not just the ID:
 
@@ -115,18 +89,15 @@ new Otto({ workspaceId: workspace.id, model })
 new Otto({ workspace, model })
 ```
 
-### 5. esbuild Configuration
+### 4. esbuild Configuration
 
-Only `electron` is externalized. The SDK is bundled into `main.js`:
+`electron` and `@anthropic-ai/claude-agent-sdk` are externalized:
 
 ```json
-"electron:build:main": "esbuild ... --external:electron"
+"build:main": "esbuild ... --external:electron --external:@anthropic-ai/claude-agent-sdk"
 ```
 
-This means:
-- SDK code is inlined (~950KB)
-- SDK's runtime path resolution breaks (see #1)
-- Native modules would need explicit externalization
+The SDK core ships unbundled under `app/node_modules` (electron-builder `extraResources`). Native modules need the same explicit externalization.
 
 ## Environment Variables
 

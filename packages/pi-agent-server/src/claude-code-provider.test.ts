@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Agent, type AgentMessage, type AgentTool } from '@earendil-works/pi-agent-core';
 import { InMemoryCredentialStore, InMemoryModelsStore, Type, type AssistantMessage, type Message } from '@earendil-works/pi-ai';
 import { createReadTool, ModelRegistry, ModelRuntime } from '@earendil-works/pi-coding-agent';
-import { registerClaudeCodeProvider, toAnthropic, type ClaudeCodeOptions } from './claude-code-provider.ts';
+import { CLAUDE_MISSING, registerClaudeCodeProvider, toAnthropic, type ClaudeCodeOptions } from './claude-code-provider.ts';
 
 // Every test drives the provider through Pi's own agent loop and the real Agent SDK, with
 // `pathToClaudeCodeExecutable` pointing at a fake `claude`: the real CLI never runs, nothing
@@ -64,6 +64,15 @@ async function until(check: () => boolean, ms = 5000): Promise<void> {
 const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 
 describe('claude-code provider', () => {
+  it('without a `claude` to run, the turn fails with a message that says how to get one', async () => {
+    const { agent } = await setup([[{ text: 'never' }]], { pathToClaudeCodeExecutable: join(dir, 'no-such-claude') });
+    await agent.prompt('hello');
+    const reply = lastAssistant(agent);
+    expect(reply.stopReason).toBe('error');
+    expect(reply.errorMessage).toBe(CLAUDE_MISSING);
+    expect(entries('spawn')).toHaveLength(0);
+  });
+
   it("spawns claude with Claude's tools off, Pi's prompt as the append and a scrubbed env; usage reaches Pi", async () => {
     const secrets = { ANTHROPIC_API_KEY: 'sk-test-not-real', ANTHROPIC_BASE_URL: 'http://hijack.invalid', CLAUDE_CODE_OAUTH_TOKEN: 'oauth-test-not-real', ENCRYPTION_KEY: 'test-key' };
     Object.assign(process.env, secrets);

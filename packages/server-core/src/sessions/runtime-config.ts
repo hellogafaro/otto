@@ -1,10 +1,9 @@
-import type { AgentProvider, LlmAuthType } from '@otto/shared/agent/backend'
+import type { LlmAuthType } from '@otto/shared/agent/backend'
 import { isCompatProvider, modelSupportsImages, type LlmConnection } from '@otto/shared/config'
 import type { FileAttachment } from '@otto/shared/protocol'
 
 export interface BackendRuntimeSignatureInput {
   connection: LlmConnection | null
-  provider: AgentProvider
   authType?: LlmAuthType
   resolvedModel: string
 }
@@ -48,9 +47,8 @@ function normalizeCustomModels(connection: LlmConnection): Array<Record<string, 
  * fully reset on a runtime update.
  */
 export function buildRestartRequiredSignature(input: BackendRuntimeSignatureInput): string {
-  const { connection, provider, authType } = input
+  const { connection, authType } = input
   return JSON.stringify(definedObject({
-    provider,
     authType,
     slug: connection?.slug,
     providerType: connection?.providerType,
@@ -63,7 +61,7 @@ export function buildRestartRequiredSignature(input: BackendRuntimeSignatureInpu
  * backend runtime. Metadata such as `createdAt` is intentionally omitted.
  */
 export function buildBackendRuntimeSignature(input: BackendRuntimeSignatureInput): string {
-  const { connection, provider, authType, resolvedModel } = input
+  const { connection, authType, resolvedModel } = input
 
   const connectionShape = connection
     ? definedObject({
@@ -90,7 +88,6 @@ export function buildBackendRuntimeSignature(input: BackendRuntimeSignatureInput
     : null
 
   return JSON.stringify(definedObject({
-    provider,
     authType,
     resolvedModel,
     connection: connectionShape,

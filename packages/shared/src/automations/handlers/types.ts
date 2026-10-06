@@ -45,16 +45,6 @@ export interface PromptHandlerOptions {
   onError?: (event: AutomationEvent, error: Error) => void;
 }
 
-/** Options for creating an EventLogHandler */
-export interface EventLogHandlerOptions {
-  /** Workspace root path for log file location */
-  workspaceRootPath: string;
-  /** Workspace ID for log entries */
-  workspaceId: string;
-  /** Called when logging fails after retries */
-  onEventLost?: (events: string[], error: Error) => void;
-}
-
 // ============================================================================
 // Handler Result Types
 // ============================================================================

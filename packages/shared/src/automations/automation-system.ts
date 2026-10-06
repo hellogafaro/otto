@@ -1,30 +1,21 @@
 /**
- * AutomationSystem - Unified Facade for the Automations System
+ * AutomationSystem - the event side of routines, one per workspace
  *
- * Single entry point that:
- * - Creates EventBus instance (per workspace)
- * - Creates and registers all handlers
- * - Loads automations.json configuration
- * - Manages scheduler service
- * - Provides diffing for session metadata changes
- * - Provides dispose() for cleanup
- *
- * Benefits:
- * - No global state - each AutomationSystem instance is self-contained
- * - Easy to create for testing
- * - SessionManager uses ~30 lines instead of ~300
+ * - Owns the workspace's EventBus and the handlers (prompt, webhook, script) that run the active event routines
+ *   (`config.type = 'event'`, read from the `routines` table at every event, so a change applies at once)
+ * - Diffs session metadata into events (labels, flags, status, permission mode)
+ * - Schedules nothing: schedule routines are fired by the routines scheduler (./routine-runner.ts)
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { resolveAutomationsConfigPath, generateShortId } from './resolve-config-path.ts';
-import { compactAutomationHistorySync } from './history-store.ts';
+import { initDb, type Db } from '../db/index.ts';
 import { createLogger } from '../utils/debug.ts';
 import { WorkspaceEventBus, type EventPayloadMap } from './event-bus.ts';
-import { PromptHandler, EventLogHandler, WebhookHandler, ScriptHandler, type AutomationsConfigProvider } from './handlers/index.ts';
+import { PromptHandler, WebhookHandler, ScriptHandler, type AutomationsConfigProvider } from './handlers/index.ts';
 import { type AutomationsConfig, type AutomationEvent, type AutomationMatcher, type PendingPrompt, type WebhookActionResult, type ScriptActionResult, type AppEvent, type AgentEvent, type SdkAutomationCallbackMatcher, type SdkAutomationInput } from './types.ts';
-import { validateAutomationsConfig } from './validation.ts';
 import { matcherMatchesSdk } from './utils.ts';
-import { SchedulerService, type SchedulerTickPayload } from '../scheduler/scheduler-service.ts';
+import { resolveWebhookAction } from './routine-runner.ts';
+import { getEventRoutines, getRoutines } from './routines.ts';
+import type { Routine } from './routine-types.ts';
 
 const log = createLogger('automation-system');
 
@@ -37,15 +28,15 @@ import type { SessionMetadataSnapshot } from './types.ts';
 // ============================================================================
 
 export interface AutomationSystemOptions {
-  /** Workspace root path (where automations.json lives) */
+  /** Workspace root path */
   workspaceRootPath: string;
-  /** Workspace ID for logging and events */
+  /** Workspace ID: whose routines run here, for logging and events */
   workspaceId: string;
   /** Working directory for command execution */
   workingDir?: string;
   /** Active source slugs for permission rules */
   activeSourceSlugs?: string[];
-  /** Whether to start the scheduler service (default: false) */
+  /** Ignored: schedule routines are fired by the routines scheduler. TODO: drop with the session manager's call. */
   enableScheduler?: boolean;
   /** Called when prompts are ready to be executed */
   onPromptsReady?: (prompts: PendingPrompt[]) => void;
@@ -55,8 +46,32 @@ export interface AutomationSystemOptions {
   onScriptResults?: (results: ScriptActionResult[]) => void;
   /** Called when an error occurs during automation execution */
   onError?: (event: AutomationEvent, error: Error) => void;
-  /** Called when events are lost after retries */
-  onEventLost?: (events: string[], error: Error) => void;
+  /** The database (default: the process-wide one) */
+  db?: Db;
+}
+
+/** An event routine as the handlers' matcher: its id and title, and each webhook action's secret read into `auth`. */
+function toMatcher(routine: Routine): AutomationMatcher {
+  const { config } = routine;
+  return {
+    id: routine.id,
+    name: routine.title,
+    matcher: config.matcher,
+    permissionMode: config.permissionMode,
+    conditions: config.conditions,
+    semanticCondition: config.semanticCondition,
+    telegramTopic: config.telegramTopic,
+    actions: config.actions.map((action) => {
+      if (action.type !== 'webhook') return action;
+      try {
+        return resolveWebhookAction(action);
+      } catch (error) {
+        log.debug(`[AutomationSystem] Webhook credentials of ${routine.id} not read: ${error}`);
+        const { secretId: _secretId, ...rest } = action;
+        return rest;
+      }
+    }),
+  };
 }
 
 // ============================================================================
@@ -67,12 +82,9 @@ export class AutomationSystem implements AutomationsConfigProvider {
   readonly eventBus: WorkspaceEventBus;
 
   private readonly options: AutomationSystemOptions;
-  private config: AutomationsConfig | null = null;
   private promptHandler: PromptHandler | null = null;
   private webhookHandler: WebhookHandler | null = null;
   private scriptHandler: ScriptHandler | null = null;
-  private eventLogHandler: EventLogHandler | null = null;
-  private scheduler: SchedulerService | null = null;
   private disposed = false;
 
   // Session metadata tracking (moved from SessionManager)
@@ -81,161 +93,39 @@ export class AutomationSystem implements AutomationsConfigProvider {
   constructor(options: AutomationSystemOptions) {
     this.options = options;
     this.eventBus = new WorkspaceEventBus(options.workspaceId);
-
-    // Load configuration
-    this.loadConfig();
-
-    // Create handlers
     this.createHandlers();
-
-    // Start scheduler if enabled
-    if (options.enableScheduler) {
-      this.startScheduler();
-    }
-
     log.debug(`[AutomationSystem] Created for workspace: ${options.workspaceId}`);
-  }
-
-  // ============================================================================
-  // Configuration
-  // ============================================================================
-
-  /**
-   * Read, parse, and validate automations.json. Shared pipeline for loadConfig/reloadConfig.
-   * Returns the raw parsed JSON alongside validation results (avoids re-reading for backfillIds).
-   */
-  private readAndValidateConfig(configPath: string): { raw: unknown; validation: import('./types.ts').AutomationsValidationResult } {
-    const raw = JSON.parse(readFileSync(configPath, 'utf-8'));
-    const validation = validateAutomationsConfig(raw);
-    return { raw, validation };
-  }
-
-  /**
-   * Load automations configuration from automations.json.
-   */
-  private loadConfig(): void {
-    const configPath = resolveAutomationsConfigPath(this.options.workspaceRootPath);
-
-    if (!existsSync(configPath)) {
-      log.debug(`[AutomationSystem] No automations config found at ${configPath}`);
-      this.config = { automations: {} };
-      return;
-    }
-
-    try {
-      const { raw, validation } = this.readAndValidateConfig(configPath);
-
-      if (!validation.valid) {
-        console.warn('[AutomationSystem] Invalid automations config:', validation.errors);
-        this.config = { automations: {} };
-        return;
-      }
-
-      this.config = validation.config;
-      this.backfillIds(configPath, raw);
-      this.rotateHistory();
-      const actionCount = this.getActionCount();
-      log.debug(`[AutomationSystem] Loaded ${actionCount} actions from ${configPath}`);
-    } catch (e) {
-      const error = e instanceof Error ? e.message : 'Unknown error';
-      console.warn('[AutomationSystem] Failed to load automations config:', error);
-      this.config = { automations: {} };
-    }
-  }
-
-  /**
-   * Reload automations configuration.
-   * Call this when automations.json changes.
-   */
-  reloadConfig(): { success: boolean; automationCount: number; errors: string[] } {
-    const configPath = resolveAutomationsConfigPath(this.options.workspaceRootPath);
-
-    if (!existsSync(configPath)) {
-      this.config = { automations: {} };
-      return { success: true, automationCount: 0, errors: [] };
-    }
-
-    try {
-      const { raw, validation } = this.readAndValidateConfig(configPath);
-
-      if (!validation.valid) {
-        return { success: false, automationCount: 0, errors: validation.errors };
-      }
-
-      this.config = validation.config;
-      this.backfillIds(configPath, raw);
-      const actionCount = this.getActionCount();
-      log.debug(`[AutomationSystem] Reloaded ${actionCount} actions`);
-      return { success: true, automationCount: actionCount, errors: [] };
-    } catch (e) {
-      const error = e instanceof Error ? e.message : 'Unknown error';
-      return { success: false, automationCount: 0, errors: [`Failed to parse JSON: ${error}`] };
-    }
-  }
-
-  /**
-   * Backfill missing IDs on matchers in the raw config.
-   * Operates on the already-parsed raw JSON to avoid re-reading from disk.
-   * Only writes if IDs were actually missing — no-op on subsequent loads.
-   */
-  private backfillIds(configPath: string, raw: unknown): void {
-    try {
-      const obj = raw as Record<string, unknown>;
-      const eventMap = (obj.automations ?? obj.tasks ?? obj.hooks) as Record<string, unknown[]> | undefined;
-      if (!eventMap) return;
-
-      let changed = false;
-      for (const matchers of Object.values(eventMap)) {
-        if (!Array.isArray(matchers)) continue;
-        for (const m of matchers as Record<string, unknown>[]) {
-          if (!m.id) { m.id = generateShortId(); changed = true; }
-        }
-      }
-
-      if (changed) {
-        writeFileSync(configPath, JSON.stringify(raw, null, 2) + '\n', 'utf-8');
-        log.debug('[AutomationSystem] Backfilled missing matcher IDs');
-      }
-    } catch {
-      // Non-critical — IDs will be backfilled on next mutation via IPC
-    }
-  }
-
-  /**
-   * Compact automations-history.jsonl on startup: two-tier retention.
-   * 1) Keep only the last N entries per automation ID.
-   * 2) If total still exceeds the global cap, drop oldest globally.
-   * Runs synchronously during init — single-threaded, no race with concurrent appends.
-   */
-  private rotateHistory(): void {
-    try {
-      compactAutomationHistorySync(this.options.workspaceRootPath);
-    } catch {
-      // Non-critical — compaction failure doesn't affect functionality
-    }
-  }
-
-  /**
-   * Get total number of actions.
-   */
-  private getActionCount(): number {
-    if (!this.config) return 0;
-    return Object.values(this.config.automations).reduce(
-      (sum, matchers) => sum + (matchers?.reduce((s, m) => s + m.actions.length, 0) ?? 0),
-      0
-    );
   }
 
   // ============================================================================
   // AutomationsConfigProvider Implementation
   // ============================================================================
 
-  getConfig(): AutomationsConfig | null {
-    return this.config;
+  private get db(): Db {
+    return this.options.db ?? initDb();
+  }
+
+  /** The workspace's active event routines as the handlers' config. */
+  getConfig(): AutomationsConfig {
+    const automations: AutomationsConfig['automations'] = {};
+    for (const routine of getRoutines(this.options.workspaceId, this.db)) {
+      const event = routine.config.event as AutomationEvent | undefined;
+      if (routine.pausedAt !== null || routine.config.type !== 'event' || !event) continue;
+      (automations[event] ??= []).push(toMatcher(routine));
+    }
+    return { automations };
   }
 
   getMatchersForEvent(event: AutomationEvent): AutomationMatcher[] {
-    return this.config?.automations[event] ?? [];
+    return getEventRoutines(this.options.workspaceId, event, this.db).map(toMatcher);
+  }
+
+  /**
+   * Kept for the session manager's file watcher: routines are read from the database at every event, so there is
+   * nothing to reload. TODO: removed with that call.
+   */
+  reloadConfig(): { success: boolean; automationCount: number; errors: string[] } {
+    return { success: true, automationCount: Object.values(this.getConfig().automations).reduce((sum, matchers) => sum + (matchers?.length ?? 0), 0), errors: [] };
   }
 
   // ============================================================================
@@ -282,49 +172,7 @@ export class AutomationSystem implements AutomationsConfigProvider {
     );
     this.scriptHandler.subscribe(this.eventBus);
 
-    // Event log handler
-    this.eventLogHandler = new EventLogHandler({
-      workspaceRootPath: this.options.workspaceRootPath,
-      workspaceId: this.options.workspaceId,
-      onEventLost: this.options.onEventLost,
-    });
-    this.eventLogHandler.subscribe(this.eventBus);
-
     log.debug(`[AutomationSystem] Handlers created and subscribed`);
-  }
-
-  // ============================================================================
-  // Scheduler
-  // ============================================================================
-
-  /**
-   * Start the scheduler service.
-   */
-  private startScheduler(): void {
-    if (this.scheduler) return;
-
-    this.scheduler = new SchedulerService(async (payload: SchedulerTickPayload) => {
-      await this.eventBus.emit('SchedulerTick', {
-        workspaceId: this.options.workspaceId,
-        timestamp: Date.now(),
-        localTime: payload.localTime,
-        utcTime: payload.timestamp,
-      });
-    });
-
-    this.scheduler.start();
-    log.debug(`[AutomationSystem] Scheduler started`);
-  }
-
-  /**
-   * Stop the scheduler service.
-   */
-  stopScheduler(): void {
-    if (this.scheduler) {
-      this.scheduler.stop();
-      this.scheduler = null;
-      log.debug(`[AutomationSystem] Scheduler stopped`);
-    }
   }
 
   // ============================================================================
@@ -491,7 +339,7 @@ export class AutomationSystem implements AutomationsConfigProvider {
   /**
    * Execute agent event automations directly (without going through the Claude SDK).
    * This is the backend-agnostic entry point for non-Claude backends (Codex, Copilot, Pi)
-   * to fire agent events from automations.json.
+   * to fire agent events from event routines.
    *
    * For each matching automation matcher, builds env vars and evaluates matching.
    * Command execution has been removed — all automation actions now go through prompt-based
@@ -502,10 +350,8 @@ export class AutomationSystem implements AutomationsConfigProvider {
    * @returns Number of matched matchers (for diagnostics/testing)
    */
   async executeAgentEvent(event: AgentEvent, input: SdkAutomationInput, signal?: AbortSignal): Promise<number> {
-    if (!this.config) return 0;
-
-    const matchers = this.config.automations[event];
-    if (!matchers?.length) return 0;
+    const matchers = this.getMatchersForEvent(event);
+    if (!matchers.length) return 0;
 
     let matchedCount = 0;
 
@@ -557,14 +403,10 @@ export class AutomationSystem implements AutomationsConfigProvider {
 
     log.debug(`[AutomationSystem] Disposing for workspace: ${this.options.workspaceId}`);
 
-    // Stop scheduler
-    this.stopScheduler();
-
     // Dispose handlers
     this.promptHandler?.dispose();
     this.webhookHandler?.dispose();
     this.scriptHandler?.dispose();
-    await this.eventLogHandler?.dispose();
 
     // Dispose event bus
     this.eventBus.dispose();

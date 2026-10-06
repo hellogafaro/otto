@@ -22,7 +22,9 @@ import type { Credential as PiSdkCredential } from '@earendil-works/pi-ai';
 export type PiCredential =
   | { type: 'api_key'; key: string }
   | { type: 'oauth'; access: string; refresh: string; expires: number }
-  | { type: 'iam'; accessKeyId: string; secretAccessKey: string; region?: string; sessionToken?: string };
+  | { type: 'iam'; accessKeyId: string; secretAccessKey: string; region?: string; sessionToken?: string }
+  /** The provider's CLI signs in with its own login (`claude-code`): nothing to store. */
+  | { type: 'cli_login' };
 
 let oauthOnlyProviderIdsCache: Set<string> | null = null;
 
@@ -49,6 +51,7 @@ function oauthOnlyProviderIds(): Set<string> {
  * - `iam` credentials are never stored: the SDK has no handler for the shape and
  *   a stored credential blocks ambient resolution, while the AWS env vars that
  *   carry the same keypair are already injected at subprocess spawn.
+ * - `cli_login` holds nothing: the `claude-code` provider runs the user's own CLI.
  *
  * Everything else passes through unchanged.
  */
@@ -56,7 +59,7 @@ export function adaptCredentialForPiSdk(provider: string, credential: PiCredenti
   if (credential.type === 'api_key' && oauthOnlyProviderIds().has(provider)) {
     return { type: 'oauth', access: credential.key, refresh: '', expires: Number.MAX_SAFE_INTEGER };
   }
-  if (credential.type === 'iam') {
+  if (credential.type === 'iam' || credential.type === 'cli_login') {
     return null;
   }
   return credential as unknown as PiSdkCredential;

@@ -14,7 +14,6 @@ import { LLM_QUERY_TIMEOUT_MS, type LLMQueryRequest, type LLMQueryResult } from 
 
 function createConfig(overrides: Partial<BackendConfig> = {}): BackendConfig {
   return {
-    provider: 'pi',
     workspace: {
       id: 'ws-test',
       name: 'Test Workspace',

@@ -45,7 +45,6 @@ export {
   // Metadata updates
   updateSessionSdkId,
   updateSessionMetadata,
-  canUpdateSdkCwd,
   flagSession,
   unflagSession,
   setSessionStatus,
@@ -115,7 +114,6 @@ export {
 export type {
   SessionBundle,
   BundleFile,
-  BundleBranchInfo,
   DispatchMode,
 } from './bundle.ts';
 export {

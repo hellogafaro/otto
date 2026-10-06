@@ -12,7 +12,6 @@ import {
   readdirSync,
   statSync,
 } from 'fs';
-import { homedir } from 'os';
 import { join } from 'path';
 import matter from 'gray-matter';
 import type { LoadedSkill, SkillMetadata } from './types.ts';
@@ -23,14 +22,6 @@ import {
   downloadIcon,
   needsIconDownload,
 } from '../utils/icon.ts';
-
-// The global (`~/.agents/skills`) and project (`<repo>/.agents/skills`) scopes are gone: only workspace skills exist.
-// These two stay until agent/core/pre-tool-use.ts, which still resolves a skill's plugin name against them, is rewritten.
-/** @deprecated No scope reads this folder any more. */
-export const GLOBAL_AGENT_SKILLS_DIR = join(homedir(), '.agents', 'skills');
-
-/** @deprecated No scope reads this folder any more. */
-export const PROJECT_AGENT_SKILLS_DIR = '.agents/skills';
 
 /**
  * Normalize requiredSources frontmatter to a clean string array.
@@ -150,9 +141,8 @@ export function loadSkill(workspaceRoot: string, slug: string): LoadedSkill | nu
 /**
  * Load all skills of a workspace from their folders.
  * @param workspaceRoot - Absolute path to workspace root
- * @param _projectRoot - Ignored: there are no project skills. Left for base-agent.ts, which still passes it.
  */
-export function loadAllSkills(workspaceRoot: string, _projectRoot?: string): LoadedSkill[] {
+export function loadAllSkills(workspaceRoot: string): LoadedSkill[] {
   const skillsDir = getWorkspaceSkillsPath(workspaceRoot);
   if (!existsSync(skillsDir)) return [];
   try {

@@ -5,7 +5,7 @@ import {
   describeCron,
   describeTrigger,
   getVisibleRoutines,
-  parseRoutines,
+  lastRun,
   routineState,
   routineType,
   type Routine,
@@ -15,57 +15,39 @@ import {
 const t = ((key: string, values?: Record<string, unknown>) =>
   values ? `${key}(${Object.entries(values).map(([k, v]) => `${k}=${v}`).join(',')})` : key) as unknown as TFunction
 
-const config = {
-  version: 2,
-  automations: {
-    SchedulerTick: [
-      { id: 'aaaaaa', name: 'Digest', cron: '0 9 * * 1-5', timezone: 'Europe/Berlin', actions: [{ type: 'prompt', prompt: 'Sum up' }] },
-      { id: 'bbbbbb', cron: '*/15 * * * *', enabled: false, actions: [{ type: 'script', script: 'scripts/sync.ts' }] },
-      { name: 'No id', cron: '0 * * * *', actions: [{ type: 'prompt', prompt: 'x' }] },
-    ],
-    LabelAdd: [{ id: 'cccccc', name: 'Triage', matcher: '^urgent$', actions: [{ type: 'webhook', url: 'https://example.test/hook' }, { type: 'prompt', prompt: 'Look' }] }],
-    PostToolUse: [{ id: 'dddddd', name: 'Audit', actions: [{ type: 'unknown' }] }, { id: 'eeeeee', name: 'Log', actions: [{ type: 'webhook', url: 'https://example.test/log' }] }],
-  },
-}
-
-const withRuns = (routine: Omit<Routine, 'runs'>, runs: Routine['runs'] = []): Routine => ({ ...routine, runs })
-
-describe('parseRoutines', () => {
-  const routines = parseRoutines(config)
-
-  it('keeps one routine per matcher with an id and a known action, with its index in its event', () => {
-    expect(routines.map((r) => [r.id, r.event, r.matcherIndex, r.type])).toEqual([
-      ['aaaaaa', 'SchedulerTick', 0, 'scheduled'],
-      ['bbbbbb', 'SchedulerTick', 1, 'scheduled'],
-      ['cccccc', 'LabelAdd', 0, 'event'],
-      ['eeeeee', 'PostToolUse', 1, 'agentic'],
-    ])
-  })
-
-  it('names a matcher without a name after its first action, and reads enabled', () => {
-    expect(routines[1]).toMatchObject({ name: 'scripts/sync.ts', enabled: false })
-    expect(routines[0]).toMatchObject({ name: 'Digest', enabled: true, labels: [] })
-  })
-
-  it('is empty without a file or without automations', () => {
-    expect(parseRoutines(null)).toEqual([])
-    expect(parseRoutines({ version: 2 })).toEqual([])
-  })
+const make = (id: string, title: string, config: Routine['config'], extra: Partial<Routine> = {}): Routine => ({
+  id,
+  workspaceId: 'ws',
+  agentId: null,
+  title,
+  config,
+  pausedAt: null,
+  createdBy: 'user:aaaaaaaaaaaa',
+  createdAt: 1,
+  runs: [],
+  ...extra,
 })
+const run = (id: string, status: Routine['runs'][number]['status'], startedAt: number): Routine['runs'][number] =>
+  ({ id, routineId: 'x', scheduledFor: startedAt, status, chatId: null, error: null, startedAt })
+
+const digest = make('aaaaaaaaaaaa', 'Digest', { type: 'schedule', schedule: { cron: '0 9 * * 1-5', timezone: 'Europe/Berlin' }, actions: [{ type: 'prompt', prompt: 'Sum up' }] })
+const sync = make('bbbbbbbbbbbb', 'Sync', { type: 'schedule', schedule: { cron: '*/15 * * * *' }, actions: [{ type: 'script', script: 'scripts/sync.ts' }] }, { pausedAt: 5 })
+const triage = make('cccccccccccc', 'Triage', { type: 'event', event: 'LabelAdd', matcher: '^urgent$', actions: [{ type: 'webhook', url: 'https://example.test/hook' }, { type: 'prompt', prompt: 'Look' }] })
+const log = make('dddddddddddd', 'Log', { type: 'event', event: 'PostToolUse', actions: [{ type: 'webhook', url: 'https://example.test/log' }] })
+const incoming = make('eeeeeeeeeeee', 'Incoming', { type: 'webhook', webhook: { secretId: 's' }, actions: [{ type: 'prompt', prompt: 'x' }] })
 
 describe('routine rules', () => {
-  const [digest, sync, triage, log] = parseRoutines(config).map((r) => withRuns(r))
-
-  it('sorts events into their kind', () => {
-    expect([routineType('SchedulerTick'), routineType('FlagChange'), routineType('Stop')]).toEqual(['scheduled', 'event', 'agentic'])
+  it('sorts routines into their kind', () => {
+    expect([digest, triage, log, incoming].map(routineType)).toEqual(['scheduled', 'event', 'agentic', 'event'])
   })
 
-  it('is failing when the last run that ran failed; a skipped run does not count', () => {
+  it('is paused from paused_at, and failing when the last run that ran failed; a skipped or running run does not count', () => {
     expect(routineState(digest)).toBe('active')
-    expect(routineState(sync)).toBe('disabled')
-    expect(routineState({ ...digest, runs: [{ ts: 2, ok: false }, { ts: 1, ok: true }] })).toBe('failing')
-    expect(routineState({ ...digest, runs: [{ ts: 3, ok: false, skipped: 'no' }, { ts: 1, ok: true }] })).toBe('active')
-    expect(routineState({ ...sync, runs: [{ ts: 2, ok: false }] })).toBe('disabled')
+    expect(routineState(sync)).toBe('paused')
+    expect(routineState({ ...digest, runs: [run('2', 'error', 2), run('1', 'ok', 1)] })).toBe('failing')
+    expect(routineState({ ...digest, runs: [run('3', 'skipped', 3), run('2', 'running', 2), run('1', 'ok', 1)] })).toBe('active')
+    expect(routineState({ ...sync, runs: [run('2', 'error', 2)] })).toBe('paused')
+    expect(lastRun({ ...digest, runs: [run('3', 'running', 3), run('2', 'ok', 2)] })?.id).toBe('2')
   })
 
   it('lists the kinds of action once, in a fixed order', () => {
@@ -74,14 +56,15 @@ describe('routine rules', () => {
 
   it('shows the groups in order, or only the filtered one (the Previous / Next order)', () => {
     const shuffled = [log, triage, sync, digest]
-    expect(getVisibleRoutines(shuffled).map((r) => r.id)).toEqual(['bbbbbb', 'aaaaaa', 'cccccc', 'eeeeee'])
-    expect(getVisibleRoutines(shuffled, 'event').map((r) => r.id)).toEqual(['cccccc'])
+    expect(getVisibleRoutines(shuffled).map((r) => r.id)).toEqual(['bbbbbbbbbbbb', 'aaaaaaaaaaaa', 'cccccccccccc', 'dddddddddddd'])
+    expect(getVisibleRoutines(shuffled, 'event').map((r) => r.id)).toEqual(['cccccccccccc'])
   })
 
   it('describes the trigger: the schedule and its city, or the event and its match', () => {
     expect(describeTrigger(digest, t, 'en-US')).toBe('routines.cronWeekdays(time=9:00 AM) (Berlin)')
     expect(describeTrigger(triage, t, 'en-US')).toBe('routines.eventMatching(event=routines.event_LabelAdd,matcher=^urgent$)')
     expect(describeTrigger(log, t, 'en-US')).toBe('routines.event_PostToolUse')
+    expect(describeTrigger(incoming, t, 'en-US')).toBe('routines.type_event')
   })
 })
 

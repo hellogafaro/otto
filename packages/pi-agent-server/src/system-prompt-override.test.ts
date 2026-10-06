@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SettingsManager, type ExtensionAPI, type InlineExtension } from '@earendil-works/pi-coding-agent';
@@ -92,5 +92,21 @@ describe('createOttoResourceLoader', () => {
     const { extensions, errors } = loader.getExtensions();
     expect(errors).toEqual([]);
     expect(extensions.some(ext => ext.path === `<inline:${OTTO_SYSTEM_PROMPT_EXTENSION_NAME}>`)).toBe(true);
+  });
+
+  it('reads no AGENTS.md or CLAUDE.md: instructions come from the database', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'otto-pi-loader-'));
+    dirs.push(root);
+    writeFileSync(join(root, 'AGENTS.md'), 'project rules');
+    writeFileSync(join(root, 'CLAUDE.md'), 'claude rules');
+    mkdirSync(join(root, '.pi-agent'), { recursive: true });
+    writeFileSync(join(root, '.pi-agent', 'AGENTS.md'), 'global rules');
+    const loader = await createOttoResourceLoader({
+      cwd: root,
+      agentDir: join(root, '.pi-agent'),
+      settingsManager: SettingsManager.inMemory(),
+      systemPromptOverride: createSystemPromptOverride(),
+    });
+    expect(loader.getAgentsFiles().agentsFiles).toEqual([]);
   });
 });

@@ -99,13 +99,6 @@ export interface CompleteEvent {
   tokenUsage?: Session['tokenUsage']
   /** Explicit unread flag - set by main process based on viewing state */
   hasUnread?: boolean
-  /**
-   * WS2 keep-alive: true when the session's persistent query stays open across
-   * turns (`OTTO_KEEP_BG_AGENTS_ALIVE`). When set, the turn ending does NOT tear
-   * down background sub-agents — so the chip orphan-backstop must NOT fire on this
-   * `complete`; a real `task_completed` will arrive when the agent actually finishes.
-   */
-  backgroundTasksAlive?: boolean
 }
 
 /**

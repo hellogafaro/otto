@@ -21,7 +21,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
   const [
     agents,
     auth,
-    automations,
+    routines,
     files,
     labels,
     library,
@@ -47,7 +47,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
   ] = await Promise.all([
     import('@otto/server-core/handlers/rpc/agents'),
     import('@otto/server-core/handlers/rpc/auth'),
-    import('@otto/server-core/handlers/rpc/automations'),
+    import('@otto/server-core/handlers/rpc/routines'),
     import('@otto/server-core/handlers/rpc/files'),
     import('@otto/server-core/handlers/rpc/labels'),
     import('@otto/server-core/handlers/rpc/library'),
@@ -75,7 +75,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
   return new Set([
     ...agents.HANDLED_CHANNELS,
     ...auth.HANDLED_CHANNELS,
-    ...automations.HANDLED_CHANNELS,
+    ...routines.HANDLED_CHANNELS,
     ...files.HANDLED_CHANNELS,
     ...labels.HANDLED_CHANNELS,
     ...library.HANDLED_CHANNELS,

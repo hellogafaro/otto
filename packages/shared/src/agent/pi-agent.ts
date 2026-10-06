@@ -25,7 +25,7 @@ import type {
   SdkMcpServerConfig,
 } from './backend/types.ts';
 import { AbortReason } from './backend/types.ts';
-import { getBackendRuntime } from './backend/internal/driver-types.ts';
+import { getBackendRuntime } from './backend/internal/pi-runtime.ts';
 import { SourceActivationDrainController } from './source-activation-drain.ts';
 
 import type { ThinkingLevel } from './thinking-levels.ts';
@@ -183,6 +183,8 @@ export class PiAgent extends BaseAgent {
 
   // Pi session ID (managed by subprocess, reported back)
   private piSessionId: string | null = null;
+  /** The recovery summary of `config.recoverHistory` went out (once per agent). */
+  private historyRecovered = false;
 
   // State
   private _isProcessing: boolean = false;
@@ -215,7 +217,7 @@ export class PiAgent extends BaseAgent {
 
   /**
    * Look up the bound project (if any) and return a snapshot for system-prompt injection.
-   * Mirrors ClaudeAgent.resolveProjectContext, safe to call on every turn.
+   * Safe to call on every turn.
    */
   private resolveProjectContext(): ProjectPromptContext | null {
     const projectId = this.config.session?.projectId;
@@ -572,6 +574,12 @@ export class PiAgent extends BaseAgent {
       authType: this.config.authType,
       workspaceId: this.config.workspace.id,
       piAuth,
+      // A Claude subscription: pi-agent-server registers its `claude-code` provider, which runs the user's own
+      // `claude` (OTTO_CLAUDE_PATH, else the one on PATH) with its own login. The child env is allow-listed, so
+      // CLAUDE_CONFIG_DIR (where that login lives) is passed here.
+      ...(piAuth?.credential.type === 'cli_login'
+        ? { claudeCode: { path: process.env.OTTO_CLAUDE_PATH || undefined, configDir: process.env.CLAUDE_CONFIG_DIR || undefined } }
+        : {}),
       baseUrl: runtime.baseUrl,
       customEndpoint: runtime.customEndpoint,
       customModels: runtime.customModels,
@@ -649,9 +657,12 @@ export class PiAgent extends BaseAgent {
       | { type: 'api_key'; key: string }
       | { type: 'oauth'; access: string; refresh: string; expires: number }
       | { type: 'iam'; accessKeyId: string; secretAccessKey: string; region?: string; sessionToken?: string }
+      | { type: 'cli_login' }
   } | null> {
     const piAuthProvider = getBackendRuntime(this.config).piAuthProvider;
     if (!piAuthProvider) return null;
+    // The provider's CLI signs in with its own login; Otto holds no secret for it.
+    if (this.config.authType === 'cli_login') return { provider: piAuthProvider, credential: { type: 'cli_login' } };
 
     try {
       const credentialManager = getCredentialManager();
@@ -1370,7 +1381,7 @@ export class PiAgent extends BaseAgent {
 
       case 'prompt': {
         if (!this.onPermissionRequest) {
-          // Nobody can answer the prompt: deny, as ClaudeAgent does.
+          // Nobody can answer the prompt: deny.
           this.send({
             type: 'pre_tool_use_response',
             requestId,
@@ -2066,12 +2077,23 @@ export class PiAgent extends BaseAgent {
           const recoveryContext = this.buildRecoveryContext();
           if (recoveryContext) {
             message = recoveryContext + message;
+            this.historyRecovered = true;
             this.debug('Injected recovery context into message');
           }
 
           await this.ensureSubprocess();
         } else {
           throw subprocessError;
+        }
+      }
+
+      // A chat Pi has no history of (it ran on the removed Claude backend) continues from a summary of its messages.
+      if (this.config.recoverHistory && !this.historyRecovered && !compactMatch) {
+        this.historyRecovered = true;
+        const recoveryContext = this.buildRecoveryContext();
+        if (recoveryContext) {
+          message = recoveryContext + message;
+          this.debug('Injected recovery context: the backend holds none of this chat\'s history');
         }
       }
 
@@ -2182,6 +2204,7 @@ export class PiAgent extends BaseAgent {
       const fullSystemPrompt = [
         systemPrompt,
         ...stableParts,
+        this.config.getAgentInstructions?.(),
       ].filter(Boolean).join('\n\n');
 
       // User message: volatile context + attachments + the actual message
@@ -2489,17 +2512,6 @@ export class PiAgent extends BaseAgent {
 
   override getSessionId(): string | null {
     return this.piSessionId;
-  }
-
-  override setSessionId(sessionId: string | null): void {
-    this.piSessionId = sessionId;
-  }
-
-  override setWorkspace(workspace: Workspace): void {
-    super.setWorkspace(workspace);
-    this.piSessionId = null;
-    this._sessionToolContext = null;
-    this.killSubprocess();
   }
 
   override clearHistory(): void {

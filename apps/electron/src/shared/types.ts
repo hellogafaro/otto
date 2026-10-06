@@ -24,6 +24,8 @@ import type {
 
 import type { Agent, AgentInput, AgentUpdate } from '@otto/shared/agents/types';
 export type { Agent, AgentInput, AgentUpdate };
+import type { Routine, RoutineAction, RoutineInput, RoutineRun, RoutineUpdate } from '@otto/shared/automations/routine-types';
+export type { Routine, RoutineAction, RoutineInput, RoutineRun, RoutineUpdate };
 import type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate } from '@otto/shared/library/types';
 export type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate };
 
@@ -218,14 +220,11 @@ import type {
   OAuthResult,
   McpToolsResult,
   GitBashStatus,
-  ClaudeOAuthResult,
   UpdateInfo,
   WorkspaceSettings,
   PermissionModeState,
   BrowserInstanceInfo,
   DeepLinkNavigation,
-  TestAutomationPayload,
-  TestAutomationResult,
   WindowCloseRequest,
   DirectoryListingResult,
   RemoteSessionTransferPayload,
@@ -430,11 +429,6 @@ export interface ElectronAPI {
   getAuthState(): Promise<AuthState>
   getSetupNeeds(): Promise<SetupNeeds>
   startWorkspaceMcpOAuth(mcpUrl: string): Promise<OAuthResult & { clientId?: string }>
-  // Claude OAuth (two-step flow)
-  startClaudeOAuth(): Promise<{ success: boolean; authUrl?: string; error?: string }>
-  exchangeClaudeCode(code: string, connectionSlug: string): Promise<ClaudeOAuthResult>
-  hasClaudeOAuthState(): Promise<boolean>
-  clearClaudeOAuthState(): Promise<{ success: boolean }>
   /** Defer onboarding setup — user chose "Setup later" */
   deferSetup(): Promise<{ success: boolean }>
 
@@ -684,22 +678,17 @@ export interface ElectronAPI {
   /** After a write by anyone in the workspace: this domain's data there is stale. Hooks reload on it. */
   onDomainChanged(callback: (change: DomainChange) => void): () => void
 
-  // Automations
-  getAutomations(workspaceId: string): Promise<unknown>
-
-  // Automation testing (manual trigger)
-  testAutomation(payload: TestAutomationPayload): Promise<TestAutomationResult>
-
-  // Automation state management
-  setAutomationEnabled(workspaceId: string, eventName: string, matcherIndex: number, enabled: boolean): Promise<void>
-  duplicateAutomation(workspaceId: string, eventName: string, matcherIndex: number): Promise<void>
-  deleteAutomation(workspaceId: string, eventName: string, matcherIndex: number): Promise<void>
-  getAutomationHistory(workspaceId: string, automationId: string, limit?: number): Promise<Array<{ id: string; ts: number; ok: boolean; sessionId?: string; prompt?: string; error?: string; skipped?: string; webhook?: { method: string; url: string; statusCode: number; durationMs: number; attempts?: number; error?: string; responseBody?: string } }>>
-  getAutomationLastExecuted(workspaceId: string): Promise<Record<string, number>>
-  replayAutomation(workspaceId: string, automationId: string, eventName: string): Promise<{ results: Array<{ type: string; url: string; statusCode: number; success: boolean; error?: string; duration: number }> }>
-
-  // Automations change listener
-  onAutomationsChanged(callback: (workspaceId: string) => void): () => void
+  // Routines (docs/final-plan.md 2.8). The workspace is the window's. Any member lists and gets; creating, changing,
+  // pausing, resuming, running and deleting a routine is its creator or a workspace owner. `runRoutine` starts a run in
+  // the background and returns it (`running`); its end arrives as a `domain:changed` of `routines`.
+  getRoutines(): Promise<Routine[]>
+  getRoutine(id: string): Promise<Routine | null>
+  createRoutine(input: Omit<RoutineInput, 'workspaceId' | 'createdBy'>): Promise<Routine>
+  updateRoutine(id: string, patch: RoutineUpdate): Promise<Routine>
+  deleteRoutine(id: string): Promise<void>
+  pauseRoutine(id: string): Promise<Routine>
+  resumeRoutine(id: string): Promise<Routine>
+  runRoutine(id: string): Promise<RoutineRun>
 
   // Language
   changeLanguage(lang: string): Promise<void>

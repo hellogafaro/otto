@@ -4,8 +4,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getPendingPlanExecution, saveSession } from '../../../shared/src/sessions/storage.ts'
 import * as backendFactory from '../../../shared/src/agent/backend/factory.ts'
-import { ClaudeAgent } from '../../../shared/src/agent/claude-agent.ts'
-import { PendingSteers } from '../../../shared/src/agent/backend/claude/pending-steers.ts'
 import {
   SessionManager,
   createManagedSession,
@@ -72,32 +70,6 @@ describe('mid-stream queue runtime invariants', () => {
     // The forced queue path is not an interruption: the compaction runs to
     // completion and the replayed turn must not claim it was cut off.
     expect(resolveMidStreamDeliveryOutcome('queue', false)).toEqual({ shouldQueue: true, wasInterrupted: false })
-
-    // Claude reports a live /compact turn through its event adapter; a bare
-    // prototype without an adapter reads as not compacting.
-    const claude = Object.create(ClaudeAgent.prototype) as any
-    claude.currentQuery = { interrupt: async () => {} }
-    expect(claude.isCompactionInFlight()).toBe(false)
-    claude.eventAdapter = { isManualCompactionRequested: () => true }
-    expect(claude.isCompactionInFlight()).toBe(true)
-    expect(shouldAttemptMidStreamSteer('steer', true, claude)).toBe(false)
-    claude.currentQuery = null
-    expect(claude.isCompactionInFlight()).toBe(false)
-  })
-
-  it('recovers distinct identical-text steers by identity without interrupting or duplicating', async () => {
-    const managed = buildSession('recover')
-    const payloads = ['a', 'b', 'c'].map(messageId => ({ message: 'same', messageId, optimisticMessageId: `optimistic-${messageId}` }))
-    managed.messages = payloads.map(p => ({ id: p.messageId, content: p.message, role: 'user', timestamp: 1 }))
-    ;(managed as any).acceptedSteers = new Map(payloads.map(p => [p.messageId, p]))
-    ;(sm as any).persistSession = () => {}
-    for (const p of payloads) await (sm as any).processEvent(managed, { type: 'steer_undelivered', message: p.message, messageId: p.messageId })
-    expect(managed.messageQueue).toEqual(payloads)
-    expect(managed.messages).toHaveLength(3)
-    expect(managed.messages.every(m => m.isQueued)).toBe(true)
-    expect(managed.wasInterrupted).not.toBe(true)
-    await (sm as any).processEvent(managed, { type: 'steer_undelivered', message: 'same', messageId: 'a' })
-    expect(managed.messageQueue).toHaveLength(3)
   })
 
   it('allows empty presentation metadata but queues semantic and future options', () => {
@@ -196,56 +168,16 @@ describe('mid-stream queue runtime invariants', () => {
     expect(getPendingPlanExecution(tmpRoot, managed.id)).toMatchObject({ awaitingCompaction: false, executionDispatched: false })
   })
 
-  it('the actual host sendMessage loop consumes Claude recovery before stopping at complete', async () => {
-    spyOn(backendFactory, 'resolveSessionConnection').mockReturnValue({ providerType: 'pi', midStreamBehavior: 'steer' } as any)
-    const managed = buildSession('host-completion')
-    managed.sdkSessionId = 'offline-sdk'
-    const agent = Object.create(ClaudeAgent.prototype) as any
-    agent.pendingSteers = new PendingSteers()
-    agent.currentQuery = { interrupt: async () => {} }
-    agent.currentQueryAbortController = new AbortController()
-    agent.debug = () => {}
-    agent.getModel = () => 'claude-sonnet-4-6'
-    agent.setAllSources = () => {}
-    agent.getSessionId = () => 'offline-sdk'
-    agent.chat = agent.chatImpl.bind(agent)
-    const acceptedIds: string[] = []
-    agent.chatTurn = async function* () {
-      for (const id of ['a', 'b', 'c']) {
-        await sm.sendMessage(managed.id, 'same', undefined, undefined, { optimisticMessageId: `opt-${id}` })
-        acceptedIds.push(managed.messages.at(-1)!.id)
-      }
-      yield { type: 'complete' }
-    }
-    managed.agent = agent
-    ;(sm as any).getOrCreateAgent = async () => agent
-    ;(sm as any).persistSession = () => {}
-    ;(sm as any).flushSession = async () => {}
-    const stopped = mock(async () => { managed.isProcessing = false })
-    ;(sm as any).onProcessingStopped = stopped
-    const events: any[] = []
-    sm.setEventSink((_channel, _target, event) => events.push(event))
-    await sm.sendMessage(managed.id, 'initial')
-    expect(stopped).toHaveBeenCalledTimes(1)
-    expect(managed.messageQueue.map(p => p.messageId)).toEqual(acceptedIds)
-    expect(managed.messageQueue.map(p => p.optimisticMessageId)).toEqual(['opt-a', 'opt-b', 'opt-c'])
-    expect(managed.messages.filter(m => m.role === 'user')).toHaveLength(4)
-    expect(managed.wasInterrupted).not.toBe(true)
-    expect(events.filter(e => e.type === 'user_message' && e.status === 'queued').map(e => e.message.id)).toEqual(acceptedIds)
-  })
-
   it.each(['complete', 'error'])('ignores a trailing %s from a handed-off turn after a newer turn starts', async terminal => {
     const managed = buildSession('handoff-new-turn')
     managed.sdkSessionId = 'offline-sdk'
-    const agent = Object.create(ClaudeAgent.prototype) as any
-    agent.pendingSteers = new PendingSteers()
-    agent.currentQuery = { interrupt: async () => {} }
-    agent.currentQueryAbortController = new AbortController()
-    agent.debug = () => {}
-    agent.getModel = () => 'claude-sonnet-4-6'
-    agent.setAllSources = () => {}
-    agent.getSessionId = () => 'offline-sdk'
-    agent.chat = agent.chatImpl.bind(agent)
+    const agent = {
+      debug: () => {},
+      getModel: () => 'pi/claude-sonnet-4-6',
+      setAllSources: () => {},
+      getSessionId: () => 'offline-sdk',
+      chat: (...args: unknown[]) => agent.chatTurn(...args),
+    } as any
     const gates = [Promise.withResolvers<void>(), Promise.withResolvers<void>()]
     const starts = [Promise.withResolvers<void>(), Promise.withResolvers<void>()]
     let turn = 0
@@ -264,7 +196,6 @@ describe('mid-stream queue runtime invariants', () => {
     ;(sm as any).onProcessingStopped = stopped
     const first = sm.sendMessage(managed.id, 'first')
     await starts[0]!.promise
-    ;(sm as any).recoverPendingSteers(managed)
     managed.isProcessing = false // The UI handoff callback pauses without waiting for the old SDK result.
     const second = sm.sendMessage(managed.id, 'second')
     await starts[1]!.promise
@@ -278,41 +209,6 @@ describe('mid-stream queue runtime invariants', () => {
       await second
     }
     expect(stopped).toHaveBeenCalledTimes(1)
-  })
-
-  it('transfers handoff steers ahead of already queued later attachments', () => {
-    const managed = buildSession('handoff-order')
-    managed.messages = ['a', 'b', 'c'].map(id => ({ id, role: 'user', content: id, timestamp: 1 }))
-    const payloads = ['a', 'c'].map(messageId => ({ message: messageId, messageId }))
-    managed.acceptedSteers = new Map(payloads.map(p => [p.messageId, p]))
-    managed.messageQueue = [{ message: 'b', messageId: 'b', attachments: [{ name: 'keep' }] as any }]
-    managed.agent = { takePendingSteers: () => payloads } as any
-    ;(sm as any).persistSession = () => {}
-    ;(sm as any).recoverPendingSteers(managed)
-    expect(managed.messageQueue.map(p => p.messageId)).toEqual(['a', 'b', 'c'])
-    expect(managed.messageQueue[1]!.attachments).toEqual([{ name: 'keep' }] as any)
-    expect(managed.wasInterrupted).not.toBe(true)
-  })
-
-  it('hard Stop visibly cancels accepted pending steers and rejects trailing recovery', async () => {
-    const managed = buildSession('stop')
-    managed.isProcessing = true
-    managed.messages = [{ id: 'a', role: 'user', content: 'pending', timestamp: 1 }]
-    const payload = { message: 'pending', messageId: 'a' }
-    managed.acceptedSteers = new Map([['a', payload]])
-    const forceAbort = mock(() => {})
-    managed.agent = { takePendingSteers: () => [payload], forceAbort } as any
-    ;(sm as any).persistSession = () => {}
-    const events: any[] = []
-    sm.setEventSink((_channel, _target, event) => events.push(event))
-    await sm.cancelProcessing(managed.id)
-    expect(forceAbort).toHaveBeenCalledTimes(1)
-    expect(events.find(e => e.type === 'interrupted').queuedMessages).toEqual(['pending'])
-    expect(managed.messages.some(m => m.id === 'a')).toBe(false)
-    expect(managed.messageQueue).toEqual([])
-    await (sm as any).processEvent(managed, { type: 'steer_undelivered', ...payload })
-    expect(managed.messageQueue).toEqual([])
-    managed.isProcessing = false // Disarm the production Stop backstop timer.
   })
 
   it('re-stamps replay after the prior final response and emits that timestamp', async () => {

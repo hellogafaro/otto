@@ -18,7 +18,7 @@ import type { EntityColor } from '../colors/types.ts'
 /**
  * Status category determines filtering behavior:
  * - 'open': Appears in inbox (listInboxSessions)
- * - 'closed': Appears in archive (listCompletedSessions)
+ * - 'closed': Appears in completed (listCompletedSessions, with 'archived')
  * - 'archived': the one fixed `archived` status: archiving a chat moves it there (nobody creates another)
  */
 export type StatusCategory = 'open' | 'closed' | 'archived';

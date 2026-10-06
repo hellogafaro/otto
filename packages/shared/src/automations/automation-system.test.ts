@@ -3,29 +3,37 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { AutomationSystem, type SessionMetadataSnapshot } from './automation-system.ts';
-import { AUTOMATIONS_CONFIG_FILE, AUTOMATIONS_HISTORY_FILE } from './constants.ts';
+import { openDb, type Db } from '../db/index.ts';
+import { pushSchema } from '../db/push.ts';
+import type { RoutineConfig } from './routine-types.ts';
+import { createRoutine, updateRoutine } from './routines.ts';
 
 describe('AutomationSystem', () => {
   let tempDir: string;
+  let db: Db;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'automation-system-test-'));
+    db = openDb(':memory:');
+    await pushSchema(db);
   });
 
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
+  const event = (matcher: string | undefined, prompt: string, extra: Partial<RoutineConfig> = {}): RoutineConfig =>
+    ({ type: 'event', event: 'LabelAdd', ...(matcher ? { matcher } : {}), actions: [{ type: 'prompt', prompt }], ...extra });
+  const addRoutine = (title: string, config: RoutineConfig, paused = false) =>
+    createRoutine({ workspaceId: 'test-workspace', title, config, createdBy: 'user:aaaaaaaaaaaa', paused }, db);
+
   describe('constructor', () => {
-    it('should create an AutomationSystem without automations.json', async () => {
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
+    it('should create an AutomationSystem without routines', async () => {
+      const system = new AutomationSystem({ workspaceRootPath: tempDir, workspaceId: 'test-workspace', db });
 
       expect(system.isDisposed()).toBe(false);
       expect(system.getConfig()).toEqual({ automations: {} });
@@ -33,227 +41,75 @@ describe('AutomationSystem', () => {
       await system.dispose();
     });
 
-    it('should load automations.json if present', async () => {
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          LabelAdd: [
-            {
-              matcher: 'test',
-              actions: [{ type: 'prompt', prompt: 'echo hello' }],
-            },
-          ],
-        },
-      }));
+    it('should read the active event routines of its workspace as matchers', async () => {
+      addRoutine('Triage', event('test', 'echo hello', { permissionMode: 'safe' }));
+      addRoutine('Paused', event('test', 'echo paused'), true);
+      addRoutine('Daily', { type: 'schedule', schedule: { cron: '0 9 * * *' }, actions: [{ type: 'prompt', prompt: 'echo daily' }] });
+      createRoutine({ workspaceId: 'other', title: 'Elsewhere', config: event('test', 'echo other'), createdBy: 'user:aaaaaaaaaaaa' }, db);
 
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
+      const system = new AutomationSystem({ workspaceRootPath: tempDir, workspaceId: 'test-workspace', db });
 
-      const config = system.getConfig();
-      expect(config?.automations.LabelAdd).toHaveLength(1);
+      const matchers = system.getConfig()?.automations.LabelAdd;
+      expect(matchers).toHaveLength(1);
+      expect(matchers?.[0]).toMatchObject({ name: 'Triage', matcher: 'test', permissionMode: 'safe', actions: [{ type: 'prompt', prompt: 'echo hello' }] });
+      expect(Object.keys(system.getConfig()?.automations ?? {})).toEqual(['LabelAdd']);
 
       await system.dispose();
     });
 
-    it('should handle invalid automations.json gracefully', async () => {
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), 'invalid json');
+    it('should preserve thinkingLevel and labels on prompt actions', async () => {
+      addRoutine('Review', event('review', 'Audit changes', { actions: [{ type: 'prompt', prompt: 'Audit changes', llmConnection: 'anthropic', model: 'claude-opus-4-7', thinkingLevel: 'high', labels: ['bug'] }] }));
 
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
+      const system = new AutomationSystem({ workspaceRootPath: tempDir, workspaceId: 'test-workspace', db });
 
-      expect(system.getConfig()).toEqual({ automations: {} });
+      expect(system.getConfig()?.automations.LabelAdd?.[0]?.actions[0]).toMatchObject({ type: 'prompt', thinkingLevel: 'high', labels: ['bug'] });
 
       await system.dispose();
     });
 
-    it('should preserve thinkingLevel on prompt actions through load', async () => {
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          LabelAdd: [
-            {
-              matcher: 'review',
-              actions: [{
-                type: 'prompt',
-                prompt: 'Audit changes',
-                llmConnection: 'anthropic',
-                model: 'claude-opus-4-7',
-                thinkingLevel: 'high',
-              }],
-            },
-          ],
-        },
-      }));
+    it('should hand a webhook action its credentials from its secret, and none when the secret is gone', async () => {
+      addRoutine('Hook', { type: 'event', event: 'LabelAdd', actions: [{ type: 'webhook', url: 'https://example.test', secretId: 'missing' }] });
 
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
+      const system = new AutomationSystem({ workspaceRootPath: tempDir, workspaceId: 'test-workspace', db });
 
-      const config = system.getConfig();
-      const action = config?.automations.LabelAdd?.[0]?.actions[0];
-      expect(action).toMatchObject({
-        type: 'prompt',
-        thinkingLevel: 'high',
-      });
-
-      await system.dispose();
-    });
-
-    it('should reject semantically invalid conditions at load time', async () => {
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          LabelAdd: [
-            {
-              conditions: [{ condition: 'time', after: '25:99' }],
-              actions: [{ type: 'prompt', prompt: 'echo hello' }],
-            },
-          ],
-        },
-      }));
-
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
-
-      expect(system.getConfig()).toEqual({ automations: {} });
+      const action = system.getConfig()?.automations.LabelAdd?.[0]?.actions[0];
+      expect(action).toEqual({ type: 'webhook', url: 'https://example.test' });
 
       await system.dispose();
     });
   });
 
   describe('reloadConfig', () => {
-    it('should reload automations.json', async () => {
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
+    it('should count the active event routines (there is nothing to reload: they are read at every event)', async () => {
+      const system = new AutomationSystem({ workspaceRootPath: tempDir, workspaceId: 'test-workspace', db });
 
-      expect(system.getConfig()).toEqual({ automations: {} });
-
-      // Create automations.json
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          LabelAdd: [
-            {
-              matcher: 'test',
-              actions: [{ type: 'prompt', prompt: 'echo hello' }],
-            },
-          ],
-        },
-      }));
-
-      const result = system.reloadConfig();
-      expect(result.success).toBe(true);
-      expect(result.automationCount).toBe(1);
+      expect(system.reloadConfig()).toEqual({ success: true, automationCount: 0, errors: [] });
+      addRoutine('Triage', event('test', 'echo hello'));
+      expect(system.reloadConfig()).toEqual({ success: true, automationCount: 1, errors: [] });
       expect(system.getConfig()?.automations.LabelAdd).toHaveLength(1);
-
-      await system.dispose();
-    });
-
-    it('should return errors for invalid config', async () => {
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
-
-      // Invalid JSON structure (actions must have at least one action)
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          LabelAdd: [
-            { matcher: 'test', actions: 'not-an-array' }, // Invalid: actions should be an array
-          ],
-        },
-      }));
-
-      const result = system.reloadConfig();
-      expect(result.success).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-
-      await system.dispose();
-    });
-
-    it('should return errors for semantically invalid conditions', async () => {
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
-
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          LabelAdd: [
-            {
-              conditions: [{ condition: 'time', before: '99:00' }],
-              actions: [{ type: 'prompt', prompt: 'echo hello' }],
-            },
-          ],
-        },
-      }));
-
-      const result = system.reloadConfig();
-      expect(result.success).toBe(false);
-      expect(result.errors.some(e => e.includes('Invalid time value'))).toBe(true);
-
-      await system.dispose();
-    });
-
-    it('should ignore unknown event types with warning', async () => {
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
-
-      // Unknown events are filtered out with a warning, not an error
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          UnknownEvent: [
-            { matcher: 'test', actions: [{ type: 'prompt', prompt: 'echo test' }] },
-          ],
-        },
-      }));
-
-      const result = system.reloadConfig();
-      expect(result.success).toBe(true); // Unknown events are ignored, not errors
-      expect(result.automationCount).toBe(0); // No valid actions
 
       await system.dispose();
     });
   });
 
   describe('getMatchersForEvent', () => {
-    it('should return matchers for configured events', async () => {
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          LabelAdd: [
-            { matcher: 'test1', actions: [{ type: 'prompt', prompt: 'echo 1' }] },
-            { matcher: 'test2', actions: [{ type: 'prompt', prompt: 'echo 2' }] },
-          ],
-        },
-      }));
+    it('should return matchers for configured events, and follow a pause at once', async () => {
+      addRoutine('One', event('test1', 'echo 1'));
+      const second = addRoutine('Two', event('test2', 'echo 2'));
 
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
+      const system = new AutomationSystem({ workspaceRootPath: tempDir, workspaceId: 'test-workspace', db });
 
-      const matchers = system.getMatchersForEvent('LabelAdd');
-      expect(matchers).toHaveLength(2);
-      expect(matchers[0]?.matcher).toBe('test1');
+      expect(system.getMatchersForEvent('LabelAdd').map((m) => m.matcher)).toEqual(['test1', 'test2']);
+      updateRoutine('test-workspace', second.id, { paused: true }, db);
+      expect(system.getMatchersForEvent('LabelAdd').map((m) => m.matcher)).toEqual(['test1']);
 
       await system.dispose();
     });
 
     it('should return empty array for unconfigured events', async () => {
-      const system = new AutomationSystem({
-        workspaceRootPath: tempDir,
-        workspaceId: 'test-workspace',
-      });
+      const system = new AutomationSystem({ workspaceRootPath: tempDir, workspaceId: 'test-workspace', db });
 
-      const matchers = system.getMatchersForEvent('LabelAdd');
-      expect(matchers).toEqual([]);
+      expect(system.getMatchersForEvent('LabelAdd')).toEqual([]);
 
       await system.dispose();
     });
@@ -264,6 +120,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       const emitSpy = spyOn(system.eventBus, 'emit');
@@ -286,6 +143,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       const emitSpy = spyOn(system.eventBus, 'emit');
@@ -309,6 +167,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       // Set initial state
@@ -334,6 +193,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       const emitSpy = spyOn(system.eventBus, 'emit');
@@ -354,6 +214,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       system.setInitialSessionMetadata('session-1', {
@@ -379,6 +240,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       system.setInitialSessionMetadata('session-1', {
@@ -405,6 +267,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       await system.updateSessionMetadata('session-1', {
@@ -425,6 +288,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       system.setInitialSessionMetadata('session-1', {
@@ -446,6 +310,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       const emitSpy = spyOn(system.eventBus, 'emit');
@@ -462,21 +327,18 @@ describe('AutomationSystem', () => {
 
   describe('executeAgentEvent', () => {
     it('should match agent events when matcher and conditions pass', async () => {
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          PreToolUse: [
-            {
-              matcher: '^Bash$',
-              conditions: [{ condition: 'state', field: 'hook_event_name', value: 'PreToolUse' }],
-              actions: [{ type: 'prompt', prompt: 'check this' }],
-            },
-          ],
-        },
-      }));
+      addRoutine('Bash', {
+        type: 'event',
+        event: 'PreToolUse',
+        matcher: '^Bash$',
+        conditions: [{ condition: 'state', field: 'hook_event_name', value: 'PreToolUse' }],
+        actions: [{ type: 'prompt', prompt: 'check this' }],
+      });
 
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       const matched = await system.executeAgentEvent('PreToolUse', {
@@ -490,21 +352,18 @@ describe('AutomationSystem', () => {
     });
 
     it('should not match agent events when conditions fail', async () => {
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          PreToolUse: [
-            {
-              matcher: '^Bash$',
-              conditions: [{ condition: 'state', field: 'hook_event_name', value: 'PostToolUse' }],
-              actions: [{ type: 'prompt', prompt: 'check this' }],
-            },
-          ],
-        },
-      }));
+      addRoutine('Bash', {
+        type: 'event',
+        event: 'PreToolUse',
+        matcher: '^Bash$',
+        conditions: [{ condition: 'state', field: 'hook_event_name', value: 'PostToolUse' }],
+        actions: [{ type: 'prompt', prompt: 'check this' }],
+      });
 
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       const matched = await system.executeAgentEvent('PreToolUse', {
@@ -520,17 +379,12 @@ describe('AutomationSystem', () => {
 
   describe('buildSdkHooks', () => {
     it('should return empty object (command execution removed)', async () => {
-      writeFileSync(join(tempDir, AUTOMATIONS_CONFIG_FILE), JSON.stringify({
-        automations: {
-          PreToolUse: [
-            { matcher: 'Bash', actions: [{ type: 'prompt', prompt: 'check this' }] },
-          ],
-        },
-      }));
+      addRoutine('Bash', { type: 'event', event: 'PreToolUse', matcher: 'Bash', actions: [{ type: 'prompt', prompt: 'check this' }] });
 
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       const result = system.buildSdkHooks();
@@ -545,6 +399,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       system.setInitialSessionMetadata('session-1', { permissionMode: 'explore' });
@@ -560,6 +415,7 @@ describe('AutomationSystem', () => {
       const system = new AutomationSystem({
         workspaceRootPath: tempDir,
         workspaceId: 'test-workspace',
+        db,
       });
 
       await system.dispose();

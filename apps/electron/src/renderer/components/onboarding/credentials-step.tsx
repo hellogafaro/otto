@@ -1,34 +1,31 @@
 /**
- * CredentialsStep - Onboarding step wrapper for API key or OAuth flow
+ * CredentialsStep - Onboarding step wrapper for an API key, a device-code sign-in or the Claude Code sign-in
  *
- * Thin wrapper that composes ApiKeyInput or OAuthConnect controls
+ * Thin wrapper that composes ApiKeyInput or the sign-in rows
  * with StepFormLayout for the onboarding wizard context.
  */
 
 import { useEffect, useState } from "react"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import { ArrowUpRight, Check, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SettingsCard, SettingsRow } from "@/components/settings"
 import { StepFormLayout, BackButton, ContinueButton } from "./primitives"
-import {
-  ApiKeyInput,
-  type ApiKeyStatus,
-  type ApiKeySubmitData,
-  OAuthConnect,
-  type OAuthStatus,
-} from "../apisetup"
+import { ApiKeyInput, type ApiKeyStatus, type ApiKeySubmitData } from "../apisetup"
 import type { CustomEndpointApi } from '@config/llm-connections'
 
-/** How a connection signs in: a Claude, ChatGPT or Copilot subscription, or an API key (Anthropic or a provider preset). */
+/**
+ * How a connection signs in: a Claude subscription (the user's own `claude` CLI sign-in, no secret), a ChatGPT or
+ * Copilot subscription, or an API key (Anthropic or a provider preset).
+ */
 export type ApiSetupMethod =
   | 'anthropic_api_key'
-  | 'claude_oauth'
+  | 'claude_code'
   | 'pi_chatgpt_oauth'
   | 'pi_copilot_oauth'
   | 'pi_api_key'
 
-export type CredentialStatus = ApiKeyStatus | OAuthStatus
+export type CredentialStatus = ApiKeyStatus
 
 interface CredentialsStepProps {
   apiSetupMethod: ApiSetupMethod
@@ -37,10 +34,6 @@ interface CredentialsStepProps {
   onSubmit: (data: ApiKeySubmitData) => void
   onStartOAuth?: (methodOverride?: ApiSetupMethod) => void
   onBack: () => void
-  // Two-step OAuth flow
-  isWaitingForCode?: boolean
-  onSubmitAuthCode?: (code: string) => void
-  onCancelOAuth?: () => void
   // Device flow (Copilot)
   deviceCode?: { userCode: string; verificationUri: string }
   // Edit mode (pre-fill existing connection values)
@@ -61,14 +54,11 @@ export function CredentialsStep({
   onSubmit,
   onStartOAuth,
   onBack,
-  isWaitingForCode,
-  onSubmitAuthCode,
-  onCancelOAuth,
   deviceCode,
   editInitialValues,
 }: CredentialsStepProps) {
   const { t } = useTranslation()
-  const isClaudeOAuth = apiSetupMethod === 'claude_oauth'
+  const isClaudeCode = apiSetupMethod === 'claude_code'
   const isChatGptOAuth = apiSetupMethod === 'pi_chatgpt_oauth'
   const isCopilotOAuth = apiSetupMethod === 'pi_copilot_oauth'
   const isPiApiKey = apiSetupMethod === 'pi_api_key'
@@ -169,63 +159,20 @@ export function CredentialsStep({
     )
   }
 
-  // --- Claude OAuth flow ---
-  if (isClaudeOAuth) {
-    // Waiting for authorization code entry
-    if (isWaitingForCode) {
-      return (
-        <StepFormLayout
-          title={t("onboarding.credentials.enterAuthCode")}
-          description={t("onboarding.credentials.copyCodeInstruction")}
-          actions={
-            <>
-              <BackButton onClick={onCancelOAuth} disabled={status === 'validating'}>{t("common.cancel")}</BackButton>
-              <ContinueButton
-                type="submit"
-                form="auth-code-form"
-                disabled={false}
-                loading={status === 'validating'}
-              />
-            </>
-          }
-        >
-          <OAuthConnect
-            status={status as OAuthStatus}
-            errorMessage={errorMessage}
-            isWaitingForCode={true}
-            onStartOAuth={onStartOAuth!}
-            onSubmitAuthCode={onSubmitAuthCode}
-            onCancelOAuth={onCancelOAuth}
-          />
-        </StepFormLayout>
-      )
-    }
-
+  // --- Claude subscription: the user's own `claude` CLI sign-in, nothing to enter ---
+  if (isClaudeCode) {
     return (
       <StepFormLayout
         title={t("onboarding.credentials.connectClaude")}
-        description={t("onboarding.credentials.claudeSubscriptionDesc")}
+        description={<Trans i18nKey="onboarding.credentials.claudeCodeSignInDesc" components={{ code: <code className="font-mono" /> }} />}
         actions={
           <>
             <BackButton onClick={onBack} disabled={status === 'validating'} />
-            <ContinueButton
-              onClick={() => onStartOAuth?.()}
-              loading={status === 'validating'}
-            >
-              {t("onboarding.credentials.signInClaude")}
-              <ArrowUpRight data-icon="inline-end" />
-            </ContinueButton>
+            <ContinueButton onClick={() => onStartOAuth?.()} loading={status === 'validating'} />
           </>
         }
       >
-        <OAuthConnect
-          status={status as OAuthStatus}
-          errorMessage={errorMessage}
-          isWaitingForCode={false}
-          onStartOAuth={onStartOAuth!}
-          onSubmitAuthCode={onSubmitAuthCode}
-          onCancelOAuth={onCancelOAuth}
-        />
+        {status === 'error' && errorMessage && <p className="text-xs text-destructive">{errorMessage}</p>}
       </StepFormLayout>
     )
   }

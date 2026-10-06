@@ -11,22 +11,22 @@ import { createLogger } from '../utils/debug.ts';
 const log = createLogger('cron-matcher');
 
 /**
- * Check if a cron expression matches the current time.
- * Uses croner's nextRun to determine if the current minute matches the cron pattern.
+ * Check if a cron expression matches a minute (the current one by default).
+ * Uses croner's nextRun to determine if the minute matches the cron pattern.
  *
  * @param cronExpr - Cron expression in 5-field format (minute hour day-of-month month day-of-week)
  * @param timezone - Optional IANA timezone (e.g., "Europe/Budapest", "America/New_York")
- * @returns true if the cron expression matches the current minute
+ * @param now - The time to check (default: now)
+ * @returns true if the cron expression matches the minute of `now`
  *
  * @example
  * matchesCron('* * * * *')                    // Matches every minute
  * matchesCron('0 9 * * *', 'Europe/Budapest') // Matches 9:00 AM Budapest time
  */
-export function matchesCron(cronExpr: string, timezone?: string): boolean {
+export function matchesCron(cronExpr: string, timezone?: string, now: Date = new Date()): boolean {
   try {
     const options = timezone ? { timezone } : {};
     const job = new Cron(cronExpr, options);
-    const now = new Date();
 
     // Get start of current minute (floored to :00 seconds)
     const startOfMinute = new Date(now);

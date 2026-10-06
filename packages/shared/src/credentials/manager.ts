@@ -402,9 +402,10 @@ export class CredentialManager {
     scope?: string
   ): Promise<boolean> {
     switch (authType) {
-      // No credentials needed
+      // No credentials needed (cli_login: the CLI's own sign-in)
       case 'none':
       case 'environment':
+      case 'cli_login':
         return true;
 
       // API key variants - all use the same storage

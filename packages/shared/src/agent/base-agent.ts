@@ -1,7 +1,7 @@
 /**
  * BaseAgent Abstract Class
  *
- * Shared base class for all AI agent backends (ClaudeAgent, PiAgent).
+ * Base class of PiAgent, the agent of every chat.
  * Extracts common functionality including:
  * - Model/thinking configuration
  * - Permission mode management (via PermissionManager)
@@ -30,7 +30,6 @@ import { loadAllSources } from '../sources/storage.ts';
 import type { ApiServerConfig } from '../mcp/mcp-pool.ts';
 
 import type {
-  AgentBackend,
   ChatOptions,
   PermissionCallback,
   PlanCallback,
@@ -160,7 +159,7 @@ export const MINI_AGENT_MCP_KEYS = ['session'] as const;
  * - destroy(): Provider-specific cleanup
  * - runMiniCompletion(): Simple text completion using backend's auth
  */
-export abstract class BaseAgent implements AgentBackend {
+export abstract class BaseAgent {
   // ============================================================
   // Backend Identity
   // ============================================================
@@ -391,7 +390,6 @@ export abstract class BaseAgent implements AgentBackend {
    * Fire an automation agent event (from automations.json) via AutomationSystem.
    * Catches all errors — automations must never break the agent flow.
    *
-   * Non-Claude backends call this directly. ClaudeAgent uses SDK's buildSdkHooks() instead.
    *
    * @param signal - Optional AbortSignal for cancelling automation execution on abort
    */
@@ -404,7 +402,7 @@ export abstract class BaseAgent implements AgentBackend {
   }
 
   // ============================================================
-  // Model & Thinking Configuration (AgentBackend interface)
+  // Model & Thinking Configuration
   // ============================================================
 
   getModel(): string {
@@ -437,12 +435,6 @@ export abstract class BaseAgent implements AgentBackend {
     this.onPermissionModeChange?.(mode);
   }
 
-  cyclePermissionMode(): PermissionMode {
-    const newMode = this.permissionManager.cyclePermissionMode();
-    this.onPermissionModeChange?.(newMode);
-    return newMode;
-  }
-
   /**
    * Check if currently in safe mode (read-only exploration).
    */
@@ -451,24 +443,15 @@ export abstract class BaseAgent implements AgentBackend {
   }
 
   // ============================================================
-  // Workspace & Session (AgentBackend interface)
+  // Workspace & Session
   // ============================================================
 
   getWorkspace(): Workspace {
     return this.config.workspace;
   }
 
-  setWorkspace(workspace: Workspace): void {
-    this.config.workspace = workspace;
-    // Subclasses should clear session-specific state
-  }
-
   getSessionId(): string | null {
     return this._sessionId;
-  }
-
-  setSessionId(sessionId: string | null): void {
-    this._sessionId = sessionId || `agent-${Date.now()}`;
   }
 
   /**
@@ -498,29 +481,12 @@ export abstract class BaseAgent implements AgentBackend {
    */
   updateWorkingDirectory(path: string): void {
     this.workingDirectory = path;
-    // Persist to session config for storage and consistency with ClaudeAgent
+    // Persist to session config for storage
     if (this.config.session) {
       this.config.session.workingDirectory = path;
     }
     this.permissionManager.updateWorkingDirectory(path);
     this.debug(`Working directory updated: ${path}`);
-  }
-
-  /**
-   * Update the SDK cwd (used for transcript storage location).
-   *
-   * This should only be called when it's safe to update - i.e., before any
-   * SDK interaction has occurred. The SessionManager checks this condition
-   * before calling this method.
-   *
-   * This updates the session config so the agent uses the new path for
-   * SDK operations going forward.
-   */
-  updateSdkCwd(path: string): void {
-    if (this.config.session) {
-      this.config.session.sdkCwd = path;
-    }
-    this.debug(`SDK cwd updated: ${path}`);
   }
 
   // ============================================================
@@ -558,10 +524,6 @@ export abstract class BaseAgent implements AgentBackend {
         this.debug(`Failed to sync MCP pool: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
-  }
-
-  getActiveSourceSlugs(): string[] {
-    return Array.from(this.sourceManager.getIntendedSlugs());
   }
 
   getAllSources(): LoadedSource[] {
@@ -610,13 +572,6 @@ export abstract class BaseAgent implements AgentBackend {
   // ============================================================
 
   /**
-   * Get SourceManager for advanced source state queries.
-   */
-  getSourceManager(): SourceManager {
-    return this.sourceManager;
-  }
-
-  /**
    * Get PermissionManager for advanced permission queries.
    */
   getPermissionManager(): PermissionManager {
@@ -644,9 +599,7 @@ export abstract class BaseAgent implements AgentBackend {
 
   /**
    * Get mini agent configuration for provider-specific application.
-   * Returns centralized config that each backend interprets appropriately:
-   * - ClaudeAgent: Uses tools array, mcpServers filter, maxThinkingTokens: 0
-   * - PiAgent: Applies tool filter + minimizeThinking via runtime config
+   * PiAgent applies the tool filter + minimizeThinking via runtime config.
    */
   getMiniAgentConfig(): MiniAgentConfig {
     const enabled = this.isMiniAgent();
@@ -857,8 +810,7 @@ ${formattedMessages}
     missingSkills: string[];
   } {
     const workspaceRoot = this.config.workspace?.rootPath ?? this.workingDirectory;
-    const projectRoot = this.config.session?.workingDirectory;
-    const skills = loadAllSkills(workspaceRoot, projectRoot);
+    const skills = loadAllSkills(workspaceRoot);
     const skillSlugs = skills.map(s => s.slug);
 
     this.debug(`[extractSkillPaths] Available skills: ${skillSlugs.join(', ')}`);
@@ -1066,9 +1018,7 @@ ${formattedMessages}
    * Execute an LLM query using the agent's auth infrastructure.
    * Used by call_llm tool (via queryFn callback) and potentially by runMiniCompletion.
    *
-   * Each backend implements this using its own SDK/session mechanism:
-   * - ClaudeAgent: SDK query() with OAuth
-   * - PiAgent: One-shot completion via Pi SDK in the subprocess
+   * PiAgent runs a one-shot completion via the Pi SDK in the subprocess.
    *
    * @param request - The query request (prompt, model, systemPrompt, etc.)
    * @returns The model's response text and optional token usage

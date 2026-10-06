@@ -54,6 +54,12 @@ export const WRITE_CHANNELS: Record<string, Domain[]> = {
   [C.agents.CREATE]: ['agents'],
   [C.agents.UPDATE]: ['agents'],
   [C.agents.DELETE]: ['agents'],
+  [C.routines.CREATE]: ['routines'],
+  [C.routines.UPDATE]: ['routines'],
+  [C.routines.DELETE]: ['routines'],
+  [C.routines.PAUSE]: ['routines'],
+  [C.routines.RESUME]: ['routines'],
+  [C.routines.RUN]: ['routines'],
 }
 
 /**

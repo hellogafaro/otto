@@ -1,6 +1,6 @@
 # Pi only: one harness, Claude subscriptions through a Pi provider bridge
 
-Research 6 Oct 2026, read-only; nothing built. Owner decision: Otto is **Pi only**. There is no `Harness` seam, no second harness, no `messages.source` and no `chats.harness`. The default "Otto" agent is a normal Pi session with orchestrator instructions and the app's tools. Claude subscriptions go through a Pi provider that drives the user's own `claude` CLI. This document supersedes the Claude parts of [harness-plan](harness-plan.md), [final-plan](final-plan.md) 2.1/2.3/2.6/H3 and [agent-computers](agent-computers.md) D. `S` = `packages/shared/src`, `PAS` = `packages/pi-agent-server/src`. Bridge sources were read at eli `5fb69c4` (2 Oct 2026), `@fractaal/pi-claude-bridge` 1.12.1 and `@vanillagreen/pi-claude-bridge` 4.1.0 (npm tarballs).
+Research 6 Oct 2026; B1 to B3 built since (sections 8 and 9). Owner decision: Otto is **Pi only**. There is no `Harness` seam, no second harness, no `messages.source` and no `chats.harness`. The default "Otto" agent is a normal Pi session with orchestrator instructions and the app's tools. Claude subscriptions go through a Pi provider that drives the user's own `claude` CLI. This document supersedes the Claude parts of [harness-plan](harness-plan.md), [final-plan](final-plan.md) 2.1/2.3/2.6/H3 and [agent-computers](agent-computers.md) D. `S` = `packages/shared/src`, `PAS` = `packages/pi-agent-server/src`. Bridge sources were read at eli `5fb69c4` (2 Oct 2026), `@fractaal/pi-claude-bridge` 1.12.1 and `@vanillagreen/pi-claude-bridge` 4.1.0 (npm tarballs).
 
 **Verdict.** The bridge works and the mechanism is sound: Claude acts as a model behind Pi, Pi runs every tool, and Pi owns the history. Don't take a package as a dependency. Write our own provider in `PAS` (~150-300 lines), adapted from elidickinson's MIT code. The terms and billing risk is **medium** for local or self-hosted use with the user's own `claude` login and **high** for hosted Otto until Anthropic gives a written OK. Deleting the Claude backend removes about **9.2k lines** of whole files (5.7k source, 3.4k tests), plus an estimated 1.5k lines inside shared files and a ~220 MB native binary per platform.
 
@@ -209,7 +209,7 @@ Import, once and idempotent:
 
 ## 8. B1 as built (6 Oct 2026)
 
-Built behind `OTTO_CLAUDE_CODE_PROVIDER=1` (off by default). Not committed. Ported from eli (npm `pi-claude-bridge` 0.9.1) and `cc-session-io` 0.4.0, both MIT and credited in the file header.
+Built behind `OTTO_CLAUDE_CODE_PROVIDER=1` (off by default; B2 replaced the flag, see 9). Ported from eli (npm `pi-claude-bridge` 0.9.1) and `cc-session-io` 0.4.0, both MIT and credited in the file header.
 
 | File | What |
 |---|---|
@@ -239,9 +239,9 @@ Built behind `OTTO_CLAUDE_CODE_PROVIDER=1` (off by default). Not committed. Port
 | 6 | **Plumbing verified.** A fake spawner standing in for `docker exec -i` carries the turn and the MCP frames. **Docker, RSS and cold start not measured** |
 
 **Open for B2 to B5:**
-- **The flag doesn't reach the subprocess yet.** `agentEnv` does not pass `OTTO_CLAUDE_CODE_PROVIDER`, so B2 sets it through `envOverrides` or the init config, and adapts the provider check in `ensureSession`.
-- **`pi-agent-server/package.json` doesn't declare the SDK.** `@anthropic-ai/claude-agent-sdk` resolves from the root (hoisted). Declaring it means a lockfile update.
-- **Without `claude` on PATH, the SDK falls back to its bundled native binary.** That binary does not resolve inside `dist/index.js`. B4 should require the user's `claude`.
+- ~~**The flag doesn't reach the subprocess yet.**~~ Done in B2: the init config carries it (9).
+- **`pi-agent-server/package.json` doesn't declare the SDK.** `@anthropic-ai/claude-agent-sdk` resolves from the root (hoisted). Declaring it needs a lockfile update, which `bun install --offline` could not do (no cached manifest); still open.
+- ~~**Without `claude` on PATH, the SDK falls back to its bundled native binary.**~~ Done in B2: the user's `claude` is required (9).
 - **A `claude` signed in only through `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` in the server env stops working.** These are scrubbed by design.
 - **Session files are written locally under `CLAUDE_CONFIG_DIR`.** B5 must write the rebuilt JSONL inside the container.
 - **Only checked against the SDK's code, not a real CLI:**
@@ -251,3 +251,39 @@ Built behind `OTTO_CLAUDE_CODE_PROVIDER=1` (off by default). Not committed. Port
   - the JSONL record shape
   - what `CLAUDE_CODE_ENTRYPOINT=sdk-ts`, set by the SDK, means for billing
 - **Every ephemeral `queryLlm` session leaves its own small Claude session file.**
+
+## 9. B2 and B3 as built (6-7 Oct 2026)
+
+Not committed. B2 and B3 were built together: there is no harness seam and no second backend.
+
+**B2: every chat on Pi, Claude subscriptions through the bridge.**
+
+| Piece | What |
+|---|---|
+| Connections | `connections.type` is the Pi provider id (`toPiProvider` in `S/connections/index.ts`): `anthropic`, `claude-code`, `openai-codex`, `openrouter`, ..., `custom`. `auth_type` gains `cli_login` (no secret). `config.piAuthProvider` and the Claude account identity (`config.account`) are gone. The renderer still sees the old `LlmConnection` shape (`providerType` `pi` + `piAuthProvider`, or `pi_compat`); `S/config/storage.ts` maps it both ways until B4. `LlmProviderType` lost `anthropic` |
+| Import | `initConnectionsPiProviderImport` (`S/connections/import.ts`) runs at every boot inside `initConnectionsImport` and changes nothing once every row has its Pi provider: `pi` + X is X, `pi_compat` is `custom`, `anthropic` + `oauth` is `claude-code` + `cli_login` and its token secret is deleted. One transaction per row; counts only are logged. The `config.json` importer writes the new shape directly and no longer reads `claude_oauth` |
+| Bridge wiring | `PiAgent.getPiAuth` returns `{ provider: 'claude-code', credential: { type: 'cli_login' } }` for a Claude subscription and the init config carries `claudeCode: { path: OTTO_CLAUDE_PATH, configDir: CLAUDE_CONFIG_DIR }` (the child env is allow-listed, so these could not ride the env). pi-agent-server registers the provider when `piAuth.provider === 'claude-code'`; the flag is gone. `adaptCredentialForPiSdk` stores nothing for `cli_login`. Models: Pi's `anthropic` catalog under the same ids (`getPiModelsForAuthProvider('claude-code')`, `PI_PREFERRED_DEFAULTS['claude-code']`) |
+| Missing `claude` | `OTTO_CLAUDE_PATH`, else `claude` on PATH. Neither: the turn fails with `CLAUDE_MISSING` ("Claude Code (`claude`) was not found. Install it, sign in ..."). The SDK's bundled binary is never used |
+| Old Claude chats | A chat with messages but no Pi session file (`needsHistoryRecovery` in session-manager) gets `recoverHistory`: its first Pi turn starts with `buildRecoveryContext()` (the last 6 messages). Its messages stay readable. Branching one needs a Pi turn first |
+| A1 wiring | Per turn `getAgentRunConfig(chat.agentId, workspaceId)` + `assembleInstructions({ product, workspaceInstructions, agent, runMode })` (`agentInstructionsOf`, unattended for automation and CLI runs) is appended after the base system prompt (`getAgentInstructions` in `CoreBackendConfig`). Rules, tool guidance and sources are not repeated: the base prompt and the per-turn source state already carry them. Pi reads no AGENTS.md/CLAUDE.md (`agentsFilesOverride` in `createOttoResourceLoader`). `sessions:create` takes `agentId` (only an agent of the workspace); the chat DTO has `agentId`. `editWorkspaceConfigFn`/`broadcastDomainChanged` accept `agents`; `agents_edit` has its tool name |
+
+**B3: the Claude backend deleted.** 12.5k lines of whole files (6.9k source, 5.7k tests), measured with `git diff --numstat`:
+- `S/agent/`: `claude-agent.ts`, `claude-sdk-error-mapper.ts`, `claude-llm-query.ts`, `options.ts`, `backend/claude/*`, `diagnostics.ts`, `spawn-helpers.ts`, `tool-matching.ts` (all Claude-only), `backend/internal/drivers/anthropic.ts`, and their tests (`claude-*.test.ts`, `tool-matching*.test.ts`, `json-prop-to-zod`, `query-llm-partial-output`, `subprocess-env`).
+- `S/config/llm-validation.ts`; Otto-held Claude OAuth: `S/auth/claude-oauth.ts`, `claude-oauth-config.ts`, `claude-token.ts`, the four onboarding Claude OAuth channels, `oauth-connect.tsx`, the identity capture (#838) and its UI.
+- `server-core/model-fetchers/anthropic.ts` and the unused `bedrock-vertex.ts`; `utils/summarize.ts` (a no-op).
+- The factory: `createBackend` is `new PiAgent`; `DRIVER_REGISTRY`, `ProviderDriver`, `detectProvider`, `BACKEND_CAPABILITIES`, `providerTypeToAgentProvider`, `connectionTypeToProvider`, `initializeBackendHostRuntime`, `validateConnection` are gone. The Pi driver is plain functions in `backend/internal/pi-runtime.ts` (`buildPiRuntime`, `fetchPiModels`, `testPiConnection`). `resolveModelForProvider` is `resolveModel`.
+- `AgentBackend` is gone; `type AgentInstance = PiAgent`. Members nothing called went with it (`cyclePermissionMode`, `setWorkspace`, `setSessionId`, `getActiveSourceSlugs`, `getSourceManager`, `updateSdkCwd`), as did `RedirectMetadata`/`PendingSteer`.
+- session-manager: Claude turn anchors, the Claude branch path, `reinitializeAuth` and `resolveAuthEnvVars` (Claude env auth), `sdkCwd`/`branchFromSdkCwd` (also in `S/sessions`), the WS2 keep-alive (`OTTO_KEEP_BG_AGENTS_ALIVE`, `backgroundTasksAlive`, the idle nudge), the steer recovery protocol (`steer_undelivered`, `acceptedSteers`), the HTTP MCP pool server (`McpPoolServer` usage), the dead bundle `branchInfo`. `sdkSessionId` stays: it now holds Pi's session id (P3b drops it).
+- S1 leftovers: `GLOBAL_AGENT_SKILLS_DIR`, `PROJECT_AGENT_SKILLS_DIR`, `AGENTS_PLUGIN_NAME`, `loadAllSkills`'s `_projectRoot`, and the Claude `Skill`-tool qualification (`qualifySkillName`).
+- Error codes `sdk_binary_missing`, `sdk_cwd_missing`; credential type `claude_oauth`.
+- Build: the native binary is no longer copied, verified or shipped (`scripts/build/*`, `apps/electron/scripts/build-*.{sh,ps1}`, `electron-builder.yml`, `scripts/build-server.ts`). `@anthropic-ai/claude-agent-sdk` itself stays.
+- `listCompletedSessions` now returns every status that is not open (the `archived` status included).
+
+**Verified.** Typecheck of shared, server-core, server, pi-agent-server, electron, webui and cli. An end-to-end run on a throwaway config dir: a seeded pre-Pi `claude-max` row (`anthropic` + `oauth` + secret) became `claude-code` + `cli_login` with the secret deleted at boot; `otto-cli run` streamed a reply from the real server through PiAgent, the bundled pi-agent-server and the `claude-code` provider into the repo's fake `claude` (`OTTO_CLAUDE_PATH`; argv had `--tools ""`, `--allowedTools mcp__pi`, `--permission-mode dontAsk`, `--strict-mcp-config`; no server secret or `ANTHROPIC_*` in the child env; the append ended with `<otto_run mode="unattended">`); an old Claude chat continued with the recovery summary on its first Pi turn and resumed the bridge session on the second.
+
+**Left:**
+- B4: Settings › Models and onboarding still speak the old `providerType`/`piAuthProvider` shape; the Claude step is one interim line ("Uses your own Claude Code sign-in ..."), no sign-in status check, no `user:` scope rule yet, no DESIGN.md entry.
+- The background-task registry (`task_backgrounded`, `task_completed`, `shell_backgrounded`, the `list_background_tasks` session tool, the renderer chips) only ever got events from Claude; Pi sends none. Remove it as its own change.
+- `agents.provider` rows written before this change may name `pi_compat`; nothing routes on it yet.
+- `AGENTS.md:39` (decision 5) and the Claude lines of `packages/shared/CLAUDE.md` still describe the old design (instruction files; not edited here).
+- Real `claude`: unverified, as in B1 (billing, the third-party 400, account risk).

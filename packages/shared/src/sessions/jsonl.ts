@@ -118,17 +118,13 @@ export function readSessionJsonl(sessionFile: string): StoredSession | null {
     const expandedMessageLines = lines.slice(1).map(line => expandSessionPath(line, sessionDir));
     const messages = parseMessagesResilient(expandedMessageLines);
 
-    // Migration: For sessions created before sdkCwd was added, use workingDirectory as fallback.
-    // This is correct because the old code used workingDirectory for SDK's cwd parameter.
     const workingDir = header.workingDirectory ? expandPath(header.workingDirectory) : undefined;
-    const sdkCwd = header.sdkCwd ? expandPath(header.sdkCwd) : workingDir;
 
     return {
       ...pickSessionFields(header),
       // Path expansion for portable paths
       workspaceRootPath: expandPath(header.workspaceRootPath),
       workingDirectory: workingDir,
-      sdkCwd,
       // Runtime fields
       messages,
       tokenUsage: header.tokenUsage,

@@ -25,7 +25,7 @@ import type { StoredMessage, ContextUsageSnapshot } from '@otto/core/types';
  */
 export const SESSION_PERSISTENT_FIELDS = [
   // Identity
-  'id', 'workspaceRootPath', 'sdkSessionId', 'sdkCwd',
+  'id', 'workspaceRootPath', 'sdkSessionId',
   // Who the chat belongs to ('user:<id>'); absent on chats made before chats were private
   'createdBy',
   // The agent the chat talks to (an `agents` row id); absent = the workspace's default agent, a deleted one the same
@@ -50,7 +50,6 @@ export const SESSION_PERSISTENT_FIELDS = [
   'branchFromMessageId',
   'branchFromSdkSessionId',
   'branchFromSessionPath',
-  'branchFromSdkCwd',
   'branchFromSdkTurnId',
   // Remote transfer handoff
   'transferredSessionSummary',
@@ -145,8 +144,6 @@ export interface SessionConfig {
   enabledSourceSlugs?: string[];
   /** Working directory for this session (used by agent for bash commands and context) */
   workingDirectory?: string;
-  /** SDK cwd for session storage - set once at creation, never changes. Ensures SDK can find session transcripts regardless of workingDirectory changes. */
-  sdkCwd?: string;
   /** Shared viewer URL (if shared via viewer) */
   sharedUrl?: string;
   /** Shared session ID in viewer (for revoke) */
@@ -185,25 +182,11 @@ export interface SessionConfig {
    * Branching semantics are a hard cutoff: model context must not include parent messages after this message.
    */
   branchFromMessageId?: string;
-  /**
-   * Parent session's SDK session ID (optional, only for provider strategies that support strict SDK-level forking).
-   */
+  /** Parent session's Pi session ID (set when the branch forks the parent's Pi history). */
   branchFromSdkSessionId?: string;
-  /**
-   * Parent session's storage path (optional, only when provider-level forking needs parent session files).
-   */
+  /** Parent session's storage path, where its Pi session files are. */
   branchFromSessionPath?: string;
-  /**
-   * Parent session's sdkCwd (optional). SDK session files are stored per-CWD
-   * (`~/.claude/projects/{cwd-hash}/`), so forking requires the child subprocess
-   * to use the parent's CWD to locate the parent's session file.
-   */
-  branchFromSdkCwd?: string;
-  /**
-   * Provider-native branch anchor at the branch point.
-   * - Claude: assistant message UUID (used as `resumeSessionAt`)
-   * - Pi: session entry ID (used with SessionManager.branch(anchor))
-   */
+  /** The parent's Pi session entry at the branch point (used with Pi's SessionManager.branch(anchor)). */
   branchFromSdkTurnId?: string;
   /** One-shot hidden summary injected on the first turn after a remote transfer. */
   transferredSessionSummary?: string;
@@ -277,8 +260,6 @@ export interface SessionHeader {
   enabledSourceSlugs?: string[];
   /** Working directory for this session (used by agent for bash commands and context) */
   workingDirectory?: string;
-  /** SDK cwd for session storage - set once at creation, never changes */
-  sdkCwd?: string;
   /** Shared viewer URL (if shared via viewer) */
   sharedUrl?: string;
   /** Shared session ID in viewer (for revoke) */
@@ -382,8 +363,6 @@ export interface SessionMetadata {
   sharedId?: string;
   /** Working directory for this session */
   workingDirectory?: string;
-  /** SDK cwd for session storage - set once at creation, never changes */
-  sdkCwd?: string;
   /** Role/type of the last message (for badge display without loading messages) */
   lastMessageRole?: 'user' | 'assistant' | 'plan' | 'tool' | 'error';
   /** Model to use for this session (overrides global config if set) */

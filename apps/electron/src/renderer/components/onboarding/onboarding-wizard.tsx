@@ -36,11 +36,6 @@ interface OnboardingWizardProps {
   /** A connection was saved and tested */
   onFinish: () => void
 
-  // Claude OAuth (two-step flow)
-  isWaitingForCode?: boolean
-  onSubmitAuthCode?: (code: string) => void
-  onCancelOAuth?: () => void
-
   // Copilot device flow
   deviceCode?: { userCode: string; verificationUri: string }
 
@@ -73,7 +68,7 @@ interface OnboardingWizardProps {
 
 /**
  * OnboardingWizard - Full-screen flow that connects an AI provider (first-run setup and Settings → AI):
- * Provider Select (Claude / ChatGPT / Copilot / API Key / Local), then Credentials (API key or OAuth)
+ * Provider Select (Claude / ChatGPT / Copilot / API Key / Local), then Credentials (API key or sign-in)
  * or Local Model; Git Bash first on Windows when it is missing.
  */
 export function OnboardingWizard({
@@ -83,10 +78,6 @@ export function OnboardingWizard({
   onSubmitCredential,
   onStartOAuth,
   onFinish,
-  // Two-step OAuth flow
-  isWaitingForCode,
-  onSubmitAuthCode,
-  onCancelOAuth,
   // Copilot device flow
   deviceCode,
   // Git Bash (Windows)
@@ -151,10 +142,7 @@ export function OnboardingWizard({
             onSubmit={onSubmitCredential}
             onStartOAuth={onStartOAuth}
             onBack={onBack}
-            isWaitingForCode={isWaitingForCode}
-            onSubmitAuthCode={onSubmitAuthCode}
             editInitialValues={editInitialValues}
-            onCancelOAuth={onCancelOAuth}
             deviceCode={deviceCode}
           />
         )

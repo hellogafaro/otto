@@ -142,10 +142,6 @@ export const CHANNEL_MAP = {
   getAuthState: invoke(RPC_CHANNELS.onboarding.GET_AUTH_STATE),
   getSetupNeeds: invoke(RPC_CHANNELS.onboarding.GET_AUTH_STATE, r => r.setupNeeds),
   startWorkspaceMcpOAuth: invoke(RPC_CHANNELS.onboarding.START_MCP_OAUTH),
-  startClaudeOAuth: invoke(RPC_CHANNELS.onboarding.START_CLAUDE_OAUTH),
-  exchangeClaudeCode: invoke(RPC_CHANNELS.onboarding.EXCHANGE_CLAUDE_CODE),
-  hasClaudeOAuthState: invoke(RPC_CHANNELS.onboarding.HAS_CLAUDE_OAUTH_STATE),
-  clearClaudeOAuthState: invoke(RPC_CHANNELS.onboarding.CLEAR_CLAUDE_OAUTH_STATE),
   deferSetup: invoke(RPC_CHANNELS.onboarding.DEFER_SETUP),
 
   // ChatGPT OAuth
@@ -389,16 +385,15 @@ export const CHANNEL_MAP = {
   transcribe: invoke(RPC_CHANNELS.transcription.CREATE),
   onDomainChanged: listener(RPC_CHANNELS.domain.CHANGED),
 
-  // Automations
-  getAutomations: invoke(RPC_CHANNELS.automations.GET),
-  testAutomation: invoke(RPC_CHANNELS.automations.TEST),
-  setAutomationEnabled: invoke(RPC_CHANNELS.automations.SET_ENABLED),
-  duplicateAutomation: invoke(RPC_CHANNELS.automations.DUPLICATE),
-  deleteAutomation: invoke(RPC_CHANNELS.automations.DELETE),
-  getAutomationHistory: invoke(RPC_CHANNELS.automations.GET_HISTORY),
-  getAutomationLastExecuted: invoke(RPC_CHANNELS.automations.GET_LAST_EXECUTED),
-  replayAutomation: invoke(RPC_CHANNELS.automations.REPLAY),
-  onAutomationsChanged: listener(RPC_CHANNELS.automations.CHANGED),
+  // Routines
+  getRoutines: invoke(RPC_CHANNELS.routines.LIST),
+  getRoutine: invoke(RPC_CHANNELS.routines.GET),
+  createRoutine: invoke(RPC_CHANNELS.routines.CREATE),
+  updateRoutine: invoke(RPC_CHANNELS.routines.UPDATE),
+  deleteRoutine: invoke(RPC_CHANNELS.routines.DELETE),
+  pauseRoutine: invoke(RPC_CHANNELS.routines.PAUSE),
+  resumeRoutine: invoke(RPC_CHANNELS.routines.RESUME),
+  runRoutine: invoke(RPC_CHANNELS.routines.RUN),
 
   // Resources (cross-workspace export/import)
   exportResources: invoke(RPC_CHANNELS.resources.EXPORT),

@@ -114,49 +114,13 @@ cp "$TEMP_DIR/${BUN_DOWNLOAD}/bun" "$ELECTRON_DIR/vendor/bun/"
 chmod +x "$ELECTRON_DIR/vendor/bun/bun"
 
 # 4. Copy SDK from root node_modules (monorepo hoisting).
-# Since SDK 0.2.113: thin core + per-platform binary package.
-# See apps/electron/scripts/build-dmg.sh for the full rationale.
+# Only the thin core ships, not the per-platform native `claude` binary.
 SDK_SOURCE="$ROOT_DIR/node_modules/@anthropic-ai/claude-agent-sdk"
 require_path "$SDK_SOURCE" "SDK core" "Run 'bun install' from the repository root first."
 echo "Copying SDK core..."
 mkdir -p "$ELECTRON_DIR/node_modules/@anthropic-ai"
 rm -rf "$ELECTRON_DIR/node_modules/@anthropic-ai/claude-agent-sdk"
 cp -r "$SDK_SOURCE" "$ELECTRON_DIR/node_modules/@anthropic-ai/"
-
-# 4a. Resolve the target arch's binary package (cross-fetch from npm if absent).
-SDK_BIN_PKG="claude-agent-sdk-linux-${ARCH}"
-SDK_BIN_SOURCE="$ROOT_DIR/node_modules/@anthropic-ai/${SDK_BIN_PKG}"
-if [ ! -d "$SDK_BIN_SOURCE" ]; then
-    echo "Cross-arch build: ${SDK_BIN_PKG} not in node_modules — fetching from npm..."
-    SDK_VERSION=$(node -p "require('$ROOT_DIR/package.json').dependencies['@anthropic-ai/claude-agent-sdk']" | tr -d '"')
-    PKG_TMP=$(mktemp -d)
-    trap "rm -rf $PKG_TMP" RETURN
-    (
-        cd "$PKG_TMP"
-        npm pack "@anthropic-ai/${SDK_BIN_PKG}@${SDK_VERSION}" >/dev/null
-        TARBALL=$(ls anthropic-ai-*.tgz | head -1)
-        tar -xzf "$TARBALL"
-    )
-    mkdir -p "$SDK_BIN_SOURCE"
-    cp -r "$PKG_TMP/package/." "$SDK_BIN_SOURCE/"
-fi
-
-require_path "$SDK_BIN_SOURCE" "SDK native binary package (${SDK_BIN_PKG})" \
-  "Run 'bun install' from the repository root, or check your network for the npm cross-fetch."
-
-echo "Staging SDK native binary as claude-agent-sdk-binary alias..."
-ALIAS_DEST="$ELECTRON_DIR/node_modules/@anthropic-ai/claude-agent-sdk-binary"
-rm -rf "$ALIAS_DEST"
-mkdir -p "$ALIAS_DEST"
-cp -r "$SDK_BIN_SOURCE/." "$ALIAS_DEST/"
-chmod +x "$ALIAS_DEST/claude"
-
-BIN_SIZE=$(stat -c%s "$ALIAS_DEST/claude")
-if [ "$BIN_SIZE" -lt 50000000 ]; then
-    echo "ERROR: claude binary at $ALIAS_DEST/claude is only ${BIN_SIZE} bytes (expected ~210 MB)"
-    exit 1
-fi
-echo "  Native binary: $((BIN_SIZE / 1024 / 1024)) MB"
 
 # 5. Copy ripgrep (sourced from @vscode/ripgrep since 0.2.113).
 RG_SOURCE="$ROOT_DIR/node_modules/@vscode/ripgrep"
@@ -167,8 +131,7 @@ mkdir -p "$ELECTRON_DIR/node_modules/@vscode"
 rm -rf "$ELECTRON_DIR/node_modules/@vscode/ripgrep"
 cp -r "$RG_SOURCE" "$ELECTRON_DIR/node_modules/@vscode/"
 
-# 6. Copy network interceptor sources (for Pi subprocess; Claude no longer
-#    uses --preload — Phase 2 will move that to SDK hooks or a local proxy).
+# 6. Copy network interceptor sources (preloaded into the Pi subprocess).
 INTERCEPTOR_SOURCE="$ROOT_DIR/packages/shared/src/unified-network-interceptor.ts"
 require_path "$INTERCEPTOR_SOURCE" "Interceptor" "Ensure packages/shared/src/unified-network-interceptor.ts exists."
 echo "Copying interceptor (for Pi subprocess)..."

@@ -1,5 +1,5 @@
 import { RPC_CHANNELS, type LlmConnectionSetup } from '@otto/shared/protocol'
-import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, isCompatProvider, isAnthropicProvider, getDefaultModelsForConnection, getDefaultModelForConnection, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
+import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, isCompatProvider, getDefaultModelsForConnection, getDefaultModelForConnection, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
 import { getCredentialManager } from '@otto/shared/credentials'
 import { INSTALL_SCOPE, getConnection, narrowContext, userScope, workspaceScope, type ConnectionContext, type Credential } from '@otto/shared/connections'
 import { BACKEND_NAME } from '@otto/shared/branding'
@@ -103,17 +103,15 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       if (setup.baseUrl !== undefined) {
         updates.baseUrl = setup.baseUrl?.trim() || undefined
 
-        // Only mutate providerType for API key connections (not OAuth connections)
-        if (isAnthropicProvider(connection.providerType) && connection.authType !== 'oauth') {
+        // An Anthropic API key with a base URL is an Anthropic-compatible endpoint
+        if (connection.providerType === 'pi' && connection.piAuthProvider === 'anthropic' && connection.authType === 'api_key') {
           if (hasConfiguredBaseUrl) {
             updates.providerType = 'pi_compat'
             updates.authType = 'api_key_with_endpoint'
             updates.customEndpoint = { api: 'anthropic-messages' }
           } else {
-            updates.providerType = 'anthropic'
-            updates.authType = 'api_key'
-            updates.models = getDefaultModelsForConnection('anthropic')
-            updates.defaultModel = getDefaultModelForConnection('anthropic')
+            updates.models = getDefaultModelsForConnection('pi', 'anthropic')
+            updates.defaultModel = getDefaultModelForConnection('pi', 'anthropic')
           }
         }
 
@@ -183,23 +181,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       // providerType stays 'pi' (Bedrock routes through Pi SDK).
       if (setup.bedrockAuthMethod) {
         updates.authType = setup.bedrockAuthMethod
-      }
-
-      // Resolved Anthropic OAuth identity (issue #838). Threaded through SETUP so
-      // it persists on both the new-connection path (addLlmConnection) and the
-      // re-auth path (updateLlmConnection) via the shared pendingConnection/updates
-      // flow below. Fail-soft: only stamp when at least one identity block arrived.
-      const oauthIdentity = setup.oauthIdentity
-      if (oauthIdentity?.account || oauthIdentity?.organization) {
-        // Set only fields that are actually present, so `updates` never carries an
-        // explicit `undefined` (matches the guarded-assignment style used above and
-        // keeps the update intent clean). Missing sub-fields are simply not touched;
-        // on re-auth the storage allowlist then preserves any prior value.
-        if (oauthIdentity.account?.uuid) updates.oauthAccountUuid = oauthIdentity.account.uuid
-        if (oauthIdentity.account?.emailAddress) updates.oauthAccountEmail = oauthIdentity.account.emailAddress
-        if (oauthIdentity.organization?.uuid) updates.oauthOrganizationUuid = oauthIdentity.organization.uuid
-        if (oauthIdentity.organization?.name) updates.oauthOrganizationName = oauthIdentity.organization.name
-        updates.oauthProfileVerifiedAt = Date.now()
       }
 
       const effectiveProviderType = updates.providerType ?? connection.providerType
@@ -312,11 +293,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         }
       }
 
-      // Reinitialize auth for the connection that was just created/updated,
-      // not the global default (which may be a different connection).
-      await sessionManager.reinitializeAuth(setup.slug, where)
-      deps.platform.logger?.info('Reinitialized auth after LLM connection setup')
-
       // Clear "Setup later" flag now that user has configured a provider
       setSetupDeferred(false)
 
@@ -348,20 +324,24 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     }
     const trimmedKey = keyResolution.apiKey
 
-    const setupValidation = validateSetupTestInput({ provider, baseUrl, piAuthProvider })
+    // The "Anthropic API key" mode is Pi's anthropic provider; with a base URL it is an Anthropic-compatible endpoint.
+    const anthropicKey = provider === 'anthropic'
+    const piProvider = piAuthProvider ?? (anthropicKey ? 'anthropic' : undefined)
+    const endpoint = customEndpoint ?? (anthropicKey && baseUrl?.trim() ? { api: 'anthropic-messages' as const } : undefined)
+
+    const setupValidation = validateSetupTestInput({ provider: 'pi', baseUrl, piAuthProvider: piProvider })
     if (!setupValidation.valid) {
       return { success: false, error: setupValidation.error }
     }
 
-    const hint = resolveSetupTestConnectionHint({ provider, baseUrl, piAuthProvider, customEndpoint })
-    deps.platform.logger?.info(`[testLlmConnectionSetup] Testing: provider=${provider}${piAuthProvider ? ` piAuth=${piAuthProvider}` : ''}${baseUrl ? ` baseUrl=${baseUrl}` : ''} hasCustomEndpoint=${!!customEndpoint} hintProvider=${hint.providerType}`)
+    const hint = resolveSetupTestConnectionHint({ baseUrl, piAuthProvider: piProvider, customEndpoint: endpoint })
+    deps.platform.logger?.info(`[testLlmConnectionSetup] Testing: provider=${piProvider ?? '-'}${baseUrl ? ` baseUrl=${baseUrl}` : ''} hasCustomEndpoint=${!!endpoint} hintProvider=${hint.providerType}`)
 
     const startedAt = Date.now()
     try {
-      const testModel = model || getDefaultModelForConnection(provider, piAuthProvider)
+      const testModel = model || getDefaultModelForConnection('pi', piProvider)
       deps.platform.logger?.info(`[testLlmConnectionSetup] Resolved model: ${testModel}`)
       const result = await testBackendConnection({
-        provider,
         apiKey: trimmedKey,
         allowEmptyApiKey,
         model: testModel,
@@ -496,12 +476,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
           `Detached runtime push failed for ${connection.slug}: ${error instanceof Error ? error.message : error}`,
         )
       })
-      // Reinitialize auth if the saved connection is the current default
-      // (updates env vars and summarization model override)
-      const defaultSlug = getDefaultLlmConnection(where)
-      if (defaultSlug === connection.slug) {
-        await sessionManager.reinitializeAuth(undefined, where)
-      }
       return { success: true }
     } catch (error) {
       deps.platform.logger?.error('Failed to save LLM connection:', error)
@@ -534,19 +508,9 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   // Test an LLM connection (validate credentials and connectivity with actual API call)
   server.handle(RPC_CHANNELS.llmConnections.TEST, async (ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const where = whereOf(ctx)
-      const result = await validateStoredBackendConnection({
-        slug,
-        hostRuntime: buildBackendHostRuntimeContext(deps.platform),
-        where,
-      })
-
+      const result = await validateStoredBackendConnection({ slug, where: whereOf(ctx) })
       if (!result.success) {
         return { success: false, error: result.error }
-      }
-
-      if (result.shouldRefreshModels) {
-        refreshModelsInBackground(slug, getConnection(slug, where)?.scope ?? INSTALL_SCOPE, 'validation')
       }
 
       deps.platform.logger?.info(`LLM connection validated: ${slug}`)
@@ -554,8 +518,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
       deps.platform.logger?.info(`[LLM_CONNECTION_TEST] Error for ${slug}: ${msg.slice(0, 500)}`)
-      const { parseValidationError } = await import('@otto/shared/config')
-      return { success: false, error: parseValidationError(msg) }
+      return { success: false, error: parseTestConnectionError(msg) }
     }
   })
 
@@ -565,8 +528,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       const success = setDefaultLlmConnection(slug, whereOf(ctx))
       if (success) {
         deps.platform.logger?.info(`Global default LLM connection set to: ${slug}`)
-        // Reinitialize auth so env vars and summarization model override match the new default
-        await sessionManager.reinitializeAuth()
       }
       return { success, error: success ? undefined : 'Connection not found' }
     } catch (error) {

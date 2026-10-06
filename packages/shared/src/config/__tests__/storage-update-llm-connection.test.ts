@@ -25,7 +25,8 @@ function makeConnection(overrides: Partial<LlmConnection> = {}): LlmConnection {
     authType: 'api_key_with_endpoint',
     createdAt: Date.now(),
     baseUrl: 'http://localhost:8085',
-    piAuthProvider: 'anthropic',
+    // a custom endpoint's provider family follows its protocol (openai-completions unless anthropic-messages)
+    piAuthProvider: 'openai',
     ...overrides,
   }
 }
@@ -43,6 +44,15 @@ describe('add, get, delete', () => {
     expect(addLlmConnection(connection)).toBe(true)
     expect(getLlmConnection('custom-compat')).toEqual({ ...connection, scope: 'install' })
     expect(getLlmConnections().map((c) => c.slug)).toEqual(['custom-compat'])
+    // the row names its Pi provider
+    expect(getConnections()[0]).toMatchObject({ type: 'custom', authType: 'api_key_with_endpoint' })
+  })
+
+  it('stores the Pi provider id as the type: pi + X is X, a Claude subscription is claude-code with no secret', () => {
+    addLlmConnection(makeConnection({ slug: 'codex', providerType: 'pi', authType: 'oauth', piAuthProvider: 'openai-codex', baseUrl: undefined }))
+    addLlmConnection(makeConnection({ slug: 'claude', providerType: 'pi', authType: 'cli_login', piAuthProvider: 'claude-code', baseUrl: undefined }))
+    expect(getConnections().map((c) => [c.slug, c.type, c.authType])).toEqual([['codex', 'openai-codex', 'oauth'], ['claude', 'claude-code', 'cli_login']])
+    expect(getLlmConnection('claude')).toMatchObject({ providerType: 'pi', piAuthProvider: 'claude-code', authType: 'cli_login' })
   })
 
   it('refuses a second connection with the same slug, and reads a missing one as null', () => {
@@ -89,28 +99,6 @@ describe('updateLlmConnection – customEndpoint', () => {
 
   it('does not update a connection that does not exist', () => {
     expect(updateLlmConnection('nope', { name: 'x' })).toBe(false)
-  })
-})
-
-describe('updateLlmConnection – Anthropic OAuth identity (issue #838)', () => {
-  const identity = {
-    oauthAccountUuid: 'acct-uuid-123',
-    oauthAccountEmail: 'user@example.com',
-    oauthOrganizationUuid: 'org-uuid-456',
-    oauthOrganizationName: 'Otto',
-    oauthProfileVerifiedAt: 1_700_000_000_000,
-  }
-
-  it('persists identity fields when provided in updates', () => {
-    addLlmConnection(makeConnection({ slug: 'claude-max', authType: 'oauth' }))
-    expect(updateLlmConnection('claude-max', identity)).toBe(true)
-    expect(getLlmConnection('claude-max')).toMatchObject(identity)
-  })
-
-  it('preserves identity across an unrelated update', () => {
-    addLlmConnection(makeConnection({ slug: 'claude-max', authType: 'oauth', ...identity }))
-    expect(updateLlmConnection('claude-max', { name: 'Renamed Claude Max' })).toBe(true)
-    expect(getLlmConnection('claude-max')).toMatchObject({ name: 'Renamed Claude Max', ...identity })
   })
 })
 

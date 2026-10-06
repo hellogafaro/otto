@@ -1,29 +1,9 @@
 /**
- * Agent Factory
- *
- * Creates the appropriate AI agent based on configuration.
- * Supports two agents:
- * - ClaudeAgent (Anthropic) - Default, using @anthropic-ai/claude-agent-sdk
- * - PiAgent (Pi) - Using @earendil-works/pi-ai SDK
- *
- * All agents implement AgentBackend directly.
- *
- * LLM Connections:
- * - Backends can be created from LLM connection configs
- * - providerType determines SDK selection and credential routing
- * - authType determines how credentials are retrieved
+ * Agent factory: every chat runs on Pi (docs/pi-only-plan.md). A connection resolves to a `PiAgent` whose runtime
+ * (the pi-agent-server path, the interceptor, the connection's Pi provider and endpoint) is built here.
  */
 
-import type {
-  AgentBackend,
-  BackendConfig,
-  AgentProvider,
-  LlmProviderType,
-  LlmAuthType,
-  CoreBackendConfig,
-  BackendHostRuntimeContext,
-} from './types.ts';
-import { ClaudeAgent } from '../claude-agent.ts';
+import type { BackendConfig, BackendHostRuntimeContext, CoreBackendConfig, LlmAuthType } from './types.ts';
 import { PiAgent } from '../pi-agent.ts';
 import {
   getLlmConnection,
@@ -31,179 +11,52 @@ import {
   type ConnectionContext,
   type LlmConnection,
 } from '../../config/storage.ts';
-// Import deprecated type for legacy migration function only
-import type { LlmConnectionType, CustomEndpointConfig } from '../../config/llm-connections.ts';
-// Import validation helpers for provider-auth combinations
-import {
-  isValidProviderAuthCombination,
-} from '../../config/llm-connections.ts';
-import { parseValidationError, type LlmValidationResult } from '../../config/llm-validation.ts';
+import type { CustomEndpointConfig } from '../../config/llm-connections.ts';
+import { isValidProviderAuthCombination } from '../../config/llm-connections.ts';
 import type { ModelFetchResult } from '../../config/model-fetcher.ts';
-// Model resolution utilities
-import { getModelProvider, DEFAULT_MODEL, normalizeDeprecatedModelId } from '../../config/models.ts';
+import { getModelProvider, normalizeDeprecatedModelId } from '../../config/models.ts';
 import { homedir } from 'node:os';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getCredentialManager } from '../../credentials/index.ts';
 import type {
   BackendModelFetchCredentials,
-  BackendProviderOptions,
-  BackendResolutionContext,
-  ProviderDriver,
-  ResolvedBackendConfig,
   StoredConnectionValidationResult,
-} from './internal/driver-types.ts';
-import { getDefaultProviderType } from './internal/driver-types.ts';
+} from './internal/pi-runtime.ts';
 import {
   resolveBackendHostTooling as resolveHostToolingPaths,
   resolveBackendRuntimePaths,
 } from './internal/runtime-resolver.ts';
-import { anthropicDriver } from './internal/drivers/anthropic.ts';
-import { piDriver } from './internal/drivers/pi.ts';
+import { buildPiRuntime, fetchPiModels, testPiConnection } from './internal/pi-runtime.ts';
 
-const DRIVER_REGISTRY: Record<AgentProvider, ProviderDriver> = {
-  anthropic: anthropicDriver,
-  pi: piDriver,
-};
-
-function getProviderDriver(provider: AgentProvider): ProviderDriver {
-  const driver = DRIVER_REGISTRY[provider];
-  if (!driver) {
-    throw new Error(`No backend driver registered for provider: ${provider}`);
-  }
-  return driver;
+/** Create the agent of a chat: always a `PiAgent`. */
+export function createBackend(config: BackendConfig): PiAgent {
+  return new PiAgent(config);
 }
 
-function resolveDriverRuntime(
-  provider: AgentProvider,
-  hostRuntime: BackendHostRuntimeContext,
-) {
-  const driver = getProviderDriver(provider);
-  const resolvedPaths = resolveBackendRuntimePaths(hostRuntime);
-  return { driver, resolvedPaths };
+/** The auth type the agent passes on; `none` and `environment` need no credential handed over. */
+function credentialAuthType(authType: LlmAuthType): LlmAuthType | undefined {
+  return authType === 'none' || authType === 'environment' ? undefined : authType;
 }
 
 /**
- * Detect provider from stored auth type.
- *
- * Maps authentication types to their corresponding providers:
- * - api_key, oauth_token → Anthropic (Claude) by default
- *
- * Note: Provider is now determined by LLM connection type, not auth type.
- * This function is kept for backward compatibility.
- *
- * @param authType - The stored authentication type
- * @returns The detected provider
- */
-export function detectProvider(authType: string): AgentProvider {
-  switch (authType) {
-    case 'api_key':
-    case 'oauth_token':
-      return 'anthropic';
-
-    // Default to Anthropic for unknown types
-    default:
-      return 'anthropic';
-  }
-}
-
-/**
- * Create the appropriate backend based on configuration.
- *
- * @param config - Backend configuration including provider selection
- * @returns An initialized AgentBackend instance
- * @throws Error if the requested provider is not yet implemented
- *
- * @example
- * ```typescript
- * // Create Anthropic (Claude) backend
- * const backend = createBackend({
- *   provider: 'anthropic',
- *   workspace: myWorkspace,
- *   model: 'claude-sonnet-4-6',
- * });
- *
- * // Create Pi backend (routes OpenAI / Copilot / Bedrock / etc. via Pi SDK)
- * const piBackend = createBackend({
- *   provider: 'pi',
- *   workspace: myWorkspace,
- * });
- * ```
- */
-export function createBackend(config: BackendConfig): AgentBackend {
-  switch (config.provider) {
-    case 'anthropic':
-      // ClaudeAgent implements AgentBackend directly
-      return new ClaudeAgent(config);
-
-    case 'pi':
-      // PiAgent implements AgentBackend directly
-      // Auth is API key based via Pi's AuthStorage
-      return new PiAgent(config);
-
-    default:
-      throw new Error(`Unknown provider: ${config.provider}`);
-  }
-}
-
-/**
- * Create the appropriate agent based on configuration.
- * Alias for createBackend - prefer this name for new code.
- */
-export const createAgent = createBackend;
-
-/**
- * Create backend from a pre-resolved context and provider-agnostic core config.
- * Provider-specific runtime resolution happens via internal driver registry.
+ * Create the agent from a pre-resolved context and the session's core config.
  */
 export function createBackendFromResolvedContext(args: {
   context: ResolvedBackendContext;
   coreConfig: CoreBackendConfig;
   hostRuntime: BackendHostRuntimeContext;
-  providerOptions?: BackendProviderOptions;
-}): AgentBackend {
-  const { context, coreConfig, hostRuntime, providerOptions } = args;
-  const { driver, resolvedPaths } = resolveDriverRuntime(context.provider, hostRuntime);
-
-  const buildArgs = {
-    context,
-    coreConfig,
-    hostRuntime,
-    resolvedPaths,
-    providerOptions,
-  };
-
-  driver.prepareRuntime?.(buildArgs);
-  const runtime = driver.buildRuntime(buildArgs);
-
-  const config: ResolvedBackendConfig = {
+}): PiAgent {
+  const { context, coreConfig, hostRuntime } = args;
+  return createBackend({
     ...coreConfig,
-    provider: context.provider,
-    providerType: context.connection?.providerType ?? getDefaultProviderType(context.provider),
-    authType: context.authType || getDefaultAuthType(context.provider),
+    providerType: context.connection?.providerType ?? 'pi',
+    authType: context.authType ?? 'api_key',
     model: context.resolvedModel,
     connectionSlug: context.connection?.slug,
     connectionScope: context.connection?.scope,
-    runtime,
-  };
-
-  return createBackend(config);
-}
-
-/**
- * Initialize backend host runtime wiring once at app startup.
- * Keeps runtime/bootstrap details (Claude SDK executable, Pi interceptor bundle)
- * behind backend internals.
- */
-export function initializeBackendHostRuntime(args: {
-  hostRuntime: BackendHostRuntimeContext;
-}): void {
-  const { hostRuntime } = args;
-
-  for (const provider of getAvailableProviders()) {
-    const { driver, resolvedPaths } = resolveDriverRuntime(provider, hostRuntime);
-    driver.initializeHostRuntime?.({ hostRuntime, resolvedPaths });
-  }
+    runtime: buildPiRuntime(context.connection, resolveBackendRuntimePaths(hostRuntime)),
+  });
 }
 
 /**
@@ -217,101 +70,9 @@ export function resolveBackendHostTooling(args: {
   return resolveHostToolingPaths(args.hostRuntime);
 }
 
-/**
- * Get list of currently available providers.
- *
- * @returns Array of provider identifiers that have working implementations
- */
-export function getAvailableProviders(): AgentProvider[] {
-  return ['anthropic', 'pi'];
-}
-
-/**
- * Check if a provider is available for use.
- *
- * @param provider - Provider to check
- * @returns true if the provider has a working implementation
- */
-export function isProviderAvailable(provider: AgentProvider): boolean {
-  return getAvailableProviders().includes(provider);
-}
-
 // ============================================================
 // LLM Connection Support
 // ============================================================
-
-/**
- * Map LlmProviderType to AgentProvider (SDK selection).
- *
- * AgentProvider determines which backend class to instantiate:
- * - 'anthropic' → ClaudeAgent
- * - 'pi' → PiAgent
- *
- * @param providerType - The full provider type from LLM connection
- * @returns The agent provider for SDK selection
- */
-export function providerTypeToAgentProvider(providerType: LlmProviderType): AgentProvider {
-  switch (providerType) {
-    // Anthropic SDK backend (direct API only)
-    case 'anthropic':
-      return 'anthropic';
-
-    // Pi backends (includes former bedrock/vertex/anthropic_compat via migration)
-    case 'pi':
-    case 'pi_compat':
-      return 'pi';
-
-    default:
-      // Exhaustive check
-      providerType satisfies never;
-      return 'anthropic';
-  }
-}
-
-/**
- * @deprecated Use providerTypeToAgentProvider instead.
- * Map legacy LLM connection type to agent provider.
- *
- * @param connectionType - The legacy LLM connection type
- * @returns The corresponding agent provider
- */
-export function connectionTypeToProvider(connectionType: LlmConnectionType): AgentProvider {
-  switch (connectionType) {
-    case 'anthropic':
-      return 'anthropic';
-    case 'openai':
-    case 'openai-compat':
-      return 'pi'; // Legacy OpenAI connections are now routed through Pi
-    default:
-      return 'anthropic';
-  }
-}
-
-/**
- * @deprecated Use LlmAuthType directly - no mapping needed.
- * Map legacy LLM auth type to backend auth type.
- *
- * @param authType - The legacy LLM connection auth type
- * @returns The corresponding backend auth type
- */
-export function connectionAuthTypeToBackendAuthType(
-  authType: LlmAuthType
-): LlmAuthType | undefined {
-  switch (authType) {
-    case 'api_key':
-    case 'api_key_with_endpoint':
-    case 'oauth':
-    case 'bearer_token':
-    case 'iam_credentials':
-    case 'service_account_file':
-      // Pass through auth types that the backend handles
-      return authType;
-    case 'none':
-    case 'environment':
-      // These auth types don't require explicit credential passing
-      return undefined;
-  }
-}
 
 /**
  * Get LLM connection for a session.
@@ -344,14 +105,15 @@ export function resolveSessionConnection(
   return getLlmConnection(defaultSlug, where);
 }
 
-/**
- * Provider-agnostic resolution result used by session/ipc orchestration.
- */
-export interface ResolvedBackendContext extends BackendResolutionContext {}
+/** A session's connection, the auth type its agent uses and the model it runs. */
+export interface ResolvedBackendContext {
+  connection: LlmConnection | null;
+  authType?: LlmAuthType;
+  resolvedModel: string;
+}
 
 /**
- * Resolve connection + provider/auth/model/capabilities in one call.
- * This keeps main-process orchestration free from provider-specific branching.
+ * Resolve connection, auth and model in one call.
  */
 export function resolveBackendContext(args: {
   sessionConnectionSlug?: string;
@@ -365,95 +127,49 @@ export function resolveBackendContext(args: {
     args.workspaceDefaultConnectionSlug,
     args.where
   );
-
-  const provider = connection
-    ? providerTypeToAgentProvider(connection.providerType || 'anthropic')
-    : 'anthropic';
-
-  const authType = connection
-    ? connectionAuthTypeToBackendAuthType(connection.authType)
-    : undefined;
-
-  const resolvedModel = resolveModelForProvider(provider, args.managedModel, connection);
-
   return {
     connection,
-    provider,
-    authType,
-    resolvedModel,
-    capabilities: BACKEND_CAPABILITIES[provider],
+    authType: connection ? credentialAuthType(connection.authType) : undefined,
+    resolvedModel: resolveModel(args.managedModel, connection),
   };
 }
 
 /**
- * Resolve provider hint for setup-time connection tests.
- * Keeps provider-specific hint mapping out of Electron main IPC handlers.
+ * The connection shape a setup-time test runs with: a custom endpoint (base URL and protocol) is `pi_compat`,
+ * anything else the Pi provider it names.
  */
 export function resolveSetupTestConnectionHint(args: {
-  provider: AgentProvider;
   baseUrl?: string;
   piAuthProvider?: string;
   customEndpoint?: CustomEndpointConfig;
 }): Pick<LlmConnection, 'providerType' | 'piAuthProvider' | 'customEndpoint'> {
-  if (args.provider === 'pi') {
-    if (args.customEndpoint && args.baseUrl?.trim()) {
-      return {
-        providerType: 'pi_compat',
-        piAuthProvider: args.customEndpoint.api === 'anthropic-messages' ? 'anthropic' : 'openai',
-        customEndpoint: args.customEndpoint,
-      };
-    }
-
+  if (args.customEndpoint && args.baseUrl?.trim()) {
     return {
-      providerType: 'pi',
-      piAuthProvider: args.piAuthProvider,
+      providerType: 'pi_compat',
+      piAuthProvider: args.customEndpoint.api === 'anthropic-messages' ? 'anthropic' : 'openai',
+      customEndpoint: args.customEndpoint,
     };
   }
-
-  return {
-    providerType: args.baseUrl ? 'pi_compat' : 'anthropic',
-  };
+  return { providerType: 'pi', piAuthProvider: args.piAuthProvider };
 }
 
 /**
- * Provider-agnostic model discovery for model refresh flows.
- * Dispatches to provider drivers and keeps provider-specific SDK usage internal.
+ * Model discovery for model refresh flows: Copilot's live list, else Pi's catalog for the connection's provider.
  */
 export async function fetchBackendModels(args: {
   connection: LlmConnection;
   credentials: BackendModelFetchCredentials;
-  hostRuntime: BackendHostRuntimeContext;
   timeoutMs?: number;
 }): Promise<ModelFetchResult> {
-  const provider = providerTypeToAgentProvider(args.connection.providerType);
-  const { driver, resolvedPaths } = resolveDriverRuntime(provider, args.hostRuntime);
-  const timeoutMs = args.timeoutMs ?? 30_000;
-
-  driver.initializeHostRuntime?.({
-    hostRuntime: args.hostRuntime,
-    resolvedPaths,
-  });
-
-  if (!driver.fetchModels) {
-    throw new Error(`Model discovery not implemented for provider: ${provider}`);
-  }
-
-  return driver.fetchModels({
-    connection: args.connection,
-    credentials: args.credentials,
-    hostRuntime: args.hostRuntime,
-    resolvedPaths,
-    timeoutMs,
-  });
+  return fetchPiModels(args.connection, args.credentials, args.timeoutMs ?? 30_000);
 }
 
 /**
- * Provider-agnostic stored-connection validation.
- * Moves provider/auth branching out of Electron main IPC handlers.
+ * Stored-connection validation: the connection exists and holds what its auth type needs (Pi checks the rest
+ * when it connects).
  */
 export async function validateStoredBackendConnection(args: {
   slug: string;
-  hostRuntime: BackendHostRuntimeContext;
   where?: ConnectionContext;
 }): Promise<StoredConnectionValidationResult> {
   try {
@@ -462,85 +178,32 @@ export async function validateStoredBackendConnection(args: {
       return { success: false, error: 'Connection not found' };
     }
 
-    const credentialManager = getCredentialManager();
-    const hasCredentials = await credentialManager.hasLlmCredentials(
+    const hasCredentials = await getCredentialManager().hasLlmCredentials(
       args.slug,
       connection.authType,
       connection.providerType,
       connection.scope,
     );
-
-    if (!hasCredentials && connection.authType !== 'none') {
+    if (!hasCredentials) {
       return { success: false, error: 'No credentials configured' };
     }
-
-    const provider = providerTypeToAgentProvider(connection.providerType);
-    const { driver, resolvedPaths } = resolveDriverRuntime(provider, args.hostRuntime);
-
-    driver.initializeHostRuntime?.({
-      hostRuntime: args.hostRuntime,
-      resolvedPaths,
-    });
-
-    if (!driver.validateStoredConnection) {
-      return { success: true };
-    }
-
-    return driver.validateStoredConnection({
-      slug: args.slug,
-      connection,
-      credentialManager,
-      hostRuntime: args.hostRuntime,
-      resolvedPaths,
-    });
+    return { success: true };
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    return { success: false, error: parseValidationError(msg) };
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
 /**
- * Create backend configuration from an LLM connection.
+ * Create the agent from an LLM connection slug.
  *
- * @param connection - The LLM connection config
- * @param baseConfig - Base backend config (workspace, session, etc.)
- * @returns Complete BackendConfig ready for createBackend()
- */
-export function createConfigFromConnection(
-  connection: LlmConnection,
-  baseConfig: Omit<BackendConfig, 'provider' | 'authType' | 'providerType'>
-): BackendConfig {
-  // Use new providerType if available, fall back to legacy type
-  const providerType = connection.providerType || (connection.type ? connectionTypeToProvider(connection.type) as unknown as LlmProviderType : 'anthropic');
-  const provider = providerTypeToAgentProvider(providerType);
-
-  return {
-    ...baseConfig,
-    provider,
-    providerType,
-    authType: connection.authType,
-    connectionSlug: connection.slug,
-    connectionScope: connection.scope,
-    // Use connection's default model if no model specified in baseConfig
-    model: baseConfig.model || connection.defaultModel,
-  };
-}
-
-/**
- * Create backend from an LLM connection slug.
- *
- * @param connectionSlug - The LLM connection slug
- * @param baseConfig - Base backend config (workspace, session, etc.)
- * @returns An initialized AgentBackend instance
  * @throws Error if connection not found or has invalid provider-auth combination
  */
 export function createBackendFromConnection(
   connectionSlug: string,
-  baseConfig: Omit<BackendConfig, 'provider' | 'authType'>,
-  hostRuntime?: BackendHostRuntimeContext,
-  providerOptions?: BackendProviderOptions,
+  baseConfig: CoreBackendConfig,
+  hostRuntime: BackendHostRuntimeContext,
   where?: ConnectionContext,
-): AgentBackend {
+): PiAgent {
   const connection = getLlmConnection(connectionSlug, { workspaceId: baseConfig.workspace?.id, ...where });
   if (!connection) {
     throw new Error(`LLM connection not found: ${connectionSlug}`);
@@ -556,66 +219,15 @@ export function createBackendFromConnection(
     );
   }
 
-  const context: ResolvedBackendContext = {
-    connection,
-    provider: providerTypeToAgentProvider(connection.providerType || 'anthropic'),
-    authType: connectionAuthTypeToBackendAuthType(connection.authType),
-    resolvedModel: resolveModelForProvider(
-      providerTypeToAgentProvider(connection.providerType || 'anthropic'),
-      baseConfig.model,
-      connection
-    ),
-    capabilities: BACKEND_CAPABILITIES[providerTypeToAgentProvider(connection.providerType || 'anthropic')],
-  };
-
-  if (hostRuntime) {
-    return createBackendFromResolvedContext({
-      context,
-      coreConfig: baseConfig,
-      hostRuntime,
-      providerOptions,
-    });
-  }
-
-  const config = createConfigFromConnection(connection, {
-    ...baseConfig,
-    model: context.resolvedModel,
+  return createBackendFromResolvedContext({
+    context: {
+      connection,
+      authType: credentialAuthType(connection.authType),
+      resolvedModel: resolveModel(baseConfig.model, connection),
+    },
+    coreConfig: baseConfig,
+    hostRuntime,
   });
-  return createBackend(config);
-}
-
-// ============================================================
-// Backend Capabilities
-// ============================================================
-
-/**
- * Declarative capabilities for each backend provider.
- * Used by the session layer to make decisions without checking provider strings.
- */
-export const BACKEND_CAPABILITIES: Record<AgentProvider, {
-  /** Whether the backend needs an HTTP pool server (external subprocess can't access McpClientPool directly) */
-  needsHttpPoolServer: boolean;
-}> = {
-  anthropic: { needsHttpPoolServer: false },
-  pi: { needsHttpPoolServer: false },
-};
-
-// ============================================================
-// Auth Type Resolution
-// ============================================================
-
-/**
- * Get the default auth type for a provider when none is explicitly specified.
- *
- * - anthropic: undefined (Claude uses env vars, not explicit authType)
- * - pi: 'api_key'
- */
-export function getDefaultAuthType(provider: AgentProvider): LlmAuthType | undefined {
-  switch (provider) {
-    case 'anthropic': return undefined;
-    case 'pi':        return 'api_key';
-    default:          return undefined;
-  }
 }
 
 // ============================================================
@@ -623,28 +235,20 @@ export function getDefaultAuthType(provider: AgentProvider): LlmAuthType | undef
 // ============================================================
 
 /**
- * Resolve the model ID for a given provider, validating against the connection's model list.
+ * The model a session runs: its own when the connection lists it, else the connection's default (else its first
+ * model, else '' and Pi picks). A model of the removed Claude backend (a bare Claude id) is never sent to Pi.
  *
- * Each provider has different defaults and validation:
- * - Anthropic: falls back to DEFAULT_MODEL (Opus)
- * - Pi: falls back to empty string (Pi selects model internally)
- *
- * @param provider - The agent provider
  * @param managedModel - The model stored on the session (user's choice)
  * @param connection - The LLM connection config (has defaultModel and models[])
- * @returns Resolved model ID string
  */
-export function resolveModelForProvider(
-  provider: AgentProvider,
+export function resolveModel(
   managedModel: string | undefined,
   connection: LlmConnection | null
 ): string {
-  // Cross-provider guard: if the model belongs to a different provider, fall back
-  // to the connection's default. This prevents e.g. sending a Claude model to Pi.
   if (managedModel) {
     managedModel = normalizeDeprecatedModelId(managedModel);
     const modelProvider = getModelProvider(managedModel);
-    if (modelProvider && modelProvider !== provider) {
+    if (modelProvider && modelProvider !== 'pi') {
       managedModel = undefined; // Clear — will fall through to connection default
     }
   }
@@ -653,7 +257,7 @@ export function resolveModelForProvider(
     ? normalizeDeprecatedModelId(connection.defaultModel)
     : undefined;
 
-  if (provider === 'pi' && connection?.models?.length) {
+  if (connection?.models?.length) {
     const connectionModelIds = connection.models.map(m => typeof m === 'string' ? m : m.id);
     if (managedModel && !connectionModelIds.includes(managedModel)) {
       managedModel = undefined;
@@ -663,12 +267,7 @@ export function resolveModelForProvider(
     }
   }
 
-  switch (provider) {
-    case 'pi':
-      return managedModel || connectionDefault || '';
-    default:
-      return managedModel || connectionDefault || DEFAULT_MODEL;
-  }
+  return managedModel || connectionDefault || '';
 }
 
 // ============================================================
@@ -690,11 +289,14 @@ export async function cleanupSourceRuntimeArtifacts(
 }
 
 // ============================================================
-// Provider-Agnostic Connection Testing
+// Connection Testing
 // ============================================================
 
+/**
+ * Test a key before a connection is saved: a direct request for Anthropic-protocol providers, else one mini
+ * completion through a throwaway Pi subprocess.
+ */
 export async function testBackendConnection(args: {
-  provider: AgentProvider;
   apiKey: string;
   model: string;
   baseUrl?: string;
@@ -716,13 +318,9 @@ export async function testBackendConnection(args: {
 
   try {
     const testModel = args.model;
-    const providerType = args.connection?.providerType ?? getDefaultProviderType(args.provider);
+    const providerType = args.connection?.providerType ?? 'pi';
     const now = Date.now();
-    const authType: LlmAuthType = (
-      providerType === 'pi_compat'
-    )
-      ? 'api_key_with_endpoint'
-      : 'api_key';
+    const authType: LlmAuthType = providerType === 'pi_compat' ? 'api_key_with_endpoint' : 'api_key';
 
     const syntheticConnection = {
       slug: tempSlug,
@@ -736,55 +334,30 @@ export async function testBackendConnection(args: {
       ...(args.baseUrl?.trim() ? { baseUrl: args.baseUrl.trim() } : {}),
     } as LlmConnection;
 
-    const context: ResolvedBackendContext = {
-      connection: syntheticConnection,
-      provider: args.provider,
-      authType,
-      resolvedModel: testModel,
-      capabilities: BACKEND_CAPABILITIES[args.provider],
-    };
-
-    const { driver, resolvedPaths } = resolveDriverRuntime(args.provider, args.hostRuntime);
-    if (driver.testConnection) {
-      const driverResult = await driver.testConnection({
-        provider: args.provider,
-        apiKey: trimmedKey,
-        model: testModel,
-        baseUrl: args.baseUrl,
-        connection: args.connection,
-        hostRuntime: args.hostRuntime,
-        resolvedPaths,
-        timeoutMs: args.timeoutMs ?? 20000,
-      });
-      // null = driver declined to handle; fall through to generic subprocess test
-      if (driverResult !== null) return driverResult;
-    }
+    const direct = await testPiConnection({
+      apiKey: trimmedKey,
+      model: testModel,
+      baseUrl: args.baseUrl,
+      piAuthProvider: args.connection?.piAuthProvider,
+      timeoutMs: args.timeoutMs ?? 20000,
+    });
+    // null = no direct test for this provider; fall through to the subprocess test
+    if (direct !== null) return direct;
 
     const cwd = homedir();
     const agent = createBackendFromResolvedContext({
-      context,
+      context: { connection: syntheticConnection, authType, resolvedModel: testModel },
       coreConfig: {
         workspace: { id: '__test', name: 'Connection Test', slug: '__test', rootPath: cwd, createdAt: 0 },
         session: { id: `test-${now}`, workspaceRootPath: cwd, createdAt: 0, lastUsedAt: 0 },
         isHeadless: true,
         miniModel: testModel,
-        envOverrides: args.provider === 'anthropic'
-          ? {
-            ANTHROPIC_API_KEY: trimmedKey,
-            ...(args.baseUrl?.trim() ? { ANTHROPIC_BASE_URL: args.baseUrl.trim() } : {}),
-          }
-          : undefined,
       },
       hostRuntime: args.hostRuntime,
-      providerOptions: { piAuthProvider: args.connection?.piAuthProvider },
     });
 
-    const readAgentStderr = (): string => {
-      const maybe = agent as unknown as { getRecentStderr?: () => string };
-      return typeof maybe.getRecentStderr === 'function' ? maybe.getRecentStderr() : '';
-    };
     const withStderrContext = (message: string): string => {
-      const stderr = readAgentStderr();
+      const stderr = agent.getRecentStderr();
       if (!stderr) return `${message} (subprocess produced no stderr output)`;
       return `${message}\n--- subprocess stderr (last ~8KB) ---\n${stderr}`;
     };
@@ -819,49 +392,5 @@ export async function testBackendConnection(args: {
     };
   } finally {
     await cm.deleteLlmApiKey(tempSlug).catch(() => {});
-  }
-}
-
-// ============================================================
-// Connection Validation
-// ============================================================
-
-/**
- * Validate an LLM connection by dispatching to provider-specific validation.
- *
- * - Anthropic/compat/Bedrock/Vertex: validates via Claude Agent SDK (query with maxTurns:1)
- * - OpenAI/Copilot/Pi: returns success (these providers validate on connect, no pre-flight check available)
- *
- * For more thorough provider-specific validation (model list checks, OAuth refresh, etc.),
- * see the IPC handler in apps/electron/src/main/ipc.ts.
- *
- * @param connection - The LLM connection to validate
- * @param credentials - API key or OAuth token for validation
- * @returns Validation result
- */
-export async function validateConnection(
-  connection: LlmConnection,
-  credentials: { apiKey?: string; oauthToken?: string },
-): Promise<LlmValidationResult> {
-  const provider = providerTypeToAgentProvider(connection.providerType);
-
-  switch (provider) {
-    case 'anthropic': {
-      // Anthropic-based providers can be validated via the Claude Agent SDK
-      const { validateAnthropicConnection } = await import('../../config/llm-validation.ts');
-      return validateAnthropicConnection({
-        model: connection.defaultModel || DEFAULT_MODEL,
-        apiKey: credentials.apiKey,
-        oauthToken: credentials.oauthToken,
-        baseUrl: connection.baseUrl,
-      });
-    }
-
-    case 'pi':
-      // Pi validates on connect via its auth storage — no pre-flight check available
-      return { success: true };
-
-    default:
-      return { success: true };
   }
 }

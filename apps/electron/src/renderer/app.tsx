@@ -236,13 +236,8 @@ function handleBackgroundTaskEvent(
       store.set(backgroundTasksAtom, currentTasks.filter(t => t.toolUseId !== evt.toolUseId))
     }
   } else if (event.type === 'complete' || event.type === 'interrupted' || event.type === 'error') {
-    // Orphan backstop: without keep-alive, turn teardown is authoritative evidence
-    // that both running and uncertain/stale background tasks died with the SDK
-    // subprocess. With keep-alive they may genuinely survive, so preserve them for
-    // a later progress or task_completed signal.
-    if (evt.backgroundTasksAlive === true) {
-      return
-    }
+    // Orphan backstop: turn teardown is authoritative evidence that both running
+    // and uncertain/stale background tasks died with the turn.
     const currentTasks = store.get(backgroundTasksAtom)
     const nextTasks = markLiveBackgroundTasksOrphaned(currentTasks, Date.now())
     if (nextTasks !== currentTasks) {

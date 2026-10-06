@@ -2,8 +2,8 @@
  * Event Queue for Async Generator Pattern
  *
  * Bridges async event handlers (.on() listeners) with AsyncGenerator<AgentEvent>.
- * Used by PiAgent where events arrive asynchronously from a subprocess JSONL
- * stream, unlike ClaudeAgent's synchronous for-await loop over SDK messages.
+ * Used by PiAgent, where events arrive asynchronously from a subprocess JSONL
+ * stream.
  *
  * Pattern:
  *   handler calls enqueue(event) → pushes to queue, wakes waiters

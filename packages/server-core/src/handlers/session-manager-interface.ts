@@ -239,7 +239,6 @@ export interface ISessionManager {
   // Auth
   // ---------------------------------------------------------------------------
 
-  reinitializeAuth(connectionSlug?: string, where?: { workspaceId?: string | null; userId?: string | null }): Promise<void>
   /**
    * Push runtime updates (e.g. capability toggles) to every active session
    * that uses the given connection. Backstopped by the lazy refresh path in
@@ -294,6 +293,10 @@ export interface ExecutePromptAutomationInput {
   telegramTopic?: string
   /** Actor ('user:<id>') the new chat belongs to; omitted, the workspace's first owner. */
   createdBy?: string
+  /** The agent the new chat talks to (`agents` row id); omitted, the workspace's default agent. */
+  agentId?: string
+  /** The project the new chat is bound to. */
+  projectId?: string
   /**
    * When `false`, `executePromptAutomation` returns as soon as the session is
    * created and the prompt is dispatched, instead of awaiting the whole turn.

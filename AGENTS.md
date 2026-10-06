@@ -36,7 +36,7 @@ Otto is a Bun monorepo that started from Otto (see [UPSTREAM](UPSTREAM.md)) and 
 - `secrets` is its own domain: `secrets(id, title, value)`, one `ENCRYPTION_KEY` env (32 bytes; the server refuses to boot without it; dev has a placeholder in Infisical), AES-256-GCM, no rotation or versioning. Other domains keep a `secretId`; the value never leaves the server.
 - Drizzle on `bun:sqlite`. Each domain keeps its tables in its own `schema.ts` and queries through `initDb()` from `@otto/shared/db`; only `db/` and the `schema.ts` files know the database is SQLite, so Postgres later swaps the driver and the `sqlite-core` imports.
 - No migrations until the MVP is stable: `bun run db:push` (run by `bun run dev`) diffs every `schema.ts` against the database and applies it, and refuses data loss without `--force`. Tests build a `:memory:` db with `openDb(':memory:')` and `pushSchema`.
-- Pi stays lean: one protocol, one endpoint. Provider accounts, sign-in, model discovery and routing belong to the `providers` domain and the gateway that turns the Claude and Codex CLIs into APIs, never to Pi.
+- Pi is the only harness: no second harness, no agent abstraction over it. Subscription bridges (Claude) are Pi providers registered by `pi-agent-server`; provider accounts and sign-in stay in the `connections` domain, never in Pi.
 
 ## Checks and delivery
 

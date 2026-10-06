@@ -23,7 +23,8 @@ const { userEntity, workspaceEntity } = await import('@otto/shared/settings')
 const { createConnection, deleteConnection, userScope, workspaceScope } = await import('@otto/shared/connections')
 const { getTranscriptionKey } = await import('@otto/shared/transcription')
 const { createAgent } = await import('@otto/shared/agents')
-const { AGENT_WRITE_CHANNELS, authorize, CONNECTION_WRITE_CHANNELS, INSTANCE_OWNER_CHANNELS, OWNER_CHANNELS, WORKSPACE_ARG_CHANNELS } = await import('../../../../../../packages/server-core/src/bootstrap/authorize.ts')
+const { createRoutine } = await import('@otto/shared/automations/routines')
+const { AGENT_WRITE_CHANNELS, authorize, CONNECTION_WRITE_CHANNELS, INSTANCE_OWNER_CHANNELS, OWNER_CHANNELS, ROUTINE_WRITE_CHANNELS, WORKSPACE_ARG_CHANNELS } = await import('../../../../../../packages/server-core/src/bootstrap/authorize.ts')
 const { registerAllRpcHandlers } = await import('../index')
 
 type Handler = (...args: never[]) => unknown
@@ -96,8 +97,7 @@ const codeOf = async (promise: Promise<unknown>) => promise.then(() => 'ok', (er
 /** Arguments that put `target` where the channel expects a workspace. */
 function argsFor(channel: string, target: string): unknown[] {
   const index = WORKSPACE_ARG_CHANNELS.get(channel) ?? 0
-  const arg = channel === RPC_CHANNELS.automations.TEST ? { workspaceId: target } : target
-  return [...Array(index).fill('x'), arg]
+  return [...Array(index).fill('x'), target]
 }
 
 /** What the channels that address a settings entity need to be a valid call. */
@@ -214,6 +214,26 @@ describe('the guard on every registered channel', () => {
       expect(await codeOf(bob.invoke(channel, 'nope'))).toBe('ok') // not an agent here: the handler says not_found
       expect(await codeOf(bob.invoke(channel))).toBe('ok')
       expect(await codeOf(zed.invoke(channel, mine))).toBe('ok') // zed's workspace is B, where it is no agent: the same not_found answer as an unknown id
+    }
+  })
+
+  it('lets any member list, get and create routines, and only a routine\'s creator or an owner change, pause, resume, run or delete it', async () => {
+    const { url } = await start(false)
+    const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
+    const { routines } = RPC_CHANNELS
+    expect([...ROUTINE_WRITE_CHANNELS].sort()).toEqual([routines.UPDATE, routines.DELETE, routines.PAUSE, routines.RESUME, routines.RUN].sort())
+    for (const channel of ROUTINE_WRITE_CHANNELS) expect(registered.has(channel)).toBe(true)
+    for (const channel of [routines.LIST, routines.GET, routines.CREATE]) expect(await codeOf(bob.invoke(channel, 'x'))).toBe('ok')
+    const config = { type: 'event' as const, event: 'LabelAdd', actions: [{ type: 'prompt' as const, prompt: 'x' }] }
+    const mine = createRoutine({ workspaceId: A, title: 'Bob\'s', config, createdBy: 'user:bob' }).id
+    const owners = createRoutine({ workspaceId: A, title: 'Alice\'s', config, createdBy: 'user:alice' }).id
+    for (const channel of ROUTINE_WRITE_CHANNELS) {
+      expect(await codeOf(bob.invoke(channel, mine))).toBe('ok') // its creator
+      expect(await codeOf(bob.invoke(channel, owners))).toBe('forbidden') // someone else's
+      expect(await codeOf(alice.invoke(channel, mine))).toBe('ok') // an owner of the workspace
+      expect(await codeOf(alice.invoke(channel, owners))).toBe('ok')
+      expect(await codeOf(bob.invoke(channel, 'nope'))).toBe('ok') // not a routine here: the handler says not_found
+      expect(await codeOf(zed.invoke(channel, mine))).toBe('ok') // zed's workspace is B, where it is no routine
     }
   })
 

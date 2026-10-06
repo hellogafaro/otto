@@ -33,7 +33,7 @@ describe('resolveSlugForMethod', () => {
 
   it('works for all setup methods', () => {
     const methods: ApiSetupMethod[] = [
-      'anthropic_api_key', 'claude_oauth',
+      'anthropic_api_key', 'claude_code',
       'pi_chatgpt_oauth', 'pi_copilot_oauth', 'pi_api_key',
     ]
     for (const method of methods) {
@@ -62,16 +62,14 @@ describe('apiSetupMethodToConnectionSetup', () => {
     expect(setup.models).toEqual(['model-a'])
   })
 
-  it('claude_oauth includes only credential', () => {
+  it('claude_code carries no credential (the CLI holds its own sign-in)', () => {
     const setup = apiSetupMethodToConnectionSetup(
-      'claude_oauth',
-      { credential: 'oauth-token-123' },
+      'claude_code',
+      { credential: 'ignored' },
       null,
       new Set(),
     )
-    expect(setup.slug).toBe('claude-max')
-    expect(setup.credential).toBe('oauth-token-123')
-    expect(setup.baseUrl).toBeUndefined()
+    expect(setup).toEqual({ slug: 'claude-max' })
   })
 
   it('pi_chatgpt_oauth maps to chatgpt-plus slug', () => {
@@ -113,7 +111,7 @@ describe('apiSetupMethodToConnectionSetup', () => {
 
   it('generates unique slug when base is taken', () => {
     const setup = apiSetupMethodToConnectionSetup(
-      'claude_oauth',
+      'claude_code',
       {},
       null,
       new Set(['claude-max']),

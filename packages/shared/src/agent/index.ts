@@ -1,11 +1,9 @@
-// Export ClaudeAgent (renamed from Otto) and backward-compatible aliases
-export * from './claude-agent.ts';
-export * from './conversation-summary.ts';
-
-// Export PiAgent for direct use
+// The agent of every chat (docs/pi-only-plan.md)
 export { PiAgent, PiBackend } from './pi-agent.ts';
+export type { AgentEvent } from '@otto/core/types';
+export type { LoadedSource } from '../sources/types.ts';
+export * from './conversation-summary.ts';
 export * from './errors.ts';
-export * from './options.ts';
 
 // Export session-scoped-tools - tools scoped to a specific session
 export {
@@ -133,17 +131,10 @@ export {
   MINI_AGENT_MCP_KEYS,
 } from './base-agent.ts';
 
-// Export backend abstraction - unified interface for AI agents
-// This module enables switching between Claude (Anthropic) and Pi agents
+// The factory and the agent's config and callback types
 export {
-  // Factory (createAgent is the preferred name, createBackend is kept for backward compat)
   createBackend,
-  createAgent,
-  detectProvider,
-  getAvailableProviders,
   // Types
-  type AgentBackend,
-  type AgentProvider,
   type BackendConfig,
   type PermissionCallback,
   type PlanCallback,
@@ -171,13 +162,6 @@ export {
 
 // Export PowerShell validator root setter (for Electron startup on Windows)
 export { setPowerShellValidatorRoot } from './powershell-validator.ts';
-
-// WS2 keep-alive: shared flag resolver + pushable streaming-input utility.
-export {
-  resolveKeepBackgroundTasksAlive,
-  createPushableInputStream,
-  type PushableInputStream,
-} from './backend/claude/persistent-input.ts';
 
 // Guarded-mode risk check seam (the host implements the check; see core/guarded-mode.ts)
 export type { GuardedModeCheck, GuardedModeCall, GuardedModeRisk, GuardedModeVerdict } from './core/guarded-mode.ts';

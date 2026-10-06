@@ -1,24 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { AUTOMATIONS_HISTORY_FILE } from '../../../shared/src/automations/constants.ts'
+import { addWorkspace, saveConfig } from '@otto/shared/config'
+import { createRoutine, getRoutine } from '@otto/shared/automations/routines'
 import { SessionManager } from './session-manager.ts'
 
 // Prompt actions of one automation event: a matcher's semanticCondition is judged once (its prompt
-// actions all run or are all skipped), and prompts without a condition never wait for another check.
+// actions all run or are all skipped), and prompts without a condition never wait for another check. Each
+// outcome is a finished run of its routine (`routines_history`).
 describe('automation prompt batches', () => {
   let tmpRoot: string
+  let workspaceId: string
   let sm: SessionManager
 
   beforeEach(() => {
     tmpRoot = mkdtempSync(join(tmpdir(), 'sm-automation-prompts-'))
+    saveConfig({ workspaces: [] })
+    workspaceId = addWorkspace({ name: 'Prompts', rootPath: tmpRoot }).id
     sm = new SessionManager()
   })
 
   afterEach(() => {
     rmSync(tmpRoot, { recursive: true, force: true })
   })
+
+  /** An event routine of the workspace: the id the matcher of its prompts carries. */
+  const routine = (title: string) =>
+    createRoutine({ workspaceId, title, config: { type: 'event', event: 'LabelAdd', actions: [{ type: 'prompt', prompt: 'x' }] }, createdBy: 'user:aaaaaaaaaaaa' }).id
 
   const pending = (matcherId: string, prompt: string, conditioned = false) => ({
     sessionId: undefined,
@@ -28,11 +37,10 @@ describe('automation prompt batches', () => {
     ...(conditioned ? { semanticCondition: { question: 'Is the user reporting a bug?' }, event: 'LabelAdd', eventPayload: {} } : {}),
   })
 
-  const history = async () => {
+  const history = async (routineId: string) => {
     // History writes are fire-and-forget; give them a moment to land.
     await new Promise(resolve => setTimeout(resolve, 20))
-    const path = join(tmpRoot, AUTOMATIONS_HISTORY_FILE)
-    return existsSync(path) ? readFileSync(path, 'utf-8').trim().split('\n').map(line => JSON.parse(line)) : []
+    return getRoutine(workspaceId, routineId)!.runs
   }
 
   it('judges a matcher once, so its prompt actions are all skipped together', async () => {
@@ -41,13 +49,14 @@ describe('automation prompt batches', () => {
     const started: string[] = []
     ;(sm as any).executePromptAutomation = async (opts: { prompt: string }) => { started.push(opts.prompt); return { sessionId: 's' } }
 
-    await (sm as any).runReadyPrompts('ws', tmpRoot, [pending('m1', 'first', true), pending('m1', 'second', true)])
+    const m1 = routine('m1')
+    await (sm as any).runReadyPrompts(workspaceId, tmpRoot, [pending(m1, 'first', true), pending(m1, 'second', true)])
 
     expect(checks).toBe(1)
     expect(started).toEqual([])
-    expect((await history()).map(entry => [entry.prompt, entry.skipped])).toEqual([
-      ['first', 'condition not met'],
-      ['second', 'condition not met'],
+    expect((await history(m1)).map(run => [run.status, run.error])).toEqual([
+      ['skipped', 'condition not met'],
+      ['skipped', 'condition not met'],
     ])
   })
 
@@ -61,12 +70,13 @@ describe('automation prompt batches', () => {
     const started: string[] = []
     ;(sm as any).executePromptAutomation = async (opts: { prompt: string }) => { started.push(opts.prompt); return { sessionId: `s-${opts.prompt}` } }
 
-    const done = (sm as any).runReadyPrompts('ws', tmpRoot, [pending('slow', 'conditioned', true), pending('fast', 'plain')])
+    const [slow, fast] = [routine('slow'), routine('fast')]
+    const done = (sm as any).runReadyPrompts(workspaceId, tmpRoot, [pending(slow, 'conditioned', true), pending(fast, 'plain')])
     await new Promise(resolve => setTimeout(resolve, 10))
     expect(started).toEqual(['plain'])
     release()
     await done
     expect(started).toEqual(['plain', 'conditioned'])
-    expect((await history()).map(entry => entry.sessionId).sort()).toEqual(['s-conditioned', 's-plain'])
+    expect([...(await history(slow)), ...(await history(fast))].map(run => run.chatId).sort()).toEqual(['s-conditioned', 's-plain'])
   })
 })

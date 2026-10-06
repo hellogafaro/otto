@@ -2,6 +2,8 @@
 
 Research 6 Oct 2026, read-only; nothing built. It builds on `docs/agent-computers.md` (plan D), `docs/pi-research.md`, `docs/messages-design.md` and `docs/data-architecture.md` ("Durability", (h), P8). It does not repeat the `pi-durable` storage spike running in `/tmp/pi-durable-spike` (`otto-storage.ts`, `bun-facade.ts`; results land in `docs/pi-research.md`). All URLs were read on 6 Oct 2026.
 
+**Status: superseded by [pi-only-plan](pi-only-plan.md) for the seam, the store's `source` and the Claude route.** Otto is Pi only (B2, B3 built). `Computer`, the box and the multiplayer rules still hold.
+
 Owner context: Otto is multiplayer, and one agent can chat with several people at once. Every agent gets one Linux computer. Tools are code; skills (folders) and MCP sources are the dynamic parts, pushed on `domain:changed`. A chat's runs use the chat creator's own subscription; for Claude that means the unmodified Claude Code, signed in by the user inside the box. History lives in one store. The harness is headless and swappable.
 
 **Verdict.** Keep Pi as the default harness. Neither AI SDK harnesses (fx, `HarnessAgent`) nor Mastra is better for Otto today. Both are broader, change weekly or daily, and own the conversation history themselves; that rules out the one store the owner asked for. Two findings change the earlier plan:
@@ -9,6 +11,8 @@ Owner context: Otto is multiplayer, and one agent can chat with several people a
 2. Anthropic's Agent SDK page says plainly: "Unless previously approved, Anthropic does not allow third party developers to offer claude.ai login or rate limits for their products, including agents built on the Claude Agent SDK." The Claude subscription route needs Anthropic's written OK before it ships.
 
 ## (a) How it glues together
+
+*Superseded by [pi-only-plan](pi-only-plan.md): no `Harness.run`, no Claude adapter, no `~/.claude` in the box. The box part still holds.*
 
 ```
 browser/desktop ──WS──> Otto server (Bun) ─────────────────────────────── otto.db (SQLite)
@@ -33,6 +37,8 @@ Every turn follows the same five steps:
 5. Tools touch only the agent's computer.
 
 ## (b) The harness-agnostic boundary
+
+*Superseded by [pi-only-plan](pi-only-plan.md): `PiAgent` is used directly; `AgentBackend` and the registry are deleted (B3). There is no `Harness`, `Turn`, `HarnessEvent` or `toDisplay`. `Computer` below still holds.*
 
 **It already exists and is too big.** `AgentBackend` (`packages/shared/src/agent/backend/types.ts:331`) has about 45 members: titles, mini completions, permission modes, sources, working-directory setters and more. Each harness re-implements all of them (`claude-agent.ts` is 3,274 lines, `pi-agent.ts` 2,810, `pi-agent-server` 1,936). The seam to keep is the turn. Everything else is server logic, which harnesses should not hold. `factory.ts` keeps a `DRIVER_REGISTRY` for two drivers; a `switch (chat.harness)` replaces it, since a registry for one use breaks the AGENTS.md rule.
 
@@ -75,7 +81,7 @@ export interface Computer {
 - **Claude Code in the box (second).** The Agent SDK runs on the server and starts the CLI with `spawnClaudeCodeProcess` → `docker exec -i -u <uid> <box> claude …`. The SDK documents that option as the way "to run Claude Code in VMs, containers, or remote environments" ([TS reference](https://code.claude.com/docs/en/agent-sdk/typescript)). Its `sessionStore.append` emits `entries`. `tools` and `mcp` become `createSdkMcpServer` servers, which "run in the same process as your application", so they run on the server. This is how `createSourceProxyServers` already works (`claude-agent.ts:434`).
 - **Later candidates.** `pi-durable`: its `Storage` over the same rows, which is P8 and the spike. AI SDK `HarnessAgent`. Codex app-server. Each one is a new adapter plus its `toDisplay`; nothing else changes.
 
-**The one store.** This replaces the two-table plan of DECISION 16 and needs the owner's choice (E2). `messages` keeps its decided shape (`pk, workspaceId, chatId, id, "order", type, content, createdAt, updatedAt`, FTS, `BEGIN IMMEDIATE` batches) and gains two columns:
+**The one store.** *Superseded in part: `messages` gains only `parentId`; no `source` and no `chats.harness`; old Claude chats continue in Pi ([pi-only-plan](pi-only-plan.md)).* This replaces the two-table plan of DECISION 16 and needs the owner's choice (E2). `messages` keeps its decided shape (`pk, workspaceId, chatId, id, "order", type, content, createdAt, updatedAt`, FTS, `BEGIN IMMEDIATE` batches) and gains two columns:
 - `source`: `'otto' | 'pi' | 'claude'`.
 - `parentId`: Pi's tree.
 
@@ -124,11 +130,11 @@ Sources:
 - Mastra adds a framework with its own tables, uuid ids and an EE-licensed auth part. It gives no new subscription route, and computer use is hosted-only.
 - Plain AI SDK agents would mean rebuilding Pi's compaction, steering, sessions and skills ourselves.
 
-**Code evidence for the Claude adapter.** The SDK we pin (`@anthropic-ai/claude-agent-sdk` 0.3.280) passes `--session-mirror` to the CLI and receives `transcript_mirror` frames over stdio (`node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs`). The mirror therefore works when the CLI runs in a container. The SDK warns: "sessionStore with custom spawnClaudeCodeProcess: ensure the subprocess CLAUDE_CONFIG_DIR matches the parent (same path …) or transcript_mirror frames will be dropped." Resume-from-store writes the transcript into a temporary config directory **on the server**. A remote CLI would not see that directory, so resume keeps the box's own `~/.claude` on its volume. When that copy is missing, the adapter writes the stored rows back into the box's JSONL before spawning. Both steps are spike items.
+**Code evidence for the Claude adapter.** *Superseded: there is no Claude adapter; Claude is a Pi provider ([pi-only-plan](pi-only-plan.md)).* The SDK we pin (`@anthropic-ai/claude-agent-sdk` 0.3.280) passes `--session-mirror` to the CLI and receives `transcript_mirror` frames over stdio (`node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs`). The mirror therefore works when the CLI runs in a container. The SDK warns: "sessionStore with custom spawnClaudeCodeProcess: ensure the subprocess CLAUDE_CONFIG_DIR matches the parent (same path …) or transcript_mirror frames will be dropped." Resume-from-store writes the transcript into a temporary config directory **on the server**. A remote CLI would not see that directory, so resume keeps the box's own `~/.claude` on its volume. When that copy is missing, the adapter writes the stored rows back into the box's JSONL before spawning. Both steps are spike items.
 
 ## (d) Recommendation and phases
 
-Pi stays the default; Claude Code in the box is the Claude-subscription route, once Anthropic confirms. Each phase ships on its own:
+Pi stays the default; Claude Code in the box is the Claude-subscription route, once Anthropic confirms. Each phase ships on its own. *Superseded for H0, H1's `source` and H3: see [pi-only-plan](pi-only-plan.md) 6 (B1-B5); H0 is built as "Pi only" ([final-plan](final-plan.md) 3).*
 
 | Phase | What | Size | Ships |
 |---|---|---|---|
@@ -140,12 +146,12 @@ Pi stays the default; Claude Code in the box is the Claude-subscription route, o
 | later | Hosted computers: a second `Computer` (E2B Desktop with memory pause/resume, or a Firecracker/Kata host); same image | M | hosted plan |
 
 **The computer (H2), simplest that works.**
-- **Image.** Debian slim with Xvfb, Openbox, x11vnc + noVNC, Chromium (CDP on loopback, `--no-sandbox --disable-dev-shm-usage`), `agent-browser`, tmux, git, node, uv, the `otto` CLI and, for H3, `claude`.
+- **Image.** Debian slim with Xvfb, Openbox, x11vnc + noVNC, Chromium (CDP on loopback, `--no-sandbox --disable-dev-shm-usage`), `agent-browser`, tmux, git, node, uv, the `otto` CLI (no `claude`: [pi-only-plan](pi-only-plan.md)).
 - **Container settings.** Non-root, `--cap-drop ALL`, no-new-privileges, default seccomp, `--memory 2g --cpus 1 --pids-limit 512 --shm-size 1g`. Egress open with an allow-list later, the same defaults as OpenClaw's ([docker backend](https://docs.openclaw.ai/gateway/sandboxing/docker-backend)).
 - **Lifecycle.** Start on demand at the first tool call (`ensureRunning` → `docker start`, under 1 s plus a few seconds for Chromium). Stop after 15 idle minutes. The named volume keeps `/home` across stops; RAM state is lost.
 - **Density.** About 300-600 MB idle and 1-1.5 GB active (estimate; measure). That is roughly 15-25 active or 40+ mostly idle agents on 8 vCPU / 32 GB.
-- **Skills.** The server's materialized workspace skills folder is bind-mounted **read-only** at `/skills`, so a `domain:changed` sync shows up with no copy step. It is symlinked to `~/.claude/skills` for Claude Code. Pi gets `/skills` through the `ResourceLoader` (name + description + path in the prompt, `SKILL.md` read on demand). Hosted later: pull from object storage on `domain:changed`.
-- **MCP sources.** They stay in the server pool and reach both harnesses as proxy tools, so tokens never enter the box.
+- **Skills.** The server's materialized workspace skills folder is bind-mounted **read-only** at `/skills`, so a `domain:changed` sync shows up with no copy step. Pi gets `/skills` through the `ResourceLoader` (name + description + path in the prompt, `SKILL.md` read on demand). Hosted later: pull from object storage on `domain:changed`.
+- **MCP sources.** They stay in the server pool and reach Pi as proxy tools, so tokens never enter the box.
 - **Runtime choice.** Pass on gVisor until a Chromium smoke test passes, since reports conflict ([gVisor compat](https://gvisor.dev/docs/user_guide/compatibility/)).
 - **Rejected.** Kasm: the community edition is non-commercial and limited to 5 sessions ([licence](https://kasm.com/docs/latest/license.html)). Daytona: archived ([repo](https://github.com/daytonaio/daytona)).
 
@@ -157,34 +163,33 @@ Pi stays the default; Claude Code in the box is the Claude-subscription route, o
 | Browser contention | One Chromium per agent and one profile, which carries the agent's own site logins. Each chat gets an isolated `agent-browser --session <chatId>` context, so chats browse in parallel without fighting ([agent-browser](https://github.com/vercel-labs/agent-browser), [contexts](https://playwright.dev/docs/browser-contexts)) |
 | Who owns the screen | The visible desktop (pixel-level computer use, a human taking over through noVNC) is one per agent, under a **lock with a lease**: one chat holds it (2 min idle lease), others queue, and the UI shows who holds it. A human in noVNC always takes precedence |
 | Whose connection pays | Always the **chat creator's** connection (owner rule), shown in the chat header ("runs on Ana's plan"). Another participant's message never switches the connection. A creator with no connection: the chat cannot run, and the UI asks them to connect |
-| Credentials of several users in one box | Pi route: none in the box. Claude route: one **Unix user per human** inside the agent's box; that user's `CLAUDE_CONFIG_DIR` is mode 0700 and their runs exec as that uid. Another person's chat on the same agent cannot read the token |
+| Credentials of several users in one box | None in the box. (The per-uid `CLAUDE_CONFIG_DIR` is superseded: `claude` runs outside the box, [pi-only-plan](pi-only-plan.md) 3) |
 | Privacy between people's chats and files | The same uid split covers it: chat dirs are owned by the creator's uid (0700), and `/home/agent/files` is group-shared. The agent's memory and browser profile are shared by design, because they are the agent's. Server-side guards stay as they are (private chats, scoped run token as the chat's user) |
-| Messages while a turn runs | Per chat, one run at a time. A new message steers by default (Pi `steer`, Claude `streamInput`); otherwise it is queued as a follow-up. Messages from several people enter in commit order, each with its sender. Stop aborts the run and drops queued messages, as today |
-| Computer dies or restarts mid-turn | Pi route: the running tool call returns "computer restarted; the action may have run", the turn continues, and the next call runs `ensureRunning`. Claude route: the CLI dies with it, the turn ends `interrupted` (boot-recovery rules), and the next message resumes from the stored transcript |
+| Messages while a turn runs | Per chat, one run at a time. A new message steers by default (Pi `steer`); otherwise it is queued as a follow-up. Messages from several people enter in commit order, each with its sender. Stop aborts the run and drops queued messages, as today |
+| Computer dies or restarts mid-turn | The running tool call returns "computer restarted; the action may have run", the turn continues, and the next call runs `ensureRunning` |
 | Idle shutdown with active chats | Stop only when no run is active, no noVNC viewer is attached and 15 minutes have passed. A skill tells the agent that background processes die on idle stop; a keep-awake lease is added only when it is asked for |
 | Cost caps | Subscriptions are capped by the provider's plan. For API-key connections: a per-run step and token cap plus a monthly per-connection budget from usage rows. Compute: container limits plus a volume quota per agent |
 | Server restarts mid-turn | Unchanged: data-architecture "Durability" (P3b), and mid-turn continuation with `pi-durable` (H4) |
 
 **Easy to migrate and update.**
-- A Pi version bump touches only the Pi adapter.
-- A new harness is one adapter, its `toDisplay`, and `chats.harness` for new chats.
+- A Pi version bump touches only `PiAgent` and `pi-agent-server`.
+- A new model route is a Pi provider; there is no second harness ([pi-only-plan](pi-only-plan.md)).
 - A new computer backend is one `Computer`.
 - Skills are folders and sources are pool entries, so neither needs a harness change.
 - The image is versioned; `docker pull` plus restart at idle.
 
 ## (e) Open decisions for the owner
 
-1. **E1. Claude subscriptions.** Recommended: ask Anthropic (sales) in writing whether Otto may drive a user's unmodified Claude Code, signed in by that user in their agent's box, through the Agent SDK. The Agent SDK note forbids offering "claude.ai login or rate limits … unless previously approved". Until then, Claude runs in Pi on the user's own API key. Alternative: ship H3 on the "hosted unmodified binary" clause alone, which carries an enforcement risk without notice.
-2. **E2. One store.** Recommended: one `messages` table with harness entries verbatim plus Otto rows, and display derived by the adapter. This replaces DECISION 16's `transcripts` table, and verbatim rows lift the 200k and no-base64 rules for harness rows. Alternative: two tables (`messages` for display, `transcripts` for Pi) as planned, which copies each answer once.
+1. **E1. Claude subscriptions.** *Superseded: the `claude-code` Pi provider ([pi-only-plan](pi-only-plan.md) 2, 7; final-plan D1).* Recommended: ask Anthropic (sales) in writing whether Otto may drive a user's unmodified Claude Code, signed in by that user in their agent's box, through the Agent SDK. The Agent SDK note forbids offering "claude.ai login or rate limits … unless previously approved". Until then, Claude runs in Pi on the user's own API key. Alternative: ship H3 on the "hosted unmodified binary" clause alone, which carries an enforcement risk without notice.
+2. **E2. One store.** *Superseded in part: one store without `source` (final-plan D2).* Recommended: one `messages` table with harness entries verbatim plus Otto rows, and display derived by the adapter. This replaces DECISION 16's `transcripts` table, and verbatim rows lift the 200k and no-base64 rules for harness rows. Alternative: two tables (`messages` for display, `transcripts` for Pi) as planned, which copies each answer once.
 3. **E3. Isolation inside a computer.** Recommended: a Unix user per human in each agent's box (credentials and private chat dirs separated). Alternative: one user for everyone, which is simpler, but on that agent any chat can read the other chats' files.
 4. **E4. ChatGPT route for a hosted product.** Recommended: keep Pi's native ChatGPT sign-in for local and self-hosted use, and apply to OpenAI's "Sign in with ChatGPT" programme before hosted launch. Alternative: Codex CLI in the box (a third adapter; history only in its rollout files).
 5. **E5. Concurrency per agent.** Recommended: at most 4 concurrent runs per agent, with the rest queued, and one desktop lock. Alternative: no cap, where the 2 GB/1 CPU box becomes the cap.
 
 ## (f) Not verified
 
-- That Anthropic treats the Agent SDK spawning the unmodified binary, with the user's own sign-in in a hosted box, as allowed. Its two pages point in different directions (E1).
-- `spawnClaudeCodeProcess` with `docker exec`, and the `transcript_mirror` path, when `CLAUDE_CONFIG_DIR` paths differ between server and box. The resume-if-missing write-back of rows into the box's JSONL is also untested.
-- Verbatim harness rows in `messages`: size and read cost with long Pi transcripts (2.2 MB real file); Pi image re-inlining; `toDisplay` matching today's live event mapping.
+- Superseded: the Claude items (terms, `spawnClaudeCodeProcess` over `docker exec`, `transcript_mirror`, resume-if-missing) are now the bridge's, listed in [pi-only-plan](pi-only-plan.md) 2 and 8.
+- Verbatim harness rows in `messages`: size and read cost with long Pi transcripts (2.2 MB real file); Pi image re-inlining; display derived from rows matching today's live event mapping.
 - Pi's ChatGPT OAuth and Codex CLI under OpenAI's terms for a hosted multi-user product.
 - `ai-sdk-sandbox-docker` with the Claude Code bridge end to end (the package's GitHub repo returned 404); AI SDK harness behaviour beyond its docs and tarball source.
 - Mastra custom `MemoryStorage` as a supported path; whether `@mastra/docker` adopts a container we created.

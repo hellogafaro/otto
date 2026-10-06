@@ -3,7 +3,7 @@ import { initDb, type Db } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { initSecretsStore, type createSecretsStore } from '../secrets/index.ts'
 import { getSetting, INSTALL, updateSetting, userEntity } from '../settings/index.ts'
-import type { CustomEndpointConfig, LlmAuthType, LlmProviderType, MidStreamBehavior, ModelSelectionMode } from '../config/llm-connections.ts'
+import type { CustomEndpointConfig, LlmAuthType, MidStreamBehavior, ModelSelectionMode } from '../config/llm-connections.ts'
 import type { ModelDefinition } from '../config/models.ts'
 import { connections } from './schema.ts'
 
@@ -17,8 +17,9 @@ import { connections } from './schema.ts'
  * the instance owner included), `workspace:<id>` (shared by its members) or `install` (imported connections, one for
  * the whole server or desktop). A read by slug looks in the user's scope first, then the workspace's, then the
  * install's (`ConnectionContext`); the credential of a connection is addressed by its exact scope. `type` is the
- * provider type, `models` the fetched list,
- * `config` a small JSON object that also holds the OAuth `account` (`config.account`). The credential lives in the secrets domain as one JSON value per
+ * Pi provider id (`anthropic`, `claude-code`, `openai-codex`, `openrouter`, ... or `custom` for an endpoint of the
+ * user's own), `models` the fetched list,
+ * `config` a small JSON object (model selection mode, custom endpoint, mid-stream behavior). The credential lives in the secrets domain as one JSON value per
  * connection (`Credential`); a connection only keeps its `secretId`, and neither the id nor the value is ever
  * returned: callers see `hasSecret`, and the server reads the value with `getCredential`. The default connection is
  * the install setting `defaultConnectionSlug`. Every write that touches a row and its secret is one transaction.
@@ -41,8 +42,23 @@ export function narrowContext(where: ConnectionContext, kind?: ConnectionScopeKi
   return kind === 'install' ? {} : where
 }
 
-/** The provider types a connection may have. */
-export const CONNECTION_TYPES = ['anthropic', 'pi', 'pi_compat'] as const
+/** The `type` of a connection to an endpoint of the user's own (Ollama, vLLM, a proxy): Pi's `custom-endpoint` provider. */
+export const CUSTOM_CONNECTION_TYPE = 'custom'
+
+/** The `type` of a Claude subscription: the user's own `claude` CLI and its login, through pi-agent-server's bridge. No secret. */
+export const CLAUDE_CODE_CONNECTION_TYPE = 'claude-code'
+
+/**
+ * The Pi provider id and auth type of a connection given in the shape before Pi only (`anthropic` | `pi` |
+ * `pi_compat`, with `piAuthProvider`): `pi` + X is X, `pi_compat` is `custom`, a Claude subscription (`anthropic` +
+ * `oauth`) is `claude-code` signed in through the CLI. A Pi provider id passes as it is.
+ */
+export function toPiProvider(type: string, authType: LlmAuthType, piAuthProvider?: string): { type: string; authType: LlmAuthType } {
+  if (type === 'pi_compat') return { type: CUSTOM_CONNECTION_TYPE, authType }
+  if (type === 'pi') return { type: piAuthProvider || 'anthropic', authType }
+  if (type === 'anthropic' && authType === 'oauth') return { type: CLAUDE_CODE_CONNECTION_TYPE, authType: 'cli_login' }
+  return { type, authType }
+}
 
 /** What a connection's secret holds: an API key, OAuth tokens, AWS IAM keys or a service account; whichever the auth type needs. */
 export type Credential = {
@@ -62,31 +78,22 @@ export type Credential = {
 
 export type ConnectionConfig = {
   modelSelectionMode?: ModelSelectionMode
-  piAuthProvider?: string
   customEndpoint?: CustomEndpointConfig
   midStreamBehavior?: MidStreamBehavior
-}
-
-export type ConnectionAccount = {
-  oauthAccountUuid?: string
-  oauthAccountEmail?: string
-  oauthOrganizationUuid?: string
-  oauthOrganizationName?: string
-  verifiedAt?: number
 }
 
 export type Connection = {
   id: string
   scope: string
   slug: string
-  type: LlmProviderType
+  /** The Pi provider id. */
+  type: string
   authType: LlmAuthType
   title: string
   baseUrl: string | null
   defaultModel: string | null
   models: Array<ModelDefinition | string> | null
   config: ConnectionConfig
-  account: ConnectionAccount
   hasSecret: boolean
   createdAt: Date
 }
@@ -95,18 +102,18 @@ export type ConnectionInput = {
   slug: string
   /** 'install' (default) or 'workspace:<id>'. */
   scope?: string
-  type: LlmProviderType
+  /** The Pi provider id. */
+  type: string
   authType: LlmAuthType
   title: string
   baseUrl?: string | null
   defaultModel?: string | null
   models?: Array<ModelDefinition | string> | null
   config?: ConnectionConfig
-  account?: ConnectionAccount
   createdAt?: Date
 }
 
-/** A change to a connection: a field left out stays as it is; `models`, `config` and `account` are replaced whole. */
+/** A change to a connection: a field left out stays as it is; `models` and `config` are replaced whole. */
 export type ConnectionPatch = Partial<Omit<ConnectionInput, 'slug' | 'scope' | 'createdAt'>>
 
 type SecretsStore = ReturnType<typeof createSecretsStore>
@@ -122,24 +129,22 @@ const parse = <T>(text: string | null, fallback: T): T => {
 }
 const toJson = (value: unknown) => (value === undefined || value === null ? null : JSON.stringify(value))
 
-/** The `config` column: the config with the account inside it; null when both are empty. */
-const packConfig = (config: ConnectionConfig | undefined, account: ConnectionAccount | undefined) =>
-  config || account ? JSON.stringify({ ...config, ...(account && Object.values(account).some((value) => value !== undefined) && { account }) }) : null
+/** The `config` column; null when there is none. */
+const packConfig = (config: ConnectionConfig | undefined) => (config ? JSON.stringify(config) : null)
 
 function toConnection(row: Row): Connection {
-  const { account, ...config } = parse<ConnectionConfig & { account?: ConnectionAccount }>(row.config, {})
+  const config = parse<ConnectionConfig>(row.config, {})
   return {
     id: row.id,
     scope: row.scope,
     slug: row.slug ?? '',
-    type: row.type as LlmProviderType,
+    type: row.type,
     authType: row.authType as LlmAuthType,
     title: row.title,
     baseUrl: row.baseUrl,
     defaultModel: row.defaultModel,
     models: parse(row.models, null),
     config,
-    account: account ?? {},
     hasSecret: row.secretId !== null,
     createdAt: row.createdAt,
   }
@@ -219,7 +224,7 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
             baseUrl: input.baseUrl ?? null,
             defaultModel: input.defaultModel ?? null,
             models: toJson(input.models),
-            config: packConfig(input.config, input.account),
+            config: packConfig(input.config),
             secretId,
             createdAt: input.createdAt ?? now,
           })
@@ -249,7 +254,6 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
           if (secretId) secrets.updateSecret(secretId, JSON.stringify(credential))
           else secretId = secrets.createSecret(patch.title ?? row.title, JSON.stringify(credential))
         }
-        const current = toConnection(row)
         return db
           .update(connections)
           .set({
@@ -259,7 +263,7 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
             baseUrl: patch.baseUrl,
             defaultModel: patch.defaultModel,
             models: patch.models === undefined ? undefined : toJson(patch.models),
-            config: patch.config === undefined && patch.account === undefined ? undefined : packConfig(patch.config ?? current.config, patch.account ?? current.account),
+            config: patch.config === undefined ? undefined : packConfig(patch.config),
             secretId,
           })
           .where(eq(connections.id, id))

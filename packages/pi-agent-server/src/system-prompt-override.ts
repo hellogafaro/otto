@@ -45,8 +45,10 @@ export function createSystemPromptOverride(): SystemPromptOverride {
 
 /**
  * The resource loader `createAgentSession` would build on its own (same cwd,
- * agentDir and settings), plus the system-prompt override extension. Discovery of
- * skills, context files and on-disk extensions is unchanged.
+ * agentDir and settings), plus the system-prompt override extension, and with no
+ * context files: Pi would read AGENTS.md / CLAUDE.md from the server's disk, while
+ * Otto's instructions come from the database (docs/final-plan.md D8). Discovery of
+ * skills and on-disk extensions is unchanged.
  */
 export async function createOttoResourceLoader(options: {
   cwd: string;
@@ -59,6 +61,7 @@ export async function createOttoResourceLoader(options: {
     agentDir: options.agentDir,
     settingsManager: options.settingsManager,
     extensionFactories: [options.systemPromptOverride.extension],
+    agentsFilesOverride: () => ({ agentsFiles: [] }),
   });
   await loader.reload();
   return loader;

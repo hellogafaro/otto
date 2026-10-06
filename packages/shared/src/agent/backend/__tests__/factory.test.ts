@@ -1,39 +1,23 @@
 /**
- * Tests for Agent Factory
- *
- * Verifies:
- * - Provider detection from auth type
- * - Backend creation for different providers
- * - LLM connection type mapping
- * - Available providers list
+ * Tests for the agent factory: every chat runs on Pi.
  */
 import { beforeAll, describe, it, expect } from 'bun:test';
-import { join } from 'node:path';
 import {
-  detectProvider,
   createBackend,
-  createAgent,
+  createBackendFromResolvedContext,
   fetchBackendModels,
-  getAvailableProviders,
-  initializeBackendHostRuntime,
-  isProviderAvailable,
-  connectionTypeToProvider,
-  connectionAuthTypeToBackendAuthType,
-  providerTypeToAgentProvider,
-  resolveModelForProvider,
+  resolveModel,
   resolveSetupTestConnectionHint,
   testBackendConnection,
   validateStoredBackendConnection,
 } from '../factory.ts';
 import type { BackendConfig } from '../types.ts';
 import { ensureConfigDir, type Workspace, type LlmConnection } from '../../../config/storage.ts';
-
-// ClaudeAgent reads config-defaults.json, which the app writes into the config dir at startup.
-beforeAll(() => ensureConfigDir());
 import type { SessionConfig as Session } from '../../../sessions/storage.ts';
-import { ClaudeAgent } from '../../claude-agent.ts';
 import { PiAgent } from '../../pi-agent.ts';
 import { isValidProviderAuthCombination } from '../../../config/llm-connections.ts';
+
+beforeAll(() => ensureConfigDir());
 
 // Test helpers
 function createTestWorkspace(): Workspace {
@@ -59,7 +43,6 @@ function createTestSession(): Session {
 
 function createTestConfig(overrides: Partial<BackendConfig> = {}): BackendConfig {
   return {
-    provider: 'anthropic',
     workspace: createTestWorkspace(),
     session: createTestSession(),
     isHeadless: true, // Prevent config watchers from starting
@@ -67,233 +50,73 @@ function createTestConfig(overrides: Partial<BackendConfig> = {}): BackendConfig
   };
 }
 
-describe('detectProvider', () => {
-  describe('Anthropic authentication types', () => {
-    it('should return anthropic for api_key', () => {
-      expect(detectProvider('api_key')).toBe('anthropic');
-    });
+const hostRuntime = { appRootPath: process.cwd(), isPackaged: false };
 
-    it('should return anthropic for oauth_token', () => {
-      expect(detectProvider('oauth_token')).toBe('anthropic');
-    });
+describe('createBackend', () => {
+  it('always makes a PiAgent', () => {
+    const agent = createBackend(createTestConfig());
+    expect(agent).toBeInstanceOf(PiAgent);
+    agent.destroy();
   });
 
-  describe('Unknown authentication types', () => {
-    it('should default to anthropic for unknown types', () => {
-      expect(detectProvider('unknown')).toBe('anthropic');
-      expect(detectProvider('')).toBe('anthropic');
+  it("a Claude subscription connection runs on Pi with the claude-code provider and no credential", () => {
+    const connection: LlmConnection = {
+      slug: 'claude-max', name: 'Claude', providerType: 'pi', piAuthProvider: 'claude-code', authType: 'cli_login',
+      models: ['pi/claude-opus-5-5'], defaultModel: 'pi/claude-opus-5-5', createdAt: 0,
+    };
+    const agent = createBackendFromResolvedContext({
+      context: { connection, authType: 'cli_login', resolvedModel: 'pi/claude-opus-5-5' },
+      coreConfig: createTestConfig(),
+      hostRuntime,
     });
+    expect(agent).toBeInstanceOf(PiAgent);
+    expect((agent as any).config.authType).toBe('cli_login');
+    expect((agent as any).config.runtime.piAuthProvider).toBe('claude-code');
+    expect(agent.getModel()).toBe('pi/claude-opus-5-5');
+    agent.destroy();
+  });
+
+  it('setModel updates getModel', () => {
+    const agent = createBackend(createTestConfig({ model: 'pi/claude-opus-4-7' }));
+    expect(agent.getModel()).toBe('pi/claude-opus-4-7');
+    agent.setModel('pi/claude-sonnet-4-6');
+    expect(agent.getModel()).toBe('pi/claude-sonnet-4-6');
+    agent.destroy();
   });
 });
-
-describe('createBackend / createAgent', () => {
-  describe('Anthropic provider', () => {
-    it('should create ClaudeAgent for anthropic provider', () => {
-      const config = createTestConfig({ provider: 'anthropic' });
-      const agent = createBackend(config);
-
-      expect(agent).toBeInstanceOf(ClaudeAgent);
-    });
-  });
-
-  describe('Pi provider', () => {
-    it('should create PiAgent for pi provider', () => {
-      const config = createTestConfig({ provider: 'pi' });
-      const agent = createBackend(config);
-
-      expect(agent).toBeInstanceOf(PiAgent);
-    });
-  });
-
-  describe('Unknown provider', () => {
-    it('should throw for unknown provider', () => {
-      const config = createTestConfig({ provider: 'unknown' as any });
-
-      expect(() => createBackend(config)).toThrow('Unknown provider: unknown');
-    });
-  });
-
-  describe('createAgent alias', () => {
-    it('should be an alias for createBackend', () => {
-      expect(createAgent).toBe(createBackend);
-    });
-  });
-});
-
-describe('getAvailableProviders', () => {
-  it('should return anthropic and pi', () => {
-    const providers = getAvailableProviders();
-
-    expect(providers).toContain('anthropic');
-    expect(providers).toContain('pi');
-    expect(providers).toHaveLength(2);
-  });
-});
-
-describe('isProviderAvailable', () => {
-  it('should return true for anthropic', () => {
-    expect(isProviderAvailable('anthropic')).toBe(true);
-  });
-
-  it('should return true for pi', () => {
-    expect(isProviderAvailable('pi')).toBe(true);
-  });
-
-  it('should return false for unknown provider', () => {
-    expect(isProviderAvailable('unknown' as any)).toBe(false);
-  });
-});
-
-describe('connectionTypeToProvider', () => {
-  it('should map anthropic type to anthropic provider', () => {
-    expect(connectionTypeToProvider('anthropic')).toBe('anthropic');
-  });
-
-  it('should map openai type to pi provider (legacy routing)', () => {
-    expect(connectionTypeToProvider('openai')).toBe('pi');
-  });
-
-  it('should map openai-compat type to pi provider (legacy routing)', () => {
-    expect(connectionTypeToProvider('openai-compat')).toBe('pi');
-  });
-
-  it('should default to anthropic for unknown types', () => {
-    expect(connectionTypeToProvider('unknown' as any)).toBe('anthropic');
-  });
-});
-
-describe('connectionAuthTypeToBackendAuthType (legacy)', () => {
-  it('should map api_key to api_key', () => {
-    expect(connectionAuthTypeToBackendAuthType('api_key')).toBe('api_key');
-  });
-
-  it('should pass through oauth', () => {
-    expect(connectionAuthTypeToBackendAuthType('oauth')).toBe('oauth');
-  });
-
-  it('should map none to undefined', () => {
-    expect(connectionAuthTypeToBackendAuthType('none')).toBeUndefined();
-  });
-});
-
-describe('providerTypeToAgentProvider', () => {
-  describe('Anthropic SDK providers', () => {
-    it('should map anthropic to anthropic', () => {
-      expect(providerTypeToAgentProvider('anthropic')).toBe('anthropic');
-    });
-  });
-
-  describe('Pi SDK providers', () => {
-    it('should map pi to pi', () => {
-      expect(providerTypeToAgentProvider('pi')).toBe('pi');
-    });
-
-    it('should map pi_compat to pi', () => {
-      expect(providerTypeToAgentProvider('pi_compat')).toBe('pi');
-    });
-  });
-});
-
-// ============================================================
-// Provider-Auth Validation Tests
-// ============================================================
 
 describe('isValidProviderAuthCombination', () => {
-  describe('Anthropic provider', () => {
-    it('should accept api_key auth', () => {
-      expect(isValidProviderAuthCombination('anthropic', 'api_key')).toBe(true);
-    });
-
-    it('should accept oauth auth', () => {
-      expect(isValidProviderAuthCombination('anthropic', 'oauth')).toBe(true);
-    });
-
-    it('should reject api_key_with_endpoint auth', () => {
-      expect(isValidProviderAuthCombination('anthropic', 'api_key_with_endpoint')).toBe(false);
-    });
-
-    it('should reject none auth', () => {
-      expect(isValidProviderAuthCombination('anthropic', 'none')).toBe(false);
-    });
+  it('a Pi provider takes keys, OAuth, IAM, the environment, none and a CLI sign-in', () => {
+    for (const authType of ['api_key', 'oauth', 'iam_credentials', 'environment', 'none', 'cli_login'] as const) {
+      expect(isValidProviderAuthCombination('pi', authType)).toBe(true);
+    }
   });
 
-  describe('Pi provider', () => {
-    it('should accept api_key auth', () => {
-      expect(isValidProviderAuthCombination('pi', 'api_key')).toBe(true);
-    });
-
-    it('should accept oauth auth', () => {
-      expect(isValidProviderAuthCombination('pi', 'oauth')).toBe(true);
-    });
-
-    it('should accept none auth', () => {
-      expect(isValidProviderAuthCombination('pi', 'none')).toBe(true);
-    });
+  it('a custom endpoint takes a key with its endpoint, or none (local models)', () => {
+    expect(isValidProviderAuthCombination('pi_compat', 'api_key_with_endpoint')).toBe(true);
+    expect(isValidProviderAuthCombination('pi_compat', 'none')).toBe(true);
+    expect(isValidProviderAuthCombination('pi_compat', 'cli_login')).toBe(false);
   });
-
-  describe('Pi compat provider', () => {
-    it('should accept api_key_with_endpoint auth', () => {
-      expect(isValidProviderAuthCombination('pi_compat', 'api_key_with_endpoint')).toBe(true);
-    });
-
-    it('should accept none auth (for local models like Ollama)', () => {
-      expect(isValidProviderAuthCombination('pi_compat', 'none')).toBe(true);
-    });
-  });
-
 });
 
-describe('phase4 backend abstraction APIs', () => {
-  it('initializeBackendHostRuntime bootstraps without throwing in dev runtime', () => {
-    expect(() => initializeBackendHostRuntime({
-      hostRuntime: {
-        appRootPath: process.cwd(),
-        isPackaged: false,
-      },
-    })).not.toThrow();
-  });
-
-  // Skip: resolveClaudeCliPath finds the CLI via node_modules traversal even from dist/, so this
-  // only fails in a truly isolated packaged environment, not in the dev monorepo.
-  it.skip('initializeBackendHostRuntime throws for dist-style host root in dev', () => {
-    expect(() => initializeBackendHostRuntime({
-      hostRuntime: {
-        appRootPath: join(process.cwd(), 'apps', 'electron', 'dist'),
-        isPackaged: false,
-      },
-    })).toThrow('Claude Code SDK not found');
-  });
-
-  it('resolveSetupTestConnectionHint maps provider/baseUrl/piAuthProvider correctly', () => {
+describe('factory APIs', () => {
+  it('resolveSetupTestConnectionHint maps baseUrl/piAuthProvider/customEndpoint', () => {
     expect(resolveSetupTestConnectionHint({
-      provider: 'anthropic',
-      baseUrl: 'https://api.example.com',
-    })).toEqual({ providerType: 'pi_compat' });
-
-    expect(resolveSetupTestConnectionHint({
-      provider: 'anthropic',
-      baseUrl: '',
-    })).toEqual({ providerType: 'anthropic' });
-
-    expect(resolveSetupTestConnectionHint({
-      provider: 'pi',
       piAuthProvider: 'openai-codex',
     })).toEqual({ providerType: 'pi', piAuthProvider: 'openai-codex' });
 
     expect(resolveSetupTestConnectionHint({
-      provider: 'pi',
       baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
       customEndpoint: { api: 'openai-completions' },
     })).toEqual({ providerType: 'pi_compat', piAuthProvider: 'openai', customEndpoint: { api: 'openai-completions' } });
 
     expect(resolveSetupTestConnectionHint({
-      provider: 'pi',
       baseUrl: 'https://my-anthropic-proxy.internal/v1',
       customEndpoint: { api: 'anthropic-messages' },
     })).toEqual({ providerType: 'pi_compat', piAuthProvider: 'anthropic', customEndpoint: { api: 'anthropic-messages' } });
   });
 
-  it('fetchBackendModels dispatches for pi provider', async () => {
+  it('fetchBackendModels lists Pi models', async () => {
     const connection: LlmConnection = {
       slug: 'pi-test',
       name: 'Pi Test',
@@ -302,40 +125,21 @@ describe('phase4 backend abstraction APIs', () => {
       createdAt: Date.now(),
     };
 
-    const result = await fetchBackendModels({
-      connection,
-      credentials: {},
-      hostRuntime: {
-        appRootPath: process.cwd(),
-        isPackaged: false,
-      },
-    });
-
+    const result = await fetchBackendModels({ connection, credentials: {} });
     expect(result.models.length).toBeGreaterThan(0);
   });
 
   it('validateStoredBackendConnection returns not found for unknown slug', async () => {
-    const result = await validateStoredBackendConnection({
-      slug: '__missing-connection__',
-      hostRuntime: {
-        appRootPath: process.cwd(),
-        isPackaged: false,
-      },
-    });
-
+    const result = await validateStoredBackendConnection({ slug: '__missing-connection__' });
     expect(result.success).toBe(false);
     expect(result.error).toBe('Connection not found');
   });
 
   it('testBackendConnection keeps required model argument and validates key presence', async () => {
     const result = await testBackendConnection({
-      provider: 'anthropic',
       apiKey: '   ',
-      model: 'claude-sonnet-4-6',
-      hostRuntime: {
-        appRootPath: process.cwd(),
-        isPackaged: false,
-      },
+      model: 'pi/claude-sonnet-4-6',
+      hostRuntime,
     });
 
     expect(result.success).toBe(false);
@@ -343,26 +147,19 @@ describe('phase4 backend abstraction APIs', () => {
   });
 });
 
-describe('resolveModelForProvider', () => {
-  it('falls back to the Pi connection default when a normalized stale model is not in the connection list', () => {
+describe('resolveModel', () => {
+  it('falls back to the connection default when a normalized stale model is not in the connection list', () => {
     const connection = {
       providerType: 'pi',
       defaultModel: 'pi/claude-opus-4-7',
       models: ['pi/claude-opus-4-7', 'pi/claude-sonnet-4-6'],
     } as unknown as LlmConnection;
 
-    expect(resolveModelForProvider('pi', 'pi/claude-opus-4-6', connection)).toBe('pi/claude-opus-4-7');
+    expect(resolveModel('pi/claude-opus-4-6', connection)).toBe('pi/claude-opus-4-7');
   });
-});
 
-describe('ClaudeAgent model switching', () => {
-  it('setModel updates getModel (regression: setModel used to write config.model but getModel reads _model)', () => {
-    const agent = createBackend(createTestConfig({ provider: 'anthropic', model: 'claude-opus-4-7' }));
-
-    expect(agent.getModel()).toBe('claude-opus-4-7');
-
-    agent.setModel('claude-sonnet-4-6');
-
-    expect(agent.getModel()).toBe('claude-sonnet-4-6');
+  it("a chat of the removed Claude backend (a bare Claude id) gets the connection's model", () => {
+    const connection = { providerType: 'pi', defaultModel: 'pi/claude-opus-5-5', models: ['pi/claude-opus-5-5'] } as unknown as LlmConnection;
+    expect(resolveModel('claude-opus-5-5', connection)).toBe('pi/claude-opus-5-5');
   });
 });

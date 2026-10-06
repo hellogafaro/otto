@@ -3,7 +3,6 @@ import type { HandlerDeps } from '../handler-deps'
 
 import { registerAgentsHandlers } from './agents'
 import { registerAuthHandlers } from './auth'
-import { registerAutomationsHandlers } from './automations'
 import { registerCommentsHandlers } from './comments'
 import { registerDecisionsHandlers } from './decisions'
 import { registerFilesHandlers } from './files'
@@ -12,6 +11,7 @@ import { registerLibraryHandlers } from './library'
 import { registerLlmConnectionsHandlers } from './llm-connections'
 import { registerOAuthHandlers } from './oauth'
 import { registerResourcesHandlers } from './resources'
+import { registerRoutinesHandlers } from './routines'
 import { registerOnboardingHandlers } from './onboarding'
 import { registerSessionsHandlers } from './sessions'
 export { registerSessionsHandlers, cleanupSessionFileWatchForClient } from './sessions'
@@ -46,7 +46,6 @@ export function registerCoreRpcHandlers(
   server = broadcastDomainChanges(server, deps)
   registerAgentsHandlers(server, deps)
   registerAuthHandlers(server, deps)
-  registerAutomationsHandlers(server, deps)
   registerDecisionsHandlers(server, deps)
   registerFilesHandlers(server, deps)
   registerLabelsHandlers(server, deps)
@@ -55,6 +54,7 @@ export function registerCoreRpcHandlers(
   registerOAuthHandlers(server, deps)
   registerOnboardingHandlers(server, deps)
   registerResourcesHandlers(server, deps)
+  registerRoutinesHandlers(server, deps)
   registerSessionsHandlers(server, deps)
   if (serverCtx) registerServerHandlers(server, deps, serverCtx)
   registerSettingsHandlers(server, deps)

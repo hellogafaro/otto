@@ -60,7 +60,7 @@ export type { BrowserPaneFns } from './browser-tools.ts';
 // Session-Scoped Tool Callbacks (re-exported from dedicated registry module)
 // ============================================================
 
-// Re-export for all downstream consumers (index.ts, claude-agent.ts, pi-agent.ts, etc.)
+// Re-export for all downstream consumers (index.ts, pi-agent.ts, etc.)
 export {
   type SessionScopedToolCallbacks,
   registerSessionScopedToolCallbacks,

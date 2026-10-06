@@ -67,6 +67,10 @@ export interface PromptAction {
    * When omitted, falls back to the workspace default (then DEFAULT_THINKING_LEVEL).
    */
   thinkingLevel?: ThinkingLevel;
+  /** Labels the created session gets (slugs). */
+  labels?: string[];
+  /** The project the created session is bound to. */
+  projectId?: string;
 }
 
 /** HTTP method for webhook actions */

@@ -193,15 +193,19 @@ export const BUILT_IN_CONNECTION_TEMPLATES: Record<string, {
   authType: LlmConnection['authType'] | ((hasCustomEndpoint: boolean) => LlmConnection['authType'])
   piAuthProvider?: string
 }> = {
+  // Pi's anthropic provider; with a base URL, an Anthropic-compatible endpoint
   'anthropic-api': {
     name: (h) => h ? 'Custom Anthropic-Compatible' : 'Anthropic (API Key)',
-    providerType: (h) => h ? 'pi_compat' : 'anthropic',
+    providerType: (h) => h ? 'pi_compat' : 'pi',
     authType: (h) => h ? 'api_key_with_endpoint' : 'api_key',
+    piAuthProvider: 'anthropic',
   },
+  // A Claude subscription runs through the user's own `claude` CLI and its sign-in; no secret is stored
   'claude-max': {
-    name: 'Claude Max',
-    providerType: 'anthropic',
-    authType: 'oauth',
+    name: 'Claude subscription',
+    providerType: 'pi',
+    authType: 'cli_login',
+    piAuthProvider: 'claude-code',
   },
   'chatgpt-plus': {
     name: 'ChatGPT Plus',
@@ -295,7 +299,7 @@ export function createBuiltInConnection(slug: string, baseUrl?: string | null): 
     defaultModel: getDefaultModelForConnection(providerType, template.piAuthProvider),
     modelSelectionMode: providerType === 'pi' ? 'automaticallySyncedFromProvider' : undefined,
     piAuthProvider: template.piAuthProvider,
-    midStreamBehavior: defaultMidStreamBehavior(providerType),
+    midStreamBehavior: defaultMidStreamBehavior(),
     createdAt: Date.now(),
   }
 }

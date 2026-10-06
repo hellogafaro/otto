@@ -1,9 +1,8 @@
 /**
  * Session-Scoped Tool Callback Registry
  *
- * Extracted from session-scoped-tools.ts to break the dependency between
- * the callback registry (shared by Claude + Pi paths) and the Claude SDK
- * adapter layer (only used by ClaudeAgent).
+ * Kept apart from session-scoped-tools.ts so the registry carries no SDK
+ * dependency.
  *
  * The registry is a simple Map keyed by sessionId. Each backend registers
  * callbacks when a session starts and merges additional callbacks (e.g.
@@ -63,8 +62,8 @@ export interface SessionScopedToolCallbacks {
   listSessionsFn?: (options?: import('@otto/session-tools-core').ListSessionsOptions) => import('@otto/session-tools-core').ListSessionsResult;
   /** List background tasks (running + terminal) for a session from the main-process registry. */
   listBackgroundTasksFn?: (sessionId?: string) => import('@otto/session-tools-core').BackgroundTaskInfo[];
-  /** labels_edit / statuses_edit / permissions_edit: edit the workspace's labels, statuses or permission rules as the chat's user (owners write). */
-  editWorkspaceConfigFn?: (domain: 'labels' | 'statuses' | 'permissions', args: Record<string, unknown>) => Promise<unknown>;
+  /** labels_edit / statuses_edit / permissions_edit / agents_edit: edit the workspace's labels, statuses, permission rules or agents as the chat's user (see `runWorkspaceConfigAction`). */
+  editWorkspaceConfigFn?: (domain: 'labels' | 'statuses' | 'permissions' | 'agents', args: Record<string, unknown>) => Promise<unknown>;
   /** Resolve label display names to IDs. */
   resolveLabelsFn?: (labels: string[]) => import('@otto/session-tools-core').ResolvedLabelsResult;
   /** Resolve a status display name to its ID. */

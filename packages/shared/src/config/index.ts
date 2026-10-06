@@ -1,7 +1,6 @@
 export * from './types.ts';
 export { CONFIG_DIR, DEFAULT_CONFIG_DIR_NAME, resolveConfigDir } from './paths.ts';
 export * from './llm-connections.ts';
-export * from './llm-validation.ts';
 export * from './models.ts';
 export * from './models-pi.ts';
 export * from './model-fetcher.ts';

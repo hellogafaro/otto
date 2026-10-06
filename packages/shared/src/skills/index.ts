@@ -17,7 +17,7 @@ export * from './types.ts'
 export type { BundleFiles } from '../bundles/bundle.ts'
 export { createSkillsStore, type SkillsTarget, type SyncStatus } from './store.ts'
 export type { SkillsImportReport } from './import.ts'
-export { loadAllSkills, loadSkill, parseSkillFile, skillNeedsIconDownload, downloadSkillIcon, GLOBAL_AGENT_SKILLS_DIR, PROJECT_AGENT_SKILLS_DIR } from './storage.ts'
+export { loadAllSkills, loadSkill, parseSkillFile, skillNeedsIconDownload, downloadSkillIcon } from './storage.ts'
 
 type Store = ReturnType<typeof createSkillsStore>
 

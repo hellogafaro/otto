@@ -13,7 +13,7 @@
  * stream-event mapping, the steer-before-result ordering and the REUSE/REBUILD rules.
  */
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createSdkMcpServer, query, type Options, type Query, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
@@ -32,8 +32,11 @@ const TOOL_PREFIX = `mcp__${SERVER}__`;
 const TOOL_USE_ID = 'claudecode/toolUseId';
 const CONTINUE = '[Your context was rewritten (compacted or branched). What precedes this is the current history, ending with the tool result you were waiting for. Continue from there.]';
 
+/** What a turn says when there is no `claude` to run (Otto does not ship one: the user's own CLI holds their login). */
+export const CLAUDE_MISSING = 'Claude Code (`claude`) was not found. Install it, sign in by running `claude` and then `/login`, and try again; or set OTTO_CLAUDE_PATH to where it is installed.';
+
 export interface ClaudeCodeOptions {
-  /** The user's `claude`; defaults to the one on PATH, else the SDK's bundled binary. */
+  /** The user's `claude`; defaults to the one on PATH. Without one a turn fails with `CLAUDE_MISSING`. */
   pathToClaudeCodeExecutable?: string;
   /** Where `claude` runs (a later phase routes it through `docker exec -i`). */
   spawnClaudeCodeProcess?: Options['spawnClaudeCodeProcess'];
@@ -76,10 +79,16 @@ export function registerClaudeCodeProvider(registry: ModelRegistry, options: Cla
 export function createClaudeCodeStream(opts: ClaudeCodeOptions = {}) {
   const states = new Map<string, State>();
   const configDir = opts.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR;
-  const executable = opts.pathToClaudeCodeExecutable ?? Bun.which('claude') ?? undefined;
+  const configured = opts.pathToClaudeCodeExecutable;
+  const executable = configured ? (existsSync(configured) ? configured : undefined) : Bun.which('claude') ?? undefined;
 
   return function streamClaudeCode(model: Model<Api>, context: { messages: Message[] }, options?: SimpleStreamOptions): AssistantMessageEventStream {
     const stream = createAssistantMessageEventStream();
+    if (!executable && !opts.query && !opts.spawnClaudeCodeProcess) {
+      const out = Object.assign(newOutput(model), { stopReason: 'error', errorMessage: CLAUDE_MISSING }) as AssistantMessage;
+      queueMicrotask(() => { stream.push({ type: 'error', reason: 'error', error: out }); stream.end(); });
+      return stream;
+    }
     const oneShot = options?.cacheRetention === 'none'; // Pi's summarizers: no session to keep
     const key = options?.sessionId ?? '';
     const state: State = oneShot ? {} : states.get(key) ?? states.set(key, {}).get(key)!;

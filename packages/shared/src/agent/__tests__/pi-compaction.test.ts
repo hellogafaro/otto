@@ -5,7 +5,7 @@ import { AbortReason } from '../backend/types.ts';
 const agents: PiAgent[] = [];
 function makeAgent(): any {
   const agent = new PiAgent({
-    provider: 'pi', isHeadless: true,
+    isHeadless: true,
     workspace: { id: 'pi-compact-test', name: 'Test', rootPath: '/tmp/pi-compact-test' } as any,
   });
   agents.push(agent);

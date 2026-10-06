@@ -5,7 +5,8 @@ import { routes } from '../../../../shared/routes'
 import { generatedAvatar } from '../../../components/people/agent-avatar'
 import { agentSubtitle, allowedCount, modelChoices, providerChoices, providerOf, toDraft, toggleAllowed, toPatch } from '../agent-fields'
 
-const agent: Agent = {
+// `as Agent`: the backend is dropping `description`; the fixture names only the columns the UI uses
+const agent = {
   id: 'a1b2c3d4e5f6',
   title: 'Researcher',
   instructions: 'Cite sources.',
@@ -19,7 +20,7 @@ const agent: Agent = {
   createdAt: 1,
   updatedAt: 2,
   isDefault: true,
-}
+} as Agent
 
 const connections = [
   { slug: 'a', name: 'Claude', providerType: 'anthropic', authType: 'api_key', models: [{ id: 'claude-opus-4-6', name: 'Opus 4.6' }, 'claude-haiku'] },

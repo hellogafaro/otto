@@ -82,7 +82,6 @@ function injectSession(
     })
     managed.backendRestartSignature = buildRestartRequiredSignature({
       connection: ctx.connection,
-      provider: ctx.provider,
       authType: ctx.authType,
       resolvedModel: ctx.resolvedModel,
     })

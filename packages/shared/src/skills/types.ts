@@ -28,13 +28,6 @@ export interface SkillMetadata {
   requiredSources?: string[];
 }
 
-/**
- * Plugin name the SDK gives the global and project skill folders (`~/.agents`, `{project}/.agents`).
- * Those scopes no longer exist; the name stays only until the agent code that still resolves it (pre-tool-use,
- * the renderer's mention qualification) is rewritten with the harness work.
- */
-export const AGENTS_PLUGIN_NAME = '.agents';
-
 /** A workspace skill's row (the table's index of its bundle); see ./store.ts. */
 export interface Skill {
   id: string;

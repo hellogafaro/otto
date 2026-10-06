@@ -595,9 +595,6 @@ async function setupLlmConnection(
       api: provider === 'anthropic' ? 'anthropic-messages' : 'openai-completions',
     }
     setupPayload.defaultModel = provider === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-4o'
-  } else if (provider === 'anthropic') {
-    providerType = 'anthropic'
-    authType = 'api_key'
   } else if (provider === 'amazon-bedrock') {
     // Bedrock uses IAM credentials, not a single API key
     const accessKeyId = process.env.AWS_ACCESS_KEY_ID
@@ -617,6 +614,7 @@ async function setupLlmConnection(
     setupPayload.awsRegion = region
     delete setupPayload.credential // IAM credentials go through iamCredentials field
   } else {
+    // A Pi provider by its id ('anthropic', 'openai', 'openrouter', ...)
     providerType = 'pi'
     authType = 'api_key'
     setupPayload.piAuthProvider = provider
@@ -1161,18 +1159,15 @@ export function getValidateSteps(): ValidateStep[] {
           return `0 connections (${error instanceof Error ? error.message : 'missing API key'})`
         }
         const slug = `${provider}-cli`
-        const providerType = provider === 'anthropic' ? 'anthropic' : 'pi'
-        const authType = 'api_key'
         await client.invoke('LLM_Connection:save', {
           slug,
           name: getProviderDisplayName(provider),
-          providerType,
-          authType,
+          providerType: 'pi',
+          authType: 'api_key',
           createdAt: Date.now(),
         })
-        const setupPayload = provider === 'anthropic'
-          ? { slug, credential: key }
-          : { slug, credential: key, piAuthProvider: provider }
+        // Every provider is a Pi provider by its id ('anthropic', 'openai', ...)
+        const setupPayload = { slug, credential: key, piAuthProvider: provider }
         const result = await client.invoke('settings:setupLlmConnection', setupPayload) as { success: boolean; error?: string }
         if (!result?.success) return `setup failed: ${result?.error ?? 'unknown'}`
         await client.invoke('LLM_Connection:setDefault', slug)

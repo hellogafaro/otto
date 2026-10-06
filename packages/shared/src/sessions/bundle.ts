@@ -39,20 +39,6 @@ const SKIP_SESSION_FILES = new Set(['session.jsonl', 'session.jsonl.tmp'])
 export type DispatchMode = 'move' | 'fork'
 
 /**
- * Branch info for fork operations.
- * Enables SDK-level conversation branching on the target server,
- * so the forked session has full context from the original.
- */
-export interface BundleBranchInfo {
-  /** SDK session ID to branch from */
-  sdkSessionId: string
-  /** SDK turn ID (branch point) */
-  sdkTurnId: string
-  /** Working directory for SDK session storage */
-  sdkCwd: string
-}
-
-/**
  * Serialized representation of a session directory.
  * JSON envelope format — sessions are typically small (text + a few attachments).
  */
@@ -68,8 +54,6 @@ export interface SessionBundle {
   }
   /** All files from the session directory (attachments, plans, data, downloads, etc.) */
   files: BundleFile[]
-  /** Branch info for fork operations (populated by the exporter when forking) */
-  branchInfo?: BundleBranchInfo
 }
 
 /**

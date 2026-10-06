@@ -1,7 +1,44 @@
-import type { ProviderDriver, DriverTestConnectionArgs } from '../driver-types.ts';
-import type { ModelDefinition } from '../../../../config/models.ts';
-import { getAllPiModels, getPiModelsForAuthProvider } from '../../../../config/models-pi.ts';
-import { getPiProviderBaseUrl } from '../../../../config/models-pi.ts';
+/** What a Pi connection needs around its agent: the runtime payload, model discovery and a pre-save key test. */
+import type { BackendConfig } from '../types.ts';
+import type { ResolvedBackendRuntimePaths } from './runtime-resolver.ts';
+import type { LlmConnection } from '../../../config/storage.ts';
+import type { ModelFetchResult } from '../../../config/model-fetcher.ts';
+import type { ModelDefinition } from '../../../config/models.ts';
+import { getAllPiModels, getPiModelsForAuthProvider, getPiProviderBaseUrl } from '../../../config/models-pi.ts';
+
+export interface BackendRuntimePaths {
+  interceptor?: string;
+  node?: string;
+  piServer?: string;
+}
+
+/** What a `PiAgent` gets from its connection and host (built by `buildPiRuntime`). */
+export interface BackendRuntimePayload extends Record<string, unknown> {
+  paths?: BackendRuntimePaths;
+  piAuthProvider?: string;
+  /** Custom base URL from the LLM connection (e.g. Azure OpenAI endpoint). */
+  baseUrl?: string;
+  /** Custom endpoint protocol config (api type for routing). */
+  customEndpoint?: { api: string; supportsImages?: boolean };
+  /** Models registered for a custom endpoint. Strings default to 128K context; objects allow overrides. */
+  customModels?: Array<string | { id: string; contextWindow?: number; supportsImages?: boolean }>;
+}
+
+export interface BackendModelFetchCredentials {
+  apiKey?: string;
+  oauthAccessToken?: string;
+  oauthRefreshToken?: string;
+  oauthIdToken?: string;
+}
+
+export interface StoredConnectionValidationResult {
+  success: boolean;
+  error?: string;
+}
+
+export function getBackendRuntime(config: BackendConfig): BackendRuntimePayload {
+  return (config.runtime ?? {}) as BackendRuntimePayload;
+}
 
 // ── Copilot model types ────────────────────────────────────────────────
 type RawCopilotModel = {
@@ -35,7 +72,7 @@ async function listModelsViaHttp(
   githubToken: string,
   timeoutMs: number,
 ): Promise<RawCopilotModel[]> {
-  const { refreshGitHubCopilotToken, getBaseUrlFromToken } = await import('../../../../auth/github-copilot.ts');
+  const { refreshGitHubCopilotToken, getBaseUrlFromToken } = await import('../../../auth/github-copilot.ts');
 
   // Step 1: Exchange GitHub OAuth token → Copilot API token
   const creds = await refreshGitHubCopilotToken(githubToken, { timeoutMs });
@@ -216,18 +253,18 @@ async function testAnthropicCompatible(
   }
 }
 
-export const piDriver: ProviderDriver = {
-  provider: 'pi',
-  buildRuntime: ({ context, providerOptions, resolvedPaths }) => ({
+/** The runtime a `PiAgent` needs: where pi-agent-server, the interceptor and the runtime are, and the connection's Pi provider and endpoint. */
+export function buildPiRuntime(connection: LlmConnection | null, paths: ResolvedBackendRuntimePaths): BackendRuntimePayload {
+  return {
     paths: {
-      piServer: resolvedPaths.piServerPath,
-      interceptor: resolvedPaths.interceptorBundlePath,
-      node: resolvedPaths.nodeRuntimePath,
+      piServer: paths.piServerPath,
+      interceptor: paths.interceptorBundlePath,
+      node: paths.nodeRuntimePath,
     },
-    piAuthProvider: providerOptions?.piAuthProvider || context.connection?.piAuthProvider,
-    baseUrl: context.connection?.baseUrl,
-    customEndpoint: context.connection?.customEndpoint,
-    customModels: context.connection?.models?.map(m => {
+    piAuthProvider: connection?.piAuthProvider,
+    baseUrl: connection?.baseUrl,
+    customEndpoint: connection?.customEndpoint,
+    customModels: connection?.models?.map(m => {
       if (typeof m === 'string') return m;
       const supportsImages = typeof m.supportsImages === 'boolean'
         ? m.supportsImages
@@ -241,70 +278,82 @@ export const piDriver: ProviderDriver = {
       }
       return m.id;
     }),
-  }),
-  fetchModels: async ({ connection, credentials, timeoutMs }) => {
-    // Copilot OAuth: fetch models directly from the Copilot API via HTTP.
-    // Uses the GitHub OAuth token (our refreshToken) to exchange for a
-    // Copilot API token, then queries GET /models for the live model list.
-    const copilotGitHubToken = credentials.oauthRefreshToken || credentials.oauthAccessToken;
-    if (connection.piAuthProvider === 'github-copilot' && copilotGitHubToken) {
-      const models = await fetchCopilotModels(copilotGitHubToken, timeoutMs);
-      return { models };
-    }
+  };
+}
 
-    // All other Pi providers: use static Pi SDK model registry
-    const models = connection.piAuthProvider
-      ? getPiModelsForAuthProvider(connection.piAuthProvider)
-      : getAllPiModels();
-
-    if (models.length === 0) {
-      throw new Error(
-        `No Pi models found for provider: ${connection.piAuthProvider ?? 'all'}`,
-      );
-    }
-
+/** A connection's models: Copilot's live list (with its OAuth token), else Pi's catalog for the connection's provider. */
+export async function fetchPiModels(connection: LlmConnection, credentials: BackendModelFetchCredentials, timeoutMs: number): Promise<ModelFetchResult> {
+  // Copilot OAuth: fetch models directly from the Copilot API via HTTP.
+  // Uses the GitHub OAuth token (our refreshToken) to exchange for a
+  // Copilot API token, then queries GET /models for the live model list.
+  const copilotGitHubToken = credentials.oauthRefreshToken || credentials.oauthAccessToken;
+  if (connection.piAuthProvider === 'github-copilot' && copilotGitHubToken) {
+    const models = await fetchCopilotModels(copilotGitHubToken, timeoutMs);
     return { models };
-  },
-  testConnection: async (args: DriverTestConnectionArgs): Promise<{ success: boolean; error?: string } | null> => {
-    const piAuthProvider = args.connection?.piAuthProvider;
-    if (!piAuthProvider) {
-      // No provider hint — fall back to generic subprocess path
-      return null;
-    }
+  }
 
-    // Resolve the model's API type from the Pi SDK registry.
-    // For anthropic-messages providers, do a lightweight direct HTTP test
-    // instead of spawning a full Pi subprocess (which can exceed the timeout).
-    let modelApi: string | undefined;
-    let modelBaseUrl: string | undefined;
-    try {
-      const { getModels } = await import('@earendil-works/pi-ai/compat');
-      const models = getModels(piAuthProvider as Parameters<typeof getModels>[0]);
-      const requestedId = args.model.startsWith('pi/') ? args.model.slice(3) : args.model;
-      const match = models.find(m => m.id === requestedId) || models[0];
-      if (match) {
-        modelApi = (match as { api?: string }).api;
-        modelBaseUrl = (match as { baseUrl?: string }).baseUrl;
-      }
-    } catch { /* ignore — fall through to subprocess */ }
+  // All other Pi providers: use static Pi SDK model registry
+  const models = connection.piAuthProvider
+    ? getPiModelsForAuthProvider(connection.piAuthProvider)
+    : getAllPiModels();
 
-    if (modelApi !== 'anthropic-messages') {
-      // Non-Anthropic API types need the full Pi SDK — let factory.ts handle it
-      return null;
-    }
+  if (models.length === 0) {
+    throw new Error(
+      `No Pi models found for provider: ${connection.piAuthProvider ?? 'all'}`,
+    );
+  }
 
-    const baseUrl = args.baseUrl?.trim() || modelBaseUrl || getPiProviderBaseUrl(piAuthProvider);
-    if (!baseUrl) {
-      return { success: false, error: 'Could not determine API endpoint for provider' };
-    }
+  return { models };
+}
 
-    // Strip Pi SDK's 'pi/' prefix — Anthropic-compatible endpoints only accept bare model IDs
-    let bareModel = args.model.startsWith('pi/') ? args.model.slice(3) : args.model;
-    // MiniMax CN API doesn't accept the 'MiniMax-' prefix on model names
-    if (piAuthProvider === 'minimax-cn' && bareModel.startsWith('MiniMax-')) {
-      bareModel = bareModel.slice('MiniMax-'.length);
+/**
+ * A direct test request for a provider whose models speak the Anthropic messages API (faster than a Pi
+ * subprocess); null when there is none and the caller tests through Pi.
+ */
+export async function testPiConnection(args: {
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+  piAuthProvider?: string;
+  timeoutMs: number;
+}): Promise<{ success: boolean; error?: string } | null> {
+  const piAuthProvider = args.piAuthProvider;
+  if (!piAuthProvider) {
+    // No provider hint — fall back to generic subprocess path
+    return null;
+  }
+
+  // Resolve the model's API type from the Pi SDK registry.
+  // For anthropic-messages providers, do a lightweight direct HTTP test
+  // instead of spawning a full Pi subprocess (which can exceed the timeout).
+  let modelApi: string | undefined;
+  let modelBaseUrl: string | undefined;
+  try {
+    const { getModels } = await import('@earendil-works/pi-ai/compat');
+    const models = getModels(piAuthProvider as Parameters<typeof getModels>[0]);
+    const requestedId = args.model.startsWith('pi/') ? args.model.slice(3) : args.model;
+    const match = models.find(m => m.id === requestedId) || models[0];
+    if (match) {
+      modelApi = (match as { api?: string }).api;
+      modelBaseUrl = (match as { baseUrl?: string }).baseUrl;
     }
-    return testAnthropicCompatible(args.apiKey, baseUrl, bareModel, args.timeoutMs);
-  },
-  validateStoredConnection: async () => ({ success: true }),
-};
+  } catch { /* ignore — fall through to subprocess */ }
+
+  if (modelApi !== 'anthropic-messages') {
+    // Non-Anthropic API types need the full Pi SDK
+    return null;
+  }
+
+  const baseUrl = args.baseUrl?.trim() || modelBaseUrl || getPiProviderBaseUrl(piAuthProvider);
+  if (!baseUrl) {
+    return { success: false, error: 'Could not determine API endpoint for provider' };
+  }
+
+  // Strip Pi SDK's 'pi/' prefix — Anthropic-compatible endpoints only accept bare model IDs
+  let bareModel = args.model.startsWith('pi/') ? args.model.slice(3) : args.model;
+  // MiniMax CN API doesn't accept the 'MiniMax-' prefix on model names
+  if (piAuthProvider === 'minimax-cn' && bareModel.startsWith('MiniMax-')) {
+    bareModel = bareModel.slice('MiniMax-'.length);
+  }
+  return testAnthropicCompatible(args.apiKey, baseUrl, bareModel, args.timeoutMs);
+}

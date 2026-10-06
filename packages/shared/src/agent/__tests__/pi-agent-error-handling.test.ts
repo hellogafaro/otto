@@ -5,7 +5,6 @@ import { AbortReason } from '../core/session-lifecycle.ts'
 
 function createConfig(): BackendConfig {
   return {
-    provider: 'pi',
     workspace: {
       id: 'ws-test',
       name: 'Test Workspace',

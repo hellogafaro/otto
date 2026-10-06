@@ -4,7 +4,7 @@ import { getTableConfig, type SQLiteTable } from 'drizzle-orm/sqlite-core'
 import { getTableName, is, Table } from 'drizzle-orm'
 import { join } from 'node:path'
 
-/** The naming rule of docs/schema.md: tables plural snake_case (`library` is the one singular), every column snake_case. */
+/** The naming rule of docs/schema.md: tables plural snake_case (`library` and `routines_history` are the owner-approved exceptions), every column snake_case. */
 test('every table is plural snake_case and every column snake_case', async () => {
   const root = join(import.meta.dir, '..')
   const bad: string[] = []
@@ -14,7 +14,7 @@ test('every table is plural snake_case and every column snake_case', async () =>
       if (!is(value, Table)) continue
       tables++
       const name = getTableName(value)
-      if (!/^[a-z][a-z0-9_]*$/.test(name) || (!name.endsWith('s') && name !== 'library')) bad.push(`${file}: table ${name}`)
+      if (!/^[a-z][a-z0-9_]*$/.test(name) || (!name.endsWith('s') && name !== 'library' && name !== 'routines_history')) bad.push(`${file}: table ${name}`)
       for (const column of getTableConfig(value as SQLiteTable).columns) {
         if (!/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/.test(column.name)) bad.push(`${file}: ${name}.${column.name}`)
       }

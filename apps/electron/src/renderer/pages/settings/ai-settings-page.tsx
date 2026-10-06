@@ -193,11 +193,9 @@ interface ConnectionRowProps {
   onSetMidStreamBehavior: (behavior: MidStreamBehavior) => void
   validationState: ValidationState
   validationError?: string
-  /** True when another OAuth connection resolves to the same Anthropic account (issue #838) */
-  isDuplicateAccount?: boolean
 }
 
-function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, onSetDefault, onValidate, onReauthenticate, onEdit, onSetMidStreamBehavior, validationState, validationError, isDuplicateAccount }: ConnectionRowProps) {
+function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, onSetDefault, onValidate, onReauthenticate, onEdit, onSetMidStreamBehavior, validationState, validationError }: ConnectionRowProps) {
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [piBaseUrl, setPiBaseUrl] = useState<string | undefined>(undefined)
@@ -214,11 +212,10 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
 
   // Load Pi provider base URL via IPC (Pi SDK can't run in renderer)
   useEffect(() => {
-    const provider = connection.providerType || connection.type
-    if (provider === 'pi' && connection.piAuthProvider && !connection.baseUrl) {
+    if (connection.providerType === 'pi' && connection.piAuthProvider && !connection.baseUrl) {
       window.electronAPI.getPiProviderBaseUrl(connection.piAuthProvider).then(url => setPiBaseUrl(url))
     }
-  }, [connection.providerType, connection.type, connection.piAuthProvider, connection.baseUrl])
+  }, [connection.providerType, connection.piAuthProvider, connection.baseUrl])
 
   // Build description with provider, default indicator, auth status, and validation state
   const getDescription = () => {
@@ -229,12 +226,10 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
 
     const parts: string[] = []
 
-    // Provider type (fall back to legacy 'type' field if providerType missing)
-    // OAuth = subscription (Pro/Plus/Max), API key = API
-    const provider = connection.providerType || connection.type
-    const isSubscription = connection.authType === 'oauth'
+    // OAuth or a CLI sign-in = subscription (Pro/Plus/Max), API key = API
+    const provider = connection.providerType
+    const isSubscription = connection.authType === 'oauth' || connection.authType === 'cli_login'
     switch (provider) {
-      case 'anthropic': parts.push(isSubscription ? 'Anthropic Subscription' : 'Anthropic API'); break
       case 'pi': {
         // Show upstream provider name for API key connections (e.g. "Google AI Studio")
         const piLabel = !isSubscription && connection.piAuthProvider
@@ -255,11 +250,8 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
     if (connection.authType !== 'oauth') {
       let endpoint = connection.baseUrl
       // Use default endpoints for standard providers if no custom baseUrl
-      if (!endpoint) {
-        if (provider === 'anthropic') endpoint = 'https://api.anthropic.com'
-        else if (provider === 'pi' && connection.piAuthProvider) {
-          endpoint = piBaseUrl
-        }
+      if (!endpoint && provider === 'pi' && connection.piAuthProvider) {
+        endpoint = piBaseUrl
       }
       if (endpoint) {
         // Extract hostname from URL for cleaner display
@@ -278,13 +270,6 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
     return parts.join(' · ')
   }
 
-  // Resolved Anthropic identity (issue #838): render `email · org` independently of
-  // validation state. It cannot live in getDescription() — that short-circuits for
-  // validating/success/error and would hide the identity during those states.
-  const oauthIdentityLine = connection.authType === 'oauth' && connection.oauthAccountEmail
-    ? [connection.oauthAccountEmail, connection.oauthOrganizationName].filter(Boolean).join(' · ')
-    : null
-
   return (
     <SettingsRow
       icon={<ConnectionIcon connection={connection} />}
@@ -295,20 +280,7 @@ function ConnectionRow({ connection, isLastConnection, onRenameClick, onDelete, 
             {connection.isDefault && (
               <Badge variant="outline">{t("common.default")}</Badge>
             )}
-            {isDuplicateAccount && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center" aria-label={t("settings.ai.duplicateAccount")}>
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{t("settings.ai.duplicateAccount")}</TooltipContent>
-              </Tooltip>
-            )}
           </div>
-          {oauthIdentityLine && (
-            <span className="text-xs text-muted-foreground truncate">{oauthIdentityLine}</span>
-          )}
         </div>
       )}
       description={getDescription()}
@@ -542,9 +514,7 @@ function WorkspaceOverrideCard({ workspace, llmConnections, onSettingsChange }: 
                   ...llmConnections.map((conn) => ({
                     value: conn.slug,
                     label: conn.name,
-                    description: conn.providerType === 'anthropic' ? 'Anthropic' :
-                                 conn.providerType === 'pi' ? BACKEND_NAME :
-                                 conn.providerType || 'Unknown',
+                    description: conn.providerType === 'pi' ? BACKEND_NAME : conn.providerType || 'Unknown',
                   })),
                 ]}
               />
@@ -588,9 +558,11 @@ function WorkspaceOverrideCard({ workspace, llmConnections, onSettingsChange }: 
 
 /** Map a connection's provider type to the corresponding API key setup method. */
 function getApiKeyMethodForConnection(conn: LlmConnectionWithStatus): ApiSetupMethod {
-  const provider = conn.providerType || conn.type
-  if (provider === 'pi' || provider === 'pi_compat') return 'pi_api_key'
-  return 'anthropic_api_key'
+  // A Claude subscription has no key: editing it shows how its CLI sign-in works
+  if (conn.authType === 'cli_login') return 'claude_code'
+  // An Anthropic API key (or an Anthropic-compatible endpoint) keeps its own setup form
+  if (conn.piAuthProvider === 'anthropic' && (conn.authType === 'api_key' || conn.customEndpoint?.api === 'anthropic-messages')) return 'anthropic_api_key'
+  return 'pi_api_key'
 }
 
 // ============================================
@@ -782,9 +754,7 @@ export default function AiSettingsPage() {
     apiSetupOnboarding.reset()
 
     if (connection.authType === 'oauth') {
-      const method = connection.providerType === 'pi'
-                   ? (connection.piAuthProvider === 'github-copilot' ? 'pi_copilot_oauth' : 'pi_chatgpt_oauth')
-                   : 'claude_oauth'
+      const method = connection.piAuthProvider === 'github-copilot' ? 'pi_copilot_oauth' : 'pi_chatgpt_oauth'
       apiSetupOnboarding.handleStartOAuth(method, connection.slug)
     }
   }, [apiSetupOnboarding, openApiSetup])
@@ -917,17 +887,6 @@ export default function AiSettingsPage() {
   // Get the default connection for display
   const defaultConnection = useMemo(() => {
     return llmConnections.find(c => c.isDefault)
-  }, [llmConnections])
-
-  // Anthropic account UUIDs that resolve from 2+ connections (issue #838).
-  // Surfaces a warning when several Claude connections share one account/quota.
-  const duplicateAccountUuids = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const conn of llmConnections) {
-      const uuid = conn.oauthAccountUuid
-      if (uuid) counts.set(uuid, (counts.get(uuid) ?? 0) + 1)
-    }
-    return new Set([...counts].filter(([, n]) => n > 1).map(([uuid]) => uuid))
   }, [llmConnections])
 
   const defaultModel = defaultConnection?.defaultModel ?? ''
@@ -1182,8 +1141,7 @@ export default function AiSettingsPage() {
                     options={llmConnections.map((conn) => ({
                       value: conn.slug,
                       label: conn.name,
-                      description: conn.providerType === 'anthropic' ? 'Anthropic API' :
-                                   conn.providerType === 'pi' ? BACKEND_NAME :
+                      description: conn.providerType === 'pi' ? BACKEND_NAME :
                                    conn.providerType === 'pi_compat' ? (conn.baseUrl?.toLowerCase().includes('manifest.build') ? 'Manifest' : `${BACKEND_NAME} Compatible`) :
                                    conn.providerType || 'Unknown',
                     }))}
@@ -1256,7 +1214,6 @@ export default function AiSettingsPage() {
                         onSetMidStreamBehavior={(behavior) => handleSetMidStreamBehavior(conn, behavior)}
                         validationState={validationStates[conn.slug]?.state || 'idle'}
                         validationError={validationStates[conn.slug]?.error}
-                        isDuplicateAccount={!!conn.oauthAccountUuid && duplicateAccountUuids.has(conn.oauthAccountUuid)}
                       />
                     ))
                   )}
@@ -1461,9 +1418,6 @@ export default function AiSettingsPage() {
                   onSubmitLocalModel={apiSetupOnboarding.handleSubmitLocalModel}
                   onStartOAuth={apiSetupOnboarding.handleStartOAuth}
                   onFinish={handleApiSetupFinish}
-                  isWaitingForCode={apiSetupOnboarding.isWaitingForCode}
-                  onSubmitAuthCode={apiSetupOnboarding.handleSubmitAuthCode}
-                  onCancelOAuth={apiSetupOnboarding.handleCancelOAuth}
                   deviceCode={apiSetupOnboarding.deviceCode}
                   editInitialValues={editInitialValues}
                   className="h-full"

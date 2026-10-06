@@ -10,11 +10,14 @@ const workspace = {
 let idCounter = 0
 const storedById = new Map<string, any>()
 const deletedIds: string[] = []
-let mockedProvider: 'anthropic' | 'pi' = 'anthropic'
 
 // Partial-mock baseline: import real modules via file paths (avoids recursive mock imports)
 const actualSharedAgentModule = await import('../../../../../packages/shared/src/agent/index.ts')
 const actualSharedAgentBackendModule = await import('../../../../../packages/shared/src/agent/backend/index.ts')
+const actualSharedConfigModule = await import('../../../../../packages/shared/src/config/index.ts')
+const actualSharedWorkspacesModule = await import('../../../../../packages/shared/src/workspaces/index.ts')
+const actualSharedSessionsModule = await import('../../../../../packages/shared/src/sessions/index.ts')
+const actualSharedSourcesModule = await import('../../../../../packages/shared/src/sources/index.ts')
 
 mock.module('electron', () => ({
   app: {
@@ -57,6 +60,7 @@ mock.module('../logger', () => {
 })
 
 mock.module('@otto/shared/config', () => ({
+  ...actualSharedConfigModule,
   getWorkspaceByNameOrId: (id: string) => (id === workspace.id ? workspace : null),
   getWorkspaces: () => [workspace],
   loadConfigDefaults: () => ({
@@ -67,7 +71,6 @@ mock.module('@otto/shared/config', () => ({
   }),
   getLlmConnection: () => null,
   getDefaultLlmConnection: () => null,
-  resolveAuthEnvVars: () => ({}),
   getToolIconsDir: () => '/tmp/tool-icons',
   getMiniModel: () => 'claude-haiku-4-5-20251001',
   getDefaultThinkingLevel: () => 'medium',
@@ -101,10 +104,10 @@ mock.module('@otto/shared/config', () => ({
   deleteLlmConnection: async () => {},
   setDefaultLlmConnection: async () => {},
   isCompatProvider: () => false,
-  isAnthropicProvider: () => true,
 }))
 
 mock.module('@otto/shared/workspaces', () => ({
+  ...actualSharedWorkspacesModule,
   loadWorkspaceConfig: () => ({
     defaults: {
       permissionMode: 'ask',
@@ -137,17 +140,14 @@ mock.module('@otto/shared/agent/backend', () => ({
     throw new Error('not used in this test')
   },
   resolveBackendContext: () => ({
-    provider: mockedProvider,
-    resolvedModel: mockedProvider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'pi/gpt-5',
-    connection: { providerType: mockedProvider === 'anthropic' ? 'anthropic' : 'pi' },
+    resolvedModel: 'pi/gpt-5',
+    connection: { providerType: 'pi', piAuthProvider: 'openai' },
   }),
   createBackendFromResolvedContext: () => {
     throw new Error('not used in this test')
   },
   cleanupSourceRuntimeArtifacts: async () => {},
-  providerTypeToAgentProvider: () => 'anthropic',
   fetchBackendModels: async () => ({ models: [] }),
-  initializeBackendHostRuntime: () => {},
   resolveBackendHostTooling: () => ({
     sourceCredentialManager: null,
     sourceServerBuilder: null,
@@ -159,6 +159,7 @@ mock.module('@otto/shared/agent/backend', () => ({
 }))
 
 mock.module('@otto/shared/sources', () => ({
+  ...actualSharedSourcesModule,
   loadWorkspaceSources: () => [],
   loadAllSources: () => [],
   getSourcesBySlugs: () => [],
@@ -194,6 +195,7 @@ mock.module('@otto/shared/automations', () => ({
 }))
 
 mock.module('@otto/shared/sessions', () => ({
+  ...actualSharedSessionsModule,
   listSessions: () => [],
   loadSession: (_root: string, id: string) => storedById.get(id) ?? null,
   saveSession: async (session: any) => {
@@ -224,7 +226,6 @@ mock.module('@otto/shared/sessions', () => ({
     storedById.delete(id)
   },
   updateSessionMetadata: async () => {},
-  canUpdateSdkCwd: () => false,
   setPendingPlanExecution: async () => {},
   markCompactionComplete: async () => {},
   clearPendingPlanExecution: async () => {},
@@ -235,7 +236,7 @@ mock.module('@otto/shared/sessions', () => ({
   pickSessionFields: (s: any) => {
     // Must match SESSION_PERSISTENT_FIELDS to prevent contamination of persistence tests
     const fields = [
-      'id','workspaceRootPath','sdkSessionId','sdkCwd',
+      'id','workspaceRootPath','sdkSessionId',
       'createdAt','lastUsedAt','lastMessageAt',
       'name','isFlagged','sessionStatus','labels','hidden',
       'lastReadMessageId','hasUnread',
@@ -256,7 +257,6 @@ const { SessionManager } = await import('@otto/server-core/sessions')
 
 describe('session branch rollback on preflight failure', () => {
   beforeEach(() => {
-    mockedProvider = 'anthropic'
     idCounter = 0
     storedById.clear()
     deletedIds.length = 0
@@ -265,7 +265,7 @@ describe('session branch rollback on preflight failure', () => {
       id: 'source-1',
       workspaceRootPath,
       llmConnection: undefined,
-      model: 'claude-sonnet-4-20250514',
+      model: 'pi/gpt-5',
       sdkSessionId: 'sdk-parent',
       messages: [
         { id: 'm1', type: 'user', content: 'hello', timestamp: Date.now() - 10 },
@@ -280,11 +280,9 @@ describe('session branch rollback on preflight failure', () => {
     const manager = new SessionManager()
 
     let destroyCalled = false
-    let poolStopCalled = false
 
     ;(manager as any).ensureMessagesLoaded = async (_managed: any) => {}
     ;(manager as any).getOrCreateAgent = async (managed: any) => {
-      managed.poolServer = { stop: () => { poolStopCalled = true } }
       managed.agent = {
         supportsBranching: true,
         ensureBranchReady: async () => {
@@ -308,10 +306,9 @@ describe('session branch rollback on preflight failure', () => {
     expect(storedById.has('child-1')).toBe(false)
     expect((manager as any).sessions.has('child-1')).toBe(false)
     expect(destroyCalled).toBe(true)
-    expect(poolStopCalled).toBe(true)
   })
 
-  it('fails branch creation when parent claude sdk session id is missing', async () => {
+  it('fails branch creation when the parent has no Pi session yet', async () => {
     const source = storedById.get('source-1')
     source.sdkSessionId = undefined
     storedById.set('source-1', source)
@@ -330,15 +327,12 @@ describe('session branch rollback on preflight failure', () => {
   })
 
   it('runs backend preflight for pi branches and rolls back on failure', async () => {
-    mockedProvider = 'pi'
-
     const manager = new SessionManager()
     let getOrCreateAgentCalled = false
 
     ;(manager as any).ensureMessagesLoaded = async (_managed: any) => {}
     ;(manager as any).getOrCreateAgent = async (managed: any) => {
       getOrCreateAgentCalled = true
-      managed.poolServer = { stop: () => {} }
       managed.agent = {
         supportsBranching: true,
         ensureBranchReady: async () => {

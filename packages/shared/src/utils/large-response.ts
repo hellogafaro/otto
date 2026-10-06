@@ -571,7 +571,7 @@ export interface HandleLargeResponseResult {
  *
  * Pipeline: binary check → (if text) size check → save + summarize.
  *
- * Shared by McpClientPool.callTool(), api-tools.ts, and claude-agent.ts.
+ * Shared by McpClientPool.callTool() and api-tools.ts.
  */
 export async function guardLargeResult(
   input: string | Buffer,

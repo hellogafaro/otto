@@ -12,7 +12,7 @@
 
 import type { ModelFetcherMap, ModelFetcherCredentials, FetchableProvider } from '@otto/shared/config'
 import type { ModelDefinition } from '@otto/shared/config'
-import { INSTALL_SCOPE, getAllConnections } from '@otto/shared/connections'
+import { CUSTOM_CONNECTION_TYPE, INSTALL_SCOPE, getAllConnections } from '@otto/shared/connections'
 import {
   contextOfScope,
   getLlmConnection,
@@ -161,14 +161,10 @@ class ModelRefreshService {
    * Call on app startup after IPC handlers are registered.
    */
   startAll(): void {
-    const connections = getAllConnections().map((c) => ({ slug: c.slug, scope: c.scope, providerType: c.type, piAuthProvider: c.config.piAuthProvider }))
-
-    for (const conn of connections) {
-      if (isCompatProvider(conn.providerType)) continue
-
-      const providerType = conn.providerType as FetchableProvider
-      const fetcher = this.fetchers[providerType]
-      if (!fetcher) continue
+    for (const conn of getAllConnections()) {
+      // a custom endpoint's models are the ones the user listed
+      if (conn.type === CUSTOM_CONNECTION_TYPE) continue
+      const fetcher = this.fetchers.pi
 
       // Immediate non-blocking fetch
       this.refreshConnection(conn.slug, conn.scope).catch(err => {
@@ -178,7 +174,7 @@ class ModelRefreshService {
       // Set up periodic refresh: Copilot connections get their own interval
       // (models are server-managed by GitHub policy), other providers use
       // the fetcher's generic interval (0 = no periodic refresh for static SDK models).
-      const isCopilot = conn.providerType === 'pi' && conn.piAuthProvider === 'github-copilot'
+      const isCopilot = conn.type === 'github-copilot'
       if (isCopilot) {
         this.startTimer(conn.slug, conn.scope, COPILOT_REFRESH_INTERVAL_MS)
       } else if (fetcher.refreshIntervalMs > 0) {

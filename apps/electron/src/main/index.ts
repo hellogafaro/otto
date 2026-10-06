@@ -93,7 +93,6 @@ import { initializeDocs } from '@otto/shared/docs'
 import { ensureDefaultPermissions } from '@otto/shared/agent/permissions-config'
 import { ensureToolIcons, ensurePresetThemes } from '@otto/shared/config'
 import { setBundledAssetsRoot } from '@otto/shared/utils'
-import { initializeBackendHostRuntime } from '@otto/shared/agent/backend'
 import { setPowerShellValidatorRoot } from '@otto/shared/agent'
 import { handleDeepLink } from './deep-link'
 import { BrowserPaneManager } from './browser-pane-manager'
@@ -372,15 +371,6 @@ app.whenReady().then(async () => {
   // (docs, permissions, themes, tool-icons resolve via getBundledAssetsDir)
   setBundledAssetsRoot(__dirname)
 
-  // Initialize backend runtime bootstrapping (Codex vendor root, Claude SDK runtime paths).
-  initializeBackendHostRuntime({
-    hostRuntime: {
-      appRootPath: app.isPackaged ? app.getAppPath() : process.cwd(),
-      resourcesPath: process.resourcesPath,
-      isPackaged: app.isPackaged,
-    },
-  })
-
   // Register PowerShell validator root so it can find the bundled parser script
   // (Windows only: validates PowerShell commands in Explore mode using AST analysis)
   setPowerShellValidatorRoot(join(__dirname, 'resources'))
@@ -558,6 +548,8 @@ app.whenReady().then(async () => {
       await initSkills()
       const { initSources } = await import('@otto/shared/sources')
       await initSources()
+      const { initRoutinesImport } = await import('@otto/shared/automations/routines-import')
+      initRoutinesImport()
       const persistedUiLanguage = getPersistedUiLanguage()
       if (persistedUiLanguage) await i18n.changeLanguage(persistedUiLanguage)
       mainLog.info('[i18n] startup hydration', { persistedUiLanguage: persistedUiLanguage ?? null, resolvedLanguageAfterHydration: i18n.resolvedLanguage ?? null })

@@ -3,14 +3,10 @@
  *
  * Handles workspace setup and configuration persistence.
  */
-import { getAuthState, getSetupNeeds } from '@otto/shared/auth'
-import { getCredentialManager } from '@otto/shared/credentials'
+import { getAuthState, getSetupNeeds, prepareMcpOAuth } from '@otto/shared/auth'
 import { isSetupDeferred, setSetupDeferred } from '@otto/shared/config'
-import { prepareClaudeOAuth, exchangeClaudeCode, hasValidOAuthState, clearOAuthState, prepareMcpOAuth } from '@otto/shared/auth'
 import { validateMcpConnection } from '@otto/shared/mcp'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { getConnection } from '@otto/shared/connections'
-import { maskApiKey } from '../../domain/connection-setup-logic'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 
@@ -22,10 +18,6 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.onboarding.GET_AUTH_STATE,
   RPC_CHANNELS.onboarding.VALIDATE_MCP,
   RPC_CHANNELS.onboarding.START_MCP_OAUTH,
-  RPC_CHANNELS.onboarding.START_CLAUDE_OAUTH,
-  RPC_CHANNELS.onboarding.EXCHANGE_CLAUDE_CODE,
-  RPC_CHANNELS.onboarding.HAS_CLAUDE_OAUTH_STATE,
-  RPC_CHANNELS.onboarding.CLEAR_CLAUDE_OAUTH_STATE,
   RPC_CHANNELS.onboarding.DEFER_SETUP,
 ] as const
 
@@ -45,7 +37,6 @@ export function registerOnboardingHandlers(server: RpcServer, deps: HandlerDeps)
         billing: {
           ...authState.billing,
           apiKey: authState.billing.apiKey ? '••••' : null,
-          claudeOAuthToken: authState.billing.claudeOAuthToken ? '••••' : null,
         },
       },
       setupNeeds,
@@ -93,73 +84,6 @@ export function registerOnboardingHandlers(server: RpcServer, deps: HandlerDeps)
       log.error('[Onboarding:Main] MCP OAuth prepare failed:', message)
       return { success: false, error: message }
     }
-  })
-
-  // Prepare Claude OAuth flow (server-side only — no browser open).
-  // Returns authUrl for the client to open locally via shell.openExternal.
-  server.handle(RPC_CHANNELS.onboarding.START_CLAUDE_OAUTH, async () => {
-    try {
-      log.info('[Onboarding] Preparing Claude OAuth flow...')
-
-      const authUrl = prepareClaudeOAuth()
-
-      log.info('[Onboarding] Claude OAuth URL generated (client will open browser)')
-      return { success: true, authUrl }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      log.error('[Onboarding] Prepare Claude OAuth error:', message)
-      return { success: false, error: message }
-    }
-  })
-
-  // Exchange authorization code for tokens
-  server.handle(RPC_CHANNELS.onboarding.EXCHANGE_CLAUDE_CODE, async (ctx, authorizationCode: string, connectionSlug: string) => {
-    try {
-      log.info(`[Onboarding] Exchanging Claude authorization code for connection: ${connectionSlug}`)
-
-      if (!hasValidOAuthState()) {
-        log.error('[Onboarding] No valid OAuth state found')
-        return { success: false, error: 'OAuth session expired. Please start again.' }
-      }
-
-      const tokens = await exchangeClaudeCode(authorizationCode, (status) => {
-        log.info('[Onboarding] Claude code exchange status:', status)
-      })
-
-      // The connection's secret, refresh token included (held in memory until the setup creates the
-      // connection, when it is new). The renderer never receives the token itself.
-      await getCredentialManager().setLlmOAuth(connectionSlug, {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresAt: tokens.expiresAt,
-      }, getConnection(connectionSlug, { userId: ctx.userId, workspaceId: ctx.workspaceId })?.scope)
-
-      const expiresAtDate = tokens.expiresAt ? new Date(tokens.expiresAt).toISOString() : 'never'
-      log.info(`[Onboarding] Claude OAuth saved to LLM connection (expires: ${expiresAtDate})`)
-      // Forward resolved identity (issue #838) so the renderer can thread it into
-      // the SETUP payload, which is where it actually gets persisted. Credentials
-      // are stored above via setLlmOAuth; identity is not a credential.
-      const identity = (tokens.account || tokens.organization)
-        ? { account: tokens.account, organization: tokens.organization }
-        : undefined
-      // A masked placeholder: the setup that follows treats it as "keep the stored token"
-      return { success: true, token: maskApiKey(tokens.accessToken), identity }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      log.error('[Onboarding] Exchange Claude code error:', message)
-      return { success: false, error: message }
-    }
-  })
-
-  // Check if there's a valid OAuth state in progress
-  server.handle(RPC_CHANNELS.onboarding.HAS_CLAUDE_OAUTH_STATE, async () => {
-    return hasValidOAuthState()
-  })
-
-  // Clear OAuth state (for cancel/reset)
-  server.handle(RPC_CHANNELS.onboarding.CLEAR_CLAUDE_OAUTH_STATE, async () => {
-    clearOAuthState()
-    return { success: true }
   })
 
   // User chose "Setup later" — persist so onboarding doesn't re-show on next launch

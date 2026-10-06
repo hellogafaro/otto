@@ -41,12 +41,12 @@ export function groupConnectionsByProvider<T extends LlmConnection>(
     [BACKEND_NAME]: [],
   }
   for (const conn of connections) {
-    const provider = conn.providerType || 'anthropic'
-    if (provider === 'anthropic') {
+    // Claude: an Anthropic API key or a Claude subscription (Pi's anthropic and claude-code providers)
+    if (conn.providerType === 'pi' && (conn.piAuthProvider === 'anthropic' || conn.piAuthProvider === 'claude-code')) {
       groups['Anthropic'].push(conn)
-    } else if (provider === 'pi_compat' && isLocalConnection(conn)) {
+    } else if (conn.providerType === 'pi_compat' && isLocalConnection(conn)) {
       groups['Local'].push(conn)
-    } else if (provider === 'pi' || provider === 'pi_compat') {
+    } else {
       groups[BACKEND_NAME].push(conn)
     }
   }

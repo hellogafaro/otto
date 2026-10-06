@@ -63,12 +63,6 @@ describe('BaseAgent', () => {
       expect(notifiedMode).toBe('allow-all');
     });
 
-    it('should cycle permission modes', () => {
-      const initialMode = agent.getPermissionMode();
-      const newMode = agent.cyclePermissionMode();
-      expect(newMode).not.toBe(initialMode);
-    });
-
     it('should report safe mode correctly', () => {
       agent.setPermissionMode('safe');
       expect(agent.isInSafeMode()).toBe(true);
@@ -84,30 +78,15 @@ describe('BaseAgent', () => {
       expect(workspace.id).toBe('test-workspace-id');
     });
 
-    it('should allow setting workspace', () => {
-      agent.setWorkspace({
-        id: 'new-workspace',
-        name: 'New Workspace',
-        slug: 'path',
-        rootPath: '/new/path',
-        createdAt: Date.now(),
-      });
-      expect(agent.getWorkspace().id).toBe('new-workspace');
-    });
-
     it('should have session ID', () => {
       expect(agent.getSessionId()).toBeTruthy();
     });
 
-    it('should allow setting session ID', () => {
-      agent.setSessionId('new-session-id');
-      expect(agent.getSessionId()).toBe('new-session-id');
-    });
   });
 
   describe('Source Management', () => {
     it('should start with no active sources', () => {
-      expect(agent.getActiveSourceSlugs()).toEqual([]);
+      expect(agent.getActiveSourceServerNames().size).toBe(0);
     });
 
     it('should track source servers', async () => {
@@ -117,8 +96,8 @@ describe('BaseAgent', () => {
         ['source-1', 'source-2']
       );
 
-      expect(agent.getActiveSourceSlugs()).toContain('source-1');
-      expect(agent.getActiveSourceSlugs()).toContain('source-2');
+      expect(agent.getActiveSourceServerNames().has('source-1')).toBe(true);
+      expect(agent.getActiveSourceServerNames().has('source-2')).toBe(true);
     });
 
     it('should check if source is active', async () => {
@@ -154,11 +133,6 @@ describe('BaseAgent', () => {
   });
 
   describe('Manager Accessors', () => {
-    it('should provide access to SourceManager', () => {
-      const manager = agent.getSourceManager();
-      expect(manager).toBeTruthy();
-    });
-
     it('should provide access to PermissionManager', () => {
       const manager = agent.getPermissionManager();
       expect(manager).toBeTruthy();

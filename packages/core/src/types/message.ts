@@ -476,8 +476,6 @@ export type ErrorCode =
   | 'image_too_large'        // Image exceeds API dimension/size limits
   | 'provider_error'         // AI provider experiencing issues (overloaded, unavailable)
   | 'queued_message_replay_failed'  // A message queued during an active turn could not be auto-replayed (#616)
-  | 'sdk_binary_missing'     // SDK subprocess binary not present on disk (incomplete bundle)
-  | 'sdk_cwd_missing'        // SDK subprocess cwd not present on disk (stale cross-machine import)
   | 'unknown_error';
 
 /**
@@ -601,8 +599,7 @@ export type AgentEvent =
   | { type: 'source_activated'; sourceSlug: string; originalMessage: string }
   | { type: 'usage_update'; usage: Pick<AgentEventUsage, 'inputTokens' | 'contextWindow'> }
   | { type: 'context_usage'; contextUsage: ContextUsageSnapshot }
-  | { type: 'compaction_failed' }
-  | { type: 'steer_undelivered'; message: string; messageId?: string };
+  | { type: 'compaction_failed' };
 
 /**
  * Generate a unique message ID

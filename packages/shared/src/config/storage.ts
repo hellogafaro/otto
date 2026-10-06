@@ -52,7 +52,9 @@ import type { Workspace } from '@otto/core/types';
 // LLM connections live in the connections domain; this file keeps wrappers with the old names
 import type { LlmConnection } from './llm-connections.ts';
 import {
+  CUSTOM_CONNECTION_TYPE,
   INSTALL_SCOPE,
+  toPiProvider,
   createConnection,
   deleteConnection,
   getConnection,
@@ -269,10 +271,6 @@ export function loadStoredConfig(): StoredConfig | null {
     return null;
   }
 }
-
-// Legacy credential helpers removed - use connection-aware credential lookup instead:
-// - getAnthropicApiKey() → credentialManager.getLlmApiKey(connectionSlug)
-// - getClaudeOAuthToken() → credentialManager.getLlmOAuth(connectionSlug)
 
 /** A remote workspace's token is a secret: the registry keeps `tokenSecretId`, and a read puts the token back in memory. */
 function readRemoteToken(workspace: Workspace): void {
@@ -1309,50 +1307,42 @@ export type {
   LlmConnectionWithStatus,
 } from './llm-connections.ts';
 
+/**
+ * A row's Pi provider in the shape callers still use (until Settings › Models is rebuilt, B4): `custom` is
+ * `pi_compat` (with `piAuthProvider` the protocol's family when it has a key), every other type is `pi` + that
+ * provider id as `piAuthProvider`.
+ */
 function toLlmConnection(c: Connection): LlmConnection {
+  const custom = c.type === CUSTOM_CONNECTION_TYPE;
   return {
     slug: c.slug,
     scope: c.scope,
     name: c.title,
-    providerType: c.type,
+    providerType: custom ? 'pi_compat' : 'pi',
     authType: c.authType,
     baseUrl: c.baseUrl ?? undefined,
     models: c.models ?? undefined,
     defaultModel: c.defaultModel ?? undefined,
     modelSelectionMode: c.config.modelSelectionMode,
-    piAuthProvider: c.config.piAuthProvider,
+    piAuthProvider: !custom ? c.type : c.authType === 'none' ? undefined : c.config.customEndpoint?.api === 'anthropic-messages' ? 'anthropic' : 'openai',
     customEndpoint: c.config.customEndpoint,
     midStreamBehavior: c.config.midStreamBehavior,
-    oauthAccountUuid: c.account.oauthAccountUuid,
-    oauthAccountEmail: c.account.oauthAccountEmail,
-    oauthOrganizationUuid: c.account.oauthOrganizationUuid,
-    oauthOrganizationName: c.account.oauthOrganizationName,
-    oauthProfileVerifiedAt: c.account.verifiedAt,
     createdAt: c.createdAt.getTime(),
   };
 }
 
-/** The domain's fields of a connection: what a create writes and what an update replaces. */
+/** The domain's fields of a connection: what a create writes and what an update replaces (`type` = the Pi provider id). */
 function toPatch(c: LlmConnection): ConnectionPatch {
   return {
-    type: c.providerType,
-    authType: c.authType,
+    ...toPiProvider(c.providerType, c.authType, c.piAuthProvider),
     title: c.name,
     baseUrl: c.baseUrl ?? null,
     defaultModel: c.defaultModel ?? null,
     models: c.models ?? null,
     config: {
       modelSelectionMode: c.modelSelectionMode,
-      piAuthProvider: c.piAuthProvider,
       customEndpoint: c.customEndpoint,
       midStreamBehavior: c.midStreamBehavior,
-    },
-    account: {
-      oauthAccountUuid: c.oauthAccountUuid,
-      oauthAccountEmail: c.oauthAccountEmail,
-      oauthOrganizationUuid: c.oauthOrganizationUuid,
-      oauthOrganizationName: c.oauthOrganizationName,
-      verifiedAt: c.oauthProfileVerifiedAt,
     },
   };
 }

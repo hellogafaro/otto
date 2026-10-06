@@ -1,137 +1,50 @@
 /**
- * Routines as the pages see them, and the pure rules over them: one routine per matcher of `automations.json`
- * (the server's file today; `routines` + `routines_runs` later, behind the same RPCs), its runs newest first,
- * its kind (Scheduled, Event, Agent event: the groups of the index, in this order), its state (active,
- * disabled, failing: the last run that ran failed) and its trigger in words. `useRoutines` loads them.
+ * Routines as the pages see them, and the pure rules over them: the server's `routines` rows with their runs (newest
+ * first), their kind (Scheduled, Event, Agent event: the groups of the index, in this order), their state (active,
+ * paused, failing: the last run that ran failed) and their trigger in words. `useRoutines` loads them.
  */
 
 import type { TFunction } from 'i18next'
-import type { AutomationFilter, PermissionMode, TestAutomationAction } from '../../../shared/types'
+import type { AutomationFilter, Routine, RoutineAction } from '../../../shared/types'
 
+export type { Routine, RoutineAction }
 export type RoutineType = AutomationFilter['automationType']
-export type RoutineAction = TestAutomationAction
-export type RoutineState = 'active' | 'disabled' | 'failing'
-
-export interface RoutineRun {
-  ts: number
-  ok: boolean
-  /** The chat a prompt run created. */
-  sessionId?: string
-  error?: string
-  /** Why it did not run (its condition was not met). */
-  skipped?: string
-}
-
-export interface Routine {
-  /** The matcher's 6-hex id. */
-  id: string
-  /** The event it listens to (`SchedulerTick` for a schedule); with `matcherIndex`, what the write RPCs take. */
-  event: string
-  matcherIndex: number
-  name: string
-  type: RoutineType
-  cron?: string
-  timezone?: string
-  /** A regex on the event's data (events only). */
-  matcher?: string
-  labels: string[]
-  enabled: boolean
-  actions: RoutineAction[]
-  /** How its chats run, and the Telegram topic they post to: passed on by Run now. */
-  permissionMode?: PermissionMode
-  telegramTopic?: string
-  /** Newest first, at most the server's 20. */
-  runs: RoutineRun[]
-}
+export type RoutineState = 'active' | 'paused' | 'failing'
 
 /** The groups of the index, in order. */
 export const ROUTINE_TYPES: RoutineType[] = ['scheduled', 'event', 'agentic']
 
 /** The events Otto raises itself; every other one comes from the agent. */
-const APP_EVENTS = ['LabelAdd', 'LabelRemove', 'LabelConfigChange', 'PermissionModeChange', 'FlagChange', 'SessionStatusChange', 'SchedulerTick']
+const APP_EVENTS = ['LabelAdd', 'LabelRemove', 'LabelConfigChange', 'PermissionModeChange', 'FlagChange', 'SessionStatusChange']
 
 /** The events with a name in `routines.event_*`. */
 const NAMED_EVENTS = [
-  ...APP_EVENTS.filter((event) => event !== 'SchedulerTick'),
+  ...APP_EVENTS,
   'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'Notification', 'UserPromptSubmit', 'SessionStart', 'SessionEnd',
   'Stop', 'SubagentStart', 'SubagentStop', 'PreCompact', 'PermissionRequest', 'Setup',
 ]
 
-export function routineType(event: string): RoutineType {
-  return event === 'SchedulerTick' ? 'scheduled' : APP_EVENTS.includes(event) ? 'event' : 'agentic'
+/** Which group a routine is in: a schedule is Scheduled; an event of Otto's own is an Event; any other (and a webhook) an Agent event or Event. */
+export function routineType(routine: Routine): RoutineType {
+  const { type, event } = routine.config
+  if (type === 'schedule') return 'scheduled'
+  return type === 'event' && event && !APP_EVENTS.includes(event) ? 'agentic' : 'event'
 }
 
-type RawMatcher = {
-  id?: string
-  name?: string
-  cron?: string
-  timezone?: string
-  matcher?: string
-  labels?: string[]
-  enabled?: boolean
-  permissionMode?: PermissionMode
-  telegramTopic?: string
-  actions?: { type?: string; prompt?: string; url?: string; script?: string }[]
-}
-
-/** A name for a matcher that has none: its first prompt's start, its webhook's URL or its script. */
-function fallbackName(actions: RoutineAction[]): string {
-  const first = actions[0]
-  const text = first.type === 'prompt' ? first.prompt : first.type === 'webhook' ? first.url : first.script
-  const line = text.trim().split('\n')[0] ?? ''
-  return line.length > 60 ? `${line.slice(0, 60)}…` : line
-}
-
-/**
- * `automations.json` (as `getAutomations` returns it; null when there is none) as routines, in the file's order.
- * A matcher without an id or without a known action is left out: the write RPCs and the history need the id.
- */
-export function parseRoutines(config: unknown): Omit<Routine, 'runs'>[] {
-  const events = (config as { automations?: Record<string, unknown> } | null)?.automations
-  if (!events || typeof events !== 'object') return []
-  const routines: Omit<Routine, 'runs'>[] = []
-  for (const [event, matchers] of Object.entries(events)) {
-    if (!Array.isArray(matchers)) continue
-    matchers.forEach((raw: RawMatcher, matcherIndex) => {
-      const actions = (raw?.actions ?? []).filter((action): action is RoutineAction =>
-        (action.type === 'prompt' && typeof action.prompt === 'string')
-        || (action.type === 'webhook' && typeof action.url === 'string')
-        || (action.type === 'script' && typeof action.script === 'string'))
-      if (!raw?.id || actions.length === 0) return
-      routines.push({
-        id: raw.id,
-        event,
-        matcherIndex,
-        name: raw.name?.trim() || fallbackName(actions),
-        type: routineType(event),
-        cron: raw.cron,
-        timezone: raw.timezone,
-        matcher: raw.matcher,
-        labels: raw.labels ?? [],
-        enabled: raw.enabled !== false,
-        actions,
-        permissionMode: raw.permissionMode,
-        telegramTopic: raw.telegramTopic,
-      })
-    })
-  }
-  return routines
-}
-
-/** The last run that ran (a skipped one did nothing). */
-export function lastRun(routine: Routine): RoutineRun | undefined {
-  return routine.runs.find((run) => !run.skipped)
+/** The last run that ran (a skipped or running one did not finish a job). */
+export function lastRun(routine: Routine): Routine['runs'][number] | undefined {
+  return routine.runs.find((run) => run.status === 'ok' || run.status === 'error')
 }
 
 export function routineState(routine: Routine): RoutineState {
-  if (!routine.enabled) return 'disabled'
-  return lastRun(routine)?.ok === false ? 'failing' : 'active'
+  if (routine.pausedAt !== null) return 'paused'
+  return lastRun(routine)?.status === 'error' ? 'failing' : 'active'
 }
 
-/** The routines of each group, in the file's order. */
+/** The routines of each group, oldest first. */
 export function groupRoutines(routines: Routine[]): Record<RoutineType, Routine[]> {
   const groups: Record<RoutineType, Routine[]> = { scheduled: [], event: [], agentic: [] }
-  for (const routine of routines) groups[routine.type].push(routine)
+  for (const routine of routines) groups[routineType(routine)].push(routine)
   return groups
 }
 
@@ -143,7 +56,7 @@ export function getVisibleRoutines(routines: Routine[], type?: RoutineType): Rou
 
 /** The distinct kinds of action, in a fixed order (the row's badges). */
 export function actionTypes(routine: Routine): RoutineAction['type'][] {
-  return (['prompt', 'script', 'webhook'] as const).filter((type) => routine.actions.some((action) => action.type === type))
+  return (['prompt', 'script', 'webhook'] as const).filter((type) => routine.config.actions.some((action) => action.type === type))
 }
 
 const NUMBER = /^\d+$/
@@ -189,11 +102,13 @@ export function eventName(event: string, t: TFunction): string {
 
 /** What starts it, in words: the schedule (and its timezone's city), or the event (and what it must match). */
 export function describeTrigger(routine: Routine, t: TFunction, language: string): string {
-  if (routine.type === 'scheduled') {
-    if (!routine.cron) return t('routines.type_scheduled')
-    const when = describeCron(routine.cron, t, language)
-    return routine.timezone ? `${when} (${timezoneCity(routine.timezone)})` : when
+  const { type, schedule, event, matcher } = routine.config
+  if (type === 'schedule') {
+    if (!schedule) return t('routines.type_scheduled')
+    const when = describeCron(schedule.cron, t, language)
+    return schedule.timezone ? `${when} (${timezoneCity(schedule.timezone)})` : when
   }
-  const event = eventName(routine.event, t)
-  return routine.matcher ? t('routines.eventMatching', { event, matcher: routine.matcher }) : event
+  if (!event) return t('routines.type_event')
+  const name = eventName(event, t)
+  return matcher ? t('routines.eventMatching', { event: name, matcher }) : name
 }

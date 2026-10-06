@@ -2,7 +2,7 @@
  * PromptBuilder - System Prompt and Context Building
  *
  * Provides utilities for building system prompts and context blocks that both
- * ClaudeAgent and PiAgent can use. Handles workspace capabilities, recovery
+ * PiAgent can use. Handles workspace capabilities, recovery
  * context, and user preferences formatting.
  *
  * Key responsibilities:
@@ -204,11 +204,7 @@ export class PromptBuilder {
       (sessionId ? getSessionPath(this.workspaceRootPath, sessionId) : undefined);
     const isSessionRoot = !this.config.session?.workingDirectory && !!sessionId;
 
-    return getWorkingDirectoryContext(
-      effectiveWorkingDir,
-      isSessionRoot,
-      this.config.session?.sdkCwd
-    );
+    return getWorkingDirectoryContext(effectiveWorkingDir, isSessionRoot);
   }
 
   private getSelectedWorkingDirectory(): string | undefined {

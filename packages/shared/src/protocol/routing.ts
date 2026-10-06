@@ -280,14 +280,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.copilot.LOGOUT,
   RPC_CHANNELS.copilot.DEVICE_CODE,
 
-  // Claude OAuth — runs on workspace server so credentials and connection config
-  // end up on the same server that will use them. Browser opening is client-side.
-  // (ChatGPT OAuth stays LOCAL_ONLY — requires localhost callback server.)
-  RPC_CHANNELS.onboarding.START_CLAUDE_OAUTH,
-  RPC_CHANNELS.onboarding.EXCHANGE_CLAUDE_CODE,
-  RPC_CHANNELS.onboarding.HAS_CLAUDE_OAUTH_STATE,
-  RPC_CHANNELS.onboarding.CLEAR_CLAUDE_OAUTH_STATE,
-
   // settings — workspace-level settings
   RPC_CHANNELS.settings.SETUP_LLM_CONNECTION,
   RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP,
@@ -371,15 +363,15 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   // logo — workspace config
   RPC_CHANNELS.logo.GET_URL,
 
-  // automations — workspace automations
-  RPC_CHANNELS.automations.GET,
-  RPC_CHANNELS.automations.TEST,
-  RPC_CHANNELS.automations.SET_ENABLED,
-  RPC_CHANNELS.automations.DUPLICATE,
-  RPC_CHANNELS.automations.DELETE,
-  RPC_CHANNELS.automations.GET_HISTORY,
-  RPC_CHANNELS.automations.GET_LAST_EXECUTED,
-  RPC_CHANNELS.automations.REPLAY,
+  // routines — rows of the workspace's server
+  RPC_CHANNELS.routines.LIST,
+  RPC_CHANNELS.routines.GET,
+  RPC_CHANNELS.routines.CREATE,
+  RPC_CHANNELS.routines.UPDATE,
+  RPC_CHANNELS.routines.DELETE,
+  RPC_CHANNELS.routines.PAUSE,
+  RPC_CHANNELS.routines.RESUME,
+  RPC_CHANNELS.routines.RUN,
   RPC_CHANNELS.automations.CHANGED,
 
   // workspace members and invitations — live in the workspace's server

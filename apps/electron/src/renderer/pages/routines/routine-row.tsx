@@ -35,11 +35,11 @@ export const ACTION_TYPES: Record<RoutineAction['type'], { icon: LucideIcon; lab
 
 const STATE_ICONS: Record<RoutineState, { icon: LucideIcon; className: string }> = {
   active: { icon: CirclePlay, className: 'text-success' },
-  disabled: { icon: CirclePause, className: 'text-muted-foreground' },
+  paused: { icon: CirclePause, className: 'text-muted-foreground' },
   failing: { icon: CircleAlert, className: 'text-destructive' },
 }
 
-/** Active (green play), disabled (muted pause) or failing (its last run failed: red alert). */
+/** Active (green play), paused (muted pause) or failing (its last run failed: red alert). */
 export function RoutineStateIcon({ routine }: { routine: Routine }) {
   const { t } = useTranslation()
   const state = routineState(routine)
@@ -49,7 +49,7 @@ export function RoutineStateIcon({ routine }: { routine: Routine }) {
 
 export type RoutinesApi = ReturnType<typeof useRoutines>
 
-/** Run now, Enable / Disable and Delete (asked first) with their toasts; render `dialog` once in the page. */
+/** Run now, Pause / Resume and Delete (asked first) with their toasts; render `dialog` once in the page. */
 export function useRoutineActions(api: RoutinesApi, { onDeleted }: { onDeleted?: () => void } = {}) {
   const { t } = useTranslation()
   const { dialog, confirmDelete } = useConfirmDelete()
@@ -57,18 +57,18 @@ export function useRoutineActions(api: RoutinesApi, { onDeleted }: { onDeleted?:
     dialog,
     run: async (routine: Routine) => {
       const result = await api.runRoutine(routine)
-      if (result.ok && result.value.actions.every((action) => action.success)) toast.success(t('routines.runStarted'))
+      if (result.ok) toast.success(t('routines.runStarted'))
       else toast.error(t('routines.runFailed'))
     },
-    setEnabled: async (routine: Routine, enabled: boolean) => {
-      const result = await api.setRoutineEnabled(routine, enabled)
+    setPaused: async (routine: Routine, paused: boolean) => {
+      const result = await (paused ? api.pauseRoutine(routine) : api.resumeRoutine(routine))
       if (result.ok) toast.success(t('common.saved'), { id: 'saved' })
       else toast.error(t('routines.saveFailed'), { id: 'saved' })
     },
     remove: (routine: Routine) => confirmDelete(t('routines.deleteTitle'), async () => {
       const result = await api.deleteRoutine(routine)
       if (!result.ok) throw new Error(result.code)
-      toast.success(t('routines.deleted', { name: routine.name }))
+      toast.success(t('routines.deleted', { name: routine.title }))
       onDeleted?.()
     }),
   }
@@ -76,7 +76,7 @@ export function useRoutineActions(api: RoutinesApi, { onDeleted }: { onDeleted?:
 
 export type RoutineActions = ReturnType<typeof useRoutineActions>
 
-/** Run now, Enable / Disable, then Delete apart: the row's ⋯ (after Open) and the page's More actions. */
+/** Run now, Pause / Resume, then Delete apart: the row's ⋯ (after Open) and the page's More actions. */
 export function RoutineMenuItems({ routine, actions }: { routine: Routine; actions: RoutineActions }) {
   const { t } = useTranslation()
   return (
@@ -85,9 +85,9 @@ export function RoutineMenuItems({ routine, actions }: { routine: Routine; actio
         <Play />
         {t('routines.runNow')}
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => void actions.setEnabled(routine, !routine.enabled)}>
-        {routine.enabled ? <Pause /> : <CirclePlay />}
-        {routine.enabled ? t('common.disable') : t('routines.enable')}
+      <DropdownMenuItem onClick={() => void actions.setPaused(routine, routine.pausedAt === null)}>
+        {routine.pausedAt === null ? <Pause /> : <CirclePlay />}
+        {routine.pausedAt === null ? t('routines.pause') : t('routines.resume')}
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem variant="destructive" shortcut="⌫" onClick={() => actions.remove(routine)}>
@@ -105,8 +105,8 @@ export function RoutineRow({ routine, actions, onOpen }: { routine: Routine; act
     <ListRow
       data-routine-id={routine.id}
       media={<RoutineStateIcon routine={routine} />}
-      title={routine.name}
-      muted={!routine.enabled}
+      title={routine.title}
+      muted={routine.pausedAt !== null}
       // Hidden in a narrow column, like the badges: the name keeps the room.
       marks={<span className="truncate text-muted-foreground @max-md/panel:hidden">{describeTrigger(routine, t, i18n.language)}</span>}
       meta={actionTypes(routine).map((type) => {
@@ -118,7 +118,7 @@ export function RoutineRow({ routine, actions, onOpen }: { routine: Routine; act
           </Badge>
         )
       })}
-      end={ran ? shortTimeAgo(ran.ts) : t('common.never')}
+      end={ran ? shortTimeAgo(ran.startedAt) : t('common.never')}
       onClick={() => onOpen(routine)}
       actions={(
         <DropdownMenu>

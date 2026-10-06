@@ -119,7 +119,7 @@ import type {
 import { createComputerExecClient, createComputerOperations, routeToComputer, unavailableOnComputer } from './computer-tools.ts';
 import { createLargeResultGateClient } from './large-result-gate.ts';
 import { adaptCredentialForPiSdk, type PiCredential } from './adapt-credential.ts';
-import { registerClaudeCodeProvider } from './claude-code-provider.ts';
+import { CLAUDE_CODE_PROVIDER, registerClaudeCodeProvider } from './claude-code-provider.ts';
 
 // ============================================================
 // Types — JSONL Protocol
@@ -149,6 +149,8 @@ interface InitMessage {
   customEndpoint?: { api: CustomEndpointApi; supportsImages?: boolean };
   customModels?: Array<string | { id: string; contextWindow?: number; supportsImages?: boolean }>;
   piAuth?: { provider: string; credential: PiCredential };
+  /** With a `claude-code` connection: the user's `claude` (none: the one on PATH) and its config dir (its login). */
+  claudeCode?: { path?: string; configDir?: string };
 }
 
 interface RuntimeConfigUpdateMessage {
@@ -588,8 +590,14 @@ async function createAuthenticatedRuntime(): Promise<{
         modelsStore: new InMemoryModelsStore(),
       });
       const modelRegistry = new PiModelRegistry(modelRuntime);
-      // Claude subscriptions through the user's own `claude` (docs/pi-only-plan.md B1); off until B2.
-      if (process.env.OTTO_CLAUDE_CODE_PROVIDER === '1') registerClaudeCodeProvider(modelRegistry, { cwd: resolvedCwd });
+      // A Claude subscription: Claude through the user's own `claude` and its login (docs/pi-only-plan.md).
+      if (initConfig?.piAuth?.provider === CLAUDE_CODE_PROVIDER) {
+        registerClaudeCodeProvider(modelRegistry, {
+          cwd: resolvedCwd,
+          pathToClaudeCodeExecutable: initConfig.claudeCode?.path,
+          claudeConfigDir: initConfig.claudeCode?.configDir,
+        });
+      }
 
       // Register custom endpoint models dynamically via Pi SDK's registerProvider API.
       // This makes arbitrary OpenAI/Anthropic-compatible endpoints work through the Pi SDK

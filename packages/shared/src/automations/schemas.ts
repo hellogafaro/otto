@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { Cron } from 'croner';
 import type { ValidationIssue } from '../config/validators.ts';
 import { APP_EVENTS, AGENT_EVENTS } from './types.ts';
 import { THINKING_LEVEL_IDS, normalizeThinkingLevel } from '../agent/thinking-levels.ts';
@@ -27,6 +28,8 @@ export const PromptActionSchema = z.object({
   llmConnection: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
   thinkingLevel: ThinkingLevelInputSchema,
+  labels: z.array(z.string()).optional(),
+  projectId: z.string().min(1).optional(),
 });
 
 export const WebhookActionSchema = z.object({
@@ -176,6 +179,50 @@ export const AutomationMatcherSchema = z.object({
   // no supergroup is paired or the Telegram adapter is not connected.
   telegramTopic: z.string().min(1).max(128).optional(),
   actions: z.array(ActionDefinitionSchema).min(1, 'At least one action required'),
+});
+
+const SemanticConditionSchema = z.object({
+  question: z.string().trim().min(1, 'Question cannot be empty').max(500),
+  threshold: z.number().gt(0).lte(1).optional(),
+}).strict();
+
+/** A routine's webhook action: its credentials are a secret (`secretId`), never a plain `auth`. */
+const RoutineWebhookActionSchema = WebhookActionSchema.omit({ auth: true }).extend({ secretId: z.string().min(1).optional() });
+
+/** What a routine's `config` may hold (see `RoutineConfig`); `createRoutine` and `updateRoutine` refuse anything else. */
+export const RoutineConfigSchema = z.object({
+  type: z.enum(['schedule', 'event', 'webhook']),
+  schedule: z.object({ cron: z.string().min(1), timezone: z.string().min(1).optional() }).strict().optional(),
+  event: z.string().optional(),
+  webhook: z.object({ secretId: z.string().min(1) }).strict().optional(),
+  matcher: z.string().optional(),
+  conditions: z.array(AutomationConditionSchema).optional(),
+  semanticCondition: SemanticConditionSchema.optional(),
+  permissionMode: z.enum(['safe', 'ask', 'guarded', 'allow-all']).optional(),
+  telegramTopic: z.string().min(1).max(128).optional(),
+  actions: z.array(z.discriminatedUnion('type', [
+    PromptActionSchema.strict(),
+    RoutineWebhookActionSchema.strict(),
+    ScriptActionSchema.strict(),
+  ])).min(1, 'At least one action required').max(20, 'At most 20 actions'),
+}).strict().superRefine((config, ctx) => {
+  const need = (ok: boolean, path: string, message: string) => { if (!ok) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message }); };
+  if (config.type === 'schedule') {
+    const cron = config.schedule?.cron;
+    need(!!cron, 'schedule', 'A schedule routine needs a schedule');
+    if (cron) {
+      let valid = cron.trim().split(/\s+/).length === 5;
+      try { new Cron(cron, config.schedule?.timezone ? { timezone: config.schedule.timezone } : {}); } catch { valid = false; }
+      need(valid, 'schedule', 'The schedule must be a 5-field cron expression with a valid timezone');
+    }
+  }
+  if (config.type === 'event') need(!!config.event && config.event !== 'SchedulerTick' && VALID_EVENTS.includes(config.event), 'event', 'An event routine needs one of the known events');
+  if (config.type === 'webhook') need(!!config.webhook, 'webhook', 'A webhook routine needs its secret');
+  if (config.matcher) {
+    let valid = true;
+    try { new RegExp(config.matcher); } catch { valid = false; }
+    need(valid, 'matcher', 'The matcher must be a valid regular expression');
+  }
 });
 
 /**

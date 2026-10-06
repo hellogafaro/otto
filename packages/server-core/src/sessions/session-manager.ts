@@ -7,20 +7,19 @@ import { chatNotFound, getChatAudience, type WorkspaceOwners } from './private-c
 import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import { createScopedLogger, CONSOLE_LOGGER, type PlatformServices, type Logger } from '@otto/server-core/runtime'
 import { join } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, readdirSync } from 'fs'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { randomUUID } from 'node:crypto'
-import { type AgentEvent, type ChatOptions, getPermissionMode, setPermissionMode, setGuardedModeActiveResolver, clampPermissionMode, planExecutionMode, parsePermissionMode, hydratePreviousPermissionMode, getPermissionModeDiagnostics, type PermissionMode, unregisterSessionScopedToolCallbacks, mergeSessionScopedToolCallbacks, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest, type BrowserPaneFns, generateConversationSummary, resolveKeepBackgroundTasksAlive } from '@otto/shared/agent'
+import { type AgentEvent, type ChatOptions, getPermissionMode, setPermissionMode, setGuardedModeActiveResolver, clampPermissionMode, planExecutionMode, parsePermissionMode, hydratePreviousPermissionMode, getPermissionModeDiagnostics, type PermissionMode, unregisterSessionScopedToolCallbacks, mergeSessionScopedToolCallbacks, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest, type BrowserPaneFns, generateConversationSummary, type PiAgent } from '@otto/shared/agent'
 import {
   resolveSessionConnection,
   createBackendFromConnection,
   resolveBackendContext,
   createBackendFromResolvedContext,
   cleanupSourceRuntimeArtifacts,
-  type AgentBackend,
   type BackendHostRuntimeContext,
 } from '@otto/shared/agent/backend'
-import { getLlmConnection, getLlmConnections, getDefaultLlmConnection, getDefaultThinkingLevel, resetManagedAnthropicAuthEnvVars, resolveMidStreamBehavior, getPersistedUiLanguage, resolveTitleLanguageName } from '@otto/shared/config'
+import { getLlmConnection, getLlmConnections, getDefaultLlmConnection, getDefaultThinkingLevel, resolveMidStreamBehavior, getPersistedUiLanguage, resolveTitleLanguageName } from '@otto/shared/config'
 import type { ConnectionContext, MidStreamBehavior } from '@otto/shared/config'
 import { getWorkspaceRootPath } from '@otto/shared/config'
 import { PrivilegedExecutionBroker } from '@otto/server-core/services'
@@ -72,16 +71,14 @@ import { serializeHeaderCredential, loadWorkspaceSources, loadAllSources, getSou
 import { buildDecisionToolCallbacks } from '../decisions/tool-callbacks'
 import { buildServersFromSources as buildServersFromSourcesShared } from '../sources/build-servers'
 import { ConfigWatcher, type ConfigWatcherCallbacks } from '@otto/shared/config'
-import { getValidClaudeOAuthToken } from '@otto/shared/auth'
-import { resolveAuthEnvVars } from '@otto/shared/config'
 import { toolMetadataStore, getLastApiError } from '@otto/shared/interceptor'
 import { isParentTaskTool } from '@otto/shared/utils/tool-names'
 import { restoreFiles } from '@otto/shared/utils/bundle-files'
 import { getCredentialManager } from '@otto/shared/credentials'
-import { McpClientPool, McpPoolServer } from '@otto/shared/mcp'
+import { McpClientPool } from '@otto/shared/mcp'
 import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, generateMessageId, type DomainChange } from '@otto/shared/protocol'
 import { messageToStored, storedToMessage, type Message, type StoredAttachment, type ToolDisplayMeta } from '@otto/core/types'
-import { formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrlAsync, getEmojiIcon, resetSummarizationClient, resolveToolIcon, readFileAttachment, selectSpreadMessages, normalizePath } from '@otto/shared/utils'
+import { formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrlAsync, getEmojiIcon, resolveToolIcon, readFileAttachment, selectSpreadMessages, normalizePath } from '@otto/shared/utils'
 import { getLoadedSkills, loadAllSkills, loadSkill, syncLocalSkill } from '@otto/shared/skills'
 import { invalidateContextFileCache } from '@otto/shared/prompts/system'
 import { getToolIconsDir, getMiniModel } from '@otto/shared/config'
@@ -111,6 +108,8 @@ import { buildBackendRuntimeSignature, buildRestartRequiredSignature, filterAtta
 import { validateArchiveTarget } from './archive-guards'
 import { runWorkspaceConfigAction } from './workspace-config-tool'
 import { getFirstUser } from '@otto/shared/users/queries'
+import { assembleInstructions, getAgent, getAgentRunConfig } from '@otto/shared/agents'
+import { PRODUCT_NAME } from '@otto/shared/branding'
 
 // Import from server-core domain utilities
 import { sanitizeForTitle, shouldActivateBrowserOverlay, normalizeBrowserToolName, rollbackFailedBranchCreation, releaseBrowserOwnershipOnForcedStop } from '@otto/server-core/domain'
@@ -288,85 +287,6 @@ export async function copyPiTurnAnchorsForBranch(
   )
 }
 
-const CLAUDE_TURN_ANCHORS_VERSION = 1
-const CLAUDE_TURN_ANCHORS_FILE = 'claude-turn-anchors.json'
-
-interface ClaudeTurnAnchorRecord {
-  sdkSessionId: string
-  sdkMessageUuid: string
-}
-
-interface ClaudeTurnAnchorsIndex {
-  version: number
-  anchors: Record<string, ClaudeTurnAnchorRecord>
-}
-
-function getClaudeTurnAnchorsPath(sessionPath: string): string {
-  return join(sessionPath, 'meta', CLAUDE_TURN_ANCHORS_FILE)
-}
-
-function isClaudeMessageUuid(turnId: string): boolean {
-  return /^msg_[A-Za-z0-9]+$/.test(turnId)
-}
-
-async function loadClaudeTurnAnchors(sessionPath: string): Promise<ClaudeTurnAnchorsIndex> {
-  const filePath = getClaudeTurnAnchorsPath(sessionPath)
-  try {
-    const raw = await readFile(filePath, 'utf-8')
-    const parsed = JSON.parse(raw) as Partial<ClaudeTurnAnchorsIndex>
-    const anchors = (parsed.anchors && typeof parsed.anchors === 'object') ? parsed.anchors : {}
-    const normalized: Record<string, ClaudeTurnAnchorRecord> = {}
-
-    for (const [messageId, value] of Object.entries(anchors)) {
-      if (!messageId || typeof messageId !== 'string') continue
-      if (!value || typeof value !== 'object') continue
-      const sdkSessionId = (value as { sdkSessionId?: unknown }).sdkSessionId
-      const sdkMessageUuid = (value as { sdkMessageUuid?: unknown }).sdkMessageUuid
-      if (typeof sdkSessionId === 'string' && sdkSessionId && typeof sdkMessageUuid === 'string' && sdkMessageUuid) {
-        normalized[messageId] = { sdkSessionId, sdkMessageUuid }
-      }
-    }
-
-    return {
-      version: CLAUDE_TURN_ANCHORS_VERSION,
-      anchors: normalized,
-    }
-  } catch {
-    return {
-      version: CLAUDE_TURN_ANCHORS_VERSION,
-      anchors: {},
-    }
-  }
-}
-
-async function getClaudeTurnAnchor(sessionPath: string, messageId: string): Promise<ClaudeTurnAnchorRecord | undefined> {
-  if (!messageId) return undefined
-  const index = await loadClaudeTurnAnchors(sessionPath)
-  return index.anchors[messageId]
-}
-
-async function saveClaudeTurnAnchor(
-  sessionPath: string,
-  messageId: string,
-  sdkSessionId: string,
-  sdkMessageUuid: string,
-): Promise<void> {
-  if (!messageId || !sdkSessionId || !sdkMessageUuid) return
-
-  const index = await loadClaudeTurnAnchors(sessionPath)
-  const previous = index.anchors[messageId]
-  if (previous && previous.sdkSessionId === sdkSessionId && previous.sdkMessageUuid === sdkMessageUuid) return
-
-  index.anchors[messageId] = {
-    sdkSessionId,
-    sdkMessageUuid,
-  }
-
-  const filePath = getClaudeTurnAnchorsPath(sessionPath)
-  await mkdir(join(sessionPath, 'meta'), { recursive: true })
-  await writeFile(filePath, JSON.stringify(index), 'utf-8')
-}
-
 /**
  * Build MCP and API servers from sources using the new unified modules.
  * Handles credential loading and server building in one step.
@@ -513,6 +433,7 @@ async function resolveToolDisplayMeta(
           'labels_edit': 'Edit Labels',
           'statuses_edit': 'Edit Statuses',
           'permissions_edit': 'Edit Permissions',
+          'agents_edit': 'Edit Agents',
           'send_developer_feedback': 'Send Feedback',
           'browser_tool': 'Browser',
         },
@@ -656,7 +577,7 @@ async function resolveToolDisplayMeta(
 }
 
 /** Agent type - unified backend interface for all providers */
-type AgentInstance = AgentBackend
+type AgentInstance = PiAgent
 
 /**
  * Status of a background task in the main-process registry.
@@ -706,6 +627,8 @@ interface ManagedSession {
   workspace: Workspace
   /** Actor ('user:<id>') the chat belongs to; absent on chats made before chats were private (see private-chats.ts). */
   createdBy?: string
+  /** The `agents` row the chat talks to; absent (or deleted) = the workspace's default agent. */
+  agentId?: string
   agent: AgentInstance | null  // Lazy-loaded - null until first message
   messages: Message[]
   isProcessing: boolean
@@ -741,8 +664,6 @@ interface ManagedSession {
   previousPermissionMode?: PermissionMode
   /** Centralized MCP client pool for this session's source connections */
   mcpPool?: McpClientPool
-  /** HTTP MCP server exposing pool tools to external SDK subprocesses */
-  poolServer?: McpPoolServer
   // SDK session ID for conversation continuity
   sdkSessionId?: string
   /** Accept & Compact state; persisted with the session header. */
@@ -782,9 +703,6 @@ interface ManagedSession {
   parentSessionId?: string
   // Working directory for this session (used by agent for bash commands)
   workingDirectory?: string
-  // SDK cwd for session storage - set once at creation, never changes.
-  // Ensures SDK can find session transcripts regardless of workingDirectory changes.
-  sdkCwd?: string
   // Shared viewer URL (if shared via viewer)
   sharedUrl?: string
   // Shared session ID in viewer (for revoke)
@@ -836,9 +754,6 @@ interface ManagedSession {
     /** Mid-turn messages: the pending continuation check that may set `mergeWith`. */
     continuationCheck?: Promise<void>
   }>
-  // Original host payloads for backends that can return undelivered text steers.
-  // Runtime-only; Pi's native steering does not opt into an acknowledgement protocol.
-  acceptedSteers?: Map<string, ManagedSession['messageQueue'][number]>
   // Map of shellId -> command for killing background shells
   backgroundShellCommands: Map<string, string>
   // Map of taskId -> output info for background task results
@@ -887,9 +802,6 @@ interface ManagedSession {
   branchFromSdkSessionId?: string
   // Parent session's storage path (used only when branchContextStrategy === 'sdk-fork')
   branchFromSessionPath?: string
-  // Parent session's sdkCwd — needed so the fork subprocess uses the correct
-  // ~/.claude/projects/{cwd-hash}/ directory to find the parent's session file.
-  branchFromSdkCwd?: string
   // SDK assistant message UUID at the branch point — used as resumeSessionAt
   // to trim the forked conversation at the branch point.
   branchFromSdkTurnId?: string
@@ -1097,6 +1009,38 @@ export function createManagedSession(
 }
 
 /**
+ * Whether the chat has messages its agent's backend holds none of: it ran on the removed Claude backend (or Pi's
+ * session files are gone), so Pi starts it from a summary of its messages. Branches and transferred chats bring
+ * their own context and are left out.
+ */
+function needsHistoryRecovery(managed: ManagedSession, sessionPath: string): boolean {
+  if (managed.branchContextStrategy || managed.transferredSessionSummary) return false
+  if (!managed.messages.some((m) => m.role === 'assistant' && !m.isIntermediate)) return false
+  try {
+    return !readdirSync(join(sessionPath, '.pi-sessions')).some((name) => name.endsWith('.jsonl'))
+  } catch {
+    return true
+  }
+}
+
+/**
+ * What the chat's agent adds to the system prompt each turn: the workspace's and the agent's instructions as XML
+ * groups (docs/final-plan.md 2.7), unattended for automation runs. The base prompt already carries the product's
+ * rules, tool guidance and the session's sources, so they are not repeated here. Mini sessions get nothing.
+ */
+function agentInstructionsOf(managed: ManagedSession): string {
+  if (managed.systemPromptPreset === 'mini') return ''
+  const run = getAgentRunConfig(managed.agentId, managed.workspace.id)
+  if (!run) return ''
+  return assembleInstructions({
+    product: PRODUCT_NAME,
+    workspaceInstructions: run.workspaceInstructions,
+    agent: { title: run.agent.title, instructions: run.agentInstructions },
+    runMode: managed.unattended || managed.triggeredBy ? 'unattended' : 'attended',
+  })
+}
+
+/**
  * Resolve supportsBranching for a managed session.
  * Prefers the live agent instance; falls back to true for all backends.
  */
@@ -1243,17 +1187,6 @@ export class SessionManager implements ISessionManager {
   private initGate = new InitGate()
   // O(1) index: taskId → sessionId for background task output lookup (avoids O(n) session scan)
   private taskOutputIndex: Map<string, string> = new Map()
-  /**
-   * WS2 keep-alive flag (default ON, opt-out via `OTTO_KEEP_BG_AGENTS_ALIVE=0`).
-   * When true, a persistent streaming query keeps the subprocess alive across
-   * turns so background sub-agents survive, and orphaning is suppressed. When
-   * false (kill-switch), sub-agents are bound to a single turn's subprocess and
-   * die at turn end, so markOrphanedBackgroundTasks() flips still-running registry
-   * entries to `orphaned` on turn completion. Resolved via the shared
-   * `resolveKeepBackgroundTasksAlive` so the main process and the Claude backend
-   * can never disagree about whether keep-alive is on.
-   */
-  private readonly keepBackgroundTasksAlive: boolean = resolveKeepBackgroundTasksAlive()
   /**
    * Per-session in-flight runtime-refresh promise. Ensures `updateRuntimeConfig`
    * (or a dispose) cannot overlap with another refresh OR with a send-path
@@ -1594,11 +1527,10 @@ export class SessionManager implements ISessionManager {
       if (index === -1 || this.sessions.get(managed.id) !== managed || !managed.isProcessing
         || managed.processingGeneration !== generation || !agent?.canSteerNow?.()) return
       managed.messageQueue.splice(index, 1)
-      if (!agent.redirect(payload.message, { messageId: payload.messageId })) {
+      if (!agent.redirect(payload.message)) {
         managed.messageQueue.splice(index, 0, payload)  // canSteerNow promised otherwise; keep it queued
         return
       }
-      if (agent.takePendingSteers && payload.messageId) (managed.acceptedSteers ??= new Map()).set(payload.messageId, payload)
       ;(managed.turnSteers ??= []).push(payload.message)
       userMessage.isQueued = false
       sessionLog.info('mid-stream send steered after decision', { sessionId: managed.id, messageId: payload.messageId })
@@ -2197,8 +2129,8 @@ export class SessionManager implements ISessionManager {
     this.eventSink(RPC_CHANNELS.sources.CHANGED, { to: 'workspace', workspaceId }, workspaceId, sources)
   }
 
-  /** Tells the clients of a workspace that its labels, statuses or permissions changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations). */
-  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'statuses' | 'permissions' | 'skills' | 'sources'): void {
+  /** Tells the clients of a workspace that its labels, statuses, permissions, agents, skills or sources changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations). */
+  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'statuses' | 'permissions' | 'agents' | 'skills' | 'sources'): void {
     if (!this.eventSink) return
     this.eventSink(RPC_CHANNELS.domain.CHANGED, { to: 'workspace', workspaceId }, { domain, workspaceId } satisfies DomainChange)
   }
@@ -2271,66 +2203,6 @@ export class SessionManager implements ISessionManager {
     sessionLog.info(`Sources reloaded for session ${managed.id}: ${Object.keys(mcpServers).length} MCP, ${Object.keys(apiServers).length} API`)
   }
 
-  /**
-   * Reinitialize authentication environment variables.
-   * Call this after onboarding or settings changes to pick up new credentials.
-   *
-   * SECURITY NOTE: These env vars are propagated to the SDK subprocess via options.ts.
-   * Bun's automatic .env loading is disabled in the subprocess (--env-file=/dev/null)
-   * to prevent a user's project .env from injecting ANTHROPIC_API_KEY and overriding
-   * OAuth auth — Claude Code prioritizes API key over OAuth token when both are set.
-   * See: https://github.com/hellogafaro/otto/issues/39
-   */
-  /**
-   * Reinitialize authentication environment variables.
-   *
-   * Uses the default LLM connection to determine which credentials to set.
-   *
-   * @param connectionSlug - Optional connection slug to use (overrides default)
-   */
-  async reinitializeAuth(connectionSlug?: string, where?: ConnectionContext): Promise<void> {
-    try {
-      const manager = getCredentialManager()
-
-      // Get the connection to use (explicit parameter or default)
-      const slug = connectionSlug || getDefaultLlmConnection(where)
-      if (!slug) {
-        sessionLog.warn('No LLM connection slug available for reinitializeAuth')
-      }
-      const connection = slug ? getLlmConnection(slug, where) : null
-
-      // Restore managed auth env vars to their baseline before applying this connection.
-      resetManagedAnthropicAuthEnvVars()
-
-      if (!connection) {
-        sessionLog.error(`No LLM connection found for slug: ${slug}`)
-        resetSummarizationClient()
-        return
-      }
-
-      sessionLog.info(`Reinitializing auth for connection: ${slug} (${connection.authType})`)
-
-      // Resolve auth env vars via shared utility (provider-agnostic)
-      const result = await resolveAuthEnvVars(connection, slug!, manager, getValidClaudeOAuthToken, connection.scope)
-
-      if (!result.success) {
-        sessionLog.error(`Auth resolution failed for ${slug}: ${result.warning}`)
-      } else {
-        // Apply resolved env vars to process.env
-        for (const [key, value] of Object.entries(result.envVars)) {
-          process.env[key] = value
-        }
-        sessionLog.info(`Auth env vars set for connection: ${slug}`)
-      }
-
-      // Reset cached summarization client so it picks up new credentials/base URL
-      resetSummarizationClient()
-    } catch (error) {
-      sessionLog.error('Failed to reinitialize auth:', error)
-      throw error
-    }
-  }
-
   /** Whose connections a chat sees: its creator's own, then its workspace's, then the install's. */
   private connectionContextOf(managed: ManagedSession): ConnectionContext {
     return { workspaceId: managed.workspace.id, userId: userIdOf(managed.createdBy) }
@@ -2346,9 +2218,6 @@ export class SessionManager implements ISessionManager {
     try {
       // Tell the clients when a connection changes (the database is the source, nothing watches a file)
       onConnectionsChange(() => this.broadcastLlmConnectionsChanged())
-
-      // Set up authentication environment variables (critical for SDK to work)
-      await this.reinitializeAuth()
 
       // Eagerly activate ConfigWatcher + AutomationSystem for every workspace so
       // the scheduler and event handlers start at boot — not lazily on first
@@ -3013,7 +2882,7 @@ export class SessionManager implements ISessionManager {
     // `createdBy` is who the chat belongs to ('user:<id>'): the RPC passes the caller, a spawned chat
     // its parent's creator (null: a chat with no creator, like its parent). Omitted (automations,
     // messaging): the first owner of the workspace.
-    internal?: { emitCreatedEvent?: boolean; createdBy?: string | null },
+    internal?: { emitCreatedEvent?: boolean; createdBy?: string | null; agentId?: string },
   ): Promise<Session> {
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) {
@@ -3076,8 +2945,6 @@ export class SessionManager implements ISessionManager {
       managedModel: resolvedModelOption,
       where: { workspaceId: workspace.id, userId: userIdOf(internal?.createdBy ?? undefined) },
     })
-    const targetProviderType = targetBackendContext.connection?.providerType
-      ?? (targetBackendContext.provider === 'pi' ? 'pi' : 'anthropic')
     const targetPiAuthProvider = targetBackendContext.connection?.piAuthProvider
 
     // Resolve working directory from options:
@@ -3125,9 +2992,7 @@ export class SessionManager implements ISessionManager {
       branchContextStrategy: 'sdk-fork' | 'seeded-fresh-session'
       branchFromSdkSessionId?: string
       branchFromSessionPath?: string
-      branchFromSdkCwd?: string
       branchFromSdkTurnId?: string
-      sourceProvider?: 'anthropic' | 'pi'
     } | undefined
 
     if (options?.branchFromSessionId || options?.branchFromMessageId) {
@@ -3172,24 +3037,13 @@ export class SessionManager implements ISessionManager {
         managedModel: sourceManaged?.model || sourceSession.model,
         where: { workspaceId: workspace.id, userId: userIdOf(internal?.createdBy ?? undefined) },
       })
-      const sourceProviderType = sourceBackendContext.connection?.providerType
-        ?? (sourceBackendContext.provider === 'pi' ? 'pi' : 'anthropic')
+      // A branch forks the parent's Pi history, so both run on the same Pi provider.
       const sourcePiAuthProvider = sourceBackendContext.connection?.piAuthProvider
-
-      const providerMismatch = sourceBackendContext.provider !== targetBackendContext.provider
-      const providerTypeMismatch = sourceProviderType !== targetProviderType
-      const piAuthProviderMismatch =
-        sourceBackendContext.provider === 'pi' && sourcePiAuthProvider !== targetPiAuthProvider
-
-      if (providerMismatch || providerTypeMismatch || piAuthProviderMismatch) {
+      if (sourcePiAuthProvider !== targetPiAuthProvider) {
         sessionLog.warn('Branch validation failed: source and target providers are incompatible', {
           workspaceId,
           branchFromSessionId: options.branchFromSessionId,
-          sourceProvider: sourceBackendContext.provider,
-          sourceProviderType,
           sourcePiAuthProvider,
-          targetProvider: targetBackendContext.provider,
-          targetProviderType,
           targetPiAuthProvider,
         })
         throw new Error('Branching is only supported within the same provider/backend. Switch this panel connection and try again.')
@@ -3209,75 +3063,23 @@ export class SessionManager implements ISessionManager {
       // Seeded mode remains only for legacy sessions created before strict fork was enforced.
       const branchContextStrategy: 'sdk-fork' | 'seeded-fresh-session' = 'sdk-fork'
 
-      const branchFromSdkSessionId = branchContextStrategy === 'sdk-fork'
-        ? (sourceManaged?.sdkSessionId || sourceSession.sdkSessionId)
-        : undefined
-      const branchFromSessionPath = branchContextStrategy === 'sdk-fork'
-        ? getSessionStoragePath(workspaceRootPath, options.branchFromSessionId)
-        : undefined
-      // Capture parent's sdkCwd so the child SDK subprocess can find the parent's
-      // session file (stored under ~/.claude/projects/{cwd-hash}/).
-      const branchFromSdkCwd = branchContextStrategy === 'sdk-fork'
-        ? (sourceManaged?.sdkCwd || sourceSession.sdkCwd)
-        : undefined
-
-      // Provider-native branch anchor at branch point.
-      // - Claude: assistant message UUID (resumeSessionAt), but only when anchor lineage
-      //   matches the parent SDK session being resumed.
-      // - Pi: session entry ID loaded from sidecar (pi-turn-anchors.json)
-      const branchMessage = sourceSession.messages[branchIdx]
-      let branchFromSdkTurnId: string | undefined
-      if (branchContextStrategy === 'sdk-fork') {
-        if (sourceBackendContext.provider === 'pi') {
-          if (branchFromSessionPath) {
-            branchFromSdkTurnId = await getPiTurnAnchor(branchFromSessionPath, options.branchFromMessageId)
-            if (!branchFromSdkTurnId) {
-              sessionLog.warn('Pi branch anchor missing: falling back to full-history fork for this branch', {
-                workspaceId,
-                branchFromSessionId: options.branchFromSessionId,
-                branchFromMessageId: options.branchFromMessageId,
-              })
-            }
-          }
-        } else if (sourceBackendContext.provider === 'anthropic') {
-          if (branchFromSessionPath && branchFromSdkSessionId) {
-            const anchor = await getClaudeTurnAnchor(branchFromSessionPath, options.branchFromMessageId)
-            if (!anchor) {
-              sessionLog.warn('Claude branch anchor missing: falling back to full-history fork for this branch', {
-                workspaceId,
-                branchFromSessionId: options.branchFromSessionId,
-                branchFromMessageId: options.branchFromMessageId,
-              })
-            } else if (!anchor.sdkMessageUuid || !isClaudeMessageUuid(anchor.sdkMessageUuid)) {
-              sessionLog.warn('Claude branch anchor malformed: falling back to full-history fork for this branch', {
-                workspaceId,
-                branchFromSessionId: options.branchFromSessionId,
-                branchFromMessageId: options.branchFromMessageId,
-                anchorSdkSessionId: anchor.sdkSessionId,
-              })
-            } else if (anchor.sdkSessionId !== branchFromSdkSessionId) {
-              sessionLog.warn('Claude branch anchor lineage mismatch: falling back to full-history fork for this branch', {
-                workspaceId,
-                branchFromSessionId: options.branchFromSessionId,
-                branchFromMessageId: options.branchFromMessageId,
-                anchorSdkSessionId: anchor.sdkSessionId,
-                parentSdkSessionId: branchFromSdkSessionId,
-              })
-            } else {
-              branchFromSdkTurnId = anchor.sdkMessageUuid
-            }
-          }
-        } else {
-          branchFromSdkTurnId = branchMessage?.turnId
-        }
+      // The parent's Pi session (its id says the parent has had a Pi turn) and the Pi entry at the branch point,
+      // from the sidecar (pi-turn-anchors.json).
+      const branchFromSdkSessionId = sourceManaged?.sdkSessionId || sourceSession.sdkSessionId
+      const branchFromSessionPath = getSessionStoragePath(workspaceRootPath, options.branchFromSessionId)
+      const branchFromSdkTurnId = await getPiTurnAnchor(branchFromSessionPath, options.branchFromMessageId)
+      if (!branchFromSdkTurnId) {
+        sessionLog.warn('Pi branch anchor missing: falling back to full-history fork for this branch', {
+          workspaceId,
+          branchFromSessionId: options.branchFromSessionId,
+          branchFromMessageId: options.branchFromMessageId,
+        })
       }
 
-      if (branchContextStrategy === 'sdk-fork' && !branchFromSdkSessionId) {
+      if (!branchFromSdkSessionId) {
         sessionLog.warn('Branch validation failed: sdk-fork requires parent SDK session ID', {
           workspaceId,
           branchFromSessionId: options.branchFromSessionId,
-          sourceProvider: sourceBackendContext.provider,
-          targetProvider: targetBackendContext.provider,
         })
         throw new Error('Cannot create branch yet: parent session SDK context is not initialized. Send one message in the parent session and try again.')
       }
@@ -3290,9 +3092,7 @@ export class SessionManager implements ISessionManager {
         branchContextStrategy,
         branchFromSdkSessionId,
         branchFromSessionPath,
-        branchFromSdkCwd,
         branchFromSdkTurnId,
-        sourceProvider: sourceBackendContext.provider,
       }
 
       sessionLog.info('Branch validation succeeded', {
@@ -3309,6 +3109,8 @@ export class SessionManager implements ISessionManager {
     const storedSession = await createStoredSession(workspaceRootPath, {
       name: options?.name,
       createdBy: internal?.createdBy === null ? undefined : internal?.createdBy ?? this.firstOwnerActor(workspaceId),
+      // only an agent of this workspace; none = the workspace's default agent
+      agentId: [internal?.agentId, options?.agentId].find((id) => id && getAgent(workspace.id, id)),
       permissionMode: defaultPermissionMode,
       workingDirectory: resolvedWorkingDir,
       hidden: options?.hidden,
@@ -3352,12 +3154,10 @@ export class SessionManager implements ISessionManager {
       if (validatedBranch.branchContextStrategy === 'sdk-fork') {
         branchedStored.branchFromSdkSessionId = validatedBranch.branchFromSdkSessionId
         branchedStored.branchFromSessionPath = validatedBranch.branchFromSessionPath
-        branchedStored.branchFromSdkCwd = validatedBranch.branchFromSdkCwd
         branchedStored.branchFromSdkTurnId = validatedBranch.branchFromSdkTurnId
       } else {
         delete branchedStored.branchFromSdkSessionId
         delete branchedStored.branchFromSessionPath
-        delete branchedStored.branchFromSdkCwd
         delete branchedStored.branchFromSdkTurnId
       }
       await saveStoredSession(branchedStored)
@@ -3366,10 +3166,7 @@ export class SessionManager implements ISessionManager {
       // branch can still resolve anchors for messages copied here from the
       // source. Without this step, branch-of-branch silently falls back to
       // full-history fork — see otto#782.
-      if (
-        validatedBranch.branchContextStrategy === 'sdk-fork' &&
-        validatedBranch.sourceProvider === 'pi'
-      ) {
+      if (validatedBranch.branchContextStrategy === 'sdk-fork') {
         try {
           await copyPiTurnAnchorsForBranch(
             sourceDir,
@@ -3410,7 +3207,6 @@ export class SessionManager implements ISessionManager {
       branchContextStrategy: validatedBranch?.branchContextStrategy,
       branchFromSdkSessionId: validatedBranch?.branchFromSdkSessionId,
       branchFromSessionPath: validatedBranch?.branchFromSessionPath,
-      branchFromSdkCwd: validatedBranch?.branchFromSdkCwd,
       branchFromSdkTurnId: validatedBranch?.branchFromSdkTurnId,
       branchSeedApplied: validatedBranch ? validatedBranch.branchContextStrategy === 'sdk-fork' : undefined,
       messagesLoaded: !isBranch,  // Branched sessions: lazy-load messages from JSONL
@@ -3508,7 +3304,6 @@ export class SessionManager implements ISessionManager {
 
   private async disposeManagedAgentRuntime(managed: ManagedSession, reason: string): Promise<void> {
     const sessionId = managed.id
-    this.recoverPendingSteers(managed)
 
     if (managed.agent) {
       try {
@@ -3522,14 +3317,6 @@ export class SessionManager implements ISessionManager {
       }
     }
 
-    if (managed.poolServer) {
-      try {
-        await managed.poolServer.stop()
-      } catch (error) {
-        sessionLog.warn(`Failed to stop pool server for ${sessionId} during ${reason}: ${error instanceof Error ? error.message : error}`)
-      }
-    }
-
     if (managed.mcpPool) {
       try {
         await managed.mcpPool.disconnectAll()
@@ -3539,7 +3326,6 @@ export class SessionManager implements ISessionManager {
     }
 
     managed.agent = null
-    managed.poolServer = undefined
     managed.mcpPool = undefined
     managed.envOverrides = undefined
     managed.agentReady = undefined
@@ -3593,7 +3379,6 @@ export class SessionManager implements ISessionManager {
     const connection = backendContext.connection
     const sigInput = {
       connection,
-      provider: backendContext.provider,
       authType: backendContext.authType,
       resolvedModel: backendContext.resolvedModel,
     }
@@ -3739,7 +3524,6 @@ export class SessionManager implements ISessionManager {
     const connection = backendContext.connection
     const sigInput = {
       connection,
-      provider: backendContext.provider,
       authType: backendContext.authType,
       resolvedModel: backendContext.resolvedModel,
     }
@@ -3766,11 +3550,10 @@ export class SessionManager implements ISessionManager {
         }, managed.workspace.id)
       }
 
-      const provider = backendContext.provider
       if (connection) {
-        sessionLog.info(`Using LLM connection "${connection.slug}" (${connection.providerType}) for session ${managed.id}`)
+        sessionLog.info(`Using LLM connection "${connection.slug}" (${connection.piAuthProvider ?? connection.providerType}) for session ${managed.id}`)
       } else {
-        sessionLog.warn(`No LLM connection found for session ${managed.id}, using default anthropic provider`)
+        sessionLog.warn(`No LLM connection found for session ${managed.id}`)
       }
 
       // Set session directory for tool metadata cross-process sharing.
@@ -3800,15 +3583,6 @@ export class SessionManager implements ISessionManager {
       // Create centralized MCP client pool (all backends use it)
       managed.mcpPool = new McpClientPool({ debug: (msg) => sessionLog.debug(msg), workspaceRootPath: managed.workspace.rootPath, sessionPath })
 
-      // Backends that run as external subprocesses need an HTTP pool server
-      let poolServerUrl: string | undefined
-      if (backendContext.capabilities.needsHttpPoolServer) {
-        managed.poolServer = new McpPoolServer(managed.mcpPool, { debug: (msg) => sessionLog.debug(msg) })
-        managed.mcpPool.onToolsChanged = () => managed.poolServer?.notifyToolsChanged()
-        poolServerUrl = await managed.poolServer.start()
-        await managed.mcpPool.sync(mcpServers) // Ensure pool has tools before SDK connects
-      }
-
       // Per-session env overrides
       const miniModel = connection ? (getMiniModel(connection) ?? connection.defaultModel) : undefined
       const envOverrides: Record<string, string> = {
@@ -3830,13 +3604,11 @@ export class SessionManager implements ISessionManager {
         sdkSessionId: managed.sdkSessionId,
         branchFromSdkSessionId: managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSdkSessionId : undefined,
         branchFromSessionPath: managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSessionPath : undefined,
-        branchFromSdkCwd: managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSdkCwd : undefined,
         branchFromSdkTurnId: managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSdkTurnId : undefined,
         branchFromMessageId: managed.branchFromMessageId,
         createdAt: managed.lastMessageAt,
         lastUsedAt: managed.lastMessageAt,
         workingDirectory: managed.workingDirectory,
-        sdkCwd: managed.sdkCwd,
         model: managed.model,
         llmConnection: managed.llmConnection,
         permissionMode: managed.permissionMode,
@@ -3850,7 +3622,6 @@ export class SessionManager implements ISessionManager {
         if (managed.branchFromSdkSessionId) {
           sessionLog.info(`Branch fork established for ${managed.id}: child=${sdkSessionId}, retiring parent fork metadata (parent=${managed.branchFromSdkSessionId})`)
           managed.branchFromSdkSessionId = undefined
-          managed.branchFromSdkCwd = undefined
           managed.branchFromSdkTurnId = undefined
         } else {
           sessionLog.info(`SDK session ID captured for ${managed.id}: ${sdkSessionId}`)
@@ -3862,16 +3633,6 @@ export class SessionManager implements ISessionManager {
       const onSdkSessionIdCleared = () => {
         managed.sdkSessionId = undefined
         sessionLog.info(`SDK session ID cleared for ${managed.id} (resume recovery)`)
-        this.persistSession(managed)
-        sessionPersistenceQueue.flush(managed.id)
-      }
-
-      const onBranchForkInvalidated = () => {
-        managed.sdkSessionId = undefined
-        managed.branchFromSdkSessionId = undefined
-        managed.branchFromSdkCwd = undefined
-        managed.branchFromSdkTurnId = undefined
-        sessionLog.info(`Branch fork invalidated for ${managed.id}: cleared all fork metadata`)
         this.persistSession(managed)
         sessionPersistenceQueue.flush(managed.id)
       }
@@ -3951,15 +3712,15 @@ export class SessionManager implements ISessionManager {
         session: sessionConfig,
         onSdkSessionIdUpdate,
         onSdkSessionIdCleared,
-        onBranchForkInvalidated,
         getRecoveryMessages,
+        recoverHistory: needsHistoryRecovery(managed, sessionPath),
+        getAgentInstructions: () => agentInstructionsOf(managed),
         getBranchFallbackMessages,
         getBranchSeedMessages,
         markBranchSeedApplied,
         getTransferredSessionSummary,
         markTransferredSessionSummaryApplied,
         mcpPool: managed.mcpPool,
-        poolServerUrl,
         envOverrides,
         // Claude-specific
         isHeadless: !AGENT_FLAGS.defaultModesEnabled,
@@ -3998,7 +3759,7 @@ export class SessionManager implements ISessionManager {
         },
       }) as AgentInstance
 
-      sessionLog.info(`Created ${provider} agent for session ${managed.id} (model: ${backendContext.resolvedModel})${managed.sdkSessionId ? ' (resuming)' : ''}`)
+      sessionLog.info(`Created agent for session ${managed.id} (model: ${backendContext.resolvedModel})${managed.sdkSessionId ? ' (resuming)' : ''}`)
 
       // ============================================================
       // Post-construction: debug callback, auth callback, postInit()
@@ -4574,7 +4335,6 @@ export class SessionManager implements ISessionManager {
           if (managed.isProcessing && managed.agent) {
             sessionLog.info(`Interrupting for plan submission in session ${managed.id}`)
             managed.agent.interruptForHandoff(AbortReason.PlanSubmitted)
-            this.recoverPendingSteers(managed)
             this.setProcessing(managed, false)
 
             // Release browser overlay + session binding because the agent is no longer running.
@@ -4585,7 +4345,7 @@ export class SessionManager implements ISessionManager {
             )
 
             // Send complete event so renderer knows processing stopped (include tokenUsage for real-time updates)
-            this.sendEvent({ type: 'complete', sessionId: managed.id, tokenUsage: managed.tokenUsage, backgroundTasksAlive: this.keepBackgroundTasksAlive }, managed.workspace.id)
+            this.sendEvent({ type: 'complete', sessionId: managed.id, tokenUsage: managed.tokenUsage }, managed.workspace.id)
 
             // Persist session state
             this.persistSession(managed)
@@ -4634,7 +4394,6 @@ export class SessionManager implements ISessionManager {
         if (managed.isProcessing && managed.agent) {
           sessionLog.info(`Interrupting for auth request in session ${managed.id}`)
           managed.agent.interruptForHandoff(AbortReason.AuthRequest)
-          this.recoverPendingSteers(managed)
           this.setProcessing(managed, false)
 
           // Release browser overlay + session binding because the agent is paused awaiting user auth.
@@ -4644,7 +4403,7 @@ export class SessionManager implements ISessionManager {
           )
 
           // Send complete event so renderer knows processing stopped (include tokenUsage for real-time updates)
-          this.sendEvent({ type: 'complete', sessionId: managed.id, tokenUsage: managed.tokenUsage, backgroundTasksAlive: this.keepBackgroundTasksAlive }, managed.workspace.id)
+          this.sendEvent({ type: 'complete', sessionId: managed.id, tokenUsage: managed.tokenUsage }, managed.workspace.id)
         }
 
         // Emit auth_request event to renderer
@@ -4870,8 +4629,8 @@ export class SessionManager implements ISessionManager {
             }
           })
         },
-        // labels_edit / statuses_edit / permissions_edit: the chat's user edits the workspace's labels, statuses or
-        // permission rules (owners write, members read), through the domain functions
+        // labels_edit / statuses_edit / permissions_edit / agents_edit: the chat's user edits the workspace's labels,
+        // statuses, permission rules or agents, through the domain functions (runWorkspaceConfigAction holds the rules)
         editWorkspaceConfigFn: async (domain, args) => {
           const { result, wrote } = runWorkspaceConfigAction(managed.workspace.id, userIdOf(managed.createdBy) ?? getFirstUser()?.id ?? null, domain, args)
           if (wrote) {
@@ -4946,7 +4705,7 @@ export class SessionManager implements ISessionManager {
           // Both backends need the current turn to end before new tools are visible:
           // Claude SDK freezes mcpServers at query() start; Pi only picks up new proxy
           // tool defs on the next handlePrompt (`toolsChanged` flag in pi-agent-server).
-          // Mark a pending restart on the agent — ClaudeAgent/PiAgent consume it after
+          // Mark a pending restart on the agent — PiAgent consumes it after
           // the next tool_result, yield source_activated, and forceAbort. The
           // `source_activated` handler in this class then schedules a server-side
           // resend of the original user message with a "[{slug} activated]" suffix —
@@ -4957,16 +4716,6 @@ export class SessionManager implements ISessionManager {
           }
           return { ok: true, availability: 'next-turn' as const }
         },
-      })
-
-      // WS2 keep-alive: forward background task events that arrive BETWEEN turns
-      // (idle — no chat() generator consuming) into the normal event pipeline, so
-      // the running-task registry + renderer chips reflect a completion even when
-      // it lands while the session is idle. During a turn these events flow through
-      // the chat() generator as usual; this only covers the idle gap. No-op unless
-      // the backend supports a persistent cross-turn query (Claude keep-alive).
-      managed.agent.setBackgroundEventSink?.((event: AgentEvent) => {
-        void this.processEvent(managed, event)
       })
 
       // Wire up onSourceActivationRequest to auto-enable sources when agent tries to use them
@@ -5779,7 +5528,7 @@ export class SessionManager implements ISessionManager {
             lastUsedAt: Date.now(),
           },
           isHeadless: true,
-        }, buildBackendHostRuntimeContext(), undefined, this.connectionContextOf(managed)) as AgentInstance
+        }, buildBackendHostRuntimeContext(), this.connectionContextOf(managed))
         await agent.postInit()
         isTemporary = true
         sessionLog.info(`refreshTitle: Created temporary agent for session ${sessionId}`)
@@ -5840,14 +5589,7 @@ export class SessionManager implements ISessionManager {
     }
   }
 
-  /**
-   * Update the working directory for a session.
-   *
-   * If no messages have been sent yet (no SDK interaction), also updates sdkCwd
-   * so the SDK will use the new path for transcript storage. This prevents the
-   * confusing "bash shell runs from a different directory" warning when the user
-   * changes the working directory before their first message.
-   */
+  /** Update the working directory for a session (and its agent). */
   updateWorkingDirectory(sessionId: string, path: string): void {
     const managed = this.sessions.get(sessionId)
     if (managed) {
@@ -5867,27 +5609,8 @@ export class SessionManager implements ISessionManager {
       // Invalidate filesystem caches that depend on working directory
       invalidateContextFileCache(path)
 
-      // Check if we can also update sdkCwd (safe if no SDK interaction yet)
-      // Conditions: no messages sent AND no agent created yet (no SDK session)
-      const shouldUpdateSdkCwd =
-        managed.messages.length === 0 &&
-        !managed.sdkSessionId &&
-        !managed.agent
-
-      if (shouldUpdateSdkCwd) {
-        managed.sdkCwd = path
-        sessionLog.info(`Session ${sessionId}: sdkCwd updated to ${path} (no prior interaction)`)
-      }
-
       // Also update the agent's session config if agent exists
-      if (managed.agent) {
-        managed.agent.updateWorkingDirectory(path)
-        // If agent exists but conditions still allow sdkCwd update (edge case),
-        // update the agent's sdkCwd as well
-        if (shouldUpdateSdkCwd) {
-          managed.agent.updateSdkCwd(path)
-        }
-      }
+      managed.agent?.updateWorkingDirectory(path)
 
       this.persistSession(managed)
       // Notify renderer of the working directory change
@@ -6189,13 +5912,6 @@ export class SessionManager implements ISessionManager {
       managed.agent.dispose()
     }
 
-    // Stop pool server (HTTP MCP server for external SDK subprocesses)
-    if (managed.poolServer) {
-      managed.poolServer.stop().catch(err => {
-        sessionLog.warn(`Failed to stop pool server for ${sessionId}: ${err instanceof Error ? err.message : err}`)
-      })
-    }
-
     // Cancel any pending source-activation auto-retry timer (otto#804).
     if (managed.autoRetryTimer) {
       clearTimeout(managed.autoRetryTimer)
@@ -6329,12 +6045,9 @@ export class SessionManager implements ISessionManager {
       const compactionInFlight = agent?.isCompactionInFlight?.() === true
       const attemptedSteer = shouldAttemptMidStreamSteer(behavior, textOnly, agent)
       const steered = attemptedSteer && agent
-        ? agent.redirect(message, { messageId: userMessage.id })
+        ? agent.redirect(message)
         : false
       const payload: ManagedSession['messageQueue'][number] = { message, attachments, storedAttachments, options, messageId: userMessage.id, optimisticMessageId: options?.optimisticMessageId }
-      if (steered && agent?.takePendingSteers) {
-        (managed.acceptedSteers ??= new Map()).set(userMessage.id, payload)
-      }
       if (steered) (managed.turnSteers ??= []).push(message)
       sessionLog.info('mid-stream send', { sessionId, behavior, steered, textOnly, compactionInFlight, queueLengthBefore: managed.messageQueue.length })
 
@@ -6916,10 +6629,6 @@ export class SessionManager implements ISessionManager {
 
     sessionLog.info('Cancelling processing for session:', sessionId, silent ? '(silent)' : '')
 
-    // A hard Stop visibly cancels undelivered accepted steers just like queued
-    // sends. Transfer first so the existing input-restoration path includes them.
-    this.recoverPendingSteers(managed)
-
     // Collect queued message text for input restoration before clearing
     const queuedTexts = managed.messageQueue.map(q => q.message)
 
@@ -7020,13 +6729,8 @@ export class SessionManager implements ISessionManager {
 
     setImmediate(async () => {
       try {
-        // 1. Reset summarization client so it picks up fresh credentials
-        sessionLog.info(`[auth-retry] Resetting summarization client for session ${sessionId}`)
-        resetSummarizationClient()
-
-        // 2. Destroy the agent — the new agent's postInit() will refresh auth
+        // 1. Destroy the agent — the new agent's postInit() will refresh auth
         sessionLog.info(`[auth-retry] Destroying agent for session ${sessionId}`)
-        this.recoverPendingSteers(managed)
         managed.agent = null
 
         // 3. Retry the message
@@ -7091,38 +6795,6 @@ export class SessionManager implements ISessionManager {
     return true
   }
 
-  /** Reconcile an accepted steer with its original bubble and full host payload. */
-  private recoverUndeliveredSteer(managed: ManagedSession, steer: { message: string; messageId?: string }): void {
-    const payload = steer.messageId ? managed.acceptedSteers?.get(steer.messageId) : { message: steer.message }
-    // Identity-bearing events are idempotent, including trailing events after Stop.
-    if (!payload) return
-    if (steer.messageId) managed.acceptedSteers?.delete(steer.messageId)
-    const existing = payload.messageId ? managed.messages.find(m => m.id === payload.messageId) : undefined
-    if (existing) {
-      existing.isQueued = true
-      this.sendEvent({ type: 'user_message', sessionId: managed.id, message: existing,
-        status: 'queued', optimisticMessageId: payload.optimisticMessageId }, managed.workspace.id)
-    }
-    // Recover into original arrival order, including attachment sends that were
-    // already queued while this text steer was pending inside the backend.
-    const index = existing ? managed.messages.indexOf(existing) : -1
-    const before = index < 0 ? -1 : managed.messageQueue.findIndex(item => {
-      const queuedIndex = managed.messages.findIndex(m => m.id === item.messageId)
-      return queuedIndex > index
-    })
-    if (before < 0) managed.messageQueue.push(payload)
-    else managed.messageQueue.splice(before, 0, payload)
-    this.persistSession(managed)
-  }
-
-  /** Synchronous ownership transfer before a backend is paused or disposed. */
-  private recoverPendingSteers(managed: ManagedSession): void {
-    for (const steer of managed.agent?.takePendingSteers?.() ?? []) {
-      this.recoverUndeliveredSteer(managed, steer)
-    }
-    managed.acceptedSteers?.clear()
-  }
-
   /**
    * Central handler for when processing stops (any reason).
    * Single source of truth for cleanup and queue processing.
@@ -7138,9 +6810,6 @@ export class SessionManager implements ISessionManager {
     if (!managed) return
 
     sessionLog.info(`Processing stopped for session ${sessionId}: ${reason}`)
-
-    // Backend recovery events precede complete; discard payloads already delivered.
-    managed.acceptedSteers?.clear()
 
     // 1. Cleanup state
     this.setProcessing(managed, false)
@@ -7238,11 +6907,6 @@ export class SessionManager implements ISessionManager {
         sessionId,
         tokenUsage: managed.tokenUsage,
         hasUnread: managed.hasUnread,  // Propagate unread state to renderer
-        // WS2: when keep-alive keeps the persistent query open across turns, the
-        // turn ending does NOT kill background sub-agents. Tell the renderer so its
-        // chip orphan-backstop does not falsely flip live tasks to `orphaned`; a
-        // real `task_completed` will arrive when the agent actually finishes.
-        backgroundTasksAlive: this.keepBackgroundTasksAlive,
       }, managed.workspace.id)
 
       // Hidden/mini sessions have no status worth changing.
@@ -7448,12 +7112,8 @@ export class SessionManager implements ISessionManager {
    * down at turn end, but their terminal notifications may never arrive (or arrive
    * only on a later turn's subprocess). Marking them `orphaned` here keeps a
    * "status?" query truthful — it must never report a dead task as "running".
-   *
-   * No-op once WS2 keep-alive is enabled: with a persistent query the tasks
-   * genuinely outlive the turn, so `keepBackgroundTasksAlive` short-circuits this.
    */
   private markOrphanedBackgroundTasks(sessionId: string): void {
-    if (this.keepBackgroundTasksAlive) return
     const managed = this.sessions.get(sessionId)
     if (!managed) return
     const now = Date.now()
@@ -7827,7 +7487,7 @@ export class SessionManager implements ISessionManager {
             lastUsedAt: Date.now(),
           },
           isHeadless: true,
-        }, buildBackendHostRuntimeContext(), undefined, this.connectionContextOf(managed)) as AgentInstance
+        }, buildBackendHostRuntimeContext(), this.connectionContextOf(managed))
         await agent.postInit()
         isTemporary = true
         sessionLog.info(`[generateTitle] Created temporary agent for session ${managed.id}`)
@@ -7945,18 +7605,6 @@ export class SessionManager implements ISessionManager {
         if (!event.isIntermediate) {
           managed.lastMessageRole = 'assistant'
           managed.lastFinalMessageId = assistantMessage.id
-
-          const sessionPath = getSessionStoragePath(managed.workspace.rootPath, sessionId)
-
-          // Claude branch-cutoff support: persist message UUID + SDK session lineage in sidecar.
-          // Used to guard resumeSessionAt so we only send anchors valid for the parent SDK session.
-          if (event.turnId && managed.sdkSessionId && isClaudeMessageUuid(event.turnId)) {
-            try {
-              await saveClaudeTurnAnchor(sessionPath, assistantMessage.id, managed.sdkSessionId, event.turnId)
-            } catch (error) {
-              sessionLog.warn(`Failed to persist Claude turn anchor for session ${sessionId}:`, error)
-            }
-          }
 
           // Pi branch-cutoff support: remember the SDK message id → Otto
           // assistant message id mapping. The actual anchor arrives as a
@@ -8468,23 +8116,6 @@ export class SessionManager implements ISessionManager {
         break
 
       case 'task_completed': {
-        // Capture whether we'd already recorded a terminal result for this task
-        // BEFORE mutating state below, so the idle auto-surface (further down)
-        // fires at most once even if a duplicate terminal notification arrives.
-        // A Workflow's completion notification may key on either the returned
-        // Task ID (the registry key) or the wf_ run id, so fall back to a
-        // workflowId match before giving up.
-        const priorEntry = managed
-          ? (managed.backgroundTaskRegistry.get(event.taskId)
-            ?? [...managed.backgroundTaskRegistry.values()].find(t => t.workflowId === event.taskId))
-          : undefined
-        // Only the session's own tasks may wake it below: one registered at launch and still
-        // running, or (launch unseen) one whose starting tool call was the agent's own. A
-        // completion for anything else (a subagent's task) is recorded, never surfaced.
-        const launchedHereAndRunning = priorEntry
-          ? priorEntry.status === 'running' && !priorEntry.untracked
-          : event.launchedHere === true
-
         // Store output for later retrieval via getTaskOutput()
         if (managed) {
           managed.backgroundTaskOutputs.set(event.taskId, {
@@ -8533,56 +8164,6 @@ export class SessionManager implements ISessionManager {
           sessionId,
         }, workspaceId)
 
-        // WS2 keep-alive: when a background agent finishes while the session is
-        // IDLE, nobody is consuming its result — the main agent already ended its
-        // turn, so the completion only updates the registry/chip and the findings
-        // never make it back into the conversation ("the agent never returned the
-        // result"). Wake the session with a system-generated follow-up so the agent
-        // reads the output and presents it. During an active turn (isProcessing)
-        // the terminal notification reaches the agent through the live stream, so
-        // we skip then. Gated on keep-alive because only that mode delivers this
-        // event between turns; guarded against duplicate notifications.
-        if (managed && this.keepBackgroundTasksAlive && !managed.isProcessing && launchedHereAndRunning) {
-          const taskIntent = priorEntry?.intent
-          const outputFile = event.outputFile || managed.backgroundTaskOutputs.get(event.taskId)?.outputFile
-          const label = taskIntent ? `"${taskIntent}"` : `task ${event.taskId}`
-          const kind = priorEntry?.kind
-          const what = kind === 'shell' ? 'background command' : kind === 'task' ? 'background task' : 'background agent'
-          const nudge = kind === 'shell' || kind === 'task'
-            ? (event.status === 'completed'
-              ? [
-                  `[background-task-completed] The ${what} you started (${label}) has finished.`,
-                  outputFile ? `Its output is saved at: ${outputFile}` : '',
-                  `Read that output and report the result to the user now. Do NOT start it again.`,
-                ].filter(Boolean).join('\n')
-              : [
-                  `[background-task-${event.status}] The ${what} you started (${label}) ended with status "${event.status}".`,
-                  outputFile ? `Any partial output is at: ${outputFile}.` : '',
-                  `Briefly let the user know it did not complete successfully.`,
-                ].filter(Boolean).join('\n'))
-            : event.status === 'completed'
-            ? [
-                `[background-task-completed] The background agent you launched (${label}) has finished.`,
-                outputFile ? `Its full output is saved at: ${outputFile}` : '',
-                `Read that output file and present the results to the user now. Do NOT spawn another background agent — just read the file and summarize the findings inline.`,
-              ].filter(Boolean).join('\n')
-            : [
-                `[background-task-${event.status}] The background agent you launched (${label}) ended with status "${event.status}".`,
-                outputFile ? `Any partial output is at: ${outputFile}.` : '',
-                `Briefly let the user know it did not complete successfully. Do NOT spawn another background agent.`,
-              ].filter(Boolean).join('\n')
-          sessionLog.info(`[bg-lifecycle] surfacing completed background task to idle session`, {
-            sessionId,
-            taskId: event.taskId,
-            status: event.status,
-          })
-          // Ride the normal turn machinery (resume + persistence). `hidden: true`
-          // keeps the nudge out of the transcript — the agent's response (the
-          // presented result) renders as a normal assistant turn.
-          void this.sendMessage(sessionId, nudge, [], [], { hidden: true }).catch((err) => {
-            sessionLog.error(`[bg-lifecycle] failed to surface completed task ${event.taskId}:`, err)
-          })
-        }
         break
       }
 
@@ -8792,10 +8373,6 @@ export class SessionManager implements ISessionManager {
         }
         break
 
-      case 'steer_undelivered':
-        this.recoverUndeliveredSteer(managed, event)
-        break
-
       // Note: working_directory_changed is user-initiated only (via updateWorkingDirectory),
       // the agent no longer has a change_working_directory tool
     }
@@ -8908,6 +8485,8 @@ export class SessionManager implements ISessionManager {
       telegramTopic,
       waitForCompletion,
       createdBy,
+      agentId,
+      projectId,
     } = input
 
     // Warn if llmConnection was specified but doesn't resolve
@@ -8944,7 +8523,8 @@ export class SessionManager implements ISessionManager {
       llmConnection,
       model,
       thinkingLevel,
-    }, { createdBy })
+      projectId,
+    }, { createdBy, agentId })
 
     // Populate triggeredBy metadata so title generation is explicitly skipped
     // and the session is identifiable as automation-initiated after reload
@@ -9071,7 +8651,6 @@ export class SessionManager implements ISessionManager {
           createdAt: Date.now(),
           lastUsedAt: Date.now(),
           workingDirectory: managed.workingDirectory,
-          sdkCwd: managed.sdkCwd,
           model: managed.model,
           llmConnection: managed.llmConnection,
           permissionMode: managed.permissionMode,
@@ -9081,7 +8660,6 @@ export class SessionManager implements ISessionManager {
         envOverrides,
         isHeadless: true,
       },
-      providerOptions: { piAuthProvider: backendContext.connection?.piAuthProvider },
     })
 
     try {
@@ -9248,10 +8826,6 @@ export class SessionManager implements ISessionManager {
       id: sessionId,
       workspaceRootPath,
       sdkSessionId: header.sdkSessionId, // Preserved initially; fork logic below may clear it
-      // Always regenerate sdkCwd for the target workspace.
-      // The source sdkCwd points to a path on the originating server
-      // which doesn't exist here (cross-server transfer).
-      sdkCwd: getSessionStoragePath(workspaceRootPath, sessionId),
       name: header.name,
       createdBy: createdBy ?? this.firstOwnerActor(workspaceId),
       createdAt: header.createdAt,
@@ -9275,13 +8849,6 @@ export class SessionManager implements ISessionManager {
       tokenUsage: header.tokenUsage ?? DEFAULT_TOKEN_USAGE,
     }
 
-    // Fork-specific: set up SDK branching if branchInfo provided
-    if (mode === 'fork' && bundle.branchInfo) {
-      storedSession.branchFromSdkSessionId = bundle.branchInfo.sdkSessionId
-      storedSession.branchFromSdkTurnId = bundle.branchInfo.sdkTurnId
-      storedSession.branchFromSdkCwd = bundle.branchInfo.sdkCwd
-    }
-
     // Fork-specific: clear sharing state and attempt resume-first strategy
     if (mode === 'fork') {
       storedSession.sharedUrl = undefined
@@ -9291,7 +8858,7 @@ export class SessionManager implements ISessionManager {
       // If found and the session has an sdkSessionId, preserve it for API-level resume.
       // If not, clear SDK state and fall back to transferred session summary.
       const sourceProviderType = header.llmConnection
-        ? getLlmConnection(header.llmConnection)?.providerType
+        ? getLlmConnection(header.llmConnection)?.piAuthProvider
         : undefined
       const compatibleConnection = sourceProviderType
         ? this.findCompatibleLlmConnection(workspaceRootPath, sourceProviderType)
@@ -9393,16 +8960,17 @@ export class SessionManager implements ISessionManager {
    * Find an LLM connection on this server that matches the given provider type.
    * Checks workspace default first, then falls back to any matching connection.
    */
-  private findCompatibleLlmConnection(workspaceRootPath: string, providerType: string): string | null {
+  /** A connection of the workspace that signs in to this Pi provider (the workspace default first). */
+  private findCompatibleLlmConnection(workspaceRootPath: string, piProvider: string): string | null {
     const wsConfig = loadWorkspaceConfig(workspaceRootPath)
     const defaultSlug = wsConfig?.defaults?.defaultLlmConnection
     if (defaultSlug) {
       const conn = getLlmConnection(defaultSlug)
-      if (conn?.providerType === providerType) return defaultSlug
+      if (conn?.piAuthProvider === piProvider) return defaultSlug
     }
-    // Fall back: any connection with matching provider type
+    // Fall back: any connection with the same Pi provider
     const connections = getLlmConnections()
-    const match = connections.find(c => c.providerType === providerType)
+    const match = connections.find(c => c.piAuthProvider === piProvider)
     return match?.slug ?? null
   }
 

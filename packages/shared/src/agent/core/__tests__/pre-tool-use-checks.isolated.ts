@@ -2,7 +2,7 @@
  * Tests for the centralized PreToolUse pipeline.
  *
  * Tests `runPreToolUseChecks()` (6-step pipeline) and `shouldPromptInAskMode()`
- * which are shared by both agent backends (ClaudeAgent, PiAgent).
+ * which are shared by the agent (PiAgent).
  */
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
 
@@ -78,16 +78,6 @@ mock.module('../../../config/validators.ts', () => ({
   detectAppConfigFileType: (a: any) => mockDetectAppConfigFileType(a),
   validateConfigFileContent: (a: any, b: any) => mockValidateConfigFileContent(a, b),
   formatValidationResult: () => '',
-}));
-
-// Mock skill constants
-mock.module('../../../skills/types.ts', () => ({
-  AGENTS_PLUGIN_NAME: '.agents',
-}));
-
-mock.module('../../../skills/storage.ts', () => ({
-  GLOBAL_AGENT_SKILLS_DIR: '/Users/test/.agents/skills',
-  PROJECT_AGENT_SKILLS_DIR: '.agents/skills',
 }));
 
 let mockOttoCliFlag = false;

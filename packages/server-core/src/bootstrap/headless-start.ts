@@ -13,6 +13,7 @@ import { initSettingsImport } from '@otto/shared/settings'
 import { initConnectionsImport } from '@otto/shared/connections/import'
 import { initSecretsImport } from '@otto/shared/secrets/import'
 import { initAgentsImport } from '@otto/shared/agents/import'
+import { initRoutinesImport } from '@otto/shared/automations/routines-import'
 import { initLabelsStatusesImport } from '@otto/shared/labels/import'
 import { initSkills } from '@otto/shared/skills'
 import { initSources } from '@otto/shared/sources'
@@ -23,6 +24,7 @@ import { WsRpcServer, type WsRpcTlsOptions } from '../transport/server'
 import type { EventSink, RpcServer } from '../transport/types'
 import { createHeadlessPlatform } from '../runtime/platform-headless'
 import type { PlatformServices } from '../runtime/platform'
+import type { HandlerDeps } from '../handlers/handler-deps'
 
 interface ModelRefreshServiceLike {
   startAll(): void
@@ -385,6 +387,8 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   await initSkills()
   // The same for each workspace's source folders, and the credentials they had in credentials.enc become secrets.
   await initSources()
+  // Each workspace's automations.json becomes routines, once per workspace.
+  initRoutinesImport()
   if (users.needsOwner() && !process.env.OTTO_OWNER_EMAIL?.trim()) {
     platform.logger.warn('[bootstrap] The first sign-up will own this server; set OTTO_OWNER_EMAIL to restrict it')
   }
@@ -455,6 +459,10 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
 
   modelRefreshService.startAll()
 
+  // The routines scheduler: every minute it fires the due schedule routines, once across restarts and nodes.
+  const { startRoutines } = await import('../handlers/rpc/routines')
+  const stopRoutines = startRoutines(wsServer, deps as unknown as HandlerDeps)
+
   platform.logger.info(`${PRODUCT_NAME} server listening on ${wsServer.protocol}://${rpcHost}:${wsServer.port}`)
 
   let stopped = false
@@ -476,6 +484,8 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
     } catch (error) {
       platform.logger.error('[bootstrap] Failed to send shutdown notification:', error)
     }
+
+    stopRoutines()
 
     try {
       modelRefreshService.stopAll?.()

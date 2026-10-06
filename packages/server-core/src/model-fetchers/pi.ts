@@ -7,7 +7,6 @@
 import type { ModelFetcher, ModelFetchResult, ModelFetcherCredentials } from '@otto/shared/config'
 import type { LlmConnection } from '@otto/shared/config'
 import { fetchBackendModels } from '@otto/shared/agent/backend'
-import { getHostRuntime } from './runtime'
 
 export class PiModelFetcher implements ModelFetcher {
   /** No periodic refresh — SDK models are static, updated on app upgrade */
@@ -23,7 +22,6 @@ export class PiModelFetcher implements ModelFetcher {
       connection,
       credentials,
       timeoutMs: isCopilot ? 30_000 : 15_000,
-      hostRuntime: getHostRuntime(),
     })
   }
 }

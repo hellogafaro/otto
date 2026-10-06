@@ -143,7 +143,6 @@ printAnnotation('Shows whether local MCP stdio servers are enabled for the works
 const workingDirContext = getWorkingDirectoryContext(
   '/Users/example/projects/my-app',
   false, // Not session root
-  undefined // No bash cwd mismatch
 );
 printSection(
   '5. WORKING DIRECTORY - getWorkingDirectoryContext()',

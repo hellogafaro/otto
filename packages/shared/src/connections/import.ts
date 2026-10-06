@@ -5,12 +5,15 @@ import { getCredentialManager, type CredentialManager } from '../credentials/ind
 import { initDb, type Db } from '../db/index.ts'
 import { initSecretsStore } from '../secrets/index.ts'
 import { getSetting, INSTALL, updateSetting } from '../settings/index.ts'
-import { CONNECTION_TYPES, createConnectionsStore, INSTALL_SCOPE, type ConnectionInput, type Credential } from './index.ts'
+import { CLAUDE_CODE_CONNECTION_TYPE, createConnectionsStore, INSTALL_SCOPE, toPiProvider, type ConnectionConfig, type ConnectionInput, type Credential } from './index.ts'
+import { connections } from './schema.ts'
 
 /**
  * The importer: the `llmConnections` of `config.json` and their credentials in `credentials.enc`
- * (`llm_api_key::{slug}`, `llm_oauth::`, `llm_iam::`, `llm_service_account::`, and the global `anthropic_api_key` and
- * `claude_oauth` of before connections) become `connections` rows (scope `install`) with one secret each, once, at boot.
+ * (`llm_api_key::{slug}`, `llm_oauth::`, `llm_iam::`, `llm_service_account::`, and the global `anthropic_api_key` of
+ * before connections) become `connections` rows (scope `install`) with one secret each, once, at boot. Their `type` is
+ * the Pi provider id (`toPiProvider`); a Claude subscription becomes `claude-code`, which keeps no secret, so the
+ * Claude OAuth tokens Otto once held are not imported.
  * A row that exists for a slug (the old bridge made some) is updated, not duplicated; a connection that cannot be
  * read (an unknown provider type) is skipped and counted. The credentials are read first and each connection is
  * one transaction, so a run that stops half-way is finished by the next one, and `imports.connections` is recorded
@@ -21,6 +24,8 @@ type Raw = Record<string, unknown>
 const isObject = (value: unknown): value is Raw => typeof value === 'object' && value !== null && !Array.isArray(value)
 const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined)
 const date = (value: unknown) => (typeof value === 'number' ? new Date(value) : undefined)
+/** The provider types of `config.json`. */
+const OLD_TYPES = ['anthropic', 'pi', 'pi_compat']
 
 function readConfig(configDir: string): Raw {
   const path = join(configDir, 'config.json')
@@ -37,11 +42,11 @@ function readConfig(configDir: string): Raw {
 
 /** The credential `credentials.enc` holds for a connection of this auth type, or undefined. */
 async function readCredential(manager: CredentialManager, slug: string, authType: string): Promise<Credential | undefined> {
-  const get = async (type: 'llm_api_key' | 'llm_oauth' | 'llm_iam' | 'llm_service_account' | 'claude_oauth' | 'anthropic_api_key') =>
+  const get = async (type: 'llm_api_key' | 'llm_oauth' | 'llm_iam' | 'llm_service_account' | 'anthropic_api_key') =>
     (await manager.get(type.startsWith('llm_') ? { type, connectionSlug: slug } : { type }).catch(() => null)) ?? undefined
   switch (authType) {
     case 'oauth': {
-      const stored = (await get('llm_oauth')) ?? (slug === 'claude-max' ? await get('claude_oauth') : undefined)
+      const stored = await get('llm_oauth')
       return stored?.value ? { accessToken: stored.value, refreshToken: stored.refreshToken, expiresAt: stored.expiresAt, idToken: stored.idToken } : undefined
     }
     case 'api_key':
@@ -68,27 +73,20 @@ async function readCredential(manager: CredentialManager, slug: string, authType
 function toInput(raw: unknown): ConnectionInput | undefined {
   if (!isObject(raw)) return undefined
   const { slug, name, providerType, authType } = raw
-  if (!text(slug) || !text(name) || !text(authType) || !CONNECTION_TYPES.includes(providerType as never)) return undefined
+  if (!text(slug) || !text(name) || !text(authType) || !OLD_TYPES.includes(providerType as string)) return undefined
+  const provider = toPiProvider(providerType as string, authType as ConnectionInput['authType'], text(raw.piAuthProvider))
   return {
     slug: slug as string,
-    type: providerType as ConnectionInput['type'],
-    authType: authType as ConnectionInput['authType'],
+    type: provider.type,
+    authType: provider.authType,
     title: name as string,
     baseUrl: text(raw.baseUrl),
     defaultModel: text(raw.defaultModel),
     models: Array.isArray(raw.models) ? (raw.models as ConnectionInput['models']) : undefined,
     config: {
       modelSelectionMode: raw.modelSelectionMode as never,
-      piAuthProvider: text(raw.piAuthProvider),
       customEndpoint: isObject(raw.customEndpoint) ? (raw.customEndpoint as never) : undefined,
       midStreamBehavior: raw.midStreamBehavior as never,
-    },
-    account: {
-      oauthAccountUuid: text(raw.oauthAccountUuid),
-      oauthAccountEmail: text(raw.oauthAccountEmail),
-      oauthOrganizationUuid: text(raw.oauthOrganizationUuid),
-      oauthOrganizationName: text(raw.oauthOrganizationName),
-      verifiedAt: typeof raw.oauthProfileVerifiedAt === 'number' ? raw.oauthProfileVerifiedAt : undefined,
     },
     createdAt: date(raw.createdAt),
   }
@@ -98,8 +96,10 @@ export async function initConnectionsImport(
   options: { configDir?: string; db?: Db; store?: ReturnType<typeof createConnectionsStore>; manager?: CredentialManager } = {},
 ): Promise<{ imported: number; skipped: number }> {
   const db = options.db ?? initDb()
-  if (getSetting(INSTALL, 'imports', db).connections) return { imported: 0, skipped: 0 }
   const store = options.store ?? createConnectionsStore(db, initSecretsStore())
+  const converted = initConnectionsPiProviderImport(db, store)
+  if (converted) console.info(`[connections] ${converted} connections now name their Pi provider`)
+  if (getSetting(INSTALL, 'imports', db).connections) return { imported: 0, skipped: 0 }
   const manager = options.manager ?? getCredentialManager()
   const raws = readConfig(options.configDir ?? CONFIG_DIR).llmConnections
   let imported = 0
@@ -114,7 +114,7 @@ export async function initConnectionsImport(
     }
     try {
       const credential = await readCredential(manager, input.slug, input.authType)
-      if (!credential && input.authType !== 'none' && input.authType !== 'environment') console.warn(`[connections] no credential found for ${input.slug}`)
+      if (!credential && input.authType !== 'none' && input.authType !== 'environment' && input.authType !== 'cli_login') console.warn(`[connections] no credential found for ${input.slug}`)
       const existing = store.getConnection(input.slug)
       if (existing?.scope === INSTALL_SCOPE) {
         const { slug: _slug, scope: _scope, createdAt: _createdAt, ...patch } = input
@@ -131,4 +131,31 @@ export async function initConnectionsImport(
 
   updateSetting(INSTALL, 'imports', { ...getSetting(INSTALL, 'imports', db), connections: Date.now() }, db)
   return { imported, skipped }
+}
+
+/**
+ * Rows written before Pi only become the shape `toPiProvider` gives: `pi` + `piAuthProvider` X is X, `pi_compat` is
+ * `custom`, and a Claude subscription (`anthropic` + `oauth`) is `claude-code` + `cli_login`, whose stored Claude OAuth
+ * token secret is deleted (the user's own `claude` login replaces it). `config.piAuthProvider` and the Claude account
+ * identity once kept in `config.account` go. Runs at every boot (in `initConnectionsImport`) and changes nothing once
+ * every row has its Pi provider; each row is one transaction. Returns how many rows changed; never logs a value.
+ */
+export function initConnectionsPiProviderImport(db: Db, store: ReturnType<typeof createConnectionsStore>): number {
+  let changed = 0
+  for (const row of db.select().from(connections).all()) {
+    let raw: Raw = {}
+    try {
+      const parsed: unknown = row.config ? JSON.parse(row.config) : {}
+      if (isObject(parsed)) raw = parsed
+    } catch {
+      // an unreadable config is left as it is
+    }
+    const { piAuthProvider, account: _account, ...config } = raw
+    const provider = toPiProvider(row.type, row.authType as ConnectionInput['authType'], text(piAuthProvider))
+    if (provider.type === row.type && provider.authType === row.authType && !('piAuthProvider' in raw) && !('account' in raw)) continue
+    const claudeCode = provider.type === CLAUDE_CODE_CONNECTION_TYPE && row.type !== CLAUDE_CODE_CONNECTION_TYPE
+    store.updateConnection(row.id, { ...provider, config: config as ConnectionConfig }, claudeCode ? null : undefined)
+    changed++
+  }
+  return changed
 }

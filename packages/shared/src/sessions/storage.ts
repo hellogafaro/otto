@@ -191,11 +191,6 @@ export async function createSession(
   // Create session directory with all subdirectories (plans, attachments)
   ensureSessionDir(workspaceRootPath, sessionId);
 
-  // Set sdkCwd to initial working directory or session path - this never changes
-  // The SDK stores session transcripts at ~/.claude/projects/{cwd-slugified}/
-  // If workingDirectory changes later, sdkCwd stays the same to preserve session resumption
-  const sdkCwd = options?.workingDirectory ?? getSessionPath(workspaceRootPath, sessionId);
-
   const session: SessionConfig = {
     id: sessionId,
     workspaceRootPath,
@@ -205,7 +200,6 @@ export async function createSession(
     createdAt: now,
     lastUsedAt: now,
     workingDirectory: options?.workingDirectory,
-    sdkCwd,
     permissionMode: options?.permissionMode,
     enabledSourceSlugs: options?.enabledSourceSlugs,
     model: options?.model,
@@ -252,7 +246,6 @@ export async function getOrCreateSessionById(
       name: existing.name,
       createdAt: existing.createdAt,
       lastUsedAt: existing.lastUsedAt,
-      sdkCwd: existing.sdkCwd,
       workingDirectory: existing.workingDirectory,
     };
   }
@@ -264,13 +257,9 @@ export async function getOrCreateSessionById(
   ensureSessionDir(workspaceRootPath, sessionId);
 
   const now = Date.now();
-  // Set sdkCwd to session path - this never changes (ensures SDK can find session transcripts)
-  const sdkCwd = getSessionPath(workspaceRootPath, sessionId);
-
   const session: SessionConfig = {
     id: sessionId,
     workspaceRootPath,
-    sdkCwd,
     createdAt: now,
     lastUsedAt: now,
   };
@@ -395,14 +384,12 @@ function headerToMetadata(header: SessionHeader, workspaceRootPath: string): Ses
     // Count plan files for this session
     const planCount = listPlanFiles(workspaceRootPath, header.id).length;
 
-    // Migration: For sessions created before sdkCwd was added, use workingDirectory as fallback.
     const workingDir = header.workingDirectory ? expandPath(header.workingDirectory) : undefined;
-    const sdkCwd = header.sdkCwd ? expandPath(header.sdkCwd) : workingDir;
 
     // Destructure fields that don't exist on SessionMetadata or need overrides
     const {
       pendingPlanExecution: _pp,
-      sessionStatus: _ss, workingDirectory: _wd, sdkCwd: _sc,
+      sessionStatus: _ss, workingDirectory: _wd,
       workspaceRootPath: _wrp, ...headerFields
     } = header;
 
@@ -412,7 +399,6 @@ function headerToMetadata(header: SessionHeader, workspaceRootPath: string): Ses
       sessionStatus: validatedStatus,
       planCount: planCount > 0 ? planCount : undefined,
       workingDirectory: workingDir,
-      sdkCwd,
     } as SessionMetadata;
   } catch (error) {
     debug(`[sessions] Failed to convert header to metadata for session "${header?.id}" in ${workspaceRootPath}:`, error);
@@ -501,22 +487,6 @@ export async function updateSessionSdkId(
 }
 
 /**
- * Check if sdkCwd can be safely updated for a session.
- *
- * sdkCwd is normally immutable because the SDK stores session transcripts at
- * ~/.claude/projects/{cwd-slugified}/. However, it's safe to update sdkCwd if
- * no SDK interaction has occurred yet (no transcripts to preserve).
- *
- * @returns true if sdkCwd can be updated (no messages and no SDK session ID)
- */
-export function canUpdateSdkCwd(session: StoredSession): boolean {
-  // Safe to update if:
-  // 1. No messages have been sent yet (no conversation to preserve)
-  // 2. No SDK session ID (no transcript exists at the sdkCwd path)
-  return session.messages.length === 0 && !session.sdkSessionId;
-}
-
-/**
  * Update session metadata
  */
 export async function updateSessionMetadata(
@@ -531,7 +501,6 @@ export async function updateSessionMetadata(
     | 'hasUnread'
     | 'enabledSourceSlugs'
     | 'workingDirectory'
-    | 'sdkCwd'
     | 'permissionMode'
     | 'sharedUrl'
     | 'sharedId'
@@ -551,7 +520,6 @@ export async function updateSessionMetadata(
   if (updates.labels !== undefined) session.labels = updates.labels;
   if (updates.enabledSourceSlugs !== undefined) session.enabledSourceSlugs = updates.enabledSourceSlugs;
   if (updates.workingDirectory !== undefined) session.workingDirectory = updates.workingDirectory;
-  if (updates.sdkCwd !== undefined) session.sdkCwd = updates.sdkCwd;
   if (updates.permissionMode !== undefined) session.permissionMode = updates.permissionMode;
   if ('lastReadMessageId' in updates) session.lastReadMessageId = updates.lastReadMessageId;
   if ('hasUnread' in updates) session.hasUnread = updates.hasUnread;
@@ -745,21 +713,20 @@ export function listFlaggedSessions(workspaceRootPath: string): SessionMetadata[
 }
 
 /**
- * List completed sessions (category: closed)
- * Includes done, cancelled, and any custom "closed" statuses
- * Excludes archived sessions
+ * List completed sessions: every status that is not open (category `closed`, or the `archived` status that archiving
+ * a chat moves it to; see docs/schema.md). Excludes sessions with the legacy `isArchived` flag.
  */
 export function listCompletedSessions(workspaceRootPath: string): SessionMetadata[] {
   return listActiveSessions(workspaceRootPath).filter(s => {
     const category = getStatusCategory(workspaceRootPath, s.sessionStatus || 'todo');
-    return category === 'closed';
+    return category !== 'open';
   });
 }
 
 /**
  * List inbox sessions (category: open)
- * Includes todo, in-progress, needs-review, and any custom "open" statuses
- * Excludes archived sessions
+ * Includes todo, in-progress, needs-review, and any custom "open" statuses; an archived chat (the `archived`
+ * status) is not open, so it never shows here.
  */
 export function listInboxSessions(workspaceRootPath: string): SessionMetadata[] {
   return listActiveSessions(workspaceRootPath).filter(s => {

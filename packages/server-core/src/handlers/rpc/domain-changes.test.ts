@@ -28,6 +28,8 @@ const READ_CHANNELS = new Set<string>([
   C.statuses.LIST,
   C.agents.LIST,
   C.agents.GET,
+  C.routines.LIST,
+  C.routines.GET,
 ])
 
 const registered = new Set<string>()
@@ -47,7 +49,7 @@ const deps = {
 registerCoreRpcHandlers(server, deps)
 
 const inScope = (channel: string) =>
-  (/^(library|projects|tasks|timesheets|comments|notifications|labels|statuses|agents):/.test(channel) && channel !== C.tasks.GET_OUTPUT) ||
+  (/^(library|projects|tasks|timesheets|comments|notifications|labels|statuses|agents|routines):/.test(channel) && channel !== C.tasks.GET_OUTPUT) ||
   (MEMBER_CHANNELS as readonly string[]).includes(channel)
 
 describe('every write of the shared data pushes domain:changed', () => {

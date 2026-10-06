@@ -85,11 +85,12 @@ function isBareBedrockClaudeModel(modelId: string): boolean {
 }
 
 /**
- * Get Pi models for a specific auth provider directly from the Pi SDK.
+ * Get Pi models for a specific auth provider directly from the Pi SDK. `claude-code` (a Claude subscription through
+ * the user's own `claude`, registered by pi-agent-server) serves Pi's `anthropic` models under the same ids.
  */
 export function getPiModelsForAuthProvider(piAuthProvider: string): ModelDefinition[] {
   try {
-    const models = getModels(piAuthProvider as Parameters<typeof getModels>[0]);
+    const models = getModels((piAuthProvider === 'claude-code' ? 'anthropic' : piAuthProvider) as Parameters<typeof getModels>[0]);
     if (models.length > 0) {
       return models
         .filter(m => !isExcludedPiModel(m.id))

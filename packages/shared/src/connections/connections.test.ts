@@ -17,7 +17,7 @@ async function setup() {
 }
 
 const secretRows = (db: ReturnType<typeof openDb>) => db.select().from(secrets).all()
-const input = (slug: string, extra: Partial<ConnectionInput> = {}): ConnectionInput => ({ slug, type: 'pi', authType: 'api_key', title: slug, ...extra })
+const input = (slug: string, extra: Partial<ConnectionInput> = {}): ConnectionInput => ({ slug, type: 'openrouter', authType: 'api_key', title: slug, ...extra })
 
 test('create stores every field and returns it without the secret', async () => {
   const { store } = await setup()
@@ -26,8 +26,7 @@ test('create stores every field and returns it without the secret', async () => 
       baseUrl: 'https://openrouter.ai/api/v1',
       defaultModel: 'pi/gpt',
       models: [{ id: 'pi/gpt', name: 'GPT' } as never, 'pi/other'],
-      config: { piAuthProvider: 'openrouter', modelSelectionMode: 'userDefined3Tier', midStreamBehavior: 'queue' },
-      account: { oauthAccountEmail: 'me@x.test', verifiedAt: 5 },
+      config: { modelSelectionMode: 'userDefined3Tier', midStreamBehavior: 'queue' },
       createdAt: new Date(1000),
     }),
     { apiKey: 'sk-very-secret' },
@@ -36,12 +35,11 @@ test('create stores every field and returns it without the secret', async () => 
   expect(created).toMatchObject({
     scope: 'install',
     slug: 'openrouter',
-    type: 'pi',
+    type: 'openrouter',
     authType: 'api_key',
     baseUrl: 'https://openrouter.ai/api/v1',
     defaultModel: 'pi/gpt',
-    config: { piAuthProvider: 'openrouter', modelSelectionMode: 'userDefined3Tier', midStreamBehavior: 'queue' },
-    account: { oauthAccountEmail: 'me@x.test', verifiedAt: 5 },
+    config: { modelSelectionMode: 'userDefined3Tier', midStreamBehavior: 'queue' },
     hasSecret: true,
   })
   expect(created.models).toHaveLength(2)
