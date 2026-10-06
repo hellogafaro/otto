@@ -797,7 +797,11 @@ no shadow.
 - **Blocks** (`PageColumn`: settings, projects, lists, overviews, empty states):
   the title row, then stacked sections, 32px apart, the page scrolling as a whole
   in the column (edge fade, scroll-driven so the top is not faded at scroll 0; no
-  scrollbar; nothing stays pinned). A section (`PageSection`) is a
+  scrollbar; nothing stays pinned). The whole page area right of the sidebar
+  scrolls the page, not only the column: a wheel or trackpad scroll over the
+  gutters, the floating navigation or the space around the column scrolls it
+  too, the same amount (`PageFrame` forwards it; the open sidecar scrolls its
+  own content, and the chat's feed is unchanged). A section (`PageSection`) is a
   title (heading step 16.5px, medium, outside its card, inset 16px like the
   card's content) with an optional one-line muted body-size description and
   optional actions at the right end of that row, also on the inset ("View all",

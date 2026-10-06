@@ -130,6 +130,34 @@ function PageFrame({
     return () => observer.disconnect()
   }, [nav])
 
+  // Otto: the whole page area right of the sidebar scrolls the page. The scroll
+  // region is only the column, so a wheel over the gutters (or the nav) is
+  // forwarded to it. A NATIVE listener: React's bubbles through portals (a
+  // popover would scroll the page). Not over the sidecar (it scrolls itself),
+  // not a pinch (ctrl) nor a sideways swipe.
+  const frameRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    const onWheel = (event: WheelEvent) => {
+      const target = event.target as Element
+      const scroll = frame.querySelector<HTMLElement>(
+        "[data-slot=page-body] [data-slot=page-scroll]"
+      )
+      if (
+        !scroll ||
+        event.ctrlKey ||
+        Math.abs(event.deltaX) > Math.abs(event.deltaY) ||
+        scroll.contains(target) ||
+        target.closest("[data-slot=sidecar]")
+      )
+        return
+      scroll.scrollBy({ top: event.deltaY })
+    }
+    frame.addEventListener("wheel", onWheel, { passive: true })
+    return () => frame.removeEventListener("wheel", onWheel)
+  }, [])
+
   const value = React.useMemo(
     () => ({ header, title, setTitle, leading, nav, navFits }),
     [header, title, leading, nav, navFits]
@@ -138,6 +166,7 @@ function PageFrame({
   return (
     <PageFrameContext.Provider value={value}>
       <div
+        ref={frameRef}
         data-slot="page-frame"
         className={cn(
           "@container/frame relative h-full min-h-0 min-w-0 flex-1 overflow-hidden",
