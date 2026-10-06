@@ -18,8 +18,13 @@
  * WORKSPACE:
  * The URL's first segment is the workspace slug. A known slug that is not the active
  * workspace switches to it (a back step, a pasted link); the switcher changing the active
- * workspace moves the URL to the new workspace; an unknown slug, `/` or an unmappable URL is
- * replaced with the active workspace's Chats.
+ * workspace moves the URL to the new workspace; `/` is replaced with the active workspace's Chats.
+ *
+ * NOT FOUND:
+ * A URL with no view never gets here (the root route shows the not-found page, see `router/`).
+ * An unknown workspace slug and a chat that does not exist are found out here once the data
+ * has loaded (a skill or a source reports itself, `showNotFound`): `isNotFound` is true while the
+ * URL is that path, and the app shows the not-found page instead of the shell.
  *
  * Usage:
  *   import { useNavigation, useNavigationState } from '@/contexts/navigation-context'
@@ -67,6 +72,7 @@ import {
   nextHistoryPosition,
 } from '../router/history-position'
 import { locationToRouteString, parseSearch, routeStringToLocation, workspaceSlugFromPathname } from '../router/location'
+import { belongsToWorkspace } from '../router/not-found'
 import type {
   DeepLinkNavigation,
   Session,
@@ -118,6 +124,10 @@ interface NavigationContextValue {
   isReady: boolean
   /** Unified navigation state — parsed from the open route */
   navigationState: NavigationState
+  /** The URL has no page: an unknown workspace, or a chat, skill or source that does not exist. The app shows only the not-found page. */
+  isNotFound: boolean
+  /** Report that the open URL has no page (a skill or source that loaded and is not there). Ends when the URL changes. */
+  showNotFound: () => void
   /** Whether we can go back in history */
   canGoBack: boolean
   /** Whether we can go forward in history */
@@ -219,8 +229,8 @@ export function NavigationProvider({
 
   const location = useRouterState({ select: (s) => s.location })
 
-  // The open view's route string, and the workspace slug the URL names. A URL that is not one of
-  // the app's views has no route (the effect below replaces it).
+  // The open view's route string, and the workspace slug the URL names. `/` is no view yet (the
+  // workspace effect below replaces it); any other URL without one never reaches the app.
   const currentRoute = useMemo(
     () => locationToRouteString(location.pathname, location.search)?.routeString ?? null,
     [location],
@@ -233,6 +243,14 @@ export function NavigationProvider({
       ? parseRouteToNavigationState(currentRoute) ?? DEFAULT_NAVIGATION_STATE
       : DEFAULT_NAVIGATION_STATE
   }, [currentRoute])
+
+  // The path that has no page (see NOT FOUND above); moving to another URL ends it
+  const [notFoundPath, setNotFoundPath] = useState<string | null>(null)
+  const isNotFound = notFoundPath === location.pathname
+  const showNotFound = useCallback(() => setNotFoundPath(router.history.location.pathname), [router])
+  useEffect(() => {
+    if (notFoundPath !== null && notFoundPath !== location.pathname) setNotFoundPath(null)
+  }, [notFoundPath, location.pathname])
 
   // Mirror the route into the atom the pins, recents and session atoms read (before paint)
   useLayoutEffect(() => {
@@ -344,10 +362,7 @@ export function NavigationProvider({
       if (isSessionsNavigation(nextState) && nextState.details) {
         const freshMetaMap = store.get(sessionMetaMapAtom)
         const meta = freshMetaMap.get(nextState.details.sessionId)
-        const matchesWorkspace = !workspaceId
-          || meta?.workspaceId === workspaceId
-          || (remoteWorkspaceId && meta?.workspaceId === remoteWorkspaceId)
-        if (!meta || !matchesWorkspace) {
+        if (!meta || !belongsToWorkspace(meta.workspaceId, workspaceId, remoteWorkspaceId)) {
           nextState = { ...nextState, details: null }
         }
       }
@@ -646,8 +661,6 @@ export function NavigationProvider({
 
     if (urlSlug === workspaceSlug) {
       requestedSwitchRef.current = null
-      // The workspace is right but the URL is no view of the app (an unknown section, a bad settings page)
-      if (!currentRoute) openRouteIn(routes.view.allSessions(), workspaceSlug, { replace: true })
       return
     }
 
@@ -666,10 +679,34 @@ export function NavigationProvider({
       }
     }
 
-    // The URL names no workspace (`/`, an unknown slug): this one's Chats
     requestedSwitchRef.current = null
+    // A slug no workspace has: not found
+    if (urlSlug) {
+      showNotFound()
+      return
+    }
+
+    // The URL names no workspace (`/`): this one's Chats
     openRouteIn(routes.view.allSessions(), workspaceSlug, { replace: true })
-  }, [isReady, isSessionsReady, workspaceId, workspaceSlug, urlSlug, currentRoute, navigationState, openRouteIn])
+  }, [isReady, isSessionsReady, workspaceId, workspaceSlug, urlSlug, navigationState, openRouteIn, showNotFound])
+
+  // A chat in the URL that is not in this workspace is not found. Asked of the server when the list
+  // lacks it (a workspace's chats may still be loading after a switch); a chat that goes away while
+  // open is not re-checked.
+  const openSessionId = currentRoute ? parseSessionIdFromRoute(currentRoute) : null
+  useEffect(() => {
+    if (!isReady || !isSessionsReady || !workspaceId || !openSessionId || urlSlug !== workspaceSlug) return
+    const listed = store.get(sessionMetaMapAtom).get(openSessionId)
+    if (listed && belongsToWorkspace(listed.workspaceId, workspaceId, remoteWorkspaceId)) return
+    let cancelled = false
+    window.electronAPI.getSessionMessages(openSessionId).then(
+      (found) => {
+        if (!cancelled && !(found && belongsToWorkspace(found.workspaceId, workspaceId, remoteWorkspaceId))) showNotFound()
+      },
+      () => {},
+    )
+    return () => { cancelled = true }
+  }, [isReady, isSessionsReady, workspaceId, remoteWorkspaceId, workspaceSlug, urlSlug, openSessionId, store, showNotFound])
 
   // =========================================================================
   // DEEP LINK LISTENER
@@ -803,6 +840,8 @@ export function NavigationProvider({
         navigate,
         isReady,
         navigationState,
+        isNotFound,
+        showNotFound,
         canGoBack,
         canGoForward,
         goBack,

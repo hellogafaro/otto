@@ -460,55 +460,61 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   What a page puts on the frame is **surfaces** (`PageCard`, `PageCenterpiece`,
   `bg-card`, hairline border, `shadow-xs`, `xl` 12 corners), as siblings. Lower is
   darker (values under Colors).
-- **The page frame** (`PageFrame`, the main region) lays out three tracks, a
-  header row and a body (numbers are px at 1x):
+- **The page frame** (`PageFrame`, the main region) lays out three tracks and
+  the column's body (numbers are px at 1x):
   - **The column** is ONE width for every page (chat, lists, settings, empty
     states): **768px** (`48rem`), centered in the free space right of the sidebar.
     Narrower than 768 + 2 x 20 it fills the width with 20px on each side. Cards,
-    the header row, headings and a centerpiece all span exactly the column and
-    nothing is ever wider.
-  - **The header row** is 52px, on the frame, above the column, 8px from the top
-    of the window (so its title sits at y 18-50, its center at **y 34**), and as wide as the column:
-    its left edge and right edge are the cards' edges, while its content (title,
-    actions) is inset 16px (`PAGE_INSET`, the padding of a row in a
-    card) so it lines up with the cards' content. It is pinned (it does not
-    scroll away). The body starts at y 60 and ends 8px above the window.
-    **One axis across the top: the sidebar's mark, the page title and the floating
-    navigation's Back button share the center y 34** (the sidebar's header is the
-    same 52px band, 8px from the top; Back is 32px, its top at y 18).
+    the title row, headings and a centerpiece all span exactly the column and
+    nothing is ever wider. Its body scrolls from the window's top edge (no strip
+    above it) to 8px above the window's bottom.
+  - **Nothing is pinned above a page.** Its title row is the first block of the
+    scrolling column (Capy's settings pattern) and scrolls away with the content;
+    see The page header. The one exception is the **chat**: a compact 44px row
+    pinned above its centerpiece.
+  - **The top axis** (`--axis-y`, 34px, one CSS variable in `globals.css`): **the
+    sidebar's mark, the page title (at scroll 0), the chat's pinned title and the
+    floating navigation's Back button share the center y 34.** Each offsets from
+    the variable by half its own height (the title row: top 18, 32px tall; the
+    chat's row: top 12, 44px; Back: top 18, 32px; the mark's row: top 20, 28px),
+    so changing it moves all four. The value is the sidebar's: its first row
+    starts one group gap (20px) from the top, 20 + 28 / 2 = 34.
   - **The gutters** are the free space left and right of the column; they hold
-    the floating navigation (left, on the header row's axis, 20px from the column)
-    and the sidecar (right, starting at the **content start**, below), and do not
-    scroll (so the navigation is sticky: it never moves while the page does):
-    only the column's body scrolls (a blocks page as a whole, a centerpiece in
-    itself). Frame width is the region right of the sidebar (window - 256, or
-    - 48 icons only, or the whole window on a phone).
+    the floating navigation (left, on the axis, 20px from the column) and the
+    sidecar (right, starting at the **content start**, below), and do not
+    scroll (so the navigation is sticky: it never moves while the title and the
+    page scroll away beside it): only the column's body scrolls (a blocks page as
+    a whole, a centerpiece in itself). Frame width is the region right of the
+    sidebar (window - 256, or - 48 icons only, or the whole window on a phone).
+    On Electron the gutters and the window's top 8px are the drag region; the
+    column is not, so what scrolls under the top stays clickable.
   - **Collapse rules.** Closed sidecar: both gutters equal, column centered. Open
     sidecar: its 324px (20px gap, 296px, 8px from the window) is reserved in the
     right track; while the gutter already is wider the column stays centered,
     else it shifts left (the column keeps 768px from a 1280px frame up). Under
     1280px of frame width the sidecar overlays the page instead. The floating
     navigation needs a left gutter of 72px (20px, the 32px buttons, 20px to the
-    column); narrower it moves into the header row's trailing actions.
-  - **The content start** is the top of the first block under the header row: the
-    first section's title row on a blocks page, the first card or the centerpiece
-    when there is no section title (28px under the body's top on blocks, 0 on a
-    centerpiece). Blocks mark themselves (`data-content-start`), `PageFrame`
-    measures the first one and publishes it as `--content-start`. The docked
-    sidecar starts there (it is the sidecar's line, not the floating navigation's:
-    that one is on the header row's axis).
+    column); narrower it moves into the title row's trailing actions.
+  - **The content start** is the top of the first block after the title row: the
+    first section's title row on a blocks page, the first card when there is no
+    section title (y 82 at scroll 0: the title row ends at 50, then 32px), the
+    centerpiece under the chat's pinned row (y 56). Blocks mark themselves
+    (`data-content-start`), `PageFrame` measures the first one (unscrolled) and
+    publishes it as `--content-start`. The docked sidecar starts there (it is the
+    sidecar's line, not the floating navigation's: that one is on the axis).
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
-- **Controls are 32px**: bar buttons and tabs. Task list and
-  command palette rows are 36px. Sidebar rows (28px, 2px apart; their group titles too) are 28px with
+- **Controls are 32px**: bar buttons and tabs on a page. Task list and
+  command palette rows are 36px. Sidebar rows (28px, 2px apart; their group titles are 20px) are 28px with
   6px corners, the `compact` control; so are dropdown, combobox and suggestion
   items, dense bars (filter groups, composer pickers) and controls nested in
   a row (settings); the smallest buttons are 24px (`xs`); a sidebar row's
   actions and key are 20px, 4px inside the row on every side.
-- **Tabs** (`TabBar`, one pattern everywhere: a project's sections, the
-  command palette's categories): 32px buttons 4px apart, the open one with the
+- **Tabs** (`Tabs`, one pattern everywhere: a project's sections, the
+  command palette's categories): the Button's two heights, 4px apart, the open one with the
   selected fill (`foreground/10`), the rest ghost, an optional icon and a count right after the
-  label.
+  label. **Tabs on a page are 32px; tabs inside a card, dialog or popover are 28px**
+  (`size="compact"` on `Tabs`, `sm` 6 corners, the compact Button's padding and gaps).
 - **Buttons** pad by their content (table under Components): text 12px at
   32px (32 x 0.382 = 12.2, 1 / phi squared, on the 4 · 8 · 12 ladder), 10px at 28px,
   8px at 24px; beside an icon the icon's side takes 10 / 8 / 6px. Icon to
@@ -529,20 +535,43 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   never changes with the page: no section sets `--sidebar-width`, and 256px is
   the width at which both the Chats list and the Settings pages fit. It is
   expanded from 1024px up and icons only below; below 768px it is a sheet
-  opened by the menu button in the page header. There is no toggle button,
+  opened by the menu button fixed at the page's top-left (see The page header). There is no toggle button,
   cookie or shortcut: the window decides. No resizing. Inside, 8px from the
-  window's edges and from the card, top to bottom, the header and four
-  groups. They are **16px apart** (box to box, no divider lines, no titles on
-  the header, group 1, group 2 or the footer), so the hierarchy reads from the
-  space alone: header, Inbox and Search, the pages, the page's own content,
-  the footer. Groups 1, 2 and the footer never scroll; group 3 does, inside
+  window's sides, top to bottom, the header and four groups.
+  **One vertical rhythm, one gap: 20px** (the golden ladder's 12 x φ = 19.4 ->
+  20; it was 16, off the ladder, and the header band left 24px above the mark
+  but 16px below it). Derivation and the numbers, all measured in the browser:
+
+  | Space | px | How |
+  | --- | --- | --- |
+  | Window top -> the header's 28px row | 20 | the container's 8 + 12 (`pt` from `--axis-y` - 22) |
+  | The mark (20px) in its row | 4 above, 4 below | centered |
+  | Above the mark / below it (to the first row) | 24 / 24 | 20 + 4 / 4 + 20: symmetric |
+  | The mark's center, the top axis | 34 | 20 + 28 / 2 (`--axis-y`) |
+  | Group to group (box to box) | 20 | `SidebarContent` `gap-5` |
+  | Above a group title (Pinned, Recent) | 20 | the group gap |
+  | A group title | 20 tall | 12px text; its rows 4px under it (2px margin + the 2px row gap) |
+  | Rows | 28, 2 apart | |
+  | Last group -> footer | at least 20 | `mt-5`; the footer is pinned at the bottom |
+  | The footer's row -> window bottom | 20 | 8 + 12: the mirror of the top |
+  | Sides | 8 | the container's padding |
+
+  No divider lines, no titles on the header, group 1, group 2 or the footer, so
+  the hierarchy reads from the space alone: header, Inbox and Search, the
+  pages, the page's own content, the footer. Groups 1, 2 and the footer never
+  scroll; group 3 does, inside itself. Icons only the groups are 8px apart (the
+  header ends 8px above the first one) and a 16px-wide hairline
+  (`bg-foreground/10`) centered in each gap marks them (`SidebarGroup`, the
+  footer's top carries it too); group 3 is hidden; the 20px top and bottom
+  insets stay. Groups 1, 2 and the footer never scroll; group 3 does, inside
   itself. Icons only the groups are 8px apart and a 16px-wide hairline
   (`bg-foreground/10`) centered in each gap marks them (`SidebarGroup`, the
   header's bottom and the footer's top carry it); group 3 is hidden.
   - **Header** (group 0): the Otto mark alone, 20px (`size-5`, `text-foreground`), no
-    name, centered in a 52px band (the page header row's height, 8px from the top of
-    the window: the mark's center is y 34, the title's line; the next group starts at
-    y 60, where the page body does). On Electron the header is the window's drag region,
+    name, in a 28px row 20px from the top of the window and 20px above the first
+    group, so its center is the top axis (y 34: the page title's line, the chat's
+    pinned title's and Back's). The sheet below 768px keeps the same 8px inset (plus
+    the iOS safe area), so its mark is on the axis of the page's menu button. On Electron the header is the window's drag region,
     its row clears the macOS traffic lights (68px in; icons only, the row sits
     below them) and Back / Forward end it as two 28px ghost icon buttons with
     their keys in the tooltip (history back and forward, see Navigation). The
@@ -577,7 +606,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     then. Expanded and in the sheet no row has a tooltip. Routines (automations) have their own row; Skills and
     Sources live under Settings, which opens from the workspace menu.
   - **Group 3, the one dynamic group**: Pinned and Recent (see Pins and recents;
-    `SidebarPinsRecents`, after the pages, none when both are empty), the only
+    `SidebarPinsRecents`, after the pages, none when both are empty; each a 20px
+    title 4px above its rows, the two 20px apart), the only
     thing that scrolls, inside itself with the edge fade. **The sidebar carries no sub-navigation, ever**:
     no filters, no session list, no settings pages, no skills or sources list. What
     used to live here is an index page before the detail (see Page anatomy, Index
@@ -625,10 +655,16 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     only: it posts to `/api/auth/logout`, which clears the session cookie, then
     opens `/login` (a failure toasts "Could not log out"). Electron has no web
     session, so the item is absent there (the account block stays). One click, no confirmation.
-- **The page header** (`PageHeaderRow`, drawn by `PageHeader`): the 52px row
-  above the column, on the frame (never inside a surface): the page title
-  (`PageTitle`, 21px medium, plain text with its badge where it has one) and the
-  page's actions at the right end, all 28px controls on the column's edges.
+- **The page header** (`PageHeaderRow`, drawn by `PageHeader`) is the page's
+  **title row: the first block of the scrolling column**, never a pinned bar
+  (the owner's call, after Capy's settings, where "General" is simply the first
+  element of the 768px content column). It is 32px tall, its top 18px below the
+  window's top (`--axis-y` - 16, so at scroll 0 the title's center is the axis,
+  y 34), inset 16px (`PAGE_INSET`), 32px above the first section (the column's
+  gap), and it scrolls away with the content; the column ends 40px under its
+  last block. It holds the page title (`PageTitle`, 21px medium, plain text with
+  its badge where it has one) and the page's actions right-aligned on the same
+  row, all 28px ghost controls (Filter, Search, New chat, More…).
   **The title is one line, never an ellipsis and never a dropdown**: it runs the
   full width and fades out over its last 16px (8 x 2) where the actions start
   (a mask, the technique of the sidebar's rows; a short title is untouched). A
@@ -636,17 +672,30 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   a skill's, an automation's) ends its actions with **More actions** (`Ellipsis`,
   28px ghost icon button, tooltip "More actions", open state the standard
   `foreground/10` fill) that opens that menu; below 768px a chat's opens the
-  drawer instead. **The title never has a back button or a breadcrumb**; the only thing
-  before it is the menu button below 768px (the sidebar sheet's opener). Going
-  back and stepping through a list is the floating navigation. Pages call `PageHeader` and pass no
-  handlers (see Navigation); it portals its row into the frame's header slot, so
-  it can sit anywhere in the page. On Electron the whole top band is a drag
-  region and the controls opt out.
+  drawer instead. **The title never has a back button or a breadcrumb.** Going
+  back and stepping through a list is the floating navigation. Pages call
+  `<PageHeader title actions />` anywhere and pass no handlers (see Navigation):
+  it draws its row in the column's title slot (`PageColumn`'s first child, so
+  the title scrolls with the content; in place on a page with no column, such
+  as an empty or loading state, at the same position).
+  - **The chat is the only exception** (`PageHeader pinned`): a **compact pinned
+    row**, 44px, its top 12px below the window's top (`--axis-y` - 22: the same
+    center, y 34), in the frame's header slot above the transcript card, which
+    starts at y 56. Same title (fading under the actions) and More actions. On
+    Electron it is the window's drag region and the controls opt out.
+  - **Below 768px** the sidebar is a sheet, so its menu button must stay
+    reachable without a pinned bar: a **32px raised icon button** (`outline`, as
+    the floating navigation: content scrolls under it, so it needs the card
+    fill) **fixed over the column's top-left**, 16px in, on the axis, outside the
+    scroll (the frame's leading slot), and the title row clears it (its title
+    starts 56px in: 16 + 32 + 8). On the chat it leads the pinned row instead (a
+    28px ghost button). An unbuilt section (`PageHeader` with no title) draws only
+    this button.
 - **The sidecar** (`Sidecar`, undecided: canvas by default, `surface` wraps it in
   a card for testing), closed by default, is for an inspector or details (session
   info, files, a source's details). Docked in the right gutter it is a **canvas**:
   no background, ring, shadow or corners, 296px wide, 20px from the column,
-  starting at the content start (not the header row, which the floating
+  starting at the content start (not the top axis, which the floating
   navigation is centered on); its title is the first subtitle (13px medium, Close a ghost
   28px icon at its end) and the blocks under it are quiet: small muted subtitles
   outside any surface, 13px text, flat rows, chips and avatars, bordered controls
@@ -661,24 +710,25 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   changes. Pages open it through `useSidecar().openSidecar({ title, content })`.
 - **New chat** is on the Chats index only (a chat has More actions there
   instead): a ghost icon button (`SquarePen`, 28px) last
-  in the page header's actions at every width, tooltip below with the label and
+  in the title row's actions at every width, tooltip below with the label and
   its `Kbd`; ⌘N (`app.newChat`, bound by the shell, not the sidebar) does the
   same. There is no floating "+".
 - **Floating navigation** (`FloatingNav`): Superhuman's controls, in the left
-  gutter beside the column, **20px from it**, with Back's center on the header
-  row's axis (y 34: the title's center and the sidebar mark's; the nav's top is
-  y 18, anchored to the header row, not to the first block). They are our standard raised icon button
+  gutter beside the column, **20px from it**, with Back's center on the top
+  axis (`--axis-y`, y 34: the title's center at scroll 0, the chat's pinned
+  title's and the sidebar mark's; the nav's top is y 18, fixed to the frame, not
+  to the title row or the first block, so the title scrolls away beside it). They are our standard raised icon button
   (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
   with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
   Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
   1px divider between them, in the buttons' own border color, edge to edge (the
   group squares only the inner corners; the outer ones stay 8px). Disabled at the
   ends (dimmed). They stay put while the center scrolls (sticky: the gutter does not
-  scroll). They float over the empty canvas, never over content, so the hairline
+  scroll), on the chat too. They float over the empty canvas, never over content, so the hairline
   border alone reads as raised: no shadow. Every page that has
   anywhere to go shows them (Back when it has a parent, Previous / Next when it
-  has a list), none otherwise; narrower than a 56px gutter (or below 768px) they
-  move into the header row's trailing actions as 28px ghost icon buttons in the
+  has a list), none otherwise; narrower than a 72px gutter (or below 768px) they
+  move into the title row's trailing actions (the chat's pinned row's) as 28px ghost icon buttons in the
   same order (Back, Previous, Next), never leading and never beside the title.
 - **Widths**: the column is 768px for every page, the sidebar 256px on every
   page (48px as icons), the sidecar 296px. A centerpiece is never wider than the
@@ -686,7 +736,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 - **One left line.** Cards and a centerpiece start on the column's left edge and
   end on its right; the page title, section titles (and their actions) and the
   text inside a card all sit 16px in (`PAGE_INSET`, one constant in `PageFrame`
-  that the header row and `PageSection` share; a centerpiece's transcript or
+  that the title row and `PageSection` share; a centerpiece's transcript or
   document 20px).
 - **Page**: see Page anatomy.
 - **Galleries** (`Gallery`): 3 columns for projects, 4 for documents and
@@ -696,7 +746,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 ## Page anatomy
 
 Final and extremely simple, as the settings pages are: **no wrapping surface:
-the frame, then cards.** A page is the header row and, under it, surfaces. Surfaces
+the frame, then cards.** A page is its title row and, under it, surfaces, in one
+scrolling column. Surfaces
 are siblings on the frame; a surface never contains another surface (no card in a
 card, no panel in a panel, no wrapper, divider or border around a section).
 Inside a surface: rows split by full-bleed hairlines, text, and nested controls
@@ -704,26 +755,29 @@ Inside a surface: rows split by full-bleed hairlines, text, and nested controls
 attachment chip inside a message or card is content: flat, a muted fill, no ring,
 no shadow.
 
-- **Every page** is the `PageHeader` title row (on the frame, above the column; see
-  Layout) and ONE 768px column under it. Two kinds of page, by what the content is:
+- **Every page** is ONE 768px column whose first block is the `PageHeader` title
+  row (on the frame, never in a card; it scrolls with the page, see Layout); only
+  the chat pins a compact title row above its column. Two kinds of page, by what the content is:
   long-form content read or written top to bottom is a **centerpiece**;
   collections of facts and settings are **blocks**.
 - **Blocks** (`PageColumn`: settings, projects, lists, overviews, empty states):
-  stacked sections 32px apart, the page scrolling as a whole in the column (edge
-  fade, no scrollbar; the header row stays). A section (`PageSection`) is a
+  the title row, then stacked sections, 32px apart, the page scrolling as a whole
+  in the column (edge fade, scroll-driven so the top is not faded at scroll 0; no
+  scrollbar; nothing stays pinned). A section (`PageSection`) is a
   title (heading step 16.5px, medium, outside its card, inset 16px like the
   card's content) with an optional one-line muted body-size description and
   optional actions at the right end of that row, also on the inset ("View all",
   "Create"), 12px above its `PageCard` (`bg-card`, hairline border, `shadow-xs`,
-  `xl` 12). Stat strips and rows in a card are split by hairlines. A section
-  starts 28px under the header row (the content start, where the floating
-  navigation and the sidecar start too) and the last one ends 32px above the window's
-  bottom. `SettingsSection` and `SettingsCard` are `PageSection` and `PageCard`; the
+  `xl` 12). Stat strips and rows in a card are split by hairlines. The first
+  section starts 32px under the title row (y 82 at scroll 0, the content start,
+  where the sidecar starts) and the last one ends 40px above the column's end. `SettingsSection` and `SettingsCard` are `PageSection` and `PageCard`; the
   settings pages are the reference implementation.
 - **Centerpiece** (`PageCenterpiece`: the chat, a document): ONE card as wide as
-  the column and as tall as the space under the header row (8px above the
+  the column and as tall as the space under the title row (8px above the
   window's bottom), clipped, scrolling inside it with the edge fade. Never wider
-  than the column. A toolbar is part of the header row, not a nested card.
+  than the column. A toolbar is part of the title row, not a nested card. The
+  chat's title row is the compact pinned one (44px, see The page header), so the
+  transcript card starts at y 56.
   The chat adds a sibling card under it, 8px away: the composer (`bg-card`,
   hairline border, `shadow-sm`, `xl` 12, auto height, pinned at the bottom of the
   column) whose top row holds the session chips (mode, status, labels, Info) and
@@ -731,38 +785,46 @@ no shadow.
   are flat: assistant text sits straight on the surface (no bubble, ring or
   shadow), the user message is a muted fill, code blocks are flat muted blocks.
 - **Unbuilt sections** (Tasks, Projects, Routines, Library) show only the empty state
-  and its "New …" button until the page is designed: no header row (below 768px
-  the menu button alone, so the sidebar sheet stays reachable), no list or
+  and its "New …" button until the page is designed: no title row (below 768px
+  the fixed menu button alone, so the sidebar sheet stays reachable), no list or
   cards. The state is the stock `Empty` (`SectionEmpty`) centered both
   ways on the frame, not in a card: the section's Lucide icon in the 32px tile
   (a 16px glyph, half the tile: CircleCheck, Folder, Clock, Library), a heading-size title, one
   benefit-led description sentence, and one primary 32px button, which has no
   action yet (enabled, no toast). The strings are in the table under the
   Empty-state rules ("Tasks", "Projects", "Routines", "Library"). The list and detail pages behind them are not routed.
+- **PageWrap (trial, an experiment until the owner confirms it).** ONE
+  line-only wrapper around a page's blocks, under its title row, as Threads
+  wraps its feed: a 1px `--card-ring` border (the card edge's color), `2xl` 20
+  corners, NO fill (the frame shows through), no shadow. Its sections stack
+  32px apart as in the column; the cards sit 8px in (`xl` 12 = 20 - 8) and the
+  section titles keep their 16px inset from the cards' edge, 20px under the
+  wrapper's top line. It is the one exception to "no wrapper around a section"
+  while it is tried, on ONE page only: Settings → App. Compare it with Chats
+  (the grouped list on the frame) and the other settings pages (cards on the
+  frame); if it stays, it replaces "the frame, then cards", otherwise delete
+  the component, the `2xl` token and its one usage.
 - **Index pages.** Sub-navigation is an index page before the detail, never a
   sidebar list: a data page of a grouped list or a grid of links that opens the
-  detail. Chats opens on its index (`ChatsIndexPage`: the header's ghost Filter, then
-  the chats grouped by status in one card; it never opens the first chat) and Settings on its index
+  detail. Chats opens on its index (`ChatsIndexPage`: the title row's ghost Filter, then
+  the chats grouped by status on the frame; it never opens the first chat) and Settings on its index
   (`SettingsIndexPage`: Account and Workspace as sections of cards, Skills and
   Sources among the Workspace ones). The sidebar's rows open them; the detail's Back
   returns to them.
 - **Data patterns.** Three ways to show a set of things, by what it is:
   1. **Grouped list** (`ListGroup`, `ListRow`; Otto v1's table, Linear's and
      Codex's pattern) for collections you work through: Chats, Tasks, Routines.
-     - **No toolbar.** The page header carries only 28px ghost icon buttons:
+     - **No toolbar.** The title row carries only 28px ghost icon buttons:
        Filter (`FilterMenu`), Search (`CommandPaletteButton`: the command palette
        on the page's category; tooltip "Search" and ⌘K), then "+" / New (Chats:
-       the header's New chat). No search box, no sort or view picker.
-       Active filters show as chips (`FilterBar`) on the frame under the header,
+       the title row's New chat). No search box, no sort or view picker.
+       Active filters show as chips (`FilterBar`) on the frame under the title row,
        12px above the list, ONLY while one is set.
-     - **One card, content-sized.** The groups sit in ONE `PageCard` (`bg-card`,
-       hairline, `xl` 12, clipped) as wide as the column; it grows with its rows
-       and never stretches to the page's bottom (the page scrolls). Inside it
-       nothing is a surface: headers and rows are full-bleed rows, their fills
-       run edge to edge and are clipped by the card's corners; the first header
-       touches the card's top, the last row its bottom. Hairlines
-       (`--card-divider`) only between a group's header and its rows and between
-       groups; none between rows.
+     - **On the frame, no card.** The groups sit straight on the frame, as
+       wide as the column (the page scrolls). Nothing in it is a surface:
+       headers and rows are full-bleed rows, their fills run edge to edge.
+       Hairlines (`--card-divider`) only between a group's header and its rows
+       and between groups; none between rows.
      - **Proportions** (measured on Codex and Linear at 1x: rows 44, group
        bands 36, metadata chips 24, body 13): body text 13px on its 20px line;
        a row is 44px = 20 + 12 + 12, a group header 36px = 20 + 8 + 8, a
@@ -812,6 +874,7 @@ no shadow.
 
 | Surface | Radius | Inside it |
 | --- | --- | --- |
+| Line-only page wrapper (`PageWrap`, trial, `2xl`) | 20 | Cards 8px in at `xl` 12 |
 | Card, centerpiece, composer, sidecar as card (`xl`) | 12 | Rows full-bleed, no radius; 28px controls |
 | Row in a card, nested control | 28px, `sm` 6 | 24px action, `xs` 4 |
 | Button | 32px, `md` 8 | 14px icon |
@@ -828,6 +891,9 @@ One history stack, one rule for Back, one place the lists live.
   link and the browser's own buttons all work. The Chats filters live in the URL search and
   combine: `?status=todo&status=done&label=research&flagged=1`. Code navigates with route
   strings (`navigate(routes.view.settings('appearance'))`), never with URLs.
+- **Not found.** A URL that matches no view, an unknown workspace and a missing chat, skill
+  or source are never silently replaced with Chats: they show the full-screen
+  `NotFoundPage` (Empty states and 404; behavior table in docs/routing.md).
 - **History** is the router's (every view change pushes an entry; a redirect replaces
   one). Back and Forward mean history back and forward everywhere:
   on Electron the two icon buttons in the sidebar header and their keys
@@ -839,11 +905,11 @@ One history stack, one rule for Back, one place the lists live.
   opened with); a settings page, a skill or a source goes to the Settings index; a
   library item goes to the Library; a project or a routine to its section.
   The Chats and Settings indexes have no parent, so no Back. Sub-navigation is the
-  index page, never the sidebar, so Back is the same at every width. There is no back button and no breadcrumb in the header row: the
+  index page, never the sidebar, so Back is the same at every width. There is no back button and no breadcrumb in the title row: the
   title is alone. Pages never pass handlers: `PageHeader` reads the route.
-- **Compact (below 768px)**: the header row's leading slot is only the sidebar
-  sheet's menu button; Back, Previous and Next are the ghost buttons at the end of
-  its actions. Back goes to the parent view like everywhere else.
+- **Compact (below 768px)**: the sidebar sheet's menu button is fixed at the
+  page's top-left on the axis (on the chat it leads the pinned row); Back,
+  Previous and Next are the ghost buttons at the end of the title row's actions. Back goes to the parent view like everywhere else.
 - **Previous / Next** step through the list the page belongs to, in the order its
   index shows it, and are disabled at the ends: the context exposes `listNav` (`hasPrev`,
   `hasNext`, `goPrev`, `goNext`). Chats: the Chats index's displayed order
@@ -869,7 +935,7 @@ One history stack, one rule for Back, one place the lists live.
 The sidebar's one dynamic group (`SidebarPinsRecents`, put in `SidebarContent`
 after the pages) is a **Pinned** group and a **Recent** group: any chat, and later
 any project, task, routine, library or settings page, in one list, with no
-sub-navigation sidebar. Each group has the usual 28px title row (12px muted) over
+sub-navigation sidebar. Each group has the usual 20px title (12px muted), 4px over
 the standard sidebar rows: the item's icon in the slot (a chat's status icon, other
 types a Lucide icon by type), the open item filled like an open page. An empty group draws nothing, and the whole group draws nothing when both are
 empty.
@@ -946,24 +1012,25 @@ as a card).
 | Primitive | API | Spec |
 | --- | --- | --- |
 | `SidebarProvider` / `Sidebar` | | one width, 256px on every page (also the sheet below 768px), 48px as icons; a row with `aria-disabled` is a placeholder (no pointer, readable); no toggle, cookie or shortcut; absolute inside the shell; 8px container padding is the gutter; no border or ring |
-| `SidebarHeader`, `SidebarContent`, `SidebarFooter` | | header a 52px band centered on y 34 (the page header's axis), the first group at y 60; footer 16px above; content does not scroll, its groups do, and spaces them 16px apart (8px and a hairline icons only) |
-| `SidebarGroup`, `SidebarGroupLabel` | | no padding of its own; 28px title row, 12px medium muted |
+| `SidebarHeader`, `SidebarContent`, `SidebarFooter` | | header a 28px row 20px from the top (its padding from `--axis-y`) and 20px above the first group (8px icons only), the mark's center on the axis (y 34); footer at least 20px under the last group, its row 20px from the bottom; content does not scroll, its groups do, and spaces them 20px apart (8px and a hairline icons only); see Sidebar under Layout |
+| `SidebarGroup`, `SidebarGroupLabel` | | no padding of its own; a 20px title, 12px medium muted, 4px above its first row |
 | `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton` | `isActive`, `tooltip` (text, or `{ children }` for a label and `Kbd`; shown only icons only) | 28px row, `sm` 6, 8px padding, 14px icon and 8px gap (no slot); rest `text-muted-foreground`; hover `foreground/5`; active, current and open (`aria-expanded` on a menu trigger) `foreground/10`, flat (no ring, shadow or weight change); inset focus ring; icons only: 28px square centered (10 each side), label and trailing icons hidden, plain tooltips show |
 | `SidebarMenuAction` | | 20px, `xs` 4, 4px inside the 28px row; shown on row hover or focus (always on touch); hover `foreground/10`, which stacks on the row's fill |
 | `SidebarMenuKbd` | | a row's shortcut: the standard `Kbd` over the row's end, 4px from top, right and bottom, muted, shown only while the reveal key is held (`data-reveal-shortcuts` on the sidebar), never on hover or focus; hidden icons only (the tooltip carries it then) |
 | `SidebarMenuSlot`, `SidebarMenuSlotAction` | | the row's right slot: a 20px lane 4px from the row's top, right and bottom, one cell for stacked layers (status or time, actions, key) that swap by opacity; clicks pass through except on a visible layer; `SlotAction` is the 20px in-line ghost button (the look of `SidebarMenuAction`). The row fades its title under the lane with a mask, see Pins and recents |
-| `SidebarTrigger` | | the page header's menu button below 768px; 28px ghost |
-| `PageFrame` | `aside` | the main region on the frame: header slot, 768px column (`@container/panel`), left and right gutters; see Layout |
-| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions` | 52px, 28px controls, title is `PageTitle` (21px medium), on the column's edges; no back button, no crumbs |
+| `SidebarTrigger` | | the sheet's menu button below 768px: 28px ghost in the chat's pinned row; elsewhere 32px `outline`, fixed over the column's top-left on the axis |
+| `PageFrame` | `aside` | the main region on the frame: the 768px column (`@container/panel`) and its title slot, the chat's header slot, the leading slot (the fixed menu button), left and right gutters; the top axis `--axis-y`; see Layout |
+| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `pinned` | the title row: 32px, the first block of the column, centered on the axis at scroll 0; `pinned` (the chat only) 44px in the header slot; 28px controls, title is `PageTitle` (21px medium), inset 16px; no back button, no crumbs |
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
-| `PageColumn`, `PageSection`, `PageCard` | `title`, `description`, `action`, `danger` | blocks page; see Page anatomy |
+| `PageColumn`, `PageSection`, `PageCard` | `title`, `description`, `action`, `danger` | blocks page (the column's first child is the title slot); see Page anatomy |
+| `PageWrap` (trial) | `className` | the line-only page wrapper around a page's sections: hairline, `2xl` 20, no fill; on Settings → App only; see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
-| `ListGroup`, `ListRow` | `icon`, `label`, `count`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | the grouped list in one content-sized `PageCard`: 36px group headers, 44px rows; see Data patterns |
+| `ListGroup`, `ListRow` | `icon`, `label`, `count`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | the grouped list on the frame, no card: 36px group headers, 44px rows; see Data patterns |
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
 | `PageGrid`, `GridCard` | `icon`, `title`, `render` | the card grid of a navigation hub; see Data patterns |
 | `Sidecar` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel`, `surface` | canvas by default, `surface` wraps it in a card (undecided); see Layout; closed by default |
-| `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column and centers Back on the header row, the buttons are its narrow form for the header's actions |
+| `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column and centers Back on the top axis, the buttons are its narrow form for the title row's actions |
 
 In the renderer: `PageHeader` (the header with the route's Back and the list
 navigation wired into the floating navigation), `AppSidebar`, `useParentView`, `useSidecar` (and `SidecarHost`, the
@@ -997,7 +1064,7 @@ is a flat 10% tinted fill.
   that proves it: flat on the frame when docked, a card with `shadow-md` only
   when it overlays content.
 - **Scrolling** areas fade at the edge where more content waits (shadcn
-  `scroll-fade-*`): under the page header and off the bottom, the floating chat
+  `scroll-fade-*`): at the top edge once the page has scrolled (never at scroll 0, so the title is whole) and off the bottom, the floating chat
   above the fade. The fade is the only sign: no scrollbar (`no-scrollbar`)
   on pages, panels, the file viewer and the floating chat's list, so the
   column never shifts when a page starts to scroll. The chat thread keeps the
@@ -1018,13 +1085,14 @@ is a flat 10% tinted fill.
 
 ## Shapes
 
-Radius tokens: `xs` 4 · `sm` 6 · `md` 8 · `lg` 10 · `xl` 12 · `full`.
+Radius tokens: `xs` 4 · `sm` 6 · `md` 8 · `lg` 10 · `xl` 12 · `2xl` 20 · `full`.
 **Rule: inner radius = outer radius − the gap between them.** Never repeat the
 container's radius inside it. `xl` is 12 because 32px controls sit 4px inside
 cards and have an 8px radius.
 
 | Container | Inside | Gap | Inner radius |
 | --- | --- | --- | --- |
+| Line-only page wrapper (`PageWrap`, `2xl` 20, trial) | Cards | 8px | `xl` 12 |
 | Card, centerpiece, composer (`xl` 12) | 32px buttons, rows | 4px | `md` 8 |
 | Sidebar row, 28px (`sm` 6) | 20px row action, key | 4px | `xs` 4 |
 | Menu, combobox, popover, hover card (`lg` 10) | Items, search field | 4px | `sm` 6 |
@@ -1034,6 +1102,8 @@ cards and have an 8px radius.
 - Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6, except
   where a 20px button sits 4px inside a 28px row (a sidebar row action or
   key): `xs` 4, a soft corner (6 - 4 = 2 would read sharp).
+- `2xl` 20 is the line-only page wrapper's (`PageWrap`, trial) only: its
+  cards sit 8px in at `xl` 12.
 - Keys are `xs` 4: a soft corner, short of a pill. Elements only a few pixels
   inside their container (attachment thumbnails and remove button) use `xs`.
 - A tooltip is `sm` because it holds a label, not nested items.
@@ -1064,7 +1134,7 @@ detected structurally, as is a trailing one that follows an element; CSS cannot
 see text nodes, so a trailing icon that follows bare text (a chevron after a
 label, `ArrowUpRight` after "Open") or a wrapped icon (an avatar stack) carries
 `data-icon="inline-end"` / `"inline-start"` on the icon or wrapper. Tabs and
-`ToolbarChip` are buttons and share this; toggles use the same padding (a lone
+`ToolbarChip` are buttons and share this (tabs take `size="compact"` inside a card, dialog or popover); toggles use the same padding (a lone
 bare icon is a square, marked icons beside text as for buttons), badges the
 `xs` row, a text addon in a button group and text inputs / select triggers the
 `default` text padding (12px; at 28px 10px, the select's chevron side 10 / 8px).
@@ -1389,8 +1459,16 @@ description (the header is capped at 320px, so it wraps) and one 32px primary bu
 "Add to library"…).
 Every main section starts this way, with the floating chat there as on any
 page: the button starts the sentence in it ("Add a task to ", "Every "),
-never a form; a person's own action (Upload file) sits beside it. Missing pages and records use `NotFound`
-(the same, with "Go home").
+never a form; a person's own action (Upload file) sits beside it. Missing pages and records use `NotFoundPage`
+(see Not found below).
+
+**Not found.** A URL with no page (an unknown path, workspace, chat, skill or
+source) shows only the stock `Empty` centered both ways on the plain page
+background: no sidebar, header, floating navigation or title row, and no shell
+around it. A `FileQuestion` icon in the 32px tile, "Page not found", "The page
+you are looking for does not exist or has moved." and one 32px primary "Go home"
+button, which replaces the URL with `/` (the active workspace's Chats). No "Go
+back": the browser's or Electron's own Back works. The URL stays as typed.
 
 **No results.** When filters match nothing, the page, its header and the
 filter bar stay; the list area shows the same `Empty` shape: the filter icon
@@ -1424,7 +1502,7 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   themes over the dialogs' plain 50% black overlay. Top to bottom: a borderless
   48px search field (placeholder "Search", the 14px search icon on the rows' icon
   line) over a full-width `foreground/10` divider; the category tabs (the shared
-  `Tabs`: 32px ghost triggers 4px apart, the open one `foreground/10`, 8px above
+  `Tabs` `size="compact"`: 28px ghost triggers 4px apart, the open one `foreground/10`, 8px above
   and below, text 16px in); the list (at most `min(400px, 60dvh)`, `scroll-fade-y`,
   no scrollbar): 36px rows, `md` 8 corners in the list's 4px padding, 16px content
   inset, a 14px icon, 8px, the title in `text-sm`, and at the end a chat's
@@ -1689,7 +1767,7 @@ Inbox continues its four independent server attention cursors with one More atte
 
 The File share byte-selection control uses the shared Checkbox primitive, with its stock compact size and focus behavior, beside the descriptive label.
 
-Below 768px the whole sidebar (areas, the open area's section, footer) is the shared Sheet, opened by the page header's menu button; choosing a route closes it.
+Below 768px the whole sidebar (areas, the open area's section, footer) is the shared Sheet, opened by the page's menu button (fixed at its top-left); choosing a route closes it.
 
 Private pages remain behind the session-loading state until the previous authenticated session's requests and cache have been cleared. Current Project authority resolves independently of the displayed member page; incomplete pickers never decide who can edit.
 

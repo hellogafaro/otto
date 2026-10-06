@@ -305,15 +305,19 @@ function Segmented() {
   const [seg, setSeg] = React.useState('a')
   return (
     <div className="flex flex-col gap-3">
-      <Cell label="Tabs: active | rest | hover | focus-visible">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="a">Active</TabsTrigger>
-            <TabsTrigger value="b">Rest</TabsTrigger>
-            <TabsTrigger value="c" {...force('hover')}>Hover</TabsTrigger>
-            <TabsTrigger value="d" {...force('focus-visible')}>Focus</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <Cell label="Tabs on a page 32px, in a card, dialog or popover compact 28px: active | rest | hover | focus-visible">
+        <div className="flex flex-col gap-2">
+          {(['default', 'compact'] as const).map((size) => (
+            <Tabs key={size} size={size} value={tab} onValueChange={setTab}>
+              <TabsList>
+                <TabsTrigger value="a">Active</TabsTrigger>
+                <TabsTrigger value="b">Rest</TabsTrigger>
+                <TabsTrigger value="c" {...force('hover')}>Hover</TabsTrigger>
+                <TabsTrigger value="d" {...force('focus-visible')}>Focus</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          ))}
+        </div>
       </Cell>
       <Cell label="Toggle: rest | hover | pressed | pressed+hover | focus-visible | disabled">
         <div className="flex gap-1">

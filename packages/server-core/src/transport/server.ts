@@ -22,10 +22,11 @@ import {
   type MessageEnvelope,
   type PushTarget,
   type ErrorCode,
+  type WireError,
 } from '@otto/shared/protocol'
 import type { RpcServer, HandlerFn, RequestContext } from './types'
 import { serializeEnvelope, deserializeEnvelope } from './codec'
-import { createLogger } from '@otto/shared/utils'
+import { createLogger, isDomainError } from '@otto/shared/utils'
 
 // ---------------------------------------------------------------------------
 // Client connection state
@@ -677,7 +678,7 @@ export class WsRpcServer implements RpcServer {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       const rawCode = (err as { code?: unknown } | null)?.code
-      const code: ErrorCode = isErrorCode(rawCode) ? rawCode : 'HANDLER_ERROR'
+      const code = isErrorCode(rawCode) || isDomainError(err) ? (rawCode as string) : 'HANDLER_ERROR'
       this.sendResponseError(client.ws, id, channel, code, message)
     }
   }
@@ -830,7 +831,7 @@ export class WsRpcServer implements RpcServer {
   /** Handler/request errors — sent as type:'response' with error field. */
   private sendResponseError(
     ws: WebSocket, id: string, channel: string | undefined,
-    code: ErrorCode, message: string,
+    code: WireError['code'], message: string,
   ): void {
     const envelope: MessageEnvelope = {
       id,

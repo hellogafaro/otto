@@ -1,23 +1,29 @@
 /**
- * PageHeader - what a page renders at its top: `<PageHeader title=… actions=… />`.
+ * PageHeader - what a page renders for its title: `<PageHeader title=… actions=… />`.
  *
  * The design system's `PageHeaderRow` with the app's navigation wired in, so
  * a page passes no handlers. It renders where the page puts it but draws in the
- * `PageFrame`'s header slot (above the column, on the frame), so it never sits in
- * a card:
+ * `PageFrame`'s slots, so it never sits in a card:
+ * - by default the row is the first block of the page's column (`PageColumn`'s
+ *   title slot; in place when the page has no column), on the top axis at
+ *   scroll 0, and it scrolls away with the content: nothing is pinned;
+ * - `pinned` (the chat only) draws the compact 44px row in the frame's header
+ *   slot instead, pinned above the centerpiece;
  * - the row is the title (plain text: one line that fades out under the actions,
- *   no dropdown, no Back button, no crumbs) and the page's actions; the only thing
- *   before it is the menu button below 768px (the sidebar is a sheet there);
+ *   no dropdown, no Back button, no crumbs) and the page's actions. Below 768px
+ *   the sidebar is a sheet and its menu button is fixed over the column's
+ *   top-left on the axis (the title row clears it), or leads the pinned row;
  * - a page with a menu of actions on its subject (`menu`: a chat's session menu, a
  *   source's) gets a "More actions" button last in the actions; below 768px a page
  *   may pass `compactMenu` instead (a drawer whose trigger is `HeaderMoreButton`);
  * - going back and stepping through a list is the floating navigation: Back when the
  *   view has a parent (see `useParentView`), Previous / Next when the page is an item of a
  *   list (`listNav`: a chat in Chats, a page in Settings), in the frame's left gutter
- *   with Back on the title's line when it is wide enough, and as ghost buttons at the end of
- *   the header's actions (Back, Previous, Next) when it is not;
+ *   with Back on the axis when it is wide enough, and as ghost buttons at the end of
+ *   the row's actions (Back, Previous, Next) when it is not;
  * - on the Chats index, New chat is the last of the actions (a chat has More instead);
- * - on Electron the header is the window's drag region; the controls opt out.
+ * - with no title (an unbuilt section) only the menu button is drawn;
+ * - on Electron the pinned row is the window's drag region; the controls opt out.
  */
 
 import * as React from 'react'
@@ -60,6 +66,8 @@ export interface PageHeaderProps {
   className?: string
   /** Whether title is being regenerated (shows shimmer effect) */
   isRegeneratingTitle?: boolean
+  /** The chat's compact row, pinned above the centerpiece (no other page). */
+  pinned?: boolean
 }
 
 /** The header's "More actions": a 28px ghost icon button that opens the page's menu (the trigger of a dropdown or drawer). */
@@ -76,6 +84,7 @@ export function PageHeader({
   actions,
   className,
   isRegeneratingTitle,
+  pinned = false,
 }: PageHeaderProps) {
   const { t } = useTranslation()
   const { isCompactMode, onNewChat } = useAppShellContext()
@@ -124,10 +133,14 @@ export function PageHeader({
   const next = listNav ? { label: t('common.next'), onClick: listNav.goNext, disabled: !listNav.hasNext } : undefined
   const navInGutter = !!((back || listNav) && frame?.navFits)
 
-  const row = (
+  // In-content below 768px, the sheet's menu button is fixed over the column, raised
+  // (outline, 32px, as the floating navigation) since content scrolls under it.
+  const fixedTrigger = !pinned && !!frame?.leading
+  const row = (pinned || title !== undefined) && (
     <PageHeaderRow
-      className={cn('titlebar-drag-region', className)}
-      leading={<SidebarTrigger className="titlebar-no-drag" />}
+      pinned={pinned}
+      className={cn(pinned && 'titlebar-drag-region', fixedTrigger && 'max-md:pl-14', className)}
+      leading={!fixedTrigger && <SidebarTrigger className="titlebar-no-drag" />}
       title={titleContent}
       actions={
         <div className="titlebar-no-drag flex items-center gap-1">
@@ -142,11 +155,16 @@ export function PageHeader({
   )
 
   // Outside the shell (a demo) the row draws in place.
-  if (!frame) return row
+  if (!frame) return row || null
 
+  const target = pinned ? frame.header : frame.title
   return (
     <>
-      {frame.header && createPortal(row, frame.header)}
+      {row && (target ? createPortal(row, target) : !pinned && row)}
+      {fixedTrigger && frame.leading && createPortal(
+        <SidebarTrigger variant="outline" size="icon" className="titlebar-no-drag" />,
+        frame.leading,
+      )}
       {navInGutter && frame.nav && createPortal(
         <FloatingNav back={back} previous={previous} next={next} />,
         frame.nav,

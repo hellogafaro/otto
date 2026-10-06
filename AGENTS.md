@@ -20,6 +20,7 @@ Otto is a Bun monorepo that started from Otto (see [UPSTREAM](UPSTREAM.md)) and 
 
 ## Small, cohesive changes
 
+- Follow [Ponytail](https://github.com/dietrichgebert/ponytail): before writing code, stop at the first rung that holds. Does it need to exist? Is it already in this codebase? Does the standard library, the platform or an installed dependency do it? Is it one line? Only then write the minimum that works. A deliberate shortcut is fine when marked with its limit.
 - Make the smallest correct change. Remove dead or duplicate code before adding more; reuse what exists. YAGNI: add nothing for a need that has not shown up.
 - No generic repositories, registries, frameworks or abstraction layers for one use.
 - Removing a feature removes the code behind it: the UI, its state and handlers, IPC channels, config keys, storage, tests, locale strings and docs. Nothing stays "dormant"; a leftover is a bug in the removal.
@@ -31,6 +32,7 @@ Otto is a Bun monorepo that started from Otto (see [UPSTREAM](UPSTREAM.md)) and 
 - A domain owns its tables and exposes plain functions; other domains call those functions and never read its tables.
 - Every row id is `createId()` from `@otto/shared/id` (12 lowercase letters and digits). No uuids, autoincrement or other id shapes.
 - Tables are plural snake_case. Display labels are `title`, discriminators `type`, timestamps `createdAt` / `updatedAt`. `getThing` / `getThings` only read existing data; when a function does more than read, name what it does: `init…` (set up once, at boot or first use), `create…`, `update…`, `delete…`, `run…`, `handle…`.
+- `library` is the one singular table name (owner-approved): it holds files, documents and folders as one kind of item.
 - `secrets` is its own domain: `secrets(id, title, value)`, one `ENCRYPTION_KEY` env (32 bytes; the server refuses to boot without it; dev has a placeholder in Infisical), AES-256-GCM, no rotation or versioning. Other domains keep a `secretId`; the value never leaves the server.
 - Drizzle on `bun:sqlite`. Each domain keeps its tables in its own `schema.ts` and queries through `initDb()` from `@otto/shared/db`; only `db/` and the `schema.ts` files know the database is SQLite, so Postgres later swaps the driver and the `sqlite-core` imports.
 - No migrations until the MVP is stable: `bun run db:push` (run by `bun run dev`) diffs every `schema.ts` against the database and applies it, and refuses data loss without `--force`. Tests build a `:memory:` db with `openDb(':memory:')` and `pushSchema`.

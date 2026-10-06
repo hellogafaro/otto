@@ -47,7 +47,7 @@ import { EventQueue } from './backend/event-queue.ts';
 import { getSystemPrompt } from '../prompts/system.ts';
 import { PRODUCT_NAME, BACKEND_NAME } from '../branding.ts';
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
-import { loadProjectById, getProjectAssetsPath, listProjectAssets, getProjectMemoryPath, loadProjectMemory } from '../projects/storage.ts';
+import { getProjectPromptContext } from '../projects/index.ts';
 import type { ProjectPromptContext } from '../projects/types.ts';
 
 // Credential manager for token storage
@@ -205,31 +205,14 @@ export class PiAgent extends BaseAgent {
 
   /**
    * Look up the bound project (if any) and return a snapshot for system-prompt injection.
-   * Mirrors ClaudeAgent.resolveProjectContext — safe to call on every turn since the
-   * project config file is small.
+   * Mirrors ClaudeAgent.resolveProjectContext, safe to call on every turn.
    */
   private resolveProjectContext(): ProjectPromptContext | null {
     const projectId = this.config.session?.projectId;
     if (!projectId) return null;
 
     try {
-      const root = this.config.workspace.rootPath;
-      const project = loadProjectById(root, projectId);
-      if (!project) return null;
-      const slug = project.config.slug;
-      return {
-        name: project.config.name,
-        description: project.config.description,
-        details: project.config.details,
-        assetsPath: getProjectAssetsPath(root, slug),
-        assets: listProjectAssets(root, slug).map((a) => ({
-          filename: a.filename,
-          mimeType: a.mimeType,
-          sizeBytes: a.sizeBytes,
-        })),
-        memoryPath: getProjectMemoryPath(root, slug),
-        memoryContent: loadProjectMemory(root, slug) ?? undefined,
-      };
+      return getProjectPromptContext(this.config.workspace.id, projectId) ?? null;
     } catch (error) {
       this.debug(`[resolveProjectContext] Failed to load project ${projectId}: ${error instanceof Error ? error.message : error}`);
       return null;

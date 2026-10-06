@@ -26,28 +26,6 @@ export function buildBackendHostRuntimeContext(platform: PlatformServices) {
 }
 
 /**
- * Sanitizes a filename to prevent path traversal and filesystem issues.
- * Removes dangerous characters and limits length.
- */
-export function sanitizeFilename(name: string): string {
-  return name
-    // Remove path separators and traversal patterns
-    .replace(/[/\\]/g, '_')
-    // Remove Windows-forbidden characters: < > : " | ? *
-    .replace(/[<>:"|?*]/g, '_')
-    // Remove control characters (ASCII 0-31)
-    .replace(/[\x00-\x1f]/g, '')
-    // Collapse multiple dots (prevent hidden files and extension tricks)
-    .replace(/\.{2,}/g, '.')
-    // Remove leading/trailing dots and spaces (Windows issues)
-    .replace(/^[.\s]+|[.\s]+$/g, '')
-    // Limit length (200 chars is safe for all filesystems)
-    .slice(0, 200)
-    // Fallback if name is empty after sanitization
-    || 'unnamed'
-}
-
-/**
  * Resolve allowed directories for a workspace: its root path and configured
  * working directory (if set). Returns an empty array if the workspace is
  * unknown or has no relevant paths.

@@ -8,7 +8,6 @@ import { FEATURE_FLAGS } from '../feature-flags.ts';
 import { isDecisionFeatureActive } from '../decisions/resolve.ts';
 import { APP_VERSION } from '../version/index.ts';
 import { PRODUCT_NAME, AGENT_DEFAULT_NAME, PRODUCT_NOREPLY_EMAIL } from '../branding.ts';
-import { formatBytes } from '../utils/binary-detection.ts';
 import { globSync } from 'glob';
 import os from 'os';
 import type { ProjectPromptContext } from '../projects/types.ts';
@@ -454,18 +453,15 @@ export function getSystemPrompt(
 /** Block tags whose closing form must not appear inside injected project fields. */
 const PROJECT_BLOCK_TAGS = [
   'project_context',
-  'project_assets_path',
-  'project_assets',
-  'project_memory_path',
-  'project_memory',
+  'project_resources',
 ] as const;
 
-/** Sanitize a multi-line body field (description/details/memory) before prompt injection. */
+/** Sanitize a multi-line body field (the description) before prompt injection. */
 function sanitizeProjectBodyText(content: string): string {
   return sanitizePromptBody(content, PROJECT_BLOCK_TAGS);
 }
 
-/** Sanitize a single-line label (asset filename/path/MIME type) before prompt injection. */
+/** Sanitize a single-line label (resource title/ref) before prompt injection. */
 function sanitizeProjectLine(name: string): string {
   return sanitizePromptLine(name, PROJECT_BLOCK_TAGS);
 }
@@ -473,43 +469,26 @@ function sanitizeProjectLine(name: string): string {
 export function formatProjectContextForPrompt(ctx: ProjectPromptContext): string {
   const lines: string[] = [];
   lines.push('');
-  lines.push(`<project_context project="${escapePromptXmlAttr(ctx.name)}">`);
-  if (ctx.description?.trim()) {
+  lines.push(`<project_context project="${escapePromptXmlAttr(ctx.title)}">`);
+  if (ctx.description.trim()) {
     lines.push(sanitizeProjectBodyText(ctx.description.trim()));
     lines.push('');
   }
-  if (ctx.details?.trim()) {
-    lines.push(sanitizeProjectBodyText(ctx.details.trim()));
+
+  if (ctx.resources.length > 0) {
+    lines.push('<project_resources>');
+    for (const resource of ctx.resources) {
+      lines.push(`- ${resource.type}: ${sanitizeProjectLine(resource.title)} (${sanitizeProjectLine(resource.ref)})`);
+    }
+    lines.push('</project_resources>');
     lines.push('');
   }
 
-  lines.push(`<project_assets_path>${sanitizeProjectBodyText(ctx.assetsPath)}</project_assets_path>`);
-  if (ctx.assets.length > 0) {
-    lines.push('<project_assets>');
-    for (const asset of ctx.assets) {
-      lines.push(`- ${sanitizeProjectLine(asset.filename)} (${sanitizeProjectLine(asset.mimeType)}, ${formatBytes(asset.sizeBytes)})`);
-    }
-    lines.push('</project_assets>');
-  }
-
-  lines.push(`<project_memory_path>${sanitizeProjectBodyText(ctx.memoryPath)}</project_memory_path>`);
-  if (ctx.memoryContent?.trim()) {
-    lines.push('<project_memory>');
-    lines.push(sanitizeProjectBodyText(ctx.memoryContent.trim()));
-    lines.push('</project_memory>');
-  }
-  lines.push('');
-
   lines.push(`The user has bound this session to the project above.`);
-  if (ctx.assets.length > 0) {
-    lines.push(`<project_assets> lists reference files the user provided. Read a specific file on-demand by`);
-    lines.push(`its absolute path (<project_assets_path> + filename) only when it's relevant — you do not need`);
-    lines.push(`to read them all.`);
+  if (ctx.resources.length > 0) {
+    lines.push(`<project_resources> lists what belongs to the project: a url, a library item (by id) or a`);
+    lines.push(`chat (by id). Open one only when it is relevant; you do not need to read them all.`);
   }
-  lines.push(`<project_memory> is authoritative accumulated knowledge for this project; treat it as`);
-  lines.push(`established context. When you learn something durable (a decision, gotcha, convention, or`);
-  lines.push(`project-specific user preference), record it in MEMORY.md at <project_memory_path> via Write/Edit —`);
-  lines.push(`concise, newest/most-important first, kept under ~5000 tokens.`);
   lines.push(`</project_context>`);
   lines.push('');
   return lines.join('\n');

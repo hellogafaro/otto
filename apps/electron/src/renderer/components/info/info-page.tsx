@@ -9,7 +9,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle } from 'lucide-react'
 import { PageHeader, type PageHeaderProps } from '@/components/app-shell/page-header'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { PageColumn } from '@workspace/ui/components/page'
 import { Spinner } from '@otto/ui'
 import { cn } from '@/lib/utils'
 
@@ -136,24 +136,13 @@ function Info_PageHero({ avatar, title, tagline, className }: Info_PageHeroProps
   )
 }
 
+// The page's column: the header's title row first, then the content, scrolling
+// as a whole (the title scrolls away with it).
 function Info_PageContent({ children, className }: Info_PageContentProps) {
   return (
-    <div className="relative flex-1 min-h-0">
-      {/* Mask wrapper - fades content at top and bottom over transparent/image backgrounds */}
-      <div
-        className="h-full"
-        style={{
-          maskImage: 'linear-gradient(to bottom, transparent 0%, black 32px, black calc(100% - 32px), transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 32px, black calc(100% - 32px), transparent 100%)'
-        }}
-      >
-        <ScrollArea className="h-full">
-          <div className="pt-7 pb-10">
-            <div data-content-start="" className={cn('space-y-6', className)}>{children}</div>
-          </div>
-        </ScrollArea>
-      </div>
-    </div>
+    <PageColumn>
+      <div data-content-start="" className={cn('space-y-6', className)}>{children}</div>
+    </PageColumn>
   )
 }
 

@@ -17,12 +17,13 @@ import * as React from "react"
 // `ButtonGroup` with a separator between them. They are our standard raised
 // icon button (`outline`, 32px, md 8 corners, 14px icons), never round and
 // with no wrapper of their own, 8px apart. They are the page's only way back and
-// through its list: the header row has no back button and no crumbs.
+// through its list: the title row has no back button and no crumbs.
 // `PageHeader` portals them into the frame's left gutter, 20px from the column,
-// with Back centered on the header row (Back's center, the page title's and the
-// sidebar mark's are one line), and only while that gutter is at least 72px
-// wide; narrower, the same actions move into the header row's trailing actions
-// (`FloatingNavButtons`). The gutter never scrolls, so they stay put.
+// with Back centered on the top axis (`--axis-y`: Back's center, the page
+// title's at scroll 0, the chat's pinned title and the sidebar mark's are one
+// line), and only while that gutter is at least 72px wide; narrower, the same
+// actions move into the title row's trailing actions (`FloatingNavButtons`).
+// The gutter never scrolls, so they stay put while the title scrolls away.
 type NavAction = {
   label: string
   onClick: () => void
@@ -94,7 +95,7 @@ function FloatingNav({
 }
 
 // Otto: the narrow frame's navigation: Back, previous and next as 28px ghost
-// buttons for the header's trailing actions (never leading, never beside the
+// buttons for the title row's trailing actions (never leading, never beside the
 // title), shown while `FloatingNav` is hidden.
 function FloatingNavButtons({
   back,

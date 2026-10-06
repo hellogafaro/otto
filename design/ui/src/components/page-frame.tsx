@@ -9,22 +9,30 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 // frame (`--sidebar`, the sidebar's own layer) with nothing wrapped around the
 // page, so there is no seam, ring or shadow against the sidebar. A page is the
 // column on it: ONE column of 768px (48rem) for every page (chat, lists,
-// settings, empty states), centered in the free space, under a 52px header row
-// that starts 8px from the top. Narrower than 768px + 2 x 20px the column
-// fills the width, 20px from each side.
+// settings, empty states), centered in the free space. Narrower than 768px +
+// 2 x 20px the column fills the width, 20px from each side.
+//
+// Nothing is pinned above a page: its title row is the first block of the
+// column and scrolls away with it (`PageHeaderRow`; `PageColumn` gives it its
+// slot). The chat is the one exception: a compact pinned row (`PageHeaderRow
+// pinned`, 44px) in the frame's header slot above the column. Every title sits
+// on the TOP AXIS (`--axis-y`, 34px from the window's top, see globals.css):
+// the sidebar's mark, the title (at scroll 0), the pinned row's title and the
+// floating navigation's Back button share that center line.
 //
 // Three tracks make it: [left gutter | column | right gutter]. The left gutter
-// holds `FloatingNav` (portaled in by `PageHeader`), centered on the header row's
-// axis (its Back button, the title and the sidebar's mark share one line); the
-// right one holds the `aside` (the `Sidecar`), which starts at the CONTENT START,
-// the top of the first block under the header row (see `--content-start`).
-// Closed, both gutters are equal and the column is centered. An open aside
-// reserves its 324px (20px gap, 296px canvas, 8px from the window) in the right track: while the free space is wider than that the
-// column stays centered, otherwise it shifts left to make room (never narrower
-// than 768px: from 1280px of region width there is always room). Below 1280px
-// of region width the aside overlays the page instead (on a card surface, since
-// it floats over content) and below 768px it spans the width. Both gutters stay
-// put while the center scrolls: only the column's body scrolls.
+// holds `FloatingNav` (portaled in by `PageHeader`), Back centered on the axis;
+// the right one holds the `aside` (the `Sidecar`), which starts at the CONTENT
+// START, the top of the first block (see `--content-start`). Closed, both
+// gutters are equal and the column is centered. An open aside reserves its
+// 324px (20px gap, 296px canvas, 8px from the window) in the right track: while
+// the free space is wider than that the column stays centered, otherwise it
+// shifts left to make room (never narrower than 768px: from 1280px of region
+// width there is always room). Below 1280px of region width the aside overlays
+// the page instead (on a card surface, since it floats over content) and below
+// 768px it spans the width. Both gutters stay put while the center scrolls:
+// only the column's body scrolls, from the window's top edge (no strip above
+// it) to 8px above its bottom.
 //
 // The region is the `frame` container and the column is the `panel` container,
 // so what is inside answers to the column's width, not the window's.
@@ -33,24 +41,29 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 const NAV_GUTTER = 72
 
 // Otto: the page inset, ONE constant. 16px, the padding of a row inside a
-// card. The header row and every section header (title, description, action)
+// card. The title row and every section header (title, description, action)
 // take it, so their content lines up with the text in the cards below while
 // their boxes still span the column. A card row's own `px-4` is the same value.
 const PAGE_INSET = "px-4"
 
 type PageFrameContextValue = {
-  /** Where `PageHeader` portals its header row (column width, above the body). */
+  /** Where the chat's pinned row goes (column width, above the body). */
   header: HTMLElement | null
+  /** Where an in-content title row goes: the top of the page's `PageColumn`. */
+  title: HTMLElement | null
+  setTitle: (element: HTMLElement | null) => void
+  /** Fixed over the column's top-left on the axis: the sheet's menu button below 768px. */
+  leading: HTMLElement | null
   /** Where `PageHeader` portals the floating navigation (the left gutter). */
   nav: HTMLElement | null
-  /** The left gutter is wide enough (56px) for the floating navigation. */
+  /** The left gutter is wide enough (72px) for the floating navigation. */
   navFits: boolean
 }
 
-// Otto: the content start. The first block under the header row (`data-content-start`:
+// Otto: the content start. The first block (`data-content-start`:
 // a `PageSection`, `PageCard`, `PageCenterpiece`, or a page's own first block)
-// begins this far below the body's top (28px on a blocks page, 0 on a
-// centerpiece). The frame measures it, so the sidecar starts on the first block
+// begins this far below the body's top (82px on a blocks page: the title row on
+// the axis, then 32px; 0 under the chat's pinned row). The frame measures it, so the sidecar starts on the first block
 // whatever the page puts first, and publishes it as `--content-start`.
 function measureContentStart(body: HTMLElement) {
   const block = body.querySelector<HTMLElement>("[data-content-start]")
@@ -80,6 +93,8 @@ function PageFrame({
   aside?: React.ReactNode
 }) {
   const [header, setHeader] = React.useState<HTMLElement | null>(null)
+  const [title, setTitle] = React.useState<HTMLElement | null>(null)
+  const [leading, setLeading] = React.useState<HTMLElement | null>(null)
   const [nav, setNav] = React.useState<HTMLElement | null>(null)
   const [navFits, setNavFits] = React.useState(false)
   const [body, setBody] = React.useState<HTMLElement | null>(null)
@@ -116,8 +131,8 @@ function PageFrame({
   }, [nav])
 
   const value = React.useMemo(
-    () => ({ header, nav, navFits }),
-    [header, nav, navFits]
+    () => ({ header, title, setTitle, leading, nav, navFits }),
+    [header, title, leading, nav, navFits]
   )
 
   return (
@@ -137,7 +152,7 @@ function PageFrame({
         />
         <div
           className={cn(
-            "relative grid h-full grid-cols-[minmax(1.25rem,1fr)_minmax(0,48rem)_minmax(var(--aside,1.25rem),1fr)] grid-rows-[auto_minmax(0,1fr)] py-2",
+            "relative grid h-full grid-cols-[minmax(1.25rem,1fr)_minmax(0,48rem)_minmax(var(--aside,1.25rem),1fr)] grid-rows-[auto_minmax(0,1fr)] pb-2",
             "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
             "@[1280px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:20.25rem]"
           )}
@@ -153,17 +168,28 @@ function PageFrame({
           <div
             data-slot="floating-nav-slot"
             ref={setNav}
-            // Spans the header row and the body: Back is centered on the header
-            // row (52px, a 32px button: 10px down), 20px from the column.
-            className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-2.5 pr-5"
+            // Spans the whole height: Back (32px) is centered on the axis, 20px
+            // from the column, and stays put while the column scrolls.
+            className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-[calc(var(--axis-y)-1rem)] pr-5"
           />
           <div
             data-slot="page-body"
             ref={setBody}
-            className="@container/panel relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col"
+            // Electron: the column is no drag region, so what scrolls under the
+            // top band stays clickable (the gutters and the sidebar's header drag).
+            className="titlebar-no-drag @container/panel relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col"
           >
             {children}
           </div>
+          <div
+            data-slot="page-leading-slot"
+            ref={setLeading}
+            // Over the body's top-left, outside its scroll: a 32px button on the axis.
+            className={cn(
+              "pointer-events-none relative z-10 col-start-2 row-start-2 h-0 self-start pt-[calc(var(--axis-y)-1rem)] *:pointer-events-auto",
+              PAGE_INSET
+            )}
+          />
           {aside}
         </div>
       </div>
@@ -171,31 +197,41 @@ function PageFrame({
   )
 }
 
-// Otto: the 52px header row, on the frame above the column and as wide as it,
-// so its left and right edges are the cards' edges, with its content inset
-// (`PAGE_INSET`) to line up with the cards' content. From the left: a `leading`
-// slot (only the menu button below 768px, the sidebar sheet's opener), the page
-// title (`PageTitle`, 21px medium) and the page's actions on the right. The title
-// is plain text on one line, never an ellipsis: it fades out over its last 16px,
-// where the actions start (a mask, as the sidebar's rows do; a short title is
-// untouched). It never has a dropdown, a back button or a trail of crumbs: going
-// back and stepping through a list is `FloatingNav`. Controls are 28px.
+// Otto: a page's title row, inset (`PAGE_INSET`) to line up with the cards'
+// content. From the left: a `leading` slot (the chat's menu button below 768px,
+// the sidebar sheet's opener), the page title (`PageTitle`, 21px medium) and
+// the page's actions on the right (28px controls). The title is plain text on
+// one line, never an ellipsis: it fades out over its last 16px, where the
+// actions start (a mask, as the sidebar's rows do; a short title is untouched).
+// It never has a dropdown, a back button or a trail of crumbs: going back and
+// stepping through a list is `FloatingNav`.
+// - By default it is the first block of the page's column, 32px tall, its top
+//   16px above the axis (so its center is the axis at scroll 0), 32px above the
+//   first section, and it scrolls away with the page.
+// - `pinned` (the chat only) is the compact row in the frame's header slot:
+//   44px, 22px above the axis, pinned above the centerpiece.
 function PageHeaderRow({
   leading,
   title,
   actions,
+  pinned = false,
   className,
   ...props
 }: Omit<React.ComponentProps<"header">, "title"> & {
   leading?: React.ReactNode
   title?: React.ReactNode
   actions?: React.ReactNode
+  pinned?: boolean
 }) {
   return (
     <header
       data-slot="page-header-row"
+      data-pinned={pinned || undefined}
       className={cn(
-        "flex h-13 items-center gap-1 select-none",
+        "flex items-center gap-1 select-none",
+        pinned
+          ? "mt-[calc(var(--axis-y)-1.375rem)] h-11"
+          : "mt-[calc(var(--axis-y)-1rem)] h-8",
         PAGE_INSET,
         className
       )}
@@ -219,8 +255,10 @@ function PageHeaderRow({
   )
 }
 
-// Otto: the scroll region under the header for pages that scroll as a whole:
-// the edge fade is the only sign (no scrollbar), like every scrolling area.
+// Otto: a scroll region (a blocks page's column, a centerpiece's content): the
+// edge fade is the only sign (no scrollbar), like every scrolling area. The
+// fade is scroll-driven, so at scroll 0 the top is not faded (the title is
+// whole) and it shows only once the content has scrolled under the edge.
 function PageScroll({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

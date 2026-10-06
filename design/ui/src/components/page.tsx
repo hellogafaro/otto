@@ -1,30 +1,43 @@
-import { PAGE_INSET, PageScroll } from "@workspace/ui/components/page-frame"
+import {
+  PAGE_INSET,
+  PageScroll,
+  usePageFrame,
+} from "@workspace/ui/components/page-frame"
 import { cn } from "cn"
 
 // Otto: page anatomy. The page has no surface of its own: it is the frame, and
-// the column on it (`PageFrame`, 768px) is the header row, then surfaces, as
+// the column on it (`PageFrame`, 768px) holds the title row, then surfaces, as
 // SIBLINGS. A surface (`PageCard`, `PageCenterpiece`) never contains another
 // surface. Two kinds of page:
-// - blocks (`PageColumn`): settings, lists, overviews. Stacked `PageSection`s
-//   (a small title above its `PageCard`) 32px apart, scrolling as a whole.
+// - blocks (`PageColumn`): settings, lists, overviews. The title row first (on
+//   the top axis at scroll 0), then stacked `PageSection`s (a small title above
+//   its `PageCard`), all 32px apart, scrolling as a whole: nothing is pinned.
 // - a centerpiece (`PageCenterpiece`): long-form content read or written top to
 //   bottom (the chat, a document). ONE card as wide as the column and as tall
-//   as the space under the header row, scrolling inside. The chat adds a
-//   sibling composer card under it.
-// The first block (`data-content-start`) is where the sidecar starts:
-// `PageFrame` measures it.
+//   as the space left, scrolling inside. The chat adds a sibling composer card
+//   under it and is the one page with a pinned (compact) title row.
+// The column's first child is the title slot: `PageHeader`, called anywhere in
+// the page, draws its row there, so the title scrolls with the content. The
+// first block (`data-content-start`) is where the sidecar starts: `PageFrame`
+// measures it.
 function PageColumn({
   className,
   children,
   ...props
 }: React.ComponentProps<"div">) {
+  const frame = usePageFrame()
   return (
     <PageScroll>
       <div
         data-slot="page-column"
-        className={cn("flex w-full flex-col gap-8 pt-7 pb-8", className)}
+        className={cn("flex w-full flex-col gap-8 pb-10", className)}
         {...props}
       >
+        <div
+          data-slot="page-title-slot"
+          ref={frame?.setTitle}
+          className="contents"
+        />
         {children}
       </div>
     </PageScroll>
@@ -117,4 +130,24 @@ function PageCard({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { PageCard, PageCenterpiece, PageColumn, PageSection }
+// Otto (trial, until the owner confirms it; tried on Settings -> App only): ONE
+// line-only wrapper around a page's blocks, under its title row, as Threads
+// wraps its feed. The card edge's hairline (`--card-ring`), `2xl` 20 corners,
+// NO fill (the frame shows through), no shadow. Its sections stack 32px apart
+// as in `PageColumn`; the cards sit 8px in, so their `xl` 12 corners nest
+// (20 - 8), and section titles keep their 16px inset from the card's edge.
+function PageWrap({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="page-wrap"
+      data-content-start=""
+      className={cn(
+        "flex flex-col gap-8 rounded-2xl border border-(--card-ring) px-2 pt-5 pb-2",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+export { PageCard, PageCenterpiece, PageColumn, PageSection, PageWrap }

@@ -228,6 +228,15 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.file.STORE_ATTACHMENT,
   RPC_CHANNELS.file.GENERATE_THUMBNAIL,
 
+  // library — items and bytes live in the workspace's server
+  RPC_CHANNELS.library.CREATE,
+  RPC_CHANNELS.library.CREATE_FOLDER,
+  RPC_CHANNELS.library.LIST,
+  RPC_CHANNELS.library.GET,
+  RPC_CHANNELS.library.READ,
+  RPC_CHANNELS.library.UPDATE,
+  RPC_CHANNELS.library.DELETE,
+
   // fs — workspace filesystem
   RPC_CHANNELS.fs.SEARCH,
   RPC_CHANNELS.fs.LIST_DIRECTORY,
@@ -366,16 +375,23 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.automations.REPLAY,
   RPC_CHANNELS.automations.CHANGED,
 
-  // projects — workspace projects
+  // projects, tasks and timesheets — live in the workspace's server
+  RPC_CHANNELS.projects.LIST,
   RPC_CHANNELS.projects.GET,
-  RPC_CHANNELS.projects.GET_ONE,
   RPC_CHANNELS.projects.CREATE,
   RPC_CHANNELS.projects.UPDATE,
-  RPC_CHANNELS.projects.DELETE,
-  RPC_CHANNELS.projects.LIST_ASSETS,
-  RPC_CHANNELS.projects.UPLOAD_ASSET,
-  RPC_CHANNELS.projects.DELETE_ASSET,
-  RPC_CHANNELS.projects.CHANGED,
+  RPC_CHANNELS.projects.SET_STATUS,
+  RPC_CHANNELS.projects.GET_MEMBERS,
+  RPC_CHANNELS.projects.SET_MEMBER,
+  RPC_CHANNELS.projects.REMOVE_MEMBER,
+  RPC_CHANNELS.tasks.LIST,
+  RPC_CHANNELS.tasks.GET,
+  RPC_CHANNELS.tasks.CREATE,
+  RPC_CHANNELS.tasks.UPDATE,
+  RPC_CHANNELS.tasks.SET_STATUS,
+  RPC_CHANNELS.timesheets.LIST,
+  RPC_CHANNELS.timesheets.CREATE,
+  RPC_CHANNELS.timesheets.DELETE,
 
   // pages — workspace pages (mini dashboards)
   RPC_CHANNELS.pages.GET,

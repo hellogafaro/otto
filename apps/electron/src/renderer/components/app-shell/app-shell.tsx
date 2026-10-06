@@ -33,7 +33,6 @@ import {
   isTasksNavigation,
 } from "@/contexts/navigation-context"
 import { useAutomations } from "@/hooks/use-automations"
-import { useProjects } from "@/hooks/use-projects"
 import { usePages } from "@/hooks/use-pages"
 import { useRecordRecent } from "@/hooks/use-recents"
 import { useJumpShortcuts } from "@/hooks/use-jump-shortcuts"
@@ -86,7 +85,7 @@ function CloseSheetOnNavigate() {
 /**
  * AppShell - the shell: the sidebar and the page frame
  *
- * Layout: [Sidebar (header, areas, the open area's section, footer)] [PageFrame: header row, page, sidecar]
+ * Layout: [Sidebar (header, areas, the open area's section, footer)] [PageFrame: the page's column (its title row first), the chat's pinned row, sidecar]
  *
  * Session Filters:
  * - 'allSessions': Shows all sessions
@@ -172,7 +171,6 @@ function AppShellContent({
     getAutomationHistory, handleReplayAutomation,
   } = useAutomations(activeWorkspaceId)
 
-  useProjects(activeWorkspaceId)
   // Loads and syncs pagesAtom (read by the pages views); the list itself is not used here
   usePages(activeWorkspaceId)
   // Enabled permission modes for Shift+Tab cycling (min 2 modes)
@@ -615,7 +613,7 @@ function AppShellContent({
     <AppShellProvider value={appShellContextValue}>
       <CommandPaletteProvider>
       <SidebarProvider>
-        {/* Electron: the top 8px above the header row is window drag space too (the header row is the rest). */}
+        {/* Electron: the window's top 8px is drag space everywhere (the gutters, the sidebar header and the chat's pinned row are the rest). */}
         {!isWebUI && <div aria-hidden className="titlebar-drag-region fixed inset-x-0 top-0 z-50 h-2" />}
         <CloseSheetOnNavigate />
         <AppSidebar

@@ -1,3 +1,4 @@
+export * from './errors.ts';
 export * from './debug.ts';
 export * from './files.ts';
 export * from './redaction.ts';

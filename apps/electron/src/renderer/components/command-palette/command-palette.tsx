@@ -132,7 +132,7 @@ export function CommandPalette({ data, initialCategory = 'all', onPick }: Comman
         placeholder={t('commandPalette.placeholder')}
       />
       {showTabs && (
-        <Tabs value={category} onValueChange={(value) => switchTo(value as PaletteCategory)} className="no-scrollbar shrink-0 overflow-x-auto p-2">
+        <Tabs size="compact" value={category} onValueChange={(value) => switchTo(value as PaletteCategory)} className="no-scrollbar shrink-0 overflow-x-auto p-2">
           <TabsList aria-label={t('commandPalette.categories')}>
             {available.map((value) => (
               // The field keeps focus (and the caret) when a tab is clicked.

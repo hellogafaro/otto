@@ -15,6 +15,7 @@ import { SkillMenu } from '@/components/app-shell/skill-menu'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
 import { routes, navigate } from '@/lib/navigate'
 import { useActiveWorkspace } from '@/context/app-shell-context'
+import { useNavigation } from '@/contexts/navigation-context'
 import { getFileManagerName } from '@/lib/platform'
 import {
   Info_Page,
@@ -32,6 +33,7 @@ interface SkillInfoPageProps {
 
 export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory }: SkillInfoPageProps) {
   const { t } = useTranslation()
+  const { showNotFound } = useNavigation()
   const [skill, setSkill] = useState<LoadedSkill | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -54,8 +56,9 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
         const found = skills.find((s) => s.slug === skillSlug)
         if (found) {
           setSkill(found)
-        } else {
-          setError(t('skillInfo.notFound'))
+        } else if (workspaceId) {
+          // The URL names a skill nobody has: the app shows its not-found page
+          showNotFound()
         }
       } catch (err) {
         if (!isMounted) return
@@ -80,7 +83,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
       isMounted = false
       unsubscribe?.()
     }
-  }, [workspaceId, skillSlug, workingDirectory])
+  }, [workspaceId, skillSlug, workingDirectory, showNotFound])
 
   // Handle open in finder
   const handleOpenInFinder = useCallback(async () => {

@@ -57,7 +57,6 @@ export {
   updatePage,
   type UpdatePagePatch,
   deletePage,
-  unbindProjectFromPages,
   // Content
   computePageContentDigest,
   loadPageContent,

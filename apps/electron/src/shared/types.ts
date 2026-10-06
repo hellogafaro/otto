@@ -22,6 +22,13 @@ import type {
   AnnotationV1,
 } from '@otto/core/types';
 
+import type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate } from '@otto/shared/library/types';
+export type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate };
+
+import type { MemberRole, Project, ProjectFilter, ProjectMember, ProjectStatus, ProjectUpdate, Resource } from '@otto/shared/projects/types';
+import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from '@otto/shared/tasks/types';
+export type { MemberRole, Project, ProjectFilter, ProjectMember, ProjectStatus, ProjectUpdate, Resource, Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet };
+
 // Mode types from dedicated subpath export (avoids pulling in SDK)
 import type { PermissionMode } from '@otto/shared/agent/modes';
 export type { PermissionMode };
@@ -311,8 +318,18 @@ export interface ElectronAPI {
   /** Re-read a user-attached file by absolute path (bypasses workspace-dir validation).
    *  Used only by draft hydration for paths the user explicitly picked via OS dialog / drag. */
   readUserAttachment(path: string): Promise<FileAttachment | null>
-  storeAttachment(sessionId: string, attachment: FileAttachment): Promise<import('../../../../packages/core/src/types/index.ts').StoredAttachment>
+  storeAttachment(attachment: FileAttachment): Promise<import('../../../../packages/core/src/types/index.ts').StoredAttachment>
   generateThumbnail(base64: string, mimeType: string): Promise<string | null>
+
+  // Library (files, documents and folders; see docs/library.md). Updates that replace
+  // content must send the item's last seen `updatedAt` as `expectedUpdatedAt`.
+  createLibraryItem(input: { title: string; mime: string; content: LibraryContent; folderId?: string | null }): Promise<LibraryItem>
+  createLibraryFolder(input: { title: string; folderId?: string | null }): Promise<LibraryItem>
+  getLibraryItems(filter?: LibraryFilter): Promise<LibraryItem[]>
+  getLibraryItem(id: string): Promise<LibraryItem | null>
+  readLibraryItem(id: string): Promise<{ item: LibraryItem; content: LibraryContent }>
+  updateLibraryItem(id: string, patch: LibraryUpdate): Promise<LibraryItem>
+  deleteLibraryItem(id: string): Promise<void>
   /** Returns the absolute filesystem path for a File (only works for file-picker / OS-drag Files). */
   getFilePath(file: File): string | null
 
@@ -605,16 +622,24 @@ export interface ElectronAPI {
   setDefaultThinkingLevel(level: ThinkingLevel): Promise<{ success: boolean; error?: string }>
   setWorkspaceDefaultLlmConnection(workspaceId: string, slug: string | null): Promise<{ success: boolean; error?: string }>
 
-  // Projects (workspace-scoped)
-  getProjects(workspaceId: string): Promise<unknown>
-  getProject(workspaceId: string, projectIdOrSlug: string): Promise<unknown | null>
-  createProject(workspaceId: string, input: import('@otto/shared/projects/types').CreateProjectInput): Promise<import('@otto/shared/projects/types').ProjectConfig>
-  updateProject(workspaceId: string, projectSlug: string, patch: Partial<Omit<import('@otto/shared/projects/types').ProjectConfig, 'id' | 'slug' | 'createdAt'>>): Promise<import('@otto/shared/projects/types').ProjectConfig>
-  deleteProject(workspaceId: string, projectSlug: string): Promise<void>
-  listProjectAssets(workspaceId: string, projectSlug: string): Promise<unknown>
-  uploadProjectAsset(workspaceId: string, projectSlug: string, input: { filename: string; base64?: string; text?: string; sourcePath?: string }): Promise<import('@otto/shared/projects/types').ProjectAsset>
-  deleteProjectAsset(workspaceId: string, projectSlug: string, filename: string): Promise<void>
-  onProjectsChanged(callback: (workspaceId: string, projects: unknown) => void): () => void
+  // Projects, tasks and timesheets (see docs/projects-tasks.md). The workspace is the window's.
+  // Updates may send the `updatedAt` last seen as `expectedUpdatedAt`; a stale one is refused.
+  getProjects(filter?: ProjectFilter): Promise<Project[]>
+  getProject(id: string): Promise<Project | null>
+  createProject(input: { title: string; description?: string; resources?: Resource[] }): Promise<Project>
+  updateProject(id: string, patch: ProjectUpdate): Promise<Project>
+  setProjectStatus(id: string, status: ProjectStatus): Promise<Project>
+  getProjectMembers(id: string): Promise<ProjectMember[]>
+  setProjectMember(id: string, actor: string, role: MemberRole): Promise<ProjectMember>
+  removeProjectMember(id: string, actor: string): Promise<void>
+  getTasks(filter?: TaskFilter): Promise<Task[]>
+  getTask(id: string): Promise<Task | null>
+  createTask(input: { projectId: string; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] }): Promise<Task>
+  updateTask(id: string, patch: TaskUpdate): Promise<Task>
+  setTaskStatus(id: string, status: TaskStatus): Promise<Task>
+  getTimesheets(taskId: string): Promise<Timesheet[]>
+  createTimesheet(input: { taskId: string; time: number; notes?: string }): Promise<Timesheet>
+  deleteTimesheet(id: string): Promise<void>
 
   // Pages (workspace-scoped mini dashboards)
   getPages(workspaceId: string): Promise<import('@otto/shared/pages/types').LoadedPage[]>

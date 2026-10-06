@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '@/hooks/use-theme'
 import type { ThemeOverrides } from '@config/theme'
@@ -24,7 +24,8 @@ import { useOnboarding } from '@/hooks/use-onboarding'
 import { useNotifications } from '@/hooks/use-notifications'
 import { useSession } from '@/hooks/use-session'
 import { useUpdateChecker } from '@/hooks/use-update-checker'
-import { NavigationProvider } from '@/contexts/navigation-context'
+import { NavigationProvider, useNavigation } from '@/contexts/navigation-context'
+import { NotFoundPage } from '@/pages/not-found-page'
 import { navigate, routes } from './lib/navigate'
 import { attachmentFromContentRef, toDraftRef } from './lib/drafts'
 import { stripMarkdown } from './utils/text'
@@ -1239,7 +1240,7 @@ export default function App() {
         // Store each attachment to disk (generates thumbnails, converts Office→markdown)
         // Use allSettled so one failure doesn't kill all attachments
         const storeResults = await Promise.allSettled(
-          attachments.map(a => window.electronAPI.storeAttachment(sessionId, a))
+          attachments.map(a => window.electronAPI.storeAttachment(a))
         )
 
         // Filter successful stores, warn about failures
@@ -1960,7 +1961,8 @@ export default function App() {
             />
           )}
 
-          {/* Main UI - always rendered, splash fades away to reveal it */}
+          {/* Main UI - always rendered, splash fades away to reveal it. A URL with no page replaces all of it. */}
+          <NotFoundGate>
           <div className="h-full flex flex-col text-foreground">
             {showTransportConnectionBanner && connectionState && (
               <TransportConnectionBanner
@@ -1982,6 +1984,7 @@ export default function App() {
               )}
             </div>
           </div>
+          </NotFoundGate>
 
           {/* File preview overlay — rendered by the link interceptor when a previewable file is clicked */}
           {linkInterceptor.previewState && (
@@ -2002,6 +2005,15 @@ export default function App() {
     </ShikiThemeProvider>
     </PlatformProvider>
   )
+}
+
+/**
+ * The not-found page alone (no shell, sidebar or banner) while the URL has no page, else its children.
+ * Must be inside NavigationProvider.
+ */
+function NotFoundGate({ children }: { children: ReactNode }) {
+  const { isNotFound } = useNavigation()
+  return isNotFound ? <NotFoundPage /> : children
 }
 
 /**

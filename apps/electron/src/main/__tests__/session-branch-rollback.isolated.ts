@@ -234,7 +234,6 @@ mock.module('@otto/shared/sessions', () => ({
   markCompactionComplete: async () => {},
   clearPendingPlanExecution: async () => {},
   getPendingPlanExecution: async () => null,
-  getSessionAttachmentsPath: () => '/tmp/attachments',
   getSessionPath: (_root: string, id: string) => `${workspaceRootPath}/sessions/${id}`,
   getOrCreateLatestSession: async () => null,
   sessionPersistenceQueue: { flush: async () => {} },

@@ -233,14 +233,13 @@ export interface AnnotationV1 {
  * Created when user sends a message with attachments
  */
 export interface StoredAttachment {
-  id: string;                    // Unique identifier
+  id: string;                    // Library item id
   type: AttachmentType;
   name: string;                  // Original filename
   mimeType: string;
   size: number;                  // Final size (after any resize)
   originalSize?: number;         // Original size before resize (if applicable)
-  storedPath: string;            // Full path to copied file on disk
-  thumbnailPath?: string;        // Path to OS-generated thumbnail (images/PDFs/Office)
+  storedPath: string;            // Full path to the file on disk (a library item)
   thumbnailBase64?: string;      // Base64-encoded thumbnail PNG (for renderer display)
   markdownPath?: string;         // For Office files: converted markdown for Claude
   wasResized?: boolean;          // True if image was auto-resized for Claude API limits

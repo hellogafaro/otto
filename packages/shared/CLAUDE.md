@@ -10,7 +10,7 @@ Core business logic package for Otto:
 - `src/agent/` — `claude-agent.ts`, `pi-agent.ts`, `base-agent.ts`, tools, permissions
 - `src/sources/` — source storage/types/services
 - `src/sessions/` — session persistence/index
-- `src/projects/` — workspace-scoped projects (config + assets); sessions bind via `projectId`
+- `src/projects/`, `src/tasks/` — DB-backed projects, tasks and timesheets (docs/projects-tasks.md); sessions bind to a project via `projectId`
 - `src/pages/` — workspace-scoped mini dashboards (`pages/{slug}/page.json`); storage, refresh hook, action bridge
 - `src/config/` — config/preferences/theme/watcher
 - `src/credentials/` — encrypted credential management

@@ -55,6 +55,11 @@ export const RPC_CHANNELS = {
     ABORT: 'transfer:abort',
   },
   tasks: {
+    LIST: 'tasks:list',
+    GET: 'tasks:get',
+    CREATE: 'tasks:create',
+    UPDATE: 'tasks:update',
+    SET_STATUS: 'tasks:setStatus',
     // Legacy: background-task output (disabled-feature remnant). Kept for back-compat; retire later.
     GET_OUTPUT: 'tasks:getOutput',
   },
@@ -85,6 +90,15 @@ export const RPC_CHANNELS = {
     READ_USER_ATTACHMENT: 'file:readUserAttachment',
     STORE_ATTACHMENT: 'file:storeAttachment',
     GENERATE_THUMBNAIL: 'file:generateThumbnail',
+  },
+  library: {
+    CREATE: 'library:create',
+    CREATE_FOLDER: 'library:createFolder',
+    LIST: 'library:list',
+    GET: 'library:get',
+    READ: 'library:read',
+    UPDATE: 'library:update',
+    DELETE: 'library:delete',
   },
   fs: {
     SEARCH: 'fs:search',
@@ -343,15 +357,19 @@ export const RPC_CHANNELS = {
     IMPORT: 'resources:import',
   },
   projects: {
+    LIST: 'projects:list',
     GET: 'projects:get',
-    GET_ONE: 'projects:getOne',
     CREATE: 'projects:create',
     UPDATE: 'projects:update',
-    DELETE: 'projects:delete',
-    LIST_ASSETS: 'projects:listAssets',
-    UPLOAD_ASSET: 'projects:uploadAsset',
-    DELETE_ASSET: 'projects:deleteAsset',
-    CHANGED: 'projects:changed',
+    SET_STATUS: 'projects:setStatus',
+    GET_MEMBERS: 'projects:getMembers',
+    SET_MEMBER: 'projects:setMember',
+    REMOVE_MEMBER: 'projects:removeMember',
+  },
+  timesheets: {
+    LIST: 'timesheets:list',
+    CREATE: 'timesheets:create',
+    DELETE: 'timesheets:delete',
   },
   pages: {
     GET: 'pages:get',

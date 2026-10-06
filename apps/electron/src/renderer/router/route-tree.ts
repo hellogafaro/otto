@@ -5,26 +5,35 @@
  * router here owns the URL, its validation, the redirects and the history, and the root route
  * renders the app.
  *
- * Unmatched or unmappable URLs (an unknown section, a bad settings page) match nothing here; the
- * navigation provider replaces them with the active workspace's Chats.
+ * A URL that matches no route (an unknown section, extra segments), a reserved first segment and a
+ * bad settings page are not found: the root route renders the entry's `Root` as the not-found
+ * page, outside the app. A workspace slug nobody has and a record that does not exist are known
+ * only once the data has loaded, so the app shows the same page for them (`NavigationProvider`).
  */
 
 import { createElement, type ComponentType } from 'react'
-import { createRootRouteWithContext, createRoute, notFound, redirect } from '@tanstack/react-router'
+import { createRootRouteWithContext, createRoute, notFound, redirect, useRouterState } from '@tanstack/react-router'
 import { isReservedWorkspaceSlug } from '@otto/shared/utils/workspace-slug'
+import { isValidSettingsSubpage } from '../../shared/settings-registry'
+import { isRouterNotFound } from './not-found'
 import { validateChatsSearch, validateRoutinesSearch, validateSourcesSearch } from './location'
 
+/** The props of the entry's `Root`: `notFound` shows the not-found page alone, without the app. */
+export interface RootProps {
+  notFound?: boolean
+}
+
 export interface RouterContext {
-  /** What the root route renders: the renderer's `App` (the web app wraps it in its adapter). */
-  Root: ComponentType
+  /** What the root route renders: the entry's theme, the renderer's `App` (the web app wraps it in its adapter) and the toaster. */
+  Root: ComponentType<RootProps>
 }
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: function AppRoot() {
-    return createElement(rootRoute.useRouteContext().Root)
+    // The root renders the app itself, never an outlet, so the router's own not-found rendering never runs
+    const notFound = useRouterState({ select: (state) => isRouterNotFound(state.matches) })
+    return createElement(rootRoute.useRouteContext().Root, { notFound })
   },
-  // Nothing renders a not-found view: the navigation provider redirects to Chats.
-  notFoundComponent: () => null,
 })
 
 /** `/`: the navigation provider redirects it to the active workspace's Chats once the workspace is known. */
@@ -51,7 +60,12 @@ const section = <TPath extends string>(path: TPath) => ({ getParentRoute: () => 
 const chatsRoute = createRoute({ ...section('chats'), validateSearch: validateChatsSearch })
 const chatRoute = createRoute({ ...section('chats/$sessionId'), validateSearch: validateChatsSearch })
 const settingsRoute = createRoute(section('settings'))
-const settingsPageRoute = createRoute(section('settings/$page'))
+const settingsPageRoute = createRoute({
+  ...section('settings/$page'),
+  beforeLoad: ({ params }) => {
+    if (!isValidSettingsSubpage(params.page)) throw notFound()
+  },
+})
 const tasksRoute = createRoute(section('tasks'))
 const projectsRoute = createRoute(section('projects'))
 const projectRoute = createRoute(section('projects/$projectId'))

@@ -30,9 +30,7 @@ export {
   ensureSessionDir,
   getSessionPath,
   getSessionFilePath,
-  getSessionAttachmentsPath,
   getSessionPlansPath,
-  ensureAttachmentsDir,
   // ID generation
   generateSessionId,
   // Session CRUD
@@ -53,7 +51,6 @@ export {
   setSessionStatus,
   setSessionLabels,
   setSessionProjectId,
-  unbindProjectFromSessions,
   // Pending plan execution (Accept & Compact flow)
   setPendingPlanExecution,
   markCompactionComplete,

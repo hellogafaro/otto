@@ -1132,11 +1132,12 @@ html.dark[data-scenic] .fullscreen-overlay-background {
 }
 
 /* The sidebar sheet is portaled out of the shell: its first row stays clear of
-   the iOS notch when the app runs as a PWA / mobile webui. Desktop builds report
-   0px for the inset, so this is a no-op there. */
+   the iOS notch when the app runs as a PWA / mobile webui, on top of the
+   sidebar's 8px inset (so its mark stays on the top axis, `--axis-y`, where the
+   page's menu button is). Desktop builds report 0px for the inset. */
 @media (max-width: 768px) {
   [data-slot="sidebar"][data-mobile] {
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
   }
 }
 

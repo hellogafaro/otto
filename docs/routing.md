@@ -24,7 +24,7 @@ One URL scheme for web and Electron: real paths on browser history (`createBrows
 
 ## The router (TanStack Router, code-based)
 
-`apps/electron/src/renderer/router/`: `router.ts` (`createAppRouter(Root, history?)`, the `Register` augmentation), `route-tree.ts` (typed routes), `location.ts` (the pure mappings), `history-position.ts` (Back / Forward availability). Both entries mount `<RouterProvider router={createAppRouter(Root)}>` at the top, above the app: `apps/electron/src/renderer/main.tsx` and `apps/webui/src/main.tsx`. The root route renders `Root` (the entry's own tree: theme, `App`, toaster), so the splash, onboarding and the web auth gate render inside it exactly as before, and `NavigationProvider` sits inside `App`. Always `createBrowserHistory()` (the playground's demos use memory history). `defaultPreload: false` (the routes carry no components, so there is nothing to split yet). `disableGlobalCatchBoundary`: a render error reaches the entry's own boundary (Sentry's, the crash screen).
+`apps/electron/src/renderer/router/`: `router.ts` (`createAppRouter(Root, history?)`, the `Register` augmentation), `route-tree.ts` (typed routes), `location.ts` (the pure mappings), `not-found.ts` (what not found means), `history-position.ts` (Back / Forward availability). Both entries mount `<RouterProvider router={createAppRouter(Root)}>` at the top, above the app: `apps/electron/src/renderer/main.tsx` and `apps/webui/src/main.tsx`. The root route renders `Root` (the entry's own tree: theme, `App` or, for a URL with no page, only `NotFoundPage`, and the toaster), so the splash, onboarding and the web auth gate render inside it exactly as before, and `NavigationProvider` sits inside `App`. Always `createBrowserHistory()` (the playground's demos use memory history). `defaultPreload: false` (the routes carry no components, so there is nothing to split yet). `disableGlobalCatchBoundary`: a render error reaches the entry's own boundary (Sentry's, the crash screen).
 
 ### URLs
 
@@ -39,9 +39,24 @@ One URL scheme for web and Electron: real paths on browser history (`createBrows
 | Skills | `/{ws}/skills`, `/{ws}/skills/{slug}` |
 | Sources | `/{ws}/sources`, `/{ws}/sources/{slug}`; `?type=api\|mcp\|local` |
 
-`/` and `/{ws}` redirect to `/{activeWorkspaceSlug}/chats` (`/{ws}` in the route tree, `/` by the navigation provider once the workspace is known, so the splash is not held back). An unknown slug, an unknown section or a bad settings page is replaced with the active workspace's Chats. A known slug other than the active workspace switches to it (back step, pasted link, restored window); the switcher changing the workspace moves the URL (same settings page, otherwise the section's index). Reserved first segments (`isReservedWorkspaceSlug`, `packages/shared/src/utils/workspace-slug.ts`) are never a workspace: the `$workspaceSlug` route throws `notFound()` for them, and `generateSlug` suffixes `-workspace` so a workspace can never get one.
+`/` and `/{ws}` redirect to `/{activeWorkspaceSlug}/chats` (`/{ws}` in the route tree, `/` by the navigation provider once the workspace is known, so the splash is not held back). A known slug other than the active workspace switches to it (back step, pasted link, restored window); the switcher changing the workspace moves the URL (same settings page, otherwise the section's index). Reserved first segments (`isReservedWorkspaceSlug`, `packages/shared/src/utils/workspace-slug.ts`) are never a workspace: the `$workspaceSlug` route throws `notFound()` for them, and `generateSlug` suffixes `-workspace` so a workspace can never get one.
 
 **Search.** Plain query strings (custom `parseSearch` / `stringifySearch`, repeated keys for lists, `true` is `1`), not TanStack's JSON form. Chats: `?status=todo&status=done&label=research&label=design&flagged=1&archived=1` (filters combine, lists hold several values; or one `?view=`). Validated by `validateChatsSearch` (arrays of distinct strings, `1`/`true` flags, unknown dropped).
+
+### Not found
+
+A URL with no page shows `NotFoundPage` (`pages/not-found-page.tsx`) alone: the stock `Empty` centered on the plain background and one "Go home" button that replaces the URL with `/` (which redirects to the active workspace's Chats). No sidebar, header or floating navigation, and the URL stays as typed. Nothing is replaced with Chats any more.
+
+| URL | Result | Decided by |
+| --- | --- | --- |
+| `/test/nope`, `/test/chats/a/b`, `/test/tasks/a`, `/a/b/c/d` (matches no route) | not found | the router: `isRouterNotFound` (`router/not-found.ts`). The root route renders the entry's `Root` with `notFound`, which shows only the page (theme, i18n and the toaster stay; `App` does not mount) |
+| `/test/settings/nope` (bad settings page), `/login/chats` (reserved first segment) | not found | the router: the route's `beforeLoad` throws `notFound()` |
+| `/zzz`, `/zzz/chats` (a slug no workspace has) | not found, once the workspaces have loaded (the splash shows until then) | `NavigationProvider`. The tree still redirects `/zzz` to `/zzz/chats`; then the slug is unknown |
+| `/test/chats/{id}` of a chat that is not in the workspace | not found, once the chat list has loaded | `NavigationProvider`: the list lacks it and the server has no such chat in this workspace. A chat deleted while open is not re-checked |
+| `/test/skills/{slug}`, `/test/sources/{slug}` that do not exist | not found, once the item's page has loaded its list | the page calls `showNotFound()` |
+| `/`, `/{knownSlug}`, a known view | redirect to Chats, or the view | |
+
+The app-level cases set `isNotFound` in the navigation context (true while the URL is the path found missing; any URL change ends it) and `App` swaps the whole main UI for the page (`NotFoundGate`). Projects, Routines and Library ids are not checked (those sections are unbuilt).
 
 ### Route strings stay the internal API
 
@@ -56,7 +71,7 @@ One URL scheme for web and Electron: real paths on browser history (`createBrows
 
 ### What the tests cover
 
-`router/__tests__` (mappings round-trip for every route kind and settings page, legacy strings, search validation, history position logic, the route tree on a memory history), `shared/__tests__/route-parser-chat-filters.test.ts`, `packages/server-core/src/webui/__tests__/login-next.test.ts`.
+`router/__tests__` (mappings round-trip for every route kind and settings page, legacy strings, search validation, history position logic, the route tree on a memory history, which URLs are not found), `shared/__tests__/route-parser-chat-filters.test.ts`, `packages/server-core/src/webui/__tests__/login-next.test.ts`.
 
 ## Contract notes for the renderer
 

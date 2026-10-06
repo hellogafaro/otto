@@ -3070,11 +3070,7 @@ export class SessionManager implements ISessionManager {
       resolvedWorkingDir = options.workingDirectory
     }
 
-    // Resolve project binding. When a projectId is provided and the project has a
-    // workingDirectory configured, inherit it (only when the caller didn't pass an
-    // explicit override). This lets "+ New session in {project}" reuse the project's
-    // bound directory without duplicating logic on the renderer side.
-    // Subtasks inherit the parent's project when the caller didn't bind one explicitly —
+    // Resolve project binding. Subtasks inherit the parent's project when the caller didn't bind one explicitly —
     // a spawned child of a project-bound session belongs to that project,
     // so project-scoped filtering sees the whole family.
     const inheritedProjectId = options?.parentSessionId
@@ -3083,22 +3079,16 @@ export class SessionManager implements ISessionManager {
     const requestedProjectId = options?.projectId ?? inheritedProjectId
     let resolvedProjectId: string | undefined
     if (requestedProjectId) {
-      const { loadProjectById } = await import('@otto/shared/projects')
-      const project = loadProjectById(workspaceRootPath, requestedProjectId)
-      if (!project) {
+      const { getProject } = await import('@otto/shared/projects')
+      const project = getProject(workspaceId, requestedProjectId)
+      if (!project || project.status === 'deleted') {
         // An EXPLICIT binding to a missing project is a caller bug; an inherited one
         // (parent's project deleted since) just no-ops rather than failing the child.
         if (options?.projectId) {
           throw new Error(`Project ${options.projectId} not found in workspace ${workspaceId}`)
         }
       } else {
-        resolvedProjectId = project.config.id
-        if (
-          (options?.workingDirectory === undefined || options?.workingDirectory === 'user_default') &&
-          project.config.workingDirectory
-        ) {
-          resolvedWorkingDir = project.config.workingDirectory
-        }
+        resolvedProjectId = project.id
       }
     }
 
@@ -6200,7 +6190,7 @@ export class SessionManager implements ISessionManager {
     this.sendEvent({ type: 'session_deleted', sessionId }, managed.workspace.id)
     this.emitUnreadSummaryChanged()
 
-    // Clean up attachments directory (handled by deleteStoredSession for workspace-scoped storage)
+    // Chat attachments live in the library and stay; only legacy per-session attachments dirs go with the session dir
     sessionLog.info(`Deleted session ${sessionId}`)
   }
 
@@ -7723,8 +7713,8 @@ export class SessionManager implements ISessionManager {
 
   /**
    * Bind or unbind a session to/from a workspace project.
-   * Pass `null` to unbind. The session's working directory is NOT changed retroactively —
-   * the project binding is only used as a default for newly created sessions.
+   * Pass `null` to unbind. The binding is just an id: an unknown or deleted project
+   * adds nothing to the prompt.
    */
   async setSessionProjectId(sessionId: string, projectId: string | null): Promise<void> {
     const managed = this.sessions.get(sessionId)

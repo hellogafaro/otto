@@ -5,7 +5,7 @@
  * Pages are stored at {workspaceRootPath}/pages/{pageSlug}/
  *
  * Note: All functions take `workspaceRootPath` (absolute path to workspace
- * folder), NOT a workspace slug — same contract as projects/storage.ts.
+ * folder), NOT a workspace slug.
  *
  * Cross-process contract: refresh scripts own data/store.sqlite (never read
  * it from here); the host only reads data/snapshot.json, and page.json is
@@ -389,21 +389,6 @@ export function deletePage(workspaceRootPath: string, pageSlug: string): void {
   if (existsSync(dir)) {
     rmSync(dir, { recursive: true, force: true });
   }
-}
-
-/**
- * Unbind a project from all pages that reference it (project deletion).
- * Mirrors session unbinding. Returns the number of pages touched.
- */
-export function unbindProjectFromPages(workspaceRootPath: string, projectId: string): number {
-  let touched = 0;
-  for (const page of loadWorkspacePages(workspaceRootPath)) {
-    if (page.config.projectId !== projectId) continue;
-    const { projectId: _removed, ...rest } = page.config;
-    savePageConfig(workspaceRootPath, rest);
-    touched++;
-  }
-  return touched;
 }
 
 // ============================================================

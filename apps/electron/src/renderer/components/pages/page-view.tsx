@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { AlertTriangle, ArrowLeft, Check, Folder, FolderOpen, Globe2, KeyRound, MoreHorizontal, Pencil, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, FolderOpen, Globe2, KeyRound, MoreHorizontal, Pencil, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -11,15 +11,10 @@ import { LoadingIndicator } from '@otto/ui'
 import { Info_Alert } from '@/components/info'
 import {
   DropdownMenu,
-  DropdownMenuSub,
   DropdownMenuTrigger,
   StyledDropdownMenuContent,
   StyledDropdownMenuItem,
-  StyledDropdownMenuSeparator,
-  StyledDropdownMenuSubContent,
-  StyledDropdownMenuSubTrigger,
 } from '@/components/ui/styled-dropdown'
-import { useProjects } from '@/hooks/use-projects'
 import type { LoadedPage, PageDataSnapshot, PageRenderLease } from '@otto/shared/pages/types'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { PageCenterpiece } from '@workspace/ui/components/page'
@@ -144,7 +139,6 @@ export function PageView({ pageSlug }: PageViewProps) {
   const [shareOpen, setShareOpen] = React.useState(false)
   const [grantsOpen, setGrantsOpen] = React.useState(false)
   const { sharingEnabled, viewerConfigured } = useShareCapabilities()
-  const { projects } = useProjects(activeWorkspaceId)
 
   // Inline rename: null = display mode, string = the draft being edited.
   const [nameDraft, setNameDraft] = React.useState<string | null>(null)
@@ -161,19 +155,6 @@ export function PageView({ pageSlug }: PageViewProps) {
       })
     }
   }, [nameDraft, activeWorkspaceId, page, t])
-
-  const moveToProject = React.useCallback(async (projectId: string | null) => {
-    if (!activeWorkspaceId || !page) return
-    if ((page.config.projectId ?? null) === projectId) return
-    try {
-      // Explicit null clears the binding (updatePage normalizes null → absent).
-      await window.electronAPI.updatePage(activeWorkspaceId, page.config.slug, { projectId })
-    } catch (err) {
-      toast.error(t('toast.pageUpdateFailed'), {
-        description: err instanceof Error ? err.message : String(err),
-      })
-    }
-  }, [activeWorkspaceId, page, t])
 
   const handleDesignWithAgent = React.useCallback(() => {
     if (!page) return
@@ -292,32 +273,6 @@ export function PageView({ pageSlug }: PageViewProps) {
               <Pencil />
               {t('pages.renamePage')}
             </StyledDropdownMenuItem>
-            {projects.length > 0 && (
-              <DropdownMenuSub>
-                <StyledDropdownMenuSubTrigger>
-                  <Folder className="h-3.5 w-3.5" />
-                  <span className="flex-1">{t('pages.moveToProject')}</span>
-                </StyledDropdownMenuSubTrigger>
-                <StyledDropdownMenuSubContent>
-                  <StyledDropdownMenuItem onClick={() => void moveToProject(null)}>
-                    {!config.projectId && <Check className="h-3.5 w-3.5" />}
-                    <span className={config.projectId ? 'flex-1 ml-[18px]' : 'flex-1'}>
-                      {t('sessionMenu.noProject')}
-                    </span>
-                  </StyledDropdownMenuItem>
-                  <StyledDropdownMenuSeparator />
-                  {projects.map(p => {
-                    const isBound = config.projectId === p.config.id
-                    return (
-                      <StyledDropdownMenuItem key={p.config.id} onClick={() => void moveToProject(p.config.id)}>
-                        {isBound && <Check className="h-3.5 w-3.5" />}
-                        <span className={isBound ? 'flex-1' : 'flex-1 ml-[18px]'}>{p.config.name}</span>
-                      </StyledDropdownMenuItem>
-                    )
-                  })}
-                </StyledDropdownMenuSubContent>
-              </DropdownMenuSub>
-            )}
             <StyledDropdownMenuItem onClick={handleOpenFolder}>
               <FolderOpen />
               {t('pages.openFolder')}

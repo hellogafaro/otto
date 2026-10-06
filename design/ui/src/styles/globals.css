@@ -73,6 +73,9 @@
   /* Otto: cards are 12px: their 32px controls sit 4px in with 8px (md)
      corners, so they nest concentrically (8 + 4). */
   --radius-xl: calc(var(--radius) * 1.2);
+  /* Otto: 20px, the line-only page wrapper's (`PageWrap`, trial) only: the
+     cards inside sit 8px in at `xl` 12 (20 - 8). */
+  --radius-2xl: calc(var(--radius) * 2);
   --font-sans: "Inter Variable", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 }
@@ -106,6 +109,14 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
+  /* Otto: the top axis, ONE value: the center line, from the window's top, of
+     the sidebar's mark, every page title (the in-content title row at scroll 0,
+     the chat's pinned row) and the floating navigation's Back button. Derived
+     from the sidebar: the mark's 28px row starts 20px from the top (the group
+     gap: the sidebar's 8px padding + 12px) and is followed by the same 20px, so
+     the mark has equal space above and below; its center is 20 + 28 / 2 = 34. Each of the four places offsets from it by half its own
+     height; change it here and they all move together. */
+  --axis-y: 34px;
   /* Otto: layers, lowest to highest. The frame is the darkest step (0.96) and
      the page card on it is white (1.0), so the card lifts off the frame by a
      visible step in both themes. State fills (hover, open, selected) are never

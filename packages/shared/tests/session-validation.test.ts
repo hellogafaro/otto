@@ -15,7 +15,6 @@ import {
 } from '../src/sessions/validation.ts';
 import {
   getSessionPath,
-  getSessionAttachmentsPath,
   getSessionPlansPath,
   getSessionDownloadsPath,
 } from '../src/sessions/storage.ts';
@@ -199,36 +198,6 @@ describe('getSessionPath - defense in depth', () => {
     const result = getSessionPath(workspaceRoot, 'foo/../../../etc/passwd');
     // basename() returns 'passwd' for this input
     expect(result).toBe(`${expectedSessionsDir}/passwd`);
-    expect(result.startsWith(expectedSessionsDir)).toBe(true);
-  });
-});
-
-describe('getSessionAttachmentsPath - defense in depth', () => {
-  const workspaceRoot = '/Users/test/.otto/workspaces/test-workspace';
-  const expectedSessionsDir = `${workspaceRoot}/sessions`;
-
-  it('returns correct path for valid session IDs', () => {
-    const result = getSessionAttachmentsPath(workspaceRoot, '260202-swift-river');
-    expect(result).toBe(`${expectedSessionsDir}/260202-swift-river/attachments`);
-  });
-
-  it('sanitizes path traversal - attachments path stays within workspace', () => {
-    const result = getSessionAttachmentsPath(workspaceRoot, '../../../tmp');
-
-    // Should resolve to sessions/tmp/attachments, NOT /tmp/attachments
-    expect(result).toBe(`${expectedSessionsDir}/tmp/attachments`);
-    expect(result.startsWith(expectedSessionsDir)).toBe(true);
-    expect(result.includes('..')).toBe(false);
-  });
-
-  it('prevents the exact PoC attack from security report', () => {
-    // This is the exact payload from the security researcher's report
-    const maliciousSessionId = '../../../../../../../../tmp';
-    const result = getSessionAttachmentsPath(workspaceRoot, maliciousSessionId);
-
-    // CRITICAL: Must NOT resolve to /tmp/attachments
-    expect(result).not.toBe('/tmp/attachments');
-    expect(result).toBe(`${expectedSessionsDir}/tmp/attachments`);
     expect(result.startsWith(expectedSessionsDir)).toBe(true);
   });
 });

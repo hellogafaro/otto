@@ -4,8 +4,10 @@ import { Provider as JotaiProvider } from 'jotai'
 import { RouterProvider } from '@tanstack/react-router'
 import App from './app'
 import { createAppRouter } from '@/router/router'
+import type { RootProps } from '@/router/route-tree'
 import { ThemeProvider } from '@/context/theme-context'
 import { Toaster } from '@/components/ui/sonner'
+import { NotFoundPage } from '@/pages/not-found-page'
 import { setupI18n } from '@otto/shared/i18n'
 import { initReactI18next } from 'react-i18next'
 import { useTranslation } from 'react-i18next'
@@ -40,11 +42,11 @@ function ErrorBoundary({ children }: { children: React.ReactNode }) {
   )
 }
 
-// The router's root route: it owns the URL and history above the app (see docs/routing.md).
-function Root() {
+// The router's root route: it owns the URL and history above the app (see docs/routing.md). A URL with no view shows only the not-found page.
+function Root({ notFound }: RootProps) {
   return (
     <ThemeProvider>
-      <App />
+      {notFound ? <NotFoundPage /> : <App />}
       <Toaster />
     </ThemeProvider>
   )

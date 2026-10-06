@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { MessagesSquare, MoreHorizontal, PanelRight, Search, Settings } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
+import { cn } from '@/lib/utils'
 import { createPortal } from 'react-dom'
 import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
 import { PageCard, PageCenterpiece, PageColumn, PageSection } from '@workspace/ui/components/page'
@@ -25,8 +26,8 @@ import type { ComponentEntry } from './types'
 import { PRODUCT_NAME } from '@otto/shared/branding'
 
 // =============================================================================
-// Shell primitives: Sidebar, PageFrame (the flat main region, with the header
-// row, the column and the gutters), a blocks page or a centerpiece page, the
+// Shell primitives: Sidebar, PageFrame (the flat main region: the column with
+// its title row first, the gutters, the chat's pinned row), a blocks page or a centerpiece page, the
 // Sidecar and FloatingNav, in one frame. The sidebar follows the window width
 // (icons only below 1024px, a sheet below 768px); the frame's layout follows the
 // frame's own width, so resize the window to see the gutters work.
@@ -41,12 +42,14 @@ interface ShellDemoProps {
   showNav: boolean
 }
 
-// The shell's `PageHeader` does this: draw the header row (and the nav) in the
-// frame's slots, outside the column's body.
-function DemoHeader({ active, setActive, showNav, onDetails }: {
+// The shell's `PageHeader` does this: draw the title row in the column's title
+// slot (it scrolls with the page) or, on a centerpiece (the chat), the compact
+// pinned row in the frame's header slot; the nav goes in the left gutter.
+function DemoHeader({ active, setActive, showNav, pinned, onDetails }: {
   active: number
   setActive: React.Dispatch<React.SetStateAction<number>>
   showNav: boolean
+  pinned: boolean
   onDetails: () => void
 }) {
   const frame = usePageFrame()
@@ -54,11 +57,14 @@ function DemoHeader({ active, setActive, showNav, onDetails }: {
   const back = { label: 'Back', onClick: () => {} }
   const prev = { label: 'Previous', onClick: () => setActive((i) => Math.max(0, i - 1)), disabled: active === 0 }
   const next = { label: 'Next', onClick: () => setActive((i) => Math.min(CHATS.length - 1, i + 1)), disabled: active === CHATS.length - 1 }
+  const target = pinned ? frame?.header : frame?.title
   return (
     <>
-      {frame?.header && createPortal(
+      {target && createPortal(
         <PageHeaderRow
-          leading={<SidebarTrigger />}
+          pinned={pinned}
+          className={cn(!pinned && 'max-md:pl-14')}
+          leading={pinned && <SidebarTrigger />}
           title={CHATS[active]}
           actions={
             <>
@@ -69,8 +75,9 @@ function DemoHeader({ active, setActive, showNav, onDetails }: {
             </>
           }
         />,
-        frame.header,
+        target,
       )}
+      {!pinned && frame?.leading && createPortal(<SidebarTrigger variant="outline" size="icon" />, frame.leading)}
       {navInGutter && frame?.nav && createPortal(
         <FloatingNav back={back} previous={prev} next={next} />,
         frame.nav,
@@ -153,7 +160,7 @@ function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav }: ShellDemoProp
             </Sidecar>
           }
         >
-          <DemoHeader active={active} setActive={setActive} showNav={showNav} onDetails={() => setOpen((v) => !v)} />
+          <DemoHeader active={active} setActive={setActive} showNav={showNav} pinned={page === 'centerpiece'} onDetails={() => setOpen((v) => !v)} />
           {page === 'blocks' ? (
             <PageColumn>
               <PageSection title="Interface" description="Surfaces are siblings on the frame.">
@@ -173,8 +180,8 @@ function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav }: ShellDemoProp
             <>
               <PageCenterpiece>
                 <PageScroll className="px-5 py-5 text-sm text-muted-foreground">
-                  A centerpiece page: one card as wide as the column and as tall as the space under the header
-                  row. The transcript or the document scrolls inside it.
+                  A centerpiece page: one card as wide as the column and as tall as the space under the pinned
+                  compact row. The transcript or the document scrolls inside it.
                 </PageScroll>
               </PageCenterpiece>
               <div className="mt-2 rounded-xl bg-card px-4 py-3 text-sm text-muted-foreground card-surface [--card-shadow:var(--shadow-sm)]">

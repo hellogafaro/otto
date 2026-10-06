@@ -77,6 +77,15 @@ export const CHANNEL_MAP = {
   storeAttachment: invoke(RPC_CHANNELS.file.STORE_ATTACHMENT),
   generateThumbnail: invoke(RPC_CHANNELS.file.GENERATE_THUMBNAIL),
 
+  // Library
+  createLibraryItem: invoke(RPC_CHANNELS.library.CREATE),
+  createLibraryFolder: invoke(RPC_CHANNELS.library.CREATE_FOLDER),
+  getLibraryItems: invoke(RPC_CHANNELS.library.LIST),
+  getLibraryItem: invoke(RPC_CHANNELS.library.GET),
+  readLibraryItem: invoke(RPC_CHANNELS.library.READ),
+  updateLibraryItem: invoke(RPC_CHANNELS.library.UPDATE),
+  deleteLibraryItem: invoke(RPC_CHANNELS.library.DELETE),
+
   // Theme
   getSystemTheme: invoke(RPC_CHANNELS.theme.GET_SYSTEM_PREFERENCE),
   onSystemThemeChange: listener(RPC_CHANNELS.theme.SYSTEM_CHANGED),
@@ -340,16 +349,23 @@ export const CHANNEL_MAP = {
   setDefaultLlmConnection: invoke(RPC_CHANNELS.llmConnections.SET_DEFAULT),
   setWorkspaceDefaultLlmConnection: invoke(RPC_CHANNELS.llmConnections.SET_WORKSPACE_DEFAULT),
 
-  // Projects
-  getProjects: invoke(RPC_CHANNELS.projects.GET),
-  getProject: invoke(RPC_CHANNELS.projects.GET_ONE),
+  // Projects, tasks and timesheets
+  getProjects: invoke(RPC_CHANNELS.projects.LIST),
+  getProject: invoke(RPC_CHANNELS.projects.GET),
   createProject: invoke(RPC_CHANNELS.projects.CREATE),
   updateProject: invoke(RPC_CHANNELS.projects.UPDATE),
-  deleteProject: invoke(RPC_CHANNELS.projects.DELETE),
-  listProjectAssets: invoke(RPC_CHANNELS.projects.LIST_ASSETS),
-  uploadProjectAsset: invoke(RPC_CHANNELS.projects.UPLOAD_ASSET),
-  deleteProjectAsset: invoke(RPC_CHANNELS.projects.DELETE_ASSET),
-  onProjectsChanged: listener(RPC_CHANNELS.projects.CHANGED),
+  setProjectStatus: invoke(RPC_CHANNELS.projects.SET_STATUS),
+  getProjectMembers: invoke(RPC_CHANNELS.projects.GET_MEMBERS),
+  setProjectMember: invoke(RPC_CHANNELS.projects.SET_MEMBER),
+  removeProjectMember: invoke(RPC_CHANNELS.projects.REMOVE_MEMBER),
+  getTasks: invoke(RPC_CHANNELS.tasks.LIST),
+  getTask: invoke(RPC_CHANNELS.tasks.GET),
+  createTask: invoke(RPC_CHANNELS.tasks.CREATE),
+  updateTask: invoke(RPC_CHANNELS.tasks.UPDATE),
+  setTaskStatus: invoke(RPC_CHANNELS.tasks.SET_STATUS),
+  getTimesheets: invoke(RPC_CHANNELS.timesheets.LIST),
+  createTimesheet: invoke(RPC_CHANNELS.timesheets.CREATE),
+  deleteTimesheet: invoke(RPC_CHANNELS.timesheets.DELETE),
 
   // Pages
   getPages: invoke(RPC_CHANNELS.pages.GET),

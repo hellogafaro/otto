@@ -389,7 +389,7 @@ export function SidebarPinsRecents({ sessionStatuses }: { sessionStatuses: Sessi
 
   return (
     <SidebarGroup className="min-h-0 flex-1 group-data-[collapsible=icon]:hidden">
-      <SidebarGroupContent className="no-scrollbar flex min-h-0 flex-1 scroll-fade-y flex-col gap-4 overflow-y-auto select-none">
+      <SidebarGroupContent className="no-scrollbar flex min-h-0 flex-1 scroll-fade-y flex-col gap-5 overflow-y-auto select-none">
         {pinned.length > 0 && (
           <div className="flex flex-col gap-0.5">
             <SidebarGroupLabel>{t('sidebar.pinned')}</SidebarGroupLabel>

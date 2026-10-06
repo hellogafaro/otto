@@ -1,90 +1,33 @@
-/**
- * Project Types
- *
- * Projects are workspace-scoped collections that group sessions, working directory,
- * and shared assets/context for a body of work. Modeled after Codex/Cowork Projects.
- *
- * File structure:
- * {workspaceRootPath}/projects/{projectSlug}/
- *   ├── config.json   - Project settings
- *   └── assets/       - Uploaded files (PDFs, images, text)
- */
+/** What callers (including the renderer) see of projects; no database imports here. */
 
-/**
- * Main project configuration (stored in config.json)
- */
-export interface ProjectConfig {
-  id: string;
-  slug: string;
-  name: string;
-  /** Short description shown in lists/detail header */
-  description?: string;
-  /** Absolute path bound to this project; new sessions inherit it when not overridden */
-  workingDirectory?: string;
-  /** Free-form text injected into the system prompt as project context */
-  details?: string;
-  /** Optional color theme ID for project-branded UI */
-  colorTheme?: string;
-  /** Optional accent color (hex, e.g. "#6366f1") shown on bound sessions in the SessionList */
-  color?: string;
-  createdAt: number;
-  updatedAt: number;
-  /** Set when project is archived (hidden from sidebar but kept on disk) */
-  archivedAt?: number;
+export type ProjectStatus = 'active' | 'archived' | 'deleted'
+export type ProjectErrorCode = 'not_found' | 'conflict' | 'invalid'
+export type MemberRole = 'contributor' | 'viewer'
+
+export type ResourceType = 'url' | 'library' | 'chat'
+
+/** A link from a project or task to something else. `ref` is the URL, a library item id or a chat id; it may dangle. */
+export type Resource = { type: ResourceType; title: string; ref: string }
+
+/** Timestamps are epoch milliseconds so a project survives JSON as is. */
+export type Project = {
+  id: string
+  title: string
+  description: string
+  status: ProjectStatus
+  resources: Resource[]
+  createdAt: number
+  updatedAt: number
 }
 
-/**
- * Project asset (resolved at read time from the assets folder)
- */
-export interface ProjectAsset {
-  filename: string;
-  sizeBytes: number;
-  mimeType: string;
-  uploadedAt: number;
-  /** Absolute path on disk; resolved at read time, never persisted in config */
-  absolutePath: string;
-}
+/** `actor` is 'user' or 'agent:<id>'. */
+export type ProjectMember = { actor: string; role: MemberRole }
 
-/**
- * Project creation input (without auto-generated fields)
- */
-export interface CreateProjectInput {
-  name: string;
-  description?: string;
-  workingDirectory?: string;
-  details?: string;
-  colorTheme?: string;
-  color?: string;
-}
+/** `status`: left out means active only; ask for 'archived' or 'deleted' explicitly. */
+export type ProjectFilter = { status?: ProjectStatus | ProjectStatus[] }
 
-/**
- * Fully loaded project (config + folder paths)
- */
-export interface LoadedProject {
-  config: ProjectConfig;
-  /** Absolute path to project folder */
-  folderPath: string;
-  /** Absolute path to project assets folder */
-  assetsPath: string;
-  /** Absolute path to workspace folder */
-  workspaceRootPath: string;
-  /** Workspace this project belongs to (derived from basename of workspaceRootPath) */
-  workspaceId: string;
-}
+/** `expectedUpdatedAt` is the `updatedAt` the caller last saw; a different stored value is a `conflict`. */
+export type ProjectUpdate = { title?: string; description?: string; resources?: Resource[]; expectedUpdatedAt?: number }
 
-/**
- * Project context shape used for system-prompt injection.
- * Decoupled from ProjectConfig so prompt builders can be tested in isolation.
- */
-export interface ProjectPromptContext {
-  name: string;
-  description?: string;
-  details?: string;
-  assetsPath: string;
-  /** Lightweight manifest of reference files (newest-first); bodies are read on-demand. */
-  assets: { filename: string; mimeType: string; sizeBytes: number }[];
-  /** Absolute path to MEMORY.md, so the agent knows where to persist learnings. */
-  memoryPath: string;
-  /** MEMORY.md content, already capped by loadProjectMemory. */
-  memoryContent?: string;
-}
+/** What the agent prompt gets of the project a chat is bound to. */
+export type ProjectPromptContext = Pick<Project, 'title' | 'description' | 'resources'>

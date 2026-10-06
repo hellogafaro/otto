@@ -63,7 +63,8 @@ export interface MessageEnvelope {
 }
 
 export interface WireError {
-  code: ErrorCode
+  /** A transport `ErrorCode`, or the lowercase `code` of a `domainError` a handler threw (`conflict`, `not_found`, ...). */
+  code: ErrorCode | (string & {})
   message: string
   data?: unknown
 }

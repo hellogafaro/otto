@@ -7,8 +7,10 @@ import { Provider as JotaiProvider } from 'jotai'
 import { RouterProvider } from '@tanstack/react-router'
 import App from './app'
 import { createAppRouter } from './router/router'
+import type { RootProps } from './router/route-tree'
 import { ThemeProvider } from './context/theme-context'
 import { Toaster } from '@/components/ui/sonner'
+import { NotFoundPage } from '@/pages/not-found-page'
 import { setupI18n, i18n } from '@otto/shared/i18n'
 import { redactSensitiveHeadersInPlace, redactSensitiveKeysInPlace } from '@otto/shared/utils/redaction'
 import { initReactI18next } from 'react-i18next'
@@ -106,11 +108,12 @@ function CrashFallback() {
 /**
  * Root component - renders App in the theme and toast providers. It is the router's root route:
  * the router owns the URL and history above the app, and the app renders one view from it.
+ * A URL with no view (`notFound`) shows only the not-found page, without the app.
  */
-function Root() {
+function Root({ notFound }: RootProps) {
   return (
     <ThemeProvider>
-      <App />
+      {notFound ? <NotFoundPage /> : <App />}
       <Toaster />
     </ThemeProvider>
   )

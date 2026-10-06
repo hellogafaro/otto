@@ -1,7 +1,7 @@
 /**
  * AppSidebar - the shell's one sidebar, on the frame beside the page card.
  *
- * Top to bottom, five groups 16px apart: the header (the Otto mark; on Electron
+ * Top to bottom, five groups 20px apart (the sidebar's one gap): the header (the Otto mark; on Electron
  * the macOS traffic-light inset, the drag region and the history Back / Forward
  * buttons); Inbox (a placeholder) and Search (opens the command palette); the pages (ones with no route yet are shown, not
  * linked); Pinned and Recent (`SidebarPinsRecents`, the only group that scrolls,
@@ -131,7 +131,7 @@ export function AppSidebar({
         className={cn(
           'titlebar-drag-region',
           // Icons only: the lights stay above the column, so the mark sits under them.
-          clearsTrafficLights && 'group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:justify-start group-data-[collapsible=icon]:pt-10 group-data-[collapsible=icon]:pb-2',
+          clearsTrafficLights && 'group-data-[collapsible=icon]:pt-10',
         )}
       >
         <div

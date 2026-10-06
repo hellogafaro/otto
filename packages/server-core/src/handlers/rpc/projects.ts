@@ -1,136 +1,65 @@
 import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { getWorkspaceByNameOrId } from '@otto/shared/config'
-import { pushTyped, type RpcServer } from '@otto/server-core/transport'
+import {
+  createProject,
+  getProject,
+  getProjectMembers,
+  getProjects,
+  removeProjectMember,
+  setProjectMember,
+  setProjectStatus,
+  updateProject,
+  type MemberRole,
+  type ProjectFilter,
+  type ProjectStatus,
+  type ProjectUpdate,
+  type Resource,
+} from '@otto/shared/projects'
+import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
+import { resolveWorkspace } from './library'
 
 export const HANDLED_CHANNELS = [
+  RPC_CHANNELS.projects.LIST,
   RPC_CHANNELS.projects.GET,
-  RPC_CHANNELS.projects.GET_ONE,
   RPC_CHANNELS.projects.CREATE,
   RPC_CHANNELS.projects.UPDATE,
-  RPC_CHANNELS.projects.DELETE,
-  RPC_CHANNELS.projects.LIST_ASSETS,
-  RPC_CHANNELS.projects.UPLOAD_ASSET,
-  RPC_CHANNELS.projects.DELETE_ASSET,
+  RPC_CHANNELS.projects.SET_STATUS,
+  RPC_CHANNELS.projects.GET_MEMBERS,
+  RPC_CHANNELS.projects.SET_MEMBER,
+  RPC_CHANNELS.projects.REMOVE_MEMBER,
 ] as const
 
 export function registerProjectsHandlers(server: RpcServer, deps: HandlerDeps): void {
-  const log = deps.platform.logger
+  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx, deps).id
 
-  async function broadcastChanged(workspaceId: string, workspaceRootPath: string): Promise<void> {
-    const { loadWorkspaceProjects } = await import('@otto/shared/projects')
-    const projects = loadWorkspaceProjects(workspaceRootPath)
-    pushTyped(server, RPC_CHANNELS.projects.CHANGED, { to: 'workspace', workspaceId }, workspaceId, projects)
-  }
+  server.handle(RPC_CHANNELS.projects.LIST, (ctx, filter?: ProjectFilter) => getProjects(workspaceOf(ctx), filter))
 
-  // List all projects for a workspace
-  server.handle(RPC_CHANNELS.projects.GET, async (_ctx, workspaceId: string) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) {
-      log.error(`PROJECTS_GET: Workspace not found: ${workspaceId}`)
-      return []
-    }
-    const { loadWorkspaceProjects } = await import('@otto/shared/projects')
-    return loadWorkspaceProjects(workspace.rootPath)
-  })
+  server.handle(RPC_CHANNELS.projects.GET, (ctx, id: string) => getProject(workspaceOf(ctx), id) ?? null)
 
-  // Get one project (by id or slug)
-  server.handle(RPC_CHANNELS.projects.GET_ONE, async (_ctx, workspaceId: string, projectIdOrSlug: string) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) return null
-    const { loadProject, loadProjectById } = await import('@otto/shared/projects')
-    return loadProject(workspace.rootPath, projectIdOrSlug)
-      ?? loadProjectById(workspace.rootPath, projectIdOrSlug)
-  })
+  server.handle(
+    RPC_CHANNELS.projects.CREATE,
+    (ctx, input: { title: string; description?: string; resources?: Resource[] }) =>
+      createProject({ workspaceId: workspaceOf(ctx), title: input.title, description: input.description, resources: input.resources }),
+  )
 
-  // Create a new project
-  server.handle(RPC_CHANNELS.projects.CREATE, async (_ctx, workspaceId: string, input: import('@otto/shared/projects').CreateProjectInput) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
-    const { createProject } = await import('@otto/shared/projects')
-    const project = createProject(workspace.rootPath, {
-      name: input.name?.trim() || 'New Project',
-      description: input.description,
-      workingDirectory: input.workingDirectory,
-      details: input.details,
-      colorTheme: input.colorTheme,
-    })
-    await broadcastChanged(workspaceId, workspace.rootPath)
-    log.info(`Created project: ${project.slug}`)
-    return project
-  })
+  server.handle(RPC_CHANNELS.projects.UPDATE, (ctx, id: string, patch: ProjectUpdate) =>
+    updateProject(workspaceOf(ctx), id, {
+      title: patch.title,
+      description: patch.description,
+      resources: patch.resources,
+      expectedUpdatedAt: patch.expectedUpdatedAt,
+    }),
+  )
 
-  // Update project (partial patch). Slug stays stable.
-  server.handle(RPC_CHANNELS.projects.UPDATE, async (
-    _ctx,
-    workspaceId: string,
-    projectSlug: string,
-    patch: Partial<Omit<import('@otto/shared/projects').ProjectConfig, 'id' | 'slug' | 'createdAt'>>,
-  ) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
-    const { updateProject } = await import('@otto/shared/projects')
-    const updated = updateProject(workspace.rootPath, projectSlug, patch)
-    await broadcastChanged(workspaceId, workspace.rootPath)
-    return updated
-  })
+  server.handle(RPC_CHANNELS.projects.SET_STATUS, (ctx, id: string, status: ProjectStatus) => setProjectStatus(workspaceOf(ctx), id, status))
 
-  // Delete a project; unbinds projectId from any sessions that referenced it.
-  server.handle(RPC_CHANNELS.projects.DELETE, async (_ctx, workspaceId: string, projectSlug: string) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
+  server.handle(RPC_CHANNELS.projects.GET_MEMBERS, (ctx, id: string) => getProjectMembers(workspaceOf(ctx), id))
 
-    const { loadProject, deleteProject } = await import('@otto/shared/projects')
-    const project = loadProject(workspace.rootPath, projectSlug)
-    if (!project) {
-      log.warn(`PROJECTS_DELETE: project ${projectSlug} not found`)
-      return
-    }
+  server.handle(RPC_CHANNELS.projects.SET_MEMBER, (ctx, id: string, actor: string, role: MemberRole) =>
+    setProjectMember(workspaceOf(ctx), id, actor, role),
+  )
 
-    const { unbindProjectFromSessions } = await import('@otto/shared/sessions')
-    const touched = await unbindProjectFromSessions(workspace.rootPath, project.config.id)
-    const { unbindProjectFromPages } = await import('@otto/shared/pages')
-    const touchedPages = unbindProjectFromPages(workspace.rootPath, project.config.id)
-    deleteProject(workspace.rootPath, projectSlug)
-    await broadcastChanged(workspaceId, workspace.rootPath)
-    log.info(`Deleted project ${projectSlug} (unbound ${touched} sessions, ${touchedPages} pages)`)
-  })
-
-  // List assets in a project
-  server.handle(RPC_CHANNELS.projects.LIST_ASSETS, async (_ctx, workspaceId: string, projectSlug: string) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) return []
-    const { listProjectAssets } = await import('@otto/shared/projects')
-    return listProjectAssets(workspace.rootPath, projectSlug)
-  })
-
-  // Upload an asset (base64 / text / sourcePath)
-  server.handle(RPC_CHANNELS.projects.UPLOAD_ASSET, async (
-    _ctx,
-    workspaceId: string,
-    projectSlug: string,
-    input: import('@otto/shared/projects').UploadProjectAssetInput,
-  ) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
-    const { uploadProjectAsset } = await import('@otto/shared/projects')
-    const asset = uploadProjectAsset(workspace.rootPath, projectSlug, input)
-    await broadcastChanged(workspaceId, workspace.rootPath)
-    log.info(`Uploaded asset ${asset.filename} to project ${projectSlug}`)
-    return asset
-  })
-
-  // Delete an asset by filename
-  server.handle(RPC_CHANNELS.projects.DELETE_ASSET, async (
-    _ctx,
-    workspaceId: string,
-    projectSlug: string,
-    filename: string,
-  ) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
-    const { deleteProjectAsset } = await import('@otto/shared/projects')
-    deleteProjectAsset(workspace.rootPath, projectSlug, filename)
-    await broadcastChanged(workspaceId, workspace.rootPath)
+  server.handle(RPC_CHANNELS.projects.REMOVE_MEMBER, (ctx, id: string, actor: string) => {
+    removeProjectMember(workspaceOf(ctx), id, actor)
   })
 }

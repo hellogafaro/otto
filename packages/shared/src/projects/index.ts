@@ -1,46 +1,219 @@
+import { and, desc, eq, inArray } from 'drizzle-orm'
+import { isActor } from '../actors.ts'
+import { initDb, type Db } from '../db/index.ts'
+import { createId } from '../id.ts'
+import { domainError } from '../utils/errors.ts'
+import { MAX_DESCRIPTION, MAX_TITLE } from './limits.ts'
+import { parseResources } from './resources.ts'
+import { projects, projectsMembers } from './schema.ts'
+import type {
+  MemberRole,
+  Project,
+  ProjectFilter,
+  ProjectMember,
+  ProjectPromptContext,
+  ProjectStatus,
+  ProjectUpdate,
+  Resource,
+} from './types.ts'
+
 /**
- * Projects Module
+ * Projects: what a body of work is, with its tasks (../tasks) hanging off it.
  *
- * Public exports for project management.
+ *   projects(id, workspaceId, title, description, status, resources, createdAt, updatedAt)   (schema.ts)
+ *   projects_members(projectId, actor, role)
+ *
+ * `status` is 'active', 'archived' or 'deleted'. Archiving and deleting only set it, rows are
+ * never removed (there is no hard delete); lists hide both unless asked for with `status`, and
+ * restoring is setting 'active'. `resources` link to urls, library items and chats (resources.ts).
+ * Members are 'user' or 'agent:<id>' with a role; the creator becomes a contributor. Roles are
+ * data only: nothing enforces them until users exist. Chats bind to a project by id
+ * (`getProjectPromptContext` is what the agent prompt reads). Every function takes the
+ * workspace explicitly and only sees its rows.
  */
 
-export type {
-  ProjectConfig,
-  ProjectAsset,
-  CreateProjectInput,
-  LoadedProject,
-  ProjectPromptContext,
-} from './types.ts';
+export { MAX_DESCRIPTION, MAX_RESOURCES, MAX_RESOURCE_REF, MAX_RESOURCE_TITLE, MAX_TITLE } from './limits.ts'
+export { parseResources } from './resources.ts'
+export type * from './types.ts'
 
-export {
-  // Path utilities
-  ensureProjectsDir,
-  ensureProjectAssetsDir,
-  getWorkspaceProjectsPath,
-  getProjectPath,
-  getProjectAssetsPath,
-  getProjectMemoryPath,
-  MEMORY_FILENAME,
-  // Config operations
-  loadProjectConfig,
-  saveProjectConfig,
-  // Memory operations
-  loadProjectMemory,
-  // Load operations
-  loadProject,
-  loadProjectById,
-  loadWorkspaceProjects,
-  // Create/update/delete
-  generateProjectSlug,
-  createProject,
-  updateProject,
-  deleteProject,
-  projectExists,
-  // Asset operations
-  listProjectAssets,
-  uploadProjectAsset,
-  deleteProjectAsset,
-  sanitizeAssetFilename,
-} from './storage.ts';
+const STATUSES: ProjectStatus[] = ['active', 'archived', 'deleted']
+const ROLES: MemberRole[] = ['contributor', 'viewer']
 
-export type { UploadProjectAssetInput } from './storage.ts';
+type Row = typeof projects.$inferSelect
+
+function toProject(row: Row): Project {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    resources: row.resources,
+    createdAt: row.createdAt.getTime(),
+    updatedAt: row.updatedAt.getTime(),
+  }
+}
+
+function assertTitle(title: unknown): string {
+  if (typeof title !== 'string' || !title.trim()) throw domainError('invalid', 'A title is required')
+  if (title.trim().length > MAX_TITLE) throw domainError('invalid', `Titles are limited to ${MAX_TITLE} characters`)
+  return title.trim()
+}
+
+function assertDescription(description: unknown): string {
+  if (typeof description !== 'string') throw domainError('invalid', 'The description must be text')
+  if (description.length > MAX_DESCRIPTION) throw domainError('invalid', `Descriptions are limited to ${MAX_DESCRIPTION} characters`)
+  return description
+}
+
+const assertResources = (resources: unknown): Resource[] => parseResources(resources, (message) => domainError('invalid', message))
+
+export function createProjectsStore(db: Db) {
+  const find = (workspaceId: string, id: string) =>
+    db.select().from(projects).where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, id))).get()
+
+  function getRow(workspaceId: string, id: string): Row {
+    const row = find(workspaceId, id)
+    if (!row) throw domainError('not_found', `Project ${id} does not exist`)
+    return row
+  }
+
+  return {
+    /** The creating actor becomes a contributor. */
+    createProject(input: {
+      workspaceId: string
+      title: string
+      description?: string
+      resources?: Resource[]
+      createdBy?: string
+    }): Project {
+      const title = assertTitle(input.title)
+      const description = assertDescription(input.description ?? '')
+      const resources = assertResources(input.resources ?? [])
+      const createdBy = input.createdBy ?? 'user'
+      if (!isActor(createdBy)) throw domainError('invalid', `${createdBy} is not an actor`)
+      const now = new Date()
+      return db.transaction((tx) => {
+        const row = tx
+          .insert(projects)
+          .values({ id: createId(), workspaceId: input.workspaceId, title, description, status: 'active', resources, createdAt: now, updatedAt: now })
+          .returning()
+          .get()
+        tx.insert(projectsMembers).values({ projectId: row.id, actor: createdBy, role: 'contributor' }).run()
+        return toProject(row)
+      })
+    },
+
+    getProject(workspaceId: string, id: string): Project | undefined {
+      const row = find(workspaceId, id)
+      return row && toProject(row)
+    },
+
+    /** Active projects unless `status` says otherwise; the most recently updated first. */
+    getProjects(workspaceId: string, filter: ProjectFilter = {}): Project[] {
+      const status = [filter.status ?? 'active'].flat()
+      return db
+        .select()
+        .from(projects)
+        .where(and(eq(projects.workspaceId, workspaceId), inArray(projects.status, status)))
+        .orderBy(desc(projects.updatedAt))
+        .all()
+        .map(toProject)
+    },
+
+    /**
+     * Changes the given fields. With `expectedUpdatedAt`, a different stored `updatedAt` means
+     * someone saved in between, and nothing changes (`conflict`). A deleted project cannot be changed.
+     */
+    updateProject(workspaceId: string, id: string, patch: ProjectUpdate): Project {
+      const row = getRow(workspaceId, id)
+      if (row.status === 'deleted') throw domainError('invalid', `Project ${id} is deleted; restore it first`)
+      if (patch.expectedUpdatedAt !== undefined && patch.expectedUpdatedAt !== row.updatedAt.getTime()) {
+        throw domainError('conflict', `Project ${id} changed since it was loaded`)
+      }
+      const changes: Partial<Row> = {}
+      if (patch.title !== undefined) changes.title = assertTitle(patch.title)
+      if (patch.description !== undefined) changes.description = assertDescription(patch.description)
+      if (patch.resources !== undefined) changes.resources = assertResources(patch.resources)
+      // Strictly after the stored value, so two saves in one millisecond still tell apart.
+      changes.updatedAt = new Date(Math.max(Date.now(), row.updatedAt.getTime() + 1))
+      const updated = db
+        .update(projects)
+        .set(changes)
+        .where(and(eq(projects.id, id), eq(projects.updatedAt, row.updatedAt)))
+        .returning()
+        .get()
+      if (!updated) throw domainError('conflict', `Project ${id} changed since it was loaded`)
+      return toProject(updated)
+    },
+
+    /** Archive ('archived'), soft delete ('deleted') or restore ('active'). */
+    setProjectStatus(workspaceId: string, id: string, status: ProjectStatus): Project {
+      if (!STATUSES.includes(status)) throw domainError('invalid', `${status} is not a project status`)
+      const row = getRow(workspaceId, id)
+      const updated = db
+        .update(projects)
+        .set({ status, updatedAt: new Date(Math.max(Date.now(), row.updatedAt.getTime() + 1)) })
+        .where(eq(projects.id, id))
+        .returning()
+        .get()
+      return toProject(updated!)
+    },
+
+    getProjectMembers(workspaceId: string, projectId: string): ProjectMember[] {
+      getRow(workspaceId, projectId)
+      return db
+        .select({ actor: projectsMembers.actor, role: projectsMembers.role })
+        .from(projectsMembers)
+        .where(eq(projectsMembers.projectId, projectId))
+        .orderBy(projectsMembers.actor)
+        .all()
+    },
+
+    /** Adds the actor or changes its role. */
+    setProjectMember(workspaceId: string, projectId: string, actor: string, role: MemberRole): ProjectMember {
+      getRow(workspaceId, projectId)
+      if (!isActor(actor)) throw domainError('invalid', `${actor} is not an actor`)
+      if (!ROLES.includes(role)) throw domainError('invalid', `${role} is not a role`)
+      db.insert(projectsMembers)
+        .values({ projectId, actor, role })
+        .onConflictDoUpdate({ target: [projectsMembers.projectId, projectsMembers.actor], set: { role } })
+        .run()
+      return { actor, role }
+    },
+
+    removeProjectMember(workspaceId: string, projectId: string, actor: string): void {
+      getRow(workspaceId, projectId)
+      const removed = db
+        .delete(projectsMembers)
+        .where(and(eq(projectsMembers.projectId, projectId), eq(projectsMembers.actor, actor)))
+        .returning()
+        .get()
+      if (!removed) throw domainError('not_found', `${actor} is not a member of ${projectId}`)
+    },
+  }
+}
+
+export type ProjectsStore = ReturnType<typeof createProjectsStore>
+
+let store: ProjectsStore | undefined
+
+/** The process-wide store, on the shared database. */
+export const initProjectsStore = (): ProjectsStore => (store ??= createProjectsStore(initDb()))
+
+export const createProject: ProjectsStore['createProject'] = (input) => initProjectsStore().createProject(input)
+export const getProject: ProjectsStore['getProject'] = (workspaceId, id) => initProjectsStore().getProject(workspaceId, id)
+export const getProjects: ProjectsStore['getProjects'] = (workspaceId, filter) => initProjectsStore().getProjects(workspaceId, filter)
+export const updateProject: ProjectsStore['updateProject'] = (workspaceId, id, patch) => initProjectsStore().updateProject(workspaceId, id, patch)
+export const setProjectStatus: ProjectsStore['setProjectStatus'] = (workspaceId, id, status) => initProjectsStore().setProjectStatus(workspaceId, id, status)
+export const getProjectMembers: ProjectsStore['getProjectMembers'] = (workspaceId, projectId) => initProjectsStore().getProjectMembers(workspaceId, projectId)
+export const setProjectMember: ProjectsStore['setProjectMember'] = (workspaceId, projectId, actor, role) =>
+  initProjectsStore().setProjectMember(workspaceId, projectId, actor, role)
+export const removeProjectMember: ProjectsStore['removeProjectMember'] = (workspaceId, projectId, actor) =>
+  initProjectsStore().removeProjectMember(workspaceId, projectId, actor)
+
+/** What the agent prompt shows of a chat's project; none when the id is unknown or the project is deleted. */
+export function getProjectPromptContext(workspaceId: string, projectId: string): ProjectPromptContext | undefined {
+  const project = getProject(workspaceId, projectId)
+  if (!project || project.status === 'deleted') return undefined
+  return { title: project.title, description: project.description, resources: project.resources }
+}

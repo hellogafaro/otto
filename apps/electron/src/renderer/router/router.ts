@@ -10,13 +10,13 @@
 import type { ComponentType } from 'react'
 import { createBrowserHistory, createRouter, type RouterHistory } from '@tanstack/react-router'
 import { parseSearch, stringifySearch, translateLegacyUrl } from './location'
-import { routeTree } from './route-tree'
+import { routeTree, type RootProps } from './route-tree'
 
 /**
  * `Root` is what the root route renders: `App` on Electron, the adapter wrapper around it on the web.
  * `history` is the browser's except in tests and the playground.
  */
-export function createAppRouter(Root: ComponentType, history: RouterHistory = createBrowserHistory()) {
+export function createAppRouter(Root: ComponentType<RootProps>, history: RouterHistory = createBrowserHistory()) {
   // A legacy `?ws=&route=` URL (a saved window, a bookmark) becomes its path, once, before the first match.
   const legacy = translateLegacyUrl(history.location.pathname, history.location.search)
   if (legacy) history.replace(legacy)

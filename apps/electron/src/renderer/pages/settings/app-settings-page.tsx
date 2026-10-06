@@ -14,7 +14,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { SettingsPageHeader } from '@/components/settings/settings-page-header'
 import { useTranslation } from 'react-i18next'
-import { PageColumn } from '@workspace/ui/components/page'
+import { PageColumn, PageWrap } from '@workspace/ui/components/page'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@otto/ui'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
@@ -92,6 +92,7 @@ export default function AppSettingsPage() {
     <div className="h-full flex flex-col">
       <SettingsPageHeader subpage="app" />
       <PageColumn>
+        <PageWrap>
               {/* Notifications */}
               <SettingsSection title={t("settings.notifications.title")}>
                 <SettingsCard>
@@ -160,6 +161,7 @@ export default function AppSettingsPage() {
                   )}
                 </SettingsCard>
               </SettingsSection>
+        </PageWrap>
             </PageColumn>
     </div>
   )

@@ -167,7 +167,7 @@ function getPermissionsDescription(source: LoadedSource, t: (key: string) => str
 
 export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: SourceInfoPageProps) {
   const { t } = useTranslation()
-  const { navigateToSource } = useNavigation()
+  const { navigateToSource, showNotFound } = useNavigation()
   const [source, setSource] = useState<LoadedSource | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -198,8 +198,9 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
           if (isMounted) {
             setPermissionsConfig(config)
           }
-        } else {
-          setError(t('sourceInfo.notFound'))
+        } else if (workspaceId) {
+          // The URL names a source nobody has: the app shows its not-found page
+          showNotFound()
         }
       } catch (err) {
         if (!isMounted) return
@@ -214,7 +215,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
     return () => {
       isMounted = false
     }
-  }, [workspaceId, sourceSlug])
+  }, [workspaceId, sourceSlug, showNotFound])
 
   // Load MCP tools when source is loaded and is MCP type
   useEffect(() => {

@@ -14,6 +14,7 @@ import { WsRpcServer } from '../server'
 import { WsRpcClient } from '../client'
 import { CLIENT_BROWSER_INVOKE } from '../capabilities'
 import { CodedError } from '@otto/shared/protocol'
+import { domainError } from '@otto/shared/utils'
 
 const TEST_TOKEN = 'test-token-with-enough-entropy-to-pass'
 
@@ -111,6 +112,32 @@ describe('Transport — error code preservation', () => {
     } catch (err) {
       caught = err
     }
+    expect((caught as { code?: string }).code).toBe('HANDLER_ERROR')
+  })
+})
+
+describe('Transport — domain error codes', () => {
+  it('sends the code of a domainError to the client', async () => {
+    const { server, client } = await startPair()
+    server.handle('library', async () => { throw domainError('conflict', 'changed') })
+    server.handle('project', async () => { throw domainError('not_found', 'no project') })
+    server.handle('task', async () => { throw domainError('invalid', 'bad task') })
+
+    for (const [channel, code, message] of [
+      ['library', 'conflict', 'changed'],
+      ['project', 'not_found', 'no project'],
+      ['task', 'invalid', 'bad task'],
+    ]) {
+      const caught = await client.invoke(channel!).then(() => undefined, (err: unknown) => err)
+      expect((caught as { code?: string }).code).toBe(code)
+      expect((caught as Error).message).toBe(message)
+    }
+  })
+
+  it('does not leak the code of other errors', async () => {
+    const { server, client } = await startPair()
+    server.handle('enoent', async () => { throw Object.assign(new Error('gone'), { code: 'ENOENT' }) })
+    const caught = await client.invoke('enoent').then(() => undefined, (err: unknown) => err)
     expect((caught as { code?: string }).code).toBe('HANDLER_ERROR')
   })
 })

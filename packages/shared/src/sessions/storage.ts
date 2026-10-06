@@ -87,14 +87,10 @@ export function ensureSessionDir(workspaceRootPath: string, sessionId: string): 
   if (!existsSync(sessionDir)) {
     mkdirSync(sessionDir, { recursive: true });
   }
-  // Also create plans, attachments, long_responses, and downloads directories
+  // Also create plans, long_responses, data, and downloads directories
   const plansDir = join(sessionDir, 'plans');
   if (!existsSync(plansDir)) {
     mkdirSync(plansDir, { recursive: true });
-  }
-  const attachmentsDir = join(sessionDir, 'attachments');
-  if (!existsSync(attachmentsDir)) {
-    mkdirSync(attachmentsDir, { recursive: true });
   }
   const longResponsesDir = join(sessionDir, 'long_responses');
   if (!existsSync(longResponsesDir)) {
@@ -111,13 +107,6 @@ export function ensureSessionDir(workspaceRootPath: string, sessionId: string): 
     mkdirSync(downloadsDir, { recursive: true });
   }
   return sessionDir;
-}
-
-/**
- * Get the attachments directory for a session
- */
-export function getSessionAttachmentsPath(workspaceRootPath: string, sessionId: string): string {
-  return join(getSessionPath(workspaceRootPath, sessionId), 'attachments');
 }
 
 /**
@@ -622,28 +611,6 @@ export async function setSessionProjectId(
 }
 
 /**
- * Unbind every session that referenced a given projectId.
- * Called when a project is deleted — sessions are preserved, just unlinked.
- * Returns the number of sessions touched.
- */
-export async function unbindProjectFromSessions(
-  workspaceRootPath: string,
-  projectId: string
-): Promise<number> {
-  const sessions = listSessions(workspaceRootPath);
-  let touched = 0;
-  for (const meta of sessions) {
-    const full = loadSession(workspaceRootPath, meta.id);
-    if (full?.projectId === projectId) {
-      full.projectId = undefined;
-      await saveSession(full);
-      touched++;
-    }
-  }
-  return touched;
-}
-
-/**
  * Archive a session
  */
 export async function archiveSession(workspaceRootPath: string, sessionId: string): Promise<void> {
@@ -1109,19 +1076,4 @@ export function getMostRecentPlanFile(
 ): { name: string; path: string } | null {
   const files = listPlanFiles(workspaceRootPath, sessionId);
   return files.length > 0 ? files[0]! : null;
-}
-
-// ============================================================
-// Attachments Directory
-// ============================================================
-
-/**
- * Ensure attachments directory exists
- */
-export function ensureAttachmentsDir(workspaceRootPath: string, sessionId: string): string {
-  const dir = getSessionAttachmentsPath(workspaceRootPath, sessionId);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return dir;
 }

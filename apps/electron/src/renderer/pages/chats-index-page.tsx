@@ -2,13 +2,13 @@
  * ChatsIndexPage - the Chats section's home: the data page BEFORE a chat.
  *
  * Sub-navigation is an index page, never a sidebar list. This is the grouped list
- * (`ListGroup` / `ListRow`, Otto v1's table) in ONE content-sized card, and NO toolbar:
- * the header carries ghost icon buttons only (Filter, then the header's New chat); active
- * filters show as chips (`FilterBar`) on the frame above the card only while one is set.
+ * (`ListGroup` / `ListRow`, Otto v1's table) straight on the frame, no card, and NO
+ * toolbar: the header carries ghost icon buttons only (Filter, then the header's New chat);
+ * active filters show as chips (`FilterBar`) above the list only while one is set.
  * One group per status (Backlog, Todo, ...), each a 36px header row over 44px rows, then
  * Archived as a last, folded group. A row opens the chat; its ⋯ menu is the session menu.
  * Empty groups are not drawn; when the filters keep nothing, the no-results state is
- * centered in the free space instead of the card.
+ * centered in the free space instead of the list.
  *
  * Filters combine (Status and Label take several values) and live in the route
  * (`useChatFilters`), so Back from a chat returns here with the same filters. The
@@ -24,7 +24,7 @@ import { Archive, CircleDashed, ClipboardList, Cpu, Flag, MessageSquare, MoreHor
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
-import { PageCard, PageColumn } from '@workspace/ui/components/page'
+import { PageColumn } from '@workspace/ui/components/page'
 import { ListGroup, ListRow } from '@workspace/ui/components/list-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { Spinner } from '@otto/ui'
@@ -360,7 +360,7 @@ export default function ChatsIndexPage() {
         title={t('sidebar.chats')}
         actions={<><FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('chatsIndex.filterLabel')} /><CommandPaletteButton category="chats" /></>}
       />
-      <PageColumn className="min-h-full gap-0">
+      <PageColumn className="min-h-full">
         <div data-content-start="" className="flex flex-1 flex-col gap-3">
           <FilterBar
             fields={fields}
@@ -377,7 +377,7 @@ export default function ChatsIndexPage() {
               )}
             </NoResults>
           ) : (
-            <PageCard>
+            <div className="divide-y divide-(--card-divider)">
               {groups.map((g) => (
                 <ListGroup
                   key={g.status.id}
@@ -398,7 +398,7 @@ export default function ChatsIndexPage() {
               >
                 {archived.map(row)}
               </ListGroup>
-            </PageCard>
+            </div>
           )}
         </div>
       </PageColumn>

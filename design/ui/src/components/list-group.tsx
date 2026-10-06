@@ -9,12 +9,11 @@ import { PAGE_INSET } from "@workspace/ui/components/page-frame"
 import { cn } from "cn"
 
 // Otto: the grouped list (Otto v1's table, Linear's and Codex's pattern) for
-// collections you work through: Chats, Tasks, Routines. The groups sit in ONE
-// content-sized card (`PageCard`: it grows with its rows and never stretches
-// to the page's bottom; the page scrolls), as wide as the column. Inside it
-// nothing is a surface: group headers and rows are full-bleed rows, clipped by
-// the card's corners, split by hairlines only between a group's header and its
-// rows and between groups (the card's own `divide-y`).
+// collections you work through: Chats, Tasks, Routines. The groups sit
+// straight on the frame, no card around them, as wide as the column (the page
+// scrolls). Nothing in it is a surface: group headers and rows are full-bleed
+// rows, split by hairlines only between a group's header and its rows and
+// between groups (the page's `divide-y divide-(--card-divider)` around them).
 //
 // Proportions (DESIGN.md, Data patterns): body text 13px on a 20px line; a
 // row is 44px (20 + 12 + 12), a group header 36px (20 + 8 + 8), a metadata

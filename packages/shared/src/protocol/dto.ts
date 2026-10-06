@@ -143,7 +143,7 @@ export interface CreateSessionOptions {
   branchFromMessageId?: string
   /** Parent session ID used together with branchFromMessageId. */
   branchFromSessionId?: string
-  /** Bind the new session to a workspace project (inherits project's workingDirectory). */
+  /** Bind the new session to a project of the workspace. */
   projectId?: string
   /** Mark the new session as a subtask of this parent session (undefined = top-level task). */
   parentSessionId?: string

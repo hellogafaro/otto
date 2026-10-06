@@ -55,10 +55,9 @@ yet).
 - [ ] `components/app-shell/transport-connection-banner.tsx`
 - [x] `components/app-shell/workspace-menu.tsx`
 
-## Pages (4)
+## Pages (3)
 
 - [ ] `pages/chat-page.tsx`
-- [ ] `pages/project-info-page.tsx`
 - [ ] `pages/skill-info-page.tsx`
 - [ ] `pages/source-info-page.tsx`
 
@@ -118,10 +117,6 @@ yet).
 - [ ] `components/automations/batch-automation-menu.tsx`
 - [ ] `components/automations/cron-builder.tsx`
 - [ ] `components/automations/phase-badge.tsx`
-
-## Projects (1)
-
-- [ ] `components/projects/create-project-dialog.tsx`
 
 ## Workspace (8)
 
@@ -200,7 +195,7 @@ yet).
 - [ ] `components/server-directory-browser.tsx`
 - [ ] `components/splash-screen.tsx`
 
-## UI primitives to swap for the design system (72)
+## UI primitives to swap for the design system (71)
 
 - [ ] `components/ui/compact-source-selector.tsx`
 - [ ] `components/ui/compact-working-directory-selector.tsx`
@@ -232,7 +227,6 @@ yet).
 - [ ] `components/ui/fading-text.tsx`
 - [ ] `components/ui/gradient-resize-handle.tsx`
 - [ ] `components/ui/horizontal-resize-handle.tsx`
-- [ ] `components/ui/inline-color-picker-row.tsx`
 - [ ] `components/ui/input.tsx`
 - [ ] `components/ui/kbd.tsx`
 - [ ] `components/ui/label-badge-row.tsx`

@@ -24,7 +24,7 @@ import {
 import type { McpClientPool } from '../mcp/mcp-pool.ts';
 import { proxyToolName } from '../mcp/proxy-tool-name.ts';
 import type { SessionConfig as Session } from '../sessions/storage.ts';
-import { loadProjectById, getProjectAssetsPath, listProjectAssets, getProjectMemoryPath, loadProjectMemory } from '../projects/storage.ts';
+import { getProjectPromptContext } from '../projects/index.ts';
 import { DEFAULT_MODEL, isClaudeModel, isAdaptiveThinkingAlwaysOnModel, getDefaultSummarizationModel, getModelContextWindow } from '../config/models.ts';
 import { getCredentialManager } from '../credentials/index.ts';
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
@@ -753,30 +753,15 @@ export class ClaudeAgent extends BaseAgent {
 
   /**
    * Look up the bound project (if any) and return a snapshot for system-prompt injection.
-   * Resolution silently no-ops when the session is unbound or the project no longer exists,
-   * so this never blocks a chat() call.
+   * Resolution silently no-ops when the session is unbound or the project is unknown or
+   * deleted, so this never blocks a chat() call.
    */
   private resolveProjectContext(): import('../projects/types.ts').ProjectPromptContext | null {
     const projectId = this.config.session?.projectId;
     if (!projectId) return null;
 
     try {
-      const project = loadProjectById(this.workspaceRootPath, projectId);
-      if (!project) return null;
-      const slug = project.config.slug;
-      return {
-        name: project.config.name,
-        description: project.config.description,
-        details: project.config.details,
-        assetsPath: getProjectAssetsPath(this.workspaceRootPath, slug),
-        assets: listProjectAssets(this.workspaceRootPath, slug).map((a) => ({
-          filename: a.filename,
-          mimeType: a.mimeType,
-          sizeBytes: a.sizeBytes,
-        })),
-        memoryPath: getProjectMemoryPath(this.workspaceRootPath, slug),
-        memoryContent: loadProjectMemory(this.workspaceRootPath, slug) ?? undefined,
-      };
+      return getProjectPromptContext(this.config.workspace.id, projectId) ?? null;
     } catch (error) {
       debug(`[resolveProjectContext] Failed to load project ${projectId}:`, error);
       return null;

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { createMemoryHistory } from '@tanstack/react-router'
+import { createMemoryHistory, notFound as notFoundError } from '@tanstack/react-router'
 import { createAppRouter } from '../router'
+import { belongsToWorkspace, isRouterNotFound } from '../not-found'
 
 // The router runs in "server mode" without a DOM, where it redirects differently: force the client path,
 // which needs a `window`. Removed afterwards: other test files in the process must not see one.
@@ -25,7 +26,7 @@ const where = (router: TestRouter) => router.history.location.href
 const leaf = (router: TestRouter) => router.state.matches.at(-1)!
 const params = (router: TestRouter) => leaf(router).params as Record<string, string>
 const go = (router: TestRouter, to: string, search: Record<string, unknown> = {}, replace = false) => router.navigate({ to, search, replace })
-const notFound = (router: TestRouter) => Boolean((router.state.matches[0]?.error as { isNotFound?: boolean } | undefined)?.isNotFound)
+const notFound = (router: TestRouter) => isRouterNotFound(router.state.matches)
 
 describe('route tree', () => {
   it('matches every section of a workspace', async () => {
@@ -88,11 +89,53 @@ describe('route tree', () => {
     expect(where(await open('/?workspaceId=ws_1'))).toBe('/')
   })
 
-  it('leaves the root URL, and an unknown section, for the navigation provider', async () => {
-    expect(where(await open('/'))).toBe('/')
-    const router = await open('/test/nope')
-    expect(where(router)).toBe('/test/nope')
-    expect(leaf(router).routeId as string).toBe('/$workspaceSlug')
+  it('leaves the root URL for the navigation provider', async () => {
+    const router = await open('/')
+    expect(where(router)).toBe('/')
+    expect(notFound(router)).toBe(false)
+  })
+})
+
+describe('not found', () => {
+  it('a URL that matches no route is not found, and stays where it is', async () => {
+    for (const href of ['/test/nope', '/test/chats/a/b', '/test/tasks/a', '/a/b/c/d']) {
+      const router = await open(href)
+      expect(notFound(router), href).toBe(true)
+      expect(where(router), href).toBe(href)
+    }
+  })
+
+  it('an unknown settings page is not found, a known one is not', async () => {
+    expect(notFound(await open('/test/settings/nope'))).toBe(true)
+    expect(notFound(await open('/test/settings/appearance'))).toBe(false)
+  })
+
+  it('a workspace slug is only known to the app: the router still opens its Chats', async () => {
+    expect(where(await open('/zzz'))).toBe('/zzz/chats')
+    expect(notFound(await open('/zzz/chats'))).toBe(false)
+  })
+
+  it('every real view is found', async () => {
+    for (const href of ['/test/chats', '/test/chats/abc', '/test/settings', '/test/tasks', '/test/projects/p1', '/test/skills/s', '/test/sources/gmail?type=mcp', '/test']) {
+      expect(notFound(await open(href)), href).toBe(false)
+    }
+  })
+
+  it('reads the flags of the matches', () => {
+    expect(isRouterNotFound([])).toBe(false)
+    expect(isRouterNotFound([{}, { _notFound: false }])).toBe(false)
+    expect(isRouterNotFound([{}, { _notFound: true }])).toBe(true)
+    expect(isRouterNotFound([{ error: notFoundError() }])).toBe(true)
+    expect(isRouterNotFound([{ error: new Error('boom') }])).toBe(false)
+  })
+
+  it('a record belongs to the active workspace by its local or remote id, or to any while none is active', () => {
+    expect(belongsToWorkspace('ws1', 'ws1')).toBe(true)
+    expect(belongsToWorkspace('ws2', 'ws1')).toBe(false)
+    expect(belongsToWorkspace(undefined, 'ws1')).toBe(false)
+    expect(belongsToWorkspace('remote', 'ws1', 'remote')).toBe(true)
+    expect(belongsToWorkspace('remote', 'ws1', null)).toBe(false)
+    expect(belongsToWorkspace('ws2', null)).toBe(true)
   })
 })
 

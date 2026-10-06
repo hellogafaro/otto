@@ -1,19 +1,18 @@
-import { readFile, writeFile, unlink, mkdir, readdir, stat } from 'fs/promises'
-import { isAbsolute, join, resolve, dirname, parse as parsePath } from 'path'
+import { readFile, readdir, stat } from 'fs/promises'
+import { extname, isAbsolute, join, resolve, dirname, parse as parsePath } from 'path'
 import { homedir } from 'os'
 import { validatePathFormat } from '../../utils/path-validation'
-import { randomUUID } from 'crypto'
 import { RPC_CHANNELS, type FileAttachment, type DirectoryListingResult } from '@otto/shared/protocol'
 import type { StoredAttachment } from '@otto/core/types'
 import { readFileAttachment, validateImageForClaudeAPI, IMAGE_LIMITS } from '@otto/shared/utils'
-import { getSessionAttachmentsPath, validateSessionId } from '@otto/shared/sessions'
-import { getWorkspaceByNameOrId } from '@otto/shared/config'
+import { createLibraryItem, deleteLibraryItem, getLibraryItemPath, initChatAttachmentsFolder } from '@otto/shared/library'
 import { resizeImageForAPI, inspectImageBuffer } from '@otto/server-core/services'
-import { sanitizeFilename, validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
+import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import { MarkItDown } from 'markitdown-js'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 import { requestClientOpenFileDialog } from '@otto/server-core/transport'
+import { resolveWorkspace } from './library'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.file.READ,
@@ -210,11 +209,12 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
     }
   })
 
-  // Store an attachment to disk and generate thumbnail/markdown conversion
-  // This is the core of the persistent file attachment system
-  server.handle(RPC_CHANNELS.file.STORE_ATTACHMENT, async (ctx, sessionId: string, attachment: FileAttachment): Promise<StoredAttachment> => {
-    // Track files we've written for cleanup on error
-    const filesToCleanup: string[] = []
+  // Store a chat attachment as a library item in the workspace's "Chat attachments" folder and generate thumbnail/markdown conversion.
+  // This is the core of the persistent file attachment system; agents read the file at `storedPath`.
+  server.handle(RPC_CHANNELS.file.STORE_ATTACHMENT, async (ctx, attachment: FileAttachment): Promise<StoredAttachment> => {
+    // Library items we've created, removed again on error
+    const createdIds: string[] = []
+    let workspaceId: string | undefined
 
     try {
       // Reject empty files early
@@ -222,35 +222,14 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
         throw new Error('Cannot attach empty file')
       }
 
-      // Get workspace slug from the calling window
-      const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
-      if (!workspaceId) {
-        throw new Error('Cannot determine workspace for attachment storage')
-      }
-      const workspace = getWorkspaceByNameOrId(workspaceId)
-      if (!workspace) {
-        throw new Error(`Workspace not found: ${workspaceId}`)
-      }
-      const workspaceRootPath = workspace.rootPath
-
-      // SECURITY: Validate sessionId to prevent path traversal attacks
-      // This must happen before using sessionId in any file path operations
-      validateSessionId(sessionId)
-
-      // Create attachments directory if it doesn't exist
-      const attachmentsDir = getSessionAttachmentsPath(workspaceRootPath, sessionId)
-      await mkdir(attachmentsDir, { recursive: true })
-
-      // Generate unique ID for this attachment
-      const id = randomUUID()
-      const safeName = sanitizeFilename(attachment.name)
-      const storedFileName = `${id}_${safeName}`
-      const storedPath = join(attachmentsDir, storedFileName)
+      const workspace = resolveWorkspace(ctx, deps)
+      workspaceId = workspace.id
 
       // Track if image was resized (for return value)
       let wasResized = false
       let finalSize = attachment.size
       let resizedBase64: string | undefined
+      let bytes: Buffer
 
       // 1. Save the file (with image validation and resizing)
       if (attachment.base64) {
@@ -353,51 +332,51 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
           }
         }
 
-        await writeFile(storedPath, decoded)
-        filesToCleanup.push(storedPath)
+        bytes = decoded
       } else if (attachment.text) {
         // Text files - save as UTF-8
-        await writeFile(storedPath, attachment.text, 'utf-8')
-        filesToCleanup.push(storedPath)
+        bytes = Buffer.from(attachment.text, 'utf-8')
       } else {
         throw new Error('Attachment has no content (neither base64 nor text)')
       }
 
+      const folderId = initChatAttachmentsFolder(workspaceId).id
+      const item = await createLibraryItem({ workspaceId, title: attachment.name, mime: attachment.mimeType, bytes, folderId })
+      createdIds.push(item.id)
+      const storedPath = getLibraryItemPath(workspace.rootPath, item.id)
+
       // 2. Generate thumbnail (images only — PDFs/Office get icon fallback)
-      let thumbnailPath: string | undefined
       let thumbnailBase64: string | undefined
-      const thumbFileName = `${id}_thumb.png`
-      const thumbPath = join(attachmentsDir, thumbFileName)
       try {
-        const pngBuffer = await deps.platform.imageProcessor.process(storedPath, {
+        const pngBuffer = await deps.platform.imageProcessor.process(bytes, {
           resize: { width: 200, height: 200 },
           format: 'png',
         })
-        await writeFile(thumbPath, pngBuffer)
-        thumbnailPath = thumbPath
         thumbnailBase64 = pngBuffer.toString('base64')
-        filesToCleanup.push(thumbPath)
       } catch (thumbError) {
         // Thumbnail generation failed (non-image or corrupt) — icon fallback
         deps.platform.logger.info('Thumbnail generation failed (using fallback):', thumbError instanceof Error ? thumbError.message : thumbError)
       }
 
-      // 3. Convert Office files to markdown (for sending to Claude)
+      // 3. Convert Office files to markdown (for sending to Claude), saved as its own library item
       // This is required for Office files - Claude can't read raw Office binary
       let markdownPath: string | undefined
       if (attachment.type === 'office') {
-        const mdFileName = `${id}_${safeName}.md`
-        const mdPath = join(attachmentsDir, mdFileName)
         try {
-          const markitdown = new MarkItDown()
-          const result = await markitdown.convert(storedPath)
+          const result = await new MarkItDown().convertLocal(storedPath, { fileExtension: extname(attachment.name) })
           if (!result || !result.textContent) {
             throw new Error('Conversion returned empty result')
           }
-          await writeFile(mdPath, result.textContent, 'utf-8')
-          markdownPath = mdPath
-          filesToCleanup.push(mdPath)
-          deps.platform.logger.info(`Converted Office file to markdown: ${mdPath}`)
+          const markdown = await createLibraryItem({
+            workspaceId,
+            title: `${attachment.name}.md`,
+            mime: 'text/markdown',
+            bytes: Buffer.from(result.textContent, 'utf-8'),
+            folderId,
+          })
+          createdIds.push(markdown.id)
+          markdownPath = getLibraryItemPath(workspace.rootPath, markdown.id)
+          deps.platform.logger.info(`Converted Office file to markdown: ${markdownPath}`)
         } catch (convertError) {
           // Conversion failed - throw so user knows the file can't be processed
           // Claude can't read raw Office binary, so a failed conversion = unusable file
@@ -411,24 +390,23 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
       // Include wasResized flag so UI can show notification
       // Include resizedBase64 so renderer uses resized image for Claude API
       return {
-        id,
+        id: item.id,
         type: attachment.type,
         name: attachment.name,
         mimeType: attachment.mimeType,
         size: finalSize, // Use final size (may differ if resized)
         originalSize: wasResized ? attachment.size : undefined, // Track original if resized
         storedPath,
-        thumbnailPath,
         thumbnailBase64,
         markdownPath,
         wasResized,
         resizedBase64, // Only set when wasResized=true, used for Claude API
       }
     } catch (error) {
-      // Clean up any files we've written before the error
-      if (filesToCleanup.length > 0) {
-        deps.platform.logger.info(`Cleaning up ${filesToCleanup.length} orphaned file(s) after storage error`)
-        await Promise.all(filesToCleanup.map(f => unlink(f).catch(() => {})))
+      // Remove the library items we've created before the error
+      if (workspaceId && createdIds.length > 0) {
+        deps.platform.logger.info(`Cleaning up ${createdIds.length} orphaned library item(s) after storage error`)
+        await Promise.all(createdIds.map(id => deleteLibraryItem(workspaceId!, id).catch(() => {})))
       }
 
       const message = error instanceof Error ? error.message : 'Unknown error'

@@ -193,18 +193,22 @@ function SidebarTrigger({
 const iconGroupRule =
   "group-data-[collapsible=icon]:before:absolute group-data-[collapsible=icon]:before:-top-1 group-data-[collapsible=icon]:before:left-1/2 group-data-[collapsible=icon]:before:h-px group-data-[collapsible=icon]:before:w-4 group-data-[collapsible=icon]:before:-translate-x-1/2 group-data-[collapsible=icon]:before:bg-foreground/10"
 
-// Otto: the sidebar's first group, the mark, in a 52px band: the page header
-// row's height, 8px from the top like it (the container's padding), so the
-// mark's center and the page title's center are one horizontal line (y 34); the
-// next group starts at y 60, where the page body does. No side padding (the
-// container pads the rows).
+// Otto: the sidebar's vertical rhythm is ONE gap, 20px (the golden ladder's
+// 12 x phi), with 8px side insets and 28px rows 2px apart: window top -> the
+// header's 28px row 20px (the container's 8px + 12px here), that row -> the
+// first group 20px, group -> group 20px, the last group -> the footer at least
+// 20px, the footer's row -> window bottom 20px (the mirror of the top). The
+// mark (20px) in its row so has 24px above and 24px below it, and its center
+// is the top axis (`--axis-y`, 34px), the page title's line. Icons only the
+// groups are 8px apart, so the header ends 8px above the first one's hairline.
+// No side padding (the container pads the rows).
 function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-header"
       data-sidebar="header"
       className={cn(
-        "flex h-13 flex-col justify-center gap-0.5",
+        "flex flex-col gap-0.5 pt-[calc(var(--axis-y)-1.375rem)] pb-5 group-data-[collapsible=icon]:pb-2",
         className
       )}
       {...props}
@@ -212,15 +216,17 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-// Otto: the last group, 16px below the one above (8px icons only), with the
-// hairline above it like every group.
+// Otto: the last group, pinned at the bottom: at least 20px below the one above
+// (8px icons only), with the hairline above it like every group, and its row
+// 20px above the window's bottom (the container's 8px + 12px), mirroring the
+// header's row 20px below the top.
 function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-footer"
       data-sidebar="footer"
       className={cn(
-        "relative mt-4 flex flex-col gap-0.5 group-data-[collapsible=icon]:mt-2",
+        "relative mt-5 flex flex-col gap-0.5 pb-3 group-data-[collapsible=icon]:mt-2",
         iconGroupRule,
         className
       )}
@@ -231,14 +237,14 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
 
 // Otto: the groups' column between the header and the footer. It does not
 // scroll by itself (its groups do, so a list can take the height that is left)
-// and the groups are 16px apart (8px icons only).
+// and the groups are 20px apart, the sidebar's one gap (8px icons only).
 function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-4 overflow-hidden group-data-[collapsible=icon]:gap-2",
+        "flex min-h-0 flex-1 flex-col gap-5 overflow-hidden group-data-[collapsible=icon]:gap-2",
         className
       )}
       {...props}
@@ -263,8 +269,9 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-// Otto: group titles are 12px, muted, 28px tall like the rows, their text on
-// the rows' icon line (the same 8px padding).
+// Otto: group titles are 12px, muted, on the rows' icon line (the same 8px
+// padding), in a 20px box 4px above their first row (2px margin + the rows' 2px
+// gap): a title belongs to its rows, and the group gap (20px) is above it.
 function SidebarGroupLabel({
   className,
   render,
@@ -275,7 +282,7 @@ function SidebarGroupLabel({
     props: mergeProps<"div">(
       {
         className: cn(
-          "flex h-7 shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-medium text-muted-foreground outline-hidden group-data-[collapsible=icon]:hidden [&>svg]:size-3.5 [&>svg]:shrink-0",
+          "mb-0.5 flex h-5 shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-medium text-muted-foreground outline-hidden group-data-[collapsible=icon]:hidden [&>svg]:size-3.5 [&>svg]:shrink-0",
           className
         ),
       },
