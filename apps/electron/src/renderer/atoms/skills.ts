@@ -1,16 +1,11 @@
 /**
  * Skills Atom
  *
- * Simple atom for storing workspace skills.
- * Used by NavigationContext for auto-selection when navigating to skills view.
+ * The active workspace's skills (global, workspace and the open chat's project), null until they have loaded.
+ * AppShell populates it; the Skills grid, Previous / Next on a skill and the command palette read it.
  */
 
 import { atom } from 'jotai'
 import type { LoadedSkill } from '../../shared/types'
 
-/**
- * Atom to store the current workspace's skills.
- * AppShell populates this when skills are loaded.
- * NavigationContext reads from it for auto-selection.
- */
-export const skillsAtom = atom<LoadedSkill[]>([])
+export const skillsAtom = atom<LoadedSkill[] | null>(null)

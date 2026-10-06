@@ -760,8 +760,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   scroll), on the chat too. They float over the empty canvas, never over content, so the hairline
   border alone reads as raised: no shadow. Every page that has
   anywhere to go shows them (Back when it has a parent, Previous / Next when it
-  has a list), none otherwise; **Settings never shows them** (its pages, Skills
-  and Sources: its own sidebar lists the pages and leads with Back to app); narrower than a 72px gutter (or below 768px) they
+  has a list), none otherwise; **Settings' own pages never show them** (its own sidebar lists the pages and
+  leads with Back to app); **a skill and a source do** (the one exception in Settings, the owner's call:
+  Back to their grid, Previous / Next through it), while their sidebar row stays filled; narrower than a 72px gutter (or below 768px) they
   move into the title row's trailing actions (the chat's pinned row's) as 28px ghost icon buttons in the
   same order (Back, Previous, Next), never leading and never beside the title.
 - **Widths**: the column is 768px for every page, the sidebar 256px on every
@@ -773,8 +774,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   that the title row and `PageSection` share; a centerpiece's transcript or
   document 20px).
 - **Page**: see Page anatomy.
-- **Galleries** (`Gallery`): 3 columns for projects, 4 for documents and
-  files; 12px between columns, 20px between rows so a title stays with its
+- **Galleries** (`Gallery`): 3 columns for projects, 4 for documents,
+  files, skills and sources; 12px between columns, 20px between rows so a title stays with its
   tile.
 
 ## Page anatomy
@@ -812,8 +813,12 @@ no shadow.
   settings pages are the reference implementation.
 - **Settings: the roomy column** (`PageColumn padded`, through `SettingsPage`,
   the one shell every settings page renders: its name alone in the title row,
-  no actions of navigation, then its sections; Skills and Sources take it
-  through `Info_Page`). The owner's call, after Capy's General: the same 768px
+  no actions of navigation, then its sections). **Skills and Sources are the two
+  exceptions in Settings**: their grids and their items take the standard blocks
+  column (`PageColumn`, title on the axis), not `padded`, because they are a
+  Library-like gallery and an item with the floating navigation, whose Back sits on
+  the axis beside the title (with `padded` the title drops 30px below Back and the
+  grid narrows by 48px; looked at side by side, 2026-10). The owner's call, after Capy's General: the same 768px
   column with **24px sides** (cards 720px wide), **64px above the title row**
   (the column's first block; it drops its axis margin, so the title sits at y
   64, not on the axis), **40px between blocks** (title to the first section,
@@ -868,7 +873,30 @@ no shadow.
   the chats grouped by status in the `PageWrap`; it never opens the first chat). The sidebar's rows open them; the detail's Back
   returns to them. **Settings has no index** (the owner's call: no grid of
   settings): `/{ws}/settings` is replaced with General and the settings sidebar
-  lists the pages (see Layout, Sidebar).
+  lists the pages (see Layout, Sidebar). Its Skills and Sources rows open grids (below).
+- **Skills and Sources** (`SkillsPage`, `SourcesPage`, `/{ws}/settings/skills`,
+  `/{ws}/settings/sources`; the owner's call: "a grid exactly the same as the
+  library, just without tabs"): the Library's anatomy without tabs or folders, on
+  the standard column (see Settings above). The title row ("Skills" / "Sources")
+  holds the three 28px ghost actions of the data pattern: **Filter** (Skills: Scope,
+  Global / Workspace / Project, `?scope=`; Sources: Type, MCP / API / Local,
+  `?type=`; one value at a time, the last picked, chips in the `FilterBar` while
+  set), **Search** (`CommandPaletteButton`: the palette on its Skills or Sources
+  category) and **"+"** (Add skill / Add source in its tooltip): the existing
+  add popover (`EditPopover` with `add-skill`, or `add-source` / `add-source-{type}`
+  for the filtered type), where you describe it and an agent writes it in a new
+  chat. Then `Gallery columns={4}` of 4:5 tiles on the frame (`SettingsGalleryTile`):
+  the item's own icon (`SkillAvatar` / `SourceAvatar`, chromeless: 16px in the
+  icon tile, 14px before the title), the muted caption under it (a skill's scope,
+  a source's type), the name under the tile; sorted by name. A tile opens the
+  item (keeping the filter); its right-click menu and hover ⋯ are one list: Open,
+  Copy link (C), then Delete (⌫) apart, asked first with the stock destructive
+  dialog ("Delete skill?", "This can't be undone."); a global or project skill
+  has no Delete (not this workspace's). Loading is eight `GalleryItemSkeleton`s;
+  none at all is the stock empty page ("No skills yet" / "No sources yet", its
+  button the same Add popover); a filter that keeps none is `NoResults`. An item
+  (`SkillInfoPage`, `SourceInfoPage`) has the floating navigation: Back to the
+  grid under its filter, Previous / Next in the grid's order and filter.
 - **Projects index** (`ProjectsPage`, `pages/projects/`): a blocks page titled
   "Projects" whose actions are Filter (one on/off field, Archived:
   `?status=archived` lists the archived projects instead of the active ones,
@@ -1010,11 +1038,11 @@ no shadow.
        `allSessions?status=…&label=…` in the URL search), and the published
        Previous / Next order is exactly the list shown.
   2. **Gallery** (`Gallery`, `GalleryItem`, `GalleryItemSkeleton`; built, in
-     `design/ui`, playground "Gallery and property list") for Library and
-     Projects. Not cards: a tile with its icon and the title UNDER it; the ring
+     `design/ui`, playground "Gallery and property list") for Library,
+     Projects, Skills and Sources. Not cards: a tile with its icon and the title UNDER it; the ring
      darkens on hover; 16:9 covers for projects, 4:5 pages for documents and
-     files, 1:1 where a tab wants squares (3 columns for projects, 4 for
-     documents and files). Spec under Components, Galleries.
+     files (and skills and sources), 1:1 where a tab wants squares (3 columns
+     for projects, 4 for documents, files, skills and sources). Spec under Components, Galleries.
 - **Radii**, one table (inner = outer - gap):
 
 | Surface | Radius | Inside it |
@@ -1048,10 +1076,10 @@ One history stack, one rule for Back, one place the lists live.
   ONLY on a view with a parent, where it goes to the parent view by the route
   hierarchy (`useParentView`): a chat goes to the Chats index (under the filter it was
   opened with); a task or a library item goes to its index under the same filters, tab and folder; a project or a routine to its section.
-  The Chats, Tasks, Projects and Library indexes have no parent, so no Back. Settings (its
-  pages, a skill, a source) has no Back either: Skills and Sources have no list page (their
-  root opens the first item), so their sidebar rows are the way back, and Back to app
-  leaves. Sub-navigation is the index page (Settings: its sidebar), so Back is the same at every width. There is no back button and no breadcrumb in the title row: the
+  A skill or a source goes to its grid in Settings, under the same filter.
+  The Chats, Tasks, Projects and Library indexes and the Skills and Sources grids have no
+  parent, so no Back. Settings' own pages have no Back either: its sidebar lists them, and
+  Back to app leaves. Sub-navigation is the index page (Settings: its sidebar), so Back is the same at every width. There is no back button and no breadcrumb in the title row: the
   title is alone. Pages never pass handlers: `PageHeader` reads the route.
 - **Compact (below 768px)**: the sidebar sheet's menu button is fixed at the
   page's top-left on the axis (on the chat it leads the pinned row); Back,
@@ -1061,8 +1089,10 @@ One history stack, one rule for Back, one place the lists live.
   `hasNext`, `goPrev`, `goNext`). Chats: the Chats index's displayed order
   (filtered and grouped by status there, Archived left out unless it is the filter), published
   to `sessionListOrderAtom` while the index is open and kept when a chat opens (after a
-  reload, until the index has been open, a chat has none). Only chats have them: Settings
-  steps through its sidebar instead, and the other lists have none yet (Back only). A page with neither a parent nor
+  reload, until the index has been open, a chat has none). A skill or a source: its grid's
+  order under the same filter (`lib/skill-source-lists.ts`, read by the grid and `listNav`).
+  Settings' own pages step through its sidebar instead, and the other lists have none yet
+  (Back only). A page with neither a parent nor
   a list shows no navigation. They show as the floating navigation. No keys are
   bound yet (none exist), so no `Kbd` shows.
   Quick actions in the Superhuman manner (next chat, next task, go back) are the
@@ -2254,8 +2284,8 @@ Unknown creation outcomes disable another submission in the current form and dir
 | Library | No files yet | Everything you and your agents make, kept in one place and organized your way. | Add to library |
 | Chats | No chats yet | Pick up any conversation exactly where you left off. | New chat |
 | Filtered | No results | Try changing or clearing your filters. | Clear filters |
-| Skills | No skills yet | Teach your agents your way of working once and reuse it anywhere. | |
-| Sources | No sources yet | Let your agents work with the tools and data you already use. | |
+| Skills | No skills yet | Teach your agents your way of working once and reuse it anywhere. | Add skill |
+| Sources | No sources yet | Let your agents work with the tools and data you already use. | Add source |
 | Archived chats | No archived chats yet | Chats you archive stay here, out of your way. | |
 | Pages | No pages yet | Ask your agents for a live dashboard that keeps itself up to date. | |
 | Inbox | No notifications yet | Never miss a mention or a task handed to you. | |

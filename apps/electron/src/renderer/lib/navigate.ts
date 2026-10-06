@@ -13,6 +13,7 @@
  */
 
 import { routes, type Route } from '../../shared/routes'
+import { routeStringToLocation, stringifySearch, workspaceSlugFromPathname } from '../router/location'
 
 // Re-export routes for convenience
 export { routes }
@@ -33,4 +34,11 @@ export function navigate(route: Route): void {
     bubbles: true,
   })
   window.dispatchEvent(event)
+}
+
+/** The app URL of a view route in the open workspace, as the address bar shows it (Copy link). */
+export function routeUrl(route: Route): string {
+  const slug = workspaceSlugFromPathname(window.location.pathname) ?? ''
+  const location = routeStringToLocation(route, slug)
+  return location ? `${window.location.origin}${location.pathname}${stringifySearch(location.search)}` : window.location.href
 }

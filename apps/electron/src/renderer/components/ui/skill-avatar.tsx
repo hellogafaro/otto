@@ -22,9 +22,11 @@ interface SkillAvatarProps {
   className?: string
   /** Workspace ID for loading local icons */
   workspaceId?: string
+  /** No ring or fill of its own (in a tile that has them) */
+  chromeless?: boolean
 }
 
-export function SkillAvatar({ skill, size = 'md', fluid, className, workspaceId }: SkillAvatarProps) {
+export function SkillAvatar({ skill, size = 'md', fluid, className, workspaceId, chromeless }: SkillAvatarProps) {
   const icon = useEntityIcon({
     workspaceId: workspaceId ?? '',
     entityType: 'skill',
@@ -41,6 +43,7 @@ export function SkillAvatar({ skill, size = 'md', fluid, className, workspaceId 
       alt={skill.metadata.name}
       className={className}
       containerClassName={fluid ? 'h-full w-full' : undefined}
+      chromeless={chromeless}
     />
   )
 }

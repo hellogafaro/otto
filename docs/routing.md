@@ -37,12 +37,14 @@ One URL scheme for web and Electron: real paths on browser history (`createBrows
 | Routines (automations) | `/{ws}/routines`, `/{ws}/routines/{id}`; `?type=scheduled\|event\|agentic` |
 | Library | `/{ws}/library`, `/{ws}/library/{itemId}` (a file or a document); `?tab=all\|files\|documents&folder={id}&createdBy={actor}` |
 | Inbox | `/{ws}/inbox` (`?unread=1`); no detail: a notification opens its task or project |
-| Skills | `/{ws}/skills`, `/{ws}/skills/{slug}` |
-| Sources | `/{ws}/sources`, `/{ws}/sources/{slug}`; `?type=api\|mcp\|local` |
+| Skills (in Settings) | `/{ws}/settings/skills` (the grid), `/{ws}/settings/skills/{slug}`; `?scope=global\|workspace\|project` |
+| Sources (in Settings) | `/{ws}/settings/sources` (the grid), `/{ws}/settings/sources/{slug}`; `?type=api\|mcp\|local` |
 
 `/` and `/{ws}` redirect to `/{activeWorkspaceSlug}/chats` (`/{ws}` in the route tree, `/` by the navigation provider once the workspace is known, so the splash is not held back). A known slug other than the active workspace switches to it (back step, pasted link, restored window); the switcher changing the workspace moves the URL (same settings page, otherwise the section's index). Reserved first segments (`isReservedWorkspaceSlug`, `packages/shared/src/utils/workspace-slug.ts`) are never a workspace: the `$workspaceSlug` route throws `notFound()` for them, and `generateSlug` suffixes `-workspace` so a workspace can never get one.
 
-**Search.** Plain query strings (custom `parseSearch` / `stringifySearch`, repeated keys for lists, `true` is `1`), not TanStack's JSON form. Chats: `?status=todo&status=done&label=research&label=design&flagged=1&archived=1` (filters combine, lists hold several values; or one `?view=`). Validated by `validateChatsSearch` (arrays of distinct strings, `1`/`true` flags, unknown dropped). Tasks, Projects, Library and Inbox have theirs in `shared/section-search.ts` (`normalizeTasksSearch`, `normalizeProjectsSearch`, `normalizeLibrarySearch`, `normalizeInboxSearch`: known keys and values only, in a fixed order), the same query in the route string (`tasks/task/{id}?project=p1`, `projects/project/{id}?tab=tasks`, `library/item/{id}?folder=f1`). A detail route validates its index's search, so Back (`useParentView`) returns to the same filters, tab and folder (a project's Back goes to the plain Projects index).
+**Search.** Plain query strings (custom `parseSearch` / `stringifySearch`, repeated keys for lists, `true` is `1`), not TanStack's JSON form. Chats: `?status=todo&status=done&label=research&label=design&flagged=1&archived=1` (filters combine, lists hold several values; or one `?view=`). Validated by `validateChatsSearch` (arrays of distinct strings, `1`/`true` flags, unknown dropped). Tasks, Projects, Library, Skills and Inbox have theirs in `shared/section-search.ts` (`normalizeTasksSearch`, `normalizeProjectsSearch`, `normalizeLibrarySearch`, `normalizeSkillsSearch`, `normalizeInboxSearch`: known keys and values only, in a fixed order), the same query in the route string (`tasks/task/{id}?project=p1`, `projects/project/{id}?tab=tasks`, `library/item/{id}?folder=f1`, `skills/skill/{slug}?scope=workspace`); Sources keep their type in the route string's path (`sources/mcp/source/{slug}`) and `?type=` in the URL (`validateSourcesSearch`). A detail route validates its index's search, so Back (`useParentView`) returns to the same filters, tab and folder (a project's Back goes to the plain Projects index), and a skill's or a source's Previous / Next step through its grid under that filter (`listNav`, the order of `lib/skill-source-lists.ts`).
+
+**Skills and Sources live in Settings.** Their route strings stay `skills[/skill/{slug}]` and `sources[/{type}][/source/{slug}]`; `router/location.ts` maps them under `/{ws}/settings/` (the section is the two segments `settings/skills`, `settings/sources`), and the route tree's static `settings/skills` and `settings/sources` routes win over `settings/$page`. The grid is their index: nothing opens the first item any more. The old top-level `/{ws}/skills` and `/{ws}/sources` match no route (not found).
 
 ### Not found
 
@@ -50,11 +52,11 @@ A URL with no page shows `NotFoundPage` (`pages/not-found-page.tsx`) alone: the 
 
 | URL | Result | Decided by |
 | --- | --- | --- |
-| `/test/nope`, `/test/chats/a/b`, `/test/tasks/a/b`, `/a/b/c/d` (matches no route) | not found | the router: `isRouterNotFound` (`router/not-found.ts`). The root route renders the entry's `Root` with `notFound`, which shows only the page (theme, i18n and the toaster stay; `App` does not mount) |
+| `/test/nope`, `/test/chats/a/b`, `/test/tasks/a/b`, `/test/skills`, `/a/b/c/d` (matches no route) | not found | the router: `isRouterNotFound` (`router/not-found.ts`). The root route renders the entry's `Root` with `notFound`, which shows only the page (theme, i18n and the toaster stay; `App` does not mount) |
 | `/test/settings/nope` (bad settings page), `/login/chats` (reserved first segment) | not found | the router: the route's `beforeLoad` throws `notFound()` |
 | `/zzz`, `/zzz/chats` (a slug no workspace has) | not found, once the workspaces have loaded (the splash shows until then) | `NavigationProvider`. The tree still redirects `/zzz` to `/zzz/chats`; then the slug is unknown |
 | `/test/chats/{id}` of a chat that is not in the workspace | not found, once the chat list has loaded | `NavigationProvider`: the list lacks it and the server has no such chat in this workspace. A chat deleted while open is not re-checked |
-| `/test/skills/{slug}`, `/test/sources/{slug}` that do not exist | not found, once the item's page has loaded its list | the page calls `showNotFound()` |
+| `/test/settings/skills/{slug}`, `/test/settings/sources/{slug}` that do not exist | not found, once the item's page has loaded its list | the page calls `showNotFound()` |
 | `/`, `/{knownSlug}`, a known view | redirect to Chats, or the view | |
 
 The app-level cases set `isNotFound` in the navigation context (true while the URL is the path found missing; any URL change ends it) and `App` swaps the whole main UI for the page (`NotFoundGate`). Task, Project, Library item and Routine ids are not checked yet (their pages call `showNotFound()` once they load them).
@@ -72,7 +74,7 @@ The app-level cases set `isNotFound` in the navigation context (true while the U
 
 ### What the tests cover
 
-`router/__tests__` (mappings round-trip for every route kind, search included, and settings page, the bare Settings URL replaced with General, legacy strings, search validation, history position logic, the route tree on a memory history, which URLs are not found), `shared/__tests__/route-parser-chat-filters.test.ts`, `shared/__tests__/route-parser-sections.test.ts`, `packages/server-core/src/webui/__tests__/login-next.test.ts`, `apps/webui/src/__tests__/login-rules.test.ts`.
+`router/__tests__` (mappings round-trip for every route kind, search included, and settings page, the bare Settings URL replaced with General, legacy strings, search validation, history position logic, the route tree on a memory history, which URLs are not found), `shared/__tests__/route-parser-chat-filters.test.ts`, `shared/__tests__/route-parser-sections.test.ts`, `renderer/lib/__tests__/skill-source-lists.test.ts` (the grids' order and filters, which Previous / Next follow), `packages/server-core/src/webui/__tests__/login-next.test.ts`, `apps/webui/src/__tests__/login-rules.test.ts`.
 
 ## Contract notes for the renderer
 

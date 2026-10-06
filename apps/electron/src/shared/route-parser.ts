@@ -28,12 +28,14 @@ import {
   normalizeInboxSearch,
   normalizeLibrarySearch,
   normalizeProjectsSearch,
+  normalizeSkillsSearch,
   normalizeTasksSearch,
   parseSearch,
   stringifySearch,
   type InboxSearch,
   type LibrarySearch,
   type ProjectsSearch,
+  type SkillsSearch,
   type TasksSearch,
 } from './section-search'
 
@@ -67,8 +69,8 @@ export interface ParsedCompoundRoute {
   sourceFilter?: SourceFilter
   /** Automation filter (only for automations navigator) */
   automationFilter?: AutomationFilter
-  /** The search of the tasks, projects, library and inbox views (see section-search.ts) */
-  search?: TasksSearch | ProjectsSearch | LibrarySearch | InboxSearch
+  /** The search of the tasks, projects, library, skills and inbox views (see section-search.ts) */
+  search?: TasksSearch | ProjectsSearch | LibrarySearch | SkillsSearch | InboxSearch
   /** Details page info (null for empty state) */
   details: {
     type: string
@@ -92,6 +94,7 @@ const SECTION_SEARCH = {
   tasks: { detail: 'task', normalize: normalizeTasksSearch },
   projects: { detail: 'project', normalize: normalizeProjectsSearch },
   library: { detail: 'item', normalize: normalizeLibrarySearch },
+  skills: { detail: 'skill', normalize: normalizeSkillsSearch },
 } as const
 
 /**
@@ -175,26 +178,9 @@ export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
     return null
   }
 
-  // Skills navigator
-  if (first === 'skills') {
-    if (segments.length === 1) {
-      return { navigator: 'skills', details: null }
-    }
-
-    // skills/skill/{skillSlug}
-    if (segments[1] === 'skill' && segments[2]) {
-      return {
-        navigator: 'skills',
-        details: { type: 'skill', id: segments[2] },
-      }
-    }
-
-    return null
-  }
-
-  // Tasks, Projects and Library: the index or one item (`tasks/task/{id}`, `projects/project/{id}`,
-  // `library/item/{id}`), each with its search in the query
-  if (first === 'tasks' || first === 'projects' || first === 'library') {
+  // Tasks, Projects, Library and Skills: the index or one item (`tasks/task/{id}`, `projects/project/{id}`,
+  // `library/item/{id}`, `skills/skill/{slug}`), each with its search in the query
+  if (first === 'tasks' || first === 'projects' || first === 'library' || first === 'skills') {
     const { detail, normalize } = SECTION_SEARCH[first]
     const search = normalize(parseSearch(queryPart ?? ''))
     if (segments.length === 1) return { navigator: first, search, details: null }
@@ -333,11 +319,6 @@ export function buildCompoundRoute(parsed: ParsedCompoundRoute): string {
     return `${base}/source/${parsed.details.id}`
   }
 
-  if (parsed.navigator === 'skills') {
-    if (!parsed.details) return 'skills'
-    return `skills/skill/${parsed.details.id}`
-  }
-
   if (parsed.navigator === 'automations') {
     // Build base from filter (automations, automations/scheduled, automations/event, automations/agentic)
     let base = 'automations'
@@ -350,7 +331,7 @@ export function buildCompoundRoute(parsed: ParsedCompoundRoute): string {
 
   if (parsed.navigator === 'inbox') return `inbox${stringifySearch(parsed.search ?? {})}`
 
-  if (parsed.navigator === 'tasks' || parsed.navigator === 'projects' || parsed.navigator === 'library') {
+  if (parsed.navigator === 'tasks' || parsed.navigator === 'projects' || parsed.navigator === 'library' || parsed.navigator === 'skills') {
     const base = parsed.details ? `${parsed.navigator}/${parsed.details.type}/${parsed.details.id}` : parsed.navigator
     return `${base}${stringifySearch(parsed.search ?? {})}`
   }
@@ -463,12 +444,10 @@ function convertCompoundToNavigationState(compound: ParsedCompoundRoute): Naviga
 
   // Skills
   if (compound.navigator === 'skills') {
-    if (!compound.details) {
-      return { navigator: 'skills', details: null }
-    }
     return {
       navigator: 'skills',
-      details: { type: 'skill', skillSlug: compound.details.id },
+      search: compound.search as SkillsSearch,
+      details: compound.details ? { type: 'skill', skillSlug: compound.details.id } : null,
     }
   }
 
@@ -552,10 +531,7 @@ function navigationStateToCompoundRoute(state: NavigationState): ParsedCompoundR
   }
 
   if (state.navigator === 'skills') {
-    return {
-      navigator: 'skills',
-      details: state.details?.type === 'skill' ? { type: 'skill', id: state.details.skillSlug } : null,
-    }
+    return { navigator: 'skills', search: state.search, details: state.details ? { type: 'skill', id: state.details.skillSlug } : null }
   }
 
   if (state.navigator === 'automations') {

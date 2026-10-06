@@ -13,9 +13,10 @@ import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-pop
 import { toast } from '@workspace/ui/components/sonner'
 import { SkillMenu } from '@/components/app-shell/skill-menu'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
-import { routes, navigate } from '@/lib/navigate'
 import { useActiveWorkspace } from '@/context/app-shell-context'
 import { useNavigation } from '@/contexts/navigation-context'
+import { useParentView } from '@/hooks/use-parent-view'
+import { useDeleteSkill } from './skills-page'
 import { getFileManagerName } from '@/lib/platform'
 import {
   Info_Page,
@@ -39,6 +40,9 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
   const [error, setError] = useState<string | null>(null)
   const activeWorkspace = useActiveWorkspace()
   const canRevealLocally = !activeWorkspace?.remoteServer
+  // Deleted: back to the grid it was opened from
+  const parent = useParentView()
+  const { dialog: deleteDialog, deleteSkill } = useDeleteSkill(parent?.onBack)
 
   // Load skill data
   useEffect(() => {
@@ -98,22 +102,6 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
     }
   }, [canRevealLocally, skill, t])
 
-  // Handle delete
-  const handleDelete = useCallback(async () => {
-    if (!skill) return
-
-    try {
-      if (skill.source !== 'workspace') return
-      await window.electronAPI.deleteSkill(workspaceId, skillSlug)
-      toast.success(t('skillInfo.deletedSkill', { name: skill.metadata.name }))
-      navigate(routes.view.skills())
-    } catch (err) {
-      toast.error(t('skillInfo.failedToDelete'), {
-        description: err instanceof Error ? err.message : undefined,
-      })
-    }
-  }, [skill, workspaceId, skillSlug])
-
   // Get skill name for header
   const skillName = skill?.metadata.name || skillSlug
   const canDeleteSkill = skill?.source === 'workspace'
@@ -154,7 +142,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
             skillName={skillName}
             onShowInFinder={handleOpenInFinder}
             canShowInFinder={canRevealLocally}
-            onDelete={canDeleteSkill ? handleDelete : undefined}
+            onDelete={skill && canDeleteSkill ? () => deleteSkill(skill) : undefined}
             canDelete={canDeleteSkill}
             deleteLabel={canDeleteSkill ? t('skillInfo.deleteSkill') : t('skillInfo.managedByProject')}
           />
@@ -279,6 +267,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
 
         </Info_Page.Content>
       )}
+      {deleteDialog}
     </Info_Page>
   )
 }

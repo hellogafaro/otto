@@ -7,10 +7,11 @@
  * - A chat: the Chats index (the filter it was opened under).
  * - A task, a library item (a file or a document) or a project: its index. A task and a library item
  *   keep the index's search (filters, tab, `?folder=`), so Back returns to the same list.
+ * - A skill or a source: its grid in Settings, under the filter it was opened with.
  * - An automation: its section.
- * The Chats, Tasks, Projects and Library indexes and the Inbox have no parent. Settings (its pages,
- * Skills and Sources) has none either: it has no index and no floating navigation; its own sidebar
- * lists its pages and leads with Back to app.
+ * The Chats, Tasks, Projects and Library indexes, the Skills and Sources grids and the Inbox have no
+ * parent. Settings' own pages have none either: Settings has no index; its sidebar lists its pages
+ * and leads with Back to app.
  *
  * Back is never history Back: that is the Electron buttons in the sidebar header and
  * the browser's own.
@@ -42,13 +43,13 @@ export function useParentView(): ParentView | null {
       case 'automations':
       case 'tasks':
       case 'library':
+      case 'skills':
+      case 'sources':
         return navState.details ? { onBack: goToIndex } : null
       case 'projects':
         return navState.details ? { onBack: () => navigate(routes.view.projects()) } : null
       case 'inbox':
       case 'settings':
-      case 'sources':
-      case 'skills':
         return null
     }
   }, [navState, navigate, goToIndex])

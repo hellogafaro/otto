@@ -169,13 +169,13 @@ export function usePaletteData(): PaletteData<PaletteItem> {
         run: go(route()),
       })),
       settings,
-      skills: skills.map((skill) => ({
+      skills: (skills ?? []).map((skill) => ({
         key: `skill:${skill.slug}`,
         title: skill.metadata.name,
         icon: <SkillAvatar skill={skill} size="xs" workspaceId={activeWorkspaceId ?? undefined} />,
-        run: go(routes.view.skills(skill.slug)),
+        run: go(routes.view.skills({ skillSlug: skill.slug })),
       })),
-      sources: sources.map((source) => ({
+      sources: (sources ?? []).map((source) => ({
         key: `source:${source.config.slug}`,
         title: source.config.name,
         icon: <SourceAvatar source={source} size="xs" />,

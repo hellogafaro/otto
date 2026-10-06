@@ -143,17 +143,17 @@ function AppShellContent({
   const navState = useNavigationState()
   const currentSessionId = useAtomValue(currentSessionIdAtom)
 
-  // Sources state (workspace-scoped)
-  const [sources, setSources] = React.useState<LoadedSource[]>([])
-  // Sync sources to atom for NavigationContext auto-selection
+  // Sources state (workspace-scoped), null until loaded
+  const [sources, setSources] = React.useState<LoadedSource[] | null>(null)
+  // Sync sources to the atom the Sources grid, Previous / Next and the palette read
   const setSourcesAtom = useSetAtom(sourcesAtom)
   React.useEffect(() => {
     setSourcesAtom(sources)
   }, [sources, setSourcesAtom])
 
-  // Skills state (workspace-scoped)
-  const [skills, setSkills] = React.useState<LoadedSkill[]>([])
-  // Sync skills to atom for NavigationContext auto-selection
+  // Skills state (workspace-scoped), null until loaded
+  const [skills, setSkills] = React.useState<LoadedSkill[] | null>(null)
+  // Sync skills to the atom the Skills grid, Previous / Next and the palette read
   const setSkillsAtom = useSetAtom(skillsAtom)
   React.useEffect(() => {
     setSkillsAtom(skills)
@@ -541,8 +541,8 @@ function AppShellContent({
   const appShellContextValue = React.useMemo<AppShellContextType>(() => ({
     ...contextValue,
     onDeleteSession: handleDeleteSession,
-    enabledSources: sources,
-    skills,
+    enabledSources: sources ?? [],
+    skills: skills ?? [],
     activeSessionWorkingDirectory,
     labels: displayLabelConfigs,
     onSessionLabelsChange: handleSessionLabelsChange,

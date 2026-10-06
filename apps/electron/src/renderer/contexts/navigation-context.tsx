@@ -76,7 +76,6 @@ import type {
   Session,
   NavigationState,
   SessionFilter,
-  SourceFilter,
   ContentBadge,
 } from '../../shared/types'
 import {
@@ -95,6 +94,7 @@ import { sessionMetaMapAtom, updateSessionMetaAtom } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
 import { sessionListOrderAtom } from '@/atoms/list-context'
+import { getVisibleSkills, getVisibleSources } from '@/lib/skill-source-lists'
 import { guardedModeAvailableAtom } from '@/atoms/permission-modes'
 import { currentRouteAtom, parseSessionIdFromRoute } from '@/atoms/current-route'
 
@@ -135,11 +135,9 @@ interface NavigationContextValue {
   goBack: () => void
   /** Go forward in history */
   goForward: () => void
-  /** Navigate to a source (or source list if no slug), preserving the current filter type */
-  navigateToSource: (sourceSlug?: string) => void
   /** Navigate to a session, preserving the current filter type */
   navigateToSession: (sessionId: string) => void
-  /** Previous / next chat in the Chats list the open chat came from, or null when the open page has no list. */
+  /** Previous / next item in the list the open item came from (a chat in Chats, a skill or a source in its grid), or null when the open page has no list. */
   listNav: ListNavigation | null
 }
 
@@ -213,10 +211,8 @@ export function NavigationProvider({
   // Store reference for reading fresh atom values in callbacks (avoids stale closures)
   const store = useStore()
 
-  // Read sources from atom (populated by AppShell)
+  // The Skills and Sources grids' items (populated by AppShell), for Previous / Next
   const sources = useAtomValue(sourcesAtom)
-
-  // Read skills from atom (populated by AppShell)
   const skills = useAtomValue(skillsAtom)
 
   // =========================================================================
@@ -318,72 +314,14 @@ export function NavigationProvider({
     }
   }, [navigationState, workspaceId, setSession])
 
-  // =========================================================================
-  // HELPERS
-  // =========================================================================
-
-  const getFirstSourceSlug = useCallback(
-    (filter?: SourceFilter | null): string | null => {
-      if (!filter) {
-        return sources[0]?.config.slug ?? null
-      }
-      const filtered = sources.filter(s => s.config.type === filter.sourceType)
-      return filtered[0]?.config.slug ?? null
+  /** A chat that is not in this workspace (any more) opens its index instead. No side effects. */
+  const resolveMissingChat = useCallback(
+    (state: NavigationState): NavigationState => {
+      if (!isSessionsNavigation(state) || !state.details) return state
+      const meta = store.get(sessionMetaMapAtom).get(state.details.sessionId)
+      return meta && belongsToWorkspace(meta.workspaceId, workspaceId, remoteWorkspaceId) ? state : { ...state, details: null }
     },
-    [sources]
-  )
-
-  const getFirstSkillSlug = useCallback(
-    (): string | null => {
-      return skills[0]?.slug ?? null
-    },
-    [skills]
-  )
-
-  // =========================================================================
-  // AUTO-SELECTION (pure computation, no side effects)
-  // =========================================================================
-
-  /**
-   * Resolve auto-selection for a NavigationState. A chat is never auto-selected (the
-   * Chats route is its index); Sources and Skills, which have no index yet, open their
-   * first item. A chat that no longer exists falls back to the index. Returns the
-   * final state (no side effects).
-   */
-  const resolveAutoSelection = useCallback(
-    (newState: NavigationState): NavigationState => {
-      let nextState = newState
-
-      // Validate session exists in current workspace (local or remote ID)
-      if (isSessionsNavigation(nextState) && nextState.details) {
-        const freshMetaMap = store.get(sessionMetaMapAtom)
-        const meta = freshMetaMap.get(nextState.details.sessionId)
-        if (!meta || !belongsToWorkspace(meta.workspaceId, workspaceId, remoteWorkspaceId)) {
-          nextState = { ...nextState, details: null }
-        }
-      }
-
-      // Sources: auto-select first source
-      if (isSourcesNavigation(nextState) && !nextState.details) {
-        const firstSourceSlug = getFirstSourceSlug(nextState.filter)
-        if (firstSourceSlug) {
-          return { ...nextState, details: { type: 'source', sourceSlug: firstSourceSlug } }
-        }
-        return nextState
-      }
-
-      // Skills: auto-select first skill
-      if (isSkillsNavigation(nextState) && !nextState.details) {
-        const firstSkillSlug = getFirstSkillSlug()
-        if (firstSkillSlug) {
-          return { ...nextState, details: { type: 'skill', skillSlug: firstSkillSlug } }
-        }
-        return nextState
-      }
-
-      return nextState
-    },
-    [store, workspaceId, remoteWorkspaceId, getFirstSourceSlug, getFirstSkillSlug]
+    [store, workspaceId, remoteWorkspaceId],
   )
 
   // =========================================================================
@@ -416,15 +354,6 @@ export function NavigationProvider({
     },
     [router, workspaceSlug, openRouteIn],
   )
-
-  // Sources and Skills have no index yet: opening their list root (a URL typed or restored, or
-  // before the lists loaded) opens the first item, as navigate() does.
-  useEffect(() => {
-    if (!isReady || (workspaceSlug && urlSlug !== workspaceSlug)) return
-    if (!(isSourcesNavigation(navigationState) || isSkillsNavigation(navigationState)) || navigationState.details) return
-    const resolved = resolveAutoSelection(navigationState)
-    if (resolved !== navigationState) openRoute(buildRouteFromNavigationState(resolved), { replace: true })
-  }, [isReady, workspaceSlug, urlSlug, navigationState, resolveAutoSelection, openRoute])
 
   // =========================================================================
   // ACTION NAVIGATION
@@ -621,16 +550,14 @@ export function NavigationProvider({
         return
       }
 
-      // Parse route to NavigationState (a bare `settings` is General: Settings has no index)
+      // Parse route to NavigationState (a bare `settings` is General: Settings has no index), then open its URL
       const newNavState = parseRouteToNavigationState(route)
 
       if (newNavState) {
-        // Resolve auto-selection (pure — no side effects), then open its URL
-        const finalRoute = buildRouteFromNavigationState(resolveAutoSelection(newNavState))
-        if (!openRoute(finalRoute, opts)) pendingNavigationRef.current = { route, opts }
+        if (!openRoute(buildRouteFromNavigationState(resolveMissingChat(newNavState)), opts)) pendingNavigationRef.current = { route, opts }
       }
     },
-    [isReady, handleActionNavigation, resolveAutoSelection, openRoute]
+    [isReady, handleActionNavigation, resolveMissingChat, openRoute]
   )
 
   useEffect(() => {
@@ -763,23 +690,6 @@ export function NavigationProvider({
   // PRESERVE-FILTER NAVIGATION HELPERS
   // =========================================================================
 
-  const navigateToSource = useCallback((sourceSlug?: string) => {
-    if (isSourcesNavigation(navigationState) && navigationState.filter?.kind === 'type') {
-      switch (navigationState.filter.sourceType) {
-        case 'api':
-          navigate(routes.view.sourcesApi(sourceSlug))
-          return
-        case 'mcp':
-          navigate(routes.view.sourcesMcp(sourceSlug))
-          return
-        case 'local':
-          navigate(routes.view.sourcesLocal(sourceSlug))
-          return
-      }
-    }
-    navigate(routes.view.sources(sourceSlug ? { sourceSlug } : undefined))
-  }, [navigationState, navigate])
-
   const navigateToSession = useCallback((sessionId: string) => {
     if (!isSessionsNavigation(navigationState)) {
       navigate(routes.view.allSessions(sessionId))
@@ -796,23 +706,43 @@ export function NavigationProvider({
   }, [navigationState, navigate])
 
   // =========================================================================
-  // LIST NAVIGATION (previous / next in the Chats index the chat was opened from)
+  // LIST NAVIGATION (previous / next in the list the open item was opened from)
   // =========================================================================
 
   const sessionListOrder = useAtomValue(sessionListOrderAtom)
   const listNav = useMemo<ListNavigation | null>(() => {
-    // The Chats index's table as it shows it. Settings has none: its pages are the settings sidebar.
-    if (!isSessionsNavigation(navigationState) || !navigationState.details) return null
-    const order = sessionListOrder
-    const index = order.indexOf(navigationState.details.sessionId)
+    // The open item, the list it steps through (as its index shows it) and how to open another. A chat: the
+    // Chats index's table. A skill or a source: its grid under the same filter (it keeps the filter for Back).
+    // Settings' own pages have none: they are the settings sidebar.
+    let open: string
+    let order: string[]
+    let go: (id: string) => void
+    if (isSessionsNavigation(navigationState) && navigationState.details) {
+      open = navigationState.details.sessionId
+      order = sessionListOrder
+      go = navigateToSession
+    } else if (isSkillsNavigation(navigationState) && navigationState.details && skills) {
+      const { search } = navigationState
+      open = navigationState.details.skillSlug
+      order = getVisibleSkills(skills, search).map((skill) => skill.slug)
+      go = (skillSlug) => navigate(routes.view.skills({ skillSlug, ...search }))
+    } else if (isSourcesNavigation(navigationState) && navigationState.details && sources) {
+      const type = navigationState.filter?.sourceType
+      open = navigationState.details.sourceSlug
+      order = getVisibleSources(sources, navigationState.filter).map((source) => source.config.slug)
+      go = (sourceSlug) => navigate(routes.view.sources({ sourceSlug, type }))
+    } else {
+      return null
+    }
+    const index = order.indexOf(open)
     if (index === -1) return null
     return {
       hasPrev: index > 0,
       hasNext: index < order.length - 1,
-      goPrev: () => { if (index > 0) navigateToSession(order[index - 1]) },
-      goNext: () => { if (index < order.length - 1) navigateToSession(order[index + 1]) },
+      goPrev: () => { if (index > 0) go(order[index - 1]) },
+      goNext: () => { if (index < order.length - 1) go(order[index + 1]) },
     }
-  }, [navigationState, sessionListOrder, navigateToSession])
+  }, [navigationState, sessionListOrder, navigateToSession, skills, sources, navigate])
 
   // =========================================================================
   // CONTEXT VALUE
@@ -830,7 +760,6 @@ export function NavigationProvider({
         canGoForward,
         goBack,
         goForward,
-        navigateToSource,
         navigateToSession,
         listNav,
       }}

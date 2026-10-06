@@ -21,8 +21,7 @@ import {
 import { toast } from '@workspace/ui/components/sonner'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { useLibrary } from '@/hooks/use-library'
-import { routes } from '@/lib/navigate'
-import { routeStringToLocation, stringifySearch, workspaceSlugFromPathname } from '../../router/location'
+import { routes, routeUrl } from '@/lib/navigate'
 import type { LibraryItem } from '../../../shared/types'
 import { getDisplayTitle, toStoredTitle } from './library-items'
 import { MoveDialog } from './move-dialog'
@@ -36,9 +35,7 @@ export function libraryErrorMessage(t: (key: string) => string, code: string): s
 
 /** The item's app URL, as the address bar shows it. */
 export function libraryItemUrl(itemId: string): string {
-  const slug = workspaceSlugFromPathname(window.location.pathname) ?? ''
-  const location = routeStringToLocation(routes.view.library({ itemId }), slug)
-  return location ? `${window.location.origin}${location.pathname}${stringifySearch(location.search)}` : window.location.href
+  return routeUrl(routes.view.library({ itemId }))
 }
 
 export function useLibraryItemDialogs() {

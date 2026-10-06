@@ -3,7 +3,7 @@
  *
  * A popover with title, subtitle, and multiline textarea for editing settings.
  * Supports two modes:
- * - Legacy: Opens a new focused window with a chat session
+ * - Legacy: Opens a new chat in this window and sends the request (an in-app action route, so it works on the web too)
  * - Inline: Executes mini agent inline within the popover using compact ChatDisplay
  */
 
@@ -21,6 +21,7 @@ import type { ContentBadge, Session, CreateSessionOptions } from '../../../share
 import { useActiveWorkspace, useAppShellContext, useSession, usePendingPermission, usePendingCredential } from '@/context/app-shell-context'
 import { useEscapeInterrupt } from '@/context/escape-interrupt-context'
 import { ChatDisplay } from '../app-shell/chat-display'
+import { navigate, type Route } from '@/lib/navigate'
 
 /** Rotating placeholder keys for compact mode input - short, action-oriented */
 const COMPACT_PLACEHOLDER_KEYS = [
@@ -982,19 +983,15 @@ export function EditPopover({
     }
   }, [context, displayLabel, inlineSessionId, workspace?.id, model, systemPromptPreset, permissionMode, workingDirectory, onCreateSession, onSendMessage])
 
-  // Legacy mode: navigates to chat in the same window
+  // Legacy mode: a new chat in this window that sends the request (the navigation's new-session action;
+  // not an otto:// deep link, which only the desktop app can open)
   const handleLegacySendMessage = useCallback((message: string) => {
     const { prompt, badges } = buildEditPrompt(context, message, displayLabel)
-    const encodedInput = encodeURIComponent(prompt)
-    const encodedBadges = encodeURIComponent(JSON.stringify(badges))
-
-    const workdirParam = workingDirectory ? `&workdir=${encodeURIComponent(workingDirectory)}` : ''
-    const modelParam = model ? `&model=${encodeURIComponent(model)}` : ''
-    const systemPromptParam = systemPromptPreset ? `&systemPrompt=${encodeURIComponent(systemPromptPreset)}` : ''
-    // Navigate in the same window
-    const url = `otto://action/new-session?input=${encodedInput}&send=true&mode=${permissionMode}&badges=${encodedBadges}${workdirParam}${modelParam}${systemPromptParam}`
-
-    window.electronAPI.openUrl(url)
+    const params = new URLSearchParams({ input: prompt, send: 'true', mode: permissionMode, badges: JSON.stringify(badges) })
+    if (workingDirectory) params.set('workdir', workingDirectory)
+    if (model) params.set('model', model)
+    if (systemPromptPreset) params.set('systemPrompt', systemPromptPreset)
+    navigate(`action/new-session?${params}` as Route)
     setOpen(false)
   }, [context, displayLabel, workingDirectory, model, systemPromptPreset, permissionMode, setOpen])
 

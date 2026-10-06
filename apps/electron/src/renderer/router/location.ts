@@ -18,13 +18,14 @@
  * | `automations[/{type}][/automation/id]` | `/{ws}/routines[/id][?type=]`         |
  * | `library[/item/id][?tab=&folder=&createdBy=]` | `/{ws}/library[/id]` with the same query |
  * | `inbox[?unread=1]`                | `/{ws}/inbox[?unread=1]`                   |
- * | `skills[/skill/id]`               | `/{ws}/skills[/id]`                        |
- * | `sources[/{type}][/source/id]`    | `/{ws}/sources[/id][?type=]`               |
+ * | `skills[/skill/id][?scope=]`      | `/{ws}/settings/skills[/id][?scope=]`      |
+ * | `sources[/{type}][/source/id]`    | `/{ws}/settings/sources[/id][?type=]`      |
  *
  * The Chats filters combine and repeat (see `shared/chat-filters.ts`); the older single-value route
  * strings (`state/{id}`, `label/{id}`, `flagged`, `archived`) parse to them. Search is read and written as
  * plain query strings (repeated keys for lists), not TanStack's default JSON form.
- * The search of Tasks, Projects and Library is in `shared/section-search.ts`; an item keeps its index's search, so Back returns to it.
+ * The search of Tasks, Projects, Library and Skills is in `shared/section-search.ts`; an item keeps its index's search, so Back returns to it.
+ * Skills and Sources live in Settings: their grids and items are under `/{ws}/settings/`.
  */
 
 import { isReservedWorkspaceSlug } from '@otto/shared/utils/workspace-slug'
@@ -41,6 +42,7 @@ import {
   normalizeInboxSearch,
   normalizeLibrarySearch,
   normalizeProjectsSearch,
+  normalizeSkillsSearch,
   normalizeTasksSearch,
   parseSearch,
   stringifySearch,
@@ -144,11 +146,11 @@ function stateToLocation(state: NavigationState, ws: string): AppLocation {
       return { pathname: `${base}/settings/${state.subpage}`, search: {} }
     case 'sources':
       return {
-        pathname: `${base}/sources${state.details ? `/${enc(state.details.sourceSlug)}` : ''}`,
+        pathname: `${base}/settings/sources${state.details ? `/${enc(state.details.sourceSlug)}` : ''}`,
         search: state.filter?.kind === 'type' ? { type: state.filter.sourceType } : {},
       }
     case 'skills':
-      return { pathname: `${base}/skills${state.details ? `/${enc(state.details.skillSlug)}` : ''}`, search: {} }
+      return { pathname: `${base}/settings/skills${state.details ? `/${enc(state.details.skillSlug)}` : ''}`, search: state.search as LocationSearch }
     case 'automations':
       return {
         pathname: `${base}/routines${state.details ? `/${enc(state.details.automationId)}` : ''}`,
@@ -212,13 +214,14 @@ function stateFromLocation(section: string, id: string | undefined, search: Reco
       // `/{ws}/settings` is General (the route tree redirects it there)
       if (id === undefined) return { navigator: 'settings', subpage: DEFAULT_SETTINGS_SUBPAGE }
       return isValidSettingsSubpage(id) ? { navigator: 'settings', subpage: id } : null
-    case 'sources': {
+    // In Settings: `/{ws}/settings/sources[/slug]`, `/{ws}/settings/skills[/slug]`
+    case 'settings/sources': {
       const type = validateSourcesSearch(search).type
       const filter: SourceFilter | undefined = type ? { kind: 'type', sourceType: type as 'api' | 'mcp' | 'local' } : undefined
       return { navigator: 'sources', filter, details: id ? { type: 'source', sourceSlug: id } : null }
     }
-    case 'skills':
-      return { navigator: 'skills', details: id ? { type: 'skill', skillSlug: id } : null }
+    case 'settings/skills':
+      return { navigator: 'skills', search: normalizeSkillsSearch(search), details: id ? { type: 'skill', skillSlug: id } : null }
     case 'routines': {
       const type = validateRoutinesSearch(search).type
       const filter: AutomationFilter | undefined = type
@@ -246,7 +249,10 @@ export function locationToRouteString(
 ): { routeString: string; workspaceSlug: string } | null {
   const workspaceSlug = workspaceSlugFromPathname(pathname)
   if (!workspaceSlug) return null
-  const [, section, id, ...rest] = segmentsOf(pathname)
+  const segments = segmentsOf(pathname).slice(1)
+  // Skills and Sources are a section inside Settings: their section is two segments
+  if (segments[0] === 'settings' && (segments[1] === 'skills' || segments[1] === 'sources')) segments.splice(0, 2, `settings/${segments[1]}`)
+  const [section, id, ...rest] = segments
   if (!section || rest.length > 0) return null
   const state = stateFromLocation(section, id, search)
   return state ? { routeString: buildRouteFromNavigationState(state), workspaceSlug } : null

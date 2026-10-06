@@ -18,7 +18,7 @@
 import { DEFAULT_SETTINGS_SUBPAGE, type SettingsSubpage } from './settings-registry'
 import type { PermissionMode } from '@otto/shared/agent/mode-types'
 import { chatFiltersToQuery, normalizeChatFilters, type ChatFiltersInput } from './chat-filters'
-import { stringifySearch, type InboxSearch, type LibrarySearch, type ProjectsSearch, type TasksSearch } from './section-search'
+import { stringifySearch, type InboxSearch, type LibrarySearch, type ProjectsSearch, type SkillsSearch, type TasksSearch } from './section-search'
 
 // Helper to build query strings from params
 function toQueryString(params?: Record<string, string | undefined>): string {
@@ -143,7 +143,7 @@ export const routes = {
         ? `view/${encodeURIComponent(viewId)}/session/${sessionId}` as const
         : `view/${encodeURIComponent(viewId)}` as const,
 
-    /** Sources view (sources navigator) - supports type filtering */
+    /** Sources view (sources navigator): the grid on a `type`, or `sourceSlug` open (keeping the type for Back). */
     sources: (params?: { sourceSlug?: string; type?: 'api' | 'mcp' | 'local' }) => {
       const { sourceSlug, type } = params ?? {}
       // Build base from filter type
@@ -154,29 +154,8 @@ export const routes = {
       return base as 'sources' | `sources/${'api' | 'mcp' | 'local'}`
     },
 
-    /** API sources view (sources navigator, api filter) */
-    sourcesApi: (sourceSlug?: string) =>
-      sourceSlug
-        ? `sources/api/source/${sourceSlug}` as const
-        : 'sources/api' as const,
-
-    /** MCP sources view (sources navigator, mcp filter) */
-    sourcesMcp: (sourceSlug?: string) =>
-      sourceSlug
-        ? `sources/mcp/source/${sourceSlug}` as const
-        : 'sources/mcp' as const,
-
-    /** Local folder sources view (sources navigator, local filter) */
-    sourcesLocal: (sourceSlug?: string) =>
-      sourceSlug
-        ? `sources/local/source/${sourceSlug}` as const
-        : 'sources/local' as const,
-
-    /** Skills view (skills navigator). Pass a slug string for a local skill detail view. */
-    skills: (skillSlug?: string) => {
-      if (!skillSlug) return 'skills' as const
-      return `skills/skill/${skillSlug}` as const
-    },
+    /** Skills view (skills navigator): the grid with its `scope`, or `skillSlug` open. */
+    skills: ({ skillSlug, ...search }: { skillSlug?: string } & SkillsSearch = {}) => sectionRoute('skills', 'skill', skillSlug, search),
 
     /** Automations view (automations navigator) - supports type filtering */
     automations: (params?: { automationId?: string; type?: 'scheduled' | 'event' | 'agentic' }) => {

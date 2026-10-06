@@ -43,10 +43,10 @@ describe('route tree', () => {
       '/test/library': '/$workspaceSlug/library',
       '/test/library/doc': '/$workspaceSlug/library/$itemId',
       '/test/inbox': '/$workspaceSlug/inbox',
-      '/test/skills': '/$workspaceSlug/skills',
-      '/test/skills/s': '/$workspaceSlug/skills/$skillSlug',
-      '/test/sources': '/$workspaceSlug/sources',
-      '/test/sources/gmail': '/$workspaceSlug/sources/$sourceSlug',
+      '/test/settings/skills': '/$workspaceSlug/settings/skills',
+      '/test/settings/skills/s': '/$workspaceSlug/settings/skills/$skillSlug',
+      '/test/settings/sources': '/$workspaceSlug/settings/sources',
+      '/test/settings/sources/gmail': '/$workspaceSlug/settings/sources/$sourceSlug',
     }
     for (const [href, routeId] of Object.entries(leaves)) {
       const router = await open(href)
@@ -72,8 +72,10 @@ describe('route tree', () => {
       .toEqual({ status: ['todo', 'done'], label: ['a'], flagged: true, archived: true })
     expect(strict(await open('/test/chats?status=todo'))).toEqual({ status: ['todo'] })
     expect(strict(await open('/test/chats/abc?flagged=1'))).toEqual({ flagged: true })
-    expect(strict(await open('/test/sources?type=nope'))).toEqual({})
-    expect(strict(await open('/test/sources/gmail?type=mcp'))).toEqual({ type: 'mcp' })
+    expect(strict(await open('/test/settings/sources?type=nope'))).toEqual({})
+    expect(strict(await open('/test/settings/sources/gmail?type=mcp'))).toEqual({ type: 'mcp' })
+    expect(strict(await open('/test/settings/skills?scope=global&x=1'))).toEqual({ scope: 'global' })
+    expect(strict(await open('/test/settings/skills/s?scope=nope'))).toEqual({})
     expect(strict(await open('/test/routines?type=agentic'))).toEqual({ type: 'agentic' })
     expect(strict(await open('/test/tasks?project=p1&status=done&status=nope&archived=1&junk=1')))
       .toEqual({ project: 'p1', status: ['done'], archived: true })
@@ -131,13 +133,19 @@ describe('not found', () => {
     expect(notFound(await open('/test/settings/appearance'))).toBe(false)
   })
 
+  it('Skills and Sources live in Settings: their old top-level URLs and extra segments are not found', async () => {
+    for (const href of ['/test/skills', '/test/skills/s', '/test/sources', '/test/sources/gmail', '/test/settings/skills/s/x']) {
+      expect(notFound(await open(href)), href).toBe(true)
+    }
+  })
+
   it('a workspace slug is only known to the app: the router still opens its Chats', async () => {
     expect(where(await open('/zzz'))).toBe('/zzz/chats')
     expect(notFound(await open('/zzz/chats'))).toBe(false)
   })
 
   it('every real view is found', async () => {
-    for (const href of ['/test/chats', '/test/chats/abc', '/test/settings', '/test/tasks', '/test/tasks/t1', '/test/projects/p1', '/test/library/i1?folder=f1', '/test/skills/s', '/test/sources/gmail?type=mcp', '/test']) {
+    for (const href of ['/test/chats', '/test/chats/abc', '/test/settings', '/test/tasks', '/test/tasks/t1', '/test/projects/p1', '/test/library/i1?folder=f1', '/test/settings/skills', '/test/settings/skills/s', '/test/settings/sources/gmail?type=mcp', '/test']) {
       expect(notFound(await open(href)), href).toBe(false)
     }
   })

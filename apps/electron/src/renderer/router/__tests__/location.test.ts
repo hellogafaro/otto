@@ -62,16 +62,18 @@ const KINDS: Array<[routeString: string, pathname: string, search: Record<string
   ['library/item/doc-1?folder=f1', '/test/library/doc-1', { folder: 'f1' }],
   ['inbox', '/test/inbox', {}],
   ['inbox?unread=1', '/test/inbox', { unread: true }],
-  ['skills', '/test/skills', {}],
-  ['skills/skill/my-skill', '/test/skills/my-skill', {}],
-  ['sources', '/test/sources', {}],
-  ['sources/api', '/test/sources', { type: 'api' }],
-  ['sources/mcp', '/test/sources', { type: 'mcp' }],
-  ['sources/local', '/test/sources', { type: 'local' }],
-  ['sources/source/github', '/test/sources/github', {}],
-  ['sources/api/source/gmail', '/test/sources/gmail', { type: 'api' }],
-  ['sources/mcp/source/linear', '/test/sources/linear', { type: 'mcp' }],
-  ['sources/local/source/notes', '/test/sources/notes', { type: 'local' }],
+  ['skills', '/test/settings/skills', {}],
+  ['skills?scope=global', '/test/settings/skills', { scope: 'global' }],
+  ['skills/skill/my-skill', '/test/settings/skills/my-skill', {}],
+  ['skills/skill/my-skill?scope=workspace', '/test/settings/skills/my-skill', { scope: 'workspace' }],
+  ['sources', '/test/settings/sources', {}],
+  ['sources/api', '/test/settings/sources', { type: 'api' }],
+  ['sources/mcp', '/test/settings/sources', { type: 'mcp' }],
+  ['sources/local', '/test/settings/sources', { type: 'local' }],
+  ['sources/source/github', '/test/settings/sources/github', {}],
+  ['sources/api/source/gmail', '/test/settings/sources/gmail', { type: 'api' }],
+  ['sources/mcp/source/linear', '/test/settings/sources/linear', { type: 'mcp' }],
+  ['sources/local/source/notes', '/test/settings/sources/notes', { type: 'local' }],
 ]
 
 describe('routeStringToLocation / locationToRouteString', () => {
@@ -238,7 +240,7 @@ describe('translateLegacyUrl', () => {
   })
 
   it('translates a saved file:// style URL whose path was an install directory', () => {
-    expect(translateLegacyUrl('/', '?workspaceId=ws_1&ws=my-team&route=sources/api/source/gmail')).toBe('/my-team/sources/gmail?type=api')
+    expect(translateLegacyUrl('/', '?workspaceId=ws_1&ws=my-team&route=sources/api/source/gmail')).toBe('/my-team/settings/sources/gmail?type=api')
   })
 
   it('drops the transitional workspaceId and keeps the path and other params', () => {

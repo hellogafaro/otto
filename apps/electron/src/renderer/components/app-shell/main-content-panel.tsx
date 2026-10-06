@@ -5,7 +5,7 @@
  * page before the detail, except in Settings, whose pages are listed by its own sidebar:
  * - Chats: the Chats index, or the ChatPage of the open chat
  * - Settings: one settings page (no index: Settings opens on General)
- * - Sources and Skills (in the settings sidebar): the item's page
+ * - Skills and Sources (in the settings sidebar): the grid, or the item's page
  * - Tasks, Projects and Library: the index page, or the task, project or item page
  * - Inbox: your notifications
  * - Routines (automations): not built yet, only `SectionEmpty`
@@ -16,7 +16,6 @@
 import { useTranslation } from 'react-i18next'
 import { Clock } from 'lucide-react'
 import { Panel } from './panel'
-import { PageHeader } from './page-header'
 import { SectionEmpty } from './section-empty'
 import { useAppShellContext } from '@/context/app-shell-context'
 import {
@@ -35,19 +34,9 @@ import { SourceInfoPage, ChatPage, TasksPage, TaskPage, ProjectsPage, ProjectPag
 import ChatsIndexPage from '@/pages/chats-index-page'
 import { InboxPage } from '@/pages/inbox/inbox-page'
 import SkillInfoPage from '@/pages/skill-info-page'
+import { SkillsPage } from '@/pages/skills-page'
+import { SourcesPage } from '@/pages/sources-page'
 import { getSettingsPageComponent } from '@/pages/settings/settings-pages'
-
-/** A section with nothing open: the section's title in the header, a quiet line in the card. */
-function EmptyPanel({ title, message }: { title: string; message: string }) {
-  return (
-    <div className="flex h-full flex-col">
-      <PageHeader title={title} />
-      <div className="flex flex-1 items-center justify-center text-muted-foreground">
-        <p className="text-sm">{message}</p>
-      </div>
-    </div>
-  )
-}
 
 export interface MainContentPanelProps {
   /** Optional className for the container */
@@ -71,23 +60,15 @@ export function MainContentPanel({ className }: MainContentPanelProps) {
   }
 
   if (isSourcesNavigation(navState)) {
-    if (navState.details) {
-      return panel(<SourceInfoPage sourceSlug={navState.details.sourceSlug} workspaceId={activeWorkspaceId || ''} />)
-    }
-    return panel(<EmptyPanel title={t('sidebar.sources')} message={t('sourcesList.noSourcesConfigured')} />)
+    return panel(navState.details
+      ? <SourceInfoPage sourceSlug={navState.details.sourceSlug} workspaceId={activeWorkspaceId || ''} />
+      : <SourcesPage />)
   }
 
   if (isSkillsNavigation(navState)) {
-    if (navState.details?.type === 'skill') {
-      return panel(
-        <SkillInfoPage
-          skillSlug={navState.details.skillSlug}
-          workspaceId={activeWorkspaceId || ''}
-          workingDirectory={activeSessionWorkingDirectory}
-        />,
-      )
-    }
-    return panel(<EmptyPanel title={t('sidebar.skills')} message={t('skillsList.noSkillsConfigured')} />)
+    return panel(navState.details
+      ? <SkillInfoPage skillSlug={navState.details.skillSlug} workspaceId={activeWorkspaceId || ''} workingDirectory={activeSessionWorkingDirectory} />
+      : <SkillsPage />)
   }
 
   // Tasks, Projects and Library: the index, or the open task, project or item.

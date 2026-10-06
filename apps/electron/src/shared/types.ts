@@ -36,7 +36,7 @@ export type { MemberRole, Project, ProjectFilter, ProjectMember, ProjectStatus, 
 import type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole } from '@otto/shared/workspaces';
 export type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole };
 
-import type { InboxSearch, LibrarySearch, ProjectsSearch, TasksSearch } from './section-search';
+import type { InboxSearch, LibrarySearch, ProjectsSearch, SkillsSearch, TasksSearch } from './section-search';
 
 // Mode types from dedicated subpath export (avoids pulling in SDK)
 import type { PermissionMode } from '@otto/shared/agent/modes';
@@ -875,7 +875,7 @@ export interface AutomationFilter {
 }
 
 /**
- * Sources navigation state
+ * Sources navigation state: the grid in Settings (`?type=`), or one source
  */
 export interface SourcesNavigationState {
   navigator: 'sources'
@@ -892,10 +892,11 @@ export interface SettingsNavigationState {
 }
 
 /**
- * Skills navigation state
+ * Skills navigation state: the grid in Settings (`?scope=`), or one skill
  */
 export interface SkillsNavigationState {
   navigator: 'skills'
+  search: SkillsSearch
   details: { type: 'skill'; skillSlug: string } | null
 }
 

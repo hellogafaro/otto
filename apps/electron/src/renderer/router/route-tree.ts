@@ -15,7 +15,7 @@ import { createElement, type ComponentType } from 'react'
 import { createRootRouteWithContext, createRoute, notFound, redirect, useRouterState } from '@tanstack/react-router'
 import { isReservedWorkspaceSlug } from '@otto/shared/utils/workspace-slug'
 import { DEFAULT_SETTINGS_SUBPAGE, isValidSettingsSubpage } from '../../shared/settings-registry'
-import { normalizeInboxSearch, normalizeLibrarySearch, normalizeProjectsSearch, normalizeTasksSearch } from '../../shared/section-search'
+import { normalizeInboxSearch, normalizeLibrarySearch, normalizeProjectsSearch, normalizeSkillsSearch, normalizeTasksSearch } from '../../shared/section-search'
 import { isWebUI } from '../lib/platform'
 import { isRouterNotFound } from './not-found'
 import { validateChatsSearch, validateRoutinesSearch, validateSourcesSearch } from './location'
@@ -89,6 +89,11 @@ const settingsPageRoute = createRoute({
     if (!isValidSettingsSubpage(params.page)) throw notFound()
   },
 })
+/** Skills and Sources: grids in Settings, each item under its grid (a static segment wins over `$page`). */
+const skillsRoute = createRoute({ ...section('settings/skills'), validateSearch: normalizeSkillsSearch })
+const skillRoute = createRoute({ ...section('settings/skills/$skillSlug'), validateSearch: normalizeSkillsSearch })
+const sourcesRoute = createRoute({ ...section('settings/sources'), validateSearch: validateSourcesSearch })
+const sourceRoute = createRoute({ ...section('settings/sources/$sourceSlug'), validateSearch: validateSourcesSearch })
 const tasksRoute = createRoute({ ...section('tasks'), validateSearch: normalizeTasksSearch })
 const taskRoute = createRoute({ ...section('tasks/$taskId'), validateSearch: normalizeTasksSearch })
 const projectsRoute = createRoute({ ...section('projects'), validateSearch: normalizeProjectsSearch })
@@ -98,10 +103,6 @@ const routineRoute = createRoute({ ...section('routines/$automationId'), validat
 const libraryRoute = createRoute({ ...section('library'), validateSearch: normalizeLibrarySearch })
 const libraryItemRoute = createRoute({ ...section('library/$itemId'), validateSearch: normalizeLibrarySearch })
 const inboxRoute = createRoute({ ...section('inbox'), validateSearch: normalizeInboxSearch })
-const skillsRoute = createRoute(section('skills'))
-const skillRoute = createRoute(section('skills/$skillSlug'))
-const sourcesRoute = createRoute({ ...section('sources'), validateSearch: validateSourcesSearch })
-const sourceRoute = createRoute({ ...section('sources/$sourceSlug'), validateSearch: validateSourcesSearch })
 
 export const routeTree = rootRoute.addChildren([
   rootIndexRoute,
@@ -112,6 +113,10 @@ export const routeTree = rootRoute.addChildren([
     chatRoute,
     settingsRoute,
     settingsPageRoute,
+    skillsRoute,
+    skillRoute,
+    sourcesRoute,
+    sourceRoute,
     tasksRoute,
     taskRoute,
     projectsRoute,
@@ -121,9 +126,5 @@ export const routeTree = rootRoute.addChildren([
     libraryRoute,
     libraryItemRoute,
     inboxRoute,
-    skillsRoute,
-    skillRoute,
-    sourcesRoute,
-    sourceRoute,
   ]),
 ])

@@ -1284,7 +1284,7 @@ export default function App() {
       // Merge with any externally provided badges (e.g., from EditPopover context badges)
       // Use workspace slug (not UUID) for skill qualification - SDK expects "workspaceSlug:skillSlug"
       const mentionBadges: ContentBadge[] = windowWorkspaceSlug
-        ? extractBadges(message, skills, sources, windowWorkspaceSlug)
+        ? extractBadges(message, skills ?? [], sources ?? [], windowWorkspaceSlug)
         : []
       const badges: ContentBadge[] = [...(externalBadges || []), ...mentionBadges]
 
@@ -1703,10 +1703,10 @@ export default function App() {
     // (prevents memory growth on repeated workspace switches)
     sessionDraftsRef.current.clear()
 
-    // 7. Reset sources and skills atoms to empty
+    // 7. Reset sources and skills atoms to not loaded
     // (prevents stale data flash during workspace switch - AppShell will reload)
-    store.set(sourcesAtom, [])
-    store.set(skillsAtom, [])
+    store.set(sourcesAtom, null)
+    store.set(skillsAtom, null)
 
     // 8. Clear session atoms BEFORE workspace switch
     // This prevents stale session data from the previous workspace being visible.

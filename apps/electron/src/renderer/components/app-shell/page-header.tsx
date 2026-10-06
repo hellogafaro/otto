@@ -18,7 +18,7 @@
  *   may pass `compactMenu` instead (a drawer whose trigger is `HeaderMoreButton`);
  * - going back and stepping through a list is the floating navigation: Back when the
  *   view has a parent (see `useParentView`), Previous / Next when the page is an item of a
- *   list (`listNav`: a chat in Chats; Settings has neither), in the frame's left gutter
+ *   list (`listNav`: a chat in Chats, a skill or a source in its grid; Settings' own pages have neither), in the frame's left gutter
  *   with Back on the axis when it is wide enough, and as ghost buttons at the end of
  *   the row's actions (Back, Previous, Next) when it is not;
  * - on the Chats index, New chat is the last of the actions (a chat has More instead);

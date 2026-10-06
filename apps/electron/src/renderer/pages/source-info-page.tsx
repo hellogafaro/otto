@@ -12,7 +12,8 @@ import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-pop
 import { SourceAvatar } from '@/components/ui/source-avatar'
 import { SourceMenu } from '@/components/app-shell/source-menu'
 import { useNavigation } from '@/contexts/navigation-context'
-import { toast } from '@workspace/ui/components/sonner'
+import { useParentView } from '@/hooks/use-parent-view'
+import { useDeleteSource } from './sources-page'
 import {
   Info_Page,
   Info_Section,
@@ -30,8 +31,6 @@ import type { PermissionsConfigFile } from '@otto/shared/agent/modes'
 interface SourceInfoPageProps {
   sourceSlug: string
   workspaceId: string
-  /** Optional callback when source is deleted */
-  onDelete?: () => void
 }
 
 /**
@@ -165,9 +164,12 @@ function getPermissionsDescription(source: LoadedSource, t: (key: string) => str
   return t('sourceInfo.accessRules')
 }
 
-export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: SourceInfoPageProps) {
+export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPageProps) {
   const { t } = useTranslation()
-  const { navigateToSource, showNotFound } = useNavigation()
+  const { showNotFound } = useNavigation()
+  // Deleted: back to the grid it was opened from, under the same filter
+  const parent = useParentView()
+  const { dialog: deleteDialog, deleteSource } = useDeleteSource(parent?.onBack)
   const [source, setSource] = useState<LoadedSource | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -332,21 +334,6 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
     }
   }, [source])
 
-  // Handle deleting source (navigates to source list, preserving current filter)
-  const handleDelete = useCallback(async () => {
-    if (!source) return
-    try {
-      await window.electronAPI.deleteSource(workspaceId, sourceSlug)
-      toast.success(t('sourceInfo.deletedSource', { name: source.config.name }))
-      navigateToSource() // Navigate to source list, preserving filter
-      onDelete?.()
-    } catch (err) {
-      toast.error(t('sourceInfo.failedToDelete'), {
-        description: err instanceof Error ? err.message : undefined,
-      })
-    }
-  }, [source, workspaceId, sourceSlug, onDelete, navigateToSource])
-
   // Get source name for header
   const sourceName = source?.config.name || sourceSlug
 
@@ -363,7 +350,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
             sourceSlug={sourceSlug}
             sourceName={sourceName}
             onShowInFinder={handleOpenSourceFolder}
-            onDelete={handleDelete}
+            onDelete={() => { if (source) deleteSource(source) }}
           />
         }
       />
@@ -519,6 +506,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
           )}
         </Info_Page.Content>
       )}
+      {deleteDialog}
     </Info_Page>
   )
 }
