@@ -3,7 +3,7 @@
  *
  * Top to bottom, five groups 20px apart (the sidebar's one gap): the header (the Otto mark; on Electron
  * the macOS traffic-light inset, the drag region and the history Back / Forward
- * buttons); Inbox (a placeholder) and Search (opens the command palette); the pages (ones with no route yet are shown, not
+ * buttons); Inbox (your notifications, the unread count at the row's end) and Search (opens the command palette); the pages (ones with no route yet are shown, not
  * linked); Pinned and Recent (`SidebarPinsRecents`, the only group that scrolls,
  * none when both are empty); and the footer (the workspace menu alone, Settings inside
  * it), pinned at the bottom. Icons only below 1024px (Pinned and Recent hidden), a
@@ -34,10 +34,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSlot,
 } from '@workspace/ui/components/sidebar'
 import { cn } from '@/lib/utils'
 import { isMac, isWebUI } from '@/lib/platform'
 import { useShortcutReveal } from '@/hooks/use-shortcut-reveal'
+import { useNotifications } from '@/hooks/use-notifications'
+import { formatUnreadCount } from '@/pages/inbox/inbox-rules'
 import { ActionTooltip } from '@/components/ui/action-tooltip'
 import type { SessionStatus } from '@/config/session-status-config'
 import type { Workspace } from '../../../shared/types'
@@ -46,11 +49,12 @@ import { SidebarPinsRecents } from './sidebar-pins-recents'
 import { useCommandPalette } from '@/components/command-palette/command-palette-provider'
 import { PRODUCT_NAME } from '@otto/shared/branding'
 
-export type SidebarArea = 'tasks' | 'chats' | 'projects' | 'routines' | 'library'
+export type SidebarArea = 'inbox' | 'tasks' | 'chats' | 'projects' | 'routines' | 'library'
 
 interface AppSidebarProps {
   /** The area that is open (its row is filled). */
   active: SidebarArea | null
+  onInbox: () => void
   onTasks: () => void
   onChats: () => void
   onProjects: () => void
@@ -80,6 +84,8 @@ interface NavItem {
   area?: SidebarArea
   /** Rows without a handler are placeholders: shown, not linked yet. */
   onSelect?: () => void
+  /** A count at the row's end (Inbox: unread notifications), none when null. */
+  count?: string | null
 }
 
 // macOS draws its traffic lights over the window's top-left, only in the desktop
@@ -88,6 +94,7 @@ const clearsTrafficLights = isMac && !isWebUI
 
 export function AppSidebar({
   active,
+  onInbox,
   onTasks,
   onChats,
   onProjects,
@@ -110,10 +117,11 @@ export function AppSidebar({
   // Holding the reveal key (⌘ on desktop, Option in the browser) shows every row's key.
   const revealShortcuts = useShortcutReveal()
   const palette = useCommandPalette()
+  const { unreadCount } = useNotifications()
 
-  // Group 1: Inbox (a placeholder until it lands) and Search, the command palette.
+  // Group 1: Inbox (its unread count, 99+ at most) and Search, the command palette.
   const inboxSearch: NavItem[] = [
-    { id: 'inbox', icon: Inbox, labelKey: 'sidebar.inbox' },
+    { id: 'inbox', icon: Inbox, labelKey: 'sidebar.inbox', area: 'inbox', onSelect: onInbox, count: formatUnreadCount(unreadCount) },
     { id: 'search', icon: Search, labelKey: 'sidebar.search', onSelect: () => palette.open() },
   ]
   // Group 2: the pages, each with a route or a placeholder.
@@ -177,6 +185,11 @@ export function AppSidebar({
                     <item.icon />
                     <span>{t(item.labelKey)}</span>
                   </SidebarMenuButton>
+                  {item.count && (
+                    <SidebarMenuSlot>
+                      <span className="px-1 text-xs text-muted-foreground tabular-nums">{item.count}</span>
+                    </SidebarMenuSlot>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

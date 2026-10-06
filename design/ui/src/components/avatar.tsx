@@ -72,13 +72,15 @@ function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
   )
 }
 
-// Otto: 20px (sm) avatars overlap 4px, the same share as stock 32px ones.
+// Otto: avatars overlap 4px (20px ones 2px) behind a 1px ring, so the next one
+// covers only the empty edge of the previous and its centered two-letter
+// initials stay whole (stock's 8px overlap and 2px ring cut them in 32px ones).
 function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="avatar-group"
       className={cn(
-        "group/avatar-group flex -space-x-2 has-data-[size=sm]:-space-x-1 *:data-[slot=avatar]:ring-2 *:data-[slot=avatar]:ring-background",
+        "group/avatar-group flex -space-x-1 has-data-[size=sm]:-space-x-0.5 *:data-[slot=avatar]:ring-1 *:data-[slot=avatar]:ring-background",
         className
       )}
       {...props}
@@ -94,7 +96,7 @@ function AvatarGroupCount({
     <div
       data-slot="avatar-group-count"
       className={cn(
-        "relative flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-sm text-muted-foreground ring-2 ring-background group-has-data-[size=sm]/avatar-group:rounded-xs group-has-data-[size=lg]/avatar-group:rounded-lg group-has-data-[size=lg]/avatar-group:size-10 group-has-data-[size=sm]/avatar-group:size-5 [&>svg]:size-4 group-has-data-[size=lg]/avatar-group:[&>svg]:size-5 group-has-data-[size=sm]/avatar-group:[&>svg]:size-3",
+        "relative flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-sm text-muted-foreground ring-1 ring-background group-has-data-[size=sm]/avatar-group:rounded-xs group-has-data-[size=lg]/avatar-group:rounded-lg group-has-data-[size=lg]/avatar-group:size-10 group-has-data-[size=sm]/avatar-group:size-5 [&>svg]:size-4 group-has-data-[size=lg]/avatar-group:[&>svg]:size-5 group-has-data-[size=sm]/avatar-group:[&>svg]:size-3",
         className
       )}
       {...props}

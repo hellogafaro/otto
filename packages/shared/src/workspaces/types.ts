@@ -99,6 +99,8 @@ export interface WorkspaceMember {
   name: string
   email: string
   role: WorkspaceRole
+  /** Set on the caller's own entry only. */
+  me?: true
 }
 
 /** A pending invitation. `link` is what the owner sends: the invitee opens it to sign up and accept. */

@@ -82,6 +82,7 @@ const ACTION_LABEL_KEYS: Partial<Record<ActionId, string>> = {
   'chat.cyclePermissionMode': 'shortcuts.action.cyclePermissionMode',
   'chat.nextSearchMatch': 'shortcuts.action.nextSearchMatch',
   'chat.prevSearchMatch': 'shortcuts.action.prevSearchMatch',
+  'task.changeStatus': 'tasks.changeStatus',
 }
 
 const JUMP_REST = new Set<string>(JUMP_ACTION_IDS.slice(1))

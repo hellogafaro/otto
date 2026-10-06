@@ -19,6 +19,7 @@ import AiSettingsPage from './ai-settings-page'
 import AppearanceSettingsPage from './appearance-settings-page'
 import InputSettingsPage from './input-settings-page'
 import WorkspaceSettingsPage from './workspace-settings-page'
+import MembersSettingsPage from './members-settings-page'
 import PermissionsSettingsPage from './permissions-settings-page'
 import LabelsSettingsPage from './labels-settings-page'
 import MessagingSettingsPage from './messaging-settings-page'
@@ -36,6 +37,7 @@ export const SETTINGS_PAGE_COMPONENTS: Record<SettingsSubpage, ComponentType> = 
   appearance: AppearanceSettingsPage,
   input: InputSettingsPage,
   workspace: WorkspaceSettingsPage,
+  members: MembersSettingsPage,
   permissions: PermissionsSettingsPage,
   labels: LabelsSettingsPage,
   messaging: MessagingSettingsPage,

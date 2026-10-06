@@ -13,7 +13,9 @@ import { Toaster as Sonner, toast as sonner, type ToasterProps } from "sonner"
 // 28px ghost button 6px in (its 6px corners + 6 = 12, nested); the message
 // sits 12px in and wraps, so a toast is as tall as what it says (40px for
 // one line). Bottom right, out of the floating chat's way. Styled through
-// Sonner's classNames (unstyled), so no defaults fight it.
+// Sonner's classNames (unstyled), so no defaults fight it: no stylesheet may
+// restyle `[data-sonner-toast]` either (a leftover one hid every icon). The icon
+// slot is `relative` because Sonner's loading spinner is absolutely centred in it.
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
@@ -45,7 +47,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
             "cn-toast dark flex w-(--width) items-center gap-2 rounded-xl bg-popover/70 p-1.5 pl-3 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 backdrop-blur-2xl backdrop-saturate-150",
           content: "min-w-0 flex-1 py-1",
           // On the first line's middle when the message wraps.
-          icon: "mt-1 flex h-5 w-3.5 shrink-0 items-center justify-center self-start",
+          icon: "relative mt-1 flex h-5 w-3.5 shrink-0 items-center justify-center self-start",
           title: "font-normal",
           // Last in the row: the 28px ghost button itself. Sonner's theme
           // paints its close button (background, border, color) with

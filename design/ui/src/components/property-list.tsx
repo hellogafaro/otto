@@ -26,8 +26,8 @@ function PropertySection({
   children,
 }: {
   title: React.ReactNode
-  /** Shown after the title; 0 is not drawn. */
-  count?: number
+  /** Shown after the title; 0 is not drawn. Otto: text too (a total, such as a task's logged time). */
+  count?: number | string
   defaultOpen?: boolean
   className?: string
   children?: React.ReactNode

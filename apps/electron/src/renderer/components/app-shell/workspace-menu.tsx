@@ -31,6 +31,7 @@ import { waitForTransportConnected } from '@/lib/transport-wait'
 import { useWorkspaceIcons } from "@/hooks/use-workspace-icon"
 import { useTransportConnectionState } from "@/hooks/use-transport-connection-state"
 import { readLocalAccount, useCurrentUser } from "@/hooks/use-current-user"
+import { useWorkspaceMembers } from "@/hooks/use-workspace-members"
 import type { Workspace } from "../../../shared/types"
 
 interface WorkspaceMenuProps {
@@ -69,6 +70,7 @@ function getInitials(name: string): string {
  * the current workspace (avatar, name), Settings, the workspaces to switch
  * to (a check on the current one, remove on hover for the others) with New
  * workspace, then the account block and, on the web only, Log out. The account
+ * (name, then the role in this workspace and the email)
  * is the signed-in person on the web (static); on Electron the name and email
  * from Settings -> Preferences, a muted placeholder for each one not set, and it
  * opens that page.
@@ -96,6 +98,8 @@ export function WorkspaceMenu({
   const [preferencesAccount, setAccount] = useState({ name: '', email: '' })
   const sessionUser = useCurrentUser()
   const account = isWebUI ? sessionUser ?? { name: '', email: '' } : preferencesAccount
+  const { members, me } = useWorkspaceMembers()
+  const role = members.find((member) => member.actor === me)?.role
   const isRemote = connectionState?.mode === 'remote'
 
   // Health check results for non-active remote workspaces (checked on dropdown open)
@@ -224,6 +228,7 @@ export function WorkspaceMenu({
           {account.name || t('workspaceMenu.accountNamePlaceholder')}
         </span>
         <span className="truncate text-xs leading-4 text-muted-foreground">
+          {role && `${t(`members.role.${role}`)} · `}
           {account.email || t('workspaceMenu.accountEmailPlaceholder')}
         </span>
       </span>

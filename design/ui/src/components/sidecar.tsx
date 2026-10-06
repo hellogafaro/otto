@@ -57,7 +57,11 @@ function Sidecar({
       aria-label={typeof title === "string" ? title : undefined}
       inert={!open}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
+        // Otto: only while focus is inside it in the DOM: a dialog opened from it (a portal) bubbles here in React.
+        if (
+          event.key === "Escape" &&
+          event.currentTarget.contains(event.target as Node)
+        ) {
           event.stopPropagation()
           onOpenChange(false)
         }

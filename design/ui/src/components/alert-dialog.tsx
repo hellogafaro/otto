@@ -94,15 +94,18 @@ function AlertDialogFooter({
   )
 }
 
+// Otto: `destructive` is shadcn's destructive example, the icon on a red-tinted tile (DESIGN.md, Alert dialog).
 function AlertDialogMedia({
   className,
+  variant = "default",
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & { variant?: "default" | "destructive" }) {
   return (
     <div
       data-slot="alert-dialog-media"
+      data-variant={variant}
       className={cn(
-        "mb-2 inline-flex size-16 items-center justify-center rounded-md bg-muted sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-8",
+        "mb-2 inline-flex size-16 items-center justify-center rounded-md bg-muted sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-8 data-[variant=destructive]:bg-destructive/10 data-[variant=destructive]:text-destructive dark:data-[variant=destructive]:bg-destructive/20",
         className
       )}
       {...props}

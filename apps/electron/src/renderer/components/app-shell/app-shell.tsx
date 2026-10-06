@@ -31,6 +31,7 @@ import {
   isProjectsNavigation,
   isLibraryNavigation,
   isTasksNavigation,
+  isInboxNavigation,
 } from "@/contexts/navigation-context"
 import { useAutomations } from "@/hooks/use-automations"
 import { useRecordRecent } from "@/hooks/use-recents"
@@ -560,6 +561,10 @@ function AppShellContent({
     navigate(routes.view.tasks())
   }, [])
 
+  const handleInboxClick = useCallback(() => {
+    navigate(routes.view.inbox())
+  }, [])
+
   const handleAllSessionsClick = useCallback(() => {
     navigate(routes.view.allSessions())
   }, [])
@@ -604,7 +609,9 @@ function AppShellContent({
           ? 'routines'
           : isLibraryNavigation(navState)
             ? 'library'
-            : null
+            : isInboxNavigation(navState)
+              ? 'inbox'
+              : null
 
   return (
     <AppShellProvider value={appShellContextValue}>
@@ -615,6 +622,7 @@ function AppShellContent({
         <CloseSheetOnNavigate />
         <AppSidebar
           active={sidebarArea}
+          onInbox={handleInboxClick}
           onTasks={handleTasksClick}
           onChats={handleAllSessionsClick}
           onProjects={handleProjectsClick}

@@ -402,6 +402,17 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.timesheets.CREATE,
   RPC_CHANNELS.timesheets.DELETE,
 
+  // comments, notifications and the change push — live in the workspace's server
+  RPC_CHANNELS.comments.GET,
+  RPC_CHANNELS.comments.CREATE,
+  RPC_CHANNELS.comments.UPDATE,
+  RPC_CHANNELS.comments.DELETE,
+  RPC_CHANNELS.notifications.GET,
+  RPC_CHANNELS.notifications.SET_STATUS,
+  RPC_CHANNELS.notifications.CLEAR,
+  RPC_CHANNELS.notifications.GET_UNREAD_COUNT,
+  RPC_CHANNELS.domain.CHANGED,
+
   // pages — workspace pages (mini dashboards)
   RPC_CHANNELS.pages.GET,
   RPC_CHANNELS.pages.GET_ONE,

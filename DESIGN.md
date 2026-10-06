@@ -430,7 +430,7 @@ is fixed at 12px; 10.2px read too small.
 | key | `text-[0.6875rem]` | 11px / 16px | Keys (`Kbd`) and the questionnaire's number keys |
 | caption | `text-xs` | 12px / 16px | Badges, tooltips, times, day dividers, small metadata |
 | body | `text-sm` | 13px / 20px | All UI text: buttons, rows, menus, comments, body |
-| heading | `text-base` | 16.5px / 24px | Page section titles (`PageSection`), section headings (Activity), empty-state titles, editor H1 |
+| heading | `text-base` | 16.5px / 24px | Page section titles (`PageSection`), section headings (Comments), empty-state titles, editor H1 |
 | title | `text-lg` | 21px / 28px | Page titles |
 
 - The page ladder is golden: page title T = 21 (13 x φ); a section title is T / √φ
@@ -576,12 +576,15 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     below them) and Back / Forward end it as two 28px ghost icon buttons with
     their keys in the tooltip (history back and forward, see Navigation). The
     web app has neither: the browser has its own.
-  - **Group 1, Inbox and Search**, only these two: Inbox is a placeholder for
-    now; Search opens the command palette on All (⌘K does the same).
+  - **Group 1, Inbox and Search**, only these two: Inbox opens your
+    notifications (`/inbox`, see Inbox) and shows their unread count in the row's
+    right slot (12px muted tabular, the slot's time look; `99+` at most, nothing
+    at 0, hidden icons only), filled while the Inbox is open; Search opens the
+    command palette on All (⌘K does the same).
   - **Group 2, the pages**, in this order: Tasks, Projects, Chats, Routines
     (`Clock`), Library (`Library`: documents and files in one place). Both groups
     are small arrays in `app-sidebar.tsx` (`inboxSearch`, `pages`: id, icon, label,
-    optional handler). A row with no route yet (Inbox) is a placeholder,
+    optional handler, optional count). A row with no route yet is a placeholder,
     shown not linked: no handler, no pointer, no tab stop (`aria-disabled`),
     no open state, and still fully readable (not dimmed); the layout is final.
     There is no New chat row: New chat is the page header's button and ⌘N. Rows are 28px with
@@ -644,7 +647,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     filled `foreground/10` only while highlighted, the same 6px item corners, a 20px
     tile (`xs` 4, `bg-muted`, centered on the two lines) in the slot with the
     initials of the name, or a User icon when none is set, and
-    two lines, the name (13px medium) over the email (12px, muted, truncating). On the
+    two lines, the name (13px medium) over the role in this workspace and the email
+    ("Owner · ada@example.com", 12px, muted, truncating; the role from
+    `useWorkspaceMembers`, absent until it loads). On the
     web it is the signed-in person (`useCurrentUser`, `GET /api/auth/get-session`,
     fetched once per page load), a static block that opens nothing, so a second person
     never sees the first one's identity; on Electron both come from Settings →
@@ -795,7 +800,7 @@ no shadow.
   (a 16px glyph, half the tile: CircleCheck, Folder, Clock, Library), a heading-size title, one
   benefit-led description sentence, and one primary 32px button, which has no
   action yet (enabled, no toast). The strings are in the table under the
-  Empty-state rules ("Tasks", "Projects", "Routines", "Library"). Tasks, Projects and Library are routed (index and detail, docs/routing.md) and their pages are placeholders showing this state until they are built; Routines has no detail route.
+  Empty-state rules ("Tasks", "Projects", "Routines", "Library"). Tasks, Projects and Library are routed (index and detail, docs/routing.md) and their pages are placeholders showing this state until they are built (Projects, Tasks and Library are built, see Index pages, Project page and Library); Routines has no detail route.
 - **PageWrap (trial, an experiment until the owner confirms it).** ONE
   line-only wrapper around a page's blocks, under its title row, as Threads
   wraps its feed: a 1px `--card-ring` border (the card edge's color), `2xl` 20
@@ -814,6 +819,97 @@ no shadow.
   (`SettingsIndexPage`: Account and Workspace as sections of cards, Skills and
   Sources among the Workspace ones). The sidebar's rows open them; the detail's Back
   returns to them.
+- **Projects index** (`ProjectsPage`, `pages/projects/`): a blocks page titled
+  "Projects" whose actions are Filter (one on/off field, Archived:
+  `?status=archived` lists the archived projects instead of the active ones,
+  their titles muted) and "+" (New project, in its tooltip); no Search until
+  the palette has a Projects category, no counts or covers yet. Under the title
+  the `FilterBar` while Archived is on, then `Gallery columns={3}` of 16:9
+  tiles on the frame (the Folder glyph, the sidebar's Projects icon, in the
+  icon tile; Folder and the title under it). A tile opens its project; its
+  right-click menu and hover ⋯ are one list: Open, Copy link (C), then
+  Archive / Restore (A), which applies at once with the one "Saved" toast (a
+  discrete action: no confirmation; projects are never deleted here). Loading
+  is three `GalleryItemSkeleton`s. No projects at all: the title row and the
+  section's empty state ("No projects yet", "New project"), whose button opens
+  the same dialog as "+" (empty-state rule 1); only archived ones: the same
+  empty state under the full header, so Filter stays reachable; Archived with
+  none: `NoResults`. **New project** (`ProjectFormDialog`, reused by Tasks and
+  the sidebar) is the stock dialog: Title (required, at most 200) and
+  Description (a textarea), Cancel and Create (a spinner while it saves); it
+  opens the new project, a failure toasts and keeps what was typed.
+- **Tasks index** (`TasksPage`, `pages/tasks/`): the workspace's tasks across
+  ALL projects (the owner's call; v1 listed one project at a time), a grouped
+  list on the frame (`TaskGroups`, Data patterns 1, also a project's Tasks tab
+  without the project badge). Actions: Filter (Project, Assignee: you as "Me"
+  first, then people, then agents, Status: Todo / In progress / Done, then
+  Archived on/off; Project and Assignee take one value, the URL's) and "+" (New
+  task). Groups Todo, In progress, Done (folded unless the Status filter asks for
+  it), Archived (folded last; the whole list, open, when Archived is on); a
+  group's "+" starts a new task in that status. A row (44px): the status icon
+  (`TaskStatusIcon`: Circle todo grey, CircleDot doing purple, CircleCheck done
+  green, Archive muted), the title (at 80% when done or archived), the
+  assignees' 20px `AvatarGroup` (one tooltip names them), the project as an
+  outline `Badge`, the due date ("Oct 4", else nothing) in the end column; the
+  ⋯ menu: Open, Status (submenu, keys 1 to 3), Copy link (C), Archive / Restore
+  (A), applied at once with the "Saved" toast. Loading: three 40px skeleton
+  rows. No tasks at all: the title row and the section's empty state, whose
+  button is "New task", or "New project" while no project exists (a task needs
+  one: it opens New project, then New task in it). Filters that keep nothing:
+  `NoResults`. **New task** (`TaskFormDialog`) is the stock dialog: Title
+  (required), Project (native select: the filtered project, else the first
+  active one), Assignees (`AssigneePicker` as chips), Due date (native date
+  input), Cancel and Create; it opens the new task.
+- **Task page** (`TaskPage`): a centerpiece page. The title row's title is the
+  task's title, edited in place (an input that looks like the title; Enter or
+  blur saves, an emptied title springs back); actions Details (`PanelRight`,
+  pressed while the sidecar is open) and More (Copy link C, Archive / Restore
+  A). The centerpiece: "Created by {name}, {date}" (12px muted) over the
+  description in the markdown editor (`TiptapMarkdownEditor`, `/` blocks).
+  Title and description autosave as one draft (Autosave). Under the
+  description, 32px down, the task's Comments (`CommentThread`, see Comments).
+  There is no activity log. The sidecar "Details" (closed by default):
+  Properties (Status, S opens its menu while the Details are open, keys 1 to 3;
+  Assignees, a searchable multi picker; Due date, the native picker opened by
+  the row, × clears it; Project, a menu of active projects), Links (web links,
+  library items and chats, `ResourceList`: a row opens it, × removes it, "New
+  link" opens a dialog with compact tabs Web link / Library / Chat, at most 50),
+  Time (entries "Maria · 1h 30m · Oct 4", notes in a hover card, × on your own;
+  the total is the section's count; "New time entry": minutes and notes).
+  Assignees and due date autosave; status, project, links and time apply at
+  once; every change shows the one "Saved" toast and a `conflict` reloads. An
+  id the workspace does not have shows the not-found page.
+- **Project page** (`ProjectPage`, `pages/projects/project-page.tsx`): a blocks
+  page. The title row's title is the project's title, edited in place like the
+  task's; actions Details (`PanelRight`, pressed while open) and More (Copy link
+  C, Archive / Restore A, at once with the "Saved" toast). Under it, 12px above
+  the content, the 32px `Tabs` with their `Count`s (labels on the title's 16px
+  line, no icons, like the Library's; on a phone they scroll sideways), in
+  `?tab=`: Overview, Tasks (open tasks), Documents, Files. A tab's one action
+  ends the tab row, a 28px ghost button 16px in (the header actions' line;
+  on a phone it wraps under the tabs): Tasks "New task" (`TaskFormDialog` with
+  the project preset; a group's "+" too), Documents and Files "Add from
+  library" (a searchable list of the library's items of that kind not linked
+  yet; a pick links it at once). **Overview**, sections 32px apart: the
+  description in a card (the markdown editor, 16px in; it autosaves with the
+  title as one draft), Links (`ResourceList` in a card, 4px in: web links,
+  library items, chats; × removes, "New link" adds, at once) and Members (the
+  settings row: 20px `ActorAvatar`, name, the role as an outline `Badge`
+  Contributor / Viewer, a ⋯ with the role as radio items and Remove; "Add
+  member" ends the section's title row and lists the workspace's people and
+  agents not in the project, who join as Contributor). Roles are data only:
+  nobody's buttons are gated. **Tasks**: `TaskGroups` of the project, or the
+  inline `Empty` "No tasks yet". **Documents / Files**: the project's library
+  links (`resources` of type `library`) as a 4-column `Gallery` of
+  `LibraryTile`s (Open, Copy link, then Remove from project apart); a link
+  whose item is gone is a tile captioned "Unavailable", title muted, whose menu
+  is Remove from project (its tab comes from its title: `.md` is a document);
+  none is the inline `Empty` "No documents yet" / "No files yet", no action.
+  The Details sidecar (closed by default): Properties (Status, Active or
+  Archived from its menu; Created) and Chats (the chats bound to the project by
+  `projectId`, newest first, a row opens it; not drawn when none). An empty
+  picker says why ("Everyone is already in this project"). An id the workspace
+  does not have shows the not-found page.
 - **Data patterns.** Three ways to show a set of things, by what it is:
   1. **Grouped list** (`ListGroup`, `ListRow`; Otto v1's table, Linear's and
      Codex's pattern) for collections you work through: Chats, Tasks, Routines.
@@ -1034,7 +1130,7 @@ as a card).
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
 | `PageGrid`, `GridCard` | `icon`, `title`, `render` | the card grid of a navigation hub; see Data patterns |
-| `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `ratio`, `menu`, `actions`, `current`, `disabled`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
+| `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
 | `PropertySection`, `PropertyRow` | `title`, `count`, `defaultOpen`; `icon`, `label`, `value`, `placeholder`, `kbd`, `actions`, `readOnly` | the sidecar's Details blocks; see Components, Property list |
 | `Sidecar` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel`, `surface` | canvas by default, `surface` wraps it in a card (undecided); see Layout; closed by default |
 | `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column and centers Back on the top axis, the buttons are its narrow form for the title row's actions |
@@ -1316,10 +1412,21 @@ after + holds pickers (model, agent). Enter sends, Shift+Enter adds a line.
 chosen in the composer's agent picker (the `tools` slot) or reached through the
 floating chat, not tagged by name in the text.
 
-**Tags** (`MentionChip`). Everywhere (composer, messages, comments): the type
-icon and label in primary on a soft primary tint (10%, 15% dark) with `xs`
-corners, stored as `@[label](type:id)`. Tag text on its tint is 3.5:1 in light
-(4.4:1 dark), a known tradeoff of the sky tone: medium weight, 13px.
+**Tags** (`EntityChip`, `components/entities/`). Everywhere a typed reference
+shows in text (comments now): the type's 14px icon (task `CircleCheck`, project
+`Folder`, library `Library`, comment `MessageSquare`) and its live title in
+primary on a soft primary tint (10%, 15% dark), `xs` corners, 4px side padding,
+medium 13px; a person reads "@Name" with no icon. What is stored is the bare
+token `<type>:<id>` (`ENTITY_TOKEN` in `@otto/shared/entities`, the same regex
+the server finds mentions with), never a label, so a rename shows everywhere.
+A chip with a page (task, project, library item) is a button that opens it
+(hover `primary/15`, `/20` dark, the inset focus ring); a person and a comment
+are plain. While its list loads a chip reads its type ("Task"); once loaded
+without it, a muted "Unavailable" on `foreground/5`. `EntityText` draws markdown
+(the app's renderer) with every token outside code as a chip. Chips read the
+shared lists only; the surface that draws them loads them once
+(`useEntityData`). Tag text on its tint is 3.5:1 in light (4.4:1 dark), a known
+tradeoff of the sky tone.
 
 **Dictation.** While listening the composer row shows ×, the level as 4px
 bars 2px apart, the elapsed time and Done. The bars start flat (a row of 4px
@@ -1367,24 +1474,55 @@ behind it, so its translucent snapshot looks like the real surface at every
 frame: no flash at either end. Old snapshots leave quickly where both sides
 have content, so nothing shows twice.
 
-**Activity.** A timeline (`Timeline`), like Shopify's: one straight
-hairline down the left, under the cards' avatars. Cards (comments, a
-schedule's runs, the comment composer at the end) sit over it at full width,
-so it shows only between them; events are muted single lines on an 8px dot,
-their text lined up with the cards' names. Comment cards have Copy and Reply
-in the top-right corner on the card insets. Replies stay flat: Reply tags the
-author. Comment attachments open in the file viewer.
+**Comments** (`CommentThread`, `components/comments/`, data in
+docs/activity-notifications.md). On a task (and a project) under the
+description, flat inside its centerpiece, no cards, no timeline, no activity
+events: the section title "Comments" (heading step, medium) with its `Count`
+(none at 0), 12px above the list; comments oldest first, 20px apart, each a
+28px `ActorAvatar` (`sm` 6), 12px, then the name (13px medium), the compact
+time ("now", "5m", 12px muted tabular) and "Edited" (12px muted) when changed
+after it was sent, on one 20px line, the content 4px under it (`EntityText`,
+the outer paragraph margins trimmed so the text starts on the line). Your own
+comment has a 24px ghost ⋯ at the end of its name line (on hover, focus or
+while open; always on touch): Edit E and Delete ⌫ (red). Edit swaps the content
+for the textarea with Cancel (28px ghost) and Save (28px primary); a comment
+edit is submitted, never autosaved; ⌘/Ctrl+Enter saves, Escape cancels, a
+`conflict` toasts "Changed elsewhere, reloaded" and keeps the draft open.
+Delete asks first (Alert dialog, "Delete comment?"), then toasts "Comment
+deleted". No comments: the muted line "No comments yet". Loading: two 40px
+skeleton rows. **The comment box** ends the section: the stock `Textarea` (the
+input well, one line that grows to 240px; read-only while sending) and under it,
+right-aligned, Send (28px primary, a spinner while it sends, disabled while
+empty; its tooltip shows the label and ⌘↵ / Ctrl+↵ as a `Kbd`). A sent comment
+shows at once (the hook reloads) and for everyone else through the live push;
+a failure toasts and keeps the text. **Mentions**: typing `@` (at the start or
+after a space) opens the people list (the menus' look, `menu-styles.ts`, as wide
+as the box up to 288px, under it or above it when there is no room): 28px rows
+of the 20px avatar, the name and the muted email, the people of the workspace
+but you (agents are not mentioned: they get no notifications), matched on a word
+start of the name or email; ↑↓ move, Enter or Tab picks, Escape closes it.
+Picking puts the person's token `user:<id>` and a space in place of `@query`:
+the box shows the raw token (the leanest that works), the sent comment the
+"@Name" chip. Replies, reactions and attachments are not built.
 
-**Inbox** is home ("/"), like Notion's Home: your day under a centered
-greeting ("Good afternoon, Johan", the page title's size and spacing), in
-one section per kind: an h2 with its count, like Activity's, then rows the
-same as on their own pages, their icons lined up with the heading. Tasks:
-what you own or are assigned, still open, review first. Notifications:
-mentions, assignments, review requests and shares today ("Forge mentioned
-you in …", read ones muted). Chats: waiting on you (a question, a review, a
-failed run, with what it wants) or unread. Schedules: today's runs, done
-("Ran 9:00") or still to come ("Today 18:00"). Empty sections don't show;
-with nothing at all, it reads "Nothing needs you".
+**Inbox** (`InboxPage`, `pages/inbox/`, `/{ws}/inbox`): your notifications
+in the workspace, newest first, a blocks page titled "Inbox" with one flat list
+on the frame (the grouped list's 44px `ListRow`s, no group header, no
+hairlines): the sender's 20px `ActorAvatar` in the icon column, one line,
+"Maria mentioned you in Fix login" / "Maria assigned you Ship v1" (the title
+looked up live, the server's while the lists load, "Unavailable" when gone),
+after a mention the comment's first line muted 8px after it (tokens as names,
+markdown marks dropped), the 6px primary unread dot, the compact time in the
+end column; read rows at 80%. A row opens what it is about (a mention: the task
+or project its comment is on) and marks it read; its ⋯ (28px) has Mark as read /
+Mark as unread U and Clear (no confirmation: it removes the notification, not
+content). The title row: Mark all as read (28px ghost icon button, `CheckCheck`,
+tooltip; disabled with nothing unread; an icon so the title keeps its room on a
+phone) and Filter (one on/off field, Unread, in `?unread=1`, its chip under the
+title while on). Loading: three 40px skeleton rows. Nothing at all: the title
+row and the stock `Empty` ("No notifications yet", no button); Unread with none:
+`NoResults`. New notifications arrive live (the `notifications` push), in the
+list and the sidebar's count.
 
 **Chats.** One chat model for every kind: a project's one general chat
 (#name), group chats (any members, with or without a project) and direct
@@ -1476,8 +1614,32 @@ field, or a `compact` button. Everything saves as you go, no Save button: a
 change waits 800ms for the next (`useAutosave`, see Autosave), blur or leaving
 saves at once, and a value flipped back sends nothing. Every save shows the
 "Saved" toast, one at a time: saves close together refresh it.
-Deleting sits last under "Danger zone" and asks first. Adding an agent, a
-connection or a member asks an agent.
+Deleting sits last under "Danger zone" and asks first. Adding an agent or a
+connection asks an agent; a member is invited from Settings › Members (below).
+
+**Members** (Settings › Members, `members-settings-page.tsx`; rules in
+`members-rules.ts`). Two sections in the settings anatomy, no wrapper. **Members**:
+one row per person, owners first, then by name: the 32px `ActorAvatar` in the
+row's icon tile, the name (medium; a muted "You" after your own) over the email
+(muted), then the role and a 28px ghost ⋯. Owners change any role in a 28px
+`Select` (96px wide so the column lines up; Owner, Member); everyone else sees an
+outline `Badge`. The ⋯ holds Remove on someone else's row (owners only) and
+Leave workspace on your own; rows with neither keep an empty 28px slot. Remove
+and Leave ask first (`AlertDialog`, the destructive tile with `UserMinus` or
+`LogOut`; "Remove member?", "Leave workspace?"); leaving opens another workspace
+(or `/` when there is none). The last owner cannot leave, be removed or become a
+member: the action toasts "A workspace needs at least one owner" without asking,
+and the server's `conflict` says the same. **Invitations** (owners only): "Invite
+member" (28px ghost, `Plus`) ends the section's title row; rows are the email
+over "Expires in 6 days" (whole days, rounded up, at least 1) with a `Mail` tile
+and a ⋯ of Copy link and Revoke (red); none reads "No invitations yet" in the
+card. Invite member is a dialog: an email field and Create link; then the same
+dialog shows the link in a read-only field with Copy, under the note that the
+link is a secret (whoever has it can join as that email); no mail is sent. Role
+changes, Revoke and Remove apply at once with the shared toast ("Saved",
+"Invitation revoked", "Ada removed"); Copy says "Link copied". Errors toast by
+code (`forbidden`, `not_found`, `conflict`); in the dialogs they stay open and
+say it in place.
 
 **Models** (Settings › Models). Two lists by who can use the account:
 "Your connections" (only you) and "Workspace connections" (everyone in the
@@ -1530,8 +1692,8 @@ tile, "No results", "Try changing or clearing your filters.", and an outline "Cl
 **Filters** (`FilterMenu`, `FilterBar`, `NoResults`; one shared set). The
 header's Filter button (a 28px ghost icon button, pressed while any filter is
 on) opens a menu with a submenu per property (Chats: Status, Labels, then
-Flagged and Archived as on/off items; Tasks: owner, assignee, project,
-priority; Documents: created by, project, label, visibility; Files: type,
+Flagged and Archived as on/off items; Tasks: project, assignee, status, then
+Archived; Documents: created by, project, label, visibility; Files: type,
 project, label, made by). A submenu lists the options with their icons and
 counts as checkable items: several can be on (the check is what is on, picking
 it again turns it off), and adding one never drops the others. Fields AND
@@ -1577,8 +1739,8 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
 - **Categories and data** (all local, nothing fetched, matched on the debounced query):
   **All**, then **Chats** (the workspace's chats from the sessions store: status
   icon, title, relative time; archived last; opens the chat), **Pages** (the
-  sidebar's pages with its icons: Tasks, Projects, Chats, Routines, Library;
-  Inbox has no route yet; Tasks, Routines and Library have no data of their own
+  sidebar's pages with its icons: Inbox, Tasks, Projects, Chats, Routines, Library;
+  Tasks, Routines and Library have no data of their own
   yet, so they are pages only), **Settings** (every page of `SETTINGS_NAV_GROUPS`
   with the Settings index's icons; Shortcuts shows ⌘/), **Skills** and
   **Sources** (the shell's loaded skills and sources with their avatars; opens
@@ -1600,24 +1762,25 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   the dialog has closed, through `navigate(routes.view.*)` or the action
   registry, so an action that moves focus (New chat) keeps it.
 
-**Task list.** Groups by status in lifecycle order under full-width
-`secondary` header buttons. Each row: its status icon (under the header's),
-the title, then an avatar group of everyone involved (owner first, then
-assignees; one tooltip lists them), with the project badge and date on the
-right. 20px avatars in a group overlap 4px.
+**Task list.** Groups by status in lifecycle order (`ListGroup` bands, see
+Tasks index). Each row: its status icon (under the header's), the title, then
+the assignees' avatar group (one tooltip lists them; there is no owner, the
+creator shows on the task page), with the project badge and due date on the
+right. Avatars in a group overlap 4px (20px ones 2px) behind a 1px ring, so the
+initials of the one underneath stay whole.
 
 **Detail pages** (`DetailView`). Tasks, projects and documents share one shape:
 the top bar, then the page (optional cover, title, people row, body), the
 right panel and the floating chat.
 
-- **Task:** owner and assignee as avatar buttons (no labels; hover names the
-  role and its key); the description (markdown editor with `/` blocks);
-  Activity; the comment composer.
-- **Project:** cover, owner and members; 32px tabs with icons and muted counts
-  (Overview, Tasks, Documents, Files), kept in the URL (`?tab=`). Overview
-  is the description; Tasks is the task list without the project badge;
-  Documents and Files are galleries. Empty tabs show the `Empty` shape
-  without an action. Panel: Properties (Status, Priority) and its Chat.
+- **Task:** see Task page (Page anatomy): the title in place, "Created by", the
+  description (markdown editor with `/` blocks), then Comments. Panel:
+  Properties, Links, Time.
+- **Project:** see Project page (Page anatomy): 32px tabs with muted counts
+  (Overview, Tasks, Documents, Files) in `?tab=`; Overview is the description,
+  Links and Members; Tasks is the task list without the project badge;
+  Documents and Files are galleries. Panel: Properties (Status, Created) and
+  its Chats.
 - **Document:** cover when it has an image, the author as plain text (set by
   the server), the content in the editor. Panel: Project (or none) and
   Visibility (Only me / Workspace).
@@ -1656,7 +1819,8 @@ items").
 - **States**: rest ring `/10`; hover, a menu open (right-click or ⋯) and
   `current` (the open item) ring `/20`, no fill and no lift (the tile never
   changes size); focus-visible a 2px inset `--ring` on the tile; `disabled`
-  (pending or unavailable) 60%, no pointer, no focus; loading
+  (pending or unavailable) 60%, no pointer, no focus; `muted` (archived) the
+  title in `muted-foreground`, the tile unchanged and still a link; loading
   `GalleryItemSkeleton`, the same box: the tile as a `Skeleton` at the tile's `md`
   corners (it is tile-sized, so the skeleton's `xs` would read sharp) and a 14px
   title line at `xs`.
@@ -1696,7 +1860,7 @@ archive, never delete.
 
 **Menu keys and Delete.** Quick actions show their key as a `Kbd` on the
 right, and the key runs them while the menu is open (ahead of typeahead):
-Rename R, Copy link C, Pin P, Mark as done E, Archive A, Delete ⌫ (Backspace
+Rename R, Move M, Copy link C, Pin P, Mark as done E, Archive A, Delete ⌫ (Backspace
 or Delete); options with number keys pick by them too. Delete is always the
 destructive variant: red text and icon, a red-tinted highlight.
 
@@ -1722,6 +1886,8 @@ menus' surface in both themes with a card's 12px corners: Close is the 28px
 ghost button 6px in (nested), the message 12px in and wrapping, so the toast
 is as tall as its message (40px for one line); bottom right.
 Copy link, Archive and Delete say they are done with one.
+A list that fails to load stops showing skeletons, keeps what it had and toasts "Couldn't load. Try again" (one at a time).
+No stylesheet restyles `[data-sonner-toast]` or hides its icon: the component's classes are the only look.
 
 **Autosave.** What you edit in place has no Save button: task and project
 fields, documents, settings. A change shows at once and saves 800ms after the
@@ -1734,17 +1900,54 @@ draft with a retry. A save that finds the record changed elsewhere
 drops the draft and refetches. A refetch or live update never overwrites a
 draft with unsaved changes. All of it is `useAutosave`.
 
-**Files.** Everything saved is a file: uploads, task and chat attachments,
-and agents' outputs, canvases included (never "artifact"). Like a drive:
-folders, nested to any depth, come first in the gallery as 4:5 tiles (a big
-folder and how many items it holds), then the files; inside a folder the top
-bar's breadcrumb (Files › Brand › Logos) is the way back up, and the page
-takes the folder's name. No side panel. Filters, the shared set (type,
-project, label, made by), search the open folder and everything inside it as
-one flat list. + is one menu: Upload file, or New folder, named in place on
-its tile (Enter makes it, Escape drops it); both land in the open folder.
-Folder, filters and open file live in the URL. Folders persist through the
-backend, nest at most eight levels, and archive only when completely empty.
+**Library** (built: `pages/library/`). Everything saved is a file: uploads,
+task and chat attachments, and agents' outputs, canvases included (never
+"artifact"); a document is a markdown file. ONE page, title "Library", like a
+drive:
+
+- **Tabs** All / Files / Documents (32px `Tabs`, `?tab=`), their labels on the
+  title's 16px line; folders come first in every tab, then files, then
+  documents, newest first, in a 4-column `Gallery` of 4:5 tiles (`LibraryTile`,
+  reused by a project's Documents and Files tabs): a folder its folder glyph, a
+  file its file glyph and its extension as the caption ("PDF"), a document the
+  document glyph and its title without `.md`. No item counts or thumbnails yet.
+- **Folders** (`?folder=`) nest at most eight levels. Inside one, a muted
+  breadcrumb row (Library › Reports › Q3, 13px, 16px in) sits under the tabs,
+  each step a link and the open folder in foreground; the title row stays
+  "Library" (no crumbs in the title). A folder that is gone sends the page back
+  to the root.
+- **Title row**: Filter ("Created by": You, Agents; one at a time, in
+  `?createdBy=`, chips in the `FilterBar`) and "+" (a 28px ghost icon button):
+  Upload file (several, through a hidden file input; 50 MB each, a toast per
+  failure, pending uploads as dimmed tiles), New document and New folder (a
+  small dialog with Title and Create; a new document opens at once). All land
+  in the open folder. No Search button: the palette has no Library category.
+- **Tile menu** (right-click and the hover ⋯): Open, Rename R, Move M (a dialog
+  with the folder tree as 28px rows, the current folder preselected, places the
+  item cannot go disabled), Copy link C (the item's app URL), then Delete ⌫
+  apart (the Alert dialog; a folder only when empty, else the toast "Only an
+  empty folder can be deleted"). Delete is real: no archive.
+- **Empty**: nothing in the Library at all is the stock empty page (table
+  below) whose "Add to library" opens the "+" menu; an empty folder or tab is
+  the inline `Empty` "No files yet" / "No documents yet" with one line and no
+  action; a filter that keeps nothing is `NoResults`. Loading is eight
+  `GalleryItemSkeleton`s.
+- **An item** (`/library/{id}`, Back returns to the same tab and folder) is the
+  title row over a `PageCenterpiece` and the "Details" sidecar (closed by
+  default, toggled by the title row's `PanelRight` button): one Properties
+  section of read-only rows, Folder (its path), Created by (avatar and name),
+  Created, Size, Type. A **file** previews read-only: images, video and audio in
+  the browser's players, PDFs in its viewer, HTML in a sandboxed frame with no
+  scripts or network, markdown and text through the markdown renderer (text as
+  a code block); over 8 MiB or a type with none, "No preview" and a primary
+  Download. Its title row: Download, Details, More (Rename, Move, Copy link,
+  Delete). A **document** is edited in place, no Save button (Autosave): its
+  title is the title row itself (an input in the title's type, Enter or blur
+  saves) and its body the markdown editor (tables kept) in the centerpiece;
+  More holds Download, Move, Copy link, Delete. Every save carries the
+  `updatedAt` it last saw; a conflict says "Changed elsewhere, reloaded" and
+  reloads the document. An id that does not exist is the not-found page; a
+  folder's id opens the folder.
 
 **Live data states.** Server reads use the shared skeleton (three full-width 40px rows, no
 extra padding so they align with the page title) and inline error with Retry; unavailable controls explain the missing capability and never
@@ -1838,7 +2041,8 @@ continue through bounded pages instead of treating the first hundred as complete
   surface in a surface or make anything wider than the column.
 - Do save ordinary settings as they change (Autosave), with the one "Saved" toast.
   Multi-field Agent and Schedule configuration uses explicit Save/Cancel with one
-  captured edit token; Documents and Skill content preserve fenced drafts until Save.
+  captured edit token; Skill content preserves fenced drafts until Save. Library
+  documents autosave (Library).
 - Do nest radii (inner = outer − gap); don't reuse a container's radius inside
   it.
 - Do keep primary for the main action and tags; don't use it for navigation,
@@ -1869,7 +2073,7 @@ Authentication uses the real account service for sign-in, registration and passw
 
 ### Fenced configuration and content
 
-Agent account/model/Skill selection and Schedule configuration use explicit Save/Cancel for one atomic change protected by the opening edit token. Document content, labels, visibility and folder are one fenced draft; Skill content and supporting Files have separate acknowledged fences. Failed or stale edits retain input. Unsupported decorative fields and fabricated activity are removed; Schedule timing shows the saved cron/timezone without guessing a next-run date.
+Agent account/model/Skill selection and Schedule configuration use explicit Save/Cancel for one atomic change protected by the opening edit token. Skill content and supporting Files have separate acknowledged fences. Failed or stale edits retain input. Unsupported decorative fields and fabricated activity are removed; Schedule timing shows the saved cron/timezone without guessing a next-run date.
 
 ### Real workflow controls
 
@@ -1895,12 +2099,12 @@ Unknown creation outcomes disable another submission in the current form and dir
 
 **Empty-state rules (binding for every page).**
 
-1. Nothing exists and nothing is filtered: the header-free `EmptyPage`, with the floating chat kept. The pattern is the same everywhere (below): title "No {plural}", description one benefit-led sentence, never a vague "<Things> you add show up here." Exactly one 32px primary button, the "+ New <thing>" that prefills the floating bar (never a form); a person's own action (Upload file) sits beside it as a quiet outline button. Never a second primary button. The Inbox has no button ("Nothing needs you"); Projects is the one page whose button opens its form, because nothing exists yet to ask about.
+1. Nothing exists and nothing is filtered: the header-free `EmptyPage`, with the floating chat kept. The pattern is the same everywhere (below): title "No {plural}", description one benefit-led sentence, never a vague "<Things> you add show up here." Exactly one 32px primary button, the "+ New <thing>" that prefills the floating bar (never a form); a person's own action (Upload file) sits beside it as a quiet outline button. Never a second primary button. The Inbox has no button ("No notifications yet"); Projects is the one page whose button opens its form, because nothing exists yet to ask about.
 2. Something is filtered and nothing matches: the page, header and active filter bar stay and the list area shows `NoResults` ("No results", "Try changing or clearing your filters.", Clear filters). A search or picker with no matches says "No results" too, never "No chats found".
 3. There is no permanent toolbar. A page header holds the Filter menu (real properties and archive state), a Search icon that opens the command palette on that page's category, and "+"; never a page's own search box. Active filters show as chips in the filter bar; no search box, sort picker, order or page-size control is drawn on a page. Settings lists show only their own property filters.
 4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No {plural} yet" (a table row or `Row` may be just that, "No labels yet"), one description line ending in a period, no action.
 5. Command palette: an entered search with no results shows a compact tile and "No results for “query”" with no period, and its category tabs are hidden when no category has results. Skeletons are stock and use the small radius.
-6. Tasks list the first Project when none is chosen, so an empty page never asks for one. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
+6. Tasks list every project's tasks (filter by Project to narrow them), so an empty page never asks for one; with no project at all, the empty state's button is New project. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
 7. The floating bar shows its Inbox button only while something needs attention (an unread chat or an unanswered question).
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
 9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
@@ -1924,6 +2128,8 @@ Unknown creation outcomes disable another submission in the current form and dir
 | Sources | No sources yet | Let your agents work with the tools and data you already use. | |
 | Archived chats | No archived chats yet | Chats you archive stay here, out of your way. | |
 | Pages | No pages yet | Ask your agents for a live dashboard that keeps itself up to date. | |
+| Inbox | No notifications yet | Never miss a mention or a task handed to you. | |
+| Comments (inline) | No comments yet | | |
 10. A new chat has two pickers, With and Project. It is always participants-only; the project's own chat is the one open to everyone in the project.
 
 ## Craft shell

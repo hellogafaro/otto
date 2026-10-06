@@ -7,6 +7,7 @@
  * - Settings: the Settings index, or the settings page
  * - Sources and Skills (reached from the Settings index): the item's page
  * - Tasks, Projects and Library: the index page, or the task, project or item page
+ * - Inbox: your notifications
  * - Routines (automations): not built yet, only `SectionEmpty`
  *
  * The NavigationState is the single source of truth for what to display.
@@ -28,9 +29,11 @@ import {
   isProjectsNavigation,
   isLibraryNavigation,
   isTasksNavigation,
+  isInboxNavigation,
 } from '@/contexts/navigation-context'
 import { SourceInfoPage, ChatPage, TasksPage, TaskPage, ProjectsPage, ProjectPage, LibraryPage, LibraryItemPage } from '@/pages'
 import ChatsIndexPage from '@/pages/chats-index-page'
+import { InboxPage } from '@/pages/inbox/inbox-page'
 import SkillInfoPage from '@/pages/skill-info-page'
 import SettingsIndexPage from '@/pages/settings/settings-index-page'
 import { getSettingsPageComponent } from '@/pages/settings/settings-pages'
@@ -100,6 +103,8 @@ export function MainContentPanel({ className }: MainContentPanelProps) {
   if (isLibraryNavigation(navState)) {
     return panel(navState.details ? <LibraryItemPage itemId={navState.details.itemId} /> : <LibraryPage />)
   }
+
+  if (isInboxNavigation(navState)) return panel(<InboxPage />)
 
   // Routines (automations) are not built yet: only their empty state and its New button.
   if (isAutomationsNavigation(navState)) {

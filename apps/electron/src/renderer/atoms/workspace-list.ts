@@ -21,3 +21,8 @@ export function listFor<T>(state: WorkspaceList<T>, workspaceId: string | null):
     ? { items: state.items, loaded: state.loaded }
     : { items: NONE, loaded: false }
 }
+
+/** A failed load settles the list: loaded, keeping the rows it already had for this workspace (none for another). */
+export function failedList<T>(state: WorkspaceList<T>, workspaceId: string): WorkspaceList<T> {
+  return { workspaceId, items: state.workspaceId === workspaceId ? state.items : [], loaded: true }
+}

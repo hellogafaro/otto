@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, jest, spyOn } from 'bun:test'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { resolveBackendContext } from '@otto/shared/agent/backend'
+import * as config from '@otto/shared/config'
 import { loadWorkspaceConfig } from '@otto/shared/workspaces'
 import { SessionManager, createManagedSession } from './session-manager.ts'
 import { buildRestartRequiredSignature } from './runtime-config.ts'
@@ -92,16 +93,45 @@ function injectSession(
   return managed
 }
 
+// The sessions resolve `slug-A` through the config module. Serve it from an
+// in-memory fixture so the tests never read the machine's `~/.otto` connections
+// (and `slug-B` and the global default resolve to nothing).
+const model = (id: string, supportsImages: boolean) =>
+  ({ id, name: id, shortName: id, description: '', provider: 'pi', contextWindow: 128000, supportsImages }) as const
+
+const SLUG_A_CONNECTION: config.LlmConnection = {
+  slug: 'slug-A',
+  name: 'Custom endpoint',
+  providerType: 'pi_compat',
+  authType: 'api_key',
+  baseUrl: 'https://llm.example.test/v1',
+  piAuthProvider: 'openai',
+  customEndpoint: { api: 'openai-completions' },
+  defaultModel: 'vision-model',
+  models: [
+    model('vision-model', true),
+    model('text-model', false),
+    'plain-model',
+  ],
+  createdAt: 0,
+}
+
 describe('refreshConnectionRuntime', () => {
   let tmpRoot: string
   let sm: SessionManager
+  const spies: Array<{ mockRestore(): void }> = []
 
   beforeEach(() => {
     tmpRoot = mkdtempSync(join(tmpdir(), 'sm-refresh-'))
     sm = new SessionManager()
+    spies.push(
+      spyOn(config, 'getLlmConnection').mockImplementation(slug => (slug === 'slug-A' ? SLUG_A_CONNECTION : null)),
+      spyOn(config, 'getDefaultLlmConnection').mockReturnValue(null),
+    )
   })
 
   afterEach(() => {
+    for (const spy of spies.splice(0)) spy.mockRestore()
     rmSync(tmpRoot, { recursive: true, force: true })
   })
 
@@ -210,21 +240,18 @@ describe('refreshConnectionRuntime', () => {
     expect(agent.updateRuntimeConfig).toHaveBeenCalledTimes(1)
     const payload = agent.updateRuntimeConfig.mock.calls[0]?.[0]
     expect(payload).toBeDefined()
-    expect(payload).toMatchObject({
-      model: expect.any(String),
-      runtime: expect.any(Object),
-    })
     // The runtime envelope mirrors what `pi-agent.ts:requestRuntimeConfigUpdate`
-    // unpacks — `customModels` shape preserves `supportsImages` when set.
-    if (payload.runtime?.customModels) {
-      for (const m of payload.runtime.customModels) {
-        if (typeof m === 'object') {
-          expect(typeof m.id).toBe('string')
-          if ('supportsImages' in m) {
-            expect(typeof m.supportsImages).toBe('boolean')
-          }
-        }
-      }
-    }
+    // unpacks — `customModels` keeps `supportsImages` when set, plain ids otherwise.
+    expect(payload).toMatchObject({
+      providerType: 'pi_compat',
+      runtime: {
+        baseUrl: 'https://llm.example.test/v1',
+        customModels: [
+          { id: 'vision-model', supportsImages: true },
+          { id: 'text-model', supportsImages: false },
+          'plain-model',
+        ],
+      },
+    })
   })
 })

@@ -133,6 +133,15 @@ export const actions = {
     when: 'navigatorFocus',
   },
 
+  // A task's Details: S opens the Status menu (the page binds it while the Details are open).
+  'task.changeStatus': {
+    id: 'task.changeStatus',
+    label: 'Change Task Status',
+    defaultHotkey: 's',
+    category: 'General',
+    when: '!inputFocus && !menuOpen',
+  },
+
   // ═══════════════════════════════════════════
   // Chat
   // ═══════════════════════════════════════════

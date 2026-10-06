@@ -27,12 +27,16 @@ export type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate };
 
 import type { MemberRole, Project, ProjectFilter, ProjectMember, ProjectStatus, ProjectUpdate, Resource } from '@otto/shared/projects/types';
 import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from '@otto/shared/tasks/types';
+import type { Comment } from '@otto/shared/comments/types';
+import type { NotificationItem, NotificationStatus, NotificationType } from '@otto/shared/notifications/types';
+import type { DomainChange } from '@otto/shared/protocol';
+export type { Comment, DomainChange, NotificationItem, NotificationStatus, NotificationType };
 export type { MemberRole, Project, ProjectFilter, ProjectMember, ProjectStatus, ProjectUpdate, Resource, Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet };
 
 import type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole } from '@otto/shared/workspaces';
 export type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole };
 
-import type { LibrarySearch, ProjectsSearch, TasksSearch } from './section-search';
+import type { InboxSearch, LibrarySearch, ProjectsSearch, TasksSearch } from './section-search';
 
 // Mode types from dedicated subpath export (avoids pulling in SDK)
 import type { PermissionMode } from '@otto/shared/agent/modes';
@@ -655,6 +659,21 @@ export interface ElectronAPI {
   createTimesheet(input: { taskId: string; time: number; notes?: string }): Promise<Timesheet>
   deleteTimesheet(id: string): Promise<void>
 
+  // Comments on a task or project, and the signed-in user's notifications (docs/activity-notifications.md). An entity
+  // is `task:<id>` or `project:<id>`; a mention is the token `user:<id>` in the text. Only a comment's author may edit
+  // or delete it; `updateComment` may send the `updatedAt` last seen. Notifications are newest first, each with the
+  // entity's title and, for a mention, its comment.
+  getComments(entity: string): Promise<Comment[]>
+  createComment(entity: string, content: string): Promise<Comment>
+  updateComment(id: string, content: string, expectedUpdatedAt?: number): Promise<Comment>
+  deleteComment(id: string): Promise<void>
+  getNotifications(): Promise<NotificationItem[]>
+  setNotificationStatus(ids: string[] | 'all', status: 'read' | 'unread'): Promise<void>
+  clearNotifications(ids: string[] | 'all'): Promise<void>
+  getUnreadNotificationCount(): Promise<number>
+  /** After a write by anyone in the workspace: this domain's data there is stale. Hooks reload on it. */
+  onDomainChanged(callback: (change: DomainChange) => void): () => void
+
   // Pages (workspace-scoped mini dashboards)
   getPages(workspaceId: string): Promise<import('@otto/shared/pages/types').LoadedPage[]>
   getPage(workspaceId: string, pageIdOrSlug: string): Promise<import('@otto/shared/pages/types').LoadedPage | null>
@@ -921,6 +940,14 @@ export interface LibraryNavigationState {
 }
 
 /**
+ * Inbox navigation state: your notifications (`?unread=1` keeps the unread ones); no detail of its own
+ */
+export interface InboxNavigationState {
+  navigator: 'inbox'
+  search: InboxSearch
+}
+
+/**
  * Unified navigation state
  */
 export type NavigationState =
@@ -932,6 +959,7 @@ export type NavigationState =
   | ProjectsNavigationState
   | LibraryNavigationState
   | TasksNavigationState
+  | InboxNavigationState
 
 export const isSessionsNavigation = (
   state: NavigationState
@@ -964,6 +992,10 @@ export const isLibraryNavigation = (
 export const isTasksNavigation = (
   state: NavigationState
 ): state is TasksNavigationState => state.navigator === 'tasks'
+
+export const isInboxNavigation = (
+  state: NavigationState
+): state is InboxNavigationState => state.navigator === 'inbox'
 
 export const DEFAULT_NAVIGATION_STATE: NavigationState = {
   navigator: 'sessions',

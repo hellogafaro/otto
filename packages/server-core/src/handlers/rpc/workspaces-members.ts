@@ -49,12 +49,14 @@ const toInvitation = (row: { id: string; email: string; expiresAt: Date }): Work
  * the rules (roles, the last owner, 7-day invitations bound to an email).
  */
 export function registerWorkspaceMembersHandlers(server: RpcServer): void {
-  server.handle(RPC_CHANNELS.workspaces.GET_MEMBERS, (_ctx, workspaceId: string): WorkspaceMember[] => {
+  // The caller's own entry carries `me`: the desktop app's local user has no session to ask who it is.
+  server.handle(RPC_CHANNELS.workspaces.GET_MEMBERS, (ctx, workspaceId: string): WorkspaceMember[] => {
     const members = getWorkspaceMembers(idOf(workspaceId))
     const people = new Map(getUsers(members.map((member) => member.userId)).map((user) => [user.id, user]))
     return members.flatMap(({ userId, role }) => {
       const user = people.get(userId)
-      return user ? [{ actor: userActor(userId), userId, name: user.name, email: user.email, role }] : []
+      if (!user) return []
+      return [{ actor: userActor(userId), userId, name: user.name, email: user.email, role, ...(userId === ctx.userId && { me: true as const }) }]
     })
   })
 

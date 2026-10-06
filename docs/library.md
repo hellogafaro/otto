@@ -8,8 +8,9 @@ One domain, `library`, for everything saved: uploads, chat attachments, what age
 - The disk `FileStore` (`<workspaceRoot>/library/<id>`, atomic writes, keys are ids only).
 - RPCs `library:create`, `createFolder`, `list`, `get`, `read`, `update`, `delete` (content travels as `{ encoding, data }`: base64 for files, text for documents; 50 MB cap enforced on the decoded size). A handler that throws a `domainError` answers with its `code` (`conflict`, `not_found`, ...) as the response error code, so a client branches on `error.code === 'conflict'`; any other error is still `HANDLER_ERROR`.
 - Chat attachments: `file:storeAttachment` saves the file (and an Office file's markdown copy) as ordinary library items in the root folder titled `CHAT_ATTACHMENTS_FOLDER_TITLE` ("Chat attachments", found or created per workspace on first use; a plain folder, no special column or type), and returns the item's path. The library does not know which chat an item came from, so deleting a chat keeps its items. Attachments of sessions made before this change stay where they are.
+- The Library page and the document editor (`apps/electron/src/renderer/pages/library/`, DESIGN.md "Library"): one gallery with tabs, folders in `?folder=`, folder paths derived from the whole list, upload as base64, previews read through `library:read`, documents autosaved with `expectedUpdatedAt`.
 
-Not built yet: streamed HTTP upload, enrichment, an S3 or Garage `FileStore` driver, the Library page and the document editor.
+Not built yet: streamed HTTP upload, enrichment, an S3 or Garage `FileStore` driver.
 
 ## Data
 

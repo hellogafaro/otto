@@ -15,7 +15,7 @@ import { createElement, type ComponentType } from 'react'
 import { createRootRouteWithContext, createRoute, notFound, redirect, useRouterState } from '@tanstack/react-router'
 import { isReservedWorkspaceSlug } from '@otto/shared/utils/workspace-slug'
 import { isValidSettingsSubpage } from '../../shared/settings-registry'
-import { normalizeLibrarySearch, normalizeProjectsSearch, normalizeTasksSearch } from '../../shared/section-search'
+import { normalizeInboxSearch, normalizeLibrarySearch, normalizeProjectsSearch, normalizeTasksSearch } from '../../shared/section-search'
 import { isWebUI } from '../lib/platform'
 import { isRouterNotFound } from './not-found'
 import { validateChatsSearch, validateRoutinesSearch, validateSourcesSearch } from './location'
@@ -87,6 +87,7 @@ const routinesRoute = createRoute({ ...section('routines'), validateSearch: vali
 const routineRoute = createRoute({ ...section('routines/$automationId'), validateSearch: validateRoutinesSearch })
 const libraryRoute = createRoute({ ...section('library'), validateSearch: normalizeLibrarySearch })
 const libraryItemRoute = createRoute({ ...section('library/$itemId'), validateSearch: normalizeLibrarySearch })
+const inboxRoute = createRoute({ ...section('inbox'), validateSearch: normalizeInboxSearch })
 const skillsRoute = createRoute(section('skills'))
 const skillRoute = createRoute(section('skills/$skillSlug'))
 const sourcesRoute = createRoute({ ...section('sources'), validateSearch: validateSourcesSearch })
@@ -109,6 +110,7 @@ export const routeTree = rootRoute.addChildren([
     routineRoute,
     libraryRoute,
     libraryItemRoute,
+    inboxRoute,
     skillsRoute,
     skillRoute,
     sourcesRoute,

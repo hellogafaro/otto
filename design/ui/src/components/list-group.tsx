@@ -154,7 +154,8 @@ function ListRow({
             {meta}
           </span>
         )}
-        {end && (
+        {/* Otto: kept (empty) when the row has actions, so the ⋯ covers this column, never the badges. */}
+        {(end || actions) && (
           <span
             className={cn(
               "min-w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums",

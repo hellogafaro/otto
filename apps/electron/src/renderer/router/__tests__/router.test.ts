@@ -43,6 +43,7 @@ describe('route tree', () => {
       '/test/routines/a1': '/$workspaceSlug/routines/$automationId',
       '/test/library': '/$workspaceSlug/library',
       '/test/library/doc': '/$workspaceSlug/library/$itemId',
+      '/test/inbox': '/$workspaceSlug/inbox',
       '/test/skills': '/$workspaceSlug/skills',
       '/test/skills/s': '/$workspaceSlug/skills/$skillSlug',
       '/test/sources': '/$workspaceSlug/sources',
@@ -111,7 +112,7 @@ describe('route tree', () => {
 
 describe('not found', () => {
   it('a URL that matches no route is not found, and stays where it is', async () => {
-    for (const href of ['/test/nope', '/test/chats/a/b', '/test/tasks/a/b', '/a/b/c/d']) {
+    for (const href of ['/test/nope', '/test/chats/a/b', '/test/tasks/a/b', '/test/inbox/x', '/a/b/c/d']) {
       const router = await open(href)
       expect(notFound(router), href).toBe(true)
       expect(where(router), href).toBe(href)

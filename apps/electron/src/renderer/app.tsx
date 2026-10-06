@@ -21,7 +21,7 @@ import { ModalProvider } from '@/context/modal-context'
 import { DismissibleLayerProvider } from '@/context/dismissible-layer-context'
 import { useWindowCloseHandler } from '@/hooks/use-window-close-handler'
 import { useOnboarding } from '@/hooks/use-onboarding'
-import { useNotifications } from '@/hooks/use-notifications'
+import { useOsNotifications } from '@/hooks/use-os-notifications'
 import { useSession } from '@/hooks/use-session'
 import { useUpdateChecker } from '@/hooks/use-update-checker'
 import { NavigationProvider, useNavigation } from '@/contexts/navigation-context'
@@ -710,7 +710,7 @@ export default function App() {
     navigate(routes.view.allSessions(sessionId))
   }, [])
 
-  const { showSessionNotification } = useNotifications({
+  const { showSessionNotification } = useOsNotifications({
     workspaceId: windowWorkspaceId,
     // NOTE: sessions removed - hook now uses sessionMetaMapAtom internally
     // to prevent closures from retaining full message arrays

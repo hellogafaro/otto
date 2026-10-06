@@ -25,11 +25,13 @@ import {
   type ChatFilters,
 } from './chat-filters'
 import {
+  normalizeInboxSearch,
   normalizeLibrarySearch,
   normalizeProjectsSearch,
   normalizeTasksSearch,
   parseSearch,
   stringifySearch,
+  type InboxSearch,
   type LibrarySearch,
   type ProjectsSearch,
   type TasksSearch,
@@ -52,7 +54,7 @@ export interface ParsedRoute {
 // Compound Route Types (new format)
 // =============================================================================
 
-export type NavigatorType = 'sessions' | 'sources' | 'skills' | 'automations' | 'projects' | 'library' | 'tasks' | 'settings'
+export type NavigatorType = 'sessions' | 'sources' | 'skills' | 'automations' | 'projects' | 'library' | 'tasks' | 'inbox' | 'settings'
 
 export interface ParsedCompoundRoute {
   /** The navigator type */
@@ -65,8 +67,8 @@ export interface ParsedCompoundRoute {
   sourceFilter?: SourceFilter
   /** Automation filter (only for automations navigator) */
   automationFilter?: AutomationFilter
-  /** The search of the tasks, projects and library views (see section-search.ts) */
-  search?: TasksSearch | ProjectsSearch | LibrarySearch
+  /** The search of the tasks, projects, library and inbox views (see section-search.ts) */
+  search?: TasksSearch | ProjectsSearch | LibrarySearch | InboxSearch
   /** Details page info (null for empty state) */
   details: {
     type: string
@@ -82,7 +84,7 @@ export interface ParsedCompoundRoute {
  * Known prefixes that indicate a compound route
  */
 const COMPOUND_ROUTE_PREFIXES = [
-  'allSessions', 'flagged', 'archived', 'state', 'label', 'view', 'sources', 'skills', 'automations', 'projects', 'library', 'tasks', 'settings'
+  'allSessions', 'flagged', 'archived', 'state', 'label', 'view', 'sources', 'skills', 'automations', 'projects', 'library', 'tasks', 'inbox', 'settings'
 ]
 
 /** The detail segment and the search of the sections that have them. */
@@ -202,6 +204,11 @@ export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
     if (segments.length === 1) return { navigator: first, search, details: null }
     if (segments.length === 3 && segments[1] === detail) return { navigator: first, search, details: { type: detail, id: segments[2] } }
     return null
+  }
+
+  // Inbox: one page, `inbox?unread=1`
+  if (first === 'inbox') {
+    return segments.length === 1 ? { navigator: 'inbox', search: normalizeInboxSearch(parseSearch(queryPart ?? '')), details: null } : null
   }
 
   // Automations navigator - supports type filters (scheduled, event, agentic)
@@ -347,6 +354,8 @@ export function buildCompoundRoute(parsed: ParsedCompoundRoute): string {
     if (!parsed.details) return base
     return `${base}/automation/${parsed.details.id}`
   }
+
+  if (parsed.navigator === 'inbox') return `inbox${stringifySearch(parsed.search ?? {})}`
 
   if (parsed.navigator === 'tasks' || parsed.navigator === 'projects' || parsed.navigator === 'library') {
     const base = parsed.details ? `${parsed.navigator}/${parsed.details.type}/${parsed.details.id}` : parsed.navigator
@@ -512,6 +521,8 @@ function convertCompoundToNavigationState(compound: ParsedCompoundRoute): Naviga
     }
   }
 
+  if (compound.navigator === 'inbox') return { navigator: 'inbox', search: compound.search as InboxSearch }
+
   // Sessions
   const filter = compound.sessionFilter || { kind: 'allSessions' as const }
   const filters = compound.sessionFilters ?? chatFiltersFromSessionFilter(filter)
@@ -577,6 +588,7 @@ function navigationStateToCompoundRoute(state: NavigationState): ParsedCompoundR
   if (state.navigator === 'library') {
     return { navigator: 'library', search: state.search, details: state.details ? { type: 'item', id: state.details.itemId } : null }
   }
+  if (state.navigator === 'inbox') return { navigator: 'inbox', search: state.search, details: null }
 
   // Sessions
   return {

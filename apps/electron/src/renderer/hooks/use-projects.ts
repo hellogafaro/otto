@@ -14,11 +14,10 @@ import { useWorkspaceList } from './use-workspace-list'
 const loadProjects = () => window.electronAPI.getProjects({ status: ['active', 'archived'] })
 
 export function useProjects() {
-  const { items: projects, loaded, refresh } = useWorkspaceList(projectsAtom, loadProjects)
+  const { items: projects, loaded, refresh, mutate } = useWorkspaceList(projectsAtom, loadProjects, 'projects')
 
   const actions = useMemo(() => {
     const api = window.electronAPI
-    const mutate = <T,>(call: () => Promise<T>) => toResult(call).finally(refresh)
     return {
       createProject: (input: { title: string; description?: string; resources?: Resource[] }) => mutate(() => api.createProject(input)),
       updateProject: (id: string, patch: ProjectUpdate) => mutate(() => api.updateProject(id, patch)),
@@ -27,7 +26,7 @@ export function useProjects() {
       setProjectMember: (id: string, actor: string, role: MemberRole) => toResult(() => api.setProjectMember(id, actor, role)),
       removeProjectMember: (id: string, actor: string) => toResult(() => api.removeProjectMember(id, actor)),
     }
-  }, [refresh])
+  }, [mutate])
 
   return { projects: projects as Project[], loaded, refresh, ...actions }
 }

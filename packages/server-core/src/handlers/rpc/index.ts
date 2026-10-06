@@ -3,6 +3,7 @@ import type { HandlerDeps } from '../handler-deps'
 
 import { registerAuthHandlers } from './auth'
 import { registerAutomationsHandlers } from './automations'
+import { registerCommentsHandlers } from './comments'
 import { registerDecisionsHandlers } from './decisions'
 import { registerFilesHandlers } from './files'
 import { registerLabelsHandlers } from './labels'
@@ -19,7 +20,9 @@ export type { ServerHandlerContext } from '../../bootstrap/headless-start'
 export { getHealthCheck } from './server'
 import { registerSettingsHandlers } from './settings'
 import { registerProjectsHandlers } from './projects'
+import { registerNotificationsHandlers } from './notifications'
 import { registerTasksHandlers } from './tasks'
+import { broadcastDomainChanges } from './domain-changes'
 import { registerPagesHandlers } from './pages'
 import { registerSkillsHandlers } from './skills'
 import { registerSourcesHandlers } from './sources'
@@ -38,6 +41,8 @@ export function registerCoreRpcHandlers(
 ): void {
   // Chats are private: a handler that takes a session id runs only for the chat's owner.
   server = guardSessionChannels(server, deps)
+  // Every write of library, projects, tasks, comments, notifications and members pushes `domain:changed` once it succeeds.
+  server = broadcastDomainChanges(server, deps)
   registerAuthHandlers(server, deps)
   registerAutomationsHandlers(server, deps)
   registerDecisionsHandlers(server, deps)
@@ -53,6 +58,8 @@ export function registerCoreRpcHandlers(
   registerSettingsHandlers(server, deps)
   registerProjectsHandlers(server, deps)
   registerTasksHandlers(server, deps)
+  registerCommentsHandlers(server, deps)
+  registerNotificationsHandlers(server, deps)
   registerPagesHandlers(server, deps)
   registerSkillsHandlers(server, deps)
   registerSourcesHandlers(server, deps)

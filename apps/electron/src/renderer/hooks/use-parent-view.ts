@@ -9,7 +9,7 @@
  * - A task, a library item (a file or a document) or a project: its index. A task and a library item
  *   keep the index's search (filters, tab, `?folder=`), so Back returns to the same list.
  * - An automation: its section.
- * The Chats and Settings indexes, and the Tasks, Projects and Library indexes, have no parent.
+ * The Chats and Settings indexes, the Tasks, Projects and Library indexes, and the Inbox have no parent.
  *
  * Back is never history Back: that is the Electron buttons in the sidebar header and
  * the browser's own.
@@ -49,6 +49,8 @@ export function useParentView(): ParentView | null {
         return navState.details ? { onBack: goToIndex } : null
       case 'projects':
         return navState.details ? { onBack: () => navigate(routes.view.projects()) } : null
+      case 'inbox':
+        return null
     }
   }, [navState, navigate, goToIndex])
 }

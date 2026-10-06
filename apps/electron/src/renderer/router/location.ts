@@ -17,6 +17,7 @@
  * | `tasks[/task/id][?project=&assignee=&status=&archived=1]` | `/{ws}/tasks[/id]` with the same query |
  * | `automations[/{type}][/automation/id]` | `/{ws}/routines[/id][?type=]`         |
  * | `library[/item/id][?tab=&folder=&createdBy=]` | `/{ws}/library[/id]` with the same query |
+ * | `inbox[?unread=1]`                | `/{ws}/inbox[?unread=1]`                   |
  * | `skills[/skill/id]`               | `/{ws}/skills[/id]`                        |
  * | `sources[/{type}][/source/id]`    | `/{ws}/sources[/id][?type=]`               |
  *
@@ -37,6 +38,7 @@ import {
 import { buildRouteFromNavigationState, parseRouteToNavigationState } from '../../shared/route-parser'
 import { isValidSettingsSubpage } from '../../shared/settings-registry'
 import {
+  normalizeInboxSearch,
   normalizeLibrarySearch,
   normalizeProjectsSearch,
   normalizeTasksSearch,
@@ -158,6 +160,8 @@ function stateToLocation(state: NavigationState, ws: string): AppLocation {
       return { pathname: `${base}/tasks${state.details ? `/${enc(state.details.taskId)}` : ''}`, search: state.search as LocationSearch }
     case 'library':
       return { pathname: `${base}/library${state.details ? `/${enc(state.details.itemId)}` : ''}`, search: state.search as LocationSearch }
+    case 'inbox':
+      return { pathname: `${base}/inbox`, search: state.search as LocationSearch }
   }
 }
 
@@ -227,6 +231,8 @@ function stateFromLocation(section: string, id: string | undefined, search: Reco
       return { navigator: 'tasks', search: normalizeTasksSearch(search), details: id ? { type: 'task', taskId: id } : null }
     case 'library':
       return { navigator: 'library', search: normalizeLibrarySearch(search), details: id ? { type: 'item', itemId: id } : null }
+    case 'inbox':
+      return id === undefined ? { navigator: 'inbox', search: normalizeInboxSearch(search) } : null
     default:
       return null
   }

@@ -17,6 +17,7 @@ import {
   CircleCheck,
   Clock,
   Folder,
+  Inbox,
   Library,
   LogOut,
   MessagesSquare,
@@ -50,8 +51,9 @@ import { SETTINGS_NAV_GROUPS } from '../../../shared/menu-schema'
 import type { PaletteItem } from './command-palette'
 import type { PaletteData } from './palette-model'
 
-/** The sidebar's pages, in its order, with its icons (Inbox has no route yet). */
+/** The sidebar's pages, in its order, with its icons (Inbox first: its row leads the sidebar). */
 const PAGES: { id: string; icon: LucideIcon; labelKey: string; route: () => Route }[] = [
+  { id: 'inbox', icon: Inbox, labelKey: 'sidebar.inbox', route: () => routes.view.inbox() },
   { id: 'tasks', icon: CircleCheck, labelKey: 'sidebar.tasks', route: () => routes.view.tasks() },
   { id: 'projects', icon: Folder, labelKey: 'sidebar.projects', route: () => routes.view.projects() },
   { id: 'chats', icon: MessagesSquare, labelKey: 'sidebar.chats', route: () => routes.view.allSessions() },

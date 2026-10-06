@@ -1,7 +1,8 @@
 import { and, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
-import { isActor } from '../actors.ts'
+import { isActor, userIdOf } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { createId } from '../id.ts'
+import { createNotification } from '../notifications/index.ts'
 import { domainError } from '../utils/errors.ts'
 import { initProjectsStore, MAX_DESCRIPTION, MAX_TITLE, parseResources, type ProjectsStore, type Resource } from '../projects/index.ts'
 import { tasks, timesheets } from './schema.ts'
@@ -20,6 +21,10 @@ import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from './type
  * `assignees` are actors ('user:<id>' or 'agent:<id>'). A timesheet is one logged stretch of work:
  * `time` in milliseconds, so a timer can fill it later; timesheets have no status and are
  * deleted for real. Every function takes the workspace explicitly and only sees its rows.
+ *
+ * Each person newly added to `assignees` (on create and on update) gets an 'assigned' notification
+ * (../notifications) in the same transaction, so a failed write leaves none; never the person who did
+ * it, never an agent. A status change or an autosaved edit notifies nobody.
  */
 
 export type * from './types.ts'
@@ -121,6 +126,16 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
     return projectId
   }
 
+  /** Tells each person among `assignees` who was not in `before`, except `actor`, in the caller's transaction. */
+  function notifyAssigned(tx: Tx, row: Row, before: string[], actor: string): void {
+    for (const assignee of row.assignees) {
+      const userId = userIdOf(assignee)
+      if (userId && assignee !== actor && !before.includes(assignee)) {
+        createNotification({ userId, workspaceId: row.workspaceId, entity: `task:${row.id}`, type: 'assigned', createdBy: actor }, tx)
+      }
+    }
+  }
+
   /** Strictly after the stored value, so two saves in one millisecond still tell apart. */
   const nextUpdatedAt = (row: Row) => new Date(Math.max(Date.now(), row.updatedAt.getTime() + 1))
 
@@ -143,13 +158,15 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
       const createdBy = assertActor(input.createdBy)
       const projectId = assertProject(input.workspaceId, input.projectId)
       const now = new Date()
-      return toTask(
-        db
+      return db.transaction((tx) => {
+        const row = tx
           .insert(tasks)
           .values({ id: createId(), workspaceId: input.workspaceId, projectId, title, description, status: 'todo', dueAt, assignees, resources, createdBy, createdAt: now, updatedAt: now })
           .returning()
-          .get(),
-      )
+          .get()
+        notifyAssigned(tx, row, [], createdBy)
+        return toTask(row)
+      })
     },
 
     getTask(workspaceId: string, id: string): Task | undefined {
@@ -187,9 +204,10 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
     /**
      * Changes the given fields (`assignees` replaces the list). With `expectedUpdatedAt`, a
      * different stored `updatedAt` means someone saved in between, and nothing changes (`conflict`).
-     * A deleted task cannot be changed.
+     * A deleted task cannot be changed. `actor` is who changes it: each person newly added to `assignees` is told.
      */
-    updateTask(workspaceId: string, id: string, patch: TaskUpdate): Task {
+    updateTask(workspaceId: string, id: string, patch: TaskUpdate, actor: string): Task {
+      assertActor(actor)
       const row = getRow(workspaceId, id)
       if (row.status === 'deleted') throw domainError('invalid', `Task ${id} is deleted; restore it first`)
       if (patch.expectedUpdatedAt !== undefined && patch.expectedUpdatedAt !== row.updatedAt.getTime()) {
@@ -203,14 +221,17 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
       if (patch.assignees !== undefined) changes.assignees = assertAssignees(patch.assignees)
       if (patch.resources !== undefined) changes.resources = assertResources(patch.resources)
       changes.updatedAt = nextUpdatedAt(row)
-      const updated = db
-        .update(tasks)
-        .set(changes)
-        .where(and(eq(tasks.id, id), eq(tasks.updatedAt, row.updatedAt)))
-        .returning()
-        .get()
-      if (!updated) throw domainError('conflict', `Task ${id} changed since it was loaded`)
-      return toTask(updated)
+      return db.transaction((tx) => {
+        const updated = tx
+          .update(tasks)
+          .set(changes)
+          .where(and(eq(tasks.id, id), eq(tasks.updatedAt, row.updatedAt)))
+          .returning()
+          .get()
+        if (!updated) throw domainError('conflict', `Task ${id} changed since it was loaded`)
+        notifyAssigned(tx, updated, row.assignees, actor)
+        return toTask(updated)
+      })
     },
 
     /** Move along the board, archive ('archived'), soft delete ('deleted') or restore ('todo'). */
@@ -281,7 +302,7 @@ export const initTasksStore = (): TasksStore => (store ??= createTasksStore(init
 export const createTask: TasksStore['createTask'] = (input) => initTasksStore().createTask(input)
 export const getTask: TasksStore['getTask'] = (workspaceId, id) => initTasksStore().getTask(workspaceId, id)
 export const getTasks: TasksStore['getTasks'] = (workspaceId, filter) => initTasksStore().getTasks(workspaceId, filter)
-export const updateTask: TasksStore['updateTask'] = (workspaceId, id, patch) => initTasksStore().updateTask(workspaceId, id, patch)
+export const updateTask: TasksStore['updateTask'] = (workspaceId, id, patch, actor) => initTasksStore().updateTask(workspaceId, id, patch, actor)
 export const setTaskStatus: TasksStore['setTaskStatus'] = (workspaceId, id, status) => initTasksStore().setTaskStatus(workspaceId, id, status)
 export const createTimesheet: TasksStore['createTimesheet'] = (input) => initTasksStore().createTimesheet(input)
 export const getTimesheets: TasksStore['getTimesheets'] = (workspaceId, taskId) => initTasksStore().getTimesheets(workspaceId, taskId)

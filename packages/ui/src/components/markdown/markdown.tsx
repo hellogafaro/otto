@@ -96,6 +96,11 @@ export interface MarkdownProps {
    * Default behavior (prop omitted): all preview blocks are registered.
    */
   disablePreviewBlocks?: ReadonlySet<DisablablePreviewBlock>
+  /**
+   * Otto: elements drawn by the caller, over the built-in ones (a comment's `span[data-entity]` chips). Pass a
+   * stable object (module level or memoized), or every render rebuilds the tree.
+   */
+  components?: Partial<Components>
 }
 
 /** Context for collapsible sections */
@@ -573,6 +578,7 @@ export function Markdown({
   collapsible = false,
   hideFirstMermaidExpand = true,
   disablePreviewBlocks,
+  components: overrides,
 }: MarkdownProps) {
   // Get collapsible context if enabled
   const collapsibleContext = useCollapsibleMarkdown()
@@ -591,8 +597,8 @@ export function Markdown({
   }
 
   const components = React.useMemo(
-    () => wrapWithSafeProxy(createComponents(mode, onUrlClick, onFileClick, collapsible ? collapsibleContext : null, firstMermaidCodeRef, hideFirstMermaidExpand, disablePreviewBlocks)),
-    [mode, onUrlClick, onFileClick, collapsible, collapsibleContext, hideFirstMermaidExpand, disablePreviewBlocks]
+    () => wrapWithSafeProxy({ ...createComponents(mode, onUrlClick, onFileClick, collapsible ? collapsibleContext : null, firstMermaidCodeRef, hideFirstMermaidExpand, disablePreviewBlocks), ...overrides }),
+    [mode, onUrlClick, onFileClick, collapsible, collapsibleContext, hideFirstMermaidExpand, disablePreviewBlocks, overrides]
   )
 
   // Preprocess to convert raw URLs and file paths to markdown links

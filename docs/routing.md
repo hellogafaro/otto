@@ -31,17 +31,18 @@ One URL scheme for web and Electron: real paths on browser history (`createBrows
 | View | URL |
 | --- | --- |
 | Chats | `/{ws}/chats`, `/{ws}/chats/{sessionId}`; filters in the search (below) |
-| Settings | `/{ws}/settings` (the index), `/{ws}/settings/{page}` (`app`, `ai`, `appearance`, `input`, `workspace`, `permissions`, `labels`, `messaging`, `server`, `shortcuts`, `preferences`) |
+| Settings | `/{ws}/settings` (the index), `/{ws}/settings/{page}` (`app`, `ai`, `appearance`, `input`, `workspace`, `members`, `permissions`, `labels`, `messaging`, `server`, `shortcuts`, `preferences`) |
 | Tasks | `/{ws}/tasks`, `/{ws}/tasks/{taskId}`; `?project={id}&assignee={actor}&status=todo\|doing\|done` (repeats) `&archived=1` |
 | Projects | `/{ws}/projects` (`?status=archived`), `/{ws}/projects/{projectId}` (`?tab=overview\|tasks\|documents\|files`) |
 | Routines (automations) | `/{ws}/routines`, `/{ws}/routines/{id}`; `?type=scheduled\|event\|agentic` |
 | Library | `/{ws}/library`, `/{ws}/library/{itemId}` (a file or a document); `?tab=all\|files\|documents&folder={id}&createdBy={actor}` |
+| Inbox | `/{ws}/inbox` (`?unread=1`); no detail: a notification opens its task or project |
 | Skills | `/{ws}/skills`, `/{ws}/skills/{slug}` |
 | Sources | `/{ws}/sources`, `/{ws}/sources/{slug}`; `?type=api\|mcp\|local` |
 
 `/` and `/{ws}` redirect to `/{activeWorkspaceSlug}/chats` (`/{ws}` in the route tree, `/` by the navigation provider once the workspace is known, so the splash is not held back). A known slug other than the active workspace switches to it (back step, pasted link, restored window); the switcher changing the workspace moves the URL (same settings page, otherwise the section's index). Reserved first segments (`isReservedWorkspaceSlug`, `packages/shared/src/utils/workspace-slug.ts`) are never a workspace: the `$workspaceSlug` route throws `notFound()` for them, and `generateSlug` suffixes `-workspace` so a workspace can never get one.
 
-**Search.** Plain query strings (custom `parseSearch` / `stringifySearch`, repeated keys for lists, `true` is `1`), not TanStack's JSON form. Chats: `?status=todo&status=done&label=research&label=design&flagged=1&archived=1` (filters combine, lists hold several values; or one `?view=`). Validated by `validateChatsSearch` (arrays of distinct strings, `1`/`true` flags, unknown dropped). Tasks, Projects and Library have theirs in `shared/section-search.ts` (`normalizeTasksSearch`, `normalizeProjectsSearch`, `normalizeLibrarySearch`: known keys and values only, in a fixed order), the same query in the route string (`tasks/task/{id}?project=p1`, `projects/project/{id}?tab=tasks`, `library/item/{id}?folder=f1`). A detail route validates its index's search, so Back (`useParentView`) returns to the same filters, tab and folder (a project's Back goes to the plain Projects index).
+**Search.** Plain query strings (custom `parseSearch` / `stringifySearch`, repeated keys for lists, `true` is `1`), not TanStack's JSON form. Chats: `?status=todo&status=done&label=research&label=design&flagged=1&archived=1` (filters combine, lists hold several values; or one `?view=`). Validated by `validateChatsSearch` (arrays of distinct strings, `1`/`true` flags, unknown dropped). Tasks, Projects, Library and Inbox have theirs in `shared/section-search.ts` (`normalizeTasksSearch`, `normalizeProjectsSearch`, `normalizeLibrarySearch`, `normalizeInboxSearch`: known keys and values only, in a fixed order), the same query in the route string (`tasks/task/{id}?project=p1`, `projects/project/{id}?tab=tasks`, `library/item/{id}?folder=f1`). A detail route validates its index's search, so Back (`useParentView`) returns to the same filters, tab and folder (a project's Back goes to the plain Projects index).
 
 ### Not found
 

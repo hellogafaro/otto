@@ -59,7 +59,8 @@ const tileClass =
 // item's right-click menu (a `ContextMenuContent`); `actions` (a 28px ghost ⋯,
 // as on list rows) sits 8px inside the tile's top and end corner, shown on
 // hover, focus or while its menu is open (always on touch). `disabled` (a
-// pending item) dims it to 60% and takes no pointer or focus.
+// pending item) dims it to 60% and takes no pointer or focus. `muted` (an
+// archived item) reads its title in `muted-foreground`; it stays clickable.
 function GalleryItem({
   title,
   icon,
@@ -70,6 +71,7 @@ function GalleryItem({
   actions,
   current = false,
   disabled = false,
+  muted = false,
   render,
   className,
   ...props
@@ -91,6 +93,8 @@ function GalleryItem({
     current?: boolean
     /** Pending or unavailable: 60%, no pointer, no focus. */
     disabled?: boolean
+    /** Archived: the title in `muted-foreground`, still a link. */
+    muted?: boolean
   }) {
   const item = useRender({
     defaultTagName: "button",
@@ -127,7 +131,12 @@ function GalleryItem({
                 </span>
               )}
             </div>
-            <span className="flex h-5 min-w-0 items-center gap-2 text-sm font-medium text-foreground">
+            <span
+              className={cn(
+                "flex h-5 min-w-0 items-center gap-2 text-sm font-medium",
+                muted ? "text-muted-foreground" : "text-foreground"
+              )}
+            >
               {icon && (
                 <span className="flex shrink-0 text-muted-foreground [&>svg]:size-3.5">
                   {icon}

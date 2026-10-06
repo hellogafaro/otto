@@ -30,6 +30,8 @@ export interface SettingsRowProps {
   inCard?: boolean
   /** Makes the row the header of a collapsible panel: sets aria-expanded and shows a chevron that turns when open */
   expanded?: boolean
+  /** A row listing a thing (a member, an invitation): stays on one line in narrow panels instead of stacking its controls */
+  list?: boolean
 }
 
 /**
@@ -64,6 +66,7 @@ export function SettingsRow({
   className,
   inCard = true,
   expanded,
+  list,
 }: SettingsRowProps) {
   const Component = onClick ? 'button' : 'div'
 
@@ -72,7 +75,7 @@ export function SettingsRow({
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       aria-expanded={expanded}
-      data-layout="settings-row"
+      data-layout={list ? 'settings-list-row' : 'settings-row'}
       className={cn(
         'w-full flex items-center justify-between text-left',
         inCard ? 'px-4 py-3' : 'py-3',

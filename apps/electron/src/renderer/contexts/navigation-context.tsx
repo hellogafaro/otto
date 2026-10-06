@@ -89,6 +89,7 @@ import {
   isAutomationsNavigation,
   isProjectsNavigation,
   isLibraryNavigation,
+  isInboxNavigation,
   isTasksNavigation,
   DEFAULT_NAVIGATION_STATE,
 } from '../../shared/types'
@@ -106,7 +107,7 @@ export type { Route }
 
 // Re-export navigation state types for consumers
 export type { NavigationState, SessionFilter }
-export { isSessionsNavigation, isSourcesNavigation, isSettingsNavigation, isSkillsNavigation, isAutomationsNavigation, isProjectsNavigation, isLibraryNavigation, isTasksNavigation }
+export { isSessionsNavigation, isSourcesNavigation, isSettingsNavigation, isSkillsNavigation, isAutomationsNavigation, isProjectsNavigation, isLibraryNavigation, isTasksNavigation, isInboxNavigation }
 
 // =============================================================================
 // Context

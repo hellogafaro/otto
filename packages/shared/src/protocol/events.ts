@@ -16,6 +16,16 @@ import type {
   DeepLinkNavigation,
 } from './dto'
 
+/**
+ * What `domain:changed` carries: after a write, the data of this domain in this workspace is stale and
+ * clients that show it reload. `userIds` (notifications only) are the people whose inbox changed.
+ */
+export type DomainChange = {
+  domain: 'library' | 'projects' | 'tasks' | 'timesheets' | 'comments' | 'notifications' | 'members'
+  workspaceId: string
+  userIds?: string[]
+}
+
 export interface BroadcastEventMap {
   // Session events (workspace-scoped via broadcastToWorkspace)
   [RPC_CHANNELS.sessions.EVENT]: [event: SessionEvent]
@@ -29,6 +39,7 @@ export interface BroadcastEventMap {
   [RPC_CHANNELS.automations.CHANGED]: [workspaceId: string]
   [RPC_CHANNELS.skills.CHANGED]: [workspaceId: string, skills: LoadedSkill[]]
   [RPC_CHANNELS.pages.CHANGED]: [workspaceId: string, pages: LoadedPage[]]
+  [RPC_CHANNELS.domain.CHANGED]: [change: DomainChange]
   [RPC_CHANNELS.llmConnections.CHANGED]: []
   [RPC_CHANNELS.permissions.DEFAULTS_CHANGED]: [value: null]
 

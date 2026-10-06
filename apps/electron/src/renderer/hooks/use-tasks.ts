@@ -14,11 +14,10 @@ import { useWorkspaceList } from './use-workspace-list'
 const loadTasks = () => window.electronAPI.getTasks({ status: ['todo', 'doing', 'done', 'archived'] })
 
 export function useTasks() {
-  const { items: tasks, loaded, refresh } = useWorkspaceList(tasksAtom, loadTasks)
+  const { items: tasks, loaded, refresh, mutate } = useWorkspaceList(tasksAtom, loadTasks, 'tasks')
 
   const actions = useMemo(() => {
     const api = window.electronAPI
-    const mutate = <T,>(call: () => Promise<T>) => toResult(call).finally(refresh)
     return {
       createTask: (input: { projectId: string; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] }) =>
         mutate(() => api.createTask(input)),
@@ -28,7 +27,7 @@ export function useTasks() {
       createTimesheet: (input: { taskId: string; time: number; notes?: string }) => toResult(() => api.createTimesheet(input)),
       deleteTimesheet: (id: string) => toResult(() => api.deleteTimesheet(id)),
     }
-  }, [refresh])
+  }, [mutate])
 
   return { tasks: tasks as Task[], loaded, refresh, ...actions }
 }

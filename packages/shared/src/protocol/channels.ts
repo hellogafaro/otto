@@ -378,6 +378,21 @@ export const RPC_CHANNELS = {
     CREATE: 'timesheets:create',
     DELETE: 'timesheets:delete',
   },
+  comments: {
+    GET: 'comments:get',
+    CREATE: 'comments:create',
+    UPDATE: 'comments:update',
+    DELETE: 'comments:delete',
+  },
+  notifications: {
+    GET: 'notifications:get',
+    SET_STATUS: 'notifications:setStatus',
+    CLEAR: 'notifications:clear',
+    GET_UNREAD_COUNT: 'notifications:getUnreadCount',
+  },
+  domain: {
+    CHANGED: 'domain:changed',
+  },
   pages: {
     GET: 'pages:get',
     GET_ONE: 'pages:getOne',

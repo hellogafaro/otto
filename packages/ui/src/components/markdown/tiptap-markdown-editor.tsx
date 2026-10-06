@@ -7,6 +7,7 @@ import TaskItem from './extensions/animated-task-item'
 import { Mathematics } from '@tiptap/extension-mathematics'
 import Image from '@tiptap/extension-image'
 import FileHandler from '@tiptap/extension-file-handler'
+import { TableKit } from '@tiptap/extension-table'
 import { Markdown as OfficialMarkdown } from '@tiptap/markdown'
 import { Markdown as LegacyMarkdown } from 'tiptap-markdown'
 import { tiptapCodeBlock } from './tiptap-code-block-view'
@@ -259,6 +260,8 @@ export function TiptapMarkdownEditor({
         },
       }),
       RichBlockInteractions,
+      // Otto: markdown tables survive an edit (without table nodes they were flattened to text and saved so).
+      TableKit.configure({ table: { resizable: false } }),
       ...(editable ? [TiptapSlashMenu] : []),
     ]
 

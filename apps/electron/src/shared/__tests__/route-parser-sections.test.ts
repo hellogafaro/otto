@@ -24,6 +24,8 @@ const CASES: Array<[route: string, state: NavigationState]> = [
   ['library?tab=files&folder=f1&createdBy=agent%3Adefault', { navigator: 'library', search: { tab: 'files', folder: 'f1', createdBy: 'agent:default' }, details: null }],
   ['library/item/i1', { navigator: 'library', search: {}, details: { type: 'item', itemId: 'i1' } }],
   ['library/item/i1?folder=f1', { navigator: 'library', search: { folder: 'f1' }, details: { type: 'item', itemId: 'i1' } }],
+  ['inbox', { navigator: 'inbox', search: {} }],
+  ['inbox?unread=1', { navigator: 'inbox', search: { unread: true } }],
 ]
 
 describe('tasks, projects and library routes', () => {
@@ -47,7 +49,7 @@ describe('tasks, projects and library routes', () => {
   })
 
   test('rejects a detail segment that is not the section\'s', () => {
-    for (const route of ['tasks/project/x', 'projects/task/x', 'library/page/x', 'library/item', 'tasks/task/a/b']) {
+    for (const route of ['tasks/project/x', 'projects/task/x', 'library/page/x', 'library/item', 'tasks/task/a/b', 'inbox/x']) {
       expect(parseRouteToNavigationState(route), route).toBeNull()
     }
   })
@@ -59,6 +61,8 @@ describe('tasks, projects and library routes', () => {
     expect(routes.view.projects({ projectId: 'p1', tab: 'tasks' })).toBe('projects/project/p1?tab=tasks')
     expect(routes.view.library()).toBe('library')
     expect(routes.view.library({ itemId: 'i1', folder: 'f1' })).toBe('library/item/i1?folder=f1')
+    expect(routes.view.inbox()).toBe('inbox')
+    expect(routes.view.inbox({ unread: true })).toBe('inbox?unread=1')
   })
 })
 

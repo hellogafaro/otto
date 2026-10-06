@@ -20,8 +20,10 @@ Join and child tables name both words in the plural (`projects_members`).
 - `updateProject` / `updateTask` take `expectedUpdatedAt`; a different stored `updatedAt` is a `conflict` and nothing changes.
 - `time` is whole milliseconds, 1 to 24 hours per entry; `notes` at most 4000 characters. `getTaskTime` sums a task's entries. Timesheets have no status and are deleted for real.
 - The creator of a project becomes a contributor. Roles are data only: nothing enforces them. A `user:<id>` assignee or project member must be a member of the workspace (`invalid` otherwise, checked by the handlers); agents are not checked.
+- Assignment notifies (`docs/activity-notifications.md`): creating a task with assignees, or adding people to `assignees`, writes an `assigned` notification for each newly added person (never the actor, never an agent) in the same transaction, so `updateTask` takes the acting actor last. Status changes and autosaved edits (title, description, due date, resources) notify nobody, and projects notify nobody.
+- Every successful write RPC pushes `domain:changed` to the workspace (`projects`, `tasks`, `timesheets`), and the list hooks reload on it.
 - A chat binds to a project by `projectId` (session metadata). The agent prompt gets the project's title, description and resources (`getProjectPromptContext`); an unknown or deleted id adds nothing. The old file-based projects (config, memory file, assets folder, working directory, color) are gone and their folders are ignored.
 
 ## Not built
 
-The Projects and Tasks pages (they stay empty states), a project picker for chats, timers, role enforcement, and a change broadcast.
+A project picker for chats (the Project page lists a project's chats but cannot start one), timers and role enforcement. The Projects and Tasks pages are built: `apps/electron/src/renderer/pages/{projects,tasks}/`, DESIGN.md Projects index, Project page, Tasks index and Task page.

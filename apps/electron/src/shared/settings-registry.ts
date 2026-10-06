@@ -38,6 +38,7 @@ export const SETTINGS_PAGES = [
   { id: 'appearance' as const, labelKey: 'settings.appearance.title' },
   { id: 'input' as const, labelKey: 'settings.input.title' },
   { id: 'workspace' as const, labelKey: 'settings.workspace.title' },
+  { id: 'members' as const, labelKey: 'settings.members.title' },
   { id: 'permissions' as const, labelKey: 'settings.permissions.title' },
   { id: 'labels' as const, labelKey: 'settings.labels.title' },
   { id: 'messaging' as const, labelKey: 'settings.messaging.title' },

@@ -1,6 +1,6 @@
 /**
- * The search of the Tasks, Projects and Library views: tasks filters, the project tab, the library
- * tab, folder and creator. They live in the route string's query (`tasks?project=p1&status=todo`) and in
+ * The search of the Tasks, Projects, Library and Inbox views: tasks filters, the project tab, the library
+ * tab, folder and creator, the inbox's unread filter. They live in the route string's query (`tasks?project=p1&status=todo`) and in
  * the URL's search, in the same form, so one value round-trips between the two (`router/location.ts`).
  * Each `normalize…Search` takes whatever was given and returns only valid keys, in a fixed order, so
  * equal searches are equal strings.
@@ -104,4 +104,13 @@ export function normalizeLibrarySearch(search: Record<string, unknown> = {}): Li
   const createdBy = text(search.createdBy)
   if (createdBy) out.createdBy = createdBy
   return out
+}
+
+/** `/{ws}/inbox`: `unread=1` keeps only the unread notifications. */
+export interface InboxSearch {
+  unread?: true
+}
+
+export function normalizeInboxSearch(search: Record<string, unknown> = {}): InboxSearch {
+  return isTruthyFlag(search.unread) ? { unread: true } : {}
 }

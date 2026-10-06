@@ -19,6 +19,8 @@ interface RenameDialogProps {
   onValueChange: (value: string) => void
   onSubmit: () => void
   placeholder?: string
+  /** The submit button's label; "Save" by default (a create flow says "Create"). */
+  submitLabel?: string
 }
 
 export function RenameDialog({
@@ -29,6 +31,7 @@ export function RenameDialog({
   onValueChange,
   onSubmit,
   placeholder,
+  submitLabel,
 }: RenameDialogProps) {
   const { t } = useTranslation()
   const effectivePlaceholder = placeholder ?? t("common.enterName")
@@ -77,7 +80,7 @@ export function RenameDialog({
             {t("common.cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={!value.trim()}>
-            {t("common.save")}
+            {submitLabel ?? t("common.save")}
           </Button>
         </DialogFooter>
       </DialogContent>

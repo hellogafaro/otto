@@ -22,6 +22,30 @@
   height: 0;
 }
 
+/* Otto: tables, flat as in the markdown renderer: hairline cell borders, medium header text */
+.tiptap-editor .tiptap-prose table {
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  width: 100%;
+}
+
+.tiptap-editor .tiptap-prose th,
+.tiptap-editor .tiptap-prose td {
+  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tiptap-editor .tiptap-prose th {
+  font-weight: 500;
+}
+
+.tiptap-editor .tiptap-prose th p,
+.tiptap-editor .tiptap-prose td p {
+  margin: 0;
+}
+
 /* Paragraphs */
 .tiptap-editor .tiptap-prose p {
   margin: 0.5rem 0;

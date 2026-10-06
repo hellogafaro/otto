@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { formatDistanceStrict, type Locale } from 'date-fns'
 import {
   Archive,
   ArchiveRestore,
@@ -39,7 +38,7 @@ import { useRecents } from '@/hooks/use-recents'
 import { useSessionActions } from '@/hooks/use-session-actions'
 import { useShortcutReveal } from '@/hooks/use-shortcut-reveal'
 import { getStateIcon, getStateIconStyle, type SessionStatus } from '@/config/session-status-config'
-import { getSessionStatus, getSessionTitle, hasUnreadMeta, shortTimeLocale } from '@/utils/session'
+import { getSessionStatus, getSessionTitle, hasUnreadMeta, shortTimeAgo } from '@/utils/session'
 import { Kbd } from '@/components/ui/kbd'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { SortableList } from '@/components/ui/sortable-list'
@@ -100,12 +99,6 @@ function RowMark({ mark }: { mark: Mark }) {
       {mark === 'unread' && <span role="img" aria-label={t('sidebar.rowUnread')} className="size-1.5 rounded-full bg-primary" />}
     </span>
   )
-}
-
-/** The time since the last message, short ("now", "5m", "2h", "3d"). */
-function getTimeAgo(at: number, now: number, nowLabel: string): string {
-  if (now - at < 60_000) return nowLabel
-  return formatDistanceStrict(at, now, { locale: shortTimeLocale as Locale, roundingMethod: 'floor' })
 }
 
 /** Re-renders each minute, so the times on the rows stay true. */
@@ -220,7 +213,7 @@ function Row({ item, pinned, active, hotkey, reveal, now, waiting = false, sessi
   const [menuOpen, setMenuOpen] = React.useState(false)
   const session = item.session
   const mark = session ? getRowMark(session, waiting) : null
-  const ago = session?.lastMessageAt ? getTimeAgo(session.lastMessageAt, now, t('time.compact.now')) : null
+  const ago = session?.lastMessageAt ? shortTimeAgo(session.lastMessageAt, now) : null
   const showKey = !!onTogglePin && !!reveal && !!hotkey
   const isChat = !!session && !!chat
   const rest = mark ? 'mark' : ago ? 'time' : 'none'

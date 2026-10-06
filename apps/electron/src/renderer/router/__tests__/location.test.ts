@@ -36,6 +36,7 @@ const KINDS: Array<[routeString: string, pathname: string, search: Record<string
   ['settings/appearance', '/test/settings/appearance', {}],
   ['settings/input', '/test/settings/input', {}],
   ['settings/workspace', '/test/settings/workspace', {}],
+  ['settings/members', '/test/settings/members', {}],
   ['settings/permissions', '/test/settings/permissions', {}],
   ['settings/labels', '/test/settings/labels', {}],
   ['settings/shortcuts', '/test/settings/shortcuts', {}],
@@ -60,6 +61,8 @@ const KINDS: Array<[routeString: string, pathname: string, search: Record<string
   ['library?tab=documents', '/test/library', { tab: 'documents' }],
   ['library/item/doc-1', '/test/library/doc-1', {}],
   ['library/item/doc-1?folder=f1', '/test/library/doc-1', { folder: 'f1' }],
+  ['inbox', '/test/inbox', {}],
+  ['inbox?unread=1', '/test/inbox', { unread: true }],
   ['skills', '/test/skills', {}],
   ['skills/skill/my-skill', '/test/skills/my-skill', {}],
   ['sources', '/test/sources', {}],
@@ -106,7 +109,7 @@ describe('routeStringToLocation / locationToRouteString', () => {
   })
 
   it('has no route for an unknown or incomplete URL', () => {
-    for (const pathname of ['/', '/test', '/test/', '/test/nope', '/test/settings/nope', '/test/chats/a/b', '/test/chats/a/b/c', '/test/tasks/t1/x']) {
+    for (const pathname of ['/', '/test', '/test/', '/test/nope', '/test/settings/nope', '/test/chats/a/b', '/test/chats/a/b/c', '/test/tasks/t1/x', '/test/inbox/x']) {
       expect(locationToRouteString(pathname, {}), pathname).toBeNull()
     }
   })

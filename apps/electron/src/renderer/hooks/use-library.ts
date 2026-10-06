@@ -7,18 +7,16 @@
 
 import { useMemo } from 'react'
 import { libraryAtom } from '@/atoms/library'
-import { toResult } from '@/lib/domain-result'
 import type { LibraryContent, LibraryItem, LibraryUpdate } from '../../shared/types'
 import { useWorkspaceList } from './use-workspace-list'
 
 const loadLibrary = () => window.electronAPI.getLibraryItems()
 
 export function useLibrary() {
-  const { items, loaded, refresh } = useWorkspaceList(libraryAtom, loadLibrary)
+  const { items, loaded, refresh, mutate } = useWorkspaceList(libraryAtom, loadLibrary, 'library')
 
   const actions = useMemo(() => {
     const api = window.electronAPI
-    const mutate = <T,>(call: () => Promise<T>) => toResult(call).finally(refresh)
     return {
       createLibraryItem: (input: { title: string; mime: string; content: LibraryContent; folderId?: string | null }) =>
         mutate(() => api.createLibraryItem(input)),
@@ -27,7 +25,7 @@ export function useLibrary() {
       updateLibraryItem: (id: string, patch: LibraryUpdate) => mutate(() => api.updateLibraryItem(id, patch)),
       deleteLibraryItem: (id: string) => mutate(() => api.deleteLibraryItem(id)),
     }
-  }, [refresh])
+  }, [mutate])
 
   return { items: items as LibraryItem[], loaded, refresh, ...actions }
 }

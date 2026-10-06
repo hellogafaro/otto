@@ -1,5 +1,6 @@
 import * as React from "react"
 import i18next from "i18next"
+import { formatDistanceStrict, type Locale } from "date-fns"
 import type { Session, Message } from "../../shared/types"
 import type { SessionMeta } from "../atoms/sessions"
 import type { SessionStatusId } from "../config/session-status-config"
@@ -159,6 +160,12 @@ export const shortTimeLocale = {
     const key = tokenToKey[token]
     return key ? i18next.t(key, { count }) : `${count}`
   },
+}
+
+/** The compact time since `at` ("now" under a minute, then "7m", "2h", "3d"...), as the lists show it. */
+export function shortTimeAgo(at: number, now = Date.now()): string {
+  if (now - at < 60_000) return i18next.t('time.compact.now')
+  return formatDistanceStrict(at, now, { locale: shortTimeLocale as Locale, roundingMethod: 'floor' })
 }
 
 /** Highlight matching text in a string with yellow background spans. */

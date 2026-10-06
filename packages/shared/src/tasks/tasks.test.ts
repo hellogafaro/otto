@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
+import { sql } from 'drizzle-orm'
 import { openDb } from '../db/index.ts'
+import { getNotifications } from '../notifications/index.ts'
 import { pushSchema } from '../db/push.ts'
 import { createProjectsStore } from '../projects/index.ts'
 import { createTasksStore, MAX_ASSIGNEES, MAX_NOTES, MAX_TIME, type TaskErrorCode } from './index.ts'
@@ -14,7 +16,7 @@ async function setup() {
   await pushSchema(db)
   const projects = createProjectsStore(db)
   const tasks = createTasksStore(db, projects)
-  return { projects, tasks, project: projects.createProject({ createdBy: ME, workspaceId: W, title: 'P' }) }
+  return { db, projects, tasks, project: projects.createProject({ createdBy: ME, workspaceId: W, title: 'P' }) }
 }
 
 function failsWith(code: TaskErrorCode, run: () => unknown) {
@@ -66,7 +68,7 @@ test('statuses: archive, delete and restore to todo; lists hide archived and del
   expect(tasks.getTasks(W).map((t) => t.id)).toEqual([a.id])
   expect(tasks.getTasks(W, { status: 'archived' }).map((t) => t.id)).toEqual([b.id])
   expect(tasks.getTasks(W, { status: ['archived', 'deleted'] })).toHaveLength(2)
-  failsWith('invalid', () => tasks.updateTask(W, c.id, { title: 'x' }))
+  failsWith('invalid', () => tasks.updateTask(W, c.id, { title: 'x' }, ME))
   const restored = tasks.setTaskStatus(W, c.id, 'todo')
   expect(restored.status).toBe('todo')
   expect(restored.updatedAt).toBeGreaterThan(c.updatedAt)
@@ -86,7 +88,7 @@ test('lists are ordered by status then most recently updated, and filter by proj
   const elsewhere = make('elsewhere', other.id)
   tasks.setTaskStatus(W, done.id, 'done')
   tasks.setTaskStatus(W, doing.id, 'doing')
-  tasks.updateTask(W, todoNew.id, { description: 'touched' })
+  tasks.updateTask(W, todoNew.id, { description: 'touched' }, ME)
   expect(tasks.getTasks(W, { projectId: project.id }).map((t) => t.title)).toEqual(['doing', 'todo new', 'todo old', 'done'])
   expect(tasks.getTasks(W, { projectId: other.id }).map((t) => t.id)).toEqual([elsewhere.id])
   expect(todoOld.status).toBe('todo')
@@ -102,35 +104,73 @@ test('assignees are validated, deduplicated and filterable', async () => {
   expect(tasks.getTasks(W, { assignee: ME }).map((t) => t.id)).toEqual([mine.id])
   expect(tasks.getTasks(W, { assignee: 'agent:default' }).map((t) => t.id).sort()).toEqual([mine.id, agents.id].sort())
   expect(tasks.getTasks(W, { assignee: 'agent:other' })).toEqual([])
-  const updated = tasks.updateTask(W, nobody.id, { assignees: ['agent:x', 'agent:x', ME] })
+  const updated = tasks.updateTask(W, nobody.id, { assignees: ['agent:x', 'agent:x', ME] }, ME)
   expect(updated.assignees).toEqual(['agent:x', ME])
-  expect(tasks.updateTask(W, nobody.id, { assignees: [] }).assignees).toEqual([])
+  expect(tasks.updateTask(W, nobody.id, { assignees: [] }, ME).assignees).toEqual([])
   failsWith('invalid', () => make('bad', ['bob']))
   failsWith('invalid', () => make('bad', ['agent:']))
   failsWith('invalid', () => make('bad', ME as never))
-  failsWith('invalid', () => tasks.updateTask(W, nobody.id, { assignees: [1 as never] }))
+  failsWith('invalid', () => tasks.updateTask(W, nobody.id, { assignees: [1 as never] }, ME))
   failsWith('invalid', () => make('many', Array.from({ length: MAX_ASSIGNEES + 1 }, (_, i) => `agent:a${i}`)))
+})
+
+const BOB = 'user:bbbbbbbbbbbb'
+const CAT = 'user:cccccccccccc'
+
+test('each person newly assigned is told, never the actor or an agent; status and edits tell nobody', async () => {
+  const { db, tasks, project } = await setup()
+  const told = (who: string) => getNotifications(who.slice('user:'.length), W, db).map((n) => [n.type, n.entity, n.createdBy])
+  const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'T', assignees: [ME, BOB, 'agent:default'] })
+  expect(told(BOB)).toEqual([['assigned', `task:${task.id}`, ME]])
+  expect(told(ME)).toEqual([]) // assigned themselves
+
+  tasks.updateTask(W, task.id, { title: 'T2', description: 'd', dueAt: 5, resources: [] }, BOB)
+  tasks.setTaskStatus(W, task.id, 'doing')
+  tasks.updateTask(W, task.id, { assignees: [ME, BOB] }, BOB) // nobody new
+  expect(told(BOB)).toHaveLength(1)
+  expect(told(ME)).toEqual([])
+
+  tasks.updateTask(W, task.id, { assignees: [ME, CAT, 'agent:x'] }, BOB) // CAT is new; removing BOB tells nobody
+  expect(told(CAT)).toEqual([['assigned', `task:${task.id}`, BOB]])
+  expect(told(BOB)).toHaveLength(1)
+  tasks.updateTask(W, task.id, { assignees: [BOB, ME] }, ME) // BOB again, by ME; ME already was
+  expect(told(BOB)).toEqual([['assigned', `task:${task.id}`, ME]]) // the same sentence again: one row, now by ME
+  expect(told(ME)).toEqual([])
+})
+
+test('a failing task write notifies nobody, and a failing notification rolls the write back', async () => {
+  const { db, tasks, project } = await setup()
+  const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'T' })
+  const before = tasks.getTask(W, task.id)!
+  failsWith('conflict', () => tasks.updateTask(W, task.id, { assignees: [BOB], expectedUpdatedAt: before.updatedAt - 1 }, ME))
+  expect(getNotifications('bbbbbbbbbbbb', W, db)).toEqual([])
+
+  db.run(sql`drop table notifications`)
+  expect(() => tasks.updateTask(W, task.id, { assignees: [BOB] }, ME)).toThrow()
+  expect(() => tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'U', assignees: [BOB] })).toThrow()
+  expect(tasks.getTask(W, task.id)).toEqual(before)
+  expect(tasks.getTasks(W)).toHaveLength(1)
 })
 
 test('update changes only what is given, can move to another project and clear the due date', async () => {
   const { projects, tasks, project } = await setup()
   const other = projects.createProject({ createdBy: ME, workspaceId: W, title: 'Q' })
   const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A', description: 'd', dueAt: 5 })
-  const moved = tasks.updateTask(W, task.id, { projectId: other.id, dueAt: null, title: 'B' })
+  const moved = tasks.updateTask(W, task.id, { projectId: other.id, dueAt: null, title: 'B' }, ME)
   expect(moved).toMatchObject({ projectId: other.id, dueAt: null, title: 'B', description: 'd' })
   expect(moved.updatedAt).toBeGreaterThan(task.updatedAt)
-  failsWith('not_found', () => tasks.updateTask(W, task.id, { projectId: 'nope' }))
-  failsWith('invalid', () => tasks.updateTask(W, task.id, { title: ' ' }))
+  failsWith('not_found', () => tasks.updateTask(W, task.id, { projectId: 'nope' }, ME))
+  failsWith('invalid', () => tasks.updateTask(W, task.id, { title: ' ' }, ME))
   expect(tasks.getTask(W, task.id)).toEqual(moved)
 })
 
 test('a stale expectedUpdatedAt is a conflict and changes nothing', async () => {
   const { tasks, project } = await setup()
   const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A' })
-  const first = tasks.updateTask(W, task.id, { title: 'B', expectedUpdatedAt: task.updatedAt })
-  failsWith('conflict', () => tasks.updateTask(W, task.id, { title: 'C', expectedUpdatedAt: task.updatedAt }))
+  const first = tasks.updateTask(W, task.id, { title: 'B', expectedUpdatedAt: task.updatedAt }, ME)
+  failsWith('conflict', () => tasks.updateTask(W, task.id, { title: 'C', expectedUpdatedAt: task.updatedAt }, ME))
   expect(tasks.getTask(W, task.id)).toEqual(first)
-  expect(tasks.updateTask(W, task.id, { title: 'D', expectedUpdatedAt: first.updatedAt }).title).toBe('D')
+  expect(tasks.updateTask(W, task.id, { title: 'D', expectedUpdatedAt: first.updatedAt }, ME).title).toBe('D')
 })
 
 test('workspaces do not see each other', async () => {
@@ -140,7 +180,7 @@ test('workspaces do not see each other', async () => {
   tasks.createTask({ createdBy: ME, workspaceId: OTHER, projectId: foreign.id, title: 'B', assignees: [ME] })
   expect(tasks.getTasks(W, { assignee: ME }).map((t) => t.id)).toEqual([task.id])
   expect(tasks.getTask(OTHER, task.id)).toBeUndefined()
-  failsWith('not_found', () => tasks.updateTask(OTHER, task.id, { title: 'x' }))
+  failsWith('not_found', () => tasks.updateTask(OTHER, task.id, { title: 'x' }, ME))
   failsWith('not_found', () => tasks.createTimesheet({ createdBy: ME, workspaceId: OTHER, taskId: task.id, time: 1 }))
   expect(tasks.getTimesheets(OTHER, task.id)).toEqual([])
 })

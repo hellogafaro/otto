@@ -72,7 +72,7 @@ describe('workspace members and invitations RPCs', () => {
     const member = await connect('member')
     expect(await member.invoke(C.GET_MEMBERS, A)).toEqual([
       { actor: 'user:owner', userId: 'owner', name: 'Name owner', email: 'owner@example.com', role: 'owner' },
-      { actor: 'user:member', userId: 'member', name: 'Name member', email: 'member@example.com', role: 'member' },
+      { actor: 'user:member', userId: 'member', name: 'Name member', email: 'member@example.com', role: 'member', me: true },
     ])
   })
 

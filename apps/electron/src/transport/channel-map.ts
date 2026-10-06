@@ -374,6 +374,17 @@ export const CHANNEL_MAP = {
   createTimesheet: invoke(RPC_CHANNELS.timesheets.CREATE),
   deleteTimesheet: invoke(RPC_CHANNELS.timesheets.DELETE),
 
+  // Comments and notifications
+  getComments: invoke(RPC_CHANNELS.comments.GET),
+  createComment: invoke(RPC_CHANNELS.comments.CREATE),
+  updateComment: invoke(RPC_CHANNELS.comments.UPDATE),
+  deleteComment: invoke(RPC_CHANNELS.comments.DELETE),
+  getNotifications: invoke(RPC_CHANNELS.notifications.GET),
+  setNotificationStatus: invoke(RPC_CHANNELS.notifications.SET_STATUS),
+  clearNotifications: invoke(RPC_CHANNELS.notifications.CLEAR),
+  getUnreadNotificationCount: invoke(RPC_CHANNELS.notifications.GET_UNREAD_COUNT),
+  onDomainChanged: listener(RPC_CHANNELS.domain.CHANGED),
+
   // Pages
   getPages: invoke(RPC_CHANNELS.pages.GET),
   getPage: invoke(RPC_CHANNELS.pages.GET_ONE),

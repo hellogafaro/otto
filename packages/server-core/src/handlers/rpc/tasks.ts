@@ -59,15 +59,20 @@ export function registerTasksHandlers(server: RpcServer, deps: HandlerDeps): voi
   server.handle(RPC_CHANNELS.tasks.UPDATE, (ctx, id: string, patch: TaskUpdate) => {
     const workspaceId = workspaceOf(ctx)
     assertWorkspaceActors(workspaceId, patch.assignees)
-    return updateTask(workspaceId, id, {
-      projectId: patch.projectId,
-      title: patch.title,
-      description: patch.description,
-      dueAt: patch.dueAt,
-      assignees: patch.assignees,
-      resources: patch.resources,
-      expectedUpdatedAt: patch.expectedUpdatedAt,
-    })
+    return updateTask(
+      workspaceId,
+      id,
+      {
+        projectId: patch.projectId,
+        title: patch.title,
+        description: patch.description,
+        dueAt: patch.dueAt,
+        assignees: patch.assignees,
+        resources: patch.resources,
+        expectedUpdatedAt: patch.expectedUpdatedAt,
+      },
+      actorOf(ctx),
+    )
   })
 
   server.handle(RPC_CHANNELS.tasks.SET_STATUS, (ctx, id: string, status: TaskStatus) => setTaskStatus(workspaceOf(ctx), id, status))
