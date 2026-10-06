@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createWebuiHandler } from '../http-server';
+import { createTestUsers } from './test-users';
 
 const TEMP_DIRS: string[] = [];
 
@@ -17,7 +18,6 @@ const logger = {
 function createTestWebuiDir(): string {
   const dir = mkdtempSync(join(tmpdir(), 'otto-webui-oauth-test-'));
   TEMP_DIRS.push(dir);
-  writeFileSync(join(dir, 'login.html'), '<!doctype html><html><body>login</body></html>');
   writeFileSync(join(dir, 'index.html'), '<!doctype html><html><body>app</body></html>');
   return dir;
 }
@@ -51,8 +51,7 @@ describe('WebUI /api/oauth/callback', () => {
 
     const handler = createWebuiHandler({
       webuiDir: createTestWebuiDir(),
-      secret: 'test-secret',
-      password: 'test-password',
+      users: await createTestUsers(),
       wsProtocol: 'wss',
       wsPort: 9100,
       getHealthCheck: () => ({ status: 'ok' }),
@@ -75,17 +74,13 @@ describe('WebUI /api/oauth/callback', () => {
       pushSourcesChanged: () => {},
     });
 
-    try {
-      const response = await handler.fetch(
-        new Request('http://127.0.0.1/api/oauth/callback?code=auth-code-123&state=inner-state-123'),
-      );
+    const response = await handler.fetch(
+      new Request('http://127.0.0.1/api/oauth/callback?code=auth-code-123&state=inner-state-123'),
+    );
 
-      expect(response.status).toBe(200);
-      expect(await response.text()).toContain('Authorization Successful');
-      expect(flows.has('inner-state-123')).toBe(false);
-    } finally {
-      handler.dispose();
-    }
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('Authorization Successful');
+    expect(flows.has('inner-state-123')).toBe(false);
   });
 
   it('renders an OAuth failure page when the relay forwards provider errors', async () => {
@@ -96,8 +91,7 @@ describe('WebUI /api/oauth/callback', () => {
 
     const handler = createWebuiHandler({
       webuiDir: createTestWebuiDir(),
-      secret: 'test-secret',
-      password: 'test-password',
+      users: await createTestUsers(),
       wsProtocol: 'wss',
       wsPort: 9100,
       getHealthCheck: () => ({ status: 'ok' }),
@@ -120,16 +114,12 @@ describe('WebUI /api/oauth/callback', () => {
       pushSourcesChanged: () => {},
     });
 
-    try {
-      const response = await handler.fetch(
-        new Request('http://127.0.0.1/api/oauth/callback?error=access_denied&error_description=User%20denied&state=inner-state-456'),
-      );
+    const response = await handler.fetch(
+      new Request('http://127.0.0.1/api/oauth/callback?error=access_denied&error_description=User%20denied&state=inner-state-456'),
+    );
 
-      expect(response.status).toBe(200);
-      expect(await response.text()).toContain('Authorization Failed');
-      expect(flows.has('inner-state-456')).toBe(false);
-    } finally {
-      handler.dispose();
-    }
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('Authorization Failed');
+    expect(flows.has('inner-state-456')).toBe(false);
   });
 });

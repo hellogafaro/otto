@@ -11,7 +11,7 @@ export type LibraryItem = {
   title: string
   mime: string | null
   size: number | null
-  /** 'user' for the person, 'agent:<id>' for an agent. */
+  /** 'user:<id>' for a person, 'agent:<id>' for an agent. */
   createdBy: string
   createdAt: number
   updatedAt: number

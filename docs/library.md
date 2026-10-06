@@ -17,7 +17,7 @@ Not built yet: streamed HTTP upload, enrichment, an S3 or Garage `FileStore` dri
 
 - Folders are rows in the same table (nested, at most 8 levels; a folder cannot move into itself or its own tree). `folderId` is null at the root.
 - `type` is `document` when the mime is `text/markdown` or the name ends in `.md`, and is fixed when the item is created.
-- `createdBy` is `'user'` or `'agent:<id>'` (`'agent:default'` until agents are modeled). Chat attachments live in the Chat attachments folder.
+- `createdBy` is `'user:<userId>'` or `'agent:<id>'` (`'agent:default'` until agents are modeled), filled by the server from the connection; the bare `'user'` is refused. Chat attachments live in the Chat attachments folder.
 - Deleting an item removes its bytes; a folder can only be deleted when empty.
 - The bytes are not in the table.
 

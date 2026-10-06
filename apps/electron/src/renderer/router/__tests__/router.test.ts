@@ -77,10 +77,14 @@ describe('route tree', () => {
   })
 
   it('a reserved first segment is not a workspace', async () => {
-    for (const slug of ['login', 'api', 'ws', 'assets', 'health', 'login-assets']) {
+    for (const slug of ['login', 'api', 'ws', 'assets', 'health']) {
       expect(notFound(await open(`/${slug}/chats`)), slug).toBe(true)
     }
     expect(notFound(await open('/login-co/chats'))).toBe(false)
+  })
+
+  it('/login is the web sign-in page; Electron (this build) has none', async () => {
+    expect(notFound(await open('/login'))).toBe(true)
   })
 
   it('translates a legacy ?ws=&route= URL before the first match', async () => {

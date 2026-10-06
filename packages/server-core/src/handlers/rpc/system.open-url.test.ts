@@ -56,6 +56,7 @@ function createTestHarness(overrides?: { workspaceId?: string | null }) {
 
   const ctx: RequestContext = {
     clientId: 'client-1',
+    userId: null,
     workspaceId: overrides?.workspaceId ?? 'ws-1',
     webContentsId: 101,
   }

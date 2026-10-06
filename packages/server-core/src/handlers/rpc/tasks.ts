@@ -15,7 +15,7 @@ import {
 import type { Resource } from '@otto/shared/projects'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
-import { resolveWorkspace } from './library'
+import { actorOf, resolveWorkspace } from './library'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.tasks.LIST,
@@ -49,6 +49,7 @@ export function registerTasksHandlers(server: RpcServer, deps: HandlerDeps): voi
         dueAt: input.dueAt,
         assignees: input.assignees,
         resources: input.resources,
+        createdBy: actorOf(ctx),
       }),
   )
 
@@ -69,7 +70,7 @@ export function registerTasksHandlers(server: RpcServer, deps: HandlerDeps): voi
   server.handle(RPC_CHANNELS.timesheets.LIST, (ctx, taskId: string) => getTimesheets(workspaceOf(ctx), taskId))
 
   server.handle(RPC_CHANNELS.timesheets.CREATE, (ctx, input: { taskId: string; time: number; notes?: string }) =>
-    createTimesheet({ workspaceId: workspaceOf(ctx), taskId: input.taskId, time: input.time, notes: input.notes }),
+    createTimesheet({ workspaceId: workspaceOf(ctx), taskId: input.taskId, time: input.time, notes: input.notes, createdBy: actorOf(ctx) }),
   )
 
   server.handle(RPC_CHANNELS.timesheets.DELETE, (ctx, id: string) => {

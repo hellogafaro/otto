@@ -51,6 +51,8 @@ const deps = {
   },
 } as unknown as Deps
 
+const USER_ID = 'abcdefghijkl'
+const ME = `user:${USER_ID}`
 let workspaceId = ''
 let rootPath = ''
 let ctx: Ctx
@@ -63,7 +65,7 @@ beforeAll(async () => {
   rootPath = join(configDir, 'workspace')
   const workspace = addWorkspace({ name: 'Test', rootPath })
   workspaceId = workspace.id
-  ctx = { clientId: 'c1', workspaceId, webContentsId: null }
+  ctx = { clientId: 'c1', userId: USER_ID, workspaceId, webContentsId: null }
   registerLibraryHandlers(server, deps)
   registerFilesHandlers(server as never, deps)
 })
@@ -75,7 +77,7 @@ describe('library RPC', () => {
     const image = await call(RPC_CHANNELS.library.CREATE, { title: 'pic.png', mime: 'image/png', content: { encoding: 'base64', data: b64(png) } })
     const doc = await call(RPC_CHANNELS.library.CREATE, { title: 'notes.md', mime: 'text/markdown', content: { encoding: 'utf8', data: '# One' } })
     const folder = await call(RPC_CHANNELS.library.CREATE_FOLDER, { title: 'Docs' })
-    expect(image).toMatchObject({ type: 'file', size: png.length, createdBy: 'user', folderId: null })
+    expect(image).toMatchObject({ type: 'file', size: png.length, createdBy: ME, folderId: null })
     expect(doc).toMatchObject({ type: 'document', size: 5 })
 
     expect((await call(RPC_CHANNELS.library.LIST)).map((item: { title: string }) => item.title)).toEqual(['Docs', 'notes.md', 'pic.png'])
@@ -113,6 +115,14 @@ describe('library RPC', () => {
     await expect(call(RPC_CHANNELS.library.CREATE, { title: 'none', mime: 'x/y', content: { encoding: 'base64', data: '' } })).rejects.toThrow('empty')
   })
 
+  it('needs a signed-in user to create, and never takes the actor from the client', async () => {
+    const nobody = { ...ctx, userId: null }
+    await expect((async () => handlers.get(RPC_CHANNELS.library.CREATE_FOLDER)!(nobody, { title: 'x' }))()).rejects.toThrow('Sign in')
+    const folder = await call(RPC_CHANNELS.library.CREATE_FOLDER, { title: 'mine', createdBy: 'user:zzzzzzzzzzzz' })
+    expect(folder.createdBy).toBe(ME)
+    await call(RPC_CHANNELS.library.DELETE, folder.id)
+  })
+
   it('needs a workspace that exists', async () => {
     const other = { ...ctx, workspaceId: 'no-such-workspace' }
     await expect((async () => handlers.get(RPC_CHANNELS.library.LIST)!(other))()).rejects.toThrow('Cannot determine workspace')
@@ -137,7 +147,7 @@ describe('STORE_ATTACHMENT', () => {
       type: 'file',
       title: 'shot.png',
       mime: 'image/png',
-      createdBy: 'user',
+      createdBy: ME,
       folderId: chatFolder()!.id,
     })
     expect(getLibraryItems(workspaceId, { folderId: null }).map((item) => item.id)).not.toContain(stored.id)
@@ -163,7 +173,7 @@ describe('STORE_ATTACHMENT', () => {
     expect(readFileSync(office.storedPath).equals(docx)).toBe(true)
     expect(readFileSync(office.markdownPath, 'utf8')).toContain('Quarterly plan')
     const markdown = getLibraryItems(workspaceId, { folderId: chatFolder()!.id }).find((item) => office.markdownPath.endsWith(item.id))
-    expect(markdown).toMatchObject({ type: 'document', title: 'plan.docx.md', createdBy: 'user' })
+    expect(markdown).toMatchObject({ type: 'document', title: 'plan.docx.md', createdBy: ME })
     expect(getLibraryItems(workspaceId, { type: 'folder' }).filter((item) => item.title === CHAT_ATTACHMENTS_FOLDER_TITLE)).toHaveLength(1)
   })
 

@@ -12,6 +12,7 @@ import { Loader } from 'lucide-react'
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createWebApi } from './adapter/web-api'
+import { logOut } from '@/lib/log-out'
 import type { WsRpcClient } from '../../electron/src/transport/client'
 
 // Lazy-load the Electron App after window.electronAPI is set up.
@@ -44,11 +45,7 @@ function ErrorScreen({ message, onRetry }: { message: string; onRetry: () => voi
           {t("common.retry")}
         </button>
         <button
-          onClick={() => {
-            fetch('/api/auth/logout', { method: 'POST' }).then(() => {
-              window.location.href = '/login'
-            })
-          }}
+          onClick={() => void logOut()}
           className="px-4 py-1.5 rounded-md bg-background text-[13px] text-foreground/70 cursor-pointer"
         >
           {t("webui.logOut")}

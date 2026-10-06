@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import { isActor } from '../actors.ts'
-import { initDb, type Db } from '../db/index.ts'
+import { initDb, type Db, type Tx } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
 import { initProjectsStore, MAX_DESCRIPTION, MAX_TITLE, parseResources, type ProjectsStore, type Resource } from '../projects/index.ts'
@@ -17,7 +17,7 @@ import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from './type
  * when the task is created or moved there. `status` is 'todo', 'doing', 'done', 'archived' or
  * 'deleted'; archiving and deleting only set it, rows are never removed (there is no hard
  * delete), lists hide both unless asked for with `status`, and restoring is setting 'todo'.
- * `assignees` are actors ('user' or 'agent:<id>'). A timesheet is one logged stretch of work:
+ * `assignees` are actors ('user:<id>' or 'agent:<id>'). A timesheet is one logged stretch of work:
  * `time` in milliseconds, so a timer can fill it later; timesheets have no status and are
  * deleted for real. Every function takes the workspace explicitly and only sees its rows.
  */
@@ -28,6 +28,20 @@ export type * from './types.ts'
 export const MAX_TIME = 24 * 60 * 60 * 1000
 export const MAX_NOTES = 4_000
 export const MAX_ASSIGNEES = 20
+
+/** Gives what the bare actor 'user' made or was assigned to `actor`: runs once, when the first user appears. */
+export function updateLegacyUserActor(db: Db | Tx, actor: string): void {
+  db.update(tasks).set({ createdBy: actor }).where(eq(tasks.createdBy, 'user')).run()
+  db.update(timesheets).set({ createdBy: actor }).where(eq(timesheets.createdBy, 'user')).run()
+  const assigned = db
+    .select({ id: tasks.id, assignees: tasks.assignees })
+    .from(tasks)
+    .where(sql`exists (select 1 from json_each(${tasks.assignees}) where json_each.value = 'user')`)
+    .all()
+  for (const { id, assignees } of assigned) {
+    db.update(tasks).set({ assignees: [...new Set(assignees.map((who) => (who === 'user' ? actor : who)))] }).where(eq(tasks.id, id)).run()
+  }
+}
 
 const STATUSES: TaskStatus[] = ['todo', 'doing', 'done', 'archived', 'deleted']
 
@@ -119,14 +133,14 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
       dueAt?: number | null
       assignees?: string[]
       resources?: Resource[]
-      createdBy?: string
+      createdBy: string
     }): Task {
       const title = assertTitle(input.title)
       const description = assertDescription(input.description ?? '')
       const dueAt = assertDueAt(input.dueAt ?? null)
       const assignees = assertAssignees(input.assignees ?? [])
       const resources = assertResources(input.resources ?? [])
-      const createdBy = assertActor(input.createdBy ?? 'user')
+      const createdBy = assertActor(input.createdBy)
       const projectId = assertProject(input.workspaceId, input.projectId)
       const now = new Date()
       return toTask(
@@ -207,13 +221,13 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
     },
 
     /** Logs time on a task; `createdAt` is when it was logged. */
-    createTimesheet(input: { workspaceId: string; taskId: string; time: number; notes?: string; createdBy?: string }): Timesheet {
+    createTimesheet(input: { workspaceId: string; taskId: string; time: number; notes?: string; createdBy: string }): Timesheet {
       if (!Number.isInteger(input.time) || input.time <= 0 || input.time > MAX_TIME) {
         throw domainError('invalid', `time must be a whole number of milliseconds, at most ${MAX_TIME}`)
       }
       const notes = input.notes ?? ''
       if (typeof notes !== 'string' || notes.length > MAX_NOTES) throw domainError('invalid', `Notes are limited to ${MAX_NOTES} characters`)
-      const createdBy = assertActor(input.createdBy ?? 'user')
+      const createdBy = assertActor(input.createdBy)
       const task = find(input.workspaceId, input.taskId)
       if (!task || task.status === 'deleted') throw domainError('not_found', `Task ${input.taskId} does not exist`)
       return toTimesheet(

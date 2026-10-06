@@ -4,7 +4,7 @@ import { loadShellEnv } from './shell-env'
 loadShellEnv()
 
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, session, shell } from 'electron'
-import { createHash, randomUUID } from 'crypto'
+import { createHash, randomBytes, randomUUID } from 'crypto'
 import { hostname, homedir } from 'os'
 import * as Sentry from '@sentry/electron/main'
 import { redactSensitiveHeadersInPlace, redactSensitiveKeysInPlace } from '@otto/shared/utils'
@@ -579,6 +579,15 @@ app.whenReady().then(async () => {
       const { getServerConfig } = await import('@otto/shared/config')
       const embeddedServerConfig = getServerConfig()
       const serverModeEnabled = embeddedServerConfig.enabled && !isClientOnly
+
+      // A local install has one person and no sign-in: the user made here, from the name and email in
+      // Settings -> Preferences, owns every workspace and is who the per-launch token (or the
+      // server-mode token) acts as. The secret only signs sessions this app never opens.
+      process.env.BETTER_AUTH_SECRET ??= randomBytes(32).toString('hex')
+      const { loadPreferences } = await import('@otto/shared/config')
+      const { initLocalUser } = await import('@otto/shared/users')
+      const preferences = loadPreferences()
+      initLocalUser({ name: preferences.name?.trim() || 'You', email: preferences.email?.trim() || 'local@localhost' })
 
       // Derive host/port/token from server config (or env overrides)
       const serverToken = serverModeEnabled && embeddedServerConfig.token

@@ -24,6 +24,9 @@ export function openDb(path: string = DB_PATH) {
 
 export type Db = ReturnType<typeof openDb>
 
+/** What `db.transaction` hands its callback. */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
+
 let shared: Db | undefined
 
 /** Open the process-wide database on first call and return it on every call after. */

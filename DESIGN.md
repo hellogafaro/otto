@@ -355,7 +355,7 @@ accent, compact 32px controls.
   agents. The product's name comes from `PRODUCT_NAME` (`@otto/shared/branding`),
   typed nowhere else: i18n strings use `{{product}}`, code and prompts import the
   constant, and the system prompt's identity, self-reference and co-author trailer
-  take the agent's name as a parameter. Static HTML (`index.html`, `login.html`,
+  take the agent's name as a parameter. Static HTML (`index.html`,
   `manifest.json`) cannot import it and keeps a literal.
 - **Vanilla shadcn.** Preset `b1VlItvM` (base-luma, Lucide icons). Luma's
   pill radii (the 2xl to 4xl steps) are replaced in each component by the
@@ -644,15 +644,18 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     filled `foreground/10` only while highlighted, the same 6px item corners, a 20px
     tile (`xs` 4, `bg-muted`, centered on the two lines) in the slot with the
     initials of the name, or a User icon when none is set, and
-    two lines, the name (13px medium) over the email (12px, muted, truncating), both
-    from Settings → Preferences (the web session carries neither). A field not set
+    two lines, the name (13px medium) over the email (12px, muted, truncating). On the
+    web it is the signed-in person (`useCurrentUser`, `GET /api/auth/get-session`,
+    fetched once per page load), a static block that opens nothing, so a second person
+    never sees the first one's identity; on Electron both come from Settings →
+    Preferences. A field not set
     shows its placeholder in muted text, "Your name" and "Add your email", so the
     block is never absent and plainly editable; nothing is invented and nothing is
     fetched (no gravatar). The Email field on that page is optional (empty or a basic
     email shape; an invalid one shows an inline error and is not saved, the last saved one stays). It is a menu item (highlight `foreground/10`): it opens
     Settings → Preferences; and **Log out**
     (destructive, LogOut icon). Theme lives in Settings → Appearance, not here. Log out is on the web app
-    only: it posts to `/api/auth/logout`, which clears the session cookie, then
+    only: it posts to `/api/auth/sign-out`, which ends the session, then
     opens `/login` (a failure toasts "Could not log out"). Electron has no web
     session, so the item is absent there (the account block stays). One click, no confirmation.
 - **The page header** (`PageHeaderRow`, drawn by `PageHeader`) is the page's
@@ -1210,7 +1213,9 @@ list rows (the project). Static: no hover, press or focus state.
 **Focus.** Text fields (`Input`) show no ring or border change; the caret shows
 focus. Everything else that takes focus (buttons, tabs, toggles, rows, select
 triggers, checkbox, radio, switch, cards) shows the one keyboard-only ring:
-2px, inset, `--ring`. Invalid fields turn red. Select triggers and native
+2px, inset, `--ring`. Invalid fields (`aria-invalid`; `Input`, `InputGroup`,
+`Textarea`) take a `destructive` border and a `destructive/10` fill (`/50` and
+`/20` in dark), the failed sign-in look. Select triggers and native
 selects are solid fields (`bg-input/50`) that step to `/70` on hover and `/100`
 while open.
 
@@ -1651,24 +1656,39 @@ Account forms use a centered 336px column, 24px side padding and 64px vertical
 padding, with the shared page-title typography and no logo. Labels stay above
 their inputs; the primary submission spans the column and secondary account
 actions center beneath it. Sign-in methods reflect configured backend support.
-The browser sign-in page (`apps/webui/src/login.html`) is static HTML served
-before the app, so it inlines the `:root` and `.dark` token values (light and dark
-by `prefers-color-scheme`) instead of loading the app stylesheet. It has no card:
-a left-aligned 336px column with 24px side padding, centered on the page layer
-(`--background`). Its header is the one every first-run screen shares (**Sign-in
-header**): the colored app icon (never the mark) as a 40px tile with `9px` corners
-(22.37% of the side, the iOS icon radius, not an avatar radius) and a
-`foreground/10` hairline, from `/login-assets/otto-app-icon.png` (the only path
-besides `/favicon.ico` served without a session; the app bundles its own copy).
-Below it, 20px apart, the title in the heading token
-(`text-base`, weight 500, never the title size), then 4px below a muted
-`text-sm` line, all left-aligned. The form is
-placeholder-only (no label; `aria-label` keeps the name): one 32px `md` 8 field
-(`bg-input/50`, no focus ring) with a nested 28px `sm` 6 ghost eye button on the
-right that shows or hides the password, then the full-width 32px primary button 12px
-below. A failed sign-in fills the field with `destructive/10` (`destructive/20` in
-dark) and a `destructive` border (`/50` in dark), and shows the message beneath
-the field in `text-xs` `destructive`, above the button.
+The browser sign-in page is the React route `/login` (`apps/webui/src/login-page.tsx`),
+at the router's root like the not-found page: theme, i18n and the toaster around
+it, never the app shell and never a WebSocket. Electron has no sign-in (the route is
+not found there). It has no card: a left-aligned 336px (21rem) column with 24px side
+padding, centered on the page layer (`--background`). Its header is the one every
+first-run screen shares (**Sign-in header**): the colored app icon (never the mark)
+as a 40px tile with `9px` corners (22.37% of the side, the iOS icon radius, not an
+avatar radius) and a `foreground/10` hairline (`OttoAppIcon`). Below it, 20px apart,
+the title in the heading token (`text-base`, weight 500, never the title size), then
+4px below a muted `text-sm` line, all left-aligned. The form starts 20px lower and is
+placeholder-only (no label; `aria-label` keeps the name): 32px `Input`s 8px apart;
+password fields are an `InputGroup` with a nested 28px `icon-compact` ghost eye
+button 2px in that shows or hides the value. Then one `text-xs` line 8px below the
+fields, the full-width 32px primary button 12px below, and, for an invitation, a
+full-width ghost button 8px under it. Enter submits, the first empty field takes
+focus, the button is disabled with its pending label ("Signing in…") while the
+request runs. A failure marks the fields it is about with the invalid state above and
+puts the message in that `text-xs` line in `destructive`; while creating a password
+the same line, muted, says it needs at least 12 characters. Messages are human per
+error code (wrong email or password, account exists, setup token, invitation needed
+or used up, too many attempts, server unreachable). One page, three modes:
+
+- **Sign in** ("Sign in", "Pick up where you and your agents left off."): email,
+  password.
+- **Create the owner account** (only while the server has no user, `GET /api/setup`):
+  name, email, password, setup token (the server token, a password field).
+- **Join your team** (`?invite=<id>&email=<email>`, the owner's invitation link):
+  the email shown read-only, name, password; "Sign in instead" switches to sign-in
+  for that email ("Sign in to accept your invitation.") and back. Either way the
+  invitation is accepted before continuing.
+
+Success is a full page load of `?next=` (a same-origin path, never `//` or the
+login page, else `/`), so the app starts with the session cookie.
 
 **Onboarding and workspace screens** (`StepFormLayout`: connection setup,
 Select Workspace, add workspace) use the same header and the plain page layer:

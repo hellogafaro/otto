@@ -26,7 +26,6 @@
   "dependencies": {
     "@otto/core": "workspace:*",
     "@otto/shared": "workspace:*",
-    "jose": "^6.0.0",
     "ws": "^8.19.0",
     "sharp": "0.34.5",
     "@earendil-works/pi-ai": "0.87.1"

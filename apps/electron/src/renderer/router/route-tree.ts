@@ -15,12 +15,14 @@ import { createElement, type ComponentType } from 'react'
 import { createRootRouteWithContext, createRoute, notFound, redirect, useRouterState } from '@tanstack/react-router'
 import { isReservedWorkspaceSlug } from '@otto/shared/utils/workspace-slug'
 import { isValidSettingsSubpage } from '../../shared/settings-registry'
+import { isWebUI } from '../lib/platform'
 import { isRouterNotFound } from './not-found'
 import { validateChatsSearch, validateRoutinesSearch, validateSourcesSearch } from './location'
 
-/** The props of the entry's `Root`: `notFound` shows the not-found page alone, without the app. */
+/** The props of the entry's `Root`: `notFound` shows the not-found page alone, `login` the web sign-in page alone; neither mounts the app. */
 export interface RootProps {
   notFound?: boolean
+  login?: boolean
 }
 
 export interface RouterContext {
@@ -32,12 +34,22 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: function AppRoot() {
     // The root renders the app itself, never an outlet, so the router's own not-found rendering never runs
     const notFound = useRouterState({ select: (state) => isRouterNotFound(state.matches) })
-    return createElement(rootRoute.useRouteContext().Root, { notFound })
+    const login = useRouterState({ select: (state) => state.matches.some((match) => match.routeId === loginRoute.id) })
+    return createElement(rootRoute.useRouteContext().Root, { notFound, login: login && !notFound })
   },
 })
 
 /** `/`: the navigation provider redirects it to the active workspace's Chats once the workspace is known. */
 const rootIndexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/' })
+
+/** `/login`: the web sign-in page, outside the app (no shell, no WebSocket). Electron runs its own local server and has no sign-in. */
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'login',
+  beforeLoad: () => {
+    if (!isWebUI) throw notFound()
+  },
+})
 
 const workspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -80,6 +92,7 @@ const sourceRoute = createRoute({ ...section('sources/$sourceSlug'), validateSea
 
 export const routeTree = rootRoute.addChildren([
   rootIndexRoute,
+  loginRoute,
   workspaceRoute.addChildren([
     workspaceIndexRoute,
     chatsRoute,

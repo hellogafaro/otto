@@ -14,6 +14,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Subprocess } from 'bun'
 import WebSocket from 'ws'
+import { openDb } from '@otto/shared/db'
+import { createUsersStore } from '@otto/shared/users'
+import { pushSchema } from '../../../shared/src/db/push.ts'
 
 const SERVER_ENTRY = join(import.meta.dir, '..', 'index.ts')
 const STARTUP_TIMEOUT = 15_000
@@ -31,12 +34,20 @@ async function spawnTestServer(extraEnv?: Record<string, string>): Promise<Spawn
   const token = crypto.randomUUID() + crypto.randomUUID() // 72 chars, well above 16 minimum
   const { CLAUDECODE: _, ...parentEnv } = process.env
 
+  // Its own config dir: a running dev server holds the lock on the default one. The server
+  // token acts as the first user, so the install gets one (as a local install does).
+  const configDir = mkdtempSync(join(tmpdir(), 'otto-smoke-'))
+  const db = openDb(join(configDir, 'otto.db'))
+  await pushSchema(db)
+  createUsersStore(db, { secret: 'x'.repeat(40), getWorkspaces: () => [] }).initLocalUser({ name: 'Test', email: 'test@localhost' })
+  db.$client.close()
+
   const proc = Bun.spawn(['bun', 'run', SERVER_ENTRY], {
     env: {
       ...parentEnv,
       ENCRYPTION_KEY: '0'.repeat(64),
-      // Its own config dir: a running dev server holds the lock on the default one.
-      OTTO_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'otto-smoke-')),
+      BETTER_AUTH_SECRET: 'y'.repeat(40),
+      OTTO_CONFIG_DIR: configDir,
       ...extraEnv,
       OTTO_SERVER_TOKEN: token,
       OTTO_RPC_PORT: '0',
@@ -160,6 +171,7 @@ describe('headless server smoke test', () => {
       env: {
         ...parentEnv,
         ENCRYPTION_KEY: '0'.repeat(64),
+        BETTER_AUTH_SECRET: 'y'.repeat(40),
         OTTO_SERVER_TOKEN: token,
         OTTO_RPC_PORT: '0',
         OTTO_RPC_HOST: '127.0.0.1',

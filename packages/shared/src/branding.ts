@@ -6,7 +6,7 @@
 /**
  * The product (the app and the company-level things). Copy and prompts never
  * type it: i18n strings use `{{product}}` (a default variable set in
- * `setupI18n`), code imports this. Static HTML (login.html, index.html titles,
+ * `setupI18n`), code imports this. Static HTML (index.html titles,
  * manifest.json) cannot import it and keeps a literal.
  */
 export const PRODUCT_NAME = 'Otto';

@@ -12,16 +12,8 @@
 
 import { stat } from 'node:fs/promises'
 import { extname, join, resolve, sep } from 'node:path'
-import {
-  RateLimiter,
-  initPasswordHash,
-  verifyPassword,
-  createSessionToken,
-  validateSession,
-  buildSessionCookie,
-  buildLogoutCookie,
-} from './auth'
 import { generateCallbackPage } from '@otto/shared/auth'
+import type { UsersStore } from '@otto/shared/users'
 import type { PlatformServices } from '../runtime/platform'
 
 // ---------------------------------------------------------------------------
@@ -87,9 +79,9 @@ function loginRedirectPath(url: URL): string {
   return next === '/' || url.pathname === '/index.html' ? '/login' : `/login?next=${encodeURIComponent(next)}`
 }
 
-/** Files the login page needs before sign-in (no auth). */
+/** Files the login page needs before sign-in (no auth): the app bundle and the icons. */
 function isPublicAsset(pathname: string): boolean {
-  return pathname.startsWith('/login-assets/')
+  return pathname.startsWith('/assets/')
     || /^\/(favicon\.(ico|svg)|apple-touch-icon\.png|manifest\.json|icon-\d+\.png)$/.test(pathname)
 }
 
@@ -120,18 +112,12 @@ function staticHeaders(pathname: string): Record<string, string> {
   }
 }
 
-function getForwardedValue(req: Request, key: 'proto' | 'host'): string | null {
+function getForwardedValue(req: Request, key: 'host'): string | null {
   const forwarded = req.headers.get('forwarded')
   if (!forwarded) return null
 
   const match = forwarded.match(new RegExp(`${key}="?([^;,"]+)"?`, 'i'))
   return match?.[1]?.trim() || null
-}
-
-function getRequestProto(req: Request): string {
-  return req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim()
-    || getForwardedValue(req, 'proto')
-    || new URL(req.url).protocol.replace(/:$/, '')
 }
 
 function getRequestHost(req: Request): string | null {
@@ -149,11 +135,6 @@ function formatHostWithPort(host: string, port: number): string {
     const withoutPort = host.replace(/:\d+$/, '')
     return `${withoutPort}:${port}`
   }
-}
-
-export function shouldUseSecureCookies(req: Request, secureCookies?: boolean): boolean {
-  if (secureCookies != null) return secureCookies
-  return getRequestProto(req) === 'https'
 }
 
 export interface ResolveWebSocketUrlOptions {
@@ -191,12 +172,8 @@ export interface OAuthCallbackDeps {
 export interface WebuiHandlerOptions {
   /** Path to built web UI dist/ directory. */
   webuiDir: string
-  /** Secret used to sign JWTs — typically OTTO_SERVER_TOKEN. */
-  secret: string
-  /** Optional separate web UI password. Falls back to `secret` for verification. */
-  password?: string
-  /** Explicit Secure-cookie override. When unset, infer from the request / proxy headers. */
-  secureCookies?: boolean
+  /** Sign-in and sessions: Better Auth's handler is mounted at /api/auth/*. */
+  users: Pick<UsersStore, 'auth' | 'needsOwner'>
   /** Optional browser-facing WebSocket URL override for reverse-proxy deployments. */
   publicWsUrl?: string
   /** RPC WebSocket protocol used when building a browser-facing fallback URL. */
@@ -209,12 +186,6 @@ export interface WebuiHandlerOptions {
   logger: PlatformServices['logger']
   /** OAuth callback deps — when provided, enables /api/oauth/callback route. */
   oauthCallbackDeps?: OAuthCallbackDeps
-  /**
-   * Trusted proxy IPs/CIDRs. When set, proxy headers (x-forwarded-for, x-forwarded-proto)
-   * are only trusted from these sources. When empty/unset, proxy headers are ignored
-   * and 'direct' is used as the rate-limit key.
-   */
-  trustedProxies?: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -224,8 +195,6 @@ export interface WebuiHandlerOptions {
 export interface WebuiHandler {
   /** Web-standard fetch handler. */
   fetch: (req: Request) => Promise<Response>
-  /** Call on shutdown to release timers. */
-  dispose: () => void
   /** Inject OAuth callback deps after bootstrap (lazy wiring). */
   setOAuthCallbackDeps: (deps: OAuthCallbackDeps) => void
 }
@@ -237,42 +206,11 @@ export interface WebuiHandler {
  * or adapted for Node's HTTP server via `nodeHttpAdapter()`.
  */
 export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
-  const {
-    webuiDir,
-    secret,
-    password,
-    secureCookies,
-    publicWsUrl,
-    wsProtocol,
-    wsPort,
-    getHealthCheck,
-    logger,
-    trustedProxies,
-  } = options
-
-  const rateLimiter = new RateLimiter(5, 60_000)
-  const cleanupTimer = setInterval(() => rateLimiter.cleanup(), 120_000)
-
-  const loginPassword = password || secret
-  const trustedProxySet = new Set(trustedProxies ?? [])
-
-  // Hash the login password at startup (async, but resolves before first auth attempt in practice)
-  const passwordReady = initPasswordHash(loginPassword)
-
-  /** Extract client IP — only trusts proxy headers when trustedProxies is configured. */
-  function getClientIp(req: Request): string {
-    if (trustedProxySet.size > 0) {
-      return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-        ?? req.headers.get('x-real-ip')
-        ?? 'direct'
-    }
-    return 'direct'
-  }
+  const { webuiDir, users, publicWsUrl, wsProtocol, wsPort, getHealthCheck, logger } = options
 
   async function fetch(req: Request): Promise<Response> {
     const url = new URL(req.url)
     const path = url.pathname
-    const useSecureCookies = shouldUseSecureCookies(req, secureCookies)
 
     // ── Health endpoint (no auth) ──
     if (path === '/health') {
@@ -282,74 +220,24 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
       })
     }
 
-    // ── Login page (no auth) ──
-    if (path === '/login' || path === '/login/') {
-      const loginFile = Bun.file(join(webuiDir, 'login.html'))
-      if (await loginFile.exists()) {
-        return new Response(loginFile, {
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        })
-      }
-      return new Response('Login page not found', { status: 404 })
+    // ── Sign-in, sign-up, sessions, invitations: Better Auth (no session needed) ──
+    if (path.startsWith('/api/auth/')) return users.auth.handler(req)
+
+    // ── Does the install still need its owner? (the login page asks) ──
+    if (path === '/api/setup' && req.method === 'GET') {
+      return Response.json({ needsOwner: users.needsOwner() })
     }
 
-    // ── Static assets that the login page needs (no auth) ──
+    // ── Login page: the app shell, whose router renders the login route (no auth) ──
+    if (path === '/login' || path === '/login/') return serveIndex()
+
+    // ── The bundle and icons the login page needs (no auth) ──
     if (isPublicAsset(path)) {
       const filePath = await resolveStaticFile(webuiDir, path)
       if (filePath) {
         return new Response(Bun.file(filePath), { headers: staticHeaders(path) })
       }
       return new Response('Not Found', { status: 404 })
-    }
-
-    // ── Auth endpoint ──
-    if (path === '/api/auth' && req.method === 'POST') {
-      await passwordReady
-      const ip = getClientIp(req)
-
-      if (!rateLimiter.check(ip)) {
-        logger.warn(`[webui] Rate limited auth attempt from ${ip}`)
-        return Response.json(
-          { error: 'Too many attempts. Try again later.' },
-          { status: 429 },
-        )
-      }
-
-      let body: { password?: string; next?: string }
-      try {
-        body = await req.json() as { password?: string; next?: string }
-      } catch {
-        return Response.json({ error: 'Invalid request body' }, { status: 400 })
-      }
-
-      if (!body.password || typeof body.password !== 'string') {
-        return Response.json({ error: 'Password is required' }, { status: 400 })
-      }
-
-      if (!await verifyPassword(body.password)) {
-        logger.warn(`[webui] Failed auth attempt from ${ip}`)
-        return Response.json({ error: 'Invalid credentials' }, { status: 401 })
-      }
-
-      const jwt = await createSessionToken(secret)
-      logger.info(`[webui] Successful auth from ${ip}`)
-
-      return Response.json({ ok: true, next: safeNextPath(body.next) }, {
-        status: 200,
-        headers: {
-          'Set-Cookie': buildSessionCookie(jwt, useSecureCookies),
-        },
-      })
-    }
-
-    // ── Logout endpoint ──
-    if (path === '/api/auth/logout' && req.method === 'POST') {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          'Set-Cookie': buildLogoutCookie(useSecureCookies),
-        },
-      })
     }
 
     // ── OAuth callback (no cookie auth — state param is CSRF protection) ──
@@ -413,33 +301,8 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
       }
     }
 
-    // ── Config endpoint (requires session cookie) ──
-    if (path === '/api/config' && req.method === 'GET') {
-      const configSession = await validateSession(req.headers.get('cookie'), secret)
-      if (!configSession) {
-        return Response.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      return Response.json({
-        wsUrl: resolveWebSocketUrl(req, { publicWsUrl, wsProtocol, wsPort }),
-      })
-    }
-
-    // Return the default workspace ID so the webui can include it in the WS handshake
-    if (path === '/api/config/workspaces' && req.method === 'GET') {
-      const configSession = await validateSession(req.headers.get('cookie'), secret)
-      if (!configSession) {
-        return Response.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      const { getActiveWorkspace } = await import('@otto/shared/config/storage')
-      const active = getActiveWorkspace()
-      return Response.json({
-        defaultWorkspaceId: active?.id ?? null,
-      })
-    }
-
-    // ── Everything below requires a valid session cookie ──
-    const cookieHeader = req.headers.get('cookie')
-    const session = await validateSession(cookieHeader, secret)
+    // ── Everything below requires a session ──
+    const session = await users.auth.api.getSession({ headers: req.headers })
 
     if (!session) {
       const accept = req.headers.get('accept') ?? ''
@@ -447,6 +310,21 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
         return Response.redirect(loginRedirectPath(url), 302)
       }
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (path === '/api/config' && req.method === 'GET') {
+      return Response.json({
+        wsUrl: resolveWebSocketUrl(req, { publicWsUrl, wsProtocol, wsPort }),
+      })
+    }
+
+    // Return the default workspace ID so the webui can include it in the WS handshake
+    if (path === '/api/config/workspaces' && req.method === 'GET') {
+      const { getActiveWorkspace } = await import('@otto/shared/config/storage')
+      const active = getActiveWorkspace()
+      return Response.json({
+        defaultWorkspaceId: active?.id ?? null,
+      })
     }
 
     // ── Serve SPA static files ──
@@ -464,17 +342,19 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
     }
 
     // SPA fallback — any other path is a client route (`/{workspace}/chats/{id}`): serve index.html
+    return serveIndex()
+  }
+
+  async function serveIndex(): Promise<Response> {
     const indexFile = Bun.file(join(webuiDir, 'index.html'))
     if (await indexFile.exists()) {
       return new Response(indexFile, { headers: staticHeaders('/index.html') })
     }
-
     return new Response('Not Found', { status: 404 })
   }
 
   return {
     fetch,
-    dispose: () => clearInterval(cleanupTimer),
     setOAuthCallbackDeps: (deps: OAuthCallbackDeps) => {
       options.oauthCallbackDeps = deps
     },
@@ -504,11 +384,5 @@ export async function startWebuiHttpServer(
   const boundPort = server.port ?? port
   logger.info(`[webui] Web UI server listening on http://0.0.0.0:${boundPort}`)
 
-  return {
-    port: boundPort,
-    stop: () => {
-      handler.dispose()
-      server.stop()
-    },
-  }
+  return { port: boundPort, stop: () => server.stop() }
 }

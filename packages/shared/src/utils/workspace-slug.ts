@@ -20,7 +20,7 @@ export function extractWorkspaceSlugFromPath(rootPath: string, fallbackId: strin
  * workspace slug can never be one of them. See docs/routing.md.
  */
 const RESERVED_WORKSPACE_SLUGS: ReadonlySet<string> = new Set([
-  'assets', 'api', 'ws', 'login', 'login-assets', 'health', 'index.html', 'manifest.json',
+  'assets', 'api', 'ws', 'login', 'health', 'index.html', 'manifest.json',
 ])
 
 export function isReservedWorkspaceSlug(slug: string): boolean {

@@ -6,7 +6,12 @@
  *   OTTO_SERVER_TOKEN=<secret> bun run packages/server/src/index.ts
  *
  * Environment:
- *   OTTO_SERVER_TOKEN         — required bearer token for client auth
+ *   OTTO_SERVER_TOKEN         — required: the machine and CLI credential (acts as the first user) and the
+ *                               setup token the first sign-up must carry
+ *   BETTER_AUTH_SECRET        — required: signs sessions and tokens, at least 32 characters (not ENCRYPTION_KEY)
+ *   BETTER_AUTH_URL           — the public origin the browser uses (https makes cookies Secure)
+ *   BETTER_AUTH_TRUSTED_ORIGINS — optional comma-separated extra origins allowed to call /api/auth
+ *   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET — optional: each pair turns that sign-in on
  *   OTTO_RPC_HOST             — bind address (default: 127.0.0.1)
  *   OTTO_RPC_PORT             — bind port (default: 9100)
  *   OTTO_RPC_TLS_CERT         — path to PEM certificate file (enables TLS/wss)
@@ -18,7 +23,6 @@
  *   OTTO_VERSION              — app version (default: 0.0.0-dev)
  *   OTTO_DEBUG                — 'true' for debug logging
  *   OTTO_WEBUI_DIR            — path to built web UI assets (enables web UI on RPC port)
- *   OTTO_WEBUI_PASSWORD       — optional shorter password for web login (falls back to OTTO_SERVER_TOKEN)
  *   OTTO_WEBUI_SECURE_COOKIE  — optional true/false override for the session cookie Secure flag
  *   OTTO_WEBUI_WS_URL         — optional browser-facing ws:// or wss:// URL returned by /api/config
  *   OTTO_MESSAGING_WA_WORKER  — absolute path to worker.cjs (default: packages/messaging-whatsapp-worker/dist/worker.cjs)
@@ -30,10 +34,11 @@ import { readFileSync, existsSync } from 'node:fs'
 import { version as packageVersion } from '../package.json'
 import { enableDebug } from '@otto/shared/utils/debug'
 import { bootstrapServer, startHealthHttpServer, generateServerToken } from '@otto/server-core/bootstrap'
-import { validateSession, createWebuiHandler, nodeHttpAdapter } from '@otto/server-core/webui'
+import { createWebuiHandler, nodeHttpAdapter } from '@otto/server-core/webui'
 import type { WebuiHandler } from '@otto/server-core/webui'
 import { getCredentialManager } from '@otto/shared/credentials'
 import { initSecrets } from '@otto/shared/secrets'
+import { initUsersStore } from '@otto/shared/users'
 import { getWorkspaces } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { createMessagingBootstrap, type MessagingBootstrapHandle } from '@otto/messaging-gateway'
@@ -62,17 +67,6 @@ process.on('unhandledRejection', (reason) => {
 
 if (process.env.OTTO_DEBUG === 'true' || process.env.OTTO_DEBUG === '1') {
   enableDebug()
-}
-
-function parseOptionalBooleanEnv(name: string, value: string | undefined): boolean | undefined {
-  if (value == null || value.trim() === '') return undefined
-
-  const normalized = value.trim().toLowerCase()
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true
-  if (['0', 'false', 'no', 'off'].includes(normalized)) return false
-
-  console.error(`Invalid ${name}: expected one of true/false/1/0/yes/no/on/off.`)
-  process.exit(1)
 }
 
 function parseOptionalWebSocketUrl(name: string, value: string | undefined): string | undefined {
@@ -112,9 +106,10 @@ if (tlsCertPath || tlsKeyPath) {
   }
 }
 
-// Secrets are encrypted under ENCRYPTION_KEY: fail now, not at the first read.
+// Secrets are encrypted under ENCRYPTION_KEY and sessions are signed with BETTER_AUTH_SECRET: fail now, not at the first use.
 try {
   initSecrets()
+  initUsersStore()
 } catch (err) {
   console.error(err instanceof Error ? err.message : err)
   process.exit(1)
@@ -123,7 +118,6 @@ try {
 // Web UI configuration
 const webuiDir = process.env.OTTO_WEBUI_DIR || undefined
 const webuiEnabled = webuiDir && existsSync(webuiDir)
-const webuiSecureCookies = parseOptionalBooleanEnv('OTTO_WEBUI_SECURE_COOKIE', process.env.OTTO_WEBUI_SECURE_COOKIE)
 const webuiWsUrl = parseOptionalWebSocketUrl('OTTO_WEBUI_WS_URL', process.env.OTTO_WEBUI_WS_URL)
 const serverToken = process.env.OTTO_SERVER_TOKEN
 
@@ -146,9 +140,7 @@ if (webuiEnabled && serverToken) {
 
   webuiHandler = createWebuiHandler({
     webuiDir: webuiDir!,
-    secret: serverToken,
-    password: process.env.OTTO_WEBUI_PASSWORD || undefined,
-    secureCookies: webuiSecureCookies,
+    users: initUsersStore(),
     publicWsUrl: webuiWsUrl,
     wsProtocol: rpcProtocol,
     // WebUI is served on the same port as WS — wsPort matches the RPC port
@@ -178,13 +170,6 @@ const instance = await (async () => {
       bundledAssetsRoot,
       serverVersion: process.env.OTTO_VERSION ?? packageVersion,
       tls,
-      // When web UI is enabled, accept JWT session cookies on WebSocket upgrade
-      validateSessionCookie: webuiEnabled && serverToken
-        ? async (cookieHeader) => {
-            const session = await validateSession(cookieHeader, serverToken)
-            return session !== null
-          }
-        : undefined,
       // Embed the WebUI HTTP handler on the WS server's port
       httpHandler: webuiNodeHandler,
       applyPlatformToSubsystems: (platform) => {
@@ -350,7 +335,6 @@ if (!isLocalBind && instance.protocol === 'ws') {
 }
 
 const shutdown = async () => {
-  webuiHandler?.dispose()
   healthServer?.stop()
   if (messagingHandle) {
     try {

@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { isActor } from '../actors.ts'
-import { initDb, type Db } from '../db/index.ts'
+import { initDb, type Db, type Tx } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
 import { MAX_DESCRIPTION, MAX_TITLE } from './limits.ts'
@@ -26,7 +26,7 @@ import type {
  * `status` is 'active', 'archived' or 'deleted'. Archiving and deleting only set it, rows are
  * never removed (there is no hard delete); lists hide both unless asked for with `status`, and
  * restoring is setting 'active'. `resources` link to urls, library items and chats (resources.ts).
- * Members are 'user' or 'agent:<id>' with a role; the creator becomes a contributor. Roles are
+ * Members are 'user:<id>' or 'agent:<id>' with a role; the creator becomes a contributor. Roles are
  * data only: nothing enforces them until users exist. Chats bind to a project by id
  * (`getProjectPromptContext` is what the agent prompt reads). Every function takes the
  * workspace explicitly and only sees its rows.
@@ -35,6 +35,11 @@ import type {
 export { MAX_DESCRIPTION, MAX_RESOURCES, MAX_RESOURCE_REF, MAX_RESOURCE_TITLE, MAX_TITLE } from './limits.ts'
 export { parseResources } from './resources.ts'
 export type * from './types.ts'
+
+/** Gives what the bare actor 'user' was on a project to `actor`: runs once, when the first user appears. */
+export function updateLegacyUserActor(db: Db | Tx, actor: string): void {
+  db.update(projectsMembers).set({ actor }).where(eq(projectsMembers.actor, 'user')).run()
+}
 
 const STATUSES: ProjectStatus[] = ['active', 'archived', 'deleted']
 const ROLES: MemberRole[] = ['contributor', 'viewer']
@@ -84,12 +89,12 @@ export function createProjectsStore(db: Db) {
       title: string
       description?: string
       resources?: Resource[]
-      createdBy?: string
+      createdBy: string
     }): Project {
       const title = assertTitle(input.title)
       const description = assertDescription(input.description ?? '')
       const resources = assertResources(input.resources ?? [])
-      const createdBy = input.createdBy ?? 'user'
+      const createdBy = input.createdBy
       if (!isActor(createdBy)) throw domainError('invalid', `${createdBy} is not an actor`)
       const now = new Date()
       return db.transaction((tx) => {

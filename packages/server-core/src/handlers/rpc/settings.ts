@@ -159,6 +159,10 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
 
     // Save the config
     saveWorkspaceConfig(workspace.rootPath, config)
+    if (key === 'name') {
+      const { refreshWorkspaceMirror } = await import('@otto/shared/config/storage')
+      refreshWorkspaceMirror()
+    }
     deps.platform.logger.info(`Workspace setting updated: ${key} = ${JSON.stringify(normalizedValue)}`)
   })
 

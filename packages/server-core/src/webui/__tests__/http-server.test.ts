@@ -3,9 +3,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { startWebuiHttpServer } from '../http-server'
+import { authHeaders, cookieOf, createTestUsers, PASSWORD, SETUP_TOKEN, signUpOwner } from './test-users'
 
-const SECRET = 'test-server-secret'
-const PASSWORD = 'test-password'
 const TEMP_DIRS: string[] = []
 const SERVERS: Array<{ stop: () => void }> = []
 
@@ -19,23 +18,21 @@ const logger = {
 function createTestWebuiDir(): string {
   const dir = mkdtempSync(join(tmpdir(), 'otto-webui-test-'))
   TEMP_DIRS.push(dir)
-  writeFileSync(join(dir, 'login.html'), '<!doctype html><html><body>login</body></html>')
   writeFileSync(join(dir, 'index.html'), '<!doctype html><html><body>app</body></html>')
   return dir
 }
 
 async function createServer(overrides?: {
-  secureCookies?: boolean
+  baseURL?: string
   publicWsUrl?: string
   wsProtocol?: 'ws' | 'wss'
   wsPort?: number
 }) {
+  const users = await createTestUsers({ baseURL: overrides?.baseURL })
   const server = await startWebuiHttpServer({
     port: 0,
     webuiDir: createTestWebuiDir(),
-    secret: SECRET,
-    password: PASSWORD,
-    secureCookies: overrides?.secureCookies,
+    users,
     publicWsUrl: overrides?.publicWsUrl,
     wsProtocol: overrides?.wsProtocol ?? 'wss',
     wsPort: overrides?.wsPort ?? 9100,
@@ -46,16 +43,14 @@ async function createServer(overrides?: {
   SERVERS.push(server)
 
   return {
+    users,
     server,
     baseUrl: `http://127.0.0.1:${server.port}`,
   }
 }
 
-function extractSessionCookie(res: Response): string {
-  const setCookie = res.headers.get('set-cookie')
-  expect(setCookie).toBeTruthy()
-  return setCookie!.split(';')[0]!
-}
+const post = (baseUrl: string, path: string, body: unknown) =>
+  fetch(`${baseUrl}${path}`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) })
 
 afterEach(() => {
   while (SERVERS.length > 0) {
@@ -69,68 +64,53 @@ afterEach(() => {
 })
 
 describe('startWebuiHttpServer', () => {
-  it('allows plain-http login even when the RPC transport is wss', async () => {
+  it('lets the owner set up, then sign in over plain http even when the RPC transport is wss', async () => {
     const { baseUrl } = await createServer({ wsProtocol: 'wss', wsPort: 9100 })
 
-    const authRes = await fetch(`${baseUrl}/api/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: PASSWORD }),
-    })
+    expect(await (await fetch(`${baseUrl}/api/setup`)).json()).toEqual({ needsOwner: true })
+    const signUp = await post(baseUrl, '/api/auth/sign-up/email', { name: 'Owner', email: 'owner@example.com', password: PASSWORD, setupToken: SETUP_TOKEN })
+    expect(signUp.status).toBe(200)
+    expect(await (await fetch(`${baseUrl}/api/setup`)).json()).toEqual({ needsOwner: false })
 
-    expect(authRes.status).toBe(200)
-    const setCookie = authRes.headers.get('set-cookie')
-    expect(setCookie).toContain('otto_session=')
+    const signIn = await post(baseUrl, '/api/auth/sign-in/email', { email: 'owner@example.com', password: PASSWORD })
+    expect(signIn.status).toBe(200)
+    const setCookie = signIn.headers.get('set-cookie')
+    expect(setCookie).toContain('session_token=')
     expect(setCookie).not.toContain('Secure')
 
-    const configRes = await fetch(`${baseUrl}/api/config`, {
-      headers: {
-        cookie: extractSessionCookie(authRes),
-      },
-    })
+    const session = await fetch(`${baseUrl}/api/auth/get-session`, { headers: { cookie: cookieOf(signIn) } })
+    expect(((await session.json()) as { user: { email: string } }).user.email).toBe('owner@example.com')
 
+    const configRes = await fetch(`${baseUrl}/api/config`, { headers: { cookie: cookieOf(signIn) } })
     expect(configRes.status).toBe(200)
-    expect(await configRes.json()).toEqual({
-      wsUrl: 'wss://127.0.0.1:9100',
-    })
+    expect(await configRes.json()).toEqual({ wsUrl: 'wss://127.0.0.1:9100' })
+  })
+
+  it('refuses a sign-up without the setup token, with our error code', async () => {
+    const { baseUrl } = await createServer()
+    const res = await post(baseUrl, '/api/auth/sign-up/email', { name: 'A', email: 'a@example.com', password: PASSWORD })
+    expect(res.status).toBe(403)
+    expect(((await res.json()) as { code: string }).code).toBe('SETUP_TOKEN_INVALID')
   })
 
   it('rejects invalid credentials', async () => {
-    const { baseUrl } = await createServer()
+    const { baseUrl, users } = await createServer()
+    await signUpOwner(users)
 
-    const res = await fetch(`${baseUrl}/api/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: 'wrong-password' }),
-    })
+    const res = await post(baseUrl, '/api/auth/sign-in/email', { email: 'owner@example.com', password: 'wrong-password-123' })
 
     expect(res.status).toBe(401)
-    expect(await res.json()).toEqual({ error: 'Invalid credentials' })
+    expect(((await res.json()) as { code: string }).code).toBe('INVALID_EMAIL_OR_PASSWORD')
   })
 
-  it('honors an explicit secure-cookie override', async () => {
-    const { baseUrl } = await createServer({ secureCookies: true, wsProtocol: 'ws', wsPort: 9100 })
+  it('marks the cookie Secure when the public URL is https', async () => {
+    const { baseUrl, users } = await createServer({ baseURL: 'https://otto.example.com' })
+    await signUpOwner(users)
 
-    const res = await fetch(`${baseUrl}/api/auth`, {
+    const res = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: PASSWORD }),
-    })
-
-    expect(res.status).toBe(200)
-    expect(res.headers.get('set-cookie')).toContain('Secure')
-  })
-
-  it('infers secure cookies from proxy https headers when no override is set', async () => {
-    const { baseUrl } = await createServer({ wsProtocol: 'wss', wsPort: 9100 })
-
-    const res = await fetch(`${baseUrl}/api/auth`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Forwarded-Proto': 'https',
-      },
-      body: JSON.stringify({ password: PASSWORD }),
+      headers: authHeaders({ origin: 'https://otto.example.com' }),
+      body: JSON.stringify({ email: 'owner@example.com', password: PASSWORD }),
     })
 
     expect(res.status).toBe(200)
@@ -138,21 +118,12 @@ describe('startWebuiHttpServer', () => {
   })
 
   it('derives a browser-facing websocket URL from forwarded public host headers', async () => {
-    const { baseUrl } = await createServer({ wsProtocol: 'wss', wsPort: 9100 })
-
-    const authRes = await fetch(`${baseUrl}/api/auth`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Forwarded-Proto': 'https',
-        'X-Forwarded-Host': 'otto.example.com:3100',
-      },
-      body: JSON.stringify({ password: PASSWORD }),
-    })
+    const { baseUrl, users } = await createServer({ wsProtocol: 'wss', wsPort: 9100 })
+    const cookie = await signUpOwner(users)
 
     const configRes = await fetch(`${baseUrl}/api/config`, {
       headers: {
-        cookie: extractSessionCookie(authRes),
+        cookie,
         'X-Forwarded-Proto': 'https',
         'X-Forwarded-Host': 'otto.example.com:3100',
       },
@@ -165,23 +136,14 @@ describe('startWebuiHttpServer', () => {
   })
 
   it('returns an explicit public websocket URL override from /api/config', async () => {
-    const { baseUrl } = await createServer({
+    const { baseUrl, users } = await createServer({
       publicWsUrl: 'wss://otto.example.com/ws',
       wsProtocol: 'wss',
       wsPort: 9100,
     })
+    const cookie = await signUpOwner(users)
 
-    const authRes = await fetch(`${baseUrl}/api/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: PASSWORD }),
-    })
-
-    const configRes = await fetch(`${baseUrl}/api/config`, {
-      headers: {
-        cookie: extractSessionCookie(authRes),
-      },
-    })
+    const configRes = await fetch(`${baseUrl}/api/config`, { headers: { cookie } })
 
     expect(configRes.status).toBe(200)
     expect(await configRes.json()).toEqual({

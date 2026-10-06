@@ -113,7 +113,7 @@ describe('routeStringToLocation / locationToRouteString', () => {
   })
 
   it('has no route under a reserved workspace slug', () => {
-    for (const slug of ['assets', 'api', 'ws', 'login', 'login-assets', 'health', 'index.html', 'favicon.ico', 'manifest.json']) {
+    for (const slug of ['assets', 'api', 'ws', 'login', 'health', 'index.html', 'favicon.ico', 'manifest.json']) {
       expect(locationToRouteString(`/${slug}/chats`, {}), slug).toBeNull()
       expect(workspaceSlugFromPathname(`/${slug}/chats`), slug).toBeNull()
     }
@@ -196,7 +196,7 @@ describe('type search', () => {
 
 describe('reserved workspace slugs', () => {
   it('covers what the servers own', () => {
-    for (const slug of ['assets', 'api', 'ws', 'login', 'login-assets', 'health', 'favicon.ico', 'favicon.svg', 'manifest.json', 'index.html']) {
+    for (const slug of ['assets', 'api', 'ws', 'login', 'health', 'favicon.ico', 'favicon.svg', 'manifest.json', 'index.html']) {
       expect(isReservedWorkspaceSlug(slug), slug).toBe(true)
     }
     for (const slug of ['test', 'my-team', 'api-team', 'wsl', 'login-co', 'assetsx']) {

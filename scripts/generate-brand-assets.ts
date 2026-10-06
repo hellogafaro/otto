@@ -1,5 +1,5 @@
 import sharp from 'sharp'
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // bun scripts/generate-brand-assets.ts
@@ -101,12 +101,7 @@ write(join(webPublic, 'apple-touch-icon.png'), await appIcon(180))
 write(join(webPublic, 'icon-192.png'), await appIcon(192))
 write(join(webPublic, 'icon-512.png'), await appIcon(512))
 
-// Sign-in, splash and onboarding icon: 40px at 3x. The sign-in page serves it
-// before sign-in from /login-assets/ (the only path besides /favicon.ico that
-// needs no session); the app imports its own copy.
-mkdirSync(join(webPublic, 'login-assets'), { recursive: true })
-const tileIcon = await appIcon(120)
-write(join(webPublic, 'login-assets/otto-app-icon.png'), tileIcon)
-write(join(root, 'apps/electron/src/renderer/assets/otto-app-icon.png'), tileIcon)
+// Sign-in and onboarding icon: 40px at 3x, imported by the app (OttoAppIcon).
+write(join(root, 'apps/electron/src/renderer/assets/otto-app-icon.png'), await appIcon(120))
 
 console.log('Brand assets generated')

@@ -28,6 +28,8 @@ const server = {
 }
 const deps = { platform: { logger: { info() {}, warn() {}, error() {}, debug() {} } } } as unknown as Deps
 
+const USER_ID = 'abcdefghijkl'
+const ME = `user:${USER_ID}`
 let workspaceId = ''
 let ctx: Ctx
 let otherCtx: Ctx
@@ -39,8 +41,8 @@ beforeAll(async () => {
   saveConfig({ workspaces: [], activeWorkspaceId: null, activeSessionId: null })
   workspaceId = addWorkspace({ name: 'Test', rootPath: join(configDir, 'workspace') }).id
   const otherId = addWorkspace({ name: 'Other', rootPath: join(configDir, 'other') }).id
-  ctx = { clientId: 'c1', workspaceId, webContentsId: null }
-  otherCtx = { clientId: 'c2', workspaceId: otherId, webContentsId: null }
+  ctx = { clientId: 'c1', userId: USER_ID, workspaceId, webContentsId: null }
+  otherCtx = { clientId: 'c2', userId: USER_ID, workspaceId: otherId, webContentsId: null }
   registerProjectsHandlers(server as never, deps)
   registerTasksHandlers(server as never, deps)
 })
@@ -61,7 +63,7 @@ describe('projects, tasks and timesheets RPC', () => {
     expect(await call(RPC_CHANNELS.projects.GET, project.id)).toEqual(project)
     expect(await call(RPC_CHANNELS.projects.GET, 'missing00000')).toBeNull()
     expect(await call(RPC_CHANNELS.projects.LIST)).toEqual([project])
-    expect(await call(RPC_CHANNELS.projects.GET_MEMBERS, project.id)).toEqual([{ actor: 'user', role: 'contributor' }])
+    expect(await call(RPC_CHANNELS.projects.GET_MEMBERS, project.id)).toEqual([{ actor: ME, role: 'contributor' }])
 
     const renamed = await call(RPC_CHANNELS.projects.UPDATE, project.id, { title: 'Launch 2', expectedUpdatedAt: project.updatedAt })
     expect(renamed.title).toBe('Launch 2')
@@ -71,7 +73,7 @@ describe('projects, tasks and timesheets RPC', () => {
     await call(RPC_CHANNELS.projects.SET_MEMBER, project.id, 'agent:default', 'viewer')
     expect(await call(RPC_CHANNELS.projects.GET_MEMBERS, project.id)).toEqual([
       { actor: 'agent:default', role: 'viewer' },
-      { actor: 'user', role: 'contributor' },
+      { actor: ME, role: 'contributor' },
     ])
     await call(RPC_CHANNELS.projects.REMOVE_MEMBER, project.id, 'agent:default')
 
@@ -104,10 +106,10 @@ describe('projects, tasks and timesheets RPC', () => {
 
   it('runs a task with timesheets and keeps workspaces apart', async () => {
     const project = await call(RPC_CHANNELS.projects.CREATE, { title: 'Work' })
-    const task = await call(RPC_CHANNELS.tasks.CREATE, { projectId: project.id, title: 'Write', assignees: ['user', 'user'] })
-    expect(task).toMatchObject({ projectId: project.id, status: 'todo', assignees: ['user'] })
+    const task = await call(RPC_CHANNELS.tasks.CREATE, { projectId: project.id, title: 'Write', assignees: [ME, ME] })
+    expect(task).toMatchObject({ projectId: project.id, status: 'todo', assignees: [ME] })
     expect(await call(RPC_CHANNELS.tasks.GET, task.id)).toEqual(task)
-    expect(await call(RPC_CHANNELS.tasks.LIST, { assignee: 'user' })).toEqual([task])
+    expect(await call(RPC_CHANNELS.tasks.LIST, { assignee: ME })).toEqual([task])
     await expect(call(RPC_CHANNELS.tasks.CREATE, { projectId: 'missing00000', title: 'x' })).rejects.toThrow('does not exist')
 
     const updated = await call(RPC_CHANNELS.tasks.UPDATE, task.id, { title: 'Write more', expectedUpdatedAt: task.updatedAt })
@@ -115,7 +117,7 @@ describe('projects, tasks and timesheets RPC', () => {
     await expect(call(RPC_CHANNELS.tasks.UPDATE, task.id, { title: 'Stale', expectedUpdatedAt: task.updatedAt })).rejects.toThrow('changed since')
 
     const sheet = await call(RPC_CHANNELS.timesheets.CREATE, { taskId: task.id, time: 60_000, notes: 'draft' })
-    expect(sheet).toMatchObject({ taskId: task.id, time: 60_000, notes: 'draft', createdBy: 'user' })
+    expect(sheet).toMatchObject({ taskId: task.id, time: 60_000, notes: 'draft', createdBy: ME })
     expect(await call(RPC_CHANNELS.timesheets.LIST, task.id)).toEqual([sheet])
     await expect(call(RPC_CHANNELS.timesheets.CREATE, { taskId: task.id, time: 0 })).rejects.toThrow('milliseconds')
 

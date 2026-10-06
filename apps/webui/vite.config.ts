@@ -24,10 +24,7 @@ export default defineConfig({
     emptyDirBeforeWrite: true,
     sourcemap: true,
     rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'src/index.html'),
-        login: resolve(__dirname, 'src/login.html'),
-      },
+      input: resolve(__dirname, 'src/index.html'),
       // Suppress warnings for Node.js externalized modules — these are
       // referenced by shared code but only used in server/Electron codepaths.
       onwarn(warning, warn) {
@@ -104,11 +101,11 @@ export default defineConfig({
       const wsProto = useTls ? 'wss' : 'ws'
       const httpTarget = `${httpProto}://127.0.0.1:${port}`
       const wsTarget = `${wsProto}://127.0.0.1:${port}`
-      // Anchored regexes (matched against the URL with its query): a workspace slug such as `wsl` or
-      // `login-co` must stay a client route.
+      // Anchored regexes (matched against the URL with its query): a workspace slug such as `wsl`
+      // must stay a client route. `/login` is a client route too (the SPA fallback serves it); its
+      // calls (`/api/setup`, `/api/auth/*`) go through `/api/`.
       return {
         '^/api/': { target: httpTarget, changeOrigin: true, secure: false },
-        '^/login/?(\\?|$)': { target: httpTarget, changeOrigin: true, secure: false },
         '^/ws(\\?|$)': { target: wsTarget, ws: true, secure: false },
       }
     })(),

@@ -15,13 +15,13 @@ const TEST_TOKEN = 'test-token-with-enough-entropy-to-pass'
 function createServer(opts?: {
   maxClients?: number
   requireAuth?: boolean
-  validateToken?: (token: string) => Promise<boolean>
+  validateToken?: (token: string) => Promise<{ userId: string } | null>
 }) {
   return new WsRpcServer({
     host: '127.0.0.1',
     port: 0,
     requireAuth: opts?.requireAuth ?? true,
-    validateToken: opts?.validateToken ?? (async (t) => t === TEST_TOKEN),
+    validateToken: opts?.validateToken ?? (async (t) => (t === TEST_TOKEN ? { userId: 'user00000001' } : null)),
     maxClients: opts?.maxClients,
     serverId: 'test',
   })

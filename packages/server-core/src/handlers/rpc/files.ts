@@ -12,7 +12,7 @@ import { MarkItDown } from 'markitdown-js'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 import { requestClientOpenFileDialog } from '@otto/server-core/transport'
-import { resolveWorkspace } from './library'
+import { actorOf, resolveWorkspace } from './library'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.file.READ,
@@ -224,6 +224,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
 
       const workspace = resolveWorkspace(ctx, deps)
       workspaceId = workspace.id
+      const createdBy = actorOf(ctx)
 
       // Track if image was resized (for return value)
       let wasResized = false
@@ -340,8 +341,8 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
         throw new Error('Attachment has no content (neither base64 nor text)')
       }
 
-      const folderId = initChatAttachmentsFolder(workspaceId).id
-      const item = await createLibraryItem({ workspaceId, title: attachment.name, mime: attachment.mimeType, bytes, folderId })
+      const folderId = initChatAttachmentsFolder(workspaceId, createdBy).id
+      const item = await createLibraryItem({ workspaceId, title: attachment.name, mime: attachment.mimeType, bytes, folderId, createdBy })
       createdIds.push(item.id)
       const storedPath = getLibraryItemPath(workspace.rootPath, item.id)
 
@@ -373,6 +374,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
             mime: 'text/markdown',
             bytes: Buffer.from(result.textContent, 'utf-8'),
             folderId,
+            createdBy,
           })
           createdIds.push(markdown.id)
           markdownPath = getLibraryItemPath(workspace.rootPath, markdown.id)

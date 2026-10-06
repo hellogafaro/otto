@@ -20,7 +20,7 @@ export const projects = sqliteTable(
   (table) => [index('projects_workspace_status').on(table.workspaceId, table.status)],
 )
 
-/** Who is on a project. `actor` is 'user' or 'agent:<id>'. Not enforced anywhere until users exist. */
+/** Who is on a project. `actor` is 'user:<id>' or 'agent:<id>'. */
 export const projectsMembers = sqliteTable(
   'projects_members',
   {

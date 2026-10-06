@@ -6,6 +6,7 @@ import { createTasksStore, MAX_ASSIGNEES, MAX_NOTES, MAX_TIME, type TaskErrorCod
 import { isDomainError } from '../utils/errors.ts'
 
 const W = 'ws1'
+const ME = 'user:aaaaaaaaaaaa'
 const OTHER = 'ws2'
 
 async function setup() {
@@ -13,7 +14,7 @@ async function setup() {
   await pushSchema(db)
   const projects = createProjectsStore(db)
   const tasks = createTasksStore(db, projects)
-  return { projects, tasks, project: projects.createProject({ workspaceId: W, title: 'P' }) }
+  return { projects, tasks, project: projects.createProject({ createdBy: ME, workspaceId: W, title: 'P' }) }
 }
 
 function failsWith(code: TaskErrorCode, run: () => unknown) {
@@ -28,23 +29,23 @@ function failsWith(code: TaskErrorCode, run: () => unknown) {
 
 test('create needs an existing, non-deleted project of the same workspace', async () => {
   const { projects, tasks, project } = await setup()
-  const task = tasks.createTask({ workspaceId: W, projectId: project.id, title: ' Write ' })
+  const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: ' Write ' })
   expect(task.id).toMatch(/^[0-9a-z]{12}$/)
-  expect(task).toMatchObject({ projectId: project.id, title: 'Write', description: '', status: 'todo', dueAt: null, assignees: [], resources: [], createdBy: 'user' })
+  expect(task).toMatchObject({ projectId: project.id, title: 'Write', description: '', status: 'todo', dueAt: null, assignees: [], resources: [], createdBy: ME })
   expect(task.createdAt).toBe(task.updatedAt)
   expect(tasks.getTask(W, task.id)).toEqual(task)
-  failsWith('not_found', () => tasks.createTask({ workspaceId: W, projectId: 'nope', title: 'A' }))
-  failsWith('not_found', () => tasks.createTask({ workspaceId: OTHER, projectId: project.id, title: 'A' }))
+  failsWith('not_found', () => tasks.createTask({ createdBy: ME, workspaceId: W, projectId: 'nope', title: 'A' }))
+  failsWith('not_found', () => tasks.createTask({ createdBy: ME, workspaceId: OTHER, projectId: project.id, title: 'A' }))
   projects.setProjectStatus(W, project.id, 'archived')
-  expect(tasks.createTask({ workspaceId: W, projectId: project.id, title: 'In archive' }).status).toBe('todo')
+  expect(tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'In archive' }).status).toBe('todo')
   projects.setProjectStatus(W, project.id, 'deleted')
-  failsWith('not_found', () => tasks.createTask({ workspaceId: W, projectId: project.id, title: 'A' }))
+  failsWith('not_found', () => tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A' }))
 })
 
 test('create validates title, due date, creator and resources', async () => {
   const { tasks, project } = await setup()
-  const make = (extra: object) => () => tasks.createTask({ workspaceId: W, projectId: project.id, title: 'A', ...extra })
-  failsWith('invalid', () => tasks.createTask({ workspaceId: W, projectId: project.id, title: '' }))
+  const make = (extra: object) => () => tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A', ...extra })
+  failsWith('invalid', () => tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: '' }))
   failsWith('invalid', make({ dueAt: 1.5 }))
   failsWith('invalid', make({ dueAt: -1 }))
   failsWith('invalid', make({ createdBy: 'bob' }))
@@ -55,7 +56,7 @@ test('create validates title, due date, creator and resources', async () => {
 
 test('statuses: archive, delete and restore to todo; lists hide archived and deleted', async () => {
   const { tasks, project } = await setup()
-  const make = (title: string) => tasks.createTask({ workspaceId: W, projectId: project.id, title })
+  const make = (title: string) => tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title })
   const a = make('a')
   const b = make('b')
   const c = make('c')
@@ -76,8 +77,8 @@ test('statuses: archive, delete and restore to todo; lists hide archived and del
 
 test('lists are ordered by status then most recently updated, and filter by project', async () => {
   const { projects, tasks, project } = await setup()
-  const other = projects.createProject({ workspaceId: W, title: 'Q' })
-  const make = (title: string, projectId = project.id) => tasks.createTask({ workspaceId: W, projectId, title })
+  const other = projects.createProject({ createdBy: ME, workspaceId: W, title: 'Q' })
+  const make = (title: string, projectId = project.id) => tasks.createTask({ createdBy: ME, workspaceId: W, projectId, title })
   const todoOld = make('todo old')
   const done = make('done')
   const doing = make('doing')
@@ -93,28 +94,28 @@ test('lists are ordered by status then most recently updated, and filter by proj
 
 test('assignees are validated, deduplicated and filterable', async () => {
   const { tasks, project } = await setup()
-  const make = (title: string, assignees?: string[]) => tasks.createTask({ workspaceId: W, projectId: project.id, title, assignees })
-  const mine = make('mine', ['user', 'user', 'agent:default'])
+  const make = (title: string, assignees?: string[]) => tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title, assignees })
+  const mine = make('mine', [ME, ME, 'agent:default'])
   const agents = make('agents', ['agent:default'])
   const nobody = make('nobody')
-  expect(mine.assignees).toEqual(['user', 'agent:default'])
-  expect(tasks.getTasks(W, { assignee: 'user' }).map((t) => t.id)).toEqual([mine.id])
+  expect(mine.assignees).toEqual([ME, 'agent:default'])
+  expect(tasks.getTasks(W, { assignee: ME }).map((t) => t.id)).toEqual([mine.id])
   expect(tasks.getTasks(W, { assignee: 'agent:default' }).map((t) => t.id).sort()).toEqual([mine.id, agents.id].sort())
   expect(tasks.getTasks(W, { assignee: 'agent:other' })).toEqual([])
-  const updated = tasks.updateTask(W, nobody.id, { assignees: ['agent:x', 'agent:x', 'user'] })
-  expect(updated.assignees).toEqual(['agent:x', 'user'])
+  const updated = tasks.updateTask(W, nobody.id, { assignees: ['agent:x', 'agent:x', ME] })
+  expect(updated.assignees).toEqual(['agent:x', ME])
   expect(tasks.updateTask(W, nobody.id, { assignees: [] }).assignees).toEqual([])
   failsWith('invalid', () => make('bad', ['bob']))
   failsWith('invalid', () => make('bad', ['agent:']))
-  failsWith('invalid', () => make('bad', 'user' as never))
+  failsWith('invalid', () => make('bad', ME as never))
   failsWith('invalid', () => tasks.updateTask(W, nobody.id, { assignees: [1 as never] }))
   failsWith('invalid', () => make('many', Array.from({ length: MAX_ASSIGNEES + 1 }, (_, i) => `agent:a${i}`)))
 })
 
 test('update changes only what is given, can move to another project and clear the due date', async () => {
   const { projects, tasks, project } = await setup()
-  const other = projects.createProject({ workspaceId: W, title: 'Q' })
-  const task = tasks.createTask({ workspaceId: W, projectId: project.id, title: 'A', description: 'd', dueAt: 5 })
+  const other = projects.createProject({ createdBy: ME, workspaceId: W, title: 'Q' })
+  const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A', description: 'd', dueAt: 5 })
   const moved = tasks.updateTask(W, task.id, { projectId: other.id, dueAt: null, title: 'B' })
   expect(moved).toMatchObject({ projectId: other.id, dueAt: null, title: 'B', description: 'd' })
   expect(moved.updatedAt).toBeGreaterThan(task.updatedAt)
@@ -125,7 +126,7 @@ test('update changes only what is given, can move to another project and clear t
 
 test('a stale expectedUpdatedAt is a conflict and changes nothing', async () => {
   const { tasks, project } = await setup()
-  const task = tasks.createTask({ workspaceId: W, projectId: project.id, title: 'A' })
+  const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A' })
   const first = tasks.updateTask(W, task.id, { title: 'B', expectedUpdatedAt: task.updatedAt })
   failsWith('conflict', () => tasks.updateTask(W, task.id, { title: 'C', expectedUpdatedAt: task.updatedAt }))
   expect(tasks.getTask(W, task.id)).toEqual(first)
@@ -134,24 +135,24 @@ test('a stale expectedUpdatedAt is a conflict and changes nothing', async () => 
 
 test('workspaces do not see each other', async () => {
   const { projects, tasks, project } = await setup()
-  const task = tasks.createTask({ workspaceId: W, projectId: project.id, title: 'A', assignees: ['user'] })
-  const foreign = projects.createProject({ workspaceId: OTHER, title: 'F' })
-  tasks.createTask({ workspaceId: OTHER, projectId: foreign.id, title: 'B', assignees: ['user'] })
-  expect(tasks.getTasks(W, { assignee: 'user' }).map((t) => t.id)).toEqual([task.id])
+  const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A', assignees: [ME] })
+  const foreign = projects.createProject({ createdBy: ME, workspaceId: OTHER, title: 'F' })
+  tasks.createTask({ createdBy: ME, workspaceId: OTHER, projectId: foreign.id, title: 'B', assignees: [ME] })
+  expect(tasks.getTasks(W, { assignee: ME }).map((t) => t.id)).toEqual([task.id])
   expect(tasks.getTask(OTHER, task.id)).toBeUndefined()
   failsWith('not_found', () => tasks.updateTask(OTHER, task.id, { title: 'x' }))
-  failsWith('not_found', () => tasks.createTimesheet({ workspaceId: OTHER, taskId: task.id, time: 1 }))
+  failsWith('not_found', () => tasks.createTimesheet({ createdBy: ME, workspaceId: OTHER, taskId: task.id, time: 1 }))
   expect(tasks.getTimesheets(OTHER, task.id)).toEqual([])
 })
 
 test('timesheets: bounds, notes, sum and delete', async () => {
   const { tasks, project } = await setup()
-  const task = tasks.createTask({ workspaceId: W, projectId: project.id, title: 'A' })
-  const log = (time: number, notes?: string, taskId = task.id) => () => tasks.createTimesheet({ workspaceId: W, taskId, time, notes })
+  const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A' })
+  const log = (time: number, notes?: string, taskId = task.id) => () => tasks.createTimesheet({ createdBy: ME, workspaceId: W, taskId, time, notes })
   expect(tasks.getTaskTime(W, task.id)).toBe(0)
   const a = log(90_000, 'first pass')()
   const b = log(MAX_TIME)()
-  expect(a).toMatchObject({ taskId: task.id, time: 90_000, notes: 'first pass', createdBy: 'user' })
+  expect(a).toMatchObject({ taskId: task.id, time: 90_000, notes: 'first pass', createdBy: ME })
   expect(a.id).toMatch(/^[0-9a-z]{12}$/)
   expect(b.notes).toBe('')
   expect(tasks.getTaskTime(W, task.id)).toBe(90_000 + MAX_TIME)

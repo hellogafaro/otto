@@ -20,7 +20,7 @@ export type Project = {
   updatedAt: number
 }
 
-/** `actor` is 'user' or 'agent:<id>'. */
+/** `actor` is 'user:<id>' or 'agent:<id>'. */
 export type ProjectMember = { actor: string; role: MemberRole }
 
 /** `status`: left out means active only; ask for 'archived' or 'deleted' explicitly. */

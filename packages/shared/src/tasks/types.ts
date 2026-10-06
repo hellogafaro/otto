@@ -12,7 +12,7 @@ export type Task = {
   description: string
   status: TaskStatus
   dueAt: number | null
-  /** 'user' or 'agent:<id>', no duplicates. */
+  /** 'user:<id>' or 'agent:<id>', no duplicates. */
   assignees: string[]
   resources: Resource[]
   createdBy: string

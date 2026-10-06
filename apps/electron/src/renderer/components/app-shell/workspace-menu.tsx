@@ -30,6 +30,7 @@ import { isWebUI } from "@/lib/platform"
 import { waitForTransportConnected } from '@/lib/transport-wait'
 import { useWorkspaceIcons } from "@/hooks/use-workspace-icon"
 import { useTransportConnectionState } from "@/hooks/use-transport-connection-state"
+import { useCurrentUser } from "@/hooks/use-current-user"
 import type { Workspace } from "../../../shared/types"
 
 interface WorkspaceMenuProps {
@@ -67,9 +68,10 @@ function getInitials(name: string): string {
  * chevron; the avatar alone when the sidebar is icons only) and the menu it opens:
  * the current workspace (avatar, name), Settings, the workspaces to switch
  * to (a check on the current one, remove on hover for the others) with New
- * workspace, then the account block (the name and email from Settings ->
- * Preferences, a muted placeholder for each one not set; it opens that page)
- * and, on the web only, Log out.
+ * workspace, then the account block and, on the web only, Log out. The account
+ * is the signed-in person on the web (static); on Electron the name and email
+ * from Settings -> Preferences, a muted placeholder for each one not set, and it
+ * opens that page.
  */
 export function WorkspaceMenu({
   workspaces,
@@ -91,7 +93,9 @@ export function WorkspaceMenu({
   const selectedWorkspace = workspaces.find(w => w.id === activeWorkspaceId)
   const workspaceIconMap = useWorkspaceIcons(workspaces)
   const connectionState = useTransportConnectionState()
-  const [account, setAccount] = useState({ name: '', email: '' })
+  const [preferencesAccount, setAccount] = useState({ name: '', email: '' })
+  const sessionUser = useCurrentUser()
+  const account = isWebUI ? sessionUser ?? { name: '', email: '' } : preferencesAccount
   const isRemote = connectionState?.mode === 'remote'
 
   // Health check results for non-active remote workspaces (checked on dropdown open)
@@ -129,8 +133,9 @@ export function WorkspaceMenu({
     }
   }, [workspaces, activeWorkspaceId])
 
-  /** The name and email the person set in Settings -> Preferences (nothing else identifies them). */
+  /** Electron: the name and email the person set in Settings -> Preferences (nothing else identifies them). */
   const loadAccount = useCallback(() => {
+    if (isWebUI) return
     const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
     window.electronAPI.readPreferences()
       .then(({ content }) => {
@@ -219,6 +224,22 @@ export function WorkspaceMenu({
     handleCloseCreationScreen()
     toast.success(t('toast.workspaceReconnected'))
   }, [activeWorkspaceId, handleCloseCreationScreen, onSelect])
+
+  const accountBlock = (
+    <>
+      <span className={cn(LEAD, "rounded-xs bg-muted text-[10px] font-medium text-muted-foreground")}>
+        {account.name ? getInitials(account.name) : <User />}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col text-left">
+        <span className={cn("truncate text-sm leading-[18px] font-medium", !account.name && "text-muted-foreground")}>
+          {account.name || t('workspaceMenu.accountNamePlaceholder')}
+        </span>
+        <span className="truncate text-xs leading-4 text-muted-foreground">
+          {account.email || t('workspaceMenu.accountEmailPlaceholder')}
+        </span>
+      </span>
+    </>
+  )
 
   return (
     <>
@@ -352,23 +373,14 @@ export function WorkspaceMenu({
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
-          {/* The account: always shown, a muted placeholder for what is not set; it opens Settings -> Preferences. The same slot and text line as every row; 48px so the two lines sit 7px from the top and bottom. */}
-          <DropdownMenuItem
-            className="h-12 py-2"
-            onClick={() => navigate(routes.view.settings('preferences'))}
-          >
-            <span className={cn(LEAD, "rounded-xs bg-muted text-[10px] font-medium text-muted-foreground")}>
-              {account.name ? getInitials(account.name) : <User />}
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col text-left">
-              <span className={cn("truncate text-sm leading-[18px] font-medium", !account.name && "text-muted-foreground")}>
-                {account.name || t('workspaceMenu.accountNamePlaceholder')}
-              </span>
-              <span className="truncate text-xs leading-4 text-muted-foreground">
-                {account.email || t('workspaceMenu.accountEmailPlaceholder')}
-              </span>
-            </span>
-          </DropdownMenuItem>
+          {/* The account: always shown, a muted placeholder for what is not set. The same slot and text line as every row; 48px so the two lines sit 7px from the top and bottom. On Electron it opens Settings -> Preferences, where its name and email are set; on the web it is the signed-in person, a static block. */}
+          {isWebUI ? (
+            <div className="flex h-12 items-center gap-2 px-2 py-2">{accountBlock}</div>
+          ) : (
+            <DropdownMenuItem className="h-12 py-2" onClick={() => navigate(routes.view.settings('preferences'))}>
+              {accountBlock}
+            </DropdownMenuItem>
+          )}
           {/* Electron runs against its own local server: there is no web session to end. */}
           {isWebUI && (
             <DropdownMenuItem variant="destructive" onClick={() => void logOut()}>

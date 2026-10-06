@@ -2,7 +2,7 @@
 
 One URL scheme for web and Electron: real paths on browser history (`createBrowserHistory`). No hash router, no per-client code.
 
-**URLs:** `/{workspaceSlug}/chats`, `/{workspaceSlug}/chats/{id}`, `/{workspaceSlug}/settings/appearance`. Reserved first segments (never a workspace slug): `assets`, `api`, `ws`, `login`, `login-assets`, `health`, `index.html`, `favicon.*`, `manifest.json`.
+**URLs:** `/{workspaceSlug}/chats`, `/{workspaceSlug}/chats/{id}`, `/{workspaceSlug}/settings/appearance`. Reserved first segments (never a workspace slug): `assets`, `api`, `ws`, `login`, `health`, `index.html`, `favicon.*`, `manifest.json`.
 
 ## How each client loads it
 
@@ -19,12 +19,12 @@ One URL scheme for web and Electron: real paths on browser history (`createBrows
 1. A real file is served with its MIME type (`assets/*` is `immutable`, HTML is `no-cache`).
 2. A miss under `/assets/` or with a static extension (`.js .css .map .png .woff2 ...`) is 404, never `index.html`.
 3. Any other path is an app route and gets `index.html` 200 (trailing slash and dots in ids are fine). In Electron it must also be a navigation (`Accept: text/html`), so `fetch('/x')` 404s.
-4. Web only: `/api/*` and `/ws` misses are JSON 404; unauthenticated HTML requests redirect to `/login` (carrying `?next=` with the path asked for), other requests get 401. Public without a session: `/login`, `/login-assets/*`, `/favicon.{ico,svg}`, `/apple-touch-icon.png`, `/manifest.json`, `/icon-N.png`.
+4. Web only: `/api/*` and `/ws` misses are JSON 404; unauthenticated HTML requests redirect to `/login` (carrying `?next=` with the path asked for), other requests get 401. Public without a session: `/login` (the SPA's `index.html`) and `/assets/*` (the bundle it needs), `/api/setup`, `/api/auth/*`, `/favicon.{ico,svg}`, `/apple-touch-icon.png`, `/manifest.json`, `/icon-N.png`.
 5. Electron only: methods other than GET/HEAD are 405, decoded `..`, backslash, NUL or malformed escapes are 403.
 
 ## The router (TanStack Router, code-based)
 
-`apps/electron/src/renderer/router/`: `router.ts` (`createAppRouter(Root, history?)`, the `Register` augmentation), `route-tree.ts` (typed routes), `location.ts` (the pure mappings), `not-found.ts` (what not found means), `history-position.ts` (Back / Forward availability). Both entries mount `<RouterProvider router={createAppRouter(Root)}>` at the top, above the app: `apps/electron/src/renderer/main.tsx` and `apps/webui/src/main.tsx`. The root route renders `Root` (the entry's own tree: theme, `App` or, for a URL with no page, only `NotFoundPage`, and the toaster), so the splash, onboarding and the web auth gate render inside it exactly as before, and `NavigationProvider` sits inside `App`. Always `createBrowserHistory()` (the playground's demos use memory history). `defaultPreload: false` (the routes carry no components, so there is nothing to split yet). `disableGlobalCatchBoundary`: a render error reaches the entry's own boundary (Sentry's, the crash screen).
+`apps/electron/src/renderer/router/`: `router.ts` (`createAppRouter(Root, history?)`, the `Register` augmentation), `route-tree.ts` (typed routes), `location.ts` (the pure mappings), `not-found.ts` (what not found means), `history-position.ts` (Back / Forward availability). Both entries mount `<RouterProvider router={createAppRouter(Root)}>` at the top, above the app: `apps/electron/src/renderer/main.tsx` and `apps/webui/src/main.tsx`. The root route renders `Root` (the entry's own tree: theme, `App` or, for a URL with no page, only `NotFoundPage` (on the web `/login` only `LoginPage`), and the toaster), so the splash, onboarding and the web auth gate render inside it exactly as before, and `NavigationProvider` sits inside `App`. Always `createBrowserHistory()` (the playground's demos use memory history). `defaultPreload: false` (the routes carry no components, so there is nothing to split yet). `disableGlobalCatchBoundary`: a render error reaches the entry's own boundary (Sentry's, the crash screen).
 
 ### URLs
 
@@ -67,11 +67,11 @@ The app-level cases set `isNotFound` in the navigation context (true while the U
 ### Legacy and sign-in
 
 - `?ws=<slug>&route=<routeString>` (old `file://` state, saved window URLs, bookmarks) and the transitional `?workspaceId=` are translated once in `createAppRouter` with `replace` before the first match (`translateLegacyUrl`). Nothing writes them any more. The main process still adds `?workspaceId=` to the URL it loads (`buildRendererUrl`); the renderer drops it, nothing reads it, and it can go from main.
-- Web sign-in returns to the page asked for: the server redirects an unauthenticated HTML request to `/login?next=<encoded path+query>`, `login.html` sends `next` with the password, and `POST /api/auth` answers `{ ok, next }` with `next` checked by `safeNextPath` (a same-origin path starting with a single `/`, no backslash or control characters, never the login page; otherwise `/`). An expired session (`401` on `/api/config`) does the same from the app.
+- Web sign-in is the React route `/login` at the router root (`loginRoute` in `route-tree.ts`; the entry's `Root` gets `login` and renders only `LoginPage`, `apps/webui/src/login-page.tsx`; Electron throws `notFound()`). It returns to the page asked for: the server redirects an unauthenticated HTML request to `/login?next=<encoded path+query>`, and after Better Auth signs in (`/api/auth/sign-in/email`, `sign-up/email`) the page loads `next` checked by `safeNextPath` (`apps/webui/src/login-rules.ts`, the same rule as the server's: a same-origin path starting with a single `/`, no backslash or control characters, never the login page; otherwise `/`). An expired session (`401` on `/api/config`) does the same from the app.
 
 ### What the tests cover
 
-`router/__tests__` (mappings round-trip for every route kind and settings page, legacy strings, search validation, history position logic, the route tree on a memory history, which URLs are not found), `shared/__tests__/route-parser-chat-filters.test.ts`, `packages/server-core/src/webui/__tests__/login-next.test.ts`.
+`router/__tests__` (mappings round-trip for every route kind and settings page, legacy strings, search validation, history position logic, the route tree on a memory history, which URLs are not found), `shared/__tests__/route-parser-chat-filters.test.ts`, `packages/server-core/src/webui/__tests__/login-next.test.ts`, `apps/webui/src/__tests__/login-rules.test.ts`.
 
 ## Contract notes for the renderer
 

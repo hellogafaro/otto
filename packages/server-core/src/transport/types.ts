@@ -6,6 +6,8 @@ import type { PushTarget } from '@otto/shared/protocol'
 
 export interface RequestContext {
   clientId: string
+  /** The signed-in user the connection belongs to (null where the server requires no sign-in). */
+  userId: string | null
   workspaceId: string | null
   webContentsId: number | null
 }

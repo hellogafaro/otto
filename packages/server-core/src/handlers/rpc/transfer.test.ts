@@ -40,6 +40,7 @@ function createHarness() {
 function ctx(clientId: string): RequestContext {
   return {
     clientId,
+    userId: null,
     workspaceId: 'ws-1',
     webContentsId: 1,
   }

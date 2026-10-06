@@ -8,6 +8,7 @@ import type { RootProps } from '@/router/route-tree'
 import { ThemeProvider } from '@/context/theme-context'
 import { Toaster } from '@/components/ui/sonner'
 import { NotFoundPage } from '@/pages/not-found-page'
+import { LoginPage } from './login-page'
 import { setupI18n } from '@otto/shared/i18n'
 import { initReactI18next } from 'react-i18next'
 import { useTranslation } from 'react-i18next'
@@ -42,11 +43,11 @@ function ErrorBoundary({ children }: { children: React.ReactNode }) {
   )
 }
 
-// The router's root route: it owns the URL and history above the app (see docs/routing.md). A URL with no view shows only the not-found page.
-function Root({ notFound }: RootProps) {
+// The router's root route: it owns the URL and history above the app (see docs/routing.md). A URL with no view shows only the not-found page, `/login` only the sign-in page.
+function Root({ notFound, login }: RootProps) {
   return (
     <ThemeProvider>
-      {notFound ? <NotFoundPage /> : <App />}
+      {notFound ? <NotFoundPage /> : login ? <LoginPage /> : <App />}
       <Toaster />
     </ThemeProvider>
   )

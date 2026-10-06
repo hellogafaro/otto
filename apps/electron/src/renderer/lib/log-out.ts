@@ -1,10 +1,15 @@
 import i18n from 'i18next'
 import { toast } from 'sonner'
 
-/** Web only: the server clears the session cookie, then the login page takes over. */
+/** Web only: the server ends the session (Better Auth clears its cookie), then the login page takes over. */
 export async function logOut(): Promise<void> {
   try {
-    const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    const response = await fetch('/api/auth/sign-out', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
     if (!response.ok) throw new Error(`Log out failed (${response.status})`)
     window.location.assign('/login')
   } catch {

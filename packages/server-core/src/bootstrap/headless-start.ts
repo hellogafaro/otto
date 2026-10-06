@@ -8,6 +8,8 @@ import { PRODUCT_NAME } from '@otto/shared/branding'
 import { ensureConfigDir, loadStoredConfig, saveConfig } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { setBundledAssetsRoot } from '@otto/shared/utils'
+import { initUsersStore } from '@otto/shared/users'
+import { createIdentityValidators } from './identity.ts'
 import { WsRpcServer, type WsRpcTlsOptions } from '../transport/server'
 import type { EventSink, RpcServer } from '../transport/types'
 import { createHeadlessPlatform } from '../runtime/platform-headless'
@@ -49,8 +51,6 @@ export interface ServerBootstrapOptions<TSessionManager, THandlerDeps> {
   serverVersion?: string
   /** TLS configuration. When provided, the server listens on wss:// instead of ws://. */
   tls?: WsRpcTlsOptions
-  /** Cookie-based session validator for web UI auth on WebSocket upgrade. */
-  validateSessionCookie?: (cookieHeader: string | null) => Promise<boolean>
   /**
    * Optional HTTP request handler for non-WebSocket requests on the RPC port.
    * When provided, the WsRpcServer serves HTTP (e.g. WebUI) on the same port.
@@ -357,6 +357,10 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
 
   bootstrapConfigArtifacts(platform)
   ensureGlobalConfigExists(platform)
+
+  // Who signs in; makes the workspaces table match the registry and keeps the first user their owner.
+  const users = initUsersStore()
+  users.initFirstOwner()
   acquireServerLock(platform.logger)
 
   const modelRefreshService = options.initModelRefreshService()
@@ -373,8 +377,7 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
     host: rpcHost,
     port: rpcPort,
     requireAuth: true,
-    validateToken: async (t) => t === serverToken,
-    validateSessionCookie: options.validateSessionCookie,
+    ...createIdentityValidators(users, serverToken),
     serverId: options.serverId ?? 'headless',
     serverVersion: options.serverVersion,
     tls: options.tls,

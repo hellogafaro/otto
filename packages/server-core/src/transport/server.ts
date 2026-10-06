@@ -42,6 +42,8 @@ interface BufferedEvent {
 interface ClientConnection {
   id: string
   ws: WebSocket
+  /** Who signed in; set by the server from the handshake, never by the client. Null when the server requires no auth. */
+  userId: string | null
   workspaceId: string | null
   webContentsId: number | null
   capabilities: Set<string>
@@ -84,14 +86,14 @@ export interface WsRpcServerOptions {
   port?: number
   /** Whether to require a bearer token on handshake. Default: false */
   requireAuth?: boolean
-  /** Token validator. Called when requireAuth is true. */
-  validateToken?: (token: string) => Promise<boolean>
+  /** Token validator: the user the token stands for, or null. Called when requireAuth is true. */
+  validateToken?: (token: string) => Promise<{ userId: string } | null>
   /**
    * Optional cookie-based session validator (for web UI auth).
    * Called with the Cookie header from the HTTP upgrade request.
    * If provided, a valid session cookie is accepted as an alternative to a bearer token.
    */
-  validateSessionCookie?: (cookieHeader: string | null) => Promise<boolean>
+  validateSessionCookie?: (cookieHeader: string | null) => Promise<{ userId: string } | null>
   /** Server identity stamp on outgoing events. Default: 'local' */
   serverId?: string
   /** TLS configuration. When provided, the server listens on wss:// instead of ws://. */
@@ -137,8 +139,8 @@ export class WsRpcServer implements RpcServer {
   private readonly host: string
   private readonly requestedPort: number
   private readonly requireAuth: boolean
-  private readonly validateToken: ((token: string) => Promise<boolean>) | null
-  private readonly validateSessionCookie: ((cookieHeader: string | null) => Promise<boolean>) | null
+  private readonly validateToken: WsRpcServerOptions['validateToken'] | null
+  private readonly validateSessionCookie: WsRpcServerOptions['validateSessionCookie'] | null
   private readonly serverId: string
   private readonly tlsOptions: WsRpcTlsOptions | null
   private readonly serverVersion: string
@@ -427,26 +429,28 @@ export class WsRpcServer implements RpcServer {
           return
         }
 
-        // Auth check — bearer token OR session cookie (web UI)
+        // Auth check — bearer token OR session cookie (web UI); either names the user
+        let userId: string | null = null
         if (this.requireAuth) {
-          let authenticated = false
+          let identity: { userId: string } | null = null
 
           // 1. Try bearer token (standard path)
           if (envelope.token && this.validateToken) {
-            authenticated = await this.validateToken(envelope.token)
+            identity = await this.validateToken(envelope.token)
           }
 
           // 2. Fallback: try session cookie from HTTP upgrade request (web UI path)
-          if (!authenticated && this.validateSessionCookie && upgradeRequestCookie) {
-            authenticated = await this.validateSessionCookie(upgradeRequestCookie)
+          if (!identity && this.validateSessionCookie && upgradeRequestCookie) {
+            identity = await this.validateSessionCookie(upgradeRequestCookie)
           }
 
-          if (!authenticated) {
+          if (!identity) {
             const reason = envelope.token ? 'Invalid token' : 'Token required'
             this.sendError(ws, envelope.id, 'AUTH_FAILED', reason)
             ws.close(4005, 'Auth failed')
             return
           }
+          userId = identity.userId
         }
 
         // ── Reconnect attempt ──
@@ -455,8 +459,9 @@ export class WsRpcServer implements RpcServer {
           if (entry) {
             const prevClient = entry.client
 
-            // Identity must match (workspace + webContentsId)
+            // Identity must match (user + workspace + webContentsId)
             const identityMatch =
+              prevClient.userId === userId &&
               prevClient.workspaceId === (envelope.workspaceId ?? null) &&
               prevClient.webContentsId === (envelope.webContentsId ?? null)
 
@@ -560,6 +565,7 @@ export class WsRpcServer implements RpcServer {
         const client: ClientConnection = {
           id: clientId,
           ws,
+          userId,
           workspaceId: envelope.workspaceId ?? null,
           webContentsId: envelope.webContentsId ?? null,
           capabilities: new Set(envelope.clientCapabilities ?? []),
@@ -656,6 +662,7 @@ export class WsRpcServer implements RpcServer {
 
     const ctx: RequestContext = {
       clientId: client.id,
+      userId: client.userId,
       workspaceId: client.workspaceId,
       webContentsId: client.webContentsId,
     }

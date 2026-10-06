@@ -1,5 +1,6 @@
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
+import { userActor } from '@otto/shared/actors'
 import { domainError } from '@otto/shared/utils'
 import {
   createLibraryFolder,
@@ -35,6 +36,12 @@ export function resolveWorkspace(ctx: RequestContext, deps: HandlerDeps) {
   return workspace
 }
 
+/** The caller as an actor ('user:<id>'). The server fills it from the connection; a client never says who it is. */
+export function actorOf(ctx: RequestContext): string {
+  if (!ctx.userId) throw domainError('unauthorized', 'Sign in first')
+  return userActor(ctx.userId)
+}
+
 function toBytes(content: LibraryContent): Uint8Array {
   if (content.encoding === 'utf8') return new TextEncoder().encode(content.data)
   // Refuse before decoding: base64 is 4 characters per 3 bytes.
@@ -52,11 +59,12 @@ export function registerLibraryHandlers(server: RpcServer, deps: HandlerDeps): v
         mime: input.mime,
         bytes: toBytes(input.content),
         folderId: input.folderId,
+        createdBy: actorOf(ctx),
       }),
   )
 
   server.handle(RPC_CHANNELS.library.CREATE_FOLDER, (ctx, input: { title: string; folderId?: string | null }) =>
-    createLibraryFolder({ workspaceId: resolveWorkspace(ctx, deps).id, title: input.title, folderId: input.folderId }),
+    createLibraryFolder({ workspaceId: resolveWorkspace(ctx, deps).id, title: input.title, folderId: input.folderId, createdBy: actorOf(ctx) }),
   )
 
   server.handle(RPC_CHANNELS.library.LIST, (ctx, filter?: LibraryFilter) => getLibraryItems(resolveWorkspace(ctx, deps).id, filter))

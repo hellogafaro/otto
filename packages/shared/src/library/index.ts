@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { getWorkspaceByNameOrId } from '../config/storage.ts'
-import { initDb, type Db } from '../db/index.ts'
+import { isActor } from '../actors.ts'
+import { initDb, type Db, type Tx } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
 import { getLibraryStore, type FileStore } from './file-store.ts'
@@ -16,7 +17,7 @@ import type { LibraryFilter, LibraryItem, LibraryItemType } from './types.ts'
  *
  * `type` is 'document' for markdown (mime text/markdown or a .md name), 'folder'
  * for folders and 'file' otherwise; it is fixed when the item is created.
- * `createdBy` is 'user' or 'agent:<id>'. Chat attachments are ordinary items in the
+ * `createdBy` is 'user:<id>' or 'agent:<id>', set by the caller. Chat attachments are ordinary items in the
  * root folder titled CHAT_ATTACHMENTS_FOLDER_TITLE, created on first use.
  * The bytes live in a FileStore keyed by the item id (file-store.ts), never in
  * the table. Every function takes the workspace explicitly and only sees its rows.
@@ -45,12 +46,22 @@ function toItem(row: Row): LibraryItem {
   }
 }
 
+/** Gives what the bare actor 'user' made to `actor`: runs once, when the first user appears. */
+export function updateLegacyUserActor(db: Db | Tx, actor: string): void {
+  db.update(library).set({ createdBy: actor }).where(eq(library.createdBy, 'user')).run()
+}
+
 const isMarkdown = (title: string, mime: string) => mime === 'text/markdown' || /\.md$/i.test(title)
 
 function assertTitle(title: string): string {
   const trimmed = title.trim()
   if (!trimmed) throw domainError('invalid', 'A title is required')
   return trimmed
+}
+
+function assertActor(actor: unknown): string {
+  if (!isActor(actor)) throw domainError('invalid', `${String(actor)} is not an actor`)
+  return actor
 }
 
 function assertSize(bytes: Uint8Array) {
@@ -109,8 +120,9 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
     return bytes
   }
 
-  function createFolder(input: { workspaceId: string; title: string; folderId?: string | null; createdBy?: string }): LibraryItem {
+  function createFolder(input: { workspaceId: string; title: string; folderId?: string | null; createdBy: string }): LibraryItem {
     const title = assertTitle(input.title)
+    const createdBy = assertActor(input.createdBy)
     const folderId = input.folderId ?? null
     if (folderChain(input.workspaceId, folderId).length + 1 > MAX_FOLDER_DEPTH) {
       throw domainError('invalid', `Folders nest at most ${MAX_FOLDER_DEPTH} levels`)
@@ -123,7 +135,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       title,
       mime: null,
       size: null,
-      createdBy: input.createdBy ?? 'user',
+      createdBy,
     })
   }
 
@@ -131,13 +143,13 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
     createLibraryFolder: createFolder,
 
     /** The root folder for chat attachments; made the first time it is needed. */
-    initChatAttachmentsFolder(workspaceId: string): LibraryItem {
+    initChatAttachmentsFolder(workspaceId: string, createdBy: string): LibraryItem {
       const existing = db
         .select()
         .from(library)
         .where(and(eq(library.workspaceId, workspaceId), isNull(library.folderId), eq(library.type, 'folder'), eq(library.title, CHAT_ATTACHMENTS_FOLDER_TITLE)))
         .get()
-      return existing ? toItem(existing) : createFolder({ workspaceId, title: CHAT_ATTACHMENTS_FOLDER_TITLE })
+      return existing ? toItem(existing) : createFolder({ workspaceId, title: CHAT_ATTACHMENTS_FOLDER_TITLE, createdBy })
     },
 
     /** Saves the bytes, then the row; the bytes are removed again when the row cannot be saved. */
@@ -147,9 +159,10 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       mime: string
       bytes: Uint8Array
       folderId?: string | null
-      createdBy?: string
+      createdBy: string
     }): Promise<LibraryItem> {
       const title = assertTitle(input.title)
+      const createdBy = assertActor(input.createdBy)
       assertSize(input.bytes)
       const folderId = input.folderId ?? null
       folderChain(input.workspaceId, folderId)
@@ -166,7 +179,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
           title,
           mime,
           size: input.bytes.length,
-          createdBy: input.createdBy ?? 'user',
+          createdBy,
         })
       } catch (error) {
         await store.delete(id)
@@ -300,7 +313,7 @@ function defaultStore() {
 }
 
 export const createLibraryFolder: Store['createLibraryFolder'] = (input) => defaultStore().createLibraryFolder(input)
-export const initChatAttachmentsFolder: Store['initChatAttachmentsFolder'] = (workspaceId) => defaultStore().initChatAttachmentsFolder(workspaceId)
+export const initChatAttachmentsFolder: Store['initChatAttachmentsFolder'] = (workspaceId, createdBy) => defaultStore().initChatAttachmentsFolder(workspaceId, createdBy)
 export const createLibraryItem: Store['createLibraryItem'] = (input) => defaultStore().createLibraryItem(input)
 export const getLibraryItem: Store['getLibraryItem'] = (workspaceId, id) => defaultStore().getLibraryItem(workspaceId, id)
 export const getLibraryItems: Store['getLibraryItems'] = (workspaceId, filter) => defaultStore().getLibraryItems(workspaceId, filter)

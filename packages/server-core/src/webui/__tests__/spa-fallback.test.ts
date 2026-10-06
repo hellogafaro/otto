@@ -3,9 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { startWebuiHttpServer } from '../http-server'
+import { createTestUsers, signUpOwner } from './test-users'
 
-const SECRET = 'test-server-secret'
-const PASSWORD = 'test-password'
 const HTML_ACCEPT = 'text/html,application/xhtml+xml,*/*;q=0.8'
 const logger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as any
 
@@ -17,22 +16,19 @@ let cookie: string
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'otto-webui-spa-'))
   mkdirSync(join(dir, 'assets'))
-  mkdirSync(join(dir, 'login-assets'))
   writeFileSync(join(dir, 'index.html'), '<html>APP-SHELL</html>')
-  writeFileSync(join(dir, 'login.html'), '<html>LOGIN-PAGE</html>')
   writeFileSync(join(dir, 'assets', 'main-abc123.js'), 'console.log("main")')
   writeFileSync(join(dir, 'assets', 'main-abc123.css'), 'body{}')
-  writeFileSync(join(dir, 'login-assets', 'otto-app-icon.png'), 'png')
   for (const name of ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'manifest.json', 'icon-192.png', 'icon-512.png']) {
     writeFileSync(join(dir, name), name)
   }
   writeFileSync(join(dir, '..', 'otto-webui-secret.txt'), 'top secret')
 
+  const users = await createTestUsers()
   const server = await startWebuiHttpServer({
     port: 0,
     webuiDir: dir,
-    secret: SECRET,
-    password: PASSWORD,
+    users,
     wsProtocol: 'ws',
     wsPort: 9100,
     getHealthCheck: () => ({ status: 'ok' }),
@@ -41,12 +37,7 @@ beforeAll(async () => {
   stop = server.stop
   baseUrl = `http://127.0.0.1:${server.port}`
 
-  const auth = await fetch(`${baseUrl}/api/auth`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password: PASSWORD }),
-  })
-  cookie = auth.headers.get('set-cookie')!.split(';')[0]!
+  cookie = await signUpOwner(users)
 })
 
 afterAll(() => {
@@ -113,10 +104,9 @@ describe('authenticated: SPA fallback matrix', () => {
     }
   })
 
-  it('serves login.html at /login and as a file at /login.html', async () => {
-    expect(await (await get('/login')).text()).toContain('LOGIN-PAGE')
-    expect(await (await get('/login/')).text()).toContain('LOGIN-PAGE')
-    expect(await (await get('/login.html')).text()).toContain('LOGIN-PAGE')
+  it('serves the app shell at /login, where the router renders the login route', async () => {
+    expect(await (await get('/login')).text()).toContain('APP-SHELL')
+    expect(await (await get('/login/')).text()).toContain('APP-SHELL')
   })
 
   it('answers HEAD for routes', async () => {
@@ -127,38 +117,36 @@ describe('authenticated: SPA fallback matrix', () => {
 
 describe('unauthenticated: auth gate', () => {
   it('redirects HTML routes to /login', async () => {
-    for (const path of ['/', '/test/chats', '/test/chats/abc', '/test/settings/appearance', '/login.html', '/index.html']) {
+    for (const path of ['/', '/test/chats', '/test/chats/abc', '/test/settings/appearance', '/index.html']) {
       const res = await get(path, { auth: false, html: true })
       expect(res.status, path).toBe(302)
       expect(res.headers.get('location'), path).toContain('/login')
     }
   })
 
-  it('401s non-HTML requests, including assets and missing assets', async () => {
-    for (const path of ['/assets/main-abc123.js', '/assets/missing.js', '/test/chats/abc', '/api/nope', '/api/config']) {
+  it('401s non-HTML requests', async () => {
+    for (const path of ['/test/chats/abc', '/api/nope', '/api/config', '/api/config/workspaces', '/api/auth']) {
       const res = await get(path, { auth: false })
       expect(res.status, path).toBe(401)
     }
   })
 
-  it('serves the login page and its public assets without a session', async () => {
-    expect(await (await get('/login', { auth: false })).text()).toContain('LOGIN-PAGE')
-    expect(await (await get('/login/', { auth: false })).text()).toContain('LOGIN-PAGE')
-    for (const path of ['/login-assets/otto-app-icon.png', '/favicon.ico', '/favicon.svg', '/apple-touch-icon.png', '/manifest.json', '/icon-192.png', '/icon-512.png']) {
+  it('serves the login page, the bundle and the icons without a session', async () => {
+    expect(await (await get('/login', { auth: false })).text()).toContain('APP-SHELL')
+    expect(await (await get('/login/', { auth: false })).text()).toContain('APP-SHELL')
+    for (const path of ['/assets/main-abc123.js', '/assets/main-abc123.css', '/favicon.ico', '/favicon.svg', '/apple-touch-icon.png', '/manifest.json', '/icon-192.png', '/icon-512.png']) {
       const res = await get(path, { auth: false })
       expect(res.status, path).toBe(200)
     }
-    expect((await get('/login-assets/missing.png', { auth: false })).status).toBe(404)
+    expect((await get('/assets/missing.js', { auth: false })).status).toBe(404)
     expect((await get('/icon-x.png', { auth: false })).status).toBe(401)
   })
 
-  it('keeps health, auth, config and logout routes outside the fallback', async () => {
+  it('keeps health, setup, auth and config routes outside the fallback', async () => {
     expect((await get('/health', { auth: false })).status).toBe(200)
+    expect(await (await get('/api/setup', { auth: false })).json()).toEqual({ needsOwner: false })
+    expect(await (await get('/api/auth/get-session', { auth: false })).json()).toBeNull()
     expect((await get('/api/config', { auth: false })).status).toBe(401)
-    const logout = await fetch(`${baseUrl}/api/auth/logout`, { method: 'POST' })
-    expect(logout.status).toBe(204)
-    const bad = await fetch(`${baseUrl}/api/auth`, { method: 'POST', body: '{}' , headers: { 'Content-Type': 'application/json' } })
-    expect(bad.status).toBe(400)
     expect((await get('/api/config', { auth: true })).status).toBe(200)
   })
 })

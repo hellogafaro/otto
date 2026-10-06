@@ -9,6 +9,7 @@ import {
   createWorkspaceAtPath,
   isValidWorkspace,
 } from '../workspaces/storage.ts';
+import { updateWorkspaceMirror } from '../workspaces/members.ts';
 import { findIconFile } from '../utils/icon.ts';
 import { extractWorkspaceSlugFromPath } from '../utils/workspace-slug.ts';
 import { initializeDocs } from '../docs/index.ts';
@@ -642,6 +643,14 @@ export function getWorkspaces(): Workspace[] {
   });
 }
 
+/**
+ * Copies the registry into the `workspaces` table (workspaces/members.ts), where members and
+ * invitations point at it. Runs at boot and whenever a workspace is added, removed or renamed.
+ */
+export function refreshWorkspaceMirror(): void {
+  updateWorkspaceMirror(getWorkspaces().map((workspace) => ({ id: workspace.id, title: workspace.name })));
+}
+
 export function getActiveWorkspace(): Workspace | null {
   const config = loadStoredConfig();
   if (!config || !config.activeWorkspaceId) {
@@ -736,6 +745,7 @@ export function addWorkspace(workspace: Omit<Workspace, 'id' | 'createdAt' | 'sl
     const existingIndex = config.workspaces.indexOf(existing);
     config.workspaces[existingIndex] = updated;
     saveConfig(config);
+    refreshWorkspaceMirror();
     return updated;
   }
 
@@ -759,6 +769,7 @@ export function addWorkspace(workspace: Omit<Workspace, 'id' | 'createdAt' | 'sl
   }
 
   saveConfig(config);
+  refreshWorkspaceMirror();
   return newWorkspace;
 }
 
@@ -800,6 +811,7 @@ export function syncWorkspaces(): void {
       config.activeWorkspaceId = config.workspaces[0]!.id;
     }
     saveConfig(config);
+    refreshWorkspaceMirror();
   }
 }
 
@@ -818,6 +830,7 @@ export async function removeWorkspace(workspaceId: string): Promise<boolean> {
   }
 
   saveConfig(config);
+  refreshWorkspaceMirror();
 
   // Clean up credential store credentials for this workspace
   const manager = getCredentialManager();

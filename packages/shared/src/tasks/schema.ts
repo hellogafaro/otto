@@ -5,7 +5,7 @@ import type { TaskStatus } from './types.ts'
 /**
  * A task belongs to one project; see ./index.ts. `status` is the archive and the soft
  * delete: rows are never removed. `assignees` is a JSON array of actors, `resources` of
- * { type, title, ref }. `createdBy` is 'user' or 'agent:<id>'.
+ * { type, title, ref }. `createdBy` is 'user:<id>' or 'agent:<id>'.
  */
 export const tasks = sqliteTable(
   'tasks',
