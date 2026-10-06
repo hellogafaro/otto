@@ -323,3 +323,6 @@ export {
   isPathWithinDirectory,
   isPathWithinDirectoryForCreation,
 } from './runtime/path-security.ts';
+
+// The one environment builder for every agent subprocess and tool
+export { agentEnv, hostEnvMatching, isServerSecretEnvKey } from './runtime/agent-env.ts';

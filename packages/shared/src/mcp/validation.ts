@@ -6,6 +6,7 @@
  * by Electron's macOS sandbox — see issue #697).
  */
 
+import { agentEnv } from '@otto/session-tools-core';
 import { OttoMcpClient } from './client.js';
 import { debug } from '../utils/debug.ts';
 import { normalizeMcpUrl } from '../sources/server-builder.ts';
@@ -360,14 +361,6 @@ export async function validateStdioMcpConnection(
     }
   };
 
-  // Filter out undefined entries from process.env before merging.
-  const processEnv: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined) {
-      processEnv[key] = value;
-    }
-  }
-
   const withTimeout = <T>(p: Promise<T>, ms: number, label: string): Promise<T> => {
     return new Promise<T>((resolve, reject) => {
       const id = setTimeout(() => {
@@ -390,7 +383,7 @@ export async function validateStdioMcpConnection(
     transport = new StdioClientTransport({
       command,
       args,
-      env: { ...processEnv, ...env },
+      env: agentEnv(env),
       stderr: 'pipe',
     });
 

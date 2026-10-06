@@ -6,6 +6,7 @@
  */
 
 import { join } from 'node:path';
+import { agentEnv, isServerSecretEnvKey } from '@otto/session-tools-core';
 import type { BaseEventPayload } from './event-bus.ts';
 import type { AutomationEvent, AutomationMatcher, PromptReferences, AgentEvent, SdkAutomationInput } from './types.ts';
 import { matchesCron } from './cron-matcher.ts';
@@ -209,14 +210,11 @@ export function matcherMatchesSdk(matcher: AutomationMatcher, event: AgentEvent,
 // ============================================================================
 
 /**
- * Get process.env as a clean Record<string, string> with undefined values filtered out.
- * Avoids the unsafe `process.env as Record<string, string>` cast that turns undefined
- * values into the string "undefined".
+ * The allow-listed host environment (see agentEnv): used to expand `$VAR` in prompts
+ * and to seed command envs, so a prompt can never expand a server secret.
  */
 export function cleanEnv(): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)
-  );
+  return agentEnv();
 }
 
 /** Keys skipped when iterating payload fields for env vars */
@@ -335,8 +333,8 @@ export interface ScriptEnvOptions {
  *
  * Unlike buildEnvFromPayload (prompt actions), process.env is NOT spread —
  * a script's env is exactly:
- * - every OTTO_* var from process.env (runtime hints like OTTO_BUN/OTTO_UV,
- *   user-defined OTTO_* secrets, OTTO_CONFIG_DIR, ...)
+ * - every OTTO_* var from process.env except the server's own secrets
+ *   (runtime hints like OTTO_BUN/OTTO_UV, user-defined OTTO_* vars, OTTO_CONFIG_DIR, ...)
  * - OTTO_* event context (same base as webhooks; no shell sanitization —
  *   values are argv/env payloads, never interpreted by a shell)
  * - OTTO_WORKSPACE_PATH and, for page refreshes, OTTO_PAGE_SLUG /
@@ -353,7 +351,7 @@ function applyPlatformAndOttoEnv(env: Record<string, string>): void {
   }
 
   for (const [key, value] of Object.entries(process.env)) {
-    if (key.startsWith('OTTO_') && value !== undefined) {
+    if (key.startsWith('OTTO_') && value !== undefined && !isServerSecretEnvKey(key)) {
       env[key] = value;
     }
   }

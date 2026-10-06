@@ -14,6 +14,7 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { agentEnv, hostEnvMatching } from '@otto/session-tools-core';
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline';
 import type { AgentEvent } from '@otto/core/types';
 import type { FileAttachment } from '../utils/files.ts';
@@ -108,6 +109,9 @@ import { saveBinaryResponse } from '../utils/binary-detection.ts';
 // ============================================================
 // PiAgent Implementation
 // ============================================================
+
+/** Host variables a connection with `environment` auth may read: provider API keys, AWS, Azure, Google, Copilot. */
+const HOST_PROVIDER_ENV = /(_API_KEY$|^(AWS_|AZURE_|GOOGLE_|COPILOT_|ANTHROPIC_)|^(GH|GITHUB)_TOKEN$)/;
 
 /** Backend-executed session tools currently supported by PiAgent. */
 export const PI_BACKEND_SESSION_TOOL_NAMES = new Set<string>([
@@ -490,15 +494,17 @@ export class PiAgent extends BaseAgent {
     const child = spawn(nodePath, args, {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
+      env: agentEnv({
+        // Only a connection set to authenticate from the host environment (e.g. Bedrock with
+        // the AWS credential chain) gets the host's provider credentials.
+        ...(this.config.authType === 'environment' ? hostEnvMatching(HOST_PROVIDER_ENV) : {}),
         ...this.config.envOverrides,
         ...awsEnv,
         // Pass session dir for cross-process toolMetadataStore
         ...(sessionDir ? { OTTO_SESSION_DIR: sessionDir } : {}),
         // Propagate debug mode
         OTTO_DEBUG: (process.argv.includes('--debug') || process.env.OTTO_DEBUG === '1') ? '1' : '0',
-      },
+      }),
     });
 
     this.subprocess = child;
@@ -693,7 +699,7 @@ export class PiAgent extends BaseAgent {
         // API key-based connections.
         // NOTE: authType === 'environment' (e.g. Bedrock with ~/.aws/credentials)
         // intentionally falls through here, finds no API key, and returns null.
-        // The subprocess inherits process.env which contains the AWS credential chain.
+        // The subprocess gets the host's provider credentials (HOST_PROVIDER_ENV), e.g. the AWS credential chain.
         const apiKey = await credentialManager.getLlmApiKey(slug);
         if (apiKey) {
           this.debug(`Retrieved API key credential for Pi provider: ${piAuthProvider}`);

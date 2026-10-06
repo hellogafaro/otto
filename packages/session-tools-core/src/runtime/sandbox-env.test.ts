@@ -2,10 +2,16 @@ import { describe, it, expect, afterEach } from 'bun:test';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BLOCKED_ENV_VARS, createSanitizedEnv, createScriptRuntimeEnv } from './sandbox-env.ts';
+import { createScriptRuntimeEnv } from './sandbox-env.ts';
 
 describe('sandbox-env', () => {
   const createdDirs: string[] = [];
+
+  const mkTemp = () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sandbox-env-'));
+    createdDirs.push(dir);
+    return dir;
+  };
 
   afterEach(() => {
     for (const dir of createdDirs.splice(0)) {
@@ -13,21 +19,17 @@ describe('sandbox-env', () => {
     }
   });
 
-  it('strips all blocked credential vars', () => {
-    const base: NodeJS.ProcessEnv = {
+  it('passes only allow-listed host vars', () => {
+    const env = createScriptRuntimeEnv({ language: 'node', dataDir: mkTemp() }, {
+      PATH: '/usr/bin',
       SAFE_VAR: 'ok',
-    };
-
-    for (const key of BLOCKED_ENV_VARS) {
-      base[key] = `${key.toLowerCase()}-secret`;
-    }
-
-    const sanitized = createSanitizedEnv(base);
-
-    expect(sanitized.SAFE_VAR).toBe('ok');
-    for (const key of BLOCKED_ENV_VARS) {
-      expect(sanitized[key]).toBeUndefined();
-    }
+      ANTHROPIC_API_KEY: 'secret',
+      ENCRYPTION_KEY: 'secret',
+    });
+    expect(env.PATH).toBe('/usr/bin');
+    expect(env.SAFE_VAR).toBeUndefined();
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(env.ENCRYPTION_KEY).toBeUndefined();
   });
 
   it('sets python/uv cache and temp dirs inside data directory', () => {
@@ -38,11 +40,11 @@ describe('sandbox-env', () => {
       language: 'python3',
       dataDir,
     }, {
-      SAFE_VAR: 'ok',
+      HOME: '/home/u',
       OPENAI_API_KEY: 'secret',
     });
 
-    expect(env.SAFE_VAR).toBe('ok');
+    expect(env.HOME).toBe('/home/u');
     expect(env.OPENAI_API_KEY).toBeUndefined();
 
     expect(env.TMPDIR).toBe(join(dataDir, '.tmp'));

@@ -2,6 +2,7 @@ import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import { join } from "path";
 import { homedir } from "os";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from "fs";
+import { agentEnv, hostEnvMatching } from "@otto/session-tools-core";
 import { debug } from "../utils/debug";
 import { getGitBashPath } from "../config/storage.ts";
 
@@ -178,19 +179,21 @@ export function getPathToClaudeCodeExecutable(): string | undefined {
  * Get default SDK options for spawning the Claude Code subprocess.
  *
  * @param envOverrides - Per-session environment variable overrides.
- *   These are spread AFTER process.env so they take precedence.
+ *   These take precedence over the host environment.
  *   Used to pass per-session config like ANTHROPIC_BASE_URL that would
  *   otherwise be clobbered by concurrent sessions mutating process.env.
  */
 export function buildClaudeSubprocessEnv(
     envOverrides?: Record<string, string>,
 ): NodeJS.ProcessEnv {
-    const env: NodeJS.ProcessEnv = {
-        ...process.env,
+    // Allow-listed host env (never the server's secrets), then the Claude CLI's own
+    // settings and the connection's auth (the session manager sets these on process.env).
+    const env: NodeJS.ProcessEnv = agentEnv({
+        ...hostEnvMatching(/^(ANTHROPIC_|CLAUDE_)/),
         ...envOverrides,
         // Propagate debug mode from argv flag OR existing env var
         OTTO_DEBUG: (process.argv.includes('--debug') || process.env.OTTO_DEBUG === '1') ? '1' : '0',
-    };
+    });
 
     // SDK 0.3.268 (Claude Code 2.1.268) stopped offering the task-tracking tools
     // (TodoWrite and the Task* family) by default on Opus ≤4.7, Sonnet ≤4.6 and
@@ -210,8 +213,7 @@ export function buildClaudeSubprocessEnv(
     }
 
     // Bedrock must never be routed through the Claude SDK path.
-    // Strip only Claude-specific Bedrock routing vars here; keep generic AWS_*
-    // untouched so user shell/tooling behavior inside the subprocess remains intact.
+    // Strip the Claude-specific Bedrock routing vars (a connection or the host may set them).
     delete env.CLAUDE_CODE_USE_BEDROCK;
     delete env.AWS_BEARER_TOKEN_BEDROCK;
     delete env.ANTHROPIC_BEDROCK_BASE_URL;
