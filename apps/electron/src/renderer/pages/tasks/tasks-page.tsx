@@ -1,7 +1,7 @@
 /**
  * TasksPage - the Tasks index: the workspace's tasks across every project, grouped by status in the line-only `PageWrap`
  * (`TaskGroups`, the Chats index's pattern), no toolbar. The header carries Filter (Project, Assignee, Status,
- * Archived; in the URL, `useTaskFilters`) and New task (a dialog); active filters show as chips above the list.
+ * Archived; in the URL, `useTaskFilters`), Search (the palette on Tasks) and New task (a dialog); active filters show as chips above the list.
  * Archived is the last, folded group, and the whole list (open) when Archived is the filter.
  *
  * Nothing at all: the section's empty state, whose button is New task, or New project while no project exists
@@ -16,6 +16,7 @@ import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues }
 import { ListRowSkeleton } from '@workspace/ui/components/list-group'
 import { PageColumn, PageWrap } from '@workspace/ui/components/page'
 import { PageHeader } from '@/components/app-shell/page-header'
+import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
@@ -122,7 +123,7 @@ export function TasksPage() {
   if (loaded && tasks.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        <PageHeader title={t('sidebar.tasks')} />
+        <PageHeader />
         <EntityListEmptyScreen icon={<CircleCheck />} title={t('sectionEmpty.tasksTitle')} description={t('sectionEmpty.tasksDescription')}>
           <Button onClick={() => newTask()}>{hasProject ? t('sectionEmpty.newTask') : t('sectionEmpty.newProject')}</Button>
         </EntityListEmptyScreen>
@@ -138,6 +139,7 @@ export function TasksPage() {
         actions={(
           <>
             <FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('tasks.filterLabel')} />
+            <CommandPaletteButton category="tasks" />
             <HeaderIconButton icon={<Plus />} tooltip={t('tasks.newTask')} onClick={() => newTask()} />
           </>
         )}

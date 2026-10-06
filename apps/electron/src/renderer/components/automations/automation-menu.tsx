@@ -6,7 +6,7 @@
  * - AutomationInfoPage (title dropdown menu)
  *
  * Uses MenuComponents context to render with either DropdownMenu or ContextMenu
- * primitives, following the same dual-menu pattern as SourceMenu.
+ * primitives, following the same dual-menu pattern as SessionMenu.
  */
 
 import { useTranslation } from 'react-i18next'

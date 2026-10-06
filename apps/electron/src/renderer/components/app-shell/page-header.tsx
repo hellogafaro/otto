@@ -1,5 +1,5 @@
 /**
- * PageHeader - what a page renders for its title: `<PageHeader title=… actions=… />`.
+ * PageHeader - what a page renders for its title: `<PageHeader title=… description=… actions=… />`.
  *
  * The design system's `PageHeaderRow` with the app's navigation wired in, so
  * a page passes no handlers. It renders where the page puts it but draws in the
@@ -13,6 +13,8 @@
  *   no dropdown, no Back button, no crumbs) and the page's actions. Below 768px
  *   the sidebar is a sheet and its menu button is fixed over the column's
  *   top-left on the axis (the title row clears it), or leads the pinned row;
+ * - an item's page (a skill, a source) may pass `description`: its lead line, muted body
+ *   text 4px under the title, in the same slot (shown once: the page never repeats it);
  * - a page with a menu of actions on its subject (`menu`: a chat's session menu, a
  *   source's) gets a "More actions" button last in the actions; below 768px a page
  *   may pass `compactMenu` instead (a drawer whose trigger is `HeaderMoreButton`);
@@ -33,7 +35,7 @@ import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { Ellipsis } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
-import { PageHeaderRow, usePageFrame } from '@workspace/ui/components/page-frame'
+import { PAGE_INSET, PageHeaderRow, usePageFrame } from '@workspace/ui/components/page-frame'
 import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
 import { SidebarTrigger } from '@workspace/ui/components/sidebar'
 import { cn } from '@/lib/utils'
@@ -52,6 +54,8 @@ export interface PageHeaderProps {
   title?: React.ReactNode
   /** Optional badge element (e.g., agent badge) */
   badge?: React.ReactNode
+  /** The item's description, muted under the title (not with `pinned`). */
+  description?: React.ReactNode
   /** The menu content of the page's "More actions" button (dropdown items). */
   menu?: React.ReactNode
   /**
@@ -79,6 +83,7 @@ export function HeaderMoreButton(props: Omit<React.ComponentProps<typeof Button>
 export function PageHeader({
   title,
   badge,
+  description,
   menu,
   compactMenu,
   actions,
@@ -154,13 +159,18 @@ export function PageHeader({
     />
   )
 
+  const lead = row && !pinned && description && (
+    <p className={cn('text-sm text-muted-foreground', PAGE_INSET, fixedTrigger && 'max-md:pl-14')}>{description}</p>
+  )
+  const block = <>{row}{lead}</>
+
   // Outside the shell (a demo) the row draws in place.
-  if (!frame) return row || null
+  if (!frame) return row ? block : null
 
   const target = pinned ? frame.header : frame.title
   return (
     <>
-      {row && (target ? createPortal(row, target) : !pinned && row)}
+      {row && (target ? createPortal(block, target) : !pinned && block)}
       {fixedTrigger && frame.leading && createPortal(
         <SidebarTrigger variant="outline" size="icon" className="titlebar-no-drag" />,
         frame.leading,

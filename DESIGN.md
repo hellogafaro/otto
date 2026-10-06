@@ -616,10 +616,12 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     is an index page before the detail (see Page anatomy, Index pages). Settings is
     the one exception, and it replaces the whole sidebar (below). Hidden when icons only.
   - **Footer** (group 4), pinned at the bottom, **the workspace menu alone** (no Settings row: Settings is
-    in the menu, and ⌘, stays bound by the shell): the workspace row, a
-    standard 28px sidebar row (never taller) with a 20px avatar (`xs` 4) as its
+    in the menu, and ⌘, stays bound by the shell): the workspace row, the
+    one 32px sidebar row (`SidebarMenuButton size="lg"`, 6px corners: an avatar row looks better a step
+    taller than the 28px nav rows) with a 20px avatar (`xs` 4) as its
     icon, an 8px gap, the name in medium and an up-down chevron (14px, muted)
-    at the end. It opens the
+    at the end. It sits 8px from the bottom edge, the same as its 8px side inset (the footer adds no
+    padding of its own; the sheet below 768px adds 12px). It opens the
     **workspace menu** (`WorkspaceMenu`, 240px, the stock dark menu) upward, or to the
     right when icons only, where only the avatar shows, with the name in a
     tooltip; in the sheet it is the same row and menu. **Everything in it aligns
@@ -681,7 +683,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     Input, Shortcuts, Preferences) and **Workspace** (Workspace, Members,
     Permissions, Labels, Messaging, then Skills and Sources), each under its
     20px muted group title, every page a standard 28px row with its own icon
-    (`SETTINGS_ICONS`; Skills `Zap`, Sources `DatabaseZap`), the open one filled
+    (`SETTINGS_ICONS`; Skills `Shapes`, Sources `DatabaseZap`), the open one filled
     `foreground/10`, hover `foreground/5`, the inset ring for keyboard focus only.
     A direct URL fills its row. The groups scroll as a whole on a short window
     (edge fade, no scrollbar). No footer. Settings opens from the workspace
@@ -711,6 +713,11 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   as an empty or loading state, at the same position). **Settings' title is not
   on the axis** from 768px: it is the first block of the roomy column, 64px
   down (see Page anatomy, Settings); its sidebar has no mark to line up with.
+  **An item's description** (`PageHeader description`: a skill's description, a
+  source's tagline, an automation's summary) is the page's lead line, muted
+  body text 4px under the title in the same slot (inset like the title; one
+  block, so the 40px gap comes after it), shown there once and never repeated
+  in the page: the same pattern as a document, its title then its body.
   - **The chat is the only exception** (`PageHeader pinned`): a **compact pinned
     row**, 44px, its top 12px below the window's top (`--axis-y` - 22: the same
     center, y 34), in the frame's header slot above the transcript card, which
@@ -750,7 +757,10 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   gutter beside the column, **20px from it**, with Back's center on the top
   axis (`--axis-y`, y 34: the title's center at scroll 0, the chat's pinned
   title's and the sidebar mark's; the nav's top is y 18, fixed to the frame, not
-  to the title row or the first block, so the title scrolls away beside it). They are our standard raised icon button
+  to the title row or the first block, so the title scrolls away beside it). **On a
+  padded page** (a skill, a source: Settings' roomy column) the title is 64px down,
+  so Back's top follows it there (y 64, the title row's top; `PageFrame` reads the
+  padded column, one rule): Back and the title share a center at scroll 0. They are our standard raised icon button
   (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
   with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
   Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
@@ -776,7 +786,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 - **Page**: see Page anatomy.
 - **Galleries** (`Gallery`): 3 columns for projects, 4 for documents,
   files, skills and sources; 12px between columns, 20px between rows so a title stays with its
-  tile.
+  tile. Skills and Sources sit in Settings' padded 720px column: still 4 columns,
+  171px tiles (the Library's 183px at 768: the same feel; 3 would be 232px, a
+  project's size).
 
 ## Page anatomy
 
@@ -813,19 +825,18 @@ no shadow.
   settings pages are the reference implementation.
 - **Settings: the roomy column** (`PageColumn padded`, through `SettingsPage`,
   the one shell every settings page renders: its name alone in the title row,
-  no actions of navigation, then its sections). **Skills and Sources are the two
-  exceptions in Settings**: their grids and their items take the standard blocks
-  column (`PageColumn`, title on the axis), not `padded`, because they are a
-  Library-like gallery and an item with the floating navigation, whose Back sits on
-  the axis beside the title (with `padded` the title drops 30px below Back and the
-  grid narrows by 48px; looked at side by side, 2026-10). The owner's call, after Capy's General: the same 768px
+  no actions of navigation, then its sections). **The Skills and Sources grids
+  and a skill's and a source's pages take it too** (the owner's call: the same
+  page spacing as every settings page; through `Info_Page.Content` also an
+  automation's page): the floating navigation's Back follows the title down to
+  64px (see Layout). The owner's call, after Capy's General: the same 768px
   column with **24px sides** (cards 720px wide), **64px above the title row**
   (the column's first block; it drops its axis margin, so the title sits at y
   64, not on the axis), **40px between blocks** (title to the first section,
   section to section) and 40px at the end. Sections are `PageSection` over
   `PageCard` as everywhere. **Below 768px** only the 40px gap stays: the title
   row is back on the axis beside the sheet's menu button and the frame's 20px
-  sides are the inset, as on every page. No other page uses `padded`.
+  sides are the inset, as on every page. No page outside Settings uses `padded`.
 - **Centerpiece** (`PageCenterpiece`: the chat, a document): ONE card as wide as
   the column and as tall as the space under the title row (8px above the
   window's bottom), clipped, scrolling inside it with the edge fade. Never wider
@@ -870,14 +881,14 @@ no shadow.
 - **Index pages.** Sub-navigation is an index page before the detail, never a
   sidebar list: a data page of a grouped list or a grid of links that opens the
   detail. Chats opens on its index (`ChatsIndexPage`: the title row's ghost Filter, then
-  the chats grouped by status in the `PageWrap`; it never opens the first chat). The sidebar's rows open them; the detail's Back
+  the chats grouped by status in the `PageWrap`; it never opens the first chat; with no chat at all only the empty state, no title row). The sidebar's rows open them; the detail's Back
   returns to them. **Settings has no index** (the owner's call: no grid of
   settings): `/{ws}/settings` is replaced with General and the settings sidebar
   lists the pages (see Layout, Sidebar). Its Skills and Sources rows open grids (below).
 - **Skills and Sources** (`SkillsPage`, `SourcesPage`, `/{ws}/settings/skills`,
   `/{ws}/settings/sources`; the owner's call: "a grid exactly the same as the
   library, just without tabs"): the Library's anatomy without tabs or folders, on
-  the standard column (see Settings above). The title row ("Skills" / "Sources")
+  Settings' roomy column (see Settings above). The title row ("Skills" / "Sources")
   holds the three 28px ghost actions of the data pattern: **Filter** (Skills: Scope,
   Global / Workspace / Project, `?scope=`; Sources: Type, MCP / API / Local,
   `?type=`; one value at a time, the last picked, chips in the `FilterBar` while
@@ -885,31 +896,46 @@ no shadow.
   category) and **"+"** (Add skill / Add source in its tooltip): the existing
   add popover (`EditPopover` with `add-skill`, or `add-source` / `add-source-{type}`
   for the filtered type), where you describe it and an agent writes it in a new
-  chat. Then `Gallery columns={4}` of 4:5 tiles on the frame (`SettingsGalleryTile`):
+  chat. Then `Gallery columns={4}` of 4:5 tiles on the frame (`GalleryItem`):
   the item's own icon (`SkillAvatar` / `SourceAvatar`, chromeless: 16px in the
   icon tile, 14px before the title), the muted caption under it (a skill's scope,
-  a source's type), the name under the tile; sorted by name. A tile opens the
-  item (keeping the filter); its right-click menu and hover ⋯ are one list: Open,
-  Copy link (C), then Delete (⌫) apart, asked first with the stock destructive
-  dialog ("Delete skill?", "This can't be undone."); a global or project skill
-  has no Delete (not this workspace's). Loading is eight `GalleryItemSkeleton`s;
-  none at all is the stock empty page ("No skills yet" / "No sources yet", its
-  button the same Add popover); a filter that keeps none is `NoResults`. An item
-  (`SkillInfoPage`, `SourceInfoPage`) has the floating navigation: Back to the
-  grid under its filter, Previous / Next in the grid's order and filter.
+  a source's type), the name under the tile; sorted by name. **A tile only opens
+  the item** (keeping the filter): no hover ⋯ and no right-click menu (the
+  owner's call: the actions belong to the opened item; see Galleries). Loading
+  is eight `GalleryItemSkeleton`s; none at all (no skill, no source) is the stock
+  empty page alone, no title row or actions (the data-page rule under Empty
+  states; its button the same Add popover); a filter that keeps none keeps the
+  title row and shows `NoResults`.
+  **An item** (`SkillInfoPage`, `SourceInfoPage`, both `Info_Page`) says each fact
+  once: the title row is its name and **More actions**, the one menu of the item
+  (Copy link (C), Show in the file manager, then Delete (⌫) apart, asked first with
+  the stock destructive dialog, "Delete skill?" / "Delete source?", "This can't be
+  undone.", and back to the grid after; a global or project skill has no Delete:
+  not this workspace's); its description (a source's tagline) is the lead line
+  under the title; no hero, avatar or table row repeats the name or the
+  description. Then its sections, `PageSection` over `PageCard` as on every
+  settings page, each with its Edit popover (an agent edits the file; "Edit file"
+  opens it) as the section action. **A skill**: Instructions, SKILL.md's body as
+  the Library's read-only markdown (`Markdown mode="full"`, 16px in the card, the
+  page scrolls; a leading `# {name}` is dropped, it is the title), then Metadata
+  rows (Scope, Location, Required sources, Always allowed tools; the rows exist
+  only when set). **A source**: Connection (Type, URL, Last tested and its
+  connection error), Tools (MCP), Permissions, Documentation (guide.md, the same
+  markdown). The item has the floating navigation: Back to the grid under its
+  filter, Previous / Next in the grid's order and filter.
 - **Projects index** (`ProjectsPage`, `pages/projects/`): a blocks page titled
   "Projects" whose actions are Filter (one on/off field, Archived:
   `?status=archived` lists the archived projects instead of the active ones,
-  their titles muted) and "+" (New project, in its tooltip); no Search until
-  the palette has a Projects category, no counts or covers yet. Under the title
+  their titles muted), Search (the palette on Projects) and "+" (New project, in
+  its tooltip); no counts or covers yet. Under the title
   the `FilterBar` while Archived is on, then `Gallery columns={3}` of 16:9
   tiles on the frame (the Folder glyph, the sidebar's Projects icon, in the
   icon tile; Folder and the title under it). A tile opens its project; its
   right-click menu and hover ⋯ are one list: Open, Copy link (C), then
   Archive / Restore (A), which applies at once with the one "Saved" toast (a
   discrete action: no confirmation; projects are never deleted here). Loading
-  is three `GalleryItemSkeleton`s. No projects at all: the title row and the
-  section's empty state ("No projects yet", "New project"), whose button opens
+  is three `GalleryItemSkeleton`s. No projects at all: only the section's empty
+  state ("No projects yet", "New project"), no title row or actions, whose button opens
   the same dialog as "+" (empty-state rule 1); only archived ones: the same
   empty state under the full header, so Filter stays reachable; Archived with
   none: `NoResults`. **New project** (`ProjectFormDialog`, reused by Tasks and
@@ -921,8 +947,8 @@ no shadow.
   list in the `PageWrap` (`TaskGroups`, Data patterns 1, also a project's Tasks tab
   without the project badge). Actions: Filter (Project, Assignee: you as "Me"
   first, then people, then agents, Status: Todo / In progress / Done, then
-  Archived on/off; Project and Assignee take one value, the URL's) and "+" (New
-  task). Groups Todo, In progress, Done (folded unless the Status filter asks for
+  Archived on/off; Project and Assignee take one value, the URL's), Search (the
+  palette on Tasks) and "+" (New task). Groups Todo, In progress, Done (folded unless the Status filter asks for
   it), Archived (folded last; the whole list, open, when Archived is on); a
   group's "+" starts a new task in that status. A row (44px): the status icon
   (`TaskStatusIcon`: Circle todo grey, CircleDot doing purple, CircleCheck done
@@ -931,7 +957,7 @@ no shadow.
   outline `Badge`, the due date ("Oct 4", else nothing) in the end column; the
   ⋯ menu: Open, Status (submenu, keys 1 to 3), Copy link (C), Archive / Restore
   (A), applied at once with the "Saved" toast. Loading: three
-  `ListRowSkeleton`s in the wrapper. No tasks at all: the title row and the section's empty state, whose
+  `ListRowSkeleton`s in the wrapper. No tasks at all: only the section's empty state (no title row or actions), whose
   button is "New task", or "New project" while no project exists (a task needs
   one: it opens New project, then New task in it). Filters that keep nothing:
   `NoResults`. **New task** (`TaskFormDialog`) is the stock dialog: Title
@@ -1052,7 +1078,7 @@ no shadow.
 | Row in a card, nested control | 28px, `sm` 6 | 24px action, `xs` 4 |
 | Button | 32px, `md` 8 | 14px icon |
 | Sidebar row | 28px, `sm` 6 | 20px action and key, 4px in, `xs` 4 |
-| Workspace row (workspace menu) | 28px, `sm` 6 | 20px avatar, `xs` 4 |
+| Workspace row (workspace menu) | 32px, `md` 8 | 20px avatar, `xs` 4 |
 
 ## Navigation
 
@@ -1602,8 +1628,8 @@ Mark as unread U and Clear (no confirmation: it removes the notification, not
 content). The title row: Mark all as read (28px ghost icon button, `CheckCheck`,
 tooltip; disabled with nothing unread; an icon so the title keeps its room on a
 phone) and Filter (one on/off field, Unread, in `?unread=1`, its chip under the
-title while on). Loading: three `ListRowSkeleton`s in the wrapper. Nothing at all: the title
-row and the stock `Empty` ("No notifications yet", no button); Unread with none:
+title while on). Loading: three `ListRowSkeleton`s in the wrapper. Nothing at all: only the
+stock `Empty` ("No notifications yet", no button; no title row or actions); Unread with none:
 `NoResults`. New notifications arrive live (the `notifications` push), in the
 list and the sidebar's count.
 
@@ -1804,7 +1830,8 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   and below, text 16px in); the list (at most `min(400px, 60dvh)`, `scroll-fade-y`,
   no scrollbar): 36px rows, `md` 8 corners in the list's 4px padding, 16px content
   inset, a 14px icon, 8px, the title in `text-sm`, and at the end a chat's
-  12px muted time, an action's `Kbd` or the check of what is on; group headings
+  12px muted time, a task's project or a library item's folder (muted, at most
+  40% of the row, truncated), an action's `Kbd` or the check of what is on; group headings
   (12px medium muted, 16px in) only in All; a 48px footer with the keys as `Kbd`
   (↑↓ Navigate, ↵ Open, Tab Category, Esc Close), hidden on phones.
 - **States.** The highlighted row (arrow keys or pointer) is `foreground/10`, no
@@ -1819,18 +1846,30 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   ↑↓ do nothing while waiting. Enter while waiting only skips the wait (it shows
   the results and picks nothing), so a row is never picked from results that were
   not on screen. An empty query shows Pinned and Recent at once.
-- **Categories and data** (all local, nothing fetched, matched on the debounced query):
+- **Categories and data** (matched on the debounced query; nothing is fetched
+  for the palette itself, it reads the stores the pages use, `useTasks`,
+  `useProjects`, `useLibrary`, which load on open when the page was not visited):
   **All**, then **Chats** (the workspace's chats from the sessions store: status
-  icon, title, relative time; archived last; opens the chat), **Pages** (the
+  icon, title, relative time; archived last; opens the chat), **Tasks** (every
+  task that is not archived, in the Tasks page's order: its `TaskStatusIcon`, the
+  title, and its project's title as 12px muted text at the row's end; opens
+  `/tasks/<id>`; archived tasks are left out everywhere, they are found on the
+  page's Archived filter), **Projects** (active projects with the Folder icon;
+  archived ones are left out; opens `/projects/<id>`), **Library** (every item,
+  folders included: the type icon, as on the tiles, Folder, Document or File, the
+  title without `.md`, and the folder path ("Brand / Assets") as muted text at the
+  end, none in the root; a folder opens `/library?folder=<id>`, anything else
+  `/library/<id>`), **Pages** (the
   sidebar's pages with its icons: Inbox, Tasks, Projects, Chats, Routines, Library;
-  Tasks, Routines and Library have no data of their own
-  yet, so they are pages only), **Settings** (every page of `SETTINGS_NAV_GROUPS`
+  Routines have no data of their own yet, so they are a page only), **Settings** (every page of `SETTINGS_NAV_GROUPS`
   with the settings sidebar's icons; Shortcuts shows ⌘/), **Skills** and
   **Sources** (the shell's loaded skills and sources with their avatars; opens
   their page), **Actions** (New chat ⌘N, Open settings ⌘,, Light, Dark and System
   theme with a check on the current one, Go back and Go forward while there is
-  history, Log out on the web, Quit in the desktop app). All lists each group's
-  first 5 in that order under its heading; with an empty field it opens with
+  history, Log out on the web, Quit in the desktop app). The tabs run All, Chats,
+  Tasks, Projects, Library, Pages, Settings, Skills, Sources, Actions. All lists
+  each group's first 5 in that order under its heading (a task, project or
+  library item that Pinned or Recent show is left out of its group); with an empty field it opens with
   **Pinned** and **Recent** (the sidebar's store, 5 recents), and its Chats group
   leaves out the chats they show. A tab lists its category in full.
 - **Matching** (`palette-model.ts`, pure and unit-tested): case and accents
@@ -1899,6 +1938,9 @@ items").
   right-click `ContextMenuContent` (the item's menu list); `actions` is the hover
   ⋯ (a 28px ghost icon button opening the same list, as on list rows) 8px inside
   the tile's top and end, shown on hover, focus or while open (always on touch).
+  **A tile whose item has a page with its own More actions has neither** (Skills
+  and Sources, the owner's call): the tile opens the page and the actions live
+  there, once. The Library's and Projects' tiles keep their menus for now.
 - **States**: rest ring `/10`; hover, a menu open (right-click or ⋯) and
   `current` (the open item) ring `/20`, no fill and no lift (the tile never
   changes size); focus-visible a 2px inset `--ring` on the tile; `disabled`
@@ -2047,18 +2089,19 @@ drive:
   "Library" (no crumbs in the title). A folder that is gone sends the page back
   to the root.
 - **Title row**: Filter ("Created by": You, Agents; one at a time, in
-  `?createdBy=`, chips in the `FilterBar`) and "+" (a 28px ghost icon button):
+  `?createdBy=`, chips in the `FilterBar`), Search (`CommandPaletteButton`: the
+  palette on Library) and "+" (a 28px ghost icon button):
   Upload file (several, through a hidden file input; 50 MB each, a toast per
   failure, pending uploads as dimmed tiles), New document and New folder (a
   small dialog with Title and Create; a new document opens at once). All land
-  in the open folder. No Search button: the palette has no Library category.
+  in the open folder.
 - **Tile menu** (right-click and the hover ⋯): Open, Rename R, Move M (a dialog
   with the folder tree as 28px rows, the current folder preselected, places the
   item cannot go disabled), Copy link C (the item's app URL), then Delete ⌫
   apart (the Alert dialog; a folder only when empty, else the toast "Only an
   empty folder can be deleted"). Delete is real: no archive.
 - **Empty**: nothing in the Library at all is the stock empty page (table
-  below) whose "Add to library" opens the "+" menu; an empty folder or tab is
+  below; no title row or actions) whose "Add to library" opens the "+" menu; an empty folder or tab is
   the inline `Empty` "No files yet" / "No documents yet" with one line and no
   action; a filter that keeps nothing is `NoResults`. Loading is eight
   `GalleryItemSkeleton`s.
@@ -2268,6 +2311,8 @@ Unknown creation outcomes disable another submission in the current form and dir
 7. The floating bar shows its Inbox button only while something needs attention (an unread chat or an unanswered question).
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
 9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
+
+A data page with no data hides its title row and its actions (Filter, "+", Search): the empty state is the page and its button is the add action (below 768px only the sidebar's menu button stays, `PageHeader` without a `title`). A filtered or searched empty result keeps them, so the filters can be cleared. Loading keeps the title row; only a loaded, empty list hides it.
 
 **Empty-state pattern (every empty state, built or not).**
 

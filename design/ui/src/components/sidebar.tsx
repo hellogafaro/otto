@@ -226,7 +226,8 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-footer"
       data-sidebar="footer"
       className={cn(
-        "relative mt-5 flex flex-col gap-0.5 pb-3 group-data-[collapsible=icon]:mt-2",
+        // Otto: the frame already leaves 8px under the sidebar, which with the 8px side inset is the row's bottom gap; the sheet (below 768px) has no frame margin.
+        "relative mt-5 flex flex-col gap-0.5 pb-0 max-md:pb-3 group-data-[collapsible=icon]:mt-2",
         iconGroupRule,
         className
       )}
@@ -347,17 +348,20 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 // 48px sidebar (10 | 28 | 10). The user menu row is one of them too (a 20px
 // avatar is its icon).
 const sidebarMenuButton =
-  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-sm px-2 py-1 text-left text-sm text-muted-foreground outline-hidden transition-[width,height,padding] h-7 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-7! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:[&>svg:not(:first-child)]:hidden hover:text-foreground not-data-active:group-hover/menu-item:bg-foreground/5 group-hover/menu-item:text-foreground active:bg-foreground/10 active:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-default data-active:bg-foreground/10 data-active:text-foreground aria-[haspopup]:aria-expanded:bg-foreground/10 aria-[haspopup]:aria-expanded:text-foreground aria-[current=page]:bg-foreground/10 aria-[current=page]:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0 [&>[data-slot=icon-slot]]:size-3.5 [&>span:last-child]:truncate"
+  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-sm px-2 py-1 text-left text-sm text-muted-foreground outline-hidden transition-[width,height,padding] h-7 data-[size=lg]:h-8 data-[size=lg]:rounded-md group-data-[collapsible=icon]:data-[size=lg]:size-8! group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-7! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:[&>span]:hidden group-data-[collapsible=icon]:[&>svg:not(:first-child)]:hidden hover:text-foreground not-data-active:group-hover/menu-item:bg-foreground/5 group-hover/menu-item:text-foreground active:bg-foreground/10 active:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-default data-active:bg-foreground/10 data-active:text-foreground aria-[haspopup]:aria-expanded:bg-foreground/10 aria-[haspopup]:aria-expanded:text-foreground aria-[current=page]:bg-foreground/10 aria-[current=page]:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0 [&>[data-slot=icon-slot]]:size-3.5 [&>span:last-child]:truncate"
 
 function SidebarMenuButton({
   render,
   isActive = false,
+  size = "default",
   tooltip,
   className,
   ...props
 }: useRender.ComponentProps<"button"> &
   React.ComponentProps<"button"> & {
     isActive?: boolean
+    /** Otto: `lg` is the 32px row (an avatar row: the workspace menu); `default` is the 28px nav row. */
+    size?: "default" | "lg"
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
   }) {
   const { isMobile, state } = useSidebar()
@@ -374,6 +378,7 @@ function SidebarMenuButton({
       slot: "sidebar-menu-button",
       sidebar: "menu-button",
       active: isActive,
+      size,
     },
   })
 

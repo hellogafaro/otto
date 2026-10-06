@@ -1,7 +1,7 @@
 /**
  * The Library (`/{ws}/library`): documents and files in one gallery. Tabs All / Files / Documents (`?tab=`),
  * the open folder (`?folder=`, a muted breadcrumb under the tabs), folders first in every tab, then files, then
- * documents. The title row: Filter ("Created by": You, Agents) and "+" (Upload file, New document, New folder),
+ * documents. The title row: Filter ("Created by": You, Agents), Search (the palette on Library) and "+" (Upload file, New document, New folder),
  * all landing in the open folder. A tile opens its folder or item; its menu renames, moves, copies the link or
  * deletes. An empty Library is the stock empty page, its button the same "+" menu.
  */
@@ -20,6 +20,7 @@ import { toast } from '@workspace/ui/components/sonner'
 import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { PageHeader } from '@/components/app-shell/page-header'
+import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import { useLibrary } from '@/hooks/use-library'
@@ -205,7 +206,7 @@ export function LibraryPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title={t('library.title')}
-        actions={<><FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('library.filter')} />{addMenu(<AddButton />)}</>}
+        actions={<><FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('library.filter')} /><CommandPaletteButton category="library" />{addMenu(<AddButton />)}</>}
       />
       <PageColumn className="min-h-full">
         <div data-content-start="" className="flex flex-1 flex-col gap-3">

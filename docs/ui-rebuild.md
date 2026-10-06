@@ -50,8 +50,6 @@ yet).
 - [ ] `components/app-shell/session-status-icon.tsx`
 - [ ] `components/app-shell/setup-auth-banner.tsx`
 - [ ] `components/app-shell/sidebar-menu.tsx`
-- [ ] `components/app-shell/skill-menu.tsx`
-- [ ] `components/app-shell/source-menu.tsx`
 - [ ] `components/app-shell/task-action-menu.tsx`
 - [ ] `components/app-shell/transport-connection-banner.tsx`
 - [x] `components/app-shell/workspace-menu.tsx`

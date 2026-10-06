@@ -4,7 +4,7 @@
  * Provides menu primitives (MenuItem, Separator, Sub, SubTrigger, SubContent)
  * that work with both DropdownMenu and ContextMenu.
  *
- * This allows menu content components (SessionMenu, SourceMenu, SkillMenu) to
+ * This allows menu content components (SessionMenu, AutomationMenu) to
  * render identically in both dropdown and context menu scenarios without duplication.
  *
  * Usage:

@@ -20,14 +20,16 @@ import { cn } from "cn"
 // the page, draws its row there, so the title scrolls with the content. The
 // first block (`data-content-start`) is where the sidecar starts: `PageFrame`
 // measures it.
-// Otto: `padded`, the roomy settings layout (every settings page; Capy's
-// General; not the Skills and Sources grids or their items, which take the
-// standard column like the Library's): from 768px the column takes 24px sides (cards
-// 720px wide in the 768px column) and 64px above its first block, the title
-// row, which drops its axis margin (settings has no mark on the axis: its
-// sidebar leads with Back to app); 40px between blocks. Below 768px only the
-// 40px gap changes: the title stays on the axis beside the sheet's menu button
-// and the frame's 20px sides are the inset.
+// Otto: `padded`, the roomy settings layout (every settings page, the Skills
+// and Sources grids and their items; Capy's General): from 768px the column
+// takes 24px sides (cards 720px wide in the 768px column) and 64px above its
+// first block, the title row, which drops its axis margin (settings has no mark
+// on the axis: its sidebar leads with Back to app; the floating navigation's top
+// follows the title down, see `PageFrame`); 40px between blocks. Below 768px
+// only the 40px gap changes: the title stays on the axis beside the sheet's
+// menu button and the frame's 20px sides are the inset.
+// The title slot holds the title row and, on an item's page, its description
+// (the lead line, 4px under the title): one block, so the gap comes after both.
 function PageColumn({
   padded = false,
   className,
@@ -39,6 +41,7 @@ function PageColumn({
     <PageScroll>
       <div
         data-slot="page-column"
+        data-padded={padded || undefined}
         className={cn(
           "flex w-full flex-col gap-8 pb-10",
           padded &&
@@ -50,7 +53,7 @@ function PageColumn({
         <div
           data-slot="page-title-slot"
           ref={frame?.setTitle}
-          className="contents"
+          className="flex flex-col gap-1 empty:hidden"
         />
         {children}
       </div>

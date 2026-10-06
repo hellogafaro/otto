@@ -1,35 +1,45 @@
 /**
  * SkillInfoPage
  *
- * Displays comprehensive skill details including metadata,
- * permission modes, and instructions.
- * Uses the Info_ component system for consistent styling with SourceInfoPage.
+ * A skill's page, read like a document: its name once in the title row, its description once as the lead line
+ * under it, then its instructions (SKILL.md's body, the Library's read-only markdown) and its details (scope,
+ * location, required sources, always-allowed tools), each a section of Settings' roomy column. Its actions are the
+ * title row's More actions (Copy link, Show in the file manager, Delete for a workspace skill); editing asks an
+ * agent through each section's Edit popover ("Edit file" opens SKILL.md).
  */
 
 import { useTranslation } from 'react-i18next'
-import { useEffect, useState, useCallback } from 'react'
-import { Check, X, Minus } from 'lucide-react'
-import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
+import { useEffect, useState } from 'react'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
 import { toast } from '@workspace/ui/components/sonner'
-import { SkillMenu } from '@/components/app-shell/skill-menu'
-import { SkillAvatar } from '@/components/ui/skill-avatar'
+import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
+import { Markdown } from '@/components/markdown'
 import { useActiveWorkspace } from '@/context/app-shell-context'
 import { useNavigation } from '@/contexts/navigation-context'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useParentView } from '@/hooks/use-parent-view'
-import { useDeleteSkill } from './skills-page'
+import { routes, routeUrl } from '@/lib/navigate'
 import { getFileManagerName } from '@/lib/platform'
-import {
-  Info_Page,
-  Info_Section,
-  Info_Table,
-  Info_Markdown,
-} from '@/components/info'
+import { Info_Page, Info_Section, Info_Table } from '@/components/info'
+import { SKILL_SCOPE_LABELS } from './skills-page'
 import type { LoadedSkill } from '../../shared/types'
 
 interface SkillInfoPageProps {
   skillSlug: string
   workspaceId: string
   workingDirectory?: string
+}
+
+/** The skill's folder from its skills directory on (`skills/{slug}`), else the whole path. */
+function formatPath(path: string) {
+  const skillsIndex = path.indexOf('/skills/')
+  return skillsIndex === -1 ? path : path.slice(skillsIndex + 1)
+}
+
+/** SKILL.md's body without a leading `# {name}`: the title row already shows the name (each fact once). */
+function withoutTitle(content: string, name: string) {
+  const [first = '', ...rest] = content.trimStart().split('\n')
+  return first.trim().toLowerCase() === `# ${name.trim()}`.toLowerCase() ? rest.join('\n').trimStart() : content
 }
 
 export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory }: SkillInfoPageProps) {
@@ -42,7 +52,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
   const canRevealLocally = !activeWorkspace?.remoteServer
   // Deleted: back to the grid it was opened from
   const parent = useParentView()
-  const { dialog: deleteDialog, deleteSkill } = useDeleteSkill(parent?.onBack)
+  const { dialog: deleteDialog, confirmDelete } = useConfirmDelete()
 
   // Load skill data
   useEffect(() => {
@@ -89,44 +99,53 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
     }
   }, [workspaceId, skillSlug, workingDirectory, showNotFound])
 
-  // Handle open in finder
-  const handleOpenInFinder = useCallback(async () => {
-    if (!skill || !canRevealLocally) return
+  const showInFolder = async (path: string) => {
     try {
-      await window.electronAPI.showInFolder(skill.path)
+      await window.electronAPI.showInFolder(path)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      toast.error(t('toast.failedToReveal', { fileManager: getFileManagerName() }), {
-        description: message,
-      })
-    }
-  }, [canRevealLocally, skill, t])
-
-  // Get skill name for header
-  const skillName = skill?.metadata.name || skillSlug
-  const canDeleteSkill = skill?.source === 'workspace'
-
-  // Format path to show just the skill-relative portion (skills/{slug}/)
-  const formatPath = (path: string) => {
-    const skillsIndex = path.indexOf('/skills/')
-    if (skillsIndex !== -1) {
-      return path.slice(skillsIndex + 1) // Remove leading slash, keep "skills/{slug}/..."
-    }
-    return path
-  }
-
-  // Open the skill folder in Finder
-  const handleLocationClick = async () => {
-    if (!skill || !canRevealLocally) return
-    try {
-      await window.electronAPI.showInFolder(skill.path)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      toast.error(t('toast.failedToReveal', { fileManager: getFileManagerName() }), {
-        description: message,
-      })
+      toast.error(t('toast.failedToReveal', { fileManager: getFileManagerName() }), { description: message })
     }
   }
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(routeUrl(routes.view.skills({ skillSlug })))
+    toast.success(t('toast.linkCopied'))
+  }
+
+  // A global or project skill is not this workspace's to delete.
+  const deleteSkill = (target: LoadedSkill) =>
+    confirmDelete(t('skillsList.deleteSkill'), async () => {
+      await window.electronAPI.deleteSkill(workspaceId, target.slug)
+      toast.success(t('skillInfo.deletedSkill', { name: target.metadata.name }))
+      parent?.onBack()
+    })
+
+  const menu = skill && (
+    <>
+      <DropdownMenuItem shortcut="C" onClick={copyLink}>{t('library.copyLink')}</DropdownMenuItem>
+      {canRevealLocally && (
+        <DropdownMenuItem onClick={() => showInFolder(skill.path)}>
+          {t('sessionMenu.showInFileManager', { fileManager: getFileManagerName() })}
+        </DropdownMenuItem>
+      )}
+      {skill.source === 'workspace' && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" shortcut="⌫" onClick={() => deleteSkill(skill)}>{t('common.delete')}</DropdownMenuItem>
+        </>
+      )}
+    </>
+  )
+
+  // Both edits ask an agent to change SKILL.md; "Edit file" opens it.
+  const editButton = (kind: 'skill-metadata' | 'skill-instructions', path: string) => (
+    <EditPopover
+      trigger={<EditButton />}
+      {...getEditConfig(kind, path)}
+      secondaryAction={{ label: t('common.editFile'), filePath: `${path}/SKILL.md` }}
+    />
+  )
 
   return (
     <Info_Page
@@ -134,137 +153,30 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
       error={error ?? undefined}
       empty={!skill && !loading && !error ? t('skillInfo.notFound') : undefined}
     >
-      <Info_Page.Header
-        title={skillName}
-        menu={
-          <SkillMenu
-            skillSlug={skillSlug}
-            skillName={skillName}
-            onShowInFinder={handleOpenInFinder}
-            canShowInFinder={canRevealLocally}
-            onDelete={skill && canDeleteSkill ? () => deleteSkill(skill) : undefined}
-            canDelete={canDeleteSkill}
-            deleteLabel={canDeleteSkill ? t('skillInfo.deleteSkill') : t('skillInfo.managedByProject')}
-          />
-        }
-      />
+      <Info_Page.Header title={skill?.metadata.name || skillSlug} description={skill?.metadata.description} menu={menu} />
 
       {skill && (
         <Info_Page.Content>
-          {/* Hero: Avatar, title, and description */}
-          <Info_Page.Hero
-            avatar={<SkillAvatar skill={skill} fluid workspaceId={workspaceId} />}
-            title={skill.metadata.name}
-            tagline={skill.metadata.description}
-          />
+          <Info_Section title={t('skillInfo.instructions')} actions={editButton('skill-instructions', skill.path)}>
+            <div className="p-4">
+              <Markdown mode="full" className="[&>:first-child]:mt-0 [&>:last-child]:mb-0" onUrlClick={(url) => window.electronAPI.openUrl(url)}>
+                {withoutTitle(skill.content, skill.metadata.name) || t('skillInfo.noInstructions')}
+              </Markdown>
+            </div>
+          </Info_Section>
 
-          {/* Metadata */}
-          <Info_Section
-            title={t('skillInfo.metadata')}
-            actions={
-              // EditPopover for AI-assisted metadata editing (name, description in frontmatter)
-              <EditPopover
-                trigger={<EditButton />}
-                {...getEditConfig('skill-metadata', skill.path)}
-                secondaryAction={{
-                  label: t('common.editFile'),
-                  filePath: `${skill.path}/SKILL.md`,
-                }}
-              />
-            }
-          >
+          <Info_Section title={t('skillInfo.metadata')} actions={editButton('skill-metadata', skill.path)}>
             <Info_Table>
-              <Info_Table.Row label={t('common.slug')} value={skill.slug} />
-              <Info_Table.Row label={t('common.name')}>{skill.metadata.name}</Info_Table.Row>
-              <Info_Table.Row label={t('common.description')}>
-                {skill.metadata.description}
-              </Info_Table.Row>
-              <Info_Table.Row label={t('common.source')}>
-                {skill.source === 'project' ? t('skillInfo.sourceProject') :
-                 skill.source === 'global' ? t('skillInfo.sourceGlobal') :
-                 t('skillInfo.sourceWorkspace')}
-              </Info_Table.Row>
-              <Info_Table.Row label={t('common.location')}>
-                <button
-                  onClick={handleLocationClick}
-                  className="hover:underline cursor-pointer text-left"
-                >
-                  {formatPath(skill.path)}
-                </button>
-              </Info_Table.Row>
-              {skill.metadata.requiredSources && skill.metadata.requiredSources.length > 0 && (
-                <Info_Table.Row label={t('skillInfo.requiredSources')}>
-                  {skill.metadata.requiredSources.join(', ')}
-                </Info_Table.Row>
+              <Info_Table.Row label={t('skillsList.scope')} value={t(SKILL_SCOPE_LABELS[skill.source])} />
+              <Info_Table.Row label={t('common.location')} value={formatPath(skill.path)} />
+              {!!skill.metadata.requiredSources?.length && (
+                <Info_Table.Row label={t('skillInfo.requiredSources')} value={skill.metadata.requiredSources.join(', ')} />
+              )}
+              {!!skill.metadata.alwaysAllow?.length && (
+                <Info_Table.Row label={t('skillInfo.alwaysAllowed')} value={skill.metadata.alwaysAllow.join(', ')} />
               )}
             </Info_Table>
           </Info_Section>
-
-          {/* Permission Modes */}
-          {skill.metadata.alwaysAllow && skill.metadata.alwaysAllow.length > 0 && (
-            <Info_Section title={t('skillInfo.permissionModes')}>
-              <div className="space-y-2 px-4 py-3">
-                <p className="text-xs text-muted-foreground mb-3">
-                  {t('skillInfo.permissionModesDesc')}
-                </p>
-                <div className="rounded-md border border-border/50 overflow-hidden">
-                  <table className="w-full text-sm">
-                    <tbody>
-                      <tr className="border-b border-border/30">
-                        <td className="px-3 py-2 font-medium text-muted-foreground w-[140px]">{t('skillInfo.explore')}</td>
-                        <td className="px-3 py-2 flex items-center gap-2">
-                          <X className="h-3.5 w-3.5 text-destructive shrink-0" />
-                          <span className="text-foreground/80">{t('skillInfo.exploreDesc')}</span>
-                        </td>
-                      </tr>
-                      <tr className="border-b border-border/30">
-                        <td className="px-3 py-2 font-medium text-muted-foreground">{t('skillInfo.askToEdit')}</td>
-                        <td className="px-3 py-2 flex items-center gap-2">
-                          <Check className="h-3.5 w-3.5 text-success shrink-0" />
-                          <span className="text-foreground/80">{t('skillInfo.askToEditDesc')}</span>
-                        </td>
-                      </tr>
-                      <tr className="border-b border-border/30">
-                        <td className="px-3 py-2 font-medium text-muted-foreground">{t('mode.guarded')}</td>
-                        <td className="px-3 py-2 flex items-center gap-2">
-                          <Minus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-foreground/80">{t('skillInfo.guardedDesc')}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-3 py-2 font-medium text-muted-foreground">{t('skillInfo.auto')}</td>
-                        <td className="px-3 py-2 flex items-center gap-2">
-                          <Minus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-foreground/80">{t('skillInfo.autoDesc')}</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </Info_Section>
-          )}
-
-          {/* Instructions */}
-          <Info_Section
-            title={t('skillInfo.instructions')}
-            actions={
-              // EditPopover for AI-assisted editing with "Edit File" as secondary action
-              <EditPopover
-                trigger={<EditButton />}
-                {...getEditConfig('skill-instructions', skill.path)}
-                secondaryAction={{
-                  label: t('common.editFile'),
-                  filePath: `${skill.path}/SKILL.md`,
-                }}
-              />
-            }
-          >
-            <Info_Markdown maxHeight={540} fullscreen>
-              {skill.content || t('skillInfo.noInstructions')}
-            </Info_Markdown>
-          </Info_Section>
-
         </Info_Page.Content>
       )}
       {deleteDialog}

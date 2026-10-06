@@ -1,12 +1,13 @@
 /**
  * Info_Section
  *
- * Section container with title, optional description, and content card.
- * Matches SettingsSection styling pattern.
+ * A section of an info page (a skill, a source, an automation): the settings pages'
+ * `PageSection` (title, optional description, actions at the end of its row) over one
+ * `PageCard`, so the spacing is the settings pages' own.
  */
 
 import * as React from 'react'
-import { cn } from '@/lib/utils'
+import { PageCard, PageSection } from '@workspace/ui/components/page'
 
 export interface Info_SectionProps {
   /** Section title */
@@ -20,29 +21,10 @@ export interface Info_SectionProps {
   className?: string
 }
 
-export function Info_Section({
-  title,
-  description,
-  actions,
-  children,
-  className,
-}: Info_SectionProps) {
+export function Info_Section({ title, description, actions, children, className }: Info_SectionProps) {
   return (
-    <section className={cn('space-y-3 pt-2', className)}>
-      <div className="flex items-start justify-between pl-1">
-        <div className="space-y-0.5">
-          <h3 className="text-base font-semibold">
-            {title}
-          </h3>
-          {description && (
-            <p className="text-sm text-muted-foreground">{description}</p>
-          )}
-        </div>
-        {actions}
-      </div>
-      <div className="card-surface bg-card rounded-md overflow-hidden">
-        {children}
-      </div>
-    </section>
+    <PageSection title={title} description={description} action={actions} className={className}>
+      <PageCard>{children}</PageCard>
+    </PageSection>
   )
 }

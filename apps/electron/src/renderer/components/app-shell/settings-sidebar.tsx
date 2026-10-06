@@ -7,7 +7,7 @@
  */
 
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, DatabaseZap, Zap } from 'lucide-react'
+import { ChevronLeft, DatabaseZap, Shapes } from 'lucide-react'
 import {
   SidebarContent,
   SidebarGroup,
@@ -58,7 +58,7 @@ export function SettingsSidebarContent() {
     }))
     if (group.title === 'Workspace') {
       rows.push(
-        { id: 'skills', labelKey: 'sidebar.skills', icon: Zap, route: routes.view.skills() },
+        { id: 'skills', labelKey: 'sidebar.skills', icon: Shapes, route: routes.view.skills() },
         { id: 'sources', labelKey: 'sidebar.sources', icon: DatabaseZap, route: routes.view.sources() },
       )
     }

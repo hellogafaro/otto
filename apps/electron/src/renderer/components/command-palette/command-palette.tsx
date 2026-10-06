@@ -49,9 +49,9 @@ import {
 
 /** One row: what it shows and what picking it does. */
 export interface PaletteItem extends PaletteEntry {
-  /** A 14px icon (a chat's status, a page's icon, a skill's or source's avatar). */
+  /** A 14px icon (a chat's status, a task's status, a page's icon, a skill's or source's avatar). */
   icon: React.ReactNode
-  /** Muted text at the row's end: a chat's time. */
+  /** Muted text at the row's end: a chat's time, a task's project, a library item's folder. */
   meta?: string
   /** The action's key, as a `Kbd` at the row's end. */
   hotkey?: string | null
@@ -65,6 +65,9 @@ const LABEL_KEYS: Record<PaletteCategory | PaletteGroupKey, string> = {
   pinned: 'sidebar.pinned',
   recent: 'sidebar.recent',
   chats: 'sidebar.chats',
+  tasks: 'sidebar.tasks',
+  projects: 'sidebar.projects',
+  library: 'sidebar.library',
   pages: 'commandPalette.pages',
   settings: 'sidebar.settings',
   skills: 'sidebar.skills',
@@ -166,7 +169,7 @@ export function CommandPalette({ data, initialCategory = 'all', onPick }: Comman
               >
                 {item.icon}
                 <span className="min-w-0 truncate">{item.title}</span>
-                {item.meta && <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-muted-foreground">{item.meta}</span>}
+                {item.meta && <span className="ml-auto max-w-[40%] shrink-0 truncate pl-2 text-xs tabular-nums text-muted-foreground">{item.meta}</span>}
                 {item.hotkey && <Kbd className="ml-auto max-sm:hidden">{item.hotkey}</Kbd>}
               </CommandItem>
             ))}

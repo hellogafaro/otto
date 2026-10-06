@@ -7,7 +7,7 @@
 
 import * as React from 'react'
 import { useState } from 'react'
-import { Circle, Flag, Globe, HardDrive, Zap, DatabaseZap, Search } from 'lucide-react'
+import { Circle, Flag, Globe, HardDrive, Zap, DatabaseZap, Search, Shapes } from 'lucide-react'
 import { Spinner } from '@otto/ui'
 import { cn } from '@/lib/utils'
 import { EntityRow } from '@/components/ui/entity-row'
@@ -403,7 +403,7 @@ function SkillEntityListPreview({
         emptyState={
           <Empty className="flex-1">
             <EmptyHeader>
-              <EmptyMedia variant="icon"><Zap /></EmptyMedia>
+              <EmptyMedia variant="icon"><Shapes /></EmptyMedia>
               <EmptyTitle>No skills yet</EmptyTitle>
               <EmptyDescription>Teach your agents your way of working once and reuse it anywhere.</EmptyDescription>
             </EmptyHeader>
@@ -417,7 +417,7 @@ function SkillEntityListPreview({
                   {skill.icon}
                 </div>
               ) : (
-                <MockAvatar icon={Zap} color="text-muted-foreground" label={skill.name} />
+                <MockAvatar icon={Shapes} color="text-muted-foreground" label={skill.name} />
               )
             }
             title={skill.name}
@@ -545,7 +545,7 @@ function MixedEntityListPreview({
                   {skill.icon}
                 </div>
               ) : (
-                <MockAvatar icon={Zap} color="text-muted-foreground" label={skill.name} />
+                <MockAvatar icon={Shapes} color="text-muted-foreground" label={skill.name} />
               )
             }
             title={skill.name}
@@ -723,7 +723,7 @@ function InteractiveEntityListPreview({
                   {item.emoji}
                 </div>
               ) : (
-                <MockAvatar icon={Zap} color="text-muted-foreground" label={item.name} />
+                <MockAvatar icon={Shapes} color="text-muted-foreground" label={item.name} />
               )
             }
             title={item.name}

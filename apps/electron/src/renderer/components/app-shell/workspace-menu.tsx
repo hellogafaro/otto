@@ -252,6 +252,7 @@ export function WorkspaceMenu({
       <DropdownMenu onOpenChange={(open) => { if (open) { checkRemoteHealth(); loadAccount() } }}>
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton
+            size="lg"
             aria-label={t('workspaceMenu.open')}
             tooltip={selectedWorkspace?.name}
             className="titlebar-no-drag"

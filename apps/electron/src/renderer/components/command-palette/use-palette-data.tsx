@@ -4,7 +4,8 @@
  * sessions store, newest first, archived last), the pages of the sidebar, every settings
  * page (`SETTINGS_NAV_GROUPS`, with the settings sidebar's icons), the skills and sources
  * the shell loaded, and the actions that make sense from a palette, with their keys.
- * Tasks, Routines and the Library have no data yet: they are pages here, nothing more.
+ * Tasks (not archived), projects (active) and the library come from the same hooks as their pages.
+ * Routines have no data yet: they are a page here, nothing more.
  */
 
 import * as React from 'react'
@@ -35,18 +36,24 @@ import { sessionMetaMapAtom, type SessionMeta } from '@/atoms/sessions'
 import { skillsAtom } from '@/atoms/skills'
 import { sourcesAtom } from '@/atoms/sources'
 import { SETTINGS_ICONS } from '@/components/icons/settings-icons'
+import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
 import { SourceAvatar } from '@/components/ui/source-avatar'
 import { getStateIcon, getStateIconStyle, type SessionStatus } from '@/config/session-status-config'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useTheme, type ThemeMode } from '@/context/theme-context'
 import { useNavigation } from '@/contexts/navigation-context'
+import { useLibrary } from '@/hooks/use-library'
 import { usePins } from '@/hooks/use-pins'
+import { useProjects } from '@/hooks/use-projects'
 import { useRecents } from '@/hooks/use-recents'
+import { useTasks } from '@/hooks/use-tasks'
 import { logOut } from '@/lib/log-out'
 import { navigate, routes, type Route } from '@/lib/navigate'
 import { isWebUI } from '@/lib/platform'
 import { getSessionStatus, getSessionTitle, shortTimeLocale } from '@/utils/session'
+import { libraryItemIcon } from '@/pages/library/library-tile'
+import { getDisplayTitle, MAX_FOLDER_DEPTH } from '@/pages/library/library-items'
 import { SETTINGS_NAV_GROUPS } from '../../../shared/menu-schema'
 import type { PaletteItem } from './command-palette'
 import type { PaletteData } from './palette-model'
@@ -93,6 +100,9 @@ export function usePaletteData(): PaletteData<PaletteItem> {
   const sessions = useAtomValue(sessionMetaMapAtom)
   const skills = useAtomValue(skillsAtom)
   const sources = useAtomValue(sourcesAtom)
+  const { tasks } = useTasks()
+  const { projects } = useProjects()
+  const { items: libraryItems } = useLibrary()
   const { pinned } = usePins()
   const recent = useRecents()
   const { execute, getHotkeyDisplay } = useActionRegistry()
@@ -130,6 +140,20 @@ export function usePaletteData(): PaletteData<PaletteItem> {
       .sort((a, b) => Number(!!a.isArchived) - Number(!!b.isArchived) || (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
       .map(chatItem)
 
+    // Archived tasks and projects are left out: they are found on their pages (Archived filter).
+    const projectTitles = new Map(projects.map((project) => [project.id, project.title]))
+    const foldersById = new Map(libraryItems.filter((item) => item.type === 'folder').map((folder) => [folder.id, folder]))
+    const folderPath = (folderId: string | null) => {
+      const names: string[] = []
+      for (let id = folderId; id && names.length < MAX_FOLDER_DEPTH; ) {
+        const folder = foldersById.get(id)
+        if (!folder) break
+        names.unshift(folder.title)
+        id = folder.folderId
+      }
+      return names.join(' / ') || undefined
+    }
+
     const settings = SETTINGS_NAV_GROUPS.flatMap((group) => group.items).map((page): PaletteItem => {
       const Icon = SETTINGS_ICONS[page.id]
       return {
@@ -162,6 +186,33 @@ export function usePaletteData(): PaletteData<PaletteItem> {
       pinned: pinned.map(navItem),
       recent: recent.map(navItem),
       chats,
+      tasks: tasks
+        .filter((task) => task.status !== 'archived')
+        .map((task): PaletteItem => ({
+          key: itemKey({ type: 'task', id: task.id }),
+          title: task.title,
+          icon: <TaskStatusIcon status={task.status} />,
+          meta: projectTitles.get(task.projectId),
+          run: go(routes.view.tasks({ taskId: task.id })),
+        })),
+      projects: projects
+        .filter((project) => project.status === 'active')
+        .map((project): PaletteItem => ({
+          key: itemKey({ type: 'project', id: project.id }),
+          title: project.title,
+          icon: <Folder />,
+          run: go(routes.view.projects({ projectId: project.id })),
+        })),
+      library: libraryItems.map((item): PaletteItem => {
+        const Icon = libraryItemIcon(item.type)
+        return {
+          key: itemKey({ type: 'library', id: item.id }),
+          title: getDisplayTitle(item),
+          icon: <Icon />,
+          meta: folderPath(item.folderId),
+          run: go(item.type === 'folder' ? routes.view.library({ folder: item.id }) : routes.view.library({ itemId: item.id })),
+        }
+      }),
       pages: PAGES.map(({ id, icon: Icon, labelKey, route }) => ({
         key: `page:${id}`,
         title: t(labelKey),
@@ -183,5 +234,5 @@ export function usePaletteData(): PaletteData<PaletteItem> {
       })),
       actions,
     }
-  }, [t, sessions, activeWorkspaceId, remoteWorkspaceId, sessionStatuses, pinned, recent, skills, sources, execute, getHotkeyDisplay, mode, setMode, canGoBack, canGoForward])
+  }, [t, sessions, activeWorkspaceId, remoteWorkspaceId, sessionStatuses, tasks, projects, libraryItems, pinned, recent, skills, sources, execute, getHotkeyDisplay, mode, setMode, canGoBack, canGoForward])
 }

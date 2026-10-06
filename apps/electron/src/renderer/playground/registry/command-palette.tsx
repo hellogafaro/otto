@@ -7,6 +7,8 @@ import {
   CircleDot,
   Clock,
   Folder,
+  File,
+  FileText,
   Library,
   LogOut,
   MessagesSquare,
@@ -14,13 +16,14 @@ import {
   Moon,
   Settings,
   SquarePen,
+  Shapes,
   Sun,
-  Zap,
   DatabaseZap,
 } from 'lucide-react'
 import type { ComponentEntry } from './types'
 import { CommandPalette, type PaletteItem } from '@/components/command-palette/command-palette'
 import { PALETTE_CATEGORIES, type PaletteCategory, type PaletteData } from '@/components/command-palette/palette-model'
+import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import { SETTINGS_ICONS } from '@/components/icons/settings-icons'
 import { cn } from '@/lib/utils'
 
@@ -78,6 +81,17 @@ const DATA: PaletteData<PaletteItem> = {
   pinned: [CHATS[0]!],
   recent: [CHATS[1]!, CHATS[3]!, CHATS[4]!],
   chats: CHATS,
+  tasks: [
+    { key: 'task:t1', title: 'Fix the sidebar width', icon: <TaskStatusIcon status="doing" />, meta: 'Website', run: noop },
+    { key: 'task:t2', title: 'Plan the release', icon: <TaskStatusIcon status="todo" />, meta: 'Mobile app', run: noop },
+    { key: 'task:t3', title: 'Write the migration notes', icon: <TaskStatusIcon status="done" />, meta: 'Website', run: noop },
+  ],
+  projects: [row('project:p1', 'Website', Folder), row('project:p2', 'Mobile app', Folder)],
+  library: [
+    row('library:l1', 'Brand', Folder),
+    row('library:l2', 'Release notes', FileText, { meta: 'Brand' }),
+    row('library:l3', 'logo.svg', File, { meta: 'Brand / Assets' }),
+  ],
   pages: [
     row('page:tasks', 'Tasks', CircleCheck),
     row('page:projects', 'Projects', Folder),
@@ -88,7 +102,7 @@ const DATA: PaletteData<PaletteItem> = {
   settings: SETTINGS.map(([id, title]) =>
     row(`settings:${id}`, title, SETTINGS_ICONS[id as keyof typeof SETTINGS_ICONS], id === 'shortcuts' ? { hotkey: '⌘/' } : {}),
   ),
-  skills: [row('skill:release-notes', 'Release notes', Zap), row('skill:code-review', 'Code review', Zap)],
+  skills: [row('skill:release-notes', 'Release notes', Shapes), row('skill:code-review', 'Code review', Shapes)],
   sources: [row('source:linear', 'Linear', DatabaseZap), row('source:github', 'GitHub', DatabaseZap)],
   actions: [
     row('action:newChat', 'New chat', SquarePen, { hotkey: '⌘N' }),

@@ -1,25 +1,30 @@
 /**
  * SourceInfoPage
  *
- * Displays source details including connection info, authentication status,
- * documentation (guide.md), and metadata. View-only.
+ * A source's page: its name once in the title row, its tagline once as the lead line under it, then its
+ * connection, tools, permissions and documentation (guide.md) as sections of Settings' roomy column. View-only:
+ * editing asks an agent through each section's Edit popover. Its actions are the title row's More actions (Copy
+ * link, Show in the file manager, Delete).
  */
 
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { AlertCircle } from 'lucide-react'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
+import { toast } from '@workspace/ui/components/sonner'
 import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
-import { SourceAvatar } from '@/components/ui/source-avatar'
-import { SourceMenu } from '@/components/app-shell/source-menu'
+import { Markdown } from '@/components/markdown'
 import { useNavigation } from '@/contexts/navigation-context'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useParentView } from '@/hooks/use-parent-view'
-import { useDeleteSource } from './sources-page'
+import { routes, routeUrl } from '@/lib/navigate'
+import { getFileManagerName } from '@/lib/platform'
+import { SOURCE_TYPE_LABELS } from './sources-page'
 import {
   Info_Page,
   Info_Section,
   Info_Table,
   Info_Alert,
-  Info_Markdown,
   PermissionsDataTable,
   ToolsDataTable,
   type PermissionRow,
@@ -167,9 +172,8 @@ function getPermissionsDescription(source: LoadedSource, t: (key: string) => str
 export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPageProps) {
   const { t } = useTranslation()
   const { showNotFound } = useNavigation()
-  // Deleted: back to the grid it was opened from, under the same filter
   const parent = useParentView()
-  const { dialog: deleteDialog, deleteSource } = useDeleteSource(parent?.onBack)
+  const { dialog: deleteDialog, confirmDelete } = useConfirmDelete()
   const [source, setSource] = useState<LoadedSource | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -334,8 +338,29 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
     }
   }, [source])
 
-  // Get source name for header
-  const sourceName = source?.config.name || sourceSlug
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(routeUrl(routes.view.sources({ sourceSlug })))
+    toast.success(t('toast.linkCopied'))
+  }
+
+  // Deleted: back to the grid it was opened from, under the same filter
+  const deleteSource = (target: LoadedSource) =>
+    confirmDelete(t('sourcesList.deleteSource'), async () => {
+      await window.electronAPI.deleteSource(workspaceId, target.config.slug)
+      toast.success(t('sourceInfo.deletedSource', { name: target.config.name }))
+      parent?.onBack()
+    })
+
+  const menu = source && (
+    <>
+      <DropdownMenuItem shortcut="C" onClick={copyLink}>{t('library.copyLink')}</DropdownMenuItem>
+      <DropdownMenuItem onClick={handleOpenSourceFolder}>
+        {t('sessionMenu.showInFileManager', { fileManager: getFileManagerName() })}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem variant="destructive" shortcut="⌫" onClick={() => deleteSource(source)}>{t('common.delete')}</DropdownMenuItem>
+    </>
+  )
 
   return (
     <Info_Page
@@ -343,27 +368,10 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
       error={error ?? undefined}
       empty={!source && !loading && !error ? t('sourceInfo.notFound') : undefined}
     >
-      <Info_Page.Header
-        title={sourceName}
-        menu={
-          <SourceMenu
-            sourceSlug={sourceSlug}
-            sourceName={sourceName}
-            onShowInFinder={handleOpenSourceFolder}
-            onDelete={() => { if (source) deleteSource(source) }}
-          />
-        }
-      />
+      <Info_Page.Header title={source?.config.name || sourceSlug} description={source?.config.tagline} menu={menu} />
 
       {source && (
         <Info_Page.Content>
-          {/* Hero: Avatar, title, and tagline */}
-          <Info_Page.Hero
-            avatar={<SourceAvatar source={source} fluid />}
-            title={source.config.name}
-            tagline={source.config.tagline}
-          />
-
           {/* Disabled Warning */}
           {source.config.mcp?.transport === 'stdio' && !localMcpEnabled && (
             <Info_Alert variant="warning" icon={<AlertCircle className="size-3.5" />}>
@@ -400,7 +408,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
                 </div>
               )}
             >
-              <Info_Table.Row label={t('common.type')} value={source.config.type.toUpperCase()} />
+              <Info_Table.Row label={t('common.type')} value={t(SOURCE_TYPE_LABELS[source.config.type as keyof typeof SOURCE_TYPE_LABELS] ?? 'common.source')} />
               {sourceUrl && (
                 <Info_Table.Row label={t('common.url')}>
                   <button
@@ -499,9 +507,9 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
                 />
               }
             >
-              <Info_Markdown maxHeight={540} fullscreen>
-                {source.guide.raw}
-              </Info_Markdown>
+              <div className="p-4">
+                <Markdown mode="full" className="[&>:first-child]:mt-0 [&>:last-child]:mb-0" onUrlClick={(url) => window.electronAPI.openUrl(url)}>{source.guide.raw}</Markdown>
+              </div>
             </Info_Section>
           )}
         </Info_Page.Content>

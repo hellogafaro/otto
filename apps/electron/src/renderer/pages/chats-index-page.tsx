@@ -342,7 +342,7 @@ export default function ChatsIndexPage() {
   if (metas.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        <PageHeader title={t('sidebar.chats')} />
+        <PageHeader />
         <EntityListEmptyScreen icon={<MessageSquare />} title={t('chatsIndex.emptyTitle')} description={t('chatsIndex.emptyDescription')}>
           <Button onClick={onNewChat}>{t('menu.newChat')}</Button>
         </EntityListEmptyScreen>

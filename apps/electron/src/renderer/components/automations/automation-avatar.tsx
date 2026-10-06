@@ -58,12 +58,10 @@ const categoryConfig: Record<EventCategory, { icon: React.ElementType; bg: strin
 export interface AutomationAvatarProps {
   event: AutomationTrigger
   size?: AvatarSize
-  /** Fill parent container (h-full w-full). Overrides size. */
-  fluid?: boolean
   className?: string
 }
 
-export function AutomationAvatar({ event, size = 'md', fluid, className }: AutomationAvatarProps) {
+export function AutomationAvatar({ event, size = 'md', className }: AutomationAvatarProps) {
   const category = getEventCategory(event)
   const config = categoryConfig[category]
   const sizes = sizeConfig[size]
@@ -73,12 +71,12 @@ export function AutomationAvatar({ event, size = 'md', fluid, className }: Autom
     <span
       className={cn(
         'inline-flex items-center justify-center rounded-xs ring-1 ring-border/30 shrink-0',
-        fluid ? 'h-full w-full' : sizes.container,
+        sizes.container,
         config.bg,
         className
       )}
     >
-      <Icon className={cn(fluid ? 'h-[60%] w-[60%]' : sizes.icon, config.text)} />
+      <Icon className={cn(sizes.icon, config.text)} />
     </span>
   )
 }

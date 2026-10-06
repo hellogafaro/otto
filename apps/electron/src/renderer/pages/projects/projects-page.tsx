@@ -3,7 +3,7 @@
  * the tile) straight on the frame, no card, no toolbar.
  *
  * The header carries Filter (one on/off field, Archived: `?status=archived` lists the archived
- * projects instead of the active ones, their titles muted) and "+" (New project, a dialog). A tile
+ * projects instead of the active ones, their titles muted), Search (the palette on Projects) and "+" (New project, a dialog). A tile
  * opens its project; its right-click menu and hover ⋯ share one list: Open, Copy link, then
  * Archive or Restore (applies at once, one "Saved" toast). States: loading (skeleton tiles), no
  * projects at all (the section's empty state, whose button opens the same dialog), filtered with
@@ -29,6 +29,7 @@ import { PageColumn } from '@workspace/ui/components/page'
 import { toast } from '@workspace/ui/components/sonner'
 import { routes } from '@/lib/navigate'
 import { PageHeader } from '@/components/app-shell/page-header'
+import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
 import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import { isProjectsNavigation, useNavigation } from '@/contexts/navigation-context'
@@ -144,10 +145,10 @@ export function ProjectsPage() {
   )
 
   // No projects at all: only the empty state; its button opens the New project dialog.
-  if (loaded && projects.length === 0 && !archivedOnly) {
+  if (loaded && projects.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        <PageHeader title={t('sidebar.projects')} />
+        <PageHeader />
         {emptyState}
         {dialog}
       </div>
@@ -158,7 +159,7 @@ export function ProjectsPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title={t('sidebar.projects')}
-        actions={<><FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('projects.filterLabel')} />{newProject}</>}
+        actions={<><FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('projects.filterLabel')} /><CommandPaletteButton category="projects" />{newProject}</>}
       />
       <PageColumn className="min-h-full">
         <div data-content-start="" className="flex flex-1 flex-col gap-3">

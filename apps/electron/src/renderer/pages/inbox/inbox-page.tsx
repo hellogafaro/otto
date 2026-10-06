@@ -76,7 +76,7 @@ export function InboxPage() {
   if (loaded && notifications.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        <PageHeader title={t('inbox.title')} />
+        <PageHeader />
         <EntityListEmptyScreen icon={<Inbox />} title={t('inbox.emptyTitle')} description={t('inbox.emptyDescription')} />
       </div>
     )

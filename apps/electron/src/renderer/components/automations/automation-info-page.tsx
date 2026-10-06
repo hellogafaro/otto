@@ -2,7 +2,8 @@
  * AutomationInfoPage
  *
  * Detail view for a selected automation, using the Info_Page compound component system.
- * Follows SourceInfoPage pattern: Hero → Sections (When, Then, Settings, History, JSON).
+ * Follows SourceInfoPage's anatomy: the name in the title row and its summary once under it, then the sections
+ * (When, If, Then, Settings, Recent activity, Raw config).
  */
 
 import * as React from 'react'
@@ -18,7 +19,6 @@ import {
 } from '@/components/info'
 import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
 import { useActiveWorkspace } from '@/context/app-shell-context'
-import { AutomationAvatar } from './automation-avatar'
 import { AutomationMenu } from './automation-menu'
 import { AutomationActionRow } from './automation-action-row'
 import { AutomationTestPanel } from './automation-test-panel'
@@ -89,6 +89,7 @@ export function AutomationInfoPage({
     <Info_Page className={className}>
       <Info_Page.Header
         title={automation.name}
+        description={automation.summary}
         menu={
           <AutomationMenu
             automationId={automation.id}
@@ -103,16 +104,6 @@ export function AutomationInfoPage({
       />
 
       <Info_Page.Content>
-        {/* Hero */}
-        <div className="flex items-start justify-between">
-          <Info_Page.Hero
-            avatar={<AutomationAvatar event={automation.event} fluid />}
-            title={automation.name}
-            tagline={automation.summary}
-          />
-          {editActions}
-        </div>
-
         {/* Disabled warning */}
         {!automation.enabled && (
           <Info_Alert variant="warning" icon={<PauseCircle className="size-3.5" />}>

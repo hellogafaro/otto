@@ -2,8 +2,9 @@
  * Sources (`/{ws}/settings/sources`): the workspace's sources as a gallery, like the Library without tabs. The
  * title row: Filter (Type: MCP, API, Local; `?type=`), Search (the palette on Sources) and "+" (Add source: the
  * add-source popover, which asks an agent to set it up, for the filtered type when one is set). A tile is the
- * source's own icon, its name and its type; it opens the source, whose Back returns here and whose Previous / Next
- * step through this grid. No sources at all: the stock empty page with the same Add source.
+ * source's own icon, its name and its type; it opens the source (no menu: the source's page has its More actions),
+ * whose Back returns here and whose Previous / Next step through this grid. Settings' roomy column (`padded`). No
+ * sources at all: the stock empty page alone (no title row), with the same Add source.
  */
 
 import { DatabaseZap, Plus, Shapes } from 'lucide-react'
@@ -11,9 +12,8 @@ import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField } from '@workspace/ui/components/filters'
-import { Gallery, GalleryItemSkeleton } from '@workspace/ui/components/gallery'
+import { Gallery, GalleryItem, GalleryItemSkeleton } from '@workspace/ui/components/gallery'
 import { PageColumn } from '@workspace/ui/components/page'
-import { toast } from '@workspace/ui/components/sonner'
 import { sourcesAtom } from '@/atoms/sources'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
@@ -23,10 +23,9 @@ import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { SourceAvatar } from '@/components/ui/source-avatar'
 import { useActiveWorkspace } from '@/context/app-shell-context'
 import { isSourcesNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
-import { routes, routeUrl } from '@/lib/navigate'
+import { routes } from '@/lib/navigate'
 import { getVisibleSources } from '@/lib/skill-source-lists'
-import type { LoadedSource, SourceFilter } from '../../shared/types'
-import { SettingsGalleryTile, useConfirmDelete } from './settings-gallery'
+import type { SourceFilter } from '../../shared/types'
 
 type SourceType = SourceFilter['sourceType']
 
@@ -38,28 +37,12 @@ export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   local: 'sourcesList.typeLocal',
 }
 
-/** Delete a source, after asking. */
-export function useDeleteSource(onDeleted?: () => void) {
-  const { t } = useTranslation()
-  const workspace = useActiveWorkspace()
-  const { dialog, confirmDelete } = useConfirmDelete()
-  const deleteSource = (source: LoadedSource) =>
-    confirmDelete(t('sourcesList.deleteSource'), async () => {
-      if (!workspace) throw new Error('no workspace')
-      await window.electronAPI.deleteSource(workspace.id, source.config.slug)
-      toast.success(t('sourceInfo.deletedSource', { name: source.config.name }))
-      onDeleted?.()
-    })
-  return { dialog, deleteSource }
-}
-
 export function SourcesPage() {
   const { t } = useTranslation()
   const sources = useAtomValue(sourcesAtom)
   const navState = useNavigationState()
   const { navigate } = useNavigation()
   const workspace = useActiveWorkspace()
-  const { dialog, deleteSource } = useDeleteSource()
   const filter = isSourcesNavigation(navState) ? navState.filter : undefined
   const type = filter?.sourceType
   const setType = (next: SourceType | undefined) => navigate(routes.view.sources({ type: next }))
@@ -103,7 +86,7 @@ export function SourcesPage() {
           </>
         )}
       />
-      <PageColumn className="min-h-full">
+      <PageColumn padded className="min-h-full">
         <div data-content-start="" className="flex flex-1 flex-col gap-3">
           <FilterBar
             fields={fields}
@@ -124,27 +107,19 @@ export function SourcesPage() {
           ) : (
             <Gallery columns={4}>
               {visible.map((source) => (
-                <SettingsGalleryTile
+                <GalleryItem
                   key={source.config.slug}
                   title={source.config.name || source.config.slug}
                   icon={<SourceAvatar source={source} size="xs" chromeless />}
                   media={<SourceAvatar source={source} size="sm" chromeless />}
                   label={t(SOURCE_TYPE_LABELS[source.config.type as SourceType] ?? 'common.source')}
-                  actions={{
-                    onOpen: () => navigate(routes.view.sources({ sourceSlug: source.config.slug, type })),
-                    onCopyLink: async () => {
-                      await navigator.clipboard.writeText(routeUrl(routes.view.sources({ sourceSlug: source.config.slug })))
-                      toast.success(t('toast.linkCopied'))
-                    },
-                    onDelete: () => deleteSource(source),
-                  }}
+                  onClick={() => navigate(routes.view.sources({ sourceSlug: source.config.slug, type }))}
                 />
               ))}
             </Gallery>
           )}
         </div>
       </PageColumn>
-      {dialog}
     </div>
   )
 }

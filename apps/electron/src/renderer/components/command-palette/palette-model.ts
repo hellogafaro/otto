@@ -8,7 +8,7 @@
  * Accents and case never matter.
  */
 
-export const PALETTE_CATEGORIES = ['all', 'chats', 'pages', 'settings', 'skills', 'sources', 'actions'] as const
+export const PALETTE_CATEGORIES = ['all', 'chats', 'tasks', 'projects', 'library', 'pages', 'settings', 'skills', 'sources', 'actions'] as const
 export type PaletteCategory = (typeof PALETTE_CATEGORIES)[number]
 /** A category with entries of its own (every one but All). */
 export type PaletteSection = Exclude<PaletteCategory, 'all'>

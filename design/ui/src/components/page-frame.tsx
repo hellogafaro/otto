@@ -181,7 +181,7 @@ function PageFrame({
         />
         <div
           className={cn(
-            "relative grid h-full grid-cols-[minmax(1.25rem,1fr)_minmax(0,48rem)_minmax(var(--aside,1.25rem),1fr)] grid-rows-[auto_minmax(0,1fr)] pb-2",
+            "group/page relative grid h-full grid-cols-[minmax(1.25rem,1fr)_minmax(0,48rem)_minmax(var(--aside,1.25rem),1fr)] grid-rows-[auto_minmax(0,1fr)] pb-2",
             "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
             "@[1280px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:20.25rem]"
           )}
@@ -198,8 +198,10 @@ function PageFrame({
             data-slot="floating-nav-slot"
             ref={setNav}
             // Spans the whole height: Back (32px) is centered on the axis, 20px
-            // from the column, and stays put while the column scrolls.
-            className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-[calc(var(--axis-y)-1rem)] pr-5"
+            // from the column, and stays put while the column scrolls. On a
+            // padded page (a skill, a source) the title is 64px down, not on the
+            // axis, and Back follows it there.
+            className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-[calc(var(--axis-y)-1rem)] pr-5 group-has-[[data-slot=page-column][data-padded]]/page:pt-16"
           />
           <div
             data-slot="page-body"

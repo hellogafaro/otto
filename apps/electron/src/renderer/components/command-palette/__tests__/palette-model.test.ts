@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  PALETTE_CATEGORIES,
   availableCategories,
   buildGroups,
   cleanQuery,
@@ -23,6 +24,9 @@ function data(over: Partial<PaletteData<PaletteEntry>> = {}): PaletteData<Palett
     pinned: [],
     recent: [],
     chats: [],
+    tasks: [],
+    projects: [],
+    library: [],
     pages: [],
     settings: [],
     skills: [],
@@ -87,6 +91,15 @@ describe('filterEntries', () => {
 })
 
 describe('categories', () => {
+  it('keeps the tab order: Chats, Tasks, Projects, Library, Pages, Settings, Skills, Sources, Actions', () => {
+    expect(PALETTE_CATEGORIES).toEqual(['all', 'chats', 'tasks', 'projects', 'library', 'pages', 'settings', 'skills', 'sources', 'actions'])
+    const all = data({
+      chats: chats(1), tasks: [entry('task:t1', 'Task')], projects: [entry('project:p1', 'Project')], library: [entry('library:l1', 'File')],
+      pages: [entry('page:a', 'Page')], settings: [entry('settings:s', 'App')], skills: [entry('skill:k', 'Skill')], sources: [entry('source:s', 'Source')], actions: [entry('action:a', 'Act')],
+    })
+    expect(availableCategories(all)).toEqual([...PALETTE_CATEGORIES])
+  })
+
   it('has All and only the sections with entries', () => {
     expect(availableCategories(data())).toEqual(['all'])
     expect(availableCategories(data({ chats: chats(1), actions: [entry('x', 'New chat')] }))).toEqual(['all', 'chats', 'actions'])
@@ -146,6 +159,44 @@ describe('buildGroups', () => {
   it('is empty when nothing matches', () => {
     expect(buildGroups(full, 'all', 'zzz')).toEqual([])
     expect(buildGroups(full, 'settings', 'chat')).toEqual([])
+  })
+})
+
+describe('tasks, projects and the library', () => {
+  const content = data({
+    tasks: [
+      entry('task:t1', 'Home page copy'),
+      entry('task:t2', 'Fix the login flow'),
+      entry('task:t3', 'Update the homepage hero'),
+      ...Array.from({ length: 7 }, (_, i) => entry(`task:x${i}`, `Ship home screen ${i}`)),
+    ],
+    projects: [entry('project:p1', 'Website'), entry('project:p2', 'Home automation')],
+    library: [entry('library:f1', 'Photos'), entry('library:d1', 'Home budget'), entry('library:a1', 'archive.zip')],
+  })
+
+  it('ranks each category by the shared scorer: a start first, then a word start, then anywhere', () => {
+    expect(filterEntries(content.tasks, 'home').map((e) => e.key).slice(0, 3)).toEqual(['task:t1', 'task:t3', 'task:x0'])
+  })
+
+  it('shows at most GROUP_LIMIT of each in All, in tab order, and lists a tab in full', () => {
+    const groups = buildGroups(content, 'all', 'home')
+    expect(groups.map((g) => g.key)).toEqual(['tasks', 'projects', 'library'])
+    expect(groups[0]!.items).toHaveLength(GROUP_LIMIT)
+    expect(groups[1]!.items.map((i) => i.key)).toEqual(['project:p2'])
+    expect(groups[2]!.items.map((i) => i.key)).toEqual(['library:d1'])
+    expect(buildGroups(content, 'tasks', 'home')[0]!.items).toHaveLength(9)
+  })
+
+  it('has no tab for a category with nothing, and finds nothing for a stranger query', () => {
+    expect(availableCategories(data({ tasks: content.tasks }))).toEqual(['all', 'tasks'])
+    expect(buildGroups(content, 'projects', 'zzz')).toEqual([])
+    expect(hasAnyMatch(content, 'budget')).toBe(true)
+    expect(hasAnyMatch(content, 'zzz')).toBe(false)
+  })
+
+  it('keeps an entry that Pinned or Recent show out of All, by its key', () => {
+    const shown = data({ ...content, pinned: [content.projects[0]!] })
+    expect(buildGroups(shown, 'all', '').find((g) => g.key === 'projects')!.items.map((i) => i.key)).toEqual(['project:p2'])
   })
 })
 

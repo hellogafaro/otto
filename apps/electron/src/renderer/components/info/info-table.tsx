@@ -3,7 +3,7 @@
  *
  * Clean definition list style key-value display.
  * Use for Connection info, metadata display, etc.
- * No card wrapper - integrates cleanly with page.
+ * No card wrapper: it goes in a section's card, its rows spaced and split as settings rows.
  */
 
 import * as React from 'react'
@@ -35,9 +35,9 @@ function Info_TableRoot({
   className,
 }: Info_TableProps) {
   return (
-    <div className={cn('py-2', className)}>
+    <div className={className}>
       <dl
-        className="divide-y divide-border/30"
+        className="divide-y divide-(--card-divider)"
         style={{ '--label-width': `${labelWidth}px` } as React.CSSProperties}
       >
         {children}
@@ -51,7 +51,7 @@ function Info_TableRow({ label, value, children, className }: Info_TableRowProps
   const content = children ?? value
 
   return (
-    <div className={cn('flex py-2.5 px-4 text-sm', className)}>
+    <div className={cn('flex px-4 py-3 text-sm', className)}>
       <dt
         className="text-muted-foreground shrink-0"
         style={{ width: 'var(--label-width)' }}

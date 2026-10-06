@@ -9,7 +9,7 @@
  * - {source:Gmail} → Globe icon + "Gmail" label
  * - {file:screenshot} → Paperclip icon + "screenshot" label
  * - {folder} → Folder icon + "folder" label
- * - {skill} → Zap icon + "skill" label
+ * - {skill} → Shapes icon + "skill" label
  */
 
 import * as React from 'react'

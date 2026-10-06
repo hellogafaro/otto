@@ -28,16 +28,6 @@ export interface Info_PageHeaderProps extends Omit<PageHeaderProps, 'className'>
   className?: string
 }
 
-export interface Info_PageHeroProps {
-  /** Avatar element */
-  avatar: React.ReactNode
-  /** Title displayed next to avatar */
-  title?: string
-  /** Tagline/description text below title */
-  tagline?: string | null
-  className?: string
-}
-
 export interface Info_PageContentProps {
   children: React.ReactNode
   className?: string
@@ -114,42 +104,15 @@ function Info_PageHeader({ className, ...props }: Info_PageHeaderProps) {
   return <PageHeader className={className} {...props} />
 }
 
-function Info_PageHero({ avatar, title, tagline, className }: Info_PageHeroProps) {
-  return (
-    <div className={cn('flex items-start gap-3', className)}>
-      <div className="h-[32px] w-[32px] shrink-0 mt-[2px] rounded-md ring-1 ring-border/30 overflow-hidden">
-        {avatar}
-      </div>
-      <div className="flex-1 min-w-0">
-        {title && (
-          <h2 className="text-base font-semibold text-foreground leading-tight">
-            {title}
-          </h2>
-        )}
-        {tagline && (
-          <p className={cn('text-sm text-foreground/60 leading-snug line-clamp-1', title ? 'mt-0.5' : 'mt-0')}>
-            {tagline}
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// The page's column: the header's title row first, then the content, scrolling
-// as a whole (the title scrolls away with it). The standard blocks column, not
-// Settings' roomy one, even for a skill or a source: they have the floating
-// navigation, whose Back is on the axis with the title.
+// The page's column: the header's title row (and the item's description) first,
+// then the sections, scrolling as a whole (the title scrolls away with it).
+// Settings' roomy column (`padded`), as on every settings page: a skill and a
+// source live in Settings, and the floating navigation follows the title down.
 function Info_PageContent({ children, className }: Info_PageContentProps) {
-  return (
-    <PageColumn>
-      <div data-content-start="" className={cn('space-y-8', className)}>{children}</div>
-    </PageColumn>
-  )
+  return <PageColumn padded className={className}>{children}</PageColumn>
 }
 
 export const Info_Page = Object.assign(Info_PageRoot, {
   Header: Info_PageHeader,
-  Hero: Info_PageHero,
   Content: Info_PageContent,
 })

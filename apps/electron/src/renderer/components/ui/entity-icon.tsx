@@ -43,12 +43,6 @@ export interface EntityIconProps {
   /** Additional className on the outer container */
   className?: string
   /**
-   * Override container size class.
-   * Use 'h-full w-full' for fluid sizing within a parent container.
-   * If provided, replaces the default ICON_SIZE_CLASSES for the given size.
-   */
-  containerClassName?: string
-  /**
    * When true, renders emoji without container chrome (no bg, ring, or rounded).
    * Used for inline emoji icons in the sidebar where the container is unnecessary.
    */
@@ -72,12 +66,10 @@ function EntityIconComponent({
   fallback,
   alt,
   className,
-  containerClassName,
   chromeless,
   bare,
 }: EntityIconProps) {
-  // Container size: use override if provided, otherwise standard size classes
-  const sizeClass = containerClassName ?? ICON_SIZE_CLASSES[size]
+  const sizeClass = ICON_SIZE_CLASSES[size]
 
   // Standard container styling (ring + rounded + shrink-0)
   const containerBase = 'rounded-xs ring-1 ring-border/30 shrink-0'

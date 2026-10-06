@@ -1,11 +1,10 @@
 /**
  * SkillAvatar - Thin wrapper around EntityIcon for skills.
  *
- * Sets fallbackIcon={Zap} and delegates all rendering to EntityIcon.
- * Use `fluid` prop for fill-parent sizing (e.g., Info_Page.Hero).
+ * Sets fallbackIcon={Shapes} and delegates all rendering to EntityIcon.
  */
 
-import { Zap } from 'lucide-react'
+import { Shapes } from 'lucide-react'
 import { EntityIcon } from '@/components/ui/entity-icon'
 import { useEntityIcon } from '@/lib/icon-cache'
 import type { IconSize } from '@otto/shared/icons'
@@ -16,8 +15,6 @@ interface SkillAvatarProps {
   skill: LoadedSkill
   /** Size variant */
   size?: IconSize
-  /** Fill parent container (h-full w-full). Overrides size. */
-  fluid?: boolean
   /** Additional className overrides */
   className?: string
   /** Workspace ID for loading local icons */
@@ -26,7 +23,7 @@ interface SkillAvatarProps {
   chromeless?: boolean
 }
 
-export function SkillAvatar({ skill, size = 'md', fluid, className, workspaceId, chromeless }: SkillAvatarProps) {
+export function SkillAvatar({ skill, size = 'md', className, workspaceId, chromeless }: SkillAvatarProps) {
   const icon = useEntityIcon({
     workspaceId: workspaceId ?? '',
     entityType: 'skill',
@@ -39,10 +36,9 @@ export function SkillAvatar({ skill, size = 'md', fluid, className, workspaceId,
     <EntityIcon
       icon={icon}
       size={size}
-      fallbackIcon={Zap}
+      fallbackIcon={Shapes}
       alt={skill.metadata.name}
       className={className}
-      containerClassName={fluid ? 'h-full w-full' : undefined}
       chromeless={chromeless}
     />
   )

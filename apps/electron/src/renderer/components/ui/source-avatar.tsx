@@ -5,8 +5,6 @@
  * and adds source-specific extras:
  * - Favicon resolution as secondary fallback when no local icon found
  * - Connection status indicator dot (only when showStatus=true)
- *
- * Use `fluid` prop for fill-parent sizing (e.g., hero panels).
  */
 
 import * as React from 'react'
@@ -29,8 +27,6 @@ interface SourceAvatarProps {
   source: LoadedSource
   /** Size variant (default: 'md') */
   size?: IconSize
-  /** Fill parent container (h-full w-full). Overrides size. */
-  fluid?: boolean
   /** Show connection status indicator (auto-derived from source) */
   showStatus?: boolean
   /** Additional className overrides */
@@ -144,7 +140,7 @@ function useFaviconFallback(
 // Component
 // ============================================================================
 
-export function SourceAvatar({ source, size = 'md', fluid, showStatus, className, chromeless }: SourceAvatarProps) {
+export function SourceAvatar({ source, size = 'md', showStatus, className, chromeless }: SourceAvatarProps) {
   const icon = useEntityIcon({
     workspaceId: source.workspaceId,
     entityType: 'source',
@@ -170,7 +166,6 @@ export function SourceAvatar({ source, size = 'md', fluid, showStatus, className
       fallbackIcon={FallbackIcon}
       alt={source.config.name}
       className={className}
-      containerClassName={fluid ? 'h-full w-full' : undefined}
       chromeless={chromeless}
     />
   )

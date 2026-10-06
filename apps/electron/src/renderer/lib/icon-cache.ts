@@ -525,7 +525,7 @@ export interface UseEntityIconOptions {
  *
  * Usage:
  *   const icon = useEntityIcon({ workspaceId, entityType: 'skill', identifier: slug, iconPath })
- *   return <EntityIcon icon={icon} fallbackIcon={Zap} />
+ *   return <EntityIcon icon={icon} fallbackIcon={Shapes} />
  */
 export function useEntityIcon(opts: UseEntityIconOptions): ResolvedEntityIcon {
   const { workspaceId, entityType, identifier, iconPath, iconDir, iconValue, iconFileName } = opts
