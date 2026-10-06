@@ -1,7 +1,7 @@
 /**
  * `TaskGroups`: tasks grouped by status in the line-only `PageWrap` (DESIGN Data patterns 1, the Chats index's pattern):
- * Todo, In progress, Done (folded unless asked), then Archived (folded last unless asked), each a 36px
- * `ListGroup` over 44px `TaskRow`s; empty groups are not drawn. A group's "+" starts a new task in that status.
+ * Todo, In progress, Done (folded unless asked), then Archived (folded last unless asked), each a 36px rounded
+ * `ListGroup` band over 44px `TaskRow`s; empty groups are not drawn. A group's "+" starts a new task in that status.
  * Reused by a project's Tasks tab (`projectTitles` left out hides the project badge).
  */
 
@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { ListGroup } from '@workspace/ui/components/list-group'
 import { PageWrap } from '@workspace/ui/components/page'
 import { CreateButton } from '@/components/ui/create-button'
-import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
+import { TaskStatusIcon, taskStatusTint } from '@/components/tasks/task-status-icon'
 import type { Task, TaskStatus } from '../../../shared/types'
 import { TaskRow, statusLabelKey, type TaskAction } from './task-row'
 import { groupTasks, TASK_GROUPS } from './use-task-filters'
@@ -39,7 +39,8 @@ export function TaskGroups({
   const { t } = useTranslation()
   const groups = groupTasks(tasks)
   return (
-    <PageWrap>
+    // Otto: TEST (DESIGN.md, PageWrap): the Chats index's padded wrapper, 9px out of the column from 768px. Revert: drop `className`.
+    <PageWrap className="p-3 md:-mx-[9px]">
       {TASK_GROUPS.map((status) => {
         const open = status === 'done' ? doneOpen : status === 'archived' ? archivedOpen : true
         return (
@@ -47,6 +48,7 @@ export function TaskGroups({
             // A new key when the default changes, so a filter that asks for the group opens it.
             key={`${status}:${open}`}
             icon={<TaskStatusIcon status={status} />}
+            tint={taskStatusTint(status)}
             label={t(statusLabelKey(status))}
             count={groups[status].length}
             defaultOpen={open}

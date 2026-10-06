@@ -878,13 +878,12 @@ no shadow.
   with small details (a list or table: Chats, Tasks and a project's Tasks tab,
   Inbox) puts its list in ONE line-only wrapper, as Threads wraps its feed: a
   1px `--card-ring` border (the card edge's color), `2xl` 20 corners, NO fill
-  (the frame shows through), no shadow, no padding. It wraps the list block
-  only: the title row and the filter chips (`FilterBar`) stay above it, 12px
-  over its top line. Group headers and rows run to the line, split by
-  full-bleed hairlines between its children (`divide-y`, so no hairline
-  doubles its top or bottom edge), and it clips them (`overflow-hidden`), so a
-  hover, current or header fill at the first or last row follows the 20px
-  corner and never cuts the line. Pages of bigger cards and structured
+  (the frame shows through), no shadow, no hairlines inside. It wraps the list
+  block only: the title row and the filter chips (`FilterBar`) stay above it,
+  12px over its top line. Flush (no padding: Inbox's flat list) its rows run to
+  the line and it clips them (`overflow-hidden`), so a hover or current fill at
+  the first or last row follows the 20px corner and never cuts the line. A
+  grouped list (Chats, Tasks) floats in it with padding (the TEST below). Pages of bigger cards and structured
   sections never use it: settings (General, Members, Workspace, ...), the Project
   Overview tab, detail pages and galleries (Projects, Library) keep their
   cards and tiles on the frame. Below 768px it keeps its 20px corners and the
@@ -894,13 +893,19 @@ no shadow.
   three `ListRowSkeleton`s (a row's 44px and grid: a 14px dot, a title bar,
   both `foreground/10`: the stock `bg-muted` is lighter than the frame in
   light) sit in the wrapper where the list will be.
-  **TEST, not the standard:** the Chats index tries the v1 table square, inside
-  a 12px-padded line wrapper (`PageWrap className="p-3"` in
-  `chats-index-page.tsx`): its group bands, hairlines and row fills end 12px
-  short of the line on every side, with square corners and no clipping (8px
-  crowded the 20px corner, 16px cost too much width at 390). Tasks and Inbox
-  keep the flush wrapper; compare, then decide. Reverting is dropping that
-  `className` and this note.
+  **TEST, not the standard:** the Chats index, the Tasks index (list and
+  loading) and a project's Tasks tab put Otto v1's table (`ListGroup`, its
+  rounded bands and rows) in a 12px-padded line wrapper (`PageWrap
+  className="p-3 md:-mx-[9px]"` in `chats-index-page.tsx`, `task-list.tsx`,
+  `tasks-page.tsx`): the 8px bands nest in the 20px corner (20 - 12 = 8, the
+  radii rule), nothing is clipped. From 768px the wrapper sits 9px out of the
+  column (v1's `-mx-[9px]`: 9 + 1 + 12 + 12 = the band's chevron on the
+  title's 16px line); below 768px it stays in the column (the scroll area
+  clips anything wider, and the title sits beside the menu button there). 8px
+  padding would leave a 12px inner corner around an 8px band, 16px costs
+  width at 390. Inbox keeps the flush wrapper, so its box is 9px narrower each
+  side than Chats' at 768px and up. Reverting is dropping each `className`
+  (Tasks' groups would then touch the line) and this note.
 - **Index pages.** Sub-navigation is an index page before the detail, never a
   sidebar list: a data page of a grouped list or a grid of links that opens the
   detail. Chats opens on its index (`ChatsIndexPage`: the title row's ghost Filter, then
@@ -973,7 +978,8 @@ no shadow.
   Archived on/off; Project and Assignee take one value, the URL's), Search (the
   palette on Tasks) and "+" (New task). Groups Todo, In progress, Done (folded unless the Status filter asks for
   it), Archived (folded last; the whole list, open, when Archived is on); a
-  group's "+" starts a new task in that status. A row (44px): the status icon
+  group's "+" starts a new task in that status; each band is tinted by its
+status color (Archived neutral). A row (44px): the status icon
   (`TaskStatusIcon`: Circle todo grey, CircleDot doing purple, CircleCheck done
   green, Archive muted), the title (at 80% when done or archived), the
   assignees' 20px `AvatarGroup` (one tooltip names them), the project as an
@@ -1047,37 +1053,48 @@ no shadow.
        the title row's New chat). No search box, no sort or view picker.
        Active filters show as chips (`FilterBar`) on the frame under the title row,
        12px above the list, ONLY while one is set.
-     - **In the line box, no card.** The groups sit in the page's `PageWrap`
-       (see Page anatomy), as wide as the column (the page scrolls). Nothing in
-       it is a surface: headers and rows are full-bleed rows, their fills run
-       to the wrapper's line, clipped to its 20px corners. Hairlines
-       (`--card-divider`) only between a group's header and its rows and
-       between groups; none between rows.
+     - **In the line box, no card, no hairlines.** The groups sit in the
+       page's `PageWrap` (see Page anatomy), as wide as the column (the page
+       scrolls), 12px in from its line. Nothing in it is a surface and NO
+       hairline is drawn inside it: not under a band, not between rows, not
+       between groups. A group is a rounded band with its rows plain on the
+       frame, 4px under the band; a group sits 8px under the last row of the
+       one before.
      - **Proportions** (measured on Codex and Linear at 1x: rows 44, group
-       bands 36, metadata chips 24, body 13): body text 13px on its 20px line;
-       a row is 44px = 20 + 12 + 12, a group header 36px = 20 + 8 + 8, a
+       bands 36, metadata chips 24, body 13; the owner's reference table measures the
+       same, 36px bands and 44px rows): body text 13px on its 20px line;
+       a row is 44px = 20 + 12 + 12, a group band 36px = 20 + 8 + 8, a
        metadata badge 24px = 16 + 4 + 4: the padding steps down the 12 · 8 · 4 of
        the golden ladder (row ≈ 28 × φ = 45, header ≈ 28 × √φ = 36, both on the
        4px grid).
-     - **One left line, one grid.** Header and rows take `PAGE_INSET` (16px, the
-       page title's line): the 14px icon column ON that line (the group's icon,
-       the row's status icon or avatar), 8px, then the text at 38px (the group's
-       name, the row's title), so the page title, the icons and the texts line up.
-     - **Group header**: 36px, a `foreground/5` fill edge to edge, the whole row
-       toggles the group (Enter or Space): the group's icon, its name (medium),
-       its `Count`, then a muted chevron that points right when folded and down
-       when open. An optional 24px ghost action (Chats: "+", a new chat in that
-       status) sits 6px inside the row's end, shown on hover or focus (always on
-       touch). Empty groups are not drawn; a last group such as Archived starts
-       folded (open when Archived is the filter).
-     - **Row**: 44px, the whole row opens the item: icon, title (13px,
+     - **One grid.** Bands and rows share the columns, measured from the
+       band's edge: 12px in, a 14px column (the band's chevron; empty in a
+       row), 8px, a 14px icon column (the group's icon, the row's status icon or
+       avatar), 8px, then the text at 56px (the group's name, the row's title).
+       With the wrapper 9px out of the column, the chevron is on the page
+       title's 16px line, as in v1.
+     - **Group band** (v1's secondary button): 36px, the table's full width,
+       `md` 8 corners, a `foreground/5` fill (`foreground/10` on hover) with the
+       group's status color laid over at 5% (`tint`: Needs review faintly
+       amber, In progress faintly purple, Done faintly green; Archived and
+       groups without a color stay neutral). The whole band toggles the group
+       (Enter or Space, an inset focus ring for the keyboard only). Left to
+       right: a muted 14px chevron FIRST (down when open, right when folded,
+       rotating; foreground on hover), the group's icon, its name (medium) and
+       its `Count`. An optional 24px ghost action at the far right (the "+", a
+       new chat or task in that status) sits 6px inside the band's end, shown on
+       hover or focus (always on touch). Empty groups are not drawn; a last
+       group such as Archived starts folded (open when Archived is the filter).
+     - **Row**: 44px, `md` 8 corners, plain on the frame (no card, no
+       divider), the whole row opens the item: icon, title (13px,
        truncated; a read chat at `foreground/80`, an unread one at full
        foreground with its blue dot), small marks after the title (working,
        plan, flagged), then on the right the metadata badges 6px apart (outline
        `Badge`s, 24px pills: two labels then "+n", then the model; hidden in a
        column under 448px) and a 12px muted tabular relative time in a 40px
-       right-aligned column, 16px from the end. States are the ghost ones: hover
-       `foreground/5`, current and pressed `foreground/10`, an inset focus ring;
+       right-aligned column, 12px from the end. States are the ghost ones,
+       rounded and as wide as the band: hover `foreground/5`, current and
+       pressed `foreground/10`, an inset focus ring (keyboard only);
        a 28px ghost ⋯ (the item's menu) covers the time on hover, focus or while
        its menu is open (always on touch), 8px from the row's top, end and
        bottom, and keeps the row highlighted while open.
@@ -1096,7 +1113,7 @@ no shadow.
 
 | Surface | Radius | Inside it |
 | --- | --- | --- |
-| Line-only list wrapper (`PageWrap`, `2xl`) | 20 | Rows and group headers full-bleed, clipped to its corners |
+| Line-only list wrapper (`PageWrap`, `2xl`) | 20 | Flush: rows full-bleed, clipped to its corners (Inbox). Padded 12: the grouped list's `md` 8 bands and rows (20 - 12) |
 | Card, centerpiece, composer, sidecar as card (`xl`) | 12 | Rows full-bleed, no radius; 28px controls |
 | Row in a card, nested control | 28px, `sm` 6 | 24px action, `xs` 4 |
 | Button | 32px, `md` 8 | 14px icon |
@@ -1246,9 +1263,9 @@ as a card).
 | `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `pinned` | the title row: 32px, the first block of the column, 64px down from 768px (centered on the axis below); `pinned` (the open chat only) 44px in the header slot, centered on the axis; 28px controls, title is `PageTitle` (21px medium), inset 16px; no back button, no crumbs |
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
 | `PageColumn`, `PageSection`, `PageCard` | `fill`; `title`, `description`, `action`, `danger` | every page but the open chat (the column's first child is the title slot): 24px sides from 768px, 40px gaps, 40px at the end; `fill` for a centerpiece page (fills the height, no scroll of its own); see Page anatomy |
-| `PageWrap` | `className` | the line-only wrapper of a dense list page (Chats, Tasks, Inbox): hairline, `2xl` 20, no fill, no padding, clips its rows, hairlines between its children; never around cards; see Page anatomy |
+| `PageWrap` | `className` | the line-only wrapper of a dense list page (Chats, Tasks, Inbox): hairline, `2xl` 20, no fill, no hairlines inside, clips its rows; flush for a flat list, padded 12px for the grouped list (TEST); never around cards; see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
-| `ListGroup`, `ListRow`, `ListRowSkeleton` | `icon`, `label`, `count`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | the grouped list in the `PageWrap`, no card: 36px group headers, 44px rows, the loading row; see Data patterns |
+| `ListGroup`, `ListRow`, `ListRowSkeleton` | `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | Otto v1's table in the `PageWrap`, no card, no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows; a `ListRow` outside a group is full-bleed and square (Inbox); the loading row; see Data patterns |
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
 | `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
@@ -1326,9 +1343,9 @@ cards and have an 8px radius.
 - Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6, except
   where a 20px button sits 4px inside a 28px row (a sidebar row action or
   key): `xs` 4, a soft corner (6 - 4 = 2 would read sharp).
-- `2xl` 20 is the line-only list wrapper's (`PageWrap`) only: nothing sits
-  inset in it (its rows run to the line, clipped to the corner), so it has
-  no inner radius.
+- `2xl` 20 is the line-only list wrapper's (`PageWrap`) only. Flush, its rows
+  run to the line, clipped to the corner; padded 12px, the grouped list's
+  bands and rows inside are `md` 8 (20 - 12).
 - Keys are `xs` 4: a soft corner, short of a pill. Elements only a few pixels
   inside their container (attachment thumbnails and remove button) use `xs`.
 - A tooltip is `sm` because it holds a label, not nested items.
@@ -1660,8 +1677,8 @@ the box shows the raw token (the leanest that works), the sent comment the
 
 **Inbox** (`InboxPage`, `pages/inbox/`, `/{ws}/inbox`): your notifications
 in the workspace, newest first, a blocks page titled "Inbox" with one flat list
-in the `PageWrap` (the grouped list's 44px `ListRow`s, no group header, no
-hairlines): the sender's 20px `ActorAvatar` in the icon column, one line,
+in the flush `PageWrap` (the grouped list's 44px `ListRow`s outside a group:
+full-bleed and square, the icon on the 16px line; no band, no hairlines): the sender's 20px `ActorAvatar` in the icon column, one line,
 "Maria mentioned you in Fix login" / "Maria assigned you Ship v1" (the title
 looked up live, the server's while the lists load, "Unavailable" when gone),
 after a mention the comment's first line muted 8px after it (tokens as names,

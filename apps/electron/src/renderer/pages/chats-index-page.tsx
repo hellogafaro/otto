@@ -5,7 +5,7 @@
  * (`ListGroup` / `ListRow`, Otto v1's table) in the line-only `PageWrap`, no card, and NO
  * toolbar: the header carries ghost icon buttons only (Filter, then the header's New chat);
  * active filters show as chips (`FilterBar`) above the list only while one is set.
- * One group per status (Backlog, Todo, ...), each a 36px header row over 44px rows, then
+ * One group per status (Backlog, Todo, ...), each a 36px rounded band over 44px rows, then
  * Archived as a last, folded group. A row opens the chat; its ⋯ menu is the session menu.
  * Empty groups are not drawn; when the filters keep nothing, the no-results state is
  * centered in the free space instead of the list.
@@ -42,7 +42,7 @@ import { LabelIcon } from '@/components/ui/label-icon'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { DropdownMenuProvider } from '@/components/ui/menu-context'
 import { DropdownMenu, DropdownMenuTrigger, StyledDropdownMenuContent } from '@/components/ui/styled-dropdown'
-import { getStateIcon, getStateIconStyle, type SessionStatus } from '@/config/session-status-config'
+import { getStateColor, getStateIcon, getStateIconStyle, type SessionStatus } from '@/config/session-status-config'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { sendToWorkspaceAtom, sessionMetaMapAtom, type SessionMeta } from '@/atoms/sessions'
 import { sessionListOrderAtom } from '@/atoms/list-context'
@@ -365,13 +365,14 @@ export default function ChatsIndexPage() {
               )}
             </NoResults>
           ) : (
-            // Otto: TEST (DESIGN.md, PageWrap): the v1 table, square, inside the line wrapper with 12px
-            // padding instead of flush against it; Tasks and Inbox keep the flush wrapper. Revert: drop `className`.
-            <PageWrap className="p-3">
+            // Otto: TEST (DESIGN.md, PageWrap): the v1 table floats in the line wrapper, 12px in; from 768px
+            // the wrapper sits 9px out of the column so the chevrons sit on the title's line (Tasks does the same). Revert: drop `className`.
+            <PageWrap className="p-3 md:-mx-[9px]">
               {groups.map((g) => (
                 <ListGroup
                   key={g.status.id}
                   icon={<StatusGlyph id={g.status.id} statuses={sessionStatuses} />}
+                  tint={getStateColor(g.status.id, sessionStatuses)}
                   label={t(`status.${g.status.id}`, g.status.label)}
                   count={g.items.length}
                   action={<CreateButton size="icon-xs" label={t('menu.newChat')} onClick={() => navigate(routes.action.newSession({ status: g.status.id }))} />}

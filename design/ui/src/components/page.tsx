@@ -149,20 +149,21 @@ function PageCard({ className, ...props }: React.ComponentProps<"div">) {
 // Otto: the line-only wrapper of a DENSE list or table page (many small rows
 // with small details: Chats, Tasks, Inbox), under its title row and filter
 // chips, as Threads wraps its feed. The card edge's hairline (`--card-ring`),
-// `2xl` 20 corners, NO fill (the frame shows through), no shadow, no padding:
-// its rows and group headers run to the line, split by full-bleed hairlines
-// between its children (`divide-y`, so no line doubles the box's own edge),
-// and it clips them (`overflow-hidden`), so a fill at the first or last row
-// follows the rounded corner. Pages of bigger cards and structured sections
-// (settings, overviews, galleries, details) never use it: their cards sit on
-// the frame. An empty state stays centered on the frame, outside it.
+// `2xl` 20 corners, NO fill (the frame shows through), no shadow, no hairlines
+// inside. Flush (no padding, Inbox's flat list) its rows run to the line and
+// it clips them (`overflow-hidden`), so a fill at the first or last row
+// follows the rounded corner. A grouped list (`ListGroup`) floats in it with
+// padding (the page's `className`, see DESIGN.md PageWrap). Pages of bigger
+// cards and structured sections (settings, overviews, galleries, details) never
+// use it: their cards sit on the frame. An empty state stays centered on the
+// frame, outside it.
 function PageWrap({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="page-wrap"
       data-content-start=""
       className={cn(
-        "divide-y divide-(--card-divider) overflow-hidden rounded-2xl border border-(--card-ring)",
+        "overflow-hidden rounded-2xl border border-(--card-ring)",
         className
       )}
       {...props}

@@ -155,7 +155,8 @@ export function TasksPage() {
             removeLabel={(field) => `${t('common.remove')} ${field}`}
           />
           {!loaded ? (
-            <PageWrap aria-busy>
+            // Otto: TEST: the same padded wrapper as the list (task-list.tsx). Revert: drop `className`.
+            <PageWrap aria-busy className="p-3 md:-mx-[9px]">
               <ul>{[0, 1, 2].map((i) => <ListRowSkeleton key={i} />)}</ul>
             </PageWrap>
           ) : matching.length === 0 ? (

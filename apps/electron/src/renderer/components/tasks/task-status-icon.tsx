@@ -5,11 +5,16 @@ import { cn } from '@/lib/utils'
 import type { TaskStatus } from '../../../shared/types'
 
 const ICONS = {
-  todo: { Icon: Circle, color: 'text-status-todo' },
-  doing: { Icon: CircleDot, color: 'text-status-doing' },
-  done: { Icon: CircleCheck, color: 'text-status-done' },
-  archived: { Icon: Archive, color: 'text-muted-foreground' },
+  todo: { Icon: Circle, color: 'text-status-todo', tint: 'var(--status-todo)' },
+  doing: { Icon: CircleDot, color: 'text-status-doing', tint: 'var(--status-doing)' },
+  done: { Icon: CircleCheck, color: 'text-status-done', tint: 'var(--status-done)' },
+  archived: { Icon: Archive, color: 'text-muted-foreground', tint: undefined },
 } as const
+
+/** The status color a `ListGroup` band is tinted with; archived stays neutral. */
+export function taskStatusTint(status: TaskStatus): string | undefined {
+  return ICONS[status === 'deleted' ? 'archived' : status].tint
+}
 
 export function TaskStatusIcon({ status, className }: { status: TaskStatus; className?: string }) {
   const { Icon, color } = ICONS[status === 'deleted' ? 'archived' : status]

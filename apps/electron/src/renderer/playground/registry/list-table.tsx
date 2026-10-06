@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import type { ComponentEntry } from './types'
 
 // =============================================================================
-// The grouped list (ListGroup / ListRow in the line-only PageWrap) with the
+// The grouped list (Otto v1's table: ListGroup / ListRow, 12px in the line-only PageWrap) with the
 // title row's ghost Filter and New chat, the filter chips and the no-results state,
 // in light and dark side by side, on realistic data: three groups, long titles,
 // label and model badges, a current row, unread and read titles.
@@ -18,10 +18,10 @@ import type { ComponentEntry } from './types'
 
 type Status = 'progress' | 'todo' | 'done'
 
-const STATUSES: Record<Status, { label: string; icon: React.ReactNode }> = {
-  progress: { label: 'In progress', icon: <CircleDot className="text-info" /> },
+const STATUSES: Record<Status, { label: string; icon: React.ReactNode; tint?: string }> = {
+  progress: { label: 'In progress', icon: <CircleDot className="text-info" />, tint: 'var(--info)' },
   todo: { label: 'Todo', icon: <CircleDashed className="text-muted-foreground" /> },
-  done: { label: 'Done', icon: <CircleCheck className="text-success" /> },
+  done: { label: 'Done', icon: <CircleCheck className="text-success" />, tint: 'var(--success)' },
 }
 
 const LABELS: Record<string, string> = { research: 'bg-violet-500', design: 'bg-pink-500', bug: 'bg-red-500', ops: 'bg-amber-500' }
@@ -120,7 +120,7 @@ function ListTablePanel({ mode, initial }: { mode: 'light' | 'dark'; initial: Fi
             <Button variant="outline" onClick={() => setValues({})}>Clear filters</Button>
           </NoResults>
         ) : (
-          <PageWrap>
+          <PageWrap className="p-3">
             {(Object.keys(STATUSES) as Status[]).map((s) => {
               const items = rows.filter((r) => r.status === s)
               return (
@@ -128,6 +128,7 @@ function ListTablePanel({ mode, initial }: { mode: 'light' | 'dark'; initial: Fi
                   key={s}
                   icon={STATUSES[s].icon}
                   label={STATUSES[s].label}
+                  tint={STATUSES[s].tint}
                   count={items.length}
                   defaultOpen={s !== 'done'}
                   action={<Button variant="ghost" size="icon-xs" aria-label="New chat"><Plus /></Button>}

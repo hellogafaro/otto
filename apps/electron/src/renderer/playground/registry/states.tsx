@@ -212,7 +212,7 @@ function SidebarRows() {
 function ListRows() {
   return (
     <OnFrame>
-      <ListGroup icon={<Folder />} label="Group header (secondary compact)" count={4}>
+      <ListGroup icon={<Folder />} label="Group band" count={4}>
         <ListRow media={<Folder />} title="rest" end="Oct 1" />
         <ListRow media={<Folder />} title="hover" end="Oct 1" {...force('hover')} />
         <ListRow media={<Folder />} title="active (aria-current=page)" end="Oct 1" active />
