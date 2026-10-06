@@ -462,25 +462,38 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   darker (values under Colors).
 - **The page frame** (`PageFrame`, the main region) lays out three tracks and
   the column's body (numbers are px at 1x):
-  - **The column** is ONE width for every page (chat, lists, settings, empty
+  - **The column** is ONE track for every page (chat, lists, settings, empty
     states): **768px** (`48rem`), centered in the free space right of the sidebar.
-    Narrower than 768 + 2 x 20 it fills the width with 20px on each side. Cards,
-    the title row, headings and a centerpiece all span exactly the column and
-    nothing is ever wider. Its body scrolls from the window's top edge (no strip
-    above it) to 8px above the window's bottom.
+    Narrower than 768 + 2 x 20 it fills the width with 20px on each side. Nothing
+    is ever wider. Its body scrolls from the window's top edge (no strip above
+    it) to 8px above the window's bottom.
+  - **One page spacing, the roomy one** (the owner's call: "make all pages
+    except chats/id, but chat index as well, to follow the normal page spacings,
+    not the compact version", after Capy's General). Every page but the open
+    chat is a `PageColumn` in that track: from 768px **24px sides** (content,
+    cards and the title row 720px wide), **the title row 64px from the top**,
+    **40px between blocks** and **40px under the last one** (a centerpiece's card
+    instead runs to the frame's 8px bottom). Below 768px the sides are the
+    frame's 20px, the title row sits on the top axis beside the sheet's menu
+    button and the gaps stay 40px. See Page anatomy.
   - **Nothing is pinned above a page.** Its title row is the first block of the
     scrolling column (Capy's settings pattern) and scrolls away with the content;
-    see The page header. The one exception is the **chat**: a compact 44px row
-    pinned above its centerpiece.
+    see The page header. The one exception is the **open chat**
+    (`/chats/<id>`): a compact 44px row pinned above its centerpiece, which
+    spans the whole 768px track with no side padding; it is the only page on the
+    compact spacing.
   - **The top axis** (`--axis-y`, 34px, one CSS variable in `globals.css`): **the
-    sidebar's mark, the page title (at scroll 0), the chat's pinned title and the
-    floating navigation's Back button share the center y 34.** Each offsets from
-    the variable by half its own height (the title row: top 18, 32px tall; the
-    chat's row: top 12, 44px; Back: top 18, 32px; the mark's row: top 20, 28px),
-    so changing it moves all four. The value is the sidebar's: its first row
-    starts one group gap (20px) from the top, 20 + 28 / 2 = 34.
+    sidebar's mark, the open chat's pinned title and its floating navigation's
+    Back share the center y 34**, and so do every title row and the sheet's menu
+    button below 768px. Each offsets from the variable by half its own height
+    (the chat's row: top 12, 44px; Back and a title row below 768px: top 18,
+    32px; the mark's row: top 20, 28px), so changing it moves them all. The
+    value is the sidebar's: its first row starts one group gap (20px) from the
+    top, 20 + 28 / 2 = 34. From 768px every other page's title row is lower,
+    at y 64 (its center 80): expected, the roomy spacing does not line up with
+    the mark.
   - **The gutters** are the free space left and right of the column; they hold
-    the floating navigation (left, on the axis, 20px from the column) and the
+    the floating navigation (left, level with the title row, 20px from the column) and the
     sidecar (right, starting at the **content start**, below), and do not
     scroll (so the navigation is sticky: it never moves while the title and the
     page scroll away beside it): only the column's body scrolls (a blocks page as
@@ -497,11 +510,12 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     column); narrower it moves into the title row's trailing actions.
   - **The content start** is the top of the first block after the title row: the
     first section's title row on a blocks page, the first card when there is no
-    section title (y 82 at scroll 0: the title row ends at 50, then 32px), the
-    centerpiece under the chat's pinned row (y 56). Blocks mark themselves
-    (`data-content-start`), `PageFrame` measures the first one (unscrolled) and
-    publishes it as `--content-start`. The docked sidecar starts there (it is the
-    sidecar's line, not the floating navigation's: that one is on the axis).
+    section title (y 136 at scroll 0 from 768px: the title row is 64 to 96, then
+    40px; lower under an item's description), the centerpiece under the chat's
+    pinned row (y 56). Blocks mark themselves (`data-content-start`), `PageFrame`
+    measures the first one (unscrolled) and publishes it as `--content-start`.
+    The docked sidecar starts there (it is the sidecar's line, not the floating
+    navigation's: that one is level with the title row).
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
 - **Controls are 32px**: bar buttons and tabs on a page. Task list and
@@ -569,8 +583,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   header's bottom and the footer's top carry it); group 3 is hidden.
   - **Header** (group 0): the Otto mark alone, 20px (`size-5`, `text-foreground`), no
     name, in a 28px row 20px from the top of the window and 20px above the first
-    group, so its center is the top axis (y 34: the page title's line, the chat's
-    pinned title's and Back's). The sheet below 768px keeps the same 8px inset (plus
+    group, so its center is the top axis (y 34: the open chat's pinned title's
+    and Back's; other pages' titles sit at y 64 from 768px). The sheet below 768px keeps the same 8px inset (plus
     the iOS safe area), so its mark is on the axis of the page's menu button. On Electron the header is the window's drag region,
     its row clears the macOS traffic lights (68px in; icons only, the row sits
     below them) and Back / Forward end it as two 28px ghost icon buttons with
@@ -691,11 +705,12 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 - **The page header** (`PageHeaderRow`, drawn by `PageHeader`) is the page's
   **title row: the first block of the scrolling column**, never a pinned bar
   (the owner's call, after Capy's settings, where "General" is simply the first
-  element of the 768px content column). It is 32px tall, its top 18px below the
-  window's top (`--axis-y` - 16, so at scroll 0 the title's center is the axis,
-  y 34), inset 16px (`PAGE_INSET`), 32px above the first section (the column's
-  gap), and it scrolls away with the content; the column ends 40px under its
-  last block. It holds the page title (`PageTitle`, 21px medium, plain text with
+  element of the 768px content column). It is 32px tall, **its top 64px below
+  the window's top** from 768px (its own margin, `md:mt-16`; below 768px 18px,
+  `--axis-y` - 16, so its center is the axis beside the sheet's menu button),
+  inset 16px (`PAGE_INSET`) inside the column's 24px sides, 40px above the first
+  block (the column's gap), and it scrolls away with the content; the column
+  ends 40px under its last block. It holds the page title (`PageTitle`, 21px medium, plain text with
   its badge where it has one) and the page's actions right-aligned on the same
   row, all 28px ghost controls (Filter, Search, New chat, More…).
   **The title is one line, never an ellipsis and never a dropdown**: it runs the
@@ -710,9 +725,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   `<PageHeader title actions />` anywhere and pass no handlers (see Navigation):
   it draws its row in the column's title slot (`PageColumn`'s first child, so
   the title scrolls with the content; in place on a page with no column, such
-  as an empty or loading state, at the same position). **Settings' title is not
-  on the axis** from 768px: it is the first block of the roomy column, 64px
-  down (see Page anatomy, Settings); its sidebar has no mark to line up with.
+  as a not-yet-loaded item, at the same height).
   **An item's description** (`PageHeader description`: a skill's description, a
   source's tagline, an automation's summary) is the page's lead line, muted
   body text 4px under the title in the same slot (inset like the title; one
@@ -734,9 +747,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 - **The sidecar** (`Sidecar`, undecided: canvas by default, `surface` wraps it in
   a card for testing), closed by default, is for an inspector or details (session
   info, files, a source's details). Docked in the right gutter it is a **canvas**:
-  no background, ring, shadow or corners, 296px wide, 20px from the column,
-  starting at the content start (not the top axis, which the floating
-  navigation is centered on); its title is the first subtitle (13px medium, Close a ghost
+  no background, ring, shadow or corners, 296px wide, 20px from the column's
+  track (44px from its cards, past the 24px side), starting at the content
+  start (not the title row, which the floating navigation is level with); its title is the first subtitle (13px medium, Close a ghost
   28px icon at its end) and the blocks under it are quiet: small muted subtitles
   outside any surface, 13px text, flat rows, chips and avatars, bordered controls
   at most, never panels. Taller than the window it scrolls itself with the edge
@@ -754,13 +767,13 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   its `Kbd`; ⌘N (`app.newChat`, bound by the shell, not the sidebar) does the
   same. There is no floating "+".
 - **Floating navigation** (`FloatingNav`): Superhuman's controls, in the left
-  gutter beside the column, **20px from it**, with Back's center on the top
-  axis (`--axis-y`, y 34: the title's center at scroll 0, the chat's pinned
-  title's and the sidebar mark's; the nav's top is y 18, fixed to the frame, not
-  to the title row or the first block, so the title scrolls away beside it). **On a
-  padded page** (a skill, a source: Settings' roomy column) the title is 64px down,
-  so Back's top follows it there (y 64, the title row's top; `PageFrame` reads the
-  padded column, one rule): Back and the title share a center at scroll 0. They are our standard raised icon button
+  gutter beside the column, **20px from it**, **level with the title row**: Back's
+  top is y 64, the title row's top, so the two share a center at scroll 0. It is
+  fixed to the frame, not to the title row or the first block, so the title
+  scrolls away beside it. On the open chat (the one compact page, `PageFrame`
+  reads its pinned row, one rule) Back's center is the top axis instead
+  (`--axis-y`, y 34, top 18: the chat's pinned title's and the sidebar mark's
+  line). They are our standard raised icon button
   (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
   with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
   Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
@@ -775,19 +788,22 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   Back to their grid, Previous / Next through it), while their sidebar row stays filled; narrower than a 72px gutter (or below 768px) they
   move into the title row's trailing actions (the chat's pinned row's) as 28px ghost icon buttons in the
   same order (Back, Previous, Next), never leading and never beside the title.
-- **Widths**: the column is 768px for every page, the sidebar 256px on every
+- **Widths**: the column track is 768px for every page (720px of content inside
+  its 24px sides on every page but the open chat), the sidebar 256px on every
   page (48px as icons), the sidecar 296px. A centerpiece is never wider than the
-  column.
-- **One left line.** Cards and a centerpiece start on the column's left edge and
-  end on its right; the page title, section titles (and their actions) and the
-  text inside a card all sit 16px in (`PAGE_INSET`, one constant in `PageFrame`
-  that the title row and `PageSection` share; a centerpiece's transcript or
-  document 20px).
+  column's content.
+- **One left line.** Cards and a centerpiece start on the column's content edge
+  (24px inside the track from 768px; the chat's on the track's edge) and end on
+  its right; the page title, section titles (and their actions) and the text
+  inside a card all sit 16px in (`PAGE_INSET`, one constant in `PageFrame` that
+  the title row and `PageSection` share; a centerpiece's transcript or document
+  20px).
 - **Page**: see Page anatomy.
 - **Galleries** (`Gallery`): 3 columns for projects, 4 for documents,
   files, skills and sources; 12px between columns, 20px between rows so a title stays with its
-  tile. Skills and Sources sit in Settings' padded 720px column: still 4 columns,
-  171px tiles (the Library's 183px at 768: the same feel; 3 would be 232px, a
+  tile. Every page's content is 720px (the roomy column): projects 3 columns of
+  232px, the Library, a project's Documents and Files, Skills and Sources 4 of
+  171px (checked in the browser: still the Library's feel; 3 would be 232px, a
   project's size).
 
 ## Page anatomy
@@ -802,13 +818,17 @@ Inside a surface: rows split by full-bleed hairlines, text, and nested controls
 attachment chip inside a message or card is content: flat, a muted fill, no ring,
 no shadow.
 
-- **Every page** is ONE 768px column whose first block is the `PageHeader` title
-  row (on the frame, never in a card; it scrolls with the page, see Layout); only
-  the chat pins a compact title row above its column. Two kinds of page, by what the content is:
+- **Every page** is ONE roomy column (`PageColumn`) in the 768px track whose
+  first block is the `PageHeader` title row (on the frame, never in a card; it
+  scrolls with the page, see Layout): from 768px **24px sides** (720px content),
+  **the title row 64px from the top**, **40px between blocks** and 40px at the
+  end; below 768px the frame's 20px sides, the title row on the top axis beside
+  the sheet's menu button and the same 40px gaps. Only the open chat is
+  compact (below). Two kinds of page, by what the content is:
   long-form content read or written top to bottom is a **centerpiece**;
   collections of facts and settings are **blocks**.
 - **Blocks** (`PageColumn`: settings, projects, lists, overviews, empty states):
-  the title row, then stacked sections, 32px apart, the page scrolling as a whole
+  the title row, then stacked sections, 40px apart, the page scrolling as a whole
   in the column (edge fade, scroll-driven so the top is not faded at scroll 0; no
   scrollbar; nothing stays pinned). The whole page area right of the sidebar
   scrolls the page, not only the column: a wheel or trackpad scroll over the
@@ -820,29 +840,25 @@ no shadow.
   optional actions at the right end of that row, also on the inset ("View all",
   "Create"), 12px above its `PageCard` (`bg-card`, hairline border, `shadow-xs`,
   `xl` 12). Stat strips and rows in a card are split by hairlines. The first
-  section starts 32px under the title row (y 82 at scroll 0, the content start,
+  section starts 40px under the title row (y 136 at scroll 0, the content start,
   where the sidecar starts) and the last one ends 40px above the column's end. `SettingsSection` and `SettingsCard` are `PageSection` and `PageCard`; the
   settings pages are the reference implementation.
-- **Settings: the roomy column** (`PageColumn padded`, through `SettingsPage`,
-  the one shell every settings page renders: its name alone in the title row,
-  no actions of navigation, then its sections). **The Skills and Sources grids
-  and a skill's and a source's pages take it too** (the owner's call: the same
-  page spacing as every settings page; through `Info_Page.Content` also an
-  automation's page): the floating navigation's Back follows the title down to
-  64px (see Layout). The owner's call, after Capy's General: the same 768px
-  column with **24px sides** (cards 720px wide), **64px above the title row**
-  (the column's first block; it drops its axis margin, so the title sits at y
-  64, not on the axis), **40px between blocks** (title to the first section,
-  section to section) and 40px at the end. Sections are `PageSection` over
-  `PageCard` as everywhere. **Below 768px** only the 40px gap stays: the title
-  row is back on the axis beside the sheet's menu button and the frame's 20px
-  sides are the inset, as on every page. No page outside Settings uses `padded`.
-- **Centerpiece** (`PageCenterpiece`: the chat, a document): ONE card as wide as
-  the column and as tall as the space under the title row (8px above the
-  window's bottom), clipped, scrolling inside it with the edge fade. Never wider
-  than the column. A toolbar is part of the title row, not a nested card. The
-  chat's title row is the compact pinned one (44px, see The page header), so the
-  transcript card starts at y 56.
+- **Settings** (`SettingsPage`, the one shell every settings page renders: its
+  name from the settings registry alone in the title row, no actions of
+  navigation, then its sections in the page column). The Skills and Sources
+  grids and a skill's and a source's pages (`Info_Page.Content`) are the same
+  column. The roomy spacing started here (Capy's General) and is now every
+  page's.
+- **Centerpiece** (`PageColumn fill` + `PageCenterpiece`: a task, a document, a
+  file's preview; the chat): ONE card as wide as the column's content and as
+  tall as the space under the title row (to 8px above the window's bottom),
+  clipped, scrolling inside it with the edge fade. `fill` makes the column fill
+  the height without scrolling as a whole; its title row is 64px down and the
+  card 40px under it (y 136), like any page. A toolbar is part of the title
+  row, not a nested card. **The open chat is the one compact page** and takes no
+  `PageColumn`: its title row is the compact pinned one (44px on the axis, see
+  The page header) and its transcript card spans the whole 768px track from y
+  56.
   The chat adds a sibling card under it, 8px away: the composer (`bg-card`,
   hairline border, `shadow-sm`, `xl` 12, auto height, pinned at the bottom of the
   column) whose top row holds the session chips (mode, status, labels, Info) and
@@ -994,7 +1010,7 @@ no shadow.
   on a phone it wraps under the tabs): Tasks "New task" (`TaskFormDialog` with
   the project preset; a group's "+" too), Documents and Files "Add from
   library" (a searchable list of the library's items of that kind not linked
-  yet; a pick links it at once). **Overview**, sections 32px apart: the
+  yet; a pick links it at once). **Overview**, sections 40px apart: the
   description in a card (the markdown editor, 16px in; it autosaves with the
   title as one draft), Links (`ResourceList` in a card, 4px in: web links,
   library items, chats; × removes, "New link" adds, at once) and Members (the
@@ -1220,9 +1236,9 @@ as a card).
 | `SidebarMenuSlot`, `SidebarMenuSlotAction` | | the row's right slot: a 20px lane 4px from the row's top, right and bottom, one cell for stacked layers (status or time, actions, key) that swap by opacity; clicks pass through except on a visible layer; `SlotAction` is the 20px in-line ghost button (the look of `SidebarMenuAction`). The row fades its title under the lane with a mask, see Pins and recents |
 | `SidebarTrigger` | | the sheet's menu button below 768px: 28px ghost in the chat's pinned row; elsewhere 32px `outline`, fixed over the column's top-left on the axis |
 | `PageFrame` | `aside` | the main region on the frame: the 768px column (`@container/panel`) and its title slot, the chat's header slot, the leading slot (the fixed menu button), left and right gutters; the top axis `--axis-y`; see Layout |
-| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `pinned` | the title row: 32px, the first block of the column, centered on the axis at scroll 0; `pinned` (the chat only) 44px in the header slot; 28px controls, title is `PageTitle` (21px medium), inset 16px; no back button, no crumbs |
+| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `pinned` | the title row: 32px, the first block of the column, 64px down from 768px (centered on the axis below); `pinned` (the open chat only) 44px in the header slot, centered on the axis; 28px controls, title is `PageTitle` (21px medium), inset 16px; no back button, no crumbs |
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
-| `PageColumn`, `PageSection`, `PageCard` | `padded`; `title`, `description`, `action`, `danger` | blocks page (the column's first child is the title slot); `padded` is Settings' roomy column (24px sides, 64px top, 40px gaps from 768px); see Page anatomy |
+| `PageColumn`, `PageSection`, `PageCard` | `fill`; `title`, `description`, `action`, `danger` | every page but the open chat (the column's first child is the title slot): 24px sides from 768px, 40px gaps, 40px at the end; `fill` for a centerpiece page (fills the height, no scroll of its own); see Page anatomy |
 | `PageWrap` | `className` | the line-only wrapper of a dense list page (Chats, Tasks, Inbox): hairline, `2xl` 20, no fill, no padding, clips its rows, hairlines between its children; never around cards; see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
 | `ListGroup`, `ListRow`, `ListRowSkeleton` | `icon`, `label`, `count`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | the grouped list in the `PageWrap`, no card: 36px group headers, 44px rows, the loading row; see Data patterns |
@@ -1231,7 +1247,7 @@ as a card).
 | `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
 | `PropertySection`, `PropertyRow` | `title`, `count`, `defaultOpen`; `icon`, `label`, `value`, `placeholder`, `kbd`, `actions`, `readOnly` | the sidecar's Details blocks; see Components, Property list |
 | `Sidecar` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel`, `surface` | canvas by default, `surface` wraps it in a card (undecided); see Layout; closed by default |
-| `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column and centers Back on the top axis, the buttons are its narrow form for the title row's actions |
+| `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column, Back level with the title row (on the top axis on the open chat), the buttons are its narrow form for the title row's actions |
 
 In the renderer: `PageHeader` (the header with the route's Back and the list
 navigation wired into the floating navigation), `AppSidebar` (with `SettingsBackRow` and
@@ -1829,7 +1845,9 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   `Tabs` `size="compact"`: 28px ghost triggers 4px apart, the open one `foreground/10`, 8px above
   and below, text 16px in); the list (at most `min(400px, 60dvh)`, `scroll-fade-y`,
   no scrollbar): 36px rows, `md` 8 corners in the list's 4px padding, 16px content
-  inset, a 14px icon, 8px, the title in `text-sm`, and at the end a chat's
+  inset, a 14px icon (in every row, of every kind: a bare glyph, never a tile, avatar
+  or background; a skill's or source's own emoji or image at 14px, else `Shapes` or
+  `DatabaseZap`; one slot, so all share size, left offset and gap), 8px, the title in `text-sm`, and at the end a chat's
   12px muted time, a task's project or a library item's folder (muted, at most
   40% of the row, truncated), an action's `Kbd` or the check of what is on; group headings
   (12px medium muted, 16px in) only in All; a 48px footer with the keys as `Kbd`
@@ -1863,7 +1881,7 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   sidebar's pages with its icons: Inbox, Tasks, Projects, Chats, Routines, Library;
   Routines have no data of their own yet, so they are a page only), **Settings** (every page of `SETTINGS_NAV_GROUPS`
   with the settings sidebar's icons; Shortcuts shows ⌘/), **Skills** and
-  **Sources** (the shell's loaded skills and sources with their avatars; opens
+  **Sources** (the shell's loaded skills and sources with their own icon, bare (no avatar); opens
   their page), **Actions** (New chat ⌘N, Open settings ⌘,, Light, Dark and System
   theme with a check on the current one, Go back and Go forward while there is
   history, Log out on the web, Quit in the desktop app). The tabs run All, Chats,
@@ -1925,7 +1943,8 @@ items").
 - **Grid**: `columns` 3 or 4; 12px between columns, 20px between rows. Columns
   follow the page column's width (`@container/panel`): 3 is
   one, two from 400px, three from 640px; 4 is two, three from 400px, four from
-  640px (at 768px: 248px and 183px tiles).
+  640px (container queries read the 768px track; in the 720px content: 232px
+  and 171px tiles).
 - **Tile**: `ratio` `16:9`, `4:5` (default) or `1:1`; `bg-card` (one layer step
   over the frame: on the frame `muted` would vanish in light), `md` 8 corners,
   no shadow; its hairline an inset 1px `foreground/10` ring drawn over the

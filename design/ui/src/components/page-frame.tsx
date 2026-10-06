@@ -13,15 +13,16 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 // 2 x 20px the column fills the width, 20px from each side.
 //
 // Nothing is pinned above a page: its title row is the first block of the
-// column and scrolls away with it (`PageHeaderRow`; `PageColumn` gives it its
-// slot). The chat is the one exception: a compact pinned row (`PageHeaderRow
-// pinned`, 44px) in the frame's header slot above the column. Every title sits
-// on the TOP AXIS (`--axis-y`, 34px from the window's top, see globals.css):
-// the sidebar's mark, the title (at scroll 0), the pinned row's title and the
-// floating navigation's Back button share that center line.
+// column, 64px from the top, and scrolls away with it (`PageHeaderRow`;
+// `PageColumn` gives it its slot). The open chat is the one exception: a
+// compact pinned row (`PageHeaderRow pinned`, 44px) in the frame's header slot
+// above its centerpiece, on the TOP AXIS (`--axis-y`, 34px from the window's
+// top, see globals.css) with the sidebar's mark. Below 768px every title row
+// is on the axis, beside the sheet's menu button.
 //
 // Three tracks make it: [left gutter | column | right gutter]. The left gutter
-// holds `FloatingNav` (portaled in by `PageHeader`), Back centered on the axis;
+// holds `FloatingNav` (portaled in by `PageHeader`), Back level with the title
+// row (on the axis on the chat);
 // the right one holds the `aside` (the `Sidecar`), which starts at the CONTENT
 // START, the top of the first block (see `--content-start`). Closed, both
 // gutters are equal and the column is centered. An open aside reserves its
@@ -62,8 +63,9 @@ type PageFrameContextValue = {
 
 // Otto: the content start. The first block (`data-content-start`:
 // a `PageSection`, `PageCard`, `PageCenterpiece`, or a page's own first block)
-// begins this far below the body's top (82px on a blocks page: the title row on
-// the axis, then 32px; 0 under the chat's pinned row). The frame measures it, so the sidecar starts on the first block
+// begins this far below the body's top (136px from 768px: the title row 64px
+// down, 32px tall, then 40px; 0 under the chat's pinned row). The frame
+// measures it, so the sidecar starts on the first block
 // whatever the page puts first, and publishes it as `--content-start`.
 function measureContentStart(body: HTMLElement) {
   const block = body.querySelector<HTMLElement>("[data-content-start]")
@@ -197,11 +199,10 @@ function PageFrame({
           <div
             data-slot="floating-nav-slot"
             ref={setNav}
-            // Spans the whole height: Back (32px) is centered on the axis, 20px
-            // from the column, and stays put while the column scrolls. On a
-            // padded page (a skill, a source) the title is 64px down, not on the
-            // axis, and Back follows it there.
-            className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-[calc(var(--axis-y)-1rem)] pr-5 group-has-[[data-slot=page-column][data-padded]]/page:pt-16"
+            // Spans the whole height: Back (32px) is level with the title row
+            // (64px down; on the axis beside the chat's pinned row), 20px from
+            // the column, and stays put while the column scrolls.
+            className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-16 pr-5 group-has-[[data-slot=page-header-row][data-pinned]]/page:pt-[calc(var(--axis-y)-1rem)]"
           />
           <div
             data-slot="page-body"
@@ -236,11 +237,11 @@ function PageFrame({
 // actions start (a mask, as the sidebar's rows do; a short title is untouched).
 // It never has a dropdown, a back button or a trail of crumbs: going back and
 // stepping through a list is `FloatingNav`.
-// - By default it is the first block of the page's column, 32px tall, its top
-//   16px above the axis (so its center is the axis at scroll 0), 32px above the
-//   first section, and it scrolls away with the page.
-// - `pinned` (the chat only) is the compact row in the frame's header slot:
-//   44px, 22px above the axis, pinned above the centerpiece.
+// - By default it is the first block of the page's column, 32px tall, 64px
+//   from the top (below 768px its center is the axis, beside the sheet's menu
+//   button), 40px above the first block, and it scrolls away with the page.
+// - `pinned` (the open chat only) is the compact row in the frame's header
+//   slot: 44px, centered on the axis, pinned above the centerpiece.
 function PageHeaderRow({
   leading,
   title,
@@ -262,7 +263,7 @@ function PageHeaderRow({
         "flex items-center gap-1 select-none",
         pinned
           ? "mt-[calc(var(--axis-y)-1.375rem)] h-11"
-          : "mt-[calc(var(--axis-y)-1rem)] h-8",
+          : "mt-[calc(var(--axis-y)-1rem)] h-8 md:mt-16",
         PAGE_INSET,
         className
       )}

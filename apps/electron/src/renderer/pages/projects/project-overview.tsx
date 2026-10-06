@@ -23,7 +23,7 @@ export function ProjectOverview({ projectId, description, onDescription, onBlur,
 }) {
   const { t } = useTranslation()
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-10">
       <PageCard className="px-4 py-3" onBlur={onBlur}>
         <TiptapMarkdownEditor content={description} onUpdate={onDescription} placeholder={t('projects.descriptionPlaceholder')} />
       </PageCard>

@@ -7,7 +7,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { PageCenterpiece } from '@workspace/ui/components/page'
+import { PageCenterpiece, PageColumn } from '@workspace/ui/components/page'
 import { PageScroll } from '@workspace/ui/components/page-frame'
 import { TiptapMarkdownEditor } from '@otto/ui'
 import { PageHeader } from '@/components/app-shell/page-header'
@@ -64,7 +64,7 @@ export function DocumentEditor({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-8">
+    <PageColumn fill>
       <PageHeader
         title={
           <input
@@ -89,6 +89,6 @@ export function DocumentEditor({
           />
         </PageScroll>
       </PageCenterpiece>
-    </div>
+    </PageColumn>
   )
 }

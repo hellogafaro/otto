@@ -3,7 +3,7 @@
  * row: Filter (Scope: Global, Workspace, Project; `?scope=`), Search (the palette on Skills) and "+" (Add skill:
  * the add-skill popover, which asks an agent to write it). A tile is the skill's own icon, its name and its scope;
  * it opens the skill (no menu: the skill's page has its More actions), whose Back returns here and whose Previous /
- * Next step through this grid. Settings' roomy column (`padded`). No skills at all: the stock empty page alone (no
+ * Next step through this grid. No skills at all: the stock empty page alone (no
  * title row), with the same Add skill.
  */
 
@@ -81,7 +81,7 @@ export function SkillsPage() {
           </>
         )}
       />
-      <PageColumn padded className="min-h-full">
+      <PageColumn className="min-h-full">
         <div data-content-start="" className="flex flex-1 flex-col gap-3">
           <FilterBar
             fields={fields}

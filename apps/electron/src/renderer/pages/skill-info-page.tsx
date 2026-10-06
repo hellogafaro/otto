@@ -3,7 +3,7 @@
  *
  * A skill's page, read like a document: its name once in the title row, its description once as the lead line
  * under it, then its instructions (SKILL.md's body, the Library's read-only markdown) and its details (scope,
- * location, required sources, always-allowed tools), each a section of Settings' roomy column. Its actions are the
+ * location, required sources, always-allowed tools), each a section of the page column. Its actions are the
  * title row's More actions (Copy link, Show in the file manager, Delete for a workspace skill); editing asks an
  * agent through each section's Edit popover ("Edit file" opens SKILL.md).
  */

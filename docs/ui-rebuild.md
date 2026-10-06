@@ -179,7 +179,7 @@ yet).
 - [ ] `components/settings/settings-input.tsx`
 - [ ] `components/settings/settings-menu-select.tsx`
 - [ ] `components/settings/settings-row.tsx`
-- [x] `components/settings/settings-page.tsx` (every settings page's shell: the title and `PageColumn padded`)
+- [x] `components/settings/settings-page.tsx` (every settings page's shell: the title and `PageColumn`)
 - [ ] `components/settings/settings-section.tsx`
 - [ ] `components/settings/settings-segmented-control.tsx`
 - [ ] `components/settings/settings-select.tsx`

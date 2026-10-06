@@ -5,8 +5,8 @@
  * a page passes no handlers. It renders where the page puts it but draws in the
  * `PageFrame`'s slots, so it never sits in a card:
  * - by default the row is the first block of the page's column (`PageColumn`'s
- *   title slot; in place when the page has no column), on the top axis at
- *   scroll 0, and it scrolls away with the content: nothing is pinned;
+ *   title slot; in place when the page has no column), 64px from the top (on the
+ *   top axis below 768px), and it scrolls away with the content: nothing is pinned;
  * - `pinned` (the chat only) draws the compact 44px row in the frame's header
  *   slot instead, pinned above the centerpiece;
  * - the row is the title (plain text: one line that fades out under the actions,
@@ -21,7 +21,7 @@
  * - going back and stepping through a list is the floating navigation: Back when the
  *   view has a parent (see `useParentView`), Previous / Next when the page is an item of a
  *   list (`listNav`: a chat in Chats, a skill or a source in its grid; Settings' own pages have neither), in the frame's left gutter
- *   with Back on the axis when it is wide enough, and as ghost buttons at the end of
+ *   with Back level with the title row when it is wide enough, and as ghost buttons at the end of
  *   the row's actions (Back, Previous, Next) when it is not;
  * - on the Chats index, New chat is the last of the actions (a chat has More instead);
  * - with no title (an unbuilt section) only the menu button is drawn;

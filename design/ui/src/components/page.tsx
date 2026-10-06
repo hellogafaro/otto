@@ -6,63 +6,62 @@ import {
 import { cn } from "cn"
 
 // Otto: page anatomy. The page has no surface of its own: it is the frame, and
-// the column on it (`PageFrame`, 768px) holds the title row, then surfaces, as
-// SIBLINGS. A surface (`PageCard`, `PageCenterpiece`) never contains another
-// surface. Two kinds of page:
-// - blocks (`PageColumn`): settings, lists, overviews. The title row first (on
-//   the top axis at scroll 0), then stacked `PageSection`s (a small title above
-//   its `PageCard`), all 32px apart, scrolling as a whole: nothing is pinned.
-// - a centerpiece (`PageCenterpiece`): long-form content read or written top to
-//   bottom (the chat, a document). ONE card as wide as the column and as tall
-//   as the space left, scrolling inside. The chat adds a sibling composer card
-//   under it and is the one page with a pinned (compact) title row.
+// the column on it (`PageColumn`, in the frame's 768px track) holds the title
+// row, then surfaces, as SIBLINGS. A surface (`PageCard`, `PageCenterpiece`)
+// never contains another surface. Every page but the open chat takes this roomy
+// column: from 768px 24px sides (content 720px), the title row 64px from the
+// top (its own margin, see `PageHeaderRow`), 40px between blocks and, on a
+// blocks page, 40px under the last one. Below 768px the title row stays on the
+// top axis beside the sheet's menu button and the frame's 20px sides are the
+// inset; the gaps stay 40px. Two kinds of page:
+// - blocks (`PageColumn`): settings, lists, overviews, galleries. The title row
+//   first, then stacked `PageSection`s (a small title above its `PageCard`) or a
+//   page's own blocks, scrolling as a whole: nothing is pinned.
+// - a centerpiece (`PageColumn fill` + `PageCenterpiece`): long-form content
+//   read or written top to bottom (a task, a document, a file). The title row,
+//   then ONE card as wide as the content and as tall as the space left (to the
+//   frame's 8px bottom), scrolling inside.
+// The open chat is the one exception and takes no `PageColumn`: its compact
+// pinned row (`PageHeaderRow pinned`) sits in the frame's header slot and its
+// centerpiece and composer span the whole 768px track.
 // The column's first child is the title slot: `PageHeader`, called anywhere in
-// the page, draws its row there, so the title scrolls with the content. The
-// first block (`data-content-start`) is where the sidecar starts: `PageFrame`
-// measures it.
-// Otto: `padded`, the roomy settings layout (every settings page, the Skills
-// and Sources grids and their items; Capy's General): from 768px the column
-// takes 24px sides (cards 720px wide in the 768px column) and 64px above its
-// first block, the title row, which drops its axis margin (settings has no mark
-// on the axis: its sidebar leads with Back to app; the floating navigation's top
-// follows the title down, see `PageFrame`); 40px between blocks. Below 768px
-// only the 40px gap changes: the title stays on the axis beside the sheet's
-// menu button and the frame's 20px sides are the inset.
-// The title slot holds the title row and, on an item's page, its description
-// (the lead line, 4px under the title): one block, so the gap comes after both.
+// the page, draws its row there, so the title scrolls with the content. It holds
+// the title row and, on an item's page, its description (the lead line, 4px
+// under the title): one block, so the gap comes after both. The first block
+// (`data-content-start`) is where the sidecar starts: `PageFrame` measures it.
 function PageColumn({
-  padded = false,
+  fill = false,
   className,
   children,
   ...props
-}: React.ComponentProps<"div"> & { padded?: boolean }) {
+}: React.ComponentProps<"div"> & {
+  /** A centerpiece page: the column fills the height and does not scroll as a whole. */
+  fill?: boolean
+}) {
   const frame = usePageFrame()
-  return (
-    <PageScroll>
+  const column = (
+    <div
+      data-slot="page-column"
+      className={cn(
+        "flex w-full flex-col gap-10 md:px-6",
+        fill ? "h-full min-h-0" : "pb-10",
+        className
+      )}
+      {...props}
+    >
       <div
-        data-slot="page-column"
-        data-padded={padded || undefined}
-        className={cn(
-          "flex w-full flex-col gap-8 pb-10",
-          padded &&
-            "gap-10 md:px-6 md:pt-16 md:[&>[data-slot=page-title-slot]>[data-slot=page-header-row]]:mt-0",
-          className
-        )}
-        {...props}
-      >
-        <div
-          data-slot="page-title-slot"
-          ref={frame?.setTitle}
-          className="flex flex-col gap-1 empty:hidden"
-        />
-        {children}
-      </div>
-    </PageScroll>
+        data-slot="page-title-slot"
+        ref={frame?.setTitle}
+        className="flex flex-col gap-1 empty:hidden"
+      />
+      {children}
+    </div>
   )
+  return fill ? column : <PageScroll>{column}</PageScroll>
 }
 
-// Otto: the one big card of a centerpiece page: the `PageCard` surface, full
-// column width, filling the height that is left. Its content scrolls inside
+// Otto: the one big card of a centerpiece page: the `PageCard` surface, as
+// wide as the column's content, filling the height that is left. Its content scrolls inside
 // (put a `PageScroll` or a scroll area in it); the edge fade is the only sign.
 function PageCenterpiece({
   className,

@@ -48,8 +48,9 @@ export interface EntityIconProps {
    */
   chromeless?: boolean
   /**
-   * When true, renders the icon content directly without any container div.
-   * Used in filter menus where the parent provides all necessary styling.
+   * When true, renders the icon content directly without any container div or tile
+   * (a 14px glyph, emoji or image). Used in filter menus and the command palette,
+   * where the parent provides all necessary styling.
    * Color inheritance still works via parent element's color style.
    */
   bare?: boolean
@@ -77,7 +78,8 @@ function EntityIconComponent({
   // --- Emoji rendering ---
   if (icon.kind === 'emoji') {
     if (bare) {
-      return <span className={cn(ICON_EMOJI_SIZES[size], 'leading-none', className)} title={alt}>{icon.value}</span>
+      // Otto: 12px, the largest that sits inside the 14px slot.
+      return <span className={cn('text-xs leading-none', className)} title={alt}>{icon.value}</span>
     }
     return (
       <div
@@ -120,6 +122,11 @@ function EntityIconComponent({
           dangerouslySetInnerHTML={{ __html: icon.rawSvg }}
         />
       )
+    }
+
+    // Otto: bare is the glyph alone, an image has no tile either.
+    if (bare) {
+      return <img src={icon.value} alt={alt ?? ''} className={cn('size-3.5 shrink-0 object-contain', className)} />
     }
 
     // Non-colorable files (raster images, SVGs with hardcoded colors):

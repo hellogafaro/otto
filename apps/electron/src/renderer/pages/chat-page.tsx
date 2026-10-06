@@ -16,6 +16,7 @@ import { CompactSessionMenu } from '@/components/app-shell/compact-session-menu'
 import { SessionInfoPopover } from '@/components/app-shell/session-info-popover'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { toast } from '@workspace/ui/components/sonner'
+import { PageColumn } from '@workspace/ui/components/page'
 import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { StyledDropdownMenuContent, StyledDropdownMenuItem, StyledDropdownMenuSeparator } from '@/components/ui/styled-dropdown'
@@ -723,13 +724,13 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
 
     // Session truly doesn't exist
     return (
-      <div className="h-full flex flex-col">
+      <PageColumn fill>
         <PageHeader title={t('chat.session')} />
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
           <AlertCircle className="h-10 w-10" />
           <p className="text-sm">{t('chat.sessionNoLongerExists')}</p>
         </div>
-      </div>
+      </PageColumn>
     )
   }
 

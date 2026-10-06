@@ -49,7 +49,7 @@ import {
 
 /** One row: what it shows and what picking it does. */
 export interface PaletteItem extends PaletteEntry {
-  /** A 14px icon (a chat's status, a task's status, a page's icon, a skill's or source's avatar). */
+  /** A bare 14px icon, never a tile or avatar (a chat's or task's status, a page's icon, a skill's or source's own icon or its glyph). */
   icon: React.ReactNode
   /** Muted text at the row's end: a chat's time, a task's project, a library item's folder. */
   meta?: string
@@ -167,7 +167,8 @@ export function CommandPalette({ data, initialCategory = 'all', onPick }: Comman
                 onSelect={() => onPick(item)}
                 data-checked={item.checked ? 'true' : undefined}
               >
-                {item.icon}
+                {/* One slot for every row's icon, so they share size, offset and gap. */}
+                <span className="flex size-3.5 shrink-0 items-center justify-center">{item.icon}</span>
                 <span className="min-w-0 truncate">{item.title}</span>
                 {item.meta && <span className="ml-auto max-w-[40%] shrink-0 truncate pl-2 text-xs tabular-nums text-muted-foreground">{item.meta}</span>}
                 {item.hotkey && <Kbd className="ml-auto max-sm:hidden">{item.hotkey}</Kbd>}

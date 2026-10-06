@@ -2,7 +2,7 @@
  * SourceInfoPage
  *
  * A source's page: its name once in the title row, its tagline once as the lead line under it, then its
- * connection, tools, permissions and documentation (guide.md) as sections of Settings' roomy column. View-only:
+ * connection, tools, permissions and documentation (guide.md) as sections of the page column. View-only:
  * editing asks an agent through each section's Edit popover. Its actions are the title row's More actions (Copy
  * link, Show in the file manager, Delete).
  */

@@ -8,7 +8,7 @@
  */
 
 import * as React from 'react'
-import { Globe, HardDrive, Mail, Plug } from 'lucide-react'
+import { DatabaseZap, Globe, HardDrive, Mail, Plug } from 'lucide-react'
 import { EntityIcon, type IconComponent } from '@/components/ui/entity-icon'
 import { useEntityIcon, logoUrlCache } from '@/lib/icon-cache'
 import { McpIcon } from '@/components/icons/mcp-icon'
@@ -33,6 +33,8 @@ interface SourceAvatarProps {
   className?: string
   /** No ring or fill of its own (in a tile that has them) */
   chromeless?: boolean
+  /** Just the glyph (DatabaseZap when it has no icon), emoji or image: no tile (the command palette's rows) */
+  bare?: boolean
 }
 
 // ============================================================================
@@ -76,12 +78,14 @@ const STATUS_SIZE_CONFIG: Record<IconSize, 'xs' | 'sm' | 'md'> = {
  */
 function useFaviconFallback(
   source: LoadedSource,
-  primaryIcon: ResolvedEntityIcon
+  primaryIcon: ResolvedEntityIcon,
+  bare?: boolean
 ): string | null {
   const [faviconUrl, setFaviconUrl] = React.useState<string | null>(null)
 
   // Only resolve favicon when primary icon resolved to fallback (no local file found)
-  const needsFavicon = primaryIcon.kind === 'fallback'
+  // Otto: bare (the palette's row) shows the source's own icon or the one glyph, never a fetched favicon.
+  const needsFavicon = primaryIcon.kind === 'fallback' && !bare
 
   // Extract stable primitive deps from source.config to avoid re-renders on object ref changes
   const slug = source.config.slug
@@ -140,7 +144,7 @@ function useFaviconFallback(
 // Component
 // ============================================================================
 
-export function SourceAvatar({ source, size = 'md', showStatus, className, chromeless }: SourceAvatarProps) {
+export function SourceAvatar({ source, size = 'md', showStatus, className, chromeless, bare }: SourceAvatarProps) {
   const icon = useEntityIcon({
     workspaceId: source.workspaceId,
     entityType: 'source',
@@ -150,14 +154,15 @@ export function SourceAvatar({ source, size = 'md', showStatus, className, chrom
   })
 
   // Source-specific: favicon as secondary fallback when no local icon found
-  const faviconUrl = useFaviconFallback(source, icon)
+  const faviconUrl = useFaviconFallback(source, icon, bare)
 
   // If primary icon resolved to fallback but we have a favicon, use it as file icon
   const finalIcon: ResolvedEntityIcon = icon.kind === 'fallback' && faviconUrl
     ? { kind: 'file', value: faviconUrl, colorable: false }
     : icon
 
-  const FallbackIcon = SOURCE_FALLBACKS[source.config.type] ?? Plug
+  // Otto: bare (the palette's row) is one glyph for every source, the Sources icon of the settings sidebar.
+  const FallbackIcon = bare ? DatabaseZap : (SOURCE_FALLBACKS[source.config.type] ?? Plug)
 
   const entityIcon = (
     <EntityIcon
@@ -167,6 +172,7 @@ export function SourceAvatar({ source, size = 'md', showStatus, className, chrom
       alt={source.config.name}
       className={className}
       chromeless={chromeless}
+      bare={bare}
     />
   )
 

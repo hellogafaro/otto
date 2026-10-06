@@ -21,9 +21,11 @@ interface SkillAvatarProps {
   workspaceId?: string
   /** No ring or fill of its own (in a tile that has them) */
   chromeless?: boolean
+  /** Just the glyph, emoji or image: no tile (the command palette's rows) */
+  bare?: boolean
 }
 
-export function SkillAvatar({ skill, size = 'md', className, workspaceId, chromeless }: SkillAvatarProps) {
+export function SkillAvatar({ skill, size = 'md', className, workspaceId, chromeless, bare }: SkillAvatarProps) {
   const icon = useEntityIcon({
     workspaceId: workspaceId ?? '',
     entityType: 'skill',
@@ -40,6 +42,7 @@ export function SkillAvatar({ skill, size = 'md', className, workspaceId, chrome
       alt={skill.metadata.name}
       className={className}
       chromeless={chromeless}
+      bare={bare}
     />
   )
 }

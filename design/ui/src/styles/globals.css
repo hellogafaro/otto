@@ -110,11 +110,12 @@
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
   /* Otto: the top axis, ONE value: the center line, from the window's top, of
-     the sidebar's mark, every page title (the in-content title row at scroll 0,
-     the chat's pinned row) and the floating navigation's Back button. Derived
+     the sidebar's mark, the open chat's pinned title row and its floating
+     navigation's Back button, and below 768px every title row and the sheet's
+     menu button (from 768px other pages' title rows sit 64px down). Derived
      from the sidebar: the mark's 28px row starts 20px from the top (the group
      gap: the sidebar's 8px padding + 12px) and is followed by the same 20px, so
-     the mark has equal space above and below; its center is 20 + 28 / 2 = 34. Each of the four places offsets from it by half its own
+     the mark has equal space above and below; its center is 20 + 28 / 2 = 34. Each place offsets from it by half its own
      height; change it here and they all move together. */
   --axis-y: 34px;
   /* Otto: layers, lowest to highest. The frame is the darkest step (0.96) and

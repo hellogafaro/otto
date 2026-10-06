@@ -3,8 +3,8 @@
  * title row: Filter (Type: MCP, API, Local; `?type=`), Search (the palette on Sources) and "+" (Add source: the
  * add-source popover, which asks an agent to set it up, for the filtered type when one is set). A tile is the
  * source's own icon, its name and its type; it opens the source (no menu: the source's page has its More actions),
- * whose Back returns here and whose Previous / Next step through this grid. Settings' roomy column (`padded`). No
- * sources at all: the stock empty page alone (no title row), with the same Add source.
+ * whose Back returns here and whose Previous / Next step through this grid. No sources
+ * at all: the stock empty page alone (no title row), with the same Add source.
  */
 
 import { DatabaseZap, Plus, Shapes } from 'lucide-react'
@@ -86,7 +86,7 @@ export function SourcesPage() {
           </>
         )}
       />
-      <PageColumn padded className="min-h-full">
+      <PageColumn className="min-h-full">
         <div data-content-start="" className="flex flex-1 flex-col gap-3">
           <FilterBar
             fields={fields}

@@ -56,38 +56,38 @@ function Info_PageRoot({
   // Loading state
   if (loading) {
     return (
-      <div className={cn('h-full flex flex-col', className)}>
+      <PageColumn fill className={className}>
         {header}
         <div className="flex-1 flex items-center justify-center">
           <Spinner className="text-lg text-muted-foreground" />
         </div>
-      </div>
+      </PageColumn>
     )
   }
 
   // Error state
   if (error) {
     return (
-      <div className={cn('h-full flex flex-col', className)}>
+      <PageColumn fill className={className}>
         {header}
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground p-4">
           <AlertCircle className="h-10 w-10 text-destructive" />
           <p className="text-sm font-medium">{t('common.errorLoadingContent')}</p>
           <p className="text-xs text-center max-w-md">{error}</p>
         </div>
-      </div>
+      </PageColumn>
     )
   }
 
   // Empty state
   if (empty) {
     return (
-      <div className={cn('h-full flex flex-col', className)}>
+      <PageColumn fill className={className}>
         {header}
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <p className="text-sm">{empty}</p>
         </div>
-      </div>
+      </PageColumn>
     )
   }
 
@@ -106,10 +106,8 @@ function Info_PageHeader({ className, ...props }: Info_PageHeaderProps) {
 
 // The page's column: the header's title row (and the item's description) first,
 // then the sections, scrolling as a whole (the title scrolls away with it).
-// Settings' roomy column (`padded`), as on every settings page: a skill and a
-// source live in Settings, and the floating navigation follows the title down.
 function Info_PageContent({ children, className }: Info_PageContentProps) {
-  return <PageColumn padded className={className}>{children}</PageColumn>
+  return <PageColumn className={className}>{children}</PageColumn>
 }
 
 export const Info_Page = Object.assign(Info_PageRoot, {

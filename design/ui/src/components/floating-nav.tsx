@@ -19,9 +19,9 @@ import * as React from "react"
 // with no wrapper of their own, 8px apart. They are the page's only way back and
 // through its list: the title row has no back button and no crumbs.
 // `PageHeader` portals them into the frame's left gutter, 20px from the column,
-// with Back centered on the top axis (`--axis-y`: Back's center, the page
-// title's at scroll 0, the chat's pinned title and the sidebar mark's are one
-// line), and only while that gutter is at least 72px wide; narrower, the same
+// with Back level with the title row at scroll 0 (64px down; on the open chat
+// centered on the top axis, `--axis-y`, with its pinned title and the sidebar
+// mark), and only while that gutter is at least 72px wide; narrower, the same
 // actions move into the title row's trailing actions (`FloatingNavButtons`).
 // The gutter never scrolls, so they stay put while the title scrolls away.
 type NavAction = {

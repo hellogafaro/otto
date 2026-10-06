@@ -20,7 +20,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@workspace/ui/components/dropdown-menu'
-import { PageCenterpiece } from '@workspace/ui/components/page'
+import { PageCenterpiece, PageColumn } from '@workspace/ui/components/page'
 import { PageScroll } from '@workspace/ui/components/page-frame'
 import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
 import { TiptapMarkdownEditor } from '@otto/ui'
@@ -190,7 +190,7 @@ function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof 
   const details = () => toggleSidecar({ title: t('tasks.details'), content: <TaskDetails taskId={task.id} /> })
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-8">
+    <PageColumn fill>
       <PageHeader
         title={(
           <input
@@ -222,7 +222,7 @@ function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof 
           <CommentThread entity={`task:${task.id}`} className="mt-5" />
         </PageScroll>
       </PageCenterpiece>
-    </div>
+    </PageColumn>
   )
 }
 

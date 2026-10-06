@@ -10,7 +10,7 @@ import * as React from 'react'
 import { Calendar, Download, Folder, HardDrive, PanelRight, Shapes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
-import { PageCenterpiece } from '@workspace/ui/components/page'
+import { PageCenterpiece, PageColumn } from '@workspace/ui/components/page'
 import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
 import { toast } from '@workspace/ui/components/sonner'
 import { Spinner } from '@workspace/ui/components/spinner'
@@ -84,10 +84,10 @@ function DocumentPage({ itemId, actions, menu }: { itemId: string; actions: Reac
 
 function LoadingPage({ title }: { title?: string }) {
   return (
-    <div className="flex h-full min-h-0 flex-col gap-8">
+    <PageColumn fill>
       <PageHeader title={title ?? ''} />
       <PageCenterpiece className="items-center justify-center text-muted-foreground"><Spinner /></PageCenterpiece>
-    </div>
+    </PageColumn>
   )
 }
 
@@ -156,7 +156,7 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-8">
+    <PageColumn fill>
       <PageHeader
         title={getDisplayTitle(item)}
         actions={<><HeaderIconButton icon={<Download />} tooltip={t('library.download')} onClick={() => download(item)} />{details}</>}
@@ -166,6 +166,6 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
         <FilePreview item={item} onDownload={() => download(item)} />
       </PageCenterpiece>
       {dialogs.dialogs}
-    </div>
+    </PageColumn>
   )
 }

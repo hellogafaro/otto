@@ -83,11 +83,15 @@ const THEMES: { mode: ThemeMode; icon: LucideIcon; labelKey: string }[] = [
   { mode: 'system', icon: Monitor, labelKey: 'commandPalette.systemTheme' },
 ]
 
-/** A chat's status icon, 14px, in its status color. */
-export function StatusIcon({ id, statuses }: { id: string; statuses: SessionStatus[] }) {
+/**
+ * A chat's status icon, bare (its status config draws a tile around a colorable glyph),
+ * in its status color.
+ */
+function StatusIcon({ id, statuses }: { id: string; statuses: SessionStatus[] }) {
+  const icon = getStateIcon(id, statuses)
   return (
-    <span className="flex size-3.5 shrink-0 items-center justify-center" style={getStateIconStyle(id, statuses)}>
-      {getStateIcon(id, statuses)}
+    <span className="flex" style={getStateIconStyle(id, statuses)}>
+      {React.isValidElement(icon) && typeof icon.type !== 'string' ? React.cloneElement(icon as React.ReactElement<{ bare?: boolean }>, { bare: true }) : icon}
     </span>
   )
 }
@@ -223,13 +227,13 @@ export function usePaletteData(): PaletteData<PaletteItem> {
       skills: (skills ?? []).map((skill) => ({
         key: `skill:${skill.slug}`,
         title: skill.metadata.name,
-        icon: <SkillAvatar skill={skill} size="xs" workspaceId={activeWorkspaceId ?? undefined} />,
+        icon: <SkillAvatar skill={skill} size="xs" bare workspaceId={activeWorkspaceId ?? undefined} />,
         run: go(routes.view.skills({ skillSlug: skill.slug })),
       })),
       sources: (sources ?? []).map((source) => ({
         key: `source:${source.config.slug}`,
         title: source.config.name,
-        icon: <SourceAvatar source={source} size="xs" />,
+        icon: <SourceAvatar source={source} size="xs" bare />,
         run: go(routes.view.sources({ sourceSlug: source.config.slug })),
       })),
       actions,

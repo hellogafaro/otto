@@ -199,7 +199,7 @@ const iconGroupRule =
 // first group 20px, group -> group 20px, the last group -> the footer at least
 // 20px, the footer's row -> window bottom 20px (the mirror of the top). The
 // mark (20px) in its row so has 24px above and 24px below it, and its center
-// is the top axis (`--axis-y`, 34px), the page title's line. Icons only the
+// is the top axis (`--axis-y`, 34px), the open chat's title line. Icons only the
 // groups are 8px apart, so the header ends 8px above the first one's hairline.
 // No side padding (the container pads the rows).
 function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
