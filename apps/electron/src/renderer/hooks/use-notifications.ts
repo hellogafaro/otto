@@ -24,6 +24,6 @@ export function useNotifications() {
   }, [mutate])
 
   const notifications = items as NotificationItem[]
-  const unreadCount = useMemo(() => notifications.filter((item) => item.status === 'unread').length, [notifications])
+  const unreadCount = useMemo(() => notifications.filter((item) => item.readAt === null).length, [notifications])
   return { notifications, unreadCount, loaded, refresh, ...actions }
 }

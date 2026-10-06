@@ -3,7 +3,7 @@ import type { LibraryItem, Resource, Task } from '../../../../shared/types'
 import { getLibraryCandidates, getMemberCandidates, getProjectLibrary, getProjectTabCounts, guessLibraryKind } from '../project-items'
 
 function item(id: string, type: LibraryItem['type'], updatedAt = 1): LibraryItem {
-  return { id, type, folderId: null, title: type === 'document' ? `${id}.md` : id, mime: null, size: null, createdBy: 'user:aaaaaaaaaaaa', createdAt: 1, updatedAt }
+  return { id, type, parentId: null, title: type === 'document' ? `${id}.md` : id, mime: null, size: null, createdBy: 'user:aaaaaaaaaaaa', createdAt: 1, updatedAt }
 }
 const link = (ref: string, title = ref): Resource => ({ type: 'library', ref, title })
 const url: Resource = { type: 'url', ref: 'https://example.com', title: 'Example' }
@@ -43,7 +43,7 @@ describe('getLibraryCandidates', () => {
 describe('getMemberCandidates', () => {
   it('lists the people and agents not in the project', () => {
     const people = [{ actor: 'user:a' }, { actor: 'user:b' }, { actor: 'agent:default' }]
-    expect(getMemberCandidates(people, [{ actor: 'user:a', role: 'contributor' }]).map((p) => p.actor)).toEqual(['user:b', 'agent:default'])
+    expect(getMemberCandidates(people, ['user:a']).map((p) => p.actor)).toEqual(['user:b', 'agent:default'])
   })
 })
 

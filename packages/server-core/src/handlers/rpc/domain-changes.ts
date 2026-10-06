@@ -26,7 +26,7 @@ export const WRITE_CHANNELS: Record<string, Domain[]> = {
   [C.projects.CREATE]: ['projects'],
   [C.projects.UPDATE]: ['projects'],
   [C.projects.SET_STATUS]: ['projects'],
-  [C.projects.SET_MEMBER]: ['projects'],
+  [C.projects.ADD_MEMBER]: ['projects'],
   [C.projects.REMOVE_MEMBER]: ['projects'],
   [C.tasks.CREATE]: ['tasks', 'notifications'],
   [C.tasks.UPDATE]: ['tasks', 'notifications'],
@@ -46,6 +46,14 @@ export const WRITE_CHANNELS: Record<string, Domain[]> = {
   [C.labels.CREATE]: ['labels'],
   [C.labels.DELETE]: ['labels'],
   [C.statuses.REORDER]: ['statuses'],
+  [C.skills.DELETE]: ['skills'],
+  [C.sources.CREATE]: ['sources'],
+  [C.sources.DELETE]: ['sources'],
+  [C.sources.SAVE_CREDENTIALS]: ['sources'],
+  [C.oauth.REVOKE]: ['sources'],
+  [C.agents.CREATE]: ['agents'],
+  [C.agents.UPDATE]: ['agents'],
+  [C.agents.DELETE]: ['agents'],
 }
 
 /**
@@ -61,9 +69,9 @@ const NOTIFIED: Record<string, (ctx: RequestContext, result: never) => string[] 
   [C.notifications.CLEAR]: (ctx) => (ctx.userId ? [ctx.userId] : undefined),
 }
 
-/** The workspace id a write is about: the first argument of the members, labels and statuses channels (an id, or a name; an invitation id for a revoke), else the connection's. */
+/** The workspace id a write is about: the first argument of the members, labels, statuses, skills and sources channels (an id, or a name; an invitation id for a revoke), else the connection's. */
 function workspaceIdOf(channel: string, ctx: Parameters<typeof resolveWorkspace>[0], args: unknown[], deps: HandlerDeps): string | undefined {
-  if (!/^(workspaces|labels|statuses):/.test(channel)) return resolveWorkspace(ctx, deps).id
+  if (!/^(workspaces|labels|statuses|skills|sources):/.test(channel)) return resolveWorkspace(ctx, deps).id
   const ref = String(args[0])
   return channel === C.workspaces.REVOKE_INVITATION ? getWorkspaceInvitation(ref)?.workspaceId : getWorkspaceByNameOrId(ref)?.id
 }

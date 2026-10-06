@@ -12,7 +12,10 @@ import { initUsersStore } from '@otto/shared/users'
 import { initSettingsImport } from '@otto/shared/settings'
 import { initConnectionsImport } from '@otto/shared/connections/import'
 import { initSecretsImport } from '@otto/shared/secrets/import'
+import { initAgentsImport } from '@otto/shared/agents/import'
 import { initLabelsStatusesImport } from '@otto/shared/labels/import'
+import { initSkills } from '@otto/shared/skills'
+import { initSources } from '@otto/shared/sources'
 import { getWorkspaceOwnerIds } from '@otto/shared/workspaces'
 import { authorize } from './authorize.ts'
 import { createIdentityValidators } from './identity.ts'
@@ -376,6 +379,12 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   if (tokens.imported) platform.logger.info(`[bootstrap] moved ${tokens.imported} tokens into secrets`)
   // The labels, statuses and permission rules of each workspace's files become rows, once per workspace.
   initLabelsStatusesImport()
+  // Each workspace's first agent, and `agent:default` rewritten to it, once per workspace.
+  initAgentsImport()
+  // The skill folders of each workspace become rows with their bundle in the store, once; then folder and bundle are made equal.
+  await initSkills()
+  // The same for each workspace's source folders, and the credentials they had in credentials.enc become secrets.
+  await initSources()
   if (users.needsOwner() && !process.env.OTTO_OWNER_EMAIL?.trim()) {
     platform.logger.warn('[bootstrap] The first sign-up will own this server; set OTTO_OWNER_EMAIL to restrict it')
   }

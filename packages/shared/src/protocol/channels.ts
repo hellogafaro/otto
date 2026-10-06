@@ -108,6 +108,13 @@ export const RPC_CHANNELS = {
     UPDATE: 'library:update',
     DELETE: 'library:delete',
   },
+  agents: {
+    LIST: 'agents:list',
+    GET: 'agents:get',
+    CREATE: 'agents:create',
+    UPDATE: 'agents:update',
+    DELETE: 'agents:delete',
+  },
   fs: {
     SEARCH: 'fs:search',
     LIST_DIRECTORY: 'fs:listDirectory',
@@ -234,6 +241,8 @@ export const RPC_CHANNELS = {
     START_OAUTH: 'sources:startOAuth',
     SAVE_CREDENTIALS: 'sources:saveCredentials',
     CHANGED: 'sources:changed',
+    /** A push of a source's edited folder was refused because the source changed elsewhere; the folder was reloaded (workspaceId, slug). */
+    CONFLICT: 'sources:conflict',
     GET_PERMISSIONS: 'sources:getPermissions',
     GET_MCP_TOOLS: 'sources:getMcpTools',
   },
@@ -261,6 +270,8 @@ export const RPC_CHANNELS = {
     OPEN_EDITOR: 'skills:openEditor',
     OPEN_FINDER: 'skills:openFinder',
     CHANGED: 'skills:changed',
+    /** A push of a skill's edited folder was refused because the skill changed elsewhere; the folder was reloaded (workspaceId, slug). */
+    CONFLICT: 'skills:conflict',
   },
   statuses: {
     LIST: 'statuses:list',
@@ -366,8 +377,7 @@ export const RPC_CHANNELS = {
     CREATE: 'projects:create',
     UPDATE: 'projects:update',
     SET_STATUS: 'projects:setStatus',
-    GET_MEMBERS: 'projects:getMembers',
-    SET_MEMBER: 'projects:setMember',
+    ADD_MEMBER: 'projects:addMember',
     REMOVE_MEMBER: 'projects:removeMember',
   },
   timesheets: {

@@ -54,7 +54,8 @@ const tileClass =
 // Otto: one tile and its title. The whole item (tile and title) is the link or
 // button (`render`). In the tile: `media`, a glyph centered in
 // the 32px `md` `bg-muted` icon tile (16px), with an optional `label` 8px under
-// it (12px medium muted: a file's type, "PDF"). Under the tile, 8px down: the
+// it (12px medium muted: a file's type, "PDF"); `badge`, a static `Badge` 8px
+// inside the tile's top-start corner (an agent's "Default"). Under the tile, 8px down: the
 // 14px muted `icon`, 8px, the title (13px medium, truncated). `menu` is the
 // item's right-click menu (a `ContextMenuContent`); `actions` (a 28px ghost ⋯,
 // as on list rows) sits 8px inside the tile's top and end corner, shown on
@@ -66,6 +67,7 @@ function GalleryItem({
   icon,
   media,
   label,
+  badge,
   ratio = "4:5",
   menu,
   actions,
@@ -84,6 +86,8 @@ function GalleryItem({
     media?: React.ReactNode
     /** A short caption under the media (a file's type). */
     label?: React.ReactNode
+    /** A static `Badge` 8px inside the tile's top-start corner (the default agent's "Default"). */
+    badge?: React.ReactNode
     ratio?: GalleryRatio
     /** The right-click menu: a `ContextMenuContent`. */
     menu?: React.ReactNode
@@ -129,6 +133,9 @@ function GalleryItem({
                 <span className="max-w-full truncate px-3 text-xs font-medium">
                   {label}
                 </span>
+              )}
+              {badge && (
+                <span className="absolute top-2 left-2 flex">{badge}</span>
               )}
             </div>
             <span

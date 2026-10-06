@@ -39,8 +39,8 @@ export function TaskGroups({
   const { t } = useTranslation()
   const groups = groupTasks(tasks)
   return (
-    // Otto: TEST (DESIGN.md, PageWrap): the Chats index's padded wrapper, 9px out of the column from 768px. Revert: drop `className`.
-    <PageWrap className="p-3 md:-mx-[9px]">
+    // Otto: the Chats index's padded wrapper (DESIGN.md, PageWrap): `--wrap-pad` (16px) in, on the column's edges.
+    <PageWrap padded>
       {TASK_GROUPS.map((status) => {
         const open = status === 'done' ? doneOpen : status === 'archived' ? archivedOpen : true
         return (

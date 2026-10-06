@@ -1,7 +1,10 @@
 import { join } from 'path'
-import { existsSync, readdirSync, statSync } from 'fs'
+import { readdirSync, statSync } from 'fs'
 import { RPC_CHANNELS, type SkillFile } from '@otto/shared/protocol'
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
+import { deleteSkill, getLoadedSkills, getSkill } from '@otto/shared/skills'
+import { getWorkspaceSkillsPath } from '@otto/shared/workspaces'
+import { domainError } from '@otto/shared/utils'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 
@@ -13,38 +16,34 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.skills.OPEN_FINDER,
 ] as const
 
+/**
+ * Skills of a workspace: members read, a skill's creator or an owner deletes (`authorize.ts`); a delete pushes
+ * `domain:changed` (`domain-changes.ts`). The list is the `skills` rows, each read from its local folder (the
+ * materialized copy of its bundle) for what the rows do not hold; a skill is made or edited by an agent in that folder
+ * and the config watcher pushes it (see `@otto/shared/skills`).
+ */
 export function registerSkillsHandlers(server: RpcServer, deps: HandlerDeps): void {
-  // Get all skills for a workspace (and optionally project-level skills from workingDirectory)
-  server.handle(RPC_CHANNELS.skills.GET, async (_ctx, workspaceId: string, workingDirectory?: string) => {
-    deps.platform.logger?.info(`SKILLS_GET: Loading skills for workspace: ${workspaceId}${workingDirectory ? `, workingDirectory: ${workingDirectory}` : ''}`)
+  /** The workspace and the folder of one of its skills; throws `not_found` for a slug that is not a skill, so a client's string never becomes a path. */
+  function skillFolder(workspaceId: string, skillSlug: string) {
+    const workspace = getWorkspaceByNameOrId(workspaceId)
+    if (!workspace) throw domainError('not_found', 'Workspace not found')
+    if (!getSkill(workspace.id, skillSlug)) throw domainError('not_found', `Skill ${skillSlug} does not exist`)
+    return { workspace, dir: join(getWorkspaceSkillsPath(workspace.rootPath), skillSlug) }
+  }
+
+  // Get all skills for a workspace
+  server.handle(RPC_CHANNELS.skills.GET, async (_ctx, workspaceId: string) => {
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) {
       deps.platform.logger?.error(`SKILLS_GET: Workspace not found: ${workspaceId}`)
       return []
     }
-    // Validate workingDirectory exists on this server — a thin client may pass
-    // its local path which doesn't exist on the remote server's filesystem.
-    const effectiveWorkingDir = workingDirectory && existsSync(workingDirectory)
-      ? workingDirectory
-      : undefined
-    const { loadAllSkills } = await import('@otto/shared/skills')
-    const skills = loadAllSkills(workspace.rootPath, effectiveWorkingDir)
-    deps.platform.logger?.info(`SKILLS_GET: Loaded ${skills.length} skills from ${workspace.rootPath}`)
-    return skills
+    return getLoadedSkills(workspace.id)
   })
 
   // Get files in a skill directory
   server.handle(RPC_CHANNELS.skills.GET_FILES, async (_ctx, workspaceId: string, skillSlug: string) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) {
-      deps.platform.logger?.error(`SKILLS_GET_FILES: Workspace not found: ${workspaceId}`)
-      return []
-    }
-
-    const { getWorkspaceSkillsPath } = await import('@otto/shared/workspaces')
-
-    const skillsDir = getWorkspaceSkillsPath(workspace.rootPath)
-    const skillDir = join(skillsDir, skillSlug)
+    const { dir } = skillFolder(workspaceId, skillSlug)
 
     function scanDirectory(dirPath: string): SkillFile[] {
       try {
@@ -79,42 +78,27 @@ export function registerSkillsHandlers(server: RpcServer, deps: HandlerDeps): vo
       }
     }
 
-    return scanDirectory(skillDir)
+    return scanDirectory(dir)
   })
 
-  // Delete a skill from a workspace
+  // Delete a skill from a workspace: the row, its bundle and the local folder
   server.handle(RPC_CHANNELS.skills.DELETE, async (_ctx, workspaceId: string, skillSlug: string) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error('Workspace not found')
-
-    const { deleteSkill } = await import('@otto/shared/skills')
-    deleteSkill(workspace.rootPath, skillSlug)
+    const { workspace } = skillFolder(workspaceId, skillSlug)
+    await deleteSkill(workspace.id, skillSlug)
     deps.platform.logger?.info(`Deleted skill: ${skillSlug}`)
   })
 
   // Open skill SKILL.md in editor
   server.handle(RPC_CHANNELS.skills.OPEN_EDITOR, async (_ctx, workspaceId: string, skillSlug: string) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error('Workspace not found')
+    const { workspace, dir } = skillFolder(workspaceId, skillSlug)
     if (workspace.remoteServer) throw new Error('Open in editor is not available for remote workspaces')
-
-    const { getWorkspaceSkillsPath } = await import('@otto/shared/workspaces')
-
-    const skillsDir = getWorkspaceSkillsPath(workspace.rootPath)
-    const skillFile = join(skillsDir, skillSlug, 'SKILL.md')
-    await deps.platform.openPath?.(skillFile)
+    await deps.platform.openPath?.(join(dir, 'SKILL.md'))
   })
 
   // Open skill folder in Finder/Explorer
   server.handle(RPC_CHANNELS.skills.OPEN_FINDER, async (_ctx, workspaceId: string, skillSlug: string) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error('Workspace not found')
+    const { workspace, dir } = skillFolder(workspaceId, skillSlug)
     if (workspace.remoteServer) throw new Error('Show in Finder is not available for remote workspaces')
-
-    const { getWorkspaceSkillsPath } = await import('@otto/shared/workspaces')
-
-    const skillsDir = getWorkspaceSkillsPath(workspace.rootPath)
-    const skillDir = join(skillsDir, skillSlug)
-    await deps.platform.showItemInFolder?.(skillDir)
+    await deps.platform.showItemInFolder?.(dir)
   })
 }

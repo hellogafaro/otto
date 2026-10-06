@@ -46,7 +46,7 @@ export function getLabelRow(workspaceId: string, slug: string, db: Db | Tx = ini
 
 /** The label tree of a workspace: root labels with nested `children`, siblings in their order. */
 export function getLabels(workspaceId: string, db: Db | Tx = initDb()): LabelConfig[] {
-  const rows = db.select().from(labels).where(eq(labels.workspaceId, workspaceId)).orderBy(asc(labels.order), asc(labels.createdAt)).all();
+  const rows = db.select().from(labels).where(eq(labels.workspaceId, workspaceId)).orderBy(asc(labels.position), sql`rowid`).all();
   const nodes = new Map(rows.map((row) => [row.id, toConfig(row)]));
   const roots: LabelConfig[] = [];
   for (const row of rows) {
@@ -86,14 +86,13 @@ export function isValidLabelIdFormat(labelId: string): boolean {
 }
 
 /**
- * Inserts a tree of labels under `parentId` with new row ids, `slug` = the node's id and `order` = its position.
+ * Inserts a tree of labels under `parentId` with new row ids, `slug` = the node's id and `position` = its position.
  * A node whose slug the workspace already has is skipped with its children; returns how many were skipped.
  */
 export function insertLabelTree(db: Db | Tx, workspaceId: string, nodes: LabelConfig[], parentId: string | null = null): { inserted: number; skipped: number } {
-  const now = new Date();
   let inserted = 0;
   let skipped = 0;
-  nodes.forEach((node, order) => {
+  nodes.forEach((node, position) => {
     const id = createId();
     const row = {
       id,
@@ -104,9 +103,7 @@ export function insertLabelTree(db: Db | Tx, workspaceId: string, nodes: LabelCo
       color: node.color === undefined ? null : JSON.stringify(node.color),
       valueType: node.valueType ?? null,
       autoRules: node.autoRules?.length ? JSON.stringify(node.autoRules) : null,
-      order,
-      createdAt: now,
-      updatedAt: now,
+      position,
     };
     if (db.insert(labels).values(row).onConflictDoNothing().returning({ id: labels.id }).all().length === 0) {
       skipped += 1 + countTree(node.children ?? []);

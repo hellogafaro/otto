@@ -100,7 +100,7 @@ export function createAutosave<T>(
 export function useAutosave<T>(
   initial: T,
   save: (value: T) => unknown | Promise<unknown>,
-  options: { message?: string; id?: string; onSaved?: (result: unknown) => void; onConflict?: () => void } = {},
+  options: { message?: string; id?: string; onSaved?: (result: unknown) => void; onConflict?: () => void; /** The wait after the last change (default `DEBOUNCE_MS`; an agent's page waits 600 ms, BB's). */ ms?: number } = {},
 ) {
   const { t } = useTranslation()
   const latest = useRef({ save, options, t })
@@ -119,7 +119,7 @@ export function useAutosave<T>(
         toast.error(t('common.changedElsewhere'), { id: options.id ?? 'saved' })
         options.onConflict?.()
       },
-    }),
+    }, options.ms),
   )
 
   const initialJson = JSON.stringify(initial)

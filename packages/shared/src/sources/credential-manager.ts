@@ -125,7 +125,7 @@ export class SourceCredentialManager {
   async save(source: LoadedSource, credential: StoredCredential): Promise<void> {
     const credentialId = this.getCredentialId(source);
     const manager = getCredentialManager();
-    await manager.set(credentialId, credential);
+    await manager.setSourceCredential(credentialId, credential);
     debug(`[SourceCredentialManager] Saved ${credentialId.type} for ${source.config.slug}`);
   }
 
@@ -155,7 +155,7 @@ export class SourceCredentialManager {
 
     // For other sources, use the credential ID based on authType
     const credentialId = this.getCredentialId(source);
-    const cred = await manager.get(credentialId);
+    const cred = await manager.getSourceCredential(credentialId);
 
     if (cred) {
       debug(`[SourceCredentialManager] Found ${credentialId.type} for ${source.config.slug}`);
@@ -175,14 +175,14 @@ export class SourceCredentialManager {
     };
 
     // Try OAuth first
-    const oauthCreds = await manager.get({ type: 'source_oauth', ...baseId });
+    const oauthCreds = await manager.getSourceCredential({ type: 'source_oauth', ...baseId });
     if (oauthCreds?.value) {
       debug(`[SourceCredentialManager] Found source_oauth for ${source.config.slug}`);
       return oauthCreds;
     }
 
     // Fall back to bearer
-    const bearerCreds = await manager.get({ type: 'source_bearer', ...baseId });
+    const bearerCreds = await manager.getSourceCredential({ type: 'source_bearer', ...baseId });
     if (bearerCreds?.value) {
       debug(`[SourceCredentialManager] Found source_bearer for ${source.config.slug}`);
       return bearerCreds;
@@ -196,23 +196,17 @@ export class SourceCredentialManager {
    * Delete credential for a source
    */
   async delete(source: LoadedSource): Promise<boolean> {
-    const credentialId = this.getCredentialId(source);
-    const manager = getCredentialManager();
-    const deleted = await manager.delete(credentialId);
-    if (deleted) {
-      debug(`[SourceCredentialManager] Deleted ${credentialId.type} for ${source.config.slug}`);
-    }
-    return deleted;
+    return this.deleteSync(source);
   }
 
   /**
-   * Delete credential for a source synchronously.
+   * Delete credential for a source synchronously (the table is local and synchronous).
    * Used by sync config-save paths to avoid stale credential reads on immediate reload.
    */
   deleteSync(source: LoadedSource): boolean {
     const credentialId = this.getCredentialId(source);
     const manager = getCredentialManager();
-    const deleted = manager.deleteSync(credentialId);
+    const deleted = manager.deleteSourceCredential(credentialId);
     if (deleted) {
       debug(`[SourceCredentialManager] Deleted ${credentialId.type} for ${source.config.slug}`);
     }

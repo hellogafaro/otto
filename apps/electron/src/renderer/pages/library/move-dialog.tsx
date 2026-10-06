@@ -22,7 +22,7 @@ export function MoveDialog({
   items: LibraryItem[]
   onOpenChange: (open: boolean) => void
   /** Moves it; resolves true when done (the dialog closes). */
-  onMove: (item: LibraryItem, folderId: string | null) => Promise<boolean>
+  onMove: (item: LibraryItem, parentId: string | null) => Promise<boolean>
 }) {
   const { t } = useTranslation()
   const [target, setTarget] = React.useState<string | null>(null)
@@ -30,7 +30,7 @@ export function MoveDialog({
   const rows = React.useMemo(() => getFolderRows(items), [items])
 
   React.useEffect(() => {
-    if (item) setTarget(item.folderId ?? null)
+    if (item) setTarget(item.parentId ?? null)
   }, [item])
 
   const submit = async () => {
@@ -69,7 +69,7 @@ export function MoveDialog({
         </div>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>{t('common.cancel')}</DialogClose>
-          <Button onClick={submit} loading={pending} disabled={!item || target === (item.folderId ?? null)}>
+          <Button onClick={submit} loading={pending} disabled={!item || target === (item.parentId ?? null)}>
             {t('library.move')}
           </Button>
         </DialogFooter>

@@ -29,7 +29,7 @@ function arrange(options: { tokenInRow?: boolean } = {}) {
   writeFileSync(fileConfig, JSON.stringify({ workspaces: [], serverConfig: { enabled: true, port: 9300, token: 'srv-token-1' } }))
   // the row the settings importer made: without the token (its reader drops it), or, from an earlier build, with it
   const server = options.tokenInRow ? { enabled: true, port: 9300, token: 'srv-token-1' } : { enabled: true, port: 9300 }
-  db.insert(settings).values({ entity: INSTALL, key: 'server', value: JSON.stringify(server), updatedAt: new Date() }).run()
+  db.insert(settings).values({ entity: INSTALL, key: 'server', value: JSON.stringify(server) }).run()
   const root = join(CONFIG_DIR, 'workspaces', 'remote-one')
   mkdirSync(root, { recursive: true })
   writeFileSync(registryPath, JSON.stringify({ workspaces: [{ id: 'ws-remote', name: 'Remote', rootPath: root, createdAt: 1, remoteServer: { url: 'wss://h:9100', token: 'remote-token-1', remoteWorkspaceId: 'rw' } }] }))

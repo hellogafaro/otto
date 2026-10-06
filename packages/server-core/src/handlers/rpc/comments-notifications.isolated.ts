@@ -67,7 +67,7 @@ async function makeTask(title = 'Fix login', assignees = [`user:${B}`]) {
   const task = await callAs(ctxA, C.tasks.CREATE, { projectId: project.id, title, assignees })
   return { project, task, entity: `task:${task.id}` }
 }
-type Item = { id: string; type: string; status: string; createdBy: string; entity: string; entityTitle: string | null; comment: { id: string; content: string; entity: string } | null }
+type Item = { id: string; type: string; readAt: number | null; createdBy: string; entity: string; entityTitle: string | null; comment: { id: string; content: string; entity: string } | null }
 const inbox = async (as: Ctx) => (await callAs(as, C.notifications.GET)) as Item[]
 
 describe('comments and notifications RPC', () => {
@@ -77,8 +77,8 @@ describe('comments and notifications RPC', () => {
 
   it('tells the assignee, with the entity title, and nobody for their own assignment', async () => {
     const { entity } = await makeTask()
-    expect((await inbox(ctxB)).map((n) => [n.type, n.createdBy, n.entity, n.entityTitle, n.status, n.comment])).toEqual([
-      ['assigned', `user:${A}`, entity, 'Fix login', 'unread', null],
+    expect((await inbox(ctxB)).map((n) => [n.type, n.createdBy, n.entity, n.entityTitle, n.readAt, n.comment])).toEqual([
+      ['assigned', `user:${A}`, entity, 'Fix login', null, null],
     ])
     expect(await inbox(ctxA)).toEqual([])
     await makeTask('Mine', [`user:${A}`])
@@ -99,7 +99,7 @@ describe('comments and notifications RPC', () => {
     const [latest] = await inbox(ctxA)
     expect(latest).toMatchObject({
       type: 'mention',
-      status: 'unread',
+      readAt: null,
       createdBy: `user:${B}`,
       entity: `comment:${comment.id}`,
       entityTitle: 'Fix login',

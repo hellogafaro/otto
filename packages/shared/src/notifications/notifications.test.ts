@@ -48,7 +48,7 @@ test('one row per user, entity and type: the same sentence again makes it unread
   const [assigned] = getNotifications(B, W, db)
   updateNotificationStatus(B, W, 'all', 'read', db)
   tell(B, { createdBy: `user:${B}` })
-  expect(getNotifications(B, W, db).map((n) => [n.type, n.status])).toEqual([['assigned', 'unread'], ['mention', 'read']])
+  expect(getNotifications(B, W, db).map((n) => [n.type, n.readAt === null ? 'unread' : 'read'])).toEqual([['assigned', 'unread'], ['mention', 'read']])
   expect(getNotifications(B, W, db)[0]).toMatchObject({ id: assigned!.id, createdBy: `user:${B}` })
   expect(getNotifications(A, W, db)).toHaveLength(1)
 })
@@ -60,7 +60,7 @@ test('notifications are mine, newest first, per workspace, with unread counted',
   createNotification({ userId: B, workspaceId: OTHER_W, entity: TASK, type: 'assigned', createdBy: `user:${A}` }, db)
   tell(A)
   expect(getNotifications(B, W, db).map((n) => n.entity)).toEqual(['task:222222222222', 'task:111111111111'])
-  expect(getNotifications(B, W, db)[0]).toMatchObject({ type: 'assigned', status: 'unread', createdBy: `user:${A}` })
+  expect(getNotifications(B, W, db)[0]).toMatchObject({ type: 'assigned', readAt: null, createdBy: `user:${A}` })
   expect([getUnreadCount(B, W, db), getUnreadCount(B, OTHER_W, db), getUnreadCount(A, W, db)]).toEqual([2, 1, 1])
 })
 

@@ -18,10 +18,10 @@ export function useLibrary() {
   const actions = useMemo(() => {
     const api = window.electronAPI
     return {
-      createLibraryItem: (input: { title: string; mime: string; content: LibraryContent; folderId?: string | null }) =>
+      createLibraryItem: (input: { title: string; mime: string; content: LibraryContent; parentId?: string | null }) =>
         mutate(() => api.createLibraryItem(input)),
-      createLibraryFolder: (input: { title: string; folderId?: string | null }) => mutate(() => api.createLibraryFolder(input)),
-      /** Rename, move (`folderId`) or replace the content. */
+      createLibraryFolder: (input: { title: string; parentId?: string | null }) => mutate(() => api.createLibraryFolder(input)),
+      /** Rename, move (`parentId`) or replace the content. */
       updateLibraryItem: (id: string, patch: LibraryUpdate) => mutate(() => api.updateLibraryItem(id, patch)),
       deleteLibraryItem: (id: string) => mutate(() => api.deleteLibraryItem(id)),
     }

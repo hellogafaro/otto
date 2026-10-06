@@ -287,7 +287,7 @@ if (webuiHandler) {
   healthCheckFn = () => getHealthCheck(depsLike)
 
   // Wire up OAuth callback deps so /api/oauth/callback works
-  const { getSourceCredentialManager, loadWorkspaceSources } = await import('@otto/shared/sources')
+  const { getSourceCredentialManager, getLoadedSources } = await import('@otto/shared/sources')
   const { getWorkspaceByNameOrId } = await import('@otto/shared/config')
   const { pushTyped } = await import('@otto/server-core/transport')
   const { RPC_CHANNELS } = await import('@otto/shared/protocol')
@@ -298,7 +298,7 @@ if (webuiHandler) {
     sessionManager: instance.sessionManager,
     pushSourcesChanged: (workspaceId: string) => {
       const ws = getWorkspaceByNameOrId(workspaceId)
-      const sources = ws ? loadWorkspaceSources(ws.rootPath) : []
+      const sources = ws ? getLoadedSources(ws.id) : []
       pushTyped(instance.wsServer, RPC_CHANNELS.sources.CHANGED, { to: 'workspace', workspaceId }, workspaceId, sources)
     },
   })

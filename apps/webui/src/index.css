@@ -59,7 +59,8 @@ html.dark {
    * Convert once for the zoomed root; descendants already sit inside this box. */
   padding-top: calc(env(safe-area-inset-top, 0px) / var(--webui-css-zoom));
   padding-right: calc(env(safe-area-inset-right, 0px) / var(--webui-css-zoom));
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) / var(--webui-css-zoom));
+  /* The on-screen keyboard covers the home indicator: no bottom inset while it is up (viewport.ts). */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) * (1 - var(--webui-keyboard-open, 0)) / var(--webui-css-zoom));
   padding-left: calc(env(safe-area-inset-left, 0px) / var(--webui-css-zoom));
 }
 

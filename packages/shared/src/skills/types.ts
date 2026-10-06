@@ -28,20 +28,28 @@ export interface SkillMetadata {
   requiredSources?: string[];
 }
 
-/** Source of a loaded skill */
-export type SkillSource = 'global' | 'workspace' | 'project';
-
 /**
- * Plugin name for project-level and global skills.
- *
- * The SDK derives plugin names from `path.basename()` of the registered plugin
- * directory. Both `{project}/.agents/` and `~/.agents/` share the basename
- * `.agents`, so skills from either tier resolve to `.agents:skillSlug`.
+ * Plugin name the SDK gives the global and project skill folders (`~/.agents`, `{project}/.agents`).
+ * Those scopes no longer exist; the name stays only until the agent code that still resolves it (pre-tool-use,
+ * the renderer's mention qualification) is rewritten with the harness work.
  */
 export const AGENTS_PLUGIN_NAME = '.agents';
 
+/** A workspace skill's row (the table's index of its bundle); see ./store.ts. */
+export interface Skill {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  /** The actor that made it: 'user:<id>' or 'agent:<id>'. */
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /**
- * A loaded skill with parsed content
+ * A skill with parsed content, read from its folder in the workspace (the local copy of the bundle).
+ * The list a client sees (`getLoadedSkills`) is made of the rows, each read from its folder when the folder is there.
  */
 export interface LoadedSkill {
   /** Directory name (slug) */
@@ -54,6 +62,4 @@ export interface LoadedSkill {
   iconPath?: string;
   /** Absolute path to skill directory */
   path: string;
-  /** Where this skill was loaded from */
-  source: SkillSource;
 }

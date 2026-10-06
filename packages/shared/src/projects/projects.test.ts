@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { openDb } from '../db/index.ts'
 import { pushSchema } from '../db/push.ts'
-import { createProjectsStore, MAX_RESOURCES, MAX_TITLE, type ProjectErrorCode } from './index.ts'
+import { createProjectsStore, MAX_MEMBERS, MAX_RESOURCES, MAX_TITLE, type ProjectErrorCode } from './index.ts'
 import { isDomainError } from '../utils/errors.ts'
 
 const W = 'ws1'
@@ -24,16 +24,15 @@ function failsWith(code: ProjectErrorCode, run: () => unknown) {
   expect(isDomainError(error) && error.code).toBe(code)
 }
 
-test('create returns an active project and makes the creator a contributor', async () => {
+test('create returns an active project and makes the creator its first member', async () => {
   const projects = await setup()
   const project = projects.createProject({ createdBy: ME, workspaceId: W, title: '  Launch ', description: 'Ship it' })
   expect(project.id).toMatch(/^[0-9a-z]{12}$/)
-  expect(project).toMatchObject({ title: 'Launch', description: 'Ship it', status: 'active', resources: [] })
+  expect(project).toMatchObject({ title: 'Launch', description: 'Ship it', status: 'active', members: [ME], resources: [] })
   expect(project.createdAt).toBe(project.updatedAt)
   expect(projects.getProject(W, project.id)).toEqual(project)
-  expect(projects.getProjectMembers(W, project.id)).toEqual([{ actor: ME, role: 'contributor' }])
   const byAgent = projects.createProject({ workspaceId: W, title: 'B', createdBy: 'agent:default' })
-  expect(projects.getProjectMembers(W, byAgent.id)).toEqual([{ actor: 'agent:default', role: 'contributor' }])
+  expect(byAgent.members).toEqual(['agent:default'])
 })
 
 test('create validates the title, the description and the creator', async () => {
@@ -129,21 +128,16 @@ test('a stale expectedUpdatedAt is a conflict and changes nothing', async () => 
   expect(projects.updateProject(W, p.id, { title: 'D', expectedUpdatedAt: first.updatedAt }).title).toBe('D')
 })
 
-test('members: upsert, list, remove, validation', async () => {
+test('members: add, remove, validation', async () => {
   const projects = await setup()
   const p = projects.createProject({ createdBy: ME, workspaceId: W, title: 'A' })
-  projects.setProjectMember(W, p.id, 'agent:default', 'viewer')
-  projects.setProjectMember(W, p.id, 'agent:default', 'contributor')
-  projects.setProjectMember(W, p.id, ME, 'viewer')
-  expect(projects.getProjectMembers(W, p.id)).toEqual([
-    { actor: 'agent:default', role: 'contributor' },
-    { actor: ME, role: 'viewer' },
-  ])
-  projects.removeProjectMember(W, p.id, 'agent:default')
-  expect(projects.getProjectMembers(W, p.id)).toEqual([{ actor: ME, role: 'viewer' }])
-  failsWith('not_found', () => projects.removeProjectMember(W, p.id, 'agent:default'))
-  failsWith('invalid', () => projects.setProjectMember(W, p.id, 'bob', 'viewer'))
-  failsWith('invalid', () => projects.setProjectMember(W, p.id, ME, 'owner' as never))
-  failsWith('not_found', () => projects.setProjectMember(OTHER, p.id, ME, 'viewer'))
-  failsWith('not_found', () => projects.getProjectMembers(OTHER, p.id))
+  expect(projects.addProjectMember(W, p.id, 'agent:default').members).toEqual([ME, 'agent:default'])
+  expect(projects.addProjectMember(W, p.id, 'agent:default').members).toEqual([ME, 'agent:default'])
+  expect(projects.removeProjectMember(W, p.id, ME).members).toEqual(['agent:default'])
+  expect(projects.getProject(W, p.id)?.members).toEqual(['agent:default'])
+  failsWith('not_found', () => projects.removeProjectMember(W, p.id, ME))
+  failsWith('invalid', () => projects.addProjectMember(W, p.id, 'bob'))
+  failsWith('not_found', () => projects.addProjectMember(OTHER, p.id, ME))
+  for (let i = 0; i < MAX_MEMBERS; i++) if (i < MAX_MEMBERS - 1) projects.addProjectMember(W, p.id, `user:${String(i).padStart(12, 'a')}`)
+  failsWith('invalid', () => projects.addProjectMember(W, p.id, ME))
 })

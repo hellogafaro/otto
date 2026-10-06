@@ -89,6 +89,7 @@ function createMockDeps(): HandlerDeps {
 async function getExpectedChannels(): Promise<Set<string>> {
   // Core handler channels (now in server-core)
   const [
+    agents,
     auth,
     automations,
     files,
@@ -114,6 +115,7 @@ async function getExpectedChannels(): Promise<Set<string>> {
     library,
     transcription,
   ] = await Promise.all([
+    import('@otto/server-core/handlers/rpc/agents'),
     import('@otto/server-core/handlers/rpc/auth'),
     import('@otto/server-core/handlers/rpc/automations'),
     import('@otto/server-core/handlers/rpc/files'),
@@ -149,6 +151,7 @@ async function getExpectedChannels(): Promise<Set<string>> {
   ])
 
   return new Set([
+    ...agents.HANDLED_CHANNELS,
     ...auth.HANDLED_CHANNELS,
     ...automations.HANDLED_CHANNELS,
     ...files.HANDLED_CHANNELS,

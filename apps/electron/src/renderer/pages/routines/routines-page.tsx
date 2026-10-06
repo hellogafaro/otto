@@ -90,8 +90,8 @@ export function RoutinesPage() {
             removeLabel={(field) => `${t('common.remove')} ${field}`}
           />
           {!loaded ? (
-            // Otto: TEST: the same padded wrapper as Chats and Tasks (DESIGN.md, PageWrap). Revert: drop `className`.
-            <PageWrap aria-busy className="p-3 md:-mx-[9px]">
+            // Otto: the same padded wrapper as Chats and Tasks (DESIGN.md, PageWrap).
+            <PageWrap aria-busy padded>
               <ul>{[0, 1, 2].map((i) => <ListRowSkeleton key={i} />)}</ul>
             </PageWrap>
           ) : type && groups[type].length === 0 ? (
@@ -99,8 +99,8 @@ export function RoutinesPage() {
               <Button variant="outline" onClick={() => setType(undefined)}>{t('chatsIndex.clearFilters')}</Button>
             </NoResults>
           ) : (
-            // Otto: TEST: the same padded wrapper as Chats and Tasks (DESIGN.md, PageWrap). Revert: drop `className`.
-            <PageWrap className="p-3 md:-mx-[9px]">
+            // Otto: the same padded wrapper as Chats and Tasks (DESIGN.md, PageWrap).
+            <PageWrap padded>
               {ROUTINE_TYPES.map((group) => {
                 const Icon = ROUTINE_TYPE_ICONS[group]
                 return (

@@ -85,6 +85,13 @@ export const CHANNEL_MAP = {
   storeAttachment: invoke(RPC_CHANNELS.file.STORE_ATTACHMENT),
   generateThumbnail: invoke(RPC_CHANNELS.file.GENERATE_THUMBNAIL),
 
+  // Agents
+  getAgents: invoke(RPC_CHANNELS.agents.LIST),
+  getAgent: invoke(RPC_CHANNELS.agents.GET),
+  createAgent: invoke(RPC_CHANNELS.agents.CREATE),
+  updateAgent: invoke(RPC_CHANNELS.agents.UPDATE),
+  deleteAgent: invoke(RPC_CHANNELS.agents.DELETE),
+
   // Library
   createLibraryItem: invoke(RPC_CHANNELS.library.CREATE),
   createLibraryFolder: invoke(RPC_CHANNELS.library.CREATE_FOLDER),
@@ -232,6 +239,7 @@ export const CHANNEL_MAP = {
 
   // Sources change listener
   onSourcesChanged: listener(RPC_CHANNELS.sources.CHANGED),
+  onSourceConflict: listener(RPC_CHANNELS.sources.CONFLICT),
 
   // Skills
   getSkills: invoke(RPC_CHANNELS.skills.GET),
@@ -240,6 +248,7 @@ export const CHANNEL_MAP = {
   openSkillInEditor: invoke(RPC_CHANNELS.skills.OPEN_EDITOR),
   openSkillInFinder: invoke(RPC_CHANNELS.skills.OPEN_FINDER),
   onSkillsChanged: listener(RPC_CHANNELS.skills.CHANGED),
+  onSkillConflict: listener(RPC_CHANNELS.skills.CONFLICT),
 
   // Statuses
   listStatuses: invoke(RPC_CHANNELS.statuses.LIST),
@@ -357,8 +366,7 @@ export const CHANNEL_MAP = {
   createProject: invoke(RPC_CHANNELS.projects.CREATE),
   updateProject: invoke(RPC_CHANNELS.projects.UPDATE),
   setProjectStatus: invoke(RPC_CHANNELS.projects.SET_STATUS),
-  getProjectMembers: invoke(RPC_CHANNELS.projects.GET_MEMBERS),
-  setProjectMember: invoke(RPC_CHANNELS.projects.SET_MEMBER),
+  addProjectMember: invoke(RPC_CHANNELS.projects.ADD_MEMBER),
   removeProjectMember: invoke(RPC_CHANNELS.projects.REMOVE_MEMBER),
   getTasks: invoke(RPC_CHANNELS.tasks.LIST),
   getTask: invoke(RPC_CHANNELS.tasks.GET),

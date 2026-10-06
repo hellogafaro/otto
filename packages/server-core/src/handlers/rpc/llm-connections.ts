@@ -1,5 +1,5 @@
 import { RPC_CHANNELS, type LlmConnectionSetup } from '@otto/shared/protocol'
-import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, touchLlmConnection, isCompatProvider, isAnthropicProvider, getDefaultModelsForConnection, getDefaultModelForConnection, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
+import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, isCompatProvider, isAnthropicProvider, getDefaultModelsForConnection, getDefaultModelForConnection, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
 import { getCredentialManager } from '@otto/shared/credentials'
 import { INSTALL_SCOPE, getConnection, narrowContext, userScope, workspaceScope, type ConnectionContext, type Credential } from '@otto/shared/connections'
 import { BACKEND_NAME } from '@otto/shared/branding'
@@ -544,8 +544,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       if (!result.success) {
         return { success: false, error: result.error }
       }
-
-      touchLlmConnection(slug, where)
 
       if (result.shouldRefreshModels) {
         refreshModelsInBackground(slug, getConnection(slug, where)?.scope ?? INSTALL_SCOPE, 'validation')

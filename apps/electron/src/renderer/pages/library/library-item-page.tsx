@@ -37,7 +37,7 @@ function LibraryDetails({ itemId }: { itemId: string }) {
   const { nameOf } = useWorkspaceMembers()
   const item = items.find((entry) => entry.id === itemId)
   if (!item) return null
-  const path = [t('library.title'), ...getFolderPath(items, item.folderId).map((folder) => folder.title)].join(' / ')
+  const path = [t('library.title'), ...getFolderPath(items, item.parentId).map((folder) => folder.title)].join(' / ')
   const type = item.type === 'document' ? t('library.typeDocument') : getExtension(item.title) || item.mime || ''
   return (
     <PropertySection title={t('library.properties')}>

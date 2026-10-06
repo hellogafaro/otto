@@ -1,8 +1,8 @@
 import { S3Client } from 'bun'
 import { mkdir, rename, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { createId } from '../id.ts'
-import { assertKey, assertPrefix, type FileStore } from './file-store.ts'
+import { assertKey, assertPathKey, assertPathPrefix, assertPrefix, type FileStore } from './file-store.ts'
 
 export type S3Config = {
   endpoint: string
@@ -33,21 +33,28 @@ const orUndefined = <T>(error: unknown): T | undefined => {
  * object gone drop the cached file. The ETag is recorded after the file is in place and comes from
  * a HEAD made before the download, so a stale pair can only cause one extra download, never a wrong hit.
  *
+ * `paths` makes the keys bundle paths (`my-skill/SKILL.md`, see `assertPathKey`) instead of ids, and
+ * with no `cacheDir` reads go straight to S3 and nothing is kept on disk (a bundle's folder is filled by
+ * its own materializer, never by a read).
+ *
  * A save stages nothing remote: S3 overwrites an object atomically, so `stage` keeps the bytes and
  * `commit` is the one PUT (after the library's guarded row update). A failed stage or discard leaves the
  * stored object untouched; if the PUT fails, the library puts the row back.
  */
-export function createS3FileStore(options: { client: S3Client; keyPrefix: string; cacheDir: string }): FileStore {
-  const { client, keyPrefix, cacheDir } = options
-  const etagDir = join(cacheDir, '.etags')
-  const objectOf = (key: string) => keyPrefix + assertKey(key)
-  const cachePathOf = (key: string) => join(cacheDir, key)
+export function createS3FileStore(options: { client: S3Client; keyPrefix: string; cacheDir?: string; paths?: boolean }): FileStore {
+  const { client, keyPrefix, paths, cacheDir } = options
+  const etagDir = join(cacheDir ?? '', '.etags')
+  const objectOf = (key: string) => keyPrefix + (paths ? assertPathKey(key) : assertKey(key))
+  const cachePathOf = (key: string) => join(cacheDir ?? '', key)
   const etagPathOf = (key: string) => join(etagDir, key)
 
-  const dropCache = async (key: string) => void (await Promise.all([rm(cachePathOf(key), { force: true }), rm(etagPathOf(key), { force: true })]))
+  const dropCache = async (key: string) => {
+    if (cacheDir) await Promise.all([rm(cachePathOf(key), { force: true }), rm(etagPathOf(key), { force: true })])
+  }
 
   async function fillCache(key: string, source: Uint8Array | Blob, etag: string) {
-    await mkdir(etagDir, { recursive: true })
+    await mkdir(dirname(etagPathOf(key)), { recursive: true })
+    await mkdir(dirname(cachePathOf(key)), { recursive: true })
     const temp = `${cachePathOf(key)}.tmp-${createId()}`
     try {
       await Bun.write(temp, source)
@@ -76,9 +83,12 @@ export function createS3FileStore(options: { client: S3Client; keyPrefix: string
     return path
   }
 
+  const readObject = (key: string) => client.file(objectOf(key)).arrayBuffer().then((buffer) => new Uint8Array(buffer), orUndefined<Uint8Array>)
+
   async function put(key: string, bytes: Uint8Array) {
     const object = objectOf(key)
     await client.write(object, bytes)
+    if (!cacheDir) return
     // Write through; a cache that cannot be written is only a cache miss later, the object is stored.
     try {
       await fillCache(key, bytes, (await client.stat(object)).etag)
@@ -96,11 +106,16 @@ export function createS3FileStore(options: { client: S3Client; keyPrefix: string
     },
 
     async get(key) {
+      if (!cacheDir) return readObject(key)
       const path = await materialize(key)
       return path === undefined ? undefined : new Uint8Array(await Bun.file(path).arrayBuffer())
     },
 
     async open(key) {
+      if (!cacheDir) {
+        const bytes = await readObject(key)
+        return bytes && { stream: new ReadableStream<Uint8Array>({ start: (controller) => (controller.enqueue(bytes), controller.close()) }), size: bytes.length }
+      }
       const path = await materialize(key)
       if (path === undefined) return undefined
       const file = Bun.file(path)
@@ -113,7 +128,8 @@ export function createS3FileStore(options: { client: S3Client; keyPrefix: string
     },
 
     async list(prefix = '') {
-      assertPrefix(prefix)
+      if (paths) assertPathPrefix(prefix)
+      else assertPrefix(prefix)
       const keys: string[] = []
       let continuationToken: string | undefined
       do {

@@ -22,7 +22,7 @@ import type { StatusCategory, StatusConfig } from './types.ts';
 type Row = typeof statuses.$inferSelect;
 
 /** The statuses every workspace has and none may lose. */
-export const FIXED_STATUS_IDS = ['todo', 'done', 'cancelled'];
+export const FIXED_STATUS_IDS = ['todo', 'done', 'cancelled', 'archived'];
 
 /** Longest icon the column takes: an image data URL of at most 16 KB. */
 export const MAX_STATUS_ICON = 16 * 1024;
@@ -37,7 +37,7 @@ function toConfig(row: Row): StatusConfig {
   } catch {
     // an unreadable color is no color: the design system default applies
   }
-  return { id: row.slug, label: row.title, ...(color !== undefined && { color }), ...(row.icon && { icon: row.icon }), category: row.category, isFixed: row.isFixed, isDefault: row.isDefault, order: row.order };
+  return { id: row.slug, label: row.title, ...(color !== undefined && { color }), ...(row.icon && { icon: row.icon }), category: row.category, isFixed: FIXED_STATUS_IDS.includes(row.slug), isDefault: row.isDefault, position: row.position };
 }
 
 /**
@@ -48,6 +48,7 @@ function toConfig(row: Row): StatusConfig {
  * - needs-review: info (amber, attention needed)
  * - done: accent (purple, completed)
  * - cancelled: foreground/50 (muted, inactive)
+ * - archived: the fixed status archiving a chat moves it to
  * `todo` is the status new chats get.
  */
 export function getDefaultStatuses(): StatusConfig[] {
@@ -57,21 +58,22 @@ export function getDefaultStatuses(): StatusConfig[] {
     ['needs-review', 'Needs Review', 'open'],
     ['done', 'Done', 'closed'],
     ['cancelled', 'Cancelled', 'closed'],
+    ['archived', 'Archived', 'archived'],
   ];
-  return defaults.map(([id, label, category], order) => ({
+  return defaults.map(([id, label, category], position) => ({
     id,
     label,
     icon: svgDataUrl(DEFAULT_ICON_SVGS[id]!),
     category,
     isFixed: FIXED_STATUS_IDS.includes(id),
     isDefault: id === 'todo',
-    order,
+    position,
   }));
 }
 
-/** Statuses of a workspace sorted by order; the defaults while it has no rows. */
+/** Statuses of a workspace sorted by position; the defaults while it has no rows. */
 export function getStatuses(workspaceId: string, db: Db | Tx = initDb()): StatusConfig[] {
-  const rows = db.select().from(statuses).where(eq(statuses.workspaceId, workspaceId)).orderBy(asc(statuses.order)).all();
+  const rows = db.select().from(statuses).where(eq(statuses.workspaceId, workspaceId)).orderBy(asc(statuses.position)).all();
   return rows.length ? rows.map(toConfig) : getDefaultStatuses();
 }
 
@@ -105,7 +107,6 @@ export function getStatusCategory(workspaceRootPath: string, slug: string): Stat
 
 /** Inserts statuses with new row ids (`slug` = the status id); a slug the workspace already has is skipped. Returns how many were inserted. */
 export function insertStatuses(db: Db | Tx, workspaceId: string, list: StatusConfig[]): number {
-  const now = new Date();
   let inserted = 0;
   for (const status of list) {
     inserted += db
@@ -118,11 +119,8 @@ export function insertStatuses(db: Db | Tx, workspaceId: string, list: StatusCon
         color: status.color === undefined ? null : JSON.stringify(status.color),
         icon: status.icon ?? null,
         category: status.category,
-        isFixed: status.isFixed,
         isDefault: status.isDefault,
-        order: status.order,
-        createdAt: now,
-        updatedAt: now,
+        position: status.position,
       })
       .onConflictDoNothing()
       .returning({ id: statuses.id })

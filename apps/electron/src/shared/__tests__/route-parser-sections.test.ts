@@ -25,9 +25,7 @@ const CASES: Array<[route: string, state: NavigationState]> = [
   ['library/item/i1', { navigator: 'library', search: {}, details: { type: 'item', itemId: 'i1' } }],
   ['library/item/i1?folder=f1', { navigator: 'library', search: { folder: 'f1' }, details: { type: 'item', itemId: 'i1' } }],
   ['skills', { navigator: 'skills', search: {}, details: null }],
-  ['skills?scope=global', { navigator: 'skills', search: { scope: 'global' }, details: null }],
   ['skills/skill/review', { navigator: 'skills', search: {}, details: { type: 'skill', skillSlug: 'review' } }],
-  ['skills/skill/review?scope=workspace', { navigator: 'skills', search: { scope: 'workspace' }, details: { type: 'skill', skillSlug: 'review' } }],
   ['inbox', { navigator: 'inbox', search: {} }],
   ['inbox?unread=1', { navigator: 'inbox', search: { unread: true } }],
 ]
@@ -66,7 +64,7 @@ describe('tasks, projects and library routes', () => {
     expect(routes.view.library()).toBe('library')
     expect(routes.view.library({ itemId: 'i1', folder: 'f1' })).toBe('library/item/i1?folder=f1')
     expect(routes.view.skills()).toBe('skills')
-    expect(routes.view.skills({ skillSlug: 'review', scope: 'project' })).toBe('skills/skill/review?scope=project')
+    expect(routes.view.skills({ skillSlug: 'review' })).toBe('skills/skill/review')
     expect(routes.view.inbox()).toBe('inbox')
     expect(routes.view.inbox({ unread: true })).toBe('inbox?unread=1')
   })
@@ -90,9 +88,9 @@ describe('section search validators', () => {
     expect(normalizeProjectsSearch({ tab: 'nope', status: 'active' })).toEqual({})
   })
 
-  test('skills: a known scope', () => {
-    expect(normalizeSkillsSearch({ scope: 'project', x: '1' })).toEqual({ scope: 'project' })
-    expect(normalizeSkillsSearch({ scope: 'nope' })).toEqual({})
+  test('skills: no search; an old ?scope= is dropped', () => {
+    expect(normalizeSkillsSearch({ scope: 'project', x: '1' })).toEqual({})
+    expect(parseRouteToNavigationState('skills?scope=global')).toEqual({ navigator: 'skills', search: {}, details: null })
   })
 
   test('library: a known tab, a folder and a creator', () => {

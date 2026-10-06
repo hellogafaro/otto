@@ -14,7 +14,7 @@ import type { LibraryFilter, LibraryItem, LibraryItemType } from './types.ts'
  * Library: everything saved. Uploads, chat attachments, what agents make and
  * markdown documents are all one kind of item; folders are items too.
  *
- *   library(id, workspaceId, folderId, type, title, mime, size, createdBy, createdAt, updatedAt)   (schema.ts)
+ *   library(id, workspaceId, parentId, type, title, mime, size, createdBy, createdAt, updatedAt)   (schema.ts)
  *
  * `type` is 'document' for markdown (mime text/markdown or a .md name), 'folder'
  * for folders and 'file' otherwise; it is fixed when the item is created.
@@ -26,7 +26,7 @@ import type { LibraryFilter, LibraryItem, LibraryItemType } from './types.ts'
 
 export * from './file-store.ts'
 export * from './limits.ts'
-export { getLibraryStore, initFileStorage } from './storage.ts'
+export { getBundleStore, getLibraryStore, initFileStorage, isObjectStorage } from './storage.ts'
 export type * from './types.ts'
 
 /** Title of the root folder that holds chat attachments (not translated; it is a name, like a file's). */
@@ -37,7 +37,7 @@ type Row = typeof library.$inferSelect
 function toItem(row: Row): LibraryItem {
   return {
     id: row.id,
-    folderId: row.folderId,
+    parentId: row.parentId,
     type: row.type as LibraryItemType,
     title: row.title,
     mime: row.mime,
@@ -51,6 +51,11 @@ function toItem(row: Row): LibraryItem {
 /** Gives what the bare actor 'user' made to `actor`: runs once, when the first user appears. */
 export function updateLegacyUserActor(db: Db | Tx, actor: string): void {
   db.update(library).set({ createdBy: actor }).where(eq(library.createdBy, 'user')).run()
+}
+
+/** Gives what actor `from` made in the workspace to `to` (`agent:default` to the agent that replaces it): see `initAgentsImport`. */
+export function updateAgentActor(db: Db | Tx, workspaceId: string, from: string, to: string): void {
+  db.update(library).set({ createdBy: to }).where(and(eq(library.workspaceId, workspaceId), eq(library.createdBy, from))).run()
 }
 
 const isMarkdown = (title: string, mime: string) => mime === 'text/markdown' || /\.md$/i.test(title)
@@ -90,7 +95,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       if (!row) throw domainError('not_found', `Folder ${next} does not exist`)
       if (row.type !== 'folder') throw domainError('invalid', `${next} is not a folder`)
       chain.unshift(row)
-      next = row.folderId
+      next = row.parentId
     }
     return chain
   }
@@ -102,7 +107,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       level = db
         .select({ id: library.id })
         .from(library)
-        .where(and(eq(library.workspaceId, workspaceId), eq(library.type, 'folder'), inArray(library.folderId, level)))
+        .where(and(eq(library.workspaceId, workspaceId), eq(library.type, 'folder'), inArray(library.parentId, level)))
         .all()
         .map((row) => row.id)
     }
@@ -122,17 +127,17 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
     return bytes
   }
 
-  function createFolder(input: { workspaceId: string; title: string; folderId?: string | null; createdBy: string }): LibraryItem {
+  function createFolder(input: { workspaceId: string; title: string; parentId?: string | null; createdBy: string }): LibraryItem {
     const title = assertTitle(input.title)
     const createdBy = assertActor(input.createdBy)
-    const folderId = input.folderId ?? null
-    if (folderChain(input.workspaceId, folderId).length + 1 > MAX_FOLDER_DEPTH) {
+    const parentId = input.parentId ?? null
+    if (folderChain(input.workspaceId, parentId).length + 1 > MAX_FOLDER_DEPTH) {
       throw domainError('invalid', `Folders nest at most ${MAX_FOLDER_DEPTH} levels`)
     }
     return insert({
       id: createId(),
       workspaceId: input.workspaceId,
-      folderId,
+      parentId,
       type: 'folder',
       title,
       mime: null,
@@ -149,7 +154,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       const existing = db
         .select()
         .from(library)
-        .where(and(eq(library.workspaceId, workspaceId), isNull(library.folderId), eq(library.type, 'folder'), eq(library.title, CHAT_ATTACHMENTS_FOLDER_TITLE)))
+        .where(and(eq(library.workspaceId, workspaceId), isNull(library.parentId), eq(library.type, 'folder'), eq(library.title, CHAT_ATTACHMENTS_FOLDER_TITLE)))
         .get()
       return existing ? toItem(existing) : createFolder({ workspaceId, title: CHAT_ATTACHMENTS_FOLDER_TITLE, createdBy })
     },
@@ -160,14 +165,14 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       title: string
       mime: string
       bytes: Uint8Array
-      folderId?: string | null
+      parentId?: string | null
       createdBy: string
     }): Promise<LibraryItem> {
       const title = assertTitle(input.title)
       const createdBy = assertActor(input.createdBy)
       assertSize(input.bytes)
-      const folderId = input.folderId ?? null
-      folderChain(input.workspaceId, folderId)
+      const parentId = input.parentId ?? null
+      folderChain(input.workspaceId, parentId)
       const mime = input.mime.trim() || 'application/octet-stream'
       const id = createId()
       const store = storeFor(input.workspaceId)
@@ -176,7 +181,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
         return insert({
           id,
           workspaceId: input.workspaceId,
-          folderId,
+          parentId,
           type: isMarkdown(title, mime) ? 'document' : 'file',
           title,
           mime,
@@ -198,7 +203,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
     getLibraryItems(workspaceId: string, filter: LibraryFilter = {}): LibraryItem[] {
       const where = [
         eq(library.workspaceId, workspaceId),
-        filter.folderId === undefined ? undefined : filter.folderId === null ? isNull(library.folderId) : eq(library.folderId, filter.folderId),
+        filter.parentId === undefined ? undefined : filter.parentId === null ? isNull(library.parentId) : eq(library.parentId, filter.parentId),
         filter.createdBy === undefined ? undefined : eq(library.createdBy, filter.createdBy),
         filter.type === undefined ? undefined : eq(library.type, filter.type),
       ]
@@ -223,7 +228,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
     },
 
     /**
-     * Rename, move (`folderId`: null for the root) or replace the content. Replacing the
+     * Rename, move (`parentId`: null for the root) or replace the content. Replacing the
      * content needs `expectedUpdatedAt`, the `updatedAt` the caller last saw; a different
      * stored value means someone saved in between, and nothing changes (`conflict`).
      * A save is two-phase: stage the bytes, guarded row update, then commit the bytes.
@@ -231,22 +236,22 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
     async updateLibraryItem(
       workspaceId: string,
       id: string,
-      patch: { title?: string; folderId?: string | null; content?: Uint8Array; expectedUpdatedAt?: number },
+      patch: { title?: string; parentId?: string | null; content?: Uint8Array; expectedUpdatedAt?: number },
     ): Promise<LibraryItem> {
       const row = getRow(workspaceId, id)
       const changes: Partial<Row> = {}
 
       if (patch.title !== undefined) changes.title = assertTitle(patch.title)
 
-      if (patch.folderId !== undefined) {
-        const chain = folderChain(workspaceId, patch.folderId)
+      if (patch.parentId !== undefined) {
+        const chain = folderChain(workspaceId, patch.parentId)
         if (row.type === 'folder') {
           if (chain.some((folder) => folder.id === id)) throw domainError('invalid', 'A folder cannot move into itself')
           if (chain.length + folderHeight(workspaceId, id) > MAX_FOLDER_DEPTH) {
             throw domainError('invalid', `Folders nest at most ${MAX_FOLDER_DEPTH} levels`)
           }
         }
-        changes.folderId = patch.folderId
+        changes.parentId = patch.parentId
       }
 
       const content = patch.content
@@ -291,7 +296,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
         const child = db
           .select({ id: library.id })
           .from(library)
-          .where(and(eq(library.workspaceId, workspaceId), eq(library.folderId, id)))
+          .where(and(eq(library.workspaceId, workspaceId), eq(library.parentId, id)))
           .get()
         if (child) throw domainError('not_empty', 'The folder is not empty')
       }

@@ -12,7 +12,7 @@ import { initDb, type Db, type Tx } from '../db/index.ts';
 import { createId } from '../id.ts';
 import { domainError } from '../utils/errors.ts';
 import { statuses } from './schema.ts';
-import { getStatus, getStatusRow, initWorkspaceStatuses, MAX_STATUS_ICON } from './storage.ts';
+import { FIXED_STATUS_IDS, getStatus, getStatusRow, initWorkspaceStatuses, MAX_STATUS_ICON } from './storage.ts';
 import type { CreateStatusInput, StatusConfig, UpdateStatusInput } from './types.ts';
 
 /**
@@ -46,8 +46,7 @@ export function createStatus(workspaceId: string, input: CreateStatusInput, db: 
   let slug = base;
   for (let suffix = 2; getStatusRow(workspaceId, slug, db); suffix++) slug = `${base}-${suffix}`;
 
-  const last = db.select({ n: sql<number>`coalesce(max(${statuses.order}), -1)` }).from(statuses).where(eq(statuses.workspaceId, workspaceId)).get();
-  const now = new Date();
+  const last = db.select({ n: sql<number>`coalesce(max(${statuses.position}), -1)` }).from(statuses).where(eq(statuses.workspaceId, workspaceId)).get();
   db.insert(statuses)
     .values({
       id: createId(),
@@ -57,11 +56,8 @@ export function createStatus(workspaceId: string, input: CreateStatusInput, db: 
       color: input.color === undefined ? null : JSON.stringify(input.color),
       icon: input.icon ?? null,
       category: input.category,
-      isFixed: false,
       isDefault: false,
-      order: (last?.n ?? -1) + 1,
-      createdAt: now,
-      updatedAt: now,
+      position: (last?.n ?? -1) + 1,
     })
     .run();
   return getStatus(workspaceId, slug, db)!;
@@ -69,7 +65,7 @@ export function createStatus(workspaceId: string, input: CreateStatusInput, db: 
 
 /**
  * Update a status (label, color, icon, category)
- * Cannot change the slug or isFixed/isDefault flags
+ * Cannot change the slug or the fixed/default flags
  * @throws `not_found`; `forbidden` when changing the category of a fixed status
  */
 export function updateStatus(workspaceId: string, slug: string, updates: UpdateStatusInput, db: Db | Tx = initDb()): StatusConfig {
@@ -78,7 +74,7 @@ export function updateStatus(workspaceId: string, slug: string, updates: UpdateS
   if (!row) throw domainError('not_found', `Status '${slug}' not found`);
 
   // Fixed statuses cannot change category
-  if (row.isFixed && updates.category && updates.category !== row.category) {
+  if (FIXED_STATUS_IDS.includes(slug) && updates.category && updates.category !== row.category) {
     throw domainError('forbidden', 'Cannot change category of fixed status');
   }
   if (updates.icon) assertIcon(updates.icon);
@@ -89,7 +85,6 @@ export function updateStatus(workspaceId: string, slug: string, updates: UpdateS
       ...(updates.color !== undefined && { color: JSON.stringify(updates.color) }),
       ...(updates.icon !== undefined && { icon: updates.icon || null }),
       ...(updates.category !== undefined && { category: updates.category }),
-      updatedAt: new Date(),
     })
     .where(eq(statuses.id, row.id))
     .run();
@@ -106,7 +101,7 @@ export function setDefaultStatus(workspaceId: string, slug: string, db: Db = ini
   if (!row) throw domainError('not_found', `Status '${slug}' not found`);
   db.transaction((tx) => {
     tx.update(statuses).set({ isDefault: false }).where(and(eq(statuses.workspaceId, workspaceId), eq(statuses.isDefault, true))).run();
-    tx.update(statuses).set({ isDefault: true, updatedAt: new Date() }).where(eq(statuses.id, row.id)).run();
+    tx.update(statuses).set({ isDefault: true }).where(eq(statuses.id, row.id)).run();
   });
 }
 
@@ -119,7 +114,7 @@ export function deleteStatus(workspaceId: string, slug: string, db: Db | Tx = in
   initWorkspaceStatuses(workspaceId, db);
   const row = getStatusRow(workspaceId, slug, db);
   if (!row) throw domainError('not_found', `Status '${slug}' not found`);
-  if (row.isFixed) throw domainError('forbidden', `Cannot delete fixed status '${slug}'`);
+  if (FIXED_STATUS_IDS.includes(slug)) throw domainError('forbidden', `Cannot delete fixed status '${slug}'`);
   if (row.isDefault) throw domainError('forbidden', `Cannot delete default status '${slug}'. Pick another default first.`);
 
   // Move chats using this status to 'todo' while it still exists (chat listing reads a deleted status as 'todo' and would hide them)
@@ -134,13 +129,13 @@ export function deleteStatus(workspaceId: string, slug: string, db: Db | Tx = in
  */
 export function reorderStatuses(workspaceId: string, orderedSlugs: string[], db: Db | Tx = initDb()): void {
   initWorkspaceStatuses(workspaceId, db);
-  const rows = db.select().from(statuses).where(eq(statuses.workspaceId, workspaceId)).orderBy(statuses.order).all();
+  const rows = db.select().from(statuses).where(eq(statuses.workspaceId, workspaceId)).orderBy(statuses.position).all();
   const bySlug = new Map(rows.map((row) => [row.slug, row]));
   for (const slug of orderedSlugs) {
     if (!bySlug.has(slug)) throw domainError('invalid', `Invalid status ID: ${slug}`);
   }
   const order = [...new Set(orderedSlugs), ...rows.map((row) => row.slug).filter((slug) => !orderedSlugs.includes(slug))];
-  order.forEach((slug, position) => db.update(statuses).set({ order: position }).where(eq(statuses.id, bySlug.get(slug)!.id)).run());
+  order.forEach((slug, position) => db.update(statuses).set({ position }).where(eq(statuses.id, bySlug.get(slug)!.id)).run());
 }
 
 /**

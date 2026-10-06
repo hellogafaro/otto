@@ -1,6 +1,7 @@
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 
+import { registerAgentsHandlers } from './agents'
 import { registerAuthHandlers } from './auth'
 import { registerAutomationsHandlers } from './automations'
 import { registerCommentsHandlers } from './comments'
@@ -43,6 +44,7 @@ export function registerCoreRpcHandlers(
   server = guardSessionChannels(server, deps)
   // Every write of library, projects, tasks, comments, notifications and members pushes `domain:changed` once it succeeds.
   server = broadcastDomainChanges(server, deps)
+  registerAgentsHandlers(server, deps)
   registerAuthHandlers(server, deps)
   registerAutomationsHandlers(server, deps)
   registerDecisionsHandlers(server, deps)

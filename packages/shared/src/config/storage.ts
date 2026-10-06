@@ -1329,7 +1329,6 @@ function toLlmConnection(c: Connection): LlmConnection {
     oauthOrganizationName: c.account.oauthOrganizationName,
     oauthProfileVerifiedAt: c.account.verifiedAt,
     createdAt: c.createdAt.getTime(),
-    lastUsedAt: c.lastUsedAt?.getTime(),
   };
 }
 
@@ -1355,7 +1354,6 @@ function toPatch(c: LlmConnection): ConnectionPatch {
       oauthOrganizationName: c.oauthOrganizationName,
       verifiedAt: c.oauthProfileVerifiedAt,
     },
-    lastUsedAt: c.lastUsedAt === undefined ? null : new Date(c.lastUsedAt),
   };
 }
 
@@ -1462,12 +1460,6 @@ export function getDefaultThinkingLevel(): ThinkingLevel {
 export function setDefaultThinkingLevel(level: ThinkingLevel): boolean {
   updateSetting(INSTALL, 'defaultThinkingLevel', level);
   return true;
-}
-
-/** Update the lastUsedAt timestamp for a connection. */
-export function touchLlmConnection(slug: string, where?: ConnectionContext): void {
-  const connection = getConnection(slug, where);
-  if (connection) updateConnection(connection.id, { lastUsedAt: new Date() });
 }
 
 // ============================================

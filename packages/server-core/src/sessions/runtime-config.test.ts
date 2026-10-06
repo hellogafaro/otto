@@ -54,8 +54,8 @@ describe('buildBackendRuntimeSignature', () => {
     expect(disabled).not.toBe(enabled)
   })
 
-  it('ignores non-runtime metadata such as lastUsedAt', () => {
-    expect(sig({ ...baseCompat, lastUsedAt: 1 })).toBe(sig({ ...baseCompat, lastUsedAt: 2 }))
+  it('ignores non-runtime metadata such as createdAt', () => {
+    expect(sig({ ...baseCompat, createdAt: 1 })).toBe(sig({ ...baseCompat, createdAt: 2 }))
   })
 })
 

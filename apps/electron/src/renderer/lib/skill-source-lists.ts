@@ -1,16 +1,14 @@
 /**
- * What the Skills and Sources grids show, in their order: the items their filter keeps, by name. The grid and
+ * What the Skills and Sources grids show, in their order: the skills by name, the sources their filter keeps by name. The grid and
  * Previous / Next on an item (`listNav`) both read this, so stepping follows the grid exactly.
  */
 
-import type { SkillsSearch } from '../../shared/section-search'
 import type { LoadedSkill, LoadedSource, SourceFilter } from '../../shared/types'
 
 const byName = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base' })
 
-export function getVisibleSkills(skills: LoadedSkill[], search: SkillsSearch): LoadedSkill[] {
-  return skills
-    .filter((skill) => !search.scope || skill.source === search.scope)
+export function getVisibleSkills(skills: LoadedSkill[]): LoadedSkill[] {
+  return [...skills]
     .sort((a, b) => byName(a.metadata.name || a.slug, b.metadata.name || b.slug))
 }
 

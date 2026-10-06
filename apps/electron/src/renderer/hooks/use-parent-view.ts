@@ -7,7 +7,7 @@
  * - A chat: the Chats index (the filter it was opened under).
  * - A task, a library item (a file or a document) or a project: its index. A task and a library item
  *   keep the index's search (filters, tab, `?folder=`), so Back returns to the same list.
- * - A skill or a source: its grid in Settings, under the filter it was opened with.
+ * - A skill or a source: its grid in Settings, under the filter it was opened with; an agent: the Agents gallery.
  * - An automation: its section.
  * The Chats, Tasks, Projects and Library indexes, the Skills and Sources grids and the Inbox have no
  * parent. Settings' own pages have none either: Settings has no index; its sidebar lists its pages
@@ -45,6 +45,7 @@ export function useParentView(): ParentView | null {
       case 'library':
       case 'skills':
       case 'sources':
+      case 'agents':
         return navState.details ? { onBack: goToIndex } : null
       case 'projects':
         return navState.details ? { onBack: () => navigate(routes.view.projects()) } : null

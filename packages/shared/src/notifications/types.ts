@@ -2,14 +2,13 @@
 
 /** The verb of the sentence "`createdBy` <type> you on `entity`"; open, see `NOTIFICATION_TYPES`. */
 export type NotificationType = 'mention' | 'assigned'
-/** `pending` is reserved for an outbound channel (email, push) that does not exist yet; nothing writes it. */
-export type NotificationStatus = 'unread' | 'read' | 'pending'
 
 /** Timestamps are epoch milliseconds so a row survives JSON as is. */
 export type Notification = {
   id: string
   type: NotificationType
-  status: NotificationStatus
+  /** When it was read; null = unread. */
+  readAt: number | null
   createdAt: number
   /** Who did it: 'user:<id>' or 'agent:<id>'. */
   createdBy: string

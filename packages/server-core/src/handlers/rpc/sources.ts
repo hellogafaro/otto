@@ -1,6 +1,8 @@
 import { RPC_CHANNELS } from '@otto/shared/protocol'
+import { userActor } from '@otto/shared/actors'
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
-import { loadWorkspaceSources } from '@otto/shared/sources'
+import { deleteSource, getLoadedSources, getSource, syncLocalSource } from '@otto/shared/sources'
+import { domainError } from '@otto/shared/utils'
 import { safeJsonParse } from '@otto/shared/utils/files'
 import { getCredentialManager } from '@otto/shared/credentials'
 import type { RpcServer } from '@otto/server-core/transport'
@@ -18,6 +20,12 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.sources.GET_MCP_TOOLS,
 ] as const
 
+/**
+ * Sources of a workspace: members read, a source's creator or an owner deletes it and saves or revokes its credentials
+ * (`authorize.ts`); a create, a delete and a saved credential push `domain:changed` (`domain-changes.ts`). The list is
+ * the `sources` rows, each read from its local folder (the materialized copy of its bundle); a source is also made or
+ * edited by an agent in that folder, and the config watcher syncs it (see `@otto/shared/sources`).
+ */
 export function registerSourcesHandlers(server: RpcServer, deps: HandlerDeps): void {
   const log = deps.platform.logger
 
@@ -28,15 +36,15 @@ export function registerSourcesHandlers(server: RpcServer, deps: HandlerDeps): v
       log.error(`SOURCES_GET: Workspace not found: ${workspaceId}`)
       return []
     }
-    return loadWorkspaceSources(workspace.rootPath)
+    return getLoadedSources(workspace.id)
   })
 
-  // Create a new source
-  server.handle(RPC_CHANNELS.sources.CREATE, async (_ctx, workspaceId: string, config: Partial<import('@otto/shared/sources').CreateSourceInput>) => {
+  // Create a new source: its folder, then its row, made by the caller
+  server.handle(RPC_CHANNELS.sources.CREATE, async (ctx, workspaceId: string, config: Partial<import('@otto/shared/sources').CreateSourceInput>) => {
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
     const { createSource } = await import('@otto/shared/sources')
-    return createSource(workspace.rootPath, {
+    const created = await createSource(workspace.rootPath, {
       name: config.name || 'New Source',
       provider: config.provider || 'custom',
       type: config.type || 'mcp',
@@ -45,14 +53,15 @@ export function registerSourcesHandlers(server: RpcServer, deps: HandlerDeps): v
       api: config.api,
       local: config.local,
     })
+    await syncLocalSource(workspace.id, created.slug, ctx.userId ? userActor(ctx.userId) : undefined)
+    return created
   })
 
-  // Delete a source
+  // Delete a source: the row, its credential, its bundle and the local folder. A slug that is not a row is never turned into a path.
   server.handle(RPC_CHANNELS.sources.DELETE, async (_ctx, workspaceId: string, sourceSlug: string) => {
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
-    const { deleteSource } = await import('@otto/shared/sources')
-    deleteSource(workspace.rootPath, sourceSlug)
+    await deleteSource(workspace.id, sourceSlug)
 
     // Clean up stale slug from workspace default sources
     const { loadWorkspaceConfig, saveWorkspaceConfig } = await import('@otto/shared/workspaces')
@@ -78,9 +87,10 @@ export function registerSourcesHandlers(server: RpcServer, deps: HandlerDeps): v
     if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
     const { loadSource, getSourceCredentialManager, markSourceAuthenticated } = await import('@otto/shared/sources')
 
-    const source = loadSource(workspace.rootPath, sourceSlug)
+    // Only a source that is a row has a folder to load: a client's string never becomes a path
+    const source = getSource(workspace.id, sourceSlug) ? loadSource(workspace.rootPath, sourceSlug) : null
     if (!source) {
-      throw new Error(`Source not found: ${sourceSlug}`)
+      throw domainError('not_found', `Source not found: ${sourceSlug}`)
     }
 
     // SourceCredentialManager handles credential type resolution
@@ -98,7 +108,7 @@ export function registerSourcesHandlers(server: RpcServer, deps: HandlerDeps): v
   // Get permissions config for a source (raw format for UI display)
   server.handle(RPC_CHANNELS.sources.GET_PERMISSIONS, async (_ctx, workspaceId: string, sourceSlug: string) => {
     const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) return null
+    if (!workspace || !getSource(workspace.id, sourceSlug)) return null
 
     const { existsSync, readFileSync } = await import('fs')
     const { getSourcePermissionsPath } = await import('@otto/shared/agent')
@@ -149,7 +159,7 @@ export function registerSourcesHandlers(server: RpcServer, deps: HandlerDeps): v
     if (!workspace) return { success: false, error: 'Workspace not found' }
 
     try {
-      const sources = await loadWorkspaceSources(workspace.rootPath)
+      const sources = getLoadedSources(workspace.id)
       const source = sources.find(s => s.config.slug === sourceSlug)
       if (!source) return { success: false, error: 'Source not found' }
       if (source.config.type !== 'mcp') return { success: false, error: 'Source is not an MCP server' }
@@ -190,7 +200,7 @@ export function registerSourcesHandlers(server: RpcServer, deps: HandlerDeps): v
           const credentialId = source.config.mcp.authType === 'oauth'
             ? { type: 'source_oauth' as const, workspaceId: source.workspaceId, sourceId: sourceSlug }
             : { type: 'source_bearer' as const, workspaceId: source.workspaceId, sourceId: sourceSlug }
-          const credential = await credentialManager.get(credentialId)
+          const credential = await credentialManager.getSourceCredential(credentialId)
           accessToken = credential?.value
         }
 

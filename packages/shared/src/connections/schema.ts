@@ -4,10 +4,8 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
  * One row per provider account or endpoint; see ./index.ts.
  * `scope` is 'install' or 'workspace:<id>'; `slug` is the stable handle chats and settings use, unique within a scope.
  * `type` is the provider type ('anthropic' | 'pi' | 'pi_compat'), `authType` how it signs in (the config's `LlmAuthType`).
- * `models` (the fetched list), `config` and `account` are JSON. `secretId` points into the secrets domain (no foreign key).
- * The columns added after the first version are nullable or carry a constant default, and `slug` stays nullable (the
- * domain always sets it): `db:push` then adds them to a table that has rows with `ALTER TABLE`, where a stricter
- * column would make it rebuild the table and copy the new columns from columns the old table does not have.
+ * `models` (the fetched list) and `config` (which holds the OAuth `account`) are JSON. `secretId` points into the secrets domain (no foreign key).
+ * `slug` stays nullable and `authType` keeps its default: the domain always sets them.
  */
 export const connections = sqliteTable(
   'connections',
@@ -16,17 +14,14 @@ export const connections = sqliteTable(
     scope: text('scope').notNull().default('install'),
     slug: text('slug'),
     type: text('type').notNull(),
-    authType: text('authType').notNull().default('none'),
+    authType: text('auth_type').notNull().default('none'),
     title: text('title').notNull(),
-    baseUrl: text('baseUrl'),
-    defaultModel: text('defaultModel'),
+    baseUrl: text('base_url'),
+    defaultModel: text('default_model'),
     models: text('models'),
     config: text('config'),
-    account: text('account'),
-    secretId: text('secretId'),
-    lastUsedAt: integer('lastUsedAt', { mode: 'timestamp_ms' }),
-    createdAt: integer('createdAt', { mode: 'timestamp_ms' }).notNull(),
-    updatedAt: integer('updatedAt', { mode: 'timestamp_ms' }),
+    secretId: text('secret_id'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [uniqueIndex('connections_scope_slug').on(table.scope, table.slug)],
 )

@@ -3,24 +3,22 @@ import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'driz
 /**
  * A workspace's labels, as one tree through `parentId`; see ./storage.ts. `slug` is the label's id as chats, routines
  * and agents write it (`bug`, `priority::3`) and never changes; `id` is the row's own `createId()`. `color` and
- * `autoRules` are JSON, `valueType` is 'string' | 'number' | 'date' | 'link', `order` is the position among siblings.
+ * `autoRules` are JSON, `valueType` is 'string' | 'number' | 'date' | 'link', `position` is the order among siblings.
  */
 export const labels = sqliteTable(
   'labels',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspaceId').notNull(),
-    parentId: text('parentId'),
+    workspaceId: text('workspace_id').notNull(),
+    parentId: text('parent_id'),
     slug: text('slug').notNull(),
     title: text('title').notNull(),
     color: text('color'),
-    valueType: text('valueType'),
-    autoRules: text('autoRules'),
-    order: integer('order').notNull(),
-    createdAt: integer('createdAt', { mode: 'timestamp_ms' }).notNull(),
-    updatedAt: integer('updatedAt', { mode: 'timestamp_ms' }).notNull(),
+    valueType: text('value_type'),
+    autoRules: text('auto_rules'),
+    position: integer('position').notNull(),
   },
-  (table) => [uniqueIndex('labels_workspace_slug').on(table.workspaceId, table.slug), index('labels_workspace_parent').on(table.workspaceId, table.parentId)],
+  (table) => [uniqueIndex('labels_workspace_slug').on(table.workspaceId, table.slug)],
 )
 
 /**
@@ -31,8 +29,8 @@ export const labels = sqliteTable(
 export const labelsEntities = sqliteTable(
   'labels_entities',
   {
-    workspaceId: text('workspaceId').notNull(),
-    labelId: text('labelId').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    labelId: text('label_id').notNull(),
     entity: text('entity').notNull(),
     value: text('value'),
   },

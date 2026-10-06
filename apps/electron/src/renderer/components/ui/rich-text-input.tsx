@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { coerceInputText } from '@/lib/input-text'
 import { cn } from '@/lib/utils'
-import { findMentionMatches } from '@/lib/mentions'
+import { findMentionMatches, isEntityMention } from '@/lib/mentions'
 import {
   loadSourceIcon,
   loadSkillIcon,
@@ -55,6 +55,8 @@ export interface RichTextInputProps extends Omit<React.HTMLAttributes<HTMLDivEle
   sources?: LoadedSource[]
   /** Workspace ID for avatars */
   workspaceId?: string
+  /** Draws entity tokens (`task:<id>`, `project:<id>`, `user:<id>`) as chips with this text; without it they stay plain text. */
+  entityLabel?: (token: string) => string
   /** Whether the input is disabled */
   disabled?: boolean
   /** Called when input changes (provides value and cursor position for mention detection) */
@@ -101,6 +103,12 @@ const CODE_FILE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" h
 
 // Folder icon (open folder) - matches UserMessageBubble style (12x12, text-muted-foreground)
 const FOLDER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" class="shrink-0 text-muted-foreground"><path d="M20.5 10C20.5 9.07003 20.5 8.60504 20.3978 8.22354C20.1204 7.18827 19.3117 6.37962 18.2765 6.10222C17.895 6 17.43 6 16.5 6H13.1008C12.4742 6 12.1609 6 11.8739 5.91181C11.6824 5.85298 11.5009 5.76572 11.3353 5.65295C11.0871 5.48389 10.8914 5.23926 10.5 4.75L10.4095 4.63693C10.107 4.25881 9.9558 4.06975 9.7736 3.92674C9.54464 3.74703 9.27921 3.61946 8.99585 3.55294C8.77037 3.5 8.52825 3.5 8.04402 3.5C6.60485 3.5 5.88527 3.5 5.32008 3.74178C4.61056 4.0453 4.0453 4.61056 3.74178 5.32008C3.5 5.88527 3.5 6.60485 3.5 8.04402V10M9.46502 20.5H14.535C16.9102 20.5 18.0978 20.5 18.9301 19.8113C19.7624 19.1226 19.9846 17.9559 20.429 15.6227L20.8217 13.5613C21.1358 11.9121 21.2929 11.0874 20.843 10.5437C20.393 10 19.5536 10 17.8746 10H6.12537C4.44643 10 3.60696 10 3.15704 10.5437C2.70713 11.0874 2.8642 11.9121 3.17835 13.5613L3.57099 15.6227C4.01541 17.9559 4.23763 19.1226 5.06992 19.8113C5.90221 20.5 7.08981 20.5 9.46502 20.5Z"/></svg>`
+
+// Entity chips (the same icons as `EntityChip`, 12px): a person has none and reads "@Name".
+const ENTITY_ICON_SVG: Partial<Record<MentionItemType, string>> = {
+  task: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`,
+  project: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`,
+}
 
 /** Known code file extensions - used to pick code file icon vs generic file icon */
 const CODE_EXTENSIONS = new Set([
@@ -161,6 +169,10 @@ function renderBadgeHTML(
   }
 
   const escapedLabel = label.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  if (isEntityMention(type)) {
+    // Otto: the tag as `EntityChip` draws it (DESIGN.md, Tags): primary on its soft tint.
+    return `<span contenteditable="false" data-mention="true" class="mention-badge inline-flex items-center gap-1 h-[22px] px-1 mx-0.5 rounded-xs bg-primary/10 dark:bg-primary/15 text-[13px] font-medium text-primary select-none [&_*]:selection:bg-transparent selection:bg-transparent" style="vertical-align: middle; transform: translateY(-1px)">${ENTITY_ICON_SVG[type] ?? ''}<span class="truncate max-w-[200px]">${escapedLabel}</span></span>`
+  }
   const titleAttr = tooltip ? ` title="${tooltip.replace(/"/g, '&quot;')}"` : ''
 
   // Line height is increased when badges are present (see hasMentions in component)
@@ -356,13 +368,14 @@ function textToHTML(
   text: string,
   skills: LoadedSkill[],
   sources: LoadedSource[],
-  workspaceId?: string
+  workspaceId?: string,
+  entityLabel?: (token: string) => string
 ): string {
   if (!text) return ''
 
   const skillSlugs = skills.map(s => s.slug)
   const sourceSlugs = sources.map(s => s.config.slug)
-  const matches = findMentionMatches(text, skillSlugs, sourceSlugs)
+  const matches = findMentionMatches(text, skillSlugs, sourceSlugs, !!entityLabel)
 
   // Escape HTML in text
   const escapeHTML = (str: string) => str
@@ -409,6 +422,8 @@ function textToHTML(
       // Show folder name as badge label, full path as tooltip
       label = match.id.split('/').pop() || match.id
       tooltip = match.id
+    } else if (entityLabel && isEntityMention(match.type)) {
+      label = entityLabel(match.id)
     }
 
     // Render badge with data-mention-text storing the original text
@@ -437,9 +452,10 @@ function textToHTML(
 // Check if mentions have changed (for determining if we need to re-render HTML)
 // ============================================================================
 
-function getMentionSignature(text: string, skillSlugs: string[], sourceSlugs: string[]): string {
-  const matches = findMentionMatches(text, skillSlugs, sourceSlugs)
-  return matches.map(m => `${m.type}:${m.id}:${m.startIndex}`).join('|')
+function getMentionSignature(text: string, skillSlugs: string[], sourceSlugs: string[], entityLabel?: (token: string) => string): string {
+  const matches = findMentionMatches(text, skillSlugs, sourceSlugs, !!entityLabel)
+  // An entity's title can load or change after the text: a new title is a new signature, so its chip is redrawn.
+  return matches.map(m => `${m.type}:${m.id}:${m.startIndex}${entityLabel && isEntityMention(m.type) ? `:${entityLabel(m.id)}` : ''}`).join('|')
 }
 
 // ============================================================================
@@ -455,6 +471,7 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
       skills = [],
       sources = [],
       workspaceId,
+      entityLabel,
       disabled = false,
       className,
       style,
@@ -478,6 +495,14 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     const isInternalUpdate = React.useRef(false)
     // Pending cursor position to restore after external value update (e.g., after @mention selection)
     const pendingCursorRef = React.useRef<number | null>(null)
+
+    // The latest label reader (it is a new function each render): the handlers below read it from here.
+    const entityLabelRef = React.useRef(entityLabel)
+    entityLabelRef.current = entityLabel
+    // The chips' current titles: a title that loads or changes later redraws its chip.
+    const entityTitles = entityLabel
+      ? findMentionMatches(safeValue, [], [], true).map(m => entityLabel(m.id)).join('|')
+      : ''
 
     const skillSlugs = React.useMemo(() => skills.map(s => s.slug), [skills])
     const sourceSlugs = React.useMemo(() => sources.map(s => s.config.slug), [sources])
@@ -543,19 +568,21 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
       if (isComposing.current) return
       if (!divRef.current) return
 
-      const newText = getTextFromElement(divRef.current)
+      // Select-all and delete leaves one stray `<br>` (read as "\n"): that is an empty box, so the placeholder shows.
+      const read = getTextFromElement(divRef.current)
+      const newText = read === '\n' ? '' : read
       const cursorPos = getCursorPosition(divRef.current, cursorPositionRef.current)
 
       lastValueRef.current = newText
       cursorPositionRef.current = cursorPos
 
       // Check if mentions changed - if so, we need to re-render HTML
-      const newSignature = getMentionSignature(newText, skillSlugs, sourceSlugs)
+      const newSignature = getMentionSignature(newText, skillSlugs, sourceSlugs, entityLabelRef.current)
       if (newSignature !== lastMentionSignatureRef.current) {
         lastMentionSignatureRef.current = newSignature
         // Re-render with badges
         isInternalUpdate.current = true
-        const html = textToHTML(newText, skills, sources, workspaceId)
+        const html = textToHTML(newText, skills, sources, workspaceId, entityLabelRef.current)
         divRef.current.innerHTML = html || '<br>' // Empty contenteditable needs a BR
         // Restore cursor
         setCursorPosition(divRef.current, cursorPos)
@@ -635,9 +662,9 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
 
       // External value change - update content
       lastValueRef.current = safeValue
-      lastMentionSignatureRef.current = getMentionSignature(safeValue, skillSlugs, sourceSlugs)
+      lastMentionSignatureRef.current = getMentionSignature(safeValue, skillSlugs, sourceSlugs, entityLabelRef.current)
 
-      const html = textToHTML(safeValue, skills, sources, workspaceId)
+      const html = textToHTML(safeValue, skills, sources, workspaceId, entityLabelRef.current)
       divRef.current.innerHTML = html || '<br>'
 
       // Restore cursor position after innerHTML update.
@@ -655,11 +682,23 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     // Initialize content on mount
     React.useEffect(() => {
       if (!divRef.current) return
-      lastMentionSignatureRef.current = getMentionSignature(safeValue, skillSlugs, sourceSlugs)
-      const html = textToHTML(safeValue, skills, sources, workspaceId)
+      lastMentionSignatureRef.current = getMentionSignature(safeValue, skillSlugs, sourceSlugs, entityLabelRef.current)
+      const html = textToHTML(safeValue, skills, sources, workspaceId, entityLabelRef.current)
       divRef.current.innerHTML = html || '<br>'
       lastValueRef.current = safeValue
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // A chip's title loaded or changed (its list arrived, a rename): draw the chips again, the caret kept.
+    React.useEffect(() => {
+      const el = divRef.current
+      if (!el || isComposing.current) return
+      const text = lastValueRef.current
+      const signature = getMentionSignature(text, skillSlugs, sourceSlugs, entityLabelRef.current)
+      if (signature === lastMentionSignatureRef.current) return
+      lastMentionSignatureRef.current = signature
+      el.innerHTML = textToHTML(text, skills, sources, workspaceId, entityLabelRef.current) || '<br>'
+      if (document.activeElement === el) setCursorPosition(el, cursorPositionRef.current)
+    }, [entityTitles]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Handle selection changes to highlight badges when selected
     React.useEffect(() => {

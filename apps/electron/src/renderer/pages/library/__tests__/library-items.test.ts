@@ -16,9 +16,9 @@ import {
 } from '../library-items'
 
 let clock = 0
-function item(id: string, type: LibraryItem['type'], folderId: string | null = null, extra: Partial<LibraryItem> = {}): LibraryItem {
+function item(id: string, type: LibraryItem['type'], parentId: string | null = null, extra: Partial<LibraryItem> = {}): LibraryItem {
   clock++
-  return { id, type, folderId, title: id, mime: null, size: type === 'folder' ? null : 10, createdBy: 'user:aaaaaaaaaaaa', createdAt: clock, updatedAt: clock, ...extra }
+  return { id, type, parentId, title: id, mime: null, size: type === 'folder' ? null : 10, createdBy: 'user:aaaaaaaaaaaa', createdAt: clock, updatedAt: clock, ...extra }
 }
 
 /** A chain of folders f1 > f2 > ... > fn in the root. */

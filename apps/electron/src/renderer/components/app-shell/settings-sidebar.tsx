@@ -2,12 +2,12 @@
  * The sidebar's Settings content: inside Settings (its pages, Skills and Sources) it replaces
  * everything else in `AppSidebar`. The header row where the mark was is `SettingsBackRow`
  * (Back to app, a 28px row on the mark's axis), then `SettingsSidebarContent`: the Account and
- * Workspace groups of the registry (Skills and Sources end Workspace), each under its muted
+ * Workspace groups of the registry (Agents, Skills and Sources end Workspace), each under its muted
  * group title, every page a 28px row with its icon, the open one filled. No footer.
  */
 
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, DatabaseZap, Shapes } from 'lucide-react'
+import { Bot, ChevronLeft, DatabaseZap, Shapes } from 'lucide-react'
 import {
   SidebarContent,
   SidebarGroup,
@@ -47,7 +47,11 @@ export function SettingsSidebarContent() {
   const { t } = useTranslation()
   const navState = useNavigationState()
   const open =
-    navState.navigator === 'settings' ? navState.subpage : navState.navigator === 'skills' || navState.navigator === 'sources' ? navState.navigator : null
+    navState.navigator === 'settings'
+      ? navState.subpage
+      : navState.navigator === 'skills' || navState.navigator === 'sources' || navState.navigator === 'agents'
+        ? navState.navigator
+        : null
 
   const groups = SETTINGS_NAV_GROUPS.map((group) => {
     const rows: Row[] = group.items.map((item) => ({
@@ -58,6 +62,7 @@ export function SettingsSidebarContent() {
     }))
     if (group.title === 'Workspace') {
       rows.push(
+        { id: 'agents', labelKey: 'sidebar.agents', icon: Bot, route: routes.view.agents() },
         { id: 'skills', labelKey: 'sidebar.skills', icon: Shapes, route: routes.view.skills() },
         { id: 'sources', labelKey: 'sidebar.sources', icon: DatabaseZap, route: routes.view.sources() },
       )

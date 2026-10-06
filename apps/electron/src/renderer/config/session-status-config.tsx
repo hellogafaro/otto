@@ -34,7 +34,7 @@ export interface SessionStatus extends SessionStatusConfig {
    * - false: Emojis, images, SVGs with hardcoded colors - render at full opacity
    */
   iconColorable: boolean
-  category?: 'open' | 'closed'
+  category?: 'open' | 'closed' | 'archived'
   isFixed?: boolean
   isDefault?: boolean
 }

@@ -9,6 +9,9 @@ import { useTheme } from "@/context/theme-context"
 import { useAction } from "@/actions"
 import { useFocusContext } from "@/context/focus-context"
 import { useSetAtom } from "jotai"
+import { useTranslation } from "react-i18next"
+import { toast } from "@workspace/ui/components/sonner"
+import { useLiveData } from "@/hooks/use-live-data"
 import type { LoadedSource, LoadedSkill, PermissionMode } from "../../../shared/types"
 import { sessionMetaMapAtom, sendToWorkspaceAtom } from "@/atoms/sessions"
 import { sourcesAtom } from "@/atoms/sources"
@@ -32,6 +35,7 @@ import {
   isInboxNavigation,
   isSettingsNavigation,
   isSkillsNavigation,
+  isAgentsNavigation,
   isSourcesNavigation,
 } from "@/contexts/navigation-context"
 import { useRecordRecent } from "@/hooks/use-recents"
@@ -148,6 +152,7 @@ function AppShellContent({
     setSourcesAtom(sources)
   }, [sources, setSourcesAtom])
 
+  const { t } = useTranslation()
   // Skills state (workspace-scoped), null until loaded
   const [skills, setSkills] = React.useState<LoadedSkill[] | null>(null)
   // Sync skills to the atom the Skills grid, Previous / Next and the palette read
@@ -210,15 +215,18 @@ function AppShellContent({
     }
   }, [activeWorkspaceId, setGuardedModeAvailable])
 
-  // Load sources from backend on mount
-  React.useEffect(() => {
+  // The workspace's sources (the rows the server keeps), loaded again when anyone in the workspace adds, edits or removes one
+  const loadSources = React.useCallback(() => {
     if (!activeWorkspaceId) return
-    window.electronAPI.getSources(activeWorkspaceId).then((loaded) => {
+    return window.electronAPI.getSources(activeWorkspaceId).then((loaded) => {
+      clearSourceIconCaches()
       setSources(loaded || [])
     }).catch(err => {
       console.error('[Chat] Failed to load sources:', err)
     })
   }, [activeWorkspaceId])
+  React.useEffect(() => void loadSources(), [loadSources])
+  useLiveData('sources', activeWorkspaceId ?? null, loadSources)
 
   // Subscribe to live source updates (when sources are added/removed dynamically)
   React.useEffect(() => {
@@ -239,6 +247,20 @@ function AppShellContent({
     })
     return cleanup
   }, [activeWorkspaceId])
+
+  // A source an agent edited here lost to a newer version made elsewhere: the folder was reloaded, the edit kept aside
+  React.useEffect(() => {
+    return window.electronAPI.onSourceConflict((workspaceId, slug) => {
+      if (workspaceId === activeWorkspaceId) toast.warning(t('sourceInfo.conflictKept', { slug }))
+    })
+  }, [activeWorkspaceId, t])
+
+  // A skill an agent edited here lost to a newer version made elsewhere: the folder was reloaded, the edit kept aside
+  React.useEffect(() => {
+    return window.electronAPI.onSkillConflict((workspaceId, slug) => {
+      if (workspaceId === activeWorkspaceId) toast.warning(t('skillInfo.conflictKept', { slug }))
+    })
+  }, [activeWorkspaceId, t])
 
   // Handle session source selection changes
   const handleSessionSourcesChange = React.useCallback(async (sessionId: string, sourceSlugs: string[]) => {
@@ -410,19 +432,21 @@ function AppShellContent({
   // Workspace-level unread indicators (needed for workspace selectors across all workspaces)
   const [workspaceUnreadMap, setWorkspaceUnreadMap] = useState<Record<string, boolean>>({})
 
-  // Reload skills when active session's workingDirectory changes (for project-level skills)
-  // Skills are loaded from: global (~/.agents/skills/), workspace, and project ({workingDirectory}/.agents/skills/)
   const activeSessionWorkingDirectory = session.selected
     ? sessionMetaMap.get(session.selected)?.workingDirectory
     : undefined
-  React.useEffect(() => {
+  // The workspace's skills (the rows the server keeps; there are no global or per-project skills)
+  const loadSkills = React.useCallback(() => {
     if (!activeWorkspaceId) return
-    window.electronAPI.getSkills(activeWorkspaceId, activeSessionWorkingDirectory).then((loaded) => {
+    return window.electronAPI.getSkills(activeWorkspaceId).then((loaded) => {
       setSkills(loaded || [])
     }).catch(err => {
       console.error('[Chat] Failed to load skills:', err)
     })
-  }, [activeWorkspaceId, activeSessionWorkingDirectory])
+  }, [activeWorkspaceId])
+  React.useEffect(() => void loadSkills(), [loadSkills])
+  // A skill added, edited or deleted by anyone in the workspace
+  useLiveData('skills', activeWorkspaceId ?? null, loadSkills)
 
   // Filter session metadata by active workspace
   // Also exclude hidden sessions (mini-agent sessions) from all counts and lists
@@ -574,7 +598,7 @@ function AppShellContent({
 
   // Settings (its pages, Skills and Sources) has its own sidebar, whose Back to app returns to
   // the last view outside it (Chats when Settings was the first view opened).
-  const inSettings = isSettingsNavigation(navState) || isSkillsNavigation(navState) || isSourcesNavigation(navState)
+  const inSettings = isSettingsNavigation(navState) || isSkillsNavigation(navState) || isSourcesNavigation(navState) || isAgentsNavigation(navState)
   const lastAppRouteRef = useRef<Route>(routes.view.allSessions())
   useEffect(() => {
     if (!inSettings) lastAppRouteRef.current = buildRouteFromNavigationState(navState) as Route

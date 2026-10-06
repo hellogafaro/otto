@@ -11,6 +11,8 @@ import type { LlmAuthType, LlmProviderType } from '../config/llm-connections.ts'
 import { SecureStorageBackend } from './backends/secure-storage.ts';
 import { deleteDecisionKey, getDecisionKey, setDecisionKey } from '../decisions/keys.ts';
 import { deleteCredential, getCredential, setCredential } from '../connections/index.ts';
+import { deleteSourceCredential, deleteWorkspaceSourceCredentials, getSourceCredential, setSourceCredential } from '../sources/rows.ts';
+import { SOURCE_CREDENTIAL_TYPES } from './types.ts';
 import { debug } from '../utils/debug.ts';
 
 export class CredentialManager {
@@ -49,23 +51,6 @@ export class CredentialManager {
     await this.initPromise;
   }
 
-  private ensureInitializedSync(): void {
-    if (this.initialized) {
-      return;
-    }
-
-    // SecureStorageBackend is always available and is currently the only
-    // credential backend. This sync path exists for sync callers such as
-    // saveSourceConfig(), where fire-and-forget cleanup can race immediate reloads.
-    const backend = new SecureStorageBackend();
-    this.backends = [backend];
-    this.writeBackend = backend;
-    this.initialized = true;
-    this.initPromise = null;
-    debug(`[CredentialManager] Backend available: ${backend.name} (priority ${backend.priority})`);
-    debug(`[CredentialManager] Using backend: ${backend.name}`);
-  }
-
   private async _doInitialize(): Promise<void> {
     const potentialBackends: CredentialBackend[] = [
       new SecureStorageBackend(),
@@ -79,11 +64,6 @@ export class CredentialManager {
         debug(`[CredentialManager] Backend available: ${backend.name} (priority ${backend.priority})`);
       }
     }
-
-    // A synchronous caller may have initialized the singleton while the async
-    // availability checks above were in flight. In that case, keep the sync state
-    // instead of appending duplicate backends.
-    if (this.initialized) return;
 
     // Sort by priority (highest first)
     availableBackends.sort((a, b) => b.priority - a.priority);
@@ -165,29 +145,6 @@ export class CredentialManager {
     return deleted;
   }
 
-  deleteSync(id: CredentialId): boolean {
-    this.ensureInitializedSync();
-
-    let deleted = false;
-    for (const backend of this.backends) {
-      if (!backend.deleteSync) {
-        debug(`[CredentialManager] Backend ${backend.name} does not support synchronous delete`);
-        continue;
-      }
-
-      try {
-        if (backend.deleteSync(id)) {
-          deleted = true;
-          debug(`[CredentialManager] Deleted ${id.type} from ${backend.name}`);
-        }
-      } catch (err) {
-        debug(`[CredentialManager] Error deleting from ${backend.name}:`, err);
-      }
-    }
-
-    return deleted;
-  }
-
   /**
    * List credentials matching a filter.
    * Automatically initializes if needed.
@@ -251,12 +208,46 @@ export class CredentialManager {
     );
   }
 
-  /** Delete all credentials for a workspace (source credentials) */
+  /** Delete all credentials for a workspace (the old file's, and its sources' secrets) */
   async deleteWorkspaceCredentials(workspaceId: string): Promise<void> {
     const allCreds = await this.list({ workspaceId });
     for (const cred of allCreds) {
       await this.delete(cred);
     }
+    deleteWorkspaceSourceCredentials(workspaceId);
+  }
+
+  // ============================================================
+  // Source Credentials
+  // ============================================================
+  //
+  // A source's credential is the one secret of its `sources` row (`@otto/shared/sources`), not an entry of
+  // this file: these methods take the same `CredentialId` (`source_oauth`, `source_bearer`, `source_apikey`,
+  // `source_basic`; `workspaceId` is the workspace's id, `sourceId` the source's slug) and read and write that secret.
+  // The raw `get` / `set` / `delete` above still address `credentials.enc`, which is only read, by the importer of sources.
+
+  private sourceKey(id: CredentialId): { workspaceId: string; slug: string; type: (typeof SOURCE_CREDENTIAL_TYPES)[number] } {
+    const type = SOURCE_CREDENTIAL_TYPES.find((candidate) => candidate === id.type);
+    if (!type || !id.workspaceId || !id.sourceId) throw new Error(`${id.type} is not a source credential id`);
+    return { workspaceId: id.workspaceId, slug: id.sourceId, type };
+  }
+
+  /** The credential of this kind the source keeps, or null. */
+  async getSourceCredential(id: CredentialId): Promise<StoredCredential | null> {
+    const { workspaceId, slug, type } = this.sourceKey(id);
+    return getSourceCredential(workspaceId, slug, type) ?? null;
+  }
+
+  /** Replaces the credential of the source. */
+  async setSourceCredential(id: CredentialId, credential: StoredCredential): Promise<void> {
+    const { workspaceId, slug, type } = this.sourceKey(id);
+    await setSourceCredential(workspaceId, slug, type, credential);
+  }
+
+  /** Removes the credential of this kind the source keeps; true when there was one. Synchronous: the config save cannot wait. */
+  deleteSourceCredential(id: CredentialId): boolean {
+    const { workspaceId, slug, type } = this.sourceKey(id);
+    return deleteSourceCredential(workspaceId, slug, type);
   }
 
   // Note: OpenAI API key methods removed - Codex uses native ChatGPT OAuth flow

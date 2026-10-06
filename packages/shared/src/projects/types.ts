@@ -2,7 +2,6 @@
 
 export type ProjectStatus = 'active' | 'archived' | 'deleted'
 export type ProjectErrorCode = 'not_found' | 'conflict' | 'invalid'
-export type MemberRole = 'contributor' | 'viewer'
 
 export type ResourceType = 'url' | 'library' | 'chat'
 
@@ -15,13 +14,12 @@ export type Project = {
   title: string
   description: string
   status: ProjectStatus
+  /** Actors ('user:<id>' or 'agent:<id>'), the creator first. */
+  members: string[]
   resources: Resource[]
   createdAt: number
   updatedAt: number
 }
-
-/** `actor` is 'user:<id>' or 'agent:<id>'. */
-export type ProjectMember = { actor: string; role: MemberRole }
 
 /** `status`: left out means active only; ask for 'archived' or 'deleted' explicitly. */
 export type ProjectFilter = { status?: ProjectStatus | ProjectStatus[] }

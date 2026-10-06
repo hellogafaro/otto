@@ -4,7 +4,7 @@
  * offer, and the tabs' counts. No React.
  */
 
-import type { LibraryItem, ProjectMember, Resource, Task } from '../../../shared/types'
+import type { LibraryItem, Resource, Task } from '../../../shared/types'
 
 export type ProjectLibraryKind = 'document' | 'file'
 
@@ -41,9 +41,8 @@ export function getLibraryCandidates(items: LibraryItem[], resources: Resource[]
 }
 
 /** The workspace's people and agents who are not in the project yet. */
-export function getMemberCandidates<T extends { actor: string }>(people: T[], members: ProjectMember[]): T[] {
-  const inProject = new Set(members.map((member) => member.actor))
-  return people.filter((person) => !inProject.has(person.actor))
+export function getMemberCandidates<T extends { actor: string }>(people: T[], members: string[]): T[] {
+  return people.filter((person) => !members.includes(person.actor))
 }
 
 /** The tabs' counts: open tasks (not archived) and the Documents and Files tabs' tiles. */

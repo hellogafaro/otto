@@ -106,9 +106,20 @@ import {
 } from './system-prompt-override.ts';
 import { readContextUsage, deferContextUsage } from './context-usage.ts';
 import { waitForCompaction, MANUAL_COMPACT_WAIT_MS, PROMPT_COMPACT_WAIT_MS } from './compaction-wait.ts';
-import type { PiCompactResult, PiContextUsagePayload, PiLargeResultGateRequest, PiLargeResultGateResponse } from '../../shared/src/agent/backend/pi/protocol.ts';
+import type {
+  PiCompactResult,
+  PiComputerExecData,
+  PiComputerExecExit,
+  PiComputerExecKill,
+  PiComputerExecRequest,
+  PiContextUsagePayload,
+  PiLargeResultGateRequest,
+  PiLargeResultGateResponse,
+} from '../../shared/src/agent/backend/pi/protocol.ts';
+import { createComputerExecClient, createComputerOperations, routeToComputer, unavailableOnComputer } from './computer-tools.ts';
 import { createLargeResultGateClient } from './large-result-gate.ts';
 import { adaptCredentialForPiSdk, type PiCredential } from './adapt-credential.ts';
+import { registerClaudeCodeProvider } from './claude-code-provider.ts';
 
 // ============================================================
 // Types — JSONL Protocol
@@ -154,11 +165,13 @@ interface RuntimeConfigUpdateMessage {
 /** Messages from main process (stdin) */
 type InboundMessage =
   | InitMessage
-  | { type: 'prompt'; id: string; message: string; systemPrompt: string; images?: Array<{ type: 'image'; data: string; mimeType: string }> }
+  | { type: 'prompt'; id: string; message: string; systemPrompt: string; images?: Array<{ type: 'image'; data: string; mimeType: string }>; computer?: boolean }
   | { type: 'register_tools'; tools: ProxyToolDef[] }
   | { type: 'tool_execute_response'; requestId: string; result: { content: string; isError: boolean } }
   | { type: 'pre_tool_use_response'; requestId: string; action: 'allow' | 'block' | 'modify'; input?: Record<string, unknown>; reason?: string }
   | PiLargeResultGateResponse
+  | PiComputerExecData
+  | PiComputerExecExit
   | { type: 'abort' }
   | { type: 'mini_completion'; id: string; prompt: string }
   | { type: 'llm_query'; id: string; request: LLMQueryRequest }
@@ -256,6 +269,8 @@ type OutboundMessage =
   | OutboundRuntimeConfigUpdateResult
   | OutboundSessionIdUpdate
   | PiLargeResultGateRequest
+  | PiComputerExecRequest
+  | PiComputerExecKill
   | OutboundError;
 
 // ============================================================
@@ -340,6 +355,10 @@ function debugLog(message: string): void {
 // main process whether a summary is needed before summarizing.
 const largeResultGate = createLargeResultGateClient(send);
 setLargeResultSummaryGate(largeResultGate.gate);
+
+// Built-in tools run on the turn's computer when its prompt says so (computer-tools.ts).
+const computerExec = createComputerExecClient(send);
+let turnUsesComputer = false;
 
 /** Find the most recent .jsonl session file in a directory. */
 function findMostRecentSessionFile(sessionDir: string): string | null {
@@ -569,6 +588,8 @@ async function createAuthenticatedRuntime(): Promise<{
         modelsStore: new InMemoryModelsStore(),
       });
       const modelRegistry = new PiModelRegistry(modelRuntime);
+      // Claude subscriptions through the user's own `claude` (docs/pi-only-plan.md B1); off until B2.
+      if (process.env.OTTO_CLAUDE_CODE_PROVIDER === '1') registerClaudeCodeProvider(modelRegistry, { cwd: resolvedCwd });
 
       // Register custom endpoint models dynamically via Pi SDK's registerProvider API.
       // This makes arbitrary OpenAI/Anthropic-compatible endpoints work through the Pi SDK
@@ -646,14 +667,18 @@ async function ensureSession(): Promise<AgentSession> {
   //     our hooked versions take effect (permissions + large-response summarization).
   //   - Do NOT pass tool *objects* to `tools` — `allowedToolNames = new Set(options.tools)`
   //     then `.has(name)` returns false for every string lookup → zero tools active.
+  const ops = createComputerOperations(computerExec.exec);
+  const onComputer = () => turnUsesComputer;
+  const grepDef = createGrepToolDefinition(cwd);
+  const findDef = createFindToolDefinition(cwd);
   const builtinDefs = [
-    createReadToolDefinition(cwd),
-    createBashToolDefinition(cwd),
-    createEditToolDefinition(cwd),
-    createWriteToolDefinition(cwd),
-    createGrepToolDefinition(cwd),
-    createFindToolDefinition(cwd),
-    createLsToolDefinition(cwd),
+    routeToComputer(createReadToolDefinition(cwd), createReadToolDefinition(cwd, { operations: ops.read }), onComputer),
+    routeToComputer(createBashToolDefinition(cwd), createBashToolDefinition(cwd, { operations: ops.bash }), onComputer),
+    routeToComputer(createEditToolDefinition(cwd), createEditToolDefinition(cwd, { operations: ops.edit }), onComputer),
+    routeToComputer(createWriteToolDefinition(cwd), createWriteToolDefinition(cwd, { operations: ops.write }), onComputer),
+    routeToComputer(grepDef, unavailableOnComputer(grepDef), onComputer),
+    routeToComputer(findDef, unavailableOnComputer(findDef), onComputer),
+    routeToComputer(createLsToolDefinition(cwd), createLsToolDefinition(cwd, { operations: ops.ls }), onComputer),
   ];
   const proxyTools = buildProxyTools();
   const wrappedAll = wrapToolsWithHooks([...builtinDefs, ...webTools, ...proxyTools]);
@@ -1382,6 +1407,7 @@ async function handleInit(msg: Extract<InboundMessage, { type: 'init' }>): Promi
 
 async function handlePrompt(msg: Extract<InboundMessage, { type: 'prompt' }>): Promise<void> {
   currentUserMessage = msg.message;
+  turnUsesComputer = msg.computer === true;
 
   try {
     // If proxy tools changed since last session creation, dispose and recreate.
@@ -1803,6 +1829,14 @@ async function processMessage(msg: InboundMessage): Promise<void> {
 
     case 'large_result_gate_response':
       largeResultGate.handleResponse(msg.requestId, msg.summarize);
+      break;
+
+    case 'computer_exec_data':
+      computerExec.handleData(msg);
+      break;
+
+    case 'computer_exec_exit':
+      computerExec.handleExit(msg);
       break;
 
     case 'abort':

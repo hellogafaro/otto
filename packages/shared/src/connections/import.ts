@@ -90,7 +90,6 @@ function toInput(raw: unknown): ConnectionInput | undefined {
       oauthOrganizationName: text(raw.oauthOrganizationName),
       verifiedAt: typeof raw.oauthProfileVerifiedAt === 'number' ? raw.oauthProfileVerifiedAt : undefined,
     },
-    lastUsedAt: date(raw.lastUsedAt),
     createdAt: date(raw.createdAt),
   }
 }

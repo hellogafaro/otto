@@ -22,7 +22,8 @@ const { users } = await import('../../../../../../packages/shared/src/users/sche
 const { userEntity, workspaceEntity } = await import('@otto/shared/settings')
 const { createConnection, deleteConnection, userScope, workspaceScope } = await import('@otto/shared/connections')
 const { getTranscriptionKey } = await import('@otto/shared/transcription')
-const { authorize, CONNECTION_WRITE_CHANNELS, INSTANCE_OWNER_CHANNELS, OWNER_CHANNELS, WORKSPACE_ARG_CHANNELS } = await import('../../../../../../packages/server-core/src/bootstrap/authorize.ts')
+const { createAgent } = await import('@otto/shared/agents')
+const { AGENT_WRITE_CHANNELS, authorize, CONNECTION_WRITE_CHANNELS, INSTANCE_OWNER_CHANNELS, OWNER_CHANNELS, WORKSPACE_ARG_CHANNELS } = await import('../../../../../../packages/server-core/src/bootstrap/authorize.ts')
 const { registerAllRpcHandlers } = await import('../index')
 
 type Handler = (...args: never[]) => unknown
@@ -193,6 +194,26 @@ describe('the guard on every registered channel', () => {
       expect(OWNER_CHANNELS.has(channel)).toBe(true)
       expect(await codeOf(bob.invoke(channel, A))).toBe('forbidden')
       expect(await codeOf(alice.invoke(channel, A))).toBe('ok')
+    }
+  })
+
+  it('lets any member list, get and create agents, and only an agent\'s creator or an owner change or delete it', async () => {
+    const { url } = await start(false)
+    const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)] // alice owns A, bob is a member, zed is in B only
+    const { agents } = RPC_CHANNELS
+    expect([...AGENT_WRITE_CHANNELS].sort()).toEqual([agents.UPDATE, agents.DELETE].sort())
+    for (const channel of AGENT_WRITE_CHANNELS) expect(registered.has(channel)).toBe(true)
+    for (const channel of [agents.LIST, agents.GET, agents.CREATE]) expect(await codeOf(bob.invoke(channel, 'x'))).toBe('ok')
+    const mine = createAgent({ workspaceId: A, title: 'Bob\'s', provider: 'p', createdBy: 'user:bob' }).id
+    const owners = createAgent({ workspaceId: A, title: 'Alice\'s', provider: 'p', createdBy: 'user:alice' }).id
+    for (const channel of AGENT_WRITE_CHANNELS) {
+      expect(await codeOf(bob.invoke(channel, mine))).toBe('ok') // its creator
+      expect(await codeOf(bob.invoke(channel, owners))).toBe('forbidden') // someone else's
+      expect(await codeOf(alice.invoke(channel, mine))).toBe('ok') // an owner of the workspace
+      expect(await codeOf(alice.invoke(channel, owners))).toBe('ok')
+      expect(await codeOf(bob.invoke(channel, 'nope'))).toBe('ok') // not an agent here: the handler says not_found
+      expect(await codeOf(bob.invoke(channel))).toBe('ok')
+      expect(await codeOf(zed.invoke(channel, mine))).toBe('ok') // zed's workspace is B, where it is no agent: the same not_found answer as an unknown id
     }
   })
 

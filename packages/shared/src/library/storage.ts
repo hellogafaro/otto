@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { createDiskFileStore, getLibraryDir, type FileStore } from './file-store.ts'
 import { createS3Client, createS3FileStore, type S3Config } from './s3-file-store.ts'
 
@@ -10,7 +11,8 @@ import { createS3Client, createS3FileStore, type S3Config } from './s3-file-stor
  *   OTTO_S3_BUCKET, OTTO_S3_REGION, OTTO_S3_ACCESS_KEY_ID, OTTO_S3_SECRET_ACCESS_KEY
  *   OTTO_S3_PREFIX          optional: a folder in the bucket for everything Otto stores (default none)
  *
- * Library keys are `[<prefix>/]workspaces/<workspaceId>/library/<itemId>`.
+ * Library keys are `[<prefix>/]workspaces/<workspaceId>/library/<itemId>`; bundle keys (skills, later sources)
+ * `[<prefix>/]workspaces/<workspaceId>/<kind>/<slug>/<path>`.
  */
 let s3: { client: ReturnType<typeof createS3Client>; prefix: string } | undefined
 
@@ -44,3 +46,17 @@ export function getLibraryStore(workspaceRootPath: string, workspaceId: string):
   if (!/^[A-Za-z0-9_-]+$/.test(workspaceId)) throw new Error(`Invalid workspace id: ${workspaceId}`)
   return createS3FileStore({ client: s3.client, keyPrefix: `${s3.prefix}workspaces/${workspaceId}/library/`, cacheDir: getLibraryDir(workspaceRootPath) })
 }
+
+/**
+ * A workspace's bundle store for skills and sources: path keys `<slug>/<file>`. On S3 reads go straight to the
+ * bucket (the bundle's materializer fills `<root>/<kind>/`, see bundles/store.ts); on disk the folder `<root>/<kind>` is
+ * the store itself, so a bundle is already where agents read it.
+ */
+export function getBundleStore(workspaceRootPath: string, workspaceId: string, kind: 'skills' | 'sources'): FileStore {
+  if (!s3) return createDiskFileStore(join(workspaceRootPath, kind), { paths: true })
+  if (!/^[A-Za-z0-9_-]+$/.test(workspaceId)) throw new Error(`Invalid workspace id: ${workspaceId}`)
+  return createS3FileStore({ client: s3.client, keyPrefix: `${s3.prefix}workspaces/${workspaceId}/${kind}/`, paths: true })
+}
+
+/** True when `OTTO_STORAGE=s3` is active (the bundle store and the local folder are then two places). */
+export const isObjectStorage = () => s3 !== undefined

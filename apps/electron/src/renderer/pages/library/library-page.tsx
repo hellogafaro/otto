@@ -56,7 +56,7 @@ function AddMenu({ trigger, canAddFolder, onUpload, onNewDocument, onNewFolder }
 }
 
 type Creating = 'folder' | 'document'
-type Pending = { key: string; title: string; folderId: string | null }
+type Pending = { key: string; title: string; parentId: string | null }
 
 export function LibraryPage() {
   const { t } = useTranslation()
@@ -71,7 +71,7 @@ export function LibraryPage() {
 
   const path = getFolderPath(items, view.folder)
   const visible = getVisibleItems(items, view)
-  const uploading = pending.filter((upload) => upload.folderId === view.folder && view.tab !== 'documents')
+  const uploading = pending.filter((upload) => upload.parentId === view.folder && view.tab !== 'documents')
   const canAddFolder = path.length < MAX_FOLDER_DEPTH
 
   // A folder that is gone (deleted, or a stale link): back to the Library's root.
@@ -80,9 +80,9 @@ export function LibraryPage() {
   }, [loaded, view.folder, path.length]) // eslint-disable-line react-hooks/exhaustive-deps -- when the folder goes missing
 
   const upload = async (files: File[]) => {
-    const folderId = view.folder
+    const parentId = view.folder
     const queued = files.map((file) => ({ file, key: `${file.name}-${file.lastModified}-${Math.random()}` }))
-    setPending((current) => [...current, ...queued.map(({ file, key }) => ({ key, title: file.name, folderId }))])
+    setPending((current) => [...current, ...queued.map(({ file, key }) => ({ key, title: file.name, parentId }))])
     for (const { file, key } of queued) {
       try {
         if (file.size > MAX_FILE_BYTES) {
@@ -90,7 +90,7 @@ export function LibraryPage() {
           continue
         }
         const data = await readFileAsBase64(file)
-        const result = await createLibraryItem({ title: file.name, mime: file.type || 'application/octet-stream', content: { encoding: 'base64', data }, folderId })
+        const result = await createLibraryItem({ title: file.name, mime: file.type || 'application/octet-stream', content: { encoding: 'base64', data }, parentId })
         if (!result.ok) toast.error(result.code === 'too_large' ? t('library.tooLarge', { title: file.name }) : t('library.uploadFailed', { title: file.name }))
       } catch {
         toast.error(t('library.uploadFailed', { title: file.name }))
@@ -104,12 +104,12 @@ export function LibraryPage() {
     if (!creating) return
     setCreating(null)
     if (creating === 'folder') {
-      const result = await createLibraryFolder({ title: name, folderId: view.folder })
+      const result = await createLibraryFolder({ title: name, parentId: view.folder })
       if (!result.ok) toast.error(libraryErrorMessage(t, result.code))
       return
     }
     // The library refuses empty files: a new document starts as one line break.
-    const result = await createLibraryItem({ title: `${name}.md`, mime: 'text/markdown', content: { encoding: 'utf8', data: '\n' }, folderId: view.folder })
+    const result = await createLibraryItem({ title: `${name}.md`, mime: 'text/markdown', content: { encoding: 'utf8', data: '\n' }, parentId: view.folder })
     if (result.ok) openItem(result.value.id)
     else toast.error(libraryErrorMessage(t, result.code))
   }

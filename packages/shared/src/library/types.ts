@@ -6,7 +6,7 @@ export type LibraryErrorCode = 'not_found' | 'conflict' | 'invalid' | 'too_large
 /** Timestamps are epoch milliseconds so an item survives JSON as is. */
 export type LibraryItem = {
   id: string
-  folderId: string | null
+  parentId: string | null
   type: LibraryItemType
   title: string
   mime: string | null
@@ -20,8 +20,8 @@ export type LibraryItem = {
 /** Bytes on the wire: documents travel as text, everything else as base64. */
 export type LibraryContent = { encoding: 'utf8' | 'base64'; data: string }
 
-/** `folderId`: a folder id, null for the root, left out for everywhere. */
-export type LibraryFilter = { folderId?: string | null; createdBy?: string; type?: LibraryItemType }
+/** `parentId`: a folder id, null for the root, left out for everywhere. */
+export type LibraryFilter = { parentId?: string | null; createdBy?: string; type?: LibraryItemType }
 
 /** Replacing `content` needs `expectedUpdatedAt`, the `updatedAt` the caller last saw. */
-export type LibraryUpdate = { title?: string; folderId?: string | null; content?: LibraryContent; expectedUpdatedAt?: number }
+export type LibraryUpdate = { title?: string; parentId?: string | null; content?: LibraryContent; expectedUpdatedAt?: number }

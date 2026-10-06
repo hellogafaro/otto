@@ -9,7 +9,7 @@
  * - Dots (.)
  */
 import { describe, it, expect } from 'bun:test'
-import { parseMentions, findMentionMatches, removeMention, stripAllMentions, resolveSkillMentions, resolveSourceMentions, extractBadges } from '../mentions'
+import { parseMentions, findMentionMatches, startsWithEntityMention, removeMention, stripAllMentions, resolveSkillMentions, resolveSourceMentions, extractBadges } from '../mentions'
 
 // ============================================================================
 // parseMentions - Skill Pattern Tests
@@ -313,5 +313,24 @@ describe('extractBadges - skill qualification with workspace slug', () => {
     expect(badges).toHaveLength(1)
     expect(badges[0]!.rawText).toBe('[source:linear]')
     expect(badges[0]!.type).toBe('source')
+  })
+})
+
+describe('findMentionMatches - entity tokens', () => {
+  it('finds user, task and project tokens only when asked, and ignores other types and near misses', () => {
+    const text = 'see task:abcdefghijkl and user:123456789012, library:abcdefghijkl, project:short, xtask:abcdefghijkl'
+    expect(findMentionMatches(text, [], [])).toEqual([])
+    expect(findMentionMatches(text, [], [], true).map(m => [m.type, m.id, m.startIndex])).toEqual([
+      ['task', 'task:abcdefghijkl', 4],
+      ['user', 'user:123456789012', 26],
+    ])
+  })
+})
+
+describe('startsWithEntityMention', () => {
+  it('is true for a token at the start only', () => {
+    expect(startsWithEntityMention('task:abcdefghijkl and more')).toBe(true)
+    expect(startsWithEntityMention('see task:abcdefghijkl')).toBe(false)
+    expect(startsWithEntityMention('task:short')).toBe(false)
   })
 })

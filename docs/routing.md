@@ -39,6 +39,7 @@ One URL scheme for web and Electron: real paths on browser history (`createBrows
 | Inbox | `/{ws}/inbox` (`?unread=1`); no detail: a notification opens its task or project |
 | Skills (in Settings) | `/{ws}/settings/skills` (the grid), `/{ws}/settings/skills/{slug}`; `?scope=global\|workspace\|project` |
 | Sources (in Settings) | `/{ws}/settings/sources` (the grid), `/{ws}/settings/sources/{slug}`; `?type=api\|mcp\|local` |
+| Agents (in Settings) | `/{ws}/settings/agents` (the gallery), `/{ws}/settings/agents/{id}`; route string `agents[/agent/{id}]` |
 
 `/` and `/{ws}` redirect to `/{activeWorkspaceSlug}/chats` (`/{ws}` in the route tree, `/` by the navigation provider once the workspace is known, so the splash is not held back). A known slug other than the active workspace switches to it (back step, pasted link, restored window); the switcher changing the workspace moves the URL (same settings page, otherwise the section's index). Reserved first segments (`isReservedWorkspaceSlug`, `packages/shared/src/utils/workspace-slug.ts`) are never a workspace: the `$workspaceSlug` route throws `notFound()` for them, and `generateSlug` suffixes `-workspace` so a workspace can never get one.
 
@@ -56,7 +57,7 @@ A URL with no page shows `NotFoundPage` (`pages/not-found-page.tsx`) alone: the 
 | `/test/settings/nope` (bad settings page), `/login/chats` (reserved first segment) | not found | the router: the route's `beforeLoad` throws `notFound()` |
 | `/zzz`, `/zzz/chats` (a slug no workspace has) | not found, once the workspaces have loaded (the splash shows until then) | `NavigationProvider`. The tree still redirects `/zzz` to `/zzz/chats`; then the slug is unknown |
 | `/test/chats/{id}` of a chat that is not in the workspace | not found, once the chat list has loaded | `NavigationProvider`: the list lacks it and the server has no such chat in this workspace. A chat deleted while open is not re-checked |
-| `/test/settings/skills/{slug}`, `/test/settings/sources/{slug}`, `/test/routines/{id}` that do not exist | not found, once the item's page has loaded its list | the page calls `showNotFound()` |
+| `/test/settings/skills/{slug}`, `/test/settings/sources/{slug}`, `/test/settings/agents/{id}`, `/test/routines/{id}` that do not exist | not found, once the item's page has loaded its list | the page calls `showNotFound()` |
 | `/`, `/{knownSlug}`, a known view | redirect to Chats, or the view | |
 
 The app-level cases set `isNotFound` in the navigation context (true while the URL is the path found missing; any URL change ends it) and `App` swaps the whole main UI for the page (`NotFoundGate`). Task, Project, Library item and Routine ids are checked by their pages, which call `showNotFound()` once they have loaded their list.

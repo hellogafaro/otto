@@ -1,4 +1,4 @@
-import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 /**
  * One key/value table for three kinds of owner; see ./index.ts.
@@ -10,7 +10,6 @@ export const settings = sqliteTable(
     entity: text('entity').notNull(),
     key: text('key').notNull(),
     value: text('value').notNull(),
-    updatedAt: integer('updatedAt', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [primaryKey({ columns: [table.entity, table.key] })],
 )

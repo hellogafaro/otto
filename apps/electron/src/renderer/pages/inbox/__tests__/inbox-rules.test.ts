@@ -13,9 +13,9 @@ describe('inbox rules', () => {
   })
 
   it('keeps only unread items under the filter', () => {
-    const items = [{ status: 'unread' as const }, { status: 'read' as const }, { status: 'pending' as const }]
+    const items = [{ readAt: null }, { readAt: 5 }, { readAt: 6 }]
     expect(filterNotifications(items, false)).toHaveLength(3)
-    expect(filterNotifications(items, true)).toEqual([{ status: 'unread' }])
+    expect(filterNotifications(items, true)).toEqual([{ readAt: null }])
   })
 
   it('caps the unread count at 99+ and draws nothing at 0', () => {

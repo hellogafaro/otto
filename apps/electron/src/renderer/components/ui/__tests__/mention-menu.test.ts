@@ -13,10 +13,12 @@ mock.module('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: '' }));
 mock.module('pdfjs-dist', () => ({ GlobalWorkerOptions: { workerSrc: '' }, getDocument: () => ({}) }));
 
 let isValidMentionTrigger: (text: string, position: number) => boolean;
+let filterSections: typeof import('../mention-menu').filterSections;
 
 beforeAll(async () => {
   const mod = await import('../mention-menu');
   isValidMentionTrigger = mod.isValidMentionTrigger;
+  filterSections = mod.filterSections;
 });
 
 describe('isValidMentionTrigger', () => {
@@ -123,3 +125,28 @@ describe('isValidMentionTrigger', () => {
     });
   });
 });
+
+describe('filterSections (entity mentions)', () => {
+  const item = (type: 'task' | 'project' | 'user' | 'skill', label: string, rank?: number) => ({ id: type === 'skill' ? label.toLowerCase() : `${type}:abcdefghijkl`, type, label, rank })
+  const sections = [
+    { id: 'tasks', label: 'Tasks', preview: 2, items: [item('task', 'Write report', 30), item('task', 'Review plan', 20), item('task', 'Reorder stock', 10)] },
+    { id: 'projects', label: 'Projects', items: [item('project', 'Reports', 5)] },
+    { id: 'skills', label: 'Skills', items: [item('skill', 'Release')] },
+  ]
+
+  it('shows each section, cut to its preview, until something is typed', () => {
+    const shown = filterSections(sections, '  ')
+    expect(shown.map(section => section.items.length)).toEqual([2, 1, 1])
+  })
+
+  it('ranks a prefix before a later word, then the newest, then the name', () => {
+    const labels = filterSections(sections, 're')[0]!.items.map(entry => entry.label)
+    // Prefix matches (Review plan 20, Reorder stock 10, Reports 5, Release 0), then the later word (Write report).
+    expect(labels).toEqual(['Review plan', 'Reorder stock', 'Reports', 'Release', 'Write report'])
+  })
+
+  it('does not match an entity by its token', () => {
+    expect(filterSections(sections, 'task')).toEqual([])
+    expect(filterSections(sections, 'abcdef')).toEqual([])
+  })
+})

@@ -11,7 +11,7 @@ import { settings } from './schema.ts'
 /**
  * Settings: what is configured, as key/value rows for three kinds of owner.
  *
- *   settings(entity, key, value, updatedAt)   primary key (entity, key)   (schema.ts)
+ *   settings(entity, key, value)   primary key (entity, key)   (schema.ts)
  *
  * `entity` is `install` (one fixed value: the whole server or desktop), `workspace:<id>` or `user:<id>`
  * (how one person has the app). `key` is in the one typed CATALOGUE (catalogue.ts), which says which kind
@@ -81,8 +81,8 @@ export function getSettings(entity: string, db: Db | Tx = initDb()): { [K in Set
 export function updateSetting<K extends SettingKey>(entity: string, key: K, value: unknown, db: Db | Tx = initDb()): SettingValue<K> {
   assertKey(entity, key)
   const parsed = parseValue(key, value)
-  const row = { entity, key, value: JSON.stringify(parsed), updatedAt: new Date() }
-  db.insert(settings).values(row).onConflictDoUpdate({ target: [settings.entity, settings.key], set: { value: row.value, updatedAt: row.updatedAt } }).run()
+  const row = { entity, key, value: JSON.stringify(parsed) }
+  db.insert(settings).values(row).onConflictDoUpdate({ target: [settings.entity, settings.key], set: { value: row.value } }).run()
   return parsed
 }
 
@@ -166,7 +166,7 @@ export function initSettingsImport(configDir: string = CONFIG_DIR, db: Db = init
     for (const [entity, key, value] of entries) {
       if (!entity || value == null) continue
       try {
-        const row = { entity, key, value: JSON.stringify(parseValue(key, value)), updatedAt: new Date() }
+        const row = { entity, key, value: JSON.stringify(parseValue(key, value)) }
         imported += tx.insert(settings).values(row).onConflictDoNothing().returning({ key: settings.key }).all().length
       } catch {
         skipped++

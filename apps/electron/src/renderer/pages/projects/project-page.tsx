@@ -199,6 +199,9 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
           {tab === 'overview' ? (
             <ProjectOverview
               projectId={project.id}
+              members={project.members}
+              onAddMember={(actor) => projectsApi.addProjectMember(project.id, actor)}
+              onRemoveMember={(actor) => projectsApi.removeProjectMember(project.id, actor)}
               description={value.description}
               onDescription={(markdown) => update({ description: markdown })}
               onBlur={flush}

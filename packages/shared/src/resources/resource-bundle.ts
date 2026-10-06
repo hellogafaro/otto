@@ -14,7 +14,7 @@
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, renameSync, rmSync } from 'fs'
-import { join, basename } from 'path'
+import { join } from 'path'
 import { randomUUID } from 'crypto'
 import {
   type BundleFile,
@@ -24,7 +24,7 @@ import {
   validateBundleFile,
 } from '../utils/bundle-files.ts'
 import { getWorkspaceSourcesPath, getWorkspaceSkillsPath } from '../workspaces/storage.ts'
-import { loadSourceConfig, getSourcePath } from '../sources/storage.ts'
+import { loadSourceConfig, getSourcePath, getSourceWorkspaceId } from '../sources/storage.ts'
 import { validateSourceConfig } from '../config/validators.ts'
 import { AUTOMATIONS_CONFIG_FILE, AUTOMATIONS_HISTORY_FILE, AUTOMATIONS_RETRY_QUEUE_FILE } from '../automations/constants.ts'
 import { validateAutomationsConfig } from '../automations/validation.ts'
@@ -635,7 +635,7 @@ export async function importResources(
     }
   }
 
-  const workspaceId = basename(workspaceRootPath)
+  const workspaceId = getSourceWorkspaceId(workspaceRootPath)
 
   // Import each resource type
   const sourcesResult = bundle.resources.sources

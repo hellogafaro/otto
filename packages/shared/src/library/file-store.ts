@@ -1,5 +1,5 @@
 import { mkdir, readdir, rename, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import { createId } from '../id.ts'
 
 /**
@@ -45,13 +45,38 @@ export function assertPrefix(prefix: string): string {
 
 export const isFileKey = (name: string) => KEY.test(name)
 
-/** Keys are `createId()` strings, so a key can never leave `rootDir`. */
-export function createDiskFileStore(rootDir: string): FileStore {
-  const pathOf = (key: string) => join(rootDir, assertKey(key))
+/**
+ * A path key names a file inside a bundle (`my-skill/scripts/run.py`): `/`-separated segments with no `..`, no
+ * empty or hidden (leading `.`) segment, no backslash or control character, and at most 512 characters, so it can
+ * never leave the store. Bundles use these; the library's keys are ids (`assertKey`).
+ */
+export function assertPathKey(key: string): string {
+  const ok =
+    key.length > 0 &&
+    key.length <= 512 &&
+    !/[\\\u0000-\u001f]/.test(key) &&
+    key.split('/').every((segment) => segment !== '' && !segment.startsWith('.'))
+  if (!ok) throw new Error(`Invalid file key: ${key}`)
+  return key
+}
+
+/** A list prefix for path keys: empty, or a run of whole segments ending in `/`, or a partial last segment. */
+export function assertPathPrefix(prefix: string): string {
+  if (prefix !== '') assertPathKey(prefix.endsWith('/') ? prefix.slice(0, -1) : prefix)
+  return prefix
+}
+
+/** The temp files a write leaves beside its target while it is in flight; never keys. */
+const isTempFile = (name: string) => /\.tmp-[a-z0-9]{12}$/.test(name)
+
+/** Keys are `createId()` strings, or with `paths` bundle paths (`assertPathKey`); either way a key can never leave `rootDir`. */
+export function createDiskFileStore(rootDir: string, options: { paths?: boolean } = {}): FileStore {
+  const paths = options.paths === true
+  const pathOf = (key: string) => join(rootDir, paths ? assertPathKey(key) : assertKey(key))
 
   async function stage(key: string, bytes: Uint8Array): Promise<StagedFile> {
     const path = pathOf(key)
-    await mkdir(rootDir, { recursive: true })
+    await mkdir(dirname(path), { recursive: true })
     // Written beside the target, so the later rename is atomic: readers see the old or the new bytes, never half.
     const temp = `${path}.tmp-${createId()}`
     try {
@@ -95,6 +120,17 @@ export function createDiskFileStore(rootDir: string): FileStore {
     },
 
     async list(prefix = '') {
+      if (paths) {
+        assertPathPrefix(prefix)
+        const entries = await readdir(rootDir, { recursive: true, withFileTypes: true }).catch((error: NodeJS.ErrnoException) =>
+          error.code === 'ENOENT' ? [] : Promise.reject(error),
+        )
+        const keys = entries
+          .filter((entry) => entry.isFile() && !isTempFile(entry.name))
+          .map((entry) => relative(rootDir, join(entry.parentPath, entry.name)).replace(/\\/g, '/'))
+        // Hidden files and folders (the bundle marker, `.tmp-*` swaps) are not keys.
+        return keys.filter((key) => key.startsWith(prefix) && !key.split('/').some((segment) => segment.startsWith('.')))
+      }
       assertPrefix(prefix)
       // Temp files and the S3 cache's bookkeeping are not keys.
       const names = await readdir(rootDir).catch((error: NodeJS.ErrnoException) => (error.code === 'ENOENT' ? [] : Promise.reject(error)))

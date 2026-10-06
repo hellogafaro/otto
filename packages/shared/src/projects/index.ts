@@ -1,16 +1,14 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { isActor } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
-import { MAX_DESCRIPTION, MAX_TITLE } from './limits.ts'
+import { MAX_DESCRIPTION, MAX_MEMBERS, MAX_TITLE } from './limits.ts'
 import { parseResources } from './resources.ts'
-import { projects, projectsMembers } from './schema.ts'
+import { projects } from './schema.ts'
 import type {
-  MemberRole,
   Project,
   ProjectFilter,
-  ProjectMember,
   ProjectPromptContext,
   ProjectStatus,
   ProjectUpdate,
@@ -20,29 +18,38 @@ import type {
 /**
  * Projects: what a body of work is, with its tasks (../tasks) hanging off it.
  *
- *   projects(id, workspaceId, title, description, status, resources, createdAt, updatedAt)   (schema.ts)
- *   projects_members(projectId, actor, role)
+ *   projects(id, workspaceId, title, description, status, members, resources, createdAt, updatedAt)   (schema.ts)
  *
  * `status` is 'active', 'archived' or 'deleted'. Archiving and deleting only set it, rows are
  * never removed (there is no hard delete); lists hide both unless asked for with `status`, and
  * restoring is setting 'active'. `resources` link to urls, library items and chats (resources.ts).
- * Members are 'user:<id>' or 'agent:<id>' with a role; the creator becomes a contributor. Roles are
- * data only: nothing enforces them until users exist. Chats bind to a project by id
+ * `members` are 'user:<id>' or 'agent:<id>' (the creator first, at most MAX_MEMBERS); it is data only: nothing
+ * enforces it. Chats bind to a project by id
  * (`getProjectPromptContext` is what the agent prompt reads). Every function takes the
  * workspace explicitly and only sees its rows.
  */
 
-export { MAX_DESCRIPTION, MAX_RESOURCES, MAX_RESOURCE_REF, MAX_RESOURCE_TITLE, MAX_TITLE } from './limits.ts'
+export { MAX_DESCRIPTION, MAX_MEMBERS, MAX_RESOURCES, MAX_RESOURCE_REF, MAX_RESOURCE_TITLE, MAX_TITLE } from './limits.ts'
 export { parseResources } from './resources.ts'
 export type * from './types.ts'
 
-/** Gives what the bare actor 'user' was on a project to `actor`: runs once, when the first user appears. */
-export function updateLegacyUserActor(db: Db | Tx, actor: string): void {
-  db.update(projectsMembers).set({ actor }).where(eq(projectsMembers.actor, 'user')).run()
+/** Replaces actor `from` by `to` in the members of the projects (of one workspace, or all). */
+function replaceMember(db: Db | Tx, from: string, to: string, workspaceId?: string): void {
+  const rows = db
+    .select({ id: projects.id, members: projects.members })
+    .from(projects)
+    .where(and(workspaceId === undefined ? undefined : eq(projects.workspaceId, workspaceId), sql`exists (select 1 from json_each(${projects.members}) where json_each.value = ${from})`))
+    .all()
+  for (const { id, members } of rows) db.update(projects).set({ members: [...new Set(members.map((who) => (who === from ? to : who)))] }).where(eq(projects.id, id)).run()
 }
 
+/** Gives what the bare actor 'user' was on a project to `actor`: runs once, when the first user appears. */
+export const updateLegacyUserActor = (db: Db | Tx, actor: string): void => replaceMember(db, 'user', actor)
+
+/** Gives what actor `from` was on the projects of the workspace to `to` (`agent:default` to the agent that replaces it): see `initAgentsImport`. */
+export const updateAgentActor = (db: Db | Tx, workspaceId: string, from: string, to: string): void => replaceMember(db, from, to, workspaceId)
+
 const STATUSES: ProjectStatus[] = ['active', 'archived', 'deleted']
-const ROLES: MemberRole[] = ['contributor', 'viewer']
 
 type Row = typeof projects.$inferSelect
 
@@ -52,6 +59,7 @@ function toProject(row: Row): Project {
     title: row.title,
     description: row.description,
     status: row.status,
+    members: row.members,
     resources: row.resources,
     createdAt: row.createdAt.getTime(),
     updatedAt: row.updatedAt.getTime(),
@@ -83,7 +91,7 @@ export function createProjectsStore(db: Db) {
   }
 
   return {
-    /** The creating actor becomes a contributor. */
+    /** The creating actor becomes the first member. */
     createProject(input: {
       workspaceId: string
       title: string
@@ -100,10 +108,9 @@ export function createProjectsStore(db: Db) {
       return db.transaction((tx) => {
         const row = tx
           .insert(projects)
-          .values({ id: createId(), workspaceId: input.workspaceId, title, description, status: 'active', resources, createdAt: now, updatedAt: now })
+          .values({ id: createId(), workspaceId: input.workspaceId, title, description, status: 'active', members: [createdBy], resources, createdAt: now, updatedAt: now })
           .returning()
           .get()
-        tx.insert(projectsMembers).values({ projectId: row.id, actor: createdBy, role: 'contributor' }).run()
         return toProject(row)
       })
     },
@@ -164,36 +171,19 @@ export function createProjectsStore(db: Db) {
       return toProject(updated!)
     },
 
-    getProjectMembers(workspaceId: string, projectId: string): ProjectMember[] {
-      getRow(workspaceId, projectId)
-      return db
-        .select({ actor: projectsMembers.actor, role: projectsMembers.role })
-        .from(projectsMembers)
-        .where(eq(projectsMembers.projectId, projectId))
-        .orderBy(projectsMembers.actor)
-        .all()
-    },
-
-    /** Adds the actor or changes its role. */
-    setProjectMember(workspaceId: string, projectId: string, actor: string, role: MemberRole): ProjectMember {
-      getRow(workspaceId, projectId)
+    /** Adds the actor to the project's members (a member already there stays). */
+    addProjectMember(workspaceId: string, projectId: string, actor: string): Project {
+      const row = getRow(workspaceId, projectId)
       if (!isActor(actor)) throw domainError('invalid', `${actor} is not an actor`)
-      if (!ROLES.includes(role)) throw domainError('invalid', `${role} is not a role`)
-      db.insert(projectsMembers)
-        .values({ projectId, actor, role })
-        .onConflictDoUpdate({ target: [projectsMembers.projectId, projectsMembers.actor], set: { role } })
-        .run()
-      return { actor, role }
+      if (row.members.includes(actor)) return toProject(row)
+      if (row.members.length >= MAX_MEMBERS) throw domainError('invalid', `At most ${MAX_MEMBERS} members`)
+      return toProject(db.update(projects).set({ members: [...row.members, actor] }).where(eq(projects.id, projectId)).returning().get()!)
     },
 
-    removeProjectMember(workspaceId: string, projectId: string, actor: string): void {
-      getRow(workspaceId, projectId)
-      const removed = db
-        .delete(projectsMembers)
-        .where(and(eq(projectsMembers.projectId, projectId), eq(projectsMembers.actor, actor)))
-        .returning()
-        .get()
-      if (!removed) throw domainError('not_found', `${actor} is not a member of ${projectId}`)
+    removeProjectMember(workspaceId: string, projectId: string, actor: string): Project {
+      const row = getRow(workspaceId, projectId)
+      if (!row.members.includes(actor)) throw domainError('not_found', `${actor} is not a member of ${projectId}`)
+      return toProject(db.update(projects).set({ members: row.members.filter((who) => who !== actor) }).where(eq(projects.id, projectId)).returning().get()!)
     },
   }
 }
@@ -210,9 +200,7 @@ export const getProject: ProjectsStore['getProject'] = (workspaceId, id) => init
 export const getProjects: ProjectsStore['getProjects'] = (workspaceId, filter) => initProjectsStore().getProjects(workspaceId, filter)
 export const updateProject: ProjectsStore['updateProject'] = (workspaceId, id, patch) => initProjectsStore().updateProject(workspaceId, id, patch)
 export const setProjectStatus: ProjectsStore['setProjectStatus'] = (workspaceId, id, status) => initProjectsStore().setProjectStatus(workspaceId, id, status)
-export const getProjectMembers: ProjectsStore['getProjectMembers'] = (workspaceId, projectId) => initProjectsStore().getProjectMembers(workspaceId, projectId)
-export const setProjectMember: ProjectsStore['setProjectMember'] = (workspaceId, projectId, actor, role) =>
-  initProjectsStore().setProjectMember(workspaceId, projectId, actor, role)
+export const addProjectMember: ProjectsStore['addProjectMember'] = (workspaceId, projectId, actor) => initProjectsStore().addProjectMember(workspaceId, projectId, actor)
 export const removeProjectMember: ProjectsStore['removeProjectMember'] = (workspaceId, projectId, actor) =>
   initProjectsStore().removeProjectMember(workspaceId, projectId, actor)
 

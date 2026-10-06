@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import type { ComponentEntry } from './types'
 
 // =============================================================================
-// The grouped list (Otto v1's table: ListGroup / ListRow, 12px in the line-only PageWrap) with the
+// The grouped list (Otto v1's table: ListGroup / ListRow, 16px in the line-only PageWrap) with the
 // title row's ghost Filter and New chat, the filter chips and the no-results state,
 // in light and dark side by side, on realistic data: three groups, long titles,
 // label and model badges, a current row, unread and read titles.
@@ -120,7 +120,7 @@ function ListTablePanel({ mode, initial }: { mode: 'light' | 'dark'; initial: Fi
             <Button variant="outline" onClick={() => setValues({})}>Clear filters</Button>
           </NoResults>
         ) : (
-          <PageWrap className="p-3">
+          <PageWrap padded>
             {(Object.keys(STATUSES) as Status[]).map((s) => {
               const items = rows.filter((r) => r.status === s)
               return (

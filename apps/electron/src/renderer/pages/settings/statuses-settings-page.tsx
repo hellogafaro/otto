@@ -51,7 +51,7 @@ export default function StatusesSettingsPage() {
                   label={status.label}
                 >
                   <Badge variant="outline">
-                    {t(status.category === 'open' ? 'settings.statuses.open' : 'settings.statuses.closed')}
+                    {t(`settings.statuses.${status.category}`)}
                   </Badge>
                 </SettingsRow>
               )

@@ -7,7 +7,7 @@ import { registerCoreRpcHandlers } from './index'
 import { HANDLED_CHANNELS as MEMBER_CHANNELS } from './workspaces-members'
 
 // A write that shows in the UI must push `domain:changed`. This enumerates every channel the core registers
-// for the domains library, projects, tasks, timesheets, comments, notifications and workspace members: each is
+// for the domains library, projects, tasks, timesheets, comments, notifications, labels, statuses, skills and workspace members: each is
 // a write (in WRITE_CHANNELS) or a read (listed here), so a new handler fails until it is classified.
 
 const READ_CHANNELS = new Set<string>([
@@ -16,7 +16,6 @@ const READ_CHANNELS = new Set<string>([
   C.library.READ,
   C.projects.LIST,
   C.projects.GET,
-  C.projects.GET_MEMBERS,
   C.tasks.LIST,
   C.tasks.GET,
   C.timesheets.LIST,
@@ -27,6 +26,8 @@ const READ_CHANNELS = new Set<string>([
   C.workspaces.GET_INVITATIONS,
   C.labels.LIST,
   C.statuses.LIST,
+  C.agents.LIST,
+  C.agents.GET,
 ])
 
 const registered = new Set<string>()
@@ -46,7 +47,7 @@ const deps = {
 registerCoreRpcHandlers(server, deps)
 
 const inScope = (channel: string) =>
-  (/^(library|projects|tasks|timesheets|comments|notifications|labels|statuses):/.test(channel) && channel !== C.tasks.GET_OUTPUT) ||
+  (/^(library|projects|tasks|timesheets|comments|notifications|labels|statuses|agents):/.test(channel) && channel !== C.tasks.GET_OUTPUT) ||
   (MEMBER_CHANNELS as readonly string[]).includes(channel)
 
 describe('every write of the shared data pushes domain:changed', () => {

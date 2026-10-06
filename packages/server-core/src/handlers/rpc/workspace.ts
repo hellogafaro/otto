@@ -4,7 +4,11 @@ import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { getWorkspaceByNameOrId, getWorkspaces, addWorkspace, setActiveWorkspace, updateWorkspaceRemoteServer } from '@otto/shared/config'
 import { domainError, perf } from '@otto/shared/utils'
+import { userActor } from '@otto/shared/actors'
+import { getDefaultProvider, initAgentsSeed } from '@otto/shared/agents'
 import { initLabelsStatusesImport } from '@otto/shared/labels/import'
+import { initSkills } from '@otto/shared/skills'
+import { initSources } from '@otto/shared/sources'
 import { createWorkspaceMember, getMemberWorkspaceIds } from '@otto/shared/workspaces'
 import { assertOwner } from '../../bootstrap/authorize'
 import { pushTyped, type RpcServer } from '@otto/server-core/transport'
@@ -61,6 +65,9 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
     const workspace = addWorkspace({ name, rootPath, ...(remoteServer && { remoteServer }) })
     initLabelsStatusesImport() // the new workspace's labels and statuses
     if (!existing) createWorkspaceMember(workspace.id, ctx.userId, 'owner')
+    await initSkills() // the skills of a folder that already had some, made by its owner
+    await initSources() // and its sources, with the credentials they had
+    initAgentsSeed(workspace.id, userActor(ctx.userId), getDefaultProvider(workspace.id, ctx.userId)) // its first agent
     // Make it active
     setActiveWorkspace(workspace.id, ctx.userId)
     deps.platform.logger.info(`Created workspace "${name}" at ${rootPath}${remoteServer ? ` (remote: ${remoteServer.url})` : ''}`)

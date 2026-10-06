@@ -5,7 +5,7 @@
  * page before the detail, except in Settings, whose pages are listed by its own sidebar:
  * - Chats: the Chats index, or the ChatPage of the open chat
  * - Settings: one settings page (no index: Settings opens on General)
- * - Skills and Sources (in the settings sidebar): the grid, or the item's page
+ * - Skills, Sources and Agents (in the settings sidebar): the grid, or the item's page
  * - Tasks, Projects, Routines and Library: the index page, or the task, project, routine or item page
  * - Inbox: your notifications
  *
@@ -20,6 +20,7 @@ import {
   isSourcesNavigation,
   isSettingsNavigation,
   isSkillsNavigation,
+  isAgentsNavigation,
   isAutomationsNavigation,
   isProjectsNavigation,
   isLibraryNavigation,
@@ -32,6 +33,8 @@ import { InboxPage } from '@/pages/inbox/inbox-page'
 import SkillInfoPage from '@/pages/skill-info-page'
 import { SkillsPage } from '@/pages/skills-page'
 import { SourcesPage } from '@/pages/sources-page'
+import { AgentsPage } from '@/pages/agents/agents-page'
+import { AgentPage } from '@/pages/agents/agent-page'
 import { getSettingsPageComponent } from '@/pages/settings/settings-pages'
 
 export interface MainContentPanelProps {
@@ -41,7 +44,7 @@ export interface MainContentPanelProps {
 
 export function MainContentPanel({ className }: MainContentPanelProps) {
   const navState = useNavigationState()
-  const { activeWorkspaceId, activeSessionWorkingDirectory } = useAppShellContext()
+  const { activeWorkspaceId } = useAppShellContext()
 
   const panel = (content: React.ReactNode) => (
     <Panel variant="grow" className={className}>
@@ -62,8 +65,12 @@ export function MainContentPanel({ className }: MainContentPanelProps) {
 
   if (isSkillsNavigation(navState)) {
     return panel(navState.details
-      ? <SkillInfoPage skillSlug={navState.details.skillSlug} workspaceId={activeWorkspaceId || ''} workingDirectory={activeSessionWorkingDirectory} />
+      ? <SkillInfoPage skillSlug={navState.details.skillSlug} workspaceId={activeWorkspaceId || ''} />
       : <SkillsPage />)
+  }
+
+  if (isAgentsNavigation(navState)) {
+    return panel(navState.details ? <AgentPage key={navState.details.agentId} agentId={navState.details.agentId} /> : <AgentsPage />)
   }
 
   // Tasks, Projects, Routines and Library: the index, or the open task, project, routine or item.

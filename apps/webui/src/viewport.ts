@@ -1,11 +1,11 @@
-import { getViewportRect, subscribeViewportChanges } from '@/lib/input-viewport'
+import { getKeyboardHeight, getViewportRect, subscribeViewportChanges } from '@/lib/input-viewport'
 
 /** Keep the app shell inside the top-level visible browser viewport, including
  * keyboard panning. Only the host is sized; shared components own their layout.
  * No scroll resets: they fight Safari's focus handling and accessibility zoom. */
 export function installViewportRoot(root: HTMLElement): () => void {
   let frame: number | undefined
-  const properties = ['--webui-viewport-top', '--webui-viewport-left', '--webui-viewport-width', '--webui-viewport-height', '--webui-css-zoom']
+  const properties = ['--webui-viewport-top', '--webui-viewport-left', '--webui-viewport-width', '--webui-viewport-height', '--webui-css-zoom', '--webui-keyboard-open']
   const previous = properties.map(name => root.style.getPropertyValue(name))
   const update = () => {
     frame = undefined
@@ -16,6 +16,8 @@ export function installViewportRoot(root: HTMLElement): () => void {
       `${viewport.width / viewport.cssZoom}px`,
       `${viewport.height / viewport.cssZoom}px`,
       `${viewport.cssZoom}`,
+      // 1 while the on-screen keyboard is up: it covers the home indicator, so the root drops its bottom safe area.
+      getKeyboardHeight() > 0 ? '1' : '0',
     ]
     properties.forEach((name, index) => {
       if (root.style.getPropertyValue(name) !== values[index]) root.style.setProperty(name, values[index]!)

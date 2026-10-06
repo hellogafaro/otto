@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import type { SessionToolContext } from '../context.ts';
 import { getSessionToolDefs } from '../tool-defs.ts';
-import { handleLabelsEdit, handlePermissionsEdit, handleStatusesEdit } from './workspace-config.ts';
+import { handleAgentsEdit, handleLabelsEdit, handlePermissionsEdit, handleStatusesEdit } from './workspace-config.ts';
 
 const text = (result: { content: { text?: string }[]; isError?: boolean }) => result.content[0]?.text ?? '';
 
@@ -12,10 +12,12 @@ describe('labels_edit, statuses_edit and permissions_edit', () => {
     expect(text(await handleLabelsEdit(ctx, { action: 'list' }))).toContain('"ok": "labels"');
     expect(text(await handleStatusesEdit(ctx, { action: 'create', label: 'Blocked', category: 'open' }))).toContain('"ok": "statuses"');
     expect(text(await handlePermissionsEdit(ctx, { action: 'get' }))).toContain('"ok": "permissions"');
+    expect(text(await handleAgentsEdit(ctx, { action: 'list' }))).toContain('"ok": "agents"');
     expect(calls).toEqual([
       ['labels', { action: 'list' }],
       ['statuses', { action: 'create', label: 'Blocked', category: 'open' }],
       ['permissions', { action: 'get' }],
+      ['agents', { action: 'list' }],
     ]);
   });
 
@@ -31,7 +33,7 @@ describe('labels_edit, statuses_edit and permissions_edit', () => {
 
   it('are registered as blocked-in-Explore tools, and config_validate no longer has a statuses target', () => {
     const defs = getSessionToolDefs();
-    for (const name of ['labels_edit', 'statuses_edit', 'permissions_edit']) {
+    for (const name of ['labels_edit', 'statuses_edit', 'permissions_edit', 'agents_edit']) {
       expect(defs.find((def) => def.name === name)).toMatchObject({ executionMode: 'registry', safeMode: 'block' });
     }
     const validate = defs.find((def) => def.name === 'config_validate')!;

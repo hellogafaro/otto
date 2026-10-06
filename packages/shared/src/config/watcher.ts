@@ -9,8 +9,8 @@
  * - ~/.otto/theme.json - App-level theme overrides
  * - ~/.otto/themes/*.json - Preset theme files (app-level)
  * - ~/.otto/workspaces/{slug}/ - Workspace directory (recursive)
- *   - sources/{slug}/config.json, guide.md, permissions.json
- *   - skills/{slug}/SKILL.md, icon.*
+ *   - sources/{slug}/config.json, guide.md, permissions.json (any file of the folder is pushed to the bundle store, see sources/store.ts)
+ *   - skills/{slug}/** (the local copy of a skill's bundle; an edit is pushed to the bundle store, see skills/store.ts)
  *   - sessions/{id}/session.jsonl (header metadata only)
  *   - automations.json
  * Labels, statuses and workspace permissions are database rows, not watched files.
@@ -39,9 +39,9 @@ import {
   downloadSourceIcon,
 } from '../sources/storage.ts';
 import { permissionsConfigCache, getAppPermissionsDir } from '../agent/permissions-config.ts';
-import { getWorkspacePath, getWorkspaceSourcesPath, getWorkspaceSkillsPath } from '../workspaces/storage.ts';
+import { getWorkspacePath, getWorkspaceSourcesPath } from '../workspaces/storage.ts';
 import type { LoadedSkill } from '../skills/types.ts';
-import { loadSkill, loadAllSkills, invalidateSkillsCache, skillNeedsIconDownload, downloadSkillIcon } from '../skills/storage.ts';
+import { loadSkill, skillNeedsIconDownload, downloadSkillIcon } from '../skills/storage.ts';
 import { readSessionHeader } from '../sessions/jsonl.ts';
 import type { SessionHeader } from '../sessions/types.ts';
 import { AUTOMATIONS_CONFIG_FILE } from '../automations/constants.ts';
@@ -71,6 +71,9 @@ export function _getActiveWatchers(): ReadonlyMap<string, string> {
 // Debounce delay in milliseconds
 const DEBOUNCE_MS = 100;
 
+// A skill or a source is a folder an agent writes file by file: wait for it to settle before the bundle is pushed.
+const BUNDLE_DEBOUNCE_MS = 1000;
+
 // Longer debounce for session metadata on Windows where fs.watch() fires
 // aggressively for atomic writes (unlink + rename = 2+ events)
 const SESSION_META_DEBOUNCE_MS = platform() === 'win32' ? 300 : DEBOUNCE_MS;
@@ -94,11 +97,12 @@ export interface ConfigWatcherCallbacks {
   /** Called when the sources list changes (add/remove folders) */
   onSourcesListChange?: (sources: LoadedSource[]) => void;
 
+  /** Called, a second after the last write, when a file in a source's folder changes: the folder and the bundle are brought together (sources/store.ts) */
+  onSourceSync?: (slug: string) => void;
+
   // Skill callbacks
-  /** Called when a specific skill changes (null if deleted) */
+  /** Called, a second after the last write, when a file in a skill's folder changes (the skill is null when the folder has no valid SKILL.md) */
   onSkillChange?: (slug: string, skill: LoadedSkill | null) => void;
-  /** Called when the skills list changes (add/remove folders) */
-  onSkillsListChange?: (skills: LoadedSkill[]) => void;
 
   // Permissions callbacks
   /** Called when app-level default permissions change (~/.otto/permissions/default.json) */
@@ -146,13 +150,11 @@ export class ConfigWatcher {
 
   // Track known items for detecting adds/removes
   private knownSources: Set<string> = new Set();
-  private knownSkills: Set<string> = new Set();
   private knownThemes: Set<string> = new Set();
 
   // Computed paths
   private workspaceDir: string;
   private sourcesDir: string;
-  private skillsDir: string;
 
   constructor(workspaceIdOrPath: string, callbacks: ConfigWatcherCallbacks) {
     this.callbacks = callbacks;
@@ -168,7 +170,6 @@ export class ConfigWatcher {
       this.workspaceDir = getWorkspacePath(workspaceIdOrPath);
     }
     this.sourcesDir = getWorkspaceSourcesPath(this.workspaceDir);
-    this.skillsDir = getWorkspaceSkillsPath(this.workspaceDir);
   }
 
   /**
@@ -221,12 +222,9 @@ export class ConfigWatcher {
     this.watchAppPermissionsDir();
     span.mark('watchAppPermissionsDir');
 
-    // Initial scan to populate known sources, skills, and themes
+    // Initial scan to populate known sources and themes
     this.scanSources();
     span.mark('scanSources');
-
-    this.scanSkills();
-    span.mark('scanSkills');
 
     this.scanAppThemes();
     span.mark('scanAppThemes');
@@ -272,7 +270,6 @@ export class ConfigWatcher {
     this.watchers = [];
 
     this.knownSources.clear();
-    this.knownSkills.clear();
     this.knownThemes.clear();
 
     debug('[ConfigWatcher] Stopped');
@@ -340,10 +337,12 @@ export class ConfigWatcher {
       return;
     }
 
-    // Sources changes: sources/{slug}/...
-    if (parts[0] === 'sources' && parts.length >= 2) {
+    // Sources changes: sources/{slug}/... (hidden names are the bundle marker and the swaps of the materializer, never edits)
+    if (parts[0] === 'sources' && parts.length >= 2 && !parts.some((part) => part.startsWith('.'))) {
       const slug = parts[1]!;  // Safe: checked parts.length >= 2
       const file = parts[2];
+
+      this.debounce(`source-sync:${slug}`, () => this.callbacks.onSourceSync?.(slug), BUNDLE_DEBOUNCE_MS);
 
       // Directory-level changes (new/removed source folders)
       if (parts.length === 2) {
@@ -362,24 +361,10 @@ export class ConfigWatcher {
       return;
     }
 
-    // Skills changes: skills/{slug}/...
-    if (parts[0] === 'skills' && parts.length >= 2) {
+    // Skills changes: skills/{slug}/... (hidden names are the bundle marker and the swaps of the materializer, never edits)
+    if (parts[0] === 'skills' && parts.length >= 2 && !parts.some((part) => part.startsWith('.'))) {
       const slug = parts[1]!;  // Safe: checked parts.length >= 2
-      const file = parts[2];
-
-      // Directory-level changes (new/removed skill folders)
-      if (parts.length === 2) {
-        this.debounce('skills-dir', () => this.handleSkillsDirChange());
-        return;
-      }
-
-      // File-level changes
-      if (file === 'SKILL.md') {
-        this.debounce(`skill:${slug}`, () => this.handleSkillChange(slug));
-      } else if (file && /^icon\.(svg|png|jpg|jpeg)$/i.test(file)) {
-        // Icon file changes also trigger a skill change (to update iconPath)
-        this.debounce(`skill-icon:${slug}`, () => this.handleSkillChange(slug));
-      }
+      this.debounce(`skill:${slug}`, () => this.handleSkillChange(slug), BUNDLE_DEBOUNCE_MS);
       return;
     }
 
@@ -432,6 +417,7 @@ export class ConfigWatcher {
       const entries = readdirSync(this.sourcesDir);
 
       for (const entry of entries) {
+        if (entry.startsWith('.')) continue;
         const entryPath = join(this.sourcesDir, entry);
         if (statSync(entryPath).isDirectory()) {
           this.knownSources.add(entry);
@@ -468,6 +454,7 @@ export class ConfigWatcher {
       const currentFolders = new Set<string>();
 
       for (const entry of entries) {
+        if (entry.startsWith('.')) continue;
         const entryPath = join(this.sourcesDir, entry);
         if (statSync(entryPath).isDirectory()) {
           currentFolders.add(entry);
@@ -577,94 +564,7 @@ export class ConfigWatcher {
   // ============================================================
 
   /**
-   * Scan skills directory to populate known skills
-   */
-  private scanSkills(): void {
-    if (!existsSync(this.skillsDir)) {
-      mkdirSync(this.skillsDir, { recursive: true });
-      return;
-    }
-
-    try {
-      const entries = readdirSync(this.skillsDir);
-
-      for (const entry of entries) {
-        const entryPath = join(this.skillsDir, entry);
-        if (statSync(entryPath).isDirectory()) {
-          this.knownSkills.add(entry);
-        }
-      }
-
-      debug('[ConfigWatcher] Known skills:', Array.from(this.knownSkills));
-    } catch (error) {
-      debug('[ConfigWatcher] Error scanning skills:', error);
-    }
-  }
-
-  /**
-   * Handle skills directory change (add/remove folders)
-   */
-  private handleSkillsDirChange(): void {
-    debug('[ConfigWatcher] Skills directory changed');
-
-    if (!existsSync(this.skillsDir)) {
-      // Directory was deleted
-      const removed = Array.from(this.knownSkills);
-      this.knownSkills.clear();
-
-      for (const slug of removed) {
-        this.callbacks.onSkillChange?.(slug, null);
-      }
-
-      this.callbacks.onSkillsListChange?.([]);
-      return;
-    }
-
-    try {
-      const entries = readdirSync(this.skillsDir);
-      const currentFolders = new Set<string>();
-
-      for (const entry of entries) {
-        const entryPath = join(this.skillsDir, entry);
-        if (statSync(entryPath).isDirectory()) {
-          currentFolders.add(entry);
-        }
-      }
-
-      // Find added folders
-      for (const folder of currentFolders) {
-        if (!this.knownSkills.has(folder)) {
-          debug('[ConfigWatcher] New skill folder:', folder);
-          this.knownSkills.add(folder);
-
-          const skill = loadSkill(this.workspaceDir, folder);
-          if (skill) {
-            this.callbacks.onSkillChange?.(folder, skill);
-          }
-        }
-      }
-
-      // Find removed folders
-      for (const folder of this.knownSkills) {
-        if (!currentFolders.has(folder)) {
-          debug('[ConfigWatcher] Removed skill folder:', folder);
-          this.knownSkills.delete(folder);
-          this.callbacks.onSkillChange?.(folder, null);
-        }
-      }
-
-      // Invalidate cache before reloading so we get fresh results
-      invalidateSkillsCache();
-      const allSkills = loadAllSkills(this.workspaceDir);
-      this.callbacks.onSkillsListChange?.(allSkills);
-    } catch (error) {
-      debug('[ConfigWatcher] Error handling skills dir change:', error);
-      this.callbacks.onError?.('skills/', error as Error);
-    }
-  }
-
-  /**
-   * Handle skill SKILL.md or icon change.
+   * Handle a change in a skill's folder.
    * If the skill has an icon URL in metadata but no local icon file,
    * downloads the icon and emits another change event after completion.
    */

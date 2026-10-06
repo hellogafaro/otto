@@ -43,7 +43,7 @@ test('create stores the bytes under the id and the row without them', async () =
   const { lib, dir } = await setup()
   const item = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'pic.png', mime: 'image/png', bytes: bytes(1, 2, 3) })
   expect(item.id).toMatch(/^[0-9a-z]{12}$/)
-  expect(item).toMatchObject({ type: 'file', title: 'pic.png', mime: 'image/png', size: 3, folderId: null, createdBy: ME })
+  expect(item).toMatchObject({ type: 'file', title: 'pic.png', mime: 'image/png', size: 3, parentId: null, createdBy: ME })
   expect(item.createdAt).toBe(item.updatedAt)
   expect(await lib.readLibraryContent(W, item.id)).toEqual(bytes(1, 2, 3))
   expect(await stored(dir, W)).toEqual([item.id])
@@ -73,15 +73,15 @@ test('createdBy is kept and filters the list', async () => {
 test('the chat attachments folder is a plain root folder, made once per workspace', async () => {
   const { lib } = await setup()
   const folder = lib.initChatAttachmentsFolder(W, ME)
-  expect(folder).toMatchObject({ type: 'folder', title: CHAT_ATTACHMENTS_FOLDER_TITLE, folderId: null, createdBy: ME })
+  expect(folder).toMatchObject({ type: 'folder', title: CHAT_ATTACHMENTS_FOLDER_TITLE, parentId: null, createdBy: ME })
   expect(lib.initChatAttachmentsFolder(W, ME)).toEqual(folder)
   expect(lib.getLibraryItems(W, { type: 'folder' })).toEqual([folder])
   const other = lib.initChatAttachmentsFolder(OTHER, ME)
   expect(other.id).not.toBe(folder.id)
   // A folder with that title deeper down is not it.
   const inner = lib.createLibraryFolder({ createdBy: ME, workspaceId: 'ws3', title: 'x' })
-  lib.createLibraryFolder({ createdBy: ME, workspaceId: 'ws3', title: CHAT_ATTACHMENTS_FOLDER_TITLE, folderId: inner.id })
-  expect(lib.initChatAttachmentsFolder('ws3', ME).folderId).toBeNull()
+  lib.createLibraryFolder({ createdBy: ME, workspaceId: 'ws3', title: CHAT_ATTACHMENTS_FOLDER_TITLE, parentId: inner.id })
+  expect(lib.initChatAttachmentsFolder('ws3', ME).parentId).toBeNull()
 })
 
 test('size 0 and over the limit are refused and store nothing', async () => {
@@ -103,18 +103,18 @@ test('a failed insert removes the bytes again', async () => {
   expect(await stored(dir, W)).toEqual([item.id])
 })
 
-test('folderId must be a folder of the same workspace', async () => {
+test('parentId must be a folder of the same workspace', async () => {
   const { lib } = await setup()
   const folder = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'F' })
   const file = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'a', mime: 'x/y', bytes: bytes(1) })
   const foreign = lib.createLibraryFolder({ createdBy: ME, workspaceId: OTHER, title: 'Elsewhere' })
-  const make = (folderId: string) => lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'n', mime: 'x/y', bytes: bytes(1), folderId })
-  expect((await make(folder.id)).folderId).toBe(folder.id)
+  const make = (parentId: string) => lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'n', mime: 'x/y', bytes: bytes(1), parentId })
+  expect((await make(folder.id)).parentId).toBe(folder.id)
   await failsWith('not_found', () => make('missing00000'))
   await failsWith('not_found', () => make(foreign.id))
   await failsWith('invalid', () => make(file.id))
-  await failsWith('not_found', () => lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'x', folderId: foreign.id }))
-  await failsWith('invalid', () => lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'x', folderId: file.id }))
+  await failsWith('not_found', () => lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'x', parentId: foreign.id }))
+  await failsWith('invalid', () => lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'x', parentId: file.id }))
 })
 
 test('folders nest at most MAX_FOLDER_DEPTH levels', async () => {
@@ -122,36 +122,36 @@ test('folders nest at most MAX_FOLDER_DEPTH levels', async () => {
   let parent: string | null = null
   const ids: string[] = []
   for (let level = 1; level <= MAX_FOLDER_DEPTH; level++) {
-    const folder = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: `L${level}`, folderId: parent })
+    const folder = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: `L${level}`, parentId: parent })
     ids.push(folder.id)
     parent = folder.id
   }
-  await failsWith('invalid', () => lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'too deep', folderId: parent }))
+  await failsWith('invalid', () => lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'too deep', parentId: parent }))
   // Files are not folder levels.
-  await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'a', mime: 'x/y', bytes: bytes(1), folderId: parent })
+  await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'a', mime: 'x/y', bytes: bytes(1), parentId: parent })
   expect(lib.getLibraryFolderPath(W, parent!).map((folder) => folder.id)).toEqual(ids)
 })
 
 test('moving folders refuses cycles and levels beyond the limit', async () => {
   const { lib } = await setup()
   const a = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'a' })
-  const b = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'b', folderId: a.id })
-  const c = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'c', folderId: b.id })
-  await failsWith('invalid', () => lib.updateLibraryItem(W, a.id, { folderId: a.id }))
-  await failsWith('invalid', () => lib.updateLibraryItem(W, a.id, { folderId: c.id }))
-  await failsWith('invalid', () => lib.updateLibraryItem(W, b.id, { folderId: c.id }))
+  const b = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'b', parentId: a.id })
+  const c = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'c', parentId: b.id })
+  await failsWith('invalid', () => lib.updateLibraryItem(W, a.id, { parentId: a.id }))
+  await failsWith('invalid', () => lib.updateLibraryItem(W, a.id, { parentId: c.id }))
+  await failsWith('invalid', () => lib.updateLibraryItem(W, b.id, { parentId: c.id }))
 
   // A chain of MAX_FOLDER_DEPTH - 1 folders: a 3-level tree cannot move under it.
   let parent: string | null = null
-  for (let level = 1; level < MAX_FOLDER_DEPTH; level++) parent = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'd', folderId: parent }).id
-  await failsWith('invalid', () => lib.updateLibraryItem(W, a.id, { folderId: parent }))
+  for (let level = 1; level < MAX_FOLDER_DEPTH; level++) parent = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'd', parentId: parent }).id
+  await failsWith('invalid', () => lib.updateLibraryItem(W, a.id, { parentId: parent }))
   const lone = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'lone' })
-  expect((await lib.updateLibraryItem(W, lone.id, { folderId: parent })).folderId).toBe(parent)
+  expect((await lib.updateLibraryItem(W, lone.id, { parentId: parent })).parentId).toBe(parent)
   // Files can move anywhere that is a folder.
   const file = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'f', mime: 'x/y', bytes: bytes(1) })
-  expect((await lib.updateLibraryItem(W, file.id, { folderId: c.id })).folderId).toBe(c.id)
-  expect((await lib.updateLibraryItem(W, file.id, { folderId: null })).folderId).toBeNull()
-  await failsWith('invalid', () => lib.updateLibraryItem(W, file.id, { folderId: file.id }))
+  expect((await lib.updateLibraryItem(W, file.id, { parentId: c.id })).parentId).toBe(c.id)
+  expect((await lib.updateLibraryItem(W, file.id, { parentId: null })).parentId).toBeNull()
+  await failsWith('invalid', () => lib.updateLibraryItem(W, file.id, { parentId: file.id }))
 })
 
 test('list puts folders first, then the most recently updated, and filters', async () => {
@@ -162,18 +162,18 @@ test('list puts folders first, then the most recently updated, and filters', asy
   await tick()
   const second = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'second', mime: 'text/markdown', bytes: bytes(1) })
   await tick()
-  const inside = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'inside', mime: 'x/y', bytes: bytes(1), folderId: folder.id })
+  const inside = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'inside', mime: 'x/y', bytes: bytes(1), parentId: folder.id })
   await tick()
   await lib.updateLibraryItem(W, first.id, { title: 'first!' })
 
   const titles = (items: { title: string }[]) => items.map((item) => item.title)
   expect(titles(lib.getLibraryItems(W))).toEqual(['F', 'first!', 'inside', 'second'])
-  expect(titles(lib.getLibraryItems(W, { folderId: null }))).toEqual(['F', 'first!', 'second'])
-  expect(titles(lib.getLibraryItems(W, { folderId: folder.id }))).toEqual(['inside'])
+  expect(titles(lib.getLibraryItems(W, { parentId: null }))).toEqual(['F', 'first!', 'second'])
+  expect(titles(lib.getLibraryItems(W, { parentId: folder.id }))).toEqual(['inside'])
   expect(titles(lib.getLibraryItems(W, { type: 'document' }))).toEqual(['second'])
   expect(titles(lib.getLibraryItems(W, { type: 'folder' }))).toEqual(['F'])
   expect(lib.getLibraryItems(OTHER)).toEqual([])
-  expect(inside.folderId).toBe(folder.id)
+  expect(inside.parentId).toBe(folder.id)
   expect(second.type).toBe('document')
 })
 
@@ -181,8 +181,8 @@ test('rename and move bump updatedAt and keep the content', async () => {
   const { lib } = await setup()
   const folder = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'F' })
   const item = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'a.txt', mime: 'text/plain', bytes: text('hi') })
-  const renamed = await lib.updateLibraryItem(W, item.id, { title: 'b.txt', folderId: folder.id })
-  expect(renamed).toMatchObject({ title: 'b.txt', folderId: folder.id, size: 2, createdAt: item.createdAt })
+  const renamed = await lib.updateLibraryItem(W, item.id, { title: 'b.txt', parentId: folder.id })
+  expect(renamed).toMatchObject({ title: 'b.txt', parentId: folder.id, size: 2, createdAt: item.createdAt })
   expect(renamed.updatedAt).toBeGreaterThan(item.updatedAt)
   expect(await lib.readLibraryText(W, item.id)).toBe('hi')
   await failsWith('invalid', () => lib.updateLibraryItem(W, item.id, { title: '' }))
@@ -282,7 +282,7 @@ test('a folder has no content', async () => {
 test('delete removes a file with its bytes; a folder only when empty', async () => {
   const { lib, dir } = await setup()
   const folder = lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'F' })
-  const item = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'a', mime: 'x/y', bytes: bytes(1), folderId: folder.id })
+  const item = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'a', mime: 'x/y', bytes: bytes(1), parentId: folder.id })
   await failsWith('not_empty', () => lib.deleteLibraryItem(W, folder.id))
   expect(lib.getLibraryItem(W, folder.id)).toBeDefined()
 

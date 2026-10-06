@@ -5,10 +5,10 @@
  * Sources are stored at {workspaceRootPath}/sources/{sourceSlug}/
  *
  * Note: All functions take `workspaceRootPath` (absolute path to workspace folder),
- * NOT a workspace slug. The `LoadedSource.workspaceId` is derived via basename().
+ * NOT a workspace slug. The `LoadedSource.workspaceId` is the workspace's id (`getSourceWorkspaceId`).
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
 import { randomUUID } from 'crypto';
 import type {
@@ -22,6 +22,7 @@ import { debug } from '../utils/debug.ts';
 import { readJsonFileSync } from '../utils/files.ts';
 import { expandPath, toPortablePath } from '../utils/paths.ts';
 import { getWorkspaceSourcesPath } from '../workspaces/storage.ts';
+import { getWorkspaceIdByRootPath } from '../config/storage.ts';
 // Circular import (credential-manager imports from this file) is safe here:
 // getSourceCredentialManager is only referenced lazily inside saveSourceConfig,
 // not at module-eval time.
@@ -37,6 +38,14 @@ import {
 // ============================================================
 // Directory Utilities
 // ============================================================
+
+/**
+ * The id of the workspace whose folder this is: what a source's row and credential are keyed by. A folder that is
+ * not registered (a test, a folder being imported) is known by its name.
+ */
+export function getSourceWorkspaceId(workspaceRootPath: string): string {
+  return getWorkspaceIdByRootPath(workspaceRootPath) ?? basename(workspaceRootPath);
+}
 
 /**
  * Get path to a source folder within a workspace
@@ -166,7 +175,7 @@ function deleteApiKeyCredentialBestEffort(
       guide: null,
       folderPath: getSourcePath(workspaceRootPath, config.slug),
       workspaceRootPath,
-      workspaceId: basename(workspaceRootPath),
+      workspaceId: getSourceWorkspaceId(workspaceRootPath),
     };
     cm.deleteSync(source);
   } catch (err) {
@@ -340,9 +349,8 @@ export function loadSource(workspaceRootPath: string, sourceSlug: string): Loade
   const config = loadSourceConfig(workspaceRootPath, sourceSlug);
   if (!config) return null;
 
-  // Extract workspace folder name for credential lookup
-  // Credentials are keyed by folder name (e.g., "046a02d0-..."), not full path
-  const workspaceId = basename(workspaceRootPath);
+  // Rows and credentials are keyed by the workspace's id
+  const workspaceId = getSourceWorkspaceId(workspaceRootPath);
 
   // Pre-compute icon path for renderer (avoids fs access in browser)
   const iconPath = findIconFile(folderPath);
@@ -371,7 +379,8 @@ export function loadWorkspaceSources(workspaceRootPath: string): LoadedSource[] 
   const entries = readdirSync(sourcesDir, { withFileTypes: true });
 
   for (const entry of entries) {
-    if (entry.isDirectory()) {
+    // Not the swaps of the bundle's materializer (`.tmp-*`, `.old-*`)
+    if (entry.isDirectory() && !entry.name.startsWith('.')) {
       const source = loadSource(workspaceRootPath, entry.name);
       if (source) {
         sources.push(source);
@@ -571,16 +580,6 @@ export async function createSource(
   saveSourceGuide(workspaceRootPath, slug, { raw: guideContent });
 
   return config;
-}
-
-/**
- * Delete a source from a workspace
- */
-export function deleteSource(workspaceRootPath: string, sourceSlug: string): void {
-  const dir = getSourcePath(workspaceRootPath, sourceSlug);
-  if (existsSync(dir)) {
-    rmSync(dir, { recursive: true });
-  }
 }
 
 /**

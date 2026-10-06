@@ -57,8 +57,8 @@ export function useLibraryItemDialogs() {
     if (!result.ok) toast.error(libraryErrorMessage(t, result.code))
   }
 
-  const move = async (item: LibraryItem, folderId: string | null) => {
-    const result = await updateLibraryItem(item.id, { folderId })
+  const move = async (item: LibraryItem, parentId: string | null) => {
+    const result = await updateLibraryItem(item.id, { parentId })
     if (!result.ok) toast.error(libraryErrorMessage(t, result.code))
     return result.ok
   }

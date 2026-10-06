@@ -38,7 +38,7 @@ import {
 type ComposerVariant = "compact" | "expanded" | "full"
 
 const SURFACE =
-  "rounded-xl bg-card text-sm text-card-foreground shadow-xs ring-1 ring-foreground/10"
+  "rounded-(--composer-radius,var(--radius-xl)) bg-card text-sm text-card-foreground shadow-xs ring-1 ring-foreground/10"
 
 function Composer({
   variant = "compact",
@@ -105,10 +105,12 @@ function Composer({
       <div ref={content} className="flex w-full flex-col">
         {listed ? (
           // Otto: the list scrolls inside the surface: at most 320px, 40% of
-          // the viewport on a short screen; rows 4px in, as the controls.
+          // the visible viewport on a short screen (the web host publishes it
+          // as `--webui-viewport-height`, which the on-screen keyboard shrinks;
+          // `dvh` does not see the keyboard); rows 4px in, as the controls.
           <div
             data-slot="composer-panel"
-            className="max-h-[min(20rem,40dvh)] overflow-y-auto overscroll-contain p-1 pb-0"
+            className="max-h-[min(20rem,calc(var(--webui-viewport-height,100dvh)*0.4))] overflow-y-auto overscroll-contain p-1 pb-0"
           >
             {panel}
           </div>

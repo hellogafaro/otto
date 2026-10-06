@@ -62,19 +62,19 @@ function toBytes(content: LibraryContent): Uint8Array {
 export function registerLibraryHandlers(server: RpcServer, deps: HandlerDeps): void {
   server.handle(
     RPC_CHANNELS.library.CREATE,
-    (ctx, input: { title: string; mime: string; content: LibraryContent; folderId?: string | null }) =>
+    (ctx, input: { title: string; mime: string; content: LibraryContent; parentId?: string | null }) =>
       createLibraryItem({
         workspaceId: resolveWorkspace(ctx, deps).id,
         title: input.title,
         mime: input.mime,
         bytes: toBytes(input.content),
-        folderId: input.folderId,
+        parentId: input.parentId,
         createdBy: actorOf(ctx),
       }),
   )
 
-  server.handle(RPC_CHANNELS.library.CREATE_FOLDER, (ctx, input: { title: string; folderId?: string | null }) =>
-    createLibraryFolder({ workspaceId: resolveWorkspace(ctx, deps).id, title: input.title, folderId: input.folderId, createdBy: actorOf(ctx) }),
+  server.handle(RPC_CHANNELS.library.CREATE_FOLDER, (ctx, input: { title: string; parentId?: string | null }) =>
+    createLibraryFolder({ workspaceId: resolveWorkspace(ctx, deps).id, title: input.title, parentId: input.parentId, createdBy: actorOf(ctx) }),
   )
 
   server.handle(RPC_CHANNELS.library.LIST, (ctx, filter?: LibraryFilter) => getLibraryItems(resolveWorkspace(ctx, deps).id, filter))
@@ -96,7 +96,7 @@ export function registerLibraryHandlers(server: RpcServer, deps: HandlerDeps): v
   server.handle(RPC_CHANNELS.library.UPDATE, (ctx, id: string, patch: LibraryUpdate) =>
     updateLibraryItem(resolveWorkspace(ctx, deps).id, id, {
       title: patch.title,
-      folderId: patch.folderId,
+      parentId: patch.parentId,
       content: patch.content && toBytes(patch.content),
       expectedUpdatedAt: patch.expectedUpdatedAt,
     }),

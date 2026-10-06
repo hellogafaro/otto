@@ -1,32 +1,23 @@
-import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import type { MemberRole, ProjectStatus, Resource } from './types.ts'
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import type { ProjectStatus, Resource } from './types.ts'
 
 /**
  * A project groups tasks and resources; see ./index.ts. `status` is the archive and the
- * soft delete: rows are never removed. `resources` is a JSON array of { type, title, ref }.
+ * soft delete: rows are never removed. `members` is a JSON array of actors ('user:<id>' or 'agent:<id>'), the
+ * creator first; `resources` is a JSON array of { type, title, ref }.
  */
 export const projects = sqliteTable(
   'projects',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspaceId').notNull(),
+    workspaceId: text('workspace_id').notNull(),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
     status: text('status').$type<ProjectStatus>().notNull().default('active'),
+    members: text('members', { mode: 'json' }).$type<string[]>().notNull().default([]),
     resources: text('resources', { mode: 'json' }).$type<Resource[]>().notNull().default([]),
-    createdAt: integer('createdAt', { mode: 'timestamp_ms' }).notNull(),
-    updatedAt: integer('updatedAt', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [index('projects_workspace_status').on(table.workspaceId, table.status)],
-)
-
-/** Who is on a project. `actor` is 'user:<id>' or 'agent:<id>'. */
-export const projectsMembers = sqliteTable(
-  'projects_members',
-  {
-    projectId: text('projectId').notNull(),
-    actor: text('actor').notNull(),
-    role: text('role').$type<MemberRole>().notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.projectId, table.actor] })],
 )

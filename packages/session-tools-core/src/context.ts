@@ -307,10 +307,11 @@ export interface SessionToolContext {
   // ============================================================
 
   /**
-   * Edit the workspace's labels, statuses or permission rules as the chat's user (owners write, members read);
-   * returns what to show the agent. Injected by the session manager.
+   * Edit the workspace's labels, statuses, permission rules or agents as the chat's user (owners write, members read;
+   * agents: any member creates, the creator or an owner changes); returns what to show the agent. Injected by the
+   * session manager.
    */
-  editWorkspaceConfig?(domain: 'labels' | 'statuses' | 'permissions', args: Record<string, unknown>): Promise<unknown>;
+  editWorkspaceConfig?(domain: 'labels' | 'statuses' | 'permissions' | 'agents', args: Record<string, unknown>): Promise<unknown>;
 
   /** Set labels on a session. Defaults to current session if no ID given. Injected by backend. */
   setSessionLabels?(sessionId: string | undefined, labels: string[]): void | Promise<void>;
@@ -447,11 +448,11 @@ export interface ResolvedStatusResult {
   /** All valid status IDs (for error messages) */
   available: string[];
   /**
-   * Category of the matched status ('open' | 'closed'), when resolved. Lets the
+   * Category of the matched status ('open' | 'closed' | 'archived'), when resolved. Lets the
    * status tool reject agent-driven *closed* transitions (the human owns closure)
    * while still allowing open ones like `needs-review`.
    */
-  category?: 'open' | 'closed';
+  category?: 'open' | 'closed' | 'archived';
 }
 
 // ============================================================

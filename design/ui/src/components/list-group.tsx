@@ -14,8 +14,7 @@ import { cn } from "cn"
 // hairlines inside it: each group is a ROUNDED band (8px, a quiet fill) and
 // its rows sit plain on the frame under it, 4px below the band; a group sits
 // 8px under the one before. Hover, current and pressed fills are rounded too,
-// so the table floats inside the padded line wrapper (`PageWrap`, 12px in:
-// 20 - 12 = 8, the band's radius) without clipping.
+// so the table floats inside the padded line wrapper (`PageWrap`, 16px in) without clipping.
 //
 // Proportions (DESIGN.md, Data patterns): body text 13px on a 20px line; a
 // row is 44px (20 + 12 + 12), a band 36px (20 + 8 + 8), a metadata badge 24px
@@ -79,7 +78,7 @@ function ListGroup({
         <CollapsibleTrigger
           style={tint ? ({ "--list-tint": tint } as React.CSSProperties) : undefined}
           className={cn(
-            "group/trigger flex h-9 w-full items-center gap-2 rounded-md bg-foreground/5 px-3 text-left text-sm font-medium text-foreground transition-colors outline-none select-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+            "group/trigger flex h-9 w-full items-center gap-2 rounded-(--wrap-inner-radius,var(--radius-md)) bg-foreground/5 px-3 text-left text-sm font-medium text-foreground transition-colors outline-none select-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
             tint &&
               "bg-[linear-gradient(color-mix(in_oklab,var(--list-tint)_5%,transparent),color-mix(in_oklab,var(--list-tint)_5%,transparent))]",
             action && "pr-10"
@@ -149,7 +148,7 @@ function ListRow({
         type="button"
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-has-aria-expanded/row:bg-foreground/5 in-data-[slot=list-group]:rounded-md in-data-[slot=list-group]:px-3",
+          "flex w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-has-aria-expanded/row:bg-foreground/5 in-data-[slot=list-group]:rounded-(--wrap-inner-radius,var(--radius-md)) in-data-[slot=list-group]:px-3",
           size === "sm" ? "h-8 rounded-md px-2" : ["h-11", PAGE_INSET],
           className
         )}

@@ -51,11 +51,10 @@ export function createLabel(workspaceId: string, input: CreateLabelInput, db: Db
   if (!isValidLabelIdFormat(slug)) throw domainError('invalid', `'${input.name}' does not make a label id`);
 
   const siblings = db
-    .select({ n: sql<number>`coalesce(max(${labels.order}), -1)` })
+    .select({ n: sql<number>`coalesce(max(${labels.position}), -1)` })
     .from(labels)
     .where(and(eq(labels.workspaceId, workspaceId), parent ? eq(labels.parentId, parent.id) : sql`${labels.parentId} is null`))
     .get();
-  const now = new Date();
   db.insert(labels)
     .values({
       id: createId(),
@@ -66,9 +65,7 @@ export function createLabel(workspaceId: string, input: CreateLabelInput, db: Db
       color: input.color === undefined ? null : JSON.stringify(input.color),
       valueType: input.valueType ?? null,
       autoRules: input.autoRules?.length ? JSON.stringify(input.autoRules) : null,
-      order: (siblings?.n ?? -1) + 1,
-      createdAt: now,
-      updatedAt: now,
+      position: (siblings?.n ?? -1) + 1,
     })
     .run();
   return {
@@ -113,17 +110,14 @@ export function updateLabel(workspaceId: string, slug: string, updates: UpdateLa
   if (!row) throw domainError('not_found', `Label '${slug}' not found`);
   if (updates.autoRules) assertAutoRules(updates.autoRules);
 
-  db.update(labels)
-    .set({
+  const changes = {
       ...(updates.name !== undefined && { title: updates.name }),
       ...(updates.color !== undefined && { color: JSON.stringify(updates.color) }),
       // valueType: set to a new value, or '' / null to revert to a boolean label
       ...(updates.valueType !== undefined && { valueType: updates.valueType || null }),
       ...(updates.autoRules !== undefined && { autoRules: updates.autoRules?.length ? JSON.stringify(updates.autoRules) : null }),
-      updatedAt: new Date(),
-    })
-    .where(eq(labels.id, row.id))
-    .run();
+  };
+  if (Object.keys(changes).length) db.update(labels).set(changes).where(eq(labels.id, row.id)).run();
   return flattenFind(getLabels(workspaceId, db), slug)!;
 }
 
@@ -168,7 +162,7 @@ export function reorderLabels(workspaceId: string, parentSlug: string | null, or
     .select()
     .from(labels)
     .where(and(eq(labels.workspaceId, workspaceId), parent ? eq(labels.parentId, parent.id) : sql`${labels.parentId} is null`))
-    .orderBy(asc(labels.order))
+    .orderBy(asc(labels.position))
     .all();
   const bySlug = new Map(siblings.map((row) => [row.slug, row]));
   for (const slug of orderedSlugs) {
@@ -176,7 +170,7 @@ export function reorderLabels(workspaceId: string, parentSlug: string | null, or
   }
   // Listed labels first in the given order, any left out keep their relative order after them.
   const order = [...new Set(orderedSlugs), ...siblings.map((row) => row.slug).filter((slug) => !orderedSlugs.includes(slug))];
-  order.forEach((slug, position) => db.update(labels).set({ order: position }).where(eq(labels.id, bySlug.get(slug)!.id)).run());
+  order.forEach((slug, position) => db.update(labels).set({ position }).where(eq(labels.id, bySlug.get(slug)!.id)).run());
 }
 
 /**
@@ -196,11 +190,11 @@ export function moveLabel(workspaceId: string, slug: string, newParentSlug: stri
   if (newParentSlug && !parent) throw domainError('not_found', `Target parent '${newParentSlug}' not found`);
 
   const last = db
-    .select({ n: sql<number>`coalesce(max(${labels.order}), -1)` })
+    .select({ n: sql<number>`coalesce(max(${labels.position}), -1)` })
     .from(labels)
     .where(and(eq(labels.workspaceId, workspaceId), parent ? eq(labels.parentId, parent.id) : sql`${labels.parentId} is null`))
     .get();
-  db.update(labels).set({ parentId: parent?.id ?? null, order: (last?.n ?? -1) + 1, updatedAt: new Date() }).where(eq(labels.id, row.id)).run();
+  db.update(labels).set({ parentId: parent?.id ?? null, position: (last?.n ?? -1) + 1 }).where(eq(labels.id, row.id)).run();
 }
 
 // ============================================================

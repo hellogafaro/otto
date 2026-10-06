@@ -147,13 +147,13 @@ export function usePaletteData(): PaletteData<PaletteItem> {
     // Archived tasks and projects are left out: they are found on their pages (Archived filter).
     const projectTitles = new Map(projects.map((project) => [project.id, project.title]))
     const foldersById = new Map(libraryItems.filter((item) => item.type === 'folder').map((folder) => [folder.id, folder]))
-    const folderPath = (folderId: string | null) => {
+    const folderPath = (parentId: string | null) => {
       const names: string[] = []
-      for (let id = folderId; id && names.length < MAX_FOLDER_DEPTH; ) {
+      for (let id = parentId; id && names.length < MAX_FOLDER_DEPTH; ) {
         const folder = foldersById.get(id)
         if (!folder) break
         names.unshift(folder.title)
-        id = folder.folderId
+        id = folder.parentId
       }
       return names.join(' / ') || undefined
     }
@@ -213,7 +213,7 @@ export function usePaletteData(): PaletteData<PaletteItem> {
           key: itemKey({ type: 'library', id: item.id }),
           title: getDisplayTitle(item),
           icon: <Icon />,
-          meta: folderPath(item.folderId),
+          meta: folderPath(item.parentId),
           run: go(item.type === 'folder' ? routes.view.library({ folder: item.id }) : routes.view.library({ itemId: item.id })),
         }
       }),

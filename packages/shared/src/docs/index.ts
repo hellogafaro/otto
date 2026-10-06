@@ -105,6 +105,7 @@ export const DOC_REFS = {
   permissions: `${APP_ROOT}/docs/permissions.md`,
   skills: `${APP_ROOT}/docs/skills.md`,
   themes: `${APP_ROOT}/docs/themes.md`,
+  agents: `${APP_ROOT}/docs/agents.md`,
   statuses: `${APP_ROOT}/docs/statuses.md`,
   labels: `${APP_ROOT}/docs/labels.md`,
   toolIcons: `${APP_ROOT}/docs/tool-icons.md`,

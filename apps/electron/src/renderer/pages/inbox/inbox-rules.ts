@@ -8,10 +8,10 @@ export const getNotificationTarget = (item: Pick<NotificationItem, 'entity' | 'c
 /** The i18n key of the row's sentence ("Maria mentioned you in Fix login", "Maria assigned you Ship v1"). */
 export const getNotificationLineKey = (type: NotificationItem['type']): string => (type === 'assigned' ? 'inbox.assigned' : 'inbox.mentioned')
 
-export const isUnread = (item: Pick<NotificationItem, 'status'>): boolean => item.status === 'unread'
+export const isUnread = (item: Pick<NotificationItem, 'readAt'>): boolean => item.readAt === null
 
 /** The list the page shows: all, or only the unread ones (`?unread=1`). */
-export const filterNotifications = <T extends Pick<NotificationItem, 'status'>>(items: T[], unreadOnly: boolean): T[] =>
+export const filterNotifications = <T extends Pick<NotificationItem, 'readAt'>>(items: T[], unreadOnly: boolean): T[] =>
   unreadOnly ? items.filter(isUnread) : items
 
 /** The sidebar's unread count: nothing at 0, then the number, capped at "99+". */

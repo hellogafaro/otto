@@ -56,7 +56,7 @@ export interface ParsedRoute {
 // Compound Route Types (new format)
 // =============================================================================
 
-export type NavigatorType = 'sessions' | 'sources' | 'skills' | 'automations' | 'projects' | 'library' | 'tasks' | 'inbox' | 'settings'
+export type NavigatorType = 'sessions' | 'sources' | 'skills' | 'agents' | 'automations' | 'projects' | 'library' | 'tasks' | 'inbox' | 'settings'
 
 export interface ParsedCompoundRoute {
   /** The navigator type */
@@ -86,7 +86,7 @@ export interface ParsedCompoundRoute {
  * Known prefixes that indicate a compound route
  */
 const COMPOUND_ROUTE_PREFIXES = [
-  'allSessions', 'flagged', 'archived', 'state', 'label', 'sources', 'skills', 'automations', 'projects', 'library', 'tasks', 'inbox', 'settings'
+  'allSessions', 'flagged', 'archived', 'state', 'label', 'sources', 'skills', 'agents', 'automations', 'projects', 'library', 'tasks', 'inbox', 'settings'
 ]
 
 /** The detail segment and the search of the sections that have them. */
@@ -185,6 +185,13 @@ export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
     const search = normalize(parseSearch(queryPart ?? ''))
     if (segments.length === 1) return { navigator: first, search, details: null }
     if (segments.length === 3 && segments[1] === detail) return { navigator: first, search, details: { type: detail, id: segments[2] } }
+    return null
+  }
+
+  // Agents: the gallery or one agent (`agents/agent/{id}`); no search
+  if (first === 'agents') {
+    if (segments.length === 1) return { navigator: 'agents', details: null }
+    if (segments.length === 3 && segments[1] === 'agent') return { navigator: 'agents', details: { type: 'agent', id: segments[2] } }
     return null
   }
 
@@ -325,6 +332,8 @@ export function buildCompoundRoute(parsed: ParsedCompoundRoute): string {
 
   if (parsed.navigator === 'inbox') return `inbox${stringifySearch(parsed.search ?? {})}`
 
+  if (parsed.navigator === 'agents') return parsed.details ? `agents/agent/${parsed.details.id}` : 'agents'
+
   if (parsed.navigator === 'tasks' || parsed.navigator === 'projects' || parsed.navigator === 'library' || parsed.navigator === 'skills') {
     const base = parsed.details ? `${parsed.navigator}/${parsed.details.type}/${parsed.details.id}` : parsed.navigator
     return `${base}${stringifySearch(parsed.search ?? {})}`
@@ -444,6 +453,10 @@ function convertCompoundToNavigationState(compound: ParsedCompoundRoute): Naviga
     }
   }
 
+  if (compound.navigator === 'agents') {
+    return { navigator: 'agents', details: compound.details ? { type: 'agent', agentId: compound.details.id } : null }
+  }
+
   // Automations - include filter if present
   if (compound.navigator === 'automations') {
     if (!compound.details) {
@@ -525,6 +538,10 @@ function navigationStateToCompoundRoute(state: NavigationState): ParsedCompoundR
 
   if (state.navigator === 'skills') {
     return { navigator: 'skills', search: state.search, details: state.details ? { type: 'skill', id: state.details.skillSlug } : null }
+  }
+
+  if (state.navigator === 'agents') {
+    return { navigator: 'agents', details: state.details ? { type: 'agent', id: state.details.agentId } : null }
   }
 
   if (state.navigator === 'automations') {

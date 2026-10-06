@@ -45,7 +45,7 @@ export type { CredentialPromptArgs } from './credential-prompt.ts';
 
 // Update Preferences
 export { handleUpdatePreferences } from './update-preferences.ts';
-export { handleLabelsEdit, handleStatusesEdit, handlePermissionsEdit } from './workspace-config.ts';
+export { handleAgentsEdit, handleLabelsEdit, handleStatusesEdit, handlePermissionsEdit } from './workspace-config.ts';
 export type { UpdatePreferencesArgs } from './update-preferences.ts';
 
 // Transform Data

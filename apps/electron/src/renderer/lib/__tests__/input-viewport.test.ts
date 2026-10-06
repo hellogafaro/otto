@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { getInputAvailableHeight, getViewportRect, subscribeViewportChanges } from '../input-viewport'
+import { getInputAvailableHeight, getKeyboardHeight, getViewportRect, placeMenuAbove, subscribeViewportChanges } from '../input-viewport'
 
 describe('input viewport geometry', () => {
   it('is browser-safe without a window', () => {
@@ -56,5 +56,25 @@ describe('viewport subscriptions', () => {
     fallback.dispatchEvent(new Event('resize'))
     expect(updates).toBe(5)
     stopFallback()
+  })
+})
+
+describe('keyboard and menu placement', () => {
+  const visual = (height: number, scale = 1) => ({ width: 390, height, offsetTop: 0, offsetLeft: 0, scale })
+
+  it('reads the keyboard as the height the visible viewport lost, not a toolbar or a pinch zoom', () => {
+    expect(getKeyboardHeight({ innerWidth: 390, innerHeight: 844, visualViewport: visual(508) })).toBe(336)
+    expect(getKeyboardHeight({ innerWidth: 390, innerHeight: 844, visualViewport: visual(790) })).toBe(0)
+    expect(getKeyboardHeight({ innerWidth: 390, innerHeight: 844, visualViewport: visual(400, 2) })).toBe(0)
+    expect(getKeyboardHeight({ innerWidth: 390, innerHeight: 844 })).toBe(0)
+  })
+
+  it('places a menu above the caret in zoomed pixels and keeps it on screen', () => {
+    const host = { innerWidth: 390, innerHeight: 844, visualViewport: visual(844) }
+    expect(placeMenuAbove({ x: 20, y: 800 }, 280, host, 1.2)).toEqual({ left: 10 / 1.2, bottom: 52 / 1.2, maxWidth: 280 })
+    // 280 zoomed px are 336 layout px: the left edge stops 8px short of the right one.
+    expect(placeMenuAbove({ x: 300, y: 800 }, 280, host, 1.2).left).toBeCloseTo((390 - 336 - 8) / 1.2)
+    expect(placeMenuAbove({ x: 0, y: 800 }, 280, host, 1).left).toBe(8)
+    expect(placeMenuAbove({ x: 20, y: 800 }, 280, { ...host, innerWidth: 200, visualViewport: { ...visual(844), width: 200 } }, 1).maxWidth).toBe(184)
   })
 })

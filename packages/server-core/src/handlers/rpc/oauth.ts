@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
-import { loadSource, loadWorkspaceSources, getSourceCredentialManager } from '@otto/shared/sources'
+import { getLoadedSources, getSource, loadSource, getSourceCredentialManager } from '@otto/shared/sources'
+import { domainError } from '@otto/shared/utils'
 import { createPendingFlow } from '@otto/shared/auth'
 import { assertOwnsSession } from '../../sessions/private-chats'
 import { pushTyped, type RpcServer } from '@otto/server-core/transport'
@@ -104,9 +105,10 @@ export function registerOAuthHandlers(server: RpcServer, deps: HandlerDeps): voi
       throw new Error(`Workspace not found: ${ctx.workspaceId}`)
     }
 
-    const source = loadSource(workspace.rootPath, sourceSlug)
+    // Only a source that is a row has a folder to load: a client's string never becomes a path
+    const source = getSource(workspace.id, sourceSlug) ? loadSource(workspace.rootPath, sourceSlug) : null
     if (!source) {
-      throw new Error(`Source not found: ${sourceSlug}`)
+      throw domainError('not_found', `Source not found: ${sourceSlug}`)
     }
 
     const prepared = await credManager.prepareOAuth(source, { callbackPort, callbackUrl })
@@ -155,7 +157,7 @@ export function registerOAuthHandlers(server: RpcServer, deps: HandlerDeps): voi
       sessionManager: deps.sessionManager,
       pushSourcesChanged: (workspaceId) => {
         const ws = getWorkspaceByNameOrId(workspaceId)
-        const sources = ws ? loadWorkspaceSources(ws.rootPath) : []
+        const sources = ws ? getLoadedSources(ws.id) : []
         pushTyped(server, RPC_CHANNELS.sources.CHANGED, { to: 'workspace', workspaceId }, workspaceId, sources)
       },
       logger: log,
@@ -192,16 +194,16 @@ export function registerOAuthHandlers(server: RpcServer, deps: HandlerDeps): voi
       throw new Error(`Workspace not found: ${ctx.workspaceId}`)
     }
 
-    const source = loadSource(workspace.rootPath, sourceSlug)
+    const source = getSource(workspace.id, sourceSlug) ? loadSource(workspace.rootPath, sourceSlug) : null
     if (!source) {
-      throw new Error(`Source not found: ${sourceSlug}`)
+      throw domainError('not_found', `Source not found: ${sourceSlug}`)
     }
 
     await credManager.delete(source)
     credManager.markSourceNeedsReauth(source, 'Signed out by user')
 
     // Push source status update
-    const revokeSources = loadWorkspaceSources(workspace.rootPath)
+    const revokeSources = getLoadedSources(workspace.id)
     pushTyped(server, RPC_CHANNELS.sources.CHANGED, { to: 'workspace', workspaceId: ctx.workspaceId }, ctx.workspaceId, revokeSources)
 
     log.info(`[OAuth] Revoked credentials for ${sourceSlug}`)

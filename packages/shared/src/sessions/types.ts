@@ -28,6 +28,8 @@ export const SESSION_PERSISTENT_FIELDS = [
   'id', 'workspaceRootPath', 'sdkSessionId', 'sdkCwd',
   // Who the chat belongs to ('user:<id>'); absent on chats made before chats were private
   'createdBy',
+  // The agent the chat talks to (an `agents` row id); absent = the workspace's default agent, a deleted one the same
+  'agentId',
   // Timestamps
   'createdAt', 'lastUsedAt', 'lastMessageAt',
   // Display
@@ -114,6 +116,8 @@ export interface SessionConfig {
   name?: string;
   /** Actor ('user:<id>') the chat belongs to: only they see it. Set by the server at creation, never by a client. Absent: made before chats were private, visible to the workspace owners only. */
   createdBy?: string;
+  /** The agent this chat talks to (`agents` row id; absent or deleted = the workspace's default agent). */
+  agentId?: string;
   createdAt: number;
   lastUsedAt: number;
   /** Timestamp of last meaningful message (user or final assistant). Used for date grouping in session list.
@@ -245,6 +249,8 @@ export interface SessionHeader {
   name?: string;
   /** Actor ('user:<id>') the chat belongs to: only they see it. Set by the server at creation, never by a client. Absent: made before chats were private, visible to the workspace owners only. */
   createdBy?: string;
+  /** The agent this chat talks to (`agents` row id; absent or deleted = the workspace's default agent). */
+  agentId?: string;
   createdAt: number;
   lastUsedAt: number;
   /** Timestamp of last meaningful message — persisted separately from lastUsedAt for stable date grouping across restarts. */
@@ -346,6 +352,8 @@ export interface SessionMetadata {
   name?: string;
   /** Actor ('user:<id>') the chat belongs to; absent on chats made before chats were private. */
   createdBy?: string;
+  /** The agent this chat talks to (`agents` row id; absent or deleted = the workspace's default agent). */
+  agentId?: string;
   createdAt: number;
   lastUsedAt: number;
   /** Timestamp of last meaningful message — used for date grouping. Falls back to lastUsedAt for pre-fix sessions. */

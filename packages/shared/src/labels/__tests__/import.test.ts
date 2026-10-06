@@ -70,7 +70,7 @@ describe('initLabelsStatusesImport', () => {
     const before = hashTree(root);
 
     const report = initLabelsStatusesImport(db, [{ id: 'ws-1', rootPath: root }]);
-    expect(report).toMatchObject({ workspaces: 1, labels: 4, statuses: 8, permissions: 1, skipped: 1 });
+    expect(report).toMatchObject({ workspaces: 1, labels: 4, statuses: 9, permissions: 1, skipped: 1 });
     expect(report.warnings.some((w) => w.includes('huge.svg') && w.includes('dropped'))).toBe(true);
     expect(report.warnings.some((w) => w.includes('status web') && w.includes('dropped'))).toBe(true);
 
@@ -84,7 +84,7 @@ describe('initLabelsStatusesImport', () => {
     expect(getLabels('ws-2', db)).toEqual([]);
 
     const imported = getStatuses('ws-1', db);
-    expect(imported.map((s) => s.id)).toEqual(['backlog', 'todo', 'in-progress', 'review', 'huge', 'web', 'done', 'cancelled']);
+    expect(imported.map((s) => s.id)).toEqual(['backlog', 'todo', 'in-progress', 'review', 'huge', 'web', 'done', 'cancelled', 'archived']);
     expect(imported.filter((s) => s.isDefault).map((s) => s.id)).toEqual(['backlog']); // defaultStatusId, not the old isDefault flag
     const byId = Object.fromEntries(imported.map((s) => [s.id, s]));
     expect(byId['in-progress']!.icon).toBe('🔥');
@@ -109,7 +109,7 @@ describe('initLabelsStatusesImport', () => {
     const second = initLabelsStatusesImport(db, [{ id: 'ws-1', rootPath: root }]);
     expect(second).toMatchObject({ workspaces: 0, labels: 0, statuses: 0, permissions: 0 });
     expect(getLabelsFlat('ws-1', db).map((l) => l.id)).toEqual(labelsBefore);
-    expect(getStatuses('ws-1', db)).toHaveLength(8);
+    expect(getStatuses('ws-1', db)).toHaveLength(9);
   });
 
   it('seeds the defaults for a workspace with no old files, and imports a later workspace on its own', async () => {
@@ -118,7 +118,7 @@ describe('initLabelsStatusesImport', () => {
     const first = initLabelsStatusesImport(db, [{ id: 'ws-1', rootPath: empty }]);
     expect(first.workspaces).toBe(1);
     expect(getLabelsFlat('ws-1', db).map((l) => l.id)).toContain('development');
-    expect(getStatuses('ws-1', db).map((s) => s.id)).toEqual(['backlog', 'todo', 'needs-review', 'done', 'cancelled']);
+    expect(getStatuses('ws-1', db).map((s) => s.id)).toEqual(['backlog', 'todo', 'needs-review', 'done', 'cancelled', 'archived']);
     expect(getWorkspacePermissions('ws-1', db)).toEqual({});
     const root = fixture();
     const second = initLabelsStatusesImport(db, [{ id: 'ws-1', rootPath: empty }, { id: 'ws-2', rootPath: root }]);
@@ -136,7 +136,7 @@ describe('initLabelsStatusesImport', () => {
     writeFileSync(join(root, 'permissions.json'), JSON.stringify({ allowedBashPatterns: 'nope' }));
     const report = initLabelsStatusesImport(db, [{ id: 'ws-1', rootPath: root }]);
     expect(report.warnings.length).toBe(3);
-    expect(getStatuses('ws-1', db)).toHaveLength(5); // missing fixed statuses: the defaults
+    expect(getStatuses('ws-1', db)).toHaveLength(6); // missing fixed statuses: the defaults
     expect(getLabelsFlat('ws-1', db).length).toBeGreaterThan(0); // unreadable labels file: the defaults
     expect(getWorkspacePermissions('ws-1', db)).toEqual({});
   });

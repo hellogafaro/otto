@@ -6,7 +6,7 @@ import { migrateLabelColors, migrateStatusColors } from '../colors/migrate.ts'
 import { PermissionsConfigSchema } from '../agent/mode-types.ts'
 import { INSTALL, getSetting, updateSetting, workspaceEntity } from '../settings/index.ts'
 import { DEFAULT_ICON_SVGS } from '../statuses/default-icons.ts'
-import { FIXED_STATUS_IDS, MAX_STATUS_ICON, initWorkspaceStatuses, insertStatuses, svgDataUrl } from '../statuses/storage.ts'
+import { FIXED_STATUS_IDS, MAX_STATUS_ICON, getDefaultStatuses, initWorkspaceStatuses, insertStatuses, svgDataUrl } from '../statuses/storage.ts'
 import type { StatusConfig, WorkspaceStatusConfig } from '../statuses/types.ts'
 import { initWorkspaceLabels, insertLabelTree } from './storage.ts'
 import type { WorkspaceLabelConfig } from './types.ts'
@@ -63,7 +63,7 @@ function fileIcon(path: string, warnings: string[]): string | undefined {
 }
 
 /** What the old config meant by `icon`, as the column holds it: an emoji or name stays, a file or the icon discovered by the status id becomes a data URL. */
-function importIcon(root: string, status: StatusConfig, warnings: string[]): string | undefined {
+function importIcon(root: string, status: { id: string; icon?: string }, warnings: string[]): string | undefined {
   const iconsDir = join(root, 'statuses', 'icons')
   const raw = typeof status.icon === 'string' ? status.icon.trim() : ''
   if (raw && !LOCAL_ICON_FILE.test(raw) && !/^https?:\/\//i.test(raw)) return raw
@@ -78,16 +78,18 @@ function importIcon(root: string, status: StatusConfig, warnings: string[]): str
 function readStatuses(root: string, warnings: string[]): StatusConfig[] | null {
   const config = readJson(join(root, 'statuses', 'config.json'), warnings) as WorkspaceStatusConfig | undefined
   if (!config) return null
-  if (!Array.isArray(config.statuses) || !FIXED_STATUS_IDS.every((id) => config.statuses.some((s) => s.id === id && s.isFixed))) {
+  if (!Array.isArray(config.statuses) || !FIXED_STATUS_IDS.filter((id) => id !== 'archived').every((id) => config.statuses.some((s) => s.id === id && s.isFixed))) {
     warnings.push(`${join(root, 'statuses', 'config.json')}: missing the fixed statuses todo, done and cancelled; the defaults are used`)
     return null
   }
   migrateStatusColors(config)
   const defaultId = config.statuses.some((s) => s.id === config.defaultStatusId) ? config.defaultStatusId : 'todo'
-  return config.statuses.map((status) => {
+  const imported = config.statuses.map(({ order: position, ...status }): StatusConfig => {
     const icon = importIcon(root, status, warnings)
-    return { ...status, ...(icon ? { icon } : { icon: undefined }), isDefault: status.id === defaultId }
+    return { ...status, ...(icon ? { icon } : { icon: undefined }), isDefault: status.id === defaultId, position }
   })
+  // the old files have no `archived` status: add it last
+  return [...imported, { ...getDefaultStatuses().find((s) => s.id === 'archived')!, position: imported.length }]
 }
 
 export function initLabelsStatusesImport(db: Db = initDb(), workspaces: { id: string; rootPath: string }[] = loadStoredConfig()?.workspaces ?? []): LabelsStatusesImportReport {

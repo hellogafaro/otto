@@ -342,8 +342,8 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
         throw new Error('Attachment has no content (neither base64 nor text)')
       }
 
-      const folderId = initChatAttachmentsFolder(workspaceId, createdBy).id
-      const item = await createLibraryItem({ workspaceId, title: attachment.name, mime: attachment.mimeType, bytes, folderId, createdBy })
+      const parentId = initChatAttachmentsFolder(workspaceId, createdBy).id
+      const item = await createLibraryItem({ workspaceId, title: attachment.name, mime: attachment.mimeType, bytes, parentId, createdBy })
       createdIds.push(item.id)
       const storedPath = getLibraryItemPath(workspace.rootPath, item.id)
 
@@ -374,7 +374,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
             title: `${attachment.name}.md`,
             mime: 'text/markdown',
             bytes: Buffer.from(result.textContent, 'utf-8'),
-            folderId,
+            parentId,
             createdBy,
           })
           createdIds.push(markdown.id)

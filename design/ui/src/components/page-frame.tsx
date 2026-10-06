@@ -15,8 +15,8 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 // Nothing is pinned above a page: its title row is the first block of the
 // column, 64px from the top, and scrolls away with it (`PageHeaderRow`;
 // `PageColumn` gives it its slot). The open chat is the one exception: a
-// compact pinned header (`PageHeaderRow density="compact"`, 58px) in the frame's header slot
-// above its transcript wrapper (the row between two 13px gaps, not on the axis).
+// compact pinned header (`PageHeaderRow density="compact"`, 80px) in the frame's header slot
+// above its transcript wrapper (the row between two 24px gaps, not on the axis).
 // Below 768px every other title row is on the axis (`--axis-y`, see globals.css),
 // beside the sheet's menu button.
 //
@@ -49,23 +49,32 @@ const NAV_GUTTER = 72
 // - roomy density: the title row and the pinned navigation sit 64px down
 //   (`--nav-top-roomy`), the big page title (21px).
 // - compact density (the chat's header, and any page inside a bordered wrapper): the
-//   header block is the 32px row between two equal gaps (`--header-gap`, 13: above
-//   the row and below it), so the wrapper's line starts at `--header-compact` (58); the
+//   header block is the 32px row between two equal gaps (`--header-gap`, 24: above
+//   the row and below it), so the wrapper's line starts at `--header-compact` (80); the
 //   title is the section size (16.5px) and starts at `--content-inset` (the wrapper's
-//   line + its padding `--wrap-pad`, 22px): the content's left edge. The navigation's top
-//   is the content's first row: line + padding (`--nav-top-compact`, 80px).
-// - the navigation is `--nav-gap` (13) from the column on every page, so its x never changes.
+//   line + its padding `--wrap-pad`, 17px): the content's left edge. The navigation's top
+//   is the content's first row: line + padding (`--nav-top-compact`, 97px). The wrapper's
+//   padding is 16 at most (owner), on every page that uses it.
+// - the navigation is `--nav-gap` (16) from the column on every page, so its x never changes.
 const FRAME_TOKENS = {
   "--gr-8": "0.5rem",
   "--gr-13": "0.8125rem",
   "--gr-21": "1.3125rem",
   "--gr-34": "2.125rem",
   "--gr-55": "3.4375rem",
-  "--wrap-pad": "var(--gr-21)",
+  "--wrap-pad": "1rem",
   "--content-inset": "calc(1px + var(--wrap-pad))",
-  "--header-gap": "var(--gr-13)",
+  "--header-gap": "1.5rem",
   "--header-compact": "calc(2 * var(--header-gap) + 2rem)",
-  "--nav-gap": "var(--gr-13)",
+  "--nav-gap": "1rem",
+  // Nested radii (inner = outer - inset): the wrapper's corner is the radius of a surface
+  // that sits `--content-inset` (17: line + padding) inside it, plus that inset.
+  // A (default): the surfaces keep v1's 12 (`--radius-xl`), the wrapper grows to 12 + 17 = 29.
+  // B: `--wrap-radius: var(--radius-2xl)` (20), the nested surfaces shrink to 20 - 17 = 3.
+  "--wrap-radius": "calc(var(--radius-xl) + var(--content-inset))",
+  "--wrap-inner-radius": "calc(var(--wrap-radius) - var(--content-inset))",
+  // Clear space between the floating composer bar and the content above it.
+  "--composer-gap": "1.5rem",
   "--nav-top-roomy": "4rem",
   "--nav-top-compact": "calc(var(--header-compact) + var(--content-inset))",
 } as React.CSSProperties
@@ -138,7 +147,7 @@ function PageFrame({
 
   // Otto: the full composer (the chat, the new chat, the Inbox) is in the
   // layout: the column keeps the slot's measured height (the composer and its
-  // gap below) free plus the 8px gap above it, frame by frame while it grows
+  // gap below) free plus `--composer-gap` (24px) above it, frame by frame while it grows
   // or shrinks (`--composer-clearance`).
   // The compact bar floats over the page instead (the class below, 56px).
   React.useLayoutEffect(() => {
@@ -146,7 +155,7 @@ function PageFrame({
     const measure = () =>
       setFullClearance(
         composerSlot.querySelector("[data-slot=composer][data-variant=full]")
-          ? composerSlot.offsetHeight + 8
+          ? composerSlot.offsetHeight
           : null
       )
     measure()
@@ -270,7 +279,7 @@ function PageFrame({
             "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
             "@[1280px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:20.25rem]",
             // While the composer bar shows, the column keeps its band free (see `PageColumn`).
-            "has-[>[data-slot=page-composer-slot]:not(:empty)]:[--composer-clearance:3.5rem]"
+            "has-[>[data-slot=page-composer-slot]:not(:empty)]:[--composer-clearance:calc(3rem+var(--composer-gap))]"
           )}
           style={
             {
@@ -278,7 +287,9 @@ function PageFrame({
               "--content-start": `${contentStart}px`,
               ...(fullClearance === null
                 ? {}
-                : { "--composer-clearance": `${fullClearance}px` }),
+                : {
+                    "--composer-clearance": `calc(${fullClearance}px + var(--composer-gap))`,
+                  }),
             } as React.CSSProperties
           }
         >
@@ -290,7 +301,7 @@ function PageFrame({
           <div
             data-slot="floating-nav-slot"
             ref={setNav}
-            // Spans the whole height: the navigation is `--nav-gap` (13px) from the column (the same x on
+            // Spans the whole height: the navigation is `--nav-gap` (16px) from the column (the same x on
             // EVERY detail page, the chat included), its top `--nav-top` by density, and it
             // stays put while the column scrolls.
             className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-(--nav-top) pr-(--nav-gap)"

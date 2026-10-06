@@ -100,7 +100,6 @@ mock.module('@otto/shared/config', () => ({
   updateLlmConnection: async () => null,
   deleteLlmConnection: async () => {},
   setDefaultLlmConnection: async () => {},
-  touchLlmConnection: async () => {},
   isCompatProvider: () => false,
   isAnthropicProvider: () => true,
 }))

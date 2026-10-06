@@ -66,19 +66,15 @@ describe('projects, tasks and timesheets RPC', () => {
     expect(await call(RPC_CHANNELS.projects.GET, project.id)).toEqual(project)
     expect(await call(RPC_CHANNELS.projects.GET, 'missing00000')).toBeNull()
     expect(await call(RPC_CHANNELS.projects.LIST)).toEqual([project])
-    expect(await call(RPC_CHANNELS.projects.GET_MEMBERS, project.id)).toEqual([{ actor: ME, role: 'contributor' }])
+    expect(project.members).toEqual([ME])
 
     const renamed = await call(RPC_CHANNELS.projects.UPDATE, project.id, { title: 'Launch 2', expectedUpdatedAt: project.updatedAt })
     expect(renamed.title).toBe('Launch 2')
     await expect(call(RPC_CHANNELS.projects.UPDATE, project.id, { title: 'Stale', expectedUpdatedAt: project.updatedAt })).rejects.toThrow('changed since')
     expect((await call(RPC_CHANNELS.projects.GET, project.id)).title).toBe('Launch 2')
 
-    await call(RPC_CHANNELS.projects.SET_MEMBER, project.id, 'agent:default', 'viewer')
-    expect(await call(RPC_CHANNELS.projects.GET_MEMBERS, project.id)).toEqual([
-      { actor: 'agent:default', role: 'viewer' },
-      { actor: ME, role: 'contributor' },
-    ])
-    await call(RPC_CHANNELS.projects.REMOVE_MEMBER, project.id, 'agent:default')
+    expect((await call(RPC_CHANNELS.projects.ADD_MEMBER, project.id, 'agent:default')).members).toEqual([ME, 'agent:default'])
+    expect((await call(RPC_CHANNELS.projects.REMOVE_MEMBER, project.id, 'agent:default')).members).toEqual([ME])
 
     expect(await call(RPC_CHANNELS.projects.SET_STATUS, project.id, 'archived')).toMatchObject({ status: 'archived' })
     expect(await call(RPC_CHANNELS.projects.LIST)).toEqual([])
@@ -91,14 +87,14 @@ describe('projects, tasks and timesheets RPC', () => {
   it('refuses people who are not members of the workspace as assignees or project members', async () => {
     const stranger = 'user:zzzzzzzzzzzz'
     const project = await call(RPC_CHANNELS.projects.CREATE, { title: 'Members' })
-    await expect(call(RPC_CHANNELS.projects.SET_MEMBER, project.id, stranger, 'viewer')).rejects.toThrow('not a member')
+    await expect(call(RPC_CHANNELS.projects.ADD_MEMBER, project.id, stranger)).rejects.toThrow('not a member')
     await expect(call(RPC_CHANNELS.tasks.CREATE, { projectId: project.id, title: 'x', assignees: [ME, stranger] })).rejects.toThrow('not a member')
     const task = await call(RPC_CHANNELS.tasks.CREATE, { projectId: project.id, title: 'x', assignees: ['agent:default'] })
     await expect(call(RPC_CHANNELS.tasks.UPDATE, task.id, { assignees: [stranger] })).rejects.toMatchObject({ code: 'invalid' })
     expect((await call(RPC_CHANNELS.tasks.GET, task.id)).assignees).toEqual(['agent:default'])
     // A member of another workspace is not enough.
     createWorkspaceMember(otherCtx.workspaceId!, 'abcdefghijkm', 'member')
-    await expect(call(RPC_CHANNELS.projects.SET_MEMBER, project.id, 'user:abcdefghijkm', 'viewer')).rejects.toThrow('not a member')
+    await expect(call(RPC_CHANNELS.projects.ADD_MEMBER, project.id, 'user:abcdefghijkm')).rejects.toThrow('not a member')
   })
 
   it('gives the agent prompt the project, and nothing for unknown or deleted ones', async () => {

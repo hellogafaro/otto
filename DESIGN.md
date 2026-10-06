@@ -482,13 +482,13 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   - **Nothing is pinned above a page.** Its title row is the first block of the
     scrolling column (Capy's settings pattern) and scrolls away with the content;
     see The page header. The one exception is the **open chat**
-    (`/chats/<id>`): a compact 58px header (`density="compact"`, see Density) pinned
+    (`/chats/<id>`): a compact 80px header (`density="compact"`, see Density) pinned
     above its transcript wrapper, which spans the whole 768px track; it is the only
     page on the compact spacing.
   - **The top axis** (`--axis-y`, 34px, one CSS variable in `globals.css`): **the
     sidebar's mark** and, below 768px, every roomy title row and the sheet's menu
     button share the center y 34 (the compact chat header is no longer on it: it
-    is the row between two equal 13px gaps, center 29). Each offsets from the variable by half its own height
+    is the row between two equal 24px gaps, center 40). Each offsets from the variable by half its own height
     (the chat's row: top 18, 32px; Back and a title row below 768px: top 18,
     32px; the mark's row: top 20, 28px), so changing it moves them all. The
     value is the sidebar's: its first row starts one group gap (20px) from the
@@ -586,7 +586,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   header's bottom and the footer's top carry it); group 3 is hidden.
   - **Header** (group 0): the Otto mark alone, 20px (`size-5`, `text-foreground`), no
     name, in a 28px row 20px from the top of the window and 20px above the first
-    group, so its center is the top axis (y 34; roomy titles sit at y 64 from 768px, the compact chat header's center is 29). The sheet below 768px keeps the same 8px inset (plus
+    group, so its center is the top axis (y 34; roomy titles sit at y 64 from 768px, the compact chat header's center is 40). The sheet below 768px keeps the same 8px inset (plus
     the iOS safe area), so its mark is on the axis of the page's menu button. On Electron the header is the window's drag region,
     its row clears the macOS traffic lights (68px in; icons only, the row sits
     below them) and Back / Forward end it as two 28px ghost icon buttons with
@@ -697,9 +697,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     the first view opened). Then, 20px down, the registry's groups exactly as
     `SETTINGS_NAV_GROUPS` orders them: **Account** (General, AI, Appearance,
     Input, Shortcuts, Preferences) and **Workspace** (Workspace, Members,
-    Permissions, Labels, Statuses, Messaging, then Skills and Sources), each under its
+    Permissions, Labels, Statuses, Messaging, then Agents, Skills and Sources), each under its
     20px muted group title, every page a standard 28px row with its own icon
-    (`SETTINGS_ICONS`; Skills `Shapes`, Sources `DatabaseZap`), the open one filled
+    (`SETTINGS_ICONS`; Agents `Bot`, Skills `Shapes`, Sources `DatabaseZap`), the open one filled
     `foreground/10`, hover `foreground/5`, the inset ring for keyboard focus only.
     A direct URL fills its row. The groups scroll as a whole on a short window
     (edge fade, no scrollbar). No footer. Settings opens from the workspace
@@ -709,7 +709,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     `statuses_edit` / `permissions_edit` tools and the pages reload when they
     change. **Statuses** is read-only like Labels: one card of rows (the status
     icon, tinted by its color when it is an SVG, the name, and an outline Open /
-    Closed badge: open shows in the inbox, closed in the archive), its Edit
+    Closed / Archived badge: open shows in the inbox, closed in the archive; Archived
+    is the one fixed status archiving a chat moves it to), its Edit
     prefilling the composer. A status icon is an emoji or an SVG image data URL
     that stays tinted by the status color.
     **Edit with the agent** (the owner's call: no "ask the agent" popovers): every
@@ -756,23 +757,23 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
 
     | Token | Value | What |
     | --- | --- | --- |
-    | `--nav-gap` | 13 | the navigation's right edge to the column (owner: never above 16): its x is the same on EVERY page (x 339 at 1280) |
+    | `--nav-gap` | 16 | the navigation's right edge to the column (owner: 16, never above): its x is the same on EVERY page (x 336 at 1280) |
     | `--nav-top-roomy` | 64 | roomy: the nav top and the title row's top |
-    | `--header-gap` | 13 | compact: the gap above the title row AND below it (equal) |
-    | `--header-compact` | 58 | compact: 13 + 32 + 13, where the wrapper's line starts |
-    | `--wrap-pad` | 21 | the wrapper's padding (line, padding, content start) |
-    | `--content-inset` | 22 | 1px line + `--wrap-pad`: the content's left edge and top inset |
-    | `--nav-top-compact` | 80 | `--header-compact` + `--content-inset`: the first content row's top |
+    | `--header-gap` | 24 | compact: the gap above the title row AND below it (equal; the owner's 24 between the title row and the wrapper line) |
+    | `--header-compact` | 80 | compact: 24 + 32 + 24, where the wrapper's line starts |
+    | `--wrap-pad` | 16 | the wrapper's padding, on EVERY wrapper (the chat's, `PageWrap padded`): 16 at most (owner) |
+    | `--content-inset` | 17 | 1px line + `--wrap-pad`: the content's left edge and top inset (and the composer's side and bottom inset) |
+    | `--nav-top-compact` | 97 | `--header-compact` + `--content-inset`: the first content row's top |
 
     **Roomy** (every page in the column: skill, source, routine, task, project,
     library item, settings): the title row 64 down, the big title (21px), 16px in
     to line up with the cards' text; the nav top is 64 (level with it).
     **Compact** (the open chat, and any later page inside a bordered wrapper): the
     row in the frame's header slot, the section title size (`text-base`, 16.5px),
-    its left edge on the content's left edge (22px in: the same x as the
+    its left edge on the content's left edge (17px in: the same x as the
     transcript's text and the composer's side), and the nav top on the first
-    content row inside the wrapper (line 58, +1, +21 padding = 80: the first bubble's
-    top; the transcript's own padding is the same 21 less the 16px a turn row
+    content row inside the wrapper (line 80, +1, +16 padding = 97: the first bubble's
+    top; the transcript's own padding is the same 16 less the 16px a turn row
     carries, and it has none on the sides). Line, padding, content start is the
     rhythm on both axes. The chat keeps its transcript wrapper (the whole 768px
     track); only the header and the nav follow the density. On Electron the compact
@@ -813,7 +814,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   fixed to the frame, not to the title row or the first block, so the title
   scrolls away beside it. On the open chat (the one compact page, `PageFrame`
   reads its header's density, one rule) the top is `--nav-top-compact`
-  (80, the first content row inside the wrapper) instead; the x is the same. They are our standard raised icon button
+  (97, the first content row inside the wrapper) instead; the x is the same. They are our standard raised icon button
   (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
   with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
   Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
@@ -899,23 +900,23 @@ no shadow.
   the height without scrolling as a whole; its title row is 64px down and the
   card 40px under it (y 136), like any page. A toolbar is part of the title
   row, not a nested card. **The open chat is the one compact page** and takes no
-  `PageColumn`: its title row is the compact one (58px, see Density) and its transcript is **no card but the line wrapper** (TEST, the
-  owner's call: `PageWrap`, hairline, `2xl` 20, transparent, one `className`
+  `PageColumn`: its title row is the compact one (80px, see Density) and its transcript is **no card but the line wrapper** (TEST, the
+  owner's call: `PageWrap`, hairline, `--wrap-radius` (29, nested; see Radius), transparent, one `className`
   in `chat-display.tsx`; revert = `PageCenterpiece`) spanning the whole 768px
-  track from y 58 to the frame's 8px bottom. **The floating composer sits INSIDE
+  track from y 80 to the frame's 8px bottom. **The floating composer sits INSIDE
   the wrapper**, over its bottom: `chat-display.tsx` publishes `--wrap-inset`
-  (`--content-inset`, 22px: 1px line + 21px padding) on the frame's grid while the chat is mounted, and
-  the composer's slot uses it for its sides and bottom, so the composer is 12px
+  (`--content-inset`, 17px: 1px line + 16px padding) on the frame's grid while the chat is mounted, and
+  the composer's slot uses it for its sides and bottom, so the composer is 16px
   inside the line on every side, compact or full; the wrapper pads its top and
-  sides 12px, and the transcript's bottom padding is `--composer-lift` (the
-  slot's height, composer plus its gap) + 12px, so nothing hides behind it.
+  sides 16px, and the transcript's bottom padding is `--composer-lift` (the
+  slot's height, composer plus its gap) + 16px, so nothing hides behind it.
   The composer is not a card of the page: it is the one surface in the wrapper.
   Messages are flat: assistant text sits straight on the surface (no bubble, ring or
   shadow), the user message is a muted fill, code blocks are flat muted blocks.
 - **PageWrap: the line box of a dense list page.** A page of many small rows
   with small details (a list or table: Chats, Tasks and a project's Tasks tab,
   Inbox) puts its list in ONE line-only wrapper, as Threads wraps its feed: a
-  1px `--card-ring` border (the card edge's color), `2xl` 20 corners, NO fill
+  1px `--card-ring` border (the card edge's color), `--wrap-radius` corners (29), NO fill
   (the frame shows through), no shadow, no hairlines inside. It wraps the list
   block only: the title row and the filter chips (`FilterBar`) stay above it,
   12px over its top line. Flush (no padding: Inbox's flat list) its rows run to
@@ -931,19 +932,15 @@ no shadow.
   three `ListRowSkeleton`s (a row's 44px and grid: a 14px dot, a title bar,
   both `foreground/10`: the stock `bg-muted` is lighter than the frame in
   light) sit in the wrapper where the list will be.
-  **TEST, not the standard:** the Chats index, the Tasks index (list and
-  loading), a project's Tasks tab and the Routines index (list and loading) put Otto v1's table (`ListGroup`, its
-  rounded bands and rows) in a 12px-padded line wrapper (`PageWrap
-  className="p-3 md:-mx-[9px]"` in `chats-index-page.tsx`, `task-list.tsx`,
-  `tasks-page.tsx`, `routines-page.tsx`): the 8px bands nest in the 20px corner (20 - 12 = 8, the
-  radii rule), nothing is clipped. From 768px the wrapper sits 9px out of the
-  column (v1's `-mx-[9px]`: 9 + 1 + 12 + 12 = the band's chevron on the
-  title's 16px line); below 768px it stays in the column (the scroll area
-  clips anything wider, and the title sits beside the menu button there). 8px
-  padding would leave a 12px inner corner around an 8px band, 16px costs
-  width at 390. Inbox keeps the flush wrapper, so its box is 9px narrower each
-  side than Chats' at 768px and up. Reverting is dropping each `className`
-  (Tasks' groups would then touch the line) and this note.
+  **Padded (`PageWrap padded`)**: the Chats index, the Tasks index (list and
+  loading), a project's Tasks tab and the Routines index (list and loading) put
+  Otto v1's table (`ListGroup`, its rounded bands and rows) in the wrapper with
+  `--wrap-pad` (16px, the owner's maximum; the chat's wrapper pads the same 16):
+  nothing is clipped. The wrapper sits on the column's content edges (the cards'
+  own edges on every other page), never outside them, so the navigation's 16px
+  gap to it holds. The band's left edge is then 17px in (line 1 + padding 16)
+  and the roomy title's text 16px in (`PAGE_INSET`): within 1px of each other.
+  Below 768px it stays in the column. Inbox keeps the flush wrapper.
 - **Index pages.** Sub-navigation is an index page before the detail, never a
   sidebar list: a data page of a grouped list or a grid of links that opens the
   detail. Chats opens on its index (`ChatsIndexPage`: the title row's ghost Filter, then
@@ -955,17 +952,17 @@ no shadow.
   `/{ws}/settings/sources`; the owner's call: "a grid exactly the same as the
   library, just without tabs"): the Library's anatomy without tabs or folders, on
   Settings' roomy column (see Settings above). The title row ("Skills" / "Sources")
-  holds the three 28px ghost actions of the data pattern: **Filter** (Skills: Scope,
-  Global / Workspace / Project, `?scope=`; Sources: Type, MCP / API / Local,
-  `?type=`; one value at a time, the last picked, chips in the `FilterBar` while
-  set), **Search** (`CommandPaletteButton`: the palette on its Skills or Sources
+  holds the 28px ghost actions of the data pattern: **Filter** (Sources only: Type,
+  MCP / API / Local, `?type=`; one value at a time, the last picked, chips in the
+  `FilterBar` while set; Skills has none, every skill is the workspace's: the
+  global and per-project scopes are gone, and an old `?scope=` is ignored), **Search** (`CommandPaletteButton`: the palette on its Skills or Sources
   category) and **"+"** (Add skill / Add source in its tooltip): the existing
   add action, which prefills the composer ("Add a skill that ", "Add a source that
   connects to ", or the filtered type's sentence) and an agent writes it in a new
   chat. Then `Gallery columns={4}` of 4:5 tiles on the frame (`GalleryItem`):
   the item's own icon (`SkillAvatar` / `SourceAvatar`, chromeless: 16px in the
-  icon tile, 14px before the title), the muted caption under it (a skill's scope,
-  a source's type), the name under the tile; sorted by name. **A tile only opens
+  icon tile, 14px before the title), the muted caption under it (a source's type;
+  a skill has none), the name under the tile; sorted by name. **A tile only opens
   the item** (keeping the filter): no hover ⋯ and no right-click menu (the
   owner's call: the actions belong to the opened item; see Galleries). Loading
   is eight `GalleryItemSkeleton`s; none at all (no skill, no source) is the stock
@@ -976,19 +973,22 @@ no shadow.
   once: the title row is its name and **More actions**, the one menu of the item
   (Copy link (C), Show in the file manager, then Delete (⌫) apart, asked first with
   the stock destructive dialog, "Delete skill?" / "Delete source?", "This can't be
-  undone.", and back to the grid after; a global or project skill has no Delete:
-  not this workspace's); its description (a source's tagline) is the lead line
+  undone.", and back to the grid after; the server refuses a member who is neither
+  the skill's creator nor an owner); its description (a source's tagline) is the lead line
   under the title; no hero, avatar or table row repeats the name or the
   description. Then its sections, `PageSection` over `PageCard` as on every
   settings page, each with its Edit button (it prefills the composer naming the item and the
   section; an agent edits the file) as the section action. **A skill**: Instructions, SKILL.md's body as
   the Library's read-only markdown (`Markdown mode="full"`, 16px in the card, the
   page scrolls; a leading `# {name}` is dropped, it is the title), then Metadata
-  rows (Scope, Location, Required sources, Always allowed tools; the rows exist
+  rows (Location, Required sources, Always allowed tools; the rows exist
   only when set). **A source**: Connection (Type, URL, Last tested and its
   connection error), Tools (MCP), Permissions, Documentation (guide.md, the same
   markdown). The item has the floating navigation: Back to the grid under its
   filter, Previous / Next in the grid's order and filter.
+  A skill an agent edited while a newer version was saved elsewhere shows one
+  warning toast (`skillInfo.conflictKept`, naming the slug): the newer version is
+  loaded and the edit is kept aside, never lost.
 - **Projects index** (`ProjectsPage`, `pages/projects/`): a blocks page titled
   "Projects" whose actions are Filter (one on/off field, Archived:
   `?status=archived` lists the archived projects instead of the active ones,
@@ -1104,11 +1104,10 @@ status color (Archived neutral). A row (44px): the status icon
   description in a card (the markdown editor, 16px in; it autosaves with the
   title as one draft), Links (`ResourceList` in a card, 4px in: web links,
   library items, chats; × removes, "New link", the section's "+", adds, at once) and Members (the
-  settings row: 20px `ActorAvatar`, name, the role as an outline `Badge`
-  Contributor / Viewer, a ⋯ with the role as radio items and Remove; "Add
+  settings row: 20px `ActorAvatar`, name, a × that removes them; "Add
   member" ends the section's title row and lists the workspace's people and
-  agents not in the project, who join as Contributor). Roles are data only:
-  nobody's buttons are gated. **Tasks**: `TaskGroups` of the project (in the
+  agents not in the project). There are no member roles (`projects.members`
+  is a list of actors): nobody's buttons are gated. **Tasks**: `TaskGroups` of the project (in the
   `PageWrap`, a list like the Tasks index), or the inline `Empty` "No tasks
   yet" on the frame. **Documents / Files**: the project's library
   links (`resources` of type `library`) as a 4-column `Gallery` of
@@ -1190,7 +1189,7 @@ status color (Archived neutral). A row (44px): the status icon
 
 | Surface | Radius | Inside it |
 | --- | --- | --- |
-| Line-only list wrapper (`PageWrap`, `2xl`) | 20 | Flush: rows full-bleed, clipped to its corners (Inbox). Padded 12: the grouped list's `md` 8 bands and rows (20 - 12) |
+| Line-only list wrapper and the chat's (`PageWrap`, `--wrap-radius`) | 29 | Flush: rows full-bleed, clipped to its corners (Inbox). Padded 16 (`--wrap-pad`): the grouped list's bands and rows and the chat's composer are `--wrap-inner-radius` 12, nested at the 17px inset (29 - 17) |
 | Card, centerpiece, composer, sidecar as card (`xl`) | 12 | Rows full-bleed, no radius; 28px controls |
 | Row in a card, nested control | 28px, `sm` 6 | 24px action, `xs` 4 |
 | Button | 32px, `md` 8 | 14px icon |
@@ -1219,7 +1218,7 @@ One history stack, one rule for Back, one place the lists live.
   ONLY on a view with a parent, where it goes to the parent view by the route
   hierarchy (`useParentView`): a chat goes to the Chats index (under the filter it was
   opened with); a task or a library item goes to its index under the same filters, tab and folder; a routine to Routines under its type; a project to its section.
-  A skill or a source goes to its grid in Settings, under the same filter.
+  A skill or a source goes to its grid in Settings, under the same filter; an agent to the Agents gallery.
   The Chats, Tasks, Projects, Routines and Library indexes and the Skills and Sources grids have no
   parent, so no Back. Settings' own pages have no Back either: its sidebar lists them, and
   Back to app leaves. Sub-navigation is the index page (Settings: its sidebar), so Back is the same at every width. There is no back button and no breadcrumb in the title row: the
@@ -1338,15 +1337,15 @@ as a card).
 | `SidebarMenuSlot`, `SidebarMenuSlotAction` | | the row's right slot: a 20px lane 4px from the row's top, right and bottom, one cell for stacked layers (status or time, actions, key) that swap by opacity; clicks pass through except on a visible layer; `SlotAction` is the 20px in-line ghost button (the look of `SidebarMenuAction`). The row fades its title under the lane with a mask, see Pins and recents |
 | `SidebarTrigger` | | the sheet's menu button below 768px: 28px ghost in the chat's compact row; elsewhere 32px `outline`, fixed over the column's top-left on the axis |
 | `PageFrame` | `aside` | the main region on the frame: the 768px column (`@container/panel`) and its title slot, the chat's header slot, the leading slot (the fixed menu button), left and right gutters; the top axis `--axis-y`; see Layout |
-| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `density` (`roomy` \| `compact`) | the title row: 32px; `roomy` the first block of the column, 64px down from 768px (centered on the axis below), `PageTitle` 21px medium, inset 16px; `compact` (the open chat only) 58px in the header slot (13 + 32 + 13), 16.5px title inset to the wrapper's content (22px); 28px controls; no back button, no crumbs; tokens in `FRAME_TOKENS` |
+| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `density` (`roomy` \| `compact`) | the title row: 32px; `roomy` the first block of the column, 64px down from 768px (centered on the axis below), `PageTitle` 21px medium, inset 16px; `compact` (the open chat only) 80px in the header slot (24 + 32 + 24), 16.5px title inset to the wrapper's content (17px); 28px controls; no back button, no crumbs; tokens in `FRAME_TOKENS` |
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
 | `PageColumn`, `PageSection`, `PageCard` | `fill`; `title`, `description`, `action`, `danger` | every page but the open chat (the column's first child is the title slot): 24px sides from 768px, 40px gaps, 40px at the end; `fill` for a centerpiece page (fills the height, no scroll of its own); see Page anatomy |
-| `PageWrap` | `className` | the line-only wrapper of a dense list page (Chats, Tasks, Inbox): hairline, `2xl` 20, no fill, no hairlines inside, clips its rows; flush for a flat list, padded 12px for the grouped list (TEST); never around cards; see Page anatomy |
+| `PageWrap` | `padded`, `className` | the line-only wrapper of a dense list page (Chats, Tasks, Inbox): hairline, `--wrap-radius` 29, no fill, no hairlines inside, clips its rows; flush for a flat list, `padded` (`--wrap-pad`, 16px) for the grouped list; never around cards; see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
 | `ListGroup`, `ListRow`, `ListRowSkeleton` | `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | Otto v1's table in the `PageWrap`, no card, no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows; a `ListRow` outside a group is full-bleed and square (Inbox); `size="sm"` is the 32px rounded row for a list inside a surface (the composer's Inbox list); the loading row; see Data patterns |
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
-| `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
+| `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `badge`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
 | `PropertySection`, `PropertyRow` | `title`, `count`, `action` (the create "+", 24px, at the row's end, beside the fold trigger; the section is drawn with it even with no rows), `defaultOpen`; `icon`, `label`, `value`, `placeholder`, `kbd`, `actions`, `readOnly` | the sidecar's Details blocks; see Components, Property list |
 | `Sidecar` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel`, `surface` | canvas by default, `surface` wraps it in a card (undecided); see Layout; closed by default |
 | `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column, Back level with the title row (on the top axis on the open chat), the buttons are its narrow form for the title row's actions |
@@ -1455,9 +1454,18 @@ cards and have an 8px radius.
 - Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6, except
   where a 20px button sits 4px inside a 28px row (a sidebar row action or
   key): `xs` 4, a soft corner (6 - 4 = 2 would read sharp).
-- `2xl` 20 is the line-only list wrapper's (`PageWrap`) only. Flush, its rows
-  run to the line, clipped to the corner; padded 12px, the grouped list's
-  bands and rows inside are `md` 8 (20 - 12).
+- **Nested radius rule** (inner = outer - inset), numbers from the real tokens
+  (`FRAME_TOKENS`): a surface inside the line wrapper sits `--content-inset`
+  17px from its outer edge (1px line + 16px `--wrap-pad`), so with the
+  composer, bands and rows at v1's `xl` 12 the wrapper's `--wrap-radius` is
+  12 + 17 = **29** (variant A, the default; measured 29 / 12 / 17 on the chat,
+  concentric). The composer (`--composer-radius`, set by the chat while
+  mounted; `xl` 12 elsewhere), the group bands and in-group rows
+  (`--wrap-inner-radius`) all follow it. Variant B is one line,
+  `--wrap-radius: var(--radius-2xl)` (20): the wrapper keeps its old corner and
+  the nested surfaces become 20 - 17 = 3, which reads boxy (not chosen).
+  Flush, a wrapper's rows run to the line, clipped to the corner. Bubbles and
+  attachments are not concentric on purpose. `2xl` 20 is the wrapper's fallback outside the frame and variant B's value.
 - Keys are `xs` 4: a soft corner, short of a pill. Elements only a few pixels
   inside their container (attachment thumbnails and remove button) use `xs`.
 - A tooltip is `sm` because it holds a label, not nested items.
@@ -1555,8 +1563,8 @@ Six rules:
 `RiBox3Line`, repeat `RiLoopRightLine`, agent `RiRobot3Line`, time
 `RiTimeLine`, row remove `RiCloseLine`, add `RiAddLine`, files
 `RiFolder3Line`. **Avatars are at least 20px** (`ActorAvatar`): people show
-initials, agents their pixel mascot in their name color, nobody a person
-outline. Lists mixing avatars and
+initials, agents their avatar (`AgentAvatar`: a generated shape on a tint, or
+an uploaded image; see Agents), nobody a person outline. Lists mixing avatars and
 icons give icons a 20px slot so labels align. Brand logos follow the same
 rule: 14px, drawn to fill the same live area as a Lucide glyph (20 of 24, see
 `assets/provider-icons`), never a bigger size to make a logo look equal. The one
@@ -1719,7 +1727,7 @@ glass for the bar is gone.
   row gap).
 - **Full** (the chat, the new chat, the Inbox): the expanded anatomy, in the
   layout: the frame measures the slot (the composer and its gap below) and
-  sets `--composer-clearance` to its height + 8, so a page's content ends 8px
+  sets `--composer-clearance` to its height + `--composer-gap` (24), so a page's content ends 24px
   above it while it grows. Never the Inbox. A
   pending permission or credential request takes its place until answered;
   the chat's background tasks and follow-ups sit as chips above the text.
@@ -1730,7 +1738,7 @@ edges and no page shifts it. The sides are the column's content edges (24px
 inside the 768px track from 768px wide, the frame's 20px gutter below), the
 bottom 8px above the body's end (16px above the window's). A page whose
 bordered wrapper runs to the body's end with the composer inside it (the
-chat) sets `--wrap-inset` (the wrapper's 1px border + 12px padding, 13px) on
+chat) sets `--wrap-inset` (`--content-inset`: the wrapper's 1px border + 16px padding, 17px) on
 the root while mounted: the slot then pads by it on both sides and the
 bottom, so the composer sits on the wrapper's inner content edges. The slot's
 height (composer + bottom gap) is `--composer-lift`. Measured (1280×800): the
@@ -1738,11 +1746,11 @@ compact bar is 448×40 at x 544, 16px above the window, on Tasks, a task,
 Projects, a project, Library, Routines, Settings, Skills and Chats alike, and
 unchanged on scroll; expanded and the Inbox's full composer are 720 wide on
 the column's edges (the Inbox's flush wrapper's), 16px above the window; the
-chat's (and the empty new chat's) full composer is 13px inside its wrapper on
+chat's (and the empty new chat's) full composer is 17px inside its wrapper's outer edge (16px of padding) on
 three sides. Phones (390×844, the root's 1.2 zoom): the bar 342 wide at x 24,
 19.2px above the window, the same on every page. A padded list wrapper
-(Tasks, Chats, Routines: `p-3 md:-mx-[9px]`) has its inner edge 4px further
-in than the expanded composer's.
+(Tasks, Chats, Routines: `PageWrap padded`) is on the column's content edges
+like the expanded composer, its inner edge 16px in (the composer's own width).
 
 **Inbox** (W5; `components/composer/inbox-button.tsx`, `use-attention.ts`).
 What needs you, from data that exists: the workspace's chats waiting on you (a
@@ -1768,7 +1776,25 @@ it also closes on a page change, or when nothing is left. The Inbox key
 (`nav.inbox`, ⌘I; Alt+I in the browser) toggles the list while the bar shows
 and something needs you; on a full page or with nothing to show it opens the
 Inbox page, which stays the full list. Phones: the list spans the bar's width
-and scrolls; the keyboard lift of the bar itself is still W7.
+and scrolls, at most 40% of the VISIBLE viewport (`--webui-viewport-height`,
+which the keyboard shrinks; `dvh` does not see it).
+
+**Phones and the keyboard** (W7). On a phone the keyboard never covers the
+bar, in every look (compact, expanded, full) and the Inbox list. The web host
+already sizes its root to the visible viewport (`apps/webui/src/viewport.ts`:
+`visualViewport` height and offset, divided by the root's 1.2 zoom), so the
+frame, and the composer slot that sits at its end in the layout, rise with the
+keyboard; the bar needs no code of its own and nothing jumps (one rAF, like
+every viewport change). Two details sound the rest: while the keyboard is up
+(`getKeyboardHeight`: the visible viewport lost 120px or more of the layout
+one, and is not pinch-zoomed) the root drops its bottom safe-area padding
+(`--webui-keyboard-open`), since the keyboard covers the home indicator; with
+it down the bar keeps `env(safe-area-inset-bottom)` under it. The caret-anchored
+menus (`/`, `@`) place themselves in layout pixels divided by the root's zoom
+and stay inside the visible width (`placeMenuAbove`, `lib/input-viewport.ts`):
+on a phone the `@` list is 280px wide (336 zoomed), its left edge pulled in to
+keep 8px from the right. No `interactive-widget` meta (Safari ignores it) and no
+`env(keyboard-inset-height)` (it needs the VirtualKeyboard API opt-in).
 
 **States.** compact idle → (focus, ⌘J) compact focused → (the text overflows
 the line, a line break from Shift+Enter or a paste, files, `expand()`)
@@ -1812,9 +1838,35 @@ a text-only custom model, the chat's image warning shows above the rail.
 the command menu: Mode (Explore, Ask, Execute, Guarded when on; the current
 one checked), Status (the workspace's), Working directory (Choose folder…,
 then the recent ones) and Compact context in a chat; Add files everywhere.
-`@` mentions skills, sources (turned on for the chat when sent) and the
-working directory's files. The menus open above the composer, out of its surface
-(a portal), and keep the caret in the text.
+`@` mentions people, tasks and projects (below), skills, sources (turned on
+for the chat when sent) and the working directory's files. The menus open above
+the composer, out of its surface (a portal), and keep the caret in the text.
+
+**Mentions** (`@`, the menus' look). 28px rows, 280px wide, from the caret, the
+`@` at the start or after a space or an opening bracket, then letters, digits,
+`-_/.` and spaces (a space right after `@` is no mention). With nothing typed:
+a heading per kind (People, Tasks, Projects, Skills, Sources) with up to 3 rows
+each: people by name (the workspace's `user:` members, you included, agents
+have no token; the muted email after the name), tasks and projects the most
+recently updated first (tasks to do, doing or done; active projects). A kind
+that has loaded with nothing in it says so under its heading in muted text:
+"No tasks yet", "No projects yet". Typed: one list of what matches (a word's
+start before the middle of a word, then the newest update, then the name; at
+most 30), the headings gone and each row ending in its kind in muted 12px
+("Task", "Project", "Person", "Skill"). ↑↓ move (wrapping), Enter or Tab picks,
+Escape closes; with no row for what is typed the menu says "No results" and
+Enter belongs to the input again. Picking puts the bare token (`task:<id>`,
+`project:<id>`, `user:<id>`) and a space in place of `@query`. The editor
+draws the token as a tag, the same as `EntityChip` (primary on its soft tint,
+`xs` corners, 22px tall, 12px type icon, 13px medium; a person reads "@Name"
+with no icon); it is one unit for the caret and Backspace, and its title
+follows its list (a load or a rename redraws it). A sent message draws it with
+`EntityText` in the transcript. No agent is mentioned: there is no agents list
+and no `agent:` token.
+
+**Empty.** The text counts as empty once its last character is gone: after
+select-all and delete the browser leaves one stray line break, which is read as
+empty, so the placeholder shows and the bar can fold.
 
 **Context.** A page says what it is about in one line,
 `useComposerContext({ key, entity?, placeholder?, mode?, onSend?, busy?,
@@ -1842,18 +1894,18 @@ with no draft of its own. A user message draws its typed references
 (`task:<id>`) as tags (`EntityText`).
 
 **Clearance.** While the bar shows, the frame sets `--composer-clearance`
-(56px: 8 under the bar, 40, 8 over it; with the full composer the slot's
-measured height + 8). A blocks page then ends 24px above
-the bar (72px of bottom padding instead of 40) and its bottom fade grows to
-80px so content softens toward the bar; a centerpiece's card ends 8px above
-it. At a page's end nothing is under the bar. Layers: the bar is `z-10` on
+(72px: 8 under the bar, 40, `--composer-gap` 24 over it; with the full
+composer the slot's measured height + 24; 32 is the alternative, one token in
+`FRAME_TOKENS`). A page (blocks or centerpiece) then ends 24px above the bar
+and its bottom fade grows to 80px so content softens toward the bar. In the
+chat the transcript's bottom padding is `--composer-lift` + `--composer-gap`,
+so the last row is 24px over the bar. The bar's own inset from the wrapper
+line stays `--wrap-pad` (16 + the 1px line). At a page's end nothing is under the bar. Layers: the bar is `z-10` on
 the frame, outside the masked scroller (the blur needs it), under the
 overlaid sidecar (`z-20`), the sheet, popovers and dialogs; with the docked
 sidecar it stays on the column's center line.
 
-**Seams left open** (docs/composer.md (h)): prefill from page actions (W6),
-and phones' keyboard lift and safe area (W7). Entity mentions (people, tasks,
-projects) in `@` come later.
+**Seams left open** (docs/composer.md (h)): prefill from page actions (W6).
 
 **Tags** (`EntityChip`, `components/entities/`). Everywhere a typed reference
 shows in text (comments now): the type's 14px icon (task `CircleCheck`, project
@@ -1866,7 +1918,8 @@ A chip with a page (task, project, library item) is a button that opens it
 (hover `primary/15`, `/20` dark, the inset focus ring); a person and a comment
 are plain. While its list loads a chip reads its type ("Task"); once loaded
 without it, a muted "Unavailable" on `foreground/5`. `EntityText` draws markdown
-(the app's renderer) with every token outside code as a chip. Chips read the
+(the app's renderer) with every token outside code as a chip; the composer's
+editor draws the tokens it inserts the same way (Composer, Mentions). Chips read the
 shared lists only; the surface that draws them loads them once
 (`useEntityData`). Tag text on its tint is 3.5:1 in light (4.4:1 dark), a known
 tradeoff of the sky tone. A chat's title is plain text (a
@@ -2102,16 +2155,64 @@ opens its name, sign-in and models. Adding one signs in at once, in its open
 row. Disconnect removes the stored sign-in for good and takes the row off the
 page; the record stays only as history for sessions and runs pinned to it.
 
-**Agents** (Settings › Agents). Each agent shows its pixel mascot (BB's ten
-8x8 sprites, MIT, from MonoCode) in its name color wherever its avatar
-appears. The list opens each agent's own page (its row a link with a
-chevron); "+" asks an agent to create one. An agent's page, in the settings
-patterns: Profile (name, description, the mascot and color pickers as 28px
-buttons, the chosen one filled, and who can use it), Instructions (the card
-is the field), Model, then Skills and Connections as checklists ("Can use 3
-of 8 skills.", All first, the whole row toggles). Everything saves as you go
-("Agent saved"). More holds Copy link and Delete; the default agent
-has none.
+**Agents** (Settings › Agents, `pages/agents/`; docs/final-plan.md 2.7; built
+A2). The settings sidebar's Workspace group ends Agents (`Bot`), Skills, Sources.
+- **Gallery** (`AgentsPage`, `/{ws}/settings/agents`): the Skills grid's anatomy.
+  The title row is "Agents" and the create "+" ("New agent") alone, no Filter
+  and no Search (a workspace has a handful; YAGNI); "+" prefills the composer
+  with "Create an agent named " and an agent creates it. `Gallery columns={4}`
+  of 4:5 tiles in the server's order (the default, the oldest, first): the
+  avatar in the tile (32px), under it two centered caption lines, the model
+  (the provider's name when the model is the connection's default) and "3
+  skills · 2 sources" (`[]` counts all), and the title under the tile; the
+  default agent's tile carries an outline "Default" `Badge` 8px inside its
+  top-start corner (`GalleryItem badge`). A tile only opens the agent. Loading
+  is four `GalleryItemSkeleton`s; none at all is the stock empty page ("No
+  agents yet", "New agent"; rare in practice: the server seeds one).
+- **Avatar** (`AgentAvatar`, `components/people/agent-avatar.tsx`): no mascots.
+  Empty `avatar` is generated from the id with the actors' FNV hash: one of six
+  filled Lucide shapes (circle, square, triangle, diamond, hexagon, star) at 70%
+  foreground on one of `ActorAvatar`'s four status tints, so it is the same on
+  every device; `library:<id>` is an image uploaded to the library's root,
+  drawn over the generated one (which shows while it loads or if it fails).
+- **An agent** (`AgentPage`, `/{ws}/settings/agents/{id}`): one roomy column, no
+  tabs, the floating navigation like a skill's (Back to the gallery, Previous /
+  Next in its order). The title row is the name, the outline "Default" badge
+  on the default agent, and More actions: Copy link (C), then Delete (⌫) apart,
+  asked first ("Delete agent?"), back to the gallery after; Delete is absent
+  for the last agent and for anyone who may not edit it. Sections, each a
+  `PageSection` over a card: **Profile** (Name, a 200px input in its row, at
+  most 80, an emptied name springs back on blur; Avatar, the 32px avatar in the
+  row's tile with "A shape made from this agent." or "An image from your
+  library.", an outline "Upload image" (images only, at most 5 MB, `loading`
+  while it uploads) and a ghost "Use generated" while an image is set);
+  **Instructions** (the card is the field: a borderless textarea 16px in,
+  growing with its text, at most 20,000; the section's line says they come
+  after the workspace's); **Model** (three settings select rows, Provider (the
+  providers of your own connections, the agent's own listed too when you have
+  none of it; changing it resets the model), Model ("Default model", the
+  connection's, then the provider's models) and Thinking (Off to Max), and a
+  muted note row "Runs on each person's own {provider} connection.", plus "You
+  have none yet." when you have none); **Skills** and **Sources** (checklists,
+  "Can use 3 of 8 skills." or "Can use every skill.": "All skills" first, then
+  each by name with its icon, the whole row toggles; `[]` is all, so "All" on
+  cannot be turned off and the last allowed row cannot be unchecked; none at
+  all is a "No skills yet" row); **Computer** (one placeholder row "Not set up
+  yet" until agent computers exist). No Description field (dropped by the
+  owner) and no Routines section yet.
+- **Saving**: the whole page is one autosaved draft (`useAutosave` with
+  `ms: 600`, BB's wait, the one exception to 800): typing, picks and checks all
+  save 600 ms after the last change, a field's blur at once, with one "Agent
+  saved" toast; each save sends only what changed with `expectedUpdatedAt`, a
+  conflict reloads. No Save or Cancel. `pages/agents/agent-fields.ts` is the one
+  place that maps the UI to the agent's columns (draft, patch, subtitle,
+  provider and model choices, the `[]` = all lists; skills and sources are kept
+  by slug until they are rows).
+- **Who changes it**: its creator and the workspace's owners (the server guards
+  it too); everyone else sees the page read-only, with "Only its creator and the
+  workspace's owners can change it." as the lead line.
+- Not built: the composer's "With" picker and the agent's avatar in the chat
+  header and the chat list.
 
 **Empty states and 404.** `EmptyPage` is only for when a place has nothing at
 all (no tasks, not "no matches"). It replaces the whole page, title and
@@ -2272,7 +2373,9 @@ items").
   no shadow; its hairline an inset 1px `foreground/10` ring drawn over the
   content (a pseudo-element, so a scroller never clips it and a cover would not
   hide it). Inside, centered: the glyph in the 32px `md` `bg-muted` tile (16px),
-  the optional caption 8px under it (12px medium, muted).
+  the optional caption 8px under it (12px medium, muted); an optional static
+  `badge` (an outline `Badge`, the default agent's "Default") 8px inside the
+  tile's top-start corner.
 - **Title**, 8px under the tile: the 14px muted icon, 8px, the title (13px
   medium, foreground, one line, truncated), a 20px row.
 - **The item** (tile and title) is one link or button (`render`). `menu` is its
@@ -2587,9 +2690,8 @@ continue through bounded pages instead of treating the first hundred as complete
   to line up with the cards' content; don't wrap a
   surface in a surface or make anything wider than the column.
 - Do save ordinary settings as they change (Autosave), with the one "Saved" toast.
-  Multi-field Agent and Schedule configuration uses explicit Save/Cancel with one
-  captured edit token; Skill content preserves fenced drafts until Save. Library
-  documents autosave (Library).
+  An agent's page autosaves too, as one draft ("Agent saved", see Agents); Skill
+  content preserves fenced drafts until Save. Library documents autosave (Library).
 - Do nest radii (inner = outer − gap); don't reuse a container's radius inside
   it.
 - Do keep primary for the main action and tags; don't use it for navigation,
@@ -2610,7 +2712,7 @@ continue through bounded pages instead of treating the first hundred as complete
 
 ### Live mention discovery
 
-Composer mentions query real workspace members, Agents, Projects and Files, with at most three results per kind. Task suggestions require the composer's explicit Project scope. Searches follow server whole-word matching; empty results and request failures are visible. File mentions use the File discriminator and saved identity.
+Composer mentions (Composer, Mentions) read the lists the app already keeps loaded: workspace people, tasks, projects, skills, sources and the working directory's files, at most three rows per kind until something is typed; a kind with nothing says "No tasks yet" or "No projects yet". There is no per-keystroke request for people, tasks or projects.
 
 Command search omits empty result groups and the redundant Task scope label. Its placeholder is “Search”; an entered query with no matches shows a compact empty state (icon tile and “No results for “query””, no period) after loading completes. Search uses the shared 800 ms debounce and stock Skeletons for a category heading and three icon/title rows, matching result spacing while waiting.
 
@@ -2620,11 +2722,11 @@ Authentication uses the real account service for sign-in, registration and passw
 
 ### Fenced configuration and content
 
-Agent account/model/Skill selection and Schedule configuration use explicit Save/Cancel for one atomic change protected by the opening edit token. Skill content and supporting Files have separate acknowledged fences. Failed or stale edits retain input. Unsupported decorative fields and fabricated activity are removed; Schedule timing shows the saved cron/timezone without guessing a next-run date.
+Schedule configuration uses explicit Save/Cancel for one atomic change protected by the opening edit token; an agent's model, skills and sources autosave (Agents). Skill content and supporting Files have separate acknowledged fences. Failed or stale edits retain input. Unsupported decorative fields and fabricated activity are removed; Schedule timing shows the saved cron/timezone without guessing a next-run date.
 
 ### Real workflow controls
 
-Task details show the server lifecycle Todo/In progress/Done, mixed assignees, occurrence links and human-owned manual time in whole minutes. Unsupported priority, review status, comments and decorative metadata have no mutable controls. Files and Documents retain folder/label organization and real creator identities. Avatar names come from the workspace directory; Agents use the existing robot sprite because the API has no mascot setting. Identity color is a stable display value derived from its ID, not saved configuration. Desktop tabs start with the current route and load the real item title.
+Task details show the server lifecycle Todo/In progress/Done, mixed assignees, occurrence links and human-owned manual time in whole minutes. Unsupported priority, review status, comments and decorative metadata have no mutable controls. Files and Documents retain folder/label organization and real creator identities. Avatar names come from the workspace directory; An agent's own avatar is `AgentAvatar` (Agents); `ActorAvatar` still draws the robot glyph for an agent actor. Identity color is a stable display value derived from its ID, not saved configuration. Desktop tabs start with the current route and load the real item title.
 
 Chats show metadata update time separately from message activity. New Chats require explicit participants and scope; a configured Agent/account controls actual Run admission. Pending sends preserve the draft and uploaded File identities until acknowledgement. Failed creation with unknown outcome directs the person to inspect Chats before creating again. Pin/done/snooze/thread controls without persistence are unavailable. Settings show current server data, acknowledged autosave for profile fields, and explicit unavailable states for unsupported preferences or account/workspace changes. Connections and Codex accounts use their real setup and authorization flows, with exact scoped grants and provider-confirmed authentication.
 
@@ -2675,6 +2777,7 @@ A data page with no data hides its title row and its actions (Filter, "+", Searc
 | Filtered | No results | Try changing or clearing your filters. | Clear filters |
 | Skills | No skills yet | Teach your agents your way of working once and reuse it anywhere. | Add skill |
 | Sources | No sources yet | Let your agents work with the tools and data you already use. | Add source |
+| Agents | No agents yet | Give each kind of work an agent with its own instructions and tools. | New agent |
 | Archived chats | No archived chats yet | Chats you archive stay here, out of your way. | |
 | Inbox | No notifications yet | Never miss a mention or a task handed to you. | |
 | Comments (inline) | No comments yet | | |

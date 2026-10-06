@@ -10,15 +10,15 @@ import { connections } from './schema.ts'
 /**
  * Connections: the provider accounts and endpoints Otto talks to, the one source of truth for them.
  *
- *   connections(id, scope, slug, type, authType, title, baseUrl, defaultModel, models, config, account,
- *               secretId, lastUsedAt, createdAt, updatedAt)   unique (scope, slug)   (schema.ts)
+ *   connections(id, scope, slug, type, authType, title, baseUrl, defaultModel, models, config, secretId,
+ *               createdAt)   unique (scope, slug)   (schema.ts)
  *
  * `scope` is `user:<id>` (a person's own subscription or key, which powers their agents and is seen by nobody else,
  * the instance owner included), `workspace:<id>` (shared by its members) or `install` (imported connections, one for
  * the whole server or desktop). A read by slug looks in the user's scope first, then the workspace's, then the
  * install's (`ConnectionContext`); the credential of a connection is addressed by its exact scope. `type` is the
  * provider type, `models` the fetched list,
- * `config` and `account` small JSON objects. The credential lives in the secrets domain as one JSON value per
+ * `config` a small JSON object that also holds the OAuth `account` (`config.account`). The credential lives in the secrets domain as one JSON value per
  * connection (`Credential`); a connection only keeps its `secretId`, and neither the id nor the value is ever
  * returned: callers see `hasSecret`, and the server reads the value with `getCredential`. The default connection is
  * the install setting `defaultConnectionSlug`. Every write that touches a row and its secret is one transaction.
@@ -88,9 +88,7 @@ export type Connection = {
   config: ConnectionConfig
   account: ConnectionAccount
   hasSecret: boolean
-  lastUsedAt: Date | null
   createdAt: Date
-  updatedAt: Date
 }
 
 export type ConnectionInput = {
@@ -105,7 +103,6 @@ export type ConnectionInput = {
   models?: Array<ModelDefinition | string> | null
   config?: ConnectionConfig
   account?: ConnectionAccount
-  lastUsedAt?: Date | null
   createdAt?: Date
 }
 
@@ -125,7 +122,12 @@ const parse = <T>(text: string | null, fallback: T): T => {
 }
 const toJson = (value: unknown) => (value === undefined || value === null ? null : JSON.stringify(value))
 
+/** The `config` column: the config with the account inside it; null when both are empty. */
+const packConfig = (config: ConnectionConfig | undefined, account: ConnectionAccount | undefined) =>
+  config || account ? JSON.stringify({ ...config, ...(account && Object.values(account).some((value) => value !== undefined) && { account }) }) : null
+
 function toConnection(row: Row): Connection {
+  const { account, ...config } = parse<ConnectionConfig & { account?: ConnectionAccount }>(row.config, {})
   return {
     id: row.id,
     scope: row.scope,
@@ -136,12 +138,10 @@ function toConnection(row: Row): Connection {
     baseUrl: row.baseUrl,
     defaultModel: row.defaultModel,
     models: parse(row.models, null),
-    config: parse(row.config, {}),
-    account: parse(row.account, {}),
+    config,
+    account: account ?? {},
     hasSecret: row.secretId !== null,
-    lastUsedAt: row.lastUsedAt,
     createdAt: row.createdAt,
-    updatedAt: row.updatedAt ?? row.createdAt,
   }
 }
 
@@ -219,12 +219,9 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
             baseUrl: input.baseUrl ?? null,
             defaultModel: input.defaultModel ?? null,
             models: toJson(input.models),
-            config: toJson(input.config),
-            account: toJson(input.account),
+            config: packConfig(input.config, input.account),
             secretId,
-            lastUsedAt: input.lastUsedAt ?? null,
             createdAt: input.createdAt ?? now,
-            updatedAt: now,
           })
           .returning()
           .get()
@@ -252,6 +249,7 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
           if (secretId) secrets.updateSecret(secretId, JSON.stringify(credential))
           else secretId = secrets.createSecret(patch.title ?? row.title, JSON.stringify(credential))
         }
+        const current = toConnection(row)
         return db
           .update(connections)
           .set({
@@ -261,11 +259,8 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
             baseUrl: patch.baseUrl,
             defaultModel: patch.defaultModel,
             models: patch.models === undefined ? undefined : toJson(patch.models),
-            config: patch.config === undefined ? undefined : toJson(patch.config),
-            account: patch.account === undefined ? undefined : toJson(patch.account),
-            lastUsedAt: patch.lastUsedAt,
+            config: patch.config === undefined && patch.account === undefined ? undefined : packConfig(patch.config ?? current.config, patch.account ?? current.account),
             secretId,
-            updatedAt: new Date(),
           })
           .where(eq(connections.id, id))
           .returning()

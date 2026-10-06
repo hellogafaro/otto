@@ -83,6 +83,7 @@ import {
   isSourcesNavigation,
   isSettingsNavigation,
   isSkillsNavigation,
+  isAgentsNavigation,
   isAutomationsNavigation,
   isProjectsNavigation,
   isLibraryNavigation,
@@ -93,6 +94,7 @@ import {
 import { sessionMetaMapAtom, updateSessionMetaAtom } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
+import { agentsAtom } from '@/atoms/agents'
 import { routinesAtom } from '@/atoms/routines'
 import { getVisibleRoutines } from '@/pages/routines/routine-items'
 import { sessionListOrderAtom } from '@/atoms/list-context'
@@ -107,7 +109,7 @@ export type { Route }
 
 // Re-export navigation state types for consumers
 export type { NavigationState, SessionFilter }
-export { isSessionsNavigation, isSourcesNavigation, isSettingsNavigation, isSkillsNavigation, isAutomationsNavigation, isProjectsNavigation, isLibraryNavigation, isTasksNavigation, isInboxNavigation }
+export { isSessionsNavigation, isSourcesNavigation, isSettingsNavigation, isSkillsNavigation, isAgentsNavigation, isAutomationsNavigation, isProjectsNavigation, isLibraryNavigation, isTasksNavigation, isInboxNavigation }
 
 // =============================================================================
 // Context
@@ -216,6 +218,7 @@ export function NavigationProvider({
   // The Skills and Sources grids' items (populated by AppShell), for Previous / Next
   const sources = useAtomValue(sourcesAtom)
   const skills = useAtomValue(skillsAtom)
+  const agents = useAtomValue(agentsAtom).items
   const routines = useAtomValue(routinesAtom).items
 
   // =========================================================================
@@ -722,10 +725,14 @@ export function NavigationProvider({
       order = sessionListOrder
       go = navigateToSession
     } else if (isSkillsNavigation(navigationState) && navigationState.details && skills) {
-      const { search } = navigationState
       open = navigationState.details.skillSlug
-      order = getVisibleSkills(skills, search).map((skill) => skill.slug)
-      go = (skillSlug) => navigate(routes.view.skills({ skillSlug, ...search }))
+      order = getVisibleSkills(skills).map((skill) => skill.slug)
+      go = (skillSlug) => navigate(routes.view.skills({ skillSlug }))
+    } else if (isAgentsNavigation(navigationState) && navigationState.details) {
+      // An agent: the Agents gallery's order (the default first), as `useAgents` last loaded it
+      open = navigationState.details.agentId
+      order = agents.map((agent) => agent.id)
+      go = (agentId) => navigate(routes.view.agents(agentId))
     } else if (isSourcesNavigation(navigationState) && navigationState.details && sources) {
       const type = navigationState.filter?.sourceType
       open = navigationState.details.sourceSlug
@@ -747,7 +754,7 @@ export function NavigationProvider({
       goPrev: () => { if (index > 0) go(order[index - 1]) },
       goNext: () => { if (index < order.length - 1) go(order[index + 1]) },
     }
-  }, [navigationState, sessionListOrder, navigateToSession, skills, sources, routines, navigate])
+  }, [navigationState, sessionListOrder, navigateToSession, skills, agents, sources, routines, navigate])
 
   // =========================================================================
   // CONTEXT VALUE

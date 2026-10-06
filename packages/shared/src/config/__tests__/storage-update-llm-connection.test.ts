@@ -7,7 +7,6 @@ import {
   getLlmConnection,
   getLlmConnections,
   setDefaultLlmConnection,
-  touchLlmConnection,
   updateLlmConnection,
   type LlmConnection,
 } from '../storage.ts'
@@ -39,7 +38,6 @@ describe('add, get, delete', () => {
       modelSelectionMode: 'userDefined3Tier',
       customEndpoint: { api: 'openai-completions', supportsImages: true },
       midStreamBehavior: 'queue',
-      lastUsedAt: 1234,
       createdAt: 1000,
     })
     expect(addLlmConnection(connection)).toBe(true)
@@ -67,11 +65,6 @@ describe('add, get, delete', () => {
     expect(getDefaultLlmConnection()).toBeNull()
   })
 
-  it('touch stamps lastUsedAt', () => {
-    addLlmConnection(makeConnection())
-    touchLlmConnection('custom-compat')
-    expect(getLlmConnection('custom-compat')?.lastUsedAt).toBeGreaterThan(0)
-  })
 })
 
 describe('updateLlmConnection – customEndpoint', () => {

@@ -4,6 +4,7 @@
  * Mention types:
  * - Skills:  [skill:slug]
  * - Sources: [source:slug]
+ * - People, tasks, projects: the bare entity token (`user:<id>`, `task:<id>`, `project:<id>`), `entities` below
  *
  * Bracket syntax allows mentions anywhere in text without word boundaries.
  */
@@ -11,7 +12,6 @@
 import type { ContentBadge } from '@otto/core'
 import type { MentionItemType } from '@/components/ui/mention-menu'
 import type { LoadedSkill, LoadedSource } from '../../shared/types'
-import { AGENTS_PLUGIN_NAME } from '@otto/shared/skills/types'
 import { getSourceIconSync, getSkillIconSync } from './icon-cache'
 
 // Import and re-export parsing functions from shared (pure string operations, no renderer deps)
@@ -43,20 +43,37 @@ export interface MentionMatch {
 // Matching Functions (renderer-specific, use MentionItemType)
 // ============================================================================
 
+/** A person, task or project: its mention is the bare entity token. */
+export const isEntityMention = (type: MentionItemType): type is 'user' | 'task' | 'project' => type === 'user' || type === 'task' || type === 'project'
+
+/** The entity tokens the `@` menu produces (a library item or a comment is not mentioned from the composer). */
+const ENTITY_MENTION = /\b(?:user|task|project):[a-z0-9]{12}\b/g
+
+/** The text opens with an entity token: its first letter is not a sentence's to capitalise. */
+export const startsWithEntityMention = (text: string): boolean => /^(?:user|task|project):[a-z0-9]{12}\b/.test(text)
+
 /**
  * Find all mention matches in text with their positions
  *
  * @param text - The message text to search
  * @param availableSkillSlugs - Valid skill slugs
  * @param availableSourceSlugs - Valid source slugs
+ * @param entities - Also find entity tokens (the editor draws them as chips)
  * @returns Array of mention matches with positions
  */
 export function findMentionMatches(
   text: string,
   availableSkillSlugs: string[],
-  availableSourceSlugs: string[]
+  availableSourceSlugs: string[],
+  entities = false
 ): MentionMatch[] {
   const matches: MentionMatch[] = []
+
+  if (entities) {
+    for (const found of text.matchAll(ENTITY_MENTION)) {
+      matches.push({ type: found[0].slice(0, found[0].indexOf(':')) as MentionItemType, id: found[0], fullMatch: found[0], startIndex: found.index })
+    }
+  }
 
   // Match source mentions: [source:slug]
   const sourcePattern = /(\[source:([\w-]+)\])/g
@@ -241,15 +258,10 @@ export function extractBadges(
       filePath = match.id
     }
 
-    // For skills, create fully-qualified rawText (pluginName:slug) so the agent
-    // receives the correct format for the SDK's Skill tool. Plugin name depends
-    // on which tier the skill came from: workspace → workspaceId, project/global → AGENTS_PLUGIN_NAME
+    // For skills, create fully-qualified rawText (workspaceId:slug) so the agent
+    // receives the correct format for the SDK's Skill tool.
     let rawText = match.fullMatch
-    if (match.type === 'skill') {
-      const skill = skillsBySlug.get(match.id)
-      const pluginName = skill?.source === 'workspace' ? workspaceId : AGENTS_PLUGIN_NAME
-      rawText = `[skill:${pluginName}:${match.id}]`
-    }
+    if (match.type === 'skill') rawText = `[skill:${workspaceId}:${match.id}]`
 
     return {
       type: match.type as 'source' | 'skill' | 'file' | 'folder',

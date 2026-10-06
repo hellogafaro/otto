@@ -35,6 +35,33 @@ export function getViewportRect(
   }
 }
 
+/** The smallest height the visible viewport loses to count as an on-screen keyboard (browser toolbars are smaller). */
+const KEYBOARD_MIN = 120
+
+/** The on-screen keyboard's height: what the visible viewport lost against the layout one, 0 while pinch-zoomed (a zoom is no keyboard). */
+export function getKeyboardHeight(host: ViewportHost | undefined = typeof window === 'undefined' ? undefined : window): number {
+  const visual = host?.visualViewport
+  if (!host || !visual || visual.scale > 1.01) return 0
+  const lost = host.innerHeight - visual.height
+  return lost >= KEYBOARD_MIN ? lost : 0
+}
+
+/**
+ * Where a menu above a caret sits: `left` and `bottom` for a `fixed` box inside the (zoomed) root, `maxWidth` so it
+ * fits the visible width. The caret's rect is in layout pixels and a zoomed box multiplies its own, so both are divided.
+ */
+export function placeMenuAbove(
+  anchor: { x: number; y: number },
+  width: number,
+  host: ViewportHost | undefined = typeof window === 'undefined' ? undefined : window,
+  cssZoom = getRootCssZoom(),
+): { left: number; bottom: number; maxWidth: number } {
+  const visible = getViewportRect(host, cssZoom)
+  const maxWidth = Math.min(width, (visible.width - 16) / visible.cssZoom)
+  const left = Math.max(8, Math.min(anchor.x - 10, visible.left + visible.width - maxWidth * visible.cssZoom - 8))
+  return { left: left / visible.cssZoom, bottom: ((host?.innerHeight ?? 0) - anchor.y + 8) / visible.cssZoom, maxWidth }
+}
+
 /** Intersect physical bounds first, then convert once and reserve local UI space.
  * Parent bounds should be the stable panel content box (already inside safe-area
  * padding), NOT the composer's own height, which would create a resize loop. */

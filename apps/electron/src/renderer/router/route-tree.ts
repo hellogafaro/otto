@@ -89,11 +89,13 @@ const settingsPageRoute = createRoute({
     if (!isValidSettingsSubpage(params.page)) throw notFound()
   },
 })
-/** Skills and Sources: grids in Settings, each item under its grid (a static segment wins over `$page`). */
+/** Skills, Sources and Agents: grids in Settings, each item under its grid (a static segment wins over `$page`). */
 const skillsRoute = createRoute({ ...section('settings/skills'), validateSearch: normalizeSkillsSearch })
 const skillRoute = createRoute({ ...section('settings/skills/$skillSlug'), validateSearch: normalizeSkillsSearch })
 const sourcesRoute = createRoute({ ...section('settings/sources'), validateSearch: validateSourcesSearch })
 const sourceRoute = createRoute({ ...section('settings/sources/$sourceSlug'), validateSearch: validateSourcesSearch })
+const agentsRoute = createRoute(section('settings/agents'))
+const agentRoute = createRoute(section('settings/agents/$agentId'))
 const tasksRoute = createRoute({ ...section('tasks'), validateSearch: normalizeTasksSearch })
 const taskRoute = createRoute({ ...section('tasks/$taskId'), validateSearch: normalizeTasksSearch })
 const projectsRoute = createRoute({ ...section('projects'), validateSearch: normalizeProjectsSearch })
@@ -117,6 +119,8 @@ export const routeTree = rootRoute.addChildren([
     skillRoute,
     sourcesRoute,
     sourceRoute,
+    agentsRoute,
+    agentRoute,
     tasksRoute,
     taskRoute,
     projectsRoute,

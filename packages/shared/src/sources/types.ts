@@ -501,6 +501,22 @@ export interface SourceGuide {
   cache?: Record<string, unknown>;
 }
 
+/** What the `sources` table says about a source's `config.json`: needs sign-in, or its last connection failed. */
+export type SourceAuthStatus = 'ok' | 'needs_auth' | 'error';
+
+/** A workspace source's row (the table's index of its bundle); see ./store.ts. */
+export interface Source {
+  id: string;
+  slug: string;
+  title: string;
+  type: SourceType;
+  authStatus: SourceAuthStatus;
+  /** The actor that made it: 'user:<id>' or 'agent:<id>'. */
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /**
  * Fully loaded source with all files
  */

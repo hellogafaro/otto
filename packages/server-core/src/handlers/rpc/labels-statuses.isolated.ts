@@ -58,7 +58,7 @@ const domainPushes = () => pushes.filter((args) => args[0] === RPC_CHANNELS.doma
 describe('labels and statuses handlers', () => {
   it('list what the importer seeded, by workspace id or name', async () => {
     expect(((await call(RPC_CHANNELS.labels.LIST, workspaceId)) as { id: string }[]).map((l) => l.id)).toContain('development')
-    expect(((await call(RPC_CHANNELS.statuses.LIST, 'Test')) as { id: string }[]).map((s) => s.id)).toEqual(['backlog', 'todo', 'needs-review', 'done', 'cancelled'])
+    expect(((await call(RPC_CHANNELS.statuses.LIST, 'Test')) as { id: string }[]).map((s) => s.id)).toEqual(['backlog', 'todo', 'needs-review', 'done', 'cancelled', 'archived'])
   })
 
   it('push domain:changed to the workspace after a write, not after a failed one, and fire the label automation event', async () => {

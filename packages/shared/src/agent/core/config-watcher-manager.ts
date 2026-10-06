@@ -42,17 +42,11 @@ export interface ConfigWatcherManagerCallbacks {
   onSourcesListChange?: (sources: LoadedSource[]) => void;
 
   /**
-   * Called when a skill config changes.
+   * Called when a file in a skill's folder changes (debounced).
    * @param slug - Skill slug
-   * @param skill - Updated skill or null if deleted
+   * @param skill - The skill as the folder now holds it, or null when the folder has no valid SKILL.md
    */
   onSkillChange?: (slug: string, skill: LoadedSkill | null) => void;
-
-  /**
-   * Called when the skills list changes (add/remove folders).
-   * @param skills - All current skills
-   */
-  onSkillsListChange?: (skills: LoadedSkill[]) => void;
 
   /**
    * Called when a source's permissions change.
@@ -157,11 +151,6 @@ export class ConfigWatcherManager {
       onSkillChange: (slug, skill) => {
         this.debug(`Skill changed: ${slug} ${skill ? 'updated' : 'deleted'}`);
         this.callbacks.onSkillChange?.(slug, skill);
-      },
-
-      onSkillsListChange: (skills) => {
-        this.debug(`Skills list changed: ${skills.length} skills`);
-        this.callbacks.onSkillsListChange?.(skills);
       },
 
       onSourcePermissionsChange: (sourceSlug) => {

@@ -239,6 +239,13 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.library.UPDATE,
   RPC_CHANNELS.library.DELETE,
 
+  // agents — rows of the workspace's server
+  RPC_CHANNELS.agents.LIST,
+  RPC_CHANNELS.agents.GET,
+  RPC_CHANNELS.agents.CREATE,
+  RPC_CHANNELS.agents.UPDATE,
+  RPC_CHANNELS.agents.DELETE,
+
   // fs — workspace filesystem
   RPC_CHANNELS.fs.SEARCH,
   RPC_CHANNELS.fs.LIST_DIRECTORY,
@@ -321,6 +328,7 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.sources.START_OAUTH,
   RPC_CHANNELS.sources.SAVE_CREDENTIALS,
   RPC_CHANNELS.sources.CHANGED,
+  RPC_CHANNELS.sources.CONFLICT,
   RPC_CHANNELS.sources.GET_PERMISSIONS,
   RPC_CHANNELS.sources.GET_MCP_TOOLS,
 
@@ -346,6 +354,7 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.skills.GET_FILES,
   RPC_CHANNELS.skills.DELETE,
   RPC_CHANNELS.skills.CHANGED,
+  RPC_CHANNELS.skills.CONFLICT,
 
   // statuses — workspace metadata
   RPC_CHANNELS.statuses.LIST,
@@ -388,8 +397,7 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.projects.CREATE,
   RPC_CHANNELS.projects.UPDATE,
   RPC_CHANNELS.projects.SET_STATUS,
-  RPC_CHANNELS.projects.GET_MEMBERS,
-  RPC_CHANNELS.projects.SET_MEMBER,
+  RPC_CHANNELS.projects.ADD_MEMBER,
   RPC_CHANNELS.projects.REMOVE_MEMBER,
   RPC_CHANNELS.tasks.LIST,
   RPC_CHANNELS.tasks.GET,

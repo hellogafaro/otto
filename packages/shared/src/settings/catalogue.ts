@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { PermissionsConfigSchema } from '../agent/mode-types.ts'
 import { THINKING_LEVEL_IDS, normalizeThinkingLevel } from '../agent/thinking-levels.ts'
+import { MAX_INSTRUCTIONS } from '../agents/types.ts'
 import type { DecisionLayerStoredSettings } from '../decisions/settings.ts'
 import { DEFAULT_SERVER_CONFIG } from '../config/server-config.ts'
 
@@ -46,6 +47,8 @@ export const CATALOGUE = {
   localMcpServers: key('workspace', z.object({ enabled: flag }), { enabled: true }),
   /** The workspace's Explore-mode rules (the old `permissions.json`); a source's own rules stay in its bundle. */
   permissions: key('workspace', PermissionsConfigSchema, {}),
+  /** Text every agent of the workspace gets before its own instructions (`getWorkspaceInstructions` in agents/). */
+  instructions: key('workspace', z.string().max(MAX_INSTRUCTIONS), ''),
 
   // user: how one person has the app
   activeWorkspaceId: key('user', textOrNull, null),

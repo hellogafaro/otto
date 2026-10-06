@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import { openDb, type Db } from '../db/index.ts'
 import { pushSchema } from '../db/push.ts'
 import { library } from '../library/schema.ts'
-import { projects, projectsMembers } from '../projects/schema.ts'
+import { projects } from '../projects/schema.ts'
 import { tasks, timesheets } from '../tasks/schema.ts'
 import { createWorkspaceInvitation, getWorkspaceInvitation, isWorkspaceMember } from '../workspaces/members.ts'
 import { workspaces, workspacesInvitations, workspacesMembers } from '../workspaces/schema.ts'
@@ -106,6 +106,23 @@ test('Better Auth and the organization plugin run on bun:sqlite with workspace i
   expect(t.db.select().from(workspacesMembers).where(eq(workspacesMembers.userId, friendId)).all().map((m) => [m.workspaceId, m.role])).toEqual([
     [REGISTRY[0]!.id, 'member'],
   ])
+})
+
+test('sign-up and sign-in work on the snake_case columns', async () => {
+  const t = await setup()
+  await signUpOwner(t)
+  const signIn = (password: string) => t.call('POST', '/sign-in/email', { email: 'owner@example.com', password })
+  const ok = await signIn(PASSWORD)
+  expect(ok.status).toBe(200)
+  const session = await t.call('GET', '/get-session', undefined, cookieOf(ok))
+  expect(((await session.json()) as { user?: { email?: string; emailVerified?: boolean } }).user).toMatchObject({ email: 'owner@example.com', emailVerified: false })
+  expect((await signIn('not-the-password')).status).toBe(401)
+  const sqlite = (t.db as unknown as { $client: import('bun:sqlite').Database }).$client
+  const columns = (table: string) => (sqlite.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((column) => column.name)
+  expect(columns('users')).toEqual(['id', 'name', 'email', 'email_verified', 'image', 'created_at', 'updated_at'])
+  expect(columns('users_accounts')).toContain('access_token_expires_at')
+  expect(columns('users_sessions')).toContain('active_organization_id')
+  expect(columns('workspaces_invitations')).toContain('inviter_id')
 })
 
 test('without OTTO_OWNER_EMAIL the first sign-up wins', async () => {
@@ -236,11 +253,7 @@ test('initOwner gives the legacy actor to the first user, everywhere, once', asy
     { id: 'lib000000001', ...base, type: 'file', title: 'a', createdBy: 'user' },
     { id: 'lib000000002', ...base, type: 'file', title: 'b', createdBy: 'agent:default' },
   ]).run()
-  t.db.insert(projects).values({ id: 'prj000000001', ...base, title: 'P' }).run()
-  t.db.insert(projectsMembers).values([
-    { projectId: 'prj000000001', actor: 'user', role: 'contributor' },
-    { projectId: 'prj000000001', actor: 'agent:default', role: 'viewer' },
-  ]).run()
+  t.db.insert(projects).values({ id: 'prj000000001', ...base, title: 'P', members: ['user', 'agent:default'] }).run()
   const task = { ...base, projectId: 'prj000000001', title: 'T' }
   t.db.insert(tasks).values([
     { id: 'tsk000000001', ...task, createdBy: 'user', assignees: ['agent:x', 'user'] },
@@ -253,7 +266,7 @@ test('initOwner gives the legacy actor to the first user, everywhere, once', asy
   const me = `user:${t.db.select().from(users).get()!.id}`
   const snapshot = () => [
     t.db.select({ by: library.createdBy }).from(library).orderBy(library.id).all().map((r) => r.by),
-    t.db.select({ by: projectsMembers.actor }).from(projectsMembers).orderBy(projectsMembers.role).all().map((r) => r.by),
+    t.db.select({ members: projects.members }).from(projects).all().flatMap((r) => r.members),
     t.db.select({ by: tasks.createdBy, who: tasks.assignees }).from(tasks).orderBy(tasks.id).all(),
     t.db.select({ by: timesheets.createdBy }).from(timesheets).all().map((r) => r.by),
   ]

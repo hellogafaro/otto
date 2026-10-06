@@ -47,6 +47,20 @@ export function updateLegacyUserActor(db: Db | Tx, actor: string): void {
   }
 }
 
+/** Gives what actor `from` made or was assigned to in the workspace to `to` (`agent:default` to the agent that replaces it): see `initAgentsImport`. */
+export function updateAgentActor(db: Db | Tx, workspaceId: string, from: string, to: string): void {
+  db.update(tasks).set({ createdBy: to }).where(and(eq(tasks.workspaceId, workspaceId), eq(tasks.createdBy, from))).run()
+  db.update(timesheets).set({ createdBy: to }).where(and(eq(timesheets.workspaceId, workspaceId), eq(timesheets.createdBy, from))).run()
+  const assigned = db
+    .select({ id: tasks.id, assignees: tasks.assignees })
+    .from(tasks)
+    .where(and(eq(tasks.workspaceId, workspaceId), sql`exists (select 1 from json_each(${tasks.assignees}) where json_each.value = ${from})`))
+    .all()
+  for (const { id, assignees } of assigned) {
+    db.update(tasks).set({ assignees: [...new Set(assignees.map((who) => (who === from ? to : who)))] }).where(eq(tasks.id, id)).run()
+  }
+}
+
 const STATUSES: TaskStatus[] = ['todo', 'doing', 'done', 'archived', 'deleted']
 
 type Row = typeof tasks.$inferSelect

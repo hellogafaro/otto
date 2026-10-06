@@ -26,10 +26,11 @@ Example: `statuses_edit({ action: "create", label: "Blocked", color: "destructiv
 | `needs-review` | Needs Review | info | open | Seeded |
 | `done` | Done | accent | closed | Fixed |
 | `cancelled` | Cancelled | foreground/50 | closed | Fixed |
+| `archived` | Archived | foreground/50 | archived | Fixed |
 
 **Note:** Color is optional. When omitted, the design system default is used.
 
-- **Fixed** (`todo`, `done`, `cancelled`): cannot be deleted, and their category cannot change. Label, color and icon can.
+- **Fixed** (`todo`, `done`, `cancelled`, `archived`): cannot be deleted, and their category cannot change. Label, color and icon can.
 - **Default** (`isDefault`): the one status new chats get. It is `todo` until `set_default` picks another, and it cannot be deleted.
 - **Custom**: everything else, fully editable and deletable. A status `id` is a slug and never changes.
 
@@ -37,6 +38,7 @@ Example: `statuses_edit({ action: "create", label: "Blocked", color: "destructiv
 
 - **open**: Session appears in inbox/active list
 - **closed**: Session appears in archive/completed list
+- **archived**: only the fixed `archived` status; archiving a chat moves it there. You cannot create or set it.
 
 ## Color Format
 
@@ -92,10 +94,10 @@ If `dark` is omitted, it's auto-derived from `light` (brightened ~30%).
 | `label` | string | Display name |
 | `color` | EntityColor? | System color or custom object. Uses the design system default if omitted. |
 | `icon` | string? | An emoji, or an image data URL of at most 16 KB. Web addresses are rejected. |
-| `category` | `"open"` \| `"closed"` | Inbox vs archive |
-| `isFixed` | boolean | `todo`, `done`, `cancelled`; read-only |
+| `category` | `"open"` \| `"closed"` \| `"archived"` | Inbox vs archive (`archived` is the fixed archived status only; you set `open` or `closed`) |
+| `isFixed` | boolean | `todo`, `done`, `cancelled`, `archived`; read-only |
 | `isDefault` | boolean | The status new chats get; change it with `set_default` |
-| `order` | number | Display order; change it with `reorder` |
+| `position` | number | Display order; change it with `reorder` |
 
 ## Icons
 

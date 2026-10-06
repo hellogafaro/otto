@@ -77,7 +77,7 @@ describe('library RPC', () => {
     const image = await call(RPC_CHANNELS.library.CREATE, { title: 'pic.png', mime: 'image/png', content: { encoding: 'base64', data: b64(png) } })
     const doc = await call(RPC_CHANNELS.library.CREATE, { title: 'notes.md', mime: 'text/markdown', content: { encoding: 'utf8', data: '# One' } })
     const folder = await call(RPC_CHANNELS.library.CREATE_FOLDER, { title: 'Docs' })
-    expect(image).toMatchObject({ type: 'file', size: png.length, createdBy: ME, folderId: null })
+    expect(image).toMatchObject({ type: 'file', size: png.length, createdBy: ME, parentId: null })
     expect(doc).toMatchObject({ type: 'document', size: 5 })
 
     expect((await call(RPC_CHANNELS.library.LIST)).map((item: { title: string }) => item.title)).toEqual(['Docs', 'notes.md', 'pic.png'])
@@ -89,8 +89,8 @@ describe('library RPC', () => {
     expect(await call(RPC_CHANNELS.library.READ, doc.id)).toEqual({ item: doc, content: { encoding: 'utf8', data: '# One' } })
     expect(readFileSync(join(rootPath, 'library', doc.id), 'utf8')).toBe('# One')
 
-    const moved = await call(RPC_CHANNELS.library.UPDATE, doc.id, { title: 'plan.md', folderId: folder.id })
-    expect(moved).toMatchObject({ title: 'plan.md', folderId: folder.id })
+    const moved = await call(RPC_CHANNELS.library.UPDATE, doc.id, { title: 'plan.md', parentId: folder.id })
+    expect(moved).toMatchObject({ title: 'plan.md', parentId: folder.id })
     await expect(
       call(RPC_CHANNELS.library.UPDATE, doc.id, { content: { encoding: 'utf8', data: 'stale' }, expectedUpdatedAt: doc.updatedAt }),
     ).rejects.toThrow('changed since it was loaded')
@@ -131,7 +131,7 @@ describe('library RPC', () => {
 
 describe('STORE_ATTACHMENT', () => {
   const store = (attachment: Record<string, unknown>) => call(RPC_CHANNELS.file.STORE_ATTACHMENT, attachment)
-  const chatFolder = () => getLibraryItems(workspaceId, { folderId: null, type: 'folder' }).find((item) => item.title === CHAT_ATTACHMENTS_FOLDER_TITLE)
+  const chatFolder = () => getLibraryItems(workspaceId, { parentId: null, type: 'folder' }).find((item) => item.title === CHAT_ATTACHMENTS_FOLDER_TITLE)
 
   it('keeps a chat image as a library item in the Chat attachments folder', async () => {
     const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#08f' } }).png().toBuffer()
@@ -148,9 +148,9 @@ describe('STORE_ATTACHMENT', () => {
       title: 'shot.png',
       mime: 'image/png',
       createdBy: ME,
-      folderId: chatFolder()!.id,
+      parentId: chatFolder()!.id,
     })
-    expect(getLibraryItems(workspaceId, { folderId: null }).map((item) => item.id)).not.toContain(stored.id)
+    expect(getLibraryItems(workspaceId, { parentId: null }).map((item) => item.id)).not.toContain(stored.id)
   })
 
   it('stores a text attachment and an office file with its markdown copy as two items', async () => {
@@ -172,15 +172,15 @@ describe('STORE_ATTACHMENT', () => {
     })
     expect(readFileSync(office.storedPath).equals(docx)).toBe(true)
     expect(readFileSync(office.markdownPath, 'utf8')).toContain('Quarterly plan')
-    const markdown = getLibraryItems(workspaceId, { folderId: chatFolder()!.id }).find((item) => office.markdownPath.endsWith(item.id))
+    const markdown = getLibraryItems(workspaceId, { parentId: chatFolder()!.id }).find((item) => office.markdownPath.endsWith(item.id))
     expect(markdown).toMatchObject({ type: 'document', title: 'plan.docx.md', createdBy: ME })
     expect(getLibraryItems(workspaceId, { type: 'folder' }).filter((item) => item.title === CHAT_ATTACHMENTS_FOLDER_TITLE)).toHaveLength(1)
   })
 
   it('rejects empty and invalid attachments and leaves no item behind', async () => {
-    const before = getLibraryItems(workspaceId, { folderId: chatFolder()!.id }).length
+    const before = getLibraryItems(workspaceId, { parentId: chatFolder()!.id }).length
     await expect(store({ type: 'text', path: '/tmp/e', name: 'e.txt', mimeType: 'text/plain', text: '', size: 0 })).rejects.toThrow('empty')
     await expect(store({ type: 'image', path: '/tmp/b', name: 'b.png', mimeType: 'image/png', base64: b64('not an image'), size: 12 })).rejects.toThrow('Failed to store attachment')
-    expect(getLibraryItems(workspaceId, { folderId: chatFolder()!.id }).length).toBe(before)
+    expect(getLibraryItems(workspaceId, { parentId: chatFolder()!.id }).length).toBe(before)
   })
 })

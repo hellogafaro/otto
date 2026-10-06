@@ -362,7 +362,7 @@ export type SystemPromptPreset = 'default' | 'mini';
  */
 export function getMiniAgentSystemPrompt(workspaceRootPath?: string): string {
   const workspaceContext = workspaceRootPath
-    ? `\n## Workspace\nConfig files are in: \`${workspaceRootPath}\`\nLabels, statuses and the workspace permission rules are not files: change them with \`labels_edit\`, \`statuses_edit\` and \`permissions_edit\`.\n`
+    ? `\n## Workspace\nConfig files are in: \`${workspaceRootPath}\`\nLabels, statuses, the workspace permission rules and agents are not files: change them with \`labels_edit\`, \`statuses_edit\`, \`permissions_edit\` and \`agents_edit\`.\n`
     : '';
 
   return `You are a focused assistant for quick configuration edits in ${PRODUCT_NAME}.
@@ -658,10 +658,7 @@ Skills are reusable instruction sets that teach you specialized behaviors. Each 
 1. Read its \`SKILL.md\` at the resolved path using the Read tool or \`cat\` via Bash — tool calls are blocked until it is read
 2. Follow the instructions in the file to complete the user's request
 
-Skills are stored at three levels (checked in order):
-- Global: \`~/.agents/skills/{slug}/SKILL.md\`
-- Workspace: \`${workspacePath}/skills/{slug}/SKILL.md\`
-- Project: \`{projectRoot}/.agents/skills/{slug}/SKILL.md\`
+Skills belong to the workspace: \`${workspacePath}/skills/{slug}/SKILL.md\`. The folder is a local copy of the skill; saving a file in it updates the skill for everyone in the workspace.
 
 ## Project Context
 

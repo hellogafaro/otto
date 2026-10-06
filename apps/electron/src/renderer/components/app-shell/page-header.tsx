@@ -7,7 +7,7 @@
  * - by default the row is the first block of the page's column (`PageColumn`'s
  *   title slot; in place when the page has no column), 64px from the top (on the
  *   top axis below 768px), and it scrolls away with the content: nothing is pinned;
- * - `density="compact"` (the chat only) draws the compact 55px header (section-size title)
+ * - `density="compact"` (the chat only) draws the compact 80px header (24 + 32 + 24) (section-size title)
  *   in the frame's header slot instead, pinned above the wrapper;
  * - the row is the title (plain text: one line that fades out under the actions,
  *   no dropdown, no Back button, no crumbs) and the page's actions. Below 768px

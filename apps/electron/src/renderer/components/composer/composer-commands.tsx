@@ -2,7 +2,8 @@
  * The composer's `/` commands and `@` mentions (the chat input's machinery, kept): what the toolbar pickers did
  * is a command now (DESIGN.md, Composer, Commands). `/` offers Add files everywhere and, in a chat, its mode
  * (Explore, Ask, Execute), its status, its working directory (a recent one or Choose folder) and Compact; `@`
- * mentions skills, sources and the working directory's files. The menus are portaled out of the composer (its
+ * mentions people, tasks and projects (their entity tokens, drawn as chips), skills, sources and the working
+ * directory's files. The menus are portaled out of the composer (its
  * blurred glass would hold and clip a fixed menu).
  */
 
@@ -11,6 +12,12 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { FolderOpen, Minimize2, Paperclip } from 'lucide-react'
 import { InlineMentionMenu, useInlineMention } from '@/components/ui/mention-menu'
+import { describeEntity } from '@/components/entities/entity-tokens'
+import { useEntityLabel, useEntityLists } from '@/components/entities/entity-chip'
+import { useProjects } from '@/hooks/use-projects'
+import { useTasks } from '@/hooks/use-tasks'
+import { useWorkspaceMemberList } from '@/hooks/use-workspace-members'
+import { buildEntitySections } from './mention-entities'
 import { InlineSlashCommand, PermissionModeIcon, useInlineSlashCommand, type SlashSection } from '@/components/ui/slash-command-menu'
 import type { RichTextInputHandle } from '@/components/ui/rich-text-input'
 import { getStatusIconStyle } from '@/config/session-status-config'
@@ -110,10 +117,22 @@ export function useComposerCommands({
   }, [t, commands, modes, sessionStatuses, recentFolders, homeDir])
 
   const slash = useInlineSlashCommand({ inputRef, sections })
+
+  // People, tasks and projects from the lists the app keeps loaded; the chip in the text reads the same lists.
+  const people = useWorkspaceMemberList()
+  const { tasks, loaded: tasksLoaded } = useTasks()
+  const { projects, loaded: projectsLoaded } = useProjects()
+  const entities = React.useMemo(
+    () => buildEntitySections({ people: people.loaded ? people.items : null, tasks: tasksLoaded ? tasks : null, projects: projectsLoaded ? projects : null }, t),
+    [people.loaded, people.items, tasks, tasksLoaded, projects, projectsLoaded, t],
+  )
+  const entityLists = useEntityLists()
+  const entityLabel = useEntityLabel()
   const mention = useInlineMention({
     inputRef,
     skills,
     sources: enabledSources,
+    entities,
     basePath: context?.workingDirectory,
     onSelect: () => {},
     // Skills are qualified with the workspace slug, as the agent resolves them.
@@ -186,6 +205,11 @@ export function useComposerCommands({
     sources: enabledSources,
     workspaceSlug: activeWorkspaceSlug ?? activeWorkspaceId ?? undefined,
     menus,
+    /** The text of an entity token in the editor: the live title, from the lists the chips read. */
+    entityLabel: (token: string) => {
+      const info = describeEntity(token, entityLists)
+      return info ? entityLabel(info) : token
+    },
     /** Feed every edit (with the caret) to both menus. */
     onInput: (value: string, cursor: number) => {
       slash.handleInputChange(value, cursor)
@@ -194,7 +218,7 @@ export function useComposerCommands({
     /** True when an open menu takes this key (it moves, picks or closes). */
     takesKey: (event: React.KeyboardEvent) => {
       const menuKey = ['Enter', 'Tab', 'ArrowUp', 'ArrowDown'].includes(event.key)
-      const mentionShown = mention.isOpen && (mention.sections.some((s) => s.items.length > 0) || mention.isSearching)
+      const mentionShown = mention.isOpen && (mention.hasItems || mention.isSearching)
       if ((mentionShown || slash.isOpen) && menuKey) return true
       if (event.key === 'Escape' && (mention.isOpen || slash.isOpen)) {
         event.preventDefault()

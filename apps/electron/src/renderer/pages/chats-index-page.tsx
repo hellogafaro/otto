@@ -367,9 +367,8 @@ export default function ChatsIndexPage() {
               )}
             </NoResults>
           ) : (
-            // Otto: TEST (DESIGN.md, PageWrap): the v1 table floats in the line wrapper, 12px in; from 768px
-            // the wrapper sits 9px out of the column so the chevrons sit on the title's line (Tasks does the same). Revert: drop `className`.
-            <PageWrap className="p-3 md:-mx-[9px]">
+            // Otto: the v1 table floats in the line wrapper, `--wrap-pad` (16px) in, on the column's edges (DESIGN.md, PageWrap).
+            <PageWrap padded>
               {groups.map((g) => (
                 <ListGroup
                   key={g.status.id}

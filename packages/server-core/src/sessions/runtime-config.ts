@@ -60,7 +60,7 @@ export function buildRestartRequiredSignature(input: BackendRuntimeSignatureInpu
 
 /**
  * Build a stable signature for config fields that affect an already-created
- * backend runtime. Metadata such as `lastUsedAt` is intentionally omitted.
+ * backend runtime. Metadata such as `createdAt` is intentionally omitted.
  */
 export function buildBackendRuntimeSignature(input: BackendRuntimeSignatureInput): string {
   const { connection, provider, authType, resolvedModel } = input

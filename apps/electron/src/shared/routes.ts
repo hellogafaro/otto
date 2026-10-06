@@ -148,8 +148,11 @@ export const routes = {
       return base as 'sources' | `sources/${'api' | 'mcp' | 'local'}`
     },
 
-    /** Skills view (skills navigator): the grid with its `scope`, or `skillSlug` open. */
+    /** Skills view (skills navigator): the grid, or `skillSlug` open. */
     skills: ({ skillSlug, ...search }: { skillSlug?: string } & SkillsSearch = {}) => sectionRoute('skills', 'skill', skillSlug, search),
+
+    /** Agents view (agents navigator, in Settings): the gallery, or `agentId` open. */
+    agents: (agentId?: string) => (agentId ? `agents/agent/${agentId}` as const : 'agents' as const),
 
     /** Automations view (automations navigator) - supports type filtering */
     automations: (params?: { automationId?: string; type?: 'scheduled' | 'event' | 'agentic' }) => {

@@ -1,24 +1,29 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
+import { CircleCheck, Folder, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { placeMenuAbove } from '@/lib/input-viewport'
+import { isEntityMention } from '@/lib/mentions'
 import { FadingText } from '@/components/ui/fading-text'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
 import { SourceAvatar } from '@/components/ui/source-avatar'
 import { MENU_LABEL, MENU_LIST, MENU_ROW, MENU_ROW_HIGHLIGHT, MENU_SURFACE } from './menu-styles'
 import type { LoadedSkill, LoadedSource, FileSearchResult } from '../../../shared/types'
-import { AGENTS_PLUGIN_NAME } from '@otto/shared/skills/types'
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type MentionItemType = 'skill' | 'source' | 'file' | 'folder'
+/** `task`, `project` and `user` are entity mentions: the item's `id` is the token (`task:<id>`) that goes into the text. */
+export type MentionItemType = 'skill' | 'source' | 'file' | 'folder' | 'task' | 'project' | 'user'
 
 export interface MentionItem {
   id: string
   type: MentionItemType
   label: string
   description?: string
+  /** Breaks a tie between equal matches, higher first (an entity's last update). */
+  rank?: number
   // Type-specific data
   skill?: LoadedSkill
   source?: LoadedSource
@@ -29,6 +34,10 @@ export interface MentionSection {
   id: string
   label: string
   items: MentionItem[]
+  /** Shown under the heading while the section has no items (and nothing is typed). */
+  empty?: string
+  /** How many rows the section shows until something is typed. */
+  preview?: number
 }
 
 export interface InlineMentionMenuProps {
@@ -130,38 +139,37 @@ function getMatchScore(text: string, filter: string): number {
   return 0
 }
 
-function filterSections(sections: MentionSection[], filter: string): MentionSection[] {
-  if (!filter) return sections
+/** The most rows a typed query lists. */
+const MAX_RESULTS = 30
+
+/** What ranks a match (an entity's id is its token, which a query must not hit; a person's description is the email). */
+const scored = (item: MentionItem) => (isEntityMention(item.type) ? [item.label, item.description] : [item.label, item.id])
+
+/** Nothing typed: each section as it is (cut to its `preview`). Typed: one list of what matches, best match first, then newest, then by name. */
+export function filterSections(sections: MentionSection[], filter: string): MentionSection[] {
   const lowerFilter = filter.trimEnd().toLowerCase()
-  if (!lowerFilter) return sections
+  if (!lowerFilter) return sections.map(section => (section.preview === undefined ? section : { ...section, items: section.items.slice(0, section.preview) }))
 
   // Collect all matching items across sections
-  const allItems = sections.flatMap(section => section.items)
-  const matchingItems = allItems.filter(item =>
-    item.label?.toLowerCase().includes(lowerFilter) ||
-    item.id?.toLowerCase().includes(lowerFilter) ||
-    item.description?.toLowerCase().includes(lowerFilter)
-  )
+  const matchingItems = sections
+    .flatMap(section => section.items)
+    .filter(item => [...scored(item), item.description].some(text => text?.toLowerCase().includes(lowerFilter)))
 
   // Sort by match priority: first word > later word > contains
+  const score = (item: MentionItem) => Math.max(...scored(item).map(text => (text ? getMatchScore(text, lowerFilter) : 0)))
   matchingItems.sort((a, b) => {
-    const aLabelScore = getMatchScore(a.label, lowerFilter)
-    const bLabelScore = getMatchScore(b.label, lowerFilter)
-    const aIdScore = getMatchScore(a.id, lowerFilter)
-    const bIdScore = getMatchScore(b.id, lowerFilter)
-
-    // Compare by best score (label or id)
-    const aScore = Math.max(aLabelScore, aIdScore)
-    const bScore = Math.max(bLabelScore, bIdScore)
+    const aScore = score(a)
+    const bScore = score(b)
     if (aScore !== bScore) return bScore - aScore
 
-    // Same score tier: alphabetical by label
-    return a.label.localeCompare(b.label)
+    // Same score tier: the most recently updated, then alphabetical by label
+    const recent = (b.rank ?? 0) - (a.rank ?? 0)
+    return recent !== 0 ? recent : a.label.localeCompare(b.label)
   })
 
   // Return as flat list in a single virtual section (headers hidden when filtering)
   if (matchingItems.length === 0) return []
-  return [{ id: 'results', label: 'Results', items: matchingItems }]
+  return [{ id: 'results', label: 'Results', items: matchingItems.slice(0, MAX_RESULTS) }]
 }
 
 function flattenItems(sections: MentionSection[]): MentionItem[] {
@@ -278,10 +286,11 @@ export function InlineMentionMenu({
 
   if (!open) return null
 
-  // Calculate bottom position from window height (menu appears above cursor)
-  const bottomPosition = typeof window !== 'undefined'
-    ? window.innerHeight - Math.round(position.y) + 8
-    : 0
+  // Above the cursor, on screen, in the zoomed root's pixels
+  const place = placeMenuAbove(position, maxWidth)
+  // Section headings while nothing is typed; a typed query lists the matches as one, so each row names its type
+  const headings = !filter.trim()
+  let itemIndex = -1
 
   return (
     <div
@@ -289,80 +298,93 @@ export function InlineMentionMenu({
       data-inline-menu
       className={cn('fixed z-dropdown', MENU_SURFACE, className)}
       style={{
-        left: Math.round(position.x) - 10,
-        bottom: bottomPosition,
-        width: maxWidth,
-        maxWidth,
+        left: place.left,
+        bottom: place.bottom,
+        width: place.maxWidth,
+        maxWidth: place.maxWidth,
       }}
     >
-      {/* Menu header — sticky above scroll area */}
-      <div className={MENU_LABEL}>
-        {t('chat.mentionFilesSkillsSources')}
-      </div>
-
       <div ref={listRef} className={MENU_LIST}>
         {flatItems.length === 0 && filter && (
           <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('chat.noResults')}</div>
         )}
-        {flatItems.map((item, itemIndex) => {
-          const isSelected = itemIndex === selectedIndex
+        {filteredSections.map((section) => (
+          <React.Fragment key={section.id}>
+            {headings && <div className={MENU_LABEL}>{section.label}</div>}
+            {headings && section.items.length === 0 && section.empty && (
+              <div className="px-2 pb-1.5 text-sm text-muted-foreground">{section.empty}</div>
+            )}
+            {section.items.map((item) => {
+              itemIndex += 1
+              const index = itemIndex
+              const isSelected = index === selectedIndex
 
-          return (
-            <div
-              key={`${item.type}-${item.id}`}
-              data-selected={isSelected}
-              // Keep the caret in the composer (a blur would fold the compact bar).
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                onSelect(item)
-                onOpenChange(false)
-              }}
-              onMouseEnter={() => setSelectedIndex(itemIndex)}
-              className={cn(MENU_ROW, isSelected && MENU_ROW_HIGHLIGHT)}
-            >
-              {/* Icon based on type */}
-              <div className="shrink-0">
-                {item.type === 'skill' && item.skill && (
-                  <SkillAvatar skill={item.skill} size="sm" workspaceId={workspaceId} />
-                )}
-                {item.type === 'source' && item.source && (
-                  <SourceAvatar source={item.source} size="sm" />
-                )}
-                {item.type === 'folder' && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" className="text-muted-foreground">
-                    <path d="M20.5 10C20.5 9.07003 20.5 8.60504 20.3978 8.22354C20.1204 7.18827 19.3117 6.37962 18.2765 6.10222C17.895 6 17.43 6 16.5 6H13.1008C12.4742 6 12.1609 6 11.8739 5.91181C11.6824 5.85298 11.5009 5.76572 11.3353 5.65295C11.0871 5.48389 10.8914 5.23926 10.5 4.75L10.4095 4.63693C10.107 4.25881 9.9558 4.06975 9.7736 3.92674C9.54464 3.74703 9.27921 3.61946 8.99585 3.55294C8.77037 3.5 8.52825 3.5 8.04402 3.5C6.60485 3.5 5.88527 3.5 5.32008 3.74178C4.61056 4.0453 4.0453 4.61056 3.74178 5.32008C3.5 5.88527 3.5 6.60485 3.5 8.04402V10M9.46502 20.5H14.535C16.9102 20.5 18.0978 20.5 18.9301 19.8113C19.7624 19.1226 19.9846 17.9559 20.429 15.6227L20.8217 13.5613C21.1358 11.9121 21.2929 11.0874 20.843 10.5437C20.393 10 19.5536 10 17.8746 10H6.12537C4.44643 10 3.60696 10 3.15704 10.5437C2.70713 11.0874 2.8642 11.9121 3.17835 13.5613L3.57099 15.6227C4.01541 17.9559 4.23763 19.1226 5.06992 19.8113C5.90221 20.5 7.08981 20.5 9.46502 20.5Z"/>
-                  </svg>
-                )}
-                {item.type === 'file' && (
-                  <FileMenuIcon name={item.label} />
-                )}
-              </div>
-
-              {/* Label and optional path/badge */}
-              {(item.type === 'file' || item.type === 'folder') ? (
-                <>
-                  {/* File/folder: filename then parent path fading out on overflow */}
-                  <span className="shrink-0">{item.label}</span>
-                  {item.file?.relativePath && getParentDir(item.file.relativePath) && (
-                    <FadingText className="text-xs text-muted-foreground min-w-0 opacity-50" fadeWidth={20}>
-                      {getParentDir(item.file.relativePath)}
-                    </FadingText>
-                  )}
-                </>
-              ) : (
-                <>
-                  {/* Skill/source: label with type badge */}
-                  <div className="flex-1 min-w-0">
-                    <span className="truncate block">{item.label}</span>
+              return (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  data-selected={isSelected}
+                  // Keep the caret in the composer (a blur would fold the compact bar).
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    onSelect(item)
+                    onOpenChange(false)
+                  }}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  className={cn(MENU_ROW, isSelected && MENU_ROW_HIGHLIGHT)}
+                >
+                  {/* Icon based on type */}
+                  <div className="shrink-0">
+                    {item.type === 'skill' && item.skill && (
+                      <SkillAvatar skill={item.skill} size="sm" workspaceId={workspaceId} />
+                    )}
+                    {item.type === 'source' && item.source && (
+                      <SourceAvatar source={item.source} size="sm" />
+                    )}
+                    {item.type === 'task' && <CircleCheck className="text-muted-foreground" />}
+                    {item.type === 'project' && <Folder className="text-muted-foreground" />}
+                    {item.type === 'user' && <User className="text-muted-foreground" />}
+                    {item.type === 'folder' && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" className="text-muted-foreground">
+                        <path d="M20.5 10C20.5 9.07003 20.5 8.60504 20.3978 8.22354C20.1204 7.18827 19.3117 6.37962 18.2765 6.10222C17.895 6 17.43 6 16.5 6H13.1008C12.4742 6 12.1609 6 11.8739 5.91181C11.6824 5.85298 11.5009 5.76572 11.3353 5.65295C11.0871 5.48389 10.8914 5.23926 10.5 4.75L10.4095 4.63693C10.107 4.25881 9.9558 4.06975 9.7736 3.92674C9.54464 3.74703 9.27921 3.61946 8.99585 3.55294C8.77037 3.5 8.52825 3.5 8.04402 3.5C6.60485 3.5 5.88527 3.5 5.32008 3.74178C4.61056 4.0453 4.0453 4.61056 3.74178 5.32008C3.5 5.88527 3.5 6.60485 3.5 8.04402V10M9.46502 20.5H14.535C16.9102 20.5 18.0978 20.5 18.9301 19.8113C19.7624 19.1226 19.9846 17.9559 20.429 15.6227L20.8217 13.5613C21.1358 11.9121 21.2929 11.0874 20.843 10.5437C20.393 10 19.5536 10 17.8746 10H6.12537C4.44643 10 3.60696 10 3.15704 10.5437C2.70713 11.0874 2.8642 11.9121 3.17835 13.5613L3.57099 15.6227C4.01541 17.9559 4.23763 19.1226 5.06992 19.8113C5.90221 20.5 7.08981 20.5 9.46502 20.5Z"/>
+                      </svg>
+                    )}
+                    {item.type === 'file' && (
+                      <FileMenuIcon name={item.label} />
+                    )}
                   </div>
-                  <span className={MENU_TYPE_LABEL}>
-                    {item.type === 'skill' ? t('common.skill') : t('common.source')}
-                  </span>
-                </>
-              )}
-            </div>
-          )
-        })}
+
+                  {/* Label and optional path/badge */}
+                  {(item.type === 'file' || item.type === 'folder') ? (
+                    <>
+                      {/* File/folder: filename then parent path fading out on overflow */}
+                      <span className="shrink-0">{item.label}</span>
+                      {item.file?.relativePath && getParentDir(item.file.relativePath) && (
+                        <FadingText className="text-xs text-muted-foreground min-w-0 opacity-50" fadeWidth={20}>
+                          {getParentDir(item.file.relativePath)}
+                        </FadingText>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* The label; a person's email after it; the type once a query mixes them */}
+                      <div className="flex-1 min-w-0">
+                        <span className="truncate block">{item.label}</span>
+                      </div>
+                      {item.type === 'user' && item.description && headings && (
+                        <FadingText className="min-w-0 max-w-[45%] text-xs text-muted-foreground" fadeWidth={20}>{item.description}</FadingText>
+                      )}
+                      {!headings && (
+                        <span className={MENU_TYPE_LABEL}>
+                          {item.type === 'skill' ? t('common.skill') : item.type === 'source' ? t('common.source') : t(`entities.type_${item.type}`)}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </React.Fragment>
+        ))}
 
       </div>
     </div>
@@ -451,6 +473,8 @@ export interface UseInlineMentionOptions {
   onSelect: (item: MentionItem) => void
   /** Workspace ID for fully-qualified skill names */
   workspaceId?: string
+  /** People, tasks and projects to mention, ahead of the skills (the caller builds them from its lists). */
+  entities?: MentionSection[]
 }
 
 export interface UseInlineMentionReturn {
@@ -460,10 +484,14 @@ export interface UseInlineMentionReturn {
   sections: MentionSection[]
   /** Whether file search is in progress */
   isSearching: boolean
+  /** The menu lists a row for what is typed (else Enter belongs to the input, not the menu). */
+  hasItems: boolean
   handleInputChange: (value: string, cursorPosition: number) => void
   close: () => void
   handleSelect: (item: MentionItem) => { value: string; cursorPosition: number }
 }
+
+const NO_SECTIONS: MentionSection[] = []
 
 export function useInlineMention({
   inputRef,
@@ -472,7 +500,9 @@ export function useInlineMention({
   basePath,
   onSelect,
   workspaceId,
+  entities = NO_SECTIONS,
 }: UseInlineMentionOptions): UseInlineMentionReturn {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = React.useState(false)
   // committedFilter: only updates when IPC returns (or immediately when no IPC needed).
   // Prevents visual jumps — the menu shows all items until results are ready,
@@ -500,13 +530,13 @@ export function useInlineMention({
 
   // Build sections from available data (skills, sources, and file search results)
   const sections = React.useMemo((): MentionSection[] => {
-    const result: MentionSection[] = []
+    const result: MentionSection[] = [...entities]
 
     // Skills section
     if (skills.length > 0) {
       result.push({
         id: 'skills',
-        label: 'Skills',
+        label: t('composer.mention.skills'),
         items: skills.map(skill => ({
           id: skill.slug,
           type: 'skill' as const,
@@ -521,7 +551,7 @@ export function useInlineMention({
     if (sources.length > 0) {
       result.push({
         id: 'sources',
-        label: 'Sources',
+        label: t('composer.mention.sources'),
         items: sources
           .filter(source => source.config.slug && source.config.name)
           .map(source => ({
@@ -538,23 +568,23 @@ export function useInlineMention({
     if (fileResults.length > 0) {
       result.push({
         id: 'files',
-        label: 'Files',
+        label: t('composer.mention.files'),
         items: fileResults,
       })
     }
 
     return result
-  }, [skills, sources, fileResults])
+  }, [entities, skills, sources, fileResults, t])
 
   const handleInputChange = React.useCallback((value: string, cursorPosition: number) => {
     // Store current state for handleSelect
     currentInputRef.current = { value, cursorPosition }
 
     const textBeforeCursor = value.slice(0, cursorPosition)
-    // Match @ followed by up to 100 chars (word chars, hyphens, slashes, dots, and spaces).
-    // Spaces are allowed so users can type filenames with spaces (e.g. @app availability.md).
+    // Match @ followed by up to 100 chars (letters, digits, hyphens, slashes, dots, and spaces), not starting with a space.
+    // Spaces are allowed so users can type filenames and titles with spaces (e.g. @app availability.md).
     // The menu auto-closes when a space produces no matches (Slack-style behavior).
-    const atMatch = textBeforeCursor.match(/@([\w\-\/.\s]{0,100})?$/)
+    const atMatch = textBeforeCursor.match(/@([\p{L}\p{N}_\-\/.][\p{L}\p{N}_\-\/.\s]{0,99})?$/u)
 
     // Check if this is a valid @ mention trigger
     const matchStart = atMatch ? textBeforeCursor.lastIndexOf('@') : -1
@@ -684,10 +714,7 @@ export function useInlineMention({
       // Skill tool requires this format to resolve workspace-scoped skills.
       let mentionText: string
       if (item.type === 'skill') {
-        // Plugin name depends on which tier the skill came from:
-        //   workspace → workspaceId, project/global → ".agents"
-        const pluginName = item.skill?.source === 'workspace' ? workspaceId : AGENTS_PLUGIN_NAME
-        const qualifiedName = pluginName ? `${pluginName}:${item.id}` : item.id
+        const qualifiedName = workspaceId ? `${workspaceId}:${item.id}` : item.id
         mentionText = buildMentionText('skill', qualifiedName)
       } else if (item.type === 'source') {
         mentionText = buildMentionText('source', item.id)
@@ -696,6 +723,9 @@ export function useInlineMention({
         mentionText = buildMentionText('file', item.file?.relativePath || item.id)
       } else if (item.type === 'folder') {
         mentionText = buildMentionText('folder', item.file?.relativePath || item.id)
+      } else if (isEntityMention(item.type)) {
+        // The bare token, as the server and the chat read it
+        mentionText = item.id + ' '
       } else {
         mentionText = buildMentionText('skill', item.id)
       }
@@ -737,6 +767,7 @@ export function useInlineMention({
     position,
     sections,
     isSearching: false,
+    hasItems: filterSections(sections, committedFilter).some(section => section.items.length > 0),
     handleInputChange,
     close,
     handleSelect,

@@ -124,7 +124,6 @@ test('update changes what it is given, keeps the rest and gives a connection wit
   const updated = store.updateConnection(created.id, { title: 'Work', defaultModel: 'm2', models: ['m1', 'm2'] }, { apiKey: 'k' })
   expect(updated).toMatchObject({ title: 'Work', baseUrl: 'http://a.test', defaultModel: 'm2', models: ['m1', 'm2'], hasSecret: true })
   expect(updated.createdAt).toEqual(created.createdAt)
-  expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime())
   expect(store.updateConnection(created.id, { baseUrl: null }).baseUrl).toBeNull()
   expect(store.getCredential('c')).toEqual({ apiKey: 'k' })
   expect(secretRows(db)).toHaveLength(1)
@@ -199,36 +198,6 @@ test('the secret is encrypted at rest and tied to its row', async () => {
   const [row] = secretRows(db)
   db.update(secrets).set({ id: 'zzzzzzzzzzzz' }).where(eq(secrets.id, row!.id)).run()
   expect(() => createSecretsStore(db, KEY).getSecret('zzzzzzzzzzzz')).toThrow()
-})
-
-test('db:push adds the new columns to a table that already has rows, and keeps them', async () => {
-  const db = openDb(':memory:')
-  const sqlite = (db as unknown as { $client: import('bun:sqlite').Database }).$client
-  // the table as the first version made it, with a row the old bridge wrote
-  sqlite.exec('CREATE TABLE `connections` (`id` text PRIMARY KEY NOT NULL, `slug` text, `type` text NOT NULL, `title` text NOT NULL, `baseUrl` text, `secretId` text, `createdAt` integer NOT NULL)')
-  sqlite.exec('CREATE UNIQUE INDEX `connections_slug_unique` ON `connections` (`slug`)')
-  sqlite.exec("INSERT INTO connections VALUES ('abc', 'claude-max', 'claude', 'Claude Max', NULL, 'sec1', 1000)")
-
-  await pushSchema(db)
-  expect(await pushSchema(db)).toEqual([])
-  const store = createConnectionsStore(db, createSecretsStore(db, KEY))
-  expect(store.getConnection('claude-max')).toMatchObject({ id: 'abc', scope: 'install', title: 'Claude Max', authType: 'none', hasSecret: true, createdAt: new Date(1000), updatedAt: new Date(1000) })
-  expect(() => store.createConnection(input('claude-max'))).toThrow()
-})
-
-test('a push is idempotent on a database an earlier version of the table was pushed to (a rebuilt table with an index)', async () => {
-  const db = openDb(':memory:')
-  const sqlite = (db as unknown as { $client: import('bun:sqlite').Database }).$client
-  // an intermediate version: slug NOT NULL and updatedAt NOT NULL, so the current schema makes drizzle-kit rebuild the table
-  sqlite.exec(`CREATE TABLE "connections" (\`id\` text PRIMARY KEY NOT NULL, \`scope\` text DEFAULT 'install' NOT NULL, \`slug\` text NOT NULL, \`type\` text NOT NULL, \`authType\` text DEFAULT 'none' NOT NULL, \`title\` text NOT NULL, \`baseUrl\` text, \`defaultModel\` text, \`models\` text, \`config\` text, \`account\` text, \`secretId\` text, \`lastUsedAt\` integer, \`createdAt\` integer NOT NULL, \`updatedAt\` integer DEFAULT 0 NOT NULL)`)
-  sqlite.exec('CREATE UNIQUE INDEX `connections_scope_slug` ON `connections` (`scope`,`slug`)')
-  sqlite.exec("INSERT INTO connections (id, scope, slug, type, authType, title, createdAt, updatedAt) VALUES ('abc', 'install', 'claude-max', 'anthropic', 'oauth', 'Claude Max', 1000, 2000)")
-
-  const statements = await pushSchema(db)
-  expect(statements.filter((statement) => statement.includes('CREATE UNIQUE INDEX `connections_scope_slug`'))).toHaveLength(1)
-  expect(await pushSchema(db)).toEqual([])
-  const store = createConnectionsStore(db, createSecretsStore(db, KEY))
-  expect(store.getConnection('claude-max')).toMatchObject({ id: 'abc', authType: 'oauth', updatedAt: new Date(2000) })
 })
 
 test('a person\'s own connection is found before the workspace\'s and the install\'s, and is seen by nobody else', async () => {

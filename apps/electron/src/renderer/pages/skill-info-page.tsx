@@ -2,10 +2,10 @@
  * SkillInfoPage
  *
  * A skill's page, read like a document: its name once in the title row, its description once as the lead line
- * under it, then its instructions (SKILL.md's body, the Library's read-only markdown) and its details (scope,
- * location, required sources, always-allowed tools), each a section of the page column. Its actions are the
- * title row's More actions (Copy link, Show in the file manager, Delete for a workspace skill); editing asks an
- * agent through each section's Edit popover ("Edit file" opens SKILL.md).
+ * under it, then its instructions (SKILL.md's body, the Library's read-only markdown) and its details (location,
+ * required sources, always-allowed tools), each a section of the page column. Its actions are the title row's
+ * More actions (Copy link, Show in the file manager, Delete); editing asks an agent through each section's
+ * Edit button, which prefills the composer.
  */
 
 import { useTranslation } from 'react-i18next'
@@ -22,13 +22,11 @@ import { useParentView } from '@/hooks/use-parent-view'
 import { routes, routeUrl } from '@/lib/navigate'
 import { getFileManagerName } from '@/lib/platform'
 import { Info_Page, Info_Section, Info_Table } from '@/components/info'
-import { SKILL_SCOPE_LABELS } from './skills-page'
 import type { LoadedSkill } from '../../shared/types'
 
 interface SkillInfoPageProps {
   skillSlug: string
   workspaceId: string
-  workingDirectory?: string
 }
 
 /** The skill's folder from its skills directory on (`skills/{slug}`), else the whole path. */
@@ -43,7 +41,7 @@ function withoutTitle(content: string, name: string) {
   return first.trim().toLowerCase() === `# ${name.trim()}`.toLowerCase() ? rest.join('\n').trimStart() : content
 }
 
-export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory }: SkillInfoPageProps) {
+export default function SkillInfoPage({ skillSlug, workspaceId }: SkillInfoPageProps) {
   const { t } = useTranslation()
   useComposerContext({ key: 'page:skills', placeholder: t('composer.placeholder.start') })
   const { showNotFound } = useNavigation()
@@ -64,7 +62,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
 
     const loadSkill = async () => {
       try {
-        const skills = await window.electronAPI.getSkills(workspaceId, workingDirectory)
+        const skills = await window.electronAPI.getSkills(workspaceId)
 
         if (!isMounted) return
 
@@ -99,7 +97,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
       isMounted = false
       unsubscribe?.()
     }
-  }, [workspaceId, skillSlug, workingDirectory, showNotFound])
+  }, [workspaceId, skillSlug, showNotFound])
 
   const showInFolder = async (path: string) => {
     try {
@@ -115,7 +113,6 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
     toast.success(t('toast.linkCopied'))
   }
 
-  // A global or project skill is not this workspace's to delete.
   const deleteSkill = (target: LoadedSkill) =>
     confirmDelete(t('skillsList.deleteSkill'), async () => {
       await window.electronAPI.deleteSkill(workspaceId, target.slug)
@@ -131,12 +128,8 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
           {t('sessionMenu.showInFileManager', { fileManager: getFileManagerName() })}
         </DropdownMenuItem>
       )}
-      {skill.source === 'workspace' && (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" shortcut="⌫" onClick={() => deleteSkill(skill)}>{t('common.delete')}</DropdownMenuItem>
-        </>
-      )}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem variant="destructive" shortcut="⌫" onClick={() => deleteSkill(skill)}>{t('common.delete')}</DropdownMenuItem>
     </>
   )
 
@@ -163,7 +156,6 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
 
           <Info_Section title={t('skillInfo.metadata')} actions={editButton('skillMetadata', skill.metadata.name)}>
             <Info_Table>
-              <Info_Table.Row label={t('skillsList.scope')} value={t(SKILL_SCOPE_LABELS[skill.source])} />
               <Info_Table.Row label={t('common.location')} value={formatPath(skill.path)} />
               {!!skill.metadata.requiredSources?.length && (
                 <Info_Table.Row label={t('skillInfo.requiredSources')} value={skill.metadata.requiredSources.join(', ')} />

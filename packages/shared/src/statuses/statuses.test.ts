@@ -28,11 +28,11 @@ const defaultCount = (db: Awaited<ReturnType<typeof setup>>, ws: string) => getS
 describe('statuses', () => {
   it('reads as the defaults while a workspace has no rows, and seeds them once', async () => {
     const db = await setup();
-    expect(getStatuses(WS, db).map((s) => s.id)).toEqual(['backlog', 'todo', 'needs-review', 'done', 'cancelled']);
+    expect(getStatuses(WS, db).map((s) => s.id)).toEqual(['backlog', 'todo', 'needs-review', 'done', 'cancelled', 'archived']);
     expect(db.select().from(statuses).all()).toHaveLength(0); // reading never writes
     initWorkspaceStatuses(WS, db);
     initWorkspaceStatuses(WS, db);
-    expect(db.select().from(statuses).all()).toHaveLength(5);
+    expect(db.select().from(statuses).all()).toHaveLength(6);
     for (const row of db.select().from(statuses).all()) expect(row.id).toMatch(/^[a-z0-9]{12}$/);
     const todo = getStatus(WS, 'todo', db)!;
     expect(todo).toMatchObject({ isFixed: true, isDefault: true, category: 'open' });
@@ -59,7 +59,7 @@ describe('statuses', () => {
   it('creates with a unique slug, last in order, and validates the icon', async () => {
     const db = await setup();
     const doing = createStatus(WS, { label: 'In Progress', category: 'open', color: 'info', icon: '🔥' }, db);
-    expect(doing).toMatchObject({ id: 'in-progress', label: 'In Progress', icon: '🔥', isFixed: false, isDefault: false, order: 5 });
+    expect(doing).toMatchObject({ id: 'in-progress', label: 'In Progress', icon: '🔥', isFixed: false, isDefault: false, position: 6 });
     expect(createStatus(WS, { label: 'In Progress', category: 'open' }, db).id).toBe('in-progress-2');
     expect(code(() => createStatus(WS, { label: 'X', category: 'open', icon: 'https://example.com/i.svg' }, db))).toBe('invalid');
     expect(code(() => createStatus(WS, { label: 'X', category: 'open', icon: 'data:text/html;base64,AAAA' }, db))).toBe('invalid');
@@ -73,6 +73,8 @@ describe('statuses', () => {
     expect(updateStatus(WS, 'doing', { label: 'Busy', category: 'closed' }, db)).toMatchObject({ id: 'doing', label: 'Busy', category: 'closed' });
     expect(updateStatus(WS, 'todo', { label: 'To do' }, db).label).toBe('To do');
     expect(code(() => updateStatus(WS, 'done', { category: 'open' }, db))).toBe('forbidden');
+    expect(code(() => deleteStatus(WS, 'archived', db))).toBe('forbidden');
+    expect(getStatus(WS, 'archived', db)).toMatchObject({ category: 'archived', isFixed: true, isDefault: false });
     expect(code(() => updateStatus(WS, 'nope', { label: 'x' }, db))).toBe('not_found');
     expect(code(() => deleteStatus(WS, 'todo', db))).toBe('forbidden');
     expect(code(() => deleteStatus(WS, 'nope', db))).toBe('not_found');
@@ -83,7 +85,7 @@ describe('statuses', () => {
   it('reorders: the listed ones first, any left out after them', async () => {
     const db = await setup();
     reorderStatuses(WS, ['done', 'todo'], db);
-    expect(getStatuses(WS, db).map((s) => s.id)).toEqual(['done', 'todo', 'backlog', 'needs-review', 'cancelled']);
+    expect(getStatuses(WS, db).map((s) => s.id)).toEqual(['done', 'todo', 'backlog', 'needs-review', 'cancelled', 'archived']);
     expect(code(() => reorderStatuses(WS, ['nope'], db))).toBe('invalid');
   });
 

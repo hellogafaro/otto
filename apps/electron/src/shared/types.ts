@@ -22,16 +22,18 @@ import type {
   AnnotationV1,
 } from '@otto/core/types';
 
+import type { Agent, AgentInput, AgentUpdate } from '@otto/shared/agents/types';
+export type { Agent, AgentInput, AgentUpdate };
 import type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate } from '@otto/shared/library/types';
 export type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate };
 
-import type { MemberRole, Project, ProjectFilter, ProjectMember, ProjectStatus, ProjectUpdate, Resource } from '@otto/shared/projects/types';
+import type { Project, ProjectFilter, ProjectStatus, ProjectUpdate, Resource } from '@otto/shared/projects/types';
 import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from '@otto/shared/tasks/types';
 import type { Comment } from '@otto/shared/comments/types';
-import type { NotificationItem, NotificationStatus, NotificationType } from '@otto/shared/notifications/types';
+import type { NotificationItem, NotificationType } from '@otto/shared/notifications/types';
 import type { DomainChange } from '@otto/shared/protocol';
-export type { Comment, DomainChange, NotificationItem, NotificationStatus, NotificationType };
-export type { MemberRole, Project, ProjectFilter, ProjectMember, ProjectStatus, ProjectUpdate, Resource, Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet };
+export type { Comment, DomainChange, NotificationItem, NotificationType };
+export type { Project, ProjectFilter, ProjectStatus, ProjectUpdate, Resource, Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet };
 
 import type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole } from '@otto/shared/workspaces';
 export type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole };
@@ -340,10 +342,19 @@ export interface ElectronAPI {
   storeAttachment(attachment: FileAttachment): Promise<import('../../../../packages/core/src/types/index.ts').StoredAttachment>
   generateThumbnail(base64: string, mimeType: string): Promise<string | null>
 
+  // Agents (docs/final-plan.md 2.7). The workspace is the window's. Any member lists, gets and creates (provider left out =
+  // the caller's default one); updating and deleting is the agent's creator or a workspace owner. `updateAgent` may send
+  // the `updatedAt` last seen as `expectedUpdatedAt`; a stale one is refused. The last agent cannot be deleted.
+  getAgents(): Promise<Agent[]>
+  getAgent(id: string): Promise<Agent | null>
+  createAgent(input: Omit<AgentInput, 'workspaceId' | 'createdBy' | 'provider'> & { provider?: string }): Promise<Agent>
+  updateAgent(id: string, patch: AgentUpdate): Promise<Agent>
+  deleteAgent(id: string): Promise<void>
+
   // Library (files, documents and folders; see docs/library.md). Updates that replace
   // content must send the item's last seen `updatedAt` as `expectedUpdatedAt`.
-  createLibraryItem(input: { title: string; mime: string; content: LibraryContent; folderId?: string | null }): Promise<LibraryItem>
-  createLibraryFolder(input: { title: string; folderId?: string | null }): Promise<LibraryItem>
+  createLibraryItem(input: { title: string; mime: string; content: LibraryContent; parentId?: string | null }): Promise<LibraryItem>
+  createLibraryFolder(input: { title: string; parentId?: string | null }): Promise<LibraryItem>
   getLibraryItems(filter?: LibraryFilter): Promise<LibraryItem[]>
   getLibraryItem(id: string): Promise<LibraryItem | null>
   readLibraryItem(id: string): Promise<{ item: LibraryItem; content: LibraryContent }>
@@ -499,12 +510,13 @@ export interface ElectronAPI {
 
   // Sources change listener (live updates when sources are added/removed)
   onSourcesChanged(callback: (workspaceId: string, sources: LoadedSource[]) => void): () => void
+  onSourceConflict(callback: (workspaceId: string, slug: string) => void): () => void
 
   // Default permissions change listener (live updates when default.json changes)
   onDefaultPermissionsChanged(callback: () => void): () => void
 
   // Skills
-  getSkills(workspaceId: string, workingDirectory?: string): Promise<LoadedSkill[]>
+  getSkills(workspaceId: string): Promise<LoadedSkill[]>
   getSkillFiles?(workspaceId: string, skillSlug: string): Promise<SkillFile[]>
   deleteSkill(workspaceId: string, skillSlug: string): Promise<void>
   openSkillInEditor(workspaceId: string, skillSlug: string): Promise<void>
@@ -512,6 +524,8 @@ export interface ElectronAPI {
 
   // Skills change listener (live updates when skills are added/removed/modified)
   onSkillsChanged(callback: (workspaceId: string, skills: LoadedSkill[]) => void): () => void
+  /** A skill's edited folder lost to a newer version elsewhere: the folder was reloaded and the edit kept aside. */
+  onSkillConflict(callback: (workspaceId: string, slug: string) => void): () => void
 
   // Statuses (workspace-scoped)
   listStatuses(workspaceId: string): Promise<import('@otto/shared/statuses').StatusConfig[]>
@@ -642,9 +656,8 @@ export interface ElectronAPI {
   createProject(input: { title: string; description?: string; resources?: Resource[] }): Promise<Project>
   updateProject(id: string, patch: ProjectUpdate): Promise<Project>
   setProjectStatus(id: string, status: ProjectStatus): Promise<Project>
-  getProjectMembers(id: string): Promise<ProjectMember[]>
-  setProjectMember(id: string, actor: string, role: MemberRole): Promise<ProjectMember>
-  removeProjectMember(id: string, actor: string): Promise<void>
+  addProjectMember(id: string, actor: string): Promise<Project>
+  removeProjectMember(id: string, actor: string): Promise<Project>
   getTasks(filter?: TaskFilter): Promise<Task[]>
   getTask(id: string): Promise<Task | null>
   createTask(input: { projectId: string; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] }): Promise<Task>
@@ -859,12 +872,20 @@ export interface SettingsNavigationState {
 }
 
 /**
- * Skills navigation state: the grid in Settings (`?scope=`), or one skill
+ * Skills navigation state: the grid in Settings, or one skill
  */
 export interface SkillsNavigationState {
   navigator: 'skills'
   search: SkillsSearch
   details: { type: 'skill'; skillSlug: string } | null
+}
+
+/**
+ * Agents navigation state: the gallery in Settings, or one agent
+ */
+export interface AgentsNavigationState {
+  navigator: 'agents'
+  details: { type: 'agent'; agentId: string } | null
 }
 
 /**
@@ -919,6 +940,7 @@ export type NavigationState =
   | SourcesNavigationState
   | SettingsNavigationState
   | SkillsNavigationState
+  | AgentsNavigationState
   | AutomationsNavigationState
   | ProjectsNavigationState
   | LibraryNavigationState
@@ -940,6 +962,10 @@ export const isSettingsNavigation = (
 export const isSkillsNavigation = (
   state: NavigationState
 ): state is SkillsNavigationState => state.navigator === 'skills'
+
+export const isAgentsNavigation = (
+  state: NavigationState
+): state is AgentsNavigationState => state.navigator === 'agents'
 
 export const isAutomationsNavigation = (
   state: NavigationState

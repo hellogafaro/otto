@@ -1,14 +1,12 @@
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import {
+  addProjectMember,
   createProject,
   getProject,
-  getProjectMembers,
   getProjects,
   removeProjectMember,
-  setProjectMember,
   setProjectStatus,
   updateProject,
-  type MemberRole,
   type ProjectFilter,
   type ProjectStatus,
   type ProjectUpdate,
@@ -24,8 +22,7 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.projects.CREATE,
   RPC_CHANNELS.projects.UPDATE,
   RPC_CHANNELS.projects.SET_STATUS,
-  RPC_CHANNELS.projects.GET_MEMBERS,
-  RPC_CHANNELS.projects.SET_MEMBER,
+  RPC_CHANNELS.projects.ADD_MEMBER,
   RPC_CHANNELS.projects.REMOVE_MEMBER,
 ] as const
 
@@ -53,15 +50,13 @@ export function registerProjectsHandlers(server: RpcServer, deps: HandlerDeps): 
 
   server.handle(RPC_CHANNELS.projects.SET_STATUS, (ctx, id: string, status: ProjectStatus) => setProjectStatus(workspaceOf(ctx), id, status))
 
-  server.handle(RPC_CHANNELS.projects.GET_MEMBERS, (ctx, id: string) => getProjectMembers(workspaceOf(ctx), id))
-
-  server.handle(RPC_CHANNELS.projects.SET_MEMBER, (ctx, id: string, actor: string, role: MemberRole) => {
+  server.handle(RPC_CHANNELS.projects.ADD_MEMBER, (ctx, id: string, actor: string) => {
     const workspaceId = workspaceOf(ctx)
     assertWorkspaceActors(workspaceId, [actor])
-    return setProjectMember(workspaceId, id, actor, role)
+    return addProjectMember(workspaceId, id, actor)
   })
 
   server.handle(RPC_CHANNELS.projects.REMOVE_MEMBER, (ctx, id: string, actor: string) => {
-    removeProjectMember(workspaceOf(ctx), id, actor)
+    return removeProjectMember(workspaceOf(ctx), id, actor)
   })
 }

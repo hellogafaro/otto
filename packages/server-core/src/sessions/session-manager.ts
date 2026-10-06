@@ -6,7 +6,7 @@ import { userActor, userIdOf } from '@otto/shared/actors'
 import { chatNotFound, getChatAudience, type WorkspaceOwners } from './private-chats'
 import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import { createScopedLogger, CONSOLE_LOGGER, type PlatformServices, type Logger } from '@otto/server-core/runtime'
-import { basename, join } from 'path'
+import { join } from 'path'
 import { existsSync } from 'fs'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -68,7 +68,7 @@ import {
   type SessionHeader,
   pickSessionFields,
 } from '@otto/shared/sessions'
-import { serializeHeaderCredential, loadWorkspaceSources, loadAllSources, getSourcesBySlugs, isSourceUsable, type LoadedSource, getSourceCredentialManager, TokenRefreshManager } from '@otto/shared/sources'
+import { serializeHeaderCredential, loadWorkspaceSources, loadAllSources, getSourcesBySlugs, isSourceUsable, getLoadedSources, syncLocalSource, type LoadedSource, getSourceCredentialManager, TokenRefreshManager } from '@otto/shared/sources'
 import { buildDecisionToolCallbacks } from '../decisions/tool-callbacks'
 import { buildServersFromSources as buildServersFromSourcesShared } from '../sources/build-servers'
 import { ConfigWatcher, type ConfigWatcherCallbacks } from '@otto/shared/config'
@@ -82,7 +82,7 @@ import { McpClientPool, McpPoolServer } from '@otto/shared/mcp'
 import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, generateMessageId, type DomainChange } from '@otto/shared/protocol'
 import { messageToStored, storedToMessage, type Message, type StoredAttachment, type ToolDisplayMeta } from '@otto/core/types'
 import { formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrlAsync, getEmojiIcon, resetSummarizationClient, resolveToolIcon, readFileAttachment, selectSpreadMessages, normalizePath } from '@otto/shared/utils'
-import { loadAllSkills, loadSkillBySlug, invalidateSkillsCache } from '@otto/shared/skills'
+import { getLoadedSkills, loadAllSkills, loadSkill, syncLocalSkill } from '@otto/shared/skills'
 import { invalidateContextFileCache } from '@otto/shared/prompts/system'
 import { getToolIconsDir, getMiniModel } from '@otto/shared/config'
 import { getDefaultSummarizationModel } from '@otto/shared/config/models'
@@ -1679,7 +1679,7 @@ export class SessionManager implements ISessionManager {
       ? (async () => {
           const workspaceRoot = managed.workspace.rootPath
           const candidates = collectSuggestionCandidates({
-            skills: loadAllSkills(workspaceRoot, managed.workingDirectory),
+            skills: loadAllSkills(workspaceRoot),
             sources: loadAllSources(workspaceRoot),
             activeSourceSlugs: managed.enabledSourceSlugs ?? [],
           })
@@ -2026,23 +2026,37 @@ export class SessionManager implements ISessionManager {
     sessionLog.info(`Setting up ConfigWatcher for workspace: ${workspaceId} (${workspaceRootPath})`)
 
     const callbacks: ConfigWatcherCallbacks = {
-      onSourcesListChange: async (sources: LoadedSource[]) => {
-        sessionLog.info(`Sources list changed in ${workspaceRootPath} (${sources.length} sources)`)
-        this.broadcastSourcesChanged(workspaceId, sources)
+      onSourcesListChange: async () => {
+        sessionLog.info(`Sources list changed in ${workspaceRootPath}`)
+        this.broadcastSourcesChanged(workspaceId, getLoadedSources(workspaceId))
         await this.reloadSourcesForWorkspace(workspaceRootPath)
       },
       onSourceChange: async (slug: string, source: LoadedSource | null) => {
         sessionLog.info(`Source '${slug}' changed:`, source ? 'updated' : 'deleted')
-        const sources = loadWorkspaceSources(workspaceRootPath)
-        this.broadcastSourcesChanged(workspaceId, sources)
+        this.broadcastSourcesChanged(workspaceId, getLoadedSources(workspaceId))
         await this.reloadSourcesForWorkspace(workspaceRootPath)
       },
       onSourceGuideChange: (sourceSlug: string) => {
         sessionLog.info(`Source guide changed: ${sourceSlug}`)
         // Broadcast the updated sources list so sidebar picks up guide changes
         // Note: Guide changes don't require session source reload (no server changes)
-        const sources = loadWorkspaceSources(workspaceRootPath)
-        this.broadcastSourcesChanged(workspaceId, sources)
+        this.broadcastSourcesChanged(workspaceId, getLoadedSources(workspaceId))
+      },
+      onSourceSync: async (slug) => {
+        // A file in the source's folder changed (an agent edited it, or the folder was materialized): bring the row and
+        // the bundle in step with it, then tell the clients, which read the rows.
+        const status = await syncLocalSource(workspaceId, slug).catch((error) => {
+          sessionLog.warn(`Source '${slug}' could not be synced:`, error)
+          return 'invalid' as const
+        })
+        sessionLog.info(`Source '${slug}' changed: ${status}`)
+        if (status === 'unchanged' || status === 'none' || status === 'invalid') return
+        this.broadcastDomainChanged(workspaceId, 'sources')
+        this.broadcastSourcesChanged(workspaceId, getLoadedSources(workspaceId))
+        // The folder was replaced from the bucket: the watcher saw a swap, not an edit, so the chats' servers reload here.
+        if (status === 'materialized' || status === 'conflict' || status === 'removed') await this.reloadSourcesForWorkspace(workspaceRootPath)
+        // A refused push: the folder was reloaded from the newer source, and the person is told their copy was kept aside.
+        if (status === 'conflict') this.eventSink?.(RPC_CHANNELS.sources.CONFLICT, { to: 'workspace', workspaceId }, workspaceId, slug)
       },
       onAutomationsConfigChange: () => {
         sessionLog.info(`Automations config changed in ${workspaceId}`)
@@ -2067,16 +2081,19 @@ export class SessionManager implements ISessionManager {
         sessionLog.info('Default permissions changed')
         this.broadcastDefaultPermissionsChanged()
       },
-      onSkillsListChange: async (skills) => {
-        sessionLog.info(`Skills list changed in ${workspaceRootPath} (${skills.length} skills)`)
-        this.broadcastSkillsChanged(workspaceId, skills)
-      },
-      onSkillChange: async (slug, skill) => {
-        sessionLog.info(`Skill '${slug}' changed:`, skill ? 'updated' : 'deleted')
-        // Broadcast updated list to UI
-        const { loadAllSkills } = await import('@otto/shared/skills')
-        const skills = loadAllSkills(workspaceRootPath)
-        this.broadcastSkillsChanged(workspaceId, skills)
+      onSkillChange: async (slug) => {
+        // A file in the skill's folder changed (an agent edited it, or the folder was materialized): bring the row and
+        // the bundle in step with it, then tell the clients, which read the rows.
+        const status = await syncLocalSkill(workspaceId, slug).catch((error) => {
+          sessionLog.warn(`Skill '${slug}' could not be synced:`, error)
+          return 'invalid' as const
+        })
+        sessionLog.info(`Skill '${slug}' changed: ${status}`)
+        if (status === 'unchanged' || status === 'none' || status === 'invalid') return
+        this.broadcastDomainChanged(workspaceId, 'skills')
+        this.broadcastSkillsChanged(workspaceId, getLoadedSkills(workspaceId))
+        // A refused push: the folder was reloaded from the newer skill, and the person is told their copy was kept aside.
+        if (status === 'conflict') this.eventSink?.(RPC_CHANNELS.skills.CONFLICT, { to: 'workspace', workspaceId }, workspaceId, slug)
       },
 
       // Session metadata changes (edits to session.jsonl headers).
@@ -2181,7 +2198,7 @@ export class SessionManager implements ISessionManager {
   }
 
   /** Tells the clients of a workspace that its labels, statuses or permissions changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations). */
-  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'statuses' | 'permissions'): void {
+  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'statuses' | 'permissions' | 'skills' | 'sources'): void {
     if (!this.eventSink) return
     this.eventSink(RPC_CHANNELS.domain.CHANGED, { to: 'workspace', workspaceId }, { domain, workspaceId } satisfies DomainChange)
   }
@@ -2671,19 +2688,18 @@ export class SessionManager implements ISessionManager {
     }
 
     try {
-      // Store credentials using existing workspace ID extraction pattern
+      // Store the credential as the source's secret
       const credManager = getCredentialManager()
-      // Extract workspace ID from root path (last segment of path)
-      const wsId = basename(managed.workspace.rootPath) || managed.workspace.id
+      const wsId = managed.workspace.id
 
       if (request.mode === 'basic') {
         // Store value as JSON string {username, password} - credential-manager.ts parses it for basic auth
-        await credManager.set(
+        await credManager.setSourceCredential(
           { type: 'source_basic', workspaceId: wsId, sourceId: request.sourceSlug },
           { value: JSON.stringify({ username: response.username, password: response.password }) }
         )
       } else if (request.mode === 'bearer') {
-        await credManager.set(
+        await credManager.setSourceCredential(
           { type: 'source_bearer', workspaceId: wsId, sourceId: request.sourceSlug },
           { value: response.value! }
         )
@@ -2691,13 +2707,13 @@ export class SessionManager implements ISessionManager {
         // Store multi-header credentials as JSON { "DD-API-KEY": "...", "DD-APPLICATION-KEY": "..." }.
         // A single header matching the source's headerName is stored bare so it never
         // reaches the wire as a serialized object (#1067).
-        await credManager.set(
+        await credManager.setSourceCredential(
           { type: 'source_apikey', workspaceId: wsId, sourceId: request.sourceSlug },
           { value: serializeHeaderCredential(response.headers ?? {}, request.headerName) }
         )
       } else {
         // header or query - both use API key storage
-        await credManager.set(
+        await credManager.setSourceCredential(
           { type: 'source_apikey', workspaceId: wsId, sourceId: request.sourceSlug },
           { value: response.value! }
         )
@@ -5850,7 +5866,6 @@ export class SessionManager implements ISessionManager {
 
       // Invalidate filesystem caches that depend on working directory
       invalidateContextFileCache(path)
-      invalidateSkillsCache()
 
       // Check if we can also update sdkCwd (safe if no SDK interaction yet)
       // Conditions: no messages sent AND no agent created yet (no SDK session)
@@ -6496,14 +6511,14 @@ export class SessionManager implements ISessionManager {
 
     // Pre-enable sources required by invoked skills (Issue #249)
     // This eliminates the two-turn penalty where the agent discovers missing sources at runtime.
-    // Uses targeted loadSkillBySlug() instead of loadAllSkills() to avoid O(N) filesystem scans.
+    // Uses targeted loadSkill() instead of loadAllSkills() to avoid O(N) filesystem scans.
     if (options?.skillSlugs?.length) {
       try {
         const workspaceRoot = managed.workspace.rootPath
 
         const requiredSources = new Set<string>()
         for (const slug of options.skillSlugs) {
-          const skill = loadSkillBySlug(workspaceRoot, slug, managed.workingDirectory)
+          const skill = loadSkill(workspaceRoot, slug)
           if (skill?.metadata.requiredSources) {
             for (const src of skill.metadata.requiredSources) {
               requiredSources.add(src)

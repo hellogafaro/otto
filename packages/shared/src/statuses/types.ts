@@ -19,8 +19,12 @@ import type { EntityColor } from '../colors/types.ts'
  * Status category determines filtering behavior:
  * - 'open': Appears in inbox (listInboxSessions)
  * - 'closed': Appears in archive (listCompletedSessions)
+ * - 'archived': the one fixed `archived` status: archiving a chat moves it there (nobody creates another)
  */
-export type StatusCategory = 'open' | 'closed';
+export type StatusCategory = 'open' | 'closed' | 'archived';
+
+/** The categories a person can give a status. */
+export type EditableStatusCategory = 'open' | 'closed';
 
 /**
  * Status configuration (stored in statuses/config.json)
@@ -41,14 +45,14 @@ export interface StatusConfig {
   /** Category (open = inbox, closed = archive) */
   category: StatusCategory;
 
-  /** If true, cannot be deleted/renamed (todo, done, cancelled) */
+  /** If true, cannot be deleted/renamed (todo, done, cancelled, archived): the slug is in `FIXED_STATUS_IDS` */
   isFixed: boolean;
 
   /** If true, the status new chats get: exactly one per workspace (todo unless another is picked); cannot be deleted */
   isDefault: boolean;
 
   /** Display order in UI (lower = first) */
-  order: number;
+  position: number;
 }
 
 /**
@@ -58,8 +62,8 @@ export interface WorkspaceStatusConfig {
   /** Schema version for migrations (start at 1) */
   version: number;
 
-  /** Array of status configurations */
-  statuses: StatusConfig[];
+  /** Array of status configurations (the old `order` is today's `position`) */
+  statuses: Array<Omit<StatusConfig, 'position'> & { order: number }>;
 
   /** Default status ID for new sessions (typically 'todo') */
   defaultStatusId: string;
@@ -72,7 +76,7 @@ export interface CreateStatusInput {
   label: string;
   color?: EntityColor;
   icon?: string; // Emoji or image data URL
-  category: StatusCategory;
+  category: EditableStatusCategory;
 }
 
 /**
@@ -82,5 +86,5 @@ export interface UpdateStatusInput {
   label?: string;
   color?: EntityColor;
   icon?: string; // Emoji or image data URL
-  category?: StatusCategory;
+  category?: EditableStatusCategory;
 }

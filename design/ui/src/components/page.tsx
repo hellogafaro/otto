@@ -29,12 +29,11 @@ import { cn } from "cn"
 // the title row and, on an item's page, its description (the lead line, 4px
 // under the title): one block, so the gap comes after both. The first block
 // (`data-content-start`) is where the sidecar starts: `PageFrame` measures it.
-// While the composer bar shows (`--composer-clearance`, 56px: the bar's 40,
-// 8px under it and 8px over it, set by `PageFrame`), a blocks page ends 24px
-// above the bar (72px of padding instead of 40) and its bottom fade grows to
-// 80px, so content softens as it nears the bar; a centerpiece's card ends 8px
-// above the bar (as the chat's card ends 8px above its composer). Nothing is
-// ever under the bar at the end of a page.
+// While the composer bar shows (`--composer-clearance`, 72px: the bar's 40,
+// 8px under it and `--composer-gap` 24px over it, set by `PageFrame`), a page
+// (blocks or centerpiece) ends 24px above the bar and its bottom fade grows to
+// 80px, so content softens as it nears the bar. Nothing is ever under the bar
+// at the end of a page.
 function PageColumn({
   fill = false,
   className,
@@ -52,7 +51,7 @@ function PageColumn({
         "flex w-full flex-col gap-10 md:px-6",
         fill
           ? "h-full min-h-0 pb-(--composer-clearance)"
-          : "pb-[max(2.5rem,calc(var(--composer-clearance,0px)+1rem))]",
+          : "pb-[max(2.5rem,var(--composer-clearance,0px))]",
         className
       )}
       {...props}
@@ -68,7 +67,7 @@ function PageColumn({
   return fill ? (
     column
   ) : (
-    <PageScroll className="[--scroll-fade-b-size:calc(var(--composer-clearance)+1.5rem)]">
+    <PageScroll className="[--scroll-fade-b-size:calc(var(--composer-clearance)+0.5rem)]">
       {column}
     </PageScroll>
   )
@@ -167,17 +166,23 @@ function PageCard({ className, ...props }: React.ComponentProps<"div">) {
 // inside. Flush (no padding, Inbox's flat list) its rows run to the line and
 // it clips them (`overflow-hidden`), so a fill at the first or last row
 // follows the rounded corner. A grouped list (`ListGroup`) floats in it with
-// padding (the page's `className`, see DESIGN.md PageWrap). Pages of bigger
+// `padded` (`--wrap-pad`, 16px: the same padding as the chat's wrapper; 1rem
+// outside the frame). Pages of bigger
 // cards and structured sections (settings, overviews, galleries, details) never
 // use it: their cards sit on the frame. An empty state stays centered on the
 // frame, outside it.
-function PageWrap({ className, ...props }: React.ComponentProps<"div">) {
+function PageWrap({
+  padded,
+  className,
+  ...props
+}: React.ComponentProps<"div"> & { padded?: boolean }) {
   return (
     <div
       data-slot="page-wrap"
       data-content-start=""
       className={cn(
-        "overflow-hidden rounded-2xl border border-(--card-ring)",
+        "overflow-hidden rounded-(--wrap-radius,var(--radius-2xl)) border border-(--card-ring)",
+        padded && "p-(--wrap-pad,1rem)",
         className
       )}
       {...props}

@@ -1,11 +1,11 @@
-import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { isActor } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { isEntity } from '../entities.ts'
 import { domainError } from '../utils/errors.ts'
 import { notifications } from './schema.ts'
-import type { Notification, NotificationStatus, NotificationType } from './types.ts'
+import type { Notification, NotificationType } from './types.ts'
 
 /**
  * Notifications: the inbox. One row per recipient, and every row is a mention of that person, a sentence:
@@ -13,11 +13,10 @@ import type { Notification, NotificationStatus, NotificationType } from './types
  * holds the text and what it is on) or `assigned` (`entity` is the task); new verbs are one line in
  * `NOTIFICATION_TYPES`.
  *
- *   notifications(id, userId, workspaceId, entity, type, createdBy, status, createdAt)   (schema.ts)
+ *   notifications(id, userId, workspaceId, entity, type, createdBy, readAt, createdAt)   (schema.ts)
  *
  * The comments and tasks domains call `createNotification`, in their own transaction when they have one.
- * The text is never copied: the inbox reads the comment by its id. `status` is 'unread', 'read'
- * (or 'pending', reserved for email and push); "clear" deletes the row. Every read and write takes the
+ * The text is never copied: the inbox reads the comment by its id. `readAt` is null while unread; "clear" deletes the row. Every read and write takes the
  * user and the workspace, so one user never touches another's rows. Functions take a `db` or `tx` last.
  */
 
@@ -28,7 +27,7 @@ type Row = typeof notifications.$inferSelect
 const toNotification = (row: Row): Notification => ({
   id: row.id,
   type: row.type,
-  status: row.status,
+  readAt: row.readAt?.getTime() ?? null,
   createdAt: row.createdAt.getTime(),
   createdBy: row.createdBy,
   entity: row.entity,
@@ -57,12 +56,12 @@ export function createNotification(
       entity: input.entity,
       type: input.type,
       createdBy: input.createdBy,
-      status: 'unread',
+      readAt: null,
       createdAt: now,
     })
     .onConflictDoUpdate({
       target: [notifications.userId, notifications.entity, notifications.type],
-      set: { status: 'unread', createdAt: now, createdBy: input.createdBy },
+      set: { readAt: null, createdAt: now, createdBy: input.createdBy },
     })
     .run()
 }
@@ -86,12 +85,12 @@ export function updateNotificationStatus(
   userId: string,
   workspaceId: string,
   ids: string[] | 'all',
-  status: Exclude<NotificationStatus, 'pending'>,
+  status: 'read' | 'unread',
   db: Db | Tx = initDb(),
 ): void {
   if (status !== 'read' && status !== 'unread') throw domainError('invalid', `${String(status)} is not a status you can set`)
   if (ids !== 'all' && ids.length === 0) return
-  db.update(notifications).set({ status }).where(mine(userId, workspaceId, ids)).run()
+  db.update(notifications).set({ readAt: status === 'read' ? new Date() : null }).where(mine(userId, workspaceId, ids)).run()
 }
 
 /** Clears (deletes) the user's notifications: some ids, or all of the workspace's. */
@@ -109,7 +108,7 @@ export function getUnreadCount(userId: string, workspaceId: string, db: Db | Tx 
   const row = db
     .select({ count: count() })
     .from(notifications)
-    .where(and(mine(userId, workspaceId, 'all'), eq(notifications.status, 'unread')))
+    .where(and(mine(userId, workspaceId, 'all'), isNull(notifications.readAt)))
     .get()
   return row?.count ?? 0
 }

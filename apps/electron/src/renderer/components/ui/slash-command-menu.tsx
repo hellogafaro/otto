@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Check } from 'lucide-react'
 import { Icon_Folder } from '@otto/ui'
 import { cn } from '@/lib/utils'
+import { placeMenuAbove } from '@/lib/input-viewport'
 import { MENU_LABEL, MENU_LIST, MENU_ROW, MENU_ROW_HIGHLIGHT, MENU_SEPARATOR, MENU_SURFACE } from './menu-styles'
 import { PERMISSION_MODE_CONFIG, type PermissionMode } from '@otto/shared/agent/modes'
 
@@ -202,10 +203,8 @@ export function InlineSlashCommand({
   // Hide if no results or not open
   if (!open || flatItems.length === 0) return null
 
-  // Calculate bottom position from window height (menu appears above cursor)
-  const bottomPosition = typeof window !== 'undefined'
-    ? window.innerHeight - Math.round(position.y) + 8
-    : 0
+  // Above the cursor, on screen, in the zoomed root's pixels
+  const place = placeMenuAbove(position, 260)
 
   // Track current item index across all sections
   let currentItemIndex = 0
@@ -215,7 +214,7 @@ export function InlineSlashCommand({
       ref={menuRef}
       data-inline-menu
       className={cn('fixed z-dropdown', MENU_SURFACE, className)}
-      style={{ left: Math.round(position.x) - 10, bottom: bottomPosition, minWidth: 220, maxWidth: 260 }}
+      style={{ left: place.left, bottom: place.bottom, minWidth: Math.min(220, place.maxWidth), maxWidth: place.maxWidth }}
     >
       <div ref={listRef} className={MENU_LIST}>
         {filteredSections.map((section, sectionIndex) => (

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { actorColorIndex, initialsOf, isAgentActor } from '@/lib/actors'
 
 // The status tokens' hues, softened to a tint: initials stay in the foreground color for contrast in both themes.
-const TINTS = ['bg-status-doing/20', 'bg-status-review/25', 'bg-status-done/20', 'bg-status-todo/20']
+export const TINTS = ['bg-status-doing/20', 'bg-status-review/25', 'bg-status-done/20', 'bg-status-todo/20']
 
 export function ActorAvatar({
   actor,

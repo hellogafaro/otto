@@ -106,19 +106,10 @@ export function normalizeLibrarySearch(search: Record<string, unknown> = {}): Li
   return out
 }
 
-/** Where a skill is loaded from: every workspace (`~/.agents/skills`), this workspace, or the open chat's project. */
-export const SKILL_SCOPES = ['global', 'workspace', 'project'] as const
-export type SkillScope = (typeof SKILL_SCOPES)[number]
+/** `/{ws}/settings/skills[/slug]`: no search (every skill is the workspace's; an old `?scope=` is dropped). */
+export type SkillsSearch = Record<never, never>
 
-/** `/{ws}/settings/skills[/slug]`: one scope. */
-export interface SkillsSearch {
-  scope?: SkillScope
-}
-
-export function normalizeSkillsSearch(search: Record<string, unknown> = {}): SkillsSearch {
-  const scope = oneOf(SKILL_SCOPES, search.scope)
-  return scope ? { scope } : {}
-}
+export const normalizeSkillsSearch = (_search?: Record<string, unknown>): SkillsSearch => ({})
 
 /** `/{ws}/inbox`: `unread=1` keeps only the unread notifications. */
 export interface InboxSearch {

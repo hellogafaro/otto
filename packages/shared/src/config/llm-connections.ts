@@ -206,9 +206,6 @@ export interface LlmConnection {
 
   /** Timestamp when connection was created */
   createdAt: number;
-
-  /** Timestamp when connection was last used */
-  lastUsedAt?: number;
 }
 
 /**
@@ -1115,7 +1112,6 @@ export function migrateLlmConnection(legacy: {
   models?: ModelDefinition[];
   defaultModel?: string;
   createdAt: number;
-  lastUsedAt?: number;
 }): LlmConnection {
   const providerType = migrateConnectionType(legacy.type);
   const hasCustomEndpoint = !!legacy.baseUrl && legacy.type !== 'anthropic';
@@ -1131,6 +1127,5 @@ export function migrateLlmConnection(legacy: {
     models: legacy.models,
     defaultModel: legacy.defaultModel,
     createdAt: legacy.createdAt,
-    lastUsedAt: legacy.lastUsedAt,
   };
 }

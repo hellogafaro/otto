@@ -39,7 +39,9 @@ import type { Workspace } from '../config/storage.ts';
 
 // Event adapter
 import { PiEventAdapter } from './backend/pi/event-adapter.ts';
-import type { PiCompactResult, PiLargeResultGateRequest, PiLargeResultGateResponse } from './backend/pi/protocol.ts';
+import type { PiCompactResult, PiComputerExecRequest, PiLargeResultGateRequest, PiLargeResultGateResponse } from './backend/pi/protocol.ts';
+import { createComputerExecHost } from './backend/pi/computer-exec.ts';
+import type { Computer } from '../computer/types.ts';
 import { askLargeResultSummaryGate } from '../utils/large-response.ts';
 import { readLines } from '../utils/jsonl-lines.ts';
 import { EventQueue } from './backend/event-queue.ts';
@@ -187,6 +189,9 @@ export class PiAgent extends BaseAgent {
   private abortReason?: AbortReason;
   /** Aborted when the current turn stops; tool checks started in the turn watch it. */
   private turnAbort = new AbortController();
+  /** Where this turn's built-in tools run (ChatOptions.computer); null = on the host. */
+  private turnComputer: Computer | null = null;
+  private readonly computerExec = createComputerExecHost((msg) => this.send({ ...msg }));
 
   // Event adapter
   private adapter: PiEventAdapter;
@@ -946,6 +951,15 @@ export class PiAgent extends BaseAgent {
       case 'large_result_gate_request':
         // Subprocess asks whether a large tool result needs a summary (toggle `largeResults`)
         void this.handleLargeResultGateRequest(msg as unknown as PiLargeResultGateRequest);
+        break;
+
+      case 'computer_exec':
+        // A built-in tool's command for this turn's computer
+        this.computerExec.exec(msg as unknown as PiComputerExecRequest, this.turnComputer);
+        break;
+
+      case 'computer_exec_kill':
+        this.computerExec.kill(msg.id as string);
         break;
 
       case 'tool_execute_request':
@@ -1777,6 +1791,7 @@ export class PiAgent extends BaseAgent {
     this.resetSubprocessErrorDedup();
     this.subprocessReady = null;
     this.subprocessReadyResolve = null;
+    this.computerExec.killAll();
 
     // If we were processing, emit error + complete
     if (this._isProcessing) {
@@ -2008,6 +2023,7 @@ export class PiAgent extends BaseAgent {
     this._isProcessing = true;
     this.abortReason = undefined;
     this.turnAbort = new AbortController();
+    this.turnComputer = options?.computer ?? null;
     this.eventQueue.reset();
     this.adapter.startTurn();
 
@@ -2190,6 +2206,7 @@ export class PiAgent extends BaseAgent {
         message: userMessage,
         systemPrompt: fullSystemPrompt,
         images: images.length > 0 ? images : undefined,
+        ...(this.turnComputer ? { computer: true } : {}),
       });
 
       // Yield events as they arrive. The source-activation drain controller
@@ -2255,6 +2272,7 @@ export class PiAgent extends BaseAgent {
       yield { type: 'complete' };
     } finally {
       this._isProcessing = false;
+      this.turnComputer = null;
       if (turnThinkingOverride) {
         try {
           this.send({ type: 'set_thinking_level', level: this._thinkingLevel });

@@ -64,7 +64,7 @@ test('entities do not see each other, and getSettings lists the keys of one kind
   expect(getSetting(userEntity(B), 'colorTheme', db)).toBe('default')
   expect(getSetting(workspaceEntity('w1'), 'localMcpServers', db)).toEqual({ enabled: false })
   expect(getSetting(workspaceEntity('w2'), 'localMcpServers', db)).toEqual({ enabled: true })
-  expect(getSettings(workspaceEntity('w2'), db)).toEqual({ defaults: { model: 'm' }, localMcpServers: { enabled: true }, permissions: {} })
+  expect(getSettings(workspaceEntity('w2'), db)).toEqual({ defaults: { model: 'm' }, localMcpServers: { enabled: true }, permissions: {}, instructions: '' })
   const mine = getSettings(userEntity(A), db)
   expect(mine.colorTheme).toBe('nord')
   expect(mine.notificationsEnabled).toBe(true)
@@ -74,8 +74,8 @@ test('entities do not see each other, and getSettings lists the keys of one kind
 
 test('a stored value that no longer validates reads as the default', async () => {
   const db = await setup()
-  db.insert(settings).values({ entity: userEntity(A), key: 'sendMessageKey', value: '"tab"', updatedAt: new Date() }).run()
-  db.insert(settings).values({ entity: userEntity(A), key: 'colorTheme', value: '{broken', updatedAt: new Date() }).run()
+  db.insert(settings).values({ entity: userEntity(A), key: 'sendMessageKey', value: '"tab"' }).run()
+  db.insert(settings).values({ entity: userEntity(A), key: 'colorTheme', value: '{broken' }).run()
   expect(getSetting(userEntity(A), 'sendMessageKey', db)).toBe('enter')
   expect(getSetting(userEntity(A), 'colorTheme', db)).toBe('default')
 })

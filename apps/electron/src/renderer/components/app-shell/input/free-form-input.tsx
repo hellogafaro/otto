@@ -29,7 +29,7 @@ import { RichTextInput, type RichTextInputHandle } from '@/components/ui/rich-te
 import { shouldHandleScopedInputEvent, shouldRecallPromptOnArrowUp } from './input-event-guards'
 import { clearPendingFocusForSession, consumePendingFocusForSession } from './focus-input-events'
 import { appendRestoredInput } from '@/lib/input-text'
-import { parseMentions } from '@/lib/mentions'
+import { parseMentions, startsWithEntityMention } from '@/lib/mentions'
 import { navigate, routes } from '@/lib/navigate'
 import { hasOpenOverlay } from '@/lib/overlay-detection'
 import { isMac } from '@/lib/platform'
@@ -429,11 +429,12 @@ export function FreeFormInput({ context, handleRef }: {
             skills={commands.skills}
             sources={commands.sources}
             workspaceId={commands.workspaceSlug}
+            entityLabel={commands.entityLabel}
             onChange={setText}
             onInput={(value, cursor) => {
               commands.onInput(value, cursor)
               // Capitalise the first letter (not a command, mention or tag) and type arrows and dashes.
-              if (settings.capitalise && value && !'/@#'.includes(value[0]!) && value[0] !== value[0]!.toUpperCase()) {
+              if (settings.capitalise && value && !'/@#'.includes(value[0]!) && !startsWithEntityMention(value) && value[0] !== value[0]!.toUpperCase()) {
                 inputRef.current?.setSelectionRange(cursor, cursor)
                 setText(value[0]!.toUpperCase() + value.slice(1))
                 return

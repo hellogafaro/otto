@@ -13,17 +13,17 @@ export const workspaces = sqliteTable('workspaces', {
   slug: text('slug').notNull().unique(),
   logo: text('logo'),
   metadata: text('metadata'),
-  createdAt: integer('createdAt', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 })
 
 export const workspacesMembers = sqliteTable(
   'workspaces_members',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspaceId').notNull(),
-    userId: text('userId').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    userId: text('user_id').notNull(),
     role: text('role').notNull().default('member'),
-    createdAt: integer('createdAt', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [uniqueIndex('workspaces_members_workspace_user').on(table.workspaceId, table.userId), index('workspaces_members_user').on(table.userId)],
 )
@@ -33,13 +33,13 @@ export const workspacesInvitations = sqliteTable(
   'workspaces_invitations',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspaceId').notNull(),
+    workspaceId: text('workspace_id').notNull(),
     email: text('email').notNull(),
     role: text('role'),
     status: text('status').notNull().default('pending'),
-    inviterId: text('inviterId').notNull(),
-    expiresAt: integer('expiresAt', { mode: 'timestamp_ms' }).notNull(),
-    createdAt: integer('createdAt', { mode: 'timestamp_ms' }).notNull(),
+    inviterId: text('inviter_id').notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [index('workspaces_invitations_email').on(table.email)],
 )

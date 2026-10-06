@@ -30,7 +30,7 @@ import {
 } from './handlers/source-oauth.ts';
 import { handleCredentialPrompt } from './handlers/credential-prompt.ts';
 import { handleUpdatePreferences } from './handlers/update-preferences.ts';
-import { handleLabelsEdit, handleStatusesEdit, handlePermissionsEdit } from './handlers/workspace-config.ts';
+import { handleAgentsEdit, handleLabelsEdit, handleStatusesEdit, handlePermissionsEdit } from './handlers/workspace-config.ts';
 import { handleTransformData } from './handlers/transform-data.ts';
 import { handleScriptSandbox } from './handlers/script-sandbox.ts';
 import { handleRenderTemplate } from './handlers/render-template.ts';
@@ -85,6 +85,19 @@ export const StatusesEditSchema = z.object({
 export const PermissionsEditSchema = z.object({
   action: z.enum(['get', 'update']).describe('get: the workspace\'s Explore-mode rules. update: replaces all of them with rules.'),
   rules: z.record(z.string(), z.unknown()).optional().describe('The whole rule set for update: { allowedBashPatterns?, allowedMcpPatterns?, allowedApiEndpoints?, allowedWritePaths?, blockedTools?, blockedCommandHints? } (see the permissions doc)'),
+});
+
+export const AgentsEditSchema = z.object({
+  action: z.enum(['list', 'get', 'create', 'update', 'delete']).describe('list: the workspace\'s agents (without instructions). get: one agent in full. create: needs title. update/delete: need id.'),
+  id: z.string().optional().describe('The agent id (get, update, delete)'),
+  title: z.string().optional().describe('The agent\'s name, at most 80 characters (create, update)'),
+  instructions: z.string().optional().describe('What this agent should always do or know, at most 20,000 characters; added after the workspace\'s instructions. Replaces the old text on update.'),
+  provider: z.string().optional().describe('Which provider\'s connection runs it (create: the creator\'s default provider when left out)'),
+  model: z.string().nullable().optional().describe('A model id; null or "" = the connection\'s default'),
+  thinkingLevel: z.enum(['off', 'low', 'medium', 'high', 'xhigh', 'max']).optional(),
+  skills: z.array(z.string()).optional().describe('Skill ids it may use; [] = every skill. Replaces the list on update.'),
+  sources: z.array(z.string()).optional().describe('Source ids it may use; [] = every source. Replaces the list on update.'),
+  avatar: z.string().optional().describe('Empty = a generated avatar; or "library:<id>" of an uploaded image'),
 });
 
 export const SkillValidateSchema = z.object({
@@ -394,6 +407,7 @@ The user will see a secure input UI with appropriate fields based on the auth mo
 
   statuses_edit: `Read or change the workspace's chat statuses. Actions: list, create, update, delete, reorder, set_default. Statuses are database rows, not files: do not edit statuses/config.json. Only workspace owners can change them. The statuses todo, done and cancelled are fixed; the default one cannot be deleted; deleting a status moves its chats to todo.`,
 
+  agents_edit: `Read, create, change or delete the workspace's agents (each has a name, instructions, a provider and model, and the skills and sources it may use). Actions: list, get, create, update, delete. Agents are database rows. Any member can create one; only an agent's creator or a workspace owner can update or delete it. The last agent of a workspace cannot be deleted; chats of a deleted agent move to the default agent (the oldest).`,
   permissions_edit: `Read or change the workspace's Explore-mode permission rules (extra allowed bash patterns, MCP patterns, API endpoints, write paths, blocked tools, command hints). Actions: get, update (replaces the whole rule set). These rules are stored in the database, not in permissions.json; a source's own rules stay in its permissions.json. Only workspace owners can change them.`,
 
   transform_data: `Transform data files using a script and write structured output for datatable/spreadsheet blocks, or extract HTML content for html-preview blocks.
@@ -637,6 +651,7 @@ export const SESSION_TOOL_DEFS: SessionToolDef[] = [
   { name: 'source_credential_prompt', description: TOOL_DESCRIPTIONS.source_credential_prompt, inputSchema: CredentialPromptSchema, executionMode: 'registry', safeMode: 'block', handler: handleCredentialPrompt },
   { name: 'labels_edit', description: TOOL_DESCRIPTIONS.labels_edit, inputSchema: LabelsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleLabelsEdit },
   { name: 'statuses_edit', description: TOOL_DESCRIPTIONS.statuses_edit, inputSchema: StatusesEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleStatusesEdit },
+  { name: 'agents_edit', description: TOOL_DESCRIPTIONS.agents_edit, inputSchema: AgentsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleAgentsEdit },
   { name: 'permissions_edit', description: TOOL_DESCRIPTIONS.permissions_edit, inputSchema: PermissionsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handlePermissionsEdit },
   { name: 'update_user_preferences', description: TOOL_DESCRIPTIONS.update_user_preferences, inputSchema: UpdatePreferencesSchema, executionMode: 'registry', safeMode: 'block', handler: handleUpdatePreferences },
   { name: 'transform_data', description: TOOL_DESCRIPTIONS.transform_data, inputSchema: TransformDataSchema, executionMode: 'registry', safeMode: 'allow', handler: handleTransformData },

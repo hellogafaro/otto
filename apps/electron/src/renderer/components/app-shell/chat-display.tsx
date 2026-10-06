@@ -1448,7 +1448,12 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     const grid = zoneRef.current?.closest<HTMLElement>('[data-slot=page-body]')?.parentElement
     if (!grid) return
     grid.style.setProperty('--wrap-inset', 'var(--content-inset)')
-    return () => { grid.style.removeProperty('--wrap-inset') }
+    // The composer sits that inset inside the wrapper: its corner is the nested radius (inner = outer - inset).
+    grid.style.setProperty('--composer-radius', 'var(--wrap-inner-radius)')
+    return () => {
+      grid.style.removeProperty('--wrap-inset')
+      grid.style.removeProperty('--composer-radius')
+    }
   }, [shellComposer])
 
   // Compute if we should skip scroll-to-bottom (when search is active on session switch)
@@ -1481,7 +1486,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                 compactMode ? "px-3 py-4 space-y-2" : [CHAT_LAYOUT.containerPaddingX, CHAT_LAYOUT.containerPaddingY, CHAT_LAYOUT.messageSpacing],
                 // The wrapper's padding is the transcript's inset (line, padding, content start): its top is the same padding less the 16px a turn row (`pt-4`) carries itself, so the first bubble starts on it (the top fade is as tall); none on the sides;
                 // the composer floats inside the wrapper, so the transcript ends a padding above it.
-                shellComposer && "px-0 pt-[calc(var(--wrap-pad)-1rem)] pb-[calc(var(--composer-lift,0px)+var(--wrap-pad))]"
+                shellComposer && "px-0 pt-[calc(var(--wrap-pad)-1rem)] pb-[calc(var(--composer-lift,0px)+var(--composer-gap))]"
               )}>
                 {/* Session-level AnimatePresence: Prevents layout jump when switching sessions */}
                 <AnimatePresence mode={compactMode ? "sync" : "wait"} initial={false}>

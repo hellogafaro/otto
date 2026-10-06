@@ -58,7 +58,7 @@ export function registerResourcesHandlers(server: RpcServer, deps: HandlerDeps):
         clearSourceCredentials: async (wsId: string, sourceSlug: string) => {
           for (const credType of SOURCE_CREDENTIAL_TYPES) {
             try {
-              await credManager.delete({
+              credManager.deleteSourceCredential({
                 type: credType,
                 workspaceId: wsId,
                 sourceId: sourceSlug,

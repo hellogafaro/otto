@@ -23,6 +23,7 @@ import type { Workspace } from '../../config/storage.ts';
 import type { SessionConfig as Session } from '../../sessions/storage.ts';
 import type { SourceManager } from '../core/source-manager.ts';
 import type { GuardedModeCheck } from '../core/guarded-mode.ts';
+import type { Computer } from '../../computer/types.ts';
 
 // Import AbortReason and RecoveryMessage from core module (single source of truth)
 import { AbortReason, type RecoveryMessage } from '../core/index.ts';
@@ -284,6 +285,8 @@ export interface ChatOptions {
    * part of the stored message or of the resend after a source activation.
    */
   turnContext?: string;
+  /** Where this turn's built-in tools run (Pi only); absent = on the host, as today. */
+  computer?: Computer;
 }
 
 /**

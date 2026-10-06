@@ -12,8 +12,11 @@ import { NewLink, ResourceList } from '@/components/resources/resource-list'
 import type { Resource } from '../../../shared/types'
 import { ProjectMembers } from './project-members'
 
-export function ProjectOverview({ projectId, description, onDescription, onBlur, resources, onResources }: {
+export function ProjectOverview({ projectId, members, onAddMember, onRemoveMember, description, onDescription, onBlur, resources, onResources }: {
   projectId: string
+  members: string[]
+  onAddMember: (actor: string) => Promise<{ ok: boolean }>
+  onRemoveMember: (actor: string) => Promise<{ ok: boolean }>
   description: string
   onDescription: (markdown: string) => void
   /** Save the description now (it left the editor). */
@@ -36,7 +39,7 @@ export function ProjectOverview({ projectId, description, onDescription, onBlur,
           </PageCard>
         )}
       </PageSection>
-      <ProjectMembers projectId={projectId} />
+      <ProjectMembers members={members} onAdd={onAddMember} onRemove={onRemoveMember} />
       <CommentThread entity={`project:${projectId}`} />
     </div>
   )

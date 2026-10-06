@@ -71,7 +71,6 @@ test('imports the connections and their credentials of the old files', async () 
     hasSecret: true,
   })
   expect(store.getConnection('claude-max')?.createdAt).toEqual(new Date(1000))
-  expect(store.getConnection('claude-max')?.lastUsedAt).toEqual(new Date(2000))
   expect(store.getConnection('openrouter')?.config).toEqual({ piAuthProvider: 'openrouter', midStreamBehavior: 'queue' })
   expect(store.getConnection('ollama')).toMatchObject({ type: 'pi_compat', baseUrl: 'http://localhost:11434/v1', config: { customEndpoint: { api: 'openai-completions' } }, hasSecret: false })
 

@@ -1,7 +1,11 @@
+import { canEditAgent, getAgent } from '@otto/shared/agents'
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
 import { INSTALL_SCOPE, getConnection, narrowContext, userScope, workspaceScope } from '@otto/shared/connections'
+import { userActor } from '@otto/shared/actors'
 import { RPC_CHANNELS as C } from '@otto/shared/protocol'
 import { CATALOGUE, getEntityKind, userEntity } from '@otto/shared/settings'
+import { getSkill } from '@otto/shared/skills'
+import { getSource } from '@otto/shared/sources'
 import { domainError } from '@otto/shared/utils'
 import { getFirstUser } from '@otto/shared/users/queries'
 import { getMemberRole, type WorkspaceRole } from '@otto/shared/workspaces'
@@ -51,6 +55,28 @@ export const OWNER_CHANNELS = new Set<string>([
   C.labels.CREATE,
   C.labels.DELETE,
   C.statuses.REORDER,
+])
+
+/**
+ * Channels that change one agent, naming it by id in their first argument: its creator or an owner of the connection's
+ * workspace may (`canEditAgent`); every other member is refused. Any member lists, gets and creates agents. An id that is
+ * no agent of that workspace is let through: the handler answers `not_found`, to everyone alike.
+ */
+export const AGENT_WRITE_CHANNELS = new Set<string>([C.agents.UPDATE, C.agents.DELETE])
+
+/** Channels that change one skill: `(workspace, slug)`. Members read skills; the skill's creator or an owner of the workspace writes. */
+export const SKILL_WRITE_CHANNELS = new Set<string>([C.skills.DELETE])
+
+/**
+ * Channels that change one source or its credential: its creator or an owner of the workspace may; any member reads and
+ * creates sources. A value gives the workspace and the slug the call names: the first two arguments, or for the sign-in
+ * channels (`oauth:start`, `oauth:revoke`) the slug in the first argument and the connection's workspace.
+ */
+export const SOURCE_WRITE_CHANNELS = new Map<string, (args: unknown[], workspaceRef: string | null) => [unknown, unknown]>([
+  [C.sources.DELETE, (args) => [args[0], args[1]]],
+  [C.sources.SAVE_CREDENTIALS, (args) => [args[0], args[1]]],
+  [C.oauth.START, (args, workspaceRef) => [workspaceRef, (args[0] as { sourceSlug?: unknown } | undefined)?.sourceSlug]],
+  [C.oauth.REVOKE, (args, workspaceRef) => [workspaceRef, (args[0] as { sourceSlug?: unknown } | undefined)?.sourceSlug]],
 ])
 
 /**
@@ -119,6 +145,22 @@ export function assertOwner(userId: string | null, ref: string): void {
 
 export const isInstanceOwner = (userId: string): boolean => getFirstUser()?.id === userId
 
+/** Throws `forbidden` unless the caller made the agent (`id`) or owns its workspace (the connection's, as the handler resolves it). */
+function assertAgentWrite(userId: string, workspaceRef: string | null, id: unknown): void {
+  const workspaceId = workspaceRef != null ? getWorkspaceByNameOrId(workspaceRef)?.id : undefined
+  const agent = workspaceId && typeof id === 'string' ? getAgent(workspaceId, id) : undefined
+  if (workspaceId && agent && !canEditAgent(workspaceId, agent, userId)) throw forbidden('Only the creator of this agent or an owner of this workspace can do that')
+}
+
+/** Throws `forbidden` unless the caller made the source (`slug`) or owns its workspace. A source that is not there is the handler's `not_found`. */
+function assertSourceWrite(userId: string, workspaceRef: unknown, slug: unknown): void {
+  const workspaceId = typeof workspaceRef === 'string' ? getWorkspaceByNameOrId(workspaceRef)?.id : undefined
+  const source = workspaceId && typeof slug === 'string' ? getSource(workspaceId, slug) : undefined
+  if (workspaceId && source && source.createdBy !== userActor(userId) && getMemberRole(workspaceId, userId) !== 'owner') {
+    throw forbidden('Only the creator of this source or an owner of this workspace can do that')
+  }
+}
+
 /**
  * Throws `forbidden` unless the caller may change the connection this argument names (see `CONNECTION_WRITE_CHANNELS`).
  * Whose it is follows its scope: a person's own (`user:<id>`) only that person (a lookup never finds another's, the
@@ -170,6 +212,9 @@ export function authorize(ctx: { userId: string | null; workspaceId: string | nu
     if (INSTANCE_OWNER_CHANNELS.has(channel) && !isInstanceOwner(userId)) throw forbidden('Only the owner of this server can do that')
     const mode = SETTING_CHANNELS.get(channel)
     if (mode) assertSettingAccess(userId, args[0], args[1], mode)
+    if (AGENT_WRITE_CHANNELS.has(channel)) assertAgentWrite(userId, ctx.workspaceId, args[0])
+    const sourceArgs = SOURCE_WRITE_CHANNELS.get(channel)?.(args, ctx.workspaceId)
+    if (sourceArgs) assertSourceWrite(userId, ...sourceArgs)
     const connectionArg = CONNECTION_WRITE_CHANNELS.get(channel)
     if (connectionArg !== undefined) assertConnectionWrite({ userId, workspaceId: ctx.workspaceId }, args[connectionArg])
   }
@@ -182,4 +227,9 @@ export function authorize(ctx: { userId: string | null; workspaceId: string | nu
   const role = typeof ref === 'string' ? getRoleIn(userId, ref) : null
   if (!role) throw forbidden('You are not a member of this workspace')
   if (OWNER_CHANNELS.has(channel) && role !== 'owner') throw forbidden('Only an owner of this workspace can do that')
+  if (SKILL_WRITE_CHANNELS.has(channel) && role !== 'owner') {
+    // A skill that is not there is the handler's `not_found`, not a refusal.
+    const skill = typeof ref === 'string' && typeof args[1] === 'string' ? getSkill(getWorkspaceByNameOrId(ref)?.id ?? ref, args[1]) : undefined
+    if (skill && skill.createdBy !== userActor(userId)) throw forbidden('Only the creator of this skill or an owner of this workspace can do that')
+  }
 }

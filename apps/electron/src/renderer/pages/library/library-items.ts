@@ -33,32 +33,32 @@ export function matchesCreatedBy(item: LibraryItem, createdBy: string | undefine
 /** What the gallery shows: the open folder's items of the tab and creator, folders first, then files, then documents, newest first. */
 export function getVisibleItems(items: LibraryItem[], view: LibraryView): LibraryItem[] {
   return items
-    .filter((item) => (item.folderId ?? null) === view.folder)
+    .filter((item) => (item.parentId ?? null) === view.folder)
     .filter((item) => view.tab === 'all' || item.type === 'folder' || item.type === (view.tab === 'files' ? 'file' : 'document'))
     .filter((item) => matchesCreatedBy(item, view.createdBy))
     .sort((a, b) => KIND_ORDER[a.type] - KIND_ORDER[b.type] || b.updatedAt - a.updatedAt)
 }
 
-/** The folders from the root down to `folderId` (itself last); empty for the root or a folder that is not there. */
-export function getFolderPath(items: LibraryItem[], folderId: string | null): LibraryItem[] {
+/** The folders from the root down to `parentId` (itself last); empty for the root or a folder that is not there. */
+export function getFolderPath(items: LibraryItem[], parentId: string | null): LibraryItem[] {
   const byId = new Map(items.filter((item) => item.type === 'folder').map((item) => [item.id, item]))
   const path: LibraryItem[] = []
-  for (let id = folderId; id !== null && path.length <= MAX_FOLDER_DEPTH; ) {
+  for (let id = parentId; id !== null && path.length <= MAX_FOLDER_DEPTH; ) {
     const folder = byId.get(id)
     if (!folder) return []
     path.unshift(folder)
-    id = folder.folderId
+    id = folder.parentId
   }
   return path
 }
 
 /** The ids of a folder and every folder under it (where a folder cannot move). */
-export function getFolderTree(items: LibraryItem[], folderId: string): Set<string> {
-  const tree = new Set([folderId])
+export function getFolderTree(items: LibraryItem[], parentId: string): Set<string> {
+  const tree = new Set([parentId])
   for (let grew = true; grew; ) {
     grew = false
     for (const item of items) {
-      if (item.type === 'folder' && item.folderId && tree.has(item.folderId) && !tree.has(item.id)) {
+      if (item.type === 'folder' && item.parentId && tree.has(item.parentId) && !tree.has(item.id)) {
         tree.add(item.id)
         grew = true
       }
@@ -73,7 +73,7 @@ export function getFolderRows(items: LibraryItem[]): { folder: LibraryItem; dept
   const rows: { folder: LibraryItem; depth: number }[] = []
   const visit = (parent: string | null, depth: number) => {
     if (depth > MAX_FOLDER_DEPTH) return
-    for (const folder of folders.filter((item) => (item.folderId ?? null) === parent)) {
+    for (const folder of folders.filter((item) => (item.parentId ?? null) === parent)) {
       rows.push({ folder, depth })
       visit(folder.id, depth + 1)
     }
@@ -83,8 +83,8 @@ export function getFolderRows(items: LibraryItem[]): { folder: LibraryItem; dept
 }
 
 /** How many levels a folder's tree has (1 for a folder with no folders in it). */
-export function getFolderHeight(items: LibraryItem[], folderId: string): number {
-  const below = items.filter((item) => item.type === 'folder' && item.folderId === folderId)
+export function getFolderHeight(items: LibraryItem[], parentId: string): number {
+  const below = items.filter((item) => item.type === 'folder' && item.parentId === parentId)
   return 1 + Math.max(0, ...below.map((folder) => getFolderHeight(items, folder.id)))
 }
 

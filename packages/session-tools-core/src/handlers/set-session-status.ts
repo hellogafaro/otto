@@ -29,9 +29,9 @@ export async function handleSetSessionStatus(
       // The human owns closure. The agent may prepare work and hand it off
       // (e.g. set "needs-review"), but it must never move a session into a closed
       // state on its own — that decision belongs to the user.
-      if (category === 'closed') {
+      if (category === 'closed' || category === 'archived') {
         return errorResponse(
-          `Refusing to set the closed status "${resolved}". Closing a task (done/cancelled) is the user's decision — leave it for them. If the work is ready for review, set an open status such as "needs-review" instead.`
+          `Refusing to set the closed status "${resolved}". Closing or archiving a task (done/cancelled/archived) is the user's decision — leave it for them. If the work is ready for review, set an open status such as "needs-review" instead.`
         );
       }
       status = resolved;
