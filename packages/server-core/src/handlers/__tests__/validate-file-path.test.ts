@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'bun:test'
 import { homedir, tmpdir } from 'os'
 import { join, sep } from 'path'
+import { CONFIG_DIR } from '@otto/shared/config'
 import { validateFilePath } from '../utils'
 
 const home = homedir()
@@ -83,5 +84,14 @@ describe('validateFilePath', () => {
     // Should not throw even with undefined/empty values in the array
     const result = await validateFilePath(path, ['', undefined as unknown as string])
     expect(result).toContain('test.txt')
+  })
+
+  it("blocks the install's own sensitive files even when the allow-list covers them, with or without a caller", async () => {
+    for (const name of ['config.json', 'config.json.bak-2026-10-06', 'credentials.enc', 'otto.db', 'otto.db-wal', 'otto.db-shm', '.server.lock', 'drafts.json', 'logs/decisions.jsonl']) {
+      const path = join(CONFIG_DIR, name)
+      await expect(validateFilePath(path, [CONFIG_DIR])).rejects.toThrow('private')
+      await expect(validateFilePath(path, [CONFIG_DIR], { userId: 'u1', canSeeSession: () => true })).rejects.toThrow('private')
+    }
+    expect(await validateFilePath(join(CONFIG_DIR, 'preferences.json'), [CONFIG_DIR])).toContain('preferences.json')
   })
 })

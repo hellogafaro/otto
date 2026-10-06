@@ -7,7 +7,7 @@ import type { StoredAttachment } from '@otto/core/types'
 import { readFileAttachment, validateImageForClaudeAPI, IMAGE_LIMITS } from '@otto/shared/utils'
 import { createLibraryItem, deleteLibraryItem, getLibraryItemPath, initChatAttachmentsFolder } from '@otto/shared/library'
 import { resizeImageForAPI, inspectImageBuffer } from '@otto/server-core/services'
-import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
+import { validateFilePath, assertPathNotPrivate, createPathGuard, callerOf, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import { MarkItDown } from 'markitdown-js'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
@@ -33,7 +33,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   server.handle(RPC_CHANNELS.file.READ, async (ctx, path: string) => {
     try {
       const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
-      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId))
+      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       const content = await readFile(safePath, 'utf-8')
       return content
     } catch (error) {
@@ -53,7 +53,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   server.handle(RPC_CHANNELS.file.READ_DATA_URL, async (ctx, path: string) => {
     try {
       const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
-      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId))
+      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       const buffer = await readFile(safePath)
       const ext = safePath.split('.').pop()?.toLowerCase() ?? ''
 
@@ -85,7 +85,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   server.handle(RPC_CHANNELS.file.READ_PREVIEW_DATA_URL, async (ctx, path: string, maxSize = 64) => {
     try {
       const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
-      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId))
+      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       const size = Number.isFinite(maxSize) ? Math.max(16, Math.min(256, Math.floor(maxSize))) : 64
       const preview = await deps.platform.imageProcessor.process(safePath, {
         resize: { width: size, height: size },
@@ -105,7 +105,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   server.handle(RPC_CHANNELS.file.READ_BINARY, async (ctx, path: string) => {
     try {
       const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
-      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId))
+      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       const buffer = await readFile(safePath)
       // Return as Uint8Array (serializes to ArrayBuffer over IPC)
       return new Uint8Array(buffer)
@@ -135,7 +135,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   server.handle(RPC_CHANNELS.file.READ_ATTACHMENT, async (ctx, path: string) => {
     try {
       const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
-      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId))
+      const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       // Use shared utility that handles file type detection, encoding, etc.
       const attachment = await readFileAttachment(safePath)
       if (!attachment) return null
@@ -161,15 +161,16 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
     }
   })
 
-  // Read a user-attached file (bypasses workspace-dir validation).
+  // Read a user-attached file (bypasses the allow-list, not the private-path rule).
   // Used only by renderer draft hydration: the path was written to drafts.json by a
   // previous user-initiated OS-picker / Finder-drag attach, so the path implies consent.
   // NOT exposed to agent code — no equivalent MCP tool. Kept separate from readFileAttachment
   // on purpose to preserve the agent-facing read's narrow trust boundary.
   const USER_ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024
-  server.handle(RPC_CHANNELS.file.READ_USER_ATTACHMENT, async (_ctx, path: string) => {
+  server.handle(RPC_CHANNELS.file.READ_USER_ATTACHMENT, async (ctx, path: string) => {
     try {
       if (!path || typeof path !== 'string' || !isAbsolute(path)) return null
+      await assertPathNotPrivate(path, callerOf(ctx, deps))
       const info = await stat(path).catch(() => null)
       if (!info || !info.isFile()) return null
       if (info.size > USER_ATTACHMENT_MAX_BYTES) {
@@ -421,7 +422,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   // Parallel BFS walk that skips ignored directories BEFORE entering them,
   // avoiding reading node_modules/etc. contents entirely. Uses withFileTypes
   // to get entry types without separate stat calls.
-  server.handle(RPC_CHANNELS.fs.SEARCH, async (_ctx, basePath: string, query: string) => {
+  server.handle(RPC_CHANNELS.fs.SEARCH, async (ctx, basePath: string, query: string) => {
     deps.platform.logger.info('[FS_SEARCH] called:', basePath, query)
     const MAX_RESULTS = 50
 
@@ -436,6 +437,10 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
     const results: Array<{ name: string; path: string; type: 'file' | 'directory'; relativePath: string }> = []
 
     try {
+      const caller = callerOf(ctx, deps)
+      basePath = await assertPathNotPrivate(basePath, caller)
+      const isPrivate = await createPathGuard(caller)
+
       // BFS queue: each entry is a relative path prefix ('' for root)
       let queue = ['']
 
@@ -466,6 +471,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
             if (name.startsWith('.') || SKIP_DIRS.has(name)) continue
 
             const relativePath = relDir ? `${relDir}/${name}` : name
+            if (isPrivate(join(basePath, relativePath))) continue
             const isDir = entry.isDirectory()
 
             // Queue subdirectories for next BFS level
@@ -506,7 +512,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
 
   // List directories in a given path (for remote directory browsing).
   // Returns only directories (not files) — this is a folder picker.
-  server.handle(RPC_CHANNELS.fs.LIST_DIRECTORY, async (_ctx, dirPath: string) => {
+  server.handle(RPC_CHANNELS.fs.LIST_DIRECTORY, async (ctx, dirPath: string) => {
     // Resolve ~ to server's home directory (thin clients don't know the server's home)
     if (dirPath === '~' || dirPath.startsWith('~/')) {
       dirPath = dirPath === '~' ? homedir() : join(homedir(), dirPath.slice(2))
@@ -519,10 +525,12 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
     }
 
     // Normalize (collapses .. segments, trailing slashes, etc.)
-    const resolved = resolve(dirPath)
+    const caller = callerOf(ctx, deps)
+    const resolved = await assertPathNotPrivate(resolve(dirPath), caller)
+    const isPrivate = await createPathGuard(caller)
 
     // Read entries, filter to directories
-    const raw = await readdir(resolved, { withFileTypes: true })
+    const raw = (await readdir(resolved, { withFileTypes: true })).filter((entry) => !isPrivate(join(resolved, entry.name)))
 
     const entries: Array<{ name: string; path: string; isSymlink: boolean }> = []
     for (const entry of raw) {

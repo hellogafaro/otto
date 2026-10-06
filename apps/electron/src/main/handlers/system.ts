@@ -6,7 +6,7 @@ import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { getGitBashPath, setGitBashPath, clearGitBashPath } from '@otto/shared/config'
 import { classifyExternalUrl, formatBlockedUrlError } from '@otto/shared/utils/url-safety'
 import { isUsableGitBashPath, validateGitBashPath } from '@otto/server-core/services'
-import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
+import { validateFilePath, assertPathNotPrivate, callerOf, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from './handler-deps'
 import {
@@ -79,10 +79,10 @@ export function registerSystemCoreHandlers(server: RpcServer, deps: HandlerDeps)
   })
 
   // Get git branch for a directory (returns null if not a git repo or git unavailable)
-  server.handle(RPC_CHANNELS.git.GET_BRANCH, async (_ctx, dirPath: string) => {
+  server.handle(RPC_CHANNELS.git.GET_BRANCH, async (ctx, dirPath: string) => {
     try {
       const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-        cwd: dirPath,
+        cwd: await assertPathNotPrivate(dirPath, callerOf(ctx, deps)),
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: 5000,
@@ -213,7 +213,7 @@ export function registerSystemCoreHandlers(server: RpcServer, deps: HandlerDeps)
       const expanded = path.startsWith('~') ? path.replace(/^~/, homedir()) : path
       const absolutePath = resolve(expanded)
       const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
-      const safePath = await validateFilePath(absolutePath, getWorkspaceAllowedDirs(workspaceId))
+      const safePath = await validateFilePath(absolutePath, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       const result = await requestClientOpenPath(server, ctx.clientId, safePath)
       if (result.error) throw new Error(result.error)
     } catch (error) {
@@ -228,7 +228,7 @@ export function registerSystemCoreHandlers(server: RpcServer, deps: HandlerDeps)
       const expanded = path.startsWith('~') ? path.replace(/^~/, homedir()) : path
       const absolutePath = resolve(expanded)
       const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
-      const safePath = await validateFilePath(absolutePath, getWorkspaceAllowedDirs(workspaceId))
+      const safePath = await validateFilePath(absolutePath, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       await requestClientShowInFolder(server, ctx.clientId, safePath)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
