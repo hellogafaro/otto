@@ -311,6 +311,8 @@ export function InlineMentionMenu({
             <div
               key={`${item.type}-${item.id}`}
               data-selected={isSelected}
+              // Keep the caret in the composer (a blur would fold the compact bar).
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 onSelect(item)
                 onOpenChange(false)

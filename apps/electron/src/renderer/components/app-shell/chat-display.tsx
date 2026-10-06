@@ -14,7 +14,7 @@ import { toast } from '@workspace/ui/components/sonner'
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
-import { coerceInputText, appendRestoredInput } from "@/lib/input-text"
+import { coerceInputText } from "@/lib/input-text"
 import { Markdown, CollapsibleMarkdownProvider, StreamingMarkdown, type RenderMode } from "@/components/markdown"
 import { AnimatedCollapsibleContent } from "@/components/ui/collapsible"
 import {
@@ -35,7 +35,7 @@ import {
 } from "@otto/ui"
 import { useFocusZone } from "@/hooks/keyboard"
 import { useTheme } from "@/hooks/use-theme"
-import type { Session, Message, FileAttachment, PermissionRequest, CredentialRequest, CredentialResponse, LoadedSource, LoadedSkill } from "../../../shared/types"
+import type { Session, Message, FileAttachment, PermissionRequest, CredentialRequest, CredentialResponse, LoadedSource } from "../../../shared/types"
 import type { PermissionMode } from "@otto/shared/agent/modes"
 import type { ThinkingLevel } from "@otto/shared/agent/thinking-levels"
 import {
@@ -52,8 +52,13 @@ import {
   type Turn,
 } from "@otto/ui"
 import { MemoizedAuthRequestCard } from "@/components/chat/auth-request-card"
-import { ChatInputZone, type StructuredInputState, type StructuredResponse, type PermissionResponse, type AdminApprovalResponse } from "./input"
-import type { RichTextInputHandle } from "@/components/ui/rich-text-input"
+import type { StructuredInputState, StructuredResponse, PermissionResponse, AdminApprovalResponse } from "./input"
+import { FreeFormInput } from "./input/free-form-input"
+import { useChatComposer } from "./input/use-chat-composer"
+import { usePlanApproval } from "./input/use-plan-approval"
+import { useComposer } from "@/components/composer/composer-provider"
+import { EntityText } from "@/components/entities/entity-text"
+import { useEntityData } from "@/components/entities/entity-chip"
 import { Button } from "@/components/ui/button"
 import { useBackgroundTasks } from "@/hooks/use-background-tasks"
 import { useTurnCardExpansion } from "@/hooks/use-turn-card-expansion"
@@ -129,8 +134,6 @@ interface ChatDisplayProps {
   // Connection selection (locked after first message)
   /** Callback when LLM connection changes (only works when session is empty) */
   onConnectionChange?: (connectionSlug: string) => void
-  /** Ref for the input, used for external focus control */
-  textareaRef?: React.RefObject<RichTextInputHandle | null>
   /** When true, disables input (e.g., when agent needs activation) */
   disabled?: boolean
   /** Pending permission request for this session */
@@ -158,44 +161,18 @@ interface ChatDisplayProps {
   /** Mode before the last change (plan approval returns to Guarded from it) */
   previousPermissionMode?: PermissionMode
   onPermissionModeChange?: (mode: PermissionMode) => void
-  /** Enabled permission modes for Shift+Tab cycling */
-  enabledModes?: PermissionMode[]
-  // Input value preservation (controlled from parent)
-  /** Current input value - preserved across mode switches and conversation changes */
-  inputValue?: string
-  /** Callback when input value changes */
-  onInputChange?: (value: string) => void
-  /** Persisted attachment draft for this session (hydrated from disk in ChatPage) */
-  attachmentsValue?: FileAttachment[]
-  /** Callback when attachment draft changes (add, remove, clear on send) */
-  onAttachmentsChange?: (attachments: FileAttachment[]) => void
   // Source selection
-  /** Available sources (enabled only) */
+  /** Available sources (enabled only): `@` turns them on for the chat */
   sources?: LoadedSource[]
   /** Callback when source selection changes */
   onSourcesChange?: (slugs: string[]) => void
-  // Skill selection (for @mentions)
-  /** Available skills for @mention autocomplete */
-  skills?: LoadedSkill[]
-  // Label selection (for #labels)
-  /** Available label configs (tree) for label menu and badge display */
-  labels?: import('@otto/shared/labels').LabelConfig[]
-  /** Callback when labels change */
-  onLabelsChange?: (labels: string[]) => void
-  // State/status selection (for # menu and ActiveOptionBadges)
-  /** Available workflow states */
-  sessionStatuses?: import('@/config/session-status-config').SessionStatus[]
-  /** Callback when session state changes */
+  /** Callback when session state changes (the `/` status command) */
   onSessionStatusChange?: (stateId: string) => void
-  /** Workspace ID for loading skill icons */
-  workspaceId?: string
   // Working directory (per session)
-  /** Current working directory for this session */
+  /** Current working directory for this session (where `@` finds files) */
   workingDirectory?: string
-  /** Callback when working directory changes */
+  /** Callback when working directory changes (the `/` folder command) */
   onWorkingDirectoryChange?: (path: string) => void
-  /** Session folder path (for "Reset to Session Root" option) */
-  sessionFolderPath?: string
   // Lazy loading
   /** When true, messages are still loading - show spinner in messages area */
   messagesLoading?: boolean
@@ -219,12 +196,11 @@ interface ChatDisplayProps {
   /** Enable compact mode - hides non-essential UI elements for popover embedding */
   compactMode?: boolean
   /**
-   * When compactMode is true, enable the compact (drawer-based) model selector
-   * next to the permission-mode pill. Defaults to false so EditPopover keeps
-   * its current behavior; ChatPage opts in when in auto-compact / mobile.
+   * The chat page: its input is the shell composer (registered here, drawn by the shell). Without it (the edit
+   * popover) the chat draws its own small input.
    */
-  enableCompactModelPicker?: boolean
-  /** Custom placeholder for input (used in compact mode for edit context) */
+  shellComposer?: boolean
+  /** Custom placeholder(s) for the popover's input (the first is shown) */
   placeholder?: string | string[]
   /** Label shown as empty state in compact mode (e.g., "Permission Settings") */
   emptyStateLabel?: string
@@ -434,7 +410,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   currentModel,
   onModelChange,
   onConnectionChange,
-  textareaRef: externalTextareaRef,
   disabled = false,
   pendingPermission,
   onRespondToPermission,
@@ -447,28 +422,13 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   permissionMode = 'ask',
   previousPermissionMode,
   onPermissionModeChange,
-  enabledModes,
-  // Input value preservation
-  inputValue,
-  onInputChange,
-  attachmentsValue,
-  onAttachmentsChange,
   // Sources
   sources,
   onSourcesChange,
-  // Skills (for @mentions)
-  skills,
-  // Labels (for #labels)
-  labels,
-  onLabelsChange,
-  // States (for # menu and badge)
-  sessionStatuses,
   onSessionStatusChange,
-  workspaceId,
   // Working directory
   workingDirectory,
   onWorkingDirectoryChange,
-  sessionFolderPath,
   // Lazy loading
   messagesLoading = false,
   messagesLoadError,
@@ -482,7 +442,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   onMatchInfoChange,
   // Compact mode (for EditPopover embedding and auto-compact / WebUI mobile)
   compactMode = false,
-  enableCompactModelPicker = false,
+  shellComposer = false,
   placeholder,
   emptyStateLabel,
   // Connection unavailable
@@ -509,8 +469,9 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   const prevLastMessageIdRef = React.useRef<string | null>(null)
   const prevMessageCountRef = React.useRef(0)
   const prevSessionIdForCommitScrollRef = React.useRef<string | null>(null)
-  const internalTextareaRef = React.useRef<RichTextInputHandle>(null)
-  const textareaRef = externalTextareaRef || internalTextareaRef
+  const composer = useComposer()
+  // User messages draw their typed references (`task:<id>`) as chips, which read the shared lists.
+  useEntityData()
   const [sendMessageKey, setSendMessageKey] = useState<'enter' | 'cmd-enter'>('enter')
   const [openAnnotationRequest, setOpenAnnotationRequest] = React.useState<{
     messageId: string
@@ -533,7 +494,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   const { zoneRef, isFocused } = useFocusZone({
     zoneId: 'chat',
     focusFirst: () => {
-      textareaRef.current?.focus()
+      composer.focus()
     },
   })
 
@@ -587,7 +548,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   // focus stealing when search is open but query is empty
   useEffect(() => {
     if (session && !isSearchModeActive && isFocused) {
-      textareaRef.current?.focus()
+      composer.focus()
     }
   }, [session?.id, isFocused, isSearchModeActive])
 
@@ -1181,7 +1142,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     })
   }, [session?.id, messageCount, lastMessageId, lastMessageRole])
 
-  // Handle message submission from InputContainer
+  // Handle message submission from the composer
   // Backend handles interruption and queueing if currently processing
   const handleSubmit = (message: string, attachments?: FileAttachment[], skillSlugs?: string[]) => {
     const hasBaseMessage = message.trim().length > 0
@@ -1257,7 +1218,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     }, 0)
   }, [session, isInputDisabled, disableSend, connectionUnavailable])
 
-  // Handle stop request from InputContainer
+  // Handle stop request from the composer
   // silent=true when redirecting (sending new message), silent=false when user clicks Stop button
   const handleStop = (silent = false) => {
     if (!session?.isProcessing) return
@@ -1270,7 +1231,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
       const lastUserMsg = [...session.messages].reverse().find(m => m.role === 'user' && !m.isQueued)
       const restoredText = coerceInputText(lastUserMsg?.content)
       if (restoredText) {
-        onInputChange?.(appendRestoredInput(inputValue, restoredText))
+        window.dispatchEvent(new CustomEvent('otto:restore-input', { detail: { sessionId: session.id, text: restoredText } }))
       }
     }
 
@@ -1278,16 +1239,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
       console.error('[ChatDisplay] Failed to cancel processing:', error)
     })
   }
-
-  // Per-frame scroll compensation during input height animation
-  // Only compensate when user is "stuck to bottom" - otherwise let them control their scroll position
-  const handleAnimatedHeightChange = React.useCallback((delta: number) => {
-    if (!isStickToBottomRef.current) return
-    const viewport = scrollViewportRef.current
-    if (!viewport) return
-    // Adjust scroll to maintain position relative to content
-    viewport.scrollTop += delta
-  }, [])
 
   // Handle structured input responses (permissions and credentials)
   const handleStructuredResponse = (response: StructuredResponse) => {
@@ -1441,6 +1392,54 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     scrollToFollowUpTurn(item)
   }, [scrollToFollowUpTurn])
 
+  // The chat's input: the shell composer, full (the chat page), or the popover's own (EditPopover).
+  const chatComposer = useChatComposer({
+    enabled: shellComposer,
+    placeholder: shellComposer ? undefined : (Array.isArray(placeholder) ? placeholder[0] : placeholder),
+    session,
+    onSubmit: handleSubmit,
+    onStop: handleStop,
+    disabled: isInputDisabled || disableSend || connectionUnavailable,
+    sources,
+    enabledSourceSlugs: session?.enabledSourceSlugs,
+    onSourcesChange,
+    model: { currentModel, onModelChange, thinkingLevel, onThinkingLevelChange, onConnectionChange, connectionUnavailable },
+    permissionMode,
+    onPermissionModeChange,
+    onSessionStatusChange,
+    workingDirectory,
+    onWorkingDirectoryChange,
+    structuredInput,
+    onStructuredResponse: handleStructuredResponse,
+    backgroundTasks,
+    onKillTask: (taskId) => killTask(taskId, backgroundTasks.find(task => task.id === taskId)?.type === 'shell' ? 'shell' : 'agent'),
+    followUps: followUpInputItems,
+    onFollowUpClick: handleFollowUpChipClick,
+    onFollowUpIndexClick: handleFollowUpIndexClick,
+  })
+  usePlanApproval({
+    sessionId: session?.id,
+    isProcessing: !!session?.isProcessing,
+    permissionMode,
+    previousPermissionMode,
+    onPermissionModeChange,
+    submit: (message) => handleSubmit(message),
+    takeDraft: shellComposer ? composer.take : () => '',
+  })
+
+  // The full composer grows and shrinks under the transcript: a chat stuck to its end stays there.
+  useEffect(() => {
+    const viewport = scrollViewportRef.current
+    if (!viewport) return
+    let height = viewport.clientHeight
+    const observer = new ResizeObserver(() => {
+      if (viewport.clientHeight !== height && isStickToBottomRef.current) viewport.scrollTop = viewport.scrollHeight
+      height = viewport.clientHeight
+    })
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [session?.id])
+
   // Compute if we should skip scroll-to-bottom (when search is active on session switch)
   // At render time, prevSessionIdForScrollRef still has the OLD session ID, so we can detect the switch
   const isSessionSwitchForScroll = prevSessionIdForScrollRef.current !== null && prevSessionIdForScrollRef.current !== session?.id
@@ -1453,8 +1452,8 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     <div ref={zoneRef} className="flex h-full flex-col min-w-0" data-focus-zone="chat">
       {session ? (
         <div className="flex flex-1 flex-col min-h-0 min-w-0 relative">
-          {/* Content layer */}
-          <div className="flex flex-1 flex-col gap-2 min-h-0 min-w-0 relative z-10">
+          {/* Content layer; on the chat page it ends 8px above the full composer (`--composer-clearance`). */}
+          <div className={cn("flex flex-1 flex-col gap-2 min-h-0 min-w-0 relative z-10", shellComposer && "pb-(--composer-clearance)")}>
           {/* === MESSAGES AREA: the centerpiece card, the transcript scrolls inside it === */}
           <PageCenterpiece>
             {/* Mask wrapper - fades content at top and bottom over transparent/image backgrounds */}
@@ -1862,66 +1861,8 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
             </div>
           </PageCenterpiece>
 
-          {/* === INPUT CONTAINER: FreeForm or Structured Input === */}
-          <ChatInputZone
-            compactMode={compactMode}
-            permissionMode={permissionMode}
-            onPermissionModeChange={onPermissionModeChange}
-            tasks={backgroundTasks}
-            sessionId={session.id}
-            sessionFolderPath={sessionFolderPath}
-            onKillTask={(taskId) => killTask(taskId, backgroundTasks.find(t => t.id === taskId)?.type === 'shell' ? 'shell' : 'agent')}
-            onInsertMessage={onInputChange}
-            sessionLabels={session.labels}
-            labels={labels}
-            onLabelsChange={onLabelsChange}
-            sessionStatuses={sessionStatuses}
-            currentSessionStatus={session.sessionStatus || 'todo'}
-            onSessionStatusChange={onSessionStatusChange}
-            inputProps={{
-              placeholder,
-              previousPermissionMode,
-              disabled: isInputDisabled,
-              isProcessing: session.isProcessing,
-              onAnimatedHeightChange: handleAnimatedHeightChange,
-              onSubmit: handleSubmit,
-              onStop: handleStop,
-              textareaRef,
-              currentModel,
-              onModelChange,
-              thinkingLevel,
-              onThinkingLevelChange,
-              enabledModes,
-              enableCompactModelPicker,
-              structuredInput,
-              onStructuredResponse: handleStructuredResponse,
-              inputValue,
-              onInputChange,
-              attachmentsValue,
-              onAttachmentsChange,
-              sources,
-              enabledSourceSlugs: session.enabledSourceSlugs,
-              onSourcesChange,
-              skills,
-              workspaceId,
-              workingDirectory,
-              onWorkingDirectoryChange,
-              disableSend: disableSend || connectionUnavailable,
-              connectionUnavailable,
-              isEmptySession: session.messages.length === 0,
-              currentConnection: session.llmConnection,
-              onConnectionChange,
-              contextStatus: {
-                isCompacting: session.currentStatus?.statusType === 'compacting',
-                inputTokens: session.tokenUsage?.inputTokens,
-                contextWindow: session.tokenUsage?.contextWindow,
-                contextUsage: session.tokenUsage?.contextUsage,
-              },
-              followUpItems: followUpInputItems,
-              onFollowUpClick: handleFollowUpChipClick,
-              onFollowUpIndexClick: handleFollowUpIndexClick,
-            }}
-          />
+          {/* The chat page's input is the shell's composer (registered below); the edit popover draws its own instance. */}
+          {!shellComposer && <FreeFormInput context={chatComposer} />}
           </div>
         </div>
       ) : null}
@@ -2160,6 +2101,9 @@ function ErrorMessage({ message, onOpenUrl, sessionId, onRetry }: { message: Mes
   )
 }
 
+/** A user message's text with its typed references (`task:<id>`, a chat started from a page) as chips. */
+const renderUserText = (content: string) => <EntityText content={content} className="text-sm [&_p]:whitespace-pre-wrap" />
+
 function MessageBubble({
   message,
   onOpenFile,
@@ -2181,6 +2125,7 @@ function MessageBubble({
         onUrlClick={onOpenUrl}
         onFileClick={onOpenFile}
         compactMode={compactMode}
+        renderContent={renderUserText}
       />
     )
   }

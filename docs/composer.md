@@ -1,6 +1,6 @@
 # Composer
 
-Status: research and design, 6 Oct 2026. W1 built (below); W2 to W7 not started. It turns the owner's brief into a spec and a set of work packages. Evidence is given as `file:line`. Paths: `R` = `apps/electron/src/renderer`, `DS` = `design/ui/src/components`, `v1:` = a path in tag `otto-v1-archive` (read it with `git show otto-v1-archive:<path>`).
+Status: research and design, 6 Oct 2026. W1 to W4 built (below; W5 in part: the Inbox icon); W6 and W7 not started. It turns the owner's brief into a spec and a set of work packages. Evidence is given as `file:line`. Paths: `R` = `apps/electron/src/renderer`, `DS` = `design/ui/src/components`, `v1:` = a path in tag `otto-v1-archive` (read it with `git show otto-v1-archive:<path>`).
 
 The v1 screenshots were taken from `v1:docs/evidence/` and copied to `/tmp/composer-shots/`:
 
@@ -186,6 +186,15 @@ The order is **W1 first**: it fixes the API and the slot. **W2 to W6 then run in
 - Found: the chat transcript does not draw `EntityText`, so the `task:<id>` token reads as raw text in the message and in the chat's auto title; W2 (or the chat's message renderer) should draw it as a chip.
 - Placeholders are one key per type (`composer.placeholder.{task,project,document,file,routine,page,start}`), not `about` with `{{type}}`: gendered languages need the whole sentence.
 
+**W2 to W4 as built** (6 Oct 2026; DESIGN.md, Components, Composer and Dictation), on the owner's later brief:
+
+- ONE component: `R/components/app-shell/input/free-form-input.tsx` (`FreeFormInput`) is the chat input refactored in place on v1's look, with compact, expanded and full as its modes. `ShellComposer` is a host only. The chat registers its context from `ChatDisplay` (`input/use-chat-composer.tsx`: send, stop, the model picker and status overlay in `tools`, tasks and follow-ups in `chips`, the permission or credential request in `structured`, the `/` commands); plan approval moved to `input/use-plan-approval.ts`. The edit popover draws a second instance of the same component until W6.
+- Removed with their code, keys and playground entries: `ChatInputZone`, `InputContainer`, the old `FreeFormInput` body, `ActiveOptionBadges` (permission-mode and status pickers, label badges), the attach, sources and working-directory pickers (`source-selector-popover`, `compact-source-selector`, `compact-working-directory-selector`, `working-directory-selector`, `use-working-directory-state`), `compact-model-selector`, `compact-permission-mode-selector`, `attachment-preview`, the `#` label menu in the input, the rotating placeholders, the context % chip, `composer-height`, `structured-height`, `use-input-available-height`, `scroll-focused-caret`, `use-dynamic-stack`. Kept, used elsewhere: `chat.cyclePermissionMode` (Shift+Tab), `label-menu` (session menus), the drafts RPC in `app.tsx` (the chat page now only moves a draft set there, a link's `input`, into the composer once).
+- Commands: `/` holds mode, status, working directory, Compact and Add files; `@` holds skills, sources and files. Files are read when added into the existing `FileAttachment` (stored at send time by `file:storeAttachment`); no upload before send.
+- Shortcuts show only while ⌘/Ctrl or Option/Alt is held; the Inbox key is the new `nav.inbox` action (⌘I, Alt+I in the browser).
+- Assumed (open questions): 1 yes (three full pages); 2 not done (routing); 3 start the chat and open it; 4 overridden by the brief: only the model picker stays, permission mode is a `/` command; 5 the server side uses the connection (the transcription agent); 6 not in scope (W6); 7 always show the Inbox icon, with a dot.
+- Left: the Electron microphone permission and macOS plist (main process, not in this package), the Inbox popover, the toast offset over the bar (W7).
+
 **Risks:**
 
 - `free-form-input.tsx` is 2412 lines. W2 should cut before it restyles and keep `chat.stopProcessing` and the structured-input swap working.
@@ -204,3 +213,15 @@ The order is **W1 first**: it fixes the API and the slot. **W2 to W6 then run in
 5. Should dictation use the workspace's OpenRouter connection or a server `OPENROUTER_API_KEY` as in v1? *Recommendation: the connection (it lives in the providers domain and needs no new environment variable).*
 6. Should every "+" prefill the composer now, or only the actions `EditPopover` handles today? *Recommendation: only the `EditPopover` actions now; the task, project and library dialogs stay until agents have the tools to create those.*
 7. Should the Inbox icon always show on the compact bar, or only while something needs you (v1)? *Recommendation: always show it, with a dot when there is something, so the bar keeps its shape.*
+
+## Transcription (built)
+
+Server side of dictation (W4), 6 Oct 2026. The UI keeps capture, level and timer on the client; the server only turns one finished recording into text.
+
+- **Channel:** `RPC_CHANNELS.transcription.CREATE` = `'transcription:create'`. Renderer API: `window.electronAPI.transcribe(audioBase64: string, type: string): Promise<{ text: string }>` (`channel-map.ts` key `transcribe`, typed in `shared/types.ts`).
+- **Payload:** the whole take, not a stream. `MediaRecorder` chunks (250 ms) are joined on the client into one `Blob`; send its bytes as base64 and its `blob.type` (must start with `audio/`, for example `audio/webm;codecs=opus`). Up to 10 MiB of audio. Cancel is client-side: drop the chunks and send nothing. A request already sent cannot be cancelled; ignore its reply.
+- **Reply:** `{ text }`, trimmed. An empty `text` means no speech (show the "No speech detected" toast). There are no server events: the waveform level and the timer come from the client's `AnalyserNode` as in v1.
+- **Errors** (a rejected invoke; read `error.code`): `not_configured` (no `openrouter` connection visible to this user and workspace: show "Connect {{provider}} to dictate" and keep the mic enabled), `too_large`, `invalid` (not `audio/*`, or empty), `timeout`, `unavailable` (provider down or rate limited), `failed`. The messages carry no provider body.
+- **Authorization:** members only, per request. The channel takes no workspace argument; it runs in the connection's workspace, which the guard re-checks as a member on every request (`bootstrap/authorize.ts`, covered by `authorize.isolated.ts`).
+- **Key and model:** the `openrouter` connection's API key, found through the connections domain (the user's own first, then the workspace's, then the install's); the value never leaves the server. The model is fixed to `mistralai/voxtral-mini-transcribe` (no setting yet). Hedging and one retry as in v1.
+- **Code:** `packages/shared/src/transcription/index.ts` (`runTranscription(where, audio, type, deps?)`, `TRANSCRIPTION_ERROR_CODES`, `TRANSCRIPTION_MAX_BYTES`), handler `packages/server-core/src/handlers/rpc/transcription.ts`. Not done here: the Electron media permission and the macOS plist (W4 UI).

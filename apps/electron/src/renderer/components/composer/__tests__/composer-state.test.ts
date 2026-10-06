@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'bun:test'
-import { buildFirstMessage, composerReducer, resolveShellSurface, sendKeyAction, type ComposerEvent, type ComposerView } from '../composer-state'
-import { draftSuffix } from '../use-composer-draft'
+import { buildFirstMessage, composerReducer, mainAction, resolveShellSurface, sendKeyAction, type ComposerEvent, type ComposerView } from '../composer-state'
+import { arrivingDraft, draftSuffix } from '../use-composer-draft'
+import { isHintModifier } from '../use-modifier-held'
+import { pastedName } from '../use-composer-files'
+import { fileKind, fileSize, middleCut } from '../attachment-rail'
+import { dictationErrorKey, formatElapsed } from '../use-dictation'
 
 const run = (events: ComposerEvent[], from: ComposerView = 'idle') => events.reduce(composerReducer, from)
 
@@ -41,9 +45,9 @@ describe('resolveShellSurface', () => {
     expect(resolveShellSurface(page, 'expanded')).toBe('expanded')
   })
 
-  it('leaves a full chat to its own input until W2, and shows the compact bar on any other full page', () => {
-    expect(resolveShellSurface({ key: 'chat:abcdefghijkl', mode: 'full' }, 'idle')).toBe('none')
-    expect(resolveShellSurface({ key: 'page:inbox', mode: 'full' }, 'idle')).toBe('compact')
+  it('draws a full page (the chat, the new chat, the Inbox) full, whatever the bar was doing', () => {
+    expect(resolveShellSurface({ key: 'chat:abcdefghijkl', mode: 'full' }, 'idle')).toBe('full')
+    expect(resolveShellSurface({ key: 'page:inbox', mode: 'full' }, 'expanded')).toBe('full')
   })
 })
 
@@ -80,5 +84,64 @@ describe('draftSuffix', () => {
     expect(draftSuffix('ws1', 'task:abcdefghijkl')).toBe('ws1:task:abcdefghijkl')
     expect(draftSuffix('ws2', 'task:abcdefghijkl')).not.toBe(draftSuffix('ws1', 'task:abcdefghijkl'))
     expect(draftSuffix(null, 'page:tasks')).toBe('none:page:tasks')
+  })
+})
+
+describe('arrivingDraft', () => {
+  it('keeps the page own draft, else carries the text along within a workspace', () => {
+    expect(arrivingDraft('saved', 'typed', true)).toBe('saved')
+    expect(arrivingDraft('', 'typed', true)).toBe('typed')
+    expect(arrivingDraft('', 'typed', false)).toBe('')
+  })
+})
+
+describe('mainAction', () => {
+  const base = { sending: false, busy: false, transcribing: false, listening: false, hasContent: false }
+  it('follows v1 priority: sending, stop, transcribing, done, send, dictate', () => {
+    expect(mainAction(base)).toBe('dictate')
+    expect(mainAction({ ...base, hasContent: true })).toBe('send')
+    expect(mainAction({ ...base, listening: true, hasContent: true })).toBe('done')
+    expect(mainAction({ ...base, transcribing: true, listening: true })).toBe('transcribing')
+    expect(mainAction({ ...base, busy: true, transcribing: true })).toBe('stop')
+    expect(mainAction({ ...base, sending: true, busy: true })).toBe('sending')
+  })
+})
+
+describe('isHintModifier', () => {
+  const key = (k: string, shiftKey = false) => ({ key: k, metaKey: false, ctrlKey: false, altKey: false, shiftKey })
+  it('is ⌘ on a Mac, Ctrl elsewhere, and Option/Alt everywhere; not with Shift or another key', () => {
+    expect(isHintModifier(key('Meta'), true)).toBe(true)
+    expect(isHintModifier(key('Control'), true)).toBe(false)
+    expect(isHintModifier(key('Control'), false)).toBe(true)
+    expect(isHintModifier(key('Alt'), false)).toBe(true)
+    expect(isHintModifier(key('Alt', true), false)).toBe(false)
+    expect(isHintModifier(key('j'), true)).toBe(false)
+  })
+})
+
+describe('files', () => {
+  it('names pastes after those already added', () => {
+    expect(pastedName('image', 'png', [])).toBe('pasted-image-1.png')
+    expect(pastedName('image', 'png', ['pasted-image-2.png', 'a.txt'])).toBe('pasted-image-3.png')
+    expect(pastedName('text', 'txt', ['pasted-image-4.png'])).toBe('pasted-text-1.txt')
+  })
+  it('cuts a long name in the middle and reads kind and size', () => {
+    expect(middleCut('Banner-mobile-2026-08-10.jpg')).toBe('Banner-mob…-08-10.jpg')
+    expect(middleCut('short.png')).toBe('short.png')
+    expect(fileKind('notes.md', 'text/markdown')).toBe('MD')
+    expect(fileKind('blob', 'application/pdf')).toBe('PDF')
+    expect(fileSize(500)).toBe('500 B')
+    expect(fileSize(120_000)).toBe('117 KB')
+    expect(fileSize(1_480_000)).toBe('1.4 MB')
+  })
+})
+
+describe('dictation', () => {
+  it('maps the server codes to toasts and shows m:ss', () => {
+    expect(dictationErrorKey('not_configured')).toBe('composer.error.notConfigured')
+    expect(dictationErrorKey('too_large')).toBe('composer.error.tooLong')
+    expect(dictationErrorKey('timeout')).toBe('composer.error.unable')
+    expect(formatElapsed(7)).toBe('0:07')
+    expect(formatElapsed(75)).toBe('1:15')
   })
 })

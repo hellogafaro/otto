@@ -47,8 +47,8 @@ export interface RichTextInputProps extends Omit<React.HTMLAttributes<HTMLDivEle
   value: string
   /** Called when text changes */
   onChange: (value: string) => void
-  /** Placeholder text(s) when empty - can be a single string or array for rotation */
-  placeholder?: string | string[]
+  /** Placeholder text when empty */
+  placeholder?: string
   /** Available skills for mention parsing */
   skills?: LoadedSkill[]
   /** Available sources for mention parsing */
@@ -443,57 +443,6 @@ function getMentionSignature(text: string, skillSlugs: string[], sourceSlugs: st
 }
 
 // ============================================================================
-// RotatingPlaceholder Component
-// Animated placeholder that cycles through an array of strings with fade transitions.
-// Stays visible even when input is focused (until user types).
-// ============================================================================
-
-interface RotatingPlaceholderProps {
-  /** Array of placeholder strings to rotate through */
-  placeholders: string[]
-  /** Interval in ms between rotations (default: 5000) */
-  intervalMs?: number
-  /** Additional className for styling */
-  className?: string
-}
-
-function RotatingPlaceholder({
-  placeholders,
-  intervalMs = 5000,
-  className,
-}: RotatingPlaceholderProps) {
-  const [currentIndex, setCurrentIndex] = React.useState(0)
-  const [opacity, setOpacity] = React.useState(1)
-
-  React.useEffect(() => {
-    // Don't rotate if only one placeholder
-    if (placeholders.length <= 1) return
-
-    const interval = setInterval(() => {
-      // Fade out
-      setOpacity(0)
-
-      // After fade out (300ms), swap text and fade back in
-      setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % placeholders.length)
-        setOpacity(1)
-      }, 300)
-    }, intervalMs)
-
-    return () => clearInterval(interval)
-  }, [placeholders.length, intervalMs])
-
-  return (
-    <div
-      className={cn('transition-opacity duration-300 ease-in-out', className)}
-      style={{ opacity }}
-    >
-      {placeholders[currentIndex]}
-    </div>
-  )
-}
-
-// ============================================================================
 // RichTextInput Component
 // ============================================================================
 
@@ -758,12 +707,6 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
     // Show placeholder when input is empty (regardless of focus state)
     const showPlaceholder = !safeValue
 
-    // Normalize placeholder to array for RotatingPlaceholder
-    const placeholderArray = React.useMemo(() => {
-      if (!placeholder) return [t("chatInput.placeholder.typeMessage")]
-      return Array.isArray(placeholder) ? placeholder : [placeholder]
-    }, [placeholder])
-
     return (
       <div className="relative">
         <div
@@ -776,14 +719,13 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
           autoCorrect="off"
           className={cn(
             'outline-none text-sm whitespace-pre-wrap break-words',
-            'min-h-[1.5em]',
+            'min-h-5',
             disabled && 'opacity-50 cursor-not-allowed',
             // Make text transparent when showing placeholder (so caret is still visible)
             showPlaceholder && 'text-transparent caret-foreground',
             className
           )}
-          // Use inline style for line-height to override text-sm's built-in line-height
-          style={{ lineHeight: 1.25, ...style }}
+          style={style}
           onInput={handleInput}
           onKeyDown={handleKeyDownInternal}
           onFocus={handleFocus}
@@ -792,21 +734,19 @@ export const RichTextInput = React.forwardRef<RichTextInputHandle, RichTextInput
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
           aria-disabled={disabled}
-          aria-placeholder={Array.isArray(placeholder) ? placeholder[0] : placeholder}
+          aria-placeholder={placeholder}
           role="textbox"
           aria-multiline="true"
           {...restProps}
         />
-        {/* Rotating placeholder overlay - visible when empty, even when focused */}
+        {/* Placeholder overlay - visible when empty, even when focused */}
         {showPlaceholder && (
-          <RotatingPlaceholder
-            placeholders={placeholderArray}
-            intervalMs={5000}
-            className={cn(
-              'absolute inset-0 text-sm text-muted-foreground pointer-events-none select-none',
-              className
-            )}
-          />
+          <div
+            data-slot="composer-placeholder"
+            className="absolute inset-0 text-sm text-muted-foreground pointer-events-none select-none"
+          >
+            {placeholder ?? t("chatInput.placeholder.typeMessage")}
+          </div>
         )}
       </div>
     )

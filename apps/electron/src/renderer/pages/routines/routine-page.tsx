@@ -18,9 +18,9 @@ import { flattenLabels, parseLabelEntry } from '@otto/shared/labels'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { useComposerContext } from '@/components/composer/use-composer-context'
 import { SettingsRow } from '@/components/settings/settings-row'
-import { EditButton, EditPopover, getEditConfig } from '@/components/ui/edit-popover'
+import { AgentEditButton } from '@/components/ui/agent-edit-button'
 import { HeaderIconButton } from '@/components/ui/header-icon-button'
-import { useActiveWorkspace, useAppShellContext } from '@/context/app-shell-context'
+import { useAppShellContext } from '@/context/app-shell-context'
 import { useSidecar } from '@/context/sidecar-context'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useParentView } from '@/hooks/use-parent-view'
@@ -129,7 +129,6 @@ function RunRow({ run }: { run: RoutineRun }) {
 
 function RoutineView({ routine, api }: { routine: Routine; api: RoutinesApi }) {
   const { t, i18n } = useTranslation()
-  const workspace = useActiveWorkspace()
   const { open, toggleSidecar } = useSidecar()
   const parent = useParentView()
   const actions = useRoutineActions(api, { onDeleted: () => parent?.onBack() })
@@ -146,10 +145,8 @@ function RoutineView({ routine, api }: { routine: Routine; api: RoutinesApi }) {
       <PageColumn className="min-h-full">
         <PageSection
           title={t('routines.actions')}
-          // Editing asks an agent to change automations.json, starting from this routine's name.
-          action={workspace && (
-            <EditPopover trigger={<EditButton />} {...getEditConfig('automation-config', workspace.rootPath)} defaultValue={`${routine.name}: `} />
-          )}
+          // Editing prefills the composer with a sentence naming this routine.
+          action={<AgentEditButton prompt={t('agentEdit.routineActions', { name: routine.name })} />}
         >
           <PageCard>
             {routine.actions.map((action, index) => <ActionBlock key={index} action={action} />)}

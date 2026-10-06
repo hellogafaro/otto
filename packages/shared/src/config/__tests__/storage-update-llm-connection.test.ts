@@ -43,7 +43,7 @@ describe('add, get, delete', () => {
       createdAt: 1000,
     })
     expect(addLlmConnection(connection)).toBe(true)
-    expect(getLlmConnection('custom-compat')).toEqual(connection)
+    expect(getLlmConnection('custom-compat')).toEqual({ ...connection, scope: 'install' })
     expect(getLlmConnections().map((c) => c.slug)).toEqual(['custom-compat'])
   })
 

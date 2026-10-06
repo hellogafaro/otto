@@ -378,6 +378,7 @@ export const CHANNEL_MAP = {
   setNotificationStatus: invoke(RPC_CHANNELS.notifications.SET_STATUS),
   clearNotifications: invoke(RPC_CHANNELS.notifications.CLEAR),
   getUnreadNotificationCount: invoke(RPC_CHANNELS.notifications.GET_UNREAD_COUNT),
+  transcribe: invoke(RPC_CHANNELS.transcription.CREATE),
   onDomainChanged: listener(RPC_CHANNELS.domain.CHANGED),
 
   // Automations

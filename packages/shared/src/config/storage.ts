@@ -47,7 +47,7 @@ export type {
 } from '@otto/core/types';
 
 // Import for local use
-import type { Workspace, AuthType } from '@otto/core/types';
+import type { Workspace } from '@otto/core/types';
 
 // LLM connections live in the connections domain; this file keeps wrappers with the old names
 import type { LlmConnection } from './llm-connections.ts';
@@ -248,6 +248,7 @@ export function loadStoredConfig(): StoredConfig | null {
     // Expand path variables (~ and ${HOME}) for portability
     for (const workspace of config.workspaces) {
       workspace.rootPath = expandPath(workspace.rootPath);
+      readRemoteToken(workspace);
     }
 
     // Ensure workspace folder structure exists for all workspaces.
@@ -273,13 +274,55 @@ export function loadStoredConfig(): StoredConfig | null {
 // - getAnthropicApiKey() → credentialManager.getLlmApiKey(connectionSlug)
 // - getClaudeOAuthToken() → credentialManager.getLlmOAuth(connectionSlug)
 
+/** A remote workspace's token is a secret: the registry keeps `tokenSecretId`, and a read puts the token back in memory. */
+function readRemoteToken(workspace: Workspace): void {
+  const remote = workspace.remoteServer;
+  if (!remote?.tokenSecretId) return;
+  try {
+    remote.token = initSecretsStore().getSecret(remote.tokenSecretId) ?? '';
+  } catch (error) {
+    debug('[config] could not read the remote token of', workspace.id, error instanceof Error ? error.message : error);
+    remote.token = '';
+  }
+}
+
+/**
+ * Moves the tokens of remote workspaces into `secrets` (a changed one replaces its secret in place, one that
+ * had none gets one, one of a workspace that is gone is deleted) and returns the registry entries without them.
+ */
+function storeRemoteTokens(workspaces: Workspace[]): Workspace[] {
+  let previous = new Map<string, string>();
+  try {
+    const old = readJsonFileSync<StoredConfig>(CONFIG_FILE);
+    previous = new Map(old.workspaces.flatMap((ws): [string, string][] => (ws.remoteServer?.tokenSecretId ? [[ws.id, ws.remoteServer.tokenSecretId]] : [])));
+  } catch {
+    // no registry yet
+  }
+  if (previous.size === 0 && !workspaces.some(ws => ws.remoteServer)) return workspaces;
+  const secrets = initSecretsStore();
+  const kept = new Set<string>();
+  const stored = workspaces.map((ws): Workspace => {
+    if (!ws.remoteServer) return ws;
+    const { token, tokenSecretId, ...remote } = ws.remoteServer;
+    let id = tokenSecretId ?? previous.get(ws.id);
+    if (token) {
+      if (id && secrets.getSecret(id) !== undefined) secrets.updateSecret(id, token);
+      else id = secrets.createSecret(`Remote server token (${ws.name})`, token);
+    }
+    if (id) kept.add(id);
+    return { ...ws, remoteServer: { ...remote, ...(id ? { tokenSecretId: id } : {}) } as Workspace['remoteServer'] };
+  });
+  for (const id of previous.values()) if (!kept.has(id)) secrets.deleteSecret(id);
+  return stored;
+}
+
 export function saveConfig(config: StoredConfig): void {
   ensureConfigDir();
 
   // Convert paths to portable form (~ prefix) for cross-machine compatibility
   const storageConfig: StoredConfig = {
     ...config,
-    workspaces: config.workspaces.map(ws => ({
+    workspaces: storeRemoteTokens(config.workspaces).map(ws => ({
       ...ws,
       rootPath: toPortablePath(ws.rootPath),
     })),

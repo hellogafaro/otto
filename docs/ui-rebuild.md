@@ -98,24 +98,6 @@ yet).
 
 - [ ] `components/session-info/session-files-section.tsx`
 
-## Automations (13)
-
-Replaced by `pages/routines/` (the Routines index and a routine's page, `useRoutines`); nothing in the app renders these any more, only the playground's Automations demos (with `atoms/automations.ts`). Delete them with those demos.
-
-- [ ] `components/automations/action-type-icon.tsx`
-- [ ] `components/automations/automation-action-preview.tsx`
-- [ ] `components/automations/automation-action-row.tsx`
-- [ ] `components/automations/automation-avatar.tsx`
-- [ ] `components/automations/automation-card.tsx`
-- [ ] `components/automations/automation-event-timeline.tsx`
-- [ ] `components/automations/automation-info-page.tsx`
-- [ ] `components/automations/automation-menu.tsx`
-- [ ] `components/automations/automation-test-panel.tsx`
-- [ ] `components/automations/automations-list-panel.tsx`
-- [ ] `components/automations/batch-automation-menu.tsx`
-- [ ] `components/automations/cron-builder.tsx`
-- [ ] `components/automations/phase-badge.tsx`
-
 ## Workspace (8)
 
 - [x] `components/workspace/add-workspace-step-choice.tsx`

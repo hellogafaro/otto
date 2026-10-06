@@ -321,6 +321,8 @@ export interface UserMessageBubbleProps {
   isQueued?: boolean
   /** Compact mode - reduces padding for popover embedding */
   compactMode?: boolean
+  /** Draws the text instead of the plain markdown (the app's typed references, `task:<id>`, as chips). */
+  renderContent?: (content: string) => ReactNode
 }
 
 /** Minimum visible duration of the "Queued" chip. Both backends ack
@@ -338,6 +340,7 @@ export function UserMessageBubble({
   badges,
   isQueued,
   compactMode,
+  renderContent,
 }: UserMessageBubbleProps) {
   const { t } = useTranslation()
   const hasAttachments = attachments && attachments.length > 0
@@ -502,7 +505,7 @@ export function UserMessageBubble({
         )}
         {hasInlineBadges
           ? renderContentWithBadges(displayContent, inlineBadges, onUrlClick, onFileClick)
-          : (
+          : renderContent ? renderContent(displayContent) : (
             <Markdown
               mode="minimal"
               onUrlClick={onUrlClick}

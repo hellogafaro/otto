@@ -14,6 +14,8 @@ export interface ComposerHandle {
   focus: () => void
   expand: () => void
   collapse: () => void
+  /** The text, now cleared (a plan approval sends it along). */
+  take: () => string
 }
 
 interface ComposerRegistry {
@@ -48,6 +50,7 @@ export function ComposerProvider({ children }: { children: React.ReactNode }) {
       focus: () => ref.current?.focus(),
       expand: () => ref.current?.expand(),
       collapse: () => ref.current?.collapse(),
+      take: () => ref.current?.take() ?? '',
     },
   }), [])
 
@@ -62,13 +65,13 @@ export function ComposerProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Drive the composer from anywhere: `prefill`, `focus`, `expand`, `collapse`. No-ops outside the shell. */
+/** Drive the composer from anywhere: `prefill`, `focus`, `expand`, `collapse`, `take`. No-ops outside the shell. */
 export function useComposer(): ComposerHandle {
   const handles = React.useContext(HandleContext)
   return handles?.handle ?? NOOP_HANDLE
 }
 
-const NOOP_HANDLE: ComposerHandle = { prefill: () => {}, focus: () => {}, expand: () => {}, collapse: () => {} }
+const NOOP_HANDLE: ComposerHandle = { prefill: () => {}, focus: () => {}, expand: () => {}, collapse: () => {}, take: () => '' }
 
 /** For `useComposerContext`: the stable registry. */
 export function useComposerRegistry() {

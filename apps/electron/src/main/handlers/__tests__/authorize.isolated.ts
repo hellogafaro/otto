@@ -20,7 +20,8 @@ const { createWorkspaceMember, deleteWorkspaceMember, getMemberRole } = await im
 const { WsRpcServer, WsRpcClient } = await import('@otto/server-core/transport')
 const { users } = await import('../../../../../../packages/shared/src/users/schema.ts')
 const { userEntity, workspaceEntity } = await import('@otto/shared/settings')
-const { createConnection, userScope, workspaceScope } = await import('@otto/shared/connections')
+const { createConnection, deleteConnection, userScope, workspaceScope } = await import('@otto/shared/connections')
+const { getTranscriptionKey } = await import('@otto/shared/transcription')
 const { authorize, CONNECTION_WRITE_CHANNELS, INSTANCE_OWNER_CHANNELS, OWNER_CHANNELS, WORKSPACE_ARG_CHANNELS } = await import('../../../../../../packages/server-core/src/bootstrap/authorize.ts')
 const { registerAllRpcHandlers } = await import('../index')
 
@@ -345,7 +346,7 @@ describe('the connection channels', () => {
 
   it("lets a person manage their own connections and nobody else's, the instance owner's included", async () => {
     const { url } = await start(false)
-    const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
+    const [bob, zed] = [await connect(url, 'bob', A), await connect(url, 'zed', B)]
     for (const channel of CONNECTION_WRITE_CHANNELS.keys()) {
       // mine-bob is bob's own: bob finds it; for the others the slug names nothing of theirs, so it is a new connection of their own
       expect(await codeOf(bob.invoke(channel, ...callArgs(channel, 'mine-bob')))).toBe('ok')
@@ -401,6 +402,38 @@ describe('the connection channels', () => {
       const text = JSON.stringify(answer)
       expect(text).not.toContain(secret)
       expect(text).not.toContain('THE-WHOLE-SECRET')
+    }
+  })
+})
+
+describe('dictation', () => {
+  const create = RPC_CHANNELS.transcription.CREATE
+  const audio = Buffer.from(new Uint8Array(8)).toString('base64')
+
+  it('is for members only, and says not_configured (no crash) while no OpenRouter connection is visible', async () => {
+    const { url } = await start(true)
+    const bob = await connect(url, 'bob', A)
+    expect(await codeOf(bob.invoke(create, audio, 'audio/webm'))).toBe('not_configured')
+    expect(await codeOf(bob.invoke(create, audio, 'text/plain'))).toBe('invalid')
+    expect(await codeOf(bob.invoke(create, 'x'.repeat(14_000_000), 'audio/webm'))).toBe('too_large')
+    createWorkspaceMember(A, 'erin', 'member')
+    const erin = await connect(url, 'erin', A)
+    deleteWorkspaceMember(A, 'erin')
+    expect(await codeOf(erin.invoke(create, audio, 'audio/webm'))).toBe('forbidden')
+  })
+
+  it("finds the key of the user's own or workspace's openrouter connection, and no one else's", () => {
+    const fake = `sk-or-${crypto.randomUUID()}`
+    const base = { slug: 'openrouter', type: 'pi' as const, authType: 'api_key' as const, title: 'OpenRouter' }
+    const mine = createConnection({ ...base, scope: userScope('bob') }, { apiKey: fake })
+    const shared = createConnection({ ...base, scope: workspaceScope(B) })
+    try {
+      expect(getTranscriptionKey({ userId: 'bob', workspaceId: A })).toBe(fake)
+      expect(getTranscriptionKey({ userId: 'alice', workspaceId: A })).toBeUndefined()
+      expect(getTranscriptionKey({ userId: 'zed', workspaceId: B })).toBeUndefined() // a connection with no key
+    } finally {
+      deleteConnection(mine.id)
+      deleteConnection(shared.id)
     }
   })
 })

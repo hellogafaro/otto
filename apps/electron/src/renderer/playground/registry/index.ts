@@ -4,8 +4,6 @@ import { chatComponents } from './chat'
 import { turnCardComponents, fullscreenOverlayComponents } from './turn-card'
 import { turnCardModesComponents } from './turn-card-modes'
 import { messagesComponents } from './messages'
-import { inputComponents } from './input'
-import { slashCommandComponents } from './slash-command'
 import { markdownComponents } from './markdown'
 import { iconComponents } from './icons'
 import { oauthComponents } from './oauth'
@@ -13,7 +11,6 @@ import { toastsComponents } from './toasts'
 import { composerComponents } from './composer'
 import { sessionListComponents } from './session-list'
 import { editPopoverComponents } from './edit-popover'
-import { automationComponents } from './automations'
 import { entityListComponents } from './entity-lists'
 import { browserUiComponents } from './browser-ui'
 import { shellComponents } from './shell'
@@ -44,16 +41,13 @@ export const componentRegistry: ComponentEntry[] = [
   ...turnCardModesComponents,
   ...fullscreenOverlayComponents,
   ...messagesComponents,
-  ...inputComponents,
   ...composerComponents,
   ...toastsComponents,
-  ...slashCommandComponents,
   ...markdownComponents,
   ...iconComponents,
   ...oauthComponents,
   ...sessionListComponents,
   ...editPopoverComponents,
-  ...automationComponents,
   ...entityListComponents,
   ...browserUiComponents,
   ...shellComponents,
@@ -67,7 +61,7 @@ export const componentRegistry: ComponentEntry[] = [
 ]
 
 export function getCategories(): CategoryGroup[] {
-  const categoryOrder: Category[] = ['Shell', 'Mobile WebUI', 'Automations', 'Onboarding', 'Agent Setup', 'Chat', 'Island', 'Browser', 'Custom Shadows', 'Session List', 'Entity Lists', 'Edit Popover', 'Turn Cards', 'TurnCard Modes', 'Fullscreen', 'Chat Messages', 'Chat Inputs', 'Toast Messages', 'Markdown', 'Icons', 'OAuth', 'Messaging']
+  const categoryOrder: Category[] = ['Shell', 'Mobile WebUI', 'Onboarding', 'Agent Setup', 'Chat', 'Island', 'Browser', 'Custom Shadows', 'Session List', 'Entity Lists', 'Edit Popover', 'Turn Cards', 'TurnCard Modes', 'Fullscreen', 'Chat Messages', 'Chat Inputs', 'Toast Messages', 'Markdown', 'Icons', 'OAuth', 'Messaging']
   const categoryMap = new Map<Category, ComponentEntry[]>()
 
   for (const entry of componentRegistry) {

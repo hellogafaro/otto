@@ -3,12 +3,20 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { isEscapeDuringComposition, RichTextInput } from '../rich-text-input'
 
-it('merges caller sizing styles without dropping the default editor line-height', () => {
+it('takes caller sizing styles; its line-height is the text-sm token (no inline default)', () => {
   const html = renderToStaticMarkup(createElement(RichTextInput, {
     value: 'Draft', onChange: () => {}, style: { maxHeight: 180 },
   }))
-  expect(html).toContain('line-height:1.25')
+  expect(html).not.toContain('line-height')
   expect(html).toContain('max-height:180px')
+})
+
+it('shows its placeholder while empty', () => {
+  const html = renderToStaticMarkup(createElement(RichTextInput, {
+    value: '', onChange: () => {}, placeholder: 'Ask your agents anything',
+  }))
+  expect(html).toContain('data-slot="composer-placeholder"')
+  expect(html).toContain('Ask your agents anything')
 })
 
 it('allows an explicit caller line-height override', () => {

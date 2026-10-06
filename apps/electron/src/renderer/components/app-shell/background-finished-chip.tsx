@@ -3,7 +3,7 @@
  *
  * A small purple pill that floats in the top-right corner *inside* the chat
  * input box when a *background* session (one not currently on screen) finishes a
- * run and produces new output. It is mounted by `InputContainer` (freeform mode)
+ * run and produces new output. It is mounted among the chat composer's chips (`use-chat-composer`)
  * and absolutely positioned — the in-app complement to the OS notification, which
  * only fires when the whole app is unfocused.
  *

@@ -14,7 +14,8 @@ export type McpAuthType = 'workspace_oauth' | 'workspace_bearer' | 'public';
  */
 export interface RemoteServerConfig {
   url: string;              // ws://host:port or wss://host:port
-  token: string;            // Auth token for the remote server
+  token: string;            // Auth token for the remote server (read from its secret; the registry file keeps `tokenSecretId`, never the token)
+  tokenSecretId?: string;   // The secret that holds `token`
   remoteWorkspaceId: string; // ID of the workspace on the remote server
 }
 

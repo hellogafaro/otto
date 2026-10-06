@@ -7,7 +7,7 @@ import type { StructuredInputState, StructuredResponse } from './structured/type
 interface StructuredInputProps {
   state: StructuredInputState
   onResponse: (response: StructuredResponse) => void
-  /** When true, removes container styling (shadow, bg, rounded) - used when wrapped by InputContainer */
+  /** When true, removes container styling (shadow, bg, rounded) - used when drawn inside the composer */
   unstyled?: boolean
 }
 

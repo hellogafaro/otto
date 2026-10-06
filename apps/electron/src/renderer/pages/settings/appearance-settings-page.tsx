@@ -10,7 +10,7 @@ import { SettingsPage } from '@/components/settings/settings-page'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES, type LanguageCode } from '@otto/shared/i18n'
 import type { ColumnDef } from '@tanstack/react-table'
-import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
+import { AgentEditButton } from '@/components/ui/agent-edit-button'
 import { useTheme } from '@/context/theme-context'
 import { Monitor, Sun, Moon } from 'lucide-react'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
@@ -114,9 +114,6 @@ export default function AppearanceSettingsPage() {
   // Tool icon mappings loaded from main process
   const [toolIcons, setToolIcons] = useState<ToolIconMapping[]>([])
 
-  // Resolved path to tool-icons.json (needed for EditPopover and "Edit File" action)
-  const [toolIconsJsonPath, setToolIconsJsonPath] = useState<string | null>(null)
-
   // Connection icon visibility toggle
   const [showConnectionIcons, setShowConnectionIcons] = useState(() =>
     storage.get(storage.KEYS.showConnectionIcons, true)
@@ -158,17 +155,12 @@ export default function AppearanceSettingsPage() {
     loadThemes()
   }, [])
 
-  // Load tool icon mappings and resolve the config file path on mount
+  // Load tool icon mappings on mount
   useEffect(() => {
     const load = async () => {
       if (!window.electronAPI) return
       try {
-        const [mappings, homeDir] = await Promise.all([
-          window.electronAPI.getToolIconMappings(),
-          window.electronAPI.getHomeDir(),
-        ])
-        setToolIcons(mappings)
-        setToolIconsJsonPath(`${homeDir}/.otto/tool-icons/tool-icons.json`)
+        setToolIcons(await window.electronAPI.getToolIconMappings())
       } catch (error) {
         console.error('Failed to load tool icon mappings:', error)
       }
@@ -264,18 +256,7 @@ export default function AppearanceSettingsPage() {
               <SettingsSection
                 title={t("settings.appearance.toolIcons")}
                 description={t("settings.appearance.toolIconsDesc")}
-                action={
-                  toolIconsJsonPath ? (
-                    <EditPopover
-                      trigger={<EditButton />}
-                      {...getEditConfig('edit-tool-icons', toolIconsJsonPath)}
-                      secondaryAction={{
-                        label: t("settings.appearance.editFile"),
-                        filePath: toolIconsJsonPath,
-                      }}
-                    />
-                  ) : undefined
-                }
+                action={<AgentEditButton prompt={t("agentEdit.toolIcons")} />}
               >
                 <SettingsCard>
                   <Info_DataTable

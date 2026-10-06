@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test'
 import { getInputAvailableHeight, getViewportRect, subscribeViewportChanges } from '../input-viewport'
-import { getComposerMaxHeight } from '../../components/app-shell/input/composer-height'
 
 describe('input viewport geometry', () => {
   it('is browser-safe without a window', () => {
@@ -35,18 +34,6 @@ describe('input viewport geometry', () => {
     expect(getViewportRect(host).top).toBe(220)
     Object.assign(host.visualViewport, { width: 844, height: 390, offsetTop: 0 })
     expect(getViewportRect(host)).toMatchObject({ top: 0, width: 844, height: 390 })
-  })
-})
-
-describe('composer budget', () => {
-  it('bounds freeform including the toolbar on narrow and landscape screens', () => {
-    expect(getComposerMaxHeight(250, 'freeform')).toBe(165)
-    expect(getComposerMaxHeight(1000, 'freeform')).toBe(584)
-    expect(getComposerMaxHeight(250, 'structured')).toBe(175)
-  })
-  it('does not let structured minimum height exceed actual available space', () => {
-    expect(getComposerMaxHeight(100, 'structured')).toBe(100)
-    expect(getComposerMaxHeight(0, 'freeform')).toBe(0)
   })
 })
 

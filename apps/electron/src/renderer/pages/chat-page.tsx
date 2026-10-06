@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AlertCircle, Globe, Copy, RefreshCw, Link2Off, Info } from 'lucide-react'
 import { ChatDisplay } from '@/components/app-shell/chat-display'
-import { useComposerContext } from '@/components/composer/use-composer-context'
+import { useComposer } from '@/components/composer/composer-provider'
 import { HeaderMoreButton, PageHeader } from '@/components/app-shell/page-header'
 import { SessionMenu } from '@/components/app-shell/session-menu'
 import { CompactSessionMenu } from '@/components/app-shell/compact-session-menu'
@@ -38,8 +38,8 @@ export interface ChatPageProps {
 
 const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   const { t } = useTranslation()
-  // The chat and the new chat (an empty chat) are full: their own input still draws it until W2 (docs/composer.md).
-  useComposerContext({ key: `chat:${sessionId}`, mode: 'full' })
+  // The chat's input is the shell composer, full: ChatDisplay registers it (`shellComposer`).
+  const composer = useComposer()
   // Diagnostic: mark when component runs
   React.useLayoutEffect(() => {
     rendererPerf.markSessionSwitch(sessionId, 'panel.mounted')
@@ -58,14 +58,10 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     onMarkSessionUnread,
     onSetActiveViewingSession,
     getDraft,
-    hydrateDraftAttachments,
     onInputChange,
-    onAttachmentsChange,
     enabledSources,
-    skills,
     labels,
     onSessionLabelsChange,
-    enabledModes,
     sessionStatuses,
     onSessionSourcesChange,
     onRenameSession,
@@ -208,78 +204,21 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   const pendingPermission = usePendingPermission(sessionId)
   const pendingCredential = usePendingCredential(sessionId)
 
-  // Track draft value for this session
-  const [inputValue, setInputValue] = React.useState(() => coerceInputText(getDraft(sessionId)))
-  const inputValueRef = React.useRef(inputValue)
-  inputValueRef.current = inputValue
-
-  // Re-sync from parent when session changes
-  React.useEffect(() => {
-    setInputValue(coerceInputText(getDraft(sessionId)))
-  }, [getDraft, sessionId])
-
-  // Sync when draft is set externally (e.g., from notifications or shortcuts)
-  // PERFORMANCE NOTE: This bounded polling (max 10 attempts × 50ms = 500ms)
-  // handles external draft injection. Drafts use a ref for typing performance,
-  // so they're not directly reactive. This polling only runs on session switch,
-  // not continuously. Alternative: Add a Jotai atom for draft changes.
+  // A text set for this chat from elsewhere (a link's `input`, a new chat opened with one, a draft left by the
+  // old chat input) lands in the composer once, then leaves the app's draft store: drafts live in the browser now.
+  // Bounded polling (10 x 50ms) after opening, as the text is set just after the chat opens.
   React.useEffect(() => {
     let attempts = 0
-    const maxAttempts = 10
     const interval = setInterval(() => {
-      const currentDraft = coerceInputText(getDraft(sessionId))
-      if (currentDraft !== inputValueRef.current && currentDraft !== '') {
-        setInputValue(currentDraft)
-        clearInterval(interval)
+      const draft = coerceInputText(getDraft(sessionId))
+      if (draft) {
+        composer.prefill(draft)
+        onInputChange(sessionId, '')
       }
-      attempts++
-      if (attempts >= maxAttempts) {
-        clearInterval(interval)
-      }
+      if (draft || ++attempts >= 10) clearInterval(interval)
     }, 50)
-
     return () => clearInterval(interval)
-  }, [sessionId, getDraft])
-
-  // Listen for restore-input events (queued messages restored to input on abort)
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      const { sessionId: targetId, text } = (e as CustomEvent).detail ?? {}
-      if (targetId === sessionId) {
-        const nextText = coerceInputText(text)
-        setInputValue(nextText)
-        inputValueRef.current = nextText
-      }
-    }
-    window.addEventListener('otto:restore-input', handler)
-    return () => window.removeEventListener('otto:restore-input', handler)
-  }, [sessionId])
-
-  const handleInputChange = React.useCallback((value: string) => {
-    const nextText = coerceInputText(value)
-    setInputValue(nextText)
-    inputValueRef.current = nextText
-    onInputChange(sessionId, nextText)
-  }, [sessionId, onInputChange])
-
-  // Attachments draft state — hydrated async from persisted refs on session switch.
-  // `[]` is the safe default while hydration is in flight; FreeFormInput seeds its
-  // local state from this prop and swaps in the restored list when ready.
-  const [attachmentsValue, setAttachmentsValue] = React.useState<import('../../shared/types').FileAttachment[]>([])
-
-  React.useEffect(() => {
-    let cancelled = false
-    setAttachmentsValue([])
-    hydrateDraftAttachments(sessionId).then((atts) => {
-      if (!cancelled) setAttachmentsValue(atts)
-    })
-    return () => { cancelled = true }
-  }, [sessionId, hydrateDraftAttachments])
-
-  const handleAttachmentsChange = React.useCallback((attachments: import('../../shared/types').FileAttachment[]) => {
-    setAttachmentsValue(attachments)
-    onAttachmentsChange(sessionId, attachments)
-  }, [sessionId, onAttachmentsChange])
+  }, [sessionId, getDraft, onInputChange, composer])
 
   // Session model change handler - persists per-session model and connection
   const handleModelChange = React.useCallback((model: string, connection?: string) => {
@@ -687,16 +626,8 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
                 permissionMode={sessionOpts.permissionMode}
                 previousPermissionMode={sessionOpts.previousPermissionMode}
                 onPermissionModeChange={setPermissionMode}
-                enabledModes={enabledModes}
-                inputValue={inputValue}
-                onInputChange={handleInputChange}
-                attachmentsValue={attachmentsValue}
-                onAttachmentsChange={handleAttachmentsChange}
                 sources={enabledSources}
-                skills={skills}
-                sessionStatuses={sessionStatuses}
                 onSessionStatusChange={handleSessionStatusChange}
-                workspaceId={activeWorkspaceId || undefined}
                 onSourcesChange={(slugs) => onSessionSourcesChange?.(sessionId, slugs)}
                 workingDirectory={sessionMeta.workingDirectory}
                 onWorkingDirectoryChange={handleWorkingDirectoryChange}
@@ -709,7 +640,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
                 onMatchInfoChange={onChatMatchInfoChange}
                 connectionUnavailable={connectionUnavailable}
                 compactMode={!!isCompactMode}
-                enableCompactModelPicker={!!isCompactMode}
+                shellComposer
               />
             </div>
           </div>
@@ -764,22 +695,11 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
             permissionMode={sessionOpts.permissionMode}
             previousPermissionMode={sessionOpts.previousPermissionMode}
             onPermissionModeChange={setPermissionMode}
-            enabledModes={enabledModes}
-            inputValue={inputValue}
-            onInputChange={handleInputChange}
-            attachmentsValue={attachmentsValue}
-            onAttachmentsChange={handleAttachmentsChange}
             sources={enabledSources}
-            skills={skills}
-            labels={labels}
-            onLabelsChange={(newLabels) => onSessionLabelsChange?.(sessionId, newLabels)}
-            sessionStatuses={sessionStatuses}
             onSessionStatusChange={handleSessionStatusChange}
-            workspaceId={activeWorkspaceId || undefined}
             onSourcesChange={(slugs) => onSessionSourcesChange?.(sessionId, slugs)}
             workingDirectory={workingDirectory}
             onWorkingDirectoryChange={handleWorkingDirectoryChange}
-            sessionFolderPath={session?.sessionFolderPath}
             messagesLoading={messageLoadState.messagesLoading || (messagesRetrying && !messageLoadState.messagesReady)}
             messagesLoadError={messageLoadState.error}
             messagesRetrying={messagesRetrying}
@@ -789,7 +709,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
             onMatchInfoChange={onChatMatchInfoChange}
             connectionUnavailable={connectionUnavailable}
             compactMode={!!isCompactMode}
-            enableCompactModelPicker={!!isCompactMode}
+            shellComposer
           />
         </div>
       </div>

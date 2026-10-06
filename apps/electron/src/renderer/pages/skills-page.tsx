@@ -1,7 +1,7 @@
 /**
  * Skills (`/{ws}/settings/skills`): the workspace's skills as a gallery, like the Library without tabs. The title
  * row: Filter (Scope: Global, Workspace, Project; `?scope=`), Search (the palette on Skills) and "+" (Add skill:
- * the add-skill popover, which asks an agent to write it). A tile is the skill's own icon, its name and its scope;
+ * prefills the composer, which asks an agent to write it). A tile is the skill's own icon, its name and its scope;
  * it opens the skill (no menu: the skill's page has its More actions), whose Back returns here and whose Previous /
  * Next step through this grid. No skills at all: the stock empty page alone (no
  * title row), with the same Add skill.
@@ -18,11 +18,11 @@ import { PageColumn } from '@workspace/ui/components/page'
 import { skillsAtom } from '@/atoms/skills'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
-import { EditPopover, getEditConfig } from '@/components/ui/edit-popover'
+import { useComposer } from '@/components/composer/composer-provider'
+import { useActiveWorkspace } from '@/context/app-shell-context'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import { CreateButton } from '@/components/ui/create-button'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
-import { useActiveWorkspace } from '@/context/app-shell-context'
 import { isSkillsNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
 import { routes } from '@/lib/navigate'
 import { getVisibleSkills } from '@/lib/skill-source-lists'
@@ -41,12 +41,12 @@ export function SkillsPage() {
   const navState = useNavigationState()
   const { navigate } = useNavigation()
   const workspace = useActiveWorkspace()
+  const composer = useComposer()
   const search: SkillsSearch = isSkillsNavigation(navState) ? navState.search : {}
   const setScope = (scope: SkillScope | undefined) => navigate(routes.view.skills({ scope }))
 
-  /** Add skill: the add-skill popover on `trigger` (it starts a chat that writes the skill). */
-  const addSkill = (trigger: React.ReactNode) =>
-    workspace ? <EditPopover trigger={trigger} {...getEditConfig('add-skill', workspace.rootPath)} /> : null
+  /** Add skill: prefills the composer; Enter starts the chat that writes the skill. */
+  const addSkill = () => composer.prefill(t('agentEdit.addSkill') + ' ')
 
   // No skills at all: the stock empty page, its button Add skill.
   if (skills?.length === 0) {
@@ -54,7 +54,7 @@ export function SkillsPage() {
       <div className="flex h-full flex-col">
         <PageHeader />
         <EntityListEmptyScreen icon={<Shapes />} title={t('skillsList.noSkillsConfigured')} description={t('skillsList.emptyDescription')}>
-          {addSkill(<Button>{t('skillsList.addSkill')}</Button>)}
+          <Button onClick={addSkill}>{t('skillsList.addSkill')}</Button>
         </EntityListEmptyScreen>
       </div>
     )
@@ -79,7 +79,7 @@ export function SkillsPage() {
           <>
             <FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('skillsList.filter')} />
             <CommandPaletteButton category="skills" />
-            {addSkill(<CreateButton label={t('skillsList.addSkill')} />)}
+            <CreateButton label={t('skillsList.addSkill')} onClick={addSkill} />
           </>
         )}
       />

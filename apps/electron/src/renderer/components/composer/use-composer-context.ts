@@ -11,12 +11,14 @@ import { useId, useLayoutEffect } from 'react'
 import { useComposerRegistry } from './composer-provider'
 import type { ComposerContext } from './composer-state'
 
-export function useComposerContext(context: ComposerContext) {
+/** `enabled` false registers nothing (a chat drawn inside another surface). */
+export function useComposerContext(context: ComposerContext, enabled = true) {
   const registry = useComposerRegistry()
   const id = useId()
-  const { key, entity, placeholder, mode, onSend, busy, onStop, tools } = context
+  const { key, entity, placeholder, mode, sessionId, onSend, busy, onStop, tools, chips, imageNotice, structured, canSendEmpty, disabled, workingDirectory, commands } = context
   useLayoutEffect(() => {
-    registry?.set(id, { key, entity, placeholder, mode, onSend, busy, onStop, tools })
-  }, [registry, id, key, entity, placeholder, mode, onSend, busy, onStop, tools])
+    if (enabled) registry?.set(id, { key, entity, placeholder, mode, sessionId, onSend, busy, onStop, tools, chips, imageNotice, structured, canSendEmpty, disabled, workingDirectory, commands })
+    else registry?.remove(id)
+  }, [registry, id, enabled, key, entity, placeholder, mode, sessionId, onSend, busy, onStop, tools, chips, imageNotice, structured, canSendEmpty, disabled, workingDirectory, commands])
   useLayoutEffect(() => () => registry?.remove(id), [registry, id])
 }

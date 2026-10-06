@@ -2,7 +2,7 @@ import type { PermissionRequest, CredentialRequest, CredentialResponse } from '.
 import type { AdminApprovalRequestData } from './admin-approval-request'
 
 /**
- * Input mode determines which component is rendered in InputContainer
+ * Input mode determines whether the composer shows its text or a request
  */
 export type InputMode = 'freeform' | 'structured'
 

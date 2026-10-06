@@ -33,7 +33,6 @@ import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
 import { Toggle } from '@workspace/ui/components/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@workspace/ui/components/toggle-group'
 import { MetadataBadge } from '@/components/ui/metadata-badge'
-import { FreeFormInputContextBadge } from '@/components/app-shell/input/free-form-input-context-badge'
 import { SettingsSegmentedControl } from '@/components/settings/settings-segmented-control'
 import { SettingsRow } from '@/components/settings/settings-row'
 import { cn } from '@/lib/utils'
@@ -401,14 +400,6 @@ function Chips() {
               <Info className="size-3.5 shrink-0" />Info
             </button>
           ))}
-        </div>
-      </Cell>
-      <Cell label="Composer toolbar chip (FreeFormInputContextBadge, h-7): expanded rest | hover | open | collapsed+selection">
-        <div className="flex gap-2">
-          <FreeFormInputContextBadge icon={<Folder className="size-3.5" />} label="Folder" isExpanded showChevron />
-          <ForceIn f="hover"><FreeFormInputContextBadge icon={<Folder className="size-3.5" />} label="Folder" isExpanded showChevron /></ForceIn>
-          <FreeFormInputContextBadge icon={<Folder className="size-3.5" />} label="Folder" isExpanded showChevron isOpen />
-          <FreeFormInputContextBadge icon={<Folder className="size-3.5" />} label="Folder" hasSelection />
         </div>
       </Cell>
       <Cell label="Real design-system buttons used as chips: outline 28 | secondary 28 | ghost 28 (rest)">

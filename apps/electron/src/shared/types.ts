@@ -666,6 +666,8 @@ export interface ElectronAPI {
   setNotificationStatus(ids: string[] | 'all', status: 'read' | 'unread'): Promise<void>
   clearNotifications(ids: string[] | 'all'): Promise<void>
   getUnreadNotificationCount(): Promise<number>
+  /** Dictation: one recording (the chunks of a take joined, base64 of an `audio/*` blob up to 10 MiB) to its text, empty when no speech was found. Rejects with `code` `not_configured` (no OpenRouter connection), `too_large`, `invalid`, `timeout`, `unavailable` or `failed`. */
+  transcribe(audioBase64: string, type: string): Promise<{ text: string }>
   /** After a write by anyone in the workspace: this domain's data there is stale. Hooks reload on it. */
   onDomainChanged(callback: (change: DomainChange) => void): () => void
 

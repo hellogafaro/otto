@@ -119,7 +119,7 @@ test('the importer moves config.json and preferences.json into settings, once, a
   expect(first.skipped).toBe(0)
   expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('claude-max')
   expect(getSetting(INSTALL, 'defaultThinkingLevel', db)).toBe('medium')
-  expect(getSetting(INSTALL, 'server', db)).toEqual({ enabled: true, port: 9200, token: 't-123' })
+  expect(getSetting(INSTALL, 'server', db)).toEqual({ enabled: true, port: 9200 }) // the token is a secret: initSecretsImport moves it
   expect(getSetting(INSTALL, 'decisionLayer', db)).toEqual({ enabled: true, provider: 'typesafe' })
   expect(getSetting(INSTALL, 'setupDeferred', db)).toBe(true)
   expect(getSetting(INSTALL, 'gitBashPath', db)).toBe('C:\\Git\\bash.exe')

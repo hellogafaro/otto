@@ -1,10 +1,10 @@
 /**
  * RoutinesPage - the Routines index: the workspace's routines grouped by what starts them (Scheduled, Events, Agent
  * events; empty groups are not drawn) in the line-only `PageWrap`, the Chats and Tasks table. The header carries
- * Filter (Type, one at a time, `?type=`) and "+" (New routine: the add popover, where you describe it and an agent
+ * Filter (Type, one at a time, `?type=`) and "+" (New routine: prefills the composer, where you describe it and an agent
  * writes it); there is no Search (the palette has no Routines category). Active filters show as chips above the list.
  *
- * Nothing at all: the section's empty state alone, its button the same popover. A filter that keeps nothing:
+ * Nothing at all: the section's empty state alone, its button the same prefill. A filter that keeps nothing:
  * `NoResults`. A row opens the routine, whose Back returns here and whose Previous / Next step through this list.
  */
 
@@ -16,25 +16,19 @@ import { ListGroup, ListRowSkeleton } from '@workspace/ui/components/list-group'
 import { PageColumn, PageWrap } from '@workspace/ui/components/page'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { useComposerContext } from '@/components/composer/use-composer-context'
-import { EditPopover, getEditConfig } from '@/components/ui/edit-popover'
+import { useComposer } from '@/components/composer/composer-provider'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import { CreateButton } from '@/components/ui/create-button'
-import { useActiveWorkspace } from '@/context/app-shell-context'
 import { isAutomationsNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
 import { useRoutines } from '@/hooks/use-routines'
 import { routes } from '@/lib/navigate'
 import { getVisibleRoutines, groupRoutines, ROUTINE_TYPES, type Routine, type RoutineType } from './routine-items'
 import { ROUTINE_TYPE_ICONS, RoutineRow, useRoutineActions } from './routine-row'
 
-/** New routine: the add popover on `trigger`, which starts an agent that writes it. */
-export function NewRoutine({ trigger }: { trigger: React.ReactNode }) {
-  const workspace = useActiveWorkspace()
-  return workspace ? <EditPopover trigger={trigger} {...getEditConfig('add-routine', workspace.rootPath)} /> : null
-}
-
 export function RoutinesPage() {
   const { t } = useTranslation()
   useComposerContext({ key: 'page:routines' })
+  const composer = useComposer()
   const { navigate } = useNavigation()
   const navState = useNavigationState()
   const api = useRoutines()
@@ -43,13 +37,16 @@ export function RoutinesPage() {
   const type = isAutomationsNavigation(navState) ? navState.filter?.automationType : undefined
   const setType = (next: RoutineType | undefined) => navigate(routes.view.automations({ type: next }))
 
+  /** New routine: prefills the composer; Enter starts the chat that writes it. */
+  const newRoutine = () => composer.prefill(t('agentEdit.addRoutine') + ' ')
+
   // No routines at all: only the empty state and its New routine.
   if (loaded && routines.length === 0) {
     return (
       <div className="flex h-full flex-col">
         <PageHeader />
         <EntityListEmptyScreen icon={<Clock />} title={t('sectionEmpty.routinesTitle')} description={t('sectionEmpty.routinesDescription')}>
-          <NewRoutine trigger={<Button>{t('sectionEmpty.newRoutine')}</Button>} />
+          <Button onClick={newRoutine}>{t('sectionEmpty.newRoutine')}</Button>
         </EntityListEmptyScreen>
       </div>
     )
@@ -78,7 +75,7 @@ export function RoutinesPage() {
         actions={(
           <>
             <FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('routines.filter')} />
-            <NewRoutine trigger={<CreateButton label={t('sectionEmpty.newRoutine')} />} />
+            <CreateButton label={t('sectionEmpty.newRoutine')} onClick={newRoutine} />
           </>
         )}
       />

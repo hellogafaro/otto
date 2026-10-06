@@ -1,10 +1,34 @@
 /**
  * The shell composer's pure logic (docs/composer.md (f)): what a page tells it, the compact bar's state
- * machine, which look the shell draws, the first message of a chat started from a page, and the send key.
+ * machine, which look the shell draws, the first message of a chat started from a page, the send key and the
+ * main button's one action.
  */
 
 import type { ReactNode } from 'react'
+import type { PermissionMode } from '@otto/shared/agent/modes'
 import type { FileAttachment } from '../../../shared/types'
+
+/** What a send hands the page: the text, the files and the `@` mentions in it. */
+export interface ComposerMessage {
+  text: string
+  attachments: FileAttachment[]
+  /** Skills mentioned with `@` (qualified names). */
+  skillSlugs: string[]
+  /** Sources mentioned with `@`: the chat turns them on. */
+  sourceSlugs: string[]
+}
+
+/** The `/` commands only a chat has (its session's settings); every page has Add files. */
+export interface ComposerChatCommands {
+  permissionMode?: PermissionMode
+  onPermissionModeChange?: (mode: PermissionMode) => void
+  /** The chat's status id; the statuses are the workspace's. */
+  status?: string
+  onStatusChange?: (status: string) => void
+  onWorkingDirectoryChange?: (path: string) => void
+  /** `/compact`: summarize the chat's context (not while it runs). */
+  onCompact?: () => void
+}
 
 /** What a page tells the composer (`useComposerContext`); the last page mounted wins. */
 export interface ComposerContext {
@@ -16,12 +40,28 @@ export interface ComposerContext {
   placeholder?: string
   /** Default 'compact'; 'full' on the chat, the new chat and the Inbox. */
   mode?: 'compact' | 'full'
-  /** The page's own send (the chat, W2); else the default: a new chat led by `entity`. */
-  onSend?: (message: { text: string; attachments: FileAttachment[] }) => Promise<void>
+  /** The chat's session id: scopes the chat's events (focus, paste, restore, submit) to it. */
+  sessionId?: string
+  /** The page's own send (the chat); else the default: a new chat led by `entity`. */
+  onSend?: (message: ComposerMessage) => void | Promise<void>
   busy?: boolean
-  onStop?: () => void
-  /** Full mode pickers (model, permission): the chat only (W2). */
+  /** Stop the run; `silent` when a new message replaces it (no "interrupted" line). */
+  onStop?: (silent?: boolean) => void
+  /** Full mode pickers (the chat's model) and anything laid over the action row (its status). */
   tools?: ReactNode
+  /** Chips above the text in full mode (the chat's background tasks and follow-ups). */
+  chips?: ReactNode
+  /** Shown above the files while an image is among them (the chat's model cannot read images). */
+  imageNotice?: ReactNode
+  /** A request that replaces the composer's body in full mode (a permission, a credential). */
+  structured?: ReactNode
+  /** Something to send even with no text (the chat's pending follow-ups). */
+  canSendEmpty?: boolean
+  /** Sending is off (the chat's connection is gone); the text stays editable. */
+  disabled?: boolean
+  /** Where `@` finds files (the chat's working directory). */
+  workingDirectory?: string
+  commands?: ComposerChatCommands
 }
 
 /** The compact bar's own state; a full page has none (it never collapses). */
@@ -60,17 +100,13 @@ export function composerReducer(view: ComposerView, event: ComposerEvent): Compo
   }
 }
 
-/** What the shell's slot draws: nothing, the compact bar or the expanded glass. */
-export type ShellSurface = 'none' | 'compact' | 'expanded'
+/** What the shell's slot draws: nothing, the compact bar, the expanded glass or the full card. */
+export type ShellSurface = 'none' | 'compact' | 'expanded' | 'full'
 
-/**
- * The look for a page. Seam until W2 moves the chat's composer into the shell: a full chat ('chat:<id>',
- * the chat and the new chat) still draws its own `ChatInputZone`, so the shell draws nothing there (never two
- * composers); any other full page (the Inbox) shows the compact bar until the full look exists.
- */
+/** The look for a page: a full page (the chat, the new chat, the Inbox) is full; else the bar's own state. */
 export function resolveShellSurface(context: ComposerContext | null, view: ComposerView): ShellSurface {
   if (!context) return 'none'
-  if (context.mode === 'full' && context.key.startsWith('chat:')) return 'none'
+  if (context.mode === 'full') return 'full'
   return view === 'expanded' ? 'expanded' : 'compact'
 }
 
@@ -90,4 +126,21 @@ export function sendKeyAction(
   if (event.key !== 'Enter' || event.isComposing || event.shiftKey) return null
   const mod = event.metaKey || event.ctrlKey
   return sendKey === 'enter' || mod ? 'send' : null
+}
+
+export type MainAction = 'sending' | 'stop' | 'transcribing' | 'done' | 'send' | 'dictate'
+
+/** The main button's one action, in v1's priority order. */
+export function mainAction(state: {
+  sending: boolean
+  busy: boolean
+  transcribing: boolean
+  listening: boolean
+  hasContent: boolean
+}): MainAction {
+  if (state.sending) return 'sending'
+  if (state.busy) return 'stop'
+  if (state.transcribing) return 'transcribing'
+  if (state.listening) return 'done'
+  return state.hasContent ? 'send' : 'dictate'
 }

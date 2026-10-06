@@ -697,19 +697,28 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     the first view opened). Then, 20px down, the registry's groups exactly as
     `SETTINGS_NAV_GROUPS` orders them: **Account** (General, AI, Appearance,
     Input, Shortcuts, Preferences) and **Workspace** (Workspace, Members,
-    Permissions, Labels, Messaging, then Skills and Sources), each under its
+    Permissions, Labels, Statuses, Messaging, then Skills and Sources), each under its
     20px muted group title, every page a standard 28px row with its own icon
     (`SETTINGS_ICONS`; Skills `Shapes`, Sources `DatabaseZap`), the open one filled
     `foreground/10`, hover `foreground/5`, the inset ring for keyboard focus only.
     A direct URL fills its row. The groups scroll as a whole on a short window
     (edge fade, no scrollbar). No footer. Settings opens from the workspace
     menu (and ⌘,) on **General**, the registry's first page.
-    The Labels and workspace Permissions pages (and statuses) are data in the
-    database, not files: their Edit popovers have no "Edit file" action and the
-    agent edits them with its `labels_edit` / `statuses_edit` /
-    `permissions_edit` tools; the Permissions page reloads when they change. A
-    status icon is an emoji or an SVG image data URL that stays tinted by the
-    status color.
+    The Labels, Statuses and workspace Permissions pages are data in the
+    database, not files: the agent edits them with its `labels_edit` /
+    `statuses_edit` / `permissions_edit` tools and the pages reload when they
+    change. **Statuses** is read-only like Labels: one card of rows (the status
+    icon, tinted by its color when it is an SVG, the name, and an outline Open /
+    Closed badge: open shows in the inbox, closed in the archive), its Edit
+    prefilling the composer. A status icon is an emoji or an SVG image data URL
+    that stays tinted by the status color.
+    **Edit with the agent** (the owner's call: no "ask the agent" popovers): every
+    Edit button of a page (`AgentEditButton`, the outline compact "Edit") and every
+    add action (Add skill / source, New routine) prefills the one floating
+    composer with a sentence naming the thing and its place cursor-last ("Edit the
+    source GitHub to "), then focuses it; Enter starts the chat. Sources, skills and
+    routines have no entity token yet, so their name is plain text. No "Edit file"
+    secondary action. Copy lives in `agentEdit.*` strings, never a hardcoded name.
 - **The page header** (`PageHeaderRow`, drawn by `PageHeader`) is the page's
   **title row: the first block of the scrolling column**, never a pinned bar
   (the owner's call, after Capy's settings, where "General" is simply the first
@@ -921,8 +930,8 @@ no shadow.
   `?type=`; one value at a time, the last picked, chips in the `FilterBar` while
   set), **Search** (`CommandPaletteButton`: the palette on its Skills or Sources
   category) and **"+"** (Add skill / Add source in its tooltip): the existing
-  add popover (`EditPopover` with `add-skill`, or `add-source` / `add-source-{type}`
-  for the filtered type), where you describe it and an agent writes it in a new
+  add action, which prefills the composer ("Add a skill that ", "Add a source that
+  connects to ", or the filtered type's sentence) and an agent writes it in a new
   chat. Then `Gallery columns={4}` of 4:5 tiles on the frame (`GalleryItem`):
   the item's own icon (`SkillAvatar` / `SourceAvatar`, chromeless: 16px in the
   icon tile, 14px before the title), the muted caption under it (a skill's scope,
@@ -941,8 +950,8 @@ no shadow.
   not this workspace's); its description (a source's tagline) is the lead line
   under the title; no hero, avatar or table row repeats the name or the
   description. Then its sections, `PageSection` over `PageCard` as on every
-  settings page, each with its Edit popover (an agent edits the file; "Edit file"
-  opens it) as the section action. **A skill**: Instructions, SKILL.md's body as
+  settings page, each with its Edit button (it prefills the composer naming the item and the
+  section; an agent edits the file) as the section action. **A skill**: Instructions, SKILL.md's body as
   the Library's read-only markdown (`Markdown mode="full"`, 16px in the card, the
   page scrolls; a leading `# {name}` is dropped, it is the title), then Metadata
   rows (Scope, Location, Required sources, Always allowed tools; the rows exist
@@ -1030,8 +1039,8 @@ status color (Archived neutral). A row (44px): the status icon
   ("Delete routine?", "This can't be undone."). Run now is the RPC's test run
   ("Routine started"); Enable / Disable shows "Saved". Loading: three
   `ListRowSkeleton`s in the wrapper. No routines at all: only the section's empty
-  state, whose "New routine" is the same as "+": the add popover (`EditPopover`,
-  `add-routine`), where you say what should run and when, and an agent writes it
+  state, whose "New routine" is the same as "+": it prefills the composer ("Add a
+  routine that "), where you say what should run and when, and an agent writes it
   in a new chat (there is no create RPC and no form). A filter that keeps none:
   `NoResults`.
 - **Routine page** (`RoutinePage`, `/{ws}/routines/{id}`): a blocks page. The
@@ -1040,8 +1049,8 @@ status color (Archived neutral). A row (44px): the status icon
   (`PanelRight`, pressed while open) and More (Run now, Enable / Disable, then
   Delete, back to Routines after). Then **Actions**, a card with each action
   read-only (its kind over the prompt, or the webhook's URL or the script in mono;
-  the section's Edit asks an agent to change `automations.json`, starting from the
-  routine's name), and **Run history**, a card of its last 20 runs, newest first:
+  the section's Edit prefills the composer with "Edit the actions of the routine {name}
+  to "), and **Run history**, a card of its last 20 runs, newest first:
   the date and time, the error or why it was skipped under it, and a Ran / Failed /
   Skipped badge; a run that started a chat opens it (chevron). None: "No runs
   yet". The Details sidecar: Properties, read-only rows (Trigger, the cron in mono
@@ -1615,17 +1624,22 @@ are `ListGroup`.
 
 **Composer** (`Composer`, `ComposerInput`, `ComposerRow`, `ComposerMainButton`
 in `design/ui`; the spec and work packages in docs/composer.md). ONE composer,
-on every page, mounted once by the shell (`ComposerProvider` around
-`PageFrame`, `ShellComposer` in the frame's composer slot), so its text field
-never remounts on navigation. Three looks of one structure (slots in fixed
-places: `attachments`, `leading` +, the text, `context`, `tools`, `hint`,
-`attention`, `main`):
+the chat input (`FreeFormInput`, its `/` and `@` menus, files, Send and Stop
+kept, on v1's look) with the floating bar as one of its modes, on every page,
+mounted once by the shell (`ComposerProvider` around `PageFrame`;
+`ShellComposer` only hosts the instance in the frame's composer slot), so its
+text field never remounts on navigation: opening a chat, the new chat or the
+Inbox grows the same instance into the full look, leaving shrinks it, the text
+and files kept. Exactly one composer shows on any page (the edit popover's
+mini chat, until it goes, draws its own instance of the same component).
+Three looks of one structure (slots in fixed places: `attachments`, `leading`
++, the text, `context`, `tools`, `hint`, `attention`, `main`):
 
 - **Compact** (every page by default): the 40px bar, 448px (28rem), on the
   command palette's glass (dark in both themes, `popover/70`, blurred,
   `ring-foreground/10`, `shadow-md`, `xl` 12). One row 4px in: + (32px ghost),
-  the text (44px in, one line, no wrap), the focus key as a `Kbd` while idle
-  and empty (⌘J, `composer.focus`; hidden below 768px), the Inbox slot, the
+  the text (44px in, one line, no wrap; the placeholder ends in an
+  ellipsis), the Inbox slot (always, a red dot while something needs you), the
   main button. Centered on the column's content, 16px above the window's
   bottom (8px above the body's end); below 768px the column's width (20px from
   each side).
@@ -1633,34 +1647,70 @@ places: `attachments`, `leading` +, the text, `context`, `tools`, `hint`,
   column's content (720px), its bottom edge where the bar's was; the text 16px
   in, one line up to 240px, then the action row: +, the page's entity chip
   (`EntityChip`), tools … Inbox, main.
-- **Full** (the chat, the new chat, the Inbox): the expanded anatomy on the
-  card surface (`shadow-sm`), in the layout flow. Not drawn by the shell yet
-  (W2, below).
+- **Full** (the chat, the new chat, the Inbox): v1's full composer, the
+  expanded anatomy on the card surface (`shadow-sm`), as wide as the column's
+  track, 8px above the window's bottom, in the layout: the frame measures it
+  and sets `--composer-clearance` to its height + 8, so the chat's centerpiece
+  ends 8px above it while it grows. Text 16px in, then the action row: +, the
+  chat's model picker (28px), … main. Never the Inbox icon. A pending
+  permission or credential request takes its place until answered; the
+  chat's background tasks and follow-ups sit as chips above the text.
 
 **States.** compact idle → (focus, ⌘J) compact focused → (the text overflows
 the line, a line break from Shift+Enter or a paste, files, `expand()`)
 expanded → (Escape, or blur while empty, or `collapse()`) compact idle;
 focused → (Escape, blur) idle. Escape also blurs. The draft is kept either
-way. A full page never collapses. A new page starts collapsed. Width moves over
-320ms on `cubic-bezier(0.32,0.72,0,1)` (the height follows the content), none
-with reduced motion.
+way. A full page never collapses. A new page starts collapsed. Width AND height
+move together over 320ms on `cubic-bezier(0.32,0.72,0,1)` (the height follows
+the measured content, so the grow from the bar, a new line or the rail all
+glide), bottom edge pinned, none with reduced motion. Dictation does not
+expand the bar.
+
+**Shortcuts.** Never shown at rest. Only while ⌘ (Ctrl off the Mac) or
+Option/Alt is held (`useModifierHeld`; released on key up, window blur or a
+hidden tab) the compact bar shows its keys as `Kbd`: the Inbox slot swaps its
+icon for the Inbox key (`nav.inbox`, ⌘I; Alt+I in the browser) and the focus
+key (⌘J) shows after the text. Tooltips keep the label, then the `Kbd`.
 
 **Main button.** One 32px primary icon button, its tooltip the label and its
-key: Send (ArrowUp, ↵ or ⌘↵ per the send key setting; disabled while empty,
-`loading` while the chat is made), Stop (Square, Esc, while the page's context
-is `busy` and has `onStop`). Dictate and Done come with dictation (W4).
+key, one action in v1's order: Sending (`loading`) › Stop (Square, Esc, while
+the page is `busy`) › Transcribing (`loading`) › Done (Check, ↵, while
+listening) › Send (ArrowUp, ↵ or ⌘↵ per the send key setting; disabled until
+the files are read) › Dictate (Mic, while empty; disabled, "Dictation isn't
+available", where the browser cannot record).
+
+**Files** (the rail, R10). + (also `/` Add files), a drop on the composer
+(its ring turns `ring-ring` while dragging) or a paste add files; a paste of
+over 100 lines becomes a text file. Each is read at once into the attachment
+the chat already stores at send time. The rail is `AttachmentGroup` (one row,
+sideways scroll, the edge fade) above the text, 4px in: in the glass 28px `xs`
+chips (20px thumbnail, the name cut in the middle, 20px remove), in the full
+card `sm` chips with the kind and size ("PNG · 120 KB"; "Adding" while read).
+A failed read is red with Retry. Files stay with the composer across pages
+until sent or removed; adding one expands the bar. While a staged image meets
+a text-only custom model, the chat's image warning shows above the rail.
+
+**Commands.** No pickers in the toolbar: what they did is a command. `/` opens
+the command menu: Mode (Explore, Ask, Execute, Guarded when on; the current
+one checked), Status (the workspace's), Working directory (Choose folder…,
+then the recent ones) and Compact context in a chat; Add files everywhere.
+`@` mentions skills, sources (turned on for the chat when sent) and the
+working directory's files. The menus open above the composer, out of its glass
+(a portal), and keep the caret in the text.
 
 **Context.** A page says what it is about in one line,
 `useComposerContext({ key, entity?, placeholder?, mode?, onSend?, busy?,
-onStop?, tools? })`; the last page mounted wins. Every page registers: Chats,
+onStop?, tools?, … })`; the last page mounted wins (the chat's adds its
+session, chips, request, commands and working directory). Every page registers: Chats,
 Tasks, Projects, Library, Routines (indexes `page:<name>`), a task, project
 and library item (`<type>:<id>` with its entity token), a routine
 (`routine:<id>`, no token: routines have none), Settings, Skills and Sources
 (plain), the Inbox (`mode: 'full'`), the chat and the new chat (`chat:<id>`,
 `mode: 'full'`). The 404 has no shell. Placeholders: "Ask your agents about
 this task / project / document / file / routine / page", "Ask your agents
-anything" (Chats, Inbox, Settings). `useComposer()` gives `prefill`, `focus`,
-`expand`, `collapse` to anything in the shell.
+anything" (Chats, Inbox, Settings, an empty chat), "Reply to {agent}" (a chat,
+the default agent's name). `useComposer()` gives `prefill`, `focus`, `expand`,
+`collapse`, `take` to anything in the shell.
 
 **Send.** Enter sends as the chat input does (`sendMessageKey`; IME respected;
 Shift+Enter adds a line). A page's own `onSend` (the chat, W2) wins; else the
@@ -1669,10 +1719,12 @@ page's entity token then the text (`task:<id> …`), sent with the existing
 `onSendMessage`, and the chat opens at once. The draft clears once the chat
 exists; a failure to make it toasts "Could not start the chat" and keeps the
 draft. Drafts live in the browser only (localStorage, per workspace and
-context key, `otto-composer-draft:<ws>:<key>`).
+context key, `otto-composer-draft:<ws>:<key>`); the text follows you to a page
+with no draft of its own. A user message draws its typed references
+(`task:<id>`) as tags (`EntityText`).
 
 **Clearance.** While the bar shows, the frame sets `--composer-clearance`
-(56px: 8 under the bar, 40, 8 over it). A blocks page then ends 24px above
+(56px: 8 under the bar, 40, 8 over it; the full composer's measured height + 8). A blocks page then ends 24px above
 the bar (72px of bottom padding instead of 40) and its bottom fade grows to
 80px so content softens toward the bar; a centerpiece's card ends 8px above
 it. At a page's end nothing is under the bar. Layers: the bar is `z-10` on
@@ -1680,14 +1732,10 @@ the frame, outside the masked scroller (the blur needs it), under the
 overlaid sidecar (`z-20`), the sheet, popovers and dialogs; with the docked
 sidecar it stays on the column's center line.
 
-**Seams left open** (docs/composer.md (h)): the full look and the chat's own
-input moving into the shell (W2; until then a full `chat:` context draws
-nothing, so no page shows two composers, and the Inbox shows the compact bar);
-the attachment rail (W3; + is drawn disabled until then, and `files` already
-expands); dictation (W4); the Inbox icon in the `attention` slot (W5); prefill
-replacing `EditPopover` (W6); phones' keyboard lift, safe area and the toast
-offset (W7). `@` mentions (people, agents, tasks, projects, files) and the
-model and agent pickers in `tools` belong to the full look.
+**Seams left open** (docs/composer.md (h)): the Inbox popover (the icon opens
+the Inbox page), prefill replacing `EditPopover` (W6), and phones' keyboard
+lift, safe area and the toast offset (W7). Entity mentions (people, tasks,
+projects) in `@` come later.
 
 **Tags** (`EntityChip`, `components/entities/`). Everywhere a typed reference
 shows in text (comments now): the type's 14px icon (task `CircleCheck`, project
@@ -1703,15 +1751,21 @@ without it, a muted "Unavailable" on `foreground/5`. `EntityText` draws markdown
 (the app's renderer) with every token outside code as a chip. Chips read the
 shared lists only; the surface that draws them loads them once
 (`useEntityData`). Tag text on its tint is 3.5:1 in light (4.4:1 dark), a known
-tradeoff of the sky tone.
+tradeoff of the sky tone. On the composer's dark glass a tag reads foreground
+on its tint (primary there falls under 3:1).
 
-**Dictation.** While listening the composer row shows ×, the level as 4px
-bars 2px apart, the elapsed time and Done. The bars start flat (a row of 4px
+**Dictation** (v1's, `transcription:create`). The mic is the main button
+while the composer is empty, in every look. While listening the composer row
+(the compact bar: in place of the text) shows × (Cancel, Esc), the level as 4px
+bars 2px apart, the elapsed time (m:ss) and Done (↵). The bars start flat (a row of 4px
 dots) and rise only with the mic level; the speech range (up to ~6 kHz) spans
 the width, mirrored from the center. Done stops the recording; the main
-button is `loading` (its label unchanged) while the server transcribes it, then
-the text is typed in at the cursor. A failure is a toast ("Unable to transcribe", no retry action) and
-the recording is dropped; Cancel drops it too.
+button is `loading` ("Transcribing") while the server transcribes it, then
+the text is typed in at the cursor (a space before it after a word). A failure
+is a toast, no retry action ("Unable to transcribe", "No speech detected",
+"Connect OpenRouter to dictate", "Allow microphone access to dictate", "The
+recording is too long to transcribe") and the recording is dropped; Cancel
+drops it too.
 
 *Note (Composer as built).* The floating chat below and its Morph are v1's
 design, kept for reference: the compact bar is now the shell's `Composer` on

@@ -13,7 +13,7 @@ import { useComposerContext } from '@/components/composer/use-composer-context'
 import { useEffect, useState } from 'react'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
 import { toast } from '@workspace/ui/components/sonner'
-import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
+import { AgentEditButton } from '@/components/ui/agent-edit-button'
 import { Markdown } from '@/components/markdown'
 import { useActiveWorkspace } from '@/context/app-shell-context'
 import { useNavigation } from '@/contexts/navigation-context'
@@ -140,14 +140,8 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
     </>
   )
 
-  // Both edits ask an agent to change SKILL.md; "Edit file" opens it.
-  const editButton = (kind: 'skill-metadata' | 'skill-instructions', path: string) => (
-    <EditPopover
-      trigger={<EditButton />}
-      {...getEditConfig(kind, path)}
-      secondaryAction={{ label: t('common.editFile'), filePath: `${path}/SKILL.md` }}
-    />
-  )
+  // Both edits prefill the composer with a sentence naming the skill.
+  const editButton = (key: 'skillInstructions' | 'skillMetadata', name: string) => <AgentEditButton prompt={t(`agentEdit.${key}`, { name })} />
 
   return (
     <Info_Page
@@ -159,7 +153,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
 
       {skill && (
         <Info_Page.Content>
-          <Info_Section title={t('skillInfo.instructions')} actions={editButton('skill-instructions', skill.path)}>
+          <Info_Section title={t('skillInfo.instructions')} actions={editButton('skillInstructions', skill.metadata.name)}>
             <div className="p-4">
               <Markdown mode="full" className="[&>:first-child]:mt-0 [&>:last-child]:mb-0" onUrlClick={(url) => window.electronAPI.openUrl(url)}>
                 {withoutTitle(skill.content, skill.metadata.name) || t('skillInfo.noInstructions')}
@@ -167,7 +161,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
             </div>
           </Info_Section>
 
-          <Info_Section title={t('skillInfo.metadata')} actions={editButton('skill-metadata', skill.path)}>
+          <Info_Section title={t('skillInfo.metadata')} actions={editButton('skillMetadata', skill.metadata.name)}>
             <Info_Table>
               <Info_Table.Row label={t('skillsList.scope')} value={t(SKILL_SCOPE_LABELS[skill.source])} />
               <Info_Table.Row label={t('common.location')} value={formatPath(skill.path)} />

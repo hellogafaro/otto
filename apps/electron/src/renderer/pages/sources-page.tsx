@@ -1,7 +1,7 @@
 /**
  * Sources (`/{ws}/settings/sources`): the workspace's sources as a gallery, like the Library without tabs. The
  * title row: Filter (Type: MCP, API, Local; `?type=`), Search (the palette on Sources) and "+" (Add source: the
- * add-source popover, which asks an agent to set it up, for the filtered type when one is set). A tile is the
+ * composer is prefilled to set one up with an agent, for the filtered type when one is set). A tile is the
  * source's own icon, its name and its type; it opens the source (no menu: the source's page has its More actions),
  * whose Back returns here and whose Previous / Next step through this grid. No sources
  * at all: the stock empty page alone (no title row), with the same Add source.
@@ -18,11 +18,10 @@ import { PageColumn } from '@workspace/ui/components/page'
 import { sourcesAtom } from '@/atoms/sources'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
-import { EditPopover, getEditConfig } from '@/components/ui/edit-popover'
+import { useComposer } from '@/components/composer/composer-provider'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import { CreateButton } from '@/components/ui/create-button'
 import { SourceAvatar } from '@/components/ui/source-avatar'
-import { useActiveWorkspace } from '@/context/app-shell-context'
 import { isSourcesNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
 import { routes } from '@/lib/navigate'
 import { getVisibleSources } from '@/lib/skill-source-lists'
@@ -38,20 +37,26 @@ export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   local: 'sourcesList.typeLocal',
 }
 
+/** What the composer is prefilled with by Add source for a filtered type. */
+const SOURCE_ADD_PROMPTS: Record<SourceType, string> = {
+  mcp: 'agentEdit.addSourceMcp',
+  api: 'agentEdit.addSourceApi',
+  local: 'agentEdit.addSourceLocal',
+}
+
 export function SourcesPage() {
   const { t } = useTranslation()
   useComposerContext({ key: 'page:sources', placeholder: t('composer.placeholder.start') })
   const sources = useAtomValue(sourcesAtom)
   const navState = useNavigationState()
   const { navigate } = useNavigation()
-  const workspace = useActiveWorkspace()
+  const composer = useComposer()
   const filter = isSourcesNavigation(navState) ? navState.filter : undefined
   const type = filter?.sourceType
   const setType = (next: SourceType | undefined) => navigate(routes.view.sources({ type: next }))
 
-  /** Add source: the add-source popover on `trigger` (for the filtered type), which starts a chat that sets it up. */
-  const addSource = (trigger: React.ReactNode) =>
-    workspace ? <EditPopover trigger={trigger} {...getEditConfig(type ? `add-source-${type}` : 'add-source', workspace.rootPath)} /> : null
+  /** Add source: prefills the composer (for the filtered type); Enter starts the chat that sets it up. */
+  const addSource = () => composer.prefill(t(type ? SOURCE_ADD_PROMPTS[type] : 'agentEdit.addSource') + ' ')
 
   // No sources at all: the stock empty page, its button Add source.
   if (sources?.length === 0) {
@@ -59,7 +64,7 @@ export function SourcesPage() {
       <div className="flex h-full flex-col">
         <PageHeader />
         <EntityListEmptyScreen icon={<DatabaseZap />} title={t('sourcesList.noSourcesConfigured')} description={t('sourcesList.emptyDescription')}>
-          {addSource(<Button>{t('sourcesList.addSource')}</Button>)}
+          <Button onClick={addSource}>{t('sourcesList.addSource')}</Button>
         </EntityListEmptyScreen>
       </div>
     )
@@ -84,7 +89,7 @@ export function SourcesPage() {
           <>
             <FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('sourcesList.filter')} />
             <CommandPaletteButton category="sources" />
-            {addSource(<CreateButton label={t('sourcesList.addSource')} />)}
+            <CreateButton label={t('sourcesList.addSource')} onClick={addSource} />
           </>
         )}
       />

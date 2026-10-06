@@ -11,7 +11,7 @@ import { TaskActionMenu, type TerminalOverlayData } from './task-action-menu'
 import { advanceBackgroundTaskChips } from './background-task-chip-state'
 import { backgroundTasksAtomFamily, type BackgroundTask } from '@/atoms/sessions'
 
-// Re-exported for existing consumers (ActiveOptionBadges, ChatInputZone, TaskActionMenu)
+// Re-exported for existing consumers (the chat composer's chips, TaskActionMenu)
 // so the single definition lives in atoms/sessions.ts.
 export type { BackgroundTask } from '@/atoms/sessions'
 
@@ -32,7 +32,7 @@ export interface ActiveTasksBarProps {
 
 /**
  * ActiveTasksBar - Badge-style display of running background tasks
- * Styled to match ActiveOptionBadges for visual consistency
+ * Chips above the chat composer's text
  * Only renders when there are active tasks
  */
 export function ActiveTasksBar({ tasks, sessionId, onKillTask, onInsertMessage, onShowTerminalOverlay, className }: ActiveTasksBarProps) {

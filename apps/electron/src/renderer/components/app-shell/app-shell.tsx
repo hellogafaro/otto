@@ -321,6 +321,9 @@ function AppShellContent({
   // New chat
   useAction('app.newChat', () => handleNewChat())
 
+  // The Inbox (the composer bar's Inbox button shows this key while ⌘ or Option is held)
+  useAction('nav.inbox', () => navigate(routes.view.inbox()))
+
   // Settings
   useAction('app.settings', onOpenSettings)
 
@@ -393,12 +396,9 @@ function AppShellContent({
       // Prevent default paste behavior
       e.preventDefault()
 
-      // Dispatch custom event for FreeFormInput to handle (target focused session only)
-      const filesArray = Array.from(files)
-      const targetSessionId = currentSessionId ?? session.selected
-      if (!targetSessionId) return
+      // The composer (on every page) takes them: the open chat's only, when a chat is open.
       window.dispatchEvent(new CustomEvent('otto:paste-files', {
-        detail: { files: filesArray, sessionId: targetSessionId }
+        detail: { files: Array.from(files), sessionId: currentSessionId ?? session.selected ?? undefined }
       }))
     }
 

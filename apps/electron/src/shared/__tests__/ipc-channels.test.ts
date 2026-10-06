@@ -292,6 +292,7 @@ const EXPECTED_CHANNELS: string[] = [
   'timesheets:delete',
   'timesheets:list',
   'toolIcons:getMappings',
+  'transcription:create',
   'transfer:abort',
   'transfer:chunk',
   'transfer:commit',

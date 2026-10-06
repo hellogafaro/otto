@@ -112,6 +112,7 @@ async function getExpectedChannels(): Promise<Set<string>> {
     notifications,
     decisions,
     library,
+    transcription,
   ] = await Promise.all([
     import('@otto/server-core/handlers/rpc/auth'),
     import('@otto/server-core/handlers/rpc/automations'),
@@ -136,6 +137,7 @@ async function getExpectedChannels(): Promise<Set<string>> {
     import('@otto/server-core/handlers/rpc/notifications'),
     import('@otto/server-core/handlers/rpc/decisions'),
     import('@otto/server-core/handlers/rpc/library'),
+    import('@otto/server-core/handlers/rpc/transcription'),
   ])
 
   // GUI handler channels (remain in electron)
@@ -170,6 +172,7 @@ async function getExpectedChannels(): Promise<Set<string>> {
     ...notifications.HANDLED_CHANNELS,
     ...decisions.HANDLED_CHANNELS,
     ...library.HANDLED_CHANNELS,
+    ...transcription.HANDLED_CHANNELS,
     ...browser.HANDLED_CHANNELS,
     ...guiSystem.GUI_HANDLED_CHANNELS,
     ...guiWorkspace.GUI_HANDLED_CHANNELS,

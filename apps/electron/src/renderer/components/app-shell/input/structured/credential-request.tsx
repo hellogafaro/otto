@@ -10,7 +10,7 @@ import { validateBasicAuthCredentials, getPasswordValue, getPasswordLabel, getPa
 interface CredentialRequestProps {
   request: CredentialRequestType
   onResponse: (response: CredentialResponse) => void
-  /** When true, removes container styling (shadow, rounded) - used when wrapped by InputContainer */
+  /** When true, removes container styling (shadow, rounded) - used when drawn inside the composer */
   unstyled?: boolean
 }
 

@@ -94,7 +94,7 @@ function PageFrame({
 }: React.ComponentProps<"div"> & {
   /** The sidecar; it places itself in the right track. */
   aside?: React.ReactNode
-  /** The shell's composer (the compact bar): over the bottom of the column, outside its scroll. */
+  /** The shell's composer: the compact bar over the bottom of the column (outside its scroll), or the full composer under it. */
   composer?: React.ReactNode
 }) {
   const [header, setHeader] = React.useState<HTMLElement | null>(null)
@@ -104,6 +104,35 @@ function PageFrame({
   const [navFits, setNavFits] = React.useState(false)
   const [body, setBody] = React.useState<HTMLElement | null>(null)
   const [contentStart, setContentStart] = React.useState(0)
+  const [composerSlot, setComposerSlot] = React.useState<HTMLElement | null>(null)
+  const [fullClearance, setFullClearance] = React.useState<number | null>(null)
+
+  // Otto: the full composer (the chat, the new chat, the Inbox) is in the
+  // layout: the column keeps its measured height free plus the 8px gap above
+  // it, frame by frame while it grows or shrinks (`--composer-clearance`).
+  // The compact bar floats over the page instead (the class below, 56px).
+  React.useLayoutEffect(() => {
+    if (!composerSlot) return
+    const measure = () =>
+      setFullClearance(
+        composerSlot.querySelector("[data-slot=composer][data-variant=full]")
+          ? composerSlot.offsetHeight + 8
+          : null
+      )
+    measure()
+    const resizes = new ResizeObserver(measure)
+    resizes.observe(composerSlot)
+    const mutations = new MutationObserver(measure)
+    mutations.observe(composerSlot, {
+      subtree: true,
+      childList: true,
+      attributeFilter: ["data-variant"],
+    })
+    return () => {
+      resizes.disconnect()
+      mutations.disconnect()
+    }
+  }, [composerSlot])
 
   React.useLayoutEffect(() => {
     if (!body) return
@@ -194,7 +223,12 @@ function PageFrame({
             "has-[>[data-slot=page-composer-slot]:not(:empty)]:[--composer-clearance:3.5rem]"
           )}
           style={
-            { "--content-start": `${contentStart}px` } as React.CSSProperties
+            {
+              "--content-start": `${contentStart}px`,
+              ...(fullClearance === null
+                ? {}
+                : { "--composer-clearance": `${fullClearance}px` }),
+            } as React.CSSProperties
           }
         >
           <div
@@ -230,14 +264,17 @@ function PageFrame({
           />
           <div
             data-slot="page-composer-slot"
+            ref={setComposerSlot}
             // Otto: the composer's layer. Over the column's bottom, OUTSIDE its
             // scroll (a masked scroller stops the bar's backdrop blur), 8px above
             // the body's end (16px above the window's), centered on the column's
             // content (24px sides from 768px, the frame's 20px below). Only the
             // bar takes clicks. Above the page (`z-10`), under the overlaid
             // sidecar (`z-20`), the sheet, popovers and dialogs. Empty (no bar on
-            // this page), it is nothing and the column keeps its own end.
-            className="pointer-events-none relative z-10 col-start-2 row-start-2 flex min-w-0 justify-center self-end pb-2 *:pointer-events-auto empty:hidden md:px-6"
+            // this page), it is nothing and the column keeps its own end. The
+            // full composer spans the column's track and sits on the body's end
+            // (8px above the window's), the padding moving with its grow.
+            className="pointer-events-none relative z-10 col-start-2 row-start-2 flex min-w-0 justify-center self-end pb-2 transition-[padding] duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] *:pointer-events-auto empty:hidden motion-reduce:transition-none md:px-6 has-[>[data-slot=composer][data-variant=full]]:p-0 md:has-[>[data-slot=composer][data-variant=full]]:px-0"
           >
             {composer}
           </div>

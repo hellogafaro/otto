@@ -387,6 +387,9 @@ export const RPC_CHANNELS = {
     CLEAR: 'notifications:clear',
     GET_UNREAD_COUNT: 'notifications:getUnreadCount',
   },
+  transcription: {
+    CREATE: 'transcription:create',
+  },
   domain: {
     CHANGED: 'domain:changed',
   },

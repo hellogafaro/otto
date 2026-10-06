@@ -5,7 +5,7 @@
  * When processing, first Esc shows a warning overlay; second Esc within 1 second interrupts.
  *
  * This is a separate context to avoid prop drilling through the component tree:
- * AppShell -> MainContentPanel -> ChatPage -> ChatDisplay -> InputContainer -> FreeFormInput
+ * AppShell -> MainContentPanel -> ChatPage -> ChatDisplay; the composer (FreeFormInput) reads it too
  */
 
 import * as React from 'react'

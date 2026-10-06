@@ -42,6 +42,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
     resources,
     transfer,
     decisions,
+    transcription,
   ] = await Promise.all([
     import('@otto/server-core/handlers/rpc/auth'),
     import('@otto/server-core/handlers/rpc/automations'),
@@ -66,6 +67,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
     import('@otto/server-core/handlers/rpc/resources'),
     import('@otto/server-core/handlers/rpc/transfer'),
     import('@otto/server-core/handlers/rpc/decisions'),
+    import('@otto/server-core/handlers/rpc/transcription'),
   ])
 
   return new Set([
@@ -92,6 +94,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
     ...resources.HANDLED_CHANNELS,
     ...transfer.HANDLED_CHANNELS,
     ...decisions.HANDLED_CHANNELS,
+    ...transcription.HANDLED_CHANNELS,
   ])
 }
 

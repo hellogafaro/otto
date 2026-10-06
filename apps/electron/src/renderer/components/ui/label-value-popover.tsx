@@ -89,7 +89,7 @@ export function LabelValuePopover({
   }, [label.valueType])
 
   /** Restore focus to chat input after popover closes.
-   *  Matches the pattern used in ActiveOptionBadges. */
+   */
   const handleCloseAutoFocus = React.useCallback((e: Event) => {
     e.preventDefault()
     window.dispatchEvent(new CustomEvent('otto:focus-input', {

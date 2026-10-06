@@ -41,6 +41,7 @@ export const SETTINGS_PAGES = [
   { id: 'members' as const, labelKey: 'settings.members.title' },
   { id: 'permissions' as const, labelKey: 'settings.permissions.title' },
   { id: 'labels' as const, labelKey: 'settings.labels.title' },
+  { id: 'statuses' as const, labelKey: 'settings.statuses.title' },
   { id: 'messaging' as const, labelKey: 'settings.messaging.title' },
   { id: 'server' as const, labelKey: 'settings.server.title' },
   { id: 'shortcuts' as const, labelKey: 'settings.shortcuts.title' },

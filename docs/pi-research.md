@@ -141,3 +141,83 @@ Keeping a subprocess is still reasonable (crash isolation); the protocol could b
 
 - **Versions:** Otto pins `@earendil-works/pi-coding-agent`, `pi-agent-core`, `pi-ai` at **0.87.1** (`packages/pi-agent-server/package.json`, `packages/shared/package.json`, root `package.json:161-162`, installed `node_modules` = 0.87.1, released 22 Sep 2026). Latest is **v1.0.4** (5 Oct 2026; `gh release list`). Between them: one breaking change that touches us, the Azure provider rename `azure-openai-responses` -> `azure` (`coding-agent/CHANGELOG.md` 1.0.3; we reference the old id in `pi-agent-server/src/model-resolution.ts`, `shared/src/config/models-pi.ts` and 8 other files). The exports we import still exist in 1.0.4 (checked `src/index.ts`). 0.99/1.0 add MCP, codemode, tool exposure, virtual models.
 - Not verified: that mirroring `getEntries()` at events captures every entry type; `pi-durable` on Bun (only "with a small adapter" is claimed); `pi-durable` performance on our data; whether an empty `.pi-agent` dir is still needed; whether a tab joining mid-turn gets the partial today; provider-terms questions for Claude in Pi (no source in Pi's posts or docs); the experimental `coding-agent/src/experimental/{server,coordinator,session-worker}.ts` remote-session code (undocumented, not read in depth).
+
+## Spike result (pi-durable storage)
+
+Date 6 Oct 2026. Owner question: one store instead of Pi session files + `messages` + `transcripts`. Pi would run on `@earendil-works/pi-durable` over our SQLite `Storage`; the UI would read the same entries through a projection, with FTS and the chat-list fields derived in the same commit. All code is in a scratch dir, `/tmp/pi-durable-spike/` (not in this repo, not committed): `otto-storage.ts` (the `Storage`), `bun-facade.ts`, `scenario.ts` + `kill.ts` (turn, resume, crash), `bench.ts`, `extra.ts`, `test/*.test.ts`. Fake model only (pi-ai `fauxProvider`): no network, no key. Runtime Bun 1.4.2. The code was run but not typechecked.
+
+**Verdict: go with changes, but not as a storage swap.** One store works for Pi chats and holds up under the crash tests. The catch is that `pi-durable` is a **different harness** from `pi-coding-agent`. It does not plug in under `createAgentSession`, so adopting it means moving `pi-agent-server` onto `Harness`. That is the real cost, and the reason this belongs in P8 (reshaped below) and not P3b.
+
+**What would be required**
+- **Package:** `@earendil-works/pi-durable@1.0.4` (npm, MIT). Its dependencies are `@earendil-works/pi-ai ^1.0.4`, `@earendil-works/chord ^1.0.4`, `typebox`, `diff`. It does **not** use `pi-coding-agent` at all. Our pin is 0.87.1, so P0d (Pi 0.87.1 -> 1.0.4) comes first. Without it we would ship two `pi-ai` copies with separate provider registries. A `pi-durable@0.87.1` exists, but it has no `testing` export and no conformance suite.
+- **Harness swap:** `pi-durable` brings `read/write/edit/bash` (no `grep/find/ls`, "Reading images is not supported yet"), plus `defineTool`, `beforeTool`/`afterTool` hooks (our permission gate), prompt `sections`, `configure()` (model, thinking, tools, cwd), steer, follow-up, abort, compaction, fork and subagents. It has **none** of coding-agent's resource loader (skills, AGENTS.md context files, prompt templates), MCP, codemode or tool_search. We would rebuild these as sections and tools. Pi's own coding agent on durable exists only as unpublished experimental code (`coding-agent/src/experimental/durable/*`, excluded from npm by `!dist/experimental`).
+- **API churn is real:** `main` already has an Unreleased **breaking** `Storage` change one day after 1.0.4 (`order` on every scan query, `durable/CHANGELOG.md`). Every Pi upgrade means re-running the conformance suite against our `Storage`.
+
+**Storage mapped to our conventions (`otto-storage.ts`, about 740 lines adapted from Pi's MIT `SqliteStorage`)**
+- **Tables:** `pi_sessions` (per-workspace counter), `pi_ids`, `pi_conversations`, `pi_entries`, `pi_tasks`, `pi_submissions`, `pi_documents`, `pi_documents_revisions`, `pi_entries_fts`. Names are plural snake_case with camelCase columns, and every table leads its primary key and indexes with `workspaceId`. One durable Session per workspace.
+- **Chats:** an ownerless conversation (the root, `createConversation`, a fork) gets a `createId()` `chatId` and a `chats` row in the same commit. A task-owned conversation (a subagent) inherits its owner's `chatId`. Entries, tasks, submissions and conversation documents all carry `chatId`.
+- **Ids: the interface forces integers.** `Id<K> = number & brand`. `mintId()` is "the Session-global numeric ID namespace"; visibility, forks and cursors compare ids numerically; the root is the reserved id `1`. So `createId()` cannot be Pi's id. It is used for `chats.id` only, and the integer ids are scoped by `workspaceId`. This breaks the AGENTS.md id rule for `pi_*` rows and needs an owner exception (like `library`).
+- **Seq:** `commit()` returns a per-workspace integer sequence (`pi_sessions.nextSeq`), strictly increasing.
+- **Derived in the same transaction:**
+  - `pi_entries.view`, the UI projection: user and assistant text, tool calls without thinking or signatures, tool results capped at 2,000 chars plus their byte count, compaction and reset as `info`, `pi.system` hidden.
+  - The contentless `pi_entries_fts` row (user and assistant text).
+  - `chats.messageCount/lastMessageRole/preview/lastMessageAt`.
+- **Otto-only rows** (`info`, `error`, `plan`, Claude turns) can be custom entries written through `submit({ type: "write", entry: { kind: "otto.info", data } })`. Verified: the entry is stored, sits in the transcript and is not in the model context.
+
+**Conformance (`registerStorageConformance`, 23 cases, `bun:test`)**
+- Our `OttoStorage`, with a second workspace in the same file: **23/23 pass**. The first run failed one case (`mintId` must throw when the id space is exhausted); it was fixed in the spike.
+- Pi's own `SqliteStorage` over our 129-line `bun:sqlite` facade: **23/23**.
+- Pi's `openNodeSqliteStorage` (`node:sqlite`) unchanged on Bun 1.4.2: **23/23**. `NodeExecutionEnv` env conformance on Bun: **24/24**.
+- So "with a small adapter it runs on Bun" holds, and on Bun 1.4.2 no adapter is needed at all. The scripted harness runs below also ran under Bun.
+
+**Turn, compaction and resume (`scenario.ts turn` then `context`, two separate processes)**
+- The scripted run: user -> assistant tool call -> `lookup` result -> answer; then a manual `compact()` (completed, summary placed); then a second turn. Stored entries: `user, system, assistant, tool-result, assistant, compaction, user, system, assistant`.
+- A retried send with the same `requestId` returned the same submission, and no second user entry was written.
+- A fresh process reopening the db built the **identical model context**: 7 messages, sha256 `8ec940502c7b5726` both times.
+- 24 commits for 2 turns + 1 compaction, plus a partial every 100 ms while streaming.
+
+**Kill tests (`kill.ts`, SIGKILL, then a fresh process runs `resume()`)**
+- **Mid-tool-call:** the side-effecting `charge_card` (not `replay: "safe"`) had written its side effect once.
+  - Before resume: the `pi.tool` task was `pending` and the generation `waiting`.
+  - After resume, the model is told, as an error tool result: `Tool charge_card was interrupted and may have partially run`. The run then continues by itself to a final answer.
+  - The side effect was **not** repeated (still one line).
+- **Mid-stream (40 tok/s, killed after 1.5 s):** 220 chars of partial answer had been committed in `pi.live`.
+  - On resume it became an assistant entry with `stopReason: "aborted"`, kept in the transcript, and the request was **sent again automatically**, giving the full 7,207-char answer.
+  - Two UI consequences: the projection must show or hide the aborted partial (today it is also FTS-indexed, which should be skipped), and the provider is billed twice for that request, as Pi documents.
+
+**Measured (`bench.ts`; 5,000 entries = 1,250 rounds of user, assistant tool call with thinking, a 200 KB tool result, assistant answer; one commit per entry plus a task upsert, like the harness; `/tmp` is tmpfs, so fsync is free)**
+
+| | OttoStorage (projection + FTS + chat fields in the commit) | Pi `SqliteStorage` on the Bun facade (nothing derived) |
+|---|---|---|
+| Commit p50 / p99 / max | 0.08 / 1.58 / 4.92 ms | 0.05 / 1.60 / 2.28 ms |
+| Commit holding a 200 KB tool result, p50 / p99 | 0.52 / 2.03 ms | 0.55 / 1.84 ms |
+| DB size (after WAL checkpoint) | 270.2 MB | 266.5 MB |
+| Same chat as Pi JSONL | 262.6 MB (ours +2.9%) | |
+
+- **Page of the newest 50 through `view`:** 0.39 ms p50, 1.03 ms max, **38.8 KB**. Projecting the same page at read time from the full records instead: 2.46 ms, reading 3.1 MB. So a stored `view` is worth its roughly 1% of size.
+- **FTS query** (`'november AND oscar'`, 2,500 hits): 0.15 ms.
+- **Resume:** opening the Harness took 2.6 ms. Building the context took **281 ms** for 5,000 entries and about 250 MB, because it reads the whole active range from the newest compaction. A real model would have compacted long before reaching that size, so treat it as a worst case.
+- **Unverified:** commit latency on a real disk with `synchronous = FULL` (our Durability rule; Pi's default is `NORMAL`). Every number above is on RAM-backed tmpfs.
+
+**Blockers and open points**
+1. **Harness, not storage:** adopting means porting `pi-agent-server` (about 4.6k lines on `createAgentSession`) to `Harness`, and rebuilding skills, context files, MCP proxy tools and permissions as sections, tools and hooks.
+2. **Pi 1.0.x:** P0d is required first. The API is "Experimental. The API changes without notice", and the first breaking `Storage` change is already on `main`.
+3. **Id shape:** integers are forced. This needs an owner exception for `pi_*` rows; `createId()` stays on `chats`.
+4. **One process owns a storage:** one Session per workspace, held by one server process.
+   - Desktop: fine.
+   - Hosted multi-node: needs a per-workspace lease (unbuilt).
+   - The cached `nextId` means nothing else may write `pi_*` rows.
+   - The interface has **no delete**. Chat delete, `/clear` (Pi's `reset()` keeps history), retention, workspace delete and export/import must be our own out-of-band SQL. In the spike, an out-of-band delete with the Harness open left other chats working and rejected the deleted chat (`Unknown conversation`), but left 5 orphan document revisions: `pi_documents_revisions` needs `chatId` too.
+   - Forks read their parent's rows without copying, so deleting a parent chat breaks its branches. `messages-design.md` 4 chose copying for exactly this reason.
+5. **Claude Code chats:** the Claude harness is not Pi. Its display rows can be custom entries in the same store (the API is verified, Claude itself was not tried), but its resume state stays the SDK transcript until Claude runs through Pi.
+6. **db:push:** the `pi_*` tables are hand-written SQL (STRICT, WITHOUT ROWID, FTS). `db:push` must skip them (extend P3b's `*_fts` filter to `pi_*`), or they must be declared in a Drizzle `schema.ts`.
+7. **Live partial:** the in-flight answer and tool output live in the `pi.live` document. The UI gets them through the Harness's `viewState()`/`watch()` in-process, not through the `view` SQL.
+
+**Minimal adoption plan (phases)**
+1. **P0d:** Pi -> 1.0.x (needed anyway).
+2. **P8a:** move `OttoStorage` into `S/agent/durable/` with its conformance test in CI, `pi_*` added to the `db:push` filter, `chatId` added to `pi_documents_revisions`, and our own delete, clear and export functions with tests. Owner decides the id exception.
+3. **P8b:** an in-process durable Pi runner beside `pi-agent-server`, behind a per-chat flag. Our tools become `defineTool` with `readOnly`/`replay` tags, permissions a `beforeTool` hook, skills and AGENTS.md sections, env a `NodeExecutionEnv` per chat folder. Run the full Durability crash suite against it.
+4. **P8c:** the UI reads `view` pages, `pi.live` through `watch()`, `chats` list fields and `pi_entries_fts`. Otto-only rows become custom entries.
+5. **If P8b and P8c hold:** set DECISION 16 to "no `transcripts`", delete `.pi-sessions` and the Pi half of `messages`. Claude chats keep `messages` (or custom entries) until Claude runs through Pi.
+
+Until then, P3b's `messages` stays the plan for the display layer, and the `transcripts` table is the cheap interim. If the owner commits to P8, P3b can skip `transcripts`, since Pi chats would move off `.pi-sessions` entirely.

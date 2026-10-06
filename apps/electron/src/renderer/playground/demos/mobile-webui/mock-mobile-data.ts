@@ -9,7 +9,7 @@
 import type { Message } from '@otto/core/types'
 import type { LabelConfig } from '@otto/shared/labels'
 import type { LlmConnectionWithStatus } from '@config/llm-connections'
-import type { LoadedSource, LoadedSkill, Session, Workspace } from '../../../../shared/types'
+import type { LoadedSource, Session, Workspace } from '../../../../shared/types'
 import type { SessionMeta } from '@/atoms/sessions'
 import type { SessionStatus } from '@/config/session-status-config'
 import * as React from 'react'
@@ -264,8 +264,6 @@ export const MOCK_SOURCES: LoadedSource[] = [
     workspaceId: MOBILE_WORKSPACE_ID,
   },
 ]
-
-export const MOCK_SKILLS: LoadedSkill[] = []
 
 /**
  * Mock LLM connections for the mobile playground.

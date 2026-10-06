@@ -5,8 +5,9 @@
  * Shows both default patterns (from ~/.otto/permissions/default.json)
  * and custom workspace additions (stored in the database).
  *
- * Default patterns can be edited by the user in ~/.otto/permissions/default.json.
- * Custom patterns are edited by asking the agent (permissions_edit tool); the page reloads on `domain:changed`.
+ * Default patterns live in ~/.otto/permissions/default.json.
+ * Each section's Edit prefills the composer; custom patterns are changed by the agent (permissions_edit tool)
+ * and the page reloads on `domain:changed`.
  */
 
 import { SettingsPage } from '@/components/settings/settings-page'
@@ -14,7 +15,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useLiveData } from '@/hooks/use-live-data'
 import { useTranslation } from 'react-i18next'
 import { Spinner } from '@otto/ui'
-import { useAppShellContext, useActiveWorkspace } from '@/context/app-shell-context'
+import { useAppShellContext } from '@/context/app-shell-context'
 import { type PermissionsConfigFile } from '@otto/shared/agent/modes'
 import {
   PermissionsDataTable,
@@ -24,7 +25,7 @@ import {
   SettingsSection,
   SettingsCard,
 } from '@/components/settings'
-import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
+import { AgentEditButton } from '@/components/ui/agent-edit-button'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 
 export const meta: DetailsPageMeta = {
@@ -129,12 +130,10 @@ function buildCustomPermissionsData(config: PermissionsConfigFile, fallbackLabel
 export default function PermissionsSettingsPage() {
   const { t } = useTranslation()
   const { activeWorkspaceId } = useAppShellContext()
-  const activeWorkspace = useActiveWorkspace()
 
   // Loading and data state
   const [isLoading, setIsLoading] = useState(true)
   const [defaultConfig, setDefaultConfig] = useState<PermissionsConfigFile | null>(null)
-  const [defaultPermissionsPath, setDefaultPermissionsPath] = useState<string | null>(null)
   const [customConfig, setCustomConfig] = useState<PermissionsConfigFile | null>(null)
 
   // Build default permissions data from ~/.otto/permissions/default.json
@@ -165,10 +164,9 @@ export default function PermissionsSettingsPage() {
 
       setIsLoading(true)
       try {
-        // Load default permissions (app-level) - returns both config and path
-        const { config: defaults, path: defaultsPath } = await window.electronAPI.getDefaultPermissionsConfig()
+        // Load default permissions (app-level)
+        const { config: defaults } = await window.electronAPI.getDefaultPermissionsConfig()
         setDefaultConfig(defaults)
-        setDefaultPermissionsPath(defaultsPath)
 
         // Load workspace permissions if we have an active workspace
         if (activeWorkspaceId) {
@@ -234,19 +232,7 @@ export default function PermissionsSettingsPage() {
                   <SettingsSection
                     title={t("settings.permissions.defaultPermissions")}
                     description={t("settings.permissions.defaultPermissionsDesc")}
-                    action={
-                      // EditPopover for AI-assisted default permissions editing
-                      defaultPermissionsPath ? (
-                        <EditPopover
-                          trigger={<EditButton />}
-                          {...getEditConfig('default-permissions', defaultPermissionsPath)}
-                          secondaryAction={{
-                            label: t("common.editFile"),
-                            filePath: defaultPermissionsPath,
-                          }}
-                        />
-                      ) : null
-                    }
+                    action={<AgentEditButton prompt={t("agentEdit.defaultPermissions")} />}
                   >
                     <SettingsCard className="p-0">
                       {defaultPermissionsData.length > 0 ? (
@@ -271,20 +257,7 @@ export default function PermissionsSettingsPage() {
                   <SettingsSection
                     title={t("settings.permissions.workspaceCustomizations")}
                     description={t("settings.permissions.workspaceCustomizationsDesc")}
-                    action={
-                      (() => {
-                        // Get centralized edit config - all strings defined in edit-popover.tsx
-                        const { context, example, displayLabel } = getEditConfig('workspace-permissions', activeWorkspace?.rootPath || '')
-                        return (
-                          <EditPopover
-                            trigger={<EditButton />}
-                            example={example}
-                            context={context}
-                            displayLabel={displayLabel}
-                          />
-                        )
-                      })()
-                    }
+                    action={<AgentEditButton prompt={t("agentEdit.workspacePermissions")} />}
                   >
                     <SettingsCard className="p-0">
                       {customPermissionsData.length > 0 ? (

@@ -13,7 +13,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
 import { toast } from '@workspace/ui/components/sonner'
-import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
+import { AgentEditButton } from '@/components/ui/agent-edit-button'
 import { Markdown } from '@/components/markdown'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
@@ -388,17 +388,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
           <Info_Section
             title={t('sourceInfo.connection')}
             description={getConnectionDescription(source, t)}
-            actions={
-              // EditPopover for AI-assisted config.json editing with "Edit File" as secondary action
-              <EditPopover
-                trigger={<EditButton />}
-                {...getEditConfig('source-config', source.folderPath)}
-                secondaryAction={{
-                  label: t('common.editFile'),
-                  filePath: `${source.folderPath}/config.json`,
-                }}
-              />
-            }
+            actions={<AgentEditButton prompt={t('agentEdit.sourceConnection', { name: source.config.name })} />}
           >
             <Info_Table
               footer={source.config.connectionError && (
@@ -430,17 +420,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
             <Info_Section
               title={t('sourceInfo.permissions')}
               description={getPermissionsDescription(source, t)}
-              actions={
-                // EditPopover for AI-assisted permissions.json editing
-                <EditPopover
-                  trigger={<EditButton />}
-                  {...getEditConfig('source-permissions', source.folderPath)}
-                  secondaryAction={{
-                    label: t('common.editFile'),
-                    filePath: `${source.folderPath}/permissions.json`,
-                  }}
-                />
-              }
+              actions={<AgentEditButton prompt={t('agentEdit.sourcePermissions', { name: source.config.name })} />}
             >
               <PermissionsDataTable data={apiPermissionsData} fullscreen fullscreenTitle="Permissions" />
             </Info_Section>
@@ -451,17 +431,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
             <Info_Section
               title={t('sourceInfo.tools')}
               description={t('sourceInfo.toolsDesc')}
-              actions={
-                // EditPopover for AI-assisted tool permissions editing
-                <EditPopover
-                  trigger={<EditButton />}
-                  {...getEditConfig('source-tool-permissions', source.folderPath)}
-                  secondaryAction={{
-                    label: t('common.editFile'),
-                    filePath: `${source.folderPath}/permissions.json`,
-                  }}
-                />
-              }
+              actions={<AgentEditButton prompt={t('agentEdit.sourceTools', { name: source.config.name })} />}
             >
               <ToolsDataTable
                 data={toolsData}
@@ -476,17 +446,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
             <Info_Section
               title={t('sourceInfo.permissions')}
               description={getPermissionsDescription(source, t)}
-              actions={
-                // EditPopover for AI-assisted permissions.json editing
-                <EditPopover
-                  trigger={<EditButton />}
-                  {...getEditConfig('source-permissions', source.folderPath)}
-                  secondaryAction={{
-                    label: t('common.editFile'),
-                    filePath: `${source.folderPath}/permissions.json`,
-                  }}
-                />
-              }
+              actions={<AgentEditButton prompt={t('agentEdit.sourcePermissions', { name: source.config.name })} />}
             >
               <PermissionsDataTable data={mcpPermissionsData} hideTypeColumn fullscreen fullscreenTitle="Permissions" />
             </Info_Section>
@@ -497,17 +457,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPa
             <Info_Section
               title={t('sourceInfo.documentation')}
               description={t('sourceInfo.documentationDesc')}
-              actions={
-                // EditPopover for AI-assisted guide.md editing with "Edit File" as secondary action
-                <EditPopover
-                  trigger={<EditButton />}
-                  {...getEditConfig('source-guide', source.folderPath)}
-                  secondaryAction={{
-                    label: t('common.editFile'),
-                    filePath: `${source.folderPath}/guide.md`,
-                  }}
-                />
-              }
+              actions={<AgentEditButton prompt={t('agentEdit.sourceGuide', { name: source.config.name })} />}
             >
               <div className="p-4">
                 <Markdown mode="full" className="[&>:first-child]:mt-0 [&>:last-child]:mb-0" onUrlClick={(url) => window.electronAPI.openUrl(url)}>{source.guide.raw}</Markdown>

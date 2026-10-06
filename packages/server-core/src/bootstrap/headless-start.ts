@@ -11,6 +11,7 @@ import { setBundledAssetsRoot } from '@otto/shared/utils'
 import { initUsersStore } from '@otto/shared/users'
 import { initSettingsImport } from '@otto/shared/settings'
 import { initConnectionsImport } from '@otto/shared/connections/import'
+import { initSecretsImport } from '@otto/shared/secrets/import'
 import { initLabelsStatusesImport } from '@otto/shared/labels/import'
 import { getWorkspaceOwnerIds } from '@otto/shared/workspaces'
 import { authorize } from './authorize.ts'
@@ -370,6 +371,9 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   // The AI connections of config.json and credentials.enc become rows with their secrets, once.
   const connections = await initConnectionsImport()
   if (connections.imported || connections.skipped) platform.logger.info(`[bootstrap] imported ${connections.imported} connections, ${connections.skipped} skipped`)
+  // The tokens that were plain text (server, remote workspaces, decision model keys) become secrets, once.
+  const tokens = await initSecretsImport()
+  if (tokens.imported) platform.logger.info(`[bootstrap] moved ${tokens.imported} tokens into secrets`)
   // The labels, statuses and permission rules of each workspace's files become rows, once per workspace.
   initLabelsStatusesImport()
   if (users.needsOwner() && !process.env.OTTO_OWNER_EMAIL?.trim()) {

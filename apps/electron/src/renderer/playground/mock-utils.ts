@@ -1,7 +1,5 @@
 import type {
-  FileAttachment,
   LoadedSource,
-  PermissionMode,
   MessagingPlatformRuntimeInfo,
   WhatsAppUiEvent,
 } from '../../shared/types'
@@ -767,74 +765,3 @@ export const mockSources: LoadedSource[] = [
     workspaceId: 'playground-workspace',
   },
 ]
-
-export const sampleImageAttachment: FileAttachment = {
-  type: 'image',
-  path: '/Users/demo/screenshot.png',
-  name: 'screenshot.png',
-  mimeType: 'image/png',
-  size: 245000,
-  base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-}
-
-export const samplePdfAttachment: FileAttachment = {
-  type: 'pdf',
-  path: '/Users/demo/design.pdf',
-  name: 'design.pdf',
-  mimeType: 'application/pdf',
-  size: 1024000,
-}
-
-// ============================================================================
-// Mock Callbacks
-// ============================================================================
-
-export const mockInputCallbacks = {
-  onSubmit: (message: string, attachments?: FileAttachment[]) => {
-    console.log('[Playground] Message submitted:', { message, attachments })
-  },
-
-  onModelChange: (model: string) => {
-    console.log('[Playground] Model changed to:', model)
-  },
-
-  onInputChange: (value: string) => {
-    console.log('[Playground] Input changed:', value.substring(0, 50) + (value.length > 50 ? '...' : ''))
-  },
-
-  onHeightChange: (height: number) => {
-    console.log('[Playground] Height changed:', height)
-  },
-
-  onPermissionModeChange: (mode: PermissionMode) => {
-    console.log('[Playground] Permission mode changed:', mode)
-  },
-
-  onSourcesChange: (slugs: string[]) => {
-    console.log('[Playground] Sources changed:', slugs)
-  },
-
-  onWorkingDirectoryChange: (path: string) => {
-    console.log('[Playground] Working directory changed:', path)
-  },
-
-  onStop: () => {
-    console.log('[Playground] Stop requested')
-  },
-}
-
-export const mockAttachmentCallbacks = {
-  onRemove: (index: number) => {
-    console.log('[Playground] Remove attachment at index:', index)
-  },
-
-  onOpenFile: (path: string) => {
-    console.log('[Playground] Open file:', path)
-  },
-}
-
-export const mockBackgroundTaskCallbacks = {
-  onKillTask: (taskId: string) => {
-    console.log('[Playground] Kill task:', taskId)
-  },
-}
