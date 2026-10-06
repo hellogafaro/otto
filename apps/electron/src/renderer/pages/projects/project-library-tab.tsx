@@ -5,7 +5,7 @@
  * button: a searchable list of the library's items of that kind not linked yet; picking one links it.
  */
 
-import { File, FileText, MoreHorizontal, Plus } from 'lucide-react'
+import { File, FileText, MoreHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@workspace/ui/components/button'
 import {
@@ -23,6 +23,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@workspace/ui/
 import { Gallery, GalleryItem, GalleryItemSkeleton } from '@workspace/ui/components/gallery'
 import { toast } from '@workspace/ui/components/sonner'
 import { MAX_RESOURCES } from '@otto/shared/projects/limits'
+import { CreateButton } from '@/components/ui/create-button'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useLibrary } from '@/hooks/use-library'
 import { routes } from '@/lib/navigate'
@@ -131,7 +132,7 @@ export function AddFromLibrary({ kind, resources, onResources }: {
     >
       <ComboboxTrigger
         disabled={resources.length >= MAX_RESOURCES}
-        render={<Button variant="ghost" size="compact"><Plus />{t('projects.addFromLibrary')}</Button>}
+        render={<CreateButton label={t('projects.addFromLibrary')} />}
       />
       <ComboboxContent align="end" className="w-64">
         <ComboboxSearch placeholder={t('projects.search')} />

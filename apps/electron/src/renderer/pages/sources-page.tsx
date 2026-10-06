@@ -7,7 +7,7 @@
  * at all: the stock empty page alone (no title row), with the same Add source.
  */
 
-import { DatabaseZap, Plus, Shapes } from 'lucide-react'
+import { DatabaseZap, Shapes } from 'lucide-react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@workspace/ui/components/button'
@@ -19,7 +19,7 @@ import { PageHeader } from '@/components/app-shell/page-header'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
 import { EditPopover, getEditConfig } from '@/components/ui/edit-popover'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
-import { HeaderIconButton } from '@/components/ui/header-icon-button'
+import { CreateButton } from '@/components/ui/create-button'
 import { SourceAvatar } from '@/components/ui/source-avatar'
 import { useActiveWorkspace } from '@/context/app-shell-context'
 import { isSourcesNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
@@ -82,7 +82,7 @@ export function SourcesPage() {
           <>
             <FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('sourcesList.filter')} />
             <CommandPaletteButton category="sources" />
-            {addSource(<HeaderIconButton icon={<Plus />} tooltip={t('sourcesList.addSource')} />)}
+            {addSource(<CreateButton label={t('sourcesList.addSource')} />)}
           </>
         )}
       />

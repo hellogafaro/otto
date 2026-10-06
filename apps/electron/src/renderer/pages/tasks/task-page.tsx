@@ -30,7 +30,7 @@ import { PageHeader } from '@/components/app-shell/page-header'
 import { CommentThread } from '@/components/comments/comment-thread'
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { AssigneePicker } from '@/components/people/assignee-picker'
-import { ResourceList } from '@/components/resources/resource-list'
+import { NewLink, ResourceList } from '@/components/resources/resource-list'
 import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { useSidecar } from '@/context/sidecar-context'
@@ -145,7 +145,11 @@ function TaskProperties({ task, tasksApi }: { task: Task; tasksApi: ReturnType<t
           </DropdownMenuContent>
         </DropdownMenu>
       </PropertySection>
-      <PropertySection title={t('resources.title')} count={task.resources.length}>
+      <PropertySection
+        title={t('resources.title')}
+        count={task.resources.length}
+        action={<NewLink size="icon-xs" resources={task.resources} onChange={(resources) => void runTaskAction(task, { resources })} />}
+      >
         <ResourceList resources={task.resources} onChange={(resources) => void runTaskAction(task, { resources })} />
       </PropertySection>
       <TaskTimeSection taskId={task.id} />

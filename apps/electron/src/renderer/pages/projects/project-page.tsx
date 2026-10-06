@@ -10,8 +10,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, ArchiveRestore, Link, PanelRight, Plus } from 'lucide-react'
-import { Button } from '@workspace/ui/components/button'
+import { Archive, ArchiveRestore, Link, PanelRight } from 'lucide-react'
 import { Count } from '@workspace/ui/components/count'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@workspace/ui/components/empty'
@@ -19,6 +18,7 @@ import { PageColumn } from '@workspace/ui/components/page'
 import { toast } from '@workspace/ui/components/sonner'
 import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
 import { PageHeader } from '@/components/app-shell/page-header'
+import { CreateButton } from '@/components/ui/create-button'
 import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { useSidecar } from '@/context/sidecar-context'
 import { isProjectsNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
@@ -140,10 +140,7 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
 
   const libraryKind = tab === 'documents' ? 'document' : tab === 'files' ? 'file' : null
   const tabAction = tab === 'tasks' ? (
-    <Button variant="ghost" size="compact" onClick={() => setNewTask({ projectId: project.id })}>
-      <Plus />
-      {t('tasks.newTask')}
-    </Button>
+    <CreateButton label={t('tasks.newTask')} onClick={() => setNewTask({ projectId: project.id })} />
   ) : libraryKind ? (
     <AddFromLibrary key={libraryKind} kind={libraryKind} resources={project.resources} onResources={(next) => void saveResources(next)} />
   ) : null

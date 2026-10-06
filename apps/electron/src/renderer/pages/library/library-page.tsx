@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react'
-import { FilePlus, FolderPlus, Library, Plus, Upload, User } from 'lucide-react'
+import { FilePlus, FolderPlus, Library, Upload, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@workspace/ui/components/breadcrumb'
 import { Button } from '@workspace/ui/components/button'
@@ -18,9 +18,9 @@ import { Gallery, GalleryItemSkeleton } from '@workspace/ui/components/gallery'
 import { PageColumn } from '@workspace/ui/components/page'
 import { toast } from '@workspace/ui/components/sonner'
 import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
+import { CreateButton } from '@/components/ui/create-button'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import { useLibrary } from '@/hooks/use-library'
@@ -51,19 +51,6 @@ function AddMenu({ trigger, canAddFolder, onUpload, onNewDocument, onNewFolder }
         <DropdownMenuItem disabled={!canAddFolder} onClick={onNewFolder}><FolderPlus />{t('library.newFolder')}</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-/** The title row's "+": a 28px ghost icon button with its label in a tooltip, like Filter. */
-function AddButton() {
-  const { t } = useTranslation()
-  return (
-    <Tooltip>
-      <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('library.add')} />} />}>
-        <Plus />
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{t('library.add')}</TooltipContent>
-    </Tooltip>
   )
 }
 
@@ -206,7 +193,7 @@ export function LibraryPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title={t('library.title')}
-        actions={<><FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('library.filter')} /><CommandPaletteButton category="library" />{addMenu(<AddButton />)}</>}
+        actions={<><FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('library.filter')} /><CommandPaletteButton category="library" />{addMenu(<DropdownMenuTrigger render={<CreateButton label={t('library.add')} />} />)}</>}
       />
       <PageColumn className="min-h-full">
         <div data-content-start="" className="flex flex-1 flex-col gap-3">

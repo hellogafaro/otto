@@ -6,27 +6,13 @@
  */
 
 import { useTranslation } from 'react-i18next'
-import { Plus } from 'lucide-react'
-import { Button } from '@workspace/ui/components/button'
 import { ListGroup } from '@workspace/ui/components/list-group'
 import { PageWrap } from '@workspace/ui/components/page'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
+import { CreateButton } from '@/components/ui/create-button'
 import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import type { Task, TaskStatus } from '../../../shared/types'
 import { TaskRow, statusLabelKey, type TaskAction } from './task-row'
 import { groupTasks, TASK_GROUPS } from './use-task-filters'
-
-/** A group band's New task: a 24px ghost + with its label in a tooltip. */
-function GroupNewTask({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger render={<Button variant="ghost" size="icon-xs" aria-label={label} onClick={onClick} />}>
-        <Plus />
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
-  )
-}
 
 export function TaskGroups({
   tasks,
@@ -64,7 +50,7 @@ export function TaskGroups({
             label={t(statusLabelKey(status))}
             count={groups[status].length}
             defaultOpen={open}
-            action={onNewTask && status !== 'archived' && <GroupNewTask label={t('tasks.newTask')} onClick={() => onNewTask(status)} />}
+            action={onNewTask && status !== 'archived' && <CreateButton size="icon-xs" label={t('tasks.newTask')} onClick={() => onNewTask(status)} />}
           >
             {groups[status].map((task) => (
               <TaskRow

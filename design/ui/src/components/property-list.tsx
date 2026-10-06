@@ -18,9 +18,13 @@ import { Kbd } from "@workspace/ui/components/kbd"
 // for 0), then a 14px chevron, right when folded and down when open, shown on
 // hover, focus or while folded (always on touch). Rows start 4px under it and
 // sit 2px apart, like the sidebar's. A section with no rows is not drawn.
+// Otto: `action` is the section's create "+" (a 24px ghost icon button), at
+// the end of the title row and beside the folding trigger, not inside it; a
+// section with an action is drawn even with no rows.
 function PropertySection({
   title,
   count,
+  action,
   defaultOpen = true,
   className,
   children,
@@ -28,22 +32,26 @@ function PropertySection({
   title: React.ReactNode
   /** Shown after the title; 0 is not drawn. Otto: text too (a total, such as a task's logged time). */
   count?: number | string
+  action?: React.ReactNode
   defaultOpen?: boolean
   className?: string
   children?: React.ReactNode
 }) {
-  if (React.Children.toArray(children).length === 0) return null
+  if (!action && React.Children.toArray(children).length === 0) return null
   return (
     <Collapsible
       data-slot="property-section"
       defaultOpen={defaultOpen}
       className={cn("not-first:mt-5", className)}
     >
-      <CollapsibleTrigger className="group/property-section flex h-5 w-full items-center gap-2 rounded-xs px-1 text-left text-xs font-medium text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-        <span className="min-w-0 truncate">{title}</span>
-        {!!count && <Count>{count}</Count>}
-        <ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-data-panel-open/property-section:rotate-90 group-data-panel-open/property-section:opacity-0 group-hover/property-section:opacity-100! group-focus-visible/property-section:opacity-100! not-pointer-fine:opacity-100! motion-reduce:transition-none" />
-      </CollapsibleTrigger>
+      <div className="relative">
+        <CollapsibleTrigger className="group/property-section flex h-5 w-full items-center gap-2 rounded-xs px-1 text-left text-xs font-medium text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+          <span className="min-w-0 truncate">{title}</span>
+          {!!count && <Count>{count}</Count>}
+          <ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-data-panel-open/property-section:rotate-90 group-data-panel-open/property-section:opacity-0 group-hover/property-section:opacity-100! group-focus-visible/property-section:opacity-100! not-pointer-fine:opacity-100! motion-reduce:transition-none" />
+        </CollapsibleTrigger>
+        {action && <div className="absolute inset-y-0 right-0 flex items-center">{action}</div>}
+      </div>
       <CollapsibleContent>
         <div className="mt-1 flex flex-col gap-0.5">{children}</div>
       </CollapsibleContent>
@@ -57,7 +65,7 @@ function PropertySection({
 // the values line up), then the `value` (foreground, truncated; `placeholder`
 // in muted when there is none). A row with only a `value` is a list item (a
 // link, a chat, a time entry: foreground, full width); one with only a `label`
-// is the "New …" row that ends a list (muted, full width). An optional `kbd` (the row's hotkey, the
+// is a muted full-width row (a list's create is the section's `action`, not a row). An optional `kbd` (the row's hotkey, the
 // 20px `Kbd` 4px from the end, shown on hover, focus or while open; never on
 // touch). As a button (the default) it opens its menu or popover: pass it as
 // the trigger's `render`. The ghost states: hover `foreground/5`, pressed and

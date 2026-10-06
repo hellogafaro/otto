@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react'
-import { Ellipsis, Plus } from 'lucide-react'
+import { Ellipsis } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
@@ -34,6 +34,7 @@ import { PageCard, PageSection } from '@workspace/ui/components/page'
 import { Skeleton } from '@workspace/ui/components/skeleton'
 import { toast } from '@workspace/ui/components/sonner'
 import { ActorAvatar } from '@/components/people/actor-avatar'
+import { CreateButton } from '@/components/ui/create-button'
 import { SettingsRow } from '@/components/settings'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useLiveData } from '@/hooks/use-live-data'
@@ -50,7 +51,7 @@ function AddMember({ members, onAdd }: { members: ProjectMember[]; onAdd: (actor
   const candidates = getMemberCandidates(people, members).map((person) => person.actor)
   return (
     <Combobox items={candidates} value={null} itemToStringLabel={nameOf} onValueChange={(actor) => actor && onAdd(actor as string)}>
-      <ComboboxTrigger render={<Button variant="ghost" size="compact"><Plus />{t('projects.addMember')}</Button>} />
+      <ComboboxTrigger render={<CreateButton label={t('projects.addMember')} />} />
       <ComboboxContent align="end" className="w-60">
         <ComboboxSearch placeholder={t('projects.search')} />
         <ComboboxEmpty>{t(candidates.length > 0 ? 'projects.noMatches' : 'projects.everyoneAdded')}</ComboboxEmpty>

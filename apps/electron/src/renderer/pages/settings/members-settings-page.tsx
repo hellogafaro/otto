@@ -13,7 +13,7 @@ import { useForm } from '@tanstack/react-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import type { TFunction } from 'i18next'
-import { Copy, Ellipsis, Link, LogOut, Mail, Plus, Trash2, UserMinus } from 'lucide-react'
+import { Copy, Ellipsis, Link, LogOut, Mail, Trash2, UserMinus } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -48,6 +48,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@workspace/ui/components/skeleton'
 import { toast } from '@workspace/ui/components/sonner'
 import { ActorAvatar } from '@/components/people/actor-avatar'
+import { CreateButton } from '@/components/ui/create-button'
 import { SettingsCard, SettingsRow, SettingsSection } from '@/components/settings'
 import { SettingsPage } from '@/components/settings/settings-page'
 import { useAppShellContext } from '@/context/app-shell-context'
@@ -232,10 +233,7 @@ export default function MembersSettingsPage() {
           <SettingsSection
             title={t('members.invitations')}
             action={
-              <Button variant="ghost" size="compact" onClick={() => setInviting(true)}>
-                <Plus />
-                {t('members.invite')}
-              </Button>
+              <CreateButton label={t('members.invite')} onClick={() => setInviting(true)} />
             }
           >
             <SettingsCard>

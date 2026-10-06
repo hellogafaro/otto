@@ -7,7 +7,7 @@
  * title row), with the same Add skill.
  */
 
-import { Layers, Plus, Shapes } from 'lucide-react'
+import { Layers, Shapes } from 'lucide-react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@workspace/ui/components/button'
@@ -19,7 +19,7 @@ import { PageHeader } from '@/components/app-shell/page-header'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
 import { EditPopover, getEditConfig } from '@/components/ui/edit-popover'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
-import { HeaderIconButton } from '@/components/ui/header-icon-button'
+import { CreateButton } from '@/components/ui/create-button'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
 import { useActiveWorkspace } from '@/context/app-shell-context'
 import { isSkillsNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
@@ -77,7 +77,7 @@ export function SkillsPage() {
           <>
             <FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('skillsList.filter')} />
             <CommandPaletteButton category="skills" />
-            {addSkill(<HeaderIconButton icon={<Plus />} tooltip={t('skillsList.addSkill')} />)}
+            {addSkill(<CreateButton label={t('skillsList.addSkill')} />)}
           </>
         )}
       />

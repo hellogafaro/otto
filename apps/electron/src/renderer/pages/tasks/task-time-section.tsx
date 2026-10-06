@@ -10,7 +10,7 @@ import { useForm } from '@tanstack/react-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { format } from 'date-fns'
-import { Plus, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@workspace/ui/components/dialog'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@workspace/ui/components/field'
@@ -21,6 +21,7 @@ import { toast } from '@workspace/ui/components/sonner'
 import { Textarea } from '@workspace/ui/components/textarea'
 import { getDateLocale } from '@otto/shared/i18n'
 import { MAX_NOTES, MAX_TIME } from '@otto/shared/tasks/limits'
+import { CreateButton } from '@/components/ui/create-button'
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useRegisterModal } from '@/context/modal-context'
@@ -185,7 +186,16 @@ export function TaskTimeSection({ taskId }: { taskId: string }) {
   const locale = getDateLocale(i18n.language)
 
   return (
-    <PropertySection title={t('tasks.time')} count={total ? duration(total) : undefined}>
+    <PropertySection
+      title={t('tasks.time')}
+      count={total ? duration(total) : undefined}
+      action={(
+        <>
+          <CreateButton size="icon-xs" label={t('tasks.newTimeEntry')} onClick={() => setAdding(true)} />
+          <TimeEntryDialog open={adding} onOpenChange={setAdding} onAdd={add} />
+        </>
+      )}
+    >
       {entries.map((entry) => {
         const name = nameOf(entry.createdBy)
         const row = (
@@ -208,8 +218,6 @@ export function TaskTimeSection({ taskId }: { taskId: string }) {
           </HoverCard>
         )
       })}
-      <PropertyRow icon={<Plus />} label={t('tasks.newTimeEntry')} onClick={() => setAdding(true)} />
-      <TimeEntryDialog open={adding} onOpenChange={setAdding} onAdd={add} />
     </PropertySection>
   )
 }

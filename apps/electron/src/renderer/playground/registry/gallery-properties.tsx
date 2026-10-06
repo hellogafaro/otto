@@ -11,7 +11,6 @@ import {
   HardDrive,
   Link,
   MoreHorizontal,
-  Plus,
   User,
   X,
 } from 'lucide-react'
@@ -30,6 +29,7 @@ import {
 } from '@workspace/ui/components/dropdown-menu'
 import { Gallery, GalleryItem, GalleryItemSkeleton } from '@workspace/ui/components/gallery'
 import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
+import { CreateButton } from '@/components/ui/create-button'
 import { cn } from '@/lib/utils'
 import type { ComponentEntry } from './types'
 
@@ -161,10 +161,9 @@ function Properties() {
         <PropertyRow icon={<CalendarDays />} label="Due date" placeholder="No due date" kbd="D" />
         <PropertyRow icon={<Box />} label="Project" value="Website relaunch" disabled />
       </PropertySection>
-      <PropertySection title="Resources" count={2}>
+      <PropertySection title="Resources" count={2} action={<CreateButton size="icon-xs" label="New resource" />}>
         <PropertyRow icon={<Link />} value="Brand guidelines" actions={<Remove />} />
         <PropertyRow icon={<FileText />} value="Launch plan with a title long enough to truncate" actions={<Remove />} />
-        <PropertyRow icon={<Plus />} label="New resource" />
       </PropertySection>
       <PropertySection title="Details">
         <PropertyRow readOnly icon={<Folder />} label="Folder" value="Brand / Logos" />

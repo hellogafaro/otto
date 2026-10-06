@@ -762,7 +762,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   motion. Escape closes it while focus is inside, and it closes when the page
   changes. Pages open it through `useSidecar().openSidecar({ title, content })`.
 - **New chat** is on the Chats index only (a chat has More actions there
-  instead): a ghost icon button (`SquarePen`, 28px) last
+  instead): the create "+" (`CreateButton`, 28px, Buttons, Create actions) last
   in the title row's actions at every width, tooltip below with the label and
   its `Kbd`; ⌘N (`app.newChat`, bound by the shell, not the sidebar) does the
   same. There is no floating "+".
@@ -866,7 +866,7 @@ no shadow.
   are flat: assistant text sits straight on the surface (no bubble, ring or
   shadow), the user message is a muted fill, code blocks are flat muted blocks.
 - **Unbuilt sections** (Tasks, Projects, Routines, Library) show only the empty state
-  and its "New …" button until the page is designed: no title row (below 768px
+  and its "New …" button (the empty state's labeled exception, Buttons, Create actions) until the page is designed: no title row (below 768px
   the fixed menu button alone, so the sidebar sheet stays reachable), no list or
   cards. The state is the stock `Empty` (`SectionEmpty`) centered both
   ways on the frame, not in a card: the section's Lucide icon in the 32px tile
@@ -992,10 +992,10 @@ no shadow.
   Properties (Status, S opens its menu while the Details are open, keys 1 to 3;
   Assignees, a searchable multi picker; Due date, the native picker opened by
   the row, × clears it; Project, a menu of active projects), Links (web links,
-  library items and chats, `ResourceList`: a row opens it, × removes it, "New
-  link" opens a dialog with compact tabs Web link / Library / Chat, at most 50),
+  library items and chats, `ResourceList`: a row opens it, × removes it, the
+  section's "+" ("New link") opens a dialog with compact tabs Web link / Library / Chat, at most 50),
   Time (entries "Maria · 1h 30m · Oct 4", notes in a hover card, × on your own;
-  the total is the section's count; "New time entry": minutes and notes).
+  the total is the section's count; "New time entry", the section's "+": minutes and notes).
   Assignees and due date autosave; status, project, links and time apply at
   once; every change shows the one "Saved" toast and a `conflict` reloads. An
   id the workspace does not have shows the not-found page.
@@ -1006,14 +1006,14 @@ no shadow.
   the content, the 32px `Tabs` with their `Count`s (labels on the title's 16px
   line, no icons, like the Library's; on a phone they scroll sideways), in
   `?tab=`: Overview, Tasks (open tasks), Documents, Files. A tab's one action
-  ends the tab row, a 28px ghost button 16px in (the header actions' line;
+  ends the tab row, the create "+" 16px in (the header actions' line;
   on a phone it wraps under the tabs): Tasks "New task" (`TaskFormDialog` with
   the project preset; a group's "+" too), Documents and Files "Add from
   library" (a searchable list of the library's items of that kind not linked
   yet; a pick links it at once). **Overview**, sections 40px apart: the
   description in a card (the markdown editor, 16px in; it autosaves with the
   title as one draft), Links (`ResourceList` in a card, 4px in: web links,
-  library items, chats; × removes, "New link" adds, at once) and Members (the
+  library items, chats; × removes, "New link", the section's "+", adds, at once) and Members (the
   settings row: 20px `ActorAvatar`, name, the role as an outline `Badge`
   Contributor / Viewer, a ⋯ with the role as radio items and Remove; "Add
   member" ends the section's title row and lists the workspace's people and
@@ -1245,7 +1245,7 @@ as a card).
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
 | `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
-| `PropertySection`, `PropertyRow` | `title`, `count`, `defaultOpen`; `icon`, `label`, `value`, `placeholder`, `kbd`, `actions`, `readOnly` | the sidecar's Details blocks; see Components, Property list |
+| `PropertySection`, `PropertyRow` | `title`, `count`, `action` (the create "+", 24px, at the row's end, beside the fold trigger; the section is drawn with it even with no rows), `defaultOpen`; `icon`, `label`, `value`, `placeholder`, `kbd`, `actions`, `readOnly` | the sidecar's Details blocks; see Components, Property list |
 | `Sidecar` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel`, `surface` | canvas by default, `surface` wraps it in a card (undecided); see Layout; closed by default |
 | `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column, Back level with the title row (on the top axis on the open chat), the buttons are its narrow form for the title row's actions |
 
@@ -1344,6 +1344,26 @@ set once, in the `Button` component, never per instance:
 | `default` | 32px | 12px | 10px / 12px | `icon` 32px square | 8px | 14px |
 | `compact` | 28px | 10px | 8px / 10px | `icon-compact` 28px square | 6px | 14px |
 | `xs` | 24px | 8px | 6px / 8px | `icon-xs` 24px square | 4px | 12px |
+
+**Create actions.** Every create action of a page, a section, a tab or a group is
+ONE thing: `CreateButton` (`components/ui/create-button.tsx`), a ghost "+" (`Plus`)
+icon button, 28px (`icon-compact`; 24px `icon-xs` in a group band and in a
+sidecar section), whose `aria-label` and tooltip (below it) are the same label,
+"New {thing}" ("New task", "New project", "New link", "New time entry"), or
+"Add …" / "Invite member" where "New" is wrong ("Add skill", "Add member",
+"Add from library", "Add to library"); a key goes in the tooltip as a `Kbd` after
+the label (New chat, ⌘N). A create that opens a menu or a picker (the Library's
+"Add to library", Add member, Add from library, Add skill) is the same button as
+the trigger (`<DropdownMenuTrigger render={<CreateButton … />} />`), the menu
+rows being the nouns. It sits at the end of its row: the page header's actions,
+a `PageSection`'s `action` (the end of the title row), a `PropertySection`'s
+`action` (the sidecar's section row, 24px), the project tabs' end, a group
+band. Never a labeled "+ New …" button and never a "New …" row ending a list.
+Exceptions: the empty state's single primary labeled button (the page's only
+create affordance there: its title row and actions are hidden), the submit of a
+dialog ("Create", "Invite", "Send"), the comment's Send, the first-run and
+onboarding steps (a flow, not a page action), and the rows of a menu or palette
+("New folder", "New workspace", "Add new label"), which stay items.
 
 The golden check: 32px height x 0.382 (1 / phi squared) = 12.2, so the text
 padding is 12px; the icon side steps down by 2px (a 14px glyph carries about 1px
@@ -1481,7 +1501,8 @@ buttons have focus; the modal keeps its own keyboard controls.
 spacing and no dividers. Muted section titles with an optional count, hidden
 when there is nothing (no "0"). Counts everywhere sit right after their label,
 softer than it (`Count`), the label's icon-to-label gap away. Property rows open
-their menu; each has a hotkey. A "New …" row ends a list. Row actions appear on
+their menu; each has a hotkey. A list's create is its section's "+" (never a
+row). Row actions appear on
 hover (always on touch), and hovering one keeps its row highlighted. Repeat
 stores an iCalendar rule: presets plus Custom, which asks an agent.
 
@@ -1489,7 +1510,7 @@ stores an iCalendar rule: presets plus Custom, which asks an agent.
 `property-list.tsx`): the Details blocks of every sidecar (task, project, file,
 document), on the sidecar's canvas, never in a card. Use it for an item's
 properties (Status, Assignees, Due date, Project), its short lists (resources,
-chats, time entries, each ended by a "New …" row) and its read-only facts
+chats, time entries, each with the section's create "+") and its read-only facts
 (Folder, Created by, Created, Size, Type). Not for page content: lists on a page
 are `ListGroup`.
 
@@ -1505,7 +1526,7 @@ are `ListGroup`.
   values line up), the value (foreground, truncated; the `placeholder`, muted,
   when empty, e.g. "No due date"), then the row's hotkey as a 20px `Kbd` 4px
   from the end. A row with only a value is a list item (full width,
-  foreground); one with only a label is the "New …" row (full width, muted).
+  foreground); one with only a label is a muted full-width row.
 - **Row states** (the ghost ones): rest no fill; hover `foreground/5`; pressed
   and open (`aria-expanded`, its menu or popover is open) `foreground/10`;
   focus-visible `ring-2 ring-inset ring-ring`; disabled 50%, no pointer. The
@@ -1755,7 +1776,7 @@ and Leave ask first (`AlertDialog`, the destructive tile with `UserMinus` or
 (or `/` when there is none). The last owner cannot leave, be removed or become a
 member: the action toasts "A workspace needs at least one owner" without asking,
 and the server's `conflict` says the same. **Invitations** (owners only): "Invite
-member" (28px ghost, `Plus`) ends the section's title row; rows are the email
+member" (the create "+", 28px) ends the section's title row; rows are the email
 over "Expires in 6 days" (whole days, rounded up, at least 1) with a `Mail` tile
 and a ⋯ of Copy link and Revoke (red); none reads "No invitations yet" in the
 card. Invite member is a dialog: an email field and Create link; then the same

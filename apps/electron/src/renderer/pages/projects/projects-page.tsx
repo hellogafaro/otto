@@ -13,7 +13,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, ArchiveRestore, Folder, Link, MoreHorizontal, Plus, SquareArrowOutUpRight } from 'lucide-react'
+import { Archive, ArchiveRestore, Folder, Link, MoreHorizontal, SquareArrowOutUpRight } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from '@workspace/ui/components/context-menu'
 import {
@@ -30,7 +30,7 @@ import { toast } from '@workspace/ui/components/sonner'
 import { routes } from '@/lib/navigate'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
-import { HeaderIconButton } from '@/components/ui/header-icon-button'
+import { CreateButton } from '@/components/ui/create-button'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
 import { isProjectsNavigation, useNavigation } from '@/contexts/navigation-context'
 import { useProjects } from '@/hooks/use-projects'
@@ -132,7 +132,7 @@ export function ProjectsPage() {
     },
   }
 
-  const newProject = <HeaderIconButton icon={<Plus />} tooltip={t('projects.newProject')} onClick={() => setCreating(true)} />
+  const newProject = <CreateButton label={t('projects.newProject')} onClick={() => setCreating(true)} />
   const dialog = <ProjectFormDialog open={creating} onOpenChange={setCreating} />
   const emptyState = (
     <EntityListEmptyScreen

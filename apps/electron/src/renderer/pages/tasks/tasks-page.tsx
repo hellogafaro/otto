@@ -10,7 +10,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, Box, CircleCheck, CircleDashed, Plus, User } from 'lucide-react'
+import { Archive, Box, CircleCheck, CircleDashed, User } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
 import { ListRowSkeleton } from '@workspace/ui/components/list-group'
@@ -20,7 +20,7 @@ import { CommandPaletteButton } from '@/components/command-palette/command-palet
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
-import { HeaderIconButton } from '@/components/ui/header-icon-button'
+import { CreateButton } from '@/components/ui/create-button'
 import { useNavigation } from '@/contexts/navigation-context'
 import { routes } from '@/lib/navigate'
 import { useProjects } from '@/hooks/use-projects'
@@ -140,7 +140,7 @@ export function TasksPage() {
           <>
             <FilterMenu fields={fields} values={values} onChange={changeFilter} label={t('tasks.filterLabel')} />
             <CommandPaletteButton category="tasks" />
-            <HeaderIconButton icon={<Plus />} tooltip={t('tasks.newTask')} onClick={() => newTask()} />
+            <CreateButton label={t('tasks.newTask')} onClick={() => newTask()} />
           </>
         )}
       />

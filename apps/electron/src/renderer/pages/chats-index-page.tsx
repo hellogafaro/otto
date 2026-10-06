@@ -20,18 +20,18 @@ import * as React from 'react'
 import { useSetAtom, useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNowStrict, type Locale } from 'date-fns'
-import { Archive, CircleDashed, ClipboardList, Cpu, Flag, MessageSquare, MoreHorizontal, Plus, Tag } from 'lucide-react'
+import { Archive, CircleDashed, ClipboardList, Cpu, Flag, MessageSquare, MoreHorizontal, Tag } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
 import { PageColumn, PageWrap } from '@workspace/ui/components/page'
 import { ListGroup, ListRow } from '@workspace/ui/components/list-group'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { Spinner } from '@otto/ui'
 import { flattenLabels, matchesLabelFilter, parseLabelEntry, type LabelConfig } from '@otto/shared/labels'
 import { getModelShortName } from '@config/models'
 import { routes } from '@/lib/navigate'
 import { PageHeader } from '@/components/app-shell/page-header'
+import { CreateButton } from '@/components/ui/create-button'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
 import { SessionMenu } from '@/components/app-shell/session-menu'
 import { CompactSessionMenu } from '@/components/app-shell/compact-session-menu'
@@ -59,18 +59,6 @@ function StatusGlyph({ id, statuses }: { id: string; statuses: SessionStatus[] }
 /** A label's colored dot, centered in a 14px icon box. */
 function LabelGlyph({ label }: { label: LabelConfig }) {
   return <span className="flex size-3.5 shrink-0 items-center justify-center"><LabelIcon label={label} size="lg" /></span>
-}
-
-/** A group band's New chat: a 24px ghost + with its label in a tooltip; the chat starts in that status. */
-function GroupNewChat({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger render={<Button variant="ghost" size="icon-xs" aria-label={label} onClick={onClick} />}>
-        <Plus />
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
-  )
 }
 
 /** The row actions the session menu needs, from the page. */
@@ -384,7 +372,7 @@ export default function ChatsIndexPage() {
                   icon={<StatusGlyph id={g.status.id} statuses={sessionStatuses} />}
                   label={t(`status.${g.status.id}`, g.status.label)}
                   count={g.items.length}
-                  action={<GroupNewChat label={t('menu.newChat')} onClick={() => navigate(routes.action.newSession({ status: g.status.id }))} />}
+                  action={<CreateButton size="icon-xs" label={t('menu.newChat')} onClick={() => navigate(routes.action.newSession({ status: g.status.id }))} />}
                 >
                   {g.items.map(row)}
                 </ListGroup>
