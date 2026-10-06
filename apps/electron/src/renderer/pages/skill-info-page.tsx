@@ -145,7 +145,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
     >
       <Info_Page.Header
         title={skillName}
-        titleMenu={
+        menu={
           <SkillMenu
             skillSlug={skillSlug}
             skillName={skillName}

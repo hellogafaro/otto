@@ -1,8 +1,8 @@
 /**
  * CompactSessionMenu
  *
- * Bottom-sheet replacement for the desktop ChatPage title dropdown
- * (`SessionMenu` wrapped by `PanelHeader`'s Radix DropdownMenu) when
+ * Bottom-sheet replacement for the desktop ChatPage "More actions" dropdown
+ * (`SessionMenu` in the page header's Radix DropdownMenu) when
  * `AppShellContext.isCompactMode === true`. Mirrors the same actions but
  * routes Status / Labels / Share / Connect Messaging submenus through
  * an internal view stack instead of nested Radix popovers — Radix submenus
@@ -25,12 +25,10 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion } from 'motion/react'
 import {
   Archive,
   ArchiveRestore,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CloudUpload,
@@ -85,12 +83,8 @@ import { Button } from '@/components/ui/button'
 type View = 'root' | 'status' | 'labels' | 'share' | 'messaging'
 
 export interface CompactSessionMenuProps {
-  /** Title text shown in the trigger button + drawer header. */
+  /** Title text shown in the drawer header. */
   title?: string
-  /** Optional badge element rendered next to the title (e.g. agent badge). */
-  badge?: React.ReactNode
-  /** Shimmer animation while the title is being regenerated. */
-  isRegeneratingTitle?: boolean
 
   // Session data — same as SessionMenu
   item: SessionMeta
@@ -114,22 +108,19 @@ export interface CompactSessionMenuProps {
   // Controlled-component shim — used by EntityRow / SessionItem so a single
   // drawer instance can be driven from multiple triggers (`…` button + long-
   // press). When `open` is omitted the component owns its own state (the
-  // chat-header callsite, unchanged). Matches the Radix Dialog convention.
+  // chat header's More button). Matches the Radix Dialog convention.
   // ---------------------------------------------------------------------------
   /** Controlled open state. When omitted, the component owns its own state. */
   open?: boolean
   /** Notifies the consumer when the controlled open state should change. */
   onOpenChange?: (open: boolean) => void
-  /** Custom trigger node. `null` opts out of rendering ANY trigger (the row
-   *  provides its own). When omitted, renders the title-pill trigger used
-   *  by the chat header. */
-  trigger?: React.ReactNode | null
+  /** The trigger node (the chat header's More button). `null` renders none
+   *  (the row provides its own). */
+  trigger: React.ReactNode | null
 }
 
 export function CompactSessionMenu({
   title,
-  badge,
-  isRegeneratingTitle,
   item,
   sessionStatuses,
   labels = [],
@@ -228,45 +219,7 @@ export function CompactSessionMenu({
 
   const showBack = view !== 'root'
 
-  // Resolve the trigger node:
-  //   - `trigger === null`  → don't render any trigger (row provides its own).
-  //   - `trigger` provided  → render the consumer's node inside DrawerTrigger.
-  //   - `trigger` omitted   → render the default title-pill button (chat header).
-  const triggerNode = trigger === null
-    ? null
-    : trigger !== undefined
-      ? <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-      : (
-        <DrawerTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="compact"
-            className="titlebar-no-drag min-w-0 text-foreground"
-            aria-label={title}
-          >
-            <motion.div
-              initial={false}
-              animate={{ opacity: title ? 1 : 0 }}
-              transition={{ duration: 0.15 }}
-              className="flex items-center gap-1 min-w-0"
-            >
-              <h1
-                className={cn(
-                  'text-sm font-semibold truncate font-sans leading-tight',
-                  isRegeneratingTitle && 'animate-shimmer-text',
-                )}
-              >
-                {title}
-              </h1>
-              {badge}
-            </motion.div>
-            <span className="shrink-0 flex items-center justify-center">
-              <ChevronDown className="h-3.5 w-3.5 text-foreground/50 translate-y-[1px]" />
-            </span>
-          </Button>
-        </DrawerTrigger>
-      )
+  const triggerNode = trigger === null ? null : <DrawerTrigger asChild>{trigger}</DrawerTrigger>
 
   return (
     <Drawer open={open} onOpenChange={setOpen}>

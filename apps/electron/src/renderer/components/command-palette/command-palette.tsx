@@ -9,6 +9,11 @@
  * rows, under group headings in All, with edges that fade while more scroll; the
  * 48px footer with the keys (hidden on phones). Focus never leaves the field: the
  * tabs do not take it, so typing always searches.
+ *
+ * The field is never delayed, the results are: they follow the query after the shared
+ * `SEARCH_DEBOUNCE_MS`, with skeleton rows meanwhile (`paletteView`). Nothing can be
+ * picked while they wait: ↑↓ do nothing and Enter only skips the wait (it shows the
+ * results and picks nothing), so a row is only ever picked from results the user sees.
  */
 
 import * as React from 'react'
@@ -23,13 +28,16 @@ import {
   CommandList,
 } from '@workspace/ui/components/command'
 import { Empty, EmptyMedia, EmptyTitle } from '@workspace/ui/components/empty'
+import { Skeleton } from '@workspace/ui/components/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
 import { Kbd, KbdGroup } from '@/components/ui/kbd'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   availableCategories,
   buildGroups,
   cleanQuery,
   hasAnyMatch,
+  paletteView,
   resolveCategory,
   rowValue,
   stepCategory,
@@ -78,10 +86,12 @@ export function CommandPalette({ data, initialCategory = 'all', onPick }: Comman
   // The highlighted row; '' (or a row that is gone) means the first one.
   const [selected, setSelected] = React.useState('')
 
-  const query = cleanQuery(text)
+  const [debouncedText, , skipWait] = useDebouncedValue(cleanQuery(text))
+  const { query, pending } = paletteView(cleanQuery(text), debouncedText)
   const available = React.useMemo(() => availableCategories(data), [data])
   const category = resolveCategory(available, wanted)
-  const groups = React.useMemo(() => buildGroups(data, category, query), [data, category, query])
+  const groups = React.useMemo(() => (pending ? [] : buildGroups(data, category, query)), [data, category, query, pending])
+  // While waiting, the tabs keep the state of the last results.
   const nothing = !!query && !hasAnyMatch(data, query)
   const showTabs = available.length > 1 && !nothing
 
@@ -101,6 +111,12 @@ export function CommandPalette({ data, initialCategory = 'all', onPick }: Comman
       value={highlighted}
       onValueChange={setSelected}
       onKeyDown={(event) => {
+        if (pending && ['Enter', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+          // Nothing to pick or move over yet; Enter only skips the wait.
+          event.preventDefault()
+          if (event.key === 'Enter' && !event.nativeEvent.isComposing) skipWait()
+          return
+        }
         if (event.key !== 'Tab') return
         // Tab never leaves the field: it switches the category.
         event.preventDefault()
@@ -127,8 +143,9 @@ export function CommandPalette({ data, initialCategory = 'all', onPick }: Comman
           </TabsList>
         </Tabs>
       )}
-      <CommandList className={showTabs ? 'pt-0' : undefined}>
-        {query && (
+      <CommandList className={showTabs ? 'pt-0' : undefined} aria-busy={pending}>
+        {pending && <PaletteSkeleton heading={category === 'all'} />}
+        {query && !pending && (
           <CommandEmpty className="py-0">
             <Empty className="gap-2 p-6">
               <EmptyMedia variant="icon">
@@ -158,6 +175,25 @@ export function CommandPalette({ data, initialCategory = 'all', onPick }: Comman
       </CommandList>
       <PaletteKeys showCategory={showTabs} />
     </Command>
+  )
+}
+
+/** The rows while the results wait: a heading (in All) and three rows, drawn like the real ones (28px, 36px, 16px in). */
+function PaletteSkeleton({ heading }: { heading: boolean }) {
+  return (
+    <div aria-hidden>
+      {heading && (
+        <div className="flex h-7 items-center px-3">
+          <Skeleton className="h-3 w-14" />
+        </div>
+      )}
+      {['w-44', 'w-32', 'w-52'].map((width) => (
+        <div key={width} className="flex h-9 items-center gap-2 px-3">
+          <Skeleton className="size-3.5" />
+          <Skeleton className={`h-3.5 ${width}`} />
+        </div>
+      ))}
+    </div>
   )
 }
 

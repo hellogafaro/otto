@@ -14,11 +14,12 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 // fills the width, 20px from each side.
 //
 // Three tracks make it: [left gutter | column | right gutter]. The left gutter
-// holds `FloatingNav` (portaled in by `PageHeader`); the right one holds the
-// `aside` (the `Sidecar`). Both start at the CONTENT START, the top of the first
-// block under the header row (see `--content-start`), not at the header row. Closed, both gutters are equal and the column
-// is centered. An open aside reserves its 324px (20px gap, 296px canvas, 8px from
-// the window) in the right track: while the free space is wider than that the
+// holds `FloatingNav` (portaled in by `PageHeader`), centered on the header row's
+// axis (its Back button, the title and the sidebar's mark share one line); the
+// right one holds the `aside` (the `Sidecar`), which starts at the CONTENT START,
+// the top of the first block under the header row (see `--content-start`).
+// Closed, both gutters are equal and the column is centered. An open aside
+// reserves its 324px (20px gap, 296px canvas, 8px from the window) in the right track: while the free space is wider than that the
 // column stays centered, otherwise it shifts left to make room (never narrower
 // than 768px: from 1280px of region width there is always room). Below 1280px
 // of region width the aside overlays the page instead (on a card surface, since
@@ -27,7 +28,9 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 //
 // The region is the `frame` container and the column is the `panel` container,
 // so what is inside answers to the column's width, not the window's.
-const NAV_GUTTER = 56
+// The floating navigation's gutter: 20px from the window's sidebar side, the
+// 32px buttons, then 20px to the column.
+const NAV_GUTTER = 72
 
 // Otto: the page inset, ONE constant. 16px, the padding of a row inside a
 // card. The header row and every section header (title, description, action)
@@ -47,9 +50,8 @@ type PageFrameContextValue = {
 // Otto: the content start. The first block under the header row (`data-content-start`:
 // a `PageSection`, `PageCard`, `PageCenterpiece`, or a page's own first block)
 // begins this far below the body's top (28px on a blocks page, 0 on a
-// centerpiece). The frame measures it, so the floating navigation and the
-// sidecar start on the same line whatever the page puts first, and publishes it
-// as `--content-start`.
+// centerpiece). The frame measures it, so the sidecar starts on the first block
+// whatever the page puts first, and publishes it as `--content-start`.
 function measureContentStart(body: HTMLElement) {
   const block = body.querySelector<HTMLElement>("[data-content-start]")
   if (!block) return 0
@@ -151,7 +153,9 @@ function PageFrame({
           <div
             data-slot="floating-nav-slot"
             ref={setNav}
-            className="relative z-10 col-start-1 row-start-2 flex items-start justify-end pt-(--content-start) pr-2"
+            // Spans the header row and the body: Back is centered on the header
+            // row (52px, a 32px button: 10px down), 20px from the column.
+            className="relative z-10 col-start-1 row-span-2 row-start-1 flex items-start justify-end pt-2.5 pr-5"
           />
           <div
             data-slot="page-body"
@@ -172,8 +176,10 @@ function PageFrame({
 // (`PAGE_INSET`) to line up with the cards' content. From the left: a `leading`
 // slot (only the menu button below 768px, the sidebar sheet's opener), the page
 // title (`PageTitle`, 21px medium) and the page's actions on the right. The title
-// never has a back button or a trail of crumbs: going back and stepping through
-// a list is `FloatingNav`. Controls are 28px.
+// is plain text on one line, never an ellipsis: it fades out over its last 16px,
+// where the actions start (a mask, as the sidebar's rows do; a short title is
+// untouched). It never has a dropdown, a back button or a trail of crumbs: going
+// back and stepping through a list is `FloatingNav`. Controls are 28px.
 function PageHeaderRow({
   leading,
   title,
@@ -197,7 +203,9 @@ function PageHeaderRow({
     >
       {leading}
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <PageTitle className="min-w-0 truncate">{title}</PageTitle>
+        <PageTitle className="min-w-0 flex-1 overflow-hidden whitespace-nowrap [mask-image:linear-gradient(to_right,#000_calc(100%_-_16px),transparent)]">
+          {title}
+        </PageTitle>
       </div>
       {actions && (
         <div

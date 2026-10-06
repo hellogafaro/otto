@@ -32,6 +32,7 @@ import { coerceInputText } from './lib/input-text'
 import { getSessionsToRefreshAfterStaleReconnect } from './lib/reconnect-recovery'
 import { formatSessionLoadFailure, shouldTreatSessionLoadFailureAsTransportFallback } from './lib/session-load'
 import { DEFAULT_THINKING_LEVEL } from '@otto/shared/agent/thinking-levels'
+import { debounce, type Debounced } from '@otto/shared/utils/debounce'
 import { initRendererPerf } from './lib/perf'
 import {
   initializeSessionsAtom,
@@ -1413,13 +1414,13 @@ export default function App() {
   }, [sessionOptions])
 
   // Handle input draft changes per session with debounced persistence
-  const draftSaveTimeoutRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const draftSaversRef = useRef<Map<string, Debounced<[]>>>(new Map())
 
   // Cleanup draft save timers on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
-      draftSaveTimeoutRef.current.forEach(clearTimeout)
-      draftSaveTimeoutRef.current.clear()
+      draftSaversRef.current.forEach((save) => save.cancel())
+      draftSaversRef.current.clear()
     }
   }, [])
 
@@ -1471,16 +1472,16 @@ export default function App() {
 
   // Write a debounced snapshot of the current ref entry to disk.
   const schedulePersistDraft = useCallback((sessionId: string) => {
-    const existingTimeout = draftSaveTimeoutRef.current.get(sessionId)
-    if (existingTimeout) {
-      clearTimeout(existingTimeout)
+    let save = draftSaversRef.current.get(sessionId)
+    if (!save) {
+      save = debounce(() => {
+        const draft = sessionDraftsRef.current.get(sessionId) ?? { text: '' }
+        window.electronAPI.setDraft(sessionId, draft)
+        draftSaversRef.current.delete(sessionId)
+      }, DRAFT_SAVE_DEBOUNCE_MS)
+      draftSaversRef.current.set(sessionId, save)
     }
-    const timeout = setTimeout(() => {
-      const draft = sessionDraftsRef.current.get(sessionId) ?? { text: '' }
-      window.electronAPI.setDraft(sessionId, draft)
-      draftSaveTimeoutRef.current.delete(sessionId)
-    }, DRAFT_SAVE_DEBOUNCE_MS)
-    draftSaveTimeoutRef.current.set(sessionId, timeout)
+    save()
   }, [])
 
   const handleInputChange = useCallback((sessionId: string, value: string) => {

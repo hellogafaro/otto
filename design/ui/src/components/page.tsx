@@ -11,8 +11,8 @@ import { cn } from "cn"
 //   bottom (the chat, a document). ONE card as wide as the column and as tall
 //   as the space under the header row, scrolling inside. The chat adds a
 //   sibling composer card under it.
-// The first block (`data-content-start`) is where the floating navigation and
-// the sidecar start: `PageFrame` measures it.
+// The first block (`data-content-start`) is where the sidecar starts:
+// `PageFrame` measures it.
 function PageColumn({
   className,
   children,

@@ -18,11 +18,11 @@ import * as React from "react"
 // icon button (`outline`, 32px, md 8 corners, 14px icons), never round and
 // with no wrapper of their own, 8px apart. They are the page's only way back and
 // through its list: the header row has no back button and no crumbs.
-// `PageHeader` portals them into the frame's left gutter, 8px from the column,
-// with their top on the content start (the top of the first block under the
-// header row), and only while that gutter is at least 56px wide; narrower, the
-// same actions move into the header row's trailing actions
-// (`FloatingNavButtons`).
+// `PageHeader` portals them into the frame's left gutter, 20px from the column,
+// with Back centered on the header row (Back's center, the page title's and the
+// sidebar mark's are one line), and only while that gutter is at least 72px
+// wide; narrower, the same actions move into the header row's trailing actions
+// (`FloatingNavButtons`). The gutter never scrolls, so they stay put.
 type NavAction = {
   label: string
   onClick: () => void

@@ -10,8 +10,8 @@ import * as React from "react"
 // it is a canvas, not a surface: no background, ring, shadow or corners, just
 // quiet metadata blocks floating on the frame beside the column, 296px wide,
 // 20px from it and starting at the content start (the top of the page's first
-// block, `--content-start`, the line the floating navigation starts on; not the
-// header row). Its title is the first subtitle, Close a ghost 28px icon at its end. A block is a small muted subtitle
+// block, `--content-start`; not the header row, which the floating navigation
+// centers on). Its title is the first subtitle, Close a ghost 28px icon at its end. A block is a small muted subtitle
 // outside any surface with flat rows, 13px text, chips and avatars under it;
 // controls in it may be bordered, panels never. It does not move while the
 // center scrolls (only the center column scrolls) and scrolls itself, with the

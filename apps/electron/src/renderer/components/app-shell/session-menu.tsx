@@ -3,7 +3,7 @@
  *
  * Used by:
  * - SessionList (dropdown via "..." button, context menu via right-click)
- * - ChatPage (title dropdown menu, desktop only — compact mode uses
+ * - ChatPage ("More actions" in the header, desktop only — compact mode uses
  *   `CompactSessionMenu` which renders these same actions in a Drawer)
  *
  * Renders menu items via `useMenuComponents()` so the same content works

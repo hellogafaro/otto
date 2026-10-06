@@ -468,14 +468,18 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     the header row, headings and a centerpiece all span exactly the column and
     nothing is ever wider.
   - **The header row** is 52px, on the frame, above the column, 8px from the top
-    of the window (so its title sits at y 18-50), and as wide as the column:
+    of the window (so its title sits at y 18-50, its center at **y 34**), and as wide as the column:
     its left edge and right edge are the cards' edges, while its content (title,
     actions) is inset 16px (`PAGE_INSET`, the padding of a row in a
     card) so it lines up with the cards' content. It is pinned (it does not
     scroll away). The body starts at y 60 and ends 8px above the window.
+    **One axis across the top: the sidebar's mark, the page title and the floating
+    navigation's Back button share the center y 34** (the sidebar's header is the
+    same 52px band, 8px from the top; Back is 32px, its top at y 18).
   - **The gutters** are the free space left and right of the column; they hold
-    the floating navigation (left) and the sidecar (right), both starting at the
-    **content start** (below), and do not scroll:
+    the floating navigation (left, on the header row's axis, 20px from the column)
+    and the sidecar (right, starting at the **content start**, below), and do not
+    scroll (so the navigation is sticky: it never moves while the page does):
     only the column's body scrolls (a blocks page as a whole, a centerpiece in
     itself). Frame width is the region right of the sidebar (window - 256, or
     - 48 icons only, or the whole window on a phone).
@@ -484,14 +488,15 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     right track; while the gutter already is wider the column stays centered,
     else it shifts left (the column keeps 768px from a 1280px frame up). Under
     1280px of frame width the sidecar overlays the page instead. The floating
-    navigation needs a left gutter of 56px; narrower it moves into the header
-    row's trailing actions.
+    navigation needs a left gutter of 72px (20px, the 32px buttons, 20px to the
+    column); narrower it moves into the header row's trailing actions.
   - **The content start** is the top of the first block under the header row: the
     first section's title row on a blocks page, the first card or the centerpiece
     when there is no section title (28px under the body's top on blocks, 0 on a
     centerpiece). Blocks mark themselves (`data-content-start`), `PageFrame`
-    measures the first one and publishes it as `--content-start`. The floating
-    navigation and the docked sidecar both start there, never at the header row.
+    measures the first one and publishes it as `--content-start`. The docked
+    sidecar starts there (it is the sidecar's line, not the floating navigation's:
+    that one is on the header row's axis).
 - **Insets.** Controls sit **4px** inside their bar or card, so their corners
   nest (32px control `md` 8 + 4 = card `xl` 12). Content text sits 12–20px in.
 - **Controls are 32px**: bar buttons and tabs. Task list and
@@ -535,7 +540,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   (`bg-foreground/10`) centered in each gap marks them (`SidebarGroup`, the
   header's bottom and the footer's top carry it); group 3 is hidden.
   - **Header** (group 0): the Otto mark alone, 20px (`size-5`, `text-foreground`), no
-    name. On Electron the header is the window's drag region,
+    name, centered in a 52px band (the page header row's height, 8px from the top of
+    the window: the mark's center is y 34, the title's line; the next group starts at
+    y 60, where the page body does). On Electron the header is the window's drag region,
     its row clears the macOS traffic lights (68px in; icons only, the row sits
     below them) and Back / Forward end it as two 28px ghost icon buttons with
     their keys in the tooltip (history back and forward, see Navigation). The
@@ -582,19 +589,32 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     at the end. It opens the
     **workspace menu** (`WorkspaceMenu`, 240px, the stock dark menu) upward, or to the
     right when icons only, where only the avatar shows, with the name in a
-    tooltip; in the sheet it is the same row and menu. It is a workspace menu,
-    not a user menu: in order, the **current workspace** as a static block (a 48px
-    row, 8px padding all round, 32px avatar, `md` 8, and its name in medium; no second line, since the folder
+    tooltip; in the sheet it is the same row and menu. **Everything in it aligns
+    on one icon axis, one text line and one trailing line** (a local `LEAD` slot
+    in `workspace-menu.tsx`, no per-row offsets): every row (the two blocks,
+    Settings, each workspace, New workspace, Log out) leads with a **20px slot**
+    at the row's 8px padding, its content centered, so 20px avatars fill it and
+    14px icons center in it (axis 18px from the row's left), an 8px gap, and
+    **every label starts at 36px** (8 + 20 + 8), like the sidebar's rows; there
+    are no 32px avatars here. The muted **Workspaces** label starts at 8px, the
+    slot's left edge (the icon line, as the sidebar's group titles do); and what
+    ends a row (the Settings `Kbd`, 20px tall and centered, the check, the remove
+    button) ends **8px from the row's end**, the side padding (the check moves
+    from the design system's 4px to 8px here, right-aligned in its 20px slot).
+    Rows are 28px. It is a workspace menu,
+    not a user menu: in order, the **current workspace** as a static block (a 36px
+    row, 8px padding all round, 20px avatar, `xs` 4, and its name in medium; no second line, since the folder
     name only repeats it); a hairline; **Settings** (Settings icon) with its `Kbd` inline;
     a hairline; the muted **Workspaces** label over the list of workspaces, 28px
     rows (20px avatar, cloud state, unread dot, a check on the current one, a
     trash on hover for the others; a disconnected one reopens its reconnect
     flow), then **New workspace** (Plus icon; the existing add flow); a hairline;
-    the **account**, always shown (the Shopify shape): a 48px item (8px padding
-    all round, 8px gap), transparent at rest and filled `foreground/10` only
-    while highlighted, `md` 8 corners and the 4px menu inset, a 32px tile (`md` 8,
-    `bg-muted`) with the initials of the name, or a User icon when none is set, and
-    two lines, the name (14px medium) over the email (12px, muted, truncating), both
+    the **account**, always shown (the Shopify shape): a 48px item (two lines of
+    18 + 16px sit 7px from the top and bottom; 8px gap), transparent at rest and
+    filled `foreground/10` only while highlighted, the same 6px item corners, a 20px
+    tile (`xs` 4, `bg-muted`, centered on the two lines) in the slot with the
+    initials of the name, or a User icon when none is set, and
+    two lines, the name (13px medium) over the email (12px, muted, truncating), both
     from Settings → Preferences (the web session carries neither). A field not set
     shows its placeholder in muted text, "Your name" and "Add your email", so the
     block is never absent and plainly editable; nothing is invented and nothing is
@@ -607,9 +627,16 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     session, so the item is absent there (the account block stays). One click, no confirmation.
 - **The page header** (`PageHeaderRow`, drawn by `PageHeader`): the 52px row
   above the column, on the frame (never inside a surface): the page title
-  (`PageTitle`, 21px medium, with its chevron menu and badge where it has them)
-  and the page's actions at the right end, all 28px controls on the column's
-  edges. **The title never has a back button or a breadcrumb**; the only thing
+  (`PageTitle`, 21px medium, plain text with its badge where it has one) and the
+  page's actions at the right end, all 28px controls on the column's edges.
+  **The title is one line, never an ellipsis and never a dropdown**: it runs the
+  full width and fades out over its last 16px (8 x 2) where the actions start
+  (a mask, the technique of the sidebar's rows; a short title is untouched). A
+  page with a menu of actions on its subject (a chat's session menu, a source's,
+  a skill's, an automation's) ends its actions with **More actions** (`Ellipsis`,
+  28px ghost icon button, tooltip "More actions", open state the standard
+  `foreground/10` fill) that opens that menu; below 768px a chat's opens the
+  drawer instead. **The title never has a back button or a breadcrumb**; the only thing
   before it is the menu button below 768px (the sidebar sheet's opener). Going
   back and stepping through a list is the floating navigation. Pages call `PageHeader` and pass no
   handlers (see Navigation); it portals its row into the frame's header slot, so
@@ -619,8 +646,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   a card for testing), closed by default, is for an inspector or details (session
   info, files, a source's details). Docked in the right gutter it is a **canvas**:
   no background, ring, shadow or corners, 296px wide, 20px from the column,
-  starting at the content start (the line the floating navigation starts on, not
-  the header row); its title is the first subtitle (13px medium, Close a ghost
+  starting at the content start (not the header row, which the floating
+  navigation is centered on); its title is the first subtitle (13px medium, Close a ghost
   28px icon at its end) and the blocks under it are quiet: small muted subtitles
   outside any surface, 13px text, flat rows, chips and avatars, bordered controls
   at most, never panels. Taller than the window it scrolls itself with the edge
@@ -632,20 +659,23 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   content. Opening and closing is 200ms of slide and fade, none with reduced
   motion. Escape closes it while focus is inside, and it closes when the page
   changes. Pages open it through `useSidecar().openSidecar({ title, content })`.
-- **New chat** is on Chats only: a ghost icon button (`SquarePen`, 28px) last
+- **New chat** is on the Chats index only (a chat has More actions there
+  instead): a ghost icon button (`SquarePen`, 28px) last
   in the page header's actions at every width, tooltip below with the label and
   its `Kbd`; ⌘N (`app.newChat`, bound by the shell, not the sidebar) does the
   same. There is no floating "+".
 - **Floating navigation** (`FloatingNav`): Superhuman's controls, in the left
-  gutter beside the column, 8px from it, with their top on the content start (the
-  top of the first section title or, without one, of the first card or
-  centerpiece; not the header row). They are our standard raised icon button
+  gutter beside the column, **20px from it**, with Back's center on the header
+  row's axis (y 34: the title's center and the sidebar mark's; the nav's top is
+  y 18, anchored to the header row, not to the first block). They are our standard raised icon button
   (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
   with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
   Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
   1px divider between them, in the buttons' own border color, edge to edge (the
   group squares only the inner corners; the outer ones stay 8px). Disabled at the
-  ends (dimmed). They stay put while the center scrolls. Every page that has
+  ends (dimmed). They stay put while the center scrolls (sticky: the gutter does not
+  scroll). They float over the empty canvas, never over content, so the hairline
+  border alone reads as raised: no shadow. Every page that has
   anywhere to go shows them (Back when it has a parent, Previous / Next when it
   has a list), none otherwise; narrower than a 56px gutter (or below 768px) they
   move into the header row's trailing actions as 28px ghost icon buttons in the
@@ -884,7 +914,7 @@ title running under the right slot instead of truncating"), a standard 28px row:
   dragging a row. **Recent** is most recent first, deduped, at most 20, and never
   repeats a pinned item (unpinning brings it back to its place). Pin and Unpin are
   in a row's Pin button, its context menu and its ⋯ menu, and in the chat's menu (the header's
-  title menu and the compact drawer). No snooze.
+  More actions menu and the compact drawer). No snooze.
 - **Recording** (`useRecordRecent`, once, in the shell): a visit to a chat is
   recorded when its route opens and the chat has something in it (an empty new chat
   is not). Other types are recorded by their own pages with the same call; nothing
@@ -916,7 +946,7 @@ as a card).
 | Primitive | API | Spec |
 | --- | --- | --- |
 | `SidebarProvider` / `Sidebar` | | one width, 256px on every page (also the sheet below 768px), 48px as icons; a row with `aria-disabled` is a placeholder (no pointer, readable); no toggle, cookie or shortcut; absolute inside the shell; 8px container padding is the gutter; no border or ring |
-| `SidebarHeader`, `SidebarContent`, `SidebarFooter` | | header 8px above, 16px below; footer 16px above; content does not scroll, its groups do, and spaces them 16px apart (8px and a hairline icons only) |
+| `SidebarHeader`, `SidebarContent`, `SidebarFooter` | | header a 52px band centered on y 34 (the page header's axis), the first group at y 60; footer 16px above; content does not scroll, its groups do, and spaces them 16px apart (8px and a hairline icons only) |
 | `SidebarGroup`, `SidebarGroupLabel` | | no padding of its own; 28px title row, 12px medium muted |
 | `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton` | `isActive`, `tooltip` (text, or `{ children }` for a label and `Kbd`; shown only icons only) | 28px row, `sm` 6, 8px padding, 14px icon and 8px gap (no slot); rest `text-muted-foreground`; hover `foreground/5`; active, current and open (`aria-expanded` on a menu trigger) `foreground/10`, flat (no ring, shadow or weight change); inset focus ring; icons only: 28px square centered (10 each side), label and trailing icons hidden, plain tooltips show |
 | `SidebarMenuAction` | | 20px, `xs` 4, 4px inside the 28px row; shown on row hover or focus (always on touch); hover `foreground/10`, which stacks on the row's fill |
@@ -933,7 +963,7 @@ as a card).
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
 | `PageGrid`, `GridCard` | `icon`, `title`, `render` | the card grid of a navigation hub; see Data patterns |
 | `Sidecar` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel`, `surface` | canvas by default, `surface` wraps it in a card (undecided); see Layout; closed by default |
-| `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 56px left gutter and starts at the content start, the buttons are its narrow form for the header's actions |
+| `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column and centers Back on the header row, the buttons are its narrow form for the header's actions |
 
 In the renderer: `PageHeader` (the header with the route's Back and the list
 navigation wired into the floating navigation), `AppSidebar`, `useParentView`, `useSidecar` (and `SidecarHost`, the
@@ -1052,7 +1082,7 @@ and list rows, chips, grid cards, radio options, select triggers):
 | focus-visible | `ring-2 ring-inset ring-ring`, everywhere | same | same | same |
 | disabled | `opacity-50`, no pointer events | same | same | same |
 
-Four rules:
+Five rules:
 
 1. State fills are alphas of `foreground` (5% hover, 10% pressed, open and
    selected), never a layer token (`muted`, `secondary`, `sidebar-accent`), so
@@ -1067,6 +1097,9 @@ Four rules:
 4. A fill says where you are (selected, current); a check icon says what is
    chosen in a menu (no fill on the checked item). Badges are static; anything
    you can click is a chip (a compact ghost button).
+5. Debounce. Any search field filters through the shared debounce
+   (`SEARCH_DEBOUNCE_MS` = 800, `@otto/shared/utils/debounce`; `useDebouncedValue`
+   in the renderer); typing itself is never delayed.
 
 **Icons and avatars.** Lucide icons at **14px** everywhere (the old Remix names below map to their Lucide twins). Fixed icons: project
 `RiBox3Line`, repeat `RiLoopRightLine`, agent `RiRobot3Line`, time
@@ -1403,8 +1436,14 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   32px icon tile with a search icon, "No results for “query”", no period) and no
   tabs; one category with no match shows the same state under the tabs. An
   empty category gets no tab (nor does anything but All when no other has
-  entries). No skeletons: the data is local and already loaded.
-- **Categories and data** (all local, matched instantly, nothing fetched):
+  entries). Results follow the query after the shared 800 ms debounce
+  (`SEARCH_DEBOUNCE_MS`), with skeleton rows while waiting: stock `Skeleton`s
+  drawn like the real rows (a 28px heading line in All, three 36px icon and title
+  rows, 16px in, `xs` radius); the tabs keep the state of the last results, and
+  ↑↓ do nothing while waiting. Enter while waiting only skips the wait (it shows
+  the results and picks nothing), so a row is never picked from results that were
+  not on screen. An empty query shows Pinned and Recent at once.
+- **Categories and data** (all local, nothing fetched, matched on the debounced query):
   **All**, then **Chats** (the workspace's chats from the sessions store: status
   icon, title, relative time; archived last; opens the chat), **Pages** (the
   sidebar's pages with its icons: Tasks, Projects, Chats, Routines, Library;

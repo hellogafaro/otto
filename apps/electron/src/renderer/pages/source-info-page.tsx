@@ -357,7 +357,7 @@ export default function SourceInfoPage({ sourceSlug, workspaceId, onDelete }: So
     >
       <Info_Page.Header
         title={sourceName}
-        titleMenu={
+        menu={
           <SourceMenu
             sourceSlug={sourceSlug}
             sourceName={sourceName}

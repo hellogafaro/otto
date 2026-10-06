@@ -43,6 +43,20 @@ interface WorkspaceMenuProps {
   workspaceUnreadMap?: Record<string, boolean>
 }
 
+/**
+ * The menu's one leading slot: 20px at the row's 8px padding, content centered, so 20px
+ * avatars fill it and 14px icons center in it (one axis, 18px in) and every label starts
+ * at 8 + 20 + 8 = 36px, like the sidebar's rows. Rows are `gap-2`; none sets its own offsets.
+ */
+const LEAD = 'flex size-5 shrink-0 items-center justify-center'
+
+/**
+ * The trailing line: 8px in from the row's end, like the 8px side padding. Kbd, check and
+ * the remove button all end on it. The design system's check sits 4px in by default
+ * (`right-1`, centered in a 20px slot); here it moves to 8px and aligns to the right.
+ */
+const CHECK_SLOT = '[&>[data-slot=dropdown-menu-radio-item-indicator]]:right-2 [&>[data-slot=dropdown-menu-radio-item-indicator]]:justify-end'
+
 /** Up to two initials of a name ("Ada Lovelace" -> "AL"). */
 function getInitials(name: string): string {
   return name.trim().split(/\s+/).slice(0, 2).map(word => word.charAt(0)).join('').toUpperCase()
@@ -254,22 +268,24 @@ export function WorkspaceMenu({
           className="w-60"
         >
           {/* The current workspace: a static block, not a row. */}
-          <div className="flex h-12 items-center gap-2 rounded-md px-2 py-2">
-            <WorkspaceAvatar
-              workspaceId={selectedWorkspace?.id}
-              workspaceName={selectedWorkspace?.name}
-              src={selectedWorkspace ? workspaceIconMap.get(selectedWorkspace.id) : undefined}
-              className="size-8 rounded-md"
-              fallbackClassName="rounded-md text-sm"
-            />
+          <div className="flex h-9 items-center gap-2 rounded-sm px-2 py-2">
+            <span className={LEAD}>
+              <WorkspaceAvatar
+                workspaceId={selectedWorkspace?.id}
+                workspaceName={selectedWorkspace?.name}
+                src={selectedWorkspace ? workspaceIconMap.get(selectedWorkspace.id) : undefined}
+                className="size-5 rounded-xs"
+                fallbackClassName="rounded-xs"
+              />
+            </span>
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{selectedWorkspace?.name || t('workspace.selectWorkspace')}</span>
           </div>
           <DropdownMenuSeparator />
 
           <DropdownMenuItem onClick={onSettings}>
-            <Settings />
+            <span className={LEAD}><Settings /></span>
             {t('sidebar.settings')}
-            {settingsHotkey && <DropdownMenuShortcut>{settingsHotkey}</DropdownMenuShortcut>}
+            {settingsHotkey && <span className="ml-auto flex"><DropdownMenuShortcut>{settingsHotkey}</DropdownMenuShortcut></span>}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
 
@@ -293,15 +309,17 @@ export function WorkspaceMenu({
                       if (disconnected) return
                       onSelect(workspace.id)
                     }}
-                    className={cn("group", disconnected && "opacity-60")}
+                    className={cn("group", CHECK_SLOT, disconnected && "opacity-60")}
                   >
-                    <WorkspaceAvatar
-                      workspaceId={workspace.id}
-                      workspaceName={workspace.name}
-                      src={workspaceIconMap.get(workspace.id)}
-                      className="size-5 rounded-xs"
-                      fallbackClassName="rounded-xs"
-                    />
+                    <span className={LEAD}>
+                      <WorkspaceAvatar
+                        workspaceId={workspace.id}
+                        workspaceName={workspace.name}
+                        src={workspaceIconMap.get(workspace.id)}
+                        className="size-5 rounded-xs"
+                        fallbackClassName="rounded-xs"
+                      />
+                    </span>
                     <span className="truncate">{workspace.name}</span>
                     {workspace.remoteServer && (
                       disconnected
@@ -313,7 +331,7 @@ export function WorkspaceMenu({
                     {activeWorkspaceId !== workspace.id && (
                       <button
                         data-touch-reveal="true"
-                        className="absolute right-1 flex size-5 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive"
+                        className="absolute right-2 flex size-5 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemoveWorkspace(workspace)
@@ -329,18 +347,18 @@ export function WorkspaceMenu({
             </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
           <DropdownMenuItem onClick={handleNewWorkspace}>
-            <Plus />
+            <span className={LEAD}><Plus /></span>
             {t('workspaceMenu.new')}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
-          {/* The account: always shown, a muted placeholder for what is not set; it opens Settings -> Preferences. Same 48px rhythm as the workspace block above (8 + 32 + 8). */}
+          {/* The account: always shown, a muted placeholder for what is not set; it opens Settings -> Preferences. The same slot and text line as every row; 48px so the two lines sit 7px from the top and bottom. */}
           <DropdownMenuItem
-            className="h-12 gap-2 rounded-md py-2"
+            className="h-12 py-2"
             onClick={() => navigate(routes.view.settings('preferences'))}
           >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-medium text-muted-foreground">
-              {account.name ? getInitials(account.name) : <User className="size-4" />}
+            <span className={cn(LEAD, "rounded-xs bg-muted text-[10px] font-medium text-muted-foreground")}>
+              {account.name ? getInitials(account.name) : <User />}
             </span>
             <span className="flex min-w-0 flex-1 flex-col text-left">
               <span className={cn("truncate text-sm leading-[18px] font-medium", !account.name && "text-muted-foreground")}>
@@ -354,7 +372,7 @@ export function WorkspaceMenu({
           {/* Electron runs against its own local server: there is no web session to end. */}
           {isWebUI && (
             <DropdownMenuItem variant="destructive" onClick={() => void logOut()}>
-              <LogOut />
+              <span className={LEAD}><LogOut /></span>
               {t('workspaceMenu.logOut')}
             </DropdownMenuItem>
           )}

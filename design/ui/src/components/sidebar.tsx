@@ -193,15 +193,18 @@ function SidebarTrigger({
 const iconGroupRule =
   "group-data-[collapsible=icon]:before:absolute group-data-[collapsible=icon]:before:-top-1 group-data-[collapsible=icon]:before:left-1/2 group-data-[collapsible=icon]:before:h-px group-data-[collapsible=icon]:before:w-4 group-data-[collapsible=icon]:before:-translate-x-1/2 group-data-[collapsible=icon]:before:bg-foreground/10"
 
-// Otto: the sidebar's first group, the mark: 8px above, 16px below (the gap
-// between groups), no side padding (the container pads the rows).
+// Otto: the sidebar's first group, the mark, in a 52px band: the page header
+// row's height, 8px from the top like it (the container's padding), so the
+// mark's center and the page title's center are one horizontal line (y 34); the
+// next group starts at y 60, where the page body does. No side padding (the
+// container pads the rows).
 function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-header"
       data-sidebar="header"
       className={cn(
-        "flex flex-col gap-0.5 pt-2 pb-4 group-data-[collapsible=icon]:pb-2",
+        "flex h-13 flex-col justify-center gap-0.5",
         className
       )}
       {...props}

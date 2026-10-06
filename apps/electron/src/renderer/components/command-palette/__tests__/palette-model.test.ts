@@ -7,6 +7,7 @@ import {
   GROUP_LIMIT,
   hasAnyMatch,
   matchRank,
+  paletteView,
   resolveCategory,
   rowValue,
   stepCategory,
@@ -160,5 +161,22 @@ describe('rowValue', () => {
   it('is unique per group', () => {
     const chat = entry('chat:c1', 'Chat')
     expect(rowValue('pinned', chat)).not.toBe(rowValue('chats', chat))
+  })
+})
+
+describe('paletteView', () => {
+  it('follows the debounced query and waits while it lags behind the typed one', () => {
+    expect(paletteView('appear', '')).toEqual({ query: '', pending: true })
+    expect(paletteView('appear', 'app')).toEqual({ query: 'app', pending: true })
+    expect(paletteView('appear', 'appear')).toEqual({ query: 'appear', pending: false })
+  })
+
+  it('never waits on an empty field: the defaults show at once', () => {
+    expect(paletteView('', '')).toEqual({ query: '', pending: false })
+    expect(paletteView('', 'appear')).toEqual({ query: '', pending: false })
+  })
+
+  it('shows settled results again at once when the typed query returns to the debounced one', () => {
+    expect(paletteView('app', 'app')).toEqual({ query: 'app', pending: false })
   })
 })

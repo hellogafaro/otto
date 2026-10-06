@@ -131,7 +131,7 @@ export function AppSidebar({
         className={cn(
           'titlebar-drag-region',
           // Icons only: the lights stay above the column, so the mark sits under them.
-          clearsTrafficLights && 'group-data-[collapsible=icon]:pt-10',
+          clearsTrafficLights && 'group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:justify-start group-data-[collapsible=icon]:pt-10 group-data-[collapsible=icon]:pb-2',
         )}
       >
         <div

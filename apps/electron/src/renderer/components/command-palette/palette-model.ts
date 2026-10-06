@@ -144,6 +144,16 @@ export function hasAnyMatch<T extends PaletteEntry>(data: PaletteData<T>, query:
   return SECTIONS.some((section) => data[section].some((entry) => entryRank(entry, query) > 0))
 }
 
+/**
+ * What the results follow while the field is debounced: the debounced query, and
+ * whether it is still catching up with the typed one (the rows are then skeletons).
+ * An empty field is never debounced: clearing it shows the defaults at once.
+ */
+export function paletteView(query: string, debouncedQuery: string): { query: string; pending: boolean } {
+  if (!query) return { query: '', pending: false }
+  return { query: debouncedQuery, pending: query !== debouncedQuery }
+}
+
 /** The cmdk value of a row: unique across groups, since a chat can sit in Pinned and Chats. */
 export function rowValue(group: PaletteGroupKey, entry: Pick<PaletteEntry, 'key'>): string {
   return `${group}/${entry.key}`

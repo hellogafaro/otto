@@ -89,7 +89,7 @@ export function AutomationInfoPage({
     <Info_Page className={className}>
       <Info_Page.Header
         title={automation.name}
-        titleMenu={
+        menu={
           <AutomationMenu
             automationId={automation.id}
             automationName={automation.name}
