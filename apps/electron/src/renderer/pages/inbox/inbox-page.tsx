@@ -7,6 +7,7 @@
  */
 
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { CheckCheck, CircleDot, Inbox, Mail, MailOpen, MoreHorizontal, X } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import {
@@ -36,6 +37,7 @@ import { filterNotifications, getNotificationLineKey, getNotificationTarget, isU
 
 export function InboxPage() {
   const { t } = useTranslation()
+  useComposerContext({ key: 'page:inbox', mode: 'full', placeholder: t('composer.placeholder.start') })
   const { navigate } = useNavigation()
   const navState = useNavigationState()
   const unreadOnly = isInboxNavigation(navState) && !!navState.search.unread

@@ -9,6 +9,8 @@ import type { CredentialBackend } from './backends/types.ts';
 import type { CredentialId, StoredCredential, CredentialHealthStatus, CredentialHealthIssue } from './types.ts';
 import type { LlmAuthType, LlmProviderType } from '../config/llm-connections.ts';
 import { SecureStorageBackend } from './backends/secure-storage.ts';
+import { deleteDecisionKey, getDecisionKey, setDecisionKey } from '../decisions/keys.ts';
+import { deleteCredential, getCredential, setCredential } from '../connections/index.ts';
 import { debug } from '../utils/debug.ts';
 
 export class CredentialManager {
@@ -218,63 +220,6 @@ export class CredentialManager {
   // Convenience Methods
   // ============================================================
 
-  /** Get Anthropic API key */
-  async getApiKey(): Promise<string | null> {
-    const cred = await this.get({ type: 'anthropic_api_key' });
-    return cred?.value || null;
-  }
-
-  /** Set Anthropic API key */
-  async setApiKey(key: string): Promise<void> {
-    await this.set({ type: 'anthropic_api_key' }, { value: key });
-  }
-
-  /** Get Claude OAuth token */
-  async getClaudeOAuth(): Promise<string | null> {
-    const cred = await this.get({ type: 'claude_oauth' });
-    return cred?.value || null;
-  }
-
-  /** Set Claude OAuth token */
-  async setClaudeOAuth(token: string): Promise<void> {
-    await this.set({ type: 'claude_oauth' }, { value: token });
-  }
-
-  /** Get Claude OAuth credentials (with refresh token, expiry, and source) */
-  async getClaudeOAuthCredentials(): Promise<{
-    accessToken: string;
-    refreshToken?: string;
-    expiresAt?: number;
-    /** Where the token came from: 'native' (our OAuth), 'cli' (Claude CLI import), or undefined (unknown) */
-    source?: 'native' | 'cli';
-  } | null> {
-    const cred = await this.get({ type: 'claude_oauth' });
-    if (!cred) return null;
-
-    return {
-      accessToken: cred.value,
-      refreshToken: cred.refreshToken,
-      expiresAt: cred.expiresAt,
-      source: cred.source as 'native' | 'cli' | undefined,
-    };
-  }
-
-  /** Set Claude OAuth credentials (with refresh token, expiry, and source) */
-  async setClaudeOAuthCredentials(credentials: {
-    accessToken: string;
-    refreshToken?: string;
-    expiresAt?: number;
-    /** Where the token came from: 'native' (our OAuth), 'cli' (Claude CLI import) */
-    source?: 'native' | 'cli';
-  }): Promise<void> {
-    await this.set({ type: 'claude_oauth' }, {
-      value: credentials.accessToken,
-      refreshToken: credentials.refreshToken,
-      expiresAt: credentials.expiresAt,
-      source: credentials.source,
-    });
-  }
-
   /** Get workspace MCP OAuth credentials */
   async getWorkspaceOAuth(workspaceId: string): Promise<{
     accessToken: string;
@@ -319,33 +264,28 @@ export class CredentialManager {
   // ============================================================
   // LLM Connection Credentials
   // ============================================================
+  //
+  // A connection's credential is the one secret of its `connections` row (`@otto/shared/connections`),
+  // not an entry of this file: these methods keep their names for the callers and read and write that
+  // secret. An OAuth refresh rewrites it in place. A slug with no connection yet (sign-in finished before
+  // the setup saved it, a connection test) is held in memory until the setup creates the connection.
+  // `scope` addresses the connection of that exact scope (`install` when left out): a connection a chat uses carries its own.
 
-  /**
-   * Get API key for an LLM connection.
-   * @param connectionSlug - The connection slug
-   * @returns API key or null if not found
-   */
-  async getLlmApiKey(connectionSlug: string): Promise<string | null> {
-    const cred = await this.get({ type: 'llm_api_key', connectionSlug });
-    return cred?.value || null;
+  /** The API key of a connection, or null. */
+  async getLlmApiKey(connectionSlug: string, scope?: string): Promise<string | null> {
+    return getCredential(connectionSlug, scope)?.apiKey || null;
   }
 
-  /**
-   * Set API key for an LLM connection.
-   * @param connectionSlug - The connection slug
-   * @param apiKey - The API key to store
-   */
-  async setLlmApiKey(connectionSlug: string, apiKey: string): Promise<void> {
-    await this.set({ type: 'llm_api_key', connectionSlug }, { value: apiKey });
+  /** Replaces the credential of a connection with an API key. */
+  async setLlmApiKey(connectionSlug: string, apiKey: string, scope?: string): Promise<void> {
+    setCredential(connectionSlug, { apiKey }, scope);
   }
 
-  /**
-   * Delete API key for an LLM connection.
-   * @param connectionSlug - The connection slug
-   * @returns true if deleted, false if not found
-   */
-  async deleteLlmApiKey(connectionSlug: string): Promise<boolean> {
-    return this.delete({ type: 'llm_api_key', connectionSlug });
+  /** Removes the credential of a connection. Returns true if there was one. */
+  async deleteLlmApiKey(connectionSlug: string, scope?: string): Promise<boolean> {
+    const had = !!getCredential(connectionSlug, scope)?.apiKey;
+    deleteCredential(connectionSlug, scope);
+    return had;
   }
 
   // ============================================================
@@ -353,163 +293,102 @@ export class CredentialManager {
   // ============================================================
 
   /**
-   * Get the API key stored for a decision provider (`decision_api_key::{provider}`).
+   * Get the API key stored for a decision provider (a secret, see decisions/keys.ts).
    * Keys reused from an LLM connection are read via getLlmApiKey instead.
    */
   async getDecisionApiKey(provider: string): Promise<string | null> {
-    const cred = await this.get({ type: 'decision_api_key', name: provider });
-    return cred?.value || null;
+    return getDecisionKey(provider);
   }
 
   /** Store the API key for a decision provider. */
   async setDecisionApiKey(provider: string, apiKey: string): Promise<void> {
-    await this.set({ type: 'decision_api_key', name: provider }, { value: apiKey });
+    setDecisionKey(provider, apiKey);
   }
 
   /** Delete the API key for a decision provider. Returns true if one was removed. */
   async deleteDecisionApiKey(provider: string): Promise<boolean> {
-    return this.delete({ type: 'decision_api_key', name: provider });
+    return deleteDecisionKey(provider);
   }
 
-  /**
-   * Get OAuth token for an LLM connection.
-   * @param connectionSlug - The connection slug
-   * @returns OAuth credentials or null if not found
-   */
-  async getLlmOAuth(connectionSlug: string): Promise<{
+  /** The OAuth tokens of a connection, or null. */
+  async getLlmOAuth(connectionSlug: string, scope?: string): Promise<{
     accessToken: string;
     refreshToken?: string;
     expiresAt?: number;
     /** OIDC id_token (used by OpenAI/Codex) */
     idToken?: string;
   } | null> {
-    const cred = await this.get({ type: 'llm_oauth', connectionSlug });
-    if (!cred) return null;
-    return {
-      accessToken: cred.value,
-      refreshToken: cred.refreshToken,
-      expiresAt: cred.expiresAt,
-      idToken: cred.idToken,
-    };
+    const { accessToken, refreshToken, expiresAt, idToken } = getCredential(connectionSlug, scope) ?? {};
+    return accessToken ? { accessToken, refreshToken, expiresAt, idToken } : null;
   }
 
-  /**
-   * Set OAuth token for an LLM connection.
-   * @param connectionSlug - The connection slug
-   * @param credentials - OAuth credentials to store
-   */
+  /** Replaces the credential of a connection with OAuth tokens (a refresh rewrites it in place). */
   async setLlmOAuth(connectionSlug: string, credentials: {
     accessToken: string;
     refreshToken?: string;
     expiresAt?: number;
     /** OIDC id_token (used by OpenAI/Codex) */
     idToken?: string;
-  }): Promise<void> {
-    await this.set({ type: 'llm_oauth', connectionSlug }, {
-      value: credentials.accessToken,
-      refreshToken: credentials.refreshToken,
-      expiresAt: credentials.expiresAt,
-      idToken: credentials.idToken,
-    });
+  }, scope?: string): Promise<void> {
+    const { accessToken, refreshToken, expiresAt, idToken } = credentials;
+    setCredential(connectionSlug, { accessToken, refreshToken, expiresAt, idToken }, scope);
   }
 
-  /**
-   * Delete all credentials for an LLM connection.
-   * @param connectionSlug - The connection slug
-   */
-  async deleteLlmCredentials(connectionSlug: string): Promise<void> {
-    await this.delete({ type: 'llm_api_key', connectionSlug });
-    await this.delete({ type: 'llm_oauth', connectionSlug });
-    await this.delete({ type: 'llm_iam', connectionSlug });
-    await this.delete({ type: 'llm_service_account', connectionSlug });
+  /** Removes the credential of a connection, whatever kind it is. */
+  async deleteLlmCredentials(connectionSlug: string, scope?: string): Promise<void> {
+    deleteCredential(connectionSlug, scope);
   }
 
   // ============================================================
   // IAM Credentials (AWS Bedrock)
   // ============================================================
 
-  /**
-   * Get IAM credentials for an LLM connection.
-   * @param connectionSlug - The connection slug
-   * @returns IAM credentials or null if not found
-   */
-  async getLlmIamCredentials(connectionSlug: string): Promise<{
+  /** The IAM credentials of a connection, or null. */
+  async getLlmIamCredentials(connectionSlug: string, scope?: string): Promise<{
     accessKeyId: string;
     secretAccessKey: string;
     region?: string;
     sessionToken?: string;
   } | null> {
-    const cred = await this.get({ type: 'llm_iam', connectionSlug });
-    if (!cred || !cred.awsAccessKeyId) return null;
-    return {
-      accessKeyId: cred.awsAccessKeyId,
-      secretAccessKey: cred.value, // Secret key stored in value field
-      region: cred.awsRegion,
-      sessionToken: cred.awsSessionToken,
-    };
+    const { accessKeyId, secretAccessKey, region, sessionToken } = getCredential(connectionSlug, scope) ?? {};
+    return accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey, region, sessionToken } : null;
   }
 
-  /**
-   * Set IAM credentials for an LLM connection.
-   * @param connectionSlug - The connection slug
-   * @param credentials - IAM credentials to store
-   */
+  /** Replaces the credential of a connection with IAM credentials. */
   async setLlmIamCredentials(connectionSlug: string, credentials: {
     accessKeyId: string;
     secretAccessKey: string;
     region?: string;
     sessionToken?: string;
-  }): Promise<void> {
-    await this.set({ type: 'llm_iam', connectionSlug }, {
-      value: credentials.secretAccessKey, // Primary secret in value field
-      awsAccessKeyId: credentials.accessKeyId,
-      awsRegion: credentials.region,
-      awsSessionToken: credentials.sessionToken,
-    });
+  }, scope?: string): Promise<void> {
+    const { accessKeyId, secretAccessKey, region, sessionToken } = credentials;
+    setCredential(connectionSlug, { accessKeyId, secretAccessKey, region, sessionToken }, scope);
   }
 
   // ============================================================
   // Service Account Credentials (GCP Vertex)
   // ============================================================
 
-  /**
-   * Get service account credentials for an LLM connection.
-   * @param connectionSlug - The connection slug
-   * @returns Service account JSON and metadata or null if not found
-   */
-  async getLlmServiceAccount(connectionSlug: string): Promise<{
+  /** The service account of a connection, or null. */
+  async getLlmServiceAccount(connectionSlug: string, scope?: string): Promise<{
     serviceAccountJson: string;
     projectId?: string;
     region?: string;
     email?: string;
   } | null> {
-    const cred = await this.get({ type: 'llm_service_account', connectionSlug });
-    if (!cred) return null;
-    return {
-      serviceAccountJson: cred.value, // Full JSON stored in value field
-      projectId: cred.gcpProjectId,
-      region: cred.gcpRegion,
-      email: cred.serviceAccountEmail,
-    };
+    const { serviceAccountJson, projectId, region, email } = getCredential(connectionSlug, scope) ?? {};
+    return serviceAccountJson ? { serviceAccountJson, projectId, region, email } : null;
   }
 
-  /**
-   * Set service account credentials for an LLM connection.
-   * @param connectionSlug - The connection slug
-   * @param credentials - Service account credentials to store
-   */
+  /** Replaces the credential of a connection with a service account. */
   async setLlmServiceAccount(connectionSlug: string, credentials: {
     serviceAccountJson: string;
     projectId?: string;
     region?: string;
     email?: string;
-  }): Promise<void> {
-    await this.set({ type: 'llm_service_account', connectionSlug }, {
-      value: credentials.serviceAccountJson, // Full JSON in value field
-      gcpProjectId: credentials.projectId,
-      gcpRegion: credentials.region,
-      serviceAccountEmail: credentials.email,
-    });
+  }, scope?: string): Promise<void> {
+    const { serviceAccountJson, projectId, region, email } = credentials;
+    setCredential(connectionSlug, { serviceAccountJson, projectId, region, email }, scope);
   }
 
   // ============================================================
@@ -528,7 +407,8 @@ export class CredentialManager {
   async hasLlmCredentials(
     connectionSlug: string,
     authType: LlmAuthType,
-    providerType?: LlmProviderType
+    providerType?: LlmProviderType,
+    scope?: string
   ): Promise<boolean> {
     switch (authType) {
       // No credentials needed
@@ -540,19 +420,19 @@ export class CredentialManager {
       case 'api_key':
       case 'api_key_with_endpoint':
       case 'bearer_token':
-        return this.hasLlmApiKeyCredential(connectionSlug);
+        return this.hasLlmApiKeyCredential(connectionSlug, scope);
 
       // OAuth - browser flow
       case 'oauth':
-        return this.hasLlmOAuthCredential(connectionSlug, providerType);
+        return this.hasLlmOAuthCredential(connectionSlug, providerType, scope);
 
       // AWS IAM credentials
       case 'iam_credentials':
-        return this.hasLlmIamCredential(connectionSlug);
+        return this.hasLlmIamCredential(connectionSlug, scope);
 
       // GCP service account
       case 'service_account_file':
-        return this.hasLlmServiceAccountCredential(connectionSlug);
+        return this.hasLlmServiceAccountCredential(connectionSlug, scope);
 
       default:
         // Exhaustive check - TypeScript will error if we miss a case
@@ -565,8 +445,8 @@ export class CredentialManager {
    * Check if connection has valid API key credential.
    * @internal
    */
-  private async hasLlmApiKeyCredential(connectionSlug: string): Promise<boolean> {
-    const apiKey = await this.getLlmApiKey(connectionSlug);
+  private async hasLlmApiKeyCredential(connectionSlug: string, scope?: string): Promise<boolean> {
+    const apiKey = await this.getLlmApiKey(connectionSlug, scope);
     return !!apiKey;
   }
 
@@ -576,9 +456,10 @@ export class CredentialManager {
    */
   private async hasLlmOAuthCredential(
     connectionSlug: string,
-    providerType?: LlmProviderType
+    providerType?: LlmProviderType,
+    scope?: string
   ): Promise<boolean> {
-    const oauth = await this.getLlmOAuth(connectionSlug);
+    const oauth = await this.getLlmOAuth(connectionSlug, scope);
     if (!oauth) return false;
 
     // Check if expired
@@ -592,8 +473,8 @@ export class CredentialManager {
    * Check if connection has valid IAM credential.
    * @internal
    */
-  private async hasLlmIamCredential(connectionSlug: string): Promise<boolean> {
-    const cred = await this.getLlmIamCredentials(connectionSlug);
+  private async hasLlmIamCredential(connectionSlug: string, scope?: string): Promise<boolean> {
+    const cred = await this.getLlmIamCredentials(connectionSlug, scope);
     return !!cred?.accessKeyId && !!cred?.secretAccessKey;
   }
 
@@ -601,8 +482,8 @@ export class CredentialManager {
    * Check if connection has valid service account credential.
    * @internal
    */
-  private async hasLlmServiceAccountCredential(connectionSlug: string): Promise<boolean> {
-    const cred = await this.getLlmServiceAccount(connectionSlug);
+  private async hasLlmServiceAccountCredential(connectionSlug: string, scope?: string): Promise<boolean> {
+    const cred = await this.getLlmServiceAccount(connectionSlug, scope);
     return !!cred?.serviceAccountJson;
   }
 

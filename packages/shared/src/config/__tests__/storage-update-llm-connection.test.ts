@@ -1,71 +1,24 @@
-import { describe, expect, it } from 'bun:test'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
-import { tmpdir } from 'os'
-import { pathToFileURL } from 'url'
+import { afterEach, describe, expect, it } from 'bun:test'
+import { getConnections, deleteConnection } from '../../connections/index.ts'
+import {
+  addLlmConnection,
+  deleteLlmConnection,
+  getDefaultLlmConnection,
+  getLlmConnection,
+  getLlmConnections,
+  setDefaultLlmConnection,
+  touchLlmConnection,
+  updateLlmConnection,
+  type LlmConnection,
+} from '../storage.ts'
 
-const STORAGE_MODULE_PATH = pathToFileURL(join(import.meta.dir, '..', 'storage.ts')).href
+// The wrappers over the connections domain, on the throwaway database of the test preload.
 
-/**
- * Create isolated config dir with a root config containing the given connections.
- * Returns paths needed by tests plus a runner to call updateLlmConnection in a subprocess.
- */
-function setup(llmConnections: any[]) {
-  const configDir = mkdtempSync(join(tmpdir(), 'otto-config-'))
-  const workspaceRoot = join(configDir, 'workspaces', 'my-workspace')
-  mkdirSync(workspaceRoot, { recursive: true })
+afterEach(() => {
+  for (const connection of getConnections()) deleteConnection(connection.id)
+})
 
-  writeFileSync(
-    join(workspaceRoot, 'config.json'),
-    JSON.stringify({
-      id: 'ws-config-1',
-      name: 'My Workspace',
-      slug: 'my-workspace',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }, null, 2),
-    'utf-8',
-  )
-
-  const configPath = join(configDir, 'config.json')
-  writeFileSync(
-    configPath,
-    JSON.stringify({
-      workspaces: [{ id: 'ws-1', name: 'My Workspace', rootPath: workspaceRoot, createdAt: Date.now() }],
-      activeWorkspaceId: 'ws-1',
-      activeSessionId: null,
-      defaultLlmConnection: llmConnections[0]?.slug ?? null,
-      llmConnections,
-    }, null, 2),
-    'utf-8',
-  )
-
-  function runUpdate(slug: string, updates: Record<string, unknown>): boolean {
-    const updatesJson = JSON.stringify(updates)
-    const run = Bun.spawnSync([
-      process.execPath,
-      '--eval',
-      `import { updateLlmConnection } from '${STORAGE_MODULE_PATH}'; const ok = updateLlmConnection(${JSON.stringify(slug)}, ${updatesJson}); process.exit(ok ? 0 : 1);`,
-    ], {
-      env: { ...process.env, OTTO_CONFIG_DIR: configDir },
-      stdout: 'pipe',
-      stderr: 'pipe',
-    })
-    if (run.exitCode !== 0 && run.stderr.toString().trim()) {
-      throw new Error(`update subprocess failed:\n${run.stderr.toString()}`)
-    }
-    return run.exitCode === 0
-  }
-
-  function readConnection(slug: string): any {
-    const config = JSON.parse(readFileSync(configPath, 'utf-8'))
-    return config.llmConnections.find((c: any) => c.slug === slug)
-  }
-
-  return { configDir, configPath, runUpdate, readConnection }
-}
-
-function makeConnection(overrides: Record<string, unknown> = {}) {
+function makeConnection(overrides: Partial<LlmConnection> = {}): LlmConnection {
   return {
     slug: 'custom-compat',
     name: 'My Custom Endpoint',
@@ -78,41 +31,71 @@ function makeConnection(overrides: Record<string, unknown> = {}) {
   }
 }
 
+describe('add, get, delete', () => {
+  it('round-trips every field of a connection through the domain', () => {
+    const connection = makeConnection({
+      models: ['m1', { id: 'm2', name: 'Two' } as never],
+      defaultModel: 'm1',
+      modelSelectionMode: 'userDefined3Tier',
+      customEndpoint: { api: 'openai-completions', supportsImages: true },
+      midStreamBehavior: 'queue',
+      lastUsedAt: 1234,
+      createdAt: 1000,
+    })
+    expect(addLlmConnection(connection)).toBe(true)
+    expect(getLlmConnection('custom-compat')).toEqual(connection)
+    expect(getLlmConnections().map((c) => c.slug)).toEqual(['custom-compat'])
+  })
+
+  it('refuses a second connection with the same slug, and reads a missing one as null', () => {
+    expect(addLlmConnection(makeConnection())).toBe(true)
+    expect(addLlmConnection(makeConnection({ name: 'Other' }))).toBe(false)
+    expect(getLlmConnection('custom-compat')?.name).toBe('My Custom Endpoint')
+    expect(getLlmConnection('nope')).toBeNull()
+  })
+
+  it('deletes the connection and moves the default on', () => {
+    addLlmConnection(makeConnection({ slug: 'a' }))
+    addLlmConnection(makeConnection({ slug: 'b' }))
+    expect(getDefaultLlmConnection()).toBe('a')
+    expect(setDefaultLlmConnection('b')).toBe(true)
+    expect(setDefaultLlmConnection('nope')).toBe(false)
+    expect(deleteLlmConnection('b')).toBe(true)
+    expect(deleteLlmConnection('b')).toBe(false)
+    expect(getDefaultLlmConnection()).toBe('a')
+    deleteLlmConnection('a')
+    expect(getDefaultLlmConnection()).toBeNull()
+  })
+
+  it('touch stamps lastUsedAt', () => {
+    addLlmConnection(makeConnection())
+    touchLlmConnection('custom-compat')
+    expect(getLlmConnection('custom-compat')?.lastUsedAt).toBeGreaterThan(0)
+  })
+})
+
 describe('updateLlmConnection – customEndpoint', () => {
   it('preserves customEndpoint when provided in updates', () => {
-    const { runUpdate, readConnection } = setup([makeConnection()])
-    const customEndpoint = { api: 'anthropic-messages' }
-
-    const ok = runUpdate('custom-compat', { customEndpoint })
-    expect(ok).toBe(true)
-
-    const conn = readConnection('custom-compat')
-    expect(conn.customEndpoint).toEqual(customEndpoint)
+    addLlmConnection(makeConnection())
+    expect(updateLlmConnection('custom-compat', { customEndpoint: { api: 'anthropic-messages' } })).toBe(true)
+    expect(getLlmConnection('custom-compat')?.customEndpoint).toEqual({ api: 'anthropic-messages' })
   })
 
   it('preserves existing customEndpoint when updates do not include it', () => {
-    const customEndpoint = { api: 'openai-completions' }
-    const { runUpdate, readConnection } = setup([makeConnection({ customEndpoint })])
-
-    // Update an unrelated field
-    const ok = runUpdate('custom-compat', { name: 'Renamed Endpoint' })
-    expect(ok).toBe(true)
-
-    const conn = readConnection('custom-compat')
-    expect(conn.customEndpoint).toEqual(customEndpoint)
-    expect(conn.name).toBe('Renamed Endpoint')
+    const customEndpoint = { api: 'openai-completions' as const }
+    addLlmConnection(makeConnection({ customEndpoint }))
+    expect(updateLlmConnection('custom-compat', { name: 'Renamed Endpoint' })).toBe(true)
+    expect(getLlmConnection('custom-compat')).toMatchObject({ customEndpoint, name: 'Renamed Endpoint' })
   })
 
   it('overwrites customEndpoint protocol when updated', () => {
-    const { runUpdate, readConnection } = setup([
-      makeConnection({ customEndpoint: { api: 'openai-completions' } }),
-    ])
+    addLlmConnection(makeConnection({ customEndpoint: { api: 'openai-completions' } }))
+    expect(updateLlmConnection('custom-compat', { customEndpoint: { api: 'anthropic-messages' } })).toBe(true)
+    expect(getLlmConnection('custom-compat')?.customEndpoint).toEqual({ api: 'anthropic-messages' })
+  })
 
-    const ok = runUpdate('custom-compat', { customEndpoint: { api: 'anthropic-messages' } })
-    expect(ok).toBe(true)
-
-    const conn = readConnection('custom-compat')
-    expect(conn.customEndpoint).toEqual({ api: 'anthropic-messages' })
+  it('does not update a connection that does not exist', () => {
+    expect(updateLlmConnection('nope', { name: 'x' })).toBe(false)
   })
 })
 
@@ -126,36 +109,38 @@ describe('updateLlmConnection – Anthropic OAuth identity (issue #838)', () => 
   }
 
   it('persists identity fields when provided in updates', () => {
-    const { runUpdate, readConnection } = setup([
-      makeConnection({ slug: 'claude-max', authType: 'oauth' }),
-    ])
-
-    const ok = runUpdate('claude-max', identity)
-    expect(ok).toBe(true)
-
-    const conn = readConnection('claude-max')
-    expect(conn.oauthAccountUuid).toBe(identity.oauthAccountUuid)
-    expect(conn.oauthAccountEmail).toBe(identity.oauthAccountEmail)
-    expect(conn.oauthOrganizationUuid).toBe(identity.oauthOrganizationUuid)
-    expect(conn.oauthOrganizationName).toBe(identity.oauthOrganizationName)
-    expect(conn.oauthProfileVerifiedAt).toBe(identity.oauthProfileVerifiedAt)
+    addLlmConnection(makeConnection({ slug: 'claude-max', authType: 'oauth' }))
+    expect(updateLlmConnection('claude-max', identity)).toBe(true)
+    expect(getLlmConnection('claude-max')).toMatchObject(identity)
   })
 
-  it('preserves identity across an unrelated update (the allowlist-rebuild bug guard)', () => {
-    const { runUpdate, readConnection } = setup([
-      makeConnection({ slug: 'claude-max', authType: 'oauth', ...identity }),
-    ])
+  it('preserves identity across an unrelated update', () => {
+    addLlmConnection(makeConnection({ slug: 'claude-max', authType: 'oauth', ...identity }))
+    expect(updateLlmConnection('claude-max', { name: 'Renamed Claude Max' })).toBe(true)
+    expect(getLlmConnection('claude-max')).toMatchObject({ name: 'Renamed Claude Max', ...identity })
+  })
+})
 
-    // An update that touches none of the identity fields must not drop them.
-    const ok = runUpdate('claude-max', { name: 'Renamed Claude Max' })
-    expect(ok).toBe(true)
+describe('updateLlmConnection persists midStreamBehavior', () => {
+  const pi = (midStreamBehavior?: 'steer' | 'queue') => makeConnection({ slug: 'pi-test', providerType: 'pi', authType: 'api_key', midStreamBehavior })
 
-    const conn = readConnection('claude-max')
-    expect(conn.name).toBe('Renamed Claude Max')
-    expect(conn.oauthAccountUuid).toBe(identity.oauthAccountUuid)
-    expect(conn.oauthAccountEmail).toBe(identity.oauthAccountEmail)
-    expect(conn.oauthOrganizationUuid).toBe(identity.oauthOrganizationUuid)
-    expect(conn.oauthOrganizationName).toBe(identity.oauthOrganizationName)
-    expect(conn.oauthProfileVerifiedAt).toBe(identity.oauthProfileVerifiedAt)
+  it("flips midStreamBehavior from 'steer' to 'queue' and back", () => {
+    addLlmConnection(pi('steer'))
+    expect(updateLlmConnection('pi-test', { midStreamBehavior: 'queue' })).toBe(true)
+    expect(getLlmConnection('pi-test')?.midStreamBehavior).toBe('queue')
+    expect(updateLlmConnection('pi-test', { midStreamBehavior: 'steer' })).toBe(true)
+    expect(getLlmConnection('pi-test')?.midStreamBehavior).toBe('steer')
+  })
+
+  it('preserves existing midStreamBehavior when other fields are updated', () => {
+    addLlmConnection(pi('queue'))
+    expect(updateLlmConnection('pi-test', { name: 'Renamed' })).toBe(true)
+    expect(getLlmConnection('pi-test')).toMatchObject({ name: 'Renamed', midStreamBehavior: 'queue' })
+  })
+
+  it('seeds midStreamBehavior from undefined when the patch sets it explicitly', () => {
+    addLlmConnection(pi(undefined))
+    expect(updateLlmConnection('pi-test', { midStreamBehavior: 'queue' })).toBe(true)
+    expect(getLlmConnection('pi-test')?.midStreamBehavior).toBe('queue')
   })
 })

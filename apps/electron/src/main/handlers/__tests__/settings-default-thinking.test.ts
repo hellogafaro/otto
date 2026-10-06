@@ -9,7 +9,6 @@ const getDefaultThinkingLevelMock = mock(() => 'think')
 const setDefaultThinkingLevelMock = mock((_level: string) => true)
 
 mock.module('@otto/shared/config', () => ({
-  getPreferencesPath: () => '/tmp/preferences.json',
   getSessionDraft: () => null,
   setSessionDraft: () => {},
   deleteSessionDraft: () => {},

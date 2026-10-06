@@ -2,12 +2,12 @@
  * useStatuses Hook
  *
  * React hook to load and manage workspace statuses.
- * Auto-refreshes when workspace changes.
+ * Auto-refreshes when workspace changes or statuses change (`domain:changed`).
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import type { StatusConfig } from '@otto/shared/statuses'
-import { clearIconCache } from '@/config/session-status-config'
+import { useLiveData } from './use-live-data'
 
 export interface UseStatusesResult {
   statuses: StatusConfig[]
@@ -19,10 +19,6 @@ export interface UseStatusesResult {
 /**
  * Load statuses for a workspace via IPC
  * Auto-refreshes when workspaceId changes
- *
- * To detect agent edits to status config files, you could:
- * - Poll periodically (simple)
- * - Use file watcher in main process (more complex but real-time)
  */
 export function useStatuses(workspaceId: string | null): UseStatusesResult {
   const [statuses, setStatuses] = useState<StatusConfig[]>([])
@@ -54,20 +50,7 @@ export function useStatuses(workspaceId: string | null): UseStatusesResult {
     refresh()
   }, [refresh])
 
-  // Subscribe to live status changes (config or icon file changes)
-  useEffect(() => {
-    if (!workspaceId) return
-
-    const cleanup = window.electronAPI.onStatusesChanged((changedWorkspaceId) => {
-      // Only refresh if this is our workspace
-      if (changedWorkspaceId === workspaceId) {
-        clearIconCache()  // Clear cached icon files before refreshing
-        refresh()
-      }
-    })
-
-    return cleanup
-  }, [workspaceId, refresh])
+  useLiveData('statuses', workspaceId, refresh)
 
   return {
     statuses,

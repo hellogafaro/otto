@@ -45,6 +45,7 @@ export type { CredentialPromptArgs } from './credential-prompt.ts';
 
 // Update Preferences
 export { handleUpdatePreferences } from './update-preferences.ts';
+export { handleLabelsEdit, handleStatusesEdit, handlePermissionsEdit } from './workspace-config.ts';
 export type { UpdatePreferencesArgs } from './update-preferences.ts';
 
 // Transform Data
@@ -76,24 +77,6 @@ export { handleListBackgroundTasks } from './list-background-tasks.ts';
 export type { ListBackgroundTasksArgs } from './list-background-tasks.ts';
 export { handleArchiveSession } from './archive-session.ts';
 export type { ArchiveSessionArgs } from './archive-session.ts';
-
-// Pages
-export {
-  handleListPages,
-  handleGetPage,
-  handleCreatePage,
-  handleUpdatePage,
-  handleWritePageData,
-  handleDeletePage,
-} from './pages.ts';
-export type {
-  ListPagesArgs,
-  GetPageArgs,
-  CreatePageArgs,
-  UpdatePageArgs,
-  WritePageDataArgs,
-  DeletePageArgs,
-} from './pages.ts';
 
 // Decision model
 export { handleDecide } from './decide.ts';

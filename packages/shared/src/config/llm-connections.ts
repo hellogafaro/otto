@@ -201,6 +201,9 @@ export interface LlmConnection {
 
   // --- Timestamps ---
 
+  /** Whose it is: 'install', 'workspace:<id>' or 'user:<id>' (set when it is read; a connection never changes scope). */
+  scope?: string;
+
   /** Timestamp when connection was created */
   createdAt: number;
 
@@ -1035,13 +1038,15 @@ export interface ResolvedAuthEnvVars {
  * @param connectionSlug - Connection slug for credential lookup
  * @param credentialManager - Credential manager instance
  * @param getValidOAuthToken - Function to get a valid (refreshed) OAuth token
+ * @param scope - The scope of the connection whose credential is read (`connection.scope`; the install's when left out)
  * @returns Resolved env vars and status
  */
 export async function resolveAuthEnvVars(
   connection: LlmConnection,
   connectionSlug: string,
   credentialManager: CredentialManager,
-  getValidOAuthToken: (slug: string) => Promise<{ accessToken?: string | null }>,
+  getValidOAuthToken: (slug: string, scope?: string) => Promise<{ accessToken?: string | null }>,
+  scope?: string,
 ): Promise<ResolvedAuthEnvVars> {
   const envVars: Record<string, string> = {};
 
@@ -1059,7 +1064,7 @@ export async function resolveAuthEnvVars(
   const authType = connection.authType;
 
   if (authType === 'api_key' || authType === 'api_key_with_endpoint' || authType === 'bearer_token') {
-    const apiKey = await credentialManager.getLlmApiKey(connectionSlug);
+    const apiKey = await credentialManager.getLlmApiKey(connectionSlug, scope);
     if (apiKey) {
       envVars.ANTHROPIC_API_KEY = apiKey;
     } else if (connection.baseUrl) {
@@ -1071,7 +1076,7 @@ export async function resolveAuthEnvVars(
   } else if (authType === 'oauth') {
     if (connection.providerType === 'anthropic') {
       // Anthropic OAuth uses getValidClaudeOAuthToken which handles token refresh
-      const tokenResult = await getValidOAuthToken(connectionSlug);
+      const tokenResult = await getValidOAuthToken(connectionSlug, scope);
       if (tokenResult.accessToken) {
         envVars.CLAUDE_CODE_OAUTH_TOKEN = tokenResult.accessToken;
       } else {
@@ -1079,7 +1084,7 @@ export async function resolveAuthEnvVars(
       }
     } else {
       // Fallback OAuth path (should not be reached after legacy migration)
-      const llmOAuth = await credentialManager.getLlmOAuth(connectionSlug);
+      const llmOAuth = await credentialManager.getLlmOAuth(connectionSlug, scope);
       if (llmOAuth?.accessToken) {
         envVars.CLAUDE_CODE_OAUTH_TOKEN = llmOAuth.accessToken;
       } else {

@@ -154,8 +154,8 @@ export class ApiResponseTooLargeError extends Error {
 /**
  * Execute one authenticated request against an API source.
  *
- * This is the single fetch path for API sources — the MCP tool handler and
- * the Pages action bridge both go through it, so credential resolution stays
+ * This is the single fetch path for API sources — the MCP tool handler goes
+ * through it, so credential resolution stays
  * lazy (resolved here, never crossing a process/IPC boundary) and
  * cancellation works everywhere.
  *

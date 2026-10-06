@@ -1,8 +1,8 @@
 /**
  * Shared slug utilities (browser-safe, pure)
  *
- * One kebab-and-collision implementation for workspace entities (Pages,
- * ...) instead of per-module copies. Callers supply the existing slug
+ * One kebab-and-collision implementation for workspace entities
+ * instead of per-module copies. Callers supply the existing slug
  * set — no filesystem access here.
  */
 
@@ -18,7 +18,7 @@ export function slugifyName(name: string, fallback: string): string {
 
 /**
  * Kebab-case a name and de-collide against existing slugs by appending
- * `-2`, `-3`, … (the pages' behavior).
+ * `-2`, `-3`, …
  */
 export function generateUniqueSlug(
   name: string,

@@ -9,9 +9,8 @@
  *
  *   const manager = getCredentialManager();
  *
- *   // Get/set API key
- *   const apiKey = await manager.getApiKey();
- *   await manager.setApiKey('sk-ant-...');
+ *   // An LLM connection's credential is the secret of its `connections` row
+ *   const apiKey = await manager.getLlmApiKey('anthropic-api');
  *
  *   // Get/set workspace OAuth
  *   const oauth = await manager.getWorkspaceOAuth(workspaceId);

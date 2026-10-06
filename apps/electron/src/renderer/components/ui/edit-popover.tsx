@@ -35,13 +35,14 @@ const COMPACT_PLACEHOLDER_KEYS = [
  * what is being edited and can execute quickly.
  *
  * Simplified structure: label for display, filePath for the agent to know
- * where to edit, and optional context for additional instructions.
+ * where to edit (absent when the data is not a file, e.g. labels, statuses and
+ * workspace permissions live in the database), and optional context for additional instructions.
  */
 export interface EditContext {
   /** Human-readable label for badge display and agent context (e.g., "Permissions") */
   label: string
-  /** Absolute path to the file being edited */
-  filePath: string
+  /** Absolute path to the file being edited (none for data kept in the database) */
+  filePath?: string
   /** Optional additional context/instructions for the agent */
   context?: string
 }
@@ -75,7 +76,6 @@ export type EditContextKey =
   | 'source-config'
   | 'source-permissions'
   | 'source-tool-permissions'
-  | 'preferences-notes'
   | 'add-source'
   | 'add-source-api'   // Filter-specific: user is viewing APIs
   | 'add-source-mcp'   // Filter-specific: user is viewing MCPs
@@ -85,9 +85,9 @@ export type EditContextKey =
   | 'edit-labels'
   | 'edit-auto-rules'
   | 'add-label'
-  | 'edit-views'
   | 'edit-tool-icons'
   | 'automation-config'
+  | 'add-routine'
 
 /**
  * Full edit configuration including context for agent and example for UI.
@@ -121,16 +121,16 @@ export interface EditConfig {
  * Each entry contains all strings needed for the edit popover and agent context.
  */
 const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
-  'workspace-permissions': (location) => ({
+  'workspace-permissions': () => ({
     context: {
       label: 'Permission Settings',
-      filePath: `${location}/permissions.json`,
       context:
         'The user is on the Settings Screen and pressed the edit button on Workspace Permission settings. ' +
         'Their intent is likely to update the setting immediately unless otherwise specified. ' +
-        'The permissions.json file configures Explore mode rules. It can contain: allowedBashPatterns, ' +
-        'allowedMcpPatterns, allowedApiEndpoints, blockedTools, and allowedWritePaths. ' +
-        'After editing, call config_validate with target "permissions" to verify the changes. ' +
+        'The workspace permission rules configure Explore mode. They are stored in the database, not in a file: use the permissions_edit tool, not file edits. ' +
+        'Call permissions_edit with action "get" to read the rules, then with action "update" and a "rules" object to replace the whole rule set. ' +
+        'The rules object can contain: allowedBashPatterns, allowedMcpPatterns, allowedApiEndpoints, blockedTools, and allowedWritePaths. ' +
+        'Only workspace owners can change them. ' +
         'Confirm clearly when done.',
     },
     example: "Allow running 'make build' in Explore mode",
@@ -280,26 +280,6 @@ const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
     inlineExecution: true,
   }),
 
-  // Preferences editing context
-  'preferences-notes': (location) => ({
-    context: {
-      label: 'Preferences Notes',
-      filePath: location, // location is the full path for preferences
-      context:
-        'The user is editing the notes field in their preferences (~/.otto/preferences.json). ' +
-        'This is a JSON file. Only modify the "notes" field unless explicitly asked otherwise. ' +
-        'The notes field is free-form text that provides context about the user to the AI. ' +
-        'After editing, call config_validate with target "preferences" to verify the changes. ' +
-        'Confirm clearly when done.',
-    },
-    example: 'Add coding style preferences',
-    displayLabelKey: 'editPopover.label.preferencesNotes',
-    exampleKey: 'editPopover.example.preferencesNotes',
-    model: 'fast',
-    systemPromptPreset: 'mini',
-    inlineExecution: true,
-  }),
-
   // Add new source/skill contexts - use overridePlaceholder for inspiring, contextual prompts
   'add-source': (location) => ({
     context: {
@@ -401,17 +381,17 @@ const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
   }),
 
   // Status configuration context
-  'edit-statuses': (location) => ({
+  'edit-statuses': () => ({
     context: {
       label: 'Status Configuration',
-      filePath: `${location}/statuses/config.json`,
       context:
         'The user wants to customize session statuses (workflow states). ' +
-        'Statuses are stored in statuses/config.json with fields: id, label, icon, category (open/closed), order, isFixed, isDefault. ' +
+        'Statuses are stored in the database, not in a file: use the statuses_edit tool, not file edits. ' +
+        'Actions: list, create (label, category), update (id), delete (id), reorder (orderedIds), set_default (id). Fields: id, label, color, icon, category (open/closed). ' +
         'Fixed statuses (todo, done, cancelled) cannot be deleted but can be reordered or have their label changed. ' +
-        'Icon can be an emoji, an https URL, or a local filename like "name.svg" that maps to statuses/icons/name.svg. ' +
+        'Icon can be an emoji or an image data URL of at most 16 KB (a web address is not accepted). ' +
         'Category "open" shows in inbox, "closed" shows in archive. ' +
-        'After editing, call config_validate with target "statuses" to verify the changes. ' +
+        'Only workspace owners can change statuses. ' +
         'Confirm clearly when done.',
     },
     example: 'Add a "Blocked" status',
@@ -423,18 +403,17 @@ const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
   }),
 
   // Label configuration context
-  'edit-labels': (location) => ({
+  'edit-labels': () => ({
     context: {
       label: 'Label Configuration',
-      filePath: `${location}/labels/config.json`,
       context:
         'The user wants to customize session labels (tagging/categorization). ' +
-        'Labels are stored in labels/config.json as a hierarchical tree. ' +
-        'Each label has: id (slug, globally unique), name (display), color (optional EntityColor), children (sub-labels array). ' +
-        'Colors use EntityColor format: string shorthand (e.g. "blue") or { light, dark } object for theme-aware colors. ' +
+        'Labels are stored in the database, not in a file: use the labels_edit tool, not file edits. ' +
+        'Actions: list (the label tree), create (name; optional parentId, color), update/delete/move (id), reorder (orderedIds). ' +
+        'Each label has: id (slug, globally unique), name (display), color (optional), children (sub-labels). ' +
+        'Colors are a system color string (e.g. "blue") or { light, dark } for theme-aware colors. ' +
         'Labels are color-only (no icons) — rendered as colored circles in the UI. ' +
-        'Children form a recursive tree structure — array position determines display order. ' +
-        'Read ~/.otto/docs/labels.md for full format reference. ' +
+        'Only workspace owners can change labels. Read ~/.otto/docs/labels.md for the full reference. ' +
         'Confirm clearly when done.',
     },
     example: 'Add a "Bug" label with red color',
@@ -446,19 +425,19 @@ const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
   }),
 
   // Auto-label rules context (focused on regex patterns within labels)
-  'edit-auto-rules': (location) => ({
+  'edit-auto-rules': () => ({
     context: {
       label: 'Auto-Apply Rules',
-      filePath: `${location}/labels/config.json`,
       context:
         'The user wants to edit auto-apply rules (rules that auto-tag sessions from user messages). ' +
-        'Rules live inside the autoRules array on individual labels in labels/config.json. ' +
+        'Labels are stored in the database, not in a file: use the labels_edit tool (action "update" with the label id and "autoRules", which replaces that label\'s rules; [] clears them). ' +
         'A regex rule has: pattern (regex with capture groups), flags (default "gi"), valueTemplate ($1/$2 substitution), description. ' +
         'A semantic rule has: semantic (a yes/no question for the decision model, e.g. "Is the user asking about billing?"), threshold (0-1, default 0.9), optional value, description — ' +
         'semantic rules only work when the user enabled the decision model in Settings > AI, and they fire label automations, so keep the threshold high. ' +
         'Multiple rules on the same label = multiple ways to trigger. The "g" flag is always enforced. ' +
         'Avoid catastrophic backtracking patterns (e.g., (a+)+). ' +
-        'Read ~/.otto/docs/labels.md for full format reference. ' +
+        'Call labels_edit with action "list" first to see the current rules. Only workspace owners can change labels. ' +
+        'Read ~/.otto/docs/labels.md for the full reference. ' +
         'Confirm clearly when done.',
     },
     example: 'Add a rule to detect GitHub issue URLs',
@@ -470,17 +449,16 @@ const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
   }),
 
   // Add new label context (triggered from the # menu when no labels match)
-  'add-label': (location) => ({
+  'add-label': () => ({
     context: {
       label: 'Add Label',
-      filePath: `${location}/labels/config.json`,
       context:
         'The user wants to create a new label from the # inline menu. ' +
-        'Labels are stored in labels/config.json as a hierarchical tree. ' +
-        'Each label has: id (slug, globally unique), name (display), color (optional EntityColor), children (sub-labels array). ' +
-        'Colors use EntityColor format: string shorthand (e.g. "blue") or { light, dark } object for theme-aware colors. ' +
+        'Labels are stored in the database, not in a file: use the labels_edit tool with action "create" (name; optional parentId, color), not file edits. ' +
+        'Each label has: id (slug, globally unique), name (display), color (optional), children (sub-labels). ' +
+        'Colors are a system color string (e.g. "blue") or { light, dark } for theme-aware colors. ' +
         'Labels are color-only (no icons) — rendered as colored circles in the UI. ' +
-        'Read ~/.otto/docs/labels.md for full format reference. ' +
+        'Only workspace owners can create labels. Read ~/.otto/docs/labels.md for the full reference. ' +
         'Confirm clearly when done.',
     },
     example: 'A red "Bug" label',
@@ -488,29 +466,6 @@ const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
     displayLabelKey: 'editPopover.label.addLabel',
     exampleKey: 'editPopover.example.addLabel',
     overridePlaceholderKey: 'editPopover.placeholder.addLabel',
-    model: 'fast',               // Use fast model for quick config edits
-    systemPromptPreset: 'mini',   // Use focused mini prompt
-    inlineExecution: true,        // Execute inline in popover
-  }),
-
-  // Views configuration context
-  'edit-views': (location) => ({
-    context: {
-      label: 'Views Configuration',
-      filePath: `${location}/views.json`,
-      context:
-        'The user wants to edit views (dynamic, expression-based filters). ' +
-        'Views are stored in views.json at the workspace root under a "views" array. ' +
-        'Each view has: id (unique slug), name (display text), description (optional), color (optional EntityColor), expression (Filtrex string). ' +
-        'Expressions are evaluated against session context fields: name, preview, sessionStatus (also available as deprecated alias todoState), permissionMode, model, lastMessageRole, ' +
-        'lastUsedAt, createdAt, messageCount, labelCount, isFlagged, hasUnread, isProcessing, hasPendingPlan, tokenUsage.*, labels. ' +
-        'Available functions: daysSince(timestamp), contains(array, value). ' +
-        'Colors use EntityColor format: string shorthand (e.g. "orange") or { light, dark } object. ' +
-        'Confirm clearly when done.',
-    },
-    example: 'Add a "Stale" view for sessions inactive > 7 days',
-    displayLabelKey: 'editPopover.label.viewsConfiguration',
-    exampleKey: 'editPopover.example.editViews',
     model: 'fast',               // Use fast model for quick config edits
     systemPromptPreset: 'mini',   // Use focused mini prompt
     inlineExecution: true,        // Execute inline in popover
@@ -556,6 +511,25 @@ const EDIT_CONFIGS: Record<EditContextKey, (location: string) => EditConfig> = {
     model: 'default',
     systemPromptPreset: 'mini',
     inlineExecution: true,
+  }),
+
+  // New routine (the Routines page's "+" and its empty state): a new chat in which an agent writes it.
+  'add-routine': (location) => ({
+    context: {
+      label: 'Add Routine',
+      filePath: `${location}/automations.json`,
+      context:
+        'The user wants a new routine: an automation in automations.json that runs on a schedule (SchedulerTick with a 5-field cron and an IANA timezone) or on an event. ' +
+        'Structure: { version: 2, automations: { EventName: [{ name, cron?, timezone?, matcher?, labels?, actions: [{ type: "prompt", prompt }] }] } }. ' +
+        'Give it a short name. Ask what should run and when if that is not clear. Keep the routines already in the file. ' +
+        'Read ~/.otto/docs/automations.md for the full format. ' +
+        'After editing, confirm clearly what was added.',
+    },
+    example: 'Every weekday at 9:00, summarize my open tasks',
+    overridePlaceholder: 'What should run, and when?',
+    displayLabelKey: 'editPopover.label.addRoutine',
+    exampleKey: 'editPopover.example.addRoutine',
+    overridePlaceholderKey: 'editPopover.placeholder.addRoutine',
   }),
 }
 
@@ -689,8 +663,7 @@ export function buildEditPrompt(context: EditContext, userInstructions: string, 
   // context.label stays in English for the agent; displayLabel is translated for UI
   const metadataSection = `<edit_request>
 <label>${context.label}</label>
-<file>${context.filePath}</file>
-${context.context ? `<context>${context.context}</context>\n` : ''}</edit_request>
+${context.filePath ? `<file>${context.filePath}</file>\n` : ''}${context.context ? `<context>${context.context}</context>\n` : ''}</edit_request>
 
 `
 

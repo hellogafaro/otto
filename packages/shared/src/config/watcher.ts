@@ -6,14 +6,14 @@
  *
  * Watched paths:
  * - ~/.otto/config.json - Main app configuration
- * - ~/.otto/preferences.json - User preferences
  * - ~/.otto/theme.json - App-level theme overrides
  * - ~/.otto/themes/*.json - Preset theme files (app-level)
  * - ~/.otto/workspaces/{slug}/ - Workspace directory (recursive)
  *   - sources/{slug}/config.json, guide.md, permissions.json
  *   - skills/{slug}/SKILL.md, icon.*
  *   - sessions/{id}/session.jsonl (header metadata only)
- *   - permissions.json
+ *   - automations.json
+ * Labels, statuses and workspace permissions are database rows, not watched files.
  */
 
 import { watch, existsSync, readdirSync, statSync, mkdirSync } from 'fs';
@@ -23,12 +23,10 @@ import type { FSWatcher } from 'fs';
 import { CONFIG_DIR } from './paths.ts';
 import { debug } from '../utils/debug.ts';
 import { expandPath } from '../utils/paths.ts';
-import { readJsonFileSync } from '../utils/files.ts';
 import { perf } from '../utils/perf.ts';
 import { loadStoredConfig, type StoredConfig } from './storage.ts';
 import {
   validateConfig,
-  validatePreferences,
   validateSource,
   type ValidationResult,
 } from './validators.ts';
@@ -43,13 +41,7 @@ import {
 import { permissionsConfigCache, getAppPermissionsDir } from '../agent/permissions-config.ts';
 import { getWorkspacePath, getWorkspaceSourcesPath, getWorkspaceSkillsPath } from '../workspaces/storage.ts';
 import type { LoadedSkill } from '../skills/types.ts';
-import { loadWorkspacePages } from '../pages/storage.ts';
 import { loadSkill, loadAllSkills, invalidateSkillsCache, skillNeedsIconDownload, downloadSkillIcon } from '../skills/storage.ts';
-import {
-  loadStatusConfig,
-  statusNeedsIconDownload,
-  downloadStatusIcon,
-} from '../statuses/storage.ts';
 import { readSessionHeader } from '../sessions/jsonl.ts';
 import type { SessionHeader } from '../sessions/types.ts';
 import { AUTOMATIONS_CONFIG_FILE } from '../automations/constants.ts';
@@ -76,8 +68,6 @@ export function _getActiveWatchers(): ReadonlyMap<string, string> {
 // Constants
 // ============================================================
 
-const PREFERENCES_FILE = join(CONFIG_DIR, 'preferences.json');
-
 // Debounce delay in milliseconds
 const DEBOUNCE_MS = 100;
 
@@ -90,32 +80,11 @@ const SESSION_META_DEBOUNCE_MS = platform() === 'win32' ? 300 : DEBOUNCE_MS;
 // ============================================================
 
 /**
- * User preferences structure (mirrors UserPreferencesSchema)
- */
-export interface UserPreferences {
-  name?: string;
-  timezone?: string;
-  location?: {
-    city?: string;
-    region?: string;
-    country?: string;
-  };
-  notes?: string;
-  /** Internal: mirrors Appearance → Language. Maintained by the main-process i18n IPC handler. */
-  uiLanguage?: string;
-  updatedAt?: number;
-}
-
-/**
  * Callbacks for config changes
  */
 export interface ConfigWatcherCallbacks {
   /** Called when config.json changes */
   onConfigChange?: (config: StoredConfig) => void;
-  /** Called when preferences.json changes */
-  onPreferencesChange?: (prefs: UserPreferences) => void;
-  /** Called when LLM connections array changes (add/remove/update connections) */
-  onLlmConnectionsChange?: (connections: import('./storage.ts').LlmConnection[]) => void;
 
   // Source callbacks
   /** Called when a specific source config changes (null if deleted) */
@@ -134,32 +103,12 @@ export interface ConfigWatcherCallbacks {
   // Permissions callbacks
   /** Called when app-level default permissions change (~/.otto/permissions/default.json) */
   onDefaultPermissionsChange?: () => void;
-  /** Called when workspace permissions.json changes */
-  onWorkspacePermissionsChange?: (workspaceId: string) => void;
   /** Called when a source's permissions.json changes */
   onSourcePermissionsChange?: (sourceSlug: string) => void;
-
-  // Status callbacks
-  /** Called when statuses config.json changes */
-  onStatusConfigChange?: (workspaceId: string) => void;
-  /** Called when a status icon file changes */
-  onStatusIconChange?: (workspaceId: string, iconFilename: string) => void;
-
-  // Label callbacks
-  /** Called when labels config.json changes */
-  onLabelConfigChange?: (workspaceId: string) => void;
 
   // Automations callbacks
   /** Called when automations.json changes */
   onAutomationsConfigChange?: (workspaceId: string) => void;
-
-  // Page callbacks
-  /**
-   * Called when any pages/{slug}/page.json changes (create/delete/refresh
-   * completion). page.json is the completion marker of a refresh run, so
-   * data/ churn (sqlite, snapshot tmp files) is deliberately NOT watched.
-   */
-  onPagesListChange?: (pages: import('../pages/types.ts').LoadedPage[]) => void;
 
   // Session callbacks
   /** Called when a session's JSONL header is modified externally (labels, name, flags, etc.) */
@@ -181,26 +130,6 @@ export interface ConfigWatcherCallbacks {
 }
 
 // ============================================================
-// Preferences Loading
-// ============================================================
-
-/**
- * Load preferences from file
- */
-export function loadPreferences(): UserPreferences | null {
-  if (!existsSync(PREFERENCES_FILE)) {
-    return null;
-  }
-
-  try {
-    return readJsonFileSync<UserPreferences>(PREFERENCES_FILE);
-  } catch (error) {
-    debug('[ConfigWatcher] Error loading preferences', error);
-    return null;
-  }
-}
-
-// ============================================================
 // ConfigWatcher Class
 // ============================================================
 
@@ -219,9 +148,6 @@ export class ConfigWatcher {
   private knownSources: Set<string> = new Set();
   private knownSkills: Set<string> = new Set();
   private knownThemes: Set<string> = new Set();
-
-  // Track LLM connections for change detection (JSON string for deep comparison)
-  private lastLlmConnectionsHash: string = '';
 
   // Computed paths
   private workspaceDir: string;
@@ -305,23 +231,8 @@ export class ConfigWatcher {
     this.scanAppThemes();
     span.mark('scanAppThemes');
 
-    // Initialize LLM connections hash for change detection
-    this.initLlmConnectionsHash();
-    span.mark('initLlmConnectionsHash');
-
     debug('[ConfigWatcher] Started watching files');
     span.end();
-  }
-
-  /**
-   * Initialize LLM connections hash for change detection
-   */
-  private initLlmConnectionsHash(): void {
-    const config = loadStoredConfig();
-    if (config) {
-      const connections = config.llmConnections || [];
-      this.lastLlmConnectionsHash = JSON.stringify(connections);
-    }
   }
 
   /**
@@ -368,7 +279,7 @@ export class ConfigWatcher {
   }
 
   /**
-   * Watch global config files (config.json, preferences.json)
+   * Watch global config files (config.json, theme.json)
    */
   private watchGlobalConfigs(): void {
     // Ensure config directory exists
@@ -377,14 +288,12 @@ export class ConfigWatcher {
     }
 
     try {
-      // Watch the config directory for changes to config.json, preferences.json, and theme.json
+      // Watch the config directory for changes to config.json and theme.json
       const watcher = watch(CONFIG_DIR, (eventType, filename) => {
         if (!filename) return;
 
         if (filename === 'config.json') {
           this.debounce('config.json', () => this.handleConfigChange());
-        } else if (filename === 'preferences.json') {
-          this.debounce('preferences.json', () => this.handlePreferencesChange());
         } else if (filename === 'theme.json') {
           this.debounce('app-theme', () => this.handleAppThemeChange());
         }
@@ -423,12 +332,6 @@ export class ConfigWatcher {
    */
   private handleWorkspaceFileChange(relativePath: string, eventType: string): void {
     const parts = relativePath.split('/');
-
-    // Workspace-level permissions.json
-    if (relativePath === 'permissions.json') {
-      this.debounce('workspace-permissions', () => this.handleWorkspacePermissionsChange());
-      return;
-    }
 
     // Workspace-level automations config file
     if (relativePath === AUTOMATIONS_CONFIG_FILE) {
@@ -480,18 +383,6 @@ export class ConfigWatcher {
       return;
     }
 
-    // Pages changes: pages/{slug}/page.json is the ONLY trigger — a refresh
-    // run's last write is page.json, so reacting to it (and nothing else)
-    // means observers never see a half-written data/ directory. Slug-dir
-    // add/remove also fires (page created/deleted externally).
-    if (parts[0] === 'pages' && parts.length >= 2) {
-      const file = parts[2];
-      if (parts.length === 2 || file === 'page.json') {
-        this.debounce('pages-dir', () => this.handlePagesChange());
-      }
-      return;
-    }
-
     // Session metadata changes: sessions/{id}/session.jsonl
     // Detects external modifications (other instances, scripts, manual edits).
     // Only reads line 1 (header) — lightweight even during active streaming.
@@ -504,40 +395,6 @@ export class ConfigWatcher {
         this.debounce(`session-meta:${sessionId}`, () => this.handleSessionMetadataChange(sessionId), SESSION_META_DEBOUNCE_MS);
       }
       return;
-    }
-
-    // Statuses changes: statuses/...
-    if (parts[0] === 'statuses' && parts.length >= 2) {
-      const file = parts[1];
-
-      // config.json change
-      if (file === 'config.json') {
-        this.debounce('statuses-config', () => this.handleStatusConfigChange());
-        return;
-      }
-
-      // Icon file changes: statuses/icons/*.svg, *.png, etc.
-      if (file === 'icons' && parts.length >= 3) {
-        const iconFilename = parts[2];
-        if (iconFilename) {
-          this.debounce(`statuses-icon:${iconFilename}`, () => {
-            this.handleStatusIconChange(iconFilename);
-          });
-        }
-        return;
-      }
-    }
-
-    // Labels changes: labels/...
-    if (parts[0] === 'labels' && parts.length >= 2) {
-      const file = parts[1];
-
-      // config.json change
-      if (file === 'config.json') {
-        this.debounce('labels-config', () => this.handleLabelConfigChange());
-        return;
-      }
-
     }
   }
 
@@ -843,19 +700,6 @@ export class ConfigWatcher {
   // ============================================================
 
   /**
-   * Handle workspace permissions.json change
-   */
-  private handleWorkspacePermissionsChange(): void {
-    debug('[ConfigWatcher] Workspace permissions.json changed:', this.workspaceId);
-
-    // Invalidate cache
-    permissionsConfigCache.invalidateWorkspace(this.workspaceDir);
-
-    // Notify callback
-    this.callbacks.onWorkspacePermissionsChange?.(this.workspaceId);
-  }
-
-  /**
    * Handle config.json change
    */
   private handleConfigChange(): void {
@@ -871,91 +715,9 @@ export class ConfigWatcher {
     const config = loadStoredConfig();
     if (config) {
       this.callbacks.onConfigChange?.(config);
-
-      // Check for LLM connections changes
-      // Use JSON hash comparison for deep equality check
-      const connections = config.llmConnections || [];
-      const currentHash = JSON.stringify(connections);
-      if (currentHash !== this.lastLlmConnectionsHash) {
-        debug('[ConfigWatcher] LLM connections changed');
-        this.lastLlmConnectionsHash = currentHash;
-        this.callbacks.onLlmConnectionsChange?.(connections);
-      }
     } else {
       this.callbacks.onError?.('config.json', new Error('Failed to load config'));
     }
-  }
-
-  /**
-   * Handle preferences.json change
-   */
-  private handlePreferencesChange(): void {
-    debug('[ConfigWatcher] preferences.json changed');
-
-    const validation = validatePreferences();
-    if (!validation.valid) {
-      debug('[ConfigWatcher] Preferences validation failed:', validation.errors);
-      this.callbacks.onValidationError?.('preferences.json', validation);
-      return;
-    }
-
-    const prefs = loadPreferences();
-    if (prefs) {
-      this.callbacks.onPreferencesChange?.(prefs);
-    }
-  }
-
-  // ============================================================
-  // Statuses Handlers
-  // ============================================================
-
-  /**
-   * Handle statuses config.json change
-   * Downloads icons for any status with URL icon and no local file
-   */
-  private handleStatusConfigChange(): void {
-    debug('[ConfigWatcher] Statuses config.json changed:', this.workspaceId);
-
-    // Load config and check for icons that need downloading
-    const config = loadStatusConfig(this.workspaceDir);
-    for (const status of config.statuses) {
-      if (statusNeedsIconDownload(this.workspaceDir, status)) {
-        debug('[ConfigWatcher] Downloading status icon:', status.id);
-        downloadStatusIcon(this.workspaceDir, status.id, status.icon!)
-          .then((iconPath) => {
-            if (iconPath) {
-              debug('[ConfigWatcher] Status icon downloaded:', status.id, iconPath);
-              // Re-emit config change to update UI with new icon
-              this.callbacks.onStatusConfigChange?.(this.workspaceId);
-            }
-          })
-          .catch((err) => {
-            debug('[ConfigWatcher] Status icon download failed:', status.id, err);
-          });
-      }
-    }
-
-    this.callbacks.onStatusConfigChange?.(this.workspaceId);
-  }
-
-  /**
-   * Handle status icon file change
-   */
-  private handleStatusIconChange(iconFilename: string): void {
-    debug('[ConfigWatcher] Status icon changed:', this.workspaceId, iconFilename);
-    this.callbacks.onStatusIconChange?.(this.workspaceId, iconFilename);
-  }
-
-  // ============================================================
-  // Labels Handlers
-  // ============================================================
-
-  /**
-   * Handle labels config.json change.
-   */
-  private handleLabelConfigChange(): void {
-    debug('[ConfigWatcher] Labels config.json changed:', this.workspaceId);
-    this.callbacks.onLabelConfigChange?.(this.workspaceId);
   }
 
   /**
@@ -964,26 +726,6 @@ export class ConfigWatcher {
   private handleAutomationsConfigChange(): void {
     debug('[ConfigWatcher] automations config changed:', this.workspaceId);
     this.callbacks.onAutomationsConfigChange?.(this.workspaceId);
-  }
-
-  // ============================================================
-  // Page Handlers
-  // ============================================================
-
-  /**
-   * Handle a pages change (any page.json touched, or a page folder
-   * added/removed). Coarse by design: reload the full list once per
-   * debounce window.
-   */
-  private handlePagesChange(): void {
-    if (!this.callbacks.onPagesListChange) return;
-    try {
-      const pages = loadWorkspacePages(this.workspaceDir);
-      debug('[ConfigWatcher] pages changed:', this.workspaceId, `(${pages.length} pages)`);
-      this.callbacks.onPagesListChange(pages);
-    } catch (error) {
-      debug('[ConfigWatcher] Failed to reload pages:', error);
-    }
   }
 
   // ============================================================

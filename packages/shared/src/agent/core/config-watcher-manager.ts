@@ -55,12 +55,6 @@ export interface ConfigWatcherManagerCallbacks {
   onSkillsListChange?: (skills: LoadedSkill[]) => void;
 
   /**
-   * Called when workspace permissions change.
-   * @param workspaceId - Workspace ID
-   */
-  onWorkspacePermissionsChange?: (workspaceId: string) => void;
-
-  /**
    * Called when a source's permissions change.
    * @param sourceSlug - Source slug
    */
@@ -168,11 +162,6 @@ export class ConfigWatcherManager {
       onSkillsListChange: (skills) => {
         this.debug(`Skills list changed: ${skills.length} skills`);
         this.callbacks.onSkillsListChange?.(skills);
-      },
-
-      onWorkspacePermissionsChange: (workspaceId) => {
-        this.debug(`Workspace permissions changed: ${workspaceId}`);
-        this.callbacks.onWorkspacePermissionsChange?.(workspaceId);
       },
 
       onSourcePermissionsChange: (sourceSlug) => {

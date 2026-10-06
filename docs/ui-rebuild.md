@@ -100,6 +100,8 @@ yet).
 
 ## Automations (13)
 
+Replaced by `pages/routines/` (the Routines index and a routine's page, `useRoutines`); nothing in the app renders these any more, only the playground's Automations demos (with `atoms/automations.ts`). Delete them with those demos.
+
 - [ ] `components/automations/action-type-icon.tsx`
 - [ ] `components/automations/automation-action-preview.tsx`
 - [ ] `components/automations/automation-action-row.tsx`

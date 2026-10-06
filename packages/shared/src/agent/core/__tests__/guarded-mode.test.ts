@@ -78,7 +78,7 @@ describe('getGuardedModeCall', () => {
   });
 
   it('judges session tools that Explore blocks, but not session bookkeeping', () => {
-    expect(getGuardedModeCall('mcp__session__delete_page', { slug: 'p' }, ctx('mcp__session__delete_page', {}))).toMatchObject({ promptType: 'mcp_mutation' });
+    expect(getGuardedModeCall('mcp__session__spawn_session', {}, ctx('mcp__session__spawn_session', {}))).toMatchObject({ promptType: 'mcp_mutation' });
     expect(getGuardedModeCall('mcp__session__set_session_labels', {}, ctx('mcp__session__set_session_labels', {}))).toBeNull();
   });
 

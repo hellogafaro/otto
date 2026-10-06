@@ -5,7 +5,7 @@ import { isEmoji } from '@otto/shared/utils/icon-constants'
 import { resolveEntityColor, getDefaultStatusColor } from '@otto/shared/colors'
 import type { EntityColor } from '@otto/shared/colors'
 import { StatusIcon } from '@/components/ui/status-icon'
-import { iconCache } from '@/lib/icon-cache'
+import { resolveDataUrlIcon } from '@/lib/icon-cache'
 
 // ============================================================================
 // Types
@@ -51,7 +51,8 @@ export interface SessionStatus extends SessionStatusConfig {
  *
  * Colorability is determined synchronously:
  * - Emoji icons → not colorable (they have their own colors)
- * - Everything else (SVGs, fallback) → colorable (uses currentColor)
+ * - Image data URLs → colorable only for SVGs that use currentColor
+ * - Everything else (fallback) → colorable
  */
 export function statusConfigToSessionStatus(
   config: StatusConfig,
@@ -60,7 +61,9 @@ export function statusConfigToSessionStatus(
 ): SessionStatus {
   // Emojis have their own colors and don't respond to CSS color inheritance.
   // SVGs with currentColor and the fallback Circle icon are colorable.
-  const iconColorable = !isEmoji(config.icon)
+  const iconColorable = isEmoji(config.icon)
+    ? false
+    : config.icon?.startsWith('data:image/') ? resolveDataUrlIcon(config.icon).colorable : true
 
   // Resolve EntityColor → CSS color string for inline style
   const entityColor = config.color ?? getDefaultStatusColor(config.id)
@@ -162,14 +165,4 @@ export function getState(
   states: SessionStatus[]
 ): SessionStatus | undefined {
   return states.find(s => s.id === stateId)
-}
-
-/**
- * Clear status icon cache (useful when statuses are updated).
- * Clears status-prefixed entries from the unified icon cache.
- */
-export function clearIconCache(): void {
-  for (const key of iconCache.keys()) {
-    if (key.startsWith('status:')) iconCache.delete(key)
-  }
 }

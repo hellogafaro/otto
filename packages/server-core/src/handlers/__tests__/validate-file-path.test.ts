@@ -87,11 +87,11 @@ describe('validateFilePath', () => {
   })
 
   it("blocks the install's own sensitive files even when the allow-list covers them, with or without a caller", async () => {
-    for (const name of ['config.json', 'config.json.bak-2026-10-06', 'credentials.enc', 'otto.db', 'otto.db-wal', 'otto.db-shm', '.server.lock', 'drafts.json', 'logs/decisions.jsonl']) {
+    for (const name of ['config.json', 'config.json.bak-2026-10-06', 'credentials.enc', 'otto.db', 'otto.db-wal', 'otto.db-shm', '.server.lock', 'drafts.json', 'preferences.json', 'logs/decisions.jsonl']) {
       const path = join(CONFIG_DIR, name)
       await expect(validateFilePath(path, [CONFIG_DIR])).rejects.toThrow('private')
       await expect(validateFilePath(path, [CONFIG_DIR], { userId: 'u1', canSeeSession: () => true })).rejects.toThrow('private')
     }
-    expect(await validateFilePath(join(CONFIG_DIR, 'preferences.json'), [CONFIG_DIR])).toContain('preferences.json')
+    expect(await validateFilePath(join(CONFIG_DIR, 'window-state.json'), [CONFIG_DIR])).toContain('window-state.json')
   })
 })

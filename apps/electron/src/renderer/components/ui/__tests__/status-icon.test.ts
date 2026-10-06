@@ -1,35 +1,34 @@
 import { describe, expect, it } from 'bun:test'
-import { resolveStatusIconSource } from '../status-icon'
+import { resolveDataUrlIcon } from '@/lib/icon-cache'
 
-describe('resolveStatusIconSource', () => {
-  it('treats bare icon filenames as local overrides in statuses/icons', () => {
-    expect(resolveStatusIconSource('todo', 'in-progress.svg')).toEqual({
-      iconPath: 'statuses/icons/in-progress.svg',
-    })
+const svg = (body: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">${body}</svg>`
+const base64 = (s: string) => `data:image/svg+xml;base64,${btoa(s)}`
+
+describe('resolveDataUrlIcon', () => {
+  it('an SVG that uses currentColor is colorable and keeps sanitized raw SVG', () => {
+    const icon = resolveDataUrlIcon(base64(svg('<circle r="4" fill="currentColor" onclick="x()"/>')))
+    expect(icon.kind).toBe('file')
+    expect(icon.colorable).toBe(true)
+    expect(icon.rawSvg).toContain('currentColor')
+    expect(icon.rawSvg).not.toContain('onclick')
   })
 
-  it('treats .webp filenames as local overrides', () => {
-    expect(resolveStatusIconSource('todo', 'custom-icon.webp')).toEqual({
-      iconPath: 'statuses/icons/custom-icon.webp',
-    })
+  it('decodes a percent-encoded SVG', () => {
+    const icon = resolveDataUrlIcon(`data:image/svg+xml,${encodeURIComponent(svg('<path stroke="currentColor"/>'))}`)
+    expect(icon.colorable).toBe(true)
   })
 
-  it('rejects nested paths from being treated as local overrides', () => {
-    expect(resolveStatusIconSource('todo', '../in-progress.svg')).toEqual({
-      iconValue: '../in-progress.svg',
-      iconFileName: 'todo',
-    })
+  it('an SVG with fixed colors is not colorable', () => {
+    const icon = resolveDataUrlIcon(base64(svg('<circle r="4" fill="#f00"/>')))
+    expect(icon.colorable).toBe(false)
+    expect(icon.rawSvg).toBeUndefined()
   })
 
-  it('preserves emoji and url icon values', () => {
-    expect(resolveStatusIconSource('todo', '✅')).toEqual({
-      iconValue: '✅',
-      iconFileName: 'todo',
-    })
-
-    expect(resolveStatusIconSource('todo', 'https://example.com/icon.svg')).toEqual({
-      iconValue: 'https://example.com/icon.svg',
-      iconFileName: 'todo',
+  it('a raster image data URL is a plain file icon', () => {
+    expect(resolveDataUrlIcon('data:image/png;base64,iVBORw0KGgo=')).toEqual({
+      kind: 'file',
+      value: 'data:image/png;base64,iVBORw0KGgo=',
+      colorable: false,
     })
   })
 })

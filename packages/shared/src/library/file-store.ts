@@ -1,11 +1,12 @@
-import { mkdir, rename, rm } from 'node:fs/promises'
+import { mkdir, readdir, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createId } from '../id.ts'
 
 /**
  * Where the bytes of library items live, keyed by item id. The default driver
- * writes to disk under the workspace; an S3-compatible driver (Garage, as in
- * Otto v1) plugs in here without touching the library domain.
+ * writes to disk under the workspace; `OTTO_STORAGE=s3` selects the S3-compatible
+ * driver instead (s3-file-store.ts, wired in storage.ts), which keeps the same
+ * directory as a read-through cache. The library domain does not know which one it has.
  */
 export interface FileStore {
   put(key: string, bytes: Uint8Array): Promise<void>
@@ -20,6 +21,8 @@ export interface FileStore {
   open(key: string): Promise<{ stream: ReadableStream<Uint8Array>; size: number } | undefined>
   /** Removes the key; nothing happens when it is not stored. */
   delete(key: string): Promise<void>
+  /** The stored keys that start with `prefix` (all of them without one), in no particular order. */
+  list(prefix?: string): Promise<string[]>
 }
 
 export interface StagedFile {
@@ -29,10 +32,18 @@ export interface StagedFile {
 
 const KEY = /^[a-z0-9]{12}$/
 
-function assertKey(key: string): string {
+export function assertKey(key: string): string {
   if (!KEY.test(key)) throw new Error(`Invalid file key: ${key}`)
   return key
 }
+
+/** A list prefix is a plain run of key characters; it can never reach outside the store. */
+export function assertPrefix(prefix: string): string {
+  if (!/^[a-z0-9]{0,12}$/.test(prefix)) throw new Error(`Invalid file key prefix: ${prefix}`)
+  return prefix
+}
+
+export const isFileKey = (name: string) => KEY.test(name)
 
 /** Keys are `createId()` strings, so a key can never leave `rootDir`. */
 export function createDiskFileStore(rootDir: string): FileStore {
@@ -82,13 +93,18 @@ export function createDiskFileStore(rootDir: string): FileStore {
     async delete(key) {
       await rm(pathOf(key), { force: true })
     },
+
+    async list(prefix = '') {
+      assertPrefix(prefix)
+      // Temp files and the S3 cache's bookkeeping are not keys.
+      const names = await readdir(rootDir).catch((error: NodeJS.ErrnoException) => (error.code === 'ENOENT' ? [] : Promise.reject(error)))
+      return names.filter((name) => isFileKey(name) && name.startsWith(prefix))
+    },
   }
 }
 
-/** Where a workspace keeps its library bytes. */
+/** Where a workspace keeps its library bytes (the store itself on disk, the read-through cache on S3). */
 export const getLibraryDir = (workspaceRootPath: string) => join(workspaceRootPath, 'library')
-
-export const getLibraryStore = (workspaceRootPath: string): FileStore => createDiskFileStore(getLibraryDir(workspaceRootPath))
 
 /** The file an agent reads by path (`<workspaceRoot>/library/<id>`); show it the title in prompts, not this name. */
 export const getLibraryItemPath = (workspaceRootPath: string, id: string) => join(getLibraryDir(workspaceRootPath), assertKey(id))

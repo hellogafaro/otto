@@ -11,7 +11,6 @@
  * | --------------------------------- | ------------------------------------------ |
  * | `allSessions[/session/id]`        | `/{ws}/chats[/id]`                         |
  * | `allSessions[/session/id]?status=a&status=b&label=c&flagged=1&archived=1` | `/{ws}/chats[/id]?status=a&status=b&label=c&flagged=1&archived=1` (the same query) |
- * | `view/{id}[/session/id]`          | `/{ws}/chats[/id]?view={id}`               |
  * | `settings/page`                   | `/{ws}/settings/page` (`/{ws}/settings` is General) |
  * | `projects[/project/id][?tab=&status=archived]` | `/{ws}/projects[/id][?tab=&status=archived]` (the same query) |
  * | `tasks[/task/id][?project=&assignee=&status=&archived=1]` | `/{ws}/tasks[/id]` with the same query |
@@ -56,11 +55,10 @@ export interface AppLocation {
   search: LocationSearch
 }
 
-/** The Chats index filters, in the search of `/{ws}/chats[/id]`: statuses and labels (any number), flagged, archived; or one view. */
+/** The Chats index filters, in the search of `/{ws}/chats[/id]`: statuses and labels (any number), flagged, archived. */
 export interface ChatsSearch {
   status?: string[]
   label?: string[]
-  view?: string
   flagged?: true
   archived?: true
 }
@@ -90,7 +88,7 @@ function list(value: unknown): unknown[] {
   return Array.isArray(value) ? value : value === undefined ? [] : [value]
 }
 
-/** The Chats filters of a search, normalized: lists of distinct strings, `1`/`true` flags, unknown params dropped. A view applies only without filters. */
+/** The Chats filters of a search, normalized: lists of distinct strings, `1`/`true` flags, unknown params dropped. */
 export function validateChatsSearch(search: Record<string, unknown>): ChatsSearch {
   const filters = normalizeChatFilters({
     status: list(search.status) as string[],
@@ -103,8 +101,6 @@ export function validateChatsSearch(search: Record<string, unknown>): ChatsSearc
   if (filters.label.length > 0) out.label = filters.label
   if (filters.flagged) out.flagged = true
   if (filters.archived) out.archived = true
-  const view = text(search.view)
-  if (view && Object.keys(out).length === 0) out.view = view
   return out
 }
 
@@ -125,7 +121,6 @@ export function validateRoutinesSearch(search: Record<string, unknown>): TypeSea
 const enc = encodeURIComponent
 
 function chatsSearch(filter: SessionFilter, filters: ChatFilters): LocationSearch {
-  if (filter.kind === 'view') return { view: filter.viewId }
   const search: LocationSearch = {}
   if (filters.status.length > 0) search.status = filters.status
   if (filters.label.length > 0) search.label = filters.label
@@ -196,11 +191,11 @@ export function workspaceSlugFromPathname(pathname: string): string | null {
 }
 
 function chatsStateFromSearch(search: Record<string, unknown>, id: string | undefined): NavigationState {
-  const { status, label, view, flagged, archived } = validateChatsSearch(search)
+  const { status, label, flagged, archived } = validateChatsSearch(search)
   const filters = normalizeChatFilters({ status, label, flagged, archived })
   return {
     navigator: 'sessions',
-    filter: view ? { kind: 'view', viewId: view } : sessionFilterFromChatFilters(filters),
+    filter: sessionFilterFromChatFilters(filters),
     filters,
     details: id ? { type: 'session', sessionId: id } : null,
   }

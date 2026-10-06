@@ -1,12 +1,9 @@
 /**
- * Source → server-config builder, shared by session startup and the pages
- * action executor.
+ * Source → server-config builder for session startup.
  *
  * Turns LoadedSources into connectable MCP / in-process API server configs
  * with credentials resolved at build time and refresh wired for OAuth /
- * renew-endpoint sources. Extracted verbatim from SessionManager so pages
- * (which have no session) reuse the exact same credential path — one
- * implementation, no drift.
+ * renew-endpoint sources. Extracted verbatim from SessionManager.
  */
 
 import { createScopedLogger, CONSOLE_LOGGER, type Logger } from '@otto/server-core/runtime'

@@ -36,6 +36,7 @@ export const CHANNEL_MAP = {
   importSession: invoke(RPC_CHANNELS.sessions.IMPORT),
   exportRemoteSessionTransfer: invoke(RPC_CHANNELS.sessions.EXPORT_REMOTE_TRANSFER),
   importRemoteSessionTransfer: invoke(RPC_CHANNELS.sessions.IMPORT_REMOTE_TRANSFER),
+  getSessionShareCapabilities: invoke(RPC_CHANNELS.sessions.GET_SHARE_CAPABILITIES),
   getPendingPlanExecution: invoke(RPC_CHANNELS.sessions.GET_PENDING_PLAN_EXECUTION),
   getSessionPermissionModeState: invoke(RPC_CHANNELS.sessions.GET_PERMISSION_MODE_STATE),
 
@@ -243,20 +244,14 @@ export const CHANNEL_MAP = {
   // Statuses
   listStatuses: invoke(RPC_CHANNELS.statuses.LIST),
   reorderStatuses: invoke(RPC_CHANNELS.statuses.REORDER),
-  onStatusesChanged: listener(RPC_CHANNELS.statuses.CHANGED),
 
   // Labels
   listLabels: invoke(RPC_CHANNELS.labels.LIST),
   createLabel: invoke(RPC_CHANNELS.labels.CREATE),
   deleteLabel: invoke(RPC_CHANNELS.labels.DELETE),
-  onLabelsChanged: listener(RPC_CHANNELS.labels.CHANGED),
 
   // LLM connections change listener
   onLlmConnectionsChanged: listener(RPC_CHANNELS.llmConnections.CHANGED),
-
-  // Views
-  listViews: invoke(RPC_CHANNELS.views.LIST),
-  saveViews: invoke(RPC_CHANNELS.views.SAVE),
 
   // Tool icon mappings
   getToolIconMappings: invoke(RPC_CHANNELS.toolIcons.GET_MAPPINGS),
@@ -384,31 +379,6 @@ export const CHANNEL_MAP = {
   clearNotifications: invoke(RPC_CHANNELS.notifications.CLEAR),
   getUnreadNotificationCount: invoke(RPC_CHANNELS.notifications.GET_UNREAD_COUNT),
   onDomainChanged: listener(RPC_CHANNELS.domain.CHANGED),
-
-  // Pages
-  getPages: invoke(RPC_CHANNELS.pages.GET),
-  getPage: invoke(RPC_CHANNELS.pages.GET_ONE),
-  createPage: invoke(RPC_CHANNELS.pages.CREATE),
-  updatePage: invoke(RPC_CHANNELS.pages.UPDATE),
-  deletePage: invoke(RPC_CHANNELS.pages.DELETE),
-  getPageContent: invoke(RPC_CHANNELS.pages.GET_CONTENT),
-  setPageContent: invoke(RPC_CHANNELS.pages.SET_CONTENT),
-  getPageData: invoke(RPC_CHANNELS.pages.GET_DATA),
-  listPageGrants: invoke(RPC_CHANNELS.pages.LIST_GRANTS),
-  issuePageGrant: invoke(RPC_CHANNELS.pages.ISSUE_GRANT),
-  revokePageGrant: invoke(RPC_CHANNELS.pages.REVOKE_GRANT),
-  createPageLease: invoke(RPC_CHANNELS.pages.CREATE_LEASE),
-  releasePageLease: invoke(RPC_CHANNELS.pages.RELEASE_LEASE),
-  executePageAction: invoke(RPC_CHANNELS.pages.EXECUTE_ACTION),
-  cancelPageAction: invoke(RPC_CHANNELS.pages.CANCEL_ACTION),
-  getPageShareCapabilities: invoke(RPC_CHANNELS.pages.GET_SHARE_CAPABILITIES),
-  getPageShareDataScan: invoke(RPC_CHANNELS.pages.GET_SHARE_DATA_SCAN),
-  publishPage: invoke(RPC_CHANNELS.pages.PUBLISH),
-  setPagePublicationPassword: invoke(RPC_CHANNELS.pages.SET_PUBLICATION_PASSWORD),
-  unpublishPage: invoke(RPC_CHANNELS.pages.UNPUBLISH),
-  getPageThumbnail: invoke(RPC_CHANNELS.pages.GET_THUMBNAIL),
-  regeneratePageThumbnail: invoke(RPC_CHANNELS.pages.REGENERATE_THUMBNAIL),
-  onPagesChanged: listener(RPC_CHANNELS.pages.CHANGED),
 
   // Automations
   getAutomations: invoke(RPC_CHANNELS.automations.GET),

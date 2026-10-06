@@ -10,6 +10,8 @@ export { TasksPage } from './tasks/tasks-page'
 export { TaskPage } from './tasks/task-page'
 export { ProjectsPage } from './projects/projects-page'
 export { ProjectPage } from './projects/project-page'
+export { RoutinesPage } from './routines/routines-page'
+export { RoutinePage } from './routines/routine-page'
 export { LibraryPage } from './library/library-page'
 export { LibraryItemPage } from './library/library-item-page'
 // Settings pages

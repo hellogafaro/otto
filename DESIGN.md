@@ -277,7 +277,7 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.xl}"
     height: 40px
-    width: 450px
+    width: 448px
     padding: 4px
   scroll-button:
     backgroundColor: "{colors.card}"
@@ -473,7 +473,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     chat is a `PageColumn` in that track: from 768px **24px sides** (content,
     cards and the title row 720px wide), **the title row 64px from the top**,
     **40px between blocks** and **40px under the last one** (a centerpiece's card
-    instead runs to the frame's 8px bottom). Below 768px the sides are the
+    instead runs to the frame's 8px bottom; while the composer bar shows, the
+    last block ends 24px above it and a card 8px above it: Components,
+    Composer, Clearance). Below 768px the sides are the
     frame's 20px, the title row sits on the top axis beside the sheet's menu
     button and the gaps stay 40px. See Page anatomy.
   - **Nothing is pinned above a page.** Its title row is the first block of the
@@ -702,6 +704,12 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     A direct URL fills its row. The groups scroll as a whole on a short window
     (edge fade, no scrollbar). No footer. Settings opens from the workspace
     menu (and ⌘,) on **General**, the registry's first page.
+    The Labels and workspace Permissions pages (and statuses) are data in the
+    database, not files: their Edit popovers have no "Edit file" action and the
+    agent edits them with its `labels_edit` / `statuses_edit` /
+    `permissions_edit` tools; the Permissions page reloads when they change. A
+    status icon is an emoji or an SVG image data URL that stays tinted by the
+    status color.
 - **The page header** (`PageHeaderRow`, drawn by `PageHeader`) is the page's
   **title row: the first block of the scrolling column**, never a pinned bar
   (the owner's call, after Capy's settings, where "General" is simply the first
@@ -742,8 +750,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     fill) **fixed over the column's top-left**, 16px in, on the axis, outside the
     scroll (the frame's leading slot), and the title row clears it (its title
     starts 56px in: 16 + 32 + 8). On the chat it leads the pinned row instead (a
-    28px ghost button). An unbuilt section (`PageHeader` with no title) draws only
-    this button.
+    28px ghost button). A page showing only its empty state (`PageHeader` with no
+    title) draws only this button.
 - **The sidecar** (`Sidecar`, undecided: canvas by default, `surface` wraps it in
   a card for testing), closed by default, is for an inspector or details (session
   info, files, a source's details). Docked in the right gutter it is a **canvas**:
@@ -865,15 +873,6 @@ no shadow.
   whose body is the input; the composer is not inside the centerpiece. Messages
   are flat: assistant text sits straight on the surface (no bubble, ring or
   shadow), the user message is a muted fill, code blocks are flat muted blocks.
-- **Unbuilt sections** (Tasks, Projects, Routines, Library) show only the empty state
-  and its "New …" button (the empty state's labeled exception, Buttons, Create actions) until the page is designed: no title row (below 768px
-  the fixed menu button alone, so the sidebar sheet stays reachable), no list or
-  cards. The state is the stock `Empty` (`SectionEmpty`) centered both
-  ways on the frame, not in a card: the section's Lucide icon in the 32px tile
-  (a 16px glyph, half the tile: CircleCheck, Folder, Clock, Library), a heading-size title, one
-  benefit-led description sentence, and one primary 32px button, which has no
-  action yet (enabled, no toast). The strings are in the table under the
-  Empty-state rules ("Tasks", "Projects", "Routines", "Library"). Tasks, Projects and Library are routed (index and detail, docs/routing.md) and their pages are placeholders showing this state until they are built (Projects, Tasks and Library are built, see Index pages, Project page and Library); Routines has no detail route.
 - **PageWrap: the line box of a dense list page.** A page of many small rows
   with small details (a list or table: Chats, Tasks and a project's Tasks tab,
   Inbox) puts its list in ONE line-only wrapper, as Threads wraps its feed: a
@@ -894,10 +893,10 @@ no shadow.
   both `foreground/10`: the stock `bg-muted` is lighter than the frame in
   light) sit in the wrapper where the list will be.
   **TEST, not the standard:** the Chats index, the Tasks index (list and
-  loading) and a project's Tasks tab put Otto v1's table (`ListGroup`, its
+  loading), a project's Tasks tab and the Routines index (list and loading) put Otto v1's table (`ListGroup`, its
   rounded bands and rows) in a 12px-padded line wrapper (`PageWrap
   className="p-3 md:-mx-[9px]"` in `chats-index-page.tsx`, `task-list.tsx`,
-  `tasks-page.tsx`): the 8px bands nest in the 20px corner (20 - 12 = 8, the
+  `tasks-page.tsx`, `routines-page.tsx`): the 8px bands nest in the 20px corner (20 - 12 = 8, the
   radii rule), nothing is clipped. From 768px the wrapper sits 9px out of the
   column (v1's `-mx-[9px]`: 9 + 1 + 12 + 12 = the band's chevron on the
   title's 16px line); below 768px it stays in the column (the scroll area
@@ -1012,6 +1011,45 @@ status color (Archived neutral). A row (44px): the status icon
   Assignees and due date autosave; status, project, links and time apply at
   once; every change shows the one "Saved" toast and a `conflict` reloads. An
   id the workspace does not have shows the not-found page.
+- **Routines index** (`RoutinesPage`, `pages/routines/`; the owner's call: "the
+  exact same table for tasks and for routines"): the workspace's routines (the
+  matchers of `automations.json` today, read through `useRoutines`, the one hook
+  that changes when they move to tables) as the grouped list in the padded
+  `PageWrap`, like Tasks. Actions: Filter (Type, one at a time, `?type=`) and "+"
+  (New routine); no Search (the palette has no Routines category). Groups by what
+  starts them, in order and only when not empty: Scheduled (`Clock`), Events
+  (`Zap`, Otto's own events) and Agent events (`Bot`), neutral bands, no group
+  "+". A row (44px): the state icon (`CirclePlay` green active, `CirclePause`
+  muted disabled, `CircleAlert` red failing: the last run that ran failed; a
+  skipped run does not count), the name (at 80% when disabled), then what starts
+  it in muted text after the name ("Weekdays at 9:00 AM (Berlin)", "Label added
+  matching ^bug$": the cron in words in the UI language, the expression itself
+  for an uncommon one), its kinds of action as outline badges (Prompt, Script,
+  Webhook), and when it last ran ("2h", else "Never") in the end column; the ⋯
+  menu: Open, Run now, Enable / Disable, then Delete (⌫) apart, asked first
+  ("Delete routine?", "This can't be undone."). Run now is the RPC's test run
+  ("Routine started"); Enable / Disable shows "Saved". Loading: three
+  `ListRowSkeleton`s in the wrapper. No routines at all: only the section's empty
+  state, whose "New routine" is the same as "+": the add popover (`EditPopover`,
+  `add-routine`), where you say what should run and when, and an agent writes it
+  in a new chat (there is no create RPC and no form). A filter that keeps none:
+  `NoResults`.
+- **Routine page** (`RoutinePage`, `/{ws}/routines/{id}`): a blocks page. The
+  title row is the name (read-only: the automations RPCs cannot rename; changes go
+  through Edit) with the trigger in words as the lead line; actions Details
+  (`PanelRight`, pressed while open) and More (Run now, Enable / Disable, then
+  Delete, back to Routines after). Then **Actions**, a card with each action
+  read-only (its kind over the prompt, or the webhook's URL or the script in mono;
+  the section's Edit asks an agent to change `automations.json`, starting from the
+  routine's name), and **Run history**, a card of its last 20 runs, newest first:
+  the date and time, the error or why it was skipped under it, and a Ran / Failed /
+  Skipped badge; a run that started a chat opens it (chevron). None: "No runs
+  yet". The Details sidecar: Properties, read-only rows (Trigger, the cron in mono
+  or the event; Timezone for a schedule, "Local time" when unset; Actions; Labels)
+  and Enabled, the emerald `Switch`, applied at once with "Saved". There is no
+  Created row: the file has no dates. Back returns to the index under its type;
+  Previous / Next step through its order. An id the workspace does not have shows
+  the not-found page.
 - **Project page** (`ProjectPage`, `pages/projects/project-page.tsx`): a blocks
   page. The title row's title is the project's title, edited in place like the
   task's; actions Details (`PanelRight`, pressed while open) and More (Copy link
@@ -1141,9 +1179,9 @@ One history stack, one rule for Back, one place the lists live.
 - **Back** is a different thing: the floating navigation's first button, shown
   ONLY on a view with a parent, where it goes to the parent view by the route
   hierarchy (`useParentView`): a chat goes to the Chats index (under the filter it was
-  opened with); a task or a library item goes to its index under the same filters, tab and folder; a project or a routine to its section.
+  opened with); a task or a library item goes to its index under the same filters, tab and folder; a routine to Routines under its type; a project to its section.
   A skill or a source goes to its grid in Settings, under the same filter.
-  The Chats, Tasks, Projects and Library indexes and the Skills and Sources grids have no
+  The Chats, Tasks, Projects, Routines and Library indexes and the Skills and Sources grids have no
   parent, so no Back. Settings' own pages have no Back either: its sidebar lists them, and
   Back to app leaves. Sub-navigation is the index page (Settings: its sidebar), so Back is the same at every width. There is no back button and no breadcrumb in the title row: the
   title is alone. Pages never pass handlers: `PageHeader` reads the route.
@@ -1157,6 +1195,7 @@ One history stack, one rule for Back, one place the lists live.
   to `sessionListOrderAtom` while the index is open and kept when a chat opens (after a
   reload, until the index has been open, a chat has none). A skill or a source: its grid's
   order under the same filter (`lib/skill-source-lists.ts`, read by the grid and `listNav`).
+  A routine: the Routines index's order under the same type (`getVisibleRoutines`).
   Settings' own pages step through its sidebar instead, and the other lists have none yet
   (Back only). A page with neither a parent nor
   a list shows no navigation. They show as the floating navigation. No keys are
@@ -1318,12 +1357,13 @@ is a flat 10% tinted fill.
 - **Dialogs** (the command palette) sit over a plain 50% black overlay, no
   blur. The file viewer is a full-screen dialog (`fullScreen`) on the page
   background.
-- **The floating chat** floats on the command palette's glass (dark,
-  translucent, blurred, hairline ring, `shadow-md`) on a layer above the
-  scrolling page, never inside it (the page's fade mask, and the morph's
-  named elements, would stop the blur), with nothing behind it: content
-  scrolls on under the frost, keeping 88px free at its end. Only the bar
-  takes clicks; no overlay, so the page stays usable while you chat.
+- **The composer bar** floats on the command palette's glass (dark,
+  translucent, blurred, hairline ring, `shadow-md`) in the frame's composer
+  slot, a layer above the scrolling page, never inside it (the page's fade
+  mask would stop the blur): content scrolls on under the frost, fading over
+  its last 80px, and a page ends 24px above the bar (see Components,
+  Composer, Clearance). Only the bar takes clicks; no overlay, so the page
+  stays usable.
 
 ## Shapes
 
@@ -1573,14 +1613,81 @@ are `ListGroup`.
 | Key | `Kbd`, 20px, 4px from the end | `xs` 4 | key token |
 | Row action | 20px, 4px from the end | `xs` 4 | hover `foreground/10` |
 
-**Composer** (`Composer`). The one input for comments, chats and agent
-requests. Card surface; one line that grows to 240px. **+** adds files (drop
-and paste too), shown as `Attachment`s with upload state. The main button
-dictates when empty, sends with content and stops while `busy`. A `tools` slot
-after + holds pickers (model, agent). Enter sends, Shift+Enter adds a line.
-`@` opens a grouped palette (people, agents, tasks, projects, files). Agents are
-chosen in the composer's agent picker (the `tools` slot) or reached through the
-floating chat, not tagged by name in the text.
+**Composer** (`Composer`, `ComposerInput`, `ComposerRow`, `ComposerMainButton`
+in `design/ui`; the spec and work packages in docs/composer.md). ONE composer,
+on every page, mounted once by the shell (`ComposerProvider` around
+`PageFrame`, `ShellComposer` in the frame's composer slot), so its text field
+never remounts on navigation. Three looks of one structure (slots in fixed
+places: `attachments`, `leading` +, the text, `context`, `tools`, `hint`,
+`attention`, `main`):
+
+- **Compact** (every page by default): the 40px bar, 448px (28rem), on the
+  command palette's glass (dark in both themes, `popover/70`, blurred,
+  `ring-foreground/10`, `shadow-md`, `xl` 12). One row 4px in: + (32px ghost),
+  the text (44px in, one line, no wrap), the focus key as a `Kbd` while idle
+  and empty (⌘J, `composer.focus`; hidden below 768px), the Inbox slot, the
+  main button. Centered on the column's content, 16px above the window's
+  bottom (8px above the body's end); below 768px the column's width (20px from
+  each side).
+- **Expanded** (grows in place from compact): the same glass as wide as the
+  column's content (720px), its bottom edge where the bar's was; the text 16px
+  in, one line up to 240px, then the action row: +, the page's entity chip
+  (`EntityChip`), tools … Inbox, main.
+- **Full** (the chat, the new chat, the Inbox): the expanded anatomy on the
+  card surface (`shadow-sm`), in the layout flow. Not drawn by the shell yet
+  (W2, below).
+
+**States.** compact idle → (focus, ⌘J) compact focused → (the text overflows
+the line, a line break from Shift+Enter or a paste, files, `expand()`)
+expanded → (Escape, or blur while empty, or `collapse()`) compact idle;
+focused → (Escape, blur) idle. Escape also blurs. The draft is kept either
+way. A full page never collapses. A new page starts collapsed. Width moves over
+320ms on `cubic-bezier(0.32,0.72,0,1)` (the height follows the content), none
+with reduced motion.
+
+**Main button.** One 32px primary icon button, its tooltip the label and its
+key: Send (ArrowUp, ↵ or ⌘↵ per the send key setting; disabled while empty,
+`loading` while the chat is made), Stop (Square, Esc, while the page's context
+is `busy` and has `onStop`). Dictate and Done come with dictation (W4).
+
+**Context.** A page says what it is about in one line,
+`useComposerContext({ key, entity?, placeholder?, mode?, onSend?, busy?,
+onStop?, tools? })`; the last page mounted wins. Every page registers: Chats,
+Tasks, Projects, Library, Routines (indexes `page:<name>`), a task, project
+and library item (`<type>:<id>` with its entity token), a routine
+(`routine:<id>`, no token: routines have none), Settings, Skills and Sources
+(plain), the Inbox (`mode: 'full'`), the chat and the new chat (`chat:<id>`,
+`mode: 'full'`). The 404 has no shell. Placeholders: "Ask your agents about
+this task / project / document / file / routine / page", "Ask your agents
+anything" (Chats, Inbox, Settings). `useComposer()` gives `prefill`, `focus`,
+`expand`, `collapse` to anything in the shell.
+
+**Send.** Enter sends as the chat input does (`sendMessageKey`; IME respected;
+Shift+Enter adds a line). A page's own `onSend` (the chat, W2) wins; else the
+default: a new chat (the existing `onCreateSession`), its first message the
+page's entity token then the text (`task:<id> …`), sent with the existing
+`onSendMessage`, and the chat opens at once. The draft clears once the chat
+exists; a failure to make it toasts "Could not start the chat" and keeps the
+draft. Drafts live in the browser only (localStorage, per workspace and
+context key, `otto-composer-draft:<ws>:<key>`).
+
+**Clearance.** While the bar shows, the frame sets `--composer-clearance`
+(56px: 8 under the bar, 40, 8 over it). A blocks page then ends 24px above
+the bar (72px of bottom padding instead of 40) and its bottom fade grows to
+80px so content softens toward the bar; a centerpiece's card ends 8px above
+it. At a page's end nothing is under the bar. Layers: the bar is `z-10` on
+the frame, outside the masked scroller (the blur needs it), under the
+overlaid sidecar (`z-20`), the sheet, popovers and dialogs; with the docked
+sidecar it stays on the column's center line.
+
+**Seams left open** (docs/composer.md (h)): the full look and the chat's own
+input moving into the shell (W2; until then a full `chat:` context draws
+nothing, so no page shows two composers, and the Inbox shows the compact bar);
+the attachment rail (W3; + is drawn disabled until then, and `files` already
+expands); dictation (W4); the Inbox icon in the `attention` slot (W5); prefill
+replacing `EditPopover` (W6); phones' keyboard lift, safe area and the toast
+offset (W7). `@` mentions (people, agents, tasks, projects, files) and the
+model and agent pickers in `tools` belong to the full look.
 
 **Tags** (`EntityChip`, `components/entities/`). Everywhere a typed reference
 shows in text (comments now): the type's 14px icon (task `CircleCheck`, project
@@ -1605,6 +1712,13 @@ the width, mirrored from the center. Done stops the recording; the main
 button is `loading` (its label unchanged) while the server transcribes it, then
 the text is typed in at the cursor. A failure is a toast ("Unable to transcribe", no retry action) and
 the recording is dropped; Cancel drops it too.
+
+*Note (Composer as built).* The floating chat below and its Morph are v1's
+design, kept for reference: the compact bar is now the shell's `Composer` on
+every page with no exclusion, and a send from it opens a new chat as a page
+instead of growing into a window (docs/composer.md, open question 3). What
+still applies from it: the bar's glass and size, the Inbox icon (W5) and
+prefill from page actions (W6).
 
 **Floating chat** (`FloatingChat`). On every page but Chats (and in the file
 viewer): one row at the bottom, kept one line tall so it never covers the
@@ -1749,26 +1863,11 @@ One chat:
   picker), Members (people, then agents; Add member) and Files shared in the
   chat, hidden until something is shared. A project's panel lists its chats.
 
-**Schedules.** Automations: on a time pattern, run a prompt (an agent you
-pick answers it) or code, and post the result to a chat: an existing one, or
-a new chat each run (a setting; nothing is made until it runs). No project
-row: less is more. Made and changed by asking an agent: + starts the floating
-chat with "Every ", and the prompt (or code, as a code block) shows
-read-only: that body is what tells them apart, so the panel has no type
-row. A person sets the state (Active or Paused), the agent (prompts
-only), Repeat (the tasks' dropdown, each preset with its time; Custom asks),
-and Chat, where it posts ("A new chat each run", then the chats; channels show their #
-icon, never a # in the name), and can Run now (then a toast). Its page
-follows the task's: owner and agent under the title, then Activity: created
-and each change as events, each run as a card like a comment (who ran
-it, when, Ran or Failed on the right, then what it said). The list is Tasks'
-pattern (`ListGroup`): Active, Paused, then Archived folded; rows show the
-owner's and agent's avatars, like a task's people, and the next run
-("Tomorrow 9:00"); filters by type, agent and owner; right-click opens the
-item menu. The next run ends the Activity timeline on a hollow dot, not a
-panel row: panel rows are controls, never read-only text. Picking a state
-on an archived schedule restores it.
-Schedules archive, never delete.
+**Routines** (automations; this was the "Schedules" design): built as the
+Routines index and the Routine page (Page anatomy). Not built yet from that
+design: picking the agent and the chat a run posts to, Repeat presets, an
+Activity timeline and the next run. Routines are deleted (asked first), not
+archived.
 
 **Settings** (from the profile menu), as lean as the MVP allows: a left
 panel like Chats', Account (Profile, Notifications, Models, Connections,
@@ -1924,7 +2023,7 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   end, none in the root; a folder opens `/library?folder=<id>`, anything else
   `/library/<id>`), **Pages** (the
   sidebar's pages with its icons: Inbox, Tasks, Projects, Chats, Routines, Library;
-  Routines have no data of their own yet, so they are a page only), **Settings** (every page of `SETTINGS_NAV_GROUPS`
+  Routines are a page only: the palette has no Routines category yet), **Settings** (every page of `SETTINGS_NAV_GROUPS`
   with the settings sidebar's icons; Shortcuts shows ⌘/), **Skills** and
   **Sources** (the shell's loaded skills and sources with their own icon, bare (no avatar); opens
   their page), **Actions** (New chat ⌘N, Open settings ⌘,, Light, Dark and System
@@ -2372,7 +2471,7 @@ Unknown creation outcomes disable another submission in the current form and dir
 4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No {plural} yet" (a table row or `Row` may be just that, "No labels yet"), one description line ending in a period, no action.
 5. Command palette: an entered search with no results shows a compact tile and "No results for “query”" with no period, and its category tabs are hidden when no category has results. Skeletons are stock and use the small radius.
 6. Tasks list every project's tasks (filter by Project to narrow them), so an empty page never asks for one; with no project at all, the empty state's button is New project. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
-7. The floating bar shows its Inbox button only while something needs attention (an unread chat or an unanswered question).
+7. The composer bar's Inbox button (its `attention` slot, W5) shows only while something needs attention (an unread chat or an unanswered question); docs/composer.md open question 7 recommends always showing it, with a dot.
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
 9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
 
@@ -2396,7 +2495,6 @@ A data page with no data hides its title row and its actions (Filter, "+", Searc
 | Skills | No skills yet | Teach your agents your way of working once and reuse it anywhere. | Add skill |
 | Sources | No sources yet | Let your agents work with the tools and data you already use. | Add source |
 | Archived chats | No archived chats yet | Chats you archive stay here, out of your way. | |
-| Pages | No pages yet | Ask your agents for a live dashboard that keeps itself up to date. | |
 | Inbox | No notifications yet | Never miss a mention or a task handed to you. | |
 | Comments (inline) | No comments yet | | |
 10. A new chat has two pickers, With and Project. It is always participants-only; the project's own chat is the one open to everyone in the project.

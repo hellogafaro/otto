@@ -10,6 +10,7 @@
 import { DatabaseZap, Shapes } from 'lucide-react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField } from '@workspace/ui/components/filters'
 import { Gallery, GalleryItem, GalleryItemSkeleton } from '@workspace/ui/components/gallery'
@@ -39,6 +40,7 @@ export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
 
 export function SourcesPage() {
   const { t } = useTranslation()
+  useComposerContext({ key: 'page:sources', placeholder: t('composer.placeholder.start') })
   const sources = useAtomValue(sourcesAtom)
   const navState = useNavigationState()
   const { navigate } = useNavigation()

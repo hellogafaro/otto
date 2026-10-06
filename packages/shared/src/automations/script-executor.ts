@@ -10,8 +10,6 @@
  * - Child env is OTTO_*-only (see buildScriptEnv in utils.ts).
  * - SIGTERM on timeout with a SIGKILL fallback so trapped signals can't hang
  *   the host process.
- * - Page refreshes record their outcome on page.json LAST, making it the
- *   completion marker the config watcher turns into `pages:changed`.
  *
  * The per-matcher concurrency lock lives in the ScriptHandler — this module
  * executes exactly one action.
@@ -25,7 +23,6 @@ import {
   isPathWithinDirectory,
 } from '@otto/session-tools-core';
 import { createLogger } from '../utils/debug.ts';
-import { recordPageRefresh } from '../pages/storage.ts';
 import { HISTORY_FIELD_MAX_LENGTH } from './constants.ts';
 import type { ScriptAction, ScriptActionResult } from './types.ts';
 
@@ -46,13 +43,6 @@ export interface ScriptExecutionContext {
   workspaceRootPath: string;
   /** OTTO_*-only environment (build with buildScriptEnv) */
   env: Record<string, string>;
-  /**
-   * Optional cooperative-cancellation signal. When it aborts, the child gets
-   * SIGTERM with a SIGKILL fallback — so a caller with its own deadline (e.g.
-   * the pages action broker) can guarantee the process cannot outlive the
-   * request. Scheduled refreshes pass none and are unaffected.
-   */
-  signal?: AbortSignal;
 }
 
 /** Clamp a configured timeout into the allowed window. */
@@ -71,7 +61,6 @@ function blockedResult(action: ScriptAction, reason: string): ScriptActionResult
     stdout: '',
     stderr: reason,
     durationMs: 0,
-    page: action.page,
   };
 }
 
@@ -126,9 +115,7 @@ export async function executeScriptAction(
     let stdout = '';
     let stderr = '';
     let timedOut = false;
-    let aborted = false;
     let settled = false;
-    let abortKillTimer: ReturnType<typeof setTimeout> | undefined;
 
     const capture = (current: string, chunk: Buffer): string =>
       current.length >= OUTPUT_CAPTURE_MAX_BYTES
@@ -150,34 +137,17 @@ export async function executeScriptAction(
       }
     }, timeoutMs + SIGKILL_GRACE_MS);
 
-    // Cooperative cancellation: SIGTERM now, SIGKILL after the same grace, so an
-    // aborted run cannot outlive its caller's deadline.
-    const onAbort = () => {
-      aborted = true;
-      child.kill('SIGTERM');
-      abortKillTimer = setTimeout(() => {
-        if (!child.killed || child.exitCode === null) child.kill('SIGKILL');
-      }, SIGKILL_GRACE_MS);
-    };
-    if (ctx.signal) {
-      if (ctx.signal.aborted) onAbort();
-      else ctx.signal.addEventListener('abort', onAbort, { once: true });
-    }
-
     const settle = (partial: Pick<ScriptActionResult, 'success' | 'exitCode'> & Partial<ScriptActionResult>) => {
       if (settled) return;
       settled = true;
       clearTimeout(termTimer);
       clearTimeout(killTimer);
-      if (abortKillTimer) clearTimeout(abortKillTimer);
-      ctx.signal?.removeEventListener('abort', onAbort);
       resolvePromise({
         type: 'script',
         script: action.script,
         stdout: stdout.trim(),
         stderr: stderr.trim(),
         durationMs: Date.now() - startTime,
-        page: action.page,
         ...partial,
       });
     };
@@ -187,9 +157,7 @@ export async function executeScriptAction(
     });
 
     child.on('close', (code) => {
-      if (aborted) {
-        settle({ success: false, exitCode: null, stderr: (stderr + '\nAborted').trim() });
-      } else if (timedOut) {
+      if (timedOut) {
         settle({
           success: false,
           exitCode: null,
@@ -201,20 +169,6 @@ export async function executeScriptAction(
       }
     });
   });
-
-  // --- Page refresh completion marker (must be the LAST write of the run) ---
-  if (action.page) {
-    try {
-      recordPageRefresh(ctx.workspaceRootPath, action.page, {
-        at: Date.now(),
-        ok: result.success,
-        durationMs: result.durationMs,
-        error: result.success ? undefined : (result.stderr || undefined),
-      });
-    } catch (e) {
-      log.debug(`[ScriptExecutor] Failed to record page refresh for ${action.page}: ${e}`);
-    }
-  }
 
   return result;
 }
@@ -236,7 +190,6 @@ export function createScriptHistoryEntry(opts: {
       script: result.script,
       exitCode: result.exitCode,
       durationMs: result.durationMs,
-      ...(result.page ? { page: result.page } : {}),
       ...(result.timedOut ? { timedOut: true } : {}),
       ...(result.blocked ? { blocked: true } : {}),
       ...(result.skipped ? { skipped: true } : {}),

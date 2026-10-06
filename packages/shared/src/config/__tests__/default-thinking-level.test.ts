@@ -6,6 +6,8 @@ import { pathToFileURL } from 'url'
 import { THINKING_LEVEL_IDS } from '../../agent/thinking-levels.ts'
 
 const STORAGE_MODULE_PATH = pathToFileURL(join(import.meta.dir, '..', 'storage.ts')).href
+const SETTINGS_MODULE_PATH = pathToFileURL(join(import.meta.dir, '..', '..', 'settings', 'index.ts')).href
+const DB_PUSH_SCRIPT = join(import.meta.dir, '..', '..', '..', '..', '..', 'scripts', 'db-push.ts')
 
 function setupWorkspaceConfigDir() {
   const configDir = mkdtempSync(join(tmpdir(), 'otto-config-thinking-'))
@@ -29,8 +31,6 @@ function setupWorkspaceConfigDir() {
     configPath,
     JSON.stringify({
       workspaces: [{ id: 'ws-1', name: 'My Workspace', rootPath: workspaceRoot, createdAt: Date.now() }],
-      activeWorkspaceId: 'ws-1',
-      activeSessionId: null,
       llmConnections: [],
     }, null, 2),
     'utf-8',
@@ -60,6 +60,10 @@ function setupWorkspaceConfigDir() {
     'utf-8',
   )
 
+  // The default lives in the settings table of this dir's database.
+  const push = Bun.spawnSync([process.execPath, 'run', DB_PUSH_SCRIPT], { env: { ...process.env, OTTO_CONFIG_DIR: configDir }, stderr: 'pipe' })
+  if (push.exitCode !== 0) throw new Error(`db:push failed: ${push.stderr.toString()}`)
+
   return { configDir, configPath }
 }
 
@@ -67,7 +71,7 @@ function runEval(configDir: string, code: string): string {
   const run = Bun.spawnSync([
     process.execPath,
     '--eval',
-    `import { getDefaultThinkingLevel, setDefaultThinkingLevel } from '${STORAGE_MODULE_PATH}'; ${code}`,
+    `import { getDefaultThinkingLevel, setDefaultThinkingLevel } from '${STORAGE_MODULE_PATH}'; import { initSettingsImport } from '${SETTINGS_MODULE_PATH}'; ${code}`,
   ], {
     env: { ...process.env, OTTO_CONFIG_DIR: configDir },
     stdout: 'pipe',
@@ -82,19 +86,19 @@ function runEval(configDir: string, code: string): string {
 }
 
 describe('default thinking level storage', () => {
-  it('falls back to bundled default when no app-level default is set', () => {
+  it('is medium when no app-level default is set', () => {
     const { configDir } = setupWorkspaceConfigDir()
     const output = runEval(configDir, "console.log(String(getDefaultThinkingLevel()))")
-    expect(output).toBe('off')
+    expect(output).toBe('medium')
   })
 
-  it('persists defaultThinkingLevel to config.json', () => {
+  it('persists defaultThinkingLevel as a setting, not in config.json', () => {
     const { configDir, configPath } = setupWorkspaceConfigDir()
+    const before = readFileSync(configPath, 'utf-8')
 
-    runEval(configDir, "setDefaultThinkingLevel('max'); console.log(String(getDefaultThinkingLevel()))")
+    expect(runEval(configDir, "setDefaultThinkingLevel('max'); console.log(String(getDefaultThinkingLevel()))")).toBe('max')
 
-    const config = JSON.parse(readFileSync(configPath, 'utf-8'))
-    expect(config.defaultThinkingLevel).toBe('max')
+    expect(readFileSync(configPath, 'utf-8')).toBe(before)
   })
 
   it('round-trips persisted value across processes', () => {
@@ -121,14 +125,13 @@ describe('default thinking level storage', () => {
     expect(runEval(configDir, "console.log(String(getDefaultThinkingLevel()))")).toBe(last)
   }, 15_000)
 
-  it('migrates legacy "think" value to "medium"', () => {
+  it('imports the legacy "think" value of config.json as "medium"', () => {
     const { configDir, configPath } = setupWorkspaceConfigDir()
-    // Manually write the legacy 'think' value to config
     const config = JSON.parse(readFileSync(configPath, 'utf-8'))
     config.defaultThinkingLevel = 'think'
     writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
 
-    const output = runEval(configDir, "console.log(String(getDefaultThinkingLevel()))")
+    const output = runEval(configDir, "initSettingsImport(); console.log(String(getDefaultThinkingLevel()))")
     expect(output).toBe('medium')
   })
 })

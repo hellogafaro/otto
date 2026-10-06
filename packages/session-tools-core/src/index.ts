@@ -156,17 +156,6 @@ export type {
   SendAgentMessageResult,
   ResolvedLabelsResult,
   ResolvedStatusResult,
-  // Pages types
-  PagesToolCallbacks,
-  PageToolRefreshSpec,
-  PageToolSummary,
-  PageToolDataSummary,
-  PageToolDetails,
-  CreatePageToolInput,
-  UpdatePageToolPatch,
-  PageDataToolPatch,
-  PageDataWriteSummary,
-  DeletePageToolResult,
   // Decision tool types
   DecisionToolCallbacks,
   DecisionToolQuestionType,
@@ -212,13 +201,6 @@ export {
   handleRenderTemplate,
   // Send Developer Feedback
   handleSendDeveloperFeedback,
-  // Pages
-  handleListPages,
-  handleGetPage,
-  handleCreatePage,
-  handleUpdatePage,
-  handleWritePageData,
-  handleDeletePage,
   // Decision model
   handleDecide,
 } from './handlers/index.ts';
@@ -239,12 +221,6 @@ export type {
   ScriptSandboxArgs,
   RenderTemplateArgs,
   SendDeveloperFeedbackArgs,
-  ListPagesArgs,
-  GetPageArgs,
-  CreatePageArgs,
-  UpdatePageArgs,
-  WritePageDataArgs,
-  DeletePageArgs,
   DecideArgs,
 } from './handlers/index.ts';
 
@@ -268,13 +244,6 @@ export {
   BrowserToolSchema,
   // Developer feedback schema
   SendDeveloperFeedbackSchema,
-  // Pages schemas
-  ListPagesSchema,
-  GetPageSchema,
-  CreatePageSchema,
-  UpdatePageSchema,
-  WritePageDataSchema,
-  DeletePageSchema,
   // Descriptions
   TOOL_DESCRIPTIONS,
   // Registry

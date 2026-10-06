@@ -28,8 +28,6 @@ const KINDS: Array<[routeString: string, pathname: string, search: Record<string
   ['allSessions?status=todo&status=done&label=research&label=design&flagged=1&archived=1', '/test/chats', { status: ['todo', 'done'], label: ['research', 'design'], flagged: true, archived: true }],
   ['allSessions/session/abc123?status=todo&status=done&label=a', '/test/chats/abc123', { status: ['todo', 'done'], label: ['a'] }],
   ['allSessions?label=a%26b%3Dc&label=%C3%A9+x', '/test/chats', { label: ['a&b=c', 'é x'] }],
-  ['view/my-view', '/test/chats', { view: 'my-view' }],
-  ['view/my-view/session/abc123', '/test/chats/abc123', { view: 'my-view' }],
   ['settings/app', '/test/settings/app', {}],
   ['settings/ai', '/test/settings/ai', {}],
   ['settings/appearance', '/test/settings/appearance', {}],
@@ -183,11 +181,6 @@ describe('chats filter search', () => {
   it('drops empty, false and unknown params', () => {
     expect(validateChatsSearch({ status: ['', 3, 'x'], label: [], flagged: false, archived: '0', other: 1 })).toEqual({ status: ['3', 'x'] })
     expect(validateChatsSearch({})).toEqual({})
-  })
-
-  it('a view applies only without filters', () => {
-    expect(validateChatsSearch({ view: 'v' })).toEqual({ view: 'v' })
-    expect(validateChatsSearch({ view: 'v', flagged: true })).toEqual({ flagged: true })
   })
 })
 

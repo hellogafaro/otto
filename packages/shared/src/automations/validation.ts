@@ -12,7 +12,7 @@ import { AUTOMATIONS_CONFIG_FILE } from './constants.ts';
 import { AutomationsConfigSchema, zodErrorToIssues, DEPRECATED_EVENT_ALIASES } from './schemas.ts';
 import { isValidLabelId } from '../labels/storage.ts';
 import { extractLabelId } from '../labels/values.ts';
-import { getLlmConnection } from '../config/storage.ts';
+import { getLlmConnection, getWorkspaceIdByRootPath } from '../config/storage.ts';
 import { getDefaultModelsForConnection } from '../config/llm-connections.ts';
 import type { ModelDefinition } from '../config/models.ts';
 import { Cron } from 'croner';
@@ -340,13 +340,13 @@ export function validateAutomations(workspaceRoot: string): ValidationResult {
             for (const label of matcher.labels) {
               // Extract label ID (handles "priority::3" -> "priority")
               const labelId = extractLabelId(label);
-              if (!isValidLabelId(workspaceRoot, labelId)) {
+              if (!isValidLabelId(getWorkspaceIdByRootPath(workspaceRoot) ?? '', labelId)) {
                 warnings.push({
                   file,
                   path: `automations.${event}[${i}].labels`,
                   message: `Label "${labelId}" does not exist in workspace`,
                   severity: 'warning',
-                  suggestion: `Create this label in labels/config.json or use an existing label ID`,
+                  suggestion: `Create this label in Settings → Labels or use an existing label ID`,
                 });
               }
             }

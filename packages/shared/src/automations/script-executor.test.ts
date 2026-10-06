@@ -8,12 +8,11 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { executeScriptAction, clampScriptTimeout, createScriptHistoryEntry, DEFAULT_SCRIPT_TIMEOUT_MS, MAX_SCRIPT_TIMEOUT_MS } from './script-executor.ts';
 import { buildScriptEnv } from './utils.ts';
-import { loadPageConfig, savePageConfig } from '../pages/storage.ts';
 import type { ScriptAction } from './types.ts';
 
 const IS_WINDOWS = process.platform === 'win32';
@@ -129,83 +128,6 @@ describe('script-executor', () => {
       expect(result.exitCode).toBeNull();
       expect(result.stderr).toContain('Timed out');
     }, 15_000);
-
-    it('kills a running script when the abort signal fires', async () => {
-      writeFileSync(join(workspaceDir, 'hang.ts'), 'await new Promise(() => {})');
-      const controller = new AbortController();
-      setTimeout(() => controller.abort(), 200);
-      const result = await executeScriptAction(
-        // Long timeout so the abort — not the timeout — is what ends the run.
-        action({ script: 'hang.ts', timeoutMs: 30_000 }),
-        { workspaceRootPath: workspaceDir, env: {}, signal: controller.signal },
-      );
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBeNull();
-      expect(result.timedOut).toBeUndefined();
-      expect(result.stderr).toContain('Aborted');
-    }, 15_000);
-
-    it('aborts immediately when handed an already-aborted signal', async () => {
-      writeFileSync(join(workspaceDir, 'hang.ts'), 'await new Promise(() => {})');
-      const result = await executeScriptAction(
-        action({ script: 'hang.ts', timeoutMs: 30_000 }),
-        { workspaceRootPath: workspaceDir, env: {}, signal: AbortSignal.abort() },
-      );
-      expect(result.success).toBe(false);
-      expect(result.stderr).toContain('Aborted');
-    }, 15_000);
-  });
-
-  describe('page refresh recording', () => {
-    it('records the outcome on page.json after the run', async () => {
-      const pageDir = join(workspaceDir, 'pages', 'dash');
-      mkdirSync(pageDir, { recursive: true });
-      savePageConfig(workspaceDir, {
-        schemaVersion: 1,
-        id: 'page_test0001',
-        slug: 'dash',
-        name: 'Dash',
-        kind: 'interactive',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-      writeFileSync(join(workspaceDir, 'refresh.ts'), 'console.log("refreshed")');
-
-      const result = await executeScriptAction(
-        action({ script: 'refresh.ts', page: 'dash' }),
-        ctx(),
-      );
-      expect(result.success).toBe(true);
-
-      const config = loadPageConfig(workspaceDir, 'dash');
-      expect(config?.lastRefresh?.ok).toBe(true);
-      expect(config?.lastRefresh?.durationMs).toBeGreaterThanOrEqual(0);
-      expect(config?.lastRefresh?.error).toBeUndefined();
-    });
-
-    it('records failures with the captured stderr', async () => {
-      mkdirSync(join(workspaceDir, 'pages', 'dash'), { recursive: true });
-      savePageConfig(workspaceDir, {
-        schemaVersion: 1,
-        id: 'page_test0002',
-        slug: 'dash',
-        name: 'Dash',
-        kind: 'interactive',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-      writeFileSync(join(workspaceDir, 'bad.ts'), 'console.error("kaput"); process.exit(1)');
-
-      const result = await executeScriptAction(
-        action({ script: 'bad.ts', page: 'dash' }),
-        ctx(),
-      );
-      expect(result.success).toBe(false);
-
-      const config = loadPageConfig(workspaceDir, 'dash');
-      expect(config?.lastRefresh?.ok).toBe(false);
-      expect(config?.lastRefresh?.error).toContain('kaput');
-    });
   });
 
   describe('clampScriptTimeout', () => {
@@ -229,14 +151,12 @@ describe('script-executor', () => {
           stdout: '',
           stderr: 'e'.repeat(5000),
           durationMs: 42,
-          page: 'dash',
         },
       });
       expect(entry.id).toBe('abc123');
       expect(entry.ok).toBe(false);
       const script = entry.script as Record<string, unknown>;
       expect(script.script).toBe('x.ts');
-      expect(script.page).toBe('dash');
       expect((script.error as string).length).toBeLessThanOrEqual(2000);
     });
   });
@@ -249,15 +169,12 @@ describe('script-executor', () => {
         const env = buildScriptEnv(
           'SchedulerTick',
           { workspaceId: 'ws', timestamp: 123, localTime: '10:00', utcTime: 't' } as never,
-          { workspaceRootPath: workspaceDir, page: 'dash' },
+          { workspaceRootPath: workspaceDir },
         );
         expect(env.OTTO_TEST_PASSTHROUGH).toBe('yes');
         expect(env.NOT_OTTO_SECRET).toBeUndefined();
         expect(env.OTTO_EVENT).toBe('SchedulerTick');
         expect(env.OTTO_WORKSPACE_PATH).toBe(workspaceDir);
-        expect(env.OTTO_PAGE_SLUG).toBe('dash');
-        expect(env.OTTO_PAGE_DIR).toBe(join(workspaceDir, 'pages', 'dash'));
-        expect(env.OTTO_PAGE_DATA_DIR).toBe(join(workspaceDir, 'pages', 'dash', 'data'));
         expect(env.PATH).toBeUndefined();
         // Every key is OTTO_* or a documented essential
         const essentials = new Set(IS_WINDOWS

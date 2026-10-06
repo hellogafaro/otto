@@ -272,6 +272,7 @@ export interface ElectronAPI {
   importSession(targetWorkspaceId: string, bundle: unknown, mode: 'move' | 'fork'): Promise<{ sessionId: string; warnings?: string[] }>
   exportRemoteSessionTransfer(sessionId: string): Promise<RemoteSessionTransferPayload>
   importRemoteSessionTransfer(targetWorkspaceId: string, payload: RemoteSessionTransferPayload): Promise<ImportRemoteSessionTransferResult>
+  getSessionShareCapabilities(): Promise<{ viewerConfigured: boolean }>
 
   // Pending plan execution (for reload recovery)
   getPendingPlanExecution(sessionId: string): Promise<{ planPath: string; draftInputSnapshot?: string; awaitingCompaction: boolean; executionDispatched: boolean } | null>
@@ -461,7 +462,7 @@ export interface ElectronAPI {
   openFolderDialog(): Promise<string | null>
 
   // User Preferences
-  readPreferences(): Promise<{ content: string; exists: boolean; path: string }>
+  readPreferences(): Promise<{ content: string }>
   writePreferences(content: string): Promise<{ success: boolean; error?: string }>
 
   // Session Drafts (persisted composer state — text + attachment refs)
@@ -515,20 +516,14 @@ export interface ElectronAPI {
   // Statuses (workspace-scoped)
   listStatuses(workspaceId: string): Promise<import('@otto/shared/statuses').StatusConfig[]>
   reorderStatuses(workspaceId: string, orderedIds: string[]): Promise<void>
-  onStatusesChanged(callback: (workspaceId: string) => void): () => void
 
   // Labels (workspace-scoped)
   listLabels(workspaceId: string): Promise<import('@otto/shared/labels').LabelConfig[]>
   createLabel(workspaceId: string, input: import('@otto/shared/labels').CreateLabelInput): Promise<import('@otto/shared/labels').LabelConfig>
   deleteLabel(workspaceId: string, labelId: string): Promise<{ stripped: number }>
-  onLabelsChanged(callback: (workspaceId: string) => void): () => void
 
   // LLM connections change listener
   onLlmConnectionsChanged(callback: () => void): () => void
-
-  // Views (workspace-scoped, stored in views.json)
-  listViews(workspaceId: string): Promise<import('@otto/shared/views').ViewConfig[]>
-  saveViews(workspaceId: string, views: import('@otto/shared/views').ViewConfig[]): Promise<void>
 
   // Generic workspace image loading/saving
   readWorkspaceImage(workspaceId: string, relativePath: string): Promise<string>
@@ -674,35 +669,6 @@ export interface ElectronAPI {
   /** After a write by anyone in the workspace: this domain's data there is stale. Hooks reload on it. */
   onDomainChanged(callback: (change: DomainChange) => void): () => void
 
-  // Pages (workspace-scoped mini dashboards)
-  getPages(workspaceId: string): Promise<import('@otto/shared/pages/types').LoadedPage[]>
-  getPage(workspaceId: string, pageIdOrSlug: string): Promise<import('@otto/shared/pages/types').LoadedPage | null>
-  createPage(workspaceId: string, input: import('@otto/shared/pages/types').CreatePageInput): Promise<import('@otto/shared/pages/types').PageConfig>
-  /** Optional fields (projectId, description, refresh) accept explicit null = clear (undefined is dropped by the JSON transport). */
-  updatePage(workspaceId: string, pageSlug: string, patch: Partial<Omit<import('@otto/shared/pages/types').PageConfig, 'id' | 'slug' | 'createdAt' | 'contentDigest' | 'lastRefresh' | 'grants' | 'share' | 'projectId' | 'description' | 'refresh'>> & { projectId?: string | null; description?: string | null; refresh?: import('@otto/shared/pages/types').PageRefreshSpec | null }): Promise<import('@otto/shared/pages/types').PageConfig>
-  deletePage(workspaceId: string, pageSlug: string): Promise<{ publicCopyMayRemain: boolean }>
-  getPageContent(workspaceId: string, pageSlug: string): Promise<{ content: string | null; contentDigest?: string }>
-  setPageContent(workspaceId: string, pageSlug: string, content: string): Promise<import('@otto/shared/pages/types').PageConfig>
-  getPageData(workspaceId: string, pageSlug: string): Promise<import('@otto/shared/pages/types').PageDataSnapshot | null>
-  listPageGrants(workspaceId: string, pageSlug: string): Promise<import('@otto/shared/pages/types').PageActionGrant[]>
-  issuePageGrant(workspaceId: string, pageSlug: string, input: { action: import('@otto/shared/pages/types').PageActionDescriptor; description?: string; ttlMs?: number }): Promise<import('@otto/shared/pages/types').PageActionGrant>
-  revokePageGrant(workspaceId: string, pageSlug: string, grantId: string): Promise<boolean>
-  createPageLease(workspaceId: string, pageSlug: string): Promise<{ lease: import('@otto/shared/pages/types').PageRenderLease; content: string }>
-  releasePageLease(workspaceId: string, leaseId: string): Promise<void>
-  executePageAction(workspaceId: string, request: import('@otto/shared/pages/types').PageActionRequest): Promise<import('@otto/shared/pages/types').PageActionResult>
-  cancelPageAction(workspaceId: string, requestId: string): Promise<boolean>
-  getPageShareCapabilities(): Promise<{ sharingEnabled: boolean; viewerConfigured: boolean }>
-  /** What `includeData` would publish + key paths that look credential-bearing (warn-only). */
-  getPageShareDataScan(workspaceId: string, pageSlug: string): Promise<{ snapshotBytes: number | null; secretCandidates: string[] }>
-  publishPage(workspaceId: string, pageSlug: string, options: { includeData: boolean; password?: string; viewOnlyAcknowledged?: boolean }): Promise<import('@otto/shared/pages/types').PageConfig>
-  setPagePublicationPassword(workspaceId: string, pageSlug: string, password: string | null): Promise<import('@otto/shared/pages/types').PageConfig>
-  unpublishPage(workspaceId: string, pageSlug: string): Promise<{ config: import('@otto/shared/pages/types').PageConfig; warning?: 'remote-copy-may-remain' }>
-  /** Read a page's cached poster as a data URL — only returns when fresh (digest matches current content). */
-  getPageThumbnail(workspaceId: string, pageSlug: string): Promise<{ dataUrl: string; digest: string } | null>
-  /** Request a (re)capture of a page's poster (no-op on hosts without a capturer). */
-  regeneratePageThumbnail(workspaceId: string, pageSlug: string): Promise<boolean>
-  onPagesChanged(callback: (workspaceId: string, pages: import('@otto/shared/pages/types').LoadedPage[]) => void): () => void
-
   // Automations
   getAutomations(workspaceId: string): Promise<unknown>
 
@@ -835,7 +801,6 @@ export type SessionFilter =
   | { kind: 'flagged' }
   | { kind: 'state'; stateId: string }
   | { kind: 'label'; labelId: string }
-  | { kind: 'view'; viewId: string }
   | { kind: 'archived' }
 
 /**

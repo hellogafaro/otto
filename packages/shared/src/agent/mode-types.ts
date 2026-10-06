@@ -272,8 +272,6 @@ export interface MismatchAnalysis {
  * Used in error messages to guide the agent on how to customize permissions.
  */
 export interface PermissionPaths {
-  /** Path to workspace-level permissions.json */
-  workspacePath: string;
   /** Path to app-level default.json */
   appDefaultPath: string;
   /** Path to permissions documentation */

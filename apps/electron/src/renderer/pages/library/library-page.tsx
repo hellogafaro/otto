@@ -9,6 +9,7 @@
 import * as React from 'react'
 import { FilePlus, FolderPlus, Library, Upload, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@workspace/ui/components/breadcrumb'
 import { Button } from '@workspace/ui/components/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui/components/dropdown-menu'
@@ -59,6 +60,7 @@ type Pending = { key: string; title: string; folderId: string | null }
 
 export function LibraryPage() {
   const { t } = useTranslation()
+  useComposerContext({ key: 'page:library' })
   const { items, loaded, createLibraryItem, createLibraryFolder } = useLibrary()
   const { me } = useWorkspaceMembers()
   const { view, setSearch, openItem } = useLibraryFilters()

@@ -1321,8 +1321,8 @@ function formatPermissionGuidance(config: ToolCheckConfig): string {
   if (config.permissionPaths) {
     lines.push('');
     lines.push('To see what commands are allowed in Explore mode, read:');
-    lines.push(`  • ${config.permissionPaths.workspacePath}`);
     lines.push(`  • ${config.permissionPaths.appDefaultPath}`);
+    lines.push('  • the workspace rules: the permissions_edit tool with action "get"');
     lines.push('');
     lines.push('To understand the permission system and how to customize:');
     lines.push(`  • ${config.permissionPaths.docsPath}`);

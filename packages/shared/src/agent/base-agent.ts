@@ -25,7 +25,7 @@ import { DEFAULT_THINKING_LEVEL, normalizeThinkingLevel } from './thinking-level
 import type { PermissionMode } from './mode-manager.ts';
 import type { LoadedSource } from '../sources/types.ts';
 import { buildCallLlmRequest, type LLMQueryRequest, type LLMQueryResult } from './llm-tool.ts';
-import { getLlmConnections, getDefaultLlmConnection } from '../config/storage.ts';
+import { contextOfScope, getLlmConnections, getDefaultLlmConnection } from '../config/storage.ts';
 import { loadAllSources } from '../sources/storage.ts';
 import type { ApiServerConfig } from '../mcp/mcp-pool.ts';
 
@@ -1141,8 +1141,9 @@ ${formattedMessages}
    * Get available connections, models, and sources for spawn_session help mode.
    */
   protected getSpawnSessionHelp(): SpawnSessionHelpResult {
-    const connections = getLlmConnections();
-    const defaultConnectionSlug = getDefaultLlmConnection();
+    const where = { ...contextOfScope(this.config.connectionScope), workspaceId: this.config.workspace.id };
+    const connections = getLlmConnections(where);
+    const defaultConnectionSlug = getDefaultLlmConnection(where);
     const allSources = loadAllSources(this.config.workspace.rootPath);
     const activeSlugs = this.sourceManager.getActiveSlugs();
 

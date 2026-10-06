@@ -10,6 +10,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { Archive, Box, CircleCheck, CircleDashed, User } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
@@ -37,6 +38,7 @@ import { useTaskSave } from './use-task-save'
 
 export function TasksPage() {
   const { t } = useTranslation()
+  useComposerContext({ key: 'page:tasks' })
   const { navigate } = useNavigation()
   const [filters, setFilters] = useTaskFilters()
   const tasksApi = useTasks()

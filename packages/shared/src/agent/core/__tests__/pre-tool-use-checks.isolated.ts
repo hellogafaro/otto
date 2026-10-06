@@ -479,46 +479,6 @@ describe('runPreToolUseChecks', () => {
       }
     });
 
-    it('blocks direct label config writes and suggests otto label help when feature is enabled', () => {
-      mockOttoCliFlag = true;
-      mockDetectConfigFileType.mockImplementation(() => ({ type: 'labels', displayFile: 'labels/config.json' }));
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Write',
-        input: { file_path: '/test/workspace/labels/config.json', content: '{}' },
-      }));
-
-      expect(result.type).toBe('block');
-      if (result.type === 'block') {
-        expect(result.reason).toContain('otto label');
-        expect(result.reason).toContain('otto label --help');
-      }
-    });
-
-    it('does not apply config-file CLI redirect when feature is disabled', () => {
-      mockOttoCliFlag = false;
-      mockDetectConfigFileType.mockImplementation(() => ({ type: 'labels', displayFile: 'labels/config.json' }));
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Write',
-        input: { file_path: '/test/workspace/labels/config.json', content: '{}' },
-      }));
-
-      expect(result.type).toBe('allow');
-    });
-
-    it('does not block label config writes when feature is disabled', () => {
-      mockOttoCliFlag = false;
-      mockDetectConfigFileType.mockImplementation(() => ({ type: 'labels', displayFile: 'labels/config.json' }));
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Write',
-        input: { file_path: '/test/workspace/labels/config.json', content: '{}' },
-      }));
-
-      expect(result.type).toBe('allow');
-    });
-
     it('does not block bash commands touching automations files when feature is disabled', () => {
       mockOttoCliFlag = false;
 

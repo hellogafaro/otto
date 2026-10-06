@@ -5,7 +5,6 @@
  * and the new Event Bus handlers (command-handler.ts, prompt-handler.ts).
  */
 
-import { join } from 'node:path';
 import { agentEnv, isServerSecretEnvKey } from '@otto/session-tools-core';
 import type { BaseEventPayload } from './event-bus.ts';
 import type { AutomationEvent, AutomationMatcher, PromptReferences, AgentEvent, SdkAutomationInput } from './types.ts';
@@ -324,8 +323,6 @@ const SCRIPT_ENV_PLATFORM_ESSENTIALS = process.platform === 'win32'
 export interface ScriptEnvOptions {
   /** Workspace root, exposed as OTTO_WORKSPACE_PATH */
   workspaceRootPath: string;
-  /** Page slug when the script refreshes a page (adds OTTO_PAGE_* vars) */
-  page?: string;
 }
 
 /**
@@ -337,8 +334,7 @@ export interface ScriptEnvOptions {
  *   (runtime hints like OTTO_BUN/OTTO_UV, user-defined OTTO_* vars, OTTO_CONFIG_DIR, ...)
  * - OTTO_* event context (same base as webhooks; no shell sanitization —
  *   values are argv/env payloads, never interpreted by a shell)
- * - OTTO_WORKSPACE_PATH and, for page refreshes, OTTO_PAGE_SLUG /
- *   OTTO_PAGE_DIR / OTTO_PAGE_DATA_DIR
+ * - OTTO_WORKSPACE_PATH
  * - a documented minimal set of non-secret platform essentials (HOME etc.)
  *
  * Notably absent: PATH (runtimes are spawned by absolute path) and every
@@ -357,30 +353,8 @@ function applyPlatformAndOttoEnv(env: Record<string, string>): void {
   }
 }
 
-function applyWorkspaceAndPageEnv(env: Record<string, string>, options: ScriptEnvOptions): void {
+function applyWorkspaceEnv(env: Record<string, string>, options: ScriptEnvOptions): void {
   env.OTTO_WORKSPACE_PATH = options.workspaceRootPath;
-
-  if (options.page) {
-    const pageDir = join(options.workspaceRootPath, 'pages', options.page);
-    env.OTTO_PAGE_SLUG = options.page;
-    env.OTTO_PAGE_DIR = pageDir;
-    env.OTTO_PAGE_DATA_DIR = join(pageDir, 'data');
-  }
-}
-
-/**
- * Event-independent script env: the OTTO_*-only base without any automation
- * event context. Used by callers that run a script outside the automations
- * pipeline (e.g. a page action a user triggers by hand) — there is no event to
- * describe, so injecting a synthetic OTTO_EVENT would be a lie.
- *
- * See buildScriptEnv for the full contract; this is that minus buildBaseEventEnv.
- */
-export function buildBaseScriptEnv(options: ScriptEnvOptions): Record<string, string> {
-  const env: Record<string, string> = {};
-  applyPlatformAndOttoEnv(env);
-  applyWorkspaceAndPageEnv(env, options);
-  return env;
 }
 
 export function buildScriptEnv(
@@ -395,9 +369,9 @@ export function buildScriptEnv(
   // Event context wins over any same-named pass-through
   Object.assign(env, buildBaseEventEnv(event, payload));
 
-  // Workspace/page context is applied last so an event payload can never
-  // clobber OTTO_WORKSPACE_PATH / OTTO_PAGE_* (unchanged ordering).
-  applyWorkspaceAndPageEnv(env, options);
+  // Workspace context is applied last so an event payload can never
+  // clobber OTTO_WORKSPACE_PATH.
+  applyWorkspaceEnv(env, options);
 
   return env;
 }

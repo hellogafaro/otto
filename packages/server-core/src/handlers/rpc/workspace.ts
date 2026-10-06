@@ -4,6 +4,7 @@ import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { getWorkspaceByNameOrId, getWorkspaces, addWorkspace, setActiveWorkspace, updateWorkspaceRemoteServer } from '@otto/shared/config'
 import { domainError, perf } from '@otto/shared/utils'
+import { initLabelsStatusesImport } from '@otto/shared/labels/import'
 import { createWorkspaceMember, getMemberWorkspaceIds } from '@otto/shared/workspaces'
 import { assertOwner } from '../../bootstrap/authorize'
 import { pushTyped, type RpcServer } from '@otto/server-core/transport'
@@ -25,8 +26,6 @@ export const CORE_HANDLED_CHANNELS = [
   RPC_CHANNELS.theme.GET_COLOR_THEME,
   RPC_CHANNELS.theme.SET_COLOR_THEME,
   RPC_CHANNELS.theme.BROADCAST_PREFERENCES,
-  RPC_CHANNELS.views.LIST,
-  RPC_CHANNELS.views.SAVE,
   RPC_CHANNELS.toolIcons.GET_MAPPINGS,
   RPC_CHANNELS.logo.GET_URL,
 ] as const
@@ -60,9 +59,10 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
     if (existing) assertOwner(ctx.userId, existing.id)
 
     const workspace = addWorkspace({ name, rootPath, ...(remoteServer && { remoteServer }) })
+    initLabelsStatusesImport() // the new workspace's labels and statuses
     if (!existing) createWorkspaceMember(workspace.id, ctx.userId, 'owner')
     // Make it active
-    setActiveWorkspace(workspace.id)
+    setActiveWorkspace(workspace.id, ctx.userId)
     deps.platform.logger.info(`Created workspace "${name}" at ${rootPath}${remoteServer ? ` (remote: ${remoteServer.url})` : ''}`)
     return workspace
   })
@@ -297,43 +297,19 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
     return loadPresetTheme(themeId)
   })
 
-  server.handle(RPC_CHANNELS.theme.GET_COLOR_THEME, async () => {
+  server.handle(RPC_CHANNELS.theme.GET_COLOR_THEME, async (ctx) => {
     const { getColorTheme } = await import('@otto/shared/config/storage')
-    return getColorTheme()
+    return getColorTheme(ctx.userId)
   })
 
-  server.handle(RPC_CHANNELS.theme.SET_COLOR_THEME, async (_ctx, themeId: string) => {
+  server.handle(RPC_CHANNELS.theme.SET_COLOR_THEME, async (ctx, themeId: string) => {
     const { setColorTheme } = await import('@otto/shared/config/storage')
-    setColorTheme(themeId)
+    setColorTheme(themeId, ctx.userId)
   })
 
   // Broadcast theme preferences to all other windows (for cross-window sync)
   server.handle(RPC_CHANNELS.theme.BROADCAST_PREFERENCES, async (ctx, preferences: { mode: string; colorTheme: string }) => {
     pushTyped(server, RPC_CHANNELS.theme.PREFERENCES_CHANGED, { to: 'all' }, preferences)
-  })
-
-  // ============================================================
-  // Views
-  // ============================================================
-
-  // List views for a workspace (dynamic expression-based filters stored in views.json)
-  server.handle(RPC_CHANNELS.views.LIST, async (_ctx, workspaceId: string) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error('Workspace not found')
-
-    const { listViews } = await import('@otto/shared/views/storage')
-    return listViews(workspace.rootPath)
-  })
-
-  // Save views (replaces full array)
-  server.handle(RPC_CHANNELS.views.SAVE, async (_ctx, workspaceId: string, views: import('@otto/shared/views').ViewConfig[]) => {
-    const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) throw new Error('Workspace not found')
-
-    const { saveViews } = await import('@otto/shared/views/storage')
-    saveViews(workspace.rootPath, views)
-    // Broadcast labels changed since views are used alongside labels in sidebar
-    pushTyped(server, RPC_CHANNELS.labels.CHANGED, { to: 'workspace', workspaceId }, workspaceId)
   })
 
   // ============================================================

@@ -2,7 +2,7 @@
  * Decision layer — decision records.
  *
  * Every decision call appends one JSON line to `~/.otto/logs/decisions.jsonl`
- * (same pattern as the pages action audit log). A record holds what is needed to
+ * A record holds what is needed to
  * replay and audit the decision — question keys/types, pinned and reported model,
  * probabilities, latency, usage, failure kind — and NEVER the state text: only its
  * sha256 and byte count. Failure messages are recorded WITHOUT provider text

@@ -362,7 +362,7 @@ export type SystemPromptPreset = 'default' | 'mini';
  */
 export function getMiniAgentSystemPrompt(workspaceRootPath?: string): string {
   const workspaceContext = workspaceRootPath
-    ? `\n## Workspace\nConfig files are in: \`${workspaceRootPath}\`\n- Statuses: \`statuses/config.json\`\n- Labels: \`labels/config.json\`\n- Permissions: \`permissions.json\`\n`
+    ? `\n## Workspace\nConfig files are in: \`${workspaceRootPath}\`\nLabels, statuses and the workspace permission rules are not files: change them with \`labels_edit\`, \`statuses_edit\` and \`permissions_edit\`.\n`
     : '';
 
   return `You are a focused assistant for quick configuration edits in ${PRODUCT_NAME}.
@@ -373,7 +373,7 @@ ${workspaceContext}
 ## Guidelines
 - Make the requested change directly
 - Before changing labels/statuses/sources/skills/automations/permissions, read the matching local doc in ~/.otto/docs/
-- Validate with config_validate after editing
+- Validate file edits with config_validate; labels, statuses and workspace permissions are validated when their tools write them
 - MCP tool calls require _displayName and _intent metadata
 - Respect any session_state permission/path constraints supplied with the user message
 - Confirm completion briefly
@@ -383,7 +383,7 @@ ${workspaceContext}
 
 ## Available Tools
 Use Read, Edit, Write tools for file operations.
-Use config_validate to verify changes match the expected schema.
+Use config_validate to verify file changes match the expected schema.
 `;
 }
 
@@ -677,7 +677,6 @@ Read relevant context files using the Read tool - they contain architecture info
 | Permissions | \`${DOC_REFS.permissions}\` | BEFORE modifying ${PERMISSION_MODE_CONFIG['safe'].displayName} mode rules |
 | Skills | \`${DOC_REFS.skills}\` | BEFORE creating custom skills |
 | Automations | \`${DOC_REFS.hooks}\` | BEFORE creating/modifying automations |
-| Pages | \`${DOC_REFS.pages}\` | BEFORE creating Pages or authoring page HTML |
 | Themes | \`${DOC_REFS.themes}\` | BEFORE customizing colors |
 | Statuses | \`${DOC_REFS.statuses}\` | When user mentions statuses or workflow states |
 | Labels | \`${DOC_REFS.labels}\` | BEFORE creating/modifying labels |
@@ -788,7 +787,7 @@ The \`session\` MCP server provides tools for managing external sources:
 **Source creation workflow:**
 1. Read \`${DOC_REFS.sources}\` for the full setup guide
 2. Create \`config.json\` in \`sources/{slug}/\`
-3. Create \`permissions.json\` for Explore mode
+3. Create the source's own \`permissions.json\` for Explore mode
 4. Write \`guide.md\` with usage instructions
 5. Run \`source_test\` to validate — **once only, before auth**
 6. Trigger the appropriate auth tool
@@ -869,22 +868,6 @@ Rules:
 - Use labels/statuses intentionally because changes can trigger automation events.
 
 Reference: \`${DOC_REFS.hooks}\`
-
-## Pages
-
-Pages are persistent HTML mini apps/reports in the app's Pages sidebar. Use them for dashboards, reports, trackers, or tools the user will revisit/share; use chat previews for one-off inline rendering.
-
-Tools: \`list_pages\`, \`get_page\`, \`create_page\`, \`update_page\`, \`write_page_data\`, \`delete_page\`.
-
-Rules:
-- Read \`${DOC_REFS.pages}\` before creating/updating Pages or authoring page HTML.
-- Do not edit \`pages/{slug}/\` files directly; use Page tools so digests/watchers/UI stay consistent.
-- Full standalone HTML only: inline CSS/JS, no external network requests.
-- Live/interactive pages receive data through the \`otto-pages/v1\` bridge documented in the guide.
-- Pages never hold credentials; source actions require user-approved grants.
-- Confirm before \`delete_page\`. Publishing/sharing is the user's action.
-
-Reference: \`${DOC_REFS.pages}\`
 
 ## Diagrams and Visualization
 

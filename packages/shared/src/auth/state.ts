@@ -17,6 +17,7 @@ import {
   getDefaultLlmConnection,
   getLlmConnection,
   type AuthType,
+  type ConnectionContext,
   type Workspace,
 } from '../config/storage.ts';
 import { refreshClaudeToken, isTokenExpired } from './claude-token.ts';
@@ -103,8 +104,8 @@ let refreshInProgress: Promise<TokenResult> | null = null;
 export async function performTokenRefresh(
   manager: ReturnType<typeof getCredentialManager>,
   refreshToken: string,
-  originalSource: 'native' | 'cli' | undefined,
-  connectionSlug: string
+  connectionSlug: string,
+  scope?: string
 ): Promise<TokenResult> {
   try {
     const refreshed = await refreshClaudeToken(refreshToken);
@@ -113,23 +114,12 @@ export async function performTokenRefresh(
     const expiresAtDate = refreshed.expiresAt ? new Date(refreshed.expiresAt).toISOString() : 'never';
     debug(`[auth] Successfully refreshed Claude OAuth token (expires: ${expiresAtDate})`);
 
-    // Store the new credentials
-    // If refresh succeeded with our native endpoint, mark as 'native'
-    // (successful refresh proves compatibility with our OAuth system)
-    await manager.setClaudeOAuthCredentials({
-      accessToken: refreshed.accessToken,
-      refreshToken: refreshed.refreshToken,
-      expiresAt: refreshed.expiresAt,
-      source: 'native',
-    });
-
-    // Also save to LLM connection (dual-write for backwards compatibility)
-    // This ensures both legacy and modern auth paths have the refreshed token
+    // Rewrite the connection's secret in place
     await manager.setLlmOAuth(connectionSlug, {
       accessToken: refreshed.accessToken,
       refreshToken: refreshed.refreshToken,
       expiresAt: refreshed.expiresAt,
-    });
+    }, scope);
 
     return { accessToken: refreshed.accessToken };
   } catch (error) {
@@ -146,31 +136,17 @@ export async function performTokenRefresh(
     let migrationRequired: MigrationInfo | undefined;
 
     if (isIncompatibleToken) {
-      // Token refresh failed - could be legacy CLI token or expired/revoked
+      // Token refresh failed - expired or revoked
       debug('[auth] Token refresh failed - credentials will be cleared');
+      migrationRequired = {
+        reason: 'legacy_token',
+        message:
+          'Your Claude authentication needs to be refreshed. ' +
+          'Please sign in again.',
+      };
 
-      // Check if this was from CLI based on stored source
-      const isFromCLI = originalSource === 'cli' || !originalSource;
-      if (isFromCLI) {
-        debug('[auth] Token was from CLI or unknown source - migration required');
-        migrationRequired = {
-          reason: 'legacy_token',
-          message:
-            'Your Claude authentication needs to be refreshed. ' +
-            'Please sign in again.',
-        };
-      }
-
-      // Clear the incompatible credentials to force fresh authentication
-      // Clear from both legacy and LLM connection locations
-      await manager.setClaudeOAuthCredentials({
-        accessToken: '',
-        refreshToken: undefined,
-        expiresAt: undefined,
-      });
-
-      // Also clear from LLM connection (dual-clear for consistency)
-      await manager.deleteLlmCredentials(connectionSlug);
+      // Clear the credentials to force fresh authentication
+      await manager.deleteLlmCredentials(connectionSlug, scope);
     }
 
     // Token refresh failed - return null token with optional migration info
@@ -198,11 +174,11 @@ export async function performTokenRefresh(
  * - We NO LONGER import tokens from Claude CLI keychain
  * - Legacy tokens are detected and cleared, prompting re-authentication
  */
-export async function getValidClaudeOAuthToken(connectionSlug: string): Promise<TokenResult> {
+export async function getValidClaudeOAuthToken(connectionSlug: string, scope?: string): Promise<TokenResult> {
   const manager = getCredentialManager();
 
-  // Try to get credentials from our store
-  const creds = await manager.getClaudeOAuthCredentials();
+  // The connection's own OAuth credential
+  const creds = await manager.getLlmOAuth(connectionSlug, scope);
 
   if (!creds || !creds.accessToken) {
     return { accessToken: null };
@@ -224,7 +200,7 @@ export async function getValidClaudeOAuthToken(connectionSlug: string): Promise<
           // Ignore errors from the other refresh attempt
         }
         // Re-read credentials after waiting (they may have been updated)
-        const updatedCreds = await manager.getClaudeOAuthCredentials();
+        const updatedCreds = await manager.getLlmOAuth(connectionSlug, scope);
         if (updatedCreds?.accessToken && !isTokenExpired(updatedCreds.expiresAt)) {
           const expiresAtDate = updatedCreds.expiresAt ? new Date(updatedCreds.expiresAt).toISOString() : 'never';
           debug(`[auth] Got refreshed token from concurrent refresh (expires: ${expiresAtDate})`);
@@ -237,7 +213,7 @@ export async function getValidClaudeOAuthToken(connectionSlug: string): Promise<
 
       // Start the refresh and set the mutex
       debug('[auth] Starting token refresh (holding mutex)');
-      refreshInProgress = performTokenRefresh(manager, creds.refreshToken, creds.source, connectionSlug);
+      refreshInProgress = performTokenRefresh(manager, creds.refreshToken, connectionSlug, scope);
 
       try {
         const result = await refreshInProgress;
@@ -261,13 +237,13 @@ export async function getValidClaudeOAuthToken(connectionSlug: string): Promise<
  * Uses LLM connections as the source of truth for auth type and credentials.
  * Falls back to legacy global credentials for backwards compatibility.
  */
-export async function getAuthState(): Promise<AuthState> {
+export async function getAuthState(where?: ConnectionContext): Promise<AuthState> {
   const manager = getCredentialManager();
   const activeWorkspace = getActiveWorkspace();
 
   // Get the default LLM connection to determine auth type
-  const defaultConnectionSlug = getDefaultLlmConnection();
-  const connection = defaultConnectionSlug ? getLlmConnection(defaultConnectionSlug) : null;
+  const defaultConnectionSlug = getDefaultLlmConnection(where);
+  const connection = defaultConnectionSlug ? getLlmConnection(defaultConnectionSlug, where) : null;
 
   // Determine auth type from connection (no legacy fallback - migration ensures all users have connections)
   let effectiveAuthType: AuthType | null = null;
@@ -287,16 +263,16 @@ export async function getAuthState(): Promise<AuthState> {
   if (connection && defaultConnectionSlug) {
     // Use LLM connection credentials
     // Pass providerType for OAuth routing (OpenAI OAuth needs idToken)
-    hasCredentials = await manager.hasLlmCredentials(defaultConnectionSlug, connection.authType, connection.providerType);
+    hasCredentials = await manager.hasLlmCredentials(defaultConnectionSlug, connection.authType, connection.providerType, connection.scope);
 
     if (connection.authType === 'api_key' || connection.authType === 'api_key_with_endpoint' || connection.authType === 'bearer_token') {
-      apiKey = await manager.getLlmApiKey(defaultConnectionSlug);
+      apiKey = await manager.getLlmApiKey(defaultConnectionSlug, connection.scope);
       // Keyless providers (Ollama) are valid when a custom base URL is configured
       if (!apiKey && connection.baseUrl) {
         hasCredentials = true;
       }
     } else if (connection.authType === 'oauth') {
-      const llmOAuth = await manager.getLlmOAuth(defaultConnectionSlug);
+      const llmOAuth = await manager.getLlmOAuth(defaultConnectionSlug, connection.scope);
       if (llmOAuth?.accessToken) {
         claudeOAuthToken = llmOAuth.accessToken;
       }

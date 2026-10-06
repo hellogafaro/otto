@@ -30,6 +30,7 @@ import {
 } from './handlers/source-oauth.ts';
 import { handleCredentialPrompt } from './handlers/credential-prompt.ts';
 import { handleUpdatePreferences } from './handlers/update-preferences.ts';
+import { handleLabelsEdit, handleStatusesEdit, handlePermissionsEdit } from './handlers/workspace-config.ts';
 import { handleTransformData } from './handlers/transform-data.ts';
 import { handleScriptSandbox } from './handlers/script-sandbox.ts';
 import { handleRenderTemplate } from './handlers/render-template.ts';
@@ -39,14 +40,6 @@ import { handleSetSessionStatus } from './handlers/set-session-status.ts';
 import { handleGetSessionInfo } from './handlers/get-session-info.ts';
 import { handleListSessions } from './handlers/list-sessions.ts';
 import { handleListBackgroundTasks } from './handlers/list-background-tasks.ts';
-import {
-  handleListPages,
-  handleGetPage,
-  handleCreatePage,
-  handleUpdatePage,
-  handleWritePageData,
-  handleDeletePage,
-} from './handlers/pages.ts';
 import { handleArchiveSession } from './handlers/archive-session.ts';
 import { handleSendAgentMessage } from './handlers/send-agent-message.ts';
 import { handleListMessagingChannels, handleUnbindMessagingChannel } from './handlers/messaging.ts';
@@ -61,9 +54,37 @@ export const SubmitPlanSchema = z.object({
 });
 
 export const ConfigValidateSchema = z.object({
-  target: z.enum(['config', 'sources', 'statuses', 'preferences', 'permissions', 'automations', 'tool-icons', 'all'])
+  target: z.enum(['config', 'sources', 'permissions', 'automations', 'tool-icons', 'all'])
     .describe('Which config file(s) to validate'),
   sourceSlug: z.string().optional().describe('Validate a specific source by slug'),
+});
+
+const colorSchema = z.union([z.string(), z.object({ light: z.string(), dark: z.string().optional() })]).describe('A system color ("accent", "foreground/50", "info/80") or { light: "#EF4444", dark: "#F87171" }');
+
+export const LabelsEditSchema = z.object({
+  action: z.enum(['list', 'create', 'update', 'delete', 'move', 'reorder']).describe('list: the label tree. create: needs name. update/delete/move: need id. reorder: needs orderedIds.'),
+  id: z.string().optional().describe('The label id (slug, e.g. "bug") for update, delete and move'),
+  name: z.string().optional().describe('Display name (create, update)'),
+  color: colorSchema.optional(),
+  parentId: z.string().nullable().optional().describe('Parent label id for create and move (null or omitted = top level); the level to reorder'),
+  valueType: z.enum(['string', 'number', 'date', 'link', '']).optional().describe('Makes it a valued label ("priority::3"); "" makes it a plain label again'),
+  autoRules: z.array(z.record(z.string(), z.unknown())).optional().describe('Auto-apply rules, each { pattern, flags?, valueTemplate?, description? } (regex) or { semantic, threshold?, value?, description? } (a yes/no question); replaces the label\'s rules, [] clears them'),
+  orderedIds: z.array(z.string()).optional().describe('Sibling label ids in the new order (reorder)'),
+});
+
+export const StatusesEditSchema = z.object({
+  action: z.enum(['list', 'create', 'update', 'delete', 'reorder', 'set_default']).describe('list: the statuses. create: needs label and category. update/delete/set_default: need id. reorder: needs orderedIds.'),
+  id: z.string().optional().describe('The status id (slug, e.g. "in-progress")'),
+  label: z.string().optional().describe('Display name (create, update)'),
+  color: colorSchema.optional(),
+  icon: z.string().optional().describe('An emoji, or an image data URL of at most 16 KB (a web address is not accepted)'),
+  category: z.enum(['open', 'closed']).optional().describe('open = inbox, closed = archive; cannot change for the fixed statuses todo, done, cancelled'),
+  orderedIds: z.array(z.string()).optional().describe('Status ids in the new order (reorder)'),
+});
+
+export const PermissionsEditSchema = z.object({
+  action: z.enum(['get', 'update']).describe('get: the workspace\'s Explore-mode rules. update: replaces all of them with rules.'),
+  rules: z.record(z.string(), z.unknown()).optional().describe('The whole rule set for update: { allowedBashPatterns?, allowedMcpPatterns?, allowedApiEndpoints?, allowedWritePaths?, blockedTools?, blockedCommandHints? } (see the permissions doc)'),
 });
 
 export const SkillValidateSchema = z.object({
@@ -230,61 +251,6 @@ export const ArchiveSessionSchema = z.object({
   archived: z.boolean().optional().describe('true to archive (default), false to unarchive.'),
 });
 
-// Pages tools
-const PageRefreshSpecInputSchema = z.object({
-  cron: z.string().describe('5-field cron expression evaluated once per minute (e.g. "*/15 * * * *")'),
-  script: z.string().describe('Script path relative to the workspace root (must stay inside it). Bun runtime.'),
-  args: z.array(z.string()).optional().describe('Extra argv appended after the script path'),
-  timezone: z.string().optional().describe('IANA timezone for cron evaluation (system local when omitted)'),
-  timeoutMs: z.number().optional().describe('Per-run timeout in ms (default 60000, clamped to 1s–15min)'),
-  enabled: z.boolean().optional().describe('Set false to pause scheduling without deleting the spec'),
-});
-
-export const ListPagesSchema = z.object({
-  projectId: z.string().optional().describe('Only return pages bound to this project ID'),
-});
-
-export const GetPageSchema = z.object({
-  slug: z.string().describe('Page slug (from list_pages or create_page)'),
-  includeContent: z.boolean().optional().describe('Also return the full index.html content (can be large). Default false — the response always includes contentPath for reading it from disk instead.'),
-});
-
-export const CreatePageSchema = z.object({
-  name: z.string().describe('Page name shown on the tile (also drives the slug)'),
-  description: z.string().optional().describe('Short description shown in lists'),
-  kind: z.enum(['static', 'interactive', 'live'])
-    .optional()
-    .describe('Runtime capability class: static = no JS, interactive = JS allowed, live = JS + receives data snapshot updates while open. Default: interactive.'),
-  projectId: z.string().optional().describe('Stable Project ID to bind the page to'),
-  content: z.string().optional().describe('Full self-contained HTML document for index.html (inline CSS/JS, no external requests). Read ~/.otto/docs/pages.md for the authoring guide and data-bridge snippet BEFORE writing page HTML.'),
-  refresh: PageRefreshSpecInputSchema.optional().describe('Scheduled data refresh: cron + workspace-relative Bun script that updates the page data store'),
-});
-
-export const UpdatePageSchema = z.object({
-  slug: z.string().describe('Slug of the page to update'),
-  name: z.string().optional().describe('New page name (slug stays stable)'),
-  description: z.string().nullable().optional().describe('New description. Pass null to clear.'),
-  kind: z.enum(['static', 'interactive', 'live']).optional().describe('New runtime capability class'),
-  projectId: z.string().nullable().optional().describe('New Project ID. Pass null to unbind from its project.'),
-  content: z.string().optional().describe('Replacement index.html (full document). Re-digests the content — existing source-action grants become stale by design and need re-approval.'),
-  refresh: PageRefreshSpecInputSchema.nullable().optional().describe('New refresh spec. Pass null to remove scheduled refresh.'),
-});
-
-export const WritePageDataSchema = z.object({
-  slug: z.string().describe('Slug of the page whose data store to write'),
-  set: z.record(z.string(), z.unknown()).optional().describe('KV upserts: key → any JSON value (objects/arrays allowed)'),
-  delete: z.array(z.string()).optional().describe('KV keys to delete'),
-  appendSeries: z.record(z.string(), z.array(z.object({
-    t: z.number().optional().describe('Timestamp epoch ms (defaults to now). Writing an existing (series, t) overwrites its value — re-runs are idempotent.'),
-    v: z.number().describe('Numeric value'),
-  }))).optional().describe('Timeseries appends: series name → array of points'),
-  pruneSeries: z.record(z.string(), z.number()).optional().describe('Timeseries prunes: series name → deleteBefore timestamp (points with t < value are removed)'),
-});
-
-export const DeletePageSchema = z.object({
-  slug: z.string().describe('Slug of the page to delete'),
-});
-
 export const ListSessionsSchema = z.object({
   status: z.string().optional().describe('Filter by status'),
   label: z.string().optional().describe('Filter by label'),
@@ -338,11 +304,9 @@ Use this after editing configuration files to check for errors before they take 
 Returns structured validation results with errors, warnings, and suggestions.
 
 **Targets:**
-- \`config\`: Validates config.json (workspaces, model, settings)
+- \`config\`: Validates config.json (the workspace list and connections)
 - \`sources\`: Validates all source config.json files
-- \`statuses\`: Validates statuses config.json
-- \`preferences\`: Validates preferences.json
-- \`permissions\`: Validates permissions.json files
+- \`permissions\`: Validates the permissions.json files of sources (and the app default)
 - \`automations\`: Validates automations.json configuration
 - \`tool-icons\`: Validates tool-icons.json
 - \`all\`: Validates all configuration files`,
@@ -425,6 +389,12 @@ The user will see a secure input UI with appropriate fields based on the auth mo
 **IMPORTANT:** After calling this tool, execution will be paused for user input.`,
 
   update_user_preferences: `Update stored user preferences. Use this when you learn information about the user that would be helpful to remember for future conversations. This includes their name, timezone, location, or any other relevant notes. Only update fields you have confirmed information about - don't guess.`,
+
+  labels_edit: `Read or change the workspace's labels (nested, colored tags with optional values and auto-apply rules). Actions: list, create, update, delete, move, reorder. Labels are database rows, not files: do not edit labels/config.json. Only workspace owners can change them. Deleting a label removes it, its children and every chat's use of it.`,
+
+  statuses_edit: `Read or change the workspace's chat statuses. Actions: list, create, update, delete, reorder, set_default. Statuses are database rows, not files: do not edit statuses/config.json. Only workspace owners can change them. The statuses todo, done and cancelled are fixed; the default one cannot be deleted; deleting a status moves its chats to todo.`,
+
+  permissions_edit: `Read or change the workspace's Explore-mode permission rules (extra allowed bash patterns, MCP patterns, API endpoints, write paths, blocked tools, command hints). Actions: get, update (replaces the whole rule set). These rules are stored in the database, not in permissions.json; a source's own rules stay in its permissions.json. Only workspace owners can change them.`,
 
   transform_data: `Transform data files using a script and write structured output for datatable/spreadsheet blocks, or extract HTML content for html-preview blocks.
 
@@ -573,32 +543,6 @@ IMPORTANT: never move a task into a closed status (such as "done" or "cancelled"
 Archiving removes a session from the active list and unread counts — it does NOT delete it (pass archived=false to restore). Use it to tidy up finished or superseded sessions.
 Requires an explicit sessionId and cannot target your own session. Use list_sessions / get_session_info to find the target session's ID.`,
 
-  list_pages: `List the workspace's Pages — persistent, agent-authored HTML mini dashboards/documents rendered in the app's Pages section (sidebar) and optionally shared via password-protected public links.
-
-Returns compact summaries: slug, name, kind (static/interactive/live), project, refresh schedule, last refresh outcome, share state, and folder path. Optionally filter by projectId. Use get_page for full details on one page.`,
-
-  get_page: `Get full details for one Page by slug: config, content digest/length/path, a data summary (KV keys + per-series point counts and latest values), source-action grants, and share state.
-
-The response includes absolute paths (contentPath, data.snapshotPath) — Read those files for the full HTML or the complete data snapshot. Pass includeContent: true only when you need the HTML inline.`,
-
-  create_page: `Create a new Page: a persistent, self-contained HTML document stored at pages/{slug}/ in the workspace, shown as a tile in the app's Pages section, and rendered in a sandboxed iframe.
-
-IMPORTANT — read ~/.otto/docs/pages.md BEFORE authoring page HTML. Key rules: provide a FULL standalone HTML document with ALL CSS/JS inline (no external requests — shared copies get network egress blocked); to display data from the page's data store, listen for the 'otto-pages/v1' bridge messages (init/data) documented there; kind 'live' pages receive replacement data snapshots automatically while open.
-
-Use Pages (instead of chat previews) when the user wants something persistent: a dashboard that an automation refreshes, a report they'll revisit or share, a tracker fed by write_page_data. Returns the created page details including the slug.`,
-
-  update_page: `Update an existing Page: metadata (name, description, kind, projectId), the scheduled refresh spec, and/or replace its HTML content.
-
-Only provided fields change; pass null to clear description/projectId/refresh. Replacing content re-computes the content digest, so existing source-action grants go stale by design (the user must re-approve them). The slug never changes.`,
-
-  write_page_data: `Write to a Page's data store: KV upserts/deletes plus numeric timeseries appends/prunes, applied in one transaction. The data snapshot (data/snapshot.json) is regenerated and pushed to open renders — 'live' pages update on screen without a reload.
-
-Data model: kv is key → any JSON value; series are named lists of { t: epoch ms, v: number } points with idempotent (series, t) upserts — re-running the same write is safe. Use timeseries for anything you may want charted over time (metrics, counts, prices). Composes with scheduled refresh scripts writing the same store.`,
-
-  delete_page: `Delete a Page permanently — removes its folder including content, data store, and grants. DESTRUCTIVE: confirm with the user first unless they explicitly asked for the deletion.
-
-A published page is unpublished first (best effort); the result reports publicCopyMayRemain when the remote copy could not be confirmed removed.`,
-
   get_session_info: `Get metadata about the current session or a specific session by ID.
 
 Returns labels, status, name, permission mode, projectId (if the session is bound to a project), workingDirectory, and other details.
@@ -691,6 +635,9 @@ export const SESSION_TOOL_DEFS: SessionToolDef[] = [
   { name: 'source_slack_oauth_trigger', description: TOOL_DESCRIPTIONS.source_slack_oauth_trigger, inputSchema: SourceOAuthTriggerSchema, executionMode: 'registry', safeMode: 'block', handler: handleSlackOAuthTrigger },
   { name: 'source_microsoft_oauth_trigger', description: TOOL_DESCRIPTIONS.source_microsoft_oauth_trigger, inputSchema: SourceOAuthTriggerSchema, executionMode: 'registry', safeMode: 'block', handler: handleMicrosoftOAuthTrigger },
   { name: 'source_credential_prompt', description: TOOL_DESCRIPTIONS.source_credential_prompt, inputSchema: CredentialPromptSchema, executionMode: 'registry', safeMode: 'block', handler: handleCredentialPrompt },
+  { name: 'labels_edit', description: TOOL_DESCRIPTIONS.labels_edit, inputSchema: LabelsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleLabelsEdit },
+  { name: 'statuses_edit', description: TOOL_DESCRIPTIONS.statuses_edit, inputSchema: StatusesEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleStatusesEdit },
+  { name: 'permissions_edit', description: TOOL_DESCRIPTIONS.permissions_edit, inputSchema: PermissionsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handlePermissionsEdit },
   { name: 'update_user_preferences', description: TOOL_DESCRIPTIONS.update_user_preferences, inputSchema: UpdatePreferencesSchema, executionMode: 'registry', safeMode: 'block', handler: handleUpdatePreferences },
   { name: 'transform_data', description: TOOL_DESCRIPTIONS.transform_data, inputSchema: TransformDataSchema, executionMode: 'registry', safeMode: 'allow', handler: handleTransformData },
   { name: 'script_sandbox', description: TOOL_DESCRIPTIONS.script_sandbox, inputSchema: ScriptSandboxSchema, executionMode: 'registry', safeMode: 'allow', handler: handleScriptSandbox },
@@ -707,13 +654,6 @@ export const SESSION_TOOL_DEFS: SessionToolDef[] = [
   { name: 'set_session_labels', description: TOOL_DESCRIPTIONS.set_session_labels, inputSchema: SetSessionLabelsSchema, executionMode: 'registry', safeMode: 'block', handler: handleSetSessionLabels },
   { name: 'set_session_status', description: TOOL_DESCRIPTIONS.set_session_status, inputSchema: SetSessionStatusSchema, executionMode: 'registry', safeMode: 'block', handler: handleSetSessionStatus },
   { name: 'archive_session', description: TOOL_DESCRIPTIONS.archive_session, inputSchema: ArchiveSessionSchema, executionMode: 'registry', safeMode: 'block', handler: handleArchiveSession },
-  // Pages tools (registry — use the grouped ctx.pages callbacks from SessionManager)
-  { name: 'list_pages', description: TOOL_DESCRIPTIONS.list_pages, inputSchema: ListPagesSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleListPages },
-  { name: 'get_page', description: TOOL_DESCRIPTIONS.get_page, inputSchema: GetPageSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleGetPage },
-  { name: 'create_page', description: TOOL_DESCRIPTIONS.create_page, inputSchema: CreatePageSchema, executionMode: 'registry', safeMode: 'block', handler: handleCreatePage },
-  { name: 'update_page', description: TOOL_DESCRIPTIONS.update_page, inputSchema: UpdatePageSchema, executionMode: 'registry', safeMode: 'block', handler: handleUpdatePage },
-  { name: 'write_page_data', description: TOOL_DESCRIPTIONS.write_page_data, inputSchema: WritePageDataSchema, executionMode: 'registry', safeMode: 'block', handler: handleWritePageData },
-  { name: 'delete_page', description: TOOL_DESCRIPTIONS.delete_page, inputSchema: DeletePageSchema, executionMode: 'registry', safeMode: 'block', handler: handleDeletePage },
   { name: 'get_session_info', description: TOOL_DESCRIPTIONS.get_session_info, inputSchema: GetSessionInfoSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleGetSessionInfo },
   { name: 'list_sessions', description: TOOL_DESCRIPTIONS.list_sessions, inputSchema: ListSessionsSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleListSessions },
   { name: 'list_background_tasks', description: TOOL_DESCRIPTIONS.list_background_tasks, inputSchema: ListBackgroundTasksSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleListBackgroundTasks },

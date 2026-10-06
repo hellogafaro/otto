@@ -87,12 +87,15 @@ function usePageFrame() {
 
 function PageFrame({
   aside,
+  composer,
   className,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
   /** The sidecar; it places itself in the right track. */
   aside?: React.ReactNode
+  /** The shell's composer (the compact bar): over the bottom of the column, outside its scroll. */
+  composer?: React.ReactNode
 }) {
   const [header, setHeader] = React.useState<HTMLElement | null>(null)
   const [title, setTitle] = React.useState<HTMLElement | null>(null)
@@ -135,8 +138,8 @@ function PageFrame({
   // Otto: the whole page area right of the sidebar scrolls the page. The scroll
   // region is only the column, so a wheel over the gutters (or the nav) is
   // forwarded to it. A NATIVE listener: React's bubbles through portals (a
-  // popover would scroll the page). Not over the sidecar (it scrolls itself),
-  // not a pinch (ctrl) nor a sideways swipe.
+  // popover would scroll the page). Not over the sidecar or the composer's text
+  // (they scroll themselves), not a pinch (ctrl) nor a sideways swipe.
   const frameRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
     const frame = frameRef.current
@@ -151,7 +154,8 @@ function PageFrame({
         event.ctrlKey ||
         Math.abs(event.deltaX) > Math.abs(event.deltaY) ||
         scroll.contains(target) ||
-        target.closest("[data-slot=sidecar]")
+        target.closest("[data-slot=sidecar]") ||
+        target.closest("[data-slot=composer-input]")
       )
         return
       scroll.scrollBy({ top: event.deltaY })
@@ -185,7 +189,9 @@ function PageFrame({
           className={cn(
             "group/page relative grid h-full grid-cols-[minmax(1.25rem,1fr)_minmax(0,48rem)_minmax(var(--aside,1.25rem),1fr)] grid-rows-[auto_minmax(0,1fr)] pb-2",
             "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
-            "@[1280px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:20.25rem]"
+            "@[1280px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:20.25rem]",
+            // While the composer bar shows, the column keeps its band free (see `PageColumn`).
+            "has-[>[data-slot=page-composer-slot]:not(:empty)]:[--composer-clearance:3.5rem]"
           )}
           style={
             { "--content-start": `${contentStart}px` } as React.CSSProperties
@@ -222,6 +228,19 @@ function PageFrame({
               PAGE_INSET
             )}
           />
+          <div
+            data-slot="page-composer-slot"
+            // Otto: the composer's layer. Over the column's bottom, OUTSIDE its
+            // scroll (a masked scroller stops the bar's backdrop blur), 8px above
+            // the body's end (16px above the window's), centered on the column's
+            // content (24px sides from 768px, the frame's 20px below). Only the
+            // bar takes clicks. Above the page (`z-10`), under the overlaid
+            // sidecar (`z-20`), the sheet, popovers and dialogs. Empty (no bar on
+            // this page), it is nothing and the column keeps its own end.
+            className="pointer-events-none relative z-10 col-start-2 row-start-2 flex min-w-0 justify-center self-end pb-2 *:pointer-events-auto empty:hidden md:px-6"
+          >
+            {composer}
+          </div>
           {aside}
         </div>
       </div>

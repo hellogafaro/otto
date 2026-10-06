@@ -278,14 +278,14 @@ export function registerSystemGuiHandlers(server: RpcServer, deps: HandlerDeps):
     showNotification(title, body, workspaceId, sessionId)
   })
 
-  server.handle(RPC_CHANNELS.notification.GET_ENABLED, async () => {
+  server.handle(RPC_CHANNELS.notification.GET_ENABLED, async (ctx) => {
     const { getNotificationsEnabled } = await import('@otto/shared/config/storage')
-    return getNotificationsEnabled()
+    return getNotificationsEnabled(ctx.userId)
   })
 
-  server.handle(RPC_CHANNELS.notification.SET_ENABLED, async (_ctx, enabled: boolean) => {
+  server.handle(RPC_CHANNELS.notification.SET_ENABLED, async (ctx, enabled: boolean) => {
     const { setNotificationsEnabled } = await import('@otto/shared/config/storage')
-    setNotificationsEnabled(enabled)
+    setNotificationsEnabled(enabled, ctx.userId)
 
     if (enabled) {
       const { showNotification } = await import('../notifications')

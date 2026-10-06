@@ -1,15 +1,24 @@
 /**
  * Label CRUD Operations
  *
- * Create, Read, Update, Delete, Move, Reorder operations for the label tree.
- * All operations work on the nested JSON tree structure.
- * Delete cascade strips the label (and descendants) from all sessions.
+ * Create, update, delete, move and reorder for a workspace's label tree (rows of `labels`).
+ * `slug` arguments are the label ids chats write (`bug`); a label's slug never changes, so a
+ * rename is only its title. Deleting cascades: the label and its descendants lose their
+ * `labels_entities` rows and are stripped from the chat headers that still carry them (chats
+ * keep their labels in their headers until they move to the database).
  */
 
-import { loadLabelConfig, saveLabelConfig, isValidLabelId, isValidLabelIdFormat } from './storage.ts';
-import { findLabelById, collectAllIds, getDescendantIds, getLabelDisplayName } from './tree.ts';
-import { extractLabelId, parseLabelEntry, formatLabelEntry } from './values.ts';
-import type { LabelConfig, CreateLabelInput, UpdateLabelInput } from './types.ts';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { getWorkspaceRootPath } from '../config/storage.ts';
+import { initDb, type Db, type Tx } from '../db/index.ts';
+import { createId } from '../id.ts';
+import { domainError } from '../utils/errors.ts';
+import { getDescendantIds, getLabelDisplayName } from './tree.ts';
+import { extractLabelId, formatLabelEntry, parseLabelEntry } from './values.ts';
+import { assertAutoRules } from './auto/validation.ts';
+import { getLabelRow, getLabels, isValidLabelId, isValidLabelIdFormat } from './storage.ts';
+import { labels, labelsEntities } from './schema.ts';
+import type { CreateLabelInput, LabelConfig, UpdateLabelInput } from './types.ts';
 
 /**
  * Generate URL-safe slug from name. Accents are folded first ("fejlesztési" →
@@ -28,74 +37,66 @@ export function generateLabelSlug(name: string): string {
 }
 
 /**
- * Create a new label.
- * Inserts into the specified parent's children array, or at root level.
- * Generates a globally unique slug from the name.
+ * Create a new label under the parent (a slug) or at the root, last among its siblings.
+ * The slug comes from the name and is made unique across the workspace.
  */
-export function createLabel(
-  workspaceRootPath: string,
-  input: CreateLabelInput
-): LabelConfig {
-  const config = loadLabelConfig(workspaceRootPath);
+export function createLabel(workspaceId: string, input: CreateLabelInput, db: Db | Tx = initDb()): LabelConfig {
+  if (input.autoRules) assertAutoRules(input.autoRules);
+  const parent = input.parentId ? getLabelRow(workspaceId, input.parentId, db) : undefined;
+  if (input.parentId && !parent) throw domainError('not_found', `Parent label '${input.parentId}' not found`);
 
-  // Generate unique ID across the entire tree
-  const existingIds = collectAllIds(config.labels);
-  let id = generateLabelSlug(input.name);
-  let suffix = 2;
-  while (existingIds.has(id)) {
-    id = `${generateLabelSlug(input.name)}-${suffix}`;
-    suffix++;
-  }
+  const base = generateLabelSlug(input.name);
+  let slug = base;
+  for (let suffix = 2; getLabelRow(workspaceId, slug, db); suffix++) slug = `${base}-${suffix}`;
+  if (!isValidLabelIdFormat(slug)) throw domainError('invalid', `'${input.name}' does not make a label id`);
 
-  const label: LabelConfig = {
-    id,
+  const siblings = db
+    .select({ n: sql<number>`coalesce(max(${labels.order}), -1)` })
+    .from(labels)
+    .where(and(eq(labels.workspaceId, workspaceId), parent ? eq(labels.parentId, parent.id) : sql`${labels.parentId} is null`))
+    .get();
+  const now = new Date();
+  db.insert(labels)
+    .values({
+      id: createId(),
+      workspaceId,
+      parentId: parent?.id ?? null,
+      slug,
+      title: input.name,
+      color: input.color === undefined ? null : JSON.stringify(input.color),
+      valueType: input.valueType ?? null,
+      autoRules: input.autoRules?.length ? JSON.stringify(input.autoRules) : null,
+      order: (siblings?.n ?? -1) + 1,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+  return {
+    id: slug,
     name: input.name,
-    color: input.color,
+    ...(input.color !== undefined && { color: input.color }),
     ...(input.valueType && { valueType: input.valueType }),
+    ...(input.autoRules?.length && { autoRules: input.autoRules }),
   };
-
-  if (input.parentId) {
-    // Insert as child of the specified parent
-    const parent = findLabelById(config.labels, input.parentId);
-    if (!parent) {
-      throw new Error(`Parent label '${input.parentId}' not found`);
-    }
-    if (!parent.children) parent.children = [];
-    parent.children.push(label);
-  } else {
-    // Insert at root level
-    config.labels.push(label);
-  }
-
-  saveLabelConfig(workspaceRootPath, config);
-  return label;
 }
 
 /**
- * Ensure all label entries reference labels that exist in the workspace config.
- * For each entry, if the label ID doesn't exist, auto-creates it with a
+ * Ensure all label entries reference labels that exist in the workspace.
+ * For each entry, if the label ID doesn't exist, creates it with a
  * titlecased name derived from the slug. Returns resolved entries with the
  * actual created IDs (handles any slug mismatch from createLabel).
  *
  * Entries with invalid ID format are passed through unchanged.
  */
-export function ensureLabelsExist(
-  workspaceRootPath: string,
-  labels: string[]
-): string[] {
-  return labels.map(label => {
-    const { id: labelId, rawValue } = parseLabelEntry(label)
+export function createMissingLabels(workspaceId: string, entries: string[], db: Db | Tx = initDb()): string[] {
+  return entries.map(entry => {
+    const { id: labelId, rawValue } = parseLabelEntry(entry)
 
-    if (isValidLabelId(workspaceRootPath, labelId)) return label
-    if (!isValidLabelIdFormat(labelId)) return label
+    if (isValidLabelId(workspaceId, labelId, db)) return entry
+    if (!isValidLabelIdFormat(labelId)) return entry
 
     // getLabelDisplayName with empty tree falls back to titlecased slug
-    const name = getLabelDisplayName([], labelId)
-
-    const created = createLabel(workspaceRootPath, {
-      name,
-      color: 'foreground/50',
-    })
+    const created = createLabel(workspaceId, { name: getLabelDisplayName([], labelId), color: 'foreground/50' }, db)
 
     // Return entry with the actual created ID (handles slug mismatch)
     return formatLabelEntry(created.id, rawValue)
@@ -103,148 +104,103 @@ export function ensureLabelsExist(
 }
 
 /**
- * Update an existing label (name, color, valueType).
+ * Update an existing label (name, color, valueType, autoRules; null clears the last two).
  * Cannot change the ID or hierarchy position.
- * @throws Error if label not found
+ * @throws `not_found` if there is no such label
  */
-export function updateLabel(
-  workspaceRootPath: string,
-  labelId: string,
-  updates: UpdateLabelInput
-): LabelConfig {
-  const config = loadLabelConfig(workspaceRootPath);
-  const label = findLabelById(config.labels, labelId);
+export function updateLabel(workspaceId: string, slug: string, updates: UpdateLabelInput, db: Db | Tx = initDb()): LabelConfig {
+  const row = getLabelRow(workspaceId, slug, db);
+  if (!row) throw domainError('not_found', `Label '${slug}' not found`);
+  if (updates.autoRules) assertAutoRules(updates.autoRules);
 
-  if (!label) {
-    throw new Error(`Label '${labelId}' not found`);
-  }
-
-  if (updates.name !== undefined) label.name = updates.name;
-  if (updates.color !== undefined) label.color = updates.color;
-  // valueType: set to new value, or delete to revert to boolean label
-  if (updates.valueType !== undefined) label.valueType = updates.valueType || undefined;
-
-  saveLabelConfig(workspaceRootPath, config);
-  return label;
+  db.update(labels)
+    .set({
+      ...(updates.name !== undefined && { title: updates.name }),
+      ...(updates.color !== undefined && { color: JSON.stringify(updates.color) }),
+      // valueType: set to a new value, or '' / null to revert to a boolean label
+      ...(updates.valueType !== undefined && { valueType: updates.valueType || null }),
+      ...(updates.autoRules !== undefined && { autoRules: updates.autoRules?.length ? JSON.stringify(updates.autoRules) : null }),
+      updatedAt: new Date(),
+    })
+    .where(eq(labels.id, row.id))
+    .run();
+  return flattenFind(getLabels(workspaceId, db), slug)!;
 }
+
+const flattenFind = (nodes: LabelConfig[], slug: string): LabelConfig | undefined => {
+  for (const node of nodes) {
+    if (node.id === slug) return node;
+    const found = flattenFind(node.children ?? [], slug);
+    if (found) return found;
+  }
+  return undefined;
+};
 
 /**
  * Delete a label and all its descendants.
- * Strips removed labels from all sessions that reference them.
- * @returns Number of sessions that had labels stripped
+ * Removes their `labels_entities` rows and strips them from the chat headers that reference them.
+ * @returns Number of chats that had labels stripped
  */
-export function deleteLabel(
-  workspaceRootPath: string,
-  labelId: string
-): { stripped: number } {
-  const config = loadLabelConfig(workspaceRootPath);
+export function deleteLabel(workspaceId: string, slug: string, db: Db = initDb()): { stripped: number } {
+  const tree = getLabels(workspaceId, db);
+  if (!getLabelRow(workspaceId, slug, db)) throw domainError('not_found', `Label '${slug}' not found`);
+  const removedSlugs = [slug, ...getDescendantIds(tree, slug)];
 
-  // Collect all IDs that will be removed (the label + all descendants)
-  const descendantIds = getDescendantIds(config.labels, labelId);
-  const removedIds = [labelId, ...descendantIds];
+  db.transaction((tx) => {
+    const ids = tx.select({ id: labels.id }).from(labels).where(and(eq(labels.workspaceId, workspaceId), inArray(labels.slug, removedSlugs))).all().map((row) => row.id);
+    tx.delete(labelsEntities).where(and(eq(labelsEntities.workspaceId, workspaceId), inArray(labelsEntities.labelId, ids))).run();
+    tx.delete(labels).where(inArray(labels.id, ids)).run();
+  });
 
-  // Remove the node from its parent's children array (or from root)
-  const removed = removeNodeFromTree(config.labels, labelId);
-  if (!removed) {
-    throw new Error(`Label '${labelId}' not found`);
-  }
-
-  saveLabelConfig(workspaceRootPath, config);
-
-  // Strip all removed IDs from sessions
-  let stripped = 0;
-  for (const id of removedIds) {
-    stripped += stripLabelFromSessions(workspaceRootPath, id);
-  }
-
-  return { stripped };
+  // Strip all removed IDs from chats
+  return { stripped: stripLabelsFromSessions(workspaceId, removedSlugs) };
 }
 
 /**
  * Reorder labels within a parent's children (or root level).
- * Provide the full ordered list of sibling IDs at that level.
- * @param parentId - null for root level, or the parent label's ID
- * @param orderedIds - New order of child IDs at that level
+ * Provide the full ordered list of sibling slugs at that level.
+ * @param parentSlug - null for root level, or the parent label's slug
  */
-export function reorderLabels(
-  workspaceRootPath: string,
-  parentId: string | null,
-  orderedIds: string[]
-): void {
-  const config = loadLabelConfig(workspaceRootPath);
-
-  // Get the target array (root labels or a parent's children)
-  let siblings: LabelConfig[];
-  if (parentId) {
-    const parent = findLabelById(config.labels, parentId);
-    if (!parent) throw new Error(`Parent label '${parentId}' not found`);
-    if (!parent.children) throw new Error(`Parent label '${parentId}' has no children`);
-    siblings = parent.children;
-  } else {
-    siblings = config.labels;
+export function reorderLabels(workspaceId: string, parentSlug: string | null, orderedSlugs: string[], db: Db | Tx = initDb()): void {
+  const parent = parentSlug ? getLabelRow(workspaceId, parentSlug, db) : undefined;
+  if (parentSlug && !parent) throw domainError('not_found', `Parent label '${parentSlug}' not found`);
+  const siblings = db
+    .select()
+    .from(labels)
+    .where(and(eq(labels.workspaceId, workspaceId), parent ? eq(labels.parentId, parent.id) : sql`${labels.parentId} is null`))
+    .orderBy(asc(labels.order))
+    .all();
+  const bySlug = new Map(siblings.map((row) => [row.slug, row]));
+  for (const slug of orderedSlugs) {
+    if (!bySlug.has(slug)) throw domainError('invalid', `Invalid label ID for reorder: '${slug}'`);
   }
-
-  // Validate that orderedIds match the current siblings
-  const siblingIds = new Set(siblings.map(l => l.id));
-  for (const id of orderedIds) {
-    if (!siblingIds.has(id)) {
-      throw new Error(`Invalid label ID for reorder: '${id}'`);
-    }
-  }
-
-  // Build a map for quick lookup, then reorder the array in place
-  const map = new Map(siblings.map(l => [l.id, l]));
-  const reordered = orderedIds.map(id => map.get(id)!);
-
-  // Replace the array contents (preserving the same reference for root)
-  if (parentId) {
-    const parent = findLabelById(config.labels, parentId)!;
-    parent.children = reordered;
-  } else {
-    config.labels.length = 0;
-    config.labels.push(...reordered);
-  }
-
-  saveLabelConfig(workspaceRootPath, config);
+  // Listed labels first in the given order, any left out keep their relative order after them.
+  const order = [...new Set(orderedSlugs), ...siblings.map((row) => row.slug).filter((slug) => !orderedSlugs.includes(slug))];
+  order.forEach((slug, position) => db.update(labels).set({ order: position }).where(eq(labels.id, bySlug.get(slug)!.id)).run());
 }
 
 /**
- * Move a label to a different parent (or to root level).
+ * Move a label to a different parent (or to root level), last among its new siblings.
  * The label keeps its ID and children intact.
- * @param newParentId - null to move to root, or target parent's ID
+ * @param newParentSlug - null to move to root, or the target parent's slug
  */
-export function moveLabel(
-  workspaceRootPath: string,
-  labelId: string,
-  newParentId: string | null
-): void {
-  const config = loadLabelConfig(workspaceRootPath);
+export function moveLabel(workspaceId: string, slug: string, newParentSlug: string | null, db: Db | Tx = initDb()): void {
+  const row = getLabelRow(workspaceId, slug, db);
+  if (!row) throw domainError('not_found', `Label '${slug}' not found`);
 
-  // Prevent moving a label into its own descendant (would create a cycle)
-  if (newParentId) {
-    const descendants = getDescendantIds(config.labels, labelId);
-    if (descendants.includes(newParentId)) {
-      throw new Error(`Cannot move label '${labelId}' into its own descendant '${newParentId}'`);
-    }
+  // Prevent moving a label into itself or its own descendant (would create a cycle)
+  if (newParentSlug && (newParentSlug === slug || getDescendantIds(getLabels(workspaceId, db), slug).includes(newParentSlug))) {
+    throw domainError('invalid', `Cannot move label '${slug}' into its own descendant '${newParentSlug}'`);
   }
+  const parent = newParentSlug ? getLabelRow(workspaceId, newParentSlug, db) : undefined;
+  if (newParentSlug && !parent) throw domainError('not_found', `Target parent '${newParentSlug}' not found`);
 
-  // Remove from current location (preserving the node reference)
-  const node = removeNodeFromTree(config.labels, labelId);
-  if (!node) {
-    throw new Error(`Label '${labelId}' not found`);
-  }
-
-  // Insert into new location
-  if (newParentId) {
-    const newParent = findLabelById(config.labels, newParentId);
-    if (!newParent) throw new Error(`Target parent '${newParentId}' not found`);
-    if (!newParent.children) newParent.children = [];
-    newParent.children.push(node);
-  } else {
-    config.labels.push(node);
-  }
-
-  saveLabelConfig(workspaceRootPath, config);
+  const last = db
+    .select({ n: sql<number>`coalesce(max(${labels.order}), -1)` })
+    .from(labels)
+    .where(and(eq(labels.workspaceId, workspaceId), parent ? eq(labels.parentId, parent.id) : sql`${labels.parentId} is null`))
+    .get();
+  db.update(labels).set({ parentId: parent?.id ?? null, order: (last?.n ?? -1) + 1, updatedAt: new Date() }).where(eq(labels.id, row.id)).run();
 }
 
 // ============================================================
@@ -252,51 +208,22 @@ export function moveLabel(
 // ============================================================
 
 /**
- * Remove a node from the tree by ID. Returns the removed node or null.
- * Mutates the tree in place (removes from parent's children or root array).
- */
-function removeNodeFromTree(labels: LabelConfig[], targetId: string): LabelConfig | null {
-  // Check root level
-  const rootIndex = labels.findIndex(l => l.id === targetId);
-  if (rootIndex !== -1) {
-    return labels.splice(rootIndex, 1)[0]!;
-  }
-
-  // Recurse into children
-  for (const node of labels) {
-    if (node.children) {
-      const childIndex = node.children.findIndex(c => c.id === targetId);
-      if (childIndex !== -1) {
-        return node.children.splice(childIndex, 1)[0]!;
-      }
-      const found = removeNodeFromTree(node.children, targetId);
-      if (found) return found;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Strip a deleted label from all sessions.
- * Removes entries matching the label ID, including valued entries (e.g., "priority::3").
+ * Strip deleted labels from all chats (their headers), one update per chat.
+ * Removes entries matching a deleted label ID, including valued entries (e.g., "priority::3").
  * Uses extractLabelId to match both "bug" and "priority::3" style entries.
  */
-function stripLabelFromSessions(
-  workspaceRootPath: string,
-  deletedLabelId: string
-): number {
+function stripLabelsFromSessions(workspaceId: string, deletedLabelIds: string[]): number {
+  const workspaceRootPath = getWorkspaceRootPath(workspaceId);
+  if (!workspaceRootPath) return 0;
   // Dynamic import to avoid circular dependency with sessions module
   const { listSessions, updateSessionMetadata } = require('../sessions/storage.ts');
+  const deleted = new Set(deletedLabelIds);
 
-  const sessions = listSessions(workspaceRootPath);
   let strippedCount = 0;
-
-  for (const session of sessions) {
-    // Check if any entry matches the deleted label ID (handles both boolean and valued entries)
-    if (session.labels && session.labels.some((entry: string) => extractLabelId(entry) === deletedLabelId)) {
-      const updatedLabels = session.labels.filter((entry: string) => extractLabelId(entry) !== deletedLabelId);
-      updateSessionMetadata(workspaceRootPath, session.id, { labels: updatedLabels });
+  for (const session of listSessions(workspaceRootPath)) {
+    // Check if any entry matches a deleted label ID (handles both boolean and valued entries)
+    if (session.labels?.some((entry: string) => deleted.has(extractLabelId(entry)))) {
+      updateSessionMetadata(workspaceRootPath, session.id, { labels: session.labels.filter((entry: string) => !deleted.has(extractLabelId(entry))) });
       strippedCount++;
     }
   }

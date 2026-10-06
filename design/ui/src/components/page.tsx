@@ -29,6 +29,12 @@ import { cn } from "cn"
 // the title row and, on an item's page, its description (the lead line, 4px
 // under the title): one block, so the gap comes after both. The first block
 // (`data-content-start`) is where the sidecar starts: `PageFrame` measures it.
+// While the composer bar shows (`--composer-clearance`, 56px: the bar's 40,
+// 8px under it and 8px over it, set by `PageFrame`), a blocks page ends 24px
+// above the bar (72px of padding instead of 40) and its bottom fade grows to
+// 80px, so content softens as it nears the bar; a centerpiece's card ends 8px
+// above the bar (as the chat's card ends 8px above its composer). Nothing is
+// ever under the bar at the end of a page.
 function PageColumn({
   fill = false,
   className,
@@ -44,7 +50,9 @@ function PageColumn({
       data-slot="page-column"
       className={cn(
         "flex w-full flex-col gap-10 md:px-6",
-        fill ? "h-full min-h-0" : "pb-10",
+        fill
+          ? "h-full min-h-0 pb-(--composer-clearance)"
+          : "pb-[max(2.5rem,calc(var(--composer-clearance,0px)+1rem))]",
         className
       )}
       {...props}
@@ -57,7 +65,13 @@ function PageColumn({
       {children}
     </div>
   )
-  return fill ? column : <PageScroll>{column}</PageScroll>
+  return fill ? (
+    column
+  ) : (
+    <PageScroll className="[--scroll-fade-b-size:calc(var(--composer-clearance)+1.5rem)]">
+      {column}
+    </PageScroll>
+  )
 }
 
 // Otto: the one big card of a centerpiece page: the `PageCard` surface, as

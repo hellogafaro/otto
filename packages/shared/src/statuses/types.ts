@@ -2,15 +2,11 @@
  * Status Types
  *
  * Types for configurable session statuses.
- * Statuses are stored at {workspaceRootPath}/statuses/config.json
+ * Statuses are rows of `statuses` (./schema.ts); `StatusConfig.id` is the row's `slug`.
  *
- * Icon format: Simple string
+ * Icon format: one string
  * - Emoji: "✅", "🔥" - rendered as text
- * - URL: "https://..." - auto-downloaded to statuses/icons/{id}.{ext}
- * - Local filename: "in-progress.svg" - loaded from statuses/icons/in-progress.svg
- * - Local files: Stored in statuses/icons/{id}.svg when icon is omitted (auto-discovered)
- *
- * Priority: explicit local filename > local file by status ID > URL (downloaded) > emoji
+ * - Image data URL: "data:image/svg+xml;base64,..." of at most 16 KB (SVGs using currentColor take the status color)
  *
  * Color format: EntityColor (system color string or custom color object)
  * - System: "accent", "foreground/50", "info/80" (uses CSS variables, auto light/dark)
@@ -39,13 +35,7 @@ export interface StatusConfig {
   /** Optional color. If omitted, uses design system defaults from colors module. */
   color?: EntityColor;
 
-  /**
-   * Icon: emoji, URL (auto-downloaded), or local filename in statuses/icons/
-   * - Emoji: "✅", "🔥" - rendered as text
-   * - URL: "https://..." - auto-downloaded to statuses/icons/{id}.{ext}
-   * - Local filename: "in-progress.svg" → statuses/icons/in-progress.svg
-   * - Omit to use auto-discovered local file (statuses/icons/{id}.svg)
-   */
+  /** Icon: an emoji or an image data URL (at most 16 KB); omit for the default circle. */
   icon?: string;
 
   /** Category (open = inbox, closed = archive) */
@@ -54,7 +44,7 @@ export interface StatusConfig {
   /** If true, cannot be deleted/renamed (todo, done, cancelled) */
   isFixed: boolean;
 
-  /** If true, can be modified but not deleted (in-progress, needs-review) */
+  /** If true, the status new chats get: exactly one per workspace (todo unless another is picked); cannot be deleted */
   isDefault: boolean;
 
   /** Display order in UI (lower = first) */
@@ -62,7 +52,7 @@ export interface StatusConfig {
 }
 
 /**
- * Complete status configuration for a workspace
+ * The shape of the old `statuses/config.json`, which the importer reads (and nothing else)
  */
 export interface WorkspaceStatusConfig {
   /** Schema version for migrations (start at 1) */
@@ -81,7 +71,7 @@ export interface WorkspaceStatusConfig {
 export interface CreateStatusInput {
   label: string;
   color?: EntityColor;
-  icon?: string; // Emoji or URL
+  icon?: string; // Emoji or image data URL
   category: StatusCategory;
 }
 
@@ -91,6 +81,6 @@ export interface CreateStatusInput {
 export interface UpdateStatusInput {
   label?: string;
   color?: EntityColor;
-  icon?: string; // Emoji or URL
+  icon?: string; // Emoji or image data URL
   category?: StatusCategory;
 }

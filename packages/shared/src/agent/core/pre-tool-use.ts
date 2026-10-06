@@ -341,8 +341,7 @@ export const stripMcpMetadata = stripToolMetadata;
  * Validates:
  * - sources/{slug}/config.json
  * - skills/{slug}/SKILL.md
- * - statuses/config.json
- * - permissions.json
+ * - sources/{slug}/permissions.json
  * - theme.json
  * - tool-icons/tool-icons.json
  *
@@ -464,7 +463,6 @@ function matchesPathScope(relativePath: string, scope: string): boolean {
 }
 
 function detectCliNamespaceFromConfigDetection(detection: ConfigFileDetection): CliDomainNamespace | null {
-  if (detection.type === 'labels') return 'label'
   if (detection.type === 'automations') return 'automation'
   if (detection.type === 'source') return 'source'
   if (detection.type === 'skill') return 'skill'
@@ -1084,7 +1082,7 @@ export function shouldPromptInAskMode(
 
   // --- MCP mutations ---
   if (toolName.startsWith('mcp__')) {
-    // Freestanding policy: blocked-in-safe-mode = mutation (shared with the Pages action bridge)
+    // Freestanding policy: blocked-in-safe-mode = mutation
     // Same read-only rules as Explore mode (default verbs + workspace/source patterns): a tool
     // Explore runs silently must not prompt in Ask.
     const policy = evaluateMcpToolPolicy(toolName, input, { plansFolderPath, permissionsContext });
@@ -1110,7 +1108,7 @@ export function shouldPromptInAskMode(
     const method = ((input?.method as string) || 'GET').toUpperCase();
     const path = input?.path as string | undefined;
 
-    // Freestanding policy: GET / allowlisted endpoints (shared with the Pages action bridge)
+    // Freestanding policy: GET / allowlisted endpoints
     const policy = evaluateApiEndpointPolicy(method, path, permissionsContext);
     if (policy.decision === 'allow') {
       if (policy.reason === 'endpoint-allowlisted') {

@@ -2,18 +2,21 @@
 
 This guide explains how to configure custom permission rules for Explore mode.
 
-> **CLI-first workflow (recommended):** Use `otto permission ...` commands instead of editing JSON directly.
-> - `otto permission --help`
-> - Canonical command reference: [otto-cli.md](./otto-cli.md)
-
 ## Overview
 
 Explore mode is a read-only mode that blocks potentially destructive operations.
 Custom permission rules let you allow specific operations that would otherwise be blocked.
 
-Permission files are located at:
-- Workspace: `~/.otto/workspaces/{slug}/permissions.json`
-- Source: `~/.otto/workspaces/{slug}/sources/{source}/permissions.json`
+Rules exist at two levels:
+- **Workspace rules** are stored in the workspace database, not in a file. Read and change them with the `permissions_edit` tool (this tool will be replaced by the Python `otto` CLI, `otto permissions`). Only workspace owners can change them; members can read them.
+- **Source rules** are a file: `~/.otto/workspaces/{slug}/sources/{source}/permissions.json`. Edit it directly and check it with `config_validate` (target `permissions`).
+
+## The `permissions_edit` Tool
+
+- `permissions_edit({ action: "get" })` returns the workspace's rule set.
+- `permissions_edit({ action: "update", rules: { ... } })` **replaces the whole rule set** with `rules`. To add one rule, `get` first, add it, and send everything back.
+
+`rules` has the same shape as a source's `permissions.json` (below). It is validated when written: an invalid pattern or field is rejected with the reason.
 
 ## Auto-Scoping for Source Permissions
 
@@ -29,7 +32,7 @@ The system converts it to `mcp__<sourceSlug>__.*list` internally. This means:
 - No risk of accidentally allowing `list` tools from other sources
 - Workspace-level patterns still apply globally (for intentional cross-source rules)
 
-## permissions.json Schema
+## Rule Schema (workspace rules and source `permissions.json`)
 
 ```json
 {
@@ -78,7 +81,7 @@ The system converts it to `mcp__<sourceSlug>__.*list` internally. This means:
 
 Regex patterns for MCP tool names to allow in Explore mode.
 
-For **source-level** permissions.json, use simple patterns (auto-scoped):
+For **source-level** `permissions.json`, use simple patterns (auto-scoped):
 ```json
 {
   "allowedMcpPatterns": [
@@ -89,7 +92,7 @@ For **source-level** permissions.json, use simple patterns (auto-scoped):
 }
 ```
 
-For **workspace-level** permissions.json (global rules), use full patterns:
+For **workspace-level** rules (global), use full patterns:
 ```json
 {
   "allowedMcpPatterns": [

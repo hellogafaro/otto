@@ -324,7 +324,7 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
       const { getMemberWorkspaceIds } = await import('@otto/shared/workspaces')
       // Only a workspace the user belongs to: the handshake refuses any other.
       const mine = new Set(getMemberWorkspaceIds(session.user.id))
-      const active = getActiveWorkspace()
+      const active = getActiveWorkspace(session.user.id)
       const fallback = active && mine.has(active.id) ? active : getWorkspaces().find((workspace) => mine.has(workspace.id))
       return Response.json({
         defaultWorkspaceId: fallback?.id ?? null,

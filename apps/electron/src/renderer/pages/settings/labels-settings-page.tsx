@@ -6,9 +6,9 @@
  * 2. Auto-Apply Rules - flat table showing all regex rules across labels
  *
  * Each section has an Edit button that opens an EditPopover for AI-assisted editing
- * of the underlying labels/config.json file.
+ * (the agent uses the labels_edit tool; labels live in the database).
  *
- * Data is loaded via the useLabels hook which subscribes to live config changes.
+ * Data is loaded via the useLabels hook which reloads on live changes.
  */
 
 import { SettingsPage } from '@/components/settings/settings-page'
@@ -42,12 +42,6 @@ export default function LabelsSettingsPage() {
   const rootPath = activeWorkspace?.rootPath || ''
   const labelsEditConfig = getEditConfig('edit-labels', rootPath)
   const autoRulesEditConfig = getEditConfig('edit-auto-rules', rootPath)
-
-  // Secondary action: open the labels config file directly in system editor
-  const editFileAction = rootPath ? {
-    label: t("common.editFile"),
-    filePath: `${rootPath}/labels/config.json`,
-  } : undefined
 
   return (
     <SettingsPage subpage="labels">
@@ -86,7 +80,6 @@ export default function LabelsSettingsPage() {
                         displayLabel={labelsEditConfig.displayLabel}
                         model={labelsEditConfig.model}
                         systemPromptPreset={labelsEditConfig.systemPromptPreset}
-                        secondaryAction={editFileAction}
                       />
                     }
                   >
@@ -121,7 +114,6 @@ export default function LabelsSettingsPage() {
                         displayLabel={autoRulesEditConfig.displayLabel}
                         model={autoRulesEditConfig.model}
                         systemPromptPreset={autoRulesEditConfig.systemPromptPreset}
-                        secondaryAction={editFileAction}
                       />
                     }
                   >

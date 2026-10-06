@@ -37,7 +37,6 @@ import { useNavigation, useNavigationState, routes, isSessionsNavigation } from 
 import { useFocusContext } from "@/context/focus-context"
 import { sendToWorkspaceAtom, type SessionMeta } from "@/atoms/sessions"
 import { sessionListOrderAtom } from "@/atoms/list-context"
-import type { ViewConfig } from "@otto/shared/views"
 import type { SessionStatusId, SessionStatus } from "@/config/session-status-config"
 import { buildCollapsedGroupsScopeSuffix } from "@/utils/session-list-collapse"
 import { Button } from "@/components/ui/button"
@@ -88,8 +87,6 @@ interface SessionListProps {
   onSearchClose?: () => void
   /** Dynamic todo states from workspace config */
   sessionStatuses?: SessionStatus[]
-  /** View evaluator — evaluates a session and returns matching view configs */
-  evaluateViews?: (meta: SessionMeta) => ViewConfig[]
   /** Label configs for resolving session label IDs to display info */
   labels?: LabelConfig[]
   /** Callback when session labels are toggled (for labels submenu in SessionMenu) */
@@ -203,7 +200,6 @@ export function SessionList({
   onSearchChange,
   onSearchClose,
   sessionStatuses = [],
-  evaluateViews,
   labels = [],
   onLabelsChange,
   projects,
@@ -259,7 +255,6 @@ export function SessionList({
     currentFilter?.kind,
     currentFilter && 'stateId' in currentFilter ? currentFilter.stateId : undefined,
     currentFilter && 'labelId' in currentFilter ? currentFilter.labelId : undefined,
-    currentFilter && 'viewId' in currentFilter ? currentFilter.viewId : undefined,
   ])
 
   const readCollapsedGroupsForScope = useCallback((scopeSuffix: string): Set<string> => {
@@ -325,8 +320,7 @@ export function SessionList({
     searchQuery,
     workspaceId,
     currentFilter,
-    evaluateViews,
-    statusFilter,
+      statusFilter,
     labelFilterMap,
     labelConfigs: labels,
     collapsedGroups,

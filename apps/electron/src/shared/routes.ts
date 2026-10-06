@@ -137,12 +137,6 @@ export const routes = {
         ? `label/${encodeURIComponent(labelId)}/session/${sessionId}` as const
         : `label/${encodeURIComponent(labelId)}` as const,
 
-    /** View filter (sessions navigator, view filter — evaluated dynamically) */
-    view: (viewId: string, sessionId?: string) =>
-      sessionId
-        ? `view/${encodeURIComponent(viewId)}/session/${sessionId}` as const
-        : `view/${encodeURIComponent(viewId)}` as const,
-
     /** Sources view (sources navigator): the grid on a `type`, or `sourceSlug` open (keeping the type for Back). */
     sources: (params?: { sourceSlug?: string; type?: 'api' | 'mcp' | 'local' }) => {
       const { sourceSlug, type } = params ?? {}

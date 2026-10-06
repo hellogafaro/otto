@@ -92,7 +92,7 @@ export {
   isValidThinkingLevel,
 } from './thinking-levels.ts';
 
-// Export permissions-config - customizable permissions per workspace/source (permissions.json)
+// Export permissions-config - customizable permissions per workspace (a setting) and per source (permissions.json)
 export {
   // Parser and validation
   parsePermissionsJson,
@@ -103,12 +103,11 @@ export {
   // Storage functions
   loadWorkspacePermissionsConfig,
   loadSourcePermissionsConfig,
-  getWorkspacePermissionsPath,
   getSourcePermissionsPath,
-  // Raw load/save (for CLI CRUD)
-  loadRawWorkspacePermissions,
+  // Workspace rules (a setting) and raw source load/save
+  getWorkspacePermissions,
+  updateWorkspacePermissions,
   loadRawSourcePermissions,
-  saveWorkspacePermissions,
   saveSourcePermissions,
   // App-level default permissions (at ~/.otto/permissions/)
   getAppPermissionsDir,

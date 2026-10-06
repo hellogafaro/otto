@@ -3,7 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { APIError } from 'better-auth/api'
 import { bearer } from 'better-auth/plugins/bearer'
 import { organization } from 'better-auth/plugins/organization'
-import { asc, count, eq, inArray, sql } from 'drizzle-orm'
+import { count, eq, inArray, sql } from 'drizzle-orm'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { getWorkspaces } from '../config/storage.ts'
 import { initDb, type Db } from '../db/index.ts'
@@ -14,6 +14,7 @@ import { updateLegacyUserActor as updateTaskActors } from '../tasks/index.ts'
 import { userActor } from '../actors.ts'
 import { workspaces, workspacesInvitations, workspacesMembers } from '../workspaces/schema.ts'
 import { hasPendingInvitation, initWorkspaceOwner, updateWorkspaceMirror } from '../workspaces/members.ts'
+import { getFirstUser as getFirstUserRow } from './queries.ts'
 import { users, usersAccounts, usersSessions, usersVerifications } from './schema.ts'
 
 /**
@@ -80,9 +81,7 @@ export function createUsersStore(db: Db, options: UsersOptions) {
 
   const countUsers = () => db.select({ n: count() }).from(users).get()!.n
 
-  function getFirstUser() {
-    return db.select().from(users).orderBy(asc(users.createdAt), asc(users.id)).limit(1).get()
-  }
+  const getFirstUser = () => getFirstUserRow(db)
 
   /** Mirror rows for every workspace, an owner row in each, and the bare 'user' actor rewritten to this user. One transaction; running it again changes nothing. */
   function initOwner(userId: string): void {

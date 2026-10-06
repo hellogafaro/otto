@@ -10,6 +10,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { Archive, ArchiveRestore, Link, PanelRight } from 'lucide-react'
 import { Count } from '@workspace/ui/components/count'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
@@ -236,6 +237,8 @@ function ProjectView({ project, projectsApi }: { project: Project; projectsApi: 
 }
 
 export function ProjectPage({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
+  useComposerContext({ key: `project:${projectId}`, entity: `project:${projectId}`, placeholder: t('composer.placeholder.project') })
   const { showNotFound } = useNavigation()
   const projectsApi = useProjects()
   const { projects, loaded, refresh } = projectsApi

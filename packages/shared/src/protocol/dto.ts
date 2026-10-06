@@ -381,6 +381,11 @@ export interface ClaudeOAuthIdentityDto {
 
 export interface LlmConnectionSetup {
   slug: string
+  /**
+   * Whose the connection is: the caller's own (default for a new one: their subscription or key powers their agents),
+   * the workspace's (its owners set it) or the install's (its owner sets it). Names the connection of that scope only.
+   */
+  scope?: 'user' | 'workspace' | 'install'
   credential?: string
   baseUrl?: string | null
   defaultModel?: string | null

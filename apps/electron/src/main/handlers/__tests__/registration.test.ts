@@ -110,7 +110,6 @@ async function getExpectedChannels(): Promise<Set<string>> {
     tasks,
     comments,
     notifications,
-    pages,
     decisions,
     library,
   ] = await Promise.all([
@@ -135,7 +134,6 @@ async function getExpectedChannels(): Promise<Set<string>> {
     import('@otto/server-core/handlers/rpc/tasks'),
     import('@otto/server-core/handlers/rpc/comments'),
     import('@otto/server-core/handlers/rpc/notifications'),
-    import('@otto/server-core/handlers/rpc/pages'),
     import('@otto/server-core/handlers/rpc/decisions'),
     import('@otto/server-core/handlers/rpc/library'),
   ])
@@ -170,7 +168,6 @@ async function getExpectedChannels(): Promise<Set<string>> {
     ...tasks.HANDLED_CHANNELS,
     ...comments.HANDLED_CHANNELS,
     ...notifications.HANDLED_CHANNELS,
-    ...pages.HANDLED_CHANNELS,
     ...decisions.HANDLED_CHANNELS,
     ...library.HANDLED_CHANNELS,
     ...browser.HANDLED_CHANNELS,

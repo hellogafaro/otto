@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, statSync, readdirSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { getCredentialManager } from '../credentials/index.ts';
-import { getOrCreateLatestSession, type SessionConfig } from '../sessions/index.ts';
 import {
   discoverWorkspacesInDefaultLocation,
   loadWorkspaceConfig,
@@ -10,6 +9,8 @@ import {
   isValidWorkspace,
 } from '../workspaces/storage.ts';
 import { updateWorkspaceMirror } from '../workspaces/members.ts';
+import { initSecretsStore } from '../secrets/index.ts';
+import { INSTALL, getSetting, getUserSetting, updateSetting, updateUserSetting } from '../settings/index.ts';
 import { findIconFile } from '../utils/icon.ts';
 import { extractWorkspaceSlugFromPath } from '../utils/workspace-slug.ts';
 import { initializeDocs } from '../docs/index.ts';
@@ -21,7 +22,6 @@ import type { StoredMessage } from '@otto/core/types';
 import type { Plan } from '../agent/plan-types.ts';
 import type { PermissionMode } from '../agent/mode-manager.ts';
 import type { ThinkingLevel } from '../agent/thinking-levels.ts';
-import { normalizeThinkingLevel } from '../agent/thinking-levels.ts';
 import { parsePermissionMode, DEFAULT_PERMISSION_MODES } from '../agent/mode-types.ts';
 import { type ConfigDefaults } from './config-defaults-schema.ts';
 import { isValidThemeFile } from './validators.ts';
@@ -31,6 +31,8 @@ import {
   type DecisionLayerSettings,
   type DecisionLayerStoredSettings,
 } from '../decisions/settings.ts';
+import type { ServerConfig } from './server-config.ts';
+import { randomUUID } from 'crypto';
 
 // Re-export CONFIG_DIR for convenience (centralized in paths.ts)
 export { CONFIG_DIR } from './paths.ts';
@@ -47,51 +49,29 @@ export type {
 // Import for local use
 import type { Workspace, AuthType } from '@otto/core/types';
 
-// Import LLM connection types and constants
+// LLM connections live in the connections domain; this file keeps wrappers with the old names
 import type { LlmConnection } from './llm-connections.ts';
-import { isValidProviderAuthCombination, getDefaultModelsForConnection, getDefaultModelForConnection, isPiProvider, toBedrockNativeId, type LlmProviderType } from './llm-connections.ts';
 import {
-  getModelProvider,
-  getModelById,
-  getModelDisplayName,
-  normalizeDeprecatedModelId,
-  type ModelDefinition,
-} from './models.ts';
+  INSTALL_SCOPE,
+  createConnection,
+  deleteConnection,
+  getConnection,
+  getConnections,
+  getDefaultConnection,
+  setDefaultConnection,
+  updateConnection,
+  type Connection,
+  type ConnectionContext,
+  type ConnectionInput,
+  type ConnectionPatch,
+  type Credential,
+} from '../connections/index.ts';
 
-// Config stored in JSON file (credentials stored in encrypted file, not here)
+// Config stored in JSON file (credentials stored in encrypted file, not here).
+// What a person or the install configures lives in `settings` (../settings); the keys the importer moved
+// there are still in an old file but nothing reads them, and a save keeps them as they are.
 export interface StoredConfig {
-  // LLM Connections (authoritative source for auth and model config)
-  llmConnections?: LlmConnection[];
-  defaultLlmConnection?: string;  // Slug of default connection for new sessions
-  defaultThinkingLevel?: ThinkingLevel;  // App-level default thinking level for new sessions
-
   workspaces: Workspace[];
-  activeWorkspaceId: string | null;
-  activeSessionId: string | null;  // Currently active session (primary scope)
-  // Notifications
-  notificationsEnabled?: boolean;  // Desktop notifications for task completion (default: true)
-  // Appearance
-  colorTheme?: string;  // ID of selected preset theme (e.g., 'dracula', 'nord'). Default: 'default'
-  // Auto-update
-  dismissedUpdateVersion?: string;  // Version that user dismissed (skip notifications for this version)
-  // Input settings
-  autoCapitalisation?: boolean;  // Auto-capitalize first letter when typing (default: true)
-  sendMessageKey?: 'enter' | 'cmd-enter';  // Key to send messages (default: 'enter')
-  spellCheck?: boolean;  // Enable spell check in input (default: false)
-  // Power settings
-  keepAwakeWhileRunning?: boolean;  // Prevent screen sleep while sessions are running (default: false)
-  // Tool metadata
-  richToolDescriptions?: boolean;  // Add intent/action metadata to all tool calls (default: true)
-  // Tools
-  allowRemoteEvaluate?: boolean;  // Allow remote agents to call `browser_tool evaluate` on local browser (default: true).
-  // Decision layer (Jev / TypeSafe System One) — opt-in, off by default. See src/decisions/.
-  decisionLayer?: DecisionLayerStoredSettings;
-  // Windows: path to Git Bash (bash.exe) for the SDK subprocess
-  gitBashPath?: string;
-  // User chose "Setup later" during onboarding — skip showing onboarding on next launch
-  setupDeferred?: boolean;
-  // Server mode — embedded remote server settings
-  serverConfig?: import('./server-config.ts').ServerConfig;
   // One-shot migration markers. Used by migrations that should run at most
   // once per user (e.g. restoring a previously-removed model to connection
   // lists without re-adding it if the user later removes it deliberately).
@@ -115,16 +95,6 @@ let configDefaultsSynced = false;
 const FALLBACK_CONFIG_DEFAULTS: ConfigDefaults = {
   version: '1.0',
   description: 'Default configuration values for Otto',
-  defaults: {
-    notificationsEnabled: true,
-    colorTheme: 'default',
-    autoCapitalisation: true,
-    sendMessageKey: 'enter',
-    spellCheck: false,
-    keepAwakeWhileRunning: false,
-    richToolDescriptions: true,
-    allowRemoteEvaluate: true,
-  },
   workspaceDefaults: {
     thinkingLevel: 'medium',
     permissionMode: 'ask',
@@ -280,13 +250,6 @@ export function loadStoredConfig(): StoredConfig | null {
       workspace.rootPath = expandPath(workspace.rootPath);
     }
 
-    // Validate active workspace exists
-    const activeWorkspace = config.workspaces.find(w => w.id === config.activeWorkspaceId);
-    if (!activeWorkspace) {
-      // Default to first workspace
-      config.activeWorkspaceId = config.workspaces[0]?.id || null;
-    }
-
     // Ensure workspace folder structure exists for all workspaces.
     // Failures here are non-fatal — the workspace will be re-created on next access.
     for (const workspace of config.workspaces) {
@@ -333,166 +296,44 @@ export function saveConfig(config: StoredConfig): void {
 // - getCustomModel/setCustomModel -> use connection.defaultModel
 
 
-/**
- * Get whether desktop notifications are enabled.
- * Defaults to true if not set.
- */
-export function getNotificationsEnabled(): boolean {
-  const config = loadStoredConfig();
-  if (config?.notificationsEnabled !== undefined) {
-    return config.notificationsEnabled;
-  }
-  const defaults = loadConfigDefaults();
-  return defaults.defaults.notificationsEnabled;
-}
+// What a person has set (their own, `user:<id>` settings; with no `userId` the first user's, the local user on a desktop)
 
-/**
- * Set whether desktop notifications are enabled.
- */
-export function setNotificationsEnabled(enabled: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.notificationsEnabled = enabled;
-  saveConfig(config);
-}
+/** Whether desktop notifications are enabled (default: true). */
+export const getNotificationsEnabled = (userId?: string | null): boolean => getUserSetting(userId, 'notificationsEnabled');
+export const setNotificationsEnabled = (enabled: boolean, userId?: string | null): void => void updateUserSetting(userId, 'notificationsEnabled', enabled);
 
-/**
- * Get whether auto-capitalisation is enabled.
- * Defaults to true if not set.
- */
-export function getAutoCapitalisation(): boolean {
-  const config = loadStoredConfig();
-  if (config?.autoCapitalisation !== undefined) {
-    return config.autoCapitalisation;
-  }
-  const defaults = loadConfigDefaults();
-  return defaults.defaults.autoCapitalisation;
-}
+/** Whether the input capitalises the first letter (default: true). */
+export const getAutoCapitalisation = (userId?: string | null): boolean => getUserSetting(userId, 'autoCapitalisation');
+export const setAutoCapitalisation = (enabled: boolean, userId?: string | null): void => void updateUserSetting(userId, 'autoCapitalisation', enabled);
 
-/**
- * Set whether auto-capitalisation is enabled.
- */
-export function setAutoCapitalisation(enabled: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.autoCapitalisation = enabled;
-  saveConfig(config);
-}
+/** The key combination that sends a message (default: 'enter'). */
+export const getSendMessageKey = (userId?: string | null): 'enter' | 'cmd-enter' => getUserSetting(userId, 'sendMessageKey');
+export const setSendMessageKey = (key: 'enter' | 'cmd-enter', userId?: string | null): void => void updateUserSetting(userId, 'sendMessageKey', key);
 
-/**
- * Get the key combination used to send messages.
- * Defaults to 'enter' if not set.
- */
-export function getSendMessageKey(): 'enter' | 'cmd-enter' {
-  const config = loadStoredConfig();
-  if (config?.sendMessageKey !== undefined) {
-    return config.sendMessageKey;
-  }
-  const defaults = loadConfigDefaults();
-  return defaults.defaults.sendMessageKey;
-}
+/** Whether the input checks spelling (default: false). */
+export const getSpellCheck = (userId?: string | null): boolean => getUserSetting(userId, 'spellCheck');
+export const setSpellCheck = (enabled: boolean, userId?: string | null): void => void updateUserSetting(userId, 'spellCheck', enabled);
 
-/**
- * Set the key combination used to send messages.
- */
-export function setSendMessageKey(key: 'enter' | 'cmd-enter'): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.sendMessageKey = key;
-  saveConfig(config);
-}
+/** Whether tool calls carry intent and display-name metadata (default: true). */
+export const getRichToolDescriptions = (userId?: string | null): boolean => getUserSetting(userId, 'richToolDescriptions');
+export const setRichToolDescriptions = (enabled: boolean, userId?: string | null): void => void updateUserSetting(userId, 'richToolDescriptions', enabled);
 
-/**
- * Get whether spell check is enabled in the input.
- */
-export function getSpellCheck(): boolean {
-  const config = loadStoredConfig();
-  if (config?.spellCheck !== undefined) {
-    return config.spellCheck;
-  }
-  const defaults = loadConfigDefaults();
-  return defaults.defaults.spellCheck;
-}
+/** The selected color theme id (default: 'default'). */
+export const getColorTheme = (userId?: string | null): string => getUserSetting(userId, 'colorTheme');
+export const setColorTheme = (themeId: string, userId?: string | null): void => void updateUserSetting(userId, 'colorTheme', themeId);
 
-/**
- * Set whether spell check is enabled in the input.
- */
-export function setSpellCheck(enabled: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.spellCheck = enabled;
-  saveConfig(config);
-}
+// What the whole install has set (`install` settings)
 
-/**
- * Get whether screen should stay awake while sessions are running.
- * Defaults to false if not set.
- */
-export function getKeepAwakeWhileRunning(): boolean {
-  const config = loadStoredConfig();
-  if (config?.keepAwakeWhileRunning !== undefined) {
-    return config.keepAwakeWhileRunning;
-  }
-  const defaults = loadConfigDefaults();
-  return defaults.defaults.keepAwakeWhileRunning;
-}
-
-/**
- * Set whether screen should stay awake while sessions are running.
- */
-export function setKeepAwakeWhileRunning(enabled: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.keepAwakeWhileRunning = enabled;
-  saveConfig(config);
-}
-
-/**
- * Get whether rich tool descriptions are enabled.
- * When enabled, all tool calls include intent and display name metadata.
- * Defaults to true if not set.
- */
-export function getRichToolDescriptions(): boolean {
-  const config = loadStoredConfig();
-  if (config?.richToolDescriptions !== undefined) {
-    return config.richToolDescriptions;
-  }
-  return true;
-}
-
-/**
- * Set whether rich tool descriptions are enabled.
- */
-export function setRichToolDescriptions(enabled: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.richToolDescriptions = enabled;
-  saveConfig(config);
-}
+/** Whether the screen stays awake while chats run (default: false). */
+export const getKeepAwakeWhileRunning = (): boolean => getSetting(INSTALL, 'keepAwakeWhileRunning');
+export const setKeepAwakeWhileRunning = (enabled: boolean): void => void updateSetting(INSTALL, 'keepAwakeWhileRunning', enabled);
 
 /**
  * Whether remote agents may call `browser_tool evaluate <expression>` against this
  * desktop client's local browser. The check is enforced inside the local capability
- * dispatcher; the remote server cannot override it.
- *
- * Defaults to true. Users can flip it off in Settings → AI → Advanced if they don't
- * trust the remote workspaces they connect to.
+ * dispatcher; the remote server cannot override it. Defaults to true.
  */
-export function getAllowRemoteEvaluate(): boolean {
-  const config = loadStoredConfig();
-  if (config?.allowRemoteEvaluate !== undefined) {
-    return config.allowRemoteEvaluate;
-  }
-  const defaults = loadConfigDefaults();
-  return defaults.defaults.allowRemoteEvaluate;
-}
-
-export function setAllowRemoteEvaluate(allowed: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.allowRemoteEvaluate = allowed;
-  saveConfig(config);
-}
+export const getAllowRemoteEvaluate = (): boolean => getSetting(INSTALL, 'allowRemoteEvaluate');
 
 /**
  * Decision layer (Jev / TypeSafe System One) settings with defaults applied.
@@ -500,8 +341,7 @@ export function setAllowRemoteEvaluate(allowed: boolean): void {
  * See `src/decisions/settings.ts` for the shape and `src/decisions/resolve.ts` for how it is used.
  */
 export function getDecisionLayerSettings(): DecisionLayerSettings {
-  const config = loadStoredConfig();
-  return normalizeDecisionLayerSettings(config?.decisionLayer);
+  return normalizeDecisionLayerSettings(getSetting(INSTALL, 'decisionLayer'));
 }
 
 /**
@@ -509,51 +349,26 @@ export function getDecisionLayerSettings(): DecisionLayerSettings {
  * string) and persist. Returns the normalized result.
  */
 export function setDecisionLayerSettings(patch: Partial<Record<keyof DecisionLayerStoredSettings, unknown>>): DecisionLayerSettings {
-  const config = loadStoredConfig();
-  if (!config) {
-    // Callers display the returned value — do not pretend a write happened.
-    throw new Error('Cannot save decision model settings: config.json is not initialized');
-  }
-  config.decisionLayer = mergeDecisionLayerSettings(config.decisionLayer, patch);
-  saveConfig(config);
-  return normalizeDecisionLayerSettings(config.decisionLayer);
+  return normalizeDecisionLayerSettings(updateSetting(INSTALL, 'decisionLayer', mergeDecisionLayerSettings(getSetting(INSTALL, 'decisionLayer'), patch)));
 }
 
-/**
- * Get persisted Git Bash path (Windows only).
- * Used to set CLAUDE_CODE_GIT_BASH_PATH for the SDK subprocess.
- */
-export function getGitBashPath(): string | undefined {
-  const config = loadStoredConfig();
-  return config?.gitBashPath;
-}
+/** The persisted Git Bash path (Windows only), used to set CLAUDE_CODE_GIT_BASH_PATH for the SDK subprocess. */
+export const getGitBashPath = (): string | undefined => getSetting(INSTALL, 'gitBashPath') ?? undefined;
 
-/**
- * Set Git Bash path (Windows only).
- * Persists to config so it survives app restarts.
- * Returns false if the config could not be loaded (path not persisted).
- */
+/** Persists the Git Bash path (Windows only) so it survives restarts. */
 export function setGitBashPath(path: string): boolean {
-  const config = loadStoredConfig();
-  if (!config) {
-    console.warn('[storage] Failed to persist Git Bash path: config could not be loaded');
-    return false;
-  }
-  config.gitBashPath = path;
-  saveConfig(config);
+  updateSetting(INSTALL, 'gitBashPath', path);
   return true;
 }
 
-/**
- * Clear persisted Git Bash path (Windows only).
- * Used when the stored path is stale or invalid.
- */
-export function clearGitBashPath(): void {
-  const config = loadStoredConfig();
-  if (!config || !config.gitBashPath) return;
-  delete config.gitBashPath;
-  saveConfig(config);
-}
+/** Forgets the persisted Git Bash path (it is stale or invalid). */
+export const clearGitBashPath = (): void => void updateSetting(INSTALL, 'gitBashPath', null);
+
+/** The update version the user dismissed (its banner stays away), or null. */
+export const getDismissedUpdateVersion = (): string | null => getSetting(INSTALL, 'dismissedUpdateVersion');
+export const setDismissedUpdateVersion = (version: string): void => void updateSetting(INSTALL, 'dismissedUpdateVersion', version);
+/** Call this when a new version is released (or on successful update). */
+export const clearDismissedUpdateVersion = (): void => void updateSetting(INSTALL, 'dismissedUpdateVersion', null);
 
 // Note: getDefaultWorkingDirectory/setDefaultWorkingDirectory removed
 // Working directory is now stored per-workspace in workspace config.json (defaults.workingDirectory)
@@ -651,12 +466,12 @@ export function refreshWorkspaceMirror(): void {
   updateWorkspaceMirror(getWorkspaces().map((workspace) => ({ id: workspace.id, title: workspace.name })));
 }
 
-export function getActiveWorkspace(): Workspace | null {
+/** The workspace this user last made active (the first user's without a `userId`), else the first workspace. */
+export function getActiveWorkspace(userId?: string | null): Workspace | null {
   const config = loadStoredConfig();
-  if (!config || !config.activeWorkspaceId) {
-    return config?.workspaces[0] || null;
-  }
-  return config.workspaces.find(w => w.id === config.activeWorkspaceId) || config.workspaces[0] || null;
+  if (!config) return null;
+  const activeId = getUserSetting(userId, 'activeWorkspaceId');
+  return config.workspaces.find(w => w.id === activeId) || config.workspaces[0] || null;
 }
 
 /**
@@ -671,6 +486,34 @@ export function getWorkspaceByNameOrId(nameOrId: string): Workspace | null {
   ) || null;
 }
 
+let workspaceIndex: { stamp: string; roots: Map<string, string> } | undefined;
+
+/** Registered workspaces as root path -> id, rebuilt when config.json changes (its mtime and size), so a per-chat lookup does not parse the file. */
+function getWorkspaceRoots(): Map<string, string> {
+  let stamp = 'none';
+  try {
+    const stat = statSync(CONFIG_FILE);
+    stamp = `${stat.mtimeMs}:${stat.size}`;
+  } catch {
+    // no config yet: no workspaces
+  }
+  if (workspaceIndex?.stamp !== stamp) {
+    workspaceIndex = { stamp, roots: new Map((loadStoredConfig()?.workspaces ?? []).map(w => [w.rootPath, w.id])) };
+  }
+  return workspaceIndex.roots;
+}
+
+/** The id of the workspace whose root is this path; null when none is registered there. */
+export function getWorkspaceIdByRootPath(rootPath: string): string | null {
+  return getWorkspaceRoots().get(rootPath) ?? null;
+}
+
+/** The root path of a registered workspace; null for an unknown id. */
+export function getWorkspaceRootPath(workspaceId: string): string | null {
+  for (const [rootPath, id] of getWorkspaceRoots()) if (id === workspaceId) return rootPath;
+  return null;
+}
+
 export function updateWorkspaceRemoteServer(
   workspaceId: string,
   remoteServer: { url: string; token: string; remoteWorkspaceId: string },
@@ -683,40 +526,9 @@ export function updateWorkspaceRemoteServer(
   saveConfig(config);
 }
 
-export function setActiveWorkspace(workspaceId: string): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-
-  const workspace = config.workspaces.find(w => w.id === workspaceId);
-  if (!workspace) return;
-
-  config.activeWorkspaceId = workspaceId;
-  saveConfig(config);
-}
-
-/**
- * Atomically switch to a workspace and load/create a session.
- * This prevents race conditions by doing both operations together.
- *
- * @param workspaceId The ID of the workspace to switch to
- * @returns The workspace and session, or null if workspace not found
- */
-export async function switchWorkspaceAtomic(workspaceId: string): Promise<{ workspace: Workspace; session: SessionConfig } | null> {
-  const config = loadStoredConfig();
-  if (!config) return null;
-
-  const workspace = config.workspaces.find(w => w.id === workspaceId);
-  if (!workspace) return null;
-
-  // Get or create the latest session for this workspace
-  const session = await getOrCreateLatestSession(workspace.rootPath);
-
-  // Update active workspace in config
-  config.activeWorkspaceId = workspaceId;
-  workspace.lastAccessedAt = Date.now();
-  saveConfig(config);
-
-  return { workspace, session };
+export function setActiveWorkspace(workspaceId: string, userId?: string | null): void {
+  if (!loadStoredConfig()?.workspaces.some(w => w.id === workspaceId)) return;
+  updateUserSetting(userId, 'activeWorkspaceId', workspaceId);
 }
 
 /**
@@ -763,11 +575,6 @@ export function addWorkspace(workspace: Omit<Workspace, 'id' | 'createdAt' | 'sl
 
   config.workspaces.push(newWorkspace);
 
-  // If this is the only workspace, make it active
-  if (config.workspaces.length === 1) {
-    config.activeWorkspaceId = newWorkspace.id;
-  }
-
   saveConfig(config);
   refreshWorkspaceMirror();
   return newWorkspace;
@@ -806,10 +613,6 @@ export function syncWorkspaces(): void {
   }
 
   if (added) {
-    // If no active workspace, set to first
-    if (!config.activeWorkspaceId && config.workspaces.length > 0) {
-      config.activeWorkspaceId = config.workspaces[0]!.id;
-    }
     saveConfig(config);
     refreshWorkspaceMirror();
   }
@@ -823,11 +626,6 @@ export async function removeWorkspace(workspaceId: string): Promise<boolean> {
   if (index === -1) return false;
 
   config.workspaces.splice(index, 1);
-
-  // If we removed the active workspace, switch to first available
-  if (config.activeWorkspaceId === workspaceId) {
-    config.activeWorkspaceId = config.workspaces[0]?.id || null;
-  }
 
   saveConfig(config);
   refreshWorkspaceMirror();
@@ -1451,72 +1249,16 @@ export function resetPresetTheme(id: string): boolean {
 }
 
 // ============================================
-// Color Theme Selection (stored in config)
-// ============================================
-
-/**
- * Get the currently selected color theme ID.
- * Returns 'default' if not set.
- */
-export function getColorTheme(): string {
-  const config = loadStoredConfig();
-  if (config?.colorTheme !== undefined) {
-    return config.colorTheme;
-  }
-  const defaults = loadConfigDefaults();
-  return defaults.defaults.colorTheme;
-}
-
-/**
- * Set the color theme ID.
- */
-export function setColorTheme(themeId: string): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.colorTheme = themeId;
-  saveConfig(config);
-}
-
-// ============================================
-// Auto-Update Dismissed Version
-// ============================================
-
-/**
- * Get the dismissed update version.
- * Returns null if no version is dismissed.
- */
-export function getDismissedUpdateVersion(): string | null {
-  const config = loadStoredConfig();
-  return config?.dismissedUpdateVersion ?? null;
-}
-
-/**
- * Set the dismissed update version.
- * Pass the version string to dismiss notifications for that version.
- */
-export function setDismissedUpdateVersion(version: string): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  config.dismissedUpdateVersion = version;
-  saveConfig(config);
-}
-
-/**
- * Clear the dismissed update version.
- * Call this when a new version is released (or on successful update).
- */
-export function clearDismissedUpdateVersion(): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  delete config.dismissedUpdateVersion;
-  saveConfig(config);
-}
-
-// ============================================
 // LLM Connections
 // ============================================
+//
+// Thin wrappers over the connections domain (`@otto/shared/connections`), which is the one source of truth;
+// they keep the names and the `LlmConnection` shape their callers use. A lookup with a `workspaceId` finds
+// the workspace's own connection before the install's. The credential is not part of the shape: it lives in
+// the connection's secret (the credential manager's `getLlm*` and `setLlm*` read and write it).
 
 // Re-export types for convenience (imports are at top of file)
+export type { ConnectionContext } from '../connections/index.ts';
 export type {
   LlmConnection,
   LlmProviderType,
@@ -1524,1223 +1266,117 @@ export type {
   LlmConnectionWithStatus,
 } from './llm-connections.ts';
 
-/**
- * Migrate Codex (OpenAI) and Copilot connections to Pi backend.
- * Runs on startup — transparently routes existing users through PiAgent.
- *
- * No re-auth needed: credentials are keyed by connection slug (not provider),
- * and PiAgent reads the same OAuth tokens via piAuthProvider.
- *
- * Migration rules:
- * - openai + oauth       → pi + openai-codex
- * - openai + api_key     → pi + openai
- * - openai_compat        → pi + openai  (keep baseUrl)
- * - copilot              → pi + github-copilot
- * - defaultModel reset to Pi's default (stale Codex/Copilot model IDs dropped)
- * - codexPath removed (no longer needed)
- */
-function migrateCodexCopilotToPi(config: StoredConfig): boolean {
-  if (!config.llmConnections) return false;
-  let changed = false;
-
-  for (const connection of config.llmConnections) {
-    // Cast to string for legacy providerType values that were removed from LlmProviderType
-    // but may still exist on disk in old configs. Cast to any for legacy codexPath field.
-    const providerStr = connection.providerType as string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const connAny = connection as any;
-    if (providerStr === 'openai' && connection.authType === 'oauth') {
-      connection.providerType = 'pi';
-      connection.piAuthProvider = 'openai-codex';
-      connection.name = 'ChatGPT Plus (via Pi)';
-      delete connAny.codexPath;
-      connection.defaultModel = undefined; // reset — backfill picks Pi default
-      connection.models = undefined;
-      changed = true;
-    } else if (providerStr === 'openai' && (connection.authType === 'api_key' || connection.authType === 'api_key_with_endpoint')) {
-      connection.providerType = 'pi';
-      connection.piAuthProvider = 'openai';
-      connection.name = 'OpenAI API (via Pi)';
-      delete connAny.codexPath;
-      connection.defaultModel = undefined;
-      connection.models = undefined;
-      changed = true;
-    } else if (providerStr === 'openai_compat') {
-      connection.providerType = 'pi';
-      connection.piAuthProvider = 'openai';
-      // keep baseUrl for custom endpoints
-      delete connAny.codexPath;
-      connection.defaultModel = undefined;
-      connection.models = undefined;
-      changed = true;
-    } else if (providerStr === 'copilot') {
-      connection.providerType = 'pi';
-      connection.piAuthProvider = 'github-copilot';
-      connection.name = 'GitHub Copilot (via Pi)';
-      delete connAny.codexPath;
-      connection.defaultModel = undefined;
-      connection.models = undefined;
-      changed = true;
-    }
-  }
-
-  // Clean up openaiVariant config field (Codex-specific A/B testing, no longer relevant)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const configAny = config as any;
-  if (configAny.openaiVariant) {
-    delete configAny.openaiVariant;
-    changed = true;
-  }
-
-  return changed;
+function toLlmConnection(c: Connection): LlmConnection {
+  return {
+    slug: c.slug,
+    scope: c.scope,
+    name: c.title,
+    providerType: c.type,
+    authType: c.authType,
+    baseUrl: c.baseUrl ?? undefined,
+    models: c.models ?? undefined,
+    defaultModel: c.defaultModel ?? undefined,
+    modelSelectionMode: c.config.modelSelectionMode,
+    piAuthProvider: c.config.piAuthProvider,
+    customEndpoint: c.config.customEndpoint,
+    midStreamBehavior: c.config.midStreamBehavior,
+    oauthAccountUuid: c.account.oauthAccountUuid,
+    oauthAccountEmail: c.account.oauthAccountEmail,
+    oauthOrganizationUuid: c.account.oauthOrganizationUuid,
+    oauthOrganizationName: c.account.oauthOrganizationName,
+    oauthProfileVerifiedAt: c.account.verifiedAt,
+    createdAt: c.createdAt.getTime(),
+    lastUsedAt: c.lastUsedAt?.getTime(),
+  };
 }
 
-/**
- * Backfill models and defaultModel on ALL connections.
- * Ensures built-in connections (anthropic, openai) always have models populated,
- * not just compat connections.
- */
-export function shouldMigratePiOpenAiProvider(connection: Pick<LlmConnection, 'providerType' | 'piAuthProvider' | 'authType' | 'baseUrl'>): boolean {
-  // Legacy cleanup: old ChatGPT Plus OAuth connections may still be tagged as `openai`.
-  // Only migrate those to `openai-codex`.
-  //
-  // IMPORTANT: Do NOT migrate API-key or custom-endpoint connections:
-  // - `api_key` / `api_key_with_endpoint` with `openai` must remain regular OpenAI API auth.
-  // - forcing them to `openai-codex` routes requests to ChatGPT backend auth and breaks on restart.
-  if (!isPiProvider(connection.providerType)) return false;
-  if (connection.piAuthProvider !== 'openai') return false;
-  if (connection.authType !== 'oauth') return false;
-  if (typeof connection.baseUrl === 'string' && connection.baseUrl.trim().length > 0) return false;
-  return true;
+/** The domain's fields of a connection: what a create writes and what an update replaces. */
+function toPatch(c: LlmConnection): ConnectionPatch {
+  return {
+    type: c.providerType,
+    authType: c.authType,
+    title: c.name,
+    baseUrl: c.baseUrl ?? null,
+    defaultModel: c.defaultModel ?? null,
+    models: c.models ?? null,
+    config: {
+      modelSelectionMode: c.modelSelectionMode,
+      piAuthProvider: c.piAuthProvider,
+      customEndpoint: c.customEndpoint,
+      midStreamBehavior: c.midStreamBehavior,
+    },
+    account: {
+      oauthAccountUuid: c.oauthAccountUuid,
+      oauthAccountEmail: c.oauthAccountEmail,
+      oauthOrganizationUuid: c.oauthOrganizationUuid,
+      oauthOrganizationName: c.oauthOrganizationName,
+      verifiedAt: c.oauthProfileVerifiedAt,
+    },
+    lastUsedAt: c.lastUsedAt === undefined ? null : new Date(c.lastUsedAt),
+  };
 }
 
-export function shouldRepairPiApiKeyCodexProvider(connection: Pick<LlmConnection, 'providerType' | 'piAuthProvider' | 'authType'>): boolean {
-  // Repair broken state from previous startup migrations:
-  // API-key connections tagged as `openai-codex` try ChatGPT backend JWT auth and fail.
-  if (!isPiProvider(connection.providerType)) return false;
-  if (connection.piAuthProvider !== 'openai-codex') return false;
-  return connection.authType === 'api_key' || connection.authType === 'api_key_with_endpoint';
-}
-
-function normalizeModelIds(models?: Array<{ id: string } | string>): string[] {
-  if (!models) return [];
-  return models
-    .map(m => typeof m === 'string' ? m : m.id)
-    .filter((id): id is string => !!id && id.trim().length > 0);
-}
-
-function modelSetEquals(a: string[], b: string[]): boolean {
-  const as = new Set(a);
-  const bs = new Set(b);
-  if (as.size !== bs.size) return false;
-  for (const id of as) {
-    if (!bs.has(id)) return false;
-  }
-  return true;
-}
-
-export function inferModelSelectionMode(
-  connection: Pick<LlmConnection, 'models'>,
-  providerDefaultModelIds: string[],
-): 'automaticallySyncedFromProvider' | 'userDefined3Tier' {
-  const currentIds = normalizeModelIds(connection.models);
-  if (currentIds.length === 0) return 'automaticallySyncedFromProvider';
-  return modelSetEquals(currentIds, providerDefaultModelIds)
-    ? 'automaticallySyncedFromProvider'
-    : 'userDefined3Tier';
-}
-
-function backfillAllConnectionModels(config: StoredConfig): boolean {
-  if (!config.llmConnections) return false;
-  let changed = false;
-  for (const connection of config.llmConnections) {
-    // Repair previously broken API-key migration first.
-    if (shouldRepairPiApiKeyCodexProvider(connection)) {
-      connection.piAuthProvider = 'openai';
-      changed = true;
-    }
-
-    // Migrate only legacy OAuth-backed Pi OpenAI connections to ChatGPT backend provider key.
-    if (shouldMigratePiOpenAiProvider(connection)) {
-      connection.piAuthProvider = 'openai-codex';
-      changed = true;
-    }
-
-    const defaultModels = getDefaultModelsForConnection(connection.providerType, connection.piAuthProvider);
-    const defaultModel = getDefaultModelForConnection(connection.providerType, connection.piAuthProvider);
-    const providerDefaultModelIds = normalizeModelIds(defaultModels as Array<{ id: string } | string>);
-
-    // Note: bedrock connections are migrated to pi + amazon-bedrock by migrateLegacyProviderTypes()
-    // before this function runs, so no bedrock-specific normalization needed here.
-
-    if (isPiProvider(connection.providerType) && connection.piAuthProvider) {
-      // Copilot models are always server-managed (GitHub policy controls which
-      // models are enabled), so force automaticallySyncedFromProvider regardless
-      // of what inferModelSelectionMode would compute from stale static SDK data.
-      const isCopilot = connection.piAuthProvider === 'github-copilot';
-      const mode = isCopilot
-        ? 'automaticallySyncedFromProvider' as const
-        : (connection.modelSelectionMode ?? inferModelSelectionMode(connection, providerDefaultModelIds));
-      if (connection.modelSelectionMode !== mode) {
-        debug('[storage] backfill mode inferred', {
-          slug: connection.slug,
-          piAuthProvider: connection.piAuthProvider,
-          from: connection.modelSelectionMode,
-          to: mode,
-          currentModelCount: normalizeModelIds(connection.models).length,
-        });
-        connection.modelSelectionMode = mode;
-        changed = true;
-      }
-
-      if (mode === 'automaticallySyncedFromProvider') {
-        const currentIds = normalizeModelIds(connection.models);
-        if (providerDefaultModelIds.length > 0 && !modelSetEquals(currentIds, providerDefaultModelIds)) {
-          connection.models = defaultModels;
-          changed = true;
-        }
-      } else {
-        const currentIds = normalizeModelIds(connection.models);
-        if (providerDefaultModelIds.length > 0) {
-          const allowedIds = new Set(providerDefaultModelIds);
-          const canonicalCurrentIds = currentIds.map((id) => {
-            if (allowedIds.has(id)) return id;
-            if (!id.startsWith('pi/')) {
-              const prefixed = `pi/${id}`;
-              if (allowedIds.has(prefixed)) return prefixed;
-            }
-            return id;
-          });
-          const filtered = canonicalCurrentIds.filter(id => allowedIds.has(id));
-
-          if (!modelSetEquals(canonicalCurrentIds, currentIds) || filtered.length !== currentIds.length) {
-            debug('[storage] backfill userDefined filtered', {
-              slug: connection.slug,
-              piAuthProvider: connection.piAuthProvider,
-              beforeCount: currentIds.length,
-              canonicalCount: canonicalCurrentIds.length,
-              afterCount: filtered.length,
-              beforeFirst5: currentIds.slice(0, 5),
-              afterFirst5: filtered.slice(0, 5),
-            });
-            connection.models = filtered;
-            changed = true;
-          }
-
-          if (filtered.length === 0) {
-            debug('[storage] backfill userDefined fallback-to-defaults', {
-              slug: connection.slug,
-              piAuthProvider: connection.piAuthProvider,
-              defaultCount: providerDefaultModelIds.length,
-            });
-            connection.models = defaultModels;
-            changed = true;
-          }
-        }
-      }
-    }
-
-    if (defaultModels.length > 0 && (!connection.models || (Array.isArray(connection.models) && connection.models.length === 0))) {
-      connection.models = defaultModels;
-      changed = true;
-    }
-
-    if (!connection.defaultModel && defaultModel) {
-      connection.defaultModel = defaultModel;
-      changed = true;
-    }
-
-    // Validate that existing defaultModel is in the models list
-    if (connection.defaultModel && connection.models && Array.isArray(connection.models) && connection.models.length > 0) {
-      const modelIds = connection.models.map(m => typeof m === 'string' ? m : m.id);
-      if (!modelIds.includes(connection.defaultModel)) {
-        // Reset to first available model in the list
-        const firstModelId = modelIds[0];
-        if (firstModelId) {
-          connection.defaultModel = firstModelId;
-        }
-        changed = true;
-      }
-    }
-  }
-  return changed;
-}
-
-// Targets of the legacy Opus migrations (4.5 / 4.7 -> 4.8) and of the Bedrock
-// catalog fallback. Deliberately NOT the current DEFAULT_MODEL (Opus 5.5):
-// existing connections keep their pinned Opus; only new connections get 5.5.
-const OPUS_48_ID = 'claude-opus-4-8';
-const OPUS_47_ID = 'claude-opus-4-7';
-
-function defaultModelIdsForConnection(connection: LlmConnection): Set<string> {
-  return new Set(
-    getDefaultModelsForConnection(connection.providerType, connection.piAuthProvider)
-      .map(model => typeof model === 'string' ? model : model.id),
-  );
-}
-
-function normalizeConnectionModelId(connection: LlmConnection, modelId: string): string {
-  const normalized = normalizeDeprecatedModelId(modelId);
-
-  // Bedrock connections run through Pi and need native inference-profile IDs.
-  if (connection.providerType === 'pi' && connection.piAuthProvider === 'amazon-bedrock') {
-    const hasPiPrefix = normalized.startsWith('pi/');
-    const bare = hasPiPrefix ? normalized.slice(3) : normalized;
-    const native = toBedrockNativeId(bare);
-    const defaults = defaultModelIdsForConnection(connection);
-    const prefixedCandidate = `pi/${native}`;
-    const candidate = hasPiPrefix || defaults.has(prefixedCandidate) ? prefixedCandidate : native;
-
-    // Safety net for Pi catalogs that lack Opus 4.8 (pre-0.8x SDK pins): keep 4.7
-    // as the selectable fallback instead of a dangling id.
-    if (bare === OPUS_48_ID || native.endsWith(`.${OPUS_48_ID}`)) {
-      const fallbackNative = toBedrockNativeId(OPUS_47_ID);
-      const prefixedFallback = `pi/${fallbackNative}`;
-      const fallback = defaults.has(prefixedFallback) ? prefixedFallback : fallbackNative;
-      if (!defaults.has(candidate) && defaults.has(fallback)) return fallback;
-    }
-    return candidate;
-  }
-
-  if (connection.providerType === 'pi') {
-    const defaults = defaultModelIdsForConnection(connection);
-    const hasPiPrefix = normalized.startsWith('pi/');
-    const bare = hasPiPrefix ? normalized.slice(3) : normalized;
-    const prefixedCandidate = `pi/${bare}`;
-    const candidate = hasPiPrefix || defaults.has(prefixedCandidate) ? prefixedCandidate : normalized;
-    const prefixedFallback = `pi/${OPUS_47_ID}`;
-    const fallback = defaults.has(prefixedFallback) ? prefixedFallback : OPUS_47_ID;
-    if ((bare === OPUS_48_ID)
-      && !defaults.has(candidate)
-      && defaults.has(fallback)) {
-      return fallback;
-    }
-    if (bare === OPUS_48_ID && candidate !== normalized) {
-      return candidate;
-    }
-  }
-
-  return normalized;
-}
-
-function displayNameForMigratedModel(modelId: string): string {
-  const bareModelId = modelId.startsWith('pi/') ? modelId.slice(3) : modelId;
-  return getModelDisplayName(bareModelId);
-}
-
-function withUpdatedModelEntry(
-  connection: LlmConnection,
-  entry: ModelDefinition | string,
-  nextId: string,
-): ModelDefinition | string {
-  if (typeof entry === 'string') {
-    if (connection.providerType === 'anthropic' && nextId === OPUS_48_ID) {
-      return { ...getModelById(OPUS_48_ID)! };
-    }
-    return nextId;
-  }
-
-  const nextEntry: ModelDefinition = { ...entry, id: nextId };
-  if (connection.providerType === 'anthropic' && nextId === OPUS_48_ID) {
-    return { ...getModelById(OPUS_48_ID)! };
-  }
-  if (nextEntry.name && /Opus 4\.[56]/.test(nextEntry.name)) {
-    nextEntry.name = displayNameForMigratedModel(nextId);
-  }
-  return nextEntry;
-}
-
-function modelEntryForDefault(connection: LlmConnection, modelId: string): ModelDefinition | string {
-  if (connection.providerType === 'anthropic' && modelId === OPUS_48_ID) {
-    return { ...getModelById(OPUS_48_ID)! };
-  }
-  return modelId;
-}
-
-/**
- * Migrate deprecated Opus 4.5 IDs and previous direct-Anthropic Opus 4.7 defaults to Opus 4.8.
- * Opus 5.5 (the default for new connections) is intentionally not force-migrated.
- * Custom/compat endpoints are intentionally skipped because provider-specific aliases may differ.
- */
-function migrateLegacyOpusToDefaultOpus(config: StoredConfig): boolean {
-  if (!config.llmConnections) return false;
-
-  let changed = false;
-
-  for (const connection of config.llmConnections) {
-    if (connection.providerType !== 'anthropic' && connection.providerType !== 'pi') continue;
-
-    if (connection.defaultModel) {
-      let normalizedDefault = normalizeConnectionModelId(connection, connection.defaultModel);
-      // The previous direct-Anthropic default was Opus 4.7. Move existing
-      // direct-Anthropic defaults to Opus 4.8 while keeping 4.7 in the model list.
-      // Pi stays on 4.7 until the current Pi catalog exposes 4.8.
-      if (connection.providerType === 'anthropic' && normalizedDefault === OPUS_47_ID) {
-        normalizedDefault = OPUS_48_ID;
-      }
-      if (normalizedDefault !== connection.defaultModel) {
-        connection.defaultModel = normalizedDefault;
-        changed = true;
-      }
-    }
-
-    if (connection.models && Array.isArray(connection.models)) {
-      const nextModels: Array<ModelDefinition | string> = [];
-      const seen = new Set<string>();
-      let connectionModelsChanged = false;
-
-      for (const entry of connection.models) {
-        const currentId = typeof entry === 'string' ? entry : entry.id;
-        const nextId = normalizeConnectionModelId(connection, currentId);
-
-        if (seen.has(nextId)) {
-          connectionModelsChanged = true;
-          continue;
-        }
-        seen.add(nextId);
-
-        if (nextId !== currentId) {
-          nextModels.push(withUpdatedModelEntry(connection, entry, nextId));
-          connectionModelsChanged = true;
-        } else {
-          nextModels.push(entry);
-        }
-      }
-
-      if (connection.defaultModel && !seen.has(connection.defaultModel)) {
-        nextModels.unshift(modelEntryForDefault(connection, connection.defaultModel));
-        connectionModelsChanged = true;
-      }
-
-      if (connectionModelsChanged) {
-        connection.models = nextModels;
-        changed = true;
-      }
-    }
-  }
-
-  return changed;
-}
-
-/**
- * Restore claude-opus-4-6 to direct Anthropic connections that were previously
- * force-migrated to 4.8 and no longer list 4.6. Runs once per user (tracked via
- * config.migrationsApplied). Never touches `defaultModel` — users keep whatever
- * default they had, and can switch models themselves.
- *
- * The marker is versioned ("-2") because the pre-4.8 restore already consumed
- * 'opus-4-6-restored' in long-time users' configs; this restore must fire
- * again after the 4.8-era removal.
- *
- * TODO(opus-4.6-sunset): drop this call and the function when 4.6 is deprecated.
- */
-function restoreOpus46ToAnthropicConnections(config: StoredConfig): boolean {
-  const OPUS_46_ID = 'claude-opus-4-6';
-  const MARKER = 'opus-4-6-restored-2';
-  const alreadyRan = config.migrationsApplied?.includes(MARKER) ?? false;
-
-  // Anthropic connection.models entries are stored as full ModelDefinition
-  // objects (via backfillAllConnectionModels). The model picker reads
-  // model.name and falls back to the raw ID for bare strings, so we must
-  // push the object form to render as "Opus 4.6".
-  const opus46Model = getModelById(OPUS_46_ID);
-  if (!opus46Model) {
-    // Defensive — 4.6 is registered in this same PR, should never happen.
-    if (!alreadyRan) {
-      config.migrationsApplied = [...(config.migrationsApplied ?? []), MARKER];
-      return true;
-    }
-    return false;
-  }
-
-  let changed = false;
-
-  for (const connection of config.llmConnections ?? []) {
-    if (connection.providerType !== 'anthropic') continue;
-    if (!Array.isArray(connection.models) || connection.models.length === 0) continue;
-
-    // Idempotent shape repair: normalize any bare-string 'claude-opus-4-6'
-    // entry to the ModelDefinition object form. Runs regardless of the
-    // one-shot marker because it's a display-shape fix, not a new entry.
-    for (let i = 0; i < connection.models.length; i++) {
-      const m = connection.models[i];
-      if (typeof m === 'string' && m === OPUS_46_ID) {
-        connection.models[i] = { ...opus46Model };
-        changed = true;
-      }
-    }
-
-    // One-shot restore: only append 4.6 on the first run for a given user.
-    // A deliberate removal after the marker is set should stick.
-    if (alreadyRan) continue;
-
-    const ids = connection.models.map(m => typeof m === 'string' ? m : m.id);
-    if ((ids.includes(OPUS_48_ID) || ids.includes(OPUS_47_ID)) && !ids.includes(OPUS_46_ID)) {
-      connection.models.push({ ...opus46Model });
-      changed = true;
-    }
-  }
-
-  // Mark the migration as seen on the first run — even when no connection
-  // was eligible — so subsequent runs don't keep re-checking.
-  if (!alreadyRan) {
-    config.migrationsApplied = [...(config.migrationsApplied ?? []), MARKER];
-    return true;
-  }
-  return changed;
-}
-
-/**
- * Migrate Sonnet 4.5 to Sonnet 4.6 for direct Anthropic connections.
- * Updates stored model IDs and names for direct Anthropic connections.
- */
-function migrateSonnet45ToSonnet46(config: StoredConfig): boolean {
-  if (!config.llmConnections) return false;
-
-  const SONNET_45_ID = 'claude-sonnet-4-5-20250929';
-  const SONNET_46_ID = 'claude-sonnet-4-6';
-
-  let changed = false;
-
-  for (const connection of config.llmConnections) {
-    // Only migrate direct Anthropic connections (not compat/third-party)
-    if (connection.providerType !== 'anthropic') continue;
-
-    // Migrate defaultModel
-    if (connection.defaultModel === SONNET_45_ID) {
-      connection.defaultModel = SONNET_46_ID;
-      changed = true;
-    }
-
-    // Migrate models array
-    if (connection.models && Array.isArray(connection.models)) {
-      const hasNew = connection.models.some(m =>
-        (typeof m === 'string' ? m : m.id) === SONNET_46_ID
-      );
-
-      if (hasNew) {
-        // New model already exists — just remove the old entry to avoid duplicates
-        const before = connection.models.length;
-        connection.models = connection.models.filter(m =>
-          (typeof m === 'string' ? m : m.id) !== SONNET_45_ID
-        );
-        if (connection.models.length !== before) changed = true;
-      } else {
-        // New model doesn't exist — rename the old entry in place
-        for (let i = 0; i < connection.models.length; i++) {
-          const model = connection.models[i];
-          if (typeof model === 'string' && model === SONNET_45_ID) {
-            connection.models[i] = SONNET_46_ID;
-            changed = true;
-          } else if (typeof model === 'object' && model.id === SONNET_45_ID) {
-            model.id = SONNET_46_ID;
-            if (model.name?.includes('4.5')) {
-              model.name = model.name.replace('4.5', '4.6');
-            }
-            changed = true;
-          }
-        }
-      }
-    }
-  }
-
-  return changed;
-}
-
-/**
- * Migrate Sonnet 4.5 to Sonnet 4.6 in workspace default models.
- */
-function migrateWorkspaceSonnet45ToSonnet46(config: StoredConfig): void {
-  if (!config.workspaces) return;
-
-  const SONNET_45_ID = 'claude-sonnet-4-5-20250929';
-  const SONNET_46_ID = 'claude-sonnet-4-6';
-
-  for (const workspace of config.workspaces) {
-    const wsConfig = loadWorkspaceConfig(workspace.rootPath);
-    if (!wsConfig?.defaults?.model) continue;
-
-    if (wsConfig.defaults.model === SONNET_45_ID) {
-      wsConfig.defaults.model = SONNET_46_ID;
-      saveWorkspaceConfig(workspace.rootPath, wsConfig);
-    }
-  }
-}
-
-/**
- * Migrate deprecated/previous Opus defaults in workspace default models to the current default Opus model.
- */
-function migrateWorkspaceLegacyOpusToDefaultOpus(config: StoredConfig): void {
-  if (!config.workspaces) return;
-
-  for (const workspace of config.workspaces) {
-    const wsConfig = loadWorkspaceConfig(workspace.rootPath);
-    if (!wsConfig?.defaults?.model) continue;
-
-    const normalized = normalizeDeprecatedModelId(wsConfig.defaults.model);
-    const nextModel = normalized === OPUS_47_ID ? OPUS_48_ID : normalized;
-    if (nextModel !== wsConfig.defaults.model) {
-      wsConfig.defaults.model = nextModel;
-      saveWorkspaceConfig(workspace.rootPath, wsConfig);
-    }
-  }
-}
-
-/**
- * Migrate legacy provider types to the active set (anthropic, pi, pi_compat).
- *
- * 1. providerType==='bedrock' → 'pi' with piAuthProvider='amazon-bedrock'.
- *    Model IDs are normalized to Bedrock-native (pi-prefixed) for Pi SDK resolution.
- *
- * 2. providerType==='vertex' → 'pi' with piAuthProvider='google-vertex'.
- *
- * 3. providerType==='anthropic_compat' → 'pi_compat' with customEndpoint.api='anthropic-messages'.
- *    Preserves baseUrl and models; authType 'api_key_with_endpoint' stays the same.
- *
- * Also normalizes Pi+Bedrock connections that already have correct providerType.
- */
-function migrateLegacyProviderTypes(config: StoredConfig): boolean {
-  if (!config.llmConnections) return false;
-
-  let changed = false;
-
-  for (const connection of config.llmConnections) {
-    // Cast to string for legacy values removed from LlmProviderType
-    const providerStr = connection.providerType as string;
-
-    // --- bedrock → pi + amazon-bedrock ---
-    if (providerStr === 'bedrock') {
-      (connection as { providerType: LlmProviderType }).providerType = 'pi';
-      connection.piAuthProvider = connection.piAuthProvider || 'amazon-bedrock';
-      // Normalize model IDs to Bedrock-native (pi-prefixed) for Pi SDK
-      if (connection.defaultModel) {
-        connection.defaultModel = normalizePiBedrockId(connection.defaultModel);
-      }
-      if (connection.models && Array.isArray(connection.models)) {
-        for (let i = 0; i < connection.models.length; i++) {
-          const model = connection.models[i];
-          if (typeof model === 'string') {
-            connection.models[i] = normalizePiBedrockId(model);
-          } else if (model && typeof model === 'object') {
-            model.id = normalizePiBedrockId(model.id);
-          }
-        }
-      }
-      changed = true;
-      continue;
-    }
-
-    // --- vertex → pi + google-vertex ---
-    if (providerStr === 'vertex') {
-      (connection as { providerType: LlmProviderType }).providerType = 'pi';
-      connection.piAuthProvider = 'google-vertex';
-      changed = true;
-      continue;
-    }
-
-    // --- anthropic_compat → pi_compat + customEndpoint ---
-    if (providerStr === 'anthropic_compat') {
-      (connection as { providerType: LlmProviderType }).providerType = 'pi_compat';
-      connection.customEndpoint = { api: 'anthropic-messages' };
-      // authType 'api_key_with_endpoint' stays; baseUrl and models are preserved
-      changed = true;
-      continue;
-    }
-
-    // Forward: Pi+Bedrock connections need Bedrock-native IDs (pi-prefixed) for Pi SDK resolution
-    if (connection.providerType === 'pi' && connection.piAuthProvider === 'amazon-bedrock') {
-      if (connection.defaultModel) {
-        const normalized = normalizePiBedrockId(connection.defaultModel);
-        if (normalized !== connection.defaultModel) {
-          connection.defaultModel = normalized;
-          changed = true;
-        }
-      }
-      if (connection.models && Array.isArray(connection.models)) {
-        for (let i = 0; i < connection.models.length; i++) {
-          const model = connection.models[i];
-          if (typeof model === 'string') {
-            const normalized = normalizePiBedrockId(model);
-            if (normalized !== model) { connection.models[i] = normalized; changed = true; }
-          } else if (model && typeof model === 'object') {
-            const normalized = normalizePiBedrockId(model.id);
-            if (normalized !== model.id) { model.id = normalized; changed = true; }
-          }
-        }
-      }
-    }
-  }
-
-  return changed;
-}
-
-/** Normalize a pi/-prefixed model ID for Bedrock: pi/claude-opus-4-8 → pi/us.anthropic.claude-opus-4-8 */
-function normalizePiBedrockId(id: string): string {
-  const bare = id.startsWith('pi/') ? id.slice(3) : id;
-  const native = toBedrockNativeId(normalizeDeprecatedModelId(bare));
-  return `pi/${native}`;
-}
-
-/**
- * Migrate modelDefaults onto connection.defaultModel, then delete modelDefaults.
- * If user had set modelDefaults.anthropic, apply it to the default anthropic connection.
- * Same for openai. Then remove modelDefaults from config.
- */
-function migrateModelDefaultsToConnections(config: StoredConfig): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const configAny = config as any;
-  if (!configAny.modelDefaults || !config.llmConnections) return false;
-  let changed = false;
-
-  // Apply anthropic model default to the default anthropic connection
-  if (configAny.modelDefaults.anthropic) {
-    const defaultSlug = config.defaultLlmConnection;
-    const anthropicConn = config.llmConnections.find(c =>
-      c.slug === defaultSlug && c.providerType === 'anthropic'
-    ) || config.llmConnections.find(c =>
-      c.providerType === 'anthropic'
-    );
-    if (anthropicConn) {
-      anthropicConn.defaultModel = configAny.modelDefaults.anthropic;
-      changed = true;
-    }
-  }
-
-  // Apply openai model default to the default openai connection
-  // Cast providerType to string for legacy values removed from LlmProviderType
-  if (configAny.modelDefaults.openai) {
-    const openaiConn = config.llmConnections.find(c =>
-      (c.providerType as string) === 'openai' || (c.providerType as string) === 'openai_compat'
-    );
-    if (openaiConn) {
-      openaiConn.defaultModel = configAny.modelDefaults.openai;
-      changed = true;
-    }
-  }
-
-  // Delete modelDefaults
-  delete configAny.modelDefaults;
-  changed = true;
-
-  return changed;
-}
-
-/**
- * Migrate legacy auth config to LLM connections.
- * Call this on app startup before any getLlmConnections() calls.
- *
- * This is a one-time migration that converts:
- * - Legacy authType field → LlmConnection in llmConnections array
- * - Legacy anthropicBaseUrl → LlmConnection.baseUrl
- * - Legacy customModel → LlmConnection.defaultModel
- * - Legacy model → modelDefaults (per provider)
- *
- * After migration, the legacy fields are deleted since they are no longer used.
- */
-export function migrateLegacyLlmConnectionsConfig(): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-
-  // Already migrated - llmConnections array exists
-  if (config.llmConnections !== undefined) {
-    // Clean up any remaining legacy fields from previous runs
-    let needsSave = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const configAny = config as any;
-    if ('authType' in config) {
-      delete configAny.authType;
-      needsSave = true;
-    }
-    if ('anthropicBaseUrl' in config) {
-      delete configAny.anthropicBaseUrl;
-      needsSave = true;
-    }
-    if ('customModel' in config) {
-      delete configAny.customModel;
-      needsSave = true;
-    }
-    if ('model' in config) {
-      const legacyModel = configAny.model as string | undefined;
-      if (legacyModel) {
-        const provider = getModelProvider(legacyModel) ?? 'anthropic';
-        configAny.modelDefaults = { ...(configAny.modelDefaults ?? {}), [provider]: legacyModel };
-      }
-      delete configAny.model;
-      needsSave = true;
-    }
-    // Phase 1a-bis: Migrate Codex/Copilot connections to Pi backend
-    if (migrateCodexCopilotToPi(config)) {
-      needsSave = true;
-    }
-
-    // Phase 1b: Normalize legacy Opus IDs/defaults before Pi model-list filtering.
-    if (migrateLegacyOpusToDefaultOpus(config)) {
-      needsSave = true;
-    }
-    // Phase 1c: Backfill models/defaultModel on ALL connections (not just compat)
-    // This ensures built-in connections (anthropic, openai) always have models populated
-    if (backfillAllConnectionModels(config)) {
-      needsSave = true;
-    }
-    // Phase 1d: Migrate modelDefaults onto connection.defaultModel, then delete modelDefaults
-    if (migrateModelDefaultsToConnections(config)) {
-      needsSave = true;
-    }
-    // Phase 1e: Normalize anything introduced by modelDefaults.
-    if (migrateLegacyOpusToDefaultOpus(config)) {
-      needsSave = true;
-    }
-    // Phase 1f: Migrate legacy/previous Opus workspace defaults → current default Opus
-    migrateWorkspaceLegacyOpusToDefaultOpus(config);
-    // Phase 1g: Migrate Sonnet 4.5 → Sonnet 4.6 for direct Anthropic connections
-    if (migrateSonnet45ToSonnet46(config)) {
-      needsSave = true;
-    }
-    // Phase 1h: Migrate Sonnet 4.5 → Sonnet 4.6 in workspace default models
-    migrateWorkspaceSonnet45ToSonnet46(config);
-    // Phase 1j: Migrate legacy provider types (bedrock/vertex/anthropic_compat → pi/pi_compat)
-    if (migrateLegacyProviderTypes(config)) {
-      needsSave = true;
-    }
-    // Phase 1k: Normalize legacy Opus IDs introduced by provider-type migration.
-    // Important for old Bedrock connections: they become Pi+Bedrock first, then can
-    // fall back from Opus 4.8 to 4.7 while Pi's catalog lacks 4.8.
-    if (migrateLegacyOpusToDefaultOpus(config)) {
-      needsSave = true;
-    }
-    // Phase 1m: Restore Opus 4.6 to direct Anthropic connections that were
-    // previously force-migrated away from it (one-shot, guarded by marker).
-    // TODO(opus-4.6-sunset): drop this call and the function when 4.6 is deprecated.
-    if (restoreOpus46ToAnthropicConnections(config)) {
-      needsSave = true;
-    }
-
-    if (needsSave) {
-      saveConfig(config);
-    }
-    return;
-  }
-
-  // Initialize empty array
-  config.llmConnections = [];
-
-  // Legacy migration: if user had authType set, create a connection for them
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const configAny = config as any;
-  const legacyAuthType = configAny.authType as AuthType | undefined;
-  const legacyBaseUrl = configAny.anthropicBaseUrl as string | undefined;
-  const legacyCustomModel = configAny.customModel as string | undefined;
-  const legacyModel = configAny.model as string | undefined;
-
-  if (legacyAuthType) {
-    let migrated: LlmConnection | null = null;
-
-    if (legacyAuthType === 'oauth_token') {
-      // Claude Max OAuth
-      migrated = {
-        slug: 'claude-max',
-        name: 'Claude Max',
-        providerType: 'anthropic',
-        authType: 'oauth',
-        models: getDefaultModelsForConnection('anthropic'),
-        createdAt: Date.now(),
-      };
-    } else if (legacyAuthType === 'codex_oauth') {
-      // ChatGPT Plus OAuth → Pi backend
-      migrated = {
-        slug: 'codex',
-        name: 'ChatGPT Plus (via Pi)',
-        providerType: 'pi',
-        authType: 'oauth',
-        piAuthProvider: 'openai-codex',
-        modelSelectionMode: 'automaticallySyncedFromProvider',
-        models: getDefaultModelsForConnection('pi', 'openai-codex'),
-        createdAt: Date.now(),
-      };
-    } else if (legacyAuthType === 'codex_api_key') {
-      // OpenAI API Key → Pi backend
-      migrated = {
-        slug: 'codex-api',
-        name: 'OpenAI API (via Pi)',
-        providerType: 'pi',
-        authType: 'api_key',
-        piAuthProvider: 'openai',
-        modelSelectionMode: 'automaticallySyncedFromProvider',
-        models: getDefaultModelsForConnection('pi', 'openai'),
-        createdAt: Date.now(),
-      };
-    } else if (legacyAuthType === 'api_key') {
-      // Anthropic API Key - check if custom endpoint (compat mode → pi_compat)
-      const hasCustomEndpoint = !!legacyBaseUrl;
-      if (hasCustomEndpoint) {
-        migrated = {
-          slug: 'anthropic-api',
-          name: 'Custom Anthropic-Compatible',
-          providerType: 'pi_compat',
-          authType: 'api_key_with_endpoint',
-          customEndpoint: { api: 'anthropic-messages' },
-          models: getDefaultModelsForConnection('pi_compat'),
-          createdAt: Date.now(),
-        };
-      } else {
-        migrated = {
-          slug: 'anthropic-api',
-          name: 'Anthropic (API Key)',
-          providerType: 'anthropic',
-          authType: 'api_key',
-          models: getDefaultModelsForConnection('anthropic'),
-          createdAt: Date.now(),
-        };
-      }
-    }
-
-    if (migrated) {
-      // Validate the migrated connection has a valid provider/auth combination
-      if (!isValidProviderAuthCombination(migrated.providerType, migrated.authType)) {
-        console.warn(
-          `[config] Legacy migration created invalid provider/auth combination: ` +
-          `providerType=${migrated.providerType}, authType=${migrated.authType} ` +
-          `(slug: ${migrated.slug}). Skipping migration for this connection.`
-        );
-      } else {
-        // Apply legacy baseUrl if set
-        if (legacyBaseUrl) {
-          migrated.baseUrl = legacyBaseUrl;
-        }
-
-        // Apply legacy customModel if set
-        if (legacyCustomModel) {
-          migrated.defaultModel = legacyCustomModel;
-        }
-
-        config.llmConnections.push(migrated);
-        config.defaultLlmConnection = migrated.slug;
-      }
-    }
-  }
-
-  // Delete legacy fields after migration
-  delete configAny.authType;
-  delete configAny.anthropicBaseUrl;
-  delete configAny.customModel;
-  delete configAny.model;
-
-  if (legacyModel) {
-    const provider = getModelProvider(legacyModel) ?? 'anthropic';
-    configAny.modelDefaults = { ...(configAny.modelDefaults ?? {}), [provider]: legacyModel };
-  }
-
-  // Run the same backfill and migration on newly created connections
-  migrateCodexCopilotToPi(config);
-  backfillAllConnectionModels(config);
-  migrateModelDefaultsToConnections(config);
-  migrateLegacyOpusToDefaultOpus(config);
-  migrateWorkspaceLegacyOpusToDefaultOpus(config);
-
-  saveConfig(config);
-}
-
-/**
- * Fix defaultLlmConnection references that point to non-existent connections.
- * This can happen when a connection is removed or was never created
- * (e.g. "anthropic-api" is set as default but only "claude-max" exists).
- *
- * Fixes both the global defaultLlmConnection and per-workspace defaults.
- * Called on app startup alongside other migrations.
- */
-export function migrateOrphanedDefaultConnections(): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  if (!config.llmConnections || config.llmConnections.length === 0) return;
-
-  let changed = false;
-
-  // Fix global default if it points to a non-existent connection
-  if (ensureDefaultLlmConnection(config)) {
-    changed = true;
-  }
-
-  // Fix workspace defaults that point to non-existent connections
-  try {
-    const workspaces = getWorkspaces();
-    for (const ws of workspaces) {
-      const wsConfig = loadWorkspaceConfig(ws.rootPath);
-      if (wsConfig?.defaults?.defaultLlmConnection) {
-        const exists = config.llmConnections.some(
-          c => c.slug === wsConfig.defaults!.defaultLlmConnection
-        );
-        if (!exists) {
-          delete wsConfig.defaults.defaultLlmConnection;
-          saveWorkspaceConfig(ws.rootPath, wsConfig);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Failed to clean up workspace default connection references:', error);
-  }
-
-  if (changed) {
-    saveConfig(config);
-  }
-}
-
-/**
- * Ensure default LLM connection is set correctly.
- * Called internally by write operations to fix inconsistent state.
- * This is NOT called on read - reads never modify config.
- */
-function ensureDefaultLlmConnection(config: StoredConfig): boolean {
-  if (!config.llmConnections || config.llmConnections.length === 0) {
-    return false;
-  }
-
-  const defaultExists = config.llmConnections.some(c => c.slug === config.defaultLlmConnection);
-  if (!config.defaultLlmConnection || !defaultExists) {
-    config.defaultLlmConnection = config.llmConnections[0]!.slug;
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Migrate legacy global credentials to LLM connection-scoped credentials.
- * This ensures that credentials saved before the LLM connections system
- * are available through the new connection-based auth.
- *
- * Called on app startup (async operation, credentials use encrypted storage).
- *
- * Migration mapping:
- * - claude_oauth::global → llm_oauth::claude-max
- * - anthropic_api_key::global → llm_api_key::anthropic-api
- *
- * After successful migration, legacy credentials are deleted to prevent
- * stale data and reduce credential store clutter.
- */
-export async function migrateLegacyCredentials(): Promise<void> {
-  const manager = getCredentialManager();
-  const debug = (await import('../utils/debug.ts')).debug;
-
-  // Migrate Claude OAuth: claude_oauth::global → llm_oauth::claude-max
-  const legacyClaudeOAuth = await manager.getClaudeOAuthCredentials();
-  if (legacyClaudeOAuth?.accessToken) {
-    // Only migrate if llm_oauth::claude-max doesn't exist yet
-    const existingLlmOAuth = await manager.getLlmOAuth('claude-max');
-    if (!existingLlmOAuth) {
-      await manager.setLlmOAuth('claude-max', {
-        accessToken: legacyClaudeOAuth.accessToken,
-        refreshToken: legacyClaudeOAuth.refreshToken,
-        expiresAt: legacyClaudeOAuth.expiresAt,
-      });
-      debug('[storage] Migrated legacy Claude OAuth to llm_oauth::claude-max');
-
-      // Delete legacy credential after successful migration
-      // Global credentials use just the type - the key format is {type}::global
-      try {
-        await manager.delete({ type: 'claude_oauth' });
-        debug('[storage] Deleted legacy claude_oauth::global credential');
-      } catch (error) {
-        debug('[storage] Failed to delete legacy claude_oauth::global:', error);
-      }
-    }
-  }
-
-  // Migrate Anthropic API key: anthropic_api_key::global → llm_api_key::anthropic-api
-  const legacyApiKey = await manager.getApiKey();
-  if (legacyApiKey) {
-    // Only migrate if llm_api_key::anthropic-api doesn't exist yet
-    const existingLlmApiKey = await manager.getLlmApiKey('anthropic-api');
-    if (!existingLlmApiKey) {
-      await manager.setLlmApiKey('anthropic-api', legacyApiKey);
-      debug('[storage] Migrated legacy Anthropic API key to llm_api_key::anthropic-api');
-
-      // Delete legacy credential after successful migration
-      // Global credentials use just the type - the key format is {type}::global
-      try {
-        await manager.delete({ type: 'anthropic_api_key' });
-        debug('[storage] Deleted legacy anthropic_api_key::global credential');
-      } catch (error) {
-        debug('[storage] Failed to delete legacy anthropic_api_key::global:', error);
-      }
-    }
-  }
-}
-
-/**
- * Get all LLM connections.
- * Returns only user-added connections (no auto-populated built-ins).
- *
- * Note: This function is read-only and never modifies config.
- * Call migrateLegacyLlmConnectionsConfig() on app startup to handle migration.
- */
-export function getLlmConnections(): LlmConnection[] {
-  const config = loadStoredConfig();
-  if (!config) return [];
-
-  // Return empty array if not migrated yet - caller should call migration on startup
-  return config.llmConnections || [];
+/** The connections a context sees (the user's own, then the workspace's, then the install's, one per slug); the install's without one. */
+export function getLlmConnections(where?: ConnectionContext): LlmConnection[] {
+  return getConnections(where).map(toLlmConnection);
 }
 
 /**
  * Get a specific LLM connection by slug.
- * @param slug - Connection slug
  * @returns Connection or null if not found
  */
-export function getLlmConnection(slug: string): LlmConnection | null {
-  const connections = getLlmConnections();
-  return connections.find(c => c.slug === slug) || null;
+export function getLlmConnection(slug: string, where?: ConnectionContext): LlmConnection | null {
+  const connection = getConnection(slug, where);
+  return connection ? toLlmConnection(connection) : null;
 }
 
+/** The context that sees a scope's own connections first. */
+export const contextOfScope = (scope: string | undefined): ConnectionContext =>
+  !scope ? {} :
+  scope.startsWith('user:') ? { userId: scope.slice('user:'.length) } : scope.startsWith('workspace:') ? { workspaceId: scope.slice('workspace:'.length) } : {};
+
 /**
- * Add a new LLM connection.
- * @param connection - Connection to add (slug must be unique)
- * @returns true if added, false if slug already exists
+ * Add a new LLM connection (to the install unless `scope` says otherwise), with its credential in the same transaction.
+ * @returns true if added, false if the slug already exists in that scope
  */
-export function addLlmConnection(connection: LlmConnection): boolean {
-  const config = loadStoredConfig();
-  if (!config) return false;
-
-  // Initialize array if not yet migrated (safe default for write operations)
-  if (!config.llmConnections) {
-    config.llmConnections = [];
-  }
-
-  // Check for duplicate slug
-  if (config.llmConnections.some(c => c.slug === connection.slug)) {
-    return false;
-  }
-
-  // Add connection with timestamp
-  config.llmConnections.push({
-    ...connection,
-    createdAt: connection.createdAt || Date.now(),
-  });
-
-  // Ensure default is set after adding first connection
-  ensureDefaultLlmConnection(config);
-
-  saveConfig(config);
+export function addLlmConnection(connection: LlmConnection, options: { scope?: string; credential?: Credential } = {}): boolean {
+  const scope = options.scope ?? INSTALL_SCOPE;
+  if (getConnection(connection.slug, contextOfScope(scope))?.scope === scope) return false;
+  createConnection(
+    { ...(toPatch(connection) as ConnectionInput), slug: connection.slug, scope, createdAt: new Date(connection.createdAt || Date.now()) },
+    options.credential,
+  );
   return true;
 }
 
 /**
- * Update an existing LLM connection.
- * @param slug - Connection slug to update
- * @param updates - Partial updates to apply (slug is ignored)
+ * Update an existing LLM connection (a field left `undefined` stays as it is), and its credential in the same
+ * transaction when one is given.
  * @returns true if updated, false if not found
  */
-export function updateLlmConnection(slug: string, updates: Partial<Omit<LlmConnection, 'slug'>>): boolean {
-  const config = loadStoredConfig();
-  if (!config) return false;
-
-  // No connections means nothing to update
-  if (!config.llmConnections || config.llmConnections.length === 0) {
-    return false;
+export function updateLlmConnection(
+  slug: string,
+  updates: Partial<Omit<LlmConnection, 'slug'>>,
+  options: { where?: ConnectionContext; credential?: Credential } = {},
+): boolean {
+  const existing = getConnection(slug, options.where);
+  if (!existing) return false;
+  const merged = { ...toLlmConnection(existing) };
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined && key !== 'createdAt') (merged as Record<string, unknown>)[key] = value;
   }
-
-  const connections = config.llmConnections;
-  const index = connections.findIndex(c => c.slug === slug);
-  if (index === -1) return false;
-
-  const existing = connections[index]!;
-  const toModelIds = (models?: Array<{ id: string } | string>): string[] =>
-    (models ?? []).map(m => typeof m === 'string' ? m : m.id);
-
-  connections[index] = {
-    // Preserve required fields from existing
-    slug: existing.slug,
-    name: updates.name ?? existing.name,
-    providerType: updates.providerType ?? existing.providerType,
-    type: updates.type ?? existing.type, // Legacy field
-    authType: updates.authType ?? existing.authType,
-    createdAt: updates.createdAt ?? existing.createdAt,
-    // Optional fields from updates or existing
-    baseUrl: updates.baseUrl !== undefined ? updates.baseUrl : existing.baseUrl,
-    models: updates.models !== undefined ? updates.models : existing.models,
-    defaultModel: updates.defaultModel !== undefined ? updates.defaultModel : existing.defaultModel,
-    modelSelectionMode: updates.modelSelectionMode !== undefined ? updates.modelSelectionMode : existing.modelSelectionMode,
-    // Pi auth provider
-    piAuthProvider: updates.piAuthProvider !== undefined ? updates.piAuthProvider : existing.piAuthProvider,
-    // Custom endpoint protocol (Anthropic/OpenAI compatible)
-    customEndpoint: updates.customEndpoint !== undefined ? updates.customEndpoint : existing.customEndpoint,
-    // Mid-stream send behavior (steer vs queue) — read via resolveMidStreamBehavior()
-    midStreamBehavior: updates.midStreamBehavior !== undefined ? updates.midStreamBehavior : existing.midStreamBehavior,
-    // Resolved Anthropic OAuth identity (issue #838) — preserved across unrelated saves
-    oauthAccountUuid: updates.oauthAccountUuid !== undefined ? updates.oauthAccountUuid : existing.oauthAccountUuid,
-    oauthAccountEmail: updates.oauthAccountEmail !== undefined ? updates.oauthAccountEmail : existing.oauthAccountEmail,
-    oauthOrganizationUuid: updates.oauthOrganizationUuid !== undefined ? updates.oauthOrganizationUuid : existing.oauthOrganizationUuid,
-    oauthOrganizationName: updates.oauthOrganizationName !== undefined ? updates.oauthOrganizationName : existing.oauthOrganizationName,
-    oauthProfileVerifiedAt: updates.oauthProfileVerifiedAt !== undefined ? updates.oauthProfileVerifiedAt : existing.oauthProfileVerifiedAt,
-    // Timestamps
-    lastUsedAt: updates.lastUsedAt !== undefined ? updates.lastUsedAt : existing.lastUsedAt,
-  };
-
-  const updated = connections[index]!;
-  if (updated.providerType === 'pi') {
-    const beforeModelIds = toModelIds(existing.models);
-    const afterModelIds = toModelIds(updated.models);
-    const changed =
-      existing.defaultModel !== updated.defaultModel ||
-      existing.modelSelectionMode !== updated.modelSelectionMode ||
-      !modelSetEquals(beforeModelIds, afterModelIds);
-
-    if (changed) {
-      const stack = (new Error().stack ?? '').split('\n').slice(2, 7).map(s => s.trim());
-      debug('[storage] updateLlmConnection(pi) changed', {
-        slug,
-        before: {
-          mode: existing.modelSelectionMode,
-          defaultModel: existing.defaultModel,
-          modelCount: beforeModelIds.length,
-          modelsFirst5: beforeModelIds.slice(0, 5),
-        },
-        after: {
-          mode: updated.modelSelectionMode,
-          defaultModel: updated.defaultModel,
-          modelCount: afterModelIds.length,
-          modelsFirst5: afterModelIds.slice(0, 5),
-        },
-        updates: {
-          keys: Object.keys(updates),
-          defaultModel: updates.defaultModel,
-          modelSelectionMode: updates.modelSelectionMode,
-          modelsCount: Array.isArray(updates.models) ? updates.models.length : undefined,
-        },
-        stack,
-      });
-    }
-  }
-
-  saveConfig(config);
+  updateConnection(existing.id, toPatch(merged), options.credential);
   return true;
 }
 
 /**
- * Delete an LLM connection.
- * @param slug - Connection slug to delete
+ * Delete an LLM connection and its credential.
  * @returns true if deleted, false if not found
  */
-export function deleteLlmConnection(slug: string): boolean {
-  const config = loadStoredConfig();
-  if (!config) return false;
-
-  // No connections means nothing to delete
-  if (!config.llmConnections || config.llmConnections.length === 0) {
-    return false;
-  }
-
-  const connections = config.llmConnections;
-  const index = connections.findIndex(c => c.slug === slug);
-  if (index === -1) return false;
-
-  connections.splice(index, 1);
-
-  // If deleted connection was the default, reset to first remaining or clear
-  if (config.defaultLlmConnection === slug) {
-    config.defaultLlmConnection = connections.length > 0 ? connections[0]!.slug : undefined;
-  }
-
-  saveConfig(config);
+export function deleteLlmConnection(slug: string, where?: ConnectionContext): boolean {
+  const existing = getConnection(slug, where);
+  if (!existing) return false;
+  deleteConnection(existing.id);
 
   // Clean up workspace references to the deleted connection (non-blocking)
   try {
@@ -2755,17 +1391,6 @@ export function deleteLlmConnection(slug: string): boolean {
   } catch (error) {
     console.error('Failed to clean up workspace references:', error);
   }
-
-  // Clean up stored credentials for this connection (API keys, OAuth tokens)
-  // This is fire-and-forget but we log errors for debugging
-  const credentialManager = getCredentialManager();
-  credentialManager.delete({ type: 'llm_api_key', connectionSlug: slug }).catch((error) => {
-    console.error(`[storage] Failed to delete API key credential for connection '${slug}':`, error);
-  });
-  credentialManager.delete({ type: 'llm_oauth', connectionSlug: slug }).catch((error) => {
-    console.error(`[storage] Failed to delete OAuth credential for connection '${slug}':`, error);
-  });
-
   return true;
 }
 
@@ -2773,105 +1398,41 @@ export function deleteLlmConnection(slug: string): boolean {
  * Get the default LLM connection slug.
  * @returns Default connection slug, or null if no connections exist
  */
-export function getDefaultLlmConnection(): string | null {
-  const config = loadStoredConfig();
-  if (!config) return null;
-
-  // If no connections, return null
-  if (!config.llmConnections || config.llmConnections.length === 0) {
-    return null;
-  }
-
-  return config.defaultLlmConnection || config.llmConnections[0]?.slug || null;
+export function getDefaultLlmConnection(where?: ConnectionContext): string | null {
+  return getDefaultConnection(where)?.slug ?? null;
 }
 
 /**
  * Set the default LLM connection.
- * @param slug - Connection slug to set as default
  * @returns true if set, false if connection not found
  */
-export function setDefaultLlmConnection(slug: string): boolean {
-  const config = loadStoredConfig();
-  if (!config) return false;
-
-  // No connections means nothing to set as default
-  if (!config.llmConnections || config.llmConnections.length === 0) {
-    return false;
-  }
-
-  // Verify connection exists
-  if (!config.llmConnections.some(c => c.slug === slug)) {
-    return false;
-  }
-
-  config.defaultLlmConnection = slug;
-  saveConfig(config);
-  return true;
+export function setDefaultLlmConnection(slug: string, where?: ConnectionContext): boolean {
+  return setDefaultConnection(slug, where);
 }
 
-/**
- * Get the app-level default thinking level for new sessions.
- * Falls back to bundled config-defaults when unset.
- */
+/** The app-level default thinking level for new sessions ('medium' until set). */
 export function getDefaultThinkingLevel(): ThinkingLevel {
-  const config = loadStoredConfig();
-  if (config?.defaultThinkingLevel) {
-    const normalized = normalizeThinkingLevel(config.defaultThinkingLevel);
-    if (normalized) return normalized;
-  }
-  const defaults = loadConfigDefaults();
-  return normalizeThinkingLevel(defaults.workspaceDefaults.thinkingLevel) ?? 'medium';
+  return getSetting(INSTALL, 'defaultThinkingLevel');
 }
 
-/**
- * Set the app-level default thinking level for new sessions.
- * @returns true if persisted, false if config could not be loaded
- */
+/** Sets the app-level default thinking level for new sessions. */
 export function setDefaultThinkingLevel(level: ThinkingLevel): boolean {
-  const config = loadStoredConfig();
-  if (!config) return false;
-
-  config.defaultThinkingLevel = level;
-  saveConfig(config);
+  updateSetting(INSTALL, 'defaultThinkingLevel', level);
   return true;
 }
 
-/**
- * Update the lastUsedAt timestamp for a connection.
- * @param slug - Connection slug
- */
-export function touchLlmConnection(slug: string): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-
-  // No connections means nothing to touch
-  if (!config.llmConnections) return;
-
-  const connection = config.llmConnections.find(c => c.slug === slug);
-  if (connection) {
-    connection.lastUsedAt = Date.now();
-    saveConfig(config);
-  }
+/** Update the lastUsedAt timestamp for a connection. */
+export function touchLlmConnection(slug: string, where?: ConnectionContext): void {
+  const connection = getConnection(slug, where);
+  if (connection) updateConnection(connection.id, { lastUsedAt: new Date() });
 }
 
 // ============================================
 // Setup Deferred (user skipped onboarding)
 // ============================================
 
-export function isSetupDeferred(): boolean {
-  return loadStoredConfig()?.setupDeferred === true;
-}
-
-export function setSetupDeferred(deferred: boolean): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-  if (deferred) {
-    config.setupDeferred = true;
-  } else {
-    delete config.setupDeferred;
-  }
-  saveConfig(config);
-}
+export const isSetupDeferred = (): boolean => getSetting(INSTALL, 'setupDeferred');
+export const setSetupDeferred = (deferred: boolean): void => void updateSetting(INSTALL, 'setupDeferred', deferred);
 
 // ============================================
 // Tool Icons (CLI tool icons for turn card display)
@@ -2928,31 +1489,28 @@ export function ensureToolIcons(): void {
 // Server Mode Configuration
 // ============================================
 
-import { DEFAULT_SERVER_CONFIG, type ServerConfig } from './server-config.ts';
-import { randomUUID } from 'crypto';
-
 /**
- * Get the current server configuration.
+ * Get the current server configuration (the token is read from its secret).
  * Returns defaults if not yet configured.
  */
 export function getServerConfig(): ServerConfig {
-  const config = loadStoredConfig();
-  return config?.serverConfig ?? { ...DEFAULT_SERVER_CONFIG };
+  const { tokenSecretId, ...stored } = getSetting(INSTALL, 'server');
+  const token = tokenSecretId ? initSecretsStore().getSecret(tokenSecretId) : undefined;
+  return { ...stored, ...(token ? { token } : {}) };
 }
 
 /**
- * Persist server configuration.
+ * Persist server configuration: the token goes to `secrets` (replaced in place), the setting keeps its id.
  * Auto-generates a stable auth token on first enable if none exists.
  */
 export function setServerConfig(serverConfig: ServerConfig): void {
-  const config = loadStoredConfig();
-  if (!config) return;
-
-  // Generate a stable token when first enabled (or if token is missing)
-  if (serverConfig.enabled && !serverConfig.token) {
-    serverConfig.token = randomUUID();
+  const { token: given, ...rest } = serverConfig;
+  const secrets = initSecretsStore();
+  let tokenSecretId = getSetting(INSTALL, 'server').tokenSecretId;
+  const token = given || (serverConfig.enabled && !(tokenSecretId && secrets.getSecret(tokenSecretId)) ? randomUUID() : undefined);
+  if (token) {
+    if (tokenSecretId && secrets.getSecret(tokenSecretId) !== undefined) secrets.updateSecret(tokenSecretId, token);
+    else tokenSecretId = secrets.createSecret('Server token', token);
   }
-
-  config.serverConfig = serverConfig;
-  saveConfig(config);
+  updateSetting(INSTALL, 'server', { ...rest, ...(tokenSecretId ? { tokenSecretId } : {}) });
 }

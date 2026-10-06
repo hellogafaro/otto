@@ -1,24 +1,22 @@
 import * as React from 'react'
 
-type ShareCapabilities = { sharingEnabled: boolean; viewerConfigured: boolean }
+type ShareCapabilities = { viewerConfigured: boolean }
 
-const NONE: ShareCapabilities = { sharingEnabled: false, viewerConfigured: false }
+const NONE: ShareCapabilities = { viewerConfigured: false }
 
-// Module-level cache: both values are server-evaluated and process-stable.
+// Module-level cache: the value is server-evaluated and process-stable.
 let capabilitiesPromise: Promise<ShareCapabilities> | null = null
 
 /**
  * What the server allows for sharing. `viewerConfigured` is false when
- * OTTO_VIEWER_URL is unset: every share entry point (sessions and pages) is
- * hidden. `sharingEnabled` is the Pages publish gate (viewer configured and
- * the OTTO_FEATURE_PAGES_SHARING flag on).
+ * OTTO_VIEWER_URL is unset: every session share entry point is hidden.
  */
 export function useShareCapabilities(): ShareCapabilities & { loaded: boolean } {
   const [state, setState] = React.useState<ShareCapabilities & { loaded: boolean }>({ ...NONE, loaded: false })
   React.useEffect(() => {
     let stale = false
     if (!capabilitiesPromise) {
-      capabilitiesPromise = window.electronAPI.getPageShareCapabilities().catch(() => {
+      capabilitiesPromise = window.electronAPI.getSessionShareCapabilities().catch(() => {
         capabilitiesPromise = null
         return NONE
       })

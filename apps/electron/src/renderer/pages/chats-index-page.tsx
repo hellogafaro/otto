@@ -19,6 +19,7 @@
 import * as React from 'react'
 import { useSetAtom, useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { formatDistanceToNowStrict, type Locale } from 'date-fns'
 import { Archive, CircleDashed, ClipboardList, Cpu, Flag, MessageSquare, MoreHorizontal, Tag } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
@@ -178,6 +179,7 @@ function ChatRow({ item, labels, actions, onOpen }: { item: SessionMeta; labels:
 
 export default function ChatsIndexPage() {
   const { t } = useTranslation()
+  useComposerContext({ key: 'page:chats', placeholder: t('composer.placeholder.start') })
   const { navigate, navigateToSession } = useNavigation()
   const [filters, setFilters] = useChatFilters()
   const {

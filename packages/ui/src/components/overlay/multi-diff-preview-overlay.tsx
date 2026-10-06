@@ -50,7 +50,7 @@ export interface FileChange {
 
 /**
  * Diff viewer display preferences
- * Passed from parent to avoid localStorage usage - all settings stored in preferences.json
+ * Passed from parent to avoid localStorage usage - all settings stored in the user's preferences
  */
 export interface DiffViewerSettings {
   diffStyle: 'unified' | 'split'
@@ -196,7 +196,7 @@ export function MultiDiffPreviewOverlay({
   }, [checkReveal])
 
   // Diff viewer controls state — initialized from props (user preferences)
-  // Settings are persisted via onDiffViewerSettingsChange callback to preferences.json
+  // Settings are persisted via onDiffViewerSettingsChange callback to the user's preferences
   const [diffStyle, setDiffStyleInternal] = useState<'unified' | 'split'>(
     diffViewerSettings?.diffStyle ?? 'unified'
   )

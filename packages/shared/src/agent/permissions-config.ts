@@ -2,16 +2,20 @@
  * Safe Mode Configuration
  *
  * Allows customization of Safe Mode rules per workspace and per source.
- * Users can create permissions.json files to extend the default rules.
+ * Rules extend the default rules.
  *
- * File locations:
- * - Workspace: ~/.otto/workspaces/{slug}/permissions.json
- * - Per-source: ~/.otto/workspaces/{slug}/sources/{sourceSlug}/permissions.json
+ * Where they live:
+ * - Workspace: the `permissions` setting of the workspace (`settings`, entity `workspace:<id>`)
+ * - Per-source: ~/.otto/workspaces/{slug}/sources/{sourceSlug}/permissions.json (in the source's bundle)
  *
  * Rules are additive - custom configs extend the defaults (more permissive).
  */
 
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
+import { getWorkspaceIdByRootPath, getWorkspaceRootPath } from '../config/storage.ts';
+import type { Db, Tx } from '../db/index.ts';
+import { getSetting, updateSetting, workspaceEntity } from '../settings/index.ts';
+import { domainError } from '../utils/errors.ts';
 import { resolveConfigDir } from '../config/paths.ts';
 import { join } from 'path';
 import { debug } from '../utils/debug.ts';
@@ -284,18 +288,45 @@ export interface PermissionsContext {
 // JSON Parser
 // ============================================================
 
-/**
- * Parse and validate permissions.json file
- */
-export function parsePermissionsJson(content: string): PermissionsCustomConfig {
-  const emptyConfig: PermissionsCustomConfig = {
-    allowedBashPatterns: [],
-    allowedMcpPatterns: [],
-    allowedApiEndpoints: [],
-    allowedWritePaths: [],
-    blockedCommandHints: [],
+const EMPTY_CUSTOM_CONFIG: PermissionsCustomConfig = {
+  allowedBashPatterns: [],
+  allowedMcpPatterns: [],
+  allowedApiEndpoints: [],
+  allowedWritePaths: [],
+  blockedCommandHints: [],
+};
+
+/** Normalizes validated permission rules into the runtime shape (bash patterns keep their comments for error messages). */
+function normalizePermissions(data: PermissionsConfigFile): PermissionsCustomConfig {
+  const normalizePatterns = (patterns: Array<string | { pattern: string; comment?: string }> | undefined): string[] => {
+    if (!patterns) return [];
+    return patterns.map(p => typeof p === 'string' ? p : p.pattern);
   };
 
+  // For bash patterns, preserve comments for helpful error messages
+  const normalizeBashPatterns = (patterns: Array<string | { pattern: string; comment?: string }> | undefined): PatternWithComment[] => {
+    if (!patterns) return [];
+    return patterns.map(p => {
+      if (typeof p === 'string') {
+        return { pattern: p };
+      }
+      return { pattern: p.pattern, comment: p.comment };
+    });
+  };
+
+  return {
+    allowedBashPatterns: normalizeBashPatterns(data.allowedBashPatterns),
+    allowedMcpPatterns: normalizePatterns(data.allowedMcpPatterns),
+    allowedApiEndpoints: data.allowedApiEndpoints ?? [],
+    allowedWritePaths: normalizePatterns(data.allowedWritePaths),
+    blockedCommandHints: data.blockedCommandHints ?? [],
+  };
+}
+
+/**
+ * Parse and validate a permissions.json file (app default or a source's)
+ */
+export function parsePermissionsJson(content: string): PermissionsCustomConfig {
   try {
     const json = safeJsonParse(content);
     const result = PermissionsConfigSchema.safeParse(json);
@@ -306,38 +337,13 @@ export function parsePermissionsJson(content: string): PermissionsCustomConfig {
       for (const issue of result.error.issues) {
         debug(`[SafeMode]   - ${issue.path.join('.')}: ${issue.message}`);
       }
-      return emptyConfig;
+      return { ...EMPTY_CUSTOM_CONFIG };
     }
 
-    const data = result.data;
-
-    // Normalize patterns (extract string from pattern objects, but NOT for bash - preserve comments)
-    const normalizePatterns = (patterns: Array<string | { pattern: string; comment?: string }> | undefined): string[] => {
-      if (!patterns) return [];
-      return patterns.map(p => typeof p === 'string' ? p : p.pattern);
-    };
-
-    // For bash patterns, preserve comments for helpful error messages
-    const normalizeBashPatterns = (patterns: Array<string | { pattern: string; comment?: string }> | undefined): PatternWithComment[] => {
-      if (!patterns) return [];
-      return patterns.map(p => {
-        if (typeof p === 'string') {
-          return { pattern: p };
-        }
-        return { pattern: p.pattern, comment: p.comment };
-      });
-    };
-
-    return {
-      allowedBashPatterns: normalizeBashPatterns(data.allowedBashPatterns),
-      allowedMcpPatterns: normalizePatterns(data.allowedMcpPatterns),
-      allowedApiEndpoints: data.allowedApiEndpoints ?? [],
-      allowedWritePaths: normalizePatterns(data.allowedWritePaths),
-      blockedCommandHints: data.blockedCommandHints ?? [],
-    };
+    return normalizePermissions(result.data);
   } catch (error) {
     debug('[SafeMode] JSON parse error:', error);
-    return emptyConfig;
+    return { ...EMPTY_CUSTOM_CONFIG };
   }
 }
 
@@ -434,13 +440,6 @@ export function validatePermissionsConfig(config: PermissionsConfigFile): string
 // ============================================================
 
 /**
- * Get path to workspace permissions.json
- */
-export function getWorkspacePermissionsPath(workspaceRootPath: string): string {
-  return join(workspaceRootPath, 'permissions.json');
-}
-
-/**
  * Get path to source permissions.json
  */
 export function getSourcePermissionsPath(workspaceRootPath: string, sourceSlug: string): string {
@@ -448,21 +447,13 @@ export function getSourcePermissionsPath(workspaceRootPath: string, sourceSlug: 
 }
 
 /**
- * Load workspace-level permissions config
+ * The workspace's rules as the runtime reads them; null when it has none or the root is not a registered workspace.
  */
 export function loadWorkspacePermissionsConfig(workspaceRootPath: string): PermissionsCustomConfig | null {
-  const path = getWorkspacePermissionsPath(workspaceRootPath);
-  if (!existsSync(path)) return null;
-
-  try {
-    const content = readFileSync(path, 'utf-8');
-    const config = parsePermissionsJson(content);
-    debug(`[Permissions] Loaded workspace config from ${path}:`, config);
-    return config;
-  } catch (error) {
-    debug(`[Permissions] Error loading workspace config:`, error);
-    return null;
-  }
+  const workspaceId = getWorkspaceIdByRootPath(workspaceRootPath);
+  if (!workspaceId) return null;
+  const rules = getWorkspacePermissions(workspaceId);
+  return Object.keys(rules).length ? normalizePermissions(rules) : null;
 }
 
 /**
@@ -490,18 +481,9 @@ export function loadSourcePermissionsConfig(
 // Raw Load / Save (for CLI CRUD — preserves schema-level structure)
 // ============================================================
 
-/**
- * Load raw PermissionsConfigFile from a workspace permissions.json.
- * Returns the Zod-parsed schema object (not the normalized runtime config).
- * Returns null if the file doesn't exist.
- */
-export function loadRawWorkspacePermissions(workspaceRootPath: string): PermissionsConfigFile | null {
-  const filePath = getWorkspacePermissionsPath(workspaceRootPath);
-  if (!existsSync(filePath)) return null;
-  const content = readFileSync(filePath, 'utf-8');
-  const json = safeJsonParse(content);
-  const result = PermissionsConfigSchema.safeParse(json);
-  return result.success ? result.data : null;
+/** The workspace's Explore-mode rules as stored (`{}` when none). */
+export function getWorkspacePermissions(workspaceId: string, db?: Db | Tx): PermissionsConfigFile {
+  return getSetting(workspaceEntity(workspaceId), 'permissions', db);
 }
 
 /**
@@ -518,13 +500,18 @@ export function loadRawSourcePermissions(workspaceRootPath: string, sourceSlug: 
 }
 
 /**
- * Save a PermissionsConfigFile to the workspace permissions.json.
+ * Replaces the workspace's Explore-mode rules (`invalid` when a regex does not compile) and makes the
+ * running agents read them. Who may do this is decided by the caller (workspace owners).
  */
-export function saveWorkspacePermissions(workspaceRootPath: string, config: PermissionsConfigFile): void {
-  const filePath = getWorkspacePermissionsPath(workspaceRootPath);
-  mkdirSync(workspaceRootPath, { recursive: true });
-  writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
-  permissionsConfigCache.invalidateWorkspace(workspaceRootPath);
+export function updateWorkspacePermissions(workspaceId: string, rules: unknown): PermissionsConfigFile {
+  const parsed = PermissionsConfigSchema.safeParse(rules);
+  if (!parsed.success) throw domainError('invalid', `Invalid permissions: ${parsed.error.issues[0]?.message ?? 'rejected'}`);
+  const errors = validatePermissionsConfig(parsed.data);
+  if (errors.length) throw domainError('invalid', errors.join('; '));
+  const saved = updateSetting(workspaceEntity(workspaceId), 'permissions', parsed.data);
+  const rootPath = getWorkspaceRootPath(workspaceId);
+  if (rootPath) permissionsConfigCache.invalidateWorkspace(rootPath);
+  return saved;
 }
 
 /**
@@ -625,7 +612,7 @@ class PermissionsConfigCache {
   }
 
   /**
-   * Invalidate workspace config (called by ConfigWatcher)
+   * Invalidate workspace config (called after the workspace's rules change)
    */
   invalidateWorkspace(workspaceRootPath: string): void {
     debug(`[Permissions] Invalidating workspace config: ${workspaceRootPath}`);
@@ -696,7 +683,6 @@ class PermissionsConfigCache {
       shortcutHint: defaults.shortcutHint,
       // Add permission file paths for actionable error messages
       permissionPaths: {
-        workspacePath: getWorkspacePermissionsPath(context.workspaceRootPath),
         appDefaultPath: join(getAppPermissionsDir(), 'default.json'),
         docsPath: join(CONFIG_DIR, 'docs', 'permissions.md'),
       },

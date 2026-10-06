@@ -61,7 +61,7 @@ const b64 = (value: string | Uint8Array) => Buffer.from(value).toString('base64'
 
 beforeAll(async () => {
   await pushSchema(initDb())
-  saveConfig({ workspaces: [], activeWorkspaceId: null, activeSessionId: null })
+  saveConfig({ workspaces: [] })
   rootPath = join(configDir, 'workspace')
   const workspace = addWorkspace({ name: 'Test', rootPath })
   workspaceId = workspace.id

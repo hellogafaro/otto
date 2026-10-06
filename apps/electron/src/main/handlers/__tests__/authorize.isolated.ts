@@ -18,7 +18,10 @@ const { initDb } = await import('@otto/shared/db')
 const { pushSchema } = await import('../../../../../../packages/shared/src/db/push.ts')
 const { createWorkspaceMember, deleteWorkspaceMember, getMemberRole } = await import('@otto/shared/workspaces')
 const { WsRpcServer, WsRpcClient } = await import('@otto/server-core/transport')
-const { authorize, OWNER_CHANNELS, WORKSPACE_ARG_CHANNELS } = await import('../../../../../../packages/server-core/src/bootstrap/authorize.ts')
+const { users } = await import('../../../../../../packages/shared/src/users/schema.ts')
+const { userEntity, workspaceEntity } = await import('@otto/shared/settings')
+const { createConnection, userScope, workspaceScope } = await import('@otto/shared/connections')
+const { authorize, CONNECTION_WRITE_CHANNELS, INSTANCE_OWNER_CHANNELS, OWNER_CHANNELS, WORKSPACE_ARG_CHANNELS } = await import('../../../../../../packages/server-core/src/bootstrap/authorize.ts')
 const { registerAllRpcHandlers } = await import('../index')
 
 type Handler = (...args: never[]) => unknown
@@ -95,9 +98,17 @@ function argsFor(channel: string, target: string): unknown[] {
   return [...Array(index).fill('x'), arg]
 }
 
+/** What the channels that address a settings entity need to be a valid call. */
+const SETTING_CHANNELS: string[] = [RPC_CHANNELS.settings.GET_SETTING, RPC_CHANNELS.settings.UPDATE_SETTING]
+const plainArgs = (channel: string): unknown[] => (SETTING_CHANNELS.includes(channel) ? [userEntity('alice'), 'colorTheme', 'nord'] : [])
+
 beforeAll(async () => {
   await pushSchema(initDb())
-  saveConfig({ workspaces: [], activeWorkspaceId: null, activeSessionId: null })
+  // alice is the first user: the instance owner. zed owns a workspace and is not.
+  for (const [index, id] of ['alice', 'bob', 'zed', 'carol'].entries()) {
+    initDb().insert(users).values({ id, name: id, email: `${id}@x.test`, createdAt: new Date(index + 1), updatedAt: new Date(index + 1) }).run()
+  }
+  saveConfig({ workspaces: [] })
   A = addWorkspace({ name: 'Main', rootPath: join(configDir, 'workspaces', 'a') }).id
   B = addWorkspace({ name: 'Side', rootPath: join(configDir, 'workspaces', 'b') }).id
   createWorkspaceMember(A, 'alice', 'owner')
@@ -146,7 +157,7 @@ describe('the guard on every registered channel', () => {
     const alice = await connect(url, 'alice', A)
     for (const channel of channels) {
       if (!WORKSPACE_ARG_CHANNELS.has(channel)) {
-        expect(await codeOf(alice.invoke(channel))).toBe('ok')
+        expect(await codeOf(alice.invoke(channel, ...plainArgs(channel)))).toBe('ok')
         continue
       }
       expect(await codeOf(alice.invoke(channel, ...argsFor(channel, B)))).toBe('forbidden')
@@ -166,6 +177,66 @@ describe('the guard on every registered channel', () => {
       const expected = OWNER_CHANNELS.has(channel) ? 'forbidden' : 'ok'
       expect(await codeOf(bob.invoke(channel, ...argsFor(channel, A)))).toBe(expected)
     }
+  })
+
+  it('lets a member read labels and statuses and keeps writing them to the owners', async () => {
+    const { url } = await start(false)
+    const bob = await connect(url, 'bob', A) // a member
+    const alice = await connect(url, 'alice', A) // an owner
+    const { labels, statuses } = RPC_CHANNELS
+    for (const channel of [labels.LIST, statuses.LIST]) {
+      expect(OWNER_CHANNELS.has(channel)).toBe(false)
+      expect(await codeOf(bob.invoke(channel, A))).toBe('ok')
+    }
+    for (const channel of [labels.CREATE, labels.DELETE, statuses.REORDER]) {
+      expect(OWNER_CHANNELS.has(channel)).toBe(true)
+      expect(await codeOf(bob.invoke(channel, A))).toBe('forbidden')
+      expect(await codeOf(alice.invoke(channel, A))).toBe('ok')
+    }
+  })
+
+  it('refuses the install channels to everyone but the instance owner, even a workspace owner', async () => {
+    const { url, calls } = await start(false)
+    const [alice, zed, bob] = [await connect(url, 'alice', A), await connect(url, 'zed', B), await connect(url, 'bob', A)]
+    // the server settings channels are registered by the Electron main process, not here
+    const owned = [...INSTANCE_OWNER_CHANNELS].filter((channel) => registered.has(channel))
+    expect([...INSTANCE_OWNER_CHANNELS].filter((channel) => !registered.has(channel)).sort()).toEqual(
+      [RPC_CHANNELS.settings.GET_SERVER_CONFIG, RPC_CHANNELS.settings.SET_SERVER_CONFIG, RPC_CHANNELS.settings.GET_SERVER_STATUS].sort(),
+    )
+    for (const channel of owned) {
+      expect(await codeOf(zed.invoke(channel))).toBe('forbidden')
+      expect(await codeOf(bob.invoke(channel))).toBe('forbidden')
+      expect(await codeOf(alice.invoke(channel))).toBe('ok')
+    }
+    expect(calls.sort()).toEqual(owned.sort())
+  })
+
+  it('guards the channels that address a settings entity by user, workspace and install', async () => {
+    const { url } = await start(false)
+    const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
+    const { GET_SETTING: read, UPDATE_SETTING: write } = RPC_CHANNELS.settings
+    const code = (client: typeof alice, channel: string, entity: string, key: string) =>
+      codeOf(client.invoke(channel, entity, key, 'x'))
+    // user:<id>: only that user, to read and to write
+    expect(await code(bob, write, userEntity('bob'), 'colorTheme')).toBe('ok')
+    expect(await code(bob, write, userEntity('alice'), 'colorTheme')).toBe('forbidden')
+    expect(await code(bob, read, userEntity('alice'), 'colorTheme')).toBe('forbidden')
+    expect(await code(alice, read, userEntity('bob'), 'colorTheme')).toBe('forbidden') // not even the instance owner
+    // workspace:<id>: members read, owners write
+    expect(await code(bob, read, workspaceEntity(A), 'defaults')).toBe('ok')
+    expect(await code(bob, write, workspaceEntity(A), 'defaults')).toBe('forbidden')
+    expect(await code(alice, write, workspaceEntity(A), 'defaults')).toBe('ok')
+    expect(await code(zed, read, workspaceEntity(A), 'defaults')).toBe('forbidden')
+    expect(await code(zed, write, workspaceEntity(A), 'defaults')).toBe('forbidden')
+    // install: anyone signed in reads what holds no secret, only the instance owner writes (and reads the rest)
+    expect(await code(bob, read, 'install', 'setupDeferred')).toBe('ok')
+    expect(await code(bob, write, 'install', 'setupDeferred')).toBe('forbidden')
+    expect(await code(zed, write, 'install', 'setupDeferred')).toBe('forbidden')
+    expect(await code(bob, read, 'install', 'server')).toBe('forbidden')
+    expect(await code(alice, read, 'install', 'server')).toBe('ok')
+    expect(await code(alice, write, 'install', 'setupDeferred')).toBe('ok')
+    // a thing that is not an entity is invalid, not forbidden
+    expect(await code(bob, read, 'everyone', 'colorTheme')).toBe('invalid')
   })
 
   it('refuses every channel once the caller is no longer a member of the connection\'s workspace', async () => {
@@ -222,5 +293,114 @@ describe('the workspace channels', () => {
     // A signed-in user of the server can create through the server channel too.
     const viaServer = (await carol.invoke(RPC_CHANNELS.server.CREATE_WORKSPACE, 'Second')) as { id: string }
     expect(getMemberRole(viaServer.id, 'carol')).toBe('owner')
+  })
+})
+
+describe('the connection channels', () => {
+  const secret = 'sk-ant-api03-THE-WHOLE-SECRET-KEY-9876'
+  const connection = (slug: string, scope?: string) => ({ slug, scope, type: 'pi' as const, authType: 'api_key' as const, title: slug })
+
+  beforeAll(() => {
+    createConnection(connection('inst'), { apiKey: secret })
+    createConnection(connection('in-a', workspaceScope(A)), { apiKey: secret })
+    createConnection(connection('in-b', workspaceScope(B)), { apiKey: secret })
+    createConnection(connection('mine-bob', userScope('bob')), { apiKey: secret })
+    createWorkspaceMember(A, 'zed', 'member')
+  })
+
+  /** Arguments that name a connection where the channel expects one (an object where the channel takes a setup, a connection or setup-test params). */
+  const callArgs = (channel: string, slug: string, scope?: string): unknown[] => {
+    const index = CONNECTION_WRITE_CHANNELS.get(channel)!
+    const objectChannels: string[] = [RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP, RPC_CHANNELS.llmConnections.SAVE]
+    return [...Array(index).fill('x'), objectChannels.includes(channel) ? { slug, connectionSlug: slug, scope } : slug]
+  }
+
+  it('declares only channels that exist', () => {
+    for (const channel of CONNECTION_WRITE_CHANNELS.keys()) expect(registered.has(channel)).toBe(true)
+  })
+
+  it("lets the instance owner change the install's connections, and nobody else, workspace owners included", async () => {
+    const { url, calls } = await start(false)
+    const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
+    for (const channel of CONNECTION_WRITE_CHANNELS.keys()) {
+      expect(await codeOf(alice.invoke(channel, ...callArgs(channel, 'inst')))).toBe('ok')
+      expect(await codeOf(bob.invoke(channel, ...callArgs(channel, 'inst')))).toBe('forbidden')
+      expect(await codeOf(zed.invoke(channel, ...callArgs(channel, 'inst')))).toBe('forbidden')
+    }
+    expect(calls.length).toBe(CONNECTION_WRITE_CHANNELS.size)
+  })
+
+  it('lets the owners of a workspace change its connections, and nobody else', async () => {
+    const { url } = await start(false)
+    const [alice, bob, zedInB, zedInA] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B), await connect(url, 'zed', A)]
+    for (const channel of CONNECTION_WRITE_CHANNELS.keys()) {
+      // in-a belongs to A: its owner (alice) may, a member (bob, zed) may not
+      expect(await codeOf(alice.invoke(channel, ...callArgs(channel, 'in-a')))).toBe('ok')
+      expect(await codeOf(bob.invoke(channel, ...callArgs(channel, 'in-a')))).toBe('forbidden')
+      expect(await codeOf(zedInA.invoke(channel, ...callArgs(channel, 'in-a')))).toBe('forbidden')
+      // in-b belongs to B: its owner (zed, who is not the instance owner) may
+      expect(await codeOf(zedInB.invoke(channel, ...callArgs(channel, 'in-b')))).toBe('ok')
+    }
+  })
+
+  it("lets a person manage their own connections and nobody else's, the instance owner's included", async () => {
+    const { url } = await start(false)
+    const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
+    for (const channel of CONNECTION_WRITE_CHANNELS.keys()) {
+      // mine-bob is bob's own: bob finds it; for the others the slug names nothing of theirs, so it is a new connection of their own
+      expect(await codeOf(bob.invoke(channel, ...callArgs(channel, 'mine-bob')))).toBe('ok')
+      expect(await codeOf(zed.invoke(channel, ...callArgs(channel, 'mine-bob')))).toBe('ok')
+    }
+  })
+
+  it('makes a new connection the caller\'s own, the workspace\'s for its owners, the install\'s for the instance owner', async () => {
+    const { url } = await start(false)
+    const [alice, bob, zedInB] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
+    const setup = RPC_CHANNELS.settings.SETUP_LLM_CONNECTION
+    // no scope named: the caller's own, anyone may
+    expect(await codeOf(bob.invoke(setup, { slug: 'fresh' }))).toBe('ok')
+    expect(await codeOf(zedInB.invoke(setup, { slug: 'fresh' }))).toBe('ok')
+    expect(await codeOf(zedInB.invoke(setup, { slug: 'fresh', scope: 'user' }))).toBe('ok')
+    // the workspace's: its owners; the install's: the instance owner
+    expect(await codeOf(zedInB.invoke(setup, { slug: 'fresh', scope: 'workspace' }))).toBe('ok')
+    expect(await codeOf(bob.invoke(setup, { slug: 'fresh', scope: 'workspace' }))).toBe('forbidden')
+    expect(await codeOf(zedInB.invoke(setup, { slug: 'fresh', scope: 'install' }))).toBe('forbidden')
+    expect(await codeOf(bob.invoke(setup, { slug: 'fresh', scope: 'install' }))).toBe('forbidden')
+    expect(await codeOf(alice.invoke(setup, { slug: 'fresh', scope: 'install' }))).toBe('ok')
+    // naming the install's connection that exists is the install's, whatever the person's own are called
+    expect(await codeOf(bob.invoke(setup, { slug: 'inst' }))).toBe('forbidden')
+    expect(await codeOf(bob.invoke(setup, { slug: 'inst', scope: 'user' }))).toBe('ok')
+  })
+
+  it('lets every member read connections and the sign-in status, with no secret in what comes back', async () => {
+    const { url } = await start(true)
+    const [alice, bob] = [await connect(url, 'alice', A), await connect(url, 'bob', A)]
+    const { LIST, LIST_WITH_STATUS, GET, GET_API_KEY } = RPC_CHANNELS.llmConnections
+    const answers = [
+      await bob.invoke(LIST),
+      await bob.invoke(LIST_WITH_STATUS),
+      await bob.invoke(GET, 'in-a'),
+      await bob.invoke(GET, 'inst'),
+      await bob.invoke(RPC_CHANNELS.onboarding.GET_AUTH_STATE),
+      await alice.invoke(LIST_WITH_STATUS),
+      await alice.invoke(GET_API_KEY, 'inst'),
+    ]
+    expect((answers[0] as { slug: string }[]).map((c) => c.slug).sort()).toEqual(['in-a', 'inst', 'mine-bob'])
+    expect((answers[1] as { isAuthenticated: boolean }[]).every((c) => c.isAuthenticated)).toBe(true)
+    // the key comes back masked, to an owner only
+    expect(answers[6]).toMatch(/••/)
+    expect(await codeOf(bob.invoke(GET_API_KEY, 'inst'))).toBe('forbidden')
+    // a person's own connection is seen by that person only
+    expect(((await alice.invoke(LIST)) as { slug: string }[]).map((c) => c.slug).sort()).toEqual(['in-a', 'inst'])
+    expect(await alice.invoke(GET, 'mine-bob')).toBeNull()
+    expect(await alice.invoke(GET_API_KEY, 'mine-bob')).toBeNull()
+    expect((await alice.invoke(RPC_CHANNELS.llmConnections.DELETE, 'mine-bob')) as { success: boolean }).toMatchObject({ success: false })
+    expect(await bob.invoke(GET, 'mine-bob')).toMatchObject({ slug: 'mine-bob', scope: userScope('bob') })
+    expect(await bob.invoke(GET_API_KEY, 'mine-bob')).toMatch(/••/)
+    for (const answer of answers) {
+      const text = JSON.stringify(answer)
+      expect(text).not.toContain(secret)
+      expect(text).not.toContain('THE-WHOLE-SECRET')
+    }
   })
 })

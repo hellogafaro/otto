@@ -4,12 +4,13 @@
  * React hook to load and manage workspace labels.
  * Returns the label tree (nested structure with children) from config.
  * Also exposes a flattened version for components that need flat lookups.
- * Auto-refreshes when workspace changes or label config changes.
+ * Auto-refreshes when workspace changes or labels change (`domain:changed`).
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { LabelConfig } from '@otto/shared/labels'
 import { flattenLabels } from '@otto/shared/labels'
+import { useLiveData } from './use-live-data'
 
 export interface UseLabelsResult {
   /** Label tree (root-level nodes with nested children) */
@@ -25,7 +26,7 @@ export interface UseLabelsResult {
  * Load labels for a workspace via IPC.
  * Returns the tree structure (labels with nested children).
  * Auto-refreshes when workspaceId changes.
- * Subscribes to live label config changes via LABELS_CHANGED event.
+ * Reloads on `domain:changed` for labels.
  */
 export function useLabels(workspaceId: string | null): UseLabelsResult {
   const [labels, setLabels] = useState<LabelConfig[]>([])
@@ -60,19 +61,7 @@ export function useLabels(workspaceId: string | null): UseLabelsResult {
     refresh()
   }, [refresh])
 
-  // Subscribe to live label changes (config file changes)
-  useEffect(() => {
-    if (!workspaceId) return
-
-    const cleanup = window.electronAPI.onLabelsChanged((changedWorkspaceId) => {
-      // Only refresh if this is our workspace
-      if (changedWorkspaceId === workspaceId) {
-        refresh()
-      }
-    })
-
-    return cleanup
-  }, [workspaceId, refresh])
+  useLiveData('labels', workspaceId, refresh)
 
   return {
     labels,

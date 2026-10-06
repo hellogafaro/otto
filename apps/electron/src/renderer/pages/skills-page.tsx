@@ -10,6 +10,7 @@
 import { Layers, Shapes } from 'lucide-react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField } from '@workspace/ui/components/filters'
 import { Gallery, GalleryItem, GalleryItemSkeleton } from '@workspace/ui/components/gallery'
@@ -35,6 +36,7 @@ export const SKILL_SCOPE_LABELS: Record<SkillScope, string> = {
 
 export function SkillsPage() {
   const { t } = useTranslation()
+  useComposerContext({ key: 'page:skills', placeholder: t('composer.placeholder.start') })
   const skills = useAtomValue(skillsAtom)
   const navState = useNavigationState()
   const { navigate } = useNavigation()

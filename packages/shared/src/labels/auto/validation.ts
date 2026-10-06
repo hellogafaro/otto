@@ -4,9 +4,10 @@
  * Validates auto-label rule patterns at config-save time to catch
  * invalid regex syntax and catastrophic backtracking patterns early.
  *
- * Called from the label config validator (validators.ts) when labels/config.json
- * is being written.
+ * Called by `createLabel` / `updateLabel` (../crud.ts) through `assertAutoRules`.
  */
+
+import { domainError } from '../../utils/errors.ts'
 
 export interface AutoLabelValidationResult {
   valid: boolean
@@ -107,4 +108,21 @@ export function validateSemanticAutoLabelRule(rule: { semantic?: unknown; thresh
   }
 
   return { valid: errors.length === 0, errors, warnings }
+}
+
+/**
+ * Throws `invalid` unless every rule is a valid regex rule or a valid semantic rule (never both).
+ * Used by the label write functions.
+ */
+export function assertAutoRules(rules: unknown[]): void {
+  const errors: string[] = []
+  rules.forEach((rule, index) => {
+    const r = (rule ?? {}) as { pattern?: unknown; flags?: unknown; semantic?: unknown; threshold?: unknown; value?: unknown }
+    const where = `autoRules[${index}]`
+    if (typeof r.pattern === 'string' && r.semantic !== undefined) errors.push(`${where}: a rule is either a "pattern" or a "semantic" question, not both`)
+    else if (typeof r.pattern === 'string') errors.push(...validateAutoLabelRule(r.pattern, typeof r.flags === 'string' ? r.flags : undefined).errors.map((e) => `${where}: ${e}`))
+    else if (typeof r.semantic === 'string') errors.push(...validateSemanticAutoLabelRule(r).errors.map((e) => `${where}: ${e}`))
+    else errors.push(`${where}: a rule needs a "pattern" (regex) or a "semantic" question`)
+  })
+  if (errors.length) throw domainError('invalid', errors.join('; '))
 }

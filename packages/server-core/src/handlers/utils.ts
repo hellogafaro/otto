@@ -63,7 +63,7 @@ export const callerOf = (
  * `workspaces/` is allowed here and checked per workspace below.
  */
 const CONFIG_DIR_READABLE = new Set([
-  'config-defaults.json', 'preferences.json', 'window-state.json', 'theme.json', 'themes', 'tool-icons', 'docs', 'permissions',
+  'config-defaults.json', 'window-state.json', 'theme.json', 'themes', 'tool-icons', 'docs', 'permissions',
   'provider-domains.json', 'workspaces',
 ])
 

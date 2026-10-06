@@ -66,7 +66,7 @@ function touch(path: string, content = 'secret') {
 beforeAll(async () => {
   const db = initDb()
   await pushSchema(db)
-  saveConfig({ workspaces: [], activeWorkspaceId: null, activeSessionId: null })
+  saveConfig({ workspaces: [] })
   const now = new Date()
   for (const id of ['u1', 'u2', 'u3']) db.insert(users).values({ id, name: id, email: `${id}@example.com`, createdAt: now, updatedAt: now }).run()
   rootA = join(configDir, 'workspaces', 'a')
@@ -104,7 +104,8 @@ beforeAll(async () => {
   }
   touch(join(rootA, 'sessions', 's1', 'session.jsonl'))
   touch(join(rootA, 'library', 'doc.md'), 'hello')
-  touch(join(configDir, 'preferences.json'), '{}')
+  touch(join(configDir, 'preferences.json'), '{}') // the old file nothing reads any more: private like config.json
+  touch(join(configDir, 'window-state.json'), '{}')
   touch(join(workdir, 'main.ts'), 'code')
   touch(join(tmpdir(), 'otto-private-paths-tmp.txt'), 'tmp')
   registerFilesHandlers(server as never, deps)
@@ -137,7 +138,7 @@ describe('private paths', () => {
     expect(await call('u1', C.file.READ, join(rootA, 'sessions', 's1', 'session.jsonl'))).toBe('secret')
     expect(await call('u1', C.file.READ, join(workdir, 'main.ts'))).toBe('code')
     expect(await call('u1', C.file.READ, join(tmpdir(), 'otto-private-paths-tmp.txt'))).toBe('tmp')
-    expect(await call('u1', C.file.READ, join(configDir, 'preferences.json'))).toBe('{}')
+    expect(await call('u1', C.file.READ, join(configDir, 'window-state.json'))).toBe('{}')
     expect(await call('u2', C.file.READ, join(rootB, 'library', 'plan.md'))).toBe('secret')
     expect(await call('u2', C.file.READ, join(rootA, 'sessions', 's2', 'session.jsonl'))).toBe('secret')
     expect(await call('u1', C.file.READ_USER_ATTACHMENT, join(workdir, 'main.ts'))).not.toBeNull()
@@ -160,7 +161,8 @@ describe('private paths', () => {
     const found = async (user: string, base: string) =>
       ((await call(user, C.fs.SEARCH, base, '')) as { relativePath: string }[]).map((hit) => hit.relativePath)
     const results = await found('u1', configDir)
-    expect(results).toContain('preferences.json')
+    expect(results).toContain('window-state.json')
+    expect(results).not.toContain('preferences.json')
     expect(results).toContain('workspaces/a/library/doc.md')
     for (const hidden of ['config.json', 'credentials.enc', 'otto.db', 'drafts.json', 'logs', 'workspaces/b', 'workspaces/orphan', 'workspaces/a/sessions/s2']) {
       expect(results.some((result) => result === hidden || result.startsWith(`${hidden}/`))).toBe(false)

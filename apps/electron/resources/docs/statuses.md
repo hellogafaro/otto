@@ -1,23 +1,42 @@
 # Status Configuration
 
-Session statuses represent workflow states. Each workspace has its own status configuration.
+Session statuses represent workflow states. Each workspace has its own statuses.
 
-## Storage Locations
+Statuses live in the workspace database, not in files. Read and change them with the `statuses_edit` tool (this tool will be replaced by the Python `otto` CLI, `otto statuses`). Only workspace owners can change statuses; members can list them.
 
-- Config: `~/.otto/workspaces/{id}/statuses/config.json`
-- Icons: `~/.otto/workspaces/{id}/statuses/icons/`
+## The `statuses_edit` Tool
+
+| Action | Arguments |
+|--------|-----------|
+| `list` | none |
+| `create` | `label`, `category`, optional `color`, `icon` |
+| `update` | `id`, any of `label`, `color`, `icon`, `category` |
+| `delete` | `id` (its sessions move to `todo`) |
+| `reorder` | `orderedIds` (status ids in the new order; any left out follow) |
+| `set_default` | `id` (the status new chats get) |
+
+Example: `statuses_edit({ action: "create", label: "Blocked", color: "destructive", icon: "🚫", category: "open" })`.
 
 ## Default Statuses
 
 | ID | Label | Default Color | Category | Type |
 |----|-------|---------------|----------|------|
-| `backlog` | Backlog | foreground/50 | open | Default |
+| `backlog` | Backlog | foreground/50 | open | Seeded |
 | `todo` | Todo | foreground/50 | open | Fixed |
-| `needs-review` | Needs Review | info | open | Default |
+| `needs-review` | Needs Review | info | open | Seeded |
 | `done` | Done | accent | closed | Fixed |
 | `cancelled` | Cancelled | foreground/50 | closed | Fixed |
 
 **Note:** Color is optional. When omitted, the design system default is used.
+
+- **Fixed** (`todo`, `done`, `cancelled`): cannot be deleted, and their category cannot change. Label, color and icon can.
+- **Default** (`isDefault`): the one status new chats get. It is `todo` until `set_default` picks another, and it cannot be deleted.
+- **Custom**: everything else, fully editable and deletable. A status `id` is a slug and never changes.
+
+## Category System
+
+- **open**: Session appears in inbox/active list
+- **closed**: Session appears in archive/completed list
 
 ## Color Format
 
@@ -65,139 +84,27 @@ If `dark` is omitted, it's auto-derived from `light` (brightened ~30%).
 - Hex without `#` prefix (`"EF4444"`) is invalid — always include `#`
 - System color opacity must be an integer 0–100 (`"foreground/50"` not `"foreground/0.5"`)
 
-## Status Types
+## Status Fields
 
-- **Fixed** (`isFixed: true`): Cannot be deleted or renamed. Required statuses: `todo`, `done`, `cancelled`.
-- **Default** (`isDefault: true`): Ships with app, can be modified but not deleted.
-- **Custom** (`isFixed: false, isDefault: false`): User-created, fully editable and deletable.
-
-## Category System
-
-- **open**: Session appears in inbox/active list
-- **closed**: Session appears in archive/completed list
-
-## config.json Schema
-
-```json
-{
-  "version": 1,
-  "statuses": [
-    {
-      "id": "todo",
-      "label": "Todo",
-      "category": "open",
-      "isFixed": true,
-      "isDefault": false,
-      "order": 0
-    }
-  ],
-  "defaultStatusId": "todo"
-}
-```
-
-**Note:** The `icon` field is optional. Default statuses use auto-discovered SVG files from `statuses/icons/{id}.svg`.
-
-## Status Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | string | Unique slug (lowercase, hyphens) |
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique slug (lowercase, hyphens), e.g. `"in-progress"` |
 | `label` | string | Display name |
-| `color` | string? | Optional color (hex or Tailwind class). Uses design system default if omitted. |
-| `icon` | string? | Optional emoji (e.g., `"🔥"`) or URL. Omit to use auto-discovered file. |
+| `color` | EntityColor? | System color or custom object. Uses the design system default if omitted. |
+| `icon` | string? | An emoji, or an image data URL of at most 16 KB. Web addresses are rejected. |
 | `category` | `"open"` \| `"closed"` | Inbox vs archive |
-| `isFixed` | boolean | Cannot delete/rename if true |
-| `isDefault` | boolean | Ships with app, cannot delete |
-| `order` | number | Display order (lower = first) |
+| `isFixed` | boolean | `todo`, `done`, `cancelled`; read-only |
+| `isDefault` | boolean | The status new chats get; change it with `set_default` |
+| `order` | number | Display order; change it with `reorder` |
 
-## Icon Configuration
+## Icons
 
-Icon resolution priority:
-1. **Local file** - Auto-discovered from `statuses/icons/{id}.svg` (or .png, .jpg, .jpeg)
-2. **Emoji** - If `icon` field is an emoji string (e.g., `"🔥"`)
-3. **Fallback** - Bullet character if no icon found
+- **Emoji** (quick and universal): `"icon": "🔥"`
+- **Image data URL** (at most 16 KB): generate an SVG and pass it as a `data:image/svg+xml` URL. An SVG that uses `currentColor` takes the status color.
+- With no icon, a bullet is shown.
 
-**File-based icons (recommended for default statuses):**
-- Place SVG in `statuses/icons/{status-id}.svg`
-- No config needed - auto-discovered by status ID
-- Example: `statuses/icons/blocked.svg` for status ID `blocked`
-
-**Emoji icons (quick and easy):**
-```json
-"icon": "🔥"
-```
-
-**URL icons (auto-downloaded):**
-```json
-"icon": "https://example.com/icon.svg"
-```
-URLs are automatically downloaded to `statuses/icons/{id}.{ext}`.
-
-**⚠️ Icon Sourcing Rules:**
-- **DO** generate custom SVG files following the guidelines below
-- **DO** download icons from the web (e.g., Heroicons, Feather, Simple Icons)
-- **DO** use emoji for quick, universal icons
-
-## Adding Custom Statuses
-
-Edit the workspace's `statuses/config.json`:
-
-```json
-{
-  "id": "blocked",
-  "label": "Blocked",
-  "color": "destructive",
-  "icon": "🚫",
-  "category": "open",
-  "isFixed": false,
-  "isDefault": false,
-  "order": 3
-}
-```
-
-Or with a custom hex color:
-```json
-{
-  "id": "blocked",
-  "label": "Blocked",
-  "color": { "light": "#EF4444", "dark": "#F87171" },
-  "icon": "🚫",
-  "category": "open",
-  "isFixed": false,
-  "isDefault": false,
-  "order": 3
-}
-```
-
-Adjust `order` values for existing statuses as needed.
-
-## SVG Icon Guidelines
-
-- Size: 24x24
-- Use `currentColor` for stroke/fill (theming support)
-- stroke-width: 2
-- stroke-linecap: round
-- stroke-linejoin: round
-
-## Self-Healing
-
-- Missing icon files are auto-recreated from embedded defaults
-- Invalid status IDs on sessions fallback to `todo`
-- Corrupted configs reset to defaults
+SVG guidelines: 24x24, `currentColor` for stroke/fill, stroke-width 2, round linecap and linejoin.
 
 ## Validation
 
-**IMPORTANT**: Always validate after creating or editing statuses:
-
-```
-config_validate({ target: "statuses" })
-```
-
-This validates:
-- Required fixed statuses exist (`todo`, `done`, `cancelled`)
-- No duplicate status IDs
-- `defaultStatusId` references an existing status
-- Icon files exist when referenced
-- At least one status in each category (open/closed)
-
-Invalid configs will fall back to defaults at runtime, but validation catches issues before they cause problems.
+The tool validates what it writes: the fixed statuses cannot be deleted or change category, the default cannot be deleted, and icons must be an emoji or a data URL within 16 KB. An invalid change is rejected with the reason, so there is nothing to run afterwards. A session whose status id no longer exists falls back to `todo`.

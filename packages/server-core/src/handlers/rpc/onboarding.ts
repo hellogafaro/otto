@@ -9,6 +9,8 @@ import { isSetupDeferred, setSetupDeferred } from '@otto/shared/config'
 import { prepareClaudeOAuth, exchangeClaudeCode, hasValidOAuthState, clearOAuthState, prepareMcpOAuth } from '@otto/shared/auth'
 import { validateMcpConnection } from '@otto/shared/mcp'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
+import { getConnection } from '@otto/shared/connections'
+import { maskApiKey } from '../../domain/connection-setup-logic'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 
@@ -31,8 +33,8 @@ export function registerOnboardingHandlers(server: RpcServer, deps: HandlerDeps)
   const log = deps.platform.logger
 
   // Get current auth state
-  server.handle(RPC_CHANNELS.onboarding.GET_AUTH_STATE, async () => {
-    const authState = await getAuthState()
+  server.handle(RPC_CHANNELS.onboarding.GET_AUTH_STATE, async (ctx) => {
+    const authState = await getAuthState({ userId: ctx.userId, workspaceId: ctx.workspaceId })
     // Honor "Setup later" like the Electron main handler does — without the
     // flag, headless/WebUI clients re-enter onboarding on every reload.
     const setupNeeds = getSetupNeeds(authState, isSetupDeferred())
@@ -111,7 +113,7 @@ export function registerOnboardingHandlers(server: RpcServer, deps: HandlerDeps)
   })
 
   // Exchange authorization code for tokens
-  server.handle(RPC_CHANNELS.onboarding.EXCHANGE_CLAUDE_CODE, async (_ctx, authorizationCode: string, connectionSlug: string) => {
+  server.handle(RPC_CHANNELS.onboarding.EXCHANGE_CLAUDE_CODE, async (ctx, authorizationCode: string, connectionSlug: string) => {
     try {
       log.info(`[Onboarding] Exchanging Claude authorization code for connection: ${connectionSlug}`)
 
@@ -124,23 +126,13 @@ export function registerOnboardingHandlers(server: RpcServer, deps: HandlerDeps)
         log.info('[Onboarding] Claude code exchange status:', status)
       })
 
-      // Save credentials with refresh token support
-      const manager = getCredentialManager()
-
-      // Save to new LLM connection system
-      await manager.setLlmOAuth(connectionSlug, {
+      // The connection's secret, refresh token included (held in memory until the setup creates the
+      // connection, when it is new). The renderer never receives the token itself.
+      await getCredentialManager().setLlmOAuth(connectionSlug, {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.expiresAt,
-      })
-
-      // Also save to legacy key for validation compatibility
-      await manager.setClaudeOAuthCredentials({
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresAt: tokens.expiresAt,
-        source: 'native',
-      })
+      }, getConnection(connectionSlug, { userId: ctx.userId, workspaceId: ctx.workspaceId })?.scope)
 
       const expiresAtDate = tokens.expiresAt ? new Date(tokens.expiresAt).toISOString() : 'never'
       log.info(`[Onboarding] Claude OAuth saved to LLM connection (expires: ${expiresAtDate})`)
@@ -150,7 +142,8 @@ export function registerOnboardingHandlers(server: RpcServer, deps: HandlerDeps)
       const identity = (tokens.account || tokens.organization)
         ? { account: tokens.account, organization: tokens.organization }
         : undefined
-      return { success: true, token: tokens.accessToken, identity }
+      // A masked placeholder: the setup that follows treats it as "keep the stored token"
+      return { success: true, token: maskApiKey(tokens.accessToken), identity }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       log.error('[Onboarding] Exchange Claude code error:', message)

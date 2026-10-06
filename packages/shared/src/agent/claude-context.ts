@@ -29,8 +29,6 @@ import {
   validateConfig,
   validateSource,
   validateAllSources,
-  validateStatuses,
-  validatePreferences,
   validateAll,
   validateSkill,
   validateSourcePermissions,
@@ -59,7 +57,7 @@ import {
 import { isGoogleOAuthConfigured as isGoogleOAuthConfiguredImpl } from '../auth/google-oauth.ts';
 import { debug } from '../utils/debug.ts';
 import { getSessionPlansPath, getSessionPath, getSessionDataPath } from '../sessions/storage.ts';
-import { updatePreferences as updatePreferencesImpl } from '../config/preferences.ts';
+import { updatePreferences as updatePreferencesImpl, type UserPreferences } from '../config/preferences.ts';
 
 // Re-export types that may be needed by consumers
 export type { SessionToolContext, SessionToolCallbacks } from '@otto/session-tools-core';
@@ -71,6 +69,8 @@ export interface ClaudeContextOptions {
   sessionId: string;
   workspacePath: string;
   workspaceId: string;
+  /** Whose preferences `update_user_preferences` changes: the chat's user (the first user when unknown). */
+  userId?: string | null;
   onPlanSubmitted: (planPath: string) => void;
   onAuthRequest: (request: unknown) => void;
 }
@@ -86,7 +86,7 @@ export interface ClaudeContextOptions {
  * - Icon management
  */
 export function createClaudeContext(options: ClaudeContextOptions): SessionToolContext {
-  const { sessionId, workspacePath, onPlanSubmitted, onAuthRequest } = options;
+  const { sessionId, workspacePath, userId, onPlanSubmitted, onAuthRequest } = options;
 
   // File system implementation
   const fs: FileSystemInterface = {
@@ -116,8 +116,6 @@ export function createClaudeContext(options: ClaudeContextOptions): SessionToolC
     validateConfig: () => validateConfig(),
     validateSource: (wsPath: string, slug: string) => validateSource(wsPath, slug),
     validateAllSources: (wsPath: string) => validateAllSources(wsPath),
-    validateStatuses: (wsPath: string) => validateStatuses(wsPath),
-    validatePreferences: () => validatePreferences(),
     validatePermissions: (wsPath: string, sourceSlug?: string) => {
       if (sourceSlug) {
         return validateSourcePermissions(wsPath, sourceSlug);
@@ -222,7 +220,7 @@ export function createClaudeContext(options: ClaudeContextOptions): SessionToolC
     validators,
     credentialManager,
     updatePreferences: (updates: Record<string, unknown>) => {
-      updatePreferencesImpl(updates as any);
+      updatePreferencesImpl(updates as Partial<UserPreferences>, userId);
     },
     submitFeedback: (feedback: DeveloperFeedback) => {
       const feedbackDir = join(CONFIG_DIR, 'feedback');

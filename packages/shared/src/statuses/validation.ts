@@ -5,13 +5,14 @@
  * Ensures sessions always have valid status references.
  */
 
+import { getWorkspaceIdByRootPath } from '../config/storage.ts';
 import { isValidStatusId } from './storage.ts';
 
 /**
  * Validate and normalize a session's status
  * If invalid or undefined, returns 'todo' as fallback
  *
- * @param workspaceRootPath - Workspace root path
+ * @param workspaceRootPath - Workspace root path (chat storage still addresses a workspace by it)
  * @param sessionStatus - Status ID to validate
  * @returns Valid status ID (or 'todo' fallback)
  */
@@ -24,8 +25,8 @@ export function validateSessionStatus(
     return 'todo';
   }
 
-  // Check if status exists in workspace config
-  if (isValidStatusId(workspaceRootPath, sessionStatus)) {
+  // Check if status exists in the workspace (a root that is not registered has the defaults)
+  if (isValidStatusId(getWorkspaceIdByRootPath(workspaceRootPath) ?? '', sessionStatus)) {
     return sessionStatus;
   }
 

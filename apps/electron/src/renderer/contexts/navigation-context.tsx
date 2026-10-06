@@ -93,6 +93,8 @@ import {
 import { sessionMetaMapAtom, updateSessionMetaAtom } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
+import { routinesAtom } from '@/atoms/routines'
+import { getVisibleRoutines } from '@/pages/routines/routine-items'
 import { sessionListOrderAtom } from '@/atoms/list-context'
 import { getVisibleSkills, getVisibleSources } from '@/lib/skill-source-lists'
 import { guardedModeAvailableAtom } from '@/atoms/permission-modes'
@@ -214,6 +216,7 @@ export function NavigationProvider({
   // The Skills and Sources grids' items (populated by AppShell), for Previous / Next
   const sources = useAtomValue(sourcesAtom)
   const skills = useAtomValue(skillsAtom)
+  const routines = useAtomValue(routinesAtom).items
 
   // =========================================================================
   // DERIVED NAVIGATION STATE (from the router's location)
@@ -698,11 +701,7 @@ export function NavigationProvider({
 
     // The chat opens under the filters the index was showing
     const { filter, filters } = navigationState
-    if (filter.kind === 'view') {
-      navigate(routes.view.view(filter.viewId, sessionId))
-    } else {
-      navigate(routes.view.allSessions(sessionId, filters ?? chatFiltersFromSessionFilter(filter)))
-    }
+    navigate(routes.view.allSessions(sessionId, filters ?? chatFiltersFromSessionFilter(filter)))
   }, [navigationState, navigate])
 
   // =========================================================================
@@ -712,7 +711,8 @@ export function NavigationProvider({
   const sessionListOrder = useAtomValue(sessionListOrderAtom)
   const listNav = useMemo<ListNavigation | null>(() => {
     // The open item, the list it steps through (as its index shows it) and how to open another. A chat: the
-    // Chats index's table. A skill or a source: its grid under the same filter (it keeps the filter for Back).
+    // Chats index's table. A skill or a source: its grid under the same filter (it keeps the filter for Back). A
+    // routine: the Routines index under its type, as `useRoutines` last loaded it (the routine's page loads it).
     // Settings' own pages have none: they are the settings sidebar.
     let open: string
     let order: string[]
@@ -731,6 +731,11 @@ export function NavigationProvider({
       open = navigationState.details.sourceSlug
       order = getVisibleSources(sources, navigationState.filter).map((source) => source.config.slug)
       go = (sourceSlug) => navigate(routes.view.sources({ sourceSlug, type }))
+    } else if (isAutomationsNavigation(navigationState) && navigationState.details) {
+      const type = navigationState.filter?.automationType
+      open = navigationState.details.automationId
+      order = getVisibleRoutines(routines, type).map((routine) => routine.id)
+      go = (automationId) => navigate(routes.view.automations({ automationId, type }))
     } else {
       return null
     }
@@ -742,7 +747,7 @@ export function NavigationProvider({
       goPrev: () => { if (index > 0) go(order[index - 1]) },
       goNext: () => { if (index < order.length - 1) go(order[index + 1]) },
     }
-  }, [navigationState, sessionListOrder, navigateToSession, skills, sources, navigate])
+  }, [navigationState, sessionListOrder, navigateToSession, skills, sources, routines, navigate])
 
   // =========================================================================
   // CONTEXT VALUE

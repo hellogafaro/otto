@@ -14,7 +14,6 @@ describe('serializeSessionFilterForScope', () => {
   it('serializes id-based filters with stable prefixes', () => {
     expect(serializeSessionFilterForScope({ kind: 'state', stateId: 'in-progress' })).toBe('state:in-progress')
     expect(serializeSessionFilterForScope({ kind: 'label', labelId: 'priority/high' })).toBe('label:priority%2Fhigh')
-    expect(serializeSessionFilterForScope({ kind: 'view', viewId: 'mine+active' })).toBe('view:mine%2Bactive')
   })
 })
 

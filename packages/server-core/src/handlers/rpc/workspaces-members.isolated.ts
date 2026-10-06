@@ -47,7 +47,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
 beforeAll(async () => {
   const db = initDb()
   await pushSchema(db)
-  saveConfig({ workspaces: [], activeWorkspaceId: null, activeSessionId: null })
+  saveConfig({ workspaces: [] })
   A = addWorkspace({ name: 'Main', rootPath: join(configDir, 'a') }).id
   const now = new Date()
   for (const id of ['owner', 'member', 'second']) {

@@ -4,7 +4,8 @@ import { openDb } from '../db/index.ts'
 import { pushSchema } from '../db/push.ts'
 import { createSecretsStore, parseEncryptionKey } from '../secrets/index.ts'
 import { secrets } from '../secrets/schema.ts'
-import { createConnectionsStore } from './index.ts'
+import { getSetting, INSTALL } from '../settings/index.ts'
+import { createConnectionsStore, narrowContext, userScope, workspaceScope, type ConnectionInput } from './index.ts'
 import { connections } from './schema.ts'
 
 const KEY = parseEncryptionKey('0'.repeat(64))
@@ -16,115 +17,296 @@ async function setup() {
 }
 
 const secretRows = (db: ReturnType<typeof openDb>) => db.select().from(secrets).all()
+const input = (slug: string, extra: Partial<ConnectionInput> = {}): ConnectionInput => ({ slug, type: 'pi', authType: 'api_key', title: slug, ...extra })
 
-test('create takes title and baseUrl from the catalog', async () => {
+test('create stores every field and returns it without the secret', async () => {
   const { store } = await setup()
-  const connection = store.createConnection({ type: 'openai' })
-  expect(connection.id).toMatch(/^[0-9a-z]{12}$/)
-  expect(connection).toMatchObject({ type: 'openai', title: 'OpenAI', baseUrl: 'https://api.openai.com/v1', hasSecret: false })
-  expect(connection.createdAt).toBeInstanceOf(Date)
-  expect(store.createConnection({ type: 'claude' }).baseUrl).toBeNull()
-  expect(store.getConnection(connection.id)).toEqual(connection)
+  const created = store.createConnection(
+    input('openrouter', {
+      baseUrl: 'https://openrouter.ai/api/v1',
+      defaultModel: 'pi/gpt',
+      models: [{ id: 'pi/gpt', name: 'GPT' } as never, 'pi/other'],
+      config: { piAuthProvider: 'openrouter', modelSelectionMode: 'userDefined3Tier', midStreamBehavior: 'queue' },
+      account: { oauthAccountEmail: 'me@x.test', verifiedAt: 5 },
+      createdAt: new Date(1000),
+    }),
+    { apiKey: 'sk-very-secret' },
+  )
+  expect(created.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(created).toMatchObject({
+    scope: 'install',
+    slug: 'openrouter',
+    type: 'pi',
+    authType: 'api_key',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    defaultModel: 'pi/gpt',
+    config: { piAuthProvider: 'openrouter', modelSelectionMode: 'userDefined3Tier', midStreamBehavior: 'queue' },
+    account: { oauthAccountEmail: 'me@x.test', verifiedAt: 5 },
+    hasSecret: true,
+  })
+  expect(created.models).toHaveLength(2)
+  expect(created.createdAt).toEqual(new Date(1000))
+  expect(store.getConnection('openrouter')).toEqual(created)
+  expect(JSON.stringify(created)).not.toContain('sk-')
+  expect('secretId' in created).toBe(false)
 })
 
-test('create with a secret stores it and keeps explicit values', async () => {
+test('the first connection becomes the default, later ones do not, and a deleted default moves on', async () => {
   const { db, store } = await setup()
-  const connection = store.createConnection({ type: 'custom', title: 'My proxy', baseUrl: 'http://proxy.test/v1', secret: 'sk-123' })
-  expect(connection).toMatchObject({ title: 'My proxy', baseUrl: 'http://proxy.test/v1', hasSecret: true })
-  expect(store.getConnectionSecret(connection.id)).toBe('sk-123')
-  expect(secretRows(db).map((row) => row.title)).toEqual(['My proxy'])
+  const a = store.createConnection(input('a'))
+  const b = store.createConnection(input('b'))
+  expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('a')
+  expect(store.getDefaultConnection()?.slug).toBe('a')
+  expect(store.setDefaultConnection('b')).toBe(true)
+  expect(store.setDefaultConnection('nope')).toBe(false)
+  expect(store.getDefaultConnection()?.slug).toBe('b')
+  store.deleteConnection(b.id)
+  expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('a')
+  store.deleteConnection(a.id)
+  expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBeNull()
+  expect(store.getDefaultConnection()).toBeUndefined()
 })
 
-test('an unknown type throws and stores nothing', async () => {
+test('a setting that names a missing connection falls back to the first one', async () => {
+  const { store } = await setup()
+  store.createConnection(input('a'))
+  store.createConnection(input('b'))
+  store.setDefaultConnection('b')
+  const row = store.getConnection('b')!
+  store.deleteConnection(row.id)
+  expect(store.getDefaultConnection()?.slug).toBe('a')
+})
+
+test('slugs are unique within a scope, and a workspace connection is found before the install one', async () => {
+  const { store } = await setup()
+  const install = store.createConnection(input('shared', { title: 'Install' }))
+  expect(() => store.createConnection(input('shared'))).toThrow()
+  const own = store.createConnection(input('shared', { title: 'Mine', scope: workspaceScope('w1') }))
+  store.createConnection(input('only-install'))
+  store.createConnection(input('only-w2', { scope: workspaceScope('w2') }))
+
+  expect(store.getConnection('shared')?.id).toBe(install.id)
+  expect(store.getConnection('shared', { workspaceId: 'w1' })?.id).toBe(own.id)
+  expect(store.getConnection('shared', { workspaceId: 'w3' })?.id).toBe(install.id)
+  expect(store.getConnections().map((c) => c.slug)).toEqual(['shared', 'only-install'])
+  expect(store.getConnections({ workspaceId: 'w1' }).map((c) => `${c.slug}:${c.title}`)).toEqual(['shared:Mine', 'only-install:only-install'])
+  expect(store.getConnections({ workspaceId: 'w2' }).map((c) => c.slug)).toEqual(['only-w2', 'shared', 'only-install'])
+  expect(store.getAllConnections()).toHaveLength(4)
+  // a workspace connection never becomes the install's default
+  expect(store.getDefaultConnection()?.slug).toBe('shared')
+})
+
+test('the credential is one secret that is replaced in place, and never leaves the domain through a connection', async () => {
   const { db, store } = await setup()
-  expect(() => store.createConnection({ type: 'nope', secret: 'x' })).toThrow('Unknown connection type: nope')
-  expect(store.getConnections()).toEqual([])
+  const created = store.createConnection(input('oauth', { authType: 'oauth' }), { accessToken: 'a1', refreshToken: 'r1', expiresAt: 10 })
+  const [before] = secretRows(db)
+  expect(store.getCredential('oauth')).toEqual({ accessToken: 'a1', refreshToken: 'r1', expiresAt: 10 })
+
+  store.setCredential('oauth', { accessToken: 'a2', refreshToken: 'r2', expiresAt: 20 })
+  const rows = secretRows(db)
+  expect(rows).toHaveLength(1)
+  expect(rows[0]!.id).toBe(before!.id)
+  expect(rows[0]!.value).not.toBe(before!.value)
+  expect(rows[0]!.value).not.toContain('a2')
+  expect(store.getCredential('oauth')?.accessToken).toBe('a2')
+  expect(store.getConnection('oauth')?.hasSecret).toBe(true)
+
+  store.deleteCredential('oauth')
   expect(secretRows(db)).toEqual([])
+  expect(store.getCredential('oauth')).toBeUndefined()
+  expect(store.getConnection('oauth')?.hasSecret).toBe(false)
+  expect(store.getConnectionById(created.id)).toBeDefined()
 })
 
-test('a failed insert does not leave an orphan secret', async () => {
+test('update changes what it is given, keeps the rest and gives a connection without a secret one', async () => {
   const { db, store } = await setup()
-  db.run('DROP TABLE connections')
-  expect(() => store.createConnection({ type: 'openai', secret: 'x' })).toThrow()
-  expect(secretRows(db)).toEqual([])
-})
-
-test('getConnections is ordered by creation', async () => {
-  const { db, store } = await setup()
-  const a = store.createConnection({ type: 'openai' })
-  const b = store.createConnection({ type: 'anthropic' })
-  const c = store.createConnection({ type: 'ollama' })
-  db.update(connections).set({ createdAt: new Date(3000) }).where(eq(connections.id, a.id)).run()
-  db.update(connections).set({ createdAt: new Date(1000) }).where(eq(connections.id, b.id)).run()
-  db.update(connections).set({ createdAt: new Date(2000) }).where(eq(connections.id, c.id)).run()
-  expect(store.getConnections().map((connection) => connection.id)).toEqual([b.id, c.id, a.id])
-})
-
-test('missing connections read as undefined', async () => {
-  const { store } = await setup()
-  expect(store.getConnection('nope')).toBeUndefined()
-  expect(store.getConnectionSecret('nope')).toBeUndefined()
-  expect(store.createConnection({ type: 'ollama' })).toBeDefined()
-  expect(store.getConnectionSecret(store.getConnections()[0]!.id)).toBeUndefined()
-})
-
-test('update changes title and baseUrl and keeps the rest', async () => {
-  const { store } = await setup()
-  const created = store.createConnection({ type: 'openai', secret: 'sk' })
-  const updated = store.updateConnection(created.id, { title: 'Work', baseUrl: 'http://gw.test' })
-  expect(updated).toMatchObject({ id: created.id, type: 'openai', title: 'Work', baseUrl: 'http://gw.test', hasSecret: true })
+  const created = store.createConnection(input('c', { baseUrl: 'http://a.test', defaultModel: 'm1' }))
+  const updated = store.updateConnection(created.id, { title: 'Work', defaultModel: 'm2', models: ['m1', 'm2'] }, { apiKey: 'k' })
+  expect(updated).toMatchObject({ title: 'Work', baseUrl: 'http://a.test', defaultModel: 'm2', models: ['m1', 'm2'], hasSecret: true })
   expect(updated.createdAt).toEqual(created.createdAt)
-  expect(store.updateConnection(created.id, {})).toEqual(updated)
-  expect(store.getConnectionSecret(created.id)).toBe('sk')
-})
-
-test('update replaces an existing secret and creates a missing one', async () => {
-  const { db, store } = await setup()
-  const withSecret = store.createConnection({ type: 'openai', secret: 'old' })
-  store.updateConnection(withSecret.id, { secret: 'new' })
-  expect(store.getConnectionSecret(withSecret.id)).toBe('new')
+  expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime())
+  expect(store.updateConnection(created.id, { baseUrl: null }).baseUrl).toBeNull()
+  expect(store.getCredential('c')).toEqual({ apiKey: 'k' })
   expect(secretRows(db)).toHaveLength(1)
-
-  const without = store.createConnection({ type: 'ollama' })
-  expect(store.updateConnection(without.id, { secret: 'fresh' }).hasSecret).toBe(true)
-  expect(store.getConnectionSecret(without.id)).toBe('fresh')
-  expect(secretRows(db)).toHaveLength(2)
-})
-
-test('update of a missing connection throws', async () => {
-  const { store } = await setup()
   expect(() => store.updateConnection('missing', { title: 'x' })).toThrow()
 })
 
 test('delete removes the row and its secret and is safe to repeat', async () => {
   const { db, store } = await setup()
-  const keep = store.createConnection({ type: 'anthropic', secret: 'keep' })
-  const gone = store.createConnection({ type: 'openai', secret: 'gone' })
+  const keep = store.createConnection(input('keep'), { apiKey: 'keep' })
+  const gone = store.createConnection(input('gone'), { apiKey: 'gone' })
   store.deleteConnection(gone.id)
   store.deleteConnection(gone.id)
-  expect(store.getConnection(gone.id)).toBeUndefined()
   expect(db.select().from(connections).all().map((row) => row.id)).toEqual([keep.id])
   expect(secretRows(db)).toHaveLength(1)
-  expect(store.getConnectionSecret(keep.id)).toBe('keep')
+  expect(store.getCredential('keep')).toEqual({ apiKey: 'keep' })
 })
 
-test('a returned connection never carries the secret', async () => {
-  const { store } = await setup()
-  const created = store.createConnection({ type: 'openai', secret: 'sk-very-secret' })
-  const updated = store.updateConnection(created.id, { secret: 'sk-even-more-secret' })
-  for (const connection of [created, updated, store.getConnection(created.id), ...store.getConnections()]) {
-    expect(Object.keys(connection!).sort()).toEqual(['baseUrl', 'createdAt', 'hasSecret', 'id', 'slug', 'title', 'type'])
-    expect(JSON.stringify(connection)).not.toContain('secret-')
-    expect(JSON.stringify(connection)).not.toContain('sk-')
-  }
+test('a failed write leaves no secret behind: the row and its secret are one transaction', async () => {
+  const { db, store } = await setup()
+  store.createConnection(input('dup'))
+  expect(() => store.createConnection(input('dup'), { apiKey: 'orphan' })).toThrow()
+  expect(secretRows(db)).toEqual([])
+
+  const other = store.createConnection(input('other'), { apiKey: 'first' })
+  db.run("CREATE TRIGGER no_update BEFORE UPDATE ON connections BEGIN SELECT RAISE(ABORT, 'locked'); END")
+  expect(() => store.updateConnection(other.id, { title: 'x' }, { apiKey: 'second' })).toThrow()
+  db.run('DROP TRIGGER no_update')
+  expect(secretRows(db)).toHaveLength(1)
+  expect(store.getCredential('other')).toEqual({ apiKey: 'first' })
 })
 
-test('a connection can carry a slug and be found by it', async () => {
+test('a credential for a slug with no connection is held in memory and used by the setup that creates it', async () => {
+  const { db, store } = await setup()
+  store.setCredential('claude-max', { accessToken: 'a', refreshToken: 'r' })
+  expect(secretRows(db)).toEqual([])
+  expect(store.getCredential('claude-max')).toEqual({ accessToken: 'a', refreshToken: 'r' })
+
+  const created = store.createConnection(input('claude-max', { authType: 'oauth' }))
+  expect(created.hasSecret).toBe(true)
+  expect(store.getCredential('claude-max')).toEqual({ accessToken: 'a', refreshToken: 'r' })
+  expect(secretRows(db)).toHaveLength(1)
+  // taken once: a connection of that slug in another scope does not get it again
+  expect(store.createConnection(input('claude-max', { scope: workspaceScope('w') })).hasSecret).toBe(false)
+
+  store.setCredential('temp', { apiKey: 'k' })
+  store.deleteCredential('temp')
+  expect(store.getCredential('temp')).toBeUndefined()
+})
+
+test('listeners hear about creates, changes and deletes, not about a credential refresh', async () => {
   const { store } = await setup()
-  const a = store.createConnection({ type: 'anthropic', slug: 'anthropic-api', secret: 'k' })
-  store.createConnection({ type: 'openai' })
-  expect(a.slug).toBe('anthropic-api')
-  expect(store.getConnectionBySlug('anthropic-api')?.id).toBe(a.id)
-  expect(store.getConnectionBySlug('nope')).toBeUndefined()
-  expect(() => store.createConnection({ type: 'ollama', slug: 'anthropic-api' })).toThrow()
+  let heard = 0
+  const stop = store.onConnectionsChange(() => heard++)
+  const c = store.createConnection(input('a'), { accessToken: 't' })
+  expect(heard).toBe(1)
+  store.updateConnection(c.id, { defaultModel: 'm' })
+  expect(heard).toBe(2)
+  store.setCredential('a', { accessToken: 'refreshed' })
+  expect(heard).toBe(2)
+  store.deleteConnection(c.id)
+  expect(heard).toBe(3)
+  stop()
+  store.createConnection(input('b'))
+  expect(heard).toBe(3)
+})
+
+test('the secret is encrypted at rest and tied to its row', async () => {
+  const { db, store } = await setup()
+  store.createConnection(input('a'), { apiKey: 'sk-plain-text-key' })
+  expect(JSON.stringify(db.select().from(connections).all())).not.toContain('sk-plain')
+  expect(JSON.stringify(secretRows(db))).not.toContain('sk-plain')
+  const [row] = secretRows(db)
+  db.update(secrets).set({ id: 'zzzzzzzzzzzz' }).where(eq(secrets.id, row!.id)).run()
+  expect(() => createSecretsStore(db, KEY).getSecret('zzzzzzzzzzzz')).toThrow()
+})
+
+test('db:push adds the new columns to a table that already has rows, and keeps them', async () => {
+  const db = openDb(':memory:')
+  const sqlite = (db as unknown as { $client: import('bun:sqlite').Database }).$client
+  // the table as the first version made it, with a row the old bridge wrote
+  sqlite.exec('CREATE TABLE `connections` (`id` text PRIMARY KEY NOT NULL, `slug` text, `type` text NOT NULL, `title` text NOT NULL, `baseUrl` text, `secretId` text, `createdAt` integer NOT NULL)')
+  sqlite.exec('CREATE UNIQUE INDEX `connections_slug_unique` ON `connections` (`slug`)')
+  sqlite.exec("INSERT INTO connections VALUES ('abc', 'claude-max', 'claude', 'Claude Max', NULL, 'sec1', 1000)")
+
+  await pushSchema(db)
+  expect(await pushSchema(db)).toEqual([])
+  const store = createConnectionsStore(db, createSecretsStore(db, KEY))
+  expect(store.getConnection('claude-max')).toMatchObject({ id: 'abc', scope: 'install', title: 'Claude Max', authType: 'none', hasSecret: true, createdAt: new Date(1000), updatedAt: new Date(1000) })
+  expect(() => store.createConnection(input('claude-max'))).toThrow()
+})
+
+test('a push is idempotent on a database an earlier version of the table was pushed to (a rebuilt table with an index)', async () => {
+  const db = openDb(':memory:')
+  const sqlite = (db as unknown as { $client: import('bun:sqlite').Database }).$client
+  // an intermediate version: slug NOT NULL and updatedAt NOT NULL, so the current schema makes drizzle-kit rebuild the table
+  sqlite.exec(`CREATE TABLE "connections" (\`id\` text PRIMARY KEY NOT NULL, \`scope\` text DEFAULT 'install' NOT NULL, \`slug\` text NOT NULL, \`type\` text NOT NULL, \`authType\` text DEFAULT 'none' NOT NULL, \`title\` text NOT NULL, \`baseUrl\` text, \`defaultModel\` text, \`models\` text, \`config\` text, \`account\` text, \`secretId\` text, \`lastUsedAt\` integer, \`createdAt\` integer NOT NULL, \`updatedAt\` integer DEFAULT 0 NOT NULL)`)
+  sqlite.exec('CREATE UNIQUE INDEX `connections_scope_slug` ON `connections` (`scope`,`slug`)')
+  sqlite.exec("INSERT INTO connections (id, scope, slug, type, authType, title, createdAt, updatedAt) VALUES ('abc', 'install', 'claude-max', 'anthropic', 'oauth', 'Claude Max', 1000, 2000)")
+
+  const statements = await pushSchema(db)
+  expect(statements.filter((statement) => statement.includes('CREATE UNIQUE INDEX `connections_scope_slug`'))).toHaveLength(1)
+  expect(await pushSchema(db)).toEqual([])
+  const store = createConnectionsStore(db, createSecretsStore(db, KEY))
+  expect(store.getConnection('claude-max')).toMatchObject({ id: 'abc', authType: 'oauth', updatedAt: new Date(2000) })
+})
+
+test('a person\'s own connection is found before the workspace\'s and the install\'s, and is seen by nobody else', async () => {
+  const { db, store } = await setup()
+  const install = store.createConnection(input('claude', { title: 'Install' }), { accessToken: 'install-token' })
+  const shared = store.createConnection(input('claude', { title: 'Workspace', scope: workspaceScope('w') }), { accessToken: 'workspace-token' })
+  const alice = store.createConnection(input('claude', { title: 'Alice', scope: userScope('alice') }), { accessToken: 'alice-token' })
+  const alicesOther = store.createConnection(input('mine', { scope: userScope('alice') }))
+  store.createConnection(input('bob-only', { scope: userScope('bob') }), { apiKey: 'bob-key' })
+
+  const asAlice = { userId: 'alice', workspaceId: 'w' }
+  expect(store.getConnection('claude', asAlice)?.id).toBe(alice.id)
+  expect(store.getConnection('claude', { userId: 'bob', workspaceId: 'w' })?.id).toBe(shared.id)
+  expect(store.getConnection('claude', { userId: 'bob' })?.id).toBe(install.id)
+  expect(store.getConnection('claude')?.id).toBe(install.id)
+  // a list shows one connection per slug, the person's own first; another person's are never in it
+  expect(store.getConnections(asAlice).map((c) => c.title)).toEqual(['Alice', 'mine'])
+  expect(store.getConnections({ userId: 'bob' }).map((c) => c.slug)).toEqual(['bob-only', 'claude'])
+  expect(store.getConnection('mine', { userId: 'bob', workspaceId: 'w' })).toBeUndefined()
+  expect(store.getConnection('bob-only', asAlice)).toBeUndefined()
+  expect(store.getConnections().map((c) => c.id)).toEqual([install.id])
+
+  // a credential is read from the exact scope, so the one a chat resolved is the one it uses
+  expect(store.getCredential('claude', alice.scope)).toEqual({ accessToken: 'alice-token' })
+  expect(store.getCredential('claude', shared.scope)).toEqual({ accessToken: 'workspace-token' })
+  expect(store.getCredential('claude')).toEqual({ accessToken: 'install-token' })
+  expect(store.getCredential('mine', userScope('bob'))).toBeUndefined()
+  store.setCredential('claude', { accessToken: 'alice-refreshed' }, alice.scope)
+  expect(store.getCredential('claude', alice.scope)).toEqual({ accessToken: 'alice-refreshed' })
+  expect(store.getCredential('claude')).toEqual({ accessToken: 'install-token' })
+  expect(db.select().from(secrets).all()).toHaveLength(4)
+  expect(alicesOther.scope).toBe('user:alice')
+})
+
+test('each person has their own default, which falls back to their first connection, then the install\'s default', async () => {
+  const { db, store } = await setup()
+  store.createConnection(input('install-a'))
+  store.createConnection(input('install-b'))
+  store.createConnection(input('a1', { scope: userScope('alice') }))
+  store.createConnection(input('a2', { scope: userScope('alice') }))
+  const alice = { userId: 'alice' }
+
+  expect(store.getDefaultConnection({ userId: 'carol' })?.slug).toBe('install-a')
+  expect(store.getDefaultConnection(alice)?.slug).toBe('a1')
+  expect(store.setDefaultConnection('a2', alice)).toBe(true)
+  expect(store.getDefaultConnection(alice)?.slug).toBe('a2')
+  expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('install-a')
+  expect(store.getDefaultConnection({ userId: 'carol' })?.slug).toBe('install-a')
+  // choosing an install connection changes the install's default, not a person's
+  expect(store.setDefaultConnection('install-b', { userId: 'carol' })).toBe(true)
+  expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('install-b')
+  expect(store.getDefaultConnection(alice)?.slug).toBe('a2')
+  // a default that is gone falls back
+  store.deleteConnection(store.getConnection('a2', alice)!.id)
+  expect(store.getDefaultConnection(alice)?.slug).toBe('a1')
+})
+
+test('a credential held for a sign-in is found only by the scope it was held for', async () => {
+  const { store } = await setup()
+  store.setCredential('claude-max', { accessToken: 'alice-token' }, userScope('alice'))
+  expect(store.getCredential('claude-max', userScope('bob'))).toBeUndefined()
+  expect(store.getCredential('claude-max')).toBeUndefined()
+  // bob's own setup of the same slug does not get alice's token; alice's does
+  expect(store.createConnection(input('claude-max', { scope: userScope('bob') })).hasSecret).toBe(false)
+  expect(store.createConnection(input('claude-max', { scope: userScope('alice') })).hasSecret).toBe(true)
+  expect(store.getCredential('claude-max', userScope('alice'))).toEqual({ accessToken: 'alice-token' })
+})
+
+test('a request can name one scope only', async () => {
+  const where = { userId: 'u', workspaceId: 'w' }
+  expect(narrowContext(where)).toEqual(where)
+  expect(narrowContext(where, 'user')).toEqual({ userId: 'u', installToo: false })
+  expect(narrowContext(where, 'workspace')).toEqual({ workspaceId: 'w', installToo: false })
+  expect(narrowContext(where, 'install')).toEqual({})
+  const { store } = await setup()
+  store.createConnection(input('claude'))
+  store.createConnection(input('claude', { scope: userScope('u') }))
+  expect(store.getConnection('claude', narrowContext(where, 'user'))?.scope).toBe('user:u')
+  expect(store.getConnection('claude', narrowContext(where, 'workspace'))).toBeUndefined()
+  expect(store.getConnection('claude', narrowContext(where, 'install'))?.scope).toBe('install')
 })

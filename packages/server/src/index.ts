@@ -13,6 +13,11 @@
  *   BETTER_AUTH_URL           — the public origin the browser uses (https makes cookies Secure)
  *   BETTER_AUTH_TRUSTED_ORIGINS — optional comma-separated extra origins allowed to call /api/auth
  *   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET — optional: each pair turns that sign-in on
+ *   OTTO_STORAGE              — where library files are stored: disk (default) or s3 (docs/object-storage.md); with s3, the
+ *                               workspace's library folder is a read-through cache of the bucket
+ *   OTTO_S3_ENDPOINT, OTTO_S3_BUCKET, OTTO_S3_REGION, OTTO_S3_ACCESS_KEY_ID, OTTO_S3_SECRET_ACCESS_KEY
+ *                             — required with OTTO_STORAGE=s3 (path-style endpoint: Garage, minio, AWS)
+ *   OTTO_S3_PREFIX            — optional folder in the bucket for everything Otto stores (default: none)
  *   OTTO_RPC_HOST             — bind address (default: 127.0.0.1)
  *   OTTO_RPC_PORT             — bind port (default: 9100)
  *   OTTO_RPC_TLS_CERT         — path to PEM certificate file (enables TLS/wss)
@@ -39,6 +44,7 @@ import { createWebuiHandler, nodeHttpAdapter } from '@otto/server-core/webui'
 import type { WebuiHandler } from '@otto/server-core/webui'
 import { getCredentialManager } from '@otto/shared/credentials'
 import { initSecrets } from '@otto/shared/secrets'
+import { initFileStorage } from '@otto/shared/library'
 import { initUsersStore } from '@otto/shared/users'
 import { getWorkspaces } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
@@ -107,10 +113,12 @@ if (tlsCertPath || tlsKeyPath) {
   }
 }
 
-// Secrets are encrypted under ENCRYPTION_KEY and sessions are signed with BETTER_AUTH_SECRET: fail now, not at the first use.
+// Secrets are encrypted under ENCRYPTION_KEY and sessions are signed with BETTER_AUTH_SECRET, library files go where OTTO_STORAGE says: fail now, not at the first use.
 try {
   initSecrets()
   initUsersStore()
+  const storage = initFileStorage()
+  if (storage === 's3') console.log(`Library files: s3 bucket ${process.env.OTTO_S3_BUCKET} at ${new URL(process.env.OTTO_S3_ENDPOINT!).host}`)
 } catch (err) {
   console.error(err instanceof Error ? err.message : err)
   process.exit(1)
@@ -186,11 +194,11 @@ const instance = await (async () => {
         setSearchPlatform(platform)
         setImageProcessor(platform.imageProcessor)
       },
-      initModelRefreshService: () => initModelRefreshService(async (slug: string) => {
+      initModelRefreshService: () => initModelRefreshService(async (slug: string, scope: string) => {
         const manager = getCredentialManager()
         const [apiKey, oauth] = await Promise.all([
-          manager.getLlmApiKey(slug).catch(() => null),
-          manager.getLlmOAuth(slug).catch(() => null),
+          manager.getLlmApiKey(slug, scope).catch(() => null),
+          manager.getLlmOAuth(slug, scope).catch(() => null),
         ])
         return {
           apiKey: apiKey ?? undefined,

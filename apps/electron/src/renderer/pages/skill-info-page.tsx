@@ -9,6 +9,7 @@
  */
 
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { useEffect, useState } from 'react'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
 import { toast } from '@workspace/ui/components/sonner'
@@ -44,6 +45,7 @@ function withoutTitle(content: string, name: string) {
 
 export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory }: SkillInfoPageProps) {
   const { t } = useTranslation()
+  useComposerContext({ key: 'page:skills', placeholder: t('composer.placeholder.start') })
   const { showNotFound } = useNavigation()
   const [skill, setSkill] = useState<LoadedSkill | null>(null)
   const [loading, setLoading] = useState(true)

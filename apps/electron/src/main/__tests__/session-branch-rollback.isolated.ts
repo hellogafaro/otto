@@ -76,9 +76,6 @@ mock.module('@otto/shared/config', () => ({
     start() {}
     stop() {}
   },
-  migrateLegacyCredentials: async () => {},
-  migrateLegacyLlmConnectionsConfig: async () => {},
-  migrateOrphanedDefaultConnections: async () => {},
   MODEL_REGISTRY: [],
   // Targeted stubs: prevent SyntaxError in tests that import these from the barrel
   DEFAULT_MODEL: 'claude-sonnet-4-20250514',
@@ -95,7 +92,6 @@ mock.module('@otto/shared/config', () => ({
   getAllSessionDrafts: () => [],
   getGitBashPath: () => null,
   // Handler-required stubs: prevent SyntaxError in handler modules loaded by registration test
-  getPreferencesPath: () => '/tmp/preferences.json',
   getSessionDraft: () => null,
   setSessionDraft: async () => {},
   deleteSessionDraft: async () => {},

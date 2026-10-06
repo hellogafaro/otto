@@ -61,7 +61,7 @@ export type NavigatorType = 'sessions' | 'sources' | 'skills' | 'automations' | 
 export interface ParsedCompoundRoute {
   /** The navigator type */
   navigator: NavigatorType
-  /** Session filter (only for sessions navigator): the first of `sessionFilters`, or a view filter */
+  /** Session filter (only for sessions navigator): the first of `sessionFilters`*/
   sessionFilter?: SessionFilter
   /** The combined Chats filters (only for sessions navigator; see chat-filters.ts) */
   sessionFilters?: ChatFilters
@@ -86,7 +86,7 @@ export interface ParsedCompoundRoute {
  * Known prefixes that indicate a compound route
  */
 const COMPOUND_ROUTE_PREFIXES = [
-  'allSessions', 'flagged', 'archived', 'state', 'label', 'view', 'sources', 'skills', 'automations', 'projects', 'library', 'tasks', 'inbox', 'settings'
+  'allSessions', 'flagged', 'archived', 'state', 'label', 'sources', 'skills', 'automations', 'projects', 'library', 'tasks', 'inbox', 'settings'
 ]
 
 /** The detail segment and the search of the sections that have them. */
@@ -229,10 +229,9 @@ export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
     return null
   }
 
-  // Sessions navigator: the Chats index with its filters (`?status=..&label=..&flagged=1`), or a view
+  // Sessions navigator: the Chats index with its filters (`?status=..&label=..&flagged=1`)
   const fromQuery = chatFiltersFromParams(new URLSearchParams(queryPart ?? ''))
   const filters = { status: [...fromQuery.status], label: [...fromQuery.label], flagged: fromQuery.flagged, archived: fromQuery.archived }
-  let viewFilter: SessionFilter | undefined
   let detailsStartIndex = 1
 
   switch (first) {
@@ -269,17 +268,12 @@ export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
       filters.label.unshift(decodeURIComponent(segments[1]))
       detailsStartIndex = 2
       break
-    case 'view':
-      if (!segments[1]) return null
-      viewFilter = { kind: 'view', viewId: decodeURIComponent(segments[1]) }
-      detailsStartIndex = 2
-      break
     default:
       return null
   }
 
-  const sessionFilters = viewFilter ? normalizeChatFilters() : normalizeChatFilters(filters)
-  const sessionFilter = viewFilter ?? sessionFilterFromChatFilters(sessionFilters)
+  const sessionFilters = normalizeChatFilters(filters)
+  const sessionFilter = sessionFilterFromChatFilters(sessionFilters)
 
   // Check for details
   if (segments.length > detailsStartIndex) {
@@ -336,10 +330,9 @@ export function buildCompoundRoute(parsed: ParsedCompoundRoute): string {
     return `${base}${stringifySearch(parsed.search ?? {})}`
   }
 
-  // Sessions navigator: `allSessions[/session/<id>][?status=..&label=..&flagged=1&archived=1]`, or a view
+  // Sessions navigator: `allSessions[/session/<id>][?status=..&label=..&flagged=1&archived=1]`
   const filter = parsed.sessionFilter
   const session = parsed.details ? `/session/${parsed.details.id}` : ''
-  if (filter?.kind === 'view') return `view/${encodeURIComponent(filter.viewId)}${session}`
   const filters = parsed.sessionFilters ?? chatFiltersFromSessionFilter(filter)
   return `allSessions${session}${chatFiltersToQuery(filters)}`
 }

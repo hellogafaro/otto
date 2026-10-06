@@ -679,6 +679,9 @@ export interface BackendConfig extends CoreBackendConfig {
    */
   connectionSlug?: string;
 
+  /** Scope of that connection (`connection.scope`): the credential is read from the connection of this exact scope. */
+  connectionScope?: string;
+
   /** Workspace-level automation system for user-defined SDK hooks (automations.json) */
   automationSystem?: AutomationSystem;
 

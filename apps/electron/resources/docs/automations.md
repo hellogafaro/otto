@@ -493,19 +493,19 @@ The `permissionMode` field controls the permission level of sessions created by 
 
 ## Labels for Prompt Actions
 
-Prompt actions can specify labels that will be applied to the session they create:
+Prompt actions can specify labels that will be applied to the session they create. Use label ids (the slug, e.g. `scheduled`), not display names:
 
 ```json
 {
   "cron": "0 9 * * *",
-  "labels": ["Scheduled", "morning-briefing"],
+  "labels": ["scheduled", "morning-briefing"],
   "actions": [
     { "type": "prompt", "prompt": "Give me today's priorities" }
   ]
 }
 ```
 
-This creates a session with the "Scheduled" and "morning-briefing" labels applied automatically.
+This creates a session with the `scheduled` and `morning-briefing` labels applied automatically.
 
 ## Telegram Topic Routing
 
@@ -559,7 +559,7 @@ Verify by checking the supergroup row in Settings shows the group title. If auto
         "name": "Daily Weather Report",
         "cron": "0 8 * * *",
         "timezone": "Europe/Budapest",
-        "labels": ["Scheduled", "weather"],
+        "labels": ["scheduled", "weather"],
         "actions": [
           { "type": "prompt", "prompt": "Run the @weather skill and give me today's forecast" }
         ]
@@ -589,7 +589,7 @@ Use a `time` condition to restrict a daily schedule to weekdays only:
             "timezone": "Europe/Budapest"
           }
         ],
-        "labels": ["Scheduled", "ai-news"],
+        "labels": ["scheduled", "ai-news"],
         "actions": [
           { "type": "prompt", "prompt": "Run the @ai-news skill and summarize today's AI developments" }
         ]

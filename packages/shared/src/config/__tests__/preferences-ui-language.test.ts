@@ -1,277 +1,98 @@
 /**
- * Tests for the internal `uiLanguage` preference field that backs main-process
- * i18n hydration. See packages/shared/CLAUDE.md → "Cross-process language persistence".
- *
- * `CONFIG_DIR` is captured at module-load from `process.env.OTTO_CONFIG_DIR`,
- * so each scenario runs in a subprocess with its own tmpdir — the same pattern
- * `storage-startup-migration.test.ts` uses.
+ * The `uiLanguage` user setting that backs main-process i18n hydration and the title language.
+ * See packages/shared/CLAUDE.md -> "Cross-process language persistence".
+ * Runs on the process-wide test database (a temp CONFIG_DIR), each test with a user of its own.
  */
-import { describe, it, expect } from 'bun:test';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
-import { pathToFileURL } from 'url';
+import { beforeAll, describe, expect, it } from 'bun:test';
+import { initDb } from '../../db/index.ts';
+import { pushSchema } from '../../db/push.ts';
+import { createId } from '../../id.ts';
+import { INSTALL, updateSetting, userEntity } from '../../settings/index.ts';
+import { users } from '../../users/schema.ts';
+import { eq } from 'drizzle-orm';
+import { getPersistedUiLanguage, loadPreferences, resolveTitleLanguageName, savePreferences, setPersistedUiLanguage, updatePreferences } from '../preferences.ts';
 
-const PREFS_MODULE = pathToFileURL(join(import.meta.dir, '..', 'preferences.ts')).href;
+const db = initDb();
+beforeAll(() => pushSchema(db));
 
-interface RunResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
+function newUser(): string {
+  const id = createId();
+  const now = new Date();
+  db.insert(users).values({ id, name: 'Alice', email: `${id}@x.test`, createdAt: now, updatedAt: now }).run();
+  return id;
 }
 
-function runScript(configDir: string, script: string): RunResult {
-  const result = Bun.spawnSync([process.execPath, '--eval', script], {
-    env: { ...process.env, OTTO_CONFIG_DIR: configDir },
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-  return {
-    exitCode: result.exitCode ?? -1,
-    stdout: result.stdout.toString(),
-    stderr: result.stderr.toString(),
-  };
-}
-
-function setupDir(): { configDir: string; prefsFile: string } {
-  const configDir = mkdtempSync(join(tmpdir(), 'preferences-ui-lang-'));
-  return { configDir, prefsFile: join(configDir, 'preferences.json') };
-}
-
-function writeRawPrefs(prefsFile: string, contents: Record<string, unknown>) {
-  writeFileSync(prefsFile, JSON.stringify(contents, null, 2), 'utf-8');
-}
-
-describe('preferences.uiLanguage', () => {
-  describe('getPersistedUiLanguage', () => {
-    it('returns undefined when the file does not exist', () => {
-      const { configDir } = setupDir();
-      try {
-        const r = runScript(configDir, `
-          import { getPersistedUiLanguage } from '${PREFS_MODULE}';
-          console.log(JSON.stringify({ value: getPersistedUiLanguage() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: null });
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
-
-    it('returns undefined when the field is missing', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { name: 'Alice' });
-        const r = runScript(configDir, `
-          import { getPersistedUiLanguage } from '${PREFS_MODULE}';
-          console.log(JSON.stringify({ value: getPersistedUiLanguage() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: null });
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
-
-    it('returns the code when valid', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { uiLanguage: 'es' });
-        const r = runScript(configDir, `
-          import { getPersistedUiLanguage } from '${PREFS_MODULE}';
-          console.log(JSON.stringify({ value: getPersistedUiLanguage() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: 'es' });
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
-
-    it('returns undefined for unsupported codes (validates against the registry)', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { uiLanguage: 'xx' });
-        const r = runScript(configDir, `
-          import { getPersistedUiLanguage } from '${PREFS_MODULE}';
-          console.log(JSON.stringify({ value: getPersistedUiLanguage() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: null });
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
+describe('uiLanguage', () => {
+  it('is undefined while none is stored', () => {
+    expect(getPersistedUiLanguage(newUser())).toBeUndefined();
   });
 
-  describe('setPersistedUiLanguage', () => {
-    it('writes the value and getter reads it back', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        const r = runScript(configDir, `
-          import { setPersistedUiLanguage, getPersistedUiLanguage } from '${PREFS_MODULE}';
-          setPersistedUiLanguage('hu');
-          console.log(JSON.stringify({ value: getPersistedUiLanguage() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: 'hu' });
-        expect(existsSync(prefsFile)).toBe(true);
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
-
-    it('is idempotent — does not rewrite the file when value is unchanged', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        const r = runScript(configDir, `
-          import { setPersistedUiLanguage } from '${PREFS_MODULE}';
-          import { statSync } from 'fs';
-          setPersistedUiLanguage('hu');
-          const first = statSync('${prefsFile}').mtimeMs;
-          const start = Date.now();
-          while (Date.now() - start < 30) {}
-          setPersistedUiLanguage('hu');
-          const second = statSync('${prefsFile}').mtimeMs;
-          console.log(JSON.stringify({ first, second }));
-        `);
-        expect(r.exitCode).toBe(0);
-        const { first, second } = JSON.parse(r.stdout);
-        expect(second).toBe(first);
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
-
-    it('preserves unrelated fields', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { name: 'Alice', timezone: 'Europe/Budapest' });
-        const r = runScript(configDir, `
-          import { setPersistedUiLanguage } from '${PREFS_MODULE}';
-          setPersistedUiLanguage('hu');
-        `);
-        expect(r.exitCode).toBe(0);
-        const raw = JSON.parse(readFileSync(prefsFile, 'utf-8'));
-        expect(raw.name).toBe('Alice');
-        expect(raw.timezone).toBe('Europe/Budapest');
-        expect(raw.uiLanguage).toBe('hu');
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
+  it('returns a supported code and refuses an unsupported one', () => {
+    const id = newUser();
+    updateSetting(userEntity(id), 'uiLanguage', 'es', db);
+    expect(getPersistedUiLanguage(id)).toBe('es');
+    updateSetting(userEntity(id), 'uiLanguage', 'xx', db);
+    expect(getPersistedUiLanguage(id)).toBeUndefined();
   });
 
-  describe('resolveTitleLanguageName', () => {
-    it('returns undefined when no UI language is persisted (so titles auto-detect)', () => {
-      const { configDir } = setupDir();
-      try {
-        const r = runScript(configDir, `
-          import { resolveTitleLanguageName } from '${PREFS_MODULE}';
-          console.log(JSON.stringify({ value: resolveTitleLanguageName() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: null });
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
-
-    it('maps a persisted code to its native language name', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { uiLanguage: 'es' });
-        const r = runScript(configDir, `
-          import { resolveTitleLanguageName } from '${PREFS_MODULE}';
-          console.log(JSON.stringify({ value: resolveTitleLanguageName() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: 'Español' });
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
-
-    it('resolves the Chinese native name (the #885 motivating case)', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { uiLanguage: 'zh-Hans' });
-        const r = runScript(configDir, `
-          import { resolveTitleLanguageName } from '${PREFS_MODULE}';
-          console.log(JSON.stringify({ value: resolveTitleLanguageName() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: '简体中文' });
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
-
-    it('honors an explicit English UI language (returns "English", not auto-detect)', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { uiLanguage: 'en' });
-        const r = runScript(configDir, `
-          import { resolveTitleLanguageName } from '${PREFS_MODULE}';
-          console.log(JSON.stringify({ value: resolveTitleLanguageName() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: 'English' });
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
-
-    it('returns undefined for an unsupported persisted code', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { uiLanguage: 'xx' });
-        const r = runScript(configDir, `
-          import { resolveTitleLanguageName } from '${PREFS_MODULE}';
-          console.log(JSON.stringify({ value: resolveTitleLanguageName() ?? null }));
-        `);
-        expect(r.exitCode).toBe(0);
-        expect(JSON.parse(r.stdout)).toEqual({ value: null });
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
+  it('is kept per user and read back; setting the same value again changes nothing', () => {
+    const [a, b] = [newUser(), newUser()];
+    setPersistedUiLanguage('hu', a);
+    expect(getPersistedUiLanguage(a)).toBe('hu');
+    expect(getPersistedUiLanguage(b)).toBeUndefined();
+    setPersistedUiLanguage('hu', a);
+    expect(getPersistedUiLanguage(a)).toBe('hu');
   });
 
-  describe('legacy `language` field scrubbing', () => {
-    it('loadPreferences strips legacy free-text language on read', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { name: 'Alice', language: 'Hungarian' });
-        const r = runScript(configDir, `
-          import { loadPreferences } from '${PREFS_MODULE}';
-          console.log(JSON.stringify(loadPreferences()));
-        `);
-        expect(r.exitCode).toBe(0);
-        const prefs = JSON.parse(r.stdout);
-        expect(prefs).not.toHaveProperty('language');
-        expect(prefs.name).toBe('Alice');
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
+  it('does not touch the other preferences', () => {
+    const id = newUser();
+    updatePreferences({ timezone: 'Europe/Budapest', notes: 'likes tea' }, id);
+    setPersistedUiLanguage('de', id);
+    expect(loadPreferences(id)).toMatchObject({ name: 'Alice', timezone: 'Europe/Budapest', notes: 'likes tea', uiLanguage: 'de' });
+  });
 
-    it('the next write drops the legacy language field from disk', () => {
-      const { configDir, prefsFile } = setupDir();
-      try {
-        writeRawPrefs(prefsFile, { name: 'Alice', language: 'Hungarian' });
-        const r = runScript(configDir, `
-          import { setPersistedUiLanguage } from '${PREFS_MODULE}';
-          setPersistedUiLanguage('hu');
-        `);
-        expect(r.exitCode).toBe(0);
-        const raw = JSON.parse(readFileSync(prefsFile, 'utf-8'));
-        expect(raw).not.toHaveProperty('language');
-        expect(raw.uiLanguage).toBe('hu');
-        expect(raw.name).toBe('Alice');
-      } finally {
-        rmSync(configDir, { recursive: true, force: true });
-      }
-    });
+  it('merges location and diffViewer instead of replacing them', () => {
+    const id = newUser();
+    updatePreferences({ location: { city: 'Utrecht' }, diffViewer: { diffStyle: 'split' } }, id);
+    updatePreferences({ location: { country: 'NL' }, diffViewer: { disableBackground: true } }, id);
+    expect(loadPreferences(id)).toMatchObject({ location: { city: 'Utrecht', country: 'NL' }, diffViewer: { diffStyle: 'split', disableBackground: true } });
+  });
+});
+
+describe('resolveTitleLanguageName', () => {
+  it('is undefined with no UI language (so titles auto-detect)', () => {
+    expect(resolveTitleLanguageName(newUser())).toBeUndefined();
+  });
+
+  it('maps a persisted code to its native name, English included', () => {
+    const id = newUser();
+    setPersistedUiLanguage('zh-Hans', id);
+    expect(resolveTitleLanguageName(id)).toBe('简体中文');
+    setPersistedUiLanguage('en', id);
+    expect(resolveTitleLanguageName(id)).toBe('English');
+  });
+
+  it('is undefined for an unsupported stored code', () => {
+    const id = newUser();
+    updateSetting(userEntity(id), 'uiLanguage', 'xx', db);
+    expect(resolveTitleLanguageName(id)).toBeUndefined();
+  });
+});
+
+it('the install settings are not a user setting', () => {
+  expect(() => updateSetting(INSTALL, 'uiLanguage' as never, 'es', db)).toThrow();
+});
+
+describe('the profile', () => {
+  it('keeps name and email on the user, a left-out setting goes back to its default, and the local placeholder is not shown', () => {
+    const id = newUser();
+    savePreferences({ name: 'Bob', email: `bob-${id}@x.test`, timezone: 'UTC', notes: 'n' }, id);
+    expect(loadPreferences(id)).toMatchObject({ name: 'Bob', email: `bob-${id}@x.test`, timezone: 'UTC', notes: 'n' });
+    savePreferences({ name: 'Bob', timezone: 'UTC' }, id);
+    expect(loadPreferences(id)).not.toHaveProperty('notes');
+    const other = newUser();
+    expect(() => savePreferences({ email: `bob-${id}@x.test` }, other)).toThrow('Another user has that email');
+    db.update(users).set({ email: 'local@localhost' }).where(eq(users.id, other)).run();
+    expect(loadPreferences(other)).not.toHaveProperty('email');
   });
 });

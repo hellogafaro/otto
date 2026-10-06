@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { dirname } from 'path'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { getPreferencesPath, validatePreferencesContent, getSessionDraft, setSessionDraft, deleteSessionDraft, getAllSessionDrafts, getWorkspaceByNameOrId, getDefaultThinkingLevel, setDefaultThinkingLevel } from '@otto/shared/config'
+import { loadPreferences, savePreferences, validatePreferencesContent, getSessionDraft, setSessionDraft, deleteSessionDraft, getAllSessionDrafts, getWorkspaceByNameOrId, getDefaultThinkingLevel, setDefaultThinkingLevel } from '@otto/shared/config'
+import { getSetting, updateSetting, type SettingKey } from '@otto/shared/settings'
+import { updateWorkspacePermissions } from '@otto/shared/agent'
 import { isValidThinkingLevel, normalizeThinkingLevel, THINKING_LEVEL_IDS } from '@otto/shared/agent/thinking-levels'
 
 const VALID_THINKING_LEVELS_LIST = THINKING_LEVEL_IDS.map(id => `'${id}'`).join(', ')
@@ -33,6 +33,8 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.sessions.SET_MODEL,
   RPC_CHANNELS.settings.GET_DEFAULT_THINKING_LEVEL,
   RPC_CHANNELS.settings.SET_DEFAULT_THINKING_LEVEL,
+  RPC_CHANNELS.settings.GET_SETTING,
+  RPC_CHANNELS.settings.UPDATE_SETTING,
   RPC_CHANNELS.dialog.OPEN_FOLDER,
 ] as const
 
@@ -54,6 +56,17 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
       throw new Error('Failed to persist default thinking level')
     }
     return { success: true }
+  })
+
+  // Any setting of an entity ('install', 'workspace:<id>', 'user:<id>'); who may is decided in authorize.ts
+  server.handle(RPC_CHANNELS.settings.GET_SETTING, async (_ctx, entity: string, key: string) => {
+    return getSetting(entity, key as SettingKey)
+  })
+
+  server.handle(RPC_CHANNELS.settings.UPDATE_SETTING, async (_ctx, entity: string, key: string, value: unknown) => {
+    // A workspace's permission rules are checked and make the running agents read them (updateWorkspacePermissions)
+    if (key === 'permissions' && entity.startsWith('workspace:')) return updateWorkspacePermissions(entity.slice('workspace:'.length), value)
+    return updateSetting(entity, key as SettingKey, value)
   })
 
   // ============================================================
@@ -170,23 +183,17 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
   // User Preferences
   // ============================================================
 
-  // Read user preferences file
-  server.handle(RPC_CHANNELS.preferences.READ, async () => {
-    const path = getPreferencesPath()
-    if (!existsSync(path)) {
-      return { content: '{}', exists: false, path }
-    }
-    return { content: readFileSync(path, 'utf-8'), exists: true, path }
+  // The caller's preferences as JSON text: their name and email, and their own settings
+  server.handle(RPC_CHANNELS.preferences.READ, async (ctx) => {
+    return { content: JSON.stringify(loadPreferences(ctx.userId), null, 2) }
   })
 
-  // Write user preferences file (validates the content before saving)
-  server.handle(RPC_CHANNELS.preferences.WRITE, async (_, content: string) => {
+  // Make the JSON text the caller's preferences (validates the content before saving)
+  server.handle(RPC_CHANNELS.preferences.WRITE, async (ctx, content: string) => {
     try {
       const validation = validatePreferencesContent(content)
       if (!validation.success) return validation
-      const path = getPreferencesPath()
-      mkdirSync(dirname(path), { recursive: true })
-      writeFileSync(path, content, 'utf-8')
+      savePreferences(JSON.parse(content), ctx.userId)
       return { success: true }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -224,39 +231,39 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
   // ============================================================
 
   // Get auto-capitalisation setting
-  server.handle(RPC_CHANNELS.input.GET_AUTO_CAPITALISATION, async () => {
+  server.handle(RPC_CHANNELS.input.GET_AUTO_CAPITALISATION, async (ctx) => {
     const { getAutoCapitalisation } = await import('@otto/shared/config/storage')
-    return getAutoCapitalisation()
+    return getAutoCapitalisation(ctx.userId)
   })
 
   // Set auto-capitalisation setting
-  server.handle(RPC_CHANNELS.input.SET_AUTO_CAPITALISATION, async (_ctx, enabled: boolean) => {
+  server.handle(RPC_CHANNELS.input.SET_AUTO_CAPITALISATION, async (ctx, enabled: boolean) => {
     const { setAutoCapitalisation } = await import('@otto/shared/config/storage')
-    setAutoCapitalisation(enabled)
+    setAutoCapitalisation(enabled, ctx.userId)
   })
 
   // Get send message key setting
-  server.handle(RPC_CHANNELS.input.GET_SEND_MESSAGE_KEY, async () => {
+  server.handle(RPC_CHANNELS.input.GET_SEND_MESSAGE_KEY, async (ctx) => {
     const { getSendMessageKey } = await import('@otto/shared/config/storage')
-    return getSendMessageKey()
+    return getSendMessageKey(ctx.userId)
   })
 
   // Set send message key setting
-  server.handle(RPC_CHANNELS.input.SET_SEND_MESSAGE_KEY, async (_ctx, key: 'enter' | 'cmd-enter') => {
+  server.handle(RPC_CHANNELS.input.SET_SEND_MESSAGE_KEY, async (ctx, key: 'enter' | 'cmd-enter') => {
     const { setSendMessageKey } = await import('@otto/shared/config/storage')
-    setSendMessageKey(key)
+    setSendMessageKey(key, ctx.userId)
   })
 
   // Get spell check setting
-  server.handle(RPC_CHANNELS.input.GET_SPELL_CHECK, async () => {
+  server.handle(RPC_CHANNELS.input.GET_SPELL_CHECK, async (ctx) => {
     const { getSpellCheck } = await import('@otto/shared/config/storage')
-    return getSpellCheck()
+    return getSpellCheck(ctx.userId)
   })
 
   // Set spell check setting
-  server.handle(RPC_CHANNELS.input.SET_SPELL_CHECK, async (_ctx, enabled: boolean) => {
+  server.handle(RPC_CHANNELS.input.SET_SPELL_CHECK, async (ctx, enabled: boolean) => {
     const { setSpellCheck } = await import('@otto/shared/config/storage')
-    setSpellCheck(enabled)
+    setSpellCheck(enabled, ctx.userId)
   })
 
   // ============================================================
@@ -274,14 +281,14 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
   // ============================================================
 
   // Get rich tool descriptions setting
-  server.handle(RPC_CHANNELS.appearance.GET_RICH_TOOL_DESCRIPTIONS, async () => {
+  server.handle(RPC_CHANNELS.appearance.GET_RICH_TOOL_DESCRIPTIONS, async (ctx) => {
     const { getRichToolDescriptions } = await import('@otto/shared/config/storage')
-    return getRichToolDescriptions()
+    return getRichToolDescriptions(ctx.userId)
   })
 
   // Set rich tool descriptions setting
-  server.handle(RPC_CHANNELS.appearance.SET_RICH_TOOL_DESCRIPTIONS, async (_ctx, enabled: boolean) => {
+  server.handle(RPC_CHANNELS.appearance.SET_RICH_TOOL_DESCRIPTIONS, async (ctx, enabled: boolean) => {
     const { setRichToolDescriptions } = await import('@otto/shared/config/storage')
-    setRichToolDescriptions(enabled)
+    setRichToolDescriptions(enabled, ctx.userId)
   })
 }

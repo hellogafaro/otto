@@ -2,7 +2,7 @@ import type { EventSink, RpcServer } from '@otto/server-core/transport'
 import { CLIENT_BROWSER_INVOKE } from '@otto/server-core/transport'
 import type { ISessionManager, IBrowserPaneManager, ExecutePromptAutomationInput } from '@otto/server-core/handlers'
 import { RemoteBrowserPaneManager } from './remote-browser-pane-manager'
-import { userActor } from '@otto/shared/actors'
+import { userActor, userIdOf } from '@otto/shared/actors'
 import { chatNotFound, getChatAudience, type WorkspaceOwners } from './private-chats'
 import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import { createScopedLogger, CONSOLE_LOGGER, type PlatformServices, type Logger } from '@otto/server-core/runtime'
@@ -21,18 +21,17 @@ import {
   type BackendHostRuntimeContext,
 } from '@otto/shared/agent/backend'
 import { getLlmConnection, getLlmConnections, getDefaultLlmConnection, getDefaultThinkingLevel, resetManagedAnthropicAuthEnvVars, resolveMidStreamBehavior, getPersistedUiLanguage, resolveTitleLanguageName } from '@otto/shared/config'
-import type { MidStreamBehavior } from '@otto/shared/config'
+import type { ConnectionContext, MidStreamBehavior } from '@otto/shared/config'
+import { getWorkspaceRootPath } from '@otto/shared/config'
 import { PrivilegedExecutionBroker } from '@otto/server-core/services'
 import { isValidWorkingDirectory } from '../utils/path-validation'
 import { InitGate } from '@otto/server-core/domain'
+import { onConnectionsChange } from '@otto/shared/connections'
 import { i18n } from '@otto/shared/i18n'
 import {
   getWorkspaces,
   getWorkspaceByNameOrId,
   loadConfigDefaults,
-  migrateLegacyCredentials,
-  migrateLegacyLlmConnectionsConfig,
-  migrateOrphanedDefaultConnections,
   MODEL_REGISTRY,
   type Workspace,
   type WorkspaceInfo,
@@ -70,7 +69,6 @@ import {
   pickSessionFields,
 } from '@otto/shared/sessions'
 import { serializeHeaderCredential, loadWorkspaceSources, loadAllSources, getSourcesBySlugs, isSourceUsable, type LoadedSource, getSourceCredentialManager, TokenRefreshManager } from '@otto/shared/sources'
-import { buildPagesToolCallbacks } from '../pages/tool-callbacks'
 import { buildDecisionToolCallbacks } from '../decisions/tool-callbacks'
 import { buildServersFromSources as buildServersFromSourcesShared } from '../sources/build-servers'
 import { ConfigWatcher, type ConfigWatcherCallbacks } from '@otto/shared/config'
@@ -81,7 +79,7 @@ import { isParentTaskTool } from '@otto/shared/utils/tool-names'
 import { restoreFiles } from '@otto/shared/utils/bundle-files'
 import { getCredentialManager } from '@otto/shared/credentials'
 import { McpClientPool, McpPoolServer } from '@otto/shared/mcp'
-import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, generateMessageId } from '@otto/shared/protocol'
+import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, generateMessageId, type DomainChange } from '@otto/shared/protocol'
 import { messageToStored, storedToMessage, type Message, type StoredAttachment, type ToolDisplayMeta } from '@otto/core/types'
 import { formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrlAsync, getEmojiIcon, resetSummarizationClient, resolveToolIcon, readFileAttachment, selectSpreadMessages, normalizePath } from '@otto/shared/utils'
 import { loadAllSkills, loadSkillBySlug, invalidateSkillsCache } from '@otto/shared/skills'
@@ -104,13 +102,15 @@ import { buildLargeResultSummaryGate } from '../decisions/large-results'
 import { buildGuardedModeCheck } from '../decisions/guarded-mode'
 import { assessPermissionRisks } from '../decisions/permission-risks'
 import { checkAutomationCondition } from '../decisions/automation-condition'
-import { listLabels, loadLabelConfig } from '@otto/shared/labels/storage'
+import { getLabels, getLabelsFlat } from '@otto/shared/labels/storage'
 import { resolveSessionLabels, type LabelConfig } from '@otto/shared/labels'
-import { ensureLabelsExist } from '@otto/shared/labels/crud'
-import { loadStatusConfig } from '@otto/shared/statuses/storage'
+import { createMissingLabels } from '@otto/shared/labels/crud'
+import { getStatuses } from '@otto/shared/statuses/storage'
 import { AutomationSystem, createPromptHistoryEntry, appendAutomationHistoryEntry, type PendingPrompt } from '@otto/shared/automations'
 import { buildBackendRuntimeSignature, buildRestartRequiredSignature, filterAttachmentsForModelInput } from './runtime-config'
 import { validateArchiveTarget } from './archive-guards'
+import { runWorkspaceConfigAction } from './workspace-config-tool'
+import { getFirstUser } from '@otto/shared/users/queries'
 
 // Import from server-core domain utilities
 import { sanitizeForTitle, shouldActivateBrowserOverlay, normalizeBrowserToolName, rollbackFailedBranchCreation, releaseBrowserOwnershipOnForcedStop } from '@otto/server-core/domain'
@@ -379,8 +379,7 @@ async function saveClaudeTurnAnchor(
 /**
  * Session-flavored wrapper around the shared builder: keeps the ~7 existing
  * call sites unchanged while routing logs through sessionLog. The
- * implementation lives in ../sources/build-servers.ts so the pages action
- * executor uses the exact same credential path.
+ * implementation lives in ../sources/build-servers.ts.
  */
 async function buildServersFromSources(
   sources: LoadedSource[],
@@ -511,6 +510,9 @@ async function resolveToolDisplayMeta(
           'transform_data': 'Transform Data',
           'render_template': 'Render Template',
           'update_user_preferences': 'Update Preferences',
+          'labels_edit': 'Edit Labels',
+          'statuses_edit': 'Edit Statuses',
+          'permissions_edit': 'Edit Permissions',
           'send_developer_feedback': 'Send Feedback',
           'browser_tool': 'Browser',
         },
@@ -1348,7 +1350,7 @@ export class SessionManager implements ISessionManager {
       if (this.sessions.get(managed.id) !== managed || managed.isProcessing) return
       if (this.getLastFinalAssistantMessageId(managed.messages) !== finalMessageId) return
 
-      const statuses = loadStatusConfig(managed.workspace.rootPath).statuses
+      const statuses = getStatuses(managed.workspace.id)
       const target = statuses.find(status => status.id === TURN_OUTCOME_ATTENTION_STATUS && status.category === 'open')
       const current = statuses.find(status => status.id === managed.sessionStatus)
       if (!target || managed.sessionStatus === target.id || current?.category === 'closed') return
@@ -1732,7 +1734,6 @@ export class SessionManager implements ISessionManager {
   }
 
   private browserPaneManager: IBrowserPaneManager | null = null
-  private enqueuePageThumbnailFn?: (req: { workspaceId: string; workspaceRootPath: string; slug: string }) => void
   private rpcServer: RpcServer | null = null
   private remoteBpms = new Map<string, RemoteBrowserPaneManager>()
   /** Pinned desktop client per session for `client:browser:invoke` routing. */
@@ -1783,24 +1784,6 @@ export class SessionManager implements ISessionManager {
   setBrowserPaneManager(bpm: IBrowserPaneManager): void {
     this.browserPaneManager = bpm
     bpm.setSessionPathResolver((sessionId) => this.getSessionPath(sessionId))
-  }
-
-  /**
-   * Inject the page thumbnail capturer (Electron main only — needs a
-   * BrowserWindow). Headless/WebUI hosts never call this, so
-   * {@link enqueuePageThumbnail} no-ops and tiles fall back to the placeholder.
-   */
-  setPageThumbnailer(fn: (req: { workspaceId: string; workspaceRootPath: string; slug: string }) => void): void {
-    this.enqueuePageThumbnailFn = fn
-  }
-
-  /**
-   * Request a (re)capture of a page's preview poster. Fire-and-forget: the
-   * injected capturer queues it, writes thumbnail.jpg, and stamps page.json
-   * (which broadcasts pages:changed). No-op when no capturer is injected.
-   */
-  enqueuePageThumbnail(workspaceId: string, workspaceRootPath: string, slug: string): void {
-    this.enqueuePageThumbnailFn?.({ workspaceId, workspaceRootPath, slug })
   }
 
   /**
@@ -2061,25 +2044,6 @@ export class SessionManager implements ISessionManager {
         const sources = loadWorkspaceSources(workspaceRootPath)
         this.broadcastSourcesChanged(workspaceId, sources)
       },
-      onStatusConfigChange: () => {
-        sessionLog.info(`Status config changed in ${workspaceId}`)
-        this.broadcastStatusesChanged(workspaceId)
-      },
-      onStatusIconChange: (_workspaceId: string, iconFilename: string) => {
-        sessionLog.info(`Status icon changed: ${iconFilename} in ${workspaceId}`)
-        this.broadcastStatusesChanged(workspaceId)
-      },
-      onLabelConfigChange: () => {
-        sessionLog.info(`Label config changed in ${workspaceId}`)
-        this.broadcastLabelsChanged(workspaceId)
-        // Emit LabelConfigChange event via AutomationSystem
-        const automationSystem = this.automationSystems.get(workspaceRootPath)
-        if (automationSystem) {
-          automationSystem.emitLabelConfigChange().catch((error) => {
-            sessionLog.error(`[Automations] Failed to emit LabelConfigChange:`, error)
-          })
-        }
-      },
       onAutomationsConfigChange: () => {
         sessionLog.info(`Automations config changed in ${workspaceId}`)
         // Reload automations config via AutomationSystem
@@ -2094,17 +2058,6 @@ export class SessionManager implements ISessionManager {
         }
         // Notify renderer to re-read automations.json
         this.broadcastAutomationsChanged(workspaceId)
-      },
-      onPagesListChange: (pages) => {
-        sessionLog.info(`Pages changed in ${workspaceId} (${pages.length} pages)`)
-        // Rebuild the synthetic page-refresh cron matchers (page.json is the
-        // completion marker, so this also fires after every refresh run)
-        this.automationSystems.get(workspaceRootPath)?.reloadPageRefreshMatchers()
-        this.broadcastPagesChanged(workspaceId, pages)
-      },
-      onLlmConnectionsChange: () => {
-        sessionLog.info(`LLM connections changed in ${workspaceId}`)
-        this.broadcastLlmConnectionsChanged()
       },
       onAppThemeChange: (theme) => {
         sessionLog.info(`App theme changed`)
@@ -2227,16 +2180,18 @@ export class SessionManager implements ISessionManager {
     this.eventSink(RPC_CHANNELS.sources.CHANGED, { to: 'workspace', workspaceId }, workspaceId, sources)
   }
 
-  private broadcastStatusesChanged(workspaceId: string): void {
+  /** Tells the clients of a workspace that its labels, statuses or permissions changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations). */
+  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'statuses' | 'permissions'): void {
     if (!this.eventSink) return
-    sessionLog.info(`Broadcasting statuses changed for ${workspaceId}`)
-    this.eventSink(RPC_CHANNELS.statuses.CHANGED, { to: 'workspace', workspaceId }, workspaceId)
+    this.eventSink(RPC_CHANNELS.domain.CHANGED, { to: 'workspace', workspaceId }, { domain, workspaceId } satisfies DomainChange)
   }
 
-  private broadcastLabelsChanged(workspaceId: string): void {
-    if (!this.eventSink) return
-    sessionLog.info(`Broadcasting labels changed for ${workspaceId}`)
-    this.eventSink(RPC_CHANNELS.labels.CHANGED, { to: 'workspace', workspaceId }, workspaceId)
+  /** Fires the `LabelConfigChange` automation event of a workspace after its labels were edited. */
+  emitLabelConfigChange(workspaceId: string): void {
+    const rootPath = getWorkspaceRootPath(workspaceId)
+    this.automationSystems.get(rootPath ?? '')?.emitLabelConfigChange().catch((error) => {
+      sessionLog.error(`[Automations] Failed to emit LabelConfigChange:`, error)
+    })
   }
 
   private broadcastAutomationsChanged(workspaceId: string): void {
@@ -2261,12 +2216,6 @@ export class SessionManager implements ISessionManager {
     if (!this.eventSink) return
     sessionLog.info(`Broadcasting skills changed (${skills.length} skills)`)
     this.eventSink(RPC_CHANNELS.skills.CHANGED, { to: 'workspace', workspaceId }, workspaceId, skills)
-  }
-
-  private broadcastPagesChanged(workspaceId: string, pages: import('@otto/shared/pages').LoadedPage[]): void {
-    if (!this.eventSink) return
-    sessionLog.info(`Broadcasting pages changed (${pages.length} pages)`)
-    this.eventSink(RPC_CHANNELS.pages.CHANGED, { to: 'workspace', workspaceId }, workspaceId, pages)
   }
 
   private broadcastDefaultPermissionsChanged(): void {
@@ -2322,16 +2271,16 @@ export class SessionManager implements ISessionManager {
    *
    * @param connectionSlug - Optional connection slug to use (overrides default)
    */
-  async reinitializeAuth(connectionSlug?: string): Promise<void> {
+  async reinitializeAuth(connectionSlug?: string, where?: ConnectionContext): Promise<void> {
     try {
       const manager = getCredentialManager()
 
       // Get the connection to use (explicit parameter or default)
-      const slug = connectionSlug || getDefaultLlmConnection()
+      const slug = connectionSlug || getDefaultLlmConnection(where)
       if (!slug) {
         sessionLog.warn('No LLM connection slug available for reinitializeAuth')
       }
-      const connection = slug ? getLlmConnection(slug) : null
+      const connection = slug ? getLlmConnection(slug, where) : null
 
       // Restore managed auth env vars to their baseline before applying this connection.
       resetManagedAnthropicAuthEnvVars()
@@ -2345,7 +2294,7 @@ export class SessionManager implements ISessionManager {
       sessionLog.info(`Reinitializing auth for connection: ${slug} (${connection.authType})`)
 
       // Resolve auth env vars via shared utility (provider-agnostic)
-      const result = await resolveAuthEnvVars(connection, slug!, manager, getValidClaudeOAuthToken)
+      const result = await resolveAuthEnvVars(connection, slug!, manager, getValidClaudeOAuthToken, connection.scope)
 
       if (!result.success) {
         sessionLog.error(`Auth resolution failed for ${slug}: ${result.warning}`)
@@ -2365,6 +2314,11 @@ export class SessionManager implements ISessionManager {
     }
   }
 
+  /** Whose connections a chat sees: its creator's own, then its workspace's, then the install's. */
+  private connectionContextOf(managed: ManagedSession): ConnectionContext {
+    return { workspaceId: managed.workspace.id, userId: userIdOf(managed.createdBy) }
+  }
+
   async initialize(): Promise<void> {
     // Large tool results (decision model, toggle `largeResults`): the process-wide gate asks
     // whether a summary is needed before the summarization call; it no-ops while the toggle is off.
@@ -2373,15 +2327,8 @@ export class SessionManager implements ISessionManager {
     setGuardedModeActiveResolver(() => isDecisionFeatureActive('guardedMode'))
 
     try {
-      // Backfill missing `models` arrays on existing LLM connections
-      migrateLegacyLlmConnectionsConfig()
-
-      // Fix defaultLlmConnection if it points to a non-existent connection
-      migrateOrphanedDefaultConnections()
-
-      // Migrate legacy credentials to LLM connection format (one-time migration)
-      // This ensures credentials saved before LLM connections are available via the new system
-      await migrateLegacyCredentials()
+      // Tell the clients when a connection changes (the database is the source, nothing watches a file)
+      onConnectionsChange(() => this.broadcastLlmConnectionsChanged())
 
       // Set up authentication environment variables (critical for SDK to work)
       await this.reinitializeAuth()
@@ -2435,7 +2382,7 @@ export class SessionManager implements ISessionManager {
 
           // Migration: clear orphaned llmConnection references (e.g., after connection was deleted)
           if (managed.llmConnection) {
-            const conn = resolveSessionConnection(managed.llmConnection, undefined)
+            const conn = resolveSessionConnection(managed.llmConnection, undefined, this.connectionContextOf(managed))
             if (!conn) {
               sessionLog.warn(`Session ${meta.id} has orphaned llmConnection "${managed.llmConnection}", clearing`)
               managed.llmConnection = undefined
@@ -3095,6 +3042,7 @@ export class SessionManager implements ISessionManager {
       const tierConnection = resolveSessionConnection(
         options?.llmConnection,
         wsConfig?.defaults?.defaultLlmConnection,
+        { workspaceId: workspace.id, userId: userIdOf(internal?.createdBy ?? undefined) },
       )
       if (tierConnection) {
         resolvedModelOption = resolvedModelOption === 'fast'
@@ -3110,6 +3058,7 @@ export class SessionManager implements ISessionManager {
       sessionConnectionSlug: options?.llmConnection,
       workspaceDefaultConnectionSlug: wsConfig?.defaults?.defaultLlmConnection,
       managedModel: resolvedModelOption,
+      where: { workspaceId: workspace.id, userId: userIdOf(internal?.createdBy ?? undefined) },
     })
     const targetProviderType = targetBackendContext.connection?.providerType
       ?? (targetBackendContext.provider === 'pi' ? 'pi' : 'anthropic')
@@ -3205,6 +3154,7 @@ export class SessionManager implements ISessionManager {
         sessionConnectionSlug: sourceManaged?.llmConnection || sourceSession.llmConnection,
         workspaceDefaultConnectionSlug: wsConfig?.defaults?.defaultLlmConnection,
         managedModel: sourceManaged?.model || sourceSession.model,
+        where: { workspaceId: workspace.id, userId: userIdOf(internal?.createdBy ?? undefined) },
       })
       const sourceProviderType = sourceBackendContext.connection?.providerType
         ?? (sourceBackendContext.provider === 'pi' ? 'pi' : 'anthropic')
@@ -3622,6 +3572,7 @@ export class SessionManager implements ISessionManager {
       sessionConnectionSlug: managed.llmConnection,
       workspaceDefaultConnectionSlug: workspaceConfig?.defaults?.defaultLlmConnection,
       managedModel: managed.model,
+      where: this.connectionContextOf(managed),
     })
     const connection = backendContext.connection
     const sigInput = {
@@ -3767,6 +3718,7 @@ export class SessionManager implements ISessionManager {
       sessionConnectionSlug: managed.llmConnection,
       workspaceDefaultConnectionSlug: workspaceConfig?.defaults?.defaultLlmConnection,
       managedModel: managed.model,
+      where: this.connectionContextOf(managed),
     })
     const connection = backendContext.connection
     const sigInput = {
@@ -3857,6 +3809,7 @@ export class SessionManager implements ISessionManager {
 
       const sessionConfig = {
         id: managed.id,
+        createdBy: managed.createdBy,
         workspaceRootPath: managed.workspace.rootPath,
         sdkSessionId: managed.sdkSessionId,
         branchFromSdkSessionId: managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSdkSessionId : undefined,
@@ -4797,25 +4750,6 @@ export class SessionManager implements ISessionManager {
             await this.unarchiveSession(sessionId)
           }
         },
-        // Pages tools (list_pages/get_page/create_page/update_page/
-        // write_page_data/delete_page) — grouped callbacks bound to the
-        // invoking session's workspace. Storage flows are shared with the
-        // pages RPC handlers; after each mutation we poke the watcher (Linux
-        // atomic-rename workaround) and broadcast pages:changed, exactly like
-        // those handlers do.
-        pages: buildPagesToolCallbacks({
-          workspaceId: managed.workspace.id,
-          workspaceRootPath: managed.workspace.rootPath,
-          log: (message: string) => sessionLog.info(message),
-          onPagesMutated: async (pageSlug: string) => {
-            this.notifyConfigFileChange(managed.workspace.rootPath, `pages/${pageSlug}/page.json`)
-            const { loadWorkspacePages } = await import('@otto/shared/pages')
-            this.broadcastPagesChanged(managed.workspace.id, loadWorkspacePages(managed.workspace.rootPath))
-          },
-          onContentChanged: (pageSlug: string) => {
-            this.enqueuePageThumbnail(managed.workspace.id, managed.workspace.rootPath, pageSlug)
-          },
-        }),
         // Decision model (`decide`) — always wired; the callback re-checks the
         // Settings switch, the feature toggle and the key on every call, so an
         // agent that still advertises the tool after the user disabled it gets
@@ -4920,13 +4854,21 @@ export class SessionManager implements ISessionManager {
             }
           })
         },
+        // labels_edit / statuses_edit / permissions_edit: the chat's user edits the workspace's labels, statuses or
+        // permission rules (owners write, members read), through the domain functions
+        editWorkspaceConfigFn: async (domain, args) => {
+          const { result, wrote } = runWorkspaceConfigAction(managed.workspace.id, userIdOf(managed.createdBy) ?? getFirstUser()?.id ?? null, domain, args)
+          if (wrote) {
+            this.broadcastDomainChanged(managed.workspace.id, domain)
+            if (domain === 'labels') this.emitLabelConfigChange(managed.workspace.id)
+          }
+          return result
+        },
         resolveLabelsFn: (labels: string[]) => {
-          const labelConfig = loadLabelConfig(managed.workspace.rootPath)
-          return resolveSessionLabels(labels, labelConfig.labels)
+          return resolveSessionLabels(labels, getLabels(managed.workspace.id))
         },
         resolveStatusFn: (status: string) => {
-          const statusConfig = loadStatusConfig(managed.workspace.rootPath)
-          const allStatuses = statusConfig.statuses
+          const allStatuses = getStatuses(managed.workspace.id)
           const available = allStatuses.map(s => s.id)
 
           // Exact ID match
@@ -5227,7 +5169,7 @@ export class SessionManager implements ISessionManager {
 
     // Validate connection exists
     const { getLlmConnection } = await import('@otto/shared/config/storage')
-    const connection = getLlmConnection(connectionSlug)
+    const connection = getLlmConnection(connectionSlug, this.connectionContextOf(managed))
     if (!connection) {
       sessionLog.warn(`setSessionConnection: connection "${connectionSlug}" not found`)
       throw new Error(`LLM connection "${connectionSlug}" not found`)
@@ -5789,11 +5731,12 @@ export class SessionManager implements ISessionManager {
 
     // Resolve title language from the explicitly persisted UI language (disk-backed,
     // race-free vs. main-process i18n async hydration); undefined => auto-detect (#885).
-    const titleLanguage = resolveTitleLanguageName()
+    const titleUserId = userIdOf(managed.createdBy)
+    const titleLanguage = resolveTitleLanguageName(titleUserId)
     const titleOptions = { language: titleLanguage }
     sessionLog.info(`[refreshTitle] language at call time`, {
       sessionId,
-      persistedUiLanguage: getPersistedUiLanguage() ?? null,
+      persistedUiLanguage: getPersistedUiLanguage(titleUserId) ?? null,
       resolvedLanguage: i18n.resolvedLanguage ?? null,
       titleLanguage: titleLanguage ?? null,
     })
@@ -5804,7 +5747,7 @@ export class SessionManager implements ISessionManager {
 
     if (!agent && managed.llmConnection) {
       try {
-        const connection = getLlmConnection(managed.llmConnection)
+        const connection = getLlmConnection(managed.llmConnection, this.connectionContextOf(managed))
         const resolvedMiniModel = connection ? (getMiniModel(connection) ?? connection.defaultModel) : undefined
 
         agent = createBackendFromConnection(managed.llmConnection, {
@@ -5820,7 +5763,7 @@ export class SessionManager implements ISessionManager {
             lastUsedAt: Date.now(),
           },
           isHeadless: true,
-        }, buildBackendHostRuntimeContext()) as AgentInstance
+        }, buildBackendHostRuntimeContext(), undefined, this.connectionContextOf(managed)) as AgentInstance
         await agent.postInit()
         isTemporary = true
         sessionLog.info(`refreshTitle: Created temporary agent for session ${sessionId}`)
@@ -5961,7 +5904,7 @@ export class SessionManager implements ISessionManager {
       if (managed.agent) {
         // Fallback chain: session model > workspace default > connection default
         const wsConfig = loadWorkspaceConfig(managed.workspace.rootPath)
-        const sessionConn = resolveSessionConnection(managed.llmConnection, wsConfig?.defaults?.defaultLlmConnection)
+        const sessionConn = resolveSessionConnection(managed.llmConnection, wsConfig?.defaults?.defaultLlmConnection, this.connectionContextOf(managed))
         const effectiveModel = model ?? wsConfig?.defaults?.model ?? sessionConn?.defaultModel!
         sessionLog.info(`[updateSessionModel] Calling agent.setModel(${effectiveModel}) [agent exists=${!!managed.agent}, connectionLocked=${managed.connectionLocked}]`)
         managed.agent.setModel(effectiveModel)
@@ -6337,7 +6280,7 @@ export class SessionManager implements ISessionManager {
     //   to natural completion; replay as a new turn afterwards. NO call to
     //   `agent.redirect()`, NO forceAbort, NO interruption.
     if (managed.isProcessing) {
-      const connection = resolveSessionConnection(managed.llmConnection, undefined)
+      const connection = resolveSessionConnection(managed.llmConnection, undefined, this.connectionContextOf(managed))
       // Fallback to 'steer' when no connection is resolvable — preserves
       // today's exact behavior (call redirect, take whatever it returns).
       const configured = connection ? resolveMidStreamBehavior(connection) : 'steer'
@@ -6509,7 +6452,7 @@ export class SessionManager implements ISessionManager {
     // Hidden messages (auto-retries, system nudges) are not user-authored: they label nothing.
     if (!options?.hidden) {
       try {
-        const labelTree = listLabels(managed.workspace.rootPath)
+        const labelTree = getLabels(managed.workspace.id)
         this.applyAutoLabelMatches(managed, evaluateAutoLabels(message, labelTree))
         void this.applySemanticAutoLabels(managed, message, labelTree)
       } catch (e) {
@@ -6704,6 +6647,7 @@ export class SessionManager implements ISessionManager {
         sessionConnectionSlug: managed.llmConnection,
         workspaceDefaultConnectionSlug: loadWorkspaceConfig(workspaceRootPath)?.defaults?.defaultLlmConnection,
         managedModel: managed.model,
+        where: this.connectionContextOf(managed),
       })
       const modelInputAttachments = filterAttachmentsForModelInput(
         attachments,
@@ -7854,7 +7798,7 @@ export class SessionManager implements ISessionManager {
     // If still no agent, create a temporary one using the session's connection
     if (!agent && managed.llmConnection) {
       try {
-        const connection = getLlmConnection(managed.llmConnection)
+        const connection = getLlmConnection(managed.llmConnection, this.connectionContextOf(managed))
 
         agent = createBackendFromConnection(managed.llmConnection, {
           workspace: managed.workspace,
@@ -7868,7 +7812,7 @@ export class SessionManager implements ISessionManager {
             lastUsedAt: Date.now(),
           },
           isHeadless: true,
-        }, buildBackendHostRuntimeContext()) as AgentInstance
+        }, buildBackendHostRuntimeContext(), undefined, this.connectionContextOf(managed)) as AgentInstance
         await agent.postInit()
         isTemporary = true
         sessionLog.info(`[generateTitle] Created temporary agent for session ${managed.id}`)
@@ -7885,10 +7829,11 @@ export class SessionManager implements ISessionManager {
 
     try {
       // Race-free language resolution from persisted UI language; undefined => auto-detect (#885).
-      const titleLanguage = resolveTitleLanguageName()
+      const titleUserId = userIdOf(managed.createdBy)
+      const titleLanguage = resolveTitleLanguageName(titleUserId)
       sessionLog.info(`[generateTitle] language at call time`, {
         sessionId: managed.id,
-        persistedUiLanguage: getPersistedUiLanguage() ?? null,
+        persistedUiLanguage: getPersistedUiLanguage(titleUserId) ?? null,
         resolvedLanguage: i18n.resolvedLanguage ?? null,
         titleLanguage: titleLanguage ?? null,
       })
@@ -8962,9 +8907,14 @@ export class SessionManager implements ISessionManager {
     const resolved = mentions ? this.resolveAutomationMentions(workspaceRootPath, mentions) : undefined
 
     // Ensure labels exist in workspace config before assigning to session
+    const labelCount = getLabelsFlat(workspaceId).length
     const resolvedLabels = labels?.length
-      ? ensureLabelsExist(workspaceRootPath, labels)
+      ? createMissingLabels(workspaceId, labels)
       : labels
+    if (getLabelsFlat(workspaceId).length !== labelCount) {
+      this.broadcastDomainChanged(workspaceId, 'labels')
+      this.emitLabelConfigChange(workspaceId)
+    }
 
     // Use automation name if provided, otherwise fall back to prompt snippet
     const fallback = `Automation: ${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}`
@@ -9083,6 +9033,7 @@ export class SessionManager implements ISessionManager {
       sessionConnectionSlug: managed.llmConnection,
       workspaceDefaultConnectionSlug: wsConfig?.defaults?.defaultLlmConnection,
       managedModel: managed.model || defaultModel,
+      where: this.connectionContextOf(managed),
     })
 
     const miniModel = backendContext.connection

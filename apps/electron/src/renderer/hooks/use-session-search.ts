@@ -7,7 +7,6 @@ import type { LabelConfig } from "@otto/shared/labels"
 import { fuzzyScore } from "@otto/shared/search"
 import { getSessionTitle, getSessionStatus } from "@/utils/session"
 import type { SessionMeta } from "@/atoms/sessions"
-import type { ViewConfig } from "@otto/shared/views"
 import type { SessionFilter } from "@/contexts/navigation-context"
 
 // ---------------------------------------------------------------------------
@@ -48,7 +47,6 @@ export interface UseSessionSearchOptions {
   searchQuery: string
   workspaceId?: string
   currentFilter?: SessionFilter
-  evaluateViews?: (meta: SessionMeta) => ViewConfig[]
   statusFilter?: Map<string, FilterMode>
   labelFilterMap?: Map<string, FilterMode>
   /** Workspace label tree — label filters match descendants through it (shared matchesLabelFilter). */
@@ -199,7 +197,6 @@ export function computeCollapsedPagination(
 }
 
 interface FilterMatchOptions {
-  evaluateViews?: (meta: SessionMeta) => ViewConfig[]
   statusFilter?: Map<string, 'include' | 'exclude'>
   labelFilterMap?: Map<string, 'include' | 'exclude'>
   labelConfigs?: LabelConfig[]
@@ -210,7 +207,7 @@ export function sessionMatchesCurrentFilter(
   currentFilter: SessionFilter | undefined,
   options: FilterMatchOptions = {}
 ): boolean {
-  const { evaluateViews, statusFilter, labelFilterMap, labelConfigs } = options
+  const { statusFilter, labelFilterMap, labelConfigs } = options
 
   const passesStatusFilter = (): boolean => {
     if (!statusFilter || statusFilter.size === 0) return true
@@ -268,13 +265,6 @@ export function sessionMatchesCurrentFilter(
       return matchesLabelFilter(session, currentFilter, labelConfigs ?? [])
     }
 
-    case 'view':
-      if (session.isArchived === true) return false
-      if (!evaluateViews) return true
-      const matched = evaluateViews(session)
-      if (currentFilter.viewId === '__all__') return matched.length > 0
-      return matched.some(v => v.id === currentFilter.viewId)
-
     default:
       currentFilter satisfies never
       return true
@@ -291,7 +281,6 @@ export function useSessionSearch({
   searchQuery,
   workspaceId,
   currentFilter,
-  evaluateViews,
   statusFilter,
   labelFilterMap,
   labelConfigs,
@@ -400,7 +389,7 @@ export function useSessionSearch({
   const searchFilteredItems = useMemo(() => {
     if (!isSearchMode) {
       return sortedItems.filter(item =>
-        sessionMatchesCurrentFilter(item, currentFilter, { evaluateViews, statusFilter, labelFilterMap, labelConfigs })
+        sessionMatchesCurrentFilter(item, currentFilter, { statusFilter, labelFilterMap, labelConfigs })
       )
     }
 
@@ -418,7 +407,7 @@ export function useSessionSearch({
         const countB = contentSearchResults.get(b.id)?.matchCount || 0
         return countB - countA
       })
-  }, [sortedItems, isSearchMode, searchQuery, contentSearchResults, currentFilter, evaluateViews, statusFilter, labelFilterMap, labelConfigs])
+  }, [sortedItems, isSearchMode, searchQuery, contentSearchResults, currentFilter, statusFilter, labelFilterMap, labelConfigs])
 
   // Split search results: matching current filter vs others
   const { matchingFilterItems, otherResultItems, exceededSearchLimit } = useMemo(() => {
@@ -453,7 +442,7 @@ export function useSessionSearch({
     for (const item of searchFilteredItems) {
       if (matching.length + others.length >= MAX_SEARCH_RESULTS) break
 
-      const matches = sessionMatchesCurrentFilter(item, currentFilter, { evaluateViews, statusFilter, labelFilterMap, labelConfigs })
+      const matches = sessionMatchesCurrentFilter(item, currentFilter, { statusFilter, labelFilterMap, labelConfigs })
       if (matches) {
         matching.push(item)
       } else {
@@ -470,7 +459,7 @@ export function useSessionSearch({
     }
 
     return { matchingFilterItems: matching, otherResultItems: others, exceededSearchLimit: exceeded }
-  }, [searchFilteredItems, currentFilter, evaluateViews, isSearchMode, statusFilter, labelFilterMap, labelConfigs, searchQuery])
+  }, [searchFilteredItems, currentFilter, isSearchMode, statusFilter, labelFilterMap, labelConfigs, searchQuery])
 
   // --- Pagination ---
 

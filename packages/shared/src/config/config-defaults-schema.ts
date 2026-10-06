@@ -11,20 +11,6 @@ import type { ThinkingLevel } from '../agent/thinking-levels.ts';
 export interface ConfigDefaults {
   version: string;
   description: string;
-  defaults: {
-    notificationsEnabled: boolean;
-    colorTheme: string;
-    autoCapitalisation: boolean;
-    sendMessageKey: 'enter' | 'cmd-enter';
-    spellCheck: boolean;
-    keepAwakeWhileRunning: boolean;
-    richToolDescriptions: boolean;
-    /**
-     * Allow remote agents to call `browser_tool evaluate <expression>`.
-     * When false, the local dispatcher rejects with `BROWSER_REMOTE_EVALUATE_BLOCKED`.
-     */
-    allowRemoteEvaluate: boolean;
-  };
   workspaceDefaults: {
     thinkingLevel: ThinkingLevel;
     permissionMode: PermissionMode;

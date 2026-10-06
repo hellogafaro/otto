@@ -3,6 +3,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { addWorkspace, setActiveWorkspace } from '@otto/shared/config'
+import { initLabelsStatusesImport } from '@otto/shared/labels/import'
 import { createWorkspaceMember, getDefaultWorkspacesDir, ensureDefaultWorkspacesDir, getMemberWorkspaceIds } from '@otto/shared/workspaces'
 import type { ServerStatus, ServerHealth } from '@otto/core/types'
 import type { RpcServer } from '@otto/server-core/transport'
@@ -62,8 +63,9 @@ export function registerServerHandlers(
     }
 
     const workspace = addWorkspace({ name: trimmed, rootPath })
+    initLabelsStatusesImport() // the new workspace's labels and statuses
     if (request.userId) createWorkspaceMember(workspace.id, request.userId, 'owner')
-    setActiveWorkspace(workspace.id)
+    setActiveWorkspace(workspace.id, request.userId)
     deps.platform.logger.info(`Created workspace "${trimmed}" at ${rootPath} (server:createWorkspace)`)
 
     const { rootPath: _rp, createdAt: _ca, ...info } = workspace

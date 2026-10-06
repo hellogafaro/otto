@@ -15,7 +15,6 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { agentEnv, hostEnvMatching } from '@otto/session-tools-core';
-import { createInterface, type Interface as ReadlineInterface } from 'node:readline';
 import type { AgentEvent } from '@otto/core/types';
 import type { FileAttachment } from '../utils/files.ts';
 
@@ -42,11 +41,13 @@ import type { Workspace } from '../config/storage.ts';
 import { PiEventAdapter } from './backend/pi/event-adapter.ts';
 import type { PiCompactResult, PiLargeResultGateRequest, PiLargeResultGateResponse } from './backend/pi/protocol.ts';
 import { askLargeResultSummaryGate } from '../utils/large-response.ts';
+import { readLines } from '../utils/jsonl-lines.ts';
 import { EventQueue } from './backend/event-queue.ts';
 
 // System prompt
 import { getSystemPrompt } from '../prompts/system.ts';
 import { PRODUCT_NAME, BACKEND_NAME } from '../branding.ts';
+import { userIdOf } from '../actors.ts';
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
 import { getProjectPromptContext } from '../projects/index.ts';
 import type { ProjectPromptContext } from '../projects/types.ts';
@@ -174,7 +175,7 @@ export class PiAgent extends BaseAgent {
 
   // Subprocess process handle
   private subprocess: ChildProcess | null = null;
-  private readline: ReadlineInterface | null = null;
+  private stopReadingStdout: (() => void) | null = null;
   private subprocessReady: Promise<void> | null = null;
   private subprocessReadyResolve: (() => void) | null = null;
 
@@ -470,7 +471,7 @@ export class PiAgent extends BaseAgent {
     // refreshAndPushTokens guards this.subprocess internally — safe to call pre-spawn.
     if (this.config.authType === 'oauth' && runtime.piAuthProvider === 'github-copilot') {
       const slug = this.config.connectionSlug || 'pi';
-      const stored = await getCredentialManager().getLlmOAuth(slug);
+      const stored = await getCredentialManager().getLlmOAuth(slug, this.config.connectionScope);
       if (stored?.refreshToken && (!stored.expiresAt || stored.expiresAt < Date.now() + 5 * 60_000)) {
         this.debug('Copilot token expired or expiring soon — refreshing before session start');
         await this.refreshAndPushTokens();
@@ -509,14 +510,14 @@ export class PiAgent extends BaseAgent {
 
     this.subprocess = child;
 
-    // Set up readline for JSONL parsing from stdout
-    this.readline = createInterface({
-      input: child.stdout!,
-      crlfDelay: Infinity,
-    });
-
-    this.readline.on('line', (line: string) => {
-      this.handleLine(line);
+    // JSONL from stdout, split on "\n" only (readline would also split on U+2028 / U+2029)
+    this.stopReadingStdout = readLines(child.stdout!, {
+      onLine: (line) => this.handleLine(line),
+      onError: (error) => {
+        this.debug(`Subprocess stdout framing failed: ${error.message}`);
+        this.eventQueue.enqueue({ type: 'error', message: `Pi subprocess error: ${error.message}` });
+        this.eventQueue.complete();
+      },
     });
 
     // Always capture stderr into a bounded ring buffer so callers (e.g. the
@@ -652,7 +653,7 @@ export class PiAgent extends BaseAgent {
       const slug = this.config.connectionSlug || 'pi';
 
       if (this.config.authType === 'oauth') {
-        const oauth = await credentialManager.getLlmOAuth(slug);
+        const oauth = await credentialManager.getLlmOAuth(slug, this.config.connectionScope);
         if (oauth?.accessToken) {
           // Copilot: pass full OAuth credential so the Pi SDK can derive the
           // correct API endpoint from the Copilot token's proxy-ep field.
@@ -681,7 +682,7 @@ export class PiAgent extends BaseAgent {
         // AWS IAM credentials — pass structured fields so the subprocess can
         // identify the credential type. Actual AWS env var injection happens
         // at spawn time (see spawnSubprocess) for proper process isolation.
-        const iam = await credentialManager.getLlmIamCredentials(slug);
+        const iam = await credentialManager.getLlmIamCredentials(slug, this.config.connectionScope);
         if (iam) {
           this.debug(`Retrieved IAM credentials for Pi provider: ${piAuthProvider}`);
           return {
@@ -700,7 +701,7 @@ export class PiAgent extends BaseAgent {
         // NOTE: authType === 'environment' (e.g. Bedrock with ~/.aws/credentials)
         // intentionally falls through here, finds no API key, and returns null.
         // The subprocess gets the host's provider credentials (HOST_PROVIDER_ENV), e.g. the AWS credential chain.
-        const apiKey = await credentialManager.getLlmApiKey(slug);
+        const apiKey = await credentialManager.getLlmApiKey(slug, this.config.connectionScope);
         if (apiKey) {
           this.debug(`Retrieved API key credential for Pi provider: ${piAuthProvider}`);
           return {
@@ -784,7 +785,7 @@ export class PiAgent extends BaseAgent {
     const refreshPromise = (async () => {
       const piAuthProvider = getBackendRuntime(this.config).piAuthProvider;
       const credentialManager = getCredentialManager();
-      const stored = await credentialManager.getLlmOAuth(slug);
+      const stored = await credentialManager.getLlmOAuth(slug, this.config.connectionScope);
 
       if (!stored?.refreshToken) {
         this.debug('No refresh token available — re-auth required');
@@ -801,7 +802,7 @@ export class PiAgent extends BaseAgent {
             accessToken: newCreds.access,
             refreshToken: newCreds.refresh,
             expiresAt: newCreds.expires,
-          });
+          }, this.config.connectionScope);
         } else {
           // ChatGPT Plus: use existing refresh utility
           const newTokens = await refreshChatGptTokens(stored.refreshToken);
@@ -810,7 +811,7 @@ export class PiAgent extends BaseAgent {
             idToken: newTokens.idToken,
             refreshToken: newTokens.refreshToken,
             expiresAt: newTokens.expiresAt,
-          });
+          }, this.config.connectionScope);
         }
         this.debug('Token refresh successful');
 
@@ -852,17 +853,16 @@ export class PiAgent extends BaseAgent {
       const credentialManager = getCredentialManager();
       const slug = this.config.connectionSlug || 'pi';
 
-      // Try LLM OAuth first (for OAuth-based connections)
-      const oauth = await credentialManager.getLlmOAuth(slug);
+      // OAuth first (for OAuth-based connections), then the connection's API key
+      const oauth = await credentialManager.getLlmOAuth(slug, this.config.connectionScope);
       if (oauth?.accessToken) {
         this.debug('Retrieved API key from LLM OAuth');
         return oauth.accessToken;
       }
 
-      // Try Anthropic API key
-      const apiKey = await credentialManager.getApiKey();
+      const apiKey = await credentialManager.getLlmApiKey(slug, this.config.connectionScope);
       if (apiKey) {
-        this.debug('Retrieved Anthropic API key');
+        this.debug('Retrieved API key from the connection');
         return apiKey;
       }
 
@@ -1506,6 +1506,7 @@ export class PiAgent extends BaseAgent {
       sessionId,
       workspacePath,
       workspaceId,
+      userId: userIdOf(this.config.session?.createdBy),
       onPlanSubmitted: (planPath: string) => {
         setLastPlanFilePath(sessionId, planPath);
         this.onPlanSubmitted?.(planPath);
@@ -1772,7 +1773,7 @@ export class PiAgent extends BaseAgent {
     this.debug(`Pi subprocess exited: code=${code}, signal=${signal}`);
 
     this.subprocess = null;
-    this.readline = null;
+    this.stopReadingStdout = null;
     this.resetSubprocessErrorDedup();
     this.subprocessReady = null;
     this.subprocessReadyResolve = null;
@@ -2079,8 +2080,9 @@ export class PiAgent extends BaseAgent {
       // Build system prompt from a pinned session snapshot. Pi folds stable
       // blocks into its cached system prefix, so changing these mid-session
       // would silently churn cache and diverge from Claude's behavior.
-      const currentPreferencesPrompt = formatPreferencesForPrompt();
-      const currentIncludeCoAuthoredBy = getCoAuthorPreference();
+      const userId = userIdOf(this.config.session?.createdBy);
+      const currentPreferencesPrompt = formatPreferencesForPrompt(userId);
+      const currentIncludeCoAuthoredBy = getCoAuthorPreference(userId);
       const currentProjectContext = this.resolveProjectContext();
 
       if (this.pinnedPreferencesPrompt === null) {
@@ -2567,10 +2569,8 @@ export class PiAgent extends BaseAgent {
       ]);
     }
 
-    if (this.readline) {
-      this.readline.close();
-      this.readline = null;
-    }
+    this.stopReadingStdout?.();
+    this.stopReadingStdout = null;
     if (this.subprocess === child) {
       this.subprocess = null;
     }
@@ -2601,10 +2601,8 @@ export class PiAgent extends BaseAgent {
     this.cancelPendingCompactions();
     this.rejectAllPendingEphemeral(new Error('Pi subprocess stopped'));
 
-    if (this.readline) {
-      this.readline.close();
-      this.readline = null;
-    }
+    this.stopReadingStdout?.();
+    this.stopReadingStdout = null;
 
     if (this.subprocess) {
       // Try graceful shutdown first

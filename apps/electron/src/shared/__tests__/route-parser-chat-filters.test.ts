@@ -23,10 +23,8 @@ describe('Chats filters in the route string', () => {
     expect(state.details).toEqual({ type: 'session', sessionId: 'abc' })
   })
 
-  it('has empty filters on the plain index and on a view', () => {
+  it('has empty filters on the plain index', () => {
     expect(sessions('allSessions').filters).toEqual(EMPTY_CHAT_FILTERS)
-    expect(sessions('view/v').filters).toEqual(EMPTY_CHAT_FILTERS)
-    expect(sessions('view/v').filter).toEqual({ kind: 'view', viewId: 'v' })
   })
 
   it('keeps the older single filter field: the first status, label, flagged, archived', () => {
@@ -65,7 +63,6 @@ describe('Chats filters in the route string', () => {
 
   it('builds the query form from a state that has only the older filter', () => {
     expect(buildRouteFromNavigationState({ navigator: 'sessions', filter: { kind: 'state', stateId: 'todo' }, details: null })).toBe('allSessions?status=todo')
-    expect(buildRouteFromNavigationState({ navigator: 'sessions', filter: { kind: 'view', viewId: 'v' }, details: { type: 'session', sessionId: 's' } })).toBe('view/v/session/s')
   })
 })
 

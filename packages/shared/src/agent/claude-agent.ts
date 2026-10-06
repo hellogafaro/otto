@@ -15,7 +15,7 @@ import type { BackendConfig, PostInitResult } from './backend/types.ts';
 import { parseError, type AgentError } from './errors.ts';
 import { mapClaudeSdkAssistantError, type ClaudeSdkApiError } from './claude-sdk-error-mapper.ts';
 import { runErrorDiagnostics } from './diagnostics.ts';
-import { loadConfigDefaults, type Workspace, type AuthType, getDefaultLlmConnection, getLlmConnection } from '../config/storage.ts';
+import { loadConfigDefaults, type Workspace, type AuthType, contextOfScope, getLlmConnection } from '../config/storage.ts';
 import { getValidClaudeOAuthToken } from '../auth/state.ts';
 import {
   clearClaudeBedrockRoutingEnvVars,
@@ -27,6 +27,7 @@ import type { SessionConfig as Session } from '../sessions/storage.ts';
 import { getProjectPromptContext } from '../projects/index.ts';
 import { DEFAULT_MODEL, isClaudeModel, isAdaptiveThinkingAlwaysOnModel, getDefaultSummarizationModel, getModelContextWindow } from '../config/models.ts';
 import { getCredentialManager } from '../credentials/index.ts';
+import { userIdOf } from '../actors.ts';
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
 import type { FileAttachment } from '../utils/files.ts';
 import type { LLMQueryRequest, LLMQueryResult } from './llm-tool.ts';
@@ -914,7 +915,7 @@ export class ClaudeAgent extends BaseAgent {
       return { authInjected: false, authWarning: 'No connection slug available', authWarningLevel: 'error' };
     }
 
-    const connection = getLlmConnection(slug);
+    const connection = getLlmConnection(slug, contextOfScope(this.config.connectionScope));
     if (!connection) {
       return { authInjected: false, authWarning: `Connection not found: ${slug}`, authWarningLevel: 'error' };
     }
@@ -929,7 +930,7 @@ export class ClaudeAgent extends BaseAgent {
 
     // Resolve auth env vars via shared utility
     const manager = getCredentialManager();
-    const result = await resolveAuthEnvVars(connection, slug, manager, getValidClaudeOAuthToken);
+    const result = await resolveAuthEnvVars(connection, slug, manager, getValidClaudeOAuthToken, connection.scope);
 
     if (!result.success) {
       return { authInjected: false, authWarning: result.warning, authWarningLevel: 'error' };
@@ -1008,8 +1009,9 @@ export class ClaudeAgent extends BaseAgent {
 
       // Pin system prompt components on first chat() call for consistency after compaction
       // The SDK's resume mechanism expects system prompt consistency within a session
-      const currentPreferencesPrompt = formatPreferencesForPrompt();
-      const currentCoAuthorPref = getCoAuthorPreference();
+      const userId = userIdOf(this.config.session?.createdBy);
+      const currentPreferencesPrompt = formatPreferencesForPrompt(userId);
+      const currentCoAuthorPref = getCoAuthorPreference(userId);
 
       if (this.pinnedPreferencesPrompt === null) {
         // First chat in this session - pin current values
@@ -1082,7 +1084,7 @@ export class ClaudeAgent extends BaseAgent {
       // Build full MCP servers set first, then filter for mini agents
       const fullMcpServers: Options['mcpServers'] = {
         // Session-scoped tools (SubmitPlan, source_test, update_user_preferences, transform_data, etc.)
-        session: getSessionScopedTools(sessionId, this.workspaceRootPath),
+        session: getSessionScopedTools(sessionId, this.workspaceRootPath, undefined, userId),
         // Per-source proxy servers from centralized MCP pool (MCP + API sources)
         // Each source gets its own SDK server keyed by slug (e.g., 'linear', 'github', 'gmail')
         // so the SDK produces correct tool names: mcp__{slug}__{toolName}
@@ -1100,8 +1102,7 @@ export class ClaudeAgent extends BaseAgent {
       const model = this._model;
 
       // Log provider context for diagnostics (custom base URL = third-party provider)
-      const defaultConnSlug = getDefaultLlmConnection();
-      const defaultConn = defaultConnSlug ? getLlmConnection(defaultConnSlug) : null;
+      const defaultConn = this.config.connectionSlug ? getLlmConnection(this.config.connectionSlug, contextOfScope(this.config.connectionScope)) : null;
       const activeBaseUrl = defaultConn?.baseUrl;
       if (activeBaseUrl) {
         debug(`[chat] Custom provider: baseUrl=${activeBaseUrl}, model=${model}, hasApiKey=${!!process.env.ANTHROPIC_API_KEY}`);
@@ -2262,9 +2263,7 @@ This is a branched conversation. All prior messages in this conversation are par
 
           // Run diagnostics to identify specific cause (2s timeout)
           // Derive authType from the default LLM connection
-          const { getDefaultLlmConnection, getLlmConnection } = await import('../config/storage.ts');
-          const defaultConnSlug = getDefaultLlmConnection();
-          const connection = defaultConnSlug ? getLlmConnection(defaultConnSlug) : null;
+          const connection = this.config.connectionSlug ? getLlmConnection(this.config.connectionSlug, contextOfScope(this.config.connectionScope)) : null;
           // Map connection authType to legacy AuthType format for diagnostics
           let diagnosticAuthType: AuthType | undefined;
           if (connection) {

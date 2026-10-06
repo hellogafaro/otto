@@ -23,7 +23,7 @@ otto <entity> <action> [args] [--flags] [--json '<json>'] [--stdin]
 <!-- cli:label:start -->
 ## Label
 
-Manage workspace labels stored under `labels/`.
+Manage workspace labels.
 
 ### Commands
 - `otto label list`
@@ -226,7 +226,7 @@ otto automation validate
 # Simple prompt automation with flat flags
 otto automation create --event UserPromptSubmit --prompt "Summarize this prompt"
 # Scheduled automation with flat flags
-otto automation create --event SchedulerTick --cron "0 9 * * 1-5" --timezone "Europe/Budapest" --prompt "Give me a morning briefing" --labels "Scheduled" --permission-mode safe
+otto automation create --event SchedulerTick --cron "0 9 * * 1-5" --timezone "Europe/Budapest" --prompt "Give me a morning briefing" --labels "scheduled" --permission-mode safe
 # Complex automation with --json
 otto automation create --event SchedulerTick --json '{"cron":"0 9 * * 1-5","actions":[{"type":"prompt","prompt":"Daily summary"}]}'
 otto automation update abc123 --name "Morning Report" --prompt "Updated prompt"
@@ -253,7 +253,7 @@ otto automation delete abc123
 <!-- cli:permission:start -->
 ## Permission
 
-Manage Explore mode permissions stored in `permissions.json` (workspace-level and per-source).
+Manage Explore mode permissions (workspace rules and each source's `permissions.json`).
 
 ### Commands
 - `otto permission list`
@@ -269,7 +269,7 @@ Manage Explore mode permissions stored in `permissions.json` (workspace-level an
 
 ### Scope
 
-Without `--source`: operates on workspace-level `permissions.json` (global rules).
+Without `--source`: operates on the workspace rules (global).
 With `--source <slug>`: operates on that source's `permissions.json` (auto-scoped).
 
 ### Examples

@@ -9,6 +9,7 @@
 import * as React from 'react'
 import { Calendar, Download, Folder, HardDrive, PanelRight, Shapes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
 import { PageCenterpiece, PageColumn } from '@workspace/ui/components/page'
 import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
@@ -99,6 +100,7 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
   const { open: sidecarOpen, toggleSidecar } = useSidecar()
   const download = useDownload()
   const item = items.find((entry) => entry.id === itemId)
+  useComposerContext({ key: `library:${itemId}`, entity: `library:${itemId}`, placeholder: t(item?.type === 'document' ? 'composer.placeholder.document' : 'composer.placeholder.file') })
   const seen = React.useRef(false)
   if (item) seen.current = true
 

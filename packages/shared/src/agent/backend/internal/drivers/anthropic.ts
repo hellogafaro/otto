@@ -118,7 +118,7 @@ export const anthropicDriver: ProviderDriver = {
 
     if (connection.providerType === 'anthropic' && connection.authType === 'oauth') {
       const { getValidClaudeOAuthToken } = await import('../../../../auth/state.ts');
-      const tokenResult = await getValidClaudeOAuthToken(slug);
+      const tokenResult = await getValidClaudeOAuthToken(slug, connection.scope);
       if (!tokenResult.accessToken) {
         const errorMsg = tokenResult.migrationRequired?.message || 'OAuth token expired. Please re-authenticate.';
         return { success: false, error: errorMsg };
@@ -130,9 +130,9 @@ export const anthropicDriver: ProviderDriver = {
     let oauthToken: string | null = null;
 
     if (connection.authType === 'api_key' || connection.authType === 'api_key_with_endpoint') {
-      apiKey = await credentialManager.getLlmApiKey(slug);
+      apiKey = await credentialManager.getLlmApiKey(slug, connection.scope);
     } else if (connection.authType === 'bearer_token') {
-      oauthToken = await credentialManager.getLlmApiKey(slug);
+      oauthToken = await credentialManager.getLlmApiKey(slug, connection.scope);
     } else if (connection.authType === 'environment') {
       apiKey = process.env.ANTHROPIC_API_KEY || null;
       if (!apiKey) {

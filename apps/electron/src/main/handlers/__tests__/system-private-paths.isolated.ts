@@ -38,7 +38,7 @@ const dirs: string[] = []
 beforeAll(async () => {
   const db = initDb()
   await pushSchema(db)
-  saveConfig({ workspaces: [], activeWorkspaceId: null, activeSessionId: null })
+  saveConfig({ workspaces: [] })
   const now = new Date()
   for (const id of ['u1', 'u2']) db.insert(users).values({ id, name: id, email: `${id}@example.com`, createdAt: now, updatedAt: now }).run()
   const a = addWorkspace({ name: 'A', rootPath: join(configDir, 'workspaces', 'a') })

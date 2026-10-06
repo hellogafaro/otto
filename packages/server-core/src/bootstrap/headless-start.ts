@@ -9,6 +9,9 @@ import { ensureConfigDir, loadStoredConfig, saveConfig } from '@otto/shared/conf
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { setBundledAssetsRoot } from '@otto/shared/utils'
 import { initUsersStore } from '@otto/shared/users'
+import { initSettingsImport } from '@otto/shared/settings'
+import { initConnectionsImport } from '@otto/shared/connections/import'
+import { initLabelsStatusesImport } from '@otto/shared/labels/import'
 import { getWorkspaceOwnerIds } from '@otto/shared/workspaces'
 import { authorize } from './authorize.ts'
 import { createIdentityValidators } from './identity.ts'
@@ -325,8 +328,6 @@ function ensureGlobalConfigExists(platform: PlatformServices): void {
 
   saveConfig({
     workspaces: [],
-    activeWorkspaceId: null,
-    activeSessionId: null,
   })
   platform.logger.info('[bootstrap] Initialized missing global config')
 }
@@ -363,6 +364,14 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   // Who signs in; makes the workspaces table match the registry and keeps the first user their owner.
   const users = initUsersStore()
   users.initFirstOwner()
+  // Before anything reads a setting: config.json and preferences.json become settings, once.
+  const imported = initSettingsImport()
+  if (imported.imported || imported.skipped) platform.logger.info(`[bootstrap] imported ${imported.imported} settings, ${imported.skipped} skipped`)
+  // The AI connections of config.json and credentials.enc become rows with their secrets, once.
+  const connections = await initConnectionsImport()
+  if (connections.imported || connections.skipped) platform.logger.info(`[bootstrap] imported ${connections.imported} connections, ${connections.skipped} skipped`)
+  // The labels, statuses and permission rules of each workspace's files become rows, once per workspace.
+  initLabelsStatusesImport()
   if (users.needsOwner() && !process.env.OTTO_OWNER_EMAIL?.trim()) {
     platform.logger.warn('[bootstrap] The first sign-up will own this server; set OTTO_OWNER_EMAIL to restrict it')
   }

@@ -1,6 +1,9 @@
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
+import { INSTALL_SCOPE, getConnection, narrowContext, userScope, workspaceScope } from '@otto/shared/connections'
 import { RPC_CHANNELS as C } from '@otto/shared/protocol'
+import { CATALOGUE, getEntityKind, userEntity } from '@otto/shared/settings'
 import { domainError } from '@otto/shared/utils'
+import { getFirstUser } from '@otto/shared/users/queries'
 import { getMemberRole, type WorkspaceRole } from '@otto/shared/workspaces'
 
 /**
@@ -21,16 +24,11 @@ export const WORKSPACE_ARG_CHANNELS = new Map<string, number>([
     C.automations.GET, C.automations.TEST, C.automations.SET_ENABLED, C.automations.DUPLICATE, C.automations.DELETE,
     C.automations.GET_HISTORY, C.automations.GET_LAST_EXECUTED, C.automations.REPLAY,
     C.labels.LIST, C.labels.CREATE, C.labels.DELETE,
-    C.pages.GET, C.pages.GET_ONE, C.pages.CREATE, C.pages.UPDATE, C.pages.DELETE, C.pages.GET_CONTENT, C.pages.SET_CONTENT,
-    C.pages.GET_DATA, C.pages.GET_THUMBNAIL, C.pages.REGENERATE_THUMBNAIL, C.pages.CREATE_LEASE, C.pages.RELEASE_LEASE,
-    C.pages.EXECUTE_ACTION, C.pages.CANCEL_ACTION, C.pages.ISSUE_GRANT, C.pages.LIST_GRANTS, C.pages.REVOKE_GRANT,
-    C.pages.PUBLISH, C.pages.UNPUBLISH, C.pages.SET_PUBLICATION_PASSWORD, C.pages.GET_SHARE_DATA_SCAN,
     C.resources.EXPORT, C.resources.IMPORT,
     C.sessions.CREATE, C.sessions.IMPORT, C.sessions.IMPORT_REMOTE_TRANSFER, C.sessions.MARK_ALL_READ, C.sessions.SEARCH_CONTENT,
     C.skills.GET, C.skills.GET_FILES, C.skills.DELETE, C.skills.OPEN_EDITOR, C.skills.OPEN_FINDER,
     C.sources.GET, C.sources.CREATE, C.sources.DELETE, C.sources.GET_MCP_TOOLS, C.sources.GET_PERMISSIONS, C.sources.SAVE_CREDENTIALS,
     C.statuses.LIST, C.statuses.REORDER,
-    C.views.LIST, C.views.SAVE,
     C.window.SWITCH_WORKSPACE,
     C.workspace.GET_PERMISSIONS, C.workspace.READ_IMAGE, C.workspace.WRITE_IMAGE, C.workspace.SETTINGS_GET, C.workspace.SETTINGS_UPDATE,
     C.workspaces.UPDATE_REMOTE, C.workspaces.GET_MEMBERS, C.workspaces.GET_INVITATIONS, C.workspaces.INVITE,
@@ -41,7 +39,7 @@ export const WORKSPACE_ARG_CHANNELS = new Map<string, number>([
   [C.notification.SHOW, 2],
 ])
 
-/** Channels only an owner of the named workspace may call: members and invitations, workspace settings. (`workspaces:revokeInvitation` takes an invitation id and checks in its handler.) */
+/** Channels only an owner of the named workspace may call: members and invitations, workspace settings, labels and statuses (members read them). (`workspaces:revokeInvitation` takes an invitation id and checks in its handler.) */
 export const OWNER_CHANNELS = new Set<string>([
   C.workspaces.GET_INVITATIONS,
   C.workspaces.INVITE,
@@ -49,6 +47,61 @@ export const OWNER_CHANNELS = new Set<string>([
   C.workspaces.UPDATE_MEMBER_ROLE,
   C.workspace.SETTINGS_UPDATE,
   C.workspaces.UPDATE_REMOTE,
+  C.llmConnections.SET_WORKSPACE_DEFAULT,
+  C.labels.CREATE,
+  C.labels.DELETE,
+  C.statuses.REORDER,
+])
+
+/**
+ * Channels only the instance owner may call: they write `install` settings (or read one that holds a secret).
+ * The instance owner is the first user (the earliest account): the owner of every workspace in a single-workspace
+ * install, who `OTTO_SERVER_TOKEN` and the desktop app act as. Everyone else, workspace owners included, is refused.
+ */
+export const INSTANCE_OWNER_CHANNELS = new Set<string>([
+  C.settings.SET_DEFAULT_THINKING_LEVEL,
+  C.settings.GET_SERVER_CONFIG,
+  C.settings.SET_SERVER_CONFIG,
+  C.settings.GET_SERVER_STATUS,
+  C.power.SET_KEEP_AWAKE,
+  C.update.DISMISS,
+  C.decisions.SET_SETTINGS,
+  C.gitbash.SET_PATH,
+  C.onboarding.DEFER_SETUP,
+])
+
+/**
+ * Channels that write a connection or its credential (or reveal its masked key): sign-in flows, setup, save, delete,
+ * test, model refresh. Value: the index of the argument that names the connection, a slug or an object with a
+ * `slug` (`connectionSlug` for a setup test); the channels with no argument act on the install. Who may call them
+ * follows the connection's scope: the instance owner for the install's, the owners of the workspace for a workspace's,
+ * the person for their own.
+ * A new connection is the caller's own unless its setup asks for `scope: 'workspace'` (in the connection's workspace) or `'install'`.
+ */
+export const CONNECTION_WRITE_CHANNELS = new Map<string, number>([
+  [C.settings.SETUP_LLM_CONNECTION, 0],
+  [C.settings.TEST_LLM_CONNECTION_SETUP, 0],
+  [C.llmConnections.SAVE, 0],
+  [C.llmConnections.DELETE, 0],
+  [C.llmConnections.TEST, 0],
+  [C.llmConnections.SET_DEFAULT, 0],
+  [C.llmConnections.REFRESH_MODELS, 0],
+  [C.llmConnections.GET_API_KEY, 0],
+  [C.chatgpt.START_OAUTH, 0],
+  [C.chatgpt.CANCEL_OAUTH, 0],
+  [C.chatgpt.LOGOUT, 0],
+  [C.copilot.START_OAUTH, 0],
+  [C.copilot.CANCEL_OAUTH, 0],
+  [C.copilot.LOGOUT, 0],
+  [C.onboarding.START_CLAUDE_OAUTH, 0],
+  [C.onboarding.EXCHANGE_CLAUDE_CODE, 1],
+  [C.onboarding.CLEAR_CLAUDE_OAUTH_STATE, 0],
+])
+
+/** Channels that address any settings entity by name: `(entity, key, ...)`. */
+const SETTING_CHANNELS = new Map<string, 'read' | 'write'>([
+  [C.settings.GET_SETTING, 'read'],
+  [C.settings.UPDATE_SETTING, 'write'],
 ])
 
 const forbidden = (message: string) => domainError('forbidden', message)
@@ -64,6 +117,46 @@ export function assertOwner(userId: string | null, ref: string): void {
   if (!userId || getRoleIn(userId, ref) !== 'owner') throw forbidden('Only an owner of this workspace can do that')
 }
 
+export const isInstanceOwner = (userId: string): boolean => getFirstUser()?.id === userId
+
+/**
+ * Throws `forbidden` unless the caller may change the connection this argument names (see `CONNECTION_WRITE_CHANNELS`).
+ * Whose it is follows its scope: a person's own (`user:<id>`) only that person (a lookup never finds another's, the
+ * instance owner's included), a workspace's its owners, the install's the instance owner.
+ */
+function assertConnectionWrite(ctx: { userId: string; workspaceId: string | null }, arg: unknown): void {
+  const named = typeof arg === 'object' && arg !== null ? (arg as { slug?: unknown; connectionSlug?: unknown; scope?: unknown }) : undefined
+  const slug = typeof arg === 'string' ? arg : (named?.slug ?? named?.connectionSlug)
+  const kind = named?.scope === 'user' || named?.scope === 'workspace' || named?.scope === 'install' ? named.scope : undefined
+  const workspaceId = (ctx.workspaceId != null && getWorkspaceByNameOrId(ctx.workspaceId)?.id) || undefined
+  const where = narrowContext({ userId: ctx.userId, workspaceId }, kind)
+  const existing = typeof slug === 'string' ? getConnection(slug, where) : undefined
+  const scope = existing?.scope ?? (kind === 'install' ? INSTALL_SCOPE : kind === 'workspace' && workspaceId ? workspaceScope(workspaceId) : userScope(ctx.userId))
+  if (scope === INSTALL_SCOPE) {
+    if (!isInstanceOwner(ctx.userId)) throw forbidden('Only the owner of this server can do that')
+  } else if (scope.startsWith('workspace:') && getMemberRole(scope.slice('workspace:'.length), ctx.userId) !== 'owner') {
+    throw forbidden('Only an owner of this workspace can do that')
+  }
+}
+
+/**
+ * Who may read or write a settings entity. `user:<id>`: only that user, both ways. `workspace:<id>`: its members read,
+ * its owners write. `install`: any signed-in user reads the keys that hold no secret, only the instance owner writes
+ * (and reads the others). An entity that is not one, or an unknown key, is `invalid` (from the settings domain).
+ */
+export function assertSettingAccess(userId: string, entity: unknown, key: unknown, mode: 'read' | 'write'): void {
+  const kind = getEntityKind(entity as string)
+  if (kind === 'user') {
+    if (entity !== userEntity(userId)) throw forbidden('These are another user\'s settings')
+  } else if (kind === 'workspace') {
+    const role = getMemberRole((entity as string).slice('workspace:'.length), userId)
+    if (!role) throw forbidden('You are not a member of this workspace')
+    if (mode === 'write' && role !== 'owner') throw forbidden('Only an owner of this workspace can do that')
+  } else if ((mode === 'write' || CATALOGUE[key as keyof typeof CATALOGUE]?.sensitive) && !isInstanceOwner(userId)) {
+    throw forbidden('Only the owner of this server can do that')
+  }
+}
+
 /**
  * Throws `forbidden` unless the caller may make this request. Without a channel it checks a connection
  * (the handshake, a workspace switch): a signed-in user and, when the connection names a workspace, a member of it.
@@ -72,6 +165,14 @@ export function authorize(ctx: { userId: string | null; workspaceId: string | nu
   const { userId } = ctx
   if (!userId) throw forbidden('Sign in first')
   if (ctx.workspaceId != null && !getRoleIn(userId, ctx.workspaceId)) throw forbidden('You are not a member of this workspace')
+
+  if (channel !== undefined) {
+    if (INSTANCE_OWNER_CHANNELS.has(channel) && !isInstanceOwner(userId)) throw forbidden('Only the owner of this server can do that')
+    const mode = SETTING_CHANNELS.get(channel)
+    if (mode) assertSettingAccess(userId, args[0], args[1], mode)
+    const connectionArg = CONNECTION_WRITE_CHANNELS.get(channel)
+    if (connectionArg !== undefined) assertConnectionWrite({ userId, workspaceId: ctx.workspaceId }, args[connectionArg])
+  }
 
   const index = channel === undefined ? undefined : WORKSPACE_ARG_CHANNELS.get(channel)
   if (channel === undefined || index === undefined) return

@@ -209,6 +209,8 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.sessions.IMPORT,
   RPC_CHANNELS.sessions.EXPORT_REMOTE_TRANSFER,
   RPC_CHANNELS.sessions.IMPORT_REMOTE_TRANSFER,
+  // Sharing runs on the workspace server: it reads OTTO_VIEWER_URL.
+  RPC_CHANNELS.sessions.GET_SHARE_CAPABILITIES,
 
   // transfer — chunked large-payload import (sessions, resources)
   RPC_CHANNELS.transfer.START,
@@ -284,6 +286,8 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP,
   RPC_CHANNELS.settings.GET_DEFAULT_THINKING_LEVEL,
   RPC_CHANNELS.settings.SET_DEFAULT_THINKING_LEVEL,
+  RPC_CHANNELS.settings.GET_SETTING,
+  RPC_CHANNELS.settings.UPDATE_SETTING,
 
   // decisions — the decision layer's settings and keys live on the server whose sessions ask the
   // model (it can reuse that server's LLM connections); the Laya probe tests what that server reaches
@@ -346,17 +350,11 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   // statuses — workspace metadata
   RPC_CHANNELS.statuses.LIST,
   RPC_CHANNELS.statuses.REORDER,
-  RPC_CHANNELS.statuses.CHANGED,
 
   // labels — workspace metadata
   RPC_CHANNELS.labels.LIST,
   RPC_CHANNELS.labels.CREATE,
   RPC_CHANNELS.labels.DELETE,
-  RPC_CHANNELS.labels.CHANGED,
-
-  // views — workspace UI views
-  RPC_CHANNELS.views.LIST,
-  RPC_CHANNELS.views.SAVE,
 
   // toolIcons — workspace config
   RPC_CHANNELS.toolIcons.GET_MAPPINGS,
@@ -412,35 +410,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.notifications.CLEAR,
   RPC_CHANNELS.notifications.GET_UNREAD_COUNT,
   RPC_CHANNELS.domain.CHANGED,
-
-  // pages — workspace pages (mini dashboards)
-  RPC_CHANNELS.pages.GET,
-  RPC_CHANNELS.pages.GET_ONE,
-  RPC_CHANNELS.pages.CREATE,
-  RPC_CHANNELS.pages.UPDATE,
-  RPC_CHANNELS.pages.DELETE,
-  RPC_CHANNELS.pages.GET_CONTENT,
-  RPC_CHANNELS.pages.SET_CONTENT,
-  RPC_CHANNELS.pages.GET_DATA,
-  RPC_CHANNELS.pages.LIST_GRANTS,
-  RPC_CHANNELS.pages.ISSUE_GRANT,
-  RPC_CHANNELS.pages.REVOKE_GRANT,
-  RPC_CHANNELS.pages.CREATE_LEASE,
-  RPC_CHANNELS.pages.RELEASE_LEASE,
-  RPC_CHANNELS.pages.EXECUTE_ACTION,
-  RPC_CHANNELS.pages.CANCEL_ACTION,
-  // Sharing runs on the workspace server: it holds the page files, the vault
-  // token, and evaluates the OTTO_FEATURE_PAGES_SHARING flag.
-  RPC_CHANNELS.pages.GET_SHARE_CAPABILITIES,
-  RPC_CHANNELS.pages.GET_SHARE_DATA_SCAN,
-  RPC_CHANNELS.pages.PUBLISH,
-  RPC_CHANNELS.pages.SET_PUBLICATION_PASSWORD,
-  RPC_CHANNELS.pages.UNPUBLISH,
-  // Thumbnails: the poster file lives on the workspace server; regeneration is
-  // a no-op unless that host injected a capturer (Electron main).
-  RPC_CHANNELS.pages.GET_THUMBNAIL,
-  RPC_CHANNELS.pages.REGENERATE_THUMBNAIL,
-  RPC_CHANNELS.pages.CHANGED,
 
   // git — workspace filesystem
   RPC_CHANNELS.git.GET_BRANCH,

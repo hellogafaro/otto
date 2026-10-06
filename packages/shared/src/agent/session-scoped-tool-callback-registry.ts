@@ -63,6 +63,8 @@ export interface SessionScopedToolCallbacks {
   listSessionsFn?: (options?: import('@otto/session-tools-core').ListSessionsOptions) => import('@otto/session-tools-core').ListSessionsResult;
   /** List background tasks (running + terminal) for a session from the main-process registry. */
   listBackgroundTasksFn?: (sessionId?: string) => import('@otto/session-tools-core').BackgroundTaskInfo[];
+  /** labels_edit / statuses_edit / permissions_edit: edit the workspace's labels, statuses or permission rules as the chat's user (owners write). */
+  editWorkspaceConfigFn?: (domain: 'labels' | 'statuses' | 'permissions', args: Record<string, unknown>) => Promise<unknown>;
   /** Resolve label display names to IDs. */
   resolveLabelsFn?: (labels: string[]) => import('@otto/session-tools-core').ResolvedLabelsResult;
   /** Resolve a status display name to its ID. */
@@ -83,12 +85,6 @@ export interface SessionScopedToolCallbacks {
   getMessagingBindingsFn?: (sessionId: string) => Array<{ platform: string; channelId: string; threadId?: number; channelName?: string; enabled: boolean }>;
   /** Unbind messaging channels from a session. Returns count of removed bindings. */
   unbindMessagingChannelFn?: (sessionId: string, platform?: string) => number;
-  /**
-   * Pages tools (list/get/create/update/write data/delete) — grouped in one
-   * object because the six operations always ship together. Wired by
-   * SessionManager to the invoking session's workspace.
-   */
-  pages?: import('@otto/session-tools-core').PagesToolCallbacks;
   /**
    * Decision-layer callback for the `decide` tool (Jev / System One). Wired by
    * SessionManager from `@otto/shared/decisions`; gating (Settings switch,

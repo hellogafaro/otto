@@ -221,12 +221,8 @@ export interface ISessionManager {
    */
   notifyConfigFileChange(workspaceRootPath: string, relativePath: string): void
 
-  /**
-   * Request a (re)capture of a page's preview poster. No-op unless a capturer
-   * was injected (Electron main only); headless/WebUI hosts fall back to the
-   * placeholder tile.
-   */
-  enqueuePageThumbnail(workspaceId: string, workspaceRootPath: string, slug: string): void
+  /** Fires the `LabelConfigChange` automation event of a workspace after its labels were edited. */
+  emitLabelConfigChange(workspaceId: string): void
 
   // ---------------------------------------------------------------------------
   // Server-level observability
@@ -243,7 +239,7 @@ export interface ISessionManager {
   // Auth
   // ---------------------------------------------------------------------------
 
-  reinitializeAuth(connectionSlug?: string): Promise<void>
+  reinitializeAuth(connectionSlug?: string, where?: { workspaceId?: string | null; userId?: string | null }): Promise<void>
   /**
    * Push runtime updates (e.g. capability toggles) to every active session
    * that uses the given connection. Backstopped by the lazy refresh path in

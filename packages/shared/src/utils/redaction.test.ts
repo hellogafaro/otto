@@ -1,6 +1,6 @@
 /**
- * Tests for the shared secret-redaction utilities (used by both Sentry
- * beforeSend hooks and the Pages action audit log).
+ * Tests for the shared secret-redaction utilities (used by the Sentry
+ * beforeSend hooks).
  */
 
 import { describe, it, expect } from 'bun:test';

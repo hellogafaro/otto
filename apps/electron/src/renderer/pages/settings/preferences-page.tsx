@@ -1,7 +1,7 @@
 /**
  * PreferencesPage
  *
- * Form-based editor for stored user preferences (~/.otto/preferences.json).
+ * Form-based editor for the user's preferences (name, email, settings).
  * Features:
  * - Fixed input fields for known preferences (name, email, timezone, location, language)
  * - Free-form textarea for notes
@@ -19,7 +19,6 @@ import {
   SettingsInput,
   SettingsTextarea,
 } from '@/components/settings'
-import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 
 export const meta: DetailsPageMeta = {
@@ -107,7 +106,6 @@ export default function PreferencesPage() {
   const { t } = useTranslation()
   const [formState, setFormState] = useState<PreferencesFormState>(emptyFormState)
   const [isLoading, setIsLoading] = useState(true)
-  const [preferencesPath, setPreferencesPath] = useState<string | null>(null)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isInitialLoadRef = useRef(true)
   const formStateRef = useRef(formState)
@@ -128,7 +126,6 @@ export default function PreferencesPage() {
         const parsed = toFormState(stored)
         storedRef.current = stored
         setFormState(parsed)
-        setPreferencesPath(result.path)
         lastSavedRef.current = JSON.stringify(buildPreferences(parsed, stored))
       } catch (err) {
         console.error('Failed to load stored user preferences:', err)
@@ -278,19 +275,6 @@ export default function PreferencesPage() {
           <SettingsSection
             title={t("settings.preferences.notes")}
             description={t("settings.preferences.notesDesc")}
-            action={
-              // EditPopover for AI-assisted notes editing with "Edit File" as secondary action
-              preferencesPath ? (
-                <EditPopover
-                  trigger={<EditButton />}
-                  {...getEditConfig('preferences-notes', preferencesPath)}
-                  secondaryAction={{
-                    label: t("common.editFile"),
-                    filePath: preferencesPath!,
-                  }}
-                />
-              ) : null
-            }
           >
             <SettingsCard>
               <SettingsTextarea

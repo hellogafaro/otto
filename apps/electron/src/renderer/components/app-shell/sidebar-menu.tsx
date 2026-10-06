@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { useMenuComponents } from '@/components/ui/menu-context'
 
-export type SidebarMenuType = 'allSessions' | 'flagged' | 'status' | 'sources' | 'skills' | 'automations' | 'projects' | 'labels' | 'views'
+export type SidebarMenuType = 'allSessions' | 'flagged' | 'status' | 'sources' | 'skills' | 'automations' | 'projects' | 'labels'
 
 export interface SidebarMenuProps {
   /** Type of sidebar item (determines available menu items) */
@@ -49,12 +49,6 @@ export interface SidebarMenuProps {
   onAddAutomation?: () => void
   /** Handler for "Add Project" action - only for projects type */
   onAddProject?: () => void
-  /** Handler for "Edit Views" action - for views type */
-  onConfigureViews?: () => void
-  /** View ID — when set, this is an individual view (enables Delete) */
-  viewId?: string
-  /** Handler for "Delete View" action */
-  onDeleteView?: (id: string) => void
 }
 
 /**
@@ -74,9 +68,6 @@ export function SidebarMenu({
   onAddSkill,
   onAddAutomation,
   onAddProject,
-  onConfigureViews,
-  viewId,
-  onDeleteView,
 }: SidebarMenuProps) {
   const { t } = useTranslation()
 
@@ -128,29 +119,6 @@ export function SidebarMenu({
             <MenuItem onClick={() => onDeleteLabel(labelId)}>
               <Trash2 className="h-3.5 w-3.5" />
               <span className="flex-1">{t("sidebarMenu.deleteLabel")}</span>
-            </MenuItem>
-          </>
-        )}
-      </>
-    )
-  }
-
-  // Views: show "Edit Views" and optionally "Delete View"
-  if (type === 'views') {
-    return (
-      <>
-        {onConfigureViews && (
-          <MenuItem onClick={onConfigureViews}>
-            <Settings2 className="h-3.5 w-3.5" />
-            <span className="flex-1">{t("sidebarMenu.editViews")}</span>
-          </MenuItem>
-        )}
-        {viewId && onDeleteView && (
-          <>
-            <Separator />
-            <MenuItem onClick={() => onDeleteView(viewId)}>
-              <Trash2 className="h-3.5 w-3.5" />
-              <span className="flex-1">{t("sidebarMenu.deleteView")}</span>
             </MenuItem>
           </>
         )}

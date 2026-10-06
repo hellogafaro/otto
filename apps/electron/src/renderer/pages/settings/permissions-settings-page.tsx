@@ -3,14 +3,15 @@
  *
  * Displays permissions configuration for Explore mode.
  * Shows both default patterns (from ~/.otto/permissions/default.json)
- * and custom workspace additions (from workspace permissions.json).
+ * and custom workspace additions (stored in the database).
  *
  * Default patterns can be edited by the user in ~/.otto/permissions/default.json.
- * Custom patterns can be edited via workspace permissions.json file.
+ * Custom patterns are edited by asking the agent (permissions_edit tool); the page reloads on `domain:changed`.
  */
 
 import { SettingsPage } from '@/components/settings/settings-page'
 import { useState, useEffect, useMemo } from 'react'
+import { useLiveData } from '@/hooks/use-live-data'
 import { useTranslation } from 'react-i18next'
 import { Spinner } from '@otto/ui'
 import { useAppShellContext, useActiveWorkspace } from '@/context/app-shell-context'
@@ -81,7 +82,7 @@ function buildDefaultPermissionsData(config: PermissionsConfigFile | null): Perm
 }
 
 /**
- * Build custom permissions data from workspace permissions.json.
+ * Build custom permissions data from the workspace permission rules.
  * These are user-added patterns that extend the defaults.
  */
 function buildCustomPermissionsData(config: PermissionsConfigFile, fallbackLabels: { blockedTool: string; bashPattern: string; mcpPattern: string; apiEndpoint: string; writePath: string }): PermissionRow[] {
@@ -148,7 +149,7 @@ export default function PermissionsSettingsPage() {
     writePath: t("settings.permissions.allowedWritePath"),
   }), [t])
 
-  // Build custom permissions data from workspace permissions.json
+  // Build custom permissions data from the workspace rules
   const customPermissionsData = useMemo(() => {
     if (!customConfig) return []
     return buildCustomPermissionsData(customConfig, permissionFallbackLabels)
@@ -183,6 +184,16 @@ export default function PermissionsSettingsPage() {
 
     loadPermissions()
   }, [activeWorkspaceId])
+
+  // Reload the workspace rules when they change (the agent edits them with permissions_edit)
+  useLiveData('permissions', activeWorkspaceId, async () => {
+    if (!activeWorkspaceId) return
+    try {
+      setCustomConfig(await window.electronAPI.getWorkspacePermissionsConfig(activeWorkspaceId))
+    } catch (error) {
+      console.error('Failed to reload workspace permissions:', error)
+    }
+  })
 
   // Listen for default permissions changes (file watcher)
   useEffect(() => {
@@ -270,10 +281,6 @@ export default function PermissionsSettingsPage() {
                             example={example}
                             context={context}
                             displayLabel={displayLabel}
-                            secondaryAction={activeWorkspace ? {
-                              label: t("common.editFile"),
-                              filePath: `${activeWorkspace.rootPath}/permissions.json`,
-                            } : undefined}
                           />
                         )
                       })()

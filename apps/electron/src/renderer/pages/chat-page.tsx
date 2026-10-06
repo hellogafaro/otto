@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AlertCircle, Globe, Copy, RefreshCw, Link2Off, Info } from 'lucide-react'
 import { ChatDisplay } from '@/components/app-shell/chat-display'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { HeaderMoreButton, PageHeader } from '@/components/app-shell/page-header'
 import { SessionMenu } from '@/components/app-shell/session-menu'
 import { CompactSessionMenu } from '@/components/app-shell/compact-session-menu'
@@ -37,6 +38,8 @@ export interface ChatPageProps {
 
 const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   const { t } = useTranslation()
+  // The chat and the new chat (an empty chat) are full: their own input still draws it until W2 (docs/composer.md).
+  useComposerContext({ key: `chat:${sessionId}`, mode: 'full' })
   // Diagnostic: mark when component runs
   React.useLayoutEffect(() => {
     rendererPerf.markSessionSwitch(sessionId, 'panel.mounted')

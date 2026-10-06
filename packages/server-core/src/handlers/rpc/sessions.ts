@@ -129,6 +129,7 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.sessions.IMPORT,
   RPC_CHANNELS.sessions.EXPORT_REMOTE_TRANSFER,
   RPC_CHANNELS.sessions.IMPORT_REMOTE_TRANSFER,
+  RPC_CHANNELS.sessions.GET_SHARE_CAPABILITIES,
 ] as const
 
 export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): void {
@@ -581,5 +582,11 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
     await sessionManager.waitForInit()
     if (!targetWorkspaceId || typeof targetWorkspaceId !== 'string') throw new Error('targetWorkspaceId is required')
     return sessionManager.importRemoteSessionTransfer(targetWorkspaceId, payload, actorOf(ctx))
+  })
+
+  // Whether session sharing is configured (OTTO_VIEWER_URL set); the renderer hides every share entry point otherwise.
+  server.handle(RPC_CHANNELS.sessions.GET_SHARE_CAPABILITIES, async () => {
+    const { getViewerUrl } = await import('@otto/shared/branding')
+    return { viewerConfigured: getViewerUrl() !== undefined }
   })
 }

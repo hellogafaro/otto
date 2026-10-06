@@ -1,6 +1,7 @@
 import { RPC_CHANNELS, type LlmConnectionSetup } from '@otto/shared/protocol'
 import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, touchLlmConnection, isCompatProvider, isAnthropicProvider, getDefaultModelsForConnection, getDefaultModelForConnection, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
 import { getCredentialManager } from '@otto/shared/credentials'
+import { INSTALL_SCOPE, getConnection, narrowContext, userScope, workspaceScope, type ConnectionContext, type Credential } from '@otto/shared/connections'
 import { BACKEND_NAME } from '@otto/shared/branding'
 import { setSetupDeferred } from '@otto/shared/config/storage'
 import {
@@ -9,7 +10,7 @@ import {
   validateStoredBackendConnection,
 } from '@otto/shared/agent/backend'
 import { getModelRefreshService } from '@otto/server-core/model-fetchers'
-import { parseTestConnectionError, createBuiltInConnection, validateModelList, piAuthProviderDisplayName, validateSetupTestInput, setupTestRequiresApiKey, resolveCustomEndpointSetup, resolveSetupTestApiKey, maskApiKey, isMaskedApiKey, mirrorConnection, unmirrorConnection } from '@otto/server-core/domain'
+import { parseTestConnectionError, createBuiltInConnection, validateModelList, piAuthProviderDisplayName, validateSetupTestInput, setupTestRequiresApiKey, resolveCustomEndpointSetup, resolveSetupTestApiKey, maskApiKey, isMaskedApiKey } from '@otto/server-core/domain'
 import { getWorkspaceOrThrow, buildBackendHostRuntimeContext } from '@otto/server-core/handlers'
 import { pushTyped, type RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
@@ -48,14 +49,20 @@ export const HANDLED_CHANNELS = [
 export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerDeps): void {
   const { sessionManager } = deps
 
+  // Whose connections a call sees: the caller's own, then the workspace's, then the install's.
+  const whereOf = (ctx: { userId: string | null; workspaceId: string | null }): ConnectionContext => ({ userId: ctx.userId, workspaceId: ctx.workspaceId })
+  // The scope of the connection a slug names for this caller (undefined: none yet, so a credential is held until the setup saves it).
+  const scopeOf = (ctx: { userId: string | null; workspaceId: string | null }, slug: string) =>
+    getConnection(slug, whereOf(ctx))?.scope ?? (ctx.userId ? userScope(ctx.userId) : INSTALL_SCOPE)
+
   // Fire-and-forget model-list refresh after a credential change (setup, re-auth,
   // validation). Re-auth can switch to an account with different model
   // entitlements, so the cached list from the previous account must be replaced
   // (#820). Never throws into the caller — a failed refresh must not fail the
   // credential flow that triggered it.
-  const refreshModelsInBackground = (slug: string, context: string) => {
+  const refreshModelsInBackground = (slug: string, scope: string, context: string) => {
     try {
-      getModelRefreshService().refreshNow(slug).catch(err => {
+      getModelRefreshService().refreshNow(slug, scope).catch(err => {
         deps.platform.logger?.warn(`Model refresh after ${context} failed for ${slug}: ${err instanceof Error ? err.message : err}`)
       })
     } catch (err) {
@@ -64,12 +71,19 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   }
 
   // Unified handler for LLM connection setup
-  server.handle(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, async (_ctx, setup: LlmConnectionSetup): Promise<{ success: boolean; error?: string }> => {
+  server.handle(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION, async (ctx, setup: LlmConnectionSetup): Promise<{ success: boolean; error?: string }> => {
     try {
       const manager = getCredentialManager()
+      // A new connection is the caller's own unless the setup says it is the workspace's or the install's
+      const newScope = setup.scope === 'install' || !ctx.userId
+        ? INSTALL_SCOPE
+        : setup.scope === 'workspace' && ctx.workspaceId
+          ? workspaceScope(ctx.workspaceId)
+          : userScope(ctx.userId)
+      const where = narrowContext(whereOf(ctx), setup.scope)
 
-      // Ensure connection exists in config
-      let connection = getLlmConnection(setup.slug)
+      // Ensure the connection exists (the caller's own first, then the workspace's, then the install's)
+      let connection = getLlmConnection(setup.slug, where)
       let isNewConnection = false
       if (!connection) {
         // Reauth guard: if updateOnly is set, the connection must already exist.
@@ -250,56 +264,36 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         return { success: false, error: 'Default model is required for compatible endpoints.' }
       }
 
+      // The credential to store with the connection (a masked placeholder from GET_API_KEY, or the token a
+      // completed sign-in already holds, changes nothing). One secret per connection: IAM keys, a new API
+      // key or OAuth access token replace what is there.
+      let credential: Credential | undefined
+      if (setup.iamCredentials) {
+        credential = { ...setup.iamCredentials, region: setup.awsRegion }
+      } else if (setup.credential && !isMaskedApiKey(setup.credential)) {
+        if (pendingConnection.authType !== 'oauth') {
+          credential = { apiKey: setup.credential }
+        } else if ((await manager.getLlmOAuth(setup.slug, connection.scope ?? newScope))?.accessToken !== setup.credential) {
+          credential = { accessToken: setup.credential }
+        }
+      }
+
+      // The row and its secret are written in one transaction
+      const scope = newScope
       if (isNewConnection) {
-        const added = addLlmConnection(pendingConnection)
+        const added = addLlmConnection(pendingConnection, { scope, credential })
         if (!added) {
-          deps.platform.logger?.error(`Failed to persist LLM connection: ${setup.slug} (config may be inaccessible)`)
+          deps.platform.logger?.error(`Failed to persist LLM connection: ${setup.slug}`)
           return { success: false, error: 'Failed to save connection. Check server logs for details.' }
         }
         deps.platform.logger?.info(`Created LLM connection: ${setup.slug}`)
-      } else if (Object.keys(updates).length > 0) {
-        const updated = updateLlmConnection(setup.slug, updates)
+      } else if (Object.keys(updates).length > 0 || credential) {
+        const updated = updateLlmConnection(setup.slug, updates, { where, credential })
         if (!updated) {
           deps.platform.logger?.error(`Failed to update LLM connection: ${setup.slug}`)
           return { success: false, error: 'Failed to update connection. Check server logs for details.' }
         }
         deps.platform.logger?.info(`Updated LLM connection settings: ${setup.slug}`)
-      }
-
-      // Store credential if provided (skip masked placeholders from GET_API_KEY)
-      const isMasked = isMaskedApiKey(setup.credential)
-      if (setup.credential && !isMasked) {
-        const authType = pendingConnection.authType
-        if (authType === 'oauth') {
-          await manager.setLlmOAuth(setup.slug, { accessToken: setup.credential })
-          deps.platform.logger?.info('Saved OAuth access token to LLM connection')
-        } else {
-          await manager.setLlmApiKey(setup.slug, setup.credential)
-          deps.platform.logger?.info('Saved API key to LLM connection')
-        }
-      }
-
-      // Pi+Bedrock IAM credentials — stored separately from API keys
-      if (setup.iamCredentials) {
-        await manager.setLlmIamCredentials(setup.slug, {
-          ...setup.iamCredentials,
-          region: setup.awsRegion,
-        })
-        deps.platform.logger?.info('Saved IAM credentials to LLM connection')
-      }
-
-      // Bridge: mirror into the `connections` domain (see domain/connection-mirror.ts).
-      // A failure here must not fail the setup.
-      try {
-        await mirrorConnection(pendingConnection, manager)
-      } catch (err) {
-        deps.platform.logger?.error(`Failed to mirror LLM connection ${setup.slug} into connections:`, err)
-      }
-
-      // Set as default only if no default exists yet (first connection)
-      if (!getDefaultLlmConnection()) {
-        setDefaultLlmConnection(setup.slug)
-        deps.platform.logger?.info(`Set default LLM connection: ${setup.slug}`)
       }
 
       // Fetch available models before returning to the UI.
@@ -312,7 +306,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       const isAutoSynced = pendingConnection.modelSelectionMode === 'automaticallySyncedFromProvider'
       if (!pendingModels.length || isAutoSynced) {
         try {
-          await getModelRefreshService().refreshNow(setup.slug)
+          await getModelRefreshService().refreshNow(setup.slug, connection.scope ?? scope)
         } catch (err) {
           deps.platform.logger?.warn(`Model refresh after setup failed for ${setup.slug}: ${err instanceof Error ? err.message : err}`)
         }
@@ -320,7 +314,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
 
       // Reinitialize auth for the connection that was just created/updated,
       // not the global default (which may be a different connection).
-      await sessionManager.reinitializeAuth(setup.slug)
+      await sessionManager.reinitializeAuth(setup.slug, where)
       deps.platform.logger?.info('Reinitialized auth after LLM connection setup')
 
       // Clear "Setup later" flag now that user has configured a provider
@@ -336,7 +330,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
 
   // Unified connection test — uses the agent factory to spawn a real agent subprocess
   // and validate credentials via runMiniCompletion(). Same code path as actual chat.
-  server.handle(RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP, async (_ctx, params: import('@otto/shared/protocol').TestLlmConnectionParams): Promise<import('@otto/shared/protocol').TestLlmConnectionResult> => {
+  server.handle(RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP, async (ctx, params: import('@otto/shared/protocol').TestLlmConnectionParams): Promise<import('@otto/shared/protocol').TestLlmConnectionResult> => {
     const { provider, apiKey, baseUrl, model, piAuthProvider, customEndpoint, connectionSlug } = params
     const allowEmptyApiKey = !setupTestRequiresApiKey(baseUrl)
 
@@ -344,7 +338,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     // resolve it to the real credential instead of testing the bullets (OSS #1048).
     const keyResolution = await resolveSetupTestApiKey(
       { apiKey, connectionSlug, allowEmptyApiKey },
-      (slug) => getCredentialManager().getLlmApiKey(slug),
+      (slug) => getCredentialManager().getLlmApiKey(slug, scopeOf(ctx, slug)),
     )
     if (!keyResolution.ok) {
       return { success: false, error: keyResolution.error }
@@ -433,19 +427,20 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   // ============================================================
 
   // List all LLM connections (includes built-in and custom)
-  server.handle(RPC_CHANNELS.llmConnections.LIST, async (): Promise<LlmConnection[]> => {
-    return getLlmConnections()
+  server.handle(RPC_CHANNELS.llmConnections.LIST, async (ctx): Promise<LlmConnection[]> => {
+    return getLlmConnections(whereOf(ctx))
   })
 
   // List all LLM connections with authentication status
-  server.handle(RPC_CHANNELS.llmConnections.LIST_WITH_STATUS, async (): Promise<LlmConnectionWithStatus[]> => {
-    const connections = getLlmConnections()
+  server.handle(RPC_CHANNELS.llmConnections.LIST_WITH_STATUS, async (ctx): Promise<LlmConnectionWithStatus[]> => {
+    const where = whereOf(ctx)
+    const connections = getLlmConnections(where)
     const credentialManager = getCredentialManager()
-    const defaultSlug = getDefaultLlmConnection()
+    const defaultSlug = getDefaultLlmConnection(where)
 
     return Promise.all(connections.map(async (conn): Promise<LlmConnectionWithStatus> => {
       // Check if credentials exist for this connection
-      const hasCredentials = await credentialManager.hasLlmCredentials(conn.slug, conn.authType)
+      const hasCredentials = await credentialManager.hasLlmCredentials(conn.slug, conn.authType, undefined, conn.scope)
       return {
         ...conn,
         isAuthenticated: conn.authType === 'none' || hasCredentials,
@@ -455,14 +450,14 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Get a specific LLM connection by slug
-  server.handle(RPC_CHANNELS.llmConnections.GET, async (_ctx, slug: string): Promise<LlmConnection | null> => {
-    return getLlmConnection(slug)
+  server.handle(RPC_CHANNELS.llmConnections.GET, async (ctx, slug: string): Promise<LlmConnection | null> => {
+    return getLlmConnection(slug, whereOf(ctx))
   })
 
   // Get stored API key for an LLM connection (masked — for edit form display only)
-  server.handle(RPC_CHANNELS.llmConnections.GET_API_KEY, async (_ctx, slug: string): Promise<string | null> => {
+  server.handle(RPC_CHANNELS.llmConnections.GET_API_KEY, async (ctx, slug: string): Promise<string | null> => {
     const manager = getCredentialManager()
-    const key = await manager.getLlmApiKey(slug)
+    const key = await manager.getLlmApiKey(slug, scopeOf(ctx, slug))
     if (!key) return null
     // Provider prefix + mask + last four; the test handler resolves this back by slug
     return maskApiKey(key)
@@ -470,20 +465,21 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
 
   // Save (create or update) an LLM connection
   // If connection.slug exists and is found, updates it; otherwise creates new
-  server.handle(RPC_CHANNELS.llmConnections.SAVE, async (_ctx, connection: LlmConnection): Promise<{ success: boolean; error?: string }> => {
+  server.handle(RPC_CHANNELS.llmConnections.SAVE, async (ctx, connection: LlmConnection): Promise<{ success: boolean; error?: string }> => {
     try {
+      const where = whereOf(ctx)
       // Check if this is an update or create
-      const existing = getLlmConnection(connection.slug)
+      const existing = getLlmConnection(connection.slug, where)
       if (existing) {
         // Update existing connection (can't change slug)
         const { slug: _slug, ...updates } = connection
-        const success = updateLlmConnection(connection.slug, updates)
+        const success = updateLlmConnection(connection.slug, updates, { where })
         if (!success) {
           return { success: false, error: 'Failed to update connection' }
         }
       } else {
         // Create new connection
-        const success = addLlmConnection(connection)
+        const success = addLlmConnection(connection, { scope: ctx.userId ? userScope(ctx.userId) : INSTALL_SCOPE })
         if (!success) {
           return { success: false, error: 'Connection with this slug already exists' }
         }
@@ -502,9 +498,9 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       })
       // Reinitialize auth if the saved connection is the current default
       // (updates env vars and summarization model override)
-      const defaultSlug = getDefaultLlmConnection()
+      const defaultSlug = getDefaultLlmConnection(where)
       if (defaultSlug === connection.slug) {
-        await sessionManager.reinitializeAuth()
+        await sessionManager.reinitializeAuth(undefined, where)
       }
       return { success: true }
     } catch (error) {
@@ -514,21 +510,18 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Delete an LLM connection (at least one connection must remain)
-  server.handle(RPC_CHANNELS.llmConnections.DELETE, async (_ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
+  server.handle(RPC_CHANNELS.llmConnections.DELETE, async (ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const connection = getLlmConnection(slug)
+      const where = whereOf(ctx)
+      const connection = getLlmConnection(slug, where)
       if (!connection) {
         return { success: false, error: 'Connection not found' }
       }
-      // deleteLlmConnection handles the "at least one must remain" check
-      const success = deleteLlmConnection(slug)
+      // The connection and its secret go together
+      const success = deleteLlmConnection(slug, where)
       if (success) {
         // Stop any periodic model refresh timer for this connection
-        getModelRefreshService().stopConnection(slug)
-        // Also delete associated credentials
-        const credentialManager = getCredentialManager()
-        await credentialManager.deleteLlmCredentials(slug)
-        await unmirrorConnection(slug)
+        getModelRefreshService().stopConnection(slug, connection.scope)
         deps.platform.logger?.info(`LLM connection deleted: ${slug}`)
       }
       return { success }
@@ -539,21 +532,23 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Test an LLM connection (validate credentials and connectivity with actual API call)
-  server.handle(RPC_CHANNELS.llmConnections.TEST, async (_ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
+  server.handle(RPC_CHANNELS.llmConnections.TEST, async (ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      const where = whereOf(ctx)
       const result = await validateStoredBackendConnection({
         slug,
         hostRuntime: buildBackendHostRuntimeContext(deps.platform),
+        where,
       })
 
       if (!result.success) {
         return { success: false, error: result.error }
       }
 
-      touchLlmConnection(slug)
+      touchLlmConnection(slug, where)
 
       if (result.shouldRefreshModels) {
-        refreshModelsInBackground(slug, 'validation')
+        refreshModelsInBackground(slug, getConnection(slug, where)?.scope ?? INSTALL_SCOPE, 'validation')
       }
 
       deps.platform.logger?.info(`LLM connection validated: ${slug}`)
@@ -567,9 +562,9 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Set global default LLM connection
-  server.handle(RPC_CHANNELS.llmConnections.SET_DEFAULT, async (_ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
+  server.handle(RPC_CHANNELS.llmConnections.SET_DEFAULT, async (ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const success = setDefaultLlmConnection(slug)
+      const success = setDefaultLlmConnection(slug, whereOf(ctx))
       if (success) {
         deps.platform.logger?.info(`Global default LLM connection set to: ${slug}`)
         // Reinitialize auth so env vars and summarization model override match the new default
@@ -589,7 +584,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
 
       // Validate connection exists if setting (not clearing)
       if (slug) {
-        const connection = getLlmConnection(slug)
+        const connection = getLlmConnection(slug, { workspaceId: workspace.id })
         if (!connection) {
           return { success: false, error: 'Connection not found' }
         }
@@ -619,14 +614,14 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Refresh available models for a connection (dynamic model discovery)
-  server.handle(RPC_CHANNELS.llmConnections.REFRESH_MODELS, async (_ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
+  server.handle(RPC_CHANNELS.llmConnections.REFRESH_MODELS, async (ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const connection = getLlmConnection(slug)
+      const connection = getConnection(slug, whereOf(ctx))
       if (!connection) {
         return { success: false, error: 'Connection not found' }
       }
 
-      await getModelRefreshService().refreshNow(slug)
+      await getModelRefreshService().refreshNow(slug, connection.scope)
       return { success: true }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error'
@@ -670,16 +665,16 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       const tokens = await pollChatGptDeviceAuth(code, abort.signal)
       if (chatGptOAuthAbort === abort) chatGptOAuthAbort = null
 
-      // Bridge: Pi still reads this; remove when sessions read connections
+      // The connection's secret (held in memory until the setup creates the connection, when it is new)
       await credentialManager.setLlmOAuth(connectionSlug, {
         accessToken: tokens.accessToken,
         idToken: tokens.idToken,
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.expiresAt,
-      })
+      }, scopeOf(ctx, connectionSlug))
 
       deps.platform.logger?.info(`[ChatGPT OAuth] Signed in for ${connectionSlug}`)
-      refreshModelsInBackground(connectionSlug, 'ChatGPT auth')
+      refreshModelsInBackground(connectionSlug, scopeOf(ctx, connectionSlug), 'ChatGPT auth')
       return { success: true }
     } catch (error) {
       chatGptOAuthAbort = null
@@ -702,14 +697,14 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Get ChatGPT authentication status
-  server.handle(RPC_CHANNELS.chatgpt.GET_AUTH_STATUS, async (_ctx, connectionSlug: string): Promise<{
+  server.handle(RPC_CHANNELS.chatgpt.GET_AUTH_STATUS, async (ctx, connectionSlug: string): Promise<{
     authenticated: boolean
     expiresAt?: number
     hasRefreshToken?: boolean
   }> => {
     try {
       const credentialManager = getCredentialManager()
-      const creds = await credentialManager.getLlmOAuth(connectionSlug)
+      const creds = await credentialManager.getLlmOAuth(connectionSlug, scopeOf(ctx, connectionSlug))
 
       if (!creds) {
         return { authenticated: false }
@@ -730,11 +725,10 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Logout from ChatGPT (clear stored tokens)
-  server.handle(RPC_CHANNELS.chatgpt.LOGOUT, async (_ctx, connectionSlug: string): Promise<{ success: boolean }> => {
+  server.handle(RPC_CHANNELS.chatgpt.LOGOUT, async (ctx, connectionSlug: string): Promise<{ success: boolean }> => {
     try {
       const credentialManager = getCredentialManager()
-      await credentialManager.deleteLlmCredentials(connectionSlug)
-      await unmirrorConnection(connectionSlug)
+      await credentialManager.deleteLlmCredentials(connectionSlug, scopeOf(ctx, connectionSlug))
       deps.platform.logger?.info('ChatGPT credentials cleared')
       return { success: true }
     } catch (error) {
@@ -793,10 +787,10 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         accessToken: credentials.access,
         refreshToken: credentials.refresh,
         expiresAt: credentials.expires,
-      })
+      }, scopeOf(ctx, connectionSlug))
 
       deps.platform.logger?.info('GitHub Copilot OAuth completed successfully')
-      refreshModelsInBackground(connectionSlug, 'Copilot auth')
+      refreshModelsInBackground(connectionSlug, scopeOf(ctx, connectionSlug), 'Copilot auth')
       return { success: true }
     } catch (error) {
       copilotOAuthAbort = null
@@ -819,12 +813,12 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Get GitHub Copilot authentication status
-  server.handle(RPC_CHANNELS.copilot.GET_AUTH_STATUS, async (_ctx, connectionSlug: string): Promise<{
+  server.handle(RPC_CHANNELS.copilot.GET_AUTH_STATUS, async (ctx, connectionSlug: string): Promise<{
     authenticated: boolean
   }> => {
     try {
       const credentialManager = getCredentialManager()
-      const creds = await credentialManager.getLlmOAuth(connectionSlug)
+      const creds = await credentialManager.getLlmOAuth(connectionSlug, scopeOf(ctx, connectionSlug))
 
       return {
         authenticated: !!creds?.accessToken,
@@ -836,10 +830,10 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Logout from Copilot (clear stored tokens)
-  server.handle(RPC_CHANNELS.copilot.LOGOUT, async (_ctx, connectionSlug: string): Promise<{ success: boolean }> => {
+  server.handle(RPC_CHANNELS.copilot.LOGOUT, async (ctx, connectionSlug: string): Promise<{ success: boolean }> => {
     try {
       const credentialManager = getCredentialManager()
-      await credentialManager.deleteLlmCredentials(connectionSlug)
+      await credentialManager.deleteLlmCredentials(connectionSlug, scopeOf(ctx, connectionSlug))
       deps.platform.logger?.info('Copilot credentials cleared')
       return { success: true }
     } catch (error) {

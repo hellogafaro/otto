@@ -13,6 +13,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { Archive, ArchiveRestore, Folder, Link, MoreHorizontal, SquareArrowOutUpRight } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from '@workspace/ui/components/context-menu'
@@ -104,6 +105,7 @@ function ProjectTile({ project, actions }: { project: Project; actions: TileActi
 
 export function ProjectsPage() {
   const { t } = useTranslation()
+  useComposerContext({ key: 'page:projects' })
   const { navigate, navigationState } = useNavigation()
   const { projects, loaded, setProjectStatus } = useProjects()
   const [creating, setCreating] = React.useState(false)

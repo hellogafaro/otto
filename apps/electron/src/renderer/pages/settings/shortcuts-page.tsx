@@ -81,6 +81,7 @@ const ACTION_LABEL_KEYS: Partial<Record<ActionId, string>> = {
   'chat.cyclePermissionMode': 'shortcuts.action.cyclePermissionMode',
   'chat.nextSearchMatch': 'shortcuts.action.nextSearchMatch',
   'chat.prevSearchMatch': 'shortcuts.action.prevSearchMatch',
+  'composer.focus': 'shortcuts.action.focusComposer',
   'task.changeStatus': 'tasks.changeStatus',
 }
 

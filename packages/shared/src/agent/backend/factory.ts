@@ -28,6 +28,7 @@ import { PiAgent } from '../pi-agent.ts';
 import {
   getLlmConnection,
   getDefaultLlmConnection,
+  type ConnectionContext,
   type LlmConnection,
 } from '../../config/storage.ts';
 // Import deprecated type for legacy migration function only
@@ -182,6 +183,7 @@ export function createBackendFromResolvedContext(args: {
     authType: context.authType || getDefaultAuthType(context.provider),
     model: context.resolvedModel,
     connectionSlug: context.connection?.slug,
+    connectionScope: context.connection?.scope,
     runtime,
   };
 
@@ -321,24 +323,25 @@ export function connectionAuthTypeToBackendAuthType(
  */
 export function resolveSessionConnection(
   sessionConnection?: string,
-  workspaceDefaultConnection?: string
+  workspaceDefaultConnection?: string,
+  where?: ConnectionContext
 ): LlmConnection | null {
   // 1. Session-level connection (locked after first message)
   if (sessionConnection) {
-    const connection = getLlmConnection(sessionConnection);
+    const connection = getLlmConnection(sessionConnection, where);
     if (connection) return connection;
   }
 
   // 2. Workspace default
   if (workspaceDefaultConnection) {
-    const connection = getLlmConnection(workspaceDefaultConnection);
+    const connection = getLlmConnection(workspaceDefaultConnection, where);
     if (connection) return connection;
   }
 
   // 3. Global default
-  const defaultSlug = getDefaultLlmConnection();
+  const defaultSlug = getDefaultLlmConnection(where);
   if (!defaultSlug) return null;
-  return getLlmConnection(defaultSlug);
+  return getLlmConnection(defaultSlug, where);
 }
 
 /**
@@ -354,10 +357,13 @@ export function resolveBackendContext(args: {
   sessionConnectionSlug?: string;
   workspaceDefaultConnectionSlug?: string;
   managedModel?: string;
+  /** Whose connections are looked at: the chat's creator's own, then the workspace's, then the install's. */
+  where?: ConnectionContext;
 }): ResolvedBackendContext {
   const connection = resolveSessionConnection(
     args.sessionConnectionSlug,
-    args.workspaceDefaultConnectionSlug
+    args.workspaceDefaultConnectionSlug,
+    args.where
   );
 
   const provider = connection
@@ -448,9 +454,10 @@ export async function fetchBackendModels(args: {
 export async function validateStoredBackendConnection(args: {
   slug: string;
   hostRuntime: BackendHostRuntimeContext;
+  where?: ConnectionContext;
 }): Promise<StoredConnectionValidationResult> {
   try {
-    const connection = getLlmConnection(args.slug);
+    const connection = getLlmConnection(args.slug, args.where);
     if (!connection) {
       return { success: false, error: 'Connection not found' };
     }
@@ -460,6 +467,7 @@ export async function validateStoredBackendConnection(args: {
       args.slug,
       connection.authType,
       connection.providerType,
+      connection.scope,
     );
 
     if (!hasCredentials && connection.authType !== 'none') {
@@ -512,6 +520,7 @@ export function createConfigFromConnection(
     providerType,
     authType: connection.authType,
     connectionSlug: connection.slug,
+    connectionScope: connection.scope,
     // Use connection's default model if no model specified in baseConfig
     model: baseConfig.model || connection.defaultModel,
   };
@@ -530,8 +539,9 @@ export function createBackendFromConnection(
   baseConfig: Omit<BackendConfig, 'provider' | 'authType'>,
   hostRuntime?: BackendHostRuntimeContext,
   providerOptions?: BackendProviderOptions,
+  where?: ConnectionContext,
 ): AgentBackend {
-  const connection = getLlmConnection(connectionSlug);
+  const connection = getLlmConnection(connectionSlug, { workspaceId: baseConfig.workspace?.id, ...where });
   if (!connection) {
     throw new Error(`LLM connection not found: ${connectionSlug}`);
   }

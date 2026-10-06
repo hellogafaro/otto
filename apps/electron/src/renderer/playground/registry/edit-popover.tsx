@@ -295,7 +295,6 @@ const mockAppShellContext = {
 // Sample edit context for playground
 const sampleEditContext: EditContext = {
   label: 'Label Configuration',
-  filePath: '/playground/labels/config.json',
   context: 'Playground demo of EditPopover component.',
 }
 

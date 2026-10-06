@@ -12,8 +12,9 @@
 
 import type { ModelFetcherMap, ModelFetcherCredentials, FetchableProvider } from '@otto/shared/config'
 import type { ModelDefinition } from '@otto/shared/config'
+import { INSTALL_SCOPE, getAllConnections } from '@otto/shared/connections'
 import {
-  getLlmConnections,
+  contextOfScope,
   getLlmConnection,
   updateLlmConnection,
   isCompatProvider,
@@ -29,7 +30,11 @@ const COPILOT_REFRESH_INTERVAL_MS = 10 * 60 * 1000
 // Types
 // ============================================================
 
-type CredentialResolver = (slug: string) => Promise<ModelFetcherCredentials>
+/** The credentials of the connection of this slug in this exact scope. */
+type CredentialResolver = (slug: string, scope: string) => Promise<ModelFetcherCredentials>
+
+/** Timers and in-flight refreshes are kept per connection: the install's by its slug, any other scope's by scope and slug. */
+const keyOf = (slug: string, scope: string) => (scope === INSTALL_SCOPE ? slug : `${scope}:${slug}`)
 
 // ============================================================
 // ModelRefreshService
@@ -49,14 +54,15 @@ class ModelRefreshService {
    * Deduplicates concurrent calls for the same slug — if a refresh is already
    * in progress, callers share the same promise instead of racing.
    */
-  async refreshConnection(slug: string): Promise<void> {
-    const existing = this.inFlight.get(slug)
+  async refreshConnection(slug: string, scope: string = INSTALL_SCOPE): Promise<void> {
+    const key = keyOf(slug, scope)
+    const existing = this.inFlight.get(key)
     if (existing) return existing
 
-    const promise = this._doRefresh(slug).finally(() => {
-      this.inFlight.delete(slug)
+    const promise = this._doRefresh(slug, scope).finally(() => {
+      this.inFlight.delete(key)
     })
-    this.inFlight.set(slug, promise)
+    this.inFlight.set(key, promise)
     return promise
   }
 
@@ -66,8 +72,8 @@ class ModelRefreshService {
    * Preserves user's defaultModel if still valid.
    * Updates connection.models in storage on success.
    */
-  private async _doRefresh(slug: string): Promise<void> {
-    const connection = getLlmConnection(slug)
+  private async _doRefresh(slug: string, scope: string): Promise<void> {
+    const connection = getLlmConnection(slug, contextOfScope(scope))
     if (!connection) {
       handlerLog.warn(`Model refresh: connection not found: ${slug}`)
       return
@@ -90,7 +96,7 @@ class ModelRefreshService {
 
     // Layer 1: Provider API/SDK
     try {
-      const credentials = await this.getCredentials(slug)
+      const credentials = await this.getCredentials(slug, scope)
       handlerLog.info(`Model refresh [${slug}]: fetching (provider=${connection.providerType}, piAuth=${connection.piAuthProvider}, hasOAuthRefresh=${!!credentials.oauthRefreshToken}, hasOAuthAccess=${!!credentials.oauthAccessToken})`)
       const result = await fetcher.fetchModels(connection, credentials)
       newModels = result.models
@@ -146,7 +152,7 @@ class ModelRefreshService {
     updateLlmConnection(slug, {
       models: newModels,
       ...(newDefault && !stillValid ? { defaultModel: newDefault } : {}),
-    })
+    }, { where: contextOfScope(scope) })
   }
 
   /**
@@ -155,7 +161,7 @@ class ModelRefreshService {
    * Call on app startup after IPC handlers are registered.
    */
   startAll(): void {
-    const connections = getLlmConnections()
+    const connections = getAllConnections().map((c) => ({ slug: c.slug, scope: c.scope, providerType: c.type, piAuthProvider: c.config.piAuthProvider }))
 
     for (const conn of connections) {
       if (isCompatProvider(conn.providerType)) continue
@@ -165,7 +171,7 @@ class ModelRefreshService {
       if (!fetcher) continue
 
       // Immediate non-blocking fetch
-      this.refreshConnection(conn.slug).catch(err => {
+      this.refreshConnection(conn.slug, conn.scope).catch(err => {
         handlerLog.warn(`Initial model refresh failed for ${conn.slug}: ${err instanceof Error ? err.message : err}`)
       })
 
@@ -174,9 +180,9 @@ class ModelRefreshService {
       // the fetcher's generic interval (0 = no periodic refresh for static SDK models).
       const isCopilot = conn.providerType === 'pi' && conn.piAuthProvider === 'github-copilot'
       if (isCopilot) {
-        this.startTimer(conn.slug, COPILOT_REFRESH_INTERVAL_MS)
+        this.startTimer(conn.slug, conn.scope, COPILOT_REFRESH_INTERVAL_MS)
       } else if (fetcher.refreshIntervalMs > 0) {
-        this.startTimer(conn.slug, fetcher.refreshIntervalMs)
+        this.startTimer(conn.slug, conn.scope, fetcher.refreshIntervalMs)
       }
     }
   }
@@ -197,47 +203,49 @@ class ModelRefreshService {
    * Also starts a periodic timer if the fetcher supports it.
    * Called when: connection created, auth completed, user clicks refresh.
    */
-  async refreshNow(slug: string): Promise<void> {
-    await this.refreshConnection(slug)
+  async refreshNow(slug: string, scope: string = INSTALL_SCOPE): Promise<void> {
+    await this.refreshConnection(slug, scope)
 
     // Ensure periodic timer is running
-    const connection = getLlmConnection(slug)
+    const connection = getLlmConnection(slug, contextOfScope(scope))
     if (!connection || isCompatProvider(connection.providerType)) return
 
     const providerType = connection.providerType as FetchableProvider
     const fetcher = this.fetchers[providerType]
     const isCopilot = connection.providerType === 'pi' && connection.piAuthProvider === 'github-copilot'
-    if (isCopilot && !this.timers.has(slug)) {
-      this.startTimer(slug, COPILOT_REFRESH_INTERVAL_MS)
-    } else if (fetcher && fetcher.refreshIntervalMs > 0 && !this.timers.has(slug)) {
-      this.startTimer(slug, fetcher.refreshIntervalMs)
+    if (isCopilot && !this.timers.has(keyOf(slug, scope))) {
+      this.startTimer(slug, scope, COPILOT_REFRESH_INTERVAL_MS)
+    } else if (fetcher && fetcher.refreshIntervalMs > 0 && !this.timers.has(keyOf(slug, scope))) {
+      this.startTimer(slug, scope, fetcher.refreshIntervalMs)
     }
   }
 
   /**
    * Stop timer for a specific connection (e.g., when deleted).
    */
-  stopConnection(slug: string): void {
-    const timer = this.timers.get(slug)
+  stopConnection(slug: string, scope: string = INSTALL_SCOPE): void {
+    const key = keyOf(slug, scope)
+    const timer = this.timers.get(key)
     if (timer) {
       clearInterval(timer)
-      this.timers.delete(slug)
+      this.timers.delete(key)
     }
   }
 
-  private startTimer(slug: string, intervalMs: number): void {
+  private startTimer(slug: string, scope: string, intervalMs: number): void {
     // Don't create duplicate timers
-    if (this.timers.has(slug)) return
+    const key = keyOf(slug, scope)
+    if (this.timers.has(key)) return
 
     const timer = setInterval(async () => {
       try {
-        await this.refreshConnection(slug)
+        await this.refreshConnection(slug, scope)
       } catch (err) {
         handlerLog.warn(`Periodic model refresh failed for ${slug}: ${err instanceof Error ? err.message : err}`)
       }
     }, intervalMs)
 
-    this.timers.set(slug, timer)
+    this.timers.set(key, timer)
   }
 }
 

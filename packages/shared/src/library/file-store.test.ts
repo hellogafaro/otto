@@ -4,7 +4,8 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createId } from '../id.ts'
-import { createDiskFileStore, getLibraryItemPath, getLibraryStore } from './file-store.ts'
+import { createDiskFileStore, getLibraryItemPath } from './file-store.ts'
+import { getLibraryStore } from './storage.ts'
 
 const dirs: string[] = []
 async function tempDir() {
@@ -78,7 +79,7 @@ test('keys that are not ids are rejected before touching the disk', async () => 
 test('the library store lives under <workspace>/library and the item path matches it', async () => {
   const root = await tempDir()
   const id = createId()
-  await getLibraryStore(root).put(id, new Uint8Array([7]))
+  await getLibraryStore(root, 'ws1').put(id, new Uint8Array([7]))
   expect(getLibraryItemPath(root, id)).toBe(join(root, 'library', id))
   expect(existsSync(getLibraryItemPath(root, id))).toBe(true)
   expect(() => getLibraryItemPath(root, '../x')).toThrow('Invalid file key')

@@ -94,6 +94,8 @@ export interface DecisionLayerStoredSettings {
   model?: string;
   deadlineMs?: number;
   features?: Partial<DecisionLayerFeatureToggles>;
+  /** Where each provider's API key is: provider id -> secret id (the keys themselves are in `secrets`, see ./keys.ts). */
+  keySecretIds?: Record<string, string>;
 }
 
 /** Patch accepted by `setDecisionLayerSettings`: `null` clears an optional string. */

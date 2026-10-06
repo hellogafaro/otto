@@ -6,7 +6,6 @@
 import type { ThemeOverrides } from '../config/index'
 import type { LoadedSource } from '../sources/types'
 import type { LoadedSkill } from '../skills/types'
-import type { LoadedPage } from '../pages/types'
 import { RPC_CHANNELS } from './channels'
 import type {
   SessionEvent,
@@ -21,7 +20,7 @@ import type {
  * clients that show it reload. `userIds` (notifications only) are the people whose inbox changed.
  */
 export type DomainChange = {
-  domain: 'library' | 'projects' | 'tasks' | 'timesheets' | 'comments' | 'notifications' | 'members'
+  domain: 'library' | 'projects' | 'tasks' | 'timesheets' | 'comments' | 'notifications' | 'members' | 'labels' | 'statuses' | 'permissions'
   workspaceId: string
   userIds?: string[]
 }
@@ -34,11 +33,8 @@ export interface BroadcastEventMap {
 
   // Domain change broadcasts (global via broadcastToAll)
   [RPC_CHANNELS.sources.CHANGED]: [workspaceId: string, sources: LoadedSource[]]
-  [RPC_CHANNELS.labels.CHANGED]: [workspaceId: string]
-  [RPC_CHANNELS.statuses.CHANGED]: [workspaceId: string]
   [RPC_CHANNELS.automations.CHANGED]: [workspaceId: string]
   [RPC_CHANNELS.skills.CHANGED]: [workspaceId: string, skills: LoadedSkill[]]
-  [RPC_CHANNELS.pages.CHANGED]: [workspaceId: string, pages: LoadedPage[]]
   [RPC_CHANNELS.domain.CHANGED]: [change: DomainChange]
   [RPC_CHANNELS.llmConnections.CHANGED]: []
   [RPC_CHANNELS.permissions.DEFAULTS_CHANGED]: [value: null]

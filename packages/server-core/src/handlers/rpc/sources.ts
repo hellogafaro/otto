@@ -115,24 +115,14 @@ export function registerSourcesHandlers(server: RpcServer, deps: HandlerDeps): v
     }
   })
 
-  // Get permissions config for a workspace (raw format for UI display)
+  // Get permissions config for a workspace (raw format for UI display): the `permissions` setting; null while it has no rules
   server.handle(RPC_CHANNELS.workspace.GET_PERMISSIONS, async (_ctx, workspaceId: string) => {
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) return null
 
-    const { existsSync, readFileSync } = await import('fs')
-    const { getWorkspacePermissionsPath } = await import('@otto/shared/agent')
-    const path = getWorkspacePermissionsPath(workspace.rootPath)
-
-    if (!existsSync(path)) return null
-
-    try {
-      const content = readFileSync(path, 'utf-8')
-      return safeJsonParse(content)
-    } catch (error) {
-      log.error('Error reading workspace permissions config:', error)
-      return null
-    }
+    const { getWorkspacePermissions } = await import('@otto/shared/agent')
+    const rules = getWorkspacePermissions(workspace.id)
+    return Object.keys(rules).length ? rules : null
   })
 
   // Get default permissions from ~/.otto/permissions/default.json

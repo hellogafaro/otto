@@ -1,24 +1,132 @@
 /**
- * Label Storage
+ * Label storage: a workspace's labels are rows of `labels` (./schema.ts), a tree through `parentId`.
  *
- * Filesystem-based storage for workspace label configurations.
- * Labels are stored at {workspaceRootPath}/labels/config.json
- *
- * Hierarchy: Labels form a nested JSON tree. IDs are simple slugs.
- * New workspaces are seeded with default labels (Development + Content groups).
- * Labels are visual by color only (colored circles in the UI).
+ * The functions here take the workspace id and give `LabelConfig`s, whose `id` is the row's `slug`: the id
+ * chats, routines and agents write (`bug`, `priority::3`), kept from the old `labels/config.json` so those
+ * strings keep resolving. A new workspace is seeded with the default labels (Development + Content groups,
+ * Priority, Project) by `initWorkspaceLabels`; reading never writes. Labels are visual by color only.
+ * Assigning labels to chats, library items, tasks and projects is `./entities.ts`.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import type { WorkspaceLabelConfig, LabelConfig } from './types.ts';
+import { and, asc, eq, sql } from 'drizzle-orm';
+import { initDb, type Db, type Tx } from '../db/index.ts';
+import { createId } from '../id.ts';
+import type { EntityColor } from '../colors/types.ts';
+import { labels } from './schema.ts';
+import type { AutoLabelRule, LabelConfig, WorkspaceLabelConfig } from './types.ts';
 import { flattenLabels, findLabelById } from './tree.ts';
-import { readJsonFileSync } from '../utils/files.ts';
-import { migrateLabelColors } from '../colors/migrate.ts';
-import { debug } from '../utils/debug.ts';
 
-const LABEL_CONFIG_DIR = 'labels';
-const LABEL_CONFIG_FILE = 'labels/config.json';
+type Row = typeof labels.$inferSelect;
+
+const readJson = <T>(text: string | null): T | undefined => {
+  if (text == null) return undefined;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined;
+  }
+};
+
+function toConfig(row: Row): LabelConfig {
+  const color = readJson<EntityColor>(row.color);
+  const autoRules = readJson<AutoLabelRule[]>(row.autoRules);
+  return {
+    id: row.slug,
+    name: row.title,
+    ...(color !== undefined && { color }),
+    ...(row.valueType && { valueType: row.valueType as LabelConfig['valueType'] }),
+    ...(autoRules && { autoRules }),
+  };
+}
+
+/** The row of a label by its slug, or undefined. */
+export function getLabelRow(workspaceId: string, slug: string, db: Db | Tx = initDb()): Row | undefined {
+  return db.select().from(labels).where(and(eq(labels.workspaceId, workspaceId), eq(labels.slug, slug))).get();
+}
+
+/** The label tree of a workspace: root labels with nested `children`, siblings in their order. */
+export function getLabels(workspaceId: string, db: Db | Tx = initDb()): LabelConfig[] {
+  const rows = db.select().from(labels).where(eq(labels.workspaceId, workspaceId)).orderBy(asc(labels.order), asc(labels.createdAt)).all();
+  const nodes = new Map(rows.map((row) => [row.id, toConfig(row)]));
+  const roots: LabelConfig[] = [];
+  for (const row of rows) {
+    const node = nodes.get(row.id)!;
+    const parent = row.parentId ? nodes.get(row.parentId) : undefined;
+    if (parent) (parent.children ??= []).push(node);
+    else roots.push(node);
+  }
+  return roots;
+}
+
+/** Every label of a workspace as one list (the tree flattened depth-first). */
+export function getLabelsFlat(workspaceId: string, db: Db | Tx = initDb()): LabelConfig[] {
+  return flattenLabels(getLabels(workspaceId, db));
+}
+
+/** One label by slug (searches the whole tree), or null. */
+export function getLabel(workspaceId: string, slug: string, db: Db | Tx = initDb()): LabelConfig | null {
+  const row = getLabelRow(workspaceId, slug, db);
+  return row ? (findLabelById(getLabels(workspaceId, db), slug) ?? toConfig(row)) : null;
+}
+
+/** Whether a label slug exists in this workspace. */
+export function isValidLabelId(workspaceId: string, slug: string, db: Db | Tx = initDb()): boolean {
+  return getLabelRow(workspaceId, slug, db) !== undefined;
+}
+
+/**
+ * Validate label ID format.
+ * Simple slug: lowercase alphanumeric + hyphens, no leading/trailing hyphens.
+ * Examples: "bug", "frontend", "my-label"
+ */
+export function isValidLabelIdFormat(labelId: string): boolean {
+  if (!labelId) return false;
+  const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+  return SLUG_PATTERN.test(labelId);
+}
+
+/**
+ * Inserts a tree of labels under `parentId` with new row ids, `slug` = the node's id and `order` = its position.
+ * A node whose slug the workspace already has is skipped with its children; returns how many were skipped.
+ */
+export function insertLabelTree(db: Db | Tx, workspaceId: string, nodes: LabelConfig[], parentId: string | null = null): { inserted: number; skipped: number } {
+  const now = new Date();
+  let inserted = 0;
+  let skipped = 0;
+  nodes.forEach((node, order) => {
+    const id = createId();
+    const row = {
+      id,
+      workspaceId,
+      parentId,
+      slug: node.id,
+      title: node.name,
+      color: node.color === undefined ? null : JSON.stringify(node.color),
+      valueType: node.valueType ?? null,
+      autoRules: node.autoRules?.length ? JSON.stringify(node.autoRules) : null,
+      order,
+      createdAt: now,
+      updatedAt: now,
+    };
+    if (db.insert(labels).values(row).onConflictDoNothing().returning({ id: labels.id }).all().length === 0) {
+      skipped += 1 + countTree(node.children ?? []);
+      return;
+    }
+    inserted++;
+    const children = insertLabelTree(db, workspaceId, node.children ?? [], id);
+    inserted += children.inserted;
+    skipped += children.skipped;
+  });
+  return { inserted, skipped };
+}
+
+const countTree = (nodes: LabelConfig[]): number => nodes.reduce((sum, node) => sum + 1 + countTree(node.children ?? []), 0);
+
+/** Seeds the default labels into a workspace that has none (idempotent). */
+export function initWorkspaceLabels(workspaceId: string, db: Db | Tx = initDb()): void {
+  const has = db.select({ n: sql<number>`count(*)` }).from(labels).where(eq(labels.workspaceId, workspaceId)).get()?.n ?? 0;
+  if (!has) insertLabelTree(db, workspaceId, getDefaultLabelConfig().labels);
+}
 
 /**
  * Get default label configuration.
@@ -92,115 +200,3 @@ export function getDefaultLabelConfig(): WorkspaceLabelConfig {
     ],
   };
 }
-
-/**
- * Load workspace label configuration.
- * Returns empty config if no file exists or parsing fails.
- * Auto-migrates old Tailwind color format to EntityColor on first load.
- */
-export function loadLabelConfig(workspaceRootPath: string): WorkspaceLabelConfig {
-  const configPath = join(workspaceRootPath, LABEL_CONFIG_FILE);
-
-  // If no config file exists, seed with defaults and persist to disk.
-  // This ensures existing workspaces (created before default labels existed) get populated.
-  if (!existsSync(configPath)) {
-    const defaults = getDefaultLabelConfig();
-    debug('[loadLabelConfig] No config found, seeding with default labels');
-    saveLabelConfig(workspaceRootPath, defaults);
-    return defaults;
-  }
-
-  try {
-    const config = readJsonFileSync<WorkspaceLabelConfig>(configPath);
-
-    // Auto-migrate old Tailwind class colors (e.g., "text-primary") to new EntityColor format.
-    // If migration occurs, write the updated config back to disk.
-    const migrated = migrateLabelColors(config);
-    if (migrated) {
-      debug('[loadLabelConfig] Migrated old color format, writing back');
-      saveLabelConfig(workspaceRootPath, config);
-    }
-
-    return config;
-  } catch (error) {
-    debug('[loadLabelConfig] Failed to parse config:', error);
-    return getDefaultLabelConfig();
-  }
-}
-
-/**
- * Save workspace label configuration to disk.
- * Creates the labels directory if missing.
- */
-export function saveLabelConfig(
-  workspaceRootPath: string,
-  config: WorkspaceLabelConfig
-): void {
-  const labelDir = join(workspaceRootPath, LABEL_CONFIG_DIR);
-  const configPath = join(workspaceRootPath, LABEL_CONFIG_FILE);
-
-  if (!existsSync(labelDir)) {
-    mkdirSync(labelDir, { recursive: true });
-  }
-
-  try {
-    writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-  } catch (error) {
-    debug('[saveLabelConfig] Failed to save config:', error);
-    throw error;
-  }
-}
-
-/**
- * Get the label tree (root-level labels with nested children).
- * Primary accessor for the UI — returns the tree structure as-is from config.
- */
-export function listLabels(workspaceRootPath: string): LabelConfig[] {
-  const config = loadLabelConfig(workspaceRootPath);
-  return config.labels;
-}
-
-/**
- * Get all labels as a flat list (tree flattened depth-first).
- * Useful for lookups, session label validation, and non-hierarchical display.
- */
-export function listLabelsFlat(workspaceRootPath: string): LabelConfig[] {
-  const config = loadLabelConfig(workspaceRootPath);
-  return flattenLabels(config.labels);
-}
-
-/**
- * Get a single label by ID (searches the entire tree).
- * Returns null if not found.
- */
-export function getLabel(
-  workspaceRootPath: string,
-  labelId: string
-): LabelConfig | null {
-  const config = loadLabelConfig(workspaceRootPath);
-  return findLabelById(config.labels, labelId) || null;
-}
-
-/**
- * Check if a label ID exists in this workspace (searches entire tree)
- */
-export function isValidLabelId(
-  workspaceRootPath: string,
-  labelId: string
-): boolean {
-  const config = loadLabelConfig(workspaceRootPath);
-  return !!findLabelById(config.labels, labelId);
-}
-
-/**
- * Validate label ID format.
- * Simple slug: lowercase alphanumeric + hyphens, no leading/trailing hyphens.
- * Examples: "bug", "frontend", "my-label"
- */
-export function isValidLabelIdFormat(labelId: string): boolean {
-  if (!labelId) return false;
-  const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-  return SLUG_PATTERN.test(labelId);
-}
-
-

@@ -1,8 +1,6 @@
 import * as React from "react"
-import { useTranslation, Trans } from "react-i18next"
 import { useRef, useState, useEffect, useCallback, useMemo } from "react"
 import { useAtomValue } from "jotai"
-import { Button } from "@/components/ui/button"
 import { useSession } from "@/hooks/use-session"
 import { ensureSessionMessagesLoadedAtom } from "@/atoms/sessions"
 import { AppShellProvider, type AppShellContextType } from "@/context/app-shell-context"
@@ -36,16 +34,16 @@ import {
   isSkillsNavigation,
   isSourcesNavigation,
 } from "@/contexts/navigation-context"
-import { useAutomations } from "@/hooks/use-automations"
 import { useRecordRecent } from "@/hooks/use-recents"
 import { useJumpShortcuts } from "@/hooks/use-jump-shortcuts"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { SidebarProvider, useSidebar } from "@workspace/ui/components/sidebar"
 import { PageFrame } from "@workspace/ui/components/page-frame"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { AppSidebar, type SidebarArea } from "./app-sidebar"
 import { MainContentPanel } from "./main-content-panel"
 import { SidecarHost, SidecarProvider } from "@/context/sidecar-context"
+import { ComposerProvider } from "@/components/composer/composer-provider"
+import { ShellComposer } from "@/components/composer/shell-composer"
 import { isWebUI } from "@/lib/platform"
 import { SendToWorkspaceDialog } from "./send-to-workspace-dialog"
 import { MessagingDialogHost } from "@/components/messaging/messaging-dialog-host"
@@ -88,7 +86,7 @@ function CloseSheetOnNavigate() {
 /**
  * AppShell - the shell: the sidebar and the page frame
  *
- * Layout: [Sidebar (header, areas, the open area's section, footer)] [PageFrame: the page's column (its title row first), the chat's pinned row, sidecar]
+ * Layout: [Sidebar (header, areas, the open area's section, footer)] [PageFrame: the page's column (its title row first), the chat's pinned row, the composer bar, sidecar]
  *
  * Session Filters:
  * - 'allSessions': Shows all sessions
@@ -125,8 +123,6 @@ function AppShellContent({
     onOpenKeyboardShortcuts,
   } = contextValue
 
-  const { t } = useTranslation()
-
   // Get hotkey labels from centralized action registry
 
   // Below 768px the sidebar is a sheet and the page card is full bleed.
@@ -158,7 +154,6 @@ function AppShellContent({
   React.useEffect(() => {
     setSkillsAtom(skills)
   }, [skills, setSkillsAtom])
-  // Automations — state, handlers, loading, subscriptions
   const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId)
 
   // Send to Workspace dialog state (driven by sendToWorkspaceAtom set from SessionMenu/BatchSessionMenu)
@@ -167,12 +162,6 @@ function AppShellContent({
   const handleTransferComplete = useCallback((targetWorkspaceId: string, _newSessionIds: string[]) => {
     onSelectWorkspace(targetWorkspaceId)
   }, [onSelectWorkspace])
-  const {
-    automationTestResults,
-    automationPendingDelete, pendingDeleteAutomation, setAutomationPendingDelete,
-    handleTestAutomation, handleToggleAutomation, handleDuplicateAutomation, handleDeleteAutomation, confirmDeleteAutomation,
-    getAutomationHistory, handleReplayAutomation,
-  } = useAutomations(activeWorkspaceId)
 
   // Enabled permission modes for Shift+Tab cycling (min 2 modes)
   const [enabledModes, setEnabledModes] = React.useState<PermissionMode[]>(['safe', 'ask', 'allow-all'])
@@ -551,14 +540,7 @@ function AppShellContent({
     onSessionSourcesChange: handleSessionSourcesChange,
     isCompactMode: isAutoCompact,
     onNewChat: handleNewChat,
-    onTestAutomation: handleTestAutomation,
-    onToggleAutomation: handleToggleAutomation,
-    onDuplicateAutomation: handleDuplicateAutomation,
-    onDeleteAutomation: handleDeleteAutomation,
-    automationTestResults,
-    getAutomationHistory,
-    onReplayAutomation: handleReplayAutomation,
-  }), [contextValue, handleDeleteSession, handleNewChat, sources, skills, activeSessionWorkingDirectory, displayLabelConfigs, handleSessionLabelsChange, enabledModes, sessionStatuses, handleSessionSourcesChange, isAutoCompact, handleTestAutomation, handleToggleAutomation, handleDuplicateAutomation, handleDeleteAutomation, automationTestResults, getAutomationHistory, handleReplayAutomation])
+  }), [contextValue, handleDeleteSession, handleNewChat, sources, skills, activeSessionWorkingDirectory, displayLabelConfigs, handleSessionLabelsChange, enabledModes, sessionStatuses, handleSessionSourcesChange, isAutoCompact])
 
   const handleTasksClick = useCallback(() => {
     navigate(routes.view.tasks())
@@ -658,32 +640,14 @@ function AppShellContent({
           sessionStatuses={sessionStatuses}
         />
         <SidecarProvider>
-          <PageFrame aside={<SidecarHost />}>
-            <MainContentPanel />
-          </PageFrame>
+          <ComposerProvider>
+            <PageFrame aside={<SidecarHost />} composer={<ShellComposer />}>
+              <MainContentPanel />
+            </PageFrame>
+          </ComposerProvider>
         </SidecarProvider>
       </SidebarProvider>
       </CommandPaletteProvider>
-
-      {/* Delete automation confirmation dialog */}
-      <Dialog open={!!automationPendingDelete} onOpenChange={(open) => { if (!open) setAutomationPendingDelete(null) }}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>{t("dialog.deleteAutomation.title")}</DialogTitle>
-            <DialogDescription>
-              <Trans
-                i18nKey="dialog.deleteAutomation.description"
-                values={{ name: pendingDeleteAutomation?.name }}
-                components={{ strong: <strong /> }}
-              />
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAutomationPendingDelete(null)}>{t("common.cancel")}</Button>
-            <Button variant="destructive" onClick={confirmDeleteAutomation}>{t("common.delete")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Send to Workspace dialog (driven by sendToWorkspaceAtom) */}
       <SendToWorkspaceDialog

@@ -6,17 +6,13 @@
  * - Chats: the Chats index, or the ChatPage of the open chat
  * - Settings: one settings page (no index: Settings opens on General)
  * - Skills and Sources (in the settings sidebar): the grid, or the item's page
- * - Tasks, Projects and Library: the index page, or the task, project or item page
+ * - Tasks, Projects, Routines and Library: the index page, or the task, project, routine or item page
  * - Inbox: your notifications
- * - Routines (automations): not built yet, only `SectionEmpty`
  *
  * The NavigationState is the single source of truth for what to display.
  */
 
-import { useTranslation } from 'react-i18next'
-import { Clock } from 'lucide-react'
 import { Panel } from './panel'
-import { SectionEmpty } from './section-empty'
 import { useAppShellContext } from '@/context/app-shell-context'
 import {
   useNavigationState,
@@ -30,7 +26,7 @@ import {
   isTasksNavigation,
   isInboxNavigation,
 } from '@/contexts/navigation-context'
-import { SourceInfoPage, ChatPage, TasksPage, TaskPage, ProjectsPage, ProjectPage, LibraryPage, LibraryItemPage } from '@/pages'
+import { SourceInfoPage, ChatPage, TasksPage, TaskPage, ProjectsPage, ProjectPage, RoutinesPage, RoutinePage, LibraryPage, LibraryItemPage } from '@/pages'
 import ChatsIndexPage from '@/pages/chats-index-page'
 import { InboxPage } from '@/pages/inbox/inbox-page'
 import SkillInfoPage from '@/pages/skill-info-page'
@@ -44,7 +40,6 @@ export interface MainContentPanelProps {
 }
 
 export function MainContentPanel({ className }: MainContentPanelProps) {
-  const { t } = useTranslation()
   const navState = useNavigationState()
   const { activeWorkspaceId, activeSessionWorkingDirectory } = useAppShellContext()
 
@@ -71,30 +66,21 @@ export function MainContentPanel({ className }: MainContentPanelProps) {
       : <SkillsPage />)
   }
 
-  // Tasks, Projects and Library: the index, or the open task, project or item.
+  // Tasks, Projects, Routines and Library: the index, or the open task, project, routine or item.
   if (isTasksNavigation(navState)) {
     return panel(navState.details ? <TaskPage taskId={navState.details.taskId} /> : <TasksPage />)
   }
   if (isProjectsNavigation(navState)) {
     return panel(navState.details ? <ProjectPage projectId={navState.details.projectId} /> : <ProjectsPage />)
   }
+  if (isAutomationsNavigation(navState)) {
+    return panel(navState.details ? <RoutinePage routineId={navState.details.automationId} /> : <RoutinesPage />)
+  }
   if (isLibraryNavigation(navState)) {
     return panel(navState.details ? <LibraryItemPage itemId={navState.details.itemId} /> : <LibraryPage />)
   }
 
   if (isInboxNavigation(navState)) return panel(<InboxPage />)
-
-  // Routines (automations) are not built yet: only their empty state and its New button.
-  if (isAutomationsNavigation(navState)) {
-    return panel(
-      <SectionEmpty
-        icon={Clock}
-        title={t('sectionEmpty.routinesTitle')}
-        description={t('sectionEmpty.routinesDescription')}
-        cta={t('sectionEmpty.newRoutine')}
-      />,
-    )
-  }
 
   // Chats: the index, or the open chat.
   if (isSessionsNavigation(navState) && navState.details) {

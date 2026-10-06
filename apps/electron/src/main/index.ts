@@ -3,7 +3,7 @@
 import { loadShellEnv } from './shell-env'
 loadShellEnv()
 
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, session, shell } from 'electron'
 import { createHash, randomBytes, randomUUID } from 'crypto'
 import { hostname, homedir } from 'os'
 import * as Sentry from '@sentry/electron/main'
@@ -28,7 +28,7 @@ Sentry.init({
 
   // Scrub sensitive data before sending to Sentry.
   // Shared logic in @otto/shared/utils redaction.ts (also used by the
-  // renderer hook and the Pages action audit log) — keep semantics there.
+  // renderer hook) — keep semantics there.
   beforeSend(event) {
     // Scrub request headers (authorization, cookies)
     if (event.request?.headers) {
@@ -51,9 +51,9 @@ Sentry.init({
 // Initialize i18n for main process (menus, dialogs, etc.)
 //
 // The main-process i18n instance has no detection plugin (no localStorage in Node)
-// — it always starts at `fallbackLng: 'en'`. We hydrate it here from the persisted
-// `uiLanguage` preference, which is maintained by the `i18n:changeLanguage` IPC
-// handler whenever the user changes Appearance → Language. Without this, the
+// — it always starts at `fallbackLng: 'en'`. It is hydrated from the user's persisted
+// `uiLanguage` setting once the local user exists (see the startup block below), and the
+// `i18n:changeLanguage` IPC handler keeps that setting current. Without this, the
 // renderer would restore its language from localStorage on every restart while
 // the main process silently stayed at English — breaking session title language,
 // the system prompt's "Preferred language" line, and the native menu.
@@ -62,10 +62,6 @@ import { PRODUCT_NAME } from '@otto/shared/branding'
 import { getPersistedUiLanguage, setPersistedUiLanguage } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 setupI18n()
-const persistedUiLanguage = getPersistedUiLanguage()
-if (persistedUiLanguage) {
-  void i18n.changeLanguage(persistedUiLanguage)
-}
 // Note: deferred startup log lives below where mainLog is available (after log.initialize()).
 
 // Set anonymous machine ID for Sentry user tracking (no PII — just a hash).
@@ -77,7 +73,7 @@ import { join, delimiter } from 'path'
 import { existsSync, readFileSync } from 'fs'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { SessionManager, setSessionPlatform, setSessionRuntimeHooks } from '@otto/server-core/sessions'
-import { PageThumbnailer } from './page-thumbnailer'
+import { initEncryptionKey } from './encryption-key'
 import { registerAllRpcHandlers } from './handlers/index'
 import { registerCoreRpcHandlers, cleanupSessionFileWatchForClient } from '@otto/server-core/handlers/rpc'
 import type { PlatformServices } from '../runtime/platform'
@@ -115,13 +111,6 @@ import { validateGitBashPath, checkVCRedistInstalled } from '@otto/server-core/s
 
 // Initialize electron-log for renderer process support
 log.initialize()
-
-// Diagnostic: report main-process i18n hydration result. We log here (not inline
-// at the hydration site above) because mainLog is only available after this point.
-mainLog.info('[i18n] startup hydration', {
-  persistedUiLanguage: persistedUiLanguage ?? null,
-  resolvedLanguageAfterHydration: i18n.resolvedLanguage ?? null,
-})
 
 // Enable debug/perf in dev mode (running from source)
 if (isDebugMode) {
@@ -327,7 +316,7 @@ async function createInitialWindows(): Promise<void> {
   if (workspaces.length === 0) {
     // Ensure config file exists (addWorkspace requires it)
     if (!loadStoredConfig()) {
-      saveConfig({ workspaces: [], activeWorkspaceId: null, activeSessionId: null })
+      saveConfig({ workspaces: [] })
     }
     const defaultPath = join(getDefaultWorkspacesDir(), 'my-workspace')
     addWorkspace({ rootPath: defaultPath, name: 'My Workspace' })
@@ -369,6 +358,15 @@ async function createInitialWindows(): Promise<void> {
 app.whenReady().then(async () => {
   // Export packaged state as env var so logger.ts (and headless Bun) don't need 'electron'
   process.env.OTTO_IS_PACKAGED = app.isPackaged ? 'true' : 'false'
+
+  // The key of the secrets store, before anything can read a secret. A key in the environment (dev) wins.
+  try {
+    initEncryptionKey({ safeStorage, configDir: CONFIG_DIR, env: process.env, warn: (m) => mainLog.warn(m) })
+  } catch (error) {
+    // Never make a new key over an unreadable one: the secrets store stays off until the user fixes the file.
+    mainLog.error('[encryption-key]', error)
+    dialog.showErrorBox('Secrets are unavailable', error instanceof Error ? error.message : String(error))
+  }
 
   // Register bundled assets root so all seeding functions can find their files
   // (docs, permissions, themes, tool-icons resolve via getBundledAssetsDir)
@@ -536,6 +534,25 @@ app.whenReady().then(async () => {
     })
 
     if (!isClientOnly) {
+      // A local install has one person and no sign-in: the user made here owns every workspace and is who
+      // the per-launch token (or the server-mode token) acts as. The secret only signs sessions this app
+      // never opens. Then config.json and preferences.json become settings (once), before anything reads one.
+      process.env.BETTER_AUTH_SECRET ??= randomBytes(32).toString('hex')
+      const { initLocalUser } = await import('@otto/shared/users')
+      const { initSettingsImport } = await import('@otto/shared/settings')
+      const { LOCAL_EMAIL, LOCAL_NAME } = await import('@otto/shared/users/queries')
+      initLocalUser({ name: LOCAL_NAME, email: LOCAL_EMAIL })
+      const imported = initSettingsImport()
+      mainLog.info(`[settings] imported ${imported.imported}, skipped ${imported.skipped}`)
+      const { initConnectionsImport } = await import('@otto/shared/connections/import')
+      const connections = await initConnectionsImport()
+      mainLog.info(`[connections] imported ${connections.imported}, skipped ${connections.skipped}`)
+      const { initLabelsStatusesImport } = await import('@otto/shared/labels/import')
+      initLabelsStatusesImport()
+      const persistedUiLanguage = getPersistedUiLanguage()
+      if (persistedUiLanguage) await i18n.changeLanguage(persistedUiLanguage)
+      mainLog.info('[i18n] startup hydration', { persistedUiLanguage: persistedUiLanguage ?? null, resolvedLanguageAfterHydration: i18n.resolvedLanguage ?? null })
+
       // Restore persisted Git Bash path on Windows (must happen before any SDK subprocess spawn)
       if (process.platform === 'win32') {
         const { getGitBashPath, clearGitBashPath } = await import('@otto/shared/config')
@@ -579,15 +596,6 @@ app.whenReady().then(async () => {
       const { getServerConfig } = await import('@otto/shared/config')
       const embeddedServerConfig = getServerConfig()
       const serverModeEnabled = embeddedServerConfig.enabled && !isClientOnly
-
-      // A local install has one person and no sign-in: the user made here, from the name and email in
-      // Settings -> Preferences, owns every workspace and is who the per-launch token (or the
-      // server-mode token) acts as. The secret only signs sessions this app never opens.
-      process.env.BETTER_AUTH_SECRET ??= randomBytes(32).toString('hex')
-      const { loadPreferences } = await import('@otto/shared/config')
-      const { initLocalUser } = await import('@otto/shared/users')
-      const preferences = loadPreferences()
-      initLocalUser({ name: preferences.name?.trim() || 'You', email: preferences.email?.trim() || 'local@localhost' })
 
       // Derive host/port/token from server config (or env overrides)
       const serverToken = serverModeEnabled && embeddedServerConfig.token
@@ -649,16 +657,6 @@ app.whenReady().then(async () => {
         createSessionManager: () => {
           const sm = new SessionManager()
           sm.setBrowserPaneManager(browserPaneManager!)
-          // Page preview posters: offscreen capture is Electron-main-only. On
-          // capture, nudge the watcher so the pages:changed push carries the
-          // fresh thumbnail pointer to open grids.
-          const pageThumbnailer = new PageThumbnailer({
-            log: (m) => mainLog.info(m),
-            onCaptured: ({ workspaceRootPath, slug }) => {
-              sm.notifyConfigFileChange(workspaceRootPath, `pages/${slug}/page.json`)
-            },
-          })
-          sm.setPageThumbnailer((req) => pageThumbnailer.enqueue(req))
           return sm
         },
         bindRpcServer: (sm, server) => sm.setRpcServer(server),
@@ -706,12 +704,12 @@ app.whenReady().then(async () => {
           : registerAllRpcHandlers,
         setSessionEventSink: (sm, sink) => sm.setEventSink(sink),
         initializeSessionManager: (sm) => sm.initialize(),
-        initModelRefreshService: () => initModelRefreshService(async (slug: string) => {
+        initModelRefreshService: () => initModelRefreshService(async (slug: string, scope: string) => {
           const { getCredentialManager } = await import('@otto/shared/credentials')
           const manager = getCredentialManager()
           const [apiKey, oauth] = await Promise.all([
-            manager.getLlmApiKey(slug).catch(() => null),
-            manager.getLlmOAuth(slug).catch(() => null),
+            manager.getLlmApiKey(slug, scope).catch(() => null),
+            manager.getLlmOAuth(slug, scope).catch(() => null),
           ])
           return {
             apiKey: apiKey ?? undefined,

@@ -15,7 +15,6 @@
  */
 
 import http from 'node:http';
-import { createInterface } from 'node:readline';
 import { join } from 'node:path';
 import { mkdirSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -91,6 +90,7 @@ import {
 // Direct source imports from shared (bundled by bun build)
 import { handleLargeResponse, estimateTokens, tokenLimitFor, setLargeResultSummaryGate } from '../../shared/src/utils/large-response.ts';
 import { getSessionPath } from '../../shared/src/sessions/storage.ts';
+import { readLines } from '../../shared/src/utils/jsonl-lines.ts';
 import { buildCallLlmRequest } from '../../shared/src/agent/llm-tool.ts';
 import type { LLMQueryRequest, LLMQueryResult } from '../../shared/src/agent/llm-tool.ts';
 import { PI_TOOL_NAME_MAP, THINKING_TO_PI } from '../../shared/src/agent/backend/pi/constants.ts';
@@ -1882,25 +1882,28 @@ async function processMessage(msg: InboundMessage): Promise<void> {
 function main(): void {
   debugLog('Pi agent server starting');
 
-  const rl = createInterface({ input: process.stdin });
-
-  rl.on('line', (line: string) => {
-    if (!line.trim()) return;
-    try {
-      const msg = JSON.parse(line) as InboundMessage;
-      processMessage(msg).catch((error) => {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        debugLog(`Error processing message: ${errorMsg}`);
-        send({ type: 'error', message: errorMsg });
-      });
-    } catch (parseError) {
-      debugLog(`Failed to parse JSONL: ${parseError}`);
-    }
-  });
-
-  rl.on('close', () => {
-    debugLog('stdin closed, shutting down');
-    handleShutdown();
+  readLines(process.stdin, {
+    onLine: (line) => {
+      if (!line.trim()) return;
+      try {
+        const msg = JSON.parse(line) as InboundMessage;
+        processMessage(msg).catch((error) => {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          debugLog(`Error processing message: ${errorMsg}`);
+          send({ type: 'error', message: errorMsg });
+        });
+      } catch (parseError) {
+        debugLog(`Failed to parse JSONL: ${parseError}`);
+      }
+    },
+    onEnd: () => {
+      debugLog('stdin closed, shutting down');
+      handleShutdown();
+    },
+    onError: (error) => {
+      debugLog(`stdin framing failed: ${error.message}`);
+      handleShutdown();
+    },
   });
 
   // Handle unexpected errors — process state is unreliable after these,

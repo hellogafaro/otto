@@ -23,7 +23,6 @@ import { registerProjectsHandlers } from './projects'
 import { registerNotificationsHandlers } from './notifications'
 import { registerTasksHandlers } from './tasks'
 import { broadcastDomainChanges } from './domain-changes'
-import { registerPagesHandlers } from './pages'
 import { registerSkillsHandlers } from './skills'
 import { registerSourcesHandlers } from './sources'
 import { registerStatusesHandlers } from './statuses'
@@ -60,7 +59,6 @@ export function registerCoreRpcHandlers(
   registerTasksHandlers(server, deps)
   registerCommentsHandlers(server, deps)
   registerNotificationsHandlers(server, deps)
-  registerPagesHandlers(server, deps)
   registerSkillsHandlers(server, deps)
   registerSourcesHandlers(server, deps)
   registerStatusesHandlers(server, deps)

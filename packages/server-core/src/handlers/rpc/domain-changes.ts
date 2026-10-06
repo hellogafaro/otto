@@ -43,6 +43,9 @@ export const WRITE_CHANNELS: Record<string, Domain[]> = {
   [C.workspaces.REMOVE_MEMBER]: ['members'],
   [C.workspaces.UPDATE_MEMBER_ROLE]: ['members'],
   [C.workspaces.LEAVE]: ['members'],
+  [C.labels.CREATE]: ['labels'],
+  [C.labels.DELETE]: ['labels'],
+  [C.statuses.REORDER]: ['statuses'],
 }
 
 /**
@@ -58,9 +61,9 @@ const NOTIFIED: Record<string, (ctx: RequestContext, result: never) => string[] 
   [C.notifications.CLEAR]: (ctx) => (ctx.userId ? [ctx.userId] : undefined),
 }
 
-/** The workspace id a write is about: the first argument of the members channels (an id, or a name; an invitation id for a revoke), else the connection's. */
+/** The workspace id a write is about: the first argument of the members, labels and statuses channels (an id, or a name; an invitation id for a revoke), else the connection's. */
 function workspaceIdOf(channel: string, ctx: Parameters<typeof resolveWorkspace>[0], args: unknown[], deps: HandlerDeps): string | undefined {
-  if (!channel.startsWith('workspaces:')) return resolveWorkspace(ctx, deps).id
+  if (!/^(workspaces|labels|statuses):/.test(channel)) return resolveWorkspace(ctx, deps).id
   const ref = String(args[0])
   return channel === C.workspaces.REVOKE_INVITATION ? getWorkspaceInvitation(ref)?.workspaceId : getWorkspaceByNameOrId(ref)?.id
 }

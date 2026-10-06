@@ -4,9 +4,10 @@ import { isActor } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
-import { getLibraryStore, type FileStore } from './file-store.ts'
+import type { FileStore } from './file-store.ts'
 import { MAX_FILE_BYTES, MAX_FOLDER_DEPTH } from './limits.ts'
 import { library } from './schema.ts'
+import { getLibraryStore } from './storage.ts'
 import type { LibraryFilter, LibraryItem, LibraryItemType } from './types.ts'
 
 /**
@@ -25,6 +26,7 @@ import type { LibraryFilter, LibraryItem, LibraryItemType } from './types.ts'
 
 export * from './file-store.ts'
 export * from './limits.ts'
+export { getLibraryStore, initFileStorage } from './storage.ts'
 export type * from './types.ts'
 
 /** Title of the root folder that holds chat attachments (not translated; it is a name, like a file's). */
@@ -303,12 +305,12 @@ type Store = ReturnType<typeof createLibraryStore>
 
 let store: Store | undefined
 
-/** Bytes live under the workspace's own directory (`<root>/library`). */
+/** Bytes live under the workspace's own directory (`<root>/library`), or in S3 with that directory as a cache (storage.ts). */
 function defaultStore() {
   return (store ??= createLibraryStore(initDb(), (workspaceId) => {
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) throw domainError('not_found', `Workspace ${workspaceId} does not exist`)
-    return getLibraryStore(workspace.rootPath)
+    return getLibraryStore(workspace.rootPath, workspace.id)
   }))
 }
 

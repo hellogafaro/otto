@@ -20,7 +20,7 @@ import {
 import { getSourceConfigPath } from '../source-helpers.ts';
 
 export interface ConfigValidateArgs {
-  target: 'config' | 'sources' | 'statuses' | 'preferences' | 'permissions' | 'automations' | 'tool-icons' | 'all';
+  target: 'config' | 'sources' | 'permissions' | 'automations' | 'tool-icons' | 'all';
   sourceSlug?: string;
 }
 
@@ -53,12 +53,6 @@ export async function handleConfigValidate(
           } else {
             result = ctx.validators.validateAllSources(ctx.workspacePath);
           }
-          break;
-        case 'statuses':
-          result = ctx.validators.validateStatuses(ctx.workspacePath);
-          break;
-        case 'preferences':
-          result = ctx.validators.validatePreferences();
           break;
         case 'permissions':
           result = ctx.validators.validatePermissions(ctx.workspacePath, sourceSlug);
@@ -129,30 +123,14 @@ export async function handleConfigValidate(
       }
     }
 
-    case 'statuses': {
-      const result = validateJsonFileHasFields(
-        join(ctx.workspacePath, 'statuses', 'config.json'),
-        ['statuses']
-      );
-      return successResponse(formatValidationResult(result));
-    }
-
-    case 'preferences': {
-      const result = validateJsonFileHasFields(
-        join(ottoRoot, 'preferences.json'),
-        []
-      );
-      return successResponse(formatValidationResult(result));
-    }
-
     case 'permissions': {
-      // Check workspace-level permissions.json
-      const workspacePermsPath = join(ctx.workspacePath, 'permissions.json');
-      if (!ctx.fs.exists(workspacePermsPath)) {
-        return successResponse('✓ No workspace permissions.json (using defaults)');
+      // A source's permissions.json; the workspace's own rules are checked when permissions_edit writes them
+      if (!sourceSlug) return successResponse("✓ Workspace permission rules are validated when written (permissions_edit)");
+      const sourcePermsPath = join(ctx.workspacePath, 'sources', sourceSlug, 'permissions.json');
+      if (!ctx.fs.exists(sourcePermsPath)) {
+        return successResponse(`✓ No permissions.json for source ${sourceSlug} (using defaults)`);
       }
-      const result = validateJsonFileHasFields(workspacePermsPath, []);
-      return successResponse(formatValidationResult(result));
+      return successResponse(formatValidationResult(validateJsonFileHasFields(sourcePermsPath, [])));
     }
 
     case 'automations': {
@@ -177,17 +155,12 @@ export async function handleConfigValidate(
         join(ottoRoot, 'config.json'),
         ['workspaces']
       );
-      const prefsResult = validateJsonFileHasFields(
-        join(ottoRoot, 'preferences.json'),
-        []
-      );
-      const merged = mergeResults(configResult, prefsResult);
-      return successResponse(formatValidationResult(merged));
+      return successResponse(formatValidationResult(configResult));
     }
 
     default:
       return errorResponse(
-        `Unknown validation target: ${target}. Valid targets: config, sources, statuses, preferences, permissions, automations, tool-icons, all`
+        `Unknown validation target: ${target}. Valid targets: config, sources, statuses, permissions, automations, tool-icons, all`
       );
   }
 }

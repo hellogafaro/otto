@@ -1549,10 +1549,6 @@ export function FreeFormInput({
             onOpenChange={setAddLabelPopoverOpen}
             {...addLabelEditConfig}
             defaultValue={addLabelPrefill}
-            secondaryAction={workspaceRootPath ? {
-              label: 'Edit File',
-              filePath: `${workspaceRootPath}/labels/config.json`,
-            } : undefined}
             side="top"
             align="start"
           />

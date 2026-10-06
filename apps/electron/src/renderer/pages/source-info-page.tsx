@@ -8,6 +8,7 @@
  */
 
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
@@ -171,6 +172,7 @@ function getPermissionsDescription(source: LoadedSource, t: (key: string) => str
 
 export default function SourceInfoPage({ sourceSlug, workspaceId }: SourceInfoPageProps) {
   const { t } = useTranslation()
+  useComposerContext({ key: 'page:sources', placeholder: t('composer.placeholder.start') })
   const { showNotFound } = useNavigation()
   const parent = useParentView()
   const { dialog: deleteDialog, confirmDelete } = useConfirmDelete()

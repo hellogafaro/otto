@@ -10,6 +10,7 @@ import { markdownComponents } from './markdown'
 import { iconComponents } from './icons'
 import { oauthComponents } from './oauth'
 import { toastsComponents } from './toasts'
+import { composerComponents } from './composer'
 import { sessionListComponents } from './session-list'
 import { editPopoverComponents } from './edit-popover'
 import { automationComponents } from './automations'
@@ -44,6 +45,7 @@ export const componentRegistry: ComponentEntry[] = [
   ...fullscreenOverlayComponents,
   ...messagesComponents,
   ...inputComponents,
+  ...composerComponents,
   ...toastsComponents,
   ...slashCommandComponents,
   ...markdownComponents,

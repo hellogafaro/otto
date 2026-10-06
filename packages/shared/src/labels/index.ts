@@ -6,7 +6,7 @@
  * Hierarchy is encoded as a nested JSON tree (children arrays).
  *
  * This barrel is browser-safe (no Node.js dependencies).
- * For filesystem operations, import from '@otto/shared/labels/storage'.
+ * For database operations, import from '@otto/shared/labels/storage', '/crud' and '/entities'.
  */
 
 // Types

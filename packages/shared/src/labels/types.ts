@@ -3,7 +3,7 @@
  *
  * Types for configurable session labels.
  * Labels are additive tags (many-per-session), unlike statuses which are exclusive (one-per-session).
- * Stored at {workspaceRootPath}/labels/config.json
+ * Stored as rows of `labels` (./schema.ts); `LabelConfig.id` is the row's `slug`.
  *
  * Hierarchy: Labels form a recursive JSON tree via the `children` array.
  * Array position determines display order (no separate order field).
@@ -75,7 +75,7 @@ export function isSemanticAutoLabelRule(rule: AutoLabelRule): rule is SemanticAu
 export const DEFAULT_SEMANTIC_RULE_THRESHOLD = 0.9
 
 /**
- * Label configuration (stored in labels/config.json).
+ * Label configuration (a `labels` row; the tree is built from `parentId`).
  * Recursive: each label can have nested children forming a tree.
  * Array position = display order (no explicit order field needed).
  */
@@ -110,7 +110,7 @@ export interface LabelConfig {
 }
 
 /**
- * Complete label configuration for a workspace
+ * The default label tree a new workspace is seeded with
  */
 export interface WorkspaceLabelConfig {
   /** Schema version (start at 1) */
@@ -129,15 +129,18 @@ export interface CreateLabelInput {
   color?: EntityColor;
   parentId?: string; // Target parent label ID (null = root)
   valueType?: 'string' | 'number' | 'date' | 'link';
+  autoRules?: AutoLabelRule[];
 }
 
 /**
- * Input for updating an existing label (name, color, valueType — cannot change ID or hierarchy)
+ * Input for updating an existing label (name, color, valueType, autoRules — cannot change ID or hierarchy).
+ * `valueType: ''` makes it a plain label again; `autoRules: []` clears the rules.
  */
 export interface UpdateLabelInput {
   name?: string;
   color?: EntityColor;
-  valueType?: 'string' | 'number' | 'date' | 'link';
+  valueType?: 'string' | 'number' | 'date' | 'link' | '';
+  autoRules?: AutoLabelRule[];
 }
 
 /**

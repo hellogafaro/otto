@@ -67,8 +67,6 @@ export interface OAuthCredentials {
 export interface StoredConfig {
   authType?: AuthType;
   workspaces: Workspace[];
-  activeWorkspaceId: string | null;
-  activeSessionId: string | null;  // Currently active session (primary scope)
   model?: string;
 }
 

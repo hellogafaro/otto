@@ -1,8 +1,7 @@
-import { existsSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import { ensureConfigDir } from './storage.ts';
-import { CONFIG_DIR } from './paths.ts';
-import { readJsonFileSync } from '../utils/files.ts';
+import { initDb } from '../db/index.ts';
+import { CATALOGUE, deleteSetting, getSettings, getUserSetting, updateSetting, updateUserSetting, userEntity } from '../settings/index.ts';
+import { getFirstUser, getUser, LOCAL_EMAIL, updateUser } from '../users/queries.ts';
+import { domainError } from '../utils/errors.ts';
 import { i18n, SUPPORTED_LANGUAGE_CODES } from '../i18n/index.ts';
 import { LOCALE_REGISTRY, type LanguageCode } from '../i18n/registry.ts';
 import { sanitizePromptBody, sanitizePromptLine } from '../prompts/prompt-sanitize.ts';
@@ -13,10 +12,7 @@ export interface UserLocation {
   country?: string;
 }
 
-/**
- * Diff viewer display preferences
- * Persisted to preferences.json as a user-level setting
- */
+/** Diff viewer display preferences */
 export interface DiffViewerPreferences {
   /** Diff layout: 'unified' (stacked) or 'split' (side-by-side) */
   diffStyle?: 'unified' | 'split';
@@ -24,15 +20,19 @@ export interface DiffViewerPreferences {
   disableBackground?: boolean;
 }
 
+/**
+ * What a person told the app about themselves. `name` and `email` are the person's `users` row; the rest are
+ * their `user:<id>` settings (`timezone`, `location`, `notes`, `diffViewer`, `includeCoAuthoredBy`, `uiLanguage`).
+ * Every function takes the user's id; without one it is the first user (the local user on a desktop).
+ */
 export interface UserPreferences {
   name?: string;
-  /** Shown in the workspace menu's account block; never sent anywhere. Empty or a basic email shape. */
+  /** Shown in the workspace menu's account block; never sent anywhere. */
   email?: string;
   timezone?: string;
   location?: UserLocation;
   // Free-form notes the agent learns about the user
   notes?: string;
-  // Diff viewer display preferences
   diffViewer?: DiffViewerPreferences;
   // Whether to include Co-Authored-By trailer on git commits (default: true)
   includeCoAuthoredBy?: boolean;
@@ -42,38 +42,41 @@ export interface UserPreferences {
    * Not user-editable; not exposed via the `update_user_preferences` tool.
    */
   uiLanguage?: LanguageCode;
-  // When the preferences were last updated
-  updatedAt?: number;
 }
 
-const PREFERENCES_FILE = join(CONFIG_DIR, 'preferences.json');
+const PREFERENCE_SETTINGS = ['timezone', 'location', 'notes', 'diffViewer', 'includeCoAuthoredBy', 'uiLanguage'] as const;
 
-export function loadPreferences(): UserPreferences {
-  try {
-    if (!existsSync(PREFERENCES_FILE)) {
-      return {};
-    }
-    const raw = readJsonFileSync<UserPreferences & { language?: unknown }>(PREFERENCES_FILE);
-    // Scrub legacy free-text `language` field on read so it never leaks
-    // back into a write. Old values were free-text ("Hungarian", "English") —
-    // not language codes — so we drop them rather than migrate.
-    if (raw && typeof raw === 'object' && 'language' in raw) {
-      delete (raw as { language?: unknown }).language;
-    }
-    return raw;
-  } catch {
-    return {};
+/** What the user has set: only what differs from the default. */
+export function loadPreferences(userId?: string | null): UserPreferences {
+  const id = userId ?? getFirstUser()?.id;
+  if (!id) return {};
+  const prefs: Record<string, unknown> = {};
+  const user = getUser(id);
+  if (user && user.email !== LOCAL_EMAIL) Object.assign(prefs, { name: user.name, email: user.email });
+  const stored = getSettings(userEntity(id));
+  for (const key of PREFERENCE_SETTINGS) {
+    if (JSON.stringify(stored[key]) !== JSON.stringify(CATALOGUE[key].fallback)) prefs[key] = stored[key];
   }
+  return prefs;
 }
 
-export function savePreferences(prefs: UserPreferences): void {
-  ensureConfigDir();
-  prefs.updatedAt = Date.now();
-  writeFileSync(PREFERENCES_FILE, JSON.stringify(prefs, null, 2), 'utf-8');
+/** Makes these the user's preferences: a setting left out goes back to its default; an empty name or email is left as it is. */
+export function savePreferences(prefs: UserPreferences, userId?: string | null): void {
+  const id = userId ?? getFirstUser()?.id;
+  if (!id) throw domainError('not_found', 'There is no user yet');
+  initDb().transaction((tx) => {
+    const name = prefs.name?.trim();
+    const email = prefs.email?.trim();
+    if (name || email) updateUser(id, { name, email }, tx);
+    for (const key of PREFERENCE_SETTINGS) {
+      if (prefs[key] === undefined) deleteSetting(userEntity(id), key, tx);
+      else updateSetting(userEntity(id), key, prefs[key], tx);
+    }
+  });
 }
 
-export function updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
-  const current = loadPreferences();
+export function updatePreferences(updates: Partial<UserPreferences>, userId?: string | null): UserPreferences {
+  const current = loadPreferences(userId);
   const updated = {
     ...current,
     ...updates,
@@ -86,35 +89,31 @@ export function updatePreferences(updates: Partial<UserPreferences>): UserPrefer
       ? { ...current.diffViewer, ...updates.diffViewer }
       : current.diffViewer,
   };
-  savePreferences(updated);
+  savePreferences(updated, userId);
   return updated;
-}
-
-export function getPreferencesPath(): string {
-  return PREFERENCES_FILE;
 }
 
 /**
  * Read the persisted UI language code (validated against the supported set).
- * Returns `undefined` when the field is missing or holds an unrecognised value.
+ * Returns `undefined` when none is stored or it holds an unrecognised value, and when the
+ * settings cannot be read at all (a client-only desktop has no local database).
  */
-export function getPersistedUiLanguage(): LanguageCode | undefined {
-  const prefs = loadPreferences();
-  const candidate = prefs.uiLanguage;
-  if (!candidate) return undefined;
-  if (!SUPPORTED_LANGUAGE_CODES.includes(candidate)) return undefined;
-  return candidate;
+export function getPersistedUiLanguage(userId?: string | null): LanguageCode | undefined {
+  try {
+    const candidate = getUserSetting(userId, 'uiLanguage');
+    return candidate && (SUPPORTED_LANGUAGE_CODES as readonly string[]).includes(candidate) ? (candidate as LanguageCode) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
- * Persist the UI language code. Idempotent — does not rewrite the file
- * (or bump `updatedAt`) when the value is unchanged. This avoids re-triggering
- * the config watcher on startup syncs and duplicate IPC calls.
+ * Persist the UI language code. Idempotent: writes nothing when the value is unchanged, and
+ * nothing while there is no user to keep it for (the renderer remembers the language itself).
  */
-export function setPersistedUiLanguage(code: LanguageCode): void {
-  const current = loadPreferences();
-  if (current.uiLanguage === code) return;
-  savePreferences({ ...current, uiLanguage: code });
+export function setPersistedUiLanguage(code: LanguageCode, userId?: string | null): void {
+  if (getPersistedUiLanguage(userId) === code || !(userId ?? getFirstUser()?.id)) return;
+  updateUserSetting(userId, 'uiLanguage', code);
 }
 
 /**
@@ -128,16 +127,21 @@ export function setPersistedUiLanguage(code: LanguageCode): void {
  * prompt auto-detect the conversation language instead of being forced to
  * English.
  */
-export function resolveTitleLanguageName(): string | undefined {
-  const code = getPersistedUiLanguage();
+export function resolveTitleLanguageName(userId?: string | null): string | undefined {
+  const code = getPersistedUiLanguage(userId);
   return code ? LOCALE_REGISTRY[code]?.nativeName : undefined;
 }
 
 /**
  * Format preferences for inclusion in system prompt
  */
-export function formatPreferencesForPrompt(): string {
-  const prefs = loadPreferences();
+export function formatPreferencesForPrompt(userId?: string | null): string {
+  let prefs: UserPreferences;
+  try {
+    prefs = loadPreferences(userId);
+  } catch {
+    return ''; // a prompt is built without preferences rather than not at all
+  }
 
   // Derive language from the app's i18n setting (Appearance > Language).
   const langCode = (i18n.resolvedLanguage ?? 'en') as LanguageCode;
@@ -184,63 +188,13 @@ export function formatPreferencesForPrompt(): string {
 }
 
 /**
- * Format preferences as readable text for display
- */
-export function formatPreferencesDisplay(): string {
-  const prefs = loadPreferences();
-
-  const lines: string[] = ['**Your Preferences**', ''];
-
-  // Check if any preferences are actually set
-  const hasName = !!prefs.name;
-  const hasTimezone = !!prefs.timezone;
-  const hasLocation = prefs.location && (prefs.location.city || prefs.location.region || prefs.location.country);
-  const hasNotes = !!prefs.notes;
-  const hasAnyPrefs = hasName || hasTimezone || hasLocation || hasNotes;
-
-  lines.push('Your preferences help personalise your experience. The assistant uses these to provide more relevant responses (e.g., timezone for scheduling, language for communication).');
-  lines.push('');
-
-  if (!hasAnyPrefs) {
-    lines.push('**Status:** Nothing saved yet.');
-    lines.push('');
-  } else {
-    lines.push(`- Name: ${prefs.name || '(not set)'}`);
-    lines.push(`- Timezone: ${prefs.timezone || '(not set)'}`);
-
-    if (hasLocation) {
-      const loc = prefs.location!;
-      const parts = [loc.city, loc.region, loc.country].filter(Boolean);
-      lines.push(`- Location: ${parts.join(', ')}`);
-    } else {
-      lines.push('- Location: (not set)');
-    }
-
-    const displayLangCode = (i18n.resolvedLanguage ?? 'en') as LanguageCode;
-    const displayLangEntry = LOCALE_REGISTRY[displayLangCode];
-    lines.push(`- Language: ${displayLangEntry?.nativeName ?? 'English'} (via Appearance settings)`);
-
-    if (hasNotes) {
-      lines.push('', '**Notes**', prefs.notes!);
-    }
-
-    if (prefs.updatedAt) {
-      lines.push('', `_Last updated: ${new Date(prefs.updatedAt).toLocaleString()}_`);
-    }
-    lines.push('');
-  }
-
-  lines.push('**How to update:** Just tell the assistant (e.g., "My name is Alex" or "I\'m in London, GMT timezone").');
-  lines.push(`**Config file:** \`${PREFERENCES_FILE}\``);
-
-  return lines.join('\n');
-}
-
-/**
  * Whether the Co-Authored-By trailer should be included on git commits.
  * Defaults to true when the preference is not explicitly set.
  */
-export function getCoAuthorPreference(): boolean {
-  const prefs = loadPreferences();
-  return prefs.includeCoAuthoredBy !== false;
+export function getCoAuthorPreference(userId?: string | null): boolean {
+  try {
+    return getUserSetting(userId, 'includeCoAuthoredBy');
+  } catch {
+    return true;
+  }
 }

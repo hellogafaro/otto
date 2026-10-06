@@ -1,12 +1,19 @@
 /**
  * Status CRUD Operations
  *
- * Create, Read, Update, Delete operations for status configurations.
- * Enforces business rules (fixed statuses, default statuses, uniqueness).
+ * Create, update, delete and reorder a workspace's statuses (rows of `statuses`).
+ * Enforces business rules (fixed statuses, the one default, unique slugs).
+ * Deleting a status moves the chats that carry it to `todo` (their headers, until chats move to the database).
  */
 
-import { loadStatusConfig, saveStatusConfig } from './storage.ts';
-import type { StatusConfig, CreateStatusInput, UpdateStatusInput } from './types.ts';
+import { and, eq, sql } from 'drizzle-orm';
+import { getWorkspaceRootPath } from '../config/storage.ts';
+import { initDb, type Db, type Tx } from '../db/index.ts';
+import { createId } from '../id.ts';
+import { domainError } from '../utils/errors.ts';
+import { statuses } from './schema.ts';
+import { getStatus, getStatusRow, initWorkspaceStatuses, MAX_STATUS_ICON } from './storage.ts';
+import type { CreateStatusInput, StatusConfig, UpdateStatusInput } from './types.ts';
 
 /**
  * Generate URL-safe slug from label
@@ -19,175 +26,139 @@ function generateStatusSlug(label: string): string {
     .substring(0, 30);
 }
 
+/** Throws `invalid` unless the icon is an emoji or short name, or an image data URL of at most 16 KB (a web address is not stored: give its image as a data URL). */
+function assertIcon(icon: string): void {
+  if (/^https?:\/\//i.test(icon)) throw domainError('invalid', 'A status icon is an emoji or an image data URL, not a web address');
+  if (icon.startsWith('data:') && !/^data:image\//.test(icon)) throw domainError('invalid', 'A status icon data URL must be an image');
+  if (icon.length > MAX_STATUS_ICON) throw domainError('invalid', `A status icon is at most ${MAX_STATUS_ICON} characters`);
+}
+
 /**
- * Create a new custom status
- * @throws Error if ID conflicts or validation fails
+ * Create a new custom status, last in the order.
+ * @throws `invalid` for a bad icon
  */
-export function createStatus(
-  workspaceRootPath: string,
-  input: CreateStatusInput
-): StatusConfig {
-  const config = loadStatusConfig(workspaceRootPath);
+export function createStatus(workspaceId: string, input: CreateStatusInput, db: Db | Tx = initDb()): StatusConfig {
+  if (input.icon) assertIcon(input.icon);
+  initWorkspaceStatuses(workspaceId, db);
 
-  // Generate unique ID
-  let id = generateStatusSlug(input.label);
-  let suffix = 2;
-  while (config.statuses.some(s => s.id === id)) {
-    id = `${generateStatusSlug(input.label)}-${suffix}`;
-    suffix++;
-  }
+  // Generate unique slug
+  const base = generateStatusSlug(input.label) || 'status';
+  let slug = base;
+  for (let suffix = 2; getStatusRow(workspaceId, slug, db); suffix++) slug = `${base}-${suffix}`;
 
-  const maxOrder = Math.max(...config.statuses.map(s => s.order), -1);
-
-  const status: StatusConfig = {
-    id,
-    label: input.label,
-    color: input.color,
-    icon: input.icon,
-    category: input.category,
-    isFixed: false,
-    isDefault: false,
-    order: maxOrder + 1,
-  };
-
-  config.statuses.push(status);
-  saveStatusConfig(workspaceRootPath, config);
-
-  return status;
+  const last = db.select({ n: sql<number>`coalesce(max(${statuses.order}), -1)` }).from(statuses).where(eq(statuses.workspaceId, workspaceId)).get();
+  const now = new Date();
+  db.insert(statuses)
+    .values({
+      id: createId(),
+      workspaceId,
+      slug,
+      title: input.label,
+      color: input.color === undefined ? null : JSON.stringify(input.color),
+      icon: input.icon ?? null,
+      category: input.category,
+      isFixed: false,
+      isDefault: false,
+      order: (last?.n ?? -1) + 1,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+  return getStatus(workspaceId, slug, db)!;
 }
 
 /**
  * Update a status (label, color, icon, category)
- * Cannot change ID or isFixed/isDefault flags
- * @throws Error if status is fixed and trying to change protected fields
+ * Cannot change the slug or isFixed/isDefault flags
+ * @throws `not_found`; `forbidden` when changing the category of a fixed status
  */
-export function updateStatus(
-  workspaceRootPath: string,
-  statusId: string,
-  updates: UpdateStatusInput
-): StatusConfig {
-  const config = loadStatusConfig(workspaceRootPath);
-  const status = config.statuses.find(s => s.id === statusId);
-
-  if (!status) {
-    throw new Error(`Status '${statusId}' not found`);
-  }
+export function updateStatus(workspaceId: string, slug: string, updates: UpdateStatusInput, db: Db | Tx = initDb()): StatusConfig {
+  initWorkspaceStatuses(workspaceId, db);
+  const row = getStatusRow(workspaceId, slug, db);
+  if (!row) throw domainError('not_found', `Status '${slug}' not found`);
 
   // Fixed statuses cannot change category
-  if (status.isFixed && updates.category && updates.category !== status.category) {
-    throw new Error('Cannot change category of fixed status');
+  if (row.isFixed && updates.category && updates.category !== row.category) {
+    throw domainError('forbidden', 'Cannot change category of fixed status');
   }
+  if (updates.icon) assertIcon(updates.icon);
 
-  // Apply updates
-  if (updates.label !== undefined) status.label = updates.label;
-  if (updates.color !== undefined) status.color = updates.color;
-  if (updates.icon !== undefined) status.icon = updates.icon;
-  if (updates.category !== undefined) status.category = updates.category;
+  db.update(statuses)
+    .set({
+      ...(updates.label !== undefined && { title: updates.label }),
+      ...(updates.color !== undefined && { color: JSON.stringify(updates.color) }),
+      ...(updates.icon !== undefined && { icon: updates.icon || null }),
+      ...(updates.category !== undefined && { category: updates.category }),
+      updatedAt: new Date(),
+    })
+    .where(eq(statuses.id, row.id))
+    .run();
+  return getStatus(workspaceId, slug, db)!;
+}
 
-  saveStatusConfig(workspaceRootPath, config);
-  return status;
+/**
+ * Make a status the one new chats get; the previous default stops being it (one default per workspace).
+ * @throws `not_found`
+ */
+export function setDefaultStatus(workspaceId: string, slug: string, db: Db = initDb()): void {
+  initWorkspaceStatuses(workspaceId, db);
+  const row = getStatusRow(workspaceId, slug, db);
+  if (!row) throw domainError('not_found', `Status '${slug}' not found`);
+  db.transaction((tx) => {
+    tx.update(statuses).set({ isDefault: false }).where(and(eq(statuses.workspaceId, workspaceId), eq(statuses.isDefault, true))).run();
+    tx.update(statuses).set({ isDefault: true, updatedAt: new Date() }).where(eq(statuses.id, row.id)).run();
+  });
 }
 
 /**
  * Delete a status
- * @throws Error if status is fixed or default
- * @returns Number of sessions that were auto-migrated to 'todo'
+ * @throws `not_found`; `forbidden` for a fixed or default status
+ * @returns Number of chats that were moved to 'todo'
  */
-export function deleteStatus(
-  workspaceRootPath: string,
-  statusId: string
-): { migrated: number } {
-  const config = loadStatusConfig(workspaceRootPath);
-  const status = config.statuses.find(s => s.id === statusId);
+export function deleteStatus(workspaceId: string, slug: string, db: Db | Tx = initDb()): { migrated: number } {
+  initWorkspaceStatuses(workspaceId, db);
+  const row = getStatusRow(workspaceId, slug, db);
+  if (!row) throw domainError('not_found', `Status '${slug}' not found`);
+  if (row.isFixed) throw domainError('forbidden', `Cannot delete fixed status '${slug}'`);
+  if (row.isDefault) throw domainError('forbidden', `Cannot delete default status '${slug}'. Pick another default first.`);
 
-  if (!status) {
-    throw new Error(`Status '${statusId}' not found`);
-  }
-
-  if (status.isFixed) {
-    throw new Error(`Cannot delete fixed status '${statusId}'`);
-  }
-
-  if (status.isDefault) {
-    throw new Error(`Cannot delete default status '${statusId}'. Modify it instead.`);
-  }
-
-  // Remove from config
-  config.statuses = config.statuses.filter(s => s.id !== statusId);
-  saveStatusConfig(workspaceRootPath, config);
-
-  // Migrate sessions using this status to 'todo'
-  const migrated = migrateSessionsFromDeletedStatus(workspaceRootPath, statusId);
-
+  // Move chats using this status to 'todo' while it still exists (chat listing reads a deleted status as 'todo' and would hide them)
+  const migrated = migrateSessionsFromDeletedStatus(workspaceId, slug);
+  db.delete(statuses).where(eq(statuses.id, row.id)).run();
   return { migrated };
 }
 
 /**
- * Reorder statuses
+ * Reorder statuses: the listed ones first in the given order, any left out after them.
+ * @throws `invalid` for an unknown slug
  */
-export function reorderStatuses(
-  workspaceRootPath: string,
-  orderedIds: string[]
-): void {
-  const config = loadStatusConfig(workspaceRootPath);
-
-  // Validate all IDs exist
-  const validIds = new Set(config.statuses.map(s => s.id));
-  for (const id of orderedIds) {
-    if (!validIds.has(id)) {
-      throw new Error(`Invalid status ID: ${id}`);
-    }
+export function reorderStatuses(workspaceId: string, orderedSlugs: string[], db: Db | Tx = initDb()): void {
+  initWorkspaceStatuses(workspaceId, db);
+  const rows = db.select().from(statuses).where(eq(statuses.workspaceId, workspaceId)).orderBy(statuses.order).all();
+  const bySlug = new Map(rows.map((row) => [row.slug, row]));
+  for (const slug of orderedSlugs) {
+    if (!bySlug.has(slug)) throw domainError('invalid', `Invalid status ID: ${slug}`);
   }
-
-  // Update order based on array position
-  for (let i = 0; i < orderedIds.length; i++) {
-    const status = config.statuses.find(s => s.id === orderedIds[i]);
-    if (status) {
-      status.order = i;
-    }
-  }
-
-  saveStatusConfig(workspaceRootPath, config);
+  const order = [...new Set(orderedSlugs), ...rows.map((row) => row.slug).filter((slug) => !orderedSlugs.includes(slug))];
+  order.forEach((slug, position) => db.update(statuses).set({ order: position }).where(eq(statuses.id, bySlug.get(slug)!.id)).run());
 }
 
 /**
- * Reset to default configuration
- * WARNING: Deletes all custom statuses
- */
-export function resetToDefaults(workspaceRootPath: string): void {
-  const { getDefaultStatusConfig } = require('./storage.ts');
-  const config = getDefaultStatusConfig();
-  saveStatusConfig(workspaceRootPath, config);
-
-  // Migrate any sessions with now-invalid statuses
-  const validIds = new Set(config.statuses.map((s: StatusConfig) => s.id));
-  const { listSessions, updateSessionMetadata } = require('../sessions/storage.ts');
-  const sessions = listSessions(workspaceRootPath);
-
-  for (const session of sessions) {
-    if (session.sessionStatus && !validIds.has(session.sessionStatus)) {
-      updateSessionMetadata(workspaceRootPath, session.id, { sessionStatus: 'todo' });
-    }
-  }
-}
-
-/**
- * Migrate sessions from a deleted status to 'todo'
+ * Move chats from a deleted status to 'todo'
  * Called internally by deleteStatus()
  */
-function migrateSessionsFromDeletedStatus(
-  workspaceRootPath: string,
-  deletedStatusId: string
-): number {
+function migrateSessionsFromDeletedStatus(workspaceId: string, deletedStatusId: string): number {
+  const rootPath = getWorkspaceRootPath(workspaceId);
+  if (!rootPath) return 0;
   // Import session storage functions
   const { listSessions, updateSessionMetadata } = require('../sessions/storage.ts');
 
-  const sessions = listSessions(workspaceRootPath);
+  const sessions = listSessions(rootPath);
   let migratedCount = 0;
 
   for (const session of sessions) {
     if (session.sessionStatus === deletedStatusId) {
-      updateSessionMetadata(workspaceRootPath, session.id, { sessionStatus: 'todo' });
+      updateSessionMetadata(rootPath, session.id, { sessionStatus: 'todo' });
       migratedCount++;
     }
   }

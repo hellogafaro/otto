@@ -3,7 +3,7 @@
  *
  * Backend implementation of the agent-facing `decide` session tool. One
  * instance per session, wired by SessionManager into the session-scoped tool
- * callback registry (next to `pages`). Every call:
+ * callback registry. Every call:
  *
  *   1. resolves a client from settings + credentials (flag → enabled → feature
  *      toggle → key), failing closed with a message the agent can relay. The

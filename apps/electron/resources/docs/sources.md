@@ -724,7 +724,7 @@ Search for content.
 
 ## permissions.json Format
 
-Custom rules to extend Explore mode permissions for this source.
+Custom rules to extend Explore mode permissions for this source. This file lives in the source folder; the workspace's own rules are not a file (see the permissions doc).
 
 ```json
 {

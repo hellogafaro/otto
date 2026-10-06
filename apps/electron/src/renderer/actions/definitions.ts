@@ -173,6 +173,13 @@ export const actions = {
     defaultHotkey: 'mod+shift+g',
     category: 'Chat',
   },
+  // The shell composer's bar (every page but the chat, which has its own input).
+  'composer.focus': {
+    id: 'composer.focus',
+    label: 'Focus Composer',
+    defaultHotkey: 'mod+j',
+    category: 'Chat',
+  },
 
 } as const satisfies Record<string, ActionDefinition>
 

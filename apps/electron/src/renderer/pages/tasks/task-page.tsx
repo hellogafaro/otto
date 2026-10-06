@@ -8,6 +8,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
+import { useComposerContext } from '@/components/composer/use-composer-context'
 import { format } from 'date-fns'
 import { Box, CalendarDays, PanelRight, Users, X } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
@@ -231,6 +232,8 @@ function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof 
 }
 
 export function TaskPage({ taskId }: { taskId: string }) {
+  const { t } = useTranslation()
+  useComposerContext({ key: `task:${taskId}`, entity: `task:${taskId}`, placeholder: t('composer.placeholder.task') })
   const { showNotFound } = useNavigation()
   const tasksApi = useTasks()
   const { tasks, loaded, refresh } = tasksApi

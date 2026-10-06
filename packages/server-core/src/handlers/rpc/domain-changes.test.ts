@@ -25,6 +25,8 @@ const READ_CHANNELS = new Set<string>([
   C.notifications.GET_UNREAD_COUNT,
   C.workspaces.GET_MEMBERS,
   C.workspaces.GET_INVITATIONS,
+  C.labels.LIST,
+  C.statuses.LIST,
 ])
 
 const registered = new Set<string>()
@@ -44,7 +46,7 @@ const deps = {
 registerCoreRpcHandlers(server, deps)
 
 const inScope = (channel: string) =>
-  (/^(library|projects|tasks|timesheets|comments|notifications):/.test(channel) && channel !== C.tasks.GET_OUTPUT) ||
+  (/^(library|projects|tasks|timesheets|comments|notifications|labels|statuses):/.test(channel) && channel !== C.tasks.GET_OUTPUT) ||
   (MEMBER_CHANNELS as readonly string[]).includes(channel)
 
 describe('every write of the shared data pushes domain:changed', () => {

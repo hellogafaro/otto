@@ -39,7 +39,7 @@ const call = (channel: string, ...args: unknown[]) => callAs(ctx, channel, ...ar
 
 beforeAll(async () => {
   await pushSchema(initDb())
-  saveConfig({ workspaces: [], activeWorkspaceId: null, activeSessionId: null })
+  saveConfig({ workspaces: [] })
   workspaceId = addWorkspace({ name: 'Test', rootPath: join(configDir, 'workspace') }).id
   const otherId = addWorkspace({ name: 'Other', rootPath: join(configDir, 'other') }).id
   createWorkspaceMember(workspaceId, USER_ID, 'owner')

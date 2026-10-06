@@ -3,8 +3,8 @@
  *
  * The endpoint/tool policy rules that decide whether a source call is
  * read-only/allowlisted or needs explicit user approval. Extracted out of
- * runPreToolUseChecks' ask-mode prompt logic so non-hook callers (the Pages
- * action bridge, future services) evaluate the SAME rules instead of
+ * runPreToolUseChecks' ask-mode prompt logic so non-hook callers (future
+ * services) evaluate the SAME rules instead of
  * re-implementing them. shouldPromptInAskMode delegates here.
  *
  * Session-scoped whitelists ("previously approved this session") are NOT

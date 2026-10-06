@@ -13,6 +13,7 @@
  */
 
 import { isLocalMcpEnabled } from '../../workspaces/storage.ts';
+import { userIdOf } from '../../actors.ts';
 import { formatPreferencesForPrompt } from '../../config/preferences.ts';
 import { formatSessionState } from '../mode-manager.ts';
 import { getDateTimeContext, getWorkingDirectoryContext } from '../../prompts/system.ts';
@@ -288,7 +289,7 @@ Please continue the conversation naturally from where we left off.
     }
 
     // Load and format preferences (function loads internally)
-    this.pinnedPreferencesPrompt = formatPreferencesForPrompt();
+    this.pinnedPreferencesPrompt = formatPreferencesForPrompt(userIdOf(this.config.session?.createdBy));
     return this.pinnedPreferencesPrompt;
   }
 
