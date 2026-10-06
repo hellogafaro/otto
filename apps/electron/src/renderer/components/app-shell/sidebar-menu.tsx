@@ -8,9 +8,9 @@
  * primitives, allowing the same component to work in both scenarios.
  *
  * Provides actions based on the sidebar item type:
- * - "Configure Statuses" (for allSessions/status/flagged items) - triggers EditPopover callback
- * - "Add Source" (for sources) - triggers EditPopover callback
- * - "Add Skill" (for skills) - triggers EditPopover callback
+ * - "Configure Statuses" (for allSessions/status/flagged items)
+ * - "Add Source" (for sources)
+ * - "Add Skill" (for skills)
  */
 
 import { useTranslation } from "react-i18next"

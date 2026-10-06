@@ -192,7 +192,7 @@ interface ChatDisplayProps {
   isSearchModeActive?: boolean
   /** Callback when match info changes - for immediate UI updates */
   onMatchInfoChange?: (info: { count: number; index: number; isHighlighting: boolean; sessionId: string | null }) => void
-  // Compact mode (for EditPopover embedding and auto-compact / WebUI mobile)
+  // Compact mode (auto-compact / WebUI mobile)
   /** Enable compact mode - hides non-essential UI elements for popover embedding */
   compactMode?: boolean
   /**
@@ -440,7 +440,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   searchQuery: externalSearchQuery,
   isSearchModeActive = false,
   onMatchInfoChange,
-  // Compact mode (for EditPopover embedding and auto-compact / WebUI mobile)
+  // Compact mode (auto-compact / WebUI mobile)
   compactMode = false,
   shellComposer = false,
   placeholder,
@@ -1392,7 +1392,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     scrollToFollowUpTurn(item)
   }, [scrollToFollowUpTurn])
 
-  // The chat's input: the shell composer, full (the chat page), or the popover's own (EditPopover).
+  // The chat's input: the shell composer, full (the chat page).
   const chatComposer = useChatComposer({
     enabled: shellComposer,
     placeholder: shellComposer ? undefined : (Array.isArray(placeholder) ? placeholder[0] : placeholder),
@@ -1531,13 +1531,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                       skipSmoothScrollUntilRef.current = Date.now() + 500
                     }}
                   />
-                  {/* Empty state for compact mode - inviting conversational prompt, centered in full popover */}
-                  {compactMode && turns.length === 0 && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center select-none gap-1 pointer-events-none">
-                      <span className="text-sm text-muted-foreground">{t("editPopover.whatToChange")}</span>
-                      <span className="text-xs text-muted-foreground/50">{t("editPopover.justDescribe")}</span>
-                    </div>
-                  )}
                   {!compactMode && hasUnrenderedLoadedMessages && (
                     <div className="flex h-64 items-center justify-center px-4 text-center">
                       <div className="max-w-sm rounded-md border border-border/50 bg-foreground/[0.03] px-4 py-3">

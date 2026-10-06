@@ -134,6 +134,23 @@ function PageFrame({
     }
   }, [composerSlot])
 
+  // Otto: toasts live outside the frame, so the composer's band (the slot's
+  // height; 0 with no bar) is published on the root as `--composer-lift` and the
+  // Toaster stands that much higher (never over the bar).
+  React.useLayoutEffect(() => {
+    if (!composerSlot) return
+    const root = document.documentElement
+    const publish = () =>
+      root.style.setProperty("--composer-lift", `${composerSlot.offsetHeight}px`)
+    publish()
+    const resizes = new ResizeObserver(publish)
+    resizes.observe(composerSlot)
+    return () => {
+      resizes.disconnect()
+      root.style.removeProperty("--composer-lift")
+    }
+  }, [composerSlot])
+
   React.useLayoutEffect(() => {
     if (!body) return
     let raf = 0

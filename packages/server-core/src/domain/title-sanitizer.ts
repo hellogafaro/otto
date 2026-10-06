@@ -3,11 +3,12 @@
  * Extracted to a separate file to allow unit testing without importing
  * Electron main process modules.
  */
+import { ENTITY_TOKEN } from '@otto/shared/entities'
 import { WS_ID_CHARS } from '@otto/shared/mentions'
 
 /**
  * Sanitize message content for use as session title.
- * Strips XML blocks (e.g. <edit_request>), bracket mentions, and normalizes whitespace.
+ * Strips XML blocks (e.g. <edit_request>), bracket mentions, entity tokens, and normalizes whitespace.
  */
 export function sanitizeForTitle(content: string): string {
   return content
@@ -17,6 +18,7 @@ export function sanitizeForTitle(content: string): string {
     .replace(/\[source:[\w-]+\]/g, '')                // Strip [source:...] mentions
     .replace(/\[file:[^\]]+\]/g, '')                  // Strip [file:...] mentions
     .replace(/\[folder:[^\]]+\]/g, '')                // Strip [folder:...] mentions
+    .replace(ENTITY_TOKEN, '')                        // Strip `task:<id>` style references (a title is plain text)
     .replace(/\s+/g, ' ')        // Collapse whitespace
     .trim()
 }

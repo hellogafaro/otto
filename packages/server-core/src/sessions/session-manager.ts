@@ -6441,7 +6441,7 @@ export class SessionManager implements ISessionManager {
 
         // Generate AI title asynchronously using agent's SDK
         // (waits briefly for agent creation if needed)
-        void this.generateTitleUnlessSmallTalk(managed, message)
+        void this.generateTitleUnlessSmallTalk(managed, sanitized || message)
       }
     }
 

@@ -105,7 +105,6 @@ Keys use **flat dot-notation** with a category prefix:
 | `automations.*` | Automation list/detail/menus | `automations.runTest` |
 | `sourcesList.*` | Sources list panel | `sourcesList.noSourcesConfigured` |
 | `skillsList.*` | Skills list panel | `skillsList.addSkill` |
-| `editPopover.*` | EditPopover labels/placeholders | `editPopover.label.addSource` |
 | `status.*` | Session status names (by status ID) | `status.needs-review` |
 | `mode.*` | Permission mode names (by mode ID) | `mode.safe` |
 | `hints.*` | Empty state workflow suggestions | `hints.summarizeGmail` |

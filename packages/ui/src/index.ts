@@ -41,9 +41,6 @@ export {
   isAnnotationFollowUpSent,
   extractAnnotationSelectedText,
   normalizeFollowUpText,
-  // Inline execution for EditPopover
-  InlineExecution,
-  mapToolEventToActivity,
   SIZE_CONFIG,
   ActivityStatusIcon,
   type SessionViewerProps,
@@ -59,9 +56,6 @@ export {
   type ActivityStatus,
   type ResponseContent,
   type TodoItem,
-  type InlineExecutionProps,
-  type InlineExecutionStatus,
-  type InlineActivityItem,
 } from './components/chat'
 
 // Markdown

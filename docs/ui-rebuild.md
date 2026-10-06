@@ -176,11 +176,10 @@ yet).
 - [ ] `components/server-directory-browser.tsx`
 - [ ] `components/splash-screen.tsx`
 
-## UI primitives to swap for the design system (71)
+## UI primitives to swap for the design system (70)
 
 - [ ] `components/ui/compact-source-selector.tsx`
 - [ ] `components/ui/compact-working-directory-selector.tsx`
-- [ ] `components/ui/edit-popover.tsx`
 - [ ] `components/ui/header-icon-button.tsx`
 - [ ] `components/ui/source-selector-popover.tsx`
 - [ ] `components/ui/action-menu-item.tsx`

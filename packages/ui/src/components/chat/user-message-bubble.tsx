@@ -213,7 +213,7 @@ function InlineFileBadge({
  * Context badges (type='context') are special:
  * - They completely hide the marked content range
  * - They show a collapsed badge with the collapsedLabel
- * - Used for EditPopover metadata that shouldn't be visible to users
+ * - Used for metadata that shouldn't be visible to users
  *
  * File badges (type='file') render inline as clickable badges:
  * - Used for plan execution messages where file path appears inline with text

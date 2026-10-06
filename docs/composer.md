@@ -193,7 +193,7 @@ The order is **W1 first**: it fixes the API and the slot. **W2 to W6 then run in
 - Commands: `/` holds mode, status, working directory, Compact and Add files; `@` holds skills, sources and files. Files are read when added into the existing `FileAttachment` (stored at send time by `file:storeAttachment`); no upload before send.
 - Shortcuts show only while ⌘/Ctrl or Option/Alt is held; the Inbox key is the new `nav.inbox` action (⌘I, Alt+I in the browser).
 - Assumed (open questions): 1 yes (three full pages); 2 not done (routing); 3 start the chat and open it; 4 overridden by the brief: only the model picker stays, permission mode is a `/` command; 5 the server side uses the connection (the transcription agent); 6 not in scope (W6); 7 always show the Inbox icon, with a dot.
-- Left: the Electron microphone permission and macOS plist (main process, not in this package), the Inbox popover, the toast offset over the bar (W7).
+- Left: the Inbox popover. Done since: the Electron microphone permission (`window-manager.ts`, audio-only `media` for the app's pages, `askForMediaAccess` on macOS), `NSMicrophoneUsageDescription` and the `audio-input` entitlement, the toast offset over the bar (`--composer-lift`), and `EditPopover` with its `editPopover.*` keys, playground entry and `InlineExecution` removed.
 
 **Risks:**
 

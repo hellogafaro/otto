@@ -337,7 +337,7 @@ export interface TurnCardProps {
   displayMode?: 'informative' | 'detailed'
   /** Animate response appearance (for playground demos) */
   animateResponse?: boolean
-  /** Compact-footer layout. Used by EditPopover (popover embedding) and ChatPage in
+  /** Compact-footer layout. Used by ChatPage in
    *  auto-compact / WebUI mobile. Hides Copy / Markdown / Branch actions; keeps the
    *  Accept Plan dropdown when a plan is the last response. */
   compactMode?: boolean

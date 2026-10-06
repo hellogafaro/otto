@@ -10,7 +10,6 @@ import { oauthComponents } from './oauth'
 import { toastsComponents } from './toasts'
 import { composerComponents } from './composer'
 import { sessionListComponents } from './session-list'
-import { editPopoverComponents } from './edit-popover'
 import { entityListComponents } from './entity-lists'
 import { browserUiComponents } from './browser-ui'
 import { shellComponents } from './shell'
@@ -47,7 +46,6 @@ export const componentRegistry: ComponentEntry[] = [
   ...iconComponents,
   ...oauthComponents,
   ...sessionListComponents,
-  ...editPopoverComponents,
   ...entityListComponents,
   ...browserUiComponents,
   ...shellComponents,

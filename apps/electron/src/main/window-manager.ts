@@ -1,4 +1,4 @@
-import { BrowserWindow, shell, nativeTheme, Menu, app } from 'electron'
+import { BrowserWindow, shell, nativeTheme, Menu, app, systemPreferences } from 'electron'
 import { windowLog } from './logger'
 import { join } from 'path'
 import { existsSync } from 'fs'
@@ -243,6 +243,16 @@ export class WindowManager {
         sandbox: false,
         webviewTag: false // Browser integration uses WebContentsView, not <webview>
       }
+    })
+
+    // Dictation records the microphone with getUserMedia({ audio }). Allow `media` for the app's own pages and
+    // audio only (no camera or screen); on macOS the system prompt comes first (NSMicrophoneUsageDescription).
+    // Every other permission keeps Electron's default (granted): browser panes use their own session partition.
+    window.webContents.session.setPermissionRequestHandler(async (webContents, permission, callback, details) => {
+      if (permission !== 'media') return callback(true)
+      const types = (details as { mediaTypes?: string[] }).mediaTypes ?? []
+      const ok = webContents === window.webContents && this.isRendererAppUrl(details.requestingUrl) && types.length > 0 && types.every((type) => type === 'audio')
+      callback(ok && (!isMac || (await systemPreferences.askForMediaAccess('microphone'))))
     })
 
     // Show window when first paint is ready (faster perceived startup)

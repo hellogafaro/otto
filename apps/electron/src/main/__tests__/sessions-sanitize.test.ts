@@ -12,6 +12,10 @@ import { sanitizeForTitle } from '@otto/server-core/domain'
 // ============================================================================
 
 describe('sanitizeForTitle', () => {
+  it('strips entity tokens (a chat started from a task)', () => {
+    expect(sanitizeForTitle('task:xy47k1qzytre What is left here?')).toBe('What is left here?')
+  })
+
   describe('skill mentions', () => {
     it('strips [skill:slug] format', () => {
       expect(sanitizeForTitle('[skill:commit] fix the bug')).toBe('fix the bug')

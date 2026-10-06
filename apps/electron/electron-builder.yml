@@ -87,6 +87,8 @@ mac:
     # and prompt for permission. Without it the app is silently denied LAN access
     # and never appears in the privacy pane (otto#938).
     NSLocalNetworkUsageDescription: "Otto uses your local network to reach LAN addresses and devices you ask an agent to access, such as local servers or APIs."
+    # Dictation records the microphone (the composer's Dictate button).
+    NSMicrophoneUsageDescription: "Dictation uses your microphone to turn what you say into text."
   target:
     - target: dmg
       arch:

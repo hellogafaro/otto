@@ -1630,8 +1630,7 @@ mounted once by the shell (`ComposerProvider` around `PageFrame`;
 `ShellComposer` only hosts the instance in the frame's composer slot), so its
 text field never remounts on navigation: opening a chat, the new chat or the
 Inbox grows the same instance into the full look, leaving shrinks it, the text
-and files kept. Exactly one composer shows on any page (the edit popover's
-mini chat, until it goes, draws its own instance of the same component).
+and files kept. Exactly one composer shows on any page.
 Three looks of one structure (slots in fixed places: `attachments`, `leading`
 +, the text, `context`, `tools`, `hint`, `attention`, `main`):
 
@@ -1733,8 +1732,8 @@ overlaid sidecar (`z-20`), the sheet, popovers and dialogs; with the docked
 sidecar it stays on the column's center line.
 
 **Seams left open** (docs/composer.md (h)): the Inbox popover (the icon opens
-the Inbox page), prefill replacing `EditPopover` (W6), and phones' keyboard
-lift, safe area and the toast offset (W7). Entity mentions (people, tasks,
+the Inbox page), prefill from page actions (W6), and phones' keyboard
+lift and safe area (W7). Entity mentions (people, tasks,
 projects) in `@` come later.
 
 **Tags** (`EntityChip`, `components/entities/`). Everywhere a typed reference
@@ -1752,7 +1751,10 @@ without it, a muted "Unavailable" on `foreground/5`. `EntityText` draws markdown
 shared lists only; the surface that draws them loads them once
 (`useEntityData`). Tag text on its tint is 3.5:1 in light (4.4:1 dark), a known
 tradeoff of the sky tone. On the composer's dark glass a tag reads foreground
-on its tint (primary there falls under 3:1).
+on its tint (primary there falls under 3:1). A chat's title is plain text (a
+header, a row, the palette, the window title draw no chips): the title made from
+its first message drops the tokens (`sanitizeForTitle`), so a chat started from a
+task reads "What is left here?", not "task:<id> What is left here?".
 
 **Dictation** (v1's, `transcription:create`). The mic is the main button
 while the composer is empty, in every look. While listening the composer row
@@ -1765,7 +1767,10 @@ the text is typed in at the cursor (a space before it after a word). A failure
 is a toast, no retry action ("Unable to transcribe", "No speech detected",
 "Connect OpenRouter to dictate", "Allow microphone access to dictate", "The
 recording is too long to transcribe") and the recording is dropped; Cancel
-drops it too.
+drops it too. Electron: the main window's session grants `media` only to the
+app's own pages and only for audio (never camera or screen), asking macOS first
+(`askForMediaAccess`); the build has `NSMicrophoneUsageDescription` and the
+`audio-input` entitlement. A packaged macOS build can only be checked signed.
 
 *Note (Composer as built).* The floating chat below and its Morph are v1's
 design, kept for reference: the compact bar is now the shell's `Composer` on
@@ -2273,7 +2278,10 @@ message ("Link copied", "“Fix plan” deleted"; always one sentence with no pe
 which the `toast` wrapper enforces), and Close at the end. On the
 menus' surface in both themes with a card's 12px corners: Close is the 28px
 ghost button 6px in (nested), the message 12px in and wrapping, so the toast
-is as tall as its message (40px for one line); bottom right.
+is as tall as its message (40px for one line); bottom right, lifted over the
+composer: the page frame publishes the slot's height (0 with no bar) as
+`--composer-lift` on the root and the `Toaster`'s bottom offset adds it (24px,
+16px on phones), so a toast never covers the bar.
 Copy link, Archive and Delete say they are done with one.
 A list that fails to load stops showing skeletons, keeps what it had and toasts "Couldn't load. Try again" (one at a time).
 No stylesheet restyles `[data-sonner-toast]` or hides its icon: the component's classes are the only look.
