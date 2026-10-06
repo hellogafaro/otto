@@ -14,7 +14,7 @@ import { Spinner } from '@otto/ui'
 import * as React from 'react'
 import { ArrowUpRight, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import {
   Dialog,
   DialogContent,

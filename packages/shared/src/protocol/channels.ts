@@ -68,6 +68,13 @@ export const RPC_CHANNELS = {
     CREATE: 'workspaces:create',
     CHECK_SLUG: 'workspaces:checkSlug',
     UPDATE_REMOTE: 'workspaces:updateRemote',
+    GET_MEMBERS: 'workspaces:getMembers',
+    GET_INVITATIONS: 'workspaces:getInvitations',
+    INVITE: 'workspaces:invite',
+    REVOKE_INVITATION: 'workspaces:revokeInvitation',
+    REMOVE_MEMBER: 'workspaces:removeMember',
+    UPDATE_MEMBER_ROLE: 'workspaces:updateMemberRole',
+    LEAVE: 'workspaces:leave',
   },
   window: {
     GET_WORKSPACE: 'window:getWorkspace',

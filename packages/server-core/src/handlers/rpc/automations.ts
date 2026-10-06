@@ -5,6 +5,7 @@ import { getWorkspaceByNameOrId } from '@otto/shared/config'
 import { appendAutomationHistoryEntry } from '@otto/shared/automations/history-store'
 import { AUTOMATION_HISTORY_MAX_RUNS_PER_MATCHER } from '@otto/shared/automations/constants'
 import type { RpcServer } from '@otto/server-core/transport'
+import { actorOf } from './library'
 import type { HandlerDeps } from '../handler-deps'
 
 // History file name — matches AUTOMATIONS_HISTORY_FILE from @otto/shared/automations/constants
@@ -95,7 +96,7 @@ export function registerAutomationsHandlers(server: RpcServer, deps: HandlerDeps
     }
   })
 
-  server.handle(RPC_CHANNELS.automations.TEST, async (_ctx, payload: import('@otto/shared/protocol').TestAutomationPayload) => {
+  server.handle(RPC_CHANNELS.automations.TEST, async (ctx, payload: import('@otto/shared/protocol').TestAutomationPayload) => {
     const workspace = getWorkspaceByNameOrId(payload.workspaceId)
     if (!workspace) throw new Error('Workspace not found')
 
@@ -198,6 +199,8 @@ export function registerAutomationsHandlers(server: RpcServer, deps: HandlerDeps
           thinkingLevel: action.thinkingLevel,
           automationName: payload.automationName,
           telegramTopic: payload.telegramTopic,
+          // A test run belongs to whoever runs it; a scheduled run, to the workspace's first owner.
+          createdBy: actorOf(ctx),
           // Test = "did it launch + start producing output", not "did the whole
           // turn finish". Return once the session is created so a long run doesn't
           // trip the 30s RPC timeout (otto#943).

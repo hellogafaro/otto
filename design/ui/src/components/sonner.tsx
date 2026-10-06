@@ -63,16 +63,23 @@ const Toaster = ({ ...props }: ToasterProps) => {
 }
 
 // Otto: a toast is one sentence with no period, whatever message reaches it
-// (server and form messages end in one).
+// (server and form messages end in one). Only the four message functions
+// strip it; `loading` and `dismiss` are Sonner's own, and the callable is the
+// plain toast. Import `toast` from here, never from "sonner".
 const plain =
   <A extends unknown[], R>(show: (message: string, ...rest: A) => R) =>
   (message: string, ...rest: A) =>
     show(message.replace(/\.$/, ""), ...rest)
-const toast = {
-  success: plain(sonner.success),
-  error: plain(sonner.error),
-  info: plain(sonner.info),
-  warning: plain(sonner.warning),
-}
+const toast = Object.assign(
+  (...args: Parameters<typeof sonner>) => sonner(...args),
+  {
+    success: plain(sonner.success),
+    error: plain(sonner.error),
+    info: plain(sonner.info),
+    warning: plain(sonner.warning),
+    loading: sonner.loading,
+    dismiss: sonner.dismiss,
+  }
+)
 
 export { Toaster, toast }

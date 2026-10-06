@@ -12,17 +12,18 @@
  * | `allSessions[/session/id]`        | `/{ws}/chats[/id]`                         |
  * | `allSessions[/session/id]?status=a&status=b&label=c&flagged=1&archived=1` | `/{ws}/chats[/id]?status=a&status=b&label=c&flagged=1&archived=1` (the same query) |
  * | `view/{id}[/session/id]`          | `/{ws}/chats[/id]?view={id}`               |
+ * | `settings[/page]`                 | `/{ws}/settings[/page]`                    |
+ * | `projects[/project/id][?tab=&status=archived]` | `/{ws}/projects[/id][?tab=&status=archived]` (the same query) |
+ * | `tasks[/task/id][?project=&assignee=&status=&archived=1]` | `/{ws}/tasks[/id]` with the same query |
+ * | `automations[/{type}][/automation/id]` | `/{ws}/routines[/id][?type=]`         |
+ * | `library[/item/id][?tab=&folder=&createdBy=]` | `/{ws}/library[/id]` with the same query |
+ * | `skills[/skill/id]`               | `/{ws}/skills[/id]`                        |
+ * | `sources[/{type}][/source/id]`    | `/{ws}/sources[/id][?type=]`               |
  *
  * The Chats filters combine and repeat (see `shared/chat-filters.ts`); the older single-value route
  * strings (`state/{id}`, `label/{id}`, `flagged`, `archived`) parse to them. Search is read and written as
  * plain query strings (repeated keys for lists), not TanStack's default JSON form.
- * | `settings[/page]`                 | `/{ws}/settings[/page]`                    |
- * | `projects[/project/id]`           | `/{ws}/projects[/id]`                      |
- * | `tasks`                           | `/{ws}/tasks`                              |
- * | `automations[/{type}][/automation/id]` | `/{ws}/routines[/id][?type=]`         |
- * | `pages[/page/id]`                 | `/{ws}/library[/id]`                       |
- * | `skills[/skill/id]`               | `/{ws}/skills[/id]`                        |
- * | `sources[/{type}][/source/id]`    | `/{ws}/sources[/id][?type=]`               |
+ * The search of Tasks, Projects and Library is in `shared/section-search.ts`; an item keeps its index's search, so Back returns to it.
  */
 
 import { isReservedWorkspaceSlug } from '@otto/shared/utils/workspace-slug'
@@ -35,6 +36,13 @@ import {
 } from '../../shared/chat-filters'
 import { buildRouteFromNavigationState, parseRouteToNavigationState } from '../../shared/route-parser'
 import { isValidSettingsSubpage } from '../../shared/settings-registry'
+import {
+  normalizeLibrarySearch,
+  normalizeProjectsSearch,
+  normalizeTasksSearch,
+  parseSearch,
+  stringifySearch,
+} from '../../shared/section-search'
 import type { AutomationFilter, NavigationState, SessionFilter, SourceFilter } from '../../shared/types'
 
 export type LocationSearch = Record<string, string | string[] | true>
@@ -61,32 +69,8 @@ export interface TypeSearch {
 const SOURCE_TYPES = ['api', 'mcp', 'local']
 const AUTOMATION_TYPES = ['scheduled', 'event', 'agentic']
 
-// =============================================================================
-// Search: read and written as plain query strings (`?status=a&status=b&flagged=1`)
-// =============================================================================
-
-/** A query string as an object: a key given once is a string, a repeated key a list of strings. */
-export function parseSearch(searchStr: string): Record<string, string | string[]> {
-  const out: Record<string, string | string[]> = {}
-  for (const [key, value] of new URLSearchParams(searchStr)) {
-    const have = out[key]
-    out[key] = have === undefined ? value : Array.isArray(have) ? [...have, value] : [have, value]
-  }
-  return out
-}
-
-/** An object as a query string (`''` or `?a=1&a=2`): lists repeat the key, `true` is `1`, empty and false are dropped. */
-export function stringifySearch(search: Record<string, unknown>): string {
-  const params = new URLSearchParams()
-  for (const [key, value] of Object.entries(search)) {
-    for (const item of Array.isArray(value) ? value : [value]) {
-      if (item === undefined || item === null || item === false || item === '') continue
-      params.append(key, item === true ? '1' : String(item))
-    }
-  }
-  const query = params.toString()
-  return query ? `?${query}` : ''
-}
+// Search is read and written as plain query strings (`?status=a&status=b&flagged=1`): see `shared/section-search.ts`
+export { parseSearch, stringifySearch }
 
 // =============================================================================
 // Search validation (the route tree's `validateSearch`)
@@ -169,11 +153,11 @@ function stateToLocation(state: NavigationState, ws: string): AppLocation {
         search: state.filter?.kind === 'type' ? { type: state.filter.automationType } : {},
       }
     case 'projects':
-      return { pathname: `${base}/projects${state.details ? `/${enc(state.details.projectSlug)}` : ''}`, search: {} }
+      return { pathname: `${base}/projects${state.details ? `/${enc(state.details.projectId)}` : ''}`, search: state.search as LocationSearch }
     case 'tasks':
-      return { pathname: `${base}/tasks`, search: {} }
-    case 'pages':
-      return { pathname: `${base}/library${state.details ? `/${enc(state.details.pageSlug)}` : ''}`, search: {} }
+      return { pathname: `${base}/tasks${state.details ? `/${enc(state.details.taskId)}` : ''}`, search: state.search as LocationSearch }
+    case 'library':
+      return { pathname: `${base}/library${state.details ? `/${enc(state.details.itemId)}` : ''}`, search: state.search as LocationSearch }
   }
 }
 
@@ -238,11 +222,11 @@ function stateFromLocation(section: string, id: string | undefined, search: Reco
       return { navigator: 'automations', filter, details: id ? { type: 'automation', automationId: id } : null }
     }
     case 'projects':
-      return { navigator: 'projects', details: id ? { type: 'project', projectSlug: id } : null }
+      return { navigator: 'projects', search: normalizeProjectsSearch(search), details: id ? { type: 'project', projectId: id } : null }
     case 'tasks':
-      return id === undefined ? { navigator: 'tasks' } : null
+      return { navigator: 'tasks', search: normalizeTasksSearch(search), details: id ? { type: 'task', taskId: id } : null }
     case 'library':
-      return { navigator: 'pages', details: id ? { type: 'page', pageSlug: id } : null }
+      return { navigator: 'library', search: normalizeLibrarySearch(search), details: id ? { type: 'item', itemId: id } : null }
     default:
       return null
   }

@@ -18,6 +18,7 @@
 import type { SettingsSubpage } from './settings-registry'
 import type { PermissionMode } from '@otto/shared/agent/mode-types'
 import { chatFiltersToQuery, normalizeChatFilters, type ChatFiltersInput } from './chat-filters'
+import { stringifySearch, type LibrarySearch, type ProjectsSearch, type TasksSearch } from './section-search'
 
 // Helper to build query strings from params
 function toQueryString(params?: Record<string, string | undefined>): string {
@@ -28,6 +29,11 @@ function toQueryString(params?: Record<string, string | undefined>): string {
     filtered as [string, string][]
   )
   return `?${searchParams.toString()}`
+}
+
+/** `tasks`, `tasks/task/<id>`, with the search as a query: `tasks?project=p1&status=todo`. */
+function sectionRoute<S extends string>(section: S, detail: string, id: string | undefined, search: Record<string, unknown>): `${S}${string}` {
+  return `${section}${id ? `/${detail}/${id}` : ''}${stringifySearch(search)}`
 }
 
 export type AllSessionsRoute = `allSessions${string}`
@@ -186,20 +192,15 @@ export const routes = {
         ? `settings/${subpage}` as const
         : 'settings' as const,
 
-    /** Projects view (projects navigator) */
-    projects: (projectSlug?: string) =>
-      projectSlug
-        ? `projects/project/${projectSlug}` as const
-        : 'projects' as const,
+    /** Projects view (projects navigator): the index (`status: 'archived'`), or `projectId` open on a `tab`. */
+    projects: ({ projectId, ...search }: { projectId?: string } & ProjectsSearch = {}) =>
+      sectionRoute('projects', 'project', projectId, search),
 
-    /** Tasks view (tasks navigator) */
-    tasks: () => 'tasks' as const,
+    /** Tasks view (tasks navigator): the index with its filters, or `taskId` open. */
+    tasks: ({ taskId, ...search }: { taskId?: string } & TasksSearch = {}) => sectionRoute('tasks', 'task', taskId, search),
 
-    /** Pages view (full-width library grid, or one page's embedded render) */
-    pages: (pageSlug?: string) =>
-      pageSlug
-        ? `pages/page/${pageSlug}` as const
-        : 'pages' as const,
+    /** Library view (library navigator): the grid on a `tab` and `folder`, or the file or document `itemId` open. */
+    library: ({ itemId, ...search }: { itemId?: string } & LibrarySearch = {}) => sectionRoute('library', 'item', itemId, search),
   },
 } as const
 

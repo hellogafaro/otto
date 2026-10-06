@@ -28,7 +28,7 @@ import { ServerDirectoryBrowser } from '@/components/server-directory-browser'
 import { PERMISSION_MODE_ORDER } from '@otto/shared/agent/mode-types'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import { SourceAvatar } from '@/components/ui/source-avatar'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import { Button } from '@/components/ui/button'
 
 import {

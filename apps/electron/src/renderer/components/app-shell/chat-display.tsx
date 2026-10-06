@@ -10,7 +10,7 @@ import {
   Info,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
-import { toast } from "sonner"
+import { toast } from '@workspace/ui/components/sonner'
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"

@@ -17,7 +17,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@otto/ui'
 import { DataTableOverlay } from '@otto/ui'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/hooks/use-theme'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 
 export type PermissionAccess = 'allowed' | 'blocked'
 export type PermissionType = 'tool' | 'bash' | 'api' | 'mcp'

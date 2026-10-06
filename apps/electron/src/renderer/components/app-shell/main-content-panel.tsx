@@ -6,13 +6,14 @@
  * - Chats: the Chats index, or the ChatPage of the open chat
  * - Settings: the Settings index, or the settings page
  * - Sources and Skills (reached from the Settings index): the item's page
- * - Tasks, Projects, Routines (automations), Library (pages): not built yet, only `SectionEmpty`
+ * - Tasks, Projects and Library: the index page, or the task, project or item page
+ * - Routines (automations): not built yet, only `SectionEmpty`
  *
  * The NavigationState is the single source of truth for what to display.
  */
 
 import { useTranslation } from 'react-i18next'
-import { CircleCheck, Clock, Folder, Library } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import { Panel } from './panel'
 import { PageHeader } from './page-header'
 import { SectionEmpty } from './section-empty'
@@ -25,10 +26,10 @@ import {
   isSkillsNavigation,
   isAutomationsNavigation,
   isProjectsNavigation,
-  isPagesNavigation,
+  isLibraryNavigation,
   isTasksNavigation,
 } from '@/contexts/navigation-context'
-import { SourceInfoPage, ChatPage } from '@/pages'
+import { SourceInfoPage, ChatPage, TasksPage, TaskPage, ProjectsPage, ProjectPage, LibraryPage, LibraryItemPage } from '@/pages'
 import ChatsIndexPage from '@/pages/chats-index-page'
 import SkillInfoPage from '@/pages/skill-info-page'
 import SettingsIndexPage from '@/pages/settings/settings-index-page'
@@ -89,38 +90,28 @@ export function MainContentPanel({ className }: MainContentPanelProps) {
     return panel(<EmptyPanel title={t('sidebar.skills')} message={t('skillsList.noSkillsConfigured')} />)
   }
 
-  // Not built yet: Tasks, Projects, Routines (automations) and Library (pages) show only
-  // their empty state and its New button, whatever the route's details.
-  const unbuilt = isTasksNavigation(navState)
-    ? {
-        icon: CircleCheck,
-        title: t('sectionEmpty.tasksTitle'),
-        description: t('sectionEmpty.tasksDescription'),
-        cta: t('sectionEmpty.newTask'),
-      }
-    : isProjectsNavigation(navState)
-      ? {
-          icon: Folder,
-          title: t('sectionEmpty.projectsTitle'),
-          description: t('sectionEmpty.projectsDescription'),
-          cta: t('sectionEmpty.newProject'),
-        }
-      : isAutomationsNavigation(navState)
-        ? {
-            icon: Clock,
-            title: t('sectionEmpty.routinesTitle'),
-            description: t('sectionEmpty.routinesDescription'),
-            cta: t('sectionEmpty.newRoutine'),
-          }
-        : isPagesNavigation(navState)
-          ? {
-              icon: Library,
-              title: t('sectionEmpty.libraryTitle'),
-              description: t('sectionEmpty.libraryDescription'),
-              cta: t('sectionEmpty.addToLibrary'),
-            }
-          : null
-  if (unbuilt) return panel(<SectionEmpty {...unbuilt} />)
+  // Tasks, Projects and Library: the index, or the open task, project or item.
+  if (isTasksNavigation(navState)) {
+    return panel(navState.details ? <TaskPage taskId={navState.details.taskId} /> : <TasksPage />)
+  }
+  if (isProjectsNavigation(navState)) {
+    return panel(navState.details ? <ProjectPage projectId={navState.details.projectId} /> : <ProjectsPage />)
+  }
+  if (isLibraryNavigation(navState)) {
+    return panel(navState.details ? <LibraryItemPage itemId={navState.details.itemId} /> : <LibraryPage />)
+  }
+
+  // Routines (automations) are not built yet: only their empty state and its New button.
+  if (isAutomationsNavigation(navState)) {
+    return panel(
+      <SectionEmpty
+        icon={Clock}
+        title={t('sectionEmpty.routinesTitle')}
+        description={t('sectionEmpty.routinesDescription')}
+        cta={t('sectionEmpty.newRoutine')}
+      />,
+    )
+  }
 
   // Chats: the index, or the open chat.
   if (isSessionsNavigation(navState) && navState.details) {

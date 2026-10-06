@@ -21,7 +21,7 @@ import { DataTableOverlay } from '@otto/ui'
 import { LabelIcon } from '@/components/ui/label-icon'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/hooks/use-theme'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import type { LabelConfig, AutoLabelRule } from '@otto/shared/labels'
 import { isSemanticAutoLabelRule, DEFAULT_SEMANTIC_RULE_THRESHOLD } from '@otto/shared/labels'
 

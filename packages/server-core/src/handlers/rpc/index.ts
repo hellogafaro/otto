@@ -27,13 +27,17 @@ import { registerStatusesHandlers } from './statuses'
 import { registerSystemCoreHandlers } from './system'
 import { registerTransferHandlers } from './transfer'
 import { registerWorkspaceCoreHandlers } from './workspace'
+import { registerWorkspaceMembersHandlers } from './workspaces-members'
 import { registerMessagingHandlers } from './messaging'
+import { guardSessionChannels } from './session-guard'
 
 export function registerCoreRpcHandlers(
   server: RpcServer,
   deps: HandlerDeps,
   serverCtx?: ServerHandlerContext,
 ): void {
+  // Chats are private: a handler that takes a session id runs only for the chat's owner.
+  server = guardSessionChannels(server, deps)
   registerAuthHandlers(server, deps)
   registerAutomationsHandlers(server, deps)
   registerDecisionsHandlers(server, deps)
@@ -56,5 +60,6 @@ export function registerCoreRpcHandlers(
   registerSystemCoreHandlers(server, deps)
   registerTransferHandlers(server)
   registerWorkspaceCoreHandlers(server, deps)
+  registerWorkspaceMembersHandlers(server)
   registerMessagingHandlers(server, deps)
 }

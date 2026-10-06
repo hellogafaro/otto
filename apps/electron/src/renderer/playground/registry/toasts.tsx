@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { ComponentEntry } from './types'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 
 // ============================================================================
 // Sonner Toast Playground

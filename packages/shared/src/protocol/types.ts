@@ -138,9 +138,10 @@ export class CodedError extends Error {
 // Push target (server → clients)
 // ---------------------------------------------------------------------------
 
+/** `userIds` narrows 'all' and 'workspace' to the connections of those users (private chats); absent means everyone the target reaches. */
 export type PushTarget =
-  | { to: 'all'; exclude?: string }
-  | { to: 'workspace'; workspaceId: string; exclude?: string }
+  | { to: 'all'; exclude?: string; userIds?: string[] }
+  | { to: 'workspace'; workspaceId: string; exclude?: string; userIds?: string[] }
   | { to: 'client'; clientId: string }
 
 // ---------------------------------------------------------------------------

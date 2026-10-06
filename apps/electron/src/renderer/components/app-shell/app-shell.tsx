@@ -29,11 +29,10 @@ import {
   isSessionsNavigation,
   isAutomationsNavigation,
   isProjectsNavigation,
-  isPagesNavigation,
+  isLibraryNavigation,
   isTasksNavigation,
 } from "@/contexts/navigation-context"
 import { useAutomations } from "@/hooks/use-automations"
-import { usePages } from "@/hooks/use-pages"
 import { useRecordRecent } from "@/hooks/use-recents"
 import { useJumpShortcuts } from "@/hooks/use-jump-shortcuts"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
@@ -171,8 +170,6 @@ function AppShellContent({
     getAutomationHistory, handleReplayAutomation,
   } = useAutomations(activeWorkspaceId)
 
-  // Loads and syncs pagesAtom (read by the pages views); the list itself is not used here
-  usePages(activeWorkspaceId)
   // Enabled permission modes for Shift+Tab cycling (min 2 modes)
   const [enabledModes, setEnabledModes] = React.useState<PermissionMode[]>(['safe', 'ask', 'allow-all'])
 
@@ -577,9 +574,9 @@ function AppShellContent({
     navigate(routes.view.projects())
   }, [])
 
-  // Handler for pages view
-  const handlePagesClick = useCallback(() => {
-    navigate(routes.view.pages())
+  // Handler for library view
+  const handleLibraryClick = useCallback(() => {
+    navigate(routes.view.library())
   }, [])
 
   // Handler for settings view: the Settings index.
@@ -605,7 +602,7 @@ function AppShellContent({
         ? 'projects'
         : isAutomationsNavigation(navState)
           ? 'routines'
-          : isPagesNavigation(navState)
+          : isLibraryNavigation(navState)
             ? 'library'
             : null
 
@@ -622,7 +619,7 @@ function AppShellContent({
           onChats={handleAllSessionsClick}
           onProjects={handleProjectsClick}
           onRoutines={handleAutomationsClick}
-          onLibrary={handlePagesClick}
+          onLibrary={handleLibraryClick}
           onSettings={handleSettingsClick}
           onBack={goBack}
           onForward={goForward}

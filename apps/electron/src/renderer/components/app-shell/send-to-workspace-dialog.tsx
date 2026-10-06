@@ -14,7 +14,7 @@
 import { useTranslation } from "react-i18next"
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Cloud, CloudOff, Laptop, Send } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import {
   Dialog,
   DialogContent,

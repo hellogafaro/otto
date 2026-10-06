@@ -3,7 +3,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { addWorkspace, setActiveWorkspace } from '@otto/shared/config'
-import { getDefaultWorkspacesDir, ensureDefaultWorkspacesDir } from '@otto/shared/workspaces'
+import { createWorkspaceMember, getDefaultWorkspacesDir, ensureDefaultWorkspacesDir, getMemberWorkspaceIds } from '@otto/shared/workspaces'
 import type { ServerStatus, ServerHealth } from '@otto/core/types'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
@@ -29,13 +29,19 @@ export function registerServerHandlers(
   // Workspace discovery (moved from workspace.ts — server-level, no workspace context)
   // -----------------------------------------------------------------------
 
-  server.handle(RPC_CHANNELS.server.GET_WORKSPACES, async () => {
-    const workspaces = sessionManager.getWorkspacesInfo()
+  // A caller sees the workspaces they belong to, nobody else's.
+  const getMine = (userId: string | null) => {
+    const mine = new Set(userId ? getMemberWorkspaceIds(userId) : [])
+    return sessionManager.getWorkspacesInfo().filter((workspace) => mine.has(workspace.id))
+  }
+
+  server.handle(RPC_CHANNELS.server.GET_WORKSPACES, async (request) => {
+    const workspaces = getMine(request.userId)
     deps.platform.logger.info(`[server:getWorkspaces] returning ${workspaces.length} workspaces: ${JSON.stringify(workspaces.map(w => ({ id: w.id, name: w.name })))}`)
     return workspaces
   })
 
-  server.handle(RPC_CHANNELS.server.CREATE_WORKSPACE, async (_ctx, name: string) => {
+  server.handle(RPC_CHANNELS.server.CREATE_WORKSPACE, async (request, name: string) => {
     if (!name?.trim()) throw new Error('Workspace name is required')
     const trimmed = name.trim()
 
@@ -56,6 +62,7 @@ export function registerServerHandlers(
     }
 
     const workspace = addWorkspace({ name: trimmed, rootPath })
+    if (request.userId) createWorkspaceMember(workspace.id, request.userId, 'owner')
     setActiveWorkspace(workspace.id)
     deps.platform.logger.info(`Created workspace "${trimmed}" at ${rootPath} (server:createWorkspace)`)
 
@@ -67,8 +74,8 @@ export function registerServerHandlers(
   // Server Status
   // -----------------------------------------------------------------------
 
-  server.handle(RPC_CHANNELS.server.GET_STATUS, async () => {
-    const workspaces = sessionManager.getWorkspacesInfo()
+  server.handle(RPC_CHANNELS.server.GET_STATUS, async (request) => {
+    const workspaces = getMine(request.userId)
     const workspaceStatuses = workspaces.map(ws => {
       const summary = sessionManager.getWorkspaceAutomationSummary(ws.id)
       return {
@@ -110,8 +117,9 @@ export function registerServerHandlers(
   // Active Session Discovery
   // -----------------------------------------------------------------------
 
-  server.handle(RPC_CHANNELS.server.GET_ACTIVE_SESSIONS, async () => {
-    return sessionManager.getActiveSessionsInfo()
+  server.handle(RPC_CHANNELS.server.GET_ACTIVE_SESSIONS, async (request) => {
+    const mine = new Set(request.userId ? getMemberWorkspaceIds(request.userId) : [])
+    return sessionManager.getActiveSessionsInfo(request.userId).filter((session) => mine.has(session.workspaceId))
   })
 
   // -----------------------------------------------------------------------

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { useTransportConnectionState } from './use-transport-connection-state'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 
 type ServerBrowserMode = 'browse' | 'manual'
 

@@ -9,6 +9,8 @@ import { ensureConfigDir, loadStoredConfig, saveConfig } from '@otto/shared/conf
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { setBundledAssetsRoot } from '@otto/shared/utils'
 import { initUsersStore } from '@otto/shared/users'
+import { getWorkspaceOwnerIds } from '@otto/shared/workspaces'
+import { authorize } from './authorize.ts'
 import { createIdentityValidators } from './identity.ts'
 import { WsRpcServer, type WsRpcTlsOptions } from '../transport/server'
 import type { EventSink, RpcServer } from '../transport/types'
@@ -365,6 +367,8 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
 
   const modelRefreshService = options.initModelRefreshService()
   const sessionManager = options.createSessionManager()
+  // Chats are private: one made before that has no creator and belongs to the workspace owners, who live in the database.
+  ;(sessionManager as { setWorkspaceOwners?: (owners: (workspaceId: string) => string[]) => void }).setWorkspaceOwners?.((workspaceId) => getWorkspaceOwnerIds(workspaceId))
 
   const rpcHost = options.rpcHost ?? process.env.OTTO_RPC_HOST ?? '127.0.0.1'
   const rpcPortRaw = options.rpcPort ?? parseInt(process.env.OTTO_RPC_PORT ?? '9100', 10)
@@ -378,6 +382,7 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
     port: rpcPort,
     requireAuth: true,
     ...createIdentityValidators(users, serverToken),
+    authorize,
     serverId: options.serverId ?? 'headless',
     serverVersion: options.serverVersion,
     tls: options.tls,

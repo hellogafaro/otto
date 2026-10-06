@@ -41,14 +41,19 @@ export interface ISessionManager {
   // Session CRUD
   // ---------------------------------------------------------------------------
 
-  getSessions(workspaceId?: string): Session[]
+  /** `viewerId` narrows to the chats that user may see (chats are private); omit it only for server-side callers. */
+  getSessions(workspaceId?: string, viewerId?: string | null): Session[]
+  /** Whether the user may see the chat; a chat that does not exist is not visible. */
+  canSeeSession(sessionId: string, userId: string | null): boolean
+  /** Who owns a workspace; the host wires it from the database. */
+  setWorkspaceOwners(owners: (workspaceId: string) => string[]): void
   getSession(sessionId: string): Promise<Session | null>
   /** Creates a session and (unless `internal.emitCreatedEvent === false`) announces it to the
    *  renderer so it hydrates full metadata instead of fabricating a "New Chat" placeholder. */
   createSession(
     workspaceId: string,
     options?: CreateSessionOptions,
-    internal?: { emitCreatedEvent?: boolean },
+    internal?: { emitCreatedEvent?: boolean; createdBy?: string | null },
   ): Promise<Session>
   deleteSession(sessionId: string): Promise<void>
 
@@ -64,7 +69,7 @@ export interface ISessionManager {
   setSessionStatus(sessionId: string, status: SessionStatus): Promise<void>
   markSessionRead(sessionId: string): Promise<void>
   markSessionUnread(sessionId: string): Promise<void>
-  markAllSessionsRead(workspaceId: string): Promise<void>
+  markAllSessionsRead(workspaceId: string, viewerId?: string | null): Promise<void>
   setActiveViewingSession(sessionId: string | null, workspaceId: string): void
   clearActiveViewingSession(workspaceId: string): void
 
@@ -98,7 +103,7 @@ export interface ISessionManager {
   ): Promise<void>
   cancelProcessing(sessionId: string, silent?: boolean): Promise<void>
   killShell(sessionId: string, shellId: string): Promise<{ success: boolean; error?: string }>
-  getTaskOutput(taskId: string): Promise<string | null>
+  getTaskOutput(taskId: string, viewerId?: string | null): Promise<string | null>
   addMessageAnnotation(sessionId: string, messageId: string, annotation: AnnotationV1): void
   removeMessageAnnotation(sessionId: string, messageId: string, annotationId: string): void
   updateMessageAnnotation(
@@ -180,6 +185,8 @@ export interface ISessionManager {
     workspaceId: string,
     bundle: SessionBundle,
     mode: DispatchMode,
+    /** Actor ('user:<id>') the imported chat belongs to. */
+    createdBy?: string,
   ): Promise<{ sessionId: string; warnings?: string[] }>
 
   /**
@@ -188,6 +195,7 @@ export interface ISessionManager {
   importRemoteSessionTransfer(
     workspaceId: string,
     payload: import('@otto/shared/protocol').RemoteSessionTransferPayload,
+    createdBy?: string,
   ): Promise<import('@otto/shared/protocol').ImportRemoteSessionTransferResult>
 
   // ---------------------------------------------------------------------------
@@ -197,7 +205,7 @@ export interface ISessionManager {
   getSessionPath(sessionId: string): string | null
   refreshTitle(sessionId: string): Promise<{ success: boolean; title?: string; error?: string }>
   refreshBadge(): void
-  getUnreadSummary(): UnreadSummary
+  getUnreadSummary(viewerId?: string | null): UnreadSummary
 
   // ---------------------------------------------------------------------------
   // Workspace
@@ -229,7 +237,7 @@ export interface ISessionManager {
   /** Automation summary for a workspace (count of configured automations + scheduler state). */
   getWorkspaceAutomationSummary(workspaceId: string): { automationCount: number; schedulerRunning: boolean }
   /** Active sessions across all workspaces (sessions with running backend processes). */
-  getActiveSessionsInfo(): ActiveSessionInfo[]
+  getActiveSessionsInfo(viewerId?: string | null): ActiveSessionInfo[]
 
   // ---------------------------------------------------------------------------
   // Auth
@@ -288,6 +296,8 @@ export interface ExecutePromptAutomationInput {
    * (created on first use). Silently ignored when prerequisites aren't met.
    */
   telegramTopic?: string
+  /** Actor ('user:<id>') the new chat belongs to; omitted, the workspace's first owner. */
+  createdBy?: string
   /**
    * When `false`, `executePromptAutomation` returns as soon as the session is
    * created and the prompt is dispatched, instead of awaiting the whole turn.

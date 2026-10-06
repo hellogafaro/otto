@@ -19,9 +19,9 @@ Join and child tables name both words in the plural (`projects_members`).
 - A task belongs to one project of the same workspace, which must exist and not be deleted when the task is created or moved there. Tasks stay when their project is archived or deleted.
 - `updateProject` / `updateTask` take `expectedUpdatedAt`; a different stored `updatedAt` is a `conflict` and nothing changes.
 - `time` is whole milliseconds, 1 to 24 hours per entry; `notes` at most 4000 characters. `getTaskTime` sums a task's entries. Timesheets have no status and are deleted for real.
-- The creator of a project becomes a contributor. Roles are data only: nothing enforces them until users exist.
+- The creator of a project becomes a contributor. Roles are data only: nothing enforces them. A `user:<id>` assignee or project member must be a member of the workspace (`invalid` otherwise, checked by the handlers); agents are not checked.
 - A chat binds to a project by `projectId` (session metadata). The agent prompt gets the project's title, description and resources (`getProjectPromptContext`); an unknown or deleted id adds nothing. The old file-based projects (config, memory file, assets folder, working directory, color) are gone and their folders are ignored.
 
 ## Not built
 
-The Projects and Tasks pages (they stay empty states), a project picker for chats, timers, authorization, and a change broadcast.
+The Projects and Tasks pages (they stay empty states), a project picker for chats, timers, role enforcement, and a change broadcast.

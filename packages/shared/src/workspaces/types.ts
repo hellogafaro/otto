@@ -88,3 +88,23 @@ export interface WorkspaceSummary {
   createdAt: number;
   updatedAt: number;
 }
+
+/** A person's role in a workspace. */
+export type WorkspaceRole = 'owner' | 'member'
+
+/** `actor` is the member as an actor ('user:<userId>'), what tasks and projects store. */
+export interface WorkspaceMember {
+  actor: string
+  userId: string
+  name: string
+  email: string
+  role: WorkspaceRole
+}
+
+/** A pending invitation. `link` is what the owner sends: the invitee opens it to sign up and accept. */
+export interface WorkspaceInvitation {
+  id: string
+  email: string
+  expiresAt: number
+  link: string
+}

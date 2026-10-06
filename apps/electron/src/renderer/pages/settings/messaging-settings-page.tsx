@@ -20,7 +20,7 @@ import { SettingsPageHeader } from '@/components/settings/settings-page-header'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import {
   ArrowUpRight,
   Hash,

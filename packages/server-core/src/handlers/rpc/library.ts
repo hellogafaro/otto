@@ -15,6 +15,7 @@ import {
   type LibraryFilter,
   type LibraryUpdate,
 } from '@otto/shared/library'
+import { isWorkspaceMember } from '@otto/shared/workspaces'
 import type { RpcServer, RequestContext } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 
@@ -40,6 +41,15 @@ export function resolveWorkspace(ctx: RequestContext, deps: HandlerDeps) {
 export function actorOf(ctx: RequestContext): string {
   if (!ctx.userId) throw domainError('unauthorized', 'Sign in first')
   return userActor(ctx.userId)
+}
+
+/** Assignees and project members that are people ('user:<id>') must belong to the workspace; agents are not checked. */
+export function assertWorkspaceActors(workspaceId: string, actors: unknown): void {
+  for (const actor of Array.isArray(actors) ? actors : []) {
+    if (typeof actor === 'string' && actor.startsWith('user:') && !isWorkspaceMember(workspaceId, actor.slice('user:'.length))) {
+      throw domainError('invalid', `${actor} is not a member of this workspace`)
+    }
+  }
 }
 
 function toBytes(content: LibraryContent): Uint8Array {

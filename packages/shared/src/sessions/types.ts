@@ -26,6 +26,8 @@ import type { StoredMessage, ContextUsageSnapshot } from '@otto/core/types';
 export const SESSION_PERSISTENT_FIELDS = [
   // Identity
   'id', 'workspaceRootPath', 'sdkSessionId', 'sdkCwd',
+  // Who the chat belongs to ('user:<id>'); absent on chats made before chats were private
+  'createdBy',
   // Timestamps
   'createdAt', 'lastUsedAt', 'lastMessageAt',
   // Display
@@ -110,6 +112,8 @@ export interface SessionConfig {
   workspaceRootPath: string;
   /** Optional user-defined name */
   name?: string;
+  /** Actor ('user:<id>') the chat belongs to: only they see it. Set by the server at creation, never by a client. Absent: made before chats were private, visible to the workspace owners only. */
+  createdBy?: string;
   createdAt: number;
   lastUsedAt: number;
   /** Timestamp of last meaningful message (user or final assistant). Used for date grouping in session list.
@@ -239,6 +243,8 @@ export interface SessionHeader {
   workspaceRootPath: string;
   /** Optional user-defined name */
   name?: string;
+  /** Actor ('user:<id>') the chat belongs to: only they see it. Set by the server at creation, never by a client. Absent: made before chats were private, visible to the workspace owners only. */
+  createdBy?: string;
   createdAt: number;
   lastUsedAt: number;
   /** Timestamp of last meaningful message — persisted separately from lastUsedAt for stable date grouping across restarts. */
@@ -338,6 +344,8 @@ export interface SessionMetadata {
   id: string;
   workspaceRootPath: string;
   name?: string;
+  /** Actor ('user:<id>') the chat belongs to; absent on chats made before chats were private. */
+  createdBy?: string;
   createdAt: number;
   lastUsedAt: number;
   /** Timestamp of last meaningful message — used for date grouping. Falls back to lastUsedAt for pre-fix sessions. */

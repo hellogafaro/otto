@@ -5,6 +5,7 @@ import { pushSchema } from '../db/push.ts'
 import { library } from '../library/schema.ts'
 import { projects, projectsMembers } from '../projects/schema.ts'
 import { tasks, timesheets } from '../tasks/schema.ts'
+import { createWorkspaceInvitation, getWorkspaceInvitation, isWorkspaceMember } from '../workspaces/members.ts'
 import { workspaces, workspacesInvitations, workspacesMembers } from '../workspaces/schema.ts'
 import { createUsersStore, INVITATION_REQUIRED, SETUP_TOKEN_INVALID } from './index.ts'
 import { users } from './schema.ts'
@@ -297,4 +298,41 @@ test('a local install gets one user, owner of every workspace, made once', async
   expect(t.db.select().from(workspacesMembers).all().map((m) => [m.userId, m.role])).toEqual([[id, 'owner'], [id, 'owner']])
   expect(t.store.getFirstUser()?.id).toBe(id)
   expect(t.store.needsOwner()).toBe(false)
+})
+
+test('an invitation made by the domain function is the plugin\'s: sign up, accept through its endpoint, become a member', async () => {
+  const t = await setup()
+  await signUpOwner(t)
+  const ownerId = t.db.select().from(users).get()!.id
+  const invitation = createWorkspaceInvitation({ workspaceId: REGISTRY[1]!.id, email: 'Friend@Example.com', inviterId: ownerId }, t.db)
+
+  // Someone else with their own invitation cannot take it: it is bound to the email.
+  createWorkspaceInvitation({ workspaceId: REGISTRY[0]!.id, email: 'other@example.com', inviterId: ownerId }, t.db)
+  const other = await t.signUp('other@example.com')
+  const stolen = await t.call('POST', '/organization/accept-invitation', { invitationId: invitation.id }, cookieOf(other))
+  expect(stolen.status).not.toBe(200)
+  expect(isWorkspaceMember(REGISTRY[1]!.id, t.db.select().from(users).where(eq(users.email, 'other@example.com')).get()!.id, t.db)).toBe(false)
+
+  const friend = await t.signUp('friend@example.com')
+  expect(friend.status).toBe(200)
+  const accepted = await t.call('POST', '/organization/accept-invitation', { invitationId: invitation.id }, cookieOf(friend))
+  expect(accepted.status).toBe(200)
+  const friendId = t.db.select().from(users).where(eq(users.email, 'friend@example.com')).get()!.id
+  expect(isWorkspaceMember(REGISTRY[1]!.id, friendId, t.db)).toBe(true)
+  expect(isWorkspaceMember(REGISTRY[0]!.id, friendId, t.db)).toBe(false)
+  expect(getWorkspaceInvitation(invitation.id, t.db)?.status).toBe('accepted')
+
+  // Used once: it does not open a second sign-up and cannot be accepted again.
+  expect((await t.call('POST', '/organization/accept-invitation', { invitationId: invitation.id }, cookieOf(friend))).status).not.toBe(200)
+})
+
+test('an expired invitation cannot be accepted', async () => {
+  const t = await setup()
+  await signUpOwner(t)
+  const ownerId = t.db.select().from(users).get()!.id
+  const invitation = createWorkspaceInvitation({ workspaceId: REGISTRY[0]!.id, email: 'late@example.com', inviterId: ownerId }, t.db)
+  const late = await t.signUp('late@example.com')
+  t.db.update(workspacesInvitations).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(workspacesInvitations.id, invitation.id)).run()
+  expect((await t.call('POST', '/organization/accept-invitation', { invitationId: invitation.id }, cookieOf(late))).status).not.toBe(200)
+  expect(isWorkspaceMember(REGISTRY[0]!.id, t.db.select().from(users).where(eq(users.email, 'late@example.com')).get()!.id, t.db)).toBe(false)
 })

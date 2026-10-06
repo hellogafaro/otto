@@ -11,7 +11,7 @@
 
 import * as React from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import {
   ChevronDown,
   ChevronRight,

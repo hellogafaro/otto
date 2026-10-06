@@ -3,7 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { APIError } from 'better-auth/api'
 import { bearer } from 'better-auth/plugins/bearer'
 import { organization } from 'better-auth/plugins/organization'
-import { asc, count } from 'drizzle-orm'
+import { asc, count, eq, inArray, sql } from 'drizzle-orm'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { getWorkspaces } from '../config/storage.ts'
 import { initDb, type Db } from '../db/index.ts'
@@ -177,6 +177,11 @@ export function createUsersStore(db: Db, options: UsersOptions) {
     getFirstUser,
     initOwner,
 
+    /** Name and email of these users (ids that do not exist are left out). */
+    getUsers: (ids: string[]) =>
+      ids.length ? db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, ids)).all() : [],
+    getUserByEmail: (email: string) => db.select({ id: users.id }).from(users).where(eq(sql`lower(${users.email})`, email.trim().toLowerCase())).get(),
+
     /** The one user of a local (Electron) install, made on first launch. Returns its id. */
     initLocalUser(input: { name: string; email: string }): string {
       const existing = getFirstUser()
@@ -222,4 +227,6 @@ export const initAuth = (): Auth => initUsersStore().auth
 export const needsOwner = (): boolean => initUsersStore().needsOwner()
 export const getFirstUser: UsersStore['getFirstUser'] = () => initUsersStore().getFirstUser()
 export const initLocalUser: UsersStore['initLocalUser'] = (input) => initUsersStore().initLocalUser(input)
+export const getUsers: UsersStore['getUsers'] = (ids) => initUsersStore().getUsers(ids)
+export const getUserByEmail: UsersStore['getUserByEmail'] = (email) => initUsersStore().getUserByEmail(email)
 export const initFirstOwner = (): void => initUsersStore().initFirstOwner()

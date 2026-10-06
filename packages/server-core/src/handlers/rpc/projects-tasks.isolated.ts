@@ -12,6 +12,7 @@ const { saveConfig, addWorkspace } = await import('@otto/shared/config')
 const { initDb } = await import('@otto/shared/db')
 const { pushSchema } = await import('../../../../shared/src/db/push.ts')
 const { getProjectPromptContext } = await import('@otto/shared/projects')
+const { createWorkspaceMember } = await import('@otto/shared/workspaces')
 const { registerProjectsHandlers, HANDLED_CHANNELS: PROJECT_CHANNELS } = await import('./projects')
 const { registerTasksHandlers, HANDLED_CHANNELS: TASK_CHANNELS } = await import('./tasks')
 type Ctx = import('../../transport/types').RequestContext
@@ -41,6 +42,8 @@ beforeAll(async () => {
   saveConfig({ workspaces: [], activeWorkspaceId: null, activeSessionId: null })
   workspaceId = addWorkspace({ name: 'Test', rootPath: join(configDir, 'workspace') }).id
   const otherId = addWorkspace({ name: 'Other', rootPath: join(configDir, 'other') }).id
+  createWorkspaceMember(workspaceId, USER_ID, 'owner')
+  createWorkspaceMember(otherId, USER_ID, 'owner')
   ctx = { clientId: 'c1', userId: USER_ID, workspaceId, webContentsId: null }
   otherCtx = { clientId: 'c2', userId: USER_ID, workspaceId: otherId, webContentsId: null }
   registerProjectsHandlers(server as never, deps)
@@ -83,6 +86,19 @@ describe('projects, tasks and timesheets RPC', () => {
     expect(await call(RPC_CHANNELS.projects.SET_STATUS, project.id, 'active')).toMatchObject({ status: 'active' })
     expect(await call(RPC_CHANNELS.projects.LIST)).toHaveLength(1)
     await expect(call(RPC_CHANNELS.projects.CREATE, { title: '' })).rejects.toThrow('title is required')
+  })
+
+  it('refuses people who are not members of the workspace as assignees or project members', async () => {
+    const stranger = 'user:zzzzzzzzzzzz'
+    const project = await call(RPC_CHANNELS.projects.CREATE, { title: 'Members' })
+    await expect(call(RPC_CHANNELS.projects.SET_MEMBER, project.id, stranger, 'viewer')).rejects.toThrow('not a member')
+    await expect(call(RPC_CHANNELS.tasks.CREATE, { projectId: project.id, title: 'x', assignees: [ME, stranger] })).rejects.toThrow('not a member')
+    const task = await call(RPC_CHANNELS.tasks.CREATE, { projectId: project.id, title: 'x', assignees: ['agent:default'] })
+    await expect(call(RPC_CHANNELS.tasks.UPDATE, task.id, { assignees: [stranger] })).rejects.toMatchObject({ code: 'invalid' })
+    expect((await call(RPC_CHANNELS.tasks.GET, task.id)).assignees).toEqual(['agent:default'])
+    // A member of another workspace is not enough.
+    createWorkspaceMember(otherCtx.workspaceId!, 'abcdefghijkm', 'member')
+    await expect(call(RPC_CHANNELS.projects.SET_MEMBER, project.id, 'user:abcdefghijkm', 'viewer')).rejects.toThrow('not a member')
   })
 
   it('gives the agent prompt the project, and nothing for unknown or deleted ones', async () => {

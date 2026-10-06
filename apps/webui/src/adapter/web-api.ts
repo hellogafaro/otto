@@ -9,7 +9,7 @@
  */
 
 import i18n from 'i18next'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import { openExternalUrl } from '@otto/ui'
 import { WsRpcClient } from '../../../electron/src/transport/client'
 import { buildClientApi } from '../../../electron/src/transport/build-api'

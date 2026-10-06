@@ -27,6 +27,7 @@ import { imageSupportComponents } from './image-support'
 import { mobileWebUIComponents } from './mobile-webui'
 import { statesComponents } from './states'
 import { listTableComponents } from './list-table'
+import { galleryPropertiesComponents } from './gallery-properties'
 
 export * from './types'
 
@@ -34,6 +35,7 @@ export const componentRegistry: ComponentEntry[] = [
   ...mobileWebUIComponents,
   ...statesComponents,
   ...listTableComponents,
+  ...galleryPropertiesComponents,
   ...apiKeyInputComponents,
   ...onboardingComponents,
   ...chatComponents,

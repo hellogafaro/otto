@@ -166,6 +166,8 @@ export async function createSession(
   workspaceRootPath: string,
   options?: {
     name?: string;
+    /** Actor the chat belongs to ('user:<id>'); the server sets it, never a client. */
+    createdBy?: string;
     workingDirectory?: string;
     permissionMode?: SessionConfig['permissionMode'];
     enabledSourceSlugs?: string[];
@@ -196,6 +198,7 @@ export async function createSession(
     id: sessionId,
     workspaceRootPath,
     name: options?.name,
+    createdBy: options?.createdBy,
     createdAt: now,
     lastUsedAt: now,
     workingDirectory: options?.workingDirectory,

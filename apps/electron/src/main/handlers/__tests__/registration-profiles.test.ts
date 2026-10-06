@@ -1,45 +1,8 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import type { RpcServer } from '@otto/server-core/transport'
-import type { HandlerDeps } from '../handler-deps'
+import { createMockDeps } from './electron-mock'
 
 const registeredChannels: string[] = []
-
-mock.module('electron', () => ({
-  ipcMain: {
-    handle: () => {},
-    on: () => {},
-  },
-  app: {
-    isPackaged: false,
-    getAppPath: () => '/',
-    quit: () => {},
-    dock: { setIcon: () => {}, setBadge: () => {} },
-  },
-  nativeTheme: { shouldUseDarkColors: false },
-  nativeImage: {
-    createFromPath: () => ({ isEmpty: () => true }),
-    createFromDataURL: () => ({}),
-  },
-  dialog: {
-    showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
-    showMessageBox: async () => ({ response: 0 }),
-  },
-  shell: {
-    openExternal: async () => {},
-    openPath: async () => '',
-    showItemInFolder: () => {},
-  },
-  BrowserWindow: {
-    fromWebContents: () => null,
-    getFocusedWindow: () => null,
-    getAllWindows: () => [],
-  },
-  BrowserView: class {},
-  Menu: {
-    buildFromTemplate: () => ({ popup: () => {} }),
-  },
-  session: {},
-}))
 
 function createMockServer(): RpcServer {
   return {
@@ -50,38 +13,6 @@ function createMockServer(): RpcServer {
     async invokeClient() {},
     hasClientCapability() { return false },
     findClientsWithCapability() { return [] },
-  }
-}
-
-function createMockDeps(): HandlerDeps {
-  return {
-    sessionManager: {} as HandlerDeps['sessionManager'],
-    platform: {
-      appRootPath: '',
-      resourcesPath: '',
-      isPackaged: false,
-      appVersion: '0.0.0-test',
-      isDebugMode: true,
-      logger: console,
-      imageProcessor: {
-        getMetadata: async () => null,
-        process: async () => Buffer.from(''),
-      },
-    },
-    windowManager: {} as HandlerDeps['windowManager'],
-    browserPaneManager: {
-      onStateChange: () => {},
-      onRemoved: () => {},
-      onInteracted: () => {},
-    } as unknown as NonNullable<HandlerDeps['browserPaneManager']>,
-    oauthFlowStore: {
-      store: () => {},
-      getByState: () => null,
-      remove: () => {},
-      cleanup: () => {},
-      dispose: () => {},
-      size: 0,
-    } as unknown as HandlerDeps['oauthFlowStore'],
   }
 }
 
@@ -105,6 +36,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
     statuses,
     system,
     workspace,
+    workspacesMembers,
     onboarding,
     resources,
     transfer,
@@ -127,6 +59,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
     import('@otto/server-core/handlers/rpc/statuses'),
     import('@otto/server-core/handlers/rpc/system'),
     import('@otto/server-core/handlers/rpc/workspace'),
+    import('@otto/server-core/handlers/rpc/workspaces-members'),
     import('@otto/server-core/handlers/rpc/onboarding'),
     import('@otto/server-core/handlers/rpc/resources'),
     import('@otto/server-core/handlers/rpc/transfer'),
@@ -151,6 +84,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
     ...statuses.HANDLED_CHANNELS,
     ...system.CORE_HANDLED_CHANNELS,
     ...workspace.CORE_HANDLED_CHANNELS,
+    ...workspacesMembers.HANDLED_CHANNELS,
     ...onboarding.HANDLED_CHANNELS,
     ...resources.HANDLED_CHANNELS,
     ...transfer.HANDLED_CHANNELS,

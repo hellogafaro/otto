@@ -14,7 +14,7 @@
 import * as React from 'react'
 import { useAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import { messagingDialogAtom } from '@/atoms/messaging'
 import { PairingCodeDialog } from './pairing-code-dialog'
 import { WhatsAppConnectDialog } from './whats-app-connect-dialog'

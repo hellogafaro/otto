@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import type { UpdateInfo } from '../../shared/types'
 
 interface UseUpdateCheckerResult {

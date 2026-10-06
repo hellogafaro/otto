@@ -15,7 +15,7 @@ import {
 import type { Resource } from '@otto/shared/projects'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
-import { actorOf, resolveWorkspace } from './library'
+import { actorOf, assertWorkspaceActors, resolveWorkspace } from './library'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.tasks.LIST,
@@ -40,9 +40,11 @@ export function registerTasksHandlers(server: RpcServer, deps: HandlerDeps): voi
     (
       ctx,
       input: { projectId: string; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] },
-    ) =>
-      createTask({
-        workspaceId: workspaceOf(ctx),
+    ) => {
+      const workspaceId = workspaceOf(ctx)
+      assertWorkspaceActors(workspaceId, input.assignees)
+      return createTask({
+        workspaceId,
         projectId: input.projectId,
         title: input.title,
         description: input.description,
@@ -50,11 +52,14 @@ export function registerTasksHandlers(server: RpcServer, deps: HandlerDeps): voi
         assignees: input.assignees,
         resources: input.resources,
         createdBy: actorOf(ctx),
-      }),
+      })
+    },
   )
 
-  server.handle(RPC_CHANNELS.tasks.UPDATE, (ctx, id: string, patch: TaskUpdate) =>
-    updateTask(workspaceOf(ctx), id, {
+  server.handle(RPC_CHANNELS.tasks.UPDATE, (ctx, id: string, patch: TaskUpdate) => {
+    const workspaceId = workspaceOf(ctx)
+    assertWorkspaceActors(workspaceId, patch.assignees)
+    return updateTask(workspaceId, id, {
       projectId: patch.projectId,
       title: patch.title,
       description: patch.description,
@@ -62,8 +67,8 @@ export function registerTasksHandlers(server: RpcServer, deps: HandlerDeps): voi
       assignees: patch.assignees,
       resources: patch.resources,
       expectedUpdatedAt: patch.expectedUpdatedAt,
-    }),
-  )
+    })
+  })
 
   server.handle(RPC_CHANNELS.tasks.SET_STATUS, (ctx, id: string, status: TaskStatus) => setTaskStatus(workspaceOf(ctx), id, status))
 

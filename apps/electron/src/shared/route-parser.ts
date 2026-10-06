@@ -24,6 +24,16 @@ import {
   sessionFilterFromChatFilters,
   type ChatFilters,
 } from './chat-filters'
+import {
+  normalizeLibrarySearch,
+  normalizeProjectsSearch,
+  normalizeTasksSearch,
+  parseSearch,
+  stringifySearch,
+  type LibrarySearch,
+  type ProjectsSearch,
+  type TasksSearch,
+} from './section-search'
 
 // =============================================================================
 // Route Types
@@ -42,7 +52,7 @@ export interface ParsedRoute {
 // Compound Route Types (new format)
 // =============================================================================
 
-export type NavigatorType = 'sessions' | 'sources' | 'skills' | 'automations' | 'projects' | 'pages' | 'tasks' | 'settings'
+export type NavigatorType = 'sessions' | 'sources' | 'skills' | 'automations' | 'projects' | 'library' | 'tasks' | 'settings'
 
 export interface ParsedCompoundRoute {
   /** The navigator type */
@@ -55,6 +65,8 @@ export interface ParsedCompoundRoute {
   sourceFilter?: SourceFilter
   /** Automation filter (only for automations navigator) */
   automationFilter?: AutomationFilter
+  /** The search of the tasks, projects and library views (see section-search.ts) */
+  search?: TasksSearch | ProjectsSearch | LibrarySearch
   /** Details page info (null for empty state) */
   details: {
     type: string
@@ -70,8 +82,15 @@ export interface ParsedCompoundRoute {
  * Known prefixes that indicate a compound route
  */
 const COMPOUND_ROUTE_PREFIXES = [
-  'allSessions', 'flagged', 'archived', 'state', 'label', 'view', 'sources', 'skills', 'automations', 'projects', 'pages', 'tasks', 'settings'
+  'allSessions', 'flagged', 'archived', 'state', 'label', 'view', 'sources', 'skills', 'automations', 'projects', 'library', 'tasks', 'settings'
 ]
+
+/** The detail segment and the search of the sections that have them. */
+const SECTION_SEARCH = {
+  tasks: { detail: 'task', normalize: normalizeTasksSearch },
+  projects: { detail: 'project', normalize: normalizeProjectsSearch },
+  library: { detail: 'item', normalize: normalizeLibrarySearch },
+} as const
 
 /**
  * Check if a route is a compound route (new format)
@@ -175,36 +194,13 @@ export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
     return null
   }
 
-  // Projects navigator
-  if (first === 'projects') {
-    if (segments.length === 1) {
-      return { navigator: 'projects', details: null }
-    }
-    if (segments[1] === 'project' && segments[2]) {
-      return {
-        navigator: 'projects',
-        details: { type: 'project', id: segments[2] },
-      }
-    }
-    return null
-  }
-
-  // Tasks navigator: the section root only
-  if (first === 'tasks') {
-    return segments.length === 1 ? { navigator: 'tasks', details: null } : null
-  }
-
-  // Pages navigator
-  if (first === 'pages') {
-    if (segments.length === 1) {
-      return { navigator: 'pages', details: null }
-    }
-    if (segments[1] === 'page' && segments[2]) {
-      return {
-        navigator: 'pages',
-        details: { type: 'page', id: segments[2] },
-      }
-    }
+  // Tasks, Projects and Library: the index or one item (`tasks/task/{id}`, `projects/project/{id}`,
+  // `library/item/{id}`), each with its search in the query
+  if (first === 'tasks' || first === 'projects' || first === 'library') {
+    const { detail, normalize } = SECTION_SEARCH[first]
+    const search = normalize(parseSearch(queryPart ?? ''))
+    if (segments.length === 1) return { navigator: first, search, details: null }
+    if (segments.length === 3 && segments[1] === detail) return { navigator: first, search, details: { type: detail, id: segments[2] } }
     return null
   }
 
@@ -352,16 +348,9 @@ export function buildCompoundRoute(parsed: ParsedCompoundRoute): string {
     return `${base}/automation/${parsed.details.id}`
   }
 
-  if (parsed.navigator === 'projects') {
-    if (!parsed.details) return 'projects'
-    return `projects/project/${parsed.details.id}`
-  }
-
-  if (parsed.navigator === 'tasks') return 'tasks'
-
-  if (parsed.navigator === 'pages') {
-    if (!parsed.details) return 'pages'
-    return `pages/page/${parsed.details.id}`
+  if (parsed.navigator === 'tasks' || parsed.navigator === 'projects' || parsed.navigator === 'library') {
+    const base = parsed.details ? `${parsed.navigator}/${parsed.details.type}/${parsed.details.id}` : parsed.navigator
+    return `${base}${stringifySearch(parsed.search ?? {})}`
   }
 
   // Sessions navigator: `allSessions[/session/<id>][?status=..&label=..&flagged=1&archived=1]`, or a view
@@ -390,9 +379,7 @@ export function parseRoute(route: string): ParsedRoute | null {
     // Check if this is a compound route (preferred format)
     if (isCompoundRoute(route)) {
       const compound = parseCompoundRoute(route)
-      if (compound) {
-        return convertCompoundToViewRoute(compound)
-      }
+      if (compound) return { type: 'view', name: compound.navigator, params: {} }
     }
 
     // Parse action routes: action/{name}[/{id}]
@@ -426,91 +413,6 @@ export function parseRoute(route: string): ParsedRoute | null {
   }
 }
 
-/**
- * Convert a parsed compound route to ParsedRoute format (type: 'view')
- */
-function convertCompoundToViewRoute(compound: ParsedCompoundRoute): ParsedRoute {
-  // Settings
-  if (compound.navigator === 'settings') {
-    const subpage = compound.details?.type || 'app'
-    if (subpage === 'app') {
-      return { type: 'view', name: 'settings', params: {} }
-    }
-    return { type: 'view', name: subpage, params: {} }
-  }
-
-  // Sources
-  if (compound.navigator === 'sources') {
-    if (!compound.details) {
-      return { type: 'view', name: 'sources', params: {} }
-    }
-    return { type: 'view', name: 'source-info', id: compound.details.id, params: {} }
-  }
-
-  // Skills
-  if (compound.navigator === 'skills') {
-    if (!compound.details) {
-      return { type: 'view', name: 'skills', params: {} }
-    }
-    return { type: 'view', name: 'skill-info', id: compound.details.id, params: {} }
-  }
-
-  // Automations
-  if (compound.navigator === 'automations') {
-    if (!compound.details) {
-      return { type: 'view', name: 'automations', params: {} }
-    }
-    return { type: 'view', name: 'automation-info', id: compound.details.id, params: {} }
-  }
-
-  // Projects
-  if (compound.navigator === 'projects') {
-    if (!compound.details) {
-      return { type: 'view', name: 'projects', params: {} }
-    }
-    return { type: 'view', name: 'project-info', id: compound.details.id, params: {} }
-  }
-
-  // Tasks
-  if (compound.navigator === 'tasks') {
-    return { type: 'view', name: 'tasks', params: {} }
-  }
-
-  // Pages
-  if (compound.navigator === 'pages') {
-    if (!compound.details) {
-      return { type: 'view', name: 'pages', params: {} }
-    }
-    return { type: 'view', name: 'page-info', id: compound.details.id, params: {} }
-  }
-
-  // Sessions
-  if (compound.sessionFilter) {
-    const filter = compound.sessionFilter
-    if (compound.details) {
-      return {
-        type: 'view',
-        name: 'session',
-        id: compound.details.id,
-        params: {
-          filter: filter.kind,
-          ...(filter.kind === 'state' ? { stateId: filter.stateId } : {}),
-          ...(filter.kind === 'label' ? { labelId: filter.labelId } : {}),
-          ...(filter.kind === 'view' ? { viewId: filter.viewId } : {}),
-        },
-      }
-    }
-    return {
-      type: 'view',
-      name: filter.kind,
-      id: filter.kind === 'state' ? filter.stateId : (filter.kind === 'label' ? filter.labelId : (filter.kind === 'view' ? filter.viewId : undefined)),
-      params: {},
-    }
-  }
-
-  return { type: 'view', name: 'allSessions', params: {} }
-}
-
 // =============================================================================
 // NavigationState Parsing (new unified system)
 // =============================================================================
@@ -527,23 +429,9 @@ function convertCompoundToViewRoute(compound: ParsedCompoundRoute): ParsedRoute 
  * Returns null for action routes (they don't map to a navigation state) and invalid routes.
  */
 export function parseRouteToNavigationState(route: string): NavigationState | null {
-  // Parse compound routes
-  if (isCompoundRoute(route)) {
-    const compound = parseCompoundRoute(route)
-    if (compound) {
-      return convertCompoundToNavigationState(compound)
-    }
-  }
-
-  // Parse as route (may be action or view)
-  const parsed = parseRoute(route)
-  if (!parsed) return null
-
-  // Actions don't map to navigation state
-  if (parsed.type === 'action') return null
-
-  // Convert view routes to NavigationState
-  return convertParsedRouteToNavigationState(parsed)
+  if (!isCompoundRoute(route)) return null
+  const compound = parseCompoundRoute(route)
+  return compound ? convertCompoundToNavigationState(compound) : null
 }
 
 /**
@@ -601,28 +489,26 @@ function convertCompoundToNavigationState(compound: ParsedCompoundRoute): Naviga
     }
   }
 
-  // Projects
-  if (compound.navigator === 'projects') {
-    if (!compound.details) {
-      return { navigator: 'projects', details: null }
-    }
+  // Tasks, Projects and Library
+  if (compound.navigator === 'tasks') {
     return {
-      navigator: 'projects',
-      details: { type: 'project', projectSlug: compound.details.id },
+      navigator: 'tasks',
+      search: compound.search as TasksSearch,
+      details: compound.details ? { type: 'task', taskId: compound.details.id } : null,
     }
   }
-
-  // Tasks
-  if (compound.navigator === 'tasks') return { navigator: 'tasks' }
-
-  // Pages
-  if (compound.navigator === 'pages') {
-    if (!compound.details) {
-      return { navigator: 'pages', details: null }
-    }
+  if (compound.navigator === 'projects') {
     return {
-      navigator: 'pages',
-      details: { type: 'page', pageSlug: compound.details.id },
+      navigator: 'projects',
+      search: compound.search as ProjectsSearch,
+      details: compound.details ? { type: 'project', projectId: compound.details.id } : null,
+    }
+  }
+  if (compound.navigator === 'library') {
+    return {
+      navigator: 'library',
+      search: compound.search as LibrarySearch,
+      details: compound.details ? { type: 'item', itemId: compound.details.id } : null,
     }
   }
 
@@ -642,160 +528,6 @@ function convertCompoundToNavigationState(compound: ParsedCompoundRoute): Naviga
     filter,
     filters,
     details: null,
-  }
-}
-
-/**
- * Convert a ParsedRoute (view type) to NavigationState
- */
-function convertParsedRouteToNavigationState(parsed: ParsedRoute): NavigationState | null {
-  // Only handle view routes (compound routes converted to view type)
-  if (parsed.type !== 'view') {
-    return null
-  }
-
-  switch (parsed.name) {
-    case 'settings':
-      return { navigator: 'settings', subpage: 'app' }
-    case 'workspace':
-      return { navigator: 'settings', subpage: 'workspace' }
-    case 'permissions':
-      return { navigator: 'settings', subpage: 'permissions' }
-    case 'labels':
-      return { navigator: 'settings', subpage: 'labels' }
-    case 'shortcuts':
-      return { navigator: 'settings', subpage: 'shortcuts' }
-    case 'preferences':
-      return { navigator: 'settings', subpage: 'preferences' }
-    case 'sources':
-      return { navigator: 'sources', details: null }
-    case 'source-info':
-      if (parsed.id) {
-        return {
-          navigator: 'sources',
-          details: {
-            type: 'source',
-            sourceSlug: parsed.id,
-          },
-        }
-      }
-      return { navigator: 'sources', details: null }
-    case 'skills':
-      return { navigator: 'skills', details: null }
-    case 'skill-info':
-      if (parsed.id) {
-        return {
-          navigator: 'skills',
-          details: {
-            type: 'skill',
-            skillSlug: parsed.id,
-          },
-        }
-      }
-      return { navigator: 'skills', details: null }
-    case 'automations':
-      return { navigator: 'automations', details: null }
-    case 'automation-info':
-      if (parsed.id) {
-        return {
-          navigator: 'automations',
-          details: {
-            type: 'automation',
-            automationId: parsed.id,
-          },
-        }
-      }
-      return { navigator: 'automations', details: null }
-    case 'projects':
-      return { navigator: 'projects', details: null }
-    case 'project-info':
-      if (parsed.id) {
-        return {
-          navigator: 'projects',
-          details: { type: 'project', projectSlug: parsed.id },
-        }
-      }
-      return { navigator: 'projects', details: null }
-    case 'tasks':
-      return { navigator: 'tasks' }
-    case 'pages':
-      return { navigator: 'pages', details: null }
-    case 'page-info':
-      if (parsed.id) {
-        return {
-          navigator: 'pages',
-          details: { type: 'page', pageSlug: parsed.id },
-        }
-      }
-      return { navigator: 'pages', details: null }
-    case 'session':
-      if (parsed.id) {
-        // Reconstruct filter from params
-        const filterKind = (parsed.params.filter || 'allSessions') as SessionFilter['kind']
-        let filter: SessionFilter
-        if (filterKind === 'state' && parsed.params.stateId) {
-          filter = { kind: 'state', stateId: parsed.params.stateId }
-        } else if (filterKind === 'label' && parsed.params.labelId) {
-          filter = { kind: 'label', labelId: parsed.params.labelId }
-        } else if (filterKind === 'view' && parsed.params.viewId) {
-          filter = { kind: 'view', viewId: parsed.params.viewId }
-        } else {
-          filter = { kind: filterKind as 'allSessions' | 'flagged' | 'archived' }
-        }
-        return {
-          navigator: 'sessions',
-          filter,
-          details: { type: 'session', sessionId: parsed.id },
-        }
-      }
-      return { navigator: 'sessions', filter: { kind: 'allSessions' }, details: null }
-    case 'allSessions':
-      return {
-        navigator: 'sessions',
-        filter: { kind: 'allSessions' },
-        details: null,
-      }
-    case 'flagged':
-      return {
-        navigator: 'sessions',
-        filter: { kind: 'flagged' },
-        details: null,
-      }
-    case 'archived':
-      return {
-        navigator: 'sessions',
-        filter: { kind: 'archived' },
-        details: null,
-      }
-    case 'state':
-      if (parsed.id) {
-        return {
-          navigator: 'sessions',
-          filter: { kind: 'state', stateId: parsed.id },
-          details: null,
-        }
-      }
-      return { navigator: 'sessions', filter: { kind: 'allSessions' }, details: null }
-    case 'label':
-      if (parsed.id) {
-        return {
-          navigator: 'sessions',
-          filter: { kind: 'label', labelId: parsed.id },
-          details: null,
-        }
-      }
-      return { navigator: 'sessions', filter: { kind: 'allSessions' }, details: null }
-    case 'view':
-      if (parsed.id) {
-        return {
-          navigator: 'sessions',
-          filter: { kind: 'view', viewId: parsed.id },
-          details: null,
-        }
-      }
-      return { navigator: 'sessions', filter: { kind: 'allSessions' }, details: null }
-    default:
-      return null
   }
 }
 
@@ -836,20 +568,14 @@ function navigationStateToCompoundRoute(state: NavigationState): ParsedCompoundR
     }
   }
 
-  if (state.navigator === 'projects') {
-    return {
-      navigator: 'projects',
-      details: state.details ? { type: 'project', id: state.details.projectSlug } : null,
-    }
+  if (state.navigator === 'tasks') {
+    return { navigator: 'tasks', search: state.search, details: state.details ? { type: 'task', id: state.details.taskId } : null }
   }
-
-  if (state.navigator === 'tasks') return { navigator: 'tasks', details: null }
-
-  if (state.navigator === 'pages') {
-    return {
-      navigator: 'pages',
-      details: state.details ? { type: 'page', id: state.details.pageSlug } : null,
-    }
+  if (state.navigator === 'projects') {
+    return { navigator: 'projects', search: state.search, details: state.details ? { type: 'project', id: state.details.projectId } : null }
+  }
+  if (state.navigator === 'library') {
+    return { navigator: 'library', search: state.search, details: state.details ? { type: 'item', id: state.details.itemId } : null }
   }
 
   // Sessions

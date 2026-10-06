@@ -20,7 +20,6 @@
     "jotai": "^2.16.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-i18next": "^17.0.2",
-    "sonner": "^2.0.7"
+    "react-i18next": "^17.0.2"
   }
 }

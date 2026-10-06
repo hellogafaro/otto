@@ -159,7 +159,6 @@
         "react-simple-code-editor": "^0.14.1",
         "remark": "^15.0.1",
         "sharp": "0.34.5",
-        "sonner": "^2.0.7",
         "strip-markdown": "^6.0.0",
         "vaul": "^1.1.2",
         "ws": "^8.19.0",
@@ -209,7 +208,6 @@
         "react": "^19.2.8",
         "react-dom": "^19.2.8",
         "react-i18next": "^17.0.2",
-        "sonner": "^2.0.7",
       },
     },
     "design/ui": {

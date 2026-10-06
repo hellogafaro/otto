@@ -12,7 +12,7 @@ import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-pop
 import { SourceAvatar } from '@/components/ui/source-avatar'
 import { SourceMenu } from '@/components/app-shell/source-menu'
 import { useNavigation } from '@/contexts/navigation-context'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import {
   Info_Page,
   Info_Section,

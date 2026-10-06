@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { debounce, SEARCH_DEBOUNCE_MS } from '../debounce.ts'
+import { debounce, DEBOUNCE_MS } from '../debounce.ts'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -64,6 +64,6 @@ describe('debounce', () => {
   })
 
   it('search waits 800 ms', () => {
-    expect(SEARCH_DEBOUNCE_MS).toBe(800)
+    expect(DEBOUNCE_MS).toBe(800)
   })
 })

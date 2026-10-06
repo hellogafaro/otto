@@ -8,9 +8,10 @@ import { isValidThinkingLevel, THINKING_LEVEL_IDS } from '@otto/shared/agent/thi
 import { isPermissionMode, PERMISSION_MODE_ORDER } from '@otto/shared/agent/modes'
 
 const VALID_THINKING_LEVELS_LIST = THINKING_LEVEL_IDS.map(id => `'${id}'`).join(', ')
-import { pushTyped, type RpcServer } from '@otto/server-core/transport'
+import { pushTyped, type RequestContext, type RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 import { setTransferableHandler } from './transfer'
+import { actorOf } from './library'
 
 interface ClientSessionWatchState {
   watcher: import('fs').FSWatcher
@@ -147,7 +148,8 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
       ? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId)
       : undefined
     const workspaceId = ctx.workspaceId ?? windowWorkspaceId
-    const sessions = sessionManager.getSessions(workspaceId ?? undefined)
+    // Only the chats this user may see: chats are private to their creator.
+    const sessions = sessionManager.getSessions(workspaceId ?? undefined, ctx.userId)
     end()
 
     log.info('[sessions:get] result', {
@@ -164,17 +166,17 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   })
 
   // Get unread summary across all workspaces
-  server.handle(RPC_CHANNELS.sessions.GET_UNREAD_SUMMARY, async () => {
+  server.handle(RPC_CHANNELS.sessions.GET_UNREAD_SUMMARY, async (ctx) => {
     try {
       await sessionManager.waitForInit()
     } catch (error) {
       log.error('GET_UNREAD_SUMMARY continuing after initialization failure:', error)
     }
-    return sessionManager.getUnreadSummary()
+    return sessionManager.getUnreadSummary(ctx.userId)
   })
 
-  server.handle(RPC_CHANNELS.sessions.MARK_ALL_READ, async (_ctx, workspaceId: string) => {
-    return sessionManager.markAllSessionsRead(workspaceId)
+  server.handle(RPC_CHANNELS.sessions.MARK_ALL_READ, async (ctx, workspaceId: string) => {
+    return sessionManager.markAllSessionsRead(workspaceId, ctx.userId)
   })
 
   // Get a single session with messages (for lazy loading)
@@ -186,11 +188,12 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   })
 
   // Create a new session
-  server.handle(RPC_CHANNELS.sessions.CREATE, async (_ctx, workspaceId: string, options?: import('@otto/shared/protocol').CreateSessionOptions) => {
+  server.handle(RPC_CHANNELS.sessions.CREATE, async (ctx, workspaceId: string, options?: import('@otto/shared/protocol').CreateSessionOptions) => {
     const end = perf.start('rpc.createSession', { workspaceId })
     // The renderer adds the session synchronously from this return value (app.tsx handleCreateSession),
     // so suppress the broadcast to avoid a redundant hydrate round-trip.
-    const session = await sessionManager.createSession(workspaceId, options, { emitCreatedEvent: false })
+    // The chat belongs to the caller; who it belongs to never comes from the client.
+    const session = await sessionManager.createSession(workspaceId, options, { emitCreatedEvent: false, createdBy: actorOf(ctx) })
     end()
     return session
   })
@@ -270,9 +273,9 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   })
 
   // Get background task output
-  server.handle(RPC_CHANNELS.tasks.GET_OUTPUT, async (_ctx, taskId: string) => {
+  server.handle(RPC_CHANNELS.tasks.GET_OUTPUT, async (ctx, taskId: string) => {
     try {
-      const output = await sessionManager.getTaskOutput(taskId)
+      const output = await sessionManager.getTaskOutput(taskId, ctx.userId)
       return output
     } catch (err) {
       log.error('Failed to get task output:', err)
@@ -408,7 +411,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   // ============================================================
 
   // Search session content using ripgrep
-  server.handle(RPC_CHANNELS.sessions.SEARCH_CONTENT, async (_ctx, workspaceId: string, query: string, searchId?: string) => {
+  server.handle(RPC_CHANNELS.sessions.SEARCH_CONTENT, async (ctx, workspaceId: string, query: string, searchId?: string) => {
     const id = searchId || Date.now().toString(36)
     log.info('[search]','ipc:request', { searchId: id, query })
 
@@ -431,12 +434,11 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
       searchId: id,
     })
 
-    // Filter out hidden sessions (e.g., mini edit sessions)
-    const allSessions = await sessionManager.getSessions()
-    const hiddenSessionIds = new Set(
-      allSessions.filter(s => s.hidden).map(s => s.id)
+    // Keep only the chats this user may see, and not the hidden ones (e.g., mini edit sessions)
+    const visibleSessionIds = new Set(
+      sessionManager.getSessions(undefined, ctx.userId).filter(s => !s.hidden).map(s => s.id)
     )
-    const filteredResults = results.filter(r => !hiddenSessionIds.has(r.sessionId))
+    const filteredResults = results.filter(r => visibleSessionIds.has(r.sessionId))
 
     log.info('[search]','ipc:response', { searchId: id, resultCount: filteredResults.length, totalFound: results.length })
     return filteredResults
@@ -552,12 +554,12 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   // Import a session bundle into a target workspace
   // targetWorkspaceId is passed explicitly (not from context) so the renderer
   // can import into any workspace the server manages, not just the active one.
-  const importHandler = async (_ctx: any, targetWorkspaceId: string, bundle: unknown, mode: string) => {
+  const importHandler = async (ctx: RequestContext, targetWorkspaceId: string, bundle: unknown, mode: string) => {
     await sessionManager.waitForInit()
     if (!targetWorkspaceId || typeof targetWorkspaceId !== 'string') throw new Error('targetWorkspaceId is required')
     if (mode !== 'move' && mode !== 'fork') throw new Error(`Invalid dispatch mode: ${mode}`)
 
-    return sessionManager.importSession(targetWorkspaceId, bundle as import('@otto/shared/sessions').SessionBundle, mode)
+    return sessionManager.importSession(targetWorkspaceId, bundle as import('@otto/shared/sessions').SessionBundle, mode, actorOf(ctx))
   }
   server.handle(RPC_CHANNELS.sessions.IMPORT, importHandler)
   // Also register as transferable so chunked transfer can invoke it on commit
@@ -575,9 +577,9 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   })
 
   // Import a summarized remote-transfer payload into a target workspace.
-  server.handle(RPC_CHANNELS.sessions.IMPORT_REMOTE_TRANSFER, async (_ctx, targetWorkspaceId: string, payload: import('@otto/shared/protocol').RemoteSessionTransferPayload) => {
+  server.handle(RPC_CHANNELS.sessions.IMPORT_REMOTE_TRANSFER, async (ctx, targetWorkspaceId: string, payload: import('@otto/shared/protocol').RemoteSessionTransferPayload) => {
     await sessionManager.waitForInit()
     if (!targetWorkspaceId || typeof targetWorkspaceId !== 'string') throw new Error('targetWorkspaceId is required')
-    return sessionManager.importRemoteSessionTransfer(targetWorkspaceId, payload)
+    return sessionManager.importRemoteSessionTransfer(targetWorkspaceId, payload, actorOf(ctx))
   })
 }

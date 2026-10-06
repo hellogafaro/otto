@@ -21,7 +21,6 @@ import {
   isErrorCode,
   type MessageEnvelope,
   type PushTarget,
-  type ErrorCode,
   type WireError,
 } from '@otto/shared/protocol'
 import type { RpcServer, HandlerFn, RequestContext } from './types'
@@ -94,6 +93,11 @@ export interface WsRpcServerOptions {
    * If provided, a valid session cookie is accepted as an alternative to a bearer token.
    */
   validateSessionCookie?: (cookieHeader: string | null) => Promise<{ userId: string } | null>
+  /**
+   * The membership guard. Called with the connection (at handshake, no channel) and before every
+   * handler (with its channel and args); throws to refuse. Without it nothing is checked.
+   */
+  authorize?: (ctx: { userId: string | null; workspaceId: string | null }, channel?: string, args?: unknown[]) => void
   /** Server identity stamp on outgoing events. Default: 'local' */
   serverId?: string
   /** TLS configuration. When provided, the server listens on wss:// instead of ws://. */
@@ -141,6 +145,7 @@ export class WsRpcServer implements RpcServer {
   private readonly requireAuth: boolean
   private readonly validateToken: WsRpcServerOptions['validateToken'] | null
   private readonly validateSessionCookie: WsRpcServerOptions['validateSessionCookie'] | null
+  private readonly authorize: WsRpcServerOptions['authorize']
   private readonly serverId: string
   private readonly tlsOptions: WsRpcTlsOptions | null
   private readonly serverVersion: string
@@ -155,6 +160,7 @@ export class WsRpcServer implements RpcServer {
     this.requireAuth = opts?.requireAuth ?? false
     this.validateToken = opts?.validateToken ?? null
     this.validateSessionCookie = opts?.validateSessionCookie ?? null
+    this.authorize = opts?.authorize
     this.serverId = opts?.serverId ?? 'local'
     this.serverVersion = opts?.serverVersion ?? ''
     this.tlsOptions = opts?.tls ?? null
@@ -453,6 +459,15 @@ export class WsRpcServer implements RpcServer {
           userId = identity.userId
         }
 
+        // Only a member of the workspace the connection names may connect to it (also on reconnect).
+        try {
+          this.authorize?.({ userId, workspaceId: envelope.workspaceId ?? null })
+        } catch (err) {
+          this.sendError(ws, envelope.id, (err as { code?: string }).code ?? 'forbidden', (err as Error).message)
+          ws.close(4403, 'Forbidden')
+          return
+        }
+
         // ── Reconnect attempt ──
         if (envelope.reconnectClientId && envelope.lastSeq != null) {
           const entry = this.disconnectedClients.get(envelope.reconnectClientId)
@@ -668,6 +683,7 @@ export class WsRpcServer implements RpcServer {
     }
 
     try {
+      this.authorize?.(ctx, channel, args ?? [])
       const result = await Promise.race([
         handler(ctx, ...(args ?? [])),
         new Promise<never>((_, reject) =>
@@ -807,6 +823,7 @@ export class WsRpcServer implements RpcServer {
   }
 
   private matchesTarget(client: ClientConnection, target: PushTarget): boolean {
+    if (target.to !== 'client' && target.userIds && !(client.userId && target.userIds.includes(client.userId))) return false
     switch (target.to) {
       case 'all':
         return target.exclude ? client.id !== target.exclude : true
@@ -825,6 +842,14 @@ export class WsRpcServer implements RpcServer {
     const client = this.clients.get(clientId)
     if (client) {
       client.workspaceId = workspaceId
+    }
+  }
+
+  /** A user no longer belongs to a workspace: their connections to it stop receiving its pushes. */
+  removeUserFromWorkspace(userId: string, workspaceId: string): void {
+    const detached = [...this.clients.values(), ...[...this.disconnectedClients.values()].map((entry) => entry.client)]
+    for (const client of detached) {
+      if (client.userId === userId && client.workspaceId === workspaceId) client.workspaceId = null
     }
   }
 
@@ -850,7 +875,7 @@ export class WsRpcServer implements RpcServer {
   }
 
   /** Protocol-level errors only (handshake rejection, version mismatch). May close connection. */
-  private sendError(ws: WebSocket, id: string, code: ErrorCode, message: string): void {
+  private sendError(ws: WebSocket, id: string, code: WireError['code'], message: string): void {
     const envelope: MessageEnvelope = {
       id,
       type: 'error',

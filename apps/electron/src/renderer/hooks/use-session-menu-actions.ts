@@ -26,7 +26,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import { extractLabelId, toggleLabelInList } from '@otto/shared/labels'
 import type { SessionMeta } from '@/atoms/sessions'
 

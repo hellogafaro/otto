@@ -6,9 +6,10 @@
  * before the detail, never a sidebar list, so the parents are:
  * - A chat: the Chats index (the filter it was opened under).
  * - A settings page, a skill or a source (also the empty Skills / Sources page): the Settings index.
- * - A document: the Documents library (the card's own page).
- * - A project or an automation: its section.
- * The Chats and Settings indexes, and the Tasks section root, have no parent.
+ * - A task, a library item (a file or a document) or a project: its index. A task and a library item
+ *   keep the index's search (filters, tab, `?folder=`), so Back returns to the same list.
+ * - An automation: its section.
+ * The Chats and Settings indexes, and the Tasks, Projects and Library indexes, have no parent.
  *
  * Back is never history Back: that is the Electron buttons in the sidebar header and
  * the browser's own.
@@ -37,19 +38,17 @@ export function useParentView(): ParentView | null {
     switch (navState.navigator) {
       case 'settings':
         return navState.subpage === null ? null : { onBack: () => navigate(routes.view.settings()) }
-      case 'pages':
-        if (!navState.details) return null
-        return { onBack: () => navigate(routes.view.pages()) }
       case 'sessions':
         return navState.details ? { onBack: goToIndex } : null
       case 'sources':
       case 'skills':
         return { onBack: () => navigate(routes.view.settings()) }
       case 'automations':
-      case 'projects':
-        return navState.details ? { onBack: goToIndex } : null
       case 'tasks':
-        return null
+      case 'library':
+        return navState.details ? { onBack: goToIndex } : null
+      case 'projects':
+        return navState.details ? { onBack: () => navigate(routes.view.projects()) } : null
     }
   }, [navState, navigate, goToIndex])
 }

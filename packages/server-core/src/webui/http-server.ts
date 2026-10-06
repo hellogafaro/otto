@@ -320,10 +320,14 @@ export function createWebuiHandler(options: WebuiHandlerOptions): WebuiHandler {
 
     // Return the default workspace ID so the webui can include it in the WS handshake
     if (path === '/api/config/workspaces' && req.method === 'GET') {
-      const { getActiveWorkspace } = await import('@otto/shared/config/storage')
+      const { getActiveWorkspace, getWorkspaces } = await import('@otto/shared/config/storage')
+      const { getMemberWorkspaceIds } = await import('@otto/shared/workspaces')
+      // Only a workspace the user belongs to: the handshake refuses any other.
+      const mine = new Set(getMemberWorkspaceIds(session.user.id))
       const active = getActiveWorkspace()
+      const fallback = active && mine.has(active.id) ? active : getWorkspaces().find((workspace) => mine.has(workspace.id))
       return Response.json({
-        defaultWorkspaceId: active?.id ?? null,
+        defaultWorkspaceId: fallback?.id ?? null,
       })
     }
 

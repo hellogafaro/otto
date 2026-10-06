@@ -56,7 +56,7 @@ const PAGES: { id: string; icon: LucideIcon; labelKey: string; route: () => Rout
   { id: 'projects', icon: Folder, labelKey: 'sidebar.projects', route: () => routes.view.projects() },
   { id: 'chats', icon: MessagesSquare, labelKey: 'sidebar.chats', route: () => routes.view.allSessions() },
   { id: 'routines', icon: Clock, labelKey: 'sidebar.routines', route: () => routes.view.automations() },
-  { id: 'library', icon: Library, labelKey: 'sidebar.library', route: () => routes.view.pages() },
+  { id: 'library', icon: Library, labelKey: 'sidebar.library', route: () => routes.view.library() },
 ]
 
 /** A pinned or recent item that is not a chat shows its type's icon. */

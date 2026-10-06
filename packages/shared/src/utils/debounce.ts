@@ -4,8 +4,8 @@
  * per-module timers.
  */
 
-/** The one delay every search field waits after the last keystroke. */
-export const SEARCH_DEBOUNCE_MS = 800
+/** The one delay every search field and autosave waits after the last change. */
+export const DEBOUNCE_MS = 800
 
 export interface Debounced<Args extends unknown[]> {
   (...args: Args): void

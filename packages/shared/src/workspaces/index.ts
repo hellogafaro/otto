@@ -10,6 +10,9 @@ export type {
   CreateWorkspaceInput,
   LoadedWorkspace,
   WorkspaceSummary,
+  WorkspaceRole,
+  WorkspaceMember,
+  WorkspaceInvitation,
 } from './types.ts';
 
 // Storage functions
@@ -40,3 +43,21 @@ export {
   CONFIG_DIR,
   DEFAULT_WORKSPACES_DIR,
 } from './storage.ts';
+
+// Members and invitations (database)
+export {
+  createWorkspaceInvitation,
+  createWorkspaceMember,
+  deleteWorkspaceMember,
+  getMemberRole,
+  getMemberWorkspaceIds,
+  getWorkspaceInvitation,
+  getWorkspaceInvitations,
+  getWorkspaceMembers,
+  isWorkspaceMember,
+  updateInvitationCanceled,
+  updateWorkspaceMemberRole,
+} from './members.ts';
+
+// Who owns a workspace (private chats)
+export { getWorkspaceOwnerIds, isWorkspaceOwner } from './ownership.ts';

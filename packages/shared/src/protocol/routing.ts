@@ -375,6 +375,15 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.automations.REPLAY,
   RPC_CHANNELS.automations.CHANGED,
 
+  // workspace members and invitations — live in the workspace's server
+  RPC_CHANNELS.workspaces.GET_MEMBERS,
+  RPC_CHANNELS.workspaces.GET_INVITATIONS,
+  RPC_CHANNELS.workspaces.INVITE,
+  RPC_CHANNELS.workspaces.REVOKE_INVITATION,
+  RPC_CHANNELS.workspaces.REMOVE_MEMBER,
+  RPC_CHANNELS.workspaces.UPDATE_MEMBER_ROLE,
+  RPC_CHANNELS.workspaces.LEAVE,
+
   // projects, tasks and timesheets — live in the workspace's server
   RPC_CHANNELS.projects.LIST,
   RPC_CHANNELS.projects.GET,

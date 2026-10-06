@@ -41,16 +41,25 @@ const KINDS: Array<[routeString: string, pathname: string, search: Record<string
   ['settings/shortcuts', '/test/settings/shortcuts', {}],
   ['settings/preferences', '/test/settings/preferences', {}],
   ['tasks', '/test/tasks', {}],
+  ['tasks/task/t1', '/test/tasks/t1', {}],
+  ['tasks?project=p1&assignee=user%3Au1&status=todo&status=done&archived=1', '/test/tasks', { project: 'p1', assignee: 'user:u1', status: ['todo', 'done'], archived: true }],
+  ['tasks/task/t1?project=p1&status=doing', '/test/tasks/t1', { project: 'p1', status: ['doing'] }],
   ['projects', '/test/projects', {}],
+  ['projects?status=archived', '/test/projects', { status: 'archived' }],
   ['projects/project/p1', '/test/projects/p1', {}],
+  ['projects/project/p1?tab=tasks', '/test/projects/p1', { tab: 'tasks' }],
+  ['projects/project/p1?tab=files&status=archived', '/test/projects/p1', { tab: 'files', status: 'archived' }],
   ['automations', '/test/routines', {}],
   ['automations/scheduled', '/test/routines', { type: 'scheduled' }],
   ['automations/event', '/test/routines', { type: 'event' }],
   ['automations/agentic', '/test/routines', { type: 'agentic' }],
   ['automations/automation/a1', '/test/routines/a1', {}],
   ['automations/event/automation/a1', '/test/routines/a1', { type: 'event' }],
-  ['pages', '/test/library', {}],
-  ['pages/page/doc-1', '/test/library/doc-1', {}],
+  ['library', '/test/library', {}],
+  ['library?tab=files&folder=f1&createdBy=agent%3Adefault', '/test/library', { tab: 'files', folder: 'f1', createdBy: 'agent:default' }],
+  ['library?tab=documents', '/test/library', { tab: 'documents' }],
+  ['library/item/doc-1', '/test/library/doc-1', {}],
+  ['library/item/doc-1?folder=f1', '/test/library/doc-1', { folder: 'f1' }],
   ['skills', '/test/skills', {}],
   ['skills/skill/my-skill', '/test/skills/my-skill', {}],
   ['sources', '/test/sources', {}],
@@ -97,9 +106,15 @@ describe('routeStringToLocation / locationToRouteString', () => {
   })
 
   it('has no route for an unknown or incomplete URL', () => {
-    for (const pathname of ['/', '/test', '/test/', '/test/nope', '/test/settings/nope', '/test/chats/a/b', '/test/chats/a/b/c', '/test/tasks/t1']) {
+    for (const pathname of ['/', '/test', '/test/', '/test/nope', '/test/settings/nope', '/test/chats/a/b', '/test/chats/a/b/c', '/test/tasks/t1/x']) {
       expect(locationToRouteString(pathname, {}), pathname).toBeNull()
     }
+  })
+
+  it('drops invalid Tasks, Projects and Library search', () => {
+    expect(locationToRouteString('/test/tasks', { status: ['nope', 'done'], x: '1' })?.routeString).toBe('tasks?status=done')
+    expect(locationToRouteString('/test/projects/p1', { tab: 'nope' })?.routeString).toBe('projects/project/p1')
+    expect(locationToRouteString('/test/library', { tab: 'all', folder: '' })?.routeString).toBe('library?tab=all')
   })
 
   it('treats a trailing slash as the same URL', () => {

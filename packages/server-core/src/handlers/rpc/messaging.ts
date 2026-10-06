@@ -67,7 +67,8 @@ export function registerMessagingHandlers(server: RpcServer, deps: HandlerDeps):
 
   server.handle(RPC_CHANNELS.messaging.GET_BINDINGS, async (ctx) => {
     if (!ctx.workspaceId) throw new Error('Missing workspaceId')
-    return registry.getBindings(ctx.workspaceId)
+    // A binding names its chat: only those the caller may see.
+    return registry.getBindings(ctx.workspaceId).filter((binding) => deps.sessionManager.canSeeSession(binding.sessionId, ctx.userId))
   })
 
   server.handle(RPC_CHANNELS.messaging.GENERATE_CODE, async (ctx, sessionId: string, platform: string) => {

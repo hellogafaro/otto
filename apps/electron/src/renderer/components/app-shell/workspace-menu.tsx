@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from "react"
 import { ChevronsUpDown, Cloud, CloudOff, LogOut, Plus, Settings, Trash2, User } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 import { useSetAtom } from "jotai"
-import { toast } from "sonner"
+import { toast } from '@workspace/ui/components/sonner'
 import { logOut } from "@/lib/log-out"
 
 import { cn } from "@/lib/utils"
@@ -30,7 +30,7 @@ import { isWebUI } from "@/lib/platform"
 import { waitForTransportConnected } from '@/lib/transport-wait'
 import { useWorkspaceIcons } from "@/hooks/use-workspace-icon"
 import { useTransportConnectionState } from "@/hooks/use-transport-connection-state"
-import { useCurrentUser } from "@/hooks/use-current-user"
+import { readLocalAccount, useCurrentUser } from "@/hooks/use-current-user"
 import type { Workspace } from "../../../shared/types"
 
 interface WorkspaceMenuProps {
@@ -133,20 +133,9 @@ export function WorkspaceMenu({
     }
   }, [workspaces, activeWorkspaceId])
 
-  /** Electron: the name and email the person set in Settings -> Preferences (nothing else identifies them). */
+  /** Electron: the name and email the person set in Settings -> Preferences. */
   const loadAccount = useCallback(() => {
-    if (isWebUI) return
-    const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
-    window.electronAPI.readPreferences()
-      .then(({ content }) => {
-        try {
-          const prefs = JSON.parse(content)
-          setAccount({ name: text(prefs.name), email: text(prefs.email) })
-        } catch {
-          setAccount({ name: '', email: '' })
-        }
-      })
-      .catch(() => setAccount({ name: '', email: '' }))
+    if (!isWebUI) void readLocalAccount().then(setAccount)
   }, [])
 
   React.useEffect(loadAccount, [loadAccount])

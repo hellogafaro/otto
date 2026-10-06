@@ -1,9 +1,11 @@
 import { existsSync } from 'node:fs'
-import { join } from 'path'
+import { join, relative, resolve, isAbsolute } from 'path'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { getWorkspaceByNameOrId, addWorkspace, setActiveWorkspace, updateWorkspaceRemoteServer } from '@otto/shared/config'
-import { perf } from '@otto/shared/utils'
+import { getWorkspaceByNameOrId, getWorkspaces, addWorkspace, setActiveWorkspace, updateWorkspaceRemoteServer } from '@otto/shared/config'
+import { domainError, perf } from '@otto/shared/utils'
+import { createWorkspaceMember, getMemberWorkspaceIds } from '@otto/shared/workspaces'
+import { assertOwner } from '../../bootstrap/authorize'
 import { pushTyped, type RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 import { isValidWorkspaceRootPath } from '../../utils/path-validation'
@@ -33,20 +35,32 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
   const { sessionManager } = deps
   const windowManager = deps.windowManager
 
-  // Get workspaces (LOCAL_ONLY — includes rootPath for local Electron renderer)
-  server.handle(RPC_CHANNELS.workspaces.GET, async () => {
-    return sessionManager.getWorkspaces()
+  // Get the caller's workspaces (LOCAL_ONLY — includes rootPath for local Electron renderer)
+  server.handle(RPC_CHANNELS.workspaces.GET, async (ctx) => {
+    const mine = new Set(ctx.userId ? getMemberWorkspaceIds(ctx.userId) : [])
+    return sessionManager.getWorkspaces().filter((workspace) => mine.has(workspace.id))
   })
 
-  // Create a new workspace at a folder path (Obsidian-style: folder IS the workspace)
-  server.handle(RPC_CHANNELS.workspaces.CREATE, async (_ctx, folderPath: string, name: string, remoteServer?: { url: string; token: string; remoteWorkspaceId: string }) => {
+  // Create a new workspace at a folder path (Obsidian-style: folder IS the workspace).
+  // Any signed-in user may; the creator becomes its owner. A server without a window (headless) only
+  // creates under CONFIG_DIR/workspaces: a client never picks a path on the server's disk.
+  server.handle(RPC_CHANNELS.workspaces.CREATE, async (ctx, folderPath: string, name: string, remoteServer?: { url: string; token: string; remoteWorkspaceId: string }) => {
+    if (!ctx.userId) throw domainError('forbidden', 'Sign in first')
     const rootPath = folderPath.trim()
     const validation = isValidWorkspaceRootPath(rootPath)
     if (!validation.valid) {
       throw new Error(validation.reason!)
     }
+    if (!deps.windowManager) {
+      const inside = relative(join(CONFIG_DIR, 'workspaces'), resolve(rootPath))
+      if (!inside || inside.startsWith('..') || isAbsolute(inside)) throw domainError('invalid', 'Workspaces are created inside the server\'s workspaces folder')
+    }
+    // A folder that is already a workspace is updated, not taken over: only its owner may.
+    const existing = getWorkspaces().find((workspace) => workspace.rootPath === rootPath)
+    if (existing) assertOwner(ctx.userId, existing.id)
 
     const workspace = addWorkspace({ name, rootPath, ...(remoteServer && { remoteServer }) })
+    if (!existing) createWorkspaceMember(workspace.id, ctx.userId, 'owner')
     // Make it active
     setActiveWorkspace(workspace.id)
     deps.platform.logger.info(`Created workspace "${name}" at ${rootPath}${remoteServer ? ` (remote: ${remoteServer.url})` : ''}`)

@@ -15,6 +15,7 @@ import { createElement, type ComponentType } from 'react'
 import { createRootRouteWithContext, createRoute, notFound, redirect, useRouterState } from '@tanstack/react-router'
 import { isReservedWorkspaceSlug } from '@otto/shared/utils/workspace-slug'
 import { isValidSettingsSubpage } from '../../shared/settings-registry'
+import { normalizeLibrarySearch, normalizeProjectsSearch, normalizeTasksSearch } from '../../shared/section-search'
 import { isWebUI } from '../lib/platform'
 import { isRouterNotFound } from './not-found'
 import { validateChatsSearch, validateRoutinesSearch, validateSourcesSearch } from './location'
@@ -78,13 +79,14 @@ const settingsPageRoute = createRoute({
     if (!isValidSettingsSubpage(params.page)) throw notFound()
   },
 })
-const tasksRoute = createRoute(section('tasks'))
-const projectsRoute = createRoute(section('projects'))
-const projectRoute = createRoute(section('projects/$projectId'))
+const tasksRoute = createRoute({ ...section('tasks'), validateSearch: normalizeTasksSearch })
+const taskRoute = createRoute({ ...section('tasks/$taskId'), validateSearch: normalizeTasksSearch })
+const projectsRoute = createRoute({ ...section('projects'), validateSearch: normalizeProjectsSearch })
+const projectRoute = createRoute({ ...section('projects/$projectId'), validateSearch: normalizeProjectsSearch })
 const routinesRoute = createRoute({ ...section('routines'), validateSearch: validateRoutinesSearch })
 const routineRoute = createRoute({ ...section('routines/$automationId'), validateSearch: validateRoutinesSearch })
-const libraryRoute = createRoute(section('library'))
-const libraryPageRoute = createRoute(section('library/$pageId'))
+const libraryRoute = createRoute({ ...section('library'), validateSearch: normalizeLibrarySearch })
+const libraryItemRoute = createRoute({ ...section('library/$itemId'), validateSearch: normalizeLibrarySearch })
 const skillsRoute = createRoute(section('skills'))
 const skillRoute = createRoute(section('skills/$skillSlug'))
 const sourcesRoute = createRoute({ ...section('sources'), validateSearch: validateSourcesSearch })
@@ -100,12 +102,13 @@ export const routeTree = rootRoute.addChildren([
     settingsRoute,
     settingsPageRoute,
     tasksRoute,
+    taskRoute,
     projectsRoute,
     projectRoute,
     routinesRoute,
     routineRoute,
     libraryRoute,
-    libraryPageRoute,
+    libraryItemRoute,
     skillsRoute,
     skillRoute,
     sourcesRoute,

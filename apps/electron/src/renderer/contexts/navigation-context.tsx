@@ -50,7 +50,7 @@ import {
 } from 'react'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useSession } from '@/hooks/use-session'
 import {
@@ -88,7 +88,7 @@ import {
   isSkillsNavigation,
   isAutomationsNavigation,
   isProjectsNavigation,
-  isPagesNavigation,
+  isLibraryNavigation,
   isTasksNavigation,
   DEFAULT_NAVIGATION_STATE,
 } from '../../shared/types'
@@ -106,7 +106,7 @@ export type { Route }
 
 // Re-export navigation state types for consumers
 export type { NavigationState, SessionFilter }
-export { isSessionsNavigation, isSourcesNavigation, isSettingsNavigation, isSkillsNavigation, isAutomationsNavigation, isProjectsNavigation, isPagesNavigation, isTasksNavigation }
+export { isSessionsNavigation, isSourcesNavigation, isSettingsNavigation, isSkillsNavigation, isAutomationsNavigation, isProjectsNavigation, isLibraryNavigation, isTasksNavigation }
 
 // =============================================================================
 // Context
@@ -191,7 +191,7 @@ function workspaceSwitchRoute(state: NavigationState): string {
     case 'sessions':
       return routes.view.allSessions()
     default:
-      return buildRouteFromNavigationState({ navigator: state.navigator, details: null })
+      return buildRouteFromNavigationState({ navigator: state.navigator, search: {}, details: null } as NavigationState)
   }
 }
 

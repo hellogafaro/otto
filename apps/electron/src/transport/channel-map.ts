@@ -51,6 +51,13 @@ export const CHANNEL_MAP = {
   createWorkspace: invoke(RPC_CHANNELS.workspaces.CREATE),
   checkWorkspaceSlug: invoke(RPC_CHANNELS.workspaces.CHECK_SLUG),
   updateWorkspaceRemoteServer: invoke(RPC_CHANNELS.workspaces.UPDATE_REMOTE),
+  getWorkspaceMembers: invoke(RPC_CHANNELS.workspaces.GET_MEMBERS),
+  getWorkspaceInvitations: invoke(RPC_CHANNELS.workspaces.GET_INVITATIONS),
+  inviteWorkspaceMember: invoke(RPC_CHANNELS.workspaces.INVITE),
+  revokeWorkspaceInvitation: invoke(RPC_CHANNELS.workspaces.REVOKE_INVITATION),
+  removeWorkspaceMember: invoke(RPC_CHANNELS.workspaces.REMOVE_MEMBER),
+  updateWorkspaceMemberRole: invoke(RPC_CHANNELS.workspaces.UPDATE_MEMBER_ROLE),
+  leaveWorkspace: invoke(RPC_CHANNELS.workspaces.LEAVE),
   testRemoteConnection: invoke(RPC_CHANNELS.remote.TEST_CONNECTION),
 
   // Server-level workspace operations (REMOTE_ELIGIBLE)

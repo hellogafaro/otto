@@ -36,12 +36,13 @@ describe('route tree', () => {
       '/test/settings': '/$workspaceSlug/settings',
       '/test/settings/appearance': '/$workspaceSlug/settings/$page',
       '/test/tasks': '/$workspaceSlug/tasks',
+      '/test/tasks/t1': '/$workspaceSlug/tasks/$taskId',
       '/test/projects': '/$workspaceSlug/projects',
       '/test/projects/p1': '/$workspaceSlug/projects/$projectId',
       '/test/routines': '/$workspaceSlug/routines',
       '/test/routines/a1': '/$workspaceSlug/routines/$automationId',
       '/test/library': '/$workspaceSlug/library',
-      '/test/library/doc': '/$workspaceSlug/library/$pageId',
+      '/test/library/doc': '/$workspaceSlug/library/$itemId',
       '/test/skills': '/$workspaceSlug/skills',
       '/test/skills/s': '/$workspaceSlug/skills/$skillSlug',
       '/test/sources': '/$workspaceSlug/sources',
@@ -74,6 +75,14 @@ describe('route tree', () => {
     expect(strict(await open('/test/sources?type=nope'))).toEqual({})
     expect(strict(await open('/test/sources/gmail?type=mcp'))).toEqual({ type: 'mcp' })
     expect(strict(await open('/test/routines?type=agentic'))).toEqual({ type: 'agentic' })
+    expect(strict(await open('/test/tasks?project=p1&status=done&status=nope&archived=1&junk=1')))
+      .toEqual({ project: 'p1', status: ['done'], archived: true })
+    expect(strict(await open('/test/tasks/t1?assignee=user:u1'))).toEqual({ assignee: 'user:u1' })
+    expect(strict(await open('/test/projects/p1?tab=files&status=archived'))).toEqual({ tab: 'files', status: 'archived' })
+    expect(strict(await open('/test/projects?tab=nope'))).toEqual({})
+    expect(strict(await open('/test/library?tab=documents&folder=f1&createdBy=agent:default')))
+      .toEqual({ tab: 'documents', folder: 'f1', createdBy: 'agent:default' })
+    expect(strict(await open('/test/library/i1?folder=f1'))).toEqual({ folder: 'f1' })
   })
 
   it('a reserved first segment is not a workspace', async () => {
@@ -102,7 +111,7 @@ describe('route tree', () => {
 
 describe('not found', () => {
   it('a URL that matches no route is not found, and stays where it is', async () => {
-    for (const href of ['/test/nope', '/test/chats/a/b', '/test/tasks/a', '/a/b/c/d']) {
+    for (const href of ['/test/nope', '/test/chats/a/b', '/test/tasks/a/b', '/a/b/c/d']) {
       const router = await open(href)
       expect(notFound(router), href).toBe(true)
       expect(where(router), href).toBe(href)
@@ -120,7 +129,7 @@ describe('not found', () => {
   })
 
   it('every real view is found', async () => {
-    for (const href of ['/test/chats', '/test/chats/abc', '/test/settings', '/test/tasks', '/test/projects/p1', '/test/skills/s', '/test/sources/gmail?type=mcp', '/test']) {
+    for (const href of ['/test/chats', '/test/chats/abc', '/test/settings', '/test/tasks', '/test/tasks/t1', '/test/projects/p1', '/test/library/i1?folder=f1', '/test/skills/s', '/test/sources/gmail?type=mcp', '/test']) {
       expect(notFound(await open(href)), href).toBe(false)
     }
   })

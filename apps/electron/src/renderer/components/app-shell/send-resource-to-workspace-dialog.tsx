@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Cloud, CloudOff, Monitor, Send } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import {
   Dialog,
   DialogContent,

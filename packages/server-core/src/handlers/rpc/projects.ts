@@ -16,7 +16,7 @@ import {
 } from '@otto/shared/projects'
 import type { RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
-import { actorOf, resolveWorkspace } from './library'
+import { actorOf, assertWorkspaceActors, resolveWorkspace } from './library'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.projects.LIST,
@@ -55,9 +55,11 @@ export function registerProjectsHandlers(server: RpcServer, deps: HandlerDeps): 
 
   server.handle(RPC_CHANNELS.projects.GET_MEMBERS, (ctx, id: string) => getProjectMembers(workspaceOf(ctx), id))
 
-  server.handle(RPC_CHANNELS.projects.SET_MEMBER, (ctx, id: string, actor: string, role: MemberRole) =>
-    setProjectMember(workspaceOf(ctx), id, actor, role),
-  )
+  server.handle(RPC_CHANNELS.projects.SET_MEMBER, (ctx, id: string, actor: string, role: MemberRole) => {
+    const workspaceId = workspaceOf(ctx)
+    assertWorkspaceActors(workspaceId, [actor])
+    return setProjectMember(workspaceId, id, actor, role)
+  })
 
   server.handle(RPC_CHANNELS.projects.REMOVE_MEMBER, (ctx, id: string, actor: string) => {
     removeProjectMember(workspaceOf(ctx), id, actor)

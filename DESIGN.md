@@ -795,7 +795,7 @@ no shadow.
   (a 16px glyph, half the tile: CircleCheck, Folder, Clock, Library), a heading-size title, one
   benefit-led description sentence, and one primary 32px button, which has no
   action yet (enabled, no toast). The strings are in the table under the
-  Empty-state rules ("Tasks", "Projects", "Routines", "Library"). The list and detail pages behind them are not routed.
+  Empty-state rules ("Tasks", "Projects", "Routines", "Library"). Tasks, Projects and Library are routed (index and detail, docs/routing.md) and their pages are placeholders showing this state until they are built; Routines has no detail route.
 - **PageWrap (trial, an experiment until the owner confirms it).** ONE
   line-only wrapper around a page's blocks, under its title row, as Threads
   wraps its feed: a 1px `--card-ring` border (the card edge's color), `2xl` 20
@@ -869,10 +869,12 @@ no shadow.
      the top left and the TITLE INSIDE, 12px under it (`text-sm`, medium); the
      whole card is the link, hover steps the fill to `foreground/5`, the current page
      `foreground/10`, the focus ring is drawn inside. No description unless the page has one.
-  3. **Gallery** (`Gallery`, `GalleryItem`), reserved for Library and Projects and
-     not built yet. Not cards: a tile with its icon and the title UNDER it; the
-     ring darkens on hover; 16:9 covers for projects, 4:5 pages for documents and
-     files (3 columns for projects, 4 for documents and files).
+  3. **Gallery** (`Gallery`, `GalleryItem`, `GalleryItemSkeleton`; built, in
+     `design/ui`, playground "Gallery and property list") for Library and
+     Projects. Not cards: a tile with its icon and the title UNDER it; the ring
+     darkens on hover; 16:9 covers for projects, 4:5 pages for documents and
+     files, 1:1 where a tab wants squares (3 columns for projects, 4 for
+     documents and files). Spec under Components, Galleries.
 - **Radii**, one table (inner = outer - gap):
 
 | Surface | Radius | Inside it |
@@ -906,8 +908,8 @@ One history stack, one rule for Back, one place the lists live.
   ONLY on a view with a parent, where it goes to the parent view by the route
   hierarchy (`useParentView`): a chat goes to the Chats index (under the filter it was
   opened with); a settings page, a skill or a source goes to the Settings index; a
-  library item goes to the Library; a project or a routine to its section.
-  The Chats and Settings indexes have no parent, so no Back. Sub-navigation is the
+  a task or a library item goes to its index under the same filters, tab and folder; a project or a routine to its section.
+  The Chats, Settings, Tasks, Projects and Library indexes have no parent, so no Back. Sub-navigation is the
   index page, never the sidebar, so Back is the same at every width. There is no back button and no breadcrumb in the title row: the
   title is alone. Pages never pass handlers: `PageHeader` reads the route.
 - **Compact (below 768px)**: the sidebar sheet's menu button is fixed at the
@@ -1032,6 +1034,8 @@ as a card).
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
 | `PageGrid`, `GridCard` | `icon`, `title`, `render` | the card grid of a navigation hub; see Data patterns |
+| `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `ratio`, `menu`, `actions`, `current`, `disabled`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
+| `PropertySection`, `PropertyRow` | `title`, `count`, `defaultOpen`; `icon`, `label`, `value`, `placeholder`, `kbd`, `actions`, `readOnly` | the sidecar's Details blocks; see Components, Property list |
 | `Sidecar` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel`, `surface` | canvas by default, `surface` wraps it in a card (undecided); see Layout; closed by default |
 | `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column and centers Back on the top axis, the buttons are its narrow form for the title row's actions |
 
@@ -1171,8 +1175,9 @@ Five rules:
    chosen in a menu (no fill on the checked item). Badges are static; anything
    you can click is a chip (a compact ghost button).
 5. Debounce. Any search field filters through the shared debounce
-   (`SEARCH_DEBOUNCE_MS` = 800, `@otto/shared/utils/debounce`; `useDebouncedValue`
-   in the renderer); typing itself is never delayed.
+   (`DEBOUNCE_MS` = 800, `@otto/shared/utils/debounce`; `useDebouncedValue`
+   in the renderer); typing itself is never delayed. Autosave waits the same
+   800ms (below).
 
 **Icons and avatars.** Lucide icons at **14px** everywhere (the old Remix names below map to their Lucide twins). Fixed icons: project
 `RiBox3Line`, repeat `RiLoopRightLine`, agent `RiRobot3Line`, time
@@ -1258,6 +1263,49 @@ softer than it (`Count`), the label's icon-to-label gap away. Property rows open
 their menu; each has a hotkey. A "New …" row ends a list. Row actions appear on
 hover (always on touch), and hovering one keeps its row highlighted. Repeat
 stores an iCalendar rule: presets plus Custom, which asks an agent.
+
+**Property list** (`PropertySection`, `PropertyRow`, `design/ui`
+`property-list.tsx`): the Details blocks of every sidecar (task, project, file,
+document), on the sidecar's canvas, never in a card. Use it for an item's
+properties (Status, Assignees, Due date, Project), its short lists (resources,
+chats, time entries, each ended by a "New …" row) and its read-only facts
+(Folder, Created by, Created, Size, Type). Not for page content: lists on a page
+are `ListGroup`.
+
+- **Section**: a 20px title row, 12px medium muted, starting 4px in (the rows'
+  slot line), then its `Count` (not drawn for 0) and a 14px chevron (right
+  folded, down open; shown on hover, focus or while folded, always on touch).
+  The whole title row folds the section (Enter or Space), hover turns the text
+  foreground, keyboard focus draws the inset ring. Rows start 4px under it, 2px
+  apart; sections stack 20px apart; no dividers. A section with no rows is not
+  drawn.
+- **Row** anatomy, left to right: the 20px icon slot 4px in (a 14px glyph
+  centered, a 20px avatar fills it), 8px, the label (muted, a 96px column so the
+  values line up), the value (foreground, truncated; the `placeholder`, muted,
+  when empty, e.g. "No due date"), then the row's hotkey as a 20px `Kbd` 4px
+  from the end. A row with only a value is a list item (full width,
+  foreground); one with only a label is the "New …" row (full width, muted).
+- **Row states** (the ghost ones): rest no fill; hover `foreground/5`; pressed
+  and open (`aria-expanded`, its menu or popover is open) `foreground/10`;
+  focus-visible `ring-2 ring-inset ring-ring`; disabled 50%, no pointer. The
+  `Kbd` shows on hover, focus or open, never on touch. `readOnly` is plain text:
+  no hover, focus, fill or `Kbd`. As a button (the default) it is the trigger of
+  its menu or popover (`render={<PropertyRow … />}`); the caller binds the key.
+- **Row actions** (`actions`: an `icon-xs` ghost Button, such as Remove) sit 4px
+  inside the row's end, drawn at 20px with `xs` 4 corners and a `foreground/10`
+  hover that stacks on the row's; shown on hover or focus (always on touch);
+  hovering one keeps the row highlighted. The row reserves 28px for one action.
+
+| Part | Size | Radius | Type / color |
+| --- | --- | --- | --- |
+| Section title row | 20px tall, 4px in | `xs` 4 (focus ring) | 12px medium, `muted-foreground`; hover `foreground` |
+| Section gap / title to rows / row gap | 20px / 4px / 2px | | |
+| Row | 28px, as wide as the sidecar (296px), 4px padding | `sm` 6 | 13px, `foreground` |
+| Icon slot | 20px, 14px glyph | | `muted-foreground` |
+| Label column | 96px | | `muted-foreground` |
+| Value | the rest, truncated | | `foreground`; placeholder `muted-foreground` |
+| Key | `Kbd`, 20px, 4px from the end | `xs` 4 | key token |
+| Row action | 20px, 4px from the end | `xs` 4 | hover `foreground/10` |
 
 **Composer** (`Composer`). The one input for comments, chats and agent
 requests. Card surface; one line that grows to 240px. **+** adds files (drop
@@ -1425,9 +1473,9 @@ members, connections) lead with their avatar or icon. Controls nested in a
 row are 28px with 6px corners: a switch, a choice (an outline `compact`
 button opening a radio menu, as Appearance in the profile menu), a text
 field, or a `compact` button. Everything saves as you go, no Save button: a
-change waits 800ms for the next (`useDebounced`), blur or leaving saves at
-once, and a value flipped back sends nothing. Every save shows the
-"Settings saved" toast, one at a time: saves close together refresh it.
+change waits 800ms for the next (`useAutosave`, see Autosave), blur or leaving
+saves at once, and a value flipped back sends nothing. Every save shows the
+"Saved" toast, one at a time: saves close together refresh it.
 Deleting sits last under "Danger zone" and asks first. Adding an agent, a
 connection or a member asks an agent.
 
@@ -1520,7 +1568,7 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   tabs; one category with no match shows the same state under the tabs. An
   empty category gets no tab (nor does anything but All when no other has
   entries). Results follow the query after the shared 800 ms debounce
-  (`SEARCH_DEBOUNCE_MS`), with skeleton rows while waiting: stock `Skeleton`s
+  (`DEBOUNCE_MS`), with skeleton rows while waiting: stock `Skeleton`s
   drawn like the real rows (a 28px heading line in All, three 36px icon and title
   rows, 16px in, `xs` radius); the tabs keep the state of the last results, and
   ↑↓ do nothing while waiting. Enter while waiting only skips the wait (it shows
@@ -1580,10 +1628,47 @@ animated. Each dot is a whole number of device pixels (3 on 2x screens, 2 on
 1x), so dots stay square and even at any size. `Cover` is a 4:1 banner above a
 page title.
 
-**Galleries** (`Gallery`, `GalleryItem`). Not cards: a tile with its icon and
+**Galleries** (`Gallery`, `GalleryItem`, `GalleryItemSkeleton`; built in
+`design/ui` `gallery.tsx`). Not cards: a tile with its icon and
 title under it; the ring darkens on hover. Projects are 16:9 covers;
 documents are 4:5 pages showing their image or opening text fading out;
-files are 4:5 showing their picture or their type ("PDF").
+files are 4:5 showing their picture or their type ("PDF"). Until covers,
+excerpts and thumbnails exist, a tile shows its type glyph centered in the
+32px `icon-tile` and, for files and folders, a caption under it ("PDF", "12
+items").
+
+- **Grid**: `columns` 3 or 4; 12px between columns, 20px between rows. Columns
+  follow the page column's width (`@container/panel`, like `PageGrid`): 3 is
+  one, two from 400px, three from 640px; 4 is two, three from 400px, four from
+  640px (at 768px: 248px and 183px tiles).
+- **Tile**: `ratio` `16:9`, `4:5` (default) or `1:1`; `bg-card` (one layer step
+  over the frame: on the frame `muted` would vanish in light), `md` 8 corners,
+  no shadow; its hairline an inset 1px `foreground/10` ring drawn over the
+  content (a pseudo-element, so a scroller never clips it and a cover would not
+  hide it). Inside, centered: the glyph in the 32px `md` `bg-muted` tile (16px),
+  the optional caption 8px under it (12px medium, muted).
+- **Title**, 8px under the tile: the 14px muted icon, 8px, the title (13px
+  medium, foreground, one line, truncated), a 20px row.
+- **The item** (tile and title) is one link or button (`render`). `menu` is its
+  right-click `ContextMenuContent` (the item's menu list); `actions` is the hover
+  ⋯ (a 28px ghost icon button opening the same list, as on list rows) 8px inside
+  the tile's top and end, shown on hover, focus or while open (always on touch).
+- **States**: rest ring `/10`; hover, a menu open (right-click or ⋯) and
+  `current` (the open item) ring `/20`, no fill and no lift (the tile never
+  changes size); focus-visible a 2px inset `--ring` on the tile; `disabled`
+  (pending or unavailable) 60%, no pointer, no focus; loading
+  `GalleryItemSkeleton`, the same box: the tile as a `Skeleton` at the tile's `md`
+  corners (it is tile-sized, so the skeleton's `xs` would read sharp) and a 14px
+  title line at `xs`.
+
+| Part | Size | Radius | Color |
+| --- | --- | --- | --- |
+| Tile | column width x ratio | `md` 8 | `bg-card`, ring `foreground/10`, hover / open / current `/20`, focus `ring-2` `--ring` |
+| Icon tile | 32px, 16px glyph | `md` 8 | `bg-muted`, `muted-foreground` |
+| Caption | 12px medium, 8px under the icon tile | | `muted-foreground` |
+| Title row | 20px, 8px under the tile; 14px icon, 8px gap | | 13px medium `foreground`, icon `muted-foreground` |
+| ⋯ | 28px ghost, 8px from the tile's top and end | `sm` 6 | ghost states |
+| Gaps | 12px columns, 20px rows | | |
 
 **File viewer** (`Lightbox`). Full screen on the page background, in two
 full-height columns. The file: its 40px top bar (type icon, title, "Image ·
@@ -1626,15 +1711,28 @@ closes and the toast says it is done ("“Fix plan” deleted"); a failure stays
 open and says "Something went wrong. Try again.". A plain darker overlay, no
 blur, like the dialog's.
 
-**Toasts** (stock shadcn `Toaster`, Sonner's own `toast.success()`, re-exported
-from `@workspace/ui/components/sonner`). One plain row and nothing else: the
+**Toasts** (stock shadcn `Toaster` and the one `toast` in
+`@workspace/ui/components/sonner`; never import from `sonner` itself, so the
+rule below holds everywhere: `success`, `error`, `info`, `warning`, plus
+Sonner's own `loading` and `dismiss`). One plain row and nothing else: the
 status icon in its color (a green check for done), a short sentence-case
 message ("Link copied", "“Fix plan” deleted"; always one sentence with no period,
-which the shared `toast` enforces), and Close at the end. On the
+which the `toast` wrapper enforces), and Close at the end. On the
 menus' surface in both themes with a card's 12px corners: Close is the 28px
 ghost button 6px in (nested), the message 12px in and wrapping, so the toast
 is as tall as its message (40px for one line); bottom right.
 Copy link, Archive and Delete say they are done with one.
+
+**Autosave.** What you edit in place has no Save button: task and project
+fields, documents, settings. A change shows at once and saves 800ms after the
+last one, on blur at once, and on leaving (an unmounted field never drops a
+change); saves go one at a time and a value flipped back sends nothing. Every
+save shows one toast, "Saved", with a single id so the next save replaces it
+instead of stacking. A failure shows the error in the same toast and keeps the
+draft with a retry. A save that finds the record changed elsewhere
+(`expectedUpdatedAt`, error `conflict`) says "Changed elsewhere, reloaded",
+drops the draft and refetches. A refetch or live update never overwrites a
+draft with unsaved changes. All of it is `useAutosave`.
 
 **Files.** Everything saved is a file: uploads, task and chat attachments,
 and agents' outputs, canvases included (never "artifact"). Like a drive:
@@ -1738,7 +1836,7 @@ continue through bounded pages instead of treating the first hundred as complete
 - Do start cards on the column's edge and inset the title and section titles 16px
   to line up with the cards' content; don't wrap a
   surface in a surface or make anything wider than the column.
-- Do save ordinary settings as they change, with the one "Settings saved" toast.
+- Do save ordinary settings as they change (Autosave), with the one "Saved" toast.
   Multi-field Agent and Schedule configuration uses explicit Save/Cancel with one
   captured edit token; Documents and Skill content preserve fenced drafts until Save.
 - Do nest radii (inner = outer − gap); don't reuse a container's radius inside

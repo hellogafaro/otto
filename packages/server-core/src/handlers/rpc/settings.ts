@@ -212,9 +212,11 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
     deleteSessionDraft(sessionId)
   })
 
-  // Get all drafts (for loading on app start)
-  server.handle(RPC_CHANNELS.drafts.GET_ALL, async () => {
-    return getAllSessionDrafts()
+  // Get all drafts (for loading on app start): only those of the chats the caller may see
+  server.handle(RPC_CHANNELS.drafts.GET_ALL, async (ctx) => {
+    return Object.fromEntries(
+      Object.entries(getAllSessionDrafts()).filter(([sessionId]) => deps.sessionManager.canSeeSession(sessionId, ctx.userId)),
+    )
   })
 
   // ============================================================

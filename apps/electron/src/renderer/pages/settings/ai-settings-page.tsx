@@ -57,7 +57,7 @@ import { RenameDialog } from '@/components/ui/rename-dialog'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { getModelShortName, type ModelDefinition } from '@config/models'
 import { getModelsForProviderType, resolveMidStreamBehavior, type CustomEndpointApi, type MidStreamBehavior } from '@config/llm-connections'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import { BACKEND_NAME } from '@otto/shared/branding'
 
 /**

@@ -1,5 +1,5 @@
 import i18n from 'i18next'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 
 /** Web only: the server ends the session (Better Auth clears its cookie), then the login page takes over. */
 export async function logOut(): Promise<void> {

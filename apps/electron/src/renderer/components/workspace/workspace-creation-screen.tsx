@@ -12,7 +12,7 @@ import { AddWorkspaceStep_OpenFolder } from "./add-workspace-step-open-folder"
 import { AddWorkspaceStep_ConnectRemote } from "./add-workspace-step-connect-remote"
 import { AddWorkspacePage } from "./primitives"
 import type { Workspace } from "../../../shared/types"
-import { toast } from "sonner"
+import { toast } from '@workspace/ui/components/sonner'
 
 type CreationStep = 'choice' | 'create' | 'open' | 'remote'
 

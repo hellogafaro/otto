@@ -3,6 +3,7 @@ import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
 import { loadSource, loadWorkspaceSources, getSourceCredentialManager } from '@otto/shared/sources'
 import { createPendingFlow } from '@otto/shared/auth'
+import { assertOwnsSession } from '../../sessions/private-chats'
 import { pushTyped, type RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 
@@ -90,6 +91,9 @@ export function registerOAuthHandlers(server: RpcServer, deps: HandlerDeps): voi
     authRequestId?: string
   }) => {
     const { sourceSlug, callbackPort, callbackUrl, sessionId, authRequestId } = args
+
+    // The flow completes an auth request in that chat: only its owner may start one for it.
+    if (sessionId !== undefined) assertOwnsSession(deps.sessionManager, ctx, sessionId)
 
     if (!ctx.workspaceId) {
       throw new Error('No workspace bound to this client')

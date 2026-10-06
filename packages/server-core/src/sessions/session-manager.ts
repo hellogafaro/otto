@@ -2,6 +2,8 @@ import type { EventSink, RpcServer } from '@otto/server-core/transport'
 import { CLIENT_BROWSER_INVOKE } from '@otto/server-core/transport'
 import type { ISessionManager, IBrowserPaneManager, ExecutePromptAutomationInput } from '@otto/server-core/handlers'
 import { RemoteBrowserPaneManager } from './remote-browser-pane-manager'
+import { userActor } from '@otto/shared/actors'
+import { chatNotFound, getChatAudience, type WorkspaceOwners } from './private-chats'
 import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import { createScopedLogger, CONSOLE_LOGGER, type PlatformServices, type Logger } from '@otto/server-core/runtime'
 import { basename, join } from 'path'
@@ -700,6 +702,8 @@ interface RunningBackgroundTask {
 interface ManagedSession {
   id: string
   workspace: Workspace
+  /** Actor ('user:<id>') the chat belongs to; absent on chats made before chats were private (see private-chats.ts). */
+  createdBy?: string
   agent: AgentInstance | null  // Lazy-loaded - null until first message
   messages: Message[]
   isProcessing: boolean
@@ -1737,6 +1741,43 @@ export class SessionManager implements ISessionManager {
 
   setEventSink(sink: EventSink): void {
     this.eventSink = sink
+  }
+
+  /** Owners of a workspace; the host sets it from the database. Until then a chat without a creator is visible to nobody. */
+  private workspaceOwners: WorkspaceOwners = () => []
+
+  setWorkspaceOwners(owners: WorkspaceOwners): void {
+    this.workspaceOwners = owners
+  }
+
+  /** The first owner of the workspace as an actor: who a chat made by the server itself belongs to. */
+  private firstOwnerActor(workspaceId: string): string | undefined {
+    const owner = this.workspaceOwners(workspaceId)[0]
+    return owner ? userActor(owner) : undefined
+  }
+
+  /** User ids who may see the chat. */
+  private getAudience(managed: ManagedSession): string[] {
+    return getChatAudience(managed, () => this.workspaceOwners(managed.workspace.id))
+  }
+
+  /** Whether `userId` may see each chat, owners of a workspace looked up once per call. */
+  private canSee(userId: string | null): (managed: ManagedSession) => boolean {
+    const owners = new Map<string, string[]>()
+    return (managed) => {
+      if (!userId) return false
+      const ownersOf = () => {
+        if (!owners.has(managed.workspace.id)) owners.set(managed.workspace.id, this.workspaceOwners(managed.workspace.id))
+        return owners.get(managed.workspace.id)!
+      }
+      return getChatAudience(managed, ownersOf).includes(userId)
+    }
+  }
+
+  /** Whether the user may see the chat. A chat that does not exist is not visible to anyone. */
+  canSeeSession(sessionId: string, userId: string | null): boolean {
+    const managed = this.sessions.get(sessionId)
+    return !!managed && this.canSee(userId)(managed)
   }
 
   setBrowserPaneManager(bpm: IBrowserPaneManager): void {
@@ -2779,10 +2820,12 @@ export class SessionManager implements ISessionManager {
     }
   }
 
-  getActiveSessionsInfo(): ActiveSessionInfo[] {
+  /** `viewerId` narrows to the chats that user may see; omit it only for server-side callers. */
+  getActiveSessionsInfo(viewerId?: string | null): ActiveSessionInfo[] {
     const result: ActiveSessionInfo[] = []
+    const visible = viewerId === undefined ? () => true : this.canSee(viewerId)
     for (const managed of this.sessions.values()) {
-      if (!managed.isProcessing) continue
+      if (!managed.isProcessing || !visible(managed)) continue
 
       let status: SessionProcessingStatus = 'processing'
       if (managed.stopRequested) status = 'idle'
@@ -2810,10 +2853,12 @@ export class SessionManager implements ISessionManager {
     this.loadSessionsFromDisk()
   }
 
-  getSessions(workspaceId?: string): Session[] {
+  /** `viewerId` narrows to the chats that user may see; omit it only for server-side callers. */
+  getSessions(workspaceId?: string, viewerId?: string | null): Session[] {
     // Returns session metadata only - messages are NOT included to save memory
     // Use getSession(id) to load messages for a specific session
     let sessions = Array.from(this.sessions.values())
+    if (viewerId !== undefined) sessions = sessions.filter(this.canSee(viewerId))
 
     // Filter by workspace if specified (used when switching workspaces)
     if (workspaceId) {
@@ -2829,9 +2874,10 @@ export class SessionManager implements ISessionManager {
    * Aggregate unread state across all workspaces.
    * Excludes hidden and archived sessions from counts/indicators.
    */
-  getUnreadSummary(): UnreadSummary {
+  getUnreadSummary(viewerId?: string | null): UnreadSummary {
     const byWorkspace: Record<string, number> = {}
     const hasUnreadByWorkspace: Record<string, boolean> = {}
+    const visible = viewerId === undefined ? () => true : this.canSee(viewerId)
 
     for (const workspace of getWorkspaces()) {
       byWorkspace[workspace.id] = 0
@@ -2840,7 +2886,7 @@ export class SessionManager implements ISessionManager {
 
     for (const session of this.sessions.values()) {
       if (session.hidden || session.isArchived) continue
-      if (!session.hasUnread) continue
+      if (!session.hasUnread || !visible(session)) continue
 
       const workspaceId = session.workspace.id
       byWorkspace[workspaceId] = (byWorkspace[workspaceId] ?? 0) + 1
@@ -2877,9 +2923,18 @@ export class SessionManager implements ISessionManager {
 
     if (!this.eventSink) return
 
-    // Broadcast to renderers for UI updates (session list dots, etc.)
-    this.eventSink(RPC_CHANNELS.sessions.UNREAD_SUMMARY_CHANGED, { to: 'all' }, summary)
+    // Each user gets the summary of the chats they may see (session list dots, etc.). A user who
+    // saw a chat until just now (deleted, or no longer theirs) gets one more push with the new count.
+    const viewers = new Set<string>()
+    for (const managed of this.sessions.values()) for (const userId of this.getAudience(managed)) viewers.add(userId)
+    for (const userId of new Set([...this.unreadViewers, ...viewers])) {
+      this.eventSink(RPC_CHANNELS.sessions.UNREAD_SUMMARY_CHANGED, { to: 'all', userIds: [userId] }, this.getUnreadSummary(userId))
+    }
+    this.unreadViewers = viewers
   }
+
+  /** Users the unread summary was last pushed to. */
+  private unreadViewers = new Set<string>()
 
   /**
    * Get a single session by ID with all messages loaded.
@@ -2992,7 +3047,10 @@ export class SessionManager implements ISessionManager {
     // announced to the renderer (see notifySessionCreated). Callers that register the session
     // themselves — the `sessions:create` RPC adds it from the return value — pass
     // `{ emitCreatedEvent: false }` to avoid a redundant hydrate.
-    internal?: { emitCreatedEvent?: boolean },
+    // `createdBy` is who the chat belongs to ('user:<id>'): the RPC passes the caller, a spawned chat
+    // its parent's creator (null: a chat with no creator, like its parent). Omitted (automations,
+    // messaging): the first owner of the workspace.
+    internal?: { emitCreatedEvent?: boolean; createdBy?: string | null },
   ): Promise<Session> {
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) {
@@ -3284,6 +3342,7 @@ export class SessionManager implements ISessionManager {
     // Use storage layer to create and persist the session
     const storedSession = await createStoredSession(workspaceRootPath, {
       name: options?.name,
+      createdBy: internal?.createdBy === null ? undefined : internal?.createdBy ?? this.firstOwnerActor(workspaceId),
       permissionMode: defaultPermissionMode,
       workingDirectory: resolvedWorkingDir,
       hidden: options?.hidden,
@@ -4661,7 +4720,7 @@ export class SessionManager implements ISessionManager {
           parentSessionId: managed.id,
           // Nobody watches a session an automation or CLI run spawns either.
           unattended: !isAttendedSession(managed) || undefined,
-        })
+        }, { createdBy: managed.createdBy ?? null })
 
         // Build FileAttachment[] from paths (if any)
         let fileAttachments: FileAttachment[] | undefined
@@ -4703,20 +4762,28 @@ export class SessionManager implements ISessionManager {
         }
       }
 
+      // An agent acts for the user its chat belongs to: it sees and touches only that user's chats
+      // (its own included), so a chat of someone else looks like it does not exist.
+      const ownChat = (id: string) => {
+        const target = this.sessions.get(id)
+        if (!target || target.createdBy !== managed.createdBy) throw chatNotFound(id)
+        return target
+      }
+
       // Wire up session self-management tools (set_session_labels, set_session_status, etc.)
       mergeSessionScopedToolCallbacks(managed.id, {
         setSessionLabelsFn: async (sessionId: string | undefined, labels: string[]) => {
-          await this.setSessionLabels(sessionId ?? managed.id, labels)
+          await this.setSessionLabels(ownChat(sessionId ?? managed.id).id, labels)
         },
         setSessionStatusFn: async (sessionId: string | undefined, status: string) => {
-          await this.setSessionStatus(sessionId ?? managed.id, status as SessionStatus)
+          await this.setSessionStatus(ownChat(sessionId ?? managed.id).id, status as SessionStatus)
         },
         // archive_session — archive/unarchive ANOTHER session by ID. Scoped to the
         // invoking session's workspace and blocked mid-turn (guard logic lives in
         // archive-guards.ts so it is unit-testable); delegates to the existing
         // archive/unarchive methods (which persist + emit events).
         archiveSessionFn: async (sessionId: string, archived: boolean) => {
-          const target = this.sessions.get(sessionId)
+          const target = ownChat(sessionId)
           const guardError = validateArchiveTarget(
             target ? { workspaceId: target.workspace.id, isProcessing: target.isProcessing } : undefined,
             managed.workspace.id,
@@ -4760,7 +4827,7 @@ export class SessionManager implements ISessionManager {
         getSessionInfoFn: (sessionId?: string) => {
           const targetId = sessionId ?? managed.id
           const session = this.sessions.get(targetId)
-          if (!session) return null
+          if (!session || session.createdBy !== managed.createdBy) return null
           return {
             id: session.id,
             name: session.name ?? session.id,
@@ -4781,7 +4848,7 @@ export class SessionManager implements ISessionManager {
           const limit = Math.min(options?.limit ?? DEFAULT_LIMIT, MAX_LIMIT)
           const offset = options?.offset ?? 0
 
-          let sessions = this.getSessions(managed.workspace.id)
+          let sessions = this.getSessions(managed.workspace.id).filter(s => this.sessions.get(s.id)?.createdBy === managed.createdBy)
 
           // Filter
           if (options?.status) {
@@ -4824,7 +4891,7 @@ export class SessionManager implements ISessionManager {
           }
         },
         listBackgroundTasksFn: (sessionId?: string) => {
-          const targetId = sessionId ?? managed.id
+          const targetId = ownChat(sessionId ?? managed.id).id
           const now = Date.now()
           return this.listBackgroundTasks(targetId).map((t) => {
             // No known start (someone else's task, or an unseen launch): report that instead of "0 s".
@@ -4872,6 +4939,7 @@ export class SessionManager implements ISessionManager {
           return { resolved: null, available }
         },
         sendAgentMessageFn: async (sessionId: string, message: string, attachments?: Array<{ path: string; name?: string }>) => {
+          ownChat(sessionId)
           // Build FileAttachment[] from paths (same pattern as spawn_session)
           let fileAttachments: FileAttachment[] | undefined
           if (attachments?.length) {
@@ -5644,10 +5712,12 @@ export class SessionManager implements ISessionManager {
    * Mark all non-hidden, non-archived sessions in a workspace as read.
    * Called from "Mark All Read" context menu on "All Sessions".
    */
-  async markAllSessionsRead(workspaceId: string): Promise<void> {
+  /** `viewerId` limits it to the chats that user may see; omit it only for server-side callers. */
+  async markAllSessionsRead(workspaceId: string, viewerId?: string | null): Promise<void> {
     const updates: Promise<void>[] = []
+    const visible = viewerId === undefined ? () => true : this.canSee(viewerId)
     for (const managed of this.sessions.values()) {
-      if (managed.workspace.id !== workspaceId) continue
+      if (managed.workspace.id !== workspaceId || !visible(managed)) continue
       if (managed.hidden || managed.isArchived) continue
       if (managed.isProcessing) continue
       if (!managed.hasUnread) continue
@@ -6175,6 +6245,7 @@ export class SessionManager implements ISessionManager {
     }
     managed.autoRetryPending = undefined
 
+    const audience = this.getAudience(managed)
     this.sessions.delete(sessionId)
 
     // Clean up session metadata in AutomationSystem (prevents memory leak)
@@ -6187,7 +6258,7 @@ export class SessionManager implements ISessionManager {
     deleteStoredSession(workspaceRootPath, sessionId)
 
     // Notify all windows for this workspace that the session was deleted
-    this.sendEvent({ type: 'session_deleted', sessionId }, managed.workspace.id)
+    this.sendEvent({ type: 'session_deleted', sessionId }, managed.workspace.id, audience)
     this.emitUnreadSummaryChanged()
 
     // Chat attachments live in the library and stay; only legacy per-session attachments dirs go with the session dir
@@ -7466,9 +7537,11 @@ export class SessionManager implements ISessionManager {
    * @param taskId - The task or shell ID
    * @returns Task output content, or null if task not found
    */
-  async getTaskOutput(taskId: string): Promise<string | null> {
+  async getTaskOutput(taskId: string, viewerId?: string | null): Promise<string | null> {
     // O(1) lookup via taskOutputIndex
     const sessionId = this.taskOutputIndex.get(taskId)
+    // A task of a chat the viewer cannot see has no output for them.
+    if (sessionId && viewerId !== undefined && !this.canSeeSession(sessionId, viewerId)) return null
     if (!sessionId) {
       sessionLog.info(`No output found for task: ${taskId} (task may still be running)`)
       return null
@@ -8768,7 +8841,11 @@ export class SessionManager implements ISessionManager {
     }
   }
 
-  private sendEvent(event: SessionEvent, workspaceId?: string): void {
+  /**
+   * The one place a session event leaves for clients: only the connections of the users who may
+   * see the chat get it. A chat that is already gone needs its audience passed in (deletion).
+   */
+  private sendEvent(event: SessionEvent, workspaceId?: string, audience?: string[]): void {
     if (!this.eventSink) {
       sessionLog.warn('Cannot send event - no event sink')
       return
@@ -8779,7 +8856,9 @@ export class SessionManager implements ISessionManager {
       return
     }
 
-    this.eventSink(RPC_CHANNELS.sessions.EVENT, { to: 'workspace', workspaceId }, event)
+    const managed = this.sessions.get(event.sessionId)
+    const userIds = audience ?? (managed ? this.getAudience(managed) : [])
+    this.eventSink(RPC_CHANNELS.sessions.EVENT, { to: 'workspace', workspaceId, userIds }, event)
   }
 
   /**
@@ -8868,6 +8947,7 @@ export class SessionManager implements ISessionManager {
       chainDepth,
       telegramTopic,
       waitForCompletion,
+      createdBy,
     } = input
 
     // Warn if llmConnection was specified but doesn't resolve
@@ -8899,7 +8979,7 @@ export class SessionManager implements ISessionManager {
       llmConnection,
       model,
       thinkingLevel,
-    })
+    }, { createdBy })
 
     // Populate triggeredBy metadata so title generation is explicitly skipped
     // and the session is identifiable as automation-initiated after reload
@@ -9084,6 +9164,7 @@ export class SessionManager implements ISessionManager {
   async importRemoteSessionTransfer(
     workspaceId: string,
     payload: RemoteSessionTransferPayload,
+    createdBy?: string,
   ): Promise<ImportRemoteSessionTransferResult> {
     if (!payload || typeof payload !== 'object' || typeof payload.summary !== 'string' || !payload.summary.trim()) {
       throw new Error('Invalid remote session transfer payload')
@@ -9094,7 +9175,7 @@ export class SessionManager implements ISessionManager {
       permissionMode: payload.permissionMode,
       sessionStatus: payload.sessionStatus,
       labels: payload.labels,
-    })
+    }, { createdBy })
 
     const managed = this.sessions.get(session.id)
     if (!managed) {
@@ -9163,6 +9244,8 @@ export class SessionManager implements ISessionManager {
     workspaceId: string,
     bundle: SessionBundle,
     mode: DispatchMode,
+    // Who the imported chat belongs to: the importer. The bundle's own `createdBy` is never trusted.
+    createdBy?: string,
   ): Promise<{ sessionId: string; warnings?: string[] }> {
     sessionLog.info(`[import] Starting import: workspaceId=${workspaceId}, mode=${mode}, bundleSessionId=${bundle?.session?.header?.id ?? 'unknown'}, files=${bundle?.files?.length ?? 0}`)
 
@@ -9204,6 +9287,7 @@ export class SessionManager implements ISessionManager {
       // which doesn't exist here (cross-server transfer).
       sdkCwd: getSessionStoragePath(workspaceRootPath, sessionId),
       name: header.name,
+      createdBy: createdBy ?? this.firstOwnerActor(workspaceId),
       createdAt: header.createdAt,
       lastUsedAt: Date.now(),
       lastMessageAt: header.lastMessageAt,

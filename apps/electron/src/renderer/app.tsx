@@ -83,7 +83,7 @@ import {
 import { getFileManagerName } from '@/lib/platform'
 import { rendererLog } from '@/lib/logger'
 import { ActionRegistryProvider } from '@/actions'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 
 type AppState = 'loading' | 'onboarding' | 'workspace-picker' | 'ready'
 

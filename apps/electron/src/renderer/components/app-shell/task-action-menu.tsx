@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/styled-dropdown'
 import { Spinner } from '@otto/ui'
 import { ToolbarChip } from '@/components/ui/toolbar-chip'
-import { toast } from 'sonner'
+import { toast } from '@workspace/ui/components/sonner'
 import type { BackgroundTask } from './active-tasks-bar'
 import { backgroundTasksAtomFamily } from '@/atoms/sessions'
 

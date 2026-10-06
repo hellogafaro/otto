@@ -335,6 +335,13 @@ const EXPECTED_CHANNELS: string[] = [
   'workspaces:checkSlug',
   'workspaces:create',
   'workspaces:get',
+  'workspaces:getInvitations',
+  'workspaces:getMembers',
+  'workspaces:invite',
+  'workspaces:leave',
+  'workspaces:removeMember',
+  'workspaces:revokeInvitation',
+  'workspaces:updateMemberRole',
   'workspaces:updateRemote',
 ]
 

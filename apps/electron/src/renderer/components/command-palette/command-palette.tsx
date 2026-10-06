@@ -11,7 +11,7 @@
  * tabs do not take it, so typing always searches.
  *
  * The field is never delayed, the results are: they follow the query after the shared
- * `SEARCH_DEBOUNCE_MS`, with skeleton rows meanwhile (`paletteView`). Nothing can be
+ * `DEBOUNCE_MS`, with skeleton rows meanwhile (`paletteView`). Nothing can be
  * picked while they wait: ↑↓ do nothing and Enter only skips the wait (it shows the
  * results and picks nothing), so a row is only ever picked from results the user sees.
  */
