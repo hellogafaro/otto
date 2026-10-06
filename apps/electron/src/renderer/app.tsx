@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useTheme } from '@/hooks/use-theme'
 import type { ThemeOverrides } from '@config/theme'
 import { useSetAtom, useStore, useAtomValue, useAtom } from 'jotai'
-import type { Session, Workspace, SessionEvent, Message, FileAttachment, StoredAttachment, PermissionRequest, CredentialRequest, CredentialResponse, SetupNeeds, SessionStatus, NewChatActionParams, ContentBadge, LlmConnectionWithStatus, PermissionModeState } from '../shared/types'
+import type { Session, Workspace, SessionEvent, Message, FileAttachment, StoredAttachment, PermissionRequest, CredentialRequest, CredentialResponse, SessionStatus, NewChatActionParams, ContentBadge, LlmConnectionWithStatus, PermissionModeState } from '../shared/types'
 import type { SessionDraft, DraftAttachmentRef } from '@otto/shared/config'
 import type { SessionOptions, SessionOptionUpdates } from './hooks/use-session-options'
 import { defaultSessionOptions, mergeSessionOptions } from './hooks/use-session-options'
@@ -12,7 +12,8 @@ import { useEventProcessor } from './event-processor'
 import type { AgentEvent, Effect } from './event-processor'
 import { AppShell } from '@/components/app-shell/app-shell'
 import type { AppShellContextType } from '@/context/app-shell-context'
-import { OnboardingWizard } from '@/components/onboarding'
+import { FirstRunSetup } from '@/components/first-run/first-run-setup'
+import { getFirstRunStep, type FirstRunStep } from '@/components/first-run/first-run-step'
 import { WorkspacePicker } from '@/components/workspace'
 import { SplashScreen } from '@/components/splash-screen'
 import { TooltipProvider } from '@otto/ui'
@@ -20,7 +21,6 @@ import { FocusProvider } from '@/context/focus-context'
 import { ModalProvider } from '@/context/modal-context'
 import { DismissibleLayerProvider } from '@/context/dismissible-layer-context'
 import { useWindowCloseHandler } from '@/hooks/use-window-close-handler'
-import { useOnboarding } from '@/hooks/use-onboarding'
 import { useOsNotifications } from '@/hooks/use-os-notifications'
 import { useSession } from '@/hooks/use-session'
 import { useUpdateChecker } from '@/hooks/use-update-checker'
@@ -80,12 +80,12 @@ import {
   markBackgroundTaskSignal,
   markLiveBackgroundTasksOrphaned,
 } from '@/components/app-shell/background-task-chip-state'
-import { getFileManagerName } from '@/lib/platform'
+import { getFileManagerName, isWebUI } from '@/lib/platform'
 import { rendererLog } from '@/lib/logger'
 import { ActionRegistryProvider } from '@/actions'
 import { toast } from '@workspace/ui/components/sonner'
 
-type AppState = 'loading' | 'onboarding' | 'workspace-picker' | 'ready'
+type AppState = 'loading' | 'setup' | 'workspace-picker' | 'ready'
 
 /** Type for the Jotai store returned by useStore() */
 type JotaiStore = ReturnType<typeof getDefaultStore>
@@ -293,9 +293,9 @@ export default function App() {
     })
   }, [])
 
-  // App state: loading -> check auth -> onboarding or ready
+  // App state: loading -> first-run setup, workspace picker or ready
   const [appState, setAppState] = useState<AppState>('loading')
-  const [setupNeeds, setSetupNeeds] = useState<SetupNeeds | null>(null)
+  const [setupStep, setSetupStep] = useState<FirstRunStep>('workspace')
 
   // Per-session Jotai atom setters for isolated updates
   // NOTE: No sessionsAtom - we don't store a Session[] array anywhere to prevent memory leaks
@@ -640,65 +640,44 @@ export default function App() {
     }
   }, [windowWorkspaceId])
 
-  // Handle onboarding completion
-  const handleOnboardingComplete = useCallback(async () => {
+  // Which screen a workspace opens on: first-run setup (no workspace yet; an owner without a usable AI
+  // connection), the picker (no workspace chosen, thin client), or the app.
+  const openWorkspace = useCallback(async (wsId: string | null) => {
     try {
-      // Reload workspaces after onboarding
-      const ws = await window.electronAPI.getWorkspaces()
-      if (ws.length > 0) {
-        // Switch to workspace in-place (no window close/reopen)
-        await window.electronAPI.switchWorkspace(ws[0].id)
-        setWindowWorkspaceId(ws[0].id)
-        setWorkspaces(ws)
-      } else {
-        setWorkspaces(ws)
+      const needs = await window.electronAPI.getSetupNeeds()
+      if (!wsId && (await window.electronAPI.getWorkspaces()).length > 0) {
+        setAppState('workspace-picker')
+        return
       }
+      const isOwner = !!wsId && !needs.isFullyConfigured
+        && (await window.electronAPI.getWorkspaceMembers(wsId)).some((member) => member.me && member.role === 'owner')
+      const step = getFirstRunStep({ hasWorkspace: !!wsId, isOwner, connectionReady: needs.isFullyConfigured })
+      if (step) setSetupStep(step)
+      setAppState(step ? 'setup' : 'ready')
     } catch (error) {
-      console.error('[App] Failed to load workspaces after onboarding:', error)
-      // Still transition to ready — the app can recover via reconnect
+      // Setup can still be done in Settings; the app shows the transport state.
+      console.error('[App] Failed to check setup:', error)
+      setAppState('ready')
     }
-    setAppState('ready')
   }, [])
 
-  // Onboarding hook — onConfigSaved fires immediately when billing is saved,
-  // ensuring connection state updates before the wizard closes.
-  const onboarding = useOnboarding({
-    onComplete: handleOnboardingComplete,
-    onConfigSaved: refreshLlmConnections,
-    initialSetupNeeds: setupNeeds || undefined,
-  })
-
-  // Check auth state and get window's workspace ID on mount
-  useEffect(() => {
-    const initialize = async () => {
-      try {
-        // Get this window's workspace ID (passed via URL query param from main process)
-        const wsId = await window.electronAPI.getWindowWorkspace()
-        setWindowWorkspaceId(wsId)
-
-        const needs = await window.electronAPI.getSetupNeeds()
-        setSetupNeeds(needs)
-
-        if (needs.isFullyConfigured) {
-          // If no workspace is selected (thin client without OTTO_WORKSPACE_ID),
-          // show workspace picker before entering the main app
-          if (!wsId) {
-            setAppState('workspace-picker')
-          } else {
-            setAppState('ready')
-          }
-        } else {
-          // New user or needs setup - show onboarding
-          setAppState('onboarding')
-        }
-      } catch (error) {
-        console.error('Failed to check auth state:', error)
-        // If check fails, show onboarding to be safe
-        setAppState('onboarding')
-      }
+  const handleWorkspaceCreated = useCallback(async (wsId: string) => {
+    // Web: a full load connects with the new workspace in the handshake (the socket keeps the one it opened with on reconnect).
+    if (isWebUI) {
+      window.location.assign('/')
+      return
     }
+    await window.electronAPI.switchWorkspace(wsId)
+    setWindowWorkspaceId(wsId)
+    await openWorkspace(wsId)
+  }, [openWorkspace])
 
-    initialize()
+  // Get this window's workspace ID (passed via URL query param from main process) and pick the first screen
+  useEffect(() => {
+    void window.electronAPI.getWindowWorkspace().then((wsId) => {
+      setWindowWorkspaceId(wsId)
+      return openWorkspace(wsId)
+    })
   }, [])
 
   // Session selection state
@@ -1875,33 +1854,19 @@ export default function App() {
     return <SplashScreen isExiting={false} />
   }
 
-  // Onboarding state
+  // First-run setup
   // ModalProvider + WindowCloseHandler ensures X button works on Windows
   // (without this, the close IPC message has no listener and window stays open)
-  if (appState === 'onboarding') {
+  if (appState === 'setup') {
     return (
       <DismissibleLayerProvider>
         <ModalProvider>
           <WindowCloseHandler />
-          <OnboardingWizard
-            state={onboarding.state}
-            onContinue={onboarding.handleContinue}
-            onBack={onboarding.handleBack}
-            onSelectProvider={onboarding.handleSelectProvider}
-            onSkipSetup={onboarding.handleSkipSetup}
-            onSelectApiSetupMethod={onboarding.handleSelectApiSetupMethod}
-            onSubmitCredential={onboarding.handleSubmitCredential}
-            onSubmitLocalModel={onboarding.handleSubmitLocalModel}
-            onStartOAuth={onboarding.handleStartOAuth}
-            onFinish={onboarding.handleFinish}
-            isWaitingForCode={onboarding.isWaitingForCode}
-            onSubmitAuthCode={onboarding.handleSubmitAuthCode}
-            onCancelOAuth={onboarding.handleCancelOAuth}
-            deviceCode={onboarding.deviceCode}
-            onBrowseGitBash={onboarding.handleBrowseGitBash}
-            onUseGitBashPath={onboarding.handleUseGitBashPath}
-            onRecheckGitBash={onboarding.handleRecheckGitBash}
-            onClearError={onboarding.handleClearError}
+          <FirstRunSetup
+            step={setupStep}
+            onWorkspaceCreated={(id) => void handleWorkspaceCreated(id)}
+            onConfigSaved={() => void refreshLlmConnections()}
+            onDone={() => setAppState('ready')}
           />
         </ModalProvider>
       </DismissibleLayerProvider>
@@ -1918,7 +1883,7 @@ export default function App() {
             onSelectWorkspace={async (id) => {
               await window.electronAPI.switchWorkspace(id)
               setWindowWorkspaceId(id)
-              setAppState('ready')
+              await openWorkspace(id)
             }}
           />
         </ModalProvider>

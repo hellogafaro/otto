@@ -6,8 +6,9 @@
  *   OTTO_SERVER_TOKEN=<secret> bun run packages/server/src/index.ts
  *
  * Environment:
- *   OTTO_SERVER_TOKEN         — required: the machine and CLI credential (acts as the first user) and the
- *                               setup token the first sign-up must carry
+ *   OTTO_SERVER_TOKEN         — required: the machine and CLI credential (acts as the first user)
+ *   OTTO_OWNER_EMAIL          — optional: the only email that may make the first account (otherwise the
+ *                               first sign-up wins, and the boot log warns until it happens)
  *   BETTER_AUTH_SECRET        — required: signs sessions and tokens, at least 32 characters (not ENCRYPTION_KEY)
  *   BETTER_AUTH_URL           — the public origin the browser uses (https makes cookies Secure)
  *   BETTER_AUTH_TRUSTED_ORIGINS — optional comma-separated extra origins allowed to call /api/auth

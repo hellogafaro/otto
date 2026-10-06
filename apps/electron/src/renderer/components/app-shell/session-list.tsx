@@ -734,10 +734,8 @@ export function SessionList({
     })
   }, [])
 
-  const handleRenameSubmit = () => {
-    if (renameSessionId && renameName.trim()) {
-      onRename(renameSessionId, renameName.trim())
-    }
+  const handleRenameSubmit = (name: string) => {
+    if (renameSessionId) onRename(renameSessionId, name)
     setRenameDialogOpen(false)
     setRenameSessionId(null)
     setRenameName("")
@@ -930,8 +928,7 @@ export function SessionList({
         open={renameDialogOpen}
         onOpenChange={setRenameDialogOpen}
         title={t("session.renameSession")}
-        value={renameName}
-        onValueChange={setRenameName}
+        defaultValue={renameName}
         onSubmit={handleRenameSubmit}
         placeholder={t("session.enterSessionName")}
       />

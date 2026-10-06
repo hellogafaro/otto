@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, Plus } from "lucide-react"
-import { Spinner } from "@otto/ui"
 import { PRODUCT_NAME } from "@otto/shared/branding"
 import { slugify } from "@/lib/slugify"
 import { Input } from "@/components/ui/input"
@@ -238,9 +237,10 @@ export function AddWorkspaceStep_ConnectRemote({
           variant="secondary"
           className="w-full"
           onClick={handleTestConnection}
-          disabled={!serverUrl || !token || testState === 'testing' || isCreating}
+          disabled={!serverUrl || !token || isCreating}
+          loading={testState === 'testing'}
         >
-          {testState === 'testing' ? <Spinner /> : 'Test Connection'}
+          Test Connection
         </Button>
         {testState === 'ok' && (
           <p className="text-xs text-success">

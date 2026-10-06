@@ -1,6 +1,6 @@
 /**
- * InboxPage - your notifications in the workspace, newest first, as one list on the frame (the Chats index's
- * 44px rows): who did it, the sentence ("Maria mentioned you in Fix login", the title looked up live) with the
+ * InboxPage - your notifications in the workspace, newest first, as one list in the line-only `PageWrap` (the
+ * Chats index's 44px rows): who did it, the sentence ("Maria mentioned you in Fix login", the title looked up live) with the
  * comment's first line muted after a mention, an unread dot, the time. A row opens what it is about (a mention:
  * the task or project the comment is on) and marks it read; its ⋯ marks it read or unread, or clears it. The
  * title row: Mark all as read (an icon button, so the title keeps its room on a phone) and Filter (Unread, `?unread=1`). Nothing at all: the empty state.
@@ -17,9 +17,8 @@ import {
   DropdownMenuTrigger,
 } from '@workspace/ui/components/dropdown-menu'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
-import { ListRow } from '@workspace/ui/components/list-group'
-import { PageColumn } from '@workspace/ui/components/page'
-import { Skeleton } from '@workspace/ui/components/skeleton'
+import { ListRow, ListRowSkeleton } from '@workspace/ui/components/list-group'
+import { PageColumn, PageWrap } from '@workspace/ui/components/page'
 import { toast } from '@workspace/ui/components/sonner'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { describeEntity, plainEntityText } from '@/components/entities/entity-tokens'
@@ -105,56 +104,58 @@ export function InboxPage() {
             removeLabel={(field) => `${t('common.remove')} ${field}`}
           />
           {!loaded ? (
-            <div aria-busy className="flex flex-col gap-1">
-              {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10" />)}
-            </div>
+            <PageWrap aria-busy>
+              <ul>{[0, 1, 2].map((i) => <ListRowSkeleton key={i} />)}</ul>
+            </PageWrap>
           ) : shown.length === 0 ? (
             <NoResults title={t('chatsIndex.noResults')} description={t('chatsIndex.noResultsDescription')}>
               <Button variant="outline" onClick={() => changeFilter('unread', [])}>{t('chatsIndex.clearFilters')}</Button>
             </NoResults>
           ) : (
-            <ul className="flex flex-col">
-              {shown.map((item) => {
-                const unread = isUnread(item)
-                const excerpt = excerptOf(item)
-                return (
-                  <ListRow
-                    key={item.id}
-                    data-notification-id={item.id}
-                    media={<ActorAvatar actor={item.createdBy} name={nameOf(item.createdBy)} />}
-                    title={(
-                      <>
-                        {t(getNotificationLineKey(item.type), { name: nameOf(item.createdBy), title: titleOf(item) })}
-                        {excerpt && <span className="ms-2 text-muted-foreground">{excerpt}</span>}
-                      </>
-                    )}
-                    muted={!unread}
-                    marks={unread && <span aria-label={t('inbox.unread')} className="size-1.5 shrink-0 rounded-full bg-primary" />}
-                    end={shortTimeAgo(item.createdAt)}
-                    onClick={() => open(item)}
-                    actions={(
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('common.moreActions')} />}>
-                          <MoreHorizontal />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem shortcut="U" onClick={() => void run(setStatus([item.id], unread ? 'read' : 'unread'))}>
-                              {unread ? <MailOpen /> : <Mail />}
-                              {unread ? t('inbox.markRead') : t('inbox.markUnread')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => void run(clear([item.id]))}>
-                              <X />
-                              {t('common.clear')}
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  />
-                )
-              })}
-            </ul>
+            <PageWrap>
+              <ul>
+                {shown.map((item) => {
+                  const unread = isUnread(item)
+                  const excerpt = excerptOf(item)
+                  return (
+                    <ListRow
+                      key={item.id}
+                      data-notification-id={item.id}
+                      media={<ActorAvatar actor={item.createdBy} name={nameOf(item.createdBy)} />}
+                      title={(
+                        <>
+                          {t(getNotificationLineKey(item.type), { name: nameOf(item.createdBy), title: titleOf(item) })}
+                          {excerpt && <span className="ms-2 text-muted-foreground">{excerpt}</span>}
+                        </>
+                      )}
+                      muted={!unread}
+                      marks={unread && <span aria-label={t('inbox.unread')} className="size-1.5 shrink-0 rounded-full bg-primary" />}
+                      end={shortTimeAgo(item.createdAt)}
+                      onClick={() => open(item)}
+                      actions={(
+                        <DropdownMenu>
+                          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('common.moreActions')} />}>
+                            <MoreHorizontal />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem shortcut="U" onClick={() => void run(setStatus([item.id], unread ? 'read' : 'unread'))}>
+                                {unread ? <MailOpen /> : <Mail />}
+                                {unread ? t('inbox.markRead') : t('inbox.markUnread')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => void run(clear([item.id]))}>
+                                <X />
+                                {t('common.clear')}
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    />
+                  )
+                })}
+              </ul>
+            </PageWrap>
           )}
         </div>
       </PageColumn>

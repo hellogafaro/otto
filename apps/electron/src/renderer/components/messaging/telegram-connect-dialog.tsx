@@ -23,7 +23,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@otto/ui'
 import { SettingsSecretInput } from '@/components/settings'
 
 interface TelegramConnectDialogProps {
@@ -123,9 +122,9 @@ export function TelegramConnectDialog({
               variant="outline"
               size="compact"
               onClick={handleTest}
-              disabled={!token.trim() || test.state === 'testing' || saving}
+              disabled={!token.trim() || saving}
+              loading={test.state === 'testing'}
             >
-              {test.state === 'testing' && <Spinner className="mr-1 text-[14px]" />}
               {t('settings.messaging.telegram.testConnection')}
             </Button>
 
@@ -154,9 +153,9 @@ export function TelegramConnectDialog({
             variant="outline"
             size="compact"
             onClick={handleSave}
-            disabled={!token.trim() || test.state !== 'success' || saving}
+            disabled={!token.trim() || test.state !== 'success'}
+            loading={saving}
           >
-            {saving && <Spinner className="mr-1 text-[14px]" />}
             {t('settings.messaging.telegram.save')}
           </Button>
         </DialogFooter>

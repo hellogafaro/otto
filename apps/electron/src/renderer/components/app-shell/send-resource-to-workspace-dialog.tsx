@@ -270,9 +270,10 @@ export function SendResourceToWorkspaceDialog({
           </Button>
           <Button
             onClick={handleSend}
-            disabled={!selectedWorkspaceId || isSending}
+            disabled={!selectedWorkspaceId}
+            loading={isSending}
           >
-            {isSending ? 'Sending...' : 'Send'}
+            Send
           </Button>
         </DialogFooter>
       </DialogContent>

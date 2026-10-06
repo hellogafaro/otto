@@ -884,15 +884,11 @@ export interface SourcesNavigationState {
 }
 
 /**
- * Settings navigation state
- *
- * `subpage: null` means the bare `settings` route — navigator-only view in compact
- * mode. On desktop, the content panel falls back to the App page so it isn't empty.
- * Sources/Skills/Automations use `details: null` for the same purpose.
+ * Settings navigation state: always one page (Settings has no index; it opens on General).
  */
 export interface SettingsNavigationState {
   navigator: 'settings'
-  subpage: SettingsSubpage | null
+  subpage: SettingsSubpage
 }
 
 /**

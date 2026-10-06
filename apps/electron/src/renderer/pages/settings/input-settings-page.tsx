@@ -10,9 +10,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { useTranslation } from 'react-i18next'
-import { PageColumn } from '@workspace/ui/components/page'
 import { isMac } from '@/lib/platform'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 
@@ -81,9 +80,7 @@ export default function InputSettingsPage() {
   }, [])
 
   return (
-    <div className="h-full flex flex-col">
-      <SettingsPageHeader subpage="input" />
-      <PageColumn>
+    <SettingsPage subpage="input">
               {/* Typing Behavior */}
               <SettingsSection title={t("settings.input.typing")} description={t("settings.input.typingDesc")}>
                 <SettingsCard>
@@ -117,7 +114,6 @@ export default function InputSettingsPage() {
                   />
                 </SettingsCard>
               </SettingsSection>
-            </PageColumn>
-    </div>
+    </SettingsPage>
   )
 }

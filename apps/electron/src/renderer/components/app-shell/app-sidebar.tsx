@@ -8,6 +8,9 @@
  * none when both are empty); and the footer (the workspace menu alone, Settings inside
  * it), pinned at the bottom. Icons only below 1024px (Pinned and Recent hidden), a
  * sheet below 768px (see the design system's `Sidebar`).
+ *
+ * Settings is the one place that swaps the whole content (`settings`): the mark becomes Back to
+ * app and the groups are Settings' own pages, with no Pinned, Recent or footer (`settings-sidebar.tsx`).
  */
 
 import { useTranslation } from 'react-i18next'
@@ -46,6 +49,7 @@ import type { SessionStatus } from '@/config/session-status-config'
 import type { Workspace } from '../../../shared/types'
 import { WorkspaceMenu } from './workspace-menu'
 import { SidebarPinsRecents } from './sidebar-pins-recents'
+import { SettingsBackRow, SettingsSidebarContent } from './settings-sidebar'
 import { useCommandPalette } from '@/components/command-palette/command-palette-provider'
 import { PRODUCT_NAME } from '@otto/shared/branding'
 
@@ -61,6 +65,10 @@ interface AppSidebarProps {
   onRoutines: () => void
   onLibrary: () => void
   onSettings: () => void
+  /** Inside Settings (its pages, Skills, Sources): the sidebar shows Settings' own content. */
+  settings: boolean
+  /** Back to app: leaves Settings for the view it was entered from. */
+  onBackToApp: () => void
   /** History navigation (Electron only: the browser has its own). */
   onBack: () => void
   onForward: () => void
@@ -101,6 +109,8 @@ export function AppSidebar({
   onRoutines,
   onLibrary,
   onSettings,
+  settings,
+  onBackToApp,
   onBack,
   onForward,
   canGoBack,
@@ -149,9 +159,13 @@ export function AppSidebar({
             clearsTrafficLights && 'pl-[68px] group-data-[collapsible=icon]:pl-0',
           )}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-2 pl-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-0">
-            <Logo className="size-5 text-foreground" title={PRODUCT_NAME} />
-          </div>
+          {settings ? (
+            <SettingsBackRow onBack={onBackToApp} />
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center gap-2 pl-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-0">
+              <Logo className="size-5 text-foreground" title={PRODUCT_NAME} />
+            </div>
+          )}
           {!isWebUI && (
             <div className="titlebar-no-drag flex shrink-0 items-center gap-0.5 group-data-[collapsible=icon]:hidden">
               <ActionTooltip action="nav.goBackAlt">
@@ -169,51 +183,57 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        {[inboxSearch, pages].map((items, index) => (
-          <SidebarGroup key={index} className="shrink-0">
+      {settings ? (
+        <SettingsSidebarContent />
+      ) : (
+        <>
+          <SidebarContent>
+            {[inboxSearch, pages].map((items, index) => (
+              <SidebarGroup key={index} className="shrink-0">
+                <SidebarMenu>
+                  {items.map((item) => (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton
+                        isActive={!!item.area && active === item.area}
+                        tooltip={t(item.labelKey)}
+                        onClick={item.onSelect}
+                        // A placeholder stays readable but is no tab stop and has no pointer.
+                        {...(!item.onSelect && { 'aria-disabled': true, tabIndex: -1 })}
+                      >
+                        <item.icon />
+                        <span>{t(item.labelKey)}</span>
+                      </SidebarMenuButton>
+                      {item.count && (
+                        <SidebarMenuSlot>
+                          <span className="px-1 text-xs text-muted-foreground tabular-nums">{item.count}</span>
+                        </SidebarMenuSlot>
+                      )}
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroup>
+            ))}
+
+            <SidebarPinsRecents sessionStatuses={sessionStatuses} />
+          </SidebarContent>
+
+          <SidebarFooter>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton
-                    isActive={!!item.area && active === item.area}
-                    tooltip={t(item.labelKey)}
-                    onClick={item.onSelect}
-                    // A placeholder stays readable but is no tab stop and has no pointer.
-                    {...(!item.onSelect && { 'aria-disabled': true, tabIndex: -1 })}
-                  >
-                    <item.icon />
-                    <span>{t(item.labelKey)}</span>
-                  </SidebarMenuButton>
-                  {item.count && (
-                    <SidebarMenuSlot>
-                      <span className="px-1 text-xs text-muted-foreground tabular-nums">{item.count}</span>
-                    </SidebarMenuSlot>
-                  )}
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <WorkspaceMenu
+                  workspaces={workspaces}
+                  activeWorkspaceId={activeWorkspaceId}
+                  onSelect={onSelectWorkspace}
+                  onSettings={onSettings}
+                  workspaceUnreadMap={workspaceUnreadMap}
+                  onWorkspaceCreated={onWorkspaceCreated}
+                  onWorkspaceRemoved={onWorkspaceRemoved}
+                />
+              </SidebarMenuItem>
             </SidebarMenu>
-          </SidebarGroup>
-        ))}
-
-        <SidebarPinsRecents sessionStatuses={sessionStatuses} />
-      </SidebarContent>
-
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <WorkspaceMenu
-              workspaces={workspaces}
-              activeWorkspaceId={activeWorkspaceId}
-              onSelect={onSelectWorkspace}
-              onSettings={onSettings}
-              workspaceUnreadMap={workspaceUnreadMap}
-              onWorkspaceCreated={onWorkspaceCreated}
-              onWorkspaceRemoved={onWorkspaceRemoved}
-            />
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+          </SidebarFooter>
+        </>
+      )}
     </Sidebar>
   )
 }

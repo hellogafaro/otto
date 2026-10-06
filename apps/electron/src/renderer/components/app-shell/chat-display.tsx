@@ -54,6 +54,7 @@ import {
 import { MemoizedAuthRequestCard } from "@/components/chat/auth-request-card"
 import { ChatInputZone, type StructuredInputState, type StructuredResponse, type PermissionResponse, type AdminApprovalResponse } from "./input"
 import type { RichTextInputHandle } from "@/components/ui/rich-text-input"
+import { Button } from "@/components/ui/button"
 import { useBackgroundTasks } from "@/hooks/use-background-tasks"
 import { useTurnCardExpansion } from "@/hooks/use-turn-card-expansion"
 import { useNavigation } from "@/contexts/navigation-context"
@@ -1506,14 +1507,9 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                           <div className="text-sm font-medium text-destructive">{t("chat.failedToLoadConversation")}</div>
                           <p className="mt-1 break-words text-xs text-destructive/70">{messagesLoadError}</p>
                           {onRetryMessagesLoad && (
-                            <button
-                              type="button"
-                              onClick={onRetryMessagesLoad}
-                              disabled={messagesRetrying}
-                              className="mt-3 rounded border border-destructive/20 px-2 py-0.5 text-xs text-destructive/70 transition-colors hover:border-destructive/40 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {messagesRetrying ? t("common.retrying") : t("common.retry")}
-                            </button>
+                            <Button variant="outline" size="xs" onClick={onRetryMessagesLoad} loading={messagesRetrying} className="mt-3">
+                              {t("common.retry")}
+                            </Button>
                           )}
                         </div>
                       </motion.div>

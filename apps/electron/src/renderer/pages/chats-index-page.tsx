@@ -2,7 +2,7 @@
  * ChatsIndexPage - the Chats section's home: the data page BEFORE a chat.
  *
  * Sub-navigation is an index page, never a sidebar list. This is the grouped list
- * (`ListGroup` / `ListRow`, Otto v1's table) straight on the frame, no card, and NO
+ * (`ListGroup` / `ListRow`, Otto v1's table) in the line-only `PageWrap`, no card, and NO
  * toolbar: the header carries ghost icon buttons only (Filter, then the header's New chat);
  * active filters show as chips (`FilterBar`) above the list only while one is set.
  * One group per status (Backlog, Todo, ...), each a 36px header row over 44px rows, then
@@ -24,7 +24,7 @@ import { Archive, CircleDashed, ClipboardList, Cpu, Flag, MessageSquare, MoreHor
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
-import { PageColumn } from '@workspace/ui/components/page'
+import { PageColumn, PageWrap } from '@workspace/ui/components/page'
 import { ListGroup, ListRow } from '@workspace/ui/components/list-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { Spinner } from '@otto/ui'
@@ -300,8 +300,8 @@ export default function ChatsIndexPage() {
     onDelete: session.handleDeleteWithToast,
   }), [session.handleFlagWithToast, session.handleUnflagWithToast, session.handleArchiveWithToast, session.handleUnarchiveWithToast, session.handleDeleteWithToast, onMarkSessionUnread, onSessionStatusChange, setSendToWorkspace])
 
-  const submitRename = () => {
-    if (renaming?.name.trim()) onRenameSession(renaming.id, renaming.name.trim())
+  const submitRename = (name: string) => {
+    if (renaming) onRenameSession(renaming.id, name)
     setRenaming(null)
   }
 
@@ -377,7 +377,7 @@ export default function ChatsIndexPage() {
               )}
             </NoResults>
           ) : (
-            <div className="divide-y divide-(--card-divider)">
+            <PageWrap>
               {groups.map((g) => (
                 <ListGroup
                   key={g.status.id}
@@ -398,7 +398,7 @@ export default function ChatsIndexPage() {
               >
                 {archived.map(row)}
               </ListGroup>
-            </div>
+            </PageWrap>
           )}
         </div>
       </PageColumn>
@@ -406,8 +406,7 @@ export default function ChatsIndexPage() {
         open={renaming !== null}
         onOpenChange={(open) => { if (!open) setRenaming(null) }}
         title={t('session.renameSession')}
-        value={renaming?.name ?? ''}
-        onValueChange={(name) => setRenaming((r) => (r ? { ...r, name } : r))}
+        defaultValue={renaming?.name ?? ''}
         onSubmit={submitRename}
         placeholder={t('session.enterSessionName')}
       />

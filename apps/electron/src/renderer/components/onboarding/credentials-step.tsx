@@ -10,7 +10,6 @@ import { useTranslation } from "react-i18next"
 import { ArrowUpRight, Check, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SettingsCard, SettingsRow } from "@/components/settings"
-import type { ApiSetupMethod } from "./api-setup-step"
 import { StepFormLayout, BackButton, ContinueButton } from "./primitives"
 import {
   ApiKeyInput,
@@ -20,6 +19,14 @@ import {
   type OAuthStatus,
 } from "../apisetup"
 import type { CustomEndpointApi } from '@config/llm-connections'
+
+/** How a connection signs in: a Claude, ChatGPT or Copilot subscription, or an API key (Anthropic or a provider preset). */
+export type ApiSetupMethod =
+  | 'anthropic_api_key'
+  | 'claude_oauth'
+  | 'pi_chatgpt_oauth'
+  | 'pi_copilot_oauth'
+  | 'pi_api_key'
 
 export type CredentialStatus = ApiKeyStatus | OAuthStatus
 

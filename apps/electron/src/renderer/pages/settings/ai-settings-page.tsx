@@ -10,16 +10,15 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { PageColumn } from '@workspace/ui/components/page'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Kbd } from '@/components/ui/kbd'
 import { X, MoreHorizontal, Pencil, Trash2, Star, CheckCircle2, AlertTriangle, RefreshCcw, Settings2, MessageSquareMore, Zap, Clock, Check } from 'lucide-react'
 import type { CredentialHealthIssue } from '../../../shared/types'
-import { Spinner, Tooltip, TooltipTrigger, TooltipContent } from '@otto/ui'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@otto/ui'
 import { useSetAtom } from 'jotai'
 import { fullscreenOverlayOpenAtom } from '@/atoms/overlay'
 import { DECISION_SETTINGS_CHANGED_EVENT } from '@/atoms/permission-modes'
@@ -651,7 +650,6 @@ export default function AiSettingsPage() {
   // Rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [renamingConnection, setRenamingConnection] = useState<{ slug: string; name: string } | null>(null)
-  const [renameValue, setRenameValue] = useState('')
 
   // Load workspaces, default settings, and credential health
   useEffect(() => {
@@ -699,11 +697,6 @@ export default function AiSettingsPage() {
   const apiSetupOnboarding = useOnboarding({
     initialStep: 'provider-select',
     onConfigSaved: refreshLlmConnections,
-    onComplete: () => {
-      closeApiSetup()
-      refreshLlmConnections?.()
-      apiSetupOnboarding.reset()
-    },
     onDismiss: () => {
       closeApiSetup()
       apiSetupOnboarding.reset()
@@ -754,17 +747,15 @@ export default function AiSettingsPage() {
   // Connection action handlers
   const handleRenameClick = useCallback((connection: LlmConnectionWithStatus) => {
     setRenamingConnection({ slug: connection.slug, name: connection.name })
-    setRenameValue(connection.name)
     // Defer dialog open to next frame to let dropdown fully unmount first
     requestAnimationFrame(() => {
       setRenameDialogOpen(true)
     })
   }, [])
 
-  const handleRenameSubmit = useCallback(async () => {
+  const handleRenameSubmit = useCallback(async (trimmedName: string) => {
     if (!renamingConnection || !window.electronAPI) return
-    const trimmedName = renameValue.trim()
-    if (!trimmedName || trimmedName === renamingConnection.name) {
+    if (trimmedName === renamingConnection.name) {
       setRenameDialogOpen(false)
       return
     }
@@ -784,8 +775,7 @@ export default function AiSettingsPage() {
     }
     setRenameDialogOpen(false)
     setRenamingConnection(null)
-    setRenameValue('')
-  }, [renamingConnection, renameValue, refreshLlmConnections])
+  }, [renamingConnection, refreshLlmConnections])
 
   const handleReauthenticateConnection = useCallback((connection: LlmConnectionWithStatus) => {
     openApiSetup(connection.slug)
@@ -1173,9 +1163,7 @@ export default function AiSettingsPage() {
   }, [refreshLlmConnections])
 
   return (
-    <div className="h-full flex flex-col">
-      <SettingsPageHeader subpage="ai" />
-      <PageColumn>{/* Credential Health Warning Banner */}
+    <SettingsPage subpage="ai">{/* Credential Health Warning Banner */}
             <CredentialHealthBanner
               issues={credentialHealthIssues}
               onReauthenticate={handleReauthenticate}
@@ -1328,9 +1316,9 @@ export default function AiSettingsPage() {
                           variant="outline"
                           size="compact"
                           onClick={() => { void probeDecisionServer(decisionBaseUrlDraft.trim() || undefined) }}
-                          disabled={decisionProbing}
+                          loading={decisionProbing}
                         >
-                          {decisionProbing ? <Spinner /> : t("settings.ai.decisions.recheck")}
+                          {t("settings.ai.decisions.recheck")}
                         </Button>
                       </SettingsRow>
                     )}
@@ -1395,9 +1383,9 @@ export default function AiSettingsPage() {
                         variant="outline"
                         size="compact"
                         onClick={handleTestDecision}
-                        disabled={decisionTesting}
+                        loading={decisionTesting}
                       >
-                        {decisionTesting ? <Spinner /> : t("settings.ai.decisions.testRun")}
+                        {t("settings.ai.decisions.testRun")}
                       </Button>
                     </SettingsRow>
                     <p className="px-4 py-3 text-xs text-muted-foreground">
@@ -1466,7 +1454,6 @@ export default function AiSettingsPage() {
               >
                 <OnboardingWizard
                   state={apiSetupOnboarding.state}
-                  onContinue={apiSetupOnboarding.handleContinue}
                   onBack={isDirectEdit ? handleCloseApiSetup : apiSetupOnboarding.handleBack}
                   onSelectProvider={apiSetupOnboarding.handleSelectProvider}
                   onSelectApiSetupMethod={apiSetupOnboarding.handleSelectApiSetupMethod}
@@ -1512,13 +1499,11 @@ export default function AiSettingsPage() {
                 open={renameDialogOpen}
                 onOpenChange={setRenameDialogOpen}
                 title={t("settings.ai.renameConnection")}
-                value={renameValue}
-                onValueChange={setRenameValue}
+                defaultValue={renamingConnection?.name ?? ''}
                 onSubmit={handleRenameSubmit}
                 placeholder={t("settings.ai.enterConnectionName")}
               />
             </div>
-          </PageColumn>
-    </div>
+    </SettingsPage>
   )
 }

@@ -6,11 +6,10 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES, type LanguageCode } from '@otto/shared/i18n'
 import type { ColumnDef } from '@tanstack/react-table'
-import { PageColumn } from '@workspace/ui/components/page'
 import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
 import { useTheme } from '@/context/theme-context'
 import { Monitor, Sun, Moon } from 'lucide-react'
@@ -189,9 +188,7 @@ export default function AppearanceSettingsPage() {
   ], [presetThemes, t])
 
   return (
-    <div className="h-full flex flex-col">
-      <SettingsPageHeader subpage="appearance" />
-      <PageColumn>
+    <SettingsPage subpage="appearance">
 
               {/* Default Theme */}
               <SettingsSection title={t("settings.appearance.defaultTheme")}>
@@ -290,7 +287,6 @@ export default function AppearanceSettingsPage() {
                 </SettingsCard>
               </SettingsSection>
 
-            </PageColumn>
-    </div>
+    </SettingsPage>
   )
 }

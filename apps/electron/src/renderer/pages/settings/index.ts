@@ -1,10 +1,9 @@
 /**
  * Settings Pages
  *
- * All pages that appear under the settings navigator.
+ * All pages listed by the settings sidebar.
  */
 
-export { default as SettingsNavigator } from './settings-navigator'
 export { default as AppSettingsPage, meta as AppSettingsMeta } from './app-settings-page'
 export { default as AiSettingsPage, meta as AiSettingsMeta } from './ai-settings-page'
 export { default as AppearanceSettingsPage, meta as AppearanceMeta } from './appearance-settings-page'

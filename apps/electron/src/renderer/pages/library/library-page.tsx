@@ -66,7 +66,7 @@ function AddButton() {
   )
 }
 
-type Creating = { kind: 'folder' | 'document'; name: string }
+type Creating = 'folder' | 'document'
 type Pending = { key: string; title: string; folderId: string | null }
 
 export function LibraryPage() {
@@ -110,11 +110,10 @@ export function LibraryPage() {
     }
   }
 
-  const submitCreate = async () => {
+  const submitCreate = async (name: string) => {
     if (!creating) return
-    const name = creating.name.trim()
     setCreating(null)
-    if (creating.kind === 'folder') {
+    if (creating === 'folder') {
       const result = await createLibraryFolder({ title: name, folderId: view.folder })
       if (!result.ok) toast.error(libraryErrorMessage(t, result.code))
       return
@@ -130,8 +129,8 @@ export function LibraryPage() {
       trigger={trigger}
       canAddFolder={canAddFolder}
       onUpload={() => fileInput.current?.click()}
-      onNewDocument={() => setCreating({ kind: 'document', name: '' })}
-      onNewFolder={() => setCreating({ kind: 'folder', name: '' })}
+      onNewDocument={() => setCreating('document')}
+      onNewFolder={() => setCreating('folder')}
     />
   )
 
@@ -164,9 +163,8 @@ export function LibraryPage() {
       <RenameDialog
         open={creating !== null}
         onOpenChange={(open) => { if (!open) setCreating(null) }}
-        title={creating?.kind === 'folder' ? t('library.newFolder') : t('library.newDocument')}
-        value={creating?.name ?? ''}
-        onValueChange={(name) => setCreating((current) => (current ? { ...current, name } : current))}
+        title={creating === 'folder' ? t('library.newFolder') : t('library.newDocument')}
+        defaultValue=""
         onSubmit={submitCreate}
         placeholder={t('library.titlePlaceholder')}
         submitLabel={t('common.create')}

@@ -37,9 +37,6 @@ export const KEYS = {
   // TurnCard expansion state (persisted across session switches)
   turnCardExpansion: 'turncard-expansion',
 
-  // Settings navigation
-  lastSettingsSubpage: 'last-settings-subpage',
-
   // Appearance
   showConnectionIcons: 'show-connection-icons',
 

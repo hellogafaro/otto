@@ -3,8 +3,8 @@
  *
  * Defines the native (macOS) application menu sections consumed by the main
  * process (`main/menu.ts`, which transforms them to Electron
- * MenuItemConstructorOptions) and the settings page list consumed by
- * `SettingsNavigator`.
+ * MenuItemConstructorOptions) and the settings page list drawn by the
+ * settings sidebar (`SettingsSidebar`).
  *
  * NOTE: All labels are i18n keys (e.g., "menu.edit"), NOT resolved strings.
  * Consumers must call i18n.t(item.labelKey) at build time.
@@ -81,7 +81,7 @@ export const WINDOW_MENU: MenuSection = {
 // Settings pages
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** A settings page entry for SettingsNavigator (sidebar panel). */
+/** A settings page entry of the settings sidebar. */
 export interface SettingsMenuItem {
   id: SettingsSubpage
   labelKey: string    // i18n key - resolve with t() at render time
@@ -99,12 +99,10 @@ export const SETTINGS_ITEMS: SettingsMenuItem[] = SETTINGS_PAGES
 const ACCOUNT_SETTINGS_PAGES = new Set<string>(['app', 'ai', 'appearance', 'input', 'shortcuts', 'preferences'])
 
 /**
- * The settings pages in the order the sidebar lists them: the Account group, then
- * the Workspace group. `SettingsNavigator` draws it and Previous / Next step through it.
+ * The settings pages in the order the settings sidebar lists them: the Account group, then
+ * the Workspace group (`SettingsSidebar` adds Skills and Sources at its end).
  */
 export const SETTINGS_NAV_GROUPS: { title: 'Account' | 'Workspace'; items: SettingsMenuItem[] }[] = [
   { title: 'Account', items: SETTINGS_ITEMS.filter(item => ACCOUNT_SETTINGS_PAGES.has(item.id)) },
   { title: 'Workspace', items: SETTINGS_ITEMS.filter(item => !ACCOUNT_SETTINGS_PAGES.has(item.id)) },
 ]
-
-export const SETTINGS_NAV_ORDER: SettingsSubpage[] = SETTINGS_NAV_GROUPS.flatMap(group => group.items.map(item => item.id))

@@ -5,8 +5,10 @@
  */
 
 import * as React from 'react'
+import { useForm, useStore } from '@tanstack/react-form'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
+import { z } from 'zod'
 import { Button } from '@workspace/ui/components/button'
 import {
   Combobox,
@@ -25,6 +27,7 @@ import { sessionMetaMapAtom } from '@/atoms/sessions'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useRegisterModal } from '@/context/modal-context'
 import { useLibrary } from '@/hooks/use-library'
+import { submitForm } from '@/lib/form'
 import { getSessionTitle } from '@/utils/session'
 import type { Resource } from '../../../shared/types'
 
@@ -41,12 +44,12 @@ export function parseWebUrl(text: string): URL | null {
 }
 
 /** A searchable single pick over `options` (id and title). */
-function Picker({ id, options, value, onChange }: { id: string; options: { id: string; title: string }[]; value: string | null; onChange: (id: string | null) => void }) {
+function Picker({ id, options, value, invalid, onBlur, onChange }: { id: string; options: { id: string; title: string }[]; value: string | null; invalid: boolean; onBlur: () => void; onChange: (id: string | null) => void }) {
   const { t } = useTranslation()
   const titleOf = (ref: string) => options.find((o) => o.id === ref)?.title ?? ''
   return (
     <Combobox items={options.map((o) => o.id)} value={value} onValueChange={(next) => onChange(next as string | null)} itemToStringLabel={titleOf}>
-      <ComboboxInput id={id} placeholder={t('resources.search')} />
+      <ComboboxInput id={id} placeholder={t('resources.search')} aria-invalid={invalid} onBlur={onBlur} />
       <ComboboxContent>
         <ComboboxEmpty>{t('resources.noResults')}</ComboboxEmpty>
         <ComboboxList>
@@ -79,11 +82,6 @@ export function ResourceDialog({ open, onOpenChange, onAdd }: { open: boolean; o
 
 function ResourceForm({ onAdd }: { onAdd: (resource: Resource) => void }) {
   const { t } = useTranslation()
-  const [type, setType] = React.useState<ResourceType>('url')
-  const [url, setUrl] = React.useState('')
-  const [title, setTitle] = React.useState('')
-  const [ref, setRef] = React.useState<string | null>(null)
-  const [touched, setTouched] = React.useState(false)
   const { items } = useLibrary()
   const { activeWorkspaceId, workspaces } = useAppShellContext()
   const metas = useAtomValue(sessionMetaMapAtom)
@@ -100,25 +98,37 @@ function ResourceForm({ onAdd }: { onAdd: (resource: Resource) => void }) {
       .map((s) => ({ id: s.id, title: getSessionTitle(s) })),
     [metas, activeWorkspaceId, remoteId],
   )
+
+  // Only the active kind's fields count: a web link needs an address (and a short title), a library item or a chat a pick.
+  const schema = z.object({
+    type: z.enum(['url', 'library', 'chat']),
+    url: z.string(),
+    title: z.string(),
+    ref: z.string().nullable(),
+  }).superRefine((value, ctx) => {
+    if (value.type === 'url' && !parseWebUrl(value.url)) ctx.addIssue({ code: 'custom', path: ['url'], message: t('resources.invalidUrl') })
+    if (value.type === 'url' && value.title.trim().length > MAX_RESOURCE_TITLE) ctx.addIssue({ code: 'custom', path: ['title'], message: t('common.tooLong', { max: MAX_RESOURCE_TITLE }) })
+    if (value.type !== 'url' && !value.ref) ctx.addIssue({ code: 'custom', path: ['ref'], message: t('common.required') })
+  })
+  const form = useForm({
+    defaultValues: { type: 'url' as ResourceType, url: '', title: '', ref: null as string | null },
+    validators: { onBlur: schema, onSubmit: schema },
+    onSubmit: ({ value }) => {
+      const webUrl = parseWebUrl(value.url)
+      const options = value.type === 'library' ? libraryOptions : chatOptions
+      onAdd(value.type === 'url'
+        ? { type: 'url', ref: webUrl!.href, title: (value.title.trim() || webUrl!.host).slice(0, MAX_RESOURCE_TITLE) }
+        : { type: value.type, ref: value.ref!, title: (options.find((o) => o.id === value.ref)?.title || value.ref!).slice(0, MAX_RESOURCE_TITLE) })
+    },
+  })
+  const type = useStore(form.store, (state) => state.values.type)
+  const url = useStore(form.store, (state) => state.values.url)
   const options = type === 'library' ? libraryOptions : chatOptions
 
-  const webUrl = parseWebUrl(url)
-  const ready = type === 'url' ? !!webUrl : !!ref
-
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault()
-    setTouched(true)
-    if (!ready) return
-    const resource: Resource = type === 'url'
-      ? { type, ref: webUrl!.href, title: (title.trim() || webUrl!.host).slice(0, MAX_RESOURCE_TITLE) }
-      : { type, ref: ref!, title: (options.find((o) => o.id === ref)?.title || ref!).slice(0, MAX_RESOURCE_TITLE) }
-    onAdd(resource)
-  }
-
   return (
-    <form onSubmit={submit} className="flex flex-col gap-6">
+    <form noValidate onSubmit={(event) => submitForm(event, form)} className="flex flex-col gap-6">
       <FieldGroup className="gap-4">
-        <Tabs size="compact" value={type} onValueChange={(next) => { setType(next as ResourceType); setRef(null); setTouched(false) }}>
+        <Tabs size="compact" value={type} onValueChange={(next) => { form.setFieldValue('type', next as ResourceType); form.resetField('ref') }}>
           <TabsList>
             <TabsTrigger value="url">{t('resources.typeUrl')}</TabsTrigger>
             <TabsTrigger value="library">{t('resources.typeLibrary')}</TabsTrigger>
@@ -127,34 +137,75 @@ function ResourceForm({ onAdd }: { onAdd: (resource: Resource) => void }) {
         </Tabs>
         {type === 'url' ? (
           <>
-            <Field data-invalid={touched && !webUrl ? true : undefined}>
-              <FieldLabel htmlFor="resource-url">{t('resources.url')}</FieldLabel>
-              <Input
-                id="resource-url"
-                type="url"
-                autoFocus
-                value={url}
-                placeholder="https://"
-                aria-invalid={touched && !webUrl ? true : undefined}
-                onChange={(e) => setUrl(e.target.value)}
-              />
-              {touched && !webUrl && <FieldError>{t('resources.invalidUrl')}</FieldError>}
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="resource-title">{t('resources.linkTitle')}</FieldLabel>
-              <Input id="resource-title" value={title} maxLength={MAX_RESOURCE_TITLE} placeholder={webUrl?.host} onChange={(e) => setTitle(e.target.value)} />
-            </Field>
+            <form.Field name="url">
+              {(field) => {
+                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor={field.name}>{t('resources.url')}</FieldLabel>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="url"
+                      autoFocus
+                      value={field.state.value}
+                      placeholder="https://"
+                      aria-invalid={isInvalid}
+                      onBlur={field.handleBlur}
+                      onChange={(event) => field.handleChange(event.target.value)}
+                    />
+                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  </Field>
+                )
+              }}
+            </form.Field>
+            <form.Field name="title">
+              {(field) => {
+                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor={field.name}>{t('resources.linkTitle')}</FieldLabel>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      value={field.state.value}
+                      placeholder={parseWebUrl(url)?.host}
+                      aria-invalid={isInvalid}
+                      onBlur={field.handleBlur}
+                      onChange={(event) => field.handleChange(event.target.value)}
+                    />
+                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  </Field>
+                )
+              }}
+            </form.Field>
           </>
         ) : (
-          <Field>
-            <FieldLabel htmlFor="resource-pick">{type === 'library' ? t('resources.typeLibrary') : t('resources.typeChat')}</FieldLabel>
-            <Picker key={type} id="resource-pick" options={options} value={ref} onChange={setRef} />
-          </Field>
+          <form.Field name="ref">
+            {(field) => {
+              const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor={field.name}>{type === 'library' ? t('resources.typeLibrary') : t('resources.typeChat')}</FieldLabel>
+                  <Picker
+                    key={type}
+                    id={field.name}
+                    options={options}
+                    value={field.state.value}
+                    invalid={isInvalid}
+                    onBlur={field.handleBlur}
+                    onChange={field.handleChange}
+                  />
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              )
+            }}
+          </form.Field>
         )}
       </FieldGroup>
       <DialogFooter>
         <DialogClose render={<Button type="button" variant="outline" />}>{t('common.cancel')}</DialogClose>
-        <Button type="submit" disabled={touched && !ready}>{t('resources.add')}</Button>
+        <Button type="submit">{t('resources.add')}</Button>
       </DialogFooter>
     </form>
   )

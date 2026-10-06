@@ -31,15 +31,13 @@ const PROVIDER_ICONS: Record<ProviderChoice, React.ReactNode> = {
 interface ProviderSelectStepProps {
   /** Called when the user selects a provider */
   onSelect: (choice: ProviderChoice) => void
-  /** Called when the user chooses to skip setup */
+  /** "Skip for now": first run only (Settings has no skip) */
   onSkip?: () => void
 }
 
 /**
- * ProviderSelectStep — First screen after install.
- *
- * Welcomes the user and asks them to pick their subscription / auth method.
- * Selecting a card immediately advances to the next step.
+ * ProviderSelectStep — pick the subscription or API key the agents run on (first-run setup and Settings → AI).
+ * Selecting a row immediately advances to the next step.
  */
 export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps) {
   const { t } = useTranslation()
@@ -79,8 +77,8 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
 
   return (
     <StepFormLayout
-      title={t("onboarding.providerSelect.title")}
-      description={t("onboarding.providerSelect.description")}
+      title={t("setup.connection.title")}
+      description={t("setup.connection.description")}
     >
       <SettingsCard>
         {PROVIDER_OPTIONS.map((option) => (
@@ -98,7 +96,7 @@ export function ProviderSelectStep({ onSelect, onSkip }: ProviderSelectStepProps
 
       {onSkip && (
         <Button variant="ghost" onClick={onSkip} className="mt-2 w-full text-muted-foreground">
-          {t("onboarding.providerSelect.setupLater")}
+          {t("setup.connection.skip")}
         </Button>
       )}
     </StepFormLayout>

@@ -35,7 +35,6 @@ import {
 import { Kbd } from '@workspace/ui/components/kbd'
 import { Skeleton } from '@workspace/ui/components/skeleton'
 import { toast } from '@workspace/ui/components/sonner'
-import { Spinner } from '@workspace/ui/components/spinner'
 import { Textarea } from '@workspace/ui/components/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { formatHotkeyDisplay } from '@/actions/registry'
@@ -201,8 +200,7 @@ function MentionTextarea({
 function SubmitButton({ label, pending, disabled, onClick }: { label: string; pending: boolean; disabled: boolean; onClick: () => void }) {
   return (
     <Tooltip>
-      <TooltipTrigger render={<Button size="compact" disabled={disabled || pending} onClick={onClick} />}>
-        {pending && <Spinner />}
+      <TooltipTrigger render={<Button size="compact" disabled={disabled} loading={pending} onClick={onClick} />}>
         {label}
       </TooltipTrigger>
       <TooltipContent>
@@ -398,8 +396,7 @@ export function CommentThread({ entity, className }: { entity: string; className
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletePending}>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" disabled={deletePending} onClick={() => void confirmDelete()}>
-              {deletePending && <Spinner />}
+            <AlertDialogAction variant="destructive" loading={deletePending} onClick={() => void confirmDelete()}>
               {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>

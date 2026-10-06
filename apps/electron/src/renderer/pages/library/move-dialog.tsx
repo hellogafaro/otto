@@ -8,7 +8,6 @@ import { Folder, Library } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@workspace/ui/components/button'
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@workspace/ui/components/dialog'
-import { Spinner } from '@workspace/ui/components/spinner'
 import type { LibraryItem } from '../../../shared/types'
 import { canMoveInto, getDisplayTitle, getFolderRows } from './library-items'
 
@@ -70,8 +69,7 @@ export function MoveDialog({
         </div>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>{t('common.cancel')}</DialogClose>
-          <Button onClick={submit} disabled={pending || !item || target === (item.folderId ?? null)}>
-            {pending && <Spinner />}
+          <Button onClick={submit} loading={pending} disabled={!item || target === (item.folderId ?? null)}>
             {t('library.move')}
           </Button>
         </DialogFooter>

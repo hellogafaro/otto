@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { StepFormLayout, BackButton } from "./primitives"
 import type { GitBashStatus } from "../../../shared/types"
-import { Spinner } from '@otto/ui'
 import { SettingsCard } from "@/components/settings"
 
 export type { GitBashStatus }
@@ -112,8 +111,8 @@ export function GitBashWarning({
             </div>
           ) : (
             <div className="mt-3 flex gap-2">
-              <Button onClick={onRecheck} disabled={isRechecking} variant="secondary" className="flex-1">
-                {isRechecking ? <Spinner /> : t("onboarding.gitBash.recheck")}
+              <Button onClick={onRecheck} loading={isRechecking} variant="secondary" className="flex-1">
+                {t("onboarding.gitBash.recheck")}
               </Button>
               <Button onClick={handleBrowse} variant="secondary" className="flex-1">
                 <FolderOpen />

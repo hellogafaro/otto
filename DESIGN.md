@@ -611,10 +611,10 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   - **Group 3, the one dynamic group**: Pinned and Recent (see Pins and recents;
     `SidebarPinsRecents`, after the pages, none when both are empty; each a 20px
     title 4px above its rows, the two 20px apart), the only
-    thing that scrolls, inside itself with the edge fade. **The sidebar carries no sub-navigation, ever**:
-    no filters, no session list, no settings pages, no skills or sources list. What
-    used to live here is an index page before the detail (see Page anatomy, Index
-    pages). Hidden when icons only.
+    thing that scrolls, inside itself with the edge fade. **The sidebar carries no sub-navigation**:
+    no filters, no session list, no skills or sources list. What used to live here
+    is an index page before the detail (see Page anatomy, Index pages). Settings is
+    the one exception, and it replaces the whole sidebar (below). Hidden when icons only.
   - **Footer** (group 4), pinned at the bottom, **the workspace menu alone** (no Settings row: Settings is
     in the menu, and ⌘, stays bound by the shell): the workspace row, a
     standard 28px sidebar row (never taller) with a 20px avatar (`xs` 4) as its
@@ -663,6 +663,29 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     only: it posts to `/api/auth/sign-out`, which ends the session, then
     opens `/login` (a failure toasts "Could not log out"). Electron has no web
     session, so the item is absent there (the account block stays). One click, no confirmation.
+  - **Settings: its own sidebar** (`settings-sidebar.tsx`, swapped in by
+    `AppSidebar` while the route is a settings page, Skills or Sources; the owner's
+    call, after Capy's settings sidebar). Settings is a world of its own, a few
+    dozen pages that are configuration, not work, so it is the ONE place whose
+    sidebar content is replaced whole: the mark, Inbox and Search, the pages,
+    Pinned and Recent and the workspace-menu footer all go. The same `Sidebar`
+    (one width, icons only below 1024px, the sheet below 768px), no second
+    framework. In it: **Back to app** in the header row where the mark was
+    (a standard 28px sidebar row: ChevronLeft and the label, its icon on the
+    mark's 16px line and its center on the axis; on Electron the row keeps the
+    traffic-light inset, the drag region and the history buttons; icons only the
+    chevron alone with its tooltip). It returns to the view Settings was entered
+    from (the shell keeps the last view outside Settings; Chats when Settings was
+    the first view opened). Then, 20px down, the registry's groups exactly as
+    `SETTINGS_NAV_GROUPS` orders them: **Account** (General, AI, Appearance,
+    Input, Shortcuts, Preferences) and **Workspace** (Workspace, Members,
+    Permissions, Labels, Messaging, then Skills and Sources), each under its
+    20px muted group title, every page a standard 28px row with its own icon
+    (`SETTINGS_ICONS`; Skills `Zap`, Sources `DatabaseZap`), the open one filled
+    `foreground/10`, hover `foreground/5`, the inset ring for keyboard focus only.
+    A direct URL fills its row. The groups scroll as a whole on a short window
+    (edge fade, no scrollbar). No footer. Settings opens from the workspace
+    menu (and ⌘,) on **General**, the registry's first page.
 - **The page header** (`PageHeaderRow`, drawn by `PageHeader`) is the page's
   **title row: the first block of the scrolling column**, never a pinned bar
   (the owner's call, after Capy's settings, where "General" is simply the first
@@ -685,7 +708,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   `<PageHeader title actions />` anywhere and pass no handlers (see Navigation):
   it draws its row in the column's title slot (`PageColumn`'s first child, so
   the title scrolls with the content; in place on a page with no column, such
-  as an empty or loading state, at the same position).
+  as an empty or loading state, at the same position). **Settings' title is not
+  on the axis** from 768px: it is the first block of the roomy column, 64px
+  down (see Page anatomy, Settings); its sidebar has no mark to line up with.
   - **The chat is the only exception** (`PageHeader pinned`): a **compact pinned
     row**, 44px, its top 12px below the window's top (`--axis-y` - 22: the same
     center, y 34), in the frame's header slot above the transcript card, which
@@ -735,7 +760,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   scroll), on the chat too. They float over the empty canvas, never over content, so the hairline
   border alone reads as raised: no shadow. Every page that has
   anywhere to go shows them (Back when it has a parent, Previous / Next when it
-  has a list), none otherwise; narrower than a 72px gutter (or below 768px) they
+  has a list), none otherwise; **Settings never shows them** (its pages, Skills
+  and Sources: its own sidebar lists the pages and leads with Back to app); narrower than a 72px gutter (or below 768px) they
   move into the title row's trailing actions (the chat's pinned row's) as 28px ghost icon buttons in the
   same order (Back, Previous, Next), never leading and never beside the title.
 - **Widths**: the column is 768px for every page, the sidebar 256px on every
@@ -780,6 +806,17 @@ no shadow.
   section starts 32px under the title row (y 82 at scroll 0, the content start,
   where the sidecar starts) and the last one ends 40px above the column's end. `SettingsSection` and `SettingsCard` are `PageSection` and `PageCard`; the
   settings pages are the reference implementation.
+- **Settings: the roomy column** (`PageColumn padded`, through `SettingsPage`,
+  the one shell every settings page renders: its name alone in the title row,
+  no actions of navigation, then its sections; Skills and Sources take it
+  through `Info_Page`). The owner's call, after Capy's General: the same 768px
+  column with **24px sides** (cards 720px wide), **64px above the title row**
+  (the column's first block; it drops its axis margin, so the title sits at y
+  64, not on the axis), **40px between blocks** (title to the first section,
+  section to section) and 40px at the end. Sections are `PageSection` over
+  `PageCard` as everywhere. **Below 768px** only the 40px gap stays: the title
+  row is back on the axis beside the sheet's menu button and the frame's 20px
+  sides are the inset, as on every page. No other page uses `padded`.
 - **Centerpiece** (`PageCenterpiece`: the chat, a document): ONE card as wide as
   the column and as tall as the space under the title row (8px above the
   window's bottom), clipped, scrolling inside it with the edge fade. Never wider
@@ -801,24 +838,33 @@ no shadow.
   benefit-led description sentence, and one primary 32px button, which has no
   action yet (enabled, no toast). The strings are in the table under the
   Empty-state rules ("Tasks", "Projects", "Routines", "Library"). Tasks, Projects and Library are routed (index and detail, docs/routing.md) and their pages are placeholders showing this state until they are built (Projects, Tasks and Library are built, see Index pages, Project page and Library); Routines has no detail route.
-- **PageWrap (trial, an experiment until the owner confirms it).** ONE
-  line-only wrapper around a page's blocks, under its title row, as Threads
-  wraps its feed: a 1px `--card-ring` border (the card edge's color), `2xl` 20
-  corners, NO fill (the frame shows through), no shadow. Its sections stack
-  32px apart as in the column; the cards sit 8px in (`xl` 12 = 20 - 8) and the
-  section titles keep their 16px inset from the cards' edge, 20px under the
-  wrapper's top line. It is the one exception to "no wrapper around a section"
-  while it is tried, on ONE page only: Settings → App. Compare it with Chats
-  (the grouped list on the frame) and the other settings pages (cards on the
-  frame); if it stays, it replaces "the frame, then cards", otherwise delete
-  the component, the `2xl` token and its one usage.
+- **PageWrap: the line box of a dense list page.** A page of many small rows
+  with small details (a list or table: Chats, Tasks and a project's Tasks tab,
+  Inbox) puts its list in ONE line-only wrapper, as Threads wraps its feed: a
+  1px `--card-ring` border (the card edge's color), `2xl` 20 corners, NO fill
+  (the frame shows through), no shadow, no padding. It wraps the list block
+  only: the title row and the filter chips (`FilterBar`) stay above it, 12px
+  over its top line. Group headers and rows run to the line, split by
+  full-bleed hairlines between its children (`divide-y`, so no hairline
+  doubles its top or bottom edge), and it clips them (`overflow-hidden`), so a
+  hover, current or header fill at the first or last row follows the 20px
+  corner and never cuts the line. Pages of bigger cards and structured
+  sections never use it: settings (General, Members, Workspace, ...), the Project
+  Overview tab, detail pages and galleries (Projects, Library) keep their
+  cards and tiles on the frame. Below 768px it keeps its 20px corners and the
+  column's 20px side inset. **Empty and loading:** an empty state (the
+  section's `Empty`, `NoResults`, a tab's inline `Empty`) is not a row: it
+  stays centered on the frame, no wrapper; a loading list is rows, so its
+  three `ListRowSkeleton`s (a row's 44px and grid: a 14px dot, a title bar,
+  both `foreground/10`: the stock `bg-muted` is lighter than the frame in
+  light) sit in the wrapper where the list will be.
 - **Index pages.** Sub-navigation is an index page before the detail, never a
   sidebar list: a data page of a grouped list or a grid of links that opens the
   detail. Chats opens on its index (`ChatsIndexPage`: the title row's ghost Filter, then
-  the chats grouped by status on the frame; it never opens the first chat) and Settings on its index
-  (`SettingsIndexPage`: Account and Workspace as sections of cards, Skills and
-  Sources among the Workspace ones). The sidebar's rows open them; the detail's Back
-  returns to them.
+  the chats grouped by status in the `PageWrap`; it never opens the first chat). The sidebar's rows open them; the detail's Back
+  returns to them. **Settings has no index** (the owner's call: no grid of
+  settings): `/{ws}/settings` is replaced with General and the settings sidebar
+  lists the pages (see Layout, Sidebar).
 - **Projects index** (`ProjectsPage`, `pages/projects/`): a blocks page titled
   "Projects" whose actions are Filter (one on/off field, Archived:
   `?status=archived` lists the archived projects instead of the active ones,
@@ -836,11 +882,11 @@ no shadow.
   empty state under the full header, so Filter stays reachable; Archived with
   none: `NoResults`. **New project** (`ProjectFormDialog`, reused by Tasks and
   the sidebar) is the stock dialog: Title (required, at most 200) and
-  Description (a textarea), Cancel and Create (a spinner while it saves); it
+  Description (a textarea), Cancel and Create (`loading` while it saves); it
   opens the new project, a failure toasts and keeps what was typed.
 - **Tasks index** (`TasksPage`, `pages/tasks/`): the workspace's tasks across
   ALL projects (the owner's call; v1 listed one project at a time), a grouped
-  list on the frame (`TaskGroups`, Data patterns 1, also a project's Tasks tab
+  list in the `PageWrap` (`TaskGroups`, Data patterns 1, also a project's Tasks tab
   without the project badge). Actions: Filter (Project, Assignee: you as "Me"
   first, then people, then agents, Status: Todo / In progress / Done, then
   Archived on/off; Project and Assignee take one value, the URL's) and "+" (New
@@ -852,8 +898,8 @@ no shadow.
   assignees' 20px `AvatarGroup` (one tooltip names them), the project as an
   outline `Badge`, the due date ("Oct 4", else nothing) in the end column; the
   ⋯ menu: Open, Status (submenu, keys 1 to 3), Copy link (C), Archive / Restore
-  (A), applied at once with the "Saved" toast. Loading: three 40px skeleton
-  rows. No tasks at all: the title row and the section's empty state, whose
+  (A), applied at once with the "Saved" toast. Loading: three
+  `ListRowSkeleton`s in the wrapper. No tasks at all: the title row and the section's empty state, whose
   button is "New task", or "New project" while no project exists (a task needs
   one: it opens New project, then New task in it). Filters that keep nothing:
   `NoResults`. **New task** (`TaskFormDialog`) is the stock dialog: Title
@@ -898,8 +944,9 @@ no shadow.
   Contributor / Viewer, a ⋯ with the role as radio items and Remove; "Add
   member" ends the section's title row and lists the workspace's people and
   agents not in the project, who join as Contributor). Roles are data only:
-  nobody's buttons are gated. **Tasks**: `TaskGroups` of the project, or the
-  inline `Empty` "No tasks yet". **Documents / Files**: the project's library
+  nobody's buttons are gated. **Tasks**: `TaskGroups` of the project (in the
+  `PageWrap`, a list like the Tasks index), or the inline `Empty` "No tasks
+  yet" on the frame. **Documents / Files**: the project's library
   links (`resources` of type `library`) as a 4-column `Gallery` of
   `LibraryTile`s (Open, Copy link, then Remove from project apart); a link
   whose item is gone is a tile captioned "Unavailable", title muted, whose menu
@@ -910,7 +957,7 @@ no shadow.
   `projectId`, newest first, a row opens it; not drawn when none). An empty
   picker says why ("Everyone is already in this project"). An id the workspace
   does not have shows the not-found page.
-- **Data patterns.** Three ways to show a set of things, by what it is:
+- **Data patterns.** Two ways to show a set of things, by what it is:
   1. **Grouped list** (`ListGroup`, `ListRow`; Otto v1's table, Linear's and
      Codex's pattern) for collections you work through: Chats, Tasks, Routines.
      - **No toolbar.** The title row carries only 28px ghost icon buttons:
@@ -919,11 +966,12 @@ no shadow.
        the title row's New chat). No search box, no sort or view picker.
        Active filters show as chips (`FilterBar`) on the frame under the title row,
        12px above the list, ONLY while one is set.
-     - **On the frame, no card.** The groups sit straight on the frame, as
-       wide as the column (the page scrolls). Nothing in it is a surface:
-       headers and rows are full-bleed rows, their fills run edge to edge.
-       Hairlines (`--card-divider`) only between a group's header and its rows
-       and between groups; none between rows.
+     - **In the line box, no card.** The groups sit in the page's `PageWrap`
+       (see Page anatomy), as wide as the column (the page scrolls). Nothing in
+       it is a surface: headers and rows are full-bleed rows, their fills run
+       to the wrapper's line, clipped to its 20px corners. Hairlines
+       (`--card-divider`) only between a group's header and its rows and
+       between groups; none between rows.
      - **Proportions** (measured on Codex and Linear at 1x: rows 44, group
        bands 36, metadata chips 24, body 13): body text 13px on its 20px line;
        a row is 44px = 20 + 12 + 12, a group header 36px = 20 + 8 + 8, a
@@ -957,15 +1005,7 @@ no shadow.
        `useChatFilters`, one value as the route-string filter, more as
        `allSessions?status=…&label=…` in the URL search), and the published
        Previous / Next order is exactly the list shown.
-  2. **Grid** (`PageGrid`, `GridCard`) for navigation hubs: the Settings index.
-     Under a `PageSection` title, a grid of cards, 12px apart, three columns from
-     640px of column width, two from 400px, one below, equal heights. A card is the
-     standard card (`card-surface`, `bg-card`, `xl` 12, 16px padding) with the
-     page's own icon (the one the sidebar uses) in a 32px `md` `bg-muted` tile at
-     the top left and the TITLE INSIDE, 12px under it (`text-sm`, medium); the
-     whole card is the link, hover steps the fill to `foreground/5`, the current page
-     `foreground/10`, the focus ring is drawn inside. No description unless the page has one.
-  3. **Gallery** (`Gallery`, `GalleryItem`, `GalleryItemSkeleton`; built, in
+  2. **Gallery** (`Gallery`, `GalleryItem`, `GalleryItemSkeleton`; built, in
      `design/ui`, playground "Gallery and property list") for Library and
      Projects. Not cards: a tile with its icon and the title UNDER it; the ring
      darkens on hover; 16:9 covers for projects, 4:5 pages for documents and
@@ -975,7 +1015,7 @@ no shadow.
 
 | Surface | Radius | Inside it |
 | --- | --- | --- |
-| Line-only page wrapper (`PageWrap`, trial, `2xl`) | 20 | Cards 8px in at `xl` 12 |
+| Line-only list wrapper (`PageWrap`, `2xl`) | 20 | Rows and group headers full-bleed, clipped to its corners |
 | Card, centerpiece, composer, sidecar as card (`xl`) | 12 | Rows full-bleed, no radius; 28px controls |
 | Row in a card, nested control | 28px, `sm` 6 | 24px action, `xs` 4 |
 | Button | 32px, `md` 8 | 14px icon |
@@ -1003,10 +1043,11 @@ One history stack, one rule for Back, one place the lists live.
 - **Back** is a different thing: the floating navigation's first button, shown
   ONLY on a view with a parent, where it goes to the parent view by the route
   hierarchy (`useParentView`): a chat goes to the Chats index (under the filter it was
-  opened with); a settings page, a skill or a source goes to the Settings index; a
-  a task or a library item goes to its index under the same filters, tab and folder; a project or a routine to its section.
-  The Chats, Settings, Tasks, Projects and Library indexes have no parent, so no Back. Sub-navigation is the
-  index page, never the sidebar, so Back is the same at every width. There is no back button and no breadcrumb in the title row: the
+  opened with); a task or a library item goes to its index under the same filters, tab and folder; a project or a routine to its section.
+  The Chats, Tasks, Projects and Library indexes have no parent, so no Back. Settings (its
+  pages, a skill, a source) has no Back either: Skills and Sources have no list page (their
+  root opens the first item), so their sidebar rows are the way back, and Back to app
+  leaves. Sub-navigation is the index page (Settings: its sidebar), so Back is the same at every width. There is no back button and no breadcrumb in the title row: the
   title is alone. Pages never pass handlers: `PageHeader` reads the route.
 - **Compact (below 768px)**: the sidebar sheet's menu button is fixed at the
   page's top-left on the axis (on the chat it leads the pinned row); Back,
@@ -1016,10 +1057,8 @@ One history stack, one rule for Back, one place the lists live.
   `hasNext`, `goPrev`, `goNext`). Chats: the Chats index's displayed order
   (filtered and grouped by status there, Archived left out unless it is the filter), published
   to `sessionListOrderAtom` while the index is open and kept when a chat opens (after a
-  reload, until the index has been open, a chat has none). Settings: the settings pages in the
-  Settings index's order (Account group, then Workspace group; `SETTINGS_NAV_ORDER`, a
-  fixed list, the Skills and Sources links are not part of it). Skills, Sources
-  and the other lists have none yet (Back only). A page with neither a parent nor
+  reload, until the index has been open, a chat has none). Only chats have them: Settings
+  steps through its sidebar instead, and the other lists have none yet (Back only). A page with neither a parent nor
   a list shows no navigation. They show as the floating navigation. No keys are
   bound yet (none exist), so no `Kbd` shows.
   Quick actions in the Superhuman manner (next chat, next task, go back) are the
@@ -1123,20 +1162,20 @@ as a card).
 | `PageFrame` | `aside` | the main region on the frame: the 768px column (`@container/panel`) and its title slot, the chat's header slot, the leading slot (the fixed menu button), left and right gutters; the top axis `--axis-y`; see Layout |
 | `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `pinned` | the title row: 32px, the first block of the column, centered on the axis at scroll 0; `pinned` (the chat only) 44px in the header slot; 28px controls, title is `PageTitle` (21px medium), inset 16px; no back button, no crumbs |
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
-| `PageColumn`, `PageSection`, `PageCard` | `title`, `description`, `action`, `danger` | blocks page (the column's first child is the title slot); see Page anatomy |
-| `PageWrap` (trial) | `className` | the line-only page wrapper around a page's sections: hairline, `2xl` 20, no fill; on Settings → App only; see Page anatomy |
+| `PageColumn`, `PageSection`, `PageCard` | `padded`; `title`, `description`, `action`, `danger` | blocks page (the column's first child is the title slot); `padded` is Settings' roomy column (24px sides, 64px top, 40px gaps from 768px); see Page anatomy |
+| `PageWrap` | `className` | the line-only wrapper of a dense list page (Chats, Tasks, Inbox): hairline, `2xl` 20, no fill, no padding, clips its rows, hairlines between its children; never around cards; see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
-| `ListGroup`, `ListRow` | `icon`, `label`, `count`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | the grouped list on the frame, no card: 36px group headers, 44px rows; see Data patterns |
+| `ListGroup`, `ListRow`, `ListRowSkeleton` | `icon`, `label`, `count`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | the grouped list in the `PageWrap`, no card: 36px group headers, 44px rows, the loading row; see Data patterns |
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
-| `PageGrid`, `GridCard` | `icon`, `title`, `render` | the card grid of a navigation hub; see Data patterns |
 | `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
 | `PropertySection`, `PropertyRow` | `title`, `count`, `defaultOpen`; `icon`, `label`, `value`, `placeholder`, `kbd`, `actions`, `readOnly` | the sidecar's Details blocks; see Components, Property list |
 | `Sidecar` | `open`, `onOpenChange`, `title`, `actions`, `closeLabel`, `surface` | canvas by default, `surface` wraps it in a card (undecided); see Layout; closed by default |
 | `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column and centers Back on the top axis, the buttons are its narrow form for the title row's actions |
 
 In the renderer: `PageHeader` (the header with the route's Back and the list
-navigation wired into the floating navigation), `AppSidebar`, `useParentView`, `useSidecar` (and `SidecarHost`, the
+navigation wired into the floating navigation), `AppSidebar` (with `SettingsBackRow` and
+`SettingsSidebarContent` swapped in under Settings), `SettingsPage`, `useParentView`, `useSidecar` (and `SidecarHost`, the
 `aside` of the shell's frame).
 
 ## Elevation & Depth
@@ -1195,7 +1234,6 @@ cards and have an 8px radius.
 
 | Container | Inside | Gap | Inner radius |
 | --- | --- | --- | --- |
-| Line-only page wrapper (`PageWrap`, `2xl` 20, trial) | Cards | 8px | `xl` 12 |
 | Card, centerpiece, composer (`xl` 12) | 32px buttons, rows | 4px | `md` 8 |
 | Sidebar row, 28px (`sm` 6) | 20px row action, key | 4px | `xs` 4 |
 | Menu, combobox, popover, hover card (`lg` 10) | Items, search field | 4px | `sm` 6 |
@@ -1205,8 +1243,9 @@ cards and have an 8px radius.
 - Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6, except
   where a 20px button sits 4px inside a 28px row (a sidebar row action or
   key): `xs` 4, a soft corner (6 - 4 = 2 would read sharp).
-- `2xl` 20 is the line-only page wrapper's (`PageWrap`, trial) only: its
-  cards sit 8px in at `xl` 12.
+- `2xl` 20 is the line-only list wrapper's (`PageWrap`) only: nothing sits
+  inset in it (its rows run to the line, clipped to the corner), so it has
+  no inner radius.
 - Keys are `xs` 4: a soft corner, short of a pill. Elements only a few pixels
   inside their container (attachment thumbnails and remove button) use `xs`.
 - A tooltip is `sm` because it holds a label, not nested items.
@@ -1255,7 +1294,7 @@ and list rows, chips, grid cards, radio options, select triggers):
 | focus-visible | `ring-2 ring-inset ring-ring`, everywhere | same | same | same |
 | disabled | `opacity-50`, no pointer events | same | same | same |
 
-Five rules:
+Six rules:
 
 1. State fills are alphas of `foreground` (5% hover, 10% pressed, open and
    selected), never a layer token (`muted`, `secondary`, `sidebar-accent`), so
@@ -1274,6 +1313,11 @@ Five rules:
    (`DEBOUNCE_MS` = 800, `@otto/shared/utils/debounce`; `useDebouncedValue`
    in the renderer); typing itself is never delayed. Autosave waits the same
    800ms (below).
+6. Loading. A loading button is disabled, shows a spinner, and keeps its
+   label: `<Button loading>` (`aria-busy`, the `Spinner` as the leading icon in
+   place of any leading icon, so the width never changes); never swap the
+   label for a pending string ("Saving…") or the label for a bare spinner, and
+   never hand-roll `disabled` plus `Spinner`. Not for `render` (asChild) buttons.
 
 **Icons and avatars.** Lucide icons at **14px** everywhere (the old Remix names below map to their Lucide twins). Fixed icons: project
 `RiBox3Line`, repeat `RiLoopRightLine`, agent `RiRobot3Line`, time
@@ -1319,6 +1363,11 @@ triggers, checkbox, radio, switch, cards) shows the one keyboard-only ring:
 `/20` in dark), the failed sign-in look. Select triggers and native
 selects are solid fields (`bg-input/50`) that step to `/70` on hover and `/100`
 while open.
+
+**Switch.** On is emerald (`emerald-500`, the one place a control is green; the
+page's blue stays for primary buttons and links), off is `bg-input`; the thumb is
+the page color (white in dark). One color for every switch, set in the
+`Switch` component, never per instance.
 
 **Tooltip vs hover card.** A tooltip is one label, optionally with its key
 (`Kbd`), 24px tall. The one exception to "a key lives in a tooltip": a sidebar
@@ -1432,7 +1481,7 @@ tradeoff of the sky tone.
 bars 2px apart, the elapsed time and Done. The bars start flat (a row of 4px
 dots) and rise only with the mic level; the speech range (up to ~6 kHz) spans
 the width, mirrored from the center. Done stops the recording; the main
-button shows a spinner ("Transcribing") while the server transcribes it, then
+button is `loading` (its label unchanged) while the server transcribes it, then
 the text is typed in at the cursor. A failure is a toast ("Unable to transcribe", no retry action) and
 the recording is dropped; Cancel drops it too.
 
@@ -1492,7 +1541,7 @@ Delete asks first (Alert dialog, "Delete comment?"), then toasts "Comment
 deleted". No comments: the muted line "No comments yet". Loading: two 40px
 skeleton rows. **The comment box** ends the section: the stock `Textarea` (the
 input well, one line that grows to 240px; read-only while sending) and under it,
-right-aligned, Send (28px primary, a spinner while it sends, disabled while
+right-aligned, Send (28px primary, `loading` while it sends, disabled while
 empty; its tooltip shows the label and ⌘↵ / Ctrl+↵ as a `Kbd`). A sent comment
 shows at once (the hook reloads) and for everyone else through the live push;
 a failure toasts and keeps the text. **Mentions**: typing `@` (at the start or
@@ -1507,7 +1556,7 @@ the box shows the raw token (the leanest that works), the sent comment the
 
 **Inbox** (`InboxPage`, `pages/inbox/`, `/{ws}/inbox`): your notifications
 in the workspace, newest first, a blocks page titled "Inbox" with one flat list
-on the frame (the grouped list's 44px `ListRow`s, no group header, no
+in the `PageWrap` (the grouped list's 44px `ListRow`s, no group header, no
 hairlines): the sender's 20px `ActorAvatar` in the icon column, one line,
 "Maria mentioned you in Fix login" / "Maria assigned you Ship v1" (the title
 looked up live, the server's while the lists load, "Unavailable" when gone),
@@ -1519,7 +1568,7 @@ Mark as unread U and Clear (no confirmation: it removes the notification, not
 content). The title row: Mark all as read (28px ghost icon button, `CheckCheck`,
 tooltip; disabled with nothing unread; an icon so the title keeps its room on a
 phone) and Filter (one on/off field, Unread, in `?unread=1`, its chip under the
-title while on). Loading: three 40px skeleton rows. Nothing at all: the title
+title while on). Loading: three `ListRowSkeleton`s in the wrapper. Nothing at all: the title
 row and the stock `Empty` ("No notifications yet", no button); Unread with none:
 `NoResults`. New notifications arrive live (the `notifications` push), in the
 list and the sidebar's count.
@@ -1742,7 +1791,7 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   sidebar's pages with its icons: Inbox, Tasks, Projects, Chats, Routines, Library;
   Tasks, Routines and Library have no data of their own
   yet, so they are pages only), **Settings** (every page of `SETTINGS_NAV_GROUPS`
-  with the Settings index's icons; Shortcuts shows ⌘/), **Skills** and
+  with the settings sidebar's icons; Shortcuts shows ⌘/), **Skills** and
   **Sources** (the shell's loaded skills and sources with their avatars; opens
   their page), **Actions** (New chat ⌘N, Open settings ⌘,, Light, Dark and System
   theme with a check on the current one, Go back and Go forward while there is
@@ -1801,7 +1850,7 @@ excerpts and thumbnails exist, a tile shows its type glyph centered in the
 items").
 
 - **Grid**: `columns` 3 or 4; 12px between columns, 20px between rows. Columns
-  follow the page column's width (`@container/panel`, like `PageGrid`): 3 is
+  follow the page column's width (`@container/panel`): 3 is
   one, two from 400px, three from 640px; 4 is two, three from 400px, four from
   640px (at 768px: 248px and 183px tiles).
 - **Tile**: `ratio` `16:9`, `4:5` (default) or `1:1`; `bg-card` (one layer step
@@ -1869,11 +1918,58 @@ place an action asks first: Delete, always. shadcn's destructive example as
 is: the bin on a red-tinted tile, then copy as plain as a toast's: a short
 question naming what it is, not which ("Delete file?", "Delete account?"),
 and one line ("This can't be undone."); Cancel and the action, red when it
-destroys. The work runs inside it: the action keeps its label and gains a
-spinner (shadcn's button spinner) while both buttons wait, then the dialog
+destroys. The work runs inside it: the action is `loading` (keeps its label) while both buttons wait, then the dialog
 closes and the toast says it is done ("“Fix plan” deleted"); a failure stays
 open and says "Something went wrong. Try again.". A plain darker overlay, no
 blur, like the dialog's.
+
+**Forms** (TanStack Form, shadcn's pattern: <https://ui.shadcn.com/docs/forms/tanstack-form>).
+One pattern for every form we build; copy `components/ui/rename-dialog.tsx`.
+
+- **What is a form.** A dialog or screen with fields and an explicit Cancel / Submit
+  (New project, New task, New link, Invite member, Rename). Autosaved fields (the task
+  title, a document, a setting that saves as you go) are never forms: they stay
+  `useAutosave` (see Autosave). The comment composer and the chat input are send boxes,
+  not forms.
+- **Shape.** `useForm({ defaultValues, validators: { onBlur: schema, onSubmit: schema },
+  onSubmit })` with a `zod` schema (zod is installed; never a second validator), one
+  `<form.Field name>` per field whose render prop sets `isInvalid =
+  field.state.meta.isTouched && !field.state.meta.isValid` (a blur validates the whole
+  schema, so the gate keeps a field you have not visited quiet), then `<Field data-invalid={isInvalid}>`, `FieldLabel`, the
+  control with `aria-invalid={isInvalid}`, `onBlur={field.handleBlur}` and
+  `onChange={(e) => field.handleChange(...)}`, and `{isInvalid && <FieldError
+  errors={field.state.meta.errors} />}`. The `<form>` is `noValidate` (our messages, never
+  the browser's bubbles), its `onSubmit` is `submitForm(event, form)` (`@/lib/form`:
+  prevent default, submit, focus the first `aria-invalid` field when refused), and
+  Enter submits natively. A dialog's form is mounted only while open, so the fields
+  start from `defaultValues` each time; the dialog's form lives in its own component.
+- **Validation.** Schema messages are i18n strings (`common.required`, `common.tooLong`
+  with `{{max}}`, or the field's own); limits are imported from the domain's `limits.ts`
+  (`@otto/shared/projects/limits`, `@otto/shared/tasks/limits`), never retyped, and a
+  limit is enforced by the schema, not `maxLength` (typing past it shows the message;
+  a dialog's `Textarea` has `max-h-48` so a long value scrolls). Validation runs on blur
+  and on submit, never on change (no `onChange` validator): typing never shows or
+  triggers an error, an error already shown stays until the next blur or submit, and
+  nothing shows on open. Fields
+  that depend on another (a link's kind) add their issues in `superRefine`, only for
+  what is shown, so a hidden field never blocks submit.
+- **Submit.** `form.Subscribe` selects `isSubmitting` for the footer: Cancel and the primary
+  button are disabled and the primary is `<Button loading>` (spinner, the label
+  unchanged: Buttons, rule 6) while `onSubmit` runs. The primary
+  is not disabled for an invalid form (a field not yet blurred has a hidden error that would
+  disable it with no visible reason): submitting shows the errors and focuses the first
+  invalid field. The dialog closes and the toast says it is done from `onSubmit`, as
+  before; a failure keeps it open with what was typed.
+- **Server errors.** A failure that names a field goes on it: `formApi.setErrorMap({
+  onSubmit: { fields: { email: { message } } } })` with the message mapped from
+  `error.code` (Invite member: `invalid`, `conflict`); it clears when the value
+  changes. A failure about the whole action stays the toast it was (Create task:
+  `tasks.errorUnknown`).
+- **Fields.** 32px `Input`, `NativeSelect` and `Textarea` take the invalid state of
+  Focus (red border and fill, no ring); the label of an invalid `Field` turns
+  destructive and `FieldError` is `text-sm` destructive 12px below the control. A
+  placeholder-only field (Rename, Invite member) has `aria-label` instead of a
+  `FieldLabel`.
 
 **Toasts** (stock shadcn `Toaster` and the one `toast` in
 `@workspace/ui/components/sonner`; never import from `sonner` itself, so the
@@ -1950,7 +2046,8 @@ drive:
   folder's id opens the folder.
 
 **Live data states.** Server reads use the shared skeleton (three full-width 40px rows, no
-extra padding so they align with the page title) and inline error with Retry; unavailable controls explain the missing capability and never
+extra padding so they align with the page title; a list in a `PageWrap` shows three
+`ListRowSkeleton`s in it instead) and inline error with Retry; unavailable controls explain the missing capability and never
 show success. The authentication boundary uses the stock Field/Input/Button
 composition. Workspace switching clears prior workspace data and opens Inbox.
 Account forms use a centered 336px column, 24px side padding and 64px vertical
@@ -1972,17 +2069,24 @@ password fields are an `InputGroup` with a nested 28px `icon-compact` ghost eye
 button 2px in that shows or hides the value. Then one `text-xs` line 8px below the
 fields, the full-width 32px primary button 12px below, and, for an invitation, a
 full-width ghost button 8px under it. Enter submits, the first empty field takes
-focus, the button is disabled with its pending label ("Signing in…") while the
+focus, the button is `loading` (disabled, spinner, "Sign in" unchanged) while the
 request runs. A failure marks the fields it is about with the invalid state above and
 puts the message in that `text-xs` line in `destructive`; while creating a password
 the same line, muted, says it needs at least 12 characters. Messages are human per
-error code (wrong email or password, account exists, setup token, invitation needed
-or used up, too many attempts, server unreachable). One page, three modes:
+error code (wrong email or password, account exists, owner email only, invitation needed
+or used up, too many attempts, server unreachable). It is the TanStack form of **Forms**
+(`noValidate`, each field validated on blur and on submit, never while typing; the first
+invalid field takes focus; the button is `loading`, its label unchanged), and the
+one `text-xs` line shows the first error in the order the fields are shown, so an empty
+submit marks every field and says "This field is required." once. A field marked by the
+server clears when its value changes. One page, three modes:
 
 - **Sign in** ("Sign in", "Pick up where you and your agents left off."): email,
   password.
 - **Create the owner account** (only while the server has no user, `GET /api/setup`):
-  name, email, password, setup token (the server token, a password field).
+  name, email, password (no token: the first sign-up wins, or only `OTTO_OWNER_EMAIL`
+  may make it). Subtitle: "Create the first account to own this {{product}} server,
+  then invite your team."
 - **Join your team** (`?invite=<id>&email=<email>`, the owner's invitation link):
   the email shown read-only, name, password; "Sign in instead" switches to sign-in
   for that email ("Sign in to accept your invitation.") and back. Either way the
@@ -1991,14 +2095,37 @@ or used up, too many attempts, server unreachable). One page, three modes:
 Success is a full page load of `?next=` (a same-origin path, never `//` or the
 login page, else `/`), so the app starts with the session cookie.
 
-**Onboarding and workspace screens** (`StepFormLayout`: connection setup,
+**First-run setup** (`FirstRunSetup`, `components/first-run/`) renders at the app
+root instead of the shell, like the sign-in and not-found pages (no sidebar), and only
+to someone who can act on it (`getFirstRunStep`). Two steps at most, no step
+indicator, no welcome or "all set" screen:
+
+- **Name your workspace** ("One place for your projects, tasks and files, shared
+  with the people you invite."): only when the person belongs to no workspace (a
+  fresh server's first owner). One placeholder-only 32px `Input`, filled with
+  "{first name}'s workspace", then the full-width primary "Create workspace" 12px
+  below; a TanStack form (empty is "This field is required." under the field), a
+  failure toasts. It calls `server:createWorkspace` (a folder under the server's
+  workspaces directory; the creator becomes its owner, with the mirror row). On the
+  web the app then reloads, so the socket connects with the new workspace.
+- **Connect an AI provider** ("Your agents run on it. Sign in with a subscription,
+  or use an API key or a local model."): only for an owner of the workspace while no
+  connection is usable and nobody skipped. It is the connection wizard Settings → AI
+  uses (provider list, sign-in, API key, local model; Git Bash first on Windows),
+  plus "Skip for now", which sets `setupDeferred` for the whole server. A saved and
+  tested connection opens the app at once.
+
+An invited member always has the workspace they joined and is not its owner, so
+they never see either step.
+
+**Onboarding and workspace screens** (`StepFormLayout`: first-run setup, connection setup,
 Select Workspace, add workspace) use the same header and the plain page layer:
 `bg-background` with `text-foreground`, no card, gradient, dither or other
 ambient backdrop, in light and dark. The block is a left-aligned column of the
 step's own width (28rem), centered in the window, header aligned with the
 content's left edge: icon tile, 20px, title, 4px, muted description, 32px, the
 content (a `SettingsCard` or form), then actions. Full-width buttons under the
-content stack main action first; a secondary action such as "Setup later" stays
+content stack main action first; a secondary action such as "Skip for now" stays
 a full-width muted ghost button directly under the card (`mt-2`). The splash is not that tile: it shows the
 mark debossed, pressed into the page and lit from the top left (never colored),
 40px wide, centered on the page layer. The glyph is the recess floor: the
@@ -2015,8 +2142,7 @@ with the same values, so loader and splash are pixel-identical: an inline script
 in both `<head>`s applies the saved theme class (`otto-theme`, else the OS
 scheme) before first paint, the loader fades the mark in (300ms ease-out) and
 the splash continues that fade on the same clock if it mounts mid-fade, then
-fades the mark out with a 1.04 scale (no scale with reduced motion). The completion step swaps the tile for a
-spinner while saving. Error and success lines under the content are `text-xs`,
+fades the mark out with a 1.04 scale (no scale with reduced motion). Error and success lines under the content are `text-xs`,
 flush with the content's left edge (no extra padding), like the sign-in error.
 A control that opens something outside the app ends with ArrowUpRight (trailing,
 14px); never ExternalLink, never leading. In a menu item it sits at the right edge

@@ -137,11 +137,12 @@ function Info_PageHero({ avatar, title, tagline, className }: Info_PageHeroProps
 }
 
 // The page's column: the header's title row first, then the content, scrolling
-// as a whole (the title scrolls away with it).
+// as a whole (the title scrolls away with it). Skills and Sources live in Settings,
+// so their pages take its roomy column (`padded`).
 function Info_PageContent({ children, className }: Info_PageContentProps) {
   return (
-    <PageColumn>
-      <div data-content-start="" className={cn('space-y-6', className)}>{children}</div>
+    <PageColumn padded>
+      <div data-content-start="" className={cn('space-y-10', className)}>{children}</div>
     </PageColumn>
   )
 }

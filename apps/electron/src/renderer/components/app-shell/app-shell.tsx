@@ -32,6 +32,9 @@ import {
   isLibraryNavigation,
   isTasksNavigation,
   isInboxNavigation,
+  isSettingsNavigation,
+  isSkillsNavigation,
+  isSourcesNavigation,
 } from "@/contexts/navigation-context"
 import { useAutomations } from "@/hooks/use-automations"
 import { useRecordRecent } from "@/hooks/use-recents"
@@ -584,9 +587,20 @@ function AppShellContent({
     navigate(routes.view.library())
   }, [])
 
-  // Handler for settings view: the Settings index.
+  // Handler for settings view: Settings opens on General (it has no index).
   const handleSettingsClick = useCallback(() => {
     navigate(routes.view.settings())
+  }, [])
+
+  // Settings (its pages, Skills and Sources) has its own sidebar, whose Back to app returns to
+  // the last view outside it (Chats when Settings was the first view opened).
+  const inSettings = isSettingsNavigation(navState) || isSkillsNavigation(navState) || isSourcesNavigation(navState)
+  const lastAppRouteRef = useRef<Route>(routes.view.allSessions())
+  useEffect(() => {
+    if (!inSettings) lastAppRouteRef.current = buildRouteFromNavigationState(navState) as Route
+  }, [inSettings, navState])
+  const handleBackToApp = useCallback(() => {
+    navigate(lastAppRouteRef.current)
   }, [])
 
   // Respond to menu bar "New Chat" trigger
@@ -629,6 +643,8 @@ function AppShellContent({
           onRoutines={handleAutomationsClick}
           onLibrary={handleLibraryClick}
           onSettings={handleSettingsClick}
+          settings={inSettings}
+          onBackToApp={handleBackToApp}
           onBack={goBack}
           onForward={goForward}
           canGoBack={canGoBack}

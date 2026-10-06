@@ -20,7 +20,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@otto/ui'
 import { SettingsSecretInput } from '@/components/settings'
 
 interface LarkConnectDialogProps {
@@ -171,9 +170,9 @@ export function LarkConnectDialog({
               variant="outline"
               size="compact"
               onClick={handleTest}
-              disabled={!ready || test.state === 'testing' || saving}
+              disabled={!ready || saving}
+              loading={test.state === 'testing'}
             >
-              {test.state === 'testing' && <Spinner className="mr-1 text-[14px]" />}
               {t('settings.messaging.lark.testConnection')}
             </Button>
 
@@ -200,9 +199,9 @@ export function LarkConnectDialog({
             variant="outline"
             size="compact"
             onClick={handleSave}
-            disabled={!ready || test.state !== 'success' || saving}
+            disabled={!ready || test.state !== 'success'}
+            loading={saving}
           >
-            {saving && <Spinner className="mr-1 text-[14px]" />}
             {t('settings.messaging.lark.save')}
           </Button>
         </DialogFooter>

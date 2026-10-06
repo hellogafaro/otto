@@ -355,8 +355,8 @@ export function SidebarPinsRecents({ sessionStatuses }: { sessionStatuses: Sessi
     sendToWorkspace: id => setSendToWorkspace([id]),
     remove: toasted.handleDeleteWithToast,
   }
-  const submitRename = () => {
-    if (renaming?.name.trim()) onRenameSession(renaming.id, renaming.name.trim())
+  const submitRename = (name: string) => {
+    if (renaming) onRenameSession(renaming.id, name)
     setRenaming(null)
   }
   const isWaiting = (item: ResolvedItem) =>
@@ -410,8 +410,7 @@ export function SidebarPinsRecents({ sessionStatuses }: { sessionStatuses: Sessi
         open={renaming !== null}
         onOpenChange={open => { if (!open) setRenaming(null) }}
         title={t('session.renameSession')}
-        value={renaming?.name ?? ''}
-        onValueChange={name => setRenaming(r => (r ? { ...r, name } : r))}
+        defaultValue={renaming?.name ?? ''}
         onSubmit={submitRename}
         placeholder={t('session.enterSessionName')}
       />

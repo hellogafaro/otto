@@ -16,7 +16,7 @@
  */
 
 import * as React from 'react'
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -34,7 +34,6 @@ import {
   Settings2,
   Trash2,
 } from 'lucide-react'
-import { PageColumn } from '@workspace/ui/components/page'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -108,9 +107,7 @@ export default function MessagingSettingsPage() {
   if (!activeWorkspace) return null
 
   return (
-    <div className="flex h-full flex-col">
-      <SettingsPageHeader subpage="messaging" />
-      <PageColumn>
+    <SettingsPage subpage="messaging">
           <SettingsSection title={t('settings.messaging.title')}>
             <SettingsCard>
               <PlatformRow platform="telegram" workspaceId={activeWorkspace.id} />
@@ -122,8 +119,7 @@ export default function MessagingSettingsPage() {
               <PlatformRow platform="lark" workspaceId={activeWorkspace.id} />
             </SettingsCard>
           </SettingsSection>
-      </PageColumn>
-    </div>
+    </SettingsPage>
   )
 }
 

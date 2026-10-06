@@ -12,7 +12,7 @@
  * | `allSessions[/session/id]`        | `/{ws}/chats[/id]`                         |
  * | `allSessions[/session/id]?status=a&status=b&label=c&flagged=1&archived=1` | `/{ws}/chats[/id]?status=a&status=b&label=c&flagged=1&archived=1` (the same query) |
  * | `view/{id}[/session/id]`          | `/{ws}/chats[/id]?view={id}`               |
- * | `settings[/page]`                 | `/{ws}/settings[/page]`                    |
+ * | `settings/page`                   | `/{ws}/settings/page` (`/{ws}/settings` is General) |
  * | `projects[/project/id][?tab=&status=archived]` | `/{ws}/projects[/id][?tab=&status=archived]` (the same query) |
  * | `tasks[/task/id][?project=&assignee=&status=&archived=1]` | `/{ws}/tasks[/id]` with the same query |
  * | `automations[/{type}][/automation/id]` | `/{ws}/routines[/id][?type=]`         |
@@ -36,7 +36,7 @@ import {
   type ChatFilters,
 } from '../../shared/chat-filters'
 import { buildRouteFromNavigationState, parseRouteToNavigationState } from '../../shared/route-parser'
-import { isValidSettingsSubpage } from '../../shared/settings-registry'
+import { DEFAULT_SETTINGS_SUBPAGE, isValidSettingsSubpage } from '../../shared/settings-registry'
 import {
   normalizeInboxSearch,
   normalizeLibrarySearch,
@@ -141,7 +141,7 @@ function stateToLocation(state: NavigationState, ws: string): AppLocation {
         search: chatsSearch(state.filter, state.filters ?? chatFiltersFromSessionFilter(state.filter)),
       }
     case 'settings':
-      return { pathname: `${base}/settings${state.subpage ? `/${state.subpage}` : ''}`, search: {} }
+      return { pathname: `${base}/settings/${state.subpage}`, search: {} }
     case 'sources':
       return {
         pathname: `${base}/sources${state.details ? `/${enc(state.details.sourceSlug)}` : ''}`,
@@ -209,7 +209,8 @@ function stateFromLocation(section: string, id: string | undefined, search: Reco
     case 'chats':
       return chatsStateFromSearch(search, id)
     case 'settings':
-      if (id === undefined) return { navigator: 'settings', subpage: null }
+      // `/{ws}/settings` is General (the route tree redirects it there)
+      if (id === undefined) return { navigator: 'settings', subpage: DEFAULT_SETTINGS_SUBPAGE }
       return isValidSettingsSubpage(id) ? { navigator: 'settings', subpage: id } : null
     case 'sources': {
       const type = validateSourcesSearch(search).type

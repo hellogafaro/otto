@@ -2,18 +2,21 @@
  * LoginPage - `/login`, the web app's sign-in, outside the app (no shell, no WebSocket). One page,
  * three modes: sign in; "Create the owner account" while the server has no user (`GET /api/setup`);
  * and an invitation link (`?invite=<id>&email=<email>`), which creates the account (or signs in)
- * for that email and accepts the invitation. Success is a full page load to `?next=` (a safe
+ * for that email and accepts the invitation. The form is the TanStack form of DESIGN.md (Forms). Success is a full page load to `?next=` (a safe
  * same-origin path) so the app starts with the session cookie.
  */
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { useForm } from '@tanstack/react-form'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Field, FieldError, FieldGroup } from '@workspace/ui/components/field'
 import { InputGroup, InputGroupInput } from '@workspace/ui/components/input-group'
 import { OttoAppIcon } from '@/components/icons/otto-app-icon'
-import { loginError, MIN_PASSWORD_LENGTH, safeNextPath, type LoginField } from './login-rules'
+import { submitForm } from '@/lib/form'
+import { loginError, loginFields, MIN_PASSWORD_LENGTH, safeNextPath, type LoginField } from './login-rules'
 
 type Mode = 'signIn' | 'owner' | 'join'
 
@@ -67,9 +70,6 @@ export function LoginPage() {
   })
   // An invitation link is never the first run; otherwise the server says whether an owner is needed.
   const [mode, setMode] = useState<Mode | null>(invitationId ? 'join' : null)
-  const [values, setValues] = useState({ name: '', email: invitationId ? invitedEmail : '', password: '', setupToken: '' })
-  const [error, setError] = useState<{ message: string; fields: LoginField[] } | null>(null)
-  const [pending, setPending] = useState(false)
 
   useEffect(() => {
     if (mode) return
@@ -82,98 +82,141 @@ export function LoginPage() {
   if (!mode) return <div className="h-full bg-background" />
 
   const creating = mode !== 'signIn'
-  const field = (name: LoginField) => ({
-    name,
-    value: values[name],
-    onChange: (event: React.ChangeEvent<HTMLInputElement>) => setValues({ ...values, [name]: event.target.value }),
-    'aria-invalid': error?.fields.includes(name) || undefined,
-    required: true,
-  })
-
-  const switchMode = (to: Mode) => {
-    setError(null)
-    setMode(to)
-  }
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    if (creating && values.password.length < MIN_PASSWORD_LENGTH) {
-      setError({ message: t('login.error.passwordTooShort', { min: MIN_PASSWORD_LENGTH }), fields: ['password'] })
-      return
-    }
-    setError(null)
-    setPending(true)
-    const email = values.email.trim()
-    try {
-      if (mode === 'signIn') await post('/api/auth/sign-in/email', { email, password: values.password })
-      else await post('/api/auth/sign-up/email', {
-        name: values.name.trim(),
-        email,
-        password: values.password,
-        ...(mode === 'owner' && { setupToken: values.setupToken.trim() }),
-      })
-      if (invitationId) await post('/api/auth/organization/accept-invitation', { invitationId })
-      window.location.assign(next)
-    } catch (err) {
-      const { key, fields } = err instanceof AuthError ? loginError(err.code, err.status) : { key: 'login.error.network', fields: [] }
-      setError({ message: t(key, { min: MIN_PASSWORD_LENGTH }), fields })
-      setPending(false)
-    }
-  }
-
   // `login.signIn.*`, `login.owner.*`, `login.join.*`; signing in from an invitation says it accepts it
-  const copy = (key: 'title' | 'subtitle' | 'submit' | 'pending') =>
-    t(key === 'subtitle' && mode === 'signIn' && invitationId ? 'login.signIn.inviteSubtitle' : `login.${mode}.${key}`)
-  const nameInput = creating && <Input {...field('name')} autoComplete="name" autoFocus placeholder={t('login.name')} aria-label={t('login.name')} />
+  const subtitle = t(mode === 'signIn' && invitationId ? 'login.signIn.inviteSubtitle' : `login.${mode}.subtitle`)
 
   return (
     <div className="h-full overflow-y-auto bg-background text-foreground">
       <div className="flex min-h-full items-center justify-center p-6">
         <main className="w-full max-w-[21rem]">
           <OttoAppIcon className="mb-5" />
-          <h1 className="text-base font-medium">{copy('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{copy('subtitle')}</p>
-
-          {/* Keyed by mode so switching remounts it and the first field takes focus */}
-          <form key={mode} className="mt-5" onSubmit={submit}>
-            <div className="flex flex-col gap-2">
-              {/* An invitation's email is fixed (shown, not editable) and comes before the name */}
-              {!invitationId && nameInput}
-              <Input
-                {...field('email')}
-                type="email"
-                autoComplete="username"
-                readOnly={Boolean(invitationId)}
-                autoFocus={!creating && !invitationId}
-                placeholder={t('login.email')}
-                aria-label={t('login.email')}
-              />
-              {invitationId && nameInput}
-              <PasswordInput
-                {...field('password')}
-                autoComplete={creating ? 'new-password' : 'current-password'}
-                autoFocus={Boolean(invitationId) && !creating}
-                label={t('login.password')}
-              />
-              {mode === 'owner' && <PasswordInput {...field('setupToken')} autoComplete="off" label={t('login.setupToken')} />}
-            </div>
-            {/* The error, or while creating a password the length it needs, in the same line under the fields */}
-            {error ? (
-              <p role="alert" className="mt-2 text-xs text-destructive">{error.message}</p>
-            ) : creating && (
-              <p className="mt-2 text-xs text-muted-foreground">{t('login.passwordHint', { min: MIN_PASSWORD_LENGTH })}</p>
-            )}
-            <Button type="submit" className="mt-3 w-full" disabled={pending}>
-              {copy(pending ? 'pending' : 'submit')}
-            </Button>
+          <h1 className="text-base font-medium">{t(`login.${mode}.title`)}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+          {/* Keyed by mode so switching remounts the form: fresh fields, and the first takes focus */}
+          <LoginForm key={mode} mode={mode} invitationId={invitationId} email={invitedEmail} next={next}>
             {invitationId && (
-              <Button type="button" variant="ghost" className="mt-2 w-full" onClick={() => switchMode(creating ? 'signIn' : 'join')}>
+              <Button type="button" variant="ghost" className="mt-2 w-full" onClick={() => setMode(creating ? 'signIn' : 'join')}>
                 {t(creating ? 'login.signInInstead' : 'login.createAccountInstead')}
               </Button>
             )}
-          </form>
+          </LoginForm>
         </main>
       </div>
     </div>
+  )
+}
+
+function LoginForm({ mode, invitationId, email, next, children }: { mode: Mode; invitationId: string | null; email: string; next: string; children: ReactNode }) {
+  const { t } = useTranslation()
+  const creating = mode !== 'signIn'
+  const min = MIN_PASSWORD_LENGTH
+  // An invitation's email is fixed (shown, not editable) and comes before the name.
+  const order: LoginField[] = invitationId ? ['email', 'name', 'password'] : ['name', 'email', 'password']
+  const rules = loginFields(creating, {
+    required: t('common.required'),
+    invalidEmail: t('login.error.invalidEmail'),
+    passwordTooShort: t('login.error.passwordTooShort', { min }),
+  })
+  const form = useForm({
+    defaultValues: { name: '', email: invitationId ? email : '', password: '' },
+    validators: {
+      // The request is the last validation: the server's refusal marks the fields it is about and the form (the
+      // message shows once, under the fields). It reruns on every submit, so it clears itself; typing clears a field's.
+      onSubmitAsync: async ({ value }) => {
+        const body = { email: value.email.trim(), password: value.password }
+        try {
+          if (mode === 'signIn') await post('/api/auth/sign-in/email', body)
+          else await post('/api/auth/sign-up/email', { ...body, name: value.name.trim() })
+          if (invitationId) await post('/api/auth/organization/accept-invitation', { invitationId })
+        } catch (err) {
+          const { key, fields } = err instanceof AuthError ? loginError(err.code, err.status) : { key: 'login.error.network', fields: [] }
+          const error = { message: t(key, { min }) }
+          return { form: error.message, fields: Object.fromEntries(fields.map((name) => [name, error])) }
+        }
+      },
+    },
+    onSubmit: async () => {
+      window.location.assign(next)
+      // Stay pending until the page unloads.
+      await new Promise(() => {})
+    },
+  })
+
+  // One control of the form, in the column's fields. Each field validates itself on blur (and the submit runs them
+  // all), never while typing; its error shows as soon as it has one.
+  const field = (name: LoginField, control: (props: Record<string, unknown>) => ReactNode) => (
+    <form.Field name={name} validators={{ onBlur: rules[name] }}>
+      {(f) => {
+        const isInvalid = !f.state.meta.isValid
+        return (
+          <Field data-invalid={isInvalid}>
+            {control({
+              id: f.name,
+              name: f.name,
+              value: f.state.value,
+              'aria-invalid': isInvalid,
+              // A server error stays until the value changes: leaving a field (the submit focuses the first invalid one) must not clear another's.
+              onBlur: () => !f.state.meta.errorMap.onSubmit && f.handleBlur(),
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) => f.handleChange(event.target.value),
+            })}
+          </Field>
+        )
+      }}
+    </form.Field>
+  )
+  const nameInput = creating && field('name', (props) => <Input {...props} autoComplete="name" autoFocus placeholder={t('login.name')} aria-label={t('login.name')} />)
+
+  return (
+    <form noValidate className="mt-5" onSubmit={(event) => submitForm(event, form)}>
+      <FieldGroup className="gap-2">
+        {!invitationId && nameInput}
+        {field('email', (props) => (
+          <Input
+            {...props}
+            type="email"
+            autoComplete="username"
+            readOnly={Boolean(invitationId)}
+            autoFocus={!creating && !invitationId}
+            placeholder={t('login.email')}
+            aria-label={t('login.email')}
+          />
+        ))}
+        {invitationId && nameInput}
+        {field('password', (props) => (
+          <PasswordInput
+            {...props}
+            autoComplete={creating ? 'new-password' : 'current-password'}
+            autoFocus={Boolean(invitationId) && !creating}
+            label={t('login.password')}
+          />
+        ))}
+      </FieldGroup>
+      {/* The first error (a field's, in the order shown, or the whole form's), or while creating a password the length it needs, in the same line under the fields */}
+      <form.Subscribe
+        selector={(state) => {
+          for (const name of order) {
+            const meta = state.fieldMeta[name]
+            if (meta && !meta.isValid) return (meta.errors[0] as { message?: string } | undefined)?.message
+          }
+          return state.errors.find((error) => typeof error === 'string') as string | undefined
+        }}
+      >
+        {(message) =>
+          message ? (
+            <FieldError className="mt-2 text-xs">{message}</FieldError>
+          ) : creating && (
+            <p className="mt-2 text-xs text-muted-foreground">{t('login.passwordHint', { min })}</p>
+          )
+        }
+      </form.Subscribe>
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(isSubmitting) => (
+          <Button type="submit" className="mt-3 w-full" loading={isSubmitting}>
+            {t(`login.${mode}.submit`)}
+          </Button>
+        )}
+      </form.Subscribe>
+      {children}
+    </form>
   )
 }

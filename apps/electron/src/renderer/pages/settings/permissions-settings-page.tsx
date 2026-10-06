@@ -9,10 +9,9 @@
  * Custom patterns can be edited via workspace permissions.json file.
  */
 
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PageColumn } from '@workspace/ui/components/page'
 import { Spinner } from '@otto/ui'
 import { useAppShellContext, useActiveWorkspace } from '@/context/app-shell-context'
 import { type PermissionsConfigFile } from '@otto/shared/agent/modes'
@@ -199,9 +198,7 @@ export default function PermissionsSettingsPage() {
   }, [])
 
   return (
-    <div className="h-full flex flex-col">
-      <SettingsPageHeader subpage="permissions" />
-      <PageColumn>
+    <SettingsPage subpage="permissions">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Spinner className="text-lg text-muted-foreground" />
@@ -302,7 +299,6 @@ export default function PermissionsSettingsPage() {
                   </SettingsSection>
                 </>
               )}
-            </PageColumn>
-    </div>
+    </SettingsPage>
   )
 }

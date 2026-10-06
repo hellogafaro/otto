@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Bell, Check, ChevronDown, Folder, Info, MessagesSquare, Plus, Search, Settings, Trash2 } from 'lucide-react'
+import { Bell, Check, ChevronDown, Folder, Info, MessagesSquare, Plus, Search, Trash2 } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { Command, CommandGroup, CommandItem, CommandList } from '@workspace/ui/components/command'
@@ -16,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from '@workspace/ui/components/dropdown-menu'
 import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
-import { GridCard } from '@workspace/ui/components/grid-card'
 import { Input } from '@workspace/ui/components/input'
 import { ListGroup, ListRow } from '@workspace/ui/components/list-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
@@ -355,34 +354,11 @@ function Segmented() {
 function SettingsStates() {
   return (
     <div className="flex flex-col gap-3">
-      <Cell label="GridCard: rest | hover | focus-visible (no current state exists)" className="w-full">
-        <div className="grid w-full grid-cols-3 gap-3">
-          <GridCard icon={<Settings />} title="Rest" />
-          <GridCard icon={<Settings />} title="Hover" {...force('hover')} />
-          <GridCard icon={<Settings />} title="Focus" {...force('focus-visible')} />
-        </div>
-      </Cell>
       <Cell label="SettingsRow (button): rest | hover (muted/70)" className="w-full">
         <div className="card-surface w-full overflow-hidden rounded-xl bg-card">
           <SettingsRow label="Row rest" onClick={() => {}} />
           <div className="h-px bg-[var(--card-divider)]" />
           <ForceIn f="hover"><SettingsRow label="Row hover" onClick={() => {}} /></ForceIn>
-        </div>
-      </Cell>
-      <Cell label="Settings index row (replica of settings-index-page.tsx:33): rest | hover" className="w-full">
-        <div className="card-surface w-full overflow-hidden rounded-xl bg-card">
-          {(['rest', 'hover'] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              {...force(s === 'hover' ? 'hover' : undefined)}
-              className="group/row flex h-11 w-full items-center gap-2 px-4 text-left text-sm text-muted-foreground outline-none transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:bg-foreground/5 focus-visible:text-foreground"
-            >
-              <span className="flex size-5 shrink-0 items-center justify-center"><Settings className="size-3.5" /></span>
-              <span className="min-w-0 flex-1 truncate text-foreground">Index row {s}</span>
-              <ChevronDown className="size-3.5 -rotate-90" />
-            </button>
-          ))}
         </div>
       </Cell>
     </div>
@@ -542,7 +518,7 @@ function Panel({ mode }: { mode: 'light' | 'dark' }) {
       <Section title="Tabs, toggles, segmented controls (on a card)">
         <OnCard><Segmented /></OnCard>
       </Section>
-      <Section title="Settings (grid card, rows, radio) on the frame">
+      <Section title="Settings (rows, radio) on the frame">
         <OnFrame><SettingsStates /></OnFrame>
       </Section>
       <Section title="Composer chips (on the composer card)">

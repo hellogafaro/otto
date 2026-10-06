@@ -19,7 +19,6 @@ import {
   AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog'
 import { toast } from '@workspace/ui/components/sonner'
-import { Spinner } from '@workspace/ui/components/spinner'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { useLibrary } from '@/hooks/use-library'
 import { routes } from '@/lib/navigate'
@@ -51,9 +50,9 @@ export function useLibraryItemDialogs() {
   const [deletePending, setDeletePending] = React.useState(false)
   const [deleteFailed, setDeleteFailed] = React.useState(false)
 
-  const submitRename = async () => {
+  const submitRename = async (name: string) => {
     if (!renaming) return
-    const { item, name } = renaming
+    const { item } = renaming
     setRenaming(null)
     const title = toStoredTitle(item, name)
     if (title === item.title) return
@@ -91,8 +90,7 @@ export function useLibraryItemDialogs() {
         open={renaming !== null}
         onOpenChange={(open) => { if (!open) setRenaming(null) }}
         title={t('common.rename')}
-        value={renaming?.name ?? ''}
-        onValueChange={(name) => setRenaming((current) => (current ? { ...current, name } : current))}
+        defaultValue={renaming?.name ?? ''}
         onSubmit={submitRename}
         placeholder={t('library.titlePlaceholder')}
       />
@@ -108,8 +106,7 @@ export function useLibraryItemDialogs() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletePending}>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" disabled={deletePending} onClick={confirmDelete}>
-              {deletePending && <Spinner />}
+            <AlertDialogAction variant="destructive" loading={deletePending} onClick={confirmDelete}>
               {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>

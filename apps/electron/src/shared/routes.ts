@@ -15,7 +15,7 @@
  *   navigate(routes.view.settings('shortcuts'))
  */
 
-import type { SettingsSubpage } from './settings-registry'
+import { DEFAULT_SETTINGS_SUBPAGE, type SettingsSubpage } from './settings-registry'
 import type { PermissionMode } from '@otto/shared/agent/mode-types'
 import { chatFiltersToQuery, normalizeChatFilters, type ChatFiltersInput } from './chat-filters'
 import { stringifySearch, type InboxSearch, type LibrarySearch, type ProjectsSearch, type TasksSearch } from './section-search'
@@ -186,11 +186,8 @@ export const routes = {
       return base as 'automations' | `automations/${'scheduled' | 'event' | 'agentic'}`
     },
 
-    /** Settings view (settings navigator) - uses SettingsSubpage from registry */
-    settings: (subpage?: SettingsSubpage) =>
-      subpage
-        ? `settings/${subpage}` as const
-        : 'settings' as const,
+    /** A settings page; Settings has no index, so no page means General (the registry's first). */
+    settings: (subpage: SettingsSubpage = DEFAULT_SETTINGS_SUBPAGE) => `settings/${subpage}` as const,
 
     /** Projects view (projects navigator): the index (`status: 'archived'`), or `projectId` open on a `tab`. */
     projects: ({ projectId, ...search }: { projectId?: string } & ProjectsSearch = {}) =>

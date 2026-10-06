@@ -34,3 +34,9 @@ export function resolveConfigDir(env: NodeJS.ProcessEnv = process.env, home: str
 }
 
 export const CONFIG_DIR = resolveConfigDir();
+
+// bun test sets NODE_ENV=test. The preload (scripts/test-preload.ts) gives tests a temp dir, but it is
+// found only when bun starts at the repository root; refuse the real home dir instead of writing to it.
+if (process.env.NODE_ENV === 'test' && CONFIG_DIR === resolveConfigDir({}, homedir())) {
+  throw new Error(`Refusing to run tests against ${CONFIG_DIR}: set OTTO_CONFIG_DIR, or run bun test from the repository root.`);
+}

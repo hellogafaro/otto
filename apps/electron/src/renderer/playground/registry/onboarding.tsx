@@ -1,24 +1,16 @@
 import type { ComponentEntry } from './types'
-import { OnboardingFlowDemo } from '../demos/onboarding-flow-demo'
 import { ProviderSelectStep } from '@/components/onboarding/provider-select-step'
-import { WelcomeStep } from '@/components/onboarding/welcome-step'
-import { APISetupStep } from '@/components/onboarding/api-setup-step'
 import { CredentialsStep } from '@/components/onboarding/credentials-step'
-import { CompletionStep } from '@/components/onboarding/completion-step'
 import { GitBashWarning, type GitBashStatus } from '@/components/onboarding/git-bash-warning'
 import { OnboardingWizard } from '@/components/onboarding/onboarding-wizard'
 import type { OnboardingState } from '@/components/onboarding/onboarding-wizard'
 
 const createOnboardingState = (overrides: Partial<OnboardingState> = {}): OnboardingState => ({
-  step: 'welcome',
-  loginStatus: 'idle',
+  step: 'provider-select',
   credentialStatus: 'idle',
-  completionStatus: 'complete',
   apiSetupMethod: null,
-  isExistingUser: false,
   gitBashStatus: { found: false, path: null, platform: 'win32' },
   isRecheckingGitBash: false,
-  isCheckingGitBash: false,
   ...overrides,
 })
 
@@ -26,107 +18,16 @@ const noopHandler = () => console.log('[Playground] Action triggered')
 
 export const onboardingComponents: ComponentEntry[] = [
   {
-    id: 'onboarding-flow-demo',
-    name: 'Onboarding Flow (Interactive)',
-    category: 'Onboarding',
-    description: 'Click through the full onboarding: Welcome → Provider → Credentials → Done',
-    component: OnboardingFlowDemo,
-    props: [],
-    variants: [],
-    layout: 'full',
-  },
-  {
     id: 'provider-select-step',
     name: 'ProviderSelectStep',
     category: 'Onboarding',
-    description: 'First-launch screen — pick your subscription or API key',
+    description: 'Connect an AI provider: pick your subscription or API key (first run and Settings)',
     component: ProviderSelectStep,
     props: [],
     variants: [],
     mockData: () => ({
       onSelect: (choice: string) => console.log('[Playground] Provider selected:', choice),
       onSkip: () => console.log('[Playground] Setup deferred'),
-    }),
-  },
-  {
-    id: 'welcome-step',
-    name: 'WelcomeStep',
-    category: 'Onboarding',
-    description: 'Initial welcome screen with feature overview',
-    component: WelcomeStep,
-    props: [
-      {
-        name: 'isExistingUser',
-        description: 'Show update settings message instead of welcome',
-        control: { type: 'boolean' },
-        defaultValue: false,
-      },
-      {
-        name: 'isLoading',
-        description: 'Show loading state on continue button',
-        control: { type: 'boolean' },
-        defaultValue: false,
-      },
-    ],
-    variants: [
-      { name: 'New User', props: { isExistingUser: false } },
-      { name: 'Existing User', props: { isExistingUser: true } },
-      { name: 'Loading', props: { isLoading: true } },
-    ],
-    mockData: () => ({
-      onContinue: noopHandler,
-    }),
-  },
-  {
-    id: 'api-setup-step',
-    name: 'APISetupStep',
-    category: 'Onboarding',
-    description: 'Choose payment method for AI usage with provider segmented control',
-    component: APISetupStep,
-    props: [
-      {
-        name: 'selectedMethod',
-        description: 'Currently selected API setup method',
-        control: {
-          type: 'select',
-          options: [
-            { label: 'None', value: '' },
-            { label: 'Claude OAuth', value: 'claude_oauth' },
-            { label: 'Anthropic API Key', value: 'anthropic_api_key' },
-            { label: 'CAB ChatGPT OAuth', value: 'pi_chatgpt_oauth' },
-            { label: 'CAB Copilot OAuth', value: 'pi_copilot_oauth' },
-            { label: 'CAB API Key', value: 'pi_api_key' },
-          ],
-        },
-        defaultValue: '',
-      },
-      {
-        name: 'initialSegment',
-        description: 'Initial provider segment to show',
-        control: {
-          type: 'select',
-          options: [
-            { label: 'Anthropic', value: 'anthropic' },
-            { label: 'OpenAI', value: 'openai' },
-            { label: 'GitHub Copilot', value: 'copilot' },
-          ],
-        },
-        defaultValue: 'anthropic',
-      },
-    ],
-    variants: [
-      { name: 'Anthropic Segment', props: { selectedMethod: null, initialSegment: 'anthropic' } },
-      { name: 'Anthropic - Claude OAuth Selected', props: { selectedMethod: 'claude_oauth', initialSegment: 'anthropic' } },
-      { name: 'Anthropic - API Key Selected', props: { selectedMethod: 'anthropic_api_key', initialSegment: 'anthropic' } },
-      { name: 'CAB Segment', props: { selectedMethod: null, initialSegment: 'pi' } },
-      { name: 'CAB - ChatGPT OAuth Selected', props: { selectedMethod: 'pi_chatgpt_oauth', initialSegment: 'pi' } },
-      { name: 'CAB - Copilot OAuth Selected', props: { selectedMethod: 'pi_copilot_oauth', initialSegment: 'pi' } },
-      { name: 'CAB - API Key Selected', props: { selectedMethod: 'pi_api_key', initialSegment: 'pi' } },
-    ],
-    mockData: () => ({
-      onSelect: (method: string) => console.log('[Playground] Selected method:', method),
-      onContinue: noopHandler,
-      onBack: noopHandler,
     }),
   },
   {
@@ -279,34 +180,6 @@ export const onboardingComponents: ComponentEntry[] = [
     }),
   },
   {
-    id: 'completion-step',
-    name: 'CompletionStep',
-    category: 'Onboarding',
-    description: 'Success screen after completing onboarding',
-    component: CompletionStep,
-    props: [
-      {
-        name: 'status',
-        description: 'Completion status',
-        control: {
-          type: 'select',
-          options: [
-            { label: 'Saving', value: 'saving' },
-            { label: 'Complete', value: 'complete' },
-          ],
-        },
-        defaultValue: 'complete',
-      },
-    ],
-    variants: [
-      { name: 'Saving', props: { status: 'saving' } },
-      { name: 'Complete', props: { status: 'complete' } },
-    ],
-    mockData: () => ({
-      onFinish: noopHandler,
-    }),
-  },
-  {
     id: 'git-bash-warning',
     name: 'GitBashWarning',
     category: 'Onboarding',
@@ -364,20 +237,14 @@ export const onboardingComponents: ComponentEntry[] = [
     id: 'onboarding-wizard',
     name: 'OnboardingWizard',
     category: 'Onboarding',
-    description: 'Full-screen onboarding flow container with all steps',
+    description: 'Full-screen flow that connects an AI provider',
     component: OnboardingWizard,
     props: [],
     variants: [
       {
-        name: 'Welcome (New User)',
+        name: 'Provider Select',
         props: {
-          state: createOnboardingState({ step: 'welcome', isExistingUser: false }),
-        },
-      },
-      {
-        name: 'Welcome (Existing User)',
-        props: {
-          state: createOnboardingState({ step: 'welcome', isExistingUser: true }),
+          state: createOnboardingState(),
         },
       },
       {
@@ -404,27 +271,12 @@ export const onboardingComponents: ComponentEntry[] = [
           state: createOnboardingState({ step: 'credentials', apiSetupMethod: 'claude_oauth' }),
         },
       },
-      {
-        name: 'Complete - Saving',
-        props: {
-          state: createOnboardingState({ step: 'complete', completionStatus: 'saving' }),
-        },
-      },
-      {
-        name: 'Complete - Done',
-        props: {
-          state: createOnboardingState({
-            step: 'complete',
-            completionStatus: 'complete',
-          }),
-        },
-      },
     ],
     mockData: () => ({
       state: createOnboardingState(),
       className: 'min-h-0 h-full',
-      onContinue: noopHandler,
       onBack: noopHandler,
+      onSelectProvider: (choice: string) => console.log('[Playground] Provider selected:', choice),
       onSelectApiSetupMethod: (method: string) => console.log('[Playground] Selected method:', method),
       onSubmitCredential: (data: { apiKey: string; baseUrl?: string; connectionDefaultModel?: string; models?: string[] }) => console.log('[Playground] Submitted:', data),
       onStartOAuth: noopHandler,

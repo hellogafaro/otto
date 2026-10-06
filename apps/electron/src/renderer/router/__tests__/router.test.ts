@@ -33,7 +33,6 @@ describe('route tree', () => {
     const leaves: Record<string, string> = {
       '/test/chats': '/$workspaceSlug/chats',
       '/test/chats/abc': '/$workspaceSlug/chats/$sessionId',
-      '/test/settings': '/$workspaceSlug/settings',
       '/test/settings/appearance': '/$workspaceSlug/settings/$page',
       '/test/tasks': '/$workspaceSlug/tasks',
       '/test/tasks/t1': '/$workspaceSlug/tasks/$taskId',
@@ -119,6 +118,14 @@ describe('not found', () => {
     }
   })
 
+  it('has no Settings index: /settings is replaced with General', async () => {
+    const router = await open('/test/settings')
+    expect(where(router)).toBe('/test/settings/app')
+    expect(leaf(router).routeId as string).toBe('/$workspaceSlug/settings/$page')
+    expect(router.history.location.state.__TSR_index).toBe(0)
+    expect(notFound(router)).toBe(false)
+  })
+
   it('an unknown settings page is not found, a known one is not', async () => {
     expect(notFound(await open('/test/settings/nope'))).toBe(true)
     expect(notFound(await open('/test/settings/appearance'))).toBe(false)
@@ -168,8 +175,8 @@ describe('navigation', () => {
 
   it('replaces without adding an entry', async () => {
     const router = await open('/test/chats')
-    await go(router, '/test/settings', {}, true)
-    expect(where(router)).toBe('/test/settings')
+    await go(router, '/test/settings/app', {}, true)
+    expect(where(router)).toBe('/test/settings/app')
     expect(router.history.location.state.__TSR_index).toBe(0)
   })
 

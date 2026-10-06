@@ -122,7 +122,7 @@ describe('WebSocket identity', () => {
 
     await expect(connect(url, { token: SERVER_TOKEN + 'x' })).rejects.toThrow('AUTH_FAILED')
     await expect(connect(url, { token: 'not-a-session-token' })).rejects.toThrow('AUTH_FAILED')
-    await expect(connect(url, { cookie: 'better-auth.session_token=forged.value' })).rejects.toThrow('AUTH_FAILED')
+    await expect(connect(url, { cookie: 'otto.session_token=forged.value' })).rejects.toThrow('AUTH_FAILED')
     await expect(connect(url, {})).rejects.toThrow('AUTH_FAILED')
   })
 

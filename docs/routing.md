@@ -31,7 +31,7 @@ One URL scheme for web and Electron: real paths on browser history (`createBrows
 | View | URL |
 | --- | --- |
 | Chats | `/{ws}/chats`, `/{ws}/chats/{sessionId}`; filters in the search (below) |
-| Settings | `/{ws}/settings` (the index), `/{ws}/settings/{page}` (`app`, `ai`, `appearance`, `input`, `workspace`, `members`, `permissions`, `labels`, `messaging`, `server`, `shortcuts`, `preferences`) |
+| Settings | `/{ws}/settings/{page}` (`app` (titled General), `ai`, `appearance`, `input`, `workspace`, `members`, `permissions`, `labels`, `messaging`, `server`, `shortcuts`, `preferences`). There is no index: `/{ws}/settings` is replaced (`redirect`, `replace: true`) with the registry's first page, General (`DEFAULT_SETTINGS_SUBPAGE`); the bare route string `settings` parses to it too, and `routes.view.settings()` builds it |
 | Tasks | `/{ws}/tasks`, `/{ws}/tasks/{taskId}`; `?project={id}&assignee={actor}&status=todo\|doing\|done` (repeats) `&archived=1` |
 | Projects | `/{ws}/projects` (`?status=archived`), `/{ws}/projects/{projectId}` (`?tab=overview\|tasks\|documents\|files`) |
 | Routines (automations) | `/{ws}/routines`, `/{ws}/routines/{id}`; `?type=scheduled\|event\|agentic` |
@@ -72,7 +72,7 @@ The app-level cases set `isNotFound` in the navigation context (true while the U
 
 ### What the tests cover
 
-`router/__tests__` (mappings round-trip for every route kind, search included, and settings page, legacy strings, search validation, history position logic, the route tree on a memory history, which URLs are not found), `shared/__tests__/route-parser-chat-filters.test.ts`, `shared/__tests__/route-parser-sections.test.ts`, `packages/server-core/src/webui/__tests__/login-next.test.ts`, `apps/webui/src/__tests__/login-rules.test.ts`.
+`router/__tests__` (mappings round-trip for every route kind, search included, and settings page, the bare Settings URL replaced with General, legacy strings, search validation, history position logic, the route tree on a memory history, which URLs are not found), `shared/__tests__/route-parser-chat-filters.test.ts`, `shared/__tests__/route-parser-sections.test.ts`, `packages/server-core/src/webui/__tests__/login-next.test.ts`, `apps/webui/src/__tests__/login-rules.test.ts`.
 
 ## Contract notes for the renderer
 
@@ -83,4 +83,4 @@ The app-level cases set `isNotFound` in the navigation context (true while the U
 
 ## Storage moves origin once
 
-`file://` (prod) becomes `otto://app` (Electron localStorage is per origin; dev stays on the Vite origin). Lost in the packaged app on first launch: every `otto-*` key of `lib/local-storage.ts` (sidebar mode, grouping, collapsed groups, theme, panel layouts, tabs, pins, recents, working dirs, turn-card expansion, last settings page, `workspace-url:*`) and i18next's `i18nextLng`. All are UI preferences that rebuild themselves. A migration is not worth it now. If wanted later, copy the old file:// localStorage once, as T3 Code does (`DesktopLegacyLocalStorage.ts` + `legacyLocalStorageMerge.ts` in pingdotgg/t3code).
+`file://` (prod) becomes `otto://app` (Electron localStorage is per origin; dev stays on the Vite origin). Lost in the packaged app on first launch: every `otto-*` key of `lib/local-storage.ts` (sidebar mode, grouping, collapsed groups, theme, panel layouts, tabs, pins, recents, working dirs, turn-card expansion, `workspace-url:*`) and i18next's `i18nextLng`. All are UI preferences that rebuild themselves. A migration is not worth it now. If wanted later, copy the old file:// localStorage once, as T3 Code does (`DesktopLegacyLocalStorage.ts` + `legacyLocalStorageMerge.ts` in pingdotgg/t3code).

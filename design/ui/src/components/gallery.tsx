@@ -11,7 +11,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 // Otto: the gallery (Projects, Library, a project's Documents and Files tabs):
 // not cards, but tiles with the title UNDER them. Columns sit 12px apart and
 // rows 20px, so a title stays with its tile. Columns follow the page column's
-// width (`@container/panel`, like `PageGrid`): `columns={3}` (projects) is one,
+// width (`@container/panel`): `columns={3}` (projects) is one,
 // two from 400px, three from 640px; `columns={4}` (documents, files) two, three
 // from 400px, four from 640px.
 function Gallery({
@@ -52,7 +52,7 @@ const tileClass =
   "relative flex w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-md bg-card text-muted-foreground after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-foreground/10 after:ring-inset after:transition-shadow motion-reduce:after:transition-none"
 
 // Otto: one tile and its title. The whole item (tile and title) is the link or
-// button (`render`, like `GridCard`). In the tile: `media`, a glyph centered in
+// button (`render`). In the tile: `media`, a glyph centered in
 // the 32px `md` `bg-muted` icon tile (16px), with an optional `label` 8px under
 // it (12px medium muted: a file's type, "PDF"). Under the tile, 8px down: the
 // 14px muted `icon`, 8px, the title (13px medium, truncated). `menu` is the

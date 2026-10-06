@@ -7,10 +7,9 @@ import { projects, projectsMembers } from '../projects/schema.ts'
 import { tasks, timesheets } from '../tasks/schema.ts'
 import { createWorkspaceInvitation, getWorkspaceInvitation, isWorkspaceMember } from '../workspaces/members.ts'
 import { workspaces, workspacesInvitations, workspacesMembers } from '../workspaces/schema.ts'
-import { createUsersStore, INVITATION_REQUIRED, SETUP_TOKEN_INVALID } from './index.ts'
+import { createUsersStore, INVITATION_REQUIRED, OWNER_ONLY } from './index.ts'
 import { users } from './schema.ts'
 
-const TOKEN = 'setup-token-0123456789'
 const PASSWORD = 'a long enough password'
 const ORIGIN = 'http://localhost:9100'
 const REGISTRY = [
@@ -42,10 +41,10 @@ function withSlowUserInsert(db: Db): Db {
   })
 }
 
-async function setup({ slowInsert = false } = {}) {
+async function setup({ slowInsert = false, ownerEmail }: { slowInsert?: boolean; ownerEmail?: string } = {}) {
   const db = openDb(':memory:')
   await pushSchema(db)
-  const store = createUsersStore(slowInsert ? withSlowUserInsert(db) : db, { secret: 'x'.repeat(40), baseURL: ORIGIN, setupToken: TOKEN, getWorkspaces: () => REGISTRY })
+  const store = createUsersStore(slowInsert ? withSlowUserInsert(db) : db, { secret: 'x'.repeat(40), baseURL: ORIGIN, ownerEmail, getWorkspaces: () => REGISTRY })
   const call = (method: string, path: string, body?: unknown, cookie?: string, address = `10.0.${nextAddress++ >> 8}.${nextAddress & 255}`) =>
     store.auth.handler(
       new Request(`${ORIGIN}/api/auth${path}`, {
@@ -54,7 +53,7 @@ async function setup({ slowInsert = false } = {}) {
         body: body === undefined ? undefined : JSON.stringify(body),
       }),
     )
-  const signUp = (email: string, setupToken?: string) => call('POST', '/sign-up/email', { name: email, email, password: PASSWORD, setupToken })
+  const signUp = (email: string) => call('POST', '/sign-up/email', { name: email, email, password: PASSWORD })
   return { db, store, call, signUp }
 }
 
@@ -64,7 +63,7 @@ const codeOf = async (res: Response) => ((await res.json()) as { code?: string }
 
 /** Owner signed up; returns the cookie. */
 async function signUpOwner(t: Awaited<ReturnType<typeof setup>>) {
-  const res = await t.signUp('owner@example.com', TOKEN)
+  const res = await t.signUp('owner@example.com')
   expect(res.status).toBe(200)
   return cookieOf(res)
 }
@@ -109,25 +108,33 @@ test('Better Auth and the organization plugin run on bun:sqlite with workspace i
   ])
 })
 
-test('the first sign-up needs the setup token', async () => {
+test('without OTTO_OWNER_EMAIL the first sign-up wins', async () => {
   const t = await setup()
   expect(t.store.needsOwner()).toBe(true)
-  for (const token of [undefined, '', 'nope', TOKEN + 'x']) {
-    const res = await t.signUp('a@example.com', token)
+  expect((await t.signUp('anyone@example.com')).status).toBe(200)
+  expect(t.store.needsOwner()).toBe(false)
+})
+
+test('with OTTO_OWNER_EMAIL only that email may make the first account, whatever its case or spaces', async () => {
+  const t = await setup({ ownerEmail: '  Boss@Example.com ' })
+  for (const email of ['a@example.com', 'boss@example.org', 'xboss@example.com']) {
+    const res = await t.signUp(email)
     expect(res.status).toBe(403)
-    expect(await codeOf(res)).toBe(SETUP_TOKEN_INVALID)
+    expect(await codeOf(res)).toBe(OWNER_ONLY)
   }
   expect(t.db.select().from(users).all()).toEqual([])
-  expect((await t.signUp('a@example.com', TOKEN)).status).toBe(200)
-  expect(t.store.needsOwner()).toBe(false)
+  expect(t.store.needsOwner()).toBe(true)
+  expect((await t.signUp('BOSS@example.COM')).status).toBe(200)
+  expect(t.db.select().from(users).all().map((u) => u.email)).toEqual(['boss@example.com'])
+  // Once the owner exists, the email gate is over: a stranger needs an invitation.
+  expect(await codeOf(await t.signUp('a@example.com'))).toBe(INVITATION_REQUIRED)
 })
 
 test('later sign-ups need a pending invitation for exactly that email', async () => {
   const t = await setup()
   const cookie = await signUpOwner(t)
 
-  // The setup token is not a way in once an owner exists.
-  const stranger = await t.signUp('stranger@example.com', TOKEN)
+  const stranger = await t.signUp('stranger@example.com')
   expect(stranger.status).toBe(403)
   expect(await codeOf(stranger)).toBe(INVITATION_REQUIRED)
 
@@ -149,7 +156,7 @@ test('later sign-ups need a pending invitation for exactly that email', async ()
 test('two concurrent first sign-ups: exactly one wins', async () => {
   for (const slowInsert of [false, true]) {
     const t = await setup({ slowInsert })
-    const results = await Promise.all(Array.from({ length: 4 }, (_, i) => t.signUp(`user${i}@example.com`, TOKEN)))
+    const results = await Promise.all(Array.from({ length: 4 }, (_, i) => t.signUp(`user${i}@example.com`)))
     expect(results.filter((res) => res.status === 200)).toHaveLength(1)
     for (const res of results.filter((res) => res.status !== 200)) expect(await codeOf(res)).toBe(INVITATION_REQUIRED)
     expect(t.db.select().from(users).all()).toHaveLength(1)
@@ -183,7 +190,7 @@ test('sign-in attempts from one address are limited', async () => {
 
 test('a short password is refused', async () => {
   const t = await setup()
-  const res = await t.call('POST', '/sign-up/email', { name: 'A', email: 'a@example.com', password: 'short', setupToken: TOKEN })
+  const res = await t.call('POST', '/sign-up/email', { name: 'A', email: 'a@example.com', password: 'short' })
   expect(res.status).toBe(400)
 })
 
@@ -273,7 +280,7 @@ test('the mirror follows the registry: titles update, removed workspaces take th
   const t = await setup()
   await signUpOwner(t)
   let registry = [{ id: 'bbbb3333-4444', title: 'Renamed' }, { id: 'cccc5555-6666', title: 'New' }]
-  const store = createUsersStore(t.db, { secret: 'x'.repeat(40), setupToken: TOKEN, getWorkspaces: () => registry })
+  const store = createUsersStore(t.db, { secret: 'x'.repeat(40), getWorkspaces: () => registry })
   store.initFirstOwner()
   expect(t.db.select().from(workspaces).orderBy(workspaces.id).all().map((w) => [w.id, w.title])).toEqual([
     ['bbbb3333-4444', 'Renamed'],

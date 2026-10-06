@@ -6,11 +6,10 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { useTranslation } from 'react-i18next'
 import { Copy, Eye, EyeOff, AlertTriangle, RotateCw } from 'lucide-react'
 import { toast } from '@workspace/ui/components/sonner'
-import { PageColumn } from '@workspace/ui/components/page'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@otto/ui'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
@@ -167,9 +166,7 @@ export default function ServerSettingsPage() {
   const showServerDetails = form.enabled || savedForm.enabled
 
   return (
-    <div className="flex flex-col h-full">
-      <SettingsPageHeader subpage="server" />
-      <PageColumn>
+    <SettingsPage subpage="server">
 
           {/* Enable toggle + restart banner */}
           <SettingsSection title={t("settings.server.remoteAccess")}>
@@ -282,14 +279,12 @@ export default function ServerSettingsPage() {
               <Button variant="outline" size="compact" onClick={handleReset} disabled={isSaving}>
                 Reset
               </Button>
-              <Button size="compact" onClick={handleSave} disabled={isSaving}>
-                {isSaving ? <Spinner className="mr-1.5" /> : null}
+              <Button size="compact" onClick={handleSave} loading={isSaving}>
                 Save
               </Button>
             </SettingsCardFooter>
           )}
 
-      </PageColumn>
-    </div>
+    </SettingsPage>
   )
 }

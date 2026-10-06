@@ -272,8 +272,8 @@ function TransferButton({ onClick, disabled, isTransferring, progress }: {
 
   return (
     <div ref={wrapperRef} className="relative">
-      <Button onClick={onClick} disabled={disabled}>
-        {isTransferring ? 'Sending...' : 'Send'}
+      <Button onClick={onClick} disabled={disabled} loading={isTransferring}>
+        Send
       </Button>
       {isTransferring && (
         <svg

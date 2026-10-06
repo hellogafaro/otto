@@ -5,18 +5,20 @@
  */
 
 import * as React from 'react'
+import { useForm } from '@tanstack/react-form'
 import { useTranslation } from 'react-i18next'
+import { z } from 'zod'
 import { Button } from '@workspace/ui/components/button'
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@workspace/ui/components/dialog'
-import { Field, FieldGroup, FieldLabel } from '@workspace/ui/components/field'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@workspace/ui/components/field'
 import { Input } from '@workspace/ui/components/input'
 import { NativeSelect, NativeSelectOption } from '@workspace/ui/components/native-select'
 import { toast } from '@workspace/ui/components/sonner'
-import { Spinner } from '@workspace/ui/components/spinner'
 import { MAX_TITLE } from '@otto/shared/projects/limits'
 import { AssigneePicker } from '@/components/people/assignee-picker'
 import { useRegisterModal } from '@/context/modal-context'
 import { useNavigation } from '@/contexts/navigation-context'
+import { submitForm } from '@/lib/form'
 import { routes } from '@/lib/navigate'
 import { useProjects } from '@/hooks/use-projects'
 import { useTasks } from '@/hooks/use-tasks'
@@ -65,69 +67,118 @@ function TaskForm({ defaults, onDone }: { defaults?: NewTaskDefaults; onDone: ()
   const { projects } = useProjects()
   const { createTask, setTaskStatus } = useTasks()
   const active = projects.filter((project) => project.status === 'active')
-  const [title, setTitle] = React.useState('')
-  const [projectId, setProjectId] = React.useState(() => defaults?.projectId ?? '')
-  const [assignees, setAssignees] = React.useState<string[]>([])
-  const [due, setDue] = React.useState('')
-  const [pending, setPending] = React.useState(false)
-  // The filtered project when it is active, else the first one (also once the projects load).
-  const project = active.find((p) => p.id === projectId)?.id ?? active[0]?.id ?? ''
+  const schema = z.object({
+    title: z.string().trim().min(1, t('common.required')).max(MAX_TITLE, t('common.tooLong', { max: MAX_TITLE })),
+    projectId: z.string().min(1, t('common.required')),
+    assignees: z.array(z.string()),
+    due: z.string(),
+  })
+  const form = useForm({
+    defaultValues: { title: '', projectId: defaults?.projectId ?? '', assignees: [] as string[], due: '' },
+    validators: { onBlur: schema, onSubmit: schema },
+    onSubmit: async ({ value }) => {
+      const created = await createTask({ projectId: value.projectId, title: value.title.trim(), assignees: value.assignees, dueAt: parseDateInput(value.due) })
+      const status = defaults?.status
+      const moved = created.ok && status && status !== 'todo' ? await setTaskStatus(created.value.id, status) : null
+      if (!created.ok) {
+        toast.error(t(created.code === 'invalid' ? 'tasks.errorInvalid' : 'tasks.errorUnknown'))
+        return
+      }
+      // Created in Todo: say so when moving it to the group's status failed.
+      if (moved && !moved.ok) toast.error(t('tasks.errorUnknown'))
+      onDone()
+      navigate(routes.view.tasks({ taskId: created.value.id }))
+    },
+  })
 
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (pending || !title.trim() || !project) return
-    setPending(true)
-    const created = await createTask({ projectId: project, title: title.trim(), assignees, dueAt: parseDateInput(due) })
-    const status = defaults?.status
-    const moved = created.ok && status && status !== 'todo' ? await setTaskStatus(created.value.id, status) : null
-    setPending(false)
-    if (!created.ok) {
-      toast.error(t(created.code === 'invalid' ? 'tasks.errorInvalid' : 'tasks.errorUnknown'))
-      return
+  // The filtered project when it is active, else the first one (also once the projects load).
+  React.useEffect(() => {
+    if (!active.some((p) => p.id === form.getFieldValue('projectId'))) {
+      form.setFieldValue('projectId', active[0]?.id ?? '', { dontUpdateMeta: true, dontValidate: true })
     }
-    // Created in Todo: say so when moving it to the group's status failed.
-    if (moved && !moved.ok) toast.error(t('tasks.errorUnknown'))
-    onDone()
-    navigate(routes.view.tasks({ taskId: created.value.id }))
-  }
+  }) // eslint-disable-line react-hooks/exhaustive-deps -- runs after every render: `active` is a new array each time
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-6">
+    <form noValidate onSubmit={(event) => submitForm(event, form)} className="flex flex-col gap-6">
       <FieldGroup className="gap-4">
-        <Field>
-          <FieldLabel htmlFor="task-title">{t('tasks.fieldTitle')}</FieldLabel>
-          <Input
-            id="task-title"
-            value={title}
-            maxLength={MAX_TITLE}
-            autoFocus
-            autoComplete="off"
-            disabled={pending}
-            placeholder={t('tasks.titlePlaceholder')}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="task-project">{t('tasks.project')}</FieldLabel>
-          <NativeSelect id="task-project" value={project} disabled={pending} onChange={(event) => setProjectId(event.target.value)}>
-            {active.map((p) => <NativeSelectOption key={p.id} value={p.id}>{p.title}</NativeSelectOption>)}
-          </NativeSelect>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="task-assignees">{t('tasks.assignees')}</FieldLabel>
-          <AssigneePicker id="task-assignees" value={assignees} onChange={setAssignees} />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="task-due">{t('tasks.dueDate')}</FieldLabel>
-          <Input id="task-due" type="date" value={due} disabled={pending} onChange={(event) => setDue(event.target.value)} />
-        </Field>
+        <form.Field name="title">
+          {(field) => {
+            const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor={field.name}>{t('tasks.fieldTitle')}</FieldLabel>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  value={field.state.value}
+                  aria-invalid={isInvalid}
+                  autoFocus
+                  autoComplete="off"
+                  placeholder={t('tasks.titlePlaceholder')}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            )
+          }}
+        </form.Field>
+        <form.Field name="projectId">
+          {(field) => {
+            const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor={field.name}>{t('tasks.project')}</FieldLabel>
+                <NativeSelect
+                  id={field.name}
+                  name={field.name}
+                  value={field.state.value}
+                  aria-invalid={isInvalid}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                >
+                  {active.map((p) => <NativeSelectOption key={p.id} value={p.id}>{p.title}</NativeSelectOption>)}
+                </NativeSelect>
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            )
+          }}
+        </form.Field>
+        <form.Field name="assignees">
+          {(field) => (
+            <Field>
+              <FieldLabel htmlFor={field.name}>{t('tasks.assignees')}</FieldLabel>
+              <AssigneePicker id={field.name} value={field.state.value} onChange={field.handleChange} />
+            </Field>
+          )}
+        </form.Field>
+        <form.Field name="due">
+          {(field) => (
+            <Field>
+              <FieldLabel htmlFor={field.name}>{t('tasks.dueDate')}</FieldLabel>
+              <Input
+                id={field.name}
+                name={field.name}
+                type="date"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            </Field>
+          )}
+        </form.Field>
       </FieldGroup>
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" disabled={pending} />}>{t('common.cancel')}</DialogClose>
-        <Button type="submit" disabled={pending || !title.trim() || !project}>
-          {pending && <Spinner data-icon="inline-start" />}
-          {t('common.create')}
-        </Button>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <>
+              <DialogClose render={<Button type="button" variant="outline" disabled={isSubmitting} />}>{t('common.cancel')}</DialogClose>
+              <Button type="submit" loading={isSubmitting}>
+                {t('common.create')}
+              </Button>
+            </>
+          )}
+        </form.Subscribe>
       </DialogFooter>
     </form>
   )

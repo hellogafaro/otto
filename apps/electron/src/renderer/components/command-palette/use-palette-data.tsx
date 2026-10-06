@@ -2,7 +2,7 @@
  * What the palette lists, read live from the app's stores (all local, nothing fetched):
  * Pinned and Recent (the sidebar's pins-recents store), the workspace's chats (the
  * sessions store, newest first, archived last), the pages of the sidebar, every settings
- * page (`SETTINGS_NAV_GROUPS`, with the Settings index's icons), the skills and sources
+ * page (`SETTINGS_NAV_GROUPS`, with the settings sidebar's icons), the skills and sources
  * the shell loaded, and the actions that make sense from a palette, with their keys.
  * Tasks, Routines and the Library have no data yet: they are pages here, nothing more.
  */

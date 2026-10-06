@@ -4,14 +4,13 @@ import { pushSchema } from '../../../../shared/src/db/push.ts'
 
 /** Where the test store says it lives; a request's Origin must match it. */
 export const ORIGIN = 'http://127.0.0.1:9100'
-export const SETUP_TOKEN = 'setup-token-0123456789'
 export const PASSWORD = 'a long enough password'
 
 /** An in-memory users store; its workspaces are the ones given (none by default). */
-export async function createTestUsers(options: { baseURL?: string; workspaces?: { id: string; title: string }[] } = {}): Promise<UsersStore> {
+export async function createTestUsers(options: { baseURL?: string; ownerEmail?: string; workspaces?: { id: string; title: string }[] } = {}): Promise<UsersStore> {
   const db = openDb(':memory:')
   await pushSchema(db)
-  return createUsersStore(db, { secret: 'x'.repeat(40), baseURL: options.baseURL ?? ORIGIN, setupToken: SETUP_TOKEN, getWorkspaces: () => options.workspaces ?? [] })
+  return createUsersStore(db, { secret: 'x'.repeat(40), baseURL: options.baseURL ?? ORIGIN, ownerEmail: options.ownerEmail, getWorkspaces: () => options.workspaces ?? [] })
 }
 
 /** Headers for a request to Better Auth: its Origin check passes and its rate limit sees a fresh client. */
@@ -32,7 +31,7 @@ export async function signUpOwner(users: UsersStore, email = 'owner@example.com'
     new Request(`${ORIGIN}/api/auth/sign-up/email`, {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ name: 'Owner', email, password: PASSWORD, setupToken: SETUP_TOKEN }),
+      body: JSON.stringify({ name: 'Owner', email, password: PASSWORD }),
     }),
   )
   if (res.status !== 200) throw new Error(`sign-up failed: ${res.status} ${await res.text()}`)

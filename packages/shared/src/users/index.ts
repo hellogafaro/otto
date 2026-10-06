@@ -23,14 +23,14 @@ import { users, usersAccounts, usersSessions, usersVerifications } from './schem
  *
  *   users(id, name, email, emailVerified, image, createdAt, updatedAt)   users_sessions, users_accounts, users_verifications
  *
- * Roles are `owner` and `member`. Nothing can sign up on its own: the first sign-up must carry
- * the setup token (`OTTO_SERVER_TOKEN`) and every later one needs a pending invitation for exactly
- * that email, checked in `databaseHooks.user.create.before`. The first user becomes owner of every
+ * Roles are `owner` and `member`. The first sign-up wins, or only `OTTO_OWNER_EMAIL` may make it
+ * when that is set; every later one needs a pending invitation for exactly that email, checked in
+ * `databaseHooks.user.create.before`. The first user becomes owner of every
  * workspace and inherits everything the bare actor 'user' made before users existed (`initOwner`).
  * There is no mail yet: an invitation is a link and `sendInvitationEmail` does nothing.
  */
 
-export const SETUP_TOKEN_INVALID = 'SETUP_TOKEN_INVALID'
+export const OWNER_ONLY = 'OWNER_ONLY'
 export const INVITATION_REQUIRED = 'INVITATION_REQUIRED'
 
 /** A first sign-up that passed the gate has this long to finish before another may try. */
@@ -43,12 +43,6 @@ const INVITATION_EXPIRES_IN = 7 * 24 * 60 * 60
 export function sameSecret(given: unknown, expected: string | undefined): boolean {
   if (typeof given !== 'string' || !expected) return false
   return timingSafeEqual(createHash('sha256').update(given).digest(), createHash('sha256').update(expected).digest())
-}
-
-/** The sign-up body's `setupToken`; Better Auth does not keep fields it does not know in `context.body`. */
-async function readSetupToken(context: { body?: unknown; request?: Request } | null): Promise<unknown> {
-  const body = context?.body ?? (await context?.request?.clone().json().catch(() => null))
-  return (body as { setupToken?: unknown } | null)?.setupToken
 }
 
 const refuse = (code: string, message: string) => APIError.from('FORBIDDEN', { code, message })
@@ -65,8 +59,8 @@ export interface UsersOptions {
   /** `BETTER_AUTH_URL`: the public origin; an https one makes cookies Secure. */
   baseURL?: string
   trustedOrigins?: string[]
-  /** What the first sign-up must send as `setupToken`: `OTTO_SERVER_TOKEN`. */
-  setupToken?: string
+  /** `OTTO_OWNER_EMAIL`: when set, the only email that may make the first account. */
+  ownerEmail?: string
   /** Overrides the Secure flag on cookies (otherwise from `baseURL`). */
   useSecureCookies?: boolean
   /** The registry of workspaces; the config by default. */
@@ -82,6 +76,7 @@ const socialProvider = (idVar: string, secretVar: string) => ({
 export function createUsersStore(db: Db, options: UsersOptions) {
   const listWorkspaces = options.getWorkspaces ?? (() => getWorkspaces().map((workspace) => ({ id: workspace.id, title: workspace.name })))
   let firstSignUpAt = 0
+  const ownerEmail = options.ownerEmail?.trim().toLowerCase()
 
   const countUsers = () => db.select({ n: count() }).from(users).get()!.n
 
@@ -123,7 +118,8 @@ export function createUsersStore(db: Db, options: UsersOptions) {
     session: { modelName: 'users_sessions' },
     account: { modelName: 'users_accounts' },
     verification: { modelName: 'users_verifications' },
-    advanced: { database: { generateId: () => createId() }, useSecureCookies: options.useSecureCookies },
+    // `otto.session_token`, not the default `better-auth.*`: a proxy or gate in front of the app may run Better Auth too and own that name.
+    advanced: { database: { generateId: () => createId() }, cookiePrefix: 'otto', useSecureCookies: options.useSecureCookies },
     emailAndPassword: { enabled: true, minPasswordLength: 12 },
     rateLimit: { enabled: true },
     socialProviders: { google: socialProvider('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'), github: socialProvider('GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET') },
@@ -132,11 +128,10 @@ export function createUsersStore(db: Db, options: UsersOptions) {
     databaseHooks: {
       user: {
         create: {
-          before: async (user, context) => {
-            const token = countUsers() === 0 ? await readSetupToken(context) : undefined
+          before: async (user) => {
             // Check and claim without an await in between, so two first sign-ups cannot both pass.
             if (countUsers() === 0 && Date.now() - firstSignUpAt > FIRST_SIGN_UP_MS) {
-              if (!sameSecret(token, options.setupToken)) throw refuse(SETUP_TOKEN_INVALID, 'The setup token is wrong')
+              if (ownerEmail && user.email.trim().toLowerCase() !== ownerEmail) throw refuse(OWNER_ONLY, 'Only the owner email can create the first account')
               firstSignUpAt = Date.now()
               return
             }
@@ -218,7 +213,7 @@ export function initUsersStore(): UsersStore {
     secret,
     baseURL: process.env.BETTER_AUTH_URL || undefined,
     trustedOrigins: (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? '').split(',').map((origin) => origin.trim()).filter(Boolean),
-    setupToken: process.env.OTTO_SERVER_TOKEN,
+    ownerEmail: process.env.OTTO_OWNER_EMAIL,
     useSecureCookies: ['1', 'true', 'yes', 'on'].includes(secure) ? true : ['0', 'false', 'no', 'off'].includes(secure) ? false : undefined,
   }))
 }

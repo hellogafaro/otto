@@ -4,9 +4,8 @@
  * Displays keyboard shortcuts reference from the centralized action registry.
  */
 
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { useTranslation } from 'react-i18next'
-import { PageColumn } from '@workspace/ui/components/page'
 import { SettingsSection, SettingsCard, SettingsRow } from '@/components/settings'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import { isMac } from '@/lib/platform'
@@ -117,9 +116,7 @@ export default function ShortcutsPage() {
   const { t } = useTranslation()
   const componentSpecificSections = useComponentSpecificSections()
   return (
-    <div className="h-full flex flex-col">
-      <SettingsPageHeader subpage="shortcuts" />
-      <PageColumn>{/* Registry-driven sections */}
+    <SettingsPage subpage="shortcuts">{/* Registry-driven sections */}
             {Object.entries(actionsByCategory).map(([category, actions]) => (
               <SettingsSection key={category} title={t(`shortcuts.category.${category.toLowerCase()}`)}>
                 <SettingsCard>
@@ -146,7 +143,6 @@ export default function ShortcutsPage() {
                 </SettingsCard>
               </SettingsSection>
             ))}
-          </PageColumn>
-    </div>
+    </SettingsPage>
   )
 }

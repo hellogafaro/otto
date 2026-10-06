@@ -7,7 +7,7 @@
  * - LLM connection type mapping
  * - Available providers list
  */
-import { describe, it, expect } from 'bun:test';
+import { beforeAll, describe, it, expect } from 'bun:test';
 import { join } from 'node:path';
 import {
   detectProvider,
@@ -26,7 +26,10 @@ import {
   validateStoredBackendConnection,
 } from '../factory.ts';
 import type { BackendConfig } from '../types.ts';
-import type { Workspace, LlmConnection } from '../../../config/storage.ts';
+import { ensureConfigDir, type Workspace, type LlmConnection } from '../../../config/storage.ts';
+
+// ClaudeAgent reads config-defaults.json, which the app writes into the config dir at startup.
+beforeAll(() => ensureConfigDir());
 import type { SessionConfig as Session } from '../../../sessions/storage.ts';
 import { ClaudeAgent } from '../../claude-agent.ts';
 import { PiAgent } from '../../pi-agent.ts';

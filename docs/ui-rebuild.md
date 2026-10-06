@@ -23,6 +23,7 @@ yet).
 ## Shell and chrome
 
 - [x] `components/app-shell/app-sidebar.tsx`
+- [x] `components/app-shell/settings-sidebar.tsx` (the settings sidebar, was `pages/settings/settings-navigator.tsx`)
 - [x] `components/app-shell/page-header.tsx`
 - [x] `components/app-shell/session-filter-menu.tsx`
 - [ ] `components/app-shell/active-option-badges.tsx`
@@ -61,7 +62,7 @@ yet).
 - [ ] `pages/skill-info-page.tsx`
 - [ ] `pages/source-info-page.tsx`
 
-## Settings pages (12)
+## Settings pages (11)
 
 - [ ] `pages/settings/ai-settings-page.tsx`
 - [ ] `pages/settings/app-settings-page.tsx`
@@ -72,20 +73,17 @@ yet).
 - [ ] `pages/settings/permissions-settings-page.tsx`
 - [ ] `pages/settings/preferences-page.tsx`
 - [ ] `pages/settings/server-settings-page.tsx`
-- [x] `pages/settings/settings-navigator.tsx`
 - [ ] `pages/settings/shortcuts-page.tsx`
 - [ ] `pages/settings/workspace-settings-page.tsx`
 
-## Onboarding and sign-in (10)
+## Onboarding and sign-in (7)
 
-- [ ] `components/onboarding/api-setup-step.tsx`
-- [ ] `components/onboarding/completion-step.tsx`
+- [x] `components/first-run/first-run-setup.tsx` (replaced the welcome, API setup and completion steps)
 - [ ] `components/onboarding/credentials-step.tsx`
 - [ ] `components/onboarding/git-bash-warning.tsx`
 - [ ] `components/onboarding/local-model-step.tsx`
 - [ ] `components/onboarding/onboarding-wizard.tsx`
-- [ ] `components/onboarding/provider-select-step.tsx`
-- [ ] `components/onboarding/welcome-step.tsx`
+- [x] `components/onboarding/provider-select-step.tsx`
 - [ ] `components/onboarding/primitives.tsx`
 
 ## Connection setup (2)
@@ -175,7 +173,7 @@ yet).
 
 - [ ] `components/markdown/streaming-markdown.tsx`
 
-## Settings building blocks (11)
+## Settings building blocks (12)
 
 - [ ] `components/settings/searchable-model-input.tsx`
 - [ ] `components/settings/settings-card.tsx`
@@ -183,6 +181,7 @@ yet).
 - [ ] `components/settings/settings-input.tsx`
 - [ ] `components/settings/settings-menu-select.tsx`
 - [ ] `components/settings/settings-row.tsx`
+- [x] `components/settings/settings-page.tsx` (every settings page's shell: the title and `PageColumn padded`)
 - [ ] `components/settings/settings-section.tsx`
 - [ ] `components/settings/settings-segmented-control.tsx`
 - [ ] `components/settings/settings-select.tsx`
@@ -263,6 +262,21 @@ yet).
 - [ ] `components/ui/textarea.tsx`
 - [ ] `components/ui/window-header-badge.tsx`
 - [ ] `components/ui/workspace-avatar.tsx`
+
+## Forms: to migrate when their page is rebuilt
+
+Forms we built (New project / task / link / time entry, Invite member, Rename) use TanStack
+Form (DESIGN.md, Forms). These still hold their own `useState` and move to the same pattern
+when their page is rebuilt (autosaved fields stay `useAutosave`, never forms):
+
+- [ ] The legacy settings pages' forms and dialogs: `pages/settings/*` other than Members
+  (AI connections, workspace, preferences, server, ...), and their `components/settings` rows
+- [ ] `components/apisetup/*` (API key, OAuth connect), `components/chat/auth-request-card.tsx`,
+  `components/app-shell/input/structured/credential-request.tsx`
+- [ ] `components/onboarding/local-model-step.tsx`, `components/first-run/*` and the
+  workspace-creation screens (owned by the first-run work, which already builds on the pattern)
+- [ ] `apps/webui/src/login-page.tsx` (sign-in; asked for later)
+- Not forms: the comment composer, `free-form-input.tsx` (the chat input).
 
 ## Rule: finish a swap, delete what it replaced
 

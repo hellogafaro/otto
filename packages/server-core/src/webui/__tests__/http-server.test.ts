@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { startWebuiHttpServer } from '../http-server'
-import { authHeaders, cookieOf, createTestUsers, PASSWORD, SETUP_TOKEN, signUpOwner } from './test-users'
+import { authHeaders, cookieOf, createTestUsers, PASSWORD, signUpOwner } from './test-users'
 
 const TEMP_DIRS: string[] = []
 const SERVERS: Array<{ stop: () => void }> = []
@@ -24,11 +24,12 @@ function createTestWebuiDir(): string {
 
 async function createServer(overrides?: {
   baseURL?: string
+  ownerEmail?: string
   publicWsUrl?: string
   wsProtocol?: 'ws' | 'wss'
   wsPort?: number
 }) {
-  const users = await createTestUsers({ baseURL: overrides?.baseURL })
+  const users = await createTestUsers({ baseURL: overrides?.baseURL, ownerEmail: overrides?.ownerEmail })
   const server = await startWebuiHttpServer({
     port: 0,
     webuiDir: createTestWebuiDir(),
@@ -68,7 +69,7 @@ describe('startWebuiHttpServer', () => {
     const { baseUrl } = await createServer({ wsProtocol: 'wss', wsPort: 9100 })
 
     expect(await (await fetch(`${baseUrl}/api/setup`)).json()).toEqual({ needsOwner: true })
-    const signUp = await post(baseUrl, '/api/auth/sign-up/email', { name: 'Owner', email: 'owner@example.com', password: PASSWORD, setupToken: SETUP_TOKEN })
+    const signUp = await post(baseUrl, '/api/auth/sign-up/email', { name: 'Owner', email: 'owner@example.com', password: PASSWORD })
     expect(signUp.status).toBe(200)
     expect(await (await fetch(`${baseUrl}/api/setup`)).json()).toEqual({ needsOwner: false })
 
@@ -86,11 +87,12 @@ describe('startWebuiHttpServer', () => {
     expect(await configRes.json()).toEqual({ wsUrl: 'wss://127.0.0.1:9100' })
   })
 
-  it('refuses a sign-up without the setup token, with our error code', async () => {
-    const { baseUrl } = await createServer()
+  it('refuses a first sign-up from another email than OTTO_OWNER_EMAIL, with our error code', async () => {
+    const { baseUrl } = await createServer({ ownerEmail: 'boss@example.com' })
     const res = await post(baseUrl, '/api/auth/sign-up/email', { name: 'A', email: 'a@example.com', password: PASSWORD })
     expect(res.status).toBe(403)
-    expect(((await res.json()) as { code: string }).code).toBe('SETUP_TOKEN_INVALID')
+    expect(((await res.json()) as { code: string }).code).toBe('OWNER_ONLY')
+    expect(await (await fetch(`${baseUrl}/api/setup`)).json()).toEqual({ needsOwner: true })
   })
 
   it('rejects invalid credentials', async () => {

@@ -103,13 +103,10 @@ function AuthCardActions({ primary, secondary, hint }: AuthCardActionsProps) {
         variant="default"
         onClick={primary.onClick}
         disabled={primary.disabled}
+        loading={primary.loading}
         data-tutorial={primary.dataTutorial}
       >
-        {primary.loading ? (
-          <Spinner className="text-[10px]" />
-        ) : PrimaryIcon ? (
-          <PrimaryIcon className="h-3.5 w-3.5" />
-        ) : null}
+        {PrimaryIcon && <PrimaryIcon className="h-3.5 w-3.5" />}
         {primary.label}
       </Button>
       {secondary && (
@@ -598,9 +595,9 @@ export function AuthRequestCard({ message, onRespondToCredential, sessionId, isI
     return (
       <AuthCardActions
         primary={{
-          label: isSubmitting ? 'Saving...' : 'Save',
+          label: 'Save',
           onClick: handleSubmit,
-          disabled: !isValid || isSubmitting,
+          disabled: !isValid,
           loading: isSubmitting,
         }}
         secondary={{

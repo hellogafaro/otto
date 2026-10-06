@@ -1,5 +1,5 @@
 /**
- * TasksPage - the Tasks index: the workspace's tasks across every project, grouped by status on the frame
+ * TasksPage - the Tasks index: the workspace's tasks across every project, grouped by status in the line-only `PageWrap`
  * (`TaskGroups`, the Chats index's pattern), no toolbar. The header carries Filter (Project, Assignee, Status,
  * Archived; in the URL, `useTaskFilters`) and New task (a dialog); active filters show as chips above the list.
  * Archived is the last, folded group, and the whole list (open) when Archived is the filter.
@@ -13,8 +13,8 @@ import { useTranslation } from 'react-i18next'
 import { Archive, Box, CircleCheck, CircleDashed, Plus, User } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
-import { PageColumn } from '@workspace/ui/components/page'
-import { Skeleton } from '@workspace/ui/components/skeleton'
+import { ListRowSkeleton } from '@workspace/ui/components/list-group'
+import { PageColumn, PageWrap } from '@workspace/ui/components/page'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
@@ -153,9 +153,9 @@ export function TasksPage() {
             removeLabel={(field) => `${t('common.remove')} ${field}`}
           />
           {!loaded ? (
-            <div aria-busy className="flex flex-col gap-1">
-              {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10" />)}
-            </div>
+            <PageWrap aria-busy>
+              <ul>{[0, 1, 2].map((i) => <ListRowSkeleton key={i} />)}</ul>
+            </PageWrap>
           ) : matching.length === 0 ? (
             <NoResults title={t('chatsIndex.noResults')} description={t('chatsIndex.noResultsDescription')}>
               {hasTaskFilters(filters) && (

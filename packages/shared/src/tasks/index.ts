@@ -5,6 +5,7 @@ import { createId } from '../id.ts'
 import { createNotification } from '../notifications/index.ts'
 import { domainError } from '../utils/errors.ts'
 import { initProjectsStore, MAX_DESCRIPTION, MAX_TITLE, parseResources, type ProjectsStore, type Resource } from '../projects/index.ts'
+import { MAX_NOTES, MAX_TIME } from './limits.ts'
 import { tasks, timesheets } from './schema.ts'
 import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from './types.ts'
 
@@ -29,9 +30,7 @@ import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from './type
 
 export type * from './types.ts'
 
-/** Longest single timesheet entry. */
-export const MAX_TIME = 24 * 60 * 60 * 1000
-export const MAX_NOTES = 4_000
+export { MAX_NOTES, MAX_TIME } from './limits.ts'
 export const MAX_ASSIGNEES = 20
 
 /** Gives what the bare actor 'user' made or was assigned to `actor`: runs once, when the first user appears. */

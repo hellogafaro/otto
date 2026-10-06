@@ -2,6 +2,8 @@ import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
+import { Spinner } from "./spinner"
+
 // Otto: ONE state table for every button (DESIGN.md, Buttons). State fills are
 // alphas of `foreground`, so they read the same on the frame, on a card and in
 // dark: hover 5%, pressed / open / selected 10%. A ring means keyboard focus
@@ -62,18 +64,45 @@ const buttonVariants = cva(
   }
 )
 
+// Otto: `loading` is the one pending state of a button: disabled, `aria-busy`
+// and a spinner as the leading icon (14px, 12px at the xs sizes, so a button
+// with a leading icon keeps its width: the spinner takes that icon's place).
+// The label is never changed by it. A trailing icon must be marked
+// `data-icon="inline-end"` (CSS cannot tell it from a leading one otherwise).
+// Not for `render` (asChild) buttons: the spinner would replace their element.
 function Button({
   className,
   variant = "default",
   size = "default",
+  loading = false,
+  disabled,
+  children,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & { loading?: boolean }) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(
+        buttonVariants({ variant, size, className }),
+        loading && "[&>[data-slot=spinner]+svg:not([data-icon=inline-end])]:hidden"
+      )}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
-    />
+    >
+      {loading ? (
+        <>
+          <Spinner
+            data-icon="inline-start"
+            className={size === "xs" || size === "icon-xs" ? "size-3" : undefined}
+          />
+          {children}
+        </>
+      ) : (
+        children
+      )}
+    </ButtonPrimitive>
   )
 }
 

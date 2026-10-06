@@ -30,7 +30,6 @@ const KINDS: Array<[routeString: string, pathname: string, search: Record<string
   ['allSessions?label=a%26b%3Dc&label=%C3%A9+x', '/test/chats', { label: ['a&b=c', 'é x'] }],
   ['view/my-view', '/test/chats', { view: 'my-view' }],
   ['view/my-view/session/abc123', '/test/chats/abc123', { view: 'my-view' }],
-  ['settings', '/test/settings', {}],
   ['settings/app', '/test/settings/app', {}],
   ['settings/ai', '/test/settings/ai', {}],
   ['settings/appearance', '/test/settings/appearance', {}],
@@ -88,6 +87,11 @@ describe('routeStringToLocation / locationToRouteString', () => {
       expect(routeStringToLocation(`settings/${page}`, 'test')).toEqual({ pathname: `/test/settings/${page}`, search: {} })
       expect(locationToRouteString(`/test/settings/${page}`, {})?.routeString).toBe(`settings/${page}`)
     }
+  })
+
+  it('has no Settings index: the bare route string and URL are General', () => {
+    expect(routeStringToLocation('settings', 'test')).toEqual({ pathname: '/test/settings/app', search: {} })
+    expect(locationToRouteString('/test/settings', {})?.routeString).toBe('settings/app')
   })
 
   it('uses the given workspace slug, percent-encoded', () => {

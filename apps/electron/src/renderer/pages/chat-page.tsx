@@ -415,20 +415,16 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
 
   // Rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = React.useState(false)
-  const [renameName, setRenameName] = React.useState('')
 
   // Session action handlers
   const handleRename = React.useCallback(() => {
-    setRenameName(displayTitle)
     setRenameDialogOpen(true)
   }, [displayTitle])
 
-  const handleRenameSubmit = React.useCallback(() => {
-    if (renameName.trim() && renameName.trim() !== displayTitle) {
-      onRenameSession(sessionId, renameName.trim())
-    }
+  const handleRenameSubmit = React.useCallback((name: string) => {
+    if (name !== displayTitle) onRenameSession(sessionId, name)
     setRenameDialogOpen(false)
-  }, [sessionId, renameName, displayTitle, onRenameSession])
+  }, [sessionId, displayTitle, onRenameSession])
 
   const handleFlag = React.useCallback(() => {
     onFlagSession(sessionId)
@@ -717,8 +713,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
             open={renameDialogOpen}
             onOpenChange={setRenameDialogOpen}
             title={t('chat.renameSession')}
-            value={renameName}
-            onValueChange={setRenameName}
+            defaultValue={displayTitle}
             onSubmit={handleRenameSubmit}
             placeholder={t('chat.enterSessionName')}
           />
@@ -798,8 +793,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
         open={renameDialogOpen}
         onOpenChange={setRenameDialogOpen}
         title={t('chat.renameSession')}
-        value={renameName}
-        onValueChange={setRenameName}
+        defaultValue={displayTitle}
         onSubmit={handleRenameSubmit}
         placeholder={t('chat.enterSessionName')}
       />

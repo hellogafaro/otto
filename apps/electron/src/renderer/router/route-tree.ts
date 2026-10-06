@@ -14,7 +14,7 @@
 import { createElement, type ComponentType } from 'react'
 import { createRootRouteWithContext, createRoute, notFound, redirect, useRouterState } from '@tanstack/react-router'
 import { isReservedWorkspaceSlug } from '@otto/shared/utils/workspace-slug'
-import { isValidSettingsSubpage } from '../../shared/settings-registry'
+import { DEFAULT_SETTINGS_SUBPAGE, isValidSettingsSubpage } from '../../shared/settings-registry'
 import { normalizeInboxSearch, normalizeLibrarySearch, normalizeProjectsSearch, normalizeTasksSearch } from '../../shared/section-search'
 import { isWebUI } from '../lib/platform'
 import { isRouterNotFound } from './not-found'
@@ -72,7 +72,17 @@ const section = <TPath extends string>(path: TPath) => ({ getParentRoute: () => 
 
 const chatsRoute = createRoute({ ...section('chats'), validateSearch: validateChatsSearch })
 const chatRoute = createRoute({ ...section('chats/$sessionId'), validateSearch: validateChatsSearch })
-const settingsRoute = createRoute(section('settings'))
+/** `/{ws}/settings`: Settings has no index, it opens on General (the registry's first page). */
+const settingsRoute = createRoute({
+  ...section('settings'),
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: '/$workspaceSlug/settings/$page',
+      params: { workspaceSlug: params.workspaceSlug, page: DEFAULT_SETTINGS_SUBPAGE },
+      replace: true,
+    })
+  },
+})
 const settingsPageRoute = createRoute({
   ...section('settings/$page'),
   beforeLoad: ({ params }) => {

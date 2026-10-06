@@ -1,13 +1,12 @@
 /**
  * useOnboarding Hook
  *
- * Manages the state machine for the onboarding wizard.
+ * Manages the state machine of the wizard that connects an AI provider (first-run setup and Settings → AI).
  * Flow:
- * 1. Welcome
- * 2. Git Bash (Windows only, if not found)
- * 3. API Setup (API Key / Claude OAuth)
- * 4. Credentials (API Key or Claude OAuth)
- * 5. Complete
+ * 1. Git Bash (Windows only, if not found)
+ * 2. Provider select
+ * 3. Credentials (API key or OAuth) or local model
+ * 4. Complete (the wizard hands over to its `onFinish`)
  */
 import { useState, useCallback, useEffect } from 'react'
 import type {
@@ -19,21 +18,17 @@ import type { ProviderChoice } from '@/components/onboarding/provider-select-ste
 import type { LocalModelSubmitData } from '@/components/onboarding/local-model-step'
 import type { ApiKeySubmitData } from '@/components/apisetup'
 import type { CustomEndpointConfig } from '@config/llm-connections'
-import type { SetupNeeds, LlmConnectionSetup, ClaudeOAuthIdentityDto } from '../../shared/types'
+import type { LlmConnectionSetup, ClaudeOAuthIdentityDto } from '../../shared/types'
 
 interface UseOnboardingOptions {
-  /** Called when onboarding is complete */
-  onComplete: () => void
-  /** Initial setup needs from auth state check */
-  initialSetupNeeds?: SetupNeeds
-  /** Start the wizard at a specific step (default: 'welcome') */
+  /** Start the wizard at a specific step (default: 'provider-select') */
   initialStep?: OnboardingStep
   /** Pre-select an API setup method (useful when editing an existing connection) */
   initialApiSetupMethod?: ApiSetupMethod
   /** Called when user goes back from the initial step (dismisses the wizard) */
   onDismiss?: () => void
   /** Called immediately after config is saved to disk (before wizard closes).
-   *  Use this to propagate billing/model changes to the UI without waiting for onComplete. */
+   *  Use this to propagate billing/model changes to the UI before the wizard closes. */
   onConfigSaved?: () => void
   /** Slug of existing connection being edited (null = creating new) */
   editingSlug?: string | null
@@ -46,7 +41,6 @@ interface UseOnboardingReturn {
   state: OnboardingState
 
   // Wizard actions
-  handleContinue: () => void
   handleBack: () => void
 
   // Provider select (new flow)
@@ -75,12 +69,6 @@ interface UseOnboardingReturn {
   handleUseGitBashPath: (path: string) => void
   handleRecheckGitBash: () => void
   handleClearError: () => void
-
-  // Skip setup ("Setup later")
-  handleSkipSetup: () => void
-
-  // Completion
-  handleFinish: () => void
 
   // Direct edit (skip method selection, jump to credentials)
   jumpToCredentials: (method: ApiSetupMethod) => void
@@ -193,8 +181,6 @@ export function apiSetupMethodToConnectionSetup(
 }
 
 export function useOnboarding({
-  onComplete,
-  initialSetupNeeds,
   initialStep = 'provider-select',
   initialApiSetupMethod,
   onDismiss,
@@ -205,18 +191,14 @@ export function useOnboarding({
   // Main wizard state
   const [state, setState] = useState<OnboardingState>({
     step: initialStep,
-    loginStatus: 'idle',
     credentialStatus: 'idle',
-    completionStatus: 'saving',
     apiSetupMethod: initialApiSetupMethod ?? null,
-    isExistingUser: initialSetupNeeds?.needsBillingConfig ?? false,
     gitBashStatus: undefined,
     isRecheckingGitBash: false,
-    isCheckingGitBash: true, // Start as true until check completes
   })
 
   // Check Git Bash on Windows at mount. If missing, redirect to git-bash step
-  // regardless of the initial step (provider-select skips the welcome gate).
+  // regardless of the initial step.
   useEffect(() => {
     const checkGitBash = async () => {
       try {
@@ -224,14 +206,12 @@ export function useOnboarding({
         setState(s => ({
           ...s,
           gitBashStatus: status,
-          isCheckingGitBash: false,
           // Redirect to git-bash step when missing on Windows
           ...(status.platform === 'win32' && !status.found ? { step: 'git-bash' as const } : {}),
         }))
       } catch (error) {
-        console.error('[Onboarding] Failed to check Git Bash:', error)
         // Even on error, allow continuing (will skip git-bash step)
-        setState(s => ({ ...s, isCheckingGitBash: false }))
+        console.error('[Onboarding] Failed to check Git Bash:', error)
       }
     }
     checkGitBash()
@@ -264,8 +244,6 @@ export function useOnboarding({
       return false
     }
 
-    setState(s => ({ ...s, completionStatus: 'saving' }))
-
     try {
       // Build connection setup from UI state
       const setup = apiSetupMethodToConnectionSetup(method, {
@@ -287,7 +265,6 @@ export function useOnboarding({
       )
 
       if (result.success) {
-        setState(s => ({ ...s, completionStatus: 'complete' }))
         // Notify caller immediately so UI can reflect billing/model changes
         onConfigSaved?.()
         return true
@@ -295,7 +272,6 @@ export function useOnboarding({
         console.error('[Onboarding] Save failed:', result.error)
         setState(s => ({
           ...s,
-          completionStatus: 'saving',
           errorMessage: result.error || 'Failed to save configuration',
         }))
         return false
@@ -309,40 +285,6 @@ export function useOnboarding({
       return false
     }
   }, [state.apiSetupMethod, onConfigSaved, editingSlug, existingSlugs])
-
-  // Continue to next step
-  const handleContinue = useCallback(async () => {
-    switch (state.step) {
-      case 'provider-select':
-        // Handled by handleSelectProvider (card click navigates directly)
-        break
-
-      case 'welcome':
-        // On Windows, check if Git Bash is needed
-        if (state.gitBashStatus?.platform === 'win32' && !state.gitBashStatus?.found) {
-          setState(s => ({ ...s, step: 'git-bash' }))
-        } else {
-          setState(s => ({ ...s, step: 'provider-select' }))
-        }
-        break
-
-      case 'git-bash':
-        setState(s => ({ ...s, step: 'provider-select' }))
-        break
-
-      case 'local-model':
-        // Handled by handleSubmitLocalModel
-        break
-
-      case 'credentials':
-        // Handled by handleSubmitCredential
-        break
-
-      case 'complete':
-        onComplete()
-        break
-    }
-  }, [state.step, state.gitBashStatus, state.apiSetupMethod, onComplete])
 
   // Go back to previous step. If at the initial step, call onDismiss instead.
   const handleBack = useCallback(() => {
@@ -796,21 +738,6 @@ export function useOnboarding({
     setState(s => ({ ...s, errorMessage: undefined }))
   }, [])
 
-  // Skip setup — user chose "Setup later"
-  const handleSkipSetup = useCallback(async () => {
-    try {
-      await window.electronAPI.deferSetup()
-    } catch (error) {
-      console.error('[Onboarding] Failed to defer setup:', error)
-    }
-    onComplete()
-  }, [onComplete])
-
-  // Finish onboarding
-  const handleFinish = useCallback(() => {
-    onComplete()
-  }, [onComplete])
-
   // Jump directly to credentials step with a pre-set method (for editing existing connections)
   const jumpToCredentials = useCallback((method: ApiSetupMethod) => {
     setState(s => ({
@@ -826,11 +753,8 @@ export function useOnboarding({
   const reset = useCallback(() => {
     setState({
       step: initialStep,
-      loginStatus: 'idle',
       credentialStatus: 'idle',
-      completionStatus: 'saving',
       apiSetupMethod: initialApiSetupMethod ?? null,
-      isExistingUser: false,
       errorMessage: undefined,
     })
     setIsWaitingForCode(false)
@@ -842,7 +766,6 @@ export function useOnboarding({
 
   return {
     state,
-    handleContinue,
     handleBack,
     handleSelectProvider,
     handleSelectApiSetupMethod,
@@ -860,8 +783,6 @@ export function useOnboarding({
     handleUseGitBashPath,
     handleRecheckGitBash,
     handleClearError,
-    handleSkipSetup,
-    handleFinish,
     jumpToCredentials,
     reset,
   }

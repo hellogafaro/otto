@@ -6,14 +6,15 @@ import {
 } from "@workspace/ui/components/collapsible"
 import { Count } from "@workspace/ui/components/count"
 import { PAGE_INSET } from "@workspace/ui/components/page-frame"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "cn"
 
 // Otto: the grouped list (Otto v1's table, Linear's and Codex's pattern) for
-// collections you work through: Chats, Tasks, Routines. The groups sit
-// straight on the frame, no card around them, as wide as the column (the page
-// scrolls). Nothing in it is a surface: group headers and rows are full-bleed
-// rows, split by hairlines only between a group's header and its rows and
-// between groups (the page's `divide-y divide-(--card-divider)` around them).
+// collections you work through: Chats, Tasks, Routines. The groups sit in the
+// page's line-only `PageWrap`, as wide as the column (the page scrolls), no
+// card. Nothing in it is a surface: group headers and rows are full-bleed rows
+// running to the wrapper's line, split by hairlines only between a group's
+// header and its rows and between groups (the wrapper's `divide-y`).
 //
 // Proportions (DESIGN.md, Data patterns): body text 13px on a 20px line; a
 // row is 44px (20 + 12 + 12), a group header 36px (20 + 8 + 8), a metadata
@@ -176,4 +177,20 @@ function ListRow({
   )
 }
 
-export { ListGroup, ListRow }
+// Otto: a loading row: a row's 44px and grid (the 14px media, then a title
+// bar), so a loading list is the list's shape inside its `PageWrap`. It sits
+// on the frame, where the stock `bg-muted` (lighter than the frame in light)
+// would vanish, so its bars are `foreground` 10%, the selected row's fill.
+function ListRowSkeleton() {
+  return (
+    <li
+      data-slot="list-row-skeleton"
+      className={cn("flex h-11 items-center gap-2", PAGE_INSET)}
+    >
+      <Skeleton className="size-3.5 rounded-full bg-foreground/10" />
+      <Skeleton className="h-3.5 w-1/3 bg-foreground/10" />
+    </li>
+  )
+}
+
+export { ListGroup, ListRow, ListRowSkeleton }

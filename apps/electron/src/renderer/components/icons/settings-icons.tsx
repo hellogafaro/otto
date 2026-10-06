@@ -1,8 +1,8 @@
 /**
  * Settings Icons
  *
- * Shared Lucide icon mapping for settings pages, used by SettingsNavigator
- * (settings sidebar panel).
+ * Shared Lucide icon mapping for settings pages: the settings sidebar's rows and the
+ * command palette's Settings items.
  */
 
 import {
@@ -37,7 +37,6 @@ export const PreferencesIcon = ({ className }: IconProps) => <UserCircle classNa
 
 /**
  * Map of settings subpage IDs to their icon components.
- * Used by SettingsNavigator.
  */
 export const SETTINGS_ICONS: Record<SettingsSubpage, React.ComponentType<IconProps>> = {
   app: AppSettingsIcon,

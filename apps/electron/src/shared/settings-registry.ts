@@ -53,6 +53,9 @@ export const SETTINGS_PAGES = [
  */
 export type SettingsSubpage = (typeof SETTINGS_PAGES)[number]['id']
 
+/** Where Settings opens (General, the first page): Settings has no index, `/{ws}/settings` redirects here. */
+export const DEFAULT_SETTINGS_SUBPAGE: SettingsSubpage = SETTINGS_PAGES[0].id
+
 /**
  * Array of valid settings subpage IDs - for runtime validation
  */

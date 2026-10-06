@@ -1,5 +1,5 @@
 /**
- * `TaskGroups`: tasks grouped by status on the frame (DESIGN Data patterns 1, the Chats index's pattern):
+ * `TaskGroups`: tasks grouped by status in the line-only `PageWrap` (DESIGN Data patterns 1, the Chats index's pattern):
  * Todo, In progress, Done (folded unless asked), then Archived (folded last unless asked), each a 36px
  * `ListGroup` over 44px `TaskRow`s; empty groups are not drawn. A group's "+" starts a new task in that status.
  * Reused by a project's Tasks tab (`projectTitles` left out hides the project badge).
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { ListGroup } from '@workspace/ui/components/list-group'
+import { PageWrap } from '@workspace/ui/components/page'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import type { Task, TaskStatus } from '../../../shared/types'
@@ -52,7 +53,7 @@ export function TaskGroups({
   const { t } = useTranslation()
   const groups = groupTasks(tasks)
   return (
-    <div className="divide-y divide-(--card-divider)">
+    <PageWrap>
       {TASK_GROUPS.map((status) => {
         const open = status === 'done' ? doneOpen : status === 'archived' ? archivedOpen : true
         return (
@@ -78,6 +79,6 @@ export function TaskGroups({
           </ListGroup>
         )
       })}
-    </div>
+    </PageWrap>
   )
 }

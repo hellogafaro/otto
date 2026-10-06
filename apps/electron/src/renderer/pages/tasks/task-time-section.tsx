@@ -6,7 +6,9 @@
  */
 
 import * as React from 'react'
+import { useForm } from '@tanstack/react-form'
 import { useTranslation } from 'react-i18next'
+import { z } from 'zod'
 import { format } from 'date-fns'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
@@ -16,20 +18,20 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@workspace/ui/com
 import { Input } from '@workspace/ui/components/input'
 import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
 import { toast } from '@workspace/ui/components/sonner'
-import { Spinner } from '@workspace/ui/components/spinner'
 import { Textarea } from '@workspace/ui/components/textarea'
 import { getDateLocale } from '@otto/shared/i18n'
+import { MAX_NOTES, MAX_TIME } from '@otto/shared/tasks/limits'
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useRegisterModal } from '@/context/modal-context'
 import { useLiveData } from '@/hooks/use-live-data'
+import { submitForm } from '@/lib/form'
 import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import type { Timesheet } from '../../../shared/types'
 
 const MINUTE = 60_000
-/** The backend's cap per entry: 24 hours. */
-export const MAX_ENTRY_MINUTES = 24 * 60
-const MAX_NOTES = 4000
+/** The backend's cap per entry (24 hours), in minutes. */
+export const MAX_ENTRY_MINUTES = MAX_TIME / MINUTE
 
 /** Whole hours and the minutes left (rounded to the minute). */
 export function splitDuration(ms: number): { hours: number; minutes: number } {
@@ -70,52 +72,78 @@ function TimeEntryDialog({ open, onOpenChange, onAdd }: { open: boolean; onOpenC
 
 function TimeEntryForm({ onAdd }: { onAdd: (minutes: number, notes: string) => Promise<void> }) {
   const { t } = useTranslation()
-  const [minutes, setMinutes] = React.useState('')
-  const [notes, setNotes] = React.useState('')
-  const [touched, setTouched] = React.useState(false)
-  const [pending, setPending] = React.useState(false)
-
-  const value = parseMinutes(minutes)
-  const invalid = touched && value === null
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    setTouched(true)
-    if (value === null || pending) return
-    setPending(true)
-    await onAdd(value, notes.trim())
-    setPending(false)
-  }
+  const schema = z.object({
+    minutes: z.string().refine((text) => parseMinutes(text) !== null, t('tasks.minutesInvalid')),
+    notes: z.string().trim().max(MAX_NOTES, t('common.tooLong', { max: MAX_NOTES })),
+  })
+  const form = useForm({
+    defaultValues: { minutes: '', notes: '' },
+    validators: { onBlur: schema, onSubmit: schema },
+    onSubmit: async ({ value }) => {
+      await onAdd(parseMinutes(value.minutes)!, value.notes.trim())
+    },
+  })
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-6">
+    <form noValidate onSubmit={(event) => submitForm(event, form)} className="flex flex-col gap-6">
       <FieldGroup className="gap-4">
-        <Field data-invalid={invalid || undefined}>
-          <FieldLabel htmlFor="time-minutes">{t('tasks.minutes')}</FieldLabel>
-          <Input
-            id="time-minutes"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={MAX_ENTRY_MINUTES}
-            autoFocus
-            value={minutes}
-            disabled={pending}
-            aria-invalid={invalid || undefined}
-            onChange={(e) => setMinutes(e.target.value)}
-          />
-          {invalid && <FieldError>{t('tasks.minutesInvalid')}</FieldError>}
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="time-notes">{t('tasks.notes')}</FieldLabel>
-          <Textarea id="time-notes" value={notes} maxLength={MAX_NOTES} disabled={pending} placeholder={t('tasks.notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
-        </Field>
+        <form.Field name="minutes">
+          {(field) => {
+            const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor={field.name}>{t('tasks.minutes')}</FieldLabel>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={MAX_ENTRY_MINUTES}
+                  autoFocus
+                  value={field.state.value}
+                  aria-invalid={isInvalid}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            )
+          }}
+        </form.Field>
+        <form.Field name="notes">
+          {(field) => {
+            const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor={field.name}>{t('tasks.notes')}</FieldLabel>
+                <Textarea
+                  id={field.name}
+                  className="max-h-48"
+                  name={field.name}
+                  value={field.state.value}
+                  aria-invalid={isInvalid}
+                  placeholder={t('tasks.notesPlaceholder')}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            )
+          }}
+        </form.Field>
       </FieldGroup>
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" disabled={pending} />}>{t('common.cancel')}</DialogClose>
-        <Button type="submit" disabled={pending || invalid}>
-          {pending && <Spinner data-icon="inline-start" />}
-          {t('tasks.addTimeEntry')}
-        </Button>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <>
+              <DialogClose render={<Button type="button" variant="outline" disabled={isSubmitting} />}>{t('common.cancel')}</DialogClose>
+              <Button type="submit" loading={isSubmitting}>
+                {t('tasks.addTimeEntry')}
+              </Button>
+            </>
+          )}
+        </form.Subscribe>
       </DialogFooter>
     </form>
   )

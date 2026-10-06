@@ -363,6 +363,9 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   // Who signs in; makes the workspaces table match the registry and keeps the first user their owner.
   const users = initUsersStore()
   users.initFirstOwner()
+  if (users.needsOwner() && !process.env.OTTO_OWNER_EMAIL?.trim()) {
+    platform.logger.warn('[bootstrap] The first sign-up will own this server; set OTTO_OWNER_EMAIL to restrict it')
+  }
   acquireServerLock(platform.logger)
 
   const modelRefreshService = options.initModelRefreshService()

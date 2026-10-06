@@ -1,35 +1,27 @@
+import { useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { WelcomeStep } from "./welcome-step"
-import type { ApiSetupMethod } from "./api-setup-step"
 import { ProviderSelectStep, type ProviderChoice } from "./provider-select-step"
-import { CredentialsStep, type CredentialStatus } from "./credentials-step"
+import { CredentialsStep, type ApiSetupMethod, type CredentialStatus } from "./credentials-step"
 import { LocalModelStep, type LocalModelSubmitData } from "./local-model-step"
-import { CompletionStep } from "./completion-step"
 import { GitBashWarning, type GitBashStatus } from "./git-bash-warning"
 import type { ApiKeySubmitData } from "../apisetup"
 import type { CustomEndpointApi } from '@config/llm-connections'
 
+/** `complete` is not a screen: the wizard hands over to `onFinish` as soon as a connection is saved and tested. */
 export type OnboardingStep =
-  | 'welcome'
   | 'git-bash'
   | 'provider-select'
   | 'local-model'
   | 'credentials'
   | 'complete'
 
-export type LoginStatus = 'idle' | 'waiting' | 'success' | 'error'
-
 export interface OnboardingState {
   step: OnboardingStep
-  loginStatus: LoginStatus
   credentialStatus: CredentialStatus
-  completionStatus: 'saving' | 'complete'
   apiSetupMethod: ApiSetupMethod | null
-  isExistingUser: boolean
   errorMessage?: string
   gitBashStatus?: GitBashStatus
   isRecheckingGitBash?: boolean
-  isCheckingGitBash?: boolean
 }
 
 interface OnboardingWizardProps {
@@ -37,11 +29,11 @@ interface OnboardingWizardProps {
   state: OnboardingState
 
   // Event handlers
-  onContinue: () => void
   onBack: () => void
   onSelectApiSetupMethod: (method: ApiSetupMethod) => void
   onSubmitCredential: (data: ApiKeySubmitData) => void
   onStartOAuth?: (methodOverride?: ApiSetupMethod) => void
+  /** A connection was saved and tested */
   onFinish: () => void
 
   // Claude OAuth (two-step flow)
@@ -60,7 +52,7 @@ interface OnboardingWizardProps {
 
   // Provider select (new flow)
   onSelectProvider?: (choice: ProviderChoice) => void
-  /** Called when user chooses "Setup later" on provider select */
+  /** Called when the person chooses "Skip for now" on provider select (first run only) */
   onSkipSetup?: () => void
 
   // Local model
@@ -80,17 +72,12 @@ interface OnboardingWizardProps {
 }
 
 /**
- * OnboardingWizard - Full-screen onboarding flow container
- *
- * Manages the step-by-step flow for setting up Otto:
- * 1. Welcome
- * 2. Provider Select (Claude / ChatGPT / Copilot / API Key / Local)
- * 3. Credentials (API Key or OAuth) or Local Model
- * 4. Completion
+ * OnboardingWizard - Full-screen flow that connects an AI provider (first-run setup and Settings → AI):
+ * Provider Select (Claude / ChatGPT / Copilot / API Key / Local), then Credentials (API key or OAuth)
+ * or Local Model; Git Bash first on Windows when it is missing.
  */
 export function OnboardingWizard({
   state,
-  onContinue,
   onBack,
   onSelectApiSetupMethod,
   onSubmitCredential,
@@ -116,17 +103,13 @@ export function OnboardingWizard({
   editInitialValues,
   className
 }: OnboardingWizardProps) {
+  const done = state.step === 'complete'
+  useEffect(() => {
+    if (done) onFinish()
+  }, [done, onFinish])
+
   const renderStep = () => {
     switch (state.step) {
-      case 'welcome':
-        return (
-          <WelcomeStep
-            isExistingUser={state.isExistingUser}
-            onContinue={onContinue}
-            isLoading={state.isCheckingGitBash}
-          />
-        )
-
       case 'git-bash':
         return (
           <GitBashWarning
@@ -173,14 +156,6 @@ export function OnboardingWizard({
             editInitialValues={editInitialValues}
             onCancelOAuth={onCancelOAuth}
             deviceCode={deviceCode}
-          />
-        )
-
-      case 'complete':
-        return (
-          <CompletionStep
-            status={state.completionStatus}
-            onFinish={onFinish}
           />
         )
 

@@ -12,11 +12,10 @@
  */
 
 import * as React from 'react'
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
-import { useState, useEffect, useCallback } from 'react'
+import { SettingsPage } from '@/components/settings/settings-page'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { PageColumn } from '@workspace/ui/components/page'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { cn } from '@/lib/utils'
 import { Spinner } from '@otto/ui'
@@ -58,10 +57,10 @@ export default function WorkspaceSettingsPage() {
 
   // Workspace settings state
   const [wsName, setWsName] = useState('')
-  const [wsNameEditing, setWsNameEditing] = useState('')
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [wsIconUrl, setWsIconUrl] = useState<string | null>(null)
   const [isUploadingIcon, setIsUploadingIcon] = useState(false)
+  const iconInputRef = useRef<HTMLInputElement>(null)
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('ask')
   const [workingDirectory, setWorkingDirectory] = useState('')
   const [localMcpEnabled, setLocalMcpEnabled] = useState(true)
@@ -91,7 +90,6 @@ export default function WorkspaceSettingsPage() {
         const settings = await window.electronAPI.getWorkspaceSettings(activeWorkspaceId)
         if (settings) {
           setWsName(settings.name || '')
-          setWsNameEditing(settings.name || '')
           setPermissionMode(settings.permissionMode || 'ask')
           setWorkingDirectory(settings.workingDirectory || '')
           setLocalMcpEnabled(settings.localMcpEnabled ?? true)
@@ -329,31 +327,25 @@ export default function WorkspaceSettingsPage() {
   // Show empty state if no workspace is active
   if (!activeWorkspaceId) {
     return (
-      <div className="h-full flex flex-col">
-        <SettingsPageHeader subpage="workspace" />
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground">{t("settings.workspace.noWorkspaceSelected")}</p>
-        </div>
-      </div>
+      <SettingsPage subpage="workspace">
+        <p className="py-10 text-center text-sm text-muted-foreground">{t("settings.workspace.noWorkspaceSelected")}</p>
+      </SettingsPage>
     )
   }
 
   // Show loading state
   if (isLoadingWorkspace) {
     return (
-      <div className="h-full flex flex-col">
-        <SettingsPageHeader subpage="workspace" />
-        <div className="flex-1 flex items-center justify-center">
+      <SettingsPage subpage="workspace">
+        <div className="flex justify-center py-10">
           <Spinner className="text-muted-foreground" />
         </div>
-      </div>
+      </SettingsPage>
     )
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <SettingsPageHeader subpage="workspace" />
-      <PageColumn>
+    <SettingsPage subpage="workspace">
             {/* Workspace Info */}
             <SettingsSection title={t("settings.workspace.workspaceInfo")}>
               <SettingsCard>
@@ -364,10 +356,7 @@ export default function WorkspaceSettingsPage() {
                     <Button
                       variant="outline"
                       size="compact"
-                      onClick={() => {
-                        setWsNameEditing(wsName)
-                        setRenameDialogOpen(true)
-                      }}
+                      onClick={() => setRenameDialogOpen(true)}
                     >
                       {t("common.edit")}
                     </Button>
@@ -376,18 +365,18 @@ export default function WorkspaceSettingsPage() {
                 <SettingsRow
                   label={t("settings.workspace.icon")}
                   action={
-                    <Button variant="outline" size="compact" asChild>
-                      <label className="cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-ring">
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
-                          onChange={handleIconUpload}
-                          className="sr-only"
-                          disabled={isUploadingIcon}
-                        />
-                        {isUploadingIcon ? t("common.uploading") : t("common.change")}
-                      </label>
-                    </Button>
+                    <>
+                      <input
+                        ref={iconInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                        onChange={handleIconUpload}
+                        className="hidden"
+                      />
+                      <Button variant="outline" size="compact" loading={isUploadingIcon} onClick={() => iconInputRef.current?.click()}>
+                        {t("common.change")}
+                      </Button>
+                    </>
                   }
                 >
                   <div
@@ -413,11 +402,9 @@ export default function WorkspaceSettingsPage() {
                 open={renameDialogOpen}
                 onOpenChange={setRenameDialogOpen}
                 title={t("settings.workspace.renameWorkspace")}
-                value={wsNameEditing}
-                onValueChange={setWsNameEditing}
-                onSubmit={() => {
-                  const newName = wsNameEditing.trim()
-                  if (newName && newName !== wsName) {
+                defaultValue={wsName}
+                onSubmit={(newName) => {
+                  if (newName !== wsName) {
                     setWsName(newName)
                     updateWorkspaceSetting('name', newName)
                     onRefreshWorkspaces?.()
@@ -540,7 +527,6 @@ export default function WorkspaceSettingsPage() {
               </SettingsCard>
             </SettingsSection>
 
-          </PageColumn>
       <ServerDirectoryBrowser
         open={showWdBrowser}
         mode={wdBrowserMode}
@@ -548,6 +534,6 @@ export default function WorkspaceSettingsPage() {
         onCancel={cancelWdBrowser}
         initialPath={workingDirectory || undefined}
       />
-    </div>
+    </SettingsPage>
   )
 }

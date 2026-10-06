@@ -8,8 +8,10 @@
  * the shared toast; the last-owner rule is checked before asking and again by the server (`conflict`).
  */
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useForm } from '@tanstack/react-form'
 import { useTranslation } from 'react-i18next'
+import { z } from 'zod'
 import type { TFunction } from 'i18next'
 import { Copy, Ellipsis, Link, LogOut, Mail, Plus, Trash2, UserMinus } from 'lucide-react'
 import {
@@ -39,18 +41,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@workspace/ui/components/dropdown-menu'
+import { Field, FieldError, FieldGroup } from '@workspace/ui/components/field'
 import { Input } from '@workspace/ui/components/input'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@workspace/ui/components/input-group'
-import { PageColumn } from '@workspace/ui/components/page'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
 import { Skeleton } from '@workspace/ui/components/skeleton'
 import { toast } from '@workspace/ui/components/sonner'
-import { Spinner } from '@workspace/ui/components/spinner'
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { SettingsCard, SettingsRow, SettingsSection } from '@/components/settings'
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useLiveData } from '@/hooks/use-live-data'
+import { submitForm } from '@/lib/form'
 import { useWorkspaceMemberList } from '@/hooks/use-workspace-members'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 import type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole } from '../../../shared/types'
@@ -154,9 +156,7 @@ export default function MembersSettingsPage() {
   const now = Date.now()
 
   return (
-    <div className="flex h-full flex-col">
-      <SettingsPageHeader subpage="members" />
-      <PageColumn>
+    <SettingsPage subpage="members">
         <SettingsSection title={t('settings.members.title')}>
           {!loaded ? (
             <div className="space-y-2" aria-busy>
@@ -271,13 +271,12 @@ export default function MembersSettingsPage() {
             </SettingsCard>
           </SettingsSection>
         )}
-      </PageColumn>
 
       {activeWorkspaceId && (
         <InviteMemberDialog open={inviting} onOpenChange={setInviting} workspaceId={activeWorkspaceId} mutate={invitations.mutate} />
       )}
       <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} onConfirm={runConfirm} />
-    </div>
+    </SettingsPage>
   )
 }
 
@@ -322,8 +321,7 @@ function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{t('common.cancel')}</AlertDialogCancel>
-          <Button variant="destructive" disabled={pending} onClick={() => void run()}>
-            {pending && <Spinner data-icon="inline-start" />}
+          <Button variant="destructive" loading={pending} onClick={() => void run()}>
             {leave ? t('members.leaveConfirm.action') : t('common.remove')}
           </Button>
         </AlertDialogFooter>
@@ -344,77 +342,96 @@ function InviteMemberDialog({
   workspaceId: string
   mutate: ReturnType<typeof useInvitations>['mutate']
 }) {
-  const { t } = useTranslation()
-  const [email, setEmail] = useState('')
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [invitation, setInvitation] = useState<WorkspaceInvitation | null>(null)
-
-  useEffect(() => {
-    if (open) (setEmail(''), setError(null), setInvitation(null))
-  }, [open])
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!email.trim() || pending) return
-    setPending(true)
-    const result = await mutate(() => window.electronAPI.inviteWorkspaceMember(workspaceId, email.trim()))
-    setPending(false)
-    if (result.ok) setInvitation(result.value)
-    else
-      setError(
-        result.code === 'invalid' ? t('members.invalidEmail') : result.code === 'conflict' ? t('members.alreadyMember') : errorMessage(t, result.code),
-      )
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('members.invite')}</DialogTitle>
-          <DialogDescription>
-            {invitation ? t('members.linkNote', { email: invitation.email }) : t('members.inviteDescription')}
-          </DialogDescription>
-        </DialogHeader>
-        {invitation ? (
-          <>
-            <InputGroup>
-              <InputGroupInput readOnly value={invitation.link} aria-label={t('members.inviteLink')} onFocus={(event) => event.currentTarget.select()} />
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton onClick={() => copyLink(t, invitation.link)}>
-                  <Copy />
-                  {t('common.copy')}
-                </InputGroupButton>
-              </InputGroupAddon>
-            </InputGroup>
-            <DialogFooter>
-              <DialogClose render={<Button />}>{t('common.done')}</DialogClose>
-            </DialogFooter>
-          </>
-        ) : (
-          <form className="grid gap-6" onSubmit={(event) => void submit(event)}>
-            <div className="grid gap-2">
-              <Input
-                type="email"
-                autoFocus
-                value={email}
-                placeholder={t('members.email')}
-                aria-label={t('members.email')}
-                aria-invalid={!!error || undefined}
-                onChange={(event) => (setEmail(event.target.value), setError(null))}
-              />
-              {error && <p className="text-xs text-destructive">{error}</p>}
-            </div>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline" />}>{t('common.cancel')}</DialogClose>
-              <Button type="submit" disabled={!email.trim() || pending}>
-                {pending && <Spinner data-icon="inline-start" />}
-                {t('members.createLink')}
-              </Button>
-            </DialogFooter>
-          </form>
-        )}
+        {/* Mounted only while open: the email starts empty each time. */}
+        <InviteMember workspaceId={workspaceId} mutate={mutate} />
       </DialogContent>
     </Dialog>
+  )
+}
+
+function InviteMember({ workspaceId, mutate }: { workspaceId: string; mutate: ReturnType<typeof useInvitations>['mutate'] }) {
+  const { t } = useTranslation()
+  const [invitation, setInvitation] = useState<WorkspaceInvitation | null>(null)
+  const schema = z.object({ email: z.string().trim().min(1, t('common.required')) })
+  const form = useForm({
+    defaultValues: { email: '' },
+    validators: { onBlur: schema, onSubmit: schema },
+    onSubmit: async ({ value, formApi }) => {
+      const result = await mutate(() => window.electronAPI.inviteWorkspaceMember(workspaceId, value.email.trim()))
+      if (result.ok) return setInvitation(result.value)
+      // The server's refusal says so under the field; typing clears it.
+      const message =
+        result.code === 'invalid' ? t('members.invalidEmail') : result.code === 'conflict' ? t('members.alreadyMember') : errorMessage(t, result.code)
+      formApi.setErrorMap({ onSubmit: { fields: { email: { message } } } })
+    },
+  })
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{t('members.invite')}</DialogTitle>
+        <DialogDescription>
+          {invitation ? t('members.linkNote', { email: invitation.email }) : t('members.inviteDescription')}
+        </DialogDescription>
+      </DialogHeader>
+      {invitation ? (
+        <>
+          <InputGroup>
+            <InputGroupInput readOnly value={invitation.link} aria-label={t('members.inviteLink')} onFocus={(event) => event.currentTarget.select()} />
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton onClick={() => copyLink(t, invitation.link)}>
+                <Copy />
+                {t('common.copy')}
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+          <DialogFooter>
+            <DialogClose render={<Button />}>{t('common.done')}</DialogClose>
+          </DialogFooter>
+        </>
+      ) : (
+        <form noValidate className="flex flex-col gap-6" onSubmit={(event) => submitForm(event, form)}>
+          <FieldGroup>
+            <form.Field name="email">
+              {(field) => {
+                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="email"
+                      autoFocus
+                      value={field.state.value}
+                      placeholder={t('members.email')}
+                      aria-label={t('members.email')}
+                      aria-invalid={isInvalid}
+                      onBlur={field.handleBlur}
+                      onChange={(event) => field.handleChange(event.target.value)}
+                    />
+                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  </Field>
+                )
+              }}
+            </form.Field>
+          </FieldGroup>
+          <DialogFooter>
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <>
+                  <DialogClose render={<Button type="button" variant="outline" disabled={isSubmitting} />}>{t('common.cancel')}</DialogClose>
+                  <Button type="submit" loading={isSubmitting}>
+                    {t('members.createLink')}
+                  </Button>
+                </>
+              )}
+            </form.Subscribe>
+          </DialogFooter>
+        </form>
+      )}
+    </>
   )
 }

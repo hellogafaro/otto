@@ -2,10 +2,10 @@
  * MainContentPanel - the page for the open view
  *
  * Renders content based on the unified NavigationState. Sub-navigation is an index
- * page before the detail, never a sidebar list:
+ * page before the detail, except in Settings, whose pages are listed by its own sidebar:
  * - Chats: the Chats index, or the ChatPage of the open chat
- * - Settings: the Settings index, or the settings page
- * - Sources and Skills (reached from the Settings index): the item's page
+ * - Settings: one settings page (no index: Settings opens on General)
+ * - Sources and Skills (in the settings sidebar): the item's page
  * - Tasks, Projects and Library: the index page, or the task, project or item page
  * - Inbox: your notifications
  * - Routines (automations): not built yet, only `SectionEmpty`
@@ -35,7 +35,6 @@ import { SourceInfoPage, ChatPage, TasksPage, TaskPage, ProjectsPage, ProjectPag
 import ChatsIndexPage from '@/pages/chats-index-page'
 import { InboxPage } from '@/pages/inbox/inbox-page'
 import SkillInfoPage from '@/pages/skill-info-page'
-import SettingsIndexPage from '@/pages/settings/settings-index-page'
 import { getSettingsPageComponent } from '@/pages/settings/settings-pages'
 
 /** A section with nothing open: the section's title in the header, a quiet line in the card. */
@@ -66,9 +65,7 @@ export function MainContentPanel({ className }: MainContentPanelProps) {
     </Panel>
   )
 
-  // Settings: the index (the bare `settings` route), or one settings page.
   if (isSettingsNavigation(navState)) {
-    if (navState.subpage === null) return panel(<SettingsIndexPage />)
     const SettingsPageComponent = getSettingsPageComponent(navState.subpage)
     return panel(<SettingsPageComponent />)
   }

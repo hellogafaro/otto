@@ -20,17 +20,30 @@ import { cn } from "cn"
 // the page, draws its row there, so the title scrolls with the content. The
 // first block (`data-content-start`) is where the sidecar starts: `PageFrame`
 // measures it.
+// Otto: `padded`, the roomy settings layout (every settings page, Skills and
+// Sources; Capy's General): from 768px the column takes 24px sides (cards
+// 720px wide in the 768px column) and 64px above its first block, the title
+// row, which drops its axis margin (settings has no mark on the axis: its
+// sidebar leads with Back to app); 40px between blocks. Below 768px only the
+// 40px gap changes: the title stays on the axis beside the sheet's menu button
+// and the frame's 20px sides are the inset.
 function PageColumn({
+  padded = false,
   className,
   children,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & { padded?: boolean }) {
   const frame = usePageFrame()
   return (
     <PageScroll>
       <div
         data-slot="page-column"
-        className={cn("flex w-full flex-col gap-8 pb-10", className)}
+        className={cn(
+          "flex w-full flex-col gap-8 pb-10",
+          padded &&
+            "gap-10 md:px-6 md:pt-16 md:[&>[data-slot=page-title-slot]>[data-slot=page-header-row]]:mt-0",
+          className
+        )}
         {...props}
       >
         <div
@@ -130,19 +143,23 @@ function PageCard({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-// Otto (trial, until the owner confirms it; tried on Settings -> App only): ONE
-// line-only wrapper around a page's blocks, under its title row, as Threads
-// wraps its feed. The card edge's hairline (`--card-ring`), `2xl` 20 corners,
-// NO fill (the frame shows through), no shadow. Its sections stack 32px apart
-// as in `PageColumn`; the cards sit 8px in, so their `xl` 12 corners nest
-// (20 - 8), and section titles keep their 16px inset from the card's edge.
+// Otto: the line-only wrapper of a DENSE list or table page (many small rows
+// with small details: Chats, Tasks, Inbox), under its title row and filter
+// chips, as Threads wraps its feed. The card edge's hairline (`--card-ring`),
+// `2xl` 20 corners, NO fill (the frame shows through), no shadow, no padding:
+// its rows and group headers run to the line, split by full-bleed hairlines
+// between its children (`divide-y`, so no line doubles the box's own edge),
+// and it clips them (`overflow-hidden`), so a fill at the first or last row
+// follows the rounded corner. Pages of bigger cards and structured sections
+// (settings, overviews, galleries, details) never use it: their cards sit on
+// the frame. An empty state stays centered on the frame, outside it.
 function PageWrap({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="page-wrap"
       data-content-start=""
       className={cn(
-        "flex flex-col gap-8 rounded-2xl border border-(--card-ring) px-2 pt-5 pb-2",
+        "divide-y divide-(--card-divider) overflow-hidden rounded-2xl border border-(--card-ring)",
         className
       )}
       {...props}

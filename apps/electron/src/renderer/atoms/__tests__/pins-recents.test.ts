@@ -126,7 +126,7 @@ describe('chats', () => {
     expect(chatItem(meta('a')).route).toBe('allSessions/session/a')
     expect(itemFromRoute('flagged/session/a', sessions(meta('a')))?.route).toBe('allSessions/session/a')
     expect(keyFromRoute('state/todo/session/a')).toBe('chat:a')
-    expect(keyFromRoute('settings')).toBeNull()
+    expect(keyFromRoute('settings/app')).toBeNull()
     expect(keyFromRoute(null)).toBeNull()
   })
 

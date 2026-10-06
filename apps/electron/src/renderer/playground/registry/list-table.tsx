@@ -4,12 +4,13 @@ import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
 import { ListGroup, ListRow } from '@workspace/ui/components/list-group'
+import { PageWrap } from '@workspace/ui/components/page'
 import { PageHeaderRow } from '@workspace/ui/components/page-frame'
 import { cn } from '@/lib/utils'
 import type { ComponentEntry } from './types'
 
 // =============================================================================
-// The grouped list (ListGroup / ListRow, straight on the frame) with the
+// The grouped list (ListGroup / ListRow in the line-only PageWrap) with the
 // title row's ghost Filter and New chat, the filter chips and the no-results state,
 // in light and dark side by side, on realistic data: three groups, long titles,
 // label and model badges, a current row, unread and read titles.
@@ -119,7 +120,7 @@ function ListTablePanel({ mode, initial }: { mode: 'light' | 'dark'; initial: Fi
             <Button variant="outline" onClick={() => setValues({})}>Clear filters</Button>
           </NoResults>
         ) : (
-          <div className="divide-y divide-(--card-divider)">
+          <PageWrap>
             {(Object.keys(STATUSES) as Status[]).map((s) => {
               const items = rows.filter((r) => r.status === s)
               return (
@@ -152,7 +153,7 @@ function ListTablePanel({ mode, initial }: { mode: 'light' | 'dark'; initial: Fi
                 </ListGroup>
               )
             })}
-          </div>
+          </PageWrap>
         )}
       </div>
     </div>
@@ -173,7 +174,7 @@ export const listTableComponents: ComponentEntry[] = [
     id: 'list-table',
     name: 'List table (grouped list)',
     category: 'Shell',
-    description: 'ListGroup / ListRow on the frame, the header Filter, filter chips and no results, light and dark side by side.',
+    description: 'ListGroup / ListRow in the PageWrap line box, the header Filter, filter chips and no results, light and dark side by side.',
     component: ListTablePage,
     props: [],
     layout: 'top',

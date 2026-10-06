@@ -7,11 +7,10 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Search } from 'lucide-react'
+import { Check, ChevronDown, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@otto/ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 export interface ModelOption {
@@ -106,12 +105,13 @@ export function SearchableModelInput({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            size="compact"
+            size="icon-compact"
             className="absolute right-1 top-1"
             onClick={handleFetchClick}
-            disabled={fetchDisabled || isLoading}
+            disabled={fetchDisabled}
+            loading={isLoading}
           >
-            {isLoading ? <Spinner className="size-3" /> : '▼'}
+            <ChevronDown />
           </Button>
         </PopoverTrigger>
         {models.length > 0 && (

@@ -15,7 +15,7 @@ import type {
   SourceFilter,
   AutomationFilter,
 } from './types'
-import { isValidSettingsSubpage, type SettingsSubpage } from './settings-registry'
+import { DEFAULT_SETTINGS_SUBPAGE, isValidSettingsSubpage, type SettingsSubpage } from './settings-registry'
 import {
   chatFiltersFromParams,
   chatFiltersFromSessionFilter,
@@ -117,7 +117,7 @@ export function isCompoundRoute(route: string): boolean {
  *   'sources/local' -> { navigator: 'sources', sourceFilter: { kind: 'type', sourceType: 'local' }, details: null }
  *   'sources/source/github' -> { navigator: 'sources', details: { type: 'source', id: 'github' } }
  *   'sources/api/source/gmail' -> { navigator: 'sources', sourceFilter: { kind: 'type', sourceType: 'api' }, details: { type: 'source', id: 'gmail' } }
- *   'settings' -> { navigator: 'settings', details: null }  // navigator-only view
+ *   'settings' -> { navigator: 'settings', details: { type: 'app', id: 'app' } }  // no index: General
  *   'settings/shortcuts' -> { navigator: 'settings', details: { type: 'shortcuts', id: 'shortcuts' } }
  */
 export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
@@ -129,13 +129,9 @@ export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
 
   const first = segments[0]
 
-  // Settings navigator
+  // Settings: a page; Settings has no index, so the bare `settings` (an older route string) is General
   if (first === 'settings') {
-    const subpage = segments[1]
-    if (subpage === undefined) {
-      // Bare `settings` route — navigator-only view (compact) / App fallback (desktop).
-      return { navigator: 'settings', details: null }
-    }
+    const subpage = segments[1] ?? DEFAULT_SETTINGS_SUBPAGE
     if (!isValidSettingsSubpage(subpage)) return null
     return {
       navigator: 'settings',
@@ -325,10 +321,7 @@ export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
  * Build a compound route string from parsed state
  */
 export function buildCompoundRoute(parsed: ParsedCompoundRoute): string {
-  if (parsed.navigator === 'settings') {
-    if (!parsed.details) return 'settings'
-    return `settings/${parsed.details.type}`
-  }
+  if (parsed.navigator === 'settings') return `settings/${parsed.details?.type ?? DEFAULT_SETTINGS_SUBPAGE}`
 
   if (parsed.navigator === 'sources') {
     // Build base from filter (sources, sources/api, sources/mcp, sources/local)
@@ -449,10 +442,7 @@ export function parseRouteToNavigationState(route: string): NavigationState | nu
 function convertCompoundToNavigationState(compound: ParsedCompoundRoute): NavigationState {
   // Settings
   if (compound.navigator === 'settings') {
-    if (!compound.details) {
-      return { navigator: 'settings', subpage: null }
-    }
-    return { navigator: 'settings', subpage: compound.details.type as SettingsSubpage }
+    return { navigator: 'settings', subpage: (compound.details?.type as SettingsSubpage | undefined) ?? DEFAULT_SETTINGS_SUBPAGE }
   }
 
   // Sources - include filter if present
@@ -547,9 +537,6 @@ function convertCompoundToNavigationState(compound: ParsedCompoundRoute): Naviga
  */
 function navigationStateToCompoundRoute(state: NavigationState): ParsedCompoundRoute {
   if (state.navigator === 'settings') {
-    if (state.subpage === null) {
-      return { navigator: 'settings', details: null }
-    }
     return {
       navigator: 'settings',
       details: { type: state.subpage, id: state.subpage },

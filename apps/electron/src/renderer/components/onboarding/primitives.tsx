@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils"
 import { Button, type ButtonProps } from "@/components/ui/button"
-import { Spinner } from "@otto/ui"
 import { OttoAppIcon } from "@/components/icons/otto-app-icon"
 
 /* =============================================================================
@@ -18,8 +17,6 @@ import { OttoAppIcon } from "@/components/icons/otto-app-icon"
 // =============================================================================
 
 interface StepFormLayoutProps {
-  /** Replaces the app icon at the top (the completion step's spinner) */
-  iconElement?: React.ReactNode
   /** Step title */
   title: string
   /** Step description */
@@ -43,7 +40,6 @@ interface StepFormLayoutProps {
  * that the muted description, then the content 32px below and the actions.
  */
 export function StepFormLayout({
-  iconElement,
   title,
   description,
   actions,
@@ -61,7 +57,7 @@ export function StepFormLayout({
     )}>
       <div className="shrink-0">
         <div className="mb-5 flex size-10 items-center">
-          {iconElement ?? <OttoAppIcon />}
+          <OttoAppIcon />
         </div>
         <h1 className="text-base font-medium">{title}</h1>
         {description && (
@@ -109,22 +105,15 @@ export function BackButton({ children = 'Back', className, ...props }: BackButto
 
 interface ContinueButtonProps extends Omit<ButtonProps, 'children'> {
   children?: React.ReactNode
-  loading?: boolean
 }
 
 /**
- * ContinueButton - Consistent primary action button
+ * ContinueButton - Consistent primary action button (`loading` keeps the label)
  */
-export function ContinueButton({
-  children = 'Continue',
-  loading,
-  className,
-  disabled,
-  ...props
-}: ContinueButtonProps) {
+export function ContinueButton({ children = 'Continue', className, ...props }: ContinueButtonProps) {
   return (
-    <Button className={cn("w-full", className)} disabled={disabled || loading} {...props}>
-      {loading ? <Spinner /> : children}
+    <Button className={cn("w-full", className)} {...props}>
+      {children}
     </Button>
   )
 }

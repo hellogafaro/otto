@@ -8,10 +8,9 @@
  * - Auto-saves on change with debouncing
  */
 
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PageColumn } from '@workspace/ui/components/page'
 import { Spinner } from '@otto/ui'
 import { isValidEmail } from '@otto/shared/utils/email'
 import {
@@ -215,9 +214,7 @@ export default function PreferencesPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <SettingsPageHeader subpage="preferences" />
-      <PageColumn>{/* Basic Info */}
+    <SettingsPage subpage="preferences">{/* Basic Info */}
           <SettingsSection
             title={t("settings.preferences.basicInfo")}
             description={t("settings.preferences.basicInfoDesc")}
@@ -305,7 +302,6 @@ export default function PreferencesPage() {
               />
             </SettingsCard>
           </SettingsSection>
-        </PageColumn>
-    </div>
+    </SettingsPage>
   )
 }

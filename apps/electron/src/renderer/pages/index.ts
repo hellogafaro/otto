@@ -14,7 +14,6 @@ export { LibraryPage } from './library/library-page'
 export { LibraryItemPage } from './library/library-item-page'
 // Settings pages
 export {
-  SettingsNavigator,
   AppSettingsPage,
   AiSettingsPage,
   AppearanceSettingsPage,

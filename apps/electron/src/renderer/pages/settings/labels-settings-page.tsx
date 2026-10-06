@@ -11,9 +11,8 @@
  * Data is loaded via the useLabels hook which subscribes to live config changes.
  */
 
-import { SettingsPageHeader } from '@/components/settings/settings-page-header'
+import { SettingsPage } from '@/components/settings/settings-page'
 import { useTranslation } from 'react-i18next'
-import { PageColumn } from '@workspace/ui/components/page'
 import { EditPopover, EditButton, getEditConfig } from '@/components/ui/edit-popover'
 import { Spinner } from '@otto/ui'
 import { useAppShellContext, useActiveWorkspace } from '@/context/app-shell-context'
@@ -51,9 +50,7 @@ export default function LabelsSettingsPage() {
   } : undefined
 
   return (
-    <div className="h-full flex flex-col">
-      <SettingsPageHeader subpage="labels" />
-      <PageColumn>
+    <SettingsPage subpage="labels">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Spinner className="text-lg text-muted-foreground" />
@@ -139,7 +136,6 @@ export default function LabelsSettingsPage() {
                   </SettingsSection>
                 </>
               )}
-            </PageColumn>
-    </div>
+    </SettingsPage>
   )
 }

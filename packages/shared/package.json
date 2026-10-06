@@ -49,6 +49,7 @@
     "./projects/types": "./src/projects/types.ts",
     "./projects/limits": "./src/projects/limits.ts",
     "./tasks": "./src/tasks/index.ts",
+    "./tasks/limits": "./src/tasks/limits.ts",
     "./tasks/types": "./src/tasks/types.ts",
     "./pages": "./src/pages/index.ts",
     "./pages/types": "./src/pages/types.ts",

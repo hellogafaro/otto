@@ -60,8 +60,6 @@ import {
   type ParsedRoute,
 } from '../../shared/route-parser'
 import { routes, type Route, type ViewRoute } from '../../shared/routes'
-import { SETTINGS_NAV_ORDER } from '../../shared/menu-schema'
-import type { SettingsSubpage } from '../../shared/settings-registry'
 import { parsePermissionMode } from '@otto/shared/agent/mode-types'
 import { NAVIGATE_EVENT } from '../lib/navigate'
 import { chatFiltersFromSessionFilter } from '../../shared/chat-filters'
@@ -141,10 +139,7 @@ interface NavigationContextValue {
   navigateToSource: (sourceSlug?: string) => void
   /** Navigate to a session, preserving the current filter type */
   navigateToSession: (sessionId: string) => void
-  /**
-   * Previous / next item in the list the open page came from (the Chats list or the
-   * settings pages, as the sidebar shows them), or null when the open page has no list.
-   */
+  /** Previous / next chat in the Chats list the open chat came from, or null when the open page has no list. */
   listNav: ListNavigation | null
 }
 
@@ -626,8 +621,7 @@ export function NavigationProvider({
         return
       }
 
-      // Parse route to NavigationState. Bare `settings` produces `subpage: null`:
-      // the Settings index. It never redirects to a subpage.
+      // Parse route to NavigationState (a bare `settings` is General: Settings has no index)
       const newNavState = parseRouteToNavigationState(route)
 
       if (newNavState) {
@@ -802,34 +796,23 @@ export function NavigationProvider({
   }, [navigationState, navigate])
 
   // =========================================================================
-  // LIST NAVIGATION (previous / next in the index the page was opened from)
+  // LIST NAVIGATION (previous / next in the Chats index the chat was opened from)
   // =========================================================================
 
   const sessionListOrder = useAtomValue(sessionListOrderAtom)
   const listNav = useMemo<ListNavigation | null>(() => {
-    // The list the open page is an item of: the Chats index's table as it shows it, or
-    // the settings pages in the Settings index's order (a fixed list).
-    let order: readonly string[] = []
-    let current: string | null = null
-    let open: (id: string) => void = () => {}
-    if (isSessionsNavigation(navigationState) && navigationState.details) {
-      order = sessionListOrder
-      current = navigationState.details.sessionId
-      open = navigateToSession
-    } else if (isSettingsNavigation(navigationState)) {
-      order = SETTINGS_NAV_ORDER
-      current = navigationState.subpage
-      open = (id) => navigate(routes.view.settings(id as SettingsSubpage))
-    }
-    const index = current === null ? -1 : order.indexOf(current)
+    // The Chats index's table as it shows it. Settings has none: its pages are the settings sidebar.
+    if (!isSessionsNavigation(navigationState) || !navigationState.details) return null
+    const order = sessionListOrder
+    const index = order.indexOf(navigationState.details.sessionId)
     if (index === -1) return null
     return {
       hasPrev: index > 0,
       hasNext: index < order.length - 1,
-      goPrev: () => { if (index > 0) open(order[index - 1]) },
-      goNext: () => { if (index < order.length - 1) open(order[index + 1]) },
+      goPrev: () => { if (index > 0) navigateToSession(order[index - 1]) },
+      goNext: () => { if (index < order.length - 1) navigateToSession(order[index + 1]) },
     }
-  }, [navigationState, sessionListOrder, navigateToSession, navigate])
+  }, [navigationState, sessionListOrder, navigateToSession])
 
   // =========================================================================
   // CONTEXT VALUE

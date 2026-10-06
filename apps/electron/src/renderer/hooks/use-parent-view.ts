@@ -3,13 +3,14 @@
  *
  * One rule for Back (the floating navigation's Back button): Back goes to the parent
  * view, and there is no Back on a view without one. Sub-navigation is an index page
- * before the detail, never a sidebar list, so the parents are:
+ * before the detail (Settings excepted: its own sidebar), so the parents are:
  * - A chat: the Chats index (the filter it was opened under).
- * - A settings page, a skill or a source (also the empty Skills / Sources page): the Settings index.
  * - A task, a library item (a file or a document) or a project: its index. A task and a library item
  *   keep the index's search (filters, tab, `?folder=`), so Back returns to the same list.
  * - An automation: its section.
- * The Chats and Settings indexes, the Tasks, Projects and Library indexes, and the Inbox have no parent.
+ * The Chats, Tasks, Projects and Library indexes and the Inbox have no parent. Settings (its pages,
+ * Skills and Sources) has none either: it has no index and no floating navigation; its own sidebar
+ * lists its pages and leads with Back to app.
  *
  * Back is never history Back: that is the Electron buttons in the sidebar header and
  * the browser's own.
@@ -36,13 +37,8 @@ export function useParentView(): ParentView | null {
 
   return useMemo(() => {
     switch (navState.navigator) {
-      case 'settings':
-        return navState.subpage === null ? null : { onBack: () => navigate(routes.view.settings()) }
       case 'sessions':
         return navState.details ? { onBack: goToIndex } : null
-      case 'sources':
-      case 'skills':
-        return { onBack: () => navigate(routes.view.settings()) }
       case 'automations':
       case 'tasks':
       case 'library':
@@ -50,6 +46,9 @@ export function useParentView(): ParentView | null {
       case 'projects':
         return navState.details ? { onBack: () => navigate(routes.view.projects()) } : null
       case 'inbox':
+      case 'settings':
+      case 'sources':
+      case 'skills':
         return null
     }
   }, [navState, navigate, goToIndex])
