@@ -41,8 +41,8 @@ function normalizeCustomModels(connection: LlmConnection): Array<Record<string, 
  *
  * Concretely, `update_runtime_config` (see `pi-agent.ts:requestRuntimeConfigUpdate`
  * and the matching handler at `pi-agent-server/src/index.ts:handleUpdateRuntimeConfig`)
- * carries `model, providerType, authType, baseUrl, customEndpoint, customModels` —
- * but NOT `piAuthProvider`, and switching `slug`/`providerType`/`authType` mid-life
+ * carries `model, authType, baseUrl, customEndpoint, customModels` —
+ * but NOT the connection's type (its Pi provider), and switching `slug`/`type`/`authType` mid-life
  * pulls in credential routing and provider-registry state the subprocess doesn't
  * fully reset on a runtime update.
  */
@@ -51,8 +51,7 @@ export function buildRestartRequiredSignature(input: BackendRuntimeSignatureInpu
   return JSON.stringify(definedObject({
     authType,
     slug: connection?.slug,
-    providerType: connection?.providerType,
-    piAuthProvider: connection?.piAuthProvider,
+    type: connection?.type,
   }))
 }
 
@@ -66,13 +65,12 @@ export function buildBackendRuntimeSignature(input: BackendRuntimeSignatureInput
   const connectionShape = connection
     ? definedObject({
         slug: connection.slug,
-        providerType: connection.providerType,
+        type: connection.type,
         authType: connection.authType,
         defaultModel: connection.defaultModel,
-        ...(isCompatProvider(connection.providerType)
+        ...(isCompatProvider(connection.type)
           ? {
               baseUrl: connection.baseUrl,
-              piAuthProvider: connection.piAuthProvider,
               customEndpoint: connection.customEndpoint
                 ? definedObject({
                     api: connection.customEndpoint.api,
@@ -109,7 +107,7 @@ export function filterAttachmentsForModelInput(
   modelId: string,
 ): ModelAttachmentFilterResult {
   if (!attachments?.length) return { attachments, omittedImages: [] }
-  if (!connection || !isCompatProvider(connection.providerType)) return { attachments, omittedImages: [] }
+  if (!connection || !isCompatProvider(connection.type)) return { attachments, omittedImages: [] }
   if (modelSupportsImages(connection, modelId)) return { attachments, omittedImages: [] }
 
   const modelAttachments: FileAttachment[] = []

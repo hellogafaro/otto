@@ -4,14 +4,14 @@ import { modelSupportsImages, type LlmConnection } from '../llm-connections.ts'
 const BASE_COMPAT: LlmConnection = {
   slug: 'custom',
   name: 'Custom',
-  providerType: 'pi_compat',
+  type: 'custom',
   authType: 'api_key_with_endpoint',
   baseUrl: 'http://localhost:8080',
   customEndpoint: { api: 'openai-completions' },
   createdAt: 1,
 }
 
-describe('modelSupportsImages — pi_compat precedence', () => {
+describe('modelSupportsImages — custom endpoint precedence', () => {
   it('returns true when per-model supportsImages: true (override wins over connection default)', () => {
     const conn: LlmConnection = {
       ...BASE_COMPAT,
@@ -59,10 +59,10 @@ describe('modelSupportsImages — pi_compat precedence', () => {
   })
 })
 
-describe('modelSupportsImages — non-pi_compat fallthrough', () => {
-  it('returns true for pi regardless of override', () => {
+describe('modelSupportsImages — other connections fall through', () => {
+  it('returns true for a Pi provider regardless of override', () => {
     const conn: LlmConnection = {
-      slug: 'p', name: 'p', providerType: 'pi', authType: 'api_key',
+      slug: 'p', name: 'p', type: 'openrouter', authType: 'api_key',
       models: [{ id: 'gpt-x', supportsImages: false } as never],
       createdAt: 1,
     }

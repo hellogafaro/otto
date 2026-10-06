@@ -7,8 +7,8 @@ describe('buildPiRuntime custom endpoint models', () => {
       {
         slug: 'custom-endpoint',
         name: 'Custom Endpoint',
-        providerType: 'pi',
-        authType: 'api_key',
+        type: 'custom',
+        authType: 'api_key_with_endpoint',
         baseUrl: 'http://127.0.0.1:11111/v1',
         customEndpoint: { api: 'anthropic-messages', supportsImages: true },
         models: [

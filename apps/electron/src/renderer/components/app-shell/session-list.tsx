@@ -305,7 +305,6 @@ export function SessionList({
     isSearchMode,
     highlightQuery,
     isSearchingContent,
-    isSearchUnavailable,
     contentSearchResults,
     matchingFilterItems,
     otherResultItems,
@@ -846,7 +845,6 @@ export function SessionList({
             onFocus={() => setIsSearchInputFocused(true)}
             onBlur={() => setIsSearchInputFocused(false)}
             isSearching={isSearchingContent}
-            isUnavailable={isSearchUnavailable}
             resultCount={matchingFilterItems.length + otherResultItems.length}
             exceededLimit={exceededSearchLimit}
             inputRef={searchInputRef}

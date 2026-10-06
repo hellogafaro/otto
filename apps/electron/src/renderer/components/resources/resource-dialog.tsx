@@ -94,7 +94,7 @@ function ResourceForm({ onAdd }: { onAdd: (resource: Resource) => void }) {
   const remoteId = workspaces.find((w) => w.id === activeWorkspaceId)?.remoteServer?.remoteWorkspaceId
   const chatOptions = React.useMemo(
     () => Array.from(metas.values())
-      .filter((s) => !s.hidden && (s.workspaceId === activeWorkspaceId || (remoteId && s.workspaceId === remoteId)))
+      .filter((s) => s.workspaceId === activeWorkspaceId || (remoteId && s.workspaceId === remoteId))
       .map((s) => ({ id: s.id, title: getSessionTitle(s) })),
     [metas, activeWorkspaceId, remoteId],
   )

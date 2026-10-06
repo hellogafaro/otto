@@ -6,13 +6,14 @@
  */
 
 import type { ModelDefinition } from '@otto/shared/config/models'
-import { BACKEND_NAME } from '@otto/shared/branding'
 import {
+  type LlmAuthType,
   type LlmConnection,
-  type CustomEndpointApi,
+  CLAUDE_CODE_CONNECTION_TYPE,
+  CUSTOM_CONNECTION_TYPE,
+  defaultMidStreamBehavior,
   getDefaultModelsForConnection,
   getDefaultModelForConnection,
-  defaultMidStreamBehavior,
 } from '@otto/shared/config'
 
 // ============================================================
@@ -29,7 +30,7 @@ export function parseTestConnectionError(msg: string): string {
     return 'Cannot connect to API server. Check the URL and ensure the server is running.'
   }
   if (lower.includes('no api key found for')) {
-    return `Provider mismatch during setup. Select a provider preset in ${BACKEND_NAME} API Key mode, or use Anthropic API Key mode for arbitrary compatible endpoints.`
+    return 'The key does not match the provider. Choose the provider the key is for, or use a custom endpoint.'
   }
   if (lower.includes('401') || lower.includes('unauthorized') || lower.includes('authentication')) {
     return 'Invalid API key'
@@ -48,25 +49,6 @@ export function parseTestConnectionError(msg: string): string {
   }
 
   return msg.slice(0, 300)
-}
-
-/**
- * Guard against ambiguous Pi custom endpoint tests where no provider routing is selected.
- */
-export function validateSetupTestInput(params: {
-  provider: 'anthropic' | 'pi'
-  baseUrl?: string
-  piAuthProvider?: string
-}): { valid: true } | { valid: false; error: string } {
-  const hasCustomEndpoint = !!params.baseUrl?.trim()
-  if (params.provider === 'pi' && hasCustomEndpoint && !params.piAuthProvider) {
-    return {
-      valid: false,
-      error: `Custom endpoint in ${BACKEND_NAME} mode requires selecting a provider preset. For arbitrary Anthropic-compatible endpoints, use Anthropic API Key mode.`,
-    }
-  }
-
-  return { valid: true }
 }
 
 /**
@@ -94,166 +76,19 @@ export function setupTestRequiresApiKey(baseUrl?: string): boolean {
   return !isLoopbackBaseUrl(baseUrl)
 }
 
-/** Placeholder run that stands in for a stored API key in the edit form (GET_API_KEY). */
-export const API_KEY_MASK = '••••••••'
-
-/**
- * Mask a stored API key for display: provider prefix + mask + last four, or the
- * mask alone for short keys. The only producer of masked values.
- */
-export function maskApiKey(key: string): string {
-  return key.length > 15 ? key.slice(0, 7) + API_KEY_MASK + key.slice(-4) : API_KEY_MASK
-}
-
-/**
- * True for values produced by {@link maskApiKey}, i.e. the edit form echoing a
- * stored key back. Real keys never contain the bullet character.
- */
-export function isMaskedApiKey(value: string | null | undefined): boolean {
-  return typeof value === 'string' && value.includes('••')
-}
-
-export type SetupTestApiKeyResolution =
-  | { ok: true; apiKey: string; source: 'input' | 'stored' }
-  | { ok: false; error: string }
-
-/**
- * Decide which API key a setup test should use.
- *
- * The edit form shows the stored key as a masked placeholder; when the user
- * leaves it untouched and clicks Test, the placeholder arrives here. Testing
- * with the bullets always failed authentication (OSS #1048), so resolve it to
- * the stored credential by connection slug, and ask for the key when that is
- * not possible. Pure apart from the injected store lookup.
- */
-export async function resolveSetupTestApiKey(
-  input: { apiKey: string | undefined; connectionSlug?: string; allowEmptyApiKey: boolean },
-  getStoredApiKey: (slug: string) => Promise<string | null>,
-): Promise<SetupTestApiKeyResolution> {
-  const trimmed = input.apiKey?.trim() ?? ''
-
-  if (isMaskedApiKey(trimmed)) {
-    if (!input.connectionSlug) {
-      return { ok: false, error: 'Re-enter the API key to test this connection.' }
-    }
-    const stored = await getStoredApiKey(input.connectionSlug)
-    if (!stored) {
-      return { ok: false, error: 'No API key is stored for this connection. Re-enter the key to test it.' }
-    }
-    return { ok: true, apiKey: stored, source: 'stored' }
-  }
-
-  if (!trimmed && !input.allowEmptyApiKey) {
-    return { ok: false, error: 'API key is required' }
-  }
-  return { ok: true, apiKey: trimmed, source: 'input' }
-}
-
 /**
  * Decide how a custom OpenAI/Anthropic-compatible endpoint should be persisted.
  *
- * - Loopback URL with no credential → keyless local model (Ollama, LM Studio).
- * - Loopback URL *with* a credential → real local OpenAI-compat server (vLLM, LiteLLM, etc.);
- *   must be treated like a remote custom endpoint so `piAuthProvider` is set, otherwise
- *   `getPiAuth()` returns null at runtime and chat requests fail with 401 (#636).
- * - Remote URL → always keyed with provider hint for the correct icon.
- *
- * Pure: caller spreads the result into the connection updates patch.
+ * - Loopback URL with no credential: a keyless local model (Ollama, LM Studio).
+ * - Loopback URL *with* a credential: a real local OpenAI-compatible server (vLLM, LiteLLM, etc.); it is keyed
+ *   like a remote endpoint, otherwise the agent has no credential at runtime and requests fail with 401 (#636).
+ * - Remote URL: always keyed.
  */
 export function resolveCustomEndpointSetup(input: {
   baseUrl: string | undefined
   credential: string | undefined
-  customEndpointApi: CustomEndpointApi
-}): {
-  authType: Extract<LlmConnection['authType'], 'none' | 'api_key_with_endpoint'>
-  name?: 'Local Model'
-  piAuthProvider?: 'openai' | 'anthropic'
-} {
-  const isKeylessLoopback = isLoopbackBaseUrl(input.baseUrl) && !input.credential
-  if (isKeylessLoopback) {
-    return { authType: 'none', name: 'Local Model' }
-  }
-  return {
-    authType: 'api_key_with_endpoint',
-    piAuthProvider: input.customEndpointApi === 'anthropic-messages' ? 'anthropic' : 'openai',
-  }
-}
-
-// ============================================================
-// Built-in Connection Templates
-// ============================================================
-
-/**
- * Built-in connection templates for the onboarding flow.
- * Each template defines the default configuration for a known connection slug.
- */
-export const BUILT_IN_CONNECTION_TEMPLATES: Record<string, {
-  name: string | ((hasCustomEndpoint: boolean) => string)
-  providerType: LlmConnection['providerType'] | ((hasCustomEndpoint: boolean) => LlmConnection['providerType'])
-  authType: LlmConnection['authType'] | ((hasCustomEndpoint: boolean) => LlmConnection['authType'])
-  piAuthProvider?: string
-}> = {
-  // Pi's anthropic provider; with a base URL, an Anthropic-compatible endpoint
-  'anthropic-api': {
-    name: (h) => h ? 'Custom Anthropic-Compatible' : 'Anthropic (API Key)',
-    providerType: (h) => h ? 'pi_compat' : 'pi',
-    authType: (h) => h ? 'api_key_with_endpoint' : 'api_key',
-    piAuthProvider: 'anthropic',
-  },
-  // A Claude subscription runs through the user's own `claude` CLI and its sign-in; no secret is stored
-  'claude-max': {
-    name: 'Claude subscription',
-    providerType: 'pi',
-    authType: 'cli_login',
-    piAuthProvider: 'claude-code',
-  },
-  'chatgpt-plus': {
-    name: 'ChatGPT Plus',
-    providerType: 'pi',
-    authType: 'oauth',
-    piAuthProvider: 'openai-codex',
-  },
-  'github-copilot': {
-    name: 'GitHub Copilot',
-    providerType: 'pi',
-    authType: 'oauth',
-    piAuthProvider: 'github-copilot',
-  },
-  'pi-api-key': {
-    name: `${BACKEND_NAME} (API Key)`,
-    providerType: 'pi',
-    authType: 'api_key',
-    // piAuthProvider set dynamically from setup.piAuthProvider
-  },
-}
-
-// ============================================================
-// Pi Auth Provider Display Names
-// ============================================================
-
-const PI_AUTH_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-  anthropic: 'Anthropic',
-  openai: 'OpenAI',
-  'openai-codex': 'OpenAI',
-  google: 'Google AI Studio',
-  openrouter: 'OpenRouter',
-  'azure-openai-responses': 'Azure OpenAI',
-  'amazon-bedrock': 'Amazon Bedrock',
-  groq: 'Groq',
-  mistral: 'Mistral',
-  xai: 'xAI',
-  cerebras: 'Cerebras',
-  zai: 'z.ai',
-  huggingface: 'Hugging Face',
-  minimax: 'Minimax',
-  'minimax-cn': 'Minimax CN',
-  'kimi-coding': 'Kimi (Coding)',
-  'vercel-ai-gateway': 'Vercel AI Gateway',
-}
-
-/** Get a human-readable display name for a Pi auth provider key */
-export function piAuthProviderDisplayName(piAuthProvider: string): string | null {
-  return PI_AUTH_PROVIDER_DISPLAY_NAMES[piAuthProvider] ?? null
+}): Extract<LlmAuthType, 'none' | 'api_key_with_endpoint'> {
+  return isLoopbackBaseUrl(input.baseUrl) && !input.credential ? 'none' : 'api_key_with_endpoint'
 }
 
 // ============================================================
@@ -261,44 +96,46 @@ export function piAuthProviderDisplayName(piAuthProvider: string): string | null
 // ============================================================
 
 /**
- * Create an LLM connection configuration from a connection slug.
- * Uses built-in templates for known slugs, throws for unknown slugs
- * (custom connections are created through the settings UI).
+ * The auth type a new connection of this type is made with: a Claude subscription signs in through the user's own
+ * `claude` (no secret), ChatGPT and GitHub Copilot sign in with a device code, a custom endpoint is keyed unless it
+ * is a keyless loopback server, Amazon Bedrock follows its auth method, every other provider takes an API key.
  */
-export function createBuiltInConnection(slug: string, baseUrl?: string | null): LlmConnection {
-  // Try exact match first, then strip numeric suffix for derived slugs (e.g. 'anthropic-api-2' → 'anthropic-api')
-  const baseSlug = slug.replace(/-\d+$/, '')
-  const template = BUILT_IN_CONNECTION_TEMPLATES[slug] ?? BUILT_IN_CONNECTION_TEMPLATES[baseSlug]
-  if (!template) {
-    throw new Error(`Unknown built-in connection slug: ${slug}. Custom connections should be created through settings.`)
+export function resolveSetupAuthType(setup: {
+  type: string
+  baseUrl?: string | null
+  credential?: string | null
+  bedrockAuthMethod?: 'iam_credentials' | 'environment'
+}): LlmAuthType {
+  switch (setup.type) {
+    case CLAUDE_CODE_CONNECTION_TYPE:
+      return 'cli_login'
+    case 'openai-codex':
+    case 'github-copilot':
+      return 'oauth'
+    case CUSTOM_CONNECTION_TYPE:
+      return resolveCustomEndpointSetup({ baseUrl: setup.baseUrl ?? undefined, credential: setup.credential ?? undefined })
+    case 'amazon-bedrock':
+      return setup.bedrockAuthMethod ?? 'iam_credentials'
+    default:
+      return 'api_key'
   }
+}
 
-  const hasCustomEndpoint = !!baseUrl
-  const providerType = typeof template.providerType === 'function'
-    ? template.providerType(hasCustomEndpoint)
-    : template.providerType
-  const authType = typeof template.authType === 'function'
-    ? template.authType(hasCustomEndpoint)
-    : template.authType
-  let name = typeof template.name === 'function'
-    ? template.name(hasCustomEndpoint)
-    : template.name
-
-  // Append suffix number to name for derived connections (e.g. 'anthropic-api-2' → 'Anthropic (API Key) 2')
-  const suffixMatch = slug.match(/-(\d+)$/)
-  if (suffixMatch && !BUILT_IN_CONNECTION_TEMPLATES[slug]) {
-    name = `${name} ${suffixMatch[1]}`
-  }
-
+/** A new connection from a setup: its type and name, the models its provider lists (a custom endpoint lists its own). */
+export function createConnectionForSetup(setup: {
+  slug: string
+  type: string
+  title: string
+  authType: LlmAuthType
+}): LlmConnection {
   return {
-    slug,
-    name,
-    providerType,
-    authType,
-    models: getDefaultModelsForConnection(providerType, template.piAuthProvider),
-    defaultModel: getDefaultModelForConnection(providerType, template.piAuthProvider),
-    modelSelectionMode: providerType === 'pi' ? 'automaticallySyncedFromProvider' : undefined,
-    piAuthProvider: template.piAuthProvider,
+    slug: setup.slug,
+    name: setup.title,
+    type: setup.type,
+    authType: setup.authType,
+    models: getDefaultModelsForConnection(setup.type),
+    defaultModel: getDefaultModelForConnection(setup.type),
+    modelSelectionMode: setup.type === CUSTOM_CONNECTION_TYPE ? undefined : 'automaticallySyncedFromProvider',
     midStreamBehavior: defaultMidStreamBehavior(),
     createdAt: Date.now(),
   }

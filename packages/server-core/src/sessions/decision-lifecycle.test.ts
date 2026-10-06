@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:te
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { saveSession } from '../../../shared/src/sessions/storage.ts'
 import * as backendFactory from '../../../shared/src/agent/backend/factory.ts'
 import * as midTurnMessages from '../decisions/mid-turn-messages.ts'
 import * as suggestions from '../decisions/suggestions.ts'
@@ -39,7 +38,6 @@ describe('decision points in the session lifecycle', () => {
     const workspace = { id: 'ws-test', name: 'Test Workspace', rootPath: tmpRoot, createdAt: Date.now() }
     const managed = createManagedSession({ id, name: 'lifecycle test' }, workspace as never, { messagesLoaded: true })
     ;(sm as unknown as { sessions: Map<string, unknown> }).sessions.set(id, managed)
-    await saveSession({ id, workspaceRootPath: tmpRoot, createdAt: 1, lastUsedAt: 1, messages: [], tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, contextTokens: 0, costUsd: 0 } } as any)
     return managed
   }
 
@@ -78,7 +76,7 @@ describe('decision points in the session lifecycle', () => {
     })
 
     it('never steers when the backend cannot take a steer right now, or the turn has ended', async () => {
-      spyOn(backendFactory, 'resolveSessionConnection').mockReturnValue({ providerType: 'anthropic', midStreamBehavior: 'queue' } as any)
+      spyOn(backendFactory, 'resolveSessionConnection').mockReturnValue({ type: 'anthropic', midStreamBehavior: 'queue' } as any)
       const managed = await session('steer-guard')
       managed.isProcessing = true
       let canSteer = false

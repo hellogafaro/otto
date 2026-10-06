@@ -1,8 +1,9 @@
 import {
+  CLAUDE_CODE_CONNECTION_TYPE,
+  isCompatProvider,
   isLocalConnection,
   type LlmConnection,
 } from '@config/llm-connections'
-import { BACKEND_NAME } from '@otto/shared/branding'
 
 /**
  * Format token count for display (e.g., 1500 -> "1.5k", 200000 -> "200k").
@@ -26,29 +27,27 @@ export function stripPiPrefixForDisplay(value: string): string {
   return value.startsWith('pi/') ? value.slice(3) : value
 }
 
+export type ConnectionGroup = 'anthropic' | 'local' | 'other'
+
 /**
- * Group connections by provider type for hierarchical picker rendering.
- * Each provider section can contain multiple connections (API Key, OAuth, …).
- * Order is significant for UI: Anthropic, Local, Backend.
+ * Group connections for hierarchical picker rendering.
+ * Each group can contain multiple connections (API key, subscription, …).
+ * Order is significant for UI: Anthropic, Local, Other.
  * Empty groups are dropped.
  */
 export function groupConnectionsByProvider<T extends LlmConnection>(
   connections: readonly T[],
-): Array<[string, T[]]> {
-  const groups: Record<string, T[]> = {
-    'Anthropic': [],
-    'Local': [],
-    [BACKEND_NAME]: [],
-  }
+): Array<[ConnectionGroup, T[]]> {
+  const groups: Record<ConnectionGroup, T[]> = { anthropic: [], local: [], other: [] }
   for (const conn of connections) {
-    // Claude: an Anthropic API key or a Claude subscription (Pi's anthropic and claude-code providers)
-    if (conn.providerType === 'pi' && (conn.piAuthProvider === 'anthropic' || conn.piAuthProvider === 'claude-code')) {
-      groups['Anthropic'].push(conn)
-    } else if (conn.providerType === 'pi_compat' && isLocalConnection(conn)) {
-      groups['Local'].push(conn)
+    // Claude: an Anthropic API key or a Claude subscription
+    if (conn.type === 'anthropic' || conn.type === CLAUDE_CODE_CONNECTION_TYPE) {
+      groups.anthropic.push(conn)
+    } else if (isCompatProvider(conn.type) && isLocalConnection(conn)) {
+      groups.local.push(conn)
     } else {
-      groups[BACKEND_NAME].push(conn)
+      groups.other.push(conn)
     }
   }
-  return Object.entries(groups).filter(([, conns]) => conns.length > 0)
+  return (Object.entries(groups) as Array<[ConnectionGroup, T[]]>).filter(([, conns]) => conns.length > 0)
 }

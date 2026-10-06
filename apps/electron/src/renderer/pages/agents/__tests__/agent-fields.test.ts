@@ -3,7 +3,7 @@ import type { Agent, LlmConnection } from '../../../../shared/types'
 import { locationToRouteString, routeStringToLocation } from '../../../router/location'
 import { routes } from '../../../../shared/routes'
 import { generatedAvatar } from '../../../components/people/agent-avatar'
-import { agentSubtitle, allowedCount, modelChoices, providerChoices, providerOf, toDraft, toggleAllowed, toPatch } from '../agent-fields'
+import { agentSubtitle, allowedCount, modelChoices, providerChoices, toDraft, toggleAllowed, toPatch } from '../agent-fields'
 
 // `as Agent`: the backend is dropping `description`; the fixture names only the columns the UI uses
 const agent = {
@@ -23,9 +23,9 @@ const agent = {
 } as Agent
 
 const connections = [
-  { slug: 'a', name: 'Claude', providerType: 'anthropic', authType: 'api_key', models: [{ id: 'claude-opus-4-6', name: 'Opus 4.6' }, 'claude-haiku'] },
-  { slug: 'b', name: 'Codex', providerType: 'pi', piAuthProvider: 'openai-codex', authType: 'oauth', models: ['gpt-5'] },
-  { slug: 'c', name: 'Claude 2', providerType: 'anthropic', authType: 'oauth', models: ['claude-haiku'] },
+  { slug: 'a', name: 'Claude', type: 'anthropic', authType: 'api_key', models: [{ id: 'claude-opus-4-6', name: 'Opus 4.6' }, 'claude-haiku'] },
+  { slug: 'b', name: 'Codex', type: 'openai-codex', authType: 'oauth', models: ['gpt-5'] },
+  { slug: 'c', name: 'Claude 2', type: 'anthropic', authType: 'oauth', models: ['claude-haiku'] },
 ] as unknown as LlmConnection[]
 
 describe('agent fields', () => {
@@ -37,7 +37,6 @@ describe('agent fields', () => {
   })
 
   it('maps connections to providers and their models', () => {
-    expect(providerOf(connections[1])).toBe('openai-codex')
     expect(providerChoices('anthropic', connections).map((c) => c.value)).toEqual(['anthropic', 'openai-codex'])
     expect(providerChoices('google', connections)[0]).toEqual({ value: 'google', label: 'Google AI Studio' })
     expect(modelChoices('anthropic', connections)).toEqual([

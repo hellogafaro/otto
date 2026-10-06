@@ -200,7 +200,7 @@ export function useChatComposer({
 
   // Staged images would be dropped by a text-only custom-endpoint model: the composer warns while one is staged.
   const connection = llmConnections.find((entry) => entry.slug === resolveEffectiveConnectionSlug(session?.llmConnection, workspaceDefaultLlmConnection, llmConnections))
-  const imageNotice = connection && isCompatProvider(connection.providerType) && !modelSupportsImages(connection, model.currentModel)
+  const imageNotice = connection && isCompatProvider(connection.type) && !modelSupportsImages(connection, model.currentModel)
     ? <ImageSupportWarningBanner modelName={stripPiPrefixForDisplay(getModelDisplayName(model.currentModel))} onEnable={() => toggleVision(connection.slug, model.currentModel, true)} />
     : undefined
 

@@ -1,16 +1,19 @@
 /**
  * Session Bundle — Serialization Format for Session Export/Import
  *
- * A SessionBundle is the portable representation of a session directory,
- * used for transferring sessions between workspaces (same-server or cross-server).
+ * A SessionBundle is the portable representation of a chat: its fields, its messages and the files of its folder,
+ * used for transferring chats between workspaces (same-server or cross-server).
  *
- * This is the foundation for session dispatch (move/fork), backup, and sharing.
+ * Messages travel with the chat folder's paths still written as `{{SESSION_PATH}}`, so the importing side resolves
+ * them to its own folder.
  */
 
-import { existsSync, readFileSync } from 'fs'
+import { toPortablePath } from '../utils/paths.ts'
 import type { SessionHeader, StoredMessage } from './types.ts'
-import { readSessionJsonl } from './jsonl.ts'
-import { getSessionPath, getSessionFilePath } from './storage.ts'
+import { getMessageRows, fromMessageRow } from './messages.ts'
+import { getChat } from './chats.ts'
+import { getSessionPath, type ChatWorkspace } from './storage.ts'
+import { pickSessionFields } from './utils.ts'
 import { debug } from '../utils/debug.ts'
 import {
   type BundleFile,
@@ -27,11 +30,8 @@ export { type BundleFile, MAX_BUNDLE_SIZE_BYTES } from '../utils/bundle-files.ts
  */
 const SKIP_DIRS = new Set(['tmp'])
 
-/**
- * Files to skip when collecting session files for export.
- * session.jsonl is in the bundle as structured data.
- */
-const SKIP_SESSION_FILES = new Set(['session.jsonl', 'session.jsonl.tmp'])
+/** The file chats made before the database kept (the importer leaves it in place): never part of a bundle. */
+const SKIP_FILES = new Set(['session.jsonl', 'session.jsonl.tmp'])
 
 /**
  * Dispatch mode determines how the imported session relates to the original.
@@ -57,64 +57,39 @@ export interface SessionBundle {
 }
 
 /**
- * Serialize a session directory into a SessionBundle.
- *
- * Reads the session JSONL and all associated files (attachments, plans, data, downloads).
- * Skips tmp/ directory and dotfiles. Validates total size against MAX_BUNDLE_SIZE_BYTES.
- *
- * @param workspaceRootPath - Root path of the workspace containing the session
- * @param sessionId - ID of the session to serialize
- * @returns SessionBundle or null if session doesn't exist or exceeds size limit
+ * Serialize a chat into a SessionBundle: its row, its messages (paths as tokens) and the files of its folder.
+ * Skips tmp/ and dotfiles. Null when the chat does not exist or its files exceed MAX_BUNDLE_SIZE_BYTES.
  */
-export function serializeSession(
-  workspaceRootPath: string,
-  sessionId: string,
-): SessionBundle | null {
-  const sessionDir = getSessionPath(workspaceRootPath, sessionId)
-  const sessionFile = getSessionFilePath(workspaceRootPath, sessionId)
-
-  if (!existsSync(sessionFile)) {
-    debug('[bundle] Session file not found:', sessionFile)
+export function serializeSession(workspace: ChatWorkspace, sessionId: string): SessionBundle | null {
+  const chat = getChat(workspace.id, workspace.rootPath, sessionId)
+  if (!chat) {
+    debug('[bundle] Chat not found:', sessionId)
     return null
   }
 
-  // Read and parse session JSONL
-  const stored = readSessionJsonl(sessionFile)
-  if (!stored) {
-    debug('[bundle] Failed to parse session JSONL:', sessionFile)
-    return null
-  }
-
-  // Collect all files from session directory (except session.jsonl and tmp/)
-  const files = collectDirectoryFiles(sessionDir, {
-    skipDirs: SKIP_DIRS,
-    skipFiles: SKIP_SESSION_FILES,
-  })
-
-  // Validate total bundle size
+  const files = collectDirectoryFiles(getSessionPath(workspace.rootPath, sessionId), { skipDirs: SKIP_DIRS, skipFiles: SKIP_FILES })
   const totalSize = files.reduce((sum, f) => sum + f.size, 0)
   if (totalSize > MAX_BUNDLE_SIZE_BYTES) {
     debug(`[bundle] Session exceeds max bundle size: ${totalSize} bytes > ${MAX_BUNDLE_SIZE_BYTES} bytes`)
     return null
   }
 
-  // Build header from stored session (re-use the header creation from JSONL)
-  // We read the raw header from the JSONL to preserve pre-computed fields
-  const rawContent = readFileSync(sessionFile, 'utf-8')
-  const firstLine = rawContent.split('\n')[0]
-  if (!firstLine) return null
-
-  // Strip server-internal fields that shouldn't travel with the bundle
-  const header: SessionHeader = {
-    ...JSON.parse(firstLine) as SessionHeader,
-    // workspaceRootPath will be set by the importing server
-  }
+  const header = {
+    ...pickSessionFields(chat),
+    workspaceRootPath: toPortablePath(workspace.rootPath),
+    messageCount: chat.messageCount,
+    lastMessageRole: chat.lastMessageRole,
+    preview: chat.preview,
+    tokenUsage: chat.tokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, contextTokens: 0, costUsd: 0 },
+    lastFinalMessageId: chat.lastFinalMessageId,
+  } as SessionHeader
 
   return {
     version: 1,
     session: {
       header,
-      messages: stored.messages,
+      // '' keeps `{{SESSION_PATH}}` in place for the importing side
+      messages: getMessageRows(workspace.id, sessionId).map((row) => fromMessageRow(row, '')),
     },
     files,
   }

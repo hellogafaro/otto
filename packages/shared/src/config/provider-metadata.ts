@@ -14,7 +14,7 @@ export interface ProviderMetadata {
 
 /**
  * Metadata for known providers.
- * Keys are piAuthProvider values + 'anthropic' for direct API connections.
+ * Keys are Pi provider ids (a connection's `type`).
  */
 const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
   anthropic: {
@@ -70,24 +70,7 @@ const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
   },
 }
 
-/**
- * Look up provider metadata by provider type and optional piAuthProvider (the Pi provider id),
- * e.g. getProviderMetadata('pi', 'openai') or getProviderMetadata('pi', 'amazon-bedrock').
- * A bare provider id as the first argument (the CLI's `--provider anthropic`) works too.
- */
-export function getProviderMetadata(
-  providerType: string,
-  piAuthProvider?: string,
-): ProviderMetadata | undefined {
-  return PROVIDER_METADATA[piAuthProvider ?? providerType]
-}
-
-/**
- * Get just the display name for a provider, with a fallback.
- */
-export function getProviderDisplayName(
-  providerType: string,
-  piAuthProvider?: string,
-): string {
-  return getProviderMetadata(providerType, piAuthProvider)?.name ?? 'AI provider'
+/** Look up provider metadata by Pi provider id (a connection's `type`). */
+export function getProviderMetadata(provider: string): ProviderMetadata | undefined {
+  return PROVIDER_METADATA[provider]
 }

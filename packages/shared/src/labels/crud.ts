@@ -4,21 +4,20 @@
  * Create, update, delete, move and reorder for a workspace's label tree (rows of `labels`).
  * `slug` arguments are the label ids chats write (`bug`); a label's slug never changes, so a
  * rename is only its title. Deleting cascades: the label and its descendants lose their
- * `labels_entities` rows and are stripped from the chat headers that still carry them (chats
- * keep their labels in their headers until they move to the database).
+ * `labels_entities` rows (chats among them), and the session manager hears which chats changed.
  */
 
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { getWorkspaceRootPath } from '../config/storage.ts';
 import { initDb, type Db, type Tx } from '../db/index.ts';
 import { createId } from '../id.ts';
 import { domainError } from '../utils/errors.ts';
 import { getDescendantIds, getLabelDisplayName } from './tree.ts';
-import { extractLabelId, formatLabelEntry, parseLabelEntry } from './values.ts';
+import { formatLabelEntry, parseLabelEntry } from './values.ts';
 import { assertAutoRules } from './auto/validation.ts';
 import { getLabelRow, getLabels, isValidLabelId, isValidLabelIdFormat } from './storage.ts';
 import { labels, labelsEntities } from './schema.ts';
 import type { CreateLabelInput, LabelConfig, UpdateLabelInput } from './types.ts';
+import { notifyChatsChange } from '../sessions/chats.ts';
 
 /**
  * Generate URL-safe slug from name. Accents are folded first ("fejlesztési" →
@@ -131,23 +130,26 @@ const flattenFind = (nodes: LabelConfig[], slug: string): LabelConfig | undefine
 };
 
 /**
- * Delete a label and all its descendants.
- * Removes their `labels_entities` rows and strips them from the chat headers that reference them.
- * @returns Number of chats that had labels stripped
+ * Delete a label and all its descendants with their `labels_entities` rows.
+ * @returns Number of chats that lost a label
  */
 export function deleteLabel(workspaceId: string, slug: string, db: Db = initDb()): { stripped: number } {
   const tree = getLabels(workspaceId, db);
   if (!getLabelRow(workspaceId, slug, db)) throw domainError('not_found', `Label '${slug}' not found`);
   const removedSlugs = [slug, ...getDescendantIds(tree, slug)];
 
-  db.transaction((tx) => {
+  const chats = db.transaction((tx) => {
     const ids = tx.select({ id: labels.id }).from(labels).where(and(eq(labels.workspaceId, workspaceId), inArray(labels.slug, removedSlugs))).all().map((row) => row.id);
-    tx.delete(labelsEntities).where(and(eq(labelsEntities.workspaceId, workspaceId), inArray(labelsEntities.labelId, ids))).run();
+    const entities = tx
+      .delete(labelsEntities)
+      .where(and(eq(labelsEntities.workspaceId, workspaceId), inArray(labelsEntities.labelId, ids)))
+      .returning({ entity: labelsEntities.entity })
+      .all();
     tx.delete(labels).where(inArray(labels.id, ids)).run();
+    return [...new Set(entities.map((row) => row.entity).filter((entity) => entity.startsWith('chat:')).map((entity) => entity.slice('chat:'.length)))];
   });
-
-  // Strip all removed IDs from chats
-  return { stripped: stripLabelsFromSessions(workspaceId, removedSlugs) };
+  notifyChatsChange(workspaceId, chats);
+  return { stripped: chats.length };
 }
 
 /**
@@ -195,32 +197,4 @@ export function moveLabel(workspaceId: string, slug: string, newParentSlug: stri
     .where(and(eq(labels.workspaceId, workspaceId), parent ? eq(labels.parentId, parent.id) : sql`${labels.parentId} is null`))
     .get();
   db.update(labels).set({ parentId: parent?.id ?? null, position: (last?.n ?? -1) + 1 }).where(eq(labels.id, row.id)).run();
-}
-
-// ============================================================
-// Internal Helpers
-// ============================================================
-
-/**
- * Strip deleted labels from all chats (their headers), one update per chat.
- * Removes entries matching a deleted label ID, including valued entries (e.g., "priority::3").
- * Uses extractLabelId to match both "bug" and "priority::3" style entries.
- */
-function stripLabelsFromSessions(workspaceId: string, deletedLabelIds: string[]): number {
-  const workspaceRootPath = getWorkspaceRootPath(workspaceId);
-  if (!workspaceRootPath) return 0;
-  // Dynamic import to avoid circular dependency with sessions module
-  const { listSessions, updateSessionMetadata } = require('../sessions/storage.ts');
-  const deleted = new Set(deletedLabelIds);
-
-  let strippedCount = 0;
-  for (const session of listSessions(workspaceRootPath)) {
-    // Check if any entry matches a deleted label ID (handles both boolean and valued entries)
-    if (session.labels?.some((entry: string) => deleted.has(extractLabelId(entry)))) {
-      updateSessionMetadata(workspaceRootPath, session.id, { labels: session.labels.filter((entry: string) => !deleted.has(extractLabelId(entry))) });
-      strippedCount++;
-    }
-  }
-
-  return strippedCount;
 }

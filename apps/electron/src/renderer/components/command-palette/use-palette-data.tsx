@@ -140,7 +140,7 @@ export function usePaletteData(): PaletteData<PaletteItem> {
 
     // The workspace's chats (a remote workspace's carry the remote id), newest first, archived last.
     const chats = Array.from(sessions.values())
-      .filter((s) => !s.hidden && (!activeWorkspaceId || s.workspaceId === activeWorkspaceId || (!!remoteWorkspaceId && s.workspaceId === remoteWorkspaceId)))
+      .filter((s) => !activeWorkspaceId || s.workspaceId === activeWorkspaceId || (!!remoteWorkspaceId && s.workspaceId === remoteWorkspaceId))
       .sort((a, b) => Number(!!a.isArchived) - Number(!!b.isArchived) || (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
       .map(chatItem)
 

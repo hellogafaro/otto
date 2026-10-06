@@ -49,6 +49,7 @@
     "./mcp": "./src/mcp/index.ts",
     "./prompts": "./src/prompts/index.ts",
     "./sessions": "./src/sessions/index.ts",
+    "./sessions/import": "./src/sessions/import.ts",
     "./projects": "./src/projects/index.ts",
     "./projects/types": "./src/projects/types.ts",
     "./projects/limits": "./src/projects/limits.ts",

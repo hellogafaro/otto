@@ -47,7 +47,7 @@ export async function getDecisionLayerStatus(credentialManager: CredentialManage
 
   const reusableConnections: DecisionReusableConnection[] = [];
   for (const connection of getLlmConnections()) {
-    const provider = decisionProviderForConnection(connection.piAuthProvider);
+    const provider = decisionProviderForConnection(connection.type);
     if (provider) reusableConnections.push({ slug: connection.slug, name: connection.name, provider });
   }
 

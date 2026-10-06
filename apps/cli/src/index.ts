@@ -580,16 +580,12 @@ async function setupLlmConnection(
   const key = resolveApiKey(provider, args.apiKey)
   const connectionSlug = `${provider}-cli`
 
-  let providerType: string
-  let authType: string
-  const setupPayload: Record<string, unknown> = { slug: connectionSlug, credential: key }
+  // A new connection: its Pi provider id (or `custom` for an endpoint) and its name, then the credential
+  const setupPayload: Record<string, unknown> = { slug: connectionSlug, type: provider, title: getProviderDisplayName(provider), credential: key }
 
   if (baseUrl) {
-    // Custom endpoint — send the same payload shape as the desktop UI.
-    // The server handler (llm-connections.ts:102-110) detects customEndpoint + baseUrl
-    // and sets providerType='pi_compat', piAuthProvider, etc.
-    providerType = 'pi_compat'
-    authType = 'api_key_with_endpoint'
+    // Custom endpoint: the same payload shape as the desktop UI.
+    setupPayload.type = 'custom'
     setupPayload.baseUrl = baseUrl
     setupPayload.customEndpoint = {
       api: provider === 'anthropic' ? 'anthropic-messages' : 'openai-completions',
@@ -606,27 +602,12 @@ async function setupLlmConnection(
         'Amazon Bedrock requires AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables',
       )
     }
-    providerType = 'pi'
-    authType = 'iam_credentials'
-    setupPayload.piAuthProvider = 'amazon-bedrock'
     setupPayload.bedrockAuthMethod = 'iam_credentials'
     setupPayload.iamCredentials = { accessKeyId, secretAccessKey, sessionToken }
     setupPayload.awsRegion = region
     delete setupPayload.credential // IAM credentials go through iamCredentials field
-  } else {
-    // A Pi provider by its id ('anthropic', 'openai', 'openrouter', ...)
-    providerType = 'pi'
-    authType = 'api_key'
-    setupPayload.piAuthProvider = provider
   }
 
-  await client.invoke('LLM_Connection:save', {
-    slug: connectionSlug,
-    name: getProviderDisplayName(provider),
-    providerType,
-    authType,
-    createdAt: Date.now(),
-  })
   const setupResult = await client.invoke('settings:setupLlmConnection', setupPayload) as { success: boolean; error?: string }
   if (!setupResult?.success) {
     throw new Error(`LLM connection setup failed: ${setupResult?.error ?? 'unknown error'}`)
@@ -1098,15 +1079,10 @@ export function getValidateSteps(): ValidateStep[] {
           }
           const slug = `${provider}-cli`
           const isAnthropicApi = provider === 'anthropic'
-          await client.invoke('LLM_Connection:save', {
-            slug,
-            name: `${getProviderDisplayName(provider)} (Custom Endpoint)`,
-            providerType: 'pi_compat',
-            authType: 'api_key_with_endpoint',
-            createdAt: Date.now(),
-          })
           const result = await client.invoke('settings:setupLlmConnection', {
             slug,
+            type: 'custom',
+            title: `${getProviderDisplayName(provider)} (Custom Endpoint)`,
             credential: key,
             baseUrl: ctx.baseUrl,
             customEndpoint: { api: isAnthropicApi ? 'anthropic-messages' : 'openai-completions' },
@@ -1127,17 +1103,10 @@ export function getValidateSteps(): ValidateStep[] {
             return '0 connections (missing AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)'
           }
           const slug = 'amazon-bedrock-cli'
-          await client.invoke('LLM_Connection:save', {
-            slug,
-            name: 'Amazon Bedrock',
-            providerType: 'pi',
-            authType: 'iam_credentials',
-            piAuthProvider: 'amazon-bedrock',
-            createdAt: Date.now(),
-          })
           const result = await client.invoke('settings:setupLlmConnection', {
             slug,
-            piAuthProvider: 'amazon-bedrock',
+            type: 'amazon-bedrock',
+            title: 'Amazon Bedrock',
             bedrockAuthMethod: 'iam_credentials',
             iamCredentials: { accessKeyId, secretAccessKey, sessionToken },
             awsRegion: region,
@@ -1159,15 +1128,8 @@ export function getValidateSteps(): ValidateStep[] {
           return `0 connections (${error instanceof Error ? error.message : 'missing API key'})`
         }
         const slug = `${provider}-cli`
-        await client.invoke('LLM_Connection:save', {
-          slug,
-          name: getProviderDisplayName(provider),
-          providerType: 'pi',
-          authType: 'api_key',
-          createdAt: Date.now(),
-        })
         // Every provider is a Pi provider by its id ('anthropic', 'openai', ...)
-        const setupPayload = { slug, credential: key, piAuthProvider: provider }
+        const setupPayload = { slug, type: provider, title: getProviderDisplayName(provider), credential: key }
         const result = await client.invoke('settings:setupLlmConnection', setupPayload) as { success: boolean; error?: string }
         if (!result?.success) return `setup failed: ${result?.error ?? 'unknown'}`
         await client.invoke('LLM_Connection:setDefault', slug)

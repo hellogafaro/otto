@@ -1,10 +1,9 @@
 /**
  * Session Storage
  *
- * Workspace-scoped session CRUD operations.
- * Sessions are stored at {workspaceRootPath}/sessions/{id}/session.jsonl
- * Each session folder contains:
- * - session.jsonl (main data in JSONL format: line 1 = header, lines 2+ = messages)
+ * Chats are rows of `chats` and `messages` (./chats.ts, ./messages.ts; docs/schema.md); this file is how the rest
+ * of the server creates, reads and deletes them, and where each chat's working folder is:
+ * {workspaceRootPath}/sessions/{id}/ with
  * - attachments/ (file attachments)
  * - plans/ (plan files for Safe Mode)
  * - data/ (transform_data tool output: JSON files for datatable/spreadsheet blocks)
@@ -24,22 +23,15 @@ import {
 } from 'fs';
 import { join, basename } from 'path';
 import { getWorkspaceSessionsPath } from '../workspaces/storage.ts';
-import { generateUniqueSessionId } from './slug-generator.ts';
-import { expandPath } from '../utils/paths.ts';
 import { sanitizeSessionId } from './validation.ts';
 import { perf } from '../utils/perf.ts';
-import type {
-  SessionConfig,
-  StoredSession,
-  SessionMetadata,
-  SessionHeader,
-  SessionStatus,
-} from './types.ts';
+import { initDb, type Db } from '../db/index.ts';
+import { createId } from '../id.ts';
+import type { SessionConfig, StoredMessage, StoredSession, SessionMetadata } from './types.ts';
 import type { Plan } from '../agent/plan-types.ts';
-import { validateSessionStatus } from '../statuses/validation.ts';
 import { debug } from '../utils/debug.ts';
-import { getStatusCategory } from '../statuses/storage.ts';
-import { readSessionHeader, readSessionJsonl } from './jsonl.ts';
+import { deleteChat, getChat, getChats, writeChat } from './chats.ts';
+import { copyMessages, fromMessageRow, getMessageRows, getMessagesPage, initMessages, toMessageRow, writeMessages } from './messages.ts';
 import { sessionPersistenceQueue } from './persistence-queue.ts';
 
 // Re-export types for convenience
@@ -70,13 +62,6 @@ export function getSessionPath(workspaceRootPath: string, sessionId: string): st
   // Defense-in-depth: strip any path components from sessionId
   const safeSessionId = sanitizeSessionId(sessionId);
   return join(getWorkspaceSessionsPath(workspaceRootPath), safeSessionId);
-}
-
-/**
- * Get path to a session's JSONL file (inside session folder)
- */
-export function getSessionFilePath(workspaceRootPath: string, sessionId: string): string {
-  return join(getSessionPath(workspaceRootPath, sessionId), 'session.jsonl');
 }
 
 /**
@@ -131,39 +116,21 @@ export function getSessionDownloadsPath(workspaceRootPath: string, sessionId: st
 }
 
 // ============================================================
-// Session ID Generation
+// Chats in the database
 // ============================================================
 
-/**
- * Get existing session IDs for collision detection
- */
-function getExistingSessionIds(workspaceRootPath: string): Set<string> {
-  const sessionsDir = getWorkspaceSessionsPath(workspaceRootPath);
-  if (!existsSync(sessionsDir)) {
-    return new Set();
-  }
-  const entries = readdirSync(sessionsDir, { withFileTypes: true });
-  return new Set(entries.filter(e => e.isDirectory()).map(e => e.name));
+/** A workspace as chat storage needs it: the id its rows carry and the root its folders live under. */
+export interface ChatWorkspace {
+  id: string;
+  rootPath: string;
 }
 
 /**
- * Generate a human-readable session ID
- * Format: YYMMDD-adjective-noun (e.g., 260111-swift-river)
+ * Create a chat: its folder and its row (and, for a branch, its copied messages, in the same transaction). New ids
+ * are `createId()`; chats made before keep their `YYMMDD-adjective-noun` ids.
  */
-export function generateSessionId(workspaceRootPath: string): string {
-  const existingIds = getExistingSessionIds(workspaceRootPath);
-  return generateUniqueSessionId(existingIds);
-}
-
-// ============================================================
-// Session CRUD
-// ============================================================
-
-/**
- * Create a new session for a workspace
- */
-export async function createSession(
-  workspaceRootPath: string,
+export function createSession(
+  workspace: ChatWorkspace,
   options?: {
     name?: string;
     /** Actor the chat belongs to ('user:<id>'); the server sets it, never a client. */
@@ -175,601 +142,119 @@ export async function createSession(
     enabledSourceSlugs?: string[];
     model?: string;
     llmConnection?: string;
-    hidden?: boolean;
     sessionStatus?: SessionConfig['sessionStatus'];
     labels?: string[];
     isFlagged?: boolean;
     projectId?: string;
     parentSessionId?: string;
-  }
-): Promise<SessionConfig> {
-  ensureSessionsDir(workspaceRootPath);
-
+    /** Branch: copy the messages of `fromSessionId` up to and including `throughMessageId`. */
+    branch?: { fromSessionId: string; throughMessageId: string } & Pick<SessionConfig, 'branchFromMessageId' | 'branchFromSdkSessionId' | 'branchFromSessionPath' | 'branchFromSdkTurnId'>;
+  },
+  db: Db = initDb(),
+): SessionConfig {
   const now = Date.now();
-  const sessionId = generateSessionId(workspaceRootPath);
-
-  // Create session directory with all subdirectories (plans, attachments)
-  ensureSessionDir(workspaceRootPath, sessionId);
-
+  const sessionId = createId();
+  ensureSessionDir(workspace.rootPath, sessionId);
+  const { branch, ...fields } = options ?? {};
+  const { fromSessionId, throughMessageId, ...branchFields } = branch ?? ({} as NonNullable<typeof branch>);
   const session: SessionConfig = {
     id: sessionId,
-    workspaceRootPath,
-    name: options?.name,
-    createdBy: options?.createdBy,
-    agentId: options?.agentId,
+    workspaceRootPath: workspace.rootPath,
+    ...fields,
+    ...branchFields,
     createdAt: now,
     lastUsedAt: now,
-    workingDirectory: options?.workingDirectory,
-    permissionMode: options?.permissionMode,
-    enabledSourceSlugs: options?.enabledSourceSlugs,
-    model: options?.model,
-    llmConnection: options?.llmConnection,
-    hidden: options?.hidden,
-    sessionStatus: options?.sessionStatus,
-    labels: options?.labels,
-    isFlagged: options?.isFlagged,
-    projectId: options?.projectId,
-    parentSessionId: options?.parentSessionId,
   };
-
-  // Save empty session
-  const storedSession: StoredSession = {
-    ...session,
-    messages: [],
-    tokenUsage: {
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      contextTokens: 0,
-      costUsd: 0,
+  initMessages(db);
+  db.transaction(
+    (tx) => {
+      writeChat(tx, { ...session, workspaceId: workspace.id }, { labels: options?.labels ?? [] });
+      if (branch) copyMessages(tx, workspace.id, fromSessionId, sessionId, throughMessageId);
     },
-  };
-  await saveSession(storedSession);
-
+    { behavior: 'immediate' },
+  );
   return session;
 }
 
 /**
- * Get or create a session with a specific ID
- * Used for --session <id> flag to allow user-defined session IDs
+ * Create a chat from a whole stored session (a bundle import): its row and every message in one transaction. Paths
+ * already written as `{{SESSION_PATH}}` stay tokens, so they resolve to this chat's folder. The folder is the
+ * caller's (it restores the bundle's files).
  */
-export async function getOrCreateSessionById(
-  workspaceRootPath: string,
-  sessionId: string
-): Promise<SessionConfig> {
-  const existing = loadSession(workspaceRootPath, sessionId);
-  if (existing) {
-    return {
-      id: existing.id,
-      sdkSessionId: existing.sdkSessionId,
-      workspaceRootPath: existing.workspaceRootPath,
-      name: existing.name,
-      createdAt: existing.createdAt,
-      lastUsedAt: existing.lastUsedAt,
-      workingDirectory: existing.workingDirectory,
-    };
-  }
-
-  // Create new session with the specified ID
-  ensureSessionsDir(workspaceRootPath);
-
-  // Create session directory with all subdirectories (plans, attachments)
-  ensureSessionDir(workspaceRootPath, sessionId);
-
-  const now = Date.now();
-  const session: SessionConfig = {
-    id: sessionId,
-    workspaceRootPath,
-    createdAt: now,
-    lastUsedAt: now,
-  };
-
-  const storedSession: StoredSession = {
-    ...session,
-    messages: [],
-    tokenUsage: {
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      contextTokens: 0,
-      costUsd: 0,
+export function createImportedSession(workspace: ChatWorkspace, session: StoredSession, db: Db = initDb()): void {
+  const { messages, ...chat } = session;
+  const sessionDir = getSessionPath(workspace.rootPath, session.id);
+  const rows = [...messages]
+    .map((message, index) => ({ message, index }))
+    .sort((a, b) => (a.message.timestamp ?? 0) - (b.message.timestamp ?? 0) || a.index - b.index)
+    .map(({ message }) => ({ ...toMessageRow(message, sessionDir), reposition: true }));
+  initMessages(db);
+  db.transaction(
+    (tx) => {
+      writeChat(tx, { ...chat, workspaceId: workspace.id }, { labels: chat.labels ?? [] });
+      writeMessages(tx, workspace.id, session.id, rows, []);
     },
-  };
-  await saveSession(storedSession);
-
-  return session;
+    { behavior: 'immediate' },
+  );
 }
 
 /**
- * Save session immediately using the persistence queue.
- * Enqueues the session and flushes to ensure immediate write.
- *
- * This unified approach ensures all session writes go through the same
- * async code path, which is more reliable on Windows.
- *
- * Writes in JSONL format: line 1 = header, lines 2+ = messages
+ * A chat with all its messages, or null. Records what was read as the write path's baseline, so the next write of
+ * this chat stores only what changed.
  */
-export async function saveSession(session: StoredSession): Promise<void> {
-  sessionPersistenceQueue.enqueue(session);
-  await sessionPersistenceQueue.flush(session.id);
-}
-
-/**
- * Queue session for async persistence with debouncing.
- * Multiple rapid calls are coalesced into a single write.
- * Use this during active sessions to avoid blocking the main thread.
- */
-export { sessionPersistenceQueue, getHeaderMetadataSignature } from './persistence-queue.js'
-
-/**
- * Load session by ID
- * Loads session from folder structure in JSONL format.
- */
-export function loadSession(workspaceRootPath: string, sessionId: string): StoredSession | null {
+export function loadSession(workspace: ChatWorkspace, sessionId: string, db: Db = initDb()): StoredSession | null {
   const end = perf.start('session.loadSession', { sessionId });
-
-  const jsonlPath = getSessionFilePath(workspaceRootPath, sessionId);
-  if (existsSync(jsonlPath)) {
-    const session = readSessionJsonl(jsonlPath);
-    if (session) {
-      end();
-      return session;
+  try {
+    const chat = getChat(workspace.id, workspace.rootPath, sessionId, db);
+    if (!chat) return null;
+    const rows = getMessageRows(workspace.id, sessionId, db);
+    sessionPersistenceQueue.seed(sessionId, rows);
+    const sessionDir = getSessionPath(workspace.rootPath, sessionId);
+    const messages: StoredMessage[] = [];
+    for (const row of rows) {
+      try {
+        messages.push(fromMessageRow(row, sessionDir));
+      } catch (error) {
+        debug(`[sessions] unreadable message ${row.id} of ${sessionId}, skipped:`, error);
+      }
     }
+    return { ...chat, messages, tokenUsage: chat.tokenUsage ?? { ...EMPTY_TOKEN_USAGE } } as StoredSession;
+  } finally {
+    end();
   }
-
-  end();
-  return null;
 }
 
-/**
- * List sessions for a workspace
- * Lists sessions from folder structure.
- *
- * Uses JSONL header for fast loading (only reads first line of each file).
- */
-export function listSessions(workspaceRootPath: string): SessionMetadata[] {
+/** A page of a chat's messages, oldest first (see `getMessagesPage`). */
+export function getSessionMessages(workspace: ChatWorkspace, sessionId: string, options: { beforeId?: string; limit?: number } = {}, db: Db = initDb()) {
+  return getMessagesPage(workspace.id, sessionId, getSessionPath(workspace.rootPath, sessionId), options, db);
+}
+
+/** Every chat of a workspace (newest first), with its list fields. The server's own read: no private rule here. */
+export function listSessions(workspace: ChatWorkspace, db: Db = initDb()): SessionMetadata[] {
   const span = perf.span('session.listSessions');
-  const sessionsDir = getWorkspaceSessionsPath(workspaceRootPath);
-  if (!existsSync(sessionsDir)) {
-    span.end();
-    return [];
-  }
-
-  const entries = readdirSync(sessionsDir, { withFileTypes: true });
-  span.mark('readdir');
-  const sessions: SessionMetadata[] = [];
-
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      const sessionId = entry.name;
-      const sessionDir = join(sessionsDir, sessionId);
-      const jsonlFile = join(sessionDir, 'session.jsonl');
-
-      // Clean up orphaned .tmp files from crashed atomic writes.
-      // These are harmless but waste disk space.
-      const tmpFile = jsonlFile + '.tmp';
-      if (existsSync(tmpFile)) {
-        try { unlinkSync(tmpFile); } catch { /* ignore */ }
-      }
-
-      if (existsSync(jsonlFile)) {
-        const header = readSessionHeader(jsonlFile);
-        if (header) {
-          const metadata = headerToMetadata(header, workspaceRootPath);
-          if (metadata) sessions.push(metadata);
-        }
-      }
-    }
-  }
-  span.mark('parsed');
-  span.setMetadata('count', sessions.length);
-
-  // Sort by lastUsedAt descending (most recent first)
-  const sorted = sessions.sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+  const chats = getChats(workspace.id, workspace.rootPath, {}, db);
+  span.setMetadata('count', chats.length);
   span.end();
-  return sorted;
+  return chats;
 }
 
-/**
- * Convert SessionHeader to SessionMetadata
- * Used for fast session list loading from JSONL format.
- */
-function headerToMetadata(header: SessionHeader, workspaceRootPath: string): SessionMetadata | null {
+/** Delete a chat: its rows (messages, search entries, labels) and its folder. */
+export function deleteSession(workspace: ChatWorkspace, sessionId: string, db: Db = initDb()): boolean {
   try {
-    // Migration: accept old 'todoState' field from pre-rename session files
-    const rawStatus = header.sessionStatus ?? (header as unknown as { todoState?: string }).todoState;
-    // Validate sessionStatus against workspace status config
-    const validatedStatus = validateSessionStatus(workspaceRootPath, rawStatus);
-
-    // Count plan files for this session
-    const planCount = listPlanFiles(workspaceRootPath, header.id).length;
-
-    const workingDir = header.workingDirectory ? expandPath(header.workingDirectory) : undefined;
-
-    // Destructure fields that don't exist on SessionMetadata or need overrides
-    const {
-      pendingPlanExecution: _pp,
-      sessionStatus: _ss, workingDirectory: _wd,
-      workspaceRootPath: _wrp, ...headerFields
-    } = header;
-
-    return {
-      ...headerFields,
-      workspaceRootPath,
-      sessionStatus: validatedStatus,
-      planCount: planCount > 0 ? planCount : undefined,
-      workingDirectory: workingDir,
-    } as SessionMetadata;
-  } catch (error) {
-    debug(`[sessions] Failed to convert header to metadata for session "${header?.id}" in ${workspaceRootPath}:`, error);
-    return null;
-  }
-}
-
-/**
- * Delete a session and its associated files
- * Deletes session folder and all associated files
- */
-export function deleteSession(workspaceRootPath: string, sessionId: string): boolean {
-  try {
-    // Delete session directory (includes session.json, attachments, plans)
-    const sessionDir = getSessionPath(workspaceRootPath, sessionId);
-    if (existsSync(sessionDir)) {
-      rmSync(sessionDir, { recursive: true });
-    }
-
+    sessionPersistenceQueue.cancel(sessionId);
+    deleteChat(workspace.id, sessionId, db);
+    const sessionDir = getSessionPath(workspace.rootPath, sessionId);
+    if (existsSync(sessionDir)) rmSync(sessionDir, { recursive: true });
     return true;
-  } catch {
+  } catch (error) {
+    debug(`[sessions] deleting ${sessionId} failed:`, error);
     return false;
   }
 }
 
-/**
- * Clear messages from a session while preserving metadata.
- * Used for /clear command to reset conversation without creating a new session.
- * Also clears the SDK session ID to start a fresh Claude conversation.
- */
-export async function clearSessionMessages(workspaceRootPath: string, sessionId: string): Promise<void> {
-  const session = loadSession(workspaceRootPath, sessionId);
-  if (session) {
-    // Clear messages and SDK session ID but preserve metadata
-    session.messages = [];
-    session.sdkSessionId = undefined;
-    // Reset token usage to zero
-    session.tokenUsage = {
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      contextTokens: 0,
-      costUsd: 0,
-    };
-    await saveSession(session);
-  }
-}
+export const EMPTY_TOKEN_USAGE = { inputTokens: 0, outputTokens: 0, totalTokens: 0, contextTokens: 0, costUsd: 0 };
 
-/**
- * Get or create the latest session for a workspace
- * Uses listActiveSessions to exclude archived sessions
- */
-export async function getOrCreateLatestSession(workspaceRootPath: string): Promise<SessionConfig> {
-  const sessions = listActiveSessions(workspaceRootPath);
-  if (sessions.length > 0 && sessions[0]) {
-    const latest = sessions[0];
-    return {
-      id: latest.id,
-      sdkSessionId: latest.sdkSessionId,
-      workspaceRootPath: latest.workspaceRootPath,
-      name: latest.name,
-      createdAt: latest.createdAt,
-      lastUsedAt: latest.lastUsedAt,
-    };
-  }
-  return createSession(workspaceRootPath);
-}
-
-// ============================================================
-// Session Metadata Updates
-// ============================================================
-
-/**
- * Update SDK session ID for a session
- */
-export async function updateSessionSdkId(
-  workspaceRootPath: string,
-  sessionId: string,
-  sdkSessionId: string
-): Promise<void> {
-  const session = loadSession(workspaceRootPath, sessionId);
-  if (session) {
-    session.sdkSessionId = sdkSessionId;
-    await saveSession(session);
-  }
-}
-
-/**
- * Update session metadata
- */
-export async function updateSessionMetadata(
-  workspaceRootPath: string,
-  sessionId: string,
-  updates: Partial<Pick<SessionConfig,
-    | 'isFlagged'
-    | 'name'
-    | 'sessionStatus'
-    | 'labels'
-    | 'lastReadMessageId'
-    | 'hasUnread'
-    | 'enabledSourceSlugs'
-    | 'workingDirectory'
-    | 'permissionMode'
-    | 'sharedUrl'
-    | 'sharedId'
-    | 'model'
-    | 'llmConnection'
-    | 'isArchived'
-    | 'archivedAt'
-    | 'projectId'
-  >>
-): Promise<void> {
-  const session = loadSession(workspaceRootPath, sessionId);
-  if (!session) return;
-
-  if (updates.isFlagged !== undefined) session.isFlagged = updates.isFlagged;
-  if (updates.name !== undefined) session.name = updates.name;
-  if (updates.sessionStatus !== undefined) session.sessionStatus = updates.sessionStatus;
-  if (updates.labels !== undefined) session.labels = updates.labels;
-  if (updates.enabledSourceSlugs !== undefined) session.enabledSourceSlugs = updates.enabledSourceSlugs;
-  if (updates.workingDirectory !== undefined) session.workingDirectory = updates.workingDirectory;
-  if (updates.permissionMode !== undefined) session.permissionMode = updates.permissionMode;
-  if ('lastReadMessageId' in updates) session.lastReadMessageId = updates.lastReadMessageId;
-  if ('hasUnread' in updates) session.hasUnread = updates.hasUnread;
-  if ('sharedUrl' in updates) session.sharedUrl = updates.sharedUrl;
-  if ('sharedId' in updates) session.sharedId = updates.sharedId;
-  if (updates.model !== undefined) session.model = updates.model;
-  if (updates.llmConnection !== undefined) session.llmConnection = updates.llmConnection;
-  if (updates.isArchived !== undefined) session.isArchived = updates.isArchived;
-  if ('archivedAt' in updates) session.archivedAt = updates.archivedAt;
-  if ('projectId' in updates) session.projectId = updates.projectId;
-
-  await saveSession(session);
-}
-
-/**
- * Flag a session
- */
-export async function flagSession(workspaceRootPath: string, sessionId: string): Promise<void> {
-  await updateSessionMetadata(workspaceRootPath, sessionId, { isFlagged: true });
-}
-
-/**
- * Unflag a session
- */
-export async function unflagSession(workspaceRootPath: string, sessionId: string): Promise<void> {
-  await updateSessionMetadata(workspaceRootPath, sessionId, { isFlagged: false });
-}
-
-/**
- * Set session status
- */
-export async function setSessionStatus(
-  workspaceRootPath: string,
-  sessionId: string,
-  sessionStatus: SessionStatus
-): Promise<void> {
-  await updateSessionMetadata(workspaceRootPath, sessionId, { sessionStatus });
-}
-
-/**
- * Set labels for a session
- */
-export async function setSessionLabels(
-  workspaceRootPath: string,
-  sessionId: string,
-  labels: string[]
-): Promise<void> {
-  await updateSessionMetadata(workspaceRootPath, sessionId, { labels });
-}
-
-/**
- * Set or clear the project binding for a session.
- * Pass `null` to unbind.
- */
-export async function setSessionProjectId(
-  workspaceRootPath: string,
-  sessionId: string,
-  projectId: string | null
-): Promise<void> {
-  await updateSessionMetadata(workspaceRootPath, sessionId, {
-    projectId: projectId === null ? undefined : projectId,
-  });
-}
-
-/**
- * Archive a session
- */
-export async function archiveSession(workspaceRootPath: string, sessionId: string): Promise<void> {
-  await updateSessionMetadata(workspaceRootPath, sessionId, {
-    isArchived: true,
-    archivedAt: Date.now(),
-  });
-}
-
-/**
- * Unarchive a session
- */
-export async function unarchiveSession(workspaceRootPath: string, sessionId: string): Promise<void> {
-  await updateSessionMetadata(workspaceRootPath, sessionId, {
-    isArchived: false,
-    archivedAt: undefined,
-  });
-}
-
-// ============================================================
-// Pending Plan Execution (Accept & Compact flow)
-// ============================================================
-
-/**
- * Set pending plan execution state.
- * Called when user clicks "Accept & Compact" - stores the plan path
- * so it can be executed after compaction, even if the page reloads.
- */
-export async function setPendingPlanExecution(
-  workspaceRootPath: string,
-  sessionId: string,
-  planPath: string,
-  draftInputSnapshot?: string,
-): Promise<void> {
-  const session = loadSession(workspaceRootPath, sessionId);
-  if (!session) return;
-
-  session.pendingPlanExecution = {
-    planPath,
-    draftInputSnapshot,
-    awaitingCompaction: true,
-    executionDispatched: false,
-  };
-  await saveSession(session);
-}
-
-/**
- * Mark compaction as complete for pending plan execution.
- * Called when compaction_complete event fires - sets awaitingCompaction to false
- * so reload recovery knows compaction finished and can trigger execution.
- */
-export async function markCompactionComplete(
-  workspaceRootPath: string,
-  sessionId: string
-): Promise<void> {
-  const session = loadSession(workspaceRootPath, sessionId);
-  if (!session?.pendingPlanExecution) return;
-
-  session.pendingPlanExecution.awaitingCompaction = false;
-  await saveSession(session);
-}
-
-/**
- * Mark pending plan execution as already dispatched from the UI.
- * This prevents reload recovery from sending the same approval message twice
- * if cleanup fails after the send has already been kicked off.
- */
-export async function markPendingPlanExecutionDispatched(
-  workspaceRootPath: string,
-  sessionId: string
-): Promise<boolean> {
-  const session = loadSession(workspaceRootPath, sessionId);
-  const pending = session?.pendingPlanExecution;
-  if (!session || !pending || pending.awaitingCompaction || pending.executionDispatched) {
-    return false;
-  }
-
-  pending.executionDispatched = true;
-  await saveSession(session);
-  return true;
-}
-
-/**
- * Clear pending plan execution state.
- * Called after plan execution is sent, on new user message, or when
- * the pending execution is no longer relevant.
- */
-export async function clearPendingPlanExecution(
-  workspaceRootPath: string,
-  sessionId: string
-): Promise<void> {
-  const session = loadSession(workspaceRootPath, sessionId);
-  // Nothing pending (the common case: this runs on every user message): no rewrite. Rewriting the
-  // whole file here raced concurrent sends on the shared .tmp path and could revert newer writes.
-  if (!session?.pendingPlanExecution) return;
-
-  delete session.pendingPlanExecution;
-  await saveSession(session);
-}
-
-/**
- * Get pending plan execution state for a session.
- * Used on reload to check if we need to resume plan execution.
- */
-export function getPendingPlanExecution(
-  workspaceRootPath: string,
-  sessionId: string
-): { planPath: string; draftInputSnapshot?: string; awaitingCompaction: boolean; executionDispatched: boolean } | null {
-  const session = loadSession(workspaceRootPath, sessionId);
-  if (!session?.pendingPlanExecution) return null;
-  return {
-    ...session.pendingPlanExecution,
-    executionDispatched: session.pendingPlanExecution.executionDispatched === true,
-  };
-}
-
-// ============================================================
-// Session Filtering
-// ============================================================
-
-/**
- * List flagged sessions (excludes archived)
- */
-export function listFlaggedSessions(workspaceRootPath: string): SessionMetadata[] {
-  return listActiveSessions(workspaceRootPath).filter(s => s.isFlagged === true);
-}
-
-/**
- * List completed sessions: every status that is not open (category `closed`, or the `archived` status that archiving
- * a chat moves it to; see docs/schema.md). Excludes sessions with the legacy `isArchived` flag.
- */
-export function listCompletedSessions(workspaceRootPath: string): SessionMetadata[] {
-  return listActiveSessions(workspaceRootPath).filter(s => {
-    const category = getStatusCategory(workspaceRootPath, s.sessionStatus || 'todo');
-    return category !== 'open';
-  });
-}
-
-/**
- * List inbox sessions (category: open)
- * Includes todo, in-progress, needs-review, and any custom "open" statuses; an archived chat (the `archived`
- * status) is not open, so it never shows here.
- */
-export function listInboxSessions(workspaceRootPath: string): SessionMetadata[] {
-  return listActiveSessions(workspaceRootPath).filter(s => {
-    const category = getStatusCategory(workspaceRootPath, s.sessionStatus || 'todo');
-    return category === 'open';
-  });
-}
-
-/**
- * List archived sessions
- */
-export function listArchivedSessions(workspaceRootPath: string): SessionMetadata[] {
-  return listSessions(workspaceRootPath).filter(s => s.isArchived === true);
-}
-
-/**
- * List active (non-archived) sessions
- */
-export function listActiveSessions(workspaceRootPath: string): SessionMetadata[] {
-  return listSessions(workspaceRootPath).filter(s => s.isArchived !== true);
-}
-
-/**
- * Delete archived sessions older than the specified number of days
- * Returns the number of sessions deleted
- */
-export function deleteOldArchivedSessions(workspaceRootPath: string, retentionDays: number): number {
-  const cutoffTime = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
-  const archivedSessions = listArchivedSessions(workspaceRootPath);
-  let deletedCount = 0;
-
-  for (const session of archivedSessions) {
-    // Use archivedAt if available, otherwise fall back to lastUsedAt
-    const archiveTime = session.archivedAt ?? session.lastUsedAt;
-    if (archiveTime < cutoffTime) {
-      if (deleteSession(workspaceRootPath, session.id)) {
-        deletedCount++;
-      }
-    }
-  }
-
-  return deletedCount;
-}
+export { sessionPersistenceQueue } from './persistence-queue.ts';
 
 // ============================================================
 // Plan Storage (Session-Scoped)

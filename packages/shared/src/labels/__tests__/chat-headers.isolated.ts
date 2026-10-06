@@ -11,6 +11,7 @@ const { saveConfig, addWorkspace } = await import('../../config/storage.ts')
 const { initDb } = await import('../../db/index.ts')
 const { pushSchema } = await import('../../db/push.ts')
 const { createSession, listSessions } = await import('../../sessions/storage.ts')
+const { onChatsChange } = await import('../../sessions/chats.ts')
 const { createLabel, deleteLabel } = await import('../crud.ts')
 const { createStatus, deleteStatus } = await import('../../statuses/crud.ts')
 const { updateWorkspacePermissions, permissionsConfigCache } = await import('../../agent/permissions-config.ts')
@@ -29,35 +30,36 @@ beforeAll(async () => {
 })
 afterAll(() => rmSync(configDir, { recursive: true, force: true }))
 
-/** The header rewrites run in the background (as the old code did); listing meanwhile would clean up their temp files. */
-const settled = () => new Promise((resolve) => setTimeout(resolve, 300))
-const headers = () => Object.fromEntries(listSessions(root).map((s) => [s.name, s]))
+const ws = () => ({ id: workspaceId, rootPath: root })
+const headers = () => Object.fromEntries(listSessions(ws()).map((s) => [s.name, s]))
+const changed: string[][] = []
 
-describe('chat headers keep resolving through the old path', () => {
+describe('chats follow label and status deletes', () => {
   it('deleting a label (and its children) strips it, valued entries included, from the chats that carry it', async () => {
     createLabel(workspaceId, { name: 'Ops' })
     createLabel(workspaceId, { name: 'Oncall', parentId: 'ops', valueType: 'string' })
-    await createSession(root, { name: 'a', labels: ['ops', 'oncall::alice', 'bug'] })
-    await createSession(root, { name: 'b', labels: ['oncall::bob'] })
-    await createSession(root, { name: 'c', labels: ['bug'] })
+    onChatsChange((_workspace, ids) => changed.push(ids))
+    const a = createSession(ws(), { name: 'a', createdBy: 'user:x', labels: ['ops', 'oncall::alice', 'bug'] })
+    const b = createSession(ws(), { name: 'b', createdBy: 'user:x', labels: ['oncall::bob'] })
+    createSession(ws(), { name: 'c', createdBy: 'user:x', labels: ['bug'] })
 
-    expect(deleteLabel(workspaceId, 'ops')).toEqual({ stripped: 2 }) // one update per chat that carried any of them (a and b)
-    await settled()
+    expect(deleteLabel(workspaceId, 'ops')).toEqual({ stripped: 2 }) // the chats that carried any of them (a and b)
+    expect(changed.at(-1)?.sort()).toEqual([a.id, b.id].sort()) // the session manager hears which
 
     const after = headers()
     expect(after.a!.labels).toEqual(['bug'])
-    expect(after.b!.labels).toEqual([])
+    expect(after.b!.labels ?? []).toEqual([])
     expect(after.c!.labels).toEqual(['bug'])
   })
 
   it('deleting a status moves its chats to todo, and a chat of another status is left alone', async () => {
     createStatus(workspaceId, { label: 'Review Soon', category: 'open' })
-    await createSession(root, { name: 'd', sessionStatus: 'review-soon' })
-    await createSession(root, { name: 'e', sessionStatus: 'needs-review' })
+    const d = createSession(ws(), { name: 'd', createdBy: 'user:x', sessionStatus: 'review-soon' })
+    createSession(ws(), { name: 'e', createdBy: 'user:x', sessionStatus: 'needs-review' })
     expect(headers().d!.sessionStatus).toBe('review-soon') // the new status is valid for chats at once
 
     expect(deleteStatus(workspaceId, 'review-soon')).toEqual({ migrated: 1 })
-    await settled()
+    expect(changed.at(-1)).toEqual([d.id])
 
     const after = headers()
     expect(after.d!.sessionStatus).toBe('todo')

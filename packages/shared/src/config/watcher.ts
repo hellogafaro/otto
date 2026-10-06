@@ -11,14 +11,12 @@
  * - ~/.otto/workspaces/{slug}/ - Workspace directory (recursive)
  *   - sources/{slug}/config.json, guide.md, permissions.json (any file of the folder is pushed to the bundle store, see sources/store.ts)
  *   - skills/{slug}/** (the local copy of a skill's bundle; an edit is pushed to the bundle store, see skills/store.ts)
- *   - sessions/{id}/session.jsonl (header metadata only)
  *   - automations.json
  * Labels, statuses and workspace permissions are database rows, not watched files.
  */
 
 import { watch, existsSync, readdirSync, statSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { platform } from 'os';
 import type { FSWatcher } from 'fs';
 import { CONFIG_DIR } from './paths.ts';
 import { debug } from '../utils/debug.ts';
@@ -42,8 +40,6 @@ import { permissionsConfigCache, getAppPermissionsDir } from '../agent/permissio
 import { getWorkspacePath, getWorkspaceSourcesPath } from '../workspaces/storage.ts';
 import type { LoadedSkill } from '../skills/types.ts';
 import { loadSkill, skillNeedsIconDownload, downloadSkillIcon } from '../skills/storage.ts';
-import { readSessionHeader } from '../sessions/jsonl.ts';
-import type { SessionHeader } from '../sessions/types.ts';
 import { AUTOMATIONS_CONFIG_FILE } from '../automations/constants.ts';
 import { loadAppTheme, loadPresetThemes, loadPresetTheme, getAppThemesDir } from './storage.ts';
 import type { ThemeOverrides, PresetTheme } from './theme.ts';
@@ -73,10 +69,6 @@ const DEBOUNCE_MS = 100;
 
 // A skill or a source is a folder an agent writes file by file: wait for it to settle before the bundle is pushed.
 const BUNDLE_DEBOUNCE_MS = 1000;
-
-// Longer debounce for session metadata on Windows where fs.watch() fires
-// aggressively for atomic writes (unlink + rename = 2+ events)
-const SESSION_META_DEBOUNCE_MS = platform() === 'win32' ? 300 : DEBOUNCE_MS;
 
 // ============================================================
 // Types
@@ -113,10 +105,6 @@ export interface ConfigWatcherCallbacks {
   // Automations callbacks
   /** Called when automations.json changes */
   onAutomationsConfigChange?: (workspaceId: string) => void;
-
-  // Session callbacks
-  /** Called when a session's JSONL header is modified externally (labels, name, flags, etc.) */
-  onSessionMetadataChange?: (sessionId: string, header: SessionHeader) => void;
 
   // Theme callbacks (app-level only)
   /** Called when app-level theme.json changes */
@@ -367,20 +355,6 @@ export class ConfigWatcher {
       this.debounce(`skill:${slug}`, () => this.handleSkillChange(slug), BUNDLE_DEBOUNCE_MS);
       return;
     }
-
-    // Session metadata changes: sessions/{id}/session.jsonl
-    // Detects external modifications (other instances, scripts, manual edits).
-    // Only reads line 1 (header) — lightweight even during active streaming.
-    if (parts[0] === 'sessions' && parts.length >= 3) {
-      const sessionId = parts[1]!;
-      const file = parts[2];
-
-      // Only watch actual session files, ignore .tmp (atomic write intermediates)
-      if (file === 'session.jsonl') {
-        this.debounce(`session-meta:${sessionId}`, () => this.handleSessionMetadataChange(sessionId), SESSION_META_DEBOUNCE_MS);
-      }
-      return;
-    }
   }
 
   /**
@@ -626,28 +600,6 @@ export class ConfigWatcher {
   private handleAutomationsConfigChange(): void {
     debug('[ConfigWatcher] automations config changed:', this.workspaceId);
     this.callbacks.onAutomationsConfigChange?.(this.workspaceId);
-  }
-
-  // ============================================================
-  // Session Metadata Handlers
-  // ============================================================
-
-  /**
-   * Handle session.jsonl change — reads only line 1 (header) and emits if valid.
-   * This enables detection of external metadata changes (labels, name, flags)
-   * made by other instances, scripts, or manual edits.
-   */
-  private handleSessionMetadataChange(sessionId: string): void {
-    const sessionFile = join(this.workspaceDir, 'sessions', sessionId, 'session.jsonl');
-
-    if (!existsSync(sessionFile)) {
-      return;
-    }
-
-    const header = readSessionHeader(sessionFile);
-    if (header) {
-      this.callbacks.onSessionMetadataChange?.(sessionId, header);
-    }
   }
 
   // ============================================================

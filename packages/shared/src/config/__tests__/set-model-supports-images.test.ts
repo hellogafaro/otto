@@ -7,7 +7,7 @@ import {
 const BASE: LlmConnection = {
   slug: 'custom',
   name: 'Custom Endpoint',
-  providerType: 'pi_compat',
+  type: 'custom',
   authType: 'api_key_with_endpoint',
   baseUrl: 'http://localhost:8080',
   customEndpoint: { api: 'openai-completions' },

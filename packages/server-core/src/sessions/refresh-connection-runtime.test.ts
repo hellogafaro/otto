@@ -101,10 +101,9 @@ const model = (id: string, supportsImages: boolean) =>
 const SLUG_A_CONNECTION: config.LlmConnection = {
   slug: 'slug-A',
   name: 'Custom endpoint',
-  providerType: 'pi_compat',
-  authType: 'api_key',
+  type: 'custom',
+  authType: 'api_key_with_endpoint',
   baseUrl: 'https://llm.example.test/v1',
-  piAuthProvider: 'openai',
   customEndpoint: { api: 'openai-completions' },
   defaultModel: 'vision-model',
   models: [
@@ -187,8 +186,8 @@ describe('refreshConnectionRuntime', () => {
   })
 
   it('skips in-place refresh and forces recreation when a restart-required field changed', async () => {
-    // `update_runtime_config` cannot propagate `piAuthProvider`, slug,
-    // providerType, or authType cleanly. When any of those drift, the helper
+    // `update_runtime_config` cannot propagate the connection's type, slug,
+    // or authType cleanly. When any of those drift, the helper
     // must dispose the runtime instead of marking it refreshed (which would
     // record the new signature against a stale subprocess).
     const agent = createAgentStub()
@@ -228,7 +227,7 @@ describe('refreshConnectionRuntime', () => {
 
   it('records customModels with the per-model supportsImages flag in the IPC payload', async () => {
     // End-to-end shape check: when the session's connection resolves to a
-    // pi_compat connection with explicit per-model `supportsImages`, the
+    // custom connection with explicit per-model `supportsImages`, the
     // helper must forward that field on `customModels` so the Pi subprocess
     // can re-register the model with `input: ['text', 'image']`.
     const agent = createAgentStub()
@@ -242,7 +241,6 @@ describe('refreshConnectionRuntime', () => {
     // The runtime envelope mirrors what `pi-agent.ts:requestRuntimeConfigUpdate`
     // unpacks — `customModels` keeps `supportsImages` when set, plain ids otherwise.
     expect(payload).toMatchObject({
-      providerType: 'pi_compat',
       runtime: {
         baseUrl: 'https://llm.example.test/v1',
         customModels: [

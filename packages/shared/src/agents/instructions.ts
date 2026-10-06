@@ -2,7 +2,7 @@
  * What Otto adds to the harness's own system prompt (Pi's is kept; this is appended after it), built as XML groups
  * like BB's `buildInstructionGroups` (docs/final-plan.md 2.6). Pure and browser-safe. Each group is left out when it
  * has nothing to say. The tag prefix is the product's name in lowercase (`otto_rules`, ...) so a rename needs no edit
- * here; `connected_mcps` keeps its name. Nothing calls this yet (the harness wiring is M1).
+ * here; `connected_mcps` keeps its name. Each Pi turn gets it through `getAgentTurn` (`agent/agent-turn.ts`).
  *
  * Order: rules (product), workspace (the `instructions` setting), agent (its own instructions), tools (guidance),
  * connected_mcps (the sources the agent may use), run (unattended runs only).

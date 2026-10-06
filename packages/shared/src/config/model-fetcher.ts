@@ -2,31 +2,16 @@
  * Model Fetcher — Centralized Model Discovery
  *
  * Interface for fetching a connection's available models (Pi's catalog, or
- * Copilot's live list). The ModelFetcherMap enforces at compile time that every
- * fetchable provider type has a fetcher.
- *
- * Compat providers (pi_compat) are excluded —
- * they point to arbitrary endpoints where users configure models manually.
+ * Copilot's live list). A custom endpoint is excluded: it points to an arbitrary
+ * endpoint where the user configures models manually.
  */
 
 import type { ModelDefinition } from './models';
-import type { LlmProviderType, LlmConnection } from './llm-connections';
+import type { LlmConnection } from './llm-connections';
 
 // ============================================================
 // Types
 // ============================================================
-
-/**
- * Providers that support automatic model fetching.
- * Compat providers are excluded — they point to arbitrary endpoints
- * (Ollama, OpenRouter, etc.) where users configure models manually.
- *
- * Adding a new LlmProviderType without updating this type
- * will cause a compile error in the fetcher registry.
- */
-export type FetchableProvider = Exclude<LlmProviderType,
-  | 'pi_compat'
->;
 
 /**
  * Result of a model fetch operation.
@@ -69,9 +54,3 @@ export interface ModelFetcher {
    */
   readonly refreshIntervalMs: number;
 }
-
-/**
- * Type-safe fetcher map. Every FetchableProvider MUST have a fetcher.
- * Adding a new LlmProviderType without registering a fetcher → compile error.
- */
-export type ModelFetcherMap = Record<FetchableProvider, ModelFetcher>;

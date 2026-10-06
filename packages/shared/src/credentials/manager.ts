@@ -7,7 +7,7 @@
 
 import type { CredentialBackend } from './backends/types.ts';
 import type { CredentialId, StoredCredential, CredentialHealthStatus, CredentialHealthIssue } from './types.ts';
-import type { LlmAuthType, LlmProviderType } from '../config/llm-connections.ts';
+import type { LlmAuthType } from '../config/llm-connections.ts';
 import { SecureStorageBackend } from './backends/secure-storage.ts';
 import { deleteDecisionKey, getDecisionKey, setDecisionKey } from '../decisions/keys.ts';
 import { deleteCredential, getCredential, setCredential } from '../connections/index.ts';
@@ -392,13 +392,11 @@ export class CredentialManager {
    *
    * @param connectionSlug - The connection slug
    * @param authType - The auth type to check
-   * @param providerType - Optional provider type for OAuth routing
    * @returns true if credentials exist and are valid
    */
   async hasLlmCredentials(
     connectionSlug: string,
     authType: LlmAuthType,
-    providerType?: LlmProviderType,
     scope?: string
   ): Promise<boolean> {
     switch (authType) {
@@ -416,7 +414,7 @@ export class CredentialManager {
 
       // OAuth - browser flow
       case 'oauth':
-        return this.hasLlmOAuthCredential(connectionSlug, providerType, scope);
+        return this.hasLlmOAuthCredential(connectionSlug, scope);
 
       // AWS IAM credentials
       case 'iam_credentials':
@@ -446,11 +444,7 @@ export class CredentialManager {
    * Check if connection has valid OAuth credential.
    * @internal
    */
-  private async hasLlmOAuthCredential(
-    connectionSlug: string,
-    providerType?: LlmProviderType,
-    scope?: string
-  ): Promise<boolean> {
+  private async hasLlmOAuthCredential(connectionSlug: string, scope?: string): Promise<boolean> {
     const oauth = await this.getLlmOAuth(connectionSlug, scope);
     if (!oauth) return false;
 
@@ -572,8 +566,7 @@ export class CredentialManager {
         if (connection && connection.authType !== 'none' && connection.authType !== 'environment') {
           const hasCredentials = await this.hasLlmCredentials(
             defaultSlug,
-            connection.authType,
-            connection.providerType
+            connection.authType
           );
           if (!hasCredentials) {
             issues.push({

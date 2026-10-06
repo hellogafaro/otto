@@ -64,8 +64,6 @@ export interface UseSessionSearchResult {
   isSearchMode: boolean
   highlightQuery: string | undefined
   isSearchingContent: boolean
-  /** Whether the search service is unavailable (e.g. ripgrep not found on remote server) */
-  isSearchUnavailable: boolean
   /** Raw content search results — needed by SessionItem for `chatMatchCount` */
   contentSearchResults: Map<string, ContentSearchResult>
 
@@ -291,7 +289,6 @@ export function useSessionSearch({
 
   const [contentSearchResults, setContentSearchResults] = useState<Map<string, ContentSearchResult>>(new Map())
   const [isSearchingContent, setIsSearchingContent] = useState(false)
-  const [isSearchUnavailable, setIsSearchUnavailable] = useState(false)
   const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -299,7 +296,7 @@ export function useSessionSearch({
   const isSearchMode = searchActive && searchQuery.length >= 2
   const highlightQuery = isSearchMode ? searchQuery : undefined
 
-  // --- Content search (ripgrep IPC with debounce + cancellation) ---
+  // --- Content search (full-text search IPC with debounce + cancellation) ---
 
   useEffect(() => {
     if (!workspaceId || !isSearchMode) {
@@ -312,7 +309,6 @@ export function useSessionSearch({
 
     let cancelled = false
     setIsSearchingContent(true)
-    setIsSearchUnavailable(false)
 
     const timer = setTimeout(async () => {
       try {
@@ -343,14 +339,7 @@ export function useSessionSearch({
         })
       } catch (error) {
         if (cancelled) return
-        // Detect search unavailable (ripgrep not found) vs transient errors
-        const message = error instanceof Error ? error.message : String(error)
-        if (message.includes('SearchUnavailableError') || message.includes('ripgrep')) {
-          console.warn('[useSessionSearch] Search unavailable:', message)
-          setIsSearchUnavailable(true)
-        } else {
-          console.error('[useSessionSearch] Content search error:', error)
-        }
+        console.error('[useSessionSearch] Content search error:', error)
         setContentSearchResults(new Map())
       } finally {
         if (!cancelled) {
@@ -376,13 +365,10 @@ export function useSessionSearch({
 
   // --- Data pipeline ---
 
-  // Filter out hidden sessions before any processing
-  const visibleItems = useMemo(() => items.filter(item => !item.hidden), [items])
-
   // Sort by most recent activity first
   const sortedItems = useMemo(() =>
-    [...visibleItems].sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0)),
-    [visibleItems]
+    [...items].sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0)),
+    [items]
   )
 
   // Filter items by search query or current filter
@@ -518,7 +504,6 @@ export function useSessionSearch({
     isSearchMode,
     highlightQuery,
     isSearchingContent,
-    isSearchUnavailable,
     contentSearchResults,
     matchingFilterItems,
     otherResultItems,

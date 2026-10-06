@@ -10,6 +10,7 @@ import { domainError } from '../utils/errors.ts'
 import { getMemberRole } from '../workspaces/members.ts'
 import { assembleInstructions } from './instructions.ts'
 import { agents } from './schema.ts'
+import { clearChatsAgent, notifyChatsChange } from '../sessions/chats.ts'
 import {
   AVATAR_REF,
   FALLBACK_PROVIDER,
@@ -181,17 +182,18 @@ export function updateAgent(workspaceId: string, id: string, patch: AgentUpdate,
 }
 
 /**
- * Removes an agent. The last one of a workspace cannot go (`invalid`). Its chats are not rewritten: a chat whose
- * `agentId` no longer exists runs on the workspace's default agent (`getAgentRunConfig`).
- * TODO(P3b): with the `chats` table, set `chats.agent_id` to null here, in the same transaction.
+ * Removes an agent. The last one of a workspace cannot go (`invalid`). Its chats move to the workspace's default
+ * agent (`chats.agent_id` null) in the same transaction, and the session manager hears of it.
  */
 export function deleteAgent(workspaceId: string, id: string, db: Db | Tx = initDb()): void {
-  db.transaction((tx) => {
+  const moved = db.transaction((tx) => {
     const rows = rowsOf(workspaceId, tx)
     if (!rows.some((row) => row.id === id)) throw domainError('not_found', `Agent ${id} does not exist`)
     if (rows.length === 1) throw domainError('invalid', 'The last agent of a workspace cannot be deleted')
     tx.delete(agents).where(and(eq(agents.workspaceId, workspaceId), eq(agents.id, id))).run()
+    return clearChatsAgent(tx, workspaceId, id)
   })
+  notifyChatsChange(workspaceId, moved)
 }
 
 /**
@@ -220,7 +222,8 @@ export function canEditAgent(workspaceId: string, agent: Pick<Agent, 'createdBy'
  * assembled), `Turn.model` and thinking level, and the skill and source id lists (`[]` = all). `agentId` is the chat's
  * header `agentId`; absent, or an agent that was deleted, gives the default agent of `workspaceId`. Undefined when
  * neither exists (an unseeded workspace). Reads only.
- * TODO(M1): the harness calls this per turn (Turn.agent/instructions/model/thinkingLevel/skills/mcp); nothing does yet.
+ * Read per turn by `getAgentTurn` (`agent/agent-turn.ts`) and, for the provider and model, by the session's
+ * connection resolution (`resolveBackendContext`).
  */
 export function getAgentRunConfig(agentId: string | null | undefined, workspaceId?: string, db: Db | Tx = initDb()): AgentRunConfig | undefined {
   const named = agentId ? db.select().from(agents).where(eq(agents.id, agentId)).get() : undefined

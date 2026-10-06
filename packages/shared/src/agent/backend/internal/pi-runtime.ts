@@ -3,6 +3,7 @@ import type { BackendConfig } from '../types.ts';
 import type { ResolvedBackendRuntimePaths } from './runtime-resolver.ts';
 import type { LlmConnection } from '../../../config/storage.ts';
 import type { ModelFetchResult } from '../../../config/model-fetcher.ts';
+import { piProviderOf } from '../../../config/llm-connections.ts';
 import type { ModelDefinition } from '../../../config/models.ts';
 import { getAllPiModels, getPiModelsForAuthProvider, getPiProviderBaseUrl } from '../../../config/models-pi.ts';
 
@@ -261,7 +262,7 @@ export function buildPiRuntime(connection: LlmConnection | null, paths: Resolved
       interceptor: paths.interceptorBundlePath,
       node: paths.nodeRuntimePath,
     },
-    piAuthProvider: connection?.piAuthProvider,
+    piAuthProvider: connection ? piProviderOf(connection) : undefined,
     baseUrl: connection?.baseUrl,
     customEndpoint: connection?.customEndpoint,
     customModels: connection?.models?.map(m => {
@@ -287,19 +288,20 @@ export async function fetchPiModels(connection: LlmConnection, credentials: Back
   // Uses the GitHub OAuth token (our refreshToken) to exchange for a
   // Copilot API token, then queries GET /models for the live model list.
   const copilotGitHubToken = credentials.oauthRefreshToken || credentials.oauthAccessToken;
-  if (connection.piAuthProvider === 'github-copilot' && copilotGitHubToken) {
+  const provider = piProviderOf(connection);
+  if (provider === 'github-copilot' && copilotGitHubToken) {
     const models = await fetchCopilotModels(copilotGitHubToken, timeoutMs);
     return { models };
   }
 
   // All other Pi providers: use static Pi SDK model registry
-  const models = connection.piAuthProvider
-    ? getPiModelsForAuthProvider(connection.piAuthProvider)
+  const models = provider
+    ? getPiModelsForAuthProvider(provider)
     : getAllPiModels();
 
   if (models.length === 0) {
     throw new Error(
-      `No Pi models found for provider: ${connection.piAuthProvider ?? 'all'}`,
+      `No Pi models found for provider: ${provider ?? 'all'}`,
     );
   }
 

@@ -69,8 +69,7 @@ export async function getAuthState(where?: ConnectionContext): Promise<AuthState
 
   if (connection && defaultConnectionSlug) {
     // Use LLM connection credentials
-    // Pass providerType for OAuth routing (OpenAI OAuth needs idToken)
-    hasCredentials = await manager.hasLlmCredentials(defaultConnectionSlug, connection.authType, connection.providerType, connection.scope);
+    hasCredentials = await manager.hasLlmCredentials(defaultConnectionSlug, connection.authType, connection.scope);
 
     if (connection.authType === 'api_key' || connection.authType === 'api_key_with_endpoint' || connection.authType === 'bearer_token') {
       apiKey = await manager.getLlmApiKey(defaultConnectionSlug, connection.scope);

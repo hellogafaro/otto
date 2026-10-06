@@ -116,7 +116,7 @@ export interface SpawnSessionHelpResult {
     slug: string;
     name: string;
     isDefault: boolean;
-    providerType: string;
+    type: string;
     models: string[];
     defaultModel?: string;
   }>;
@@ -828,7 +828,7 @@ ${formattedMessages}
       if (skill) {
         const skillMdPath = join(skill.path, 'SKILL.md');
         if (existsSync(skillMdPath)) {
-          skillPaths.set(slug, skillMdPath);
+          skillPaths.set(slug, this.skillReadPath(slug, skillMdPath));
           this.debug(`[extractSkillPaths] Resolved skill ${slug} → ${skillMdPath}`);
         } else {
           this.debug(`[extractSkillPaths] SKILL.md not found: ${skillMdPath}`);
@@ -857,6 +857,11 @@ ${formattedMessages}
       cleanMessage,
       missingSkills: parsed.invalidSkills || []
     };
+  }
+
+  /** Where the model reads a mentioned skill's SKILL.md (a backend whose tools run elsewhere maps the host path). */
+  protected skillReadPath(_slug: string, hostPath: string): string {
+    return hostPath;
   }
 
   /**
@@ -1102,7 +1107,7 @@ ${formattedMessages}
         slug: c.slug,
         name: c.name,
         isDefault: c.slug === defaultConnectionSlug,
-        providerType: c.providerType,
+        type: c.type,
         models: (c.models || []).map(m => typeof m === 'string' ? m : m.id),
         defaultModel: c.defaultModel,
       })),

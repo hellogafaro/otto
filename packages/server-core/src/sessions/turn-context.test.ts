@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { saveSession } from '../../../shared/src/sessions/storage.ts'
 import { SessionManager, createManagedSession } from './session-manager.ts'
 
 // Transient per-turn guidance (the interruption notice, decision-model suggestions) reaches the
@@ -25,7 +24,6 @@ describe('sendMessage turn context', () => {
     const workspace = { id: 'ws-test', name: 'Test Workspace', rootPath: tmpRoot, createdAt: Date.now() }
     const managed = createManagedSession({ id, name: 'turn context test' }, workspace as never, { messagesLoaded: true })
     ;(sm as unknown as { sessions: Map<string, unknown> }).sessions.set(id, managed)
-    await saveSession({ id, workspaceRootPath: tmpRoot, createdAt: 1, lastUsedAt: 1, messages: [], tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, contextTokens: 0, costUsd: 0 } } as any)
     const calls: Array<{ message: string; options?: { turnContext?: string } }> = []
     const agent = {
       getModel: () => 'claude-sonnet-4-6',

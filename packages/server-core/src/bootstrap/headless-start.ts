@@ -15,6 +15,7 @@ import { initSecretsImport } from '@otto/shared/secrets/import'
 import { initAgentsImport } from '@otto/shared/agents/import'
 import { initRoutinesImport } from '@otto/shared/automations/routines-import'
 import { initLabelsStatusesImport } from '@otto/shared/labels/import'
+import { initChatsImport } from '@otto/shared/sessions/import'
 import { initSkills } from '@otto/shared/skills'
 import { initSources } from '@otto/shared/sources'
 import { getWorkspaceOwnerIds } from '@otto/shared/workspaces'
@@ -389,6 +390,9 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   await initSources()
   // Each workspace's automations.json becomes routines, once per workspace.
   initRoutinesImport()
+  // Each workspace's chats (sessions/<id>/session.jsonl) become `chats` and `messages` rows, once per workspace (after
+  // labels and statuses, which their rows point at; the files stay where they are).
+  initChatsImport()
   if (users.needsOwner() && !process.env.OTTO_OWNER_EMAIL?.trim()) {
     platform.logger.warn('[bootstrap] The first sign-up will own this server; set OTTO_OWNER_EMAIL to restrict it')
   }

@@ -6,14 +6,13 @@
  */
 import { describe, it, expect } from 'bun:test';
 import { getMiniModel, getSummarizationModel, isDeniedMiniModelId } from '../src/config/llm-connections.ts';
-import type { LlmProviderType } from '../src/config/llm-connections.ts';
 
 // ============================================================
 // Helpers
 // ============================================================
 
-function makeConnection(providerType: LlmProviderType, models: string[], piAuthProvider?: string) {
-  return { providerType, models, piAuthProvider };
+function makeConnection(type: string, models: string[]) {
+  return { type, models };
 }
 
 // ============================================================
@@ -35,7 +34,7 @@ describe('getMiniModel()', () => {
   // --- Pi providers ---
 
   it('finds mini for pi provider', () => {
-    const conn = makeConnection('pi', [
+    const conn = makeConnection('openrouter', [
       'pi/gpt-5.2-codex',
       'pi/gpt-5.1-codex-mini',
     ]);
@@ -43,7 +42,7 @@ describe('getMiniModel()', () => {
   });
 
   it('skips denied codex-mini-latest alias for pi provider', () => {
-    const conn = makeConnection('pi', [
+    const conn = makeConnection('openrouter', [
       'pi/codex-mini-latest',
       'pi/gpt-5.1-codex-mini',
       'pi/gpt-5.2-codex',
@@ -52,7 +51,7 @@ describe('getMiniModel()', () => {
   });
 
   it('skips denied pi/codex-mini-latest alias for pi provider', () => {
-    const conn = makeConnection('pi', [
+    const conn = makeConnection('openrouter', [
       'pi/codex-mini-latest',
       'pi/gpt-5.1-codex-mini',
       'pi/gpt-5.3-codex',
@@ -60,8 +59,8 @@ describe('getMiniModel()', () => {
     expect(getMiniModel(conn)).toBe('pi/gpt-5.1-codex-mini');
   });
 
-  it('finds mini for pi_compat provider', () => {
-    const conn = makeConnection('pi_compat', [
+  it('finds mini for a custom endpoint', () => {
+    const conn = makeConnection('custom', [
       'openai/gpt-5.2-codex',
       'openai/gpt-5.1-codex-mini',
     ]);
@@ -71,7 +70,7 @@ describe('getMiniModel()', () => {
   // --- Pi fallback behavior ---
 
   it('finds mini for Pi list with mixed models', () => {
-    const conn = makeConnection('pi', [
+    const conn = makeConnection('openrouter', [
       'pi/claude-sonnet-4.6',
       'pi/gpt-5',
       'pi/gpt-5-mini',
@@ -81,7 +80,7 @@ describe('getMiniModel()', () => {
   });
 
   it('finds mini even when model name has "mini" in different position', () => {
-    const conn = makeConnection('pi', [
+    const conn = makeConnection('openrouter', [
       'pi/gpt-5',
       'pi/o4-mini',
       'pi/claude-sonnet-4.6',
@@ -90,7 +89,7 @@ describe('getMiniModel()', () => {
   });
 
   it('falls back to last model when Pi list has no mini/flash model', () => {
-    const conn = makeConnection('pi', [
+    const conn = makeConnection('openrouter', [
       'pi/gpt-5',
       'pi/claude-sonnet-4.6',
       'pi/o3',
@@ -106,7 +105,7 @@ describe('getMiniModel()', () => {
   });
 
   it('returns undefined for undefined models', () => {
-    const conn = { providerType: 'anthropic' as LlmProviderType, models: undefined };
+    const conn = { type: 'anthropic', models: undefined };
     expect(getMiniModel(conn)).toBeUndefined();
   });
 
@@ -120,7 +119,7 @@ describe('getMiniModel()', () => {
   });
 
   it('fallback ignores denied alias and returns last allowed model', () => {
-    const conn = makeConnection('pi', [
+    const conn = makeConnection('openrouter', [
       'pi/codex-mini-latest',
       'pi/gpt-5',
       'pi/claude-sonnet-4.6',
@@ -129,7 +128,7 @@ describe('getMiniModel()', () => {
   });
 
   it('handles single-model list', () => {
-    const conn = makeConnection('pi', ['pi/gpt-5']);
+    const conn = makeConnection('openrouter', ['pi/gpt-5']);
     expect(getMiniModel(conn)).toBe('pi/gpt-5');
   });
 });
@@ -140,7 +139,7 @@ describe('getMiniModel()', () => {
 
 describe('getSummarizationModel()', () => {
   it('returns same result as getMiniModel (shared implementation)', () => {
-    const conn = makeConnection('pi', [
+    const conn = makeConnection('openrouter', [
       'pi/gpt-5',
       'pi/gpt-5-mini',
       'pi/claude-sonnet-4.6',
@@ -160,27 +159,24 @@ describe('getMiniModel() — auth-flavor awareness', () => {
     //    with a ChatGPT account."
     // The keyword search would otherwise pick gpt-5.1-codex-mini first.
     const conn = makeConnection(
-      'pi',
-      ['pi/gpt-5.2-codex', 'pi/gpt-5.1-codex-mini', 'pi/gpt-5-mini'],
       'openai-codex',
+      ['pi/gpt-5.2-codex', 'pi/gpt-5.1-codex-mini', 'pi/gpt-5-mini'],
     );
     expect(getMiniModel(conn)).toBe('pi/gpt-5-mini');
   });
 
   it('still returns *codex-mini* variants under regular openai (API-key) auth', () => {
     const conn = makeConnection(
-      'pi',
-      ['pi/gpt-5.2-codex', 'pi/gpt-5.1-codex-mini'],
       'openai',
+      ['pi/gpt-5.2-codex', 'pi/gpt-5.1-codex-mini'],
     );
     expect(getMiniModel(conn)).toBe('pi/gpt-5.1-codex-mini');
   });
 
   it('falls back to last allowed model when every mini candidate is denied', () => {
     const conn = makeConnection(
-      'pi',
-      ['pi/gpt-5', 'pi/gpt-5.1-codex-mini', 'pi/gpt-5.2-codex'],
       'openai-codex',
+      ['pi/gpt-5', 'pi/gpt-5.1-codex-mini', 'pi/gpt-5.2-codex'],
     );
     // No remaining mini/flash candidate after filtering → falls back to last
     // allowed model (gpt-5.2-codex).

@@ -48,7 +48,7 @@ export function ProjectDetails({ projectId }: { projectId: string }) {
   if (!project) return null
 
   const chats = Array.from(metas.values())
-    .filter((meta) => meta.projectId === projectId && !meta.hidden)
+    .filter((meta) => meta.projectId === projectId)
     .sort((a, b) => (b.lastMessageAt ?? b.createdAt ?? 0) - (a.lastMessageAt ?? a.createdAt ?? 0))
   const current = STATUSES.find((s) => s.status === project.status) ?? STATUSES[0]
 

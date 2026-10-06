@@ -20,7 +20,7 @@ import {
 // Pi Model Resolver (dependency injection to avoid Pi SDK in renderer)
 // ============================================================
 
-type PiModelResolver = (piAuthProvider?: string) => ModelDefinition[];
+type PiModelResolver = (provider?: string) => ModelDefinition[];
 let _piModelResolver: PiModelResolver = () => [];
 
 /**
@@ -36,15 +36,11 @@ export function registerPiModelResolver(resolver: PiModelResolver): void {
 // Types
 // ============================================================
 
-/**
- * How a connection reaches its models; every chat runs on Pi (docs/pi-only-plan.md).
- *
- * - 'pi': one of Pi's providers, named by `piAuthProvider` (the row's `type` in the connections domain)
- * - 'pi_compat': Pi with a custom endpoint (Ollama, self-hosted models, Anthropic-compat endpoints)
- */
-export type LlmProviderType =
-  | 'pi'
-  | 'pi_compat';
+/** The `type` of a connection to an endpoint of the user's own (Ollama, vLLM, a proxy): Pi's `custom-endpoint` provider. */
+export const CUSTOM_CONNECTION_TYPE = 'custom';
+
+/** The `type` of a Claude subscription: the user's own `claude` CLI and its login, through pi-agent-server's bridge. No secret. */
+export const CLAUDE_CODE_CONNECTION_TYPE = 'claude-code';
 
 /**
  * Authentication mechanism for the connection.
@@ -56,7 +52,7 @@ export type LlmProviderType =
  * - 'bearer_token': Single bearer token (different header than API key)
  *
  * OAuth flows (browser redirect):
- * - 'oauth': Browser OAuth flow, provider determined by providerType
+ * - 'oauth': Browser or device-code sign-in, the provider is the connection's `type`
  *
  * Cloud provider auth:
  * - 'iam_credentials': AWS-style (Access Key + Secret Key + Region)
@@ -111,7 +107,7 @@ export interface CustomEndpointConfig {
  * - 'queue': Hold the message; let the current turn finish naturally; replay
  *   as a new turn afterwards. No abort, no destructive interruption.
  *
- * Default is per-`providerType` via {@link defaultMidStreamBehavior}; reads
+ * Default is {@link defaultMidStreamBehavior}; reads
  * everywhere should go through {@link resolveMidStreamBehavior} so connections
  * created before this field existed still pick up the right default.
  */
@@ -128,8 +124,8 @@ export interface LlmConnection {
   /** Display name shown in UI (e.g., 'Anthropic (API Key)', 'Ollama') */
   name: string;
 
-  /** Pi provider, or a custom endpoint through Pi */
-  providerType: LlmProviderType;
+  /** The Pi provider id (`anthropic`, `claude-code`, `openai-codex`, `openrouter`, ...), or `custom` for an endpoint of the user's own */
+  type: string;
 
   /** Custom base URL (required for *_compat providers, optional override for others) */
   baseUrl?: string;
@@ -149,13 +145,6 @@ export interface LlmConnection {
    * - userDefined3Tier: preserve user-selected Best/Balanced/Fast list.
    */
   modelSelectionMode?: ModelSelectionMode;
-
-  /**
-   * Pi auth provider name (e.g., 'anthropic', 'openai', 'github-copilot').
-   * Determines which provider credential Pi SDK uses for LLM calls.
-   * Only relevant for 'pi' providerType connections.
-   */
-  piAuthProvider?: string;
 
   /**
    * Custom endpoint protocol config.
@@ -201,20 +190,30 @@ export interface LlmConnectionWithStatus extends LlmConnection {
 // ============================================================
 
 /**
+ * The Pi provider a connection's credential belongs to: its `type`, except a custom endpoint, which speaks one of
+ * the two protocols (`openai` or `anthropic`) and has no provider without a key.
+ */
+export function piProviderOf(connection: Pick<LlmConnection, 'type' | 'authType' | 'customEndpoint'>): string | undefined {
+  if (connection.type !== CUSTOM_CONNECTION_TYPE) return connection.type;
+  if (connection.authType === 'none') return undefined;
+  return connection.customEndpoint?.api === 'anthropic-messages' ? 'anthropic' : 'openai';
+}
+
+/**
  * Returns true when `modelId` must NOT be used as the mini/summarization model
  * given the current auth flavor.
  *
  * - `codex-mini-latest` is always denied (Pi SDK rejects it outright).
- * - When `piAuthProvider === 'openai-codex'` (ChatGPT Plus/Pro OAuth or
+ * - When the provider is `openai-codex` (ChatGPT Plus/Pro OAuth or
  *   ChatGPT-JWT API key), all `*codex-mini*` variants (e.g. `gpt-5.1-codex-mini`)
  *   are denied — the ChatGPT backend refuses them with: "The '<model>' model is
  *   not supported when using Codex with a ChatGPT account."
  *   A regular OpenAI API key uses provider `'openai'`, which is unaffected.
  */
-export function isDeniedMiniModelId(modelId: string, piAuthProvider?: string): boolean {
+export function isDeniedMiniModelId(modelId: string, provider?: string): boolean {
   const bare = modelId.startsWith('pi/') ? modelId.slice(3) : modelId;
   if (bare === 'codex-mini-latest') return true;
-  if (piAuthProvider === 'openai-codex' && bare.includes('codex-mini')) return true;
+  if (provider === 'openai-codex' && bare.includes('codex-mini')) return true;
   return false;
 }
 
@@ -222,14 +221,14 @@ export function isDeniedMiniModelId(modelId: string, piAuthProvider?: string): b
  * Get the mini/utility model ID for a connection.
  * Search: any model with "mini", "flash" or "haiku" in its id/name, else the last model in the list.
  *
- * Auth-flavor-aware: skips models that the user's `piAuthProvider` would reject
+ * Auth-flavor-aware: skips models that the connection's provider would reject
  * (e.g. `gpt-5.1-codex-mini` under ChatGPT-account auth). See
  * {@link isDeniedMiniModelId}.
  *
  * Used for mini agent, title generation, and mini completions.
  */
 export function getMiniModel(
-  connection: Pick<LlmConnection, 'models' | 'providerType' | 'piAuthProvider'>,
+  connection: Pick<LlmConnection, 'models' | 'type'>,
 ): string | undefined {
   return findSmallModel(connection);
 }
@@ -242,7 +241,7 @@ export function getMiniModel(
  * Used for response summarization and API tool summarization.
  */
 export function getSummarizationModel(
-  connection: Pick<LlmConnection, 'models' | 'providerType' | 'piAuthProvider'>,
+  connection: Pick<LlmConnection, 'models' | 'type'>,
 ): string | undefined {
   return findSmallModel(connection);
 }
@@ -258,7 +257,7 @@ export function getSummarizationModel(
  * auth flavor.
  */
 function findSmallModel(
-  connection: Pick<LlmConnection, 'models' | 'providerType' | 'piAuthProvider'>,
+  connection: Pick<LlmConnection, 'models' | 'type'>,
 ): string | undefined {
   if (!connection.models || connection.models.length === 0) return undefined;
 
@@ -268,7 +267,7 @@ function findSmallModel(
     typeof m === 'string' ? m.toLowerCase() : `${m.id} ${m.name} ${m.shortName}`.toLowerCase();
 
   const isAllowedModel = (m: ModelDefinition | string): boolean =>
-    !isDeniedMiniModelId(toId(m), connection.piAuthProvider);
+    !isDeniedMiniModelId(toId(m), connection.type);
 
   // Claude models (Anthropic, a Claude subscription, Bedrock) have no mini/flash: their small one is Haiku.
   const keywords = ['mini', 'flash', 'haiku'];
@@ -372,13 +371,10 @@ export function authTypeRequiresEndpoint(authType: LlmAuthType): boolean {
 }
 
 /**
- * Check if a provider type is a "compat" provider.
- * Compat providers use custom endpoints and require explicit model lists.
- * @param providerType - Provider type to check
- * @returns true if this is a compat provider (pi_compat)
+ * Check if a connection type is the custom endpoint, which uses a base URL and an explicit model list.
  */
-export function isCompatProvider(providerType: LlmProviderType): boolean {
-  return providerType === 'pi_compat';
+export function isCompatProvider(type: string): boolean {
+  return type === CUSTOM_CONNECTION_TYPE;
 }
 
 /**
@@ -461,23 +457,23 @@ export function setModelSupportsImages(
 /**
  * Resolve whether a given model on a connection accepts image input.
  *
- * For `pi_compat` (custom-endpoint) connections this mirrors the precedence used
+ * For `custom` (custom-endpoint) connections this mirrors the precedence used
  * by Pi's `buildCustomEndpointModelDef`:
  *   per-model `supportsImages` override
  *   ?? connection-level `customEndpoint.supportsImages` default
  *   ?? false
  *
- * For non-`pi_compat` connections the renderer doesn't own the catalog — Pi SDK's
+ * For other connections the renderer doesn't own the catalog — Pi SDK's
  * bundled provider definitions and Anthropic's API do. This helper conservatively
  * returns `true` there (we don't know better; the upstream decides). The
- * pre-flight banner gates on `pi_compat` separately, so this just reports what
+ * pre-flight banner gates on `custom` separately, so this just reports what
  * the renderer can know with confidence.
  */
 export function modelSupportsImages(
-  connection: Pick<LlmConnection, 'providerType' | 'models' | 'customEndpoint'>,
+  connection: Pick<LlmConnection, 'type' | 'models' | 'customEndpoint'>,
   modelId: string,
 ): boolean {
-  if (!isCompatProvider(connection.providerType)) return true;
+  if (!isCompatProvider(connection.type)) return true;
 
   const entry = connection.models?.find(m =>
     (typeof m === 'string' ? m : m.id) === modelId,
@@ -489,36 +485,23 @@ export function modelSupportsImages(
 }
 
 /**
- * Get the default model list for a provider type from the registry.
- * For *_compat providers, returns empty array - those should use connection.models instead.
+ * Get the model list of a connection type from the registry.
+ * A custom endpoint returns an empty array: it uses the connection's own `models`.
  *
- * @param providerType - Provider type
- * @param piAuthProvider - Optional Pi auth provider for filtering Pi models
- * @returns Model list from registry, or empty array for compat providers
+ * @param type - The connection's Pi provider id (or `custom`)
  */
-export function getModelsForProviderType(providerType: LlmProviderType, piAuthProvider?: string): ModelDefinition[] {
-  // Compat providers require explicit model lists from the connection
-  if (isCompatProvider(providerType)) {
+export function getModelsForProviderType(type: string): ModelDefinition[] {
+  // A custom endpoint requires an explicit model list from the connection
+  if (isCompatProvider(type)) {
     return [];
   }
 
   // Pi: fetch models via registered resolver (avoids Pi SDK import in renderer)
-  return _piModelResolver(piAuthProvider);
+  return _piModelResolver(type);
 }
 
 /**
- * Get the default model list for a connection's provider type.
- * Unlike getModelsForProviderType(), this handles compat providers by returning
- * the appropriate compat-prefixed model IDs instead of an empty array.
- *
- * Use this whenever you need to populate or backfill a connection's models.
- *
- * @param providerType - Provider type from the connection
- * @param piAuthProvider - Optional Pi auth provider for filtering Pi models
- * @returns Default model list (ModelDefinition[] for standard, string[] for compat)
- */
-/**
- * Preferred default model IDs per Pi auth provider.
+ * Preferred default model IDs per Pi provider.
  * The Pi SDK returns models in arbitrary order (alphabetical by ID), which means
  * deprecated models like claude-3-5-haiku-20241022 can end up first.
  * This map ensures getDefaultModelForConnection() picks a modern, capable model.
@@ -555,14 +538,18 @@ export const PI_PREFERRED_DEFAULTS: Record<string, string[]> = {
   'amazon-bedrock': ['claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
 };
 
-export function getDefaultModelsForConnection(providerType: LlmProviderType, piAuthProvider?: string): Array<ModelDefinition | string> {
-  if (providerType === 'pi') {
-    const models = _piModelResolver(piAuthProvider);
+/**
+ * Get the default model list for a connection type: Pi's catalog for its provider, preferred models first (empty for
+ * a custom endpoint, where the user names them). Use this whenever you need to populate or backfill a connection's models.
+ */
+export function getDefaultModelsForConnection(type: string): Array<ModelDefinition | string> {
+  if (!isCompatProvider(type)) {
+    const models = _piModelResolver(type);
     // Sort preferred defaults first so getDefaultModelForConnection picks a modern model.
     // For Bedrock models, the Pi SDK returns IDs like pi/us.anthropic.claude-opus-4-8
     // but preferred defaults use bare IDs (claude-opus-4-8). We match via both direct
     // comparison and reverse Bedrock ID mapping.
-    const preferred = (piAuthProvider && PI_PREFERRED_DEFAULTS[piAuthProvider]) || [];
+    const preferred = PI_PREFERRED_DEFAULTS[type] || [];
     if (preferred.length > 0) {
       // Rank of a catalog entry among the preferred defaults. Unranked entries
       // sort after every preferred model, keeping the SDK's catalog order.
@@ -589,19 +576,15 @@ export function getDefaultModelsForConnection(providerType: LlmProviderType, piA
     }
     return models;
   }
-  return [];  // pi_compat: dynamic, the user specifies
+  return [];  // a custom endpoint: the user specifies
 }
 
 /**
- * Get the default model ID for a connection's provider type.
+ * Get the default model ID for a connection type.
  * Derived from the first entry in getDefaultModelsForConnection() — single source of truth.
- *
- * @param providerType - Provider type from the connection
- * @param piAuthProvider - Optional Pi auth provider for filtering Pi models
- * @returns Default model ID string
  */
-export function getDefaultModelForConnection(providerType: LlmProviderType, piAuthProvider?: string): string {
-  const models = getDefaultModelsForConnection(providerType, piAuthProvider);
+export function getDefaultModelForConnection(type: string): string {
+  const models = getDefaultModelsForConnection(type);
   const first = models[0];
   if (!first) return '';  // Dynamic provider — no default
   return typeof first === 'string' ? first : first.id;
@@ -660,23 +643,14 @@ export function authTypeIsOAuth(authType: LlmAuthType): boolean {
 }
 
 /**
- * Check if a provider supports a given auth type.
- * Returns valid combinations for the type system.
- *
- * @param providerType - Provider type
- * @param authType - Auth type to check
- * @returns true if this is a valid combination
+ * Check if a connection type supports a given auth type: a custom endpoint takes a key with its endpoint or none,
+ * every Pi provider the rest.
  */
-export function isValidProviderAuthCombination(
-  providerType: LlmProviderType,
-  authType: LlmAuthType
-): boolean {
-  const validCombinations: Record<LlmProviderType, LlmAuthType[]> = {
-    pi: ['api_key', 'oauth', 'iam_credentials', 'environment', 'none', 'cli_login'],
-    pi_compat: ['api_key_with_endpoint', 'none'],
-  };
-
-  return validCombinations[providerType]?.includes(authType) ?? false;
+export function isValidProviderAuthCombination(type: string, authType: LlmAuthType): boolean {
+  const valid: LlmAuthType[] = isCompatProvider(type)
+    ? ['api_key_with_endpoint', 'none']
+    : ['api_key', 'oauth', 'iam_credentials', 'environment', 'none', 'cli_login'];
+  return valid.includes(authType);
 }
 
 /**

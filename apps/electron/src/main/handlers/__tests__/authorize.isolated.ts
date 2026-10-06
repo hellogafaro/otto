@@ -340,7 +340,7 @@ describe('the workspace channels', () => {
 
 describe('the connection channels', () => {
   const secret = 'sk-ant-api03-THE-WHOLE-SECRET-KEY-9876'
-  const connection = (slug: string, scope?: string) => ({ slug, scope, type: 'pi' as const, authType: 'api_key' as const, title: slug })
+  const connection = (slug: string, scope?: string) => ({ slug, scope, type: 'anthropic', authType: 'api_key' as const, title: slug })
 
   beforeAll(() => {
     createConnection(connection('inst'), { apiKey: secret })
@@ -417,7 +417,7 @@ describe('the connection channels', () => {
   it('lets every member read connections and the sign-in status, with no secret in what comes back', async () => {
     const { url } = await start(true)
     const [alice, bob] = [await connect(url, 'alice', A), await connect(url, 'bob', A)]
-    const { LIST, LIST_WITH_STATUS, GET, GET_API_KEY } = RPC_CHANNELS.llmConnections
+    const { LIST, LIST_WITH_STATUS, GET } = RPC_CHANNELS.llmConnections
     const answers = [
       await bob.invoke(LIST),
       await bob.invoke(LIST_WITH_STATUS),
@@ -425,25 +425,43 @@ describe('the connection channels', () => {
       await bob.invoke(GET, 'inst'),
       await bob.invoke(RPC_CHANNELS.onboarding.GET_AUTH_STATE),
       await alice.invoke(LIST_WITH_STATUS),
-      await alice.invoke(GET_API_KEY, 'inst'),
     ]
     expect((answers[0] as { slug: string }[]).map((c) => c.slug).sort()).toEqual(['in-a', 'inst', 'mine-bob'])
     expect((answers[1] as { isAuthenticated: boolean }[]).every((c) => c.isAuthenticated)).toBe(true)
-    // the key comes back masked, to an owner only
-    expect(answers[6]).toMatch(/••/)
-    expect(await codeOf(bob.invoke(GET_API_KEY, 'inst'))).toBe('forbidden')
     // a person's own connection is seen by that person only
     expect(((await alice.invoke(LIST)) as { slug: string }[]).map((c) => c.slug).sort()).toEqual(['in-a', 'inst'])
     expect(await alice.invoke(GET, 'mine-bob')).toBeNull()
-    expect(await alice.invoke(GET_API_KEY, 'mine-bob')).toBeNull()
     expect((await alice.invoke(RPC_CHANNELS.llmConnections.DELETE, 'mine-bob')) as { success: boolean }).toMatchObject({ success: false })
     expect(await bob.invoke(GET, 'mine-bob')).toMatchObject({ slug: 'mine-bob', scope: userScope('bob') })
-    expect(await bob.invoke(GET_API_KEY, 'mine-bob')).toMatch(/••/)
     for (const answer of answers) {
       const text = JSON.stringify(answer)
       expect(text).not.toContain(secret)
       expect(text).not.toContain('THE-WHOLE-SECRET')
     }
+  })
+
+  it("lets every member choose their own default among the connections they see, never another's", async () => {
+    const { url } = await start(true)
+    const [alice, bob] = [await connect(url, 'alice', A), await connect(url, 'bob', A)]
+    const { SET_DEFAULT, LIST_WITH_STATUS } = RPC_CHANNELS.llmConnections
+    const defaultOf = async (client: typeof alice) => ((await client.invoke(LIST_WITH_STATUS)) as { slug: string; isDefault: boolean }[]).find((c) => c.isDefault)?.slug
+    // bob, a member, picks a workspace connection and one of his own
+    expect(await bob.invoke(SET_DEFAULT, 'in-a')).toMatchObject({ success: true })
+    expect(await defaultOf(bob)).toBe('in-a')
+    expect(await bob.invoke(SET_DEFAULT, 'mine-bob')).toMatchObject({ success: true })
+    expect(await defaultOf(bob)).toBe('mine-bob')
+    // it is his alone: alice's default is the install's
+    expect(await defaultOf(alice)).toBe('inst')
+    // alice does not see bob's connection, so she cannot make it hers
+    expect(await alice.invoke(SET_DEFAULT, 'mine-bob')).toMatchObject({ success: false })
+    expect(await defaultOf(alice)).toBe('inst')
+  })
+
+  it('lets every member ask whether claude is runnable, and no one else', async () => {
+    const { url } = await start(true)
+    const bob = await connect(url, 'bob', A)
+    expect(await bob.invoke(RPC_CHANNELS.claudeCode.GET_STATUS)).toMatchObject({ found: expect.any(Boolean), path: expect.any(String) })
+    expect(await handshake(url, 'stranger', A)).not.toBe('ok')
   })
 })
 
@@ -465,7 +483,7 @@ describe('dictation', () => {
 
   it("finds the key of the user's own or workspace's openrouter connection, and no one else's", () => {
     const fake = `sk-or-${crypto.randomUUID()}`
-    const base = { slug: 'openrouter', type: 'pi' as const, authType: 'api_key' as const, title: 'OpenRouter' }
+    const base = { slug: 'openrouter', type: 'openrouter', authType: 'api_key' as const, title: 'OpenRouter' }
     const mine = createConnection({ ...base, scope: userScope('bob') }, { apiKey: fake })
     const shared = createConnection({ ...base, scope: workspaceScope(B) })
     try {

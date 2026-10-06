@@ -785,7 +785,7 @@ export default function App() {
 
             // Native notification for approval-required pauses (same gating as completion notifications)
             const notifySession = store.get(sessionAtomFamily(sessionId))
-            if (notifySession && !notifySession.hidden) {
+            if (notifySession) {
               const isAdminPrompt = effect.request.type === 'admin_approval'
               const promptBody = isAdminPrompt
                 ? `Admin approval required: ${effect.request.appName || effect.request.toolName}`
@@ -950,8 +950,7 @@ export default function App() {
           store.set(sessionMetaMapAtom, newMetaMap)
 
           // Show notification on complete (when window is not focused)
-          // Skip hidden sessions (mini-agent sessions) - they shouldn't trigger notifications
-          if (event.type === 'complete' && !updatedSession.hidden) {
+          if (event.type === 'complete') {
             // Get the last assistant/plan message as preview
             const lastMessage = updatedSession.messages.findLast(
               m => (m.role === 'assistant' || m.role === 'plan') && !m.isIntermediate
@@ -1147,12 +1146,12 @@ export default function App() {
   }, [updateSessionById])
 
   const handleArchiveSession = useCallback((sessionId: string) => {
-    updateSessionById(sessionId, { isArchived: true, archivedAt: Date.now() })
+    updateSessionById(sessionId, { isArchived: true })
     window.electronAPI.sessionCommand(sessionId, { type: 'archive' })
   }, [updateSessionById])
 
   const handleUnarchiveSession = useCallback((sessionId: string) => {
-    updateSessionById(sessionId, { isArchived: false, archivedAt: undefined })
+    updateSessionById(sessionId, { isArchived: false })
     window.electronAPI.sessionCommand(sessionId, { type: 'unarchive' })
   }, [updateSessionById])
 

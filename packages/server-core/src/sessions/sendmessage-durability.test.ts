@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
+import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { getSessionFilePath } from '@otto/shared/sessions/storage'
+import { loadSession } from '@otto/shared/sessions'
 import { SessionManager, createManagedSession } from './session-manager.ts'
 
 // Regression test for the High-severity finding in eb81086e:
@@ -13,7 +13,7 @@ import { SessionManager, createManagedSession } from './session-manager.ts'
 //   the message.
 //
 // The fix added `await this.flushSession(managed.id)` between persistSession
-// and onAck. This test locks that ordering by reading the session file from
+// and onAck. This test locks that ordering by reading the chat's rows from
 // inside the onAck callback and asserting the user message is already there.
 
 describe('sendMessage durability', () => {
@@ -46,11 +46,7 @@ describe('sendMessage durability', () => {
   }
 
   function readPersistedMessageIds(sessionId: string): string[] {
-    const path = getSessionFilePath(tmpRoot, sessionId)
-    if (!existsSync(path)) return []
-    const lines = readFileSync(path, 'utf-8').trim().split('\n')
-    // First line is the header, remaining lines are messages.
-    return lines.slice(1).map(l => JSON.parse(l)).map(m => m.id as string)
+    return loadSession({ id: 'ws_test', rootPath: tmpRoot }, sessionId)?.messages.map(m => m.id) ?? []
   }
 
   it('user message is on disk before onAck fires (normal branch)', async () => {

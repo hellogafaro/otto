@@ -53,9 +53,8 @@ function setup() {
   spies.push(spyOn(config, 'getLlmConnection').mockReturnValue({
     slug: 'chatgpt-plus-test',
     name: 'ChatGPT Plus',
-    providerType: 'pi',
+    type: 'openai-codex',
     authType: 'oauth',
-    piAuthProvider: 'openai-codex',
     defaultModel: 'pi/gpt-5.5',
     models: ['pi/gpt-5.4-mini', 'pi/gpt-5.4', 'pi/gpt-5.5'],
     createdAt: 0,

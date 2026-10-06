@@ -3,7 +3,7 @@ import { initDb, type Db } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { initSecretsStore, type createSecretsStore } from '../secrets/index.ts'
 import { getSetting, INSTALL, updateSetting, userEntity } from '../settings/index.ts'
-import type { CustomEndpointConfig, LlmAuthType, MidStreamBehavior, ModelSelectionMode } from '../config/llm-connections.ts'
+import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, type CustomEndpointConfig, type LlmAuthType, type MidStreamBehavior, type ModelSelectionMode } from '../config/llm-connections.ts'
 import type { ModelDefinition } from '../config/models.ts'
 import { connections } from './schema.ts'
 
@@ -42,23 +42,7 @@ export function narrowContext(where: ConnectionContext, kind?: ConnectionScopeKi
   return kind === 'install' ? {} : where
 }
 
-/** The `type` of a connection to an endpoint of the user's own (Ollama, vLLM, a proxy): Pi's `custom-endpoint` provider. */
-export const CUSTOM_CONNECTION_TYPE = 'custom'
-
-/** The `type` of a Claude subscription: the user's own `claude` CLI and its login, through pi-agent-server's bridge. No secret. */
-export const CLAUDE_CODE_CONNECTION_TYPE = 'claude-code'
-
-/**
- * The Pi provider id and auth type of a connection given in the shape before Pi only (`anthropic` | `pi` |
- * `pi_compat`, with `piAuthProvider`): `pi` + X is X, `pi_compat` is `custom`, a Claude subscription (`anthropic` +
- * `oauth`) is `claude-code` signed in through the CLI. A Pi provider id passes as it is.
- */
-export function toPiProvider(type: string, authType: LlmAuthType, piAuthProvider?: string): { type: string; authType: LlmAuthType } {
-  if (type === 'pi_compat') return { type: CUSTOM_CONNECTION_TYPE, authType }
-  if (type === 'pi') return { type: piAuthProvider || 'anthropic', authType }
-  if (type === 'anthropic' && authType === 'oauth') return { type: CLAUDE_CODE_CONNECTION_TYPE, authType: 'cli_login' }
-  return { type, authType }
-}
+export { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE }
 
 /** What a connection's secret holds: an API key, OAuth tokens, AWS IAM keys or a service account; whichever the auth type needs. */
 export type Credential = {
@@ -314,21 +298,21 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
       if (row?.secretId) store.updateConnection(row.id, {}, null)
     },
 
-    /** The connection a chat uses when it names none: the person's own default, else their first own connection, else the install's default setting, else the first one the context sees. */
+    /** The connection a chat uses when it names none: the person's own default (any connection they see), else their first own connection, else the install's default setting, else the first one the context sees. */
     getDefaultConnection(where?: ConnectionContext): Connection | undefined {
       const own = where?.userId ? getSetting(userEntity(where.userId), 'userDefaultConnectionSlug', db) : null
       const rows = rowsOf(where)
       const mine = rows.filter((row) => where?.userId && row.scope === userScope(where.userId))
       const installDefault = getSetting(INSTALL, 'defaultConnectionSlug', db)
-      const row = (own ? mine.find((r) => r.slug === own) : undefined) ?? mine[0] ?? (installDefault ? rows.find((r) => r.slug === installDefault) : undefined) ?? rows[0]
+      const row = (own ? rows.find((r) => r.slug === own) : undefined) ?? mine[0] ?? (installDefault ? rows.find((r) => r.slug === installDefault) : undefined) ?? rows[0]
       return row && toConnection(row)
     },
 
-    /** Makes a connection the default (a person's own for their own connection, the install's otherwise); false when it does not exist. */
+    /** Makes a connection the default: the person's own (any connection they see), or the install's with no person; false when it does not exist. */
     setDefaultConnection(slug: string, where?: ConnectionContext): boolean {
       const row = lookup(slug, where)
       if (!row) return false
-      if (row.scope.startsWith('user:')) updateSetting(userEntity(row.scope.slice('user:'.length)), 'userDefaultConnectionSlug', slug, db)
+      if (where?.userId) updateSetting(userEntity(where.userId), 'userDefaultConnectionSlug', slug, db)
       else updateSetting(INSTALL, 'defaultConnectionSlug', slug, db)
       return true
     },

@@ -80,13 +80,13 @@ describe('formatTokenCount', () => {
 
 function conn(
   slug: string,
-  providerType: LlmConnection['providerType'],
+  type: string,
   extras: Partial<LlmConnection> = {},
 ): LlmConnection {
   return {
     slug,
     name: slug,
-    providerType,
+    type,
     authType: 'api_key',
     createdAt: 0,
     ...extras,
@@ -98,58 +98,57 @@ describe('groupConnectionsByProvider', () => {
     expect(groupConnectionsByProvider([])).toEqual([])
   })
 
-  test('groups Anthropic API keys and Claude subscriptions into "Anthropic"', () => {
-    const a = conn('a', 'pi', { piAuthProvider: 'anthropic' })
-    const b = conn('b', 'pi', { piAuthProvider: 'claude-code', authType: 'cli_login' })
+  test('groups Anthropic API keys and Claude subscriptions into "anthropic"', () => {
+    const a = conn('a', 'anthropic')
+    const b = conn('b', 'claude-code', { authType: 'cli_login' })
     const result = groupConnectionsByProvider([a, b])
-    expect(result).toEqual([['Anthropic', [a, b]]])
+    expect(result).toEqual([['anthropic', [a, b]]])
   })
 
   test('preserves intra-group order', () => {
-    const a = conn('first', 'pi', { piAuthProvider: 'anthropic' })
-    const b = conn('second', 'pi', { piAuthProvider: 'anthropic' })
-    const c = conn('third', 'pi', { piAuthProvider: 'anthropic' })
+    const a = conn('first', 'anthropic')
+    const b = conn('second', 'anthropic')
+    const c = conn('third', 'anthropic')
     const result = groupConnectionsByProvider([a, b, c])
     expect(result[0][1].map(c => c.slug)).toEqual(['first', 'second', 'third'])
   })
 
-  test('places "Anthropic" group before pi groups (display order)', () => {
-    const piConn = conn('pi-1', 'pi')
-    const anth = conn('anthropic-1', 'pi', { piAuthProvider: 'anthropic' })
-    const result = groupConnectionsByProvider([piConn, anth])
-    expect(result.map(([k]) => k)).toEqual(['Anthropic', 'Otto Backend'])
+  test('places "anthropic" before the other groups (display order)', () => {
+    const other = conn('or-1', 'openrouter')
+    const anth = conn('anthropic-1', 'anthropic')
+    const result = groupConnectionsByProvider([other, anth])
+    expect(result.map(([k]) => k)).toEqual(['anthropic', 'other'])
   })
 
-  test('"pi_compat" with localhost baseUrl goes to "Local"', () => {
-    const local = conn('ollama', 'pi_compat', { baseUrl: 'http://localhost:11434' })
+  test('a custom endpoint with a localhost baseUrl goes to "local"', () => {
+    const local = conn('ollama', 'custom', { baseUrl: 'http://localhost:11434' })
     const result = groupConnectionsByProvider([local])
-    expect(result).toEqual([['Local', [local]]])
+    expect(result).toEqual([['local', [local]]])
   })
 
-  test('"pi_compat" with remote baseUrl goes to "Otto Backend"', () => {
-    const remote = conn('openrouter', 'pi_compat', { baseUrl: 'https://openrouter.ai/api/v1' })
+  test('a custom endpoint with a remote baseUrl goes to "other"', () => {
+    const remote = conn('proxy', 'custom', { baseUrl: 'https://proxy.example.com/v1' })
     const result = groupConnectionsByProvider([remote])
-    expect(result).toEqual([['Otto Backend', [remote]]])
+    expect(result).toEqual([['other', [remote]]])
   })
 
   test('drops empty groups from the output', () => {
-    const a = conn('a', 'pi', { piAuthProvider: 'anthropic' })
+    const a = conn('a', 'anthropic')
     const result = groupConnectionsByProvider([a])
-    // Only "Anthropic" appears; "Local" and "Otto Backend" are dropped.
     expect(result.length).toBe(1)
-    expect(result[0][0]).toBe('Anthropic')
+    expect(result[0][0]).toBe('anthropic')
   })
 
-  test('full mixed input — anthropic + local + remote pi_compat + pi', () => {
-    const anth = conn('a', 'pi', { piAuthProvider: 'anthropic' })
-    const local = conn('ollama', 'pi_compat', { baseUrl: 'http://127.0.0.1:1234' })
-    const remote = conn('or', 'pi_compat', { baseUrl: 'https://openrouter.ai' })
-    const pi = conn('p', 'pi')
-    const result = groupConnectionsByProvider([anth, local, remote, pi])
+  test('full mixed input — anthropic + local + remote custom + provider', () => {
+    const anth = conn('a', 'anthropic')
+    const local = conn('ollama', 'custom', { baseUrl: 'http://127.0.0.1:1234' })
+    const remote = conn('proxy', 'custom', { baseUrl: 'https://proxy.example.com' })
+    const other = conn('p', 'openrouter')
+    const result = groupConnectionsByProvider([anth, local, remote, other])
     expect(result.map(([k, conns]) => [k, conns.map(c => c.slug)])).toEqual([
-      ['Anthropic', ['a']],
-      ['Local', ['ollama']],
-      ['Otto Backend', ['or', 'p']],
+      ['anthropic', ['a']],
+      ['local', ['ollama']],
+      ['other', ['proxy', 'p']],
     ])
   })
 })

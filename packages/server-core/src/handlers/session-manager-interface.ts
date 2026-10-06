@@ -47,7 +47,8 @@ export interface ISessionManager {
   canSeeSession(sessionId: string, userId: string | null): boolean
   /** Who owns a workspace; the host wires it from the database. */
   setWorkspaceOwners(owners: (workspaceId: string) => string[]): void
-  getSession(sessionId: string): Promise<Session | null>
+  /** A chat with every message, or (with `page`) the newest page or the one before `page.beforeId`, with `olderMessageCount`. */
+  getSession(sessionId: string, page?: { beforeId?: string; limit?: number }): Promise<Session | null>
   /** Creates a session and (unless `internal.emitCreatedEvent === false`) announces it to the
    *  renderer so it hydrates full metadata instead of fabricating a "New Chat" placeholder. */
   createSession(

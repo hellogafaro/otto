@@ -9,6 +9,8 @@ import type { PiComputerExecData, PiComputerExecExit, PiComputerExecRequest } fr
 
 export function createComputerExecHost(send: (msg: PiComputerExecData | PiComputerExecExit) => void) {
   const running = new Map<string, Spawned>();
+  /** Commands killed while their computer was still starting. */
+  const killedEarly = new Set<string>();
 
   const pump = async (id: string, stream: ReadableStream<Uint8Array>, name: 'stdout' | 'stderr') => {
     const reader = stream.getReader();
@@ -20,9 +22,21 @@ export function createComputerExecHost(send: (msg: PiComputerExecData | PiComput
   };
 
   return {
-    exec(req: PiComputerExecRequest, computer: Computer | null): void {
+    /** Runs the command; the computer is started first if it is not running (a box starts at its first tool call). */
+    async exec(req: PiComputerExecRequest, computer: Computer | null): Promise<void> {
       if (!computer) {
         send({ type: 'computer_exec_exit', id: req.id, code: -1, error: 'This turn has no computer.' });
+        return;
+      }
+      try {
+        await computer.ensureRunning();
+      } catch (error) {
+        killedEarly.delete(req.id);
+        send({ type: 'computer_exec_exit', id: req.id, code: -1, error: `The computer could not start: ${error instanceof Error ? error.message : String(error)}` });
+        return;
+      }
+      if (killedEarly.delete(req.id)) {
+        send({ type: 'computer_exec_exit', id: req.id, code: 130, error: 'aborted' });
         return;
       }
       let spawned: Spawned;
@@ -45,13 +59,16 @@ export function createComputerExecHost(send: (msg: PiComputerExecData | PiComput
     },
 
     kill(id: string): void {
-      running.get(id)?.kill();
+      const spawned = running.get(id);
+      if (spawned) spawned.kill();
+      else killedEarly.add(id);
     },
 
     /** The subprocess is gone: nobody waits for these commands any more. */
     killAll(): void {
       for (const spawned of running.values()) spawned.kill();
       running.clear();
+      killedEarly.clear();
     },
   };
 }

@@ -14,7 +14,6 @@ import { toast } from '@workspace/ui/components/sonner'
 import { OnboardingWizard, StepFormLayout } from '@/components/onboarding'
 import { AddWorkspacePage } from '@/components/workspace/primitives'
 import { useCurrentUser } from '@/hooks/use-current-user'
-import { useOnboarding } from '@/hooks/use-onboarding'
 import { submitForm } from '@/lib/form'
 import type { FirstRunStep } from './first-run-step'
 
@@ -98,8 +97,9 @@ function WorkspaceForm({ defaultName, onCreated }: { defaultName: string; onCrea
   )
 }
 
+const NO_SLUGS: ReadonlySet<string> = new Set()
+
 function ConnectionStep({ onConfigSaved, onDone }: { onConfigSaved: () => void; onDone: () => void }) {
-  const wizard = useOnboarding({ onConfigSaved })
   // "Skip for now" is remembered for the whole server (`setupDeferred`), so it is not asked again.
   const skip = useCallback(async () => {
     await window.electronAPI.deferSetup().catch((error: unknown) => console.error('[FirstRun] Failed to defer setup:', error))
@@ -107,21 +107,7 @@ function ConnectionStep({ onConfigSaved, onDone }: { onConfigSaved: () => void; 
   }, [onDone])
 
   return (
-    <OnboardingWizard
-      state={wizard.state}
-      onBack={wizard.handleBack}
-      onSelectProvider={wizard.handleSelectProvider}
-      onSkipSetup={skip}
-      onSelectApiSetupMethod={wizard.handleSelectApiSetupMethod}
-      onSubmitCredential={wizard.handleSubmitCredential}
-      onSubmitLocalModel={wizard.handleSubmitLocalModel}
-      onStartOAuth={wizard.handleStartOAuth}
-      onFinish={onDone}
-      deviceCode={wizard.deviceCode}
-      onBrowseGitBash={wizard.handleBrowseGitBash}
-      onUseGitBashPath={wizard.handleUseGitBashPath}
-      onRecheckGitBash={wizard.handleRecheckGitBash}
-      onClearError={wizard.handleClearError}
-    />
+    // The first run has no connections yet, and its connection is the person's own
+    <OnboardingWizard existingSlugs={NO_SLUGS} canShare={false} onSaved={onConfigSaved} onFinish={onDone} onSkip={skip} />
   )
 }

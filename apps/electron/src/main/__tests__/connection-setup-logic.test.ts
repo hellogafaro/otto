@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'bun:test'
 import {
   parseTestConnectionError,
-  createBuiltInConnection,
   validateModelList,
-  validateSetupTestInput,
 } from '@otto/server-core/domain'
 import type { ModelDefinition } from '@otto/shared/config/models'
 
@@ -67,108 +65,6 @@ describe('validateModelList', () => {
 })
 
 // ============================================================
-// createBuiltInConnection
-// ============================================================
-
-describe('createBuiltInConnection', () => {
-  it('creates anthropic-api with correct defaults', () => {
-    const conn = createBuiltInConnection('anthropic-api')
-    expect(conn.slug).toBe('anthropic-api')
-    expect(conn.providerType).toBe('pi')
-    expect(conn.piAuthProvider).toBe('anthropic')
-    expect(conn.authType).toBe('api_key')
-    expect(conn.name).toBe('Anthropic (API Key)')
-  })
-
-  it('creates anthropic-api with baseUrl as compat provider', () => {
-    const conn = createBuiltInConnection('anthropic-api', 'https://custom.endpoint.com')
-    expect(conn.providerType).toBe('pi_compat')
-    expect(conn.authType).toBe('api_key_with_endpoint')
-    expect(conn.name).toBe('Custom Anthropic-Compatible')
-  })
-
-  it('creates claude-max as the Pi claude-code provider with the CLI sign-in', () => {
-    const conn = createBuiltInConnection('claude-max')
-    expect(conn.providerType).toBe('pi')
-    expect(conn.piAuthProvider).toBe('claude-code')
-    expect(conn.authType).toBe('cli_login')
-  })
-
-  it('creates pi-api-key with pi provider', () => {
-    const conn = createBuiltInConnection('pi-api-key')
-    expect(conn.providerType).toBe('pi')
-    expect(conn.authType).toBe('api_key')
-    expect(conn.modelSelectionMode).toBe('automaticallySyncedFromProvider')
-  })
-
-  it('handles numeric suffix slugs (anthropic-api-2) by deriving from base template', () => {
-    const conn = createBuiltInConnection('anthropic-api-2')
-    expect(conn.slug).toBe('anthropic-api-2')
-    expect(conn.providerType).toBe('pi')
-    expect(conn.name).toBe('Anthropic (API Key) 2')
-  })
-
-  it('handles numeric suffix slugs (pi-api-key-3)', () => {
-    const conn = createBuiltInConnection('pi-api-key-3')
-    expect(conn.slug).toBe('pi-api-key-3')
-    expect(conn.name).toContain('3')
-  })
-
-  it('throws for unknown slug', () => {
-    expect(() => createBuiltInConnection('unknown-provider')).toThrow('Unknown built-in connection slug')
-  })
-
-  it('always sets createdAt', () => {
-    const conn = createBuiltInConnection('anthropic-api')
-    expect(conn.createdAt).toBeGreaterThan(0)
-  })
-
-  it('sets piAuthProvider for chatgpt-plus', () => {
-    const conn = createBuiltInConnection('chatgpt-plus')
-    expect(conn.piAuthProvider).toBe('openai-codex')
-  })
-
-  it('sets piAuthProvider for github-copilot', () => {
-    const conn = createBuiltInConnection('github-copilot')
-    expect(conn.piAuthProvider).toBe('github-copilot')
-  })
-})
-
-// ============================================================
-// validateSetupTestInput
-// ============================================================
-
-describe('validateSetupTestInput', () => {
-  it('rejects pi custom endpoint without provider preset', () => {
-    const result = validateSetupTestInput({
-      provider: 'pi',
-      baseUrl: 'https://coding-intl.dashscope.aliyuncs.com/apps/anthropic',
-    })
-    expect(result.valid).toBe(false)
-    if (!result.valid) {
-      expect(result.error).toContain('requires selecting a provider preset')
-    }
-  })
-
-  it('accepts pi custom endpoint when provider preset is set', () => {
-    const result = validateSetupTestInput({
-      provider: 'pi',
-      baseUrl: 'https://openrouter.ai/api/v1',
-      piAuthProvider: 'openrouter',
-    })
-    expect(result.valid).toBe(true)
-  })
-
-  it('accepts anthropic custom endpoint without piAuthProvider', () => {
-    const result = validateSetupTestInput({
-      provider: 'anthropic',
-      baseUrl: 'https://custom.endpoint.com',
-    })
-    expect(result.valid).toBe(true)
-  })
-})
-
-// ============================================================
 // parseTestConnectionError
 // ============================================================
 
@@ -220,7 +116,7 @@ describe('parseTestConnectionError', () => {
 
   it('maps provider mismatch API key errors to actionable guidance', () => {
     const result = parseTestConnectionError('No API key found for huggingface. Use /login or set an API key environment variable.')
-    expect(result).toContain('Provider mismatch during setup')
+    expect(result).toContain('does not match the provider')
   })
 
   it('passes through unknown errors truncated to 300 chars', () => {

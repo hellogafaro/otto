@@ -257,7 +257,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.llmConnections.LIST,
   RPC_CHANNELS.llmConnections.LIST_WITH_STATUS,
   RPC_CHANNELS.llmConnections.GET,
-  RPC_CHANNELS.llmConnections.GET_API_KEY,
   RPC_CHANNELS.llmConnections.SAVE,
   RPC_CHANNELS.llmConnections.DELETE,
   RPC_CHANNELS.llmConnections.TEST,
@@ -272,6 +271,9 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.chatgpt.GET_AUTH_STATUS,
   RPC_CHANNELS.chatgpt.LOGOUT,
   RPC_CHANNELS.chatgpt.DEVICE_CODE,
+
+  // claudeCode — the `claude` CLI of the machine the workspace's server runs on
+  RPC_CHANNELS.claudeCode.GET_STATUS,
 
   // copilot — OAuth via capability passthrough
   RPC_CHANNELS.copilot.START_OAUTH,
@@ -300,8 +302,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
 
   // pi — provider config on workspace server
   RPC_CHANNELS.pi.GET_API_KEY_PROVIDERS,
-  RPC_CHANNELS.pi.GET_PROVIDER_BASE_URL,
-  RPC_CHANNELS.pi.GET_PROVIDER_MODELS,
 
   // preferences — workspace-level preferences
   RPC_CHANNELS.preferences.READ,

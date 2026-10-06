@@ -52,9 +52,7 @@ import type { Workspace } from '@otto/core/types';
 // LLM connections live in the connections domain; this file keeps wrappers with the old names
 import type { LlmConnection } from './llm-connections.ts';
 import {
-  CUSTOM_CONNECTION_TYPE,
   INSTALL_SCOPE,
-  toPiProvider,
   createConnection,
   deleteConnection,
   getConnection,
@@ -1302,39 +1300,33 @@ export function resetPresetTheme(id: string): boolean {
 export type { ConnectionContext } from '../connections/index.ts';
 export type {
   LlmConnection,
-  LlmProviderType,
   LlmAuthType,
   LlmConnectionWithStatus,
 } from './llm-connections.ts';
 
-/**
- * A row's Pi provider in the shape callers still use (until Settings › Models is rebuilt, B4): `custom` is
- * `pi_compat` (with `piAuthProvider` the protocol's family when it has a key), every other type is `pi` + that
- * provider id as `piAuthProvider`.
- */
+/** A connection as the callers see it: the row's `title` is `name` and its `config` keys sit on it. */
 function toLlmConnection(c: Connection): LlmConnection {
-  const custom = c.type === CUSTOM_CONNECTION_TYPE;
   return {
     slug: c.slug,
     scope: c.scope,
     name: c.title,
-    providerType: custom ? 'pi_compat' : 'pi',
+    type: c.type,
     authType: c.authType,
     baseUrl: c.baseUrl ?? undefined,
     models: c.models ?? undefined,
     defaultModel: c.defaultModel ?? undefined,
     modelSelectionMode: c.config.modelSelectionMode,
-    piAuthProvider: !custom ? c.type : c.authType === 'none' ? undefined : c.config.customEndpoint?.api === 'anthropic-messages' ? 'anthropic' : 'openai',
     customEndpoint: c.config.customEndpoint,
     midStreamBehavior: c.config.midStreamBehavior,
     createdAt: c.createdAt.getTime(),
   };
 }
 
-/** The domain's fields of a connection: what a create writes and what an update replaces (`type` = the Pi provider id). */
+/** The domain's fields of a connection: what a create writes and what an update replaces. */
 function toPatch(c: LlmConnection): ConnectionPatch {
   return {
-    ...toPiProvider(c.providerType, c.authType, c.piAuthProvider),
+    type: c.type,
+    authType: c.authType,
     title: c.name,
     baseUrl: c.baseUrl ?? null,
     defaultModel: c.defaultModel ?? null,

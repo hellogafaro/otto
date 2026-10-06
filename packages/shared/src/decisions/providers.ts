@@ -28,7 +28,7 @@ export interface DecisionProviderPreset {
   /** Whether a key is mandatory. Local Jev-compatible servers may run without auth. */
   requiresKey: boolean;
   /**
-   * `piAuthProvider` values of LLM connections whose stored key can be reused
+   * `type`s (Pi provider ids) of LLM connections whose stored key can be reused
    * for this provider (same account, same billing).
    */
   reusableConnectionProviders: readonly string[];
@@ -114,11 +114,11 @@ export function getDecisionProviderPreset(id: DecisionProviderId): DecisionProvi
   return DECISION_PROVIDER_PRESETS[id];
 }
 
-/** Map an LLM connection's `piAuthProvider` to the decision provider that can reuse its key. */
-export function decisionProviderForConnection(piAuthProvider: string | undefined): DecisionProviderId | null {
-  if (!piAuthProvider) return null;
+/** Map an LLM connection's `type` (its Pi provider id) to the decision provider that can reuse its key. */
+export function decisionProviderForConnection(type: string | undefined): DecisionProviderId | null {
+  if (!type) return null;
   for (const preset of Object.values(DECISION_PROVIDER_PRESETS)) {
-    if (preset.reusableConnectionProviders.includes(piAuthProvider)) return preset.id;
+    if (preset.reusableConnectionProviders.includes(type)) return preset.id;
   }
   return null;
 }

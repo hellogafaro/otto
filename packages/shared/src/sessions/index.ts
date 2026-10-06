@@ -1,11 +1,8 @@
 /**
  * Sessions Module
  *
- * Public exports for workspace-scoped session management.
- *
- * Sessions are stored in JSONL format:
- * - Line 1: SessionHeader (metadata for fast list loading)
- * - Lines 2+: StoredMessage (one message per line)
+ * Public exports for workspace-scoped chats: `chats` and `messages` rows (./schema.ts), their write queue, list,
+ * pages, search and boot recovery.
  */
 
 // Types
@@ -29,43 +26,16 @@ export {
   ensureSessionsDir,
   ensureSessionDir,
   getSessionPath,
-  getSessionFilePath,
   getSessionPlansPath,
-  // ID generation
-  generateSessionId,
-  // Session CRUD
+  // Chats in the database
+  type ChatWorkspace,
   createSession,
-  getOrCreateSessionById,
-  saveSession,
+  createImportedSession,
   loadSession,
+  getSessionMessages,
   listSessions,
   deleteSession,
-  clearSessionMessages,
-  getOrCreateLatestSession,
-  // Metadata updates
-  updateSessionSdkId,
-  updateSessionMetadata,
-  flagSession,
-  unflagSession,
-  setSessionStatus,
-  setSessionLabels,
-  setSessionProjectId,
-  // Pending plan execution (Accept & Compact flow)
-  setPendingPlanExecution,
-  markCompactionComplete,
-  markPendingPlanExecutionDispatched,
-  clearPendingPlanExecution,
-  getPendingPlanExecution,
-  // Session filtering
-  listFlaggedSessions,
-  listCompletedSessions,
-  listInboxSessions,
-  // Archive management
-  archiveSession,
-  unarchiveSession,
-  listArchivedSessions,
-  listActiveSessions,
-  deleteOldArchivedSessions,
+  EMPTY_TOKEN_USAGE,
   // Plan storage
   formatPlanAsMarkdown,
   parsePlanFromMarkdown,
@@ -75,34 +45,15 @@ export {
   listPlanFiles,
   deletePlanFile,
   getMostRecentPlanFile,
-  // Async persistence queue
+  // Write path
   sessionPersistenceQueue,
-  // Header metadata signature (for self-triggered event suppression)
-  getHeaderMetadataSignature,
 } from './storage.ts';
-
-// JSONL helpers (for direct access if needed)
-export {
-  readSessionHeader,
-  readSessionJsonl,
-  writeSessionJsonl,
-  createSessionHeader,
-} from './jsonl.ts';
+export type { ChatWrite } from './persistence-queue.ts';
+export { onChatsChange, notifyChatsChange, getChatsFields, toPreview, type ChatSnapshot } from './chats.ts';
+export { searchChats, runChatsRecovery, initMessages, rebuildMessagesSearch, type ChatSearchResult, type RecoveryReport } from './messages.ts';
 
 // Field utilities
 export { pickSessionFields } from './utils.ts';
-
-// Slug generator utilities
-export {
-  generateDatePrefix,
-  generateHumanSlug,
-  generateUniqueSessionId,
-  parseSessionId,
-  isHumanReadableId,
-} from './slug-generator.ts';
-
-// Word lists (for customization if needed)
-export { ADJECTIVES, NOUNS } from './word-lists.ts';
 
 // Session ID validation (security)
 export {
@@ -121,5 +72,3 @@ export {
   validateBundle,
   MAX_BUNDLE_SIZE_BYTES,
 } from './bundle.ts';
-
-

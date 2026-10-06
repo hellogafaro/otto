@@ -17,7 +17,7 @@ import type {
 } from '@otto/core/types'
 import type { PermissionMode } from '../agent/mode-types'
 import type { ThinkingLevel } from '../agent/thinking-levels'
-import type { CustomEndpointConfig } from '../config/llm-connections'
+import type { CustomEndpointConfig, LlmConnection } from '../config/llm-connections'
 import type {
   AuthRequest as SharedAuthRequest,
   CredentialInputMode as SharedCredentialInputMode,
@@ -49,10 +49,12 @@ export interface Session {
   workspaceId: string
   workspaceName: string
   name?: string
-  /** Preview of first user message (from JSONL header, for lazy-loaded sessions) */
+  /** Preview of first user message (read with the chat list) */
   preview?: string
   lastMessageAt: number
   messages: Message[]
+  /** `sessions:getMessages` sends the newest page: how many messages come before it (ask with `beforeId`). */
+  olderMessageCount?: number
   isProcessing: boolean
   isFlagged?: boolean
   /** Permission mode for this session ('safe', 'ask', 'guarded', 'allow-all') */
@@ -98,10 +100,8 @@ export interface Session {
     contextWindow?: number
     contextUsage?: ContextUsageSnapshot
   }
-  /** When true, session is hidden from session list (e.g., mini edit sessions) */
-  hidden?: boolean
+  /** Archived: the chat's status is the `archived` one */
   isArchived?: boolean
-  archivedAt?: number
   supportsBranching?: boolean
   /** Workspace-scoped project id this session is bound to (undefined = unbound) */
   projectId?: string
@@ -131,7 +131,6 @@ export interface CreateSessionOptions {
   model?: string
   llmConnection?: string
   systemPromptPreset?: 'default' | 'mini' | string
-  hidden?: boolean
   /** Nobody answers prompts in this session (CLI runs): features that would add a prompt skip it. */
   unattended?: boolean
   sessionStatus?: SessionStatus
@@ -372,48 +371,62 @@ export interface FileSearchResult {
 // LLM connection types
 // ---------------------------------------------------------------------------
 
+/**
+ * A change to a connection's own fields (its name, models, default model, mid-stream behavior, base URL): the slug and
+ * what changes. Its type, auth type and scope never change here, and a new connection is made by the setup.
+ */
+export type LlmConnectionUpdate = Pick<LlmConnection, 'slug'> & Partial<Omit<LlmConnection, 'slug' | 'type' | 'authType' | 'scope' | 'createdAt'>>
+
 export interface LlmConnectionSetup {
   slug: string
+  /** The Pi provider id of a new connection (`anthropic`, `claude-code`, `openai-codex`, `openrouter`, ..., `custom`); a connection that exists keeps its own. */
+  type?: string
+  /** The display name of a new connection. */
+  title?: string
   /**
    * Whose the connection is: the caller's own (default for a new one: their subscription or key powers their agents),
    * the workspace's (its owners set it) or the install's (its owner sets it). Names the connection of that scope only.
+   * A Claude subscription is always the caller's own.
    */
   scope?: 'user' | 'workspace' | 'install'
   credential?: string
   baseUrl?: string | null
   defaultModel?: string | null
   models?: string[] | null
-  piAuthProvider?: string
   modelSelectionMode?: 'automaticallySyncedFromProvider' | 'userDefined3Tier'
   /** When true, reject setup if the connection doesn't already exist (reauth guard). */
   updateOnly?: boolean
   /** Custom endpoint protocol for arbitrary OpenAI/Anthropic-compatible APIs */
   customEndpoint?: CustomEndpointConfig
-  /** IAM credentials for Pi+Bedrock (piAuthProvider='amazon-bedrock') connections */
+  /** IAM credentials for Amazon Bedrock (`type: 'amazon-bedrock'`) connections */
   iamCredentials?: {
     accessKeyId: string
     secretAccessKey: string
     sessionToken?: string
   }
-  /** AWS region for Pi+Bedrock connections */
+  /** AWS region for Amazon Bedrock connections */
   awsRegion?: string
-  /** Bedrock authentication method — determines auth type for Pi+Bedrock connections */
+  /** Bedrock authentication method: determines the auth type of an Amazon Bedrock connection */
   bedrockAuthMethod?: 'iam_credentials' | 'environment'
 }
 
 export interface TestLlmConnectionParams {
-  provider: 'anthropic' | 'pi'
+  /** The Pi provider id the key is for, or `custom` with a base URL and `customEndpoint`. */
+  type: string
   apiKey: string
-  /**
-   * Slug of the connection being edited. Lets the server resolve the masked
-   * GET_API_KEY placeholder back to the stored credential for the test.
-   */
-  connectionSlug?: string
   baseUrl?: string
   model?: string
-  piAuthProvider?: string
   /** Optional custom endpoint protocol hint so setup tests mirror runtime routing */
   customEndpoint?: CustomEndpointConfig
+}
+
+/** Whether the `claude` CLI of the machine the server runs on is runnable (a Claude subscription needs it). */
+export interface ClaudeCodeStatus {
+  found: boolean
+  /** What was run: `OTTO_CLAUDE_PATH`, else `claude`. */
+  path: string
+  /** The first line `claude --version` printed. */
+  version?: string
 }
 
 export interface TestLlmConnectionResult {

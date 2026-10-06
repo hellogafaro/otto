@@ -152,9 +152,8 @@ export const MOCK_SESSIONS: SessionMeta[] = [
     name: 'Old: investigate dropdown click-through on Android',
     workspaceId: MOBILE_WORKSPACE_ID,
     lastMessageAt: now() - 8 * ONE_DAY,
-    sessionStatus: 'done',
+    sessionStatus: 'archived',
     isArchived: true,
-    archivedAt: now() - 7 * ONE_DAY,
   },
   {
     id: 'mobile-s-10',
@@ -268,17 +267,16 @@ export const MOCK_SOURCES: LoadedSource[] = [
 /**
  * Mock LLM connections for the mobile playground.
  *
- * One Anthropic and one pi_compat connection — enough for the
+ * One Anthropic and one custom-endpoint connection — enough for the
  * CompactModelSelector to render its switcher path (multi-connection),
- * its vision-toggle path (pi_compat), and its flat-list path (single
+ * its vision-toggle path (custom endpoint), and its flat-list path (single
  * connection) when downstream demos slice this list.
  */
 export const MOCK_LLM_CONNECTIONS: LlmConnectionWithStatus[] = [
   {
     slug: 'anthropic-builtin',
     name: 'Anthropic',
-    providerType: 'pi',
-    piAuthProvider: 'anthropic',
+    type: 'anthropic',
     authType: 'api_key',
     defaultModel: 'pi/claude-opus-4-8',
     isAuthenticated: true,
@@ -286,8 +284,8 @@ export const MOCK_LLM_CONNECTIONS: LlmConnectionWithStatus[] = [
   },
   {
     slug: 'pi-openrouter',
-    name: 'OpenRouter (pi_compat)',
-    providerType: 'pi_compat',
+    name: 'OpenRouter (custom endpoint)',
+    type: 'custom',
     authType: 'api_key_with_endpoint',
     baseUrl: 'https://openrouter.ai/api/v1',
     customEndpoint: { api: 'openai-completions' },

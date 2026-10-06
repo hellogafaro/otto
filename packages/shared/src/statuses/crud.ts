@@ -3,17 +3,17 @@
  *
  * Create, update, delete and reorder a workspace's statuses (rows of `statuses`).
  * Enforces business rules (fixed statuses, the one default, unique slugs).
- * Deleting a status moves the chats that carry it to `todo` (their headers, until chats move to the database).
+ * Deleting a status moves the chats that carry it to `todo` (`chats.status_id`) and tells the session manager.
  */
 
 import { and, eq, sql } from 'drizzle-orm';
-import { getWorkspaceRootPath } from '../config/storage.ts';
 import { initDb, type Db, type Tx } from '../db/index.ts';
 import { createId } from '../id.ts';
 import { domainError } from '../utils/errors.ts';
 import { statuses } from './schema.ts';
 import { FIXED_STATUS_IDS, getStatus, getStatusRow, initWorkspaceStatuses, MAX_STATUS_ICON } from './storage.ts';
 import type { CreateStatusInput, StatusConfig, UpdateStatusInput } from './types.ts';
+import { notifyChatsChange, updateChatsStatus } from '../sessions/chats.ts';
 
 /**
  * Generate URL-safe slug from label
@@ -117,10 +117,14 @@ export function deleteStatus(workspaceId: string, slug: string, db: Db | Tx = in
   if (FIXED_STATUS_IDS.includes(slug)) throw domainError('forbidden', `Cannot delete fixed status '${slug}'`);
   if (row.isDefault) throw domainError('forbidden', `Cannot delete default status '${slug}'. Pick another default first.`);
 
-  // Move chats using this status to 'todo' while it still exists (chat listing reads a deleted status as 'todo' and would hide them)
-  const migrated = migrateSessionsFromDeletedStatus(workspaceId, slug);
-  db.delete(statuses).where(eq(statuses.id, row.id)).run();
-  return { migrated };
+  // Move its chats to 'todo' and delete it in one transaction
+  const moved = db.transaction((tx) => {
+    const ids = updateChatsStatus(tx, workspaceId, row.id, getStatusRow(workspaceId, 'todo', tx)?.id ?? null);
+    tx.delete(statuses).where(eq(statuses.id, row.id)).run();
+    return ids;
+  });
+  notifyChatsChange(workspaceId, moved);
+  return { migrated: moved.length };
 }
 
 /**
@@ -136,27 +140,4 @@ export function reorderStatuses(workspaceId: string, orderedSlugs: string[], db:
   }
   const order = [...new Set(orderedSlugs), ...rows.map((row) => row.slug).filter((slug) => !orderedSlugs.includes(slug))];
   order.forEach((slug, position) => db.update(statuses).set({ position }).where(eq(statuses.id, bySlug.get(slug)!.id)).run());
-}
-
-/**
- * Move chats from a deleted status to 'todo'
- * Called internally by deleteStatus()
- */
-function migrateSessionsFromDeletedStatus(workspaceId: string, deletedStatusId: string): number {
-  const rootPath = getWorkspaceRootPath(workspaceId);
-  if (!rootPath) return 0;
-  // Import session storage functions
-  const { listSessions, updateSessionMetadata } = require('../sessions/storage.ts');
-
-  const sessions = listSessions(rootPath);
-  let migratedCount = 0;
-
-  for (const session of sessions) {
-    if (session.sessionStatus === deletedStatusId) {
-      updateSessionMetadata(rootPath, session.id, { sessionStatus: 'todo' });
-      migratedCount++;
-    }
-  }
-
-  return migratedCount;
 }

@@ -5,7 +5,7 @@ import { getCredentialManager, type CredentialManager } from '../credentials/ind
 import { initDb, type Db } from '../db/index.ts'
 import { initSecretsStore } from '../secrets/index.ts'
 import { getSetting, INSTALL, updateSetting } from '../settings/index.ts'
-import { CLAUDE_CODE_CONNECTION_TYPE, createConnectionsStore, INSTALL_SCOPE, toPiProvider, type ConnectionConfig, type ConnectionInput, type Credential } from './index.ts'
+import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, createConnectionsStore, INSTALL_SCOPE, type ConnectionConfig, type ConnectionInput, type Credential } from './index.ts'
 import { connections } from './schema.ts'
 
 /**
@@ -26,6 +26,18 @@ const text = (value: unknown) => (typeof value === 'string' && value ? value : u
 const date = (value: unknown) => (typeof value === 'number' ? new Date(value) : undefined)
 /** The provider types of `config.json`. */
 const OLD_TYPES = ['anthropic', 'pi', 'pi_compat']
+
+/**
+ * The Pi provider id and auth type of a connection in the shape before Pi only (`anthropic` | `pi` | `pi_compat`,
+ * with `piAuthProvider`): `pi` + X is X, `pi_compat` is `custom`, a Claude subscription (`anthropic` + `oauth`) is
+ * `claude-code` signed in through the CLI. A Pi provider id passes as it is.
+ */
+function toPiProvider(type: string, authType: ConnectionInput['authType'], piAuthProvider?: string): { type: string; authType: ConnectionInput['authType'] } {
+  if (type === 'pi_compat') return { type: CUSTOM_CONNECTION_TYPE, authType }
+  if (type === 'pi') return { type: piAuthProvider || 'anthropic', authType }
+  if (type === 'anthropic' && authType === 'oauth') return { type: CLAUDE_CODE_CONNECTION_TYPE, authType: 'cli_login' }
+  return { type, authType }
+}
 
 function readConfig(configDir: string): Raw {
   const path = join(configDir, 'config.json')

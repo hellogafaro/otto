@@ -1,8 +1,7 @@
-import { RPC_CHANNELS, type LlmConnectionSetup } from '@otto/shared/protocol'
-import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, isCompatProvider, getDefaultModelsForConnection, getDefaultModelForConnection, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
+import { RPC_CHANNELS, type LlmConnectionSetup, type LlmConnectionUpdate } from '@otto/shared/protocol'
+import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, isCompatProvider, getDefaultModelForConnection, CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
 import { getCredentialManager } from '@otto/shared/credentials'
 import { INSTALL_SCOPE, getConnection, narrowContext, userScope, workspaceScope, type ConnectionContext, type Credential } from '@otto/shared/connections'
-import { BACKEND_NAME } from '@otto/shared/branding'
 import { setSetupDeferred } from '@otto/shared/config/storage'
 import {
   resolveSetupTestConnectionHint,
@@ -10,7 +9,7 @@ import {
   validateStoredBackendConnection,
 } from '@otto/shared/agent/backend'
 import { getModelRefreshService } from '@otto/server-core/model-fetchers'
-import { parseTestConnectionError, createBuiltInConnection, validateModelList, piAuthProviderDisplayName, validateSetupTestInput, setupTestRequiresApiKey, resolveCustomEndpointSetup, resolveSetupTestApiKey, maskApiKey, isMaskedApiKey } from '@otto/server-core/domain'
+import { parseTestConnectionError, createConnectionForSetup, resolveSetupAuthType, validateModelList, getClaudeCodeStatus, setupTestRequiresApiKey } from '@otto/server-core/domain'
 import { getWorkspaceOrThrow, buildBackendHostRuntimeContext } from '@otto/server-core/handlers'
 import { pushTyped, type RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
@@ -24,7 +23,6 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.llmConnections.LIST,
   RPC_CHANNELS.llmConnections.LIST_WITH_STATUS,
   RPC_CHANNELS.llmConnections.GET,
-  RPC_CHANNELS.llmConnections.GET_API_KEY,
   RPC_CHANNELS.llmConnections.SAVE,
   RPC_CHANNELS.llmConnections.DELETE,
   RPC_CHANNELS.llmConnections.TEST,
@@ -35,6 +33,7 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.chatgpt.CANCEL_OAUTH,
   RPC_CHANNELS.chatgpt.GET_AUTH_STATUS,
   RPC_CHANNELS.chatgpt.LOGOUT,
+  RPC_CHANNELS.claudeCode.GET_STATUS,
   RPC_CHANNELS.copilot.START_OAUTH,
   RPC_CHANNELS.copilot.CANCEL_OAUTH,
   RPC_CHANNELS.copilot.GET_AUTH_STATUS,
@@ -42,8 +41,6 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.settings.SETUP_LLM_CONNECTION,
   RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP,
   RPC_CHANNELS.pi.GET_API_KEY_PROVIDERS,
-  RPC_CHANNELS.pi.GET_PROVIDER_BASE_URL,
-  RPC_CHANNELS.pi.GET_PROVIDER_MODELS,
 ] as const
 
 export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerDeps): void {
@@ -93,33 +90,27 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
           deps.platform.logger?.warn(`[SETUP_LLM_CONNECTION] updateOnly rejected for missing slug: ${setup.slug}`)
           return { success: false, error: 'Connection not found. Cannot re-authenticate a non-existent connection.' }
         }
-        // Create connection with appropriate defaults based on slug
-        connection = createBuiltInConnection(setup.slug, setup.baseUrl)
+        if (!setup.type || !setup.title?.trim()) {
+          return { success: false, error: 'A new connection needs a type and a name.' }
+        }
+        connection = createConnectionForSetup({
+          slug: setup.slug,
+          type: setup.type,
+          title: setup.title.trim(),
+          authType: resolveSetupAuthType({ type: setup.type, baseUrl: setup.baseUrl, credential: setup.credential, bedrockAuthMethod: setup.bedrockAuthMethod }),
+        })
         isNewConnection = true
       }
 
-      const updates: Partial<LlmConnection> = {}
-      const hasConfiguredBaseUrl = !!setup.baseUrl?.trim()
-      if (setup.baseUrl !== undefined) {
-        updates.baseUrl = setup.baseUrl?.trim() || undefined
-
-        // An Anthropic API key with a base URL is an Anthropic-compatible endpoint
-        if (connection.providerType === 'pi' && connection.piAuthProvider === 'anthropic' && connection.authType === 'api_key') {
-          if (hasConfiguredBaseUrl) {
-            updates.providerType = 'pi_compat'
-            updates.authType = 'api_key_with_endpoint'
-            updates.customEndpoint = { api: 'anthropic-messages' }
-          } else {
-            updates.models = getDefaultModelsForConnection('pi', 'anthropic')
-            updates.defaultModel = getDefaultModelForConnection('pi', 'anthropic')
-          }
-        }
-
-        // Pi API key flow: store baseUrl on the connection (Pi SDK doesn't use it yet,
-        // but it's persisted for future backend support)
-
+      // A Claude subscription is one person's own sign-in: never the workspace's or the install's
+      if (connection.type === CLAUDE_CODE_CONNECTION_TYPE && (isNewConnection ? !newScope.startsWith('user:') : !connection.scope?.startsWith('user:'))) {
+        return { success: false, error: 'A Claude subscription is personal: it uses your own Claude Code sign-in.' }
       }
 
+      const updates: Partial<LlmConnection> = {}
+      if (setup.baseUrl !== undefined) {
+        updates.baseUrl = setup.baseUrl?.trim() || undefined
+      }
       if (setup.defaultModel !== undefined) {
         updates.defaultModel = setup.defaultModel ?? undefined
       }
@@ -129,70 +120,33 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       if (setup.modelSelectionMode !== undefined) {
         updates.modelSelectionMode = setup.modelSelectionMode
       }
-
-      const customEndpoint = hasConfiguredBaseUrl ? setup.customEndpoint : undefined
-      const isCustomEndpointCompat = !!customEndpoint
-      if (customEndpoint) {
-        updates.customEndpoint = customEndpoint
-        updates.providerType = 'pi_compat'
-        const branch = resolveCustomEndpointSetup({
-          baseUrl: setup.baseUrl ?? undefined,
-          credential: setup.credential ?? undefined,
-          customEndpointApi: customEndpoint.api,
-        })
-        updates.authType = branch.authType
-        if (branch.name !== undefined) updates.name = branch.name
-        if (branch.piAuthProvider !== undefined) updates.piAuthProvider = branch.piAuthProvider
-
-        // Brand-name override on first setup only (user-renamed connections aren't clobbered on re-save).
-        if (isNewConnection && !updates.name && setup.baseUrl?.toLowerCase().includes('manifest.build')) {
-          updates.name = 'Manifest'
-        }
-      } else if (setup.baseUrl !== undefined) {
-        // Base URL was explicitly updated without custom protocol config.
-        // Treat this as non-custom mode and clear stale custom endpoint metadata.
-        // Only downgrade existing connections — new ones already have the correct
-        // providerType from createBuiltInConnection().
-        updates.customEndpoint = undefined
-        if (connection.providerType === 'pi_compat' && connection.authType !== 'oauth' && !isNewConnection) {
-          updates.providerType = 'pi'
-          updates.authType = 'api_key'
+      if (connection.type === CUSTOM_CONNECTION_TYPE) {
+        if (setup.customEndpoint) updates.customEndpoint = setup.customEndpoint
+        if (setup.baseUrl !== undefined || setup.credential !== undefined) {
+          updates.authType = resolveSetupAuthType({ type: connection.type, baseUrl: setup.baseUrl ?? connection.baseUrl, credential: setup.credential })
         }
       }
 
-      // Pi API key flow: set piAuthProvider from setup data (e.g. 'anthropic', 'google', 'openai').
-      // Skip when custom endpoint protocol is driving routing.
-      if (setup.piAuthProvider && !isCustomEndpointCompat) {
-        updates.piAuthProvider = setup.piAuthProvider
-        // Update connection name to show the actual provider (e.g. "<backend> (Google AI Studio)")
-        const providerName = piAuthProviderDisplayName(setup.piAuthProvider)
-        if (providerName) {
-          updates.name = `${BACKEND_NAME} (${providerName})`
-        }
-        // Only set default models when using standard Pi provider AND user didn't pick explicit models
-        if (!hasConfiguredBaseUrl && !setup.models?.length) {
-          updates.models = getDefaultModelsForConnection('pi', setup.piAuthProvider)
-          updates.defaultModel = getDefaultModelForConnection('pi', setup.piAuthProvider)
-          updates.modelSelectionMode ??= 'automaticallySyncedFromProvider'
-        }
+      // A provider connection starts with its provider's models, unless the person picked some
+      if (isNewConnection && connection.type !== CUSTOM_CONNECTION_TYPE && !setup.models?.length) {
+        updates.models = connection.models
+        updates.defaultModel = connection.defaultModel
       }
 
-      // Pi+Bedrock auth method override — set authType for IAM or environment auth.
-      // providerType stays 'pi' (Bedrock routes through Pi SDK).
+      // Bedrock auth method override: IAM keys or the environment
       if (setup.bedrockAuthMethod) {
         updates.authType = setup.bedrockAuthMethod
       }
 
-      const effectiveProviderType = updates.providerType ?? connection.providerType
-      if (effectiveProviderType === 'pi') {
-        const isBedrockPi = (updates.piAuthProvider ?? connection.piAuthProvider) === 'amazon-bedrock'
-        // For Pi+Bedrock, normalize bare Anthropic IDs to Bedrock-native before adding pi/ prefix
+      if (connection.type !== CUSTOM_CONNECTION_TYPE) {
+        const isBedrock = connection.type === 'amazon-bedrock'
+        // For Bedrock, normalize bare Anthropic IDs to Bedrock-native before adding the pi/ prefix
         // so that resolvePiModel() can find them in the amazon-bedrock registry.
         // Use the configured AWS region to select the correct inference profile prefix (us/eu).
-        const regionPrefix = isBedrockPi ? deriveBedrockRegionPrefix(setup.awsRegion) : undefined
+        const regionPrefix = isBedrock ? deriveBedrockRegionPrefix(setup.awsRegion) : undefined
         const toPiModelId = (id: string) => {
           const bare = id.startsWith('pi/') ? id.slice(3) : id
-          const normalized = isBedrockPi ? toBedrockNativeId(bare, regionPrefix) : bare
+          const normalized = isBedrock ? toBedrockNativeId(bare, regionPrefix) : bare
           return `pi/${normalized}`
         }
         if (updates.models) {
@@ -208,21 +162,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         ...updates,
       }
 
-      if (pendingConnection.providerType === 'pi') {
-        const modelIds = (pendingConnection.models ?? []).map(m => typeof m === 'string' ? m : m.id)
-        deps.platform.logger?.info('Pi setup pending connection snapshot', {
-          slug: pendingConnection.slug,
-          piAuthProvider: pendingConnection.piAuthProvider,
-          modelSelectionMode: pendingConnection.modelSelectionMode,
-          defaultModel: pendingConnection.defaultModel,
-          modelCount: modelIds.length,
-          modelsFirst5: modelIds.slice(0, 5),
-          setupModelCount: setup.models?.length,
-          setupDefaultModel: setup.defaultModel,
-        })
-      }
-
-      if (pendingConnection.providerType === 'pi' && pendingConnection.piAuthProvider && !pendingConnection.modelSelectionMode) {
+      if (connection.type !== CUSTOM_CONNECTION_TYPE && !pendingConnection.modelSelectionMode) {
         const inferredMode = setup.models?.length
           ? 'userDefined3Tier'
           : 'automaticallySyncedFromProvider'
@@ -241,17 +181,16 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         }
       }
 
-      if (isCompatProvider(pendingConnection.providerType) && !pendingConnection.defaultModel) {
-        return { success: false, error: 'Default model is required for compatible endpoints.' }
+      if (isCompatProvider(pendingConnection.type) && !pendingConnection.defaultModel) {
+        return { success: false, error: 'Default model is required for a custom endpoint.' }
       }
 
-      // The credential to store with the connection (a masked placeholder from GET_API_KEY, or the token a
-      // completed sign-in already holds, changes nothing). One secret per connection: IAM keys, a new API
-      // key or OAuth access token replace what is there.
+      // The credential to store with the connection (the token a completed sign-in already holds changes nothing).
+      // One secret per connection: IAM keys, a new API key or OAuth access token replace what is there.
       let credential: Credential | undefined
       if (setup.iamCredentials) {
         credential = { ...setup.iamCredentials, region: setup.awsRegion }
-      } else if (setup.credential && !isMaskedApiKey(setup.credential)) {
+      } else if (setup.credential && pendingConnection.authType !== 'cli_login') {
         if (pendingConnection.authType !== 'oauth') {
           credential = { apiKey: setup.credential }
         } else if ((await manager.getLlmOAuth(setup.slug, connection.scope ?? newScope))?.accessToken !== setup.credential) {
@@ -307,39 +246,17 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   // Unified connection test — uses the agent factory to spawn a real agent subprocess
   // and validate credentials via runMiniCompletion(). Same code path as actual chat.
   server.handle(RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP, async (ctx, params: import('@otto/shared/protocol').TestLlmConnectionParams): Promise<import('@otto/shared/protocol').TestLlmConnectionResult> => {
-    const { provider, apiKey, baseUrl, model, piAuthProvider, customEndpoint, connectionSlug } = params
+    const { type, apiKey, baseUrl, model, customEndpoint } = params
+    // A local server may be keyless
     const allowEmptyApiKey = !setupTestRequiresApiKey(baseUrl)
+    const trimmedKey = apiKey.trim()
 
-    // The edit form echoes the stored key back as the GET_API_KEY placeholder;
-    // resolve it to the real credential instead of testing the bullets (OSS #1048).
-    const keyResolution = await resolveSetupTestApiKey(
-      { apiKey, connectionSlug, allowEmptyApiKey },
-      (slug) => getCredentialManager().getLlmApiKey(slug, scopeOf(ctx, slug)),
-    )
-    if (!keyResolution.ok) {
-      return { success: false, error: keyResolution.error }
-    }
-    if (keyResolution.source === 'stored') {
-      deps.platform.logger?.info(`[testLlmConnectionSetup] Using the stored API key of ${connectionSlug}`)
-    }
-    const trimmedKey = keyResolution.apiKey
-
-    // The "Anthropic API key" mode is Pi's anthropic provider; with a base URL it is an Anthropic-compatible endpoint.
-    const anthropicKey = provider === 'anthropic'
-    const piProvider = piAuthProvider ?? (anthropicKey ? 'anthropic' : undefined)
-    const endpoint = customEndpoint ?? (anthropicKey && baseUrl?.trim() ? { api: 'anthropic-messages' as const } : undefined)
-
-    const setupValidation = validateSetupTestInput({ provider: 'pi', baseUrl, piAuthProvider: piProvider })
-    if (!setupValidation.valid) {
-      return { success: false, error: setupValidation.error }
-    }
-
-    const hint = resolveSetupTestConnectionHint({ baseUrl, piAuthProvider: piProvider, customEndpoint: endpoint })
-    deps.platform.logger?.info(`[testLlmConnectionSetup] Testing: provider=${piProvider ?? '-'}${baseUrl ? ` baseUrl=${baseUrl}` : ''} hasCustomEndpoint=${!!endpoint} hintProvider=${hint.providerType}`)
+    const hint = resolveSetupTestConnectionHint({ baseUrl, type, customEndpoint })
+    deps.platform.logger?.info(`[testLlmConnectionSetup] Testing: type=${hint.type || '-'}${baseUrl ? ` baseUrl=${baseUrl}` : ''}`)
 
     const startedAt = Date.now()
     try {
-      const testModel = model || getDefaultModelForConnection('pi', piProvider)
+      const testModel = model || getDefaultModelForConnection(hint.type)
       deps.platform.logger?.info(`[testLlmConnectionSetup] Resolved model: ${testModel}`)
       const result = await testBackendConnection({
         apiKey: trimmedKey,
@@ -376,32 +293,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     return getPiApiKeyProviders()
   })
 
-  server.handle(RPC_CHANNELS.pi.GET_PROVIDER_BASE_URL, async (_ctx, provider: string) => {
-    const { getPiProviderBaseUrl } = await import('@otto/shared/config')
-    return getPiProviderBaseUrl(provider)
-  })
-
-  server.handle(RPC_CHANNELS.pi.GET_PROVIDER_MODELS, async (_ctx, provider: string) => {
-    const { getModels } = await import('@earendil-works/pi-ai/compat')
-    try {
-      const models = getModels(provider as Parameters<typeof getModels>[0])
-      const sorted = [...models].sort((a, b) => b.cost.output - a.cost.output || b.cost.input - a.cost.input)
-      return {
-        models: sorted.map(m => ({
-          id: m.id.startsWith('pi/') ? m.id : `pi/${m.id}`,
-          name: m.name,
-          costInput: m.cost.input,
-          costOutput: m.cost.output,
-          contextWindow: m.contextWindow,
-          reasoning: m.reasoning,
-        })),
-        totalCount: models.length,
-      }
-    } catch {
-      return { models: [], totalCount: 0 }
-    }
-  })
-
   // ============================================================
   // LLM Connections (provider configurations)
   // ============================================================
@@ -420,7 +311,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
 
     return Promise.all(connections.map(async (conn): Promise<LlmConnectionWithStatus> => {
       // Check if credentials exist for this connection
-      const hasCredentials = await credentialManager.hasLlmCredentials(conn.slug, conn.authType, undefined, conn.scope)
+      const hasCredentials = await credentialManager.hasLlmCredentials(conn.slug, conn.authType, conn.scope)
       return {
         ...conn,
         isAuthenticated: conn.authType === 'none' || hasCredentials,
@@ -434,46 +325,29 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     return getLlmConnection(slug, whereOf(ctx))
   })
 
-  // Get stored API key for an LLM connection (masked — for edit form display only)
-  server.handle(RPC_CHANNELS.llmConnections.GET_API_KEY, async (ctx, slug: string): Promise<string | null> => {
-    const manager = getCredentialManager()
-    const key = await manager.getLlmApiKey(slug, scopeOf(ctx, slug))
-    if (!key) return null
-    // Provider prefix + mask + last four; the test handler resolves this back by slug
-    return maskApiKey(key)
-  })
-
-  // Save (create or update) an LLM connection
-  // If connection.slug exists and is found, updates it; otherwise creates new
-  server.handle(RPC_CHANNELS.llmConnections.SAVE, async (ctx, connection: LlmConnection): Promise<{ success: boolean; error?: string }> => {
+  // Save a change to a connection's own fields (name, models, default model, mid-stream behavior, base URL).
+  // Its slug, scope and Pi provider never change; a new connection is made by the setup.
+  server.handle(RPC_CHANNELS.llmConnections.SAVE, async (ctx, update: LlmConnectionUpdate): Promise<{ success: boolean; error?: string }> => {
     try {
       const where = whereOf(ctx)
-      // Check if this is an update or create
-      const existing = getLlmConnection(connection.slug, where)
-      if (existing) {
-        // Update existing connection (can't change slug)
-        const { slug: _slug, ...updates } = connection
-        const success = updateLlmConnection(connection.slug, updates, { where })
-        if (!success) {
-          return { success: false, error: 'Failed to update connection' }
-        }
-      } else {
-        // Create new connection
-        const success = addLlmConnection(connection, { scope: ctx.userId ? userScope(ctx.userId) : INSTALL_SCOPE })
-        if (!success) {
-          return { success: false, error: 'Connection with this slug already exists' }
-        }
+      if (!getLlmConnection(update.slug, where)) {
+        return { success: false, error: 'Connection not found' }
       }
-      deps.platform.logger?.info(`LLM connection saved: ${connection.slug}`)
+      // Whatever else rides along (a whole connection from the vision toggle) is ignored
+      const { slug, type: _type, authType: _authType, scope: _scope, createdAt: _createdAt, ...fields } = update as LlmConnection
+      if (!updateLlmConnection(slug, fields, { where })) {
+        return { success: false, error: 'Failed to update connection' }
+      }
+      deps.platform.logger?.info(`LLM connection saved: ${slug}`)
       // Push runtime updates (e.g. supportsImages toggle) to live sessions on
       // this connection. Detached so SAVE doesn't block on the per-session
       // 15s `update_runtime_config` timeout when subprocesses are slow or
       // wedged. SessionManager serializes the refresh with the next send via
       // its per-session mutex, and the lazy `getOrCreateAgent` refresh remains
       // the correctness backstop if the detached push fails.
-      sessionManager.refreshConnectionRuntime(connection.slug).catch(error => {
+      sessionManager.refreshConnectionRuntime(slug).catch(error => {
         deps.platform.logger?.warn(
-          `Detached runtime push failed for ${connection.slug}: ${error instanceof Error ? error.message : error}`,
+          `Detached runtime push failed for ${slug}: ${error instanceof Error ? error.message : error}`,
         )
       })
       return { success: true }
@@ -695,6 +569,9 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       return { success: false }
     }
   })
+
+  // Is the user's own `claude` runnable on the machine the server is on? (`claude --version`, no credentials)
+  server.handle(RPC_CHANNELS.claudeCode.GET_STATUS, async () => getClaudeCodeStatus())
 
   // ============================================================
   // GitHub Copilot OAuth

@@ -23,7 +23,7 @@ export function useAttention() {
     const waiting: SessionMeta[] = []
     const ready: SessionMeta[] = []
     for (const meta of sessions.values()) {
-      if (meta.hidden || meta.isArchived) continue
+      if (meta.isArchived) continue
       if (activeWorkspaceId && meta.workspaceId !== activeWorkspaceId && meta.workspaceId !== remoteId) continue
       if ((pendingPermissions.get(meta.id)?.length ?? 0) + (pendingCredentials.get(meta.id)?.length ?? 0) > 0) waiting.push(meta)
       else if (meta.hasUnread) ready.push(meta)

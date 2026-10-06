@@ -7,12 +7,13 @@ import type { BackendConfig, BackendHostRuntimeContext, CoreBackendConfig, LlmAu
 import { PiAgent } from '../pi-agent.ts';
 import {
   getLlmConnection,
+  getLlmConnections,
   getDefaultLlmConnection,
   type ConnectionContext,
   type LlmConnection,
 } from '../../config/storage.ts';
 import type { CustomEndpointConfig } from '../../config/llm-connections.ts';
-import { isValidProviderAuthCombination } from '../../config/llm-connections.ts';
+import { CUSTOM_CONNECTION_TYPE, isCompatProvider, isValidProviderAuthCombination, piProviderOf } from '../../config/llm-connections.ts';
 import type { ModelFetchResult } from '../../config/model-fetcher.ts';
 import { getModelProvider, normalizeDeprecatedModelId } from '../../config/models.ts';
 import { homedir } from 'node:os';
@@ -50,11 +51,11 @@ export function createBackendFromResolvedContext(args: {
   const { context, coreConfig, hostRuntime } = args;
   return createBackend({
     ...coreConfig,
-    providerType: context.connection?.providerType ?? 'pi',
     authType: context.authType ?? 'api_key',
     model: context.resolvedModel,
     connectionSlug: context.connection?.slug,
     connectionScope: context.connection?.scope,
+    missingConnection: context.missingConnection,
     runtime: buildPiRuntime(context.connection, resolveBackendRuntimePaths(hostRuntime)),
   });
 }
@@ -85,8 +86,16 @@ export function resolveBackendHostTooling(args: {
 export function resolveSessionConnection(
   sessionConnection?: string,
   workspaceDefaultConnection?: string,
-  where?: ConnectionContext
+  where?: ConnectionContext,
+  /** The chat agent's provider: only a connection of it (the same order among them); none = null. */
+  provider?: string,
 ): LlmConnection | null {
+  if (provider) {
+    const ofProvider = getLlmConnections(where).filter((connection) => connection.type === provider);
+    const named = (slug?: string | null) => (slug ? ofProvider.find((connection) => connection.slug === slug) : undefined);
+    return named(sessionConnection) ?? named(workspaceDefaultConnection) ?? named(getDefaultLlmConnection(where)) ?? ofProvider[0] ?? null;
+  }
+
   // 1. Session-level connection (locked after first message)
   if (sessionConnection) {
     const connection = getLlmConnection(sessionConnection, where);
@@ -110,7 +119,32 @@ export interface ResolvedBackendContext {
   connection: LlmConnection | null;
   authType?: LlmAuthType;
   resolvedModel: string;
+  /** The chat's agent names a provider its creator has no connection of: what the person is told. */
+  missingConnection?: string;
 }
+
+/** The chat's agent as it picks the connection and model (docs/final-plan.md 2.2): a Pi provider id and its model. */
+export interface BackendAgent {
+  title: string;
+  provider: string;
+  model?: string | null;
+}
+
+/** An agent's provider as a connection `type`; rows written before Pi only may name `pi_compat` or `pi` (no constraint). */
+function agentProvider(provider: string): string | undefined {
+  if (provider === 'pi_compat') return CUSTOM_CONNECTION_TYPE;
+  return provider && provider !== 'pi' ? provider : undefined;
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  'claude-code': 'Claude',
+  'openai-codex': 'ChatGPT',
+  'github-copilot': 'GitHub Copilot',
+  custom: 'a custom endpoint',
+};
+
+const providerLabel = (provider: string) =>
+  PROVIDER_LABELS[provider] ?? provider.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
 /**
  * Resolve connection, auth and model in one call.
@@ -121,36 +155,37 @@ export function resolveBackendContext(args: {
   managedModel?: string;
   /** Whose connections are looked at: the chat's creator's own, then the workspace's, then the install's. */
   where?: ConnectionContext;
+  /** The chat's agent: only a connection of its provider; its model when the chat has none of its own. */
+  agent?: BackendAgent | null;
 }): ResolvedBackendContext {
+  const provider = args.agent ? agentProvider(args.agent.provider) : undefined;
   const connection = resolveSessionConnection(
     args.sessionConnectionSlug,
     args.workspaceDefaultConnectionSlug,
-    args.where
+    args.where,
+    provider,
   );
   return {
     connection,
     authType: connection ? credentialAuthType(connection.authType) : undefined,
-    resolvedModel: resolveModel(args.managedModel, connection),
+    resolvedModel: resolveModel(args.managedModel || args.agent?.model || undefined, connection),
+    ...(!connection && provider && args.agent ? { missingConnection: `Connect ${providerLabel(provider)} to talk to ${args.agent.title}.` } : {}),
   };
 }
 
 /**
- * The connection shape a setup-time test runs with: a custom endpoint (base URL and protocol) is `pi_compat`,
+ * The connection shape a setup-time test runs with: a custom endpoint (base URL and protocol) is `custom`,
  * anything else the Pi provider it names.
  */
 export function resolveSetupTestConnectionHint(args: {
   baseUrl?: string;
-  piAuthProvider?: string;
+  type?: string;
   customEndpoint?: CustomEndpointConfig;
-}): Pick<LlmConnection, 'providerType' | 'piAuthProvider' | 'customEndpoint'> {
+}): Pick<LlmConnection, 'type' | 'customEndpoint'> {
   if (args.customEndpoint && args.baseUrl?.trim()) {
-    return {
-      providerType: 'pi_compat',
-      piAuthProvider: args.customEndpoint.api === 'anthropic-messages' ? 'anthropic' : 'openai',
-      customEndpoint: args.customEndpoint,
-    };
+    return { type: CUSTOM_CONNECTION_TYPE, customEndpoint: args.customEndpoint };
   }
-  return { providerType: 'pi', piAuthProvider: args.piAuthProvider };
+  return { type: args.type ?? '' };
 }
 
 /**
@@ -181,7 +216,6 @@ export async function validateStoredBackendConnection(args: {
     const hasCredentials = await getCredentialManager().hasLlmCredentials(
       args.slug,
       connection.authType,
-      connection.providerType,
       connection.scope,
     );
     if (!hasCredentials) {
@@ -211,9 +245,9 @@ export function createBackendFromConnection(
 
   // Validate provider-auth combination before creating backend
   // This catches invalid configurations early with a clear error message
-  if (!isValidProviderAuthCombination(connection.providerType, connection.authType)) {
+  if (!isValidProviderAuthCombination(connection.type, connection.authType)) {
     throw new Error(
-      `Invalid LLM connection configuration: provider '${connection.providerType}' ` +
+      `Invalid LLM connection configuration: provider '${connection.type}' ` +
       `does not support auth type '${connection.authType}'. ` +
       `Please update the connection settings for '${connection.name}'.`
     );
@@ -303,7 +337,7 @@ export async function testBackendConnection(args: {
   hostRuntime: BackendHostRuntimeContext;
   timeoutMs?: number;
   allowEmptyApiKey?: boolean;
-  connection?: Pick<LlmConnection, 'providerType' | 'piAuthProvider' | 'customEndpoint'>;
+  connection?: Pick<LlmConnection, 'type' | 'customEndpoint'>;
 }): Promise<{ success: boolean; error?: string }> {
   const trimmedKey = args.apiKey.trim();
   if (!trimmedKey && !args.allowEmptyApiKey) {
@@ -318,27 +352,26 @@ export async function testBackendConnection(args: {
 
   try {
     const testModel = args.model;
-    const providerType = args.connection?.providerType ?? 'pi';
+    const type = args.connection?.type ?? '';
     const now = Date.now();
-    const authType: LlmAuthType = providerType === 'pi_compat' ? 'api_key_with_endpoint' : 'api_key';
+    const authType: LlmAuthType = isCompatProvider(type) ? 'api_key_with_endpoint' : 'api_key';
 
-    const syntheticConnection = {
+    const syntheticConnection: LlmConnection = {
       slug: tempSlug,
       name: 'Temporary Connection Test',
-      providerType,
+      type,
       authType,
       defaultModel: testModel,
       createdAt: now,
-      piAuthProvider: args.connection?.piAuthProvider,
       customEndpoint: args.connection?.customEndpoint,
       ...(args.baseUrl?.trim() ? { baseUrl: args.baseUrl.trim() } : {}),
-    } as LlmConnection;
+    };
 
     const direct = await testPiConnection({
       apiKey: trimmedKey,
       model: testModel,
       baseUrl: args.baseUrl,
-      piAuthProvider: args.connection?.piAuthProvider,
+      piAuthProvider: piProviderOf(syntheticConnection),
       timeoutMs: args.timeoutMs ?? 20000,
     });
     // null = no direct test for this provider; fall through to the subprocess test

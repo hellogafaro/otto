@@ -40,7 +40,7 @@ describe('derivePickerMode', () => {
   // The #727 regression: switcher must win over locked-single on empty session
   // -------------------------------------------------------------------------
 
-  test('empty session + ≥2 connections + single-model pi_compat default → switcher (#727)', () => {
+  test('empty session + ≥2 connections + single-model custom-endpoint default → switcher (#727)', () => {
     expect(
       derivePickerMode(
         input({
@@ -52,7 +52,7 @@ describe('derivePickerMode', () => {
     ).toBe('switcher')
   })
 
-  test('empty session + many connections + single-model pi_compat default → switcher', () => {
+  test('empty session + many connections + single-model custom-endpoint default → switcher', () => {
     expect(
       derivePickerMode(
         input({
@@ -80,7 +80,7 @@ describe('derivePickerMode', () => {
   // Mid-session lock preserved: switcher off, locked-single still rendered
   // -------------------------------------------------------------------------
 
-  test('non-empty session + single-model pi_compat default → locked-single (lock preserved)', () => {
+  test('non-empty session + single-model custom-endpoint default → locked-single (lock preserved)', () => {
     expect(
       derivePickerMode(
         input({
@@ -92,7 +92,7 @@ describe('derivePickerMode', () => {
     ).toBe('locked-single')
   })
 
-  test('empty session + only 1 connection + single-model pi_compat default → locked-single (no switcher possible)', () => {
+  test('empty session + only 1 connection + single-model custom-endpoint default → locked-single (no switcher possible)', () => {
     // No other connection to switch to, so the picker stays in the disabled
     // single-row UI even on a fresh session. That's correct.
     expect(

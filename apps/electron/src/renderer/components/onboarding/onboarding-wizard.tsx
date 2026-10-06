@@ -1,173 +1,91 @@
-import { useEffect } from "react"
-import { cn } from "@/lib/utils"
-import { ProviderSelectStep, type ProviderChoice } from "./provider-select-step"
-import { CredentialsStep, type ApiSetupMethod, type CredentialStatus } from "./credentials-step"
-import { LocalModelStep, type LocalModelSubmitData } from "./local-model-step"
-import { GitBashWarning, type GitBashStatus } from "./git-bash-warning"
-import type { ApiKeySubmitData } from "../apisetup"
-import type { CustomEndpointApi } from '@config/llm-connections'
-
-/** `complete` is not a screen: the wizard hands over to `onFinish` as soon as a connection is saved and tested. */
-export type OnboardingStep =
-  | 'git-bash'
-  | 'provider-select'
-  | 'local-model'
-  | 'credentials'
-  | 'complete'
-
-export interface OnboardingState {
-  step: OnboardingStep
-  credentialStatus: CredentialStatus
-  apiSetupMethod: ApiSetupMethod | null
-  errorMessage?: string
-  gitBashStatus?: GitBashStatus
-  isRecheckingGitBash?: boolean
-}
-
-interface OnboardingWizardProps {
-  /** Current state of the wizard */
-  state: OnboardingState
-
-  // Event handlers
-  onBack: () => void
-  onSelectApiSetupMethod: (method: ApiSetupMethod) => void
-  onSubmitCredential: (data: ApiKeySubmitData) => void
-  onStartOAuth?: (methodOverride?: ApiSetupMethod) => void
-  /** A connection was saved and tested */
-  onFinish: () => void
-
-  // Copilot device flow
-  deviceCode?: { userCode: string; verificationUri: string }
-
-  // Git Bash (Windows)
-  onBrowseGitBash?: () => Promise<string | null>
-  onUseGitBashPath?: (path: string) => void
-  onRecheckGitBash?: () => void
-  onClearError?: () => void
-
-  // Provider select (new flow)
-  onSelectProvider?: (choice: ProviderChoice) => void
-  /** Called when the person chooses "Skip for now" on provider select (first run only) */
-  onSkipSetup?: () => void
-
-  // Local model
-  onSubmitLocalModel?: (data: LocalModelSubmitData) => void
-
-  // Edit mode (pre-fill existing connection values)
-  editInitialValues?: {
-    apiKey?: string
-    baseUrl?: string
-    connectionDefaultModel?: string
-    activePreset?: string
-    models?: string[]
-    customApi?: CustomEndpointApi
-  }
-
-  className?: string
-}
+import { cn } from '@/lib/utils'
+import { useConnectionSetup } from '@/hooks/use-connection-setup'
+import { ChooseConnectionStep } from './choose-connection-step'
+import { ClaudeSubscriptionStep } from './claude-subscription-step'
+import { DeviceCodeStep, type DeviceCodeProvider } from './device-code-step'
+import { GitBashWarning } from './git-bash-warning'
+import { KeyConnectionStep } from './key-connection-step'
 
 /**
- * OnboardingWizard - Full-screen flow that connects an AI provider (first-run setup and Settings → AI):
- * Provider Select (Claude / ChatGPT / Copilot / API Key / Local), then Credentials (API key or sign-in)
- * or Local Model; Git Bash first on Windows when it is missing.
+ * OnboardingWizard: the full-screen flow that connects an AI provider (first-run setup and Settings -> AI): choose
+ * a Claude subscription, an Anthropic API key, ChatGPT, another provider's key or a custom endpoint, then that
+ * connection's form. With `reauth` it opens on the device-code step of a connection that is signed out.
  */
 export function OnboardingWizard({
-  state,
-  onBack,
-  onSelectApiSetupMethod,
-  onSubmitCredential,
-  onStartOAuth,
+  existingSlugs,
+  canShare,
+  onSaved,
   onFinish,
-  // Copilot device flow
-  deviceCode,
-  // Git Bash (Windows)
-  onBrowseGitBash,
-  onUseGitBashPath,
-  onRecheckGitBash,
-  onClearError,
-  // Provider select (new flow)
-  onSelectProvider,
-  onSkipSetup,
-  // Local model
-  onSubmitLocalModel,
-  // Edit mode
-  editInitialValues,
-  className
-}: OnboardingWizardProps) {
-  const done = state.step === 'complete'
-  useEffect(() => {
-    if (done) onFinish()
-  }, [done, onFinish])
+  onBack,
+  onSkip,
+  reauth,
+  className,
+}: {
+  /** The slugs of every connection the person sees. */
+  existingSlugs: ReadonlySet<string>
+  /** An owner may make a key connection the workspace's. */
+  canShare: boolean
+  /** A connection was saved (and tested): refresh what lists connections. */
+  onSaved: () => void
+  /** The flow is over. */
+  onFinish: () => void
+  /** Back from the first step (Settings closes; the first run has no back). */
+  onBack?: () => void
+  /** "Skip for now" (first run only). */
+  onSkip?: () => void
+  reauth?: { slug: string; provider: DeviceCodeProvider }
+  className?: string
+}) {
+  const flow = useConnectionSetup({ existingSlugs, onSaved, onFinish, onDismiss: onBack, reauth })
 
   const renderStep = () => {
-    switch (state.step) {
+    switch (flow.step) {
+      case 'choose':
+        return <ChooseConnectionStep onSelect={(kind) => void flow.select(kind)} onSkip={onSkip} />
       case 'git-bash':
         return (
           <GitBashWarning
-            status={state.gitBashStatus!}
-            onBrowse={onBrowseGitBash!}
-            onUsePath={onUseGitBashPath!}
-            onRecheck={onRecheckGitBash!}
-            onBack={onBack}
-            isRechecking={state.isRecheckingGitBash}
-            errorMessage={state.errorMessage}
-            onClearError={onClearError}
+            status={flow.gitBash!}
+            onBrowse={flow.browseGitBash}
+            onUsePath={(path) => void flow.applyGitBashPath(path)}
+            onRecheck={() => void flow.recheckGitBash()}
+            onBack={flow.back}
+            isRechecking={flow.recheckingGitBash}
+            errorMessage={flow.error}
+            onClearError={flow.clearError}
           />
         )
-
-      case 'provider-select':
+      case 'claude-code':
+        return <ClaudeSubscriptionStep saving={flow.saving} errorMessage={flow.error} onConnect={() => void flow.connectClaude()} onBack={flow.back} />
+      case 'anthropic':
+      case 'provider':
+      case 'custom':
+        return <KeyConnectionStep key={flow.step} kind={flow.step} canShare={canShare} onSubmit={(values, label) => flow.connectKey(flow.step as 'anthropic' | 'provider' | 'custom', values, label)} onBack={flow.back} />
+      case 'openai-codex':
+      case 'github-copilot': {
+        const provider = flow.step === 'openai-codex' ? 'chatgpt' : 'copilot'
         return (
-          <ProviderSelectStep
-            onSelect={onSelectProvider!}
-            onSkip={onSkipSetup}
+          <DeviceCodeStep
+            provider={provider}
+            status={flow.signIn.status}
+            errorMessage={flow.signIn.error}
+            deviceCode={flow.signIn.deviceCode}
+            onSignIn={() => void flow.connectDeviceCode(provider)}
+            onCancel={() => flow.cancelDeviceCode(provider)}
           />
         )
-
-      case 'local-model':
-        return (
-          <LocalModelStep
-            onSubmit={onSubmitLocalModel!}
-            onBack={onBack}
-            status={state.credentialStatus === 'validating' ? 'validating' : state.credentialStatus === 'error' ? 'error' : 'idle'}
-            errorMessage={state.errorMessage}
-          />
-        )
-
-      case 'credentials':
-        return (
-          <CredentialsStep
-            apiSetupMethod={state.apiSetupMethod!}
-            status={state.credentialStatus}
-            errorMessage={state.errorMessage}
-            onSubmit={onSubmitCredential}
-            onStartOAuth={onStartOAuth}
-            onBack={onBack}
-            editInitialValues={editInitialValues}
-            deviceCode={deviceCode}
-          />
-        )
-
-      default:
-        return null
+      }
     }
   }
 
   return (
-    <div
-      className={cn(
-        "overflow-y-auto bg-background text-foreground",
-        !className?.includes('h-full') && "h-dvh",
-        className
-      )}
-    >
+    <div className={cn('overflow-y-auto bg-background text-foreground', !className?.includes('h-full') && 'h-dvh', className)}>
       {/* Draggable title bar region for transparent window (macOS) */}
       <div className="titlebar-drag-region fixed top-0 left-0 right-0 h-[50px] z-titlebar" />
 
-      {/* Main content — min-h-full + flex center means: center when content fits,
+      {/* Main content: min-h-full + flex center means: center when content fits,
           natural flow + scroll when content is taller than the viewport (mobile). */}
-      <main className="flex min-h-full items-center justify-center p-4 sm:p-8">
-        {renderStep()}
-      </main>
+      <main className="flex min-h-full items-center justify-center p-4 sm:p-8">{renderStep()}</main>
     </div>
   )
 }

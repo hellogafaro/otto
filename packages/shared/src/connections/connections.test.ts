@@ -244,10 +244,14 @@ test('each person has their own default, which falls back to their first connect
   expect(store.getDefaultConnection(alice)?.slug).toBe('a2')
   expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('install-a')
   expect(store.getDefaultConnection({ userId: 'carol' })?.slug).toBe('install-a')
-  // choosing an install connection changes the install's default, not a person's
+  // a person may choose a connection they only see (the install's): it is their own default, the install's stays
   expect(store.setDefaultConnection('install-b', { userId: 'carol' })).toBe(true)
-  expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('install-b')
+  expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('install-a')
+  expect(store.getDefaultConnection({ userId: 'carol' })?.slug).toBe('install-b')
   expect(store.getDefaultConnection(alice)?.slug).toBe('a2')
+  // with no person, the install's default changes
+  expect(store.setDefaultConnection('install-b')).toBe(true)
+  expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('install-b')
   // a default that is gone falls back
   store.deleteConnection(store.getConnection('a2', alice)!.id)
   expect(store.getDefaultConnection(alice)?.slug).toBe('a1')

@@ -42,6 +42,8 @@ import { PiEventAdapter } from './backend/pi/event-adapter.ts';
 import type { PiCompactResult, PiComputerExecRequest, PiLargeResultGateRequest, PiLargeResultGateResponse } from './backend/pi/protocol.ts';
 import { createComputerExecHost } from './backend/pi/computer-exec.ts';
 import type { Computer } from '../computer/types.ts';
+import type { AgentTurn } from './agent-turn.ts';
+import type { LoadedSource } from '../sources/types.ts';
 import { askLargeResultSummaryGate } from '../utils/large-response.ts';
 import { readLines } from '../utils/jsonl-lines.ts';
 import { EventQueue } from './backend/event-queue.ts';
@@ -191,8 +193,14 @@ export class PiAgent extends BaseAgent {
   private abortReason?: AbortReason;
   /** Aborted when the current turn stops; tool checks started in the turn watch it. */
   private turnAbort = new AbortController();
-  /** Where this turn's built-in tools run (ChatOptions.computer); null = on the host. */
+  /** Where this turn's built-in tools run (ChatOptions.computer, else the agent's); null = on the host. */
   private turnComputer: Computer | null = null;
+  /** The chat's agent for the current turn (`config.getAgentTurn`), read when a turn starts. */
+  private turn: AgentTurn | null = null;
+  /** The session's sources before the agent's filter, so a changed filter can be applied again. */
+  private sourceInputs: { all?: LoadedSource[]; servers?: [Record<string, SdkMcpServerConfig>, Record<string, unknown>, string[] | undefined] } = {};
+  /** The source filter the pool and source state were last built with. */
+  private appliedSourceFilter: string | undefined;
   private readonly computerExec = createComputerExecHost((msg) => this.send({ ...msg }));
 
   // Event adapter
@@ -570,7 +578,6 @@ export class PiAgent extends BaseAgent {
       workingDirectory,
       plansFolderPath,
       miniModel: this.config.miniModel,
-      providerType: this.config.providerType,
       authType: this.config.authType,
       workspaceId: this.config.workspace.id,
       piAuth,
@@ -966,7 +973,7 @@ export class PiAgent extends BaseAgent {
 
       case 'computer_exec':
         // A built-in tool's command for this turn's computer
-        this.computerExec.exec(msg as unknown as PiComputerExecRequest, this.turnComputer);
+        void this.computerExec.exec(msg as unknown as PiComputerExecRequest, this.turnComputer);
         break;
 
       case 'computer_exec_kill':
@@ -1304,6 +1311,11 @@ export class PiAgent extends BaseAgent {
     // re-run only knew allow/modify/block and turned a required prompt into an allow.
     if (checkResult.type === 'source_activation_needed') {
       const { sourceSlug, sourceExists } = checkResult;
+      // A source the chat's agent may not use is never activated for it.
+      if (!(this.agentSourceSlugs()?.includes(sourceSlug) ?? true)) {
+        this.send({ type: 'pre_tool_use_response', requestId, action: 'block', reason: `Source "${sourceSlug}" is not available to this agent.` });
+        return;
+      }
       this.debug(`PreToolUse(sessionId=${sessionId}): Source "${sourceSlug}" not active, attempting activation...`);
 
       if (this.onSourceActivationRequest) {
@@ -1984,7 +1996,6 @@ export class PiAgent extends BaseAgent {
         type: 'update_runtime_config',
         id,
         model: update.model,
-        providerType: update.providerType,
         authType: update.authType,
         baseUrl: runtime.baseUrl,
         customEndpoint: runtime.customEndpoint,
@@ -2021,6 +2032,31 @@ export class PiAgent extends BaseAgent {
   // ============================================================
   // Chat (AsyncGenerator backed by the subprocess event queue)
   // ============================================================
+
+  /**
+   * A turn starts by reading the chat's agent (`config.getAgentTurn`): its instructions, skills, source filter and
+   * computer apply to this turn. A changed source filter is applied before the message goes out.
+   */
+  override async *chat(
+    message: string,
+    attachments?: FileAttachment[],
+    options?: ChatOptions
+  ): AsyncGenerator<AgentEvent> {
+    if (this.config.missingConnection) {
+      yield { type: 'error', message: this.config.missingConnection };
+      yield { type: 'complete' };
+      return;
+    }
+    this.turn = this.config.getAgentTurn?.() ?? null;
+    if (sourceFilterKey(this.turn?.sourceSlugs ?? null) !== this.appliedSourceFilter) await this.applySourceFilter();
+    const computer = options?.computer ?? this.turn?.computer ?? undefined;
+    yield* super.chat(message, attachments, computer ? { ...options, computer } : options);
+  }
+
+  /** A `[skill:slug]` mention is read where this turn's tools read skills (`/skills` in a box). */
+  protected override skillReadPath(slug: string, hostPath: string): string {
+    return this.turn ? `${this.turn.skillsDir}/${slug}/SKILL.md` : hostPath;
+  }
 
   protected async *chatImpl(
     messageParam: string,
@@ -2204,7 +2240,7 @@ export class PiAgent extends BaseAgent {
       const fullSystemPrompt = [
         systemPrompt,
         ...stableParts,
-        this.config.getAgentInstructions?.(),
+        this.turn?.instructions,
       ].filter(Boolean).join('\n\n');
 
       // User message: volatile context + attachments + the actual message
@@ -2228,6 +2264,7 @@ export class PiAgent extends BaseAgent {
         id: turnId,
         message: userMessage,
         systemPrompt: fullSystemPrompt,
+        ...(this.turn?.skills.length ? { skills: this.turn.skills } : {}),
         images: images.length > 0 ? images : undefined,
         ...(this.turnComputer ? { computer: true } : {}),
       });
@@ -2336,7 +2373,6 @@ export class PiAgent extends BaseAgent {
 
     this.config = {
       ...this.config,
-      providerType: update.providerType ?? this.config.providerType,
       authType: update.authType ?? this.config.authType,
       model: update.model,
       runtime: {
@@ -2353,7 +2389,6 @@ export class PiAgent extends BaseAgent {
 
     const updated = await this.requestRuntimeConfigUpdate({
       ...update,
-      providerType: this.config.providerType,
       authType: this.config.authType,
       runtime: getBackendRuntime(this.config),
     });
@@ -2394,13 +2429,38 @@ export class PiAgent extends BaseAgent {
     apiServers: Record<string, unknown>,
     intendedSlugs?: string[]
   ): Promise<void> {
+    this.sourceInputs.servers = [mcpServers, apiServers, intendedSlugs];
+    const slugs = this.agentSourceSlugs();
+    this.appliedSourceFilter = sourceFilterKey(slugs);
+    const allowed = (slug: string) => !slugs || slugs.includes(slug);
+    const only = <T>(servers: Record<string, T>) => Object.fromEntries(Object.entries(servers).filter(([slug]) => allowed(slug)));
     // BaseAgent.setSourceServers() handles:
     //   1. SourceManager state tracking (active slugs)
     //   2. McpClientPool sync (connecting/disconnecting MCP + API sources)
-    await super.setSourceServers(mcpServers, apiServers, intendedSlugs);
+    // Only the agent's sources reach it: the others are never connected, listed or callable (the gate sees them
+    // as unknown sources).
+    await super.setSourceServers(only(mcpServers), only(apiServers), intendedSlugs?.filter(allowed));
 
     // Register pool's proxy tool defs with subprocess so the model can call them.
     this.registerPoolToolsWithSubprocess();
+  }
+
+  override setAllSources(sources: LoadedSource[]): void {
+    this.sourceInputs.all = sources;
+    const slugs = this.agentSourceSlugs();
+    super.setAllSources(slugs ? sources.filter((source) => slugs.includes(source.config.slug)) : sources);
+  }
+
+  /** The sources the chat's agent may use (its `sources` list); null = every one. */
+  private agentSourceSlugs(): readonly string[] | null {
+    return (this.turn ?? this.config.getAgentTurn?.())?.sourceSlugs ?? null;
+  }
+
+  /** The agent's source list changed since the sources were set: set them again through the new filter. */
+  private async applySourceFilter(): Promise<void> {
+    this.appliedSourceFilter = sourceFilterKey(this.agentSourceSlugs());
+    if (this.sourceInputs.all) this.setAllSources(this.sourceInputs.all);
+    if (this.sourceInputs.servers) await this.setSourceServers(...this.sourceInputs.servers);
   }
 
   // ============================================================
@@ -2838,3 +2898,8 @@ export class PiAgent extends BaseAgent {
 
 // Alias for consistency with other backend naming
 export { PiAgent as PiBackend };
+
+/** A source filter as a comparable string: '*' = every source. */
+function sourceFilterKey(slugs: readonly string[] | null): string {
+  return slugs ? [...slugs].sort().join(',') : '*';
+}

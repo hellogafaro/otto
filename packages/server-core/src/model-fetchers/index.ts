@@ -10,9 +10,9 @@
  * 3. MODEL_REGISTRY — hardcoded offline seed data, last resort
  */
 
-import type { ModelFetcherMap, ModelFetcherCredentials, FetchableProvider } from '@otto/shared/config'
+import type { ModelFetcher, ModelFetcherCredentials } from '@otto/shared/config'
 import type { ModelDefinition } from '@otto/shared/config'
-import { CUSTOM_CONNECTION_TYPE, INSTALL_SCOPE, getAllConnections } from '@otto/shared/connections'
+import { INSTALL_SCOPE, getAllConnections } from '@otto/shared/connections'
 import {
   contextOfScope,
   getLlmConnection,
@@ -20,7 +20,7 @@ import {
   isCompatProvider,
   getModelsForProviderType,
 } from '@otto/shared/config'
-import { MODEL_FETCHERS } from './registry'
+import { PiModelFetcher } from './pi'
 import { handlerLog } from './runtime'
 
 /** Copilot models are server-managed — refresh every 10 minutes to pick up policy changes. */
@@ -45,7 +45,7 @@ class ModelRefreshService {
   private inFlight = new Map<string, Promise<void>>()
 
   constructor(
-    private fetchers: ModelFetcherMap,
+    private fetcher: ModelFetcher,
     private getCredentials: CredentialResolver,
   ) {}
 
@@ -68,7 +68,7 @@ class ModelRefreshService {
 
   /**
    * Internal: actual refresh logic with fallback chain.
-   * Skips compat providers (not in fetcher map).
+   * Skips custom endpoints (their models are the ones the user listed).
    * Preserves user's defaultModel if still valid.
    * Updates connection.models in storage on success.
    */
@@ -79,15 +79,8 @@ class ModelRefreshService {
       return
     }
 
-    // Skip compat providers — users configure models manually
-    if (isCompatProvider(connection.providerType)) {
-      return
-    }
-
-    const providerType = connection.providerType as FetchableProvider
-    const fetcher = this.fetchers[providerType]
-    if (!fetcher) {
-      handlerLog.warn(`Model refresh: no fetcher for provider type: ${providerType}`)
+    // Skip custom endpoints — users configure models manually
+    if (isCompatProvider(connection.type)) {
       return
     }
 
@@ -97,8 +90,8 @@ class ModelRefreshService {
     // Layer 1: Provider API/SDK
     try {
       const credentials = await this.getCredentials(slug, scope)
-      handlerLog.info(`Model refresh [${slug}]: fetching (provider=${connection.providerType}, piAuth=${connection.piAuthProvider}, hasOAuthRefresh=${!!credentials.oauthRefreshToken}, hasOAuthAccess=${!!credentials.oauthAccessToken})`)
-      const result = await fetcher.fetchModels(connection, credentials)
+      handlerLog.info(`Model refresh [${slug}]: fetching (provider=${connection.type}, hasOAuthRefresh=${!!credentials.oauthRefreshToken}, hasOAuthAccess=${!!credentials.oauthAccessToken})`)
+      const result = await this.fetcher.fetchModels(connection, credentials)
       newModels = result.models
       serverDefault = result.serverDefault
       handlerLog.info(`Model refresh [${slug}]: fetched ${newModels.length} models from provider: ${newModels.map(m => m.id).join(', ')}`)
@@ -115,7 +108,7 @@ class ModelRefreshService {
 
     // Layer 3: MODEL_REGISTRY hardcoded fallback
     if (!newModels) {
-      const registryModels = getModelsForProviderType(providerType, connection.piAuthProvider)
+      const registryModels = getModelsForProviderType(connection.type)
       if (registryModels.length > 0) {
         newModels = registryModels
         handlerLog.info(`Model refresh [${slug}]: using ${newModels.length} models from MODEL_REGISTRY`)
@@ -127,13 +120,13 @@ class ModelRefreshService {
       return
     }
 
-    // For Pi connections with explicit user-owned 3-tier selection,
+    // For connections with explicit user-owned 3-tier selection,
     // never overwrite model lists from background refresh.
     // Exception: Copilot connections are always server-managed — GitHub's
     // model policy controls which models are enabled, so we must always
     // accept the live API result.
-    const isCopilot = connection.providerType === 'pi' && connection.piAuthProvider === 'github-copilot'
-    if (connection.providerType === 'pi' && connection.modelSelectionMode === 'userDefined3Tier' && !isCopilot) {
+    const isCopilot = connection.type === 'github-copilot'
+    if (connection.modelSelectionMode === 'userDefined3Tier' && !isCopilot) {
       const modelCount = connection.models?.length ?? 0
       handlerLog.info(`Model refresh [${slug}]: preserving user-defined Pi model list (${modelCount} models)`)
       if (modelCount > 10) {
@@ -163,8 +156,7 @@ class ModelRefreshService {
   startAll(): void {
     for (const conn of getAllConnections()) {
       // a custom endpoint's models are the ones the user listed
-      if (conn.type === CUSTOM_CONNECTION_TYPE) continue
-      const fetcher = this.fetchers.pi
+      if (isCompatProvider(conn.type)) continue
 
       // Immediate non-blocking fetch
       this.refreshConnection(conn.slug, conn.scope).catch(err => {
@@ -177,8 +169,8 @@ class ModelRefreshService {
       const isCopilot = conn.type === 'github-copilot'
       if (isCopilot) {
         this.startTimer(conn.slug, conn.scope, COPILOT_REFRESH_INTERVAL_MS)
-      } else if (fetcher.refreshIntervalMs > 0) {
-        this.startTimer(conn.slug, conn.scope, fetcher.refreshIntervalMs)
+      } else if (this.fetcher.refreshIntervalMs > 0) {
+        this.startTimer(conn.slug, conn.scope, this.fetcher.refreshIntervalMs)
       }
     }
   }
@@ -204,15 +196,13 @@ class ModelRefreshService {
 
     // Ensure periodic timer is running
     const connection = getLlmConnection(slug, contextOfScope(scope))
-    if (!connection || isCompatProvider(connection.providerType)) return
+    if (!connection || isCompatProvider(connection.type)) return
 
-    const providerType = connection.providerType as FetchableProvider
-    const fetcher = this.fetchers[providerType]
-    const isCopilot = connection.providerType === 'pi' && connection.piAuthProvider === 'github-copilot'
+    const isCopilot = connection.type === 'github-copilot'
     if (isCopilot && !this.timers.has(keyOf(slug, scope))) {
       this.startTimer(slug, scope, COPILOT_REFRESH_INTERVAL_MS)
-    } else if (fetcher && fetcher.refreshIntervalMs > 0 && !this.timers.has(keyOf(slug, scope))) {
-      this.startTimer(slug, scope, fetcher.refreshIntervalMs)
+    } else if (this.fetcher.refreshIntervalMs > 0 && !this.timers.has(keyOf(slug, scope))) {
+      this.startTimer(slug, scope, this.fetcher.refreshIntervalMs)
     }
   }
 
@@ -267,7 +257,7 @@ export function getModelRefreshService(): ModelRefreshService {
  * Called once during app startup.
  */
 export function initModelRefreshService(getCredentials: CredentialResolver): ModelRefreshService {
-  _service = new ModelRefreshService(MODEL_FETCHERS, getCredentials)
+  _service = new ModelRefreshService(new PiModelFetcher(), getCredentials)
   return _service
 }
 

@@ -340,7 +340,7 @@ function buildProxyErrorMessage(errorMessage: string, fullErrorText: string): st
  */
 export function parseError(
   error: unknown,
-  providerContext?: { providerType?: string; piAuthProvider?: string },
+  providerContext?: { provider: string },
 ): AgentError {
   // Extract all error messages including nested causes and subprocess output
   const fullErrorText = extractErrorMessages(error);
@@ -424,10 +424,7 @@ export function parseError(
 
   // Resolve provider info from context
   const providerInfo = providerContext
-    ? getProviderMetadata(
-        providerContext.providerType ?? 'pi',
-        providerContext.piAuthProvider,
-      ) ?? undefined
+    ? getProviderMetadata(providerContext.provider)
     : undefined;
 
   // For proxy_error, prefer safe user-facing text over raw HTML payloads.
@@ -479,14 +476,11 @@ export function parseError(
 export function createAgentError(
   code: ErrorCode,
   originalError?: string,
-  providerContext?: { providerType?: string; piAuthProvider?: string },
+  providerContext?: { provider: string },
 ): AgentError {
   const definition = ERROR_DEFINITIONS[code]!;
   const providerInfo = providerContext
-    ? getProviderMetadata(
-        providerContext.providerType ?? 'pi',
-        providerContext.piAuthProvider,
-      ) ?? undefined
+    ? getProviderMetadata(providerContext.provider)
     : undefined;
   return {
     code,

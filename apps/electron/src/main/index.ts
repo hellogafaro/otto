@@ -83,7 +83,7 @@ import { bootstrapServer, releaseServerLock } from '@otto/server-core/bootstrap'
 import { createMessagingBootstrap, type MessagingBootstrapHandle } from '@otto/messaging-gateway'
 import { getCredentialManager } from '@otto/shared/credentials'
 import { initModelRefreshService, getModelRefreshService, setFetcherPlatform } from '@otto/server-core/model-fetchers'
-import { setSearchPlatform, setImageProcessor } from '@otto/server-core/services'
+import { setImageProcessor } from '@otto/server-core/services'
 import { createApplicationMenu } from './menu'
 import { WindowManager } from './window-manager'
 import { loadWindowState, saveWindowState } from './window-state'
@@ -180,8 +180,8 @@ if (isDebugMode) {
 
 // Register Pi model resolver so llm-connections.ts can resolve Pi models
 // without importing @earendil-works/pi-ai (which breaks the Vite renderer build)
-registerPiModelResolver((piAuthProvider) =>
-  piAuthProvider ? getPiModelsForAuthProvider(piAuthProvider) : getAllPiModels()
+registerPiModelResolver((provider) =>
+  provider ? getPiModelsForAuthProvider(provider) : getAllPiModels()
 )
 
 // Custom URL scheme for deeplinks (e.g., otto://auth-complete)
@@ -550,6 +550,8 @@ app.whenReady().then(async () => {
       await initSources()
       const { initRoutinesImport } = await import('@otto/shared/automations/routines-import')
       initRoutinesImport()
+      const { initChatsImport } = await import('@otto/shared/sessions/import')
+      initChatsImport()
       const persistedUiLanguage = getPersistedUiLanguage()
       if (persistedUiLanguage) await i18n.changeLanguage(persistedUiLanguage)
       mainLog.info('[i18n] startup hydration', { persistedUiLanguage: persistedUiLanguage ?? null, resolvedLanguageAfterHydration: i18n.resolvedLanguage ?? null })
@@ -652,7 +654,6 @@ app.whenReady().then(async () => {
               })
             },
           })
-          setSearchPlatform(p)
           setImageProcessor(p.imageProcessor)
         },
         createSessionManager: () => {
@@ -1096,7 +1097,7 @@ app.whenReady().then(async () => {
       const defaultConnSlug = getDefaultLlmConnection()
       const defaultConn = defaultConnSlug ? getLlmConnection(defaultConnSlug) : null
       Sentry.setTag('authType', defaultConn?.authType ?? 'unknown')
-      Sentry.setTag('providerType', defaultConn?.providerType ?? 'unknown')
+      Sentry.setTag('connectionType', defaultConn?.type ?? 'unknown')
       Sentry.setTag('hasCustomEndpoint', String(!!defaultConn?.baseUrl))
       Sentry.setTag('model', defaultConn?.defaultModel ?? 'default')
       Sentry.setTag('workspaceCount', String(workspaces.length))

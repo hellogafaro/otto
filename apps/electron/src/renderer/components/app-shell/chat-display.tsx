@@ -10,6 +10,8 @@ import {
   Info,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
+import { useSetAtom } from "jotai"
+import { loadOlderSessionMessagesAtom } from "@/atoms/sessions"
 import { toast } from '@workspace/ui/components/sonner'
 
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -976,6 +978,12 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
 
   // Ref to track total turn count for scroll handler
   const totalTurnCountRef = React.useRef(0)
+  // Older pages from the server (scrolling up past the loaded turns)
+  const loadOlderMessages = useSetAtom(loadOlderSessionMessagesAtom)
+  const visibleTurnCountRef = React.useRef(visibleTurnCount)
+  visibleTurnCountRef.current = visibleTurnCount
+  const olderPageRef = React.useRef<{ sessionId?: string; olderCount: number }>({ olderCount: 0 })
+  olderPageRef.current = { sessionId: session?.id, olderCount: session?.olderMessageCount ?? 0 }
 
   // Latest message metadata (for commit-time auto-scroll)
   const messageCount = session?.messages.length ?? 0
@@ -1038,6 +1046,20 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
 
     // Load more turns when scrolling near top (within 100px)
     if (scrollTop < 100) {
+      // Every loaded turn is shown: ask the server for the page before them, then show it in place
+      const { sessionId, olderCount } = olderPageRef.current
+      if (totalTurnCountRef.current <= visibleTurnCountRef.current && olderCount > 0 && sessionId) {
+        void loadOlderMessages(sessionId).then((added) => {
+          if (!added || olderPageRef.current.sessionId !== sessionId) return
+          const prevScrollHeight = viewport.scrollHeight
+          const prevScrollTop = viewport.scrollTop
+          setVisibleTurnCount(prev => prev + TURNS_PER_PAGE)
+          requestAnimationFrame(() => {
+            viewport.scrollTop = viewport.scrollHeight - prevScrollHeight + prevScrollTop
+          })
+        })
+        return
+      }
       setVisibleTurnCount(prev => {
         // Check if there are more turns to load
         const currentStartIndex = Math.max(0, totalTurnCountRef.current - prev)
@@ -1055,7 +1077,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
         return prev + TURNS_PER_PAGE
       })
     }
-  }, [])
+  }, [loadOlderMessages])
 
   // Set up scroll event listener
   React.useEffect(() => {
@@ -1308,7 +1330,9 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   // Reverse pagination: only render last N turns for fast initial render
   const startIndex = Math.max(0, allTurns.length - visibleTurnCount)
   const turns = allTurns.slice(startIndex)
-  const hasMoreAbove = startIndex > 0
+  // Turns loaded but not shown yet, else messages still on the server
+  const hiddenAbove = startIndex > 0 ? startIndex : (session?.olderMessageCount ?? 0)
+  const hasMoreAbove = hiddenAbove > 0
 
   const assistantTurnIndexByMessageId = useMemo(() => {
     const map = new Map<string, number>()
@@ -1562,7 +1586,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                   {/* Load more indicator - shown when there are older messages */}
                   {hasMoreAbove && (
                     <div className="text-center text-muted-foreground/60 text-xs py-3 select-none">
-                      ↑ {t('chat.scrollUpForEarlier', { count: startIndex })}
+                      ↑ {t('chat.scrollUpForEarlier', { count: hiddenAbove })}
                     </div>
                   )}
                   {turns.map((turn, index) => {

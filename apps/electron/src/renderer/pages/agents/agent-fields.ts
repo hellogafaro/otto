@@ -61,12 +61,9 @@ export const sourceKey = (source: LoadedSource) => source.config.slug
 // Provider and model
 // =============================================================================
 
-/** The provider a connection pays for: the same value `getDefaultProvider` stores (`piAuthProvider ?? type`). */
-export const providerOf = (connection: Pick<LlmConnection, 'providerType' | 'piAuthProvider'>) => connection.piAuthProvider ?? connection.providerType
-
 /** A provider's name ("Anthropic", "OpenAI"), else the name of a connection of it, else the stored value. */
 export function providerLabel(provider: string, connections: readonly LlmConnection[]): string {
-  return getProviderMetadata(provider, provider)?.name ?? connections.find((c) => providerOf(c) === provider)?.name ?? provider
+  return getProviderMetadata(provider)?.name ?? connections.find((c) => c.type === provider)?.name ?? provider
 }
 
 export interface Choice {
@@ -76,7 +73,7 @@ export interface Choice {
 
 /** The providers of the person's connections, the agent's own first when they have none of it. */
 export function providerChoices(current: string, connections: readonly LlmConnection[]): Choice[] {
-  const providers = [...new Set(connections.map(providerOf))]
+  const providers = [...new Set(connections.map((c) => c.type))]
   if (!providers.includes(current)) providers.unshift(current)
   return providers.map((value) => ({ value, label: providerLabel(value, connections) }))
 }
@@ -85,7 +82,7 @@ export function providerChoices(current: string, connections: readonly LlmConnec
 export function modelChoices(provider: string, connections: readonly LlmConnection[]): Choice[] {
   const seen = new Map<string, string>()
   for (const connection of connections) {
-    if (providerOf(connection) !== provider) continue
+    if (connection.type !== provider) continue
     for (const model of connection.models ?? []) {
       const id = typeof model === 'string' ? model : model.id
       if (!seen.has(id)) seen.set(id, typeof model === 'string' ? model : (model.name ?? model.id))

@@ -11,7 +11,6 @@
  */
 
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { getWorkspaceIdByRootPath } from '../config/storage.ts';
 import { initDb, type Db, type Tx } from '../db/index.ts';
 import { createId } from '../id.ts';
 import type { EntityColor } from '../colors/types.ts';
@@ -77,6 +76,12 @@ export function getStatuses(workspaceId: string, db: Db | Tx = initDb()): Status
   return rows.length ? rows.map(toConfig) : getDefaultStatuses();
 }
 
+/** Each status of a workspace by row id: its slug and category (chats store the row id and read the slug). */
+export function getStatusesById(workspaceId: string, db: Db | Tx = initDb()): Map<string, { slug: string; category: StatusCategory }> {
+  const rows = db.select({ id: statuses.id, slug: statuses.slug, category: statuses.category }).from(statuses).where(eq(statuses.workspaceId, workspaceId)).all();
+  return new Map(rows.map((row) => [row.id, { slug: row.slug, category: row.category }]));
+}
+
 /** The row of a status by slug; undefined for a workspace that has no rows yet or no such status. */
 export function getStatusRow(workspaceId: string, slug: string, db: Db | Tx = initDb()): Row | undefined {
   return db.select().from(statuses).where(and(eq(statuses.workspaceId, workspaceId), eq(statuses.slug, slug))).get();
@@ -95,14 +100,6 @@ export function isValidStatusId(workspaceId: string, slug: string, db: Db | Tx =
 /** The slug of the status new chats get (`todo` unless the workspace picked another). */
 export function getDefaultStatusId(workspaceId: string, db: Db | Tx = initDb()): string {
   return getStatuses(workspaceId, db).find((status) => status.isDefault)?.id ?? 'todo';
-}
-
-/**
- * Category of a status of the workspace at this root path (the defaults for a root that is not registered); null for an unknown status.
- * Addressed by root path because chat storage still is (until chats move to the database).
- */
-export function getStatusCategory(workspaceRootPath: string, slug: string): StatusCategory | null {
-  return getStatus(getWorkspaceIdByRootPath(workspaceRootPath) ?? '', slug)?.category ?? null;
 }
 
 /** Inserts statuses with new row ids (`slug` = the status id); a slug the workspace already has is skipped. Returns how many were inserted. */

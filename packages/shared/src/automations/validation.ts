@@ -387,7 +387,7 @@ export function validateAutomations(workspaceRoot: string): ValidationResult {
                   });
                 } else if (action.model) {
                   // Validate model is available for this connection
-                  const availableModels = connection.models ?? getDefaultModelsForConnection(connection.providerType, connection.piAuthProvider);
+                  const availableModels = connection.models ?? getDefaultModelsForConnection(connection.type);
                   const modelIds = availableModels.map(m => typeof m === 'string' ? m : (m as ModelDefinition).id);
                   // Check exact match or suffix match (e.g. "haiku" matches "claude-haiku-4-5-20251001")
                   const modelValue = action.model;
@@ -400,7 +400,7 @@ export function validateAutomations(workspaceRoot: string): ValidationResult {
                     warnings.push({
                       file,
                       path: `automations.${event}[${i}].actions`,
-                      message: `Model "${modelValue}" may not be available on connection "${action.llmConnection}" (${connection.providerType})`,
+                      message: `Model "${modelValue}" may not be available on connection "${action.llmConnection}" (${connection.type})`,
                       severity: 'warning',
                       suggestion: `Available models: ${modelIds.slice(0, 5).join(', ')}${modelIds.length > 5 ? `, ... (${modelIds.length} total)` : ''}`,
                     });

@@ -10,7 +10,6 @@
  * the decision path directly.
  */
 import { describe, it, expect, mock, beforeEach } from 'bun:test'
-import { createBuiltInConnection } from '@otto/server-core/domain'
 import type { LlmConnectionSetup } from '@otto/shared/protocol'
 
 // ============================================================
@@ -21,7 +20,6 @@ import type { LlmConnectionSetup } from '@otto/shared/protocol'
 interface MockDeps {
   getLlmConnection: (slug: string) => unknown | null
   deleteLlmCredentials: (slug: string) => Promise<void>
-  createBuiltInConnection: (slug: string, baseUrl?: string) => unknown
   addLlmConnection: (conn: unknown) => boolean
 }
 
@@ -62,7 +60,6 @@ describe('SETUP_LLM_CONNECTION updateOnly guard', () => {
       {
         getLlmConnection: () => null,
         deleteLlmCredentials: mockDeleteCreds as any,
-        createBuiltInConnection,
         addLlmConnection: () => true,
       },
     )
@@ -76,7 +73,6 @@ describe('SETUP_LLM_CONNECTION updateOnly guard', () => {
       {
         getLlmConnection: () => null,
         deleteLlmCredentials: mockDeleteCreds as any,
-        createBuiltInConnection,
         addLlmConnection: () => true,
       },
     )
@@ -89,7 +85,6 @@ describe('SETUP_LLM_CONNECTION updateOnly guard', () => {
       {
         getLlmConnection: () => ({ slug: 'chatgpt-plus', name: 'ChatGPT Plus' }),
         deleteLlmCredentials: mockDeleteCreds as any,
-        createBuiltInConnection,
         addLlmConnection: () => true,
       },
     )
@@ -103,7 +98,6 @@ describe('SETUP_LLM_CONNECTION updateOnly guard', () => {
       {
         getLlmConnection: () => null,
         deleteLlmCredentials: mockDeleteCreds as any,
-        createBuiltInConnection,
         addLlmConnection: () => true,
       },
     )
@@ -117,7 +111,6 @@ describe('SETUP_LLM_CONNECTION updateOnly guard', () => {
       {
         getLlmConnection: () => ({ slug: 'chatgpt-plus' }),
         deleteLlmCredentials: mockDeleteCreds as any,
-        createBuiltInConnection,
         addLlmConnection: () => true,
       },
     )

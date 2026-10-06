@@ -99,11 +99,7 @@ import { createWebFetchTool } from './tools/web-fetch.ts';
 import { resolveSearchProvider } from './tools/search/resolve-provider.ts';
 import { createSearchTool } from './tools/search/create-search-tool.ts';
 import { allowOttoMetadataProperties, stripOttoMetadata } from './otto-metadata-schema.ts';
-import {
-  createOttoResourceLoader,
-  createSystemPromptOverride,
-  type SystemPromptOverride,
-} from './system-prompt-override.ts';
+import { createOttoResourceLoader, createTurnPrompt, type TurnPrompt } from './turn-prompt.ts';
 import { readContextUsage, deferContextUsage } from './context-usage.ts';
 import { waitForCompaction, MANUAL_COMPACT_WAIT_MS, PROMPT_COMPACT_WAIT_MS } from './compaction-wait.ts';
 import type {
@@ -115,6 +111,7 @@ import type {
   PiContextUsagePayload,
   PiLargeResultGateRequest,
   PiLargeResultGateResponse,
+  PiTurnSkill,
 } from '../../shared/src/agent/backend/pi/protocol.ts';
 import { createComputerExecClient, createComputerOperations, routeToComputer, unavailableOnComputer } from './computer-tools.ts';
 import { createLargeResultGateClient } from './large-result-gate.ts';
@@ -167,7 +164,7 @@ interface RuntimeConfigUpdateMessage {
 /** Messages from main process (stdin) */
 type InboundMessage =
   | InitMessage
-  | { type: 'prompt'; id: string; message: string; systemPrompt: string; images?: Array<{ type: 'image'; data: string; mimeType: string }>; computer?: boolean }
+  | { type: 'prompt'; id: string; message: string; systemPrompt: string; skills?: PiTurnSkill[]; images?: Array<{ type: 'image'; data: string; mimeType: string }>; computer?: boolean }
   | { type: 'register_tools'; tools: ProxyToolDef[] }
   | { type: 'tool_execute_response'; requestId: string; result: { content: string; isError: boolean } }
   | { type: 'pre_tool_use_response'; requestId: string; action: 'allow' | 'block' | 'modify'; input?: Record<string, unknown>; reason?: string }
@@ -280,9 +277,9 @@ type OutboundMessage =
 // ============================================================
 
 let piSession: AgentSession | null = null;
-// Forces Otto's system prompt onto piSession (see system-prompt-override.ts);
+// Otto's prompt and the agent's skills for each run of piSession (see turn-prompt.ts);
 // recreated together with the session.
-let piSessionPromptOverride: SystemPromptOverride | null = null;
+let piSessionTurnPrompt: TurnPrompt | null = null;
 // A stop must also cancel a manual compact still waiting for auto-compaction.
 let compactionEpoch = 0;
 let piModelRegistry: PiModelRegistry | null = null;
@@ -787,21 +784,21 @@ async function ensureSession(): Promise<AgentSession> {
     sessionOptions.thinkingLevel = piThinkingLevel;
   }
 
-  // Otto's system prompt is forced through a before_agent_start extension
-  // registered on the resource loader (see system-prompt-override.ts). The
+  // Otto's prompt and the agent's skills reach Pi's own prompt options per run through a
+  // before_agent_start extension on the resource loader (see turn-prompt.ts). The
   // loader otherwise mirrors the one createAgentSession would build itself.
-  const systemPromptOverride = createSystemPromptOverride();
+  const turnPrompt = createTurnPrompt();
   sessionOptions.resourceLoader = await createOttoResourceLoader({
     cwd,
     agentDir: sessionOptions.agentDir ?? getAgentDir(),
     settingsManager,
-    systemPromptOverride,
+    turnPrompt,
   });
 
   // Create the session — tools flow through customTools + allowlist (see comment above).
   const { session } = await createAgentSession(sessionOptions);
   piSession = session;
-  piSessionPromptOverride = systemPromptOverride;
+  piSessionTurnPrompt = turnPrompt;
 
   toolsChanged = false;
   debugLog(`Created Pi session: ${session.sessionId} (${wrappedAll.length} tools)`);
@@ -1075,9 +1072,8 @@ async function queryLlm(
     }
 
     // Create minimal ephemeral session. The resource loader mirrors the SDK
-    // default (same cwd, default agentDir) plus the system-prompt override.
+    // default (same cwd, default agentDir) with the request's system prompt.
     const ephemeralSettings = createOttoSettingsManager('ephemeral');
-    const ephemeralPromptOverride = createSystemPromptOverride();
     const ephemeralOptions: CreateAgentSessionOptions = {
       cwd: resolvedCwd(),
       modelRuntime,
@@ -1089,7 +1085,7 @@ async function queryLlm(
         cwd: resolvedCwd(),
         agentDir: getAgentDir(),
         settingsManager: ephemeralSettings,
-        systemPromptOverride: ephemeralPromptOverride,
+        systemPrompt: request.systemPrompt ?? 'Reply with ONLY the requested text. No explanation.',
       }),
     };
 
@@ -1112,12 +1108,6 @@ async function queryLlm(
       lifecycle.throwIfCancelled();
 
       debugLog(`[queryLlm] Created ephemeral session: ${ephemeralSession.sessionId}`);
-
-      // Force the system prompt via the before_agent_start override registered
-      // on this session's resource loader (see system-prompt-override.ts).
-      const promptForSession =
-        request.systemPrompt ?? 'Reply with ONLY the requested text. No explanation.';
-      ephemeralPromptOverride.set(promptForSession);
 
       // Collect response text and errors from events. `prompt()` resolves only
       // after SDK retries/continuations settle, so the request-level coordinator
@@ -1433,10 +1423,9 @@ async function handlePrompt(msg: Extract<InboundMessage, { type: 'prompt' }>): P
 
     const session = await ensureSession();
 
-    // Force the Otto-built system prompt onto the Pi session through the
-    // before_agent_start override created with it (see system-prompt-override.ts).
+    // Otto's prompt and the agent's skills for this run (see turn-prompt.ts).
     if (msg.systemPrompt) {
-      piSessionPromptOverride?.set(msg.systemPrompt);
+      piSessionTurnPrompt?.set({ systemPrompt: msg.systemPrompt, skills: msg.skills });
     }
 
     // Wire up event handler

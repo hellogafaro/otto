@@ -123,7 +123,7 @@ export function handleTextComplete(
     const resolvedContent = event.text || streaming?.content || existingMsg?.content || ''
     const updatedSession = updateMessageAt(session, msgIndex, {
       // Replace temporary renderer-generated ID with authoritative main-process ID
-      // so branchFromMessageId always resolves against persisted session.jsonl.
+      // so branchFromMessageId always resolves against the stored messages.
       ...(event.messageId ? { id: event.messageId } : {}),
       content: resolvedContent,
       isStreaming: false,

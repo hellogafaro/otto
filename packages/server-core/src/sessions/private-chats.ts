@@ -2,18 +2,17 @@ import { userIdOf } from '@otto/shared/actors'
 import { domainError } from '@otto/shared/utils'
 
 /**
- * Chats are private: a chat belongs to the user who created it (`createdBy`, 'user:<id>') and
- * nobody else in the workspace sees or touches it. A chat with no `createdBy` was made before
- * chats were private; it belongs to the workspace owners.
+ * Chats are private: a chat belongs to the user who created it (`chats.created_by`, 'user:<id>') and
+ * nobody else in the workspace sees or touches it. Every chat has a creator: the importer gave the
+ * chats made before chats were private to their workspace's first owner.
  */
 
 /** The user ids of a workspace's owners. The host sets it from the database; until then no owner exists. */
 export type WorkspaceOwners = (workspaceId: string) => string[]
 
-/** User ids who may see a chat: its creator; with no creator, the owners of its workspace. */
-export function getChatAudience(chat: { createdBy?: string }, ownersOf: () => string[]): string[] {
-  if (!chat.createdBy) return ownersOf()
-  const userId = userIdOf(chat.createdBy)
+/** User ids who may see a chat: its creator only. */
+export function getChatAudience(chat: { createdBy?: string }): string[] {
+  const userId = chat.createdBy ? userIdOf(chat.createdBy) : null
   return userId ? [userId] : []
 }
 

@@ -15,18 +15,18 @@ import type { SessionConfig as Session } from '../../sessions/storage.ts';
 import type { SourceManager } from '../core/source-manager.ts';
 import type { GuardedModeCheck } from '../core/guarded-mode.ts';
 import type { Computer } from '../../computer/types.ts';
+import type { AgentTurn } from '../agent-turn.ts';
 
 // Import AbortReason and RecoveryMessage from core module (single source of truth)
 import { AbortReason, type RecoveryMessage } from '../core/index.ts';
 export { AbortReason, type RecoveryMessage };
 
 // Import LLM connection types for auth
-import type { LlmAuthType, LlmProviderType } from '../../config/llm-connections.ts';
-export type { LlmAuthType, LlmProviderType } from '../../config/llm-connections.ts';
+import type { LlmAuthType } from '../../config/llm-connections.ts';
+export type { LlmAuthType } from '../../config/llm-connections.ts';
 
 export interface BackendRuntimeUpdate {
   model: string;
-  providerType?: LlmProviderType;
   authType?: LlmAuthType;
   runtime?: {
     baseUrl?: string;
@@ -212,10 +212,11 @@ export interface CoreBackendConfig {
   recoverHistory?: boolean;
 
   /**
-   * Otto's per-turn addition to the system prompt: the chat's agent and workspace instructions as XML groups
-   * (`assembleInstructions`, docs/final-plan.md 2.7), appended after the base prompt. '' adds nothing.
+   * The chat's agent for this turn (`getAgentTurn`, docs/final-plan.md 2.6): its instructions as XML groups
+   * (appended after the base prompt), the sources and skills it may use and its computer. Read at the start of each
+   * turn; null = no agent (mini sessions): nothing appended, every source, no skills listed, tools on the host.
    */
-  getAgentInstructions?: () => string;
+  getAgentTurn?: () => AgentTurn | null;
 
   /**
    * Get ALL parent messages for branch fork fallback (not limited to 6).
@@ -310,9 +311,6 @@ export type SdkMcpServerConfig =
  * Configuration for creating the agent (`createBackend`).
  */
 export interface BackendConfig extends CoreBackendConfig {
-  /** The connection's provider type (`pi`, or `pi_compat` for a custom endpoint). */
-  providerType?: LlmProviderType;
-
   /**
    * Authentication mechanism from LLM connection.
    * Determines how credentials are retrieved and passed to the backend.
@@ -328,6 +326,9 @@ export interface BackendConfig extends CoreBackendConfig {
 
   /** Scope of that connection (`connection.scope`): the credential is read from the connection of this exact scope. */
   connectionScope?: string;
+
+  /** The chat's agent names a provider its creator has no connection of: every turn ends with this error. */
+  missingConnection?: string;
 
   /** Workspace-level automation system for user-defined SDK hooks (automations.json) */
   automationSystem?: AutomationSystem;

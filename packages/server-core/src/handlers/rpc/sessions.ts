@@ -12,6 +12,7 @@ import { pushTyped, type RequestContext, type RpcServer } from '@otto/server-cor
 import type { HandlerDeps } from '../handler-deps'
 import { setTransferableHandler } from './transfer'
 import { actorOf } from './library'
+import { searchChats } from '@otto/shared/sessions'
 
 interface ClientSessionWatchState {
   watcher: import('fs').FSWatcher
@@ -60,8 +61,8 @@ export function cleanupSessionFileWatchForClient(clientId: string): void {
 }
 
 // Recursive directory scanner for session files
-// Filters out internal files (session.jsonl) and hidden files (. prefix)
-// Returns only non-empty directories
+// Filters out hidden files (. prefix) and the session.jsonl that chats made before the database keep (left in place
+// by the importer). Returns only non-empty directories
 async function scanSessionDirectory(dirPath: string): Promise<import('@otto/shared/protocol').SessionFile[]> {
   const { readdir, stat } = await import('fs/promises')
   const entries = await readdir(dirPath, { withFileTypes: true })
@@ -180,10 +181,12 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
     return sessionManager.markAllSessionsRead(workspaceId, ctx.userId)
   })
 
-  // Get a single session with messages (for lazy loading)
-  server.handle(RPC_CHANNELS.sessions.GET_MESSAGES, async (_ctx, sessionId: string) => {
+  // A chat with a page of its messages: the newest, or the page before `beforeId` (scrolling up), with `olderMessageCount`
+  server.handle(RPC_CHANNELS.sessions.GET_MESSAGES, async (_ctx, sessionId: string, page?: { beforeId?: string; limit?: number }) => {
     const end = perf.start('rpc.getSessionMessages')
-    const session = await sessionManager.getSession(sessionId)
+    const limit = typeof page?.limit === 'number' && page.limit > 0 ? Math.min(Math.floor(page.limit), 500) : undefined
+    const beforeId = typeof page?.beforeId === 'string' ? page.beforeId : undefined
+    const session = await sessionManager.getSession(sessionId, { beforeId, limit })
     end()
     return session
   })
@@ -411,38 +414,16 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   // Session Content Search
   // ============================================================
 
-  // Search session content using ripgrep
+  // Full-text search over the caller's own chats in the workspace (`messages_fts`; the private rule is in the query)
   server.handle(RPC_CHANNELS.sessions.SEARCH_CONTENT, async (ctx, workspaceId: string, query: string, searchId?: string) => {
     const id = searchId || Date.now().toString(36)
-    log.info('[search]','ipc:request', { searchId: id, query })
-
     const workspace = getWorkspaceByNameOrId(workspaceId)
-    if (!workspace) {
-      log.warn('SEARCH_SESSIONS: Workspace not found:', workspaceId)
-      return []
-    }
-
-    const { searchSessions } = await import('@otto/server-core/services')
-    const { getWorkspaceSessionsPath } = await import('@otto/shared/workspaces')
-
-    const sessionsDir = getWorkspaceSessionsPath(workspace.rootPath)
-    log.debug(`SEARCH_SESSIONS: Searching "${query}" in ${sessionsDir}`)
-
-    const results = await searchSessions(query, sessionsDir, {
-      timeout: 5000,
-      maxMatchesPerSession: 3,
-      maxSessions: 50,
-      searchId: id,
-    })
-
-    // Keep only the chats this user may see, and not the hidden ones (e.g., mini edit sessions)
-    const visibleSessionIds = new Set(
-      sessionManager.getSessions(undefined, ctx.userId).filter(s => !s.hidden).map(s => s.id)
-    )
-    const filteredResults = results.filter(r => visibleSessionIds.has(r.sessionId))
-
-    log.info('[search]','ipc:response', { searchId: id, resultCount: filteredResults.length, totalFound: results.length })
-    return filteredResults
+    if (!workspace || typeof query !== 'string') return []
+    const end = perf.start('rpc.searchSessionContent')
+    const results = searchChats(workspace.id, actorOf(ctx), query, { limit: 50, perChat: 3 })
+    end()
+    log.info('[search]', 'ipc:response', { searchId: id, resultCount: results.length })
+    return results
   })
 
   // ============================================================
@@ -480,8 +461,8 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
       }
 
       state.watcher = watch(sessionPath, { recursive: true }, (_eventType, filename) => {
-        // Ignore internal files and hidden files
-        if (filename && (filename.includes('session.jsonl') || filename.startsWith('.'))) {
+        // Ignore hidden files
+        if (filename && filename.startsWith('.')) {
           return
         }
 

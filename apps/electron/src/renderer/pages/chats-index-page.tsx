@@ -211,7 +211,7 @@ export default function ChatsIndexPage() {
   const remoteWorkspaceId = workspaces.find((w) => w.id === activeWorkspaceId)?.remoteServer?.remoteWorkspaceId
   const metas = React.useMemo(
     () => Array.from(sessionMetaMap.values()).filter((s) =>
-      !s.hidden && (!activeWorkspaceId || s.workspaceId === activeWorkspaceId || (remoteWorkspaceId && s.workspaceId === remoteWorkspaceId))),
+      !activeWorkspaceId || s.workspaceId === activeWorkspaceId || (remoteWorkspaceId && s.workspaceId === remoteWorkspaceId)),
     [sessionMetaMap, activeWorkspaceId, remoteWorkspaceId],
   )
 

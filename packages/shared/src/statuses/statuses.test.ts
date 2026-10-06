@@ -3,8 +3,7 @@ import { openDb } from '../db/index.ts';
 import { pushSchema } from '../db/push.ts';
 import { createStatus, deleteStatus, reorderStatuses, setDefaultStatus, updateStatus } from './crud.ts';
 import { statuses } from './schema.ts';
-import { getDefaultStatuses, getStatus, getStatusCategory, getStatuses, getDefaultStatusId, initWorkspaceStatuses, isValidStatusId, MAX_STATUS_ICON } from './storage.ts';
-import { validateSessionStatus } from './validation.ts';
+import { getDefaultStatuses, getStatus, getStatuses, getDefaultStatusId, initWorkspaceStatuses, isValidStatusId, MAX_STATUS_ICON } from './storage.ts';
 
 const WS = 'ws-aaaa';
 const OTHER = 'ws-bbbb';
@@ -87,13 +86,5 @@ describe('statuses', () => {
     reorderStatuses(WS, ['done', 'todo'], db);
     expect(getStatuses(WS, db).map((s) => s.id)).toEqual(['done', 'todo', 'backlog', 'needs-review', 'cancelled', 'archived']);
     expect(code(() => reorderStatuses(WS, ['nope'], db))).toBe('invalid');
-  });
-
-  it('answers by root path for chat storage: the defaults for a root that is not registered', () => {
-    expect(getStatusCategory('/nowhere/at/all', 'done')).toBe('closed');
-    expect(getStatusCategory('/nowhere/at/all', 'nope')).toBeNull();
-    expect(validateSessionStatus('/nowhere/at/all', 'needs-review')).toBe('needs-review');
-    expect(validateSessionStatus('/nowhere/at/all', 'deleted-status')).toBe('todo');
-    expect(validateSessionStatus('/nowhere/at/all', undefined)).toBe('todo');
   });
 });

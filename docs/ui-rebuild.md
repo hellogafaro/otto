@@ -62,7 +62,7 @@ yet).
 
 ## Settings pages (11)
 
-- [ ] `pages/settings/ai-settings-page.tsx`
+- [x] `pages/settings/ai-settings-page.tsx` (connections speak the Pi provider model; Workspace overrides and the decision model moved to `workspace-override-card.tsx` and `decision-model-section.tsx`, still legacy-styled)
 - [ ] `pages/settings/app-settings-page.tsx`
 - [ ] `pages/settings/appearance-settings-page.tsx`
 - [ ] `pages/settings/input-settings-page.tsx`
@@ -74,20 +74,12 @@ yet).
 - [ ] `pages/settings/shortcuts-page.tsx`
 - [ ] `pages/settings/workspace-settings-page.tsx`
 
-## Onboarding and sign-in (7)
+## Onboarding and sign-in (4)
 
 - [x] `components/first-run/first-run-setup.tsx` (replaced the welcome, API setup and completion steps)
-- [ ] `components/onboarding/credentials-step.tsx`
 - [ ] `components/onboarding/git-bash-warning.tsx`
-- [ ] `components/onboarding/local-model-step.tsx`
-- [ ] `components/onboarding/onboarding-wizard.tsx`
-- [x] `components/onboarding/provider-select-step.tsx`
+- [x] `components/onboarding/onboarding-wizard.tsx` (choose, Claude subscription, key forms, device code)
 - [ ] `components/onboarding/primitives.tsx`
-
-## Connection setup (2)
-
-- [ ] `components/apisetup/api-key-input.tsx`
-- [ ] `components/apisetup/oauth-connect.tsx`
 
 ## Chat (2)
 
@@ -252,9 +244,9 @@ when their page is rebuilt (autosaved fields stay `useAutosave`, never forms):
 
 - [ ] The legacy settings pages' forms and dialogs: `pages/settings/*` other than Members
   (AI connections, workspace, preferences, server, ...), and their `components/settings` rows
-- [ ] `components/apisetup/*` (API key, OAuth connect), `components/chat/auth-request-card.tsx`,
+- [ ] `components/chat/auth-request-card.tsx`,
   `components/app-shell/input/structured/credential-request.tsx`
-- [ ] `components/onboarding/local-model-step.tsx`, `components/first-run/*` and the
+- [ ] `components/first-run/*` and the
   workspace-creation screens (owned by the first-run work, which already builds on the pattern)
 - [ ] `apps/webui/src/login-page.tsx` (sign-in; asked for later)
 - Not forms: the comment composer, `free-form-input.tsx` (the chat input).

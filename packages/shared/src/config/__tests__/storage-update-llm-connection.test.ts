@@ -21,12 +21,10 @@ function makeConnection(overrides: Partial<LlmConnection> = {}): LlmConnection {
   return {
     slug: 'custom-compat',
     name: 'My Custom Endpoint',
-    providerType: 'pi_compat',
+    type: 'custom',
     authType: 'api_key_with_endpoint',
     createdAt: Date.now(),
     baseUrl: 'http://localhost:8085',
-    // a custom endpoint's provider family follows its protocol (openai-completions unless anthropic-messages)
-    piAuthProvider: 'openai',
     ...overrides,
   }
 }
@@ -48,11 +46,11 @@ describe('add, get, delete', () => {
     expect(getConnections()[0]).toMatchObject({ type: 'custom', authType: 'api_key_with_endpoint' })
   })
 
-  it('stores the Pi provider id as the type: pi + X is X, a Claude subscription is claude-code with no secret', () => {
-    addLlmConnection(makeConnection({ slug: 'codex', providerType: 'pi', authType: 'oauth', piAuthProvider: 'openai-codex', baseUrl: undefined }))
-    addLlmConnection(makeConnection({ slug: 'claude', providerType: 'pi', authType: 'cli_login', piAuthProvider: 'claude-code', baseUrl: undefined }))
+  it('stores the Pi provider id as the type: a Claude subscription is claude-code with no secret', () => {
+    addLlmConnection(makeConnection({ slug: 'codex', type: 'openai-codex', authType: 'oauth', baseUrl: undefined }))
+    addLlmConnection(makeConnection({ slug: 'claude', type: 'claude-code', authType: 'cli_login', baseUrl: undefined }))
     expect(getConnections().map((c) => [c.slug, c.type, c.authType])).toEqual([['codex', 'openai-codex', 'oauth'], ['claude', 'claude-code', 'cli_login']])
-    expect(getLlmConnection('claude')).toMatchObject({ providerType: 'pi', piAuthProvider: 'claude-code', authType: 'cli_login' })
+    expect(getLlmConnection('claude')).toMatchObject({ type: 'claude-code', authType: 'cli_login' })
   })
 
   it('refuses a second connection with the same slug, and reads a missing one as null', () => {
@@ -103,7 +101,7 @@ describe('updateLlmConnection – customEndpoint', () => {
 })
 
 describe('updateLlmConnection persists midStreamBehavior', () => {
-  const pi = (midStreamBehavior?: 'steer' | 'queue') => makeConnection({ slug: 'pi-test', providerType: 'pi', authType: 'api_key', midStreamBehavior })
+  const pi = (midStreamBehavior?: 'steer' | 'queue') => makeConnection({ slug: 'pi-test', type: 'anthropic', authType: 'api_key', midStreamBehavior })
 
   it("flips midStreamBehavior from 'steer' to 'queue' and back", () => {
     addLlmConnection(pi('steer'))

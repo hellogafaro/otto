@@ -1,12 +1,8 @@
 /**
  * Session Types
  *
- * Types for workspace-scoped sessions.
- * Sessions are stored at {workspaceRootPath}/sessions/{id}/session.jsonl
- *
- * JSONL Format:
- * - Line 1: SessionHeader (metadata + pre-computed fields for fast list loading)
- * - Lines 2+: StoredMessage (one message per line)
+ * Types for workspace-scoped sessions (chats). A chat is a `chats` row and its `messages` rows (./schema.ts); how
+ * these fields map to columns is in ./chats.ts.
  */
 
 import type { PermissionMode } from '../agent/mode-manager.ts';
@@ -14,14 +10,8 @@ import type { ThinkingLevel } from '../agent/thinking-levels.ts';
 import type { StoredMessage, ContextUsageSnapshot } from '@otto/core/types';
 
 /**
- * Session fields that persist to disk.
- * Add new fields here - they automatically propagate to JSONL read/write
- * via pickSessionFields() utility.
- *
- * IMPORTANT: When adding a new field:
- * 1. Add it to this array
- * 2. Add it to SessionConfig interface below
- * 3. Done - serialization is automatic
+ * Session fields that persist and reach the clients (pickSessionFields()). A new field goes here, in SessionConfig
+ * below, and in ./chats.ts: a column if SQL filters on it, else `ChatMetadata`.
  */
 export const SESSION_PERSISTENT_FIELDS = [
   // Identity
@@ -33,7 +23,7 @@ export const SESSION_PERSISTENT_FIELDS = [
   // Timestamps
   'createdAt', 'lastUsedAt', 'lastMessageAt',
   // Display
-  'name', 'isFlagged', 'sessionStatus', 'labels', 'hidden',
+  'name', 'isFlagged', 'sessionStatus', 'labels',
   // Read tracking
   'lastReadMessageId', 'hasUnread',
   // Config
@@ -44,8 +34,8 @@ export const SESSION_PERSISTENT_FIELDS = [
   'sharedUrl', 'sharedId',
   // Plan execution
   'pendingPlanExecution',
-  // Archive
-  'isArchived', 'archivedAt',
+  // Archive (read from the status: archived is the `archived` status)
+  'isArchived',
   // Branching
   'branchFromMessageId',
   'branchFromSdkSessionId',
@@ -171,12 +161,8 @@ export interface SessionConfig {
     /** Whether execution has already been dispatched from the UI. */
     executionDispatched?: boolean;
   };
-  /** When true, session is hidden from session list (e.g., mini edit sessions) */
-  hidden?: boolean;
-  /** Whether this session is archived */
+  /** Whether this session is archived: its status is the `archived` one (category 'archived'). */
   isArchived?: boolean;
-  /** Timestamp when session was archived (for retention policy) */
-  archivedAt?: number;
   /**
    * Message ID this session was branched from.
    * Branching semantics are a hard cutoff: model context must not include parent messages after this message.
@@ -217,10 +203,7 @@ export interface StoredSession extends SessionConfig {
 }
 
 /**
- * Session header - line 1 of session.jsonl
- *
- * Contains all metadata needed for list views (pre-computed at save time).
- * This enables fast session listing without parsing message content.
+ * A chat's fields as a session bundle carries them (`bundle.ts`, export/import): the config plus the list fields.
  */
 export interface SessionHeader {
   id: string;
@@ -287,12 +270,8 @@ export interface SessionHeader {
     /** Whether execution has already been dispatched from the UI. */
     executionDispatched?: boolean;
   };
-  /** When true, session is hidden from session list (e.g., mini edit sessions) */
-  hidden?: boolean;
-  /** Whether this session is archived */
+  /** Whether this session is archived: its status is the `archived` one (category 'archived'). */
   isArchived?: boolean;
-  /** Timestamp when session was archived (for retention policy) */
-  archivedAt?: number;
   /** One-shot hidden summary injected on the first turn after a remote transfer. */
   transferredSessionSummary?: string;
   /** Whether the transferred-session summary has already been injected. */
@@ -385,12 +364,8 @@ export interface SessionMetadata {
   hasUnread?: boolean;
   /** Token usage statistics (from JSONL header, available without loading messages) */
   tokenUsage?: SessionTokenUsage;
-  /** When true, session is hidden from session list (e.g., mini edit sessions) */
-  hidden?: boolean;
-  /** Whether this session is archived */
+  /** Whether this session is archived: its status is the `archived` one (category 'archived'). */
   isArchived?: boolean;
-  /** Timestamp when session was archived (for retention policy) */
-  archivedAt?: number;
   /** Message ID that this session was branched from (hard context cutoff marker). */
   branchFromMessageId?: string;
   /** Workspace-scoped project id this session belongs to (undefined = unbound). */

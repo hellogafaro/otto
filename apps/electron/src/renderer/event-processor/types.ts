@@ -48,7 +48,7 @@ export interface TextCompleteEvent {
   turnId?: string
   isIntermediate?: boolean
   parentToolUseId?: string
-  /** Timestamp from main process for consistent ordering with session.jsonl */
+  /** Timestamp from main process for consistent ordering with the stored messages */
   timestamp?: number
   /** Authoritative message ID from main process for persistence/branching parity */
   messageId?: string

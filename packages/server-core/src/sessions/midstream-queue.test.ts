@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:te
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { getPendingPlanExecution, saveSession } from '../../../shared/src/sessions/storage.ts'
 import * as backendFactory from '../../../shared/src/agent/backend/factory.ts'
 import {
   SessionManager,
@@ -81,7 +80,7 @@ describe('mid-stream queue runtime invariants', () => {
   })
 
   it('queues attachments and semantic options intact without calling a text-only redirect', async () => {
-    spyOn(backendFactory, 'resolveSessionConnection').mockReturnValue({ providerType: 'pi', midStreamBehavior: 'steer' } as any)
+    spyOn(backendFactory, 'resolveSessionConnection').mockReturnValue({ type: 'openrouter', midStreamBehavior: 'steer' } as any)
     const managed = buildSession('attachments')
     managed.isProcessing = true
     const redirect = mock(() => true)
@@ -111,7 +110,6 @@ describe('mid-stream queue runtime invariants', () => {
     const managed = buildSession('manual-compact-ready')
     managed.isProcessing = true
     managed.tokenUsage = { inputTokens: 419_000, outputTokens: 10, totalTokens: 419_010, contextTokens: 0, costUsd: 0 }
-    await saveSession({ id: managed.id, workspaceRootPath: tmpRoot, createdAt: 1, lastUsedAt: 1, messages: [], tokenUsage: managed.tokenUsage } as any)
     await sm.setPendingPlanExecution(managed.id, '/tmp/plan.md', 'draft')
     const events: any[] = []
     sm.setEventSink((_channel, _target, event) => events.push(event))
@@ -120,7 +118,7 @@ describe('mid-stream queue runtime invariants', () => {
     await (sm as any).processEvent(managed, { type: 'context_usage', contextUsage: { usedTokens: 12_000, limitTokens: 200_000, limitKind: 'compaction', isEstimate: true, isStale: false, canCompact: true } })
     await (sm as any).processEvent(managed, { type: 'info', message: 'Compacted Conversation', compactionTrigger: 'manual' })
 
-    expect(getPendingPlanExecution(tmpRoot, managed.id)).toMatchObject({ awaitingCompaction: false, executionDispatched: false })
+    expect(sm.getPendingPlanExecution(managed.id)).toMatchObject({ awaitingCompaction: false, executionDispatched: false })
     expect(managed.tokenUsage.contextUsage?.usedTokens).toBe(12_000)
     expect(events.find(e => e.type === 'usage_update').tokenUsage.contextUsage.usedTokens).toBe(12_000)
     expect(events.find(e => e.type === 'info')).toMatchObject({ statusType: 'compaction_complete' })
@@ -136,13 +134,12 @@ describe('mid-stream queue runtime invariants', () => {
       ['failed-compact', { type: 'compaction_failed' }],
     ] as const) {
       const managed = buildSession(id)
-      await saveSession({ id: managed.id, workspaceRootPath: tmpRoot, createdAt: 1, lastUsedAt: 1, messages: [], tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, contextTokens: 0, costUsd: 0 } } as any)
       await sm.setPendingPlanExecution(managed.id, '/tmp/plan.md')
       ;(sm as any).persistSession = () => {}
       await (sm as any).processEvent(managed, event)
       managed.isProcessing = false
       expect(await sm.markPendingPlanExecutionDispatched(managed.id)).toBe(false)
-      const pending = getPendingPlanExecution(tmpRoot, managed.id)
+      const pending = sm.getPendingPlanExecution(managed.id)
       if (id === 'auto-compact') expect(pending).toMatchObject({ awaitingCompaction: true, executionDispatched: false })
       else expect(pending).toBeNull()
     }
@@ -150,7 +147,6 @@ describe('mid-stream queue runtime invariants', () => {
 
   it('keeps the pending plan record while sending the /compact command that releases it', async () => {
     const managed = buildSession('send-compact')
-    await saveSession({ id: managed.id, workspaceRootPath: tmpRoot, createdAt: 1, lastUsedAt: 1, messages: [], tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, contextTokens: 0, costUsd: 0 } } as any)
     await sm.setPendingPlanExecution(managed.id, '/tmp/plan.md')
     const agent = {
       getModel: () => 'claude-sonnet-4-6',
@@ -165,7 +161,7 @@ describe('mid-stream queue runtime invariants', () => {
     ;(sm as any).getOrCreateAgent = async () => agent
     sm.setEventSink(() => {})
     await sm.sendMessage(managed.id, '/compact')
-    expect(getPendingPlanExecution(tmpRoot, managed.id)).toMatchObject({ awaitingCompaction: false, executionDispatched: false })
+    expect(sm.getPendingPlanExecution(managed.id)).toMatchObject({ awaitingCompaction: false, executionDispatched: false })
   })
 
   it.each(['complete', 'error'])('ignores a trailing %s from a handed-off turn after a newer turn starts', async terminal => {

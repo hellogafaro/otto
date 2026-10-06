@@ -72,14 +72,14 @@ export function ModelMenu({
     const effectiveSlug = resolveEffectiveConnectionSlug(currentConnection, workspaceDefaultConnection, llmConnections)
     const conn = llmConnections.find(c => c.slug === effectiveSlug)
     if (!conn) return null
-    if (!isCompatProvider(conn.providerType)) return null
+    if (!isCompatProvider(conn.type)) return null
     // Allow model switching when connection has multiple models
     if (conn.models && conn.models.length > 1) return null
     return conn.defaultModel ?? null
   }, [currentConnection, workspaceDefaultConnection, llmConnections])
 
   // Decide which of the four picker UIs to render. The `switcher` branch
-  // wins over `locked-single` so users with a single-model pi_compat default
+  // wins over `locked-single` so users with a single-model custom-endpoint default
   // can still reach the connection list on a fresh session (#727).
   const pickerMode = derivePickerMode({
     connectionUnavailable,
@@ -198,12 +198,12 @@ export function ModelMenu({
           </div>
         ) : pickerMode === 'locked-single' && connectionDefaultModel ? (
           (() => {
-            // Single-model pi_compat connection on a non-empty session (or
+            // Single-model custom-endpoint connection on a non-empty session (or
             // when there's only one connection, so no switcher to show).
             // Model row is disabled (locked to this session); vision toggle
             // remains interactive.
             const showVisionToggle =
-              !!effectiveConnectionDetails && isCompatProvider(effectiveConnectionDetails.providerType)
+              !!effectiveConnectionDetails && isCompatProvider(effectiveConnectionDetails.type)
             const visionOn = showVisionToggle && modelSupportsImages(effectiveConnectionDetails!, connectionDefaultModel)
             return (
               <StyledDropdownMenuItem disabled className="justify-between">
@@ -255,11 +255,11 @@ export function ModelMenu({
           })()
         ) : pickerMode === 'switcher' ? (
           /* Hierarchical view: Provider → Connection → Models (empty session with multiple connections — lets the user switch BEFORE the first message locks the connection) */
-          connectionsByProvider.map(([providerName, connections], index) => (
-            <React.Fragment key={providerName}>
+          connectionsByProvider.map(([group, connections], index) => (
+            <React.Fragment key={group}>
               {/* Provider group label */}
               <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide select-none">
-                {providerName}
+                {t(`chat.modelPicker.group.${group}`)}
               </div>
               {connections.map((conn) => {
                 const isCurrentConnection = effectiveConnection === conn.slug
@@ -283,7 +283,7 @@ export function ModelMenu({
                             ? stripPiPrefixForDisplay(getModelShortName(model))
                             : (model.name ?? stripPiPrefixForDisplay(model.id))
                           const isSelectedModel = isCurrentConnection && currentModel === modelId
-                          const showVisionToggle = isCompatProvider(conn.providerType)
+                          const showVisionToggle = isCompatProvider(conn.type)
                           const visionOn = showVisionToggle && modelSupportsImages(conn, modelId)
                           return (
                             <StyledDropdownMenuItem
@@ -375,7 +375,7 @@ export function ModelMenu({
               const descriptionKey = typeof model !== 'string' && 'descriptionKey' in model ? (model.descriptionKey as string) : undefined
               const description = descriptionKey ? t(descriptionKey) : (typeof model !== 'string' && 'description' in model ? (model.description as string) : '')
               const showVisionToggle =
-                !!effectiveConnectionDetails && isCompatProvider(effectiveConnectionDetails.providerType)
+                !!effectiveConnectionDetails && isCompatProvider(effectiveConnectionDetails.type)
               const visionOn = showVisionToggle && modelSupportsImages(effectiveConnectionDetails!, modelId)
               return (
                 <StyledDropdownMenuItem

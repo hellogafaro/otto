@@ -2088,6 +2088,11 @@ One chat:
   question and the picked row.
 - **Scroll to end**: a 28px outline button with its label, on the card color
   with `shadow-md`, 8px above the composer, shown once you scroll up.
+- **History**: a chat opens on its newest 50 messages (the last 20 turns
+  shown); scrolling to the top shows 20 more turns, then loads the 50
+  messages before them from the server, in place. A muted centered line
+  "Scroll up for earlier messages (N more)" sits above the first turn while
+  there are more.
 - **Panel**: Project (a link for general chats and sub-threads, else a
   picker), Members (people, then agents; Add member) and Files shared in the
   chat, hidden until something is shared. A project's panel lists its chats.
@@ -2099,7 +2104,7 @@ Activity timeline and the next run. Routines are deleted (asked first), not
 archived.
 
 **Settings** (from the profile menu), as lean as the MVP allows: a left
-panel like Chats', Account (Profile, Notifications, Models, Connections,
+panel like Chats', Account (Profile, Notifications, AI, Connections,
 Agents) then Workspace (General, Members). The theme stays in the profile
 menu; usage and activity wait for a Reports page. Each section is a page
 titled with its name: optional h2 sections (Activity's size), each a 12px
@@ -2139,19 +2144,61 @@ changes, Revoke and Remove apply at once with the shared toast ("Saved",
 code (`forbidden`, `not_found`, `conflict`); in the dialogs they stay open and
 say it in place.
 
-**Models** (Settings › Models). Two lists by who can use the account:
-"Your connections" (only you) and "Workspace connections" (everyone in the
-workspace), each a card whose first row says "1 connection" / "No
-connections" with a ghost + that opens the providers (Codex). No filters, no
-priority order, no fallback and no "runs out" setting: an agent names its one
-account and model. A connection row leads with its provider icon, then the
-name, one line of state ("Connected", "Sign-in needed", "Disabled", plus
-"Added by <name>" when it is someone else's), a "Reconnect needed" badge while
-signed out, a ghost ⋯ menu (Reconnect or Enable, Share with workspace or Make
-private, Disable, then a red Disconnect, all asked first) and a chevron that
-opens its name, sign-in and models. Adding one signs in at once, in its open
-row. Disconnect removes the stored sign-in for good and takes the row off the
-page; the record stays only as history for sessions and runs pinned to it.
+**AI** (Settings › AI, `pages/settings/ai-settings-page.tsx`; connections speak the
+Pi provider model, docs/pi-only-plan.md B4). Sections in the settings anatomy:
+**Defaults** (the person's default connection, a select over every connection
+they see, saved at once as `userDefaultConnectionSlug`, and the thinking level),
+**Connections**, Workspace overrides and the decision model.
+- **One list** of the connections the person sees, no "Your / Workspace" split:
+  their own (`user:`) first, then the workspace's, then the server's, each by
+  name. A row is a `list` `SettingsRow`: the provider's logo in the icon tile, the
+  name with an outline "Default" badge on the person's default, and the line
+  "Kind · Scope" ("Claude subscription · Personal", "OpenRouter · Workspace",
+  "Custom endpoint · localhost:11434 · Personal"). A problem leads that line
+  ("Claude Code not found", "Not authenticated"), never a badge, so a phone row
+  keeps the name. Empty: one row "No connections yet". The section's "+" is the
+  create button, "New connection".
+- **Row actions**: a 28px ghost ⋯ (Set as default, Sign in again for ChatGPT and
+  Copilot, Change API key, Test connection, then a red Delete asked first with
+  the stock destructive dialog, "Delete {name}?") and a 28px ghost chevron that
+  opens the editor (turns 90deg). A shared connection (workspace, server) has
+  Set as default and Test for everyone; its editor, Change API key, Sign in again
+  and Delete are for owners.
+- **Editor** (rows under the connection's row, split by hairlines), everything
+  autosaved with the "Saved" toast (`useAutosave`): Name (a 200px input, an
+  emptied name springs back), for a custom endpoint the Base URL (saved only
+  while it is an http(s) address), Model (the connection's default, a settings
+  select), Mid-stream sends (Steer immediately / Queue until ready); a Claude
+  subscription starts with its status row (below). **Change API key** is a form
+  dialog (TanStack Form): one password field, tested against the provider, then
+  it replaces the stored key; the old key is never shown.
+- **Adding** (`OnboardingWizard`, the same flow as the first run, full-screen
+  over Settings with the 32px close and Esc): `StepFormLayout` steps, a choice
+  card then a form. The choices, in order: **Claude subscription** ("Uses your
+  own Claude Code sign-in on this machine"), **Anthropic API key**, **ChatGPT
+  (Plus/Pro)**, **OpenRouter / other providers** (a provider select and its
+  key) and **Custom endpoint** (name, base URL, "Compatible with" OpenAI or
+  Anthropic API, an optional key for a local server, models separated by commas
+  with the first as the default). Key forms are TanStack Forms, validated on blur
+  and on submit; "Connect" is a `loading` button that keeps its label; the key is
+  tested first and a refusal shows under the fields. A key form has an "Available
+  to" select (Just you, Everyone in this workspace) for workspace owners only;
+  everyone else's connection is personal. Copilot is never offered as new (only
+  "Sign in again" for an imported one).
+- **Claude subscription step**: no secret, no token field, never asks for a
+  token. A card with a status row (a green check and "Claude Code found" with its
+  version, or a warning and "Claude Code not found") and an outline `compact`
+  "Check again" (`loading`); the server runs `claude --version` (the
+  `claudeCode:getStatus` channel, any member) where `claude` is `OTTO_CLAUDE_PATH`
+  or on PATH. A "Personal" row ("Only you can use it") and a muted note: it runs
+  on the person's own Claude account, so Anthropic's terms apply and Anthropic
+  bills the usage. When not found a second note says how to install and sign
+  in, and "Connect" stays disabled. A Claude subscription is personal only (the
+  server refuses any other scope); ChatGPT is personal too (its sign-in is staged
+  under the person's own scope).
+- **First run** (`first-run-setup.tsx`) shows the same choice step with a muted
+  "Skip for now"; on Windows, Git Bash is asked for only when a Claude
+  subscription is chosen and it is missing.
 
 **Agents** (Settings › Agents, `pages/agents/`; docs/final-plan.md 2.7; built
 A2). The settings sidebar's Workspace group ends Agents (`Bot`), Skills, Sources.

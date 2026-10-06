@@ -17,7 +17,7 @@ export class PiModelFetcher implements ModelFetcher {
     credentials: ModelFetcherCredentials,
   ): Promise<ModelFetchResult> {
     // Copilot OAuth needs longer timeout (CLI startup + API call)
-    const isCopilot = connection.piAuthProvider === 'github-copilot'
+    const isCopilot = connection.type === 'github-copilot'
     return fetchBackendModels({
       connection,
       credentials,

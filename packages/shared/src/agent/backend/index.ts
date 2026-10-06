@@ -17,7 +17,6 @@ export type {
   RecoveryMessage,
   SdkMcpServerConfig,
   LlmAuthType,
-  LlmProviderType,
   PostInitResult,
 } from './types.ts';
 
@@ -39,6 +38,7 @@ export {
   cleanupSourceRuntimeArtifacts,
   testBackendConnection,
   type ResolvedBackendContext,
+  type BackendAgent,
 } from './factory.ts';
 
 // Shared infrastructure

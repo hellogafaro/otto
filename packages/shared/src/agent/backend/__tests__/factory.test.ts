@@ -61,7 +61,7 @@ describe('createBackend', () => {
 
   it("a Claude subscription connection runs on Pi with the claude-code provider and no credential", () => {
     const connection: LlmConnection = {
-      slug: 'claude-max', name: 'Claude', providerType: 'pi', piAuthProvider: 'claude-code', authType: 'cli_login',
+      slug: 'claude-max', name: 'Claude', type: 'claude-code', authType: 'cli_login',
       models: ['pi/claude-opus-5-5'], defaultModel: 'pi/claude-opus-5-5', createdAt: 0,
     };
     const agent = createBackendFromResolvedContext({
@@ -88,39 +88,39 @@ describe('createBackend', () => {
 describe('isValidProviderAuthCombination', () => {
   it('a Pi provider takes keys, OAuth, IAM, the environment, none and a CLI sign-in', () => {
     for (const authType of ['api_key', 'oauth', 'iam_credentials', 'environment', 'none', 'cli_login'] as const) {
-      expect(isValidProviderAuthCombination('pi', authType)).toBe(true);
+      expect(isValidProviderAuthCombination('openrouter', authType)).toBe(true);
     }
   });
 
   it('a custom endpoint takes a key with its endpoint, or none (local models)', () => {
-    expect(isValidProviderAuthCombination('pi_compat', 'api_key_with_endpoint')).toBe(true);
-    expect(isValidProviderAuthCombination('pi_compat', 'none')).toBe(true);
-    expect(isValidProviderAuthCombination('pi_compat', 'cli_login')).toBe(false);
+    expect(isValidProviderAuthCombination('custom', 'api_key_with_endpoint')).toBe(true);
+    expect(isValidProviderAuthCombination('custom', 'none')).toBe(true);
+    expect(isValidProviderAuthCombination('custom', 'cli_login')).toBe(false);
   });
 });
 
 describe('factory APIs', () => {
-  it('resolveSetupTestConnectionHint maps baseUrl/piAuthProvider/customEndpoint', () => {
+  it('resolveSetupTestConnectionHint maps baseUrl/type/customEndpoint', () => {
     expect(resolveSetupTestConnectionHint({
-      piAuthProvider: 'openai-codex',
-    })).toEqual({ providerType: 'pi', piAuthProvider: 'openai-codex' });
+      type: 'openai-codex',
+    })).toEqual({ type: 'openai-codex' });
 
     expect(resolveSetupTestConnectionHint({
       baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
       customEndpoint: { api: 'openai-completions' },
-    })).toEqual({ providerType: 'pi_compat', piAuthProvider: 'openai', customEndpoint: { api: 'openai-completions' } });
+    })).toEqual({ type: 'custom', customEndpoint: { api: 'openai-completions' } });
 
     expect(resolveSetupTestConnectionHint({
       baseUrl: 'https://my-anthropic-proxy.internal/v1',
       customEndpoint: { api: 'anthropic-messages' },
-    })).toEqual({ providerType: 'pi_compat', piAuthProvider: 'anthropic', customEndpoint: { api: 'anthropic-messages' } });
+    })).toEqual({ type: 'custom', customEndpoint: { api: 'anthropic-messages' } });
   });
 
   it('fetchBackendModels lists Pi models', async () => {
     const connection: LlmConnection = {
       slug: 'pi-test',
       name: 'Pi Test',
-      providerType: 'pi',
+      type: 'openrouter',
       authType: 'none',
       createdAt: Date.now(),
     };
@@ -150,7 +150,7 @@ describe('factory APIs', () => {
 describe('resolveModel', () => {
   it('falls back to the connection default when a normalized stale model is not in the connection list', () => {
     const connection = {
-      providerType: 'pi',
+      type: 'anthropic',
       defaultModel: 'pi/claude-opus-4-7',
       models: ['pi/claude-opus-4-7', 'pi/claude-sonnet-4-6'],
     } as unknown as LlmConnection;
@@ -159,7 +159,7 @@ describe('resolveModel', () => {
   });
 
   it("a chat of the removed Claude backend (a bare Claude id) gets the connection's model", () => {
-    const connection = { providerType: 'pi', defaultModel: 'pi/claude-opus-5-5', models: ['pi/claude-opus-5-5'] } as unknown as LlmConnection;
+    const connection = { type: 'anthropic', defaultModel: 'pi/claude-opus-5-5', models: ['pi/claude-opus-5-5'] } as unknown as LlmConnection;
     expect(resolveModel('claude-opus-5-5', connection)).toBe('pi/claude-opus-5-5');
   });
 });

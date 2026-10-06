@@ -455,9 +455,9 @@ function AppShellContent({
   const remoteWorkspaceId = activeWorkspace?.remoteServer?.remoteWorkspaceId
   const workspaceSessionMetas = useMemo(() => {
     const metas = Array.from(sessionMetaMap.values())
-    if (!activeWorkspaceId) return metas.filter(s => !s.hidden)
+    if (!activeWorkspaceId) return metas
     return metas.filter(s =>
-      !s.hidden && (s.workspaceId === activeWorkspaceId || (remoteWorkspaceId && s.workspaceId === remoteWorkspaceId))
+      s.workspaceId === activeWorkspaceId || (remoteWorkspaceId && s.workspaceId === remoteWorkspaceId)
     )
   }, [sessionMetaMap, activeWorkspaceId, remoteWorkspaceId])
 

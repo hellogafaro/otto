@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { isAttendedSession } from './session-manager.ts'
 
-type Fields = { id: string; parentSessionId?: string; triggeredBy?: object; hidden?: boolean; unattended?: boolean; systemPromptPreset?: string }
+type Fields = { id: string; parentSessionId?: string; triggeredBy?: object; unattended?: boolean; systemPromptPreset?: string }
 
 const attended = (fields: Fields) => isAttendedSession(fields as never)
 
@@ -11,9 +11,9 @@ describe('isAttendedSession', () => {
     expect(attended({ id: 'subtask', parentSessionId: 'chat' })).toBe(true)
   })
 
-  it('is false for automation, hidden, mini and unattended sessions', () => {
+  it('is false for automation, mini and unattended sessions', () => {
     for (const fields of [
-      { triggeredBy: { automationName: 'a' } }, { hidden: true }, { unattended: true }, { systemPromptPreset: 'mini' },
+      { triggeredBy: { automationName: 'a' } }, { unattended: true }, { systemPromptPreset: 'mini' },
     ]) {
       expect(attended({ id: 's', ...fields })).toBe(false)
     }

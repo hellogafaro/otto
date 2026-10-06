@@ -59,7 +59,7 @@ import type { WsRpcTlsOptions } from '@otto/server-core/transport'
 import { registerCoreRpcHandlers, cleanupSessionFileWatchForClient } from '@otto/server-core/handlers/rpc'
 import { SessionManager, setSessionPlatform, setSessionRuntimeHooks } from '@otto/server-core/sessions'
 import { initModelRefreshService, setFetcherPlatform } from '@otto/server-core/model-fetchers'
-import { setSearchPlatform, setImageProcessor } from '@otto/server-core/services'
+import { setImageProcessor } from '@otto/server-core/services'
 import type { HandlerDeps } from '@otto/server-core/handlers'
 
 process.env.OTTO_IS_PACKAGED ??= 'false'
@@ -191,7 +191,6 @@ const instance = await (async () => {
             platform.captureError?.(err)
           },
         })
-        setSearchPlatform(platform)
         setImageProcessor(platform.imageProcessor)
       },
       initModelRefreshService: () => initModelRefreshService(async (slug: string, scope: string) => {

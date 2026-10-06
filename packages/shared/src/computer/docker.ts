@@ -214,7 +214,8 @@ export class DockerComputer implements Computer {
     const stderr = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
-          for await (const chunk of inner.stderr) controller.enqueue(chunk)
+          const reader = inner.stderr.getReader()
+          for (let r = await reader.read(); !r.done; r = await reader.read()) controller.enqueue(r.value)
           await exited
           if (restarted) controller.enqueue(encoder.encode(`${COMPUTER_RESTARTED}\n`))
           controller.close()

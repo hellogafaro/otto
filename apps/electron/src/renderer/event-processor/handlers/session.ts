@@ -797,7 +797,7 @@ export function handleSessionArchived(
   const { session, streaming } = state
   return {
     state: {
-      session: { ...session, isArchived: true, archivedAt: Date.now() },
+      session: { ...session, isArchived: true },
       streaming,
     },
     effects: [],
@@ -814,7 +814,7 @@ export function handleSessionUnarchived(
   const { session, streaming } = state
   return {
     state: {
-      session: { ...session, isArchived: false, archivedAt: undefined },
+      session: { ...session, isArchived: false },
       streaming,
     },
     effects: [],

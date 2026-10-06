@@ -151,6 +151,9 @@ export const CHANNEL_MAP = {
   chatGptLogout: invoke(RPC_CHANNELS.chatgpt.LOGOUT),
   onChatGptDeviceCode: listener(RPC_CHANNELS.chatgpt.DEVICE_CODE),
 
+  // Claude Code (the user's own `claude` CLI)
+  getClaudeCodeStatus: invoke(RPC_CHANNELS.claudeCode.GET_STATUS),
+
   // GitHub Copilot OAuth
   startCopilotOAuth: invoke(RPC_CHANNELS.copilot.START_OAUTH),
   cancelCopilotOAuth: invoke(RPC_CHANNELS.copilot.CANCEL_OAUTH),
@@ -174,8 +177,6 @@ export const CHANNEL_MAP = {
 
   // Pi provider discovery
   getPiApiKeyProviders: invoke(RPC_CHANNELS.pi.GET_API_KEY_PROVIDERS),
-  getPiProviderBaseUrl: invoke(RPC_CHANNELS.pi.GET_PROVIDER_BASE_URL),
-  getPiProviderModels: invoke(RPC_CHANNELS.pi.GET_PROVIDER_MODELS),
 
   // Session-specific model
   getSessionModel: invoke(RPC_CHANNELS.sessions.GET_MODEL),
@@ -349,7 +350,6 @@ export const CHANNEL_MAP = {
   listLlmConnections: invoke(RPC_CHANNELS.llmConnections.LIST),
   listLlmConnectionsWithStatus: invoke(RPC_CHANNELS.llmConnections.LIST_WITH_STATUS),
   getLlmConnection: invoke(RPC_CHANNELS.llmConnections.GET),
-  getLlmConnectionApiKey: invoke(RPC_CHANNELS.llmConnections.GET_API_KEY),
   saveLlmConnection: invoke(RPC_CHANNELS.llmConnections.SAVE),
   deleteLlmConnection: invoke(RPC_CHANNELS.llmConnections.DELETE),
   testLlmConnection: invoke(RPC_CHANNELS.llmConnections.TEST),

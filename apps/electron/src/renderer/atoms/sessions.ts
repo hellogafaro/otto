@@ -69,12 +69,8 @@ export interface SessionMeta {
   createdAt?: number
   /** Total number of messages in this session */
   messageCount?: number
-  /** When true, session is hidden from session list (e.g., mini edit sessions) */
-  hidden?: boolean
-  /** Whether this session is archived */
+  /** Whether this session is archived (its status is the `archived` one) */
   isArchived?: boolean
-  /** Timestamp when session was archived (for retention policy) */
-  archivedAt?: number
   /** Workspace-scoped project id this session is bound to (undefined = unbound) */
   projectId?: string
 }
@@ -620,6 +616,7 @@ async function loadSessionMessages(
               : loadedSession.messages,
           tokenUsage: loadedSession.tokenUsage ?? existingSession.tokenUsage,
           sessionFolderPath: loadedSession.sessionFolderPath ?? existingSession.sessionFolderPath,
+          olderMessageCount: preservedStaleMessages ? existingSession.olderMessageCount : loadedSession.olderMessageCount,
         }
       : loadedSession
     set(sessionAtomFamily(sessionId), mergedSession)
@@ -665,6 +662,38 @@ export const ensureSessionMessagesLoadedAtom = atom(
   null,
   async (get, set, sessionId: string): Promise<Session | null> => {
     return loadSessionMessages(get, set, sessionId)
+  }
+)
+
+const olderLoadingPromises = new Map<string, Promise<number>>()
+
+/**
+ * Load the page of messages before the oldest one shown (scrolling up past the loaded turns) and prepend it.
+ * Resolves to how many messages were added (0 when there are no older ones or a load is already running).
+ */
+export const loadOlderSessionMessagesAtom = atom(
+  null,
+  async (get, set, sessionId: string): Promise<number> => {
+    const session = get(sessionAtomFamily(sessionId))
+    const oldest = session?.messages[0]
+    if (!session?.olderMessageCount || !oldest) return 0
+    const running = olderLoadingPromises.get(sessionId)
+    if (running) return running
+    const load = (async () => {
+      const page = await window.electronAPI.getSessionMessages(sessionId, { beforeId: oldest.id })
+      const current = get(sessionAtomFamily(sessionId))
+      if (!page || !current) return 0
+      const known = new Set(current.messages.map(message => message.id))
+      const older = page.messages.filter(message => !known.has(message.id))
+      set(sessionAtomFamily(sessionId), { ...current, messages: [...older, ...current.messages], olderMessageCount: page.olderMessageCount })
+      return older.length
+    })()
+    olderLoadingPromises.set(sessionId, load)
+    try {
+      return await load
+    } finally {
+      olderLoadingPromises.delete(sessionId)
+    }
   }
 )
 

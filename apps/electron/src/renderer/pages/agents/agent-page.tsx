@@ -44,7 +44,6 @@ import {
   modelChoices,
   providerChoices,
   providerLabel,
-  providerOf,
   skillKey,
   sourceKey,
   toDraft,
@@ -143,7 +142,7 @@ function AgentView({ agent, agentsApi, onLeave }: { agent: Agent; agentsApi: Ret
   const models = modelChoices(draft.provider, llmConnections)
   if (draft.model && !models.some((model) => model.value === draft.model)) models.unshift({ value: draft.model, label: draft.model })
   const provider = providerLabel(draft.provider, llmConnections)
-  const hasConnection = llmConnections.some((connection) => providerOf(connection) === draft.provider)
+  const hasConnection = llmConnections.some((connection) => connection.type === draft.provider)
 
   const skillItems = (skills ? getVisibleSkills(skills) : []).map((skill) => ({
     key: skillKey(skill),

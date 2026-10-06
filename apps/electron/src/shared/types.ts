@@ -88,8 +88,8 @@ import type { ExportResourcesOptions, ExportResult, ResourceImportMode, Resource
 export type { ExportResourcesOptions, ExportResult, ResourceImportMode, ResourceBundle, ResourceImportResult };
 
 // LLM connection types
-import type { LlmConnection, LlmConnectionWithStatus, LlmAuthType, LlmProviderType } from '@otto/shared/config';
-export type { LlmConnection, LlmConnectionWithStatus, LlmAuthType, LlmProviderType };
+import type { LlmConnection, LlmConnectionWithStatus, LlmAuthType } from '@otto/shared/config';
+export type { LlmConnection, LlmConnectionWithStatus, LlmAuthType };
 import type {
   DecisionLayerFeature,
   DecisionLayerSettings,
@@ -212,7 +212,9 @@ import type {
   RefreshTitleResult,
   FileSearchResult,
   SessionSearchResult,
+  ClaudeCodeStatus,
   LlmConnectionSetup,
+  LlmConnectionUpdate,
   TestLlmConnectionParams,
   TestLlmConnectionResult,
   SkillFile,
@@ -236,7 +238,8 @@ export interface ElectronAPI {
   getSessions(): Promise<Session[]>
   getUnreadSummary(): Promise<UnreadSummary>
   markAllSessionsRead(workspaceId: string): Promise<void>
-  getSessionMessages(sessionId: string): Promise<Session | null>
+  /** A chat with its newest page of messages (`page.beforeId`: the page before that message), with `olderMessageCount`. */
+  getSessionMessages(sessionId: string, page?: { beforeId?: string; limit?: number }): Promise<Session | null>
   createSession(workspaceId: string, options?: CreateSessionOptions): Promise<Session>
   deleteSession(sessionId: string): Promise<void>
   sendMessage(sessionId: string, message: string, attachments?: FileAttachment[], storedAttachments?: StoredAttachmentType[], options?: SendMessageOptions): Promise<void>
@@ -439,6 +442,9 @@ export interface ElectronAPI {
   chatGptLogout(connectionSlug: string): Promise<{ success: boolean }>
   onChatGptDeviceCode(callback: (data: { userCode: string; verificationUri: string }) => void): () => void
 
+  /** Whether the `claude` CLI of the machine the server runs on is runnable (a Claude subscription needs it) */
+  getClaudeCodeStatus(): Promise<ClaudeCodeStatus>
+
   // GitHub Copilot OAuth
   startCopilotOAuth(connectionSlug: string): Promise<{ success: boolean; error?: string }>
   cancelCopilotOAuth(): Promise<{ success: boolean }>
@@ -452,8 +458,6 @@ export interface ElectronAPI {
   testLlmConnectionSetup(params: TestLlmConnectionParams): Promise<TestLlmConnectionResult>
   // Pi provider discovery (main process only — Pi SDK can't run in renderer)
   getPiApiKeyProviders(): Promise<Array<{ key: string; label: string; placeholder: string }>>
-  getPiProviderBaseUrl(provider: string): Promise<string | undefined>
-  getPiProviderModels(provider: string): Promise<{ models: Array<{ id: string; name: string; costInput: number; costOutput: number; contextWindow: number; reasoning: boolean }>; totalCount: number }>
 
   // Session-specific model (overrides global)
   getSessionModel(sessionId: string, workspaceId: string): Promise<string | null>
@@ -634,8 +638,7 @@ export interface ElectronAPI {
   listLlmConnections(): Promise<LlmConnection[]>
   listLlmConnectionsWithStatus(): Promise<LlmConnectionWithStatus[]>
   getLlmConnection(slug: string): Promise<LlmConnection | null>
-  getLlmConnectionApiKey(slug: string): Promise<string | null>
-  saveLlmConnection(connection: LlmConnection): Promise<{ success: boolean; error?: string }>
+  saveLlmConnection(update: LlmConnectionUpdate): Promise<{ success: boolean; error?: string }>
   deleteLlmConnection(slug: string): Promise<{ success: boolean; error?: string }>
   testLlmConnection(slug: string): Promise<{ success: boolean; error?: string }>
   setDefaultLlmConnection(slug: string): Promise<{ success: boolean; error?: string }>

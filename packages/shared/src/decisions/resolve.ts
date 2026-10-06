@@ -84,7 +84,7 @@ export async function resolveDecisionClient(options: ResolveDecisionClientOption
     if (!connection) {
       return fail({ kind: 'unconfigured', message: `Decision model: LLM connection '${settings.connectionSlug}' no longer exists` });
     }
-    const derived = decisionProviderForConnection(connection.piAuthProvider);
+    const derived = decisionProviderForConnection(connection.type);
     if (!derived) {
       return fail({ kind: 'unconfigured', message: `Decision model: connection '${connection.name}' is not an OpenRouter or Vercel AI Gateway connection` });
     }

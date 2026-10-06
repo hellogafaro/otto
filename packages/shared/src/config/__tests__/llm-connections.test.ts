@@ -18,13 +18,13 @@ import { ANTHROPIC_MODELS, getModelDisplayName, getModelContextWindow, getModelS
 
 describe('getDefaultModelsForConnection', () => {
   it('a Claude subscription (claude-code) lists the anthropic models in the same order', () => {
-    expect(getDefaultModelsForConnection('pi', 'claude-code').map(m => typeof m === 'string' ? m : m.id))
-      .toEqual(getDefaultModelsForConnection('pi', 'anthropic').map(m => typeof m === 'string' ? m : m.id))
-    expect(getDefaultModelForConnection('pi', 'claude-code')).toBe('pi/claude-opus-5-5')
+    expect(getDefaultModelsForConnection('claude-code').map(m => typeof m === 'string' ? m : m.id))
+      .toEqual(getDefaultModelsForConnection('anthropic').map(m => typeof m === 'string' ? m : m.id))
+    expect(getDefaultModelForConnection('claude-code')).toBe('pi/claude-opus-5-5')
   })
 
-  it('pi with piAuthProvider returns filtered models including Opus 4.6', () => {
-    const models = getDefaultModelsForConnection('pi', 'anthropic')
+  it('anthropic returns filtered models including Opus 4.6', () => {
+    const models = getDefaultModelsForConnection('anthropic')
     expect(models.length).toBeGreaterThan(0)
     const ids = models.map(m => typeof m === 'string' ? m : m.id)
     expect(ids).toContain('pi/claude-opus-4-6')
@@ -32,11 +32,6 @@ describe('getDefaultModelsForConnection', () => {
     for (const id of ids) {
       expect(id.startsWith('pi/')).toBe(true)
     }
-  })
-
-  it('pi without piAuthProvider returns all Pi models', () => {
-    const models = getDefaultModelsForConnection('pi')
-    expect(models.length).toBeGreaterThan(0)
   })
 
 })
@@ -48,18 +43,18 @@ describe('getDefaultModelsForConnection', () => {
 describe('getDefaultModelForConnection', () => {
   // Regression: Pi 'anthropic' default must be present in its own model list
   it('regression: Pi anthropic default is in its own model list', () => {
-    const defaultModel = getDefaultModelForConnection('pi', 'anthropic')
-    const models = getDefaultModelsForConnection('pi', 'anthropic')
+    const defaultModel = getDefaultModelForConnection('anthropic')
+    const models = getDefaultModelsForConnection('anthropic')
     const modelIds = models.map(m => typeof m === 'string' ? m : m.id)
     expect(modelIds).toContain(defaultModel)
   })
 
   it('Pi anthropic defaults to Opus 5.5 with Opus 5 and Opus 4.8 ranked directly below it', () => {
-    const ids = getDefaultModelsForConnection('pi', 'anthropic').map(m => typeof m === 'string' ? m : m.id)
+    const ids = getDefaultModelsForConnection('anthropic').map(m => typeof m === 'string' ? m : m.id)
     expect(ids[0]).toBe('pi/claude-opus-5-5')
     expect(ids[1]).toBe('pi/claude-opus-5')
     expect(ids[2]).toBe('pi/claude-opus-4-8')
-    expect(getDefaultModelForConnection('pi', 'anthropic')).toBe('pi/claude-opus-5-5')
+    expect(getDefaultModelForConnection('anthropic')).toBe('pi/claude-opus-5-5')
   })
 
   // Regression: the Pi catalogs still list the retired Opus 4.5 snapshot. Its
@@ -67,8 +62,8 @@ describe('getDefaultModelForConnection', () => {
   // so the stable sort made it the default for anthropic and amazon-bedrock.
   it('never ranks a deprecated catalog entry as the Pi default', () => {
     for (const provider of ['anthropic', 'amazon-bedrock'] as const) {
-      const ids = getDefaultModelsForConnection('pi', provider).map(m => typeof m === 'string' ? m : m.id)
-      const defaultModel = getDefaultModelForConnection('pi', provider)
+      const ids = getDefaultModelsForConnection(provider).map(m => typeof m === 'string' ? m : m.id)
+      const defaultModel = getDefaultModelForConnection(provider)
       expect(defaultModel).toBe(ids[0]!)
       expect(normalizeDeprecatedModelId(defaultModel)).toBe(defaultModel)
       expect(defaultModel).toMatch(/claude-opus-5-5$/)
@@ -89,40 +84,40 @@ describe('getDefaultModelForConnection', () => {
   })
 
   it('Pi openai default is in its own model list', () => {
-    const defaultModel = getDefaultModelForConnection('pi', 'openai')
-    const models = getDefaultModelsForConnection('pi', 'openai')
+    const defaultModel = getDefaultModelForConnection('openai')
+    const models = getDefaultModelsForConnection('openai')
     const modelIds = models.map(m => typeof m === 'string' ? m : m.id)
     expect(modelIds).toContain(defaultModel)
   })
 
   it('Pi openai and openai-codex default to GPT-6 Astra with GPT-5.6 Sol ranked next', () => {
     for (const provider of ['openai', 'openai-codex'] as const) {
-      const ids = getDefaultModelsForConnection('pi', provider).map(m => typeof m === 'string' ? m : m.id)
+      const ids = getDefaultModelsForConnection(provider).map(m => typeof m === 'string' ? m : m.id)
       expect(ids[0]).toBe('pi/gpt-6-astra')
       expect(ids[1]).toBe('pi/gpt-5.6-sol')
-      expect(getDefaultModelForConnection('pi', provider)).toBe('pi/gpt-6-astra')
+      expect(getDefaultModelForConnection(provider)).toBe('pi/gpt-6-astra')
     }
   })
 
   it('Pi deepseek default is in its own model list', () => {
-    const defaultModel = getDefaultModelForConnection('pi', 'deepseek')
-    const models = getDefaultModelsForConnection('pi', 'deepseek')
+    const defaultModel = getDefaultModelForConnection('deepseek')
+    const models = getDefaultModelsForConnection('deepseek')
     const modelIds = models.map(m => typeof m === 'string' ? m : m.id)
     expect(modelIds).toContain(defaultModel)
   })
 
   it('Pi moonshotai defaults to Kimi K3 from its own model list', () => {
     for (const provider of ['moonshotai', 'moonshotai-cn'] as const) {
-      const defaultModel = getDefaultModelForConnection('pi', provider)
+      const defaultModel = getDefaultModelForConnection(provider)
       expect(defaultModel).toBe('pi/kimi-k3')
-      const models = getDefaultModelsForConnection('pi', provider)
+      const models = getDefaultModelsForConnection(provider)
       const modelIds = models.map(m => typeof m === 'string' ? m : m.id)
       expect(modelIds).toContain(defaultModel)
     }
   })
 
-  it('returns empty string for pi_compat (dynamic provider)', () => {
-    const defaultModel = getDefaultModelForConnection('pi_compat')
+  it('returns empty string for a custom endpoint (dynamic provider)', () => {
+    const defaultModel = getDefaultModelForConnection('custom')
     expect(defaultModel).toBe('')
   })
 })
@@ -132,12 +127,12 @@ describe('getDefaultModelForConnection', () => {
 // ============================================================
 
 describe('isCompatProvider', () => {
-  it('returns true for pi_compat', () => {
-    expect(isCompatProvider('pi_compat')).toBe(true)
+  it('returns true for a custom endpoint', () => {
+    expect(isCompatProvider('custom')).toBe(true)
   })
 
-  it('returns false for pi', () => {
-    expect(isCompatProvider('pi')).toBe(false)
+  it('returns false for a Pi provider', () => {
+    expect(isCompatProvider('anthropic')).toBe(false)
   })
 })
 
@@ -225,7 +220,7 @@ describe('deriveBedrockRegionPrefix', () => {
 
 describe('Bedrock preferred defaults ordering', () => {
   it('sorts preferred models first for amazon-bedrock', () => {
-    const models = getDefaultModelsForConnection('pi', 'amazon-bedrock')
+    const models = getDefaultModelsForConnection('amazon-bedrock')
     if (models.length === 0) return // Pi resolver not registered in test env
     const firstId = typeof models[0] === 'string' ? models[0] : (models[0] as any).id
     // First model should be a preferred model (claude-opus or claude-sonnet), not a deprecated one
@@ -348,7 +343,7 @@ describe('Claude Fable 5', () => {
   })
 
   it('does NOT become the Anthropic default (Opus 5.5 is the default)', () => {
-    expect(getDefaultModelForConnection('pi', 'anthropic')).toBe('pi/claude-opus-5-5')
+    expect(getDefaultModelForConnection('anthropic')).toBe('pi/claude-opus-5-5')
   })
 
   it('round-trips through the Bedrock inference-profile mapping', () => {
@@ -392,7 +387,7 @@ describe('Claude Fable 5.1', () => {
   })
 
   it('does NOT become the Anthropic default (Opus 5.5 is the default)', () => {
-    expect(getDefaultModelForConnection('pi', 'anthropic')).toBe('pi/claude-opus-5-5')
+    expect(getDefaultModelForConnection('anthropic')).toBe('pi/claude-opus-5-5')
   })
 
   it('round-trips through the Bedrock inference-profile mapping', () => {
@@ -437,11 +432,11 @@ describe('Claude Opus 5.5', () => {
   })
 
   it('is the default for new Pi-backed Anthropic and Bedrock connections', () => {
-    expect(getDefaultModelForConnection('pi', 'anthropic')).toBe('pi/claude-opus-5-5')
+    expect(getDefaultModelForConnection('anthropic')).toBe('pi/claude-opus-5-5')
     // Bedrock lists one inference profile per region; they share a rank, so the
     // catalog's own (alphabetical) order decides which region surfaces first.
     // The connection's region prefix is applied later by normalizeBedrockModelId.
-    const bedrockDefault = getDefaultModelForConnection('pi', 'amazon-bedrock')
+    const bedrockDefault = getDefaultModelForConnection('amazon-bedrock')
     expect(bedrockDefault).toMatch(/^pi\/(us|eu|global)\.anthropic\.claude-opus-5-5$/)
     expect(fromBedrockNativeId(bedrockDefault.slice('pi/'.length))).toBe('claude-opus-5-5')
   })

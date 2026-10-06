@@ -1,243 +1,173 @@
-import { writeFile, rename, unlink } from 'fs/promises'
-import { dirname } from 'path'
-import type { StoredSession, SessionHeader } from './types.js'
-import { getSessionFilePath, ensureSessionsDir, ensureSessionDir } from './storage.js'
-import { toPortablePath } from '../utils/paths.js'
-import { createSessionHeader, makeSessionPathPortable, readSessionHeader } from './jsonl.js'
-import { debug } from '../utils/debug.js'
+import { initDb, type Db } from '../db/index.ts'
+import { debug } from '../utils/debug.ts'
+import { writeChat, type ChatSnapshot } from './chats.ts'
+import { initMessages, toMessageRow, writeMessages, type MessageUpsert } from './messages.ts'
+import type { StoredMessage } from './types.ts'
+
+/** What a chat looks like at flush time: the queue asks for it then, so a burst of changes is one batch. */
+export interface ChatWrite {
+  chat: ChatSnapshot
+  /** The chat folder: its absolute path is stored as `{{SESSION_PATH}}`. */
+  sessionDir: string
+  /** Every message the server holds for the chat; absent when they are not loaded (only the chat row is written). */
+  messages?: StoredMessage[]
+}
+
+interface WrittenRow {
+  hash: number | bigint
+  createdAt: number
+}
+
+interface WrittenChat {
+  /** What the database holds for each message, as far as this process knows (seeded on load, kept on commit). */
+  rows: Map<string, WrittenRow>
+  labels?: string
+}
 
 interface PendingWrite {
-  data: StoredSession
-  timer: ReturnType<typeof setTimeout>
+  snapshot: () => ChatWrite
+  timer?: ReturnType<typeof setTimeout>
 }
 
-interface HeaderMetadataSignature {
-  name?: string
-  labels?: string[]
-  isFlagged?: boolean
-  sessionStatus?: string
-  permissionMode?: string
-  hasUnread?: boolean
-  lastReadMessageId?: string
-}
+const isFinal = (message: StoredMessage) =>
+  message.type === 'user' || (message.type === 'assistant' && !message.isIntermediate && !(message as { partial?: boolean }).partial)
 
-function getHeaderMetadataSignature(header: SessionHeader): string {
-  const signature: HeaderMetadataSignature = {
-    name: header.name,
-    labels: header.labels,
-    isFlagged: header.isFlagged,
-    sessionStatus: header.sessionStatus,
-    permissionMode: header.permissionMode,
-    hasUnread: header.hasUnread,
-    lastReadMessageId: header.lastReadMessageId,
-  }
-  return JSON.stringify(signature)
-}
-
-function mergeHeaderWithExternalMetadata(localHeader: SessionHeader, diskHeader: SessionHeader): SessionHeader {
-  return {
-    ...localHeader,
-    name: diskHeader.name,
-    labels: diskHeader.labels,
-    isFlagged: diskHeader.isFlagged,
-    sessionStatus: diskHeader.sessionStatus,
-    permissionMode: diskHeader.permissionMode,
-    hasUnread: diskHeader.hasUnread,
-    lastReadMessageId: diskHeader.lastReadMessageId,
-  }
-}
+const hashRow = (type: string, content: string) => Bun.hash(`${type}\0${content}`)
 
 /**
- * Debounced async session persistence queue.
- * Prevents main thread blocking by using async writes and coalescing
- * rapid successive persist calls into a single write.
+ * The write path of chats (docs/messages-design.md section 4). Callers enqueue a chat after changing it; at most
+ * `debounceMs` later (a pending write is not pushed back, so a stream of changes is written every `debounceMs`) the
+ * queue takes the chat's snapshot and writes, in one short `BEGIN IMMEDIATE` transaction, only the messages whose
+ * content changed since the last commit (an upsert by (chat_id, id) with their search entries), deletes the ones
+ * that left, and updates the chat row. `flush` writes at once (a finished message, the user message before its
+ * ack). A failed write is never dropped: the chat stays pending, is retried after `retryMs`, and `flush` rejects.
  *
- * IMPORTANT: Writes are serialized per-session to prevent race conditions
- * when rapid successive flushes (e.g., clearSessionForRecovery + onSdkSessionIdUpdate)
- * would otherwise write to the same .tmp file concurrently.
+ * Shortcut, with its limit: changed rows are found by hashing every loaded message at each flush (cheap for the
+ * chats people have; a chat of tens of thousands of messages would want explicit dirty marks instead).
  */
-class SessionPersistenceQueue {
+export class ChatPersistenceQueue {
   private pending = new Map<string, PendingWrite>()
-  private writeInProgress = new Map<string, Promise<void>>()
-  private lastWrittenHeaderSignature = new Map<string, string>()
-  private debounceMs: number
+  private written = new Map<string, WrittenChat>()
+  private readonly debounceMs: number
+  private readonly retryMs: number
+  private readonly db: () => Db
 
-  constructor(debounceMs = 500) {
+  constructor({ debounceMs = 500, retryMs = 1000, db = () => initDb() }: { debounceMs?: number; retryMs?: number; db?: () => Db } = {}) {
     this.debounceMs = debounceMs
+    this.retryMs = retryMs
+    this.db = db
   }
 
-  /**
-   * Queue a session for persistence. If a write is already pending for this
-   * session, it will be replaced with the new data and the timer reset.
-   */
-  enqueue(session: StoredSession): void {
-    const existing = this.pending.get(session.id)
-    if (existing) {
-      clearTimeout(existing.timer)
+  /** Marks a chat to be written; `snapshot` is called when the write happens. */
+  enqueue(chatId: string, snapshot: () => ChatWrite): void {
+    const entry = this.pending.get(chatId)
+    if (entry) {
+      entry.snapshot = snapshot
+      return
     }
-
-    const timer = setTimeout(() => {
-      void this.write(session.id)
+    const next: PendingWrite = { snapshot }
+    next.timer = setTimeout(() => {
+      this.flush(chatId).catch(() => {
+        // logged and rescheduled by write()
+      })
     }, this.debounceMs)
-
-    this.pending.set(session.id, { data: session, timer })
+    this.pending.set(chatId, next)
   }
 
-  /**
-   * Write a session to disk immediately in JSONL format.
-   * Uses atomic write (write-to-temp-then-rename) to prevent corruption on crash.
-   */
-  private async write(sessionId: string): Promise<void> {
-    const entry = this.pending.get(sessionId)
+  /** Writes a pending chat now. Rejects when the write fails (the chat stays pending and is retried). */
+  async flush(chatId: string): Promise<void> {
+    const entry = this.pending.get(chatId)
     if (!entry) return
-
-    this.pending.delete(sessionId)
-
+    clearTimeout(entry.timer)
+    this.pending.delete(chatId)
     try {
-      const { data } = entry
-      ensureSessionsDir(data.workspaceRootPath)
-      ensureSessionDir(data.workspaceRootPath, sessionId)
-
-      const filePath = getSessionFilePath(data.workspaceRootPath, sessionId)
-
-      // Prepare session with portable paths for cross-machine compatibility
-      const storageSession: StoredSession = {
-        ...data,
-        workspaceRootPath: toPortablePath(data.workspaceRootPath),
-        workingDirectory: data.workingDirectory ? toPortablePath(data.workingDirectory) : undefined,
-        lastUsedAt: Date.now(),
-      }
-
-      // Create JSONL content: header + messages (one per line)
-      // Filter out intermediate messages - they're transient streaming status updates
-      const localHeader = createSessionHeader(storageSession)
-      const localSig = getHeaderMetadataSignature(localHeader)
-      const diskHeader = readSessionHeader(filePath)
-      const previousSig = this.lastWrittenHeaderSignature.get(sessionId)
-      const diskSig = diskHeader ? getHeaderMetadataSignature(diskHeader) : undefined
-
-      // Queue writes should never clobber session metadata changed externally
-      // (watcher edits, direct header edits, other instances), but they must
-      // still persist local metadata updates (e.g. generated title).
-      //
-      // Preserve disk metadata only when disk diverged from our last written
-      // signature, which indicates an external mutation.
-      const hasMetadataMismatch = !!diskHeader && !!diskSig && diskSig !== localSig
-      const hasExternalMetadataChange = !!diskHeader && !!diskSig && !!previousSig && diskSig !== previousSig
-      const header = hasExternalMetadataChange && diskHeader
-        ? mergeHeaderWithExternalMetadata(localHeader, diskHeader)
-        : localHeader
-
-      if (hasMetadataMismatch) {
-        const baseline = previousSig ? `, previousSig=${previousSig.slice(0, 12)}` : ', previousSig=<none>'
-        const mode = hasExternalMetadataChange ? 'disk preserved' : 'local preserved'
-        debug(`[PersistenceQueue] Session ${sessionId} metadata mismatch detected (${mode}${baseline})`)
-      }
-
-      const persistableMessages = storageSession.messages
-      // Use original absolute sessionDir (before toPortablePath) for path replacement
-      const sessionDir = dirname(filePath)
-      const lines = [
-        makeSessionPathPortable(JSON.stringify(header), sessionDir),
-        ...persistableMessages.map(m => makeSessionPathPortable(JSON.stringify(m), sessionDir)),
-      ]
-
-      // Atomic write: write to .tmp then rename over the real file.
-      // If the process crashes mid-write, only the .tmp is corrupted —
-      // the original session.jsonl remains intact.
-      //
-      // Update signature BEFORE the write so that fs.watch events fired
-      // during unlink/rename are correctly identified as self-writes.
-      // Without this, onSessionMetadataChange sees the stale signature
-      // and reverts in-memory metadata on idle sessions.
-      const finalSignature = getHeaderMetadataSignature(header)
-      this.lastWrittenHeaderSignature.set(sessionId, finalSignature)
-
-      const tmpFile = filePath + '.tmp'
-      await writeFile(tmpFile, lines.join('\n') + '\n', 'utf-8')
-      // On Windows, rename fails if target exists. Delete first for cross-platform compatibility.
-      try { await unlink(filePath) } catch { /* ignore if doesn't exist */ }
-      await rename(tmpFile, filePath)
-      debug(`[PersistenceQueue] Wrote session ${sessionId}`)
+      this.write(chatId, entry.snapshot())
     } catch (error) {
-      console.error(`[PersistenceQueue] Failed to write session ${sessionId}:`, error)
-    }
-  }
-
-  /**
-   * Immediately flush a specific session if pending.
-   * Waits for any in-progress write to complete before starting a new one
-   * to prevent race conditions on the shared .tmp file.
-   */
-  async flush(sessionId: string): Promise<void> {
-    const entry = this.pending.get(sessionId)
-    if (entry) {
-      clearTimeout(entry.timer)
-
-      // Wait for any in-progress write to complete first
-      const inProgress = this.writeInProgress.get(sessionId)
-      if (inProgress) {
-        await inProgress
+      console.error(`[chats] writing chat ${chatId} failed; retrying in ${this.retryMs} ms:`, error)
+      if (!this.pending.has(chatId)) {
+        entry.timer = setTimeout(() => {
+          this.flush(chatId).catch(() => {})
+        }, this.retryMs)
+        this.pending.set(chatId, entry)
       }
-
-      // Start new write and track it
-      const writePromise = this.write(sessionId)
-      this.writeInProgress.set(sessionId, writePromise)
-
-      try {
-        await writePromise
-      } finally {
-        this.writeInProgress.delete(sessionId)
-      }
+      throw error
     }
   }
 
-  /**
-   * Cancel a pending write for a session (e.g., when deleting the session).
-   */
-  cancel(sessionId: string): void {
-    const entry = this.pending.get(sessionId)
-    if (entry) {
-      clearTimeout(entry.timer)
-      this.pending.delete(sessionId)
-      debug(`[PersistenceQueue] Cancelled pending write for session ${sessionId}`)
-    }
-    this.lastWrittenHeaderSignature.delete(sessionId)
-  }
-
-  /**
-   * Flush all pending sessions. Call this on app quit.
-   */
+  /** Writes every pending chat (quit). A chat that fails stays pending; the rest are still written. */
   async flushAll(): Promise<void> {
-    const sessionIds = [...this.pending.keys()]
-    await Promise.all(sessionIds.map(id => this.flush(id)))
+    for (const chatId of [...this.pending.keys()]) {
+      await this.flush(chatId).catch(() => {})
+    }
   }
 
-  /**
-   * Check if a session has a pending write.
-   */
-  hasPending(sessionId: string): boolean {
-    return this.pending.has(sessionId)
+  /** Drops a pending write and what is known about the chat's rows (the chat is being deleted). */
+  cancel(chatId: string): void {
+    clearTimeout(this.pending.get(chatId)?.timer)
+    this.pending.delete(chatId)
+    this.written.delete(chatId)
   }
 
-  /**
-   * Get the metadata signature of the last header we wrote for a session.
-   * Used by ConfigWatcher to suppress self-triggered metadata change events.
-   */
-  getLastWrittenSignature(sessionId: string): string | undefined {
-    return this.lastWrittenHeaderSignature.get(sessionId)
+  /** Records what the database holds for a chat just read from it, so the next flush writes only what changes. */
+  seed(chatId: string, rows: { id: string; type: string; content: string; created_at: number }[]): void {
+    const known = new Map<string, WrittenRow>()
+    for (const row of rows) known.set(row.id, { hash: hashRow(row.type, row.content), createdAt: row.created_at })
+    this.written.set(chatId, { ...this.written.get(chatId), rows: known })
   }
 
-  /**
-   * Get count of pending writes.
-   */
+  /** Forgets a chat's rows (its messages left memory); a pending write must have been flushed first. */
+  forget(chatId: string): void {
+    this.written.delete(chatId)
+  }
+
+  hasPending(chatId: string): boolean {
+    return this.pending.has(chatId)
+  }
+
   get pendingCount(): number {
     return this.pending.size
   }
+
+  private write(chatId: string, { chat, sessionDir, messages }: ChatWrite): void {
+    const db = this.db()
+    initMessages(db)
+    const known = this.written.get(chatId)
+    let rows = known?.rows
+    const upserts: (MessageUpsert & { index: number })[] = []
+    let removed: string[] = []
+    let newestAt = 0
+    if (messages) {
+      rows = new Map()
+      const changed = new Map<string, MessageUpsert & { index: number }>()
+      messages.forEach((message, index) => {
+        if ((message.type as string) === 'status') return
+        const row = toMessageRow(message, sessionDir)
+        const hash = hashRow(row.type, row.content)
+        rows!.set(row.id, { hash, createdAt: row.createdAt })
+        const before = known?.rows.get(row.id)
+        if (before && before.hash === hash && before.createdAt === row.createdAt) {
+          changed.delete(row.id)
+          return
+        }
+        changed.set(row.id, { ...row, reposition: !before || before.createdAt !== row.createdAt, index })
+        if (isFinal(message)) newestAt = Math.max(newestAt, row.createdAt)
+      })
+      upserts.push(...[...changed.values()].sort((a, b) => a.createdAt - b.createdAt || a.index - b.index))
+      if (known) removed = [...known.rows.keys()].filter((id) => !rows!.has(id))
+    }
+    const labels = JSON.stringify(chat.labels ?? [])
+    const labelsChanged = known?.labels !== labels
+    db.transaction(
+      (tx) => {
+        if (upserts.length || removed.length) writeMessages(tx, chat.workspaceId, chatId, upserts, removed)
+        writeChat(tx, chat, { newestAt, labels: labelsChanged ? (chat.labels ?? []) : undefined })
+      },
+      { behavior: 'immediate' },
+    )
+    this.written.set(chatId, { rows: rows ?? new Map(), labels })
+    debug(`[chats] wrote ${chatId}: ${upserts.length} rows, ${removed.length} removed`)
+  }
 }
 
-// Singleton instance
-export const sessionPersistenceQueue = new SessionPersistenceQueue()
-
-// Named exports for testing/customization
-export { SessionPersistenceQueue, getHeaderMetadataSignature, mergeHeaderWithExternalMetadata }
+/** The process's one queue. */
+export const sessionPersistenceQueue = new ChatPersistenceQueue()

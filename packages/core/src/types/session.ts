@@ -56,5 +56,4 @@ export interface SessionMetadata {
   isArchived?: boolean;    // Whether this session is archived
   isFlagged?: boolean;     // Whether this session is flagged
   status?: SessionStatus;  // Workflow status
-  hidden?: boolean;        // Whether this session is hidden from session list
 }

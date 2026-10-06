@@ -6,7 +6,7 @@ import { SESSION_PERSISTENT_FIELDS, type SessionPersistentField } from './types.
 
 /**
  * Pick persistent fields from a session-like object.
- * Used by createSessionHeader, readSessionJsonl, getSessions, getSession
+ * Used for the chat DTO (getSessions, getSession), the write snapshot and session bundles
  * to ensure all persistent fields are included consistently.
  *
  * @param source - Object containing session fields

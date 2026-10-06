@@ -195,7 +195,7 @@ describe('session file watcher isolation', () => {
     cleanupSessionFileWatchForClient('client-a')
   })
 
-  it('ignores internal session.jsonl and hidden files', async () => {
+  it('ignores hidden files', async () => {
     const dir = makeTempSessionDir()
     const sessionPaths = new Map([['s1', dir]])
     const { server, deps, handlers, pushCalls } = createTestHarness(sessionPaths)
@@ -206,8 +206,7 @@ describe('session file watcher isolation', () => {
     const watchHandler = handlers.get(RPC_CHANNELS.sessions.WATCH_FILES)!
     await watchHandler(makeCtx('client-a'), 's1')
 
-    // Write internal files — should be ignored
-    writeFileSync(join(dir, 'session.jsonl'), 'log entry')
+    // Write a hidden file — should be ignored
     writeFileSync(join(dir, '.hidden'), 'secret')
     await new Promise(r => setTimeout(r, 300))
 

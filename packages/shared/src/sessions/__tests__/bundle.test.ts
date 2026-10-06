@@ -3,8 +3,15 @@ import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { serializeSession, validateBundle } from '../bundle'
-import { writeSessionJsonl } from '../jsonl'
+import { ChatPersistenceQueue } from '../persistence-queue'
+import { initWorkspaceLabels } from '../../labels/storage'
+import { initWorkspaceStatuses } from '../../statuses/storage'
 import type { StoredSession } from '../types'
+
+// The test database of the preload (scripts/test-preload.ts); each test gets its own workspace id.
+let workspaceId = ''
+const ws = () => ({ id: workspaceId, rootPath: tmpDir })
+let tmpDir: string
 
 // ============================================================
 // Helpers
@@ -18,7 +25,7 @@ function makeTmpDir(): string {
 
 function makeStoredSession(overrides: Partial<StoredSession> = {}): StoredSession {
   return {
-    id: '260101-test-session',
+    id: `260101-${Math.random().toString(36).slice(2, 10)}`,
     workspaceRootPath: '/tmp/ws',
     createdAt: 1000,
     lastUsedAt: 2000,
@@ -48,14 +55,14 @@ function makeStoredSession(overrides: Partial<StoredSession> = {}): StoredSessio
   } as StoredSession
 }
 
+/** The chat as rows (through the write path) and its folder. */
 function setupSessionDir(workspaceRoot: string, session: StoredSession): string {
   const sessionsDir = join(workspaceRoot, 'sessions', session.id)
   mkdirSync(sessionsDir, { recursive: true })
-
-  // Write JSONL
-  const jsonlPath = join(sessionsDir, 'session.jsonl')
-  writeSessionJsonl(jsonlPath, session)
-
+  const { messages, ...chat } = session
+  const queue = new ChatPersistenceQueue()
+  queue.enqueue(session.id, () => ({ chat: { ...chat, workspaceId, createdBy: 'user:owner' }, sessionDir: sessionsDir, messages }))
+  queue.flush(session.id)
   return sessionsDir
 }
 
@@ -64,10 +71,11 @@ function setupSessionDir(workspaceRoot: string, session: StoredSession): string 
 // ============================================================
 
 describe('serializeSession', () => {
-  let tmpDir: string
-
   beforeEach(() => {
     tmpDir = makeTmpDir()
+    workspaceId = `ws${Math.random().toString(36).slice(2, 12)}`
+    initWorkspaceLabels(workspaceId)
+    initWorkspaceStatuses(workspaceId)
   })
 
   afterEach(() => {
@@ -80,7 +88,7 @@ describe('serializeSession', () => {
     const session = makeStoredSession()
     setupSessionDir(tmpDir, session)
 
-    const bundle = serializeSession(tmpDir, session.id)
+    const bundle = serializeSession(ws(), session.id)
 
     expect(bundle).not.toBeNull()
     expect(bundle!.version).toBe(1)
@@ -100,7 +108,7 @@ describe('serializeSession', () => {
     mkdirSync(attachDir, { recursive: true })
     writeFileSync(join(attachDir, 'screenshot.png'), Buffer.from('fake-png-data'))
 
-    const bundle = serializeSession(tmpDir, session.id)
+    const bundle = serializeSession(ws(), session.id)
 
     expect(bundle).not.toBeNull()
     expect(bundle!.files).toHaveLength(1)
@@ -122,7 +130,7 @@ describe('serializeSession', () => {
     mkdirSync(join(sessionDir, 'data'), { recursive: true })
     writeFileSync(join(sessionDir, 'data', 'result.json'), '{"rows":[]}')
 
-    const bundle = serializeSession(tmpDir, session.id)
+    const bundle = serializeSession(ws(), session.id)
 
     expect(bundle).not.toBeNull()
     expect(bundle!.files).toHaveLength(2)
@@ -136,7 +144,7 @@ describe('serializeSession', () => {
 
     writeFileSync(join(sessionDir, 'notes.md'), '# My Notes\nSome notes here.')
 
-    const bundle = serializeSession(tmpDir, session.id)
+    const bundle = serializeSession(ws(), session.id)
 
     expect(bundle).not.toBeNull()
     const notesFile = bundle!.files.find(f => f.relativePath === 'notes.md')
@@ -151,7 +159,7 @@ describe('serializeSession', () => {
     mkdirSync(join(sessionDir, 'tmp'), { recursive: true })
     writeFileSync(join(sessionDir, 'tmp', 'cache.dat'), 'cached data')
 
-    const bundle = serializeSession(tmpDir, session.id)
+    const bundle = serializeSession(ws(), session.id)
 
     expect(bundle).not.toBeNull()
     const tmpFiles = bundle!.files.filter(f => f.relativePath.startsWith('tmp'))
@@ -164,18 +172,19 @@ describe('serializeSession', () => {
 
     writeFileSync(join(sessionDir, '.hidden'), 'secret')
 
-    const bundle = serializeSession(tmpDir, session.id)
+    const bundle = serializeSession(ws(), session.id)
 
     expect(bundle).not.toBeNull()
     const dotFiles = bundle!.files.filter(f => f.relativePath.startsWith('.'))
     expect(dotFiles).toHaveLength(0)
   })
 
-  it('does not include session.jsonl in files array', () => {
+  it('does not include the legacy session.jsonl a chat made before the database keeps', () => {
     const session = makeStoredSession()
-    setupSessionDir(tmpDir, session)
+    const sessionDir = setupSessionDir(tmpDir, session)
+    writeFileSync(join(sessionDir, 'session.jsonl'), '{}\n')
 
-    const bundle = serializeSession(tmpDir, session.id)
+    const bundle = serializeSession(ws(), session.id)
 
     expect(bundle).not.toBeNull()
     const jsonlFiles = bundle!.files.filter(f => f.relativePath.includes('session.jsonl'))
@@ -183,25 +192,36 @@ describe('serializeSession', () => {
   })
 
   it('returns null for non-existent session', () => {
-    const bundle = serializeSession(tmpDir, 'non-existent')
+    const bundle = serializeSession(ws(), 'non-existent')
     expect(bundle).toBeNull()
   })
 
   it('preserves session metadata in header', () => {
     const session = makeStoredSession({
       isFlagged: true,
-      sessionStatus: 'in-progress',
+      sessionStatus: 'needs-review',
       labels: ['bug', 'priority::high'],
       permissionMode: 'ask' as any,
     })
     setupSessionDir(tmpDir, session)
 
-    const bundle = serializeSession(tmpDir, session.id)
+    const bundle = serializeSession(ws(), session.id)
 
     expect(bundle).not.toBeNull()
     expect(bundle!.session.header.isFlagged).toBe(true)
-    expect(bundle!.session.header.sessionStatus).toBe('in-progress')
+    expect(bundle!.session.header.sessionStatus).toBe('needs-review')
     expect(bundle!.session.header.labels).toEqual(['bug', 'priority::high'])
+  })
+
+  it('carries message paths of the chat folder as the portable token', () => {
+    const session = makeStoredSession()
+    const sessionDir = join(tmpDir, 'sessions', session.id)
+    session.messages[1]!.content = `Saved to ${sessionDir}/plans/a.md`
+    setupSessionDir(tmpDir, session)
+
+    const bundle = serializeSession(ws(), session.id)
+
+    expect(bundle!.session.messages[1]!.content).toBe('Saved to {{SESSION_PATH}}/plans/a.md')
   })
 })
 

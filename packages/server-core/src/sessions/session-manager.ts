@@ -10,7 +10,7 @@ import { join } from 'path'
 import { existsSync, readdirSync } from 'fs'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { randomUUID } from 'node:crypto'
-import { type AgentEvent, type ChatOptions, getPermissionMode, setPermissionMode, setGuardedModeActiveResolver, clampPermissionMode, planExecutionMode, parsePermissionMode, hydratePreviousPermissionMode, getPermissionModeDiagnostics, type PermissionMode, unregisterSessionScopedToolCallbacks, mergeSessionScopedToolCallbacks, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest, type BrowserPaneFns, generateConversationSummary, type PiAgent } from '@otto/shared/agent'
+import { type AgentEvent, type ChatOptions, getPermissionMode, setPermissionMode, setGuardedModeActiveResolver, clampPermissionMode, planExecutionMode, parsePermissionMode, hydratePreviousPermissionMode, getPermissionModeDiagnostics, type PermissionMode, unregisterSessionScopedToolCallbacks, mergeSessionScopedToolCallbacks, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest, type BrowserPaneFns, generateConversationSummary, type PiAgent, getAgentTurn, type AgentTurn } from '@otto/shared/agent'
 import {
   resolveSessionConnection,
   createBackendFromConnection,
@@ -18,8 +18,9 @@ import {
   createBackendFromResolvedContext,
   cleanupSourceRuntimeArtifacts,
   type BackendHostRuntimeContext,
+  type BackendAgent,
 } from '@otto/shared/agent/backend'
-import { getLlmConnection, getLlmConnections, getDefaultLlmConnection, getDefaultThinkingLevel, resolveMidStreamBehavior, getPersistedUiLanguage, resolveTitleLanguageName } from '@otto/shared/config'
+import { getLlmConnection, getLlmConnections, piProviderOf, getDefaultLlmConnection, getDefaultThinkingLevel, resolveMidStreamBehavior, getPersistedUiLanguage, resolveTitleLanguageName } from '@otto/shared/config'
 import type { ConnectionContext, MidStreamBehavior } from '@otto/shared/config'
 import { getWorkspaceRootPath } from '@otto/shared/config'
 import { PrivilegedExecutionBroker } from '@otto/server-core/services'
@@ -38,35 +39,30 @@ import {
 import type { ActiveSessionInfo, ContextUsageSnapshot, PermissionRisk, SessionProcessingStatus } from '@otto/core/types'
 import { loadWorkspaceConfig } from '@otto/shared/workspaces'
 import {
-  // Session persistence functions
+  // Chats in the database (docs/schema.md "Chats")
   listSessions as listStoredSessions,
   loadSession as loadStoredSession,
-  saveSession as saveStoredSession,
+  getSessionMessages as getStoredSessionMessages,
   createSession as createStoredSession,
+  createImportedSession,
   deleteSession as deleteStoredSession,
-  updateSessionMetadata,
-  setPendingPlanExecution as setStoredPendingPlanExecution,
-  markCompactionComplete as markStoredCompactionComplete,
-  markPendingPlanExecutionDispatched as markStoredPendingPlanExecutionDispatched,
-  clearPendingPlanExecution as clearStoredPendingPlanExecution,
-  getPendingPlanExecution as getStoredPendingPlanExecution,
   getSessionPath as getSessionStoragePath,
   ensureSessionDir,
-  getSessionFilePath,
-  generateSessionId,
   sessionPersistenceQueue,
-  getHeaderMetadataSignature,
-  writeSessionJsonl,
+  onChatsChange,
+  getChatsFields,
+  runChatsRecovery,
   serializeSession,
   validateBundle,
+  type ChatWrite,
+  type StoredMessage,
   type SessionBundle,
   type DispatchMode,
   type StoredSession,
-  type StoredMessage,
   type SessionStatus,
-  type SessionHeader,
   pickSessionFields,
 } from '@otto/shared/sessions'
+import { createId } from '@otto/shared/id'
 import { serializeHeaderCredential, loadWorkspaceSources, loadAllSources, getSourcesBySlugs, isSourceUsable, getLoadedSources, syncLocalSource, type LoadedSource, getSourceCredentialManager, TokenRefreshManager } from '@otto/shared/sources'
 import { buildDecisionToolCallbacks } from '../decisions/tool-callbacks'
 import { buildServersFromSources as buildServersFromSourcesShared } from '../sources/build-servers'
@@ -78,7 +74,7 @@ import { getCredentialManager } from '@otto/shared/credentials'
 import { McpClientPool } from '@otto/shared/mcp'
 import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, generateMessageId, type DomainChange } from '@otto/shared/protocol'
 import { messageToStored, storedToMessage, type Message, type StoredAttachment, type ToolDisplayMeta } from '@otto/core/types'
-import { formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrlAsync, getEmojiIcon, resolveToolIcon, readFileAttachment, selectSpreadMessages, normalizePath } from '@otto/shared/utils'
+import { formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrlAsync, getEmojiIcon, resolveToolIcon, readFileAttachment, selectSpreadMessages } from '@otto/shared/utils'
 import { getLoadedSkills, loadAllSkills, loadSkill, syncLocalSkill } from '@otto/shared/skills'
 import { invalidateContextFileCache } from '@otto/shared/prompts/system'
 import { getToolIconsDir, getMiniModel } from '@otto/shared/config'
@@ -102,14 +98,13 @@ import { checkAutomationCondition } from '../decisions/automation-condition'
 import { getLabels, getLabelsFlat } from '@otto/shared/labels/storage'
 import { resolveSessionLabels, type LabelConfig } from '@otto/shared/labels'
 import { createMissingLabels } from '@otto/shared/labels/crud'
-import { getStatuses } from '@otto/shared/statuses/storage'
+import { getDefaultStatusId, getStatuses } from '@otto/shared/statuses/storage'
 import { AutomationSystem, createPromptHistoryEntry, appendAutomationHistoryEntry, type PendingPrompt } from '@otto/shared/automations'
 import { buildBackendRuntimeSignature, buildRestartRequiredSignature, filterAttachmentsForModelInput } from './runtime-config'
 import { validateArchiveTarget } from './archive-guards'
 import { runWorkspaceConfigAction } from './workspace-config-tool'
 import { getFirstUser } from '@otto/shared/users/queries'
-import { assembleInstructions, getAgent, getAgentRunConfig } from '@otto/shared/agents'
-import { PRODUCT_NAME } from '@otto/shared/branding'
+import { getAgent, getAgentRunConfig } from '@otto/shared/agents'
 
 // Import from server-core domain utilities
 import { sanitizeForTitle, shouldActivateBrowserOverlay, normalizeBrowserToolName, rollbackFailedBranchCreation, releaseBrowserOwnershipOnForcedStop } from '@otto/server-core/domain'
@@ -184,10 +179,10 @@ const MAX_ADMIN_REMEMBER_MINUTES = 60
 const MAX_ANNOTATIONS_PER_MESSAGE = 200
 const MAX_ANNOTATION_JSON_BYTES = 32 * 1024
 
-// Window during which fs.watch metadata-revert events from our own atomic write
-// are ignored, so the watcher does not roll back the in-memory mutation we
-// just persisted. See onSessionMetadataChange.
-const METADATA_WRITE_GUARD_MS = 5000
+/** Chats whose messages stay in memory when no turn runs (docs/messages-design.md 5): the most recently opened. */
+const LOADED_CHATS_LIMIT = 16
+/** Messages a client gets per page (the newest first, older ones on scroll). */
+const MESSAGES_PAGE_SIZE = 50
 
 /**
  * Text sent to the session when a plan is approved from outside the desktop
@@ -638,6 +633,8 @@ interface ManagedSession {
   streamingText: string
   /** Identity of the unfinished assistant text, used for retry discard boundaries. */
   streamingTurnId?: string
+  /** When the unfinished assistant text began: the timestamp of its partial row (saved while it streams). */
+  streamingStartedAt?: number
   // Incremented each time a new message starts processing.
   // Used to detect if a follow-up message has superseded the current one (stale-request guard).
   processingGeneration: number
@@ -654,10 +651,8 @@ interface ManagedSession {
   /** Smart titles: user-message count at the last drift check. */
   titleCheckedAtUserCount?: number
   isFlagged: boolean
-  /** Whether this session is archived */
+  /** Whether this session is archived: its status is the `archived` one. */
   isArchived?: boolean
-  /** Timestamp when session was archived (for retention policy) */
-  archivedAt?: number
   /** Permission mode for this session ('safe', 'ask', 'guarded', 'allow-all') */
   permissionMode?: PermissionMode
   /** Previous permission mode (preserved across restarts for session_state modeTransition context) */
@@ -723,19 +718,14 @@ interface ManagedSession {
   lastFinalMessageId?: string
   // Turn baseline: last final assistant message ID at turn start (runtime-only, not persisted)
   turnStartFinalMessageId?: string
-  // External session metadata updates seen while processing (applied after turn stop)
-  pendingExternalMetadata?: SessionHeader
-  // Guard: suppress external metadata revert after programmatic writes (setSessionStatus/setSessionLabels).
-  // fs.watch fires during atomic write (unlink+rename) and can read stale data, reverting in-memory state.
-  _metadataWriteGuardUntil?: number
   // Whether an async operation is ongoing (sharing, updating share, revoking, title regeneration)
   // Used for shimmer effect on session title
   isAsyncOperationOngoing?: boolean
   // Preview of first user message (for sidebar display fallback)
   preview?: string
-  // When the session was first created (ms timestamp from JSONL header)
+  // When the session was first created (ms)
   createdAt?: number
-  // Total message count (pre-computed in JSONL header for fast list loading)
+  // Total message count (counted when the chat list is read)
   messageCount?: number
   // Message queue for handling new messages while processing
   // When a message arrives during processing, we interrupt and queue
@@ -766,7 +756,7 @@ interface ManagedSession {
   // subprocess at turn end, so this main-process registry is the real source of
   // truth for background-task status. See RunningBackgroundTask.
   backgroundTaskRegistry: Map<string, RunningBackgroundTask>
-  // Whether messages have been loaded from disk (for lazy loading)
+  // Whether every message of the chat is in `messages` (loaded from the database on demand; see LOADED_CHATS_LIMIT)
   messagesLoaded: boolean
   // Pending auth request tracking (for unified auth flow)
   pendingAuthRequestId?: string
@@ -786,8 +776,6 @@ interface ManagedSession {
   authRetryAttempted?: boolean
   // Flag indicating auth retry is in progress (to prevent complete handler from interfering)
   authRetryInProgress?: boolean
-  // Whether this session is hidden from session list (e.g., mini edit sessions)
-  hidden?: boolean
   // Nobody answers prompts here (CLI runs); in memory only. See isAttendedSession.
   unattended?: boolean
   // Incremented by every Stop (cancelProcessing). A turn captures it when it starts: a risk-badge
@@ -934,13 +922,12 @@ export function buildActivationRetryMessage(original: string, steers: readonly s
 export const MAX_AUTOMATION_CHAIN_DEPTH = 3
 
 /**
- * Whether someone can answer a prompt in this session: not an automation, hidden, mini
+ * Whether someone can answer a prompt in this session: not an automation, mini
  * or unattended session. `unattended` marks `otto-cli run` sessions and is inherited by sessions an
  * unattended session spawns (not by subtasks a user adds under it).
  */
 export function isAttendedSession(managed: ManagedSession): boolean {
-  return !(managed.triggeredBy || managed.hidden || managed.unattended
-    || managed.systemPromptPreset === 'mini')
+  return !(managed.triggeredBy || managed.unattended || managed.systemPromptPreset === 'mini')
 }
 
 /**
@@ -1023,19 +1010,24 @@ function needsHistoryRecovery(managed: ManagedSession, sessionPath: string): boo
   }
 }
 
-/**
- * What the chat's agent adds to the system prompt each turn: the workspace's and the agent's instructions as XML
- * groups (docs/final-plan.md 2.7), unattended for automation runs. The base prompt already carries the product's
- * rules, tool guidance and the session's sources, so they are not repeated here. Mini sessions get nothing.
- */
-function agentInstructionsOf(managed: ManagedSession): string {
-  if (managed.systemPromptPreset === 'mini') return ''
+/** The chat's agent as it picks the connection and model (docs/final-plan.md 2.2); none for mini sessions. */
+function agentOf(managed: ManagedSession): BackendAgent | null {
+  if (managed.systemPromptPreset === 'mini') return null
   const run = getAgentRunConfig(managed.agentId, managed.workspace.id)
-  if (!run) return ''
-  return assembleInstructions({
-    product: PRODUCT_NAME,
-    workspaceInstructions: run.workspaceInstructions,
-    agent: { title: run.agent.title, instructions: run.agentInstructions },
+  return run ? { title: run.agent.title, provider: run.provider, model: run.model } : null
+}
+
+/**
+ * The chat's agent for a turn (docs/final-plan.md 2.6): its instructions (workspace, agent, connected sources,
+ * unattended for automation runs), sources, skills and computer. Mini sessions have none.
+ */
+function agentTurnOf(managed: ManagedSession): AgentTurn | null {
+  if (managed.systemPromptPreset === 'mini') return null
+  return getAgentTurn({
+    agentId: managed.agentId,
+    workspaceId: managed.workspace.id,
+    workspaceRootPath: managed.workspace.rootPath,
+    enabledSourceSlugs: managed.enabledSourceSlugs,
     runMode: managed.unattended || managed.triggeredBy ? 'unattended' : 'attended',
   })
 }
@@ -1152,6 +1144,9 @@ const SHARING_NOT_CONFIGURED = 'Sharing is not configured (set OTTO_VIEWER_URL)'
 
 export class SessionManager implements ISessionManager {
   private sessions: Map<string, ManagedSession> = new Map()
+  /** Chats whose messages are loaded, least recently used first (see LOADED_CHATS_LIMIT). */
+  private loadedChats = new Set<string>()
+  private unsubscribeChatsChange?: () => void
   // Delta batching for performance - reduces IPC events from 50+/sec to ~20/sec
   private pendingDeltas: Map<string, PendingDelta> = new Map()
   private deltaFlushTimers: Map<string, NodeJS.Timeout> = new Map()
@@ -1585,7 +1580,7 @@ export class SessionManager implements ISessionManager {
     managed.turnThinkingOverride = null
     this.finishSuggestionTrace(managed)
     const log = (line: string) => sessionLog.info(line)
-    const interactive = !managed.hidden && managed.systemPromptPreset !== 'mini'
+    const interactive = managed.systemPromptPreset !== 'mini'
     // Slash commands are instructions to the app, not requests to rate.
     const rateThinking = interactive && !message.trim().startsWith('/') && this.decisionFeatureActive('adaptiveThinking')
     const suggest = interactive
@@ -1646,6 +1641,8 @@ export class SessionManager implements ISessionManager {
     } else if (was && !processing) {
       sessionRuntimeHooks.onSessionStopped()
     }
+    // `run_started_at` follows: set by the turn's first write, cleared by its last (boot recovery reads it)
+    if (was !== processing) this.persistSession(managed)
   }
 
   /** Wait until initialize() has completed (sessions loaded from disk).
@@ -1689,22 +1686,14 @@ export class SessionManager implements ISessionManager {
     return owner ? userActor(owner) : undefined
   }
 
-  /** User ids who may see the chat. */
+  /** User ids who may see the chat: its creator (docs/schema.md: chats are private to `created_by`). */
   private getAudience(managed: ManagedSession): string[] {
-    return getChatAudience(managed, () => this.workspaceOwners(managed.workspace.id))
+    return getChatAudience(managed)
   }
 
-  /** Whether `userId` may see each chat, owners of a workspace looked up once per call. */
+  /** Whether `userId` may see each chat: `created_by = user:<userId>`, the private rule of every list. */
   private canSee(userId: string | null): (managed: ManagedSession) => boolean {
-    const owners = new Map<string, string[]>()
-    return (managed) => {
-      if (!userId) return false
-      const ownersOf = () => {
-        if (!owners.has(managed.workspace.id)) owners.set(managed.workspace.id, this.workspaceOwners(managed.workspace.id))
-        return owners.get(managed.workspace.id)!
-      }
-      return getChatAudience(managed, ownersOf).includes(userId)
-    }
+    return (managed) => !!userId && getChatAudience(managed).includes(userId)
   }
 
   /** Whether the user may see the chat. A chat that does not exist is not visible to anyone. */
@@ -1884,61 +1873,40 @@ export class SessionManager implements ISessionManager {
   }
 
   /**
-   * Apply external session header metadata to in-memory state and emit UI events.
-   * Returns true if any in-memory metadata field changed.
+   * Another domain changed chats' rows (a label, a status or an agent was deleted): read the fields it changes back
+   * into the loaded chats and tell the clients, as a client's own change would. Nothing is written: the rows are
+   * already right.
    */
-  private applyExternalSessionMetadata(managed: ManagedSession, header: SessionHeader): boolean {
-    const sessionId = managed.id
-    let changed = false
-
-    // Labels
-    const oldLabels = JSON.stringify(managed.labels ?? [])
-    const newLabels = JSON.stringify(header.labels ?? [])
-    if (oldLabels !== newLabels) {
-      managed.labels = header.labels
-      this.sendEvent({ type: 'labels_changed', sessionId, labels: header.labels ?? [] }, managed.workspace.id)
-      changed = true
+  private applyChatsChange(workspaceId: string, chatIds: string[]): void {
+    const fields = getChatsFields(workspaceId, chatIds)
+    for (const [sessionId, next] of fields) {
+      const managed = this.sessions.get(sessionId)
+      if (!managed) continue
+      if (JSON.stringify(managed.labels ?? []) !== JSON.stringify(next.labels ?? [])) {
+        managed.labels = next.labels
+        this.sendEvent({ type: 'labels_changed', sessionId, labels: next.labels ?? [] }, workspaceId)
+      }
+      if (managed.sessionStatus !== next.sessionStatus) {
+        managed.sessionStatus = next.sessionStatus
+        managed.isArchived = next.isArchived
+        this.sendEvent({ type: 'session_status_changed', sessionId, sessionStatus: next.sessionStatus ?? '' }, workspaceId)
+      }
+      managed.agentId = next.agentId
+      this.automationSystems.get(managed.workspace.rootPath)?.updateSessionMetadata(sessionId, this.automationSnapshotOf(managed)).catch((error) => {
+        sessionLog.error(`[Automations] Failed to update session metadata:`, error)
+      })
     }
+  }
 
-    // Flagged
-    if ((managed.isFlagged ?? false) !== (header.isFlagged ?? false)) {
-      managed.isFlagged = header.isFlagged ?? false
-      this.sendEvent(
-        { type: header.isFlagged ? 'session_flagged' : 'session_unflagged', sessionId },
-        managed.workspace.id
-      )
-      changed = true
+  /** What the automation system diffs to fire label, flag, status and mode events. */
+  private automationSnapshotOf(managed: ManagedSession) {
+    return {
+      permissionMode: managed.permissionMode,
+      labels: managed.labels,
+      isFlagged: managed.isFlagged,
+      sessionStatus: managed.sessionStatus,
+      sessionName: managed.name,
     }
-
-    // Session status
-    if (managed.sessionStatus !== header.sessionStatus) {
-      managed.sessionStatus = header.sessionStatus
-      this.sendEvent({ type: 'session_status_changed', sessionId, sessionStatus: header.sessionStatus ?? '' }, managed.workspace.id)
-      changed = true
-    }
-
-    // Name
-    if (managed.name !== header.name) {
-      managed.name = header.name
-      this.sendEvent({ type: 'name_changed', sessionId, name: header.name }, managed.workspace.id)
-      changed = true
-    }
-
-    // Project binding (no dedicated event today — handled via metaChanged broadcast)
-    if (managed.projectId !== header.projectId) {
-      managed.projectId = header.projectId
-      changed = true
-    }
-
-    if (changed) {
-      sessionLog.info(`External metadata change detected for session ${sessionId}`)
-
-      // Prevent stale pending writes from reverting externally-updated metadata.
-      sessionPersistenceQueue.cancel(sessionId)
-      this.persistSession(managed)
-    }
-
-    return changed
   }
 
   /**
@@ -2026,57 +1994,6 @@ export class SessionManager implements ISessionManager {
         this.broadcastSkillsChanged(workspaceId, getLoadedSkills(workspaceId))
         // A refused push: the folder was reloaded from the newer skill, and the person is told their copy was kept aside.
         if (status === 'conflict') this.eventSink?.(RPC_CHANNELS.skills.CONFLICT, { to: 'workspace', workspaceId }, workspaceId, slug)
-      },
-
-      // Session metadata changes (edits to session.jsonl headers).
-      // Detects changes from both internal writes (self) and external sources
-      // (other instances, scripts, manual edits).
-      onSessionMetadataChange: (sessionId, header) => {
-        const managed = this.sessions.get(sessionId)
-        if (!managed) return
-
-        // Check if this is our own write echoing back via fs.watch().
-        // Self-writes don't need in-memory sync (already up to date), but
-        // still need to notify the automation system for event matching.
-        const incomingSignature = getHeaderMetadataSignature(header)
-        const lastWrittenSignature = sessionPersistenceQueue.getLastWrittenSignature(sessionId)
-        const isSelfWrite = !!(lastWrittenSignature && incomingSignature === lastWrittenSignature)
-
-        // For external writes: sync in-memory state + emit UI events.
-        // Skip for self-writes to avoid feedback loops (especially on Windows
-        // where fs.watch fires aggressively: unlink + rename = 2+ events).
-        if (!isSelfWrite) {
-          // Defer external metadata application when:
-          // 1. Session is actively processing (agent running), OR
-          // 2. Session was just written programmatically (set_session_status/labels tool)
-          //    — fs.watch fires during atomic write (unlink+rename) and can read stale data
-          const hasWriteGuard = managed._metadataWriteGuardUntil && Date.now() < managed._metadataWriteGuardUntil
-          if (managed.isProcessing || hasWriteGuard) {
-            managed.pendingExternalMetadata = header
-            if (hasWriteGuard) {
-              sessionLog.info(`Deferred external metadata update for session ${sessionId} (recent programmatic write)`)
-            } else {
-              sessionLog.info(`Deferred external metadata update for session ${sessionId} (processing active)`)
-            }
-          } else {
-            this.applyExternalSessionMetadata(managed, header)
-          }
-        }
-
-        // Always notify automation system — it does its own diffing and needs
-        // to see both self-writes and external changes for event matching.
-        const automationSystem = this.automationSystems.get(managed.workspace.rootPath)
-        if (automationSystem) {
-          automationSystem.updateSessionMetadata(sessionId, {
-            permissionMode: header.permissionMode,
-            labels: header.labels,
-            isFlagged: header.isFlagged,
-            sessionStatus: header.sessionStatus,
-            sessionName: header.name,
-          }).catch((error) => {
-            sessionLog.error(`[Automations] Failed to update session metadata:`, error)
-          })
-        }
       },
     }
 
@@ -2228,8 +2145,13 @@ export class SessionManager implements ISessionManager {
         this.setupConfigWatcher(workspace.rootPath, workspace.id)
       }
 
-      // Load existing sessions from disk
-      this.loadSessionsFromDisk()
+      // A turn that was running when the server stopped: its partial answer and tool calls become interrupted
+      const recovered = runChatsRecovery()
+      if (recovered.chats) sessionLog.info(`Recovered ${recovered.chats} interrupted chats (${recovered.partial} partial answers, ${recovered.tools} tool calls)`)
+      // Load every chat's row (messages load when a chat is opened or runs)
+      this.loadSessionsFromDatabase()
+      // Labels, statuses and agents deleted elsewhere change chats' rows: bring the loaded chats in step
+      this.unsubscribeChatsChange ??= onChatsChange((workspaceId, chatIds) => this.applyChatsChange(workspaceId, chatIds))
 
       // Signal that initialization is complete — IPC handlers waiting on initGate will proceed
       this.initGate.markReady()
@@ -2239,8 +2161,8 @@ export class SessionManager implements ISessionManager {
     }
   }
 
-  // Load all existing sessions from disk into memory (metadata only - messages are lazy-loaded)
-  private loadSessionsFromDisk(): void {
+  // Load every chat's row into memory (metadata only - messages are lazy-loaded)
+  private loadSessionsFromDatabase(): void {
     try {
       const workspaces = getWorkspaces()
       let totalSessions = 0
@@ -2248,7 +2170,7 @@ export class SessionManager implements ISessionManager {
       // Iterate over each workspace and load its sessions
       for (const workspace of workspaces) {
         const workspaceRootPath = workspace.rootPath
-        const sessionMetadata = listStoredSessions(workspaceRootPath)
+        const sessionMetadata = listStoredSessions(workspace)
         // Load workspace config once per workspace for default working directory
         const wsConfig = loadWorkspaceConfig(workspaceRootPath)
         const wsDefaultWorkingDir = wsConfig?.defaults?.workingDirectory
@@ -2258,10 +2180,8 @@ export class SessionManager implements ISessionManager {
           // This dramatically reduces memory usage at startup - messages are loaded
           // when getSession() is called for a specific session
           const managed = createManagedSession(meta, workspace, {
-            // The header carries the session's explicit source selection (persisted at
-            // creation / by setSessionSources). Seed it now so the renderer's very first
-            // session list shows the right chips — sessions without one hydrate any legacy
-            // body value on message load (see hydrateMessagesForColdPersist).
+            // The row carries the chat's explicit source selection (persisted at creation / by setSessionSources),
+            // so the renderer's very first chat list shows the right chips.
             enabledSourceSlugs: meta.enabledSourceSlugs,
             workingDirectory: meta.workingDirectory ?? wsDefaultWorkingDir,
           })
@@ -2301,115 +2221,60 @@ export class SessionManager implements ISessionManager {
         }
       }
 
-      sessionLog.info(`Loaded ${totalSessions} sessions from disk (metadata only)`)
+      sessionLog.info(`Loaded ${totalSessions} chats (metadata only)`)
     } catch (error) {
-      sessionLog.error('Failed to load sessions from disk:', error)
+      sessionLog.error('Failed to load chats:', error)
     }
-  }
-
-  // Suppress fs.watch metadata-revert events for the window in which our own
-  // atomic write completes. See onSessionMetadataChange.
-  private setMetadataWriteGuard(managed: ManagedSession): void {
-    managed._metadataWriteGuardUntil = Date.now() + METADATA_WRITE_GUARD_MS
   }
 
   /**
-   * Persist a session to disk (async, with debouncing in the persistence queue).
-   *
-   * Cold-session path: if messages haven't been lazy-loaded yet, hydrate them
-   * synchronously from the JSONL first — otherwise the snapshot we enqueue
-   * would write `messages: []` over the real messages on disk. Hydration
-   * deliberately does NOT touch persistent metadata fields (name, labels,
-   * sessionStatus, llmConnection, ...) because the caller may have just
-   * mutated them; the in-memory mutation must win over what's on disk.
-   * `loadStoredSession` is synchronous (sync fs reads), so the entire path
-   * stays sync — no microtask race window between the load and the enqueue.
+   * Queue the chat's write (docs/messages-design.md 4): at most 500 ms later the queue reads the chat as it is then
+   * and writes, in one short transaction, its row and the messages that changed since the last write. A chat whose
+   * messages are not loaded writes its row only. Callers that need it durable now (the user message before its
+   * ack, a finished answer) `flushSession` after. Also lets the automation system diff the chat's labels, flag,
+   * status and mode (it fires their events).
    */
   private persistSession(managed: ManagedSession): void {
-    if (!managed.messagesLoaded) {
-      this.hydrateMessagesForColdPersist(managed)
-    }
-    this.enqueuePersist(managed)
+    sessionPersistenceQueue.enqueue(managed.id, () => this.chatWriteOf(managed))
+    this.automationSystems.get(managed.workspace.rootPath)?.updateSessionMetadata(managed.id, this.automationSnapshotOf(managed)).catch((error) => {
+      sessionLog.error(`[Automations] Failed to update session metadata:`, error)
+    })
   }
 
-  // Cold-persist hydration. Mirrors the messages/queue-recovery half of
-  // loadMessagesFromDisk but skips the metadata field syncs. Sets
-  // messagesLoaded=true so subsequent persistSession calls take the fast path.
-  // Subsequent ensureMessagesLoaded calls also short-circuit, which is fine —
-  // queue recovery has already run here.
-  private hydrateMessagesForColdPersist(managed: ManagedSession): void {
-    sessionLog.debug(`Cold-load triggered for persistSession on ${managed.id}`)
-    const stored = loadStoredSession(managed.workspace.rootPath, managed.id)
-    if (stored) {
-      managed.messages = (stored.messages || []).map(storedToMessage)
-      managed.tokenUsage = stored.tokenUsage
-      managed.pendingPlanExecution = stored.pendingPlanExecution
-      // Deferred-load fields (intentionally undefined after startup, see
-      // loadSessionsFromDisk). Populate from disk only if not already set in
-      // memory — a caller may have mutated them via setSessionSources etc.
-      if (managed.enabledSourceSlugs === undefined) managed.enabledSourceSlugs = stored.enabledSourceSlugs
-      if (managed.lastReadMessageId === undefined) managed.lastReadMessageId = stored.lastReadMessageId
-      if (managed.hasUnread === undefined) managed.hasUnread = stored.hasUnread
-      if (managed.sharedUrl === undefined) managed.sharedUrl = stored.sharedUrl
-      if (managed.sharedId === undefined) managed.sharedId = stored.sharedId
-      if (managed.transferredSessionSummary === undefined) managed.transferredSessionSummary = stored.transferredSessionSummary
-      if (managed.transferredSessionSummaryApplied === undefined) managed.transferredSessionSummaryApplied = stored.transferredSessionSummaryApplied
-
-      // Queue recovery: find orphaned queued messages from crash/restart and re-queue them.
-      const orphanedQueued = managed.messages.filter(m =>
-        m.role === 'user' && m.isQueued === true
-      )
-      if (orphanedQueued.length > 0) {
-        sessionLog.info(`Recovering ${orphanedQueued.length} queued message(s) for session ${managed.id}`)
-        for (const msg of orphanedQueued) {
-          managed.messageQueue.push({
-            message: msg.content,
-            messageId: msg.id,
-            attachments: undefined,
-            storedAttachments: msg.attachments,
-            options: undefined,
-          })
-        }
-        if (!managed.isProcessing && managed.messageQueue.length > 0) {
-          setImmediate(() => {
-            this.processNextQueuedMessage(managed.id)
-          })
-        }
-      }
-      sessionLog.debug(`Cold-hydrated ${managed.messages.length} messages for session ${managed.id}`)
+  /**
+   * The chat as the write queue stores it. While an answer streams, its text so far is a `partial` assistant row
+   * (replaced by the finished message in the same transaction that writes it; marked interrupted by boot recovery
+   * when the server stopped first). `running` keeps `run_started_at` set while a turn runs.
+   */
+  private chatWriteOf(managed: ManagedSession): ChatWrite {
+    const sessionDir = getSessionStoragePath(managed.workspace.rootPath, managed.id)
+    const chat = {
+      ...pickSessionFields(managed),
+      id: managed.id,
+      workspaceId: managed.workspace.id,
+      workspaceRootPath: managed.workspace.rootPath,
+      createdAt: managed.createdAt ?? Date.now(),
+      lastUsedAt: managed.lastMessageAt,
+      lastMessageAt: managed.lastMessageAt,
+      tokenUsage: managed.tokenUsage ?? DEFAULT_TOKEN_USAGE,
+      running: managed.isProcessing,
+    } as ChatWrite['chat']
+    if (!managed.messagesLoaded) return { chat, sessionDir }
+    const messages = managed.messages.filter(m => m.role !== 'status').map(messageToStored)
+    if (managed.streamingText) {
+      messages.push({
+        id: `partial-${managed.streamingTurnId ?? managed.streamingStartedAt}`,
+        type: 'assistant',
+        content: managed.streamingText,
+        timestamp: managed.streamingStartedAt ?? Date.now(),
+        turnId: managed.streamingTurnId,
+        partial: true,
+      } as StoredMessage & { partial: true })
     }
-    managed.messagesLoaded = true
+    return { chat, sessionDir, messages }
   }
 
-  // Build the StoredSession snapshot and hand it to the persistence queue.
-  // Caller must ensure `managed.messagesLoaded` is true.
-  private enqueuePersist(managed: ManagedSession): void {
-    try {
-      // Filter out transient status messages (progress indicators like "Compacting...")
-      // Error messages are now persisted with rich fields for diagnostics
-      const persistableMessages = managed.messages.filter(m =>
-        m.role !== 'status'
-      )
-
-      const storedSession: StoredSession = {
-        ...pickSessionFields(managed),
-        workspaceRootPath: managed.workspace.rootPath,
-        createdAt: managed.createdAt ?? Date.now(),
-        lastUsedAt: Date.now(),
-        messages: persistableMessages.map(messageToStored),
-        tokenUsage: managed.tokenUsage ?? DEFAULT_TOKEN_USAGE,
-      } as StoredSession
-
-      // Queue for async persistence with debouncing
-      sessionPersistenceQueue.enqueue(storedSession)
-    } catch (error) {
-      sessionLog.error(`Failed to queue session ${managed.id} for persistence:`, error)
-    }
-  }
-
-  // Flush a specific session immediately (call on session close/switch).
-  // Cold-persist hydration is synchronous, so by the time we reach here the
-  // queue already has an entry whenever persistSession was just called.
+  // Write a chat's queued changes now. Rejects when the write fails (the queue keeps them and retries).
   async flushSession(sessionId: string): Promise<void> {
     await sessionPersistenceQueue.flush(sessionId)
   }
@@ -2677,14 +2542,6 @@ export class SessionManager implements ISessionManager {
     return result
   }
 
-  /**
-   * Reload all sessions from disk.
-   * Used after importing sessions to refresh the in-memory session list.
-   */
-  reloadSessions(): void {
-    this.loadSessionsFromDisk()
-  }
-
   /** `viewerId` narrows to the chats that user may see; omit it only for server-side callers. */
   getSessions(workspaceId?: string, viewerId?: string | null): Session[] {
     // Returns session metadata only - messages are NOT included to save memory
@@ -2704,7 +2561,7 @@ export class SessionManager implements ISessionManager {
 
   /**
    * Aggregate unread state across all workspaces.
-   * Excludes hidden and archived sessions from counts/indicators.
+   * Excludes archived sessions from counts/indicators.
    */
   getUnreadSummary(viewerId?: string | null): UnreadSummary {
     const byWorkspace: Record<string, number> = {}
@@ -2717,7 +2574,7 @@ export class SessionManager implements ISessionManager {
     }
 
     for (const session of this.sessions.values()) {
-      if (session.hidden || session.isArchived) continue
+      if (session.isArchived) continue
       if (!session.hasUnread || !visible(session)) continue
 
       const workspaceId = session.workspace.id
@@ -2769,27 +2626,35 @@ export class SessionManager implements ISessionManager {
   private unreadViewers = new Set<string>()
 
   /**
-   * Get a single session by ID with all messages loaded.
-   * Used for lazy loading session messages when session is selected.
-   * Messages are loaded from disk on first access to reduce memory usage.
+   * A chat with its messages. Without `page` (server-side callers: messaging, settings), every message; with `page`
+   * (`sessions:getMessages`), the newest `limit` (or the `limit` before `beforeId`) read from the database after the
+   * chat's queued writes, oldest first, with `olderMessageCount`. A streaming answer's partial row is left out: the
+   * live events carry it.
    */
-  async getSession(sessionId: string): Promise<Session | null> {
+  async getSession(sessionId: string, page?: { beforeId?: string; limit?: number }): Promise<Session | null> {
     const m = this.sessions.get(sessionId)
     if (!m) return null
 
-    // Lazy-load messages from disk if not yet loaded
     await this.ensureMessagesLoaded(m)
+    if (!page) return managedToSession(m, { messages: m.messages })
 
-    return managedToSession(m, { messages: m.messages })
+    await this.flushSession(sessionId).catch(() => {
+      // logged and retried by the queue; the page shows what is committed
+    })
+    const { messages, olderCount } = getStoredSessionMessages(m.workspace, sessionId, { beforeId: page.beforeId, limit: page.limit ?? MESSAGES_PAGE_SIZE })
+    return managedToSession(m, {
+      messages: messages.filter(message => !(message as { partial?: boolean }).partial).map(storedToMessage),
+      olderMessageCount: olderCount,
+    })
   }
 
   /**
-   * Ensure messages are loaded for a managed session.
-   * Uses promise deduplication to prevent race conditions when multiple
-   * concurrent calls (e.g., rapid session switches + message send) try
-   * to load messages simultaneously.
+   * Load a chat's messages from the database (once; concurrent callers share the load) and mark it recently used.
+   * Only messages are read: the chat's other fields are in memory since boot and may be ahead of the database.
    */
   private async ensureMessagesLoaded(managed: ManagedSession): Promise<void> {
+    this.loadedChats.delete(managed.id)
+    this.loadedChats.add(managed.id)
     if (managed.messagesLoaded) return
 
     // Deduplicate concurrent loads - return existing promise if already loading
@@ -2798,7 +2663,7 @@ export class SessionManager implements ISessionManager {
       return existingPromise
     }
 
-    const loadPromise = this.loadMessagesFromDisk(managed)
+    const loadPromise = this.loadMessages(managed)
     this.messageLoadingPromises.set(managed.id, loadPromise)
 
     try {
@@ -2806,34 +2671,13 @@ export class SessionManager implements ISessionManager {
     } finally {
       this.messageLoadingPromises.delete(managed.id)
     }
+    this.evictLoadedChats()
   }
 
-  /**
-   * Internal: Load messages from disk storage into the managed session.
-   */
-  private async loadMessagesFromDisk(managed: ManagedSession): Promise<void> {
-    const storedSession = loadStoredSession(managed.workspace.rootPath, managed.id)
+  private async loadMessages(managed: ManagedSession): Promise<void> {
+    const storedSession = loadStoredSession(managed.workspace, managed.id)
     if (storedSession) {
       managed.messages = (storedSession.messages || []).map(storedToMessage)
-      managed.tokenUsage = storedSession.tokenUsage
-      managed.pendingPlanExecution = storedSession.pendingPlanExecution
-      managed.lastReadMessageId = storedSession.lastReadMessageId
-      managed.hasUnread = storedSession.hasUnread  // Explicit unread flag for NEW badge state machine
-      managed.enabledSourceSlugs = storedSession.enabledSourceSlugs
-      managed.sharedUrl = storedSession.sharedUrl
-      managed.sharedId = storedSession.sharedId
-      // Sync name from disk - ensures title persistence across lazy loading
-      managed.name = storedSession.name
-      // Restore LLM connection state - ensures correct provider on resume
-      if (storedSession.llmConnection) {
-        managed.llmConnection = storedSession.llmConnection
-      }
-      if (storedSession.connectionLocked) {
-        managed.connectionLocked = storedSession.connectionLocked
-      }
-      // Sync transferred session summary state from disk
-      managed.transferredSessionSummary = storedSession.transferredSessionSummary
-      managed.transferredSessionSummaryApplied = storedSession.transferredSessionSummaryApplied
       sessionLog.debug(`Lazy-loaded ${managed.messages.length} messages for session ${managed.id}`)
 
       // Queue recovery: find orphaned queued messages from crash/restart and re-queue them
@@ -2861,6 +2705,27 @@ export class SessionManager implements ISessionManager {
       }
     }
     managed.messagesLoaded = true
+  }
+
+  /**
+   * Keeps at most LOADED_CHATS_LIMIT chats' messages in memory: the least recently used beyond it drop theirs (they
+   * load again from the database when needed). A chat that runs a turn, has queued messages or unwritten changes
+   * keeps them.
+   */
+  private evictLoadedChats(): void {
+    for (const sessionId of this.loadedChats) {
+      if (this.loadedChats.size <= LOADED_CHATS_LIMIT) return
+      const managed = this.sessions.get(sessionId)
+      if (!managed) {
+        this.loadedChats.delete(sessionId)
+        continue
+      }
+      if (managed.isProcessing || managed.messageQueue.length > 0 || sessionPersistenceQueue.hasPending(sessionId)) continue
+      managed.messages = []
+      managed.messagesLoaded = false
+      sessionPersistenceQueue.forget(sessionId)
+      this.loadedChats.delete(sessionId)
+    }
   }
 
   /**
@@ -2908,10 +2773,11 @@ export class SessionManager implements ISessionManager {
 
     const userDefaultWorkingDir = wsConfig?.defaults?.workingDirectory || undefined
     // Resolve thinking level with caller-first precedence, matching permissionMode above:
-    //   caller override → workspace default → global default.
+    //   caller override → the chat agent's thinking level → workspace default → global default.
     // normalizeThinkingLevel() tolerates undefined/unknown inputs.
     const defaultThinkingLevel =
       normalizeThinkingLevel(options?.thinkingLevel)
+      ?? (options?.systemPromptPreset === 'mini' ? undefined : normalizeThinkingLevel(getAgentRunConfig(internal?.agentId || options?.agentId, workspace.id)?.thinkingLevel))
       ?? normalizeThinkingLevel(wsConfig?.defaults?.thinkingLevel)
       ?? getDefaultThinkingLevel()
     // Get default model from workspace config (used when no session-specific model is set)
@@ -2945,7 +2811,7 @@ export class SessionManager implements ISessionManager {
       managedModel: resolvedModelOption,
       where: { workspaceId: workspace.id, userId: userIdOf(internal?.createdBy ?? undefined) },
     })
-    const targetPiAuthProvider = targetBackendContext.connection?.piAuthProvider
+    const targetPiAuthProvider = targetBackendContext.connection?.type
 
     // Resolve working directory from options:
     // - 'user_default' or undefined: Use workspace's configured default
@@ -3017,12 +2883,12 @@ export class SessionManager implements ISessionManager {
           throw new Error('Invalid branch request: source session belongs to a different workspace')
         }
 
-        // Flush source session to disk to ensure latest message list is available for branch copy.
+        // Write the source's queued changes so the branch copies its latest messages.
         this.persistSession(sourceManaged)
-        await sessionPersistenceQueue.flush(sourceManaged.id)
+        await this.flushSession(sourceManaged.id)
       }
 
-      const sourceSession = loadStoredSession(workspaceRootPath, options.branchFromSessionId)
+      const sourceSession = loadStoredSession(workspace, options.branchFromSessionId)
       if (!sourceSession) {
         sessionLog.warn('Branch validation failed: source session not found on disk', {
           workspaceId,
@@ -3038,7 +2904,7 @@ export class SessionManager implements ISessionManager {
         where: { workspaceId: workspace.id, userId: userIdOf(internal?.createdBy ?? undefined) },
       })
       // A branch forks the parent's Pi history, so both run on the same Pi provider.
-      const sourcePiAuthProvider = sourceBackendContext.connection?.piAuthProvider
+      const sourcePiAuthProvider = sourceBackendContext.connection?.type
       if (sourcePiAuthProvider !== targetPiAuthProvider) {
         sessionLog.warn('Branch validation failed: source and target providers are incompatible', {
           workspaceId,
@@ -3105,15 +2971,15 @@ export class SessionManager implements ISessionManager {
       })
     }
 
-    // Use storage layer to create and persist the session
-    const storedSession = await createStoredSession(workspaceRootPath, {
+    // The chat's row (and a branch's copied messages, paths kept as `{{SESSION_PATH}}` so they point at the
+    // branch's own folder) in one transaction.
+    const storedSession = createStoredSession(workspace, {
       name: options?.name,
-      createdBy: internal?.createdBy === null ? undefined : internal?.createdBy ?? this.firstOwnerActor(workspaceId),
+      createdBy: internal?.createdBy ?? this.firstOwnerActor(workspaceId),
       // only an agent of this workspace; none = the workspace's default agent
       agentId: [internal?.agentId, options?.agentId].find((id) => id && getAgent(workspace.id, id)),
       permissionMode: defaultPermissionMode,
       workingDirectory: resolvedWorkingDir,
-      hidden: options?.hidden,
       sessionStatus: options?.sessionStatus,
       labels: options?.labels,
       isFlagged: options?.isFlagged,
@@ -3123,63 +2989,33 @@ export class SessionManager implements ISessionManager {
       // The workspace-default fallback stays dynamic — freezing it into the header would
       // pin every ordinary session to the defaults as of its creation time.
       enabledSourceSlugs: options?.enabledSourceSlugs,
+      branch: validatedBranch && {
+        fromSessionId: validatedBranch.sourceSessionId,
+        throughMessageId: validatedBranch.sourceMessageId,
+        branchFromMessageId: validatedBranch.sourceMessageId,
+        branchFromSdkSessionId: validatedBranch.branchFromSdkSessionId,
+        branchFromSessionPath: validatedBranch.branchFromSessionPath,
+        branchFromSdkTurnId: validatedBranch.branchFromSdkTurnId,
+      },
     })
 
-    // Branch: copy messages from source session up to and including the branch point
-    if (validatedBranch) {
-      const branchedStored = loadStoredSession(workspaceRootPath, storedSession.id)
-      if (!branchedStored) {
-        throw new Error(`Failed to load newly created session ${storedSession.id} for branch copy`)
-      }
-
-      const sourceMessages = validatedBranch.sourceSession.messages.slice(0, validatedBranch.branchIdx + 1)
-
-      // Re-map embedded paths: source messages were loaded with expandSessionPath(sourceDir),
-      // so they contain absolute paths to the *source* session directory. When saved to the
-      // branch session, makeSessionPathPortable uses the *branch* dir — which won't match.
-      // Fix: replace source dir paths with branch dir paths so tokenization works on save.
-      const sourceDir = normalizePath(getSessionStoragePath(workspaceRootPath, validatedBranch.sourceSessionId))
-      const branchDir = normalizePath(getSessionStoragePath(workspaceRootPath, storedSession.id))
-      if (sourceDir !== branchDir) {
-        branchedStored.messages = sourceMessages.map(m => {
-          const json = JSON.stringify(m)
-          if (!json.includes(sourceDir)) return m
-          return JSON.parse(json.replaceAll(sourceDir, branchDir)) as StoredMessage
+    // Propagate the Pi turn-anchor sidecar into the branch so a downstream
+    // branch can still resolve anchors for messages copied here from the
+    // source. Without this step, branch-of-branch silently falls back to
+    // full-history fork — see otto#782.
+    if (validatedBranch?.branchContextStrategy === 'sdk-fork') {
+      try {
+        await copyPiTurnAnchorsForBranch(
+          getSessionStoragePath(workspaceRootPath, validatedBranch.sourceSessionId),
+          getSessionStoragePath(workspaceRootPath, storedSession.id),
+          validatedBranch.sourceSession.messages.slice(0, validatedBranch.branchIdx + 1).map((m) => m.id),
+        )
+      } catch (err) {
+        sessionLog.warn('Failed to copy Pi turn-anchors sidecar to branch', {
+          err,
+          sourceSessionId: validatedBranch.sourceSessionId,
+          branchSessionId: storedSession.id,
         })
-      } else {
-        branchedStored.messages = sourceMessages
-      }
-
-      branchedStored.branchFromMessageId = validatedBranch.sourceMessageId
-      if (validatedBranch.branchContextStrategy === 'sdk-fork') {
-        branchedStored.branchFromSdkSessionId = validatedBranch.branchFromSdkSessionId
-        branchedStored.branchFromSessionPath = validatedBranch.branchFromSessionPath
-        branchedStored.branchFromSdkTurnId = validatedBranch.branchFromSdkTurnId
-      } else {
-        delete branchedStored.branchFromSdkSessionId
-        delete branchedStored.branchFromSessionPath
-        delete branchedStored.branchFromSdkTurnId
-      }
-      await saveStoredSession(branchedStored)
-
-      // Propagate the Pi turn-anchor sidecar into the branch so a downstream
-      // branch can still resolve anchors for messages copied here from the
-      // source. Without this step, branch-of-branch silently falls back to
-      // full-history fork — see otto#782.
-      if (validatedBranch.branchContextStrategy === 'sdk-fork') {
-        try {
-          await copyPiTurnAnchorsForBranch(
-            sourceDir,
-            branchDir,
-            branchedStored.messages.map((m) => m.id),
-          )
-        } catch (err) {
-          sessionLog.warn('Failed to copy Pi turn-anchors sidecar to branch', {
-            err,
-            sourceSessionId: validatedBranch.sourceSessionId,
-            branchSessionId: storedSession.id,
-          })
-        }
       }
     }
 
@@ -3209,7 +3045,7 @@ export class SessionManager implements ISessionManager {
       branchFromSessionPath: validatedBranch?.branchFromSessionPath,
       branchFromSdkTurnId: validatedBranch?.branchFromSdkTurnId,
       branchSeedApplied: validatedBranch ? validatedBranch.branchContextStrategy === 'sdk-fork' : undefined,
-      messagesLoaded: !isBranch,  // Branched sessions: lazy-load messages from JSONL
+      messagesLoaded: !isBranch,  // Branched sessions: lazy-load the copied messages
     })
     if (options?.unattended) managed.unattended = true
 
@@ -3249,7 +3085,7 @@ export class SessionManager implements ISessionManager {
               if (m) m.autoRetryPending = undefined
               this.sessions.delete(id)
             },
-            deleteStoredSession,
+            deleteStoredSession: (_rootPath, id) => deleteStoredSession(workspace, id),
           })
 
           throw new Error(
@@ -3267,6 +3103,8 @@ export class SessionManager implements ISessionManager {
     }
 
     this.sessions.set(storedSession.id, managed)
+    // The row was made with the creation options; the resolved model, connection and thinking level follow
+    this.persistSession(managed)
 
     // Initialize session metadata in AutomationSystem for diffing
     const automationSystem = this.automationSystems.get(workspaceRootPath)
@@ -3375,6 +3213,7 @@ export class SessionManager implements ISessionManager {
       workspaceDefaultConnectionSlug: workspaceConfig?.defaults?.defaultLlmConnection,
       managedModel: managed.model,
       where: this.connectionContextOf(managed),
+      agent: agentOf(managed),
     })
     const connection = backendContext.connection
     const sigInput = {
@@ -3446,11 +3285,10 @@ export class SessionManager implements ISessionManager {
       try {
         refreshed = await managed.agent.updateRuntimeConfig({
           model: backendContext.resolvedModel,
-          providerType: connection?.providerType,
           authType: backendContext.authType,
           runtime: connection ? {
             baseUrl: connection.baseUrl,
-            piAuthProvider: connection.piAuthProvider,
+            piAuthProvider: piProviderOf(connection),
             customEndpoint: connection.customEndpoint,
             customModels: connection.models?.map(model => {
               if (typeof model === 'string') return model
@@ -3520,6 +3358,7 @@ export class SessionManager implements ISessionManager {
       workspaceDefaultConnectionSlug: workspaceConfig?.defaults?.defaultLlmConnection,
       managedModel: managed.model,
       where: this.connectionContextOf(managed),
+      agent: agentOf(managed),
     })
     const connection = backendContext.connection
     const sigInput = {
@@ -3551,7 +3390,7 @@ export class SessionManager implements ISessionManager {
       }
 
       if (connection) {
-        sessionLog.info(`Using LLM connection "${connection.slug}" (${connection.piAuthProvider ?? connection.providerType}) for session ${managed.id}`)
+        sessionLog.info(`Using LLM connection "${connection.slug}" (${connection.type}) for session ${managed.id}`)
       } else {
         sessionLog.warn(`No LLM connection found for session ${managed.id}`)
       }
@@ -3627,14 +3466,14 @@ export class SessionManager implements ISessionManager {
           sessionLog.info(`SDK session ID captured for ${managed.id}: ${sdkSessionId}`)
         }
         this.persistSession(managed)
-        sessionPersistenceQueue.flush(managed.id)
+        void this.flushSession(managed.id).catch(() => {}) // a failed write is logged and retried by the queue
       }
 
       const onSdkSessionIdCleared = () => {
         managed.sdkSessionId = undefined
         sessionLog.info(`SDK session ID cleared for ${managed.id} (resume recovery)`)
         this.persistSession(managed)
-        sessionPersistenceQueue.flush(managed.id)
+        void this.flushSession(managed.id).catch(() => {}) // a failed write is logged and retried by the queue
       }
 
       const getRecoveryMessages = () => {
@@ -3714,7 +3553,7 @@ export class SessionManager implements ISessionManager {
         onSdkSessionIdCleared,
         getRecoveryMessages,
         recoverHistory: needsHistoryRecovery(managed, sessionPath),
-        getAgentInstructions: () => agentInstructionsOf(managed),
+        getAgentTurn: () => agentTurnOf(managed),
         getBranchFallbackMessages,
         getBranchSeedMessages,
         markBranchSeedApplied,
@@ -4139,7 +3978,7 @@ export class SessionManager implements ISessionManager {
       // Set up permission handler to forward requests to renderer
       // Guarded-mode risk check (decision model, toggle `guardedMode`), used only while the
       // session is in Guarded mode. Only sessions with someone to answer a prompt are checked:
-      // automations and hidden/mini sessions run unattended, so they run as Execute.
+      // automations and mini sessions run unattended, so they run as Execute.
       managed.agent.guardedModeCheck = buildGuardedModeCheck({
         sessionId: managed.id,
         log: (line) => sessionLog.info(line),
@@ -4837,11 +4676,6 @@ export class SessionManager implements ISessionManager {
       await this.flushSession(managed.id)
       // Notify all windows for this workspace
       this.sendEvent({ type: 'session_flagged', sessionId }, managed.workspace.id)
-      // Workaround: Bun's fs.watch({ recursive: true }) on Linux doesn't track
-      // directories created after the watcher started.
-      // https://github.com/oven-sh/bun/issues/15939
-      const watcher = this.configWatchers.get(managed.workspace.rootPath)
-      watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
     }
   }
 
@@ -4854,11 +4688,6 @@ export class SessionManager implements ISessionManager {
       await this.flushSession(managed.id)
       // Notify all windows for this workspace
       this.sendEvent({ type: 'session_unflagged', sessionId }, managed.workspace.id)
-      // Workaround: Bun's fs.watch({ recursive: true }) on Linux doesn't track
-      // directories created after the watcher started.
-      // https://github.com/oven-sh/bun/issues/15939
-      const watcher = this.configWatchers.get(managed.workspace.rootPath)
-      watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
     }
   }
 
@@ -4868,13 +4697,14 @@ export class SessionManager implements ISessionManager {
       sessionLog.warn(`archiveSession: unknown session ${sessionId} — no-op`)
     }
     if (managed) {
+      // Archived is a status (docs/schema.md): the chat moves to the workspace's `archived` status
       managed.isArchived = true
-      managed.archivedAt = Date.now()
-      // Persist in-memory state directly to avoid race with pending queue writes
+      managed.sessionStatus = 'archived'
       this.persistSession(managed)
       await this.flushSession(managed.id)
       // Notify all windows for this workspace
       this.sendEvent({ type: 'session_archived', sessionId }, managed.workspace.id)
+      this.sendEvent({ type: 'session_status_changed', sessionId, sessionStatus: 'archived' }, managed.workspace.id)
       this.emitUnreadSummaryChanged()
     }
   }
@@ -4885,13 +4715,14 @@ export class SessionManager implements ISessionManager {
       sessionLog.warn(`unarchiveSession: unknown session ${sessionId} — no-op`)
     }
     if (managed) {
+      // Leaving the `archived` status: back to the status new chats get
       managed.isArchived = false
-      managed.archivedAt = undefined
-      // Persist in-memory state directly to avoid race with pending queue writes
+      managed.sessionStatus = getDefaultStatusId(managed.workspace.id)
       this.persistSession(managed)
       await this.flushSession(managed.id)
       // Notify all windows for this workspace
       this.sendEvent({ type: 'session_unarchived', sessionId }, managed.workspace.id)
+      this.sendEvent({ type: 'session_status_changed', sessionId, sessionStatus: managed.sessionStatus }, managed.workspace.id)
       this.emitUnreadSummaryChanged()
     }
   }
@@ -4899,18 +4730,17 @@ export class SessionManager implements ISessionManager {
   async setSessionStatus(sessionId: string, sessionStatus: SessionStatus): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (managed) {
+      const wasArchived = !!managed.isArchived
       managed.sessionStatus = sessionStatus
-      this.setMetadataWriteGuard(managed)
-      // Persist in-memory state directly to avoid race with pending queue writes
+      managed.isArchived = sessionStatus === 'archived'
       this.persistSession(managed)
       await this.flushSession(managed.id)
       // Notify all windows for this workspace
       this.sendEvent({ type: 'session_status_changed', sessionId, sessionStatus }, managed.workspace.id)
-      // Workaround: Bun's fs.watch({ recursive: true }) on Linux doesn't track
-      // directories created after the watcher started.
-      // https://github.com/oven-sh/bun/issues/15939
-      const watcher = this.configWatchers.get(managed.workspace.rootPath)
-      watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
+      if (wasArchived !== managed.isArchived) {
+        this.sendEvent({ type: managed.isArchived ? 'session_archived' : 'session_unarchived', sessionId }, managed.workspace.id)
+        this.emitUnreadSummaryChanged()
+      }
     }
   }
 
@@ -4973,7 +4803,8 @@ export class SessionManager implements ISessionManager {
         awaitingCompaction: true,
         executionDispatched: false,
       }
-      await setStoredPendingPlanExecution(managed.workspace.rootPath, sessionId, planPath, draftInputSnapshot)
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
       sessionLog.info(`Session ${sessionId}: set pending plan execution for ${planPath}`)
     }
   }
@@ -4986,8 +4817,10 @@ export class SessionManager implements ISessionManager {
   async markCompactionComplete(sessionId: string): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (managed) {
-      if (managed.pendingPlanExecution) managed.pendingPlanExecution.awaitingCompaction = false
-      await markStoredCompactionComplete(managed.workspace.rootPath, sessionId)
+      if (!managed.pendingPlanExecution) return
+      managed.pendingPlanExecution.awaitingCompaction = false
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
       sessionLog.info(`Session ${sessionId}: compaction marked complete for pending plan`)
     }
   }
@@ -5003,8 +4836,14 @@ export class SessionManager implements ISessionManager {
       sessionLog.info(`Session ${sessionId}: pending plan dispatch claim rejected (missing or busy)`)
       return false
     }
-    const claimed = await markStoredPendingPlanExecutionDispatched(managed.workspace.rootPath, sessionId)
-    if (claimed && managed.pendingPlanExecution) managed.pendingPlanExecution.executionDispatched = true
+    // The chat's pending plan is in memory (written through); claiming it is a check-and-set there
+    const pending = managed.pendingPlanExecution
+    const claimed = !!pending && !pending.awaitingCompaction && !pending.executionDispatched
+    if (claimed) {
+      pending.executionDispatched = true
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
+    }
     sessionLog.info(`Session ${sessionId}: pending plan execution dispatch claim ${claimed ? 'accepted' : 'rejected'}`)
     return claimed
   }
@@ -5017,8 +4856,11 @@ export class SessionManager implements ISessionManager {
   async clearPendingPlanExecution(sessionId: string): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (managed) {
+      // Nothing pending (the common case: this runs on every user message): no write
+      if (!managed.pendingPlanExecution) return
       delete managed.pendingPlanExecution
-      await clearStoredPendingPlanExecution(managed.workspace.rootPath, sessionId)
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
       sessionLog.info(`Session ${sessionId}: cleared pending plan execution`)
     }
   }
@@ -5030,13 +4872,11 @@ export class SessionManager implements ISessionManager {
   getPendingPlanExecution(sessionId: string): { planPath: string; draftInputSnapshot?: string; awaitingCompaction: boolean; executionDispatched: boolean } | null {
     const managed = this.sessions.get(sessionId)
     if (!managed) return null
-    if (managed.pendingPlanExecution) {
-      return {
-        ...managed.pendingPlanExecution,
-        executionDispatched: managed.pendingPlanExecution.executionDispatched === true,
-      }
+    if (!managed.pendingPlanExecution) return null
+    return {
+      ...managed.pendingPlanExecution,
+      executionDispatched: managed.pendingPlanExecution.executionDispatched === true,
     }
-    return getStoredPendingPlanExecution(managed.workspace.rootPath, sessionId)
   }
 
   /**
@@ -5081,10 +4921,12 @@ export class SessionManager implements ISessionManager {
     this.sendEvent({ type: 'async_operation', sessionId, isOngoing: true }, managed.workspace.id)
 
     try {
-      // Load session directly from disk (already in correct format)
-      const storedSession = loadStoredSession(managed.workspace.rootPath, sessionId)
+      // The chat as stored, after its queued changes are written
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
+      const storedSession = loadStoredSession(managed.workspace, sessionId)
       if (!storedSession) {
-        return { success: false, error: 'Session file not found' }
+        return { success: false, error: 'Session not found' }
       }
 
       const response = await fetch(`${viewerUrl}/s/api`, {
@@ -5106,11 +4948,8 @@ export class SessionManager implements ISessionManager {
       // Store shared info in session
       managed.sharedUrl = data.url
       managed.sharedId = data.id
-      const workspaceRootPath = managed.workspace.rootPath
-      await updateSessionMetadata(workspaceRootPath, sessionId, {
-        sharedUrl: data.url,
-        sharedId: data.id,
-      })
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
 
       sessionLog.info(`Session ${sessionId} shared at ${data.url}`)
       // Notify all windows for this workspace
@@ -5146,10 +4985,12 @@ export class SessionManager implements ISessionManager {
     this.sendEvent({ type: 'async_operation', sessionId, isOngoing: true }, managed.workspace.id)
 
     try {
-      // Load session directly from disk (already in correct format)
-      const storedSession = loadStoredSession(managed.workspace.rootPath, sessionId)
+      // The chat as stored, after its queued changes are written
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
+      const storedSession = loadStoredSession(managed.workspace, sessionId)
       if (!storedSession) {
-        return { success: false, error: 'Session file not found' }
+        return { success: false, error: 'Session not found' }
       }
 
       const response = await fetch(`${viewerUrl}/s/api/${managed.sharedId}`, {
@@ -5211,11 +5052,8 @@ export class SessionManager implements ISessionManager {
       // Clear shared info
       delete managed.sharedUrl
       delete managed.sharedId
-      const workspaceRootPath = managed.workspace.rootPath
-      await updateSessionMetadata(workspaceRootPath, sessionId, {
-        sharedUrl: undefined,
-        sharedId: undefined,
-      })
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
 
       sessionLog.info(`Session ${sessionId} share revoked`)
       // Notify all windows for this workspace
@@ -5393,8 +5231,8 @@ export class SessionManager implements ISessionManager {
 
     // Persist changes
     if (needsPersist) {
-      const workspaceRootPath = managed.workspace.rootPath
-      await updateSessionMetadata(workspaceRootPath, sessionId, updates)
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
       this.emitUnreadSummaryChanged()
     }
   }
@@ -5408,15 +5246,14 @@ export class SessionManager implements ISessionManager {
     if (managed) {
       managed.hasUnread = true
       managed.lastReadMessageId = undefined
-      // Persist to disk
-      const workspaceRootPath = managed.workspace.rootPath
-      await updateSessionMetadata(workspaceRootPath, sessionId, { hasUnread: true, lastReadMessageId: undefined })
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
       this.emitUnreadSummaryChanged()
     }
   }
 
   /**
-   * Mark all non-hidden, non-archived sessions in a workspace as read.
+   * Mark all non-archived sessions in a workspace as read.
    * Called from "Mark All Read" context menu on "All Sessions".
    */
   /** `viewerId` limits it to the chats that user may see; omit it only for server-side callers. */
@@ -5425,13 +5262,12 @@ export class SessionManager implements ISessionManager {
     const visible = viewerId === undefined ? () => true : this.canSee(viewerId)
     for (const managed of this.sessions.values()) {
       if (managed.workspace.id !== workspaceId || !visible(managed)) continue
-      if (managed.hidden || managed.isArchived) continue
+      if (managed.isArchived) continue
       if (managed.isProcessing) continue
       if (!managed.hasUnread) continue
       managed.hasUnread = false
-      updates.push(
-        updateSessionMetadata(managed.workspace.rootPath, managed.id, { hasUnread: false })
-      )
+      this.persistSession(managed)
+      updates.push(this.flushSession(managed.id))
     }
     if (updates.length > 0) {
       await Promise.all(updates)
@@ -5446,11 +5282,6 @@ export class SessionManager implements ISessionManager {
       this.persistSession(managed)
       // Notify renderer of the name change
       this.sendEvent({ type: 'title_generated', sessionId, title: name }, managed.workspace.id)
-      // Workaround: Bun's fs.watch({ recursive: true }) on Linux doesn't track
-      // directories created after the watcher started.
-      // https://github.com/oven-sh/bun/issues/15939
-      const watcher = this.configWatchers.get(managed.workspace.rootPath)
-      watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
     }
   }
 
@@ -5632,12 +5463,8 @@ export class SessionManager implements ISessionManager {
       if (connection && !managed.connectionLocked) {
         managed.llmConnection = connection
       }
-      // Persist to disk (include connection if it was updated)
-      const updates: { model?: string; llmConnection?: string } = { model: model ?? undefined }
-      if (connection && !managed.connectionLocked) {
-        updates.llmConnection = connection
-      }
-      await updateSessionMetadata(managed.workspace.rootPath, sessionId, updates)
+      this.persistSession(managed)
+      await this.flushSession(sessionId)
       // Update agent model if it already exists (takes effect on next query)
       if (managed.agent) {
         // Fallback chain: session model > workspace default > connection default
@@ -5928,8 +5755,9 @@ export class SessionManager implements ISessionManager {
       automationSystem.removeSessionMetadata(sessionId)
     }
 
-    // Delete from disk too
-    deleteStoredSession(workspaceRootPath, sessionId)
+    // Delete its rows and folder too
+    deleteStoredSession(managed.workspace, sessionId)
+    this.loadedChats.delete(sessionId)
 
     // Notify all windows for this workspace that the session was deleted
     this.sendEvent({ type: 'session_deleted', sessionId }, managed.workspace.id, audience)
@@ -5992,8 +5820,7 @@ export class SessionManager implements ISessionManager {
     // awaiting → ready. Any other message remains a safety valve that cancels it.
     const isCompactCommand = /^\/compact(\s|$)/i.test(message.trim())
     if (!isCompactCommand) {
-      delete managed.pendingPlanExecution
-      await clearStoredPendingPlanExecution(managed.workspace.rootPath, sessionId)
+      await this.clearPendingPlanExecution(sessionId)
     }
 
     // Ensure messages are loaded before we try to add new ones
@@ -6376,6 +6203,7 @@ export class SessionManager implements ISessionManager {
         workspaceDefaultConnectionSlug: loadWorkspaceConfig(workspaceRootPath)?.defaults?.defaultLlmConnection,
         managedModel: managed.model,
         where: this.connectionContextOf(managed),
+        agent: agentOf(managed),
       })
       const modelInputAttachments = filterAttachmentsForModelInput(
         attachments,
@@ -6452,7 +6280,7 @@ export class SessionManager implements ISessionManager {
             sessionLog.info(`Captured SDK session ID via fallback: ${sdkId}`)
             // Also flush here since we're in fallback mode
             this.persistSession(managed)
-            sessionPersistenceQueue.flush(managed.id)
+            void this.flushSession(managed.id).catch(() => {}) // a failed write is logged and retried by the queue
           }
         }
 
@@ -6858,7 +6686,8 @@ export class SessionManager implements ISessionManager {
         // User is not watching - mark as unread for NEW badge
         if (!managed.hasUnread) {
           managed.hasUnread = true
-          await updateSessionMetadata(managed.workspace.rootPath, sessionId, { hasUnread: true })
+          this.persistSession(managed)
+          await this.flushSession(sessionId)
           this.emitUnreadSummaryChanged()
         }
       }
@@ -6872,15 +6701,7 @@ export class SessionManager implements ISessionManager {
       await this.setSessionStatus(sessionId, 'done')
     }
 
-    // 4. Apply deferred external metadata updates captured while processing.
-    if (managed.pendingExternalMetadata) {
-      const pendingHeader = managed.pendingExternalMetadata
-      managed.pendingExternalMetadata = undefined
-      sessionLog.info(`Applying deferred external metadata for session ${sessionId} after processing stop`)
-      this.applyExternalSessionMetadata(managed, pendingHeader)
-    }
-
-    // 5. Check queue and process or complete
+    // 4. Check queue and process or complete
     if (managed.messageQueue.length > 0) {
       // Has queued messages - process next
       this.processNextQueuedMessage(sessionId)
@@ -6909,9 +6730,9 @@ export class SessionManager implements ISessionManager {
         hasUnread: managed.hasUnread,  // Propagate unread state to renderer
       }, managed.workspace.id)
 
-      // Hidden/mini sessions have no status worth changing.
+      // Mini sessions have no status worth changing.
       if (reason === 'complete' && didReceiveNewFinalMessage && currentFinalMessageId
-          && !managed.hidden && managed.systemPromptPreset !== 'mini') {
+          && managed.systemPromptPreset !== 'mini') {
         void this.applyTurnOutcome(managed, currentFinalMessageId)
         if (!managed.triggeredBy) void this.refreshTitleIfDrifted(managed)
       }
@@ -7385,21 +7206,14 @@ export class SessionManager implements ISessionManager {
     const managed = this.sessions.get(sessionId)
     if (managed) {
       managed.labels = labels
-      this.setMetadataWriteGuard(managed)
 
       this.sendEvent({
         type: 'labels_changed',
         sessionId: managed.id,
         labels: managed.labels,
       }, managed.workspace.id)
-      // Persist in-memory state directly to avoid race with pending queue writes
       this.persistSession(managed)
       await this.flushSession(managed.id)
-      // Workaround: Bun's fs.watch({ recursive: true }) on Linux doesn't track
-      // directories created after the watcher started.
-      // https://github.com/oven-sh/bun/issues/15939
-      const watcher = this.configWatchers.get(managed.workspace.rootPath)
-      watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
     }
   }
 
@@ -7412,7 +7226,6 @@ export class SessionManager implements ISessionManager {
     const managed = this.sessions.get(sessionId)
     if (managed) {
       managed.projectId = projectId ?? undefined
-      this.setMetadataWriteGuard(managed)
 
       this.sendEvent({
         type: 'project_id_changed',
@@ -7422,8 +7235,6 @@ export class SessionManager implements ISessionManager {
 
       this.persistSession(managed)
       await this.flushSession(managed.id)
-      const watcher = this.configWatchers.get(managed.workspace.rootPath)
-      watcher?.notifyFileChange(`sessions/${sessionId}/session.jsonl`)
     }
   }
 
@@ -7562,8 +7373,11 @@ export class SessionManager implements ISessionManager {
 
     switch (event.type) {
       case 'text_delta':
+        if (!managed.streamingText) managed.streamingStartedAt = this.monotonic()
         managed.streamingText += event.text
         managed.streamingTurnId = event.turnId
+        // The text so far is saved as a partial row (throttled by the write queue, docs/messages-design.md 4)
+        this.persistSession(managed)
         // Queue delta for batched sending (performance: reduces IPC from 50+/sec to ~20/sec)
         this.queueDelta(sessionId, workspaceId, event.text, event.turnId)
         break
@@ -7628,8 +7442,9 @@ export class SessionManager implements ISessionManager {
 
         this.sendEvent({ type: 'text_complete', sessionId, text: event.text, isIntermediate: event.isIntermediate, turnId: event.turnId, parentToolUseId: event.parentToolUseId, timestamp: assistantMessage.timestamp, messageId: assistantMessage.id }, workspaceId)
 
-        // Persist session after complete message to prevent data loss on quit
+        // A finished answer is written at once (in the same transaction that drops its partial row)
         this.persistSession(managed)
+        void this.flushSession(sessionId).catch(() => {}) // a failed write is logged and retried by the queue
         break
       }
 
@@ -7891,8 +7706,9 @@ export class SessionManager implements ISessionManager {
           }
         }
 
-        // Persist session after tool completes to prevent data loss on quit
+        // A finished tool call is written at once
         this.persistSession(managed)
+        void this.flushSession(sessionId).catch(() => {}) // a failed write is logged and retried by the queue
         break
       }
 
@@ -7927,8 +7743,7 @@ export class SessionManager implements ISessionManager {
           managed.messages.push(compactionMessage)
 
           if (isManualCompactionComplete) {
-            if (managed.pendingPlanExecution) managed.pendingPlanExecution.awaitingCompaction = false
-            await markStoredCompactionComplete(managed.workspace.rootPath, sessionId)
+            await this.markCompactionComplete(sessionId)
             sessionLog.info(`Session ${sessionId}: manual compaction complete, marked pending plan ready`)
           }
         }
@@ -8305,8 +8120,7 @@ export class SessionManager implements ISessionManager {
       }
 
       case 'compaction_failed':
-        delete managed.pendingPlanExecution
-        await clearStoredPendingPlanExecution(managed.workspace.rootPath, sessionId)
+        await this.clearPendingPlanExecution(sessionId)
         sessionLog.info(`Session ${sessionId}: compaction failed, cleared pending plan execution`)
         break
 
@@ -8629,6 +8443,7 @@ export class SessionManager implements ISessionManager {
       workspaceDefaultConnectionSlug: wsConfig?.defaults?.defaultLlmConnection,
       managedModel: managed.model || defaultModel,
       where: this.connectionContextOf(managed),
+      agent: agentOf(managed),
     })
 
     const miniModel = backendContext.connection
@@ -8687,7 +8502,7 @@ export class SessionManager implements ISessionManager {
     }
 
     this.persistSession(managed)
-    await sessionPersistenceQueue.flush(sessionId)
+    await this.flushSession(sessionId)
 
     const summary = await this.generateRemoteTransferSummary(managed)
     if (!summary) {
@@ -8729,7 +8544,7 @@ export class SessionManager implements ISessionManager {
     managed.transferredSessionSummary = payload.summary.trim()
     managed.transferredSessionSummaryApplied = false
     this.persistSession(managed)
-    await sessionPersistenceQueue.flush(session.id)
+    await this.flushSession(session.id)
 
     return { sessionId: session.id }
   }
@@ -8760,11 +8575,11 @@ export class SessionManager implements ISessionManager {
       return null
     }
 
-    // Flush pending writes to ensure JSONL is up to date
+    // Write queued changes so the bundle has them
     this.persistSession(managed)
-    await sessionPersistenceQueue.flush(sessionId)
+    await this.flushSession(sessionId)
 
-    const bundle = serializeSession(managed.workspace.rootPath, sessionId)
+    const bundle = serializeSession(managed.workspace, sessionId)
     if (!bundle) {
       sessionLog.error(`[dispatch] Failed to serialize session ${sessionId}`)
       return null
@@ -8779,7 +8594,7 @@ export class SessionManager implements ISessionManager {
    * Steps:
    * 1. Validate bundle structure and target workspace
    * 2. Generate new session ID (fork) or use original (move)
-   * 3. Create session directory and write JSONL + files
+   * 3. Create the chat's rows and its folder's files
    * 4. Register session in-memory
    * 5. Emit session_created event
    * 6. Return new session ID and compatibility warnings
@@ -8810,7 +8625,7 @@ export class SessionManager implements ISessionManager {
     // Determine session ID
     const sessionId = mode === 'move'
       ? bundle.session.header.id
-      : generateSessionId(workspaceRootPath)
+      : createId()
 
     // Check for ID collision on move
     if (mode === 'move' && this.sessions.has(sessionId)) {
@@ -8842,7 +8657,6 @@ export class SessionManager implements ISessionManager {
       llmConnection: header.llmConnection,
       connectionLocked: header.connectionLocked,
       thinkingLevel: header.thinkingLevel,
-      hidden: header.hidden,
       transferredSessionSummary: header.transferredSessionSummary,
       transferredSessionSummaryApplied: header.transferredSessionSummaryApplied,
       messages: bundle.session.messages,
@@ -8858,7 +8672,7 @@ export class SessionManager implements ISessionManager {
       // If found and the session has an sdkSessionId, preserve it for API-level resume.
       // If not, clear SDK state and fall back to transferred session summary.
       const sourceProviderType = header.llmConnection
-        ? getLlmConnection(header.llmConnection)?.piAuthProvider
+        ? getLlmConnection(header.llmConnection)?.type
         : undefined
       const compatibleConnection = sourceProviderType
         ? this.findCompatibleLlmConnection(workspaceRootPath, sourceProviderType)
@@ -8885,7 +8699,7 @@ export class SessionManager implements ISessionManager {
       storedSession.workingDirectory = undefined
     }
 
-    // Check source compatibility (before writing JSONL so fixes are persisted)
+    // Check source compatibility (before writing the rows so fixes are persisted)
     if (storedSession.enabledSourceSlugs?.length) {
       const availableSources = loadWorkspaceSources(workspaceRootPath)
       const availableSlugs = new Set(availableSources.map(s => s.config.slug))
@@ -8912,23 +8726,20 @@ export class SessionManager implements ISessionManager {
       sessionLog.info('[import] No LLM connection in bundle — will use default')
     }
 
-    // Write JSONL file (after compatibility checks so remapped values are persisted)
-    const sessionFile = getSessionFilePath(workspaceRootPath, sessionId)
-    sessionLog.info(`[import] Writing JSONL: ${sessionFile} (llmConnection=${storedSession.llmConnection ?? 'default'}, messages=${storedSession.messages.length})`)
-    writeSessionJsonl(sessionFile, storedSession)
+    // Write the rows (after compatibility checks so remapped values are persisted)
+    sessionLog.info(`[import] Writing chat ${sessionId} (llmConnection=${storedSession.llmConnection ?? 'default'}, messages=${storedSession.messages.length})`)
+    createImportedSession(workspace, storedSession)
 
     // Write all bundle files (attachments, plans, data, downloads, etc.)
     // Uses restoreFiles() for path traversal, size, and base64 validation.
     restoreFiles(sessionDir, bundle.files)
 
-    // Register in-memory — pass session metadata without messages to avoid
-    // StoredMessage[] vs Message[] type mismatch, then convert messages separately
-    const { messages: bundleMessages, ...sessionMeta } = storedSession
+    // Register in-memory; its messages load from the rows when opened (their path tokens resolved to this folder)
+    const { messages: _bundleMessages, ...sessionMeta } = storedSession
     const managed = createManagedSession(sessionMeta, workspace, {
-      messagesLoaded: true,
+      messagesLoaded: false,
       workingDirectory: storedSession.workingDirectory,
     })
-    managed.messages = bundleMessages.map(storedToMessage)
 
     setPermissionMode(sessionId, managed.permissionMode ?? 'ask', { changedBy: 'restore' })
     if (managed.previousPermissionMode) {
@@ -8966,11 +8777,11 @@ export class SessionManager implements ISessionManager {
     const defaultSlug = wsConfig?.defaults?.defaultLlmConnection
     if (defaultSlug) {
       const conn = getLlmConnection(defaultSlug)
-      if (conn?.piAuthProvider === piProvider) return defaultSlug
+      if (conn?.type === piProvider) return defaultSlug
     }
     // Fall back: any connection with the same Pi provider
     const connections = getLlmConnections()
-    const match = connections.find(c => c.piAuthProvider === piProvider)
+    const match = connections.find(c => c.type === piProvider)
     return match?.slug ?? null
   }
 
@@ -8980,6 +8791,8 @@ export class SessionManager implements ISessionManager {
    */
   cleanup(): void {
     sessionLog.info('Cleaning up resources...')
+    this.unsubscribeChatsChange?.()
+    this.unsubscribeChatsChange = undefined
 
     // Stop all ConfigWatchers (file system watchers)
     for (const [path, watcher] of this.configWatchers) {

@@ -19,6 +19,10 @@ export function openDb(path: string = DB_PATH) {
   // switches the journal to WAL.
   sqlite.exec('PRAGMA busy_timeout = 5000')
   sqlite.exec('PRAGMA journal_mode = WAL')
+  // One WAL fsync per commit: a committed chat write survives a power cut (the default on some builds, set anyway)
+  sqlite.exec('PRAGMA synchronous = FULL')
+  // A long transaction cannot leave a huge WAL file behind
+  sqlite.exec('PRAGMA journal_size_limit = 67108864')
   return drizzle(sqlite)
 }
 

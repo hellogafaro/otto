@@ -178,7 +178,6 @@ export const RPC_CHANNELS = {
     LIST: 'LLM_Connection:list',
     LIST_WITH_STATUS: 'LLM_Connection:listWithStatus',
     GET: 'LLM_Connection:get',
-    GET_API_KEY: 'LLM_Connection:getApiKey',
     SAVE: 'LLM_Connection:save',
     DELETE: 'LLM_Connection:delete',
     TEST: 'LLM_Connection:test',
@@ -193,6 +192,9 @@ export const RPC_CHANNELS = {
     GET_AUTH_STATUS: 'chatgpt:getAuthStatus',
     LOGOUT: 'chatgpt:logout',
     DEVICE_CODE: 'chatgpt:deviceCode',
+  },
+  claudeCode: {
+    GET_STATUS: 'claudeCode:getStatus',
   },
   copilot: {
     START_OAUTH: 'copilot:startOAuth',
@@ -214,8 +216,6 @@ export const RPC_CHANNELS = {
   },
   pi: {
     GET_API_KEY_PROVIDERS: 'pi:getApiKeyProviders',
-    GET_PROVIDER_BASE_URL: 'pi:getProviderBaseUrl',
-    GET_PROVIDER_MODELS: 'pi:getProviderModels',
   },
   dialog: {
     OPEN_FOLDER: 'dialog:openFolder',

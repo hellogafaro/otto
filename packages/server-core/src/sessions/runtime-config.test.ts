@@ -6,12 +6,11 @@ import { buildBackendRuntimeSignature, filterAttachmentsForModelInput } from './
 const baseCompat: LlmConnection = {
   slug: 'local',
   name: 'Local',
-  providerType: 'pi_compat',
+  type: 'custom',
   authType: 'none',
   createdAt: 1,
   baseUrl: 'http://127.0.0.1:1234/v1',
   defaultModel: 'gemma',
-  piAuthProvider: 'openai',
   customEndpoint: { api: 'openai-completions', supportsImages: true },
   models: [{ id: 'gemma', supportsImages: true } as never],
 }
@@ -59,7 +58,7 @@ describe('buildBackendRuntimeSignature', () => {
 })
 
 describe('filterAttachmentsForModelInput', () => {
-  it('omits images for pi_compat text-only models while preserving other attachments', () => {
+  it('omits images for custom-endpoint text-only models while preserving other attachments', () => {
     const result = filterAttachmentsForModelInput(
       [imageAttachment, textAttachment],
       { ...baseCompat, models: [{ id: 'gemma', supportsImages: false } as never] },

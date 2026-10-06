@@ -67,3 +67,14 @@ export interface PiComputerExecExit {
   code: number;
   error?: string;
 }
+
+/**
+ * Main → subprocess, on each `prompt`: one of the chat agent's skills as Pi lists it (`<available_skills>`).
+ * `name` is the skill's slug, `filePath` its SKILL.md where the turn's tools read it (`/skills/<slug>/SKILL.md` on
+ * a computer with the skills mount, else the workspace's folder on the host).
+ */
+export interface PiTurnSkill {
+  name: string;
+  description: string;
+  filePath: string;
+}

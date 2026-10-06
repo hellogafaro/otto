@@ -141,7 +141,7 @@ mock.module('@otto/shared/agent/backend', () => ({
   },
   resolveBackendContext: () => ({
     resolvedModel: 'pi/gpt-5',
-    connection: { providerType: 'pi', piAuthProvider: 'openai' },
+    connection: { type: 'openai' },
   }),
   createBackendFromResolvedContext: () => {
     throw new Error('not used in this test')
@@ -197,11 +197,8 @@ mock.module('@otto/shared/automations', () => ({
 mock.module('@otto/shared/sessions', () => ({
   ...actualSharedSessionsModule,
   listSessions: () => [],
-  loadSession: (_root: string, id: string) => storedById.get(id) ?? null,
-  saveSession: async (session: any) => {
-    storedById.set(session.id, session)
-  },
-  createSession: async (_root: string, opts: any) => {
+  loadSession: (_workspace: unknown, id: string) => storedById.get(id) ?? null,
+  createSession: (_workspace: unknown, opts: any) => {
     const id = `child-${++idCounter}`
     const now = Date.now()
     const session = {
@@ -210,7 +207,6 @@ mock.module('@otto/shared/sessions', () => ({
       messages: [],
       permissionMode: opts?.permissionMode ?? 'ask',
       workingDirectory: opts?.workingDirectory,
-      hidden: !!opts?.hidden,
       labels: [],
       isFlagged: false,
       sessionStatus: opts?.sessionStatus,
@@ -221,29 +217,24 @@ mock.module('@otto/shared/sessions', () => ({
     storedById.set(id, session)
     return session
   },
-  deleteSession: async (_root: string, id: string) => {
+  deleteSession: (_workspace: unknown, id: string) => {
     deletedIds.push(id)
     storedById.delete(id)
+    return true
   },
-  updateSessionMetadata: async () => {},
-  setPendingPlanExecution: async () => {},
-  markCompactionComplete: async () => {},
-  clearPendingPlanExecution: async () => {},
-  getPendingPlanExecution: async () => null,
   getSessionPath: (_root: string, id: string) => `${workspaceRootPath}/sessions/${id}`,
-  getOrCreateLatestSession: async () => null,
-  sessionPersistenceQueue: { flush: async () => {} },
+  sessionPersistenceQueue: { enqueue: () => {}, flush: async () => {}, flushAll: async () => {}, cancel: () => {}, forget: () => {}, hasPending: () => false },
   pickSessionFields: (s: any) => {
     // Must match SESSION_PERSISTENT_FIELDS to prevent contamination of persistence tests
     const fields = [
       'id','workspaceRootPath','sdkSessionId',
       'createdAt','lastUsedAt','lastMessageAt',
-      'name','isFlagged','sessionStatus','labels','hidden',
+      'name','isFlagged','sessionStatus','labels',
       'lastReadMessageId','hasUnread',
       'enabledSourceSlugs','permissionMode','previousPermissionMode','workingDirectory',
       'model','llmConnection','connectionLocked','thinkingLevel',
       'sharedUrl','sharedId','pendingPlanExecution',
-      'isArchived','archivedAt',
+      'isArchived',
       'branchFromMessageId','branchFromSdkSessionId','branchFromSessionPath',
     ]
     const result: Record<string, unknown> = {}
