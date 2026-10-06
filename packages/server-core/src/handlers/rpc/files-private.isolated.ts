@@ -78,7 +78,7 @@ beforeAll(async () => {
   createWorkspaceMember(a.id, 'u1', 'owner')
   createWorkspaceMember(a.id, 'u2', 'member')
   createWorkspaceMember(b.id, 'u2', 'owner')
-  execSync('git init -q -b main && git -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init', { cwd: (mkdirSync(rootB, { recursive: true }), rootB) })
+  execSync('git init -q -b main && git -c user.email=t@example.com -c user.name=t -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --no-verify --allow-empty -m init', { cwd: (mkdirSync(rootB, { recursive: true }), rootB) })
 
   const link = join(workdir, 'innocent.txt')
   symlinkSync(join(configDir, 'config.json'), link) // saveConfig wrote it; never overwrite it
