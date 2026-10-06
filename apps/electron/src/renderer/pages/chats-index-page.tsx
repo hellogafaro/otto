@@ -365,7 +365,9 @@ export default function ChatsIndexPage() {
               )}
             </NoResults>
           ) : (
-            <PageWrap>
+            // Otto: TEST (DESIGN.md, PageWrap): the v1 table, square, inside the line wrapper with 12px
+            // padding instead of flush against it; Tasks and Inbox keep the flush wrapper. Revert: drop `className`.
+            <PageWrap className="p-3">
               {groups.map((g) => (
                 <ListGroup
                   key={g.status.id}

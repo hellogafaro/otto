@@ -894,6 +894,13 @@ no shadow.
   three `ListRowSkeleton`s (a row's 44px and grid: a 14px dot, a title bar,
   both `foreground/10`: the stock `bg-muted` is lighter than the frame in
   light) sit in the wrapper where the list will be.
+  **TEST, not the standard:** the Chats index tries the v1 table square, inside
+  a 12px-padded line wrapper (`PageWrap className="p-3"` in
+  `chats-index-page.tsx`): its group bands, hairlines and row fills end 12px
+  short of the line on every side, with square corners and no clipping (8px
+  crowded the 20px corner, 16px cost too much width at 390). Tasks and Inbox
+  keep the flush wrapper; compare, then decide. Reverting is dropping that
+  `className` and this note.
 - **Index pages.** Sub-navigation is an index page before the detail, never a
   sidebar list: a data page of a grouped list or a grid of links that opens the
   detail. Chats opens on its index (`ChatsIndexPage`: the title row's ghost Filter, then
