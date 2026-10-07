@@ -2998,6 +2998,11 @@ or make-default action while that runtime is selected. They are not converted
 or deleted. Account catalog entries are candidates; only a completed inference
 check may be called connection validation.
 
+Native transcripts and tool cards project one official history. Reload preserves
+attribution and completed actions. Native branching is hidden until supported;
+queued input is not called delivered steering. Restart shows interrupted work
+and never silently replays a pending action or approval.
+
 - Do change shared looks in the `packages/ui` component with an `// Otto:`
   comment; don't override colors or type on one instance.
 - Do use only the spacing scale, the two insets, 32px bar controls and 28px

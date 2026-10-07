@@ -1,8 +1,14 @@
 import { initDb, type Db } from '../db/index.ts'
 import { debug } from '../utils/debug.ts'
 import { writeChat, type ChatSnapshot } from './chats.ts'
-import { initMessages, toMessageRow, writeMessages, type MessageUpsert } from './messages.ts'
+import {
+  initMessages,
+  toMessageRow,
+  writeMessages,
+  type MessageUpsert,
+} from './messages.ts'
 import type { StoredMessage } from './types.ts'
+import { assertHistoryRuntime } from './native-messages.ts'
 
 /** What a chat looks like at flush time: the queue asks for it then, so a burst of changes is one batch. */
 export interface ChatWrite {
@@ -11,6 +17,7 @@ export interface ChatWrite {
   sessionDir: string
   /** Every message the server holds for the chat; absent when they are not loaded (only the chat row is written). */
   messages?: StoredMessage[]
+  writeNativeMessages?: (messages: StoredMessage[]) => Promise<void>
 }
 
 interface WrittenRow {
@@ -30,9 +37,13 @@ interface PendingWrite {
 }
 
 const isFinal = (message: StoredMessage) =>
-  message.type === 'user' || (message.type === 'assistant' && !message.isIntermediate && !(message as { partial?: boolean }).partial)
+  message.type === 'user' ||
+  (message.type === 'assistant' &&
+    !message.isIntermediate &&
+    !(message as { partial?: boolean }).partial)
 
-const hashRow = (type: string, content: string) => Bun.hash(`${type}\0${content}`)
+const hashRow = (type: string, content: string) =>
+  Bun.hash(`${type}\0${content}`)
 
 /**
  * The write path of chats (docs/messages-design.md section 4). Callers enqueue a chat after changing it; at most
@@ -48,11 +59,16 @@ const hashRow = (type: string, content: string) => Bun.hash(`${type}\0${content}
 export class ChatPersistenceQueue {
   private pending = new Map<string, PendingWrite>()
   private written = new Map<string, WrittenChat>()
+  private writing = new Map<string, Promise<void>>()
   private readonly debounceMs: number
   private readonly retryMs: number
   private readonly db: () => Db
 
-  constructor({ debounceMs = 500, retryMs = 1000, db = () => initDb() }: { debounceMs?: number; retryMs?: number; db?: () => Db } = {}) {
+  constructor({
+    debounceMs = 500,
+    retryMs = 1000,
+    db = () => initDb(),
+  }: { debounceMs?: number; retryMs?: number; db?: () => Db } = {}) {
     this.debounceMs = debounceMs
     this.retryMs = retryMs
     this.db = db
@@ -60,6 +76,7 @@ export class ChatPersistenceQueue {
 
   /** Marks a chat to be written; `snapshot` is called when the write happens. */
   enqueue(chatId: string, snapshot: () => ChatWrite): void {
+    assertHistoryRuntime(this.db())
     const entry = this.pending.get(chatId)
     if (entry) {
       entry.snapshot = snapshot
@@ -76,26 +93,47 @@ export class ChatPersistenceQueue {
 
   /** Writes a pending chat now. Rejects when the write fails (the chat stays pending and is retried). */
   async flush(chatId: string): Promise<void> {
+    const prior = this.writing.get(chatId)
+    if (prior) await prior.catch(() => {})
     const entry = this.pending.get(chatId)
     if (!entry) return
     clearTimeout(entry.timer)
     this.pending.delete(chatId)
-    try {
-      this.write(chatId, entry.snapshot())
-    } catch (error) {
-      console.error(`[chats] writing chat ${chatId} failed; retrying in ${this.retryMs} ms:`, error)
-      if (!this.pending.has(chatId)) {
-        entry.timer = setTimeout(() => {
-          this.flush(chatId).catch(() => {})
-        }, this.retryMs)
-        this.pending.set(chatId, entry)
+    const run = (async () => {
+      try {
+        const snapshot = entry.snapshot()
+        if (snapshot.writeNativeMessages && snapshot.messages) {
+          await snapshot.writeNativeMessages(snapshot.messages)
+          snapshot.messages = undefined
+        }
+        this.write(chatId, snapshot)
+      } catch (error) {
+        console.error(
+          `[chats] writing chat ${chatId} failed; retrying in ${this.retryMs} ms:`,
+          error,
+        )
+        if (!this.pending.has(chatId)) {
+          entry.timer = setTimeout(() => {
+            this.flush(chatId).catch(() => {})
+          }, this.retryMs)
+          this.pending.set(chatId, entry)
+        }
+        throw error
       }
-      throw error
+    })()
+    this.writing.set(chatId, run)
+    try {
+      await run
+    } finally {
+      if (this.writing.get(chatId) === run) this.writing.delete(chatId)
     }
   }
 
   /** Writes every pending chat (quit). A chat that fails stays pending; the rest are still written. */
   async flushAll(): Promise<void> {
+    await Promise.all(
+      [...this.writing.values()].map((write) => write.catch(() => {})),
+    )
     for (const chatId of [...this.pending.keys()]) {
       await this.flush(chatId).catch(() => {})
     }
@@ -109,9 +147,16 @@ export class ChatPersistenceQueue {
   }
 
   /** Records what the database holds for a chat just read from it, so the next flush writes only what changes. */
-  seed(chatId: string, rows: { id: string; type: string; content: string; created_at: number }[]): void {
+  seed(
+    chatId: string,
+    rows: { id: string; type: string; content: string; created_at: number }[],
+  ): void {
     const known = new Map<string, WrittenRow>()
-    for (const row of rows) known.set(row.id, { hash: hashRow(row.type, row.content), createdAt: row.created_at })
+    for (const row of rows)
+      known.set(row.id, {
+        hash: hashRow(row.type, row.content),
+        createdAt: row.created_at,
+      })
     this.written.set(chatId, { ...this.written.get(chatId), rows: known })
   }
 
@@ -128,7 +173,10 @@ export class ChatPersistenceQueue {
     return this.pending.size
   }
 
-  private write(chatId: string, { chat, sessionDir, messages }: ChatWrite): void {
+  private write(
+    chatId: string,
+    { chat, sessionDir, messages }: ChatWrite,
+  ): void {
     const db = this.db()
     initMessages(db)
     const known = this.written.get(chatId)
@@ -145,27 +193,45 @@ export class ChatPersistenceQueue {
         const hash = hashRow(row.type, row.content)
         rows!.set(row.id, { hash, createdAt: row.createdAt })
         const before = known?.rows.get(row.id)
-        if (before && before.hash === hash && before.createdAt === row.createdAt) {
+        if (
+          before &&
+          before.hash === hash &&
+          before.createdAt === row.createdAt
+        ) {
           changed.delete(row.id)
           return
         }
-        changed.set(row.id, { ...row, reposition: !before || before.createdAt !== row.createdAt, index })
+        changed.set(row.id, {
+          ...row,
+          reposition: !before || before.createdAt !== row.createdAt,
+          index,
+        })
         if (isFinal(message)) newestAt = Math.max(newestAt, row.createdAt)
       })
-      upserts.push(...[...changed.values()].sort((a, b) => a.createdAt - b.createdAt || a.index - b.index))
+      upserts.push(
+        ...[...changed.values()].sort(
+          (a, b) => a.createdAt - b.createdAt || a.index - b.index,
+        ),
+      )
       if (known) removed = [...known.rows.keys()].filter((id) => !rows!.has(id))
     }
     const labels = JSON.stringify(chat.labels ?? [])
     const labelsChanged = known?.labels !== labels
     db.transaction(
       (tx) => {
-        if (upserts.length || removed.length) writeMessages(tx, chat.workspaceId, chatId, upserts, removed)
-        writeChat(tx, chat, { newestAt, labels: labelsChanged ? (chat.labels ?? []) : undefined })
+        if (upserts.length || removed.length)
+          writeMessages(tx, chat.workspaceId, chatId, upserts, removed)
+        writeChat(tx, chat, {
+          newestAt,
+          labels: labelsChanged ? (chat.labels ?? []) : undefined,
+        })
       },
       { behavior: 'immediate' },
     )
     this.written.set(chatId, { rows: rows ?? new Map(), labels })
-    debug(`[chats] wrote ${chatId}: ${upserts.length} rows, ${removed.length} removed`)
+    debug(
+      `[chats] wrote ${chatId}: ${upserts.length} rows, ${removed.length} removed`,
+    )
   }
 }
 

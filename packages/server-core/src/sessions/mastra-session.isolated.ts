@@ -118,4 +118,36 @@ it('uses the creator-scoped key, native Responses stream, existing events and re
   recovered.members = recovered.members.filter((member) => member.actor !== actor)
   await manager.sendMessage(stored.id, `agent:${agent.id} blocked`, undefined, undefined, { sender: `user:${other}` })
   expect(requests).toHaveLength(2)
+  recovered.members = [{ actor, readAt: null }, { actor: `agent:${agent.id}`, readAt: null }]
+  let releaseDeleted!: () => void
+  let deletionStarted!: () => void
+  const deletionPreparing = new Promise<void>((resolve) => { deletionStarted = resolve })
+  credentials.getLlmApiKey = async () => {
+    deletionStarted()
+    await new Promise<void>((resolve) => { releaseDeleted = resolve })
+    throw new Error('Delayed deleted run')
+  }
+  const deletingRun = manager.sendMessage(stored.id, 'Delete while preparing.', undefined, undefined, { sender: actor })
+  await deletionPreparing
+  let releasePersistence!: () => void
+  let persistenceStarted!: () => void
+  const persistencePreparing = new Promise<void>((resolve) => { persistenceStarted = resolve })
+  const flush = manager.flushSession.bind(manager)
+  manager.flushSession = async (id) => {
+    persistenceStarted()
+    await new Promise<void>((resolve) => { releasePersistence = resolve })
+    await flush(id)
+  }
+  const deleted = manager.deleteSession(stored.id, human)
+  await persistencePreparing
+  await expect(manager.sendMessage(stored.id, 'New send while deleting.', undefined, undefined, { sender: actor })).rejects.toThrow('not found')
+  releasePersistence()
+  releaseDeleted()
+  await Promise.all([deleted, deletingRun])
+  manager.flushSession = flush
+  credentials.getLlmApiKey = getKey
+  await manager.flushAllSessions()
+  expect(initDb().$client.query('SELECT count(*) n FROM chats WHERE id=?').get(stored.id)).toEqual({n:0})
+  expect(initDb().$client.query('SELECT count(*) n FROM mastra_threads WHERE id=?').get(stored.id)).toEqual({n:0})
+  expect(initDb().$client.query('SELECT count(*) n FROM mastra_messages WHERE thread_id=?').get(stored.id)).toEqual({n:0})
 })

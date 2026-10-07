@@ -9,6 +9,7 @@ import { deleteMessages } from './messages.ts'
 import { deleteChatMembers, updateMembersAgent } from './members.ts'
 import type { PiSessionRef } from './pi-session-sync.ts'
 import { chats, chatsMembers } from './schema.ts'
+import { assertHistoryRuntime } from './native-messages.ts'
 import type { SessionConfig, SessionMetadata, SessionTokenUsage } from './types.ts'
 
 /**
@@ -212,6 +213,7 @@ export function getChats(
   { actor, chatId }: { actor?: string; chatId?: string } = {},
   db: Db | Tx = initDb(),
 ): SessionMetadata[] {
+  assertHistoryRuntime(db)
   const rows = db
     .select()
     .from(chats)
@@ -226,7 +228,13 @@ export function getChats(
   if (!rows.length) return []
   const derived = new Map(
     db
-      .all<ListRow>(sql`
+      .all<ListRow>(process.env.OTTO_MASTRA_CHAT==='1' && db.all(sql`SELECT name FROM sqlite_master WHERE name='mastra_messages'`).length ? sql`
+        SELECT c.id,
+          (SELECT count(*) FROM mastra_messages m WHERE m.thread_id=c.id AND m.resourceId=c.workspace_id) AS message_count,
+          (SELECT json_extract(m.content,'$.metadata.otto.type') FROM mastra_messages m WHERE m.thread_id=c.id AND m.resourceId=c.workspace_id ORDER BY CAST(json_extract(m.content,'$.metadata.position') AS INTEGER) DESC LIMIT 1) AS last_type,
+          (SELECT json_extract(m.content,'$.metadata.otto.content') FROM mastra_messages m WHERE m.thread_id=c.id AND m.resourceId=c.workspace_id AND json_extract(m.content,'$.metadata.otto.type')='user' ORDER BY CAST(json_extract(m.content,'$.metadata.position') AS INTEGER) LIMIT 1) AS first_user,
+          (SELECT json_extract(m.content,'$.metadata.otto.id') FROM mastra_messages m WHERE m.thread_id=c.id AND m.resourceId=c.workspace_id AND json_extract(m.content,'$.metadata.otto.type')='assistant' AND coalesce(json_extract(m.content,'$.metadata.otto.isIntermediate'),0)=0 ORDER BY CAST(json_extract(m.content,'$.metadata.position') AS INTEGER) DESC LIMIT 1) AS last_final_id
+        FROM chats c WHERE c.workspace_id=${workspaceId} ${chatId===undefined?sql``:sql`AND c.id=${chatId}`}` : sql`
         SELECT c.id,
           (SELECT count(*) FROM messages m WHERE m.chat_id = c.id) AS message_count,
           (SELECT m.type FROM messages m WHERE m.chat_id = c.id ORDER BY m.position DESC LIMIT 1) AS last_type,

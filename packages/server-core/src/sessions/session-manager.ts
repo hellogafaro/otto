@@ -26,6 +26,9 @@ import { isValidWorkingDirectory } from '../utils/path-validation'
 import { InitGate } from '@otto/server-core/domain'
 import { onConnectionsChange } from '@otto/shared/connections'
 import { i18n } from '@otto/shared/i18n'
+import { initDb } from '@otto/shared/db'
+import { assertHistoryRuntime } from '../../../shared/src/sessions/native-messages.ts'
+import { assertLegacyHistoryImported, writeMastraHistory, recoverMastraHistory, closeMastraHistory, deleteMastraHistory } from './mastra-history.ts'
 import {
   getWorkspaces,
   getWorkspaceByNameOrId,
@@ -1057,6 +1060,7 @@ function actorName(workspaceId: string, actor: string): string {
  * Prefers the live agent instance; falls back to true for all backends.
  */
 function resolveSupportsBranching(managed: ManagedSession): boolean {
+  if(process.env.OTTO_MASTRA_CHAT==='1')return false
   // If agent is live, use its instance property (authoritative)
   if (managed.agent) {
     return managed.agent.supportsBranching
@@ -2039,6 +2043,7 @@ export class SessionManager implements ISessionManager {
   }
 
   async initialize(): Promise<void> {
+    assertHistoryRuntime()
     // Large tool results (decision model, toggle `largeResults`): the process-wide gate asks
     // whether a summary is needed before the summarization call; it no-ops while the toggle is off.
     setLargeResultSummaryGate(buildLargeResultSummaryGate({ log: (line) => sessionLog.info(line) }))
@@ -2059,7 +2064,12 @@ export class SessionManager implements ISessionManager {
       }
 
       // A turn that was running when the server stopped: its partial answer and tool calls become interrupted
-      const recovered = runChatsRecovery()
+      if(process.env.OTTO_MASTRA_CHAT==='1'){
+        for(const workspace of workspaces)assertLegacyHistoryImported(workspace.id)
+        const running=initDb().$client.query('SELECT id,workspace_id FROM chats WHERE run_started_at IS NOT NULL').all() as {id:string;workspace_id:string}[]
+        for(const row of running){const workspace=getWorkspaces().find((workspace)=>workspace.id===row.workspace_id);if(!workspace)throw new Error('Running native chat has no workspace.');await recoverMastraHistory({workspaceId:row.workspace_id,chatId:row.id,sessionDir:getSessionStoragePath(workspace.rootPath,row.id)})}
+      }
+      const recovered = process.env.OTTO_MASTRA_CHAT==='1'?{chats:0,partial:0,tools:0}:runChatsRecovery()
       if (recovered.chats) sessionLog.info(`Recovered ${recovered.chats} interrupted chats (${recovered.partial} partial answers, ${recovered.tools} tool calls)`)
       // Every chat has members (creator, agent, senders) before the rows load; a chat without them gets them once
       const backfilled = initChatMembers((workspaceId) => getDefaultAgent(workspaceId)?.id)
@@ -2190,7 +2200,7 @@ export class SessionManager implements ISessionManager {
         partial: true,
       } as StoredMessage & { partial: true })
     }
-    return { chat, sessionDir, messages }
+    return { chat, sessionDir, messages, ...(process.env.OTTO_MASTRA_CHAT==='1'?{writeNativeMessages:(snapshot:StoredMessage[])=>writeMastraHistory({workspaceId:managed.workspace.id,chatId:managed.id,title:managed.name,sessionDir,messages:snapshot})}:{}) }
   }
 
   // Write a chat's queued changes now. Rejects when the write fails (the queue keeps them and retries).
@@ -2202,6 +2212,8 @@ export class SessionManager implements ISessionManager {
   async flushAllSessions(): Promise<void> {
     await sessionPersistenceQueue.flushAll()
   }
+
+  async closeNativeHistory():Promise<void>{await closeMastraHistory()}
 
   // ============================================
   // Unified Auth Request Helpers
@@ -2594,6 +2606,7 @@ export class SessionManager implements ISessionManager {
   }
 
   private async loadMessages(managed: ManagedSession): Promise<void> {
+    if(process.env.OTTO_MASTRA_CHAT==='1')assertLegacyHistoryImported(managed.workspace.id,managed.id)
     const storedSession = loadStoredSession(managed.workspace, managed.id)
     if (storedSession) {
       managed.messages = (storedSession.messages || []).map(storedToMessage)
@@ -2604,6 +2617,11 @@ export class SessionManager implements ISessionManager {
         m.role === 'user' && m.isQueued === true
       )
       if (orphanedQueued.length > 0) {
+        if(process.env.OTTO_MASTRA_CHAT==='1'){
+          for(const message of orphanedQueued){message.isQueued=false}
+          managed.messagesLoaded=true;this.persistSession(managed);await this.flushSession(managed.id)
+          return
+        }
         sessionLog.info(`Recovering ${orphanedQueued.length} queued message(s) for session ${managed.id}`)
         for (const msg of orphanedQueued) {
           managed.messageQueue.push({
@@ -2794,6 +2812,7 @@ export class SessionManager implements ISessionManager {
     } | undefined
 
     if (options?.branchFromSessionId || options?.branchFromMessageId) {
+      if(process.env.OTTO_MASTRA_CHAT==='1')throw new Error('Native history branching is not supported in this checkpoint; the source chat is unchanged.')
       if (!options.branchFromSessionId || !options.branchFromMessageId) {
         sessionLog.warn('Branch validation failed: missing branchFromSessionId or branchFromMessageId', {
           workspaceId,
@@ -5239,6 +5258,12 @@ export class SessionManager implements ISessionManager {
     if (callerId !== undefined && managed.createdBy !== `user:${callerId}`) throw domainError('forbidden', 'Only the creator of a chat can delete it; leave it instead')
 
     managed.mastraAbort?.abort()
+    if(process.env.OTTO_MASTRA_CHAT==='1'){
+      managed.processingGeneration++
+      managed.messageQueue=[]
+      this.setProcessing(managed,false)
+      this.sessions.delete(sessionId)
+    }
     // Get workspace slug before deleting
     const workspaceRootPath = managed.workspace.rootPath
 
@@ -5279,6 +5304,7 @@ export class SessionManager implements ISessionManager {
     this.clearPendingPermissionRequestsForSession(sessionId)
 
     // Cancel any pending persistence write (session is being deleted, no need to save)
+    if(process.env.OTTO_MASTRA_CHAT==='1'){await this.flushSession(sessionId);await deleteMastraHistory(managed.workspace.id,sessionId)}
     sessionPersistenceQueue.cancel(sessionId)
 
     // Clean up session-scoped tool callbacks to prevent memory accumulation
@@ -7402,7 +7428,8 @@ export class SessionManager implements ISessionManager {
 
         // A finished tool call is written at once
         this.persistSession(managed)
-        void this.flushSession(sessionId).catch(() => {}) // a failed write is logged and retried by the queue
+        if(process.env.OTTO_MASTRA_CHAT==='1')await this.flushSession(sessionId)
+        else void this.flushSession(sessionId).catch(() => {})
         break
       }
 

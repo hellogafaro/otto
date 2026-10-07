@@ -34,6 +34,7 @@ import { addChatMembers } from './members.ts';
 import { getDefaultAgent } from '../agents/index.ts';
 import { copyMessages, fromMessageRow, getMessageRows, getMessagesPage, initMessages, toMessageRow, writeMessages } from './messages.ts';
 import { sessionPersistenceQueue } from './persistence-queue.ts';
+import { getNativeMessages, assertHistoryRuntime } from './native-messages.ts';
 
 // Re-export types for convenience
 export type { SessionConfig } from './types.ts';
@@ -163,6 +164,7 @@ export function createSession(
   },
   db: Db = initDb(),
 ): SessionConfig {
+  assertHistoryRuntime(db)
   const now = Date.now();
   const sessionId = crypto.randomUUID();
   ensureSessionDir(workspace.rootPath, sessionId);
@@ -219,10 +221,12 @@ export function createImportedSession(workspace: ChatWorkspace, session: StoredS
  * this chat stores only what changed.
  */
 export function loadSession(workspace: ChatWorkspace, sessionId: string, db: Db = initDb()): StoredSession | null {
+  assertHistoryRuntime(db)
   const end = perf.start('session.loadSession', { sessionId });
   try {
     const chat = getChat(workspace.id, workspace.rootPath, sessionId, db);
     if (!chat) return null;
+    if (process.env.OTTO_MASTRA_CHAT === '1') return { ...chat, messages: getNativeMessages(workspace.id,sessionId,getSessionPath(workspace.rootPath,sessionId),db), tokenUsage: chat.tokenUsage ?? { ...EMPTY_TOKEN_USAGE } } as StoredSession;
     const rows = getMessageRows(workspace.id, sessionId, db);
     sessionPersistenceQueue.seed(sessionId, rows);
     const sessionDir = getSessionPath(workspace.rootPath, sessionId);
@@ -242,6 +246,14 @@ export function loadSession(workspace: ChatWorkspace, sessionId: string, db: Db 
 
 /** A page of a chat's messages, oldest first (see `getMessagesPage`). */
 export function getSessionMessages(workspace: ChatWorkspace, sessionId: string, options: { beforeId?: string; limit?: number } = {}, db: Db = initDb()) {
+  assertHistoryRuntime(db)
+  if(process.env.OTTO_MASTRA_CHAT==='1'){
+    const all=getNativeMessages(workspace.id,sessionId,getSessionPath(workspace.rootPath,sessionId),db)
+    const before=options.beforeId?all.findIndex((message)=>message.id===options.beforeId):all.length
+    const end=before<0?all.length:before
+    const start=Math.max(0,end-(options.limit??50))
+    return {messages:all.slice(start,end),olderCount:start}
+  }
   return getMessagesPage(workspace.id, sessionId, getSessionPath(workspace.rootPath, sessionId), options, db);
 }
 

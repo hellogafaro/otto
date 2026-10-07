@@ -402,3 +402,35 @@ preserve unconverted records. `docs/uuid-conversion.md` defines the bounded offl
 procedure, with explicit reference/cipher mapping and hard refusal for remote/outside
 roots or populated vendor state. No real install was converted. Common generation is
 implemented; live persisted-data migration remains an explicit execution step.
+
+## Canonical native transcript checkpoint
+
+New native-flag chats now have one transcript/tool-history in official `mastra_messages`,
+scoped by workspace resource and chat thread. The UI projects attributed message fields
+and ordered tool metadata from those rows; the existing app chat row owns membership,
+status, usage totals and routing, not a second transcript. The current app write queue
+calls the official writer then writes metadata only. Model history reads that same
+projection; runtime auto-memory is not a second writer. Paging, list preview/count,
+search audience and completed tool outcomes use the native table for these chats.
+
+Verified legacy importer is explicit and tested on disposable data only after UUID and
+secret mapping. It refuses tree/unknown entries or conflicting native history, verifies
+all projected rows, then deletes app message/search rows. Boot/lazy load refuses legacy
+rows unchanged rather than auto-converting a real install. Enabling Pi after native
+threads exist also refuses before reads/new writes; no silent empty-history fallback.
+
+Control remains minimal: new input queues, Stop aborts cooperative work, per-call
+approval is transient. Restart closes pending/queued work without automatic replay,
+preserves completed effects and marks uncertain running tools as possibly executed.
+This is interrupted-run recovery, not beta durable checkpoints or exactly-once effects.
+Deleting a chat invalidates/removes the accepting run before awaiting persistence,
+drains its final writer, then removes native history. Unsupported native branching is
+hidden by the existing capability flag and refused server-side.
+
+History fixtures cover import after UUID/secret mapping, attribution, paging/search,
+concurrent separate-chat writes, storage-only failure retry, flag-off refusal and old/
+new-run deletion races. Production browser created approved work, reloaded its native
+transcript/tool cards and showed no branch action; disposable DB had zero app messages
+and six official rows. Server was stopped. Final scoped independent review reports no
+required findings after authority/deletion fixes. Actual live inference, full old-data
+executor, SDK session steering/durable approval and remaining Pi consumers are next.
