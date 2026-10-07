@@ -69,6 +69,8 @@ it('two humans and two named agents create and update a linked brief with scoped
       void manager.cancelProcessing(event.sessionId)
     }
     if (event?.type !== 'permission_request') return
+    expect(event.request.canRemember).toBe(false)
+    expect(event.request.command).not.toBe('{}')
     approvals.push({ sessionId: event.sessionId, requestId: event.request.requestId })
     expect(() => assertOwnsSession(manager, { userId: 'outsider0001' }, event.sessionId)).toThrow()
     expect(manager.respondToPermission(otherChat.id, event.request.requestId, true, false)).toBe(false)
@@ -150,6 +152,14 @@ it('two humans and two named agents create and update a linked brief with scoped
   await manager.sendMessage(chat.id, `agent:${scout.id} use the action completed before Stop`, undefined, undefined, { sender: `user:${ana}` })
   expect(JSON.stringify(requests.at(-1)!.body.input)).toContain(stoppedDocument.id)
   expect(getLibraryItems(workspace.id, { type: 'document' }).filter((item) => item.title === 'Stopped brief.md')).toHaveLength(1)
+  reconstructed.permissionMode = 'safe'
+  nextCall = [() => null]
+  await manager.sendMessage(chat.id, `agent:${writer.id} read-only planning`, undefined, undefined, { sender: `user:${ben}` })
+  expect(requests.at(-1)!.body.tools.map((tool: any) => tool.name)).toContain('read_document')
+  expect(requests.at(-1)!.body.tools.map((tool: any) => tool.name)).not.toContain('create_document')
+  expect(requests.at(-1)!.body.tools.map((tool: any) => tool.name)).not.toContain('update_task')
+  expect(JSON.stringify(requests.at(-1)!.body)).toContain('Explore mode is read-only')
+  expect(JSON.stringify(requests.at(-1)!.body)).not.toContain('your own Linux computer')
   const before = requests.length
   deleteWorkspaceMember(workspace.id, ana)
   await manager.sendMessage(chat.id, `agent:${writer.id} creator removed`, undefined, undefined, { sender: `user:${ben}` })

@@ -107,7 +107,7 @@ large abstract contract, not a reason to build a repository framework.
 | Permission modes and approvals | Installed per-run `hooks.beforeToolCall` bridges existing permission UI: Explore refuses writes, Ask and Guarded require one chat-bound approval, Execute allows. Session/controller suspension APIs evaluated; no checkpoint storage introduced for transient approval. |
 | Steering, queue, Stop | Existing host queue for now; native AbortSignal for Stop. Steering remains queued, not falsely marked delivered. Native Session/signals migration must replace overlapping queue ownership before cutover. |
 | Delegation and named-agent routing | Existing mention routing serializes named agents. Native constrained delegation/result proof is later in migration, not implemented by this work-tool slice. |
-| Skills | Existing skill ownership stays; adopt native per-request skills and preserve allowed skill scope. Not yet wired. |
+| Skills | Native per-request inline skills resolve from authorized workspace rows and the selected agent ID/slug allowlist. Core supplies `skill`, `skill_search`, `skill_read`; only instruction bodies are included, not scripts/references or host instructions. Progressive activation is fixture verified; live behavior is unverified. |
 | MCP sources, discovery, invocation and auth | Existing source/credential domains stay. Native MCP tool contracts must preserve allowlists, names, auth flow and tool-result UI. Not yet migrated; sources rejected in current slice rather than faked. |
 | Model and connection settings | One supported OpenAI API-key provider reads exact existing connection scope. Catalog/testing/settings remain Pi-dependent and must migrate before deletion. Subscription setup/success UI must disappear at API-key-only cutover; private records remain untouched. |
 | Computer/browser/files | Existing views remain, execution not granted by this slice. Per-task isolation, permissions, stop and visible browser behavior need native replacement/proof before enabling. |
@@ -298,3 +298,45 @@ is separately blocked by thread-specific desktop permission. A request card alre
 exists for OTTO-75 to control applications on Pro. Browser automation has no attached
 Chrome runtime on this device. Do not duplicate the request or restart inspection until
 granted. The disposable loopback fixture server was stopped with confirmed cancellation.
+
+## Capability-conditioned context checkpoint
+
+The native run no longer reuses Pi's computer/source-oriented turn prompt. A small
+`mastra-context.ts` assembles existing workspace then selected-agent instructions with
+general coding/nontechnical work rules and the actual Library/task capabilities.
+Explore advertises reads only and omits mutation tools; other modes retain per-call
+approval. It advertises no shell, arbitrary files, browser, MCP or native delegation.
+User-authored instructions and skills are context, never authority to grant tools.
+
+Skills use Mastra 1.75.0's actual `skills` resolver and inline `createSkill`, not a custom
+activation engine. The resolver checks run access and filters existing workspace rows
+by the current agent's IDs or slugs before returning instruction bodies. An empty list
+means all skills in that workspace, matching existing domain behavior. No other user's
+workspace, host-home context, scripts, bundle references, storage or queue was added.
+Missing materialized skill bodies are not advertised. Existing workspace then agent/run
+instruction precedence stays; no project/global instruction layer was invented.
+
+The fixture proves selected-ID allowlisting, workspace/agent instruction scope,
+progressive native activation, exclusion of private text, changed selection and access
+removal. The work HTTP fixture proves Explore sends reads but no mutations. Prior
+reviewed ownership/outcome/step regressions still pass serially.
+
+Pro desktop permission subsequently arrived for OTTO-75 and its subagents. No action
+ran as a consequence of the grant; work-tool visual proof still needs a new disposable
+loopback fixture. Vendor-schema permission and real-key inference remain separate gates.
+
+The work-tool visual proof subsequently passed on Pro using the production-built
+renderer and disposable loopback data: populated per-call approvals, Library brief and
+linked task, Scout creator/activity, task link opens the document, direct human edit
+survives reload. Responses explicitly label controlled fixtures, not live inference.
+The owned server was stopped. Transient approvals set `canRemember:false`, so no fake
+session grant appears in the existing permission UI.
+
+Independent review found stricter native metadata could otherwise block inference on
+an Otto-valid skill. Native validation now excludes only incompatible selected skills
+and sends chat-scoped warnings naming each; stored names/domain rules are unchanged.
+Access failures still throw, not get swallowed as metadata warnings. Tests cover
+consecutive/trailing hyphens and a 1,025-character description alongside usable skills.
+Final read-only re-review has no required finding. Context 1 test/24 assertions,
+work 1/67, session 1/17, stream 6/18 and server-core typecheck pass serially. No host
+context, paid inference, storage exception or further runtime rollout was introduced.

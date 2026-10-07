@@ -2983,6 +2983,15 @@ support direct editing. Public sharing of chats, documents and other work
 artifacts is deferred and will require explicit visibility, never inherited
 workspace or agent access.
 
+Native skills use the selected agent's existing workspace allowlist and load
+instruction bodies on demand. They expose no host files, scripts or reference
+folders as work capabilities. Explore omits mutation tools from the model as
+well as refusing mutation execution.
+
+Skills with metadata unsupported by the native runtime are excluded individually
+with a warning naming the skill. They do not prevent an unrelated chat or change
+stored names and content.
+
 - Do change shared looks in the `packages/ui` component with an `// Otto:`
   comment; don't override colors or type on one instance.
 - Do use only the spacing scale, the two insets, 32px bar controls and 28px

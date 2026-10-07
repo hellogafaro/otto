@@ -6235,9 +6235,9 @@ export class SessionManager implements ISessionManager {
             : entry.content,
         }))
       abort.signal.throwIfAborted()
-      const instructions = agentTurnOf(managed)?.instructions ?? ''
       const { createMastraChatModel, streamMastraChat } = await import('./mastra-chat.ts')
       const { createMastraWorkTools, MASTRA_WORK_WRITES } = await import('./mastra-work-tools.ts')
+      const { getMastraContext } = await import('./mastra-context.ts')
       const assertAccess = () => {
         abort.signal.throwIfAborted()
         if (this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation
@@ -6249,14 +6249,17 @@ export class SessionManager implements ISessionManager {
         }
       }
       assertAccess()
+      const contextForRun = getMastraContext({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, writesAllowed: managed.permissionMode !== 'safe', unattended: !!(managed.unattended || managed.triggeredBy), assertAccess, onUnavailableSkill: (slug) => this.sendEvent({ type: 'info', sessionId: managed.id, message: `Skill "${slug}" is unavailable because its metadata is incompatible with the native runtime.`, level: 'warning' }, managed.workspace.id) })
+      const workTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess })
       for await (const event of streamMastraChat({
         agentId: selectedAgent.id,
         name: selectedAgent.title,
-        instructions: `${instructions}\nUse the provided workspace tools for Library documents and tasks in existing projects. Read current versions before updates. Attribute actions to yourself. Files, shell, connected services and delegation are unavailable; do not claim to use them.`,
+        instructions: contextForRun.instructions,
+        skills: contextForRun.skills,
         messages,
         model: createMastraChatModel({ provider: connection.type, model: context.resolvedModel, apiKey, baseUrl: connection.baseUrl }),
         signal: abort.signal,
-        tools: createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess }),
+        tools: managed.permissionMode === 'safe' ? Object.fromEntries(Object.entries(workTools).filter(([name]) => !MASTRA_WORK_WRITES.has(name))) : workTools,
         beforeToolCall: async ({ toolName, input }) => {
           assertAccess()
           if (!MASTRA_WORK_WRITES.has(toolName)) return
@@ -6273,7 +6276,7 @@ export class SessionManager implements ISessionManager {
             const stop = () => finish(false)
             managed.mastraApproval = { id, resolve: finish }
             abort.signal.addEventListener('abort', stop, { once: true })
-            this.sendEvent({ type: 'permission_request', sessionId: managed.id, request: { sessionId: managed.id, requestId: id, toolName, description: `Allow ${selectedAgent.title} to run ${toolName}?`, command: JSON.stringify(input), type: 'api_mutation' } }, managed.workspace.id)
+            this.sendEvent({ type: 'permission_request', sessionId: managed.id, request: { sessionId: managed.id, requestId: id, toolName, description: `Allow ${selectedAgent.title} to run ${toolName}?`, command: JSON.stringify(input), type: 'api_mutation', canRemember: false } }, managed.workspace.id)
           })
           assertAccess()
           if (!allowed) return { proceed: false, output: { error: 'The work action was declined.' } }

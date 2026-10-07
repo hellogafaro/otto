@@ -6,6 +6,7 @@ import { createId } from '@otto/shared/id'
 import type { AgentEvent } from '@otto/core/types'
 import type { ToolsInput } from '@mastra/core/agent'
 import type { ToolHooks } from '@mastra/core/tools'
+import type { AgentSkillsInput } from '@mastra/core/skills'
 
 export async function* streamMastraChat(input: {
   agentId: string
@@ -16,6 +17,7 @@ export async function* streamMastraChat(input: {
   signal: AbortSignal
   tools?: ToolsInput
   beforeToolCall?: ToolHooks['beforeToolCall']
+  skills?: AgentSkillsInput
 }): AsyncGenerator<AgentEvent> {
   const agent = new Agent({
     id: input.agentId,
@@ -23,13 +25,14 @@ export async function* streamMastraChat(input: {
     instructions: input.instructions,
     model: input.model,
     tools: input.tools,
+    skills: input.skills,
   })
   new Mastra({ agents: { chat: agent }, logger: false, idGenerator: () => createId() })
   let turnId = createId()
   const messages = input.messages.map((message) => message.role === 'assistant'
     ? { role: 'assistant' as const, content: message.content }
     : { role: 'user' as const, content: message.content })
-  const output = await agent.stream(messages, { abortSignal: input.signal, maxSteps: input.tools ? 8 : 1, toolCallConcurrency: 1, hooks: { beforeToolCall: input.beforeToolCall }, providerOptions: { openai: { store: false } } })
+  const output = await agent.stream(messages, { abortSignal: input.signal, maxSteps: input.tools || input.skills ? 8 : 1, toolCallConcurrency: 1, hooks: { beforeToolCall: input.beforeToolCall }, providerOptions: { openai: { store: false } } })
   let text = ''
   let completed = false
   for await (const chunk of output.fullStream) {
