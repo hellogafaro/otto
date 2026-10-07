@@ -1070,7 +1070,7 @@ status color (Archived neutral). A row (44px): the status icon
   description, 32px down, the task's **Activity** (`ActivityFeed`, see
   Activity): one chronological feed of what happened (created, status,
   title, assignees, due date, project, links, time logged) with the comments
-  between, then the comment box. The sidecar "Details" (closed by default):
+  inside it (there is no separate Comments section), then the comment box. The sidecar "Details" (closed by default):
   Properties (each row's key works while the Details are open and shows as its
   `Kbd`: Status S, a menu, keys 1 to 3; Assignees, the searchable `Picker`
   (multiple); Due date D, the `DatePicker` popover from the row, × clears it;
@@ -1753,8 +1753,8 @@ the chat input (`FreeFormInput`, its `/` and `@` menus, files, Send and Stop
 kept, on v1's look) with the floating bar as one of its modes, on every page,
 mounted once by the shell (`ComposerProvider` around `PageFrame`;
 `ShellComposer` only hosts the instance in the frame's composer slot), so its
-text field never remounts on navigation: opening a chat, the new chat or the
-Inbox grows the same instance into the full look, leaving shrinks it, the text
+text field never remounts on navigation: opening a chat, the new chat or
+Home grows the same instance into the full look, leaving shrinks it, the text
 and files kept. Exactly one composer shows on any page.
 Three looks of one structure (slots in fixed places: `panel`, `attachments`,
 `leading` +, the text, `context`, `tools`, `attention`, `main`).
@@ -1771,18 +1771,18 @@ glass for the bar is gone.
 
 - **Compact** (every page by default): the 40px bar, 448px (28rem). One row:
   + (32px ghost), the text (44px in, one line, no wrap; the placeholder ends
-  in an ellipsis), the attention slot (the Inbox, below), the main button.
+  in an ellipsis), the attention slot (Notifications, below), the main button.
   Centered on the column's content, 16px above the window's bottom (8px above
   the body's end); below 768px the column's width (20px from each side).
 - **Expanded** (grows in place from compact): as wide as the column's
   content (720px), its bottom edge where the bar's was; the text 12px in and
   down (v1's `p-3 pb-0`), one line up to 240px, touching the action row: +,
-  the page's entity chip (`EntityChip`), tools … Inbox, main, 8px apart (v1's
+  the page's entity chip (`EntityChip`), tools … Notifications, main, 8px apart (v1's
   row gap).
-- **Full** (the chat, the new chat, the Inbox): the expanded anatomy, in the
+- **Full** (the chat, the new chat, Home): the expanded anatomy, in the
   layout: the frame measures the slot (the composer and its gap below) and
   sets `--composer-clearance` to its height + `--composer-gap` (24), so a page's content ends 24px
-  above it while it grows. Never the Inbox. A
+  above it while it grows (on Home it is centered instead, see Place). Never the Notifications button. A
   pending permission or credential request takes its place until answered;
   the chat's follow-ups sit as chips above the text.
 
@@ -1794,42 +1794,57 @@ bottom 8px above the body's end (16px above the window's), on every page, the
 open chat included (it has no wrapper to sit inside any more). The slot's
 height (composer + bottom gap) is `--composer-lift`. Measured (1440×900): the
 compact bar is 448×40 at x 624, 16px above the window, on Tasks, Chats,
-Routines, a skill and Settings alike; the Inbox's and the open chat's full
-composer is 720 wide on the column's content edges (x 488 to 1208: the list
-card's edges on the Inbox, the transcript's text and the compact title's left
-on the chat), 16px above the window. Phones (390×844): the bar and the full
+Routines, a skill and Settings alike; the open chat's full
+composer is 720 wide on the column's content edges (x 488 to 1208: the transcript's
+text and the compact title's left), 16px above the window. Phones (390×844): the bar and the full
 composer 342 wide at x 24, 19px above the window, the same on every page, on
 the list card's edges.
 
-**Inbox** (W5; `components/composer/inbox-button.tsx`, `use-attention.ts`).
+**Centered** (Home only; the slot's `data-placement`, `bottom` or `centered`).
+A page that renders `PageComposerAnchor` (`DS/page-frame.tsx`, one per page)
+asks for the composer in its own flow instead of at the bottom: the SAME
+instance stays in the slot (never remounted: text, files and the morph kept)
+and the frame translates the slot onto the anchor, following it as the page
+scrolls; the anchor takes the composer's measured height
+(`--composer-anchor-height`), so what is under it makes room as it grows.
+While centered nothing is at the bottom: `--composer-clearance` and
+`--composer-lift` are 0 (the toasts keep their own place). Changing placement
+(sending from Home opens the chat; going back) glides the slot on the morph's
+320ms curve, none with reduced motion. Measured (1440×900): the greeting ends
+at y 196, the full composer 720×72 at x 488, y 216 (20px under it), the cards
+from y 328 (40px under it, the column's block gap) on the same edges; after a
+send the chat's composer is at y 812. Phones (390×844): the composer 342 wide
+at x 24, y 288, above the cards (y 422), which stack in one column.
+
+**Notifications** (W5; `components/composer/notifications-button.tsx`, `use-attention.ts`).
 What needs you, from data that exists: the workspace's chats waiting on you (a
 pending permission or credential request), its chats with news (`hasUnread`,
-newest first), then your unread notifications (the Inbox page's rows:
-mentions, assignments). The Inbox button (32px ghost `Inbox`, the 8px
-`bg-destructive` dot, `aria-label` and tooltip "Inbox, N need you", no key in
+newest first), then your unread notifications (Home's Notifications rows:
+mentions, assignments). The Notifications button (32px ghost `Bell`, the 8px
+`bg-destructive` dot, `aria-label` and tooltip "Notifications, N need you", no key in
 the tooltip) shows in the attention slot only while that count is above 0 and
 nothing is written or attached (then Send has the slot alone); never in full
-mode, never while dictating. It does not open the Inbox page: it opens the
-**Inbox list** (`panel`) above the text in the same surface, which grows to
+mode, never while dictating. It does not open a page: it opens the
+**Notifications list** (`panel`) above the text in the same surface, which grows to
 the column's content width and the list's height on the same 320ms morph
-(bottom edge pinned); the input stays usable under it. The list is the
-Inbox's own rows in their compact size (`ListRow size="sm"`: 32px, `md` 8
+(bottom edge pinned); the input stays usable under it. The list is
+Home's own rows in their compact size (`ListRow size="sm"`: 32px, `md` 8
 corners, 8px in, the same slots and ghost fills): a chat reads its
 bare status icon, its title, an `info` dot (waiting) or the primary unread dot,
-its time; a notification is the Inbox page's row (`notification-row.tsx`:
+its time; a notification is the Notifications row (`pages/home/notification-row.tsx`:
 avatar, sentence, excerpt, dot, time). At most 320px (40% of a short
 viewport), then it scrolls; 4px in. Picking a row opens the chat, task or
 project (a notification is marked read) and closes the list; Escape (taken
 first, before anything else), the button again or a click outside close it;
-it also closes on a page change, or when nothing is left. The Inbox key
-(`nav.inbox`, ⌘I; Alt+I in the browser) toggles the list while the bar shows
-and something needs you; on a full page or with nothing to show it opens the
-Inbox page, which stays the full list. Phones: the list spans the bar's width
+it also closes on a page change, or when nothing is left. The Home key
+(`nav.home`, ⌘I; Alt+I in the browser) always opens Home (the shell's
+action, it does not toggle the list); its full list is
+`/home/notifications`. Phones: the list spans the bar's width
 and scrolls, at most 40% of the VISIBLE viewport (`--webui-viewport-height`,
 which the keyboard shrinks; `dvh` does not see it).
 
 **Phones and the keyboard** (W7). On a phone the keyboard never covers the
-bar, in every look (compact, expanded, full) and the Inbox list. The web host
+bar, in every look (compact, expanded, full) and the Notifications list. The web host
 already sizes its root to the visible viewport (`apps/webui/src/viewport.ts`:
 `visualViewport` height and offset, divided by the root's 1.2 zoom), so the
 frame, and the composer slot that sits at its end in the layout, rise with the
@@ -1858,9 +1873,9 @@ expand the bar.
 **Shortcuts.** Never shown at rest. Only while ⌘ (Ctrl off the Mac) or
 Option/Alt is held (`useModifierHeld`; released on key up, window blur or a
 hidden tab) the bar shows exactly ONE `Kbd`, the composer's own key (focus,
-⌘J / Ctrl+J), in the attention slot: in the Inbox button's place, or there
+⌘J / Ctrl+J), in the attention slot: in the Notifications button's place, or there
 when the button is not showing (also while typing). No second key anywhere in
-the bar, none in full mode. An exception to the tooltip rule: the Inbox
+the bar, none in full mode. An exception to the tooltip rule: the Notifications
 button's tooltip is its label only, because the composer's hints appear only
 while the modifier is held. The main button's tooltips keep the label, then
 the `Kbd`.
@@ -1942,7 +1957,7 @@ known). A chat without `members` shows its primary agent alone. The same 20px `A
 as the tasks (2px overlap, 1px ring), at most three avatars, then a
 `AvatarGroupCount` "+N" (the same 20px box, 10px text); one tooltip names everyone
 Used **only in the open chat's header**: every chat row (the sidebar's Pins and
-Recent, the Chats rows, the palette, the composer's Inbox list) leads with the chat's
+Recent, the Chats rows, the palette, Home's Chats card, the composer's Notifications list) leads with the chat's
 **bare status icon** (`ChatStatusIcon`: the 14px glyph in the status color, as
 `TaskStatusIcon` is for a task; an emoji or a custom image icon at the same size),
 never an avatar, a tile, a frame or a tooltip with the agent's name; the running
@@ -1976,10 +1991,10 @@ session, chips, request, commands and working directory). Every page registers: 
 Tasks, Projects, Library, Routines (indexes `page:<name>`), a task, project
 and library item (`<type>:<id>` with its entity token), a routine
 (`routine:<id>`, no token: routines have none), Settings, Skills and Sources
-(plain), the Inbox (`mode: 'full'`), the chat and the new chat (`chat:<id>`,
+(plain), Home (`page:home`, `mode: 'full'`, centered), its Notifications list (`page:notifications`), the chat and the new chat (`chat:<id>`,
 `mode: 'full'`). The 404 has no shell. Placeholders: "Ask your agents about
 this task / project / document / file / routine / page", "Ask your agents
-anything" (Chats, Inbox, Settings, an empty chat), "Reply to {agent}" (a chat,
+anything" (Chats, Home, Settings, an empty chat), "Reply to {agent}" (a chat,
 its agent's name from state, the default agent's only as the fallback), "Message {names}" (a people chat, a chat
 with more than one person, or a person picked under With: the other members, agents and people, never you, as one
 phrase in the app's language, "Ada, Grace and Otto"). A people chat (no primary agent and no agent among its
@@ -2057,7 +2072,7 @@ app's own pages and only for audio (never camera or screen), asking macOS first
 design, kept for reference: the compact bar is now the shell's `Composer` on
 every page with no exclusion, and a send from it opens a new chat as a page
 instead of growing into a window (docs/composer.md, open question 3). What
-still applies from it: the bar's size, the Inbox icon (W5, now a list in the
+still applies from it: the bar's size, the Notifications icon (W5, now a list in the
 composer's own surface) and prefill from page actions (W6). The bar no longer
 wears the glass: every look has v1's full composer surface.
 
@@ -2107,23 +2122,32 @@ its centerpiece, no cards (Otto v1's timeline): the section title "Activity"
 16px apart, along one 1px `border` hairline under the markers (it runs from
 each marker to the next and stops at the last; markers are ringed 4px in the
 surface color, `--activity-bg`, the card's by default). The newest 50 show;
-"Show earlier activity" (28px ghost, above the feed) loads the 50 before.
-**Events** ("Maria changed the status from Todo to In progress · 5m", "created
-the task", "renamed the task to …", "set the due date to Oct 21, 2026",
-"removed the due date", "moved the task to …", "assigned / unassigned …",
-"added the link …", "logged 1h 30m"): one muted 13px sentence with the name
-in it on an 8px `muted-foreground/70` dot centered on the hairline, the text on
-the comments' name line (40px in), then " · " and the compact time (12px,
-tabular). Events cannot be edited or deleted and never notify. **Comments**:
-each a 28px `ActorAvatar` (`sm` 6) on the hairline, 12px, then the name (13px medium), the compact
-time ("now", "5m", 12px muted tabular) and "Edited" (12px muted) when changed
-after it was sent, on one 20px line, the content 4px under it (`EntityText`,
-the outer paragraph margins trimmed so the text starts on the line). Your own
-comment has a 24px ghost ⋯ (a message in a thread, not a grid or table item) at the end of its name line (on hover, focus or
-while open; always on touch): Edit E and Delete ⌫ (red). Edit swaps the content
-for the textarea with Cancel (28px ghost) and Save (28px primary); a comment
-edit is submitted, never autosaved; ⌘/Ctrl+Enter saves, Escape cancels, a
-`conflict` toasts "Changed elsewhere, reloaded" and keeps the draft open.
+"{n} earlier" (28px ghost, `ChevronUp`, above the feed; the count is the
+server's `earlier`) loads the 50 before. Blocks sit 16px apart; consecutive
+events run together, their lines 8px apart (`layoutActivity`,
+`activity-feed-model.ts`). **Events** are quiet single lines: the actor's 20px
+`ActorAvatar` on the hairline, then one muted 13px sentence 40px in with the
+name and the values in the text color: "Maria created the task", "changed the
+status from ○ Todo to ⊙ In progress" (each status with its 14px
+`TaskStatusIcon`), "renamed the task from … to …", "set / changed the due
+date (from Oct 1, 2026) to Oct 21, 2026", "removed the due date", "moved the
+task from Billing to Hiring", "assigned / unassigned" the people each with a
+16px avatar, "added / removed the link …", "logged 1h 30m"; then " · " and the
+compact time (12px, tabular, kept with its dot on one line; the full date on
+hover). Event lines use the person's name, never "You" (the sentences are
+third person in every locale). Events cannot be edited or deleted and never
+notify. **Comments**: each the author's 28px avatar (an agent its
+`AgentAvatar`) on the hairline, 12px, then the name in the transcript's rules
+(Chats > One chat: the author's palette color, "You" in the text color for
+your own, an agent's "Agent" tag), the compact time ("now", "5m", 12px muted
+tabular) and "Edited" (12px muted) when changed after it was sent, on one 20px
+line, the markdown 4px under it (`EntityText`, the outer paragraph margins
+trimmed so the text starts on the line). Your own comment has a right-click
+menu (a long press on touch, the menu key when focused; never a ⋯): Edit E and
+Delete ⌫ (red). Edit swaps the content for the textarea with Cancel (28px
+ghost) and Save (28px primary); a comment edit is submitted, never autosaved;
+⌘/Ctrl+Enter saves, Escape cancels, a `conflict` toasts "Changed elsewhere,
+reloaded" and keeps the draft open.
 Delete asks first (Alert dialog, "Delete comment?"), then toasts "Comment
 deleted". Nothing yet: the muted line "No activity yet". Loading: two 40px
 skeleton rows. **The comment box** ends the section, 8px under the feed: the
@@ -2144,8 +2168,42 @@ Picking puts the person's token `user:<id>` and a space in place of `@query`:
 the box shows the raw token (the leanest that works), the sent comment the
 "@Name" chip. Replies and reactions are not built.
 
-**Inbox** (`InboxPage`, `pages/inbox/`, `/{ws}/inbox`): your notifications
-in the workspace, newest first, a blocks page titled "Inbox" with one flat list
+**Home** (`HomePage`, `pages/home/`, `/{ws}/home`; `/{ws}/inbox`, the old
+Inbox, redirects here; the sidebar's mark and Home row, `nav.home`): where a
+day starts, on the photo wallpaper (Home wallpaper). No title row: the head is
+the greeting, centered, 128px down (88px on a phone, under the menu button):
+the time of day with your first name, `text-xl` (26.75px) medium muted ("Good afternoon,
+Ana": morning from 5:00, afternoon from 12:00, evening from 18:00 and through
+the night; the first word of your member name, never an email; without a name
+just "Good afternoon"), then "What should your agents work on?" the same
+size in `foreground` (`home.*`, every locale). 20px under it the shell's ONE composer,
+full and centered (Components, Composer, Centered): sending starts a chat as
+anywhere and the composer glides down into it. 40px under the composer four
+cards in a 2 x 2 grid (one column below the panel's `xl`, 12px apart), each a
+`ListCard` with a 36px title row (14px muted icon, title, `Count`, a compact
+ghost View all to the full page) and a FIXED height (320px; 280px on a phone)
+whose list scrolls inside it under the edge fade, so the cards never move the
+layout; empty, the card keeps its height and centers one muted line. Rows are
+the lists' own 44px `ListRow`s with their right-click menus (never a ⋯):
+- **Tasks**: your open tasks (to do or in progress) and your agents', the
+  soonest due first (none last), then the most recently updated
+  (`selectMyTasks`); the status icon, the title, the project as an outline
+  badge, the due date.
+- **Chats**: the ones waiting on you, then unread, then the rest, newest
+  message first, archived left out (`rankChats`, the composer's list keeps
+  the first two kinds).
+- **Notifications**: your unread ones, the Notifications list's rows.
+- **Routines today**: a timeline of today in your timezone
+  (`getRoutinesToday`): each routine's latest run since midnight that ran or
+  is running (any trigger; a skipped one did not run) with its status icon,
+  and each active schedule's next run from now to midnight (the cron read in
+  its own timezone), earliest first, the time at the end.
+The rules are pure functions in `home-rules.ts`, tested on the day boundary
+and timezones.
+
+**Notifications** (`NotificationsPage`, `pages/home/`, `/{ws}/home/notifications`,
+Home's Notifications card's View all; Back returns to Home): your notifications
+in the workspace, newest first, a blocks page titled "Notifications" with one flat list
 in the `ListCard` (the grouped list's 44px rounded `ListRow`s outside a group,
 8px in, the icon on the 16px line; no band, no hairlines; glass on the wallpaper): the sender's 20px `ActorAvatar` in the icon column, one line,
 "Maria mentioned you in Fix login" / "Maria assigned you Ship v1" (the title
@@ -2525,7 +2583,7 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   title without `.md`, and the folder path ("Brand / Assets") as muted text at the
   end, none in the root; a folder opens `/library?folder=<id>`, anything else
   `/library/<id>`), **Pages** (the
-  sidebar's pages with its icons: Inbox, Tasks, Projects, Chats, Routines, Library;
+  sidebar's pages with its icons: Home, Tasks, Projects, Chats, Routines, Library;
   Routines are a page only: the palette has no Routines category yet), **Settings** (every page of `SETTINGS_NAV_GROUPS`
   with the settings sidebar's icons; Shortcuts shows ⌘/), **Skills** and
   **Sources** (the shell's loaded skills and sources with their own icon, bare (no avatar); opens
@@ -2800,7 +2858,7 @@ drive:
 extra padding so they align with the page title; a list in a `ListCard` shows three
 `ListRowSkeleton`s in it instead) and inline error with Retry; unavailable controls explain the missing capability and never
 show success. The authentication boundary uses the stock Field/Input/Button
-composition. Workspace switching clears prior workspace data and opens Inbox.
+composition. Workspace switching clears prior workspace data and opens Home.
 Account forms use a centered 336px column, 24px side padding and 64px vertical
 padding, with the shared page-title typography and no logo. Labels stay above
 their inputs; the primary submission spans the column and secondary account
@@ -2903,7 +2961,7 @@ When direct setup or creation is necessary before an Agent can run, a compact
 stock dialog may capture the backend's required fields. Ask remains available;
 direct controls use the same tokens and do not simulate an Agent response.
 Native selects use the shared 32px control, or 28px when nested, with the
-corresponding 8px/6px corners. Task search and Inbox name one Project explicitly;
+corresponding 8px/6px corners. Task search and Notifications name one Project explicitly;
 search requests five matches per group and uses whole words. Directory pickers
 continue through bounded pages instead of treating the first hundred as complete.
 
@@ -2968,7 +3026,7 @@ Chats show metadata update time separately from message activity. New Chats requ
 
 File uploads show pending, cancellation and retry of the same File/request identity; there is no simulated progress. Download uses the verified server route. Previews stay within 8 MiB, and HTML runs in a credential-free sandbox. Folder breadcrumbs and mixed lists keep Files, Documents and Folders grouped, with server sorting within kind. Sharing requires a preview of the explicit frozen selection before publishing; the anonymous share page shows only acknowledged frozen content and optional selected bytes, with revoked/unavailable and retry states. It sits outside authenticated workspace navigation.
 
-Inbox continues its four independent server attention cursors with one More attention items control. An exhausted group keeps its final cursor while other groups continue; counts describe loaded entries.
+Notifications continue their four independent server attention cursors with one More attention items control. An exhausted group keeps its final cursor while other groups continue; counts describe loaded entries.
 
 The File share byte-selection control uses the shared Checkbox primitive, with its stock compact size and focus behavior, beside the descriptive label.
 
@@ -2982,13 +3040,13 @@ Unknown creation outcomes disable another submission in the current form and dir
 
 **Empty-state rules (binding for every page).**
 
-1. Nothing exists and nothing is filtered: the header-free `EmptyPage`, with the floating chat kept. The pattern is the same everywhere (below): title "No {plural}", description one benefit-led sentence, never a vague "<Things> you add show up here." Exactly one 32px primary button, the "+ New <thing>" that prefills the floating bar (never a form); a person's own action (Upload file) sits beside it as a quiet outline button. Never a second primary button. The Inbox has no button ("No notifications yet"); Projects is the one page whose button opens its form, because nothing exists yet to ask about.
+1. Nothing exists and nothing is filtered: the header-free `EmptyPage`, with the floating chat kept. The pattern is the same everywhere (below): title "No {plural}", description one benefit-led sentence, never a vague "<Things> you add show up here." Exactly one 32px primary button, the "+ New <thing>" that prefills the floating bar (never a form); a person's own action (Upload file) sits beside it as a quiet outline button. Never a second primary button. Notifications have no button ("No notifications yet"; Home's empty cards keep their place with one muted line each); Projects is the one page whose button opens its form, because nothing exists yet to ask about.
 2. Something is filtered and nothing matches: the page, header and active filter bar stay and the list area shows `NoResults` ("No results", "Try changing or clearing your filters.", Clear filters). A search with no matches says "No results" too; a `Picker` says "No {things} found" (the owner's call, see Menus).
 3. There is no permanent toolbar. A page header holds the Filter menu (real properties and archive state), a Search icon that opens the command palette on that page's category, and "+"; never a page's own search box. Active filters show as chips in the filter bar; no search box, sort picker, order or page-size control is drawn on a page. Settings lists show only their own property filters.
 4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No {plural} yet" (a table row or `Row` may be just that, "No labels yet"), one description line ending in a period, no action.
 5. Command palette: an entered search with no results shows a compact tile and "No results for “query”" with no period, and its category tabs are hidden when no category has results. Skeletons are stock and use the small radius.
 6. Tasks list every project's tasks (filter by Project to narrow them), so an empty page never asks for one; with no project at all, the empty state's button is New project. Chats: `/chats` opens the first chat, or the empty page with its New chat button (which opens /chats/new) when there is none.
-7. The composer bar's Inbox button (its `attention` slot, W5) shows only while something needs you (a chat waiting on you or with news, an unread notification) and nothing is written or attached; with nothing, there is no button at all (the owner's call, over open question 7).
+7. The composer bar's Notifications button (its `attention` slot, W5) shows only while something needs you (a chat waiting on you or with news, an unread notification) and nothing is written or attached; with nothing, there is no button at all (the owner's call, over open question 7).
 8. The Chats sidebar is hidden entirely while there are no chats; /chats/new fills the screen until the first one exists.
 9. Chat attachments have no visibility control or explanation: whoever is in the chat reads what is attached, and loses it on leaving. The File stays private in the library.
 
@@ -3013,7 +3071,7 @@ A data page with no data hides its title row and its actions (Filter, "+", Searc
 | Sources | No sources yet | Let your agents work with the tools and data you already use. | Add source |
 | Agents | No agents yet | Give each kind of work an agent with its own instructions and tools. | New agent |
 | Archived chats | No archived chats yet | Chats you archive stay here, out of your way. | |
-| Inbox | No notifications yet | Never miss a mention or a task handed to you. | |
+| Notifications | No notifications yet | Never miss a mention or a task handed to you. | |
 | Activity (inline) | No activity yet | | |
 10. A new chat has two pickers, With and Project. It is always participants-only; the project's own chat is the one open to everyone in the project.
 

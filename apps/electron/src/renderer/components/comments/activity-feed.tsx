@@ -397,8 +397,10 @@ function EventItem({ comment, className }: { comment: Comment; className?: strin
         <ActorAvatar actor={comment.createdBy} name={nameOf(comment.createdBy)} />
       </span>
       <span className="break-words">{comment.event && <EventText event={comment.event} actor={comment.createdBy} />}</span>
-      <span aria-hidden> · </span>
-      <When at={comment.createdAt} />
+      <span className="whitespace-nowrap">
+        <span aria-hidden> · </span>
+        <When at={comment.createdAt} />
+      </span>
     </li>
   )
 }

@@ -19,6 +19,7 @@ import { toast } from '@workspace/ui/components/sonner'
 import { sessionMetaMapAtom } from '@/atoms/sessions'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useProjects } from '@/hooks/use-projects'
+import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import { getSessionTitle } from '@/utils/session'
 import type { ProjectStatus } from '../../../shared/types'
 
@@ -44,6 +45,7 @@ export function ProjectDetails({ projectId }: { projectId: string }) {
   const { projects } = useProjects()
   const setStatus = useSetProjectStatus()
   const metas = useAtomValue(sessionMetaMapAtom)
+  const people = useWorkspaceMembers()
   const project = projects.find((p) => p.id === projectId)
   if (!project) return null
 
@@ -79,7 +81,7 @@ export function ProjectDetails({ projectId }: { projectId: string }) {
       </PropertySection>
       <PropertySection title={t('projects.chats')} count={chats.length}>
         {chats.map((meta) => (
-          <PropertyRow key={meta.id} icon={<MessageSquare />} value={getSessionTitle(meta)} onClick={() => navigateToSession(meta.id)} />
+          <PropertyRow key={meta.id} icon={<MessageSquare />} value={getSessionTitle(meta, people)} onClick={() => navigateToSession(meta.id)} />
         ))}
       </PropertySection>
     </>
