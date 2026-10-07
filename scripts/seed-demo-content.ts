@@ -372,14 +372,14 @@ export function skillFiles(i: number): { slug: string; files: Map<string, Uint8A
 
 export interface SourceSpec { name: string; slug: string; type: 'mcp' | 'api' | 'local'; status: 'ok' | 'needs_auth' | 'error'; config: Record<string, unknown>; tagline: string }
 const SOURCES: SourceSpec[] = [
-  { name: 'Linear', slug: 'demo-linear', type: 'mcp', status: 'needs_auth', tagline: 'Issues and cycles', config: { provider: 'linear', mcp: { transport: 'http', url: 'https://mcp.example.com/linear', authType: 'oauth' } } },
-  { name: 'GitHub', slug: 'demo-github', type: 'api', status: 'ok', tagline: 'Repos, PRs and issues', config: { provider: 'github', isAuthenticated: true, api: { baseUrl: 'https://api.github.com/', authType: 'bearer' } } },
-  { name: 'Notion', slug: 'demo-notion', type: 'mcp', status: 'ok', tagline: 'Docs and wikis', config: { provider: 'notion', isAuthenticated: true, mcp: { transport: 'http', url: 'https://mcp.example.com/notion', authType: 'bearer' } } },
-  { name: 'Docs folder', slug: 'demo-docs-folder', type: 'local', status: 'ok', tagline: 'Local markdown notes', config: { provider: 'filesystem', local: { path: '/tmp/demo-docs', format: 'filesystem' } } },
-  { name: 'Stripe', slug: 'demo-stripe', type: 'api', status: 'error', tagline: 'Payments and invoices', config: { provider: 'stripe', isAuthenticated: true, connectionStatus: 'failed', connectionError: 'HTTP 401: the key was revoked', api: { baseUrl: 'https://api.stripe.com/', authType: 'bearer' } } },
-  { name: 'Slack', slug: 'demo-slack', type: 'api', status: 'needs_auth', tagline: 'Channels and messages', config: { provider: 'slack', api: { baseUrl: 'https://slack.com/api/', authType: 'bearer' } } },
-  { name: 'Postgres (read-only)', slug: 'demo-postgres', type: 'mcp', status: 'ok', tagline: 'Analytics queries', config: { provider: 'postgres', mcp: { transport: 'stdio', command: 'npx', args: ['-y', '@example/mcp-postgres'], authType: 'none' } } },
-  { name: 'Weather', slug: 'demo-weather', type: 'api', status: 'ok', tagline: 'Public forecast API', config: { provider: 'weather', api: { baseUrl: 'https://api.weather.example.com/', authType: 'none' } } },
+  { name: 'Linear', slug: 'demo-linear', type: 'mcp', status: 'needs_auth', tagline: 'Issues and cycles', config: { provider: 'linear', icon: '📐', mcp: { transport: 'http', url: 'https://mcp.example.com/linear', authType: 'oauth' } } },
+  { name: 'GitHub', slug: 'demo-github', type: 'api', status: 'ok', tagline: 'Repos, PRs and issues', config: { provider: 'github', icon: '🐙', isAuthenticated: true, api: { baseUrl: 'https://api.github.com/', authType: 'bearer' } } },
+  { name: 'Notion', slug: 'demo-notion', type: 'mcp', status: 'ok', tagline: 'Docs and wikis', config: { provider: 'notion', icon: '📓', isAuthenticated: true, mcp: { transport: 'http', url: 'https://mcp.example.com/notion', authType: 'bearer' } } },
+  { name: 'Docs folder', slug: 'demo-docs-folder', type: 'local', status: 'ok', tagline: 'Local markdown notes', config: { provider: 'filesystem', icon: '📁', local: { path: '/tmp/demo-docs', format: 'filesystem' } } },
+  { name: 'Stripe', slug: 'demo-stripe', type: 'api', status: 'error', tagline: 'Payments and invoices', config: { provider: 'stripe', icon: '💳', isAuthenticated: true, connectionStatus: 'failed', connectionError: 'HTTP 401: the key was revoked', api: { baseUrl: 'https://api.stripe.com/', authType: 'bearer' } } },
+  { name: 'Slack', slug: 'demo-slack', type: 'api', status: 'needs_auth', tagline: 'Channels and messages', config: { provider: 'slack', icon: '💬', api: { baseUrl: 'https://slack.com/api/', authType: 'bearer' } } },
+  { name: 'Postgres (read-only)', slug: 'demo-postgres', type: 'mcp', status: 'ok', tagline: 'Analytics queries', config: { provider: 'postgres', icon: '🐘', mcp: { transport: 'stdio', command: 'npx', args: ['-y', '@example/mcp-postgres'], authType: 'none' } } },
+  { name: 'Weather', slug: 'demo-weather', type: 'api', status: 'ok', tagline: 'Public forecast API', config: { provider: 'weather', icon: '⛅', api: { baseUrl: 'https://api.weather.example.com/', authType: 'none' } } },
 ]
 export const sourceSpec = (i: number): SourceSpec => {
   const base = SOURCES[i % SOURCES.length]!

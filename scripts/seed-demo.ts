@@ -391,7 +391,7 @@ try {
     sessions.createImportedSession(wsRef, {
       id, workspaceRootPath: wsRef.rootPath, name: title, createdBy: owner, ...(r.chance(0.7) ? { agentId: r.pick(agentIds) } : {}),
       createdAt: first - r.int(0, 60_000), lastUsedAt: messages.at(-1)!.timestamp, lastMessageAt: messages.at(-1)!.timestamp,
-      isFlagged: !archived && r.chance(0.1), sessionStatus: archived ? 'archived' : r.pick(openStatuses), labels: r.chance(0.35) ? pickLabels(2) : [], hasUnread: unread,
+      isFlagged: !archived && r.chance(0.15), sessionStatus: archived ? 'archived' : r.pick(openStatuses), labels: r.chance(0.35) ? pickLabels(2) : [], hasUnread: unread,
       ...(r.chance(0.25) ? { projectId: r.pick(projectIds) } : {}), ...(parent ? { parentSessionId: parent } : {}),
       ...(routine ? { triggeredBy: { automationId: routine.id, automationName: 'Routine', event: 'SchedulerTick', timestamp: first, depth: 1 } } : {}),
       model: r.pick(CHAT_MODELS), thinkingLevel: r.pick(['low', 'medium', 'high'] as const), permissionMode: r.pick(['safe', 'ask', 'allow-all'] as const),
