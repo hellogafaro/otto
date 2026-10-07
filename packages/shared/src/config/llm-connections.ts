@@ -161,6 +161,7 @@ export interface LlmConnection {
  * Used by UI to show which connections are ready to use.
  */
 export interface LlmConnectionWithStatus extends LlmConnection {
+  runtimeSupported?: boolean;
   /** Whether the connection has valid credentials */
   isAuthenticated: boolean;
 

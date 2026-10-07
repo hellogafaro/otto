@@ -77,11 +77,11 @@ export function ConnectionRow({
       setTesting(false)
     }
   }
-  const claude = connection.type === CLAUDE_CODE_CONNECTION_TYPE
+  const claude = connection.type === CLAUDE_CODE_CONNECTION_TYPE && connection.runtimeSupported !== false
   const claudeStatus = useClaudeCodeStatus(claude)
-  const problem = claude && claudeStatus.status?.found === false
+  const problem = connection.authError ?? (claude && claudeStatus.status?.found === false
     ? t('connections.claudeCode.notFound')
-    : !connection.isAuthenticated ? t('settings.ai.notAuthenticated') : null
+    : !connection.isAuthenticated ? t('settings.ai.notAuthenticated') : null)
 
   return (
     <>

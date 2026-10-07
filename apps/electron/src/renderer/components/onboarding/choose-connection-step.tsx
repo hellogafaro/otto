@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { useEffect, useState } from 'react'
 import { ChevronRight, Server } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { SettingsCard, SettingsRow } from '@/components/settings'
@@ -21,6 +22,10 @@ const ICONS: Record<OfferedKind, React.ReactNode> = {
  */
 export function ChooseConnectionStep({ onSelect, onSkip }: { onSelect: (kind: OfferedKind) => void; onSkip?: () => void }) {
   const { t } = useTranslation()
+  const [nativeOnly, setNativeOnly] = useState<boolean | null>(null)
+  useEffect(() => {
+    window.electronAPI.getPiApiKeyProviders().then((providers) => setNativeOnly(providers.length === 1 && providers[0]?.key === 'openai')).catch(() => setNativeOnly(null))
+  }, [])
   const rows: Record<OfferedKind, { title: string; description: string }> = {
     'claude-code': { title: t('connections.add.claudeCode.title'), description: t('connections.add.claudeCode.description') },
     anthropic: { title: t('connections.add.anthropic.title'), description: t('connections.add.anthropic.description') },
@@ -30,10 +35,10 @@ export function ChooseConnectionStep({ onSelect, onSkip }: { onSelect: (kind: Of
   }
 
   return (
-    <StepFormLayout title={t('setup.connection.title')} description={t('setup.connection.description')}>
+    <StepFormLayout title={t('setup.connection.title')} description={nativeOnly ? t('connections.form.apiKey') : nativeOnly === null ? '' : t('setup.connection.description')}>
       <SettingsCard>
-        {OFFERED_KINDS.map((kind) => (
-          <SettingsRow key={kind} icon={ICONS[kind]} label={rows[kind].title} description={rows[kind].description} onClick={() => onSelect(kind)}>
+        {(nativeOnly === null ? [] : nativeOnly ? ['provider'] as const : OFFERED_KINDS).map((kind) => (
+          <SettingsRow key={kind} icon={nativeOnly ? <ProviderLogo src={providerIcons.openai} /> : ICONS[kind]} label={nativeOnly ? 'OpenAI' : rows[kind].title} description={nativeOnly ? t('connections.form.apiKey') : rows[kind].description} onClick={() => onSelect(kind)}>
             <ChevronRight className="size-3.5 text-muted-foreground" />
           </SettingsRow>
         ))}

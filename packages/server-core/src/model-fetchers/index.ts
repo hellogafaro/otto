@@ -83,6 +83,7 @@ class ModelRefreshService {
     if (isCompatProvider(connection.type)) {
       return
     }
+    if (process.env.OTTO_MASTRA_CHAT === '1' && (connection.type !== 'openai' || connection.authType !== 'api_key')) return
 
     let newModels: ModelDefinition[] | null = null
     let serverDefault: string | undefined
@@ -108,6 +109,7 @@ class ModelRefreshService {
 
     // Layer 3: MODEL_REGISTRY hardcoded fallback
     if (!newModels) {
+      if (process.env.OTTO_MASTRA_CHAT === '1' && connection.type === 'openai') return
       const registryModels = getModelsForProviderType(connection.type)
       if (registryModels.length > 0) {
         newModels = registryModels
@@ -121,7 +123,7 @@ class ModelRefreshService {
     }
 
     // Preserve user's defaultModel if still valid
-    const currentDefault = connection.defaultModel
+    const currentDefault = process.env.OTTO_MASTRA_CHAT === '1' && connection.type === 'openai' ? connection.defaultModel?.replace(/^pi\//, '') : connection.defaultModel
     const stillValid = currentDefault && newModels.some(m => m.id === currentDefault)
     const newDefault = stillValid
       ? currentDefault
@@ -129,7 +131,7 @@ class ModelRefreshService {
 
     updateLlmConnection(slug, {
       models: newModels,
-      ...(newDefault && !stillValid ? { defaultModel: newDefault } : {}),
+      ...(newDefault && (!stillValid || currentDefault !== connection.defaultModel) ? { defaultModel: newDefault } : {}),
     }, { where: contextOfScope(scope) })
   }
 

@@ -48,6 +48,11 @@ An old unchecked roadmap entry is not evidence that its UI or domain is missing.
 Keep the Bun HTTP/WS server, auth guards, Drizzle domains and one existing SQLite domain
 database. Start with native `Agent.stream()` inside that server, without Mastra's generated
 HTTP server, SDK-agent wrapper, gateway registry, vector database or extra memory service.
+Owner now approves clean official Mastra schemas in the same physical `otto.db`.
+The earlier separate-file proposal is rejected. Use exact vendor ownership protections
+and official narrow domain composition, not a fork. Common app UUID alignment is an
+explicit future goal, temporarily deferred for functional cutover; preserve existing
+IDs/references and never mass rekey merely for a common pattern.
 Otto owns identity, membership, creator-scoped connection lookup and transport delivery.
 Mastra owns each model/tool loop. Do not let Pi and Mastra own the same execution.
 
@@ -142,7 +147,10 @@ checkpoints and conversation memory/history. Do not keep another independent cop
 agent history or build a synchronization system. Existing human/chat facts and UI reads
 need an explicit compatibility/import plan before choosing exact ownership or deletion.
 Adapter tests use new disposable files only, never the user's database or `--force`.
-Captain must confirm the narrow vendor-schema exception before wiring runtime storage.
+Owner approved the narrow exception on 8 October. Same-file disposable probes show
+official Memory/Workflows/Harness/ThreadState composition uses 7 tables/10 indexes;
+full store init uses 44/87. Exact ownership exclusion preserves forced app push while
+unrelated data loss still refuses. Actual production storage wiring is the next slice.
 
 ## Provider precheck, now deferred for MVP
 
@@ -340,3 +348,21 @@ consecutive/trailing hyphens and a 1,025-character description alongside usable 
 Final read-only re-review has no required finding. Context 1 test/24 assertions,
 work 1/67, session 1/17, stream 6/18 and server-core typecheck pass serially. No host
 context, paid inference, storage exception or further runtime rollout was introduced.
+
+## Native OpenAI account checkpoint
+
+Under the native flag, OpenAI catalog setup/refresh uses account `/models`, not Pi's
+bundled catalog. Model IDs are bare; old `pi/` IDs normalize on native request and
+explicit refresh. Model-list access does not prove inference support or token/context
+capabilities; validation waits for a completed native Responses call. Provider error
+bodies and credentials are never echoed, and discovery refuses redirects. New scoped
+setup cannot borrow an install key. Flag-off Pi paths/catalog stay unchanged until
+default cutover, including the legacy renderer fallback needed by unmigrated consumers.
+
+Settings marks preserved subscriptions/other providers unavailable in the native slice,
+hides reconnect/default actions, and offers OpenAI/API key setup only. Stored account
+records are not converted. The old provider-discovery IPC name is temporary compatibility
+plumbing to delete with Pi retirement, not a new registry. Independent review corrected
+new-scope key fallback and native behavior leaking into the default Pi path. Account
+candidate discovery, completed validation, safe errors and scopes are fixture verified;
+real account inference remains unverified.

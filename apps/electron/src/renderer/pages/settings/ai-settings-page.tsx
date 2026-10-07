@@ -224,9 +224,9 @@ export default function AiSettingsPage() {
                   editable={editable}
                   onSaved={refresh}
                   actions={{
-                    onSetDefault: connection.isDefault ? undefined : () => void setDefault(connection.slug),
-                    onSignIn: editable && provider ? () => openSetup({ reauth: { slug: connection.slug, provider } }) : undefined,
-                    onChangeKey: editable && hasKey(connection) ? () => setChangingKey(connection) : undefined,
+                    onSetDefault: connection.isDefault || connection.runtimeSupported === false ? undefined : () => void setDefault(connection.slug),
+                    onSignIn: editable && provider && connection.runtimeSupported !== false ? () => openSetup({ reauth: { slug: connection.slug, provider } }) : undefined,
+                    onChangeKey: editable && hasKey(connection) && connection.runtimeSupported !== false ? () => setChangingKey(connection) : undefined,
                     onTest: () => window.electronAPI.testLlmConnection(connection.slug),
                     onDelete: editable ? () => remove(connection) : undefined,
                   }}

@@ -15,6 +15,7 @@ import { getWorkspaceOrThrow, buildBackendHostRuntimeContext } from '@otto/serve
 import { pushTyped, type RpcServer } from '@otto/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 import { CLIENT_OPEN_EXTERNAL } from '@otto/server-core/transport'
+import { fetchOpenAiModels, validateOpenAiConnection, validateStoredOpenAiConnection, OPENAI_UNSUPPORTED } from '../../model-fetchers/openai'
 
 // Local OAuth state
 let copilotOAuthAbort: AbortController | null = null
@@ -78,11 +79,14 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
 
       // Ensure the connection exists (the caller's own first, then the workspace's, then the install's)
       let connection = getLlmConnection(setup.slug, where)
+      if (process.env.OTTO_MASTRA_CHAT === '1' && (setup.type ?? connection?.type) !== 'openai') return { success: false, error: OPENAI_UNSUPPORTED }
+      if (connection && setup.type && setup.type !== connection.type) return { success: false, error: 'The existing connection provider cannot be changed.' }
       let isNewConnection = false
       if (!connection) {
         // Reauth guard: if updateOnly is set, the connection must already exist.
         // Clean up any orphaned credentials from a preceding OAuth flow.
         if (setup.updateOnly) {
+          if (process.env.OTTO_MASTRA_CHAT === '1' || setup.type === 'openai') return { success: false, error: 'Connection not found.' }
           await manager.deleteLlmCredentials(setup.slug).catch(() => {})
           deps.platform.logger?.warn(`[SETUP_LLM_CONNECTION] updateOnly rejected for missing slug: ${setup.slug}`)
           return { success: false, error: 'Connection not found. Cannot re-authenticate a non-existent connection.' }
@@ -90,7 +94,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         if (!setup.type || !setup.title?.trim()) {
           return { success: false, error: 'A new connection needs a type and a name.' }
         }
-        connection = createConnectionForSetup({
+        connection = process.env.OTTO_MASTRA_CHAT === '1' && setup.type === 'openai' ? { slug: setup.slug, name: setup.title.trim(), type: 'openai', authType: 'api_key', models: [], createdAt: Date.now() } : createConnectionForSetup({
           slug: setup.slug,
           type: setup.type,
           title: setup.title.trim(),
@@ -132,7 +136,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         updates.authType = setup.bedrockAuthMethod
       }
 
-      if (connection.type !== CUSTOM_CONNECTION_TYPE) {
+      if (connection.type !== CUSTOM_CONNECTION_TYPE && !(process.env.OTTO_MASTRA_CHAT === '1' && connection.type === 'openai')) {
         const isBedrock = connection.type === 'amazon-bedrock'
         // For Bedrock, normalize bare Anthropic IDs to Bedrock-native before adding the pi/ prefix
         // so that resolvePiModel() can find them in the amazon-bedrock registry.
@@ -154,6 +158,14 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       const pendingConnection: LlmConnection = {
         ...connection,
         ...updates,
+      }
+      if (process.env.OTTO_MASTRA_CHAT === '1' && pendingConnection.type === 'openai') {
+        if (pendingConnection.authType !== 'api_key') return { success: false, error: OPENAI_UNSUPPORTED }
+        const key = setup.credential ?? await manager.getLlmApiKey(setup.slug, connection.scope ?? newScope)
+        const catalog = await fetchOpenAiModels({ apiKey: key ?? '', baseUrl: pendingConnection.baseUrl })
+        pendingConnection.models = updates.models = catalog.models
+        const requested = (setup.defaultModel ?? pendingConnection.defaultModel)?.replace(/^pi\//, '')
+        pendingConnection.defaultModel = updates.defaultModel = requested && catalog.models.some((model) => model.id === requested) ? requested : catalog.models[0]?.id
       }
 
       if (updates.models && updates.models.length > 0) {
@@ -237,6 +249,8 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   // and validate credentials via runMiniCompletion(). Same code path as actual chat.
   server.handle(RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP, async (ctx, params: import('@otto/shared/protocol').TestLlmConnectionParams): Promise<import('@otto/shared/protocol').TestLlmConnectionResult> => {
     const { type, apiKey, baseUrl, model, customEndpoint } = params
+    if (process.env.OTTO_MASTRA_CHAT === '1' && type === 'openai') return validateOpenAiConnection({ apiKey, baseUrl, model })
+    if (process.env.OTTO_MASTRA_CHAT === '1') return { success: false, error: OPENAI_UNSUPPORTED }
     // A local server may be keyless
     const allowEmptyApiKey = !setupTestRequiresApiKey(baseUrl)
     const trimmedKey = apiKey.trim()
@@ -279,6 +293,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   // ============================================================
 
   server.handle(RPC_CHANNELS.pi.GET_API_KEY_PROVIDERS, async () => {
+    if (process.env.OTTO_MASTRA_CHAT === '1') return [{ key: 'openai', label: 'OpenAI', placeholder: 'OpenAI API key' }]
     const { getPiApiKeyProviders } = await import('@otto/shared/config')
     return getPiApiKeyProviders()
   })
@@ -302,10 +317,13 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     return Promise.all(connections.map(async (conn): Promise<LlmConnectionWithStatus> => {
       // Check if credentials exist for this connection
       const hasCredentials = await credentialManager.hasLlmCredentials(conn.slug, conn.authType, conn.scope)
+      const runtimeSupported = process.env.OTTO_MASTRA_CHAT !== '1' || (conn.type === 'openai' && conn.authType === 'api_key')
       return {
         ...conn,
         isAuthenticated: conn.authType === 'none' || hasCredentials,
         isDefault: conn.slug === defaultSlug,
+        runtimeSupported,
+        ...(!runtimeSupported ? { authError: OPENAI_UNSUPPORTED } : {}),
       }
     }))
   })
@@ -374,6 +392,9 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     try {
       // A Claude subscription runs the server's own `claude`: it is the owner's, and it must be there
       const stored = getLlmConnection(slug, whereOf(ctx))
+      if (!stored) return { success: false, error: 'Connection not found.' }
+      if (process.env.OTTO_MASTRA_CHAT === '1' && stored.type === 'openai') return validateStoredOpenAiConnection(stored)
+      if (process.env.OTTO_MASTRA_CHAT === '1') return { success: false, error: OPENAI_UNSUPPORTED }
       if (stored?.type === CLAUDE_CODE_CONNECTION_TYPE) {
         if (!isClaudeCodeScope(stored.scope)) return { success: false, error: CLAUDE_CODE_OWNER_ONLY }
         return (await getClaudeCodeStatus()).found
@@ -398,6 +419,8 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   // Set global default LLM connection
   server.handle(RPC_CHANNELS.llmConnections.SET_DEFAULT, async (ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      const connection = getLlmConnection(slug, whereOf(ctx))
+      if (process.env.OTTO_MASTRA_CHAT === '1' && (!connection || connection.type !== 'openai' || connection.authType !== 'api_key')) return { success: false, error: OPENAI_UNSUPPORTED }
       const success = setDefaultLlmConnection(slug, whereOf(ctx))
       if (success) {
         deps.platform.logger?.info(`Global default LLM connection set to: ${slug}`)
@@ -420,6 +443,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         if (!connection) {
           return { success: false, error: 'Connection not found' }
         }
+        if (process.env.OTTO_MASTRA_CHAT === '1' && (connection.type !== 'openai' || connection.authType !== 'api_key')) return { success: false, error: OPENAI_UNSUPPORTED }
       }
 
       const { loadWorkspaceConfig, saveWorkspaceConfig } = await import('@otto/shared/workspaces')
@@ -452,7 +476,14 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       if (!connection) {
         return { success: false, error: 'Connection not found' }
       }
-
+      if (process.env.OTTO_MASTRA_CHAT === '1' && (connection.type !== 'openai' || connection.authType !== 'api_key')) return { success: false, error: OPENAI_UNSUPPORTED }
+      if (process.env.OTTO_MASTRA_CHAT === '1' && connection.type === 'openai') {
+        const key = await getCredentialManager().getLlmApiKey(slug, connection.scope)
+        const catalog = await fetchOpenAiModels({ apiKey: key ?? '', baseUrl: connection.baseUrl ?? undefined })
+        const current = connection.defaultModel?.replace(/^pi\//, '')
+        updateLlmConnection(slug, { models: catalog.models, defaultModel: current && catalog.models.some((model) => model.id === current) ? current : catalog.models[0]?.id }, { where: narrowContext(whereOf(ctx), connection.scope.startsWith('user:') ? 'user' : connection.scope.startsWith('workspace:') ? 'workspace' : 'install') })
+        return { success: true }
+      }
       await getModelRefreshService().refreshNow(slug, connection.scope)
       return { success: true }
     } catch (error) {
@@ -474,6 +505,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     success: boolean
     error?: string
   }> => {
+    if (process.env.OTTO_MASTRA_CHAT === '1') return { success: false, error: OPENAI_UNSUPPORTED }
     try {
       const { requestChatGptDeviceCode, pollChatGptDeviceAuth } = await import('@otto/shared/auth')
       const credentialManager = getCredentialManager()
@@ -545,6 +577,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     success: boolean
     error?: string
   }> => {
+    if (process.env.OTTO_MASTRA_CHAT === '1') return { success: false, error: OPENAI_UNSUPPORTED }
     try {
       const { loginGitHubCopilot } = await import('@otto/shared/auth')
       const credentialManager = getCredentialManager()
