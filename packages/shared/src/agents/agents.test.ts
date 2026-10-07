@@ -22,6 +22,7 @@ import {
   getDefaultAgent,
   initAgentsSeed,
   updateAgent,
+  updateAgentsUnconnected,
 } from './index.ts'
 import { initAgentsImport } from './import.ts'
 
@@ -150,6 +151,18 @@ test('its creator or an owner of the workspace may edit it', async () => {
   expect(canEditAgent(W, agent, 'bbbbbbbbbbbb', db)).toBe(false)
   expect(canEditAgent(W, agent, 'cccccccccccc', db)).toBe(true)
   expect(canEditAgent(W, agent, 'dddddddddddd', db)).toBe(false)
+})
+
+test('a new connection takes over the agents whose provider is not connected', async () => {
+  const db = await setup()
+  const seeded = initAgentsSeed(W, ME, undefined, db)!
+  const pinned = make(db, 'Pinned', { model: 'claude-opus-4-7' })
+  const connected = make(db, 'Connected', { provider: 'openai' })
+  const others = make(db, 'Others', { createdBy: 'user:bbbbbbbbbbbb' })
+  const moved = updateAgentsUnconnected(W, 'aaaaaaaaaaaa', 'openrouter', ['openrouter', 'openai'], db)
+  expect(moved.map((agent) => agent.id)).toEqual([seeded.id])
+  expect(getAgent(W, seeded.id, db)?.provider).toBe('openrouter')
+  for (const kept of [pinned, connected, others]) expect(getAgent(W, kept.id, db)?.provider).toBe(kept.provider)
 })
 
 test('assembles the groups in order and leaves empty ones out', () => {

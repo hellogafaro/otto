@@ -1,6 +1,14 @@
+import { Glob } from 'bun'
 import { expect, test } from 'bun:test'
+import { dirname, join } from 'node:path'
 import { openDb } from './index.ts'
-import { pushSchema } from './push.ts'
+import { pushSchema, SCHEMAS } from './push.ts'
+
+test('SCHEMAS names every schema.ts', async () => {
+  const domains: string[] = []
+  for await (const file of new Glob('**/schema.ts').scan({ cwd: join(import.meta.dir, '..') })) domains.push(dirname(file))
+  expect(Object.keys(SCHEMAS).sort()).toEqual(domains.sort())
+})
 
 const raw = (db: ReturnType<typeof openDb>) => (db as unknown as { $client: import('bun:sqlite').Database }).$client
 

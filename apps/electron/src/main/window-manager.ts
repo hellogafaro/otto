@@ -3,7 +3,7 @@ import { windowLog } from './logger'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { release } from 'os'
-import { getWorkspaceByNameOrId } from '@otto/shared/config'
+import { getKnownWorkspace } from './server-process'
 import { classifyExternalUrl, formatBlockedUrlError } from '@otto/shared/utils/url-safety'
 import { RPC_CHANNELS, type WindowCloseRequestSource } from '../shared/types'
 import type { SavedWindow } from './window-state'
@@ -164,12 +164,8 @@ export class WindowManager {
       if (window.isDestroyed()) continue
       let title = defaultTitle
       if (showWorkspaceName && workspaceId) {
-        try {
-          const ws = getWorkspaceByNameOrId(workspaceId)
-          if (ws?.name) title = ws.name
-        } catch (err) {
-          windowLog.warn('refreshWindowTitles: workspace lookup failed', { workspaceId, err })
-        }
+        const ws = getKnownWorkspace(workspaceId)
+        if (ws?.name) title = ws.name
       }
       window.setTitle(title)
     }
@@ -458,25 +454,6 @@ export class WindowManager {
       }
     }
     return null
-  }
-
-  /**
-   * Get ALL windows for a workspace (main window + tab content windows)
-   * Used for broadcasting events to all windows showing the same workspace
-   */
-  getAllWindowsForWorkspace(workspaceId: string): BrowserWindow[] {
-    const windows: BrowserWindow[] = []
-    for (const managed of this.windows.values()) {
-      if (managed.workspaceId === workspaceId && !managed.window.isDestroyed()) {
-        windows.push(managed.window)
-      }
-    }
-    // Debug: log registered workspaces when lookup fails
-    if (windows.length === 0 && this.windows.size > 0) {
-      const registered = Array.from(this.windows.values()).map(m => m.workspaceId)
-      windowLog.warn(`No windows for workspace '${workspaceId}', have: [${registered.join(', ')}]`)
-    }
-    return windows
   }
 
   /**

@@ -32,7 +32,7 @@
   ],
   "scripts": {
     "db:push": "bun run scripts/db-push.ts",
-    "dev": "bun run db:push && infisical run --env dev -- bun run server:prod",
+    "dev": "infisical run --env dev -- bun run server:prod",
     "test": "bun test && for f in $(find . -name '*.isolated.ts' -not -path './node_modules/*'); do bun test \"$f\" || exit 1; done",
     "typecheck": "bun run typecheck:shared",
     "typecheck:shared": "cd packages/shared && bun run tsc --noEmit",
@@ -72,11 +72,6 @@
     "electron:start": "bun run electron:build && electron apps/electron",
     "electron:dev": "bun run scripts/electron-dev.ts",
     "electron:dev:terminal": "bun run scripts/electron-dev.ts --terminal",
-    "electron:dev:menu": "bash scripts/electron-dev.sh",
-    "electron:dev:logs": "pgrep -f 'tail -f.*@otto/electron/main.log' > /dev/null || osascript -e \"tell application \\\"Terminal\\\" to do script \\\"$PWD/scripts/tail-electron-logs.sh\\\"\"",
-    "sync-secrets": "bash scripts/sync-secrets.sh",
-    "fresh-start": "bun run scripts/fresh-start.ts",
-    "fresh-start:token": "bun run scripts/fresh-start.ts --token-only",
     "print:system-prompt": "bun run packages/shared/src/prompts/print-system-prompt.ts",
     "browser-tool": "bun run scripts/browser-tool.ts",
     "decisions:report": "bun run scripts/decisions-report.ts",
@@ -105,10 +100,6 @@
     "docs:dev": "cd apps/docs-site && bun run dev",
     "docs:build": "cd apps/docs-site && bun run build",
     "docs:preview": "cd apps/docs-site && bun run preview",
-    "build": "bun run scripts/build.ts",
-    "release": "bun run scripts/release.ts",
-    "check-version": "bun run scripts/check-version.ts",
-    "oss:sync": "bun run scripts/oss-sync.ts",
     "prepare": "husky"
   },
   "devDependencies": {

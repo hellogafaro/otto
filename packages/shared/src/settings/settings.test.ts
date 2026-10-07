@@ -32,7 +32,6 @@ test('a read gives the default until a value is stored, and a write is read back
   const db = await setup()
   expect(getSetting(userEntity(A), 'sendMessageKey', db)).toBe('enter')
   expect(getSetting(INSTALL, 'defaultThinkingLevel', db)).toBe('medium')
-  expect(getSetting(INSTALL, 'server', db)).toEqual({ enabled: false, port: 9100 })
   expect(updateSetting(userEntity(A), 'sendMessageKey', 'cmd-enter', db)).toBe('cmd-enter')
   expect(getSetting(userEntity(A), 'sendMessageKey', db)).toBe('cmd-enter')
   updateSetting(userEntity(A), 'sendMessageKey', 'enter', db) // an update replaces, one row per key
@@ -50,7 +49,7 @@ test('the catalogue refuses an unknown key, a key of another kind of owner, a ba
   expect(code(() => updateSetting(workspaceEntity('w1'), 'colorTheme', 'nord', db))).toBe('invalid')
   expect(code(() => updateSetting(userEntity(A), 'sendMessageKey', 'tab', db))).toBe('invalid')
   expect(code(() => updateSetting(userEntity(A), 'spellCheck', 'yes', db))).toBe('invalid')
-  expect(code(() => updateSetting(INSTALL, 'server', { enabled: true }, db))).toBe('invalid')
+  expect(code(() => updateSetting(INSTALL, 'keepAwakeWhileRunning', 'yes', db))).toBe('invalid')
   expect(code(() => getSetting('everyone', 'colorTheme', db))).toBe('invalid')
   expect(code(() => getSetting('user:', 'colorTheme', db))).toBe('invalid')
   expect(db.select().from(settings).all()).toHaveLength(0)
@@ -93,7 +92,7 @@ const CONFIG = {
   migrationsApplied: ['x'],
   colorTheme: 'dracula',
   notificationsEnabled: false,
-  serverConfig: { enabled: true, port: 9200, token: 't-123' },
+  serverConfig: { enabled: true, port: 9200, token: 't-123' }, // server mode is gone: not imported
   setupDeferred: true,
   gitBashPath: 'C:\\Git\\bash.exe',
   dismissedUpdateVersion: '1.2.3',
@@ -119,7 +118,6 @@ test('the importer moves config.json and preferences.json into settings, once, a
   expect(first.skipped).toBe(0)
   expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('claude-max')
   expect(getSetting(INSTALL, 'defaultThinkingLevel', db)).toBe('medium')
-  expect(getSetting(INSTALL, 'server', db)).toEqual({ enabled: true, port: 9200 }) // the token is a secret: initSecretsImport moves it
   expect(getSetting(INSTALL, 'decisionLayer', db)).toEqual({ enabled: true, provider: 'typesafe' })
   expect(getSetting(INSTALL, 'setupDeferred', db)).toBe(true)
   expect(getSetting(INSTALL, 'gitBashPath', db)).toBe('C:\\Git\\bash.exe')
@@ -144,6 +142,7 @@ test('the importer moves config.json and preferences.json into settings, once, a
   expect(keys).not.toContain('email')
   expect(keys).not.toContain('enable1MContext')
   expect(keys).not.toContain('workspaces')
+  expect(keys).not.toContain('server')
 
   const rows = db.select().from(settings).all().length
   updateSetting(userEntity(A), 'colorTheme', 'nord', db) // a change after the import

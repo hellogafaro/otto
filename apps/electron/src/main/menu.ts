@@ -196,19 +196,6 @@ export async function rebuildMenu(): Promise<void> {
               mainLog.error('[debug-menu] Install failed:', err)
             }
           }
-        },
-        { type: 'separator' as const },
-        {
-          label: i18n.t("menu.resetToDefaults"),
-          click: async () => {
-            const { dialog } = await import('electron')
-            await dialog.showMessageBox({
-              type: 'info',
-              message: i18n.t("menu.resetToDefaultsTitle"),
-              detail: i18n.t("menu.resetToDefaultsDetail"),
-              buttons: [i18n.t("common.ok")]
-            })
-          }
         }
       ]
     }] : []),

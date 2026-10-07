@@ -2,8 +2,10 @@
  * Exhaustive channel routing table for hybrid local/remote transport.
  *
  * Every RPC channel must belong to exactly one of two sets:
- * - LOCAL_ONLY: Always runs on the local Electron server, never proxied.
- * - REMOTE_ELIGIBLE: Runs on whichever server owns the workspace.
+ * - LOCAL_ONLY: runs in the desktop app's main process (windows, dialogs, menus, notifications, updates,
+ *   browser panes); it has no database.
+ * - REMOTE_ELIGIBLE: runs on whichever server owns the workspace; on the desktop that is the server child
+ *   process for every local workspace (docs/desktop.md), as for the web UI.
  *
  * An exhaustiveness test ensures new channels fail CI until classified.
  */
@@ -18,15 +20,7 @@ export const LOCAL_ONLY_CHANNELS = new Set<string>([
   // remote — local connectivity management (reaches out to remote server from local app)
   RPC_CHANNELS.remote.TEST_CONNECTION,
 
-  // workspaces — local workspace CRUD (workspace list is local config)
-  RPC_CHANNELS.workspaces.GET,
-  RPC_CHANNELS.workspaces.CREATE,
-  RPC_CHANNELS.workspaces.CHECK_SLUG,
-  RPC_CHANNELS.workspaces.UPDATE_REMOTE,
-
   // window — Electron window management
-  RPC_CHANNELS.window.GET_WORKSPACE,
-  RPC_CHANNELS.window.SWITCH_WORKSPACE,
   RPC_CHANNELS.window.CLOSE,
   RPC_CHANNELS.window.CLOSE_REQUESTED,
   RPC_CHANNELS.window.CONFIRM_CLOSE,
@@ -35,45 +29,17 @@ export const LOCAL_ONLY_CHANNELS = new Set<string>([
   RPC_CHANNELS.window.FOCUS_STATE,
   RPC_CHANNELS.window.GET_FOCUS_STATE,
 
-  // file — native file dialog
-  RPC_CHANNELS.file.OPEN_DIALOG,
-  // file — draft hydration for user-attached paths. Paths in drafts.json were captured
-  // via webUtils.getPathForFile in the renderer, so they point at the user's local machine
-  // — even when the workspace itself lives on a remote server. Routing this REMOTE_ELIGIBLE
-  // would send the local path to a remote filesystem that can't resolve it.
-  RPC_CHANNELS.file.READ_USER_ATTACHMENT,
-
-  // dialog — native folder dialog
-  RPC_CHANNELS.dialog.OPEN_FOLDER,
-
-  // auth — local auth state + native dialogs
-  RPC_CHANNELS.auth.SHOW_DELETE_SESSION_CONFIRMATION,
-
-  // shell — local OS shell (openFile/showInFolder guarded for remote)
+  // shell — the OS browser, and otto:// links into this app's windows
   RPC_CHANNELS.shell.OPEN_URL,
-  RPC_CHANNELS.shell.OPEN_FILE,
-  RPC_CHANNELS.shell.SHOW_IN_FOLDER,
 
-  // skills — local filesystem actions (guarded for remote)
-  RPC_CHANNELS.skills.OPEN_EDITOR,
-  RPC_CHANNELS.skills.OPEN_FINDER,
-
-  // system — local OS info
+  // system — the app's own runtime (Electron versions, packaged or not)
   RPC_CHANNELS.system.VERSIONS,
   RPC_CHANNELS.system.HOME_DIR,
   RPC_CHANNELS.system.IS_DEBUG_MODE,
 
-  // theme — app/OS-level preferences, not workspace content
+  // theme — the OS appearance
   RPC_CHANNELS.theme.GET_SYSTEM_PREFERENCE,
   RPC_CHANNELS.theme.SYSTEM_CHANGED,
-  RPC_CHANNELS.theme.APP_CHANGED,
-  RPC_CHANNELS.theme.GET_APP,
-  RPC_CHANNELS.theme.GET_PRESETS,
-  RPC_CHANNELS.theme.LOAD_PRESET,
-  RPC_CHANNELS.theme.GET_COLOR_THEME,
-  RPC_CHANNELS.theme.SET_COLOR_THEME,
-  RPC_CHANNELS.theme.BROADCAST_PREFERENCES,
-  RPC_CHANNELS.theme.PREFERENCES_CHANGED,
 
   // update — local auto-update
   RPC_CHANNELS.update.CHECK,
@@ -102,26 +68,9 @@ export const LOCAL_ONLY_CHANNELS = new Set<string>([
   // notification — local OS notifications
   RPC_CHANNELS.notification.SHOW,
   RPC_CHANNELS.notification.NAVIGATE,
-  RPC_CHANNELS.notification.GET_ENABLED,
-  RPC_CHANNELS.notification.SET_ENABLED,
 
-  // input — local input preferences
-  RPC_CHANNELS.input.GET_AUTO_CAPITALISATION,
-  RPC_CHANNELS.input.SET_AUTO_CAPITALISATION,
-  RPC_CHANNELS.input.GET_SEND_MESSAGE_KEY,
-  RPC_CHANNELS.input.SET_SEND_MESSAGE_KEY,
-  RPC_CHANNELS.input.GET_SPELL_CHECK,
-  RPC_CHANNELS.input.SET_SPELL_CHECK,
-
-  // power — local power management
-  RPC_CHANNELS.power.GET_KEEP_AWAKE,
+  // power — the OS power blocker (the setting itself is read on the server: power:getKeepAwake)
   RPC_CHANNELS.power.SET_KEEP_AWAKE,
-
-  // appearance — local UI preferences
-  RPC_CHANNELS.appearance.GET_RICH_TOOL_DESCRIPTIONS,
-  RPC_CHANNELS.appearance.SET_RICH_TOOL_DESCRIPTIONS,
-
-  // tools — local tool settings
 
   // browserPane — Electron BrowserView
   RPC_CHANNELS.browserPane.DESTROY,
@@ -144,24 +93,8 @@ export const LOCAL_ONLY_CHANNELS = new Set<string>([
   RPC_CHANNELS.browserPane.REMOVED,
   RPC_CHANNELS.browserPane.INTERACTED,
 
-  // gitbash — Windows-specific local
-  RPC_CHANNELS.gitbash.CHECK,
-  RPC_CHANNELS.gitbash.BROWSE,
-  RPC_CHANNELS.gitbash.SET_PATH,
-
-  // debug — local debug logging
+  // debug — renderer lines into the app's log file
   RPC_CHANNELS.debug.LOG,
-
-  // onboarding — local auth setup flow
-  RPC_CHANNELS.onboarding.GET_AUTH_STATE,
-  RPC_CHANNELS.onboarding.VALIDATE_MCP,
-  RPC_CHANNELS.onboarding.START_MCP_OAUTH,
-  RPC_CHANNELS.onboarding.DEFER_SETUP,
-
-  // server config — local embedded server settings
-  RPC_CHANNELS.settings.GET_SERVER_CONFIG,
-  RPC_CHANNELS.settings.SET_SERVER_CONFIG,
-  RPC_CHANNELS.settings.GET_SERVER_STATUS,
 ])
 
 // ---------------------------------------------------------------------------
@@ -371,6 +304,53 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.routines.PAUSE,
   RPC_CHANNELS.routines.RESUME,
   RPC_CHANNELS.routines.RUN,
+
+  // the server's own: the workspace registry, the window's workspace, per-person preferences, onboarding, and the
+  // native dialogs and OS shell it asks the window for (client capabilities); answered by the desktop's server too
+  RPC_CHANNELS.workspaces.GET,
+  RPC_CHANNELS.workspaces.CREATE,
+  RPC_CHANNELS.workspaces.REMOVE,
+  RPC_CHANNELS.workspaces.CHECK_SLUG,
+  RPC_CHANNELS.workspaces.UPDATE_REMOTE,
+  RPC_CHANNELS.window.GET_WORKSPACE,
+  RPC_CHANNELS.window.SWITCH_WORKSPACE,
+  RPC_CHANNELS.file.OPEN_DIALOG,
+  RPC_CHANNELS.file.READ_USER_ATTACHMENT,
+  RPC_CHANNELS.dialog.OPEN_FOLDER,
+  RPC_CHANNELS.auth.SHOW_DELETE_SESSION_CONFIRMATION,
+  RPC_CHANNELS.shell.OPEN_FILE,
+  RPC_CHANNELS.shell.SHOW_IN_FOLDER,
+  RPC_CHANNELS.skills.OPEN_EDITOR,
+  RPC_CHANNELS.skills.OPEN_FINDER,
+  RPC_CHANNELS.theme.APP_CHANGED,
+  RPC_CHANNELS.theme.GET_APP,
+  RPC_CHANNELS.theme.GET_PRESETS,
+  RPC_CHANNELS.theme.LOAD_PRESET,
+  RPC_CHANNELS.theme.GET_COLOR_THEME,
+  RPC_CHANNELS.theme.SET_COLOR_THEME,
+  RPC_CHANNELS.theme.BROADCAST_PREFERENCES,
+  RPC_CHANNELS.theme.PREFERENCES_CHANGED,
+  RPC_CHANNELS.notification.GET_ENABLED,
+  RPC_CHANNELS.notification.SET_ENABLED,
+  RPC_CHANNELS.input.GET_AUTO_CAPITALISATION,
+  RPC_CHANNELS.input.SET_AUTO_CAPITALISATION,
+  RPC_CHANNELS.input.GET_SEND_MESSAGE_KEY,
+  RPC_CHANNELS.input.SET_SEND_MESSAGE_KEY,
+  RPC_CHANNELS.input.GET_SPELL_CHECK,
+  RPC_CHANNELS.input.SET_SPELL_CHECK,
+  RPC_CHANNELS.power.GET_KEEP_AWAKE,
+  RPC_CHANNELS.appearance.GET_RICH_TOOL_DESCRIPTIONS,
+  RPC_CHANNELS.appearance.SET_RICH_TOOL_DESCRIPTIONS,
+  RPC_CHANNELS.gitbash.CHECK,
+  RPC_CHANNELS.gitbash.BROWSE,
+  RPC_CHANNELS.gitbash.SET_PATH,
+  RPC_CHANNELS.onboarding.GET_AUTH_STATE,
+  RPC_CHANNELS.onboarding.VALIDATE_MCP,
+  RPC_CHANNELS.onboarding.START_MCP_OAUTH,
+  RPC_CHANNELS.onboarding.DEFER_SETUP,
+
+  // dictation — the transcription key is the workspace server's
+  RPC_CHANNELS.transcription.CREATE,
 
   // workspace members and invitations — live in the workspace's server
   RPC_CHANNELS.workspaces.GET_MEMBERS,

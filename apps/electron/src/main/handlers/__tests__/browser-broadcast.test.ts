@@ -15,7 +15,7 @@
 
 import { describe, it, expect, beforeEach, mock } from 'bun:test'
 import type { RpcServer } from '@otto/server-core/transport'
-import type { HandlerDeps } from '../handler-deps'
+import type { GuiDeps } from '../handler-deps'
 import type { BrowserInstanceInfo } from '@otto/shared/protocol'
 
 mock.module('electron', () => ({
@@ -73,29 +73,15 @@ function makeDeps(opts: {
   captureStateCb?: (cb: (info: BrowserInstanceInfo) => void) => void
   captureRemovedCb?: (cb: (id: string) => void) => void
   captureInteractedCb?: (cb: (id: string) => void) => void
-}): HandlerDeps {
+}): GuiDeps {
   return {
-    sessionManager: {} as HandlerDeps['sessionManager'],
-    platform: {
-      appRootPath: '',
-      resourcesPath: '',
-      isPackaged: false,
-      appVersion: '0.0.0-test',
-      isDebugMode: false,
-      logger: console,
-      imageProcessor: {
-        getMetadata: async () => null,
-        process: async () => Buffer.from(''),
-      },
-    },
-    windowManager: {} as HandlerDeps['windowManager'],
+    windowManager: {} as GuiDeps['windowManager'],
     browserPaneManager: {
       listInstances: () => opts.instances,
       onStateChange: (cb: (info: BrowserInstanceInfo) => void) => opts.captureStateCb?.(cb),
       onRemoved: (cb: (id: string) => void) => opts.captureRemovedCb?.(cb),
       onInteracted: (cb: (id: string) => void) => opts.captureInteractedCb?.(cb),
-    } as unknown as NonNullable<HandlerDeps['browserPaneManager']>,
-    oauthFlowStore: {} as HandlerDeps['oauthFlowStore'],
+    } as unknown as GuiDeps['browserPaneManager'],
   }
 }
 

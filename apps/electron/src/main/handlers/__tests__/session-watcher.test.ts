@@ -13,7 +13,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import type { RpcServer, RequestContext } from '@otto/server-core/transport'
-import type { HandlerDeps } from '../handler-deps'
+import type { HandlerDeps } from '@otto/server-core/handlers'
 import { RPC_CHANNELS } from '../../../shared/types'
 
 // ---------------------------------------------------------------------------

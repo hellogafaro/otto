@@ -25,7 +25,7 @@ function assertIds(ids: unknown): string[] | 'all' {
 
 /** Each user's own notifications: a mention or an assignment, newest first. */
 export function registerNotificationsHandlers(server: RpcServer, deps: HandlerDeps): void {
-  const workspaceOf = (ctx: RequestContext) => resolveWorkspace(ctx, deps).id
+  const workspaceOf = (ctx: RequestContext) => resolveWorkspace(ctx).id
 
   // A `comment:<id>` entity resolves to its comment (text and own entity) and that entity's title; any other
   // entity to its title (null when gone), read through the comments, tasks and projects domains.

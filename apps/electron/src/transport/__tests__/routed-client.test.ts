@@ -53,117 +53,137 @@ function stubClient(overrides?: Partial<WsRpcClient>): WsRpcClient {
 // Use real channel constants — RoutedClient routes based on isLocalOnly()
 import { isLocalOnly, RPC_CHANNELS } from '@otto/shared/protocol'
 
-const LOCAL_CHANNEL = RPC_CHANNELS.window.GET_WORKSPACE   // LOCAL_ONLY
-const REMOTE_CHANNEL = RPC_CHANNELS.sessions.GET           // REMOTE_ELIGIBLE
-const SWITCH_CHANNEL = RPC_CHANNELS.window.SWITCH_WORKSPACE
+const LOCAL_CHANNEL = RPC_CHANNELS.window.CLOSE              // LOCAL_ONLY: the main process
+const REMOTE_CHANNEL = RPC_CHANNELS.sessions.GET           // REMOTE_ELIGIBLE: the workspace's server
+const SWITCH_CHANNEL = RPC_CHANNELS.window.SWITCH_WORKSPACE // REMOTE_ELIGIBLE
+
+const toRemote = () => mock(async () => ({
+  workspaceId: 'ws-2',
+  remoteServer: { url: 'wss://remote:9001', token: 'tok', remoteWorkspaceId: 'rw-1' },
+}))
 
 describe('RoutedClient', () => {
   describe('routing', () => {
     it('routes LOCAL_ONLY invokes to localClient', async () => {
       const local = stubClient({ invoke: mock(async () => 'local-result') })
-      const workspace = stubClient()
-      const routed = new RoutedClient(local, workspace)
+      const home = stubClient()
+      const routed = new RoutedClient(local, home)
 
       const result = await routed.invoke(LOCAL_CHANNEL)
       expect(result).toBe('local-result')
       expect(local.invoke).toHaveBeenCalledWith(LOCAL_CHANNEL)
-      expect(workspace.invoke).not.toHaveBeenCalled()
+      expect(home.invoke).not.toHaveBeenCalled()
     })
 
-    it('routes REMOTE_ELIGIBLE invokes to workspaceClient', async () => {
+    it('routes REMOTE_ELIGIBLE invokes to the home server for a local workspace', async () => {
       const local = stubClient()
-      const workspace = stubClient({ invoke: mock(async () => 'ws-result') })
-      const routed = new RoutedClient(local, workspace)
+      const home = stubClient({ invoke: mock(async () => 'ws-result') })
+      const routed = new RoutedClient(local, home)
 
       const result = await routed.invoke(REMOTE_CHANNEL)
       expect(result).toBe('ws-result')
-      expect(workspace.invoke).toHaveBeenCalledWith(REMOTE_CHANNEL)
+      expect(home.invoke).toHaveBeenCalledWith(REMOTE_CHANNEL)
       expect(local.invoke).not.toHaveBeenCalled()
     })
 
     it('routes LOCAL_ONLY listeners to localClient', () => {
       const local = stubClient()
-      const workspace = stubClient()
-      const routed = new RoutedClient(local, workspace)
+      const home = stubClient()
+      const routed = new RoutedClient(local, home)
 
       const cb = mock(() => {})
       routed.on(LOCAL_CHANNEL, cb)
 
       expect(local.on).toHaveBeenCalledWith(LOCAL_CHANNEL, cb)
-      expect(workspace.on).not.toHaveBeenCalledWith(LOCAL_CHANNEL, expect.any(Function))
+      expect(home.on).not.toHaveBeenCalledWith(LOCAL_CHANNEL, expect.any(Function))
     })
 
     it('routes REMOTE_ELIGIBLE listeners to workspaceClient', () => {
       const local = stubClient()
-      const workspace = stubClient()
-      const routed = new RoutedClient(local, workspace)
+      const home = stubClient()
+      const routed = new RoutedClient(local, home)
 
       const cb = mock(() => {})
       routed.on(REMOTE_CHANNEL, cb)
 
-      expect(workspace.on).toHaveBeenCalledWith(REMOTE_CHANNEL, cb)
+      expect(home.on).toHaveBeenCalledWith(REMOTE_CHANNEL, cb)
+    })
+
+    it('registers capabilities on every client', () => {
+      const local = stubClient()
+      const home = stubClient()
+      const remote = stubClient()
+      const routed = new RoutedClient(local, home, remote)
+
+      const handler = mock(async () => 'ok')
+      routed.handleCapability('test:capability', handler)
+
+      for (const client of [local, home, remote]) expect(client.handleCapability).toHaveBeenCalledWith('test:capability', handler)
     })
   })
 
   describe('workspace switch', () => {
-    // SWITCH_WORKSPACE is LOCAL_ONLY — the switch result mock goes on localClient
-    it('swaps workspaceClient when SWITCH_WORKSPACE returns remoteServer', async () => {
-      const local = stubClient({
-        invoke: mock(async () => ({
-          workspaceId: 'ws-2',
-          remoteServer: { url: 'wss://remote:9001', token: 'tok', remoteWorkspaceId: 'rw-1' },
-        })),
-      })
-      const workspace = stubClient()
+    // SWITCH_WORKSPACE is REMOTE_ELIGIBLE — the switch result comes from the current workspace client
+    it('swaps workspaceClient when SWITCH_WORKSPACE returns remoteServer, and keeps the home client', async () => {
+      const local = stubClient()
+      const home = stubClient({ invoke: toRemote() })
 
       const newRemote = stubClient()
-      const routed = new RoutedClient(local, workspace)
+      const routed = new RoutedClient(local, home)
       routed.setClientFactory(() => newRemote)
 
       await routed.invoke(SWITCH_CHANNEL)
 
-      // New client should have been connected
       expect(newRemote.connect).toHaveBeenCalled()
-      // Old workspace client should have been destroyed (it's not the local client)
-      expect(workspace.destroy).toHaveBeenCalled()
+      expect(home.destroy).not.toHaveBeenCalled()
+      await routed.invoke(REMOTE_CHANNEL)
+      expect(newRemote.invoke).toHaveBeenCalledWith(REMOTE_CHANNEL)
     })
 
-    it('reverts to localClient when switching to local workspace', async () => {
-      const local = stubClient({
+    it('reverts to the home client when switching to a local workspace', async () => {
+      const local = stubClient()
+      const home = stubClient()
+      const remoteWs = stubClient({
         invoke: mock(async () => ({
           workspaceId: 'ws-local',
           remoteServer: null,
         })),
       })
-      const remoteWs = stubClient()
 
-      const routed = new RoutedClient(local, remoteWs)
+      const routed = new RoutedClient(local, home, remoteWs)
       await routed.invoke(SWITCH_CHANNEL)
 
       // Remote client should be destroyed
       expect(remoteWs.destroy).toHaveBeenCalled()
-      // Subsequent REMOTE_ELIGIBLE calls should go to localClient
+      // Subsequent REMOTE_ELIGIBLE calls go to the home server
       await routed.invoke(REMOTE_CHANNEL)
-      expect(local.invoke).toHaveBeenCalledWith(REMOTE_CHANNEL)
+      expect(home.invoke).toHaveBeenCalledWith(REMOTE_CHANNEL)
+      expect(local.invoke).not.toHaveBeenCalled()
+    })
+
+    it('tells the switch listener which workspace the window is on', async () => {
+      const home = stubClient({ invoke: mock(async () => ({ workspaceId: 'ws-9', remoteServer: null })) })
+      const routed = new RoutedClient(stubClient(), home)
+      const listener = mock((_id: string) => {})
+      routed.onWorkspaceSwitched(listener)
+
+      await routed.invoke(SWITCH_CHANNEL, 'ws-9')
+
+      expect(listener).toHaveBeenCalledWith('ws-9')
     })
 
     it('re-subscribes REMOTE_ELIGIBLE listeners on swap (make-before-break)', async () => {
-      const local = stubClient({
-        invoke: mock(async () => ({
-          workspaceId: 'ws-2',
-          remoteServer: { url: 'wss://remote:9001', token: 'tok', remoteWorkspaceId: 'rw-1' },
-        })),
-      })
-      const workspace = stubClient()
+      const local = stubClient()
+      const home = stubClient({ invoke: toRemote() })
 
       const newRemote = stubClient()
-      const routed = new RoutedClient(local, workspace)
+      const routed = new RoutedClient(local, home)
       routed.setClientFactory(() => newRemote)
 
       // Subscribe a listener before switch
       const cb = mock(() => {})
       routed.on(REMOTE_CHANNEL, cb)
-      expect(workspace.on).toHaveBeenCalledWith(REMOTE_CHANNEL, cb)
+      expect(home.on).toHaveBeenCalledWith(REMOTE_CHANNEL, cb)
 
       // Trigger switch
       await routed.invoke(SWITCH_CHANNEL)
@@ -173,16 +193,11 @@ describe('RoutedClient', () => {
     })
 
     it('re-registers capabilities on swap', async () => {
-      const local = stubClient({
-        invoke: mock(async () => ({
-          workspaceId: 'ws-2',
-          remoteServer: { url: 'wss://remote:9001', token: 'tok', remoteWorkspaceId: 'rw-1' },
-        })),
-      })
-      const workspace = stubClient()
+      const local = stubClient()
+      const home = stubClient({ invoke: toRemote() })
 
       const newRemote = stubClient()
-      const routed = new RoutedClient(local, workspace)
+      const routed = new RoutedClient(local, home)
       routed.setClientFactory(() => newRemote)
 
       const handler = mock(async () => 'capability-result')
@@ -263,7 +278,7 @@ describe('RoutedClient', () => {
 })
 
 describe('isLocalOnly consistency', () => {
-  it('correctly classifies window channels as LOCAL_ONLY', () => {
+  it('correctly classifies window management channels as LOCAL_ONLY', () => {
     expect(isLocalOnly(LOCAL_CHANNEL)).toBe(true)
   })
 

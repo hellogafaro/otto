@@ -253,9 +253,6 @@ export interface ElectronAPI {
   getServerHomeDir(): Promise<string>
 
   // Server mode configuration
-  getServerConfig(): Promise<import('@otto/shared/config/server-config').ServerConfig>
-  setServerConfig(config: import('@otto/shared/config/server-config').ServerConfig): Promise<void>
-  getServerStatus(): Promise<import('@otto/shared/config/server-config').ServerStatus>
 
   // App lifecycle
   relaunchApp(): Promise<void>

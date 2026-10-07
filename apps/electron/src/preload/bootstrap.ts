@@ -1,11 +1,11 @@
 /**
  * WS-mode preload — replaces the full IPC preload (index.ts).
  *
- * Normal mode (local server):
- *   Creates a RoutedClient that routes LOCAL_ONLY channels to the local
- *   Electron server and REMOTE_ELIGIBLE channels to whichever server owns
- *   the active workspace (local or remote). Workspace switches swap the
- *   workspace client transparently.
+ * Normal mode (the app's own server):
+ *   Creates a RoutedClient that routes LOCAL_ONLY channels to the main
+ *   process and REMOTE_ELIGIBLE channels to whichever server owns the active
+ *   workspace: the server child for local workspaces (docs/desktop.md), or a
+ *   remote one. Workspace switches swap the workspace client transparently.
  *
  * Thin-client mode (OTTO_SERVER_URL):
  *   Creates a single WsRpcClient connected to the remote server.
@@ -92,16 +92,28 @@ if (isClientOnly) {
 
 } else {
   // ── Normal mode ────────────────────────────────────────────────────────
-  // RoutedClient routes LOCAL_ONLY to local server, REMOTE_ELIGIBLE to
-  // whichever server owns the workspace (local or remote).
+  // RoutedClient routes LOCAL_ONLY to the main process, REMOTE_ELIGIBLE to
+  // whichever server owns the workspace (the server child, or a remote one).
 
   const wsPort: number = ipcRenderer.sendSync('__get-ws-port')
   const wsToken: string = ipcRenderer.sendSync('__get-ws-token')
+  // '' before the first workspace exists (first-run setup)
   const workspaceId: string = ipcRenderer.sendSync('__get-workspace-id')
+  const server: { url: string; token: string } | null = ipcRenderer.sendSync('__get-server')
 
   const localClient = new WsRpcClient(`ws://127.0.0.1:${wsPort}`, {
     token: wsToken,
-    workspaceId,
+    workspaceId: workspaceId || undefined,
+    webContentsId,
+    autoReconnect: true,
+    mode: 'local',
+    clientCapabilities: [...LOCAL_CLIENT_CAPABILITIES],
+  })
+
+  // The server child: every local workspace lives on it
+  const homeClient = new WsRpcClient(server?.url ?? 'ws://127.0.0.1:0', {
+    token: server?.token,
+    workspaceId: workspaceId || undefined,
     webContentsId,
     autoReconnect: true,
     mode: 'local',
@@ -125,11 +137,12 @@ if (isClientOnly) {
     })
     initialWorkspaceClient.connect()
   } else {
-    // Workspace is local — workspace client IS the local client
-    initialWorkspaceClient = localClient
+    // Workspace is local — workspace client IS the home server's
+    initialWorkspaceClient = homeClient
   }
 
-  const routedClient = new RoutedClient(localClient, initialWorkspaceClient)
+  const routedClient = new RoutedClient(localClient, homeClient, initialWorkspaceClient)
+  routedClient.onWorkspaceSwitched((id) => ipcRenderer.send('__window:workspace', id))
 
   // Set workspace ID mapping if initial workspace is remote
   if (remoteConfig) {
@@ -150,6 +163,7 @@ if (isClientOnly) {
   })
 
   localClient.connect()
+  homeClient.connect()
   client = routedClient
 }
 
@@ -329,7 +343,6 @@ client.onConnectionStateChanged((state) => {
 
 // App lifecycle — direct IPC (not WS RPC) since it restarts the server itself
 ;(api as ElectronAPI).relaunchApp = () => ipcRenderer.invoke('app:relaunch')
-;(api as ElectronAPI).removeWorkspace = (workspaceId: string) => ipcRenderer.invoke('workspace:remove', workspaceId)
 ;(api as ElectronAPI).invokeOnServer = (url: string, token: string, channel: string, ...args: any[]) =>
   ipcRenderer.invoke('server:invokeOnServer', url, token, channel, ...args)
 ;(api as ElectronAPI).transferSessionToWorkspace = (sessionId: string, targetWorkspaceId: string, sessionIndex?: number, sessionCount?: number) =>

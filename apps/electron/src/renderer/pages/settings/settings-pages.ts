@@ -24,7 +24,6 @@ import PermissionsSettingsPage from './permissions-settings-page'
 import LabelsSettingsPage from './labels-settings-page'
 import StatusesSettingsPage from './statuses-settings-page'
 import MessagingSettingsPage from './messaging-settings-page'
-import ServerSettingsPage from './server-settings-page'
 import ShortcutsPage from './shortcuts-page'
 import PreferencesPage from './preferences-page'
 
@@ -43,7 +42,6 @@ export const SETTINGS_PAGE_COMPONENTS: Record<SettingsSubpage, ComponentType> = 
   labels: LabelsSettingsPage,
   statuses: StatusesSettingsPage,
   messaging: MessagingSettingsPage,
-  server: ServerSettingsPage,
   shortcuts: ShortcutsPage,
   preferences: PreferencesPage,
 }

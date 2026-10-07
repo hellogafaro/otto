@@ -67,7 +67,6 @@ yet).
 - [ ] `pages/settings/messaging-settings-page.tsx`
 - [ ] `pages/settings/permissions-settings-page.tsx`
 - [ ] `pages/settings/preferences-page.tsx`
-- [ ] `pages/settings/server-settings-page.tsx`
 - [ ] `pages/settings/shortcuts-page.tsx`
 - [ ] `pages/settings/workspace-settings-page.tsx`
 

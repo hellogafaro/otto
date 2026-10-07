@@ -48,6 +48,7 @@ export const CHANNEL_MAP = {
   // Workspace management
   getWorkspaces: invoke(RPC_CHANNELS.workspaces.GET),
   createWorkspace: invoke(RPC_CHANNELS.workspaces.CREATE),
+  removeWorkspace: invoke(RPC_CHANNELS.workspaces.REMOVE),
   checkWorkspaceSlug: invoke(RPC_CHANNELS.workspaces.CHECK_SLUG),
   updateWorkspaceRemoteServer: invoke(RPC_CHANNELS.workspaces.UPDATE_REMOTE),
   getWorkspaceMembers: invoke(RPC_CHANNELS.workspaces.GET_MEMBERS),
@@ -159,9 +160,6 @@ export const CHANNEL_MAP = {
   getServerHomeDir: invoke(RPC_CHANNELS.server.HOME_DIR),
 
   // Server mode configuration
-  getServerConfig: invoke(RPC_CHANNELS.settings.GET_SERVER_CONFIG),
-  setServerConfig: invoke(RPC_CHANNELS.settings.SET_SERVER_CONFIG),
-  getServerStatus: invoke(RPC_CHANNELS.settings.GET_SERVER_STATUS),
 
   // Settings - API Setup
   setupLlmConnection: invoke(RPC_CHANNELS.settings.SETUP_LLM_CONNECTION),

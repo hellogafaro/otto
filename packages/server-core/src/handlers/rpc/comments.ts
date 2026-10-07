@@ -23,7 +23,7 @@ export function getEntityTitle(workspaceId: string, entity: string): string | un
 
 /** Comments on tasks and projects. Mentions notify through the comments domain. */
 export function registerCommentsHandlers(server: RpcServer, deps: HandlerDeps): void {
-  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx, deps).id
+  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx).id
 
   server.handle(RPC_CHANNELS.comments.GET, (ctx, entity: string) => getComments(workspaceOf(ctx), entity))
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import type { RpcServer } from '@otto/server-core/transport'
-import { createMockDeps } from './electron-mock'
+import { createMockGuiDeps, createMockServerDeps } from './electron-mock'
 
 const registeredChannels: string[] = []
 
@@ -124,9 +124,9 @@ describe('RPC handler profile registration', () => {
 
   it('registerCoreRpcHandlers registers only core channels', async () => {
     const expected = await getExpectedCoreChannels()
-    const { registerCoreRpcHandlers } = await import('../index')
+    const { registerCoreRpcHandlers } = await import('@otto/server-core/handlers/rpc')
 
-    registerCoreRpcHandlers(createMockServer(), createMockDeps())
+    registerCoreRpcHandlers(createMockServer(), createMockServerDeps())
 
     const actual = new Set(registeredChannels.filter(ch => ch.includes(':')))
     expect([...expected].filter(ch => !actual.has(ch))).toEqual([])
@@ -137,7 +137,7 @@ describe('RPC handler profile registration', () => {
     const expected = await getExpectedGuiChannels()
     const { registerGuiRpcHandlers } = await import('../index')
 
-    registerGuiRpcHandlers(createMockServer(), createMockDeps())
+    registerGuiRpcHandlers(createMockServer(), createMockGuiDeps())
 
     const actual = new Set(registeredChannels.filter(ch => ch.includes(':')))
     expect([...expected].filter(ch => !actual.has(ch))).toEqual([])

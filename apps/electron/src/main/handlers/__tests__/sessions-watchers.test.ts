@@ -5,7 +5,7 @@ import { tmpdir } from 'os'
 import { RPC_CHANNELS } from '../../../shared/types'
 import { registerSessionsHandlers, cleanupSessionFileWatchForClient } from '@otto/server-core/handlers/rpc'
 import type { RpcServer } from '@otto/server-core/transport'
-import type { HandlerDeps } from '../handler-deps'
+import type { HandlerDeps } from '@otto/server-core/handlers'
 
 type HandlerFn = (ctx: { clientId: string }, ...args: any[]) => Promise<any> | any
 

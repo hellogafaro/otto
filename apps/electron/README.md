@@ -15,16 +15,14 @@ bun run electron:start   # Build and run
 ```
 apps/electron/
 ├── src/
-│   ├── main/              # Electron main process
-│   │   ├── index.ts       # Window creation, app lifecycle
-│   │   ├── ipc.ts         # IPC handler registration
+│   ├── main/              # Electron main process: a shell, no database (docs/desktop.md)
+│   │   ├── index.ts       # Window creation, app lifecycle, main's own RPC server
+│   │   ├── server-process.ts # The server child (packages/server under Bun): start, wait, stop
+│   │   ├── handlers/      # Main's channels: windows, update, badge, notifications, browser panes
 │   │   ├── menu.ts        # Application menu (File, Edit, View, Help)
-│   │   ├── sessions.ts    # Session management, Otto integration
-│   │   ├── deep-link.ts   # Deep link URL parsing and handling
-│   │   ├── agent-service.ts # Agent listing, caching, auth checking
-│   │   └── sources-service.ts # Source and authentication service
+│   │   └── deep-link.ts   # Deep link URL parsing and handling
 │   ├── preload/           # Context bridge (main ↔ renderer)
-│   │   └── index.ts       # Exposes electronAPI to renderer
+│   │   └── bootstrap.ts   # Connects to main and to the server child, exposes electronAPI
 │   ├── renderer/          # React UI
 │   │   ├── app.tsx        # Main app, event handling
 │   │   ├── components/
@@ -89,39 +87,15 @@ new Otto({ workspaceId: workspace.id, model })
 new Otto({ workspace, model })
 ```
 
-### 4. esbuild Configuration
+### 4. Main and the server
 
-`electron` and `@anthropic-ai/claude-agent-sdk` are externalized:
-
-```json
-"build:main": "esbuild ... --external:electron --external:@anthropic-ai/claude-agent-sdk"
-```
-
-The SDK core ships unbundled under `app/node_modules` (electron-builder `extraResources`). Native modules need the same explicit externalization.
+Main runs under Electron's Node and has no server code: `bun run electron:build:main` bundles it with only `electron` external and fails when the bundle requires `bun:` (a sign it reached the database). The same script bundles the server into `dist/server.js` (`bun build --target bun`), which the packaged app runs under `vendor/bun`; in dev main runs `packages/server/src/index.ts` with `bun`.
 
 ## Environment Variables
 
-### Gmail OAuth (via 1Password CLI)
+### OAuth client ids
 
-Gmail OAuth credentials are synced from 1Password to a local `.env` file.
-
-**One-time setup:**
-```bash
-# 1. Install 1Password CLI
-brew install 1password-cli
-
-# 2. Enable CLI integration: 1Password app → Settings → Developer → CLI Integration
-
-# 3. Sync secrets (requires Touch ID once)
-bun run sync-secrets
-```
-
-**That's it!** Now `bun run electron:dev` and `bun run electron:start` work without prompts.
-
-**How it works:**
-- `.env.1password` contains `op://` references to the `Dev_Otto` vault
-- `bun run sync-secrets` resolves references → writes `.env` (gitignored)
-- Secrets are baked into the build at compile time via esbuild `--define` flags
+Secrets live in Infisical (project `otto`, env `dev`). Build-time OAuth client ids are read from the environment (or a local `.env`) and baked into main via esbuild `--define` flags (`scripts/electron-build-main.ts`).
 
 **Creating your own OAuth credentials:**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
@@ -133,7 +107,7 @@ bun run sync-secrets
 ## Build Process
 
 ```bash
-bun run electron:build:main      # Bundle main process (esbuild)
+bun run electron:build:main      # Bundle main process (esbuild) and the server child (bun build)
 bun run electron:build:preload   # Bundle preload script (esbuild)
 bun run electron:build:renderer  # Bundle React app (Vite)
 bun run electron:build:resources # Copy icons

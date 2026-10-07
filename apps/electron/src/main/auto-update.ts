@@ -22,10 +22,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { mainLog, autoUpdateLog } from './logger'
 import { getAppVersion, getUpdateUrl } from '@otto/shared/version'
-import {
-  getDismissedUpdateVersion,
-  clearDismissedUpdateVersion,
-} from '@otto/shared/config'
+import { getInstallSetting, updateInstallSetting } from './server-process'
 import { readJsonFileSync } from '@otto/shared/utils/files'
 import { RPC_CHANNELS, type UpdateInfo } from '../shared/types'
 import type { EventSink } from '@otto/server-core/transport'
@@ -431,7 +428,7 @@ export async function installUpdate(): Promise<void> {
   broadcastUpdateInfo()
 
   // Clear dismissed version since user is explicitly updating
-  clearDismissedUpdateVersion()
+  await updateInstallSetting('dismissedUpdateVersion', null).catch((err) => mainLog.warn('[auto-update] could not clear the dismissed version:', err))
 
   // Set flag to prevent force exit from breaking electron-updater's shutdown sequence
   __isUpdating = true
@@ -513,7 +510,7 @@ export async function checkForUpdatesOnLaunch(): Promise<UpdateOnLaunchResult> {
   }
 
   // Check if this version was dismissed by user
-  const dismissedVersion = getDismissedUpdateVersion()
+  const dismissedVersion = await getInstallSetting('dismissedUpdateVersion').catch(() => null)
   if (dismissedVersion === info.latestVersion) {
     mainLog.info(`[auto-update] Update ${info.latestVersion} was dismissed, skipping notification`)
     return { action: 'skipped', reason: 'dismissed', version: info.latestVersion }

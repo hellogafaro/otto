@@ -1,6 +1,6 @@
 /**
  * RoutinesPage - the Routines index: the workspace's routines grouped by what starts them (Scheduled, Events, Agent
- * events; empty groups are not drawn) in the line-only `PageWrap`, the Chats and Tasks table. The header carries
+ * events; empty groups are not drawn) in the Settings card (`ListCard`), the Chats and Tasks table. The header carries
  * Filter (Type, one at a time, `?type=`) and "+" (New routine: prefills the composer, where you describe it and an agent
  * writes it); there is no Search (the palette has no Routines category). Active filters show as chips above the list.
  *
@@ -12,8 +12,8 @@ import { useTranslation } from 'react-i18next'
 import { Clock, Shapes } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField } from '@workspace/ui/components/filters'
-import { ListGroup, ListRowSkeleton } from '@workspace/ui/components/list-group'
-import { PageColumn, PageWrap } from '@workspace/ui/components/page'
+import { ListCard, ListGroup, ListRowSkeleton } from '@workspace/ui/components/list-group'
+import { PageColumn } from '@workspace/ui/components/page'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { useComposerContext } from '@/components/composer/use-composer-context'
 import { useComposer } from '@/components/composer/composer-provider'
@@ -90,17 +90,17 @@ export function RoutinesPage() {
             removeLabel={(field) => `${t('common.remove')} ${field}`}
           />
           {!loaded ? (
-            // Otto: the same padded wrapper as Chats and Tasks (DESIGN.md, PageWrap).
-            <PageWrap aria-busy padded>
+            // Otto: the same card as Chats and Tasks (DESIGN.md, ListCard).
+            <ListCard aria-busy>
               <ul>{[0, 1, 2].map((i) => <ListRowSkeleton key={i} />)}</ul>
-            </PageWrap>
+            </ListCard>
           ) : type && groups[type].length === 0 ? (
             <NoResults title={t('chatsIndex.noResults')} description={t('chatsIndex.noResultsDescription')}>
               <Button variant="outline" onClick={() => setType(undefined)}>{t('chatsIndex.clearFilters')}</Button>
             </NoResults>
           ) : (
-            // Otto: the same padded wrapper as Chats and Tasks (DESIGN.md, PageWrap).
-            <PageWrap padded>
+            // Otto: the same card as Chats and Tasks (DESIGN.md, ListCard).
+            <ListCard>
               {ROUTINE_TYPES.map((group) => {
                 const Icon = ROUTINE_TYPE_ICONS[group]
                 return (
@@ -109,7 +109,7 @@ export function RoutinesPage() {
                   </ListGroup>
                 )
               })}
-            </PageWrap>
+            </ListCard>
           )}
         </div>
       </PageColumn>

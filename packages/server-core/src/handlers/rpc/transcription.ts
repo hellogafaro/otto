@@ -14,7 +14,7 @@ export const HANDLED_CHANNELS = [RPC_CHANNELS.transcription.CREATE] as const
  */
 export function registerTranscriptionHandlers(server: RpcServer, deps: HandlerDeps): void {
   server.handle(RPC_CHANNELS.transcription.CREATE, async (ctx, audioBase64: string, type: string) => {
-    const where = { userId: userIdOf(actorOf(ctx)), workspaceId: resolveWorkspace(ctx, deps).id }
+    const where = { userId: userIdOf(actorOf(ctx)), workspaceId: resolveWorkspace(ctx).id }
     if (typeof audioBase64 !== 'string' || typeof type !== 'string') throw domainError('invalid', 'Send the recording as base64 and its audio/* type')
     // base64 is 4 bytes for 3: refuse an oversized body before decoding it
     if (audioBase64.length > Math.ceil(TRANSCRIPTION_MAX_BYTES / 3) * 4) throw domainError('too_large', 'The recording is too long')

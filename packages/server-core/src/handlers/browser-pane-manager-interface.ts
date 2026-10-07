@@ -140,9 +140,6 @@ export interface AccessibilitySnapshot {
 export interface IBrowserPaneManager {
   // -- Session lifecycle ---------------------------------------------------
 
-  /** Register a callback that resolves session IDs to file paths */
-  setSessionPathResolver(fn: (sessionId: string) => string | null): void
-
   /** Destroy all browser instances bound to a session */
   destroyForSession(sessionId: string): void
 

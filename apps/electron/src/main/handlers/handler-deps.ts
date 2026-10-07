@@ -1,18 +1,12 @@
 /**
- * HandlerDeps — dependency bag for all IPC handlers.
- *
- * Concrete Electron specialization of the generic server-core handler deps.
+ * What main's handlers need: its windows and browser panes. Main has no database and no session manager; the
+ * server child owns those (docs/desktop.md).
  */
 
-import type { HandlerDeps as BaseHandlerDeps } from '@otto/server-core/handlers'
-import type { SessionManager } from '@otto/server-core/sessions'
 import type { WindowManager } from '../window-manager'
 import type { BrowserPaneManager } from '../browser-pane-manager'
-import type { OAuthFlowStore } from '@otto/shared/auth'
 
-export type HandlerDeps = BaseHandlerDeps<
-  SessionManager,
-  OAuthFlowStore,
-  WindowManager,
-  BrowserPaneManager
->
+export interface GuiDeps {
+  windowManager: WindowManager
+  browserPaneManager: BrowserPaneManager
+}

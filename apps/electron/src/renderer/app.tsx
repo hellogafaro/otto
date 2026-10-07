@@ -561,7 +561,7 @@ export default function App() {
     if (appState !== 'ready') return
 
     window.electronAPI.getWorkspaces().then(setWorkspaces)
-    // The setting is the desktop app's: the web server has no handler for it
+    // OS notifications are the desktop app's (the setting is the person's on the server)
     if (!isWebUI) window.electronAPI.getNotificationsEnabled().then(setNotificationsEnabled).catch(() => {})
 
     // Show actionable toast for missing system dependencies (Windows only)

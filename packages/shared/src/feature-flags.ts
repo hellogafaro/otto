@@ -37,17 +37,6 @@ export function isDeveloperFeedbackEnabled(): boolean {
   return isDevRuntime();
 }
 
-/**
- * Runtime-evaluated check for embedded server settings page.
- *
- * Defaults to disabled. Override with OTTO_FEATURE_EMBEDDED_SERVER=1|0.
- */
-export function isEmbeddedServerEnabled(): boolean {
-  const override = parseBooleanEnv(getEnv('OTTO_FEATURE_EMBEDDED_SERVER'));
-  if (override !== undefined) return override;
-  return false;
-}
-
 export const FEATURE_FLAGS = {
   /** Enable Opus 4.7 fast mode (speed:"fast" + beta header). 6x pricing. */
   fastMode: false,
@@ -59,13 +48,5 @@ export const FEATURE_FLAGS = {
    */
   get developerFeedback(): boolean {
     return isDeveloperFeedbackEnabled();
-  },
-  /**
-   * Enable embedded server settings page.
-   *
-   * Defaults to disabled. Override with OTTO_FEATURE_EMBEDDED_SERVER=1|0.
-   */
-  get embeddedServer(): boolean {
-    return isEmbeddedServerEnabled();
   },
 } as const;

@@ -3,18 +3,16 @@ import { PermissionsConfigSchema } from '../agent/mode-types.ts'
 import { THINKING_LEVEL_IDS, normalizeThinkingLevel } from '../agent/thinking-levels.ts'
 import { MAX_INSTRUCTIONS } from '../agents/types.ts'
 import type { DecisionLayerStoredSettings } from '../decisions/settings.ts'
-import { DEFAULT_SERVER_CONFIG } from '../config/server-config.ts'
 
 /**
  * Every setting there is: the one typed list the `settings` table is checked against.
  * A key belongs to one kind of owner (`install`, `workspace` or `user`), has a default
  * (what a read gives while no row exists) and a validator (what a write must satisfy).
- * `sensitive` keys are not readable by every signed-in user (see bootstrap/authorize.ts).
  */
 export type SettingKind = 'install' | 'workspace' | 'user'
 
-function key<K extends SettingKind, T>(kind: K, schema: z.ZodType<T>, fallback: T, sensitive = false) {
-  return { kind, schema, fallback, sensitive }
+function key<K extends SettingKind, T>(kind: K, schema: z.ZodType<T>, fallback: T) {
+  return { kind, schema, fallback }
 }
 
 const text = z.string()
@@ -27,13 +25,6 @@ export const CATALOGUE = {
   defaultConnectionSlug: key('install', textOrNull, null),
   defaultThinkingLevel: key('install', z.preprocess(normalizeThinkingLevel, z.enum(THINKING_LEVEL_IDS)), 'medium' as const),
   setupDeferred: key('install', flag, false),
-  /** The auth token is a secret: `tokenSecretId` points at it (`getServerConfig` / `setServerConfig` in config/storage.ts read and write it). */
-  server: key(
-    'install',
-    z.object({ enabled: flag, port: z.number().int(), tlsCertPath: text.optional(), tlsKeyPath: text.optional(), tokenSecretId: text.optional() }),
-    { enabled: DEFAULT_SERVER_CONFIG.enabled, port: DEFAULT_SERVER_CONFIG.port } as { enabled: boolean; port: number; tlsCertPath?: string; tlsKeyPath?: string; tokenSecretId?: string },
-    true,
-  ),
   decisionLayer: key('install', object<DecisionLayerStoredSettings>(), {}),
   allowRemoteEvaluate: key('install', flag, true),
   gitBashPath: key('install', textOrNull, null),

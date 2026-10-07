@@ -1599,7 +1599,6 @@ export class SessionManager implements ISessionManager {
     this.automationBinder = fn
   }
 
-  private browserPaneManager: IBrowserPaneManager | null = null
   private rpcServer: RpcServer | null = null
   private remoteBpms = new Map<string, RemoteBrowserPaneManager>()
   /** Pinned desktop client per session for `client:browser:invoke` routing. */
@@ -1639,22 +1638,14 @@ export class SessionManager implements ISessionManager {
     return !!managed && this.canSee(userId)(managed)
   }
 
-  setBrowserPaneManager(bpm: IBrowserPaneManager): void {
-    this.browserPaneManager = bpm
-    bpm.setSessionPathResolver((sessionId) => this.getSessionPath(sessionId))
-  }
-
   /**
-   * Provide the WS RPC server so remote clients can host browser tools.
+   * Provide the WS RPC server so clients can host browser tools (the desktop's windows too: they reach the
+   * server over WebSocket like any client).
    *
    * When called, the SM activates the remote-bridge code path: per-session
    * `RemoteBrowserPaneManager` instances are created lazily by
    * {@link getBrowserPaneManagerForSession}, and the browser-host client is
    * resolved via {@link getBrowserHostClient} with capability-aware fallback.
-   *
-   * Local Electron callers do not need to call this — they already
-   * call `setBrowserPaneManager(bpm)` with the in-process BPM, which takes
-   * precedence over the remote bridge in {@link getBrowserPaneManagerForSession}.
    */
   setRpcServer(server: RpcServer): void {
     this.rpcServer = server
@@ -1662,17 +1653,11 @@ export class SessionManager implements ISessionManager {
   }
 
   /**
-   * Resolve the {@link IBrowserPaneManager} that owns the user's local browser
-   * for a given session. Returns:
-   *
-   * 1. The locally-injected `browserPaneManager` when present (Electron client co-located
-   *    with the agent), regardless of session.
-   * 2. A session-bound {@link RemoteBrowserPaneManager} when `rpcServer` is set.
-   *    Cached in `remoteBpms` so repeat lookups don't allocate.
-   * 3. `null` when there's neither a local BPM nor an RPC server.
+   * Resolve the {@link IBrowserPaneManager} that owns the user's browser
+   * for a given session: a session-bound {@link RemoteBrowserPaneManager} when `rpcServer` is set
+   * (cached in `remoteBpms` so repeat lookups don't allocate), else `null`.
    */
   getBrowserPaneManagerForSession(sid: string): IBrowserPaneManager | null {
-    if (this.browserPaneManager) return this.browserPaneManager
     if (!this.rpcServer) return null
 
     const cached = this.remoteBpms.get(sid)
@@ -3575,26 +3560,20 @@ export class SessionManager implements ISessionManager {
       // Wire up browser pane tools — merge BrowserPaneFns into session callbacks
       // so browser_* tools can delegate to BrowserPaneManager.
       //
-      // Always register when EITHER a local BPM is set OR an RPC server is
-      // available (which lets `getBrowserPaneManagerForSession` lazily build a
-      // RemoteBrowserPaneManager). Calls fail per-method with
-      // BROWSER_NO_CAPABLE_CLIENT if no desktop client is connected, instead
-      // of "tool unavailable".
+      // Always register when an RPC server is available (which lets
+      // `getBrowserPaneManagerForSession` lazily build a RemoteBrowserPaneManager).
+      // Calls fail per-method with BROWSER_NO_CAPABLE_CLIENT if no desktop client
+      // is connected, instead of "tool unavailable".
       sessionLog.info('[browser-pane] BPF gate check', {
         sessionId: managed.id,
-        hasLocalBpm: !!this.browserPaneManager,
         hasRpcServer: !!this.rpcServer,
       })
-      if (this.browserPaneManager || this.rpcServer) {
+      if (this.rpcServer) {
         const sid = managed.id
         const bpm = this.getBrowserPaneManagerForSession(sid)
         if (!bpm) {
           throw new Error('Browser pane manager unavailable despite passing the gate — this is a bug.')
         }
-        sessionLog.info('[browser-pane] BPF block resolved BPM', {
-          sessionId: sid,
-          bpmKind: this.browserPaneManager === bpm ? 'local' : 'remote',
-        })
 
         const workspaceId = managed.workspace.id
         const resolveSessionBrowserInstance = async (toolName: string, options?: { show?: boolean }): Promise<string> => {
@@ -5061,14 +5040,6 @@ export class SessionManager implements ISessionManager {
     } else {
       this.activeViewingSession.delete(workspaceId)
     }
-  }
-
-  /**
-   * Clear active viewing session for a workspace.
-   * Called when all windows leave a workspace to ensure read/unread state is correct.
-   */
-  clearActiveViewingSession(workspaceId: string): void {
-    this.activeViewingSession.delete(workspaceId)
   }
 
   /**

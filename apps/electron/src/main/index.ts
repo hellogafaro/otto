@@ -3,8 +3,8 @@
 import { loadShellEnv } from './shell-env'
 loadShellEnv()
 
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, safeStorage, session, shell } from 'electron'
-import { createHash, randomBytes, randomUUID } from 'crypto'
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, session } from 'electron'
+import { createHash, randomBytes } from 'crypto'
 import { hostname, homedir } from 'os'
 import * as Sentry from '@sentry/electron/main'
 import { redactSensitiveHeadersInPlace, redactSensitiveKeysInPlace } from '@otto/shared/utils'
@@ -51,18 +51,13 @@ Sentry.init({
 // Initialize i18n for main process (menus, dialogs, etc.)
 //
 // The main-process i18n instance has no detection plugin (no localStorage in Node)
-// — it always starts at `fallbackLng: 'en'`. It is hydrated from the user's persisted
-// `uiLanguage` setting once the local user exists (see the startup block below), and the
-// `i18n:changeLanguage` IPC handler keeps that setting current. Without this, the
-// renderer would restore its language from localStorage on every restart while
-// the main process silently stayed at English — breaking session title language,
-// the system prompt's "Preferred language" line, and the native menu.
+// — it always starts at `fallbackLng: 'en'`. It is hydrated from the user's `uiLanguage`
+// preference on the server once it answers (see the startup block below), and the
+// `i18n:changeLanguage` IPC handler keeps that preference current.
 import { setupI18n, i18n, SUPPORTED_LANGUAGE_CODES, type LanguageCode } from '@otto/shared/i18n'
 import { PRODUCT_NAME } from '@otto/shared/branding'
-import { getPersistedUiLanguage, setPersistedUiLanguage } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 setupI18n()
-// Note: deferred startup log lives below where mainLog is available (after log.initialize()).
 
 // Set anonymous machine ID for Sentry user tracking (no PII — just a hash).
 // Uses hostname + homedir to produce a stable per-machine identifier.
@@ -70,43 +65,26 @@ const machineId = createHash('sha256').update(hostname() + homedir()).digest('he
 Sentry.setUser({ id: machineId })
 
 import { join, delimiter } from 'path'
-import { existsSync, readFileSync } from 'fs'
-import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { SessionManager, setSessionPlatform, setSessionRuntimeHooks } from '@otto/server-core/sessions'
+import { existsSync } from 'fs'
+import { RPC_CHANNELS, type UnreadSummary } from '@otto/shared/protocol'
+import type { RemoteServerConfig, Workspace } from '@otto/core/types'
+import { WsRpcServer } from '@otto/server-core/transport'
 import { initEncryptionKey } from './encryption-key'
-import { registerAllRpcHandlers } from './handlers/index'
-import { registerCoreRpcHandlers, cleanupSessionFileWatchForClient } from '@otto/server-core/handlers/rpc'
-import type { PlatformServices } from '../runtime/platform'
-import { createElectronPlatform } from './platform'
-import type { HandlerDeps } from './handlers/handler-deps'
-import { bootstrapServer, releaseServerLock } from '@otto/server-core/bootstrap'
-import { createMessagingBootstrap, type MessagingBootstrapHandle } from '@otto/messaging-gateway'
-import { getCredentialManager } from '@otto/shared/credentials'
-import { initModelRefreshService, getModelRefreshService, setFetcherPlatform } from '@otto/server-core/model-fetchers'
-import { setImageProcessor } from '@otto/server-core/services'
+import { registerGuiRpcHandlers } from './handlers/index'
 import { createApplicationMenu } from './menu'
 import { WindowManager } from './window-manager'
 import { loadWindowState, saveWindowState } from './window-state'
-import { getWorkspaces, getWorkspaceByNameOrId, loadStoredConfig, addWorkspace, saveConfig } from '@otto/shared/config'
-import { getDefaultWorkspacesDir } from '@otto/shared/workspaces'
-import { initializeDocs } from '@otto/shared/docs'
-import { ensureDefaultPermissions } from '@otto/shared/agent/permissions-config'
-import { ensureToolIcons, ensurePresetThemes } from '@otto/shared/config'
-import { setBundledAssetsRoot } from '@otto/shared/utils'
-import { setPowerShellValidatorRoot } from '@otto/shared/agent'
 import { handleDeepLink } from './deep-link'
 import { BrowserPaneManager } from './browser-pane-manager'
-import { OAuthFlowStore } from '@otto/shared/auth'
 import { registerThumbnailHandler } from './thumbnail-protocol'
 import { registerPrivilegedSchemes, handleAppProtocol } from './protocol-schemes'
-import log, { isDebugMode, mainLog, getLogFilePath, getMessagingGatewayLogFilePath, messagingGatewayLog, autoUpdateLog } from './logger'
+import log, { isDebugMode, mainLog, getLogFilePath, autoUpdateLog } from './logger'
 import { setPerfEnabled, enableDebug } from '@otto/shared/utils'
-import { registerPiModelResolver } from '@otto/shared/config'
-import { getPiModelsForAuthProvider, getAllPiModels } from '@otto/shared/config'
-import { initNotificationService, initBadgeIcon, initInstanceBadge, updateBadgeCount } from './notifications'
+import { initNotificationService, initBadgeIcon, initInstanceBadge, updateBadgeCount, setNotificationEventSink } from './notifications'
 import { checkForUpdatesOnLaunch, setAutoUpdateEventSink, isUpdating, setBeforeUpdateQuitHook, setBeforeUpdateInstallHook, setInstallQuitFailedHook } from './auto-update'
-import type { EventSink } from '@otto/server-core/transport'
-import { validateGitBashPath, checkVCRedistInstalled } from '@otto/server-core/services'
+import { checkVCRedistInstalled } from '@otto/server-core/services/vcredist'
+import { initServer, stopServer, getServerConnection, getWorkspaces, getKnownWorkspace, invokeServer, onServerEvent } from './server-process'
+import { initPowerManager, setRunningChats, cleanup as cleanupPowerManager } from './power-manager'
 
 // Initialize electron-log for renderer process support
 log.initialize()
@@ -121,6 +99,7 @@ if (isDebugMode) {
 // Bundle CLI tools: resolve platform-specific uv binary and wrapper scripts.
 // These are available to all agent Bash sessions via OTTO_UV, OTTO_SCRIPTS env vars
 // and PATH prepend. uv auto-downloads Python 3.12 on first use (~5s, then cached).
+// The server child inherits this environment.
 {
   // In packaged app: resources are at process.resourcesPath/app/resources/
   // In dev: resources are at __dirname/../resources/ (sibling of dist/)
@@ -136,14 +115,14 @@ if (isDebugMode) {
   const bundledUvExists = existsSync(uvBinary)
   const fallbackUv = bundledUvExists ? null : 'uv'
 
-  // Runtime resolver hints for shared session tools
-  process.env.OTTO_IS_PACKAGED = app.isPackaged ? '1' : '0'
+  // Runtime resolver hints for shared session tools (and the server child: 'true' or 'false')
+  process.env.OTTO_IS_PACKAGED = app.isPackaged ? 'true' : 'false'
   process.env.OTTO_RESOURCES_BASE = resourcesBase
   process.env.OTTO_APP_ROOT = app.isPackaged ? app.getAppPath() : process.cwd()
 
   process.env.OTTO_UV = bundledUvExists ? uvBinary : (fallbackUv ?? uvBinary)
 
-  // Bun runtime (packaged builds should prefer bundled runtime over PATH)
+  // Bun runtime (packaged builds run the server under it; dev falls back to bun on PATH)
   const bunBinary = join(resourcesBase, 'vendor', 'bun', process.platform === 'win32' ? 'bun.exe' : 'bun')
   if (existsSync(bunBinary)) {
     process.env.OTTO_BUN = bunBinary
@@ -168,29 +147,23 @@ if (isDebugMode) {
   }
 }
 
-// Register Pi model resolver so llm-connections.ts can resolve Pi models
-// without importing @earendil-works/pi-ai (which breaks the Vite renderer build)
-registerPiModelResolver((provider) =>
-  provider ? getPiModelsForAuthProvider(provider) : getAllPiModels()
-)
-
 // Custom URL scheme for deeplinks (e.g., otto://auth-complete)
 // Supports multi-instance dev: OTTO_DEEPLINK_SCHEME env var (otto1, otto2, etc.)
 const DEEPLINK_SCHEME = process.env.OTTO_DEEPLINK_SCHEME || 'otto'
 
-let windowManager: WindowManager | null = null
-let sessionManager: SessionManager | null = null
-let browserPaneManager: BrowserPaneManager | null = null
-let oauthFlowStore: OAuthFlowStore | null = null
-let moduleSink: EventSink | null = null
-let moduleClientResolver: ((webContentsId: number) => string | undefined) | null = null
+// When OTTO_SERVER_URL is set, this app is a thin client of that server: no server child.
+const isClientOnly = !!process.env.OTTO_SERVER_URL
 
-// Messaging gateway: the bootstrap handle is created once sessionManager is
-// available (inside createHandlerDeps) and populated with the WS publisher
-// after bootstrapServer resolves. Both hosts (Electron + standalone) wire
-// through createMessagingBootstrap — do not construct MessagingGatewayRegistry
-// directly.
-let messagingHandle: MessagingBootstrapHandle | null = null
+let windowManager: WindowManager | null = null
+let browserPaneManager: BrowserPaneManager | null = null
+let guiServer: WsRpcServer | null = null
+let moduleSink: WsRpcServer['push'] | null = null
+const clientMap = new Map<number, string>()
+const moduleClientResolver = (webContentsId: number) => clientMap.get(webContentsId)
+
+// The server child's ENCRYPTION_KEY: kept here, never in main's own environment (renderers inherit that)
+const serverSecrets: { ENCRYPTION_KEY?: string } = { ENCRYPTION_KEY: process.env.ENCRYPTION_KEY }
+delete process.env.ENCRYPTION_KEY
 
 // Store pending deep link if app not ready yet (cold start)
 let pendingDeepLink: string | null = null
@@ -258,7 +231,7 @@ app.on('open-url', (event, url) => {
   mainLog.info('Received deeplink:', url)
 
   if (windowManager) {
-    handleDeepLink(url, windowManager, moduleSink ?? undefined, moduleClientResolver ?? undefined).catch(err => {
+    handleDeepLink(url, windowManager, moduleSink ?? undefined, moduleClientResolver).catch(err => {
       mainLog.error('Failed to handle deep link:', err)
     })
   } else {
@@ -278,7 +251,7 @@ if (!gotTheLock) {
     const url = commandLine.find(arg => arg.startsWith(`${DEEPLINK_SCHEME}://`))
     if (url && windowManager) {
       mainLog.info('Received deeplink from second instance:', url)
-      handleDeepLink(url, windowManager, moduleSink ?? undefined, moduleClientResolver ?? undefined).catch(err => {
+      handleDeepLink(url, windowManager, moduleSink ?? undefined, moduleClientResolver).catch(err => {
         mainLog.error('Failed to handle deep link:', err)
       })
     } else if (windowManager) {
@@ -293,26 +266,22 @@ if (!gotTheLock) {
   })
 }
 
+/** The local workspaces, or none when there is no server (a thin client, or the server is down). */
+async function getWorkspacesOrNone(): Promise<Workspace[]> {
+  if (isClientOnly) return []
+  return getWorkspaces().catch((error) => {
+    mainLog.warn('Could not list the workspaces:', error instanceof Error ? error.message : error)
+    return []
+  })
+}
+
 // Helper to create initial windows on startup
 async function createInitialWindows(): Promise<void> {
   if (!windowManager) return
 
   // Load saved window state
   const savedState = loadWindowState()
-  let workspaces = getWorkspaces()
-
-  // If no workspaces exist, create default "My Workspace" on first run
-  if (workspaces.length === 0) {
-    // Ensure config file exists (addWorkspace requires it)
-    if (!loadStoredConfig()) {
-      saveConfig({ workspaces: [] })
-    }
-    const defaultPath = join(getDefaultWorkspacesDir(), 'my-workspace')
-    addWorkspace({ rootPath: defaultPath, name: 'My Workspace' })
-    workspaces = getWorkspaces() // Refresh after creation
-    mainLog.info('Created default workspace on first run')
-  }
-
+  const workspaces = await getWorkspacesOrNone()
   const validWorkspaceIds = workspaces.map(ws => ws.id)
 
   if (savedState?.windows.length) {
@@ -339,55 +308,100 @@ async function createInitialWindows(): Promise<void> {
     }
   }
 
-  // Default: open window for first workspace
-  windowManager.createWindow({ workspaceId: workspaces[0].id })
-  mainLog.info(`Created window for first workspace: ${workspaces[0].name}`)
+  // Default: the first workspace; without one the window opens on first-run setup, which creates it
+  windowManager.createWindow({ workspaceId: workspaces[0]?.id ?? '' })
+  mainLog.info(workspaces[0] ? `Created window for first workspace: ${workspaces[0].name}` : 'Created window for first-run setup (no workspace yet)')
+}
+
+/** The server stopped on its own: say so with its last lines, then start it again or quit. */
+async function handleServerExit(reason: string, lastLines: string[]): Promise<void> {
+  if (isQuitting) return
+  mainLog.error(`[server] stopped unexpectedly (${reason})`)
+  // Sync: the windows wait with it (their server is gone), and the async box resolves late on Linux without a parent window
+  const response = dialog.showMessageBoxSync({
+    type: 'error',
+    title: `${PRODUCT_NAME} stopped working`,
+    message: `${PRODUCT_NAME}'s server stopped unexpectedly (${reason}).`,
+    detail: lastLines.length ? `Last lines of its log:\n\n${lastLines.slice(-12).join('\n')}` : 'It wrote nothing before it stopped.',
+    buttons: ['Restart', 'Quit'],
+    defaultId: 0,
+    cancelId: 1,
+  })
+  if (response !== 0) {
+    app.quit()
+    return
+  }
+  if (await startServer()) {
+    // The new server has a new port and token: every window reconnects through its preload
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.reload()
+  }
+}
+
+/** Start the server child and wire main's own use of it. False (after an error window) when it does not start. */
+async function startServer(): Promise<boolean> {
+  try {
+    await initServer(serverSecrets, (reason, lastLines) => void handleServerExit(reason, lastLines))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    mainLog.error('[server] did not start:', message)
+    const response = dialog.showMessageBoxSync({
+      type: 'error',
+      title: `${PRODUCT_NAME} could not start`,
+      message: `${PRODUCT_NAME}'s server did not start.`,
+      detail: message,
+      buttons: ['Try again', 'Quit'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    if (response === 0) return startServer()
+    app.quit()
+    return false
+  }
+  // The dock badge follows the unread count; the power blocker the running chats
+  onServerEvent(RPC_CHANNELS.sessions.UNREAD_SUMMARY_CHANGED, (summary: UnreadSummary) => updateBadgeCount(summary.totalUnreadSessions))
+  onServerEvent(RPC_CHANNELS.server.STATUS_CHANGED, (status: { runningChats: number }) => setRunningChats(status.runningChats))
+  try {
+    await initPowerManager()
+  } catch (err) {
+    mainLog.warn('[power] Power manager init failed (non-critical):', err instanceof Error ? err.message : err)
+  }
+  // The menus speak the language the user picked (their preference on the server)
+  try {
+    const { content } = await invokeServer<{ content: string }>(RPC_CHANNELS.preferences.READ)
+    const persisted = (JSON.parse(content) as { uiLanguage?: string }).uiLanguage
+    if (persisted && SUPPORTED_LANGUAGE_CODES.includes(persisted as LanguageCode)) await i18n.changeLanguage(persisted)
+  } catch (err) {
+    mainLog.warn('[i18n] could not read the language preference:', err instanceof Error ? err.message : err)
+  }
+  return true
+}
+
+/** Where a workspace's chats live: its remote server, or this app's server for a local workspace. */
+function getWorkspaceServer(workspace: Workspace): RemoteServerConfig {
+  if (workspace.remoteServer) return workspace.remoteServer
+  const connection = getServerConnection()
+  if (!connection) throw new Error('The server is not running')
+  return { ...connection, remoteWorkspaceId: workspace.id }
 }
 
 app.whenReady().then(async () => {
-  // Export packaged state as env var so logger.ts (and headless Bun) don't need 'electron'
-  process.env.OTTO_IS_PACKAGED = app.isPackaged ? 'true' : 'false'
-
-  // The key of the secrets store, before anything can read a secret. A key in the environment (dev) wins.
-  try {
-    initEncryptionKey({ safeStorage, configDir: CONFIG_DIR, env: process.env, warn: (m) => mainLog.warn(m) })
-  } catch (error) {
-    // Never make a new key over an unreadable one: the secrets store stays off until the user fixes the file.
-    mainLog.error('[encryption-key]', error)
-    dialog.showErrorBox('Secrets are unavailable', error instanceof Error ? error.message : String(error))
+  // The key of the secrets store, before the server can read a secret. A key in the environment (dev) wins.
+  // It goes to the server child's environment only (serverSecrets); it is never logged.
+  if (!isClientOnly) {
+    try {
+      initEncryptionKey({ safeStorage, configDir: CONFIG_DIR, env: serverSecrets, warn: (m) => mainLog.warn(m) })
+    } catch (error) {
+      // Never make a new key over an unreadable one: the secrets store stays off until the user fixes the file.
+      mainLog.error('[encryption-key]', error)
+      dialog.showErrorBox('Secrets are unavailable', error instanceof Error ? error.message : String(error))
+    }
   }
-
-  // Register bundled assets root so all seeding functions can find their files
-  // (docs, permissions, themes, tool-icons resolve via getBundledAssetsDir)
-  setBundledAssetsRoot(__dirname)
-
-  // Register PowerShell validator root so it can find the bundled parser script
-  // (Windows only: validates PowerShell commands in Explore mode using AST analysis)
-  setPowerShellValidatorRoot(join(__dirname, 'resources'))
-
-  // Initialize bundled docs
-  initializeDocs()
-
-  // Initialize bundled release notes
-
-  // Ensure default permissions file exists (copies bundled default.json on first run)
-  ensureDefaultPermissions()
-
-  // Seed tool icons to ~/.otto/tool-icons/ (copies bundled SVGs on first run)
-  ensureToolIcons()
-
-  // Seed preset themes to ~/.otto/themes/ (copies bundled theme JSONs on first run)
-  ensurePresetThemes()
 
   // Register thumbnail:// protocol handler (scheme was registered earlier, before app.whenReady)
   registerThumbnailHandler()
 
   // Serve the packaged renderer from otto://app/ (dev loads the Vite dev server instead)
   handleAppProtocol(session.defaultSession)
-
-  // Note: electron-updater handles pending updates internally via autoInstallOnAppQuit
-
-  // Application menu is created after windowManager initialization (see below)
 
   // Set dock icon on macOS (required for dev mode, bundled apps use Info.plist)
   if (process.platform === 'darwin' && app.dock) {
@@ -422,36 +436,18 @@ app.whenReady().then(async () => {
     // Create the application menu (needs windowManager for New Window action)
     createApplicationMenu(windowManager)
 
-    // When OTTO_SERVER_URL is set, this Electron instance is a thin client —
-    // it only creates windows whose preload connects to the remote server.
-    // Skip server-side initialization (SessionManager, model refresh, platform injection).
-    const isClientOnly = !!process.env.OTTO_SERVER_URL
-    const isHeadless = !!process.env.OTTO_HEADLESS
-
     if (isClientOnly) {
-      mainLog.info(`Client-only mode: OTTO_SERVER_URL=${process.env.OTTO_SERVER_URL} (server initialization skipped)`)
+      mainLog.info(`Client-only mode: OTTO_SERVER_URL=${process.env.OTTO_SERVER_URL} (no server child)`)
     }
 
     // Initialize notification service (always — triggered by server push events)
     initNotificationService(windowManager)
 
-    // Initialize browser pane manager (always — even in headless, for deps wiring)
+    // Initialize browser pane manager
     browserPaneManager = new BrowserPaneManager()
     browserPaneManager.setWindowManager(windowManager)
     browserPaneManager.registerToolbarIpc()
     browserPaneManager.registerCapabilityIpc()
-
-    // Build real PlatformServices from Electron APIs
-    const platform: PlatformServices = createElectronPlatform({
-      app,
-      nativeImage,
-      shell,
-      nativeTheme,
-      logger: log,
-      isDebugMode,
-      getLogFilePath,
-      captureError: (err) => Sentry.captureException(err),
-    })
 
     // Bootstrap IPC handlers — preload uses sendSync for window-local details
     ipcMain.on('__get-web-contents-id', (e) => {
@@ -513,591 +509,227 @@ app.whenReady().then(async () => {
       return { canceled: result.canceled, filePaths: result.filePaths }
     })
 
-    if (!isClientOnly) {
-      // A local install has one person and no sign-in: the user made here owns every workspace and is who
-      // the per-launch token (or the server-mode token) acts as. The secret only signs sessions this app
-      // never opens. Then config.json and preferences.json become settings (once), before anything reads one.
-      process.env.BETTER_AUTH_SECRET ??= randomBytes(32).toString('hex')
-      const { initLocalUser } = await import('@otto/shared/users')
-      const { initSettingsImport } = await import('@otto/shared/settings')
-      const { LOCAL_EMAIL, LOCAL_NAME } = await import('@otto/shared/users/queries')
-      initLocalUser({ name: LOCAL_NAME, email: LOCAL_EMAIL })
-      const imported = initSettingsImport()
-      mainLog.info(`[settings] imported ${imported.imported}, skipped ${imported.skipped}`)
-      const { initConnectionsImport } = await import('@otto/shared/connections/import')
-      const connections = await initConnectionsImport()
-      mainLog.info(`[connections] imported ${connections.imported}, skipped ${connections.skipped}`)
-      const { initSecretsImport } = await import('@otto/shared/secrets/import')
-      const tokens = await initSecretsImport()
-      mainLog.info(`[secrets] moved ${tokens.imported} tokens`)
-      const { initLabelsStatusesImport } = await import('@otto/shared/labels/import')
-      initLabelsStatusesImport()
-      const { initAgentsImport } = await import('@otto/shared/agents/import')
-      initAgentsImport()
-      const { initSkills } = await import('@otto/shared/skills')
-      await initSkills()
-      const { initSources } = await import('@otto/shared/sources')
-      await initSources()
-      const { initRoutinesImport } = await import('@otto/shared/automations/routines-import')
-      initRoutinesImport()
-      const { initChatsImport } = await import('@otto/shared/sessions/import')
-      initChatsImport()
-      const persistedUiLanguage = getPersistedUiLanguage()
-      if (persistedUiLanguage) await i18n.changeLanguage(persistedUiLanguage)
-      mainLog.info('[i18n] startup hydration', { persistedUiLanguage: persistedUiLanguage ?? null, resolvedLanguageAfterHydration: i18n.resolvedLanguage ?? null })
-
-      // Restore persisted Git Bash path on Windows (must happen before any SDK subprocess spawn)
-      if (process.platform === 'win32') {
-        const { getGitBashPath, clearGitBashPath } = await import('@otto/shared/config')
-        const gitBashPath = getGitBashPath()
-        if (gitBashPath) {
-          const validation = await validateGitBashPath(gitBashPath)
-          if (validation.valid) {
-            process.env.CLAUDE_CODE_GIT_BASH_PATH = validation.path
-          } else {
-            clearGitBashPath()
-            delete process.env.CLAUDE_CODE_GIT_BASH_PATH
-            mainLog.warn(`Cleared invalid persisted Git Bash path: ${gitBashPath}`)
-          }
+    // Main's own RPC server: windows, dialogs, menus, notifications, updates, browser panes (LOCAL_ONLY in
+    // routing.ts). No database: everything else is the server child's.
+    const guiToken = randomBytes(24).toString('hex')
+    guiServer = new WsRpcServer({
+      host: '127.0.0.1',
+      port: 0,
+      requireAuth: true,
+      validateToken: async (token) => (token === guiToken ? { userId: 'desktop' } : null),
+      serverId: 'desktop',
+      serverVersion: app.getVersion(),
+      onClientConnected: ({ clientId, webContentsId }) => {
+        if (webContentsId != null) clientMap.set(webContentsId, clientId)
+      },
+      onClientDisconnected: (clientId) => {
+        for (const [wcId, cId] of clientMap) {
+          if (cId === clientId) { clientMap.delete(wcId); break }
         }
+      },
+    })
+    registerGuiRpcHandlers(guiServer, { windowManager, browserPaneManager })
+    await guiServer.listen()
+    moduleSink = guiServer.push.bind(guiServer)
+
+    ipcMain.on('__get-ws-port', (e) => {
+      e.returnValue = guiServer?.port
+    })
+    ipcMain.on('__get-ws-token', (e) => {
+      e.returnValue = guiToken
+    })
+    // The server every local workspace lives on (null: thin client, or not running)
+    ipcMain.on('__get-server', (e) => {
+      e.returnValue = getServerConnection()
+    })
+    // A workspace on another server (cut from the MVP, still wired)
+    ipcMain.on('__get-workspace-remote-config', (e) => {
+      const wsId = windowManager?.getWorkspaceForWindow(e.sender.id)
+      e.returnValue = (wsId && getKnownWorkspace(wsId)?.remoteServer) || null
+    })
+    // The window switched workspace on the server: keep the window's own map (titles, restore, reloads) in step
+    ipcMain.on('__window:workspace', (e, workspaceId: string) => {
+      if (!windowManager || typeof workspaceId !== 'string') return
+      if (!windowManager.updateWindowWorkspace(e.sender.id, workspaceId)) {
+        const win = windowManager.getWindowByWebContentsId(e.sender.id)
+        if (win) windowManager.registerWindow(win, workspaceId)
       }
+      void getWorkspacesOrNone()
+    })
 
-      // Check for VC++ Redistributable on Windows (required by onnxruntime / markitdown).
-      // Without it, document conversion tools (PDF, PPTX, DOCX, XLSX) crash with DLL errors.
-      // Sets env var so renderer can show an actionable toast with install button.
-      if (process.platform === 'win32') {
-        const vcCheck = checkVCRedistInstalled()
-        if (!vcCheck.installed) {
-          mainLog.warn('[vcredist]', vcCheck.message)
-          process.env.OTTO_VCREDIST_MISSING = '1'
-          if (vcCheck.downloadUrl) {
-            process.env.OTTO_VCREDIST_URL = vcCheck.downloadUrl
-          }
-        } else if (isDebugMode) {
-          mainLog.info('[vcredist]', vcCheck.message)
-        }
-      }
-
-      // Pre-import power manager (async import needed for applyPlatformToSubsystems)
-      const { onSessionStarted, onSessionStopped } = await import('./power-manager')
-
-      // Client ID tracking for Electron IPC bridge (webContentsId → clientId)
-      const clientMap = new Map<number, string>()
-      const resolveClientId = (wcId: number) => clientMap.get(wcId)
-
-      // Read embedded server config (Server settings page)
-      const { getServerConfig } = await import('@otto/shared/config')
-      const embeddedServerConfig = getServerConfig()
-      const serverModeEnabled = embeddedServerConfig.enabled && !isClientOnly
-
-      // Derive host/port/token from server config (or env overrides)
-      const serverToken = serverModeEnabled && embeddedServerConfig.token
-        ? embeddedServerConfig.token
-        : randomUUID()
-      const rpcHost = process.env.OTTO_RPC_HOST
-        ?? (serverModeEnabled ? '0.0.0.0' : '127.0.0.1')
-      const rpcPort = process.env.OTTO_RPC_PORT
-        ? parseInt(process.env.OTTO_RPC_PORT, 10)
-        : (serverModeEnabled ? embeddedServerConfig.port : 0)
-
-      // Load TLS certificates if configured
-      let tls: import('@otto/server-core/transport').WsRpcTlsOptions | undefined
-      if (serverModeEnabled && embeddedServerConfig.tlsCertPath && embeddedServerConfig.tlsKeyPath) {
-        try {
-          tls = {
-            cert: readFileSync(embeddedServerConfig.tlsCertPath),
-            key: readFileSync(embeddedServerConfig.tlsKeyPath),
-          }
-          mainLog.info('[server-mode] TLS enabled')
-        } catch (err) {
-          mainLog.error('[server-mode] Failed to load TLS certificates:', err)
-        }
-      }
-
-      if (serverModeEnabled) {
-        mainLog.info(`[server-mode] Enabled — binding ${rpcHost}:${rpcPort}${tls ? ' (TLS)' : ''}`)
-      }
-
-      // Bootstrap the WS RPC server via shared bootstrap function.
-      const instance = await bootstrapServer<SessionManager, HandlerDeps>({
-        serverToken,
-        rpcHost,
-        rpcPort,
-        tls,
-        bundledAssetsRoot: __dirname,
-        serverId: 'local',
-        serverVersion: app.getVersion(),
-        platformFactory: () => platform,
-        applyPlatformToSubsystems: (p) => {
-          setFetcherPlatform(p)
-          setSessionPlatform(p)
-          setSessionRuntimeHooks({
-            updateBadgeCount,
-            onSessionStarted,
-            onSessionStopped,
-            captureException: (error, context) => {
-              Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
-                tags: {
-                  ...(context?.errorSource ? { errorSource: context.errorSource } : {}),
-                  ...(context?.sessionId ? { sessionId: context.sessionId } : {}),
-                },
-              })
-            },
-          })
-          setImageProcessor(p.imageProcessor)
-        },
-        createSessionManager: () => {
-          const sm = new SessionManager()
-          sm.setBrowserPaneManager(browserPaneManager!)
-          return sm
-        },
-        bindRpcServer: (sm, server) => sm.setRpcServer(server),
-        createHandlerDeps: ({ sessionManager: sm, platform: p, oauthFlowStore: ofs }) => {
-          // The messaging handle is built here because it needs sessionManager.
-          // The WS publisher is attached after bootstrapServer resolves (via
-          // handle.setPublisher) because wsServer isn't available yet.
-          messagingHandle = createMessagingBootstrap({
-            sessionManager: sm,
-            credentialManager: getCredentialManager(),
-            getMessagingDir: (wsId: string) =>
-              join(CONFIG_DIR, 'workspaces', wsId, 'messaging'),
-            getLegacyMessagingDir: (wsId: string) => {
-              const ws = getWorkspaces().find((w) => w.id === wsId)
-              return ws ? join(ws.rootPath, 'messaging') : undefined
-            },
-            // Route messaging diagnostics through the dedicated messaging log
-            // at ~/.otto/logs/messaging-gateway.log.
-            logger: messagingGatewayLog,
-            // WhatsApp worker runs under Electron's embedded Node via
-            // ELECTRON_RUN_AS_NODE (WhatsAppAdapter defaults nodeBin to
-            // process.execPath). In dev we resolve worker.cjs from the
-            // monorepo; in packaged builds it's shipped via extraResources
-            // (see apps/electron/electron-builder.yml).
-            whatsapp: {
-              workerEntry: app.isPackaged
-                ? join(process.resourcesPath, 'messaging-whatsapp-worker', 'worker.cjs')
-                : join(process.cwd(), 'packages', 'messaging-whatsapp-worker', 'dist', 'worker.cjs'),
-              pairingMode: 'qr',
-            },
-          })
-          return {
-            sessionManager: sm,
-            platform: p,
-            windowManager: windowManager ?? undefined,
-            browserPaneManager: browserPaneManager ?? undefined,
-            oauthFlowStore: ofs,
-            messagingRegistry: messagingHandle.registry,
-          }
-        },
-        // Headless: register only core handlers (no GUI handlers for browser, settings, etc.)
-        // GUI: register all handlers (core + GUI)
-        registerAllRpcHandlers: isHeadless
-          ? (server, deps, serverCtx) => registerCoreRpcHandlers(server, deps, serverCtx)
-          : registerAllRpcHandlers,
-        setSessionEventSink: (sm, sink) => sm.setEventSink(sink),
-        initializeSessionManager: (sm) => sm.initialize(),
-        initModelRefreshService: () => initModelRefreshService(async (slug: string, scope: string) => {
-          const { getCredentialManager } = await import('@otto/shared/credentials')
-          const manager = getCredentialManager()
-          const [apiKey, oauth] = await Promise.all([
-            manager.getLlmApiKey(slug, scope).catch(() => null),
-            manager.getLlmOAuth(slug, scope).catch(() => null),
-          ])
-          return {
-            apiKey: apiKey ?? undefined,
-            oauthAccessToken: oauth?.accessToken,
-            oauthRefreshToken: oauth?.refreshToken,
-            oauthIdToken: oauth?.idToken,
-          }
-        }),
-        onClientConnected: ({ clientId, webContentsId }) => {
-          if (webContentsId != null) clientMap.set(webContentsId, clientId)
-        },
-        cleanupClientResources: (clientId) => {
-          for (const [wcId, cId] of clientMap) {
-            if (cId === clientId) { clientMap.delete(wcId); break }
-          }
-          cleanupSessionFileWatchForClient(clientId)
-        },
-      })
-
-      // Capture module-level references for before-quit cleanup and deep-link handlers
-      sessionManager = instance.sessionManager
-      oauthFlowStore = instance.oauthFlowStore
-      moduleSink = instance.wsServer.push.bind(instance.wsServer)
-      moduleClientResolver = resolveClientId
-
-      // -----------------------------------------------------------------------
-      // Messaging Gateway — attach the WS publisher, init local workspaces,
-      // install the fan-out event sink. The handle was created inside
-      // createHandlerDeps so the registry could be wired into HandlerDeps.
-      // -----------------------------------------------------------------------
+    // Cross-server RPC — invoke a channel on an arbitrary remote server
+    ipcMain.handle('server:invokeOnServer', async (_event, url: string, token: string, channel: string, ...args: unknown[]) => {
+      const { connectToRemote } = await import('./handlers/workspace')
+      const { client, error } = await connectToRemote(url, token)
+      if (!client) throw new Error(error ?? 'Connection failed')
       try {
-        if (!messagingHandle) {
-          throw new Error('Messaging handle was not constructed in createHandlerDeps')
+        return await client.invoke(channel, ...args)
+      } finally {
+        client.destroy()
+      }
+    })
+
+    // Transfer session to another workspace — orchestrated in main process so
+    // bundles can be moved directly between owning servers. Every connection is
+    // outbound from this process (a local workspace's server is the child), so the
+    // local machine never needs to accept an inbound connection.
+    ipcMain.handle('session:transferToWorkspace', async (_event, sessionId: string, targetWorkspaceId: string, sessionIndex?: number, sessionCount?: number) => {
+      const idx = sessionIndex ?? 0
+      const count = sessionCount ?? 1
+      const { connectToRemote } = await import('./handlers/workspace')
+      const { CHUNKED_TRANSFER_THRESHOLD, getChunkCount, invokeChunked, prepareChunkedPayload } = await import('./chunked-rpc')
+
+      // The pull side (sessions:export) returns the whole bundle as a single
+      // unchunked response frame — up to MAX_BUNDLE_SIZE_BYTES over WAN — so
+      // the 30s default request timeout is not enough for transfer clients.
+      const TRANSFER_REQUEST_TIMEOUT_MS = 120_000
+
+      await getWorkspacesOrNone()
+      const targetWorkspace = getKnownWorkspace(targetWorkspaceId)
+      if (!targetWorkspace) throw new Error(`Workspace ${targetWorkspaceId} not found`)
+
+      const sourceWorkspaceLocalId = windowManager?.getWorkspaceForWindow(_event.sender.id)
+      if (!sourceWorkspaceLocalId) throw new Error('Unable to resolve source workspace for transfer')
+
+      const sourceWorkspace = getKnownWorkspace(sourceWorkspaceLocalId)
+      if (!sourceWorkspace) throw new Error(`Source workspace ${sourceWorkspaceLocalId} not found`)
+
+      let bundle: any = null
+
+      const { url: sourceUrl, token: sourceToken, remoteWorkspaceId: sourceRemoteWorkspaceId } = getWorkspaceServer(sourceWorkspace)
+      console.log(`[Transfer] Exporting session ${sessionId} from workspace ${sourceRemoteWorkspaceId}...`)
+      const { client: sourceClient, error: sourceError } = await connectToRemote(sourceUrl, sourceToken, sourceRemoteWorkspaceId, { requestTimeout: TRANSFER_REQUEST_TIMEOUT_MS })
+      if (!sourceClient) throw new Error(sourceError ?? 'Connection failed to source server')
+
+      try {
+        bundle = await sourceClient.invoke('sessions:export', sessionId)
+        if (!bundle) throw new Error(`Failed to export session ${sessionId}`)
+
+        try {
+          console.log('[Transfer] Generating conversation summary on source server...')
+          const transferPayload = await sourceClient.invoke('sessions:exportRemoteTransfer', sessionId)
+          if (transferPayload?.summary && bundle.session?.header) {
+            ;(bundle.session.header as any).transferredSessionSummary = transferPayload.summary
+            ;(bundle.session.header as any).transferredSessionSummaryApplied = false
+            console.log(`[Transfer] Summary generated: ${transferPayload.summary.length} chars`)
+          }
+        } catch (err) {
+          console.warn('[Transfer] Source-server summary generation failed:', err)
         }
-
-        messagingHandle.setPublisher(instance.wsServer.push.bind(instance.wsServer))
-
-        // Skip remote-owned workspaces — messaging runs on the remote server.
-        const localWorkspaceIds = getWorkspaces()
-          .filter((ws) => !ws.remoteServer)
-          .map((ws) => ws.id)
-        await messagingHandle.initializeWorkspaces(localWorkspaceIds)
-
-        // Compose fan-out event sink: RPC push + messaging gateway dispatch.
-        // Always install — this lets workspaces enable messaging at runtime
-        // without a process restart.
-        const baseSink = instance.wsServer.push.bind(instance.wsServer)
-        instance.sessionManager.setEventSink(messagingHandle.wrapSink(baseSink))
-        if (messagingHandle.registry.size > 0) {
-          mainLog.info(`[messaging] Fan-out sink active for ${messagingHandle.registry.size} workspace(s)`)
-        }
-      } catch (err) {
-        mainLog.error('[messaging] Gateway initialization failed:', err)
+      } finally {
+        sourceClient.destroy()
       }
 
-      // IPC handlers — preload uses sendSync to get WS connection details
+      console.log(`[Transfer] Export complete: ${bundle.session?.messages?.length ?? 0} messages, ${bundle.files?.length ?? 0} files`)
 
-      // Remove workspace from config (cleanup stale entries)
-      ipcMain.handle('workspace:remove', async (_event, workspaceId: string) => {
-        const { removeWorkspace: remove } = await import('@otto/shared/config')
-        return remove(workspaceId)
-      })
+      const emitProgress = (chunkSent: number, chunkTotal: number) => {
+        try { _event.sender.send('transfer:progress', { sessionIndex: idx, sessionCount: count, chunkSent, chunkTotal }) } catch { /* renderer may be gone */ }
+      }
 
-      // Cross-server RPC — invoke a channel on an arbitrary remote server
-      ipcMain.handle('server:invokeOnServer', async (_event, url: string, token: string, channel: string, ...args: unknown[]) => {
-        const { connectToRemote } = await import('./handlers/workspace')
-        const { client, error } = await connectToRemote(url, token)
-        if (!client) throw new Error(error ?? 'Connection failed')
-        try {
-          return await client.invoke(channel, ...args)
-        } finally {
-          client.destroy()
-        }
-      })
+      const { url, token, remoteWorkspaceId } = getWorkspaceServer(targetWorkspace)
+      console.log(`[Transfer] Connecting to target server: ${url}`)
+      const { client, error } = await connectToRemote(url, token, remoteWorkspaceId, { requestTimeout: TRANSFER_REQUEST_TIMEOUT_MS })
+      if (!client) throw new Error(error ?? 'Connection failed to target server')
+      console.log('[Transfer] Connected to target server')
 
-      // Transfer session to another workspace — orchestrated in main process so
-      // bundles can be moved directly between owning servers. Every connection is
-      // outbound from this process: remote sources/targets are reached over WS,
-      // a local target imports in-process on the embedded server — the local
-      // machine never needs to accept an inbound connection.
-      ipcMain.handle('session:transferToWorkspace', async (_event, sessionId: string, targetWorkspaceId: string, sessionIndex?: number, sessionCount?: number) => {
-        const idx = sessionIndex ?? 0
-        const count = sessionCount ?? 1
-        const { getWorkspaceByNameOrId } = await import('@otto/shared/config')
-        const { connectToRemote } = await import('./handlers/workspace')
-        const { CHUNKED_TRANSFER_THRESHOLD, getChunkCount, invokeChunked, prepareChunkedPayload } = await import('./chunked-rpc')
+      try {
+        const preparedBundle = prepareChunkedPayload(bundle)
+        const payloadSize = preparedBundle.bytes.length
+        const payloadMB = (payloadSize / (1024 * 1024)).toFixed(1)
 
-        // The pull side (sessions:export) returns the whole bundle as a single
-        // unchunked response frame — up to MAX_BUNDLE_SIZE_BYTES over WAN — so
-        // the 30s default request timeout is not enough for transfer clients.
-        const TRANSFER_REQUEST_TIMEOUT_MS = 120_000
-
-        const targetWorkspace = getWorkspaceByNameOrId(targetWorkspaceId)
-        if (!targetWorkspace) throw new Error(`Workspace ${targetWorkspaceId} not found`)
-        if (!sessionManager) throw new Error('Session manager not initialized')
-
-        const sourceWorkspaceLocalId = windowManager?.getWorkspaceForWindow(_event.sender.id)
-        if (!sourceWorkspaceLocalId) throw new Error('Unable to resolve source workspace for transfer')
-
-        const sourceWorkspace = getWorkspaceByNameOrId(sourceWorkspaceLocalId)
-        if (!sourceWorkspace) throw new Error(`Source workspace ${sourceWorkspaceLocalId} not found`)
-
-        let bundle: any = null
-
-        if (sourceWorkspace.remoteServer) {
-          const { url: sourceUrl, token: sourceToken, remoteWorkspaceId: sourceRemoteWorkspaceId } = sourceWorkspace.remoteServer
-          console.log(`[Transfer] Exporting remote-owned session ${sessionId} from workspace ${sourceRemoteWorkspaceId}...`)
-          const { client: sourceClient, error: sourceError } = await connectToRemote(sourceUrl, sourceToken, sourceRemoteWorkspaceId, { requestTimeout: TRANSFER_REQUEST_TIMEOUT_MS })
-          if (!sourceClient) throw new Error(sourceError ?? 'Connection failed to source remote server')
-
-          try {
-            bundle = await sourceClient.invoke('sessions:export', sessionId)
-            if (!bundle) throw new Error(`Failed to export session ${sessionId}`)
-
-            try {
-              console.log('[Transfer] Generating conversation summary on source server...')
-              const transferPayload = await sourceClient.invoke('sessions:exportRemoteTransfer', sessionId)
-              if (transferPayload?.summary && bundle.session?.header) {
-                ;(bundle.session.header as any).transferredSessionSummary = transferPayload.summary
-                ;(bundle.session.header as any).transferredSessionSummaryApplied = false
-                console.log(`[Transfer] Summary generated: ${transferPayload.summary.length} chars`)
-              }
-            } catch (err) {
-              console.warn('[Transfer] Source-server summary generation failed:', err)
-            }
-          } finally {
-            sourceClient.destroy()
-          }
-        } else {
-          console.log(`[Transfer] Exporting local-owned session ${sessionId} from workspace ${sourceWorkspace.id}...`)
-          bundle = await sessionManager.exportSession(sessionId, sourceWorkspace.id)
-          if (!bundle) throw new Error(`Failed to export session ${sessionId}`)
-
-          try {
-            console.log('[Transfer] Generating conversation summary...')
-            const transferPayload = await sessionManager.exportRemoteSessionTransfer(sessionId, sourceWorkspace.id)
-            if (transferPayload?.summary && bundle.session?.header) {
-              ;(bundle.session.header as any).transferredSessionSummary = transferPayload.summary
-              ;(bundle.session.header as any).transferredSessionSummaryApplied = false
-              console.log(`[Transfer] Summary generated: ${transferPayload.summary.length} chars`)
-            }
-          } catch (err) {
-            console.warn('[Transfer] Summary generation failed:', err)
-          }
-        }
-
-        console.log(`[Transfer] Export complete: ${bundle.session?.messages?.length ?? 0} messages, ${bundle.files?.length ?? 0} files`)
-
-        const emitProgress = (chunkSent: number, chunkTotal: number) => {
-          try { _event.sender.send('transfer:progress', { sessionIndex: idx, sessionCount: count, chunkSent, chunkTotal }) } catch { /* renderer may be gone */ }
-        }
-
-        if (!targetWorkspace.remoteServer) {
-          // Local target — import in-process on the embedded server. Same method
-          // the sessions:import RPC handler runs on a remote target, so the
-          // result shape matches the remote path.
-          console.log(`[Transfer] Target workspace ${targetWorkspace.id} is local → importing in-process`)
+        if (payloadSize < CHUNKED_TRANSFER_THRESHOLD) {
+          console.log(`[Transfer] Bundle size: ${payloadMB}MB (< 5MB threshold) → using direct RPC`)
           emitProgress(0, 1)
-          const result = await sessionManager.importSession(targetWorkspace.id, bundle, 'fork')
+          const result = await client.invoke('sessions:import', remoteWorkspaceId, bundle, 'fork')
           emitProgress(1, 1)
           return result
         }
 
-        const { url, token, remoteWorkspaceId } = targetWorkspace.remoteServer
-        console.log(`[Transfer] Connecting to target remote server: ${url}`)
-        const { client, error } = await connectToRemote(url, token, remoteWorkspaceId, { requestTimeout: TRANSFER_REQUEST_TIMEOUT_MS })
-        if (!client) throw new Error(error ?? 'Connection failed to target remote server')
-        console.log('[Transfer] Connected to target remote server')
-
-        try {
-          const preparedBundle = prepareChunkedPayload(bundle)
-          const payloadSize = preparedBundle.bytes.length
-          const payloadMB = (payloadSize / (1024 * 1024)).toFixed(1)
-
-          if (payloadSize < CHUNKED_TRANSFER_THRESHOLD) {
-            console.log(`[Transfer] Bundle size: ${payloadMB}MB (< 5MB threshold) → using direct RPC`)
-            emitProgress(0, 1)
-            const result = await client.invoke('sessions:import', remoteWorkspaceId, bundle, 'fork')
-            emitProgress(1, 1)
-            return result
-          }
-
-          const chunkCount = getChunkCount(payloadSize)
-          console.log(`[Transfer] Bundle size: ${payloadMB}MB (>= 5MB threshold) → using chunked transfer (${chunkCount} chunks)`)
-          return await invokeChunked(
-            client,
-            'sessions:import',
-            [remoteWorkspaceId, bundle, 'fork'],
-            1,
-            emitProgress,
-            preparedBundle,
-          )
-        } finally {
-          client.destroy()
-        }
-      })
-
-      // App relaunch (for server config changes — NOT an update install)
-      ipcMain.handle('app:relaunch', () => {
-        app.relaunch()
-        app.exit(0)
-      })
-
-      // Language change: sync from renderer to main process, persist, and rebuild native menu.
-      // Persistence here is what lets the next app launch hydrate main's i18n correctly —
-      // see the `getPersistedUiLanguage()` block at the top of this file.
-      ipcMain.handle('i18n:changeLanguage', async (_event, lang: unknown) => {
-        const previousResolved = i18n.resolvedLanguage ?? null
-        if (typeof lang !== 'string' || !SUPPORTED_LANGUAGE_CODES.includes(lang as LanguageCode)) {
-          // Defense-in-depth: renderer guarantees a supported code, but if a renegade
-          // caller hands us garbage we drop it silently rather than poison i18n state.
-          mainLog.warn('[i18n] changeLanguage IPC rejected — unsupported code', {
-            incoming: lang,
-            previousResolved,
-          })
-          return
-        }
-        const code = lang as LanguageCode
-        await i18n.changeLanguage(code)
-        setPersistedUiLanguage(code)
-        mainLog.info('[i18n] changeLanguage IPC applied', {
-          incoming: code,
-          previousResolved,
-          newResolved: i18n.resolvedLanguage ?? null,
-        })
-        const { rebuildMenu } = await import('./menu')
-        await rebuildMenu()
-      })
-
-      ipcMain.on('__get-ws-port', (e) => {
-        e.returnValue = instance.port
-      })
-      ipcMain.on('__get-ws-token', (e) => {
-        e.returnValue = instance.token
-      })
-      ipcMain.on('__get-workspace-remote-config', (e) => {
-        const wsId = windowManager?.getWorkspaceForWindow(e.sender.id)
-        if (!wsId) { e.returnValue = null; return }
-        const ws = getWorkspaceByNameOrId(wsId)
-        e.returnValue = ws?.remoteServer ?? null
-      })
-
-      // Server config RPC handlers (LOCAL_ONLY — Electron-specific)
-      const runningServerState = {
-        host: rpcHost,
-        port: instance.port,
-        tls: !!tls,
-        token: serverToken,
-        enabled: serverModeEnabled,
-      }
-
-      instance.wsServer.handle(RPC_CHANNELS.settings.GET_SERVER_CONFIG, async () => {
-        const { getServerConfig: getConfig } = await import('@otto/shared/config')
-        return getConfig()
-      })
-
-      instance.wsServer.handle(RPC_CHANNELS.settings.SET_SERVER_CONFIG, async (_ctx: unknown, config: unknown) => {
-        const { setServerConfig: setConfig } = await import('@otto/shared/config')
-        const cfg = config as import('@otto/shared/config/server-config').ServerConfig
-        // Validate port range
-        if (cfg.port < 1024 || cfg.port > 65535) {
-          throw new Error(`Port must be between 1024 and 65535, got ${cfg.port}`)
-        }
-        // Validate cert/key files exist if provided
-        if (cfg.tlsCertPath && !existsSync(cfg.tlsCertPath)) {
-          throw new Error(`Certificate file not found: ${cfg.tlsCertPath}`)
-        }
-        if (cfg.tlsKeyPath && !existsSync(cfg.tlsKeyPath)) {
-          throw new Error(`Private key file not found: ${cfg.tlsKeyPath}`)
-        }
-        setConfig(cfg)
-      })
-
-      instance.wsServer.handle(RPC_CHANNELS.settings.GET_SERVER_STATUS, async () => {
-        const { getServerConfig: getConfig } = await import('@otto/shared/config')
-        const saved = getConfig()
-        const protocol = runningServerState.tls ? 'wss' : 'ws'
-
-        // Determine display host (LAN IP if bound to 0.0.0.0)
-        let displayHost = runningServerState.host
-        if (displayHost === '0.0.0.0' || displayHost === '::') {
-          const os = await import('os')
-          const nets = os.networkInterfaces()
-          for (const name of Object.keys(nets)) {
-            for (const net of nets[name] ?? []) {
-              if (net.family === 'IPv4' && !net.internal) {
-                displayHost = net.address
-                break
-              }
-            }
-            if (displayHost !== '0.0.0.0' && displayHost !== '::') break
-          }
-        }
-
-        // Only compare port/tls/token when at least one side has server mode enabled.
-        // When both are disabled, the running port is random — comparing it to the
-        // saved default (9100) would always produce a false "restart required" banner.
-        const needsRestart = saved.enabled !== runningServerState.enabled
-          || ((saved.enabled || runningServerState.enabled) && (
-            saved.port !== runningServerState.port
-            || (!!saved.tlsCertPath) !== runningServerState.tls
-            || (saved.token ?? '') !== runningServerState.token
-          ))
-
-        return {
-          running: true,
-          host: runningServerState.host,
-          port: runningServerState.port,
-          tls: runningServerState.tls,
-          url: `${protocol}://${displayHost}:${runningServerState.port}`,
-          token: runningServerState.token,
-          needsRestart,
-          insecureWarning: isInsecureBind,
-        }
-      })
-
-      // TLS enforcement — warn when server mode binds to a network address without TLS
-      // Mirrors the hard guard in packages/server/src/index.ts but warns instead of blocking,
-      // since the user explicitly enabled server mode via UI (may be on a trusted LAN).
-      const isInsecureBind = serverModeEnabled && !tls
-        && !['127.0.0.1', 'localhost', '::1'].includes(rpcHost)
-      if (isInsecureBind) {
-        mainLog.warn(
-          '[server-mode] WARNING: Listening on a network address without TLS. ' +
-          'Auth tokens will be sent in cleartext. ' +
-          'Configure TLS certificates in Settings > Server.'
+        const chunkCount = getChunkCount(payloadSize)
+        console.log(`[Transfer] Bundle size: ${payloadMB}MB (>= 5MB threshold) → using chunked transfer (${chunkCount} chunks)`)
+        return await invokeChunked(
+          client,
+          'sessions:import',
+          [remoteWorkspaceId, bundle, 'fork'],
+          1,
+          emitProgress,
+          preparedBundle,
         )
+      } finally {
+        client.destroy()
       }
+    })
 
-      // Wire EventSink to Electron-specific services
-      // Must happen BEFORE createInitialWindows() so event handlers use WS from the start
-      windowManager.setRpcEventSink(moduleSink!, resolveClientId)
-      const { setMenuEventSink } = await import('./menu')
-      setMenuEventSink(moduleSink!, resolveClientId)
-      const { setNotificationEventSink } = await import('./notifications')
-      setNotificationEventSink(moduleSink!, resolveClientId)
+    // App relaunch
+    ipcMain.handle('app:relaunch', () => {
+      app.relaunch()
+      app.exit(0)
+    })
 
-      // Headless: print connection details
-      if (isHeadless) {
-        console.log(`OTTO_SERVER_URL=${instance.protocol}://${instance.host}:${instance.port}`)
-        console.log(`OTTO_SERVER_TOKEN=${instance.token}`)
+    // Language change: sync from renderer to main process, rebuild the native menu, and keep it as the
+    // user's preference on the server (session titles and the next launch's menus read it).
+    ipcMain.handle('i18n:changeLanguage', async (_event, lang: unknown) => {
+      const previousResolved = i18n.resolvedLanguage ?? null
+      if (typeof lang !== 'string' || !SUPPORTED_LANGUAGE_CODES.includes(lang as LanguageCode)) {
+        // Defense-in-depth: renderer guarantees a supported code, but if a renegade
+        // caller hands us garbage we drop it silently rather than poison i18n state.
+        mainLog.warn('[i18n] changeLanguage IPC rejected — unsupported code', {
+          incoming: lang,
+          previousResolved,
+        })
+        return
+      }
+      const code = lang as LanguageCode
+      await i18n.changeLanguage(code)
+      mainLog.info('[i18n] changeLanguage IPC applied', {
+        incoming: code,
+        previousResolved,
+        newResolved: i18n.resolvedLanguage ?? null,
+      })
+      const { rebuildMenu } = await import('./menu')
+      await rebuildMenu()
+      if (!getServerConnection()) return
+      try {
+        const { content } = await invokeServer<{ content: string }>(RPC_CHANNELS.preferences.READ)
+        const preferences = JSON.parse(content) as { uiLanguage?: string }
+        if (preferences.uiLanguage !== code) await invokeServer(RPC_CHANNELS.preferences.WRITE, JSON.stringify({ ...preferences, uiLanguage: code }))
+      } catch (err) {
+        mainLog.warn('[i18n] could not keep the language preference:', err instanceof Error ? err.message : err)
+      }
+    })
+
+    // Wire EventSink to Electron-specific services
+    // Must happen BEFORE createInitialWindows() so event handlers use WS from the start
+    windowManager.setRpcEventSink(moduleSink, moduleClientResolver)
+    const { setMenuEventSink } = await import('./menu')
+    setMenuEventSink(moduleSink, moduleClientResolver)
+    setNotificationEventSink(moduleSink, moduleClientResolver)
+
+    // The server child, before any window: the preload connects to it while it loads (false: the user quit)
+    if (!isClientOnly && !(await startServer())) return
+
+    // Check for VC++ Redistributable on Windows (required by onnxruntime / markitdown).
+    // Without it, document conversion tools (PDF, PPTX, DOCX, XLSX) crash with DLL errors.
+    // Sets env var so renderer can show an actionable toast with install button.
+    if (process.platform === 'win32') {
+      const vcCheck = checkVCRedistInstalled()
+      if (!vcCheck.installed) {
+        mainLog.warn('[vcredist]', vcCheck.message)
+        process.env.OTTO_VCREDIST_MISSING = '1'
+        if (vcCheck.downloadUrl) {
+          process.env.OTTO_VCREDIST_URL = vcCheck.downloadUrl
+        }
+      } else if (isDebugMode) {
+        mainLog.info('[vcredist]', vcCheck.message)
       }
     }
 
     // Create initial windows (restores from saved state or opens first workspace)
-    // In headless mode the server runs without any UI — skip window creation.
-    if (!isHeadless) {
-      await createInitialWindows()
-    }
-
-    // Run credential health check at startup to detect issues early
-    // (corruption, machine migration, missing credentials for default connection)
-    // Skip in thin-client mode — credentials are managed by the remote server.
-    if (!isClientOnly) {
-      try {
-        const { getCredentialManager } = await import('@otto/shared/credentials')
-        const credentialManager = getCredentialManager()
-        const health = await credentialManager.checkHealth()
-        if (!health.healthy) {
-          mainLog.warn('Credential health check failed:', health.issues)
-          // Issues will be displayed in Settings → AI when user navigates there
-        }
-      } catch (err) {
-        mainLog.error('Credential health check error:', err)
-      }
-    }
-
-    // Initialize power manager (loads setting, must happen after config is available)
-    // Non-critical — powerSaveBlocker may not work on headless/xvfb setups
-    try {
-      const { initPowerManager } = await import('./power-manager')
-      await initPowerManager()
-    } catch (err) {
-      mainLog.warn('[power] Power manager init failed (non-critical):', err instanceof Error ? err.message : err)
-    }
-
-    // Set Sentry context tags for error grouping (no PII — just config classification).
-    // Runs after init so config and auth state are available.
-    // Derives values from the default LLM connection instead of legacy config fields.
-    try {
-      const { getLlmConnection, getDefaultLlmConnection } = await import('@otto/shared/config')
-      const workspaces = getWorkspaces()
-      const defaultConnSlug = getDefaultLlmConnection()
-      const defaultConn = defaultConnSlug ? getLlmConnection(defaultConnSlug) : null
-      Sentry.setTag('authType', defaultConn?.authType ?? 'unknown')
-      Sentry.setTag('connectionType', defaultConn?.type ?? 'unknown')
-      Sentry.setTag('hasCustomEndpoint', String(!!defaultConn?.baseUrl))
-      Sentry.setTag('model', defaultConn?.defaultModel ?? 'default')
-      Sentry.setTag('workspaceCount', String(workspaces.length))
-    } catch (err) {
-      mainLog.warn('Failed to set Sentry context tags:', err)
-    }
+    await createInitialWindows()
 
     // Initialize auto-update (check immediately on launch)
     // Skip in dev mode to avoid replacing /Applications app and launching it instead
-    if (moduleSink) setAutoUpdateEventSink(moduleSink)
+    setAutoUpdateEventSink(moduleSink)
     // Snapshot multi-window state BEFORE quitAndInstall. electron-updater
     // (Squirrel.Mac) destroys BrowserWindows between quitAndInstall and
     // before-quit firing; saving from before-quit alone would overwrite
@@ -1112,9 +744,9 @@ app.whenReady().then(async () => {
       await performQuitCleanup()
     })
     // If quitAndInstall throws after the cleanup above already ran, the process
-    // is a zombie: sessions flushed but no watchers/messaging/lock, and isQuitting
-    // makes the next quit skip the flush. The only honest recovery is a controlled
-    // relaunch into a fresh process (#891).
+    // is a zombie: the server is stopped, and isQuitting makes the next quit skip
+    // the cleanup. The only honest recovery is a controlled relaunch into a fresh
+    // process (#891).
     setInstallQuitFailedHook(() => {
       mainLog.error('[auto-update] quitAndInstall failed after cleanup — relaunching')
       dialog.showMessageBoxSync({
@@ -1137,7 +769,7 @@ app.whenReady().then(async () => {
     // Process pending deep link from cold start
     if (pendingDeepLink) {
       mainLog.info('Processing pending deep link:', pendingDeepLink)
-      await handleDeepLink(pendingDeepLink, windowManager, moduleSink ?? undefined, moduleClientResolver ?? undefined)
+      await handleDeepLink(pendingDeepLink, windowManager, moduleSink, moduleClientResolver)
       pendingDeepLink = null
     }
 
@@ -1145,33 +777,24 @@ app.whenReady().then(async () => {
     if (isDebugMode) {
       mainLog.info('Debug mode enabled - logs at:', getLogFilePath())
     }
-    mainLog.info('Messaging gateway log path:', getMessagingGatewayLogFilePath())
   } catch (error) {
     mainLog.error('Failed to initialize app:', error instanceof Error ? error.message : error, (error as any)?.stack)
     // Continue anyway - the app will show errors in the UI
   }
 
   // macOS: Re-create window when dock icon is clicked
-  app.on('activate', () => {
+  app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0 && windowManager) {
-      // Open first workspace or last focused
-      const workspaces = getWorkspaces()
-      if (workspaces.length > 0) {
-        const savedState = loadWindowState()
-        const wsId = savedState?.lastFocusedWorkspaceId || workspaces[0].id
-        // Verify workspace still exists
-        if (workspaces.some(ws => ws.id === wsId)) {
-          windowManager.createWindow({ workspaceId: wsId })
-        } else {
-          windowManager.createWindow({ workspaceId: workspaces[0].id })
-        }
-      }
+      // Open the last focused workspace, else the first
+      const workspaces = await getWorkspacesOrNone()
+      const savedState = loadWindowState()
+      const wsId = savedState?.lastFocusedWorkspaceId
+      windowManager.createWindow({ workspaceId: workspaces.some(ws => ws.id === wsId) ? wsId! : (workspaces[0]?.id ?? '') })
     }
   })
 })
 
 app.on('window-all-closed', () => {
-  if (process.env.OTTO_HEADLESS) return  // headless server stays alive
   // On macOS, apps typically stay active until explicitly quit
   if (process.platform !== 'darwin') {
     app.quit()
@@ -1203,7 +826,7 @@ function captureAndSaveWindowState(reason: 'before-quit' | 'pre-update'): number
   return windows.length
 }
 
-// Flush sessions and release all quit-time resources. Shared by the normal quit
+// Stop the server (it flushes its chats) and release all quit-time resources. Shared by the normal quit
 // path (before-quit) and the update-install handoff (beforeUpdateInstallHook), so
 // the two cleanup sequences can't drift (#891).
 let quitCleanupRan = false
@@ -1216,45 +839,20 @@ async function performQuitCleanup(): Promise<void> {
   }
   quitCleanupRan = true
 
-  if (sessionManager) {
-    try {
-      await sessionManager.flushAllSessions()
-      mainLog.info('Flushed all pending session writes')
-    } catch (error) {
-      mainLog.error('Failed to flush sessions:', error)
-    }
-    // Clean up SessionManager resources (file watchers, timers, etc.)
-    sessionManager.cleanup()
+  try {
+    await stopServer()
+    mainLog.info('Stopped the server')
+  } catch (error) {
+    mainLog.error('Failed to stop the server:', error)
   }
 
   // Clean up browser pane instances
-  if (browserPaneManager) {
-    browserPaneManager.destroyAll()
-  }
+  browserPaneManager?.destroyAll()
 
-  // Clean up OAuth flow store (stop periodic cleanup timer)
-  if (oauthFlowStore) {
-    oauthFlowStore.dispose()
-  }
-
-  // Stop all model refresh timers
-  getModelRefreshService().stopAll()
-
-  // Stop messaging gateways so the WhatsApp worker subprocess exits cleanly.
-  if (messagingHandle) {
-    try {
-      await messagingHandle.dispose()
-    } catch (err) {
-      mainLog.error('[messaging] dispose failed:', err)
-    }
-  }
+  guiServer?.close()
 
   // Clean up power manager (release power blocker)
-  const { cleanup: cleanupPowerManager } = await import('./power-manager')
   cleanupPowerManager()
-
-  // Release the server lock file so the next launch doesn't see a stale PID.
-  releaseServerLock()
 }
 
 // Save window state and clean up resources before quitting
@@ -1294,15 +892,13 @@ app.on('before-quit', async (event) => {
     }
   }
 
-  // Normal quit: flush + clean up, then exit. The update-install path does NOT
+  // Normal quit: stop the server + clean up, then exit. The update-install path does NOT
   // reach here — installUpdate's beforeUpdateInstallHook already ran
   // performQuitCleanup and set isQuitting, so the guard at the top returns early
   // and Squirrel.Mac's quit proceeds uninterrupted so the update installs (#891).
-  if (sessionManager) {
-    event.preventDefault()
-    await performQuitCleanup()
-    app.exit(0)
-  }
+  event.preventDefault()
+  await performQuitCleanup()
+  app.exit(0)
 })
 
 // Handle uncaught exceptions — forward to Sentry explicitly since registering

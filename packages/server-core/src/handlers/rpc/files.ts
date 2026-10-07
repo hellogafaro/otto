@@ -32,7 +32,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   // Read a file (with path validation to prevent traversal attacks)
   server.handle(RPC_CHANNELS.file.READ, async (ctx, path: string) => {
     try {
-      const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
+      const workspaceId = ctx.workspaceId
       const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       const content = await readFile(safePath, 'utf-8')
       return content
@@ -52,7 +52,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   // Returns data:{mime};base64,{content} — used by ImagePreviewOverlay and markdown image blocks.
   server.handle(RPC_CHANNELS.file.READ_DATA_URL, async (ctx, path: string) => {
     try {
-      const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
+      const workspaceId = ctx.workspaceId
       const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       const buffer = await readFile(safePath)
       const ext = safePath.split('.').pop()?.toLowerCase() ?? ''
@@ -84,7 +84,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   // Returns a PNG data URL resized to fit within maxSize×maxSize.
   server.handle(RPC_CHANNELS.file.READ_PREVIEW_DATA_URL, async (ctx, path: string, maxSize = 64) => {
     try {
-      const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
+      const workspaceId = ctx.workspaceId
       const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       const size = Number.isFinite(maxSize) ? Math.max(16, Math.min(256, Math.floor(maxSize))) : 64
       const preview = await deps.platform.imageProcessor.process(safePath, {
@@ -104,7 +104,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   // The WS transport codec preserves Uint8Array payloads over JSON envelopes.
   server.handle(RPC_CHANNELS.file.READ_BINARY, async (ctx, path: string) => {
     try {
-      const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
+      const workspaceId = ctx.workspaceId
       const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       const buffer = await readFile(safePath)
       // Return as Uint8Array (serializes to ArrayBuffer over IPC)
@@ -134,7 +134,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
   // Read file and return as FileAttachment with Quick Look thumbnail
   server.handle(RPC_CHANNELS.file.READ_ATTACHMENT, async (ctx, path: string) => {
     try {
-      const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
+      const workspaceId = ctx.workspaceId
       const safePath = await validateFilePath(path, getWorkspaceAllowedDirs(workspaceId), callerOf(ctx, deps))
       // Use shared utility that handles file type detection, encoding, etc.
       const attachment = await readFileAttachment(safePath)
@@ -223,7 +223,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
         throw new Error('Cannot attach empty file')
       }
 
-      const workspace = resolveWorkspace(ctx, deps)
+      const workspace = resolveWorkspace(ctx)
       workspaceId = workspace.id
       const createdBy = actorOf(ctx)
 

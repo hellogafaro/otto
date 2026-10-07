@@ -1,7 +1,8 @@
 /**
  * The new chat's agent: an empty chat talks to the agent it was created with (the last pick of the workspace, else
  * its default). The chat's agent cannot change after it exists, so picking another one makes an empty chat with
- * that agent (same status, label, project, mode and folder), opens it and deletes the empty one.
+ * that agent (same status, label, project, mode and folder) and opens it; leaving the empty one deletes it (the
+ * navigation context's empty-chat cleanup, the one path for that).
  */
 
 import * as React from 'react'
@@ -38,9 +39,6 @@ export function useNewChatAgent(session: Session | null) {
       navigate(isSessionsNavigation(navState)
         ? (buildRouteFromNavigationState({ ...navState, details: { type: 'session', sessionId: created.id } }) as never)
         : routes.view.allSessions(created.id))
-      // Once the new chat is open: the old page must not read a chat that is gone.
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      await window.electronAPI.deleteSession(session.id)
     } catch (error) {
       console.error('[AgentPicker] change failed:', error)
       toast.error(t('composer.error.changeAgent'))

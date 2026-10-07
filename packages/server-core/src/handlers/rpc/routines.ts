@@ -74,7 +74,7 @@ export function startRoutines(server: RpcServer, deps: Pick<HandlerDeps, 'sessio
  * (`running`) and the end arrives as another `domain:changed`.
  */
 export function registerRoutinesHandlers(server: RpcServer, deps: HandlerDeps): void {
-  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx, deps).id
+  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx).id
 
   server.handle(RPC_CHANNELS.routines.LIST, (ctx): Routine[] => getRoutines(workspaceOf(ctx)))
 

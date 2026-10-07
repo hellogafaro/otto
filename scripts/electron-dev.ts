@@ -13,17 +13,6 @@ const ROOT_DIR = join(import.meta.dir, "..");
 const ELECTRON_DIR = join(ROOT_DIR, "apps/electron");
 const DIST_DIR = join(ELECTRON_DIR, "dist");
 
-// Replace grammY's bundled polyfills (node-fetch@2 + abort-controller@3) with
-// native Node globals. esbuild otherwise renames the polyfill's `class
-// AbortSignal` to `_AbortSignal` to dodge collision with the global, which
-// breaks node-fetch@2's `constructor.name === 'AbortSignal'` check and fails
-// every Telegram API call with a TypeError. Kept in sync with
-// `apps/electron/package.json` build:main and `scripts/electron-build-main.ts`.
-const MAIN_PROCESS_ALIAS: Record<string, string> = {
-  "node-fetch": join(ROOT_DIR, "apps/electron/src/main/shims/node-fetch.cjs"),
-  "abort-controller": join(ROOT_DIR, "apps/electron/src/main/shims/abort-controller.cjs"),
-};
-
 // Subprocess server paths
 // Pi agent server path (subprocess for Pi SDK sessions)
 const PI_AGENT_SERVER_DIR = join(ROOT_DIR, "packages/pi-agent-server");
@@ -272,24 +261,16 @@ function getElectronEnv(): Record<string, string> {
   };
 }
 
-// Externals for the main-process bundle.
-// - `electron`: the runtime, not bundleable.
-// - `@anthropic-ai/claude-agent-sdk`: SDK 0.3.x is pure ESM and calls
-//   `createRequire(import.meta.url)` at module-init; esbuild's CJS bundling
-//   leaves the synthesized `import_meta.url` undefined and the bundled
-//   main.cjs throws ERR_INVALID_ARG_VALUE on load. Externalize so Node loads
-//   the SDK natively as ESM. Electron 39 = Node 22.x supports `require()` of
-//   TLA-free ESM, so the runtime `require('@anthropic-ai/claude-agent-sdk')`
-//   resolves correctly. Mirror of the same flag in `scripts/electron-build-main.ts`
-//   and `apps/electron/package.json` build:main.
-const MAIN_BUNDLE_EXTERNALS = ["electron", "@anthropic-ai/claude-agent-sdk"];
+// Externals for the main-process bundle: `electron`, the runtime. Main has no server code (docs/desktop.md):
+// in dev it runs the server child from packages/server/src under bun.
+const MAIN_BUNDLE_EXTERNALS = ["electron"];
 
 // Run a one-shot esbuild using the JavaScript API
 async function runEsbuild(
   entryPoint: string,
   outfile: string,
   defines: Record<string, string> = {},
-  options: { packagesExternal?: boolean; alias?: Record<string, string> } = {}
+  options: { packagesExternal?: boolean } = {}
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await esbuild.build({
@@ -300,7 +281,6 @@ async function runEsbuild(
       outfile: join(ROOT_DIR, outfile),
       external: MAIN_BUNDLE_EXTERNALS,
       ...(options.packagesExternal ? { packages: "external" as const } : {}),
-      ...(options.alias ? { alias: options.alias } : {}),
       define: defines,
       logLevel: "warning",
     });
@@ -444,7 +424,6 @@ async function main(): Promise<void> {
       "apps/electron/src/main/index.ts",
       "apps/electron/dist/main.cjs",
       oauthDefines,
-      { alias: MAIN_PROCESS_ALIAS }
     ),
     runEsbuild(
       "apps/electron/src/preload/bootstrap.ts",
@@ -536,7 +515,6 @@ async function main(): Promise<void> {
     format: "cjs",
     outfile: join(ROOT_DIR, "apps/electron/dist/main.cjs"),
     external: MAIN_BUNDLE_EXTERNALS,
-    alias: MAIN_PROCESS_ALIAS,
     define: oauthDefines,
     logLevel: "info",
   });

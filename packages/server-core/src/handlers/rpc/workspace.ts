@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { join, relative, resolve, isAbsolute } from 'path'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
-import { getWorkspaceByNameOrId, getWorkspaces, addWorkspace, setActiveWorkspace, updateWorkspaceRemoteServer } from '@otto/shared/config'
+import { getWorkspaceByNameOrId, getWorkspaces, addWorkspace, removeWorkspace, setActiveWorkspace, updateWorkspaceRemoteServer } from '@otto/shared/config'
 import { domainError, perf } from '@otto/shared/utils'
 import { userActor } from '@otto/shared/actors'
 import { getDefaultProvider, initAgentsSeed } from '@otto/shared/agents'
@@ -18,6 +18,7 @@ import { isValidWorkspaceRootPath } from '../../utils/path-validation'
 export const CORE_HANDLED_CHANNELS = [
   RPC_CHANNELS.workspaces.GET,
   RPC_CHANNELS.workspaces.CREATE,
+  RPC_CHANNELS.workspaces.REMOVE,
   RPC_CHANNELS.workspaces.CHECK_SLUG,
   RPC_CHANNELS.workspaces.UPDATE_REMOTE,
   RPC_CHANNELS.window.GET_WORKSPACE,
@@ -36,17 +37,17 @@ export const CORE_HANDLED_CHANNELS = [
 
 export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDeps): void {
   const { sessionManager } = deps
-  const windowManager = deps.windowManager
 
-  // Get the caller's workspaces (LOCAL_ONLY — includes rootPath for local Electron renderer)
+  // Get the caller's workspaces (with rootPath: the desktop's windows show it)
   server.handle(RPC_CHANNELS.workspaces.GET, async (ctx) => {
     const mine = new Set(ctx.userId ? getMemberWorkspaceIds(ctx.userId) : [])
     return sessionManager.getWorkspaces().filter((workspace) => mine.has(workspace.id))
   })
 
   // Create a new workspace at a folder path (Obsidian-style: folder IS the workspace).
-  // Any signed-in user may; the creator becomes its owner. A server without a window (headless) only
-  // creates under CONFIG_DIR/workspaces: a client never picks a path on the server's disk.
+  // Any signed-in user may; the creator becomes its owner. Only the desktop's own server (OTTO_LOCAL_USER: one person,
+  // their own disk) takes any folder; every other server creates under CONFIG_DIR/workspaces, so a client never picks
+  // a path on the server's disk.
   server.handle(RPC_CHANNELS.workspaces.CREATE, async (ctx, folderPath: string, name: string, remoteServer?: { url: string; token: string; remoteWorkspaceId: string }) => {
     if (!ctx.userId) throw domainError('forbidden', 'Sign in first')
     const rootPath = folderPath.trim()
@@ -54,7 +55,7 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
     if (!validation.valid) {
       throw new Error(validation.reason!)
     }
-    if (!deps.windowManager) {
+    if (process.env.OTTO_LOCAL_USER !== '1') {
       const inside = relative(join(CONFIG_DIR, 'workspaces'), resolve(rootPath))
       if (!inside || inside.startsWith('..') || isAbsolute(inside)) throw domainError('invalid', 'Workspaces are created inside the server\'s workspaces folder')
     }
@@ -74,6 +75,9 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
     return workspace
   })
 
+  // Take a workspace out of the registry (its folder stays; its data under CONFIG_DIR/workspaces goes). Owners only (authorize.ts).
+  server.handle(RPC_CHANNELS.workspaces.REMOVE, async (_ctx, workspaceId: string) => removeWorkspace(workspaceId))
+
   // Check if a workspace slug already exists (for validation before creation)
   server.handle(RPC_CHANNELS.workspaces.CHECK_SLUG, async (_ctx, slug: string) => {
     const defaultWorkspacesDir = join(CONFIG_DIR, 'workspaces')
@@ -89,9 +93,9 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
     return { success: true }
   })
 
-  // Get workspace ID for the calling window
+  // The workspace of the calling window: its connection's
   server.handle(RPC_CHANNELS.window.GET_WORKSPACE, (ctx) => {
-    const workspaceId = ctx.workspaceId ?? windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
+    const workspaceId = ctx.workspaceId
     // Set up ConfigWatcher for live updates (labels, statuses, sources, themes)
     if (workspaceId) {
       const workspace = getWorkspaceByNameOrId(workspaceId)
@@ -106,37 +110,8 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
   server.handle(RPC_CHANNELS.window.SWITCH_WORKSPACE, async (ctx, workspaceId: string) => {
     const end = perf.start('ipc.switchWorkspace', { workspaceId })
 
-    // Keep WS push routing in sync (works for both GUI and headless)
+    // Keep WS push routing in sync (the desktop's main process keeps its own window-to-workspace map)
     server.updateClientWorkspace?.(ctx.clientId, workspaceId)
-
-    if (windowManager) {
-      const wcId = ctx.webContentsId!
-
-      // Get the old workspace ID before updating
-      const oldWorkspaceId = windowManager.getWorkspaceForWindow(wcId)
-
-      // Update the window's workspace mapping
-      const updated = windowManager.updateWindowWorkspace(wcId, workspaceId)
-
-      // If update failed, the window may have been re-created (e.g., after refresh)
-      // Try to register it
-      if (!updated) {
-        const win = windowManager.getWindowByWebContentsId(wcId)
-        if (win) {
-          windowManager.registerWindow(win, workspaceId)
-          deps.platform.logger.info(`Re-registered window ${wcId} for workspace ${workspaceId}`)
-        }
-      }
-
-      // Clear activeViewingSession for old workspace if no other windows are viewing it
-      // This ensures read/unread state is correct after workspace switch
-      if (oldWorkspaceId && oldWorkspaceId !== workspaceId) {
-        const otherWindows = windowManager.getAllWindowsForWorkspace(oldWorkspaceId)
-        if (otherWindows.length === 0) {
-          sessionManager.clearActiveViewingSession(oldWorkspaceId)
-        }
-      }
-    }
 
     // Set up ConfigWatcher for the new workspace
     const workspace = getWorkspaceByNameOrId(workspaceId)

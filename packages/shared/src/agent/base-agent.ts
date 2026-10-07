@@ -270,8 +270,11 @@ export abstract class BaseAgent {
 
   constructor(config: BackendConfig, defaultModel: string, contextWindow?: number) {
     this.config = config;
-    // Use session's workingDirectory if set (user-changeable), fallback to workspace root
-    this.workingDirectory = config.session?.workingDirectory ?? config.workspace.rootPath ?? process.cwd();
+    // The session's workingDirectory if set (user-changeable), else the session folder the prompt names as the
+    // working directory (`PromptBuilder.getWorkingDirectoryContext`), else (no session) the workspace root
+    this.workingDirectory = config.session?.workingDirectory
+      ?? (config.session?.id ? getSessionPath(config.workspace.rootPath, config.session.id) : config.workspace.rootPath)
+      ?? process.cwd();
     this._sessionId = config.session?.id || `agent-${Date.now()}`;
     this._model = config.model || defaultModel;
     this._thinkingLevel = normalizeThinkingLevel(config.thinkingLevel) ?? DEFAULT_THINKING_LEVEL;

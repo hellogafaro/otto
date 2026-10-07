@@ -27,7 +27,7 @@ export const HANDLED_CHANNELS = [
 ] as const
 
 export function registerProjectsHandlers(server: RpcServer, deps: HandlerDeps): void {
-  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx, deps).id
+  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx).id
 
   server.handle(RPC_CHANNELS.projects.LIST, (ctx, filter?: ProjectFilter) => getProjects(workspaceOf(ctx), filter))
 

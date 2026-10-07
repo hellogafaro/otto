@@ -1,6 +1,6 @@
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import type { RpcServer } from '@otto/server-core/transport'
-import type { HandlerDeps } from './handler-deps'
+import type { GuiDeps } from './handler-deps'
 
 export const GUI_HANDLED_CHANNELS = [
   RPC_CHANNELS.remote.TEST_CONNECTION,
@@ -53,7 +53,7 @@ export async function connectToRemote(url: string, token: string, workspaceId?: 
   return { client, error: null }
 }
 
-export function registerWorkspaceGuiHandlers(server: RpcServer, deps: HandlerDeps): void {
+export function registerWorkspaceGuiHandlers(server: RpcServer, deps: GuiDeps): void {
   const windowManager = deps.windowManager
 
   // Test connection to a remote Otto Server.
@@ -96,25 +96,21 @@ export function registerWorkspaceGuiHandlers(server: RpcServer, deps: HandlerDep
 
   // Close the calling window (triggers close event which may be intercepted)
   server.handle(RPC_CHANNELS.window.CLOSE, (ctx) => {
-    if (!windowManager) return
     windowManager.closeWindow(ctx.webContentsId!)
   })
 
   // Confirm close - force close the window (bypasses interception).
   server.handle(RPC_CHANNELS.window.CONFIRM_CLOSE, (ctx) => {
-    if (!windowManager) return
     windowManager.forceCloseWindow(ctx.webContentsId!)
   })
 
   // Cancel close - renderer handled the request (closed a modal/panel).
   server.handle(RPC_CHANNELS.window.CANCEL_CLOSE, (ctx) => {
-    if (!windowManager) return
     windowManager.cancelPendingClose(ctx.webContentsId!)
   })
 
   // Show/hide macOS traffic light buttons (for fullscreen overlays)
   server.handle(RPC_CHANNELS.window.SET_TRAFFIC_LIGHTS, (ctx, visible: boolean) => {
-    if (!windowManager) return
     windowManager.setTrafficLightsVisible(ctx.webContentsId!, visible)
   })
 }

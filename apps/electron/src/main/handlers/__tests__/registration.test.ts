@@ -1,51 +1,17 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test'
+/**
+ * The desktop splits the channels over two processes (docs/desktop.md): main answers LOCAL_ONLY, the server child
+ * answers the rest. A LOCAL_ONLY request only the server answers would never be reached; a channel main answers that
+ * is not LOCAL_ONLY would go to the server instead.
+ */
+
+import { beforeEach, describe, expect, it } from 'bun:test'
 import type { RpcServer } from '@otto/server-core/transport'
-import type { HandlerDeps } from '../handler-deps'
+import { createMockGuiDeps, createMockServerDeps } from './electron-mock'
 
-const registeredChannels: string[] = []
-
-mock.module('electron', () => ({
-  ipcMain: {
-    handle: () => {},
-    on: () => {},
-  },
-  // Minimal stubs for symbols imported by IPC domain modules
-  app: {
-    isPackaged: false,
-    getAppPath: () => '/',
-    quit: () => {},
-    dock: { setIcon: () => {}, setBadge: () => {} },
-  },
-  nativeTheme: { shouldUseDarkColors: false },
-  nativeImage: {
-    createFromPath: () => ({ isEmpty: () => true }),
-    createFromDataURL: () => ({}),
-  },
-  dialog: {
-    showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
-    showMessageBox: async () => ({ response: 0 }),
-  },
-  shell: {
-    openExternal: async () => {},
-    openPath: async () => '',
-    showItemInFolder: () => {},
-  },
-  BrowserWindow: {
-    fromWebContents: () => null,
-    getFocusedWindow: () => null,
-    getAllWindows: () => [],
-  },
-  BrowserView: class {},
-  Menu: {
-    buildFromTemplate: () => ({ popup: () => {} }),
-  },
-  session: {},
-}))
-
-function createMockServer(): RpcServer {
+function recordingServer(channels: string[]): RpcServer {
   return {
-    handle(channel: string, _handler: unknown) {
-      registeredChannels.push(channel)
+    handle(channel: string) {
+      channels.push(channel)
     },
     push() {},
     async invokeClient() {},
@@ -54,177 +20,28 @@ function createMockServer(): RpcServer {
   }
 }
 
-function createMockDeps(): HandlerDeps {
-  return {
-    sessionManager: {} as HandlerDeps['sessionManager'],
-    platform: {
-      appRootPath: '',
-      resourcesPath: '',
-      isPackaged: false,
-      appVersion: '0.0.0-test',
-      isDebugMode: true,
-      logger: console,
-      imageProcessor: {
-        getMetadata: async () => null,
-        process: async () => Buffer.from(''),
-      },
-    },
-    windowManager: {} as HandlerDeps['windowManager'],
-    browserPaneManager: {
-      onStateChange: () => {},
-      onRemoved: () => {},
-      onInteracted: () => {},
-    } as unknown as NonNullable<HandlerDeps['browserPaneManager']>,
-    oauthFlowStore: {
-      store: () => {},
-      getByState: () => null,
-      remove: () => {},
-      cleanup: () => {},
-      dispose: () => {},
-      size: 0,
-    } as unknown as HandlerDeps['oauthFlowStore'],
-  }
-}
+describe('channels split between main and the server child', () => {
+  const main: string[] = []
+  const server: string[] = []
 
-async function getExpectedChannels(): Promise<Set<string>> {
-  // Core handler channels (now in server-core)
-  const [
-    agents,
-    auth,
-    routines,
-    files,
-    labels,
-    llm,
-    oauth,
-    sessions,
-    coreSettings,
-    skills,
-    sources,
-    statuses,
-    coreSystem,
-    coreWorkspace,
-    workspacesMembers,
-    onboarding,
-    transfer,
-    projects,
-    tasks,
-    comments,
-    search,
-    notifications,
-    decisions,
-    library,
-    transcription,
-  ] = await Promise.all([
-    import('@otto/server-core/handlers/rpc/agents'),
-    import('@otto/server-core/handlers/rpc/auth'),
-    import('@otto/server-core/handlers/rpc/routines'),
-    import('@otto/server-core/handlers/rpc/files'),
-    import('@otto/server-core/handlers/rpc/labels'),
-    import('@otto/server-core/handlers/rpc/llm-connections'),
-    import('@otto/server-core/handlers/rpc/oauth'),
-    import('@otto/server-core/handlers/rpc/sessions'),
-    import('@otto/server-core/handlers/rpc/settings'),
-    import('@otto/server-core/handlers/rpc/skills'),
-    import('@otto/server-core/handlers/rpc/sources'),
-    import('@otto/server-core/handlers/rpc/statuses'),
-    import('@otto/server-core/handlers/rpc/system'),
-    import('@otto/server-core/handlers/rpc/workspace'),
-    import('@otto/server-core/handlers/rpc/workspaces-members'),
-    import('@otto/server-core/handlers/rpc/onboarding'),
-    import('@otto/server-core/handlers/rpc/transfer'),
-    import('@otto/server-core/handlers/rpc/projects'),
-    import('@otto/server-core/handlers/rpc/tasks'),
-    import('@otto/server-core/handlers/rpc/comments'),
-    import('@otto/server-core/handlers/rpc/search'),
-    import('@otto/server-core/handlers/rpc/notifications'),
-    import('@otto/server-core/handlers/rpc/decisions'),
-    import('@otto/server-core/handlers/rpc/library'),
-    import('@otto/server-core/handlers/rpc/transcription'),
-  ])
-
-  // GUI handler channels (remain in electron)
-  const [browser, guiSystem, guiWorkspace, guiSettings] = await Promise.all([
-    import('../browser'),
-    import('../system'),
-    import('../workspace'),
-    import('../settings'),
-  ])
-
-  return new Set([
-    ...agents.HANDLED_CHANNELS,
-    ...auth.HANDLED_CHANNELS,
-    ...routines.HANDLED_CHANNELS,
-    ...files.HANDLED_CHANNELS,
-    ...labels.HANDLED_CHANNELS,
-    ...llm.HANDLED_CHANNELS,
-    ...oauth.HANDLED_CHANNELS,
-    ...sessions.HANDLED_CHANNELS,
-    ...coreSettings.HANDLED_CHANNELS,
-    ...skills.HANDLED_CHANNELS,
-    ...sources.HANDLED_CHANNELS,
-    ...statuses.HANDLED_CHANNELS,
-    ...coreSystem.CORE_HANDLED_CHANNELS,
-    ...coreWorkspace.CORE_HANDLED_CHANNELS,
-    ...workspacesMembers.HANDLED_CHANNELS,
-    ...onboarding.HANDLED_CHANNELS,
-    ...transfer.HANDLED_CHANNELS,
-    ...projects.HANDLED_CHANNELS,
-    ...tasks.HANDLED_CHANNELS,
-    ...comments.HANDLED_CHANNELS,
-    ...search.HANDLED_CHANNELS,
-    ...notifications.HANDLED_CHANNELS,
-    ...decisions.HANDLED_CHANNELS,
-    ...library.HANDLED_CHANNELS,
-    ...transcription.HANDLED_CHANNELS,
-    ...browser.HANDLED_CHANNELS,
-    ...guiSystem.GUI_HANDLED_CHANNELS,
-    ...guiWorkspace.GUI_HANDLED_CHANNELS,
-    ...guiSettings.GUI_HANDLED_CHANNELS,
-  ])
-}
-
-describe('RPC handler registration', () => {
-  beforeEach(() => {
-    registeredChannels.length = 0
+  beforeEach(async () => {
+    main.length = 0
+    server.length = 0
+    const { registerGuiRpcHandlers } = await import('../index')
+    const { registerCoreRpcHandlers } = await import('@otto/server-core/handlers/rpc')
+    registerGuiRpcHandlers(recordingServer(main), createMockGuiDeps())
+    registerCoreRpcHandlers(recordingServer(server), createMockServerDeps(), { getConnectedClientCount: () => 0, serverId: 'test', startedAt: 0 })
   })
 
-  it('registers all declared handled channels exactly once', async () => {
-    const expected = await getExpectedChannels()
-    const { registerAllRpcHandlers } = await import('../index')
-
-    registerAllRpcHandlers(createMockServer(), createMockDeps())
-
-    const appChannels = registeredChannels.filter(ch => ch.includes(':'))
-    const actual = new Set(appChannels)
-
-    const missing = [...expected].filter(ch => !actual.has(ch)).sort()
-    const unexpected = [...actual].filter(ch => !expected.has(ch)).sort()
-
-    expect(missing).toEqual([])
-    expect(unexpected).toEqual([])
-
-    // Check for duplicates
-    const counts = new Map<string, number>()
-    for (const ch of appChannels) {
-      counts.set(ch, (counts.get(ch) ?? 0) + 1)
-    }
-    const duplicates = [...counts.entries()]
-      .filter(([, count]) => count > 1)
-      .map(([channel, count]) => `${channel} (${count}x)`)
-      .sort()
-
-    expect(duplicates).toEqual([])
+  it('main registers each of its channels once, and only LOCAL_ONLY ones', async () => {
+    const { isLocalOnly } = await import('@otto/shared/protocol')
+    expect(main.filter((channel, index) => main.indexOf(channel) !== index)).toEqual([])
+    expect(main.filter((channel) => !isLocalOnly(channel))).toEqual([])
   })
 
-  it('keeps onboarding channels in registration coverage', async () => {
-    const { HANDLED_CHANNELS } = await import('@otto/server-core/handlers/rpc/onboarding')
-    const { registerAllRpcHandlers } = await import('../index')
-
-    registerAllRpcHandlers(createMockServer(), createMockDeps())
-
-    const actual = new Set(registeredChannels)
-    const missingOnboarding = HANDLED_CHANNELS.filter(ch => !actual.has(ch))
-
-    expect(missingOnboarding).toEqual([])
+  it('every LOCAL_ONLY channel the server answers is answered by main too', async () => {
+    const { LOCAL_ONLY_CHANNELS } = await import('@otto/shared/protocol')
+    const answeredByMain = new Set(main)
+    expect([...LOCAL_ONLY_CHANNELS].filter((channel) => server.includes(channel) && !answeredByMain.has(channel))).toEqual([])
   })
 })

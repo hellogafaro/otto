@@ -73,9 +73,6 @@
   /* Otto: cards are 12px: their 32px controls sit 4px in with 8px (md)
      corners, so they nest concentrically (8 + 4). */
   --radius-xl: calc(var(--radius) * 1.2);
-  /* Otto: 20px, the fallback of `PageWrap`s corner outside the frame (the frame's `--wrap-radius` is 29) and variant B: the line-only wrapper of dense list
-     pages: its rows run to the line and it clips them to this corner. */
-  --radius-2xl: calc(var(--radius) * 2);
   --font-sans: "Inter Variable", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 }
@@ -282,10 +279,7 @@ html.dark[data-wallpaper] :is([data-slot="sidebar-wrapper"], [data-slot="sidebar
 html[data-wallpaper] [data-slot="sidebar-inner"] {
   background-color: transparent;
 }
-html[data-wallpaper] [data-slot="page-wrap"] {
-  background-color: var(--card);
-}
-html[data-wallpaper] :is([data-slot="sidebar"][data-mobile], [data-slot="page-wrap"], [data-slot="composer"], .card-surface) {
+html[data-wallpaper] :is([data-slot="sidebar"][data-mobile], [data-slot="composer"], .card-surface) {
   backdrop-filter: blur(24px) saturate(1.2);
 }
 

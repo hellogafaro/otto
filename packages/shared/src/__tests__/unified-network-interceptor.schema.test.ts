@@ -1,13 +1,14 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 
 let injectMetadataIntoToolSchema: typeof import('../unified-network-interceptor.ts').injectMetadataIntoToolSchema;
+let addMetadataToToolParameters: typeof import('../unified-network-interceptor.ts').addMetadataToToolParameters;
 let sanitizeEmptyTextCacheControl: typeof import('../unified-network-interceptor.ts').sanitizeEmptyTextCacheControl;
 let stripPromptCacheTtl: typeof import('../unified-network-interceptor.ts').stripPromptCacheTtl;
 
 describe('unified-network-interceptor schema metadata injection', () => {
   beforeAll(async () => {
     process.env.OTTO_INTERCEPTOR_DISABLE_AUTO_INSTALL = '1';
-    ({ injectMetadataIntoToolSchema, sanitizeEmptyTextCacheControl, stripPromptCacheTtl } = await import('../unified-network-interceptor.ts'));
+    ({ injectMetadataIntoToolSchema, addMetadataToToolParameters, sanitizeEmptyTextCacheControl, stripPromptCacheTtl } = await import('../unified-network-interceptor.ts'));
   });
 
   it('injects metadata fields into empty/zero-arg schemas', () => {
@@ -49,6 +50,17 @@ describe('unified-network-interceptor schema metadata injection', () => {
     expect(result.required).toEqual(['_displayName', '_intent']);
     expect(result.properties._displayName).toEqual({ type: 'string', description: 'custom display name schema' });
     expect(result.properties._intent).toEqual({ type: 'string', description: 'custom intent schema' });
+  });
+
+  it('keeps additionalProperties: false on a strict tool and drops it otherwise', () => {
+    const schema = () => ({ type: 'object', properties: { path: { type: 'string' } }, required: ['path'], additionalProperties: false });
+    const strict = schema();
+    addMetadataToToolParameters(strict, true);
+    expect(strict.additionalProperties).toBe(false);
+    expect(strict.required).toEqual(['_displayName', '_intent', 'path']);
+    const loose: Record<string, unknown> = schema();
+    addMetadataToToolParameters(loose, false);
+    expect(loose.additionalProperties).toBeUndefined();
   });
 });
 

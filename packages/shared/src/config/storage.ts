@@ -31,8 +31,6 @@ import {
   type DecisionLayerSettings,
   type DecisionLayerStoredSettings,
 } from '../decisions/settings.ts';
-import type { ServerConfig } from './server-config.ts';
-import { randomUUID } from 'crypto';
 
 // Re-export CONFIG_DIR for convenience (centralized in paths.ts)
 export { CONFIG_DIR } from './paths.ts';
@@ -363,16 +361,8 @@ export const setColorTheme = (themeId: string, userId?: string | null): void => 
 
 // What the whole install has set (`install` settings)
 
-/** Whether the screen stays awake while chats run (default: false). */
+/** Whether the screen stays awake while chats run (default: false). The desktop's main process writes it (settings:updateSetting). */
 export const getKeepAwakeWhileRunning = (): boolean => getSetting(INSTALL, 'keepAwakeWhileRunning');
-export const setKeepAwakeWhileRunning = (enabled: boolean): void => void updateSetting(INSTALL, 'keepAwakeWhileRunning', enabled);
-
-/**
- * Whether remote agents may call `browser_tool evaluate <expression>` against this
- * desktop client's local browser. The check is enforced inside the local capability
- * dispatcher; the remote server cannot override it. Defaults to true.
- */
-export const getAllowRemoteEvaluate = (): boolean => getSetting(INSTALL, 'allowRemoteEvaluate');
 
 /**
  * Decision layer (Jev / TypeSafe System One) settings with defaults applied.
@@ -402,12 +392,6 @@ export function setGitBashPath(path: string): boolean {
 
 /** Forgets the persisted Git Bash path (it is stale or invalid). */
 export const clearGitBashPath = (): void => void updateSetting(INSTALL, 'gitBashPath', null);
-
-/** The update version the user dismissed (its banner stays away), or null. */
-export const getDismissedUpdateVersion = (): string | null => getSetting(INSTALL, 'dismissedUpdateVersion');
-export const setDismissedUpdateVersion = (version: string): void => void updateSetting(INSTALL, 'dismissedUpdateVersion', version);
-/** Call this when a new version is released (or on successful update). */
-export const clearDismissedUpdateVersion = (): void => void updateSetting(INSTALL, 'dismissedUpdateVersion', null);
 
 // Note: getDefaultWorkingDirectory/setDefaultWorkingDirectory removed
 // Working directory is now stored per-workspace in workspace config.json (defaults.workingDirectory)
@@ -1020,8 +1004,8 @@ export function getAllSessionDrafts(): Record<string, SessionDraft> {
 // ============================================
 
 import type { ThemeOverrides, ThemeFile, PresetTheme } from './theme.ts';
-
-const APP_THEME_FILE = join(CONFIG_DIR, 'theme.json');
+import { APP_THEME_FILE, loadAppTheme } from './app-theme.ts';
+export { loadAppTheme };
 const APP_THEMES_DIR = join(CONFIG_DIR, 'themes');
 
 /**
@@ -1040,20 +1024,6 @@ let presetsInitialized = false;
  */
 export function getAppThemesDir(): string {
   return APP_THEMES_DIR;
-}
-
-/**
- * Load app-level theme overrides
- */
-export function loadAppTheme(): ThemeOverrides | null {
-  try {
-    if (!existsSync(APP_THEME_FILE)) {
-      return null;
-    }
-    return readJsonFileSync<ThemeOverrides>(APP_THEME_FILE);
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -1498,34 +1468,4 @@ export function ensureToolIcons(): void {
   } catch {
     // Ignore errors — tool icons are optional enhancement
   }
-}
-
-// ============================================
-// Server Mode Configuration
-// ============================================
-
-/**
- * Get the current server configuration (the token is read from its secret).
- * Returns defaults if not yet configured.
- */
-export function getServerConfig(): ServerConfig {
-  const { tokenSecretId, ...stored } = getSetting(INSTALL, 'server');
-  const token = tokenSecretId ? initSecretsStore().getSecret(tokenSecretId) : undefined;
-  return { ...stored, ...(token ? { token } : {}) };
-}
-
-/**
- * Persist server configuration: the token goes to `secrets` (replaced in place), the setting keeps its id.
- * Auto-generates a stable auth token on first enable if none exists.
- */
-export function setServerConfig(serverConfig: ServerConfig): void {
-  const { token: given, ...rest } = serverConfig;
-  const secrets = initSecretsStore();
-  let tokenSecretId = getSetting(INSTALL, 'server').tokenSecretId;
-  const token = given || (serverConfig.enabled && !(tokenSecretId && secrets.getSecret(tokenSecretId)) ? randomUUID() : undefined);
-  if (token) {
-    if (tokenSecretId && secrets.getSecret(tokenSecretId) !== undefined) secrets.updateSecret(tokenSecretId, token);
-    else tokenSecretId = secrets.createSecret('Server token', token);
-  }
-  updateSetting(INSTALL, 'server', { ...rest, ...(tokenSecretId ? { tokenSecretId } : {}) });
 }

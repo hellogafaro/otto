@@ -29,9 +29,9 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.library.DELETE,
 ] as const
 
-/** The workspace a request is for: its own, or the one of the calling window. */
-export function resolveWorkspace(ctx: RequestContext, deps: HandlerDeps) {
-  const ref = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
+/** The workspace a request is for: its connection's. */
+export function resolveWorkspace(ctx: RequestContext) {
+  const ref = ctx.workspaceId
   const workspace = ref ? getWorkspaceByNameOrId(ref) : null
   if (!workspace) throw new Error('Cannot determine workspace')
   return workspace
@@ -64,7 +64,7 @@ export function registerLibraryHandlers(server: RpcServer, deps: HandlerDeps): v
     RPC_CHANNELS.library.CREATE,
     (ctx, input: { title: string; mime: string; content: LibraryContent; parentId?: string | null }) =>
       createLibraryItem({
-        workspaceId: resolveWorkspace(ctx, deps).id,
+        workspaceId: resolveWorkspace(ctx).id,
         title: input.title,
         mime: input.mime,
         bytes: toBytes(input.content),
@@ -74,16 +74,16 @@ export function registerLibraryHandlers(server: RpcServer, deps: HandlerDeps): v
   )
 
   server.handle(RPC_CHANNELS.library.CREATE_FOLDER, (ctx, input: { title: string; parentId?: string | null }) =>
-    createLibraryFolder({ workspaceId: resolveWorkspace(ctx, deps).id, title: input.title, parentId: input.parentId, createdBy: actorOf(ctx) }),
+    createLibraryFolder({ workspaceId: resolveWorkspace(ctx).id, title: input.title, parentId: input.parentId, createdBy: actorOf(ctx) }),
   )
 
-  server.handle(RPC_CHANNELS.library.LIST, (ctx, filter?: LibraryFilter) => getLibraryItems(resolveWorkspace(ctx, deps).id, filter))
+  server.handle(RPC_CHANNELS.library.LIST, (ctx, filter?: LibraryFilter) => getLibraryItems(resolveWorkspace(ctx).id, filter))
 
-  server.handle(RPC_CHANNELS.library.GET, (ctx, id: string) => getLibraryItem(resolveWorkspace(ctx, deps).id, id) ?? null)
+  server.handle(RPC_CHANNELS.library.GET, (ctx, id: string) => getLibraryItem(resolveWorkspace(ctx).id, id) ?? null)
 
   // Documents come back as text, every other file as base64.
   server.handle(RPC_CHANNELS.library.READ, async (ctx, id: string) => {
-    const workspaceId = resolveWorkspace(ctx, deps).id
+    const workspaceId = resolveWorkspace(ctx).id
     const bytes = await readLibraryContent(workspaceId, id)
     const item = getLibraryItem(workspaceId, id)!
     const content: LibraryContent =
@@ -94,7 +94,7 @@ export function registerLibraryHandlers(server: RpcServer, deps: HandlerDeps): v
   })
 
   server.handle(RPC_CHANNELS.library.UPDATE, (ctx, id: string, patch: LibraryUpdate) =>
-    updateLibraryItem(resolveWorkspace(ctx, deps).id, id, {
+    updateLibraryItem(resolveWorkspace(ctx).id, id, {
       title: patch.title,
       parentId: patch.parentId,
       content: patch.content && toBytes(patch.content),
@@ -103,6 +103,6 @@ export function registerLibraryHandlers(server: RpcServer, deps: HandlerDeps): v
   )
 
   server.handle(RPC_CHANNELS.library.DELETE, async (ctx, id: string) => {
-    await deleteLibraryItem(resolveWorkspace(ctx, deps).id, id)
+    await deleteLibraryItem(resolveWorkspace(ctx).id, id)
   })
 }

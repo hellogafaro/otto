@@ -1,5 +1,5 @@
 /**
- * TasksPage - the Tasks index: the workspace's tasks across every project, grouped by status in the line-only `PageWrap`
+ * TasksPage - the Tasks index: the workspace's tasks across every project, grouped by status in the Settings card (`ListCard`)
  * (`TaskGroups`, the Chats index's pattern), no toolbar. The header carries Filter (Project, Assignee, Status,
  * Archived; in the URL, `useTaskFilters`), Search (the palette on Tasks) and New task (a dialog); active filters show as chips above the list.
  * Archived is the last, folded group, and the whole list (open) when Archived is the filter.
@@ -14,8 +14,8 @@ import { useComposerContext } from '@/components/composer/use-composer-context'
 import { Archive, Box, CircleCheck, CircleDashed, User } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
-import { ListRowSkeleton } from '@workspace/ui/components/list-group'
-import { PageColumn, PageWrap } from '@workspace/ui/components/page'
+import { ListCard, ListRowSkeleton } from '@workspace/ui/components/list-group'
+import { PageColumn } from '@workspace/ui/components/page'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { CommandPaletteButton } from '@/components/command-palette/command-palette-button'
 import { ActorAvatar } from '@/components/people/actor-avatar'
@@ -157,10 +157,10 @@ export function TasksPage() {
             removeLabel={(field) => `${t('common.remove')} ${field}`}
           />
           {!loaded ? (
-            // Otto: the same padded wrapper as the list (task-list.tsx).
-            <PageWrap aria-busy padded>
+            // Otto: the same card as the list (task-list.tsx).
+            <ListCard aria-busy>
               <ul>{[0, 1, 2].map((i) => <ListRowSkeleton key={i} />)}</ul>
-            </PageWrap>
+            </ListCard>
           ) : matching.length === 0 ? (
             <NoResults title={t('chatsIndex.noResults')} description={t('chatsIndex.noResultsDescription')}>
               {hasTaskFilters(filters) && (

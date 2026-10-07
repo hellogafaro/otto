@@ -18,17 +18,6 @@ require_path() {
     fi
 }
 
-# Sync secrets from 1Password if CLI is available
-if command -v op &> /dev/null; then
-    echo "1Password CLI detected, syncing secrets..."
-    cd "$ROOT_DIR"
-    if bun run sync-secrets 2>/dev/null; then
-        echo "Secrets synced from 1Password"
-    else
-        echo "Warning: Failed to sync secrets from 1Password (continuing with existing .env if present)"
-    fi
-fi
-
 # Load environment variables from .env
 if [ -f "$ROOT_DIR/.env" ]; then
     set -a

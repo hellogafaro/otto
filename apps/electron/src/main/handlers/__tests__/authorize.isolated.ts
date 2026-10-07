@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import WebSocket from 'ws'
 import './electron-mock'
-import { createMockDeps } from './electron-mock'
+import { createMockServerDeps } from './electron-mock'
 
 // Run in isolation: the config dir and the database are fixed when the modules load.
 const configDir = mkdtempSync(join(tmpdir(), 'otto-authorize-'))
@@ -25,14 +25,13 @@ const { getTranscriptionKey } = await import('@otto/shared/transcription')
 const { createAgent } = await import('@otto/shared/agents')
 const { createRoutine } = await import('@otto/shared/automations/routines')
 const { AGENT_WRITE_CHANNELS, authorize, CONNECTION_WRITE_CHANNELS, INSTANCE_OWNER_CHANNELS, OWNER_CHANNELS, ROUTINE_WRITE_CHANNELS, WORKSPACE_ARG_CHANNELS } = await import('../../../../../../packages/server-core/src/bootstrap/authorize.ts')
-const { registerAllRpcHandlers } = await import('../index')
+const { registerCoreRpcHandlers } = await import('@otto/server-core/handlers/rpc')
 
 type Handler = (...args: never[]) => unknown
 const promptedAs: (string | undefined)[] = []
 const registered = new Map<string, Handler>()
 const deps = {
-  ...createMockDeps(),
-  windowManager: undefined,
+  ...createMockServerDeps(),
   sessionManager: {
     getWorkspaces: () => getWorkspaces(),
     getWorkspacesInfo: () => getWorkspaces().map((workspace) => ({ id: workspace.id, name: workspace.name })),
@@ -42,7 +41,7 @@ const deps = {
     executePromptAutomation: async (input: { createdBy?: string }) => (promptedAs.push(input.createdBy), { sessionId: 'chat' }),
   },
 } as never
-registerAllRpcHandlers(
+registerCoreRpcHandlers(
   { handle: (channel: string, handler: Handler) => void registered.set(channel, handler), push() {}, async invokeClient() {}, hasClientCapability: () => false, findClientsWithCapability: () => [] } as never,
   deps,
   { getConnectedClientCount: () => 0, serverId: 'test', startedAt: 0 },
@@ -59,7 +58,7 @@ async function start(real: boolean) {
   const calls: string[] = []
   const server = new WsRpcServer({ host: '127.0.0.1', port: 0, requireAuth: true, validateToken: async (token) => ({ userId: token }), authorize })
   if (real) {
-    registerAllRpcHandlers(server, deps, { getConnectedClientCount: () => 0, serverId: 'test', startedAt: 0 })
+    registerCoreRpcHandlers(server, deps, { getConnectedClientCount: () => 0, serverId: 'test', startedAt: 0 })
   } else {
     for (const channel of channels) server.handle(channel, () => (calls.push(channel), 'ran'))
   }
@@ -262,11 +261,9 @@ describe('the guard on every registered channel', () => {
   it('refuses the install channels to everyone but the instance owner, even a workspace owner', async () => {
     const { url, calls } = await start(false)
     const [alice, zed, bob] = [await connect(url, 'alice', A), await connect(url, 'zed', B), await connect(url, 'bob', A)]
-    // the server settings channels are registered by the Electron main process, not here
-    const owned = [...INSTANCE_OWNER_CHANNELS].filter((channel) => registered.has(channel))
-    expect([...INSTANCE_OWNER_CHANNELS].filter((channel) => !registered.has(channel)).sort()).toEqual(
-      [RPC_CHANNELS.settings.GET_SERVER_CONFIG, RPC_CHANNELS.settings.SET_SERVER_CONFIG, RPC_CHANNELS.settings.GET_SERVER_STATUS].sort(),
-    )
+    // every guarded channel is the server's (the desktop's main process answers its own channels without a guard)
+    const owned = [...INSTANCE_OWNER_CHANNELS]
+    expect(owned.filter((channel) => !registered.has(channel))).toEqual([])
     for (const channel of owned) {
       expect(await codeOf(zed.invoke(channel))).toBe('forbidden')
       expect(await codeOf(bob.invoke(channel))).toBe('forbidden')
@@ -292,12 +289,10 @@ describe('the guard on every registered channel', () => {
     expect(await code(alice, write, workspaceEntity(A), 'defaults')).toBe('ok')
     expect(await code(zed, read, workspaceEntity(A), 'defaults')).toBe('forbidden')
     expect(await code(zed, write, workspaceEntity(A), 'defaults')).toBe('forbidden')
-    // install: anyone signed in reads what holds no secret, only the instance owner writes (and reads the rest)
+    // install: anyone signed in reads, only the instance owner writes
     expect(await code(bob, read, 'install', 'setupDeferred')).toBe('ok')
     expect(await code(bob, write, 'install', 'setupDeferred')).toBe('forbidden')
     expect(await code(zed, write, 'install', 'setupDeferred')).toBe('forbidden')
-    expect(await code(bob, read, 'install', 'server')).toBe('forbidden')
-    expect(await code(alice, read, 'install', 'server')).toBe('ok')
     expect(await code(alice, write, 'install', 'setupDeferred')).toBe('ok')
     // a thing that is not an entity is invalid, not forbidden
     expect(await code(bob, read, 'everyone', 'colorTheme')).toBe('invalid')

@@ -16,13 +16,13 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 // column, 64px from the top, and scrolls away with it (`PageHeaderRow`;
 // `PageColumn` gives it its slot). The open chat is the one exception: a
 // compact pinned header (`PageHeaderRow density="compact"`, 80px) in the frame's header slot
-// above its transcript wrapper (the row between two 24px gaps, not on the axis).
+// above its transcript (the row between two 24px gaps, not on the axis).
 // Below 768px every other title row is on the axis (`--axis-y`, see globals.css),
 // beside the sheet's menu button.
 //
 // Three tracks make it: [left gutter | column | right gutter]. The left gutter
 // holds `FloatingNav` (portaled in by `PageHeader`), Back level with the title
-// row (the first row of the wrapper's content on the chat);
+// row (the transcript's first row on the chat);
 // the right one holds the `aside` (the `Sidecar`), which starts at the CONTENT
 // START, the top of the first block (see `--content-start`). Closed, both
 // gutters are equal and the column is centered. An open aside reserves its
@@ -44,17 +44,16 @@ const NAV_GUTTER = 72
 // Otto: the frame's spacing tokens, ONE place to tweak and compare. The scale is
 // the golden ratio from 8 (8, 13, 21, 34, 55; the type scale's 13, 16.5, 21 are the
 // same steps). They are published on the frame's grid, so the header row, the nav
-// slot and the chat's wrapper (below it) all read them.
+// slot and the chat's transcript (below it) all read them.
 // - `--gr-*`: the scale.
 // - roomy density: the title row and the pinned navigation sit 64px down
 //   (`--nav-top-roomy`), the big page title (21px).
-// - compact density (the chat's header, and any page inside a bordered wrapper): the
-//   header block is the 32px row between two equal gaps (`--header-gap`, 24: above
-//   the row and below it), so the wrapper's line starts at `--header-compact` (80); the
-//   title is the section size (16.5px) and starts at `--content-inset` (the wrapper's
-//   line + its padding `--wrap-pad`, 17px): the content's left edge. The navigation's top
-//   is the content's first row: line + padding (`--nav-top-compact`, 97px). The wrapper's
-//   padding is 16 at most (owner), on every page that uses it.
+// - compact density (the chat's header): the header block is the 32px row between
+//   two equal gaps (`--header-gap`, 24: above the row and below it), so the
+//   transcript starts at `--header-compact` (80); the title is the section size
+//   (16.5px) on the column's content edge (24px sides from 768px, as every page and
+//   the composer). The navigation's top is the transcript's first row: 80 + the 16px
+//   a turn row carries on top (the transcript's top fade covers it), `--nav-top-compact` 96.
 // - the navigation is `--nav-gap` (16) from the column on every page, so its x never changes.
 const FRAME_TOKENS = {
   "--gr-8": "0.5rem",
@@ -62,21 +61,13 @@ const FRAME_TOKENS = {
   "--gr-21": "1.3125rem",
   "--gr-34": "2.125rem",
   "--gr-55": "3.4375rem",
-  "--wrap-pad": "1rem",
-  "--content-inset": "calc(1px + var(--wrap-pad))",
   "--header-gap": "1.5rem",
   "--header-compact": "calc(2 * var(--header-gap) + 2rem)",
   "--nav-gap": "1rem",
-  // Nested radii (inner = outer - inset): the wrapper's corner is the radius of a surface
-  // that sits `--content-inset` (17: line + padding) inside it, plus that inset.
-  // A (default): the surfaces keep v1's 12 (`--radius-xl`), the wrapper grows to 12 + 17 = 29.
-  // B: `--wrap-radius: var(--radius-2xl)` (20), the nested surfaces shrink to 20 - 17 = 3.
-  "--wrap-radius": "calc(var(--radius-xl) + var(--content-inset))",
-  "--wrap-inner-radius": "calc(var(--wrap-radius) - var(--content-inset))",
   // Clear space between the floating composer bar and the content above it.
   "--composer-gap": "1.5rem",
   "--nav-top-roomy": "4rem",
-  "--nav-top-compact": "calc(var(--header-compact) + var(--content-inset))",
+  "--nav-top-compact": "calc(var(--header-compact) + 1rem)",
 } as React.CSSProperties
 
 // Otto: the page inset, ONE constant. 16px, the padding of a row inside a
@@ -274,7 +265,7 @@ function PageFrame({
           className={cn(
             // `--nav-top`: the ONE top of the pinned navigation (Back and the stacked Previous / Next),
             // from 768px, by the density of the page's header row: roomy 64px (level with its title
-            // row), compact 77px (the first row of the wrapper's content). Its x never changes.
+            // row), compact 96px (the transcript's first row). Its x never changes.
             "group/page relative grid [--nav-top:var(--nav-top-roomy)] has-[[data-slot=page-header-row][data-density=compact]]:[--nav-top:var(--nav-top-compact)] h-full grid-cols-[minmax(1.25rem,1fr)_minmax(0,48rem)_minmax(var(--aside,1.25rem),1fr)] grid-rows-[auto_minmax(0,1fr)] pb-2",
             "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
             "@[1280px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:20.25rem]",
@@ -334,17 +325,12 @@ function PageFrame({
             // bar takes clicks. Above the page (`z-10`), under the overlaid
             // sidecar (`z-20`), the sheet, popovers and dialogs. Empty (no bar on
             // this page), it is nothing and the column keeps its own end. The
-            // full composer spans the column's track and sits on the body's end
-            // (8px above the window's), the padding moving with its grow.
-            // ONE place for every look (compact, expanded, full): the sides
-            // on the column's content edges (24px in from 768px; the frame's
-            // 20px gutter below), 8px above the body's end (16px above the
-            // window's). A page whose wrapper runs to the body's end with the
-            // composer inside it (the chat) sets `--wrap-inset` (its border +
-            // padding) and the composer sits that far inside it on the sides
-            // and the bottom. The slot's height (composer + bottom gap) is
-            // published as `--composer-lift`.
-            className="pointer-events-none relative z-10 col-start-2 row-start-2 flex min-w-0 justify-center self-end px-(--wrap-inset,0px) pb-(--wrap-inset,0.5rem) transition-[padding] duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] *:pointer-events-auto empty:hidden motion-reduce:transition-none md:px-(--wrap-inset,1.5rem)"
+            // ONE place for every look (compact, expanded, full) and every
+            // page, the chat included: the sides on the column's content edges
+            // (24px in from 768px; the frame's 20px gutter below), 8px above
+            // the body's end (16px above the window's). The slot's height
+            // (composer + bottom gap) is published as `--composer-lift`.
+            className="pointer-events-none relative z-10 col-start-2 row-start-2 flex min-w-0 justify-center self-end pb-2 *:pointer-events-auto empty:hidden md:px-6"
           >
             {composer}
           </div>
@@ -367,10 +353,10 @@ function PageFrame({
 //   up with the cards' content), 32px tall, 64px from the top (below 768px its
 //   center is the axis, beside the sheet's menu button), 40px above the first
 //   block; the big page title (21px medium); it scrolls away with the page.
-// - `compact` (the open chat; any page inside a bordered wrapper): the row in the
-//   frame's header slot, pinned above the wrapper: 32px between two 13px gaps (the
-//   block ends 58px from the top, where the wrapper's line starts); the section
-//   title size (16.5px medium), inset to the wrapper's content (line + padding, 22px).
+// - `compact` (the open chat): the row in the frame's header slot, pinned above
+//   the transcript: 32px between two 24px gaps (the block ends 80px from the top,
+//   where the transcript starts); the section title size (16.5px medium), on the
+//   column's content edge (24px from 768px, the transcript's and composer's left).
 function PageHeaderRow({
   leading,
   title,
@@ -392,7 +378,7 @@ function PageHeaderRow({
       className={cn(
         "flex items-center gap-1 select-none",
         compact
-          ? "mt-(--header-gap) mb-(--header-gap) h-8 px-(--content-inset)"
+          ? "mt-(--header-gap) mb-(--header-gap) h-8 md:px-6"
           : "mt-[calc(var(--axis-y)-1rem)] h-8 md:mt-(--nav-top-roomy)",
         !compact && PAGE_INSET,
         className

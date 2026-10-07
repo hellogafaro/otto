@@ -10,6 +10,8 @@ import { join } from "path";
 const ROOT_DIR = join(import.meta.dir, "..");
 const DIST_DIR = join(ROOT_DIR, "apps/electron/dist");
 const OUTPUT_FILE = join(DIST_DIR, "main.cjs");
+const SERVER_SOURCE = join(ROOT_DIR, "packages/server/src/index.ts");
+const SERVER_OUTPUT = join(DIST_DIR, "server.js");
 const INTERCEPTOR_SOURCE = join(ROOT_DIR, "packages/shared/src/unified-network-interceptor.ts");
 const INTERCEPTOR_OUTPUT = join(DIST_DIR, "interceptor.cjs");
 const SESSION_TOOLS_CORE_DIR = join(ROOT_DIR, "packages/session-tools-core");
@@ -269,6 +271,49 @@ async function buildWhatsAppWorker(): Promise<void> {
   console.log("✅ WhatsApp worker built successfully");
 }
 
+// Build the server the desktop runs as a child process under the shipped Bun (docs/desktop.md): one ESM file, run by
+// Bun (`bun:sqlite` and `bun` stay imports). esbuild, not `bun build`: Bun's bundler mis-converts some CommonJS
+// packages (tmp, under markitdown-js). drizzle-orm and drizzle-kit stay outside the file: drizzle-kit's push breaks
+// when bundled (its lazily initialised dialects), so electron-builder.yml ships both under app/node_modules.
+async function buildServer(): Promise<void> {
+  console.log("🗄️  Building the server...");
+  const proc = spawn({
+    cmd: [
+      "bun", "run", "esbuild",
+      SERVER_SOURCE,
+      "--bundle",
+      "--platform=node",
+      "--format=esm",
+      "--target=esnext",
+      `--outfile=${SERVER_OUTPUT}`,
+      "--external:bun",
+      "--external:bun:*",
+      "--external:drizzle-orm",
+      "--external:drizzle-kit",
+      // markitdown-js default-imports xlsx, whose ESM build has no default export: take its CommonJS build
+      "--alias:xlsx=./node_modules/xlsx/xlsx.js",
+      "--log-level=error",
+    ],
+    cwd: ROOT_DIR,
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  if ((await proc.exited) !== 0 || !existsSync(SERVER_OUTPUT)) {
+    console.error("❌ Server build failed");
+    process.exit(1);
+  }
+  console.log("✅ Server built successfully");
+}
+
+// Main runs under Electron's Node: a Bun import there means it reached the server's code (the database).
+function assertNoBunImports(filePath: string): void {
+  const found = readFileSync(filePath, "utf-8").match(/require\("bun(:[a-z]+)?"\)/);
+  if (found) {
+    console.error(`❌ ${filePath} imports ${found[0]}: the main process must not load server code (it runs under Node).`);
+    process.exit(1);
+  }
+}
+
 async function main(): Promise<void> {
   loadEnvFile();
 
@@ -289,6 +334,9 @@ async function main(): Promise<void> {
   // Build WhatsApp worker (Baileys subprocess — optional package)
   await buildWhatsAppWorker();
 
+  // Build the server child (dist/server.js)
+  await buildServer();
+
   const buildDefines = getBuildDefines();
 
   console.log("🔨 Building main process...");
@@ -302,20 +350,6 @@ async function main(): Promise<void> {
       "--format=cjs",
       "--outfile=apps/electron/dist/main.cjs",
       "--external:electron",
-      // Claude Agent SDK is pure ESM (sdk.mjs) and calls `createRequire(import.meta.url)`
-      // at module init. esbuild's CJS bundling leaves the synthesized `import_meta.url`
-      // undefined for inner ESM modules, which throws ERR_INVALID_ARG_VALUE on load.
-      // Externalize so Node loads the SDK natively as ESM (with a real import.meta.url).
-      // Electron 39 ships Node 22.x which supports require() of ESM without TLA, so the
-      // bundled main.cjs's `require('@anthropic-ai/claude-agent-sdk')` works.
-      "--external:@anthropic-ai/claude-agent-sdk",
-      // Replace grammY's bundled polyfills (node-fetch@2 + abort-controller@3)
-      // with native Node globals. esbuild otherwise renames the polyfill's
-      // `class AbortSignal` to `_AbortSignal` to dodge collision with the
-      // global, which then breaks node-fetch@2's `constructor.name` check and
-      // fails every Telegram API call with a TypeError.
-      "--alias:node-fetch=./apps/electron/src/main/shims/node-fetch.cjs",
-      "--alias:abort-controller=./apps/electron/src/main/shims/abort-controller.cjs",
       ...buildDefines,
     ],
     cwd: ROOT_DIR,
@@ -347,6 +381,7 @@ async function main(): Promise<void> {
     console.error("❌ Build verification failed:", verification.error);
     process.exit(1);
   }
+  assertNoBunImports(OUTPUT_FILE);
 
   console.log("✅ Build complete and verified");
   process.exit(0);

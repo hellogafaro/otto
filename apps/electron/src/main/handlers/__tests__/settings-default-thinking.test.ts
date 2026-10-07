@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import { RPC_CHANNELS } from '../../../shared/types'
 import type { RpcServer } from '@otto/server-core/transport'
-import type { HandlerDeps } from '../handler-deps'
+import type { HandlerDeps } from '@otto/server-core/handlers'
 
 type HandlerFn = (ctx: { clientId: string }, ...args: any[]) => Promise<any> | any
 

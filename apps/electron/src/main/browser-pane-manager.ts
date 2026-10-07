@@ -8,7 +8,6 @@
 
 import { join, parse as parsePath } from 'path'
 import { existsSync, mkdirSync } from 'fs'
-import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import { BrowserView, BrowserWindow, app, ipcMain, nativeTheme, session, shell, type Session as ElectronSession } from 'electron'
 import { mainLog } from './logger'
 import type { WindowManager } from './window-manager'
@@ -20,7 +19,10 @@ import {
   type BrowserEmptyStateLaunchResult,
   type BrowserInstanceInfo,
 } from '../shared/types'
-import { DEFAULT_THEME, loadAppTheme, getAllowRemoteEvaluate } from '@otto/shared/config'
+import { DEFAULT_THEME } from '@otto/shared/config/theme'
+import { loadAppTheme } from '@otto/shared/config/app-theme'
+import { sanitizeSessionId } from '@otto/shared/sessions/validation'
+import { getInstallSetting, getKnownWorkspace } from './server-process'
 import { CodedError } from '@otto/shared/protocol'
 import { getBrowserLiveFxCornerRadii } from '../shared/browser-live-fx'
 import type {
@@ -348,14 +350,9 @@ export class BrowserPaneManager implements IBrowserPaneManager {
   // getter throws, so cleanup must never read it (OSS #1059).
   private popupWebContentsIdByWindow = new WeakMap<BrowserWindow, number>()
   private windowManager: WindowManager | null = null
-  private sessionPathResolver: ((sessionId: string) => string | null) | null = null
 
   setWindowManager(windowManager: WindowManager): void {
     this.windowManager = windowManager
-  }
-
-  setSessionPathResolver(fn: (sessionId: string) => string | null): void {
-    this.sessionPathResolver = fn
   }
 
   onStateChange(callback: (info: BrowserInstanceInfo) => void): void {
@@ -1612,20 +1609,10 @@ export class BrowserPaneManager implements IBrowserPaneManager {
     return instance.downloads.slice(-limit)
   }
 
-  // validateUploadFilePath removed — uses shared validateFilePath from @otto/server-core/handlers
-
-  async uploadFile(id: string, ref: string, filePaths: string[]): Promise<ElementGeometry> {
-    const instance = this.requireAliveInstance(id)
-
-    const safePaths: string[] = []
-    for (const p of filePaths) {
-      const workspaceId = this.resolveLaunchWorkspaceId()
-      const safePath = await validateFilePath(p, getWorkspaceAllowedDirs(workspaceId))
-      if (!existsSync(safePath)) throw new Error(`File not found: ${p}`)
-      safePaths.push(safePath)
-    }
-
-    return instance.cdp.setFileInputFiles(ref, safePaths)
+  // Every agent reaches the panes from the server child (dispatchCapability), which refuses uploads; this is the interface's.
+  async uploadFile(_id: string, _ref: string, _filePaths: string[]): Promise<ElementGeometry> {
+    throw new CodedError('BROWSER_REMOTE_UPLOAD_NOT_SUPPORTED',
+      'File upload from an agent is not supported yet. Ask the user to attach the file to the session.')
   }
 
   windowResize(id: string, width: number, height: number): { width: number; height: number } {
@@ -2687,7 +2674,8 @@ export class BrowserPaneManager implements IBrowserPaneManager {
       case 'evaluate': {
         const [instanceId, expression] = args as [string, string]
         this.requireOwnedInstance(instanceId, ownerKey)
-        if (!getAllowRemoteEvaluate()) {
+        // The install setting on the server; unreadable (no server) refuses
+        if (!(await getInstallSetting('allowRemoteEvaluate').catch(() => false))) {
           throw new CodedError('BROWSER_REMOTE_EVALUATE_BLOCKED',
             'JavaScript evaluation from remote agents is disabled in this client.')
         }
@@ -3124,13 +3112,12 @@ export class BrowserPaneManager implements IBrowserPaneManager {
 
   private resolveDownloadsDir(instance: BrowserInstance): string {
     const sessionId = instance.boundSessionId ?? instance.ownerSessionId
-    if (sessionId && this.sessionPathResolver) {
-      const sessionPath = this.sessionPathResolver(sessionId)
-      if (sessionPath) {
-        const dir = join(sessionPath, 'downloads')
-        mkdirSync(dir, { recursive: true })
-        return dir
-      }
+    // The chat's folder, as the server's getSessionPath lays it out: <workspace>/sessions/<id>
+    const root = instance.workspaceId ? getKnownWorkspace(instance.workspaceId)?.rootPath : undefined
+    if (sessionId && root) {
+      const dir = join(root, 'sessions', sanitizeSessionId(sessionId), 'downloads')
+      mkdirSync(dir, { recursive: true })
+      return dir
     }
     // Fallback: OS downloads folder for manual/unbound windows
     return app.getPath('downloads')

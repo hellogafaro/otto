@@ -5,25 +5,35 @@ import {
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible"
 import { Count } from "@workspace/ui/components/count"
-import { PAGE_INSET } from "@workspace/ui/components/page-frame"
+import { PageCard } from "@workspace/ui/components/page"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "cn"
 
 // Otto: the grouped list, Otto v1's table (Linear's and Codex's pattern), for
-// collections you work through: Chats, Tasks, Routines. No card and NO
-// hairlines inside it: each group is a ROUNDED band (8px, a quiet fill) and
-// its rows sit plain on the frame under it, 4px below the band; a group sits
-// 8px under the one before. Hover, current and pressed fills are rounded too,
-// so the table floats inside the padded line wrapper (`PageWrap`, 16px in) without clipping.
+// collections you work through: Chats, Tasks, Routines (and Inbox's flat list).
+// It sits in the Settings card (`ListCard`: `PageCard`, 8px in), NO hairlines
+// inside it: each group is a ROUNDED band (8px, a quiet fill) and its rows sit
+// plain on the card under it, 4px below the band; a group sits 8px under the
+// one before. Hover, current and pressed fills are rounded too, so the table
+// floats 8px inside the card's edge without clipping.
 //
 // Proportions (DESIGN.md, Data patterns): body text 13px on a 20px line; a
 // row is 44px (20 + 12 + 12), a band 36px (20 + 8 + 8), a metadata badge 24px
 // (16 + 4 + 4): the padding steps down the 12 · 8 · 4 of the golden ladder.
 //
-// ONE column grid for bands and rows, so icons and text line up: 12px in, a
-// 14px column (the band's chevron; empty in a row), 8px, a 14px icon column
+// ONE column grid for bands and rows, so icons and text line up: 8px in (with
+// the card's 8px, `PAGE_INSET` 16 from the card's edge: the page title's line),
+// a 14px column (the band's chevron; empty in a row), 8px, a 14px icon column
 // (the group's icon, the row's status icon or avatar), 8px, then the text (the
-// group's name, the row's title) at 56px.
+// group's name, the row's title) at 52px.
+
+// Otto: the table's container: the Settings card (`PageCard`: `bg-card`, the
+// card edge, `xl` 12 corners) with the table 8px in (`p-2`, the ONE padding of
+// a list page: no line wrapper around it). Groups are not split by the card's
+// row hairlines (`divide-y-0`); a flat list (Inbox) puts its rows in one `ul`.
+function ListCard({ className, ...props }: React.ComponentProps<"div">) {
+  return <PageCard className={cn("p-2 divide-y-0", className)} {...props} />
+}
 
 // A 14px column: a status icon, an avatar, a glyph; centered, so 16px ones fit.
 function ListSlot({ className, ...props }: React.ComponentProps<"span">) {
@@ -78,7 +88,7 @@ function ListGroup({
         <CollapsibleTrigger
           style={tint ? ({ "--list-tint": tint } as React.CSSProperties) : undefined}
           className={cn(
-            "group/trigger flex h-9 w-full items-center gap-2 rounded-(--wrap-inner-radius,var(--radius-md)) bg-foreground/5 px-3 text-left text-sm font-medium text-foreground transition-colors outline-none select-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+            "group/trigger flex h-9 w-full items-center gap-2 rounded-md bg-foreground/5 px-2 text-left text-sm font-medium text-foreground transition-colors outline-none select-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
             tint &&
               "bg-[linear-gradient(color-mix(in_oklab,var(--list-tint)_5%,transparent),color-mix(in_oklab,var(--list-tint)_5%,transparent))]",
             action && "pr-10"
@@ -102,12 +112,11 @@ function ListGroup({
   )
 }
 
-// Otto: a row: 44px, the whole row opens its item. In a `ListGroup` it is on
-// the band's grid, rounded (`md` 8), plain on the frame: 12px in, an empty
-// 14px column under the chevron, the 14px `media` (status icon or avatar)
-// under the group's icon, then the title at 56px. Outside a group (a flat list
-// such as Inbox, flush in its `PageWrap`) it is full-bleed and square, with
-// `media` on `PAGE_INSET` (16px). The title is 13px, truncated (`muted` reads
+// Otto: a row: 44px, rounded (`md` 8), plain on the card, 8px in; the whole
+// row opens its item. In a `ListGroup` it is on the band's grid: an empty 14px
+// column under the chevron, the 14px `media` (status icon or avatar) under the
+// group's icon, then the title at 52px. Outside a group (a flat list such as
+// Inbox) `media` leads, on the band's chevron column. The title is 13px, truncated (`muted` reads
 // it at 80% for an item that needs nothing from you, such as a read chat), with
 // its `marks` (small glyphs right after it: unread, flagged, working). At the
 // end: `meta`, metadata badges 6px apart (hidden in a column under 448px), then
@@ -117,8 +126,7 @@ function ListGroup({
 // 28px ⋯) covers the date on hover, focus or while its menu is open (always on
 // touch), 8px from the row's top, bottom and end, and keeps the row
 // highlighted while open. `size="sm"` is the compact variant for a list inside
-// a surface (the composer's Inbox list): 32px, rounded (`md` 8), 8px in, the
-// same slots and states.
+// a popover (the composer's Inbox list): 32px, the same slots and states.
 function ListRow({
   media,
   title,
@@ -148,8 +156,8 @@ function ListRow({
         type="button"
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-has-aria-expanded/row:bg-foreground/5 in-data-[slot=list-group]:rounded-(--wrap-inner-radius,var(--radius-md)) in-data-[slot=list-group]:px-3",
-          size === "sm" ? "h-8 rounded-md px-2" : ["h-11", PAGE_INSET],
+          "flex w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-has-aria-expanded/row:bg-foreground/5 rounded-md px-2",
+          size === "sm" ? "h-8" : "h-11",
           className
         )}
         {...props}
@@ -191,14 +199,14 @@ function ListRow({
 }
 
 // Otto: a loading row: a row's 44px and grid (the 14px media, then a title
-// bar), so a loading list is the list's shape inside its `PageWrap`. It sits
-// on the frame, where the stock `bg-muted` (lighter than the frame in light)
-// would vanish, so its bars are `foreground` 10%, the selected row's fill.
+// bar), so a loading list is the list's shape inside its `ListCard`. Its bars
+// are `foreground` 10%, the selected row's fill, which reads on the card and
+// on the wallpaper's glass alike.
 function ListRowSkeleton() {
   return (
     <li
       data-slot="list-row-skeleton"
-      className={cn("flex h-11 items-center gap-2", PAGE_INSET)}
+      className="flex h-11 items-center gap-2 px-2"
     >
       <Skeleton className="size-3.5 rounded-full bg-foreground/10" />
       <Skeleton className="h-3.5 w-1/3 bg-foreground/10" />
@@ -206,4 +214,4 @@ function ListRowSkeleton() {
   )
 }
 
-export { ListGroup, ListRow, ListRowSkeleton }
+export { ListCard, ListGroup, ListRow, ListRowSkeleton }

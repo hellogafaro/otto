@@ -1,5 +1,5 @@
 /**
- * InboxPage - your notifications in the workspace, newest first, as one list in the line-only `PageWrap` (the
+ * InboxPage - your notifications in the workspace, newest first, as one list in the Settings card (`ListCard`, the
  * Chats index's 44px rows, `notification-row.tsx`, shared with the composer's Inbox list): who did it, the sentence ("Maria mentioned you in Fix login", the title looked up live) with the
  * comment's first line muted after a mention, an unread dot, the time. A row opens what it is about (a mention:
  * the task or project the comment is on) and marks it read; its ⋯ marks it read or unread, or clears it. The
@@ -18,8 +18,8 @@ import {
   DropdownMenuTrigger,
 } from '@workspace/ui/components/dropdown-menu'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
-import { ListRow, ListRowSkeleton } from '@workspace/ui/components/list-group'
-import { PageColumn, PageWrap } from '@workspace/ui/components/page'
+import { ListCard, ListRow, ListRowSkeleton } from '@workspace/ui/components/list-group'
+import { PageColumn } from '@workspace/ui/components/page'
 import { toast } from '@workspace/ui/components/sonner'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { useEntityData } from '@/components/entities/entity-chip'
@@ -81,15 +81,15 @@ export function InboxPage() {
             removeLabel={(field) => `${t('common.remove')} ${field}`}
           />
           {!loaded ? (
-            <PageWrap aria-busy>
+            <ListCard aria-busy>
               <ul>{[0, 1, 2].map((i) => <ListRowSkeleton key={i} />)}</ul>
-            </PageWrap>
+            </ListCard>
           ) : shown.length === 0 ? (
             <NoResults title={t('chatsIndex.noResults')} description={t('chatsIndex.noResultsDescription')}>
               <Button variant="outline" onClick={() => changeFilter('unread', [])}>{t('chatsIndex.clearFilters')}</Button>
             </NoResults>
           ) : (
-            <PageWrap>
+            <ListCard>
               <ul>
                 {shown.map((item) => {
                   const unread = isUnread(item)
@@ -121,7 +121,7 @@ export function InboxPage() {
                   )
                 })}
               </ul>
-            </PageWrap>
+            </ListCard>
           )}
         </div>
       </PageColumn>

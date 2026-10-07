@@ -1,5 +1,6 @@
 import { mock } from 'bun:test'
-import type { HandlerDeps } from '../handler-deps'
+import type { HandlerDeps } from '@otto/server-core/handlers'
+import type { GuiDeps } from '../handler-deps'
 
 /** Importing this file stubs the `electron` module, so the handlers can be loaded under bun test. */
 mock.module('electron', () => ({
@@ -37,10 +38,23 @@ mock.module('electron', () => ({
     buildFromTemplate: () => ({ popup: () => {} }),
   },
   session: {},
+  powerSaveBlocker: { start: () => 0, stop: () => {}, isStarted: () => false },
 }))
 
-/** Handler dependencies that do nothing: enough to register every handler. */
-export function createMockDeps(): HandlerDeps {
+/** Main's handler dependencies that do nothing: enough to register every GUI handler. */
+export function createMockGuiDeps(): GuiDeps {
+  return {
+    windowManager: {} as GuiDeps['windowManager'],
+    browserPaneManager: {
+      onStateChange: () => {},
+      onRemoved: () => {},
+      onInteracted: () => {},
+    } as unknown as GuiDeps['browserPaneManager'],
+  }
+}
+
+/** The server's handler dependencies that do nothing: enough to register every core handler. */
+export function createMockServerDeps(): HandlerDeps {
   return {
     sessionManager: {} as HandlerDeps['sessionManager'],
     platform: {
@@ -55,12 +69,6 @@ export function createMockDeps(): HandlerDeps {
         process: async () => Buffer.from(''),
       },
     },
-    windowManager: {} as HandlerDeps['windowManager'],
-    browserPaneManager: {
-      onStateChange: () => {},
-      onRemoved: () => {},
-      onInteracted: () => {},
-    } as unknown as NonNullable<HandlerDeps['browserPaneManager']>,
     oauthFlowStore: {
       store: () => {},
       getByState: () => null,

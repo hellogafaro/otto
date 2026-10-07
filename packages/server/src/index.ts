@@ -33,10 +33,12 @@
  *   OTTO_WEBUI_WS_URL         — optional browser-facing ws:// or wss:// URL returned by /api/config
  *   OTTO_MESSAGING_WA_WORKER  — absolute path to worker.cjs (default: packages/messaging-whatsapp-worker/dist/worker.cjs)
  *   OTTO_MESSAGING_NODE_BIN   — Node binary used to spawn the WhatsApp worker (default: node)
+ *   OTTO_LOCAL_USER           — '1' on the desktop app: the install has one person and no sign-in, so the server makes
+ *                               that user (once) and OTTO_SERVER_TOKEN acts as them; otherwise the first sign-up owns it
  */
 
 import { join } from 'node:path'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, mkdirSync } from 'node:fs'
 import { version as packageVersion } from '../package.json'
 import { enableDebug } from '@otto/shared/utils/debug'
 import { bootstrapServer, startHealthHttpServer, generateServerToken } from '@otto/server-core/bootstrap'
@@ -45,9 +47,14 @@ import type { WebuiHandler } from '@otto/server-core/webui'
 import { getCredentialManager } from '@otto/shared/credentials'
 import { initSecrets } from '@otto/shared/secrets'
 import { initFileStorage } from '@otto/shared/library'
-import { initUsersStore } from '@otto/shared/users'
-import { getWorkspaces } from '@otto/shared/config'
+import { initLocalUser, initUsersStore } from '@otto/shared/users'
+import { LOCAL_EMAIL, LOCAL_NAME } from '@otto/shared/users/queries'
+import { getAllPiModels, getPiModelsForAuthProvider, getWorkspaces, registerPiModelResolver } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
+import { initDb } from '@otto/shared/db'
+import { pushSchema } from '@otto/shared/db/push'
+import { ensureDefaultPermissions, setPowerShellValidatorRoot } from '@otto/shared/agent'
+import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { createMessagingBootstrap, type MessagingBootstrapHandle } from '@otto/messaging-gateway'
 
 // --generate-token: print a crypto-random token and exit
@@ -113,10 +120,26 @@ if (tlsCertPath || tlsKeyPath) {
   }
 }
 
+// Pi's model list, resolved here so llm-connections stays free of the Pi SDK (the renderer bundles it)
+registerPiModelResolver((provider) => (provider ? getPiModelsForAuthProvider(provider) : getAllPiModels()))
+
+// The schema first: every boot applies each domain's schema.ts to the database (a packaged desktop has no
+// `bun run db:push`), and refuses a change that would lose data (the server does not start; db:push --force decides).
+try {
+  mkdirSync(CONFIG_DIR, { recursive: true })
+  const statements = await pushSchema(initDb())
+  if (statements.length) console.log(`Database schema: applied ${statements.length} statements`)
+} catch (err) {
+  console.error(err instanceof Error ? err.message : err)
+  process.exit(1)
+}
+
 // Secrets are encrypted under ENCRYPTION_KEY and sessions are signed with BETTER_AUTH_SECRET, library files go where OTTO_STORAGE says: fail now, not at the first use.
 try {
   initSecrets()
   initUsersStore()
+  // The desktop's one person, made before anything asks who the token is (it then owns every workspace)
+  if (process.env.OTTO_LOCAL_USER === '1') initLocalUser({ name: LOCAL_NAME, email: LOCAL_EMAIL })
   const storage = initFileStorage()
   if (storage === 's3') console.log(`Library files: s3 bucket ${process.env.OTTO_S3_BUCKET} at ${new URL(process.env.OTTO_S3_ENDPOINT!).host}`)
 } catch (err) {
@@ -173,6 +196,10 @@ const waNodeBin = process.env.OTTO_MESSAGING_NODE_BIN ?? 'node'
 // publisher after bootstrapServer resolves.
 let messagingHandle: MessagingBootstrapHandle | null = null
 
+// Chats running a turn, pushed on each change (the desktop keeps the screen awake while one runs)
+let runningChats = 0
+let pushStatus: (() => void) | null = null
+
 const instance = await (async () => {
   try {
     return await bootstrapServer<SessionManager, HandlerDeps>({
@@ -182,10 +209,15 @@ const instance = await (async () => {
       // Embed the WebUI HTTP handler on the WS server's port
       httpHandler: webuiNodeHandler,
       applyPlatformToSubsystems: (platform) => {
+        // The bundled assets root is set by now: seed the default permission rules, find the PowerShell parser (Windows)
+        ensureDefaultPermissions()
+        setPowerShellValidatorRoot(join(bundledAssetsRoot, 'resources'))
         setFetcherPlatform(platform)
         setSessionPlatform(platform)
         setSessionRuntimeHooks({
           updateBadgeCount: () => {},
+          onSessionStarted: () => { runningChats++; pushStatus?.() },
+          onSessionStopped: () => { runningChats = Math.max(0, runningChats - 1); pushStatus?.() },
           captureException: (error) => {
             const err = error instanceof Error ? error : new Error(String(error))
             platform.captureError?.(err)
@@ -256,6 +288,8 @@ const instance = await (async () => {
   }
 })()
 
+pushStatus = () => instance.wsServer.push(RPC_CHANNELS.server.STATUS_CHANGED, { to: 'all' }, { runningChats })
+
 // ---------------------------------------------------------------------------
 // Messaging post-bootstrap: bind the WS publisher and initialize local
 // workspaces. Remote-owned workspaces are skipped because their messaging
@@ -289,7 +323,6 @@ if (webuiHandler) {
   const { getSourceCredentialManager, getLoadedSources } = await import('@otto/shared/sources')
   const { getWorkspaceByNameOrId } = await import('@otto/shared/config')
   const { pushTyped } = await import('@otto/server-core/transport')
-  const { RPC_CHANNELS } = await import('@otto/shared/protocol')
 
   webuiHandler.setOAuthCallbackDeps({
     flowStore: instance.oauthFlowStore,
@@ -357,3 +390,5 @@ const shutdown = async () => {
 
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
+// The desktop app holds our stdin: when it goes away without stopping us (killed, crashed), we stop too
+if (process.env.OTTO_LOCAL_USER === '1') process.stdin.on('end', shutdown).resume()

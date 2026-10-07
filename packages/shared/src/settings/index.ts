@@ -132,7 +132,6 @@ const FROM_CONFIG: Record<string, [SettingKey, 'install' | 'user']> = {
   defaultLlmConnection: ['defaultConnectionSlug', 'install'],
   defaultThinkingLevel: ['defaultThinkingLevel', 'install'],
   setupDeferred: ['setupDeferred', 'install'],
-  serverConfig: ['server', 'install'],
   decisionLayer: ['decisionLayer', 'install'],
   allowRemoteEvaluate: ['allowRemoteEvaluate', 'install'],
   gitBashPath: ['gitBashPath', 'install'],

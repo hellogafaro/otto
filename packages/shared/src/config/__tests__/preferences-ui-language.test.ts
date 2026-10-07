@@ -10,7 +10,10 @@ import { createId } from '../../id.ts';
 import { INSTALL, updateSetting, userEntity } from '../../settings/index.ts';
 import { users } from '../../users/schema.ts';
 import { eq } from 'drizzle-orm';
-import { getPersistedUiLanguage, loadPreferences, resolveTitleLanguageName, savePreferences, setPersistedUiLanguage, updatePreferences } from '../preferences.ts';
+import { getPersistedUiLanguage, loadPreferences, resolveTitleLanguageName, savePreferences, updatePreferences } from '../preferences.ts';
+
+/** What the desktop's `i18n:changeLanguage` does: read the preferences, set the language, write them back (`preferences:write`). */
+const setLanguage = (code: string, id: string) => savePreferences({ ...loadPreferences(id), uiLanguage: code as never }, id);
 
 const db = initDb();
 beforeAll(() => pushSchema(db));
@@ -35,19 +38,17 @@ describe('uiLanguage', () => {
     expect(getPersistedUiLanguage(id)).toBeUndefined();
   });
 
-  it('is kept per user and read back; setting the same value again changes nothing', () => {
+  it('is kept per user and read back', () => {
     const [a, b] = [newUser(), newUser()];
-    setPersistedUiLanguage('hu', a);
+    setLanguage('hu', a);
     expect(getPersistedUiLanguage(a)).toBe('hu');
     expect(getPersistedUiLanguage(b)).toBeUndefined();
-    setPersistedUiLanguage('hu', a);
-    expect(getPersistedUiLanguage(a)).toBe('hu');
   });
 
   it('does not touch the other preferences', () => {
     const id = newUser();
     updatePreferences({ timezone: 'Europe/Budapest', notes: 'likes tea' }, id);
-    setPersistedUiLanguage('de', id);
+    setLanguage('de', id);
     expect(loadPreferences(id)).toMatchObject({ name: 'Alice', timezone: 'Europe/Budapest', notes: 'likes tea', uiLanguage: 'de' });
   });
 
@@ -66,9 +67,9 @@ describe('resolveTitleLanguageName', () => {
 
   it('maps a persisted code to its native name, English included', () => {
     const id = newUser();
-    setPersistedUiLanguage('zh-Hans', id);
+    setLanguage('zh-Hans', id);
     expect(resolveTitleLanguageName(id)).toBe('简体中文');
-    setPersistedUiLanguage('en', id);
+    setLanguage('en', id);
     expect(resolveTitleLanguageName(id)).toBe('English');
   });
 

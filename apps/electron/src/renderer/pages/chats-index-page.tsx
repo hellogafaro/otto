@@ -2,7 +2,7 @@
  * ChatsIndexPage - the Chats section's home: the data page BEFORE a chat.
  *
  * Sub-navigation is an index page, never a sidebar list. This is the grouped list
- * (`ListGroup` / `ListRow`, Otto v1's table) in the line-only `PageWrap`, no card, and NO
+ * (`ListGroup` / `ListRow`, Otto v1's table) in the Settings card (`ListCard`), and NO
  * toolbar: the header carries ghost icon buttons only (Filter, then the header's New chat);
  * active filters show as chips (`FilterBar`) above the list only while one is set.
  * One group per status (Backlog, Todo, ...), each a 36px rounded band over 44px rows, then
@@ -25,8 +25,8 @@ import { Archive, CircleDashed, ClipboardList, Cpu, Flag, MessageSquare, MoreHor
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
-import { PageColumn, PageWrap } from '@workspace/ui/components/page'
-import { ListGroup, ListRow } from '@workspace/ui/components/list-group'
+import { PageColumn } from '@workspace/ui/components/page'
+import { ListCard, ListGroup, ListRow } from '@workspace/ui/components/list-group'
 import { Spinner } from '@otto/ui'
 import { flattenLabels, matchesLabelFilter, parseLabelEntry, type LabelConfig } from '@otto/shared/labels'
 import { getModelShortName } from '@config/models'
@@ -371,8 +371,8 @@ export default function ChatsIndexPage() {
               )}
             </NoResults>
           ) : (
-            // Otto: the v1 table floats in the line wrapper, `--wrap-pad` (16px) in, on the column's edges (DESIGN.md, PageWrap).
-            <PageWrap padded>
+            // Otto: the v1 table in the Settings card, 8px in, on the column's content edges (DESIGN.md, ListCard).
+            <ListCard>
               {groups.map((g) => (
                 <ListGroup
                   key={g.status.id}
@@ -394,7 +394,7 @@ export default function ChatsIndexPage() {
               >
                 {archived.map(row)}
               </ListGroup>
-            </PageWrap>
+            </ListCard>
           )}
         </div>
       </PageColumn>

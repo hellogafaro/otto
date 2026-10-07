@@ -4,7 +4,7 @@ import { getWorkspaceByNameOrId } from '@otto/shared/config'
 import { INSTALL_SCOPE, getConnection, narrowContext, userScope, workspaceScope } from '@otto/shared/connections'
 import { userActor } from '@otto/shared/actors'
 import { RPC_CHANNELS as C } from '@otto/shared/protocol'
-import { CATALOGUE, getEntityKind, userEntity } from '@otto/shared/settings'
+import { getEntityKind, userEntity } from '@otto/shared/settings'
 import { getSkill } from '@otto/shared/skills'
 import { getSource } from '@otto/shared/sources'
 import { domainError } from '@otto/shared/utils'
@@ -33,12 +33,11 @@ export const WORKSPACE_ARG_CHANNELS = new Map<string, number>([
     C.statuses.LIST, C.statuses.CREATE, C.statuses.UPDATE, C.statuses.DELETE, C.statuses.REORDER, C.statuses.SET_DEFAULT,
     C.window.SWITCH_WORKSPACE,
     C.workspace.GET_PERMISSIONS, C.workspace.READ_IMAGE, C.workspace.WRITE_IMAGE, C.workspace.SETTINGS_GET, C.workspace.SETTINGS_UPDATE,
-    C.workspaces.UPDATE_REMOTE, C.workspaces.GET_MEMBERS, C.workspaces.GET_INVITATIONS, C.workspaces.INVITE,
+    C.workspaces.UPDATE_REMOTE, C.workspaces.REMOVE, C.workspaces.GET_MEMBERS, C.workspaces.GET_INVITATIONS, C.workspaces.INVITE,
     C.workspaces.REMOVE_MEMBER, C.workspaces.UPDATE_MEMBER_ROLE, C.workspaces.LEAVE,
   ].map((channel): [string, number] => [channel, 0]),
   [C.sessions.GET_MODEL, 1],
   [C.sessions.SET_MODEL, 1],
-  [C.notification.SHOW, 2],
 ])
 
 /** Channels only an owner of the named workspace may call: members and invitations, workspace settings, labels and statuses (members read them). (`workspaces:revokeInvitation` takes an invitation id and checks in its handler.) */
@@ -49,6 +48,7 @@ export const OWNER_CHANNELS = new Set<string>([
   C.workspaces.UPDATE_MEMBER_ROLE,
   C.workspace.SETTINGS_UPDATE,
   C.workspaces.UPDATE_REMOTE,
+  C.workspaces.REMOVE,
   C.llmConnections.SET_WORKSPACE_DEFAULT,
   C.labels.CREATE,
   C.labels.UPDATE,
@@ -101,11 +101,6 @@ export const SOURCE_WRITE_CHANNELS = new Map<string, (args: unknown[], workspace
 export const INSTANCE_OWNER_CHANNELS = new Set<string>([
   C.claudeCode.GET_STATUS,
   C.settings.SET_DEFAULT_THINKING_LEVEL,
-  C.settings.GET_SERVER_CONFIG,
-  C.settings.SET_SERVER_CONFIG,
-  C.settings.GET_SERVER_STATUS,
-  C.power.SET_KEEP_AWAKE,
-  C.update.DISMISS,
   C.decisions.SET_SETTINGS,
   C.gitbash.SET_PATH,
   C.onboarding.DEFER_SETUP,
@@ -198,10 +193,10 @@ function assertConnectionWrite(ctx: { userId: string; workspaceId: string | null
 
 /**
  * Who may read or write a settings entity. `user:<id>`: only that user, both ways. `workspace:<id>`: its members read,
- * its owners write. `install`: any signed-in user reads the keys that hold no secret, only the instance owner writes
- * (and reads the others). An entity that is not one, or an unknown key, is `invalid` (from the settings domain).
+ * its owners write. `install`: any signed-in user reads, only the instance owner writes. An entity that is not one,
+ * or an unknown key, is `invalid` (from the settings domain).
  */
-export function assertSettingAccess(userId: string, entity: unknown, key: unknown, mode: 'read' | 'write'): void {
+export function assertSettingAccess(userId: string, entity: unknown, mode: 'read' | 'write'): void {
   const kind = getEntityKind(entity as string)
   if (kind === 'user') {
     if (entity !== userEntity(userId)) throw forbidden('These are another user\'s settings')
@@ -209,7 +204,7 @@ export function assertSettingAccess(userId: string, entity: unknown, key: unknow
     const role = getMemberRole((entity as string).slice('workspace:'.length), userId)
     if (!role) throw forbidden('You are not a member of this workspace')
     if (mode === 'write' && role !== 'owner') throw forbidden('Only an owner of this workspace can do that')
-  } else if ((mode === 'write' || CATALOGUE[key as keyof typeof CATALOGUE]?.sensitive) && !isInstanceOwner(userId)) {
+  } else if (mode === 'write' && !isInstanceOwner(userId)) {
     throw forbidden('Only the owner of this server can do that')
   }
 }
@@ -226,7 +221,7 @@ export function authorize(ctx: { userId: string | null; workspaceId: string | nu
   if (channel !== undefined) {
     if (INSTANCE_OWNER_CHANNELS.has(channel) && !isInstanceOwner(userId)) throw forbidden('Only the owner of this server can do that')
     const mode = SETTING_CHANNELS.get(channel)
-    if (mode) assertSettingAccess(userId, args[0], args[1], mode)
+    if (mode) assertSettingAccess(userId, args[0], mode)
     if (AGENT_WRITE_CHANNELS.has(channel)) assertAgentWrite(userId, ctx.workspaceId, args[0])
     if (ROUTINE_WRITE_CHANNELS.has(channel)) assertRoutineWrite(userId, ctx.workspaceId, args[0])
     const sourceArgs = SOURCE_WRITE_CHANNELS.get(channel)?.(args, ctx.workspaceId)

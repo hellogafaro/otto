@@ -214,7 +214,7 @@ export function isDeniedMiniModelId(modelId: string, provider?: string): boolean
  * Used for mini agent, title generation, and mini completions.
  */
 export function getMiniModel(
-  connection: Pick<LlmConnection, 'models' | 'type'>,
+  connection: Pick<LlmConnection, 'models' | 'type' | 'defaultModel'>,
 ): string | undefined {
   return findSmallModel(connection);
 }
@@ -227,7 +227,7 @@ export function getMiniModel(
  * Used for response summarization and API tool summarization.
  */
 export function getSummarizationModel(
-  connection: Pick<LlmConnection, 'models' | 'type'>,
+  connection: Pick<LlmConnection, 'models' | 'type' | 'defaultModel'>,
 ): string | undefined {
   return findSmallModel(connection);
 }
@@ -236,6 +236,8 @@ export function getSummarizationModel(
  * Provider-aware small model resolution.
  * Shared implementation for getMiniModel() and getSummarizationModel().
  *
+ *   - the connection's default model when it is a small one: an aggregator (OpenRouter) lists hundreds of models,
+ *     some of them retired, so the first small one in its list is arbitrary
  *   - find "mini", "flash" or "haiku"
  *   - otherwise: last model in the list
  *
@@ -243,7 +245,7 @@ export function getSummarizationModel(
  * auth flavor.
  */
 function findSmallModel(
-  connection: Pick<LlmConnection, 'models' | 'type'>,
+  connection: Pick<LlmConnection, 'models' | 'type' | 'defaultModel'>,
 ): string | undefined {
   if (!connection.models || connection.models.length === 0) return undefined;
 
@@ -258,7 +260,8 @@ function findSmallModel(
   // Claude models (Anthropic, a Claude subscription, Bedrock) have no mini/flash: their small one is Haiku.
   const keywords = ['mini', 'flash', 'haiku'];
 
-  const match = connection.models.find(m => isAllowedModel(m) && keywords.some(k => toSearchStr(m).includes(k)));
+  const candidates = connection.defaultModel ? [connection.defaultModel, ...connection.models] : connection.models;
+  const match = candidates.find(m => isAllowedModel(m) && keywords.some(k => toSearchStr(m).includes(k)));
   if (match) return toId(match);
 
   // Fallback: last allowed model in the list, otherwise final entry.

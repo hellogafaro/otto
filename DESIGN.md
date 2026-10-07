@@ -483,8 +483,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     scrolling column (Capy's settings pattern) and scrolls away with the content;
     see The page header. The one exception is the **open chat**
     (`/chats/<id>`): a compact 80px header (`density="compact"`, see Density) pinned
-    above its transcript wrapper, which spans the whole 768px track; it is the only
-    page on the compact spacing.
+    above its transcript, which scrolls on the frame on the same 24px sides as every
+    page (no card, no wrapper); it is the only page on the compact spacing.
   - **The top axis** (`--axis-y`, 34px, one CSS variable in `globals.css`): **the
     sidebar's mark** and, below 768px, every roomy title row and the sheet's menu
     button share the center y 34 (the compact chat header is no longer on it: it
@@ -514,8 +514,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   - **The content start** is the top of the first block after the title row: the
     first section's title row on a blocks page, the first card when there is no
     section title (y 136 at scroll 0 from 768px: the title row is 64 to 96, then
-    40px; lower under an item's description), the centerpiece under the chat's
-    pinned header (y 68). Blocks mark themselves (`data-content-start`), `PageFrame`
+    40px; lower under an item's description), on the open chat the body's top
+    under its pinned header (y 80; the transcript marks no block). Blocks mark themselves (`data-content-start`), `PageFrame`
     measures the first one (unscrolled) and publishes it as `--content-start`.
     The docked sidecar starts there (it is the sidecar's line, not the floating
     navigation's: that one is level with the title row).
@@ -704,9 +704,8 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     A direct URL fills its row. The groups scroll as a whole on a short window
     (edge fade, no scrollbar). No footer. Settings opens from the workspace
     menu (and ⌘,) on **General**, the registry's first page.
-    On the web, General has no Notifications and Power sections and Server
-    is not found: they are the desktop app's (the web server has no handlers
-    behind them).
+    On the web, General has no Notifications and Power sections: they are the
+    desktop app's (OS notifications and the power blocker are its main process).
     The Labels, Statuses and workspace Permissions pages are data in the
     database, not files: the agent edits labels and statuses with the `otto`
     CLI and the rules with its `permissions_edit` tool, and the pages reload
@@ -762,25 +761,25 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     | --- | --- | --- |
     | `--nav-gap` | 16 | the navigation's right edge to the column (owner: 16, never above): its x is the same on EVERY page (x 336 at 1280) |
     | `--nav-top-roomy` | 64 | roomy: the nav top and the title row's top |
-    | `--header-gap` | 24 | compact: the gap above the title row AND below it (equal; the owner's 24 between the title row and the wrapper line) |
-    | `--header-compact` | 80 | compact: 24 + 32 + 24, where the wrapper's line starts |
-    | `--wrap-pad` | 16 | the wrapper's padding, on EVERY wrapper (the chat's, `PageWrap padded`): 16 at most (owner) |
-    | `--content-inset` | 17 | 1px line + `--wrap-pad`: the content's left edge and top inset (and the composer's side and bottom inset) |
-    | `--nav-top-compact` | 97 | `--header-compact` + `--content-inset`: the first content row's top |
+    | `--header-gap` | 24 | compact: the gap above the title row AND below it (equal) |
+    | `--header-compact` | 80 | compact: 24 + 32 + 24, where the transcript starts |
+    | `--nav-top-compact` | 96 | `--header-compact` + the 16px a turn row carries on top (the transcript's top fade covers it): the first bubble's top |
+    | `--composer-gap` | 24 | the clear space between the floating composer and the content above it |
 
     **Roomy** (every page in the column: skill, source, routine, task, project,
     library item, settings): the title row 64 down, the big title (21px), 16px in
     to line up with the cards' text; the nav top is 64 (level with it).
-    **Compact** (the open chat, and any later page inside a bordered wrapper): the
-    row in the frame's header slot, the section title size (`text-base`, 16.5px),
-    its left edge on the content's left edge (17px in: the same x as the
-    transcript's text and the composer's side), and the nav top on the first
-    content row inside the wrapper (line 80, +1, +16 padding = 97: the first bubble's
-    top; the transcript's own padding is the same 16 less the 16px a turn row
-    carries, and it has none on the sides). Line, padding, content start is the
-    rhythm on both axes. The chat keeps its transcript wrapper (the whole 768px
-    track); only the header and the nav follow the density. On Electron the compact
-    row is the window's drag region and the controls opt out.
+    **Compact** (the open chat only): the row in the frame's header slot, the
+    section title size (`text-base`, 16.5px), its left edge on the column's
+    content edge (24px in from 768px, the frame's 20px below: the same x as the
+    transcript's text and the composer's left; measured at 1440: title, text and
+    composer all x 488, the composer's right = the user bubble's right, x 1208),
+    and the nav top on the transcript's first bubble (80 + 16 = 96, measured equal).
+    There is no wrapper, card or line around the transcript (the owner's call,
+    2026-10-07: "fully remove the bordered wrapper ... one less padding"): it scrolls
+    on the frame, so the first bubble is 40px under the title row, the roomy
+    pages' block gap. On Electron the compact row is the window's drag region and
+    the controls opt out.
   - **Below 768px** the sidebar is a sheet, so its menu button must stay
     reachable without a pinned bar: a **32px raised icon button** (`outline`, as
     the floating navigation: content scrolls under it, so it needs the card
@@ -817,7 +816,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   fixed to the frame, not to the title row or the first block, so the title
   scrolls away beside it. On the open chat (the one compact page, `PageFrame`
   reads its header's density, one rule) the top is `--nav-top-compact`
-  (97, the first content row inside the wrapper) instead; the x is the same. They are our standard raised icon button
+  (96, the transcript's first bubble) instead; the x is the same. They are our standard raised icon button
   (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
   with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
   Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
@@ -836,15 +835,16 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   info) are the first items of More (a dropdown; the chat's drawer), so the title gets the room. One
   rule for every detail page.
 - **Widths**: the column track is 768px for every page (720px of content inside
-  its 24px sides on every page but the open chat), the sidebar 256px on every
+  its 24px sides on every page, the open chat included), the sidebar 256px on every
   page (48px as icons), the sidecar 296px. A centerpiece is never wider than the
   column's content.
-- **One left line.** Cards and a centerpiece start on the column's content edge
-  (24px inside the track from 768px; the chat's on the track's edge) and end on
-  its right; the page title, section titles (and their actions) and the text
-  inside a card all sit 16px in (`PAGE_INSET`, one constant in `PageFrame` that
-  the title row and `PageSection` share; a centerpiece's transcript or document
-  20px).
+- **One left line.** Cards, a list's card and a centerpiece start on the column's
+  content edge (24px inside the track from 768px) and end on its right; the page
+  title, section titles (and their actions), the text inside a card and a list
+  card's band chevron all sit 16px in (`PAGE_INSET`, one constant in `PageFrame`
+  that the title row and `PageSection` share; a list card is 8px padding + the
+  band's 8px; a centerpiece's document 20px). The open chat's transcript, its
+  compact title and the composer sit ON the content edge (0 in).
 - **Page**: see Page anatomy.
 - **Galleries** (`Gallery`): 3 columns for projects, 4 for documents,
   files, skills and sources; 12px between columns, 20px between rows so a title stays with its
@@ -897,57 +897,50 @@ no shadow.
   column. The roomy spacing started here (Capy's General) and is now every
   page's.
 - **Centerpiece** (`PageColumn fill` + `PageCenterpiece`: a task, a document, a
-  file's preview; the chat): ONE card as wide as the column's content and as
+  file's preview): ONE card as wide as the column's content and as
   tall as the space under the title row (to 8px above the window's bottom),
   clipped, scrolling inside it with the edge fade. `fill` makes the column fill
   the height without scrolling as a whole; its title row is 64px down and the
   card 40px under it (y 136), like any page. A toolbar is part of the title
   row, not a nested card. **The open chat is the one compact page** and takes no
-  `PageColumn`: its title row is the compact one (80px, see Density) and its transcript is **no card but the line wrapper** (TEST, the
-  owner's call: `PageWrap`, hairline, `--wrap-radius` (29, nested; see Radius), transparent, one `className`
-  in `chat-display.tsx`; revert = `PageCenterpiece`) spanning the whole 768px
-  track from y 80 to the frame's 8px bottom. **The floating composer sits INSIDE
-  the wrapper**, over its bottom: `chat-display.tsx` publishes `--wrap-inset`
-  (`--content-inset`, 17px: 1px line + 16px padding) on the frame's grid while the chat is mounted, and
-  the composer's slot uses it for its sides and bottom, so the composer is 16px
-  inside the line on every side, compact or full; the wrapper pads its top and
-  sides 16px, and the transcript's bottom padding is `--composer-lift` (the
-  slot's height, composer plus its gap) + 16px, so nothing hides behind it.
-  The composer is not a card of the page: it is the one surface in the wrapper.
-  Messages are flat: assistant text sits straight on the surface (no bubble, ring or
+  `PageColumn`: its title row is the compact one (80px, see Density) and its
+  transcript is **no card and no wrapper** (the owner's call, 2026-10-07: "fully
+  remove the bordered wrapper, it is ugly"): it scrolls straight on the frame
+  from y 80 to the frame's 8px bottom, its text on the column's content edges
+  (24px sides from 768px, 0 in below: the compact title's left, the composer's
+  left and right). Its top is the 16px a turn row carries (the top fade is as
+  tall), so the first bubble is at y 96, the nav's top. **The floating composer
+  is the shell's, in the frame's one slot, as on every page**: on the content
+  edges, 8px above the body's end (16px above the window); the transcript's
+  bottom padding is `--composer-lift` (the slot's height) + `--composer-gap`
+  (24px), so nothing hides behind it at the end.
+  Messages are flat: assistant text sits straight on the frame (no bubble, ring or
   shadow), the user message is a muted fill, code blocks are flat muted blocks.
-- **PageWrap: the line box of a dense list page.** A page of many small rows
-  with small details (a list or table: Chats, Tasks and a project's Tasks tab,
-  Inbox) puts its list in ONE line-only wrapper, as Threads wraps its feed: a
-  1px `--card-ring` border (the card edge's color), `--wrap-radius` corners (29), NO fill
-  (the frame shows through), no shadow, no hairlines inside. It wraps the list
-  block only: the title row and the filter chips (`FilterBar`) stay above it,
-  12px over its top line. Flush (no padding: Inbox's flat list) its rows run to
-  the line and it clips them (`overflow-hidden`), so a hover or current fill at
-  the first or last row follows the 20px corner and never cuts the line. A
-  grouped list (Chats, Tasks) floats in it with padding (the TEST below). Pages of bigger cards and structured
-  sections never use it: settings (General, Members, Workspace, ...), the Project
-  Overview tab, detail pages and galleries (Projects, Library) keep their
-  cards and tiles on the frame. Below 768px it keeps its 20px corners and the
-  column's 20px side inset. **Empty and loading:** an empty state (the
-  section's `Empty`, `NoResults`, a tab's inline `Empty`) is not a row: it
-  stays centered on the frame, no wrapper; a loading list is rows, so its
-  three `ListRowSkeleton`s (a row's 44px and grid: a 14px dot, a title bar,
-  both `foreground/10`: the stock `bg-muted` is lighter than the frame in
-  light) sit in the wrapper where the list will be.
-  **Padded (`PageWrap padded`)**: the Chats index, the Tasks index (list and
-  loading), a project's Tasks tab and the Routines index (list and loading) put
-  Otto v1's table (`ListGroup`, its rounded bands and rows) in the wrapper with
-  `--wrap-pad` (16px, the owner's maximum; the chat's wrapper pads the same 16):
-  nothing is clipped. The wrapper sits on the column's content edges (the cards'
-  own edges on every other page), never outside them, so the navigation's 16px
-  gap to it holds. The band's left edge is then 17px in (line 1 + padding 16)
-  and the roomy title's text 16px in (`PAGE_INSET`): within 1px of each other.
-  Below 768px it stays in the column. Inbox keeps the flush wrapper.
+- **The list card: a dense list page's table in the Settings card.** A page of
+  many small rows with small details (Chats, Tasks and a project's Tasks tab,
+  Routines, Inbox) puts its list in ONE `ListCard` (list-group.tsx): the
+  Settings card itself (`PageCard`: `bg-card`, the card edge, `shadow-xs`, `xl` 12
+  corners) with the table **8px in** (`p-2`, the ONE padding of a list page, so
+  the table is inset from the card's edge, not docked to it: the owner's
+  reference, 2026-10-07). There is NO line wrapper around it any more (the
+  bordered `PageWrap`, its `--wrap-*` tokens and its 29px nested corner are gone).
+  Inside, Otto v1's table is unchanged (`ListGroup` rounded tinted bands, chevron
+  first, rounded 44px rows, no hairlines; Data patterns 1); the bands and rows
+  pad 8px, so with the card's 8px the chevron (Inbox: the row's media) is 16px
+  in, on the page title's line (`PAGE_INSET`; measured at 1440: card x 488, its
+  1px edge, chevron x 505, title text x 504). The card wraps the list block
+  only: the title row and the filter chips (`FilterBar`) stay above it, 12px
+  over its top. Pages of bigger cards and structured sections (settings, the
+  Project Overview tab, detail pages, galleries) keep their own cards. Below
+  768px it stays on the column's content edges. **Empty and loading:** an empty
+  state (the section's `Empty`, `NoResults`, a tab's inline `Empty`) is not a
+  row: it stays centered on the frame, no card; a loading list is rows, so its
+  three `ListRowSkeleton`s (a row's 44px and grid: a 14px dot, a title bar, both
+  `foreground/10`) sit in the `ListCard` where the list will be.
 - **Index pages.** Sub-navigation is an index page before the detail, never a
   sidebar list: a data page of a grouped list or a grid of links that opens the
   detail. Chats opens on its index (`ChatsIndexPage`: the title row's ghost Filter, then
-  the chats grouped by status in the `PageWrap`; it never opens the first chat; with no chat at all only the empty state, no title row). The sidebar's rows open them; the detail's Back
+  the chats grouped by status in the `ListCard`; it never opens the first chat; with no chat at all only the empty state, no title row). The sidebar's rows open them; the detail's Back
   returns to them. **Settings has no index** (the owner's call: no grid of
   settings): `/{ws}/settings` is replaced with General and the settings sidebar
   lists the pages (see Layout, Sidebar). Its Skills and Sources rows open grids (below).
@@ -1013,7 +1006,7 @@ no shadow.
   opens the new project, a failure toasts and keeps what was typed.
 - **Tasks index** (`TasksPage`, `pages/tasks/`): the workspace's tasks across
   ALL projects (the owner's call; v1 listed one project at a time), a grouped
-  list in the `PageWrap` (`TaskGroups`, Data patterns 1, also a project's Tasks tab
+  list in the `ListCard` (`TaskGroups`, Data patterns 1, also a project's Tasks tab
   without the project badge). Actions: Filter (Project, Assignee: you as "Me"
   first, then people, then agents, Status: Todo / In progress / Done, then
   Archived on/off; Project and Assignee take one value, the URL's), Search (the
@@ -1027,7 +1020,7 @@ status color (Archived neutral). A row (44px): the status icon
   outline `Badge`, the due date ("Oct 4", else nothing) in the end column; the
   ⋯ menu: Open, Status (submenu, keys 1 to 3), Copy link (C), Archive / Restore
   (A), applied at once with the "Saved" toast. Loading: three
-  `ListRowSkeleton`s in the wrapper. No tasks at all: only the section's empty state (no title row or actions), whose
+  `ListRowSkeleton`s in the `ListCard`. No tasks at all: only the section's empty state (no title row or actions), whose
   button is "New task", or "New project" while no project exists (a task needs
   one: it opens New project, then New task in it). Filters that keep nothing:
   `NoResults`. **New task** (`TaskFormDialog`) is the stock dialog: Title
@@ -1055,8 +1048,8 @@ status color (Archived neutral). A row (44px): the status icon
   id the workspace does not have shows the not-found page.
 - **Routines index** (`RoutinesPage`, `pages/routines/`; the owner's call: "the
   exact same table for tasks and for routines"): the workspace's routines (the
-  `routines` rows with their last runs, read through `useRoutines`) as the grouped list in the padded
-  `PageWrap`, like Tasks. Actions: Filter (Type, one at a time, `?type=`) and "+"
+  `routines` rows with their last runs, read through `useRoutines`) as the grouped list in the
+  `ListCard`, like Tasks. Actions: Filter (Type, one at a time, `?type=`) and "+"
   (New routine); no Search (the palette has no Routines category). Groups by what
   starts them, in order and only when not empty: Scheduled (`Clock`), Events
   (`Zap`, Otto's own events) and Agent events (`Bot`), neutral bands, no group
@@ -1070,7 +1063,7 @@ status color (Archived neutral). A row (44px): the status icon
   menu: Open, Run now, Pause / Resume, then Delete (⌫) apart, asked first
   ("Delete routine?", "This can't be undone."). Run now starts a run in the
   background ("Routine started"; its end arrives as a live update); Pause / Resume shows "Saved". Loading: three
-  `ListRowSkeleton`s in the wrapper. No routines at all: only the section's empty
+  `ListRowSkeleton`s in the `ListCard`. No routines at all: only the section's empty
   state, whose "New routine" is the same as "+": it prefills the composer ("Add a
   routine that "), where you say what should run and when, and an agent writes it
   in a new chat (no form). A filter that keeps none:
@@ -1109,7 +1102,7 @@ status color (Archived neutral). A row (44px): the status icon
   member" ends the section's title row and lists the workspace's people and
   agents not in the project). There are no member roles (`projects.members`
   is a list of actors): nobody's buttons are gated. **Tasks**: `TaskGroups` of the project (in the
-  `PageWrap`, a list like the Tasks index), or the inline `Empty` "No tasks
+  `ListCard`, a list like the Tasks index), or the inline `Empty` "No tasks
   yet" on the frame. **Documents / Files**: the project's library
   links (`resources` of type `library`) as a 4-column `Gallery` of
   `LibraryTile`s (Open, Copy link, then Remove from project apart); a link
@@ -1130,12 +1123,12 @@ status color (Archived neutral). A row (44px): the status icon
        the title row's New chat). No search box, no sort or view picker.
        Active filters show as chips (`FilterBar`) on the frame under the title row,
        12px above the list, ONLY while one is set.
-     - **In the line box, no card, no hairlines.** The groups sit in the
-       page's `PageWrap` (see Page anatomy), as wide as the column (the page
-       scrolls), 12px in from its line. Nothing in it is a surface and NO
-       hairline is drawn inside it: not under a band, not between rows, not
+     - **In the list card, no hairlines.** The groups sit in the page's
+       `ListCard` (the Settings card, see Page anatomy), as wide as the column
+       (the page scrolls), 8px in from its edge. Nothing in it is a surface and
+       NO hairline is drawn inside it: not under a band, not between rows, not
        between groups. A group is a rounded band with its rows plain on the
-       frame, 4px under the band; a group sits 8px under the last row of the
+       card, 4px under the band; a group sits 8px under the last row of the
        one before.
      - **Proportions** (measured on Codex and Linear at 1x: rows 44, group
        bands 36, metadata chips 24, body 13; the owner's reference table measures the
@@ -1145,10 +1138,10 @@ status color (Archived neutral). A row (44px): the status icon
        the golden ladder (row ≈ 28 × φ = 45, header ≈ 28 × √φ = 36, both on the
        4px grid).
      - **One grid.** Bands and rows share the columns, measured from the
-       band's edge: 12px in, a 14px column (the band's chevron; empty in a
+       band's edge: 8px in, a 14px column (the band's chevron; empty in a
        row), 8px, a 14px icon column (the group's icon, the row's status icon or
-       avatar), 8px, then the text at 56px (the group's name, the row's title).
-       With the wrapper 9px out of the column, the chevron is on the page
+       avatar), 8px, then the text at 52px (the group's name, the row's title).
+       With the card's 8px (and its 1px edge), the chevron is on the page
        title's 16px line, as in v1.
      - **Group band** (v1's secondary button): 36px, the table's full width,
        `md` 8 corners, a `foreground/5` fill (`foreground/10` on hover) with the
@@ -1162,14 +1155,15 @@ status color (Archived neutral). A row (44px): the status icon
        new chat or task in that status) sits 6px inside the band's end, shown on
        hover or focus (always on touch). Empty groups are not drawn; a last
        group such as Archived starts folded (open when Archived is the filter).
-     - **Row**: 44px, `md` 8 corners, plain on the frame (no card, no
-       divider), the whole row opens the item: icon, title (13px,
+     - **Row**: 44px, `md` 8 corners, plain on the card (no divider), 8px
+       in, the whole row opens the item (outside a group, Inbox, the same row
+       with its media on the chevron's column): icon, title (13px,
        truncated; a read chat at `foreground/80`, an unread one at full
        foreground with its blue dot), small marks after the title (working,
        plan, flagged), then on the right the metadata badges 6px apart (outline
        `Badge`s, 24px pills: two labels then "+n", then the model; hidden in a
        column under 448px) and a 12px muted tabular relative time in a 40px
-       right-aligned column, 12px from the end. States are the ghost ones,
+       right-aligned column, 8px from the end. States are the ghost ones,
        rounded and as wide as the band: hover `foreground/5`, current and
        pressed `foreground/10`, an inset focus ring (keyboard only);
        a 28px ghost ⋯ (the item's menu) covers the time on hover, focus or while
@@ -1190,8 +1184,7 @@ status color (Archived neutral). A row (44px): the status icon
 
 | Surface | Radius | Inside it |
 | --- | --- | --- |
-| Line-only list wrapper and the chat's (`PageWrap`, `--wrap-radius`) | 29 | Flush: rows full-bleed, clipped to its corners (Inbox). Padded 16 (`--wrap-pad`): the grouped list's bands and rows and the chat's composer are `--wrap-inner-radius` 12, nested at the 17px inset (29 - 17) |
-| Card, centerpiece, composer, sidecar as card (`xl`) | 12 | Rows full-bleed, no radius; 28px controls |
+| Card, centerpiece, composer, sidecar as card (`xl`) | 12 | Rows full-bleed, no radius; 28px controls. The list card (`ListCard`): the grouped list's bands and rows `md` 8, 8px in (not concentric on purpose: v1's table kept as is, the owner's reference) |
 | Row in a card, nested control | 28px, `sm` 6 | 24px action, `xs` 4 |
 | Button | 32px, `md` 8 | 14px icon |
 | Sidebar row | 28px, `sm` 6 | 20px action and key, 4px in, `xs` 4 |
@@ -1338,12 +1331,11 @@ as a card).
 | `SidebarMenuSlot`, `SidebarMenuSlotAction` | | the row's right slot: a 20px lane 4px from the row's top, right and bottom, one cell for stacked layers (status or time, actions, key) that swap by opacity; clicks pass through except on a visible layer; `SlotAction` is the 20px in-line ghost button (the look of `SidebarMenuAction`). The row fades its title under the lane with a mask, see Pins and recents |
 | `SidebarTrigger` | | the sheet's menu button below 768px: 28px ghost in the chat's compact row; elsewhere 32px `outline`, fixed over the column's top-left on the axis |
 | `PageFrame` | `aside` | the main region on the frame: the 768px column (`@container/panel`) and its title slot, the chat's header slot, the leading slot (the fixed menu button), left and right gutters; the top axis `--axis-y`; see Layout |
-| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `density` (`roomy` \| `compact`) | the title row: 32px; `roomy` the first block of the column, 64px down from 768px (centered on the axis below), `PageTitle` 21px medium, inset 16px; `compact` (the open chat only) 80px in the header slot (24 + 32 + 24), 16.5px title inset to the wrapper's content (17px); 28px controls; no back button, no crumbs; tokens in `FRAME_TOKENS` |
+| `PageHeaderRow` | `leading` (the menu button only), `title`, `actions`, `density` (`roomy` \| `compact`) | the title row: 32px; `roomy` the first block of the column, 64px down from 768px (centered on the axis below), `PageTitle` 21px medium, inset 16px; `compact` (the open chat only) 80px in the header slot (24 + 32 + 24), 16.5px title on the column's content edge (24px from 768px, the transcript's and composer's left); 28px controls; no back button, no crumbs; tokens in `FRAME_TOKENS` |
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
 | `PageColumn`, `PageSection`, `PageCard` | `fill`; `title`, `description`, `action`, `danger` | every page but the open chat (the column's first child is the title slot): 24px sides from 768px, 40px gaps, 40px at the end; `fill` for a centerpiece page (fills the height, no scroll of its own); see Page anatomy |
-| `PageWrap` | `padded`, `className` | the line-only wrapper of a dense list page (Chats, Tasks, Inbox): hairline, `--wrap-radius` 29, no fill, no hairlines inside, clips its rows; flush for a flat list, `padded` (`--wrap-pad`, 16px) for the grouped list; never around cards; see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
-| `ListGroup`, `ListRow`, `ListRowSkeleton` | `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | Otto v1's table in the `PageWrap`, no card, no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows; a `ListRow` outside a group is full-bleed and square (Inbox); `size="sm"` is the 32px rounded row for a list inside a surface (the composer's Inbox list); the loading row; see Data patterns |
+| `ListCard`, `ListGroup`, `ListRow`, `ListRowSkeleton` | `className`; `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | Otto v1's table in `ListCard` (the Settings card, `PageCard`, 8px in, the one padding of a list page), no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows, both 8px in; a `ListRow` outside a group (Inbox) is the same rounded row with its media first; `size="sm"` is the 32px row for a list inside a popover (the composer's Inbox list); the loading row; see Data patterns |
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
 | `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `badge`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
@@ -1381,8 +1373,8 @@ whole window, the sidebar included; every other page is the plain frame.
   only its text, icons and row fills over the photo. Muted text is one step
   stronger there (`--muted-foreground` 0.42 light, 0.82 dark). The phone's sidebar
   sheet floats over the page, so it is glass.
-- **Surfaces turn to glass** (`data-wallpaper` on `<html>`): the list's wrapper,
-  cards and the composer keep their layer color translucent (card 70% white in
+- **Surfaces turn to glass** (`data-wallpaper` on `<html>`): cards (the Inbox's
+  `ListCard` among them) and the composer keep their layer color translucent (card 70% white in
   light, 0.19 at 65% in dark) over `blur(24px)`, which smooths the dither under
   their text; their edge is `foreground` 10% (light) or white 14% (dark) instead
   of the solid grey ring. State fills stay `foreground` alphas.
@@ -1455,18 +1447,12 @@ cards and have an 8px radius.
 - Buttons are never fully round: 32px `md` 8, 28px and 24px `sm` 6, except
   where a 20px button sits 4px inside a 28px row (a sidebar row action or
   key): `xs` 4, a soft corner (6 - 4 = 2 would read sharp).
-- **Nested radius rule** (inner = outer - inset), numbers from the real tokens
-  (`FRAME_TOKENS`): a surface inside the line wrapper sits `--content-inset`
-  17px from its outer edge (1px line + 16px `--wrap-pad`), so with the
-  composer, bands and rows at v1's `xl` 12 the wrapper's `--wrap-radius` is
-  12 + 17 = **29** (variant A, the default; measured 29 / 12 / 17 on the chat,
-  concentric). The composer (`--composer-radius`, set by the chat while
-  mounted; `xl` 12 elsewhere), the group bands and in-group rows
-  (`--wrap-inner-radius`) all follow it. Variant B is one line,
-  `--wrap-radius: var(--radius-2xl)` (20): the wrapper keeps its old corner and
-  the nested surfaces become 20 - 17 = 3, which reads boxy (not chosen).
-  Flush, a wrapper's rows run to the line, clipped to the corner. Bubbles and
-  attachments are not concentric on purpose. `2xl` 20 is the wrapper's fallback outside the frame and variant B's value.
+- **Nested radius rule** (inner = outer - inset) holds for controls in a bar or
+  card (the table above). There is no line wrapper and so no nested wrapper
+  corner any more (the 29px `--wrap-radius`, `--wrap-inner-radius`,
+  `--composer-radius` and `--radius-2xl` are gone with it); the composer is `xl`
+  12 everywhere. The list card's bands and rows keep v1's `md` 8 at 8px in (not
+  concentric on purpose). Bubbles and attachments are not concentric on purpose.
 - Keys are `xs` 4: a soft corner, short of a pill. Elements only a few pixels
   inside their container (attachment thumbnails and remove button) use `xs`.
 - A tooltip is `sm` because it holds a label, not nested items.
@@ -1737,21 +1723,16 @@ glass for the bar is gone.
 every look, so compact, expanded and full share the bottom gap and the side
 edges and no page shifts it. The sides are the column's content edges (24px
 inside the 768px track from 768px wide, the frame's 20px gutter below), the
-bottom 8px above the body's end (16px above the window's). A page whose
-bordered wrapper runs to the body's end with the composer inside it (the
-chat) sets `--wrap-inset` (`--content-inset`: the wrapper's 1px border + 16px padding, 17px) on
-the root while mounted: the slot then pads by it on both sides and the
-bottom, so the composer sits on the wrapper's inner content edges. The slot's
-height (composer + bottom gap) is `--composer-lift`. Measured (1280×800): the
-compact bar is 448×40 at x 544, 16px above the window, on Tasks, a task,
-Projects, a project, Library, Routines, Settings, Skills and Chats alike, and
-unchanged on scroll; expanded and the Inbox's full composer are 720 wide on
-the column's edges (the Inbox's flush wrapper's), 16px above the window; the
-chat's (and the empty new chat's) full composer is 17px inside its wrapper's outer edge (16px of padding) on
-three sides. Phones (390×844, the root's 1.2 zoom): the bar 342 wide at x 24,
-19.2px above the window, the same on every page. A padded list wrapper
-(Tasks, Chats, Routines: `PageWrap padded`) is on the column's content edges
-like the expanded composer, its inner edge 16px in (the composer's own width).
+bottom 8px above the body's end (16px above the window's), on every page, the
+open chat included (it has no wrapper to sit inside any more). The slot's
+height (composer + bottom gap) is `--composer-lift`. Measured (1440×900): the
+compact bar is 448×40 at x 624, 16px above the window, on Tasks, Chats,
+Routines, a skill and Settings alike; the Inbox's and the open chat's full
+composer is 720 wide on the column's content edges (x 488 to 1208: the list
+card's edges on the Inbox, the transcript's text and the compact title's left
+on the chat), 16px above the window. Phones (390×844): the bar and the full
+composer 342 wide at x 24, 19px above the window, the same on every page, on
+the list card's edges.
 
 **Inbox** (W5; `components/composer/inbox-button.tsx`, `use-attention.ts`).
 What needs you, from data that exists: the workspace's chats waiting on you (a
@@ -1914,8 +1895,7 @@ composer the slot's measured height + 24; 32 is the alternative, one token in
 `FRAME_TOKENS`). A page (blocks or centerpiece) then ends 24px above the bar
 and its bottom fade grows to 80px so content softens toward the bar. In the
 chat the transcript's bottom padding is `--composer-lift` + `--composer-gap`,
-so the last row is 24px over the bar. The bar's own inset from the wrapper
-line stays `--wrap-pad` (16 + the 1px line). At a page's end nothing is under the bar. Layers: the bar is `z-10` on
+so the last row is 24px over the bar. At a page's end nothing is under the bar. Layers: the bar is `z-10` on
 the frame, outside the masked scroller (the blur needs it), under the
 overlaid sidecar (`z-20`), the sheet, popovers and dialogs; with the docked
 sidecar it stays on the column's center line.
@@ -2037,8 +2017,8 @@ the box shows the raw token (the leanest that works), the sent comment the
 
 **Inbox** (`InboxPage`, `pages/inbox/`, `/{ws}/inbox`): your notifications
 in the workspace, newest first, a blocks page titled "Inbox" with one flat list
-in the flush `PageWrap` (the grouped list's 44px `ListRow`s outside a group:
-full-bleed and square, the icon on the 16px line; no band, no hairlines): the sender's 20px `ActorAvatar` in the icon column, one line,
+in the `ListCard` (the grouped list's 44px rounded `ListRow`s outside a group,
+8px in, the icon on the 16px line; no band, no hairlines; glass on the wallpaper): the sender's 20px `ActorAvatar` in the icon column, one line,
 "Maria mentioned you in Fix login" / "Maria assigned you Ship v1" (the title
 looked up live, the server's while the lists load, "Unavailable" when gone),
 after a mention the comment's first line muted 8px after it (tokens as names,
@@ -2049,7 +2029,7 @@ Mark as unread U and Clear (no confirmation: it removes the notification, not
 content). The title row: Mark all as read (28px ghost icon button, `CheckCheck`,
 tooltip; disabled with nothing unread; an icon so the title keeps its room on a
 phone) and Filter (one on/off field, Unread, in `?unread=1`, its chip under the
-title while on). Loading: three `ListRowSkeleton`s in the wrapper. Nothing at all: only the
+title while on). Loading: three `ListRowSkeleton`s in the `ListCard`. Nothing at all: only the
 stock `Empty` ("No notifications yet", no button; no title row or actions); Unread with none:
 `NoResults`. New notifications arrive live (the `notifications` push), in the
 list and the sidebar's count.
@@ -2649,7 +2629,7 @@ drive:
   folder's id opens the folder.
 
 **Live data states.** Server reads use the shared skeleton (three full-width 40px rows, no
-extra padding so they align with the page title; a list in a `PageWrap` shows three
+extra padding so they align with the page title; a list in a `ListCard` shows three
 `ListRowSkeleton`s in it instead) and inline error with Retry; unavailable controls explain the missing capability and never
 show success. The authentication boundary uses the stock Field/Input/Button
 composition. Workspace switching clears prior workspace data and opens Inbox.

@@ -111,6 +111,14 @@ mac:
     # ripgrep (used by packages/server-core/src/services/search.ts).
     - from: node_modules/@vscode/ripgrep
       to: app/node_modules/@vscode/ripgrep
+    # The server child (dist/server.js) imports these at runtime (scripts/electron-build-main.ts):
+    # drizzle (its schema push breaks when bundled) and sharp's native binaries.
+    - from: node_modules/drizzle-orm
+      to: app/node_modules/drizzle-orm
+    - from: node_modules/drizzle-kit
+      to: app/node_modules/drizzle-kit
+    - from: node_modules/@img
+      to: app/node_modules/@img
     # WhatsApp worker subprocess (self-contained; Baileys bundled in).
     - from: ../../packages/messaging-whatsapp-worker/dist/worker.cjs
       to: messaging-whatsapp-worker/worker.cjs
@@ -170,6 +178,14 @@ win:
       to: app/node_modules/@anthropic-ai/claude-agent-sdk
     - from: node_modules/@vscode/ripgrep
       to: app/node_modules/@vscode/ripgrep
+    # The server child (dist/server.js) imports these at runtime (scripts/electron-build-main.ts):
+    # drizzle (its schema push breaks when bundled) and sharp's native binaries.
+    - from: node_modules/drizzle-orm
+      to: app/node_modules/drizzle-orm
+    - from: node_modules/drizzle-kit
+      to: app/node_modules/drizzle-kit
+    - from: node_modules/@img
+      to: app/node_modules/@img
     - from: vendor/bun/bun.exe
       to: vendor/bun/bun.exe
     - from: resources/bin/win32-x64
@@ -199,6 +215,14 @@ linux:
       to: app/node_modules/@anthropic-ai/claude-agent-sdk
     - from: node_modules/@vscode/ripgrep
       to: app/node_modules/@vscode/ripgrep
+    # The server child (dist/server.js) imports these at runtime (scripts/electron-build-main.ts):
+    # drizzle (its schema push breaks when bundled) and sharp's native binaries.
+    - from: node_modules/drizzle-orm
+      to: app/node_modules/drizzle-orm
+    - from: node_modules/drizzle-kit
+      to: app/node_modules/drizzle-kit
+    - from: node_modules/@img
+      to: app/node_modules/@img
     # WhatsApp worker subprocess (self-contained; Baileys bundled in).
     - from: ../../packages/messaging-whatsapp-worker/dist/worker.cjs
       to: messaging-whatsapp-worker/worker.cjs

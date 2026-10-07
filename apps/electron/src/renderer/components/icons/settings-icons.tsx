@@ -11,7 +11,6 @@ import {
   Keyboard,
   MessagesSquare,
   Palette,
-  Server,
   ShieldCheck,
   Asterisk,
   Tag,
@@ -33,7 +32,6 @@ export const PermissionsIcon = ({ className }: IconProps) => <ShieldCheck classN
 export const LabelsIcon = ({ className }: IconProps) => <Tag className={className} />
 export const StatusesIcon = ({ className }: IconProps) => <CircleDot className={className} />
 export const MessagingSettingsIcon = ({ className }: IconProps) => <MessagesSquare className={className} />
-export const ServerSettingsIcon = ({ className }: IconProps) => <Server className={className} />
 export const ShortcutsIcon = ({ className }: IconProps) => <Keyboard className={className} />
 export const PreferencesIcon = ({ className }: IconProps) => <UserCircle className={className} />
 
@@ -51,7 +49,6 @@ export const SETTINGS_ICONS: Record<SettingsSubpage, React.ComponentType<IconPro
   labels: LabelsIcon,
   statuses: StatusesIcon,
   messaging: MessagingSettingsIcon,
-  server: ServerSettingsIcon,
   shortcuts: ShortcutsIcon,
   preferences: PreferencesIcon,
 }

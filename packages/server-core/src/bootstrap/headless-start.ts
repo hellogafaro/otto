@@ -1,7 +1,7 @@
 import { writeFileSync, readFileSync, unlinkSync, existsSync, readlinkSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { uptime as osUptime } from 'node:os'
-import { join, basename } from 'node:path'
+import { join, basename, delimiter } from 'node:path'
 import { lockHolderMatchesLock, parseTasklistImageName, type LockIdentity } from './lock-identity.ts'
 import { OAuthFlowStore } from '@otto/shared/auth'
 import { PRODUCT_NAME } from '@otto/shared/branding'
@@ -360,6 +360,12 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
     ?? process.env.OTTO_BUNDLED_ASSETS_ROOT
     ?? process.cwd()
   setBundledAssetsRoot(bundledAssetsRoot)
+  // The agents' `otto` CLI and document tools (resources/bin): the desktop and the server image put them on PATH, a
+  // server run from source (`bun run dev`) gets them here, so a turn's bash finds `otto`.
+  const binDir = join(bundledAssetsRoot, 'resources', 'bin')
+  if (existsSync(join(binDir, 'otto')) && !(process.env.PATH ?? '').split(delimiter).includes(binDir)) {
+    process.env.PATH = `${binDir}${delimiter}${process.env.PATH ?? ''}`
+  }
 
   if (entropy.warning) {
     platform.logger.warn(`[bootstrap] ${entropy.warning}`)

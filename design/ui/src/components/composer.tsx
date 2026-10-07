@@ -38,7 +38,7 @@ import {
 type ComposerVariant = "compact" | "expanded" | "full"
 
 const SURFACE =
-  "rounded-(--composer-radius,var(--radius-xl)) bg-card text-sm text-card-foreground shadow-xs ring-1 ring-foreground/10"
+  "rounded-xl bg-card text-sm text-card-foreground shadow-xs ring-1 ring-foreground/10"
 
 function Composer({
   variant = "compact",

@@ -17,7 +17,7 @@ import {
 } from '@workspace/ui/components/dropdown-menu'
 import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
 import { Input } from '@workspace/ui/components/input'
-import { ListGroup, ListRow } from '@workspace/ui/components/list-group'
+import { ListCard, ListGroup, ListRow } from '@workspace/ui/components/list-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
 import {
   SidebarMenu,
@@ -211,12 +211,14 @@ function SidebarRows() {
 function ListRows() {
   return (
     <OnFrame>
+      <ListCard>
       <ListGroup icon={<Folder />} label="Group band" count={4}>
         <ListRow media={<Folder />} title="rest" end="Oct 1" />
         <ListRow media={<Folder />} title="hover" end="Oct 1" {...force('hover')} />
         <ListRow media={<Folder />} title="active (aria-current=page)" end="Oct 1" active />
         <ListRow media={<Folder />} title="focus-visible" end="Oct 1" {...force('focus-visible')} />
       </ListGroup>
+      </ListCard>
     </OnFrame>
   )
 }
@@ -500,7 +502,7 @@ function Panel({ mode }: { mode: 'light' | 'dark' }) {
       <Section title="Sidebar rows (SidebarMenuButton, on the frame)">
         <SidebarRows />
       </Section>
-      <Section title="List rows (ListGroup / ListRow, on the frame)">
+      <Section title="List rows (ListGroup / ListRow, in the ListCard)">
         <ListRows />
       </Section>
       <Section title="Floating navigation (on the frame)">

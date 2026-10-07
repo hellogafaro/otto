@@ -29,7 +29,7 @@ export const HANDLED_CHANNELS = [
 ] as const
 
 export function registerTasksHandlers(server: RpcServer, deps: HandlerDeps): void {
-  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx, deps).id
+  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx).id
 
   server.handle(RPC_CHANNELS.tasks.LIST, (ctx, filter?: TaskFilter) => getTasks(workspaceOf(ctx), filter))
 

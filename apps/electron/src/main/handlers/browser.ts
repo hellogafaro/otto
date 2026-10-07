@@ -1,7 +1,8 @@
 import { RPC_CHANNELS, type BrowserEmptyStateLaunchPayload } from '../../shared/types'
 import type { BrowserScreenshotOptions } from '../browser-pane-manager'
 import { pushTyped, type RpcServer } from '@otto/server-core/transport'
-import type { HandlerDeps } from './handler-deps'
+import type { GuiDeps } from './handler-deps'
+import { mainLog } from '../logger'
 
 export const HANDLED_CHANNELS = [
   RPC_CHANNELS.browserPane.DESTROY,
@@ -22,9 +23,8 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.browserPane.SCROLL,
 ] as const
 
-export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): void {
-  const { browserPaneManager, platform } = deps
-  if (!browserPaneManager) return
+export function registerBrowserHandlers(server: RpcServer, deps: GuiDeps): void {
+  const { browserPaneManager } = deps
 
   server.handle(RPC_CHANNELS.browserPane.DESTROY, (_ctx, id: string) => {
     browserPaneManager.destroyInstance(id)
@@ -43,7 +43,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.navigate(id, url)
     } catch (err) {
-      platform.logger.error(`[browser-pane] navigate failed for ${id}:`, err)
+      mainLog.error(`[browser-pane] navigate failed for ${id}:`, err)
       throw err
     }
   })
@@ -52,7 +52,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.goBack(id)
     } catch (err) {
-      platform.logger.error(`[browser-pane] goBack failed for ${id}:`, err)
+      mainLog.error(`[browser-pane] goBack failed for ${id}:`, err)
       throw err
     }
   })
@@ -61,7 +61,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.goForward(id)
     } catch (err) {
-      platform.logger.error(`[browser-pane] goForward failed for ${id}:`, err)
+      mainLog.error(`[browser-pane] goForward failed for ${id}:`, err)
       throw err
     }
   })
@@ -82,7 +82,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.handleEmptyStateLaunchFromRenderer(ctx.webContentsId!, payload)
     } catch (err) {
-      platform.logger.error('[browser-pane] empty-state launch IPC failed:', err)
+      mainLog.error('[browser-pane] empty-state launch IPC failed:', err)
       throw err
     }
   })
@@ -91,7 +91,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.getAccessibilitySnapshot(id)
     } catch (err) {
-      platform.logger.error(`[browser-pane] snapshot failed for ${id}:`, err)
+      mainLog.error(`[browser-pane] snapshot failed for ${id}:`, err)
       throw err
     }
   })
@@ -100,7 +100,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.clickElement(id, ref)
     } catch (err) {
-      platform.logger.error(`[browser-pane] click failed for ${id} ref=${ref}:`, err)
+      mainLog.error(`[browser-pane] click failed for ${id} ref=${ref}:`, err)
       throw err
     }
   })
@@ -109,7 +109,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.fillElement(id, ref, value)
     } catch (err) {
-      platform.logger.error(`[browser-pane] fill failed for ${id} ref=${ref}:`, err)
+      mainLog.error(`[browser-pane] fill failed for ${id} ref=${ref}:`, err)
       throw err
     }
   })
@@ -118,7 +118,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.selectOption(id, ref, value)
     } catch (err) {
-      platform.logger.error(`[browser-pane] select failed for ${id} ref=${ref}:`, err)
+      mainLog.error(`[browser-pane] select failed for ${id} ref=${ref}:`, err)
       throw err
     }
   })
@@ -132,7 +132,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
         metadata: result.metadata,
       }
     } catch (err) {
-      platform.logger.error(`[browser-pane] screenshot failed for ${id}:`, err)
+      mainLog.error(`[browser-pane] screenshot failed for ${id}:`, err)
       throw err
     }
   })
@@ -141,7 +141,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.evaluate(id, expression)
     } catch (err) {
-      platform.logger.error(`[browser-pane] evaluate failed for ${id}:`, err)
+      mainLog.error(`[browser-pane] evaluate failed for ${id}:`, err)
       throw err
     }
   })
@@ -154,7 +154,7 @@ export function registerBrowserHandlers(server: RpcServer, deps: HandlerDeps): v
     try {
       return await browserPaneManager.scroll(id, direction as 'up' | 'down' | 'left' | 'right', amount)
     } catch (err) {
-      platform.logger.error(`[browser-pane] scroll failed for ${id}:`, err)
+      mainLog.error(`[browser-pane] scroll failed for ${id}:`, err)
       throw err
     }
   })

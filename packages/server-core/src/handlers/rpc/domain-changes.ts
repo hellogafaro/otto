@@ -84,7 +84,7 @@ const NOTIFIED: Record<string, (ctx: RequestContext, result: never) => string[] 
 
 /** The workspace id a write is about: the first argument of the members, labels, statuses, skills and sources channels (an id, or a name; an invitation id for a revoke), else the connection's. */
 function workspaceIdOf(channel: string, ctx: Parameters<typeof resolveWorkspace>[0], args: unknown[], deps: HandlerDeps): string | undefined {
-  if (!/^(workspaces|labels|statuses|skills|sources):/.test(channel)) return resolveWorkspace(ctx, deps).id
+  if (!/^(workspaces|labels|statuses|skills|sources):/.test(channel)) return resolveWorkspace(ctx).id
   const ref = String(args[0])
   return channel === C.workspaces.REVOKE_INVITATION ? getWorkspaceInvitation(ref)?.workspaceId : getWorkspaceByNameOrId(ref)?.id
 }

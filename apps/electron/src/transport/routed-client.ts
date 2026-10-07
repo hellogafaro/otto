@@ -1,8 +1,10 @@
 /**
  * RoutedClient — client-side channel router.
  *
- * Wraps two WsRpcClient instances: localClient (always the embedded Electron
- * server) and workspaceClient (whichever server owns the active workspace).
+ * Wraps the desktop's WsRpcClient instances: localClient (the main process:
+ * windows, dialogs, menus, browser panes), homeClient (the server child that
+ * owns every local workspace) and workspaceClient (whichever server owns the
+ * active workspace: the home server, or a remote one).
  *
  * - LOCAL_ONLY channels always route to localClient
  * - Everything else routes to workspaceClient
@@ -53,6 +55,9 @@ export class RoutedClient implements RpcClient {
   /** Factory for creating remote workspace clients on switch. */
   private clientFactory: WorkspaceClientFactory | null = null
 
+  /** Told the workspace a switch landed on (the main process keeps its window-to-workspace map). */
+  private switchListener: ((workspaceId: string) => void) | null = null
+
   /**
    * Workspace ID mapping — translates local workspace IDs to remote ones.
    * When set, REMOTE_ELIGIBLE invoke() calls replace the local ID in
@@ -62,10 +67,16 @@ export class RoutedClient implements RpcClient {
 
   constructor(
     private readonly localClient: WsRpcClient,
-    initialWorkspaceClient: WsRpcClient,
+    private readonly homeClient: WsRpcClient,
+    initialWorkspaceClient: WsRpcClient = homeClient,
   ) {
     this.workspaceClient = initialWorkspaceClient
     this.bindConnectionState()
+  }
+
+  /** Run after every workspace switch with the workspace it landed on. */
+  onWorkspaceSwitched(listener: (workspaceId: string) => void): void {
+    this.switchListener = listener
   }
 
   /** Set factory for creating remote workspace clients. */
@@ -117,6 +128,7 @@ export class RoutedClient implements RpcClient {
     // Intercept SWITCH_WORKSPACE response to swap workspace client
     if (channel === RPC_CHANNELS.window.SWITCH_WORKSPACE) {
       this.handleWorkspaceSwitch(result as WorkspaceSwitchResult)
+      if (result) this.switchListener?.((result as WorkspaceSwitchResult).workspaceId)
     }
 
     return result
@@ -147,10 +159,9 @@ export class RoutedClient implements RpcClient {
 
   handleCapability(channel: string, handler: (...args: any[]) => Promise<any> | any): void {
     this.capabilities.set(channel, handler)
-    // Register on both clients — either server can invoke capabilities
-    this.localClient.handleCapability(channel, handler)
-    if (this.workspaceClient !== this.localClient) {
-      this.workspaceClient.handleCapability(channel, handler)
+    // Register on every client — any server can invoke capabilities
+    for (const client of new Set([this.localClient, this.homeClient, this.workspaceClient])) {
+      client.handleCapability(channel, handler)
     }
   }
 
@@ -190,10 +201,10 @@ export class RoutedClient implements RpcClient {
       const newClient = this.clientFactory(result.remoteServer)
       newClient.connect()
       this.swapWorkspaceClient(newClient)
-    } else if (!result.remoteServer && this.workspaceClient !== this.localClient) {
-      // Switching to local workspace — clear mapping and revert to local client
+    } else if (!result.remoteServer && this.workspaceClient !== this.homeClient) {
+      // Switching to a local workspace — clear mapping and revert to the home server
       this.clearWorkspaceMapping()
-      this.swapWorkspaceClient(this.localClient)
+      this.swapWorkspaceClient(this.homeClient)
     }
   }
 
@@ -219,8 +230,8 @@ export class RoutedClient implements RpcClient {
     // Rebind connection state delegation
     this.bindConnectionState()
 
-    // Destroy old client (unless it's the local client or same as new)
-    if (old !== this.localClient && old !== newClient) {
+    // Destroy old client (unless it's the home server's or same as new)
+    if (old !== this.homeClient && old !== newClient) {
       old.destroy()
     }
 
@@ -229,7 +240,7 @@ export class RoutedClient implements RpcClient {
     // __transport:reconnected never fires naturally. This triggers the App's
     // stale recovery logic to refresh sessions that changed while no client
     // was watching this workspace.
-    if (newClient !== this.localClient) {
+    if (newClient !== this.homeClient) {
       // `let` + optional-chaining: onConnectionStateChanged can fire its
       // callback synchronously when the new client is already connected, which
       // would put `unsub` in the TDZ if declared `const`.

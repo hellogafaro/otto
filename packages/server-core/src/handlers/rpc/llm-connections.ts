@@ -1,8 +1,9 @@
 import { RPC_CHANNELS, type LlmConnectionSetup, type LlmConnectionUpdate } from '@otto/shared/protocol'
 import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, isCompatProvider, getDefaultModelForConnection, CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
 import { getCredentialManager } from '@otto/shared/credentials'
-import { CLAUDE_CODE_OWNER_ONLY, INSTALL_SCOPE, getConnection, isClaudeCodeScope, narrowContext, userScope, workspaceScope, type ConnectionContext, type Credential } from '@otto/shared/connections'
+import { CLAUDE_CODE_OWNER_ONLY, INSTALL_SCOPE, getConnection, getConnections, isClaudeCodeScope, narrowContext, userScope, workspaceScope, type ConnectionContext, type Credential } from '@otto/shared/connections'
 import { setSetupDeferred } from '@otto/shared/config/storage'
+import { updateAgentsUnconnected } from '@otto/shared/agents'
 import {
   resolveSetupTestConnectionHint,
   testBackendConnection,
@@ -192,6 +193,10 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
           return { success: false, error: 'Failed to save connection. Check server logs for details.' }
         }
         deps.platform.logger?.info(`Created LLM connection: ${setup.slug}`)
+        // The workspace's first agent was seeded before anything was connected: it moves to this provider
+        if (ctx.userId && ctx.workspaceId) {
+          updateAgentsUnconnected(ctx.workspaceId, ctx.userId, pendingConnection.type, getConnections(whereOf(ctx)).map((c) => c.type))
+        }
       } else if (Object.keys(updates).length > 0 || credential) {
         const updated = updateLlmConnection(setup.slug, updates, { where, credential })
         if (!updated) {

@@ -1,5 +1,5 @@
 import { initDb } from '../db/index.ts';
-import { CATALOGUE, deleteSetting, getSettings, getUserSetting, updateSetting, updateUserSetting, userEntity } from '../settings/index.ts';
+import { CATALOGUE, deleteSetting, getSettings, getUserSetting, updateSetting, userEntity } from '../settings/index.ts';
 import { getFirstUser, getUser, LOCAL_EMAIL, updateUser } from '../users/queries.ts';
 import { domainError } from '../utils/errors.ts';
 import { i18n, SUPPORTED_LANGUAGE_CODES } from '../i18n/index.ts';
@@ -38,7 +38,7 @@ export interface UserPreferences {
   includeCoAuthoredBy?: boolean;
   /**
    * Internal: persisted UI language code (mirrors Appearance → Language).
-   * Maintained only by the main-process `i18n:changeLanguage` IPC handler.
+   * Maintained only by the desktop's `i18n:changeLanguage` IPC handler (through `preferences:write`).
    * Not user-editable; not exposed via the `update_user_preferences` tool.
    */
   uiLanguage?: LanguageCode;
@@ -105,15 +105,6 @@ export function getPersistedUiLanguage(userId?: string | null): LanguageCode | u
   } catch {
     return undefined;
   }
-}
-
-/**
- * Persist the UI language code. Idempotent: writes nothing when the value is unchanged, and
- * nothing while there is no user to keep it for (the renderer remembers the language itself).
- */
-export function setPersistedUiLanguage(code: LanguageCode, userId?: string | null): void {
-  if (getPersistedUiLanguage(userId) === code || !(userId ?? getFirstUser()?.id)) return;
-  updateUserSetting(userId, 'uiLanguage', code);
 }
 
 /**

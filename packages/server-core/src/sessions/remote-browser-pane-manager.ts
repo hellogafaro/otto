@@ -108,12 +108,6 @@ export class RemoteBrowserPaneManager implements IBrowserPaneManager {
   // IBrowserPaneManager — session lifecycle
   // ---------------------------------------------------------------------------
 
-  setSessionPathResolver(_fn: (sessionId: string) => string | null): void {
-    // No-op: path resolution belongs to the remote server, not the client BPM.
-    // Calls into this method from the server side are still useful locally for
-    // metadata, but the BPM itself doesn't need them on a remote bridge.
-  }
-
   destroyForSession(sessionId: string): void {
     this.invokeSync('destroyForSession', [sessionId])
   }

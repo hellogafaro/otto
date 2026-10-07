@@ -158,6 +158,19 @@ export function injectMetadataIntoToolSchema<T extends {
 }
 
 /**
+ * Adds _intent/_displayName to an OpenAI tool's parameters in place. External MCP servers may set
+ * `additionalProperties: false`, which is dropped so validation does not reject the metadata fields; a strict tool
+ * (Pi's constrained sampling: every property required, metadata included) keeps it, since OpenAI rejects a strict
+ * schema without it. Exported for focused unit tests.
+ */
+export function addMetadataToToolParameters(params: { properties?: Record<string, unknown>; required?: string[]; [key: string]: unknown }, strict: boolean): void {
+  const updatedSchema = injectMetadataIntoToolSchema(params);
+  params.properties = updatedSchema.properties;
+  params.required = updatedSchema.required;
+  if (params.additionalProperties === false && !strict) delete params.additionalProperties;
+}
+
+/**
  * Extract _intent/_displayName from a parsed tool input and store in toolMetadataStore.
  * Shared by both SSE processors (Anthropic strips, OpenAI captures).
  *
@@ -1038,6 +1051,7 @@ const openAiAdapter: ApiAdapter = {
       type?: string;
       function?: {
         name?: string;
+        strict?: boolean;
         parameters?: {
           type?: string;
           properties?: Record<string, unknown>;
@@ -1064,15 +1078,7 @@ const openAiAdapter: ApiAdapter = {
         continue;
       }
 
-      const params = tool.function.parameters;
-      const updatedSchema = injectMetadataIntoToolSchema(params);
-      params.properties = updatedSchema.properties;
-      params.required = updatedSchema.required;
-      // External MCP servers may set additionalProperties: false which would
-      // cause validation to reject _intent/_displayName in tool inputs.
-      if ((params as Record<string, unknown>).additionalProperties === false) {
-        delete (params as Record<string, unknown>).additionalProperties;
-      }
+      addMetadataToToolParameters(tool.function.parameters, tool.function.strict === true);
       modifiedCount++;
     }
 
@@ -1275,6 +1281,7 @@ const openAiResponsesAdapter: ApiAdapter = {
     const tools = body.tools as Array<{
       type?: string;
       name?: string;
+      strict?: boolean;
       parameters?: {
         type?: string;
         properties?: Record<string, unknown>;
@@ -1293,13 +1300,7 @@ const openAiResponsesAdapter: ApiAdapter = {
       const isMcpTool = tool.name?.startsWith('mcp__');
       if (!richDescriptions && !isMcpTool) continue;
 
-      const params = tool.parameters;
-      const updatedSchema = injectMetadataIntoToolSchema(params);
-      params.properties = updatedSchema.properties;
-      params.required = updatedSchema.required;
-      if ((params as Record<string, unknown>).additionalProperties === false) {
-        delete (params as Record<string, unknown>).additionalProperties;
-      }
+      addMetadataToToolParameters(tool.parameters, tool.strict === true);
       modifiedCount++;
     }
 

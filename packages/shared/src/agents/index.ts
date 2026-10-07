@@ -209,6 +209,18 @@ export function getDefaultProvider(workspaceId: string, userId: string | null): 
   return getDefaultConnection({ workspaceId, userId })?.type ?? FALLBACK_PROVIDER
 }
 
+/**
+ * A person's new connection of `provider` (`connected`: the providers of every connection they see, it included): the
+ * workspace's agents they may edit, with no model of their own and a provider not in `connected` (the first agent is
+ * seeded with `FALLBACK_PROVIDER` when nothing is connected yet), move to it, so the first chat after connecting a
+ * provider runs instead of asking for one. Returns those agents.
+ */
+export function updateAgentsUnconnected(workspaceId: string, userId: string, provider: string, connected: readonly string[], db: Db | Tx = initDb()): Agent[] {
+  return getAgents(workspaceId, db)
+    .filter((agent) => agent.model === null && agent.provider !== provider && !connected.includes(agent.provider) && canEditAgent(workspaceId, agent, userId, db))
+    .map((agent) => updateAgent(workspaceId, agent.id, { provider }, db))
+}
+
 /** The workspace's `instructions` setting: text every agent of it gets before its own. */
 export const getWorkspaceInstructions = (workspaceId: string, db: Db | Tx = initDb()): string => getSetting(workspaceEntity(workspaceId), 'instructions', db)
 

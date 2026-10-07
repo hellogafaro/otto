@@ -1,13 +1,12 @@
 /**
- * `TaskGroups`: tasks grouped by status in the line-only `PageWrap` (DESIGN Data patterns 1, the Chats index's pattern):
+ * `TaskGroups`: tasks grouped by status in the Settings card (`ListCard`; DESIGN Data patterns 1, the Chats index's pattern):
  * Todo, In progress, Done (folded unless asked), then Archived (folded last unless asked), each a 36px rounded
  * `ListGroup` band over 44px `TaskRow`s; empty groups are not drawn. A group's "+" starts a new task in that status.
  * Reused by a project's Tasks tab (`projectTitles` left out hides the project badge).
  */
 
 import { useTranslation } from 'react-i18next'
-import { ListGroup } from '@workspace/ui/components/list-group'
-import { PageWrap } from '@workspace/ui/components/page'
+import { ListCard, ListGroup } from '@workspace/ui/components/list-group'
 import { CreateButton } from '@/components/ui/create-button'
 import { TaskStatusIcon, taskStatusTint } from '@/components/tasks/task-status-icon'
 import type { Task, TaskStatus } from '../../../shared/types'
@@ -39,8 +38,8 @@ export function TaskGroups({
   const { t } = useTranslation()
   const groups = groupTasks(tasks)
   return (
-    // Otto: the Chats index's padded wrapper (DESIGN.md, PageWrap): `--wrap-pad` (16px) in, on the column's edges.
-    <PageWrap padded>
+    // Otto: the Chats index's card (DESIGN.md, ListCard): the table 8px in, on the column's content edges.
+    <ListCard>
       {TASK_GROUPS.map((status) => {
         const open = status === 'done' ? doneOpen : status === 'archived' ? archivedOpen : true
         return (
@@ -67,6 +66,6 @@ export function TaskGroups({
           </ListGroup>
         )
       })}
-    </PageWrap>
+    </ListCard>
   )
 }

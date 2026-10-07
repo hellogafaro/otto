@@ -10,7 +10,6 @@
  * Consumers must call i18n.t(item.labelKey) at build time.
  */
 
-import { FEATURE_FLAGS } from '@otto/shared/feature-flags'
 import { SETTINGS_PAGES, type SettingsSubpage } from './settings-registry'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,7 +91,6 @@ export interface SettingsMenuItem {
  * Order is determined by SETTINGS_PAGES in settings-registry.ts
  */
 export const SETTINGS_ITEMS: SettingsMenuItem[] = SETTINGS_PAGES
-  .filter(page => page.id !== 'server' || FEATURE_FLAGS.embeddedServer)
   .map(page => ({ id: page.id, labelKey: page.labelKey }))
 
 /** Pages that belong to you; everything else belongs to the workspace. */

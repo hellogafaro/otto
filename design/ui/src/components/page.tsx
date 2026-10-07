@@ -22,8 +22,9 @@ import { cn } from "cn"
 //   then ONE card as wide as the content and as tall as the space left (to the
 //   frame's 8px bottom), scrolling inside.
 // The open chat is the one exception and takes no `PageColumn`: its compact
-// pinned row (`PageHeaderRow pinned`) sits in the frame's header slot and its
-// transcript wrapper (with the composer inside it) spans the whole 768px track.
+// pinned row (`PageHeaderRow density="compact"`) sits in the frame's header
+// slot and its transcript scrolls on the frame under it, on the same 24px sides
+// (no card, no wrapper), the composer floating over its bottom.
 // The column's first child is the title slot: `PageHeader`, called anywhere in
 // the page, draws its row there, so the title scrolls with the content. It holds
 // the title row and, on an item's page, its description (the lead line, 4px
@@ -144,7 +145,8 @@ function PageSection({
 // Otto: the inner card: `bg-card`, the card edge (`card-surface`), 12px corners.
 // Only rows live in it, split by full-bleed hairlines (`divide-y`, drawn between
 // the children that exist, so a collapsed row leaves no line); controls nested
-// in a row are 28px with 6px corners.
+// in a row are 28px with 6px corners. A list page's table sits in the same card
+// (`ListCard`, list-group.tsx), 8px in.
 function PageCard({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -159,35 +161,4 @@ function PageCard({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-// Otto: the line-only wrapper of a DENSE list or table page (many small rows
-// with small details: Chats, Tasks, Inbox), under its title row and filter
-// chips, as Threads wraps its feed. The card edge's hairline (`--card-ring`),
-// `2xl` 20 corners, NO fill (the frame shows through), no shadow, no hairlines
-// inside. Flush (no padding, Inbox's flat list) its rows run to the line and
-// it clips them (`overflow-hidden`), so a fill at the first or last row
-// follows the rounded corner. A grouped list (`ListGroup`) floats in it with
-// `padded` (`--wrap-pad`, 16px: the same padding as the chat's wrapper; 1rem
-// outside the frame). Pages of bigger
-// cards and structured sections (settings, overviews, galleries, details) never
-// use it: their cards sit on the frame. An empty state stays centered on the
-// frame, outside it.
-function PageWrap({
-  padded,
-  className,
-  ...props
-}: React.ComponentProps<"div"> & { padded?: boolean }) {
-  return (
-    <div
-      data-slot="page-wrap"
-      data-content-start=""
-      className={cn(
-        "overflow-hidden rounded-(--wrap-radius,var(--radius-2xl)) border border-(--card-ring)",
-        padded && "p-(--wrap-pad,1rem)",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-export { PageCard, PageCenterpiece, PageColumn, PageSection, PageWrap }
+export { PageCard, PageCenterpiece, PageColumn, PageSection }

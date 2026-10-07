@@ -29,6 +29,8 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.power.GET_KEEP_AWAKE,
   RPC_CHANNELS.appearance.GET_RICH_TOOL_DESCRIPTIONS,
   RPC_CHANNELS.appearance.SET_RICH_TOOL_DESCRIPTIONS,
+  RPC_CHANNELS.notification.GET_ENABLED,
+  RPC_CHANNELS.notification.SET_ENABLED,
   RPC_CHANNELS.sessions.GET_MODEL,
   RPC_CHANNELS.sessions.SET_MODEL,
   RPC_CHANNELS.settings.GET_DEFAULT_THINKING_LEVEL,
@@ -290,5 +292,16 @@ export function registerSettingsHandlers(server: RpcServer, deps: HandlerDeps): 
   server.handle(RPC_CHANNELS.appearance.SET_RICH_TOOL_DESCRIPTIONS, async (ctx, enabled: boolean) => {
     const { setRichToolDescriptions } = await import('@otto/shared/config/storage')
     setRichToolDescriptions(enabled, ctx.userId)
+  })
+
+  // Whether the desktop shows OS notifications for this person (the window shows them, see notification:show)
+  server.handle(RPC_CHANNELS.notification.GET_ENABLED, async (ctx) => {
+    const { getNotificationsEnabled } = await import('@otto/shared/config/storage')
+    return getNotificationsEnabled(ctx.userId)
+  })
+
+  server.handle(RPC_CHANNELS.notification.SET_ENABLED, async (ctx, enabled: boolean) => {
+    const { setNotificationsEnabled } = await import('@otto/shared/config/storage')
+    setNotificationsEnabled(enabled, ctx.userId)
   })
 }

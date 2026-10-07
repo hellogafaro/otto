@@ -1,44 +1,50 @@
 # Desktop: the Electron app on a Bun server
 
-Status (7 Oct 2026): **the desktop app does not build or boot.** This page records why and the plan to fix it. The web/server mode is unaffected.
-
-## What fails
-
-- `bun run electron:build:main` stops in esbuild: `Could not resolve "bun:sqlite"` (`packages/shared/src/db/index.ts`, `drizzle-orm/bun-sqlite`) and `Could not resolve "bun"` (`packages/shared/src/library/s3-file-store.ts`). Preload, renderer, resources and assets build.
-- Marking `bun:sqlite` and `bun` external makes the bundle build, but Electron then dies on load with `Cannot find module 'bun:sqlite'` (seen under `xvfb-run`). So externals are not a fix.
-- It broke when storage moved to SQLite (`8b599de`, 5 Oct: secrets domain, one SQLite db) and the S3 store (`7d0c2c6`, 6 Oct). Testing since then has been web/server only.
+Status (7 Oct 2026): **as built.** Electron's main process is a shell without a database; the server (`packages/server`) runs as its child process under Bun. Verified end to end under `xvfb-run` on Linux in dev mode (below). Packaging, auto-update, macOS and Windows are not verified.
 
 ## Why
 
-Electron's main process runs Node, and the main process **embeds the whole server**: `apps/electron/src/main/index.ts` calls `bootstrapServer` in-process with `SessionManager`, the core RPC handlers, messaging and model refresh. The server code is Bun-only, beyond the driver: `Bun.file`/`Bun.write` (`library/file-store.ts`), `Bun.hash` (`sessions/persistence-queue.ts`), `Bun.spawn` (`computer/local.ts`, `computer/docker.ts`), `Glob` from `bun` (`db/push.ts`), `S3Client` from `bun`. A Node SQLite driver alone would not make it run under Electron.
+Electron's main process runs Node, and the server is Bun-only: `bun:sqlite` (Drizzle), `Bun.file`/`Bun.write`, `Bun.hash`, `Bun.spawn`, `S3Client` from `bun`. Main used to embed the whole server (`bootstrapServer` in `apps/electron/src/main/index.ts`), so it stopped building once storage moved to SQLite (`8b599de`) and S3 (`7d0c2c6`).
 
-Even the thin shell pieces of main reach the database through barrels: `window-manager.ts`, `browser-pane-manager.ts`, `auto-update.ts` and `handlers/system.ts` import `@otto/shared/config` (`config/index.ts` -> `preferences.ts` -> `db/index.ts`), and `config/storage.ts` itself reaches it through `credentials` -> `decisions/keys.ts`. `@otto/server-core/transport` (`WsRpcServer`) is free of it.
+## As built
 
-## The design
+**Main is a shell** (`apps/electron/src/main/index.ts`, `server-process.ts`). It starts the server child, then opens the windows:
 
-The decision on record is "the macOS app embeds the server" (data-architecture.md, deployment modes) and "Drizzle on `bun:sqlite`". Embedding becomes **a child process**: main is a shell that starts the same headless server (`packages/server/src/index.ts`) under Bun and points the windows at it.
+- `initServer` spawns Bun with the server entry: `packages/server/src/index.ts` with `bun` (or `OTTO_BUN`) in dev, `dist/server.js` with the shipped `vendor/bun` when packaged. The child's environment is main's (the CLI tool paths, `OTTO_CONFIG_DIR`, `OTTO_APP_ROOT`, `OTTO_IS_PACKAGED`) plus `OTTO_LOCAL_USER=1`, a random per-launch `OTTO_SERVER_TOKEN` and `BETTER_AUTH_SECRET`, `OTTO_RPC_HOST=127.0.0.1`, `OTTO_RPC_PORT=0`, `OTTO_BUNDLED_ASSETS_ROOT` (main's `dist`), `OTTO_RESOURCES_PATH`, and the WhatsApp worker run by Electron as Node.
+- `ENCRYPTION_KEY` comes from `encryption-key.ts` (safeStorage, or the environment in dev) into a variable in main and the child's environment only; main deletes it from its own environment (renderers inherit that) and never logs it. The child's `OTTO_SERVER_TOKEN=` echo is dropped from main's log.
+- Ready = the child printed `OTTO_SERVER_URL=ws://127.0.0.1:<port>` and main's own WebSocket connection to it completed the handshake (60 s limit).
+- Quit: SIGTERM (the server flushes its chats and exits), SIGKILL after 8 s. The child also stops when its stdin closes, so it does not outlive a killed main.
+- A child that exits on its own shows an error window with the reason (exit code or signal) and its last log lines, with Restart (a new child; every window reloads onto it) or Quit. A child that does not start shows the same with Try again or Quit (for example a refused schema push or a bad `ENCRYPTION_KEY`).
 
-- Main picks a free `127.0.0.1` port and a random token, and spawns Bun with `OTTO_CONFIG_DIR`, `ENCRYPTION_KEY` (already resolved from `safeStorage` into `process.env` by `encryption-key.ts`), `BETTER_AUTH_SECRET` (random per launch, as today), `OTTO_SERVER_TOKEN`, `OTTO_RPC_HOST=127.0.0.1`, `OTTO_RPC_PORT`, `OTTO_BUNDLED_ASSETS_ROOT`. It waits until the port accepts a WS connection, then opens windows. On quit it sends SIGTERM (the server flushes chats and exits) and kills after a timeout. A server that exits early shows an error dialog with the last log lines.
-- The server runs under the Bun the app already ships (`vendor/bun`, electron-builder.yml) from a `bun build --target bun` bundle, like `pi-agent-server`. Dev runs `bun packages/server/src/index.ts`.
-- Main keeps a small `WsRpcServer` (no database) for what needs Electron: windows, dialogs, shell, badge, menu, deep links, notifications, update, browser panes, Git Bash. The preload already has the routing: `RoutedClient` sends `LOCAL_ONLY` channels to main and the rest to the workspace's server, and `__get-workspace-remote-config` can return the child as every local workspace's server (`{ url, token, remoteWorkspaceId: id }`), so the preload needs no new mode.
-- The server serves 44 of the 96 `LOCAL_ONLY` channels today (workspaces, theme, input, power, appearance, onboarding, system info, shell guards, file dialog relay). They move to `REMOTE_ELIGIBLE`, which is where the web UI already gets them; main keeps the 51 it serves itself. Browser panes already work across the process line: the server asks the window through `CLIENT_BROWSER_INVOKE` ("remote browser bridge is now available" at boot).
+**Main keeps a small `WsRpcServer`** (127.0.0.1, random port, its own per-launch token, no authorize and no database) for the 53 `LOCAL_ONLY` channels: windows, focus, traffic lights, system versions and appearance, `shell:openUrl` (OS browser and `otto://` links), update, badge, menu, deep links, notifications (`notification:show`), the power blocker, browser panes and `debug:log` (`handlers/`). What those handlers store goes to the server over main's connection: `settings:getSetting` / `updateSetting` for `install` keys (`keepAwakeWhileRunning`, `dismissedUpdateVersion`, `allowRemoteEvaluate`), `preferences:read` / `write` for the menu language, `workspaces:get` for window restore and titles, `sessions:getUnreadSummary` and the `sessions:unreadSummaryChanged` push for the dock badge, and `server:statusChanged` (`{ runningChats }`, pushed by the server on every change) for keep-awake.
 
-## Steps and sizes
+**The windows connect like the web UI.** The preload (`preload/bootstrap.ts`) opens a client to main (`__get-ws-port`, `__get-ws-token`) and one to the server (`__get-server`), and `RoutedClient` sends `LOCAL_ONLY` to main and everything else to the workspace's server: the child for every local workspace (`homeClient`), a remote server for a remote workspace. After a `window:switchWorkspace` the preload tells main (`__window:workspace`) so its window map (titles, window state, reloads) follows. No new mode; the thin client (`OTTO_SERVER_URL`) is unchanged and starts no child.
 
-| # | Change | Files | Size |
-|---|---|---|---|
-| 1 | Server entry: `OTTO_LOCAL_USER=1` makes the one local user before boot (`initLocalUser`, as main does today), so the token acts as someone; otherwise the first-sign-up rule applies | `packages/server/src/index.ts` | S |
-| 2 | Schema at first launch: the packaged app has no `bun run db:push` (it globs `schema.ts` sources and needs `drizzle-kit`). Push at server boot from a statically imported schema list, refusing data loss as today | `packages/shared/src/db/push.ts`, server entry | M |
-| 3 | `server-process.ts` in main: port, token, env, spawn, readiness wait, SIGTERM then kill, crash dialog | new file, about 100 lines | S |
-| 4 | `index.ts`: delete the in-process server (about 530 lines: `bootstrapServer`, imports at boot, messaging, model refresh, credential health check, server-config handlers, `session:transferToWorkspace` local path, `releaseServerLock`), start the child and the GUI `WsRpcServer` instead | `apps/electron/src/main/index.ts` | L |
-| 5 | Shell modules stop importing the database: workspace lookups, theme, `allowRemoteEvaluate`, update settings, keep-awake, UI language and the Git Bash path come from the server over RPC or move to the server's handlers; `handlers/system.ts` badge refresh goes through the server | `window-manager.ts`, `browser-pane-manager.ts`, `auto-update.ts`, `power-manager.ts`, `handlers/system.ts` | M |
-| 6 | Routing: 44 channels from `LOCAL_ONLY` to `REMOTE_ELIGIBLE`, exhaustiveness test kept | `packages/shared/src/protocol/routing.ts` and its test | S |
-| 7 | Build: bundle the server into `apps/electron/dist/server.js`, ship it, fail the main build if the bundle has a `bun:` import | `scripts/electron-build-main.ts`, `scripts/electron-dev.ts`, `electron-builder.yml` | S |
-| 8 | Tests: GUI handler registration without a `SessionManager`; `authorize.isolated.ts` registers core handlers from the server side | `apps/electron/src/main/handlers/__tests__/` | S |
+**Routing** (`packages/shared/src/protocol/routing.ts`): 40 channels the server answers moved from `LOCAL_ONLY` to `REMOTE_ELIGIBLE` (workspaces, the window's workspace, file and folder dialogs and `file:readUserAttachment`, `auth:showDeleteSessionConfirmation`, `shell:openFile` / `showInFolder`, skills' editor and finder, app theme and presets and their pushes, notification and input and appearance preferences, `power:getKeepAwake`, Git Bash, onboarding), plus `transcription:create` and the new `workspaces:remove`. `registration.test.ts` checks that main answers only `LOCAL_ONLY` channels and that no `LOCAL_ONLY` channel is answered by the server alone.
 
-Total: L, about one to two days, touching main, the server entry, `db/push.ts`, the routing table, the build and packaging. Order: 1, 2 and 3 first give a child server that boots from a fresh config dir; 4 to 6 make the app open against it; 7 and 8 close the build and tests.
+**The server at boot** (`packages/server/src/index.ts`):
 
-## Verified so far
+- Schema: every boot calls `pushSchema(initDb())` before anything reads the database. `pushSchema` takes the statically imported `SCHEMAS` list (`db/push.ts`; `push.test.ts` fails when a `schema.ts` is missing from it) instead of globbing source files, so it works in a bundle, and it still refuses a change that loses data (the server exits; `bun run db:push --force` decides). `bun run dev` no longer runs `db:push` first.
+- The local user: with `OTTO_LOCAL_USER=1` the server makes the install's one user once (`initLocalUser`, name "You", `local@localhost`) before anything asks who the token is. The server token acts as the first user, so on the desktop it is that person, the owner of every workspace and the instance owner, and there is no sign-in. Without the flag (the web server) nothing changes: the first sign-up (or `OTTO_OWNER_EMAIL`) owns it. The same flag lets `workspaces:create` take any folder (one person, their own disk); every other server creates under `CONFIG_DIR/workspaces`.
+- Also new for every server: the Pi model resolver, the default permission rules (`ensureDefaultPermissions`) and the PowerShell validator root, which only the old in-process desktop set up.
 
-- The headless server boots from an empty `OTTO_CONFIG_DIR` after `bun run db:push`, listens on a random port with `OTTO_RPC_PORT=0` and shuts down cleanly on SIGTERM.
-- Electron 39 starts under `xvfb-run` here, so step 4 can be checked end to end on this machine.
+**Build** (`scripts/electron-build-main.ts`): `electron:build:main` bundles main with only `electron` external and fails when `main.cjs` requires `bun:` (main reached server code); it bundles the server into `dist/server.js` with esbuild (ESM, run by Bun; `bun build` mis-converts the CommonJS `tmp` package under markitdown-js). `drizzle-orm` and `drizzle-kit` stay outside it (drizzle-kit's push breaks when bundled: its lazily initialised dialects), so `electron-builder.yml` ships them and sharp's `@img` binaries under `app/node_modules`. `build-win.ps1` now calls `electron:build:main` instead of its own esbuild line.
+
+## Removed
+
+- From main: the in-process server (`bootstrapServer`, `SessionManager`, the core handlers, the importers at boot, messaging, model refresh, the credential health check, Sentry config tags, the Git Bash path restore, `releaseServerLock`, `OTTO_HEADLESS`), `platform.ts`, `runtime/`, the messaging log, the grammY shims and the `claude-agent-sdk` external, the duplicate core system handlers (`registerSystemCoreHandlers`) and their test, `workspace:remove` IPC (now `workspaces:remove` on the server, owners only).
+- Server mode (Settings > Server: the desktop as a server for other machines, behind the off-by-default `embeddedServer` flag): the page, its three channels, the `server` setting and its secret import, `server-config.ts`, the flag, the catalogue's `sensitive` marker (only `server` had it), its locale strings. Local installs have no remote features (data-architecture.md, deployment modes).
+- From server-core: `windowManager` and `browserPaneManager` in `HandlerDeps` and the `IWindowManager` interface (no host passes them now), `SessionManager.setBrowserPaneManager` (the windows host browser panes over `client:browser:invoke` like any client), `setSessionPathResolver` (main computes a chat's downloads folder from the workspace root), `clearActiveViewingSession`, `setFileInputFiles` and the in-process `uploadFile`.
+- Dead scripts: root `electron:dev:menu`, `electron:dev:logs`, `sync-secrets`, `fresh-start`, `fresh-start:token`, `build`, `release`, `check-version`, `oss:sync` (their files were gone); in `apps/electron` `build`, `build:win`, `start`, `start:win`, `build:validate` and the `build:*` steps only they ran; the debug menu's "Reset to Defaults" (it pointed at `fresh-start`).
+
+## Verified
+
+Dev mode under `xvfb-run` with `OTTO_CONFIG_DIR=/tmp/desktop-home`: first launch makes the encryption key, pushes 54 statements, makes the local user, opens first-run setup; creating a workspace, the owner's provider step, a chat (message stored, the expected "Connect Anthropic" error without a provider), Settings (notification and keep-awake toggles round-trip through the server); a relaunch restores the window; quit stops the child; killing the child shows the error window and Restart reconnects the window; killing main stops the child; a bad `ENCRYPTION_KEY` shows the start error and Quit exits. `dist/server.js` boots outside the repo with only `node_modules/drizzle-orm` and `drizzle-kit` beside it. The key never appears in the logs.
+
+## Not verified, and known limits
+
+- Packaging (`electron-builder` output, `vendor/bun`, the shipped `node_modules`, sharp's native binaries, the Claude Agent SDK resolving its files from inside the bundle), auto-update, macOS, Windows.
+- A remote workspace (cut from the MVP, still wired): its window now gets the 40 moved channels from the remote server (its workspace list, preferences, onboarding), and `file:readUserAttachment` with local paths fails there.
+- Turning notifications on no longer shows the confirmation notification (the setting is the server's now).
+- The server no longer clears a workspace's "viewing" chat when the last window leaves it (it has no windows).
+- `drizzle-kit` prints a spinner on each boot push; main strips the escapes from its log.

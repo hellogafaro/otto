@@ -22,6 +22,7 @@
     "./id": "./src/id.ts",
     "./actors": "./src/actors.ts",
     "./db": "./src/db/index.ts",
+    "./db/push": "./src/db/push.ts",
     "./secrets": "./src/secrets/index.ts",
     "./secrets/import": "./src/secrets/import.ts",
     "./users": "./src/users/index.ts",

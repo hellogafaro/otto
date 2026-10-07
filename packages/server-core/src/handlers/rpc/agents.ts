@@ -28,7 +28,7 @@ export const HANDLED_CHANNELS = [
  * workspace that has none seeds its first agent (`initAgentsSeed`), so no member ever sees an empty workspace.
  */
 export function registerAgentsHandlers(server: RpcServer, deps: HandlerDeps): void {
-  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx, deps).id
+  const workspaceOf = (ctx: Parameters<typeof resolveWorkspace>[0]) => resolveWorkspace(ctx).id
 
   server.handle(RPC_CHANNELS.agents.LIST, (ctx) => {
     const workspaceId = workspaceOf(ctx)

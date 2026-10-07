@@ -144,10 +144,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
       log.error('GET_SESSIONS continuing after initialization failure:', error)
     }
     const end = perf.start('rpc.getSessions')
-    const windowWorkspaceId = ctx.webContentsId != null
-      ? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId)
-      : undefined
-    const workspaceId = ctx.workspaceId ?? windowWorkspaceId
+    const workspaceId = ctx.workspaceId
     // Only the chats this user may see: chats are private to their creator.
     const sessions = sessionManager.getSessions(workspaceId ?? undefined, ctx.userId)
     end()
@@ -155,8 +152,6 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
     log.info('[sessions:get] result', {
       ctxWorkspaceId: ctx.workspaceId,
       webContentsId: ctx.webContentsId,
-      windowWorkspaceId,
-      resolvedWorkspaceId: workspaceId,
       returnedCount: sessions.length,
       returnedWorkspaceIds: sessionWorkspaceDistribution(sessions),
       returnedIds: summarizeIds(sessions.map(s => s.id)),
@@ -507,7 +502,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   // Export a session as a portable bundle
   server.handle(RPC_CHANNELS.sessions.EXPORT, async (ctx, sessionId: string) => {
     await sessionManager.waitForInit()
-    const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
+    const workspaceId = ctx.workspaceId
     if (!workspaceId) throw new Error('No workspace context')
 
     const bundle = await sessionManager.exportSession(sessionId, workspaceId)
@@ -532,7 +527,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   // Export a session as a summarized remote-transfer payload.
   server.handle(RPC_CHANNELS.sessions.EXPORT_REMOTE_TRANSFER, async (ctx, sessionId: string) => {
     await sessionManager.waitForInit()
-    const workspaceId = ctx.workspaceId ?? deps.windowManager?.getWorkspaceForWindow(ctx.webContentsId!)
+    const workspaceId = ctx.workspaceId
     if (!workspaceId) throw new Error('No workspace context')
 
     const payload = await sessionManager.exportRemoteSessionTransfer(sessionId, workspaceId)

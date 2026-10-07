@@ -31,6 +31,12 @@ describe('getMiniModel()', () => {
     expect(getMiniModel(conn)).toBe('claude-haiku-4-5-20251001');
   });
 
+  it('prefers the default model when it is a small one (an aggregator lists retired small models first)', () => {
+    const conn = { ...makeConnection('openrouter', ['pi/anthropic/claude-3-haiku', 'pi/openai/gpt-4o-mini']), defaultModel: 'pi/openai/gpt-4o-mini' };
+    expect(getMiniModel(conn)).toBe('pi/openai/gpt-4o-mini');
+    expect(getMiniModel({ ...conn, defaultModel: 'pi/openai/gpt-5' })).toBe('pi/anthropic/claude-3-haiku');
+  });
+
   // --- Pi providers ---
 
   it('finds mini for pi provider', () => {

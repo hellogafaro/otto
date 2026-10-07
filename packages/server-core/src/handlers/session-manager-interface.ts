@@ -72,7 +72,6 @@ export interface ISessionManager {
   markSessionUnread(sessionId: string): Promise<void>
   markAllSessionsRead(workspaceId: string, viewerId?: string | null): Promise<void>
   setActiveViewingSession(sessionId: string | null, workspaceId: string): void
-  clearActiveViewingSession(workspaceId: string): void
 
   // ---------------------------------------------------------------------------
   // Session configuration

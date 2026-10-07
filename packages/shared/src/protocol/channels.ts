@@ -64,6 +64,7 @@ export const RPC_CHANNELS = {
   workspaces: {
     GET: 'workspaces:get',
     CREATE: 'workspaces:create',
+    REMOVE: 'workspaces:remove',
     CHECK_SLUG: 'workspaces:checkSlug',
     UPDATE_REMOTE: 'workspaces:updateRemote',
     GET_MEMBERS: 'workspaces:getMembers',
@@ -201,9 +202,6 @@ export const RPC_CHANNELS = {
     TEST_LLM_CONNECTION_SETUP: 'settings:testLlmConnectionSetup',
     GET_DEFAULT_THINKING_LEVEL: 'settings:getDefaultThinkingLevel',
     SET_DEFAULT_THINKING_LEVEL: 'settings:setDefaultThinkingLevel',
-    GET_SERVER_CONFIG: 'settings:getServerConfig',
-    SET_SERVER_CONFIG: 'settings:setServerConfig',
-    GET_SERVER_STATUS: 'settings:getServerStatus',
     GET_SETTING: 'settings:getSetting',
     UPDATE_SETTING: 'settings:updateSetting',
   },
