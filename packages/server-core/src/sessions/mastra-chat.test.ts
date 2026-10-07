@@ -64,6 +64,39 @@ describe('native Mastra on Bun, controlled model fixtures', () => {
     expect(await output.text).toBe('Saved.')
   })
 
+  it('keeps commentary, tool activity and the final response in step order', async () => {
+    const events: AgentEvent[] = []
+    const tools = { save_brief: createTool({
+      id: 'save_brief', description: 'Save the brief.', inputSchema: z.object({ title: z.string() }),
+      execute: async () => ({ id: 'document0001' }),
+    }) }
+    for await (const event of streamMastraChat({
+      agentId: 'agentaaaaaaa', name: 'Scout', instructions: '', messages: [{ role: 'user', content: 'Draft a brief.' }],
+      signal: new AbortController().signal, tools,
+      model: fixtureModel((call) => call === 0 ? [
+        { type: 'text-start', id: 'commentary' }, { type: 'text-delta', id: 'commentary', delta: "I'll draft it." }, { type: 'text-end', id: 'commentary' },
+        { type: 'tool-call', toolCallId: 'call1', toolName: 'save_brief', input: JSON.stringify({ title: 'Brief' }) },
+        { type: 'finish', finishReason: 'tool-calls', usage },
+      ] : [
+        { type: 'text-start', id: 'final' }, { type: 'text-delta', id: 'final', delta: 'Saved.' }, { type: 'text-end', id: 'final' },
+        { type: 'finish', finishReason: 'stop', usage },
+      ]),
+    })) events.push(event)
+    const commentary = events.findIndex((event) => event.type === 'text_complete' && event.isIntermediate === true)
+    const tool = events.findIndex((event) => event.type === 'tool_start')
+    const result = events.findIndex((event) => event.type === 'tool_result')
+    const final = events.findIndex((event) => event.type === 'text_complete' && !event.isIntermediate)
+    expect(commentary).toBeLessThan(tool)
+    expect(tool).toBeLessThan(result)
+    expect(result).toBeLessThan(final)
+    expect(events[commentary]).toMatchObject({ text: "I'll draft it.", isIntermediate: true })
+    expect(events[final]).toMatchObject({ text: 'Saved.' })
+    const before = events[commentary]
+    const after = events[final]
+    if (before.type !== 'text_complete' || after.type !== 'text_complete') throw new Error('Missing text boundaries')
+    expect(before.turnId).not.toBe(after.turnId)
+  })
+
   it('discards partial text when a provider reports an error', async () => {
     const events: AgentEvent[] = []
     const stream = streamMastraChat({

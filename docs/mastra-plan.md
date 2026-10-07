@@ -268,3 +268,33 @@ pressure. Thus disabling minification did not avoid the capacity failure. Do not
 bundling on this 4 GB machine or treat diagnostic output as a production pass.
 Serial per-file checks remain required: combined Bun suites can contaminate global
 ENCRYPTION_KEY/module-store fixtures, as documented in the initial baseline.
+
+## Reviewed Pro checkpoint
+
+Implementation moved to an isolated Pro worktree at
+`/Users/jg/.capy/worktrees/jam_01M4BZMD6M2Y9EEVA8SX8BXFS1/otto`; personal checkout,
+`~/.otto` and login material are untouched. Dependencies were recreated with frozen
+Bun install. Native proof executes on Bun 1.3.3/Node 24.18.0 here.
+
+Independent Sol 6.1 High review found and then rechecked four P2 fixes: stale run catch
+cannot discard a newer generation; completed/error work outcomes replay chronologically
+from existing rows after failure/Stop; commentary is stored/emitted before tools and
+separated from final text; result-only rows safely serialize absent tool input as `{}`.
+No required finding remains within that bounded review. This is not a full runtime
+migration/security certification or live provider check.
+
+Final native stream proof passes 6 tests/18 assertions, scoped session proof 1/17,
+work/reconstruction/Stop proof 1/48; unchanged routing 22 tests and RPC guards 48 tests
+also pass serially. Server-core typecheck and diff check pass. Replay uses bounded
+attributed historical outcome summaries, not a second message store or effect guarantee.
+The delayed-abort test simulates generation ownership change, and reconstruction uses
+loaded stored messages rather than full server boot recovery.
+
+Production `NODE_OPTIONS=--max-old-space-size=8192 bun run webui:build` passed on the
+24 GB Pro in 20 seconds with unchanged config, including minification and sourcemaps.
+Large-chunk warnings remain, but the cloud memory-capacity build gate is resolved.
+Earlier text/browser proof remains valid; the work-tool production-browser proof on Pro
+is separately blocked by thread-specific desktop permission. A request card already
+exists for OTTO-75 to control applications on Pro. Browser automation has no attached
+Chrome runtime on this device. Do not duplicate the request or restart inspection until
+granted. The disposable loopback fixture server was stopped with confirmed cancellation.

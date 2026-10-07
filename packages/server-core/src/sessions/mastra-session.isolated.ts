@@ -91,6 +91,30 @@ it('uses the creator-scoped key, native Responses stream, existing events and re
   await manager.sendMessage(stored.id, 'Stop before inference.', undefined, undefined, { sender: actor })
   credentials.getLlmApiKey = getKey
   expect(requests).toHaveLength(2)
+  let release!: () => void
+  let started!: () => void
+  const preparing = new Promise<void>((resolve) => { started = resolve })
+  credentials.getLlmApiKey = async () => {
+    started()
+    await new Promise<void>((resolve) => { release = resolve })
+    throw new Error('Late abort failure')
+  }
+  const stale = manager.sendMessage(stored.id, 'Delayed old turn.', undefined, undefined, { sender: actor })
+  await preparing
+  recovered.mastraAbort?.abort()
+  recovered.processingGeneration++
+  recovered.streamingTurnId = 'newerturn001'
+  recovered.streamingText = 'New turn answer'
+  recovered.isProcessing = true
+  release()
+  await stale
+  credentials.getLlmApiKey = getKey
+  expect(recovered.streamingTurnId).toBe('newerturn001')
+  expect(recovered.streamingText).toBe('New turn answer')
+  expect(recovered.isProcessing).toBe(true)
+  recovered.isProcessing = false
+  recovered.streamingText = ''
+  recovered.streamingTurnId = undefined
   recovered.members = recovered.members.filter((member) => member.actor !== actor)
   await manager.sendMessage(stored.id, `agent:${agent.id} blocked`, undefined, undefined, { sender: `user:${other}` })
   expect(requests).toHaveLength(2)

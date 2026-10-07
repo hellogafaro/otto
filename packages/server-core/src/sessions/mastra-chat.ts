@@ -25,7 +25,7 @@ export async function* streamMastraChat(input: {
     tools: input.tools,
   })
   new Mastra({ agents: { chat: agent }, logger: false, idGenerator: () => createId() })
-  const turnId = createId()
+  let turnId = createId()
   const messages = input.messages.map((message) => message.role === 'assistant'
     ? { role: 'assistant' as const, content: message.content }
     : { role: 'user' as const, content: message.content })
@@ -41,12 +41,20 @@ export async function* streamMastraChat(input: {
       yield { type: 'text_discard', turnId }
       throw new Error('The model request failed. Check your connection and try again.')
     } else if (chunk.type === 'tool-call') {
+      if (text) {
+        yield { type: 'text_complete', text, turnId, isIntermediate: true }
+        text = ''
+      }
       yield { type: 'tool_start', toolName: chunk.payload.toolName, toolUseId: chunk.payload.toolCallId, input: chunk.payload.args ?? {}, turnId }
     } else if (chunk.type === 'tool-result') {
       const result = chunk.payload.result
       yield { type: 'tool_result', toolName: chunk.payload.toolName, toolUseId: chunk.payload.toolCallId, result: JSON.stringify(result), isError: chunk.payload.isError ?? (typeof result === 'object' && result !== null && 'error' in result), turnId }
     } else if (chunk.type === 'tool-error') {
       yield { type: 'tool_result', toolName: chunk.payload.toolName, toolUseId: chunk.payload.toolCallId, result: 'The work action failed. Check access and the current document or task version.', isError: true, turnId }
+    } else if (chunk.type === 'step-finish' && chunk.payload.stepResult.reason === 'tool-calls') {
+      if (text) yield { type: 'text_complete', text, turnId, isIntermediate: true }
+      text = ''
+      turnId = createId()
     } else if (chunk.type === 'finish') {
       if (chunk.payload.stepResult.reason !== 'stop') {
         yield { type: 'text_discard', turnId }
