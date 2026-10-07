@@ -33,7 +33,7 @@ function failsWith(code: TaskErrorCode, run: () => unknown) {
 test('create needs an existing, non-deleted project of the same workspace', async () => {
   const { projects, tasks, project } = await setup()
   const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: ' Write ' })
-  expect(task.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(task.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(task).toMatchObject({ projectId: project.id, title: 'Write', description: '', status: 'todo', dueAt: null, assignees: [], resources: [], createdBy: ME })
   expect(task.createdAt).toBe(task.updatedAt)
   expect(tasks.getTask(W, task.id)).toEqual(task)
@@ -195,7 +195,7 @@ test('timesheets: bounds, notes, sum and delete', async () => {
   const a = log(90_000, 'first pass')()
   const b = log(MAX_TIME)()
   expect(a).toMatchObject({ taskId: task.id, time: 90_000, notes: 'first pass', createdBy: ME })
-  expect(a.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(a.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(b.notes).toBe('')
   expect(tasks.getTaskTime(W, task.id)).toBe(90_000 + MAX_TIME)
   expect(tasks.getTimesheets(W, task.id).map((t) => t.id).sort()).toEqual([a.id, b.id].sort())

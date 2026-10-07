@@ -498,7 +498,7 @@ export async function createSource(
 
   const config: FolderSourceConfig = {
     // ID format: {slug}_{random} for easy identification (e.g., "linear_a1b2c3d4")
-    id: `${slug}_${randomUUID().slice(0, 8)}`,
+    id: randomUUID(),
     name: input.name,
     slug,
     enabled: input.enabled ?? true,
@@ -585,4 +585,3 @@ export function sourceExists(workspaceRootPath: string, sourceSlug: string): boo
 // ============================================================
 
 export { parseGuideMarkdown };
-

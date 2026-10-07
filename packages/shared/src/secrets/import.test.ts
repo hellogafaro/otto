@@ -45,7 +45,7 @@ test('moves the remote workspace tokens and the decision keys into secrets, once
   expect(loadStoredConfig()?.workspaces[0]?.remoteServer?.token).toBe('remote-token-1')
   // the decision key
   expect(await getCredentialManager().getDecisionApiKey('openrouter')).toBe('sk-decision-key')
-  expect(getSetting(INSTALL, 'decisionLayer', db).keySecretIds?.openrouter).toMatch(/^[0-9a-z]{12}$/)
+  expect(getSetting(INSTALL, 'decisionLayer', db).keySecretIds?.openrouter).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
 
   // no secret is in a settings row, the database's plain columns or a log line
   for (const value of SECRETS) {

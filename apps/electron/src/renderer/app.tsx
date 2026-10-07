@@ -7,7 +7,6 @@ import type { Session, Workspace, SessionEvent, Message, FileAttachment, StoredA
 import type { SessionDraft, DraftAttachmentRef } from '@otto/shared/config'
 import type { SessionOptions, SessionOptionUpdates } from './hooks/use-session-options'
 import { defaultSessionOptions, mergeSessionOptions } from './hooks/use-session-options'
-import { generateMessageId } from '../shared/types'
 import { useEventProcessor } from './event-processor'
 import type { AgentEvent, Effect } from './event-processor'
 import { AppShell } from '@/components/app-shell/app-shell'
@@ -1099,7 +1098,7 @@ export default function App() {
             .join(', ')
           updateSessionById(sessionId, (s) => ({
             messages: [...s.messages, {
-              id: generateMessageId(),
+              id: crypto.randomUUID(),
               role: 'warning' as const,
               content: `⚠️ ${failedCount} attachment(s) could not be stored and will not be sent: ${failedNames}`,
               timestamp: Date.now()
@@ -1184,7 +1183,7 @@ export default function App() {
       // which confirms it). Cleared by 'processing' status or when the current
       // turn ends.
       const userMessage: Message = {
-        id: generateMessageId(),
+        id: crypto.randomUUID(),
         role: 'user',
         content: message,
         timestamp: Date.now(),
@@ -1215,7 +1214,7 @@ export default function App() {
         messages: [
           ...s.messages,
           {
-            id: generateMessageId(),
+            id: crypto.randomUUID(),
             role: 'error' as const,
             content: `Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`,
             timestamp: Date.now()

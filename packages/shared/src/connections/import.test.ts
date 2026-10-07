@@ -8,7 +8,6 @@ import { pushSchema } from '../db/push.ts'
 import { createSecretsStore, parseEncryptionKey } from '../secrets/index.ts'
 import { secrets } from '../secrets/schema.ts'
 import { getSetting, INSTALL, updateSetting } from '../settings/index.ts'
-import { createId } from '../id.ts'
 import { users } from '../users/schema.ts'
 import { createConnectionsStore, userScope } from './index.ts'
 import { initClaudeCodeOwnerImport, initConnectionsImport, initConnectionsPiProviderImport } from './import.ts'
@@ -201,9 +200,9 @@ test("an install Claude subscription becomes the instance owner's own, once ther
   expect(store.getConnection('claude-max')?.scope).toBe('install')
   updateSetting(INSTALL, 'defaultConnectionSlug', 'claude-max', db)
 
-  const owner = createId()
+  const owner = crypto.randomUUID()
   db.insert(users).values({ id: owner, name: 'Owner', email: 'owner@x.test', createdAt: new Date(1), updatedAt: new Date(1) }).run()
-  db.insert(users).values({ id: createId(), name: 'Later', email: 'later@x.test', createdAt: new Date(2), updatedAt: new Date(2) }).run()
+  db.insert(users).values({ id: crypto.randomUUID(), name: 'Later', email: 'later@x.test', createdAt: new Date(2), updatedAt: new Date(2) }).run()
   expect(initClaudeCodeOwnerImport(db)).toBe(1)
   expect(store.getConnection('claude-max', { userId: owner })).toMatchObject({ scope: userScope(owner), type: 'claude-code' })
   expect(store.getConnection('claude-max')).toBeUndefined()

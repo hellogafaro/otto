@@ -7,7 +7,7 @@ import { createTask, getTask, getTasks, updateTask } from '@otto/shared/tasks'
 export function createMastraWorkTools(scope: { workspaceId: string; agentId: string; assertAccess: () => void }) {
   const workspaceId = scope.workspaceId
   const actor = `agent:${scope.agentId}`
-  const id = z.string().regex(/^[a-z0-9]{12}$/)
+  const id = z.string().refine((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value) || /^[a-z0-9]{12}$/.test(value), 'Invalid stored item id')
   const title = z.string().trim().min(1).max(MAX_TITLE)
   const text = z.string().max(MAX_DESCRIPTION)
   const document = (documentId: string) => {

@@ -7,7 +7,6 @@ import type { BackendConfig } from '../backend/types.ts';
 import type { AgentTurn } from '../agent-turn.ts';
 import { CLAUDE_CODE_OWNER_ONLY, userScope } from '../../connections/index.ts';
 import { initDb } from '../../db/index.ts';
-import { createId } from '../../id.ts';
 import { getFirstUser } from '../../users/queries.ts';
 import { users } from '../../users/schema.ts';
 import { getRunByToken, initAgentApiUrl, initComputerApiUrl } from '../run-tokens.ts';
@@ -244,7 +243,7 @@ describe('PiAgent prompt', () => {
   });
 
   it("a Claude subscription (cli_login) sends no secret, and runs only on the instance owner's own connection", async () => {
-    const owner = getFirstUser() ?? initDb().insert(users).values({ id: createId(), name: 'Owner', email: 'owner@x.test', createdAt: new Date(1), updatedAt: new Date(1) }).returning().get();
+    const owner = getFirstUser() ?? initDb().insert(users).values({ id: crypto.randomUUID(), name: 'Owner', email: 'owner@x.test', createdAt: new Date(1), updatedAt: new Date(1) }).returning().get();
     const claude = (connectionScope?: string) => makeAgent({ authType: 'cli_login', connectionSlug: 'claude-max', connectionScope, runtime: { piAuthProvider: 'claude-code' } });
     expect(await claude(userScope(owner.id)).getPiAuth()).toEqual({ provider: 'claude-code', credential: { type: 'cli_login' } });
     for (const scope of [undefined, 'install', 'workspace:ws', userScope('someoneelse')]) {

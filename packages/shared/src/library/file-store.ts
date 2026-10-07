@@ -1,6 +1,5 @@
 import { mkdir, readdir, rename, rm } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
-import { createId } from '../id.ts'
 
 /**
  * Where the bytes of library items live, keyed by item id. The default driver
@@ -30,7 +29,7 @@ export interface StagedFile {
   discard(): Promise<void>
 }
 
-const KEY = /^[a-z0-9]{12}$/
+const KEY = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[a-z0-9]{12})$/
 
 export function assertKey(key: string): string {
   if (!KEY.test(key)) throw new Error(`Invalid file key: ${key}`)
@@ -39,7 +38,7 @@ export function assertKey(key: string): string {
 
 /** A list prefix is a plain run of key characters; it can never reach outside the store. */
 export function assertPrefix(prefix: string): string {
-  if (!/^[a-z0-9]{0,12}$/.test(prefix)) throw new Error(`Invalid file key prefix: ${prefix}`)
+  if (!/^[a-z0-9-]{0,36}$/.test(prefix)) throw new Error(`Invalid file key prefix: ${prefix}`)
   return prefix
 }
 
@@ -67,9 +66,9 @@ export function assertPathPrefix(prefix: string): string {
 }
 
 /** The temp files a write leaves beside its target while it is in flight; never keys. */
-const isTempFile = (name: string) => /\.tmp-[a-z0-9]{12}$/.test(name)
+const isTempFile = (name: string) => /\.tmp-(?:[a-z0-9]{12}|[0-9a-f-]{36})$/.test(name)
 
-/** Keys are `createId()` strings, or with `paths` bundle paths (`assertPathKey`); either way a key can never leave `rootDir`. */
+/** Keys are `crypto.randomUUID()` strings, or with `paths` bundle paths (`assertPathKey`); either way a key can never leave `rootDir`. */
 export function createDiskFileStore(rootDir: string, options: { paths?: boolean } = {}): FileStore {
   const paths = options.paths === true
   const pathOf = (key: string) => join(rootDir, paths ? assertPathKey(key) : assertKey(key))
@@ -78,7 +77,7 @@ export function createDiskFileStore(rootDir: string, options: { paths?: boolean 
     const path = pathOf(key)
     await mkdir(dirname(path), { recursive: true })
     // Written beside the target, so the later rename is atomic: readers see the old or the new bytes, never half.
-    const temp = `${path}.tmp-${createId()}`
+    const temp = `${path}.tmp-${crypto.randomUUID()}`
     try {
       await Bun.write(temp, bytes)
     } catch (error) {

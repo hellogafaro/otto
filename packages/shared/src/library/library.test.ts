@@ -42,7 +42,7 @@ const stored = async (dir: string, workspaceId: string) => readdir(join(dir, wor
 test('create stores the bytes under the id and the row without them', async () => {
   const { lib, dir } = await setup()
   const item = await lib.createLibraryItem({ createdBy: ME, workspaceId: W, title: 'pic.png', mime: 'image/png', bytes: bytes(1, 2, 3) })
-  expect(item.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(item.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(item).toMatchObject({ type: 'file', title: 'pic.png', mime: 'image/png', size: 3, parentId: null, createdBy: ME })
   expect(item.createdAt).toBe(item.updatedAt)
   expect(await lib.readLibraryContent(W, item.id)).toEqual(bytes(1, 2, 3))

@@ -14,7 +14,7 @@ describe('run tokens', () => {
     initAgentApiUrl('http://127.0.0.1:4100')
     const minted = createRunToken(RUN)!
     expect(minted.env).toEqual({ OTTO_API_URL: 'http://127.0.0.1:4100', OTTO_RUN_TOKEN: minted.token })
-    expect(minted.token).toMatch(/^[a-z0-9]{12}\.[A-Za-z0-9_-]{43}$/)
+    expect(minted.token).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/)
     expect(getRunByToken(minted.token)).toMatchObject({ ...RUN, id: minted.token.split('.')[0] })
     deleteRunToken(minted.token)
     expect(getRunByToken(minted.token)).toBeNull()

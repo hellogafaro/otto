@@ -7,7 +7,6 @@ import { count, eq, inArray, sql } from 'drizzle-orm'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { getWorkspaces } from '../config/storage.ts'
 import { initDb, type Db } from '../db/index.ts'
-import { createId } from '../id.ts'
 import { updateLegacyUserActor as updateLibraryActors } from '../library/index.ts'
 import { updateLegacyUserActor as updateProjectActors } from '../projects/index.ts'
 import { updateLegacyUserActor as updateTaskActors } from '../tasks/index.ts'
@@ -118,7 +117,7 @@ export function createUsersStore(db: Db, options: UsersOptions) {
     account: { modelName: 'users_accounts' },
     verification: { modelName: 'users_verifications' },
     // `otto.session_token`, not the default `better-auth.*`: a proxy or gate in front of the app may run Better Auth too and own that name.
-    advanced: { database: { generateId: () => createId() }, cookiePrefix: 'otto', useSecureCookies: options.useSecureCookies },
+    advanced: { database: { generateId: () => crypto.randomUUID() }, cookiePrefix: 'otto', useSecureCookies: options.useSecureCookies },
     emailAndPassword: { enabled: true, minPasswordLength: 12 },
     rateLimit: { enabled: true },
     socialProviders: { google: socialProvider('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'), github: socialProvider('GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET') },
@@ -179,7 +178,7 @@ export function createUsersStore(db: Db, options: UsersOptions) {
     /** The one user of a local (Electron) install, made on first launch. Returns its id. */
     initLocalUser(input: { name: string; email: string }): string {
       const existing = getFirstUser()
-      const id = existing?.id ?? createId()
+      const id = existing?.id ?? crypto.randomUUID()
       if (!existing) {
         const now = new Date()
         db.insert(users).values({ id, name: input.name, email: input.email.toLowerCase(), createdAt: now, updatedAt: now }).run()

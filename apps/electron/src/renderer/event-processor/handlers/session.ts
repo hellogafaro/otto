@@ -45,7 +45,7 @@ import type {
   Effect,
 } from '../types'
 import type { Message } from '../../../shared/types'
-import { generateMessageId, appendMessage, clearRetryStatus } from '../helpers'
+import { appendMessage, clearRetryStatus } from '../helpers'
 
 /**
  * Handle complete - agent loop finished
@@ -133,7 +133,7 @@ export function handleError(
   )
 
   const errorMessage: Message = {
-    id: generateMessageId(),
+    id: crypto.randomUUID(),
     role: 'error',
     content: event.error,
     timestamp: event.timestamp ?? Date.now(),
@@ -170,7 +170,7 @@ export function handleTypedError(
   )
 
   const errorMessage: Message = {
-    id: generateMessageId(),
+    id: crypto.randomUUID(),
     role: 'error',
     content: event.error.title
       ? `${event.error.title}: ${event.error.message}`
@@ -216,7 +216,7 @@ export function handleRetry(state: SessionState, event: RetryEvent): ProcessResu
 
   // Replace prior progress rather than accumulating a running row per attempt.
   const retryMessage: Message = {
-    id: generateMessageId(),
+    id: crypto.randomUUID(),
     role: 'status',
     statusType: 'retrying',
     content: event.message,
@@ -245,7 +245,7 @@ export function handleStatus(
   const { session, streaming } = state
 
   const statusMessage: Message = {
-    id: generateMessageId(),
+    id: crypto.randomUUID(),
     role: 'status',
     content: event.message,
     timestamp: event.timestamp ?? Date.now(),
@@ -301,7 +301,7 @@ export function handleInfo(
 
   // Otherwise, add as new info message
   const infoMessage: Message = {
-    id: generateMessageId(),
+    id: crypto.randomUUID(),
     role: 'info',
     content: event.message,
     timestamp: event.timestamp ?? Date.now(),

@@ -1,6 +1,5 @@
 import { Database } from 'bun:sqlite'
 import { existsSync } from 'node:fs'
-import { createId } from '../packages/shared/src/id.ts'
 import { DEFAULT_ICON_SVGS } from '../packages/shared/src/statuses/default-icons.ts'
 
 /**
@@ -112,7 +111,7 @@ export function migrateSnakeCase(db: Database): Summary {
       const has = db.query("SELECT 1 FROM statuses WHERE workspace_id = ? AND slug = 'archived'").get(workspaceId as string)
       if (has) continue
       const last = db.query('SELECT coalesce(max(position), -1) AS n FROM statuses WHERE workspace_id = ?').get(workspaceId as string) as { n: number }
-      db.query("INSERT INTO statuses (id, workspace_id, slug, title, color, icon, category, is_default, position) VALUES (?, ?, 'archived', 'Archived', NULL, ?, 'archived', 0, ?)").run(createId(), workspaceId as string, icon, last.n + 1)
+      db.query("INSERT INTO statuses (id, workspace_id, slug, title, color, icon, category, is_default, position) VALUES (?, ?, 'archived', 'Archived', NULL, ?, 'archived', 0, ?)").run(crypto.randomUUID(), workspaceId as string, icon, last.n + 1)
       summary.archivedStatuses++
     }
 

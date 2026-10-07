@@ -2,7 +2,6 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { Agent } from '@mastra/core/agent'
 import { Mastra } from '@mastra/core/mastra'
 import type { MastraModelConfig } from '@mastra/core/llm'
-import { createId } from '@otto/shared/id'
 import type { AgentEvent } from '@otto/core/types'
 import type { ToolsInput } from '@mastra/core/agent'
 import type { ToolHooks } from '@mastra/core/tools'
@@ -27,8 +26,8 @@ export async function* streamMastraChat(input: {
     tools: input.tools,
     skills: input.skills,
   })
-  new Mastra({ agents: { chat: agent }, logger: false, idGenerator: () => createId() })
-  let turnId = createId()
+  new Mastra({ agents: { chat: agent }, logger: false })
+  let turnId = crypto.randomUUID()
   const messages = input.messages.map((message) => message.role === 'assistant'
     ? { role: 'assistant' as const, content: message.content }
     : { role: 'user' as const, content: message.content })
@@ -57,7 +56,7 @@ export async function* streamMastraChat(input: {
     } else if (chunk.type === 'step-finish' && chunk.payload.stepResult.reason === 'tool-calls') {
       if (text) yield { type: 'text_complete', text, turnId, isIntermediate: true }
       text = ''
-      turnId = createId()
+      turnId = crypto.randomUUID()
     } else if (chunk.type === 'finish') {
       if (chunk.payload.stepResult.reason !== 'stop') {
         yield { type: 'text_discard', turnId }

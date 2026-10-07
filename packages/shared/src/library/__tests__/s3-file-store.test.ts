@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb } from '../../db/index.ts'
 import { pushSchema } from '../../db/push.ts'
-import { createId } from '../../id.ts'
 import { isDomainError } from '../../utils/errors.ts'
 import { createLibraryStore } from '../index.ts'
 import { createS3Client, createS3FileStore } from '../s3-file-store.ts'
@@ -42,7 +41,7 @@ describe('S3 driver: read-through cache', () => {
   test('put writes through: the file is readable by path at once, without a download', async () => {
     const double = startDouble()
     const { store, dir } = await node(double)
-    const key = createId()
+    const key = crypto.randomUUID()
     await store.put(key, text('hello'))
     expect(await Bun.file(join(dir, key)).text()).toBe('hello')
     expect(double.objects.get(KEY_PREFIX + key)?.bytes).toEqual(text('hello'))
@@ -54,7 +53,7 @@ describe('S3 driver: read-through cache', () => {
     const double = startDouble()
     const writer = await node(double)
     const reader = await node(double)
-    const key = createId()
+    const key = crypto.randomUUID()
     await writer.store.put(key, text('shared'))
 
     expect(existsSync(join(reader.dir, key))).toBe(false)
@@ -73,7 +72,7 @@ describe('S3 driver: read-through cache', () => {
     const double = startDouble()
     const a = await node(double)
     const b = await node(double)
-    const key = createId()
+    const key = crypto.randomUUID()
     await a.store.put(key, text('one'))
     expect(await a.store.get(key)).toEqual(text('one'))
 
@@ -90,7 +89,7 @@ describe('S3 driver: read-through cache', () => {
   test('a cache file that was damaged or removed is repaired from the object', async () => {
     const double = startDouble()
     const { store, dir } = await node(double)
-    const key = createId()
+    const key = crypto.randomUUID()
     await store.put(key, text('intact'))
     await Bun.write(join(dir, key), 'torn')
     expect(await store.get(key)).toEqual(text('intact'))
@@ -102,7 +101,7 @@ describe('S3 driver: read-through cache', () => {
   test('delete removes the object and the cached file', async () => {
     const double = startDouble()
     const { store, dir } = await node(double)
-    const key = createId()
+    const key = crypto.randomUUID()
     await store.put(key, bytes(1))
     await store.delete(key)
     expect(double.objects.size).toBe(0)
@@ -113,7 +112,7 @@ describe('S3 driver: read-through cache', () => {
     const double = startDouble()
     const a = await node(double)
     const b = await node(double)
-    const key = createId()
+    const key = crypto.randomUUID()
     await a.store.put(key, text('old'))
     await b.store.put(key, text('new'))
     double.fail = (method) => method === 'GET'
@@ -140,7 +139,7 @@ describe('S3 driver: keys, credentials and configuration', () => {
     const double = startDouble()
     const root = await mkdtemp(join(tmpdir(), 'otto-ws-'))
     cleanups.push(() => rm(root, { recursive: true, force: true }))
-    const id = createId()
+    const id = crypto.randomUUID()
 
     expect(initFileStorage(env(double))).toBe('s3')
     await getLibraryStore(root, 'ws1').put(id, bytes(1))

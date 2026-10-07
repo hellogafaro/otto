@@ -4,7 +4,6 @@ import { userActor } from '../actors.ts'
 import { AGENT_DEFAULT_NAME, PRODUCT_NAME } from '../branding.ts'
 import { getDefaultConnection } from '../connections/index.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
-import { createId } from '../id.ts'
 import { getSetting, workspaceEntity } from '../settings/index.ts'
 import { domainError } from '../utils/errors.ts'
 import { getMemberRole } from '../workspaces/members.ts'
@@ -128,7 +127,7 @@ export function getDefaultAgent(workspaceId: string, db: Db | Tx = initDb()): Ag
 export function createAgent(input: AgentInput, db: Db | Tx = initDb()): Agent {
   const title = assertTitle(input.title)
   const values = {
-    id: createId(),
+    id: crypto.randomUUID(),
     workspaceId: input.workspaceId,
     title,
     instructions: assertText(input.instructions ?? '', 'The instructions', MAX_INSTRUCTIONS),

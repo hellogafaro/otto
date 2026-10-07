@@ -30,7 +30,7 @@ const make = (db: Awaited<ReturnType<typeof setup>>, title: string, config: Rout
 test('create writes every column and reads back with its runs', async () => {
   const db = await setup()
   const routine = make(db, ' Digest ')
-  expect(routine.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(routine.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(routine).toMatchObject({ workspaceId: W, agentId: null, title: 'Digest', pausedAt: null, createdBy: ME, runs: [], config: schedule })
   expect(getRoutine(W, routine.id, db)).toEqual(routine)
   expect(getRoutine('other', routine.id, db)).toBeUndefined()

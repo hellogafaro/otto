@@ -17,7 +17,6 @@ import { beforeAll, describe, expect, it } from 'bun:test'
 import { setupI18n, i18n } from '@otto/shared/i18n'
 import { getPersistedUiLanguage, loadPreferences, savePreferences } from '@otto/shared/config'
 import { initDb } from '@otto/shared/db'
-import { createId } from '@otto/shared/id'
 import { updateSetting, userEntity } from '@otto/shared/settings'
 import { pushSchema } from '../../../../../packages/shared/src/db/push.ts'
 import { users } from '../../../../../packages/shared/src/users/schema.ts'
@@ -26,7 +25,7 @@ const db = initDb()
 beforeAll(() => pushSchema(db))
 
 function newUser(): string {
-  const id = createId()
+  const id = crypto.randomUUID()
   const now = new Date()
   db.insert(users).values({ id, name: 'Alice', email: `${id}@x.test`, createdAt: now, updatedAt: now }).run()
   return id

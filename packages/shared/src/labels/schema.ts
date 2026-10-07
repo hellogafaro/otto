@@ -2,7 +2,7 @@ import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'driz
 
 /**
  * A workspace's labels, as one tree through `parentId`; see ./storage.ts. `slug` is the label's id as chats, routines
- * and agents write it (`bug`, `priority::3`) and never changes; `id` is the row's own `createId()`. `color` and
+ * and agents write it (`bug`, `priority::3`) and never changes; `id` is the row's own `crypto.randomUUID()`. `color` and
  * `autoRules` are JSON, `valueType` is 'string' | 'number' | 'date' | 'link', `position` is the order among siblings.
  */
 export const labels = sqliteTable(

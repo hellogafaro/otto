@@ -2,7 +2,6 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { isActor, userIdOf } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { likeContains } from '../db/like.ts'
-import { createId } from '../id.ts'
 import { createNotification, deleteEntityNotifications } from '../notifications/index.ts'
 import { ENTITY_TOKEN, isEntity } from '../entities.ts'
 import { domainError } from '../utils/errors.ts'
@@ -86,7 +85,7 @@ export function createComment(input: { workspaceId: string; entity: string; crea
     const now = new Date()
     const row = tx
       .insert(comments)
-      .values({ id: createId(), workspaceId: input.workspaceId, entity: input.entity, type: 'comment', createdBy: input.createdBy, content, createdAt: now, updatedAt: now })
+      .values({ id: crypto.randomUUID(), workspaceId: input.workspaceId, entity: input.entity, type: 'comment', createdBy: input.createdBy, content, createdAt: now, updatedAt: now })
       .returning()
       .get()
     for (const userId of getMentions(content)) {
@@ -130,7 +129,7 @@ export function createEvent(input: { workspaceId: string; entity: string; create
     }
     const row = tx
       .insert(comments)
-      .values({ id: createId(), workspaceId: input.workspaceId, entity: input.entity, type: 'event', createdBy: input.createdBy, content: JSON.stringify(next), createdAt: now, updatedAt: now })
+      .values({ id: crypto.randomUUID(), workspaceId: input.workspaceId, entity: input.entity, type: 'event', createdBy: input.createdBy, content: JSON.stringify(next), createdAt: now, updatedAt: now })
       .returning()
       .get()
     return toComment(row)

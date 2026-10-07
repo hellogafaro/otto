@@ -3,7 +3,6 @@ import { getWorkspaceByNameOrId } from '../config/storage.ts'
 import { isActor } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { likeContains, likeRank } from '../db/like.ts'
-import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
 import type { FileStore } from './file-store.ts'
 import { MAX_FILE_BYTES, MAX_FOLDER_DEPTH } from './limits.ts'
@@ -136,7 +135,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       throw domainError('invalid', `Folders nest at most ${MAX_FOLDER_DEPTH} levels`)
     }
     return insert({
-      id: createId(),
+      id: crypto.randomUUID(),
       workspaceId: input.workspaceId,
       parentId,
       type: 'folder',
@@ -175,7 +174,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       const parentId = input.parentId ?? null
       folderChain(input.workspaceId, parentId)
       const mime = input.mime.trim() || 'application/octet-stream'
-      const id = createId()
+      const id = crypto.randomUUID()
       const store = storeFor(input.workspaceId)
       await store.put(id, input.bytes)
       try {

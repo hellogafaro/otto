@@ -394,3 +394,11 @@ composite/internal keys. App-wide UUID conversion is now current authorized work
 not deferred. The next slice removes `@otto/shared/id` and NanoID after direct call sites,
 untrusted-boundary validators, mentions, Library keys/paths and disposable old-ID
 reference mapping are verified. Existing user data is not automatically rekeyed at boot.
+
+UUID implementation now calls the platform directly across app domains and removes
+NanoID, `@otto/shared/id`, and message/workspace wrappers. Untrusted typed references,
+mentions, avatars and Library file keys understand UUID v4; temporary short-ID reads
+preserve unconverted records. `docs/uuid-conversion.md` defines the bounded offline-copy
+procedure, with explicit reference/cipher mapping and hard refusal for remote/outside
+roots or populated vendor state. No real install was converted. Common generation is
+implemented; live persisted-data migration remains an explicit execution step.

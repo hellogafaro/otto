@@ -77,7 +77,7 @@ describe('handleTextComplete messageId synchronization', () => {
     const next = handleTextComplete(state, event)
     const id = (next.session.messages[0] as any).id as string
 
-    expect(id.startsWith('msg-')).toBe(true)
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
     expect(id).not.toBe('')
   })
 })

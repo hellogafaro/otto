@@ -26,7 +26,6 @@ import { getWorkspaceSessionsPath } from '../workspaces/storage.ts';
 import { sanitizeSessionId } from './validation.ts';
 import { perf } from '../utils/perf.ts';
 import { initDb, type Db, type Tx } from '../db/index.ts';
-import { createId } from '../id.ts';
 import type { SessionConfig, StoredMessage, StoredSession, SessionMetadata } from './types.ts';
 import type { Plan } from '../agent/plan-types.ts';
 import { debug } from '../utils/debug.ts';
@@ -135,7 +134,7 @@ export function addFirstMembers(tx: Db | Tx, workspaceId: string, chat: Pick<Ses
 
 /**
  * Create a chat: its folder and its row (and, for a branch, its copied messages, in the same transaction). New ids
- * are `createId()`; chats made before keep their `YYMMDD-adjective-noun` ids.
+ * are `crypto.randomUUID()`; chats made before keep their `YYMMDD-adjective-noun` ids.
  */
 export function createSession(
   workspace: ChatWorkspace,
@@ -165,7 +164,7 @@ export function createSession(
   db: Db = initDb(),
 ): SessionConfig {
   const now = Date.now();
-  const sessionId = createId();
+  const sessionId = crypto.randomUUID();
   ensureSessionDir(workspace.rootPath, sessionId);
   const { branch, people = [], ...fields } = options ?? {};
   const { fromSessionId, throughMessageId, ...branchFields } = branch ?? ({} as NonNullable<typeof branch>);

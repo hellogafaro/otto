@@ -31,7 +31,7 @@ import type {
 } from '@otto/core';
 
 // Import utilities
-import { generateMessageId, debug } from '@otto/core';
+import { debug } from '@otto/core';
 ```
 
 ## Exported Types
@@ -60,13 +60,7 @@ import { generateMessageId, debug } from '@otto/core';
 
 ## Utilities
 
-### `generateMessageId()`
-
-Generate a unique message ID:
-```typescript
-const id = generateMessageId();
-// Returns: "msg-1702736400000-a1b2c3"
-```
+Message and row identifiers use the platform's `crypto.randomUUID()` directly.
 
 ### `debug()`
 

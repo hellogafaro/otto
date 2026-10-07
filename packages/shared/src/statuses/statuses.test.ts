@@ -32,7 +32,7 @@ describe('statuses', () => {
     initWorkspaceStatuses(WS, db);
     initWorkspaceStatuses(WS, db);
     expect(db.select().from(statuses).all()).toHaveLength(6);
-    for (const row of db.select().from(statuses).all()) expect(row.id).toMatch(/^[a-z0-9]{12}$/);
+    for (const row of db.select().from(statuses).all()) expect(row.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     const todo = getStatus(WS, 'todo', db)!;
     expect(todo).toMatchObject({ isFixed: true, isDefault: true, category: 'open' });
     expect(todo.icon).toStartWith('data:image/svg+xml;base64,');

@@ -1,7 +1,6 @@
 import { S3Client } from 'bun'
 import { mkdir, rename, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { createId } from '../id.ts'
 import { assertKey, assertPathKey, assertPathPrefix, assertPrefix, type FileStore } from './file-store.ts'
 
 export type S3Config = {
@@ -55,7 +54,7 @@ export function createS3FileStore(options: { client: S3Client; keyPrefix: string
   async function fillCache(key: string, source: Uint8Array | Blob, etag: string) {
     await mkdir(dirname(etagPathOf(key)), { recursive: true })
     await mkdir(dirname(cachePathOf(key)), { recursive: true })
-    const temp = `${cachePathOf(key)}.tmp-${createId()}`
+    const temp = `${cachePathOf(key)}.tmp-${crypto.randomUUID()}`
     try {
       await Bun.write(temp, source)
       await rename(temp, cachePathOf(key))

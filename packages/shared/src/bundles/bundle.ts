@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
-import { createId } from '../id.ts'
 import { assertPathKey } from '../library/file-store.ts'
 import { domainError } from '../utils/errors.ts'
 
@@ -89,7 +88,7 @@ export const writeMarker = (dir: string, marker: BundleMarker) => writeFile(join
  */
 export async function writeLocalBundle(dir: string, files: BundleFiles, marker: BundleMarker): Promise<void> {
   const parent = dirname(dir)
-  const temp = join(parent, `.tmp-${createId()}`)
+  const temp = join(parent, `.tmp-${crypto.randomUUID()}`)
   try {
     for (const [path, bytes] of files) {
       await mkdir(dirname(join(temp, path)), { recursive: true })
@@ -97,7 +96,7 @@ export async function writeLocalBundle(dir: string, files: BundleFiles, marker: 
     }
     await mkdir(temp, { recursive: true })
     await writeMarker(temp, marker)
-    const old = join(parent, `.old-${createId()}`)
+    const old = join(parent, `.old-${crypto.randomUUID()}`)
     const hadOld = await rename(dir, old).then(() => true, (error: NodeJS.ErrnoException) => (error.code === 'ENOENT' ? false : Promise.reject(error)))
     await rename(temp, dir)
     if (hadOld) await rm(old, { recursive: true, force: true })

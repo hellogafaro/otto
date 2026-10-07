@@ -76,7 +76,6 @@ import {
   type SessionStatus,
   pickSessionFields,
 } from '@otto/shared/sessions'
-import { createId } from '@otto/shared/id'
 import { serializeHeaderCredential, loadWorkspaceSources, loadAllSources, getSourcesBySlugs, isSourceUsable, getLoadedSources, syncLocalSource, type LoadedSource, getSourceCredentialManager, TokenRefreshManager } from '@otto/shared/sources'
 import { buildDecisionToolCallbacks } from '../decisions/tool-callbacks'
 import { buildServersFromSources as buildServersFromSourcesShared } from '../sources/build-servers'
@@ -86,7 +85,7 @@ import { isParentTaskTool } from '@otto/shared/utils/tool-names'
 import { restoreFiles } from '@otto/shared/utils/bundle-files'
 import { getCredentialManager } from '@otto/shared/credentials'
 import { McpClientPool } from '@otto/shared/mcp'
-import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, generateMessageId, type DomainChange } from '@otto/shared/protocol'
+import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, type DomainChange } from '@otto/shared/protocol'
 import { messageToStored, storedToMessage, type Message, type StoredAttachment, type ToolDisplayMeta } from '@otto/core/types'
 import { formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrlAsync, getEmojiIcon, resolveToolIcon, readFileAttachment, selectSpreadMessages } from '@otto/shared/utils'
 import { getLoadedSkills, loadAllSkills, loadSkill, syncLocalSkill } from '@otto/shared/skills'
@@ -3835,7 +3834,7 @@ export class SessionManager implements ISessionManager {
 
         // Create auth-request message
         const authMessage: Message = {
-          id: generateMessageId(),
+          id: crypto.randomUUID(),
           role: 'auth-request',
           content: this.getAuthRequestDescription(request),
           timestamp: this.monotonic(),
@@ -5546,7 +5545,7 @@ export class SessionManager implements ISessionManager {
 
       // Create user message for UI
       const userMessage: Message = {
-        id: generateMessageId(),
+        id: crypto.randomUUID(),
         role: 'user',
         content: message,
         timestamp: this.monotonic(),
@@ -5636,7 +5635,7 @@ export class SessionManager implements ISessionManager {
     } else {
       // Create new message
       userMessage = {
-        id: generateMessageId(),
+        id: crypto.randomUUID(),
         role: 'user',
         content: message,
         timestamp: this.monotonic(),
@@ -6079,7 +6078,7 @@ export class SessionManager implements ISessionManager {
 
               const errorMessage: Message = {
                 author: authorOf(managed),
-                id: generateMessageId(),
+                id: crypto.randomUUID(),
                 role: 'error',
                 content: isImageError
                   ? `Image Too Large: ${apiError.message}`
@@ -6266,7 +6265,7 @@ export class SessionManager implements ISessionManager {
           const mode = managed.permissionMode ?? 'ask'
           if (mode === 'safe') return { proceed: false, output: { error: 'Explore mode cannot change documents or tasks.' } }
           if (mode === 'allow-all') return
-          const id = createId()
+          const id = crypto.randomUUID()
           const allowed = await new Promise<boolean>((resolve) => {
             const finish = (allowed: boolean) => {
               abort.signal.removeEventListener('abort', stop)
@@ -6344,7 +6343,7 @@ export class SessionManager implements ISessionManager {
     // Silent mode is used when redirecting (sending new message while processing)
     if (!silent) {
       const interruptedMessage: Message = {
-        id: generateMessageId(),
+        id: crypto.randomUUID(),
         role: 'info',
         content: 'Response interrupted',
         timestamp: this.monotonic(),
@@ -6453,7 +6452,7 @@ export class SessionManager implements ISessionManager {
         sessionLog.error(`[auth-retry] Failed to retry after auth refresh for session ${sessionId}:`, retryError)
         sessionRuntimeHooks.captureException(retryError, { errorSource: 'auth-retry', sessionId })
         const failedMessage: Message = {
-          id: generateMessageId(),
+          id: crypto.randomUUID(),
           role: 'error',
           content: 'Authentication failed. Please check your credentials.',
           timestamp: this.monotonic(),
@@ -7117,7 +7116,7 @@ export class SessionManager implements ISessionManager {
         this.flushDelta(sessionId, workspaceId)
 
         const assistantMessage: Message = {
-          id: generateMessageId(),
+          id: crypto.randomUUID(),
           author: authorOf(managed),
           role: 'assistant',
           content: event.text,
@@ -7257,7 +7256,7 @@ export class SessionManager implements ISessionManager {
           // This ensures tool calls are persisted even if they don't complete
           const toolStartMessage: Message = {
             author: authorOf(managed),
-            id: generateMessageId(),
+            id: crypto.randomUUID(),
             role: 'tool',
             content: `Running ${event.toolName}...`,
             timestamp: this.monotonic(),
@@ -7342,7 +7341,7 @@ export class SessionManager implements ISessionManager {
 
           const toolMessage: Message = {
             author: authorOf(managed),
-            id: generateMessageId(),
+            id: crypto.randomUUID(),
             role: 'tool',
             content: '',
             timestamp: this.monotonic(),
@@ -7429,7 +7428,7 @@ export class SessionManager implements ISessionManager {
         // compaction and SDK false-success command results must not execute a plan.
         if (isCompactionComplete) {
           const compactionMessage: Message = {
-            id: generateMessageId(),
+            id: crypto.randomUUID(),
             role: 'info',
             content: event.message,
             timestamp: infoTimestamp,
@@ -7483,7 +7482,7 @@ export class SessionManager implements ISessionManager {
         // AgentEvent uses `message` not `error`
         const errorMessage: Message = {
                 author: authorOf(managed),
-          id: generateMessageId(),
+          id: crypto.randomUUID(),
           role: 'error',
           content: event.message,
           timestamp: this.monotonic()
@@ -7526,7 +7525,7 @@ export class SessionManager implements ISessionManager {
         // Build rich error message with all diagnostic fields for persistence and UI display
         const typedErrorMessage: Message = {
             author: authorOf(managed),
-          id: generateMessageId(),
+          id: crypto.randomUUID(),
           role: 'error',
           // Combine title and message for content display (handles undefined gracefully)
           content: [event.error.title, event.error.message].filter(Boolean).join(': ') || 'An error occurred',
@@ -8158,7 +8157,7 @@ export class SessionManager implements ISessionManager {
     // Determine session ID
     const sessionId = mode === 'move'
       ? bundle.session.header.id
-      : createId()
+      : crypto.randomUUID()
 
     // Check for ID collision on move
     if (mode === 'move' && this.sessions.has(sessionId)) {

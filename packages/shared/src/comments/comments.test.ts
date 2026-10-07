@@ -36,7 +36,7 @@ test('a mention tells members only, once each, never the author; unknown ids are
   const row = say({ content: `hey user:${B} and user:${B}, also user:${A}, user:${OUT} and user:${'x'.repeat(12)}, ${A}` })
   expect(row).toMatchObject({ entity: TASK, type: 'comment', createdBy: ME, createdAt: row.updatedAt })
   expect(row.event).toBeUndefined()
-  expect(row.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(row.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   const seen = (userId: string, workspaceId = W) =>
     getNotifications(userId, workspaceId, db).map((n) => [n.type, n.readAt === null ? 'unread' : 'read', n.createdBy, n.entity])
   expect(seen(B)).toEqual([['mention', 'unread', ME, `comment:${row.id}`]])

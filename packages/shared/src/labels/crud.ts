@@ -9,7 +9,6 @@
 
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { initDb, type Db, type Tx } from '../db/index.ts';
-import { createId } from '../id.ts';
 import { domainError } from '../utils/errors.ts';
 import { getDescendantIds, getLabelDisplayName } from './tree.ts';
 import { formatLabelEntry, parseLabelEntry } from './values.ts';
@@ -56,7 +55,7 @@ export function createLabel(workspaceId: string, input: CreateLabelInput, db: Db
     .get();
   db.insert(labels)
     .values({
-      id: createId(),
+      id: crypto.randomUUID(),
       workspaceId,
       parentId: parent?.id ?? null,
       slug,

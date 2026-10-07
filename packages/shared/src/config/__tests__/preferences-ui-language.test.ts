@@ -6,7 +6,6 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { initDb } from '../../db/index.ts';
 import { pushSchema } from '../../db/push.ts';
-import { createId } from '../../id.ts';
 import { INSTALL, updateSetting, userEntity } from '../../settings/index.ts';
 import { users } from '../../users/schema.ts';
 import { eq } from 'drizzle-orm';
@@ -19,7 +18,7 @@ const db = initDb();
 beforeAll(() => pushSchema(db));
 
 function newUser(): string {
-  const id = createId();
+  const id = crypto.randomUUID();
   const now = new Date();
   db.insert(users).values({ id, name: 'Alice', email: `${id}@x.test`, createdAt: now, updatedAt: now }).run();
   return id;

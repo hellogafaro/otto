@@ -19,7 +19,6 @@
     "./auth": "./src/auth/index.ts",
     "./auth/callback-page": "./src/auth/callback-page.ts",
     "./auth/types": "./src/auth/types.ts",
-    "./id": "./src/id.ts",
     "./actors": "./src/actors.ts",
     "./db": "./src/db/index.ts",
     "./db/push": "./src/db/push.ts",
@@ -120,7 +119,6 @@
     "glob": "^13.0.0",
     "i18next": "^26.0.3",
     "incr-regex-package": "^1.0.4",
-    "nanoid": "^6.0.1",
     "shell-quote": "^1.8.3",
     "yaml": "^2.8.2"
   },

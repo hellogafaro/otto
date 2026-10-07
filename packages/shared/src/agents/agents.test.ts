@@ -50,7 +50,7 @@ const make = (db: Db, title: string, extra: Partial<Parameters<typeof createAgen
 test('create writes every column and reads back', async () => {
   const db = await setup()
   const agent = make(db, ' Researcher ')
-  expect(agent.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(agent.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(agent).toMatchObject({
     title: 'Researcher',
     instructions: '',

@@ -20,7 +20,7 @@ const rowOf = (db: ReturnType<typeof openDb>, id: string) =>
 test('a secret round-trips and is not stored in plain text', async () => {
   const { db, store } = await setup()
   const id = store.createSecret('anthropic-key', 'sk-ant-123')
-  expect(id).toMatch(/^[0-9a-z]{12}$/)
+  expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(store.getSecret(id)).toBe('sk-ant-123')
   const row = rowOf(db, id)
   expect(row.title).toBe('anthropic-key')

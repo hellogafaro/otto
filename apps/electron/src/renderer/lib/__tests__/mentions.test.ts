@@ -11,6 +11,13 @@
 import { describe, it, expect } from 'bun:test'
 import { parseMentions, findMentionMatches, startsWithEntityMention, removeMention, stripAllMentions, resolveSkillMentions, resolveSourceMentions, extractBadges } from '../mentions'
 
+it('recognizes UUID actor and work mentions without truncating them', () => {
+  const id = crypto.randomUUID()
+  expect(startsWithEntityMention(`user:${id} hello`)).toBe(true)
+  expect(startsWithEntityMention(`task:${id} review`)).toBe(true)
+  expect(findMentionMatches(`agent:${id}`, [], [], true).some((match) => match.id === `agent:${id}`)).toBe(true)
+})
+
 // ============================================================================
 // parseMentions - Skill Pattern Tests
 // ============================================================================

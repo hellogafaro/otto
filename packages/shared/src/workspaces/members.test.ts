@@ -54,7 +54,7 @@ test('an invitation is bound to a lowercase email, lasts 7 days, and counts only
   const db = await setup()
   const invitation = createWorkspaceInvitation({ workspaceId: WS, email: ' Friend@Example.COM ', inviterId: 'owner0000001' }, db)
   expect(invitation).toMatchObject({ email: 'friend@example.com', role: 'member', status: 'pending', workspaceId: WS })
-  expect(invitation.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(invitation.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   const days = (invitation.expiresAt.getTime() - invitation.createdAt.getTime()) / 86_400_000
   expect(days).toBe(7)
   expect(hasPendingInvitation('FRIEND@example.com', db)).toBe(true)

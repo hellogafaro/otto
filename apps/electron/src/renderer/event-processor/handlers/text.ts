@@ -12,7 +12,6 @@ import {
   findAssistantMessage,
   updateMessageAt,
   appendMessage,
-  generateMessageId
 } from '../helpers'
 
 /** Discard only the failed attempt's unfinished text, never completed history. */
@@ -69,7 +68,7 @@ export function handleTextDelta(
   // No streaming message found - create new one
   // Don't update lastMessageAt for streaming messages (they're intermediate)
   const newMessage: Message = {
-    id: generateMessageId(),
+    id: crypto.randomUUID(),
     role: 'assistant',
     content: event.delta,
     timestamp: Date.now(),
@@ -143,7 +142,7 @@ export function handleTextComplete(
   // This handles the race condition where text_complete arrives
   // before text_delta's setSessions has been processed
   const newMessage: Message = {
-    id: event.messageId ?? generateMessageId(),
+    id: event.messageId ?? crypto.randomUUID(),
     role: 'assistant',
     content: event.text || streaming?.content || '',
     timestamp: event.timestamp ?? Date.now(),

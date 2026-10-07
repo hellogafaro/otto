@@ -8,7 +8,6 @@
 
 import { and, eq, sql } from 'drizzle-orm';
 import { initDb, type Db, type Tx } from '../db/index.ts';
-import { createId } from '../id.ts';
 import { domainError } from '../utils/errors.ts';
 import { statuses } from './schema.ts';
 import { FIXED_STATUS_IDS, getStatus, getStatusRow, initWorkspaceStatuses, MAX_STATUS_ICON } from './storage.ts';
@@ -49,7 +48,7 @@ export function createStatus(workspaceId: string, input: CreateStatusInput, db: 
   const last = db.select({ n: sql<number>`coalesce(max(${statuses.position}), -1)` }).from(statuses).where(eq(statuses.workspaceId, workspaceId)).get();
   db.insert(statuses)
     .values({
-      id: createId(),
+      id: crypto.randomUUID(),
       workspaceId,
       slug,
       title: input.label,

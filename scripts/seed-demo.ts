@@ -88,7 +88,6 @@ const routineWebhook = await import(`${S}/automations/routine-webhook.ts`)
 const skillsApi = await import(`${S}/skills/index.ts`)
 const sourcesApi = await import(`${S}/sources/index.ts`)
 const sourcesStorage = await import(`${S}/sources/storage.ts`)
-const { createId } = await import(`${S}/id.ts`)
 const tables = {
   projects: (await import(`${S}/projects/schema.ts`)).projects,
   tasks: (await import(`${S}/tasks/schema.ts`)).tasks,
@@ -373,7 +372,7 @@ try {
     const long = i < scale.longChats
     const count = long ? scale.longChatLength : (() => { const p = r.next(); return p < 0.25 ? r.int(1, 4) : p < 0.6 ? r.int(5, 20) : p < 0.88 ? r.int(21, 60) : r.int(61, 120) })()
     const es = r.chance(0.35)
-    const messages = chatMessages(r, { count, start: 0, es, attachments, tokens, newId: createId })
+    const messages = chatMessages(r, { count, start: 0, es, attachments, tokens, newId: () => crypto.randomUUID() })
     const archived = !long && r.chance(0.12)
     const unread = !archived && !long && r.chance(0.2)
     const endAgo = long ? r.int(1, 6) * 3_600_000 : r.chance(0.3) ? r.int(0, 20) * 3_600_000 : r.chance(0.5) ? r.int(1, 7) * DAY : r.int(7, 60) * DAY
@@ -386,7 +385,7 @@ try {
       : long ? `${chatTitle(r, i)} (long thread)` : chatTitle(r, i)
     const routine = routineList.length && r.chance(0.1) ? r.pick(routineList) : undefined
     const parent = m.chats.length && !routine && r.chance(0.06) ? r.pick(m.chats) : undefined
-    const id = createId()
+    const id = crypto.randomUUID()
     const first = messages[0]!.timestamp
     sessions.createImportedSession(wsRef, {
       id, workspaceRootPath: wsRef.rootPath, name: title, createdBy: owner, ...(r.chance(0.7) ? { agentId: r.pick(agentIds) } : {}),
@@ -430,7 +429,7 @@ try {
   }
   for (let i = 0; i < scale.sources; i++) {
     const spec = sourceSpec(i)
-    sourcesStorage.saveSourceConfig(wsRef.rootPath, { id: `${spec.slug}_${createId().slice(0, 8)}`, name: spec.name, slug: spec.slug, enabled: spec.status === 'ok', type: spec.type, tagline: spec.tagline, createdAt: now, updatedAt: now, ...spec.config } as never)
+    sourcesStorage.saveSourceConfig(wsRef.rootPath, { id: crypto.randomUUID(), name: spec.name, slug: spec.slug, enabled: spec.status === 'ok', type: spec.type, tagline: spec.tagline, createdAt: now, updatedAt: now, ...spec.config } as never)
     sourcesStorage.saveSourceGuide(wsRef.rootPath, spec.slug, { raw: `# ${spec.name}\n\n## Guidelines\n\n${spec.tagline}. Prefer read-only calls; ask before writing.\n\n## Context\n\nDemo source (${spec.type}, ${spec.status}).\n` })
     await sourcesApi.syncLocalSource(ws, spec.slug, owner)
     if (sourcesApi.getSource(ws, spec.slug)) m.sources.push(spec.slug)

@@ -8,7 +8,6 @@
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { createId } from '../id.ts';
 
 export interface AgentRun {
   /** The run's id (the token's public half): what audit lines and the rate limit name. */
@@ -61,7 +60,7 @@ export function createRunToken(
 ): { token: string; env: { OTTO_API_URL: string; OTTO_RUN_TOKEN: string } } | null {
   const url = o.computer ? computerApiUrl : apiUrl;
   if (!url) return null;
-  const id = createId();
+  const id = crypto.randomUUID();
   const secret = randomBytes(32).toString('base64url');
   runs.set(id, { ...run, id, expiresAt: now + RUN_TOKEN_TTL_MS, secretHash: hash(secret) });
   const token = `${id}.${secret}`;

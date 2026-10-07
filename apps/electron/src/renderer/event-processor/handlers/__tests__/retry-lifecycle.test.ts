@@ -281,7 +281,7 @@ describe('Pi retry lifecycle event processing', () => {
     })
     state = applyEvent(state, { type: 'complete', sessionId: SESSION_ID })
 
-    expect(messageIds(state)).toEqual(['completed', 'intermediate', 'other-turn', expect.stringMatching(/^msg-/)])
+    expect(messageIds(state)).toEqual(['completed', 'intermediate', 'other-turn', expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)])
     expect(state.session.messages.some(message => message.content?.includes('final failed partial'))).toBe(false)
     expect(state.session.messages.at(-1)?.role).toBe('error')
     expect(retryRows(state)).toHaveLength(0)

@@ -1,7 +1,6 @@
 import { mkdirSync, readdirSync, statSync } from 'node:fs'
 import { rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createId } from '../id.ts'
 import { getBundleStore, isObjectStorage } from '../library/index.ts'
 import { expandPath } from '../utils/paths.ts'
 
@@ -83,7 +82,7 @@ export async function restorePiSession(workspace: Workspace, chatId: string, ses
   } catch {}
   mkdirSync(dir, { recursive: true })
   const path = local?.path ?? join(dir, 'session.jsonl')
-  const temp = `${path}.tmp-${createId()}`
+  const temp = `${path}.tmp-${crypto.randomUUID()}`
   try {
     await Bun.write(temp, restored)
     await rename(temp, path)

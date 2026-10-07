@@ -3,7 +3,6 @@ import { isActor, userIdOf } from '../actors.ts'
 import { createEvent, type ActivityEvent } from '../comments/index.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { likeContains, likeRank } from '../db/like.ts'
-import { createId } from '../id.ts'
 import { createNotification } from '../notifications/index.ts'
 import { domainError } from '../utils/errors.ts'
 import { initProjectsStore, MAX_DESCRIPTION, MAX_TITLE, parseResources, type ProjectsStore, type Resource } from '../projects/index.ts'
@@ -200,7 +199,7 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
       return db.transaction((tx) => {
         const row = tx
           .insert(tasks)
-          .values({ id: createId(), workspaceId: input.workspaceId, projectId, title, description, status: 'todo', dueAt, assignees, resources, createdBy, createdAt: now, updatedAt: now })
+          .values({ id: crypto.randomUUID(), workspaceId: input.workspaceId, projectId, title, description, status: 'todo', dueAt, assignees, resources, createdBy, createdAt: now, updatedAt: now })
           .returning()
           .get()
         notifyAssigned(tx, row, [], createdBy)
@@ -317,7 +316,7 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
       return db.transaction((tx) => {
         const row = tx
           .insert(timesheets)
-          .values({ id: createId(), workspaceId: input.workspaceId, taskId: task.id, createdBy, createdAt: new Date(), time: input.time, notes })
+          .values({ id: crypto.randomUUID(), workspaceId: input.workspaceId, taskId: task.id, createdBy, createdAt: new Date(), time: input.time, notes })
           .returning()
           .get()
         createEvent({ workspaceId: input.workspaceId, entity: `task:${task.id}`, createdBy, event: { kind: 'time', time: input.time } }, tx)

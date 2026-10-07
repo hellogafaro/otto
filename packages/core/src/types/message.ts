@@ -591,10 +591,3 @@ export type AgentEvent =
   | { type: 'usage_update'; usage: Pick<AgentEventUsage, 'inputTokens' | 'contextWindow'> }
   | { type: 'context_usage'; contextUsage: ContextUsageSnapshot }
   | { type: 'compaction_failed' };
-
-/**
- * Generate a unique message ID
- */
-export function generateMessageId(): string {
-  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}

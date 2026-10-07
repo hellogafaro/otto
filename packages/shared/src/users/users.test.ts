@@ -80,7 +80,7 @@ test('Better Auth and the organization plugin run on bun:sqlite with workspace i
   // The mirror and the owner rows exist, under our ids, with the registry's titles.
   expect(t.db.select().from(workspaces).all().map((w) => [w.id, w.title, w.slug])).toEqual(REGISTRY.map((w) => [w.id, w.title, w.id]))
   const owner = t.db.select().from(users).get()!
-  expect(owner.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(owner.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(t.db.select().from(workspacesMembers).all().map((m) => [m.workspaceId, m.userId, m.role])).toEqual(
     REGISTRY.map((w) => [w.id, owner.id, 'owner']),
   )
@@ -97,7 +97,7 @@ test('Better Auth and the organization plugin run on bun:sqlite with workspace i
 
   // An owner invites, the invitee signs up with it and accepts: a member row appears.
   const { body } = await invite(t, cookie, 'Friend@Example.com')
-  expect(body.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(body.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   const friend = await t.signUp('friend@example.com')
   expect(friend.status).toBe(200)
   const accepted = await t.call('POST', '/organization/accept-invitation', { invitationId: body.id }, cookieOf(friend))
@@ -312,7 +312,7 @@ test('the mirror follows the registry: titles update, removed workspaces take th
 test('a local install gets one user, owner of every workspace, made once', async () => {
   const t = await setup()
   const id = t.store.initLocalUser({ name: 'You', email: 'Local@Localhost' })
-  expect(id).toMatch(/^[0-9a-z]{12}$/)
+  expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(t.store.initLocalUser({ name: 'Other', email: 'other@localhost' })).toBe(id)
   expect(t.db.select().from(users).all().map((u) => [u.id, u.name, u.email])).toEqual([[id, 'You', 'local@localhost']])
   expect(t.db.select().from(workspacesMembers).all().map((m) => [m.userId, m.role])).toEqual([[id, 'owner'], [id, 'owner']])

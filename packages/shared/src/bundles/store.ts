@@ -3,7 +3,6 @@ import { dirname, join } from 'node:path'
 import { and, asc, eq } from 'drizzle-orm'
 import { isActor, userActor } from '../actors.ts'
 import type { Db } from '../db/index.ts'
-import { createId } from '../id.ts'
 import type { FileStore } from '../library/file-store.ts'
 import type { skills } from '../skills/schema.ts'
 import { domainError, isDomainError } from '../utils/errors.ts'
@@ -112,7 +111,7 @@ export function createBundleStore<Row extends BundleRow, Item>(db: Db, spec: Bun
     try {
       row = db
         .insert(table)
-        .values({ ...indexed, id: createId(), workspaceId: input.workspaceId, slug, hash: hashBundle(input.files), createdBy: input.createdBy, createdAt: now, updatedAt: now } as never)
+        .values({ ...indexed, id: crypto.randomUUID(), workspaceId: input.workspaceId, slug, hash: hashBundle(input.files), createdBy: input.createdBy, createdAt: now, updatedAt: now } as never)
         .returning()
         .get() as unknown as Row
     } catch (error) {

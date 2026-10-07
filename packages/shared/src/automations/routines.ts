@@ -2,7 +2,6 @@ import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { getAgent } from '../agents/index.ts'
 import { userActor } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
-import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
 import { getMemberRole } from '../workspaces/members.ts'
 import { ROUTINE_RUNS_KEPT, MAX_ROUTINE_TITLE, type Routine, type RoutineConfig, type RoutineInput, type RoutineRun, type RoutineRunStatus, type RoutineUpdate } from './routine-types.ts'
@@ -118,7 +117,7 @@ export function createRoutine(input: RoutineInput, db: Db | Tx = initDb()): Rout
   const row = db
     .insert(routines)
     .values({
-      id: createId(),
+      id: crypto.randomUUID(),
       workspaceId: input.workspaceId,
       agentId: assertAgent(input.workspaceId, input.agentId, db),
       title: assertTitle(input.title),
@@ -177,7 +176,7 @@ export function startRoutineRun(routine: Pick<Routine, 'id' | 'workspaceId'>, sc
     for (let time = scheduledFor, attempt = 0; attempt < 50; time++, attempt++) {
       const row = tx
         .insert(routinesHistory)
-        .values({ id: createId(), workspaceId: routine.workspaceId, routineId: routine.id, scheduledFor: new Date(time), status: 'running', startedAt: new Date() })
+        .values({ id: crypto.randomUUID(), workspaceId: routine.workspaceId, routineId: routine.id, scheduledFor: new Date(time), status: 'running', startedAt: new Date() })
         .onConflictDoNothing()
         .returning()
         .get()

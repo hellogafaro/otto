@@ -1,6 +1,5 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { initDb, type Db } from '../db/index.ts'
-import { createId } from '../id.ts'
 import { initSecretsStore, type createSecretsStore } from '../secrets/index.ts'
 import { getSetting, INSTALL, updateSetting, userEntity } from '../settings/index.ts'
 import { getFirstUser } from '../users/queries.ts'
@@ -212,7 +211,7 @@ export function createConnectionsStore(db: Db, secrets: SecretsStore) {
         return db
           .insert(connections)
           .values({
-            id: createId(),
+            id: crypto.randomUUID(),
             scope,
             slug: input.slug,
             type: input.type,

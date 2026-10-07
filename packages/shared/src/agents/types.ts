@@ -5,7 +5,7 @@ export const MAX_TITLE = 80
 export const MAX_INSTRUCTIONS = 20_000
 export const MAX_LIST = 200
 /** An avatar is empty (a generated one, derived from the agent id) or `library:<id>` of an uploaded image. */
-export const AVATAR_REF = /^library:[0-9a-z]{12}$/
+export const AVATAR_REF = /^library:(?:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[0-9a-z]{12})$/
 /** Where a provider comes from when its creator has no connection yet. */
 export const FALLBACK_PROVIDER = 'anthropic'
 

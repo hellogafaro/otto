@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb } from '../../db/index.ts'
 import { pushSchema } from '../../db/push.ts'
-import { createId } from '../../id.ts'
 import { createDiskFileStore, type FileStore } from '../file-store.ts'
 import { createLibraryStore } from '../index.ts'
 import { createS3Client, createS3FileStore } from '../s3-file-store.ts'
@@ -79,7 +78,7 @@ const drivers: { name: string; make(): Promise<Subject> }[] = [
           async make(): Promise<Subject> {
             const [endpoint, bucket, region, accessKeyId, secretAccessKey] = real as string[]
             const client = createS3Client({ endpoint: endpoint!, bucket: bucket!, region: region!, accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey! })
-            const keyPrefix = `otto-contract-${createId()}/`
+            const keyPrefix = `otto-contract-${crypto.randomUUID()}/`
             const dir = await tempDir()
             const store = createS3FileStore({ client, keyPrefix, cacheDir: dir })
             cleanups.push(async () => void (await Promise.all((await store.list()).map((key) => store.delete(key)))))
@@ -99,7 +98,7 @@ const canProtect = (name: string) => name !== 'disk' || process.getuid?.() !== 0
 describe.each(drivers)('FileStore contract: $name', ({ name, make }) => {
   test('put, get, open and delete round-trip the bytes; a missing key is undefined', async () => {
     const { store } = await make()
-    const key = createId()
+    const key = crypto.randomUUID()
     expect(await store.get(key)).toBeUndefined()
     expect(await store.open(key)).toBeUndefined()
     await store.delete(key)
@@ -118,7 +117,7 @@ describe.each(drivers)('FileStore contract: $name', ({ name, make }) => {
 
   test('put overwrites; a staged file replaces the key only when committed', async () => {
     const { store } = await make()
-    const key = createId()
+    const key = crypto.randomUUID()
     await store.put(key, bytes(1))
     await store.put(key, bytes(2, 2))
     expect(await store.get(key)).toEqual(bytes(2, 2))
@@ -153,7 +152,7 @@ describe.each(drivers)('FileStore contract: $name', ({ name, make }) => {
 
   test('keys that are not ids are rejected', async () => {
     const { store } = await make()
-    for (const key of ['../escape', 'a/b', '', 'ABCDEFGHIJKL', 'short', `${createId()}.tmp`, '/etc/passwd']) {
+    for (const key of ['../escape', 'a/b', '', 'ABCDEFGHIJKL', 'short', `${crypto.randomUUID()}.tmp`, '/etc/passwd']) {
       await expect(store.put(key, bytes(1))).rejects.toThrow('Invalid file key')
       await expect(store.stage(key, bytes(1))).rejects.toThrow('Invalid file key')
       await expect(store.get(key)).rejects.toThrow('Invalid file key')
@@ -165,7 +164,7 @@ describe.each(drivers)('FileStore contract: $name', ({ name, make }) => {
 
   test('a 20 MB file streams back in pieces and matches byte for byte', async () => {
     const { store } = await make()
-    const key = createId()
+    const key = crypto.randomUUID()
     const big = new Uint8Array(20 * 1024 * 1024)
     for (let i = 0; i < big.length; i += 4099) big[i] = (i / 4099) % 251
     await store.put(key, big)
@@ -187,12 +186,12 @@ describe.each(drivers)('FileStore contract: $name', ({ name, make }) => {
 
   test('concurrent writers: different keys all land, and racing writers on one key leave exactly one whole value', async () => {
     const { store } = await make()
-    const keys = Array.from({ length: 12 }, () => createId())
+    const keys = Array.from({ length: 12 }, () => crypto.randomUUID())
     await Promise.all(keys.map((key, i) => store.put(key, bytes(i, i, i))))
     for (const [i, key] of keys.entries()) expect(await store.get(key)).toEqual(bytes(i, i, i))
     expect((await store.list()).sort()).toEqual([...keys].sort())
 
-    const key = createId()
+    const key = crypto.randomUUID()
     const values = Array.from({ length: 8 }, (_, i) => new Uint8Array(200_000).fill(i + 1))
     await Promise.all(values.map((value) => store.put(key, value)))
     const winner = await store.get(key)
@@ -204,7 +203,7 @@ describe.each(drivers)('FileStore contract: $name', ({ name, make }) => {
 
   test.skipIf(!canProtect(name) || name === 's3 (real server)')('a write that fails leaves the stored bytes intact, for readers and for later reads', async () => {
     const { store, breakWrites, fixWrites } = await make()
-    const key = createId()
+    const key = crypto.randomUUID()
     await store.put(key, text('old'))
 
     await breakWrites!()

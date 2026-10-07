@@ -21,7 +21,7 @@ export const DOCS_MOUNT = '/otto/docs'
 /** The workspace's sources folder (each source's `guide.md` and config; no secrets), read-only. */
 export const SOURCES_MOUNT = '/sources'
 
-/** Chat ids are `createId()` (12 letters and digits) or the older `YYMMDD-adjective-noun`. */
+/** Chat ids are UUIDs; older stored chat folders remain readable until the explicit conversion. */
 const CHAT_ID = /^[a-z0-9][a-z0-9-]*$/i
 
 /** The chat's working folder in the box. */

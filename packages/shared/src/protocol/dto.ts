@@ -24,8 +24,6 @@ import type {
   CredentialAuthRequest as SharedCredentialAuthRequest,
 } from '../agent/index'
 
-// Re-export generateMessageId for handler convenience
-export { generateMessageId } from '@otto/core/types'
 
 // ---------------------------------------------------------------------------
 // Session types

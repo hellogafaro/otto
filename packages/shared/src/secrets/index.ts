@@ -1,7 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { initDb, type Db } from '../db/index.ts'
-import { createId } from '../id.ts'
 import { secrets } from './schema.ts'
 
 /**
@@ -48,7 +47,7 @@ export function createSecretsStore(db: Db, key: Buffer) {
   return {
     /** Store a new secret under a human `title`. Returns its id. */
     createSecret(title: string, value: string): string {
-      const id = createId()
+      const id = crypto.randomUUID()
       db.insert(secrets).values({ id, title, value: encrypt(id, value) }).run()
       return id
     },
@@ -67,6 +66,13 @@ export function createSecretsStore(db: Db, key: Buffer) {
 
     deleteSecret(id: string): void {
       db.delete(secrets).where(eq(secrets.id, id)).run()
+    },
+
+    rebindSecretId(id: string, nextId: string): void {
+      const row = db.select().from(secrets).where(eq(secrets.id, id)).get()
+      if (!row) throw new Error('Secret not found for ID conversion.')
+      const value = encrypt(nextId, decrypt(id, row.value))
+      db.update(secrets).set({ id: nextId, value }).where(eq(secrets.id, id)).run()
     },
   }
 }

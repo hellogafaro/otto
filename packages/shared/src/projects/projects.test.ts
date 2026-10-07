@@ -27,7 +27,7 @@ function failsWith(code: ProjectErrorCode, run: () => unknown) {
 test('create returns an active project and makes the creator its first member', async () => {
   const projects = await setup()
   const project = projects.createProject({ createdBy: ME, workspaceId: W, title: '  Launch ', description: 'Ship it' })
-  expect(project.id).toMatch(/^[0-9a-z]{12}$/)
+  expect(project.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(project).toMatchObject({ title: 'Launch', description: 'Ship it', status: 'active', members: [ME], resources: [] })
   expect(project.createdAt).toBe(project.updatedAt)
   expect(projects.getProject(W, project.id)).toEqual(project)

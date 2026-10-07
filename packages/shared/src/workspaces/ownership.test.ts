@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test'
 import { openDb } from '../db/index.ts'
 import { pushSchema } from '../db/push.ts'
-import { createId } from '../id.ts'
 import { updateWorkspaceMirror } from './members.ts'
 import { getWorkspaceOwnerIds, isWorkspaceOwner } from './ownership.ts'
 import { workspacesMembers } from './schema.ts'
@@ -15,7 +14,7 @@ async function setup() {
   updateWorkspaceMirror([{ id: WS, title: 'Main' }, { id: OTHER, title: 'Side' }], db)
   // The second owner is added first in the table but joined later.
   const add = (workspaceId: string, userId: string, role: string, joined: number) =>
-    db.insert(workspacesMembers).values({ id: createId(), workspaceId, userId, role, createdAt: new Date(joined) }).run()
+    db.insert(workspacesMembers).values({ id: crypto.randomUUID(), workspaceId, userId, role, createdAt: new Date(joined) }).run()
   add(WS, 'owner0000002', 'owner', 2000)
   add(WS, 'member000001', 'member', 1000)
   add(WS, 'owner0000001', 'owner', 1000)

@@ -7,7 +7,7 @@
 export const userActor = (userId: string) => `user:${userId}`
 
 export const isActor = (value: unknown): value is string =>
-  typeof value === 'string' && /^(user:[a-z0-9]{12}|agent:[A-Za-z0-9._-]{1,64})$/.test(value)
+  typeof value === 'string' && /^(user:(?:[a-z0-9]{12}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})|agent:[A-Za-z0-9._-]{1,64})$/.test(value)
 
 /** The user id inside a 'user:<id>' actor, null for any other actor (or none). */
 export const userIdOf = (actor: string | null | undefined): string | null => (actor?.startsWith('user:') ? actor.slice('user:'.length) : null)

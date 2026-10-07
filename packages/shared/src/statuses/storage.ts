@@ -12,7 +12,6 @@
 
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { initDb, type Db, type Tx } from '../db/index.ts';
-import { createId } from '../id.ts';
 import type { EntityColor } from '../colors/types.ts';
 import { DEFAULT_ICON_SVGS } from './default-icons.ts';
 import { statuses } from './schema.ts';
@@ -109,7 +108,7 @@ export function insertStatuses(db: Db | Tx, workspaceId: string, list: StatusCon
     inserted += db
       .insert(statuses)
       .values({
-        id: createId(),
+        id: crypto.randomUUID(),
         workspaceId,
         slug: status.id,
         title: status.label,

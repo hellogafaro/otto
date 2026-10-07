@@ -10,7 +10,6 @@
 
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { initDb, type Db, type Tx } from '../db/index.ts';
-import { createId } from '../id.ts';
 import type { EntityColor } from '../colors/types.ts';
 import { labels } from './schema.ts';
 import type { AutoLabelRule, LabelConfig, WorkspaceLabelConfig } from './types.ts';
@@ -93,7 +92,7 @@ export function insertLabelTree(db: Db | Tx, workspaceId: string, nodes: LabelCo
   let inserted = 0;
   let skipped = 0;
   nodes.forEach((node, position) => {
-    const id = createId();
+    const id = crypto.randomUUID();
     const row = {
       id,
       workspaceId,

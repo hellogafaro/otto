@@ -21,7 +21,7 @@ import type { WorkspaceLabelConfig } from './types.ts'
  *                                           above 16 KB, or a web address with no file, is dropped and reported)
  *   <ws>/permissions.json                -> the `permissions` setting of `workspace:<id>`
  *
- * A workspace without a labels or statuses file gets the defaults. Ids are new `createId()` ids with the old id as
+ * A workspace without a labels or statuses file gets the defaults. Ids are new `crypto.randomUUID()` ids with the old id as
  * `slug`, so the `'slug::value'` strings of chat headers, routines, agents and automations keep resolving. The
  * old files are only read, never changed or deleted. An unreadable file is skipped and reported, never fatal.
  * The old `isDefault` flag (cannot be deleted) is not the new one (the status new chats get = `defaultStatusId`).

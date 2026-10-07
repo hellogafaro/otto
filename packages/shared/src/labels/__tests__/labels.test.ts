@@ -25,13 +25,13 @@ const code = (run: () => unknown) => {
 };
 
 describe('labels: slugs, nesting, order', () => {
-  it('gives each label a createId() row id and the slug of its name, unique per workspace', async () => {
+  it('gives each label a crypto.randomUUID() row id and the slug of its name, unique per workspace', async () => {
     const db = await setup();
     const bug = createLabel(WS, { name: 'Bug', color: 'foreground/50' }, db);
     const again = createLabel(WS, { name: 'Bug' }, db);
     expect([bug.id, again.id]).toEqual(['bug', 'bug-2']);
     expect(createLabel(OTHER, { name: 'Bug' }, db).id).toBe('bug'); // another workspace has its own
-    for (const row of db.select().from(labels).all()) expect(row.id).toMatch(/^[a-z0-9]{12}$/);
+    for (const row of db.select().from(labels).all()) expect(row.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     // the database refuses a second row with the same slug in a workspace, whatever the code does
     const row = db.select().from(labels).all()[0]!;
     expect(() => db.insert(labels).values({ ...row, id: 'zzzzzzzzzzzz' }).run()).toThrow();

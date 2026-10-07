@@ -2,7 +2,6 @@ import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import { isActor } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { likeContains, likeRank } from '../db/like.ts'
-import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
 import { MAX_DESCRIPTION, MAX_MEMBERS, MAX_TITLE } from './limits.ts'
 import { parseResources } from './resources.ts'
@@ -109,7 +108,7 @@ export function createProjectsStore(db: Db) {
       return db.transaction((tx) => {
         const row = tx
           .insert(projects)
-          .values({ id: createId(), workspaceId: input.workspaceId, title, description, status: 'active', members: [createdBy], resources, createdAt: now, updatedAt: now })
+          .values({ id: crypto.randomUUID(), workspaceId: input.workspaceId, title, description, status: 'active', members: [createdBy], resources, createdAt: now, updatedAt: now })
           .returning()
           .get()
         return toProject(row)

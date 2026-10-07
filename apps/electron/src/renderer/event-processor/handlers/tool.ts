@@ -12,7 +12,6 @@ import {
   findToolMessage,
   updateMessageAt,
   appendMessage,
-  generateMessageId
 } from '../helpers'
 
 /**
@@ -45,7 +44,7 @@ export function handleToolStart(
 
   // Create new tool message
   const toolMessage: Message = {
-    id: generateMessageId(),
+    id: crypto.randomUUID(),
     role: 'tool',
     content: '',
     timestamp: event.timestamp ?? Date.now(),
@@ -142,7 +141,7 @@ export function handleToolResult(
   const effectiveIsError = isPersistedOutput ? false : inferredError
 
   const toolMessage: Message = {
-    id: generateMessageId(),
+    id: crypto.randomUUID(),
     role: 'tool',
     content: '',
     timestamp: event.timestamp ?? Date.now(),

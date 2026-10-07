@@ -47,10 +47,10 @@ export interface MentionMatch {
 export const isEntityMention = (type: MentionItemType): type is 'user' | 'agent' | 'task' | 'project' => type === 'user' || type === 'agent' || type === 'task' || type === 'project'
 
 /** The entity tokens the `@` menu produces (a library item or a comment is not mentioned from the composer). */
-const ENTITY_MENTION = /\b(?:user|agent|task|project):[a-z0-9]{12}\b/g
+const ENTITY_MENTION = /\b(?:user|agent|task|project):(?:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[a-z0-9]{12})\b/g
 
 /** The text opens with an entity token: its first letter is not a sentence's to capitalise. */
-export const startsWithEntityMention = (text: string): boolean => /^(?:user|agent|task|project):[a-z0-9]{12}\b/.test(text)
+export const startsWithEntityMention = (text: string): boolean => /^(?:user|agent|task|project):(?:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[a-z0-9]{12})\b/.test(text)
 
 /**
  * Find all mention matches in text with their positions

@@ -430,18 +430,6 @@ export async function clearAllConfig(): Promise<void> {
 // ============================================
 
 /**
- * Generate a unique workspace ID.
- * Uses a random UUID-like format.
- */
-export function generateWorkspaceId(): string {
-  // Generate random bytes and format as UUID-like string (8-4-4-4-12)
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
-
-/**
  * Find workspace icon file at workspace_root/icon.*
  * Returns absolute path to icon file if found, null otherwise
  */
@@ -587,7 +575,7 @@ export function addWorkspace(workspace: Omit<Workspace, 'id' | 'createdAt' | 'sl
   const newWorkspace: Workspace = {
     ...workspace,
     slug,
-    id: generateWorkspaceId(),
+    id: crypto.randomUUID(),
     createdAt: Date.now(),
   };
 
@@ -624,7 +612,7 @@ export function syncWorkspaces(): void {
     if (!wsConfig) continue;
 
     const newWorkspace: Workspace = {
-      id: wsConfig.id || generateWorkspaceId(),
+      id: wsConfig.id || crypto.randomUUID(),
       name: wsConfig.name,
       slug: extractWorkspaceSlugFromPath(rootPath, ''),
       rootPath,

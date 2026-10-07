@@ -1,6 +1,5 @@
 import { and, desc, eq, gt, ne, notInArray, sql } from 'drizzle-orm'
 import { initDb, type Db, type Tx } from '../db/index.ts'
-import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
 import type { WorkspaceRole } from './types.ts'
 import { workspaces, workspacesInvitations, workspacesMembers } from './schema.ts'
@@ -42,7 +41,7 @@ export function initWorkspaceOwner(userId: string, db: Db | Tx = initDb()): void
   const now = new Date()
   for (const { id } of db.select({ id: workspaces.id }).from(workspaces).all()) {
     db.insert(workspacesMembers)
-      .values({ id: createId(), workspaceId: id, userId, role: 'owner', createdAt: now })
+      .values({ id: crypto.randomUUID(), workspaceId: id, userId, role: 'owner', createdAt: now })
       .onConflictDoNothing()
       .run()
   }
@@ -92,7 +91,7 @@ export function getWorkspaceMembers(workspaceId: string, db: Db | Tx = initDb())
 
 /** Adds a member (the creator of a new workspace is its owner). Does nothing when they are already in. */
 export function createWorkspaceMember(workspaceId: string, userId: string, role: WorkspaceRole, db: Db | Tx = initDb()): void {
-  db.insert(workspacesMembers).values({ id: createId(), workspaceId, userId, role, createdAt: new Date() }).onConflictDoNothing().run()
+  db.insert(workspacesMembers).values({ id: crypto.randomUUID(), workspaceId, userId, role, createdAt: new Date() }).onConflictDoNothing().run()
 }
 
 /** Pending invitations that have not expired, oldest first. */
@@ -113,7 +112,7 @@ export function createWorkspaceInvitation(input: { workspaceId: string; email: s
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : ''
   if (!/^[^@\s]+@[^@\s]+$/.test(email)) throw domainError('invalid', 'A valid email is required')
   const now = new Date()
-  const row = { id: createId(), workspaceId: input.workspaceId, email, role: 'member', status: 'pending', inviterId: input.inviterId, expiresAt: new Date(now.getTime() + INVITATION_EXPIRES_MS), createdAt: now }
+  const row = { id: crypto.randomUUID(), workspaceId: input.workspaceId, email, role: 'member', status: 'pending', inviterId: input.inviterId, expiresAt: new Date(now.getTime() + INVITATION_EXPIRES_MS), createdAt: now }
   db.transaction((tx) => {
     tx.update(workspacesInvitations)
       .set({ status: 'canceled' })

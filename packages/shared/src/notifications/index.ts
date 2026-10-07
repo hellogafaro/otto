@@ -1,7 +1,6 @@
 import { and, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { isActor } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
-import { createId } from '../id.ts'
 import { isEntity } from '../entities.ts'
 import { domainError } from '../utils/errors.ts'
 import { notifications } from './schema.ts'
@@ -50,7 +49,7 @@ export function createNotification(
   const now = new Date()
   db.insert(notifications)
     .values({
-      id: createId(),
+      id: crypto.randomUUID(),
       userId: input.userId,
       workspaceId: input.workspaceId,
       entity: input.entity,

@@ -7,14 +7,6 @@
 
 import type { Message, Session } from '../../shared/types'
 
-let messageIdCounter = 0
-
-/**
- * Generate a unique message ID
- */
-export function generateMessageId(): string {
-  return `msg-${Date.now()}-${++messageIdCounter}`
-}
 
 /**
  * Find message index by turnId

@@ -6,7 +6,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createId } from '@otto/shared/id'
 import type { FileAttachment } from '../../../shared/types'
 
 export interface ComposerFile {
@@ -92,7 +91,7 @@ export function useComposerFiles() {
       const name = unnamed ? pastedName('image', file.type.split('/')[1] || 'png', names) : file.name
       names.push(name)
       return {
-        id: createId(),
+        id: crypto.randomUUID(),
         name,
         type: file.type,
         size: file.size,
@@ -111,7 +110,7 @@ export function useComposerFiles() {
     const name = pastedName('text', 'txt', itemsRef.current.map((item) => item.name))
     const size = new Blob([text]).size
     const attachment: FileAttachment = { type: 'text', path: name, name, mimeType: 'text/plain', text, size }
-    setItems((current) => [...current, { id: createId(), name, type: 'text/plain', size, state: 'done', attachment }])
+    setItems((current) => [...current, { id: crypto.randomUUID(), name, type: 'text/plain', size, state: 'done', attachment }])
   }, [])
 
   const remove = useCallback((id: string) => {
