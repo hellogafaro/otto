@@ -1,7 +1,8 @@
 /**
  * What needs you, for the composer's Inbox button and list (docs/composer.md W5), from the data that already
  * exists: the workspace's chats waiting on you (a pending permission or credential request), then its chats with
- * news (`hasUnread`: a run finished while you were away), then your unread notifications (the Inbox page's rows:
+ * news (`hasUnread`, per viewer: an agent's reply or someone else's message since you last read it, so a DM or a
+ * group counts too), then your unread notifications (the Inbox page's rows:
  * mentions, assignments). `count` is all of them; the button and the list show only while it is above 0.
  */
 

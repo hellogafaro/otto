@@ -256,7 +256,7 @@ export function createClaudeContext(options: ClaudeContextOptions): SessionToolC
     validateStdioMcpConnection,
     validateMcpConnection,
 
-    // Icon helpers (simplified - full implementation would use logo.ts)
+    // Icon helpers
     isIconUrl: (value: string): boolean => {
       try {
         const url = new URL(value);
@@ -264,26 +264,6 @@ export function createClaudeContext(options: ClaudeContextOptions): SessionToolC
       } catch {
         return false;
       }
-    },
-
-    deriveServiceUrl: (source: SourceConfig): string | null => {
-      if (source.type === 'api' && source.api?.baseUrl) {
-        try {
-          const url = new URL(source.api.baseUrl);
-          return `${url.protocol}//${url.hostname}`;
-        } catch {
-          return null;
-        }
-      }
-      if (source.type === 'mcp' && source.mcp?.url) {
-        try {
-          const url = new URL(source.mcp.url);
-          return `${url.protocol}//${url.hostname}`;
-        } catch {
-          return null;
-        }
-      }
-      return null;
     },
 
     // Session self-management bindings are attached externally via

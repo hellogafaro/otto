@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { AGENT_DEFAULT_NAME } from '@otto/shared/branding'
+import type { Agent } from '../../../shared/types'
 import { buildWorkspaceMembers } from '../use-workspace-members'
+
+const agent = (id: string, title: string) => ({ id, title }) as Agent
 
 describe('buildWorkspaceMembers', () => {
   it('lists the signed-in person and the default agent', () => {
@@ -47,5 +50,14 @@ describe('buildWorkspaceMembers', () => {
     const { nameOf } = buildWorkspaceMembers(null)
     expect(nameOf('agent:other')).toBe(AGENT_DEFAULT_NAME)
     expect(nameOf('user:gone')).toBe('gone')
+  })
+
+  it('names each agent by its own title, the legacy agent:default and an unknown agent by the default name', () => {
+    const { members, nameOf } = buildWorkspaceMembers(null, [], [agent('aaaaaaaaaaaa', 'Researcher'), agent('bbbbbbbbbbbb', 'Writer')])
+    expect(members.map((member) => member.actor)).toEqual(['agent:aaaaaaaaaaaa', 'agent:bbbbbbbbbbbb'])
+    expect(nameOf('agent:aaaaaaaaaaaa')).toBe('Researcher')
+    expect(nameOf('agent:bbbbbbbbbbbb')).toBe('Writer')
+    expect(nameOf('agent:default')).toBe(AGENT_DEFAULT_NAME)
+    expect(nameOf('agent:gone')).toBe(AGENT_DEFAULT_NAME)
   })
 })

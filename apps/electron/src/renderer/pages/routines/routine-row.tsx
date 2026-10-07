@@ -1,21 +1,14 @@
 /**
  * One routine in the grouped list: a 44px `ListRow` that opens it (its state icon, its name, what starts it in muted
- * text, its kinds of action as outline badges, when it last ran) and its ⋯ menu. `RoutineMenuItems` is the same list
- * for the routine page's More actions; `useRoutineActions` runs them with their toasts and the delete dialog.
+ * text, its kinds of action as outline badges, when it last ran) and its right-click menu (a long press on touch).
+ * `RoutineMenuItems` is the same list for the routine page's More actions (Base UI's menu items work in both menus); `useRoutineActions` runs them with their toasts and the delete dialog.
  */
 
 import { useTranslation } from 'react-i18next'
-import { Bot, CircleAlert, CirclePause, CirclePlay, Clock, Loader, MessageSquare, MoreHorizontal, Pause, Play, SquareArrowOutUpRight, SquareTerminal, Trash2, Webhook, Zap, type LucideIcon } from 'lucide-react'
+import { Bot, CircleAlert, CirclePause, CirclePlay, Clock, Loader, MessageSquare, Pause, Play, SquareArrowOutUpRight, SquareTerminal, Trash2, Webhook, Zap, type LucideIcon } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
-import { Button } from '@workspace/ui/components/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@workspace/ui/components/dropdown-menu'
+import { ContextMenuContent, ContextMenuGroup, ContextMenuItem } from '@workspace/ui/components/context-menu'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
 import { ListRow } from '@workspace/ui/components/list-group'
 import { toast } from '@workspace/ui/components/sonner'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
@@ -77,7 +70,7 @@ export function useRoutineActions(api: RoutinesApi, { onDeleted }: { onDeleted?:
 
 export type RoutineActions = ReturnType<typeof useRoutineActions>
 
-/** Run now, Pause / Resume, then Delete apart: the row's ⋯ (after Open) and the page's More actions. */
+/** Run now, Pause / Resume, then Delete apart: the row's right-click menu (after Open) and the page's More actions. */
 export function RoutineMenuItems({ routine, actions }: { routine: Routine; actions: RoutineActions }) {
   const { t } = useTranslation()
   return (
@@ -121,21 +114,16 @@ export function RoutineRow({ routine, actions, onOpen }: { routine: Routine; act
       })}
       end={ran ? shortTimeAgo(ran.startedAt) : t('common.never')}
       onClick={() => onOpen(routine)}
-      actions={(
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('common.moreActions')} />}>
-            <MoreHorizontal />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => onOpen(routine)}>
-                <SquareArrowOutUpRight />
-                {t('common.open')}
-              </DropdownMenuItem>
-              <RoutineMenuItems routine={routine} actions={actions} />
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      menu={(
+        <ContextMenuContent className="w-48">
+          <ContextMenuGroup>
+            <ContextMenuItem onClick={() => onOpen(routine)}>
+              <SquareArrowOutUpRight />
+              {t('common.open')}
+            </ContextMenuItem>
+            <RoutineMenuItems routine={routine} actions={actions} />
+          </ContextMenuGroup>
+        </ContextMenuContent>
       )}
     />
   )

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { actorColorIndex, collapseGroup, initialsOf, isAgentActor, otherParticipants } from '../actors'
+import { actorColorIndex, collapseGroup, initialsOf, isAgentActor, isPeopleChat, otherMembers, startsAgentRun } from '../actors'
 
 describe('actors', () => {
   it('tells agents from people', () => {
@@ -27,15 +27,28 @@ describe('actors', () => {
     expect(initialsOf('   ')).toBe('')
   })
 
-  it('never lists the viewer among a chat\'s people', () => {
-    expect(otherParticipants(['user:a', 'user:b'], 'user:a')).toEqual(['user:b'])
-    expect(otherParticipants(['user:a', 'user:b'], 'user:b')).toEqual(['user:a'])
-    // alone: nobody else, so the chat shows just its agent
-    expect(otherParticipants(['user:a'], 'user:a')).toEqual([])
-    expect(otherParticipants(undefined, 'user:a')).toEqual([])
+  it('never lists the viewer among a chat\'s members, agents first', () => {
+    expect(otherMembers(['user:a', 'user:b'], 'user:a')).toEqual(['user:b'])
+    expect(otherMembers(['user:a', 'user:b'], 'user:b')).toEqual(['user:a'])
+    expect(otherMembers(['user:a', 'agent:x', 'user:b'], 'user:a')).toEqual(['agent:x', 'user:b'])
+    // alone with the agent: just the agent
+    expect(otherMembers(['user:a', 'agent:x'], 'user:a')).toEqual(['agent:x'])
+    expect(otherMembers(undefined, 'user:a')).toEqual([])
     // a repeat shows once; while the viewer is unknown nobody shows (never themselves, even briefly)
-    expect(otherParticipants(['user:b', 'user:c', 'user:b'], 'user:a')).toEqual(['user:b', 'user:c'])
-    expect(otherParticipants(['user:a', 'user:b'], null)).toEqual([])
+    expect(otherMembers(['user:b', 'user:c', 'user:b'], 'user:a')).toEqual(['user:b', 'user:c'])
+    expect(otherMembers(['user:a', 'user:b'], null)).toEqual([])
+  })
+
+  it('tells a people chat and when a send runs an agent', () => {
+    expect(isPeopleChat({ members: ['user:a', 'user:b'] })).toBe(true)
+    expect(isPeopleChat({ agentId: 'x', members: ['user:a', 'agent:x'] })).toBe(false)
+    expect(isPeopleChat({ members: ['user:a', 'user:b', 'agent:x'] })).toBe(false)
+    // one person with the primary agent: every message
+    expect(startsAgentRun({ agentId: 'x', members: ['user:a', 'agent:x'] }, 'hi')).toBe(true)
+    // several people, or none of the agents: only a mention
+    expect(startsAgentRun({ agentId: 'x', members: ['user:a', 'user:b', 'agent:x'] }, 'hi')).toBe(false)
+    expect(startsAgentRun({ agentId: 'x', members: ['user:a', 'user:b', 'agent:x'] }, 'agent:x hi')).toBe(true)
+    expect(startsAgentRun({ members: ['user:a', 'user:b'] }, 'hi')).toBe(false)
   })
 
   it('collapses a group past its maximum into "+N"', () => {

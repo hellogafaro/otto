@@ -1,28 +1,28 @@
 /**
  * One task in the grouped list: a 44px `ListRow` that opens it (status icon, title, the assignees' avatars,
- * the project as an outline badge, the due date) and its ⋯ menu: Open, Status, Copy link, Archive / Restore.
- * `TaskMenuItems` is the same list for the task page's More actions.
+ * the project as an outline badge, the due date) and its right-click menu (a long press on touch): Open, Status, Copy link, Archive / Restore.
+ * `TaskMenuItems` is the same list for the task page's More actions (Base UI's menu items work in both menus).
  */
 
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
-import { Archive, ArchiveRestore, Box, CircleDashed, Link, MoreHorizontal, SquareArrowOutUpRight } from 'lucide-react'
+import { Archive, ArchiveRestore, Box, CircleDashed, Link, SquareArrowOutUpRight } from 'lucide-react'
 import { AvatarGroup } from '@workspace/ui/components/avatar'
 import { Badge } from '@workspace/ui/components/badge'
-import { Button } from '@workspace/ui/components/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+} from '@workspace/ui/components/context-menu'
+import {
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
 } from '@workspace/ui/components/dropdown-menu'
 import { ListRow } from '@workspace/ui/components/list-group'
 import { toast } from '@workspace/ui/components/sonner'
@@ -135,33 +135,28 @@ export function TaskRow({
       )}
       end={task.dueAt ? format(task.dueAt, 'MMM d', { locale: getDateLocale(i18n.language) }) : undefined}
       onClick={() => onOpen(task)}
-      actions={(
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('common.moreActions')} />}>
-            <MoreHorizontal />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => onOpen(task)}>
-                <SquareArrowOutUpRight />
-                {t('tasks.open')}
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <CircleDashed />
-                  {t('tasks.status')}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-48">
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>{t('tasks.changeStatus')}</DropdownMenuLabel>
-                    <TaskStatusItems status={task.status} onStatus={(status) => onAction(task, { status })} />
-                  </DropdownMenuGroup>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <TaskMenuItems task={task} onAction={onAction} />
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      menu={(
+        <ContextMenuContent className="w-48">
+          <ContextMenuGroup>
+            <ContextMenuItem onClick={() => onOpen(task)}>
+              <SquareArrowOutUpRight />
+              {t('tasks.open')}
+            </ContextMenuItem>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <CircleDashed />
+                {t('tasks.status')}
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="w-48">
+                <ContextMenuGroup>
+                  <ContextMenuLabel>{t('tasks.changeStatus')}</ContextMenuLabel>
+                  <TaskStatusItems status={task.status} onStatus={(status) => onAction(task, { status })} />
+                </ContextMenuGroup>
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+            <TaskMenuItems task={task} onAction={onAction} />
+          </ContextMenuGroup>
+        </ContextMenuContent>
       )}
     />
   )

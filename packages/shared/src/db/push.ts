@@ -17,7 +17,7 @@ import * as statuses from '../statuses/schema.ts'
 import * as tasks from '../tasks/schema.ts'
 import * as users from '../users/schema.ts'
 import * as workspaces from '../workspaces/schema.ts'
-import type { Db } from './index.ts'
+import type { Db, Tx } from './index.ts'
 
 /**
  * Every domain's `schema.ts`, imported by name so a bundle (the desktop's server) carries them; a test fails when a
@@ -48,6 +48,23 @@ function hideHandMadeTables(db: Db): Db {
   })
 }
 
+/** drizzle-kit's copy of a table it rebuilds: INSERT INTO `__new_<t>`(<cols>) SELECT <cols> FROM `<t>`. */
+const REBUILD_COPY = /^INSERT INTO `__new_([^`]+)`\(([^)]*)\) SELECT .* FROM `([^`]+)`;?\s*$/s
+
+/**
+ * When drizzle-kit rebuilds a table (a change ADD COLUMN cannot make) that also gains a column, it copies the new
+ * column from the old table too, as `"col"`: SQLite reads a quoted name it cannot find as a string, so every existing
+ * row got the column's name as its value instead of its default. Copy only the columns the old table has.
+ */
+function copyExistingColumns(tx: Tx, statement: string): string {
+  const match = REBUILD_COPY.exec(statement)
+  if (!match) return statement
+  const [, table, into, from] = match
+  const existing = new Set((tx.all(sql.raw(`PRAGMA table_info(\`${from}\`)`)) as { name: string }[]).map((column) => column.name))
+  const columns = into!.split(',').map((column) => column.trim()).filter((column) => existing.has(column.replace(/^"|"$/g, '')))
+  return `INSERT INTO \`__new_${table}\`(${columns.join(', ')}) SELECT ${columns.join(', ')} FROM \`${from}\`;`
+}
+
 /**
  * Apply every domain's `schema.ts` (`SCHEMAS`) to the database. This is the whole "migration" story until the MVP is stable:
  * Drizzle diffs the schemas against the database and runs the difference.
@@ -65,7 +82,7 @@ export async function pushSchema(db: Db, { force = false } = {}): Promise<string
   // all in one transaction (its own `apply()` runs them one by one: a failure left a half-changed database).
   const statements = [...new Set(statementsToExecute)]
   db.transaction((tx) => {
-    for (const statement of statements) tx.all(sql.raw(statement))
+    for (const statement of statements) tx.all(sql.raw(copyExistingColumns(tx, statement)))
   })
   return statements
 }

@@ -7,16 +7,8 @@
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@workspace/ui/components/button'
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxSearch,
-  ComboboxTrigger,
-} from '@workspace/ui/components/combobox'
 import { PageCard, PageSection } from '@workspace/ui/components/page'
+import { Picker } from '@workspace/ui/components/picker'
 import { toast } from '@workspace/ui/components/sonner'
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { CreateButton } from '@/components/ui/create-button'
@@ -30,21 +22,17 @@ function AddMember({ members, onAdd }: { members: string[]; onAdd: (actor: strin
   const { members: people, nameOf } = useWorkspaceMembers()
   const candidates = getMemberCandidates(people, members).map((person) => person.actor)
   return (
-    <Combobox items={candidates} value={null} itemToStringLabel={nameOf} onValueChange={(actor) => actor && onAdd(actor as string)}>
-      <ComboboxTrigger render={<CreateButton label={t('projects.addMember')} />} />
-      <ComboboxContent align="end" className="w-60">
-        <ComboboxSearch placeholder={t('projects.search')} />
-        <ComboboxEmpty>{t(candidates.length > 0 ? 'projects.noMatches' : 'projects.everyoneAdded')}</ComboboxEmpty>
-        <ComboboxList>
-          {(actor: string) => (
-            <ComboboxItem key={actor} value={actor}>
-              <ActorAvatar actor={actor} name={nameOf(actor)} />
-              <span className="truncate">{nameOf(actor)}</span>
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
+    <Picker
+      items={candidates}
+      value={null}
+      onValueChange={onAdd}
+      itemLabel={nameOf}
+      itemIcon={(actor) => <ActorAvatar actor={actor} name={nameOf(actor)} />}
+      trigger={<CreateButton label={t('projects.addMember')} />}
+      search={t('pickers.searchPeople')}
+      empty={t(candidates.length > 0 ? 'pickers.noPeople' : 'projects.everyoneAdded')}
+      align="end"
+    />
   )
 }
 

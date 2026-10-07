@@ -13,7 +13,7 @@ export type EntityType = 'user' | 'task' | 'project' | 'library' | 'agent' | 'co
 
 /** The loaded lists a title is read from; a list is null until it has loaded. */
 export interface EntityLists {
-  members: { actor: string; name: string; email?: string }[] | null
+  members: { actor: string; name: string; email?: string; me?: true }[] | null
   tasks: { id: string; title: string }[] | null
   projects: { id: string; title: string }[] | null
   library: Pick<LibraryItem, 'id' | 'type' | 'title'>[] | null

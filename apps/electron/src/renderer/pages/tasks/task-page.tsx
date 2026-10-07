@@ -1,9 +1,11 @@
 /**
- * TaskPage - one task: its title in the title row and its description in the centerpiece, both edited in place
- * and saved by `useAutosave` (no Save button: 800 ms after the last change, on blur and on leaving, one "Saved"
- * toast; `conflict` reloads), then "Created by". The floating Details toggle opens the sidecar (closed by default):
- * Properties (Status with S, Assignees, Due date, Project), Links and Time; More holds Copy link and Archive.
- * A task id that is not in the workspace shows the not-found page once the list and the server agree.
+ * TaskPage - one task (Otto v1's task page): its title in the title row and its description in the centerpiece,
+ * both edited in place and saved by `useAutosave` (no Save button: 800 ms after the last change, on blur and on
+ * leaving, one "Saved" toast; `conflict` reloads), then the Activity (events and comments in one feed, the comment
+ * box at its end). The floating Details toggle opens the sidecar (closed by default): Properties (Status S,
+ * Assignees, Due date D in the calendar popover, Project P in the searchable picker), Links ("+" prefills the
+ * composer: an agent adds the link) and Time; More holds Copy link and Archive. A task id that is not in the
+ * workspace shows the not-found page once the list and the server agree.
  */
 
 import * as React from 'react'
@@ -17,10 +19,9 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@workspace/ui/components/dropdown-menu'
+import { DatePicker } from '@workspace/ui/components/date-picker'
 import { PageCenterpiece, PageColumn } from '@workspace/ui/components/page'
 import { PageScroll } from '@workspace/ui/components/page-frame'
 import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
@@ -28,9 +29,10 @@ import { TiptapMarkdownEditor } from '@otto/ui'
 import { getDateLocale } from '@otto/shared/i18n'
 import { useAction } from '@/actions'
 import { PageHeader } from '@/components/app-shell/page-header'
-import { CommentThread } from '@/components/comments/comment-thread'
+import { ActivityFeed } from '@/components/comments/activity-feed'
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { AssigneePicker } from '@/components/people/assignee-picker'
+import { ProjectPicker } from '@/components/projects/project-picker'
 import { NewLink, ResourceList } from '@/components/resources/resource-list'
 import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import { SidecarDetails, useSidecar } from '@/context/sidecar-context'
@@ -40,7 +42,6 @@ import { useProjects } from '@/hooks/use-projects'
 import { useTasks } from '@/hooks/use-tasks'
 import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import type { Task } from '../../../shared/types'
-import { dateInputValue, parseDateInput } from './task-form-dialog'
 import { statusLabelKey, TaskMenuItems, TaskStatusItems } from './task-row'
 import { TaskTimeSection } from './task-time-section'
 import { useTaskSave } from './use-task-save'
@@ -61,16 +62,18 @@ function TaskProperties({ task, tasksApi }: { task: Task; tasksApi: ReturnType<t
   const latest = React.useRef(task)
   latest.current = task
   const [statusOpen, setStatusOpen] = React.useState(false)
-  const dateRef = React.useRef<HTMLInputElement>(null)
+  const [dueOpen, setDueOpen] = React.useState(false)
+  const [projectOpen, setProjectOpen] = React.useState(false)
 
   const onConflict = () => void tasksApi.refresh()
   const assignees = useAutosave(task.assignees, (value) => saveTask(latest.current, { assignees: value }), { onConflict })
   const due = useAutosave(task.dueAt, (value) => saveTask(latest.current, { dueAt: value }), { onConflict })
 
-  // S opens the status menu while the Details are open (the row shows the key).
+  // S, D and P open the status menu, the calendar and the project picker while the Details are open (the rows show the keys).
   useAction('task.changeStatus', () => setStatusOpen(true), { enabled: () => sidecarOpen })
+  useAction('task.changeDueDate', () => setDueOpen(true), { enabled: () => sidecarOpen })
+  useAction('task.changeProject', () => setProjectOpen(true), { enabled: () => sidecarOpen })
 
-  const choosable = projects.filter((p) => p.status === 'active' || p.id === task.projectId)
   const project = projects.find((p) => p.id === task.projectId)
   const locale = getDateLocale(i18n.language)
 
@@ -107,48 +110,41 @@ function TaskProperties({ task, tasksApi }: { task: Task; tasksApi: ReturnType<t
             />
           )}
         />
-        <div className="relative">
-          <PropertyRow
-            icon={<CalendarDays />}
-            label={t('tasks.dueDate')}
-            value={due.value === null ? undefined : format(due.value, 'MMM d, yyyy', { locale })}
-            placeholder={t('tasks.noDueDate')}
-            onClick={() => dateRef.current?.showPicker()}
-            actions={due.value !== null && (
-              <Button variant="ghost" size="icon-xs" aria-label={t('tasks.clearDueDate')} onClick={() => due.change(null)}>
-                <X />
-              </Button>
-            )}
-          />
-          {/* The native picker, opened by the row; invisible, under the row's label so the picker opens there. */}
-          <input
-            ref={dateRef}
-            type="date"
-            tabIndex={-1}
-            aria-hidden
-            value={dateInputValue(due.value)}
-            onChange={(event) => due.change(parseDateInput(event.target.value))}
-            className="pointer-events-none absolute bottom-0 left-8 size-px opacity-0"
-          />
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<PropertyRow icon={<Box />} label={t('tasks.project')} value={project?.title} />} />
-          <DropdownMenuContent align="start" className="w-60">
-            <DropdownMenuRadioGroup value={task.projectId} onValueChange={(projectId) => void runTaskAction(task, { projectId: projectId as string })}>
-              {choosable.map((p) => (
-                <DropdownMenuRadioItem key={p.id} value={p.id} closeOnClick>
-                  <Box />
-                  <span className="truncate">{p.title}</span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <DatePicker
+          open={dueOpen}
+          onOpenChange={setDueOpen}
+          value={due.value === null ? null : new Date(due.value)}
+          onValueChange={(date) => due.change(date ? date.getTime() : null)}
+          clearLabel={t('tasks.clearDate')}
+          todayLabel={t('tasks.today')}
+          locale={locale}
+          trigger={(
+            <PropertyRow
+              icon={<CalendarDays />}
+              label={t('tasks.dueDate')}
+              value={due.value === null ? undefined : format(due.value, 'MMM d, yyyy', { locale })}
+              placeholder={t('tasks.noDueDate')}
+              kbd="D"
+              actions={due.value !== null && (
+                <Button variant="ghost" size="icon-xs" aria-label={t('tasks.clearDueDate')} onClick={() => due.change(null)}>
+                  <X />
+                </Button>
+              )}
+            />
+          )}
+        />
+        <ProjectPicker
+          open={projectOpen}
+          onOpenChange={setProjectOpen}
+          value={task.projectId}
+          onValueChange={(projectId) => { if (projectId !== task.projectId) void runTaskAction(task, { projectId }) }}
+          trigger={<PropertyRow icon={<Box />} label={t('tasks.project')} value={project?.title} kbd="P" />}
+        />
       </PropertySection>
       <PropertySection
         title={t('resources.title')}
         count={task.resources.length}
-        action={<NewLink size="icon-xs" resources={task.resources} onChange={(resources) => void runTaskAction(task, { resources })} />}
+        action={<NewLink size="icon-xs" entity={`task:${task.id}`} resources={task.resources} />}
       >
         <ResourceList resources={task.resources} onChange={(resources) => void runTaskAction(task, { resources })} />
       </PropertySection>
@@ -219,7 +215,7 @@ function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof 
             onUpdate={(markdown) => update({ description: markdown })}
             placeholder={t('tasks.descriptionPlaceholder')}
           />
-          <CommentThread entity={`task:${task.id}`} className="mt-5" />
+          <ActivityFeed entity={`task:${task.id}`} className="mt-5" />
         </PageScroll>
       </PageCenterpiece>
       <SidecarDetails title={t('tasks.details')}><TaskDetails taskId={task.id} /></SidecarDetails>

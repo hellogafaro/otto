@@ -146,7 +146,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
     }
     const end = perf.start('rpc.getSessions')
     const workspaceId = ctx.workspaceId
-    // Only the chats this user may see: chats are private to their creator.
+    // Only the chats this user is a member of, each with their own unread state.
     const sessions = sessionManager.getSessions(workspaceId ?? undefined, ctx.userId)
     end()
 
@@ -176,11 +176,11 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   })
 
   // A chat with a page of its messages: the newest, or the page before `beforeId` (scrolling up), with `olderMessageCount`
-  server.handle(RPC_CHANNELS.sessions.GET_MESSAGES, async (_ctx, sessionId: string, page?: { beforeId?: string; limit?: number }) => {
+  server.handle(RPC_CHANNELS.sessions.GET_MESSAGES, async (ctx, sessionId: string, page?: { beforeId?: string; limit?: number }) => {
     const end = perf.start('rpc.getSessionMessages')
     const limit = typeof page?.limit === 'number' && page.limit > 0 ? Math.min(Math.floor(page.limit), 500) : undefined
     const beforeId = typeof page?.beforeId === 'string' ? page.beforeId : undefined
-    const session = await sessionManager.getSession(sessionId, { beforeId, limit })
+    const session = await sessionManager.getSession(sessionId, { beforeId, limit }, ctx.userId)
     end()
     return session
   })
@@ -197,8 +197,8 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   })
 
   // Delete a session
-  server.handle(RPC_CHANNELS.sessions.DELETE, async (_ctx, sessionId: string) => {
-    return sessionManager.deleteSession(sessionId)
+  server.handle(RPC_CHANNELS.sessions.DELETE, async (ctx, sessionId: string) => {
+    return sessionManager.deleteSession(sessionId, ctx.userId)
   })
 
   // Send a message to a session (with optional file attachments).
@@ -283,7 +283,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
 
   // Session commands - consolidated handler for session operations
   server.handle(RPC_CHANNELS.sessions.COMMAND, async (
-    _ctx,
+    ctx,
     sessionId: string,
     command: import('@otto/shared/protocol').SessionCommand
   ) => {
@@ -301,12 +301,18 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
       case 'setSessionStatus':
         return sessionManager.setSessionStatus(sessionId, command.state)
       case 'markRead':
-        return sessionManager.markSessionRead(sessionId)
+        return sessionManager.markSessionRead(sessionId, ctx.userId)
       case 'markUnread':
-        return sessionManager.markSessionUnread(sessionId)
+        return sessionManager.markSessionUnread(sessionId, ctx.userId)
       case 'setActiveViewing':
-        // Track which session user is actively viewing (for unread state machine)
-        return sessionManager.setActiveViewingSession(sessionId, command.workspaceId)
+        // Track which session this person is viewing (their unread state)
+        return sessionManager.setActiveViewingSession(sessionId, command.workspaceId, ctx.userId)
+      case 'addMembers':
+        return sessionManager.addSessionMembers(sessionId, ctx.userId, command.actors)
+      case 'removeMember':
+        return sessionManager.removeSessionMember(sessionId, ctx.userId, command.actor)
+      case 'leave':
+        return sessionManager.leaveSession(sessionId, ctx.userId)
       case 'setPermissionMode':
         // An unknown mode would fall through to Explore's checks in shouldAllowToolInMode.
         if (!isPermissionMode(command.mode)) {
@@ -392,7 +398,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   // Session Content Search
   // ============================================================
 
-  // Full-text search over the caller's own chats in the workspace (`messages_fts`; the private rule is in the query)
+  // Full-text search over the chats the caller is a member of in the workspace (`messages_fts`; the rule is in the query)
   server.handle(RPC_CHANNELS.sessions.SEARCH_CONTENT, async (ctx, workspaceId: string, query: string, searchId?: string) => {
     const id = searchId || Date.now().toString(36)
     const workspace = getWorkspaceByNameOrId(workspaceId)

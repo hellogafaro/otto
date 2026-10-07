@@ -36,7 +36,14 @@ function ComposerPreview({ variant, text, busy, files, held, listening, inbox }:
         leading={listening
           ? <Button type="button" variant="ghost" size="icon" aria-label="Cancel dictation"><X /></Button>
           : <Button type="button" variant="ghost" size="icon" aria-label="Add files"><Plus /></Button>}
-        tools={listening ? <span className="flex-1 px-2 text-xs text-muted-foreground">(waveform) 0:07</span> : null}
+        tools={listening ? (
+          <>
+            <span data-slot="dictation" className="flex h-5 min-w-0 flex-1 items-center gap-0.5 overflow-hidden px-2">
+              {Array.from({ length: 40 }, (_, i) => <span key={i} className="h-full w-1 shrink-0 rounded-full bg-muted-foreground" style={{ transform: `scaleY(${0.2 + Math.abs(Math.sin(i / 3)) * 0.8})` }} />)}
+            </span>
+            <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">0:07</span>
+          </>
+        ) : null}
         attention={listening ? null : held ? (
           <span className="flex h-8 min-w-8 items-center justify-center"><Kbd>⌘J</Kbd></span>
         ) : !text && !files ? (
@@ -53,7 +60,7 @@ function ComposerPreview({ variant, text, busy, files, held, listening, inbox }:
         ) : null}
         main={main}
       >
-        <ComposerInput className={listening && variant === 'compact' ? 'hidden' : undefined}>
+        <ComposerInput>
           <div role="textbox" aria-label="Ask your agents about this task" className="whitespace-pre-wrap">
             {text || <span data-slot="composer-placeholder">Ask your agents about this task</span>}
           </div>

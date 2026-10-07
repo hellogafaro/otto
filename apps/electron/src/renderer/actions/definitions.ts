@@ -142,11 +142,25 @@ export const actions = {
     when: 'navigatorFocus',
   },
 
-  // A task's Details: S opens the Status menu (the page binds it while the Details are open).
+  // A task's Details: S opens the Status menu, D the due date, P the project (the page binds them while the Details are open).
   'task.changeStatus': {
     id: 'task.changeStatus',
     label: 'Change Task Status',
     defaultHotkey: 's',
+    category: 'General',
+    when: '!inputFocus && !menuOpen',
+  },
+  'task.changeDueDate': {
+    id: 'task.changeDueDate',
+    label: 'Change Task Due Date',
+    defaultHotkey: 'd',
+    category: 'General',
+    when: '!inputFocus && !menuOpen',
+  },
+  'task.changeProject': {
+    id: 'task.changeProject',
+    label: 'Change Task Project',
+    defaultHotkey: 'p',
     category: 'General',
     when: '!inputFocus && !menuOpen',
   },

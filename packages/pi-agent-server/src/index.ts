@@ -143,6 +143,8 @@ interface InitMessage {
   branchFromSdkSessionId?: string;
   branchFromSessionPath?: string;
   branchFromSdkTurnId?: string;
+  /** Another agent of the chat: its own Pi session is `.pi-sessions/<id>` (absent: the primary agent's `.pi-sessions`). */
+  piSessionAgentId?: string;
   customEndpoint?: { api: CustomEndpointApi; supportsImages?: boolean };
   customModels?: Array<string | { id: string; contextWindow?: number; supportsImages?: boolean }>;
   piAuth?: { provider: string; credential: PiCredential };
@@ -718,7 +720,7 @@ async function ensureSession(): Promise<AgentSession> {
     // persist and resume its own session across subprocess restarts.
     // continueRecent() loads the existing session if one exists, otherwise
     // creates a new one — so this handles both first-run and resume.
-    const sessionDir = join(initConfig.sessionPath, '.pi-sessions');
+    const sessionDir = initConfig.piSessionAgentId ? join(initConfig.sessionPath, '.pi-sessions', initConfig.piSessionAgentId) : join(initConfig.sessionPath, '.pi-sessions');
     mkdirSync(sessionDir, { recursive: true });
 
     if (initConfig.branchFromSessionPath) {

@@ -1,32 +1,32 @@
 /**
- * `ChatPeople`: the avatar group of a chat's participants, the agent it talks to first, then the other people who took
- * part (its `participants`, `user:<id>`). The viewer is never in it; with nobody else it is the agent's avatar alone.
- * At most three avatars, then "+N"; one tooltip names them all, like `TaskPeople`.
+ * `ChatPeople`: the avatar group of a chat's members other than the viewer, the agents first (`AgentAvatar`), then the
+ * people (`ActorAvatar`), from its `members` (`useChatMembers`). The viewer is never in it; a chat without `members`
+ * shows its primary agent alone. At most three avatars, then "+N"; one tooltip names them all, like `TaskPeople`.
  */
 
-import { Fragment } from 'react'
 import { AvatarGroup, AvatarGroupCount } from '@workspace/ui/components/avatar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
-import { collapseGroup, otherParticipants } from '@/lib/actors'
-import { agentOf, useLoadedAgents } from '@/hooks/use-agents'
-import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
+import { collapseGroup } from '@/lib/actors'
+import { useChatMembers, type ChatMember } from '@/hooks/use-chat-members'
 import type { SessionMeta } from '@/atoms/sessions'
 import { ActorAvatar } from './actor-avatar'
 import { AgentAvatar } from './agent-avatar'
 
-export function ChatPeople({ chat, tooltip = true }: { chat: Pick<SessionMeta, 'agentId' | 'participants'>; tooltip?: boolean }) {
-  const agent = agentOf(useLoadedAgents(), chat.agentId)
-  const { nameOf, me } = useWorkspaceMembers()
-  const entries = [
-    ...(agent ? [{ key: `agent:${agent.id}`, name: agent.title, avatar: <AgentAvatar agent={agent} size="sm" /> }] : []),
-    ...otherParticipants(chat.participants, me).map((actor) => ({ key: actor, name: nameOf(actor), avatar: <ActorAvatar actor={actor} name={nameOf(actor)} /> })),
-  ]
-  if (entries.length === 0) return null
-  const { shown, more } = collapseGroup(entries)
-  const names = entries.map((entry) => entry.name).join(', ')
+/** A member's 20px avatar: an agent's picture, else the person's initials. */
+export function MemberAvatar({ member, className }: { member: ChatMember; className?: string }) {
+  return member.agent
+    ? <AgentAvatar agent={member.agent} size="sm" className={className} />
+    : <ActorAvatar actor={member.actor} name={member.name} className={className} />
+}
+
+export function ChatPeople({ chat, tooltip = true }: { chat: Pick<SessionMeta, 'agentId' | 'members'>; tooltip?: boolean }) {
+  const { others } = useChatMembers(chat)
+  if (others.length === 0) return null
+  const { shown, more } = collapseGroup(others)
+  const names = others.map((member) => member.name).join(', ')
   const group = (
     <AvatarGroup aria-label={names}>
-      {shown.map((entry) => <Fragment key={entry.key}>{entry.avatar}</Fragment>)}
+      {shown.map((member) => <MemberAvatar key={member.actor} member={member} />)}
       {more > 0 && <AvatarGroupCount>+{more}</AvatarGroupCount>}
     </AvatarGroup>
   )

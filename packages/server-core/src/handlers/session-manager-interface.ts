@@ -41,14 +41,14 @@ export interface ISessionManager {
   // Session CRUD
   // ---------------------------------------------------------------------------
 
-  /** `viewerId` narrows to the chats that user may see (chats are private); omit it only for server-side callers. */
+  /** `viewerId` narrows to the chats that user is a member of (and gives their own unread state); omit it only for server-side callers. */
   getSessions(workspaceId?: string, viewerId?: string | null): Session[]
   /** Whether the user may see the chat; a chat that does not exist is not visible. */
   canSeeSession(sessionId: string, userId: string | null): boolean
   /** Who owns a workspace; the host wires it from the database. */
   setWorkspaceOwners(owners: (workspaceId: string) => string[]): void
   /** A chat with every message, or (with `page`) the newest page or the one before `page.beforeId`, with `olderMessageCount`. */
-  getSession(sessionId: string, page?: { beforeId?: string; limit?: number }): Promise<Session | null>
+  getSession(sessionId: string, page?: { beforeId?: string; limit?: number }, viewerId?: string | null): Promise<Session | null>
   /** Creates a session and (unless `internal.emitCreatedEvent === false`) announces it to the
    *  renderer so it hydrates full metadata instead of fabricating a "New Chat" placeholder. */
   createSession(
@@ -56,7 +56,8 @@ export interface ISessionManager {
     options?: CreateSessionOptions,
     internal?: { emitCreatedEvent?: boolean; createdBy?: string | null },
   ): Promise<Session>
-  deleteSession(sessionId: string): Promise<void>
+  /** `callerId` (a person's request): only the chat's creator may delete it. */
+  deleteSession(sessionId: string, callerId?: string | null): Promise<void>
 
   // ---------------------------------------------------------------------------
   // Session state
@@ -68,10 +69,15 @@ export interface ISessionManager {
   unarchiveSession(sessionId: string): Promise<void>
   renameSession(sessionId: string, name: string): Promise<void>
   setSessionStatus(sessionId: string, status: SessionStatus): Promise<void>
-  markSessionRead(sessionId: string): Promise<void>
-  markSessionUnread(sessionId: string): Promise<void>
+  /** Read state is per member person; `userId` omitted = the chat's creator (server-side callers). */
+  markSessionRead(sessionId: string, userId?: string | null): Promise<void>
+  markSessionUnread(sessionId: string, userId?: string | null): Promise<void>
   markAllSessionsRead(workspaceId: string, viewerId?: string | null): Promise<void>
-  setActiveViewingSession(sessionId: string | null, workspaceId: string): void
+  setActiveViewingSession(sessionId: string | null, workspaceId: string, userId?: string | null): void
+  /** Members (docs/schema.md "Chats"): the creator adds people or agents and removes members; anyone else may leave. */
+  addSessionMembers(sessionId: string, callerId: string | null, actors: string[]): Promise<void>
+  removeSessionMember(sessionId: string, callerId: string | null, actor: string): Promise<void>
+  leaveSession(sessionId: string, callerId: string | null): Promise<void>
 
   // ---------------------------------------------------------------------------
   // Session configuration

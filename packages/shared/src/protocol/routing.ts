@@ -272,9 +272,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   // toolIcons — workspace config
   RPC_CHANNELS.toolIcons.GET_MAPPINGS,
 
-  // logo — workspace config
-  RPC_CHANNELS.logo.GET_URL,
-
   // routines — rows of the workspace's server
   RPC_CHANNELS.routines.LIST,
   RPC_CHANNELS.routines.GET,

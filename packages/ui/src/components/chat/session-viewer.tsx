@@ -15,7 +15,7 @@ import { cn } from '../../lib/utils'
 import { CHAT_LAYOUT, CHAT_CLASSES } from '../../lib/layout'
 import { PlatformProvider, type PlatformActions } from '../../context'
 import { TurnCard } from './turn-card'
-import { UserMessageBubble } from './user-message-bubble'
+import { UserMessage } from './user-message'
 import { SystemMessage } from './system-message'
 import {
   groupMessagesByTurn,
@@ -144,7 +144,7 @@ export function SessionViewer({
               if (turn.type === 'user') {
                 return (
                   <div key={turn.message.id} className={CHAT_LAYOUT.userMessagePadding}>
-                    <UserMessageBubble
+                    <UserMessage
                       content={turn.message.content}
                       attachments={turn.message.attachments}
                       badges={turn.message.badges}

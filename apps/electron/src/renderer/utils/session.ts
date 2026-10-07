@@ -5,9 +5,16 @@ import { ENTITY_TOKEN } from "@otto/shared/entities"
 import type { Session, Message } from "../../shared/types"
 import type { SessionMeta } from "../atoms/sessions"
 import type { SessionStatusId } from "../config/session-status-config"
+import type { WorkspaceMembers } from "../hooks/use-workspace-members"
+import { isAgentActor, otherMembers } from "../lib/actors"
 
 /** Common session fields used by getSessionTitle */
-type SessionLike = Pick<Session, 'name' | 'preview'> & { messages?: Session['messages'] }
+type SessionLike = Pick<Session, 'name' | 'preview' | 'agentId' | 'members'> & { messages?: Session['messages'] }
+
+/** Names as one phrase in the app's language ("Ada, Grace and Linus"). */
+export function formatNameList(names: string[]): string {
+  return new Intl.ListFormat(i18next.language || 'en', { style: 'long', type: 'conjunction' }).format(names)
+}
 
 /**
  * Sanitize content for display as session title.
@@ -33,13 +40,20 @@ function normalizeTitleCasing(title: string): string {
 
 /**
  * Get display title for a session.
- * Priority: custom name > first user message > preview (from metadata) > "New chat"
+ * Priority: custom name > (a people chat, given `people`) the other people's names > first user message > preview
+ * (from metadata) > "New chat"
  * Works with both Session (full) and SessionMeta (lightweight)
  */
-export function getSessionTitle(session: SessionLike | SessionMeta): string {
+export function getSessionTitle(session: SessionLike | SessionMeta, people?: Pick<WorkspaceMembers, 'me' | 'nameOf'>): string {
   const name = session.name && sanitizePreview(session.name)
   if (name) {
     return normalizeTitleCasing(name)
+  }
+
+  // A DM or a group (no primary agent) is titled by the people in it, as the viewer sees it: never the viewer.
+  if (people && !session.agentId) {
+    const names = otherMembers(session.members, people.me).filter((actor) => !isAgentActor(actor)).map(people.nameOf)
+    if (names.length > 0) return formatNameList(names)
   }
 
   // Check loaded messages first (only available on full Session)

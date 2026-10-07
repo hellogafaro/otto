@@ -21,7 +21,7 @@ import { useSetAtom, useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { useComposerContext } from '@/components/composer/use-composer-context'
 import { formatDistanceToNowStrict, type Locale } from 'date-fns'
-import { Archive, CircleDashed, ClipboardList, Cpu, Flag, MessageSquare, MoreHorizontal, Tag } from 'lucide-react'
+import { Archive, CircleDashed, ClipboardList, Cpu, Flag, MessageSquare, Tag } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
@@ -39,12 +39,11 @@ import { CompactSessionMenu } from '@/components/app-shell/compact-session-menu'
 import { hasTransferTargets } from '@/components/app-shell/transfer-targets'
 import { stripPiPrefixForDisplay } from '@/components/app-shell/input/model-picker-helpers'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
-import { ChatPeople } from '@/components/people/chat-people'
 import { LabelIcon } from '@/components/ui/label-icon'
 import { RenameDialog } from '@/components/ui/rename-dialog'
-import { DropdownMenuProvider } from '@/components/ui/menu-context'
-import { DropdownMenu, DropdownMenuTrigger, StyledDropdownMenuContent } from '@/components/ui/styled-dropdown'
-import { getStateColor, getStateIcon, getStateIconStyle, type SessionStatus } from '@/config/session-status-config'
+import { ContextMenuProvider } from '@/components/ui/menu-context'
+import { StyledContextMenuContent } from '@/components/ui/styled-context-menu'
+import { ChatStatusIcon, getStateColor, type SessionStatus } from '@/config/session-status-config'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { sendToWorkspaceAtom, sessionMetaMapAtom, type SessionMeta } from '@/atoms/sessions'
 import { sessionListOrderAtom } from '@/atoms/list-context'
@@ -53,10 +52,6 @@ import { useSessionActions } from '@/hooks/use-session-actions'
 import { useSessionSearch } from '@/hooks/use-session-search'
 import { getSessionStatus, getSessionTitle, hasUnreadMeta, shortTimeLocale } from '@/utils/session'
 import { hasChatFilters, matchesChatFilters, NO_CHAT_FILTERS, useChatFilters, type ChatFilters } from './use-chat-filters'
-
-function StatusGlyph({ id, statuses }: { id: string; statuses: SessionStatus[] }) {
-  return <span className="flex" style={getStateIconStyle(id, statuses)}>{getStateIcon(id, statuses)}</span>
-}
 
 /** A label's colored dot, centered in a 14px icon box. */
 function LabelGlyph({ label }: { label: LabelConfig }) {
@@ -76,16 +71,16 @@ interface RowActions {
   onDelete: (id: string) => Promise<boolean>
 }
 
-/** A chat's people (agent and the others in it), labels (two, then "+n") and model, as the row's metadata. */
+/** A chat's labels (two, then "+n") and model, as the row's metadata. */
 function ChatMeta({ item, labels }: { item: SessionMeta; labels: LabelConfig[] }) {
   const applied = (item.labels ?? [])
     .map((entry) => labels.find((l) => l.id === parseLabelEntry(entry).id))
     .filter((l): l is LabelConfig => !!l)
   const shown = applied.slice(0, 2)
   const more = applied.length - shown.length
+  if (applied.length === 0 && !item.model) return null
   return (
     <>
-      <ChatPeople chat={item} />
       {shown.map((l) => (
         <Badge key={l.id} variant="outline" className="max-w-36">
           <LabelGlyph label={l} />
@@ -103,9 +98,8 @@ function ChatMeta({ item, labels }: { item: SessionMeta; labels: LabelConfig[] }
   )
 }
 
-/** One chat: a 44px row that opens it, its ⋯ menu over the time on hover. */
+/** One chat: a 44px row that opens it; its session menu is the right-click menu (a long press on touch; a drawer on a phone). */
 function ChatRow({ item, labels, actions, onOpen }: { item: SessionMeta; labels: LabelConfig[]; actions: RowActions; onOpen: (id: string) => void }) {
-  const { t } = useTranslation()
   const { workspaces, isCompactMode, sessionStatuses = [], labels: labelTree = [], onSessionLabelsChange } = useAppShellContext()
   const [compactOpen, setCompactOpen] = React.useState(false)
   const title = getSessionTitle(item)
@@ -124,57 +118,50 @@ function ChatRow({ item, labels, actions, onOpen }: { item: SessionMeta; labels:
     onDelete: () => actions.onDelete(item.id),
   }
 
-  const trigger = (
-    <Button variant="ghost" size="icon-compact" aria-label={t('common.more')} onClick={isCompactMode ? () => setCompactOpen(true) : undefined}>
-      <MoreHorizontal />
-    </Button>
-  )
-
   return (
-    <ListRow
-      data-session-id={item.id}
-      media={<StatusGlyph id={getSessionStatus(item)} statuses={sessionStatuses} />}
-      title={<span className={item.isAsyncOperationOngoing ? 'animate-shimmer-text' : undefined}>{title}</span>}
-      muted={!unread}
-      marks={
-        <>
-          {item.isProcessing && <Spinner className="text-[10px]" />}
-          {unread && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}
-          {item.lastMessageRole === 'plan' && <ClipboardList className="size-3.5 shrink-0 text-success" />}
-          {item.isFlagged && <Flag className="size-3.5 shrink-0 text-info" />}
-        </>
-      }
-      meta={<ChatMeta item={item} labels={labels} />}
-      end={item.lastMessageAt
-        ? formatDistanceToNowStrict(new Date(item.lastMessageAt), { locale: shortTimeLocale as Locale, roundingMethod: 'floor' })
-        : undefined}
-      onClick={() => onOpen(item.id)}
-      actions={isCompactMode ? (
-        <>
-          {trigger}
-          <CompactSessionMenu
-            open={compactOpen}
-            onOpenChange={setCompactOpen}
-            trigger={null}
-            title={title}
-            item={item}
-            sessionStatuses={sessionStatuses}
-            labels={labelTree}
-            hasTransferTargets={transfer}
-            {...handlers}
-          />
-        </>
-      ) : (
-        <DropdownMenu modal>
-          <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-          <StyledDropdownMenuContent align="end">
-            <DropdownMenuProvider>
+    <>
+      <ListRow
+        data-session-id={item.id}
+        media={<ChatStatusIcon id={getSessionStatus(item)} statuses={sessionStatuses} />}
+        title={<span className={item.isAsyncOperationOngoing ? 'animate-shimmer-text' : undefined}>{title}</span>}
+        muted={!unread}
+        marks={
+          <>
+            {item.isProcessing && <Spinner className="text-[10px]" />}
+            {unread && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}
+            {item.lastMessageRole === 'plan' && <ClipboardList className="size-3.5 shrink-0 text-success" />}
+            {item.isFlagged && <Flag className="size-3.5 shrink-0 text-info" />}
+          </>
+        }
+        meta={<ChatMeta item={item} labels={labels} />}
+        end={item.lastMessageAt
+          ? formatDistanceToNowStrict(new Date(item.lastMessageAt), { locale: shortTimeLocale as Locale, roundingMethod: 'floor' })
+          : undefined}
+        onClick={() => onOpen(item.id)}
+        menu={isCompactMode ? undefined : (
+          <StyledContextMenuContent>
+            <ContextMenuProvider>
               <SessionMenu item={item} sessionStatuses={sessionStatuses} labels={labelTree} hasTransferTargets={transfer} {...handlers} />
-            </DropdownMenuProvider>
-          </StyledDropdownMenuContent>
-        </DropdownMenu>
+            </ContextMenuProvider>
+          </StyledContextMenuContent>
+        )}
+        // Nested menus would be clipped on a phone: the long press opens the drawer instead.
+        menuProps={isCompactMode ? { open: false, onOpenChange: (open) => open && setCompactOpen(true) } : undefined}
+      />
+      {isCompactMode && (
+        <CompactSessionMenu
+          open={compactOpen}
+          onOpenChange={setCompactOpen}
+          trigger={null}
+          title={title}
+          item={item}
+          sessionStatuses={sessionStatuses}
+          labels={labelTree}
+          hasTransferTargets={transfer}
+          {...handlers}
+        />
       )}
-    />
+    </>
   )
 }
 
@@ -305,7 +292,7 @@ export default function ChatsIndexPage() {
       options: sessionStatuses.map((s) => ({
         value: s.id,
         label: t(`status.${s.id}`, s.label),
-        icon: <StatusGlyph id={s.id} statuses={sessionStatuses} />,
+        icon: <ChatStatusIcon id={s.id} statuses={sessionStatuses} />,
         count: counts.status[s.id] ?? 0,
       })),
     },
@@ -373,7 +360,7 @@ export default function ChatsIndexPage() {
               {groups.map((g) => (
                 <ListGroup
                   key={g.status.id}
-                  icon={<StatusGlyph id={g.status.id} statuses={sessionStatuses} />}
+                  icon={<ChatStatusIcon id={g.status.id} statuses={sessionStatuses} />}
                   tint={getStateColor(g.status.id, sessionStatuses)}
                   label={t(`status.${g.status.id}`, g.status.label)}
                   count={g.items.length}

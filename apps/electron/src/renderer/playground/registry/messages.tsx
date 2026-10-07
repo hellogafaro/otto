@@ -7,7 +7,7 @@ import {
   Markdown,
   CollapsibleMarkdownProvider,
   Spinner,
-  UserMessageBubble,
+  UserMessage,
   SystemMessage,
 } from '@otto/ui'
 import { AnimatePresence, motion } from 'motion/react'
@@ -281,8 +281,8 @@ function MessageGallery() {
       <section>
         <h2 className="text-lg font-semibold mb-4 text-foreground/80">User Messages</h2>
         <div className="space-y-3">
-          <UserMessageBubble content="How do I authenticate with the API?" />
-          <UserMessageBubble content="Can you search for all files that contain 'handleError' and show me how they work?" />
+          <UserMessage content="How do I authenticate with the API?" />
+          <UserMessage content="Can you search for all files that contain 'handleError' and show me how they work?" />
         </div>
       </section>
 
@@ -552,11 +552,11 @@ export const messagesComponents: ComponentEntry[] = [
     mockData: () => ({}),
   },
   {
-    id: 'user-message-bubble',
-    name: 'UserMessageBubble',
+    id: 'user-message',
+    name: 'UserMessage',
     category: 'Chat Messages',
-    description: 'Right-aligned user message bubble (from @otto/ui)',
-    component: UserMessageBubble,
+    description: 'A person message text, left aligned with no bubble (from @otto/ui)',
+    component: UserMessage,
     props: [
       {
         name: 'content',

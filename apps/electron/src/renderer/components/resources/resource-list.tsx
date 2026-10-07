@@ -1,12 +1,12 @@
 /**
  * The links of a task or project (its `resources`: web links, library items, chats) as sidecar property rows:
  * one row per link that opens it (a web link in the browser, an item or chat in the app) with Remove on hover.
- * `NewLink` is the section's create "+" (the section's `action`; up to `MAX_RESOURCES`) opening `ResourceDialog`.
- * Generic: the caller saves `onChange`. Put them in a `PropertySection` or a `PageSection`. Library and chat refs
+ * `NewLink` is the section's create "+" (the section's `action`; up to `MAX_RESOURCES`): no form, it prefills the
+ * floating composer ("Add a link to {token}: ") and an agent adds the link (`otto tasks|projects update`).
+ * Generic: the caller saves `onChange` (Remove). Put them in a `PropertySection` or a `PageSection`. Library and chat refs
  * are not looked up (they may dangle).
  */
 
-import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpRight, Library, Link, MessageSquare, X } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
@@ -15,24 +15,19 @@ import { MAX_RESOURCES } from '@otto/shared/projects/limits'
 import { CreateButton } from '@/components/ui/create-button'
 import { routes } from '@/lib/navigate'
 import { useNavigation } from '@/contexts/navigation-context'
+import { useComposer } from '@/components/composer/composer-provider'
 import type { Resource } from '../../../shared/types'
-import { ResourceDialog } from './resource-dialog'
 
 const ICONS = { url: Link, library: Library, chat: MessageSquare } as const
 
 type ResourceListProps = { resources: Resource[]; onChange: (next: Resource[]) => void }
 
-/** The links section's create "+": New link, hidden at `MAX_RESOURCES`. */
-export function NewLink({ resources, onChange, size }: ResourceListProps & { size?: 'icon-xs' }) {
+/** The links section's create "+" (New link) on `entity` (`task:<id>`, `project:<id>`): prefills the composer; hidden at `MAX_RESOURCES`. */
+export function NewLink({ entity, resources, size }: { entity: string; resources: Resource[]; size?: 'icon-xs' }) {
   const { t } = useTranslation()
-  const [adding, setAdding] = React.useState(false)
+  const composer = useComposer()
   if (resources.length >= MAX_RESOURCES) return null
-  return (
-    <>
-      <CreateButton size={size} label={t('resources.new')} onClick={() => setAdding(true)} />
-      <ResourceDialog open={adding} onOpenChange={setAdding} onAdd={(resource) => onChange([...resources, resource])} />
-    </>
-  )
+  return <CreateButton size={size} label={t('resources.new')} onClick={() => composer.prefill(`${t('agentEdit.addLink', { token: entity })} `)} />
 }
 
 export function ResourceList({ resources, onChange }: ResourceListProps) {

@@ -5,7 +5,7 @@
  */
 
 import { PRODUCT_NAME } from '../branding.ts';
-import { assembleInstructions, getAgentRunConfig, type AgentRunConfig, type InstructionSource, type RunMode } from '../agents/index.ts';
+import { assembleInstructions, getAgentRunConfig, type AgentRunConfig, type ChatParticipants, type InstructionSource, type RunMode } from '../agents/index.ts';
 import { DockerComputer, hasActiveRuns, SKILLS_MOUNT, SOURCES_MOUNT, type Computer } from '../computer/index.ts';
 import { getDocsDir } from '../docs/index.ts';
 import { getSkills } from '../skills/index.ts';
@@ -89,6 +89,8 @@ export function buildAgentTurn(input: {
   workspaceRootPath: string;
   runMode: RunMode;
   computer: Computer | null;
+  /** The chat's other participants, when there are several (`<otto_chat>`). */
+  chat?: ChatParticipants;
 }): AgentTurn {
   const { run, computer } = input;
   const skillsDir = computer ? SKILLS_MOUNT : getWorkspaceSkillsPath(input.workspaceRootPath);
@@ -102,6 +104,7 @@ export function buildAgentTurn(input: {
       toolGuidance: computer ? [COMPUTER_TOOL_GUIDANCE] : [],
       sources: input.connected.filter((source) => !sourceSlugs || sourceSlugs.includes(source.slug)),
       runMode: input.runMode,
+      chat: input.chat,
     }),
     sourceSlugs,
     skills: pick(input.skills, run.skills).map((skill) => ({
@@ -125,6 +128,8 @@ export function getAgentTurn(input: {
   /** The chat's switched-on sources (`enabledSourceSlugs`). */
   enabledSourceSlugs?: readonly string[];
   runMode: RunMode;
+  /** The chat's other participants, when there are several. */
+  chat?: ChatParticipants;
 }): AgentTurn | null {
   const run = getAgentRunConfig(input.agentId, input.workspaceId);
   if (!run) return null;
@@ -141,6 +146,7 @@ export function getAgentTurn(input: {
     connected,
     workspaceRootPath: input.workspaceRootPath,
     runMode: input.runMode,
+    chat: input.chat,
     computer: getAgentComputer(run.agent.id, input.workspaceRootPath, input.workspaceId),
   });
 }

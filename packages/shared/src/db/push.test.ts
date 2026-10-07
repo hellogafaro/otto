@@ -36,3 +36,15 @@ test('a second push with an FTS5 table present plans nothing', async () => {
   raw(db).exec('CREATE VIRTUAL TABLE x_fts USING fts5(a)')
   expect(await pushSchema(db)).toEqual([])
 })
+
+test('a table rebuilt while it gains a NOT NULL column keeps its rows and gives them the default', async () => {
+  const db = openDb(':memory:')
+  await pushSchema(db)
+  const sqlite = raw(db)
+  sqlite.exec('DROP TABLE comments')
+  // `id` without NOT NULL makes drizzle-kit rebuild the table (a plain ADD COLUMN never had the bug)
+  sqlite.exec('CREATE TABLE comments (id text PRIMARY KEY, workspace_id text NOT NULL, entity text NOT NULL, created_by text NOT NULL, content text NOT NULL, created_at integer NOT NULL, updated_at integer NOT NULL)')
+  sqlite.exec("INSERT INTO comments VALUES ('aaaaaaaaaaaa', 'w', 'task:tttttttttttt', 'user:aaaaaaaaaaaa', 'hi', 1, 1)")
+  expect((await pushSchema(db)).join('\n')).toContain('INSERT INTO `__new_comments`')
+  expect(sqlite.query('SELECT id, type, content FROM comments').all()).toEqual([{ id: 'aaaaaaaaaaaa', type: 'comment', content: 'hi' }])
+})

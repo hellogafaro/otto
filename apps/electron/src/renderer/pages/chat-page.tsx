@@ -8,7 +8,7 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { AlertCircle, ChevronDown, ChevronUp, Globe, Copy, RefreshCw, Link2Off, Info } from 'lucide-react'
+import { AlertCircle, ChevronDown, ChevronUp, Globe, Copy, RefreshCw, Link2Off, Info, Users } from 'lucide-react'
 import { ChatDisplay } from '@/components/app-shell/chat-display'
 import { useComposer } from '@/components/composer/composer-provider'
 import { HeaderMoreButton, PageHeader } from '@/components/app-shell/page-header'
@@ -22,14 +22,19 @@ import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { StyledDropdownMenuContent, StyledDropdownMenuItem, StyledDropdownMenuSeparator } from '@/components/ui/styled-dropdown'
 import { useAppShellContext, usePendingPermission, usePendingCredential, useSessionOptionsFor, useSession as useSessionData } from '@/context/app-shell-context'
-import { useNavigation } from '@/contexts/navigation-context'
+import { isSessionsNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
+import { navigate, routes } from '@/lib/navigate'
+import { buildRouteFromNavigationState } from '../../shared/route-parser'
 import { rendererPerf } from '@/lib/perf'
 import { isAbsolutePath } from '@/lib/drafts'
 import { coerceInputText } from '@/lib/input-text'
 import { deriveSessionMessagesLoadState, formatSessionLoadFailure } from '@/lib/session-load'
-import { ensureSessionMessagesLoadedAtom, forceSessionMessagesReloadAtom, loadedSessionsAtom, sessionMetaMapAtom } from '@/atoms/sessions'
+import { ensureSessionMessagesLoadedAtom, forceSessionMessagesReloadAtom, loadedSessionsAtom, removeSessionAtom, sessionMetaMapAtom } from '@/atoms/sessions'
 import { getSessionTitle } from '@/utils/session'
 import { ChatPeople } from '@/components/people/chat-people'
+import { ChatMembersDialog } from '@/components/people/chat-members-dialog'
+import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
+import { isPeopleChat } from '@/lib/actors'
 import { useShareCapabilities } from '@/hooks/use-share-capabilities'
 // Model resolution: connection.defaultModel (no hardcoded defaults)
 import { resolveEffectiveConnectionSlug, isSessionConnectionUnavailable } from '@config/llm-connections'
@@ -239,10 +244,14 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     }
   }, [sessionId])
 
+  // The chat's members: a people chat (no agent in it) runs nothing, so a removed connection never blocks it.
+  const chat = { agentId: session?.agentId ?? sessionMeta?.agentId, members: session?.members ?? sessionMeta?.members }
+  const peopleChat = isPeopleChat(chat)
+
   // Check if session's locked connection has been removed
   const connectionUnavailable = React.useMemo(() =>
-    isSessionConnectionUnavailable(session?.llmConnection, llmConnections),
-    [session?.llmConnection, llmConnections]
+    !peopleChat && isSessionConnectionUnavailable(session?.llmConnection, llmConnections),
+    [peopleChat, session?.llmConnection, llmConnections]
   )
 
   // Effective model for this session (session-specific or global fallback)
@@ -351,10 +360,11 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   }, [sessionId, session])
 
   // Get display title for header - use getSessionTitle for consistent fallback logic with SessionList
-  // Priority: name > first user message > preview > "New chat"
-  const displayTitle = session ? getSessionTitle(session) : (sessionMeta ? getSessionTitle(sessionMeta) : t('chat.session'))
-  // The chat's people (its agent and the others in it, never you) lead its title; hidden until there is one to show.
-  const people = <ChatPeople chat={{ agentId: session?.agentId ?? sessionMeta?.agentId, participants: session?.participants ?? sessionMeta?.participants }} />
+  // Priority: name > (a DM or a group) the other people > first user message > preview > "New chat"
+  const workspaceMembers = useWorkspaceMembers()
+  const displayTitle = session ? getSessionTitle(session, workspaceMembers) : (sessionMeta ? getSessionTitle(sessionMeta, workspaceMembers) : t('chat.session'))
+  // The chat's members (its agents and the people in it, never you) lead its title; hidden until there is one to show.
+  const people = <ChatPeople chat={chat} />
   const headerTitle = (
     <>
       <span className="mr-1 flex shrink-0 empty:hidden">{people}</span>
@@ -368,6 +378,18 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
 
   // Rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = React.useState(false)
+  const [membersOpen, setMembersOpen] = React.useState(false)
+  const handleMembers = React.useCallback(() => setMembersOpen(true), [])
+
+  // Left the chat: it is no longer the viewer's, so back to the index it was opened from (as after Delete).
+  const navState = useNavigationState()
+  const removeSession = useSetAtom(removeSessionAtom)
+  const handleLeft = React.useCallback(() => {
+    navigate(isSessionsNavigation(navState)
+      ? (buildRouteFromNavigationState({ ...navState, details: null }) as never)
+      : routes.view.allSessions())
+    removeSession(sessionId)
+  }, [navState, removeSession, sessionId])
 
   // Session action handlers
   const handleRename = React.useCallback(() => {
@@ -520,9 +542,10 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
           presentation="drawer"
           trigger={<CompactMenuRow icon={<Info className="size-3.5" />} label={t('chat.sessionInfo')} />}
         />
+        <CompactMenuRow icon={<Users className="size-3.5" />} label={t('chatMembers.title')} onTap={handleMembers} />
       </>
     )
-  }, [isCompactMode, sessionId, session?.sessionFolderPath, sessionMeta, listNav, t])
+  }, [isCompactMode, sessionId, session?.sessionFolderPath, sessionMeta, listNav, handleMembers, t])
 
   const headerActions = !isCompactMode && viewerConfigured ? shareButton : undefined
 
@@ -543,11 +566,13 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
       onUnarchive={handleUnarchive}
       onMarkUnread={handleMarkUnread}
       onSessionStatusChange={handleSessionStatusChange}
+      onMembers={handleMembers}
       onDelete={handleDelete}
     />
   ) : null, [
     sessionMeta,
     isCompactMode,
+    handleMembers,
     sessionStatuses,
     labels,
     handleLabelsChange,
@@ -656,6 +681,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
               />
             </div>
           </div>
+          <ChatMembersDialog chat={sessionMeta} open={membersOpen} onOpenChange={setMembersOpen} onLeft={handleLeft} />
           <RenameDialog
             open={renameDialogOpen}
             onOpenChange={setRenameDialogOpen}
@@ -725,6 +751,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
           />
         </div>
       </div>
+      {sessionMeta && <ChatMembersDialog chat={sessionMeta} open={membersOpen} onOpenChange={setMembersOpen} onLeft={handleLeft} />}
       <RenameDialog
         open={renameDialogOpen}
         onOpenChange={setRenameDialogOpen}

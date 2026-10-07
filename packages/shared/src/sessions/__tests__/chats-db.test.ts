@@ -11,7 +11,8 @@ import { INSTALL, getSetting, updateSetting } from '../../settings/index.ts'
 import { initWorkspaceStatuses } from '../../statuses/storage.ts'
 import { users } from '../../users/schema.ts'
 import { createWorkspaceMember } from '../../workspaces/members.ts'
-import { deleteChat, getChat, getChats, initChatParticipants, type ChatSnapshot } from '../chats.ts'
+import { deleteChat, getChat, getChats, type ChatSnapshot } from '../chats.ts'
+import { addChatMembers, getChatMembers, getDmChatId, initChatMembers, removeChatMember, toDmKey, updateChatMemberRead } from '../members.ts'
 import { initChatsImport, parseMessageLines } from '../import.ts'
 import { getMessageRows, getMessagesPage, initMessages, runChatsRecovery, searchChats } from '../messages.ts'
 import { ChatPersistenceQueue, type ChatWrite } from '../persistence-queue.ts'
@@ -53,14 +54,15 @@ function chatOf(id: string, extra: Partial<ChatSnapshot> = {}): ChatSnapshot {
   return { id, workspaceId: W, workspaceRootPath: '/tmp/w', createdBy: ME, createdAt: 1, lastUsedAt: 1, ...extra }
 }
 
-/** A queue on this database, flushing one chat with the given messages. */
-function writer(db: Db) {
+/** A queue on this database, flushing one chat with the given messages; its creator is a member (as `createSession` makes it) unless `members` is false. */
+function writer(db: Db, { members = true } = {}) {
   const queue = new ChatPersistenceQueue({ db: () => db })
   return {
     queue,
     async write(chat: ChatSnapshot, messages?: StoredMessage[]) {
       queue.enqueue(chat.id, () => ({ chat, sessionDir: `/tmp/w/sessions/${chat.id}`, messages }) satisfies ChatWrite)
       await queue.flush(chat.id)
+      if (members && chat.createdBy) addChatMembers(chat.workspaceId, chat.id, [chat.createdBy], {}, db)
     },
   }
 }
@@ -132,10 +134,13 @@ describe('initChatsImport', () => {
     // header fields: no creator -> the first owner; flag -> pinned; canonical modes normalized; unknown labels left out
     expect(chats['260105-vital-zenith']).toMatchObject({
       name: 'Main', createdBy: ME, isFlagged: true, sessionStatus: 'needs-review', permissionMode: 'allow-all', previousPermissionMode: 'safe',
-      hasUnread: true, sdkSessionId: 'pi-1', lastMessageAt: 4000, messageCount: 5, preview: 'Héllo café, what is the plan?', lastFinalMessageId: 'm2',
+      sdkSessionId: 'pi-1', lastMessageAt: 4000, messageCount: 5, preview: 'Héllo café, what is the plan?', lastFinalMessageId: 'm2',
       tokenUsage: { inputTokens: 1, outputTokens: 2, totalTokens: 3, contextTokens: 0, costUsd: 0 },
     })
     expect(chats['260105-vital-zenith']!.labels?.sort()).toEqual(['bug', 'priority::3'])
+    // the creator is a member; the header's unread is theirs (no agent in this workspace, so none joins)
+    expect(getChatMembers(W, '260105-vital-zenith', db)).toEqual([{ actor: ME, readAt: null }])
+    expect(getChatMembers(W, '261006-polished-oasis', db).map((m) => m.actor)).toEqual([OTHER])
     expect(chats['261006-polished-oasis']).toMatchObject({ createdBy: OTHER, branchFromMessageId: 'm2' })
     expect(chats['261006-polished-oasis']!.parentSessionId).toBeUndefined()
     expect(chats['260101-old-archive']).toMatchObject({ isArchived: true, sessionStatus: 'archived' })
@@ -264,21 +269,20 @@ describe('write path', () => {
     expect(getChat(W, '/tmp/w', 'w2', db)!.name).toBe('renamed')
   })
 
-  it('keeps the chat row: pinned, unread, status, labels, a running turn; updated_at moves on messages only', async () => {
+  it('keeps the chat row: pinned, status, labels, a running turn; updated_at moves on messages only', async () => {
     const db = await setup()
     const { write } = writer(db)
     const chat = chatOf('w3', { lastMessageAt: 100 })
-    await write({ ...chat, isFlagged: true, hasUnread: true, sessionStatus: 'done', labels: ['bug'], running: true }, [msg('u1', 'user', 100, { content: 'hi' })])
-    const row = () => db.all<{ pinned_at: number | null; read_at: number | null; run_started_at: number | null; updated_at: number }>(sql`SELECT pinned_at, read_at, run_started_at, updated_at FROM chats WHERE id = 'w3'`)[0]!
+    await write({ ...chat, isFlagged: true, sessionStatus: 'done', labels: ['bug'], running: true }, [msg('u1', 'user', 100, { content: 'hi' })])
+    const row = () => db.all<{ pinned_at: number | null; run_started_at: number | null; updated_at: number }>(sql`SELECT pinned_at, run_started_at, updated_at FROM chats WHERE id = 'w3'`)[0]!
     expect(row().pinned_at).not.toBeNull()
-    expect(row().read_at).toBeNull()
     expect(row().run_started_at).not.toBeNull()
-    expect(getChat(W, '/tmp/w', 'w3', db)).toMatchObject({ isFlagged: true, hasUnread: true, sessionStatus: 'done', labels: ['bug'] })
+    expect(getChat(W, '/tmp/w', 'w3', db)).toMatchObject({ isFlagged: true, sessionStatus: 'done', labels: ['bug'] })
     const pinnedAt = row().pinned_at
 
-    await write({ ...chat, name: 'renamed', isFlagged: true, hasUnread: false, sessionStatus: 'archived', labels: ['code'], running: false })
+    await write({ ...chat, name: 'renamed', isFlagged: true, sessionStatus: 'archived', labels: ['code'], running: false })
     expect(row()).toMatchObject({ pinned_at: pinnedAt, run_started_at: null, updated_at: 100 })
-    expect(getChat(W, '/tmp/w', 'w3', db)).toMatchObject({ hasUnread: false, isArchived: true, labels: ['code'] })
+    expect(getChat(W, '/tmp/w', 'w3', db)).toMatchObject({ isArchived: true, labels: ['code'] })
 
     await write({ ...chat, lastMessageAt: 100 }, [msg('u1', 'user', 100, { content: 'hi' }), msg('a1', 'assistant', 250, { content: 'answer' })])
     expect(row().updated_at).toBe(250)
@@ -339,46 +343,66 @@ describe('write path', () => {
 // Reads: pages, search, privacy
 // ---------------------------------------------------------------------------------------------------------------
 
-describe('participants', () => {
-  const participantsOf = (db: Db, id: string) => getChat(W, '/tmp/w', id, db)!.participants
+describe('members', () => {
+  const actors = (db: Db, id: string) => getChatMembers(W, id, db).map((m) => m.actor)
+  const AGENT = 'agentaaaaaaa'
 
-  it('are the creator, then each sender the writer meets, kept by later writes without messages', async () => {
+  it('a new chat has its creator (read) and its agent; a DM has its pair, unique per workspace', async () => {
     const db = await setup()
-    const { write } = writer(db)
-    const chat = chatOf('pp1')
-    await write(chat, [msg('u1', 'user', 100, { content: 'hi', sender: ME }), msg('a1', 'assistant', 200, { content: 'hello' })])
-    expect(participantsOf(db, 'pp1')).toEqual([ME])
+    const ws = { id: W, rootPath: tempDir('otto-members-') }
+    const chat = createSession(ws, { createdBy: ME, agentId: AGENT }, db)
+    expect(getChatMembers(W, chat.id, db)).toEqual([{ actor: ME, readAt: expect.any(Number) }, { actor: `agent:${AGENT}`, readAt: null }])
 
-    // another person's message: the next flush adds them, once, whatever the in-memory snapshot knew
-    await write(chat, [msg('u1', 'user', 100, { content: 'hi', sender: ME }), msg('u2', 'user', 300, { content: 'me too', sender: OTHER }), msg('u3', 'user', 400, { content: 'again', sender: OTHER })])
-    expect(participantsOf(db, 'pp1')).toEqual([ME, OTHER])
+    const dmKey = toDmKey(OTHER, ME)
+    expect(dmKey).toBe(`${ME}|${OTHER}`)
+    const dm = createSession(ws, { createdBy: ME, dmKey, people: [OTHER] }, db)
+    expect(getChatMembers(W, dm.id, db)).toEqual([{ actor: ME, readAt: expect.any(Number) }, { actor: OTHER, readAt: null }])
+    expect(getDmChatId(W, dmKey, db)).toBe(dm.id)
+    expect(getChat(W, ws.rootPath, dm.id, db)).toMatchObject({ dmKey })
+    expect(getChat(W, ws.rootPath, dm.id, db)!.agentId).toBeUndefined()
+    // the pair's second DM is refused by the database (the server opens the first instead)
+    expect(() => createSession(ws, { createdBy: OTHER, dmKey, people: [ME] }, db)).toThrow()
+    // chats without a key never collide
+    createSession(ws, { createdBy: ME }, db)
+    createSession(ws, { createdBy: ME }, db)
 
-    // a rename with no messages loaded keeps them (the snapshot the server holds has them)
-    await write({ ...chat, name: 'renamed', participants: [ME, OTHER] })
-    expect(participantsOf(db, 'pp1')).toEqual([ME, OTHER])
-    // agent and routine messages carry no sender and add nobody; a chat with no sender lists its creator
-    await write(chatOf('pp2'), [msg('u1', 'user', 100, { content: 'from a routine' })])
-    expect(participantsOf(db, 'pp2')).toEqual([ME])
+    // read state per person; removing a member; deleting the chat deletes its members
+    updateChatMemberRead(W, dm.id, OTHER, 500, db)
+    expect(getChatMembers(W, dm.id, db)[1]).toEqual({ actor: OTHER, readAt: 500 })
+    expect(addChatMembers(W, dm.id, [OTHER, `agent:${AGENT}`], {}, db)).toEqual([`agent:${AGENT}`])
+    expect(removeChatMember(W, dm.id, OTHER, db)).toBe(true)
+    expect(removeChatMember(W, dm.id, OTHER, db)).toBe(false)
+    deleteChat(W, dm.id, db)
+    expect(getChatMembers(W, dm.id, db)).toEqual([])
   })
 
-  it('are backfilled once for chats that have none, from their creator and the senders of their user messages', async () => {
+  it('initChatMembers: once per chat without members: creator, agent (the default one for none), senders; read_at copied while it exists', async () => {
     const db = await setup()
-    const { write } = writer(db)
-    await write(chatOf('pb1'), [msg('u1', 'user', 100, { content: 'a', sender: OTHER }), msg('u2', 'user', 200, { content: 'b', sender: OTHER }), msg('x1', 'assistant', 300, { content: 'c', sender: 'user:ignored' })])
+    const { write } = writer(db, { members: false })
+    // as before members: chats written without member rows, the old read_at column still there
+    db.run(sql.raw('ALTER TABLE chats ADD COLUMN read_at integer'))
+    await write(chatOf('pb1', { agentId: AGENT }), [msg('u1', 'user', 100, { content: 'a', sender: OTHER }), msg('u2', 'user', 200, { content: 'b', sender: OTHER }), msg('x1', 'assistant', 300, { content: 'c', sender: 'user:ignored' })])
     await write(chatOf('pb2', { createdBy: OTHER }))
-    // as chats written before participants existed: no key in the metadata
-    db.run(sql`UPDATE chats SET metadata = json_remove(metadata, '$.participants')`)
+    db.run(sql`UPDATE chats SET read_at = 777 WHERE id = 'pb1'`)
     db.run(sql`INSERT INTO chats (id, workspace_id, created_by, metadata, created_at, updated_at) VALUES ('pb3', ${W}, ${ME}, 'not json', 1, 1)`)
-    expect(participantsOf(db, 'pb1')).toBeUndefined()
 
-    expect(initChatParticipants(db)).toBe(2)
-    expect(participantsOf(db, 'pb1')).toEqual([ME, OTHER])
-    expect(participantsOf(db, 'pb2')).toEqual([OTHER])
+    expect(initChatMembers((ws) => (ws === W ? 'defaultagent' : undefined), db)).toBe(3)
+    expect(getChatMembers(W, 'pb1', db)).toEqual([{ actor: ME, readAt: 777 }, { actor: OTHER, readAt: 777 }, { actor: `agent:${AGENT}`, readAt: null }])
+    expect(actors(db, 'pb2')).toEqual([OTHER, 'agent:defaultagent'])
+    expect(getChat(W, '/tmp/w', 'pb2', db)!.agentId).toBe('defaultagent')
+    expect(actors(db, 'pb3')).toEqual([ME, 'agent:defaultagent'])
 
     // idempotent: nothing left to do, nothing changes, and an unreadable metadata is left alone
-    expect(initChatParticipants(db)).toBe(0)
-    expect(participantsOf(db, 'pb1')).toEqual([ME, OTHER])
+    expect(initChatMembers(() => 'other', db)).toBe(0)
+    expect(actors(db, 'pb2')).toEqual([OTHER, 'agent:defaultagent'])
     expect(db.all<{ metadata: string }>(sql`SELECT metadata FROM chats WHERE id = 'pb3'`)[0]!.metadata).toBe('not json')
+  })
+
+  it('without the old column, people start read at the chat updated_at', async () => {
+    const db = await setup()
+    await writer(db, { members: false }).write(chatOf('pc1', { lastMessageAt: 4242 }))
+    expect(initChatMembers(() => undefined, db)).toBe(1)
+    expect(getChatMembers(W, 'pc1', db)).toEqual([{ actor: ME, readAt: 4242 }])
   })
 })
 
@@ -400,12 +424,15 @@ describe('reads', () => {
     expect(last.olderCount).toBe(0)
   })
 
-  it('searches with diacritics folded, prefixes, several words, and only the caller own chats of the workspace', async () => {
+  it('searches with diacritics folded, prefixes, several words, and only the chats of the workspace the caller is a member of', async () => {
     const db = await setup()
     const { write } = writer(db)
     await write(chatOf('s1'), [msg('u1', 'user', 1, { content: 'Le café est prêt pour Zoë' }), msg('h1', 'user', 2, { content: 'secret café', hidden: true })])
     await write(chatOf('s2', { createdBy: OTHER }), [msg('u1', 'user', 1, { content: 'café of somebody else' })])
     await write(chatOf('s3', { workspaceId: 'wsotherother' }), [msg('u1', 'user', 1, { content: 'café in another workspace' })])
+    addChatMembers(W, 's1', [ME], {}, db)
+    addChatMembers(W, 's2', [OTHER], {}, db)
+    addChatMembers('wsotherother', 's3', [ME], {}, db)
 
     expect(searchChats(W, ME, 'cafe', {}, db)).toEqual([{ sessionId: 's1', title: null, matchCount: 1, matches: [{ sessionId: 's1', lineNumber: 1, snippet: 'Le café est prêt pour Zoë' }] }])
     expect(searchChats(W, ME, 'pre zoe', {}, db).map((r) => r.sessionId)).toEqual(['s1'])
@@ -414,6 +441,12 @@ describe('reads', () => {
     expect(searchChats(W, OTHER, 'cafe', {}, db).map((r) => r.sessionId)).toEqual(['s2'])
     expect(searchChats(W, 'user:cccccccccccc', 'cafe', {}, db)).toEqual([])
     expect(getChats(W, '/tmp/w', { actor: OTHER }, db).map((c) => c.id)).toEqual(['s2'])
+
+    // shared: once a member, the other person finds it too; the workspace owner who is not a member never does
+    addChatMembers(W, 's1', [OTHER], {}, db)
+    expect(searchChats(W, OTHER, 'cafe', {}, db).map((r) => r.sessionId).sort()).toEqual(['s1', 's2'])
+    expect(getChats(W, '/tmp/w', { actor: OTHER }, db).map((c) => c.id).sort()).toEqual(['s1', 's2'])
+    expect(searchChats(W, ME, 'somebody', {}, db)).toEqual([])
   })
 })
 

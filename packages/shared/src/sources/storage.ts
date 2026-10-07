@@ -547,22 +547,6 @@ export async function createSource(
     if (iconPath) {
       debug(`[createSource] Icon downloaded for ${slug}: ${iconPath}`);
     }
-  } else if (!config.icon) {
-    // No icon provided - try to auto-fetch from service URL
-    const { deriveServiceUrl, getHighQualityLogoUrl } = await import('../utils/logo.ts');
-    const { downloadIcon } = await import('../utils/icon.ts');
-    const serviceUrl = deriveServiceUrl(input);
-    if (serviceUrl) {
-      const logoUrl = await getHighQualityLogoUrl(serviceUrl, input.provider);
-      if (logoUrl) {
-        const iconPath = await downloadIcon(sourcePath, logoUrl, `createSource:${slug}`);
-        if (iconPath) {
-          // Store the source URL for reference (not the cached path)
-          config.icon = logoUrl;
-          saveSourceConfig(workspaceRootPath, config);
-        }
-      }
-    }
   }
 
   // Create guide.md with skeleton template

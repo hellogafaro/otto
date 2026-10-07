@@ -22,6 +22,21 @@ describe('buildEntitySections', () => {
     expect(sections[3]!.items.map(item => [item.id, item.rank])).toEqual([['project:aaaaaaaaaaaa', 1]])
   })
 
+  it('lists the chat\'s members first, agents then people, and leaves them out of People and Agents', () => {
+    const sections = buildEntitySections({
+      people: [{ actor: 'user:bbbbbbbbbbbb', name: 'Zed' }, { actor: 'user:aaaaaaaaaaaa', name: 'Ann' }],
+      agents: [agent('zzzzzzzzzzzz', 'Otto'), agent('yyyyyyyyyyyy', 'Alpha')],
+      tasks: null,
+      projects: null,
+      members: ['agent:yyyyyyyyyyyy', 'user:bbbbbbbbbbbb'],
+    }, t)
+    expect(sections.map(section => [section.id, section.items.map(item => item.id)])).toEqual([
+      ['members', ['agent:yyyyyyyyyyyy', 'user:bbbbbbbbbbbb']],
+      ['people', ['user:aaaaaaaaaaaa']],
+      ['agents', ['agent:zzzzzzzzzzzz']],
+    ])
+  })
+
   it('says there are none once a list has loaded empty, and draws nothing for a list that has not loaded', () => {
     const empty = buildEntitySections({ people: null, agents: [], tasks: [], projects: [] }, t)
     expect(empty.map(section => [section.id, section.items.length, section.empty])).toEqual([

@@ -11,7 +11,7 @@ const { RPC_CHANNELS: C } = await import('@otto/shared/protocol')
 const { saveConfig, addWorkspace } = await import('@otto/shared/config')
 const { initDb } = await import('@otto/shared/db')
 const { pushSchema } = await import('../../../../shared/src/db/push.ts')
-const { initMessages } = await import('@otto/shared/sessions')
+const { initMessages, addChatMembers } = await import('@otto/shared/sessions')
 const { ChatPersistenceQueue } = await import('../../../../shared/src/sessions/persistence-queue.ts')
 const { createWorkspaceMember } = await import('@otto/shared/workspaces')
 const { createLibraryFolder } = await import('@otto/shared/library')
@@ -42,12 +42,13 @@ let ctxOther: Ctx
 const callAs = async (as: Ctx, channel: string, ...args: unknown[]) => handlers.get(channel)!(as, ...args)
 const search = async (as: Ctx, query: unknown) => (await callAs(as, C.search.RUN, query)) as Hit[]
 
-/** Writes a chat of `owner` with one user message through the real persistence queue. */
+/** Writes a chat of `owner` (its one member, as `createSession` makes it) with one user message through the real persistence queue. */
 async function writeChat(workspace: string, id: string, owner: string, title: string, text: string) {
   const queue = new ChatPersistenceQueue({ db: () => initDb() })
   const chat = { id, workspaceId: workspace, workspaceRootPath: configDir, createdBy: `user:${owner}`, createdAt: 1, lastUsedAt: 1, name: title }
   queue.enqueue(id, () => ({ chat, sessionDir: join(configDir, id), messages: [{ id: `${id}-m1`, type: 'user', timestamp: 1000, content: text }] }) as never)
   await queue.flush(id)
+  addChatMembers(workspace, id, [`user:${owner}`])
 }
 
 beforeAll(async () => {

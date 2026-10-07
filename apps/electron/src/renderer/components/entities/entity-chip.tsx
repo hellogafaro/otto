@@ -78,10 +78,12 @@ export function EntityChip({ entity, className }: { entity: string; className?: 
   const Icon = info.missing ? null : ICONS[info.type]
   const agent = info.type === 'agent' && !info.missing ? lists.agents?.find((entry) => entry.id === info.id) : undefined
   const route = info.missing ? null : info.route
+  // A mention of the viewer stands out (like Slack's): the tag filled in primary.
+  const mentionsMe = info.type === 'user' && !!lists.members?.find((member) => member.actor === entity)?.me
   const chip = cn(
     // Otto: the tag (DESIGN.md, Tags): primary on its 10% tint (15% dark), `xs` corners, medium, the 14px type icon.
     'inline-flex max-w-full items-baseline gap-1 rounded-xs px-1 align-baseline font-medium [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:self-center',
-    info.missing ? 'bg-foreground/5 text-muted-foreground' : 'bg-primary/10 text-primary dark:bg-primary/15',
+    info.missing ? 'bg-foreground/5 text-muted-foreground' : mentionsMe ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary dark:bg-primary/15',
     className,
   )
   const content = (

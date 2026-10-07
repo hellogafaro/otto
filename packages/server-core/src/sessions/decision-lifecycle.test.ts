@@ -36,7 +36,7 @@ describe('decision points in the session lifecycle', () => {
 
   async function session(id: string) {
     const workspace = { id: 'ws-test', name: 'Test Workspace', rootPath: tmpRoot, createdAt: Date.now() }
-    const managed = createManagedSession({ id, name: 'lifecycle test' }, workspace as never, { messagesLoaded: true })
+    const managed = createManagedSession({ id, name: 'lifecycle test', agentId: 'agentaaaaaaa' }, workspace as never, { messagesLoaded: true })
     ;(sm as unknown as { sessions: Map<string, unknown> }).sessions.set(id, managed)
     return managed
   }

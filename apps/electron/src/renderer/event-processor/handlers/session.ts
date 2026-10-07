@@ -584,7 +584,7 @@ export function handleUserMessage(
     //
     // We deliberately do NOT swap `m.id` to the backend's canonical id here.
     // ChatDisplay's `getTurnKey` keys user-message bubbles by id, and a swap
-    // would unmount/remount the UserMessageBubble — wiping its local timer
+    // would unmount/remount the UserMessage — wiping its local timer
     // state and dropping the queued chip mid-flight. The canonical backend
     // id is irrelevant to subsequent events: they all use
     // `event.optimisticMessageId` for routing (see the findIndex above).

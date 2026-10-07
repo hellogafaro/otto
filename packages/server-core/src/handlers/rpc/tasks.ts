@@ -75,7 +75,7 @@ export function registerTasksHandlers(server: RpcServer, deps: HandlerDeps): voi
     )
   })
 
-  server.handle(RPC_CHANNELS.tasks.SET_STATUS, (ctx, id: string, status: TaskStatus) => setTaskStatus(workspaceOf(ctx), id, status))
+  server.handle(RPC_CHANNELS.tasks.SET_STATUS, (ctx, id: string, status: TaskStatus) => setTaskStatus(workspaceOf(ctx), id, status, actorOf(ctx)))
 
   server.handle(RPC_CHANNELS.timesheets.LIST, (ctx, taskId: string) => getTimesheets(workspaceOf(ctx), taskId))
 

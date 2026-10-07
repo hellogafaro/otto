@@ -19,12 +19,27 @@ export function initialsOf(name: string): string {
 }
 
 /**
- * The people of a chat other than the viewer: its `participants` (`user:<id>`, creator first) without `me`, never a
- * duplicate. Until `me` is known nobody is listed: the viewer must never see themselves, not even for a moment.
+ * The members of a chat other than the viewer (its `members`, `user:<id>` and `agent:<id>`, creator first): the agents
+ * first, then the people, never a duplicate. Until `me` is known nobody is listed: the viewer must never see
+ * themselves, not even for a moment.
  */
-export function otherParticipants(participants: readonly string[] | undefined, me: string | null): string[] {
+export function otherMembers(members: readonly string[] | undefined, me: string | null): string[] {
   if (!me) return []
-  return [...new Set(participants ?? [])].filter((actor) => actor !== me && !isAgentActor(actor))
+  const others = [...new Set(members ?? [])].filter((actor) => actor !== me)
+  return [...others.filter(isAgentActor), ...others.filter((actor) => !isAgentActor(actor))]
+}
+
+/** A people chat (a DM or a group): no primary agent and no agent among its members, so sending runs nothing. */
+export const isPeopleChat = (chat: { agentId?: string; members?: readonly string[] }) =>
+  !chat.agentId && !(chat.members ?? []).some(isAgentActor)
+
+/**
+ * Whether sending `text` starts an agent run: an agent replies when mentioned (`agent:<id>` in the text), or, in a
+ * chat with its primary agent and at most one person, to every message.
+ */
+export function startsAgentRun(chat: { agentId?: string; members?: readonly string[] }, text: string): boolean {
+  if (/(^|\s)agent:[A-Za-z0-9._-]+/.test(text)) return true
+  return !!chat.agentId && (chat.members ?? []).filter((actor) => !isAgentActor(actor)).length <= 1
 }
 
 /** The first `max` entries of an avatar group and how many more there are ("+N"). */

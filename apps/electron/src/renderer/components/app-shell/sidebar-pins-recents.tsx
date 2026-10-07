@@ -9,7 +9,6 @@ import {
   Clock,
   Folder,
   Library,
-  MoreHorizontal,
   Pin,
   PinOff,
   Settings,
@@ -37,15 +36,13 @@ import { usePins } from '@/hooks/use-pins'
 import { useRecents } from '@/hooks/use-recents'
 import { useSessionActions } from '@/hooks/use-session-actions'
 import { useShortcutReveal } from '@/hooks/use-shortcut-reveal'
-import type { SessionStatus } from '@/config/session-status-config'
-import { getSessionTitle, hasUnreadMeta, shortTimeAgo } from '@/utils/session'
-import { ChatPeople } from '@/components/people/chat-people'
+import { ChatStatusIcon, type SessionStatus } from '@/config/session-status-config'
+import { getSessionStatus, getSessionTitle, hasUnreadMeta, shortTimeAgo } from '@/utils/session'
 import { Kbd } from '@/components/ui/kbd'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { SortableList } from '@/components/ui/sortable-list'
-import { DropdownMenu, DropdownMenuTrigger, StyledDropdownMenuContent } from '@/components/ui/styled-dropdown'
 import { ContextMenu, ContextMenuTrigger, StyledContextMenuContent } from '@/components/ui/styled-context-menu'
-import { ContextMenuProvider, DropdownMenuProvider, useMenuComponents } from '@/components/ui/menu-context'
+import { ContextMenuProvider, useMenuComponents } from '@/components/ui/menu-context'
 import { SessionMenu } from './session-menu'
 import { hasTransferTargets } from './transfer-targets'
 
@@ -60,15 +57,15 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
 // A row is one line: the title runs the full width and fades out under the row's
 // right slot (a mask, so it blends with the rest, hover, selected and open fills),
 // and the slot holds one thing: at rest the chat's status or else its time; on hover,
-// keyboard focus or an open menu only Pin, Archive and More; the jump key only while
+// keyboard focus or an open menu only Pin and Archive (never a ⋯: the rest is the right-click menu); the jump key only while
 // the reveal key is held. `--slot` is how far the fade reaches in from the title's end
 // (the slot's width), set per state below; the fade itself is 16px (8 x 2).
 const TITLE_FADE =
   '[mask-image:linear-gradient(to_right,#000_calc(100%_-_var(--slot)_-_16px),transparent_calc(100%_-_var(--slot)))]'
 const SLOT_REST = { none: '[--slot:-16px]', mark: '[--slot:22px]', time: '[--slot:36px]' } as const
-// Three 20px buttons and two 2px gaps, or one button (a row that is not a chat).
+// Two 20px buttons and a 2px gap, or one button (a row that is not a chat).
 const SLOT_ACTIONS = {
-  chat: 'hover:[--slot:64px] has-[:focus-visible]:[--slot:64px] data-[open]:[--slot:64px] pointer-coarse:[--slot:64px]',
+  chat: 'hover:[--slot:42px] has-[:focus-visible]:[--slot:42px] data-[open]:[--slot:42px] pointer-coarse:[--slot:42px]',
   pin: 'hover:[--slot:20px] has-[:focus-visible]:[--slot:20px] data-[open]:[--slot:20px] pointer-coarse:[--slot:20px]',
 } as const
 // "⌘1" is two characters wide; Windows and Linux keys ("Ctrl+1") are wider.
@@ -137,7 +134,7 @@ function RowMenu({ pinned, onTogglePin }: { pinned: boolean; onTogglePin: () => 
   )
 }
 
-/** A chat's session menu (which has Pin and Unpin in it), in its context menu and its ⋯ button. */
+/** A chat's session menu (which has Pin and Unpin in it), in its context menu. */
 function ChatMenu({ session, sessionStatuses, actions }: { session: SessionMeta; sessionStatuses: SessionStatus[]; actions: ChatActions }) {
   const { workspaces, labels, onSessionLabelsChange } = useAppShellContext()
   return (
@@ -160,18 +157,18 @@ function ChatMenu({ session, sessionStatuses, actions }: { session: SessionMeta;
   )
 }
 
-/** A chat leads with its people (the agent and the others in it), anything else with its type's 14px icon, both in a 20px lane (no `icon-slot`: the button pins that to 14px). */
-function ItemIcon({ item }: { item: ResolvedItem }) {
+/** A chat leads with its bare status icon (never an avatar), anything else with its type's icon, both 14px. */
+function ItemIcon({ item, sessionStatuses }: { item: ResolvedItem; sessionStatuses: SessionStatus[] }) {
   if (item.session) {
     return (
-      <span className="flex min-w-5 shrink-0 items-center">
-        <ChatPeople chat={item.session} />
+      <span data-slot="icon-slot" className="flex shrink-0 items-center justify-center">
+        <ChatStatusIcon id={getSessionStatus(item.session)} statuses={sessionStatuses} />
       </span>
     )
   }
   const Icon = TYPE_ICONS[item.type] ?? Circle
   return (
-    <span className="flex w-5 shrink-0 items-center justify-center">
+    <span data-slot="icon-slot" className="flex shrink-0 items-center justify-center">
       <Icon />
     </span>
   )
@@ -222,7 +219,7 @@ function Row({ item, pinned, active, hotkey, reveal, now, waiting = false, sessi
       onClick={onOpen}
       className={cn(menuOpen && 'bg-foreground/10 text-foreground')}
     >
-      <ItemIcon item={item} />
+      <ItemIcon item={item} sessionStatuses={sessionStatuses} />
       <span className={cn('min-w-0 flex-1 overflow-hidden text-clip! whitespace-nowrap', TITLE_FADE, bright && 'text-foreground')}>
         {item.title}
       </span>
@@ -275,23 +272,9 @@ function Row({ item, pinned, active, hotkey, reveal, now, waiting = false, sessi
             {pinned ? <PinOff /> : <Pin />}
           </SlotButton>
           {session && chat && (
-            <>
-              <SlotButton label={archiveLabel} onClick={() => (archived ? chat.unarchive(session.id) : chat.archive(session.id))}>
-                {archived ? <ArchiveRestore /> : <Archive />}
-              </SlotButton>
-              <DropdownMenu modal open={menuOpen} onOpenChange={setMenuOpen}>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuSlotAction aria-label={t('common.more')}>
-                    <MoreHorizontal />
-                  </SidebarMenuSlotAction>
-                </DropdownMenuTrigger>
-                <StyledDropdownMenuContent align="end">
-                  <DropdownMenuProvider>
-                    <ChatMenu session={session} sessionStatuses={sessionStatuses} actions={chat} />
-                  </DropdownMenuProvider>
-                </StyledDropdownMenuContent>
-              </DropdownMenu>
-            </>
+            <SlotButton label={archiveLabel} onClick={() => (archived ? chat.unarchive(session.id) : chat.archive(session.id))}>
+              {archived ? <ArchiveRestore /> : <Archive />}
+            </SlotButton>
           )}
         </div>
         {showKey && <Kbd className="col-start-1 row-start-1">{hotkey}</Kbd>}

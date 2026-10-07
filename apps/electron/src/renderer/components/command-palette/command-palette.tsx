@@ -53,7 +53,7 @@ import {
 
 /** One row: what it shows and what picking it does. */
 export interface PaletteItem extends PaletteEntry {
-  /** A bare 14px icon, never a tile (a task's status, a page's icon, a skill's or source's own icon or its glyph); a chat shows its people's 20px avatar group. */
+  /** A bare 14px icon, never a tile or avatar (a chat's or task's status, a page's icon, a skill's or source's own icon or its glyph). */
   icon: React.ReactNode
   /** Muted text after the title: where the server found the query when the title does not show it (a message, a description, a comment). */
   snippet?: string
@@ -184,8 +184,8 @@ export function CommandPalette({ data: local, initialCategory = 'all', onPick, o
                 onSelect={() => onPick(item)}
                 data-checked={item.checked ? 'true' : undefined}
               >
-                {/* One 20px lane for every row's icon (a chat's avatar group may run wider), so they share offset and gap. */}
-                <span className="flex h-3.5 min-w-5 shrink-0 items-center justify-center">{item.icon}</span>
+                {/* One slot for every row's icon, so they share size, offset and gap. */}
+                <span className="flex size-3.5 shrink-0 items-center justify-center">{item.icon}</span>
                 <span className={item.snippet ? 'max-w-[50%] shrink-0 truncate' : 'min-w-0 truncate'}>{item.title}</span>
                 {item.snippet && <span className="min-w-0 flex-1 truncate text-muted-foreground">{item.snippet}</span>}
                 {item.meta && <span className="ml-auto max-w-[40%] shrink-0 truncate pl-2 text-xs tabular-nums text-muted-foreground">{item.meta}</span>}

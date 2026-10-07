@@ -142,7 +142,9 @@ describe('the otto CLI against the server', () => {
     expect((await otto(token, ['tasks', 'set-status', task.out.id, 'done'])).out.status).toBe('done')
     expect((await otto(token, ['tasks', 'list', '{"status":"done"}'])).out.map((t: { id: string }) => t.id)).toEqual([task.out.id])
     expect((await otto(token, ['comments', 'create', `task:${task.out.id}`, 'Looks good'])).out.content).toBe('Looks good')
-    expect((await otto(token, ['comments', 'list', `task:${task.out.id}`])).out).toHaveLength(1)
+    const activity = (await otto(token, ['comments', 'list', `task:${task.out.id}`])).out
+    expect([activity.items.map((row: { event?: { kind: string }; content: string }) => row.event?.kind ?? row.content), activity.more]).toEqual([['created', 'status', 'Looks good'], false])
+    expect((await otto(token, ['comments', 'list', `task:${task.out.id}`, '{"limit":1}'])).out).toMatchObject({ items: [{ content: 'Looks good' }], more: true })
 
     const doc = { title: 'Notes', mime: 'text/markdown', content: { encoding: 'utf8', data: '# Notes\n\nfrom stdin' } }
     const item = await otto(token, ['library', 'create', '-'], JSON.stringify(doc))

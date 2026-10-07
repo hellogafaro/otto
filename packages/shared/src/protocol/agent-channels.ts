@@ -26,15 +26,15 @@ export const AGENT_COMMANDS = {
   'tasks list': { channel: C.tasks.LIST, args: ['[filter]'], read: true, summary: 'Tasks, newest change first. filter: {projectId?, status? ("todo"|"doing"|"done"|"archived", or a list), assignee? ("user:<id>"|"agent:<id>")}' },
   'tasks get': { channel: C.tasks.GET, args: ['<id>'], read: true, summary: 'One task, or null.' },
   'tasks create': { channel: C.tasks.CREATE, args: ['<task>'], summary: 'task: {projectId, title, description?, dueAt? (ms), assignees? (actors), resources? ([{type: "url"|"library"|"chat", title, ref}])}' },
-  'tasks update': { channel: C.tasks.UPDATE, args: ['<id>', '<patch>'], summary: 'patch: any of {projectId, title, description, dueAt, assignees, resources, expectedUpdatedAt}' },
+  'tasks update': { channel: C.tasks.UPDATE, args: ['<id>', '<patch>'], summary: 'patch: any of {projectId, title, description, dueAt (ms|null), assignees (actors), resources, expectedUpdatedAt}. resources REPLACES the list: to add or remove a link, `otto tasks get <id>` and send its resources with the link added ({type: "url"|"library"|"chat", title, ref}) or removed.' },
   'tasks set-status': { channel: C.tasks.SET_STATUS, args: ['<id>', '<status>'], summary: 'status: todo, doing, done, archived or deleted.' },
 
   'projects list': { channel: C.projects.LIST, args: ['[filter]'], read: true, summary: 'Projects. filter: {status? ("active" by default, "archived", or a list)}' },
   'projects get': { channel: C.projects.GET, args: ['<id>'], read: true, summary: 'One project, or null.' },
   'projects create': { channel: C.projects.CREATE, args: ['<project>'], summary: 'project: {title, description?, resources?}' },
-  'projects update': { channel: C.projects.UPDATE, args: ['<id>', '<patch>'], summary: 'patch: any of {title, description, resources, expectedUpdatedAt}' },
+  'projects update': { channel: C.projects.UPDATE, args: ['<id>', '<patch>'], summary: 'patch: any of {title, description, resources, expectedUpdatedAt}. resources REPLACES the list: to add or remove a link, `otto projects get <id>` and send its resources with the link added ({type: "url"|"library"|"chat", title, ref}) or removed.' },
 
-  'comments list': { channel: C.comments.GET, args: ['<entity>'], read: true, summary: 'Comments on an entity ("task:<id>", "project:<id>", ...), oldest first.' },
+  'comments list': { channel: C.comments.GET, args: ['<entity>', '[page]'], read: true, summary: 'An entity\'s ("task:<id>", "project:<id>", ...) comments and activity events, oldest first: {items, more} (more = older items remain). An item\'s type is "comment" | "event"; an event has event = {kind, ...}. page: {before? (an item id), limit? (max 500)}' },
   'comments create': { channel: C.comments.CREATE, args: ['<entity>', '<content>'], summary: 'Adds a comment as you. A "user:<id>" token in the content notifies that member.' },
 
   'library list': { channel: C.library.LIST, args: ['[filter]'], read: true, summary: 'Library items (files, documents, folders). filter: {parentId? (a folder, null = the top), type? ("file"|"document"|"folder"), createdBy?}' },

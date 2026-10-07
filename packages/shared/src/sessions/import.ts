@@ -9,7 +9,9 @@ import { parsePermissionMode } from '../agent/mode-types.ts'
 import { getFirstUser } from '../users/queries.ts'
 import { getWorkspaceOwnerIds } from '../workspaces/ownership.ts'
 import { getWorkspaceSessionsPath } from '../workspaces/storage.ts'
+import { getDefaultAgent } from '../agents/index.ts'
 import { hasChat, writeChat, type ChatSnapshot } from './chats.ts'
+import { addFirstMembers } from './storage.ts'
 import { initMessages, toMessageRow, writeMessages } from './messages.ts'
 import type { SessionHeader, StoredMessage } from './types.ts'
 
@@ -30,7 +32,8 @@ import type { SessionHeader, StoredMessage } from './types.ts'
  *   header.triggeredBy            -> origin 'routine:<automationId>' (+ metadata)
  *   header.parentSessionId        -> origin 'chat:<id>'
  *   header.hidden                 -> not imported (hidden chats were the removed mini edit chats)
- *   header.hasUnread              -> read_at
+ *   header.hasUnread              -> the creator's `chats_members.read_at` (null = unread)
+ *   header.agentId (absent)       -> the workspace's default agent (a member, like the creator)
  *   header.lastMessageAt          -> updated_at
  *   a line that does not parse    -> skipped and counted (a truncated last line from a crash)
  *   a `status` line               -> dropped (never shown after the turn)
@@ -147,12 +150,14 @@ export function initChatsImport(db: Db = initDb(), workspaces: { id: string; roo
       try {
         const { messages, skipped } = parseMessageLines(lines.slice(1))
         const chat = toSnapshot(header, chatId, workspaceId, owner, db)
+        chat.agentId ??= getDefaultAgent(workspaceId, db)?.id
         const sessionDir = join(sessionsDir, chatId)
         const rows = messages.map((message) => ({ ...toMessageRow(message, sessionDir), reposition: true }))
         db.transaction(
           (tx) => {
             writeChat(tx, chat, { labels: header.labels ?? [] })
             writeMessages(tx, workspaceId, chatId, rows, [])
+            addFirstMembers(tx, workspaceId, chat, header.hasUnread ? null : Date.now(), chat.createdAt)
           },
           { behavior: 'immediate' },
         )

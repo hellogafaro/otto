@@ -10,7 +10,6 @@ import {
   Folder,
   HardDrive,
   Link,
-  MoreHorizontal,
   User,
   X,
 } from 'lucide-react'
@@ -36,8 +35,9 @@ import type { ComponentEntry } from './types'
 // =============================================================================
 // Gallery (projects 3 columns 16:9, library 4 columns 4:5, files 1:1) and the
 // sidecar's property list, light and dark side by side. Static states: rest,
-// current, pending (disabled), menu open (an expanded ⋯), loading. Hover the
-// tiles, Tab to them and right-click them for the interactive ones.
+// current, pending (disabled), loading. Hover the tiles, Tab to them and
+// right-click them (a long press on touch) for the interactive ones: a tile
+// never has a ⋯.
 // =============================================================================
 
 function TileMenu() {
@@ -49,22 +49,6 @@ function TileMenu() {
       <ContextMenuSeparator />
       <ContextMenuItem variant="destructive" shortcut="⌫">Delete</ContextMenuItem>
     </ContextMenuContent>
-  )
-}
-
-function More({ open = false }: { open?: boolean }) {
-  // `open`: the open look, shown statically (a menu would close on the next click).
-  if (open) return <Button variant="ghost" size="icon-compact" aria-label="More actions" aria-expanded><MoreHorizontal /></Button>
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label="More actions" />}>
-        <MoreHorizontal />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem>Open</DropdownMenuItem>
-        <DropdownMenuItem shortcut="C">Copy link</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }
 
@@ -83,7 +67,6 @@ function Projects() {
           current={i === 1}
           disabled={i === 3}
           menu={<TileMenu />}
-          actions={<More open={i === 2} />}
         />
       ))}
       <GalleryItemSkeleton ratio="16:9" />
@@ -94,11 +77,11 @@ function Projects() {
 function Library() {
   return (
     <Gallery columns={4}>
-      <GalleryItem media={<Folder />} label="12 items" icon={<Folder />} title="Brand" menu={<TileMenu />} actions={<More />} />
-      <GalleryItem media={<File />} label="PDF" icon={<File />} title="Pitch deck v3.pdf" menu={<TileMenu />} actions={<More />} />
-      <GalleryItem media={<File />} label="PNG" icon={<File />} title="Logo on dark background, final, exported for print.png" menu={<TileMenu />} actions={<More />} />
-      <GalleryItem media={<FileText />} icon={<FileText />} title="Launch plan" menu={<TileMenu />} actions={<More open />} />
-      <GalleryItem media={<FileText />} icon={<FileText />} title="Meeting notes" current menu={<TileMenu />} actions={<More />} />
+      <GalleryItem media={<Folder />} label="12 items" icon={<Folder />} title="Brand" menu={<TileMenu />} />
+      <GalleryItem media={<File />} label="PDF" icon={<File />} title="Pitch deck v3.pdf" menu={<TileMenu />} />
+      <GalleryItem media={<File />} label="PNG" icon={<File />} title="Logo on dark background, final, exported for print.png" menu={<TileMenu />} />
+      <GalleryItem media={<FileText />} icon={<FileText />} title="Launch plan" menu={<TileMenu />} />
+      <GalleryItem media={<FileText />} icon={<FileText />} title="Meeting notes" current menu={<TileMenu />} />
       <GalleryItem media={<File />} label="CSV" icon={<File />} title="Uploading.csv" disabled />
       <GalleryItemSkeleton />
       <GalleryItemSkeleton />
@@ -109,8 +92,8 @@ function Library() {
 function Files() {
   return (
     <Gallery columns={4}>
-      <GalleryItem ratio="1:1" media={<File />} label="MP4" icon={<File />} title="Demo recording.mp4" menu={<TileMenu />} actions={<More />} />
-      <GalleryItem ratio="1:1" media={<File />} label="ZIP" icon={<File />} title="Assets.zip" menu={<TileMenu />} actions={<More />} />
+      <GalleryItem ratio="1:1" media={<File />} label="MP4" icon={<File />} title="Demo recording.mp4" menu={<TileMenu />} />
+      <GalleryItem ratio="1:1" media={<File />} label="ZIP" icon={<File />} title="Assets.zip" menu={<TileMenu />} />
       <GalleryItemSkeleton ratio="1:1" />
     </Gallery>
   )

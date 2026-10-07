@@ -32,7 +32,6 @@ export const CORE_HANDLED_CHANNELS = [
   RPC_CHANNELS.theme.SET_COLOR_THEME,
   RPC_CHANNELS.theme.BROADCAST_PREFERENCES,
   RPC_CHANNELS.toolIcons.GET_MAPPINGS,
-  RPC_CHANNELS.logo.GET_URL,
 ] as const
 
 export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDeps): void {
@@ -323,12 +322,5 @@ export function registerWorkspaceCoreHandlers(server: RpcServer, deps: HandlerDe
         }
       })
       .filter(Boolean)
-  })
-
-  // Logo URL resolution (uses Node.js filesystem cache for provider domains)
-  server.handle(RPC_CHANNELS.logo.GET_URL, async (_ctx, serviceUrl: string, provider?: string) => {
-    const { getLogoUrl } = await import('@otto/shared/utils/logo')
-    const result = getLogoUrl(serviceUrl, provider)
-    return result
   })
 }

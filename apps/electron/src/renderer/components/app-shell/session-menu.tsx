@@ -32,6 +32,7 @@ import {
   Send,
   Folder,
   Check,
+  Users,
 } from 'lucide-react'
 import { useMenuComponents } from '@/components/ui/menu-context'
 import { getStateColor, getStateIcon, type SessionStatusId } from '@/config/session-status-config'
@@ -77,6 +78,8 @@ export interface SessionMenuProps {
   onMarkUnread: () => void
   onSessionStatusChange: (state: SessionStatusId) => void
   onSendToWorkspace?: () => void
+  /** Opens the chat's members (the open chat's header only). */
+  onMembers?: () => void
   onDelete: () => void
 }
 
@@ -97,6 +100,7 @@ export function SessionMenu({
   onMarkUnread,
   onSessionStatusChange,
   onSendToWorkspace,
+  onMembers,
   onDelete,
   hasTransferTargets,
   projects = [],
@@ -123,6 +127,13 @@ export function SessionMenu({
 
   return (
     <>
+      {onMembers && (
+        <MenuItem onClick={onMembers}>
+          <Users className="h-3.5 w-3.5" />
+          <span className="flex-1">{t("chatMembers.title")}</span>
+        </MenuItem>
+      )}
+
       {/* Share/Shared based on shared state; hidden when no viewer host is configured */}
       {!viewerConfigured ? null : !sharedUrl ? (
         <MenuItem onClick={actions.share}>

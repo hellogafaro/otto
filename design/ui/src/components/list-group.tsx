@@ -4,6 +4,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible"
+import { ContextMenu, ContextMenuTrigger } from "@workspace/ui/components/context-menu"
 import { Count } from "@workspace/ui/components/count"
 import { PageCard } from "@workspace/ui/components/page"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -120,20 +121,23 @@ function ListGroup({
 // it at 80% for an item that needs nothing from you, such as a read chat), with
 // its `marks` (small glyphs right after it: unread, flagged, working). At the
 // end: `meta`, metadata badges 6px apart (hidden in a column under 448px), then
-// `end`, a muted 12px tabular date in a 40px right-aligned column so the
-// badges line up. States are the ghost ones: hover `foreground` 5%, current
-// (`active`) and pressed 10%, an inset focus ring (keyboard only). `actions` (a
-// 28px ⋯) covers the date on hover, focus or while its menu is open (always on
-// touch), 8px from the row's top, bottom and end, and keeps the row
-// highlighted while open. `size="sm"` is the compact variant for a list inside
-// a popover (the composer's Inbox list): 32px, the same slots and states.
+// `end`, a muted 12px tabular date in a 40px right-aligned column (kept when
+// empty) so the badges line up. States are the ghost ones: hover `foreground`
+// 5%, current (`active`) and pressed 10%, an inset focus ring (keyboard only).
+// A row never carries a ⋯ button: `menu` is the item's right-click menu (a
+// `ContextMenuContent`; a long press on touch, the menu key by keyboard), and
+// the row stays highlighted while it is open. `menuProps` takes over the
+// menu's open state (a phone's drawer opens on the long press instead).
+// `size="sm"` is the compact variant for a list inside a popover (the
+// composer's Inbox list): 32px, the same slots and states.
 function ListRow({
   media,
   title,
   marks,
   meta,
   end,
-  actions,
+  menu,
+  menuProps,
   active,
   muted,
   size = "default",
@@ -146,55 +150,60 @@ function ListRow({
   marks?: React.ReactNode
   meta?: React.ReactNode
   end?: React.ReactNode
-  actions?: React.ReactNode
+  /** The right-click menu: a `ContextMenuContent`. */
+  menu?: React.ReactNode
+  /** Controls the menu's open state (a long press that opens a drawer instead). */
+  menuProps?: Pick<React.ComponentProps<typeof ContextMenu>, "open" | "onOpenChange">
   active?: boolean
   muted?: boolean
 }) {
-  return (
-    <li data-slot="list-row" className="group/row relative">
-      <button
-        type="button"
-        aria-current={active ? "page" : undefined}
-        className={cn(
-          "flex w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-has-aria-expanded/row:bg-foreground/5 rounded-md px-2",
-          size === "sm" ? "h-8" : "h-11",
-          className
-        )}
-        {...props}
-      >
-        {/* Otto: the column under the band's chevron, in a group only. */}
-        <span className="hidden w-3.5 shrink-0 in-data-[slot=list-group]:block" />
-        <ListSlot>{media}</ListSlot>
-        <span className="flex min-w-0 flex-1 items-center gap-2">
-          <span className={cn("truncate", muted && "text-foreground/80")}>
-            {title}
-          </span>
-          {marks}
-        </span>
-        {meta && (
-          <span className="flex shrink-0 items-center gap-1.5 @max-md/panel:hidden">
-            {meta}
-          </span>
-        )}
-        {/* Otto: kept (empty) when the row has actions, so the ⋯ covers this column, never the badges. */}
-        {(end || actions) && (
-          <span
-            className={cn(
-              "min-w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums",
-              actions &&
-                "group-focus-within/row:invisible group-hover/row:invisible group-has-aria-expanded/row:invisible not-pointer-fine:invisible"
-            )}
-          >
-            {end}
-          </span>
-        )}
-      </button>
-      {actions && (
-        <div className="absolute inset-y-0 right-2 flex items-center opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100 has-aria-expanded:opacity-100 not-pointer-fine:opacity-100">
-          {actions}
-        </div>
+  const row = (
+    <button
+      type="button"
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex w-full items-center gap-2 text-left text-sm text-foreground transition-colors outline-none select-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 aria-[current=page]:bg-foreground/10 group-data-popup-open/row:bg-foreground/5 rounded-md px-2",
+        size === "sm" ? "h-8" : "h-11",
+        className
       )}
-    </li>
+      {...props}
+    >
+      {/* Otto: the column under the band's chevron, in a group only. */}
+      <span className="hidden w-3.5 shrink-0 in-data-[slot=list-group]:block" />
+      <ListSlot>{media}</ListSlot>
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span className={cn("truncate", muted && "text-foreground/80")}>
+          {title}
+        </span>
+        {marks}
+      </span>
+      {meta && (
+        <span className="flex shrink-0 items-center gap-1.5 @max-md/panel:hidden">
+          {meta}
+        </span>
+      )}
+      <span className="min-w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+        {end}
+      </span>
+    </button>
+  )
+  if (!menu && !menuProps)
+    return (
+      <li data-slot="list-row" className="group/row relative">
+        {row}
+      </li>
+    )
+  return (
+    <ContextMenu {...menuProps}>
+      <ContextMenuTrigger
+        data-slot="list-row"
+        className="group/row relative"
+        render={<li />}
+      >
+        {row}
+      </ContextMenuTrigger>
+      {menu}
+    </ContextMenu>
   )
 }
 

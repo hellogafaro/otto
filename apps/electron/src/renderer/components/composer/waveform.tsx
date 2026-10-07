@@ -2,11 +2,39 @@
  * The voice as bars filling the space (v1's, ported): 4px bars 2px apart, following the mic level mirrored from
  * the center. The speech range (up to ~6 kHz) spans the width, so a voice moves them edge to edge. They start
  * flat (a row of 4px dots) and stay flat until there is a level to show (or without mic access).
+ *
+ * `Dictation` is the composer's `tools` while listening (waveform filling the row, the timer against the main
+ * button) and `Transcribing` after Done. Both carry `data-slot="dictation"`, which is how the composer drops its
+ * spacer and its text field for the row (design/ui `Composer`): the row is 32px in every look, so entering or
+ * leaving it moves nothing but the text field's own height.
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useElapsed } from './use-dictation'
 
-export function Waveform() {
+export function Dictation() {
+  const elapsed = useElapsed(true)
+  return (
+    <>
+      <Waveform />
+      <span data-slot="dictation" aria-live="off" className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+        {elapsed}
+      </span>
+    </>
+  )
+}
+
+export function Transcribing() {
+  const { t } = useTranslation()
+  return (
+    <span data-slot="dictation" role="status" className="min-w-0 flex-1 truncate px-2 text-muted-foreground motion-safe:animate-pulse">
+      {t('composer.transcribing')}…
+    </span>
+  )
+}
+
+function Waveform() {
   const bars = useRef<HTMLDivElement>(null)
   const [count, setCount] = useState(0)
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { sql } from 'drizzle-orm'
 import { openDb } from '../db/index.ts'
+import { getComments } from '../comments/index.ts'
 import { getNotifications } from '../notifications/index.ts'
 import { pushSchema } from '../db/push.ts'
 import { createProjectsStore } from '../projects/index.ts'
@@ -62,19 +63,20 @@ test('statuses: archive, delete and restore to todo; lists hide archived and del
   const a = make('a')
   const b = make('b')
   const c = make('c')
-  expect(tasks.setTaskStatus(W, a.id, 'doing').status).toBe('doing')
-  expect(tasks.setTaskStatus(W, b.id, 'archived').status).toBe('archived')
-  expect(tasks.setTaskStatus(W, c.id, 'deleted').status).toBe('deleted')
+  expect(tasks.setTaskStatus(W, a.id, 'doing', ME).status).toBe('doing')
+  expect(tasks.setTaskStatus(W, b.id, 'archived', ME).status).toBe('archived')
+  expect(tasks.setTaskStatus(W, c.id, 'deleted', ME).status).toBe('deleted')
   expect(tasks.getTasks(W).map((t) => t.id)).toEqual([a.id])
   expect(tasks.getTasks(W, { status: 'archived' }).map((t) => t.id)).toEqual([b.id])
   expect(tasks.getTasks(W, { status: ['archived', 'deleted'] })).toHaveLength(2)
   failsWith('invalid', () => tasks.updateTask(W, c.id, { title: 'x' }, ME))
-  const restored = tasks.setTaskStatus(W, c.id, 'todo')
+  const restored = tasks.setTaskStatus(W, c.id, 'todo', ME)
   expect(restored.status).toBe('todo')
   expect(restored.updatedAt).toBeGreaterThan(c.updatedAt)
   expect(tasks.getTask(W, c.id)?.status).toBe('todo')
-  failsWith('invalid', () => tasks.setTaskStatus(W, a.id, 'blocked' as never))
-  failsWith('not_found', () => tasks.setTaskStatus(OTHER, a.id, 'done'))
+  failsWith('invalid', () => tasks.setTaskStatus(W, a.id, 'blocked' as never, ME))
+  failsWith('not_found', () => tasks.setTaskStatus(OTHER, a.id, 'done', ME))
+  failsWith('invalid', () => tasks.setTaskStatus(W, a.id, 'done', 'bob'))
 })
 
 test('lists are ordered by status then most recently updated, and filter by project', async () => {
@@ -86,8 +88,8 @@ test('lists are ordered by status then most recently updated, and filter by proj
   const doing = make('doing')
   const todoNew = make('todo new')
   const elsewhere = make('elsewhere', other.id)
-  tasks.setTaskStatus(W, done.id, 'done')
-  tasks.setTaskStatus(W, doing.id, 'doing')
+  tasks.setTaskStatus(W, done.id, 'done', ME)
+  tasks.setTaskStatus(W, doing.id, 'doing', ME)
   tasks.updateTask(W, todoNew.id, { description: 'touched' }, ME)
   expect(tasks.getTasks(W, { projectId: project.id }).map((t) => t.title)).toEqual(['doing', 'todo new', 'todo old', 'done'])
   expect(tasks.getTasks(W, { projectId: other.id }).map((t) => t.id)).toEqual([elsewhere.id])
@@ -125,7 +127,7 @@ test('each person newly assigned is told, never the actor or an agent; status an
   expect(told(ME)).toEqual([]) // assigned themselves
 
   tasks.updateTask(W, task.id, { title: 'T2', description: 'd', dueAt: 5, resources: [] }, BOB)
-  tasks.setTaskStatus(W, task.id, 'doing')
+  tasks.setTaskStatus(W, task.id, 'doing', ME)
   tasks.updateTask(W, task.id, { assignees: [ME, BOB] }, BOB) // nobody new
   expect(told(BOB)).toHaveLength(1)
   expect(told(ME)).toEqual([])
@@ -204,13 +206,13 @@ test('timesheets: bounds, notes, sum and delete', async () => {
   failsWith('invalid', log(1, 'x'.repeat(MAX_NOTES + 1)))
   expect(log(1, 'x'.repeat(MAX_NOTES))).not.toThrow()
   failsWith('not_found', log(1, '', 'nope'))
-  tasks.setTaskStatus(W, task.id, 'done')
+  tasks.setTaskStatus(W, task.id, 'done', ME)
   expect(log(1)).not.toThrow()
   tasks.deleteTimesheet(W, a.id)
   expect(tasks.getTimesheets(W, task.id).some((t) => t.id === a.id)).toBe(false)
   failsWith('not_found', () => tasks.deleteTimesheet(W, a.id))
   failsWith('not_found', () => tasks.deleteTimesheet(OTHER, b.id))
-  tasks.setTaskStatus(W, task.id, 'deleted')
+  tasks.setTaskStatus(W, task.id, 'deleted', ME)
   failsWith('not_found', log(1))
 })
 
@@ -221,11 +223,11 @@ test('search finds titles and descriptions of open tasks: a title that starts wi
   const contains = make('Prelaunch checklist')
   const starts = make('Launch day')
   const done = make('Launch review')
-  tasks.setTaskStatus(W, done.id, 'done')
+  tasks.setTaskStatus(W, done.id, 'done', ME)
   const archived = make('Launch archive')
-  tasks.setTaskStatus(W, archived.id, 'archived')
+  tasks.setTaskStatus(W, archived.id, 'archived', ME)
   const deleted = make('Launch deleted')
-  tasks.setTaskStatus(W, deleted.id, 'deleted')
+  tasks.setTaskStatus(W, deleted.id, 'deleted', ME)
   make('Unrelated')
   expect(tasks.searchTasks(W, ' LAUNCH ').map((task) => task.title)).toEqual(['Launch review', 'Launch day', 'Prelaunch checklist', 'Plan'])
   expect(tasks.searchTasks(W, 'launch', 2).map((task) => task.id)).toEqual([done.id, starts.id])
@@ -236,4 +238,45 @@ test('search finds titles and descriptions of open tasks: a title that starts wi
   expect(tasks.searchTasks(W, 'L_unch')).toEqual([])
   expect(tasks.searchTasks(W, '   ')).toEqual([])
   expect(tasks.searchTasks(OTHER, 'launch')).toEqual([])
+})
+
+test('updates, status changes and logged time write activity events by the actor; the description writes none', async () => {
+  const { db, projects, tasks, project } = await setup()
+  const other = projects.createProject({ createdBy: ME, workspaceId: W, title: 'Q' })
+  const spec = { type: 'url' as const, title: 'Spec', ref: 'https://example.com/spec' }
+  const docs = { type: 'url' as const, title: 'Docs', ref: 'https://example.com/docs' }
+  const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A', resources: [spec] })
+  const activity = () => getComments(W, `task:${task.id}`, {}, db).items.map((row) => [row.type, row.createdBy, row.event])
+  expect(activity()).toEqual([]) // 'created' is synthesized by the reader, never stored
+
+  tasks.updateTask(W, task.id, { description: 'only words', title: 'A', assignees: [], dueAt: null, projectId: project.id, resources: [{ ...spec, title: 'Renamed link' }] }, ME)
+  expect(activity()).toEqual([])
+
+  tasks.updateTask(W, task.id, { title: 'B', assignees: [BOB], dueAt: 5, projectId: other.id, resources: [docs] }, ME)
+  tasks.setTaskStatus(W, task.id, 'doing', BOB)
+  tasks.setTaskStatus(W, task.id, 'doing', BOB) // unchanged: nothing
+  tasks.createTimesheet({ createdBy: BOB, workspaceId: W, taskId: task.id, time: 60_000 })
+  expect(activity()).toEqual([
+    ['event', ME, { kind: 'title', from: 'A', to: 'B' }],
+    ['event', ME, { kind: 'assignees', from: [], to: [BOB] }],
+    ['event', ME, { kind: 'due', from: null, to: 5 }],
+    ['event', ME, { kind: 'project', from: project.id, to: other.id }],
+    ['event', ME, { kind: 'links', added: [docs], removed: [{ ...spec, title: 'Renamed link' }] }],
+    ['event', BOB, { kind: 'status', from: 'todo', to: 'doing' }],
+    ['event', BOB, { kind: 'time', time: 60_000 }],
+  ])
+  const sheet = tasks.getTimesheets(W, task.id)[0]!
+  tasks.deleteTimesheet(W, sheet.id)
+  expect(activity()).toHaveLength(7)
+  expect(getNotifications('bbbbbbbbbbbb', W, db).map((n) => n.type)).toEqual(['assigned']) // events notify nobody
+})
+
+test('a failed update or status change writes no event', async () => {
+  const { db, tasks, project } = await setup()
+  const task = tasks.createTask({ createdBy: ME, workspaceId: W, projectId: project.id, title: 'A' })
+  failsWith('conflict', () => tasks.updateTask(W, task.id, { title: 'B', expectedUpdatedAt: task.updatedAt - 1 }, ME))
+  failsWith('invalid', () => tasks.updateTask(W, task.id, { title: 'B', dueAt: -1 }, ME))
+  failsWith('invalid', () => tasks.setTaskStatus(W, task.id, 'nope' as never, ME))
+  failsWith('invalid', () => tasks.createTimesheet({ createdBy: ME, workspaceId: W, taskId: task.id, time: 0 }))
+  expect(getComments(W, `task:${task.id}`, {}, db).items).toEqual([])
 })

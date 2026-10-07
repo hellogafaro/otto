@@ -15,7 +15,8 @@ type Domain = DomainChange['domain']
  * succeeds, `broadcastDomainChanges` pushes one `domain:changed` per domain to the members connected to
  * the workspace; the data hooks reload (`use-workspace-list`, `use-comments`, `use-notifications`).
  * `notifications` reaches only the people the write notifies (`NOTIFIED`), and the whole workspace
- * where no rule says who. `domain-changes.test.ts` fails when a handler of these domains is neither
+ * where no rule says who. A task write and logged time stale `comments` too: they write activity events
+ * (open activity feeds reload). `domain-changes.test.ts` fails when a handler of these domains is neither
  * here nor a read.
  */
 export const WRITE_CHANNELS: Record<string, Domain[]> = {
@@ -29,9 +30,9 @@ export const WRITE_CHANNELS: Record<string, Domain[]> = {
   [C.projects.ADD_MEMBER]: ['projects'],
   [C.projects.REMOVE_MEMBER]: ['projects'],
   [C.tasks.CREATE]: ['tasks', 'notifications'],
-  [C.tasks.UPDATE]: ['tasks', 'notifications'],
-  [C.tasks.SET_STATUS]: ['tasks'],
-  [C.timesheets.CREATE]: ['timesheets'],
+  [C.tasks.UPDATE]: ['tasks', 'comments', 'notifications'],
+  [C.tasks.SET_STATUS]: ['tasks', 'comments'],
+  [C.timesheets.CREATE]: ['timesheets', 'comments'],
   [C.timesheets.DELETE]: ['timesheets'],
   [C.comments.CREATE]: ['comments', 'notifications'],
   [C.comments.UPDATE]: ['comments'],

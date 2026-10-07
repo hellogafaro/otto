@@ -45,7 +45,7 @@ function toConfig(row: Row): StatusConfig {
  * - backlog: foreground/50 (muted, not yet planned)
  * - todo: foreground/50 (muted, ready to work on)
  * - needs-review: info (amber, attention needed)
- * - done: accent (purple, completed)
+ * - done: success (green, completed, as a task's)
  * - cancelled: foreground/50 (muted, inactive)
  * - archived: the fixed status archiving a chat moves it to
  * `todo` is the status new chats get.

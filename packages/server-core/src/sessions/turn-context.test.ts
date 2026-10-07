@@ -22,7 +22,7 @@ describe('sendMessage turn context', () => {
 
   async function sessionWithAgent(id: string) {
     const workspace = { id: 'ws-test', name: 'Test Workspace', rootPath: tmpRoot, createdAt: Date.now() }
-    const managed = createManagedSession({ id, name: 'turn context test' }, workspace as never, { messagesLoaded: true })
+    const managed = createManagedSession({ id, name: 'turn context test', agentId: 'agentaaaaaaa' }, workspace as never, { messagesLoaded: true })
     ;(sm as unknown as { sessions: Map<string, unknown> }).sessions.set(id, managed)
     const calls: Array<{ message: string; options?: { turnContext?: string } }> = []
     const agent = {

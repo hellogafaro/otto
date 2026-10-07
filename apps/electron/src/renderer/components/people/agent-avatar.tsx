@@ -9,6 +9,7 @@ import { Circle, Diamond, Hexagon, Square, Star, Triangle } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar'
 import { cn } from '@/lib/utils'
 import { actorColorIndex } from '@/lib/actors'
+import { libraryImageUrl } from '@/lib/library-image'
 import { TINTS } from './actor-avatar'
 import type { Agent } from '../../../shared/types'
 
@@ -21,23 +22,6 @@ export function generatedAvatar(id: string): { shape: number; tint: number } {
 
 /** The library item of an uploaded avatar, else null. */
 export const avatarLibraryId = (avatar: string): string | null => (avatar.startsWith('library:') ? avatar.slice('library:'.length) : null)
-
-// One object URL per library image for the page's life: avatars repeat (gallery, page, sidebar) and never change in
-// place (a new upload is a new item).
-const imageUrls = new Map<string, Promise<string>>()
-function imageUrl(libraryId: string): Promise<string> {
-  let url = imageUrls.get(libraryId)
-  if (!url) {
-    url = window.electronAPI.readLibraryItem(libraryId).then(({ item, content }) => {
-      const binary = content.encoding === 'base64' ? atob(content.data) : content.data
-      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
-      return URL.createObjectURL(new Blob([bytes], { type: item.mime ?? 'image/png' }))
-    })
-    url.catch(() => imageUrls.delete(libraryId))
-    imageUrls.set(libraryId, url)
-  }
-  return url
-}
 
 export function AgentAvatar({
   agent,
@@ -54,7 +38,7 @@ export function AgentAvatar({
     setSrc(undefined)
     if (!libraryId) return
     let live = true
-    imageUrl(libraryId).then((url) => live && setSrc(url), () => undefined)
+    libraryImageUrl(libraryId).then((url) => live && setSrc(url), () => undefined)
     return () => {
       live = false
     }

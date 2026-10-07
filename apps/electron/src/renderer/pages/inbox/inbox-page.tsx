@@ -2,21 +2,15 @@
  * InboxPage - your notifications in the workspace, newest first, as one list in the Settings card (`ListCard`, the
  * Chats index's 44px rows, `notification-row.tsx`, shared with the composer's Inbox list): who did it, the sentence ("Maria mentioned you in Fix login", the title looked up live) with the
  * comment's first line muted after a mention, an unread dot, the time. A row opens what it is about (a mention:
- * the task or project the comment is on) and marks it read; its ⋯ marks it read or unread, or clears it. The
+ * the task or project the comment is on) and marks it read; its right-click menu (a long press on touch) marks it read or unread, or clears it. The
  * title row: Mark all as read (an icon button, so the title keeps its room on a phone) and Filter (Unread, `?unread=1`). Nothing at all: the empty state.
  */
 
 import { useTranslation } from 'react-i18next'
 import { useComposerContext } from '@/components/composer/use-composer-context'
-import { CheckCheck, CircleDot, Inbox, Mail, MailOpen, MoreHorizontal, X } from 'lucide-react'
+import { CheckCheck, CircleDot, Inbox, Mail, MailOpen, X } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@workspace/ui/components/dropdown-menu'
+import { ContextMenuContent, ContextMenuGroup, ContextMenuItem } from '@workspace/ui/components/context-menu'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
 import { ListCard, ListRow, ListRowSkeleton } from '@workspace/ui/components/list-group'
 import { PageColumn } from '@workspace/ui/components/page'
@@ -98,24 +92,19 @@ export function InboxPage() {
                       key={item.id}
                       data-notification-id={item.id}
                       {...rowOf(item)}
-                      actions={(
-                        <DropdownMenu>
-                          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('common.moreActions')} />}>
-                            <MoreHorizontal />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuGroup>
-                              <DropdownMenuItem shortcut="U" onClick={() => void run(setStatus([item.id], unread ? 'read' : 'unread'))}>
-                                {unread ? <MailOpen /> : <Mail />}
-                                {unread ? t('inbox.markRead') : t('inbox.markUnread')}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => void run(clear([item.id]))}>
-                                <X />
-                                {t('common.clear')}
-                              </DropdownMenuItem>
-                            </DropdownMenuGroup>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      menu={(
+                        <ContextMenuContent className="w-48">
+                          <ContextMenuGroup>
+                            <ContextMenuItem shortcut="U" onClick={() => void run(setStatus([item.id], unread ? 'read' : 'unread'))}>
+                              {unread ? <MailOpen /> : <Mail />}
+                              {unread ? t('inbox.markRead') : t('inbox.markUnread')}
+                            </ContextMenuItem>
+                            <ContextMenuItem onClick={() => void run(clear([item.id]))}>
+                              <X />
+                              {t('common.clear')}
+                            </ContextMenuItem>
+                          </ContextMenuGroup>
+                        </ContextMenuContent>
                       )}
                     />
                   )

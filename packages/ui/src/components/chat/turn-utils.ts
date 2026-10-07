@@ -49,6 +49,8 @@ export interface AssistantTurn {
   isStreaming: boolean
   isComplete: boolean
   timestamp: number
+  /** The agent that wrote it ('agent:<id>', the rows' `author`); absent on older rows (read as the chat's agent) */
+  author?: string
   /** Extracted from TodoWrite tool - latest todo state in this turn */
   todos?: TodoItem[]
 }
@@ -419,6 +421,13 @@ export function groupMessagesByTurn(messages: Message[], options: GroupTurnsOpti
   }
 
   for (const message of sortedMessages) {
+    // A turn is one agent's (multiplayer chats): a row by another agent ends it. Limit: two agents writing at
+    // the same time split each other's turns.
+    if (currentTurn && message.author && currentTurn.author && message.author !== currentTurn.author
+      && message.role !== 'user' && message.role !== 'auth-request') {
+      flushCurrentTurn()
+    }
+
     // Auth-request messages are standalone turns (credential input, OAuth flows)
     if (message.role === 'auth-request') {
       // If there's a current turn, it's complete (something follows it)
@@ -458,6 +467,7 @@ export function groupMessagesByTurn(messages: Message[], options: GroupTurnsOpti
           isStreaming: true,
           isComplete: false,
           timestamp: message.timestamp,
+          author: message.author,
         }
       }
       const statusActivity: ActivityItem = {
@@ -520,6 +530,7 @@ export function groupMessagesByTurn(messages: Message[], options: GroupTurnsOpti
           isStreaming: false,
           isComplete: false,
           timestamp: message.timestamp,
+          author: message.author,
         }
       }
       // Add plan as an activity so it gets time-sorted with other activities
@@ -554,6 +565,7 @@ export function groupMessagesByTurn(messages: Message[], options: GroupTurnsOpti
           isStreaming: !isToolComplete,
           isComplete: false,
           timestamp: message.timestamp,
+          author: message.author,
         }
       }
       // Always add to current turn (ignoring turnId differences)
@@ -580,6 +592,7 @@ export function groupMessagesByTurn(messages: Message[], options: GroupTurnsOpti
             isStreaming: !!message.isPending,
             isComplete: false,
             timestamp: message.timestamp,
+            author: message.author,
           }
         }
         // Always add to current turn as activity (ignoring turnId differences)
@@ -622,6 +635,7 @@ export function groupMessagesByTurn(messages: Message[], options: GroupTurnsOpti
           isStreaming: !!message.isStreaming,
           isComplete: !message.isStreaming,
           timestamp: message.timestamp,
+          author: message.author,
         }
       }
 

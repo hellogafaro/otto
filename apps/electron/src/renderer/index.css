@@ -86,8 +86,6 @@
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
   --foreground-rgb: 10, 10, 10;             /* RGB for rgba() rings */
-  --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
-  --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
   --info: oklch(0.795 0.184 86.047);        /* amber - warnings, Ask mode */
   --info-rgb: 168, 124, 0;                 /* RGB, for the toast tints */
   --success: oklch(0.627 0.194 149.214);    /* green - connected, checkmarks */
@@ -201,8 +199,6 @@
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
   --foreground-rgb: 250, 250, 250;           /* RGB for rgba() rings */
-  --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
-  --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
   --info: oklch(0.852 0.199 91.936);         /* amber */
   --info-rgb: 175, 143, 15;                  /* RGB, for the toast tints */
   --success: oklch(0.723 0.219 149.579);     /* green */
@@ -339,10 +335,6 @@ html[data-scenic] {
   --color-foreground-80: var(--foreground-80);
   --color-foreground-90: var(--foreground-90);
   --color-foreground-95: var(--foreground-95);
-
-  /* === SEMANTIC SURFACE COLORS === */
-  /* User message bubble background (overridden on unfocused panels) */
-  --color-user-message-bubble: var(--user-message-bubble);
 
   /* === LEGACY COMPATIBILITY === */
   --color-card: var(--card);

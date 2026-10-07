@@ -69,11 +69,12 @@ describe('every write of the shared data pushes domain:changed', () => {
     for (const channel of [...Object.keys(WRITE_CHANNELS), ...READ_CHANNELS]) expect([channel, registered.has(channel)]).toEqual([channel, true])
   })
 
-  it('lets what notifies people also stale the inbox, and a status change nothing more than the tasks', () => {
+  it('lets what notifies people also stale the inbox, and a status change nothing more than the tasks and their activity', () => {
     for (const channel of [C.tasks.CREATE, C.tasks.UPDATE, C.comments.CREATE, C.comments.DELETE]) {
       expect(WRITE_CHANNELS[channel]).toContain('notifications')
     }
-    expect(WRITE_CHANNELS[C.tasks.SET_STATUS]).toEqual(['tasks'])
+    expect(WRITE_CHANNELS[C.tasks.SET_STATUS]).toEqual(['tasks', 'comments'])
+    for (const channel of [C.tasks.UPDATE, C.timesheets.CREATE]) expect(WRITE_CHANNELS[channel]).toContain('comments')
     expect(WRITE_CHANNELS[C.comments.UPDATE]).toEqual(['comments'])
   })
 })

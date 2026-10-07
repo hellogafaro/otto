@@ -54,8 +54,18 @@ import {
   onChatsChange,
   getChatsFields,
   runChatsRecovery,
-  initChatParticipants,
-  addParticipants,
+  initChatMembers,
+  getChatMembers,
+  getChatsMembers,
+  addChatMembers,
+  removeChatMember,
+  updateChatMemberRead,
+  clearChatDmKey,
+  getDmChatId,
+  toDmKey,
+  getChatLog,
+  type ChatMember,
+  type AgentCursor,
   serializeSession,
   validateBundle,
   type ChatWrite,
@@ -110,7 +120,11 @@ import { buildBackendRuntimeSignature, buildRestartRequiredSignature, filterAtta
 import { validateArchiveTarget } from './archive-guards'
 import { runPermissionsAction } from './permissions-tool'
 import { getFirstUser } from '@otto/shared/users/queries'
-import { getAgent, getAgentRunConfig } from '@otto/shared/agents'
+import { getAgent, getAgentRunConfig, getAgents, getDefaultAgent } from '@otto/shared/agents'
+import { getUser } from '@otto/shared/users/queries'
+import { getMemberRole } from '@otto/shared/workspaces'
+import { domainError } from '@otto/shared/utils'
+import { MAX_AGENT_CHAIN_DEPTH, MAX_AGENT_TURNS, NEW_AGENT_HISTORY, authorOfRow, buildAgentPrompt, hasSeveralAuthors, routeAgentReply, routeMessage } from './multiplayer'
 
 // Import from server-core domain utilities
 import { sanitizeForTitle, rollbackFailedBranchCreation } from '@otto/server-core/domain'
@@ -580,12 +594,26 @@ type AgentInstance = PiAgent
 interface ManagedSession {
   id: string
   workspace: Workspace
-  /** Actor ('user:<id>') the chat belongs to; absent on chats made before chats were private (see private-chats.ts). */
+  /** Actor ('user:<id>') who created the chat: always a member; their connection pays for every agent reply. */
   createdBy?: string
-  /** The people in the chat ('user:<id>'): the creator, then everyone who sent a message (grown by the write path too). */
-  participants?: string[]
-  /** The `agents` row the chat talks to; absent (or deleted) = the workspace's default agent. */
+  /** The chat's members (`chats_members`): the people who see it and the agents in it, oldest first, with each person's read time. */
+  members: ChatMember[]
+  /** The chat's primary agent (an `agents` row id): it replies when one person talks to it. Absent = a people chat. */
   agentId?: string
+  /** A direct message's pair key ('user:<a>|user:<b>'); absent on every other chat. */
+  dmKey?: string
+  /** Each agent's cursor and own Pi session (`metadata.agents`; the primary keeps its Pi session in `sdkSessionId`/`piSession`). */
+  agents?: Record<string, AgentCursor>
+  /** The agent whose turn runs (or last ran); absent = the primary agent. */
+  turnAgentId?: string
+  /** The agent the live `agent` (Pi process) belongs to: a turn of another agent replaces it. */
+  liveAgentId?: string
+  /** Agent turns the current person's message may still lead to (MAX_AGENT_TURNS). */
+  agentTurnsLeft?: number
+  /** How many agent replies led to the running turn (0: a person's message); in memory only. */
+  turnDepth?: number
+  /** Messages steered into a running turn: that agent has them already, its next turn leaves them out. In memory only. */
+  steeredIds?: Set<string>
   agent: AgentInstance | null  // Lazy-loaded - null until first message
   messages: Message[]
   isProcessing: boolean
@@ -648,12 +676,6 @@ interface ManagedSession {
   sessionStatus?: string
   // Read/unread tracking - ID of last message user has read
   lastReadMessageId?: string
-  /**
-   * Explicit unread flag - single source of truth for NEW badge.
-   * Set to true when assistant message completes while user is NOT viewing.
-   * Set to false when user views the session (and not processing).
-   */
-  hasUnread?: boolean
   // Per-session source selection (slugs of enabled sources)
   enabledSourceSlugs?: string[]
   // Labels applied to this session (additive tags, many-per-session)
@@ -701,6 +723,10 @@ interface ManagedSession {
     storedAttachments?: StoredAttachment[]
     options?: SendMessageOptions
     messageId?: string  // Pre-generated ID for matching with UI
+    /** An agent turn on what is already in the chat (a mention woke it): no message of its own to replay. */
+    wake?: AgentWake
+    /** The agents this queued message wakes when it is replayed (decided when it arrived). */
+    agentIds?: string[]
     optimisticMessageId?: string  // Frontend's ID for reliable event matching
     /**
      * Mid-turn messages: replay together with this earlier entry (same request). A reference, not
@@ -809,6 +835,26 @@ interface ManagedSession {
 
 const PI_SDK_MESSAGE_ID_CACHE_LIMIT = 256
 
+/** A turn of one agent of a chat: `depth` counts agent replies that led to it (a person's message is 0). */
+interface AgentWake {
+  agentId: string
+  depth: number
+}
+
+/** The agent whose turn runs: the turn's agent, else the primary. */
+const turnAgentOf = (managed: ManagedSession): string | undefined => managed.turnAgentId ?? managed.agentId
+/** Who writes a turn's assistant, tool, error and plan rows: the turn's agent ('agent:<id>'). */
+const authorOf = (managed: ManagedSession): string | undefined => {
+  const agentId = turnAgentOf(managed)
+  return agentId ? `agent:${agentId}` : undefined
+}
+/** Whether the running turn is the primary agent's (its connection, model and Pi session are the chat's own). */
+const isPrimaryTurn = (managed: ManagedSession): boolean => !managed.turnAgentId || managed.turnAgentId === managed.agentId
+const isPersonActor = (actor: string) => actor.startsWith('user:')
+/** The chat's own connection and model are its primary agent's; another agent runs on its own provider and model. */
+const turnConnectionOf = (managed: ManagedSession): { sessionConnectionSlug?: string; managedModel?: string } =>
+  isPrimaryTurn(managed) ? { sessionConnectionSlug: managed.llmConnection, managedModel: managed.model } : {}
+
 export interface AutoRetryPendingHost {
   autoRetryPending?: {
     content: string
@@ -916,6 +962,8 @@ export function createManagedSession(
     ...sourceFields,
     // Runtime-only defaults (not persisted)
     workspace,
+    // set by the caller (overrides) from `chats_members`
+    members: [],
     agent: null,
     messages: [],
     isProcessing: false,
@@ -964,7 +1012,7 @@ function needsHistoryRecovery(managed: ManagedSession, sessionPath: string): boo
 /** The chat's agent as it picks the connection and model (docs/final-plan.md 2.2); none for mini sessions. */
 function agentOf(managed: ManagedSession): BackendAgent | null {
   if (managed.systemPromptPreset === 'mini') return null
-  const run = getAgentRunConfig(managed.agentId, managed.workspace.id)
+  const run = getAgentRunConfig(turnAgentOf(managed), managed.workspace.id)
   return run ? { title: run.agent.title, provider: run.provider, model: run.model } : null
 }
 
@@ -975,12 +1023,32 @@ function agentOf(managed: ManagedSession): BackendAgent | null {
 function agentTurnOf(managed: ManagedSession): AgentTurn | null {
   if (managed.systemPromptPreset === 'mini') return null
   return getAgentTurn({
-    agentId: managed.agentId,
+    agentId: turnAgentOf(managed),
+    chat: chatParticipantsOf(managed),
     workspaceId: managed.workspace.id,
     workspaceRootPath: managed.workspace.rootPath,
     enabledSourceSlugs: managed.enabledSourceSlugs,
     runMode: managed.unattended || managed.triggeredBy ? 'unattended' : 'attended',
   })
+}
+
+/** The other people and agents of the chat for the turn's `<otto_chat>` group (several only; else undefined). */
+function chatParticipantsOf(managed: ManagedSession): { self: string; people: { name: string; actor: string }[]; agents: { name: string; actor: string }[] } | undefined {
+  const self = `agent:${turnAgentOf(managed)}`
+  const others = managed.members.filter((member) => member.actor !== self)
+  if (others.length < 2) return undefined
+  const named = (actor: string) => ({ actor, name: actorName(managed.workspace.id, actor) })
+  return {
+    self: `${actorName(managed.workspace.id, self)} (${self})`,
+    people: others.filter((member) => isPersonActor(member.actor)).map((member) => named(member.actor)),
+    agents: others.filter((member) => !isPersonActor(member.actor)).map((member) => named(member.actor)),
+  }
+}
+
+/** A person's or an agent's display name (the actor itself when it is gone). */
+function actorName(workspaceId: string, actor: string): string {
+  if (isPersonActor(actor)) return getUser(actor.slice('user:'.length))?.name || actor
+  return getAgent(workspaceId, actor.slice('agent:'.length))?.title || actor
 }
 
 /**
@@ -1005,9 +1073,11 @@ const DEFAULT_TOKEN_USAGE = {
  * Convert a ManagedSession to a renderer-side Session object.
  * Uses pickSessionFields() for persistent fields so new fields propagate automatically.
  */
-function managedToSession(m: ManagedSession, overrides?: Partial<Session>): Session {
+function managedToSession(m: ManagedSession, overrides?: Partial<Session>, viewerId?: string | null): Session {
   return {
     ...pickSessionFields(m),
+    members: m.members.map((member) => member.actor),
+    hasUnread: hasUnreadFor(m, viewerId === undefined ? userIdOf(m.createdBy) : viewerId),
     // Pre-computed fields from header (not in SESSION_PERSISTENT_FIELDS)
     preview: m.preview,
     lastMessageRole: m.lastMessageRole,
@@ -1023,6 +1093,13 @@ function managedToSession(m: ManagedSession, overrides?: Partial<Session>): Sess
     supportsBranching: resolveSupportsBranching(m),
     ...overrides,
   } as Session
+}
+
+/** Unread for a person: a member whose read time is older than the chat's last message (or who never read it). */
+function hasUnreadFor(m: ManagedSession, userId: string | null | undefined): boolean {
+  if (!userId) return false
+  const member = m.members.find((entry) => entry.actor === `user:${userId}`)
+  return !!member && (member.readAt === null || m.lastMessageAt > member.readAt)
 }
 
 // Performance: Batch IPC delta events to reduce renderer load
@@ -1638,12 +1715,12 @@ export class SessionManager implements ISessionManager {
     return owner ? userActor(owner) : undefined
   }
 
-  /** User ids who may see the chat: its creator (docs/schema.md: chats are private to `created_by`). */
+  /** User ids who may see the chat: its member people (docs/schema.md "Chats"). */
   private getAudience(managed: ManagedSession): string[] {
     return getChatAudience(managed)
   }
 
-  /** Whether `userId` may see each chat: `created_by = user:<userId>`, the private rule of every list. */
+  /** Whether `userId` may see each chat: they are a member, the rule of every list, guard and search. */
   private canSee(userId: string | null): (managed: ManagedSession) => boolean {
     return (managed) => !!userId && getChatAudience(managed).includes(userId)
   }
@@ -1745,6 +1822,7 @@ export class SessionManager implements ISessionManager {
         this.sendEvent({ type: 'session_status_changed', sessionId, sessionStatus: next.sessionStatus ?? '' }, workspaceId)
       }
       managed.agentId = next.agentId
+      managed.members = getChatMembers(workspaceId, sessionId)
       this.automationSystems.get(managed.workspace.rootPath)?.updateSessionMetadata(sessionId, this.automationSnapshotOf(managed)).catch((error) => {
         sessionLog.error(`[Automations] Failed to update session metadata:`, error)
       })
@@ -1982,8 +2060,9 @@ export class SessionManager implements ISessionManager {
       // A turn that was running when the server stopped: its partial answer and tool calls become interrupted
       const recovered = runChatsRecovery()
       if (recovered.chats) sessionLog.info(`Recovered ${recovered.chats} interrupted chats (${recovered.partial} partial answers, ${recovered.tools} tool calls)`)
-      // Every chat gets its people (creator and senders) before the rows load
-      initChatParticipants()
+      // Every chat has members (creator, agent, senders) before the rows load; a chat without them gets them once
+      const backfilled = initChatMembers((workspaceId) => getDefaultAgent(workspaceId)?.id)
+      if (backfilled) sessionLog.info(`Gave ${backfilled} chats their members`)
       // Load every chat's row (messages load when a chat is opened or runs)
       this.loadSessionsFromDatabase()
       // Labels, statuses and agents deleted elsewhere change chats' rows: bring the loaded chats in step
@@ -2007,6 +2086,7 @@ export class SessionManager implements ISessionManager {
       for (const workspace of workspaces) {
         const workspaceRootPath = workspace.rootPath
         const sessionMetadata = listStoredSessions(workspace)
+        const membersByChat = getChatsMembers(workspace.id)
         // Load workspace config once per workspace for default working directory
         const wsConfig = loadWorkspaceConfig(workspaceRootPath)
         const wsDefaultWorkingDir = wsConfig?.defaults?.workingDirectory
@@ -2016,6 +2096,7 @@ export class SessionManager implements ISessionManager {
           // This dramatically reduces memory usage at startup - messages are loaded
           // when getSession() is called for a specific session
           const managed = createManagedSession(meta, workspace, {
+            members: membersByChat.get(meta.id) ?? [],
             // The row carries the chat's explicit source selection (persisted at creation / by setSessionSources),
             // so the renderer's very first chat list shows the right chips.
             enabledSourceSlugs: meta.enabledSourceSlugs,
@@ -2094,6 +2175,7 @@ export class SessionManager implements ISessionManager {
       lastMessageAt: managed.lastMessageAt,
       tokenUsage: managed.tokenUsage ?? DEFAULT_TOKEN_USAGE,
       running: managed.isProcessing,
+      agents: managed.agents,
     } as ChatWrite['chat']
     if (!managed.messagesLoaded) return { chat, sessionDir }
     const messages = managed.messages.filter(m => m.role !== 'status').map(messageToStored)
@@ -2391,7 +2473,7 @@ export class SessionManager implements ISessionManager {
     }
 
     return sessions
-      .map(m => managedToSession(m))
+      .map(m => managedToSession(m, undefined, viewerId))
       .sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
   }
 
@@ -2411,7 +2493,7 @@ export class SessionManager implements ISessionManager {
 
     for (const session of this.sessions.values()) {
       if (session.isArchived) continue
-      if (!session.hasUnread || !visible(session)) continue
+      if (!visible(session) || !hasUnreadFor(session, viewerId === undefined ? userIdOf(session.createdBy) : viewerId)) continue
 
       const workspaceId = session.workspace.id
       byWorkspace[workspaceId] = (byWorkspace[workspaceId] ?? 0) + 1
@@ -2467,12 +2549,12 @@ export class SessionManager implements ISessionManager {
    * chat's queued writes, oldest first, with `olderMessageCount`. A streaming answer's partial row is left out: the
    * live events carry it.
    */
-  async getSession(sessionId: string, page?: { beforeId?: string; limit?: number }): Promise<Session | null> {
+  async getSession(sessionId: string, page?: { beforeId?: string; limit?: number }, viewerId?: string | null): Promise<Session | null> {
     const m = this.sessions.get(sessionId)
     if (!m) return null
 
     await this.ensureMessagesLoaded(m)
-    if (!page) return managedToSession(m, { messages: m.messages })
+    if (!page) return managedToSession(m, { messages: m.messages }, viewerId)
 
     await this.flushSession(sessionId).catch(() => {
       // logged and retried by the queue; the page shows what is committed
@@ -2481,7 +2563,7 @@ export class SessionManager implements ISessionManager {
     return managedToSession(m, {
       messages: messages.filter(message => !(message as { partial?: boolean }).partial).map(storedToMessage),
       olderMessageCount: olderCount,
-    })
+    }, viewerId)
   }
 
   /**
@@ -2588,6 +2670,19 @@ export class SessionManager implements ISessionManager {
     const workspace = getWorkspaceByNameOrId(workspaceId)
     if (!workspace) {
       throw new Error(`Workspace ${workspaceId} not found`)
+    }
+
+    // A direct message: one per pair of people (`dm_key`), so "message Ana" opens the one that exists
+    const creator = internal?.createdBy ?? this.firstOwnerActor(workspaceId)
+    let dmKey: string | undefined
+    if (options?.dmWith !== undefined) {
+      const other = `user:${options.dmWith}`
+      if (typeof options.dmWith !== 'string' || !creator || other === creator || !getMemberRole(workspace.id, options.dmWith)) {
+        throw domainError('invalid', 'A direct message is with another member of the workspace')
+      }
+      dmKey = toDmKey(creator, other)
+      const existing = this.sessions.get(getDmChatId(workspace.id, dmKey) ?? '')
+      if (existing) return managedToSession(existing, undefined, userIdOf(creator))
     }
 
     // Get new session defaults from workspace config (with global fallback)
@@ -2811,9 +2906,10 @@ export class SessionManager implements ISessionManager {
     // branch's own folder) in one transaction.
     const storedSession = createStoredSession(workspace, {
       name: options?.name,
-      createdBy: internal?.createdBy ?? this.firstOwnerActor(workspaceId),
-      // only an agent of this workspace; none = the workspace's default agent
-      agentId: [internal?.agentId, options?.agentId].find((id) => id && getAgent(workspace.id, id)),
+      createdBy: creator,
+      // only an agent of this workspace, else the workspace's default agent; a DM has none
+      agentId: dmKey ? undefined : ([internal?.agentId, options?.agentId].find((id) => id && getAgent(workspace.id, id)) ?? getDefaultAgent(workspace.id)?.id),
+      ...(dmKey && { dmKey, people: [`user:${options!.dmWith}`] }),
       permissionMode: defaultPermissionMode,
       workingDirectory: resolvedWorkingDir,
       sessionStatus: options?.sessionStatus,
@@ -2882,6 +2978,7 @@ export class SessionManager implements ISessionManager {
       branchFromSdkTurnId: validatedBranch?.branchFromSdkTurnId,
       branchSeedApplied: validatedBranch ? validatedBranch.branchContextStrategy === 'sdk-fork' : undefined,
       messagesLoaded: !isBranch,  // Branched sessions: lazy-load the copied messages
+      members: getChatMembers(workspace.id, storedSession.id),
     })
     if (options?.unattended) managed.unattended = true
 
@@ -2961,7 +3058,7 @@ export class SessionManager implements ISessionManager {
       this.notifySessionCreated(workspaceId, storedSession.id)
     }
 
-    return managedToSession(managed, isBranch ? { messages: managed.messages } : undefined)
+    return managedToSession(managed, isBranch ? { messages: managed.messages } : undefined, userIdOf(creator))
   }
 
   /**
@@ -3000,6 +3097,7 @@ export class SessionManager implements ISessionManager {
     }
 
     managed.agent = null
+    managed.liveAgentId = undefined
     managed.mcpPool = undefined
     managed.envOverrides = undefined
     managed.agentReady = undefined
@@ -3045,9 +3143,8 @@ export class SessionManager implements ISessionManager {
 
     const workspaceConfig = loadWorkspaceConfig(managed.workspace.rootPath)
     const backendContext = resolveBackendContext({
-      sessionConnectionSlug: managed.llmConnection,
+      ...turnConnectionOf(managed),
       workspaceDefaultConnectionSlug: workspaceConfig?.defaults?.defaultLlmConnection,
-      managedModel: managed.model,
       where: this.connectionContextOf(managed),
       agent: agentOf(managed),
     })
@@ -3183,6 +3280,10 @@ export class SessionManager implements ISessionManager {
    * 4. fallback: no connection configured
    */
   private async getOrCreateAgent(managed: ManagedSession): Promise<AgentInstance> {
+    // Each agent of the chat has its own Pi process and session: a turn of another agent replaces the live one
+    // (one turn runs per chat, so this only happens between turns).
+    if (managed.agent && managed.liveAgentId !== turnAgentOf(managed)) await this.disposeManagedAgentRuntime(managed, 'agent switch')
+
     // Refresh runtime config in-place when the connection has drifted since
     // the agent was created. May null out `managed.agent` if the in-place
     // refresh fails, in which case the create branch below rebuilds it.
@@ -3190,9 +3291,8 @@ export class SessionManager implements ISessionManager {
 
     const workspaceConfig = loadWorkspaceConfig(managed.workspace.rootPath)
     const backendContext = resolveBackendContext({
-      sessionConnectionSlug: managed.llmConnection,
+      ...turnConnectionOf(managed),
       workspaceDefaultConnectionSlug: workspaceConfig?.defaults?.defaultLlmConnection,
-      managedModel: managed.model,
       where: this.connectionContextOf(managed),
       agent: agentOf(managed),
     })
@@ -3209,8 +3309,11 @@ export class SessionManager implements ISessionManager {
       const end = perf.start('agent.create', { sessionId: managed.id })
 
       // Lock the connection after first resolution
-      // This ensures the session always uses the same provider
-      if (connection && !managed.connectionLocked) {
+      // This ensures the session always uses the same provider (the primary agent's; another agent runs on its own)
+      const primary = isPrimaryTurn(managed)
+      const turnAgentId = turnAgentOf(managed)
+      managed.liveAgentId = turnAgentId
+      if (primary && connection && !managed.connectionLocked) {
         managed.llmConnection = connection.slug
         managed.connectionLocked = true
         sessionLog.info(`Locked session ${managed.id} to connection "${connection.slug}"`)
@@ -3247,6 +3350,8 @@ export class SessionManager implements ISessionManager {
 
       const sessionPath = getSessionStoragePath(managed.workspace.rootPath, managed.id)
       await this.restorePiSessionFiles(managed, sessionPath)
+      // another agent's own Pi session (`.pi-sessions/<id>`); the primary's is the chat's own
+      const otherAgentId = primary ? undefined : turnAgentId
       const enabledSlugs = managed.enabledSourceSlugs || []
       const allSources = loadAllSources(managed.workspace.rootPath)
       const enabledSources = allSources.filter(s =>
@@ -3277,11 +3382,11 @@ export class SessionManager implements ISessionManager {
         id: managed.id,
         createdBy: managed.createdBy,
         workspaceRootPath: managed.workspace.rootPath,
-        sdkSessionId: managed.sdkSessionId,
-        branchFromSdkSessionId: managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSdkSessionId : undefined,
-        branchFromSessionPath: managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSessionPath : undefined,
-        branchFromSdkTurnId: managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSdkTurnId : undefined,
-        branchFromMessageId: managed.branchFromMessageId,
+        sdkSessionId: otherAgentId ? managed.agents?.[otherAgentId]?.sdkSessionId : managed.sdkSessionId,
+        branchFromSdkSessionId: !otherAgentId && managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSdkSessionId : undefined,
+        branchFromSessionPath: !otherAgentId && managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSessionPath : undefined,
+        branchFromSdkTurnId: !otherAgentId && managed.branchContextStrategy === 'sdk-fork' ? managed.branchFromSdkTurnId : undefined,
+        branchFromMessageId: otherAgentId ? undefined : managed.branchFromMessageId,
         createdAt: managed.lastMessageAt,
         lastUsedAt: managed.lastMessageAt,
         workingDirectory: managed.workingDirectory,
@@ -3293,6 +3398,11 @@ export class SessionManager implements ISessionManager {
       }
 
       const onSdkSessionIdUpdate = (sdkSessionId: string) => {
+        if (otherAgentId) {
+          this.updateAgentCursor(managed, otherAgentId, { sdkSessionId })
+          this.persistSession(managed)
+          return
+        }
         managed.sdkSessionId = sdkSessionId
         // Retire branch-only fork metadata now that child session is established
         if (managed.branchFromSdkSessionId) {
@@ -3307,6 +3417,11 @@ export class SessionManager implements ISessionManager {
       }
 
       const onSdkSessionIdCleared = () => {
+        if (otherAgentId) {
+          this.updateAgentCursor(managed, otherAgentId, { sdkSessionId: undefined })
+          this.persistSession(managed)
+          return
+        }
         managed.sdkSessionId = undefined
         sessionLog.info(`SDK session ID cleared for ${managed.id} (resume recovery)`)
         this.persistSession(managed)
@@ -3384,12 +3499,14 @@ export class SessionManager implements ISessionManager {
         coreConfig: {
         workspace: managed.workspace,
         miniModel,
-        thinkingLevel: managed.thinkingLevel,
+        thinkingLevel: otherAgentId ? (normalizeThinkingLevel(getAgentRunConfig(otherAgentId, managed.workspace.id)?.thinkingLevel) ?? managed.thinkingLevel) : managed.thinkingLevel,
         session: sessionConfig,
         onSdkSessionIdUpdate,
         onSdkSessionIdCleared,
         getRecoveryMessages,
-        recoverHistory: needsHistoryRecovery(managed, sessionPath),
+        // another agent is given the chat through its cursor (buildTurnPrompt), never a recovery summary
+        recoverHistory: !otherAgentId && needsHistoryRecovery(managed, sessionPath),
+        piSessionAgentId: otherAgentId,
         getAgentTurn: () => agentTurnOf(managed),
         getBranchFallbackMessages,
         getBranchSeedMessages,
@@ -3671,6 +3788,7 @@ export class SessionManager implements ISessionManager {
 
           // Create a plan message
           const planMessage = {
+            author: authorOf(managed),
             id: `plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             role: 'plan' as const,
             content: planContent,
@@ -3838,11 +3956,12 @@ export class SessionManager implements ISessionManager {
         }
       }
 
-      // An agent acts for the user its chat belongs to: it sees and touches only that user's chats
-      // (its own included), so a chat of someone else looks like it does not exist.
+      // An agent acts for the user its chat belongs to (its creator): it sees and touches only the chats that user is
+      // a member of (its own included), so any other chat looks like it does not exist.
       const ownChat = (id: string) => {
         const target = this.sessions.get(id)
-        if (!target || target.createdBy !== managed.createdBy) throw chatNotFound(id)
+        const userId = userIdOf(managed.createdBy)
+        if (!target || id !== managed.id && !(userId && this.canSee(userId)(target))) throw chatNotFound(id)
         return target
       }
 
@@ -4640,106 +4759,73 @@ export class SessionManager implements ISessionManager {
   }
 
   /**
-   * Set which session the user is actively viewing.
-   * Called when user navigates to a session. Used to determine whether to mark
-   * new messages as unread - if user is viewing, don't mark unread.
+   * Set which session a person is viewing (per workspace and person). A chat they view is marked read for them when
+   * a turn ends; opening one that is not running marks it read now.
    */
-  setActiveViewingSession(sessionId: string | null, workspaceId: string): void {
+  setActiveViewingSession(sessionId: string | null, workspaceId: string, userId?: string | null): void {
+    const key = `${workspaceId}:${userId ?? ''}`
     if (sessionId) {
-      this.activeViewingSession.set(workspaceId, sessionId)
-      // When user starts viewing a session that's not processing, clear unread
+      this.activeViewingSession.set(key, sessionId)
       const managed = this.sessions.get(sessionId)
-      if (managed && !managed.isProcessing && managed.hasUnread) {
-        this.markSessionRead(sessionId)
-      }
+      const viewer = userId === undefined ? userIdOf(managed?.createdBy) : userId
+      if (managed && !managed.isProcessing && hasUnreadFor(managed, viewer)) void this.markSessionRead(sessionId, viewer)
     } else {
-      this.activeViewingSession.delete(workspaceId)
+      this.activeViewingSession.delete(key)
     }
   }
 
-  /**
-   * Check if a session is currently being viewed by the user
-   */
-  private isSessionBeingViewed(sessionId: string, workspaceId: string): boolean {
-    return this.activeViewingSession.get(workspaceId) === sessionId
+  /** Whether a person is viewing the chat now. */
+  private isSessionBeingViewed(sessionId: string, workspaceId: string, userId: string): boolean {
+    return this.activeViewingSession.get(`${workspaceId}:${userId}`) === sessionId
+  }
+
+  /** Sets a person's read time of a chat (memory and `chats_members`); false when they are no member or nothing changed. */
+  private setReadAt(managed: ManagedSession, userId: string, readAt: number | null): boolean {
+    const member = managed.members.find((entry) => entry.actor === `user:${userId}`)
+    if (!member || member.readAt === readAt) return false
+    member.readAt = readAt
+    updateChatMemberRead(managed.workspace.id, managed.id, member.actor, readAt)
+    return true
   }
 
   /**
-   * Mark a session as read by setting lastReadMessageId and clearing hasUnread.
-   * Called when user navigates to a session (and it's not processing).
+   * Marks a chat read for a person (default: its creator, for server-side callers): their `read_at` becomes now.
+   * Not while a turn runs (they have not seen its answer yet).
    */
-  async markSessionRead(sessionId: string): Promise<void> {
+  async markSessionRead(sessionId: string, userId?: string | null): Promise<void> {
+    const managed = this.sessions.get(sessionId)
+    if (!managed || managed.isProcessing) return
+    const viewer = userId === undefined ? userIdOf(managed.createdBy) : userId
+    if (!viewer) return
+    const lastFinalId = managed.messages.length > 0 ? this.getLastFinalAssistantMessageId(managed.messages) : undefined
+    if (lastFinalId && managed.lastReadMessageId !== lastFinalId) {
+      managed.lastReadMessageId = lastFinalId
+      this.persistSession(managed)
+    }
+    if (hasUnreadFor(managed, viewer) && this.setReadAt(managed, viewer, Math.max(Date.now(), managed.lastMessageAt))) this.emitUnreadSummaryChanged()
+  }
+
+  /** Marks a chat unread for a person (their `read_at` cleared); "Mark unread" in the menus. */
+  async markSessionUnread(sessionId: string, userId?: string | null): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (!managed) return
-
-    // Only mark as read if not currently processing
-    // (user is viewing but we want to wait for processing to complete)
-    if (managed.isProcessing) return
-
-    let needsPersist = false
-    const updates: { lastReadMessageId?: string; hasUnread?: boolean } = {}
-
-    // Update lastReadMessageId for legacy/manual unread functionality
-    if (managed.messages.length > 0) {
-      const lastFinalId = this.getLastFinalAssistantMessageId(managed.messages)
-      if (lastFinalId && managed.lastReadMessageId !== lastFinalId) {
-        managed.lastReadMessageId = lastFinalId
-        updates.lastReadMessageId = lastFinalId
-        needsPersist = true
-      }
-    }
-
-    // Clear hasUnread flag (primary source of truth for NEW badge)
-    if (managed.hasUnread) {
-      managed.hasUnread = false
-      updates.hasUnread = false
-      needsPersist = true
-    }
-
-    // Persist changes
-    if (needsPersist) {
-      this.persistSession(managed)
-      await this.flushSession(sessionId)
-      this.emitUnreadSummaryChanged()
-    }
+    const viewer = userId === undefined ? userIdOf(managed.createdBy) : userId
+    if (!viewer) return
+    managed.lastReadMessageId = undefined
+    this.persistSession(managed)
+    if (this.setReadAt(managed, viewer, null)) this.emitUnreadSummaryChanged()
   }
 
-  /**
-   * Mark a session as unread by setting hasUnread flag.
-   * Called when user manually marks a session as unread via context menu.
-   */
-  async markSessionUnread(sessionId: string): Promise<void> {
-    const managed = this.sessions.get(sessionId)
-    if (managed) {
-      managed.hasUnread = true
-      managed.lastReadMessageId = undefined
-      this.persistSession(managed)
-      await this.flushSession(sessionId)
-      this.emitUnreadSummaryChanged()
-    }
-  }
-
-  /**
-   * Mark all non-archived sessions in a workspace as read.
-   * Called from "Mark All Read" context menu on "All Sessions".
-   */
-  /** `viewerId` limits it to the chats that user may see; omit it only for server-side callers. */
+  /** Marks every non-archived chat of a workspace that `viewerId` sees read for them (omitted: each chat's creator). */
   async markAllSessionsRead(workspaceId: string, viewerId?: string | null): Promise<void> {
-    const updates: Promise<void>[] = []
+    let changed = false
     const visible = viewerId === undefined ? () => true : this.canSee(viewerId)
     for (const managed of this.sessions.values()) {
-      if (managed.workspace.id !== workspaceId || !visible(managed)) continue
-      if (managed.isArchived) continue
-      if (managed.isProcessing) continue
-      if (!managed.hasUnread) continue
-      managed.hasUnread = false
-      this.persistSession(managed)
-      updates.push(this.flushSession(managed.id))
+      if (managed.workspace.id !== workspaceId || !visible(managed) || managed.isArchived || managed.isProcessing) continue
+      const viewer = viewerId === undefined ? userIdOf(managed.createdBy) : viewerId
+      if (viewer && hasUnreadFor(managed, viewer)) changed = this.setReadAt(managed, viewer, Math.max(Date.now(), managed.lastMessageAt)) || changed
     }
-    if (updates.length > 0) {
-      await Promise.all(updates)
-      this.emitUnreadSummaryChanged()
-    }
+    if (changed) this.emitUnreadSummaryChanged()
   }
 
   async renameSession(sessionId: string, name: string): Promise<void> {
@@ -5140,12 +5226,14 @@ export class SessionManager implements ISessionManager {
     this.sendEvent({ type: 'message_annotations_updated', sessionId, messageId, annotations: message.annotations }, managed.workspace.id)
   }
 
-  async deleteSession(sessionId: string): Promise<void> {
+  /** Deletes a chat for everyone. `callerId` (a person's request): only the creator may; the others leave instead. */
+  async deleteSession(sessionId: string, callerId?: string | null): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (!managed) {
       sessionLog.warn(`Cannot delete session: ${sessionId} not found`)
       return
     }
+    if (callerId !== undefined && managed.createdBy !== `user:${callerId}`) throw domainError('forbidden', 'Only the creator of a chat can delete it; leave it instead')
 
     // Get workspace slug before deleting
     const workspaceRootPath = managed.workspace.rootPath
@@ -5216,7 +5304,7 @@ export class SessionManager implements ISessionManager {
     // Delete its rows and folder too
     deleteStoredSession(managed.workspace, sessionId)
     this.loadedChats.delete(sessionId)
-    void (managed.piSessionSync ?? Promise.resolve()).then(() => deletePiSession(managed.workspace, sessionId)).catch((error) => sessionLog.warn(`Pi session object of ${sessionId} not deleted:`, error))
+    void (managed.piSessionSync ?? Promise.resolve()).then(() => deletePiSession(managed.workspace, sessionId, Object.keys(managed.agents ?? {}))).catch((error) => sessionLog.warn(`Pi session object of ${sessionId} not deleted:`, error))
 
     // Notify all windows for this workspace that the session was deleted
     this.sendEvent({ type: 'session_deleted', sessionId }, managed.workspace.id, audience)
@@ -5224,6 +5312,146 @@ export class SessionManager implements ISessionManager {
 
     // Chat attachments live in the library and stay; only legacy per-session attachments dirs go with the session dir
     sessionLog.info(`Deleted session ${sessionId}`)
+  }
+
+  /** A person's message moves the chat's last message time (unread for the other members) and is read by its sender. */
+  private noteMessageFrom(managed: ManagedSession, message: Message): void {
+    if (message.hidden) return
+    managed.lastMessageAt = Math.max(Date.now(), managed.lastMessageAt + 1)
+    const sender = userIdOf(message.sender ?? managed.createdBy)
+    if (sender) this.setReadAt(managed, sender, managed.lastMessageAt)
+  }
+
+  /**
+   * The agents a person's message wakes (`routeMessage`): those it mentions (they join the chat), else the primary agent
+   * when the chat has one person, else none. A hidden message (an automatic resend) goes to the agent of the last turn.
+   */
+  private routeHumanMessage(managed: ManagedSession, message: string, options?: SendMessageOptions): string[] {
+    if (managed.systemPromptPreset === 'mini' || options?.hidden) return [turnAgentOf(managed)].filter((id): id is string => !!id)
+    const agents = new Set(getAgents(managed.workspace.id).map((agent) => agent.id))
+    const people = managed.members.filter((member) => isPersonActor(member.actor)).length
+    const route = routeMessage({ text: message, people, primaryAgentId: managed.agentId, agents })
+    this.addMembersInternal(managed, route.map((id) => `agent:${id}`))
+    return route
+  }
+
+  /** Whether the chat has more than one author besides the agent (then what it is given names each author). */
+  private hasSeveralAuthors(managed: ManagedSession, agentId: string): boolean {
+    const chat = { createdBy: managed.createdBy, primaryAgentId: managed.agentId }
+    return hasSeveralAuthors(
+      managed.messages
+        .filter((m) => m.role === 'user' || (m.role === 'assistant' && !m.isIntermediate))
+        .map((m) => authorOfRow({ type: m.role, sender: m.sender ?? null, author: m.author ?? null }, chat)),
+      agentId,
+    )
+  }
+
+  /** A message as the running agent reads it: `[<name>] text` when the chat has several authors besides it. */
+  private attributed(managed: ManagedSession, text: string, sender: string | undefined): string {
+    const agentId = turnAgentOf(managed)
+    const author = sender ?? managed.createdBy
+    return agentId && author && this.hasSeveralAuthors(managed, agentId) ? `[${actorName(managed.workspace.id, author)}] ${text}` : text
+  }
+
+  /**
+   * What the turn's agent is sent (docs/final-plan.md 2.3 "Multiplayer"): every message after its cursor (`seen`) that
+   * another author wrote, then `message` (the one it answers, if any), attributed when the chat has several authors;
+   * then its cursor moves to the newest of them. Without a cursor (an agent new to the chat, or a chat from before
+   * cursors) it is the newest NEW_AGENT_HISTORY messages after the agent's own last reply. One person and one agent:
+   * exactly `message`, as before multiplayer.
+   */
+  private async buildTurnPrompt(managed: ManagedSession, message: string, current?: { ids: string[]; author?: string }): Promise<string> {
+    const agentId = turnAgentOf(managed)
+    if (!agentId || managed.systemPromptPreset === 'mini') return message
+    await this.flushSession(managed.id).catch(() => {}) // the rows read below; a failed write is retried by the queue
+    const chat = { createdBy: managed.createdBy, primaryAgentId: managed.agentId }
+    const seen = managed.agents?.[agentId]?.seen
+    const log = getChatLog(managed.workspace.id, managed.id, seen ?? 0, seen === undefined ? { limit: NEW_AGENT_HISTORY } : {})
+    const lastOwn = seen === undefined ? log.findLastIndex((row) => row.type === 'assistant' && authorOfRow(row, chat) === `agent:${agentId}`) : -1
+    const steered = managed.steeredIds
+    managed.steeredIds = undefined
+    const prompt = buildAgentPrompt({
+      agentId,
+      unseen: log.slice(lastOwn + 1).filter((row) => !steered?.has(row.id)),
+      current: current && { ...current, text: message },
+      chat,
+      prefix: this.hasSeveralAuthors(managed, agentId),
+      nameOf: (actor) => actorName(managed.workspace.id, actor),
+    })
+    const newest = log.at(-1)?.position
+    if (newest !== undefined) {
+      this.updateAgentCursor(managed, agentId, { seen: newest })
+      this.persistSession(managed)
+    }
+    return prompt
+  }
+
+  /**
+   * Adds members (no checks: callers check) to the chat and tells every member: a DM that gains a person becomes a
+   * group. Returns the actors added.
+   */
+  private addMembersInternal(managed: ManagedSession, actors: string[]): string[] {
+    const known = new Set(managed.members.map((member) => member.actor))
+    const fresh = actors.filter((actor) => !known.has(actor))
+    if (!fresh.length) return []
+    const added = addChatMembers(managed.workspace.id, managed.id, fresh)
+    for (const actor of added) managed.members.push({ actor, readAt: null })
+    if (added.some(isPersonActor) && managed.dmKey) {
+      clearChatDmKey(managed.workspace.id, managed.id)
+      managed.dmKey = undefined
+    }
+    if (added.length) {
+      this.notifySessionCreated(managed.workspace.id, managed.id)
+      if (added.some(isPersonActor)) this.emitUnreadSummaryChanged()
+    }
+    return added
+  }
+
+  /** The chat for a membership change by `callerId`: a member's chat, else not_found (as for any chat not theirs). */
+  private memberChat(sessionId: string, callerId: string | null): ManagedSession {
+    const managed = this.sessions.get(sessionId)
+    if (!managed || !callerId || !this.canSee(callerId)(managed)) throw chatNotFound(sessionId)
+    return managed
+  }
+
+  /** The creator adds people (workspace members) or agents (workspace agents) to the chat. */
+  async addSessionMembers(sessionId: string, callerId: string | null, actors: string[]): Promise<void> {
+    const managed = this.memberChat(sessionId, callerId)
+    if (managed.createdBy !== `user:${callerId}`) throw domainError('forbidden', 'Only the creator of a chat can add people to it')
+    if (!Array.isArray(actors) || !actors.length) throw domainError('invalid', 'Name at least one person or agent')
+    for (const actor of actors) {
+      const valid = typeof actor === 'string' && (actor.startsWith('user:')
+        ? !!getMemberRole(managed.workspace.id, actor.slice('user:'.length))
+        : actor.startsWith('agent:') && !!getAgent(managed.workspace.id, actor.slice('agent:'.length)))
+      if (!valid) throw domainError('invalid', `${String(actor)} is not a member or an agent of this workspace`)
+    }
+    this.addMembersInternal(managed, actors)
+  }
+
+  /** The creator removes a member (never themselves, never the primary agent); the removed person loses the chat. */
+  async removeSessionMember(sessionId: string, callerId: string | null, actor: string): Promise<void> {
+    const managed = this.memberChat(sessionId, callerId)
+    if (managed.createdBy !== `user:${callerId}`) throw domainError('forbidden', 'Only the creator of a chat can remove people from it')
+    if (actor === managed.createdBy) throw domainError('invalid', 'The creator cannot be removed')
+    if (managed.agentId && actor === `agent:${managed.agentId}`) throw domainError('invalid', "The chat's own agent cannot be removed")
+    this.removeMemberInternal(managed, actor)
+  }
+
+  /** A member leaves the chat (the creator cannot: they would leave it with nobody who can manage it). */
+  async leaveSession(sessionId: string, callerId: string | null): Promise<void> {
+    const managed = this.memberChat(sessionId, callerId)
+    if (managed.createdBy === `user:${callerId}`) throw domainError('invalid', 'The creator cannot leave the chat')
+    this.removeMemberInternal(managed, `user:${callerId}`)
+  }
+
+  private removeMemberInternal(managed: ManagedSession, actor: string): void {
+    if (!managed.members.some((member) => member.actor === actor)) return
+    removeChatMember(managed.workspace.id, managed.id, actor)
+    managed.members = managed.members.filter((member) => member.actor !== actor)
+    const userId = userIdOf(actor)
+    if (userId) this.sendEvent({ type: 'session_deleted', sessionId: managed.id }, managed.workspace.id, [userId])
+    this.notifySessionCreated(managed.workspace.id, managed.id)
+    this.emitUnreadSummaryChanged()
   }
 
   async sendMessage(
@@ -5242,6 +5470,8 @@ export class SessionManager implements ISessionManager {
      * (#616). Pre-persist errors still reject the outer promise as before.
      */
     onAck?: (messageId: string) => void,
+    /** A replayed turn: the agent a mention woke (`wake`, no message of its own), or the agents a queued message wakes. */
+    plan?: { wake?: AgentWake; agentIds?: string[] },
   ): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (!managed) {
@@ -5297,8 +5527,12 @@ export class SessionManager implements ISessionManager {
       // queued right away, like any queued message, and the model decides in the background whether
       // it corrects the running work and should be steered in (steerQueuedIfDecided). Recording
       // first keeps send order and leaves the queue the single source of truth.
-      const decideDelivery = canSteerTextPayload(attachments, storedAttachments, options) && this.decisionFeatureActive('midTurnMessages')
-      const behavior = decideDelivery ? 'queue' : configured
+      // Multiplayer: the message steers or queues for the running turn only when it wakes the agent that runs it; a
+      // message for other agents queues for their turns, and one that wakes no agent is only recorded.
+      const route = this.routeHumanMessage(managed, message, options)
+      const forRunningAgent = route.length === 1 && route[0] === turnAgentOf(managed)
+      const decideDelivery = forRunningAgent && canSteerTextPayload(attachments, storedAttachments, options) && this.decisionFeatureActive('midTurnMessages')
+      const behavior = decideDelivery || !forRunningAgent ? 'queue' : configured
 
       // Create user message for UI
       const userMessage: Message = {
@@ -5314,7 +5548,15 @@ export class SessionManager implements ISessionManager {
         ...(options?.sender ? { sender: options.sender } : {}),
       }
       managed.messages.push(userMessage)
-      managed.participants = addParticipants(managed, [userMessage])
+      this.noteMessageFrom(managed, userMessage)
+
+      if (route.length === 0) {
+        this.sendEvent({ type: 'user_message', sessionId, message: userMessage, status: 'accepted', optimisticMessageId: options?.optimisticMessageId }, managed.workspace.id)
+        this.persistSession(managed)
+        await this.flushSession(managed.id)
+        onAck?.(userMessage.id)
+        return
+      }
 
       const agent = managed.agent
       // Redirect is text-only. Any semantic options/attachments use the normal
@@ -5325,10 +5567,13 @@ export class SessionManager implements ISessionManager {
       const compactionInFlight = agent?.isCompactionInFlight?.() === true
       const attemptedSteer = shouldAttemptMidStreamSteer(behavior, textOnly, agent)
       const steered = attemptedSteer && agent
-        ? agent.redirect(message)
+        ? agent.redirect(this.attributed(managed, message, userMessage.sender))
         : false
-      const payload: ManagedSession['messageQueue'][number] = { message, attachments, storedAttachments, options, messageId: userMessage.id, optimisticMessageId: options?.optimisticMessageId }
-      if (steered) (managed.turnSteers ??= []).push(message)
+      const payload: ManagedSession['messageQueue'][number] = { message, attachments, storedAttachments, options, messageId: userMessage.id, optimisticMessageId: options?.optimisticMessageId, agentIds: route }
+      if (steered) {
+        ;(managed.turnSteers ??= []).push(message)
+        ;(managed.steeredIds ??= new Set()).add(userMessage.id)
+      }
       sessionLog.info('mid-stream send', { sessionId, behavior, steered, textOnly, compactionInFlight, queueLengthBefore: managed.messageQueue.length })
 
       const delivery = resolveMidStreamDeliveryOutcome(attemptedSteer ? 'steer' : 'queue', steered)
@@ -5393,7 +5638,7 @@ export class SessionManager implements ISessionManager {
         ...(options?.sender ? { sender: options.sender } : {}),
       }
       managed.messages.push(userMessage)
-      managed.participants = addParticipants(managed, [userMessage])
+      this.noteMessageFrom(managed, userMessage)
 
       // Update lastMessageRole for badge display. Skip for hidden messages so the
       // session-list preview isn't briefly driven by an invisible system nudge.
@@ -5423,7 +5668,8 @@ export class SessionManager implements ISessionManager {
       const isFirstUserMessage = managed.messages.filter(m => m.role === 'user').length === 1
       // Smart titles: the first message was small talk; title this one if the name is still automatic.
       const titlesDeferredMessage = !isFirstUserMessage && !options?.hidden && managed.titleDeferred && managed.name === managed.autoTitle
-      if ((isFirstUserMessage && !managed.name && !managed.triggeredBy) || titlesDeferredMessage) {
+      // A people chat (no primary agent) has no title of its own: a DM reads as the other person, a group as its members.
+      if (managed.agentId && ((isFirstUserMessage && !managed.name && !managed.triggeredBy) || titlesDeferredMessage)) {
         managed.titleDeferred = false
         // Replace bracket mentions with their display labels (e.g. [skill:ws:commit] -> "Commit")
         // so titles show human-readable names instead of raw IDs
@@ -5459,8 +5705,9 @@ export class SessionManager implements ISessionManager {
     // fresh and queued messages). Regex rules run synchronously here; semantic
     // rules (decision model) run fire-and-forget so they never delay the turn,
     // and merge their matches when they arrive.
-    // Hidden messages (auto-retries, system nudges) are not user-authored: they label nothing.
-    if (!options?.hidden) {
+    // Hidden messages (auto-retries, system nudges) are not user-authored: they label nothing; nor does an agent turn a
+    // mention woke (its message was labelled when it arrived).
+    if (!options?.hidden && !plan?.wake) {
       try {
         const labelTree = getLabels(managed.workspace.id)
         this.applyAutoLabelMatches(managed, evaluateAutoLabels(message, labelTree))
@@ -5470,7 +5717,27 @@ export class SessionManager implements ISessionManager {
       }
     }
 
-    managed.lastMessageAt = Date.now()
+    // Which agents answer (docs/final-plan.md 2.3 "Multiplayer"): a woken agent, the agents a queued message was routed to,
+    // else the routing of this message. The first answers now, the others queue right after it, one turn at a time.
+    let agentIds: string[]
+    if (plan?.wake) agentIds = [plan.wake.agentId]
+    else {
+      agentIds = plan?.agentIds ?? this.routeHumanMessage(managed, message, options)
+      if (!options?.hidden) managed.agentTurnsLeft = MAX_AGENT_TURNS
+      agentIds = agentIds.slice(0, Math.max(0, managed.agentTurnsLeft ?? MAX_AGENT_TURNS))
+      managed.agentTurnsLeft = (managed.agentTurnsLeft ?? MAX_AGENT_TURNS) - agentIds.length
+    }
+    if (agentIds.length === 0) {
+      // People talking to each other: nothing runs, the message is the news (unread for the other members).
+      this.persistSession(managed)
+      this.sendCompleteEvent(managed)
+      this.emitUnreadSummaryChanged()
+      return
+    }
+    managed.messageQueue.unshift(...agentIds.slice(1).map((agentId) => ({ message, messageId: userMessage.id, wake: { agentId, depth: 0 } })))
+    managed.turnAgentId = agentIds[0]
+    managed.turnDepth = plan?.wake?.depth ?? 0
+
     this.setProcessing(managed, true)
     managed.streamingText = ''
     managed.streamingTurnId = undefined
@@ -5490,7 +5757,8 @@ export class SessionManager implements ISessionManager {
     // Store message/attachments for potential retry after auth refresh
     // (SDK subprocess caches token at startup, so if it expires mid-session,
     // we need to recreate the agent and retry the message)
-    managed.lastSentMessage = message
+    // A woken agent's turn has no message of its own to send again (no auth retry or activation resend of it)
+    managed.lastSentMessage = plan?.wake ? undefined : message
     managed.lastSentAttachments = attachments
     managed.lastSentStoredAttachments = storedAttachments
     managed.lastSentOptions = options
@@ -5654,9 +5922,8 @@ export class SessionManager implements ISessionManager {
       }
 
       const messageBackendContext = resolveBackendContext({
-        sessionConnectionSlug: managed.llmConnection,
+        ...turnConnectionOf(managed),
         workspaceDefaultConnectionSlug: loadWorkspaceConfig(workspaceRootPath)?.defaults?.defaultLlmConnection,
-        managedModel: managed.model,
         where: this.connectionContextOf(managed),
         agent: agentOf(managed),
       })
@@ -5697,8 +5964,18 @@ export class SessionManager implements ISessionManager {
         ...(turnContext.length > 0 && !isCompactCommand ? { turnContext: turnContext.join('\n\n') } : {}),
       }
 
+      // What this agent has not been given yet, attributed when the chat has several authors (a /compact goes as typed)
+      const prompt = isCompactCommand
+        ? message
+        : await this.buildTurnPrompt(managed, message, plan?.wake ? undefined : { ids: managed.lastSentMessageIds ?? [userMessage.id], author: userMessage.sender ?? managed.createdBy })
+      if (!prompt.trim()) {
+        sessionLog.info(`Turn for session ${sessionId} not started: nothing new for ${turnAgentOf(managed)}`)
+        sendSpan.end()
+        this.onProcessingStopped(sessionId, 'complete')
+        return
+      }
       sendSpan.mark('chat.starting')
-      const chatIterator = agent.chat(message, modelInputAttachments.attachments, Object.keys(chatOptions).length > 0 ? chatOptions : undefined)
+      const chatIterator = agent.chat(prompt, modelInputAttachments.attachments, Object.keys(chatOptions).length > 0 ? chatOptions : undefined)
       sessionLog.info('Got chat iterator, starting iteration...')
 
       for await (const event of chatIterator) {
@@ -5728,7 +6005,7 @@ export class SessionManager implements ISessionManager {
         // Primary capture happens in getOrCreateAgent() via onSdkSessionIdUpdate callback,
         // which immediately flushes to disk. This fallback handles edge cases where the
         // callback might not fire (e.g., SDK version mismatch, callback not supported).
-        if (!managed.sdkSessionId) {
+        if (isPrimaryTurn(managed) && !managed.sdkSessionId) {
           const sdkId = agent.getSessionId()
           if (sdkId) {
             managed.sdkSessionId = sdkId
@@ -5785,6 +6062,7 @@ export class SessionManager implements ISessionManager {
               const isImageError = apiError.message?.includes('image exceeds')
 
               const errorMessage: Message = {
+                author: authorOf(managed),
                 id: generateMessageId(),
                 role: 'error',
                 content: isImageError
@@ -5912,13 +6190,14 @@ export class SessionManager implements ISessionManager {
 
     sessionLog.info('Cancelling processing for session:', sessionId, silent ? '(silent)' : '')
 
-    // Collect queued message text for input restoration before clearing
-    const queuedTexts = managed.messageQueue.map(q => q.message)
+    // Collect queued message text for input restoration before clearing (an agent turn a mention woke is no message)
+    const replays = managed.messageQueue.filter(q => !q.wake)
+    const queuedTexts = replays.map(q => q.message)
 
     // Collect queued message IDs so we can remove them from the messages array
     // (they were added when sendMessage was called during processing)
     const queuedMessageIds = new Set(
-      managed.messageQueue.map(q => q.messageId).filter((id): id is string => !!id)
+      replays.map(q => q.messageId).filter((id): id is string => !!id)
     )
 
     // Clear queue - user explicitly stopped, don't process queued messages
@@ -6103,28 +6382,22 @@ export class SessionManager implements ISessionManager {
     const turnStartFinalMessageId = managed.turnStartFinalMessageId
     managed.turnStartFinalMessageId = undefined
 
-    // 2. Handle unread state based on whether user is viewing this session
-    //    This is the explicit state machine for NEW badge:
-    //    - If user is viewing: mark as read (they saw it complete)
-    //    - If user is NOT viewing: mark as unread (they have new content)
-    //    IMPORTANT: only apply this when the turn produced a NEW final assistant message.
-    const isViewing = this.isSessionBeingViewed(sessionId, managed.workspace.id)
+    // 2. Unread, per member: a new final answer moves the chat's last message time, so it is unread for every member
+    //    person who is not viewing it now; the ones viewing it have read it.
     const currentFinalMessageId = this.getLastFinalAssistantMessageId(managed.messages)
     const didReceiveNewFinalMessage = !!currentFinalMessageId && currentFinalMessageId !== turnStartFinalMessageId
 
-    if (reason === 'complete' && didReceiveNewFinalMessage) {
-      if (isViewing) {
-        // User is watching - mark as read immediately
-        await this.markSessionRead(sessionId)
-      } else {
-        // User is not watching - mark as unread for NEW badge
-        if (!managed.hasUnread) {
-          managed.hasUnread = true
-          this.persistSession(managed)
-          await this.flushSession(sessionId)
-          this.emitUnreadSummaryChanged()
-        }
+    if (didReceiveNewFinalMessage) {
+      managed.lastMessageAt = Math.max(managed.lastMessageAt, Date.now())
+      for (const userId of this.getAudience(managed)) {
+        if (this.isSessionBeingViewed(sessionId, managed.workspace.id, userId)) this.setReadAt(managed, userId, managed.lastMessageAt)
       }
+      this.persistSession(managed)
+      await this.flushSession(sessionId).catch(() => {}) // logged and retried by the queue
+      this.emitUnreadSummaryChanged()
+      // 2b. The agent's answer may hand work to other agents (`agent:<id>` in it): they answer after it, a chain at most
+      //     MAX_AGENT_CHAIN_DEPTH deep and MAX_AGENT_TURNS turns per person's message.
+      if (reason === 'complete') this.queueAgentHandoffs(managed, turnStartFinalMessageId)
     }
 
     // 3. Auto-complete mini agent sessions to avoid session list clutter
@@ -6140,13 +6413,8 @@ export class SessionManager implements ISessionManager {
       // Has queued messages - process next
       this.processNextQueuedMessage(sessionId)
     } else {
-      // No queue - emit complete to UI (include tokenUsage and hasUnread for state updates)
-      this.sendEvent({
-        type: 'complete',
-        sessionId,
-        tokenUsage: managed.tokenUsage,
-        hasUnread: managed.hasUnread,  // Propagate unread state to renderer
-      }, managed.workspace.id)
+      // No queue - emit complete to UI (include tokenUsage and each person's own unread state)
+      this.sendCompleteEvent(managed)
 
       // Mini sessions have no status worth changing.
       if (reason === 'complete' && didReceiveNewFinalMessage && currentFinalMessageId
@@ -6161,16 +6429,52 @@ export class SessionManager implements ISessionManager {
     this.syncPiSession(managed)
   }
 
+  /** The end of a turn (or of a message no agent answers) for each member person, with their own unread state. */
+  private sendCompleteEvent(managed: ManagedSession): void {
+    for (const userId of this.getAudience(managed)) {
+      this.sendEvent({ type: 'complete', sessionId: managed.id, tokenUsage: managed.tokenUsage, hasUnread: hasUnreadFor(managed, userId) }, managed.workspace.id, [userId])
+    }
+  }
+
+  /**
+   * Queues the turns of the agents the finished answer mentions (docs/final-plan.md 2.3 "Multiplayer"): each joins the
+   * chat when it is not a member, one turn at a time after the answer, never deeper than MAX_AGENT_CHAIN_DEPTH replies
+   * and never more than MAX_AGENT_TURNS turns per person's message.
+   */
+  private queueAgentHandoffs(managed: ManagedSession, turnStartFinalMessageId: string | undefined): void {
+    const selfId = turnAgentOf(managed)
+    const depth = (managed.turnDepth ?? 0) + 1
+    if (!selfId || depth > MAX_AGENT_CHAIN_DEPTH) return
+    const start = turnStartFinalMessageId ? managed.messages.findIndex((m) => m.id === turnStartFinalMessageId) + 1 : 0
+    const answer = managed.messages
+      .slice(start)
+      .filter((m) => m.role === 'assistant' && !m.isIntermediate && m.author === `agent:${selfId}`)
+      .map((m) => m.content)
+      .join('\n')
+    const agents = new Set(getAgents(managed.workspace.id).map((agent) => agent.id))
+    const lastFinal = this.getLastFinalAssistantMessageId(managed.messages)
+    for (const agentId of routeAgentReply(answer, selfId, agents)) {
+      if ((managed.agentTurnsLeft ?? 0) <= 0) break
+      managed.agentTurnsLeft = (managed.agentTurnsLeft ?? 0) - 1
+      this.addMembersInternal(managed, [`agent:${agentId}`])
+      managed.messageQueue.push({ message: '', messageId: lastFinal, wake: { agentId, depth } })
+    }
+  }
+
   /**
    * Uploads Pi's session file after a settled turn (compaction and a branch's first turn included) so the chat
-   * resumes on any node. Never blocks the turn: a failure is logged and the next turn tries again.
+   * resumes on any node. Never blocks the turn: a failure is logged and the next turn tries again. Each agent of
+   * the chat has its own file; this is the one of the agent whose turn ended.
    */
   private syncPiSession(managed: ManagedSession): void {
+    const agentId = isPrimaryTurn(managed) ? undefined : managed.turnAgentId
     const run = async () => {
       try {
-        const ref = await uploadPiSession(managed.workspace, managed.id, getSessionStoragePath(managed.workspace.rootPath, managed.id), managed.piSession)
+        const known = agentId ? managed.agents?.[agentId]?.piSession : managed.piSession
+        const ref = await uploadPiSession(managed.workspace, managed.id, getSessionStoragePath(managed.workspace.rootPath, managed.id), known, agentId)
         if (!ref || this.sessions.get(managed.id) !== managed) return // nothing new, or the chat was deleted meanwhile
-        managed.piSession = ref
+        if (agentId) this.updateAgentCursor(managed, agentId, { piSession: ref })
+        else managed.piSession = ref
         this.persistSession(managed)
       } catch (error) {
         sessionLog.warn(`Pi session upload failed for ${managed.id} (retried after the next turn):`, error)
@@ -6179,11 +6483,21 @@ export class SessionManager implements ISessionManager {
     managed.piSessionSync = (managed.piSessionSync ?? Promise.resolve()).then(run)
   }
 
+  /** Merges into an agent's cursor (`metadata.agents[agentId]`); the caller persists. */
+  private updateAgentCursor(managed: ManagedSession, agentId: string, patch: AgentCursor): void {
+    managed.agents = { ...managed.agents, [agentId]: { ...managed.agents?.[agentId], ...patch } }
+  }
+
   /** Before the agent is created: brings back Pi's session file (and a branch's parent's) when this node's copy is missing or older. */
   private async restorePiSessionFiles(managed: ManagedSession, sessionPath: string): Promise<void> {
     try {
       await managed.piSessionSync
       const cwd = managed.workingDirectory ?? sessionPath
+      if (!isPrimaryTurn(managed) && managed.turnAgentId) {
+        const agentId = managed.turnAgentId
+        if (await restorePiSession(managed.workspace, managed.id, sessionPath, cwd, managed.agents?.[agentId]?.piSession, agentId)) sessionLog.info(`Restored ${agentId}'s Pi session file for ${managed.id}`)
+        return
+      }
       if (managed.branchContextStrategy === 'sdk-fork' && managed.branchFromSessionPath) {
         const parent = this.sessions.get(basename(managed.branchFromSessionPath))
         if (parent) await restorePiSession(parent.workspace, parent.id, managed.branchFromSessionPath, parent.workingDirectory ?? managed.branchFromSessionPath, parent.piSession)
@@ -6206,7 +6520,7 @@ export class SessionManager implements ISessionManager {
     // Mid-turn messages: entries judged to continue this one are replayed with it as one turn.
     const merged: typeof managed.messageQueue = []
     let last: object = first
-    while (managed.messageQueue[0]?.mergeWith === last) {
+    while (!first.wake && managed.messageQueue[0]?.mergeWith === last) {
       last = managed.messageQueue.shift()!
       merged.push(last as typeof first)
     }
@@ -6224,8 +6538,9 @@ export class SessionManager implements ISessionManager {
       queueLengthAfterShift: managed.messageQueue.length,
     })
 
-    // Update UI: queued → processing (merged continuations are delivered in the same turn)
-    for (const entry of [first, ...merged]) {
+    // Update UI: queued → processing (merged continuations are delivered in the same turn). An agent turn a mention
+    // woke has no message of its own: the one it answers stays where it is.
+    for (const entry of first.wake ? [] : [first, ...merged]) {
       if (!entry.messageId) continue
       const existingMessage = managed.messages.find(m => m.id === entry.messageId)
       if (existingMessage) {
@@ -6256,7 +6571,10 @@ export class SessionManager implements ISessionManager {
         next.attachments,
         next.storedAttachments,
         next.options,
-        next.messageId
+        next.messageId,
+        undefined,
+        undefined,
+        { wake: first.wake, agentIds: first.agentIds },
       ).catch(err => {
         sessionLog.error('replay failed', {
           sessionId,
@@ -6680,6 +6998,7 @@ export class SessionManager implements ISessionManager {
 
         const assistantMessage: Message = {
           id: generateMessageId(),
+          author: authorOf(managed),
           role: 'assistant',
           content: event.text,
           timestamp: this.monotonic(),
@@ -6716,7 +7035,7 @@ export class SessionManager implements ISessionManager {
           }
         }
 
-        this.sendEvent({ type: 'text_complete', sessionId, text: event.text, isIntermediate: event.isIntermediate, turnId: event.turnId, parentToolUseId: event.parentToolUseId, timestamp: assistantMessage.timestamp, messageId: assistantMessage.id }, workspaceId)
+        this.sendEvent({ type: 'text_complete', sessionId, text: event.text, isIntermediate: event.isIntermediate, turnId: event.turnId, parentToolUseId: event.parentToolUseId, timestamp: assistantMessage.timestamp, messageId: assistantMessage.id, author: assistantMessage.author }, workspaceId)
 
         // A finished answer is written at once (in the same transaction that drops its partial row)
         this.persistSession(managed)
@@ -6817,6 +7136,7 @@ export class SessionManager implements ISessionManager {
           // Add tool message immediately (will be updated on tool_result)
           // This ensures tool calls are persisted even if they don't complete
           const toolStartMessage: Message = {
+            author: authorOf(managed),
             id: generateMessageId(),
             role: 'tool',
             content: `Running ${event.toolName}...`,
@@ -6901,6 +7221,7 @@ export class SessionManager implements ISessionManager {
           const fallbackToolDisplayMeta = await resolveToolDisplayMeta(toolName, undefined, fallbackWorkspaceRootPath, fallbackSources)
 
           const toolMessage: Message = {
+            author: authorOf(managed),
             id: generateMessageId(),
             role: 'tool',
             content: '',
@@ -7041,6 +7362,7 @@ export class SessionManager implements ISessionManager {
 
         // AgentEvent uses `message` not `error`
         const errorMessage: Message = {
+                author: authorOf(managed),
           id: generateMessageId(),
           role: 'error',
           content: event.message,
@@ -7083,6 +7405,7 @@ export class SessionManager implements ISessionManager {
 
         // Build rich error message with all diagnostic fields for persistence and UI display
         const typedErrorMessage: Message = {
+            author: authorOf(managed),
           id: generateMessageId(),
           role: 'error',
           // Combine title and message for content display (handles undefined gracefully)
@@ -7818,6 +8141,10 @@ export class SessionManager implements ISessionManager {
 
     // Write the rows (after compatibility checks so remapped values are persisted)
     sessionLog.info(`[import] Writing chat ${sessionId} (llmConnection=${storedSession.llmConnection ?? 'default'}, messages=${storedSession.messages.length})`)
+    // an imported chat is the importer's alone: no DM pair, no other agents' cursors
+    storedSession.dmKey = undefined
+    delete (storedSession as { agents?: unknown }).agents
+    if (!storedSession.agentId || !getAgent(workspace.id, storedSession.agentId)) storedSession.agentId = getDefaultAgent(workspace.id)?.id
     createImportedSession(workspace, storedSession)
 
     // Write all bundle files (attachments, plans, data, downloads, etc.)
@@ -7829,6 +8156,7 @@ export class SessionManager implements ISessionManager {
     const managed = createManagedSession(sessionMeta, workspace, {
       messagesLoaded: false,
       workingDirectory: storedSession.workingDirectory,
+      members: getChatMembers(workspace.id, sessionId),
     })
 
     setPermissionMode(sessionId, managed.permissionMode ?? 'ask', { changedBy: 'restore' })

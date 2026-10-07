@@ -11,10 +11,11 @@ import { Button } from '@workspace/ui/components/button'
 import { ListRow } from '@workspace/ui/components/list-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { useEntityData } from '@/components/entities/entity-chip'
-import { ChatPeople } from '@/components/people/chat-people'
+import { ChatStatusIcon } from '@/config/session-status-config'
+import { useAppShellContext } from '@/context/app-shell-context'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useNotificationRow } from '@/pages/inbox/notification-row'
-import { getSessionTitle, shortTimeAgo } from '@/utils/session'
+import { getSessionStatus, getSessionTitle, shortTimeAgo } from '@/utils/session'
 import type { useAttention } from './use-attention'
 
 type Attention = ReturnType<typeof useAttention>
@@ -49,6 +50,7 @@ export function InboxButton({ count, open, onToggle }: { count: number; open: bo
 export function InboxList({ attention, onPick }: { attention: Attention; onPick: () => void }) {
   const { t } = useTranslation()
   const { navigateToSession } = useNavigation()
+  const { sessionStatuses = [] } = useAppShellContext()
   useEntityData()
   const rowOf = useNotificationRow(attention.setStatus)
   return (
@@ -57,7 +59,7 @@ export function InboxList({ attention, onPick }: { attention: Attention; onPick:
         <ListRow
           key={meta.id}
           size="sm"
-          media={<ChatPeople chat={meta} />}
+          media={<ChatStatusIcon id={getSessionStatus(meta)} statuses={sessionStatuses} />}
           title={getSessionTitle(meta)}
           marks={waiting
             ? <span role="img" aria-label={t('sidebar.rowWaiting')} className="size-2 shrink-0 rounded-full bg-info" />

@@ -1,16 +1,20 @@
 /**
- * CommentThread - the comments on a task or a project (`entity`: `task:<id>`, `project:<id>`), for their pages
- * under the description: the "Comments" title and its count, the comments oldest first (28px avatar, name, time,
- * "edited", the content with its mentions as chips), then the comment box. A comment is sent, never autosaved:
- * Send or ⌘/Ctrl+Enter, and a comment you wrote has a ⋯ with Edit (in place, Save / Cancel) and Delete (asks
- * first). Typing `@` opens a list of people; picking one puts their token (`user:<id>`) in the text, which
- * notifies them. New comments show at once here and, through the live push, for everyone else.
+ * ActivityFeed - the activity of a task or a project (`entity`: `task:<id>`, `project:<id>`), for their pages under
+ * the description (Otto v1's Activity): one chronological feed of events ("Maria changed the status from Todo to
+ * Done", a muted line on a dot) and comments (28px avatar, name, time, "edited", the content with its mentions as
+ * chips) along one hairline, oldest first; the newest 50 first, "Show earlier activity" loads the 50 before. Then
+ * the comment box: "Leave a comment", Attach (a file goes to the Library and its chip into the text) and Send. A
+ * comment is sent, never autosaved: Send or ⌘/Ctrl+Enter, and a comment you wrote has a ⋯ with Edit (in place,
+ * Save / Cancel) and Delete (asks first); events cannot be changed. Typing `@` opens a list of people; picking one
+ * puts their token (`user:<id>`) in the text, which notifies them. Events never notify. New items show at once
+ * here and, through the live push, for everyone else.
  */
 
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { format } from 'date-fns'
+import { MoreHorizontal, Paperclip, Pencil, Trash2 } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +27,6 @@ import {
   AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog'
 import { Button } from '@workspace/ui/components/button'
-import { Count } from '@workspace/ui/components/count'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,19 +40,31 @@ import { Skeleton } from '@workspace/ui/components/skeleton'
 import { toast } from '@workspace/ui/components/sonner'
 import { Textarea } from '@workspace/ui/components/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
+import { getDateLocale } from '@otto/shared/i18n'
+import { MAX_FILE_BYTES } from '@otto/shared/library/limits'
 import { formatHotkeyDisplay } from '@/actions/registry'
 import { MENU_LIST, MENU_ROW, MENU_ROW_HIGHLIGHT, MENU_SURFACE } from '@/components/ui/menu-styles'
 import { useEntityData } from '@/components/entities/entity-chip'
 import { EntityText } from '@/components/entities/entity-text'
 import { ActorAvatar } from '@/components/people/actor-avatar'
-import { useComments } from '@/hooks/use-comments'
+import { useActivity } from '@/hooks/use-activity'
+import { useProjects } from '@/hooks/use-projects'
 import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import { cn } from '@/lib/utils'
+import { readFileAsBase64 } from '@/pages/library/library-items'
+import { useDuration } from '@/pages/tasks/task-time-section'
+import { statusLabelKey } from '@/pages/tasks/task-row'
 import { shortTimeAgo } from '@/utils/session'
-import type { Comment } from '../../../shared/types'
+import type { ActivityEvent, Comment, TaskStatus } from '../../../shared/types'
 import { getMentionCandidates, getMentionQuery, insertMention, type MentionQuery } from './comment-mentions'
 
 const SEND_KEY = formatHotkeyDisplay('mod+↵')
+
+/**
+ * One item on the timeline: the hairline runs from its marker (the avatar, the dot) to the next item's, under the
+ * markers, which are ringed in the surface's color (`--activity-bg`, the card's unless the caller sets it).
+ */
+const ITEM = 'relative before:absolute before:top-3 before:-bottom-4 before:left-[13.5px] before:w-px before:bg-border last:before:hidden'
 
 /** A failed comment write as one toast, by its error code. */
 function commentError(t: (key: string) => string, code: string, fallback: string): string {
@@ -211,16 +226,48 @@ function SubmitButton({ label, pending, disabled, onClick }: { label: string; pe
   )
 }
 
+/** Uploads the picked files to the Library and gives their tokens (`library:<id>`); a failure toasts and is skipped. */
+function useAttach() {
+  const { t } = useTranslation()
+  const [pending, setPending] = React.useState(false)
+  const attach = async (files: File[]): Promise<string[]> => {
+    setPending(true)
+    const tokens: string[] = []
+    for (const file of files) {
+      try {
+        if (file.size > MAX_FILE_BYTES) {
+          toast.error(t('library.tooLarge', { title: file.name }))
+          continue
+        }
+        const data = await readFileAsBase64(file)
+        const item = await window.electronAPI.createLibraryItem({ title: file.name, mime: file.type || 'application/octet-stream', content: { encoding: 'base64', data } })
+        tokens.push(`library:${item.id}`)
+      } catch {
+        toast.error(t('library.uploadFailed', { title: file.name }))
+      }
+    }
+    setPending(false)
+    return tokens
+  }
+  return { attach, pending }
+}
+
 function CommentComposer({ onSend }: { onSend: (content: string) => Promise<boolean> }) {
   const { t } = useTranslation()
   const [value, setValue] = React.useState('')
   const [pending, setPending] = React.useState(false)
+  const fileRef = React.useRef<HTMLInputElement>(null)
+  const { attach, pending: attaching } = useAttach()
   const send = async () => {
-    if (!value.trim() || pending) return
+    if (!value.trim() || pending || attaching) return
     setPending(true)
     const sent = await onSend(value)
     setPending(false)
     if (sent) setValue('')
+  }
+  const addFiles = async (files: File[]) => {
+    const tokens = await attach(files)
+    if (tokens.length) setValue((current) => `${current}${current && !/\s$/.test(current) ? ' ' : ''}${tokens.join(' ')} `)
   }
   return (
     <div className="flex flex-col gap-2">
@@ -232,10 +279,78 @@ function CommentComposer({ onSend }: { onSend: (content: string) => Promise<bool
         aria-label={t('comments.placeholder')}
         readOnly={pending}
       />
-      <div className="flex justify-end">
-        <SubmitButton label={t('comments.send')} pending={pending} disabled={!value.trim()} onClick={() => void send()} />
+      <div className="flex items-center justify-between">
+        <Tooltip>
+          <TooltipTrigger
+            render={<Button variant="ghost" size="icon-compact" aria-label={t('comments.attach')} loading={attaching} disabled={pending} onClick={() => fileRef.current?.click()} />}
+          >
+            {!attaching && <Paperclip />}
+          </TooltipTrigger>
+          <TooltipContent>{t('comments.attach')}</TooltipContent>
+        </Tooltip>
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          hidden
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? [])
+            event.target.value = ''
+            if (files.length) void addFiles(files)
+          }}
+        />
+        <SubmitButton label={t('comments.send')} pending={pending} disabled={!value.trim() || attaching} onClick={() => void send()} />
       </div>
     </div>
+  )
+}
+
+/** The words of one event, a whole sentence with the actor's name ("Maria changed the status from Todo to Done"). */
+function useEventText() {
+  const { t, i18n } = useTranslation()
+  const { nameOf } = useWorkspaceMembers()
+  const { projects } = useProjects()
+  const duration = useDuration()
+  const locale = getDateLocale(i18n.language)
+  const names = (actors: string[]) => actors.map(nameOf).join(', ')
+  const status = (value: string) => t(statusLabelKey(value as TaskStatus))
+  return (event: ActivityEvent, actor: string): string => {
+    const name = nameOf(actor)
+    switch (event.kind) {
+      case 'created': return t('activity.created', { name })
+      case 'status': return t('activity.status', { name, from: status(event.from), to: status(event.to) })
+      case 'title': return t('activity.renamed', { name, to: event.to })
+      case 'due': return event.to === null
+        ? t('activity.dueRemoved', { name })
+        : t('activity.dueSet', { name, date: format(event.to, 'MMM d, yyyy', { locale }) })
+      case 'project': return t('activity.project', { name, project: projects.find((p) => p.id === event.to)?.title ?? t('activity.unavailable') })
+      case 'assignees': {
+        const added = event.to.filter((who) => !event.from.includes(who))
+        const removed = event.from.filter((who) => !event.to.includes(who))
+        if (added.length && removed.length) return t('activity.reassigned', { name, added: names(added), removed: names(removed) })
+        return removed.length ? t('activity.unassigned', { name, people: names(removed) }) : t('activity.assigned', { name, people: names(added) })
+      }
+      case 'links': {
+        const { added, removed } = event
+        if (added.length && removed.length) return t('activity.linksChanged', { name })
+        const list = added.length ? added : removed
+        if (list.length === 1) return t(added.length ? 'activity.linkAdded' : 'activity.linkRemoved', { name, title: list[0]!.title })
+        return t(added.length ? 'activity.linksAdded' : 'activity.linksRemoved', { name, count: list.length })
+      }
+      case 'time': return t('activity.time', { name, duration: duration(event.time) })
+    }
+  }
+}
+
+/** An event: a muted line on the timeline's dot ("Maria logged 1h · 5m"). */
+function EventItem({ comment, text }: { comment: Comment; text: string }) {
+  return (
+    <li data-kind="event" className={cn(ITEM, 'min-h-5 pl-10 text-sm text-muted-foreground')}>
+      <span aria-hidden className="absolute top-1.5 left-2.5 z-10 size-2 rounded-full bg-muted-foreground/70 ring-4 ring-(--activity-bg)" />
+      <span className="break-words">{text}</span>
+      <span aria-hidden> · </span>
+      <span className="text-xs tabular-nums">{shortTimeAgo(comment.createdAt)}</span>
+    </li>
   )
 }
 
@@ -265,8 +380,10 @@ function CommentItem({
   }
 
   return (
-    <li data-comment-id={comment.id} className="group/comment flex gap-3">
-      <ActorAvatar actor={comment.createdBy} name={name} size="md" className="mt-px" />
+    <li data-comment-id={comment.id} data-kind="comment" className={cn(ITEM, 'group/comment flex gap-3')}>
+      <span className="relative z-10 h-fit rounded-sm bg-(--activity-bg) ring-4 ring-(--activity-bg)">
+        <ActorAvatar actor={comment.createdBy} name={name} size="md" />
+      </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="relative flex h-5 min-w-0 items-center gap-2 pr-7">
           <span className="truncate text-sm font-medium">{name}</span>
@@ -326,11 +443,12 @@ function CommentItem({
   )
 }
 
-export function CommentThread({ entity, className }: { entity: string; className?: string }) {
+export function ActivityFeed({ entity, className }: { entity: string; className?: string }) {
   const { t } = useTranslation()
   useEntityData()
-  const { comments, loaded, createComment, updateComment, deleteComment } = useComments(entity)
+  const { items, more, loaded, loadingEarlier, loadEarlier, createComment, updateComment, deleteComment } = useActivity(entity)
   const { nameOf, me } = useWorkspaceMembers()
+  const eventText = useEventText()
   const [deleting, setDeleting] = React.useState<Comment | null>(null)
   const [deletePending, setDeletePending] = React.useState(false)
   const [deleteFailed, setDeleteFailed] = React.useState(false)
@@ -356,35 +474,43 @@ export function CommentThread({ entity, className }: { entity: string; className
   }
 
   return (
-    <section aria-labelledby={`comments-${entity}`} className={cn('flex flex-col gap-3', className)}>
-      <h2 id={`comments-${entity}`} className="flex items-center gap-2 text-base font-medium">
-        {t('comments.title')}
-        {comments.length > 0 && <Count>{comments.length}</Count>}
-      </h2>
+    <section aria-labelledby={`activity-${entity}`} className={cn('flex flex-col gap-3 [--activity-bg:var(--card)]', className)}>
+      <h2 id={`activity-${entity}`} className="text-base font-medium">{t('activity.title')}</h2>
       {!loaded ? (
         <div aria-busy className="flex flex-col gap-1">
           {[0, 1].map((i) => <Skeleton key={i} className="h-10" />)}
         </div>
-      ) : comments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('comments.empty')}</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('activity.empty')}</p>
       ) : (
-        <ul className="flex flex-col gap-5">
-          {comments.map((comment) => (
-            <CommentItem
-              key={comment.id}
-              comment={comment}
-              name={nameOf(comment.createdBy)}
-              mine={comment.createdBy === me}
-              onSave={save}
-              onDelete={(item) => {
-                setDeleteFailed(false)
-                setDeleting(item)
-              }}
-            />
-          ))}
-        </ul>
+        <>
+          {more && (
+            <Button variant="ghost" size="compact" className="self-start" loading={loadingEarlier} onClick={() => void loadEarlier()}>
+              {t('activity.showEarlier')}
+            </Button>
+          )}
+          <ol className="flex flex-col gap-4">
+            {items.map((item) => item.type === 'event' && item.event ? (
+              <EventItem key={item.id} comment={item} text={eventText(item.event, item.createdBy)} />
+            ) : item.type === 'event' ? null : (
+              <CommentItem
+                key={item.id}
+                comment={item}
+                name={nameOf(item.createdBy)}
+                mine={item.createdBy === me}
+                onSave={save}
+                onDelete={(comment) => {
+                  setDeleteFailed(false)
+                  setDeleting(comment)
+                }}
+              />
+            ))}
+          </ol>
+        </>
       )}
-      <CommentComposer onSend={send} />
+      <div className="mt-2">
+        <CommentComposer onSend={send} />
+      </div>
       <AlertDialog open={deleting !== null} onOpenChange={(open) => { if (!open && !deletePending) setDeleting(null) }}>
         <AlertDialogContent size="sm">
           <AlertDialogHeader>

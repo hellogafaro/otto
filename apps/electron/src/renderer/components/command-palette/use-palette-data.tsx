@@ -39,7 +39,7 @@ import { SETTINGS_ICONS } from '@/components/icons/settings-icons'
 import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
 import { SourceAvatar } from '@/components/ui/source-avatar'
-import { ChatPeople } from '@/components/people/chat-people'
+import { ChatStatusIcon } from '@/config/session-status-config'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { useTheme, type ThemeMode } from '@/context/theme-context'
 import { useNavigation } from '@/contexts/navigation-context'
@@ -51,7 +51,7 @@ import { useTasks } from '@/hooks/use-tasks'
 import { logOut } from '@/lib/log-out'
 import { navigate, routes, type Route } from '@/lib/navigate'
 import { isWebUI } from '@/lib/platform'
-import { getSessionTitle, shortTimeLocale } from '@/utils/session'
+import { getSessionStatus, getSessionTitle, shortTimeLocale } from '@/utils/session'
 import { libraryItemIcon } from '@/pages/library/library-tile'
 import { getDisplayTitle, MAX_FOLDER_DEPTH } from '@/pages/library/library-items'
 import { SETTINGS_NAV_GROUPS } from '../../../shared/menu-schema'
@@ -87,7 +87,7 @@ const go = (route: Route) => () => navigate(route)
 
 export function usePaletteData(): PaletteData<PaletteItem> {
   const { t } = useTranslation()
-  const { workspaces, activeWorkspaceId } = useAppShellContext()
+  const { workspaces, activeWorkspaceId, sessionStatuses = [] } = useAppShellContext()
   const sessions = useAtomValue(sessionMetaMapAtom)
   const skills = useAtomValue(skillsAtom)
   const sources = useAtomValue(sourcesAtom)
@@ -106,7 +106,7 @@ export function usePaletteData(): PaletteData<PaletteItem> {
     const chatItem = (session: SessionMeta): PaletteItem => ({
       key: itemKey({ type: 'chat', id: session.id }),
       title: getSessionTitle(session),
-      icon: <ChatPeople chat={session} tooltip={false} />,
+      icon: <ChatStatusIcon id={getSessionStatus(session)} statuses={sessionStatuses} />,
       meta: session.lastMessageAt
         ? formatDistanceToNowStrict(new Date(session.lastMessageAt), { locale: shortTimeLocale as Locale, roundingMethod: 'floor' })
         : undefined,
@@ -225,5 +225,5 @@ export function usePaletteData(): PaletteData<PaletteItem> {
       })),
       actions,
     }
-  }, [t, sessions, activeWorkspaceId, remoteWorkspaceId, tasks, projects, libraryItems, pinned, recent, skills, sources, execute, getHotkeyDisplay, mode, setMode, canGoBack, canGoForward])
+  }, [t, sessions, activeWorkspaceId, remoteWorkspaceId, sessionStatuses, tasks, projects, libraryItems, pinned, recent, skills, sources, execute, getHotkeyDisplay, mode, setMode, canGoBack, canGoForward])
 }

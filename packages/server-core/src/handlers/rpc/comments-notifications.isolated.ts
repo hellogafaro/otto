@@ -65,6 +65,11 @@ async function makeTask(title = 'Fix login', assignees = [`user:${B}`]) {
   const task = await callAs(ctxA, C.tasks.CREATE, { projectId: project.id, title, assignees })
   return { project, task, entity: `task:${task.id}` }
 }
+type Row = { id: string; type: string; createdBy: string; content: string; event?: { kind: string; [key: string]: unknown }; createdAt: number }
+type Page = { items: Row[]; more: boolean }
+const feed = async (as: Ctx, entity: string, page?: object) => (await callAs(as, C.comments.GET, entity, page)) as Page
+/** What a feed shows: an event by its kind, a comment by its text. */
+const shown = (page: Page) => page.items.map((row) => row.event?.kind ?? row.content)
 type Item = { id: string; type: string; readAt: number | null; createdBy: string; entity: string; entityTitle: string | null; comment: { id: string; content: string; entity: string } | null }
 const inbox = async (as: Ctx) => (await callAs(as, C.notifications.GET)) as Item[]
 
@@ -107,7 +112,7 @@ describe('comments and notifications RPC', () => {
 
     await callAs(ctxA, C.comments.CREATE, entity, 'no mention')
     expect(await callAs(ctxA, C.notifications.GET_UNREAD_COUNT)).toBe(before + 1)
-    expect((await callAs(ctxA, C.comments.GET, entity)).map((row: { content: string }) => row.content)).toEqual([comment.content, 'no mention'])
+    expect(shown(await feed(ctxA, entity))).toEqual(['created', comment.content, 'no mention'])
   })
 
   it('needs a comment on an entity that exists in the workspace', async () => {
@@ -117,7 +122,7 @@ describe('comments and notifications RPC', () => {
     expect(await codeOf(callAs(ctxA, C.comments.CREATE, 42, 'x'))).toBe('not_found')
     expect(await codeOf(callAs(ctxOther, C.comments.CREATE, entity, 'x'))).toBe('not_found')
     expect(await codeOf(callAs(ctxA, C.comments.CREATE, entity, ' '))).toBe('invalid')
-    expect(await callAs(ctxOther, C.comments.GET, entity)).toEqual([])
+    expect(await callAs(ctxOther, C.comments.GET, entity)).toEqual({ items: [], more: false })
   })
 
   it('comments on a project work the same way', async () => {
@@ -139,7 +144,7 @@ describe('comments and notifications RPC', () => {
     expect((await inbox(ctxB))[0]!.comment?.content).toBe(`edited user:${B}`)
     await callAs(ctxA, C.comments.DELETE, comment.id)
     expect((await inbox(ctxB)).some((n) => n.comment?.id === comment.id)).toBe(false)
-    expect(await callAs(ctxA, C.comments.GET, entity)).toEqual([])
+    expect(shown(await feed(ctxA, entity))).toEqual(['created'])
   })
 
   it('reassigning tells only the newly assigned; a status change tells nobody', async () => {
@@ -153,6 +158,66 @@ describe('comments and notifications RPC', () => {
     await callAs(ctxB, C.tasks.UPDATE, task.id, { assignees: [`user:${A}`, `user:${B}`] })
     expect([await count(ctxA), await count(ctxB)]).toEqual([a0 + 1, b0])
     expect((await inbox(ctxA))[0]).toMatchObject({ type: 'assigned', createdBy: `user:${B}`, entityTitle: 'Renamed' })
+  })
+
+  it('reads a task\'s activity: the synthesized created event first, then events and comments in order', async () => {
+    const { task, entity } = await makeTask()
+    await callAs(ctxA, C.tasks.SET_STATUS, task.id, 'doing')
+    await callAs(ctxB, C.comments.CREATE, entity, 'on it')
+    await callAs(ctxA, C.tasks.UPDATE, task.id, { dueAt: 123 })
+    await callAs(ctxB, C.timesheets.CREATE, { taskId: task.id, time: 60_000 })
+    const page = await feed(ctxA, entity)
+    expect(page.more).toBe(false)
+    expect(shown(page)).toEqual(['created', 'status', 'on it', 'due', 'time'])
+    expect(page.items[0]).toEqual({
+      id: `created-${task.id}`,
+      entity,
+      type: 'event',
+      createdBy: `user:${A}`,
+      content: '',
+      event: { kind: 'created' },
+      createdAt: task.createdAt,
+      updatedAt: task.createdAt,
+    } as never)
+    expect(page.items.map((row) => [row.type, row.createdBy])).toEqual([
+      ['event', `user:${A}`],
+      ['event', `user:${A}`],
+      ['comment', `user:${B}`],
+      ['event', `user:${A}`],
+      ['event', `user:${B}`],
+    ])
+    expect(page.items[1]!.event).toEqual({ kind: 'status', from: 'todo', to: 'doing' })
+
+    // pages, newest first; the created event comes with the oldest page
+    const last = await feed(ctxA, entity, { limit: 2 })
+    expect([shown(last), last.more]).toEqual([['due', 'time'], true])
+    const middle = await feed(ctxA, entity, { limit: 1, before: last.items[0]!.id })
+    expect([shown(middle), middle.more]).toEqual([['on it'], true]) // not the oldest page: no created event
+    const oldest = await feed(ctxA, entity, { limit: 2, before: middle.items[0]!.id })
+    expect([shown(oldest), oldest.more]).toEqual([['created', 'status'], false])
+    expect(await feed(ctxA, entity, { before: 'unknown00000' })).toEqual({ items: [], more: false })
+
+    // another workspace reads nothing, whatever the page
+    expect(await feed(ctxOther, entity)).toEqual({ items: [], more: false })
+    expect(await feed(ctxOther, entity, { limit: 1, before: last.items[0]!.id })).toEqual({ items: [], more: false })
+    // a project has no created event
+    expect(await feed(ctxA, `project:${task.projectId}`)).toEqual({ items: [], more: false })
+  })
+
+  it('activity events never notify or change the unread count; only a newly assigned person is told', async () => {
+    const { task } = await makeTask()
+    const unread = async () => [await callAs(ctxA, C.notifications.GET_UNREAD_COUNT), await callAs(ctxB, C.notifications.GET_UNREAD_COUNT)]
+    const before = await unread()
+    await callAs(ctxA, C.tasks.SET_STATUS, task.id, 'done')
+    await callAs(ctxA, C.tasks.UPDATE, task.id, { dueAt: 5, title: 'Renamed again' })
+    await callAs(ctxA, C.tasks.UPDATE, task.id, { assignees: [] })
+    await callAs(ctxA, C.timesheets.CREATE, { taskId: task.id, time: 1_000 })
+    expect(await unread()).toEqual(before)
+    await callAs(ctxB, C.notifications.SET_STATUS, 'all', 'read')
+    await callAs(ctxA, C.tasks.UPDATE, task.id, { assignees: [`user:${B}`] })
+    expect(await unread()).toEqual([before[0], 1])
+    expect((await inbox(ctxB))[0]).toMatchObject({ type: 'assigned', entity: `task:${task.id}` })
+    expect(shown(await feed(ctxA, `task:${task.id}`))).toEqual(['created', 'status', 'title', 'due', 'assignees', 'time', 'assignees'])
   })
 
   it('keeps the inbox the caller\'s own and per workspace', async () => {
@@ -212,7 +277,7 @@ describe('domain:changed after writes', () => {
     const task = await callAs(ctxA, C.tasks.CREATE, { projectId: project.id, title: 'T', assignees: [`user:${B}`, 'agent:default'] })
     expect(sent()).toEqual([to('tasks'), to('notifications', [B])])
     await callAs(ctxA, C.tasks.SET_STATUS, task.id, 'doing')
-    expect(sent()).toEqual([to('tasks')])
+    expect(sent()).toEqual([to('tasks'), to('comments')])
     const comment = await callAs(ctxA, C.comments.CREATE, `task:${task.id}`, `hi user:${B}`)
     expect(sent()).toEqual([to('comments'), to('notifications', [B])])
     await callAs(ctxA, C.comments.CREATE, `task:${task.id}`, 'no mention')

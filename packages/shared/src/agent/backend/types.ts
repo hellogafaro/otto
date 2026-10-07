@@ -206,6 +206,12 @@ export interface CoreBackendConfig {
   getRecoveryMessages?: () => RecoveryMessage[];
 
   /**
+   * Another agent of the chat (not its primary agent): Pi keeps this agent's own session under
+   * `.pi-sessions/<id>` (docs/final-plan.md 2.3 "Multiplayer"). Absent: the primary agent's `.pi-sessions`.
+   */
+  piSessionAgentId?: string;
+
+  /**
    * The chat has messages the backend holds none of (it ran on the removed Claude backend, or Pi's files are
    * gone): its first turn starts with a summary of them (`buildRecoveryContext`).
    */

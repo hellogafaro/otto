@@ -46,7 +46,7 @@ export function parseMinutes(text: string): number | null {
   return Number.isInteger(value) && value >= 1 && value <= MAX_ENTRY_MINUTES ? value : null
 }
 
-function useDuration() {
+export function useDuration() {
   const { t } = useTranslation()
   return (ms: number) => {
     const { hours, minutes } = splitDuration(ms)

@@ -1,13 +1,13 @@
 /**
  * A project's Overview tab, a blocks layout: the description in its card (the markdown editor, autosaved with the
- * title by the page), then Links (web links, library items and chats: `ResourceList`, add and remove applied at
- * once), Members, then the comments.
+ * title by the page), then Links (web links, library items and chats: `ResourceList`; "+" prefills the composer, remove
+ * applies at once), Members, then the Activity (comments).
  */
 
 import { useTranslation } from 'react-i18next'
 import { PageCard, PageSection } from '@workspace/ui/components/page'
 import { TiptapMarkdownEditor } from '@otto/ui'
-import { CommentThread } from '@/components/comments/comment-thread'
+import { ActivityFeed } from '@/components/comments/activity-feed'
 import { NewLink, ResourceList } from '@/components/resources/resource-list'
 import type { Resource } from '../../../shared/types'
 import { ProjectMembers } from './project-members'
@@ -30,7 +30,7 @@ export function ProjectOverview({ projectId, members, onAddMember, onRemoveMembe
       <PageCard className="px-4 py-3" onBlur={onBlur}>
         <TiptapMarkdownEditor content={description} onUpdate={onDescription} placeholder={t('projects.descriptionPlaceholder')} />
       </PageCard>
-      <PageSection title={t('resources.title')} action={<NewLink resources={resources} onChange={onResources} />}>
+      <PageSection title={t('resources.title')} action={<NewLink entity={`project:${projectId}`} resources={resources} />}>
         {resources.length > 0 && (
           <PageCard>
             <div className="flex flex-col gap-0.5 p-1">
@@ -40,7 +40,7 @@ export function ProjectOverview({ projectId, members, onAddMember, onRemoveMembe
         )}
       </PageSection>
       <ProjectMembers members={members} onAdd={onAddMember} onRemove={onRemoveMember} />
-      <CommentThread entity={`project:${projectId}`} />
+      <ActivityFeed entity={`project:${projectId}`} />
     </div>
   )
 }

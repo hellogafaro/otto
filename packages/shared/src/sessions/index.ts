@@ -49,8 +49,20 @@ export {
   sessionPersistenceQueue,
 } from './storage.ts';
 export type { ChatWrite } from './persistence-queue.ts';
-export { onChatsChange, notifyChatsChange, initChatParticipants, addParticipants, getChatsFields, getChatWorkspaceId, toPreview, type ChatSnapshot } from './chats.ts';
-export { searchChats, runChatsRecovery, initMessages, rebuildMessagesSearch, type ChatSearchResult, type RecoveryReport } from './messages.ts';
+export { onChatsChange, notifyChatsChange, getChatsFields, getChatWorkspaceId, toPreview, type ChatSnapshot, type AgentCursor } from './chats.ts';
+export {
+  initChatMembers,
+  getChatMembers,
+  getChatsMembers,
+  addChatMembers,
+  removeChatMember,
+  updateChatMemberRead,
+  clearChatDmKey,
+  getDmChatId,
+  toDmKey,
+  type ChatMember,
+} from './members.ts';
+export { searchChats, getChatLog, type ChatLogRow, runChatsRecovery, initMessages, rebuildMessagesSearch, type ChatSearchResult, type RecoveryReport } from './messages.ts';
 
 // Pi's session file in object storage
 export { uploadPiSession, restorePiSession, deletePiSession, type PiSessionRef } from './pi-session-sync.ts';

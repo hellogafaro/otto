@@ -1,7 +1,7 @@
 /**
  * Dictation (v1's, ported): the mic is recorded in the browser and the whole take is transcribed by the server
  * when Done is pressed (`transcription:create`, docs/composer.md "Transcription (built)"); the text lands at the
- * cursor. Batch, not streaming: there is no interim text. Cancel, leaving the page or unmounting drops the take.
+ * cursor. Batch, not streaming: there is no interim text. Cancel (also while it is transcribing), leaving the page or unmounting drops the take.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -61,9 +61,12 @@ export function useDictation(onText: (text: string) => void) {
       try {
         const audio = new Blob(chunks, { type: session.mimeType || 'audio/webm' })
         const { text } = await window.electronAPI.transcribe(await toBase64(audio), audio.type)
+        // Cancel while it is being transcribed drops the text too.
+        if (discard.current) return
         if (!text.trim()) toast.error(t('composer.error.noSpeech'))
         else deliver.current(text.trim())
       } catch (error) {
+        if (discard.current) return
         const code = (error as { code?: unknown } | null)?.code
         toast.error(t(dictationErrorKey(code), { provider: 'OpenRouter' }))
       } finally {
@@ -82,6 +85,7 @@ export function useDictation(onText: (text: string) => void) {
   const cancel = () => {
     discard.current = true
     stop()
+    setTranscribing(false)
   }
 
   // Unmounting releases the mic and drops the recording.

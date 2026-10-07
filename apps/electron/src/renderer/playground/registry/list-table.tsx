@@ -1,7 +1,8 @@
 import * as React from 'react'
-import { Archive, CircleCheck, CircleDashed, CircleDot, Cpu, Flag, MoreHorizontal, Plus, SquarePen, Tag } from 'lucide-react'
+import { Archive, CircleCheck, CircleDashed, CircleDot, Cpu, Flag, Plus, SquarePen, Tag } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
+import { ContextMenuContent, ContextMenuItem } from '@workspace/ui/components/context-menu'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
 import { ListCard, ListGroup, ListRow } from '@workspace/ui/components/list-group'
 import { PageHeaderRow } from '@workspace/ui/components/page-frame'
@@ -91,8 +92,11 @@ function ListTablePanel({ mode, initial }: { mode: 'light' | 'dark'; initial: Fi
     (!on('label').length || r.labels.some((l) => on('label').includes(l))) &&
     (!on('flagged').length || r.flagged) &&
     !on('archived').length)
-  const more = (
-    <Button variant="ghost" size="icon-compact" aria-label="More"><MoreHorizontal /></Button>
+  const menu = (
+    <ContextMenuContent>
+      <ContextMenuItem>Open</ContextMenuItem>
+      <ContextMenuItem shortcut="A">Archive</ContextMenuItem>
+    </ContextMenuContent>
   )
   return (
     <div className={cn(mode === 'dark' && 'dark', 'flex min-h-[760px] min-w-0 flex-col bg-sidebar p-5 text-foreground')}>
@@ -147,7 +151,7 @@ function ListTablePanel({ mode, initial }: { mode: 'light' | 'dark'; initial: Fi
                       }
                       meta={<Meta row={r} />}
                       end={r.time}
-                      actions={more}
+                      menu={menu}
                     />
                   ))}
                 </ListGroup>

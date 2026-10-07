@@ -52,6 +52,8 @@ export interface TextCompleteEvent {
   timestamp?: number
   /** Authoritative message ID from main process for persistence/branching parity */
   messageId?: string
+  /** The agent that wrote it ('agent:<id>') */
+  author?: string
 }
 
 /**

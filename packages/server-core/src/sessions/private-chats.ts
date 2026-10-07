@@ -2,18 +2,16 @@ import { userIdOf } from '@otto/shared/actors'
 import { domainError } from '@otto/shared/utils'
 
 /**
- * Chats are private: a chat belongs to the user who created it (`chats.created_by`, 'user:<id>') and
- * nobody else in the workspace sees or touches it. Every chat has a creator: the importer gave the
- * chats made before chats were private to their workspace's first owner.
+ * Who sees a chat: its member people (`chats_members` rows 'user:<id>'; docs/schema.md "Chats"). The creator is
+ * always a member; a workspace owner who is not one does not see it either. Agents are members too but see nothing.
  */
 
 /** The user ids of a workspace's owners. The host sets it from the database; until then no owner exists. */
 export type WorkspaceOwners = (workspaceId: string) => string[]
 
-/** User ids who may see a chat: its creator only. */
-export function getChatAudience(chat: { createdBy?: string }): string[] {
-  const userId = chat.createdBy ? userIdOf(chat.createdBy) : null
-  return userId ? [userId] : []
+/** User ids who may see a chat: its member people. */
+export function getChatAudience(chat: { members?: readonly { actor: string }[] }): string[] {
+  return (chat.members ?? []).map((member) => userIdOf(member.actor)).filter((id): id is string => !!id)
 }
 
 /** What a chat that is not yours looks like: a chat that does not exist. */

@@ -59,6 +59,7 @@ import {
 } from '@/atoms/background-finished'
 import { currentSessionIdAtom } from '@/atoms/current-route'
 import { getSessionTitle } from '@/utils/session'
+import { startsAgentRun } from '@/lib/actors'
 import { extractBadges } from '@/lib/mentions'
 import { getDefaultStore } from 'jotai'
 import {
@@ -1133,7 +1134,7 @@ export default function App() {
       }
 
       // Step 3: Extract badges from mentions (sources/skills) with embedded icons
-      // Badges are self-contained for display in UserMessageBubble and viewer
+      // Badges are self-contained for display in UserMessage and viewer
       // Merge with any externally provided badges
       // Use workspace slug (not UUID) for skill qualification - SDK expects "workspaceSlug:skillSlug"
       const mentionBadges: ContentBadge[] = windowWorkspaceSlug
@@ -1193,10 +1194,11 @@ export default function App() {
         isQueued: sendingMidStream,
       }
 
-      // Optimistic UI update - add user message and set processing state
+      // Optimistic UI update - add user message and set processing state (only when an agent will reply: in a
+      // people chat, or with several people and no mention, the message is just posted)
       updateSessionById(sessionId, (s) => ({
         messages: [...s.messages, userMessage],
-        isProcessing: true,
+        isProcessing: s.isProcessing || startsAgentRun(s, message),
         lastMessageAt: Date.now()
       }))
 

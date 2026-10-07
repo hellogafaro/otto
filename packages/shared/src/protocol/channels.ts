@@ -280,9 +280,6 @@ export const RPC_CHANNELS = {
   toolIcons: {
     GET_MAPPINGS: 'toolIcons:getMappings',
   },
-  logo: {
-    GET_URL: 'logo:getUrl',
-  },
   notification: {
     SHOW: 'notification:show',
     NAVIGATE: 'notification:navigate',

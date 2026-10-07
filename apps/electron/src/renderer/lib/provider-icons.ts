@@ -101,19 +101,7 @@ function piProviderToIcon(provider: string): ProviderIconKey | null {
 }
 
 /**
- * Domain map for providers without static SVG icons.
- * Used to generate Google Favicon V2 URLs as fallback.
- */
-const PI_PROVIDER_DOMAINS: Record<string, string> = {
-  groq: 'groq.com',
-  xai: 'x.ai',
-  cerebras: 'cerebras.ai',
-  deepseek: 'deepseek.com',
-  zai: 'z.ai',
-}
-
-/**
- * The icon of a connection: its Pi provider's logo (`type`), else a favicon for providers without one. A custom
+ * The icon of a connection: its Pi provider's logo (`type`), else none (never a fetched favicon). A custom
  * endpoint is recognized by its base URL.
  *
  * @returns Icon URL string or null if no matching icon
@@ -123,15 +111,8 @@ export function getProviderIcon(type: string, baseUrl?: string | null): string |
     if (!baseUrl) return null
     const detectedProvider = detectProviderFromUrl(baseUrl)
     if (detectedProvider) return providerIcons[detectedProvider]
-    // Manifest has no bundled SVG: fall back to Google Favicon V2 (same trick used for groq/xai elsewhere).
-    if (baseUrl.toLowerCase().includes('manifest.build')) {
-      return 'https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&size=128&url=https://app.manifest.build'
-    }
     return null
   }
   const iconKey = piProviderToIcon(type)
-  if (iconKey) return providerIcons[iconKey]
-  // Favicon fallback for providers without static SVGs
-  const domain = PI_PROVIDER_DOMAINS[type]
-  return domain ? `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&size=128&url=https://${domain}` : null
+  return iconKey ? providerIcons[iconKey] : null
 }

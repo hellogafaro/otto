@@ -240,21 +240,6 @@ export interface SessionToolContext {
    */
   downloadSourceIcon?(sourceSlug: string, iconUrl: string): Promise<string | null>;
 
-  /**
-   * Derive a service URL from a source config (for favicon fetching).
-   */
-  deriveServiceUrl?(source: SourceConfig): string | null;
-
-  /**
-   * Get a high-quality logo URL from a service URL.
-   */
-  getHighQualityLogoUrl?(serviceUrl: string, slug: string): Promise<string | null>;
-
-  /**
-   * Download an icon to a specific destination path.
-   */
-  downloadIcon?(destPath: string, url: string, tag: string): Promise<string | null>;
-
   // ============================================================
   // MCP Connection Validation (for source_test)
   // ============================================================

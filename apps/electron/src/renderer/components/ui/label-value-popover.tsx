@@ -13,7 +13,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Trash2, CalendarDays, ArrowUpRight } from 'lucide-react'
 import { Popover, PopoverTrigger, PopoverContent } from './popover'
-import { Calendar } from './calendar'
+import { Calendar } from '@workspace/ui/components/calendar'
 import { cn } from '@/lib/utils'
 import { openLabelLink } from '@/lib/open-label-link'
 import { MENU_ROW } from './menu-styles'
@@ -233,7 +233,7 @@ export function LabelValuePopover({
                     </button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-[220px] overflow-hidden p-0"
+                    className="w-auto overflow-hidden p-1"
                     side="top"
                     align="end"
                     sideOffset={8}

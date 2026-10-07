@@ -6,7 +6,9 @@ import { getEntitiesLabels, removeEntityLabels, setEntityLabels } from '../label
 import { getStatusRow, getStatusesById } from '../statuses/storage.ts'
 import { expandPath, toPortablePath } from '../utils/paths.ts'
 import { deleteMessages } from './messages.ts'
-import { chats } from './schema.ts'
+import { deleteChatMembers, updateMembersAgent } from './members.ts'
+import type { PiSessionRef } from './pi-session-sync.ts'
+import { chats, chatsMembers } from './schema.ts'
 import type { SessionConfig, SessionMetadata, SessionTokenUsage } from './types.ts'
 
 /**
@@ -15,11 +17,23 @@ import type { SessionConfig, SessionMetadata, SessionTokenUsage } from './types.
  * filters or orders on it, otherwise it is in `metadata` (`ChatMetadata`):
  *
  *   name -> title, isFlagged -> pinned_at, sessionStatus -> status_id (a `statuses` row; archived = its category),
- *   hasUnread -> read_at (null = unread), lastMessageAt -> updated_at, labels -> `labels_entities` ('chat:<id>'),
+ *   lastMessageAt -> updated_at, labels -> `labels_entities` ('chat:<id>'), dmKey -> dm_key (set once, at creation),
  *   parentSessionId / a branch's parent -> origin 'chat:<id>', triggeredBy.automationId -> origin 'routine:<id>'.
  *
  * `hidden` and `archivedAt` are gone (no hidden chats; archived is the status). `lastUsedAt` reads as `updated_at`.
+ * Members and their read state are `chats_members` rows (./members.ts); unread is per member, not on the chat.
  */
+
+/**
+ * Where one agent of a chat stands (docs/final-plan.md 2.3 "Multiplayer"): `seen` is the last message `position`
+ * already given to it; `sdkSessionId` and `piSession` are its own Pi session (the primary agent keeps them in
+ * `metadata.sdkSessionId` / `metadata.piSession` as before, so a one-agent chat is unchanged).
+ */
+export interface AgentCursor {
+  seen?: number
+  sdkSessionId?: string
+  piSession?: PiSessionRef
+}
 
 /** What `metadata` holds: everything about a chat that no query filters on. */
 export interface ChatMetadata {
@@ -35,8 +49,8 @@ export interface ChatMetadata {
   enabledSourceSlugs?: string[]
   sharedUrl?: string
   sharedId?: string
-  /** The people in the chat ('user:<id>'), creator first: the list's avatar group. Grown by `addParticipants`. */
-  participants?: string[]
+  /** Each agent's cursor and Pi session, by agent id. */
+  agents?: Record<string, AgentCursor>
   pendingPlanExecution?: SessionConfig['pendingPlanExecution']
   lastReadMessageId?: string
   branchFromMessageId?: string
@@ -52,47 +66,16 @@ export interface ChatMetadata {
 
 const METADATA_KEYS = [
   'sdkSessionId', 'piSession', 'model', 'llmConnection', 'connectionLocked', 'thinkingLevel', 'permissionMode', 'previousPermissionMode',
-  'workingDirectory', 'enabledSourceSlugs', 'sharedUrl', 'sharedId', 'participants', 'pendingPlanExecution', 'lastReadMessageId',
+  'workingDirectory', 'enabledSourceSlugs', 'sharedUrl', 'sharedId', 'agents', 'pendingPlanExecution', 'lastReadMessageId',
   'branchFromMessageId', 'branchFromSdkSessionId', 'branchFromSessionPath', 'branchFromSdkTurnId',
   'transferredSessionSummary', 'transferredSessionSummaryApplied',
 ] as const satisfies readonly (keyof ChatMetadata)[]
 
-/**
- * The chat's people: `participants` with its creator and the senders of `messages` added (distinct, creator first
- * when none were known). Returns `chat.participants` itself when nothing is new, so the write path can compare.
- */
-export function addParticipants(chat: { createdBy?: string; participants?: string[] }, messages: readonly { sender?: string }[] = []): string[] | undefined {
-  const known = chat.participants ?? []
-  const next = new Set(known)
-  if (chat.createdBy) next.add(chat.createdBy)
-  for (const message of messages) if (message.sender) next.add(message.sender)
-  return next.size === known.length && chat.participants ? chat.participants : next.size ? [...next] : undefined
-}
-
-/**
- * Boot reconcile: gives every chat without `participants` its creator and the distinct `sender`s of its user
- * messages. Each chat is answered once (the key then exists), so a second run changes nothing. Returns how many.
- */
-export function initChatParticipants(db: Db = initDb()): number {
-  const rows = db.all<{ id: string; created_by: string }>(
-    sql`SELECT id, created_by FROM chats WHERE CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.participants') IS NULL ELSE 0 END`,
-  )
-  for (const { id, created_by } of rows) {
-    db.transaction(
-      (tx) => {
-        const senders = tx.all<{ sender: string }>(sql`SELECT DISTINCT json_extract(content, '$.sender') AS sender FROM messages WHERE chat_id = ${id} AND type = 'user'`)
-        const participants = addParticipants({ createdBy: created_by }, senders.filter((row) => row.sender))
-        tx.run(sql`UPDATE chats SET metadata = json_set(metadata, '$.participants', json(${JSON.stringify(participants ?? [])})) WHERE id = ${id}`)
-      },
-      { behavior: 'immediate' },
-    )
-  }
-  return rows.length
-}
-
 /** A chat as the write path hands it over: its config fields plus what only the running server knows. */
 export interface ChatSnapshot extends SessionConfig {
   workspaceId: string
+  /** Each agent's cursor (`ChatMetadata.agents`). */
+  agents?: Record<string, AgentCursor>
   tokenUsage?: SessionTokenUsage
   /** A turn is running: `run_started_at` stays set until a snapshot says it stopped. */
   running?: boolean
@@ -139,8 +122,8 @@ export function writeChat(tx: Db | Tx, chat: ChatSnapshot, { newestAt = 0, label
     statusId: statusIdOf(chat.workspaceId, chat.sessionStatus, tx),
     projectId: chat.projectId ?? null,
     origin: toOrigin(chat),
+    dmKey: chat.dmKey ?? null,
     pinnedAt: chat.isFlagged ? new Date(now) : null,
-    readAt: chat.hasUnread ? null : new Date(Math.max(now, updatedAt)),
     runStartedAt: chat.running ? new Date(now) : null,
     metadata: toMetadata(chat),
     createdAt: new Date(chat.createdAt),
@@ -159,7 +142,6 @@ export function writeChat(tx: Db | Tx, chat: ChatSnapshot, { newestAt = 0, label
         // a pin and a running turn keep the moment they began
         pinnedAt: values.pinnedAt ? sql`coalesce(${chats.pinnedAt}, ${now})` : null,
         runStartedAt: values.runStartedAt ? sql`coalesce(${chats.runStartedAt}, ${now})` : null,
-        readAt: values.readAt ? sql`max(${now}, ${chats.updatedAt}, ${updatedAt})` : null,
         metadata: values.metadata,
         updatedAt: sql`max(${chats.updatedAt}, ${updatedAt})`,
       },
@@ -221,8 +203,8 @@ function toMetadataFields(row: ChatRow): Partial<SessionMetadata> & Record<strin
 /**
  * The chats of a workspace as the list needs them, newest first, with the fields derived from their messages
  * (count, last role, first user message as the preview, last final assistant message), each a subquery on the
- * (chat_id, position) index. `actor` bounds it to that person's chats (the private rule); the server's own boot
- * load reads every chat of the workspace.
+ * (chat_id, position) index. `actor` bounds it to the chats that actor is a member of; the server's own boot load
+ * reads every chat of the workspace.
  */
 export function getChats(
   workspaceId: string,
@@ -233,7 +215,13 @@ export function getChats(
   const rows = db
     .select()
     .from(chats)
-    .where(and(eq(chats.workspaceId, workspaceId), actor === undefined ? undefined : eq(chats.createdBy, actor), chatId === undefined ? undefined : eq(chats.id, chatId)))
+    .where(
+      and(
+        eq(chats.workspaceId, workspaceId),
+        actor === undefined ? undefined : inArray(chats.id, db.select({ id: chatsMembers.chatId }).from(chatsMembers).where(and(eq(chatsMembers.workspaceId, workspaceId), eq(chatsMembers.actor, actor)))),
+        chatId === undefined ? undefined : eq(chats.id, chatId),
+      ),
+    )
     .all()
   if (!rows.length) return []
   const derived = new Map(
@@ -270,12 +258,12 @@ function toSessionMetadata(
     ...(row.title != null && { name: row.title }),
     ...(row.createdBy && { createdBy: row.createdBy }),
     ...(row.agentId && { agentId: row.agentId }),
+    ...(row.dmKey && { dmKey: row.dmKey }),
     ...(row.projectId && { projectId: row.projectId }),
     createdAt: row.createdAt.getTime(),
     lastUsedAt: updatedAt,
     lastMessageAt: updatedAt,
     isFlagged: row.pinnedAt != null,
-    hasUnread: row.readAt == null || updatedAt > row.readAt.getTime(),
     ...(status && { sessionStatus: status.slug }),
     isArchived: status?.category === 'archived',
     ...(labels?.length && { labels }),
@@ -301,12 +289,13 @@ export function hasChat(chatId: string, db: Db | Tx = initDb()): boolean {
   return getChatWorkspaceId(chatId, db) !== null
 }
 
-/** Deletes a chat: its messages and their index entries, its labels, its row. The folder is the caller's. */
+/** Deletes a chat: its messages and their index entries, its labels, its members, its row. The folder is the caller's. */
 export function deleteChat(workspaceId: string, chatId: string, db: Db = initDb()): void {
   db.transaction(
     (tx) => {
       deleteMessages(tx, workspaceId, chatId)
       removeEntityLabels(workspaceId, `chat:${chatId}`, tx)
+      deleteChatMembers(tx, workspaceId, chatId)
       tx.delete(chats).where(and(eq(chats.workspaceId, workspaceId), eq(chats.id, chatId))).run()
     },
     { behavior: 'immediate' },
@@ -324,15 +313,26 @@ export function updateChatsStatus(tx: Db | Tx, workspaceId: string, fromStatusId
     .map((row) => row.id)
 }
 
-/** Points every chat of an agent at the workspace's default agent (null; the agent is being deleted); returns them. */
-export function clearChatsAgent(tx: Db | Tx, workspaceId: string, agentId: string): string[] {
-  return tx
+/**
+ * An agent is being deleted: the chats it was primary of move to `toAgentId` (the workspace's next default agent),
+ * and it leaves every chat it was a member of. Returns the chats that changed.
+ */
+export function updateChatsAgent(tx: Db | Tx, workspaceId: string, agentId: string, toAgentId: string | null): string[] {
+  const member = tx
+    .select({ id: chatsMembers.chatId })
+    .from(chatsMembers)
+    .where(and(eq(chatsMembers.workspaceId, workspaceId), eq(chatsMembers.actor, `agent:${agentId}`)))
+    .all()
+    .map((row) => row.id)
+  const primary = tx
     .update(chats)
-    .set({ agentId: null })
+    .set({ agentId: toAgentId })
     .where(and(eq(chats.workspaceId, workspaceId), eq(chats.agentId, agentId)))
     .returning({ id: chats.id })
     .all()
     .map((row) => row.id)
+  updateMembersAgent(tx, workspaceId, agentId, toAgentId, primary)
+  return [...new Set([...primary, ...member])]
 }
 
 /** The fields other domains change on chats, as the server reads them back after a notice. */

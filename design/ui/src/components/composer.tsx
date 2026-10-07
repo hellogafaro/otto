@@ -131,7 +131,7 @@ function Composer({
               {tools}
               <span
                 aria-hidden
-                className="flex-1 group-data-[variant=compact]/composer:hidden"
+                className="flex-1 group-data-[variant=compact]/composer:hidden group-has-[[data-slot=dictation]]/composer:hidden"
               />
               {variant === "full" ? null : attention}
               {main}
@@ -149,13 +149,15 @@ function Composer({
 // placeholder ends in an ellipsis; the app expands once the text overflows or
 // breaks a line); otherwise it grows with its content from one line to 240px,
 // then scrolls, 12px in and 12px down (the surface's 4 + 8), touching the
-// action row (v1's `p-3 pb-0`).
+// action row (v1's `p-3 pb-0`). Hidden (still mounted) while dictating: a
+// `data-slot="dictation"` in `tools` also drops the spacer, so the waveform
+// fills the row between Cancel and the timer.
 function ComposerInput({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="composer-input"
       className={cn(
-        "max-h-60 min-h-7 w-full min-w-0 overflow-y-auto px-2 pt-2 pb-0 leading-5 [&_[role=textbox]]:outline-none [&_[data-slot=composer-placeholder]]:text-muted-foreground",
+        "group-has-[[data-slot=dictation]]/composer:hidden max-h-60 min-h-7 w-full min-w-0 overflow-y-auto px-2 pt-2 pb-0 leading-5 [&_[role=textbox]]:outline-none [&_[data-slot=composer-placeholder]]:text-muted-foreground",
         "group-data-[variant=compact]/composer:h-8 group-data-[variant=compact]/composer:max-h-8 group-data-[variant=compact]/composer:flex-1 group-data-[variant=compact]/composer:overflow-hidden group-data-[variant=compact]/composer:px-1 group-data-[variant=compact]/composer:py-1.5",
         "group-data-[variant=compact]/composer:[&_[role=textbox]]:no-scrollbar group-data-[variant=compact]/composer:[&_[role=textbox]]:overflow-x-auto group-data-[variant=compact]/composer:[&_[role=textbox]]:whitespace-pre group-data-[variant=compact]/composer:[&_[data-slot=composer-placeholder]]:truncate",
         className

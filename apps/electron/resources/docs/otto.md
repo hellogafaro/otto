@@ -27,6 +27,9 @@ otto <command> [args...]
 otto tasks list '{"status":"todo"}'
 otto tasks create '{"projectId":"p1a2b3c4d5e6","title":"Write the brief","assignees":["agent:a1b2c3d4e5f6"]}'
 otto tasks set-status t1a2b3c4d5e6 done
+otto tasks get t1a2b3c4d5e6   # then send its resources plus the new link (the list is replaced):
+otto tasks update t1a2b3c4d5e6 '{"resources":[{"type":"url","title":"Spec","ref":"https://example.com/spec"}]}'
+otto comments list task:t1a2b3c4d5e6   # its comments and activity events, oldest first
 otto library create - <<'EOF'
 {"title":"Weekly notes","mime":"text/markdown","content":{"encoding":"utf8","data":"# Weekly notes\n\n- shipped the brief"}}
 EOF
@@ -55,7 +58,7 @@ otto tasks get <id>
 otto tasks create <task>
     task: {projectId, title, description?, dueAt? (ms), assignees? (actors), resources? ([{type: "url"|"library"|"chat", title, ref}])}
 otto tasks update <id> <patch>
-    patch: any of {projectId, title, description, dueAt, assignees, resources, expectedUpdatedAt}
+    patch: any of {projectId, title, description, dueAt (ms|null), assignees (actors), resources, expectedUpdatedAt}. resources REPLACES the list: to add or remove a link, `otto tasks get <id>` and send its resources with the link added ({type: "url"|"library"|"chat", title, ref}) or removed.
 otto tasks set-status <id> <status>
     status: todo, doing, done, archived or deleted.
 otto projects list [filter]
@@ -65,9 +68,9 @@ otto projects get <id>
 otto projects create <project>
     project: {title, description?, resources?}
 otto projects update <id> <patch>
-    patch: any of {title, description, resources, expectedUpdatedAt}
-otto comments list <entity>
-    Comments on an entity ("task:<id>", "project:<id>", ...), oldest first.
+    patch: any of {title, description, resources, expectedUpdatedAt}. resources REPLACES the list: to add or remove a link, `otto projects get <id>` and send its resources with the link added ({type: "url"|"library"|"chat", title, ref}) or removed.
+otto comments list <entity> [page]
+    An entity's ("task:<id>", "project:<id>", ...) comments and activity events, oldest first: {items, more} (more = older items remain). An item's type is "comment" | "event"; an event has event = {kind, ...}. page: {before? (an item id), limit? (max 500)}
 otto comments create <entity> <content>
     Adds a comment as you. A "user:<id>" token in the content notifies that member.
 otto library list [filter]

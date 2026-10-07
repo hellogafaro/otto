@@ -58,13 +58,6 @@ interface SkillConfig {
  */
 export const iconCache = new Map<string, string>()
 
-/**
- * Cache for resolved logo URLs (from service URL resolution).
- * Kept separate because it caches URL resolution, not icon data,
- * and uses a different key format: `{serviceUrl}:{provider}`
- */
-export const logoUrlCache = new Map<string, string | null>()
-
 // ============================================================================
 // Legacy exports (for backward compatibility during migration)
 // These are views into the unified cache, not separate maps.
@@ -110,7 +103,6 @@ export const skillIconCache = {
  */
 export function clearIconCaches(): void {
   iconCache.clear()
-  logoUrlCache.clear()
   colorableCache.clear()
   rawSvgCache.clear()
 }
@@ -121,7 +113,6 @@ export function clearIconCaches(): void {
  */
 export function clearSourceIconCaches(): void {
   sourceIconCache.clear()
-  logoUrlCache.clear()
   // Also clear from colorable/rawSvg caches
   for (const key of colorableCache) {
     if (key.startsWith('source:')) colorableCache.delete(key)
@@ -160,7 +151,6 @@ export const EMOJI_ICON_PREFIX = 'emoji:'
  * 2. Local path in config.icon (./icon.svg) → Load from sources/{slug}/icon.svg
  * 3. URL in config.icon → Return URL directly for browser to load
  * 4. config.icon undefined → Auto-discover sources/{slug}/icon.{svg,png}
- * 5. Fallback → Resolve favicon from service URL
  *
  * Config takes precedence over auto-discovered local files. If config.icon is set
  * (emoji, local path, or URL), auto-discovery is skipped.
@@ -220,35 +210,8 @@ export async function loadSourceIcon(
     }
   }
 
-  // Priority 5: Resolve favicon from service URL
-  const serviceUrl = deriveServiceUrl(config)
-  if (!serviceUrl) return null
-
-  // Use slug for favicon resolution - it's more specific than generic provider names
-  const provider = config.slug ?? config.provider
-  const logoCacheKey = `${serviceUrl}:${provider ?? ''}`
-
-  // Check logo URL cache
-  const cachedLogoUrl = logoUrlCache.get(logoCacheKey)
-  if (cachedLogoUrl !== undefined) {
-    if (cachedLogoUrl) {
-      sourceIconCache.set(cacheKey, cachedLogoUrl)
-    }
-    return cachedLogoUrl
-  }
-
-  try {
-    const logoUrl = await window.electronAPI.getLogoUrl(serviceUrl, provider)
-    logoUrlCache.set(logoCacheKey, logoUrl)
-    if (logoUrl) {
-      sourceIconCache.set(cacheKey, logoUrl)
-    }
-    return logoUrl
-  } catch (error) {
-    console.error(`[IconCache] Failed to resolve logo URL:`, error)
-    logoUrlCache.set(logoCacheKey, null)
-    return null
-  }
+  // No icon of its own: the caller shows the generic type icon (never a third-party favicon)
+  return null
 }
 
 /**
@@ -432,27 +395,6 @@ export function themeSvgContent(
 export function svgToThemedDataUrl(svgContent: string, foregroundColor?: string): string {
   const themedSvg = themeSvgContent(svgContent, foregroundColor)
   return `data:image/svg+xml;base64,${btoa(themedSvg)}`
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-/**
- * Derive service URL from source config (for favicon resolution)
- */
-function deriveServiceUrl(config: SourceConfig): string | null {
-  // MCP sources - use mcp.url
-  if (config.type === 'mcp' && config.mcp?.url) {
-    return config.mcp.url
-  }
-
-  // API sources - use api.baseUrl
-  if (config.type === 'api' && config.api?.baseUrl) {
-    return config.api.baseUrl
-  }
-
-  return null
 }
 
 // ============================================================================

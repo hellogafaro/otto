@@ -4,7 +4,7 @@
  *
  * The header carries Filter (one on/off field, Archived: `?status=archived` lists the archived
  * projects instead of the active ones, their titles muted), Search (the palette on Projects) and "+" (New project, a dialog). A tile
- * opens its project; its right-click menu and hover ⋯ share one list: Open, Copy link, then
+ * opens its project; its right-click menu (a long press on touch) is Open, Copy link, then
  * Archive or Restore (applies at once, one "Saved" toast). States: loading (skeleton tiles), no
  * projects at all (the section's empty state, whose button opens the same dialog), filtered with
  * nothing left (`NoResults`), and only archived projects (the empty state under the header, so
@@ -14,16 +14,9 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useComposerContext } from '@/components/composer/use-composer-context'
-import { Archive, ArchiveRestore, Folder, Link, MoreHorizontal, SquareArrowOutUpRight } from 'lucide-react'
+import { Archive, ArchiveRestore, Folder, Link, SquareArrowOutUpRight } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from '@workspace/ui/components/context-menu'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@workspace/ui/components/dropdown-menu'
 import { FilterBar, FilterMenu, NoResults, type FilterField, type FilterValues } from '@workspace/ui/components/filters'
 import { Gallery, GalleryItem, GalleryItemSkeleton } from '@workspace/ui/components/gallery'
 import { PageColumn } from '@workspace/ui/components/page'
@@ -52,30 +45,24 @@ interface TileActions {
   onToggleArchive: (project: Project) => void
 }
 
-/** The tile's one menu list, drawn with the right-click menu's or the ⋯ menu's parts. */
-function ProjectMenuItems({ project, actions, Item, Separator }: {
-  project: Project
-  actions: TileActions
-  Item: typeof ContextMenuItem | typeof DropdownMenuItem
-  Separator: typeof ContextMenuSeparator | typeof DropdownMenuSeparator
-}) {
+/** The tile's menu list. */
+function ProjectMenuItems({ project, actions }: { project: Project; actions: TileActions }) {
   const { t } = useTranslation()
   const archived = project.status === 'archived'
   return (
     <>
-      <Item onClick={() => actions.onOpen(project)}><SquareArrowOutUpRight />{t('common.open')}</Item>
-      <Item shortcut="C" onClick={() => actions.onCopyLink(project)}><Link />{t('projects.copyLink')}</Item>
-      <Separator />
-      <Item shortcut="A" onClick={() => actions.onToggleArchive(project)}>
+      <ContextMenuItem onClick={() => actions.onOpen(project)}><SquareArrowOutUpRight />{t('common.open')}</ContextMenuItem>
+      <ContextMenuItem shortcut="C" onClick={() => actions.onCopyLink(project)}><Link />{t('projects.copyLink')}</ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem shortcut="A" onClick={() => actions.onToggleArchive(project)}>
         {archived ? <ArchiveRestore /> : <Archive />}
         {archived ? t('projects.restore') : t('projects.archive')}
-      </Item>
+      </ContextMenuItem>
     </>
   )
 }
 
 function ProjectTile({ project, actions }: { project: Project; actions: TileActions }) {
-  const { t } = useTranslation()
   return (
     <GalleryItem
       ratio="16:9"
@@ -86,18 +73,8 @@ function ProjectTile({ project, actions }: { project: Project; actions: TileActi
       onClick={() => actions.onOpen(project)}
       menu={
         <ContextMenuContent>
-          <ProjectMenuItems project={project} actions={actions} Item={ContextMenuItem} Separator={ContextMenuSeparator} />
+          <ProjectMenuItems project={project} actions={actions} />
         </ContextMenuContent>
-      }
-      actions={
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('common.moreActions')} />}>
-            <MoreHorizontal />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <ProjectMenuItems project={project} actions={actions} Item={DropdownMenuItem} Separator={DropdownMenuSeparator} />
-          </DropdownMenuContent>
-        </DropdownMenu>
       }
     />
   )

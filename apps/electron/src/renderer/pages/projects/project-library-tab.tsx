@@ -5,20 +5,10 @@
  * button: a searchable list of the library's items of that kind not linked yet; picking one links it.
  */
 
-import { File, FileText, MoreHorizontal } from 'lucide-react'
+import { File, FileText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@workspace/ui/components/button'
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxSearch,
-  ComboboxTrigger,
-} from '@workspace/ui/components/combobox'
+import { Picker } from '@workspace/ui/components/picker'
 import { ContextMenuContent, ContextMenuItem } from '@workspace/ui/components/context-menu'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui/components/dropdown-menu'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@workspace/ui/components/empty'
 import { Gallery, GalleryItem, GalleryItemSkeleton } from '@workspace/ui/components/gallery'
 import { toast } from '@workspace/ui/components/sonner'
@@ -46,16 +36,6 @@ function UnavailableTile({ resource, kind, onRemove }: { resource: Resource; kin
       label={t('projects.unavailable')}
       muted
       menu={<ContextMenuContent><ContextMenuItem onClick={onRemove}>{remove}</ContextMenuItem></ContextMenuContent>}
-      actions={(
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('common.moreActions')} />}>
-            <MoreHorizontal />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={onRemove}>{remove}</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
     />
   )
 }
@@ -121,33 +101,23 @@ export function AddFromLibrary({ kind, resources, onResources }: {
   const Icon = kind === 'document' ? FileText : File
 
   return (
-    <Combobox
+    <Picker
       items={candidates.map((item) => item.id)}
       value={null}
-      itemToStringLabel={titleOf}
       onValueChange={(id) => {
-        const item = id ? byId.get(id as string) : undefined
+        const item = byId.get(id)
         if (item) onResources([...resources, { type: 'library', ref: item.id, title: item.title }])
       }}
-    >
-      <ComboboxTrigger
-        disabled={resources.length >= MAX_RESOURCES}
-        render={<CreateButton label={t('projects.addFromLibrary')} />}
-      />
-      <ComboboxContent align="end" className="w-64">
-        <ComboboxSearch placeholder={t('projects.search')} />
-        <ComboboxEmpty>
-          {t(candidates.length > 0 ? 'projects.noMatches' : kind === 'document' ? 'projects.allDocumentsAdded' : 'projects.allFilesAdded')}
-        </ComboboxEmpty>
-        <ComboboxList>
-          {(id: string) => (
-            <ComboboxItem key={id} value={id}>
-              <Icon />
-              <span className="truncate">{titleOf(id)}</span>
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
+      itemLabel={titleOf}
+      itemIcon={() => <Icon />}
+      disabled={resources.length >= MAX_RESOURCES}
+      trigger={<CreateButton label={t('projects.addFromLibrary')} />}
+      search={t(kind === 'document' ? 'pickers.searchDocuments' : 'pickers.searchFiles')}
+      empty={t(candidates.length > 0
+        ? kind === 'document' ? 'pickers.noDocuments' : 'pickers.noFiles'
+        : kind === 'document' ? 'projects.allDocumentsAdded' : 'projects.allFilesAdded')}
+      align="end"
+      className="w-64"
+    />
   )
 }

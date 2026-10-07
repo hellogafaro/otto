@@ -86,6 +86,19 @@ function MessageFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+// Otto: an author's name carries an assigned color (like Slack), so a chat's
+// senders group at a glance: six hues, each tuned per theme to read on the
+// background in light and dark; none is the primary blue, so a name never reads
+// as an @tag. The app picks one per actor with a stable hash.
+const messageAuthorColors = [
+  "text-[oklch(0.55_0.18_25)] dark:text-[oklch(0.74_0.14_25)]", // red
+  "text-[oklch(0.56_0.15_60)] dark:text-[oklch(0.78_0.13_65)]", // orange
+  "text-[oklch(0.52_0.14_150)] dark:text-[oklch(0.77_0.14_150)]", // green
+  "text-[oklch(0.53_0.1_195)] dark:text-[oklch(0.77_0.1_195)]", // teal
+  "text-[oklch(0.52_0.18_300)] dark:text-[oklch(0.75_0.14_300)]", // purple
+  "text-[oklch(0.56_0.19_350)] dark:text-[oklch(0.75_0.15_350)]", // pink
+] as const;
+
 export {
   Message,
   MessageAvatar,
@@ -93,4 +106,5 @@ export {
   MessageFooter,
   MessageGroup,
   MessageHeader,
+  messageAuthorColors,
 };

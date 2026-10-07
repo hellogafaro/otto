@@ -32,10 +32,10 @@ export type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate };
 
 import type { Project, ProjectFilter, ProjectStatus, ProjectUpdate, Resource } from '@otto/shared/projects/types';
 import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from '@otto/shared/tasks/types';
-import type { Comment } from '@otto/shared/comments/types';
+import type { ActivityEvent, Comment, CommentPage } from '@otto/shared/comments/types';
 import type { NotificationItem, NotificationType } from '@otto/shared/notifications/types';
 import type { DomainChange } from '@otto/shared/protocol';
-export type { Comment, DomainChange, NotificationItem, NotificationType };
+export type { ActivityEvent, Comment, CommentPage, DomainChange, NotificationItem, NotificationType };
 export type { Project, ProjectFilter, ProjectStatus, ProjectUpdate, Resource, Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet };
 
 import type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole } from '@otto/shared/workspaces';
@@ -509,9 +509,6 @@ export interface ElectronAPI {
   // Theme change listeners
   onAppThemeChange(callback: (theme: import('@config/theme').ThemeOverrides | null) => void): () => void
 
-  // Logo URL resolution
-  getLogoUrl(serviceUrl: string, provider?: string): Promise<string | null>
-
   // Notifications
   showNotification(title: string, body: string, workspaceId: string, sessionId: string): Promise<void>
   getNotificationsEnabled(): Promise<boolean>
@@ -609,8 +606,9 @@ export interface ElectronAPI {
   // Comments on a task or project, and the signed-in user's notifications (docs/activity-notifications.md). An entity
   // is `task:<id>` or `project:<id>`; a mention is the token `user:<id>` in the text. Only a comment's author may edit
   // or delete it; `updateComment` may send the `updatedAt` last seen. Notifications are newest first, each with the
-  // entity's title and, for a mention, its comment.
-  getComments(entity: string): Promise<Comment[]>
+  // entity's title and, for a mention, its comment. `getComments` is the entity's activity: comments and events
+  // (type 'event', never notified) oldest first, the newest `limit` before the item `before`; `more` = older ones exist.
+  getComments(entity: string, page?: { before?: string; limit?: number }): Promise<CommentPage>
   createComment(entity: string, content: string): Promise<Comment>
   updateComment(id: string, content: string, expectedUpdatedAt?: number): Promise<Comment>
   deleteComment(id: string): Promise<void>

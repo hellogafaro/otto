@@ -269,13 +269,9 @@ Retention as today: keep the newest 20 runs per routine, trimmed on insert. "Las
 
 Later: the feature is hidden and its files stay untouched; a database design (tables, bot tokens into `secrets`) is made when it is revisited.
 
-### activity log (shape only, not built; DECISION 12)
+### activity log (DECISION 12, superseded)
 
-```
-activities  id, workspaceId NN, entity NN, type NN (verb), createdBy NN, data (JSON), createdAt NN;
-            index (workspaceId, createdAt); index (entity, createdAt)
-```
-`docs/activity-notifications.md` decided "no activity log"; this is only reserved so P6 search and routines do not invent their own.
+There is no `activities` table: a task's activity events (status, assignees, due date, project, links, title, time logged) are rows of `comments` with `type = 'event'` and a JSON `content`, written by the tasks domain through `createEvent` (see `docs/schema.md` and `docs/activity-notifications.md`).
 
 ## (d) Object storage and bundle sync
 

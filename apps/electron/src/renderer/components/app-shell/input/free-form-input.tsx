@@ -43,9 +43,9 @@ import { InboxButton, InboxList } from '@/components/composer/inbox-button'
 import { useAttention } from '@/components/composer/use-attention'
 import { useComposerDraft } from '@/components/composer/use-composer-draft'
 import { useComposerFiles } from '@/components/composer/use-composer-files'
-import { useDictation, useElapsed } from '@/components/composer/use-dictation'
+import { useDictation } from '@/components/composer/use-dictation'
 import { useModifierHeld } from '@/components/composer/use-modifier-held'
-import { Waveform } from '@/components/composer/waveform'
+import { Dictation, Transcribing } from '@/components/composer/waveform'
 
 export function FreeFormInput({ context, handleRef }: {
   context: ComposerContext | null
@@ -111,8 +111,8 @@ export function FreeFormInput({ context, handleRef }: {
     setText(before + insert + value.slice(at))
     focusAt(before.length + insert.length)
   })
-  const elapsed = useElapsed(dictation.listening)
   const listening = dictation.listening
+  const dictating = listening || dictation.transcribing
 
   const commands = useComposerCommands({ inputRef, context, setText, onAddFiles: () => pickerRef.current?.click() })
 
@@ -248,18 +248,18 @@ export function FreeFormInput({ context, handleRef }: {
   const addFilesRef = React.useRef(addFiles)
   addFilesRef.current = addFiles
 
-  // While listening, Enter is Done and Escape cancels, wherever the focus is.
+  // While listening, Enter is Done and Escape cancels, wherever the focus is (Escape also drops a take being transcribed).
   React.useEffect(() => {
-    if (!listening) return
+    if (!dictating) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Enter') dictation.stop()
+      if (event.key === 'Enter' && listening) dictation.stop()
       else if (event.key === 'Escape') dictation.cancel()
       else return
       event.preventDefault()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [listening, dictation])
+  }, [dictating, listening, dictation])
 
   if (!context || surface === 'none') return null
 
@@ -404,23 +404,18 @@ export function FreeFormInput({ context, handleRef }: {
           addFiles(event.dataTransfer.files)
         }}
         attachments={chips || files.items.length > 0 ? <>{chips}{rail}</> : null}
-        leading={listening ? cancel : plus}
-        context={context.entity && !listening ? <EntityChip entity={context.entity} className="mx-1" /> : null}
-        tools={listening ? (
-          <>
-            <Waveform />
-            <span aria-live="off" className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{elapsed}</span>
-          </>
-        ) : surface === 'compact' ? null : context.tools}
+        leading={dictating ? cancel : plus}
+        context={context.entity && !dictating ? <EntityChip entity={context.entity} className="mx-1" /> : null}
+        tools={listening ? <Dictation /> : dictation.transcribing ? <Transcribing /> : surface === 'compact' ? null : context.tools}
         attention={{
           key: focusKey ? <span className="flex h-8 min-w-8 items-center justify-center"><Kbd>{focusKey}</Kbd></span> : null,
           inbox: <InboxButton count={attention.count} open={inboxShown} onToggle={() => setInboxOpen((open) => !open)} />,
           none: null,
-        }[attentionSlot({ held, listening, empty, count: attention.count }) ?? 'none']}
+        }[attentionSlot({ held, listening: dictating, empty, count: attention.count }) ?? 'none']}
         panel={inboxShown ? <InboxList attention={attention} onPick={() => setInboxOpen(false)} /> : null}
         main={main}
       >
-        <ComposerInput className={listening && surface === 'compact' ? 'hidden' : undefined}>
+        <ComposerInput>
           <RichTextInput
             ref={inputRef}
             value={text}

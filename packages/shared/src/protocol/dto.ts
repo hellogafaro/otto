@@ -63,11 +63,7 @@ export interface Session {
   /** Labels (additive tags, many-per-session — bare IDs or "id::value" entries) */
   labels?: string[]
   lastReadMessageId?: string
-  /**
-   * Explicit unread flag - single source of truth for NEW badge.
-   * Set to true when assistant message completes while user is NOT viewing.
-   * Set to false when user views the session (and not processing).
-   */
+  /** Unread for the viewer: the chat's `updated_at` is newer than their `chats_members.read_at` (or it is null). */
   hasUnread?: boolean
   enabledSourceSlugs?: string[]
   workingDirectory?: string
@@ -107,10 +103,12 @@ export interface Session {
   projectId?: string
   /** Parent session id — when set, this session is a subtask of the parent (undefined = top-level task) */
   parentSessionId?: string
-  /** The agent the chat talks to (an `agents` row id); undefined = the workspace's default agent */
+  /** The chat's primary agent (an `agents` row id): it replies when one person talks to it. Undefined = a people chat (a DM or a group): no agent replies unless mentioned. */
   agentId?: string
-  /** The people in the chat as actors ('user:<id>'): its creator, then everyone whose message is in it. Read it with `chatMembers`. */
-  participants?: string[]
+  /** The chat's members as actors ('user:<id>' people, 'agent:<id>' agents), oldest first (the creator first): who sees it, who may write. */
+  members?: string[]
+  /** 'user:<a>|user:<b>' (sorted) for a direct message between two people, unique per workspace; absent for every other chat. */
+  dmKey?: string
 }
 
 export interface CreateSessionOptions {
@@ -150,8 +148,10 @@ export interface CreateSessionOptions {
   projectId?: string
   /** Mark the new session as a subtask of this parent session (undefined = top-level task). */
   parentSessionId?: string
-  /** The agent the chat talks to (an agent of the workspace; anything else = the default agent). */
+  /** The agent the chat talks to (an agent of the workspace; anything else = the default agent). Ignored with `dmWith`. */
   agentId?: string
+  /** A direct message with this user (a workspace member, not the caller): returns the existing DM of the pair when there is one, else a new chat with both as members and no agent. */
+  dmWith?: string
 }
 
 export interface RemoteSessionTransferPayload {
@@ -186,7 +186,7 @@ export type SessionEvent =
   | { type: 'retry'; sessionId: string; phase: 'backoff'; message: string }
   | { type: 'retry'; sessionId: string; phase: 'active' | 'end' }
   | { type: 'text_delta'; sessionId: string; delta: string; turnId?: string }
-  | { type: 'text_complete'; sessionId: string; text: string; isIntermediate?: boolean; turnId?: string; parentToolUseId?: string; timestamp?: number; messageId?: string }
+  | { type: 'text_complete'; sessionId: string; text: string; isIntermediate?: boolean; turnId?: string; parentToolUseId?: string; timestamp?: number; messageId?: string; author?: string }
   | { type: 'tool_start'; sessionId: string; toolName: string; toolUseId: string; toolInput: Record<string, unknown>; toolIntent?: string; toolDisplayName?: string; toolDisplayMeta?: ToolDisplayMeta; turnId?: string; parentToolUseId?: string; timestamp?: number }
   | { type: 'tool_result'; sessionId: string; toolUseId: string; toolName: string; result: string; turnId?: string; parentToolUseId?: string; isError?: boolean; timestamp?: number }
   | { type: 'error'; sessionId: string; error: string; timestamp?: number }
@@ -276,6 +276,12 @@ export type SessionCommand =
   | { type: 'addAnnotation'; messageId: string; annotation: AnnotationV1 }
   | { type: 'removeAnnotation'; messageId: string; annotationId: string }
   | { type: 'updateAnnotation'; messageId: string; annotationId: string; patch: Partial<AnnotationV1> }
+  /** The creator adds people ('user:<id>', workspace members) or agents ('agent:<id>', workspace agents). */
+  | { type: 'addMembers'; actors: string[] }
+  /** The creator removes a member (never themselves). */
+  | { type: 'removeMember'; actor: string }
+  /** The caller leaves the chat (the creator cannot). */
+  | { type: 'leave' }
 
 export interface NewChatActionParams {
   input?: string

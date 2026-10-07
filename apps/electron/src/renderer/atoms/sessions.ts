@@ -55,10 +55,12 @@ export interface SessionMeta {
   isRegeneratingTitle?: boolean
   /** Model override for this session */
   model?: string
-  /** The agent the chat talks to (an `agents` row id; absent or deleted = the default agent) */
+  /** The chat's primary agent (an `agents` row id); absent = a people chat (a DM or a group) */
   agentId?: string
-  /** The people in the chat ('user:<id>'), creator first; the avatar group leaves the viewer out (`ChatPeople`) */
-  participants?: string[]
+  /** The chat's members ('user:<id>', 'agent:<id>'), creator first; the avatar group leaves the viewer out (`ChatPeople`) */
+  members?: string[]
+  /** 'user:<a>|user:<b>' (sorted) on a direct message between two people */
+  dmKey?: string
   /** LLM connection slug for this session */
   llmConnection?: string
   /** Token usage stats (from JSONL header, available without loading messages) */
@@ -430,9 +432,9 @@ export const addSessionAtom = atom(
     newMetaMap.set(session.id, extractSessionMeta(session))
     set(sessionMetaMapAtom, newMetaMap)
 
-    // Add to beginning of IDs list
+    // Add to beginning of IDs list (once: creating a DM that exists returns that chat)
     const ids = get(sessionIdsAtom)
-    set(sessionIdsAtom, [session.id, ...ids])
+    set(sessionIdsAtom, [session.id, ...ids.filter(id => id !== session.id)])
 
     // Mark as loaded (new sessions are complete - no lazy loading needed)
     const loadedSessions = get(loadedSessionsAtom)

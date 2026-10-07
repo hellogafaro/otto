@@ -4,8 +4,9 @@
  * has nothing to say. The tag prefix is the product's name in lowercase (`otto_rules`, ...) so a rename needs no edit
  * here; `connected_mcps` keeps its name. Each Pi turn gets it through `getAgentTurn` (`agent/agent-turn.ts`).
  *
- * Order: rules (product), workspace (the `instructions` setting), agent (its own instructions), tools (guidance),
- * connected_mcps (the sources the agent may use), run (unattended runs only).
+ * Order: rules (product), workspace (the `instructions` setting), agent (its own instructions), chat (the other
+ * participants, only in a chat with several), tools (guidance), connected_mcps (the sources the agent may use), run
+ * (unattended runs only).
  */
 
 export type RunMode = 'attended' | 'unattended'
@@ -25,7 +26,12 @@ export type InstructionInput = {
   sources?: readonly InstructionSource[]
   /** `unattended` for routine and background runs: nobody answers questions mid-run. Default `attended`. */
   runMode?: RunMode
+  /** The chat's other participants (never this agent), given only when there are several. */
+  chat?: ChatParticipants
 }
+
+/** The other people and agents of a chat, by name with their actor ('user:<id>', 'agent:<id>'), and the agent itself as `Name (agent:<id>)`. */
+export type ChatParticipants = { self?: string; people: readonly { name: string; actor: string }[]; agents: readonly { name: string; actor: string }[] }
 
 export const AGENT_HOME_ONLY_INSTRUCTION = 'Keep your notes, scripts, and reference files in your home folder; it persists across chats.'
 
@@ -54,6 +60,24 @@ function sourcesGroup(sources: readonly InstructionSource[]): string | null {
   return group('connected_mcps', '', lines.length ? `Connected MCP sources you may use (their tools are named mcp__<slug>__<tool>):\n${lines.join('\n')}` : '')
 }
 
+function chatGroup(prefix: string, chat: ChatParticipants | undefined): string | null {
+  if (!chat || chat.people.length + chat.agents.length < 2) return null
+  const list = (items: ChatParticipants['people']) => items.map((item) => `${item.name} (${item.actor})`).join(', ')
+  return group(
+    `${prefix}_chat`,
+    '',
+    [
+      'This chat has several participants. Their messages reach you prefixed with [Name].',
+      chat.self ? `You are ${chat.self}: a message with that token is addressed to you.` : '',
+      chat.people.length ? `People: ${list(chat.people)}` : '',
+      chat.agents.length ? `Other agents: ${list(chat.agents)}` : '',
+      chat.agents.length ? 'To hand something to another agent, write its token (agent:<id>) in your reply; it answers after you.' : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  )
+}
+
 /** The groups joined by a blank line; '' when nothing applies. */
 export function assembleInstructions(input: InstructionInput): string {
   const prefix = input.product.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'otto'
@@ -61,6 +85,7 @@ export function assembleInstructions(input: InstructionInput): string {
     group(`${prefix}_rules`, '', input.rules ?? ''),
     group(`${prefix}_workspace`, '', input.workspaceInstructions),
     agentGroup(prefix, input.agent),
+    chatGroup(prefix, input.chat),
     group(`${prefix}_tools`, '', (input.toolGuidance ?? []).map((text) => text.trim()).filter(Boolean).join('\n\n')),
     sourcesGroup(input.sources ?? []),
     input.runMode === 'unattended' ? group(`${prefix}_run`, attribute('mode', 'unattended'), UNATTENDED_RUN_INSTRUCTIONS) : null,

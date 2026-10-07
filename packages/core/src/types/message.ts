@@ -290,6 +290,8 @@ export interface Message {
   hidden?: boolean;
   // Sender of a user message ('user:<id>'): set by the server from the caller; absent on older messages and ones an agent or a routine sent
   sender?: string;
+  // Author of an assistant, tool, error or plan row ('agent:<id>'): the agent whose turn wrote it; absent on older rows (read as the chat's agent)
+  author?: string;
   // Turn ID: Correlation ID from the API's message.id, groups all messages in an assistant turn
   turnId?: string;
   // Status type for special status messages (retrying is transient renderer state)
@@ -359,6 +361,8 @@ export interface StoredMessage {
   isError?: boolean;
   /** Sender of a user message ('user:<id>'); absent on older messages and ones an agent or a routine sent */
   sender?: string;
+  /** Author of an assistant, tool, error or plan row ('agent:<id>'); absent on older rows (read as the chat's `agent_id`) */
+  author?: string;
   /** Stored attachments for user messages (persisted to disk) */
   attachments?: StoredAttachment[];
   /** Content badges for inline display (sources, skills) */

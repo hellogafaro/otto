@@ -84,6 +84,8 @@ const ACTION_LABEL_KEYS: Partial<Record<ActionId, string>> = {
   'chat.prevSearchMatch': 'shortcuts.action.prevSearchMatch',
   'composer.focus': 'shortcuts.action.focusComposer',
   'task.changeStatus': 'tasks.changeStatus',
+  'task.changeDueDate': 'tasks.changeDueDate',
+  'task.changeProject': 'tasks.changeProject',
 }
 
 const JUMP_REST = new Set<string>(JUMP_ACTION_IDS.slice(1))

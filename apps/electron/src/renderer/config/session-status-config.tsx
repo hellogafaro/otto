@@ -79,8 +79,7 @@ export function statusConfigToSessionStatus(
         statusId={config.id}
         icon={config.icon}
         workspaceId={workspaceId}
-        size="xs"
-        chromeless={!iconColorable}
+        bare
       />
     ),
     iconColorable,
@@ -114,6 +113,11 @@ export function getStateIcon(
 ): React.ReactNode {
   const state = states.find(s => s.id === stateId)
   return state?.icon ?? <span className="h-3.5 w-3.5">●</span>
+}
+
+/** A chat's status as its bare 14px icon in the status color: what every chat row leads with (never an avatar). */
+export function ChatStatusIcon({ id, statuses }: { id: string; statuses: SessionStatus[] }) {
+  return <span className="flex shrink-0" style={getStateIconStyle(id, statuses)}>{getStateIcon(id, statuses)}</span>
 }
 
 /**

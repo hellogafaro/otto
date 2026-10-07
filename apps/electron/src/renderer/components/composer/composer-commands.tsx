@@ -2,7 +2,7 @@
  * The composer's `/` commands and `@` mentions (the chat input's machinery, kept): what the toolbar pickers did
  * is a command now (DESIGN.md, Composer, Commands). `/` offers Add files everywhere and, in a chat, its mode
  * (Explore, Ask, Execute), its status, its working directory (a recent one or Choose folder) and Compact; `@`
- * mentions people, agents, tasks and projects (their entity tokens, drawn as chips), skills, sources and the working
+ * mentions people, agents, tasks and projects (their entity tokens, drawn as chips; a chat's members first), skills, sources and the working
  * directory's files. The menus are portaled out of the composer (its
  * blurred glass would hold and clip a fixed menu).
  */
@@ -10,6 +10,7 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { atom, useAtomValue } from 'jotai'
 import { FolderOpen, Minimize2, Paperclip } from 'lucide-react'
 import { InlineMentionMenu, useInlineMention } from '@/components/ui/mention-menu'
 import { describeEntity } from '@/components/entities/entity-tokens'
@@ -17,7 +18,9 @@ import { useEntityLabel, useEntityLists } from '@/components/entities/entity-chi
 import { useAgents } from '@/hooks/use-agents'
 import { useProjects } from '@/hooks/use-projects'
 import { useTasks } from '@/hooks/use-tasks'
-import { useWorkspaceMemberList } from '@/hooks/use-workspace-members'
+import { useWorkspaceMemberList, useWorkspaceMembers } from '@/hooks/use-workspace-members'
+import { sessionMetaMapAtom } from '@/atoms/sessions'
+import { otherMembers } from '@/lib/actors'
 import { buildEntitySections } from './mention-entities'
 import { InlineSlashCommand, PermissionModeIcon, useInlineSlashCommand, type SlashSection } from '@/components/ui/slash-command-menu'
 import type { RichTextInputHandle } from '@/components/ui/rich-text-input'
@@ -124,9 +127,13 @@ export function useComposerCommands({
   const { agents, loaded: agentsLoaded } = useAgents()
   const { tasks, loaded: tasksLoaded } = useTasks()
   const { projects, loaded: projectsLoaded } = useProjects()
+  // In a chat, its members (never you) lead the menu.
+  const sessionId = context?.sessionId
+  const chatMembers = useAtomValue(React.useMemo(() => atom((get) => (sessionId ? get(sessionMetaMapAtom).get(sessionId)?.members : undefined)), [sessionId]))
+  const { me } = useWorkspaceMembers()
   const entities = React.useMemo(
-    () => buildEntitySections({ people: people.loaded ? people.items : null, agents: agentsLoaded ? agents : null, tasks: tasksLoaded ? tasks : null, projects: projectsLoaded ? projects : null }, t),
-    [people.loaded, people.items, agents, agentsLoaded, tasks, tasksLoaded, projects, projectsLoaded, t],
+    () => buildEntitySections({ people: people.loaded ? people.items : null, agents: agentsLoaded ? agents : null, tasks: tasksLoaded ? tasks : null, projects: projectsLoaded ? projects : null, members: otherMembers(chatMembers, me) }, t),
+    [people.loaded, people.items, agents, agentsLoaded, tasks, tasksLoaded, projects, projectsLoaded, chatMembers, me, t],
   )
   const entityLists = useEntityLists()
   const entityLabel = useEntityLabel()

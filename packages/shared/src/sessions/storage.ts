@@ -25,12 +25,14 @@ import { join, basename } from 'path';
 import { getWorkspaceSessionsPath } from '../workspaces/storage.ts';
 import { sanitizeSessionId } from './validation.ts';
 import { perf } from '../utils/perf.ts';
-import { initDb, type Db } from '../db/index.ts';
+import { initDb, type Db, type Tx } from '../db/index.ts';
 import { createId } from '../id.ts';
 import type { SessionConfig, StoredMessage, StoredSession, SessionMetadata } from './types.ts';
 import type { Plan } from '../agent/plan-types.ts';
 import { debug } from '../utils/debug.ts';
 import { deleteChat, getChat, getChats, writeChat } from './chats.ts';
+import { addChatMembers } from './members.ts';
+import { getDefaultAgent } from '../agents/index.ts';
 import { copyMessages, fromMessageRow, getMessageRows, getMessagesPage, initMessages, toMessageRow, writeMessages } from './messages.ts';
 import { sessionPersistenceQueue } from './persistence-queue.ts';
 
@@ -125,6 +127,12 @@ export interface ChatWorkspace {
   rootPath: string;
 }
 
+/** The members every chat starts with: its creator (read at `readAt`) and its primary agent. */
+export function addFirstMembers(tx: Db | Tx, workspaceId: string, chat: Pick<SessionConfig, 'id' | 'createdBy' | 'agentId'>, readAt: number | null, now: number): void {
+  if (chat.createdBy) addChatMembers(workspaceId, chat.id, [chat.createdBy], { readAt, now }, tx);
+  if (chat.agentId) addChatMembers(workspaceId, chat.id, [`agent:${chat.agentId}`], { now }, tx);
+}
+
 /**
  * Create a chat: its folder and its row (and, for a branch, its copied messages, in the same transaction). New ids
  * are `createId()`; chats made before keep their `YYMMDD-adjective-noun` ids.
@@ -135,8 +143,12 @@ export function createSession(
     name?: string;
     /** Actor the chat belongs to ('user:<id>'); the server sets it, never a client. */
     createdBy?: string;
-    /** The agent the chat talks to; absent = the workspace's default. */
+    /** The chat's primary agent; absent = a people chat (the caller resolves the default agent). */
     agentId?: string;
+    /** Other people in the chat from the start ('user:<id>'; unread for them). The creator and the agent always are. */
+    people?: string[];
+    /** A direct message's pair key (`toDmKey`). */
+    dmKey?: string;
     workingDirectory?: string;
     permissionMode?: SessionConfig['permissionMode'];
     enabledSourceSlugs?: string[];
@@ -155,7 +167,7 @@ export function createSession(
   const now = Date.now();
   const sessionId = createId();
   ensureSessionDir(workspace.rootPath, sessionId);
-  const { branch, ...fields } = options ?? {};
+  const { branch, people = [], ...fields } = options ?? {};
   const { fromSessionId, throughMessageId, ...branchFields } = branch ?? ({} as NonNullable<typeof branch>);
   const session: SessionConfig = {
     id: sessionId,
@@ -169,6 +181,8 @@ export function createSession(
   db.transaction(
     (tx) => {
       writeChat(tx, { ...session, workspaceId: workspace.id }, { labels: options?.labels ?? [] });
+      addFirstMembers(tx, workspace.id, session, now, now);
+      addChatMembers(workspace.id, sessionId, people, { now }, tx);
       if (branch) copyMessages(tx, workspace.id, fromSessionId, sessionId, throughMessageId);
     },
     { behavior: 'immediate' },
@@ -182,7 +196,9 @@ export function createSession(
  * caller's (it restores the bundle's files).
  */
 export function createImportedSession(workspace: ChatWorkspace, session: StoredSession, db: Db = initDb()): void {
-  const { messages, ...chat } = session;
+  const { messages, ...fields } = session;
+  // a chat from before members had no agent for "the default one"
+  const chat = { ...fields, agentId: fields.agentId ?? (fields.dmKey ? undefined : getDefaultAgent(workspace.id, db)?.id) };
   const sessionDir = getSessionPath(workspace.rootPath, session.id);
   const rows = [...messages]
     .map((message, index) => ({ message, index }))
@@ -193,6 +209,7 @@ export function createImportedSession(workspace: ChatWorkspace, session: StoredS
     (tx) => {
       writeChat(tx, { ...chat, workspaceId: workspace.id }, { labels: chat.labels ?? [] });
       writeMessages(tx, workspace.id, session.id, rows, []);
+      addFirstMembers(tx, workspace.id, chat, chat.hasUnread ? null : Date.now(), chat.createdAt);
     },
     { behavior: 'immediate' },
   );

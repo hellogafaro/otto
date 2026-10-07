@@ -212,6 +212,32 @@ export function getMessageRows(workspaceId: string, chatId: string, db: Db | Tx 
   return db.all(sql`SELECT id, type, content, created_at FROM messages WHERE workspace_id = ${workspaceId} AND chat_id = ${chatId} ORDER BY position`)
 }
 
+/** A message of a chat as an agent's turn reads it (`getChatLog`). */
+export interface ChatLogRow {
+  position: number
+  id: string
+  type: string
+  text: string | null
+  sender: string | null
+  author: string | null
+  hidden: boolean
+  intermediate: boolean
+}
+
+/**
+ * The user and assistant rows of a chat after `afterPosition`, oldest first, with only what a turn needs (the text
+ * and who wrote it): what an agent has not been given yet (docs/final-plan.md 2.3 "Multiplayer"). `limit` keeps the
+ * newest that many.
+ */
+export function getChatLog(workspaceId: string, chatId: string, afterPosition: number, { limit = 10_000 } = {}, db: Db | Tx = initDb()): ChatLogRow[] {
+  const rows = db.all<{ position: number; id: string; type: string; text: string | null; sender: string | null; author: string | null; hidden: number | null; intermediate: number | null }>(sql`
+    SELECT position, id, type, json_extract(content, '$.content') AS text, json_extract(content, '$.sender') AS sender,
+      json_extract(content, '$.author') AS author, json_extract(content, '$.hidden') AS hidden, json_extract(content, '$.isIntermediate') AS intermediate
+    FROM messages WHERE workspace_id = ${workspaceId} AND chat_id = ${chatId} AND position > ${afterPosition} AND type IN ('user', 'assistant')
+    ORDER BY position DESC LIMIT ${limit}`)
+  return rows.reverse().map((row) => ({ ...row, hidden: !!row.hidden, intermediate: !!row.intermediate }))
+}
+
 /**
  * A page of a chat's messages, oldest first: the newest `limit` rows, or the newest `limit` older than `beforeId`
  * (an id of this chat; an unknown one reads as the end). `olderCount` is how many rows come before the page.
@@ -279,8 +305,8 @@ export interface ChatSearchResult {
 }
 
 /**
- * Full-text search over the chats `actor` may see in a workspace (the private rule is the join: `created_by =
- * :actor`). Per chat: the number of matching messages and snippets of the newest `perChat`; chats with the most
+ * Full-text search over the chats `actor` may see in a workspace (the visibility rule is the join: `actor` is a
+ * member, `chats_members`). Per chat: the number of matching messages and snippets of the newest `perChat`; chats with the most
  * matches first, at most `limit`. `lineNumber` is the matching message's position in its chat.
  */
 export function searchChats(workspaceId: string, actor: string, query: string, { limit = 50, perChat = 3 } = {}, db: Db = initDb()): ChatSearchResult[] {
@@ -291,7 +317,8 @@ export function searchChats(workspaceId: string, actor: string, query: string, {
     SELECT m.chat_id, c.title, m.position, m.content FROM messages_fts f
     JOIN messages m ON m.rowid = f.rowid
     JOIN chats c ON c.id = m.chat_id AND c.workspace_id = m.workspace_id
-    WHERE messages_fts MATCH ${match} AND m.workspace_id = ${workspaceId} AND c.created_by = ${actor}
+    JOIN chats_members cm ON cm.chat_id = m.chat_id AND cm.actor = ${actor}
+    WHERE messages_fts MATCH ${match} AND m.workspace_id = ${workspaceId}
     ORDER BY m.chat_id, m.position DESC`)
   const results = new Map<string, ChatSearchResult>()
   for (const hit of hits) {

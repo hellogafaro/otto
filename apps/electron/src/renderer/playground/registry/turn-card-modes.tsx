@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { Play, RotateCcw } from 'lucide-react'
 import {
   TurnCard,
-  UserMessageBubble,
+  UserMessage,
   type ActivityItem,
   type ResponseContent,
 } from '@otto/ui'
@@ -282,7 +282,7 @@ function TurnCardModesDemo({
       {/* User Message (shows the user's request/intention) */}
       {userMessage && (
         <div className="pt-4">
-          <UserMessageBubble content={userMessage} />
+          <UserMessage content={userMessage} />
         </div>
       )}
 

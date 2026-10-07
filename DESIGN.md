@@ -385,7 +385,10 @@ The UI is neutral; color carries meaning, never decoration. Use theme tokens
 - **Destructive** red is only for destructive menu items (Delete, Log out).
 - **Status** colors follow the task lifecycle and appear only on status icons:
   todo grey, doing purple, review yellow, done green. Lists, menus and number
-  keys use that order: Todo → In progress → In review → Done.
+  keys use that order: Todo → In progress → In review → Done. A chat's status
+  icon follows it: the default Todo and Cancelled are grey, Needs Review amber, Done
+  green (never the `accent` surface grey, which vanishes on the page); a custom
+  status keeps its own color.
 - Floating surfaces render dark in both themes (`dark` class) at 70% opacity
   with a blur. Highlighted items use `foreground/10`; dividers `foreground/5`.
 
@@ -769,7 +772,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     | `--nav-top-roomy` | 64 | roomy: the nav top and the title row's top |
     | `--header-gap` | 24 | compact: the gap above the title row AND below it (equal) |
     | `--header-compact` | 80 | compact: 24 + 32 + 24, where the transcript starts |
-    | `--nav-top-compact` | 96 | `--header-compact` + the 16px a turn row carries on top (the transcript's top fade covers it): the first bubble's top |
+    | `--nav-top-compact` | 96 | `--header-compact` + the 16px a turn row carries on top (the transcript's top fade covers it): the first row's top (the day divider) |
     | `--composer-gap` | 24 | the clear space between the floating composer and the content above it |
 
     **Roomy** (every page in the column: skill, source, routine, task, project,
@@ -779,11 +782,11 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     section title size (`text-base`, 16.5px), its left edge on the column's
     content edge (24px in from 768px, the frame's 20px below: the same x as the
     transcript's text and the composer's left; measured at 1440: title, text and
-    composer all x 488, the composer's right = the user bubble's right, x 1208),
-    and the nav top on the transcript's first bubble (80 + 16 = 96, measured equal).
+    composer all x 488, the composer's right = the transcript's right, x 1208),
+    and the nav top on the transcript's first row (80 + 16 = 96, measured equal).
     There is no wrapper, card or line around the transcript (the owner's call,
     2026-10-07: "fully remove the bordered wrapper ... one less padding"): it scrolls
-    on the frame, so the first bubble is 40px under the title row, the roomy
+    on the frame, so the first row is 40px under the title row, the roomy
     pages' block gap. On Electron the compact row is the window's drag region and
     the controls opt out.
   - **Below 768px** the sidebar is a sheet, so its menu button must stay
@@ -836,7 +839,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   fixed to the frame, not to the title row or the first block, so the title
   scrolls away beside it. On the open chat (the one compact page, `PageFrame`
   reads its header's density, one rule) the top is `--nav-top-compact`
-  (96, the transcript's first bubble) instead; the x is the same. They are our standard raised icon button
+  (96, the transcript's first row) instead; the x is the same. They are our standard raised icon button
   (`outline`, 32px, `md` 8 corners, 14px icons, a tooltip each), never round and
   with no pill or wrapper: Back (ArrowLeft), then 8px below it Previous (up) and
   Next (down) as a vertical `ButtonGroup` whose `ButtonGroupSeparator` is the one
@@ -929,13 +932,14 @@ no shadow.
   from y 80 to the frame's 8px bottom, its text on the column's content edges
   (24px sides from 768px, 0 in below: the compact title's left, the composer's
   left and right). Its top is the 16px a turn row carries (the top fade is as
-  tall), so the first bubble is at y 96, the nav's top. **The floating composer
+  tall), so the first row (the day divider) is at y 96, the nav's top. **The floating composer
   is the shell's, in the frame's one slot, as on every page**: on the content
   edges, 8px above the body's end (16px above the window); the transcript's
   bottom padding is `--composer-lift` (the slot's height) + `--composer-gap`
   (24px), so nothing hides behind it at the end.
-  Messages are flat: assistant text sits straight on the frame (no bubble, ring or
-  shadow), the user message is a muted fill, code blocks are flat muted blocks.
+  Messages are flat: every message sits straight on the frame under its
+  author's header (no bubble, ring or shadow, see Chats > One chat), code
+  blocks are flat muted blocks.
 - **The list card: a dense list page's table in the Settings card.** A page of
   many small rows with small details (Chats, Tasks and a project's Tasks tab,
   Routines, Inbox) puts its list in ONE `ListCard` (list-group.tsx): the
@@ -977,9 +981,10 @@ no shadow.
   connects to ", or the filtered type's sentence) and an agent writes it in a new
   chat. Then `Gallery columns={4}` of 4:5 tiles on the frame (`GalleryItem`):
   the item's own icon (`SkillAvatar` / `SourceAvatar`, chromeless: 16px in the
-  icon tile, 14px before the title), the muted caption under it (a source's type;
+  icon tile, 14px before the title; a source with no icon file shows its type's glyph,
+  never a favicon fetched from a third party), the muted caption under it (a source's type;
   a skill has none), the name under the tile; sorted by name. **A tile only opens
-  the item** (keeping the filter): no hover ⋯ and no right-click menu (the
+  the item** (keeping the filter): no right-click menu (the
   owner's call: the actions belong to the opened item; see Galleries). Loading
   is eight `GalleryItemSkeleton`s; none at all (no skill, no source) is the stock
   empty page alone, no title row or actions (the data-page rule under Empty
@@ -1013,7 +1018,7 @@ no shadow.
   the `FilterBar` while Archived is on, then `Gallery columns={3}` of 16:9
   tiles on the frame (the Folder glyph, the sidebar's Projects icon, in the
   icon tile; Folder and the title under it). A tile opens its project; its
-  right-click menu and hover ⋯ are one list: Open, Copy link (C), then
+  right-click menu (a long press on touch) is Open, Copy link (C), then
   Archive / Restore (A), which applies at once with the one "Saved" toast (a
   discrete action: no confirmation; projects are never deleted here). Loading
   is three `GalleryItemSkeleton`s. No projects at all: only the section's empty
@@ -1038,7 +1043,7 @@ status color (Archived neutral). A row (44px): the status icon
   green, Archive muted), the title (at 80% when done or archived), the
   assignees' 20px `AvatarGroup` (one tooltip names them), the project as an
   outline `Badge`, the due date ("Oct 4", else nothing) in the end column; the
-  ⋯ menu: Open, Status (submenu, keys 1 to 3), Copy link (C), Archive / Restore
+  right-click menu: Open, Status (submenu, keys 1 to 3), Copy link (C), Archive / Restore
   (A), applied at once with the "Saved" toast. Loading: three
   `ListRowSkeleton`s in the `ListCard`. No tasks at all: only the section's empty state (no title row or actions), whose
   button is "New task", or "New project" while no project exists (a task needs
@@ -1078,8 +1083,8 @@ status color (Archived neutral). A row (44px): the status icon
   it in muted text after the name ("Weekdays at 9:00 AM (Berlin)", "Label added
   matching ^bug$": the cron in words in the UI language, the expression itself
   for an uncommon one), its kinds of action as outline badges (Prompt, Script,
-  Webhook), and when it last ran ("2h", else "Never") in the end column; the ⋯
-  menu: Open, Run now, Pause / Resume, then Delete (⌫) apart, asked first
+  Webhook), and when it last ran ("2h", else "Never") in the end column; the
+  right-click menu: Open, Run now, Pause / Resume, then Delete (⌫) apart, asked first
   ("Delete routine?", "This can't be undone."). Run now starts a run in the
   background ("Routine started"; its end arrives as a live update); Pause / Resume shows "Saved". Loading: three
   `ListRowSkeleton`s in the `ListCard`. No routines at all: only the section's empty
@@ -1194,9 +1199,10 @@ status color (Archived neutral). A row (44px): the status icon
        right-aligned column, 8px from the end. States are the ghost ones,
        rounded and as wide as the band: hover `foreground/5`, current and
        pressed `foreground/10`, an inset focus ring (keyboard only);
-       a 28px ghost ⋯ (the item's menu) covers the time on hover, focus or while
-       its menu is open (always on touch), 8px from the row's top, end and
-       bottom, and keeps the row highlighted while open.
+       the item's menu is its right-click menu (a long press on touch, the menu
+       key by keyboard; never a ⋯ button), and the row stays highlighted while
+       it is open. `ListRow` owns this (`menu`); a page passes a
+       `ContextMenuContent`.
      - **Filters** combine: the fields AND together and the values of one field
        OR together (Status: Todo, Done). They live in the route (Chats:
        `useChatFilters`, one value as the route-string filter, more as
@@ -1275,8 +1281,8 @@ The sidebar's one dynamic group (`SidebarPinsRecents`, put in `SidebarContent`
 after the pages) is a **Pins** group and a **Recent** group: any chat, and later
 any project, task, routine, library or settings page, in one list, with no
 sub-navigation sidebar. Each group has the usual 20px title (12px muted), 4px over
-the standard sidebar rows: the item's icon in a 20px lane (a chat's people, the
-`ChatPeople` group, wider with several; other types a 14px Lucide icon by type, centered in the lane), the open item filled like an open page. An empty group draws nothing, and the whole group draws nothing when both are
+the standard sidebar rows: the item's icon in the 14px slot (a chat's bare status
+icon, the same as a Tasks row's; other types a 14px Lucide icon by type), the open item filled like an open page. An empty group draws nothing, and the whole group draws nothing when both are
 empty.
 
 **The row** is the chat row of Otto v1's sidebar ("one line at normal weight, the whole
@@ -1298,14 +1304,15 @@ title running under the right slot instead of truncating"), a standard 28px row:
   `3d`, `2w`, `5mo`). With neither, the slot is empty. On row hover, keyboard focus
   (`:focus-visible` inside) or while a menu of the row is open (always on touch): only
   the actions, 20px ghost icon buttons (`SidebarMenuSlotAction`, `xs` 4 corners, 14px
-  icons, hover `foreground/10`, open `/10`, inset focus ring) 2px apart: **Pin / Unpin**,
-  **Archive / Unarchive** and **More** (the session menu, as on the Chats page rows).
+  icons, hover `foreground/10`, open `/10`, inset focus ring) 2px apart: **Pin / Unpin**
+  and **Archive / Unarchive**, each one real action (never a ⋯: the rest of the session
+  menu is the right-click menu, as on the Chats page rows).
   Pin and Archive carry a tooltip with their label; they have no shortcut, so no
   `Kbd`. A row that is not a chat has only Pin, and its context menu is Pin or Unpin.
 - **Key**: the ⌘1–⌘9 / Option+1–9 jump hint of the first nine rows replaces the slot's
   content only while the reveal key is held (a `Kbd`, 20px, in the same 4px lane), never
   on hover.
-- The right-click menu is the same session menu as More. A row whose menu is open is
+- The right-click menu (a long press on touch) is the session menu. A row whose menu is open is
   filled like the current one.
 
 - **Item**: `{ type, id, title, route }`, stored with `pinnedAt` or `visitedAt`.
@@ -1318,7 +1325,7 @@ title running under the right slot instead of truncating"), a standard 28px row:
 - **Pins** keeps the order the user set (new pins go last) and is reordered by
   dragging a row. **Recent** is most recent first, deduped, at most 20, and never
   repeats a pinned item (unpinning brings it back to its place). Pin and Unpin are
-  in a row's Pin button, its context menu and its ⋯ menu, and in the chat's menu (the header's
+  in a row's Pin button and its context menu, and in the chat's menu (the header's
   More actions menu and the compact drawer). No snooze.
 - **Recording** (`useRecordRecent`, once, in the shell): a visit to a chat is
   recorded when its route opens and the chat has something in it (an empty new chat
@@ -1363,10 +1370,10 @@ as a card).
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
 | `PageColumn`, `PageSection`, `PageCard` | `fill`; `title`, `description`, `action`, `danger` | every page but the open chat (the column's first child is the title slot): 24px sides from 768px, 40px gaps, 40px at the end; `fill` for a centerpiece page (fills the height, no scroll of its own); see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
-| `ListCard`, `ListGroup`, `ListRow`, `ListRowSkeleton` | `className`; `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `actions`, `active`, `muted` | Otto v1's table in `ListCard` (the Settings card, `PageCard`, 8px in, the one padding of a list page), no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows, both 8px in; a `ListRow` outside a group (Inbox) is the same rounded row with its media first; `size="sm"` is the 32px row for a list inside a popover (the composer's Inbox list); the loading row; see Data patterns |
+| `ListCard`, `ListGroup`, `ListRow`, `ListRowSkeleton` | `className`; `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `menu` (right-click, never a ⋯), `menuProps`, `active`, `muted` | Otto v1's table in `ListCard` (the Settings card, `PageCard`, 8px in, the one padding of a list page), no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows, both 8px in; a `ListRow` outside a group (Inbox) is the same rounded row with its media first; `size="sm"` is the 32px row for a list inside a popover (the composer's Inbox list); the loading row; see Data patterns |
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
-| `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `label`, `badge`, `ratio`, `menu`, `actions`, `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
+| `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `cover`, `label`, `badge`, `ratio`, `menu` (right-click, never a ⋯), `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
 | `PropertySection`, `PropertyRow` | `title`, `count`, `action` (the create "+", 24px, at the row's end, beside the fold trigger; the section is drawn with it even with no rows), `defaultOpen`; `icon`, `label` (screen readers only beside a value), `value`, `placeholder`, `kbd`, `actions`, `readOnly` | the sidecar's Details blocks (v1's rows: icon + value); see Components, Property list |
 | `Sidecar`, `SidecarToggle` | `open`, `onOpenChange`, `title`, `closeLabel`; the toggle's `label` | floats right of the column on the frame, plain; a card only when it overlays; the toggle is the floating navigation mirrored; see Layout; closed by default |
 | `FloatingNav`, `FloatingNavButtons` | `back`, `previous`, `next`: `{ label, onClick, disabled, tooltip }` | see Layout; the nav needs a 72px left gutter, sits 20px from the column, Back level with the title row (on the top axis on the open chat), the buttons are its narrow form for the title row's actions |
@@ -1775,7 +1782,7 @@ the column's content width and the list's height on the same 320ms morph
 (bottom edge pinned); the input stays usable under it. The list is the
 Inbox's own rows in their compact size (`ListRow size="sm"`: 32px, `md` 8
 corners, 8px in, the same slots and ghost fills): a chat reads its
-people's avatar group (`ChatPeople`), its title, an `info` dot (waiting) or the primary unread dot,
+bare status icon, its title, an `info` dot (waiting) or the primary unread dot,
 its time; a notification is the Inbox page's row (`notification-row.tsx`:
 avatar, sentence, excerpt, dot, time). At most 320px (40% of a short
 viewport), then it scrolls; 4px in. Picking a row opens the chat, task or
@@ -1854,8 +1861,9 @@ the composer, out of its surface (a portal), and keep the caret in the text.
 **Mentions** (`@`, the menus' look). 28px rows, 280px wide, from the caret, the
 `@` at the start or after a space or an opening bracket, then letters, digits,
 `-_/.` and spaces (a space right after `@` is no mention). With nothing typed:
-a heading per kind (People, Agents, Tasks, Projects, Skills, Sources) with up to 3 rows
-each: people by name (the workspace's `user:` members, you included; the muted email after the name), agents
+a heading per kind (In this chat, People, Agents, Tasks, Projects, Skills, Sources) with up to 3 rows
+each: in a chat, its members other than you first ("In this chat": agents, then people; left out of People and
+Agents), people by name (the workspace's `user:` members, you included; the muted email after the name), agents
 (their 14px avatar, the default first; "No agents yet" under a loaded empty kind), tasks and projects the most
 recently updated first (tasks to do, doing or done; active projects). A kind
 that has loaded with nothing in it says so under its heading in muted text:
@@ -1873,35 +1881,56 @@ follows its list (a load or a rename redraws it). A sent message draws it with
 `EntityText` in the transcript (an agent's tag shows its 14px avatar, the editor's the `Bot` icon). Mentioning an
 agent is a reference, like a task: it never switches the chat's agent.
 
-**With** (the new chat's agent picker, `components/composer/agent-picker.tsx`).
+**With** (the new chat's picker, `components/composer/agent-picker.tsx`).
 An empty chat has a 28px chip (`ToolbarChip`) first in the composer's tools,
-before the model picker: the agent's 16px avatar, its title (truncated at 160px)
-and a chevron; its menu lists the workspace's agents (avatar, title, check on the
-current one), tooltip "Chat with". The default is the workspace's default agent,
+before the model picker: the agent's (or the picked person's) 16px avatar, the
+title (truncated at 160px) and a chevron; its menu has two labeled groups,
+Agents (the workspace's agents) then People (the workspace's people, never you),
+each row an avatar and a title, a check on the current one; tooltip "Chat with".
+Picking a person opens your direct message with them when there is one (the chat
+whose `dmKey` holds them); else the person stays picked (the model picker goes,
+the placeholder reads "Message {name}") and the first send creates the DM
+(`dmWith` to `sessions:create`, which returns the pair's DM if it appeared
+meanwhile), sends there and opens it. An empty DM or group has no With. The default is the workspace's default agent,
 else the last pick (localStorage `otto-new-chat-agent:<workspace>`), which every
 new chat starts with (New chat, a send from another page). The chat's agent cannot
 change once it exists, so picking another makes an empty chat with that agent
 (`agentId` to `sessions:create`; same status, label, project, mode and folder),
 opens it and deletes the empty one. Gone once a message is sent: the chat shows
 its people in the header (the 20px `ChatPeople` group before the title, the names
-in a tooltip) and in each Chats row (the same group in the metadata, before the
-labels).
+in a tooltip).
 
 **A chat's people** (`ChatPeople`, `components/people/chat-people.tsx`): a chat's
-avatar is a group of its participants, the agent first (`AgentAvatar`), then the
-other humans (`ActorAvatar`): its `participants` (`user:<id>`, the creator, then
-everyone whose message is in the chat) **without the viewer, always** (the viewer
+avatar is a group of its members, the agents first (`AgentAvatar`), then the
+people (`ActorAvatar`): its `members` (`user:<id>` and `agent:<id>`, the creator
+first; read with `useChatMembers`) **without the viewer, always** (the viewer
 never sees themselves, not for a moment: nobody shows until the viewer's actor is
-known). With nobody else it is the agent's avatar alone. The same 20px `AvatarGroup`
+known). A chat without `members` shows its primary agent alone. The same 20px `AvatarGroup`
 as the tasks (2px overlap, 1px ring), at most three avatars, then a
 `AvatarGroupCount` "+N" (the same 20px box, 10px text); one tooltip names everyone
-(the palette has none: its rows are picked by keyboard). Used in the Chats rows, the
-chat header, the sidebar's Pins and Recent chat rows, the composer's Inbox list and
-the palette's chat rows. Wherever it stands in a row it replaces the chat's status
-icon or `MessageSquare` (the Chats page still shows status as its group and in
-the row's menu). Server side: `chats.metadata.participants` is kept by the write
-path (`addParticipants`: the creator and the `sender` of each user message) and
-filled at boot for chats without it (`initChatParticipants`).
+Used **only in the open chat's header**: every chat row (the sidebar's Pins and
+Recent, the Chats rows, the palette, the composer's Inbox list) leads with the chat's
+**bare status icon** (`ChatStatusIcon`: the 14px glyph in the status color, as
+`TaskStatusIcon` is for a task; an emoji or a custom image icon at the same size),
+never an avatar, a tile, a frame or a tooltip with the agent's name; the running
+spinner, the unread dot and the like stay the row's marks. Server side: `chats_members` (the creator, the people and agents
+added, every agent mentioned). **Titles per viewer:** a chat with no stored title and no primary agent (a DM or a
+group) is titled by the other people in it, as the viewer sees them ("Grace", "Ada and Grace"; never the viewer):
+`getSessionTitle(chat, useWorkspaceMembers())`; without the members argument it falls back to the first message.
+
+**A chat's members** (`ChatMembersDialog`, `components/people/chat-members-dialog.tsx`):
+Members (Lucide `Users`) is the first item of the open chat's header menu (and a row
+of the phone's More drawer); it opens a stock `Dialog` titled "Members": one 32px
+row per member, the 20px avatar, the name, a muted "You" or "Agent" after it. The
+chat's creator (its first member) has a 24px ghost `X` on every other row (tooltip
+"Remove {name}"; "Ada removed") and two outline 28px pickers in the footer, "Add
+people" (`UserPlus`: workspace people not in yet, never you) and "Add agent"
+(`Bot`: workspace agents not in yet), each a searchable `Combobox` ("Ada added");
+a picker with nobody left is disabled. Anyone else has "Leave chat" (the
+destructive 28px button with `LogOut`, no confirmation; "You left the chat"),
+which goes back to the index the chat was opened from, as Delete does. Changes
+apply at once; the server pushes the changed chat back, so the list and the header
+follow; errors toast "Something went wrong. Try again.".
 
 **Empty.** The text counts as empty once its last character is gone: after
 select-all and delete the browser leaves one stray line break, which is read as
@@ -1918,7 +1947,11 @@ and library item (`<type>:<id>` with its entity token), a routine
 `mode: 'full'`). The 404 has no shell. Placeholders: "Ask your agents about
 this task / project / document / file / routine / page", "Ask your agents
 anything" (Chats, Inbox, Settings, an empty chat), "Reply to {agent}" (a chat,
-its agent's name from state, the default agent's only as the fallback). `useComposer()` gives `prefill`, `focus`, `expand`,
+its agent's name from state, the default agent's only as the fallback), "Message {names}" (a people chat, a chat
+with more than one person, or a person picked under With: the other members, agents and people, never you, as one
+phrase in the app's language, "Ada, Grace and Otto"). A people chat (no primary agent and no agent among its
+members) has no model picker and no image notice, a removed connection never blocks it, and sending only posts the
+message: no "working" state unless the text mentions an agent (`startsAgentRun`). `useComposer()` gives `prefill`, `focus`, `expand`,
 `collapse`, `take` to anything in the shell.
 
 **Send.** Enter sends as the chat input does (`sendMessageKey`; IME respected;
@@ -2036,7 +2069,7 @@ events: the section title "Comments" (heading step, medium) with its `Count`
 time ("now", "5m", 12px muted tabular) and "Edited" (12px muted) when changed
 after it was sent, on one 20px line, the content 4px under it (`EntityText`,
 the outer paragraph margins trimmed so the text starts on the line). Your own
-comment has a 24px ghost ⋯ at the end of its name line (on hover, focus or
+comment has a 24px ghost ⋯ (a message in a thread, not a grid or table item) at the end of its name line (on hover, focus or
 while open; always on touch): Edit E and Delete ⌫ (red). Edit swaps the content
 for the textarea with Cancel (28px ghost) and Save (28px primary); a comment
 edit is submitted, never autosaved; ⌘/Ctrl+Enter saves, Escape cancels, a
@@ -2067,7 +2100,7 @@ looked up live, the server's while the lists load, "Unavailable" when gone),
 after a mention the comment's first line muted 8px after it (tokens as names,
 markdown marks dropped), the 6px primary unread dot, the compact time in the
 end column; read rows at 80%. A row opens what it is about (a mention: the task
-or project its comment is on) and marks it read; its ⋯ (28px) has Mark as read /
+or project its comment is on) and marks it read; its right-click menu (a long press on touch) has Mark as read /
 Mark as unread U and Clear (no confirmation: it removes the notification, not
 content). The title row: Mark all as read (28px ghost icon button, `CheckCheck`,
 tooltip; disabled with nothing unread; an icon so the title keeps its room on a
@@ -2090,8 +2123,8 @@ are fine. A chat may belong to a project and then works in its context.
   in from the left, and holds one thing: the status (yellow circle waiting
   on you, red warning when a run failed, purple part-filled circle while an
   agent works, draft, green check when done) or else the time since the last
-  message; on hover, keyboard focus or an open menu only Pin, Archive and
-  More. Hovering a title shows a card: the title, what it is, then a divider,
+  message; on hover, keyboard focus or an open menu only Pin and
+  Archive. Hovering a title shows a card: the title, what it is, then a divider,
   the members and when it was last active. No status in the card.
 - **New chat** (`+`, /chats/new): a generic empty state, With (one or several
   people and agents) and Project as 28px text-only pickers 8px above the
@@ -2104,22 +2137,53 @@ are fine. A chat may belong to a project and then works in its context.
 
 One chat:
 
-- **Messages** follow one pattern for everyone, like Slack, all on the left:
-  a 28px avatar (its top 2px above the name's capitals), the name and time on
-  one line, then each message as plain text (shadcn `Message` with ghost
-  `Bubble`s), keeping line breaks. Consecutive messages from one sender within
-  five minutes form a turn. Copy shows on hover at the end of the name line.
-- **Names** carry an assigned color each (six hues tuned per theme, never the
-  primary blue); yours reads "You" in the plain text color.
-- **Rhythm**: 20px between turns and around day dividers. Turns keep 2px above
-  and 4px below inside their paint-contained items.
-- **Day dividers**: the stock shadcn separator `Marker` (Today, Yesterday,
-  then the weekday and date), its 12px label soft like the lines, with a 1px
-  highlight below.
-- **Agent runs**: "Worked for 52s" folds the run's steps (a `Marker` as the
-  collapsible trigger); a failed run reads "Failed after 2m 41s" in red. While
-  an agent works, one shimmering line opens on its real status, then fades
-  through playful lines, with the real status every third turn. No spinner.
+- **Messages** follow one pattern for everyone, people and agents, like
+  Slack, all on the left (`ChatDisplay`, `chat-message.tsx`, the layout rules
+  in `chat-transcript.ts`): a group opens with the author's 28px avatar
+  (`MessageAvatar`: a person's `ActorAvatar` initials, an agent's
+  `AgentAvatar`), then the name, an agent's "Agent" tag (10px on muted, Slack's
+  APP) and the time ("3:42 PM", 12px) on one 20px line (`MessageHeader`), then
+  the messages. Consecutive messages by one author less than five minutes
+  apart join the group; a day divider, the "New messages" line or a system row
+  ends it. A row inside a group keeps the 28px gutter, where hovering shows its
+  time ("3:42", 10px, not on touch). Your own messages are the same, never
+  right-aligned, never a bubble: your avatar, but the name is "You" (`members.you`,
+  never your own name) in the plain text color (`authorNameClass`), while other
+  people keep their name in their palette color.
+- **A person's message** is plain text (`UserMessage`: markdown, line breaks
+  kept, `EntityText` chips), its attachments above it (image thumbnails,
+  document chips on muted), queued ones led by the Clock "Queued" chip.
+- **An agent's turn** keeps Craft's turn card under its header, unchanged: the
+  steps line (count, live preview, the folded tool steps), thinking, plans,
+  intermediate text, the response with Copy, Markdown and Branch. With several
+  agents in a chat each turn is its own agent's (a row by another agent starts
+  a new turn and header). Rows from before multiplayer have no author: a
+  person's message is the creator's, an agent's turn the chat's agent's.
+- **System rows** (errors with Retry and details, info, warnings, auth
+  requests) sit in the text column without a header, styled as before.
+- **Names** carry an assigned color each, people and agents alike: six hues
+  tuned per theme (`messageAuthorColors` in design/ui `message.tsx`, never the
+  primary blue), picked by the actor's stable FNV-1a hash (`actorColorIndex`),
+  so an author has one color in every chat and on every device. Two authors
+  may share a hue; the avatar and name still tell them apart.
+- **Mentions** are `EntityChip` tags; one that mentions you is filled in
+  primary (white text), like Slack's highlight, in chats and comments.
+- **Rhythm**: a group opens 16px below the one before (`pt-4`), rows inside it
+  4px apart (`pt-1`), system rows 8px; day and unread dividers sit 16px below
+  the row above.
+- **Day dividers**: the separator `Marker` (Today, Yesterday, then the weekday
+  and date, with the year when not this year), its 12px label soft like the
+  lines, with a 1px highlight below; one above the first shown message.
+- **New messages**: the `Marker` `unread` variant (12px medium, label and lines
+  in the destructive red) above the first message someone else wrote after
+  your read marker as the chat opened; it stays while the chat is open (opening
+  marks it read). None when nothing newer is from someone else.
+- **Live state**: each running agent turn shows, under its own header, the
+  working line: a spinner on the steps line's column, "{name} is working…"
+  (the agent's name from state), then playful lines every 10s with the name
+  line every third, and the elapsed time. Before the turn's first row it opens
+  the chat's agent's header with that line (no header in a people chat). No
+  typing indicator for people.
 - **Files** in messages are attachment chips that open the file viewer, which
   steps through everything shared in the chat.
 - **Questions** from agents: a compact card (stock small `Card` at 12px): the
@@ -2129,10 +2193,14 @@ One chat:
 - **Scroll to end**: a 28px outline button with its label, on the card color
   with `shadow-md`, 8px above the composer, shown once you scroll up.
 - **History**: a chat opens on its newest 50 messages (the last 20 turns
-  shown); scrolling to the top shows 20 more turns, then loads the 50
+  shown), at its end; scrolling to the top shows 20 more turns, then loads the 50
   messages before them from the server, in place. A muted centered line
   "Scroll up for earlier messages (N more)" sits above the first turn while
-  there are more.
+  there are more. Only rows within 1500px of the viewport render
+  (`WindowedRow`): one farther away keeps its measured height as an empty box,
+  so a long chat's DOM stays flat (1500 messages paged 8 times: about 1.5k
+  nodes, 9.4k without) and the scroll never moves. In-chat search renders every
+  row while it is on.
 - **Panel**: Project (a link for general chats and sub-threads, else a
   picker), Members (people, then agents; Add member) and Files shared in the
   chat, hidden until something is shared. A project's panel lists its chats.
@@ -2358,10 +2426,10 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   `Tabs` `size="compact"`: 28px ghost triggers 4px apart, the open one `foreground/10`, 8px above
   and below, text 16px in); the list (at most `min(400px, 60dvh)`, `scroll-fade-y`,
   no scrollbar): 36px rows, `md` 8 corners in the list's 4px padding, 16px content
-  inset, a 14px icon (in every row but a chat's: a bare glyph, never a tile
+  inset, a 14px icon (a bare glyph, never a tile, avatar
   or background; a skill's or source's own emoji or image at 14px, else `Shapes` or
-  `DatabaseZap`; one 20px lane, so all share left offset and gap; a chat shows its
-  people's 20px avatar group there, which may run wider), 8px, the title in `text-sm`, and at the end a chat's
+  `DatabaseZap`; one slot, so all share size, left offset and gap; a chat shows its
+  bare status icon), 8px, the title in `text-sm`, and at the end a chat's
   12px muted time, a task's project or a library item's folder (muted, at most
   40% of the row, truncated), an action's `Kbd` or the check of what is on; group headings
   (12px medium muted, 16px in) only in All; a 48px footer with the keys as `Kbd`
@@ -2393,8 +2461,8 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
 - **Categories and data** (matched on the debounced query; nothing is fetched
   for the palette itself, it reads the stores the pages use, `useTasks`,
   `useProjects`, `useLibrary`, which load on open when the page was not visited):
-  **All**, then **Chats** (the workspace's chats from the sessions store: its people's
-  avatar group, title, relative time; archived last; opens the chat), **Tasks** (every
+  **All**, then **Chats** (the workspace's chats from the sessions store: its status
+  icon, title, relative time; archived last; opens the chat), **Tasks** (every
   task that is not archived, in the Tasks page's order: its `TaskStatusIcon`, the
   title, and its project's title as 12px muted text at the row's end; opens
   `/tasks/<id>`; archived tasks are left out everywhere, they are found on the
@@ -2461,8 +2529,11 @@ page title.
 `design/ui` `gallery.tsx`). Not cards: a tile with its icon and
 title under it; the ring darkens on hover. Projects are 16:9 covers;
 documents are 4:5 pages showing their image or opening text fading out;
-files are 4:5 showing their picture or their type ("PDF"). Until covers,
-excerpts and thumbnails exist, a tile shows its type glyph centered in the
+files are 4:5 showing their picture or their type ("PDF"). An image file's tile
+shows its picture (`cover`: `object-cover`, filling the tile under the ring, read
+through the library's read channel only once the tile is near the viewport, a
+`Skeleton` until it shows; if it cannot be read the type tile stays). Until covers
+and excerpts exist, a tile shows its type glyph centered in the
 32px `icon-tile` and, for files and folders, a caption under it ("PDF", "12
 items").
 
@@ -2482,13 +2553,12 @@ items").
 - **Title**, 8px under the tile: the 14px muted icon, 8px, the title (13px
   medium, foreground, one line, truncated), a 20px row.
 - **The item** (tile and title) is one link or button (`render`). `menu` is its
-  right-click `ContextMenuContent` (the item's menu list); `actions` is the hover
-  ⋯ (a 28px ghost icon button opening the same list, as on list rows) 8px inside
-  the tile's top and end, shown on hover, focus or while open (always on touch).
-  **A tile whose item has a page with its own More actions has neither** (Skills
+  `ContextMenuContent` (the item's menu list): right-click, a long press on touch,
+  the menu key by keyboard. **A tile never has a ⋯ button or a hover icon.**
+  **A tile whose item has a page with its own More actions has no menu** (Skills
   and Sources, the owner's call): the tile opens the page and the actions live
   there, once. The Library's and Projects' tiles keep their menus for now.
-- **States**: rest ring `/10`; hover, a menu open (right-click or ⋯) and
+- **States**: rest ring `/10`; hover, a menu open and
   `current` (the open item) ring `/20`, no fill and no lift (the tile never
   changes size); focus-visible a 2px inset `--ring` on the tile; `disabled`
   (pending or unavailable) 60%, no pointer, no focus; `muted` (archived) the
@@ -2503,7 +2573,6 @@ items").
 | Icon tile | 32px, 16px glyph | `md` 8 | `bg-muted`, `muted-foreground` |
 | Caption | 12px medium, 8px under the icon tile | | `muted-foreground` |
 | Title row | 20px, 8px under the tile; 14px icon, 8px gap | | 13px medium `foreground`, icon `muted-foreground` |
-| ⋯ | 28px ghost, 8px from the tile's top and end | `sm` 6 | ghost states |
 | Gaps | 12px columns, 20px rows | | |
 
 **File viewer** (`Lightbox`). Full screen on the page background, in two
@@ -2645,7 +2714,7 @@ drive:
   failure, pending uploads as dimmed tiles), New document and New folder (a
   small dialog with Title and Create; a new document opens at once). All land
   in the open folder.
-- **Tile menu** (right-click and the hover ⋯): Open, Rename R, Move M (a dialog
+- **Tile menu** (right-click, a long press on touch): Open, Rename R, Move M (a dialog
   with the folder tree as 28px rows, the current folder preselected, places the
   item cannot go disabled), Copy link C (the item's app URL), then Delete ⌫
   apart (the Alert dialog; a folder only when empty, else the toast "Only an
@@ -2814,6 +2883,13 @@ continue through bounded pages instead of treating the first hundred as complete
   screenshot guess.
 - Don't nest tasks or comments, add subtitles to data-heavy pages, or use
   ellipses in placeholders.
+- Don't put a more or three-dots (⋯) button on an item of a grid or a table or
+  list (gallery tiles, `ListRow`s, sidebar rows, palette rows); give the item a
+  context menu instead (`menu` on `GalleryItem` and `ListRow`: right-click, a
+  long press on touch, the menu key), the same list and `Kbd` keys, and keep
+  the actions reachable from the item's own page and keyboard shortcuts. The
+  page header's More actions menu stays: that is a page, not an item. A hover
+  icon on a row is allowed only as a real icon for one action (Pin, Archive).
 
 ### Live mention discovery
 
@@ -2831,7 +2907,7 @@ Schedule configuration uses explicit Save/Cancel for one atomic change protected
 
 ### Real workflow controls
 
-Task details show the server lifecycle Todo/In progress/Done, mixed assignees, occurrence links and human-owned manual time in whole minutes. Unsupported priority, review status, comments and decorative metadata have no mutable controls. Files and Documents retain folder/label organization and real creator identities. Avatar names come from the workspace directory; An agent's own avatar is `AgentAvatar` (Agents); `ActorAvatar` still draws the robot glyph for an agent actor. Identity color is a stable display value derived from its ID, not saved configuration. Desktop tabs start with the current route and load the real item title.
+Task details show the server lifecycle Todo/In progress/Done, mixed assignees, occurrence links and human-owned manual time in whole minutes. Unsupported priority, review status, comments and decorative metadata have no mutable controls. Files and Documents retain folder/label organization and real creator identities. Avatar names come from the workspace directory; An `agent:<id>` actor is named by its agent's title and drawn with its own `AgentAvatar` (`useWorkspaceMembers().nameOf`, `ActorAvatar`), each agent distinct; only the legacy `agent:default` and an id that is no longer an agent show the default agent's name and the robot glyph. Identity color is a stable display value derived from its ID, not saved configuration. Desktop tabs start with the current route and load the real item title.
 
 Chats show metadata update time separately from message activity. New Chats require explicit participants and scope; a configured Agent/account controls actual Run admission. Pending sends preserve the draft and uploaded File identities until acknowledgement. Failed creation with unknown outcome directs the person to inspect Chats before creating again. Pin/done/snooze/thread controls without persistence are unavailable. Settings show current server data, acknowledged autosave for profile fields, and explicit unavailable states for unsupported preferences or account/workspace changes. Connections and Codex accounts use their real setup and authorization flows, with exact scoped grants and provider-confirmed authentication.
 

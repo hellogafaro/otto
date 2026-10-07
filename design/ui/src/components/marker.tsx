@@ -15,6 +15,10 @@ const markerVariants = cva(
         separator:
           "text-xs text-[color-mix(in_oklch,var(--muted-foreground)_50%,var(--border))] [text-shadow:0_1px_0_rgb(255_255_255/0.9)] dark:[text-shadow:0_1px_0_rgb(255_255_255/0.05)] before:mr-1 before:h-px before:min-w-0 before:flex-1 before:bg-border after:ml-1 after:h-px after:min-w-0 after:flex-1 after:bg-border",
         border: "border-b border-border pb-2",
+        // Otto: the "New messages" line above the first unread message, the
+        // separator in the destructive red (Slack's), label and lines alike.
+        unread:
+          "text-xs font-medium text-destructive before:mr-1 before:h-px before:min-w-0 before:flex-1 before:bg-destructive/50 after:ml-1 after:h-px after:min-w-0 after:flex-1 after:bg-destructive/50",
       },
     },
   },
@@ -61,7 +65,7 @@ function MarkerContent({ className, ...props }: React.ComponentProps<"span">) {
     <span
       data-slot="marker-content"
       className={cn(
-        "min-w-0 wrap-break-word group-data-[variant=separator]/marker:flex-none group-data-[variant=separator]/marker:text-center *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+        "min-w-0 wrap-break-word group-data-[variant=separator]/marker:flex-none group-data-[variant=separator]/marker:text-center group-data-[variant=unread]/marker:flex-none *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
         className,
       )}
       {...props}

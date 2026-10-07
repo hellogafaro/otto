@@ -262,36 +262,12 @@ async function handleIconCheck(
     return { lines, hasWarning };
   }
 
-  // Try to auto-fetch icon from service
-  if (!source.icon && ctx.deriveServiceUrl && ctx.getHighQualityLogoUrl && ctx.downloadIcon) {
-    const serviceUrl = ctx.deriveServiceUrl(source);
-    if (serviceUrl) {
-      lines.push(`ℹ Attempting to auto-fetch icon from service URL...`);
-      try {
-        const logoUrl = await ctx.getHighQualityLogoUrl(serviceUrl, sourceSlug);
-        if (logoUrl) {
-          const destPath = join(sourcePath, 'icon.png');
-          const downloaded = await ctx.downloadIcon(destPath, logoUrl, sourceSlug);
-          if (downloaded) {
-            lines.push(`✓ Icon auto-fetched and saved`);
-            return { lines, hasWarning };
-          }
-        }
-      } catch {
-        // Silently continue if auto-fetch fails
-      }
-    }
-  }
-
   // No icon found
   hasWarning = true;
   lines.push('⚠ No icon configured');
   lines.push('  Options:');
   lines.push('  - Add icon.png or icon.svg to source folder');
   lines.push('  - Set "icon" field to a URL or emoji in config.json');
-  if (source.type === 'api' && source.api?.baseUrl) {
-    lines.push(`  - Icon may be auto-fetched from ${new URL(source.api.baseUrl).hostname}`);
-  }
 
   return { lines, hasWarning };
 }

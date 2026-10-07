@@ -2,8 +2,6 @@ import { describe, expect, it } from 'bun:test'
 import type { Task } from '../../../../shared/types'
 import { groupTasks, hasTaskFilters, matchesTaskFilters } from '../use-task-filters'
 import { parseMinutes, splitDuration } from '../task-time-section'
-import { dateInputValue, parseDateInput } from '../task-form-dialog'
-import { parseWebUrl } from '../../../components/resources/resource-dialog'
 
 const task = (patch: Partial<Task>): Task => ({
   id: 't', projectId: 'p1', title: 'T', description: '', status: 'todo', dueAt: null, assignees: [], resources: [],
@@ -50,25 +48,5 @@ describe('time entries', () => {
     expect(parseMinutes('90')).toBe(90)
     expect(parseMinutes(' 1440 ')).toBe(1440)
     for (const bad of ['', '0', '1441', '1.5', 'abc', '-3']) expect(parseMinutes(bad)).toBeNull()
-  })
-})
-
-describe('due dates', () => {
-  it('round-trips a date input value through local midnight', () => {
-    const ms = parseDateInput('2026-10-04')
-    expect(ms).toBe(new Date(2026, 9, 4).getTime())
-    expect(dateInputValue(ms)).toBe('2026-10-04')
-    expect(dateInputValue(null)).toBe('')
-  })
-  it('refuses what is not a date', () => {
-    for (const bad of ['', '2026-13-01', '2026-02-30', 'tomorrow']) expect(parseDateInput(bad)).toBeNull()
-  })
-})
-
-describe('links', () => {
-  it('takes http and https URLs only', () => {
-    expect(parseWebUrl(' https://example.com/a ')?.host).toBe('example.com')
-    expect(parseWebUrl('http://x.test')).not.toBeNull()
-    for (const bad of ['', 'example.com', 'ftp://x.test', 'javascript:alert(1)']) expect(parseWebUrl(bad)).toBeNull()
   })
 })

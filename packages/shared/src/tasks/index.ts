@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, notInArray, or, sql } from 'drizzle-orm'
 import { isActor, userIdOf } from '../actors.ts'
+import { createEvent, type ActivityEvent } from '../comments/index.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { likeContains, likeRank } from '../db/like.ts'
 import { createId } from '../id.ts'
@@ -27,6 +28,11 @@ import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from './type
  * Each person newly added to `assignees` (on create and on update) gets an 'assigned' notification
  * (../notifications) in the same transaction, so a failed write leaves none; never the person who did
  * it, never an agent. A status change or an autosaved edit notifies nobody.
+ *
+ * What changes on a task is also an activity event on `task:<id>` (../comments `createEvent`, in the same
+ * transaction, by the actor who did it): status, title, assignees, due date, project, links added or removed
+ * (not the description), and time logged; deleting a timesheet writes none. 'created' is not stored: the
+ * activity reader synthesizes it from the task. Events never notify.
  */
 
 export type * from './types.ts'
@@ -122,6 +128,25 @@ function assertDueAt(dueAt: unknown): Date | null {
   if (dueAt === null) return null
   if (typeof dueAt !== 'number' || !Number.isInteger(dueAt) || dueAt < 0) throw domainError('invalid', 'dueAt must be a timestamp in milliseconds or null')
   return new Date(dueAt)
+}
+
+const linkKey = (resource: Resource) => `${resource.type}:${resource.ref}`
+
+/** The events of an update: one per changed field (createEvent drops the unchanged ones), the description none. */
+function updateEvents(before: Row, after: Row): ActivityEvent[] {
+  const had = new Set(before.resources.map(linkKey))
+  const has = new Set(after.resources.map(linkKey))
+  return [
+    { kind: 'title', from: before.title, to: after.title },
+    { kind: 'assignees', from: before.assignees, to: after.assignees },
+    { kind: 'due', from: before.dueAt?.getTime() ?? null, to: after.dueAt?.getTime() ?? null },
+    { kind: 'project', from: before.projectId, to: after.projectId },
+    {
+      kind: 'links',
+      added: after.resources.filter((resource) => !had.has(linkKey(resource))),
+      removed: before.resources.filter((resource) => !has.has(linkKey(resource))),
+    },
+  ]
 }
 
 export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProject'>) {
@@ -235,7 +260,8 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
     /**
      * Changes the given fields (`assignees` replaces the list). With `expectedUpdatedAt`, a
      * different stored `updatedAt` means someone saved in between, and nothing changes (`conflict`).
-     * A deleted task cannot be changed. `actor` is who changes it: each person newly added to `assignees` is told.
+     * A deleted task cannot be changed. `actor` is who changes it: each person newly added to `assignees` is told,
+     * and each changed field but the description is an activity event.
      */
     updateTask(workspaceId: string, id: string, patch: TaskUpdate, actor: string): Task {
       assertActor(actor)
@@ -261,18 +287,24 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
           .get()
         if (!updated) throw domainError('conflict', `Task ${id} changed since it was loaded`)
         notifyAssigned(tx, updated, row.assignees, actor)
+        for (const event of updateEvents(row, updated)) createEvent({ workspaceId, entity: `task:${id}`, createdBy: actor, event }, tx)
         return toTask(updated)
       })
     },
 
-    /** Move along the board, archive ('archived'), soft delete ('deleted') or restore ('todo'). */
-    setTaskStatus(workspaceId: string, id: string, status: TaskStatus): Task {
+    /** Move along the board, archive ('archived'), soft delete ('deleted') or restore ('todo'); `actor` is who did it (a status event). */
+    setTaskStatus(workspaceId: string, id: string, status: TaskStatus, actor: string): Task {
       if (!STATUSES.includes(status)) throw domainError('invalid', `${status} is not a task status`)
+      assertActor(actor)
       const row = getRow(workspaceId, id)
-      return toTask(db.update(tasks).set({ status, updatedAt: nextUpdatedAt(row) }).where(eq(tasks.id, id)).returning().get()!)
+      return db.transaction((tx) => {
+        const updated = tx.update(tasks).set({ status, updatedAt: nextUpdatedAt(row) }).where(eq(tasks.id, id)).returning().get()!
+        createEvent({ workspaceId, entity: `task:${id}`, createdBy: actor, event: { kind: 'status', from: row.status, to: status } }, tx)
+        return toTask(updated)
+      })
     },
 
-    /** Logs time on a task; `createdAt` is when it was logged. */
+    /** Logs time on a task (a time event); `createdAt` is when it was logged. */
     createTimesheet(input: { workspaceId: string; taskId: string; time: number; notes?: string; createdBy: string }): Timesheet {
       if (!Number.isInteger(input.time) || input.time <= 0 || input.time > MAX_TIME) {
         throw domainError('invalid', `time must be a whole number of milliseconds, at most ${MAX_TIME}`)
@@ -282,13 +314,15 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
       const createdBy = assertActor(input.createdBy)
       const task = find(input.workspaceId, input.taskId)
       if (!task || task.status === 'deleted') throw domainError('not_found', `Task ${input.taskId} does not exist`)
-      return toTimesheet(
-        db
+      return db.transaction((tx) => {
+        const row = tx
           .insert(timesheets)
           .values({ id: createId(), workspaceId: input.workspaceId, taskId: task.id, createdBy, createdAt: new Date(), time: input.time, notes })
           .returning()
-          .get(),
-      )
+          .get()
+        createEvent({ workspaceId: input.workspaceId, entity: `task:${task.id}`, createdBy, event: { kind: 'time', time: input.time } }, tx)
+        return toTimesheet(row)
+      })
     },
 
     /** The most recently logged first. */
@@ -335,7 +369,7 @@ export const getTask: TasksStore['getTask'] = (workspaceId, id) => initTasksStor
 export const getTasks: TasksStore['getTasks'] = (workspaceId, filter) => initTasksStore().getTasks(workspaceId, filter)
 export const searchTasks: TasksStore['searchTasks'] = (workspaceId, query, limit) => initTasksStore().searchTasks(workspaceId, query, limit)
 export const updateTask: TasksStore['updateTask'] = (workspaceId, id, patch, actor) => initTasksStore().updateTask(workspaceId, id, patch, actor)
-export const setTaskStatus: TasksStore['setTaskStatus'] = (workspaceId, id, status) => initTasksStore().setTaskStatus(workspaceId, id, status)
+export const setTaskStatus: TasksStore['setTaskStatus'] = (workspaceId, id, status, actor) => initTasksStore().setTaskStatus(workspaceId, id, status, actor)
 export const createTimesheet: TasksStore['createTimesheet'] = (input) => initTasksStore().createTimesheet(input)
 export const getTimesheets: TasksStore['getTimesheets'] = (workspaceId, taskId) => initTasksStore().getTimesheets(workspaceId, taskId)
 export const getTaskTime: TasksStore['getTaskTime'] = (workspaceId, taskId) => initTasksStore().getTaskTime(workspaceId, taskId)

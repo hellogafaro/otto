@@ -45,7 +45,7 @@ type GalleryRatio = keyof typeof RATIO
 // Otto: the tile, `md` 8 corners, `bg-card` (one layer step over the frame;
 // DESIGN token `gallery-tile`), its hairline an inset `foreground/10` ring on a
 // pseudo-element over the content, so a scroller never clips it and a cover
-// would not hide it. Hover, the open ⋯ or right-click menu and `current` darken
+// would not hide it. Hover, the open right-click menu and `current` darken
 // it to `/20` (the gallery's only hover look: no fill, no lift); keyboard focus
 // draws the 2px inset `--ring` on the tile. A tile never changes size.
 const tileClass =
@@ -55,22 +55,23 @@ const tileClass =
 // button (`render`). In the tile: `media`, a glyph centered in
 // the 32px `md` `bg-muted` icon tile (16px), with an optional `label` 8px under
 // it (12px medium muted: a file's type, "PDF"); `badge`, a static `Badge` 8px
-// inside the tile's top-start corner (an agent's "Default"). Under the tile, 8px down: the
+// inside the tile's top-start corner (an agent's "Default"); `cover`, a picture
+// (or its skeleton) filling the tile, under the ring and over the media. Under the tile, 8px down: the
 // 14px muted `icon`, 8px, the title (13px medium, truncated). `menu` is the
-// item's right-click menu (a `ContextMenuContent`); `actions` (a 28px ghost ⋯,
-// as on list rows) sits 8px inside the tile's top and end corner, shown on
-// hover, focus or while its menu is open (always on touch). `disabled` (a
-// pending item) dims it to 60% and takes no pointer or focus. `muted` (an
-// archived item) reads its title in `muted-foreground`; it stays clickable.
+// item's menu (a `ContextMenuContent`): right-click, a long press on touch,
+// the menu key by keyboard. A tile never carries a ⋯ button or any hover icon.
+// `disabled` (a pending item) dims it to 60% and takes no pointer or focus.
+// `muted` (an archived item) reads its title in `muted-foreground`; it stays
+// clickable.
 function GalleryItem({
   title,
   icon,
   media,
+  cover,
   label,
   badge,
   ratio = "4:5",
   menu,
-  actions,
   current = false,
   disabled = false,
   muted = false,
@@ -84,15 +85,15 @@ function GalleryItem({
     icon?: React.ReactNode
     /** The glyph centered in the tile, drawn in a 32px icon tile. */
     media?: React.ReactNode
+    /** A picture filling the tile (an image's thumbnail, or its skeleton while it loads); it hides the media. */
+    cover?: React.ReactNode
     /** A short caption under the media (a file's type). */
     label?: React.ReactNode
     /** A static `Badge` 8px inside the tile's top-start corner (the default agent's "Default"). */
     badge?: React.ReactNode
     ratio?: GalleryRatio
-    /** The right-click menu: a `ContextMenuContent`. */
+    /** The item's menu (right-click, long press): a `ContextMenuContent`. */
     menu?: React.ReactNode
-    /** The hover ⋯: a 28px ghost icon button that opens the item's menu. */
-    actions?: React.ReactNode
     /** The item that is open (keeps the hover look). */
     current?: boolean
     /** Pending or unavailable: 60%, no pointer, no focus. */
@@ -120,7 +121,7 @@ function GalleryItem({
               className={cn(
                 tileClass,
                 RATIO[ratio],
-                "group-hover/gallery-item:after:ring-foreground/20 group-has-aria-expanded/gallery-item:after:ring-foreground/20 group-data-popup-open/gallery-item:after:ring-foreground/20 group-focus-visible/gallery-link:after:ring-2 group-focus-visible/gallery-link:after:ring-ring",
+                "group-hover/gallery-item:after:ring-foreground/20 group-data-popup-open/gallery-item:after:ring-foreground/20 group-focus-visible/gallery-link:after:ring-2 group-focus-visible/gallery-link:after:ring-ring",
                 current && "after:ring-foreground/20"
               )}
             >
@@ -134,6 +135,7 @@ function GalleryItem({
                   {label}
                 </span>
               )}
+              {cover && <span className="absolute inset-0">{cover}</span>}
               {badge && (
                 <span className="absolute top-2 left-2 flex">{badge}</span>
               )}
@@ -158,16 +160,6 @@ function GalleryItem({
     ),
   })
 
-  const content = (
-    <>
-      {item}
-      {actions && (
-        <div className="absolute top-2 right-2 flex opacity-0 group-focus-within/gallery-item:opacity-100 group-hover/gallery-item:opacity-100 has-aria-expanded:opacity-100 not-pointer-fine:opacity-100">
-          {actions}
-        </div>
-      )}
-    </>
-  )
   const itemClass = cn(
     "group/gallery-item relative",
     disabled && "pointer-events-none opacity-60"
@@ -176,7 +168,7 @@ function GalleryItem({
   if (!menu)
     return (
       <li data-slot="gallery-item" className={itemClass}>
-        {content}
+        {item}
       </li>
     )
   return (
@@ -186,7 +178,7 @@ function GalleryItem({
         className={itemClass}
         render={<li />}
       >
-        {content}
+        {item}
       </ContextMenuTrigger>
       {menu}
     </ContextMenu>

@@ -18,16 +18,16 @@ export const SESSION_PERSISTENT_FIELDS = [
   'id', 'workspaceRootPath', 'sdkSessionId', 'piSession',
   // Who the chat belongs to ('user:<id>'); absent on chats made before chats were private
   'createdBy',
-  // The people in the chat ('user:<id>'): the creator, then anyone whose message is in it (see chats.ts)
-  'participants',
-  // The agent the chat talks to (an `agents` row id); absent = the workspace's default agent, a deleted one the same
+  // The chat's primary agent (an `agents` row id); absent = a people chat (a DM or a group). Members are `chats_members`.
   'agentId',
+  // A direct message's pair key ('user:<a>|user:<b>'), absent on every other chat
+  'dmKey',
   // Timestamps
   'createdAt', 'lastUsedAt', 'lastMessageAt',
   // Display
   'name', 'isFlagged', 'sessionStatus', 'labels',
-  // Read tracking
-  'lastReadMessageId', 'hasUnread',
+  // Read tracking (unread is per member: `chats_members.read_at`, computed per viewer)
+  'lastReadMessageId',
   // Config
   'enabledSourceSlugs', 'permissionMode', 'previousPermissionMode', 'workingDirectory',
   // Model/Connection
@@ -109,9 +109,9 @@ export interface SessionConfig {
   name?: string;
   /** Actor ('user:<id>') the chat belongs to: only they see it. Set by the server at creation, never by a client. Absent: made before chats were private, visible to the workspace owners only. */
   createdBy?: string;
-  /** The people in the chat ('user:<id>'): its creator, then everyone whose user message is in it. Kept by the write path (chats.ts `addParticipants`). */
-  participants?: string[];
-  /** The agent this chat talks to (`agents` row id; absent or deleted = the workspace's default agent). */
+  /** A direct message's pair key ('user:<a>|user:<b>', sorted; unique per workspace); absent on every other chat. */
+  dmKey?: string;
+  /** The chat's primary agent (`agents` row id): it replies when one person talks to it; absent = a people chat (no agent replies unless mentioned). */
   agentId?: string;
   createdAt: number;
   lastUsedAt: number;
@@ -130,11 +130,7 @@ export interface SessionConfig {
   labels?: string[];
   /** ID of last message user has read */
   lastReadMessageId?: string;
-  /**
-   * Explicit unread flag - single source of truth for NEW badge.
-   * Set to true when assistant message completes while user is NOT viewing.
-   * Set to false when user views the session (and not processing).
-   */
+  /** Unread for the viewer (computed from their `chats_members.read_at`; never stored on the chat). For an import: whether its creator has read it. */
   hasUnread?: boolean;
   /** Per-session source selection (source slugs) */
   enabledSourceSlugs?: string[];
@@ -221,9 +217,9 @@ export interface SessionHeader {
   name?: string;
   /** Actor ('user:<id>') the chat belongs to: only they see it. Set by the server at creation, never by a client. Absent: made before chats were private, visible to the workspace owners only. */
   createdBy?: string;
-  /** The people in the chat ('user:<id>'): its creator, then everyone whose user message is in it. Kept by the write path (chats.ts `addParticipants`). */
-  participants?: string[];
-  /** The agent this chat talks to (`agents` row id; absent or deleted = the workspace's default agent). */
+  /** A direct message's pair key ('user:<a>|user:<b>', sorted; unique per workspace); absent on every other chat. */
+  dmKey?: string;
+  /** The chat's primary agent (`agents` row id): it replies when one person talks to it; absent = a people chat (no agent replies unless mentioned). */
   agentId?: string;
   createdAt: number;
   lastUsedAt: number;
@@ -241,11 +237,7 @@ export interface SessionHeader {
   labels?: string[];
   /** ID of last message user has read */
   lastReadMessageId?: string;
-  /**
-   * Explicit unread flag - single source of truth for NEW badge.
-   * Set to true when assistant message completes while user is NOT viewing.
-   * Set to false when user views the session (and not processing).
-   */
+  /** Unread for the viewer (computed from their `chats_members.read_at`; never stored on the chat). For an import: whether its creator has read it. */
   hasUnread?: boolean;
   /** Per-session source selection (source slugs) */
   enabledSourceSlugs?: string[];
@@ -320,9 +312,9 @@ export interface SessionMetadata {
   name?: string;
   /** Actor ('user:<id>') the chat belongs to; absent on chats made before chats were private. */
   createdBy?: string;
-  /** The people in the chat ('user:<id>'): its creator, then everyone whose user message is in it. Kept by the write path (chats.ts `addParticipants`). */
-  participants?: string[];
-  /** The agent this chat talks to (`agents` row id; absent or deleted = the workspace's default agent). */
+  /** A direct message's pair key ('user:<a>|user:<b>', sorted; unique per workspace); absent on every other chat. */
+  dmKey?: string;
+  /** The chat's primary agent (`agents` row id): it replies when one person talks to it; absent = a people chat (no agent replies unless mentioned). */
   agentId?: string;
   createdAt: number;
   lastUsedAt: number;
@@ -366,11 +358,7 @@ export interface SessionMetadata {
   lastReadMessageId?: string;
   /** ID of the last final (non-intermediate) assistant message - for unread detection */
   lastFinalMessageId?: string;
-  /**
-   * Explicit unread flag - single source of truth for NEW badge.
-   * Set to true when assistant message completes while user is NOT viewing.
-   * Set to false when user views the session (and not processing).
-   */
+  /** Unread for the viewer (computed from their `chats_members.read_at`; never stored on the chat). For an import: whether its creator has read it. */
   hasUnread?: boolean;
   /** Token usage statistics (from JSONL header, available without loading messages) */
   tokenUsage?: SessionTokenUsage;

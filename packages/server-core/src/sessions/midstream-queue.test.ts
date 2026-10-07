@@ -33,7 +33,7 @@ describe('mid-stream queue runtime invariants', () => {
       createdAt: Date.now(),
     }
     const managed = createManagedSession(
-      { id, name: 'mid-stream test' },
+      { id, name: 'mid-stream test', agentId: 'agentaaaaaaa' },
       workspace as never,
       { messagesLoaded: true },
     )
@@ -103,7 +103,7 @@ describe('mid-stream queue runtime invariants', () => {
     ;(sm as any).sendMessage = replay
     ;(sm as any).processNextQueuedMessage(managed.id)
     await new Promise<void>(resolve => setImmediate(resolve))
-    expect(replay.mock.calls[0]).toEqual([managed.id, 'inspect image', attachments, storedAttachments, options, managed.messages[0]!.id])
+    expect(replay.mock.calls[0]).toEqual([managed.id, 'inspect image', attachments, storedAttachments, options, managed.messages[0]!.id, undefined, undefined, { wake: undefined, agentIds: ['agentaaaaaaa'] }])
   })
 
   it('marks Accept & Compact ready only after a manual compaction success and preserves the fresh snapshot', async () => {

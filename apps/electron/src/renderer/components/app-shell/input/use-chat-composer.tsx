@@ -1,6 +1,7 @@
 /**
  * The chat on the shell composer: the open chat (and the new chat, an empty one) registers a full composer that
- * sends into it (`onSend`), stops it, shows its agent picker (an empty chat only) and model picker and status over the action row (`tools`), its
+ * sends into it (`onSend`; to a person picked under With, into your DM with them), stops it, shows its With picker
+ * (an empty chat only), its model picker (not in a people chat: no agent runs there) and status over the action row (`tools`), its
  * background tasks, follow-ups and finished-elsewhere chip above the text (`chips`), a pending permission or
  * credential in place of the text (`structured`), and its `/` commands (mode, status, working directory, compact).
  */
@@ -19,6 +20,9 @@ import { isCompatProvider, modelSupportsImages, resolveEffectiveConnectionSlug }
 import { AGENT_DEFAULT_NAME } from '@otto/shared/branding'
 import { AgentPicker } from '@/components/composer/agent-picker'
 import { useNewChatAgent } from '@/components/composer/use-new-chat-agent'
+import { useChatMembers } from '@/hooks/use-chat-members'
+import { isAgentActor, isPeopleChat } from '@/lib/actors'
+import { formatNameList } from '@/utils/session'
 import type { FileAttachment, Session } from '../../../../shared/types'
 import { BackgroundFinishedChip } from '../background-finished-chip'
 import { ImageSupportWarningBanner } from './image-support-warning-banner'
@@ -154,13 +158,20 @@ export function useChatComposer({
   const isEmpty = (session?.messages.length ?? 0) === 0
   const busy = !!session?.isProcessing
   // An empty chat picks who it is with; a chat that has started talks to the agent it was created with.
-  const { agents, agent, pick } = useNewChatAgent(session)
+  const { agents, agent, pick, people, person, pickPerson, sendToPerson } = useNewChatAgent(session)
+  const { others } = useChatMembers(session)
+  // A people chat (a DM or a group, or a person picked under With) runs no agent: no model picker, no image notice.
+  const peopleChat = !!person || (!!session && isPeopleChat(session))
 
   // Stable callbacks over the latest values, so a streaming chat does not re-register on every frame.
-  const latest = React.useRef({ onSubmit, onStop, onSourcesChange, enabledSourceSlugs })
-  latest.current = { onSubmit, onStop, onSourcesChange, enabledSourceSlugs }
+  const latest = React.useRef({ onSubmit, onStop, onSourcesChange, enabledSourceSlugs, person, sendToPerson })
+  latest.current = { onSubmit, onStop, onSourcesChange, enabledSourceSlugs, person, sendToPerson }
   const onSend = React.useCallback(({ text, attachments, skillSlugs, sourceSlugs }: ComposerMessage) => {
     const { onSubmit: submit, onSourcesChange: changeSources, enabledSourceSlugs: enabled = [] } = latest.current
+    if (latest.current.person) {
+      void latest.current.sendToPerson(text, attachments.length > 0 ? attachments : undefined, skillSlugs.length > 0 ? skillSlugs : undefined)
+      return
+    }
     // Sources mentioned with @ are turned on for the chat.
     const next = [...new Set([...enabled, ...sourceSlugs])]
     if (next.length > enabled.length) changeSources?.(next)
@@ -187,19 +198,21 @@ export function useChatComposer({
   const tools = (
     <>
       <ToolbarStatusSlot showEscapeOverlay={busy && showEscapeOverlay} />
-      {isEmpty && agent && <AgentPicker agents={agents} agent={agent} onChange={pick} />}
-      <ModelMenu
-        {...model}
-        currentConnection={session?.llmConnection}
-        isEmptySession={isEmpty}
-        contextStatus={contextStatus}
-      />
+      {isEmpty && agent && !(session && isPeopleChat(session)) && <AgentPicker agents={agents} agent={agent} people={people} person={person} onChange={pick} onPickPerson={pickPerson} />}
+      {!peopleChat && (
+        <ModelMenu
+          {...model}
+          currentConnection={session?.llmConnection}
+          isEmptySession={isEmpty}
+          contextStatus={contextStatus}
+        />
+      )}
     </>
   )
 
   // Staged images would be dropped by a text-only custom-endpoint model: the composer warns while one is staged.
   const connection = llmConnections.find((entry) => entry.slug === resolveEffectiveConnectionSlug(session?.llmConnection, workspaceDefaultLlmConnection, llmConnections))
-  const imageNotice = connection && isCompatProvider(connection.type) && !modelSupportsImages(connection, model.currentModel)
+  const imageNotice = !peopleChat && connection && isCompatProvider(connection.type) && !modelSupportsImages(connection, model.currentModel)
     ? <ImageSupportWarningBanner modelName={stripPiPrefixForDisplay(getModelDisplayName(model.currentModel))} onEnable={() => toggleVision(connection.slug, model.currentModel, true)} />
     : undefined
 
@@ -217,11 +230,21 @@ export function useChatComposer({
     </>
   )
 
+  // "Message Ada and Grace" where people talk (a person picked, a people chat, more than one person), else "Reply to" the agent.
+  function chatPlaceholder() {
+    const picked = person && people.find((entry) => entry.actor === person)
+    if (picked) return t('composer.placeholder.message', { names: picked.name })
+    if (isEmpty) return t('composer.placeholder.start')
+    const humans = (session?.members ?? []).filter((actor) => !isAgentActor(actor)).length
+    if ((peopleChat || humans > 1) && others.length > 0) return t('composer.placeholder.message', { names: formatNameList(others.map((member) => member.name)) })
+    return t('composer.placeholder.reply', { agent: agent?.title ?? AGENT_DEFAULT_NAME })
+  }
+
   const context: ComposerContext = {
     key: session ? `chat:${session.id}` : 'none',
     mode: 'full',
     sessionId: session ? sessionId : undefined,
-    placeholder: placeholder ?? (isEmpty ? t('composer.placeholder.start') : t('composer.placeholder.reply', { agent: agent?.title ?? AGENT_DEFAULT_NAME })),
+    placeholder: placeholder ?? chatPlaceholder(),
     onSend,
     busy,
     onStop: stop,

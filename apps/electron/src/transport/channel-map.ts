@@ -265,7 +265,6 @@ export const CHANNEL_MAP = {
   loadPresetTheme: invoke(RPC_CHANNELS.theme.LOAD_PRESET),
   getColorTheme: invoke(RPC_CHANNELS.theme.GET_COLOR_THEME),
   setColorTheme: invoke(RPC_CHANNELS.theme.SET_COLOR_THEME),
-  getLogoUrl: invoke(RPC_CHANNELS.logo.GET_URL),
   onAppThemeChange: listener(RPC_CHANNELS.theme.APP_CHANGED),
   broadcastThemePreferences: invoke(RPC_CHANNELS.theme.BROADCAST_PREFERENCES),
   onThemePreferencesChange: listener(RPC_CHANNELS.theme.PREFERENCES_CHANGED),

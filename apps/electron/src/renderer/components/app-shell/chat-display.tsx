@@ -17,7 +17,6 @@ import { toast } from '@workspace/ui/components/sonner'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { coerceInputText } from "@/lib/input-text"
-import { Markdown, CollapsibleMarkdownProvider, StreamingMarkdown, type RenderMode } from "@/components/markdown"
 import { AnimatedCollapsibleContent } from "@/components/ui/collapsible"
 import {
   Spinner,
@@ -42,7 +41,7 @@ import type { PermissionMode } from "@otto/shared/agent/modes"
 import type { ThinkingLevel } from "@otto/shared/agent/thinking-levels"
 import {
   TurnCard,
-  UserMessageBubble,
+  UserMessage,
   groupMessagesByTurn,
   formatTurnAsMarkdown,
   getAssistantTurnUiKey,
@@ -69,6 +68,9 @@ import { routes } from "@/lib/navigate"
 import { CHAT_LAYOUT } from "@/config/layout"
 import { collectFileChangesFromActivities, getFirstFileChangeIdForActivity } from "@/lib/file-changes"
 import { handleErrorMessageAction } from "./error-message-actions"
+import { Marker, MarkerContent } from "@workspace/ui/components/marker"
+import { dayLabel, firstUnreadTurn, layoutTranscript, turnActor } from "./chat-transcript"
+import { MessageRow, WindowedRow, useTranscriptPeople, useTranscriptWindowing } from "./chat-message"
 
 // ============================================================================
 // CSS Custom Highlight API helper
@@ -298,18 +300,22 @@ interface ProcessingIndicatorProps {
   startTime?: number
   /** Override cycling messages with explicit status (e.g., "Compacting...") */
   statusMessage?: string
+  /** The working agent's name: the line opens on "{name} is working" and comes back to it every third change */
+  name?: string
 }
 
 /**
- * ProcessingIndicator - Shows cycling status messages with elapsed time
+ * ProcessingIndicator - Shows cycling status messages with elapsed time, under the working agent's header
  * Matches TurnCard header layout for visual continuity
  */
-function ProcessingIndicator({ startTime, statusMessage }: ProcessingIndicatorProps) {
+function ProcessingIndicator({ startTime, statusMessage, name }: ProcessingIndicatorProps) {
   const { t } = useTranslation()
   const [elapsed, setElapsed] = React.useState(0)
+  // -1 is "{name} is working"
   const [messageIndex, setMessageIndex] = React.useState(() =>
-    Math.floor(Math.random() * PROCESSING_MESSAGE_KEYS.length)
+    name ? -1 : Math.floor(Math.random() * PROCESSING_MESSAGE_KEYS.length)
   )
+  const tickRef = React.useRef(0)
 
   // Update elapsed time every second using provided startTime
   React.useEffect(() => {
@@ -327,7 +333,9 @@ function ProcessingIndicator({ startTime, statusMessage }: ProcessingIndicatorPr
   React.useEffect(() => {
     if (statusMessage) return  // Don't cycle when showing status
     const interval = setInterval(() => {
+      tickRef.current += 1
       setMessageIndex(prev => {
+        if (name && tickRef.current % 3 === 0) return -1
         // Pick a random different message
         let next = Math.floor(Math.random() * PROCESSING_MESSAGE_KEYS.length)
         while (next === prev && PROCESSING_MESSAGE_KEYS.length > 1) {
@@ -337,13 +345,14 @@ function ProcessingIndicator({ startTime, statusMessage }: ProcessingIndicatorPr
       })
     }, 10000)
     return () => clearInterval(interval)
-  }, [statusMessage])
+  }, [statusMessage, name])
 
   // Use status message if provided, otherwise cycle through default messages
-  const displayMessage = statusMessage || t(PROCESSING_MESSAGE_KEYS[messageIndex])
+  const displayMessage = statusMessage
+    || (messageIndex === -1 && name ? t('chat.agentWorking', { name }) : t(PROCESSING_MESSAGE_KEYS[Math.max(0, messageIndex)]))
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1 -mb-1 text-[13px] text-muted-foreground">
+    <div className="flex items-center gap-2 pl-2.5 py-1 text-[13px] text-muted-foreground" role="status">
       {/* Spinner in same location as TurnCard chevron */}
       <div className="w-3 h-3 flex items-center justify-center shrink-0">
         <Spinner className="text-[10px]" />
@@ -386,8 +395,14 @@ function ScrollOnMount({
 }) {
   React.useLayoutEffect(() => {
     if (skip) return
-    targetRef.current?.scrollIntoView({ behavior: 'instant' })
-    onScroll?.()
+    const scroll = () => {
+      targetRef.current?.scrollIntoView({ behavior: 'instant' })
+      onScroll?.()
+    }
+    // On the first mount the anchor (a later sibling) has no ref yet: scroll in the next frame, still before paint.
+    // Without it a chat opened by URL stayed at its top, and the follow-up smooth scroll paged older messages in.
+    if (targetRef.current) scroll()
+    else requestAnimationFrame(scroll)
   }, [skip])
   return null
 }
@@ -448,7 +463,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   // Connection unavailable
   connectionUnavailable = false,
 }, ref) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const appShellContext = useAppShellContext()
 
   // Input is only disabled when explicitly disabled (e.g., agent needs activation)
@@ -1105,8 +1120,12 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
       // Clear pending scroll and wait for layout to settle
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
-        // Skip smooth scroll if we just did an instant scroll (session switch/lazy load)
-        if (Date.now() < skipSmoothScrollUntilRef.current) return
+        // Right after an instant scroll (session switch/lazy load) stay on the end without animating: late
+        // layout (the composer's lift) still grows the content then
+        if (Date.now() < skipSmoothScrollUntilRef.current) {
+          viewport.scrollTop = viewport.scrollHeight
+          return
+        }
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }, 200)
     })
@@ -1327,6 +1346,35 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   const hiddenAbove = startIndex > 0 ? startIndex : (session?.olderMessageCount ?? 0)
   const hasMoreAbove = hiddenAbove > 0
 
+  // The Slack-like layout (chat-transcript.ts): authors, group headers, day dividers, the unread divider.
+  const { me, personOf } = useTranscriptPeople()
+  const creator = session?.members?.find(member => member.startsWith('user:')) ?? me
+  const chatAgent = session?.agentId ? `agent:${session.agentId}` : null
+  const actorOfTurn = useCallback(
+    (turn: Turn) => turnActor(turn, { user: creator, agent: chatAgent ?? 'agent:default' }),
+    [creator, chatAgent]
+  )
+  // The viewer's read marker as the chat opened: opening it marks it read, and the divider stays where it was.
+  const [readMarker, setReadMarker] = useState<{ sessionId?: string; lastReadMessageId?: string }>({})
+  if (session && readMarker.sessionId !== session.id) {
+    setReadMarker({ sessionId: session.id, lastReadMessageId: session.hasUnread ? session.lastReadMessageId : undefined })
+  }
+  const unreadTurnIndex = useMemo(
+    () => firstUnreadTurn(allTurns, readMarker.lastReadMessageId, turn => !!me && actorOfTurn(turn) === me),
+    [allTurns, readMarker.lastReadMessageId, me, actorOfTurn]
+  )
+  const transcript = useMemo(
+    () => layoutTranscript(turns, { actorOf: actorOfTurn, unreadIndex: unreadTurnIndex - startIndex }),
+    // `turns` is a new slice every render: its inputs are the keys
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allTurns, startIndex, actorOfTurn, unreadTurnIndex]
+  )
+  const hasRunningTurn = turns.some(turn => turn.type === 'assistant' && !turn.isComplete)
+  const pendingAgent = chatAgent
+  const lastUserMessageAt = session?.messages.findLast(m => m.role === 'user')?.timestamp
+  // Only the rows near the viewport render (a long chat's DOM stays flat); in-chat search needs every row.
+  const transcriptWindowing = useTranscriptWindowing(scrollViewportRef, !isSearchActive && !compactMode, session?.id)
+
   const assistantTurnIndexByMessageId = useMemo(() => {
     const map = new Map<string, number>()
     allTurns.forEach((turn, index) => {
@@ -1482,10 +1530,10 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
               <ScrollArea className="h-full min-w-0" viewportRef={scrollViewportRef}>
               <div className={cn(
                 "min-w-0",
-                compactMode ? "px-3 py-4 space-y-2" : [CHAT_LAYOUT.containerPaddingX, CHAT_LAYOUT.containerPaddingY, CHAT_LAYOUT.messageSpacing],
+                compactMode ? "px-3 py-4" : [CHAT_LAYOUT.containerPaddingX, CHAT_LAYOUT.containerPaddingY],
                 // On the chat page the transcript is on the column's content edges (24px sides from 768px, the
-                // compact title's and the composer's left and right); its top is the 16px a turn row (`pt-4`) carries
-                // itself, as tall as the top fade, so the first bubble starts 16px under the header (`--nav-top-compact`);
+                // compact title's and the composer's left and right); its top is the 16px the first row (the day
+                // divider, `pt-4`) carries itself, as tall as the top fade, so it starts 16px under the header (`--nav-top-compact`);
                 // the composer floats over its bottom, so it ends `--composer-gap` above it.
                 shellComposer && "px-0 pt-0 pb-[calc(var(--composer-lift,0px)+var(--composer-gap))] md:px-6"
               )}>
@@ -1566,65 +1614,78 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                       ↑ {t('chat.scrollUpForEarlier', { count: hiddenAbove })}
                     </div>
                   )}
-                  {turns.map((turn, index) => {
+                  {transcript.map((entry) => {
+                    if (entry.type === 'day') {
+                      return (
+                        <Marker key={entry.key} variant="separator" className="pt-4 select-none" data-search-exclude="true">
+                          <MarkerContent>{dayLabel(entry.at, Date.now(), i18n.resolvedLanguage ?? 'en', { today: t('common.today'), yesterday: t('common.yesterday') })}</MarkerContent>
+                        </Marker>
+                      )
+                    }
+                    if (entry.type === 'unread') {
+                      return (
+                        <Marker key={entry.key} variant="unread" className="pt-4 select-none" data-search-exclude="true">
+                          <MarkerContent>{t('chat.newMessages')}</MarkerContent>
+                        </Marker>
+                      )
+                    }
+                    const { turn, index, actor, header } = entry
                     // Compute turn key and check if it's a search match
                     const turnKey = getTurnKey(turn)
                     const isCurrentMatch = isSearchActive && matchingTurnIds[currentMatchIndex] === turnKey
                     const isAnyMatch = isSearchActive && matchingTurnIds.includes(turnKey)
+                    // One row of the transcript: the author's group header or the gutter, windowed when far away
+                    const row = (content: React.ReactNode, extra?: React.ReactNode) => (
+                      <WindowedRow
+                        key={turnKey}
+                        windowing={turn.type === 'assistant' && !turn.isComplete ? null : transcriptWindowing}
+                        rowRef={el => { if (el) turnRefs.current.set(turnKey, el); else turnRefs.current.delete(turnKey) }}
+                        className={cn(
+                          header ? "pt-4" : actor ? "pt-1" : "pt-2",
+                          "rounded-lg transition-all duration-200",
+                          isCurrentMatch && "ring-2 ring-info ring-offset-2 ring-offset-background",
+                          isAnyMatch && !isCurrentMatch && "ring-1 ring-info/30"
+                        )}
+                      >
+                        <MessageRow actor={actor} me={me} person={actor ? personOf(actor) : null} header={header} at={turn.timestamp}>
+                          {content}
+                          {extra}
+                        </MessageRow>
+                      </WindowedRow>
+                    )
 
-                    // User turns - render with MemoizedMessageBubble
-                    // Extra padding creates visual separation from AI responses
+                    // A person's message: their text and attachments, flat under their header
                     if (turn.type === 'user') {
-                      return (
-                        <div
-                          key={turnKey}
-                          ref={el => { if (el) turnRefs.current.set(turnKey, el); else turnRefs.current.delete(turnKey) }}
-                          className={cn(
-                            compactMode ? "pt-2 pb-1" : CHAT_LAYOUT.userMessagePadding,
-                            "rounded-lg transition-all duration-200",
-                            isCurrentMatch && "ring-2 ring-info ring-offset-2 ring-offset-background",
-                            isAnyMatch && !isCurrentMatch && "ring-1 ring-info/30"
-                          )}
-                        >
-                          <MemoizedMessageBubble
-                            message={turn.message}
-                            onOpenFile={onOpenFile}
-                            onOpenUrl={onOpenUrl}
-                            sessionId={session?.id}
-                            compactMode={compactMode}
-                          />
-                        </div>
+                      return row(
+                        <UserMessage
+                          content={turn.message.content}
+                          attachments={turn.message.attachments}
+                          badges={turn.message.badges}
+                          isQueued={turn.message.isQueued}
+                          onUrlClick={onOpenUrl}
+                          onFileClick={onOpenFile}
+                          renderContent={renderUserText}
+                        />
                       )
                     }
 
                     // System turns (error, status, info, warning) - render with MemoizedMessageBubble
                     if (turn.type === 'system') {
-                      return (
-                        <div
-                          key={turnKey}
-                          ref={el => { if (el) turnRefs.current.set(turnKey, el); else turnRefs.current.delete(turnKey) }}
-                          className={cn(
-                            "rounded-lg transition-all duration-200",
-                            isCurrentMatch && "ring-2 ring-info ring-offset-2 ring-offset-background",
-                            isAnyMatch && !isCurrentMatch && "ring-1 ring-info/30"
-                          )}
-                        >
-                          <MemoizedMessageBubble
-                            message={turn.message}
-                            onOpenFile={onOpenFile}
-                            onOpenUrl={onOpenUrl}
-                            sessionId={session?.id}
-                            onRetry={turn.message.role === 'error' ? () => {
-                              const msgs = session?.messages
-                              if (!msgs) return
-                              const errorIdx = msgs.findIndex(m => m.id === turn.message.id)
-                              const lastUserMsg = msgs.slice(0, errorIdx).findLast(m => m.role === 'user')
-                              if (lastUserMsg) {
-                                onSendMessage(lastUserMsg.content)
-                              }
-                            } : undefined}
-                          />
-                        </div>
+                      return row(
+                        <MemoizedMessageBubble
+                          message={turn.message}
+                          onOpenUrl={onOpenUrl}
+                          sessionId={session?.id}
+                          onRetry={turn.message.role === 'error' ? () => {
+                            const msgs = session?.messages
+                            if (!msgs) return
+                            const errorIdx = msgs.findIndex(m => m.id === turn.message.id)
+                            const lastUserMsg = msgs.slice(0, errorIdx).findLast(m => m.role === 'user')
+                            if (lastUserMsg) {
+                              onSendMessage(lastUserMsg.content)
+                            }
+                          } : undefined}
+                        />
                       )
                     }
 
@@ -1633,23 +1694,13 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                     if (turn.type === 'auth-request') {
                       // Interactive only if no user message follows
                       const isAuthInteractive = !turns.slice(index + 1).some(t => t.type === 'user')
-                      return (
-                        <div
-                          key={turnKey}
-                          ref={el => { if (el) turnRefs.current.set(turnKey, el); else turnRefs.current.delete(turnKey) }}
-                          className={cn(
-                            "mt-2 rounded-lg transition-all duration-200",
-                            isCurrentMatch && "ring-2 ring-info ring-offset-2 ring-offset-background",
-                            isAnyMatch && !isCurrentMatch && "ring-1 ring-info/30"
-                          )}
-                        >
-                          <MemoizedAuthRequestCard
-                            message={turn.message}
-                            sessionId={session.id}
-                            onRespondToCredential={onRespondToCredential}
-                            isInteractive={isAuthInteractive}
-                          />
-                        </div>
+                      return row(
+                        <MemoizedAuthRequestCard
+                          message={turn.message}
+                          sessionId={session.id}
+                          onRespondToCredential={onRespondToCredential}
+                          isInteractive={isAuthInteractive}
+                        />
                       )
                     }
 
@@ -1658,17 +1709,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
 
                     // Assistant turns - render with TurnCard (buffered streaming)
                     const assistantUiKey = getAssistantTurnUiKey(turn, index)
-                    return (
-                      <div
-                        key={turnKey}
-                        ref={el => { if (el) turnRefs.current.set(turnKey, el); else turnRefs.current.delete(turnKey) }}
-                        className={cn(
-                          "pt-2",
-                          "rounded-lg transition-all duration-200",
-                          isCurrentMatch && "ring-2 ring-info ring-offset-2 ring-offset-background",
-                          isAnyMatch && !isCurrentMatch && "ring-1 ring-info/30"
-                        )}
-                      >
+                    return row(
                       <TurnCard
                         sessionId={session.id}
                         sessionFolderPath={session.sessionFolderPath}
@@ -1847,8 +1888,15 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                             })
                           }
                         }}
-                      />
-                      </div>
+                      />,
+                      // The agent's live state under its own header while its turn runs
+                      session.isProcessing && !turn.isComplete && (
+                        <ProcessingIndicator
+                          startTime={lastUserMessageAt}
+                          statusMessage={session.currentStatus?.message}
+                          name={actor ? personOf(actor).name : undefined}
+                        />
+                      )
                     )
                   })}
                     </motion.div>
@@ -1856,17 +1904,18 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
                     </AnimatePresence>
                   </motion.div>
                 </AnimatePresence>
-                {/* Processing Indicator - always visible while processing */}
-                {session.isProcessing && (() => {
-                  // Find the last user message timestamp for accurate elapsed time
-                  const lastUserMsg = [...session.messages].reverse().find(m => m.role === 'user')
-                  return (
-                    <ProcessingIndicator
-                      startTime={lastUserMsg?.timestamp}
-                      statusMessage={session.currentStatus?.message}
-                    />
-                  )
-                })()}
+                {/* Processing before the agent's turn has a row: its header and live state (no header without an agent) */}
+                {session.isProcessing && !hasRunningTurn && (
+                  <div className="pt-4">
+                    <MessageRow actor={pendingAgent} me={me} person={pendingAgent ? personOf(pendingAgent) : null} header={!!pendingAgent} at={lastUserMessageAt ?? Date.now()}>
+                      <ProcessingIndicator
+                        startTime={lastUserMessageAt}
+                        statusMessage={session.currentStatus?.message}
+                        name={pendingAgent ? personOf(pendingAgent).name : undefined}
+                      />
+                    </MessageRow>
+                  </div>
+                )}
                 {/* Scroll Anchor: For auto-scroll to bottom */}
                 <div ref={messagesEndRef} />
               </div>
@@ -2018,28 +2067,18 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
 })
 
 /**
- * MessageBubble - Renders a single message based on its role
+ * MessageBubble - A system row of the transcript, in the text column under no header
  *
- * Message Roles & Styles:
- * - user:      Right-aligned, blue (bg-foreground), white text
- * - assistant: Left-aligned, gray (bg-muted), markdown rendered with clickable links
- * - error:     Left-aligned, red border/bg, warning icon + error message
- * - status:    Centered pill badge with pulsing dot (e.g., t("chat.processing.thinking"))
+ * - error:   red tinted block with the error, its actions and collapsible details
+ * - info:    icon and color by level (compaction complete draws a divider)
+ * - warning: info tinted block
  *
- * Note: Tool messages are rendered by TurnCard, not MessageBubble
+ * Note: user messages are `UserMessage`, agent turns `TurnCard`
  */
 interface MessageBubbleProps {
   message: Message
-  onOpenFile: (path: string) => void
   onOpenUrl: (url: string) => void
   sessionId?: string
-  /**
-   * Markdown render mode for assistant messages
-   * @default 'minimal'
-   */
-  renderMode?: RenderMode
-  /** Compact mode - reduces padding for popover embedding */
-  compactMode?: boolean
   /** Callback to resend the user message that preceded an error */
   onRetry?: () => void
 }
@@ -2057,7 +2096,7 @@ function ErrorMessage({ message, onOpenUrl, sessionId, onRetry }: { message: Mes
   })
 
   return (
-    <div className="flex justify-start mt-4">
+    <div className="flex justify-start pt-2">
       {/* Flat tinted fill, no ring or shadow */}
       <div className="max-w-[80%] bg-destructive/10 rounded-md pl-5 pr-4 pt-2 pb-2.5 break-words">
         <div className="text-xs text-destructive/50 mb-0.5 font-semibold">
@@ -2119,79 +2158,13 @@ const renderUserText = (content: string) => <EntityText content={content} classN
 
 function MessageBubble({
   message,
-  onOpenFile,
   onOpenUrl,
   sessionId,
-  renderMode = 'minimal',
-  compactMode,
   onRetry,
 }: MessageBubbleProps) {
-  // === USER MESSAGE: Right-aligned bubble with attachments above ===
-  if (message.role === 'user') {
-    return (
-      <UserMessageBubble
-        content={message.content}
-        attachments={message.attachments}
-        badges={message.badges}
-        isPending={message.isPending}
-        isQueued={message.isQueued}
-        onUrlClick={onOpenUrl}
-        onFileClick={onOpenFile}
-        compactMode={compactMode}
-        renderContent={renderUserText}
-      />
-    )
-  }
-
-  // === ASSISTANT MESSAGE: Left-aligned gray bubble with markdown rendering ===
-  if (message.role === 'assistant') {
-    return (
-      <div className="flex justify-start group">
-        <div className="relative max-w-[90%] py-3 break-words min-w-0 select-text">
-          {/* Use StreamingMarkdown for block-level memoization during streaming */}
-          {message.isStreaming ? (
-            <StreamingMarkdown
-              content={message.content}
-              isStreaming={true}
-              mode={renderMode}
-              onUrlClick={onOpenUrl}
-              onFileClick={onOpenFile}
-            />
-          ) : (
-            <CollapsibleMarkdownProvider>
-              <Markdown
-                mode={renderMode}
-                onUrlClick={onOpenUrl}
-                onFileClick={onOpenFile}
-                id={message.id}
-                className="text-sm"
-                collapsible
-              >
-                {message.content}
-              </Markdown>
-            </CollapsibleMarkdownProvider>
-          )}
-        </div>
-      </div>
-    )
-  }
-
   // === ERROR MESSAGE: Red bordered bubble with warning icon and collapsible details ===
   if (message.role === 'error') {
     return <ErrorMessage message={message} onOpenUrl={onOpenUrl} sessionId={sessionId} onRetry={onRetry} />
-  }
-
-  // === STATUS MESSAGE: Matches ProcessingIndicator layout for visual consistency ===
-  if (message.role === 'status') {
-    return (
-      <div className="flex items-center gap-2 px-3 py-1 -mb-1 text-[13px] text-muted-foreground">
-        {/* Spinner in same location as TurnCard chevron */}
-        <div className="w-3 h-3 flex items-center justify-center shrink-0">
-          <Spinner className="text-[10px]" />
-        </div>
-        <span>{message.content}</span>
-      </div>
-    )
   }
 
   // === INFO MESSAGE: Icon and color based on level ===
@@ -2247,23 +2220,18 @@ function MessageBubble({
 }
 
 /**
- * MemoizedMessageBubble - Prevents re-renders of non-streaming messages
+ * MemoizedMessageBubble - Prevents re-renders of unchanged system rows
  *
  * During streaming, the entire message list gets updated on each delta.
  * This wrapper skips re-renders for messages that haven't changed,
  * significantly improving performance for long conversations.
  */
 const MemoizedMessageBubble = React.memo(MessageBubble, (prev, next) => {
-  // Always re-render streaming messages (content is changing)
-  if (prev.message.isStreaming || next.message.isStreaming) {
-    return false
-  }
   // Skip re-render if key props unchanged
   return (
     prev.message.id === next.message.id &&
     prev.message.content === next.message.content &&
     prev.message.role === next.message.role &&
-    prev.sessionId === next.sessionId &&
-    prev.compactMode === next.compactMode
+    prev.sessionId === next.sessionId
   )
 })

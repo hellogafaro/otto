@@ -10,7 +10,7 @@ import { domainError } from '../utils/errors.ts'
 import { getMemberRole } from '../workspaces/members.ts'
 import { assembleInstructions } from './instructions.ts'
 import { agents } from './schema.ts'
-import { clearChatsAgent, notifyChatsChange } from '../sessions/chats.ts'
+import { notifyChatsChange, updateChatsAgent } from '../sessions/chats.ts'
 import {
   AVATAR_REF,
   FALLBACK_PROVIDER,
@@ -182,8 +182,9 @@ export function updateAgent(workspaceId: string, id: string, patch: AgentUpdate,
 }
 
 /**
- * Removes an agent. The last one of a workspace cannot go (`invalid`). Its chats move to the workspace's default
- * agent (`chats.agent_id` null) in the same transaction, and the session manager hears of it.
+ * Removes an agent. The last one of a workspace cannot go (`invalid`). The chats it was primary of move to the
+ * workspace's next default agent (the oldest left) and it leaves every chat it was in, in the same transaction; the
+ * session manager hears of it.
  */
 export function deleteAgent(workspaceId: string, id: string, db: Db | Tx = initDb()): void {
   const moved = db.transaction((tx) => {
@@ -191,7 +192,7 @@ export function deleteAgent(workspaceId: string, id: string, db: Db | Tx = initD
     if (!rows.some((row) => row.id === id)) throw domainError('not_found', `Agent ${id} does not exist`)
     if (rows.length === 1) throw domainError('invalid', 'The last agent of a workspace cannot be deleted')
     tx.delete(agents).where(and(eq(agents.workspaceId, workspaceId), eq(agents.id, id))).run()
-    return clearChatsAgent(tx, workspaceId, id)
+    return updateChatsAgent(tx, workspaceId, id, rows.find((row) => row.id !== id)!.id)
   })
   notifyChatsChange(workspaceId, moved)
 }

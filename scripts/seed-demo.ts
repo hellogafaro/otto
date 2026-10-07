@@ -312,7 +312,7 @@ try {
       resources: r.chance(0.15) ? [{ type: 'url', title: 'Reference', ref: 'https://example.com/ref' }] : [],
     })
     const status = r.pick(['todo', 'todo', 'todo', 'doing', 'doing', 'done', 'done', 'done', 'archived'] as const)
-    if (status !== 'todo') tasksApi.setTaskStatus(ws, task.id, status)
+    if (status !== 'todo') tasksApi.setTaskStatus(ws, task.id, status, by)
     counts[status] = (counts[status] ?? 0) + 1
     const labels = pickLabels(3)
     if (labels.length) labelEntities.setEntityLabels(ws, `task:${task.id}`, labels)

@@ -67,8 +67,6 @@
     "./utils": "./src/utils/index.ts",
     "./utils/tool-names": "./src/utils/tool-names.ts",
     "./utils/redaction": "./src/utils/redaction.ts",
-    "./utils/logo": "./src/utils/logo.ts",
-    "./utils/service-url": "./src/utils/service-url.ts",
     "./utils/email": "./src/utils/email.ts",
     "./utils/debounce": "./src/utils/debounce.ts",
     "./utils/icon": "./src/utils/icon.ts",
