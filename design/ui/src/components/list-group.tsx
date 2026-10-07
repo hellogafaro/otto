@@ -11,7 +11,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "cn"
 
 // Otto: the grouped list, Otto v1's table (Linear's and Codex's pattern), for
-// collections you work through: Chats, Tasks, Routines (and Inbox's flat list).
+// collections you work through: Chats, Tasks, Routines (and the notifications' flat list).
 // It sits in the Settings card (`ListCard`: `PageCard`, 8px in), NO hairlines
 // inside it: each group is a ROUNDED band (8px, a quiet fill) and its rows sit
 // plain on the card under it, 4px below the band; a group sits 8px under the
@@ -31,7 +31,7 @@ import { cn } from "cn"
 // Otto: the table's container: the Settings card (`PageCard`: `bg-card`, the
 // card edge, `xl` 12 corners) with the table 8px in (`p-2`, the ONE padding of
 // a list page: no line wrapper around it). Groups are not split by the card's
-// row hairlines (`divide-y-0`); a flat list (Inbox) puts its rows in one `ul`.
+// row hairlines (`divide-y-0`); a flat list (Notifications, Home's cards) puts its rows in one `ul`.
 function ListCard({ className, ...props }: React.ComponentProps<"div">) {
   return <PageCard className={cn("p-2 divide-y-0", className)} {...props} />
 }
@@ -117,7 +117,7 @@ function ListGroup({
 // row opens its item. In a `ListGroup` it is on the band's grid: an empty 14px
 // column under the chevron, the 14px `media` (status icon or avatar) under the
 // group's icon, then the title at 52px. Outside a group (a flat list such as
-// Inbox) `media` leads, on the band's chevron column. The title is 13px, truncated (`muted` reads
+// Notifications) `media` leads, on the band's chevron column. The title is 13px, truncated (`muted` reads
 // it at 80% for an item that needs nothing from you, such as a read chat), with
 // its `marks` (small glyphs right after it: unread, flagged, working). At the
 // end: `meta`, metadata badges 6px apart (hidden in a column under 448px), then
@@ -129,7 +129,7 @@ function ListGroup({
 // the row stays highlighted while it is open. `menuProps` takes over the
 // menu's open state (a phone's drawer opens on the long press instead).
 // `size="sm"` is the compact variant for a list inside a popover (the
-// composer's Inbox list): 32px, the same slots and states.
+// composer's Notifications list): 32px, the same slots and states.
 function ListRow({
   media,
   title,

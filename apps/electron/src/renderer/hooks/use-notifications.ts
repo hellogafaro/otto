@@ -1,5 +1,5 @@
 /**
- * The signed-in user's inbox in the workspace: notifications newest first, each with the title of its entity and,
+ * The signed-in user's notifications in the workspace: notifications newest first, each with the title of its entity and,
  * for a mention, its comment, and the unread count (the sidebar badge). Reloads when the server says it changed.
  * `setStatus` marks some (or 'all') read or unread, `clear` removes them; both return a `MutationResult`.
  * (The native OS notifications and the dock badge are `use-os-notifications.ts`.)

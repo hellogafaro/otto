@@ -5,7 +5,7 @@ description: Use the app from bash with the `otto` command (tasks, projects, com
 
 # The `otto` command
 
-`otto` is how you use the app itself: its tasks, projects, comments, library, chats, labels, statuses, agents, routines, inbox and search. Run it with your bash tool; it prints JSON, so it composes with pipes.
+`otto` is how you use the app itself: its tasks, projects, comments, library, chats, labels, statuses, agents, routines, notifications and search. Run it with your bash tool; it prints JSON, so it composes with pipes.
 
 Every call runs as the person you work for, in this chat's workspace, with exactly their rights: what they cannot do in the app, `otto` refuses too. It works only during your turn (its token ends with the turn), and it never reaches connections, secrets or settings.
 
@@ -144,7 +144,7 @@ otto routines run <id>
 otto routines delete <id>
     Deletes it and its runs.
 otto notifications list
-    Your inbox: mentions and assignments, newest first.
+    Your notifications: mentions and assignments, newest first.
 otto notifications count
     How many are unread.
 otto search <query>

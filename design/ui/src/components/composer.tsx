@@ -18,15 +18,15 @@ import {
 // corners, the card color, a 1px `foreground` 10% ring (no border), `shadow-xs`,
 // controls 4px in; the looks change only the size and what is inside:
 // - `compact`: the 40px bar, 448px (28rem) wide, ONE row: leading (+) · text
-//   (44px in) · tools · attention (the Inbox, or the focus key while a
+//   (44px in) · tools · attention (Notifications, or the focus key while a
 //   modifier is held) · main.
 // - `expanded`: grown to the column's content width (720px; its bottom edge
 //   stays put), rows top to bottom: attachments, text (up to 240px, 12px in
 //   and 12px down, as v1), the action row (leading, context, tools …
 //   attention, main; 8px apart, as v1's).
 // - `full`: the expanded anatomy, as wide as the column's track (the chat, the
-//   new chat, the Inbox). Never the attention (Inbox) slot.
-// `panel` (compact and expanded only) is the Inbox list the attention button
+//   new chat, Home). Never the attention (Notifications) slot.
+// `panel` (compact and expanded only) is the Notifications list the attention button
 // opens: drawn above everything in the same surface, which grows to the
 // column's content width and the list's height on the same morph, the input
 // still under it.
@@ -65,9 +65,9 @@ function Composer({
   context?: React.ReactNode
   /** Pickers (model), 28px; the waveform and timer while listening. */
   tools?: React.ReactNode
-  /** The Inbox icon, or the focus key (`Kbd`) while a modifier is held (compact and expanded only). */
+  /** The Notifications button, or the focus key (`Kbd`) while a modifier is held (compact and expanded only). */
   attention?: React.ReactNode
-  /** The Inbox list, above everything in the surface (compact and expanded only). */
+  /** The Notifications list, above everything in the surface (compact and expanded only). */
   panel?: React.ReactNode
   /** The main button (`ComposerMainButton`), last. */
   main?: React.ReactNode

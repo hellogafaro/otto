@@ -23,7 +23,7 @@ to their respective licenses.
 
 ---
 
-The Inbox wallpaper (apps/electron/src/renderer/components/wallpaper/) is
+Home's wallpaper (apps/electron/src/renderer/components/wallpaper/) is
 adapted from BB's apps/app/src/components/wallpaper
 (https://github.com/hellogafaro/bb), MIT License,
 Copyright (c) 2026 Michael Yong. BB's photo renderer and its shaders are in

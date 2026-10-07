@@ -178,7 +178,7 @@ navigate(routes.action.newChat({ agentId: 'claude' }))  // New chat with agent
 navigate(routes.action.deleteSession('id'))             // Delete session
 
 // Sidebar routes
-navigate(routes.sidebar.inbox())          // Show inbox
+navigate(routes.view.home())              // Show Home
 navigate(routes.sidebar.flagged())        // Show flagged
 ```
 

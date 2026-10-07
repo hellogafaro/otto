@@ -78,7 +78,7 @@ export const AGENT_COMMANDS = {
   'routines run': { channel: C.routines.RUN, args: ['<id>'], summary: 'One run now, as you, in the background; returns the run.' },
   'routines delete': { channel: C.routines.DELETE, args: ['<id>'], summary: 'Deletes it and its runs.' },
 
-  'notifications list': { channel: C.notifications.GET, args: [], read: true, summary: 'Your inbox: mentions and assignments, newest first.' },
+  'notifications list': { channel: C.notifications.GET, args: [], read: true, summary: 'Your notifications: mentions and assignments, newest first.' },
   'notifications count': { channel: C.notifications.GET_UNREAD_COUNT, args: [], read: true, summary: 'How many are unread.' },
 
   'search': { channel: C.search.RUN, args: ['<query>'], read: true, summary: 'One search over tasks, projects, comments, library documents and your chats.' },

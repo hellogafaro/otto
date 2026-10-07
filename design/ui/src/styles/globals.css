@@ -201,7 +201,7 @@
   box-shadow: var(--card-shadow, var(--shadow-xs, 0 1px 2px 0 rgb(0 0 0 / 0.05)));
 }
 
-/* Otto: the Inbox wallpaper (`InboxWallpaper` in the app sets `data-wallpaper`
+/* Otto: Home's wallpaper (`HomeWallpaper` in the app sets `data-wallpaper`
    on <html> while it shows). The window is one image under one overlay
    (`wallpaper-scrim`, white in light, black in dark) of three layers, each
    with its own strength (0 to 1) to tune:

@@ -1,5 +1,5 @@
 /**
- * OS Notifications Hook (native notifications and the dock badge; the inbox is `use-notifications.ts`)
+ * OS Notifications Hook (native notifications and the dock badge; Home's notifications are `use-notifications.ts`)
  *
  * Handles native OS notifications and badge Canvas rendering.
  * - Tracks window focus state

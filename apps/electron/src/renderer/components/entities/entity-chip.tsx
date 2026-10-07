@@ -36,7 +36,7 @@ const ICONS: Record<EntityType, LucideIcon | null> = {
   comment: MessageSquare,
 }
 
-/** Loads the lists chips read titles from (once per surface: a comment thread, the inbox). */
+/** Loads the lists chips read titles from (once per surface: a comment thread, the notifications). */
 export function useEntityData() {
   useWorkspaceMemberList()
   useTasks()

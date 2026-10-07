@@ -1,6 +1,6 @@
 /**
  * Typed references in text (`user:<id>`, `task:<id>`, `agent:<id>`, ...; `ENTITY_TOKEN`, shared with the server's mention
- * finder) and what they point at. Pure, so the chip, the comment text and the inbox share one reading:
+ * finder) and what they point at. Pure, so the chip, the comment text and the notifications share one reading:
  * the token stays plain in storage and its title is looked up when it is drawn, so a rename shows everywhere.
  */
 
@@ -60,7 +60,7 @@ export function describeEntity(entity: string, lists: EntityLists): EntityInfo |
     case 'agent':
       return { type, id, ...found(lists.agents), route: routes.view.agents(id) }
     case 'comment':
-      // No reader resolves a comment id to what it is on yet; the inbox opens `comment.entity` instead.
+      // No reader resolves a comment id to what it is on yet; a notification opens `comment.entity` instead.
       return { type, id, title: null, missing: false, route: null }
   }
 }
