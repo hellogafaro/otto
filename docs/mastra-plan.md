@@ -51,8 +51,9 @@ HTTP server, SDK-agent wrapper, gateway registry, vector database or extra memor
 Owner now approves clean official Mastra schemas in the same physical `otto.db`.
 The earlier separate-file proposal is rejected. Use exact vendor ownership protections
 and official narrow domain composition, not a fork. Common app UUID alignment is an
-explicit future goal, temporarily deferred for functional cutover; preserve existing
-IDs/references and never mass rekey merely for a common pattern.
+current authorized cutover goal; use direct `crypto.randomUUID`, remove NanoID and ID
+utilities, update concrete validators/references and test old-ID conversion on disposable
+data. Real persisted-ID conversion still requires a reviewed backup/procedure and approval.
 Otto owns identity, membership, creator-scoped connection lookup and transport delivery.
 Mastra owns each model/tool loop. Do not let Pi and Mastra own the same execution.
 
@@ -138,10 +139,10 @@ can cover run/message IDs but is not a blanket override for every adapter record
 These conflict with AGENTS' all-row `createId`, snake_case, workspace_id and domain-schema
 rules. No exception has been silently applied.
 
-Mixing these tables into `otto.db` is unsafe: `db/push.ts` lists only Drizzle app schemas
-and hides FTS/SQLite internals, so vendor tables would be considered unmanaged drop
-candidates. Proposed narrow exception is a separate local `mastra.db` owned exclusively
-by the official adapter, using its supported schema/IDs. Drizzle keeps users/members,
+Without exact ownership protection, `db/push.ts` would consider vendor tables unmanaged
+drop candidates. Approved solution is the same physical `otto.db`, with the seven pinned
+runtime tables excluded by exact name from Drizzle's introspection, not a prefix.
+The official adapter owns those schemas/IDs. Drizzle keeps users/members,
 agents, connections/secrets, tasks/projects/Library/routines; Mastra owns runtime sessions,
 checkpoints and conversation memory/history. Do not keep another independent copy of
 agent history or build a synchronization system. Existing human/chat facts and UI reads
@@ -150,7 +151,12 @@ Adapter tests use new disposable files only, never the user's database or `--for
 Owner approved the narrow exception on 8 October. Same-file disposable probes show
 official Memory/Workflows/Harness/ThreadState composition uses 7 tables/10 indexes;
 full store init uses 44/87. Exact ownership exclusion preserves forced app push while
-unrelated data loss still refuses. Actual production storage wiring is the next slice.
+unrelated data loss still refuses. Native-flag boot now runs app push then official
+domain initialization and verifies WAL/FULL/5000ms on the LibSQL connection before
+traffic; shutdown closes it. Extra unapproved vendor tables fail before initialization.
+The current chat slice still reads its existing app history only; the native memory
+store is not mirrored into it. Conversation-authority conversion/import is the next
+functional cutover, not claimed by storage initialization alone.
 
 ## Provider precheck, now deferred for MVP
 
@@ -366,3 +372,25 @@ plumbing to delete with Pi retirement, not a new registry. Independent review co
 new-scope key fallback and native behavior leaking into the default Pi path. Account
 candidate discovery, completed validation, safe errors and scopes are fixture verified;
 real account inference remains unverified.
+
+## Same-file official storage checkpoint
+
+Pinned official core/libsql/client versions are 1.75.0/1.25.1/0.18.0. The supported
+composite uses Memory, Workflows, Harness and ThreadState domains only. The exact set
+and attached indexes are protected from normal and forced app schema push; unrelated
+unknown tables still trigger data-loss refusal. Test both boot orders, repeated init,
+vendor/domain data preservation and unknown vendor rejection on disposable files.
+No prefix-wide ignore, adapter fork or second database is used.
+Independent review caught pooled connection pragmas not covering all handles. The
+runtime client is now deliberately single-handle, domains initialize sequentially,
+composite auto-init is disabled, then final pragmas are verified. Pinned client rejects
+an operation overlapping a retained transaction with `TRANSACTION_ACTIVE` instead of
+opening an unconfigured handle. Fixture verifies that behavior and concurrent native
+memory writes; multi-run retained-transaction compatibility remains a gate before
+runtime-memory ownership cutover. Final storage re-review has no required finding.
+
+Core's default ID generator is `crypto.randomUUID`, while official storage also has
+composite/internal keys. App-wide UUID conversion is now current authorized work,
+not deferred. The next slice removes `@otto/shared/id` and NanoID after direct call sites,
+untrusted-boundary validators, mentions, Library keys/paths and disposable old-ID
+reference mapping are verified. Existing user data is not automatically rekeyed at boot.

@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm'
+import { MASTRA_RUNTIME_TABLES } from './mastra-tables.ts'
 import { pushSQLiteSchema } from 'drizzle-kit/api'
 import * as agents from '../agents/schema.ts'
 import * as automations from '../automations/schema.ts'
@@ -42,7 +43,7 @@ function hideHandMadeTables(db: Db): Db {
       if (prop !== 'all') return value.bind(target)
       return (query: never) =>
         (value.call(target, query) as Record<string, unknown>[]).filter(
-          (row) => !['tableName', 'tableFrom', 'tbl_name', 'name'].some((key) => typeof row[key] === 'string' && HAND_MADE.test(row[key])),
+          (row) => !['tableName', 'tableFrom', 'tbl_name', 'name'].some((key) => typeof row[key] === 'string' && (HAND_MADE.test(row[key]) || MASTRA_RUNTIME_TABLES.has(row[key]))),
         )
     },
   })

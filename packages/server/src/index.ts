@@ -65,6 +65,7 @@ if (process.argv.includes('--generate-token')) {
 import type { WsRpcTlsOptions } from '@otto/server-core/transport'
 import { registerCoreRpcHandlers, cleanupSessionFileWatchForClient } from '@otto/server-core/handlers/rpc'
 import { SessionManager, setSessionPlatform, setSessionRuntimeHooks } from '@otto/server-core/sessions'
+import { openMastraStorage } from '@otto/server-core/sessions'
 import { initModelRefreshService, setFetcherPlatform } from '@otto/server-core/model-fetchers'
 import { setImageProcessor } from '@otto/server-core/services'
 import type { HandlerDeps } from '@otto/server-core/handlers'
@@ -135,6 +136,10 @@ try {
 }
 
 // Secrets are encrypted under ENCRYPTION_KEY and sessions are signed with BETTER_AUTH_SECRET, library files go where OTTO_STORAGE says: fail now, not at the first use.
+const mastraStorage = process.env.OTTO_MASTRA_CHAT === '1' ? await openMastraStorage().catch((error) => {
+  console.error(error instanceof Error ? error.message : 'Native runtime database initialization failed.')
+  process.exit(1)
+}) : undefined
 try {
   initSecrets()
   initUsersStore()
@@ -369,6 +374,7 @@ if (!isLocalBind && instance.protocol === 'ws') {
       '     2. Pass --allow-insecure-bind to override (NOT recommended for production)\n'
     )
     await instance.stop()
+    mastraStorage?.close()
     process.exit(1)
   }
 }
@@ -383,6 +389,7 @@ const shutdown = async () => {
     }
   }
   await instance.stop()
+  mastraStorage?.close()
   process.exit(0)
 }
 
