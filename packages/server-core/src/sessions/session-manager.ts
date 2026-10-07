@@ -4003,7 +4003,8 @@ export class SessionManager implements ISessionManager {
         getSessionInfoFn: (sessionId?: string) => {
           const targetId = sessionId ?? managed.id
           const session = this.sessions.get(targetId)
-          if (!session || session.createdBy !== managed.createdBy) return null
+          const userId = userIdOf(managed.createdBy)
+          if (!session || targetId !== managed.id && !(userId && this.canSee(userId)(session))) return null
           return {
             id: session.id,
             name: session.name ?? session.id,
@@ -4024,7 +4025,8 @@ export class SessionManager implements ISessionManager {
           const limit = Math.min(options?.limit ?? DEFAULT_LIMIT, MAX_LIMIT)
           const offset = options?.offset ?? 0
 
-          let sessions = this.getSessions(managed.workspace.id).filter(s => this.sessions.get(s.id)?.createdBy === managed.createdBy)
+          // The chats the creator is a member of, like `ownChat`.
+          let sessions = this.getSessions(managed.workspace.id, userIdOf(managed.createdBy) ?? null)
 
           // Filter
           if (options?.status) {
@@ -5428,19 +5430,24 @@ export class SessionManager implements ISessionManager {
     this.addMembersInternal(managed, actors)
   }
 
-  /** The creator removes a member (never themselves, never the primary agent); the removed person loses the chat. */
+  /** The creator removes a member (never themselves, never the primary agent, never the other person of a DM); the removed person loses the chat. */
   async removeSessionMember(sessionId: string, callerId: string | null, actor: string): Promise<void> {
     const managed = this.memberChat(sessionId, callerId)
     if (managed.createdBy !== `user:${callerId}`) throw domainError('forbidden', 'Only the creator of a chat can remove people from it')
     if (actor === managed.createdBy) throw domainError('invalid', 'The creator cannot be removed')
     if (managed.agentId && actor === `agent:${managed.agentId}`) throw domainError('invalid', "The chat's own agent cannot be removed")
+    if (managed.dmKey && isPersonActor(actor)) throw domainError('invalid', 'A direct message keeps its two people')
     this.removeMemberInternal(managed, actor)
   }
 
-  /** A member leaves the chat (the creator cannot: they would leave it with nobody who can manage it). */
+  /**
+   * A member leaves the chat (the creator cannot: they would leave it with nobody who can manage it). Nobody leaves a
+   * DM: it is the pair's, so "message Ana" always finds it with both in it.
+   */
   async leaveSession(sessionId: string, callerId: string | null): Promise<void> {
     const managed = this.memberChat(sessionId, callerId)
     if (managed.createdBy === `user:${callerId}`) throw domainError('invalid', 'The creator cannot leave the chat')
+    if (managed.dmKey) throw domainError('invalid', 'A direct message cannot be left')
     this.removeMemberInternal(managed, `user:${callerId}`)
   }
 

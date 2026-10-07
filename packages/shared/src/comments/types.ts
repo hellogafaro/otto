@@ -31,5 +31,5 @@ export type Comment = {
   updatedAt: number
 }
 
-/** A page of an entity's comments and events, oldest first; `more` = there are older rows. */
-export type CommentPage = { items: Comment[]; more: boolean }
+/** A page of an entity's comments and events, oldest first; `more` = there are older rows, `earlier` = how many. */
+export type CommentPage = { items: Comment[]; more: boolean; earlier: number }

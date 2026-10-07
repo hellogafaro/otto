@@ -156,3 +156,169 @@ describe('agent handoffs', () => {
     expect(chat.messageQueue).toEqual([])
   })
 })
+
+// --- The rules wired in the session manager, on the test database (scripts/test-preload.ts: never ~/.otto) ---
+
+const { users } = await import('../../../shared/src/users/schema.ts')
+const { initDb } = await import('@otto/shared/db')
+const { createWorkspaceMember } = await import('@otto/shared/workspaces')
+const { addWorkspace, saveConfig } = await import('@otto/shared/config')
+const { getChatLog } = await import('@otto/shared/sessions')
+const { getChat } = await import('../../../shared/src/sessions/chats.ts')
+
+const CAL = 'user:calccccccccc'
+for (const [actor, name] of [[ANA, 'Ana'], [BEN, 'Ben'], [CAL, 'Cal']] as const) {
+  const now = new Date()
+  initDb().insert(users).values({ id: actor.slice(5), name, email: `${name.toLowerCase()}@example.test`, createdAt: now, updatedAt: now }).onConflictDoNothing().run()
+}
+const code = (promise: Promise<unknown>) => promise.then(() => 'ok', (error: { code?: string }) => error.code ?? String(error))
+const userMsg = (id: string, sender: string, content: string, timestamp: number) => ({ id, role: 'user' as const, content, timestamp, sender })
+const agentMsg = (id: string, agentId: string, content: string, timestamp: number) => ({ id, role: 'assistant' as const, content, timestamp, author: `agent:${agentId}` })
+
+describe('who replies, in the session manager (a turn is running)', () => {
+  const scout = createAgent({ workspaceId: WS.id, title: 'Scout', provider: 'anthropic', createdBy: ANA })
+  const writer = createAgent({ workspaceId: WS.id, title: 'Writer', provider: 'anthropic', createdBy: ANA })
+
+  /** A chat whose `scout` turn is running (no live process: nothing can be steered, so a message for it queues). */
+  function running(id: string, people: string[]) {
+    const { sm, sessions } = manager()
+    const chat = createManagedSession({ id, createdBy: people[0], agentId: scout.id, lastMessageAt: 1 }, WS, {
+      members: [...people.map((actor) => ({ actor, readAt: 1 })), { actor: `agent:${scout.id}`, readAt: null }],
+      messagesLoaded: true,
+    })
+    chat.isProcessing = true
+    chat.turnAgentId = scout.id
+    sessions.set(chat.id, chat)
+    const send = (sender: string, text: string) => sm.sendMessage(chat.id, text, undefined, undefined, { sender }, undefined, undefined, () => {})
+    const queued = () => chat.messageQueue.map((entry: { agentIds?: string[] }) => entry.agentIds)
+    return { chat, send, queued }
+  }
+
+  it('several people: no mention wakes nobody, a people-only mention neither; an agent mention queues that agent, which joins', async () => {
+    const { chat, send, queued } = running('routegroup01', [ANA, BEN])
+    await send(BEN, 'hello all')
+    await send(BEN, `ping ${ANA}`)
+    expect(queued()).toEqual([])
+    await send(BEN, `agent:${writer.id} draft it`)
+    expect(queued()).toEqual([[writer.id]])
+    expect(chat.members.map((m: { actor: string }) => m.actor)).toContain(`agent:${writer.id}`)
+    await send(ANA, `agent:${scout.id} and this`)
+    expect(queued()).toEqual([[writer.id], [scout.id]])
+    // every message is in the log with its sender, the ones nobody answers too
+    expect(chat.messages.map((m: { sender?: string }) => m.sender)).toEqual([BEN, BEN, BEN, ANA])
+  })
+
+  it('one person: no mention queues the primary agent; a people-only mention wakes nobody', async () => {
+    const { send, queued } = running('routesolo001', [ANA])
+    await send(ANA, 'and also')
+    await send(ANA, `tell ${BEN} later`)
+    expect(queued()).toEqual([[scout.id]])
+  })
+
+  it('an idle chat of several people with a primary agent: a message with no mention runs nothing and is news for the others', async () => {
+    const { sm, sessions, events } = manager()
+    const chat = createManagedSession({ id: 'routeidle001', createdBy: ANA, agentId: scout.id, lastMessageAt: 1 }, WS, {
+      members: [{ actor: ANA, readAt: 1 }, { actor: BEN, readAt: 1 }, { actor: CAL, readAt: 1 }, { actor: `agent:${scout.id}`, readAt: null }],
+      messagesLoaded: true,
+    })
+    sessions.set(chat.id, chat)
+    await sm.sendMessage(chat.id, 'standup at 10', undefined, undefined, { sender: BEN })
+    expect(chat.isProcessing).toBe(false)
+    expect(chat.turnAgentId).toBeUndefined()
+    // unread for Ana and Cal, read for Ben (who wrote it); Ben's reply later is read by Ben, unread for the others again
+    expect(events.filter((e) => e.type === 'complete').map((e) => [e.userIds[0], e.hasUnread])).toEqual([
+      ['anaaaaaaaaaa', true], ['benbbbbbbbbb', false], ['calccccccccc', true],
+    ])
+    sm.setActiveViewingSession(chat.id, WS.id, 'anaaaaaaaaaa')
+    await Bun.sleep(1)
+    events.length = 0
+    await sm.sendMessage(chat.id, 'see you there', undefined, undefined, { sender: ANA })
+    expect(events.filter((e) => e.type === 'complete').map((e) => [e.userIds[0], e.hasUnread])).toEqual([
+      ['anaaaaaaaaaa', false], ['benbbbbbbbbb', true], ['calccccccccc', true],
+    ])
+    const unread = (userId: string) => sm.getSessions(WS.id, userId).find((s) => s.id === chat.id)!.hasUnread
+    expect([unread('anaaaaaaaaaa'), unread('benbbbbbbbbb'), unread('calccccccccc')]).toEqual([false, true, true])
+  })
+})
+
+describe('the cursor: what each agent is given, and where it stands (metadata.agents)', () => {
+  const scout = createAgent({ workspaceId: WS.id, title: 'Scout', provider: 'anthropic', createdBy: ANA })
+  const writer = createAgent({ workspaceId: WS.id, title: 'Writer', provider: 'anthropic', createdBy: ANA })
+
+  async function chatWithLog(id: string) {
+    const { sm, sessions } = manager()
+    const chat = createManagedSession({ id, createdBy: ANA, agentId: scout.id, lastMessageAt: 1 }, WS, {
+      members: [{ actor: ANA, readAt: 1 }, { actor: BEN, readAt: 1 }, { actor: `agent:${scout.id}`, readAt: null }, { actor: `agent:${writer.id}`, readAt: null }],
+      messagesLoaded: true,
+    })
+    chat.messages = [
+      userMsg('u1', ANA, 'first question', 1),
+      agentMsg('a1', scout.id, 'scout answer', 2),
+      agentMsg('a2', writer.id, 'my earlier draft', 3),
+      userMsg('u2', BEN, 'second thought', 4),
+      userMsg('u3', BEN, `agent:${writer.id} what now`, 5),
+    ]
+    sessions.set(chat.id, chat)
+    ;(sm as any).persistSession(chat)
+    await sm.flushSession(chat.id)
+    const position = (rowId: string) => getChatLog(WS.id, chat.id, 0).find((row) => row.id === rowId)!.position
+    const prompt = (agentId: string) => {
+      chat.turnAgentId = agentId
+      return (sm as any).buildTurnPrompt(chat, `agent:${writer.id} what now`, { ids: ['u3'], author: BEN }) as Promise<string>
+    }
+    return { sm, chat, position, prompt }
+  }
+
+  it('after its cursor: every other author, attributed, its own replies left out; then the cursor moves to the newest row and is stored', async () => {
+    const { sm, chat, position, prompt } = await chatWithLog('cursorchat01')
+    chat.agents = { [writer.id]: { seen: position('u1'), sdkSessionId: 'pi-writer-1' } }
+    expect(await prompt(writer.id)).toBe(`[Scout] scout answer\n\n[Ben] second thought\n\n[Ben] agent:${writer.id} what now`)
+    expect(chat.agents[writer.id]).toEqual({ seen: position('u3'), sdkSessionId: 'pi-writer-1' })
+    await sm.flushSession(chat.id)
+    expect((getChat(WS.id, WS.rootPath, chat.id) as { agents?: unknown }).agents).toEqual({ [writer.id]: { seen: position('u3'), sdkSessionId: 'pi-writer-1' } })
+    // nothing new since: only the message it answers
+    expect(await prompt(writer.id)).toBe(`[Ben] agent:${writer.id} what now`)
+  })
+
+  it('without a cursor (an agent new to the chat): what came after its own last reply', async () => {
+    const { chat, position, prompt } = await chatWithLog('cursorchat02')
+    expect(await prompt(writer.id)).toBe(`[Ben] second thought\n\n[Ben] agent:${writer.id} what now`)
+    expect(chat.agents?.[writer.id]?.seen).toBe(position('u3'))
+  })
+})
+
+describe('direct messages', () => {
+  saveConfig({ workspaces: [] } as never)
+  const ws = addWorkspace({ name: 'DMs', rootPath: `/tmp/otto-mp-dm-${process.pid}` })
+  for (const actor of [ANA, BEN, CAL]) createWorkspaceMember(ws.id, actor.slice(5), actor === ANA ? 'owner' : 'member')
+  const dm = (sm: SessionManager, from: string, to: string) => sm.createSession(ws.id, { dmWith: to.slice(5) }, { createdBy: from, emitCreatedEvent: false })
+
+  it('one per pair (dm_key, find-or-create from either side), with no agent; nobody leaves it or is removed from it', async () => {
+    const { sm } = manager()
+    const first = await dm(sm, ANA, BEN)
+    expect(first).toMatchObject({ dmKey: `${ANA}|${BEN}`, members: [ANA, BEN] })
+    expect(first.agentId).toBeUndefined()
+    expect((await dm(sm, ANA, BEN)).id).toBe(first.id)
+    expect((await dm(sm, BEN, ANA)).id).toBe(first.id)
+    expect(await code(dm(sm, ANA, ANA))).toBe('invalid')
+    expect(await code(sm.createSession(ws.id, { dmWith: 'notamember01' }, { createdBy: ANA }))).toBe('invalid')
+
+    expect(await code(sm.leaveSession(first.id, 'benbbbbbbbbb'))).toBe('invalid')
+    expect(await code(sm.removeSessionMember(first.id, 'anaaaaaaaaaa', BEN))).toBe('invalid')
+    expect(sm.canSeeSession(first.id, 'benbbbbbbbbb')).toBe(true)
+    expect(sm.canSeeSession(first.id, 'calccccccccc')).toBe(false)
+  })
+
+  it('a DM that gains a third person is a group: it loses its key, and the pair next gets a new DM', async () => {
+    const { sm } = manager()
+    const first = await dm(sm, ANA, CAL)
+    await sm.addSessionMembers(first.id, 'anaaaaaaaaaa', [BEN])
+    const group = sm.getSessions(ws.id, 'calccccccccc').find((s) => s.id === first.id)!
+    expect(group.dmKey).toBeUndefined()
+    expect(group.members).toEqual([ANA, CAL, BEN])
+    expect(getChat(ws.id, ws.rootPath, first.id)?.dmKey).toBeUndefined()
+    const next = await dm(sm, CAL, ANA)
+    expect(next.id).not.toBe(first.id)
+    expect(next.dmKey).toBe(`${ANA}|${CAL}`)
+  })
+})

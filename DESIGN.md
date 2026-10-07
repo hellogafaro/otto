@@ -583,7 +583,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   | Sides | 8 | the container's padding |
 
   No divider lines, no titles on the header, group 1, group 2 or the footer, so
-  the hierarchy reads from the space alone: header, Inbox and Search, the
+  the hierarchy reads from the space alone: header, Home and Search, the
   pages, the page's own content, the footer. Groups 1, 2 and the footer never
   scroll; group 3 does, inside itself. Icons only the groups are 8px apart (the
   header ends 8px above the first one) and a 16px-wide hairline
@@ -593,22 +593,27 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
   itself. Icons only the groups are 8px apart and a 16px-wide hairline
   (`bg-foreground/10`) centered in each gap marks them (`SidebarGroup`, the
   header's bottom and the footer's top carry it); group 3 is hidden.
-  - **Header** (group 0): the Otto mark alone, 20px (`size-5`, `text-foreground`), no
-    name, in a 28px row 20px from the top of the window and 20px above the first
-    group, so its center is the top axis (y 34; roomy titles sit at y 64 from 768px, the compact chat header's center is 40). The sheet below 768px keeps the same 8px inset (plus
+  - **Header** (group 0): the Otto mark alone, no name, in a 28px row 20px from
+    the top of the window and 20px above the first group. The mark is a 32px
+    ghost button (`Button` `ghost` `icon`: 4px around the 24px mark, the same
+    hover and pressed fills and `md` 8 corners as every 32px control, the focus
+    ring for the keyboard only) that opens Home, its tooltip "Home" then the
+    `nav.home` `Kbd`. It overhangs the 28px row by 2px each way and sits 2px in,
+    so the mark's center is where the old 20px mark's was: x 26, the top axis
+    (y 34; roomy titles sit at y 64 from 768px, the compact chat header's center is 40). The sheet below 768px keeps the same 8px inset (plus
     the iOS safe area), so its mark is on the axis of the page's menu button. On Electron the header is the window's drag region,
     its row clears the macOS traffic lights (68px in; icons only, the row sits
     below them) and Back / Forward end it as two 28px ghost icon buttons with
     their keys in the tooltip (history back and forward, see Navigation). The
     web app has neither: the browser has its own.
-  - **Group 1, Inbox and Search**, only these two: Inbox opens your
-    notifications (`/inbox`, see Inbox) and shows their unread count in the row's
+  - **Group 1, Home and Search**, only these two: Home (`House`, `/home`, see
+    Home) shows your unread notifications' count in the row's
     right slot (12px muted tabular, the slot's time look; `99+` at most, nothing
-    at 0, hidden icons only), filled while the Inbox is open; Search opens the
+    at 0, hidden icons only), filled while Home or its Notifications list is open; Search opens the
     command palette on All (⌘K does the same).
   - **Group 2, the pages**, in this order: Tasks, Projects, Chats, Routines
     (`Clock`), Library (`Library`: documents and files in one place). Both groups
-    are small arrays in `app-sidebar.tsx` (`inboxSearch`, `pages`: id, icon, label,
+    are small arrays in `app-sidebar.tsx` (`homeSearch`, `pages`: id, icon, label,
     optional handler, optional count). A row with no route yet is a placeholder,
     shown not linked: no handler, no pointer, no tab stop (`aria-disabled`),
     no open state, and still fully readable (not dimmed); the layout is final.
@@ -694,7 +699,7 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     `AppSidebar` while the route is a settings page, Skills or Sources; the owner's
     call, after Capy's settings sidebar). Settings is a world of its own, a few
     dozen pages that are configuration, not work, so it is the ONE place whose
-    sidebar content is replaced whole: the mark, Inbox and Search, the pages,
+    sidebar content is replaced whole: the mark, Home and Search, the pages,
     Pins and Recent and the workspace-menu footer all go. The same `Sidebar`
     (one width, icons only below 1024px, the sheet below 768px), no second
     framework. In it: **Back to app** in the header row where the mark was
@@ -942,7 +947,7 @@ no shadow.
   blocks are flat muted blocks.
 - **The list card: a dense list page's table in the Settings card.** A page of
   many small rows with small details (Chats, Tasks and a project's Tasks tab,
-  Routines, Inbox) puts its list in ONE `ListCard` (list-group.tsx): the
+  Routines, Home's Notifications) puts its list in ONE `ListCard` (list-group.tsx): the
   Settings card itself (`PageCard`: `bg-card`, the card edge, `shadow-xs`, `xl` 12
   corners) with the table **8px in** (`p-2`, the ONE padding of a list page, so
   the table is inset from the card's edge, not docked to it: the owner's
@@ -950,7 +955,7 @@ no shadow.
   bordered `PageWrap`, its `--wrap-*` tokens and its 29px nested corner are gone).
   Inside, Otto v1's table is unchanged (`ListGroup` rounded tinted bands, chevron
   first, rounded 44px rows, no hairlines; Data patterns 1); the bands and rows
-  pad 8px, so with the card's 8px the chevron (Inbox: the row's media) is 16px
+  pad 8px, so with the card's 8px the chevron (Notifications: the row's media) is 16px
   in, on the page title's line (`PAGE_INSET`; measured at 1440: card x 488, its
   1px edge, chevron x 505, title text x 504). The card wraps the list block
   only: the title row and the filter chips (`FilterBar`) stay above it, 12px
@@ -1200,7 +1205,7 @@ status color (Archived neutral). A row (44px): the status icon
        hover or focus (always on touch). Empty groups are not drawn; a last
        group such as Archived starts folded (open when Archived is the filter).
      - **Row**: 44px, `md` 8 corners, plain on the card (no divider), 8px
-       in, the whole row opens the item (outside a group, Inbox, the same row
+       in, the whole row opens the item (outside a group, Notifications, the same row
        with its media on the chevron's column): icon, title (13px,
        truncated; a read chat at `foreground/80`, an unread one at full
        foreground with its blue dot), small marks after the title (working,
@@ -1381,7 +1386,7 @@ as a card).
 | `PageScroll` | | scroll region with edge fade, no scrollbar |
 | `PageColumn`, `PageSection`, `PageCard` | `fill`; `title`, `description`, `action`, `danger` | every page but the open chat (the column's first child is the title slot): 24px sides from 768px, 40px gaps, 40px at the end; `fill` for a centerpiece page (fills the height, no scroll of its own); see Page anatomy |
 | `PageCenterpiece` | `className` | the one big card of a long-form page; column width, fills the height |
-| `ListCard`, `ListGroup`, `ListRow`, `ListRowSkeleton` | `className`; `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `menu` (right-click, never a ⋯), `menuProps`, `active`, `muted` | Otto v1's table in `ListCard` (the Settings card, `PageCard`, 8px in, the one padding of a list page), no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows, both 8px in; a `ListRow` outside a group (Inbox) is the same rounded row with its media first; `size="sm"` is the 32px row for a list inside a popover (the composer's Inbox list); the loading row; see Data patterns |
+| `ListCard`, `ListGroup`, `ListRow`, `ListRowSkeleton` | `className`; `icon`, `label`, `count`, `tint`, `defaultOpen`, `action`; `media`, `title`, `marks`, `meta`, `end`, `menu` (right-click, never a ⋯), `menuProps`, `active`, `muted` | Otto v1's table in `ListCard` (the Settings card, `PageCard`, 8px in, the one padding of a list page), no hairlines: 36px rounded tinted bands (chevron first), 44px rounded rows, both 8px in; a `ListRow` outside a group (Notifications, Home's cards) is the same rounded row with its media first; `size="sm"` is the 32px row for a list inside a popover (the composer's Notifications list); the loading row; see Data patterns |
 | `FilterMenu`, `FilterBar`, `NoResults` | `fields` (`key`, `label`, `icon`, `options` or on/off), `values` (`string[]` per field), `onChange`; `isLabel`, `isAnyOfLabel`, `removeLabel` | the header's ghost Filter (checkable values, several per field) and the 28px chips of the active filters; nothing matches: the stock `Empty` centered in the free space; see Filters |
 | `Count` | | a count right after its label, softer (`muted-foreground/70`, tabular) |
 | `Gallery`, `GalleryItem`, `GalleryItemSkeleton` | `columns`; `title`, `icon`, `media`, `cover`, `label`, `badge`, `ratio`, `menu` (right-click, never a ⋯), `current`, `disabled`, `muted`, `render`; `ratio` | tiles with the title under them; see Components, Galleries |
@@ -1394,9 +1399,9 @@ navigation wired into the floating navigation), `AppSidebar` (with `SettingsBack
 `SettingsSidebarContent` swapped in under Settings), `SettingsPage`, `useParentView`, `useSidecar` (and `SidecarHost`, the
 `aside` of the shell's frame).
 
-### Inbox wallpaper
+### Home wallpaper
 
-The Inbox (only the Inbox route, decided by the owner) shows a photo under the
+Home (only Home and its Notifications list, decided by the owner) shows a photo under the
 whole window, the sidebar included; every other page is the plain frame.
 
 - **Photo.** Clouds in light, the night sky in dark (`assets/wallpaper/`, 1920px
@@ -1405,8 +1410,8 @@ whole window, the sidebar included; every other page is the plain frame.
   four brightness steps, the photo's own colors, 2px cells, half resolution
   capped at 1920 x 1080, 30 fps). Paused while the tab is hidden; one still
   frame under reduced motion; the plain photo without WebGL2.
-- **Mount.** `InboxWallpaper`, mounted by the shell on the Inbox only, first in
-  the sidebar wrapper. Leaving the Inbox removes the canvas and its WebGL
+- **Mount.** `HomeWallpaper` (`components/wallpaper/`), mounted by the shell on Home only, first in
+  the sidebar wrapper. Leaving Home removes the canvas and its WebGL
   context; it fades in over 240ms once the photo is decoded.
 - **One overlay** over the photo, white in light and black in dark, of three
   layers with a strength each (globals.css): `--wallpaper-overlay` uniform
@@ -1419,8 +1424,8 @@ whole window, the sidebar included; every other page is the plain frame.
   only its text, icons and row fills over the photo. Muted text is one step
   stronger there (`--muted-foreground` 0.42 light, 0.82 dark). The phone's sidebar
   sheet floats over the page, so it is glass.
-- **Surfaces turn to glass** (`data-wallpaper` on `<html>`): cards (the Inbox's
-  `ListCard` among them) and the composer keep their layer color translucent (card 70% white in
+- **Surfaces turn to glass** (`data-wallpaper` on `<html>`): cards (Home's four
+  `ListCard`s among them) and the composer keep their layer color translucent (card 70% white in
   light, 0.19 at 65% in dark) over `blur(24px)`, which smooths the dither under
   their text; their edge is `foreground` 10% (light) or white 14% (dark) instead
   of the solid grey ring. State fills stay `foreground` alphas.
@@ -2029,10 +2034,16 @@ task reads "What is left here?", not "task:<id> What is left here?".
 **Dictation** (v1's, `transcription:create`). The mic is the main button
 while the composer is empty, in every look. While listening the composer row
 (the compact bar: in place of the text) shows × (Cancel, Esc), the level as 4px
-bars 2px apart, the elapsed time (m:ss) and Done (↵). The bars start flat (a row of 4px
-dots) and rise only with the mic level; the speech range (up to ~6 kHz) spans
-the width, mirrored from the center. Done stops the recording; the main
-button is `loading` ("Transcribing") while the server transcribes it, then
+bars 2px apart, the elapsed time (m:ss, tabular numbers, against Done) and Done (↵).
+The waveform fills the row between × and the time (in the compact, expanded and
+full looks alike; the field and its placeholder are hidden, the row is 32px
+and nothing around it moves, and a blur does not collapse the bar). The bar
+count comes from the measured width (`barCount`, a ResizeObserver). The bars
+start flat (a row of 4px dots) and rise only with the live mic level; the
+speech range (up to ~6 kHz, `barScale`) spans the width, mirrored from the
+center. With reduced motion the level steps four times a second and nothing
+glides. Done stops the recording; the row reads "Transcribing…" and the main
+button is `loading` (its label unchanged) while the server transcribes it, then
 the text is typed in at the cursor (a space before it after a word). A failure
 is a toast, no retry action ("Unable to transcribe", "No speech detected",
 "Connect OpenRouter to dictate", "Allow microphone access to dictate", "The

@@ -1,6 +1,7 @@
 /**
  * The activity of a task or project (`entity` is `task:<id>` or `project:<id>`): its comments and events in one
- * list, oldest first, read a page at a time (the newest `PAGE` first; `loadEarlier` adds the page before). Reloads
+ * list, oldest first, read a page at a time (the newest `PAGE` first; `loadEarlier` adds the page before;
+ * `earlier` is how many items are not shown yet). Reloads
  * when the server says the comments changed (a comment, or a task change that wrote an event), keeping as many
  * items as were shown. The mutations return a `MutationResult` like the other domain hooks; only the author may
  * edit or delete a comment (`forbidden`), `updateComment` may carry the `updatedAt` last seen (`conflict`).
@@ -10,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from '@workspace/ui/components/sonner'
 import { useAppShellContext } from '@/context/app-shell-context'
+import { earlierAnchor, prependPage } from '@/components/comments/activity-feed-model'
 import type { Comment } from '../../shared/types'
 import { useLiveData } from './use-live-data'
 
@@ -22,6 +24,7 @@ interface State {
   key: string | null
   items: Comment[]
   more: boolean
+  earlier: number
 }
 
 export function useActivity(entity: string) {
@@ -29,7 +32,7 @@ export function useActivity(entity: string) {
   const { activeWorkspaceId } = useAppShellContext()
   // Remembers what it was loaded for, so another entity or workspace never shows the old rows.
   const key = activeWorkspaceId ? `${activeWorkspaceId}/${entity}` : null
-  const [state, setState] = useState<State>({ key: null, items: NONE, more: false })
+  const [state, setState] = useState<State>({ key: null, items: NONE, more: false, earlier: 0 })
   const latest = useRef(state)
   latest.current = state
   const [loadingEarlier, setLoadingEarlier] = useState(false)
@@ -45,21 +48,21 @@ export function useActivity(entity: string) {
     const shown = latest.current.key === key ? latest.current.items.length : 0
     try {
       const page = await window.electronAPI.getComments(entity, { limit: Math.min(MAX_PAGE, Math.max(ACTIVITY_PAGE, shown)) })
-      setState({ key, items: page.items, more: page.more })
+      setState({ key, items: page.items, more: page.more, earlier: page.earlier })
     } catch (error) {
       fail(error)
-      setState((prev) => (prev.key === key ? prev : { key, items: NONE, more: false })) // settle: loaded, with what it had
+      setState((prev) => (prev.key === key ? prev : { key, items: NONE, more: false, earlier: 0 })) // settle: loaded, with what it had
     }
   }, [key, entity, fail])
 
   const loadEarlier = useCallback(async () => {
     const current = latest.current
-    const first = current.items.find((item) => !item.id.startsWith('created-'))
+    const first = earlierAnchor(current.items)
     if (!key || current.key !== key || !current.more || !first) return
     setLoadingEarlier(true)
     try {
-      const page = await window.electronAPI.getComments(entity, { before: first.id, limit: ACTIVITY_PAGE })
-      setState((prev) => (prev.key === key ? { key, items: [...page.items, ...prev.items], more: page.more } : prev))
+      const page = await window.electronAPI.getComments(entity, { before: first, limit: ACTIVITY_PAGE })
+      setState((prev) => (prev.key === key ? { key, items: prependPage(prev.items, page.items), more: page.more, earlier: page.earlier } : prev))
     } catch (error) {
       fail(error)
     } finally {
@@ -86,6 +89,7 @@ export function useActivity(entity: string) {
   return {
     items: current ? state.items : NONE,
     more: current && state.more,
+    earlier: current ? state.earlier : 0,
     loaded: current && key !== null,
     loadingEarlier,
     loadEarlier,

@@ -1,20 +1,21 @@
 /**
  * ActivityFeed - the activity of a task or a project (`entity`: `task:<id>`, `project:<id>`), for their pages under
- * the description (Otto v1's Activity): one chronological feed of events ("Maria changed the status from Todo to
- * Done", a muted line on a dot) and comments (28px avatar, name, time, "edited", the content with its mentions as
- * chips) along one hairline, oldest first; the newest 50 first, "Show earlier activity" loads the 50 before. Then
- * the comment box: "Leave a comment", Attach (a file goes to the Library and its chip into the text) and Send. A
- * comment is sent, never autosaved: Send or ⌘/Ctrl+Enter, and a comment you wrote has a ⋯ with Edit (in place,
- * Save / Cancel) and Delete (asks first); events cannot be changed. Typing `@` opens a list of people; picking one
+ * the description (Otto v1's Activity): one chronological feed of events ("Maria changed the status from ○ Todo to
+ * ✓ Done", a quiet line with the actor's small avatar; consecutive ones set closer, `layoutActivity`) and comments
+ * (28px avatar, name in the transcript's colors, "You" for yours, time, "edited", the markdown with its mentions as
+ * chips) along one hairline, oldest first; the newest 50 first, "{n} earlier" loads the 50 before. Then the comment
+ * box: "Leave a comment", Attach (a file goes to the Library and its chip into the text) and Send. A comment is
+ * sent, never autosaved: Send or ⌘/Ctrl+Enter, and a comment you wrote has a right-click menu (never a ⋯) with Edit
+ * (in place, Save / Cancel) and Delete (asks first); events cannot be changed. Typing `@` opens a list of people; picking one
  * puts their token (`user:<id>`) in the text, which notifies them. Events never notify. New items show at once
  * here and, through the live push, for everyone else.
  */
 
 import * as React from 'react'
 import { createPortal } from 'react-dom'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
-import { MoreHorizontal, Paperclip, Pencil, Trash2 } from 'lucide-react'
+import { ChevronUp, Paperclip, Pencil, Trash2 } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,14 +29,15 @@ import {
 } from '@workspace/ui/components/alert-dialog'
 import { Button } from '@workspace/ui/components/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@workspace/ui/components/dropdown-menu'
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@workspace/ui/components/context-menu'
 import { Kbd } from '@workspace/ui/components/kbd'
+import { messageAuthorColors } from '@workspace/ui/components/message'
 import { Skeleton } from '@workspace/ui/components/skeleton'
 import { toast } from '@workspace/ui/components/sonner'
 import { Textarea } from '@workspace/ui/components/textarea'
@@ -43,10 +45,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/component
 import { getDateLocale } from '@otto/shared/i18n'
 import { MAX_FILE_BYTES } from '@otto/shared/library/limits'
 import { formatHotkeyDisplay } from '@/actions/registry'
+import { useTranscriptPeople, type TranscriptPerson } from '@/components/app-shell/chat-message'
+import { authorNameClass } from '@/components/app-shell/chat-transcript'
 import { MENU_LIST, MENU_ROW, MENU_ROW_HIGHLIGHT, MENU_SURFACE } from '@/components/ui/menu-styles'
 import { useEntityData } from '@/components/entities/entity-chip'
 import { EntityText } from '@/components/entities/entity-text'
 import { ActorAvatar } from '@/components/people/actor-avatar'
+import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
 import { useActivity } from '@/hooks/use-activity'
 import { useProjects } from '@/hooks/use-projects'
 import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
@@ -56,6 +61,7 @@ import { useDuration } from '@/pages/tasks/task-time-section'
 import { statusLabelKey } from '@/pages/tasks/task-row'
 import { shortTimeAgo } from '@/utils/session'
 import type { ActivityEvent, Comment, TaskStatus } from '../../../shared/types'
+import { assigneeChange, layoutActivity } from './activity-feed-model'
 import { getMentionCandidates, getMentionQuery, insertMention, type MentionQuery } from './comment-mentions'
 
 const SEND_KEY = formatHotkeyDisplay('mod+↵')
@@ -305,67 +311,119 @@ function CommentComposer({ onSend }: { onSend: (content: string) => Promise<bool
   )
 }
 
-/** The words of one event, a whole sentence with the actor's name ("Maria changed the status from Todo to Done"). */
-function useEventText() {
+const Value = ({ children }: { children?: React.ReactNode }) => <span className="text-foreground">{children}</span>
+
+/** A status with its icon, inline on the 20px line. */
+function StatusValue({ status }: { status: string }) {
+  const { t } = useTranslation()
+  return (
+    <span className="inline-flex h-5 items-center gap-1 align-top text-foreground">
+      <TaskStatusIcon status={status as TaskStatus} />
+      {t(statusLabelKey(status as TaskStatus))}
+    </span>
+  )
+}
+
+/** People, each with their 16px avatar, comma separated. */
+function PeopleValue({ actors }: { actors: string[] }) {
+  const { nameOf } = useWorkspaceMembers()
+  return actors.map((actor, index) => (
+    <React.Fragment key={actor}>
+      {index > 0 && ', '}
+      <span className="inline-flex h-5 items-center gap-1 align-top text-foreground">
+        <ActorAvatar actor={actor} name={nameOf(actor)} className="data-[size=sm]:size-4" />
+        {nameOf(actor)}
+      </span>
+    </React.Fragment>
+  ))
+}
+
+/** One event as a sentence with the actor's name and the values in the text color ("Maria changed the status from ○ Todo to ✓ Done"). */
+function EventText({ event, actor }: { event: ActivityEvent; actor: string }) {
   const { t, i18n } = useTranslation()
   const { nameOf } = useWorkspaceMembers()
   const { projects } = useProjects()
   const duration = useDuration()
   const locale = getDateLocale(i18n.language)
-  const names = (actors: string[]) => actors.map(nameOf).join(', ')
-  const status = (value: string) => t(statusLabelKey(value as TaskStatus))
-  return (event: ActivityEvent, actor: string): string => {
-    const name = nameOf(actor)
-    switch (event.kind) {
-      case 'created': return t('activity.created', { name })
-      case 'status': return t('activity.status', { name, from: status(event.from), to: status(event.to) })
-      case 'title': return t('activity.renamed', { name, to: event.to })
-      case 'due': return event.to === null
-        ? t('activity.dueRemoved', { name })
-        : t('activity.dueSet', { name, date: format(event.to, 'MMM d, yyyy', { locale }) })
-      case 'project': return t('activity.project', { name, project: projects.find((p) => p.id === event.to)?.title ?? t('activity.unavailable') })
-      case 'assignees': {
-        const added = event.to.filter((who) => !event.from.includes(who))
-        const removed = event.from.filter((who) => !event.to.includes(who))
-        if (added.length && removed.length) return t('activity.reassigned', { name, added: names(added), removed: names(removed) })
-        return removed.length ? t('activity.unassigned', { name, people: names(removed) }) : t('activity.assigned', { name, people: names(added) })
-      }
-      case 'links': {
-        const { added, removed } = event
-        if (added.length && removed.length) return t('activity.linksChanged', { name })
-        const list = added.length ? added : removed
-        if (list.length === 1) return t(added.length ? 'activity.linkAdded' : 'activity.linkRemoved', { name, title: list[0]!.title })
-        return t(added.length ? 'activity.linksAdded' : 'activity.linksRemoved', { name, count: list.length })
-      }
-      case 'time': return t('activity.time', { name, duration: duration(event.time) })
+  const name = <Value>{nameOf(actor)}</Value>
+  const say = (key: string, parts: Record<string, React.ReactElement> = {}, values?: Record<string, unknown>) => (
+    <Trans t={t} i18nKey={key} values={values} components={{ actor: name, ...parts }} />
+  )
+  const day = (at: number) => <Value>{format(at, 'MMM d, yyyy', { locale })}</Value>
+  const project = (id: string) => <Value>{projects.find((p) => p.id === id)?.title ?? t('activity.unavailable')}</Value>
+  switch (event.kind) {
+    case 'created': return say('activity.created')
+    case 'status': return say('activity.status', { from: <StatusValue status={event.from} />, to: <StatusValue status={event.to} /> })
+    case 'title': return say('activity.renamed', { from: <Value>{event.from}</Value>, to: <Value>{event.to}</Value> })
+    case 'due':
+      if (event.to === null) return say('activity.dueRemoved')
+      if (event.from === null) return say('activity.dueSet', { to: day(event.to) })
+      return say('activity.dueChanged', { from: day(event.from), to: day(event.to) })
+    case 'project': return say('activity.project', { from: project(event.from), to: project(event.to) })
+    case 'assignees': {
+      const { added, removed } = assigneeChange(event)
+      if (added.length && removed.length) return say('activity.reassigned', { added: <PeopleValue actors={added} />, removed: <PeopleValue actors={removed} /> })
+      return removed.length
+        ? say('activity.unassigned', { people: <PeopleValue actors={removed} /> })
+        : say('activity.assigned', { people: <PeopleValue actors={added} /> })
     }
+    case 'links': {
+      const { added, removed } = event
+      if (added.length && removed.length) return say('activity.linksChanged')
+      const list = added.length ? added : removed
+      if (list.length === 1) return say(added.length ? 'activity.linkAdded' : 'activity.linkRemoved', { link: <Value>{list[0]!.title}</Value> })
+      return say(added.length ? 'activity.linksAdded' : 'activity.linksRemoved', {}, { count: list.length })
+    }
+    case 'time': return say('activity.time', { duration: <Value>{duration(event.time)}</Value> })
   }
 }
 
-/** An event: a muted line on the timeline's dot ("Maria logged 1h · 5m"). */
-function EventItem({ comment, text }: { comment: Comment; text: string }) {
+/** The compact time ("now", "5m"), the full date and time on hover. */
+function When({ at }: { at: number }) {
+  const { i18n } = useTranslation()
   return (
-    <li data-kind="event" className={cn(ITEM, 'min-h-5 pl-10 text-sm text-muted-foreground')}>
-      <span aria-hidden className="absolute top-1.5 left-2.5 z-10 size-2 rounded-full bg-muted-foreground/70 ring-4 ring-(--activity-bg)" />
-      <span className="break-words">{text}</span>
+    <time dateTime={new Date(at).toISOString()} title={format(at, 'PPpp', { locale: getDateLocale(i18n.language) })} className="shrink-0 text-xs text-muted-foreground tabular-nums">
+      {shortTimeAgo(at)}
+    </time>
+  )
+}
+
+/** An event: one quiet line, the actor's 20px avatar on the timeline, the sentence, " · " and the time. */
+function EventItem({ comment, className }: { comment: Comment; className?: string }) {
+  const { nameOf } = useWorkspaceMembers()
+  return (
+    <li data-kind="event" className={cn(ITEM, 'min-h-5 pl-10 text-sm/5 text-muted-foreground', className)}>
+      <span className="absolute top-0 left-1 z-10 flex rounded-xs ring-4 ring-(--activity-bg)">
+        <ActorAvatar actor={comment.createdBy} name={nameOf(comment.createdBy)} />
+      </span>
+      <span className="break-words">{comment.event && <EventText event={comment.event} actor={comment.createdBy} />}</span>
       <span aria-hidden> · </span>
-      <span className="text-xs tabular-nums">{shortTimeAgo(comment.createdAt)}</span>
+      <When at={comment.createdAt} />
     </li>
   )
 }
 
+/**
+ * A comment: the author's 28px avatar on the timeline, their name in their transcript color ("You" for your own),
+ * the time and "Edited", the markdown under it. Your own has a right-click menu (a long press on touch, the menu
+ * key when focused): Edit E and Delete ⌫; never a ⋯ button.
+ */
 function CommentItem({
   comment,
-  name,
+  person,
+  nameClass,
   mine,
   onSave,
   onDelete,
+  className,
 }: {
   comment: Comment
-  name: string
+  person: TranscriptPerson
+  nameClass: string
   mine: boolean
   onSave: (comment: Comment, content: string) => Promise<boolean>
   onDelete: (comment: Comment) => void
+  className?: string
 }) {
   const { t } = useTranslation()
   const [draft, setDraft] = React.useState<string | null>(null)
@@ -379,45 +437,15 @@ function CommentItem({
     if (saved) setDraft(null)
   }
 
-  return (
-    <li data-comment-id={comment.id} data-kind="comment" className={cn(ITEM, 'group/comment flex gap-3')}>
-      <span className="relative z-10 h-fit rounded-sm bg-(--activity-bg) ring-4 ring-(--activity-bg)">
-        <ActorAvatar actor={comment.createdBy} name={name} size="md" />
-      </span>
+  const content = (
+    <>
+      <span className="relative z-10 h-fit rounded-sm bg-(--activity-bg) ring-4 ring-(--activity-bg)">{person.avatar}</span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="relative flex h-5 min-w-0 items-center gap-2 pr-7">
-          <span className="truncate text-sm font-medium">{name}</span>
-          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{shortTimeAgo(comment.createdAt)}</span>
+        <div className="flex h-5 min-w-0 items-center gap-2">
+          <span className={cn('truncate text-sm font-medium', nameClass)}>{person.name}</span>
+          {person.isAgent && <span className="shrink-0 rounded-xs bg-muted px-1 text-[10px] leading-4 text-muted-foreground">{t('entities.type_agent')}</span>}
+          <When at={comment.createdAt} />
           {comment.updatedAt > comment.createdAt && <span className="shrink-0 text-xs text-muted-foreground">{t('comments.edited')}</span>}
-          {mine && draft === null && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={(
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={t('common.moreActions')}
-                    className="absolute top-1/2 right-0 -translate-y-1/2 opacity-0 group-focus-within/comment:opacity-100 group-hover/comment:opacity-100 aria-expanded:opacity-100 not-pointer-fine:opacity-100"
-                  />
-                )}
-              >
-                <MoreHorizontal />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem shortcut="E" onClick={() => setDraft(comment.content)}>
-                    <Pencil />
-                    {t('common.edit')}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" shortcut="⌫" onClick={() => onDelete(comment)}>
-                    <Trash2 />
-                    {t('common.delete')}
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
         {draft === null ? (
           <EntityText content={comment.content} className="min-w-0 text-sm break-words" />
@@ -439,16 +467,44 @@ function CommentItem({
           </div>
         )}
       </div>
-    </li>
+    </>
+  )
+  const itemClass = cn(ITEM, 'flex gap-3', className)
+  if (!mine || draft !== null) return <li data-comment-id={comment.id} data-kind="comment" className={itemClass}>{content}</li>
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={<li />}
+        data-comment-id={comment.id}
+        data-kind="comment"
+        tabIndex={0}
+        className={cn(itemClass, 'rounded-sm outline-none select-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring')}
+      >
+        {content}
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuGroup>
+          <ContextMenuItem shortcut="E" onClick={() => setDraft(comment.content)}>
+            <Pencil />
+            {t('common.edit')}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem variant="destructive" shortcut="⌫" onClick={() => onDelete(comment)}>
+            <Trash2 />
+            {t('common.delete')}
+          </ContextMenuItem>
+        </ContextMenuGroup>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
 export function ActivityFeed({ entity, className }: { entity: string; className?: string }) {
   const { t } = useTranslation()
   useEntityData()
-  const { items, more, loaded, loadingEarlier, loadEarlier, createComment, updateComment, deleteComment } = useActivity(entity)
-  const { nameOf, me } = useWorkspaceMembers()
-  const eventText = useEventText()
+  const { items, more, earlier, loaded, loadingEarlier, loadEarlier, createComment, updateComment, deleteComment } = useActivity(entity)
+  const { me, personOf } = useTranscriptPeople()
+  const blocks = React.useMemo(() => layoutActivity(items), [items])
   const [deleting, setDeleting] = React.useState<Comment | null>(null)
   const [deletePending, setDeletePending] = React.useState(false)
   const [deleteFailed, setDeleteFailed] = React.useState(false)
@@ -486,25 +542,34 @@ export function ActivityFeed({ entity, className }: { entity: string; className?
         <>
           {more && (
             <Button variant="ghost" size="compact" className="self-start" loading={loadingEarlier} onClick={() => void loadEarlier()}>
-              {t('activity.showEarlier')}
+              {!loadingEarlier && <ChevronUp />}
+              {t('activity.earlier', { count: earlier })}
             </Button>
           )}
-          <ol className="flex flex-col gap-4">
-            {items.map((item) => item.type === 'event' && item.event ? (
-              <EventItem key={item.id} comment={item} text={eventText(item.event, item.createdBy)} />
-            ) : item.type === 'event' ? null : (
-              <CommentItem
-                key={item.id}
-                comment={item}
-                name={nameOf(item.createdBy)}
-                mine={item.createdBy === me}
-                onSave={save}
-                onDelete={(comment) => {
-                  setDeleteFailed(false)
-                  setDeleting(comment)
-                }}
-              />
-            ))}
+          {/* Blocks 16px apart; the lines of one run of events 8px apart. */}
+          <ol className="flex flex-col">
+            {blocks.map((block, index) => {
+              const gap = index > 0 && 'mt-4'
+              if (block.type === 'events') {
+                return block.events.map((item, line) => <EventItem key={item.id} comment={item} className={line > 0 ? 'mt-2' : gap || undefined} />)
+              }
+              const { comment } = block
+              return (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  person={personOf(comment.createdBy)}
+                  nameClass={authorNameClass(comment.createdBy, me, messageAuthorColors)}
+                  mine={comment.createdBy === me}
+                  onSave={save}
+                  onDelete={(item) => {
+                    setDeleteFailed(false)
+                    setDeleting(item)
+                  }}
+                  className={gap || undefined}
+                />
+              )
+            })}
           </ol>
         </>
       )}

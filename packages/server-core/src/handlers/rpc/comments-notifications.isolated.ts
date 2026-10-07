@@ -66,7 +66,7 @@ async function makeTask(title = 'Fix login', assignees = [`user:${B}`]) {
   return { project, task, entity: `task:${task.id}` }
 }
 type Row = { id: string; type: string; createdBy: string; content: string; event?: { kind: string; [key: string]: unknown }; createdAt: number }
-type Page = { items: Row[]; more: boolean }
+type Page = { items: Row[]; more: boolean; earlier: number }
 const feed = async (as: Ctx, entity: string, page?: object) => (await callAs(as, C.comments.GET, entity, page)) as Page
 /** What a feed shows: an event by its kind, a comment by its text. */
 const shown = (page: Page) => page.items.map((row) => row.event?.kind ?? row.content)
@@ -122,7 +122,7 @@ describe('comments and notifications RPC', () => {
     expect(await codeOf(callAs(ctxA, C.comments.CREATE, 42, 'x'))).toBe('not_found')
     expect(await codeOf(callAs(ctxOther, C.comments.CREATE, entity, 'x'))).toBe('not_found')
     expect(await codeOf(callAs(ctxA, C.comments.CREATE, entity, ' '))).toBe('invalid')
-    expect(await callAs(ctxOther, C.comments.GET, entity)).toEqual({ items: [], more: false })
+    expect(await callAs(ctxOther, C.comments.GET, entity)).toEqual({ items: [], more: false, earlier: 0 })
   })
 
   it('comments on a project work the same way', async () => {
@@ -190,18 +190,18 @@ describe('comments and notifications RPC', () => {
 
     // pages, newest first; the created event comes with the oldest page
     const last = await feed(ctxA, entity, { limit: 2 })
-    expect([shown(last), last.more]).toEqual([['due', 'time'], true])
+    expect([shown(last), last.more, last.earlier]).toEqual([['due', 'time'], true, 3]) // two stored and the created event
     const middle = await feed(ctxA, entity, { limit: 1, before: last.items[0]!.id })
-    expect([shown(middle), middle.more]).toEqual([['on it'], true]) // not the oldest page: no created event
+    expect([shown(middle), middle.more, middle.earlier]).toEqual([['on it'], true, 2]) // not the oldest page: no created event
     const oldest = await feed(ctxA, entity, { limit: 2, before: middle.items[0]!.id })
-    expect([shown(oldest), oldest.more]).toEqual([['created', 'status'], false])
-    expect(await feed(ctxA, entity, { before: 'unknown00000' })).toEqual({ items: [], more: false })
+    expect([shown(oldest), oldest.more, oldest.earlier]).toEqual([['created', 'status'], false, 0])
+    expect(await feed(ctxA, entity, { before: 'unknown00000' })).toEqual({ items: [], more: false, earlier: 0 })
 
     // another workspace reads nothing, whatever the page
-    expect(await feed(ctxOther, entity)).toEqual({ items: [], more: false })
-    expect(await feed(ctxOther, entity, { limit: 1, before: last.items[0]!.id })).toEqual({ items: [], more: false })
+    expect(await feed(ctxOther, entity)).toEqual({ items: [], more: false, earlier: 0 })
+    expect(await feed(ctxOther, entity, { limit: 1, before: last.items[0]!.id })).toEqual({ items: [], more: false, earlier: 0 })
     // a project has no created event
-    expect(await feed(ctxA, `project:${task.projectId}`)).toEqual({ items: [], more: false })
+    expect(await feed(ctxA, `project:${task.projectId}`)).toEqual({ items: [], more: false, earlier: 0 })
   })
 
   it('activity events never notify or change the unread count; only a newly assigned person is told', async () => {

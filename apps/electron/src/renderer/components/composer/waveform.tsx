@@ -13,6 +13,22 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useElapsed } from './use-dictation'
 
+/** How many 4px bars with 2px gaps fit a box `width` wide inside its 8px padding: n bars and n - 1 gaps. */
+export function barCount(width: number) {
+  return Math.max(0, Math.floor((width - 16 + 2) / 6))
+}
+
+/**
+ * The bar's height, 0.2 (a 4px dot in the 20px row) to 1: the level of the spectrum bin at its distance from the
+ * center, so the lowest voice bins sit in the middle and the bins up to ~6 kHz (`speechBins`) reach the edges.
+ */
+export function barScale(levels: ArrayLike<number>, index: number, count: number, speechBins: number) {
+  const half = count / 2
+  const fromCenter = half > 0 ? Math.min(1, Math.abs(index + 0.5 - half) / half) : 0
+  const level = (levels[Math.min(speechBins - 1, Math.floor(fromCenter * speechBins))] ?? 0) / 255
+  return 0.2 + level * 0.8
+}
+
 export function Dictation() {
   const elapsed = useElapsed(true)
   return (
@@ -40,8 +56,7 @@ function Waveform() {
   useEffect(() => {
     const box = bars.current
     if (!box) return
-    // Inside the 8px padding: n bars and n - 1 gaps.
-    const observer = new ResizeObserver(() => setCount(Math.max(0, Math.floor((box.clientWidth - 16 + 2) / 6))))
+    const observer = new ResizeObserver(() => setCount(barCount(box.clientWidth)))
     observer.observe(box)
     return () => observer.disconnect()
   }, [])
@@ -62,6 +77,8 @@ function Waveform() {
         analyser.fftSize = 64
         context.createMediaStreamSource(granted).connect(analyser)
         const levels = new Uint8Array(analyser.frequencyBinCount)
+        // Bins are sampleRate / fftSize wide (750 Hz at 48 kHz): the ones below ~6 kHz hold speech.
+        const speechBins = Math.max(1, Math.min(levels.length, Math.round(6000 / (context.sampleRate / analyser.fftSize))))
         // Reduced motion: the level still shows, but steps four times a second instead of every frame.
         const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
         let drawn = 0
@@ -71,12 +88,8 @@ function Waveform() {
           drawn = at
           analyser.getByteFrequencyData(levels)
           const children = bars.current?.children ?? []
-          const half = children.length / 2
           for (let i = 0; i < children.length; i++) {
-            const fromCenter = Math.abs(i - half) / half
-            // Bins are 750 Hz wide (fftSize 64 at 48 kHz): 0-7 hold speech.
-            const level = (levels[Math.floor(fromCenter * 7.99)] ?? 0) / 255
-            ;(children[i] as HTMLElement).style.transform = `scaleY(${0.2 + level * 0.8})`
+            ;(children[i] as HTMLElement).style.transform = `scaleY(${barScale(levels, i, children.length, speechBins)})`
           }
         }
         draw()

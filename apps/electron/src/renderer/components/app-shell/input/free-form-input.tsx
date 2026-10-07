@@ -382,6 +382,8 @@ export function FreeFormInput({ context, handleRef }: {
         onBlur={(event) => {
           // Focus moving inside the composer (to + or Send) is not leaving it.
           if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+          // Pressing Done unmounts the focused button: that is not leaving, and the row must not change size.
+          if (dictating) return
           dispatch({ type: 'blur', empty })
         }}
         onDragOver={(event) => {

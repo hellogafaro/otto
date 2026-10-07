@@ -34,10 +34,12 @@ export function registerCommentsHandlers(server: RpcServer, deps: HandlerDeps): 
     const [type, id = ''] = String(entity).split(':')
     // The oldest page gets it; an empty page `before` a row (unknown, or the oldest, whose page had it) does not.
     const oldest = !result.more && (page?.before === undefined || result.items.length > 0)
-    const task = oldest && type === 'task' ? getTask(workspaceId, id) : undefined
+    const task = (oldest || result.more) && type === 'task' ? getTask(workspaceId, id) : undefined
     if (!task) return result
+    // Not on this page yet: it is one of the earlier items.
+    if (result.more) return { ...result, earlier: result.earlier + 1 }
     const created = { id: `created-${task.id}`, entity, type: 'event', createdBy: task.createdBy, content: '', event: { kind: 'created' }, createdAt: task.createdAt, updatedAt: task.createdAt } as const
-    return { items: [created, ...result.items], more: false }
+    return { items: [created, ...result.items], more: false, earlier: 0 }
   })
 
   server.handle(RPC_CHANNELS.comments.CREATE, (ctx, entity: string, content: string) => {

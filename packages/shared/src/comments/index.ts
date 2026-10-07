@@ -139,8 +139,8 @@ export function createEvent(input: { workspaceId: string; entity: string; create
 
 /**
  * A page of the entity's comments and events: the newest `limit` (50 by default, 1 to 500) strictly
- * before the row `before` (by creation, then insertion), oldest first; `more` = older rows remain. An
- * unknown `before` is an empty page.
+ * before the row `before` (by creation, then insertion), oldest first; `more` = older rows remain,
+ * `earlier` = how many. An unknown `before` is an empty page.
  */
 export function getComments(workspaceId: string, entity: string, page: { before?: string; limit?: number } = {}, db: Db | Tx = initDb()): CommentPage {
   const limit = Number.isFinite(page.limit) ? Math.min(500, Math.max(1, Math.floor(page.limit!))) : 50
@@ -152,7 +152,7 @@ export function getComments(workspaceId: string, entity: string, page: { before?
       .from(comments)
       .where(and(scope, eq(comments.id, String(page.before))))
       .get()
-    if (!anchor) return { items: [], more: false }
+    if (!anchor) return { items: [], more: false, earlier: 0 }
     const at = anchor.createdAt.getTime()
     older = sql`(${comments.createdAt} < ${at} or (${comments.createdAt} = ${at} and rowid < ${anchor.rowid}))`
   }
@@ -163,7 +163,9 @@ export function getComments(workspaceId: string, entity: string, page: { before?
     .orderBy(desc(comments.createdAt), sql`rowid desc`)
     .limit(limit + 1)
     .all()
-  return { items: rows.slice(0, limit).reverse().map(toComment), more: rows.length > limit }
+  const more = rows.length > limit
+  const earlier = more ? db.select({ count: sql<number>`count(*)` }).from(comments).where(and(scope, older)).get()!.count - limit : 0
+  return { items: rows.slice(0, limit).reverse().map(toComment), more, earlier }
 }
 
 /** These comments, whatever their entity; the ones that do not exist are left out. */

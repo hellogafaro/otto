@@ -84,13 +84,13 @@ otto library create <item>
 otto library update <id> <patch>
     patch: any of {title, parentId, content}; replacing content needs expectedUpdatedAt (the item's updatedAt).
 otto chats list
-    Your chats in this workspace (chats are private to their creator).
+    The chats you are a member of in this workspace (chats are seen by their members only).
 otto chats get <id> [page]
     A chat with a page of its messages. page: {limit? (max 500), beforeId?}
 otto chats create [options]
     A new chat of yours. options: {name?, agentId? (default agent if left out), projectId?, labels?, sessionStatus?, isFlagged?}
 otto chats send <id> <message>
-    Sends a message to another chat of yours (not this one); its agent answers there. Returns once the message is saved.
+    Sends a message to another chat you are in (not this one); it is answered as if you typed it (its agent, or the agents it mentions in a shared chat). Returns once the message is saved.
 otto chats search <query>
     Your chats whose messages match the words.
 otto labels list

@@ -34,7 +34,7 @@ export const AGENT_COMMANDS = {
   'projects create': { channel: C.projects.CREATE, args: ['<project>'], summary: 'project: {title, description?, resources?}' },
   'projects update': { channel: C.projects.UPDATE, args: ['<id>', '<patch>'], summary: 'patch: any of {title, description, resources, expectedUpdatedAt}. resources REPLACES the list: to add or remove a link, `otto projects get <id>` and send its resources with the link added ({type: "url"|"library"|"chat", title, ref}) or removed.' },
 
-  'comments list': { channel: C.comments.GET, args: ['<entity>', '[page]'], read: true, summary: 'An entity\'s ("task:<id>", "project:<id>", ...) comments and activity events, oldest first: {items, more} (more = older items remain). An item\'s type is "comment" | "event"; an event has event = {kind, ...}. page: {before? (an item id), limit? (max 500)}' },
+  'comments list': { channel: C.comments.GET, args: ['<entity>', '[page]'], read: true, summary: 'An entity\'s ("task:<id>", "project:<id>", ...) comments and activity events, oldest first: {items, more, earlier} (more = older items remain, earlier = how many). An item\'s type is "comment" | "event"; an event has event = {kind, ...}. page: {before? (an item id), limit? (max 500)}' },
   'comments create': { channel: C.comments.CREATE, args: ['<entity>', '<content>'], summary: 'Adds a comment as you. A "user:<id>" token in the content notifies that member.' },
 
   'library list': { channel: C.library.LIST, args: ['[filter]'], read: true, summary: 'Library items (files, documents, folders). filter: {parentId? (a folder, null = the top), type? ("file"|"document"|"folder"), createdBy?}' },
@@ -43,10 +43,10 @@ export const AGENT_COMMANDS = {
   'library create': { channel: C.library.CREATE, args: ['<item>'], summary: 'item: {title, mime ("text/markdown" makes a document), content: {encoding: "utf8"|"base64", data}, parentId?}' },
   'library update': { channel: C.library.UPDATE, args: ['<id>', '<patch>'], summary: 'patch: any of {title, parentId, content}; replacing content needs expectedUpdatedAt (the item\'s updatedAt).' },
 
-  'chats list': { channel: C.sessions.GET, args: [], read: true, summary: 'Your chats in this workspace (chats are private to their creator).' },
+  'chats list': { channel: C.sessions.GET, args: [], read: true, summary: 'The chats you are a member of in this workspace (chats are seen by their members only).' },
   'chats get': { channel: C.sessions.GET_MESSAGES, args: ['<id>', '[page]'], read: true, summary: 'A chat with a page of its messages. page: {limit? (max 500), beforeId?}' },
   'chats create': { channel: C.sessions.CREATE, args: ['[options]'], only: ['name', 'agentId', 'projectId', 'labels', 'sessionStatus', 'isFlagged'], summary: 'A new chat of yours. options: {name?, agentId? (default agent if left out), projectId?, labels?, sessionStatus?, isFlagged?}' },
-  'chats send': { channel: C.sessions.SEND_MESSAGE, args: ['<id>', '<message>'], summary: 'Sends a message to another chat of yours (not this one); its agent answers there. Returns once the message is saved.' },
+  'chats send': { channel: C.sessions.SEND_MESSAGE, args: ['<id>', '<message>'], summary: 'Sends a message to another chat you are in (not this one); it is answered as if you typed it (its agent, or the agents it mentions in a shared chat). Returns once the message is saved.' },
   'chats search': { channel: C.sessions.SEARCH_CONTENT, args: ['<query>'], read: true, summary: 'Your chats whose messages match the words.' },
 
   'labels list': { channel: C.labels.LIST, args: [], read: true, summary: 'The label tree (members read; owners change labels).' },

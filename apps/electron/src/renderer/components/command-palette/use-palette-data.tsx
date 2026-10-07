@@ -48,6 +48,7 @@ import { usePins } from '@/hooks/use-pins'
 import { useProjects } from '@/hooks/use-projects'
 import { useRecents } from '@/hooks/use-recents'
 import { useTasks } from '@/hooks/use-tasks'
+import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import { logOut } from '@/lib/log-out'
 import { navigate, routes, type Route } from '@/lib/navigate'
 import { isWebUI } from '@/lib/platform'
@@ -102,10 +103,13 @@ export function usePaletteData(): PaletteData<PaletteItem> {
 
   const remoteWorkspaceId = workspaces.find((w) => w.id === activeWorkspaceId)?.remoteServer?.remoteWorkspaceId
 
+  // A DM or a group is titled by the other people in it, as the viewer sees it
+  const people = useWorkspaceMembers()
+
   return React.useMemo(() => {
     const chatItem = (session: SessionMeta): PaletteItem => ({
       key: itemKey({ type: 'chat', id: session.id }),
-      title: getSessionTitle(session),
+      title: getSessionTitle(session, people),
       icon: <ChatStatusIcon id={getSessionStatus(session)} statuses={sessionStatuses} />,
       meta: session.lastMessageAt
         ? formatDistanceToNowStrict(new Date(session.lastMessageAt), { locale: shortTimeLocale as Locale, roundingMethod: 'floor' })
@@ -225,5 +229,5 @@ export function usePaletteData(): PaletteData<PaletteItem> {
       })),
       actions,
     }
-  }, [t, sessions, activeWorkspaceId, remoteWorkspaceId, sessionStatuses, tasks, projects, libraryItems, pinned, recent, skills, sources, execute, getHotkeyDisplay, mode, setMode, canGoBack, canGoForward])
+  }, [t, people, sessions, activeWorkspaceId, remoteWorkspaceId, sessionStatuses, tasks, projects, libraryItems, pinned, recent, skills, sources, execute, getHotkeyDisplay, mode, setMode, canGoBack, canGoForward])
 }

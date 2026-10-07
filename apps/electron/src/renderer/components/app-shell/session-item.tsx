@@ -28,6 +28,7 @@ import { hasTransferTargets } from "./transfer-targets"
 import { getSessionTitle, highlightMatch, hasUnreadMeta, shortTimeLocale } from "@/utils/session"
 import { useSessionListContext } from "@/context/session-list-context"
 import { useAppShellContext } from "@/context/app-shell-context"
+import { useWorkspaceMembers } from "@/hooks/use-workspace-members"
 import type { SessionMeta } from "@/atoms/sessions"
 import { extractLabelId } from "@otto/shared/labels"
 
@@ -66,7 +67,7 @@ export function SessionItem({
   const [menuOpen, setMenuOpen] = useState(false)
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
   const [compactMenuOpen, setCompactMenuOpen] = useState(false)
-  const title = getSessionTitle(item)
+  const title = getSessionTitle(item, useWorkspaceMembers())
   // For the active session, prefer logical match count over ripgrep count
   const activeMatch = ctx.activeChatMatchInfo
   const isActiveSession = isSelected && activeMatch?.sessionId === item.id

@@ -33,9 +33,9 @@ const resourceLoader: ResourceLoader = {
   reload: async () => {},
 }
 
-/** One turn in a chat folder; returns what the model was sent (all earlier turns included). */
-async function runTurn(sessionDir: string, cwd: string, prompt: string): Promise<string> {
-  const piDir = join(sessionDir, '.pi-sessions')
+/** One turn in a chat folder (`agentId`: another agent's own session, as pi-agent-server keeps it); returns what the model was sent (all earlier turns included). */
+async function runTurn(sessionDir: string, cwd: string, prompt: string, agentId?: string): Promise<string> {
+  const piDir = agentId ? join(sessionDir, '.pi-sessions', agentId) : join(sessionDir, '.pi-sessions')
   mkdirSync(piDir, { recursive: true })
   const { session } = await createAgentSession({
     cwd, model: MODEL, modelRuntime, resourceLoader, tools: [],
@@ -165,6 +165,30 @@ describe('Pi session durability', () => {
 
     await deletePiSession(a.workspace, 'chat1')
     expect(double.objects.has(objectKey)).toBe(false)
+  })
+
+  test('another agent of the chat has its own file and object (session-<agent_id>.jsonl), restored and deleted with the chat', async () => {
+    const { double, node, objectKey } = setup()
+    const WRITER = 'agentwriter1'
+    const a = node('a')
+    await runTurn(a.dir, a.cwd, 'primary agent context')
+    await runTurn(a.dir, a.cwd, 'writer context only', WRITER)
+    const primary = await uploadPiSession(a.workspace, 'chat1', a.dir)
+    const writer = await uploadPiSession(a.workspace, 'chat1', a.dir, undefined, WRITER)
+    const writerKey = `workspaces/ws1/chats/chat1/session-${WRITER}.jsonl`
+    expect(primary && writer && primary.hash !== writer.hash).toBe(true)
+    expect(new TextDecoder().decode(double.objects.get(writerKey)?.bytes)).toContain('writer context only')
+    expect(new TextDecoder().decode(double.objects.get(objectKey)?.bytes)).not.toContain('writer context only')
+
+    const b = node('b')
+    expect(await restorePiSession(b.workspace, 'chat1', b.dir, b.cwd, writer, WRITER)).toBe(true)
+    const seen = await runTurn(b.dir, b.cwd, 'go on', WRITER)
+    expect(seen).toContain('writer context only')
+    expect(seen).not.toContain('primary agent context')
+
+    await deletePiSession(a.workspace, 'chat1', [WRITER])
+    expect(double.objects.has(objectKey)).toBe(false)
+    expect(double.objects.has(writerKey)).toBe(false)
   })
 
   test('on the disk driver nothing happens', async () => {
