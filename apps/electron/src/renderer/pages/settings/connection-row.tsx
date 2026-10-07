@@ -5,7 +5,7 @@
  * reply runs, a custom endpoint's address). A shared connection is read-only for anyone but an owner.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronRight, Ellipsis, KeyRound, LogIn, Star, TriangleAlert, Trash2, Zap } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
@@ -31,7 +31,8 @@ export interface ConnectionActions {
   onSignIn?: () => void
   /** Replace its API key. */
   onChangeKey?: () => void
-  onTest: () => void
+  /** Test it with a real request; resolves to what the row shows. */
+  onTest: () => Promise<{ success: boolean; error?: string }>
   onDelete?: () => void
 }
 
@@ -56,6 +57,26 @@ export function ConnectionRow({
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  // The test takes seconds: the ⋯ button spins meanwhile, and the result leads the line for a few seconds
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<string | null>(null)
+  useEffect(() => {
+    if (!testResult) return
+    const timer = setTimeout(() => setTestResult(null), 8000)
+    return () => clearTimeout(timer)
+  }, [testResult])
+  const test = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const result = await actions.onTest()
+      setTestResult(result.success ? t('connections.testPassed', { name: connection.name }) : result.error || t('settings.ai.validationFailed'))
+    } catch {
+      setTestResult(t('connections.testFailed'))
+    } finally {
+      setTesting(false)
+    }
+  }
   const claude = connection.type === CLAUDE_CODE_CONNECTION_TYPE
   const claudeStatus = useClaudeCodeStatus(claude)
   const problem = claude && claudeStatus.status?.found === false
@@ -73,11 +94,11 @@ export function ConnectionRow({
             {connection.isDefault && <Badge variant="outline">{t('common.default')}</Badge>}
           </span>
         }
-        // A problem leads the line, so a narrow row keeps it when the rest is cut
-        description={[problem, connectionKindLabel(connection, t), scopeLabel(connection.scope, t)].filter(Boolean).join(' · ')}
+        // A test result or a problem leads the line, so a narrow row keeps it when the rest is cut
+        description={[testResult ?? problem, connectionKindLabel(connection, t), scopeLabel(connection.scope, t)].filter(Boolean).join(' · ')}
       >
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" aria-label={t('common.moreActions')} />}>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-compact" loading={testing} aria-label={t('common.moreActions')} />}>
             <Ellipsis />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
@@ -99,7 +120,7 @@ export function ConnectionRow({
                 {t('connections.changeKey')}
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem onClick={actions.onTest}>
+            <DropdownMenuItem onClick={() => void test()}>
               <Zap />
               {t('settings.ai.validateConnection')}
             </DropdownMenuItem>

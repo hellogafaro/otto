@@ -29,7 +29,7 @@ import {
   resolveBackendHostTooling as resolveHostToolingPaths,
   resolveBackendRuntimePaths,
 } from './internal/runtime-resolver.ts';
-import { buildPiRuntime, fetchPiModels, testPiConnection } from './internal/pi-runtime.ts';
+import { buildPiRuntime, checkProviderEndpoint, fetchPiModels, testPiConnection } from './internal/pi-runtime.ts';
 
 /** Create the agent of a chat: always a `PiAgent`. */
 export function createBackend(config: BackendConfig): PiAgent {
@@ -203,8 +203,9 @@ export async function fetchBackendModels(args: {
 }
 
 /**
- * Stored-connection validation: the connection exists and holds what its auth type needs (Pi checks the rest
- * when it connects).
+ * Stored-connection validation: the connection holds what its auth type needs, an OAuth sign-in has not lapsed,
+ * and an API provider answers its models list with the stored key (no network for OAuth). A `claude-code`
+ * connection is checked by the RPC handler (it runs the server's own `claude`).
  */
 export async function validateStoredBackendConnection(args: {
   slug: string;
@@ -216,15 +217,22 @@ export async function validateStoredBackendConnection(args: {
       return { success: false, error: 'Connection not found' };
     }
 
-    const hasCredentials = await getCredentialManager().hasLlmCredentials(
-      args.slug,
-      connection.authType,
-      connection.scope,
-    );
-    if (!hasCredentials) {
+    const cm = getCredentialManager();
+    if (connection.authType === 'oauth') {
+      const oauth = await cm.getLlmOAuth(args.slug, connection.scope);
+      if (!oauth) return { success: false, error: 'No credentials configured' };
+      // An expired token with a refresh token is renewed when Pi connects
+      if (oauth.expiresAt && oauth.expiresAt <= Date.now() && !oauth.refreshToken) {
+        return { success: false, error: 'Sign-in expired. Sign in again.' };
+      }
+      return { success: true };
+    }
+
+    if (!(await cm.hasLlmCredentials(args.slug, connection.authType, connection.scope))) {
       return { success: false, error: 'No credentials configured' };
     }
-    return { success: true };
+    const apiKey = await cm.getLlmApiKey(args.slug, connection.scope);
+    return (await checkProviderEndpoint(connection, apiKey)) ?? { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }

@@ -3,9 +3,9 @@ import type { BackendConfig } from '../types.ts';
 import type { ResolvedBackendRuntimePaths } from './runtime-resolver.ts';
 import type { LlmConnection } from '../../../config/storage.ts';
 import type { ModelFetchResult } from '../../../config/model-fetcher.ts';
-import { piProviderOf } from '../../../config/llm-connections.ts';
+import { CUSTOM_CONNECTION_TYPE, piProviderOf } from '../../../config/llm-connections.ts';
 import type { ModelDefinition } from '../../../config/models.ts';
-import { getAllPiModels, getPiModelsForAuthProvider, getPiProviderBaseUrl } from '../../../config/models-pi.ts';
+import { getAllPiModels, getPiModelsForAuthProvider, getPiProviderApi, getPiProviderBaseUrl } from '../../../config/models-pi.ts';
 
 export interface BackendRuntimePaths {
   interceptor?: string;
@@ -251,6 +251,52 @@ async function testAnthropicCompatible(
     return { success: false, error: (err as Error).message };
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/**
+ * A stored connection's live check: one short authenticated GET of the provider's models list (the cheapest
+ * endpoint). 401/403 is 'Invalid credentials'; a timeout or an unreachable host reads like the other tests'
+ * errors (`parseTestConnectionError` maps them). Null = no models endpoint to ask (OAuth, IAM, Google, Bedrock,
+ * Azure, a URL with placeholders), so the caller keeps its credential check. Limits: a catalog URL that has no
+ * models list (404/405) counts as reachable, and a provider that serves its list without a key passes a bad key.
+ * No key or body is ever returned.
+ */
+export async function checkProviderEndpoint(
+  connection: Pick<LlmConnection, 'type' | 'authType' | 'baseUrl' | 'customEndpoint'>,
+  apiKey: string | null,
+  timeoutMs = 8_000,
+): Promise<{ success: boolean; error?: string } | null> {
+  const custom = connection.type === CUSTOM_CONNECTION_TYPE;
+  const keyed = connection.authType === 'api_key' || connection.authType === 'api_key_with_endpoint' || connection.authType === 'bearer_token';
+  if (!keyed && !(custom && connection.authType === 'none')) return null;
+
+  const api = custom ? connection.customEndpoint?.api ?? 'openai-completions' : getPiProviderApi(connection.type);
+  if (api !== 'openai-completions' && api !== 'openai-responses' && api !== 'anthropic-messages') return null;
+  const ownUrl = connection.baseUrl?.trim();
+  const base = (ownUrl || (custom ? undefined : getPiProviderBaseUrl(connection.type)))?.replace(/\/+$/, '');
+  if (!base || base.includes('{')) return null;
+  if (keyed && !apiKey) return { success: false, error: 'No credentials configured' };
+
+  // Anthropic itself and a custom Anthropic endpoint take `x-api-key`; every other provider also takes a Bearer
+  const anthropic = api === 'anthropic-messages';
+  const headers: Record<string, string> = {};
+  if (apiKey && anthropic) Object.assign(headers, { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' });
+  if (apiKey && !(anthropic && (connection.type === 'anthropic' || custom))) headers.authorization = `Bearer ${apiKey}`;
+
+  try {
+    const res = await fetch(`${base}${anthropic && !base.endsWith('/v1') ? '/v1' : ''}/models`, {
+      headers,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    void res.body?.cancel();
+    if (res.ok) return { success: true };
+    if (res.status === 401 || res.status === 403) return { success: false, error: 'Invalid credentials' };
+    if ((res.status === 404 || res.status === 405) && !ownUrl) return { success: true };
+    return { success: false, error: `Provider API returned ${res.status}` };
+  } catch (err) {
+    const timedOut = (err as Error).name === 'TimeoutError' || (err as Error).name === 'AbortError';
+    return { success: false, error: timedOut ? 'Request timed out' : 'fetch failed' };
   }
 }
 

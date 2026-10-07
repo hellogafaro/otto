@@ -144,12 +144,6 @@ export default function AiSettingsPage() {
     } else toast.error(result.error ?? t('connections.saveFailed'), { id: 'saved' })
   }
 
-  const test = async (connection: LlmConnectionWithStatus) => {
-    const result = await window.electronAPI.testLlmConnection(connection.slug)
-    if (result.success) toast.success(t('connections.testPassed', { name: connection.name }))
-    else toast.error(result.error || t('settings.ai.validationFailed'))
-  }
-
   const remove = (connection: LlmConnectionWithStatus) =>
     confirmDelete(t('connections.deleteTitle', { name: connection.name }), async () => {
       const result = await window.electronAPI.deleteLlmConnection(connection.slug)
@@ -233,7 +227,7 @@ export default function AiSettingsPage() {
                     onSetDefault: connection.isDefault ? undefined : () => void setDefault(connection.slug),
                     onSignIn: editable && provider ? () => openSetup({ reauth: { slug: connection.slug, provider } }) : undefined,
                     onChangeKey: editable && hasKey(connection) ? () => setChangingKey(connection) : undefined,
-                    onTest: () => void test(connection),
+                    onTest: () => window.electronAPI.testLlmConnection(connection.slug),
                     onDelete: editable ? () => remove(connection) : undefined,
                   }}
                 />

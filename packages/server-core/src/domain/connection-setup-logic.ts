@@ -23,10 +23,12 @@ import {
 /**
  * Parse an error message from a connection test into a user-friendly string.
  */
-export function parseTestConnectionError(msg: string): string {
+export function parseTestConnectionError(raw: string): string {
+  // The test appends the subprocess's stderr for the log; it never reaches the person
+  const msg = raw.split('\n--- subprocess stderr')[0]!
   const lower = msg.toLowerCase()
 
-  if (lower.includes('econnrefused') || lower.includes('enotfound') || lower.includes('fetch failed')) {
+  if (lower.includes('econnrefused') || lower.includes('enotfound') || lower.includes('fetch failed') || lower.includes('connection error')) {
     return 'Cannot connect to API server. Check the URL and ensure the server is running.'
   }
   if (lower.includes('no api key found for')) {
@@ -46,6 +48,9 @@ export function parseTestConnectionError(msg: string): string {
   }
   if (lower.includes('403')) {
     return 'API key does not have permission to access this resource'
+  }
+  if (lower.includes('timed out')) {
+    return 'The provider did not answer in time. Check the URL and try again.'
   }
 
   return msg.slice(0, 300)

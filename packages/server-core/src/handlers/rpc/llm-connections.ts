@@ -379,12 +379,21 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     }
   })
 
-  // Test an LLM connection (validate credentials and connectivity with actual API call)
+  // Test an LLM connection: a models-list request for API providers, a token check for OAuth, `claude --version` for Claude Code
   server.handle(RPC_CHANNELS.llmConnections.TEST, async (ctx, slug: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      // A Claude subscription runs the server's own `claude`: it is the owner's, and it must be there
+      const stored = getLlmConnection(slug, whereOf(ctx))
+      if (stored?.type === CLAUDE_CODE_CONNECTION_TYPE) {
+        if (!isClaudeCodeScope(stored.scope)) return { success: false, error: CLAUDE_CODE_OWNER_ONLY }
+        return (await getClaudeCodeStatus()).found
+          ? { success: true }
+          : { success: false, error: 'Claude Code was not found on this server. Install it and sign in.' }
+      }
       const result = await validateStoredBackendConnection({ slug, where: whereOf(ctx) })
       if (!result.success) {
-        return { success: false, error: result.error }
+        deps.platform.logger?.info(`[LLM_CONNECTION_TEST] Raw error for ${slug}: ${(result.error || '').slice(0, 1000)}`)
+        return { success: false, error: parseTestConnectionError(result.error || 'Unknown error') }
       }
 
       deps.platform.logger?.info(`LLM connection validated: ${slug}`)

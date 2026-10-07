@@ -203,6 +203,15 @@ export function getPiApiKeyProviders(): PiProviderInfo[] {
     });
 }
 
+/** The wire protocol of a Pi SDK provider (e.g. 'openai' → 'openai-responses'). */
+export function getPiProviderApi(provider: string): string | undefined {
+  try {
+    return getModels(provider as Parameters<typeof getModels>[0])[0]?.api || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Get the base URL for a Pi SDK provider (e.g. 'anthropic' → 'https://api.anthropic.com').
  */

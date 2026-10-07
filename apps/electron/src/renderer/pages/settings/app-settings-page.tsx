@@ -44,7 +44,7 @@ export default function AppSettingsPage() {
   // Power state
   const [keepAwakeEnabled, setKeepAwakeEnabled] = useState(false)
 
-  // Auto-update state (Check Now / Update Ready only shown in Electron, not WebUI)
+  // Notifications, Power and updates are the desktop app's: the web server has no handlers for them
   const isElectron = window.electronAPI.getRuntimeEnvironment() === 'electron'
   const updateChecker = useUpdateChecker()
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false)
@@ -60,7 +60,7 @@ export default function AppSettingsPage() {
 
   // Load settings on mount
   const loadSettings = useCallback(async () => {
-    if (!window.electronAPI) return
+    if (!isElectron) return
     try {
       const [notificationsOn, keepAwakeOn] = await Promise.all([
         window.electronAPI.getNotificationsEnabled(),
@@ -71,11 +71,11 @@ export default function AppSettingsPage() {
     } catch (error) {
       console.error('Failed to load settings:', error)
     }
-  }, [])
+  }, [isElectron])
 
   useEffect(() => {
     loadSettings()
-  }, [])
+  }, [loadSettings])
 
   const handleNotificationsEnabledChange = useCallback(async (enabled: boolean) => {
     setNotificationsEnabled(enabled)
@@ -89,6 +89,7 @@ export default function AppSettingsPage() {
 
   return (
     <SettingsPage subpage="app">
+              {isElectron && (<>
               {/* Notifications */}
               <SettingsSection title={t("settings.notifications.title")}>
                 <SettingsCard>
@@ -112,6 +113,7 @@ export default function AppSettingsPage() {
                   />
                 </SettingsCard>
               </SettingsSection>
+              </>)}
 
               {/* About */}
               <SettingsSection title={t("settings.about.title")}>

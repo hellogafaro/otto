@@ -704,6 +704,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     A direct URL fills its row. The groups scroll as a whole on a short window
     (edge fade, no scrollbar). No footer. Settings opens from the workspace
     menu (and ⌘,) on **General**, the registry's first page.
+    On the web, General has no Notifications and Power sections and Server
+    is not found: they are the desktop app's (the web server has no handlers
+    behind them).
     The Labels, Statuses and workspace Permissions pages are data in the
     database, not files: the agent edits them with its `labels_edit` /
     `statuses_edit` / `permissions_edit` tools and the pages reload when they
@@ -2163,7 +2166,10 @@ they see, saved at once as `userDefaultConnectionSlug`, and the thinking level),
   the stock destructive dialog, "Delete {name}?") and a 28px ghost chevron that
   opens the editor (turns 90deg). A shared connection (workspace, server) has
   Set as default and Test for everyone; its editor, Change API key, Sign in again
-  and Delete are for owners.
+  and Delete are for owners. **Test connection** takes seconds: the ⋯ is `loading`
+  (spinner, same width) meanwhile, then the result leads the row's line for 8 s
+  ("{name} works", or a short message mapped from the failure: never the
+  provider's or the subprocess's raw output, which stays in the server log).
 - **Editor** (rows under the connection's row, split by hairlines), everything
   autosaved with the "Saved" toast (`useAutosave`): Name (a 200px input, an
   emptied name springs back), for a custom endpoint the Base URL (saved only
@@ -2609,6 +2615,8 @@ drive:
   Delete). A **document** is edited in place, no Save button (Autosave): its
   title is the title row itself (an input in the title's type, Enter or blur
   saves) and its body the markdown editor (tables kept) in the centerpiece;
+  opening one saves nothing (the editor reports only markdown that differs
+  from what it serialized on open, so no "Saved" toast appears until an edit);
   More holds Download, Move, Copy link, Delete. Every save carries the
   `updatedAt` it last saw; a conflict says "Changed elsewhere, reloaded" and
   reloads the document. An id that does not exist is the not-found page; a

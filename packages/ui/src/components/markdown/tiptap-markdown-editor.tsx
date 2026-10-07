@@ -222,12 +222,19 @@ export function TiptapMarkdownEditor({
 }: TiptapMarkdownEditorProps) {
   const onUpdateRef = React.useRef(onUpdate)
   onUpdateRef.current = onUpdate
+  // Otto: the markdown last reported (at first, what the editor serializes on open). Opening a document runs
+  // normalizing transactions (tables, code blocks) that fire `onUpdate` with nothing changed; only a different
+  // markdown is a change, so an unchanged document is not autosaved.
+  const reportedRef = React.useRef<string | null>(null)
 
   // Ref for the editor instance — used by the Mathematics onClick callback
   // which is created at extension-configure time (before useEditor returns).
   const editorRef = React.useRef<ReturnType<typeof useEditor>>(null!)
 
   const useOfficialMarkdown = markdownEngine === 'official'
+  const serializeMarkdown = (editor: unknown) => useOfficialMarkdown
+    ? postprocessMarkdownFromOfficial(getOfficialMarkdown(editor as { getMarkdown?: () => string }))
+    : getLegacyMarkdown(editor as { storage: { markdown?: { getMarkdown?: () => string } } })
 
   const extensions = React.useMemo(() => {
     const base = [
@@ -343,14 +350,15 @@ export function TiptapMarkdownEditor({
       },
     },
     onCreate: ({ editor }) => {
+      reportedRef.current = serializeMarkdown(editor)
       queueMicrotask(() => {
         scheduleShikiRefresh(editor)
       })
     },
     onUpdate: ({ editor }) => {
-      const md = useOfficialMarkdown
-        ? postprocessMarkdownFromOfficial(getOfficialMarkdown(editor as { getMarkdown?: () => string }))
-        : getLegacyMarkdown(editor as { storage: { markdown?: { getMarkdown?: () => string } } })
+      const md = serializeMarkdown(editor)
+      if (md === reportedRef.current) return
+      reportedRef.current = md
       onUpdateRef.current?.(md)
     },
   }, [useOfficialMarkdown, extensions])
@@ -378,9 +386,7 @@ export function TiptapMarkdownEditor({
       // block states (e.g. slash-inserted code blocks) and jump selection.
       if (editor.isFocused) return
 
-      const currentMd = useOfficialMarkdown
-        ? postprocessMarkdownFromOfficial(getOfficialMarkdown(editor as { getMarkdown?: () => string }))
-        : getLegacyMarkdown(editor as { storage: { markdown?: { getMarkdown?: () => string } } })
+      const currentMd = serializeMarkdown(editor)
 
       if (currentMd !== content) {
         if (useOfficialMarkdown) {

@@ -86,7 +86,8 @@ const settingsRoute = createRoute({
 const settingsPageRoute = createRoute({
   ...section('settings/$page'),
   beforeLoad: ({ params }) => {
-    if (!isValidSettingsSubpage(params.page)) throw notFound()
+    // Server (this app as a remote server) is the desktop app's: the web server has no handlers behind it.
+    if (!isValidSettingsSubpage(params.page) || (isWebUI && params.page === 'server')) throw notFound()
   },
 })
 /** Skills, Sources and Agents: grids in Settings, each item under its grid (a static segment wins over `$page`). */

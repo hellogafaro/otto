@@ -509,7 +509,8 @@ function AppShellContent({
   // Ensure session messages are loaded when selected
   React.useEffect(() => {
     if (session.selected) {
-      ensureMessagesLoaded(session.selected)
+      // A chat that does not exist rejects here; the chat page shows it (and its retry), so nothing to do.
+      ensureMessagesLoaded(session.selected).catch(() => {})
     }
   }, [session.selected, ensureMessagesLoaded])
 

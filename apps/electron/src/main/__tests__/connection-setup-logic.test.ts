@@ -125,6 +125,12 @@ describe('parseTestConnectionError', () => {
     expect(result.length).toBe(300)
   })
 
+  it('never passes the subprocess stderr on', () => {
+    const msg = 'Connection error.\n--- subprocess stderr (last ~8KB) ---\n[pi-server] starting with key sk-secret'
+    expect(parseTestConnectionError(msg)).toContain('Cannot connect')
+    expect(parseTestConnectionError('Odd failure\n--- subprocess stderr (last ~8KB) ---\nsk-secret')).toBe('Odd failure')
+  })
+
   it('passes through short unknown errors as-is', () => {
     const result = parseTestConnectionError('Something went wrong')
     expect(result).toBe('Something went wrong')
