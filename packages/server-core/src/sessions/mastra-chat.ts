@@ -4,6 +4,8 @@ import { Mastra } from '@mastra/core/mastra'
 import type { MastraModelConfig } from '@mastra/core/llm'
 import { createId } from '@otto/shared/id'
 import type { AgentEvent } from '@otto/core/types'
+import type { ToolsInput } from '@mastra/core/agent'
+import type { ToolHooks } from '@mastra/core/tools'
 
 export async function* streamMastraChat(input: {
   agentId: string
@@ -12,19 +14,22 @@ export async function* streamMastraChat(input: {
   messages: { role: 'user' | 'assistant'; content: string }[]
   model: MastraModelConfig
   signal: AbortSignal
+  tools?: ToolsInput
+  beforeToolCall?: ToolHooks['beforeToolCall']
 }): AsyncGenerator<AgentEvent> {
   const agent = new Agent({
     id: input.agentId,
     name: input.name,
     instructions: input.instructions,
     model: input.model,
+    tools: input.tools,
   })
   new Mastra({ agents: { chat: agent }, logger: false, idGenerator: () => createId() })
   const turnId = createId()
   const messages = input.messages.map((message) => message.role === 'assistant'
     ? { role: 'assistant' as const, content: message.content }
     : { role: 'user' as const, content: message.content })
-  const output = await agent.stream(messages, { abortSignal: input.signal, maxSteps: 1, providerOptions: { openai: { store: false } } })
+  const output = await agent.stream(messages, { abortSignal: input.signal, maxSteps: input.tools ? 8 : 1, toolCallConcurrency: 1, hooks: { beforeToolCall: input.beforeToolCall }, providerOptions: { openai: { store: false } } })
   let text = ''
   let completed = false
   for await (const chunk of output.fullStream) {
@@ -35,6 +40,13 @@ export async function* streamMastraChat(input: {
     } else if (chunk.type === 'error') {
       yield { type: 'text_discard', turnId }
       throw new Error('The model request failed. Check your connection and try again.')
+    } else if (chunk.type === 'tool-call') {
+      yield { type: 'tool_start', toolName: chunk.payload.toolName, toolUseId: chunk.payload.toolCallId, input: chunk.payload.args ?? {}, turnId }
+    } else if (chunk.type === 'tool-result') {
+      const result = chunk.payload.result
+      yield { type: 'tool_result', toolName: chunk.payload.toolName, toolUseId: chunk.payload.toolCallId, result: JSON.stringify(result), isError: chunk.payload.isError ?? (typeof result === 'object' && result !== null && 'error' in result), turnId }
+    } else if (chunk.type === 'tool-error') {
+      yield { type: 'tool_result', toolName: chunk.payload.toolName, toolUseId: chunk.payload.toolCallId, result: 'The work action failed. Check access and the current document or task version.', isError: true, turnId }
     } else if (chunk.type === 'finish') {
       if (chunk.payload.stepResult.reason !== 'stop') {
         yield { type: 'text_discard', turnId }

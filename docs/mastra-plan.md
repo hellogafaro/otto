@@ -4,6 +4,10 @@ Canonical migration plan, 7 October 2026. This supersedes runtime recommendation
 `harness-plan.md`, `pi-only-plan.md` and `final-plan.md`, not their verified domain work.
 Pi remains the working default until the replacement slice passes. No push or deployment
 is authorized. Preserve `LICENSE`, `NOTICE`, `UPSTREAM.md` and applicable upstream notices.
+The follow-up owner instruction now requires native Mastra as the final default and
+complete Pi retirement, including its packages, bridges, subprocess/build plumbing,
+labels and obsolete controls. The current opt-in checkpoint is temporary proof, not
+the final architecture. Do not keep a permanent dual runtime or flag.
 
 ## Product and scope
 
@@ -93,6 +97,52 @@ large abstract contract, not a reason to build a repository framework.
 | [SDK subagents blog](https://mastra.ai/blog/introducing-sdk-subagents) | Defer. The OpenAI example wraps `@openai/agents`, not the Codex SDK or subscription endpoint. |
 | [Controller/sessions](https://mastra.ai/docs/harness/overview) | Evaluate native controller for steering/approval/delegation in slice 2, without overlapping host queues. |
 | [Durable agents](https://mastra.ai/docs/harness/durable-agents) | Evaluate configurable beta checkpoints/replay in slice 3, with deduplicated effects. |
+
+## UI capability map and retirement inventory
+
+| Existing UI capability | Native mapping and current state |
+| --- | --- |
+| Chat stream, author, history, usage | `Agent.stream`, fullStream → current events, existing rows replayed. Verified fixtures/browser for completed messages; live inference unverified. Final storage must have one runtime-history authority. |
+| Work tools/results/errors | Six native tools call Library/task/project domain functions. Document/task work verified in the scoped second slice; tool events map to existing cards. Files/shell disabled until isolation proof. |
+| Permission modes and approvals | Installed per-run `hooks.beforeToolCall` bridges existing permission UI: Explore refuses writes, Ask and Guarded require one chat-bound approval, Execute allows. Session/controller suspension APIs evaluated; no checkpoint storage introduced for transient approval. |
+| Steering, queue, Stop | Existing host queue for now; native AbortSignal for Stop. Steering remains queued, not falsely marked delivered. Native Session/signals migration must replace overlapping queue ownership before cutover. |
+| Delegation and named-agent routing | Existing mention routing serializes named agents. Native constrained delegation/result proof is later in migration, not implemented by this work-tool slice. |
+| Skills | Existing skill ownership stays; adopt native per-request skills and preserve allowed skill scope. Not yet wired. |
+| MCP sources, discovery, invocation and auth | Existing source/credential domains stay. Native MCP tool contracts must preserve allowlists, names, auth flow and tool-result UI. Not yet migrated; sources rejected in current slice rather than faked. |
+| Model and connection settings | One supported OpenAI API-key provider reads exact existing connection scope. Catalog/testing/settings remain Pi-dependent and must migrate before deletion. Subscription setup/success UI must disappear at API-key-only cutover; private records remain untouched. |
+| Computer/browser/files | Existing views remain, execution not granted by this slice. Per-task isolation, permissions, stop and visible browser behavior need native replacement/proof before enabling. |
+| Routines and webhook runs | Existing schedule/webhook domain owns trigger data. Native run execution must replace Pi path and retain authenticated creator/caller semantics. Not yet migrated. |
+| Branch, compact, retry, plan controls | Pi-specific branch anchors/compaction cannot be called native support. Replace with supported Mastra behavior or remove exposed obsolete controls, locales and handlers before default cutover. |
+
+Delete only after replacement checks: `packages/pi-agent-server`, shared `agent/pi-agent.ts`
+and `backend/pi`, Pi factory/type assumptions and journals/anchors, `@earendil-works/pi-*`
+dependencies/imports/model/OAuth registries, Claude provider bridge, Pi subprocess protocol,
+build scripts/package commands/interceptors used only there, Pi-specific IPC/actions/UI
+labels/config/tests/docs and temporary `OTTO_MASTRA_CHAT`. Keep useful domain tools,
+permission components, source/skill/credential ownership and original license notices.
+Search each deletion for remaining consumers; do not leave dormant handlers or locales.
+
+## Supported adapter evaluation
+
+Preferred official candidate is `@mastra/libsql@1.25.1`, a local file adapter using
+`@libsql/client`, not a DB service. Its shipped schemas use `mastra_messages`,
+`mastra_threads`, `mastra_harness_sessions` and workflow tables with camelCase fields
+such as `createdAt`, `resourceId`, `ownerId`, mixed with fields such as `thread_id`.
+Some library-owned records generate UUIDs internally; the configured Mastra ID generator
+can cover run/message IDs but is not a blanket override for every adapter record.
+These conflict with AGENTS' all-row `createId`, snake_case, workspace_id and domain-schema
+rules. No exception has been silently applied.
+
+Mixing these tables into `otto.db` is unsafe: `db/push.ts` lists only Drizzle app schemas
+and hides FTS/SQLite internals, so vendor tables would be considered unmanaged drop
+candidates. Proposed narrow exception is a separate local `mastra.db` owned exclusively
+by the official adapter, using its supported schema/IDs. Drizzle keeps users/members,
+agents, connections/secrets, tasks/projects/Library/routines; Mastra owns runtime sessions,
+checkpoints and conversation memory/history. Do not keep another independent copy of
+agent history or build a synchronization system. Existing human/chat facts and UI reads
+need an explicit compatibility/import plan before choosing exact ownership or deletion.
+Adapter tests use new disposable files only, never the user's database or `--force`.
+Captain must confirm the narrow vendor-schema exception before wiring runtime storage.
 
 ## Provider precheck, now deferred for MVP
 
@@ -204,3 +254,17 @@ Settings → AI, with an account-supported model. Keep it encrypted in the exist
 connections/secrets path; never paste it in chat. The first slice still lacks work tools,
 approval/steering parity, attachments, compaction and mid-run recovery. Subsequent work
 can proceed with fixtures while live verification waits for that connection.
+
+The scoped work follow-up exposes only Library documents and tasks in existing projects.
+Created documents/tasks record the selected agent actor; task updates write existing
+activity events under that actor. Document edits retain the existing creator and guarded
+updatedAt contract, with the editing agent's call recorded in chat tool history. There is
+no new document audit schema. Tools accept no model-supplied workspace, human or agent
+identity. Workspace/chat access is rechecked before calls and after approval.
+
+Production-build diagnostic `vite build --minify false --sourcemap false` transformed
+5,819 modules and reached chunk rendering before the machine restarted under memory
+pressure. Thus disabling minification did not avoid the capacity failure. Do not retry
+bundling on this 4 GB machine or treat diagnostic output as a production pass.
+Serial per-file checks remain required: combined Bun suites can contaminate global
+ENCRYPTION_KEY/module-store fixtures, as documented in the initial baseline.

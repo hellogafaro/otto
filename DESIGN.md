@@ -2969,11 +2969,14 @@ continue through bounded pages instead of treating the first hundred as complete
 
 ### Native runtime migration proof
 
-The first opt-in Mastra slice reuses the existing named-agent chat, composer,
-streaming reply and reconnect history. It introduces no alternate chat layout.
-It is text-only: unsupported attachments and connected sources fail visibly,
-and the agent is told it cannot perform work actions. Pi remains the default
-until work tools and controls are verified. API-key-only is the MVP direction;
+The opt-in Mastra slices reuse the existing named-agent chat, composer,
+streaming reply, tool cards, approval prompt and reconnect history. They
+introduce no alternate chat layout. Library documents and tasks in existing
+projects are the first work actions. Explore refuses changes, Ask and Guarded
+ask for each write, and Execute allows it. Approvals apply only to the shown
+call in that chat, not a permanent grant. Unsupported attachments and connected
+sources fail visibly; shell and filesystem tools remain disabled. Pi remains
+the default until work tools and controls are verified. API-key-only is the MVP direction;
 subscription setup is removed when the default runtime cuts over, without
 silently converting or deleting existing accounts. Document views continue to
 support direct editing. Public sharing of chats, documents and other work

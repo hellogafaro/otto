@@ -616,6 +616,7 @@ interface ManagedSession {
   steeredIds?: Set<string>
   agent: AgentInstance | null  // Lazy-loaded - null until first message
   mastraAbort?: AbortController
+  mastraApproval?: { id: string; resolve: (allowed: boolean) => void }
   messages: Message[]
   isProcessing: boolean
   /** Set when user requests stop - allows event loop to drain before clearing isProcessing */
@@ -6234,13 +6235,47 @@ export class SessionManager implements ISessionManager {
       abort.signal.throwIfAborted()
       const instructions = agentTurnOf(managed)?.instructions ?? ''
       const { createMastraChatModel, streamMastraChat } = await import('./mastra-chat.ts')
+      const { createMastraWorkTools, MASTRA_WORK_WRITES } = await import('./mastra-work-tools.ts')
+      const assertAccess = () => {
+        abort.signal.throwIfAborted()
+        if (this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation
+            || !getMemberRole(managed.workspace.id, creatorId)
+            || !managed.members.some((member) => member.actor === managed.createdBy)
+            || !getAgent(managed.workspace.id, selectedAgent.id)
+            || !managed.members.some((member) => member.actor === `agent:${selectedAgent.id}`)) {
+          throw new Error('This run no longer has access to its workspace or chat.')
+        }
+      }
+      assertAccess()
       for await (const event of streamMastraChat({
         agentId: selectedAgent.id,
         name: selectedAgent.title,
-        instructions: `${instructions}\nThis is a text-only migration slice. You have no work tools; do not claim to read or change files, tasks, documents or connected services.`,
+        instructions: `${instructions}\nUse the provided workspace tools for Library documents and tasks in existing projects. Read current versions before updates. Attribute actions to yourself. Files, shell, connected services and delegation are unavailable; do not claim to use them.`,
         messages,
         model: createMastraChatModel({ provider: connection.type, model: context.resolvedModel, apiKey, baseUrl: connection.baseUrl }),
         signal: abort.signal,
+        tools: createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess }),
+        beforeToolCall: async ({ toolName, input }) => {
+          assertAccess()
+          if (!MASTRA_WORK_WRITES.has(toolName)) return
+          const mode = managed.permissionMode ?? 'ask'
+          if (mode === 'safe') return { proceed: false, output: { error: 'Explore mode cannot change documents or tasks.' } }
+          if (mode === 'allow-all') return
+          const id = createId()
+          const allowed = await new Promise<boolean>((resolve) => {
+            const finish = (allowed: boolean) => {
+              abort.signal.removeEventListener('abort', stop)
+              if (managed.mastraApproval?.id === id) managed.mastraApproval = undefined
+              resolve(allowed)
+            }
+            const stop = () => finish(false)
+            managed.mastraApproval = { id, resolve: finish }
+            abort.signal.addEventListener('abort', stop, { once: true })
+            this.sendEvent({ type: 'permission_request', sessionId: managed.id, request: { sessionId: managed.id, requestId: id, toolName, description: `Allow ${selectedAgent.title} to run ${toolName}?`, command: JSON.stringify(input), type: 'api_mutation' } }, managed.workspace.id)
+          })
+          assertAccess()
+          if (!allowed) return { proceed: false, output: { error: 'The work action was declined.' } }
+        },
       })) {
         if (managed.processingGeneration !== generation || this.sessions.get(managed.id) !== managed) return
         await this.processEvent(managed, event)
@@ -6690,6 +6725,10 @@ export class SessionManager implements ISessionManager {
     options?: import('@otto/shared/protocol').PermissionResponseOptions,
   ): boolean {
     const managed = this.sessions.get(sessionId)
+    if (managed?.mastraApproval?.id === requestId) {
+      managed.mastraApproval.resolve(allowed)
+      return true
+    }
     if (managed?.agent) {
       const requestMeta = this.pendingPermissionRequests.get(requestId)
       this.pendingPermissionRequests.delete(requestId)
