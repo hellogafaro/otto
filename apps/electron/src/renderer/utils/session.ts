@@ -1,6 +1,7 @@
 import * as React from "react"
 import i18next from "i18next"
 import { formatDistanceStrict, type Locale } from "date-fns"
+import { ENTITY_TOKEN } from "@otto/shared/entities"
 import type { Session, Message } from "../../shared/types"
 import type { SessionMeta } from "../atoms/sessions"
 import type { SessionStatusId } from "../config/session-status-config"
@@ -16,6 +17,7 @@ function sanitizePreview(content: string): string {
   return content
     .replace(/<edit_request>[\s\S]*?<\/edit_request>/g, '') // Strip entire edit_request blocks
     .replace(/<[^>]+>/g, '')     // Strip remaining XML/HTML tags
+    .replace(ENTITY_TOKEN, '')   // Strip `task:<id>` references (a title is plain text; the server strips them from new titles)
     .replace(/\s+/g, ' ')        // Collapse whitespace
     .trim()
 }
@@ -35,8 +37,9 @@ function normalizeTitleCasing(title: string): string {
  * Works with both Session (full) and SessionMeta (lightweight)
  */
 export function getSessionTitle(session: SessionLike | SessionMeta): string {
-  if (session.name) {
-    return normalizeTitleCasing(session.name)
+  const name = session.name && sanitizePreview(session.name)
+  if (name) {
+    return normalizeTitleCasing(name)
   }
 
   // Check loaded messages first (only available on full Session)

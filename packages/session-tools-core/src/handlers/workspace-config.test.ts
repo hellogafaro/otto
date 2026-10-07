@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import type { SessionToolContext } from '../context.ts';
 import { getSessionToolDefs } from '../tool-defs.ts';
-import { handleAgentsEdit, handleLabelsEdit, handlePermissionsEdit, handleStatusesEdit } from './workspace-config.ts';
+import { handleAgentsEdit, handleLabelsEdit, handlePermissionsEdit, handleRoutinesEdit, handleStatusesEdit } from './workspace-config.ts';
 
 const text = (result: { content: { text?: string }[]; isError?: boolean }) => result.content[0]?.text ?? '';
 
@@ -13,11 +13,13 @@ describe('labels_edit, statuses_edit and permissions_edit', () => {
     expect(text(await handleStatusesEdit(ctx, { action: 'create', label: 'Blocked', category: 'open' }))).toContain('"ok": "statuses"');
     expect(text(await handlePermissionsEdit(ctx, { action: 'get' }))).toContain('"ok": "permissions"');
     expect(text(await handleAgentsEdit(ctx, { action: 'list' }))).toContain('"ok": "agents"');
+    expect(text(await handleRoutinesEdit(ctx, { action: 'run', id: 'r1' }))).toContain('"ok": "routines"');
     expect(calls).toEqual([
       ['labels', { action: 'list' }],
       ['statuses', { action: 'create', label: 'Blocked', category: 'open' }],
       ['permissions', { action: 'get' }],
       ['agents', { action: 'list' }],
+      ['routines', { action: 'run', id: 'r1' }],
     ]);
   });
 
@@ -33,11 +35,12 @@ describe('labels_edit, statuses_edit and permissions_edit', () => {
 
   it('are registered as blocked-in-Explore tools, and config_validate no longer has a statuses target', () => {
     const defs = getSessionToolDefs();
-    for (const name of ['labels_edit', 'statuses_edit', 'permissions_edit', 'agents_edit']) {
+    for (const name of ['labels_edit', 'statuses_edit', 'permissions_edit', 'agents_edit', 'routines_edit']) {
       expect(defs.find((def) => def.name === name)).toMatchObject({ executionMode: 'registry', safeMode: 'block' });
     }
     const validate = defs.find((def) => def.name === 'config_validate')!;
     expect(validate.inputSchema.safeParse({ target: 'statuses' }).success).toBe(false);
+    expect(validate.inputSchema.safeParse({ target: 'automations' }).success).toBe(false);
     expect(validate.inputSchema.safeParse({ target: 'permissions', sourceSlug: 'linear' }).success).toBe(true);
   });
 });

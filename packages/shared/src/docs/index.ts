@@ -9,7 +9,7 @@
  */
 
 import { join } from 'path';
-import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, rmSync } from 'fs';
 import { getBundledAssetsDir } from '../utils/paths.ts';
 import { debug } from '../utils/debug.ts';
 import { CONFIG_DIR } from '../config/paths.ts';
@@ -18,6 +18,9 @@ const DOCS_DIR = join(CONFIG_DIR, 'docs');
 
 // Track if docs have been initialized this session (prevents re-init on hot reload)
 let docsInitialized = false;
+
+/** Docs no longer bundled: `automations.md` (routines are database rows now, see routines.md). */
+const RETIRED_DOCS = ['automations.md'];
 
 // Resolve the bundled docs assets directory using the shared asset resolver.
 // Handles all environments: dev (resources/docs), bundled (dist/resources/docs),
@@ -109,9 +112,7 @@ export const DOC_REFS = {
   statuses: `${APP_ROOT}/docs/statuses.md`,
   labels: `${APP_ROOT}/docs/labels.md`,
   toolIcons: `${APP_ROOT}/docs/tool-icons.md`,
-  automations: `${APP_ROOT}/docs/automations.md`,
-  hooks: `${APP_ROOT}/docs/automations.md`,
-  tasks: `${APP_ROOT}/docs/automations.md`,
+  routines: `${APP_ROOT}/docs/routines.md`,
   mermaid: `${APP_ROOT}/docs/mermaid.md`,
   dataTables: `${APP_ROOT}/docs/data-tables.md`,
   htmlPreview: `${APP_ROOT}/docs/html-preview.md`,
@@ -165,6 +166,8 @@ export function initializeDocs(): void {
     const docPath = join(DOCS_DIR, filename);
     writeFileSync(docPath, content, 'utf-8');
   }
+  // A doc that left the bundle would still be read by an agent as current guidance
+  for (const filename of RETIRED_DOCS) rmSync(join(DOCS_DIR, filename), { force: true });
 
   debug(`[docs] Synced ${Object.keys(bundledDocs).length} docs`);
 }

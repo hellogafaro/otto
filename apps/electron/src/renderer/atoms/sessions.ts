@@ -295,8 +295,18 @@ export const initializeSessionsAtom = atom(
         backgroundTasksAtomFamily.remove(oldId)
       }
     }
-    // Reset loaded sessions tracking — new workspace needs fresh lazy loading
-    set(loadedSessionsAtom, new Set<string>())
+    // Reset loaded sessions tracking — new workspace needs fresh lazy loading. A session already loaded keeps its
+    // messages and flag: opening a chat by direct URL loads it before this list arrives, and the list's empty
+    // `messages` would otherwise leave that chat loading forever (its load effect has already run).
+    const loadedBefore = get(loadedSessionsAtom)
+    const nextLoaded = new Set<string>()
+    sessions = sessions.map((session) => {
+      const current = loadedBefore.has(session.id) ? get(sessionAtomFamily(session.id)) : null
+      if (!current) return session
+      nextLoaded.add(session.id)
+      return { ...session, messages: current.messages, olderMessageCount: current.olderMessageCount }
+    })
+    set(loadedSessionsAtom, nextLoaded)
 
     // Set individual session atoms
     for (const session of sessions) {

@@ -51,8 +51,7 @@ export function toPatch(agent: Agent, draft: AgentDraft): Omit<AgentUpdate, 'exp
 }
 
 /**
- * The id an agent stores for a skill or a source. Slugs until skills and sources are rows (S1, S2), the identifier
- * the MCP pool and skill mentions use today. TODO(S1/S2): the row's id.
+ * The id an agent stores for a skill or a source: its slug, the identifier the MCP pool and skill mentions use.
  */
 export const skillKey = (skill: LoadedSkill) => skill.slug
 export const sourceKey = (source: LoadedSource) => source.config.slug

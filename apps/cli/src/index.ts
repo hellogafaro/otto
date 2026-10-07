@@ -822,17 +822,18 @@ export interface ValidateContext {
   createdSessionId?: string
   createdSourceSlug?: string
   createdSkillSlug?: string
-  createdAutomation?: boolean
+  /** Routines this run created (deleted by the cleanup) */
+  createdRoutineIds?: string[]
+  /** The routine that must start a chat (its title is the chat's name) */
+  passRoutineId?: string
+  /** The routine whose webhook must fail */
+  webhookRoutineId?: string
   automationTestSessionId?: string
   /** Session created by automation that should be blocked by failing condition (if bug occurs) */
   automationBlockedSessionId?: string
   automationName?: string
   automationBlockedName?: string
   createdLabelId?: string
-  /** Backup of existing automations.json before overwrite (undefined = didn't exist) */
-  automationsJsonBackup?: string | null
-  /** Backup of existing automations-history.jsonl before overwrite (undefined = didn't exist) */
-  automationsHistoryBackup?: string | null
   branchedSessionId?: string
   /** Label ID for e2e-test label created for session tool validation */
   e2eTestLabelId?: string
@@ -935,8 +936,8 @@ async function waitForSendEvents(
 }
 
 /**
- * Clean up automation test artifacts (config files, session, label).
- * Shared between the automation:cleanup test step and runValidation error recovery.
+ * Clean up routine test artifacts (routines, sessions, label).
+ * Shared between the routines:cleanup test step and runValidation error recovery.
  */
 async function cleanupAutomationArtifacts(
   client: CliRpcClient,
@@ -944,27 +945,15 @@ async function cleanupAutomationArtifacts(
 ): Promise<string[]> {
   const cleaned: string[] = []
 
-  // Restore or remove automation config files
-  if (ctx.workspaceRootPath && ctx.createdAutomation) {
+  // Delete the routines this run created (their runs go with them)
+  for (const id of ctx.createdRoutineIds ?? []) {
+    if (!client.isConnected) break
     try {
-      const { writeFile, unlink } = await import('fs/promises')
-      const configPath = `${ctx.workspaceRootPath}/automations.json`
-      const historyPath = `${ctx.workspaceRootPath}/automations-history.jsonl`
-      if (ctx.automationsJsonBackup != null) {
-        await writeFile(configPath, ctx.automationsJsonBackup).catch(() => {})
-        cleaned.push('automations.json (restored)')
-      } else {
-        await unlink(configPath).catch(() => {})
-        cleaned.push('automations.json (removed)')
-      }
-      if (ctx.automationsHistoryBackup != null) {
-        await writeFile(historyPath, ctx.automationsHistoryBackup).catch(() => {})
-      } else {
-        await unlink(historyPath).catch(() => {})
-      }
-      ctx.createdAutomation = false
+      await client.invoke('routines:delete', id)
+      cleaned.push(`routine ${id}`)
     } catch { /* best effort */ }
   }
+  ctx.createdRoutineIds = []
 
   // Delete automation-triggered sessions
   for (const key of ['automationTestSessionId', 'automationBlockedSessionId'] as const) {
@@ -1374,53 +1363,27 @@ SKILLEOF`, 90_000, true, undefined, ctx.onEvent)
         return `deleted skill: ${ctx.createdSkillSlug}`
       },
     },
-    // ----- Automation lifecycle -----
+    // ----- Routine lifecycle -----
     {
-      name: 'automation:create',
+      name: 'routines:create',
       fn: async (client, ctx) => {
-        if (!ctx.createdSessionId || !ctx.workspaceRootPath) return 'skipped (no session or workspace)'
-        const configPath = `${ctx.workspaceRootPath}/automations.json`
-        const historyPath = `${ctx.workspaceRootPath}/automations-history.jsonl`
-        const { readFile, writeFile } = await import('fs/promises')
-
-        // Always backup + overwrite with deterministic validation config,
-        // then restore during cleanup.
-        const existingConfig = await readFile(configPath, 'utf-8').catch(() => null)
-        ctx.automationsJsonBackup = existingConfig
-        ctx.automationsHistoryBackup = await readFile(historyPath, 'utf-8').catch(() => null)
-
-        const templatePath = `${process.cwd()}/.github/agents/automations.json`
-        const templateConfig = await readFile(templatePath, 'utf-8').catch(() => null)
-        if (!templateConfig) {
-          throw new Error(`Missing automation template at ${templatePath}`)
+        if (!ctx.createdSessionId || !ctx.workspaceId) return 'skipped (no session or workspace)'
+        // Two event routines on a status change: one whose condition never holds (must not run), one that runs
+        const prompt = { type: 'prompt', prompt: 'Reply with the single word OK.', labels: ['cli-validate-label'] }
+        const create = async (title: string, conditions: unknown[]) => {
+          const routine = (await client.invoke('routines:create', { title, config: { type: 'event', event: 'SessionStatusChange', conditions, actions: [prompt] } })) as { id: string }
+          ctx.createdRoutineIds = [...(ctx.createdRoutineIds ?? []), routine.id]
+          return routine.id
         }
-
-        const parsed = JSON.parse(templateConfig) as {
-          automations?: { SessionStatusChange?: Array<{ name?: string }> }
-        }
-        const entries = parsed?.automations?.SessionStatusChange
-        if (!Array.isArray(entries) || entries.length === 0) {
-          throw new Error('Automation template missing automations.SessionStatusChange entries')
-        }
-
-        const blocked = entries.find((e) => e.name === 'CLI Validate Condition Blocked')
-        const pass = entries.find((e) => e.name === 'CLI Validate Condition Pass')
-        if (!blocked?.name || !pass?.name) {
-          throw new Error('Automation template must define both "CLI Validate Condition Blocked" and "CLI Validate Condition Pass"')
-        }
-
-        ctx.automationBlockedName = blocked.name
-        ctx.automationName = pass.name
-
-        await writeFile(configPath, templateConfig)
-        ctx.createdAutomation = true
-        // ConfigWatcher auto-detects automations.json changes (debounced)
-        await new Promise((r) => setTimeout(r, 2000))
-        return `wrote config from template (blocked=${ctx.automationBlockedName}, pass=${ctx.automationName})`
+        ctx.automationBlockedName = 'CLI Validate Condition Blocked'
+        ctx.automationName = 'CLI Validate Condition Pass'
+        await create(ctx.automationBlockedName, [{ condition: 'state', field: 'sessionStatus', value: '__never__' }])
+        ctx.passRoutineId = await create(ctx.automationName, [])
+        return `created routines (blocked=${ctx.automationBlockedName}, pass=${ctx.automationName})`
       },
     },
     {
-      name: 'automation:trigger (status change)',
+      name: 'routine:trigger (status change)',
       fn: async (client, ctx) => {
         if (!ctx.createdSessionId || !ctx.workspaceId) return 'skipped (no session or workspace)'
         // Get available statuses to find one containing "in-progress"
@@ -1479,7 +1442,7 @@ SKILLEOF`, 90_000, true, undefined, ctx.onEvent)
       },
     },
     {
-      name: 'automation:verify session',
+      name: 'routine:verify session',
       fn: async (client, ctx) => {
         if (!ctx.automationTestSessionId) return 'skipped (no automation session)'
         // Wait for the automation session to complete
@@ -1505,7 +1468,7 @@ SKILLEOF`, 90_000, true, undefined, ctx.onEvent)
       },
     },
     {
-      name: 'automation:verify labels',
+      name: 'routine:verify labels',
       fn: async (client, ctx) => {
         if (!ctx.automationTestSessionId || !ctx.workspaceId) return 'skipped (no automation session)'
         // Verify label was auto-created
@@ -1524,96 +1487,56 @@ SKILLEOF`, 90_000, true, undefined, ctx.onEvent)
       },
     },
     {
-      name: 'automations:getLastExecuted',
+      name: 'routines:get (runs)',
       fn: async (client, ctx) => {
-        if (!ctx.workspaceId) return 'skipped (no workspace)'
-        const history = (await client.invoke('automations:getLastExecuted', ctx.workspaceId)) as Record<string, number>
-        const entries = Object.entries(history)
-        if (entries.length === 0) throw new Error('No automation execution history found')
-        // Verify at least one automation ran recently (within last 2 minutes)
-        const recentThreshold = Date.now() - 120_000
-        const recent = entries.find(([, ts]) => ts > recentThreshold)
-        if (!recent) throw new Error(`No recent automation execution (latest: ${Math.max(...entries.map(([, ts]) => ts))})`)
-        return `${entries.length} automation(s), latest ran ${Math.round((Date.now() - recent[1]) / 1000)}s ago`
+        if (!ctx.passRoutineId) return 'skipped (no routine)'
+        const routine = (await client.invoke('routines:get', ctx.passRoutineId)) as { runs?: Array<{ status: string; startedAt: number }> } | null
+        const runs = routine?.runs ?? []
+        if (runs.length === 0) throw new Error('The routine has no run recorded')
+        // At least one run started recently (within the last 2 minutes)
+        const recent = runs.find((run) => run.startedAt > Date.now() - 120_000)
+        if (!recent) throw new Error(`No recent run (latest: ${runs[0]!.startedAt})`)
+        return `${runs.length} run(s), latest ${recent.status}, ${Math.round((Date.now() - recent.startedAt) / 1000)}s ago`
       },
     },
     // ----- Webhook validation -----
     {
-      name: 'webhook:test (RPC)',
+      name: 'webhook:run (routines:run)',
       fn: async (client, ctx) => {
         if (!ctx.workspaceId) return 'skipped (no workspace)'
-        const r = (await client.invoke('automations:test', {
-          workspaceId: ctx.workspaceId,
-          actions: [{
-            type: 'webhook',
-            url: 'http://127.0.0.1:19999/validate-test',
-            method: 'GET',
-          }],
-        })) as any
-        const result = r?.actions?.[0]
-        if (result?.success) throw new Error('Expected webhook to fail (nothing listening)')
-        if (!result?.error && result?.statusCode !== 0) throw new Error('Expected error or statusCode 0 in result')
-        return `correctly failed: ${(result.error ?? `statusCode=${result.statusCode}`).slice(0, 80)}`
+        // A webhook to a port nothing listens on: the run must end in error
+        const routine = (await client.invoke('routines:create', {
+          title: 'CLI Validate Webhook',
+          paused: true,
+          config: { type: 'event', event: 'LabelConfigChange', actions: [{ type: 'webhook', url: 'http://127.0.0.1:19999/validate-test', method: 'POST' }] },
+        })) as { id: string }
+        ctx.createdRoutineIds = [...(ctx.createdRoutineIds ?? []), routine.id]
+        ctx.webhookRoutineId = routine.id
+        const run = (await client.invoke('routines:run', routine.id)) as { status: string }
+        return `started run (${run.status})`
       },
     },
     {
       name: 'webhook:verify failure',
       fn: async (client, ctx) => {
-        if (!ctx.workspaceRootPath) return 'skipped (no workspace root)'
-        const { readFile } = await import('fs/promises')
-        const historyPath = `${ctx.workspaceRootPath}/automations-history.jsonl`
-
-        const start = Date.now()
-        const deadline = start + 15_000
+        if (!ctx.webhookRoutineId) return 'skipped (no webhook routine)'
+        const deadline = Date.now() + 15_000
         let delay = 200
-
-        let lastLineCount = 0
-        let lastWebhookCount = 0
-        let lastSummary = 'no entries'
-
         while (Date.now() < deadline) {
-          const content = await readFile(historyPath, 'utf-8').catch(() => '')
-          const lines = content.trim().split('\n').filter(Boolean)
-          lastLineCount = lines.length
-
-          const entries = lines
-            .map((l) => {
-              try {
-                return JSON.parse(l)
-              } catch {
-                return null
-              }
-            })
-            .filter(Boolean) as Array<Record<string, unknown>>
-
-          const webhookEntries = entries.filter((e) => !!e.webhook)
-          lastWebhookCount = webhookEntries.length
-
-          if (webhookEntries.length > 0) {
-            const recentThreshold = Date.now() - 120_000
-            const recentFailed = webhookEntries.find((e: any) =>
-              !e.ok && e.ts > recentThreshold && e.webhook?.method === 'POST'
-            ) as any
-            if (recentFailed) {
-              return `webhook failure recorded: method=${recentFailed.webhook.method}, url=${recentFailed.webhook.url?.slice(0, 50)}`
-            }
-
-            const latest = webhookEntries[webhookEntries.length - 1] as any
-            lastSummary = `latest: ok=${String(latest?.ok)} method=${String(latest?.webhook?.method ?? 'n/a')} ts=${String(latest?.ts ?? 'n/a')}`
+          const routine = (await client.invoke('routines:get', ctx.webhookRoutineId)) as { runs?: Array<{ status: string; error: string | null }> } | null
+          const run = routine?.runs?.[0]
+          if (run && run.status !== 'running') {
+            if (run.status !== 'error') throw new Error(`Expected the webhook run to fail, it ended ${run.status}`)
+            return `webhook failure recorded: ${(run.error ?? '').slice(0, 80)}`
           }
-
           await new Promise((r) => setTimeout(r, delay))
           delay = Math.min(Math.round(delay * 1.8), 1500)
         }
-
-        const waitedMs = Date.now() - start
-        throw new Error(
-          `No recent failed POST webhook history entry after ${waitedMs}ms (lines=${lastLineCount}, webhookEntries=${lastWebhookCount}, ${lastSummary})`,
-        )
+        throw new Error('The webhook run did not end within 15s')
       },
     },
     {
-      name: 'automation:cleanup',
+      name: 'routines:cleanup',
       fn: async (client, ctx) => {
         const cleaned = await cleanupAutomationArtifacts(client, ctx)
         return cleaned.length > 0 ? `cleaned: ${cleaned.join(', ')}` : 'nothing to clean'

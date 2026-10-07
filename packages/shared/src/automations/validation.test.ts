@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { validateAutomationsConfig, validateAutomationsContent } from './validation.ts';
+import { validateAutomationsConfig } from './validation.ts';
 import { AutomationsConfigSchema, PromptActionSchema } from './schemas.ts';
 
 describe('validation', () => {
@@ -202,7 +202,7 @@ describe('validation', () => {
     });
   });
 
-  describe('validateAutomationsContent', () => {
+  describe('semantic checks', () => {
     it('should accept valid JSON config', () => {
       const json = JSON.stringify({
         automations: {
@@ -212,15 +212,9 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
-    });
-
-    it('should reject invalid JSON', () => {
-      const result = validateAutomationsContent('not json{');
-      expect(result.valid).toBe(false);
-      expect(result.errors[0]?.message).toContain('Invalid JSON');
     });
 
     it('should reject ReDoS patterns (nested quantifiers)', () => {
@@ -232,9 +226,9 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('ReDoS'))).toBe(true);
+      expect(result.errors.some(e => e.includes('ReDoS'))).toBe(true);
     });
 
     it('should reject ReDoS patterns (repeated alternation)', () => {
@@ -246,7 +240,7 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(false);
     });
 
@@ -259,7 +253,7 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(false);
     });
 
@@ -272,9 +266,9 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('Invalid regex'))).toBe(true);
+      expect(result.errors.some(e => e.includes('Invalid regex'))).toBe(true);
     });
 
     it('should reject regex patterns that are too long', () => {
@@ -286,9 +280,9 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('too long'))).toBe(true);
+      expect(result.errors.some(e => e.includes('too long'))).toBe(true);
     });
 
     it('should reject invalid cron expressions', () => {
@@ -300,9 +294,9 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('Invalid cron'))).toBe(true);
+      expect(result.errors.some(e => e.includes('Invalid cron'))).toBe(true);
     });
 
     it('should reject invalid timezone', () => {
@@ -315,43 +309,9 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('Invalid timezone'))).toBe(true);
-    });
-
-    it('should warn about allow-all permission mode', () => {
-      const json = JSON.stringify({
-        automations: {
-          LabelAdd: [{
-            permissionMode: 'allow-all',
-            actions: [{ type: 'prompt', prompt: 'echo danger' }],
-          }],
-        },
-      });
-      const result = validateAutomationsContent(json);
-      expect(result.valid).toBe(true); // Warning, not error
-      expect(result.warnings.some(w => w.message.includes('allow-all'))).toBe(true);
-    });
-
-    it('should warn about empty automations config', () => {
-      const json = JSON.stringify({ automations: {} });
-      const result = validateAutomationsContent(json);
-      expect(result.valid).toBe(true);
-      expect(result.warnings.some(w => w.message.includes('No automations configured'))).toBe(true);
-    });
-
-    it('should warn when cron is used on non-SchedulerTick event', () => {
-      const json = JSON.stringify({
-        automations: {
-          LabelAdd: [{
-            cron: '0 9 * * *',
-            actions: [{ type: 'prompt', prompt: 'echo test' }],
-          }],
-        },
-      });
-      const result = validateAutomationsContent(json);
-      expect(result.warnings.some(w => w.message.includes('SchedulerTick'))).toBe(true);
+      expect(result.errors.some(e => e.includes('Invalid timezone'))).toBe(true);
     });
 
     it('should accept valid simple regex patterns', () => {
@@ -363,7 +323,7 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(true);
     });
 
@@ -377,31 +337,12 @@ describe('validation', () => {
           }],
         },
       });
-      const result = validateAutomationsContent(json);
+      const result = validateAutomationsConfig(JSON.parse(json));
       expect(result.valid).toBe(true);
     });
   });
 
   describe('deprecated event aliases', () => {
-    it('should accept TodoStateChange as deprecated alias', () => {
-      const config = JSON.stringify({
-        automations: {
-          TodoStateChange: [{
-            actions: [{ type: 'prompt', prompt: 'echo test' }],
-          }],
-        },
-      });
-      const result = validateAutomationsContent(config);
-      expect(result.valid).toBe(true);
-      expect(result.warnings).toContainEqual(
-        expect.objectContaining({
-          path: 'automations.TodoStateChange',
-          severity: 'warning',
-          suggestion: expect.stringContaining('SessionStatusChange'),
-        })
-      );
-    });
-
     it('should rewrite TodoStateChange to SessionStatusChange in schema transform', () => {
       const raw = {
         automations: {

@@ -1,7 +1,7 @@
 import { RPC_CHANNELS, type LlmConnectionSetup, type LlmConnectionUpdate } from '@otto/shared/protocol'
 import { getLlmConnections, getLlmConnection, addLlmConnection, updateLlmConnection, deleteLlmConnection, getDefaultLlmConnection, setDefaultLlmConnection, isCompatProvider, getDefaultModelForConnection, CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, type LlmConnection, type LlmConnectionWithStatus, toBedrockNativeId, deriveBedrockRegionPrefix } from '@otto/shared/config'
 import { getCredentialManager } from '@otto/shared/credentials'
-import { INSTALL_SCOPE, getConnection, narrowContext, userScope, workspaceScope, type ConnectionContext, type Credential } from '@otto/shared/connections'
+import { CLAUDE_CODE_OWNER_ONLY, INSTALL_SCOPE, getConnection, isClaudeCodeScope, narrowContext, userScope, workspaceScope, type ConnectionContext, type Credential } from '@otto/shared/connections'
 import { setSetupDeferred } from '@otto/shared/config/storage'
 import {
   resolveSetupTestConnectionHint,
@@ -102,9 +102,9 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
         isNewConnection = true
       }
 
-      // A Claude subscription is one person's own sign-in: never the workspace's or the install's
-      if (connection.type === CLAUDE_CODE_CONNECTION_TYPE && (isNewConnection ? !newScope.startsWith('user:') : !connection.scope?.startsWith('user:'))) {
-        return { success: false, error: 'A Claude subscription is personal: it uses your own Claude Code sign-in.' }
+      // A Claude subscription runs the server's own `claude` login: the instance owner's own connection, nobody else's
+      if (connection.type === CLAUDE_CODE_CONNECTION_TYPE && !isClaudeCodeScope(isNewConnection ? newScope : connection.scope)) {
+        return { success: false, error: CLAUDE_CODE_OWNER_ONLY }
       }
 
       const updates: Partial<LlmConnection> = {}
@@ -571,7 +571,12 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
   })
 
   // Is the user's own `claude` runnable on the machine the server is on? (`claude --version`, no credentials)
-  server.handle(RPC_CHANNELS.claudeCode.GET_STATUS, async () => getClaudeCodeStatus())
+  // The instance owner's alone (authorize.ts); a run spawns `claude`, so a call within 2 s of the last gets its answer
+  let claudeCodeStatus: { at: number; status: ReturnType<typeof getClaudeCodeStatus> } | undefined
+  server.handle(RPC_CHANNELS.claudeCode.GET_STATUS, async () => {
+    if (!claudeCodeStatus || Date.now() - claudeCodeStatus.at >= 2000) claudeCodeStatus = { at: Date.now(), status: getClaudeCodeStatus() }
+    return claudeCodeStatus.status
+  })
 
   // ============================================================
   // GitHub Copilot OAuth

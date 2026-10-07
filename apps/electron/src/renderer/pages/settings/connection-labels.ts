@@ -84,4 +84,3 @@ export function getModelOptionsForConnection(
     descriptionKey: m.descriptionKey,
   }))
 }
-

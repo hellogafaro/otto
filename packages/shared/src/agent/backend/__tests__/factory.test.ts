@@ -16,6 +16,7 @@ import { ensureConfigDir, type Workspace, type LlmConnection } from '../../../co
 import type { SessionConfig as Session } from '../../../sessions/storage.ts';
 import { PiAgent } from '../../pi-agent.ts';
 import { isValidProviderAuthCombination } from '../../../config/llm-connections.ts';
+import { CLAUDE_CODE_OWNER_ONLY } from '../../../connections/index.ts';
 
 beforeAll(() => ensureConfigDir());
 
@@ -73,6 +74,8 @@ describe('createBackend', () => {
     expect((agent as any).config.authType).toBe('cli_login');
     expect((agent as any).config.runtime.piAuthProvider).toBe('claude-code');
     expect(agent.getModel()).toBe('pi/claude-opus-5-5');
+    // not the instance owner's own connection: the chat is told so and never runs
+    expect((agent as any).config.missingConnection).toBe(CLAUDE_CODE_OWNER_ONLY);
     agent.destroy();
   });
 

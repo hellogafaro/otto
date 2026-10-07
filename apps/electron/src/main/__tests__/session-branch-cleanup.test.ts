@@ -2,9 +2,8 @@ import { describe, expect, it } from 'bun:test'
 import { rollbackFailedBranchCreation } from '@otto/server-core/domain'
 
 describe('rollbackFailedBranchCreation', () => {
-  it('cleans runtime + storage and tears down agent/pool on preflight failure', async () => {
+  it('cleans runtime + storage and tears down the agent on preflight failure', async () => {
     let destroyed = false
-    let stopped = false
     let runtimeDeleted: string | null = null
     let storageDeleted: string | null = null
 
@@ -12,11 +11,6 @@ describe('rollbackFailedBranchCreation', () => {
       agent: {
         destroy: () => {
           destroyed = true
-        },
-      },
-      poolServer: {
-        stop: () => {
-          stopped = true
         },
       },
     }
@@ -34,14 +28,12 @@ describe('rollbackFailedBranchCreation', () => {
     })
 
     expect(destroyed).toBe(true)
-    expect(stopped).toBe(true)
     expect(runtimeDeleted as string | null).toBe('child-1')
     expect(storageDeleted as string | null).toBe('child-1')
     expect(managed.agent).toBeNull()
-    expect(managed.poolServer).toBeUndefined()
   })
 
-  it('still deletes sessions when destroy/stop throw (best-effort)', async () => {
+  it('still deletes sessions when destroy throws (best-effort)', async () => {
     let runtimeDeleted = false
     let storageDeleted = false
 
@@ -49,11 +41,6 @@ describe('rollbackFailedBranchCreation', () => {
       agent: {
         destroy: () => {
           throw new Error('destroy failed')
-        },
-      },
-      poolServer: {
-        stop: () => {
-          throw new Error('stop failed')
         },
       },
     }
@@ -73,7 +60,6 @@ describe('rollbackFailedBranchCreation', () => {
     expect(runtimeDeleted).toBe(true)
     expect(storageDeleted).toBe(true)
     expect(managed.agent).toBeNull()
-    expect(managed.poolServer).toBeUndefined()
   })
 
   it('does not throw when storage deletion fails', async () => {
@@ -81,7 +67,6 @@ describe('rollbackFailedBranchCreation', () => {
 
     const managed = {
       agent: null,
-      poolServer: undefined,
     }
 
     await rollbackFailedBranchCreation({

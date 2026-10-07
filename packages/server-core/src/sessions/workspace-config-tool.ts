@@ -1,6 +1,8 @@
 import { userActor } from '@otto/shared/actors'
 import { updateWorkspacePermissions, getWorkspacePermissions } from '@otto/shared/agent'
 import { canEditAgent, createAgent, deleteAgent, getAgent, getAgents, getDefaultProvider, updateAgent, type Agent, type AgentUpdate } from '@otto/shared/agents'
+import { canEditRoutine, createRoutine, deleteRoutine, getRoutine, getRoutines, updateRoutine } from '@otto/shared/automations/routines'
+import type { Routine, RoutineConfig, RoutineRun } from '@otto/shared/automations/routine-types'
 import { createLabel, deleteLabel, moveLabel, reorderLabels, updateLabel } from '@otto/shared/labels/crud'
 import { getLabels } from '@otto/shared/labels/storage'
 import { createStatus, deleteStatus, reorderStatuses, setDefaultStatus, updateStatus } from '@otto/shared/statuses/crud'
@@ -9,16 +11,16 @@ import { domainError } from '@otto/shared/utils'
 import { getMemberRole } from '@otto/shared/workspaces'
 
 /**
- * What the agent tools `labels_edit`, `statuses_edit`, `permissions_edit` and `agents_edit` do: the domain functions, as the chat's
- * user, bounded to the chat's workspace (the guard of `bootstrap/authorize.ts`: members read, owners write; agents: any member
- * creates, only an agent's creator or an owner changes or deletes it).
- * They replace the agents editing `labels/config.json`, `statuses/config.json` and `permissions.json` by path, which
- * nothing reads any more; the Python `otto` CLI will take over from them (docs/data-architecture.md, PT).
+ * What the agent tools `labels_edit`, `statuses_edit`, `permissions_edit`, `agents_edit` and `routines_edit` do: the domain
+ * functions, as the chat's user, bounded to the chat's workspace (the guard of `bootstrap/authorize.ts`: members read, owners
+ * write; agents and routines: any member creates, only the creator or an owner changes, runs or deletes one).
+ * They replace the agents editing `labels/config.json`, `statuses/config.json`, `permissions.json` and `automations.json` by
+ * path, which nothing reads any more; the Python `otto` CLI will take over from them (docs/data-architecture.md, PT).
  */
 
-export type WorkspaceConfigDomain = 'labels' | 'statuses' | 'permissions' | 'agents'
+export type WorkspaceConfigDomain = 'labels' | 'statuses' | 'permissions' | 'agents' | 'routines'
 
-const READS: Record<WorkspaceConfigDomain, string[]> = { labels: ['list'], statuses: ['list'], permissions: ['get'], agents: ['list', 'get'] }
+const READS: Record<WorkspaceConfigDomain, string[]> = { labels: ['list'], statuses: ['list'], permissions: ['get'], agents: ['list', 'get'], routines: ['list', 'get'] }
 
 const str = (value: unknown, name: string): string => {
   if (typeof value !== 'string' || !value) throw domainError('invalid', `${name} is required`)
@@ -49,13 +51,20 @@ const agentFields = (args: Record<string, unknown>): AgentUpdate => ({
 /**
  * Runs one action for `userId` in the workspace. Returns what to tell the agent and whether anything changed
  * (so the caller can push `domain:changed`). Throws `forbidden` for a non-member, or a non-owner who writes.
+ * `runRoutine` starts a run of a routine (the routines RPC's runner); without it `routines_edit` cannot run one.
  */
-export function runWorkspaceConfigAction(workspaceId: string, userId: string | null, domain: WorkspaceConfigDomain, args: Record<string, unknown>): { result: unknown; wrote: boolean } {
+export function runWorkspaceConfigAction(
+  workspaceId: string,
+  userId: string | null,
+  domain: WorkspaceConfigDomain,
+  args: Record<string, unknown>,
+  runRoutine?: (routine: Routine) => RoutineRun | undefined,
+): { result: unknown; wrote: boolean } {
   const action = str(args.action, 'action')
   const role = userId ? getMemberRole(workspaceId, userId) : null
   if (!role) throw domainError('forbidden', 'You are not a member of this workspace')
   const wrote = !READS[domain].includes(action)
-  if (wrote && domain !== 'agents' && role !== 'owner') throw domainError('forbidden', `Only an owner of this workspace can change its ${domain}`)
+  if (wrote && domain !== 'agents' && domain !== 'routines' && role !== 'owner') throw domainError('forbidden', `Only an owner of this workspace can change its ${domain}`)
 
   if (domain === 'labels') {
     const id = () => str(args.id, 'id')
@@ -114,6 +123,42 @@ export function runWorkspaceConfigAction(workspaceId: string, userId: string | n
         return { result: updateAgent(workspaceId, owned().id, agentFields(args)), wrote }
       case 'delete':
         deleteAgent(workspaceId, owned().id)
+        return { result: { deleted: args.id }, wrote }
+    }
+  } else if (domain === 'routines') {
+    // A routine runs as its creator: a change by anyone else makes it theirs (`by`), and a run runs as the caller
+    const actor = userActor(userId!)
+    const owned = (): Routine => {
+      const routine = getRoutine(workspaceId, str(args.id, 'id'))
+      if (!routine) throw domainError('not_found', `Routine ${String(args.id)} does not exist`)
+      if (!canEditRoutine(workspaceId, routine, userId!)) throw domainError('forbidden', 'Only the creator of this routine or an owner of this workspace can change it')
+      return routine
+    }
+    const fields = { title: args.title as string | undefined, agentId: args.agentId as string | null | undefined, config: args.config as RoutineConfig | undefined }
+    switch (action) {
+      case 'list':
+        return { result: getRoutines(workspaceId).map(({ runs: _, ...routine }) => routine), wrote }
+      case 'get': {
+        const routine = getRoutine(workspaceId, str(args.id, 'id'))
+        if (!routine) throw domainError('not_found', `Routine ${String(args.id)} does not exist`)
+        return { result: routine, wrote }
+      }
+      case 'create':
+        return { result: createRoutine({ ...fields, title: str(args.title, 'title'), config: args.config as RoutineConfig, paused: args.paused === true, workspaceId, createdBy: actor }), wrote }
+      case 'update':
+        return { result: updateRoutine(workspaceId, owned().id, { ...fields, by: actor }), wrote }
+      case 'pause':
+      case 'resume':
+        return { result: updateRoutine(workspaceId, owned().id, { paused: action === 'pause', by: actor }), wrote }
+      case 'run': {
+        const routine = owned()
+        if (!runRoutine) throw domainError('invalid', 'A routine cannot be run from here')
+        const run = runRoutine({ ...routine, createdBy: actor })
+        if (!run) throw domainError('conflict', 'The routine could not start a run')
+        return { result: run, wrote }
+      }
+      case 'delete':
+        deleteRoutine(workspaceId, owned().id)
         return { result: { deleted: args.id }, wrote }
     }
   } else {

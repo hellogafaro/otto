@@ -122,7 +122,7 @@ describe('initChatsImport', () => {
 
     const report = initChatsImport(db, [ws])
 
-    expect(report).toMatchObject({ workspaces: 1, chats: 4, hidden: 1, failed: 1, skippedLines: 1 })
+    expect(report).toMatchObject({ workspaces: 1, chats: 4, hidden: 1, unreadable: 1, failed: 0, skippedLines: 1 })
     expect(createHash('sha256').update(readFileSync(file)).digest('hex')).toBe(before.hash)
     expect(statSync(file).mtimeMs).toBe(before.mtime)
 
@@ -189,6 +189,18 @@ describe('initChatsImport', () => {
     expect(initChatsImport(db, [ws])).toMatchObject({ chats: 1, workspaces: 1 })
     expect(positions(db, '260105-vital-zenith')).toEqual(mainRows)
     expect(getMessageRows(W, '260107-late-chat', db).map((row) => row.id)).toEqual(['l1'])
+  })
+
+  it('leaves a workspace whose chat could not be written for the next boot, which brings that chat in', async () => {
+    const { db, ws } = await fixture()
+    db.run(sql.raw(`CREATE TRIGGER fail_one BEFORE INSERT ON chats WHEN NEW.id = '260102-routine-run' BEGIN SELECT RAISE(ABORT, 'disk full'); END`))
+    expect(initChatsImport(db, [ws])).toMatchObject({ workspaces: 0, chats: 3, failed: 1, unreadable: 1 })
+    expect(getSetting(INSTALL, 'imports', db)[`chats:${W}`]).toBeUndefined()
+
+    db.run(sql.raw('DROP TRIGGER fail_one'))
+    expect(initChatsImport(db, [ws])).toMatchObject({ workspaces: 1, chats: 1, failed: 0 })
+    expect(getSetting(INSTALL, 'imports', db)[`chats:${W}`]).toBeGreaterThan(0)
+    expect(getMessageRows(W, '260102-routine-run', db).map((row) => row.id)).toEqual(['r1'])
   })
 
   it('leaves a workspace with nobody to own its chats for the next boot', async () => {
@@ -357,6 +369,63 @@ describe('reads', () => {
     expect(searchChats(W, OTHER, 'cafe', {}, db).map((r) => r.sessionId)).toEqual(['s2'])
     expect(searchChats(W, 'user:cccccccccccc', 'cafe', {}, db)).toEqual([])
     expect(getChats(W, '/tmp/w', { actor: OTHER }, db).map((c) => c.id)).toEqual(['s2'])
+  })
+})
+
+// ---------------------------------------------------------------------------------------------------------------
+// The search index: deletes, renumbered rowids, the old contentless table
+// ---------------------------------------------------------------------------------------------------------------
+
+describe('search index', () => {
+  /** Two chats with their own words, on a file database, closed so a fresh handle runs `initMessages` again. */
+  async function indexed() {
+    const { path, db } = await fileDb()
+    const { write } = writer(db)
+    await write(chatOf('x1'), [msg('u1', 'user', 1, { content: 'apple pie' }), msg('a1', 'assistant', 2, { content: 'apple crumble' }), msg('t1', 'tool', 3, { toolName: 'Bash' })])
+    await write(chatOf('x2'), [msg('u1', 'user', 1, { content: 'banana bread' }), msg('a1', 'assistant', 2, { content: 'banana split' })])
+    db.$client.close()
+    return path
+  }
+  const hits = (db: Db, query: string) => searchChats(W, ME, query, {}, db).map((r) => [r.sessionId, r.matchCount, r.matches.map((m) => m.snippet)])
+
+  it('a renumbering of the messages rowids (a db:push table rebuild) is found at the next init and rebuilt', async () => {
+    const path = await indexed()
+    const raw = openDb(path)
+    raw.$client.exec('CREATE TABLE tmp AS SELECT * FROM messages; DELETE FROM messages; INSERT INTO messages SELECT * FROM tmp ORDER BY rowid DESC; DROP TABLE tmp')
+    expect(raw.all(sql`SELECT f.text FROM messages_fts f JOIN messages m ON m.rowid = f.rowid WHERE m.chat_id = 'x1'`)).not.toContainEqual({ text: 'apple pie' })
+    raw.$client.close()
+
+    const db = openDb(path)
+    initMessages(db)
+    expect(hits(db, 'apple')).toEqual([['x1', 2, ['apple crumble', 'apple pie']]])
+    expect(hits(db, 'banana')).toEqual([['x2', 2, ['banana split', 'banana bread']]])
+    expect(count(db, sql`SELECT count(*) AS n FROM messages_fts`)).toBe(4)
+    db.$client.close()
+  })
+
+  it('deleting a chat removes its messages from search', async () => {
+    const db = openDb(await indexed())
+    expect(hits(db, 'banana')).toHaveLength(1)
+    deleteChat(W, 'x2', db)
+    expect(hits(db, 'banana')).toEqual([])
+    expect(hits(db, 'apple')).toHaveLength(1)
+    expect(count(db, sql`SELECT count(*) AS n FROM messages_fts`)).toBe(2)
+    db.$client.close()
+  })
+
+  it('replaces an old contentless index with one that stores its text, and rebuilds it', async () => {
+    const path = await indexed()
+    const raw = openDb(path)
+    raw.$client.exec(`DROP TABLE messages_fts; CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='', contentless_delete=1, tokenize='unicode61 remove_diacritics 2', prefix='2 3')`)
+    raw.$client.close()
+
+    const db = openDb(path)
+    initMessages(db)
+    expect(db.all<{ sql: string }>(sql`SELECT sql FROM sqlite_master WHERE name = 'messages_fts'`)[0]!.sql).not.toContain('content')
+    expect(hits(db, 'apple')).toEqual([['x1', 2, ['apple crumble', 'apple pie']]])
+    deleteChat(W, 'x1', db)
+    expect(hits(db, 'apple')).toEqual([])
+    db.$client.close()
   })
 })
 

@@ -5,7 +5,8 @@ import { getCredentialManager, type CredentialManager } from '../credentials/ind
 import { initDb, type Db } from '../db/index.ts'
 import { initSecretsStore } from '../secrets/index.ts'
 import { getSetting, INSTALL, updateSetting } from '../settings/index.ts'
-import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, createConnectionsStore, INSTALL_SCOPE, type ConnectionConfig, type ConnectionInput, type Credential } from './index.ts'
+import { and, asc, eq, sql } from 'drizzle-orm'
+import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, createConnectionsStore, getClaudeCodeScope, INSTALL_SCOPE, type ConnectionConfig, type ConnectionInput, type Credential } from './index.ts'
 import { connections } from './schema.ts'
 
 /**
@@ -13,7 +14,8 @@ import { connections } from './schema.ts'
  * (`llm_api_key::{slug}`, `llm_oauth::`, `llm_iam::`, `llm_service_account::`, and the global `anthropic_api_key` of
  * before connections) become `connections` rows (scope `install`) with one secret each, once, at boot. Their `type` is
  * the Pi provider id (`toPiProvider`); a Claude subscription becomes `claude-code`, which keeps no secret, so the
- * Claude OAuth tokens Otto once held are not imported.
+ * Claude OAuth tokens Otto once held are not imported, and the row becomes the instance owner's own
+ * (`initClaudeCodeOwnerImport`).
  * A row that exists for a slug (the old bridge made some) is updated, not duplicated; a connection that cannot be
  * read (an unknown provider type) is skipped and counted. The credentials are read first and each connection is
  * one transaction, so a run that stops half-way is finished by the next one, and `imports.connections` is recorded
@@ -111,7 +113,17 @@ export async function initConnectionsImport(
   const store = options.store ?? createConnectionsStore(db, initSecretsStore())
   const converted = initConnectionsPiProviderImport(db, store)
   if (converted) console.info(`[connections] ${converted} connections now name their Pi provider`)
-  if (getSetting(INSTALL, 'imports', db).connections) return { imported: 0, skipped: 0 }
+  const result = getSetting(INSTALL, 'imports', db).connections ? { imported: 0, skipped: 0 } : await importOldConnections(db, store, options)
+  const moved = initClaudeCodeOwnerImport(db)
+  if (moved) console.info(`[connections] ${moved} Claude subscriptions are now the instance owner's own`)
+  return result
+}
+
+async function importOldConnections(
+  db: Db,
+  store: ReturnType<typeof createConnectionsStore>,
+  options: { configDir?: string; manager?: CredentialManager },
+): Promise<{ imported: number; skipped: number }> {
   const manager = options.manager ?? getCredentialManager()
   const raws = readConfig(options.configDir ?? CONFIG_DIR).llmConnections
   let imported = 0
@@ -143,6 +155,30 @@ export async function initConnectionsImport(
 
   updateSetting(INSTALL, 'imports', { ...getSetting(INSTALL, 'imports', db), connections: Date.now() }, db)
   return { imported, skipped }
+}
+
+/**
+ * A `claude-code` connection of the install's (an imported Claude subscription, or one made before it was the instance
+ * owner's alone) becomes the instance owner's own (`getClaudeCodeScope`), unless the owner already has that slug; the
+ * install's default moves off it. Runs at every boot (in `initConnectionsImport`); without a user yet it waits for the
+ * next boot, and a row it leaves is refused at use. Returns how many rows moved.
+ */
+export function initClaudeCodeOwnerImport(db: Db): number {
+  const scope = getClaudeCodeScope(db)
+  if (!scope) return 0
+  const taken = new Set(db.select({ slug: connections.slug }).from(connections).where(eq(connections.scope, scope)).all().map((row) => row.slug))
+  const rows = db.select().from(connections).where(and(eq(connections.type, CLAUDE_CODE_CONNECTION_TYPE), eq(connections.scope, INSTALL_SCOPE))).all()
+  let moved = 0
+  for (const row of rows) {
+    if (taken.has(row.slug)) continue
+    db.update(connections).set({ scope }).where(eq(connections.id, row.id)).run()
+    if (getSetting(INSTALL, 'defaultConnectionSlug', db) === row.slug) {
+      const first = db.select({ slug: connections.slug }).from(connections).where(eq(connections.scope, INSTALL_SCOPE)).orderBy(asc(connections.createdAt), sql`rowid`).get()
+      updateSetting(INSTALL, 'defaultConnectionSlug', first?.slug ?? null, db)
+    }
+    moved++
+  }
+  return moved
 }
 
 /**

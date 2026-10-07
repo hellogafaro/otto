@@ -1,10 +1,10 @@
 /**
- * Workspace Config Handlers (labels_edit, statuses_edit, permissions_edit, agents_edit)
+ * Workspace Config Handlers (labels_edit, statuses_edit, permissions_edit, agents_edit, routines_edit)
  *
- * The interim way for an agent to change the workspace's labels, statuses, Explore-mode permission rules and agents, now that they
- * are database rows and no longer files an agent edits by path. Each call goes through the injected
- * `ctx.editWorkspaceConfig`, which runs the domain functions as the chat's user (owners write, members read; for agents any member creates and
- * only the agent's creator or an owner changes it).
+ * The interim way for an agent to change the workspace's labels, statuses, Explore-mode permission rules, agents and routines, now
+ * that they are database rows and no longer files an agent edits by path. Each call goes through the injected
+ * `ctx.editWorkspaceConfig`, which runs the domain functions as the chat's user (owners write, members read; for agents and
+ * routines any member creates and only the creator or an owner changes it).
  * The Python `otto` CLI will replace these tools.
  */
 
@@ -12,7 +12,7 @@ import type { SessionToolContext } from '../context.ts';
 import type { ToolResult } from '../types.ts';
 import { successResponse, errorResponse } from '../response.ts';
 
-type Domain = 'labels' | 'statuses' | 'permissions' | 'agents';
+type Domain = 'labels' | 'statuses' | 'permissions' | 'agents' | 'routines';
 
 async function edit(ctx: SessionToolContext, domain: Domain, args: Record<string, unknown>): Promise<ToolResult> {
   if (!ctx.editWorkspaceConfig) return errorResponse(`${domain}_edit is not available in this context.`);
@@ -28,3 +28,4 @@ export const handleLabelsEdit = (ctx: SessionToolContext, args: Record<string, u
 export const handleStatusesEdit = (ctx: SessionToolContext, args: Record<string, unknown>) => edit(ctx, 'statuses', args);
 export const handlePermissionsEdit = (ctx: SessionToolContext, args: Record<string, unknown>) => edit(ctx, 'permissions', args);
 export const handleAgentsEdit = (ctx: SessionToolContext, args: Record<string, unknown>) => edit(ctx, 'agents', args);
+export const handleRoutinesEdit = (ctx: SessionToolContext, args: Record<string, unknown>) => edit(ctx, 'routines', args);

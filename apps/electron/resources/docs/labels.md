@@ -38,7 +38,7 @@ Labels are color-only (colored circles in the UI); there are no icons. There are
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | string | The slug (see above). Used by `update`, `delete`, `move`, `parentId`, automations and session labels. |
+| `id` | string | The slug (see above). Used by `update`, `delete`, `move`, `parentId`, routines and session labels. |
 | `name` | string | Display name |
 | `color` | EntityColor? | System color string (e.g., `"accent"`, `"info/80"`) or custom object (`{ "light": "#hex", "dark": "#hex" }`) |
 | `valueType` | `'string' \| 'number' \| 'date' \| 'link'`? | Makes it a valued label. Tells the UI what input to show and agents what format to write. `link` values render as a clickable chip that opens in the browser. Omit for boolean (presence-only) labels. |
@@ -154,7 +154,7 @@ A semantic rule is a yes/no question instead of a regex. The decision model (Jev
 
 - **Inert without the decision model**: when the user has not enabled it (or disabled the `semanticLabels` feature toggle), semantic rules are stored but never evaluated.
 - **Off the critical path**: semantic rules run in the background and their labels appear a moment later. Messages shorter than 20 characters are skipped, and so are rules whose label the session already has. System-generated messages are never evaluated.
-- **Automations**: a semantic match fires `LabelAdd` automations like any other label change, which is why the default threshold is high.
+- **Routines**: a semantic match fires `LabelAdd` routines like any other label change, which is why the default threshold is high.
 - **Privacy**: the message (code blocks stripped, cut to 8k characters) is sent to the configured decision provider; every call is recorded in `~/.otto/logs/decisions.jsonl` without the text.
 
 ### Example

@@ -20,7 +20,7 @@ const { createWorkspaceMember, deleteWorkspaceMember, getMemberRole } = await im
 const { WsRpcServer, WsRpcClient } = await import('@otto/server-core/transport')
 const { users } = await import('../../../../../../packages/shared/src/users/schema.ts')
 const { userEntity, workspaceEntity } = await import('@otto/shared/settings')
-const { createConnection, deleteConnection, userScope, workspaceScope } = await import('@otto/shared/connections')
+const { CLAUDE_CODE_OWNER_ONLY, createConnection, deleteConnection, getConnection, userScope, workspaceScope } = await import('@otto/shared/connections')
 const { getTranscriptionKey } = await import('@otto/shared/transcription')
 const { createAgent } = await import('@otto/shared/agents')
 const { createRoutine } = await import('@otto/shared/automations/routines')
@@ -28,6 +28,7 @@ const { AGENT_WRITE_CHANNELS, authorize, CONNECTION_WRITE_CHANNELS, INSTANCE_OWN
 const { registerAllRpcHandlers } = await import('../index')
 
 type Handler = (...args: never[]) => unknown
+const promptedAs: (string | undefined)[] = []
 const registered = new Map<string, Handler>()
 const deps = {
   ...createMockDeps(),
@@ -37,6 +38,8 @@ const deps = {
     getWorkspacesInfo: () => getWorkspaces().map((workspace) => ({ id: workspace.id, name: workspace.name })),
     getActiveSessionsInfo: () => [],
     setupConfigWatcher() {},
+    // Whose chat a routine's prompt starts
+    executePromptAutomation: async (input: { createdBy?: string }) => (promptedAs.push(input.createdBy), { sessionId: 'chat' }),
   },
 } as never
 registerAllRpcHandlers(
@@ -235,6 +238,25 @@ describe('the guard on every registered channel', () => {
       expect(await codeOf(bob.invoke(channel, 'nope'))).toBe('ok') // not a routine here: the handler says not_found
       expect(await codeOf(zed.invoke(channel, mine))).toBe('ok') // zed's workspace is B, where it is no routine
     }
+  })
+
+  it("makes a routine an owner changes the owner's, and runs Run now as the person who asked", async () => {
+    const { url } = await start(true)
+    const [alice, bob] = [await connect(url, 'alice', A), await connect(url, 'bob', A)]
+    const { routines } = RPC_CHANNELS
+    const config = { type: 'event' as const, event: 'LabelAdd', actions: [{ type: 'prompt' as const, prompt: 'x' }] }
+    const id = createRoutine({ workspaceId: A, title: 'Bob\'s', config, createdBy: 'user:bob' }).id
+    // bob's own change keeps it his
+    expect(await bob.invoke(routines.UPDATE, id, { title: 'Still bob\'s' })).toMatchObject({ createdBy: 'user:bob' })
+    // Run now by alice (an owner) runs as alice, and leaves the routine bob's
+    promptedAs.length = 0
+    await alice.invoke(routines.RUN, id)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(promptedAs).toEqual(['user:alice'])
+    expect(await alice.invoke(routines.GET, id)).toMatchObject({ createdBy: 'user:bob' })
+    // a change by alice makes it hers: its runs no longer use bob's connections, and bob can no longer change it
+    expect(await alice.invoke(routines.PAUSE, id)).toMatchObject({ createdBy: 'user:alice' })
+    expect(await codeOf(bob.invoke(routines.RESUME, id))).toBe('forbidden')
   })
 
   it('refuses the install channels to everyone but the instance owner, even a workspace owner', async () => {
@@ -457,11 +479,30 @@ describe('the connection channels', () => {
     expect(await defaultOf(alice)).toBe('inst')
   })
 
-  it('lets every member ask whether claude is runnable, and no one else', async () => {
+  it('lets only the instance owner ask whether claude is runnable', async () => {
     const { url } = await start(true)
-    const bob = await connect(url, 'bob', A)
-    expect(await bob.invoke(RPC_CHANNELS.claudeCode.GET_STATUS)).toMatchObject({ found: expect.any(Boolean), path: expect.any(String) })
+    const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
+    expect(await alice.invoke(RPC_CHANNELS.claudeCode.GET_STATUS)).toMatchObject({ found: expect.any(Boolean), path: expect.any(String) })
+    expect(await codeOf(bob.invoke(RPC_CHANNELS.claudeCode.GET_STATUS))).toBe('forbidden')
+    expect(await codeOf(zed.invoke(RPC_CHANNELS.claudeCode.GET_STATUS))).toBe('forbidden')
     expect(await handshake(url, 'stranger', A)).not.toBe('ok')
+  })
+
+  it("lets only the instance owner connect a Claude subscription, always as their own", async () => {
+    const { url } = await start(true)
+    const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
+    const setup = RPC_CHANNELS.settings.SETUP_LLM_CONNECTION
+    const claude = (scope?: string) => ({ slug: 'claude-test', type: 'claude-code', title: 'Claude', ...(scope ? { scope } : {}) })
+    // a member and a workspace owner (zed owns B) are refused, as their own or the workspace's
+    for (const scope of [undefined, 'user']) expect(await bob.invoke(setup, claude(scope))).toMatchObject({ success: false, error: CLAUDE_CODE_OWNER_ONLY })
+    for (const scope of [undefined, 'user', 'workspace']) expect(await zed.invoke(setup, claude(scope))).toMatchObject({ success: false, error: CLAUDE_CODE_OWNER_ONLY })
+    // the instance owner: as their own only
+    expect(await alice.invoke(setup, claude('workspace'))).toMatchObject({ success: false, error: CLAUDE_CODE_OWNER_ONLY })
+    expect(await alice.invoke(setup, claude('install'))).toMatchObject({ success: false, error: CLAUDE_CODE_OWNER_ONLY })
+    expect(await alice.invoke(setup, claude('user'))).toMatchObject({ success: true })
+    expect(getConnection('claude-test', { userId: 'alice' })?.scope).toBe(userScope('alice'))
+    expect(getConnection('claude-test', { userId: 'bob', workspaceId: A })).toBeUndefined()
+    deleteConnection(getConnection('claude-test', { userId: 'alice' })!.id)
   })
 })
 

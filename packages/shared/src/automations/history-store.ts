@@ -8,7 +8,7 @@ import { startRoutineRun, updateRoutineRun } from './routines.ts'
  * What the event handlers and the session manager record when an event routine runs a prompt, webhook or script: the
  * entries of `createPromptHistoryEntry`, `createWebhookHistoryEntry` and `createScriptHistoryEntry` (the JSON shape
  * the old history file held, `id` = the routine's id), written as one finished run of that routine.
- * TODO(R1 part 2): the event path records runs through `runRoutine` itself; this goes with the old entry builders.
+ * (Schedules and Run now record through `runRoutine` instead.)
  */
 export async function appendAutomationHistoryEntry(workspaceRootPath: string, entry: Record<string, unknown>, handle?: Db): Promise<void> {
   const workspaceId = getWorkspaceIdByRootPath(workspaceRootPath)

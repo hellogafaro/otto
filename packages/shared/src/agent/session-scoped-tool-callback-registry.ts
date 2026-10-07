@@ -62,8 +62,8 @@ export interface SessionScopedToolCallbacks {
   listSessionsFn?: (options?: import('@otto/session-tools-core').ListSessionsOptions) => import('@otto/session-tools-core').ListSessionsResult;
   /** List background tasks (running + terminal) for a session from the main-process registry. */
   listBackgroundTasksFn?: (sessionId?: string) => import('@otto/session-tools-core').BackgroundTaskInfo[];
-  /** labels_edit / statuses_edit / permissions_edit / agents_edit: edit the workspace's labels, statuses, permission rules or agents as the chat's user (see `runWorkspaceConfigAction`). */
-  editWorkspaceConfigFn?: (domain: 'labels' | 'statuses' | 'permissions' | 'agents', args: Record<string, unknown>) => Promise<unknown>;
+  /** labels_edit / statuses_edit / permissions_edit / agents_edit / routines_edit: edit the workspace's labels, statuses, permission rules, agents or routines as the chat's user (see `runWorkspaceConfigAction`). */
+  editWorkspaceConfigFn?: (domain: 'labels' | 'statuses' | 'permissions' | 'agents' | 'routines', args: Record<string, unknown>) => Promise<unknown>;
   /** Resolve label display names to IDs. */
   resolveLabelsFn?: (labels: string[]) => import('@otto/session-tools-core').ResolvedLabelsResult;
   /** Resolve a status display name to its ID. */

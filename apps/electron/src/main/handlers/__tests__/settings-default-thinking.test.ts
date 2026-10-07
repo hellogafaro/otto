@@ -8,12 +8,10 @@ type HandlerFn = (ctx: { clientId: string }, ...args: any[]) => Promise<any> | a
 const getDefaultThinkingLevelMock = mock(() => 'think')
 const setDefaultThinkingLevelMock = mock((_level: string) => true)
 
+// The real module with the two functions under test replaced (a hand-made stub breaks on every new import of it)
+const actualConfig = await import('@otto/shared/config')
 mock.module('@otto/shared/config', () => ({
-  getSessionDraft: () => null,
-  setSessionDraft: () => {},
-  deleteSessionDraft: () => {},
-  getAllSessionDrafts: () => ({}),
-  getWorkspaceByNameOrId: () => null,
+  ...actualConfig,
   getDefaultThinkingLevel: getDefaultThinkingLevelMock,
   setDefaultThinkingLevel: setDefaultThinkingLevelMock,
 }))

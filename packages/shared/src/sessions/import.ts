@@ -17,8 +17,10 @@ import type { SessionHeader, StoredMessage } from './types.ts'
  * The importer of chats: each workspace's `sessions/<id>/session.jsonl` (line 1 the header, then one message per
  * line) becomes a `chats` row, its `labels_entities` rows and its `messages` rows (with their search entries), in
  * one transaction per chat, at boot (headless and desktop), before the session manager loads chats. A workspace is
- * recorded as `chats:<id>` in the `imports` setting once a pass over it is done, so a chat deleted later never comes
- * back; within a pass a chat whose id already has a row is skipped, so a pass cut short resumes where it stopped.
+ * recorded as `chats:<id>` in the `imports` setting once a pass over it imported every readable chat (a write that
+ * failed leaves it unrecorded, so the next boot tries again; an unreadable file is not retried), so a chat deleted
+ * later never comes back; a chat whose id already has a row is skipped, so a pass cut short or with failures resumes
+ * where it stopped.
  * The old files are only read: never changed, moved or deleted.
  *
  *   header.createdBy (absent)     -> the workspace's first owner (else the first user): chats are private
@@ -48,7 +50,9 @@ export interface ChatsImportReport {
   skippedLines: number
   /** Hidden chats left out. */
   hidden: number
-  /** Chats whose file could not be read. */
+  /** Chats whose file could not be read (not tried again). */
+  unreadable: number
+  /** Chats that could not be written (tried again at the next boot: their workspace is not recorded). */
   failed: number
   warnings: string[]
 }
@@ -106,7 +110,7 @@ function toSnapshot(header: SessionHeader & { todoState?: string }, chatId: stri
 }
 
 export function initChatsImport(db: Db = initDb(), workspaces: { id: string; rootPath: string }[] = loadStoredConfig()?.workspaces ?? []): ChatsImportReport {
-  const report: ChatsImportReport = { workspaces: 0, chats: 0, messages: 0, skippedLines: 0, hidden: 0, failed: 0, warnings: [] }
+  const report: ChatsImportReport = { workspaces: 0, chats: 0, messages: 0, skippedLines: 0, hidden: 0, unreadable: 0, failed: 0, warnings: [] }
   initMessages(db)
   for (const { id: workspaceId, rootPath } of workspaces) {
     const key = `chats:${workspaceId}`
@@ -118,19 +122,29 @@ export function initChatsImport(db: Db = initDb(), workspaces: { id: string; roo
     }
     const owner = userActor(ownerId)
     const sessionsDir = getWorkspaceSessionsPath(rootPath)
+    const failedBefore = report.failed
     const folders = existsSync(sessionsDir) ? readdirSync(sessionsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name) : []
     for (const chatId of folders) {
       const file = join(sessionsDir, chatId, 'session.jsonl')
       if (!CHAT_ID.test(chatId) || !existsSync(file)) continue
       if (hasChat(chatId, db)) continue
+      let lines: string[]
+      let header: SessionHeader & { hidden?: boolean }
       try {
-        const lines = readFileSync(file, 'utf-8').split('\n')
-        const header = JSON.parse(lines[0] ?? '') as SessionHeader & { hidden?: boolean }
+        lines = readFileSync(file, 'utf-8').split('\n')
+        header = JSON.parse(lines[0] ?? '') as SessionHeader & { hidden?: boolean }
         if (!header || typeof header !== 'object') throw new Error('no header')
-        if (header.hidden) {
-          report.hidden++
-          continue
-        }
+      } catch (error) {
+        // A file that cannot be read stays unreadable: retrying it would only bring deleted chats back
+        report.unreadable++
+        report.warnings.push(`${file}: ${error instanceof Error ? error.message : String(error)}; not imported`)
+        continue
+      }
+      if (header.hidden) {
+        report.hidden++
+        continue
+      }
+      try {
         const { messages, skipped } = parseMessageLines(lines.slice(1))
         const chat = toSnapshot(header, chatId, workspaceId, owner, db)
         const sessionDir = join(sessionsDir, chatId)
@@ -151,12 +165,18 @@ export function initChatsImport(db: Db = initDb(), workspaces: { id: string; roo
         report.warnings.push(`${file}: ${error instanceof Error ? error.message : String(error)}; not imported`)
       }
     }
+    // A chat whose write failed is tried again at the next boot: the workspace is recorded only once every readable
+    // chat is in (until then a chat deleted in between would come back, the price of not losing one)
+    if (report.failed > failedBefore) {
+      report.warnings.push(`workspace ${workspaceId}: ${report.failed - failedBefore} chats failed; tried again at the next boot`)
+      continue
+    }
     updateSetting(INSTALL, 'imports', { ...getSetting(INSTALL, 'imports', db), [key]: Date.now() }, db)
     report.workspaces++
   }
   if (report.workspaces || report.warnings.length) {
     console.log(
-      `[chats] imported ${report.chats} chats, ${report.messages} messages for ${report.workspaces} workspaces (${report.skippedLines} lines skipped, ${report.hidden} hidden chats left out, ${report.failed} failed)`,
+      `[chats] imported ${report.chats} chats, ${report.messages} messages for ${report.workspaces} workspaces (${report.skippedLines} lines skipped, ${report.hidden} hidden chats left out, ${report.unreadable} unreadable, ${report.failed} failed)`,
     )
     for (const warning of report.warnings) console.warn(`[chats] ${warning}`)
   }

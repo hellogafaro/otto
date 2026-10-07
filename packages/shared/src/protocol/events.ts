@@ -34,7 +34,6 @@ export interface BroadcastEventMap {
   // Domain change broadcasts (global via broadcastToAll)
   [RPC_CHANNELS.sources.CHANGED]: [workspaceId: string, sources: LoadedSource[]]
   [RPC_CHANNELS.sources.CONFLICT]: [workspaceId: string, slug: string]
-  [RPC_CHANNELS.automations.CHANGED]: [workspaceId: string]
   [RPC_CHANNELS.skills.CHANGED]: [workspaceId: string, skills: LoadedSkill[]]
   [RPC_CHANNELS.skills.CONFLICT]: [workspaceId: string, slug: string]
   [RPC_CHANNELS.domain.CHANGED]: [change: DomainChange]

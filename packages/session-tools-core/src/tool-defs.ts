@@ -30,7 +30,7 @@ import {
 } from './handlers/source-oauth.ts';
 import { handleCredentialPrompt } from './handlers/credential-prompt.ts';
 import { handleUpdatePreferences } from './handlers/update-preferences.ts';
-import { handleAgentsEdit, handleLabelsEdit, handleStatusesEdit, handlePermissionsEdit } from './handlers/workspace-config.ts';
+import { handleAgentsEdit, handleLabelsEdit, handleStatusesEdit, handlePermissionsEdit, handleRoutinesEdit } from './handlers/workspace-config.ts';
 import { handleTransformData } from './handlers/transform-data.ts';
 import { handleScriptSandbox } from './handlers/script-sandbox.ts';
 import { handleRenderTemplate } from './handlers/render-template.ts';
@@ -54,7 +54,7 @@ export const SubmitPlanSchema = z.object({
 });
 
 export const ConfigValidateSchema = z.object({
-  target: z.enum(['config', 'sources', 'permissions', 'automations', 'tool-icons', 'all'])
+  target: z.enum(['config', 'sources', 'permissions', 'tool-icons', 'all'])
     .describe('Which config file(s) to validate'),
   sourceSlug: z.string().optional().describe('Validate a specific source by slug'),
 });
@@ -98,6 +98,15 @@ export const AgentsEditSchema = z.object({
   skills: z.array(z.string()).optional().describe('Skill ids it may use; [] = every skill. Replaces the list on update.'),
   sources: z.array(z.string()).optional().describe('Source ids it may use; [] = every source. Replaces the list on update.'),
   avatar: z.string().optional().describe('Empty = a generated avatar; or "library:<id>" of an uploaded image'),
+});
+
+export const RoutinesEditSchema = z.object({
+  action: z.enum(['list', 'get', 'create', 'update', 'pause', 'resume', 'run', 'delete']).describe('list: the workspace\'s routines (without their runs). get: one with its recent runs. create: needs title and config. update/pause/resume/run/delete: need id.'),
+  id: z.string().optional().describe('The routine id'),
+  title: z.string().optional().describe('Its name, at most 120 characters (create, update)'),
+  config: z.record(z.string(), z.unknown()).optional().describe('When it runs and what it does: { type: "schedule" | "event", schedule?: { cron, timezone? }, event?, matcher?, conditions?, semanticCondition?, permissionMode?, telegramTopic?, actions: [{ type: "prompt" | "webhook" | "script", ... }] } (see the routines doc). Replaces the whole config on update.'),
+  agentId: z.string().nullable().optional().describe('The agent its chats talk to; null = the workspace\'s default agent (create, update)'),
+  paused: z.boolean().optional().describe('Start paused (create)'),
 });
 
 export const SkillValidateSchema = z.object({
@@ -320,7 +329,6 @@ Returns structured validation results with errors, warnings, and suggestions.
 - \`config\`: Validates config.json (the workspace list and connections)
 - \`sources\`: Validates all source config.json files
 - \`permissions\`: Validates the permissions.json files of sources (and the app default)
-- \`automations\`: Validates automations.json configuration
 - \`tool-icons\`: Validates tool-icons.json
 - \`all\`: Validates all configuration files`,
 
@@ -408,6 +416,7 @@ The user will see a secure input UI with appropriate fields based on the auth mo
   statuses_edit: `Read or change the workspace's chat statuses. Actions: list, create, update, delete, reorder, set_default. Statuses are database rows, not files: do not edit statuses/config.json. Only workspace owners can change them. The statuses todo, done and cancelled are fixed; the default one cannot be deleted; deleting a status moves its chats to todo.`,
 
   agents_edit: `Read, create, change or delete the workspace's agents (each has a name, instructions, a provider and model, and the skills and sources it may use). Actions: list, get, create, update, delete. Agents are database rows. Any member can create one; only an agent's creator or a workspace owner can update or delete it. The last agent of a workspace cannot be deleted; chats of a deleted agent move to the default agent (the oldest).`,
+  routines_edit: `Read, create, change, pause, resume, run or delete the workspace's routines: prompts, webhooks or workspace scripts that run on a schedule or an event. Actions: list, get, create, update, pause, resume, run, delete. Routines are database rows: automations.json is no longer read. Any member can create one; only a routine's creator or a workspace owner can change, pause, resume, run or delete it. A routine runs as its creator, so a change by anyone else makes it theirs, and run runs it as you. Read the routines doc before creating one.`,
   permissions_edit: `Read or change the workspace's Explore-mode permission rules (extra allowed bash patterns, MCP patterns, API endpoints, write paths, blocked tools, command hints). Actions: get, update (replaces the whole rule set). These rules are stored in the database, not in permissions.json; a source's own rules stay in its permissions.json. Only workspace owners can change them.`,
 
   transform_data: `Transform data files using a script and write structured output for datatable/spreadsheet blocks, or extract HTML content for html-preview blocks.
@@ -652,6 +661,7 @@ export const SESSION_TOOL_DEFS: SessionToolDef[] = [
   { name: 'labels_edit', description: TOOL_DESCRIPTIONS.labels_edit, inputSchema: LabelsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleLabelsEdit },
   { name: 'statuses_edit', description: TOOL_DESCRIPTIONS.statuses_edit, inputSchema: StatusesEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleStatusesEdit },
   { name: 'agents_edit', description: TOOL_DESCRIPTIONS.agents_edit, inputSchema: AgentsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleAgentsEdit },
+  { name: 'routines_edit', description: TOOL_DESCRIPTIONS.routines_edit, inputSchema: RoutinesEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleRoutinesEdit },
   { name: 'permissions_edit', description: TOOL_DESCRIPTIONS.permissions_edit, inputSchema: PermissionsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handlePermissionsEdit },
   { name: 'update_user_preferences', description: TOOL_DESCRIPTIONS.update_user_preferences, inputSchema: UpdatePreferencesSchema, executionMode: 'registry', safeMode: 'block', handler: handleUpdatePreferences },
   { name: 'transform_data', description: TOOL_DESCRIPTIONS.transform_data, inputSchema: TransformDataSchema, executionMode: 'registry', safeMode: 'allow', handler: handleTransformData },

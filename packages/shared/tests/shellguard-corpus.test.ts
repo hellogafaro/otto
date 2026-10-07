@@ -103,9 +103,8 @@ const TEST_MODE_CONFIG = {
     { regex: /^otto\s+label\s+(list|get)\b/, source: '^otto\\s+label\\s+(list|get)\\b', comment: 'otto label read-only operations' },
     { regex: /^otto\s+source\s+(list|get|validate|test)\b/, source: '^otto\\s+source\\s+(list|get|validate|test)\\b', comment: 'otto source read-only operations' },
     { regex: /^otto\s+skill\s+(list|get|validate|where)\b/, source: '^otto\\s+skill\\s+(list|get|validate|where)\\b', comment: 'otto skill read-only operations' },
-    { regex: /^otto\s+automation\s+(list|get|validate|history|last-executed|test|lint)\b/, source: '^otto\\s+automation\\s+(list|get|validate|history|last-executed|test|lint)\\b', comment: 'otto automation read-only operations' },
     { regex: /^otto\s*$/, source: '^otto\\s*$', comment: 'otto bare invocation' },
-    { regex: /^otto\s+(label|source|skill|automation)\s+--help\b/, source: '^otto\\s+(label|source|skill|automation)\\s+--help\\b', comment: 'otto entity help flags' },
+    { regex: /^otto\s+(label|source|skill)\s+--help\b/, source: '^otto\\s+(label|source|skill)\\s+--help\\b', comment: 'otto entity help flags' },
     { regex: /^otto\s+--(help|version|discover)\b/, source: '^otto\\s+--(help|version|discover)\\b', comment: 'otto global flags' },
 
     // Version checks
@@ -857,13 +856,6 @@ describe('ShellGuard corpus: otto CLI allowlist', () => {
     'otto skill get commit-helper',
     'otto skill where commit-helper',
     'otto skill validate commit-helper',
-    'otto automation list',
-    'otto automation get abc123',
-    'otto automation validate',
-    'otto automation history abc123 --limit 5',
-    'otto automation last-executed abc123',
-    'otto automation test abc123 --match "x"',
-    'otto automation lint',
   ];
 
   const shouldBlock = [
@@ -878,12 +870,6 @@ describe('ShellGuard corpus: otto CLI allowlist', () => {
     'otto skill create --name "Review" --description "x"',
     'otto skill update review --json "{\"description\":\"y\"}"',
     'otto skill delete review',
-    'otto automation create --event UserPromptSubmit --prompt "x"',
-    'otto automation update abc123 --json "{\"enabled\":false}"',
-    'otto automation delete abc123',
-    'otto automation enable abc123',
-    'otto automation disable abc123',
-    'otto automation duplicate abc123',
   ];
 
   for (const cmd of shouldAllow) {

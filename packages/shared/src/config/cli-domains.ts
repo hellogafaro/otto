@@ -1,4 +1,4 @@
-export type CliDomainNamespace = 'label' | 'source' | 'skill' | 'automation' | 'permission' | 'theme'
+export type CliDomainNamespace = 'label' | 'source' | 'skill' | 'permission' | 'theme'
 
 export interface CliDomainPolicy {
   namespace: CliDomainNamespace
@@ -46,20 +46,6 @@ const POLICIES: Record<CliDomainNamespace, CliDomainPolicy> = {
       'otto skill update <slug> --json "{...}"',
       'otto skill validate <slug>',
     ],
-  },
-  automation: {
-    namespace: 'automation',
-    helpCommand: 'otto automation --help',
-    workspacePathScopes: ['automations.json', 'automations-history.jsonl'],
-    readActions: ['list', 'get', 'validate', 'history', 'last-executed', 'test', 'lint'],
-    quickExamples: [
-      'otto automation list',
-      'otto automation create --event UserPromptSubmit --prompt "Summarize this prompt"',
-      'otto automation update <id> --json "{\"enabled\":false}"',
-      'otto automation history <id> --limit 20',
-      'otto automation validate',
-    ],
-    bashGuardPaths: ['automations.json', 'automations-history.jsonl'],
   },
   permission: {
     namespace: 'permission',

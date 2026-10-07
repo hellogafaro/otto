@@ -65,7 +65,8 @@ export const AGENT_WRITE_CHANNELS = new Set<string>([C.agents.UPDATE, C.agents.D
 
 /**
  * Channels that change or run one routine, naming it by id in their first argument: its creator or an owner of the
- * connection's workspace may; every other member is refused. Any member lists, gets and creates routines. An id that
+ * connection's workspace may; every other member is refused (an owner's change makes the routine the owner's, and
+ * Run now runs as the person who asked: `updateRoutine`). Any member lists, gets and creates routines. An id that
  * is no routine of that workspace is let through: the handler answers `not_found`, to everyone alike.
  */
 export const ROUTINE_WRITE_CHANNELS = new Set<string>([C.routines.UPDATE, C.routines.DELETE, C.routines.PAUSE, C.routines.RESUME, C.routines.RUN])
@@ -86,11 +87,13 @@ export const SOURCE_WRITE_CHANNELS = new Map<string, (args: unknown[], workspace
 ])
 
 /**
- * Channels only the instance owner may call: they write `install` settings (or read one that holds a secret).
+ * Channels only the instance owner may call: they write `install` settings (or read one that holds a secret), or ask
+ * about the server's own `claude` (a Claude subscription is the instance owner's alone, `getClaudeCodeScope`).
  * The instance owner is the first user (the earliest account): the owner of every workspace in a single-workspace
  * install, who `OTTO_SERVER_TOKEN` and the desktop app act as. Everyone else, workspace owners included, is refused.
  */
 export const INSTANCE_OWNER_CHANNELS = new Set<string>([
+  C.claudeCode.GET_STATUS,
   C.settings.SET_DEFAULT_THINKING_LEVEL,
   C.settings.GET_SERVER_CONFIG,
   C.settings.SET_SERVER_CONFIG,

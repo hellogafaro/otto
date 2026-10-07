@@ -1,5 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { basename } from 'node:path'
+import { ENTITY_TOKEN } from '../entities.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { getEntitiesLabels, removeEntityLabels, setEntityLabels } from '../labels/entities.ts'
 import { getStatusRow, getStatusesById } from '../statuses/storage.ts'
@@ -155,6 +156,7 @@ export function toPreview(text: string | null | undefined): string | undefined {
     .replace(/\[source:[\w-]+\]/g, '')
     .replace(/\[file:[^\]]+\]/g, '')
     .replace(/\[folder:[^\]]+\]/g, '')
+    .replace(ENTITY_TOKEN, '')
     .replace(/\s+/g, ' ')
     .trim()
   return clean.substring(0, 150) || undefined

@@ -132,3 +132,41 @@ describe('the agent tools labels_edit, statuses_edit and permissions_edit', () =
     expect(result.find((s) => s.id === 'todo')?.icon).toBe('[image]')
   })
 })
+
+describe('the agent tool routines_edit', () => {
+  const config = { type: 'event', event: 'LabelAdd', actions: [{ type: 'prompt', prompt: 'triage' }] }
+  const run = (user: string | null, args: Record<string, unknown>, runRoutine?: Parameters<typeof runWorkspaceConfigAction>[4]) => runWorkspaceConfigAction(workspaceId, user, 'routines', args, runRoutine)
+  const code = (fn: () => unknown) => {
+    try {
+      fn()
+    } catch (error) {
+      return (error as { code?: string }).code
+    }
+  }
+
+  it("lets any member create one as their own and only its creator or an owner change it; an owner's change makes it the owner's", () => {
+    const created = run(MEMBER, { action: 'create', title: 'Triage', config }) as { result: { id: string; createdBy: string }; wrote: boolean }
+    expect(created).toMatchObject({ result: { createdBy: `user:${MEMBER}` }, wrote: true })
+    const id = created.result.id
+    expect(run(MEMBER, { action: 'list' })).toMatchObject({ wrote: false })
+    expect((run(MEMBER, { action: 'get', id }).result as { runs: unknown[] }).runs).toEqual([])
+    expect(run(MEMBER, { action: 'update', id, title: 'Triage bugs' }).result).toMatchObject({ title: 'Triage bugs', createdBy: `user:${MEMBER}` })
+    expect(code(() => run(OUTSIDER, { action: 'list' }))).toBe('forbidden')
+    expect(code(() => run(MEMBER, { action: 'create', title: 'Bad', config: { type: 'event', actions: [] } }))).toBe('invalid')
+
+    expect(run(OWNER, { action: 'pause', id }).result).toMatchObject({ createdBy: `user:${OWNER}` })
+    expect(code(() => run(MEMBER, { action: 'resume', id }))).toBe('forbidden')
+    expect(code(() => run(MEMBER, { action: 'delete', id }))).toBe('forbidden')
+  })
+
+  it('runs a routine as the caller, and deletes it', () => {
+    const id = (run(MEMBER, { action: 'create', title: 'Run me', config }).result as { id: string }).id
+    const ranAs: string[] = []
+    const result = run(MEMBER, { action: 'run', id }, (routine) => (ranAs.push(routine.createdBy), { id: 'run1', routineId: routine.id, scheduledFor: 0, status: 'running', chatId: null, error: null, startedAt: 0 }))
+    expect(result).toMatchObject({ result: { id: 'run1' }, wrote: true })
+    expect(ranAs).toEqual([`user:${MEMBER}`])
+    expect(code(() => run(MEMBER, { action: 'run', id }))).toBe('invalid') // nothing to run it with
+    expect(run(MEMBER, { action: 'delete', id })).toMatchObject({ result: { deleted: id }, wrote: true })
+    expect(code(() => run(MEMBER, { action: 'get', id }))).toBe('not_found')
+  })
+})

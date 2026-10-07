@@ -316,13 +316,12 @@ export function validateConfigWrite(
 
 function buildCliDomainBlockMessage(namespace: CliDomainNamespace, context: string): string {
   const policy = CLI_DOMAIN_POLICIES[namespace]
-  const noun = namespace === 'automation' ? 'automation' : namespace
   const quickExamplesHeading = namespace === 'label' ? 'Quick examples:' : 'Examples:'
 
   return [
     `${context}`,
     `Use \`otto ${namespace} ...\` instead.`,
-    `Run \`${policy.helpCommand}\` for the full ${noun} command reference.`,
+    `Run \`${policy.helpCommand}\` for the full ${namespace} command reference.`,
     '',
     quickExamplesHeading,
     ...policy.quickExamples.map(example => `  ${example}`),
@@ -361,7 +360,6 @@ function matchesPathScope(relativePath: string, scope: string): boolean {
 }
 
 function detectCliNamespaceFromConfigDetection(detection: ConfigFileDetection): CliDomainNamespace | null {
-  if (detection.type === 'automations') return 'automation'
   if (detection.type === 'source') return 'source'
   if (detection.type === 'skill') return 'skill'
   return null
@@ -372,7 +370,6 @@ function detectCliNamespaceFromConfigDetection(detection: ConfigFileDetection): 
  * - labels/**: strict block on Read/Write/Edit
  * - sources/{slug}/config.json: redirect on Write/Edit
  * - skills/{slug}/SKILL.md: redirect on Write/Edit
- * - automations.json: redirect on Write/Edit
  */
 export function getConfigCliRedirect(
   toolName: string,
@@ -429,7 +426,7 @@ export function getConfigDomainBashRedirect(
   const command = typeof input.command === 'string' ? input.command.trim() : '';
   if (!command) return null;
 
-  if (/^otto\s+(label|automation|source|skill)\b/.test(command)) {
+  if (/^otto\s+(label|source|skill)\b/.test(command)) {
     return null;
   }
 
@@ -704,7 +701,7 @@ export function runPreToolUseChecks(ctx: PreToolUseInput): PreToolUseCheckResult
     wasModified = true;
   }
 
-  // 5b. Config-domain Bash guard (block direct labels/automations path operations unless using otto)
+  // 5b. Config-domain Bash guard (block direct labels path operations unless using otto)
   if (FEATURE_FLAGS.ottoCli && toolName === 'Bash') {
     const configDomainBashRedirect = getConfigDomainBashRedirect(currentInput, workspaceRootPath, workingDirectory);
     if (configDomainBashRedirect) {
@@ -718,7 +715,7 @@ export function runPreToolUseChecks(ctx: PreToolUseInput): PreToolUseCheckResult
     return { type: 'block', reason: configResult.error! };
   }
 
-  // 5d. Config file CLI redirect (labels + automations)
+  // 5d. Config file CLI redirect (labels, sources, skills)
   if (FEATURE_FLAGS.ottoCli) {
     const cliRedirect = getConfigCliRedirect(toolName, currentInput, workspaceRootPath, workingDirectory);
     if (cliRedirect) {

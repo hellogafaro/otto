@@ -481,26 +481,6 @@ describe('runPreToolUseChecks', () => {
       expect(result.type).toBe('allow');
     });
 
-    it('blocks direct automations config edits and suggests otto automation commands when feature is enabled', () => {
-      mockOttoCliFlag = true;
-      mockDetectConfigFileType.mockImplementation(() => ({ type: 'automations', displayFile: 'automations.json' }));
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Edit',
-        input: {
-          file_path: '/test/workspace/automations.json',
-          old_string: 'A',
-          new_string: 'B',
-        },
-      }));
-
-      expect(result.type).toBe('block');
-      if (result.type === 'block') {
-        expect(result.reason).toContain('otto automation');
-        expect(result.reason).toContain('automations.json');
-      }
-    });
-
     it('blocks direct source config edits and suggests otto source commands when feature is enabled', () => {
       mockOttoCliFlag = true;
       mockDetectConfigFileType.mockImplementation(() => ({
@@ -575,26 +555,12 @@ describe('runPreToolUseChecks', () => {
       expect(result.type).toBe('allow');
     });
 
-    it('blocks bash commands touching automations files and points to otto automation --help when feature is enabled', () => {
+    it('no longer guards automations.json (routines are database rows): a bash command touching it is allowed', () => {
       mockOttoCliFlag = true;
 
       const result = runPreToolUseChecks(createInput({
         toolName: 'Bash',
         input: { command: 'python3 scripts/update.py automations.json' },
-        permissionMode: 'allow-all',
-      }));
-
-      expect(result.type).toBe('block');
-      if (result.type === 'block') {
-        expect(result.reason).toContain('otto automation --help');
-        expect(result.reason).toContain('otto automation');
-      }
-    });
-
-    it('allows bash otto automation commands through config-domain bash guard', () => {
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Bash',
-        input: { command: 'otto automation list' },
         permissionMode: 'allow-all',
       }));
 

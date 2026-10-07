@@ -167,6 +167,17 @@ describe('refreshSessionsMetadataAtom', () => {
     expect(store.get(loadedSessionsAtom).has('s1')).toBe(false)
   })
 
+  it('keeps the messages of a chat loaded before the session list arrives (direct URL)', () => {
+    const store = createStore()
+    store.set(sessionAtomFamily('s1'), makeSession({ id: 's1', messages: [msg('m1')] }))
+    store.set(loadedSessionsAtom, new Set(['s1']))
+
+    store.set(initializeSessionsAtom, [makeSession({ id: 's1' }), makeSession({ id: 's2' })])
+
+    expect(store.get(sessionAtomFamily('s1'))?.messages.map((m) => m.id)).toEqual(['m1'])
+    expect(store.get(loadedSessionsAtom)).toEqual(new Set(['s1']))
+  })
+
   it('removes stale sessions from all atoms', () => {
     const store = createStore()
 

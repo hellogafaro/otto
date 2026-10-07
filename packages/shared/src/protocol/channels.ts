@@ -362,10 +362,6 @@ export const RPC_CHANNELS = {
     RESUME: 'routines:resume',
     RUN: 'routines:run',
   },
-  // TODO: goes with the session manager's file watcher (automations.json is no longer read after the import).
-  automations: {
-    CHANGED: 'automations:changed',
-  },
   resources: {
     EXPORT: 'resources:export',
     IMPORT: 'resources:import',

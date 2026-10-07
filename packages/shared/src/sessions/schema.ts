@@ -36,7 +36,8 @@ export const chats = sqliteTable(
  * parent's rows with the same ids); `position` is the order in the chat (gaps allowed); `type` is the message role
  * (`user`, `assistant`, `tool`, `error`, `info`, `warning`, `plan`, `auth-request`); `content` the JSON of every other
  * field of the stored message, with the chat folder's absolute path written as `{{SESSION_PATH}}`. `parent_id` is
- * Pi's tree link (P3b chunk 4; null for our own rows). The implicit rowid joins `messages_fts` (./messages.ts).
+ * Pi's tree link (P3b chunk 4; null for our own rows). The implicit rowid joins `messages_fts` (./messages.ts); a `db:push`
+ * that rebuilds this table renumbers it, so `scripts/db-push.ts` then rebuilds the index (and boot checks it).
  */
 export const messages = sqliteTable(
   'messages',

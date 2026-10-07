@@ -4,7 +4,6 @@
  * agent's avatar, the "Default" badge on the default one (the oldest, listed first) and its model with how many skills
  * and sources it may use; it opens the agent's page, whose Back returns here and whose Previous / Next step through
  * this gallery. No search: a workspace has a handful of agents (YAGNI). No agents at all: the stock empty page alone.
- * TODO(A2 follow-up): the composer's "With" picker on a new chat.
  */
 
 import { Bot } from 'lucide-react'

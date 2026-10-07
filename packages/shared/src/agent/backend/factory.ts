@@ -13,13 +13,14 @@ import {
   type LlmConnection,
 } from '../../config/storage.ts';
 import type { CustomEndpointConfig } from '../../config/llm-connections.ts';
-import { CUSTOM_CONNECTION_TYPE, isCompatProvider, isValidProviderAuthCombination, piProviderOf } from '../../config/llm-connections.ts';
+import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, isCompatProvider, isValidProviderAuthCombination, piProviderOf } from '../../config/llm-connections.ts';
 import type { ModelFetchResult } from '../../config/model-fetcher.ts';
 import { getModelProvider, normalizeDeprecatedModelId } from '../../config/models.ts';
 import { homedir } from 'node:os';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getCredentialManager } from '../../credentials/index.ts';
+import { CLAUDE_CODE_OWNER_ONLY, isClaudeCodeScope } from '../../connections/index.ts';
 import type {
   BackendModelFetchCredentials,
   StoredConnectionValidationResult,
@@ -55,7 +56,9 @@ export function createBackendFromResolvedContext(args: {
     model: context.resolvedModel,
     connectionSlug: context.connection?.slug,
     connectionScope: context.connection?.scope,
-    missingConnection: context.missingConnection,
+    // A chat whose connection is a Claude subscription that is not the instance owner's own is told so, never run
+    missingConnection: context.missingConnection
+      ?? (context.connection?.type === CLAUDE_CODE_CONNECTION_TYPE && !isClaudeCodeScope(context.connection.scope) ? CLAUDE_CODE_OWNER_ONLY : undefined),
     runtime: buildPiRuntime(context.connection, resolveBackendRuntimePaths(hostRuntime)),
   });
 }

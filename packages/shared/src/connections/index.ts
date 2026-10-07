@@ -3,6 +3,7 @@ import { initDb, type Db } from '../db/index.ts'
 import { createId } from '../id.ts'
 import { initSecretsStore, type createSecretsStore } from '../secrets/index.ts'
 import { getSetting, INSTALL, updateSetting, userEntity } from '../settings/index.ts'
+import { getFirstUser } from '../users/queries.ts'
 import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, type CustomEndpointConfig, type LlmAuthType, type MidStreamBehavior, type ModelSelectionMode } from '../config/llm-connections.ts'
 import type { ModelDefinition } from '../config/models.ts'
 import { connections } from './schema.ts'
@@ -15,8 +16,8 @@ import { connections } from './schema.ts'
  *
  * `scope` is `user:<id>` (a person's own subscription or key, which powers their agents and is seen by nobody else,
  * the instance owner included), `workspace:<id>` (shared by its members) or `install` (imported connections, one for
- * the whole server or desktop). A read by slug looks in the user's scope first, then the workspace's, then the
- * install's (`ConnectionContext`); the credential of a connection is addressed by its exact scope. `type` is the
+ * the whole server or desktop); a `claude-code` connection is only ever the instance owner's own (`getClaudeCodeScope`).
+ * A read by slug looks in the user's scope first, then the workspace's, then the install's (`ConnectionContext`); the credential of a connection is addressed by its exact scope. `type` is the
  * Pi provider id (`anthropic`, `claude-code`, `openai-codex`, `openrouter`, ... or `custom` for an endpoint of the
  * user's own), `models` the fetched list,
  * `config` a small JSON object (model selection mode, custom endpoint, mid-stream behavior). The credential lives in the secrets domain as one JSON value per
@@ -28,6 +29,19 @@ import { connections } from './schema.ts'
 export const INSTALL_SCOPE = 'install'
 export const workspaceScope = (workspaceId: string) => `workspace:${workspaceId}`
 export const userScope = (userId: string) => `user:${userId}`
+
+/**
+ * The one scope a `claude-code` connection may have: the instance owner's own (`user:<first user id>`); undefined
+ * while there is no user. It runs the server's single `claude` login and writes into that login's history, so until
+ * each person has a container of their own nobody else may create or use one.
+ */
+export const getClaudeCodeScope = (db?: Db): string | undefined => {
+  const owner = getFirstUser(db)
+  return owner && userScope(owner.id)
+}
+/** Whether a `claude-code` connection of this scope may be created or run: it is the instance owner's own. */
+export const isClaudeCodeScope = (scope: string | null | undefined): boolean => !!scope && scope === getClaudeCodeScope()
+export const CLAUDE_CODE_OWNER_ONLY = "A Claude subscription runs this server's own `claude` sign-in: only the owner of this server can use one."
 
 /** Whose connections a lookup sees: the user's own, the workspace's, then the install's (the first with a slug wins). */
 export type ConnectionContext = { workspaceId?: string | null; userId?: string | null; /** `false`: the install's connections are not looked at (a request that names one scope). */ installToo?: boolean }

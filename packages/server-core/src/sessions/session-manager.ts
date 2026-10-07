@@ -103,6 +103,9 @@ import { AutomationSystem, createPromptHistoryEntry, appendAutomationHistoryEntr
 import { buildBackendRuntimeSignature, buildRestartRequiredSignature, filterAttachmentsForModelInput } from './runtime-config'
 import { validateArchiveTarget } from './archive-guards'
 import { runWorkspaceConfigAction } from './workspace-config-tool'
+import { routineRunnerDeps } from '../handlers/rpc/routines'
+import { runRoutine } from '@otto/shared/automations/routine-runner'
+import type { Routine } from '@otto/shared/automations/routine-types'
 import { getFirstUser } from '@otto/shared/users/queries'
 import { getAgent, getAgentRunConfig } from '@otto/shared/agents'
 
@@ -429,6 +432,7 @@ async function resolveToolDisplayMeta(
           'statuses_edit': 'Edit Statuses',
           'permissions_edit': 'Edit Permissions',
           'agents_edit': 'Edit Agents',
+          'routines_edit': 'Edit Routines',
           'send_developer_feedback': 'Send Feedback',
           'browser_tool': 'Browser',
         },
@@ -1958,21 +1962,6 @@ export class SessionManager implements ISessionManager {
         // A refused push: the folder was reloaded from the newer source, and the person is told their copy was kept aside.
         if (status === 'conflict') this.eventSink?.(RPC_CHANNELS.sources.CONFLICT, { to: 'workspace', workspaceId }, workspaceId, slug)
       },
-      onAutomationsConfigChange: () => {
-        sessionLog.info(`Automations config changed in ${workspaceId}`)
-        // Reload automations config via AutomationSystem
-        const automationSystem = this.automationSystems.get(workspaceRootPath)
-        if (automationSystem) {
-          const result = automationSystem.reloadConfig()
-          if (result.errors.length === 0) {
-            sessionLog.info(`Reloaded ${result.automationCount} automations for workspace ${workspaceId}`)
-          } else {
-            sessionLog.error(`Failed to reload automations for workspace ${workspaceId}:`, result.errors)
-          }
-        }
-        // Notify renderer to re-read automations.json
-        this.broadcastAutomationsChanged(workspaceId)
-      },
       onAppThemeChange: (theme) => {
         sessionLog.info(`App theme changed`)
         this.broadcastAppThemeChanged(theme)
@@ -2006,7 +1995,6 @@ export class SessionManager implements ISessionManager {
       const automationSystem = new AutomationSystem({
         workspaceRootPath,
         workspaceId,
-        enableScheduler: true,
         onPromptsReady: (readyPrompts) => this.runReadyPrompts(workspaceId, workspaceRootPath, readyPrompts),
         onError: (event, error) => {
           sessionLog.error(`Automation failed for ${event}:`, error.message)
@@ -2046,8 +2034,8 @@ export class SessionManager implements ISessionManager {
     this.eventSink(RPC_CHANNELS.sources.CHANGED, { to: 'workspace', workspaceId }, workspaceId, sources)
   }
 
-  /** Tells the clients of a workspace that its labels, statuses, permissions, agents, skills or sources changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations). */
-  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'statuses' | 'permissions' | 'agents' | 'skills' | 'sources'): void {
+  /** Tells the clients of a workspace that its labels, statuses, permissions, agents, routines, skills or sources changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations). */
+  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'statuses' | 'permissions' | 'agents' | 'routines' | 'skills' | 'sources'): void {
     if (!this.eventSink) return
     this.eventSink(RPC_CHANNELS.domain.CHANGED, { to: 'workspace', workspaceId }, { domain, workspaceId } satisfies DomainChange)
   }
@@ -2058,12 +2046,6 @@ export class SessionManager implements ISessionManager {
     this.automationSystems.get(rootPath ?? '')?.emitLabelConfigChange().catch((error) => {
       sessionLog.error(`[Automations] Failed to emit LabelConfigChange:`, error)
     })
-  }
-
-  private broadcastAutomationsChanged(workspaceId: string): void {
-    if (!this.eventSink) return
-    sessionLog.info(`Broadcasting automations changed for ${workspaceId}`)
-    this.eventSink(RPC_CHANNELS.automations.CHANGED, { to: 'workspace', workspaceId }, workspaceId)
   }
 
   private broadcastAppThemeChanged(theme: import('@otto/shared/config').ThemeOverrides | null): void {
@@ -2512,7 +2494,7 @@ export class SessionManager implements ISessionManager {
 
     return {
       automationCount,
-      // SchedulerService is running if the system was created with enableScheduler
+      // The event side of the workspace's routines runs while its system is live
       schedulerRunning: !automationSystem.isDisposed(),
     }
   }
@@ -4468,10 +4450,13 @@ export class SessionManager implements ISessionManager {
             }
           })
         },
-        // labels_edit / statuses_edit / permissions_edit / agents_edit: the chat's user edits the workspace's labels,
-        // statuses, permission rules or agents, through the domain functions (runWorkspaceConfigAction holds the rules)
+        // labels_edit / statuses_edit / permissions_edit / agents_edit / routines_edit: the chat's user edits the workspace's
+        // labels, statuses, permission rules, agents or routines, through the domain functions (runWorkspaceConfigAction
+        // holds the rules); a routine run is the routines RPC's Run now (no decision-model verdict: it was asked for)
         editWorkspaceConfigFn: async (domain, args) => {
-          const { result, wrote } = runWorkspaceConfigAction(managed.workspace.id, userIdOf(managed.createdBy) ?? getFirstUser()?.id ?? null, domain, args)
+          const notifyRoutines = (workspaceId: string) => this.broadcastDomainChanged(workspaceId, 'routines')
+          const runNow = (routine: Routine) => runRoutine(routine, routineRunnerDeps({ sessionManager: this }, notifyRoutines, { judge: false }))?.run
+          const { result, wrote } = runWorkspaceConfigAction(managed.workspace.id, userIdOf(managed.createdBy) ?? getFirstUser()?.id ?? null, domain, args, runNow)
           if (wrote) {
             this.broadcastDomainChanged(managed.workspace.id, domain)
             if (domain === 'labels') this.emitLabelConfigChange(managed.workspace.id)

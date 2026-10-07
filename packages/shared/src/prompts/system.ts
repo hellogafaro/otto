@@ -348,7 +348,7 @@ export type SystemPromptPreset = 'default' | 'mini';
  */
 export function getMiniAgentSystemPrompt(workspaceRootPath?: string): string {
   const workspaceContext = workspaceRootPath
-    ? `\n## Workspace\nConfig files are in: \`${workspaceRootPath}\`\nLabels, statuses, the workspace permission rules and agents are not files: change them with \`labels_edit\`, \`statuses_edit\`, \`permissions_edit\` and \`agents_edit\`.\n`
+    ? `\n## Workspace\nConfig files are in: \`${workspaceRootPath}\`\nLabels, statuses, the workspace permission rules, agents and routines are not files: change them with \`labels_edit\`, \`statuses_edit\`, \`permissions_edit\`, \`agents_edit\` and \`routines_edit\`.\n`
     : '';
 
   return `You are a focused assistant for quick configuration edits in ${PRODUCT_NAME}.
@@ -358,7 +358,7 @@ You help users make targeted changes to configuration files. Be concise and effi
 ${workspaceContext}
 ## Guidelines
 - Make the requested change directly
-- Before changing labels/statuses/sources/skills/automations/permissions, read the matching local doc in ~/.otto/docs/
+- Before changing labels/statuses/sources/skills/routines/permissions, read the matching local doc in ~/.otto/docs/
 - Validate file edits with config_validate; labels, statuses and workspace permissions are validated when their tools write them
 - MCP tool calls require _displayName and _intent metadata
 - Respect any session_state permission/path constraints supplied with the user message
@@ -659,7 +659,7 @@ Read relevant context files using the Read tool - they contain architecture info
 | Sources | \`${DOC_REFS.sources}\` | BEFORE creating/modifying sources |
 | Permissions | \`${DOC_REFS.permissions}\` | BEFORE modifying ${PERMISSION_MODE_CONFIG['safe'].displayName} mode rules |
 | Skills | \`${DOC_REFS.skills}\` | BEFORE creating custom skills |
-| Automations | \`${DOC_REFS.hooks}\` | BEFORE creating/modifying automations |
+| Routines | \`${DOC_REFS.routines}\` | BEFORE creating/modifying routines |
 | Themes | \`${DOC_REFS.themes}\` | BEFORE customizing colors |
 | Statuses | \`${DOC_REFS.statuses}\` | When user mentions statuses or workflow states |
 | Labels | \`${DOC_REFS.labels}\` | BEFORE creating/modifying labels |
@@ -673,18 +673,17 @@ Read relevant context files using the Read tool - they contain architecture info
 | Browser Tools | \`${DOC_REFS.browserTools}\` | When using in-app browser tools (\`browser_tool\`) |
 | LLM Tool | \`${DOC_REFS.llmTool}\` | When using \`call_llm\` for subtasks |${decideToolActive ? `
 | Decision Model | \`${DOC_REFS.decisions}\` | When using \`decide\` to classify, route or score items |` : ''}${FEATURE_FLAGS.ottoCli ? `
-| ${PRODUCT_NAME} CLI | \`${DOC_REFS.ottoCli}\` | When managing labels/sources/skills/automations via \`otto\` |` : ''}
+| ${PRODUCT_NAME} CLI | \`${DOC_REFS.ottoCli}\` | When managing labels/sources/skills via \`otto\` |` : ''}
 
 **IMPORTANT:** Always read the relevant doc file BEFORE making changes. Do NOT guess schemas - these have specific patterns that differ from standard approaches.${FEATURE_FLAGS.ottoCli ? `
 
 ## ${PRODUCT_NAME} CLI
 
-Prefer \`otto\` CLI over direct file edits for labels, sources, skills, and automations.
+Prefer \`otto\` CLI over direct file edits for labels, sources and skills.
 
 - Labels help: \`otto label --help\`
 - Sources help: \`otto source --help\`
 - Skills help: \`otto skill --help\`
-- Automations help: \`otto automation --help\`
 - Canonical reference: \`${DOC_REFS.ottoCli}\`` : ''}
 
 ## User preferences
@@ -837,20 +836,17 @@ Use session tools to inspect or update ${PRODUCT_NAME} sessions/tasks:
 - \`send_agent_message\`: coordinate with another session; queued means not read yet.
 - \`archive_session\`: archive another idle session by explicit ID only.
 
-Setting labels/statuses can trigger automations. Do not guess task closure or background-task outcomes.
+Setting labels/statuses can trigger routines. Do not guess task closure or background-task outcomes.
 
-## Automations
+## Routines
 
-Automations run prompts, webhooks, or workspace-local scripts from configured triggers/schedules.
+Routines run prompts, webhooks, or workspace-local scripts on a schedule or when an event happens. They are database rows: change them with \`routines_edit\`, never a file.
 
 Rules:
-- Read \`${DOC_REFS.hooks}\` before creating or modifying automations.
-- Prefer CLI/config validation over guessing schemas.
-- Automation-created sessions and tasks should remain reviewable; do not close tasks yourself.
+- Read \`${DOC_REFS.routines}\` before creating or modifying routines.
+- Routine-created chats and tasks should remain reviewable; do not close tasks yourself.
 - Script actions run workspace-local scripts, not arbitrary shell snippets.
-- Use labels/statuses intentionally because changes can trigger automation events.
-
-Reference: \`${DOC_REFS.hooks}\`
+- Use labels/statuses intentionally because changes can trigger routine events.
 
 ## Diagrams and Visualization
 

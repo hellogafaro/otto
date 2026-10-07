@@ -69,6 +69,7 @@ export function startRoutines(server: RpcServer, deps: Pick<HandlerDeps, 'sessio
 /**
  * The workspace's routines (docs/final-plan.md 2.8): any member lists, gets and creates; changing, pausing, resuming,
  * running and deleting one is its creator or a workspace owner (`bootstrap/authorize.ts`, `ROUTINE_WRITE_CHANNELS`).
+ * A change by anyone but the creator makes the routine theirs, and Run now runs as the person who asked.
  * Writes push `domain:changed` (`domain-changes.ts`). A run starts in the background: Run now returns its row
  * (`running`) and the end arrives as another `domain:changed`.
  */
@@ -83,22 +84,24 @@ export function registerRoutinesHandlers(server: RpcServer, deps: HandlerDeps): 
     createRoutine({ workspaceId: workspaceOf(ctx), title: input.title, agentId: input.agentId, config: input.config, paused: input.paused, createdBy: actorOf(ctx) }),
   )
 
+  // A change by someone other than the creator makes the routine theirs (`updateRoutine`'s `by`)
   server.handle(RPC_CHANNELS.routines.UPDATE, (ctx, id: string, patch: RoutineUpdate) =>
-    updateRoutine(workspaceOf(ctx), id, { title: patch.title, agentId: patch.agentId, config: patch.config, paused: patch.paused }),
+    updateRoutine(workspaceOf(ctx), id, { title: patch.title, agentId: patch.agentId, config: patch.config, paused: patch.paused, by: actorOf(ctx) }),
   )
 
   server.handle(RPC_CHANNELS.routines.DELETE, (ctx, id: string) => {
     deleteRoutine(workspaceOf(ctx), id)
   })
 
-  server.handle(RPC_CHANNELS.routines.PAUSE, (ctx, id: string) => updateRoutine(workspaceOf(ctx), id, { paused: true }))
+  server.handle(RPC_CHANNELS.routines.PAUSE, (ctx, id: string) => updateRoutine(workspaceOf(ctx), id, { paused: true, by: actorOf(ctx) }))
 
-  server.handle(RPC_CHANNELS.routines.RESUME, (ctx, id: string) => updateRoutine(workspaceOf(ctx), id, { paused: false }))
+  server.handle(RPC_CHANNELS.routines.RESUME, (ctx, id: string) => updateRoutine(workspaceOf(ctx), id, { paused: false, by: actorOf(ctx) }))
 
   server.handle(RPC_CHANNELS.routines.RUN, (ctx, id: string): RoutineRun => {
     const routine = getRoutine(workspaceOf(ctx), id)
     if (!routine) throw domainError('not_found', `Routine ${id} does not exist`)
-    const handle = runRoutine(routine, routineRunnerDeps(deps, notifier(server), { judge: false }))
+    // Run now runs as the person who asked: its chats and connections are theirs, not the creator's
+    const handle = runRoutine({ ...routine, createdBy: actorOf(ctx) }, routineRunnerDeps(deps, notifier(server), { judge: false }))
     if (!handle) throw domainError('conflict', 'The routine could not start a run')
     return handle.run
   })

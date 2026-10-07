@@ -6,9 +6,7 @@ import { getCredentialManager, type CredentialManager } from '../credentials/ind
 import { initDb, type Db } from '../db/index.ts'
 import { getDecisionKey, setDecisionKey } from '../decisions/keys.ts'
 import { DECISION_PROVIDER_PRESETS } from '../decisions/providers.ts'
-import { settings } from '../settings/schema.ts'
-import { getSetting, INSTALL, updateSetting } from '../settings/index.ts'
-import { and, eq } from 'drizzle-orm'
+import { getSetting, getStoredSetting, INSTALL, updateSetting } from '../settings/index.ts'
 import { initSecretsStore } from './index.ts'
 
 /**
@@ -42,12 +40,12 @@ export async function initSecretsImport(options: { configDir?: string; db?: Db; 
   let imported = 0
 
   // the server token: a plain `token` in the setting's row (the zod reader drops it), else the one of config.json
-  const row = db.select({ value: settings.value }).from(settings).where(and(eq(settings.entity, INSTALL), eq(settings.key, 'server'))).get()
-  const inRow = row ? (JSON.parse(row.value) as { token?: unknown }).token : undefined
+  const stored = getStoredSetting(INSTALL, 'server', db)
+  const inRow = isObject(stored) ? stored.token : undefined
   const inFile = readConfig(options.configDir ?? CONFIG_DIR).serverConfig
   const token = [inRow, isObject(inFile) ? inFile.token : undefined].find((value): value is string => typeof value === 'string' && value !== '')
   const server = getSetting(INSTALL, 'server', db)
-  if (row && token && !server.tokenSecretId) {
+  if (stored !== undefined && token && !server.tokenSecretId) {
     updateSetting(INSTALL, 'server', { ...server, tokenSecretId: secrets.createSecret('Server token', token) }, db)
     imported++
   } else if (inRow !== undefined) {

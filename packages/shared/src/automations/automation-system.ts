@@ -36,8 +36,6 @@ export interface AutomationSystemOptions {
   workingDir?: string;
   /** Active source slugs for permission rules */
   activeSourceSlugs?: string[];
-  /** Ignored: schedule routines are fired by the routines scheduler. TODO: drop with the session manager's call. */
-  enableScheduler?: boolean;
   /** Called when prompts are ready to be executed */
   onPromptsReady?: (prompts: PendingPrompt[]) => void;
   /** Called when webhook results are available */
@@ -118,14 +116,6 @@ export class AutomationSystem implements AutomationsConfigProvider {
 
   getMatchersForEvent(event: AutomationEvent): AutomationMatcher[] {
     return getEventRoutines(this.options.workspaceId, event, this.db).map(toMatcher);
-  }
-
-  /**
-   * Kept for the session manager's file watcher: routines are read from the database at every event, so there is
-   * nothing to reload. TODO: removed with that call.
-   */
-  reloadConfig(): { success: boolean; automationCount: number; errors: string[] } {
-    return { success: true, automationCount: Object.values(this.getConfig().automations).reduce((sum, matchers) => sum + (matchers?.length ?? 0), 0), errors: [] };
   }
 
   // ============================================================================

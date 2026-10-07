@@ -66,6 +66,17 @@ export function getSetting<K extends SettingKey>(entity: string, key: K, db: Db 
   return readValue(key, row?.value)
 }
 
+/** The stored value as it was written, before the key's validator reads it (undefined: no row or no JSON): for an importer that looks for a field the validator drops. */
+export function getStoredSetting(entity: string, key: SettingKey, db: Db | Tx = initDb()): unknown {
+  assertKey(entity, key)
+  const row = db.select({ value: settings.value }).from(settings).where(and(eq(settings.entity, entity), eq(settings.key, key))).get()
+  try {
+    return row ? JSON.parse(row.value) : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** Every setting of this entity's kind, defaults filled in. */
 export function getSettings(entity: string, db: Db | Tx = initDb()): { [K in SettingKey]?: SettingValue<K> } {
   const kind = getEntityKind(entity)

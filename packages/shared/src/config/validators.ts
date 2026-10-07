@@ -176,7 +176,7 @@ export function validateConfig(): ValidationResult {
 /**
  * Validate all config files
  * @param workspaceId - Optional workspace ID for source validation
- * @param workspaceRoot - Optional workspace root path for skill, automations and permissions validation
+ * @param workspaceRoot - Optional workspace root path for skill and permissions validation
  */
 export function validateAll(workspaceId?: string, workspaceRoot?: string): ValidationResult {
   const results: ValidationResult[] = [
@@ -189,10 +189,9 @@ export function validateAll(workspaceId?: string, workspaceRoot?: string): Valid
     results.push(validateAllSources(workspaceId));
   }
 
-  // Include skill, automations, and permissions validation if workspaceRoot is provided
+  // Include skill and permissions validation if workspaceRoot is provided
   if (workspaceRoot) {
     results.push(validateAllSkills(workspaceRoot));
-    results.push(validateAutomations(workspaceRoot));
     results.push(validateAllPermissions(workspaceRoot));
   }
 
@@ -752,7 +751,6 @@ import {
   getSourcePermissionsPath,
   getAppPermissionsDir,
 } from '../agent/permissions-config.ts';
-import { validateAutomationsContent, validateAutomations, AUTOMATIONS_CONFIG_FILE } from '../automations/index.ts';
 
 /**
  * Internal: Validate a single permissions.json file
@@ -1347,7 +1345,7 @@ export function formatValidationResult(result: ValidationResult): string {
  * Result of detecting what type of config file a path corresponds to.
  */
 export interface ConfigFileDetection {
-  type: 'source' | 'skill' | 'permissions' | 'tool-icons' | 'automations';
+  type: 'source' | 'skill' | 'permissions' | 'tool-icons';
   /** Slug of the source or skill (if applicable) */
   slug?: string;
   /** Display file path for error messages */
@@ -1387,11 +1385,6 @@ export function detectConfigFileType(filePath: string, workspaceRootPath: string
   const skillMatch = relativePath.match(/^skills\/([^/]+)\/SKILL\.md$/);
   if (skillMatch) {
     return { type: 'skill', slug: skillMatch[1], displayFile: `skills/${skillMatch[1]}/SKILL.md` };
-  }
-
-  // Match: automations config file
-  if (relativePath === AUTOMATIONS_CONFIG_FILE) {
-    return { type: 'automations', displayFile: relativePath };
   }
 
   // Match: sources/{slug}/permissions.json (source-level)
@@ -1444,8 +1437,6 @@ export function validateConfigFileContent(
       return validateSourceConfigContent(content);
     case 'skill':
       return validateSkillContent(content, detection.slug || 'unknown');
-    case 'automations':
-      return validateAutomationsContent(content, detection.displayFile);
     case 'permissions':
       return validatePermissionsContent(content, detection.displayFile);
     case 'tool-icons':

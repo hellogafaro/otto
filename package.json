@@ -48,7 +48,7 @@
     "typecheck:electron": "cd apps/electron && bun run typecheck",
     "test:shared:llm-connections": "bun test packages/shared/tests/llm-connections.test.ts",
     "test:shared:models-pi": "bun test packages/shared/tests/models-pi.test.ts",
-    "test:shared:config": "bun test packages/shared/src/config/__tests__/llm-connections.test.ts packages/shared/src/config/__tests__/storage-migrations.test.ts packages/shared/src/config/__tests__/storage-startup-migration.test.ts packages/shared/src/config/__tests__/default-thinking-level.test.ts",
+    "test:shared:config": "bun test packages/shared/src/config/__tests__/llm-connections.test.ts packages/shared/src/config/__tests__/default-thinking-level.test.ts",
     "test:shared:all": "bun run test:shared:llm-connections && bun run test:shared:models-pi && bun run test:shared:config",
     "test:doc-tools": "python3 -m unittest apps.electron.resources.scripts.tests.test_pdf_tool_smoke apps.electron.resources.scripts.tests.test_xlsx_tool_smoke apps.electron.resources.scripts.tests.test_docx_tool_smoke apps.electron.resources.scripts.tests.test_pptx_tool_smoke apps.electron.resources.scripts.tests.test_img_tool_smoke apps.electron.resources.scripts.tests.test_ical_tool_smoke apps.electron.resources.scripts.tests.test_doc_diff_smoke apps.electron.resources.scripts.tests.test_markitdown_smoke",
     "validate:dev": "bun run typecheck:all && bun run test:shared:all && bun run test:doc-tools",

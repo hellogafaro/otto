@@ -72,13 +72,17 @@ export function fromMessageRow(row: { id: string; type: string; content: string;
   return { id: row.id, type: row.type as StoredMessage['type'], timestamp: row.created_at, ...fields } as StoredMessage
 }
 
+/** The only row types `getSearchText` may index (also the prefilter of the boot check and the rebuild). */
+const SEARCHABLE_TYPES = ['user', 'assistant']
+const searchableTypes = () => sql.join(SEARCHABLE_TYPES.map((type) => sql`${type}`), sql`, `)
+
 /**
  * The text chat search indexes for a row: what a person reads in a user or final assistant message. Intermediate,
  * hidden and still-streaming (`partial`) rows are not searchable; a partial answer is indexed once recovery marks it
  * interrupted. The one place that rule lives: every writer (flush, branch copy, import, recovery) uses it.
  */
 export function getSearchText(type: string, fields: Record<string, unknown>): string | null {
-  if (type !== 'user' && type !== 'assistant') return null
+  if (!SEARCHABLE_TYPES.includes(type)) return null
   if (fields.isIntermediate || fields.hidden || fields.partial) return null
   return typeof fields.content === 'string' && fields.content.trim() ? fields.content : null
 }
@@ -91,14 +95,49 @@ function one<T>(db: Db | Tx, query: ReturnType<typeof sql>): T | undefined {
 const initialized = new WeakSet<object>()
 
 /**
- * Creates `messages_fts` once per database (at boot and on first use): a contentless FTS5 table keyed by the
- * messages rows' implicit rowid. `db:push` leaves it alone (`S/db/push.ts`); after a `VACUUM`, which may renumber
- * rowids, rebuild it with `rebuildMessagesSearch()`.
+ * `messages_fts` stores its text (no `content=''`/`contentless_delete`, which need SQLite 3.43; this works from 3.35,
+ * e.g. macOS 13's 3.39), so a row is deleted by rowid alone on any FTS5 and the boot check can read it back.
+ */
+const CREATE_SEARCH = `CREATE VIRTUAL TABLE messages_fts USING fts5(text, tokenize='unicode61 remove_diacritics 2', prefix='2 3')`
+
+/**
+ * Readies `messages_fts` once per database handle (at boot and on first use). It is keyed by the messages rows'
+ * implicit rowid, which a `VACUUM` or a `db:push` table rebuild may renumber (`scripts/db-push.ts` rebuilds the index
+ * after a push that touches `messages`), so this also rebuilds it when it is missing, still has the old contentless
+ * definition, or fails `isSearchConsistent`.
  */
 export function initMessages(db: Db = initDb()): void {
   if (initialized.has(db)) return
-  db.run(sql.raw(`CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(text, content='', contentless_delete=1, tokenize='unicode61 remove_diacritics 2', prefix='2 3')`))
+  const found = one<{ sql: string }>(db, sql`SELECT sql FROM sqlite_master WHERE name = 'messages_fts'`)
+  // A contentless table only exists where SQLite >= 3.43 made it, so that SQLite can drop it
+  const current = found && !/contentless_delete|content\s*=\s*''/.test(found.sql)
+  if (!current || !db.transaction((tx) => isSearchConsistent(tx))) rebuildMessagesSearch(db)
   initialized.add(db)
+}
+
+/**
+ * Cheap at boot, in one read snapshot: the index holds as many rows as `getSearchText` finds (a scan of the user and
+ * assistant rows, the one full read), and a few searchable rows across the rowid range, plus the last, each have their
+ * own text under their rowid. A renumbering that keeps the count is caught by the sample, not proven absent.
+ */
+function isSearchConsistent(tx: Tx): boolean {
+  const types = searchableTypes()
+  let searchable = 0
+  for (const row of tx.all<{ type: string; content: string }>(sql`SELECT type, content FROM messages WHERE type IN (${types})`)) {
+    if (getSearchText(row.type, JSON.parse(row.content) as Record<string, unknown>)) searchable++
+  }
+  if (one<{ n: number }>(tx, sql`SELECT count(*) AS n FROM messages_fts`)!.n !== searchable) return false
+  if (!searchable) return true
+  const { lo, hi } = one<{ lo: number; hi: number }>(tx, sql`SELECT min(rowid) AS lo, max(rowid) AS hi FROM messages`)!
+  const sample = [0, 0.25, 0.5, 0.75].map((at) =>
+    one<{ rowid: number; type: string; content: string }>(tx, sql`SELECT rowid, type, content FROM messages WHERE rowid >= ${Math.floor(lo + (hi - lo) * at)} AND type IN (${types}) ORDER BY rowid LIMIT 1`),
+  )
+  sample.push(one(tx, sql`SELECT rowid, type, content FROM messages WHERE type IN (${types}) ORDER BY rowid DESC LIMIT 1`))
+  return sample.every((row) => {
+    if (!row) return true
+    const indexed = one<{ text: string }>(tx, sql`SELECT text FROM messages_fts WHERE rowid = ${row.rowid}`)?.text ?? null
+    return indexed === getSearchText(row.type, JSON.parse(row.content) as Record<string, unknown>)
+  })
 }
 
 function indexRow(tx: Db | Tx, rowid: number, type: string, content: string): void {
@@ -107,14 +146,20 @@ function indexRow(tx: Db | Tx, rowid: number, type: string, content: string): vo
   if (text) tx.run(sql`INSERT INTO messages_fts (rowid, text) VALUES (${rowid}, ${text})`)
 }
 
-/** Rebuilds the whole search index from the rows (after a `VACUUM`, or to repair it). */
+/**
+ * Recreates the whole search index from the rows, in one transaction (also replacing an old contentless table): at
+ * boot when `initMessages` finds it wrong, after a `db:push` that touched `messages`, after a `VACUUM`. Returns the
+ * number of rows indexed.
+ */
 export function rebuildMessagesSearch(db: Db = initDb()): number {
-  initMessages(db)
   let count = 0
   db.transaction((tx) => {
-    tx.run(sql`DELETE FROM messages_fts`)
-    for (const row of tx.all<{ rowid: number; type: string; content: string }>(sql`SELECT rowid, type, content FROM messages`)) {
-      indexRow(tx, row.rowid, row.type, row.content)
+    tx.run(sql`DROP TABLE IF EXISTS messages_fts`)
+    tx.run(sql.raw(CREATE_SEARCH))
+    for (const row of tx.all<{ rowid: number; type: string; content: string }>(sql`SELECT rowid, type, content FROM messages WHERE type IN (${searchableTypes()})`)) {
+      const text = getSearchText(row.type, JSON.parse(row.content) as Record<string, unknown>)
+      if (!text) continue
+      tx.run(sql`INSERT INTO messages_fts (rowid, text) VALUES (${row.rowid}, ${text})`)
       count++
     }
   })

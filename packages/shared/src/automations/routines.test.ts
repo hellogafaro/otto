@@ -81,6 +81,18 @@ test('update replaces the given fields and refuses an unknown routine', async ()
   expect(code(() => updateRoutine(W, routine.id, { title: '' }, db))).toBe('invalid')
 })
 
+test("a change by someone other than the creator makes the routine theirs; the creator's own change keeps it", async () => {
+  const db = await setup()
+  const routine = make(db, 'Digest')
+  expect(routine.createdBy).toBe(ME)
+  expect(updateRoutine(W, routine.id, { title: 'Mine still', by: ME }, db).createdBy).toBe(ME)
+  const OWNER = 'user:owner'
+  expect(updateRoutine(W, routine.id, { paused: true, by: OWNER }, db).createdBy).toBe(OWNER)
+  expect(getRoutine(W, routine.id, db)?.createdBy).toBe(OWNER)
+  // without an actor (the importer, a test) nothing moves
+  expect(updateRoutine(W, routine.id, { paused: false }, db).createdBy).toBe(OWNER)
+})
+
 test('delete removes the routine and its runs, in its workspace only', async () => {
   const db = await setup()
   const routine = make(db, 'Digest')

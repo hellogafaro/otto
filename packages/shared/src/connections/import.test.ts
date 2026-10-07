@@ -7,9 +7,11 @@ import { openDb } from '../db/index.ts'
 import { pushSchema } from '../db/push.ts'
 import { createSecretsStore, parseEncryptionKey } from '../secrets/index.ts'
 import { secrets } from '../secrets/schema.ts'
-import { getSetting, INSTALL } from '../settings/index.ts'
-import { createConnectionsStore } from './index.ts'
-import { initConnectionsImport, initConnectionsPiProviderImport } from './import.ts'
+import { getSetting, INSTALL, updateSetting } from '../settings/index.ts'
+import { createId } from '../id.ts'
+import { users } from '../users/schema.ts'
+import { createConnectionsStore, userScope } from './index.ts'
+import { initClaudeCodeOwnerImport, initConnectionsImport, initConnectionsPiProviderImport } from './import.ts'
 import { connections } from './schema.ts'
 
 // The credential manager writes `credentials.enc` into the throwaway config dir of the test preload, never ~/.otto.
@@ -189,4 +191,26 @@ test('a connection whose credential cannot be read is imported without one, and 
     warn.mockRestore()
     rmSync(broken, { recursive: true, force: true })
   }
+})
+
+test("an install Claude subscription becomes the instance owner's own, once there is one; idempotent", async () => {
+  const { db, store } = await fresh()
+  await initConnectionsImport({ configDir: dir, db, store })
+  // no user yet: it waits
+  expect(initClaudeCodeOwnerImport(db)).toBe(0)
+  expect(store.getConnection('claude-max')?.scope).toBe('install')
+  updateSetting(INSTALL, 'defaultConnectionSlug', 'claude-max', db)
+
+  const owner = createId()
+  db.insert(users).values({ id: owner, name: 'Owner', email: 'owner@x.test', createdAt: new Date(1), updatedAt: new Date(1) }).run()
+  db.insert(users).values({ id: createId(), name: 'Later', email: 'later@x.test', createdAt: new Date(2), updatedAt: new Date(2) }).run()
+  expect(initClaudeCodeOwnerImport(db)).toBe(1)
+  expect(store.getConnection('claude-max', { userId: owner })).toMatchObject({ scope: userScope(owner), type: 'claude-code' })
+  expect(store.getConnection('claude-max')).toBeUndefined()
+  // the install's default moved off it
+  expect(getSetting(INSTALL, 'defaultConnectionSlug', db)).toBe('codex')
+  expect(initClaudeCodeOwnerImport(db)).toBe(0)
+  // and every boot runs it
+  expect(await initConnectionsImport({ configDir: dir, db, store })).toEqual({ imported: 0, skipped: 0 })
+  expect(store.getConnection('claude-max', { userId: owner })?.scope).toBe(userScope(owner))
 })

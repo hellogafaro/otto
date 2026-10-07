@@ -58,6 +58,7 @@ import type { ProjectPromptContext } from '../projects/types.ts';
 
 // Credential manager for token storage
 import { getCredentialManager } from '../credentials/manager.ts';
+import { CLAUDE_CODE_CONNECTION_TYPE, CLAUDE_CODE_OWNER_ONLY, isClaudeCodeScope } from '../connections/index.ts';
 
 // ChatGPT OAuth token refresh (used when Pi routes ChatGPT auth)
 import { refreshChatGptTokens } from '../auth/chatgpt-oauth.ts';
@@ -668,6 +669,10 @@ export class PiAgent extends BaseAgent {
   } | null> {
     const piAuthProvider = getBackendRuntime(this.config).piAuthProvider;
     if (!piAuthProvider) return null;
+    // `claude-code` runs the server's own `claude` login: only for the instance owner's own connection.
+    if (piAuthProvider === CLAUDE_CODE_CONNECTION_TYPE && !isClaudeCodeScope(this.config.connectionScope)) {
+      throw new Error(CLAUDE_CODE_OWNER_ONLY);
+    }
     // The provider's CLI signs in with its own login; Otto holds no secret for it.
     if (this.config.authType === 'cli_login') return { provider: piAuthProvider, credential: { type: 'cli_login' } };
 

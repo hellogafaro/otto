@@ -329,14 +329,16 @@ describe('getValidateSteps', () => {
     expect(names).toContain('skills:delete')
   })
 
-  it('includes automation lifecycle steps', () => {
+  it('includes routine lifecycle steps, on the routines channels only', () => {
     const names = getValidateSteps().map((s) => s.name)
-    expect(names).toContain('automation:create')
-    expect(names).toContain('automation:trigger (status change)')
-    expect(names).toContain('automation:verify session')
-    expect(names).toContain('automation:verify labels')
-    expect(names).toContain('automations:getLastExecuted')
-    expect(names).toContain('automation:cleanup')
+    expect(names).toContain('routines:create')
+    expect(names).toContain('routine:trigger (status change)')
+    expect(names).toContain('routine:verify session')
+    expect(names).toContain('routine:verify labels')
+    expect(names).toContain('routines:get (runs)')
+    expect(names).toContain('webhook:verify failure')
+    expect(names).toContain('routines:cleanup')
+    expect(names.some((name) => name.startsWith('automation'))).toBe(false)
   })
 
   it('includes session tool validation steps', () => {
@@ -364,7 +366,7 @@ describe('getValidateSteps', () => {
 
   it('includes webhook validation steps', () => {
     const names = getValidateSteps().map((s) => s.name)
-    expect(names).toContain('webhook:test (RPC)')
+    expect(names).toContain('webhook:run (routines:run)')
     expect(names).toContain('webhook:verify failure')
   })
 
@@ -393,9 +395,9 @@ describe('getValidateSteps', () => {
     expect(branch).toBeGreaterThan(toolUse)
   })
 
-  it('automation cleanup comes before sources:delete', () => {
+  it('routine cleanup comes before sources:delete', () => {
     const names = getValidateSteps().map((s) => s.name)
-    const cleanup = names.indexOf('automation:cleanup')
+    const cleanup = names.indexOf('routines:cleanup')
     const srcDelete = names.indexOf('sources:delete')
     expect(cleanup).toBeGreaterThan(-1)
     expect(cleanup).toBeLessThan(srcDelete)

@@ -128,7 +128,6 @@ export interface ValidatorInterface {
   validateSource(workspaceRootPath: string, sourceSlug: string): import('./types.js').ValidationResult;
   validateAllSources(workspaceRootPath: string): import('./types.js').ValidationResult;
   validatePermissions(workspaceRootPath: string, sourceSlug?: string): import('./types.js').ValidationResult;
-  validateAutomations(workspaceRootPath: string): import('./types.js').ValidationResult;
   validateToolIcons(): import('./types.js').ValidationResult;
   validateAll(workspaceRootPath: string): import('./types.js').ValidationResult;
   validateSkill(workspaceRootPath: string, skillSlug: string): import('./types.js').ValidationResult;
@@ -307,11 +306,11 @@ export interface SessionToolContext {
   // ============================================================
 
   /**
-   * Edit the workspace's labels, statuses, permission rules or agents as the chat's user (owners write, members read;
-   * agents: any member creates, the creator or an owner changes); returns what to show the agent. Injected by the
-   * session manager.
+   * Edit the workspace's labels, statuses, permission rules, agents or routines as the chat's user (owners write, members
+   * read; agents and routines: any member creates, the creator or an owner changes); returns what to show the agent.
+   * Injected by the session manager.
    */
-  editWorkspaceConfig?(domain: 'labels' | 'statuses' | 'permissions' | 'agents', args: Record<string, unknown>): Promise<unknown>;
+  editWorkspaceConfig?(domain: 'labels' | 'statuses' | 'permissions' | 'agents' | 'routines', args: Record<string, unknown>): Promise<unknown>;
 
   /** Set labels on a session. Defaults to current session if no ID given. Injected by backend. */
   setSessionLabels?(sessionId: string | undefined, labels: string[]): void | Promise<void>;

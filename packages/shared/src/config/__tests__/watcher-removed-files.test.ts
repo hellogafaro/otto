@@ -1,6 +1,7 @@
 /**
- * Labels, statuses and workspace permissions are database rows now, so the ConfigWatcher no longer watches their
- * files: a change to `labels/config.json`, `statuses/config.json` (+ `icons/`) or `permissions.json` calls nothing.
+ * Labels, statuses, workspace permissions and routines are database rows now, so the ConfigWatcher no longer watches
+ * their files: a change to `labels/config.json`, `statuses/config.json` (+ `icons/`), `permissions.json` or
+ * `automations.json` calls nothing.
  */
 import { afterAll, expect, it } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -23,14 +24,16 @@ it('calls no callback for the files that moved into the database, while a still-
     writeFileSync(join(root, 'statuses', 'config.json'), '{}');
     writeFileSync(join(root, 'statuses', 'icons', 'todo.svg'), '<svg/>');
     writeFileSync(join(root, 'permissions.json'), '{}');
-    for (const file of ['labels/config.json', 'statuses/config.json', 'statuses/icons/todo.svg', 'permissions.json']) watcher.notifyFileChange(file);
+    writeFileSync(join(root, 'automations.json'), '{}');
+    for (const file of ['labels/config.json', 'statuses/config.json', 'statuses/icons/todo.svg', 'permissions.json', 'automations.json']) watcher.notifyFileChange(file);
     await new Promise((resolve) => setTimeout(resolve, 600));
     expect(called).toEqual([]);
 
-    writeFileSync(join(root, 'automations.json'), '{}');
-    watcher.notifyFileChange('automations.json');
+    mkdirSync(join(root, 'sources', 'linear'), { recursive: true });
+    writeFileSync(join(root, 'sources', 'linear', 'guide.md'), '# Linear');
+    watcher.notifyFileChange('sources/linear/guide.md');
     await new Promise((resolve) => setTimeout(resolve, 600));
-    expect(called).toEqual(['onAutomationsConfigChange']);
+    expect(called.length).toBeGreaterThan(0);
   } finally {
     watcher.stop();
   }

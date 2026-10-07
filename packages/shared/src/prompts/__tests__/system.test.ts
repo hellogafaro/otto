@@ -61,12 +61,13 @@ describe('system prompt guidance', () => {
     expect(prompt).toContain('read the matching local doc in ~/.otto/docs/')
   })
 
-  it('keeps automations defined as a first-class feature area', () => {
+  it('keeps routines defined as a first-class feature area', () => {
     const prompt = getSystemPrompt(undefined, undefined, '/tmp/workspace', '/tmp/workspace')
 
-    expect(prompt).toContain('## Automations')
-    expect(prompt).toContain('Automations run prompts, webhooks, or workspace-local scripts')
-    expect(prompt).toContain('Read `~/.otto/docs/automations.md` before creating or modifying automations.')
+    expect(prompt).toContain('## Routines')
+    expect(prompt).toContain('Routines run prompts, webhooks, or workspace-local scripts')
+    expect(prompt).toContain('Read `~/.otto/docs/routines.md` before creating or modifying routines.')
+    expect(prompt).not.toContain('automations.md')
     expect(prompt).toContain('Script actions run workspace-local scripts, not arbitrary shell snippets.')
   })
 

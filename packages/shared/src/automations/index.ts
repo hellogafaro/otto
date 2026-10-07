@@ -54,11 +54,7 @@ export { APP_EVENTS, AGENT_EVENTS } from './types.ts';
 // Validation
 // ============================================================================
 
-export {
-  validateAutomationsConfig,
-  validateAutomationsContent,
-  validateAutomations,
-} from './validation.ts';
+export { validateAutomationsConfig } from './validation.ts';
 
 // ============================================================================
 // SDK Bridge

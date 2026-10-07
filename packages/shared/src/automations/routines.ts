@@ -17,7 +17,9 @@ import { RoutineConfigSchema } from './schemas.ts'
  *
  * `paused_at` null = active; `agent_id` null = the workspace's default agent. Every function takes the workspace
  * explicitly and only sees its rows. Who may change one is `canEditRoutine`, applied by the guard
- * (`bootstrap/authorize.ts`); these functions do not know users. Running a routine is ./routine-runner.ts.
+ * (`bootstrap/authorize.ts`); these functions do not know users. A routine runs as its `created_by` (its chats and
+ * connections are that person's), so a change by anyone else (a workspace owner) makes it theirs (`updateRoutine`'s
+ * `by`), and a person's Run now runs as that person. Running a routine is ./routine-runner.ts.
  */
 
 type Row = typeof routines.$inferSelect
@@ -124,8 +126,12 @@ export function createRoutine(input: RoutineInput, db: Db | Tx = initDb()): Rout
   return toRoutine(row, [])
 }
 
-/** Changes the given fields; `config` replaces the whole config. `paused: true` pauses (keeps the first time), `false` resumes. */
-export function updateRoutine(workspaceId: string, id: string, patch: RoutineUpdate, db: Db | Tx = initDb()): Routine {
+/**
+ * Changes the given fields; `config` replaces the whole config. `paused: true` pauses (keeps the first time), `false`
+ * resumes. `by` is the actor making the change: when it is not the creator, the routine becomes theirs (`created_by`
+ * moves to them), so its runs never use the personal connections of someone who did not write it.
+ */
+export function updateRoutine(workspaceId: string, id: string, patch: RoutineUpdate & { by?: string }, db: Db | Tx = initDb()): Routine {
   return db.transaction((tx) => {
     const row = tx.select().from(routines).where(and(eq(routines.workspaceId, workspaceId), eq(routines.id, id))).get()
     if (!row) throw domainError('not_found', `Routine ${id} does not exist`)
@@ -134,6 +140,7 @@ export function updateRoutine(workspaceId: string, id: string, patch: RoutineUpd
     if (patch.agentId !== undefined) changes.agentId = assertAgent(workspaceId, patch.agentId, tx)
     if (patch.config !== undefined) changes.config = assertConfig(patch.config)
     if (patch.paused !== undefined) changes.pausedAt = patch.paused ? (row.pausedAt ?? new Date()) : null
+    if (patch.by && patch.by !== row.createdBy) changes.createdBy = patch.by
     if (Object.keys(changes).length) tx.update(routines).set(changes).where(eq(routines.id, id)).run()
     return getRoutine(workspaceId, id, tx)!
   })

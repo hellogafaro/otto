@@ -79,13 +79,12 @@ describe('AutomationSystem', () => {
     });
   });
 
-  describe('reloadConfig', () => {
-    it('should count the active event routines (there is nothing to reload: they are read at every event)', async () => {
+  describe('getConfig', () => {
+    it('reads the active event routines at every call (there is nothing to reload)', async () => {
       const system = new AutomationSystem({ workspaceRootPath: tempDir, workspaceId: 'test-workspace', db });
 
-      expect(system.reloadConfig()).toEqual({ success: true, automationCount: 0, errors: [] });
+      expect(system.getConfig()?.automations).toEqual({});
       addRoutine('Triage', event('test', 'echo hello'));
-      expect(system.reloadConfig()).toEqual({ success: true, automationCount: 1, errors: [] });
       expect(system.getConfig()?.automations.LabelAdd).toHaveLength(1);
 
       await system.dispose();

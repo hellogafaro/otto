@@ -1,6 +1,6 @@
 # Otto CLI Guide
 
-`otto` is the preferred interface for managing workspace config domains such as labels, sources, skills, and automations.
+`otto` is the preferred interface for managing workspace config domains such as labels, sources and skills. Routines (what used to be automations) are database rows: agents change them with the `routines_edit` tool (see `routines.md`).
 
 ## Usage
 
@@ -177,76 +177,6 @@ otto skill delete commit-helper
 - Use `where` to inspect project/workspace/global resolution precedence.
 - `--project-root` scopes resolution to a project directory (defaults to cwd).
 <!-- cli:skill:end -->
-
----
-
-<!-- cli:automation:start -->
-## Automation
-
-Manage workspace automations stored in `automations.json`.
-
-### Commands
-- `otto automation list`
-- `otto automation get <id>`
-- `otto automation create` (see flags below)
-- `otto automation update <id>` (same flags as create, all optional)
-- `otto automation delete <id>`
-- `otto automation enable <id>`
-- `otto automation disable <id>`
-- `otto automation duplicate <id>`
-- `otto automation history [<id>] [--limit <n>]`
-- `otto automation last-executed <id>`
-- `otto automation test <id> [--match "..."]`
-- `otto automation lint`
-- `otto automation validate`
-
-### Flags for `automation create` / `update`
-
-| Flag | Description |
-|------|-------------|
-| `--event <EventName>` | **(required for create)** Event trigger (e.g., `UserPromptSubmit`, `SchedulerTick`, `LabelAdd`) |
-| `--name "<name>"` | Display name for the automation |
-| `--matcher "<regex>"` | Regex pattern for event matching |
-| `--cron "<expression>"` | Cron expression (for `SchedulerTick` events) |
-| `--timezone "<tz>"` | IANA timezone (e.g., `Europe/Budapest`) |
-| `--permission-mode safe\|ask\|allow-all` | Permission level for created sessions |
-| `--enabled true\|false` | Enable/disable the automation |
-| `--labels "label1,label2"` | Comma-separated labels for created sessions |
-| `--prompt "..."` | Prompt text (creates a prompt action automatically) |
-| `--llm-connection "<slug>"` | LLM connection slug for the created session |
-| `--model "<model-id>"` | Model ID for the created session |
-
-Fields without a flag of their own — `conditions`, `semanticCondition` (decision-model yes/no gate) and `telegramTopic` — go in `--json`; the whole config is validated before it is written.
-
-### Examples
-
-```bash
-otto automation list
-otto automation validate
-# Simple prompt automation with flat flags
-otto automation create --event UserPromptSubmit --prompt "Summarize this prompt"
-# Scheduled automation with flat flags
-otto automation create --event SchedulerTick --cron "0 9 * * 1-5" --timezone "Europe/Budapest" --prompt "Give me a morning briefing" --labels "scheduled" --permission-mode safe
-# Complex automation with --json
-otto automation create --event SchedulerTick --json '{"cron":"0 9 * * 1-5","actions":[{"type":"prompt","prompt":"Daily summary"}]}'
-otto automation update abc123 --name "Morning Report" --prompt "Updated prompt"
-otto automation update abc123 --enabled false
-otto automation enable abc123
-otto automation duplicate abc123
-otto automation history abc123 --limit 10
-otto automation last-executed abc123
-otto automation test abc123 --match "UserPromptSubmit"
-otto automation lint
-otto automation delete abc123
-```
-
-### Notes
-- Use flat flags for simple automations or `--json` for complex matchers with multiple `actions`.
-- `--prompt` is a shortcut that auto-wraps the text as a prompt action. Use `--json` with `actions` for multi-action automations.
-- `lint` provides quick matcher/action hygiene checks (regex validity, missing actions, oversized prompt mention sets).
-- `history` and `last-executed` read from `automations-history.jsonl` when present.
-- `validate` runs full schema and semantic checks.
-<!-- cli:automation:end -->
 
 ---
 

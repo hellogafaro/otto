@@ -18,6 +18,7 @@ const actualSharedConfigModule = await import('../../../../../packages/shared/sr
 const actualSharedWorkspacesModule = await import('../../../../../packages/shared/src/workspaces/index.ts')
 const actualSharedSessionsModule = await import('../../../../../packages/shared/src/sessions/index.ts')
 const actualSharedSourcesModule = await import('../../../../../packages/shared/src/sources/index.ts')
+const actualSharedAutomationsModule = await import('../../../../../packages/shared/src/automations/index.ts')
 
 mock.module('electron', () => ({
   app: {
@@ -181,17 +182,12 @@ mock.module('@otto/shared/sources', () => ({
 }))
 
 mock.module('@otto/shared/automations', () => ({
+  ...actualSharedAutomationsModule,
   AutomationSystem: class AutomationSystem {
     constructor(..._args: unknown[]) {}
     setInitialSessionMetadata() {}
-    reloadConfig() { return { errors: [], automationCount: 0 } }
     emitLabelConfigChange = async () => {}
   },
-  validateAutomationsConfig: () => ({ valid: true, errors: [], config: { automations: {} } }),
-  validateAutomationsContent: () => ({ valid: true, errors: [], warnings: [] }),
-  validateAutomations: () => ({ valid: true, errors: [], warnings: [] }),
-  AUTOMATIONS_CONFIG_FILE: 'automations.json',
-  AUTOMATIONS_HISTORY_FILE: 'automations.history.jsonl',
 }))
 
 mock.module('@otto/shared/sessions', () => ({

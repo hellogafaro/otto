@@ -114,10 +114,6 @@
       "comment": "otto skill read-only operations"
     },
     {
-      "pattern": "^otto\\s+automation\\s+(list|get|validate|history|last-executed|test|lint)\\b",
-      "comment": "otto automation read-only operations"
-    },
-    {
       "pattern": "^otto\\s+permission\\s+(list|get|validate)\\b",
       "comment": "otto permission read-only operations"
     },
@@ -130,11 +126,11 @@
       "comment": "otto bare invocation (prints help)"
     },
     {
-      "pattern": "^otto\\s+(label|source|skill|automation|permission|theme)\\s*$",
+      "pattern": "^otto\\s+(label|source|skill|permission|theme)\\s*$",
       "comment": "otto entity help"
     },
     {
-      "pattern": "^otto\\s+(label|source|skill|automation|permission|theme)\\s+--help\\b",
+      "pattern": "^otto\\s+(label|source|skill|permission|theme)\\s+--help\\b",
       "comment": "otto entity help flags"
     },
     {

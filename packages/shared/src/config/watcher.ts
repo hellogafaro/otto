@@ -11,7 +11,6 @@
  * - ~/.otto/workspaces/{slug}/ - Workspace directory (recursive)
  *   - sources/{slug}/config.json, guide.md, permissions.json (any file of the folder is pushed to the bundle store, see sources/store.ts)
  *   - skills/{slug}/** (the local copy of a skill's bundle; an edit is pushed to the bundle store, see skills/store.ts)
- *   - automations.json
  * Labels, statuses and workspace permissions are database rows, not watched files.
  */
 
@@ -40,7 +39,6 @@ import { permissionsConfigCache, getAppPermissionsDir } from '../agent/permissio
 import { getWorkspacePath, getWorkspaceSourcesPath } from '../workspaces/storage.ts';
 import type { LoadedSkill } from '../skills/types.ts';
 import { loadSkill, skillNeedsIconDownload, downloadSkillIcon } from '../skills/storage.ts';
-import { AUTOMATIONS_CONFIG_FILE } from '../automations/constants.ts';
 import { loadAppTheme, loadPresetThemes, loadPresetTheme, getAppThemesDir } from './storage.ts';
 import type { ThemeOverrides, PresetTheme } from './theme.ts';
 
@@ -101,10 +99,6 @@ export interface ConfigWatcherCallbacks {
   onDefaultPermissionsChange?: () => void;
   /** Called when a source's permissions.json changes */
   onSourcePermissionsChange?: (sourceSlug: string) => void;
-
-  // Automations callbacks
-  /** Called when automations.json changes */
-  onAutomationsConfigChange?: (workspaceId: string) => void;
 
   // Theme callbacks (app-level only)
   /** Called when app-level theme.json changes */
@@ -317,13 +311,6 @@ export class ConfigWatcher {
    */
   private handleWorkspaceFileChange(relativePath: string, eventType: string): void {
     const parts = relativePath.split('/');
-
-    // Workspace-level automations config file
-    if (relativePath === AUTOMATIONS_CONFIG_FILE) {
-      debug('[ConfigWatcher] automations config change detected:', relativePath);
-      this.debounce('automations-config', () => this.handleAutomationsConfigChange());
-      return;
-    }
 
     // Sources changes: sources/{slug}/... (hidden names are the bundle marker and the swaps of the materializer, never edits)
     if (parts[0] === 'sources' && parts.length >= 2 && !parts.some((part) => part.startsWith('.'))) {
@@ -592,14 +579,6 @@ export class ConfigWatcher {
     } else {
       this.callbacks.onError?.('config.json', new Error('Failed to load config'));
     }
-  }
-
-  /**
-   * Handle automations config change.
-   */
-  private handleAutomationsConfigChange(): void {
-    debug('[ConfigWatcher] automations config changed:', this.workspaceId);
-    this.callbacks.onAutomationsConfigChange?.(this.workspaceId);
   }
 
   // ============================================================
