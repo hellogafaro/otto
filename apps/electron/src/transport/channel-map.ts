@@ -90,6 +90,7 @@ export const CHANNEL_MAP = {
   createAgent: invoke(RPC_CHANNELS.agents.CREATE),
   updateAgent: invoke(RPC_CHANNELS.agents.UPDATE),
   deleteAgent: invoke(RPC_CHANNELS.agents.DELETE),
+  getAgentScreenUrl: invoke(RPC_CHANNELS.agents.SCREEN_URL),
 
   // Library
   createLibraryItem: invoke(RPC_CHANNELS.library.CREATE),
@@ -324,19 +325,6 @@ export const CHANNEL_MAP = {
   // Menu actions
   menuQuit: invoke(RPC_CHANNELS.menu.QUIT),
 
-  // Browser pane management
-  'browserPane.destroy': invoke(RPC_CHANNELS.browserPane.DESTROY),
-  'browserPane.list': invoke(RPC_CHANNELS.browserPane.LIST),
-  'browserPane.navigate': invoke(RPC_CHANNELS.browserPane.NAVIGATE),
-  'browserPane.goBack': invoke(RPC_CHANNELS.browserPane.GO_BACK),
-  'browserPane.goForward': invoke(RPC_CHANNELS.browserPane.GO_FORWARD),
-  'browserPane.reload': invoke(RPC_CHANNELS.browserPane.RELOAD),
-  'browserPane.stop': invoke(RPC_CHANNELS.browserPane.STOP),
-  'browserPane.focus': invoke(RPC_CHANNELS.browserPane.FOCUS),
-  'browserPane.emptyStateLaunch': invoke(RPC_CHANNELS.browserPane.LAUNCH),
-  'browserPane.onStateChanged': listener(RPC_CHANNELS.browserPane.STATE_CHANGED),
-  'browserPane.onRemoved': listener(RPC_CHANNELS.browserPane.REMOVED),
-  'browserPane.onInteracted': listener(RPC_CHANNELS.browserPane.INTERACTED),
 
   // LLM Connections
   listLlmConnections: invoke(RPC_CHANNELS.llmConnections.LIST),
@@ -387,6 +375,7 @@ export const CHANNEL_MAP = {
   pauseRoutine: invoke(RPC_CHANNELS.routines.PAUSE),
   resumeRoutine: invoke(RPC_CHANNELS.routines.RESUME),
   runRoutine: invoke(RPC_CHANNELS.routines.RUN),
+  resetRoutineWebhook: invoke(RPC_CHANNELS.routines.RESET_WEBHOOK),
 
   // Messaging gateway
   getMessagingConfig: invoke(RPC_CHANNELS.messaging.GET_CONFIG),

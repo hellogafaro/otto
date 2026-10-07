@@ -3,6 +3,7 @@ import { join } from 'path'
 import { RPC_CHANNELS, type FileAttachment, type SendMessageOptions, type SessionEvent } from '@otto/shared/protocol'
 import type { StoredAttachment } from '@otto/core/types'
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
+import { userActor } from '@otto/shared/actors'
 import { perf } from '@otto/shared/utils'
 import { isValidThinkingLevel, THINKING_LEVEL_IDS } from '@otto/shared/agent/thinking-levels'
 import { isPermissionMode, PERMISSION_MODE_ORDER } from '@otto/shared/agent/modes'
@@ -227,7 +228,7 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
       }
 
       sessionManager
-        .sendMessage(sessionId, message, attachments, storedAttachments, options, undefined, undefined, onAck, { callerClientId })
+        .sendMessage(sessionId, message, attachments, storedAttachments, { ...options, sender: ctx.userId ? userActor(ctx.userId) : undefined }, undefined, undefined, onAck)
         .then(() => {
           // sendMessage finished without firing onAck — should not happen in
           // practice (every code path that creates a user message acks).

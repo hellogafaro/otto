@@ -29,9 +29,8 @@ export function registerPrivilegedSchemes(): void {
 }
 
 /**
- * Serve the packaged renderer (`dist/renderer`) from `otto://app/` on a session. Handlers are
- * per session: call it for the default session and for every session that loads app pages
- * (the browser-pane partition loads browser-toolbar.html / browser-empty-state.html).
+ * Serve the packaged renderer (`dist/renderer`) from `otto://app/` on a session (handlers are per
+ * session; the app pages load in the default session).
  */
 export function handleAppProtocol(ses: Session): void {
   if (ses.protocol.isProtocolHandled(APP_SCHEME)) return

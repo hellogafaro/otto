@@ -25,8 +25,6 @@ const server = {
   handle: (channel: string, handler: Handler) => void handlers.set(channel, handler),
   push() {},
   async invokeClient() {},
-  hasClientCapability: () => false,
-  findClientsWithCapability: () => [],
 }
 const deps = {
   sessionManager: {},

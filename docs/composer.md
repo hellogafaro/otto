@@ -82,7 +82,7 @@ The chain is `R/components/app-shell/chat-display.tsx:1866` `ChatInputZone` › 
 
 ## (e) Transcription: inventory and plan to wire it back
 
-**What exists today: nothing but prose.** I grepped `apps`, `packages` and `design` for `MediaRecorder`, `getUserMedia`, `transcription`, `dictation`, `whisper` and `speech`. The only hits are the `DESIGN.md:1632-1638` "Dictation" paragraph, which was carried over from v1, and an `'audio'` attachment type in `packages/shared/src/utils/files.ts:410-416`. There is no mic button, RPC, setting or locale key. `hints.transcribeVoiceMemo` is unrelated. Electron sets a media permission handler only for browser panes (`apps/electron/src/main/browser-pane-manager.ts:3280-3293`). No `NSMicrophoneUsageDescription` was found.
+**What exists today: nothing but prose.** I grepped `apps`, `packages` and `design` for `MediaRecorder`, `getUserMedia`, `transcription`, `dictation`, `whisper` and `speech`. The only hits are the `DESIGN.md:1632-1638` "Dictation" paragraph, which was carried over from v1, and an `'audio'` attachment type in `packages/shared/src/utils/files.ts:410-416`. There is no mic button, RPC, setting or locale key. `hints.transcribeVoiceMemo` is unrelated. No `NSMicrophoneUsageDescription` was found.
 
 **What v1 had:**
 

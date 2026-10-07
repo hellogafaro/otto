@@ -88,6 +88,7 @@ function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// Otto: the "+N" of a group of 20px avatars reads 10px, centered, like their initials.
 function AvatarGroupCount({
   className,
   ...props
@@ -96,7 +97,7 @@ function AvatarGroupCount({
     <div
       data-slot="avatar-group-count"
       className={cn(
-        "relative flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-sm text-muted-foreground ring-1 ring-background group-has-data-[size=sm]/avatar-group:rounded-xs group-has-data-[size=lg]/avatar-group:rounded-lg group-has-data-[size=lg]/avatar-group:size-10 group-has-data-[size=sm]/avatar-group:size-5 [&>svg]:size-4 group-has-data-[size=lg]/avatar-group:[&>svg]:size-5 group-has-data-[size=sm]/avatar-group:[&>svg]:size-3",
+        "relative flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-sm text-muted-foreground ring-1 ring-background group-has-data-[size=sm]/avatar-group:rounded-xs group-has-data-[size=lg]/avatar-group:rounded-lg group-has-data-[size=lg]/avatar-group:size-10 group-has-data-[size=sm]/avatar-group:size-5 group-has-data-[size=sm]/avatar-group:text-[0.625rem] [&>svg]:size-4 group-has-data-[size=lg]/avatar-group:[&>svg]:size-5 group-has-data-[size=sm]/avatar-group:[&>svg]:size-3",
         className
       )}
       {...props}

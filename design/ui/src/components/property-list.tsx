@@ -10,14 +10,14 @@ import {
 import { Count } from "@workspace/ui/components/count"
 import { Kbd } from "@workspace/ui/components/kbd"
 
-// Otto: the Details blocks of a sidecar (task, project, file, document). A
-// section is a quiet title outside any surface and its rows under it; sections
-// stack 20px apart (the sidebar's one gap), no dividers. The title is a 20px
-// row, 12px medium muted, starting on the rows' slot line (4px in); its whole
-// row folds the section (Enter or Space): the title, its `Count` (not drawn
-// for 0), then a 14px chevron, right when folded and down when open, shown on
-// hover, focus or while folded (always on touch). Rows start 4px under it and
-// sit 2px apart, like the sidebar's. A section with no rows is not drawn.
+// Otto: the Details blocks of a sidecar (task, project, routine, library item),
+// Otto v1's right column: plain text on the page background, no surface. A
+// section is a quiet title and its rows under it; sections stack 24px apart, no
+// dividers. The title is a 24px row, 13px muted, starting on the rows' icon line
+// (8px in); its whole row folds the section (Enter or Space): the title, its
+// `Count` (not drawn for 0), then a 14px chevron, right when folded and down
+// when open, shown on hover, focus or while folded (always on touch). Rows start
+// 4px under it, edge to edge. A section with no rows is not drawn.
 // Otto: `action` is the section's create "+" (a 24px ghost icon button), at
 // the end of the title row and beside the folding trigger, not inside it; a
 // section with an action is drawn even with no rows.
@@ -42,10 +42,10 @@ function PropertySection({
     <Collapsible
       data-slot="property-section"
       defaultOpen={defaultOpen}
-      className={cn("not-first:mt-5", className)}
+      className={cn("not-first:mt-6", className)}
     >
       <div className="relative">
-        <CollapsibleTrigger className="group/property-section flex h-5 w-full items-center gap-2 rounded-xs px-1 text-left text-xs font-medium text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+        <CollapsibleTrigger className="group/property-section flex h-6 w-full items-center gap-2 rounded-sm px-2 text-left text-sm text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
           <span className="min-w-0 truncate">{title}</span>
           {!!count && <Count>{count}</Count>}
           <ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-data-panel-open/property-section:rotate-90 group-data-panel-open/property-section:opacity-0 group-hover/property-section:opacity-100! group-focus-visible/property-section:opacity-100! not-pointer-fine:opacity-100! motion-reduce:transition-none" />
@@ -53,27 +53,28 @@ function PropertySection({
         {action && <div className="absolute inset-y-0 right-0 flex items-center">{action}</div>}
       </div>
       <CollapsibleContent>
-        <div className="mt-1 flex flex-col gap-0.5">{children}</div>
+        <div className="mt-1 flex flex-col">{children}</div>
       </CollapsibleContent>
     </Collapsible>
   )
 }
 
-// Otto: one property: a 28px row with `sm` 6 corners as wide as the sidecar.
-// Even insets (DESIGN Layout): the 20px `icon` slot 4px in (a 14px glyph
-// centered, a 20px avatar fills it), 8px, the `label` (muted, a 96px column so
-// the values line up), then the `value` (foreground, truncated; `placeholder`
-// in muted when there is none). A row with only a `value` is a list item (a
-// link, a chat, a time entry: foreground, full width); one with only a `label`
-// is a muted full-width row (a list's create is the section's `action`, not a row). An optional `kbd` (the row's hotkey, the
-// 20px `Kbd` 4px from the end, shown on hover, focus or while open; never on
-// touch). As a button (the default) it opens its menu or popover: pass it as
-// the trigger's `render`. The ghost states: hover `foreground/5`, pressed and
-// open (`aria-expanded`) `/10`, the inset focus ring, disabled 50%. `readOnly`
-// draws plain text with no states. `actions` (an `icon-xs` ghost Button, such
-// as Remove, drawn here at 20px with `xs` 4 corners and a `foreground/10`
-// hover that stacks on the row's) sit 4px inside the end, shown on hover or
-// focus (always on touch); hovering one keeps the row highlighted.
+// Otto: one property, Otto v1's row: icon + value, a 32px row with `md` 8
+// corners as wide as the sidecar. The 16px `icon` slot 8px in (a 14px glyph
+// centered, an avatar shrinks to fill it), 8px, then the `value` (foreground,
+// truncated; `placeholder` in muted when there is none). The `label` names the
+// value for screen readers only (the icon and the value say it on screen); a row
+// with only a `label` shows it as a muted full-width row (a list's create is the
+// section's `action`, not a row). A row with only a `value` is a list item (a
+// link, a chat, a time entry). An optional `kbd` (the row's hotkey, the 20px
+// `Kbd` at the end, shown on hover, focus or while open; never on touch). As a
+// button (the default) it opens its menu or popover: pass it as the trigger's
+// `render`. The ghost states: hover `foreground/5`, pressed and open
+// (`aria-expanded`) `/10`, the inset focus ring, disabled 50%. `readOnly` draws
+// plain text with no states. `actions` (an `icon-xs` ghost Button, such as
+// Remove, drawn here at 20px with `xs` 4 corners and a `foreground/10` hover
+// that stacks on the row's) sit 6px inside the end, shown on hover or focus
+// (always on touch); hovering one keeps the row highlighted.
 function PropertyRow({
   icon,
   label,
@@ -100,14 +101,13 @@ function PropertyRow({
   const hasValue = !empty || placeholder !== undefined
   const content = (
     <>
-      <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-3.5">
+      <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground [&>[data-slot=avatar]]:size-4! [&>svg]:size-3.5">
         {icon}
       </span>
       {label !== undefined && (
         <span
           className={cn(
-            "truncate text-muted-foreground",
-            hasValue ? "w-24 shrink-0" : "min-w-0 flex-1"
+            hasValue ? "sr-only" : "min-w-0 flex-1 truncate text-muted-foreground"
           )}
         >
           {label}
@@ -137,8 +137,8 @@ function PropertyRow({
     </>
   )
   const rowClass = cn(
-    "flex h-7 w-full items-center gap-2 rounded-sm px-1 text-left text-sm text-foreground",
-    actions && "pr-7",
+    "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-foreground",
+    actions && "pr-8",
     className
   )
   return (
@@ -158,7 +158,7 @@ function PropertyRow({
         </button>
       )}
       {actions && (
-        <div className="absolute inset-y-1 right-1 flex items-center opacity-0 *:data-[slot=button]:size-5 *:data-[slot=button]:rounded-xs *:data-[slot=button]:hover:bg-foreground/10 group-focus-within/property-row:opacity-100 group-hover/property-row:opacity-100 has-aria-expanded:opacity-100 not-pointer-fine:opacity-100">
+        <div className="absolute inset-y-1.5 right-1.5 flex items-center opacity-0 *:data-[slot=button]:size-5 *:data-[slot=button]:rounded-xs *:data-[slot=button]:hover:bg-foreground/10 group-focus-within/property-row:opacity-100 group-hover/property-row:opacity-100 has-aria-expanded:opacity-100 not-pointer-fine:opacity-100">
           {actions}
         </div>
       )}

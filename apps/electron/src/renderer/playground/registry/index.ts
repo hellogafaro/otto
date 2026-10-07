@@ -11,7 +11,6 @@ import { toastsComponents } from './toasts'
 import { composerComponents } from './composer'
 import { sessionListComponents } from './session-list'
 import { entityListComponents } from './entity-lists'
-import { browserUiComponents } from './browser-ui'
 import { shellComponents } from './shell'
 import { pinsRecentsComponents } from './pins-recents'
 import { commandPaletteComponents } from './command-palette'
@@ -45,7 +44,6 @@ export const componentRegistry: ComponentEntry[] = [
   ...oauthComponents,
   ...sessionListComponents,
   ...entityListComponents,
-  ...browserUiComponents,
   ...shellComponents,
   ...pinsRecentsComponents,
   ...commandPaletteComponents,

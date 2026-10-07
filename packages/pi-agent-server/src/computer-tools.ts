@@ -2,12 +2,13 @@
  * Pi's built-in tools on a computer (`packages/shared/src/computer/types.ts`). The Computer lives
  * in the main process, so each command goes there over JSONL (`computer_exec`) and its output
  * streams back. Pi's tools take `operations` for this; only a turn whose prompt carried
- * `computer: true` uses them, every other turn runs the unchanged local tools.
+ * `computer` uses them, every other turn runs the unchanged local tools.
  *
- * Limits (deliberate, until the per-agent box exists, H2): paths are handed over as the host
- * resolves them (right for a computer sharing the host's filesystem); grep and find are not
- * offered on a computer (Pi's grep always spawns a local ripgrep and find's glob has no
- * portable shell form), so they tell the model to use bash there.
+ * On a computer the tools work in box paths (C1): they are built for the turn's box folder, get
+ * it as their context's cwd (Pi resolves relative paths against `ctx.cwd`), and `~` in a path is
+ * the box's home, not the server's. grep and find are not offered on a computer (Pi's grep always
+ * spawns a local ripgrep and find's glob has no portable shell form), so they tell the model to
+ * use bash there.
  */
 
 import type {
@@ -23,6 +24,7 @@ import type {
   PiComputerExecExit,
   PiComputerExecKill,
   PiComputerExecRequest,
+  PiTurnComputer,
 } from '../../shared/src/agent/backend/pi/protocol.ts';
 
 export type ComputerExecResult = { code: number; stdout: Buffer; stderr: Buffer };
@@ -32,6 +34,7 @@ export type ComputerExec = (
   options?: {
     cwd?: string;
     stdin?: string | Uint8Array;
+    env?: Record<string, string>;
     signal?: AbortSignal;
     onData?: (chunk: Buffer) => void;
   },
@@ -68,6 +71,7 @@ export function createComputerExecClient(send: (msg: PiComputerExecRequest | PiC
       argv,
       ...(options.cwd ? { cwd: options.cwd } : {}),
       ...(options.stdin !== undefined ? { stdin: Buffer.from(options.stdin).toString('base64') } : {}),
+      ...(options.env && Object.keys(options.env).length ? { env: options.env } : {}),
     });
   });
 
@@ -106,7 +110,8 @@ function imageMimeType(head: Buffer): string | null {
   return null;
 }
 
-export function createComputerOperations(exec: ComputerExec) {
+/** `bashEnv`: what this turn's bash calls get on top (the `otto` CLI's URL and run token); other tools get nothing. */
+export function createComputerOperations(exec: ComputerExec, bashEnv: () => Record<string, string> = () => ({})) {
   const readFile = (path: string) => ok(exec, ['cat', '--', path]);
   const writeFile = async (path: string, content: string) => {
     await ok(exec, ['sh', '-c', 'cat > "$1"', 'sh', path], content);
@@ -120,6 +125,7 @@ export function createComputerOperations(exec: ComputerExec) {
       try {
         const { code } = await exec(['bash', '-c', command], {
           cwd,
+          env: bashEnv(),
           signal: signal ? AbortSignal.any([signal, timer.signal]) : timer.signal,
           onData,
         });
@@ -167,15 +173,42 @@ export function unavailableOnComputer(tool: ToolDefinition<any, any>): ToolDefin
   };
 }
 
-/** `local` on the host, `onComputer` while the turn has a computer; same name, schema and prompt text. */
+type Execute = ToolDefinition<any, any>['execute'];
+
+/** `~` in a tool's `path` is the box's home on a computer (Pi would expand it to the server's). */
+function boxHome<T>(params: T, home: string): T {
+  const path = (params as { path?: unknown } | null)?.path;
+  if (typeof path !== 'string' || (path !== '~' && !path.startsWith('~/'))) return params;
+  return { ...params, path: path === '~' ? home : `${home}/${path.slice(2)}` };
+}
+
+/** The tool context with the box folder as cwd; copied by descriptors so Pi's lazy getters stay lazy. */
+function withCwd<T>(ctx: T, cwd: string): T {
+  const descriptors = ctx ? Object.getOwnPropertyDescriptors(ctx) : {};
+  return Object.defineProperties({}, { ...descriptors, cwd: { value: cwd, enumerable: true } }) as T;
+}
+
+/**
+ * `local` on the host; while the turn has a computer, the tool `onComputer(cwd)` builds for the turn's box folder,
+ * with box paths. Same name, schema and prompt text either way.
+ */
 export function routeToComputer(
   local: ToolDefinition<any, any>,
-  onComputer: ToolDefinition<any, any>,
-  useComputer: () => boolean,
+  onComputer: (cwd: string) => ToolDefinition<any, any>,
+  turnComputer: () => PiTurnComputer | null,
 ): ToolDefinition<any, any> {
+  const built = new Map<string, ToolDefinition<any, any>>();
+  const forBox = (cwd: string) => {
+    let tool = built.get(cwd);
+    if (!tool) built.set(cwd, (tool = onComputer(cwd)));
+    return tool;
+  };
   return {
     ...local,
-    execute: (...args: Parameters<ToolDefinition<any, any>['execute']>) =>
-      (useComputer() ? onComputer : local).execute(...args),
+    execute: ((id, params, signal, onUpdate, ctx) => {
+      const box = turnComputer();
+      if (!box) return local.execute(id, params, signal, onUpdate, ctx);
+      return forBox(box.cwd).execute(id, boxHome(params, box.home), signal, onUpdate, withCwd(ctx, box.cwd));
+    }) as Execute,
   };
 }

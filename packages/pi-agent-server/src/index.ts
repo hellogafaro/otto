@@ -112,6 +112,7 @@ import type {
   PiLargeResultGateRequest,
   PiLargeResultGateResponse,
   PiTurnSkill,
+  PiTurnComputer,
 } from '../../shared/src/agent/backend/pi/protocol.ts';
 import { createComputerExecClient, createComputerOperations, routeToComputer, unavailableOnComputer } from './computer-tools.ts';
 import { createLargeResultGateClient } from './large-result-gate.ts';
@@ -162,7 +163,7 @@ interface RuntimeConfigUpdateMessage {
 /** Messages from main process (stdin) */
 type InboundMessage =
   | InitMessage
-  | { type: 'prompt'; id: string; message: string; systemPrompt: string; skills?: PiTurnSkill[]; images?: Array<{ type: 'image'; data: string; mimeType: string }>; computer?: boolean; env?: Record<string, string> }
+  | { type: 'prompt'; id: string; message: string; systemPrompt: string; skills?: PiTurnSkill[]; images?: Array<{ type: 'image'; data: string; mimeType: string }>; computer?: PiTurnComputer; env?: Record<string, string> }
   | { type: 'register_tools'; tools: ProxyToolDef[] }
   | { type: 'tool_execute_response'; requestId: string; result: { content: string; isError: boolean } }
   | { type: 'pre_tool_use_response'; requestId: string; action: 'allow' | 'block' | 'modify'; input?: Record<string, unknown>; reason?: string }
@@ -353,9 +354,9 @@ function debugLog(message: string): void {
 const largeResultGate = createLargeResultGateClient(send);
 setLargeResultSummaryGate(largeResultGate.gate);
 
-// Built-in tools run on the turn's computer when its prompt says so (computer-tools.ts).
+// Built-in tools run on the turn's computer when its prompt says so (computer-tools.ts), in box paths.
 const computerExec = createComputerExecClient(send);
-let turnUsesComputer = false;
+let turnComputer: PiTurnComputer | null = null;
 /**
  * What this turn's bash calls get on top of the subprocess env: the `otto` CLI's `OTTO_API_URL` and `OTTO_RUN_TOKEN`
  * (docs/final-plan.md PT). Only bash sees them, only for the turn that sent them; never logged.
@@ -675,18 +676,18 @@ async function ensureSession(): Promise<AgentSession> {
   //     our hooked versions take effect (permissions + large-response summarization).
   //   - Do NOT pass tool *objects* to `tools` — `allowedToolNames = new Set(options.tools)`
   //     then `.has(name)` returns false for every string lookup → zero tools active.
-  const ops = createComputerOperations(computerExec.exec);
-  const onComputer = () => turnUsesComputer;
+  const ops = createComputerOperations(computerExec.exec, () => turnBashEnv);
+  const onComputer = () => turnComputer;
   const grepDef = createGrepToolDefinition(cwd);
   const findDef = createFindToolDefinition(cwd);
   const builtinDefs = [
-    routeToComputer(createReadToolDefinition(cwd), createReadToolDefinition(cwd, { operations: ops.read }), onComputer),
-    routeToComputer(createBashToolDefinition(cwd, { spawnHook: (spawn) => ({ ...spawn, env: { ...spawn.env, ...turnBashEnv } }) }), createBashToolDefinition(cwd, { operations: ops.bash }), onComputer),
-    routeToComputer(createEditToolDefinition(cwd), createEditToolDefinition(cwd, { operations: ops.edit }), onComputer),
-    routeToComputer(createWriteToolDefinition(cwd), createWriteToolDefinition(cwd, { operations: ops.write }), onComputer),
-    routeToComputer(grepDef, unavailableOnComputer(grepDef), onComputer),
-    routeToComputer(findDef, unavailableOnComputer(findDef), onComputer),
-    routeToComputer(createLsToolDefinition(cwd), createLsToolDefinition(cwd, { operations: ops.ls }), onComputer),
+    routeToComputer(createReadToolDefinition(cwd), (box) => createReadToolDefinition(box, { operations: ops.read }), onComputer),
+    routeToComputer(createBashToolDefinition(cwd, { spawnHook: (spawn) => ({ ...spawn, env: { ...spawn.env, ...turnBashEnv } }) }), (box) => createBashToolDefinition(box, { operations: ops.bash }), onComputer),
+    routeToComputer(createEditToolDefinition(cwd), (box) => createEditToolDefinition(box, { operations: ops.edit }), onComputer),
+    routeToComputer(createWriteToolDefinition(cwd), (box) => createWriteToolDefinition(box, { operations: ops.write }), onComputer),
+    routeToComputer(grepDef, () => unavailableOnComputer(grepDef), onComputer),
+    routeToComputer(findDef, () => unavailableOnComputer(findDef), onComputer),
+    routeToComputer(createLsToolDefinition(cwd), (box) => createLsToolDefinition(box, { operations: ops.ls }), onComputer),
   ];
   const proxyTools = buildProxyTools();
   const wrappedAll = wrapToolsWithHooks([...builtinDefs, ...webTools, ...proxyTools]);
@@ -1408,7 +1409,7 @@ async function handleInit(msg: Extract<InboundMessage, { type: 'init' }>): Promi
 
 async function handlePrompt(msg: Extract<InboundMessage, { type: 'prompt' }>): Promise<void> {
   currentUserMessage = msg.message;
-  turnUsesComputer = msg.computer === true;
+  turnComputer = msg.computer ?? null;
   turnBashEnv = msg.env ?? {};
 
   try {
@@ -1429,7 +1430,7 @@ async function handlePrompt(msg: Extract<InboundMessage, { type: 'prompt' }>): P
 
     // Otto's prompt and the agent's skills for this run (see turn-prompt.ts).
     if (msg.systemPrompt) {
-      piSessionTurnPrompt?.set({ systemPrompt: msg.systemPrompt, skills: msg.skills });
+      piSessionTurnPrompt?.set({ systemPrompt: msg.systemPrompt, skills: msg.skills, cwd: msg.computer?.cwd });
     }
 
     // Wire up event handler

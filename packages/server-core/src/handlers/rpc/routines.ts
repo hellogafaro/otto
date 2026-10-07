@@ -1,8 +1,9 @@
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { parsePromptReferences } from '@otto/shared/automations'
 import { createRoutine, deleteRoutine, getRoutine, getRoutines, updateRoutine } from '@otto/shared/automations/routines'
+import { dropWebhookSecret, prepareWebhookConfig, resetWebhookSecret } from '@otto/shared/automations/routine-webhook'
 import { runRoutine, startRoutineScheduler, type RoutineRunnerDeps } from '@otto/shared/automations/routine-runner'
-import type { Routine, RoutineInput, RoutineRun, RoutineUpdate } from '@otto/shared/automations/routine-types'
+import { routineWebhookPath, type Routine, type RoutineInput, type RoutineRun, type RoutineSaved, type RoutineUpdate } from '@otto/shared/automations/routine-types'
 import { domainError } from '@otto/shared/utils'
 import type { RpcServer } from '@otto/server-core/transport'
 import { checkAutomationCondition } from '../../decisions/automation-condition'
@@ -18,6 +19,7 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.routines.PAUSE,
   RPC_CHANNELS.routines.RESUME,
   RPC_CHANNELS.routines.RUN,
+  RPC_CHANNELS.routines.RESET_WEBHOOK,
 ] as const
 
 /**
@@ -58,12 +60,13 @@ export function routineRunnerDeps(deps: Pick<HandlerDeps, 'sessionManager'>, not
   }
 }
 
-const notifier = (server: RpcServer) => (workspaceId: string) =>
+/** Tells the workspace's clients its routines changed (`domain:changed`). */
+export const routinesNotifier = (server: RpcServer) => (workspaceId: string) =>
   server.push(RPC_CHANNELS.domain.CHANGED, { to: 'workspace', workspaceId }, { domain: 'routines', workspaceId })
 
 /** Starts the scheduler: every minute it fires the schedule routines that are due, once. Returns its stop function. */
 export function startRoutines(server: RpcServer, deps: Pick<HandlerDeps, 'sessionManager' | 'platform'>): () => void {
-  return startRoutineScheduler(routineRunnerDeps(deps, notifier(server)), deps.platform.logger)
+  return startRoutineScheduler(routineRunnerDeps(deps, routinesNotifier(server)), deps.platform.logger)
 }
 
 /**
@@ -80,17 +83,45 @@ export function registerRoutinesHandlers(server: RpcServer, deps: HandlerDeps): 
 
   server.handle(RPC_CHANNELS.routines.GET, (ctx, id: string) => getRoutine(workspaceOf(ctx), id) ?? null)
 
-  server.handle(RPC_CHANNELS.routines.CREATE, (ctx, input: Omit<RoutineInput, 'workspaceId' | 'createdBy'>): Routine =>
-    createRoutine({ workspaceId: workspaceOf(ctx), title: input.title, agentId: input.agentId, config: input.config, paused: input.paused, createdBy: actorOf(ctx) }),
-  )
+  // A webhook routine's secret is the server's: made here, shown once in the answer (`webhookSecret`), never taken from the caller
+  server.handle(RPC_CHANNELS.routines.CREATE, (ctx, input: Omit<RoutineInput, 'workspaceId' | 'createdBy'>): RoutineSaved => {
+    const prepared = prepareWebhookConfig(input.config, String(input.title ?? ''))
+    try {
+      const routine = createRoutine({ workspaceId: workspaceOf(ctx), title: input.title, agentId: input.agentId, config: prepared.config, paused: input.paused, createdBy: actorOf(ctx) })
+      return prepared.secret ? { ...routine, webhookSecret: prepared.secret } : routine
+    } catch (error) {
+      dropWebhookSecret(prepared.secretId)
+      throw error
+    }
+  })
 
   // A change by someone other than the creator makes the routine theirs (`updateRoutine`'s `by`)
-  server.handle(RPC_CHANNELS.routines.UPDATE, (ctx, id: string, patch: RoutineUpdate) =>
-    updateRoutine(workspaceOf(ctx), id, { title: patch.title, agentId: patch.agentId, config: patch.config, paused: patch.paused, by: actorOf(ctx) }),
-  )
+  server.handle(RPC_CHANNELS.routines.UPDATE, (ctx, id: string, patch: RoutineUpdate): RoutineSaved => {
+    const workspaceId = workspaceOf(ctx)
+    const before = patch.config === undefined ? undefined : getRoutine(workspaceId, id)
+    const prepared = patch.config === undefined ? undefined : prepareWebhookConfig(patch.config, patch.title ?? before?.title ?? '', before?.config)
+    try {
+      const routine = updateRoutine(workspaceId, id, { title: patch.title, agentId: patch.agentId, config: prepared?.config, paused: patch.paused, by: actorOf(ctx) })
+      dropWebhookSecret(prepared?.drop)
+      return prepared?.secret ? { ...routine, webhookSecret: prepared.secret } : routine
+    } catch (error) {
+      dropWebhookSecret(prepared?.secretId)
+      throw error
+    }
+  })
 
   server.handle(RPC_CHANNELS.routines.DELETE, (ctx, id: string) => {
-    deleteRoutine(workspaceOf(ctx), id)
+    const workspaceId = workspaceOf(ctx)
+    const secretId = getRoutine(workspaceId, id)?.config.webhook?.secretId
+    deleteRoutine(workspaceId, id)
+    dropWebhookSecret(secretId)
+  })
+
+  // The new path is the only time the secret is shown; the old URL stops working at once
+  server.handle(RPC_CHANNELS.routines.RESET_WEBHOOK, (ctx, id: string): { path: string } => {
+    const routine = getRoutine(workspaceOf(ctx), id)
+    if (!routine) throw domainError('not_found', `Routine ${id} does not exist`)
+    return { path: routineWebhookPath(routine.id, resetWebhookSecret(routine)) }
   })
 
   server.handle(RPC_CHANNELS.routines.PAUSE, (ctx, id: string) => updateRoutine(workspaceOf(ctx), id, { paused: true, by: actorOf(ctx) }))
@@ -101,7 +132,7 @@ export function registerRoutinesHandlers(server: RpcServer, deps: HandlerDeps): 
     const routine = getRoutine(workspaceOf(ctx), id)
     if (!routine) throw domainError('not_found', `Routine ${id} does not exist`)
     // Run now runs as the person who asked: its chats and connections are theirs, not the creator's
-    const handle = runRoutine({ ...routine, createdBy: actorOf(ctx) }, routineRunnerDeps(deps, notifier(server), { judge: false }))
+    const handle = runRoutine({ ...routine, createdBy: actorOf(ctx) }, routineRunnerDeps(deps, routinesNotifier(server), { judge: false }))
     if (!handle) throw domainError('conflict', 'The routine could not start a run')
     return handle.run
   })

@@ -1,16 +1,14 @@
-import type { EventSink, RpcServer } from '@otto/server-core/transport'
-import { CLIENT_BROWSER_INVOKE } from '@otto/server-core/transport'
-import type { ISessionManager, IBrowserPaneManager, ExecutePromptAutomationInput } from '@otto/server-core/handlers'
-import { RemoteBrowserPaneManager } from './remote-browser-pane-manager'
+import type { EventSink } from '@otto/server-core/transport'
+import type { ISessionManager, ExecutePromptAutomationInput } from '@otto/server-core/handlers'
 import { userActor, userIdOf } from '@otto/shared/actors'
 import { chatNotFound, getChatAudience, type WorkspaceOwners } from './private-chats'
 import { validateFilePath, getWorkspaceAllowedDirs } from '@otto/server-core/handlers'
 import { createScopedLogger, CONSOLE_LOGGER, type PlatformServices, type Logger } from '@otto/server-core/runtime'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { existsSync, readdirSync } from 'fs'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { randomUUID } from 'node:crypto'
-import { type AgentEvent, type ChatOptions, getPermissionMode, setPermissionMode, setGuardedModeActiveResolver, clampPermissionMode, planExecutionMode, parsePermissionMode, hydratePreviousPermissionMode, getPermissionModeDiagnostics, type PermissionMode, unregisterSessionScopedToolCallbacks, mergeSessionScopedToolCallbacks, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest, type BrowserPaneFns, generateConversationSummary, type PiAgent, getAgentTurn, type AgentTurn } from '@otto/shared/agent'
+import { type AgentEvent, type ChatOptions, getPermissionMode, setPermissionMode, setGuardedModeActiveResolver, clampPermissionMode, planExecutionMode, parsePermissionMode, hydratePreviousPermissionMode, getPermissionModeDiagnostics, type PermissionMode, unregisterSessionScopedToolCallbacks, mergeSessionScopedToolCallbacks, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest, generateConversationSummary, type PiAgent, getAgentTurn, type AgentTurn, normalizeCanonicalBrowserToolName } from '@otto/shared/agent'
 import {
   resolveSessionConnection,
   createBackendFromConnection,
@@ -48,10 +46,16 @@ import {
   deleteSession as deleteStoredSession,
   getSessionPath as getSessionStoragePath,
   ensureSessionDir,
+  uploadPiSession,
+  restorePiSession,
+  deletePiSession,
+  type PiSessionRef,
   sessionPersistenceQueue,
   onChatsChange,
   getChatsFields,
   runChatsRecovery,
+  initChatParticipants,
+  addParticipants,
   serializeSession,
   validateBundle,
   type ChatWrite,
@@ -100,6 +104,8 @@ import { resolveSessionLabels, type LabelConfig } from '@otto/shared/labels'
 import { createMissingLabels } from '@otto/shared/labels/crud'
 import { getDefaultStatusId, getStatuses } from '@otto/shared/statuses/storage'
 import { AutomationSystem, createPromptHistoryEntry, appendAutomationHistoryEntry, type PendingPrompt } from '@otto/shared/automations'
+import { recordRoutineRun } from '@otto/shared/automations/routine-runner'
+import { getRoutine } from '@otto/shared/automations/routines'
 import { buildBackendRuntimeSignature, buildRestartRequiredSignature, filterAttachmentsForModelInput } from './runtime-config'
 import { validateArchiveTarget } from './archive-guards'
 import { runPermissionsAction } from './permissions-tool'
@@ -107,7 +113,7 @@ import { getFirstUser } from '@otto/shared/users/queries'
 import { getAgent, getAgentRunConfig } from '@otto/shared/agents'
 
 // Import from server-core domain utilities
-import { sanitizeForTitle, shouldActivateBrowserOverlay, normalizeBrowserToolName, rollbackFailedBranchCreation, releaseBrowserOwnershipOnForcedStop } from '@otto/server-core/domain'
+import { sanitizeForTitle, rollbackFailedBranchCreation } from '@otto/server-core/domain'
 import { resizeImageForAPI, resizeIconBuffer } from '@otto/server-core/services'
 export { sanitizeForTitle }
 
@@ -435,7 +441,7 @@ async function resolveToolDisplayMeta(
       if (internalServer) {
         const displayName = internalServer[toolSlug]
         if (displayName) {
-          const normalizedBrowserTool = normalizeBrowserToolName(toolSlug)
+          const normalizedBrowserTool = normalizeCanonicalBrowserToolName(toolSlug)
           return {
             displayName,
             iconDataUrl: normalizedBrowserTool ? await getBrowserToolIconDataUrl() : undefined,
@@ -522,7 +528,7 @@ async function resolveToolDisplayMeta(
   }
 
   // Native browser tool names (with Chrome icon)
-  const normalizedBrowserToolName = normalizeBrowserToolName(toolName)
+  const normalizedBrowserToolName = normalizeCanonicalBrowserToolName(toolName)
   if (normalizedBrowserToolName) {
     const browserDisplayName = normalizedBrowserToolName
       .split('_')
@@ -576,6 +582,8 @@ interface ManagedSession {
   workspace: Workspace
   /** Actor ('user:<id>') the chat belongs to; absent on chats made before chats were private (see private-chats.ts). */
   createdBy?: string
+  /** The people in the chat ('user:<id>'): the creator, then everyone who sent a message (grown by the write path too). */
+  participants?: string[]
   /** The `agents` row the chat talks to; absent (or deleted) = the workspace's default agent. */
   agentId?: string
   agent: AgentInstance | null  // Lazy-loaded - null until first message
@@ -615,6 +623,10 @@ interface ManagedSession {
   mcpPool?: McpClientPool
   // SDK session ID for conversation continuity
   sdkSessionId?: string
+  /** Pi's session file as last uploaded to object storage (persisted; see shared sessions/pi-session-sync.ts). */
+  piSession?: PiSessionRef
+  /** The running upload of it; uploads of one chat run one after the other. */
+  piSessionSync?: Promise<void>
   /** Accept & Compact state; persisted with the session header. */
   pendingPlanExecution?: StoredSession['pendingPlanExecution']
   // Token usage for display
@@ -1071,7 +1083,7 @@ export function canSteerTextPayload(
 ): boolean {
   if (attachments?.length || storedAttachments?.length) return false
   return !Object.entries(options ?? {}).some(([key, value]) => {
-    if (value === undefined || key === 'optimisticMessageId') return false
+    if (value === undefined || key === 'optimisticMessageId' || key === 'sender') return false
     if ((key === 'skillSlugs' || key === 'badges') && Array.isArray(value) && !value.length) return false
     if (key === 'hidden' && value === false) return false
     // Unknown future options conservatively use the full-payload path.
@@ -1302,9 +1314,11 @@ export class SessionManager implements ISessionManager {
       if (!check) conditionChecks.set(pending.matcherId, check = this.shouldRunPromptAutomation(pending))
       return check
     }
+    // A skipped run is written whole; the page of Routines follows (`domain:changed`)
     const writeHistory = (entry: Parameters<typeof createPromptHistoryEntry>[0]) =>
       appendAutomationHistoryEntry(workspaceRootPath, createPromptHistoryEntry(entry))
         .catch(e => sessionLog.warn('[Automations] Failed to write history:', e))
+        .then(() => this.broadcastDomainChanged(workspaceId, 'routines'))
 
     await Promise.all(readyPrompts.map(async (pending, idx) => {
       const guard = this.automationLoopGuard(pending)
@@ -1320,8 +1334,10 @@ export class SessionManager implements ISessionManager {
         return
       }
 
-      // Execute the prompt automation by creating a new session; history gets the session ID.
-      try {
+      // Execute the prompt automation by creating a new session, as the routine's creator on its agent. Its history row
+      // is `running` while the turn runs and ends `ok` with the session or `error`; the page follows (`domain:changed`).
+      const routine = pending.matcherId ? getRoutine(workspaceId, pending.matcherId) : undefined
+      const execute = async () => {
         const { sessionId } = await this.executePromptAutomation({
           workspaceId,
           workspaceRootPath,
@@ -1337,11 +1353,15 @@ export class SessionManager implements ISessionManager {
           triggerEvent: pending.event,
           chainDepth: guard.depth,
           telegramTopic: pending.telegramTopic,
+          createdBy: routine?.createdBy,
+          agentId: routine?.agentId ?? undefined,
         })
-        if (pending.matcherId) void writeHistory({ matcherId: pending.matcherId, ok: true, sessionId, prompt: pending.prompt })
         sessionLog.info(`[Automations] Created session ${sessionId} from prompt action`)
+        return { chatId: sessionId }
+      }
+      try {
+        await (routine ? recordRoutineRun(routine, execute, () => this.broadcastDomainChanged(workspaceId, 'routines')) : execute())
       } catch (error) {
-        if (pending.matcherId) void writeHistory({ matcherId: pending.matcherId, ok: false, prompt: pending.prompt, error: String(error) })
         sessionLog.error(`[Automations] Failed to execute prompt action ${idx + 1}:`, error)
       }
     }))
@@ -1599,10 +1619,6 @@ export class SessionManager implements ISessionManager {
     this.automationBinder = fn
   }
 
-  private rpcServer: RpcServer | null = null
-  private remoteBpms = new Map<string, RemoteBrowserPaneManager>()
-  /** Pinned desktop client per session for `client:browser:invoke` routing. */
-  private browserHostByCanvas = new Map<string, string>()
   private eventSink: EventSink | null = null
 
   setEventSink(sink: EventSink): void {
@@ -1636,91 +1652,6 @@ export class SessionManager implements ISessionManager {
   canSeeSession(sessionId: string, userId: string | null): boolean {
     const managed = this.sessions.get(sessionId)
     return !!managed && this.canSee(userId)(managed)
-  }
-
-  /**
-   * Provide the WS RPC server so clients can host browser tools (the desktop's windows too: they reach the
-   * server over WebSocket like any client).
-   *
-   * When called, the SM activates the remote-bridge code path: per-session
-   * `RemoteBrowserPaneManager` instances are created lazily by
-   * {@link getBrowserPaneManagerForSession}, and the browser-host client is
-   * resolved via {@link getBrowserHostClient} with capability-aware fallback.
-   */
-  setRpcServer(server: RpcServer): void {
-    this.rpcServer = server
-    sessionLog.info('[browser-pane] setRpcServer called — remote browser bridge is now available')
-  }
-
-  /**
-   * Resolve the {@link IBrowserPaneManager} that owns the user's browser
-   * for a given session: a session-bound {@link RemoteBrowserPaneManager} when `rpcServer` is set
-   * (cached in `remoteBpms` so repeat lookups don't allocate), else `null`.
-   */
-  getBrowserPaneManagerForSession(sid: string): IBrowserPaneManager | null {
-    if (!this.rpcServer) return null
-
-    const cached = this.remoteBpms.get(sid)
-    if (cached) return cached
-
-    const session = this.sessions.get(sid)
-    if (!session) return null
-
-    const bridge = new RemoteBrowserPaneManager({
-      sessionId: sid,
-      workspaceId: session.workspace.id,
-      rpcServer: this.rpcServer,
-      getHostClient: () => this.getBrowserHostClient(sid),
-    })
-    this.remoteBpms.set(sid, bridge)
-    return bridge
-  }
-
-  /**
-   * Record which desktop client should host this session's browser. Called
-   * with `ctx.clientId` from the `sessions.sendMessage` RPC handler so the
-   * agent's browser_* tools route back to the client that posted the message.
-   *
-   * No-op when `callerClientId` is undefined — preserves the existing pin
-   * (lets reconnected clients continue holding the host role).
-   */
-  private setLastMessageClientId(sid: string, callerClientId: string | undefined): void {
-    if (!callerClientId) return
-    this.browserHostByCanvas.set(sid, callerClientId)
-  }
-
-  /**
-   * Called by the transport bootstrap on `onClientDisconnected`. Drops any
-   * pins held by `clientId` so the next browser tool call re-resolves via
-   * {@link findClientsWithCapability} instead of trying to ship to a dead client.
-   */
-  onClientDisconnected(clientId: string): void {
-    for (const [sid, pinned] of this.browserHostByCanvas) {
-      if (pinned === clientId) this.browserHostByCanvas.delete(sid)
-    }
-  }
-
-  /**
-   * Pinned client first, with fallback to any connected client for the workspace
-   * that advertises `client:browser:invoke`. The fallback handles reconnect-with-
-   * new-clientId so the agent isn't stuck waiting for another user message.
-   */
-  private getBrowserHostClient(sid: string): string | null {
-    if (!this.rpcServer) return null
-    const pinned = this.browserHostByCanvas.get(sid)
-    if (pinned && this.rpcServer.hasClientCapability(pinned, CLIENT_BROWSER_INVOKE)) {
-      return pinned
-    }
-    const session = this.sessions.get(sid)
-    if (!session) return null
-    const candidates = this.rpcServer.findClientsWithCapability(
-      CLIENT_BROWSER_INVOKE,
-      { workspaceId: session.workspace.id },
-    )
-    const fallback = candidates[0]
-    if (!fallback) return null
-    this.browserHostByCanvas.set(sid, fallback)
-    return fallback
   }
 
   /** Returns a strictly increasing timestamp (ms). When Date.now() collides with
@@ -1914,6 +1845,9 @@ export class SessionManager implements ISessionManager {
         workspaceRootPath,
         workspaceId,
         onPromptsReady: (readyPrompts) => this.runReadyPrompts(workspaceId, workspaceRootPath, readyPrompts),
+        // Webhook and script actions write their run when they end: the page of Routines follows
+        onWebhookResults: () => this.broadcastDomainChanged(workspaceId, 'routines'),
+        onScriptResults: () => this.broadcastDomainChanged(workspaceId, 'routines'),
         onError: (event, error) => {
           sessionLog.error(`Automation failed for ${event}:`, error.message)
         },
@@ -1952,8 +1886,8 @@ export class SessionManager implements ISessionManager {
     this.eventSink(RPC_CHANNELS.sources.CHANGED, { to: 'workspace', workspaceId }, workspaceId, sources)
   }
 
-  /** Tells the clients of a workspace that its labels, permissions, skills or sources changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations, the watcher). */
-  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'permissions' | 'skills' | 'sources'): void {
+  /** Tells the clients of a workspace that its labels, permissions, skills, sources or routines (their runs) changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations, the watcher). */
+  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'permissions' | 'skills' | 'sources' | 'routines'): void {
     if (!this.eventSink) return
     this.eventSink(RPC_CHANNELS.domain.CHANGED, { to: 'workspace', workspaceId }, { domain, workspaceId } satisfies DomainChange)
   }
@@ -2048,6 +1982,8 @@ export class SessionManager implements ISessionManager {
       // A turn that was running when the server stopped: its partial answer and tool calls become interrupted
       const recovered = runChatsRecovery()
       if (recovered.chats) sessionLog.info(`Recovered ${recovered.chats} interrupted chats (${recovered.partial} partial answers, ${recovered.tools} tool calls)`)
+      // Every chat gets its people (creator and senders) before the rows load
+      initChatParticipants()
       // Load every chat's row (messages load when a chat is opened or runs)
       this.loadSessionsFromDatabase()
       // Labels, statuses and agents deleted elsewhere change chats' rows: bring the loaded chats in step
@@ -3310,6 +3246,7 @@ export class SessionManager implements ISessionManager {
       // ============================================================
 
       const sessionPath = getSessionStoragePath(managed.workspace.rootPath, managed.id)
+      await this.restorePiSessionFiles(managed, sessionPath)
       const enabledSlugs = managed.enabledSourceSlugs || []
       const allSources = loadAllSources(managed.workspace.rootPath)
       const enabledSources = allSources.filter(s =>
@@ -3557,315 +3494,6 @@ export class SessionManager implements ISessionManager {
         managed.mcpPool.setSummarizeCallback(managed.agent.getSummarizeCallback())
       }
 
-      // Wire up browser pane tools — merge BrowserPaneFns into session callbacks
-      // so browser_* tools can delegate to BrowserPaneManager.
-      //
-      // Always register when an RPC server is available (which lets
-      // `getBrowserPaneManagerForSession` lazily build a RemoteBrowserPaneManager).
-      // Calls fail per-method with BROWSER_NO_CAPABLE_CLIENT if no desktop client
-      // is connected, instead of "tool unavailable".
-      sessionLog.info('[browser-pane] BPF gate check', {
-        sessionId: managed.id,
-        hasRpcServer: !!this.rpcServer,
-      })
-      if (this.rpcServer) {
-        const sid = managed.id
-        const bpm = this.getBrowserPaneManagerForSession(sid)
-        if (!bpm) {
-          throw new Error('Browser pane manager unavailable despite passing the gate — this is a bug.')
-        }
-
-        const workspaceId = managed.workspace.id
-        const resolveSessionBrowserInstance = async (toolName: string, options?: { show?: boolean }): Promise<string> => {
-          const instanceId = await bpm.createForSessionAsync(sid, {
-            show: options?.show ?? false,
-            workspaceId,
-          })
-          const info = await bpm.getInstanceAsync(instanceId)
-          sessionLog.info(`[browser-pane] tool target resolved: ${toolName} session=${sid} instance=${instanceId} ownerType=${info?.ownerType ?? 'unknown'} ownerSessionId=${info?.ownerSessionId ?? 'none'} visible=${info?.isVisible ?? false}`)
-          return instanceId
-        }
-
-        const resolveLifecycleWindowTarget = async (command: 'release' | 'close' | 'hide', requestedInstanceId?: string) => {
-          const windows = await bpm.listInstancesAsync()
-
-          if (windows.length === 0) {
-            return { windows, reason: 'No browser windows are available. Use "open" first.' }
-          }
-
-          const validateTarget = (target: (typeof windows)[number] | undefined) => {
-            if (!target) {
-              return { ok: false as const, reason: `Browser window "${requestedInstanceId}" not found. Use "windows" to list available windows.` }
-            }
-
-            if (target.boundSessionId && target.boundSessionId !== sid) {
-              return { ok: false as const, reason: `Browser window "${target.id}" is locked to session ${target.boundSessionId}.` }
-            }
-
-            if (!target.boundSessionId && target.ownerSessionId && target.ownerSessionId !== sid) {
-              return { ok: false as const, reason: `Browser window "${target.id}" is currently owned by session ${target.ownerSessionId}.` }
-            }
-
-            return { ok: true as const, target }
-          }
-
-          if (requestedInstanceId) {
-            const validated = validateTarget(windows.find((w) => w.id === requestedInstanceId))
-            if (!validated.ok) {
-              return { windows, reason: validated.reason }
-            }
-            return { windows, target: validated.target }
-          }
-
-          const fallbackTarget = windows.find((w) => w.boundSessionId === sid)
-            ?? windows.find((w) => w.ownerSessionId === sid)
-
-          if (!fallbackTarget) {
-            return { windows, reason: `No ${command} target is currently associated with this session. Use "windows", then "${command} <id>".` }
-          }
-
-          const validated = validateTarget(fallbackTarget)
-          if (!validated.ok) {
-            return { windows, reason: validated.reason }
-          }
-
-          return { windows, target: validated.target }
-        }
-
-        sessionLog.info('[browser-pane] BPF registering browserPaneFns', { sessionId: sid })
-        mergeSessionScopedToolCallbacks(sid, {
-          browserPaneFns: {
-            openPanel: async (options) => {
-              const instanceId = options?.background
-                ? await bpm.createForSessionAsync(sid, { show: false, workspaceId })
-                : await bpm.focusBoundForSessionAsync(sid, { workspaceId })
-              const info = await bpm.getInstanceAsync(instanceId)
-              sessionLog.info(`[browser-pane] route decision: browser_open session=${sid} instance=${instanceId} background=${options?.background ?? false} ownerType=${info?.ownerType ?? 'unknown'} ownerSessionId=${info?.ownerSessionId ?? 'none'} visible=${info?.isVisible ?? false}`)
-              return { instanceId }
-            },
-            navigate: async (url) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_navigate')
-              return bpm.navigate(instanceId, url)
-            },
-            snapshot: async () => {
-              const instanceId = await resolveSessionBrowserInstance('browser_snapshot')
-              return bpm.getAccessibilitySnapshot(instanceId)
-            },
-            click: async (ref, options) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_click')
-              return bpm.clickElement(instanceId, ref, options)
-            },
-            clickAt: async (x, y) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_click_at')
-              return bpm.clickAtCoordinates(instanceId, x, y)
-            },
-            drag: async (x1, y1, x2, y2) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_drag')
-              return bpm.drag(instanceId, x1, y1, x2, y2)
-            },
-            fill: async (ref, value) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_fill')
-              return bpm.fillElement(instanceId, ref, value)
-            },
-            type: async (text) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_type')
-              return bpm.typeText(instanceId, text)
-            },
-            select: async (ref, value) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_select')
-              return bpm.selectOption(instanceId, ref, value)
-            },
-            setClipboard: async (text) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_set_clipboard')
-              return bpm.setClipboard(instanceId, text)
-            },
-            getClipboard: async () => {
-              const instanceId = await resolveSessionBrowserInstance('browser_get_clipboard')
-              return bpm.getClipboard(instanceId)
-            },
-            screenshot: async (options) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_screenshot')
-              return bpm.screenshot(instanceId, options)
-            },
-            screenshotRegion: async (options) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_screenshot_region')
-              return bpm.screenshotRegion(instanceId, options)
-            },
-            getConsoleLogs: async (options) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_console')
-              return bpm.getConsoleLogs(instanceId, options)
-            },
-            windowResize: async (options) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_window_resize')
-              return bpm.windowResize(instanceId, options.width, options.height)
-            },
-            getNetworkLogs: async (options) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_network')
-              return bpm.getNetworkLogs(instanceId, options)
-            },
-            waitFor: async (options) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_wait')
-              return bpm.waitFor(instanceId, options)
-            },
-            sendKey: async (options) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_key')
-              return bpm.sendKey(instanceId, options)
-            },
-            getDownloads: async (options) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_downloads')
-              return bpm.getDownloads(instanceId, options)
-            },
-            upload: async (ref, filePaths) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_upload')
-              return bpm.uploadFile(instanceId, ref, filePaths).then(() => {})
-            },
-            scroll: async (direction, amount) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_scroll')
-              return bpm.scroll(instanceId, direction, amount)
-            },
-            goBack: async () => {
-              const instanceId = await resolveSessionBrowserInstance('browser_back')
-              return bpm.goBack(instanceId)
-            },
-            goForward: async () => {
-              const instanceId = await resolveSessionBrowserInstance('browser_forward')
-              return bpm.goForward(instanceId)
-            },
-            evaluate: async (expression) => {
-              const instanceId = await resolveSessionBrowserInstance('browser_evaluate')
-              return bpm.evaluate(instanceId, expression)
-            },
-            focusWindow: async (targetInstanceId) => {
-              const windows = await bpm.listInstancesAsync()
-              if (windows.length === 0) {
-                throw new Error('No browser windows available to focus. Use "open" first.')
-              }
-
-              const target = targetInstanceId
-                ? windows.find(w => w.id === targetInstanceId)
-                : windows.find(w => w.boundSessionId === sid || w.ownerSessionId === sid)
-
-              if (!target) {
-                if (targetInstanceId) {
-                  throw new Error(`Browser window "${targetInstanceId}" not found. Use "windows" to list available windows.`)
-                }
-                throw new Error('No browser window is currently bound to this session. Use "open --foreground" to create or reuse one.')
-              }
-
-              const availableToSession = !target.boundSessionId || target.boundSessionId === sid
-              if (!availableToSession) {
-                throw new Error(`Browser window "${target.id}" is locked to session ${target.boundSessionId}.`)
-              }
-
-              if (!target.boundSessionId) {
-                bpm.bindSession(target.id, sid, { workspaceId })
-              }
-
-              bpm.focus(target.id)
-              const focused = await bpm.getInstanceAsync(target.id)
-              return {
-                instanceId: target.id,
-                title: focused?.title ?? target.title,
-                url: focused?.currentUrl ?? target.url,
-              }
-            },
-            releaseControl: async (requestedInstanceId) => {
-              if (requestedInstanceId === 'all') {
-                const before = await bpm.listInstancesAsync()
-                const beforeActive = before.filter((w) => !!w.agentControlActive).length
-                bpm.clearAgentControl(sid)
-                const after = await bpm.listInstancesAsync()
-                const afterActive = after.filter((w) => !!w.agentControlActive).length
-                const released = afterActive < beforeActive
-
-                sessionLog.info(`[browser-pane] lifecycle release-all session=${sid} overlays=${beforeActive}->${afterActive}`)
-
-                return {
-                  action: released ? 'released' : 'noop',
-                  requestedInstanceId,
-                  affectedIds: released ? before.filter((w) => !!w.agentControlActive).map((w) => w.id) : [],
-                  reason: released ? undefined : 'No active overlay was found for this session.',
-                }
-              }
-
-              const resolution = await resolveLifecycleWindowTarget('release', requestedInstanceId)
-              if (!resolution.target) {
-                sessionLog.info(`[browser-pane] lifecycle release session=${sid} requested=${requestedInstanceId ?? 'auto'} result=noop reason=${resolution.reason}`)
-                return {
-                  action: 'noop',
-                  requestedInstanceId,
-                  affectedIds: [],
-                  reason: resolution.reason,
-                }
-              }
-
-              const result = bpm.clearAgentControlForInstance(resolution.target.id, sid)
-              const action = result.released ? 'released' : 'noop'
-              sessionLog.info(`[browser-pane] lifecycle release session=${sid} requested=${requestedInstanceId ?? 'auto'} resolved=${resolution.target.id} result=${action} reason=${result.reason ?? 'none'}`)
-
-              return {
-                action,
-                requestedInstanceId,
-                resolvedInstanceId: resolution.target.id,
-                affectedIds: result.released ? [resolution.target.id] : [],
-                reason: result.reason,
-              }
-            },
-            closeWindow: async (requestedInstanceId) => {
-              const resolution = await resolveLifecycleWindowTarget('close', requestedInstanceId)
-              if (!resolution.target) {
-                sessionLog.info(`[browser-pane] lifecycle close session=${sid} requested=${requestedInstanceId ?? 'auto'} result=noop reason=${resolution.reason}`)
-                return {
-                  action: 'noop',
-                  requestedInstanceId,
-                  affectedIds: [],
-                  reason: resolution.reason,
-                }
-              }
-
-              bpm.destroyInstance(resolution.target.id)
-              sessionLog.info(`[browser-pane] lifecycle close session=${sid} requested=${requestedInstanceId ?? 'auto'} resolved=${resolution.target.id} result=closed`)
-
-              return {
-                action: 'closed',
-                requestedInstanceId,
-                resolvedInstanceId: resolution.target.id,
-                affectedIds: [resolution.target.id],
-              }
-            },
-            hideWindow: async (requestedInstanceId) => {
-              const resolution = await resolveLifecycleWindowTarget('hide', requestedInstanceId)
-              if (!resolution.target) {
-                sessionLog.info(`[browser-pane] lifecycle hide session=${sid} requested=${requestedInstanceId ?? 'auto'} result=noop reason=${resolution.reason}`)
-                return {
-                  action: 'noop',
-                  requestedInstanceId,
-                  affectedIds: [],
-                  reason: resolution.reason,
-                }
-              }
-
-              bpm.hide(resolution.target.id)
-              sessionLog.info(`[browser-pane] lifecycle hide session=${sid} requested=${requestedInstanceId ?? 'auto'} resolved=${resolution.target.id} result=hidden`)
-
-              return {
-                action: 'hidden',
-                requestedInstanceId,
-                resolvedInstanceId: resolution.target.id,
-                affectedIds: [resolution.target.id],
-              }
-            },
-            listWindows: async () => {
-              return bpm.listInstancesAsync()
-            },
-            detectChallenge: async () => {
-              const instanceId = await resolveSessionBrowserInstance('browser_detect_challenge')
-              return bpm.detectSecurityChallenge(instanceId)
-            },
-          } satisfies BrowserPaneFns,
-        })
-      }
-
       // Signal that the agent instance is ready (unblocks title generation)
       managed.agentReadyResolve?.()
 
@@ -4070,13 +3698,6 @@ export class SessionManager implements ISessionManager {
             managed.agent.interruptForHandoff(AbortReason.PlanSubmitted)
             this.setProcessing(managed, false)
 
-            // Release browser overlay + session binding because the agent is no longer running.
-            // Plan submission pauses execution until user review, so browser ownership should not remain locked.
-            await releaseBrowserOwnershipOnForcedStop(
-              (sid) => this.getBrowserPaneManagerForSession(sid),
-              managed.id,
-            )
-
             // Send complete event so renderer knows processing stopped (include tokenUsage for real-time updates)
             this.sendEvent({ type: 'complete', sessionId: managed.id, tokenUsage: managed.tokenUsage }, managed.workspace.id)
 
@@ -4128,12 +3749,6 @@ export class SessionManager implements ISessionManager {
           sessionLog.info(`Interrupting for auth request in session ${managed.id}`)
           managed.agent.interruptForHandoff(AbortReason.AuthRequest)
           this.setProcessing(managed, false)
-
-          // Release browser overlay + session binding because the agent is paused awaiting user auth.
-          void releaseBrowserOwnershipOnForcedStop(
-            (sid) => this.getBrowserPaneManagerForSession(sid),
-            managed.id,
-          )
 
           // Send complete event so renderer knows processing stopped (include tokenUsage for real-time updates)
           this.sendEvent({ type: 'complete', sessionId: managed.id, tokenUsage: managed.tokenUsage }, managed.workspace.id)
@@ -5577,15 +5192,6 @@ export class SessionManager implements ISessionManager {
     // Clean up session-scoped tool callbacks to prevent memory accumulation
     unregisterSessionScopedToolCallbacks(sessionId)
 
-    // Destroy browser instances bound to this session
-    const sessionBpm = this.getBrowserPaneManagerForSession(sessionId)
-    if (sessionBpm) {
-      sessionBpm.destroyForSession(sessionId)
-    }
-    // Drop the per-session remote bridge + host-client pin on destroy.
-    this.remoteBpms.delete(sessionId)
-    this.browserHostByCanvas.delete(sessionId)
-
     // Dispose agent to clean up ConfigWatchers, event listeners, MCP connections
     if (managed.agent) {
       managed.agent.dispose()
@@ -5610,6 +5216,7 @@ export class SessionManager implements ISessionManager {
     // Delete its rows and folder too
     deleteStoredSession(managed.workspace, sessionId)
     this.loadedChats.delete(sessionId)
+    void (managed.piSessionSync ?? Promise.resolve()).then(() => deletePiSession(managed.workspace, sessionId)).catch((error) => sessionLog.warn(`Pi session object of ${sessionId} not deleted:`, error))
 
     // Notify all windows for this workspace that the session was deleted
     this.sendEvent({ type: 'session_deleted', sessionId }, managed.workspace.id, audience)
@@ -5635,19 +5242,11 @@ export class SessionManager implements ISessionManager {
      * (#616). Pre-persist errors still reject the outer promise as before.
      */
     onAck?: (messageId: string) => void,
-    /**
-     * Optional transport context. The `sessions.sendMessage` RPC handler passes
-     * `{ callerClientId: ctx.clientId }` so the SM can pin the desktop client
-     * that should host this session's browser tools. Pass undefined when calling
-     * directly (tests, intra-server flows) to leave the existing pin in place.
-     */
-    rpcContext?: { callerClientId?: string },
   ): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (!managed) {
       throw new Error(`Session ${sessionId} not found`)
     }
-    this.setLastMessageClientId(sessionId, rpcContext?.callerClientId)
 
     // Source-activation auto-retry dedup (otto#804). When the server
     // has just scheduled or committed a "[<slug> activated]" retry, drop a matching
@@ -5712,8 +5311,10 @@ export class SessionManager implements ISessionManager {
         // Hidden system-generated messages reach the model but never render as a
         // transcript bubble (e.g. an automatic resend).
         ...(options?.hidden ? { hidden: true } : {}),
+        ...(options?.sender ? { sender: options.sender } : {}),
       }
       managed.messages.push(userMessage)
+      managed.participants = addParticipants(managed, [userMessage])
 
       const agent = managed.agent
       // Redirect is text-only. Any semantic options/attachments use the normal
@@ -5789,8 +5390,10 @@ export class SessionManager implements ISessionManager {
         // Hidden system-generated messages reach the model but never render as a
         // transcript bubble (e.g. an automatic resend).
         ...(options?.hidden ? { hidden: true } : {}),
+        ...(options?.sender ? { sender: options.sender } : {}),
       }
       managed.messages.push(userMessage)
+      managed.participants = addParticipants(managed, [userMessage])
 
       // Update lastMessageRole for badge display. Skip for hidden messages so the
       // session-list preview isn't briefly driven by an invisible system nudge.
@@ -6500,20 +6103,6 @@ export class SessionManager implements ISessionManager {
     const turnStartFinalMessageId = managed.turnStartFinalMessageId
     managed.turnStartFinalMessageId = undefined
 
-    // Clear agent control overlay between turns. The session keeps browser
-    // ownership (boundSessionId) — only the visual overlay is removed.
-    // Full unbind happens below when the queue is empty (session truly done).
-    const turnBpm = this.getBrowserPaneManagerForSession(sessionId)
-    if (turnBpm) {
-      // Same guard as the queue-empty teardown below: a remote BPM throw on a
-      // headless server must not abort processing-stop handling.
-      try {
-        await turnBpm.clearVisualsForSession(sessionId)
-      } catch (err) {
-        sessionLog.warn(`Browser-pane visual clear failed for ${sessionId} (continuing):`, err)
-      }
-    }
-
     // 2. Handle unread state based on whether user is viewing this session
     //    This is the explicit state machine for NEW badge:
     //    - If user is viewing: mark as read (they saw it complete)
@@ -6551,22 +6140,6 @@ export class SessionManager implements ISessionManager {
       // Has queued messages - process next
       this.processNextQueuedMessage(sessionId)
     } else {
-      // Session is truly done — release browser ownership.
-      // The window stays alive (hidden) and becomes reusable by future sessions.
-      // On the next turn, getOrCreateForSession() will re-bind it.
-      const doneBpm = this.getBrowserPaneManagerForSession(sessionId)
-      if (doneBpm) {
-        // Teardown must never block completion. On a headless/WebUI server the BPM is
-        // remote and these calls throw (BROWSER_NO_CAPABLE_CLIENT) when no desktop
-        // browser client is connected.
-        try {
-          await doneBpm.clearVisualsForSession(sessionId)
-          doneBpm.unbindAllForSession(sessionId)
-        } catch (err) {
-          sessionLog.warn(`Browser-pane teardown failed for ${sessionId} (continuing to completion):`, err)
-        }
-      }
-
       // No queue - emit complete to UI (include tokenUsage and hasUnread for state updates)
       this.sendEvent({
         type: 'complete',
@@ -6585,6 +6158,40 @@ export class SessionManager implements ISessionManager {
 
     // 6. Always persist
     this.persistSession(managed)
+    this.syncPiSession(managed)
+  }
+
+  /**
+   * Uploads Pi's session file after a settled turn (compaction and a branch's first turn included) so the chat
+   * resumes on any node. Never blocks the turn: a failure is logged and the next turn tries again.
+   */
+  private syncPiSession(managed: ManagedSession): void {
+    const run = async () => {
+      try {
+        const ref = await uploadPiSession(managed.workspace, managed.id, getSessionStoragePath(managed.workspace.rootPath, managed.id), managed.piSession)
+        if (!ref || this.sessions.get(managed.id) !== managed) return // nothing new, or the chat was deleted meanwhile
+        managed.piSession = ref
+        this.persistSession(managed)
+      } catch (error) {
+        sessionLog.warn(`Pi session upload failed for ${managed.id} (retried after the next turn):`, error)
+      }
+    }
+    managed.piSessionSync = (managed.piSessionSync ?? Promise.resolve()).then(run)
+  }
+
+  /** Before the agent is created: brings back Pi's session file (and a branch's parent's) when this node's copy is missing or older. */
+  private async restorePiSessionFiles(managed: ManagedSession, sessionPath: string): Promise<void> {
+    try {
+      await managed.piSessionSync
+      const cwd = managed.workingDirectory ?? sessionPath
+      if (managed.branchContextStrategy === 'sdk-fork' && managed.branchFromSessionPath) {
+        const parent = this.sessions.get(basename(managed.branchFromSessionPath))
+        if (parent) await restorePiSession(parent.workspace, parent.id, managed.branchFromSessionPath, parent.workingDirectory ?? managed.branchFromSessionPath, parent.piSession)
+      }
+      if (await restorePiSession(managed.workspace, managed.id, sessionPath, cwd, managed.piSession)) sessionLog.info(`Restored Pi session file for ${managed.id} from object storage`)
+    } catch (error) {
+      sessionLog.warn(`Pi session restore failed for ${managed.id} (starting from what is on disk):`, error)
+    }
   }
 
   /**
@@ -7225,28 +6832,6 @@ export class SessionManager implements ISessionManager {
             parentToolUseId,
           }
           managed.messages.push(toolStartMessage)
-        }
-
-        // Activate browser agent control overlay on actionable browser tool starts.
-        // Skip browser_tool help/release commands to avoid pointless overlay flashes.
-        const shouldActivateOverlay = shouldActivateBrowserOverlay(
-          event.toolName,
-          formattedToolInput,
-        )
-
-        const overlayBpm = this.getBrowserPaneManagerForSession(sessionId)
-        if (overlayBpm && shouldActivateOverlay) {
-          // Ensure first browser action in a turn gets an instance before overlay activation.
-          overlayBpm.getOrCreateForSession(sessionId, { workspaceId })
-
-          const resolvedDisplayName = toolDisplayMeta?.displayName
-            ?? event.displayName
-            ?? event.toolName
-          overlayBpm.setAgentControl(
-            sessionId,
-            { displayName: resolvedDisplayName, intent: event.intent },
-            { workspaceId },
-          )
         }
 
         // Send event to renderer on first occurrence OR when input data is updated

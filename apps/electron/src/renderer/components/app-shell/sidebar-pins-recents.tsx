@@ -37,8 +37,9 @@ import { usePins } from '@/hooks/use-pins'
 import { useRecents } from '@/hooks/use-recents'
 import { useSessionActions } from '@/hooks/use-session-actions'
 import { useShortcutReveal } from '@/hooks/use-shortcut-reveal'
-import { getStateIcon, getStateIconStyle, type SessionStatus } from '@/config/session-status-config'
-import { getSessionStatus, getSessionTitle, hasUnreadMeta, shortTimeAgo } from '@/utils/session'
+import type { SessionStatus } from '@/config/session-status-config'
+import { getSessionTitle, hasUnreadMeta, shortTimeAgo } from '@/utils/session'
+import { ChatPeople } from '@/components/people/chat-people'
 import { Kbd } from '@/components/ui/kbd'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { SortableList } from '@/components/ui/sortable-list'
@@ -159,22 +160,18 @@ function ChatMenu({ session, sessionStatuses, actions }: { session: SessionMeta;
   )
 }
 
-function ItemIcon({ item, sessionStatuses }: { item: ResolvedItem; sessionStatuses: SessionStatus[] }) {
+/** A chat leads with its people (the agent and the others in it), anything else with its type's 14px icon, both in a 20px lane (no `icon-slot`: the button pins that to 14px). */
+function ItemIcon({ item }: { item: ResolvedItem }) {
   if (item.session) {
-    const status = getSessionStatus(item.session)
     return (
-      <span
-        data-slot="icon-slot"
-        className="flex shrink-0 items-center justify-center [&>img]:size-3.5 [&>span]:text-sm [&>svg]:size-3.5"
-        style={getStateIconStyle(status, sessionStatuses)}
-      >
-        {getStateIcon(status, sessionStatuses)}
+      <span className="flex min-w-5 shrink-0 items-center">
+        <ChatPeople chat={item.session} />
       </span>
     )
   }
   const Icon = TYPE_ICONS[item.type] ?? Circle
   return (
-    <span data-slot="icon-slot" className="flex shrink-0 items-center justify-center">
+    <span className="flex w-5 shrink-0 items-center justify-center">
       <Icon />
     </span>
   )
@@ -225,7 +222,7 @@ function Row({ item, pinned, active, hotkey, reveal, now, waiting = false, sessi
       onClick={onOpen}
       className={cn(menuOpen && 'bg-foreground/10 text-foreground')}
     >
-      <ItemIcon item={item} sessionStatuses={sessionStatuses} />
+      <ItemIcon item={item} />
       <span className={cn('min-w-0 flex-1 overflow-hidden text-clip! whitespace-nowrap', TITLE_FADE, bright && 'text-foreground')}>
         {item.title}
       </span>
@@ -385,7 +382,7 @@ export function SidebarPinsRecents({ sessionStatuses }: { sessionStatuses: Sessi
       <SidebarGroupContent className="no-scrollbar flex min-h-0 flex-1 scroll-fade-y flex-col gap-5 overflow-y-auto select-none">
         {pinned.length > 0 && (
           <div className="flex flex-col gap-0.5">
-            <SidebarGroupLabel>{t('sidebar.pinned')}</SidebarGroupLabel>
+            <SidebarGroupLabel>{t('sidebar.pins')}</SidebarGroupLabel>
             <SortableList
               className="flex flex-col gap-0.5"
               items={pinned.map(item => ({ id: itemKey(item), item }))}

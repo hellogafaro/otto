@@ -26,7 +26,6 @@ export const CATALOGUE = {
   defaultThinkingLevel: key('install', z.preprocess(normalizeThinkingLevel, z.enum(THINKING_LEVEL_IDS)), 'medium' as const),
   setupDeferred: key('install', flag, false),
   decisionLayer: key('install', object<DecisionLayerStoredSettings>(), {}),
-  allowRemoteEvaluate: key('install', flag, true),
   gitBashPath: key('install', textOrNull, null),
   keepAwakeWhileRunning: key('install', flag, false),
   dismissedUpdateVersion: key('install', textOrNull, null),

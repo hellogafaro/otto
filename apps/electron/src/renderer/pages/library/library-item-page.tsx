@@ -1,13 +1,13 @@
 /**
  * A library item's page (`/{ws}/library/{itemId}`): a file's preview or a document's editor as the centerpiece,
- * under the title row. A file's title row: Download, Details, More (Rename, Move, Copy link, Delete); a
- * document's title is edited in place and its More holds Download instead of Rename. Details is the sidecar
+ * under the title row. A file's title row: Download, More (Rename, Move, Copy link, Delete); a document's title is
+ * edited in place and its More holds Download instead of Rename. Details is the sidecar, opened by its floating toggle
  * (closed by default): Folder, Created by, Created, Size, Type. An id the server does not have is not found; a
  * folder's id opens the folder; an item deleted while open goes back to the Library.
  */
 
 import * as React from 'react'
-import { Calendar, Download, Folder, HardDrive, PanelRight, Shapes } from 'lucide-react'
+import { Calendar, Download, Folder, HardDrive, Shapes } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useComposerContext } from '@/components/composer/use-composer-context'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@workspace/ui/components/dropdown-menu'
@@ -18,7 +18,7 @@ import { Spinner } from '@workspace/ui/components/spinner'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { ActorAvatar } from '@/components/people/actor-avatar'
 import { HeaderIconButton } from '@/components/ui/header-icon-button'
-import { useSidecar } from '@/context/sidecar-context'
+import { SidecarDetails } from '@/context/sidecar-context'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useLibrary } from '@/hooks/use-library'
 import { useParentView } from '@/hooks/use-parent-view'
@@ -66,7 +66,7 @@ function useDownload() {
 }
 
 /** A document's content, read once and again after a conflict (the editor remounts on the new snapshot). */
-function DocumentPage({ itemId, actions, menu }: { itemId: string; actions: React.ReactNode; menu: React.ReactNode }) {
+function DocumentPage({ itemId, menu }: { itemId: string; menu: React.ReactNode }) {
   const { t } = useTranslation()
   const [snapshot, setSnapshot] = React.useState<{ item: LibraryItem; text: string; version: number } | null>(null)
 
@@ -80,7 +80,7 @@ function DocumentPage({ itemId, actions, menu }: { itemId: string; actions: Reac
   React.useEffect(load, [load])
 
   if (!snapshot) return <LoadingPage />
-  return <DocumentEditor key={snapshot.version} item={snapshot.item} content={snapshot.text} actions={actions} menu={menu} onConflict={load} />
+  return <DocumentEditor key={snapshot.version} item={snapshot.item} content={snapshot.text} menu={menu} onConflict={load} />
 }
 
 function LoadingPage({ title }: { title?: string }) {
@@ -97,7 +97,6 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
   const { items, loaded, refresh } = useLibrary()
   const { navigate, showNotFound } = useNavigation()
   const parent = useParentView()
-  const { open: sidecarOpen, toggleSidecar } = useSidecar()
   const download = useDownload()
   const item = items.find((entry) => entry.id === itemId)
   useComposerContext({ key: `library:${itemId}`, entity: `library:${itemId}`, placeholder: t(item?.type === 'document' ? 'composer.placeholder.document' : 'composer.placeholder.file') })
@@ -128,14 +127,7 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
 
   if (!item || item.type === 'folder') return <LoadingPage />
 
-  const details = (
-    <HeaderIconButton
-      icon={<PanelRight />}
-      tooltip={t('library.details')}
-      aria-pressed={sidecarOpen}
-      onClick={() => toggleSidecar({ title: t('library.details'), content: <LibraryDetails itemId={item.id} /> })}
-    />
-  )
+  const details = <SidecarDetails title={t('library.details')}><LibraryDetails itemId={item.id} /></SidecarDetails>
   const menu = (
     <>
       {item.type === 'document'
@@ -151,7 +143,8 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
   if (item.type === 'document') {
     return (
       <>
-        <DocumentPage itemId={item.id} actions={details} menu={menu} />
+        <DocumentPage itemId={item.id} menu={menu} />
+        {details}
         {dialogs.dialogs}
       </>
     )
@@ -161,12 +154,13 @@ export function LibraryItemPage({ itemId }: { itemId: string }) {
     <PageColumn fill>
       <PageHeader
         title={getDisplayTitle(item)}
-        actions={<><HeaderIconButton icon={<Download />} tooltip={t('library.download')} onClick={() => download(item)} />{details}</>}
+        actions={<HeaderIconButton icon={<Download />} tooltip={t('library.download')} onClick={() => download(item)} />}
         menu={menu}
       />
       <PageCenterpiece>
         <FilePreview item={item} onDownload={() => download(item)} />
       </PageCenterpiece>
+      {details}
       {dialogs.dialogs}
     </PageColumn>
   )

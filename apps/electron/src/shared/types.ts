@@ -24,8 +24,8 @@ import type {
 
 import type { Agent, AgentInput, AgentUpdate } from '@otto/shared/agents/types';
 export type { Agent, AgentInput, AgentUpdate };
-import type { Routine, RoutineAction, RoutineInput, RoutineRun, RoutineUpdate } from '@otto/shared/automations/routine-types';
-export type { Routine, RoutineAction, RoutineInput, RoutineRun, RoutineUpdate };
+import type { Routine, RoutineAction, RoutineInput, RoutineRun, RoutineSaved, RoutineUpdate } from '@otto/shared/automations/routine-types';
+export type { Routine, RoutineAction, RoutineInput, RoutineRun, RoutineSaved, RoutineUpdate };
 import type { SearchHit } from '@otto/shared/search';
 import type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate } from '@otto/shared/library/types';
 export type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate };
@@ -102,23 +102,6 @@ export type { DecisionLayerFeature, DecisionLayerSettings, DecisionLayerSettings
 // GUI-only types (not used by server/handler code)
 // =============================================================================
 
-/**
- * Browser toolbar window IPC channels (preload <-> BrowserPaneManager).
- * Kept separate from RPC_CHANNELS because these are scoped to toolbar windows.
- */
-export const BROWSER_TOOLBAR_CHANNELS = {
-  NAVIGATE: 'browser-toolbar:navigate',
-  GO_BACK: 'browser-toolbar:go-back',
-  GO_FORWARD: 'browser-toolbar:go-forward',
-  RELOAD: 'browser-toolbar:reload',
-  STOP: 'browser-toolbar:stop',
-  OPEN_MENU: 'browser-toolbar:open-menu',
-  HIDE: 'browser-toolbar:hide',
-  DESTROY: 'browser-toolbar:destroy',
-  STATE_UPDATE: 'browser-toolbar:state-update',
-  THEME_COLOR: 'browser-toolbar:theme-color',
-} as const
-
 /** Tool icon mapping entry from tool-icons.json (with icon resolved to data URL) */
 export interface ToolIconMapping {
   id: string
@@ -126,23 +109,6 @@ export interface ToolIconMapping {
   /** Data URL of the icon (e.g., data:image/png;base64,...) */
   iconDataUrl: string
   commands: string[]
-}
-
-/**
- * Empty-state launch request from the browser empty-state renderer.
- */
-export interface BrowserEmptyStateLaunchPayload {
-  route: string
-  token?: string
-}
-
-/**
- * Result of browser empty-state launch handling.
- */
-export interface BrowserEmptyStateLaunchResult {
-  ok: boolean
-  handled: boolean
-  reason?: string
 }
 
 export type TransportMode = 'local' | 'remote'
@@ -222,7 +188,6 @@ import type {
   UpdateInfo,
   WorkspaceSettings,
   PermissionModeState,
-  BrowserInstanceInfo,
   DeepLinkNavigation,
   WindowCloseRequest,
   DirectoryListingResult,
@@ -344,6 +309,8 @@ export interface ElectronAPI {
   createAgent(input: Omit<AgentInput, 'workspaceId' | 'createdBy' | 'provider'> & { provider?: string }): Promise<Agent>
   updateAgent(id: string, patch: AgentUpdate): Promise<Agent>
   deleteAgent(id: string): Promise<void>
+  /** A one-time link to watch the agent's computer (`OTTO_COMPUTER=docker`): `path` on the server, `url` on its own address. */
+  getAgentScreenUrl(id: string): Promise<{ path: string; url: string | null }>
 
   // Library (files, documents and folders; see docs/library.md). Updates that replace
   // content must send the item's last seen `updatedAt` as `expectedUpdatedAt`.
@@ -606,22 +573,6 @@ export interface ElectronAPI {
   // Menu actions (from renderer to main)
   menuQuit(): Promise<void>
 
-  // Browser pane management
-  browserPane: {
-    destroy(id: string): Promise<void>
-    list(): Promise<BrowserInstanceInfo[]>
-    navigate(id: string, url: string): Promise<{ url: string; title: string }>
-    goBack(id: string): Promise<void>
-    goForward(id: string): Promise<void>
-    reload(id: string): Promise<void>
-    stop(id: string): Promise<void>
-    focus(id: string): Promise<void>
-    emptyStateLaunch(payload: BrowserEmptyStateLaunchPayload): Promise<BrowserEmptyStateLaunchResult>
-    onStateChanged(callback: (info: BrowserInstanceInfo) => void): () => void
-    onRemoved(callback: (id: string) => void): () => void
-    onInteracted(callback: (id: string) => void): () => void
-  }
-
   // LLM Connections (provider configurations)
   listLlmConnections(): Promise<LlmConnection[]>
   listLlmConnectionsWithStatus(): Promise<LlmConnectionWithStatus[]>
@@ -677,12 +628,14 @@ export interface ElectronAPI {
   // the background and returns it (`running`); its end arrives as a `domain:changed` of `routines`.
   getRoutines(): Promise<Routine[]>
   getRoutine(id: string): Promise<Routine | null>
-  createRoutine(input: Omit<RoutineInput, 'workspaceId' | 'createdBy'>): Promise<Routine>
-  updateRoutine(id: string, patch: RoutineUpdate): Promise<Routine>
+  createRoutine(input: Omit<RoutineInput, 'workspaceId' | 'createdBy'>): Promise<RoutineSaved>
+  updateRoutine(id: string, patch: RoutineUpdate): Promise<RoutineSaved>
   deleteRoutine(id: string): Promise<void>
   pauseRoutine(id: string): Promise<Routine>
   resumeRoutine(id: string): Promise<Routine>
   runRoutine(id: string): Promise<RoutineRun>
+  /** A new secret for a webhook routine: its old URL stops working. Answers the new path (`/api/webhooks/<id>/<secret>`), the only time the secret is shown. */
+  resetRoutineWebhook(id: string): Promise<{ path: string }>
 
   // Language
   changeLanguage(lang: string): Promise<void>

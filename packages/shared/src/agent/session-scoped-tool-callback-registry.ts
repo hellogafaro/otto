@@ -5,13 +5,12 @@
  * dependency.
  *
  * The registry is a simple Map keyed by sessionId. Each backend registers
- * callbacks when a session starts and merges additional callbacks (e.g.
- * browser pane functions) as they become available.
+ * callbacks when a session starts and merges additional callbacks as they
+ * become available.
  */
 
 import type { LLMQueryRequest, LLMQueryResult } from './llm-tool.ts';
 import type { SpawnSessionFn } from './spawn-session-tool.ts';
-import type { BrowserPaneFns } from './browser-tools.ts';
 import type { AuthRequest } from '@otto/session-tools-core';
 import { debug } from '../utils/debug.ts';
 
@@ -42,13 +41,6 @@ export interface SessionScopedToolCallbacks {
    * Each agent backend delegates to its onSpawnSession callback.
    */
   spawnSessionFn?: SpawnSessionFn;
-
-  /**
-   * Browser pane functions for browser_* tools.
-   * Set by the Electron session manager — wraps BrowserPaneManager
-   * with the session's bound browser instance.
-   */
-  browserPaneFns?: BrowserPaneFns;
 
   /** Set labels on a session (defaults to current). */
   setSessionLabelsFn?: (sessionId: string | undefined, labels: string[]) => void | Promise<void>;
@@ -105,9 +97,8 @@ export function registerSessionScopedToolCallbacks(
 }
 
 /**
- * Merge additional callbacks into an existing session's callback set.
- * Used by the Electron session manager to add browser pane functions
- * after the agent has already registered its core callbacks.
+ * Merge additional callbacks into an existing session's callback set (a turn refreshes its own without dropping
+ * what the session manager registered).
  */
 export function mergeSessionScopedToolCallbacks(
   sessionId: string,

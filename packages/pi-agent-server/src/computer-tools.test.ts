@@ -122,12 +122,48 @@ describe('routeToComputer', () => {
   }) as unknown as ToolDefinition<any, any>;
 
   it('keeps the local tool unless the turn has a computer', async () => {
-    let onComputer = false;
-    const tool = routeToComputer(fake('read', 'host'), fake('read', 'box'), () => onComputer);
+    let onComputer: { cwd: string; home: string } | null = null;
+    const tool = routeToComputer(fake('read', 'host'), () => fake('read', 'box'), () => onComputer);
     expect(text(await tool.execute('1', {}, undefined, undefined, undefined as never))).toBe('host');
-    onComputer = true;
+    onComputer = { cwd: '/home/agent/chats/c1', home: '/home/agent' };
     expect(text(await tool.execute('2', {}, undefined, undefined, undefined as never))).toBe('box');
     expect(tool.name).toBe('read');
+  });
+
+  it('on a computer the tool works in box paths: the box folder as cwd, ~ as the box home', async () => {
+    const calls: string[][] = [];
+    const exec = bridge(recordingComputer(calls)).exec;
+    const seen: string[][] = [];
+    const recordingExec: typeof exec = (argv, o) => { seen.push([...argv, `cwd=${o?.cwd ?? ''}`]); return Promise.resolve({ code: 0, stdout: Buffer.from(''), stderr: Buffer.from('') }); };
+    const ops = createComputerOperations(recordingExec, () => ({ OTTO_RUN_TOKEN: 't' }));
+    const box = { cwd: '/home/agent/chats/c1', home: '/home/agent' };
+    const host = mkdtempSync(join(tmpdir(), 'pi-host-cwd-'));
+    try {
+      const write = routeToComputer(createWriteToolDefinition(host), (cwd) => createWriteToolDefinition(cwd, { operations: ops.write }), () => box);
+      // Pi passes a context whose cwd is the server's; the box folder wins.
+      const ctx = Object.defineProperties({}, { cwd: { get: () => host, enumerable: true }, sessionManager: { value: { getSessionId: () => 's1', getSessionFile: () => undefined }, enumerable: true } });
+      await write.execute('w', { path: 'notes/a.txt', content: 'x' }, undefined, undefined, ctx as never);
+      await write.execute('w2', { path: '~/files/b.txt', content: 'y' }, undefined, undefined, ctx as never);
+      const bash = routeToComputer(createBashToolDefinition(host), (cwd) => createBashToolDefinition(cwd, { operations: ops.bash }), () => box);
+      await bash.execute('b', { command: 'pwd' }, undefined, undefined, ctx as never);
+      const targets = seen.filter((argv) => argv[0] === 'sh').map((argv) => argv[4]);
+      expect(targets).toEqual(['/home/agent/chats/c1/notes/a.txt', '/home/agent/files/b.txt']);
+      expect(seen.find((argv) => argv[0] === 'bash')).toEqual(['bash', '-c', 'pwd', 'cwd=/home/agent/chats/c1']);
+      expect(calls).toEqual([]);
+    } finally {
+      rmSync(host, { recursive: true, force: true });
+    }
+  });
+
+  it("only bash gets the turn's env, and it reaches Computer.exec", async () => {
+    const envs: Array<Record<string, string> | undefined> = [];
+    const computer = recordingComputer([]);
+    const exec = computer.exec.bind(computer);
+    computer.exec = (argv, o) => { envs.push(o?.env); return exec(argv, o); };
+    const ops = createComputerOperations(bridge(computer).exec, () => ({ OTTO_RUN_TOKEN: 'run.secret' }));
+    await ops.bash.exec('true', tmpdir(), { onData: () => {} });
+    await ops.ls.exists(tmpdir());
+    expect(envs).toEqual([{ OTTO_RUN_TOKEN: 'run.secret' }, undefined]);
   });
 
   it('turns grep away on a computer and points at bash', async () => {
@@ -135,7 +171,7 @@ describe('routeToComputer', () => {
     try {
       writeFileSync(join(dir, 'a.txt'), 'needle\n');
       const grep = createGrepToolDefinition(dir);
-      const tool = routeToComputer(grep, unavailableOnComputer(grep), () => true);
+      const tool = routeToComputer(grep, () => unavailableOnComputer(grep), () => ({ cwd: dir, home: dir }));
       await expect(tool.execute('g', { pattern: 'needle' }, undefined, undefined, undefined as never)).rejects.toThrow(/use bash/);
     } finally {
       rmSync(dir, { recursive: true, force: true });

@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { openDb } from '../db/index.ts'
 import { pushSchema } from '../db/push.ts'
-import { finishInterruptedRoutineRuns, resolveWebhookAction, runRoutine, startRoutineScheduler, tickRoutines, type RoutineRunnerDeps } from './routine-runner.ts'
+import { finishInterruptedRoutineRuns, recordRoutineRun, resolveWebhookAction, runRoutine, startRoutineScheduler, tickRoutines, type RoutineRunnerDeps } from './routine-runner.ts'
 import type { RoutineConfig } from './routine-types.ts'
 import { createRoutine, getRoutine, startRoutineRun, updateRoutine } from './routines.ts'
 
@@ -144,4 +144,22 @@ test('the scheduler ends the runs a restart left running, and stops', async () =
   expect(getRoutine(W, routine.id, db)!.runs[0]).toMatchObject({ status: 'error', error: 'Interrupted by a restart' })
   stop()
   expect(finishInterruptedRoutineRuns(db)).toBe(0)
+})
+
+test('an event routine\'s prompt run is a running row at its start and ok or error at its end, and the page is told both times', async () => {
+  const { db, changes } = await setup()
+  const routine = make(db, 'On label', { type: 'event', event: 'LabelAdd', actions: [{ type: 'prompt', prompt: 'Look' }] })
+
+  let release: (value: { chatId: string }) => void = () => {}
+  const working = recordRoutineRun(routine, () => new Promise((resolve) => (release = resolve)), (workspaceId) => void changes.push(workspaceId), db)
+  expect(getRoutine(W, routine.id, db)!.runs[0]).toMatchObject({ status: 'running', chatId: null })
+  expect(changes).toEqual([W])
+  release({ chatId: 'chat-9' })
+  await working
+  expect(getRoutine(W, routine.id, db)!.runs[0]).toMatchObject({ status: 'ok', chatId: 'chat-9' })
+  expect(changes).toEqual([W, W])
+
+  await expect(recordRoutineRun(routine, async () => { throw new Error('Connect Claude') }, (workspaceId) => void changes.push(workspaceId), db)).rejects.toThrow('Connect Claude')
+  expect(getRoutine(W, routine.id, db)!.runs[0]).toMatchObject({ status: 'error', error: 'Connect Claude' })
+  expect(changes).toHaveLength(4)
 })

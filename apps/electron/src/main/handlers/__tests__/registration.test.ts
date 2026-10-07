@@ -15,8 +15,6 @@ function recordingServer(channels: string[]): RpcServer {
     },
     push() {},
     async invokeClient() {},
-    hasClientCapability() { return false },
-    findClientsWithCapability() { return [] },
   }
 }
 

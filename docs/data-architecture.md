@@ -44,7 +44,7 @@ Target legend: **DB** = table(s); **S3+DB** = object storage for bytes, DB row f
 | `llmConnections`, fetched model lists | `config.json` | DB `connections` (existing, extended) | install or workspace | P1c |
 | `defaultLlmConnection`, `defaultThinkingLevel` | `config.json` | `settings` `install` | install | P1a |
 | UI prefs: `colorTheme`, `notificationsEnabled`, `sendMessageKey`, `spellCheck`, `autoCapitalisation`, `richToolDescriptions` | `config.json` (shared by all members) | `settings` `user:<id>` | user | P1a |
-| Machine settings: `setupDeferred`, `allowRemoteEvaluate`, `gitBashPath`, `keepAwakeWhileRunning`, `dismissedUpdateVersion`, `migrationsApplied` | `config.json` | `settings` `install` | install | P1a |
+| Machine settings: `setupDeferred`, `gitBashPath`, `keepAwakeWhileRunning`, `dismissedUpdateVersion`, `migrationsApplied` | `config.json` | `settings` `install` | install | P1a |
 | `serverConfig {enabled, port, tlsCertPath, tlsKeyPath, token}` | `config.json`, token plaintext | `settings` `install` key `server` with `tokenSecretId` | install | P1a, token P1c3 |
 | `decisionLayer` + `decision_api_key::{provider}` | `config.json` + `credentials.enc` | `settings` `install` key `decisionLayer` with `secretId` | install | P1a/P1c |
 | `enable1MContext` (only in the real file, no code reads it) | `config.json` | delete | - | P1a |
@@ -108,7 +108,7 @@ settings                          one key/value table for three kinds of owner (
   updatedAt   int  NN
   PK (entity, key)
 ```
-Keys: entity `install`: `defaultConnectionSlug`, `defaultThinkingLevel`, `setupDeferred`, `server` (`{enabled, port, tlsCertPath, tlsKeyPath, token}`; `token` is plaintext until P1c3 replaces it with `tokenSecretId`), `decisionLayer` (`{..., secretId}`), `allowRemoteEvaluate`, `gitBashPath`, `keepAwakeWhileRunning`, `dismissedUpdateVersion`, `imports` (per-domain import timestamps). Entity `workspace:<id>`: `defaults`, `localMcpServers`, `permissions` (P3a). Entity `user:<id>`: `activeWorkspaceId`, `activeChatId`, `colorTheme`, `notificationsEnabled`, `sendMessageKey`, `spellCheck`, `autoCapitalisation`, `richToolDescriptions`, `timezone`, `location`, `notes`, `diffViewer`, `includeCoAuthoredBy`, `uiLanguage`. Authorization by entity, in the one guard: `install` = workspace owner on the desktop / instance owner on a server, `workspace:<id>` = its owners, `user:<id>` = only that user (read and write). Electron localStorage UI state (sidebar, panels, recents) stays per device.
+Keys: entity `install`: `defaultConnectionSlug`, `defaultThinkingLevel`, `setupDeferred`, `server` (`{enabled, port, tlsCertPath, tlsKeyPath, token}`; `token` is plaintext until P1c3 replaces it with `tokenSecretId`), `decisionLayer` (`{..., secretId}`), `gitBashPath`, `keepAwakeWhileRunning`, `dismissedUpdateVersion`, `imports` (per-domain import timestamps). Entity `workspace:<id>`: `defaults`, `localMcpServers`, `permissions` (P3a). Entity `user:<id>`: `activeWorkspaceId`, `activeChatId`, `colorTheme`, `notificationsEnabled`, `sendMessageKey`, `spellCheck`, `autoCapitalisation`, `richToolDescriptions`, `timezone`, `location`, `notes`, `diffViewer`, `includeCoAuthoredBy`, `uiLanguage`. Authorization by entity, in the one guard: `install` = workspace owner on the desktop / instance owner on a server, `workspace:<id>` = its owners, `user:<id>` = only that user (read and write). Electron localStorage UI state (sidebar, panels, recents) stays per device.
 
 ### providers (existing `S/connections`, made the only source)
 

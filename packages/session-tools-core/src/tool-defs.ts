@@ -186,7 +186,7 @@ export const BrowserToolSchema = z.object({
   command: z.union([
     z.string(),
     z.array(z.string()),
-  ]).describe('Browser command as a string (e.g., "click @e1") or array (e.g., ["evaluate", "var x = 1; x + 2"]). Array mode preserves semicolons and whitespace in arguments.'),
+  ]).describe('Browser command as a string (e.g., "click @e1") or array (e.g., ["evaluate", "var x = 1; x + 2"]). Array mode keeps spaces and semicolons in arguments.'),
 });
 
 export const SpawnSessionSchema = z.object({
@@ -410,50 +410,19 @@ Use this when a source provides HTML templates for rich rendering of its data (e
 
 Templates use Mustache syntax — the tool handles rendering and writes the output HTML to the session data folder.`,
 
-  browser_tool: `Run browser actions using a CLI-like command (string or array input).
+  browser_tool: `Your browser: Fortress (a Chromium) on your computer, one private window per chat (its own tabs and cookies). One command per call, as a string or an array (the array keeps spaces and semicolons as they are).
 
-All browser interactions use this single tool with strict validation and actionable feedback.
-String mode supports batching with semicolons: \`fill @e1 value; fill @e2 value; click @e3\`
-Batch stops after navigation commands (click, navigate, back, forward) since page state may change.
-
-Array mode bypasses string parsing and preserves raw arguments exactly (recommended for semicolons, tabs, and newlines):
-- \`["evaluate", "var x = 1; var y = 2; x + y"]\`
-- \`["paste", "Name\\tAge\\nAlice\\t30"]\`
-
-Examples:
-- \`--help\`
-- \`open\`
-- \`navigate https://example.com\`
-- \`snapshot\`
-- \`find login button\` — search elements by keyword
-- \`click @e12\`
-- \`click-at 350 200\` — click at pixel coordinates (for canvas elements)
-- \`fill @e5 user@example.com\`
-- \`type Hello World\` — type into currently focused element (no ref needed)
-- \`select @e3 optionValue\`
-- \`select @e75 CNAME --assert-text Target --timeout 3000\`
-- \`set-clipboard Name\\tAge\\nAlice\\t30\` — write text to clipboard
-- \`get-clipboard\` — read clipboard text content
-- \`paste Name\\tAge\\nAlice\\t30\` — set clipboard and trigger Ctrl/Cmd+V
-- \`scroll down 800\`
-- \`evaluate document.title\`
-- \`console 50 error\`
-- \`screenshot\` — raw screenshot
-- \`screenshot --annotated\` — screenshot with @eN labels overlaid on interactive elements
-- \`screenshot-region 100 200 640 480\`
-- \`screenshot-region --ref @e12 --padding 8\`
-- \`screenshot-region --selector div[data-testid="chart"]\`
-- \`window-resize 1440 900\`
-- \`network 50 failed\`
-- \`wait network-idle 8000\`
-- \`key Enter\`
-- \`key k meta\`
-- \`downloads wait 15000\`
-- \`focus [windowId]\` — focus existing browser window (no new window)
-- \`windows\` — list current browser windows and ownership state
-- \`release\` — dismiss the agent control overlay when done
-- \`close\` — close and destroy the browser window
-- \`hide\` — hide the window while preserving state`,
+Commands:
+- \`navigate <url>\` — open a page (alias \`open <url>\`)
+- \`snapshot\` — the page's elements with refs (@e1, @e2, ...); \`find <text>\` — only the matching ones
+- \`click @e12\`, \`click-at <x> <y>\`, \`fill @e5 <text>\`, \`type <text>\`, \`select @e3 <option>\`
+- \`key Enter\`, \`key k meta\` — a key with modifiers (shift, control, alt, meta)
+- \`scroll down 800\`, \`back\`, \`forward\`
+- \`wait 2000\`, \`wait text <text> [ms]\`, \`wait selector <css> [ms]\`
+- \`evaluate <javascript>\` — run JavaScript in the page
+- \`screenshot [--full]\` — saves a PNG and gives its path; read that file to see the page
+- \`close\` — close this chat's browser window
+- \`--help\``,
 
   call_llm: `Invoke a secondary LLM for focused subtasks. Use for:
 - Cost optimization: use a smaller model for simple tasks (summarization, classification)
@@ -597,8 +566,7 @@ export const SESSION_TOOL_DEFS: SessionToolDef[] = [
   // Decision model (registry — uses ctx.decide from SessionManager; hidden unless the user enabled the decision layer)
   { name: 'decide', description: TOOL_DESCRIPTIONS.decide, inputSchema: DecideSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleDecide },
   { name: 'spawn_session', description: TOOL_DESCRIPTIONS.spawn_session, inputSchema: SpawnSessionSchema, executionMode: 'backend', safeMode: 'block', handler: null },
-  // Browser tool (backend-specific — requires BrowserPaneManager in Electron)
-  // Single CLI-like tool that handles all browser actions via command string.
+  // Browser tool (backend: PiAgent drives the agent's Fortress over CDP, packages/shared/src/browser)
   { name: 'browser_tool', description: TOOL_DESCRIPTIONS.browser_tool, inputSchema: BrowserToolSchema, executionMode: 'backend', safeMode: 'allow', handler: null },
   // Session self-management tools (registry — use context callbacks to reach SessionManager)
   { name: 'set_session_labels', description: TOOL_DESCRIPTIONS.set_session_labels, inputSchema: SetSessionLabelsSchema, executionMode: 'registry', safeMode: 'block', handler: handleSetSessionLabels },

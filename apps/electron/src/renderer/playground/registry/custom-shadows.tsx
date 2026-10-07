@@ -2,7 +2,7 @@ import * as React from 'react'
 import type { ComponentEntry } from './types'
 import { cn } from '@/lib/utils'
 
-type ShadowKind = 'class' | 'inline' | 'arbitrary' | 'runtime'
+type ShadowKind = 'class' | 'inline' | 'arbitrary'
 
 interface ShadowSpec {
   id: string
@@ -30,17 +30,7 @@ const activeShadowSpecs: ShadowSpec[] = [
     previewClassName: 'rounded-md bg-background px-3 py-2 text-sm',
     previewStyle: { boxShadow: '0 0 0 1px rgba(63, 63, 68, 0.05), 0px 15px 15px 0 rgba(34, 33, 81, 0.25)' },
   },
-  {
-    id: 'ui-browser-controls',
-    component: 'BrowserControls focus ring',
-    file: 'packages/ui/components/ui/browser-controls.tsx',
-    kind: 'inline',
-    shadow: "boxShadow: '0 0 0 1.5px var(--tb-focus-ring)'",
-    border: "base state: 'border border-transparent'",
-    hasExplicitBorder: true,
-    previewClassName: 'rounded-md bg-background border border-transparent px-3 py-2 text-sm',
-    previewStyle: { boxShadow: '0 0 0 1.5px var(--ring)' },
-  },
+
   {
     id: 'ui-image-card-stack',
     component: 'ImageCardStack stacked card',
@@ -53,26 +43,10 @@ const activeShadowSpecs: ShadowSpec[] = [
   },
 ]
 
-const runtimeShadowSpecs: ShadowSpec[] = [
-  {
-    id: 'browser-pane-overlay',
-    component: 'Browser pane live overlay',
-    file: 'main/browser-pane-manager.ts + shared/browser-live-fx.ts',
-    kind: 'runtime',
-    shadow: "overlay.style.boxShadow = 'inset ... color-mix(...)'",
-    border: "runtime class: 'border border-foreground/20' on overlay element",
-    hasExplicitBorder: true,
-    note: 'Main-process runtime overlay for browser live mode (not a React component).',
-    previewClassName: 'rounded-lg bg-background px-3 py-2 text-sm border border-foreground/20',
-    previewStyle: { boxShadow: 'inset 0 0 0 1px color-mix(in oklab, var(--primary) 45%, transparent), inset 0 0 20px color-mix(in oklab, var(--primary) 28%, transparent)' },
-  },
-]
-
 const kindBadgeClass: Record<ShadowKind, string> = {
   class: 'bg-success/10 text-success',
   inline: 'bg-info/10 text-info',
   arbitrary: 'bg-destructive/10 text-destructive',
-  runtime: 'bg-primary/10 text-primary',
 }
 
 function ValueBlock({ label, value }: { label: string; value: string }) {
@@ -167,8 +141,8 @@ function CustomShadowsAudit() {
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">Custom Shadows Audit</h2>
         <p className="text-sm text-foreground/70">
-          Consolidated review surface for remaining components and runtime overlays that still use non-standard
-          shadow styles (custom classes, inline boxShadow, arbitrary shadow values, or runtime-injected shadows).
+          Consolidated review surface for remaining components that still use non-standard
+          shadow styles (custom classes, inline boxShadow or arbitrary shadow values).
           Resolved items are intentionally removed so you can focus on what still needs renaming/cleanup.
           Each card lists both the shadow value and border strategy.
         </p>
@@ -199,8 +173,6 @@ function CustomShadowsAudit() {
       </div>
 
       <Section title="Active UI components" specs={activeShadowSpecs} shadowOnly={shadowOnly} />
-
-      <Section title="Runtime overlays (main process)" specs={runtimeShadowSpecs} shadowOnly={shadowOnly} />
     </div>
   )
 }
@@ -269,7 +241,7 @@ export const customShadowsComponents: ComponentEntry[] = [
     id: 'custom-shadows-audit',
     name: 'Custom Shadows Audit',
     category: 'Custom Shadows',
-    description: 'Review remaining components/runtime overlays with unresolved custom shadow styles and border strategies.',
+    description: 'Review remaining components with unresolved custom shadow styles and border strategies.',
     component: CustomShadowsAudit,
     props: [],
     variants: [],

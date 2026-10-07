@@ -29,10 +29,9 @@ import {
   CLIENT_SHOW_IN_FOLDER,
   CLIENT_CONFIRM_DIALOG,
   CLIENT_OPEN_FILE_DIALOG,
-  CLIENT_BROWSER_INVOKE,
   LOCAL_CLIENT_CAPABILITIES,
 } from '@otto/server-core/transport'
-import type { ConfirmDialogSpec, FileDialogSpec, BrowserCapabilityRequest } from '@otto/server-core/transport'
+import type { ConfirmDialogSpec, FileDialogSpec } from '@otto/server-core/transport'
 import type { RpcClient } from '@otto/server-core/transport'
 import type { RemoteServerConfig } from '@otto/core/types'
 import type { ElectronAPI } from '../shared/types'
@@ -188,14 +187,6 @@ client.handleCapability(CLIENT_CONFIRM_DIALOG, async (spec: ConfirmDialogSpec) =
 
 client.handleCapability(CLIENT_OPEN_FILE_DIALOG, async (spec: FileDialogSpec) => {
   return await ipcRenderer.invoke('__dialog:showOpenDialog', spec)
-})
-
-// Browser pane invocation. The remote server packages an IBrowserPaneManager
-// method call as a BrowserCapabilityRequest; we dispatch it to the local
-// `BrowserPaneManager` via the `__browser:invoke` IPC channel registered in
-// `apps/electron/src/main/browser-pane-manager.ts:registerCapabilityIpc()`.
-client.handleCapability(CLIENT_BROWSER_INVOKE, async (req: BrowserCapabilityRequest) => {
-  return await ipcRenderer.invoke('__browser:invoke', req)
 })
 
 // ---------------------------------------------------------------------------

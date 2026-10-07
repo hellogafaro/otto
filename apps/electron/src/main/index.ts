@@ -75,7 +75,6 @@ import { createApplicationMenu } from './menu'
 import { WindowManager } from './window-manager'
 import { loadWindowState, saveWindowState } from './window-state'
 import { handleDeepLink } from './deep-link'
-import { BrowserPaneManager } from './browser-pane-manager'
 import { registerThumbnailHandler } from './thumbnail-protocol'
 import { registerPrivilegedSchemes, handleAppProtocol } from './protocol-schemes'
 import log, { isDebugMode, mainLog, getLogFilePath, autoUpdateLog } from './logger'
@@ -155,7 +154,6 @@ const DEEPLINK_SCHEME = process.env.OTTO_DEEPLINK_SCHEME || 'otto'
 const isClientOnly = !!process.env.OTTO_SERVER_URL
 
 let windowManager: WindowManager | null = null
-let browserPaneManager: BrowserPaneManager | null = null
 let guiServer: WsRpcServer | null = null
 let moduleSink: WsRpcServer['push'] | null = null
 const clientMap = new Map<number, string>()
@@ -443,12 +441,6 @@ app.whenReady().then(async () => {
     // Initialize notification service (always — triggered by server push events)
     initNotificationService(windowManager)
 
-    // Initialize browser pane manager
-    browserPaneManager = new BrowserPaneManager()
-    browserPaneManager.setWindowManager(windowManager)
-    browserPaneManager.registerToolbarIpc()
-    browserPaneManager.registerCapabilityIpc()
-
     // Bootstrap IPC handlers — preload uses sendSync for window-local details
     ipcMain.on('__get-web-contents-id', (e) => {
       e.returnValue = e.sender.id
@@ -509,7 +501,7 @@ app.whenReady().then(async () => {
       return { canceled: result.canceled, filePaths: result.filePaths }
     })
 
-    // Main's own RPC server: windows, dialogs, menus, notifications, updates, browser panes (LOCAL_ONLY in
+    // Main's own RPC server: windows, dialogs, menus, notifications, updates (LOCAL_ONLY in
     // routing.ts). No database: everything else is the server child's.
     const guiToken = randomBytes(24).toString('hex')
     guiServer = new WsRpcServer({
@@ -528,7 +520,7 @@ app.whenReady().then(async () => {
         }
       },
     })
-    registerGuiRpcHandlers(guiServer, { windowManager, browserPaneManager })
+    registerGuiRpcHandlers(guiServer, { windowManager })
     await guiServer.listen()
     moduleSink = guiServer.push.bind(guiServer)
 
@@ -845,9 +837,6 @@ async function performQuitCleanup(): Promise<void> {
   } catch (error) {
     mainLog.error('Failed to stop the server:', error)
   }
-
-  // Clean up browser pane instances
-  browserPaneManager?.destroyAll()
 
   guiServer?.close()
 

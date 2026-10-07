@@ -10,7 +10,10 @@ import {
   type Agent,
   type AgentUpdate,
 } from '@otto/shared/agents'
+import { getAgentApiUrl, getAgentComputer } from '@otto/shared/agent'
+import { domainError } from '@otto/shared/utils'
 import type { RpcServer } from '@otto/server-core/transport'
+import { createScreenUrl } from '../../webui/computer-screen'
 import type { HandlerDeps } from '../handler-deps'
 import { actorOf, resolveWorkspace } from './library'
 
@@ -20,6 +23,7 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.agents.CREATE,
   RPC_CHANNELS.agents.UPDATE,
   RPC_CHANNELS.agents.DELETE,
+  RPC_CHANNELS.agents.SCREEN_URL,
 ] as const
 
 /**
@@ -73,5 +77,18 @@ export function registerAgentsHandlers(server: RpcServer, deps: HandlerDeps): vo
 
   server.handle(RPC_CHANNELS.agents.DELETE, (ctx, id: string) => {
     deleteAgent(workspaceOf(ctx), id)
+  })
+
+  // A one-time link to watch the agent's computer (webui/computer-screen.ts); any member of its workspace may. It
+  // starts the computer when it is stopped. `url` is on the server's own address, for a client not served by it.
+  server.handle(RPC_CHANNELS.agents.SCREEN_URL, async (ctx, id: string): Promise<{ path: string; url: string | null }> => {
+    const workspace = resolveWorkspace(ctx)
+    if (!getAgent(workspace.id, id)) throw domainError('not_found', 'No such agent')
+    const computer = getAgentComputer(id, workspace.rootPath, workspace.id)
+    if (!computer) throw domainError('invalid', 'Agents have no computer of their own on this server (OTTO_COMPUTER is not docker).')
+    await computer.ensureRunning()
+    const path = createScreenUrl(id, ctx.userId ?? '')
+    const base = getAgentApiUrl()
+    return { path, url: base ? `${base}${path}` : null }
   })
 }

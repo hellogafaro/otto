@@ -1,6 +1,6 @@
 /**
  * The workspace's routines with their last runs, and what a person does to one: run it now, pause or resume it,
- * delete it. Same contract as `useAgents`: results, not throws, and a reload after each mutation and on
+ * delete it, rotate a webhook's secret. Same contract as `useAgents`: results, not throws, and a reload after each mutation and on
  * `domain:changed` `routines` (a run that ends pushes one too), plus on window focus.
  */
 
@@ -22,6 +22,8 @@ export function useRoutines() {
       pauseRoutine: (routine: Routine) => mutate(() => api.pauseRoutine(routine.id)),
       resumeRoutine: (routine: Routine) => mutate(() => api.resumeRoutine(routine.id)),
       deleteRoutine: (routine: Routine) => mutate(() => api.deleteRoutine(routine.id)),
+      /** A new secret for a webhook routine (the old URL stops working); the value is the new path, shown once. */
+      resetRoutineWebhook: (routine: Routine) => mutate(() => api.resetRoutineWebhook(routine.id)),
     }
   }, [mutate])
 

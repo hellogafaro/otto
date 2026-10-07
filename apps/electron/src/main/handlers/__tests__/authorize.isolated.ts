@@ -42,7 +42,7 @@ const deps = {
   },
 } as never
 registerCoreRpcHandlers(
-  { handle: (channel: string, handler: Handler) => void registered.set(channel, handler), push() {}, async invokeClient() {}, hasClientCapability: () => false, findClientsWithCapability: () => [] } as never,
+  { handle: (channel: string, handler: Handler) => void registered.set(channel, handler), push() {}, async invokeClient() {} } as never,
   deps,
   { getConnectedClientCount: () => 0, serverId: 'test', startedAt: 0 },
 )
@@ -223,7 +223,7 @@ describe('the guard on every registered channel', () => {
     const { url } = await start(false)
     const [alice, bob, zed] = [await connect(url, 'alice', A), await connect(url, 'bob', A), await connect(url, 'zed', B)]
     const { routines } = RPC_CHANNELS
-    expect([...ROUTINE_WRITE_CHANNELS].sort()).toEqual([routines.UPDATE, routines.DELETE, routines.PAUSE, routines.RESUME, routines.RUN].sort())
+    expect([...ROUTINE_WRITE_CHANNELS].sort()).toEqual([routines.UPDATE, routines.DELETE, routines.PAUSE, routines.RESUME, routines.RUN, routines.RESET_WEBHOOK].sort())
     for (const channel of ROUTINE_WRITE_CHANNELS) expect(registered.has(channel)).toBe(true)
     for (const channel of [routines.LIST, routines.GET, routines.CREATE]) expect(await codeOf(bob.invoke(channel, 'x'))).toBe('ok')
     const config = { type: 'event' as const, event: 'LabelAdd', actions: [{ type: 'prompt' as const, prompt: 'x' }] }

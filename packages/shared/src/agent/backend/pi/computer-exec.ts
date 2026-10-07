@@ -41,7 +41,11 @@ export function createComputerExecHost(send: (msg: PiComputerExecData | PiComput
       }
       let spawned: Spawned;
       try {
-        spawned = computer.exec(req.argv, { ...(req.cwd ? { cwd: req.cwd } : {}), stdin: req.stdin !== undefined });
+        spawned = computer.exec(req.argv, {
+          ...(req.cwd ? { cwd: req.cwd } : {}),
+          ...(req.env ? { env: req.env } : {}),
+          stdin: req.stdin !== undefined,
+        });
       } catch (error) {
         send({ type: 'computer_exec_exit', id: req.id, code: -1, error: error instanceof Error ? error.message : String(error) });
         return;

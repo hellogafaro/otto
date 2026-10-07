@@ -64,6 +64,16 @@ export interface Routine {
   runs: RoutineRun[]
 }
 
+/**
+ * What the writes of a webhook routine answer: the routine, plus its webhook secret once (`webhookSecret`, when this call
+ * made it). The server keeps it in `secrets`; it is never read back, only rotated (`routines:resetWebhook`).
+ */
+export type RoutineSaved = Routine & { webhookSecret?: string }
+
+/** Where a webhook routine listens (an `/api` path of the server); the secret is the last segment. */
+export const ROUTINE_WEBHOOK_PATH = '/api/webhooks'
+export const routineWebhookPath = (routineId: string, secret: string) => `${ROUTINE_WEBHOOK_PATH}/${routineId}/${secret}`
+
 export type RoutineInput = {
   workspaceId: string
   title: string

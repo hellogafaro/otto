@@ -27,6 +27,7 @@ export const RUN_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 const runs = new Map<string, AgentRun & { secretHash: Buffer }>();
 let apiUrl: string | null = null;
+let computerApiUrl: string | null = null;
 
 const hash = (secret: string) => createHash('sha256').update(secret).digest();
 
@@ -35,20 +36,36 @@ export function initAgentApiUrl(url: string | null): void {
   apiUrl = url;
 }
 
+/** The server's own HTTP address on the host (loopback), or null before it listens. */
+export function getAgentApiUrl(): string | null {
+  return apiUrl;
+}
+
+/**
+ * Where the CLI inside an agent's box reaches the server (C1): `OTTO_COMPUTER_API_URL`, or the computer API
+ * listener the server opens for boxes (`http://host.docker.internal:<port>`). Null = box turns get no token.
+ */
+export function initComputerApiUrl(url: string | null): void {
+  computerApiUrl = url;
+}
+
 /**
  * A token for one turn, and the environment the turn's bash calls get: `OTTO_API_URL` and `OTTO_RUN_TOKEN`.
- * Null when no server listens for agents (tests, a process without one).
+ * `computer`: the turn runs in a box, so the URL is the one the box can reach. Null when no server listens for
+ * agents (tests, a process without one) or, for a box, when no address for boxes is known.
  */
 export function createRunToken(
   run: Omit<AgentRun, 'id' | 'expiresAt'>,
   now = Date.now(),
+  o: { computer?: boolean } = {},
 ): { token: string; env: { OTTO_API_URL: string; OTTO_RUN_TOKEN: string } } | null {
-  if (!apiUrl) return null;
+  const url = o.computer ? computerApiUrl : apiUrl;
+  if (!url) return null;
   const id = createId();
   const secret = randomBytes(32).toString('base64url');
   runs.set(id, { ...run, id, expiresAt: now + RUN_TOKEN_TTL_MS, secretHash: hash(secret) });
   const token = `${id}.${secret}`;
-  return { token, env: { OTTO_API_URL: apiUrl, OTTO_RUN_TOKEN: token } };
+  return { token, env: { OTTO_API_URL: url, OTTO_RUN_TOKEN: token } };
 }
 
 /** The run a token stands for, or null (unknown, wrong secret, expired: all alike). */

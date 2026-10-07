@@ -99,7 +99,6 @@ export interface ISessionManager {
     existingMessageId?: string,
     _isAuthRetry?: boolean,
     onAck?: (messageId: string) => void,
-    rpcContext?: { callerClientId?: string },
   ): Promise<void>
   cancelProcessing(sessionId: string, silent?: boolean): Promise<void>
   addMessageAnnotation(sessionId: string, messageId: string, annotation: AnnotationV1): void

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { actorColorIndex, initialsOf, isAgentActor } from '../actors'
+import { actorColorIndex, collapseGroup, initialsOf, isAgentActor, otherParticipants } from '../actors'
 
 describe('actors', () => {
   it('tells agents from people', () => {
@@ -25,5 +25,23 @@ describe('actors', () => {
     expect(initialsOf('madonna')).toBe('M')
     expect(initialsOf('émile zola')).toBe('ÉZ')
     expect(initialsOf('   ')).toBe('')
+  })
+
+  it('never lists the viewer among a chat\'s people', () => {
+    expect(otherParticipants(['user:a', 'user:b'], 'user:a')).toEqual(['user:b'])
+    expect(otherParticipants(['user:a', 'user:b'], 'user:b')).toEqual(['user:a'])
+    // alone: nobody else, so the chat shows just its agent
+    expect(otherParticipants(['user:a'], 'user:a')).toEqual([])
+    expect(otherParticipants(undefined, 'user:a')).toEqual([])
+    // a repeat shows once; while the viewer is unknown nobody shows (never themselves, even briefly)
+    expect(otherParticipants(['user:b', 'user:c', 'user:b'], 'user:a')).toEqual(['user:b', 'user:c'])
+    expect(otherParticipants(['user:a', 'user:b'], null)).toEqual([])
+  })
+
+  it('collapses a group past its maximum into "+N"', () => {
+    expect(collapseGroup(['a', 'b', 'c'])).toEqual({ shown: ['a', 'b', 'c'], more: 0 })
+    expect(collapseGroup(['a', 'b', 'c', 'd', 'e'])).toEqual({ shown: ['a', 'b', 'c'], more: 2 })
+    expect(collapseGroup(['a'])).toEqual({ shown: ['a'], more: 0 })
+    expect(collapseGroup([])).toEqual({ shown: [], more: 0 })
   })
 })

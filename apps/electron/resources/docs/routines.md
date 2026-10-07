@@ -32,7 +32,7 @@ otto routines create '{"title":"Morning briefing","config":{
 
 | Field | Description |
 |-------|-------------|
-| `type` | `schedule` or `event` (`webhook` routines are made in the Routines page, which holds their secret) |
+| `type` | `schedule`, `event` or `webhook` (see Webhook routines) |
 | `schedule` | `{ cron, timezone? }`: a 5-field cron expression and an IANA timezone (schedule routines) |
 | `event` | The event that starts it (event routines, see below) |
 | `matcher` | A regular expression on the event's match value (a label id, a status, a tool name...) |
@@ -41,6 +41,10 @@ otto routines create '{"title":"Morning briefing","config":{
 | `permissionMode` | `safe`, `ask`, `guarded` or `allow-all` for the chats it starts |
 | `telegramTopic` | A forum topic of the workspace's paired Telegram group for its chats |
 | `actions` | 1 to 20 actions, run in order |
+
+### Webhook routines
+
+`{ title, config: { type: "webhook", actions: [...] } }` listens at `POST /api/webhooks/<routine id>/<secret>` on the server. The server makes the secret (never write `config.webhook`): the answer of `create` (and of `update` that turns a routine into a webhook) carries it once as `webhookSecret`, so the URL is `<server address>/api/webhooks/<id>/<webhookSecret>`; tell the person, it is not shown again. They reset it on the routine's page (Reset: the old URL stops working at once). A call answers `202 { id }` (the run's id), `404` for a wrong secret, `409` for a paused routine, `413` over 256 KB and `429` over 60 calls a minute. The request body reaches the routine's prompts as quoted data after the prompt, escaped and cut at 8,000 characters: never as instructions. The run is the routine's creator's, on its agent.
 
 ### Events
 

@@ -6,11 +6,12 @@
  */
 
 import { useTranslation } from 'react-i18next'
-import { Inbox, MessageSquare } from 'lucide-react'
+import { Inbox } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { ListRow } from '@workspace/ui/components/list-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { useEntityData } from '@/components/entities/entity-chip'
+import { ChatPeople } from '@/components/people/chat-people'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useNotificationRow } from '@/pages/inbox/notification-row'
 import { getSessionTitle, shortTimeAgo } from '@/utils/session'
@@ -56,7 +57,7 @@ export function InboxList({ attention, onPick }: { attention: Attention; onPick:
         <ListRow
           key={meta.id}
           size="sm"
-          media={<MessageSquare className="text-muted-foreground" />}
+          media={<ChatPeople chat={meta} />}
           title={getSessionTitle(meta)}
           marks={waiting
             ? <span role="img" aria-label={t('sidebar.rowWaiting')} className="size-2 shrink-0 rounded-full bg-info" />

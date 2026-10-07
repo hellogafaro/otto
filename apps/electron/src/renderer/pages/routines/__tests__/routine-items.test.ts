@@ -64,7 +64,7 @@ describe('routine rules', () => {
     expect(describeTrigger(digest, t, 'en-US')).toBe('routines.cronWeekdays(time=9:00 AM) (Berlin)')
     expect(describeTrigger(triage, t, 'en-US')).toBe('routines.eventMatching(event=routines.event_LabelAdd,matcher=^urgent$)')
     expect(describeTrigger(log, t, 'en-US')).toBe('routines.event_PostToolUse')
-    expect(describeTrigger(incoming, t, 'en-US')).toBe('routines.type_event')
+    expect(describeTrigger(incoming, t, 'en-US')).toBe('routines.triggerWebhook')
   })
 })
 

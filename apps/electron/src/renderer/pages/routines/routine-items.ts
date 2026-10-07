@@ -108,6 +108,7 @@ export function describeTrigger(routine: Routine, t: TFunction, language: string
     const when = describeCron(schedule.cron, t, language)
     return schedule.timezone ? `${when} (${timezoneCity(schedule.timezone)})` : when
   }
+  if (type === 'webhook') return t('routines.triggerWebhook')
   if (!event) return t('routines.type_event')
   const name = eventName(event, t)
   return matcher ? t('routines.eventMatching', { event: name, matcher }) : name

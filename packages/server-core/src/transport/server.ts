@@ -118,6 +118,11 @@ export interface WsRpcServerOptions {
    * Must use Node.js HTTP callback signature (IncomingMessage, ServerResponse).
    */
   httpHandler?: (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => void
+  /**
+   * Optional handler for WebSocket upgrades that are not the RPC socket (an agent's screen viewer). Returns true when
+   * it took the request; every other upgrade is the RPC WebSocket. Needs `httpHandler` or `tls`.
+   */
+  upgradeHandler?: (req: import('node:http').IncomingMessage, socket: import('node:stream').Duplex, head: Buffer) => boolean
 }
 
 const transportLog = createLogger('ws-rpc-server')
@@ -153,6 +158,7 @@ export class WsRpcServer implements RpcServer {
   private readonly onClientConnected: WsRpcServerOptions['onClientConnected']
   private readonly onClientDisconnected: WsRpcServerOptions['onClientDisconnected']
   private readonly httpHandler: WsRpcServerOptions['httpHandler']
+  private readonly upgradeHandler: WsRpcServerOptions['upgradeHandler']
 
   constructor(opts?: WsRpcServerOptions) {
     this.host = opts?.host ?? '127.0.0.1'
@@ -168,6 +174,18 @@ export class WsRpcServer implements RpcServer {
     this.onClientConnected = opts?.onClientConnected
     this.onClientDisconnected = opts?.onClientDisconnected
     this.httpHandler = opts?.httpHandler
+    this.upgradeHandler = opts?.upgradeHandler
+  }
+
+  /** The RPC WebSocket on an HTTP(S) server, letting `upgradeHandler` take its own upgrades first. */
+  private attachWebSocket(server: HttpServer | HttpsServer): WebSocketServer {
+    if (!this.upgradeHandler) return new WebSocketServer({ server })
+    const wss = new WebSocketServer({ noServer: true })
+    server.on('upgrade', (req, socket, head) => {
+      if (this.upgradeHandler!(req, socket, head)) return
+      wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req))
+    })
+    return wss
   }
 
   /** The actual port the server is listening on (available after listen()). */
@@ -208,21 +226,6 @@ export class WsRpcServer implements RpcServer {
       if (!this.matchesTarget(client, target)) continue
       this.bufferAndMaybeSendEvent(client, channel, args, timestamp, false)
     }
-  }
-
-  hasClientCapability(clientId: string, capability: string): boolean {
-    const client = this.clients.get(clientId)
-    return !!client && client.capabilities.has(capability)
-  }
-
-  findClientsWithCapability(capability: string, opts?: { workspaceId?: string }): string[] {
-    const results: string[] = []
-    for (const [clientId, client] of this.clients) {
-      if (!client.capabilities.has(capability)) continue
-      if (opts?.workspaceId !== undefined && client.workspaceId !== opts.workspaceId) continue
-      results.push(clientId)
-    }
-    return results
   }
 
   invokeClient(clientId: string, channel: string, ...args: any[]): Promise<any> {
@@ -287,7 +290,7 @@ export class WsRpcServer implements RpcServer {
           this.httpHandler,
         )
 
-        this.wss = new WebSocketServer({ server: this.httpsServer })
+        this.wss = this.attachWebSocket(this.httpsServer)
 
         this.httpsServer.on('error', (err) => reject(err))
 
@@ -303,7 +306,7 @@ export class WsRpcServer implements RpcServer {
         // Plain WS + HTTP handler: create an HTTP server for both.
         this._protocol = 'ws'
         this.httpServer = createHttpServer(this.httpHandler)
-        this.wss = new WebSocketServer({ server: this.httpServer })
+        this.wss = this.attachWebSocket(this.httpServer)
 
         this.httpServer.on('error', (err) => reject(err))
 

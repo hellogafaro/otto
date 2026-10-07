@@ -109,6 +109,8 @@ export interface Session {
   parentSessionId?: string
   /** The agent the chat talks to (an `agents` row id); undefined = the workspace's default agent */
   agentId?: string
+  /** The people in the chat as actors ('user:<id>'): its creator, then everyone whose message is in it. Read it with `chatMembers`. */
+  participants?: string[]
 }
 
 export interface CreateSessionOptions {
@@ -236,6 +238,8 @@ export interface SendMessageOptions {
    * should drive the agent without looking user-authored.
    */
   hidden?: boolean
+  /** The sender ('user:<id>'): set by the server from the caller, whatever a client sends. */
+  sender?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -569,32 +573,8 @@ export interface WindowCloseRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Browser / navigation types (data shapes used by BroadcastEventMap)
+// Navigation types (data shapes used by BroadcastEventMap)
 // ---------------------------------------------------------------------------
-
-export interface BrowserInstanceInfo {
-  id: string
-  url: string
-  title: string
-  favicon: string | null
-  isLoading: boolean
-  canGoBack: boolean
-  canGoForward: boolean
-  boundSessionId: string | null
-  ownerType: 'session' | 'manual'
-  ownerSessionId: string | null
-  isVisible: boolean
-  agentControlActive: boolean
-  themeColor: string | null
-  /**
-   * Workspace that owns this browser instance, or `null` for unbound manual
-   * windows. Renderers filter the tab strip / status badge by `activeWorkspaceId`
-   * so a session in workspace A doesn't see windows opened by workspace B.
-   * Missing/null entries always pass the filter — this keeps older renderers
-   * and main processes that pre-date the field working unchanged.
-   */
-  workspaceId?: string | null
-}
 
 export interface DeepLinkNavigation {
   view?: string

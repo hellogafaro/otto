@@ -14,6 +14,7 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { agentEnv, hostEnvMatching } from '@otto/session-tools-core';
 import type { AgentEvent } from '@otto/core/types';
 import type { FileAttachment } from '../utils/files.ts';
@@ -41,7 +42,11 @@ import type { Workspace } from '../config/storage.ts';
 import { PiEventAdapter } from './backend/pi/event-adapter.ts';
 import type { PiCompactResult, PiComputerExecRequest, PiLargeResultGateRequest, PiLargeResultGateResponse } from './backend/pi/protocol.ts';
 import { createComputerExecHost } from './backend/pi/computer-exec.ts';
-import type { Computer } from '../computer/types.ts';
+import { COMPUTER_RESTARTED, collect, type Computer } from '../computer/types.ts';
+import { BOX_HOME, DOCS_MOUNT, createPathMap, type PathMap } from '../computer/paths.ts';
+import { getComputerRuns, getDesktopLease } from '../computer/lifecycle.ts';
+import { CdpError, getAgentBrowser, runBrowserCommand } from '../browser/index.ts';
+import { getWorkspaceSkillsPath, getWorkspaceSourcesPath } from '../workspaces/storage.ts';
 import type { AgentTurn } from './agent-turn.ts';
 import type { LoadedSource } from '../sources/types.ts';
 import { askLargeResultSummaryGate } from '../utils/large-response.ts';
@@ -52,7 +57,7 @@ import { EventQueue } from './backend/event-queue.ts';
 import { getSystemPrompt } from '../prompts/system.ts';
 import { PRODUCT_NAME, BACKEND_NAME } from '../branding.ts';
 import { userIdOf } from '../actors.ts';
-import { getDocPath } from '../docs/index.ts';
+import { APP_ROOT, getDocPath, getDocsDir } from '../docs/index.ts';
 import { createRunToken, deleteRunToken } from './run-tokens.ts';
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
 import { getProjectPromptContext } from '../projects/index.ts';
@@ -92,7 +97,7 @@ import { getPermissionModeDiagnostics } from './mode-manager.ts';
 import type { McpClientPool } from '../mcp/mcp-pool.ts';
 
 // Path utilities
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { homedir } from 'os';
 
 // Session storage (plans folder path)
@@ -111,7 +116,6 @@ import { extractWorkspaceSlug } from '../utils/workspace.ts';
 
 // LLM tool types
 import { LLM_QUERY_TIMEOUT_MS, type LLMQueryRequest, type LLMQueryResult } from './llm-tool.ts';
-import { executeBrowserToolCommand } from './browser-tool-runtime.ts';
 import { saveBinaryResponse } from '../utils/binary-detection.ts';
 
 // ============================================================
@@ -136,35 +140,34 @@ export const PI_BACKEND_SESSION_TOOL_NAMES = new Set<string>([
 ]);
 
 /**
- * Map a transport `err.code` to an agent-facing string for `browser_tool` failures.
- * Returns null for unknown codes so callers can fall back to the raw `err.message`.
- *
- * Receiver-side check: keyed on `err.code === 'X'`, never `instanceof CodedError` —
- * the transport reconstructs a plain `Error` with `.code` attached.
+ * A turn on the agent's box (C1): the computer its tools use (started at the first tool call, which also creates the
+ * chat's folder and copies the attachments in), the host <-> box path map, and its run slot (`ComputerRuns`).
  */
-function mapBrowserToolErrorCode(code: string): string | null {
-  switch (code) {
-    case 'BROWSER_NO_CAPABLE_CLIENT':
-    case 'CAPABILITY_UNAVAILABLE':
-      return 'No connected desktop client supports browser tools, or no client is currently connected. ' +
-        `Ask the user to open this workspace from the ${PRODUCT_NAME} desktop app.`;
-    case 'CLIENT_DISCONNECTED':
-      return 'The desktop client that owned this browser session disconnected. ' +
-        'Ask the user to reconnect and retry.';
-    case 'CLIENT_REQUEST_TIMEOUT':
-      return 'Browser operation timed out (>30s). The desktop client may be unresponsive.';
-    case 'BROWSER_INSTANCE_NOT_OWNED':
-      return 'That browser instance ID doesn\'t belong to this session. ' +
-        'Use `windows` to list owned instances, or `open` to create a new one.';
-    case 'BROWSER_REMOTE_UPLOAD_NOT_SUPPORTED':
-      return 'File upload from a remote agent is not supported. ' +
-        'Ask the user to attach the file to the session.';
-    case 'BROWSER_REMOTE_EVALUATE_BLOCKED':
-      return 'JavaScript evaluation is disabled on this desktop client. ' +
-        'Ask the user to enable it in settings.';
-    default:
-      return null;
+interface TurnBox {
+  computer: Computer;
+  map: PathMap;
+  /** Files to copy in before the first command: [host path, box path]. */
+  copies: Array<[string, string]>;
+  release: () => void;
+}
+
+/** Writes host bytes to a box path (its folder created), through the computer's own exec. */
+async function copyIntoBox(computer: Computer, bytes: Uint8Array, boxPath: string): Promise<void> {
+  const spawned = computer.exec(['sh', '-c', 'mkdir -p "$(dirname "$1")" && cat > "$1"', 'sh', boxPath], { stdin: true });
+  if (spawned.stdin) {
+    await spawned.stdin.write(bytes);
+    await spawned.stdin.end();
   }
+  const r = await collect(spawned);
+  if (r.code !== 0) throw new Error(`could not copy ${boxPath} into the computer: ${r.stderr.trim()}`);
+}
+
+/** Reads a box file's bytes (copy-out: a session tool on the server needs a file the agent wrote in its box). */
+async function readFromBox(computer: Computer, boxPath: string): Promise<Buffer> {
+  const spawned = computer.exec(['cat', '--', boxPath]);
+  const [bytes, stderr, code] = await Promise.all([new Response(spawned.stdout).arrayBuffer(), new Response(spawned.stderr).text(), spawned.exited]);
+  if (code !== 0) throw new Error(`could not read ${boxPath} from the computer: ${stderr.trim()}`);
+  return Buffer.from(bytes);
 }
 
 interface PendingEphemeralRequest<T> {
@@ -205,6 +208,8 @@ export class PiAgent extends BaseAgent {
   private turnAbort = new AbortController();
   /** Where this turn's built-in tools run (ChatOptions.computer, else the agent's); null = on the host. */
   private turnComputer: Computer | null = null;
+  /** The box side of a turn on a computer (paths, run slot), set once the turn has its slot. */
+  private turnBox: TurnBox | null = null;
   /** The chat's agent for the current turn (`config.getAgentTurn`), read when a turn starts. */
   private turn: AgentTurn | null = null;
   /** The session's sources before the agent's filter, so a changed filter can be applied again. */
@@ -987,7 +992,7 @@ export class PiAgent extends BaseAgent {
 
       case 'computer_exec':
         // A built-in tool's command for this turn's computer
-        void this.computerExec.exec(msg as unknown as PiComputerExecRequest, this.turnComputer);
+        void this.computerExec.exec(msg as unknown as PiComputerExecRequest, this.turnBox?.computer ?? null);
         break;
 
       case 'computer_exec_kill':
@@ -1217,9 +1222,19 @@ export class PiAgent extends BaseAgent {
     // The event adapter expects typed PiAgentEvent/AgentSessionEvent objects,
     // but since we're receiving plain JSON, we cast through unknown.
     for (const agentEvent of this.adapter.adaptEvent(adaptedEvent as any)) {
-      // Track Read tool calls for prerequisite checking
+      // Track Read tool calls for prerequisite checking (on a box, as the box path and as the server path it maps to)
       if (agentEvent.type === 'tool_start' && agentEvent.toolName === 'Read') {
         this.prerequisiteManager.trackReadTool(agentEvent.input as Record<string, unknown>);
+        const hostRead = this.hostPathOf(agentEvent.input);
+        if (hostRead) this.prerequisiteManager.trackReadTool({ path: hostRead });
+      }
+      // People see a box path as the server path it maps to (the chat's folder, skills, docs), like a turn on the host.
+      if (agentEvent.type === 'tool_start' && this.turnBox) {
+        const hostPath = this.hostPathOf(agentEvent.input);
+        if (hostPath) {
+          const input = agentEvent.input as Record<string, unknown>;
+          agentEvent.input = { ...input, [typeof input.file_path === 'string' ? 'file_path' : 'path']: hostPath };
+        }
       }
       // Reset prerequisite state on compaction (LLM loses guide content)
       if (agentEvent.type === 'info' && typeof agentEvent.message === 'string' && agentEvent.message.startsWith('Compacted')) {
@@ -1292,11 +1307,14 @@ export class PiAgent extends BaseAgent {
     const rootPath = this.config.workspace.rootPath ?? this.workingDirectory;
     const workspaceSlug = extractWorkspaceSlug(rootPath, this.config.workspace.id);
     const sessionId = this.config.session?.id || this._sessionId;
+    // On a box the tool's paths are box paths, so the folders it is checked against are too.
+    const box = this.turnBox;
+    const asToolSees = (hostPath: string | undefined) => (hostPath && box ? box.map.toBox(hostPath) ?? hostPath : hostPath);
     const plansFolderPath = sessionId
-      ? getSessionPlansPath(rootPath, sessionId)
+      ? asToolSees(getSessionPlansPath(rootPath, sessionId))
       : undefined;
     const dataFolderPath = sessionId
-      ? getSessionDataPath(rootPath, sessionId)
+      ? asToolSees(getSessionDataPath(rootPath, sessionId))
       : undefined;
 
     // Recomputed per run: activating a source changes the active slugs.
@@ -1309,7 +1327,7 @@ export class PiAgent extends BaseAgent {
       workspaceId: workspaceSlug,
       plansFolderPath,
       dataFolderPath,
-      workingDirectory: this.config.session?.workingDirectory,
+      workingDirectory: box ? box.map.cwd : this.config.session?.workingDirectory,
       activeSourceSlugs: Array.from(this.sourceManager.getActiveSlugs()),
       allSourceSlugs: this.sourceManager.getAllSources().map(s => s.config.slug),
       hasSourceActivation: !!this.onSourceActivationRequest,
@@ -1395,7 +1413,7 @@ export class PiAgent extends BaseAgent {
           changedAt: diagnostics.lastChangedAt,
           reason: checkResult.reason,
         })}`);
-        this.send({ type: 'pre_tool_use_response', requestId, action: 'block', reason: checkResult.reason });
+        this.send({ type: 'pre_tool_use_response', requestId, action: 'block', reason: box ? box.map.textToBox(checkResult.reason) : checkResult.reason });
         return;
       }
 
@@ -1479,10 +1497,11 @@ export class PiAgent extends BaseAgent {
     // Prerequisite check: block source tools until guide.md is read
     const prereqResult = this.prerequisiteManager.checkPrerequisites(request.toolName);
     if (!prereqResult.allowed) {
+      const reason = prereqResult.blockReason!;
       this.send({
         type: 'tool_execute_response',
         requestId: request.requestId,
-        result: { content: prereqResult.blockReason!, isError: true },
+        result: { content: this.turnBox ? this.turnBox.map.textToBox(reason) : reason, isError: true },
       });
       return;
     }
@@ -1579,9 +1598,10 @@ export class PiAgent extends BaseAgent {
    */
   private async executeSessionTool(
     toolName: string,
-    args: Record<string, unknown>,
+    rawArgs: Record<string, unknown>,
   ): Promise<{ content: string; isError: boolean }> {
     try {
+      const args = await this.copyOutFileArgs(toolName, rawArgs);
       // call_llm uses the shared pre-execution pipeline from BaseAgent
       if (toolName === 'call_llm') {
         try {
@@ -1604,56 +1624,9 @@ export class PiAgent extends BaseAgent {
         }
       }
 
-      // browser_tool — single CLI-like tool for all browser actions
+      // browser_tool — the agent's Fortress, in its box or on the server host (docs/computers.md "Browser")
       if (toolName === 'browser_tool') {
-        const callbacks = getSessionScopedToolCallbacks(this._sessionId);
-        const browserFns = callbacks?.browserPaneFns;
-        if (!browserFns) {
-          return { content: 'Browser window controls are not available. This tool requires the desktop app.', isError: true };
-        }
-
-        try {
-          const result = await executeBrowserToolCommand({
-            command: (args.command as string | string[]) ?? '',
-            fns: browserFns,
-            sessionId: this._sessionId,
-          });
-
-          let content = result.output;
-          if (result.image) {
-            const sessionPath = getSessionPath(this.config.workspace.rootPath, this._sessionId);
-            const imageBuffer = Buffer.from(result.image.data, 'base64');
-            const ext = result.image.mimeType === 'image/jpeg' ? 'jpg' : 'png';
-            const saved = saveBinaryResponse(sessionPath, `browser-screenshot.${ext}`, imageBuffer, result.image.mimeType);
-
-            if (saved.type === 'file_download') {
-              content += [
-                '',
-                `Saved screenshot: ${saved.path}`,
-                '',
-                '```image-preview',
-                JSON.stringify({
-                  src: saved.path,
-                  title: 'Browser Screenshot',
-                }, null, 2),
-                '```',
-              ].join('\n');
-            } else {
-              content += `\n\n[Screenshot captured (${Math.round(result.image.sizeBytes / 1024)}KB ${result.image.mimeType}) but failed to save: ${saved.error}]`;
-            }
-          }
-
-          return { content, isError: false };
-        } catch (error) {
-          // Branch on `err.code` (string), not `instanceof CodedError` — the
-          // transport reconstructs a plain Error on the receiving side, so
-          // class identity is lost across the wire.
-          const rawCode = (error as { code?: unknown } | null)?.code;
-          const code = typeof rawCode === 'string' ? rawCode : '';
-          const msg = error instanceof Error ? error.message : String(error);
-          const friendly = mapBrowserToolErrorCode(code) ?? msg;
-          return { content: friendly, isError: true };
-        }
+        return await this.runBrowserTool((args.command as string | string[]) ?? '');
       }
 
       const def = SESSION_TOOL_REGISTRY.get(toolName);
@@ -2067,6 +2040,146 @@ export class PiAgent extends BaseAgent {
     yield* super.chat(message, attachments, computer ? { ...options, computer } : options);
   }
 
+  /**
+   * The box side of a turn: the path map for its chat, and a computer whose start also creates the chat's folder and
+   * copies the attachments in, once per turn (the box starts at the first tool call, not at the prompt).
+   */
+  private createTurnBox(computer: Computer, release: () => void): TurnBox {
+    const root = this.config.workspace.rootPath;
+    const chatId = this._sessionId;
+    const box: TurnBox = {
+      computer,
+      map: createPathMap({
+        chatId,
+        hostChatDir: getSessionPath(root, chatId),
+        hostSkillsDir: getWorkspaceSkillsPath(root),
+        hostSourcesDir: getWorkspaceSourcesPath(root),
+        hostDocsDir: getDocsDir(),
+        textAliases: [[`${APP_ROOT}/docs`, DOCS_MOUNT]],
+      }),
+      copies: [],
+      release,
+    };
+    let prepared: Promise<void> | null = null;
+    const prepare = async () => {
+      const mkdir = await collect(computer.exec(['mkdir', '-p', box.map.cwd]));
+      if (mkdir.code !== 0) throw new Error(`could not create ${box.map.cwd}: ${mkdir.stderr.trim()}`);
+      for (const [host, boxPath] of box.copies) await copyIntoBox(computer, readFileSync(host), boxPath);
+    };
+    box.computer = {
+      id: computer.id,
+      ensureRunning: async () => {
+        await computer.ensureRunning();
+        prepared ??= prepare().catch((error) => { prepared = null; throw error; });
+        await prepared;
+      },
+      exec: (argv, o) => computer.exec(argv, o),
+      stop: () => computer.stop(),
+    };
+    return box;
+  }
+
+  /** An attachment as this turn's tools see it: on a box, a copy in the chat's `attachments` folder. */
+  private boxAttachment(hostPath: string, name: string): string {
+    const box = this.turnBox;
+    if (!box) return hostPath;
+    const known = box.map.toBox(hostPath);
+    if (known) return known;
+    const safe = name.replace(/[^\w.@ ()-]+/g, '_').replace(/^\.+/, '') || 'file';
+    let boxPath = `${box.map.cwd}/attachments/${safe}`;
+    for (let n = 2; box.copies.some(([, b]) => b === boxPath); n++) boxPath = `${box.map.cwd}/attachments/${n}-${safe}`;
+    box.copies.push([hostPath, boxPath]);
+    box.map = box.map.withFiles([[hostPath, boxPath]]);
+    return boxPath;
+  }
+
+  /** The server path of a tool input's `file_path`/`path` on a box turn, or null. */
+  private hostPathOf(input: unknown): string | null {
+    if (!this.turnBox || !input || typeof input !== 'object') return null;
+    const { file_path: filePath, path } = input as { file_path?: unknown; path?: unknown };
+    const boxPath = typeof filePath === 'string' ? filePath : typeof path === 'string' ? path : null;
+    return boxPath ? this.turnBox.map.toHost(boxPath) : null;
+  }
+
+  /**
+   * Session tools run on the server: on a box turn, a file argument the agent wrote in its box (a plan, an
+   * attachment for call_llm or spawn_session) is copied out to the server path it maps to (or the chat's
+   * `computer` folder) and the argument rewritten to it.
+   */
+  private async copyOutFileArgs(toolName: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const box = this.turnBox;
+    if (!box) return args;
+    const copyOut = async (boxPath: string): Promise<string> => {
+      const host = box.map.toHost(boxPath) ?? join(getSessionPath(this.config.workspace.rootPath, this._sessionId), 'computer', boxPath.split('/').pop() || 'file');
+      await box.computer.ensureRunning();
+      const bytes = await readFromBox(box.computer, box.map.toBox(host) ?? boxPath);
+      mkdirSync(dirname(host), { recursive: true });
+      writeFileSync(host, bytes);
+      return host;
+    };
+    const out = { ...args };
+    if (toolName === 'SubmitPlan' && typeof out.planPath === 'string') out.planPath = await copyOut(out.planPath);
+    if ((toolName === 'call_llm' || toolName === 'spawn_session') && Array.isArray(out.attachments)) {
+      out.attachments = await Promise.all(out.attachments.map(async (item: unknown) => {
+        if (typeof item === 'string') return copyOut(item);
+        if (item && typeof item === 'object' && typeof (item as { path?: unknown }).path === 'string') {
+          return { ...(item as object), path: await copyOut((item as { path: string }).path) };
+        }
+        return item;
+      }));
+    }
+    return out;
+  }
+
+  /**
+   * One `browser_tool` call on this chat's page of the agent's Fortress. A screenshot is saved in the chat's
+   * downloads folder on the server (the UI shows it) and, on a box, copied to the same place in the box so the
+   * agent can read it. On a box the chat holding the desktop lease gets its page brought to the visible screen.
+   */
+  private async runBrowserTool(command: string | string[]): Promise<{ content: string; isError: boolean }> {
+    const box = this.turnBox;
+    const computer = box?.computer ?? null;
+    const agentId = this.turn?.agentId ?? this.config.session?.agentId ?? 'default';
+    const chatId = this._sessionId;
+    const browser = getAgentBrowser(agentId, computer ? this.turnComputer : null);
+    const desk = computer ? getDesktopLease(computer.id) : null;
+    const watched = () => (this.turnComputer as { watched?: boolean } | null)?.watched === true;
+    try {
+      if (computer) await computer.ensureRunning();
+      const result = await runBrowserCommand(command, {
+        page: () => browser.page(chatId),
+        close: () => browser.close(chatId),
+        onAction: desk ? async (page) => { if (desk.take(chatId, watched()).held) await page.bringToFront().catch(() => {}); } : undefined,
+      });
+      let content = result.output;
+      if (result.screenshot) {
+        const sessionPath = getSessionPath(this.config.workspace.rootPath, chatId);
+        const saved = saveBinaryResponse(sessionPath, 'browser-screenshot.png', result.screenshot, 'image/png');
+        if (saved.type !== 'file_download') return { content: `${content}\n\nThe screenshot could not be saved: ${saved.error}`, isError: true };
+        let agentPath = saved.path;
+        if (box) {
+          agentPath = box.map.toBox(saved.path) ?? saved.path;
+          await copyIntoBox(box.computer, result.screenshot, agentPath);
+        }
+        content += [
+          '',
+          `Saved screenshot: ${agentPath} (read it to see the page)`,
+          '',
+          '```image-preview',
+          JSON.stringify({ src: saved.path, title: 'Browser Screenshot' }, null, 2),
+          '```',
+        ].join('\n');
+      }
+      return { content, isError: false };
+    } catch (error) {
+      // The box died under the call (its browser connection dropped): the action may or may not have happened.
+      if (computer && error instanceof CdpError && /closed|failed/.test(error.message)) {
+        return { content: COMPUTER_RESTARTED, isError: true };
+      }
+      return { content: error instanceof Error ? error.message : String(error), isError: true };
+    }
+  }
+
   /** A `[skill:slug]` mention is read where this turn's tools read skills (`/skills` in a box). */
   protected override skillReadPath(slug: string, hostPath: string): string {
     return this.turn ? `${this.turn.skillsDir}/${slug}/SKILL.md` : hostPath;
@@ -2167,6 +2280,14 @@ export class PiAgent extends BaseAgent {
         return;
       }
 
+      // A turn on the agent's box takes one of its run slots first (4 per computer); the rest wait, visibly.
+      if (this.turnComputer) {
+        const runs = getComputerRuns(this.turnComputer.id);
+        if (runs.activeCount >= runs.max) yield { type: 'status', message: 'Waiting for the computer' };
+        const release = await runs.acquire({ signal: this.turnAbort.signal });
+        this.turnBox = this.createTurnBox(this.turnComputer, release);
+      }
+
       // Build system prompt from a pinned session snapshot. Pi folds stable
       // blocks into its cached system prefix, so changing these mid-session
       // would silently churn cache and diverge from Claude's behavior.
@@ -2236,13 +2357,13 @@ export class PiAgent extends BaseAgent {
             mimeType: att.mimeType,
           });
         } else if (att.mimeType?.startsWith('image/') && (att.storedPath || att.path)) {
-          attachmentParts.push(`[Attached image: ${att.name}]\n[Stored at: ${att.storedPath || att.path}]`);
+          attachmentParts.push(`[Attached image: ${att.name}]\n[Stored at: ${this.boxAttachment(att.storedPath || att.path!, att.name)}]`);
         } else if (att.mimeType === 'application/pdf' && att.storedPath) {
-          attachmentParts.push(`[Attached PDF: ${att.name}]\n[Stored at: ${att.storedPath}]`);
+          attachmentParts.push(`[Attached PDF: ${att.name}]\n[Stored at: ${this.boxAttachment(att.storedPath, att.name)}]`);
         } else if (att.storedPath) {
-          let pathInfo = `[Attached file: ${att.name}]\n[Stored at: ${att.storedPath}]`;
+          let pathInfo = `[Attached file: ${att.name}]\n[Stored at: ${this.boxAttachment(att.storedPath, att.name)}]`;
           if (att.markdownPath) {
-            pathInfo += `\n[Markdown version: ${att.markdownPath}]`;
+            pathInfo += `\n[Markdown version: ${this.boxAttachment(att.markdownPath, `${att.name}.md`)}]`;
           }
           attachmentParts.push(pathInfo);
         }
@@ -2266,7 +2387,9 @@ export class PiAgent extends BaseAgent {
         ...attachmentParts,
         message,
       ].filter(Boolean);
-      const userMessage = userParts.join('\n\n');
+      // On a box every server folder the prompt names is written as the box sees it (the working folder, skills, docs).
+      const toBox = (text: string) => (this.turnBox ? this.turnBox.map.textToBox(text) : text);
+      const userMessage = toBox(userParts.join('\n\n'));
 
       if (options?.thinkingOverride && options.thinkingOverride !== this._thinkingLevel) {
         turnThinkingOverride = options.thinkingOverride;
@@ -2274,13 +2397,14 @@ export class PiAgent extends BaseAgent {
       }
 
       // The turn's bash calls get the `otto` CLI as the chat's user (docs/final-plan.md PT), and the turn lists its skill.
-      // Not on a computer: its box cannot reach the server's loopback port yet (C1).
+      // On a box the CLI gets the address boxes reach the server by (C1).
       const chatId = this.config.session?.id;
-      const run = chatId && userId && !this.turnComputer
-        ? createRunToken({ chatId, workspaceId: this.config.workspace.id, userId, agentId: this.config.session?.agentId ?? null })
+      const run = chatId && userId
+        ? createRunToken({ chatId, workspaceId: this.config.workspace.id, userId, agentId: this.config.session?.agentId ?? null }, Date.now(), { computer: !!this.turnBox })
         : null;
       runToken = run?.token;
-      const skills = [...(this.turn?.skills ?? []), ...(run ? [OTTO_CLI_SKILL] : [])];
+      const ottoSkill = { ...OTTO_CLI_SKILL, filePath: this.turnBox?.map.toBox(OTTO_CLI_SKILL.filePath) ?? OTTO_CLI_SKILL.filePath };
+      const skills = [...(this.turn?.skills ?? []), ...(run ? [ottoSkill] : [])];
 
       // Send prompt to subprocess
       const turnId = `turn-${++this.rpcIdCounter}`;
@@ -2288,11 +2412,11 @@ export class PiAgent extends BaseAgent {
         type: 'prompt',
         id: turnId,
         message: userMessage,
-        systemPrompt: fullSystemPrompt,
+        systemPrompt: toBox(fullSystemPrompt),
         ...(skills.length ? { skills } : {}),
         ...(run ? { env: run.env } : {}),
         images: images.length > 0 ? images : undefined,
-        ...(this.turnComputer ? { computer: true } : {}),
+        ...(this.turnBox ? { computer: { cwd: this.turnBox.map.cwd, home: BOX_HOME } } : {}),
       });
 
       // Yield events as they arrive. The source-activation drain controller
@@ -2359,6 +2483,8 @@ export class PiAgent extends BaseAgent {
     } finally {
       if (runToken) deleteRunToken(runToken);
       this._isProcessing = false;
+      this.turnBox?.release();
+      this.turnBox = null;
       this.turnComputer = null;
       if (turnThinkingOverride) {
         try {

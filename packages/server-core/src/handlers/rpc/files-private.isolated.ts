@@ -29,8 +29,6 @@ const server = {
   async invokeClient() {
     return {}
   },
-  hasClientCapability: () => false,
-  findClientsWithCapability: () => [],
 }
 // Chats: u1 made s1, u2 made s2.
 const chatOwner: Record<string, string> = { s1: 'u1', s2: 'u2' }

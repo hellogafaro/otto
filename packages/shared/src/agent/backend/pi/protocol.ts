@@ -35,7 +35,7 @@ export interface PiLargeResultGateResponse {
 
 /**
  * Subprocess → main: run a built-in tool's command on the turn's computer (`Computer.exec`).
- * Sent only for turns whose prompt carried `computer: true`; byte payloads are base64.
+ * Sent only for turns whose prompt carried `computer`; byte payloads are base64.
  */
 export interface PiComputerExecRequest {
   type: 'computer_exec';
@@ -44,6 +44,16 @@ export interface PiComputerExecRequest {
   cwd?: string;
   /** Written to the command's stdin, then closed. */
   stdin?: string;
+  /** Extra environment (bash only: the turn's `otto` CLI URL and token). Never logged. */
+  env?: Record<string, string>;
+}
+
+/** A turn on a computer (the `prompt` message's `computer`): where its tools work, in box paths. */
+export interface PiTurnComputer {
+  /** The chat's folder in the box: the tools' cwd and the prompt's working directory. */
+  cwd: string;
+  /** The agent's home in the box (what `~` means there). */
+  home: string;
 }
 
 /** Subprocess → main: the tool was aborted; kill the command. */

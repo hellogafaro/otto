@@ -33,7 +33,6 @@ import {
 } from '@otto/session-tools-core';
 import { createLLMTool } from './llm-tool.ts';
 import { createSpawnSessionTool } from './spawn-session-tool.ts';
-import { createBrowserTools } from './browser-tools.ts';
 import { FEATURE_FLAGS } from '../feature-flags.ts';
 import { isDecisionFeatureActive } from '../decisions/resolve.ts';
 
@@ -52,9 +51,6 @@ export type {
   SlackService,
   MicrosoftService,
 } from '@otto/session-tools-core';
-
-// Re-export browser pane types for session manager wiring
-export type { BrowserPaneFns } from './browser-tools.ts';
 
 // ============================================================
 // Session-Scoped Tool Callbacks (re-exported from dedicated registry module)
@@ -287,19 +283,6 @@ export function getSessionScopedTools(
         },
       }),
     );
-
-    // Add browser_* tools — backend-specific (requires BrowserPaneManager in Electron)
-    {
-      tools.push(
-        ...createBrowserTools({
-          sessionId,
-          getBrowserPaneFns: () => {
-            const callbacks = getSessionScopedToolCallbacks(sessionId);
-            return callbacks?.browserPaneFns;
-          },
-        }),
-      );
-    }
 
     sessionToolsCache.set(cacheKey, tools);
   }

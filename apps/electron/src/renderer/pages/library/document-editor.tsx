@@ -25,15 +25,13 @@ interface Draft {
 export function DocumentEditor({
   item,
   content,
-  actions,
   menu,
   onConflict,
 }: {
   /** The document as it was read with `content` (a snapshot: a reload remounts the editor). */
   item: LibraryItem
   content: string
-  /** The title row's actions (Details) and its More menu's items. */
-  actions?: React.ReactNode
+  /** The title row's More menu's items. */
   menu?: React.ReactNode
   onConflict: () => void
 }) {
@@ -77,7 +75,6 @@ export function DocumentEditor({
             className="w-full min-w-0 bg-transparent outline-none placeholder:text-muted-foreground"
           />
         }
-        actions={actions}
         menu={menu}
       />
       <PageCenterpiece>

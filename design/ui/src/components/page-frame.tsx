@@ -22,15 +22,18 @@ import { PageTitle } from "@workspace/ui/components/page-title"
 //
 // Three tracks make it: [left gutter | column | right gutter]. The left gutter
 // holds `FloatingNav` (portaled in by `PageHeader`), Back level with the title
-// row (the transcript's first row on the chat);
-// the right one holds the `aside` (the `Sidecar`), which starts at the CONTENT
-// START, the top of the first block (see `--content-start`). Closed, both
-// gutters are equal and the column is centered. An open aside reserves its
-// 324px (20px gap, 296px canvas, 8px from the window) in the right track: while
-// the free space is wider than that the column stays centered, otherwise it
-// shifts left to make room (never narrower than 768px: from 1280px of region
-// width there is always room). Below 1280px of region width the aside overlays
-// the page instead (on a card surface, since it floats over content) and below
+// row (the transcript's first row on the chat); the right one mirrors it with
+// the sidecar's toggle (the trailing slot, `SidecarToggle`). The `aside` (the
+// `Sidecar`) floats: it is absolute, in the right gutter's area from the CONTENT
+// START (the top of the first block, see `--content-start`). Closed, both
+// gutters are equal and the column is centered. An open aside reserves
+// `--sidecar-reserve` (320px: `--nav-gap` 16, `--sidecar-width` 296, 8px to the
+// window) in the right track: while the gutter is wider the column stays
+// centered, otherwise it shifts left (with the composer, which is in the
+// column's track) to make room, never narrower than 768px. That needs 1160px of
+// region width (72 + 768 + 320; a container query takes no variable, so the
+// number is written out in `Sidecar` and here); below it the aside overlays the
+// page instead (on a card surface, since it floats over content) and below
 // 768px it spans the width. Both gutters stay put while the center scrolls:
 // only the column's body scrolls, from the window's top edge (no strip above
 // it) to 8px above its bottom.
@@ -68,6 +71,10 @@ const FRAME_TOKENS = {
   "--composer-gap": "1.5rem",
   "--nav-top-roomy": "4rem",
   "--nav-top-compact": "calc(var(--header-compact) + 1rem)",
+  // The sidecar's width and what an open one reserves right of the column: the
+  // nav gap, its width, 8px to the window (16 + 296 + 8 = 320).
+  "--sidecar-width": "18.5rem",
+  "--sidecar-reserve": "calc(var(--nav-gap) + var(--sidecar-width) + 0.5rem)",
 } as React.CSSProperties
 
 // Otto: the page inset, ONE constant. 16px, the padding of a row inside a
@@ -88,6 +95,8 @@ type PageFrameContextValue = {
   nav: HTMLElement | null
   /** The left gutter is wide enough (72px) for the floating navigation. */
   navFits: boolean
+  /** Where the sidecar's toggle goes: the right gutter, or over the column's top-right when it is narrow. */
+  trailing: HTMLElement | null
 }
 
 // Otto: the content start. The first block (`data-content-start`:
@@ -130,6 +139,7 @@ function PageFrame({
   const [title, setTitle] = React.useState<HTMLElement | null>(null)
   const [leading, setLeading] = React.useState<HTMLElement | null>(null)
   const [nav, setNav] = React.useState<HTMLElement | null>(null)
+  const [trailing, setTrailing] = React.useState<HTMLElement | null>(null)
   const [navFits, setNavFits] = React.useState(false)
   const [body, setBody] = React.useState<HTMLElement | null>(null)
   const [contentStart, setContentStart] = React.useState(0)
@@ -241,8 +251,8 @@ function PageFrame({
   }, [])
 
   const value = React.useMemo(
-    () => ({ header, title, setTitle, leading, nav, navFits }),
-    [header, title, leading, nav, navFits]
+    () => ({ header, title, setTitle, leading, nav, navFits, trailing }),
+    [header, title, leading, nav, navFits, trailing]
   )
 
   return (
@@ -268,7 +278,7 @@ function PageFrame({
             // row), compact 96px (the transcript's first row). Its x never changes.
             "group/page relative grid [--nav-top:var(--nav-top-roomy)] has-[[data-slot=page-header-row][data-density=compact]]:[--nav-top:var(--nav-top-compact)] h-full grid-cols-[minmax(1.25rem,1fr)_minmax(0,48rem)_minmax(var(--aside,1.25rem),1fr)] grid-rows-[auto_minmax(0,1fr)] pb-2",
             "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
-            "@[1280px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:20.25rem]",
+            "@[1160px]/frame:has-[>[data-slot=sidecar][data-state=open]]:[--aside:var(--sidecar-reserve)]",
             // While the composer bar shows, the column keeps its band free (see `PageColumn`).
             "has-[>[data-slot=page-composer-slot]:not(:empty)]:[--composer-clearance:calc(3rem+var(--composer-gap))]"
           )}
@@ -313,6 +323,19 @@ function PageFrame({
             className={cn(
               "pointer-events-none relative z-10 col-start-2 row-start-2 h-0 self-start pt-[calc(var(--axis-y)-1rem)] *:pointer-events-auto",
               PAGE_INSET
+            )}
+          />
+          <div
+            data-slot="page-trailing-slot"
+            ref={setTrailing}
+            // The sidecar's toggle, the floating navigation mirrored: from 912px
+            // (a 72px right gutter) in the gutter, `--nav-gap` from the column,
+            // its top `--nav-top`; narrower over the column's top-right, on the
+            // title row's line (its end, 40px in from 768px; 16px in on the axis
+            // below), and the title row clears it. It stays put while the column scrolls.
+            className={cn(
+              "pointer-events-none relative z-10 col-start-2 row-start-2 flex h-0 justify-end self-start pt-[calc(var(--axis-y)-1rem)] pr-4 *:pointer-events-auto md:pt-(--nav-top) md:pr-10",
+              "@[912px]/frame:col-start-3 @[912px]/frame:row-span-2 @[912px]/frame:row-start-1 @[912px]/frame:justify-start @[912px]/frame:pr-0 @[912px]/frame:pl-(--nav-gap)"
             )}
           />
           <div
@@ -381,6 +404,9 @@ function PageHeaderRow({
           ? "mt-(--header-gap) mb-(--header-gap) h-8 md:px-6"
           : "mt-[calc(var(--axis-y)-1rem)] h-8 md:mt-(--nav-top-roomy)",
         !compact && PAGE_INSET,
+        // The sidecar's toggle is over the column's top-right on a narrow frame: clear it (16 + 32 + 8).
+        !compact &&
+          "group-has-[[data-slot=page-trailing-slot]:not(:empty)]/page:@max-[912px]/frame:pr-14",
         className
       )}
       {...props}

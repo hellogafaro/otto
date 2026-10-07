@@ -40,13 +40,11 @@ import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floati
 import { SidebarTrigger } from '@workspace/ui/components/sidebar'
 import { cn } from '@/lib/utils'
 import { useAppShellContext } from '@/context/app-shell-context'
-import { useSession } from '@/hooks/use-session'
 import { isSessionsNavigation, useNavigation, useNavigationState } from '@/contexts/navigation-context'
 import { useParentView } from '@/hooks/use-parent-view'
 import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { StyledDropdownMenuContent, StyledDropdownMenuItem, StyledDropdownMenuSeparator } from '@/components/ui/styled-dropdown'
-import { BrowserTabStrip } from '../browser/browser-tab-strip'
 import { HeaderNewChat } from './header-new-chat'
 
 export interface PageHeaderProps {
@@ -96,7 +94,6 @@ export function PageHeader({
   const { listNav } = useNavigation()
   const navState = useNavigationState()
   const parent = useParentView()
-  const [session] = useSession()
   const [menuOpen, setMenuOpen] = useState(false)
   const frame = usePageFrame()
 
@@ -166,7 +163,6 @@ export function PageHeader({
       title={titleContent}
       actions={
         <div className="titlebar-no-drag flex items-center gap-1">
-          <BrowserTabStrip activeSessionId={session.selected} />
           {!navInGutter && <FloatingNavButtons back={back} previous={listInMore ? undefined : previous} next={listInMore ? undefined : next} />}
           {actions}
           {onNewChat && isSessionsNavigation(navState) && !navState.details && <HeaderNewChat onClick={onNewChat} />}

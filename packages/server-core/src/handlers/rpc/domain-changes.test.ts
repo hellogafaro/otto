@@ -28,6 +28,7 @@ const READ_CHANNELS = new Set<string>([
   C.statuses.LIST,
   C.agents.LIST,
   C.agents.GET,
+  C.agents.SCREEN_URL,
   C.routines.LIST,
   C.routines.GET,
 ])
@@ -37,8 +38,6 @@ const server = {
   handle: (channel: string, _handler: HandlerFn) => void registered.add(channel),
   push() {},
   async invokeClient() {},
-  hasClientCapability: () => false,
-  findClientsWithCapability: () => [],
 } as RpcServer
 const deps = {
   sessionManager: {},

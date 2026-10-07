@@ -6,13 +6,16 @@
 
 import { PRODUCT_NAME } from '../branding.ts';
 import { assembleInstructions, getAgentRunConfig, type AgentRunConfig, type InstructionSource, type RunMode } from '../agents/index.ts';
-import { createComputer, type Computer } from '../computer/index.ts';
+import { DockerComputer, hasActiveRuns, SKILLS_MOUNT, SOURCES_MOUNT, type Computer } from '../computer/index.ts';
+import { getDocsDir } from '../docs/index.ts';
 import { getSkills } from '../skills/index.ts';
 import { getSources, isSourceUsable, loadAllSources } from '../sources/index.ts';
-import { getWorkspaceSkillsPath } from '../workspaces/storage.ts';
+import { getWorkspaceSkillsPath, getWorkspaceSourcesPath } from '../workspaces/storage.ts';
 import type { PiTurnSkill } from './backend/pi/protocol.ts';
 
 export interface AgentTurn {
+  /** The chat's agent (its computer and browser are this agent's). */
+  agentId: string;
   /** Appended after the base system prompt: workspace and agent instructions, tools, connected sources, run mode. */
   instructions: string;
   /** Slugs of the sources the agent may use; null = every usable source. */
@@ -25,23 +28,48 @@ export interface AgentTurn {
   computer: Computer | null;
 }
 
-/** Where the workspace's skills folder is mounted read-only in an agent's box (DockerComputer). */
-export const SKILLS_MOUNT = '/skills';
-
 export const COMPUTER_TOOL_GUIDANCE =
-  `Your built-in tools (read, write, edit, bash, ls) run on your own Linux computer, not on the server. grep and find are not available there: use bash (rg, find). The workspace's skills are in ${SKILLS_MOUNT} (read-only).`;
+  `Your built-in tools (read, write, edit, bash, ls) and your browser run on your own Linux computer, not on the server. Your working folder is this chat's folder there; /home/agent/files is shared by all your chats and kept between them. grep and find are not available as tools: use bash (rg, find). The workspace's skills are in ${SKILLS_MOUNT} and its sources' guides in ${SOURCES_MOUNT} (read-only). Long-running programs belong in tmux; everything stops when the computer is idle for a while.`;
 
-const computers = new Map<string, Computer>();
+const computers = new Map<string, DockerComputer>();
 
 /**
  * The agent's computer: one box per agent with `OTTO_COMPUTER=docker` (started at its first tool call), none with
- * `local` or unset (the tools run on the host, as before). Limit: one box per agent id for the life of the process.
+ * `local` or unset (the tools and the browser run on the host). Limit: one box per agent id for the life of the process.
  */
-export function getAgentComputer(agentId: string, skillsDir: string, kind = process.env.OTTO_COMPUTER): Computer | null {
+export function getAgentComputer(agentId: string, workspaceRootPath: string, workspaceId?: string, kind = process.env.OTTO_COMPUTER): Computer | null {
   if (kind !== 'docker') return null;
   let computer = computers.get(agentId);
-  if (!computer) computers.set(agentId, (computer = createComputer('docker', { agentId, skillsDir })));
+  if (!computer) {
+    computer = new DockerComputer({
+      agentId,
+      workspaceId,
+      skillsDir: getWorkspaceSkillsPath(workspaceRootPath),
+      sourcesDir: getWorkspaceSourcesPath(workspaceRootPath),
+      docsDir: getDocsDir(),
+      image: process.env.OTTO_COMPUTER_IMAGE || undefined,
+    });
+    computers.set(agentId, computer);
+  }
   return computer;
+}
+
+/** The running box of an agent (the screen viewer reads it), or null. */
+export function getRunningAgentComputer(agentId: string): DockerComputer | null {
+  return computers.get(agentId) ?? null;
+}
+
+/** Stops every box that is idle for `minutes` with no turn using it (the server calls this every minute). */
+export async function runComputerIdleStop(minutes = Number(process.env.OTTO_COMPUTER_IDLE_MINUTES) || 15): Promise<string[]> {
+  const stopped: string[] = [];
+  for (const [agentId, computer] of computers) {
+    try {
+      if (await computer.stopIfIdle(minutes, hasActiveRuns(computer.id))) stopped.push(agentId);
+    } catch {
+      // The daemon is unreachable: try again at the next tick.
+    }
+  }
+  return stopped;
 }
 
 /** `[]` = every item; otherwise the items named by id or slug. */
@@ -66,6 +94,7 @@ export function buildAgentTurn(input: {
   const skillsDir = computer ? SKILLS_MOUNT : getWorkspaceSkillsPath(input.workspaceRootPath);
   const sourceSlugs = run.sources.length ? pick(input.sources, run.sources).map((source) => source.slug) : null;
   return {
+    agentId: run.agent.id,
     instructions: assembleInstructions({
       product: PRODUCT_NAME,
       workspaceInstructions: run.workspaceInstructions,
@@ -112,6 +141,6 @@ export function getAgentTurn(input: {
     connected,
     workspaceRootPath: input.workspaceRootPath,
     runMode: input.runMode,
-    computer: getAgentComputer(run.agent.id, getWorkspaceSkillsPath(input.workspaceRootPath)),
+    computer: getAgentComputer(run.agent.id, input.workspaceRootPath, input.workspaceId),
   });
 }

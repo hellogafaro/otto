@@ -186,7 +186,7 @@ export function useChatComposer({
 
   const tools = (
     <>
-      <ToolbarStatusSlot showEscapeOverlay={busy && showEscapeOverlay} sessionId={sessionId} />
+      <ToolbarStatusSlot showEscapeOverlay={busy && showEscapeOverlay} />
       {isEmpty && agent && <AgentPicker agents={agents} agent={agent} onChange={pick} />}
       <ModelMenu
         {...model}

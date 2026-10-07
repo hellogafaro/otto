@@ -2,7 +2,7 @@
  * RoutedClient — client-side channel router.
  *
  * Wraps the desktop's WsRpcClient instances: localClient (the main process:
- * windows, dialogs, menus, browser panes), homeClient (the server child that
+ * windows, dialogs, menus), homeClient (the server child that
  * owns every local workspace) and workspaceClient (whichever server owns the
  * active workspace: the home server, or a remote one).
  *

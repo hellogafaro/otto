@@ -89,6 +89,12 @@ export function getRoutine(workspaceId: string, id: string, db: Db | Tx = initDb
   return row ? toRoutine(row, runsOf(workspaceId, db, [id]).get(id) ?? []) : undefined
 }
 
+/** A webhook routine by its id alone (a hook URL names no workspace), without its runs. */
+export function getWebhookRoutine(id: string, db: Db | Tx = initDb()): Routine | undefined {
+  const row = db.select().from(routines).where(eq(routines.id, id)).get()
+  return row?.config.type === 'webhook' ? toRoutine(row, []) : undefined
+}
+
 /** The active routines of every workspace that start on a schedule: what the ticker looks at, without their runs. */
 export function getScheduledRoutines(db: Db | Tx = initDb()): Routine[] {
   return db.select().from(routines).where(isNull(routines.pausedAt)).all().filter((row) => row.config.type === 'schedule').map((row) => toRoutine(row, []))

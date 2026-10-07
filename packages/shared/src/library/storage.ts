@@ -48,11 +48,12 @@ export function getLibraryStore(workspaceRootPath: string, workspaceId: string):
 }
 
 /**
- * A workspace's bundle store for skills and sources: path keys `<slug>/<file>`. On S3 reads go straight to the
+ * A workspace's bundle store for skills and sources: path keys `<slug>/<file>` (`chats`: `<chatId>/<file>`, see
+ * sessions/pi-session-sync.ts; only used on S3). On S3 reads go straight to the
  * bucket (the bundle's materializer fills `<root>/<kind>/`, see bundles/store.ts); on disk the folder `<root>/<kind>` is
  * the store itself, so a bundle is already where agents read it.
  */
-export function getBundleStore(workspaceRootPath: string, workspaceId: string, kind: 'skills' | 'sources'): FileStore {
+export function getBundleStore(workspaceRootPath: string, workspaceId: string, kind: 'skills' | 'sources' | 'chats'): FileStore {
   if (!s3) return createDiskFileStore(join(workspaceRootPath, kind), { paths: true })
   if (!/^[A-Za-z0-9_-]+$/.test(workspaceId)) throw new Error(`Invalid workspace id: ${workspaceId}`)
   return createS3FileStore({ client: s3.client, keyPrefix: `${s3.prefix}workspaces/${workspaceId}/${kind}/`, paths: true })

@@ -1,3 +1,4 @@
+import { BOX_HOME, DOCS_MOUNT, SKILLS_MOUNT, SOURCES_MOUNT, boxChatDir } from './paths'
 import {
   COMPUTER_RESTARTED,
   collect,
@@ -10,14 +11,22 @@ import {
 export const DEFAULT_IMAGE = 'otto-agent:latest'
 /** noVNC (websockify) inside the box. */
 export const NOVNC_PORT = 6080
-/** Chromium's CDP, forwarded to the box's network by socat (Chromium itself listens on loopback only). */
+/** Fortress's CDP, forwarded to the box's network by socat (Fortress itself listens on the box's loopback only). */
 export const CDP_PORT = 9223
+/** The name the box reaches the server by (`--add-host ...:host-gateway`); see `getComputerApiUrl`. */
+export const HOST_ALIAS = 'host.docker.internal'
 
 export interface DockerComputerOptions {
   agentId: string
   image?: string
+  /** The agent's workspace, as a docker label. */
+  workspaceId?: string
   /** Host folder of the workspace skills; mounted read-only at /skills. */
   skillsDir?: string
+  /** Host folder of the server's docs (the guides the prompt names); mounted read-only at /otto/docs. */
+  docsDir?: string
+  /** Host folder of the workspace sources (their guides); mounted read-only at /sources. */
+  sourcesDir?: string
   /** The docker CLI to run. */
   docker?: string
   /** How long to wait for the container's healthcheck. */
@@ -41,7 +50,10 @@ export class DockerComputer implements Computer {
   readonly name: string
   readonly volume: string
   private readonly image: string
+  private readonly workspaceId?: string
   private readonly skillsDir?: string
+  private readonly docsDir?: string
+  private readonly sourcesDir?: string
   private readonly bin: string
   private readonly readyTimeoutMs: number
   private readonly pollMs: number
@@ -59,7 +71,10 @@ export class DockerComputer implements Computer {
     this.name = `otto-agent-${o.agentId}`
     this.volume = `${this.name}-home`
     this.image = o.image ?? DEFAULT_IMAGE
+    this.workspaceId = o.workspaceId
     this.skillsDir = o.skillsDir
+    this.docsDir = o.docsDir
+    this.sourcesDir = o.sourcesDir
     this.bin = o.docker ?? 'docker'
     this.readyTimeoutMs = o.readyTimeoutMs ?? 60_000
     this.pollMs = o.pollMs ?? 500
@@ -70,6 +85,11 @@ export class DockerComputer implements Computer {
   /** Record activity (a tool call, a viewer) so the idle window restarts. */
   touch(): void {
     this.lastActivity = this.now()
+  }
+
+  /** A person watches the screen (the desktop lease gives no chat the screen meanwhile). */
+  get watched(): boolean {
+    return this.viewers > 0
   }
 
   /** A viewer (noVNC through the server's proxy) is connected; call the returned function on disconnect. */
@@ -114,11 +134,16 @@ export class DockerComputer implements Computer {
       '--cpus', '1',
       '--pids-limit', '512',
       '--shm-size', '1g',
-      '-v', `${this.volume}:/home/agent`,
-      ...(this.skillsDir ? ['-v', `${this.skillsDir}:/skills:ro`] : []),
+      '-v', `${this.volume}:${BOX_HOME}`,
+      ...(this.skillsDir ? ['-v', `${this.skillsDir}:${SKILLS_MOUNT}:ro`] : []),
+      ...(this.docsDir ? ['-v', `${this.docsDir}:${DOCS_MOUNT}:ro`] : []),
+      ...(this.sourcesDir ? ['-v', `${this.sourcesDir}:${SOURCES_MOUNT}:ro`] : []),
+      // The box's `otto` CLI reaches the server here (the computer API listener, see getComputerApiUrl).
+      '--add-host', `${HOST_ALIAS}:host-gateway`,
       '-p', `127.0.0.1::${NOVNC_PORT}`,
       '-p', `127.0.0.1::${CDP_PORT}`,
       '--label', `otto.agent=${this.id}`,
+      ...(this.workspaceId ? ['--label', `otto.workspace=${this.workspaceId}`] : []),
       this.image,
     ]
   }
@@ -155,10 +180,11 @@ export class DockerComputer implements Computer {
     if (r.code !== 0) throw new Error(`docker ${args[0]} failed: ${r.stderr.trim()}`)
   }
 
-  private docker(args: string[], o: { stdin?: boolean } = {}): Spawned {
+  private docker(args: string[], o: { stdin?: boolean; env?: Record<string, string> } = {}): Spawned {
     try {
       const proc = Bun.spawn([this.bin, ...args], {
-        env: process.env, // read live, so the docker binary is looked up on the current PATH
+        // Read live, so the docker binary is looked up on the current PATH.
+        env: o.env ? { ...process.env, ...o.env } : process.env,
         stdin: o.stdin ? 'pipe' : 'ignore',
         stdout: 'pipe',
         stderr: 'pipe',
@@ -179,16 +205,22 @@ export class DockerComputer implements Computer {
    * `docker exec -i`. Limit: killing (or aborting) stops the docker client; Docker does not signal
    * the process inside, so a runaway command keeps running until it ends or the box stops.
    * If the box died under the command, stderr gets COMPUTER_RESTARTED and the exit code is -1.
+   * `env` goes in by name only (`-e KEY`, the value from the docker client's own environment), so a value such as
+   * the run token never shows in the host's process list.
    */
   exec(argv: string[], o: ComputerExecOptions = {}): Spawned {
     if (o.signal?.aborted) return failed('aborted', 130)
     const args = ['exec', '-i']
     if (o.user) args.push('-u', o.user)
     if (o.cwd) args.push('-w', o.cwd)
-    for (const [key, value] of Object.entries(o.env ?? {})) args.push('-e', `${key}=${value}`)
+    const env = o.env ?? {}
+    for (const key of Object.keys(env)) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return failed(`invalid environment variable name: ${key}`, 2)
+      args.push('-e', key)
+    }
     args.push(this.name, ...argv)
 
-    const inner = this.docker(args, { stdin: o.stdin })
+    const inner = this.docker(args, { stdin: o.stdin, env })
     this.inflight++
     this.touch()
     let killed = false
@@ -278,15 +310,9 @@ export class DockerComputer implements Computer {
   }
 }
 
-/** The agent's folder for one chat: its cwd inside the box. */
-export function chatDir(chatId: string): string {
-  if (!/^[a-z0-9]+$/i.test(chatId)) throw new Error(`invalid chat id: ${chatId}`)
-  return `/home/agent/chats/${chatId}`
-}
-
 /** `docker exec -w` fails on a missing directory, so create the chat's folder before its first command. */
 export async function ensureChatDir(computer: Computer, chatId: string, user?: string): Promise<string> {
-  const dir = chatDir(chatId)
+  const dir = boxChatDir(chatId)
   const r = await collect(computer.exec(['mkdir', '-p', dir], { user }))
   if (r.code !== 0) throw new Error(`could not create ${dir}: ${r.stderr.trim()}`)
   return dir

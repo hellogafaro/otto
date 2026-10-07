@@ -39,8 +39,7 @@ import { CompactSessionMenu } from '@/components/app-shell/compact-session-menu'
 import { hasTransferTargets } from '@/components/app-shell/transfer-targets'
 import { stripPiPrefixForDisplay } from '@/components/app-shell/input/model-picker-helpers'
 import { EntityListEmptyScreen } from '@/components/ui/entity-list-empty'
-import { AgentAvatar } from '@/components/people/agent-avatar'
-import { agentOf, useLoadedAgents } from '@/hooks/use-agents'
+import { ChatPeople } from '@/components/people/chat-people'
 import { LabelIcon } from '@/components/ui/label-icon'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { DropdownMenuProvider } from '@/components/ui/menu-context'
@@ -77,18 +76,16 @@ interface RowActions {
   onDelete: (id: string) => Promise<boolean>
 }
 
-/** A chat's agent (its avatar), labels (two, then "+n") and model, as the row's metadata. */
+/** A chat's people (agent and the others in it), labels (two, then "+n") and model, as the row's metadata. */
 function ChatMeta({ item, labels }: { item: SessionMeta; labels: LabelConfig[] }) {
-  const agent = agentOf(useLoadedAgents(), item.agentId)
   const applied = (item.labels ?? [])
     .map((entry) => labels.find((l) => l.id === parseLabelEntry(entry).id))
     .filter((l): l is LabelConfig => !!l)
   const shown = applied.slice(0, 2)
   const more = applied.length - shown.length
-  if (!agent && applied.length === 0 && !item.model) return null
   return (
     <>
-      {agent && <AgentAvatar agent={agent} size="sm" />}
+      <ChatPeople chat={item} />
       {shown.map((l) => (
         <Badge key={l.id} variant="outline" className="max-w-36">
           <LabelGlyph label={l} />

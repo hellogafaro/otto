@@ -10,7 +10,8 @@ import { initDb } from '../../db/index.ts';
 import { createId } from '../../id.ts';
 import { getFirstUser } from '../../users/queries.ts';
 import { users } from '../../users/schema.ts';
-import { getRunByToken, initAgentApiUrl } from '../run-tokens.ts';
+import { getRunByToken, initAgentApiUrl, initComputerApiUrl } from '../run-tokens.ts';
+import { getComputerRuns } from '../../computer/lifecycle.ts';
 
 const agents: PiAgent[] = [];
 const dirs: string[] = [];
@@ -46,7 +47,7 @@ async function promptOf(agent: any, text: string): Promise<{ message: string; sy
 }
 
 const turnOf = (extra: Partial<AgentTurn> = {}): AgentTurn => ({
-  instructions: '', sourceSlugs: null, skills: [], skillsDir: '/ws/skills', computer: null, ...extra,
+  agentId: 'agent0000001', instructions: '', sourceSlugs: null, skills: [], skillsDir: '/ws/skills', computer: null, ...extra,
 });
 
 /** Runs one turn through `chat()` (the agent's turn is read there) and returns the `prompt` message. */
@@ -137,11 +138,74 @@ describe('PiAgent prompt', () => {
     expect(withoutServer.skills).toBeUndefined();
   });
 
-  it("the agent's computer runs the turn's tools", async () => {
-    const computer = { id: 'box', ensureRunning: async () => {}, exec: () => { throw new Error('unused'); }, stop: async () => {} };
+  it("the agent's computer runs the turn's tools in box paths, with the CLI address boxes reach and a run slot", async () => {
+    initAgentApiUrl('http://127.0.0.1:4100');
+    initComputerApiUrl('http://host.docker.internal:4200');
+    try {
+      const computer = { id: 'boxprompt001', ensureRunning: async () => {}, exec: () => { throw new Error('unused'); }, stop: async () => {} };
+      const agent = makeAgent({
+        session: { id: 'chat-1', workspaceRootPath: '/x', createdAt: 0, lastUsedAt: 0, createdBy: 'user:user00000001', agentId: 'agent0000001' } as any,
+        getAgentTurn: () => turnOf({ computer, skillsDir: '/skills' }),
+      });
+      const root = agent.config.workspace.rootPath;
+      let prompt: any;
+      let slotsDuringTurn = -1;
+      agent.send = (msg: any) => {
+        if (msg.type !== 'prompt') return;
+        prompt = msg;
+        slotsDuringTurn = getComputerRuns('boxprompt001').activeCount;
+        agent.eventQueue.complete();
+      };
+      for await (const _ of agent.chat('hi')) { /* drain */ }
+      expect(prompt.computer).toEqual({ cwd: '/home/agent/chats/chat-1', home: '/home/agent' });
+      expect(prompt.env.OTTO_API_URL).toBe('http://host.docker.internal:4200');
+      expect(prompt.skills.find((s: any) => s.name === 'otto').filePath).toBe('/otto/docs/otto.md');
+      // The prompt names the chat's folder as the box sees it, never the server's.
+      expect(prompt.systemPrompt + prompt.message).not.toContain(join(root, 'sessions', 'chat-1'));
+      expect(slotsDuringTurn).toBe(1);
+      expect(getComputerRuns('boxprompt001').activeCount).toBe(0);
+    } finally {
+      initAgentApiUrl(null);
+      initComputerApiUrl(null);
+    }
+  });
+
+  it('a box gives no CLI token when no address for boxes is known', async () => {
+    initAgentApiUrl('http://127.0.0.1:4100');
+    try {
+      const computer = { id: 'boxprompt002', ensureRunning: async () => {}, exec: () => { throw new Error('unused'); }, stop: async () => {} };
+      const agent = makeAgent({
+        session: { id: 'chat-1', workspaceRootPath: '/x', createdAt: 0, lastUsedAt: 0, createdBy: 'user:user00000001', agentId: 'agent0000001' } as any,
+        getAgentTurn: () => turnOf({ computer }),
+      });
+      const prompt = await chatPrompt(agent, 'hi');
+      expect(prompt.env).toBeUndefined();
+    } finally {
+      initAgentApiUrl(null);
+    }
+  });
+
+  it('with 4 turns on the computer the next one waits, visibly, until a slot frees', async () => {
+    const computer = { id: 'boxprompt003', ensureRunning: async () => {}, exec: () => { throw new Error('unused'); }, stop: async () => {} };
+    const runs = getComputerRuns('boxprompt003');
+    const held = await Promise.all([1, 2, 3, 4].map(() => runs.acquire()));
     const agent = makeAgent({ getAgentTurn: () => turnOf({ computer }) });
-    const prompt = await chatPrompt(agent, 'hi');
-    expect(prompt.computer).toBe(true);
+    let prompted = false;
+    agent.send = (msg: any) => {
+      if (msg.type !== 'prompt') return;
+      prompted = true;
+      agent.eventQueue.complete();
+    };
+    const events: any[] = [];
+    const turn = (async () => { for await (const event of agent.chat('hi')) events.push(event); })();
+    await Bun.sleep(50);
+    expect(events).toContainEqual({ type: 'status', message: 'Waiting for the computer' });
+    expect(prompted).toBe(false);
+    held[0]!();
+    await turn;
+    expect(prompted).toBe(true);
+    for (const release of held.slice(1)) release();
+    expect(runs.activeCount).toBe(0);
   });
 
   it('an agent whose provider has no connection ends the turn with the error, before Pi starts', async () => {

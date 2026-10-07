@@ -57,6 +57,8 @@ export interface SessionMeta {
   model?: string
   /** The agent the chat talks to (an `agents` row id; absent or deleted = the default agent) */
   agentId?: string
+  /** The people in the chat ('user:<id>'), creator first; the avatar group leaves the viewer out (`ChatPeople`) */
+  participants?: string[]
   /** LLM connection slug for this session */
   llmConnection?: string
   /** Token usage stats (from JSONL header, available without loading messages) */

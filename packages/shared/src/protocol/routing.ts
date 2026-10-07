@@ -2,8 +2,8 @@
  * Exhaustive channel routing table for hybrid local/remote transport.
  *
  * Every RPC channel must belong to exactly one of two sets:
- * - LOCAL_ONLY: runs in the desktop app's main process (windows, dialogs, menus, notifications, updates,
- *   browser panes); it has no database.
+ * - LOCAL_ONLY: runs in the desktop app's main process (windows, dialogs, menus, notifications, updates);
+ *   it has no database.
  * - REMOTE_ELIGIBLE: runs on whichever server owns the workspace; on the desktop that is the server child
  *   process for every local workspace (docs/desktop.md), as for the web UI.
  *
@@ -71,27 +71,6 @@ export const LOCAL_ONLY_CHANNELS = new Set<string>([
 
   // power — the OS power blocker (the setting itself is read on the server: power:getKeepAwake)
   RPC_CHANNELS.power.SET_KEEP_AWAKE,
-
-  // browserPane — Electron BrowserView
-  RPC_CHANNELS.browserPane.DESTROY,
-  RPC_CHANNELS.browserPane.LIST,
-  RPC_CHANNELS.browserPane.NAVIGATE,
-  RPC_CHANNELS.browserPane.GO_BACK,
-  RPC_CHANNELS.browserPane.GO_FORWARD,
-  RPC_CHANNELS.browserPane.RELOAD,
-  RPC_CHANNELS.browserPane.STOP,
-  RPC_CHANNELS.browserPane.FOCUS,
-  RPC_CHANNELS.browserPane.SNAPSHOT,
-  RPC_CHANNELS.browserPane.CLICK,
-  RPC_CHANNELS.browserPane.FILL,
-  RPC_CHANNELS.browserPane.SELECT,
-  RPC_CHANNELS.browserPane.SCREENSHOT,
-  RPC_CHANNELS.browserPane.EVALUATE,
-  RPC_CHANNELS.browserPane.SCROLL,
-  RPC_CHANNELS.browserPane.LAUNCH,
-  RPC_CHANNELS.browserPane.STATE_CHANGED,
-  RPC_CHANNELS.browserPane.REMOVED,
-  RPC_CHANNELS.browserPane.INTERACTED,
 
   // debug — renderer lines into the app's log file
   RPC_CHANNELS.debug.LOG,
@@ -174,6 +153,7 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.agents.CREATE,
   RPC_CHANNELS.agents.UPDATE,
   RPC_CHANNELS.agents.DELETE,
+  RPC_CHANNELS.agents.SCREEN_URL,
 
   // fs — workspace filesystem
   RPC_CHANNELS.fs.SEARCH,
@@ -304,6 +284,7 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.routines.PAUSE,
   RPC_CHANNELS.routines.RESUME,
   RPC_CHANNELS.routines.RUN,
+  RPC_CHANNELS.routines.RESET_WEBHOOK,
 
   // the server's own: the workspace registry, the window's workspace, per-person preferences, onboarding, and the
   // native dialogs and OS shell it asks the window for (client capabilities); answered by the desktop's server too

@@ -131,11 +131,11 @@ describe("the agent's computer", () => {
   const verbs = () => (existsSync(join(dir, 'calls')) ? readFileSync(join(dir, 'calls'), 'utf8').split('\n--\n').filter(Boolean).map((c) => c.split('\n')[0]) : []);
 
   it('none unless OTTO_COMPUTER=docker; one box per agent with the skills mount', () => {
-    expect(getAgentComputer('agent1', '/ws/skills', undefined)).toBeNull();
-    expect(getAgentComputer('agent1', '/ws/skills', 'local')).toBeNull();
-    const box = getAgentComputer('agent1', '/ws/skills', 'docker');
+    expect(getAgentComputer('agent1', '/ws', 'ws1', undefined)).toBeNull();
+    expect(getAgentComputer('agent1', '/ws', 'ws1', 'local')).toBeNull();
+    const box = getAgentComputer('agent1', '/ws', 'ws1', 'docker');
     expect(box).toBeInstanceOf(DockerComputer);
-    expect(getAgentComputer('agent1', '/ws/skills', 'docker')).toBe(box);
+    expect(getAgentComputer('agent1', '/ws', 'ws1', 'docker')).toBe(box);
   });
 
   it('a box starts at the first tool call, then runs the command (fake docker)', async () => {

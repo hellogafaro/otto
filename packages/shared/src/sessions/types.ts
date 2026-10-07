@@ -15,9 +15,11 @@ import type { StoredMessage, ContextUsageSnapshot } from '@otto/core/types';
  */
 export const SESSION_PERSISTENT_FIELDS = [
   // Identity
-  'id', 'workspaceRootPath', 'sdkSessionId',
+  'id', 'workspaceRootPath', 'sdkSessionId', 'piSession',
   // Who the chat belongs to ('user:<id>'); absent on chats made before chats were private
   'createdBy',
+  // The people in the chat ('user:<id>'): the creator, then anyone whose message is in it (see chats.ts)
+  'participants',
   // The agent the chat talks to (an `agents` row id); absent = the workspace's default agent, a deleted one the same
   'agentId',
   // Timestamps
@@ -99,12 +101,16 @@ export interface SessionConfig {
   id: string;
   /** SDK session ID (captured after first message) */
   sdkSessionId?: string;
+  /** The Pi session file as last uploaded to object storage (sessions/pi-session-sync.ts); absent on disk storage. */
+  piSession?: { hash: string; at: number };
   /** Workspace root path this session belongs to */
   workspaceRootPath: string;
   /** Optional user-defined name */
   name?: string;
   /** Actor ('user:<id>') the chat belongs to: only they see it. Set by the server at creation, never by a client. Absent: made before chats were private, visible to the workspace owners only. */
   createdBy?: string;
+  /** The people in the chat ('user:<id>'): its creator, then everyone whose user message is in it. Kept by the write path (chats.ts `addParticipants`). */
+  participants?: string[];
   /** The agent this chat talks to (`agents` row id; absent or deleted = the workspace's default agent). */
   agentId?: string;
   createdAt: number;
@@ -215,6 +221,8 @@ export interface SessionHeader {
   name?: string;
   /** Actor ('user:<id>') the chat belongs to: only they see it. Set by the server at creation, never by a client. Absent: made before chats were private, visible to the workspace owners only. */
   createdBy?: string;
+  /** The people in the chat ('user:<id>'): its creator, then everyone whose user message is in it. Kept by the write path (chats.ts `addParticipants`). */
+  participants?: string[];
   /** The agent this chat talks to (`agents` row id; absent or deleted = the workspace's default agent). */
   agentId?: string;
   createdAt: number;
@@ -312,6 +320,8 @@ export interface SessionMetadata {
   name?: string;
   /** Actor ('user:<id>') the chat belongs to; absent on chats made before chats were private. */
   createdBy?: string;
+  /** The people in the chat ('user:<id>'): its creator, then everyone whose user message is in it. Kept by the write path (chats.ts `addParticipants`). */
+  participants?: string[];
   /** The agent this chat talks to (`agents` row id; absent or deleted = the workspace's default agent). */
   agentId?: string;
   createdAt: number;

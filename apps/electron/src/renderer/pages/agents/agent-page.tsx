@@ -4,7 +4,7 @@
  * (with "Default" on the workspace's default agent) and More actions (Copy link, Delete). Sections: Profile (name,
  * avatar: generated from the id, or an image uploaded to the library), Instructions (the card is the field), Model
  * (provider, model and thinking over your own connections), Skills and Sources (checklists, `[]` = all) and Computer
- * (a placeholder until agent computers exist). Only its creator and workspace owners change it (the server guards it
+ * (Screen: a one-time link to watch the agent's box, opened in the browser; any member may). Only its creator and workspace owners change it (the server guards it
  * too); everyone else reads it. The last agent cannot be deleted.
  */
 
@@ -163,6 +163,18 @@ function AgentView({ agent, agentsApi, onLeave }: { agent: Agent; agentsApi: Ret
     await navigator.clipboard.writeText(routeUrl(routes.view.agents(agent.id)))
     toast.success(t('toast.linkCopied'))
   }
+  // The server gives a one-time link to the agent's screen: on this page's own origin when the server serves it (web),
+  // else on the server's address (desktop).
+  const openScreen = async () => {
+    try {
+      const { path, url } = await window.electronAPI.getAgentScreenUrl(agent.id)
+      const target = /^https?:$/.test(window.location.protocol) ? new URL(path, window.location.origin).href : url
+      if (!target) throw new Error(t('agents.screenUnavailable'))
+      await window.electronAPI.openUrl(target)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('agents.screenUnavailable'))
+    }
+  }
   const remove = () =>
     confirmDelete(t('agents.deleteTitle'), async () => {
       const result = await deleteAgent(agent.id)
@@ -306,7 +318,12 @@ function AgentView({ agent, agentsApi, onLeave }: { agent: Agent; agentsApi: Ret
 
         <SettingsSection title={t('agents.computer')}>
           <SettingsCard>
-            <SettingsRow icon={<Monitor />} label={t('agents.computerNotSetUp')} />
+            <SettingsRow
+              icon={<Monitor />}
+              label={t('agents.screen')}
+              description={t('agents.screenDescription')}
+              action={<Button variant="ghost" size="compact" onClick={() => void openScreen()}>{t('agents.openScreen')}</Button>}
+            />
           </SettingsCard>
         </SettingsSection>
       </Info_Page.Content>

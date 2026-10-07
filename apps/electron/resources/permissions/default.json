@@ -194,10 +194,6 @@
       "comment": "Bun package manager list"
     },
     {
-      "pattern": "^bun\\s+run\\s+browser-tool\\b",
-      "comment": "Browser-tool helper CLI (templates/help)"
-    },
-    {
       "pattern": "^bun\\s+run\\s+typecheck\\b$",
       "comment": "Project typecheck script (read-only quality gate)"
     },

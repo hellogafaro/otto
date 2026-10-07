@@ -1,7 +1,7 @@
 // The agent of every chat (docs/pi-only-plan.md)
 export { PiAgent, PiBackend } from './pi-agent.ts';
-export { getAgentTurn, type AgentTurn } from './agent-turn.ts';
-export { initAgentApiUrl, createRunToken, getRunByToken, deleteRunToken, RUN_TOKEN_TTL_MS, type AgentRun } from './run-tokens.ts';
+export { getAgentTurn, getAgentComputer, getRunningAgentComputer, runComputerIdleStop, type AgentTurn } from './agent-turn.ts';
+export { initAgentApiUrl, getAgentApiUrl, initComputerApiUrl, createRunToken, getRunByToken, deleteRunToken, RUN_TOKEN_TTL_MS, type AgentRun } from './run-tokens.ts';
 export type { AgentEvent } from '@otto/core/types';
 export type { LoadedSource } from '../sources/types.ts';
 export * from './conversation-summary.ts';
@@ -23,7 +23,6 @@ export {
   mergeSessionScopedToolCallbacks,
   // Types
   type SessionScopedToolCallbacks,
-  type BrowserPaneFns,
   // Auth request types (unified auth flow)
   type AuthRequest,
   type AuthRequestType,

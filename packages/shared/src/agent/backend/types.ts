@@ -279,7 +279,10 @@ export interface ChatOptions {
    * part of the stored message or of the resend after a source activation.
    */
   turnContext?: string;
-  /** Where this turn's built-in tools run (Pi only); absent = on the host, as today. */
+  /**
+   * The agent's box this turn's built-in tools and browser run in (Pi only), with box paths (`/home/agent/...`,
+   * docs/computers.md "Paths"); absent = on the host, as today.
+   */
   computer?: Computer;
 }
 

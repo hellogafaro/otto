@@ -21,8 +21,8 @@ import type { PiTurnSkill } from '../../shared/src/agent/backend/pi/protocol.ts'
 export interface TurnPrompt {
   /** Inline extension to register via `createOttoResourceLoader`. */
   readonly extension: InlineExtension;
-  /** The prompt and skills of the next and every later run. */
-  set(turn: { systemPrompt: string; skills?: PiTurnSkill[] }): void;
+  /** The prompt and skills of the next and every later run; `cwd` is the box folder on a computer (the prompt's working directory). */
+  set(turn: { systemPrompt: string; skills?: PiTurnSkill[]; cwd?: string }): void;
 }
 
 export const OTTO_TURN_PROMPT_EXTENSION_NAME = 'otto-turn-prompt';
@@ -41,7 +41,7 @@ export function toPiSkill(skill: PiTurnSkill): Skill {
 }
 
 export function createTurnPrompt(): TurnPrompt {
-  let current: { systemPrompt: string; skills: Skill[] } | undefined;
+  let current: { systemPrompt: string; skills: Skill[]; cwd?: string } | undefined;
   const factory = (pi: ExtensionAPI): void => {
     pi.on('before_agent_start', (event) => {
       if (!current) return;
@@ -50,12 +50,13 @@ export function createTurnPrompt(): TurnPrompt {
       options.appendSystemPrompt = '';
       options.contextFiles = [];
       options.skills = current.skills;
+      if (current.cwd) options.cwd = current.cwd;
     });
   };
   return {
     extension: { name: OTTO_TURN_PROMPT_EXTENSION_NAME, factory, hidden: true },
     set(turn): void {
-      current = { systemPrompt: turn.systemPrompt, skills: (turn.skills ?? []).map(toPiSkill) };
+      current = { systemPrompt: turn.systemPrompt, skills: (turn.skills ?? []).map(toPiSkill), ...(turn.cwd ? { cwd: turn.cwd } : {}) };
     },
   };
 }

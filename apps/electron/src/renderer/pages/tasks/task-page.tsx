@@ -1,7 +1,7 @@
 /**
  * TaskPage - one task: its title in the title row and its description in the centerpiece, both edited in place
  * and saved by `useAutosave` (no Save button: 800 ms after the last change, on blur and on leaving, one "Saved"
- * toast; `conflict` reloads), then "Created by". The title row's Details opens the sidecar (closed by default):
+ * toast; `conflict` reloads), then "Created by". The floating Details toggle opens the sidecar (closed by default):
  * Properties (Status with S, Assignees, Due date, Project), Links and Time; More holds Copy link and Archive.
  * A task id that is not in the workspace shows the not-found page once the list and the server agree.
  */
@@ -10,7 +10,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useComposerContext } from '@/components/composer/use-composer-context'
 import { format } from 'date-fns'
-import { Box, CalendarDays, PanelRight, Users, X } from 'lucide-react'
+import { Box, CalendarDays, Users, X } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import {
   DropdownMenu,
@@ -33,8 +33,7 @@ import { ActorAvatar } from '@/components/people/actor-avatar'
 import { AssigneePicker } from '@/components/people/assignee-picker'
 import { NewLink, ResourceList } from '@/components/resources/resource-list'
 import { TaskStatusIcon } from '@/components/tasks/task-status-icon'
-import { HeaderIconButton } from '@/components/ui/header-icon-button'
-import { useSidecar } from '@/context/sidecar-context'
+import { SidecarDetails, useSidecar } from '@/context/sidecar-context'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useAutosave } from '@/hooks/use-autosave'
 import { useProjects } from '@/hooks/use-projects'
@@ -129,7 +128,7 @@ function TaskProperties({ task, tasksApi }: { task: Task; tasksApi: ReturnType<t
             aria-hidden
             value={dateInputValue(due.value)}
             onChange={(event) => due.change(parseDateInput(event.target.value))}
-            className="pointer-events-none absolute bottom-0 left-7 size-px opacity-0"
+            className="pointer-events-none absolute bottom-0 left-8 size-px opacity-0"
           />
         </div>
         <DropdownMenu>
@@ -166,7 +165,6 @@ interface Draft {
 function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof useTasks> }) {
   const { t, i18n } = useTranslation()
   const { nameOf } = useWorkspaceMembers()
-  const { open, toggleSidecar } = useSidecar()
   const { saveTask, runTaskAction } = useTaskSave(tasksApi)
   const latest = React.useRef(task)
   latest.current = task
@@ -192,8 +190,6 @@ function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof 
     change(latestDraft.current)
   }
 
-  const details = () => toggleSidecar({ title: t('tasks.details'), content: <TaskDetails taskId={task.id} /> })
-
   return (
     <PageColumn fill>
       <PageHeader
@@ -211,7 +207,6 @@ function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof 
             className="w-full min-w-0 bg-transparent outline-none placeholder:text-muted-foreground"
           />
         )}
-        actions={<HeaderIconButton icon={<PanelRight />} tooltip={t('tasks.details')} aria-pressed={open} onClick={details} />}
         menu={<TaskMenuItems task={task} onAction={(item, action) => void runTaskAction(item, action)} />}
       />
       <PageCenterpiece>
@@ -227,6 +222,7 @@ function TaskView({ task, tasksApi }: { task: Task; tasksApi: ReturnType<typeof 
           <CommentThread entity={`task:${task.id}`} className="mt-5" />
         </PageScroll>
       </PageCenterpiece>
+      <SidecarDetails title={t('tasks.details')}><TaskDetails taskId={task.id} /></SidecarDetails>
     </PageColumn>
   )
 }

@@ -143,8 +143,6 @@ export default [
   {
     files: [
       'src/renderer/components/ui/sortable-list.tsx',
-      'src/main/browser-pane-manager.ts',
-      'src/shared/browser-live-fx.ts',
       'src/renderer/playground/**/*.{ts,tsx}',
     ],
     rules: {

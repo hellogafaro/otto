@@ -22,7 +22,7 @@ beforeAll(() => {
   const root = join(sandbox, 'renderer')
   mkdirSync(join(root, 'assets'), { recursive: true })
   writeFileSync(join(root, 'index.html'), '<!doctype html><title>shell</title>')
-  writeFileSync(join(root, 'browser-toolbar.html'), '<!doctype html><title>toolbar</title>')
+  writeFileSync(join(root, 'playground.html'), '<!doctype html><title>playground</title>')
   writeFileSync(join(root, 'assets', 'main-abc123.js'), 'console.log(1)')
   writeFileSync(join(root, 'assets', 'font a.woff2'), 'font')
   writeFileSync(join(root, 'assets', 'data.wasm'), 'wasm')
@@ -39,7 +39,7 @@ describe('otto://app protocol handler', () => {
     expect(js.headers.get('content-type')).toContain('text/javascript')
     expect(await js.text()).toBe('console.log(1)')
     expect((await get('/assets/data.wasm')).headers.get('content-type')).toBe('application/wasm')
-    expect((await get('/browser-toolbar.html?instanceId=x', { navigate: true })).headers.get('content-type')).toContain('text/html')
+    expect((await get('/playground.html?x=1', { navigate: true })).headers.get('content-type')).toContain('text/html')
   })
 
   it('serves encoded file names', async () => {

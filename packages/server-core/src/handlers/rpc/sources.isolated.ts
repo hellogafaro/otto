@@ -28,8 +28,6 @@ const server = {
   handle: (channel: string, handler: Handler) => void handlers.set(channel, handler),
   push: (...args: unknown[]) => void pushes.push(args),
   async invokeClient() {},
-  hasClientCapability: () => false,
-  findClientsWithCapability: () => [],
 }
 
 const [OWNER, CREATOR, OTHER, OUTSIDER] = ['aaaaaaaaaaaa', 'bbbbbbbbbbbb', 'cccccccccccc', 'dddddddddddd']

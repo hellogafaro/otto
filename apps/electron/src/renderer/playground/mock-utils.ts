@@ -252,12 +252,6 @@ export const mockElectronAPI = {
     }
   },
 
-  browserPane: {
-    focus: async (instanceId: string) => {
-      console.log('[Playground] browserPane.focus called:', instanceId)
-    },
-  },
-
   openFile: async (path: string) => {
     console.log('[Playground] openFile called:', path)
     alert(`Would open file in system editor:\n${path}`)

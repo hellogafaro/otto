@@ -101,6 +101,25 @@ export function runRoutine(routine: Routine, deps: RoutineRunnerDeps, scheduledF
   return { run, done: finishRun(routine, run, deps) }
 }
 
+/**
+ * Records the prompt run of an event routine (the session manager's event bus runs it, not `runRoutine`) around `work`:
+ * a `running` row now, `ok` with its chat or `error` when `work` settles, and `onChange` at both ends so the page
+ * follows live. Rethrows what `work` threw, after the row ends.
+ */
+export async function recordRoutineRun(routine: Pick<Routine, 'id' | 'workspaceId'>, work: () => Promise<{ chatId: string }>, onChange?: (workspaceId: string) => void, db: Db = initDb()): Promise<void> {
+  const run = startRoutineRun(routine, Date.now(), { bump: true }, db)
+  onChange?.(routine.workspaceId)
+  try {
+    const { chatId } = await work()
+    if (run) updateRoutineRun(run.id, { status: 'ok', chatId }, db)
+  } catch (error) {
+    if (run) updateRoutineRun(run.id, { status: 'error', error: clip(error instanceof Error ? error.message : String(error)) }, db)
+    throw error
+  } finally {
+    onChange?.(routine.workspaceId)
+  }
+}
+
 /** The minute `now` falls in (ms). */
 const minuteOf = (now: number) => Math.floor(now / 60_000) * 60_000
 

@@ -20,8 +20,6 @@ function register() {
     handle: (channel: string, handler: HandlerFn) => void handlers.set(channel, handler),
     push() {},
     async invokeClient() {},
-    hasClientCapability: () => false,
-    findClientsWithCapability: () => [],
   } as RpcServer
   const deps = {
     // What the handlers need from the manager here: who may see which chat.

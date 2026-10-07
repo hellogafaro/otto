@@ -133,12 +133,6 @@ yet).
 - [ ] `components/messaging/access/pending-senders-list.tsx`
 - [ ] `components/messaging/access/telegram-access-section.tsx`
 
-## Browser (3)
-
-- [ ] `components/browser/browser-tab-badge.tsx`
-- [ ] `components/browser/browser-tab-strip.tsx`
-- [ ] `components/browser/browser-toolbar.tsx`
-
 ## Markdown (1)
 
 - [ ] `components/markdown/streaming-markdown.tsx`

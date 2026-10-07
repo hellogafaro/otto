@@ -75,7 +75,7 @@ export const AGENT_WRITE_CHANNELS = new Set<string>([C.agents.UPDATE, C.agents.D
  * Run now runs as the person who asked: `updateRoutine`). Any member lists, gets and creates routines. An id that
  * is no routine of that workspace is let through: the handler answers `not_found`, to everyone alike.
  */
-export const ROUTINE_WRITE_CHANNELS = new Set<string>([C.routines.UPDATE, C.routines.DELETE, C.routines.PAUSE, C.routines.RESUME, C.routines.RUN])
+export const ROUTINE_WRITE_CHANNELS = new Set<string>([C.routines.UPDATE, C.routines.DELETE, C.routines.PAUSE, C.routines.RESUME, C.routines.RUN, C.routines.RESET_WEBHOOK])
 
 /** Channels that change one skill: `(workspace, slug)`. Members read skills; the skill's creator or an owner of the workspace writes. */
 export const SKILL_WRITE_CHANNELS = new Set<string>([C.skills.DELETE])

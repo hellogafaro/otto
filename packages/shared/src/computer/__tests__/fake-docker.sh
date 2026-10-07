@@ -38,6 +38,7 @@ case "$1" in
     [ "$(status)" = running ] || { echo "Error response from daemon: container is not running" >&2; exit 1; }
     case "$1" in
       fake-echo) shift; echo "$*";;
+      fake-env) echo "${!2}";;
       fake-err) shift; echo "$*" >&2; exit 3;;
       fake-fail) exit "$2";;
       fake-cat) cat;;

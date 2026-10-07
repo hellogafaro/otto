@@ -288,6 +288,8 @@ export interface Message {
   // resend. Filtered out in groupMessagesByTurn so it never appears as a
   // user/assistant bubble (desktop + viewer).
   hidden?: boolean;
+  // Sender of a user message ('user:<id>'): set by the server from the caller; absent on older messages and ones an agent or a routine sent
+  sender?: string;
   // Turn ID: Correlation ID from the API's message.id, groups all messages in an assistant turn
   turnId?: string;
   // Status type for special status messages (retrying is transient renderer state)
@@ -355,6 +357,8 @@ export interface StoredMessage {
   // Parent tool ID for nested tool calls (persisted for session restore)
   parentToolUseId?: string;
   isError?: boolean;
+  /** Sender of a user message ('user:<id>'); absent on older messages and ones an agent or a routine sent */
+  sender?: string;
   /** Stored attachments for user messages (persisted to disk) */
   attachments?: StoredAttachment[];
   /** Content badges for inline display (sources, skills) */

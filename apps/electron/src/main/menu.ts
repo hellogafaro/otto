@@ -133,13 +133,7 @@ export async function rebuildMenu(): Promise<void> {
               accelerator: 'CmdOrCtrl+R',
               click: (_menuItem: Electron.MenuItem, window: Electron.BaseWindow | undefined) => {
                 const browserWindow = window instanceof BrowserWindow ? window : BrowserWindow.getFocusedWindow()
-                if (!browserWindow) return
-                const views = browserWindow.getBrowserViews()
-                if (views.length > 0) {
-                  views[0].webContents.reload()
-                } else {
-                  browserWindow.webContents.reload()
-                }
+                browserWindow?.webContents.reload()
               }
             },
             {
@@ -147,13 +141,7 @@ export async function rebuildMenu(): Promise<void> {
               accelerator: 'CmdOrCtrl+Shift+R',
               click: (_menuItem: Electron.MenuItem, window: Electron.BaseWindow | undefined) => {
                 const browserWindow = window instanceof BrowserWindow ? window : BrowserWindow.getFocusedWindow()
-                if (!browserWindow) return
-                const views = browserWindow.getBrowserViews()
-                if (views.length > 0) {
-                  views[0].webContents.reloadIgnoringCache()
-                } else {
-                  browserWindow.webContents.reloadIgnoringCache()
-                }
+                browserWindow?.webContents.reloadIgnoringCache()
               }
             },
           ] : []),

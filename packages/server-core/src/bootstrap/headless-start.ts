@@ -13,15 +13,20 @@ import { initSettingsImport } from '@otto/shared/settings'
 import { initConnectionsImport } from '@otto/shared/connections/import'
 import { initSecretsImport } from '@otto/shared/secrets/import'
 import { initAgentsImport } from '@otto/shared/agents/import'
+import type { RoutineRunnerDeps } from '@otto/shared/automations/routine-runner'
 import { initRoutinesImport } from '@otto/shared/automations/routines-import'
 import { initLabelsStatusesImport } from '@otto/shared/labels/import'
 import { initChatsImport } from '@otto/shared/sessions/import'
 import { initSkills } from '@otto/shared/skills'
 import { initSources } from '@otto/shared/sources'
 import { getWorkspaceOwnerIds } from '@otto/shared/workspaces'
-import { initAgentApiUrl } from '@otto/shared/agent'
+import { getRunningAgentComputer, initAgentApiUrl, initComputerApiUrl, runComputerIdleStop } from '@otto/shared/agent'
+import { disposeAgentBrowsers } from '@otto/shared/browser'
 import { authorize } from './authorize.ts'
 import { createAgentRpcHandler } from '../webui/agent-rpc'
+import { startComputerApi, type ComputerApi } from '../webui/computer-api'
+import { createScreenHttpHandler, createScreenUpgradeHandler } from '../webui/computer-screen'
+import { createRoutineWebhookHandler } from '../webui/routine-webhook'
 import { createIdentityValidators } from './identity.ts'
 import { WsRpcServer, type WsRpcTlsOptions } from '../transport/server'
 import type { EventSink, RpcServer } from '../transport/types'
@@ -50,12 +55,6 @@ export interface ServerBootstrapOptions<TSessionManager, THandlerDeps> {
   registerAllRpcHandlers: (server: RpcServer, deps: THandlerDeps, serverCtx: ServerHandlerContext) => void
   initializeSessionManager: (sessionManager: TSessionManager) => Promise<void>
   setSessionEventSink: (sessionManager: TSessionManager, sink: EventSink) => void
-  /**
-   * Optional hook called right after the WS RPC server starts listening. Use
-   * this to plumb the server into the SessionManager (e.g. `sm.setRpcServer(server)`)
-   * so the remote-bridge code path for `client:browser:invoke` activates.
-   */
-  bindRpcServer?: (sessionManager: TSessionManager, server: RpcServer) => void
   initModelRefreshService: () => ModelRefreshServiceLike
   cleanupSessionManager?: (sessionManager: TSessionManager) => Promise<void> | void
   cleanupClientResources?: (clientId: string) => void
@@ -418,13 +417,21 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   }
   const rpcPort = Math.trunc(rpcPortRaw)
 
-  // The agents' `otto` CLI calls `/api/agent/rpc` on this port, through this server's own dispatch (same guards).
+  // The agents' `otto` CLI calls `/api/agent/rpc` on this port, through this server's own dispatch (same guards),
+  // and routines' webhook URLs call `/api/webhooks/...` (the URL is the credential); both come before the web UI.
   let wsServer: WsRpcServer
-  const httpHandler = createAgentRpcHandler({
+  let routineRunner: () => RoutineRunnerDeps = () => { throw new Error('The server is starting') }
+  const agentRpc = (next?: Parameters<typeof createAgentRpcHandler>[0]['next']) => createAgentRpcHandler({
     invoke: (ctx, channel, args) => wsServer.invoke(ctx, channel, args),
     audit: (line) => platform.logger.info(line),
-    next: options.httpHandler,
+    next,
   })
+  // An agent's screen (noVNC in its box) behind a one-time link and a cookie (webui/computer-screen.ts).
+  const screen = { getComputer: getRunningAgentComputer }
+  const httpHandler = createScreenHttpHandler(
+    screen,
+    agentRpc(createRoutineWebhookHandler({ runner: () => routineRunner(), audit: (line) => platform.logger.info(line), next: options.httpHandler })),
+  )
   wsServer = new WsRpcServer({
     host: rpcHost,
     port: rpcPort,
@@ -435,28 +442,33 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
     serverVersion: options.serverVersion,
     tls: options.tls,
     httpHandler,
+    upgradeHandler: createScreenUpgradeHandler(screen),
     onClientConnected: options.onClientConnected,
-    onClientDisconnected: (clientId) => {
-      options.cleanupClientResources?.(clientId)
-      // Best-effort: notify SM so it can drop browser-host pins for this client.
-      // Duck-typed because TSessionManager is generic at the bootstrap layer.
-      const smWithDisconnect = sessionManager as unknown as { onClientDisconnected?: (id: string) => void }
-      if (typeof smWithDisconnect.onClientDisconnected === 'function') {
-        try {
-          smWithDisconnect.onClientDisconnected(clientId)
-        } catch {
-          // Cleanup hook failures must not break the transport.
-        }
-      }
-    },
+    onClientDisconnected: (clientId) => options.cleanupClientResources?.(clientId),
   })
 
   await wsServer.listen()
   // Agent turns get run tokens from here on; the CLI reaches the server on loopback when it listens on every address.
   const agentHost = rpcHost === '0.0.0.0' || rpcHost === '::' ? '127.0.0.1' : rpcHost.includes(':') ? `[${rpcHost}]` : rpcHost
   initAgentApiUrl(`${wsServer.protocol === 'wss' ? 'https' : 'http'}://${agentHost}:${wsServer.port}`)
-
-  options.bindRpcServer?.(sessionManager, wsServer)
+  // Agents' boxes (OTTO_COMPUTER=docker): their CLI's address, and the idle stop (docs/computers.md).
+  let computerApi: ComputerApi | null = null
+  let computerIdleTimer: ReturnType<typeof setInterval> | null = null
+  if (process.env.OTTO_COMPUTER === 'docker') {
+    try {
+      computerApi = await startComputerApi({ handler: agentRpc() })
+      initComputerApiUrl(computerApi.url)
+      platform.logger.info(`[bootstrap] agents' computers reach the server at ${computerApi.url}`)
+    } catch (error) {
+      platform.logger.warn(`[bootstrap] no address for agents' computers (set OTTO_COMPUTER_API_URL or OTTO_COMPUTER_API_HOST); their turns get no otto CLI: ${error instanceof Error ? error.message : String(error)}`)
+    }
+    computerIdleTimer = setInterval(() => {
+      void runComputerIdleStop().then((stopped) => {
+        if (stopped.length) platform.logger.info(`[computer] stopped idle computers of agents ${stopped.join(', ')}`)
+      })
+    }, 60_000)
+    computerIdleTimer.unref?.()
+  }
 
   const oauthFlowStore = new OAuthFlowStore()
 
@@ -482,8 +494,9 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   modelRefreshService.startAll()
 
   // The routines scheduler: every minute it fires the due schedule routines, once across restarts and nodes.
-  const { startRoutines } = await import('../handlers/rpc/routines')
+  const { startRoutines, routineRunnerDeps, routinesNotifier } = await import('../handlers/rpc/routines')
   const stopRoutines = startRoutines(wsServer, deps as unknown as HandlerDeps)
+  routineRunner = () => routineRunnerDeps(deps as unknown as HandlerDeps, routinesNotifier(wsServer))
 
   platform.logger.info(`${PRODUCT_NAME} server listening on ${wsServer.protocol}://${rpcHost}:${wsServer.port}`)
 
@@ -494,6 +507,10 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
 
     platform.logger.info('Shutting down...')
     initAgentApiUrl(null)
+    initComputerApiUrl(null)
+    if (computerIdleTimer) clearInterval(computerIdleTimer)
+    await computerApi?.close().catch(() => {})
+    disposeAgentBrowsers()
 
     // Notify connected clients before closing connections
     try {

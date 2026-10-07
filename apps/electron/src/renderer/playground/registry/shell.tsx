@@ -1,12 +1,12 @@
 import * as React from 'react'
-import { MessagesSquare, MoreHorizontal, PanelRight, Search, Settings } from 'lucide-react'
-import { Button } from '@workspace/ui/components/button'
+import { Box, CircleDot, MessagesSquare, MoreHorizontal, Search, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createPortal } from 'react-dom'
 import { FloatingNav, FloatingNavButtons } from '@workspace/ui/components/floating-nav'
 import { PageCard, PageCenterpiece, PageColumn, PageSection } from '@workspace/ui/components/page'
 import { PageFrame, PageHeaderRow, PageScroll, usePageFrame } from '@workspace/ui/components/page-frame'
-import { Sidecar } from '@workspace/ui/components/sidecar'
+import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
+import { Sidecar, SidecarToggle } from '@workspace/ui/components/sidecar'
 import { Logo } from '@workspace/ui/components/logo'
 import {
   Sidebar,
@@ -38,19 +38,20 @@ const CHATS = ['Casual greeting', 'Fix the sidebar width', 'Plan the release', '
 interface ShellDemoProps {
   page: 'blocks' | 'centerpiece'
   sidecarOpen: boolean
-  sidecarSurface: boolean
   showNav: boolean
 }
 
 // The shell's `PageHeader` does this: draw the title row in the column's title
 // slot (it scrolls with the page) or, on a centerpiece (the chat), the compact
-// pinned row in the frame's header slot; the nav goes in the left gutter.
-function DemoHeader({ active, setActive, showNav, pinned, onDetails }: {
+// pinned row in the frame's header slot; the nav goes in the left gutter and the
+// sidecar's toggle in the trailing slot (`SidecarDetails`).
+function DemoHeader({ active, setActive, showNav, pinned, open, setOpen }: {
   active: number
   setActive: React.Dispatch<React.SetStateAction<number>>
   showNav: boolean
   pinned: boolean
-  onDetails: () => void
+  open: boolean
+  setOpen: (open: boolean) => void
 }) {
   const frame = usePageFrame()
   const navInGutter = showNav && !!frame?.navFits
@@ -66,14 +67,7 @@ function DemoHeader({ active, setActive, showNav, pinned, onDetails }: {
           className={cn(!pinned && 'max-md:pl-14')}
           leading={pinned && <SidebarTrigger />}
           title={CHATS[active]}
-          actions={
-            <>
-              {showNav && !navInGutter && <FloatingNavButtons back={back} previous={prev} next={next} />}
-              <Button variant="ghost" size="icon-compact" aria-label="Details" onClick={onDetails}>
-                <PanelRight />
-              </Button>
-            </>
-          }
+          actions={showNav && !navInGutter && <FloatingNavButtons back={back} previous={prev} next={next} />}
         />,
         target,
       )}
@@ -82,11 +76,12 @@ function DemoHeader({ active, setActive, showNav, pinned, onDetails }: {
         <FloatingNav back={back} previous={prev} next={next} />,
         frame.nav,
       )}
+      {frame?.trailing && createPortal(<SidecarToggle open={open} onOpenChange={setOpen} label="Details" />, frame.trailing)}
     </>
   )
 }
 
-function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav }: ShellDemoProps) {
+function ShellDemo({ page, sidecarOpen, showNav }: ShellDemoProps) {
   const [open, setOpen] = React.useState(sidecarOpen)
   const [active, setActive] = React.useState(1)
   React.useEffect(() => setOpen(sidecarOpen), [sidecarOpen])
@@ -146,21 +141,15 @@ function ShellDemo({ page, sidecarOpen, sidecarSurface, showNav }: ShellDemoProp
 
         <PageFrame
           aside={
-            <Sidecar open={open} onOpenChange={setOpen} title="Details" surface={sidecarSurface}>
-              <div className="space-y-5 text-muted-foreground">
-                <section className="space-y-1.5">
-                  <h3 className="text-xs font-medium">Status</h3>
-                  <p>In progress, started today.</p>
-                </section>
-                <section className="space-y-1.5">
-                  <h3 className="text-xs font-medium">Project</h3>
-                  <p>{PRODUCT_NAME}</p>
-                </section>
-              </div>
+            <Sidecar open={open} onOpenChange={setOpen} title="Details">
+              <PropertySection title="Properties">
+                <PropertyRow icon={<CircleDot />} label="Status" value="In progress" />
+                <PropertyRow icon={<Box />} label="Project" value={PRODUCT_NAME} />
+              </PropertySection>
             </Sidecar>
           }
         >
-          <DemoHeader active={active} setActive={setActive} showNav={showNav} pinned={page === 'centerpiece'} onDetails={() => setOpen((v) => !v)} />
+          <DemoHeader active={active} setActive={setActive} showNav={showNav} pinned={page === 'centerpiece'} open={open} setOpen={setOpen} />
           {page === 'blocks' ? (
             <PageColumn>
               <PageSection title="Interface" description="Surfaces are siblings on the frame.">
@@ -206,15 +195,13 @@ export const shellComponents: ComponentEntry[] = [
     props: [
       { name: 'page', description: 'Page type', control: { type: 'select', options: [{ label: 'Blocks', value: 'blocks' }, { label: 'Centerpiece', value: 'centerpiece' }] }, defaultValue: 'blocks' },
       { name: 'sidecarOpen', description: 'Sidecar open', control: { type: 'boolean' }, defaultValue: false },
-      { name: 'sidecarSurface', description: 'Sidecar wrapped in a card (A/B)', control: { type: 'boolean' }, defaultValue: false },
       { name: 'showNav', description: 'Floating Back / Previous / Next (header buttons when the gutter is narrow)', control: { type: 'boolean' }, defaultValue: true },
     ],
     variants: [
-      { name: 'Blocks page', props: { page: 'blocks', sidecarOpen: false, sidecarSurface: false, showNav: true } },
-      { name: 'Centerpiece page', props: { page: 'centerpiece', sidecarOpen: false, sidecarSurface: false, showNav: true } },
-      { name: 'Sidecar as canvas', props: { page: 'centerpiece', sidecarOpen: true, sidecarSurface: false, showNav: true } },
-      { name: 'Sidecar with surface', props: { page: 'centerpiece', sidecarOpen: true, sidecarSurface: true, showNav: true } },
-      { name: 'No navigation', props: { page: 'blocks', sidecarOpen: false, sidecarSurface: false, showNav: false } },
+      { name: 'Blocks page', props: { page: 'blocks', sidecarOpen: false, showNav: true } },
+      { name: 'Centerpiece page', props: { page: 'centerpiece', sidecarOpen: false, showNav: true } },
+      { name: 'Sidecar open', props: { page: 'centerpiece', sidecarOpen: true, showNav: true } },
+      { name: 'No navigation', props: { page: 'blocks', sidecarOpen: false, showNav: false } },
     ],
   },
 ]

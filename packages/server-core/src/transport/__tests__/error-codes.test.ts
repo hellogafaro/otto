@@ -1,18 +1,17 @@
 /**
- * Transport error-code preservation + capability introspection tests.
+ * Transport error-code preservation tests.
  *
  * Spins up a real WsRpcServer + WsRpcClient and verifies that:
  * 1. Handler-thrown `CodedError` values surface on the receiver with `err.code`
  *    set to the original ErrorCode string.
  * 2. `instanceof CodedError` does NOT hold on the receiver (the transport
  *    reconstructs a plain Error; class identity is lost across the wire).
- * 3. `hasClientCapability` / `findClientsWithCapability` reflect the handshake.
  */
 
 import { describe, it, expect, afterEach } from 'bun:test'
 import { WsRpcServer } from '../server'
 import { WsRpcClient } from '../client'
-import { CLIENT_BROWSER_INVOKE } from '../capabilities'
+import { CLIENT_OPEN_PATH } from '../capabilities'
 import { CodedError } from '@otto/shared/protocol'
 import { domainError } from '@otto/shared/utils'
 
@@ -27,12 +26,14 @@ afterEach(async () => {
 })
 
 async function startPair(opts?: { clientCapabilities?: string[]; workspaceId?: string }) {
+  let clientId = ''
   const server = new WsRpcServer({
     host: '127.0.0.1',
     port: 0,
     requireAuth: true,
     validateToken: async (t) => (t === TEST_TOKEN ? { userId: 'user00000001' } : null),
     serverId: 'test',
+    onClientConnected: (info) => { clientId = info.clientId },
   })
   await server.listen()
   teardown.push(() => server.close())
@@ -58,14 +59,14 @@ async function startPair(opts?: { clientCapabilities?: string[]; workspaceId?: s
     })
   })
 
-  return { server, client }
+  return { server, client, clientId }
 }
 
 describe('Transport — error code preservation', () => {
   it('preserves `err.code` from server handler → client invoke', async () => {
     const { server, client } = await startPair()
     server.handle('explode', async () => {
-      throw new CodedError('BROWSER_INSTANCE_NOT_OWNED', 'nope')
+      throw new CodedError('SESSION_NOT_IDLE', 'nope')
     })
 
     let caught: unknown
@@ -75,31 +76,27 @@ describe('Transport — error code preservation', () => {
       caught = err
     }
     expect(caught).toBeInstanceOf(Error)
-    expect((caught as { code?: string }).code).toBe('BROWSER_INSTANCE_NOT_OWNED')
+    expect((caught as { code?: string }).code).toBe('SESSION_NOT_IDLE')
     // Class identity lost over the wire — receiver must branch on `.code`.
     expect(caught instanceof CodedError).toBe(false)
   })
 
   it('preserves `err.code` from client handler → server invokeClient', async () => {
-    const { server, client } = await startPair({ clientCapabilities: [CLIENT_BROWSER_INVOKE] })
+    const { server, client, clientId } = await startPair({ clientCapabilities: [CLIENT_OPEN_PATH] })
 
-    client.handleCapability(CLIENT_BROWSER_INVOKE, () => {
-      throw new CodedError('BROWSER_REMOTE_EVALUATE_BLOCKED', 'denied')
+    client.handleCapability(CLIENT_OPEN_PATH, () => {
+      throw new CodedError('CAPABILITY_UNAVAILABLE', 'denied')
     })
-
-    // Find the client id from server.
-    const clientIds = server.findClientsWithCapability(CLIENT_BROWSER_INVOKE)
-    expect(clientIds).toHaveLength(1)
-    const clientId = clientIds[0]!
+    expect(clientId).not.toBe('')
 
     let caught: unknown
     try {
-      await server.invokeClient(clientId, CLIENT_BROWSER_INVOKE, { v: 1 })
+      await server.invokeClient(clientId, CLIENT_OPEN_PATH, '/tmp/x')
     } catch (err) {
       caught = err
     }
     expect(caught).toBeInstanceOf(Error)
-    expect((caught as { code?: string }).code).toBe('BROWSER_REMOTE_EVALUATE_BLOCKED')
+    expect((caught as { code?: string }).code).toBe('CAPABILITY_UNAVAILABLE')
   })
 
   it('falls back to HANDLER_ERROR when handler throws a plain Error', async () => {
@@ -139,22 +136,5 @@ describe('Transport — domain error codes', () => {
     server.handle('enoent', async () => { throw Object.assign(new Error('gone'), { code: 'ENOENT' }) })
     const caught = await client.invoke('enoent').then(() => undefined, (err: unknown) => err)
     expect((caught as { code?: string }).code).toBe('HANDLER_ERROR')
-  })
-})
-
-describe('Transport — capability introspection', () => {
-  it('hasClientCapability returns true only for advertised capabilities', async () => {
-    const { server } = await startPair({ clientCapabilities: [CLIENT_BROWSER_INVOKE] })
-    const ids = server.findClientsWithCapability(CLIENT_BROWSER_INVOKE)
-    expect(ids).toHaveLength(1)
-    expect(server.hasClientCapability(ids[0]!, CLIENT_BROWSER_INVOKE)).toBe(true)
-    expect(server.hasClientCapability(ids[0]!, 'unknown-cap')).toBe(false)
-    expect(server.hasClientCapability('not-a-real-id', CLIENT_BROWSER_INVOKE)).toBe(false)
-  })
-
-  it('findClientsWithCapability filters by workspaceId', async () => {
-    const { server } = await startPair({ clientCapabilities: [CLIENT_BROWSER_INVOKE], workspaceId: 'ws-a' })
-    expect(server.findClientsWithCapability(CLIENT_BROWSER_INVOKE, { workspaceId: 'ws-a' })).toHaveLength(1)
-    expect(server.findClientsWithCapability(CLIENT_BROWSER_INVOKE, { workspaceId: 'ws-other' })).toHaveLength(0)
   })
 })

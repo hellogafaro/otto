@@ -145,7 +145,7 @@ Pi stays the default; Claude Code in the box is the Claude-subscription route, o
 | H4 | `pi-durable` adapter behind the same `Harness` (P8, using the spike's storage result) | M | mid-turn resume after a crash |
 | later | Hosted computers: a second `Computer` (E2B Desktop with memory pause/resume, or a Firecracker/Kata host); same image | M | hosted plan |
 
-**The computer (H2), simplest that works.**
+**The computer (H2), simplest that works.** *As built (C1, [computers.md](computers.md)): the browser is Fortress (owner decision), not Chromium, driven by `browser_tool` from the server over CDP; per-chat contexts are CDP browser contexts.*
 - **Image.** Debian slim with Xvfb, Openbox, x11vnc + noVNC, Chromium (CDP on loopback, `--no-sandbox --disable-dev-shm-usage`), `agent-browser`, tmux, git, node, uv, the `otto` CLI (no `claude`: [pi-only-plan](pi-only-plan.md)).
 - **Container settings.** Non-root, `--cap-drop ALL`, no-new-privileges, default seccomp, `--memory 2g --cpus 1 --pids-limit 512 --shm-size 1g`. Egress open with an allow-list later, the same defaults as OpenClaw's ([docker backend](https://docs.openclaw.ai/gateway/sandboxing/docker-backend)).
 - **Lifecycle.** Start on demand at the first tool call (`ensureRunning` → `docker start`, under 1 s plus a few seconds for Chromium). Stop after 15 idle minutes. The named volume keeps `/home` across stops; RAM state is lost.

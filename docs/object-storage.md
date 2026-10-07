@@ -11,7 +11,7 @@ Anything that is a file or a folder of files is stored in S3-compatible object s
 | Library items | `library` (built) | `library/<id>` through the `FileStore` | cache (disk driver today) |
 | Skills | `skills` (built): id, workspace_id, slug, title, description, hash, created_by, created_at, updated_at | `workspaces/<ws>/skills/<slug>/...` (the whole folder: `SKILL.md`, icon, extras) | `<workspace>/skills/<slug>/` materialized for agents |
 | Sources | `sources` (built): id, workspace_id, slug, title, type, auth_status, secret_id, hash, created_by, created_at, updated_at | `workspaces/<ws>/sources/<slug>/...` (config, guide, icon, permissions) | `<workspace>/sources/<slug>/` materialized |
-| Chat message files (later) | `chats` (planned) | `workspaces/<ws>/chats/<id>/...` | cache |
+| Chat files | `chats` (built) | `workspaces/<ws>/chats/<id>/session.jsonl` (Pi's resume file, built; see final-plan 2.3); other chat files later | cache |
 
 ## Mechanism (one driver, reused)
 

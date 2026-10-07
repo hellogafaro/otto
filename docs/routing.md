@@ -81,7 +81,7 @@ The app-level cases set `isNotFound` in the navigation context (true while the U
 
 - Asset URLs are absolute (`base: '/'` in both Vite configs); the entry script is `/main.tsx` in `apps/electron/src/renderer/index.html`.
 - Initial URL: Electron opens `otto://app/?workspaceId={id}` (or a restored `otto://app/{path}?...`, see `buildRendererUrl`). Window state stores `webContents.getURL()`, so saved windows come back on their path.
-- History API only (`pushState` / `replaceState` / `popstate`, through the router); never `location.hash` for routes. `browser-empty-state.tsx` uses `#launch=` on its own page, not the router.
+- History API only (`pushState` / `replaceState` / `popstate`, through the router); never `location.hash` for routes.
 - Path segments are percent-encoded by the mapping; ids contain no dots, but dots are tolerated.
 
 ## Storage moves origin once

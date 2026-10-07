@@ -24,6 +24,7 @@ import type { SessionConfig, SessionMetadata, SessionTokenUsage } from './types.
 /** What `metadata` holds: everything about a chat that no query filters on. */
 export interface ChatMetadata {
   sdkSessionId?: string
+  piSession?: SessionConfig['piSession']
   model?: string
   llmConnection?: string
   connectionLocked?: boolean
@@ -34,6 +35,8 @@ export interface ChatMetadata {
   enabledSourceSlugs?: string[]
   sharedUrl?: string
   sharedId?: string
+  /** The people in the chat ('user:<id>'), creator first: the list's avatar group. Grown by `addParticipants`. */
+  participants?: string[]
   pendingPlanExecution?: SessionConfig['pendingPlanExecution']
   lastReadMessageId?: string
   branchFromMessageId?: string
@@ -48,11 +51,44 @@ export interface ChatMetadata {
 }
 
 const METADATA_KEYS = [
-  'sdkSessionId', 'model', 'llmConnection', 'connectionLocked', 'thinkingLevel', 'permissionMode', 'previousPermissionMode',
-  'workingDirectory', 'enabledSourceSlugs', 'sharedUrl', 'sharedId', 'pendingPlanExecution', 'lastReadMessageId',
+  'sdkSessionId', 'piSession', 'model', 'llmConnection', 'connectionLocked', 'thinkingLevel', 'permissionMode', 'previousPermissionMode',
+  'workingDirectory', 'enabledSourceSlugs', 'sharedUrl', 'sharedId', 'participants', 'pendingPlanExecution', 'lastReadMessageId',
   'branchFromMessageId', 'branchFromSdkSessionId', 'branchFromSessionPath', 'branchFromSdkTurnId',
   'transferredSessionSummary', 'transferredSessionSummaryApplied',
 ] as const satisfies readonly (keyof ChatMetadata)[]
+
+/**
+ * The chat's people: `participants` with its creator and the senders of `messages` added (distinct, creator first
+ * when none were known). Returns `chat.participants` itself when nothing is new, so the write path can compare.
+ */
+export function addParticipants(chat: { createdBy?: string; participants?: string[] }, messages: readonly { sender?: string }[] = []): string[] | undefined {
+  const known = chat.participants ?? []
+  const next = new Set(known)
+  if (chat.createdBy) next.add(chat.createdBy)
+  for (const message of messages) if (message.sender) next.add(message.sender)
+  return next.size === known.length && chat.participants ? chat.participants : next.size ? [...next] : undefined
+}
+
+/**
+ * Boot reconcile: gives every chat without `participants` its creator and the distinct `sender`s of its user
+ * messages. Each chat is answered once (the key then exists), so a second run changes nothing. Returns how many.
+ */
+export function initChatParticipants(db: Db = initDb()): number {
+  const rows = db.all<{ id: string; created_by: string }>(
+    sql`SELECT id, created_by FROM chats WHERE CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.participants') IS NULL ELSE 0 END`,
+  )
+  for (const { id, created_by } of rows) {
+    db.transaction(
+      (tx) => {
+        const senders = tx.all<{ sender: string }>(sql`SELECT DISTINCT json_extract(content, '$.sender') AS sender FROM messages WHERE chat_id = ${id} AND type = 'user'`)
+        const participants = addParticipants({ createdBy: created_by }, senders.filter((row) => row.sender))
+        tx.run(sql`UPDATE chats SET metadata = json_set(metadata, '$.participants', json(${JSON.stringify(participants ?? [])})) WHERE id = ${id}`)
+      },
+      { behavior: 'immediate' },
+    )
+  }
+  return rows.length
+}
 
 /** A chat as the write path hands it over: its config fields plus what only the running server knows. */
 export interface ChatSnapshot extends SessionConfig {

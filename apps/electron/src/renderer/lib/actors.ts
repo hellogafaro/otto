@@ -17,3 +17,17 @@ export function initialsOf(name: string): string {
     .join('')
   return letters.toUpperCase()
 }
+
+/**
+ * The people of a chat other than the viewer: its `participants` (`user:<id>`, creator first) without `me`, never a
+ * duplicate. Until `me` is known nobody is listed: the viewer must never see themselves, not even for a moment.
+ */
+export function otherParticipants(participants: readonly string[] | undefined, me: string | null): string[] {
+  if (!me) return []
+  return [...new Set(participants ?? [])].filter((actor) => actor !== me && !isAgentActor(actor))
+}
+
+/** The first `max` entries of an avatar group and how many more there are ("+N"). */
+export function collapseGroup<T>(entries: readonly T[], max = 3): { shown: T[]; more: number } {
+  return { shown: entries.slice(0, max), more: Math.max(0, entries.length - max) }
+}

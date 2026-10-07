@@ -5,7 +5,7 @@
  */
 
 import { useTranslation } from 'react-i18next'
-import { Bot, CircleAlert, CirclePause, CirclePlay, Clock, MessageSquare, MoreHorizontal, Pause, Play, SquareArrowOutUpRight, SquareTerminal, Trash2, Webhook, Zap, type LucideIcon } from 'lucide-react'
+import { Bot, CircleAlert, CirclePause, CirclePlay, Clock, Loader, MessageSquare, MoreHorizontal, Pause, Play, SquareArrowOutUpRight, SquareTerminal, Trash2, Webhook, Zap, type LucideIcon } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import {
@@ -39,9 +39,10 @@ const STATE_ICONS: Record<RoutineState, { icon: LucideIcon; className: string }>
   failing: { icon: CircleAlert, className: 'text-destructive' },
 }
 
-/** Active (green play), paused (muted pause) or failing (its last run failed: red alert). */
+/** Active (green play), paused (muted pause) or failing (its last run failed: red alert); a spinner while a run is going. */
 export function RoutineStateIcon({ routine }: { routine: Routine }) {
   const { t } = useTranslation()
+  if (routine.runs[0]?.status === 'running') return <Loader role="img" aria-label={t('routines.running')} className="animate-spin text-muted-foreground" />
   const state = routineState(routine)
   const { icon: Icon, className } = STATE_ICONS[state]
   return <Icon role="img" aria-label={t(`routines.state_${state}`)} className={className} />

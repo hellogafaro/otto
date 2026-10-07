@@ -33,7 +33,6 @@ mock.module('electron', () => ({
     getFocusedWindow: () => null,
     getAllWindows: () => [],
   },
-  BrowserView: class {},
   Menu: {
     buildFromTemplate: () => ({ popup: () => {} }),
   },
@@ -45,11 +44,6 @@ mock.module('electron', () => ({
 export function createMockGuiDeps(): GuiDeps {
   return {
     windowManager: {} as GuiDeps['windowManager'],
-    browserPaneManager: {
-      onStateChange: () => {},
-      onRemoved: () => {},
-      onInteracted: () => {},
-    } as unknown as GuiDeps['browserPaneManager'],
   }
 }
 

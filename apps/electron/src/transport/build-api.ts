@@ -28,7 +28,6 @@ export function buildClientApi(
   isChannelAvailable?: (channel: string) => boolean,
 ): ElectronAPI {
   const api: Record<string, any> = {}
-  const nested: Record<string, Record<string, any>> = {}
 
   for (const [key, entry] of Object.entries(channelMap)) {
     let fn: (...a: any[]) => any
@@ -40,22 +39,7 @@ export function buildClientApi(
     } else {
       fn = (...args: any[]) => client.invoke(entry.channel, ...args)
     }
-
-    // Dotted keys like "browserPane.focus" become nested: api.browserPane.focus
-    const dotIdx = key.indexOf('.')
-    if (dotIdx !== -1) {
-      const ns = key.slice(0, dotIdx)
-      const method = key.slice(dotIdx + 1)
-      if (!nested[ns]) nested[ns] = {}
-      nested[ns][method] = fn
-    } else {
-      api[key] = fn
-    }
-  }
-
-  // Attach nested namespaces as plain objects
-  for (const [ns, methods] of Object.entries(nested)) {
-    api[ns] = methods
+    api[key] = fn
   }
 
   // Expose channel availability check for GUI-aware code

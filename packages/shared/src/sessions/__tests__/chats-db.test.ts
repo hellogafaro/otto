@@ -11,7 +11,7 @@ import { INSTALL, getSetting, updateSetting } from '../../settings/index.ts'
 import { initWorkspaceStatuses } from '../../statuses/storage.ts'
 import { users } from '../../users/schema.ts'
 import { createWorkspaceMember } from '../../workspaces/members.ts'
-import { deleteChat, getChat, getChats, type ChatSnapshot } from '../chats.ts'
+import { deleteChat, getChat, getChats, initChatParticipants, type ChatSnapshot } from '../chats.ts'
 import { initChatsImport, parseMessageLines } from '../import.ts'
 import { getMessageRows, getMessagesPage, initMessages, runChatsRecovery, searchChats } from '../messages.ts'
 import { ChatPersistenceQueue, type ChatWrite } from '../persistence-queue.ts'
@@ -337,6 +337,51 @@ describe('write path', () => {
 
 // ---------------------------------------------------------------------------------------------------------------
 // Reads: pages, search, privacy
+// ---------------------------------------------------------------------------------------------------------------
+
+describe('participants', () => {
+  const participantsOf = (db: Db, id: string) => getChat(W, '/tmp/w', id, db)!.participants
+
+  it('are the creator, then each sender the writer meets, kept by later writes without messages', async () => {
+    const db = await setup()
+    const { write } = writer(db)
+    const chat = chatOf('pp1')
+    await write(chat, [msg('u1', 'user', 100, { content: 'hi', sender: ME }), msg('a1', 'assistant', 200, { content: 'hello' })])
+    expect(participantsOf(db, 'pp1')).toEqual([ME])
+
+    // another person's message: the next flush adds them, once, whatever the in-memory snapshot knew
+    await write(chat, [msg('u1', 'user', 100, { content: 'hi', sender: ME }), msg('u2', 'user', 300, { content: 'me too', sender: OTHER }), msg('u3', 'user', 400, { content: 'again', sender: OTHER })])
+    expect(participantsOf(db, 'pp1')).toEqual([ME, OTHER])
+
+    // a rename with no messages loaded keeps them (the snapshot the server holds has them)
+    await write({ ...chat, name: 'renamed', participants: [ME, OTHER] })
+    expect(participantsOf(db, 'pp1')).toEqual([ME, OTHER])
+    // agent and routine messages carry no sender and add nobody; a chat with no sender lists its creator
+    await write(chatOf('pp2'), [msg('u1', 'user', 100, { content: 'from a routine' })])
+    expect(participantsOf(db, 'pp2')).toEqual([ME])
+  })
+
+  it('are backfilled once for chats that have none, from their creator and the senders of their user messages', async () => {
+    const db = await setup()
+    const { write } = writer(db)
+    await write(chatOf('pb1'), [msg('u1', 'user', 100, { content: 'a', sender: OTHER }), msg('u2', 'user', 200, { content: 'b', sender: OTHER }), msg('x1', 'assistant', 300, { content: 'c', sender: 'user:ignored' })])
+    await write(chatOf('pb2', { createdBy: OTHER }))
+    // as chats written before participants existed: no key in the metadata
+    db.run(sql`UPDATE chats SET metadata = json_remove(metadata, '$.participants')`)
+    db.run(sql`INSERT INTO chats (id, workspace_id, created_by, metadata, created_at, updated_at) VALUES ('pb3', ${W}, ${ME}, 'not json', 1, 1)`)
+    expect(participantsOf(db, 'pb1')).toBeUndefined()
+
+    expect(initChatParticipants(db)).toBe(2)
+    expect(participantsOf(db, 'pb1')).toEqual([ME, OTHER])
+    expect(participantsOf(db, 'pb2')).toEqual([OTHER])
+
+    // idempotent: nothing left to do, nothing changes, and an unreadable metadata is left alone
+    expect(initChatParticipants(db)).toBe(0)
+    expect(participantsOf(db, 'pb1')).toEqual([ME, OTHER])
+    expect(db.all<{ metadata: string }>(sql`SELECT metadata FROM chats WHERE id = 'pb3'`)[0]!.metadata).toBe('not json')
+  })
+})
+
 // ---------------------------------------------------------------------------------------------------------------
 
 describe('reads', () => {

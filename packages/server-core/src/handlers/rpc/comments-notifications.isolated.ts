@@ -27,8 +27,6 @@ const server = {
   handle: (channel: string, handler: Handler) => void handlers.set(channel, handler),
   push: (channel: string, target: unknown, ...args: unknown[]) => void pushes.push({ channel, target, args }),
   async invokeClient() {},
-  hasClientCapability: () => false,
-  findClientsWithCapability: () => [],
 }
 const deps = { platform: { logger: { info() {}, warn() {}, error() {}, debug() {} } } } as unknown as Deps
 

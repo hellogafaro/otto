@@ -11,7 +11,6 @@ import type {
   SessionEvent,
   UnreadSummary,
   UpdateInfo,
-  BrowserInstanceInfo,
   DeepLinkNavigation,
 } from './dto'
 
@@ -58,11 +57,6 @@ export interface BroadcastEventMap {
   // Window events (per-window)
   [RPC_CHANNELS.window.FOCUS_STATE]: [isFocused: boolean]
   [RPC_CHANNELS.window.CLOSE_REQUESTED]: []
-
-  // Browser pane events (global)
-  [RPC_CHANNELS.browserPane.STATE_CHANGED]: [info: BrowserInstanceInfo]
-  [RPC_CHANNELS.browserPane.REMOVED]: [id: string]
-  [RPC_CHANNELS.browserPane.INTERACTED]: [id: string]
 
   // Navigation events (per-window)
   [RPC_CHANNELS.notification.NAVIGATE]: [data: { workspaceId: string; sessionId: string }]

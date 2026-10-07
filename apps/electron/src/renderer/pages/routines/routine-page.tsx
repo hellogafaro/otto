@@ -2,14 +2,14 @@
  * RoutinePage - one routine, a blocks page: its name in the title row, what starts it in words as the lead line, then
  * Actions (what it does: each prompt, script or webhook, read-only; Edit asks an agent to change it) and Run history
  * (its last runs, newest first: when, Running / Ran / Failed / Skipped, the error, and the chat a run started, which the
- * row opens). The title row's Details opens the sidecar (closed by default): Trigger, Timezone, Actions, Labels and
- * Status (Active, Paused or Failing). More actions: Run now, Pause / Resume, Delete (asked first; then back to Routines).
+ * row opens); a webhook routine has a Webhook section between them (its URL, Rotate). The floating Details toggle opens the
+ * sidecar (closed by default): Trigger, Timezone, Actions, Labels and Status (Active, Paused or Failing). More actions: Run now, Pause / Resume, Delete (asked first; then back to Routines).
  * An id the workspace does not have shows the not-found page once the list has loaded.
  */
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, CircleCheck, CircleDot, CircleMinus, CircleX, Globe, Loader, PanelRight, Shapes, Tag } from 'lucide-react'
+import { ChevronRight, CircleCheck, CircleDot, CircleMinus, CircleX, Globe, Loader, Shapes, Tag } from 'lucide-react'
 import { Badge } from '@workspace/ui/components/badge'
 import { PageCard, PageColumn, PageSection } from '@workspace/ui/components/page'
 import { PropertyRow, PropertySection } from '@workspace/ui/components/property-list'
@@ -18,15 +18,15 @@ import { PageHeader } from '@/components/app-shell/page-header'
 import { useComposerContext } from '@/components/composer/use-composer-context'
 import { SettingsRow } from '@/components/settings/settings-row'
 import { AgentEditButton } from '@/components/ui/agent-edit-button'
-import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import type { RoutineRun } from '../../../shared/types'
 import { useAppShellContext } from '@/context/app-shell-context'
-import { useSidecar } from '@/context/sidecar-context'
+import { SidecarDetails } from '@/context/sidecar-context'
 import { useNavigation } from '@/contexts/navigation-context'
 import { useParentView } from '@/hooks/use-parent-view'
 import { useRoutines } from '@/hooks/use-routines'
 import { actionTypes, describeTrigger, eventName, routineState, routineType, type Routine, type RoutineAction } from './routine-items'
 import { ACTION_TYPES, ROUTINE_TYPE_ICONS, RoutineMenuItems, useRoutineActions, type RoutinesApi } from './routine-row'
+import { RoutineWebhook } from './routine-webhook'
 
 /** The routine's Details in the sidecar: it reads the routine itself, so it stays current while open. */
 function RoutineDetails({ routineId }: { routineId: string }) {
@@ -47,7 +47,7 @@ function RoutineDetails({ routineId }: { routineId: string }) {
         readOnly
         icon={<TypeIcon />}
         label={t('routines.trigger')}
-        value={routine.config.schedule ? <span className="truncate font-mono text-xs">{routine.config.schedule.cron}</span> : routine.config.event ? eventName(routine.config.event, t) : t('routines.type_event')}
+        value={routine.config.schedule ? <span className="truncate font-mono text-xs">{routine.config.schedule.cron}</span> : routine.config.event ? eventName(routine.config.event, t) : routine.config.type === 'webhook' ? t('routines.triggerWebhook') : t('routines.type_event')}
       />
       {routine.config.type === 'schedule' && (
         <PropertyRow readOnly icon={<Globe />} label={t('routines.timezone')} value={routine.config.schedule?.timezone} placeholder={t('routines.localTime')} />
@@ -116,17 +116,14 @@ function RunRow({ run }: { run: RoutineRun }) {
 
 function RoutineView({ routine, api }: { routine: Routine; api: RoutinesApi }) {
   const { t, i18n } = useTranslation()
-  const { open, toggleSidecar } = useSidecar()
   const parent = useParentView()
   const actions = useRoutineActions(api, { onDeleted: () => parent?.onBack() })
-  const details = () => toggleSidecar({ title: t('routines.details'), content: <RoutineDetails routineId={routine.id} /> })
 
   return (
     <div className="flex h-full flex-col">
       <PageHeader
         title={routine.title}
         description={describeTrigger(routine, t, i18n.language)}
-        actions={<HeaderIconButton icon={<PanelRight />} tooltip={t('routines.details')} aria-pressed={open} onClick={details} />}
         menu={<RoutineMenuItems routine={routine} actions={actions} />}
       />
       <PageColumn className="min-h-full">
@@ -139,6 +136,7 @@ function RoutineView({ routine, api }: { routine: Routine; api: RoutinesApi }) {
             {routine.config.actions.map((action, index) => <ActionBlock key={index} action={action} />)}
           </PageCard>
         </PageSection>
+        {routine.config.type === 'webhook' && <RoutineWebhook routine={routine} api={api} />}
         <PageSection title={t('routines.runHistory')}>
           <PageCard>
             {routine.runs.length === 0 ? (
@@ -147,6 +145,7 @@ function RoutineView({ routine, api }: { routine: Routine; api: RoutinesApi }) {
           </PageCard>
         </PageSection>
       </PageColumn>
+      <SidecarDetails title={t('routines.details')}><RoutineDetails routineId={routine.id} /></SidecarDetails>
       {actions.dialog}
     </div>
   )

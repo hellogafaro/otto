@@ -21,12 +21,6 @@ export interface RpcServer {
   updateClientWorkspace?(clientId: string, workspaceId: string): void
   /** A user left or was removed from a workspace: their connections to it stop receiving its events. */
   removeUserFromWorkspace?(userId: string, workspaceId: string): void
-
-  /** Whether a connected client advertised the given capability on handshake. */
-  hasClientCapability(clientId: string, capability: string): boolean
-
-  /** Connected clients (optionally narrowed by workspaceId) that advertised the capability. */
-  findClientsWithCapability(capability: string, opts?: { workspaceId?: string }): string[]
 }
 
 export interface RpcClient {

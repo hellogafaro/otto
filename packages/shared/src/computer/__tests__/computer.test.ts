@@ -5,10 +5,8 @@ import { join } from 'node:path'
 import {
   COMPUTER_RESTARTED,
   DockerComputer,
-  LocalComputer,
-  chatDir,
+  boxChatDir,
   collect,
-  createComputer,
   ensureChatDir,
 } from '../index'
 
@@ -57,42 +55,9 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-describe('LocalComputer', () => {
-  test('runs a command with cwd and env', async () => {
-    const c = new LocalComputer()
-    const r = await collect(c.exec(['sh', '-c', 'echo "$FOO:$(pwd)"'], { cwd: '/tmp', env: { FOO: 'bar' } }))
-    expect(r).toEqual({ code: 0, stdout: 'bar:/tmp\n', stderr: '' })
-  })
-
-  test('returns exit code and stderr, and pipes stdin', async () => {
-    const c = new LocalComputer()
-    const failedRun = await collect(c.exec(['sh', '-c', 'echo oops >&2; exit 4']))
-    expect(failedRun).toEqual({ code: 4, stdout: '', stderr: 'oops\n' })
-
-    const spawned = c.exec(['cat'], { stdin: true })
-    spawned.stdin!.write('hello')
-    await spawned.stdin!.end()
-    expect((await collect(spawned)).stdout).toBe('hello')
-  })
-
-  test('abort kills the process', async () => {
-    const c = new LocalComputer()
-    const ac = new AbortController()
-    const spawned = c.exec(['sleep', '30'], { signal: ac.signal })
-    setTimeout(() => ac.abort(), 20)
-    expect(await spawned.exited).not.toBe(0)
-  })
-
-  test('a missing binary is a result, not a throw', async () => {
-    const r = await collect(new LocalComputer().exec(['definitely-not-a-binary-xyz']))
-    expect(r.code).toBe(127)
-    expect(r.stderr.length).toBeGreaterThan(0)
-  })
-})
-
 describe('DockerComputer', () => {
   test('first ensureRunning creates the container with the hardened flags', async () => {
-    await box({ skillsDir: '/srv/skills' }).ensureRunning()
+    await box({ skillsDir: '/srv/skills', sourcesDir: '/srv/sources', docsDir: '/srv/docs', workspaceId: 'ws0000000001' }).ensureRunning()
     const run = calls().find((c) => c[0] === 'run')!
     expect(run).toEqual([
       'run', '-d',
@@ -107,9 +72,13 @@ describe('DockerComputer', () => {
       '--shm-size', '1g',
       '-v', 'otto-agent-abc123def456-home:/home/agent',
       '-v', '/srv/skills:/skills:ro',
+      '-v', '/srv/docs:/otto/docs:ro',
+      '-v', '/srv/sources:/sources:ro',
+      '--add-host', 'host.docker.internal:host-gateway',
       '-p', '127.0.0.1::6080',
       '-p', '127.0.0.1::9223',
       '--label', 'otto.agent=abc123def456',
+      '--label', 'otto.workspace=ws0000000001',
       'otto-agent:latest',
     ])
     expect(status()).toBe('running')
@@ -189,9 +158,19 @@ describe('DockerComputer', () => {
     )
     expect(r).toEqual({ code: 0, stdout: 'a b c\n', stderr: '' })
     expect(lastExec()).toEqual([
-      'exec', '-i', '-u', 'ana', '-w', '/home/agent/chats/x', '-e', 'A=1', '-e', 'B=two',
+      'exec', '-i', '-u', 'ana', '-w', '/home/agent/chats/x', '-e', 'A', '-e', 'B',
       'otto-agent-abc123def456', 'fake-echo', 'a b', 'c',
     ])
+  })
+
+  test('env values reach the docker client only by its environment, never its argv', async () => {
+    const c = box()
+    await c.ensureRunning()
+    const r = await collect(c.exec(['fake-env', 'OTTO_RUN_TOKEN'], { env: { OTTO_RUN_TOKEN: 'run.secret' } }))
+    expect(r.stdout).toBe('run.secret\n')
+    expect(calls().flat().some((arg) => arg.includes('run.secret'))).toBe(false)
+    const bad = await collect(c.exec(['fake-echo'], { env: { 'A=B': 'x' } }))
+    expect(bad.code).toBe(2)
   })
 
   test('exec without options has no -u/-w/-e; exit codes and stderr pass through; stdin works', async () => {
@@ -336,8 +315,9 @@ describe('DockerComputer', () => {
   })
 
   test('chat folders: path rule and mkdir through exec', async () => {
-    expect(chatDir('abc123')).toBe('/home/agent/chats/abc123')
-    expect(() => chatDir('../etc')).toThrow('invalid chat id')
+    expect(boxChatDir('abc123')).toBe('/home/agent/chats/abc123')
+    expect(boxChatDir('260101-brave-fox')).toBe('/home/agent/chats/260101-brave-fox')
+    expect(() => boxChatDir('../etc')).toThrow('invalid chat id')
     const c = box()
     await c.ensureRunning()
     // the fake has no mkdir (exit 127); the recorded call is what we assert
@@ -345,15 +325,5 @@ describe('DockerComputer', () => {
     expect(lastExec()).toEqual([
       'exec', '-i', '-u', 'ana', 'otto-agent-abc123def456', 'mkdir', '-p', '/home/agent/chats/abc123',
     ])
-  })
-})
-
-describe('createComputer', () => {
-  test('switches on the kind', () => {
-    expect(createComputer('local')).toBeInstanceOf(LocalComputer)
-    const docker = createComputer('docker', { agentId: 'a1' })
-    expect(docker).toBeInstanceOf(DockerComputer)
-    expect(docker.name).toBe('otto-agent-a1')
-    expect(docker.volume).toBe('otto-agent-a1-home')
   })
 })

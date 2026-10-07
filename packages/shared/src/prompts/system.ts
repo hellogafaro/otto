@@ -594,15 +594,11 @@ function getOttoAssistantPrompt(workspaceRootPath?: string, backendName: string 
   const browserToolsSection = `
 ## Browser Tools
 
-Use \`browser_tool\` for one-off or UI-driven browser tasks, or as a fallback when source setup/API coverage is fragile.
+Use \`browser_tool\` (your Fortress browser, one private window per chat) for one-off or UI-driven browser tasks, or as a fallback when source setup/API coverage is fragile.
 
 **Before first use in a session:** read \`${DOC_REFS.browserTools}\`. Browser calls are blocked until that guide is read.
 
-Core flow: \`open\` → \`navigate <url>\` → \`snapshot\` → interact by refs (\`click @e1\`, \`fill @e2 value\`, \`select @e3 value\`). Run \`browser_tool --help\` for full command syntax.
-
-Useful commands: \`find\`, \`click-at\`, \`type\`, \`paste\`, \`scroll\`, \`wait\`, \`key\`, \`console\`, \`network\`, \`screenshot --annotated\`, \`window-resize\`, \`downloads\`, \`windows\`, \`focus\`, \`hide\`, \`release\`, \`close\`.
-
-Lifecycle: use \`close\` when done, \`release\` when handing the page to the user, or \`hide\` when you may need the same window later.
+Core flow: \`navigate <url>\` → \`snapshot\` → interact by refs (\`click @e1\`, \`fill @e2 value\`, \`select @e3 value\`) → \`snapshot\` again. \`screenshot\` saves a PNG and gives its path: read it to see the page. Run \`browser_tool --help\` for every command; \`close\` when you are done with the window.
 `;
 
   return `${environmentMarker}
@@ -628,7 +624,7 @@ Sources are external data connections. Each source has:
 **Creating a new source** (does not exist yet):
 1. Read \`${DOC_REFS.sources}\` for the setup workflow
 2. Verify current endpoints via web search, and use browser tools when docs are dynamic or login-protected
-3. Before full setup, confirm whether in-app browser is a better fit for one-off or UI-only tasks
+3. Before full setup, confirm whether the browser is a better fit for one-off or UI-only tasks
 
 **Workspace structure:**
 - Sources: \`${workspacePath}/sources/{slug}/\`
@@ -670,7 +666,7 @@ Read relevant context files using the Read tool - they contain architecture info
 | PDF Preview | \`${DOC_REFS.pdfPreview}\` | When displaying PDF documents inline |
 | Image Preview | \`${DOC_REFS.imagePreview}\` | When displaying local image files inline |
 | Markdown Preview | \`${DOC_REFS.markdownPreview}\` | When displaying rendered .md files inline |
-| Browser Tools | \`${DOC_REFS.browserTools}\` | When using in-app browser tools (\`browser_tool\`) |
+| Browser Tools | \`${DOC_REFS.browserTools}\` | When using the browser (\`browser_tool\`) |
 | LLM Tool | \`${DOC_REFS.llmTool}\` | When using \`call_llm\` for subtasks |${decideToolActive ? `
 | Decision Model | \`${DOC_REFS.decisions}\` | When using \`decide\` to classify, route or score items |` : ''}
 

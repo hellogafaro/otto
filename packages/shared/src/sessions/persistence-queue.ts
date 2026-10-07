@@ -1,6 +1,6 @@
 import { initDb, type Db } from '../db/index.ts'
 import { debug } from '../utils/debug.ts'
-import { writeChat, type ChatSnapshot } from './chats.ts'
+import { addParticipants, writeChat, type ChatSnapshot } from './chats.ts'
 import { initMessages, toMessageRow, writeMessages, type MessageUpsert } from './messages.ts'
 import type { StoredMessage } from './types.ts'
 
@@ -160,7 +160,7 @@ export class ChatPersistenceQueue {
     db.transaction(
       (tx) => {
         if (upserts.length || removed.length) writeMessages(tx, chat.workspaceId, chatId, upserts, removed)
-        writeChat(tx, chat, { newestAt, labels: labelsChanged ? (chat.labels ?? []) : undefined })
+        writeChat(tx, { ...chat, participants: addParticipants(chat, messages?.filter((message) => message.type === 'user')) }, { newestAt, labels: labelsChanged ? (chat.labels ?? []) : undefined })
       },
       { behavior: 'immediate' },
     )
