@@ -346,7 +346,6 @@ const healthServer = await startHealthHttpServer({
 
 const serverProto = instance.protocol === 'wss' ? 'https' : 'http'
 console.log(`OTTO_SERVER_URL=${instance.protocol}://${instance.host}:${instance.port}`)
-console.log(`OTTO_SERVER_TOKEN=${instance.token}`)
 if (webuiHandler) {
   console.log(`OTTO_WEBUI_URL=${serverProto}://0.0.0.0:${instance.port}`)
 }
