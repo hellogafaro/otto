@@ -1051,7 +1051,8 @@ status color (Archived neutral). A row (44px): the status icon
   `NoResults`. **New task** (`TaskFormDialog`) is the stock dialog: Title
   (required), Project (`ProjectPicker`, the searchable `Picker` opened by a
   field-look button: the filtered project, else the first active one),
-  Assignees (`AssigneePicker` as chips), Due date (`DatePicker` from the same
+  Assignees (`AssigneePicker`, the same `Picker` (multiple) from a field-look
+  button listing the chosen names), Due date (`DatePicker` from the same
   field-look button), Cancel and Create; it opens the new task. No native
   select or date input anywhere.
 - **Task page** (`TaskPage`, Otto v1's task page): a centerpiece page. The
@@ -1952,7 +1953,7 @@ row per member, the 20px avatar, the name, a muted "You" or "Agent" after it. Th
 chat's creator (its first member) has a 24px ghost `X` on every other row but the chat's own agent's (tooltip
 "Remove {name}"; "Ada removed") and two outline 28px pickers in the footer, "Add
 people" (`UserPlus`: workspace people not in yet, never you) and "Add agent"
-(`Bot`: workspace agents not in yet), each a searchable `Combobox` ("Ada added");
+(`Bot`: workspace agents not in yet), each the shared searchable `Picker` ("Search people" / "Search agents"; "Ada added");
 a picker with nobody left is disabled. Anyone else has "Leave chat" (the
 destructive 28px button with `LogOut`, no confirmation; "You left the chat"),
 which goes back to the index the chat was opened from, as Delete does. Changes

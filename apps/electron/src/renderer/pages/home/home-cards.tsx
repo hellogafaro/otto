@@ -127,7 +127,7 @@ export function TasksCard() {
       count={shown.length}
       onViewAll={() => navigate(routes.view.tasks())}
       loading={!tasksApi.loaded}
-      empty={shown.length === 0 ? t('home.tasksEmpty') : null}
+      empty={shown.length === 0 ? t('sectionEmpty.tasksTitle') : null}
     >
       {shown.slice(0, MAX_ROWS).map((task) => {
         const project = projectOf(task.projectId)
@@ -232,7 +232,7 @@ export function ChatsCard() {
       onViewAll={() => navigate(routes.view.allSessions())}
       // The shell shows once the chats have loaded.
       loading={false}
-      empty={shown.length === 0 ? t('home.chatsEmpty') : null}
+      empty={shown.length === 0 ? t('chatsIndex.emptyTitle') : null}
       after={(
         <RenameDialog
           open={renaming !== null}
@@ -283,7 +283,7 @@ export function NotificationsCard() {
       count={unread.length}
       onViewAll={() => navigate(routes.view.notifications())}
       loading={!loaded}
-      empty={unread.length === 0 ? t('home.notificationsEmpty') : null}
+      empty={unread.length === 0 ? t('notifications.emptyTitle') : null}
     >
       {unread.slice(0, MAX_ROWS).map((item) => (
         <ListRow

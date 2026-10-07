@@ -62,7 +62,13 @@ function Waveform() {
         analyser.fftSize = 64
         context.createMediaStreamSource(granted).connect(analyser)
         const levels = new Uint8Array(analyser.frequencyBinCount)
-        const draw = () => {
+        // Reduced motion: the level still shows, but steps four times a second instead of every frame.
+        const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        let drawn = 0
+        const draw = (at = 0) => {
+          frame = requestAnimationFrame(draw)
+          if (calm && at - drawn < 250) return
+          drawn = at
           analyser.getByteFrequencyData(levels)
           const children = bars.current?.children ?? []
           const half = children.length / 2
@@ -72,7 +78,6 @@ function Waveform() {
             const level = (levels[Math.floor(fromCenter * 7.99)] ?? 0) / 255
             ;(children[i] as HTMLElement).style.transform = `scaleY(${0.2 + level * 0.8})`
           }
-          frame = requestAnimationFrame(draw)
         }
         draw()
       },

@@ -234,10 +234,13 @@ function PageFrame({
         "--composer-anchor-height",
         `${slot.offsetHeight - pad}px`
       )
+      // Rects are in layout pixels, `translate` in the slot's own: under a
+      // CSS `zoom` (the web host's root on phones) they differ by its factor.
+      const zoom = slot.getBoundingClientRect().height / slot.offsetHeight || 1
       const shift =
         anchor.getBoundingClientRect().bottom -
-        (body.getBoundingClientRect().bottom - pad)
-      slot.style.translate = `0 ${shift}px`
+        (body.getBoundingClientRect().bottom - pad * zoom)
+      slot.style.translate = `0 ${shift / zoom}px`
     }
     const schedule = () => {
       cancelAnimationFrame(raf)

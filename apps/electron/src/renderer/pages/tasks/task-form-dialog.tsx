@@ -1,5 +1,5 @@
 /**
- * New task: Title, Project (the filtered one, else the first; the searchable `ProjectPicker`), Assignees and Due
+ * New task: Title, Project (the filtered one, else the first; the searchable `ProjectPicker`), Assignees (the `AssigneePicker`) and Due
  * date (the calendar popover), then `createTask` (and `setTaskStatus` when it starts in another status, from a
  * group's "+"). Opens the new task after creating it. A failure is a toast and the dialog stays open with what was typed.
  */
@@ -9,7 +9,7 @@ import { useForm } from '@tanstack/react-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { format } from 'date-fns'
-import { Box, CalendarDays, ChevronDown } from 'lucide-react'
+import { Box, CalendarDays, ChevronDown, Users } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@workspace/ui/components/dialog'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@workspace/ui/components/field'
@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 import { routes } from '@/lib/navigate'
 import { useProjects } from '@/hooks/use-projects'
 import { useTasks } from '@/hooks/use-tasks'
+import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import type { TaskStatus } from '../../../shared/types'
 
 /** A form field that opens a picker (the project, the due date): the input well with an icon, the value or the muted placeholder, and a chevron. */
@@ -74,6 +75,7 @@ function TaskForm({ defaults, onDone }: { defaults?: NewTaskDefaults; onDone: ()
   const { navigate } = useNavigation()
   const { projects } = useProjects()
   const { createTask, setTaskStatus } = useTasks()
+  const { nameOf } = useWorkspaceMembers()
   const active = projects.filter((project) => project.status === 'active')
   const schema = z.object({
     title: z.string().trim().min(1, t('common.required')).max(MAX_TITLE, t('common.tooLong', { max: MAX_TITLE })),
@@ -163,7 +165,19 @@ function TaskForm({ defaults, onDone }: { defaults?: NewTaskDefaults; onDone: ()
           {(field) => (
             <Field>
               <FieldLabel htmlFor={field.name}>{t('tasks.assignees')}</FieldLabel>
-              <AssigneePicker id={field.name} value={field.state.value} onChange={field.handleChange} />
+              <AssigneePicker
+                value={field.state.value}
+                onChange={(next) => field.handleChange(next)}
+                className="w-(--anchor-width)"
+                trigger={(
+                  <FieldTrigger
+                    id={field.name}
+                    icon={<Users />}
+                    value={field.state.value.map(nameOf).join(', ')}
+                    placeholder={t('tasks.noAssignees')}
+                  />
+                )}
+              />
             </Field>
           )}
         </form.Field>

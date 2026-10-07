@@ -8,8 +8,8 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bot, LogOut, UserPlus, X } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
-import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, ComboboxSearch, ComboboxTrigger } from '@workspace/ui/components/combobox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@workspace/ui/components/dialog'
+import { Picker } from '@workspace/ui/components/picker'
 import { toast } from '@workspace/ui/components/sonner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { useChatMembers, type ChatMember } from '@/hooks/use-chat-members'
@@ -19,28 +19,28 @@ import type { SessionMeta } from '@/atoms/sessions'
 import type { SessionCommand } from '../../../shared/types'
 import { MemberAvatar } from './chat-people'
 
-/** A searchable list of who can be added, opened from an outline button. */
-function AddPicker({ label, icon, items, onPick }: { label: string; icon: React.ReactNode; items: ChatMember[]; onPick: (member: ChatMember) => void }) {
-  const { t } = useTranslation()
+/** Who can be added, in the shared searchable `Picker`, opened from an outline button. */
+function AddPicker({ label, icon, search, empty, items, onPick }: {
+  label: string
+  icon: React.ReactNode
+  search: string
+  empty: string
+  items: ChatMember[]
+  onPick: (member: ChatMember) => void
+}) {
+  const byActor = new Map(items.map((member) => [member.actor, member]))
   return (
-    <Combobox items={items} value={null} onValueChange={(member) => member && onPick(member as ChatMember)} itemToStringLabel={(member: ChatMember) => member.name}>
-      <ComboboxTrigger render={<Button variant="outline" size="compact" disabled={items.length === 0} />}>
-        {icon}
-        {label}
-      </ComboboxTrigger>
-      <ComboboxContent className="w-60">
-        <ComboboxSearch placeholder={t('tasks.searchPeople')} />
-        <ComboboxEmpty>{t('tasks.noMatches')}</ComboboxEmpty>
-        <ComboboxList>
-          {(member: ChatMember) => (
-            <ComboboxItem key={member.actor} value={member}>
-              <MemberAvatar member={member} />
-              <span className="truncate">{member.name}</span>
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
+    <Picker
+      items={items.map((member) => member.actor)}
+      value={null}
+      onValueChange={(actor) => { const member = byActor.get(actor); if (member) onPick(member) }}
+      itemLabel={(actor) => byActor.get(actor)?.name ?? actor}
+      itemIcon={(actor) => { const member = byActor.get(actor); return member ? <MemberAvatar member={member} /> : null }}
+      trigger={<Button variant="outline" size="compact">{icon}{label}</Button>}
+      disabled={items.length === 0}
+      search={search}
+      empty={empty}
+    />
   )
 }
 
@@ -109,8 +109,8 @@ export function ChatMembersDialog({ chat, open, onOpenChange, onLeft }: {
           <DialogFooter>
             {isCreator ? (
               <>
-                <AddPicker label={t('chatMembers.addPeople')} icon={<UserPlus />} items={people} onPick={(member) => void run({ type: 'addMembers', actors: [member.actor] }, t('chatMembers.added', { name: member.name }))} />
-                <AddPicker label={t('chatMembers.addAgent')} icon={<Bot />} items={addableAgents} onPick={(member) => void run({ type: 'addMembers', actors: [member.actor] }, t('chatMembers.added', { name: member.name }))} />
+                <AddPicker label={t('chatMembers.addPeople')} icon={<UserPlus />} search={t('pickers.searchPeople')} empty={t('pickers.noPeople')} items={people} onPick={(member) => void run({ type: 'addMembers', actors: [member.actor] }, t('chatMembers.added', { name: member.name }))} />
+                <AddPicker label={t('chatMembers.addAgent')} icon={<Bot />} search={t('pickers.searchAgents')} empty={t('pickers.noAgents')} items={addableAgents} onPick={(member) => void run({ type: 'addMembers', actors: [member.actor] }, t('chatMembers.added', { name: member.name }))} />
               </>
             ) : (
               <Button variant="destructive" size="compact" onClick={() => void leave()}>
