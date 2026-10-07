@@ -615,6 +615,7 @@ interface ManagedSession {
   /** Messages steered into a running turn: that agent has them already, its next turn leaves them out. In memory only. */
   steeredIds?: Set<string>
   agent: AgentInstance | null  // Lazy-loaded - null until first message
+  mastraAbort?: AbortController
   messages: Message[]
   isProcessing: boolean
   /** Set when user requests stop - allows event loop to drain before clearing isProcessing */
@@ -5237,6 +5238,7 @@ export class SessionManager implements ISessionManager {
     }
     if (callerId !== undefined && managed.createdBy !== `user:${callerId}`) throw domainError('forbidden', 'Only the creator of a chat can delete it; leave it instead')
 
+    managed.mastraAbort?.abort()
     // Get workspace slug before deleting
     const workspaceRootPath = managed.workspace.rootPath
 
@@ -5704,7 +5706,7 @@ export class SessionManager implements ISessionManager {
 
         // Generate AI title asynchronously using agent's SDK
         // (waits briefly for agent creation if needed)
-        void this.generateTitleUnlessSmallTalk(managed, sanitized || message)
+        if (process.env.OTTO_MASTRA_CHAT !== '1') void this.generateTitleUnlessSmallTalk(managed, sanitized || message)
       }
     }
 
@@ -5778,6 +5780,12 @@ export class SessionManager implements ISessionManager {
     const myGeneration = managed.processingGeneration
     // A Stop from now on (not a stale stopRequested flag) keeps this turn from starting.
     const turnStopEpoch = managed.stopEpoch ?? 0
+
+    if (process.env.OTTO_MASTRA_CHAT === '1') {
+      if (managed.agent) await this.disposeManagedAgentRuntime(managed, 'native Mastra migration slice')
+      await this.runMastraChat(managed, attachments?.length || storedAttachments?.length, myGeneration, turnStopEpoch)
+      return
+    }
 
     // Pre-enable sources required by invoked skills (Issue #249)
     // This eliminates the two-turn penalty where the agent discovers missing sources at runtime.
@@ -6189,6 +6197,65 @@ export class SessionManager implements ISessionManager {
     }
   }
 
+  private async runMastraChat(managed: ManagedSession, hasAttachments: number | undefined, generation: number, stopEpoch: number): Promise<void> {
+    const abort = new AbortController()
+    managed.mastraAbort = abort
+    let reason: 'complete' | 'interrupted' | 'error' = 'error'
+    try {
+      if (hasAttachments || managed.enabledSourceSlugs?.length) throw new Error('This text-only migration slice does not run attachments or connected sources yet.')
+      const creatorId = userIdOf(managed.createdBy)
+      const agentId = turnAgentOf(managed)
+      const selectedAgent = agentId ? getAgent(managed.workspace.id, agentId) : undefined
+      if (!creatorId || !getMemberRole(managed.workspace.id, creatorId)
+          || !managed.members.some((member) => member.actor === managed.createdBy)
+          || !selectedAgent || !managed.members.some((member) => member.actor === `agent:${agentId}`)) {
+        throw new Error('The chat creator and selected agent must still belong to this workspace and chat.')
+      }
+      const context = resolveBackendContext({
+        ...turnConnectionOf(managed),
+        workspaceDefaultConnectionSlug: loadWorkspaceConfig(managed.workspace.rootPath)?.defaults?.defaultLlmConnection,
+        where: this.connectionContextOf(managed),
+        agent: agentOf(managed),
+      })
+      const connection = context.connection
+      if (!connection || connection.authType !== 'api_key') throw new Error('Connect an OpenAI API key for this migration slice. Subscription logins are unchanged but unavailable here.')
+      const apiKey = await getCredentialManager().getLlmApiKey(connection.slug, connection.scope)
+      if (!apiKey) throw new Error('The selected connection has no API key.')
+      if ((managed.stopEpoch ?? 0) !== stopEpoch || this.sessions.get(managed.id) !== managed) abort.abort()
+      const self = `agent:${turnAgentOf(managed)}`
+      const messages = managed.messages
+        .filter((entry) => (entry.role === 'user' || entry.role === 'assistant') && !entry.isIntermediate && !entry.isQueued && !entry.hidden)
+        .map((entry) => ({
+          role: entry.role === 'assistant' && (entry.author ?? `agent:${managed.agentId}`) === self ? 'assistant' as const : 'user' as const,
+          content: this.hasSeveralAuthors(managed, turnAgentOf(managed) ?? '') && (entry.sender ?? entry.author) !== self
+            ? this.attributed(managed, entry.content, entry.sender ?? entry.author ?? managed.createdBy)
+            : entry.content,
+        }))
+      abort.signal.throwIfAborted()
+      const instructions = agentTurnOf(managed)?.instructions ?? ''
+      const { createMastraChatModel, streamMastraChat } = await import('./mastra-chat.ts')
+      for await (const event of streamMastraChat({
+        agentId: selectedAgent.id,
+        name: selectedAgent.title,
+        instructions: `${instructions}\nThis is a text-only migration slice. You have no work tools; do not claim to read or change files, tasks, documents or connected services.`,
+        messages,
+        model: createMastraChatModel({ provider: connection.type, model: context.resolvedModel, apiKey, baseUrl: connection.baseUrl }),
+        signal: abort.signal,
+      })) {
+        if (managed.processingGeneration !== generation || this.sessions.get(managed.id) !== managed) return
+        await this.processEvent(managed, event)
+        if (event.type === 'complete') reason = 'complete'
+      }
+    } catch {
+      reason = abort.signal.aborted ? 'interrupted' : 'error'
+      if (managed.streamingTurnId) await this.processEvent(managed, { type: 'text_discard', turnId: managed.streamingTurnId })
+      if (!abort.signal.aborted) await this.processEvent(managed, { type: 'error', message: 'The text-only Mastra request could not complete. Use an OpenAI API-key connection without attachments or sources.' })
+    } finally {
+      if (managed.mastraAbort === abort) managed.mastraAbort = undefined
+      if (this.sessions.get(managed.id) === managed && managed.processingGeneration === generation && managed.isProcessing) await this.onProcessingStopped(managed.id, reason)
+    }
+  }
+
   async cancelProcessing(sessionId: string, silent = false): Promise<void> {
     const managed = this.sessions.get(sessionId)
     if (!managed?.isProcessing) {
@@ -6225,6 +6292,7 @@ export class SessionManager implements ISessionManager {
     // Track interruption so the next user message gets a context note
     // telling the LLM the previous response was cut short
     managed.wasInterrupted = true
+    managed.mastraAbort?.abort()
 
     // Force-abort via Query.close() - sends soft interrupt to the backend
     if (managed.agent) {
@@ -6426,14 +6494,14 @@ export class SessionManager implements ISessionManager {
       // Mini sessions have no status worth changing.
       if (reason === 'complete' && didReceiveNewFinalMessage && currentFinalMessageId
           && managed.systemPromptPreset !== 'mini') {
-        void this.applyTurnOutcome(managed, currentFinalMessageId)
-        if (!managed.triggeredBy) void this.refreshTitleIfDrifted(managed)
+        if (process.env.OTTO_MASTRA_CHAT !== '1') void this.applyTurnOutcome(managed, currentFinalMessageId)
+        if (!managed.triggeredBy && process.env.OTTO_MASTRA_CHAT !== '1') void this.refreshTitleIfDrifted(managed)
       }
     }
 
     // 6. Always persist
     this.persistSession(managed)
-    this.syncPiSession(managed)
+    if (process.env.OTTO_MASTRA_CHAT !== '1') this.syncPiSession(managed)
   }
 
   /** The end of a turn (or of a message no agent answers) for each member person, with their own unread state. */
@@ -8216,6 +8284,7 @@ export class SessionManager implements ISessionManager {
    */
   cleanup(): void {
     sessionLog.info('Cleaning up resources...')
+    for (const managed of this.sessions.values()) managed.mastraAbort?.abort()
     this.unsubscribeChatsChange?.()
     this.unsubscribeChatsChange = undefined
 

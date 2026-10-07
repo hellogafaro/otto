@@ -2967,6 +2967,19 @@ continue through bounded pages instead of treating the first hundred as complete
 
 ## Do's and Don'ts
 
+### Native runtime migration proof
+
+The first opt-in Mastra slice reuses the existing named-agent chat, composer,
+streaming reply and reconnect history. It introduces no alternate chat layout.
+It is text-only: unsupported attachments and connected sources fail visibly,
+and the agent is told it cannot perform work actions. Pi remains the default
+until work tools and controls are verified. API-key-only is the MVP direction;
+subscription setup is removed when the default runtime cuts over, without
+silently converting or deleting existing accounts. Document views continue to
+support direct editing. Public sharing of chats, documents and other work
+artifacts is deferred and will require explicit visibility, never inherited
+workspace or agent access.
+
 - Do change shared looks in the `packages/ui` component with an `// Otto:`
   comment; don't override colors or type on one instance.
 - Do use only the spacing scale, the two insets, 32px bar controls and 28px

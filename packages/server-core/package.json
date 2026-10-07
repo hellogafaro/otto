@@ -25,6 +25,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/openai": "4.0.87",
+    "@mastra/core": "1.75.0",
     "@otto/core": "workspace:*",
     "@otto/shared": "workspace:*",
     "ws": "^8.19.0",
