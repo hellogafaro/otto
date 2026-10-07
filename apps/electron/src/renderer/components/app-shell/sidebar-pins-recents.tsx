@@ -38,6 +38,7 @@ import { useSessionActions } from '@/hooks/use-session-actions'
 import { useShortcutReveal } from '@/hooks/use-shortcut-reveal'
 import { ChatStatusIcon, type SessionStatus } from '@/config/session-status-config'
 import { getSessionStatus, getSessionTitle, hasUnreadMeta, shortTimeAgo } from '@/utils/session'
+import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import { Kbd } from '@/components/ui/kbd'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import { SortableList } from '@/components/ui/sortable-list'
@@ -212,6 +213,9 @@ function Row({ item, pinned, active, hotkey, reveal, now, waiting = false, sessi
   const isChat = !!session && !!chat
   const rest = mark ? 'mark' : ago ? 'time' : 'none'
   const bright = !!session && (waiting || hasUnreadMeta(session))
+  // a DM or a group reads as its other people, per viewer
+  const people = useWorkspaceMembers()
+  const title = session ? getSessionTitle(session, people) : item.title
 
   const row = (
     <SidebarMenuButton
@@ -221,7 +225,7 @@ function Row({ item, pinned, active, hotkey, reveal, now, waiting = false, sessi
     >
       <ItemIcon item={item} sessionStatuses={sessionStatuses} />
       <span className={cn('min-w-0 flex-1 overflow-hidden text-clip! whitespace-nowrap', TITLE_FADE, bright && 'text-foreground')}>
-        {item.title}
+        {title}
       </span>
     </SidebarMenuButton>
   )

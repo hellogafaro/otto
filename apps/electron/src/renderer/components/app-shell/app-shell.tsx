@@ -32,7 +32,7 @@ import {
   isProjectsNavigation,
   isLibraryNavigation,
   isTasksNavigation,
-  isInboxNavigation,
+  isHomeNavigation,
   isSettingsNavigation,
   isSkillsNavigation,
   isAgentsNavigation,
@@ -49,7 +49,7 @@ import { SidecarHost, SidecarProvider } from "@/context/sidecar-context"
 import { ComposerProvider } from "@/components/composer/composer-provider"
 import { ShellComposer } from "@/components/composer/shell-composer"
 import { isWebUI } from "@/lib/platform"
-import { InboxWallpaper } from "@/components/wallpaper/inbox-wallpaper"
+import { HomeWallpaper } from "@/components/wallpaper/home-wallpaper"
 import { SendToWorkspaceDialog } from "./send-to-workspace-dialog"
 import { MessagingDialogHost } from "@/components/messaging/messaging-dialog-host"
 import { CommandPaletteProvider } from "@/components/command-palette/command-palette-provider"
@@ -344,6 +344,9 @@ function AppShellContent({
   // New chat
   useAction('app.newChat', () => handleNewChat())
 
+  // Home (the sidebar's logo and Home row do the same)
+  useAction('nav.home', () => navigate(routes.view.home()))
+
   // Settings
   useAction('app.settings', onOpenSettings)
 
@@ -569,8 +572,8 @@ function AppShellContent({
     navigate(routes.view.tasks())
   }, [])
 
-  const handleInboxClick = useCallback(() => {
-    navigate(routes.view.inbox())
+  const handleHomeClick = useCallback(() => {
+    navigate(routes.view.home())
   }, [])
 
   const handleAllSessionsClick = useCallback(() => {
@@ -628,22 +631,22 @@ function AppShellContent({
           ? 'routines'
           : isLibraryNavigation(navState)
             ? 'library'
-            : isInboxNavigation(navState)
-              ? 'inbox'
+            : isHomeNavigation(navState)
+              ? 'home'
               : null
 
   return (
     <AppShellProvider value={appShellContextValue}>
       <CommandPaletteProvider>
       <SidebarProvider>
-        {/* The Inbox only: the photo under the whole window, first so the sidebar and the page paint over it. */}
-        {sidebarArea === 'inbox' && <InboxWallpaper />}
+        {/* Home only: the photo under the whole window, first so the sidebar and the page paint over it. */}
+        {sidebarArea === 'home' && <HomeWallpaper />}
         {/* Electron: the window's top 8px is drag space everywhere (the gutters, the sidebar header and the chat's pinned row are the rest). */}
         {!isWebUI && <div aria-hidden className="titlebar-drag-region fixed inset-x-0 top-0 z-50 h-2" />}
         <CloseSheetOnNavigate />
         <AppSidebar
           active={sidebarArea}
-          onInbox={handleInboxClick}
+          onHome={handleHomeClick}
           onTasks={handleTasksClick}
           onChats={handleAllSessionsClick}
           onProjects={handleProjectsClick}

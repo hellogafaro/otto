@@ -1,9 +1,9 @@
 /**
  * AppSidebar - the shell's one sidebar, on the frame beside the page card.
  *
- * Top to bottom, five groups 20px apart (the sidebar's one gap): the header (the Otto mark; on Electron
- * the macOS traffic-light inset, the drag region and the history Back / Forward
- * buttons); Inbox (your notifications, the unread count at the row's end) and Search (opens the command palette); the pages (ones with no route yet are shown, not
+ * Top to bottom, five groups 20px apart (the sidebar's one gap): the header (the mark, a ghost button that opens
+ * Home; on Electron the macOS traffic-light inset, the drag region and the history Back / Forward
+ * buttons); Home (your unread notifications' count at the row's end) and Search (opens the command palette); the pages (ones with no route yet are shown, not
  * linked); Pinned and Recent (`SidebarPinsRecents`, the only group that scrolls,
  * none when both are empty); and the footer (the workspace menu alone, Settings inside
  * it), pinned at the bottom. Icons only below 1024px (Pinned and Recent hidden), a
@@ -20,7 +20,7 @@ import {
   CircleCheck,
   Clock,
   Folder,
-  Inbox,
+  House,
   Library,
   MessagesSquare,
   Search,
@@ -43,8 +43,11 @@ import { cn } from '@/lib/utils'
 import { isMac, isWebUI } from '@/lib/platform'
 import { useShortcutReveal } from '@/hooks/use-shortcut-reveal'
 import { useNotifications } from '@/hooks/use-notifications'
-import { formatUnreadCount } from '@/pages/inbox/inbox-rules'
+import { formatUnreadCount } from '@/pages/home/notification-rules'
 import { ActionTooltip } from '@/components/ui/action-tooltip'
+import { Kbd } from '@/components/ui/kbd'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
+import { useActionLabel } from '@/actions'
 import type { SessionStatus } from '@/config/session-status-config'
 import type { Workspace } from '../../../shared/types'
 import { WorkspaceMenu } from './workspace-menu'
@@ -53,12 +56,12 @@ import { SettingsBackRow, SettingsSidebarContent } from './settings-sidebar'
 import { useCommandPalette } from '@/components/command-palette/command-palette-provider'
 import { PRODUCT_NAME } from '@otto/shared/branding'
 
-export type SidebarArea = 'inbox' | 'tasks' | 'chats' | 'projects' | 'routines' | 'library'
+export type SidebarArea = 'home' | 'tasks' | 'chats' | 'projects' | 'routines' | 'library'
 
 interface AppSidebarProps {
   /** The area that is open (its row is filled). */
   active: SidebarArea | null
-  onInbox: () => void
+  onHome: () => void
   onTasks: () => void
   onChats: () => void
   onProjects: () => void
@@ -92,7 +95,7 @@ interface NavItem {
   area?: SidebarArea
   /** Rows without a handler are placeholders: shown, not linked yet. */
   onSelect?: () => void
-  /** A count at the row's end (Inbox: unread notifications), none when null. */
+  /** A count at the row's end (Home: unread notifications), none when null. */
   count?: string | null
 }
 
@@ -102,7 +105,7 @@ const clearsTrafficLights = isMac && !isWebUI
 
 export function AppSidebar({
   active,
-  onInbox,
+  onHome,
   onTasks,
   onChats,
   onProjects,
@@ -128,10 +131,11 @@ export function AppSidebar({
   const revealShortcuts = useShortcutReveal()
   const palette = useCommandPalette()
   const { unreadCount } = useNotifications()
+  const homeKey = useActionLabel('nav.home').hotkey
 
-  // Group 1: Inbox (its unread count, 99+ at most) and Search, the command palette.
-  const inboxSearch: NavItem[] = [
-    { id: 'inbox', icon: Inbox, labelKey: 'sidebar.inbox', area: 'inbox', onSelect: onInbox, count: formatUnreadCount(unreadCount) },
+  // Group 1: Home (the unread notifications' count, 99+ at most) and Search, the command palette.
+  const homeSearch: NavItem[] = [
+    { id: 'home', icon: House, labelKey: 'sidebar.home', area: 'home', onSelect: onHome, count: formatUnreadCount(unreadCount) },
     { id: 'search', icon: Search, labelKey: 'sidebar.search', onSelect: () => palette.open() },
   ]
   // Group 2: the pages, each with a route or a placeholder.
@@ -162,8 +166,22 @@ export function AppSidebar({
           {settings ? (
             <SettingsBackRow onBack={onBackToApp} />
           ) : (
-            <div className="flex min-w-0 flex-1 items-center gap-2 pl-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-0">
-              <Logo className="size-5 text-foreground" title={PRODUCT_NAME} />
+            // The mark is a 32px ghost button (4px around the 24px mark) that opens Home; 2px in, so the
+            // mark's center stays where the 20px mark's was (26px from the sidebar's edge, on the axis).
+            <div className="flex min-w-0 flex-1 items-center pl-0.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-0">
+              <Tooltip>
+                <TooltipTrigger
+                  render={(
+                    <Button variant="ghost" size="icon" aria-label={t('sidebar.home')} className="titlebar-no-drag" onClick={onHome}>
+                      <Logo className="size-6 text-foreground" title={PRODUCT_NAME} />
+                    </Button>
+                  )}
+                />
+                <TooltipContent side="bottom">
+                  {t('sidebar.home')}
+                  {homeKey && <Kbd>{homeKey}</Kbd>}
+                </TooltipContent>
+              </Tooltip>
             </div>
           )}
           {!isWebUI && (
@@ -188,7 +206,7 @@ export function AppSidebar({
       ) : (
         <>
           <SidebarContent>
-            {[inboxSearch, pages].map((items, index) => (
+            {[homeSearch, pages].map((items, index) => (
               <SidebarGroup key={index} className="shrink-0">
                 <SidebarMenu>
                   {items.map((item) => (

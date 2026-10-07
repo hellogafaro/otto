@@ -51,6 +51,7 @@ import { useNavigation } from '@/contexts/navigation-context'
 import { useSessionActions } from '@/hooks/use-session-actions'
 import { useSessionSearch } from '@/hooks/use-session-search'
 import { getSessionStatus, getSessionTitle, hasUnreadMeta, shortTimeLocale } from '@/utils/session'
+import { useWorkspaceMembers } from '@/hooks/use-workspace-members'
 import { hasChatFilters, matchesChatFilters, NO_CHAT_FILTERS, useChatFilters, type ChatFilters } from './use-chat-filters'
 
 /** A label's colored dot, centered in a 14px icon box. */
@@ -102,7 +103,7 @@ function ChatMeta({ item, labels }: { item: SessionMeta; labels: LabelConfig[] }
 function ChatRow({ item, labels, actions, onOpen }: { item: SessionMeta; labels: LabelConfig[]; actions: RowActions; onOpen: (id: string) => void }) {
   const { workspaces, isCompactMode, sessionStatuses = [], labels: labelTree = [], onSessionLabelsChange } = useAppShellContext()
   const [compactOpen, setCompactOpen] = React.useState(false)
-  const title = getSessionTitle(item)
+  const title = getSessionTitle(item, useWorkspaceMembers())
   const unread = hasUnreadMeta(item)
   const transfer = hasTransferTargets(workspaces)
   const handlers = {

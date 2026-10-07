@@ -145,8 +145,9 @@ function PageFrame({
   const [contentStart, setContentStart] = React.useState(0)
   const [composerSlot, setComposerSlot] = React.useState<HTMLElement | null>(null)
   const [fullClearance, setFullClearance] = React.useState<number | null>(null)
+  const [centered, setCentered] = React.useState(false)
 
-  // Otto: the full composer (the chat, the new chat, the Inbox) is in the
+  // Otto: the full composer (the chat, the new chat) is in the
   // layout: the column keeps the slot's measured height (the composer and its
   // gap below) free plus `--composer-gap` (24px) above it, frame by frame while it grows
   // or shrinks (`--composer-clearance`).
@@ -177,11 +178,15 @@ function PageFrame({
   // Otto: toasts live outside the frame, so the composer's band (the slot's
   // height; 0 with no bar) is published on the root as `--composer-lift` and the
   // Toaster stands that much higher (never over the bar).
+  // A centered composer is not at the bottom: the toasts keep their own place.
   React.useLayoutEffect(() => {
     if (!composerSlot) return
     const root = document.documentElement
     const publish = () =>
-      root.style.setProperty("--composer-lift", `${composerSlot.offsetHeight}px`)
+      root.style.setProperty(
+        "--composer-lift",
+        `${centered ? 0 : composerSlot.offsetHeight}px`
+      )
     publish()
     const resizes = new ResizeObserver(publish)
     resizes.observe(composerSlot)
@@ -189,7 +194,74 @@ function PageFrame({
       resizes.disconnect()
       root.style.removeProperty("--composer-lift")
     }
-  }, [composerSlot])
+  }, [composerSlot, centered])
+
+  // Otto: the `centered` placement (Home). A page that renders
+  // `PageComposerAnchor` asks for the composer THERE, in its flow (under the
+  // greeting), instead of at the bottom: the SAME instance stays in the slot
+  // (never remounted, so its text, files and grow / shrink morph are kept) and
+  // the slot is translated onto the anchor, following it as the page scrolls.
+  // The anchor takes the composer's height (`--composer-anchor-height`), so the
+  // content under it makes room as it grows. Moving between placements (Home to
+  // a chat and back) glides on the composer's 320ms morph curve; scrolling and
+  // growing follow at once. While centered nothing is at the bottom: no
+  // clearance and no lift. Writes go straight to the DOM (no render per scroll).
+  React.useLayoutEffect(() => {
+    if (!body || !composerSlot) return
+    const slot = composerSlot
+    let anchor: HTMLElement | null = null
+    let first = true
+    let raf = 0
+    let glide = 0
+    const place = () => {
+      const next = body.querySelector<HTMLElement>(
+        "[data-slot=page-composer-anchor]"
+      )
+      if (!!next !== !!anchor && !first) {
+        slot.dataset.glide = ""
+        window.clearTimeout(glide)
+        glide = window.setTimeout(() => delete slot.dataset.glide, 400)
+      }
+      first = false
+      anchor = next
+      setCentered(!!anchor)
+      if (!anchor) {
+        slot.style.translate = ""
+        return
+      }
+      const pad = parseFloat(getComputedStyle(slot).paddingBottom) || 0
+      body.style.setProperty(
+        "--composer-anchor-height",
+        `${slot.offsetHeight - pad}px`
+      )
+      const shift =
+        anchor.getBoundingClientRect().bottom -
+        (body.getBoundingClientRect().bottom - pad)
+      slot.style.translate = `0 ${shift}px`
+    }
+    const schedule = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(place)
+    }
+    place()
+    const mutations = new MutationObserver(schedule)
+    mutations.observe(body, { childList: true, subtree: true })
+    const resizes = new ResizeObserver(schedule)
+    resizes.observe(body)
+    resizes.observe(slot)
+    const onScroll = () => {
+      if (anchor) place()
+    }
+    body.addEventListener("scroll", onScroll, { capture: true, passive: true })
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(glide)
+      mutations.disconnect()
+      resizes.disconnect()
+      body.removeEventListener("scroll", onScroll, { capture: true })
+      slot.style.translate = ""
+    }
+  }, [body, composerSlot])
 
   React.useLayoutEffect(() => {
     if (!body) return
@@ -286,11 +358,13 @@ function PageFrame({
             {
               ...FRAME_TOKENS,
               "--content-start": `${contentStart}px`,
-              ...(fullClearance === null
-                ? {}
-                : {
-                    "--composer-clearance": `calc(${fullClearance}px + var(--composer-gap))`,
-                  }),
+              ...(centered
+                ? { "--composer-clearance": "0px" }
+                : fullClearance === null
+                  ? {}
+                  : {
+                      "--composer-clearance": `calc(${fullClearance}px + var(--composer-gap))`,
+                    }),
             } as React.CSSProperties
           }
         >
@@ -340,6 +414,7 @@ function PageFrame({
           />
           <div
             data-slot="page-composer-slot"
+            data-placement={centered ? "centered" : "bottom"}
             ref={setComposerSlot}
             // Otto: the composer's layer. Over the column's bottom, OUTSIDE its
             // scroll (a masked scroller stops the bar's backdrop blur), 8px above
@@ -353,7 +428,9 @@ function PageFrame({
             // (24px in from 768px; the frame's 20px gutter below), 8px above
             // the body's end (16px above the window's). The slot's height
             // (composer + bottom gap) is published as `--composer-lift`.
-            className="pointer-events-none relative z-10 col-start-2 row-start-2 flex min-w-0 justify-center self-end pb-2 *:pointer-events-auto empty:hidden md:px-6"
+            // `centered` (a `PageComposerAnchor` in the page) moves it onto the
+            // anchor (see the effect above); `data-glide` animates a change of place.
+            className="pointer-events-none relative z-10 col-start-2 row-start-2 flex min-w-0 justify-center self-end pb-2 *:pointer-events-auto empty:hidden data-glide:transition-[translate] data-glide:duration-320 data-glide:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:px-6"
           >
             {composer}
           </div>
@@ -451,4 +528,18 @@ function PageScroll({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { PAGE_INSET, PageFrame, PageHeaderRow, PageScroll, usePageFrame }
+// Otto: where a page wants the composer in its flow (the `centered` placement:
+// Home, under its greeting). An empty box as tall as the composer; the frame
+// moves the shell's one composer onto it (see `PageFrame`). One per page.
+function PageComposerAnchor({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      aria-hidden
+      data-slot="page-composer-anchor"
+      className={cn("h-(--composer-anchor-height,4.5rem) w-full shrink-0", className)}
+      {...props}
+    />
+  )
+}
+
+export { PAGE_INSET, PageComposerAnchor, PageFrame, PageHeaderRow, PageScroll, usePageFrame }

@@ -9,7 +9,8 @@
  *   keep the index's search (filters, tab, `?folder=`), so Back returns to the same list.
  * - A skill or a source: its grid in Settings, under the filter it was opened with; an agent: the Agents gallery.
  * - An automation: its section.
- * The Chats, Tasks, Projects and Library indexes, the Skills and Sources grids and the Inbox have no
+ * - The full list of notifications: Home.
+ * Home, the Chats, Tasks, Projects and Library indexes and the Skills and Sources grids have no
  * parent. Settings' own pages have none either: Settings has no index; its sidebar lists its pages
  * and leads with Back to app.
  *
@@ -49,7 +50,8 @@ export function useParentView(): ParentView | null {
         return navState.details ? { onBack: goToIndex } : null
       case 'projects':
         return navState.details ? { onBack: () => navigate(routes.view.projects()) } : null
-      case 'inbox':
+      case 'home':
+        return navState.notifications ? { onBack: () => navigate(routes.view.home()) } : null
       case 'settings':
         return null
     }

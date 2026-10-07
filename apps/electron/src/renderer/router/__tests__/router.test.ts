@@ -42,7 +42,8 @@ describe('route tree', () => {
       '/test/routines/a1': '/$workspaceSlug/routines/$automationId',
       '/test/library': '/$workspaceSlug/library',
       '/test/library/doc': '/$workspaceSlug/library/$itemId',
-      '/test/inbox': '/$workspaceSlug/inbox',
+      '/test/home': '/$workspaceSlug/home',
+      '/test/home/notifications': '/$workspaceSlug/home/notifications',
       '/test/settings/skills': '/$workspaceSlug/settings/skills',
       '/test/settings/skills/s': '/$workspaceSlug/settings/skills/$skillSlug',
       '/test/settings/sources': '/$workspaceSlug/settings/sources',
@@ -54,6 +55,10 @@ describe('route tree', () => {
       expect(leaf(router).routeId as string, href).toBe(routeId)
       expect(notFound(router), href).toBe(false)
     }
+  })
+
+  it('redirects the old Inbox to Home', async () => {
+    expect(where(await open('/test/inbox'))).toBe('/test/home')
   })
 
   it('redirects a bare workspace to its Chats', async () => {
@@ -112,7 +117,7 @@ describe('route tree', () => {
 
 describe('not found', () => {
   it('a URL that matches no route is not found, and stays where it is', async () => {
-    for (const href of ['/test/nope', '/test/chats/a/b', '/test/tasks/a/b', '/test/inbox/x', '/a/b/c/d']) {
+    for (const href of ['/test/nope', '/test/chats/a/b', '/test/tasks/a/b', '/test/home/x', '/test/inbox/x', '/a/b/c/d']) {
       const router = await open(href)
       expect(notFound(router), href).toBe(true)
       expect(where(router), href).toBe(href)

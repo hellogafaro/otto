@@ -75,10 +75,10 @@ export const actions = {
   'nav.jumpTo7': jumpTo(7),
   'nav.jumpTo8': jumpTo(8),
   'nav.jumpTo9': jumpTo(9),
-  'nav.inbox': {
-    id: 'nav.inbox',
-    label: 'Open Inbox',
-    description: 'Open the Inbox: what needs you',
+  'nav.home': {
+    id: 'nav.home',
+    label: 'Open Home',
+    description: 'Open Home: what needs you',
     defaultHotkey: 'mod+i',
     // In the browser ⌘/Ctrl+I is the browser's (page info, mail the page).
     webHotkey: 'alt+i',
@@ -196,7 +196,7 @@ export const actions = {
     defaultHotkey: 'mod+shift+g',
     category: 'Chat',
   },
-  // The shell composer (every page; the full one on the chat, the new chat and the Inbox).
+  // The shell composer (every page; the full one on the chat, the new chat and Home).
   'composer.focus': {
     id: 'composer.focus',
     label: 'Focus Composer',

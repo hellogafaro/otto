@@ -95,6 +95,7 @@
     "./skills/types": "./src/skills/types.ts",
     "./automations": "./src/automations/index.ts",
     "./automations/resolve-config-path": "./src/automations/resolve-config-path.ts",
+    "./automations/cron-matcher": "./src/automations/cron-matcher.ts",
     "./automations/routine-types": "./src/automations/routine-types.ts",
     "./automations/routines": "./src/automations/routines.ts",
     "./automations/routine-webhook": "./src/automations/routine-webhook.ts",

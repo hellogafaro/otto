@@ -16,7 +16,8 @@
  * | `tasks[/task/id][?project=&assignee=&status=&archived=1]` | `/{ws}/tasks[/id]` with the same query |
  * | `automations[/{type}][/automation/id]` | `/{ws}/routines[/id][?type=]`         |
  * | `library[/item/id][?tab=&folder=&createdBy=]` | `/{ws}/library[/id]` with the same query |
- * | `inbox[?unread=1]`                | `/{ws}/inbox[?unread=1]`                   |
+ * | `home`                            | `/{ws}/home` (`/{ws}/inbox`, the old Inbox, redirects here) |
+ * | `home/notifications[?unread=1]`   | `/{ws}/home/notifications[?unread=1]`      |
  * | `skills[/skill/id][?scope=]`      | `/{ws}/settings/skills[/id][?scope=]`      |
  * | `sources[/{type}][/source/id]`    | `/{ws}/settings/sources[/id][?type=]`      |
  * | `agents[/agent/id]`               | `/{ws}/settings/agents[/id]`               |
@@ -39,7 +40,7 @@ import {
 import { buildRouteFromNavigationState, parseRouteToNavigationState } from '../../shared/route-parser'
 import { DEFAULT_SETTINGS_SUBPAGE, isValidSettingsSubpage } from '../../shared/settings-registry'
 import {
-  normalizeInboxSearch,
+  normalizeNotificationsSearch,
   normalizeLibrarySearch,
   normalizeProjectsSearch,
   normalizeSkillsSearch,
@@ -160,8 +161,10 @@ function stateToLocation(state: NavigationState, ws: string): AppLocation {
       return { pathname: `${base}/tasks${state.details ? `/${enc(state.details.taskId)}` : ''}`, search: state.search as LocationSearch }
     case 'library':
       return { pathname: `${base}/library${state.details ? `/${enc(state.details.itemId)}` : ''}`, search: state.search as LocationSearch }
-    case 'inbox':
-      return { pathname: `${base}/inbox`, search: state.search as LocationSearch }
+    case 'home':
+      return state.notifications
+        ? { pathname: `${base}/home/notifications`, search: state.search as LocationSearch }
+        : { pathname: `${base}/home`, search: {} }
   }
 }
 
@@ -235,8 +238,9 @@ function stateFromLocation(section: string, id: string | undefined, search: Reco
       return { navigator: 'tasks', search: normalizeTasksSearch(search), details: id ? { type: 'task', taskId: id } : null }
     case 'library':
       return { navigator: 'library', search: normalizeLibrarySearch(search), details: id ? { type: 'item', itemId: id } : null }
-    case 'inbox':
-      return id === undefined ? { navigator: 'inbox', search: normalizeInboxSearch(search) } : null
+    case 'home':
+      if (id === undefined) return { navigator: 'home', notifications: false, search: {} }
+      return id === 'notifications' ? { navigator: 'home', notifications: true, search: normalizeNotificationsSearch(search) } : null
     default:
       return null
   }

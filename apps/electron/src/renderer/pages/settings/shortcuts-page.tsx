@@ -69,7 +69,7 @@ const ACTION_LABEL_KEYS: Partial<Record<ActionId, string>> = {
   'app.toggleTheme': 'shortcuts.action.toggleTheme',
   'app.keyboardShortcuts': 'shortcuts.action.keyboardShortcuts',
   'app.quit': 'shortcuts.action.quit',
-  'nav.inbox': 'shortcuts.action.openInbox',
+  'nav.home': 'shortcuts.action.openHome',
   'nav.jumpTo1': 'shortcuts.action.jumpTo',
   'nav.nextZone': 'shortcuts.action.focusNextZone',
   'nav.goBack': 'shortcuts.action.goBack',

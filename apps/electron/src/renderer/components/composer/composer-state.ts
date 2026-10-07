@@ -38,7 +38,7 @@ export interface ComposerContext {
   entity?: string
   /** Already translated; default "Ask your agents about this page". */
   placeholder?: string
-  /** Default 'compact'; 'full' on the chat, the new chat and the Inbox. */
+  /** Default 'compact'; 'full' on the chat, the new chat and Home. */
   mode?: 'compact' | 'full'
   /** The chat's session id: scopes the chat's events (focus, paste, restore, submit) to it. */
   sessionId?: string
@@ -103,7 +103,7 @@ export function composerReducer(view: ComposerView, event: ComposerEvent): Compo
 /** What the shell's slot draws: nothing, the compact bar, the expanded glass or the full card. */
 export type ShellSurface = 'none' | 'compact' | 'expanded' | 'full'
 
-/** The look for a page: a full page (the chat, the new chat, the Inbox) is full; else the bar's own state. */
+/** The look for a page: a full page (the chat, the new chat, Home) is full; else the bar's own state. */
 export function resolveShellSurface(context: ComposerContext | null, view: ComposerView): ShellSurface {
   if (!context) return 'none'
   if (context.mode === 'full') return 'full'
@@ -147,11 +147,11 @@ export function mainAction(state: {
 
 /**
  * What the bar's attention slot draws (compact and expanded): while ⌘/Ctrl or Option/Alt is held, the ONE key
- * hint (the composer's own focus key); else the Inbox button while something needs you and nothing is written
+ * hint (the composer's own focus key); else the Notifications button while something needs you and nothing is written
  * or attached (then Send has the slot to itself); else nothing. Never while dictating.
  */
-export function attentionSlot(state: { held: boolean; listening: boolean; empty: boolean; count: number }): 'key' | 'inbox' | null {
+export function attentionSlot(state: { held: boolean; listening: boolean; empty: boolean; count: number }): 'key' | 'notifications' | null {
   if (state.listening) return null
   if (state.held) return 'key'
-  return state.empty && state.count > 0 ? 'inbox' : null
+  return state.empty && state.count > 0 ? 'notifications' : null
 }

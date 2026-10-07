@@ -45,9 +45,9 @@ describe('resolveShellSurface', () => {
     expect(resolveShellSurface(page, 'expanded')).toBe('expanded')
   })
 
-  it('draws a full page (the chat, the new chat, the Inbox) full, whatever the bar was doing', () => {
+  it('draws a full page (the chat, the new chat, Home) full, whatever the bar was doing', () => {
     expect(resolveShellSurface({ key: 'chat:abcdefghijkl', mode: 'full' }, 'idle')).toBe('full')
-    expect(resolveShellSurface({ key: 'page:inbox', mode: 'full' }, 'expanded')).toBe('full')
+    expect(resolveShellSurface({ key: 'page:home', mode: 'full' }, 'expanded')).toBe('full')
   })
 })
 
@@ -148,12 +148,12 @@ describe('dictation', () => {
 
 describe('attentionSlot', () => {
   const at = { held: false, listening: false, empty: true, count: 2 }
-  it('shows the Inbox only while something needs you and nothing is written or attached', () => {
-    expect(attentionSlot(at)).toBe('inbox')
+  it('shows the Notifications button only while something needs you and nothing is written or attached', () => {
+    expect(attentionSlot(at)).toBe('notifications')
     expect(attentionSlot({ ...at, count: 0 })).toBeNull()
     expect(attentionSlot({ ...at, empty: false })).toBeNull()
   })
-  it('swaps it for the one key hint while a modifier is held, Inbox or not', () => {
+  it('swaps it for the one key hint while a modifier is held, Notifications button or not', () => {
     expect(attentionSlot({ ...at, held: true })).toBe('key')
     expect(attentionSlot({ ...at, held: true, count: 0, empty: false })).toBe('key')
   })

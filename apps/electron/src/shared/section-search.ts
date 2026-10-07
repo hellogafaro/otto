@@ -1,6 +1,6 @@
 /**
- * The search of the Tasks, Projects, Library, Skills and Inbox views: tasks filters, the project tab, the library
- * tab, folder and creator, the skills' scope, the inbox's unread filter. They live in the route string's query (`tasks?project=p1&status=todo`) and in
+ * The search of the Tasks, Projects, Library, Skills and Notifications views: tasks filters, the project tab, the library
+ * tab, folder and creator, the skills' scope, the notifications' unread filter. They live in the route string's query (`tasks?project=p1&status=todo`) and in
  * the URL's search, in the same form, so one value round-trips between the two (`router/location.ts`).
  * Each `normalize…Search` takes whatever was given and returns only valid keys, in a fixed order, so
  * equal searches are equal strings.
@@ -111,11 +111,11 @@ export type SkillsSearch = Record<never, never>
 
 export const normalizeSkillsSearch = (_search?: Record<string, unknown>): SkillsSearch => ({})
 
-/** `/{ws}/inbox`: `unread=1` keeps only the unread notifications. */
-export interface InboxSearch {
+/** `/{ws}/home/notifications`: `unread=1` keeps only the unread notifications. */
+export interface NotificationsSearch {
   unread?: true
 }
 
-export function normalizeInboxSearch(search: Record<string, unknown> = {}): InboxSearch {
+export function normalizeNotificationsSearch(search: Record<string, unknown> = {}): NotificationsSearch {
   return isTruthyFlag(search.unread) ? { unread: true } : {}
 }

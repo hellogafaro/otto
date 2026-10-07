@@ -41,7 +41,7 @@ export type { Project, ProjectFilter, ProjectStatus, ProjectUpdate, Resource, Ta
 import type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole } from '@otto/shared/workspaces';
 export type { WorkspaceInvitation, WorkspaceMember, WorkspaceRole };
 
-import type { InboxSearch, LibrarySearch, ProjectsSearch, SkillsSearch, TasksSearch } from './section-search';
+import type { LibrarySearch, NotificationsSearch, ProjectsSearch, SkillsSearch, TasksSearch } from './section-search';
 
 // Mode types from dedicated subpath export (avoids pulling in SDK)
 import type { PermissionMode } from '@otto/shared/agent/modes';
@@ -855,11 +855,12 @@ export interface LibraryNavigationState {
 }
 
 /**
- * Inbox navigation state: your notifications (`?unread=1` keeps the unread ones); no detail of its own
+ * Home navigation state: Home itself, or its full list of notifications (`notifications`; `?unread=1` keeps the unread ones)
  */
-export interface InboxNavigationState {
-  navigator: 'inbox'
-  search: InboxSearch
+export interface HomeNavigationState {
+  navigator: 'home'
+  notifications: boolean
+  search: NotificationsSearch
 }
 
 /**
@@ -875,7 +876,7 @@ export type NavigationState =
   | ProjectsNavigationState
   | LibraryNavigationState
   | TasksNavigationState
-  | InboxNavigationState
+  | HomeNavigationState
 
 export const isSessionsNavigation = (
   state: NavigationState
@@ -913,9 +914,9 @@ export const isTasksNavigation = (
   state: NavigationState
 ): state is TasksNavigationState => state.navigator === 'tasks'
 
-export const isInboxNavigation = (
+export const isHomeNavigation = (
   state: NavigationState
-): state is InboxNavigationState => state.navigator === 'inbox'
+): state is HomeNavigationState => state.navigator === 'home'
 
 export const DEFAULT_NAVIGATION_STATE: NavigationState = {
   navigator: 'sessions',

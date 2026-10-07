@@ -26,8 +26,9 @@ const CASES: Array<[route: string, state: NavigationState]> = [
   ['library/item/i1?folder=f1', { navigator: 'library', search: { folder: 'f1' }, details: { type: 'item', itemId: 'i1' } }],
   ['skills', { navigator: 'skills', search: {}, details: null }],
   ['skills/skill/review', { navigator: 'skills', search: {}, details: { type: 'skill', skillSlug: 'review' } }],
-  ['inbox', { navigator: 'inbox', search: {} }],
-  ['inbox?unread=1', { navigator: 'inbox', search: { unread: true } }],
+  ['home', { navigator: 'home', notifications: false, search: {} }],
+  ['home/notifications', { navigator: 'home', notifications: true, search: {} }],
+  ['home/notifications?unread=1', { navigator: 'home', notifications: true, search: { unread: true } }],
 ]
 
 describe('tasks, projects and library routes', () => {
@@ -65,8 +66,9 @@ describe('tasks, projects and library routes', () => {
     expect(routes.view.library({ itemId: 'i1', folder: 'f1' })).toBe('library/item/i1?folder=f1')
     expect(routes.view.skills()).toBe('skills')
     expect(routes.view.skills({ skillSlug: 'review' })).toBe('skills/skill/review')
-    expect(routes.view.inbox()).toBe('inbox')
-    expect(routes.view.inbox({ unread: true })).toBe('inbox?unread=1')
+    expect(routes.view.home()).toBe('home')
+    expect(routes.view.notifications()).toBe('home/notifications')
+    expect(routes.view.notifications({ unread: true })).toBe('home/notifications?unread=1')
   })
 })
 

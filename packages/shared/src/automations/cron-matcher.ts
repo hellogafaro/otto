@@ -55,3 +55,18 @@ export function matchesCron(cronExpr: string, timezone?: string, now: Date = new
     return false;
   }
 }
+
+/**
+ * The next time a cron expression fires after `from` (exclusive), in its timezone (the runtime's when none);
+ * null for an invalid expression or one that never fires again.
+ *
+ * @example
+ * nextCronRun('0 14 * * *', undefined, new Date(2026, 9, 7, 9)) // Oct 7 2026, 14:00 local
+ */
+export function nextCronRun(cronExpr: string, timezone?: string, from: Date = new Date()): Date | null {
+  try {
+    return new Cron(cronExpr, timezone ? { timezone } : {}).nextRun(from);
+  } catch {
+    return null;
+  }
+}

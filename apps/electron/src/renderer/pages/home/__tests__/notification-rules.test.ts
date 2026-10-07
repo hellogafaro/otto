@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'bun:test'
-import { filterNotifications, formatUnreadCount, getNotificationLineKey, getNotificationTarget } from '../inbox-rules'
+import { filterNotifications, formatUnreadCount, getNotificationLineKey, getNotificationTarget } from '../notification-rules'
 
-describe('inbox rules', () => {
+describe('notification rules', () => {
   it('opens a mention on its comment’s entity, an assignment on its task', () => {
     expect(getNotificationTarget({ entity: 'comment:c1', comment: { id: 'c1', content: 'hi', entity: 'task:t1' } })).toBe('task:t1')
     expect(getNotificationTarget({ entity: 'task:t2', comment: null })).toBe('task:t2')
   })
 
   it('reads mentions and assignments as their sentences', () => {
-    expect(getNotificationLineKey('mention')).toBe('inbox.mentioned')
-    expect(getNotificationLineKey('assigned')).toBe('inbox.assigned')
+    expect(getNotificationLineKey('mention')).toBe('notifications.mentioned')
+    expect(getNotificationLineKey('assigned')).toBe('notifications.assigned')
   })
 
   it('keeps only unread items under the filter', () => {

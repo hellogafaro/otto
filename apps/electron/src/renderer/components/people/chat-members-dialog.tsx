@@ -91,7 +91,7 @@ export function ChatMembersDialog({ chat, open, onOpenChange, onLeft }: {
               <span className="min-w-0 truncate">{member.name}</span>
               {member.actor === me && <span className="shrink-0 text-muted-foreground">{t('members.you')}</span>}
               {member.actor.startsWith('agent:') && <span className="shrink-0 text-muted-foreground">{t('chatMembers.agent')}</span>}
-              {isCreator && member.actor !== me && (
+              {isCreator && member.actor !== me && member.actor !== `agent:${chat.agentId}` && (
                 <Tooltip>
                   <TooltipTrigger
                     render={<Button variant="ghost" size="icon-xs" className="ml-auto" aria-label={t('chatMembers.remove', { name: member.name })} />}

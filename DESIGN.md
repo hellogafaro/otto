@@ -1049,27 +1049,36 @@ status color (Archived neutral). A row (44px): the status icon
   button is "New task", or "New project" while no project exists (a task needs
   one: it opens New project, then New task in it). Filters that keep nothing:
   `NoResults`. **New task** (`TaskFormDialog`) is the stock dialog: Title
-  (required), Project (native select: the filtered project, else the first
-  active one), Assignees (`AssigneePicker` as chips), Due date (native date
-  input), Cancel and Create; it opens the new task.
-- **Task page** (`TaskPage`): a centerpiece page. The title row's title is the
-  task's title, edited in place (an input that looks like the title; Enter or
-  blur saves, an emptied title springs back); actions More (Copy link C, Archive / Restore
-  A); Details is the floating sidecar toggle. The centerpiece: "Created by {name}, {date}" (12px muted) over the
+  (required), Project (`ProjectPicker`, the searchable `Picker` opened by a
+  field-look button: the filtered project, else the first active one),
+  Assignees (`AssigneePicker` as chips), Due date (`DatePicker` from the same
+  field-look button), Cancel and Create; it opens the new task. No native
+  select or date input anywhere.
+- **Task page** (`TaskPage`, Otto v1's task page): a centerpiece page. The
+  title row's title is the task's title, edited in place (an input that looks
+  like the title; Enter or blur saves, an emptied title springs back); actions
+  More (Copy link C, Archive / Restore A); Details is the floating sidecar
+  toggle. The centerpiece: "Created by {name}, {date}" (12px muted) over the
   description in the markdown editor (`TiptapMarkdownEditor`, `/` blocks).
   Title and description autosave as one draft (Autosave). Under the
-  description, 32px down, the task's Comments (`CommentThread`, see Comments).
-  There is no activity log. The sidecar "Details" (closed by default):
-  Properties (Status, S opens its menu while the Details are open, keys 1 to 3;
-  Assignees, a searchable multi picker; Due date, the native picker opened by
-  the row, × clears it; Project, a menu of active projects), Links (web links,
-  library items and chats, `ResourceList`: a row opens it, × removes it, the
-  section's "+" ("New link") opens a dialog with compact tabs Web link / Library / Chat, at most 50),
-  Time (entries "Maria · 1h 30m · Oct 4", notes in a hover card, × on your own;
-  the total is the section's count; "New time entry", the section's "+": minutes and notes).
-  Assignees and due date autosave; status, project, links and time apply at
-  once; every change shows the one "Saved" toast and a `conflict` reloads. An
-  id the workspace does not have shows the not-found page.
+  description, 32px down, the task's **Activity** (`ActivityFeed`, see
+  Activity): one chronological feed of what happened (created, status,
+  title, assignees, due date, project, links, time logged) with the comments
+  between, then the comment box. The sidecar "Details" (closed by default):
+  Properties (each row's key works while the Details are open and shows as its
+  `Kbd`: Status S, a menu, keys 1 to 3; Assignees, the searchable `Picker`
+  (multiple); Due date D, the `DatePicker` popover from the row, × clears it;
+  Project P, the searchable `ProjectPicker` of active projects), Links (web
+  links, library items and chats, `ResourceList`: a row opens it, × removes it;
+  the section's "+" ("New link") opens no form: it prefills the floating
+  composer "Add a link to {task chip}: " and an agent adds it with `otto tasks
+  update`; at most 50), Time (v1's time tracking: entries "Maria · 1h 30m ·
+  Oct 4" with the person's avatar, notes in a hover card, × on your own; the
+  total is the section's count; "New time entry", the section's "+": minutes
+  and notes; no timer, v1 had none). Assignees and due date autosave; status,
+  project, links and time apply at once; every change shows the one "Saved"
+  toast and a `conflict` reloads. An id the workspace does not have shows the
+  not-found page.
 - **Routines index** (`RoutinesPage`, `pages/routines/`; the owner's call: "the
   exact same table for tasks and for routines"): the workspace's routines (the
   `routines` rows with their last runs, read through `useRoutines`) as the grouped list in the
@@ -1130,7 +1139,8 @@ status color (Archived neutral). A row (44px): the status icon
   yet; a pick links it at once). **Overview**, sections 40px apart: the
   description in a card (the markdown editor, 16px in; it autosaves with the
   title as one draft), Links (`ResourceList` in a card, 4px in: web links,
-  library items, chats; × removes, "New link", the section's "+", adds, at once) and Members (the
+  library items, chats; × removes at once; "New link", the section's "+",
+  prefills the composer "Add a link to {project chip}: ", like the task's) and Members (the
   settings row: 20px `ActorAvatar`, name, a × that removes them; "Add
   member" ends the section's title row and lists the workspace's people and
   agents not in the project). There are no member roles (`projects.members`
@@ -1644,10 +1654,27 @@ option shows a check instead of its key. Menu rows (DropdownMenu, ContextMenu,
 Select, Combobox, Command) are 28px with 6px corners inside the menu's 4px
 padding; the highlighted row (hover or arrow keys) is `foreground/10`, and a
 checked item shows only the check icon, no fill. Destructive items are red text
-and highlight in `destructive/20`. A searchable `Combobox` for long
-lists, topped by `ComboboxSearch`: like the command palette, a search icon on
-the item icon column and a transparent 36px input over a full-width bottom
-border. "/" and "@" suggestion lists use the same 28px rows.
+and highlight in `destructive/20`. **Pickers**: every choice among things
+(a project, people and agents, library items; anything that can grow past
+about seven) is the one `Picker` (`design/ui` `picker.tsx`, shadcn's Combobox
+pattern on Base UI; no per-page copies): any trigger opens it, topped by
+`ComboboxSearch` (like the command palette, a search icon on the item icon
+column and a transparent 36px input over a full-width bottom border, "Search
+projects"), filtered as you type on the label, ↑↓ move, Enter picks, Escape
+closes, the current value checked, the item's 14px icon or 20px avatar then its
+label; nothing left says "No {things} found" ("No projects found", "No people
+found"), or why there is nothing to pick ("Everyone is already in this
+project"). One value closes it on a pick, several (assignees) keep it open.
+Short fixed sets (a task's three statuses) stay a `DropdownMenu` with number
+keys. **Dates**: the one `DatePicker` (`design/ui` `date-picker.tsx`): a
+`Popover` with shadcn's `Calendar` (react-day-picker; 28px days with `sm`
+corners, the month and its arrows on one line, weekdays muted 12px in the UI
+language's locale, today `primary` text, the chosen day the primary fill,
+hover and the keyboard's day `foreground/10`), opened on the chosen day or
+today with it focused (arrows a day or a week, Page Up / Down a month, Enter
+picks and closes, Escape closes), and a footer split by a faint line: Clear
+(`Kbd` ⌫) and Today (`Kbd` T), both keys live while it is open. Never the
+native `<input type="date">`. "/" and "@" suggestion lists use the same 28px rows.
 The caret-anchored lists (slash, mention, label) and the cmdk pickers
 (permission mode, status, working directory) keep their own key handling and
 share one copy of the menu look, `menu-styles.ts` (dark translucent surface,
@@ -1922,7 +1949,7 @@ group) is titled by the other people in it, as the viewer sees them ("Grace", "A
 Members (Lucide `Users`) is the first item of the open chat's header menu (and a row
 of the phone's More drawer); it opens a stock `Dialog` titled "Members": one 32px
 row per member, the 20px avatar, the name, a muted "You" or "Agent" after it. The
-chat's creator (its first member) has a 24px ghost `X` on every other row (tooltip
+chat's creator (its first member) has a 24px ghost `X` on every other row but the chat's own agent's (tooltip
 "Remove {name}"; "Ada removed") and two outline 28px pickers in the footer, "Add
 people" (`UserPlus`: workspace people not in yet, never you) and "Add agent"
 (`Bot`: workspace agents not in yet), each a searchable `Combobox` ("Ada added");
@@ -2060,12 +2087,23 @@ behind it, so its translucent snapshot looks like the real surface at every
 frame: no flash at either end. Old snapshots leave quickly where both sides
 have content, so nothing shows twice.
 
-**Comments** (`CommentThread`, `components/comments/`, data in
-docs/activity-notifications.md). On a task (and a project) under the
-description, flat inside its centerpiece, no cards, no timeline, no activity
-events: the section title "Comments" (heading step, medium) with its `Count`
-(none at 0), 12px above the list; comments oldest first, 20px apart, each a
-28px `ActorAvatar` (`sm` 6), 12px, then the name (13px medium), the compact
+**Activity** (`ActivityFeed`, `components/comments/activity-feed.tsx`, data in
+docs/activity-notifications.md: comments and events are `comments` rows told
+apart by `type`). On a task (and a project) under the description, flat inside
+its centerpiece, no cards (Otto v1's timeline): the section title "Activity"
+(heading step, medium), 12px above one chronological feed, oldest first, items
+16px apart, along one 1px `border` hairline under the markers (it runs from
+each marker to the next and stops at the last; markers are ringed 4px in the
+surface color, `--activity-bg`, the card's by default). The newest 50 show;
+"Show earlier activity" (28px ghost, above the feed) loads the 50 before.
+**Events** ("Maria changed the status from Todo to In progress · 5m", "created
+the task", "renamed the task to …", "set the due date to Oct 21, 2026",
+"removed the due date", "moved the task to …", "assigned / unassigned …",
+"added the link …", "logged 1h 30m"): one muted 13px sentence with the name
+in it on an 8px `muted-foreground/70` dot centered on the hairline, the text on
+the comments' name line (40px in), then " · " and the compact time (12px,
+tabular). Events cannot be edited or deleted and never notify. **Comments**:
+each a 28px `ActorAvatar` (`sm` 6) on the hairline, 12px, then the name (13px medium), the compact
 time ("now", "5m", 12px muted tabular) and "Edited" (12px muted) when changed
 after it was sent, on one 20px line, the content 4px under it (`EntityText`,
 the outer paragraph margins trimmed so the text starts on the line). Your own
@@ -2075,10 +2113,13 @@ for the textarea with Cancel (28px ghost) and Save (28px primary); a comment
 edit is submitted, never autosaved; ⌘/Ctrl+Enter saves, Escape cancels, a
 `conflict` toasts "Changed elsewhere, reloaded" and keeps the draft open.
 Delete asks first (Alert dialog, "Delete comment?"), then toasts "Comment
-deleted". No comments: the muted line "No comments yet". Loading: two 40px
-skeleton rows. **The comment box** ends the section: the stock `Textarea` (the
-input well, one line that grows to 240px; read-only while sending) and under it,
-right-aligned, Send (28px primary, `loading` while it sends, disabled while
+deleted". Nothing yet: the muted line "No activity yet". Loading: two 40px
+skeleton rows. **The comment box** ends the section, 8px under the feed: the
+stock `Textarea` ("Leave a comment…", the input well, one line that grows to
+240px; read-only while sending) and under it Attach on the left (28px ghost
+icon, `Paperclip`, tooltip "Attach file"; the picked files go to the Library
+and their `library:<id>` tokens into the text, drawn as chips once sent;
+spinner while uploading) and Send on the right (28px primary, `loading` while it sends, disabled while
 empty; its tooltip shows the label and ⌘↵ / Ctrl+↵ as a `Kbd`). A sent comment
 shows at once (the hook reloads) and for everyone else through the live push;
 a failure toasts and keeps the text. **Mentions**: typing `@` (at the start or
@@ -2089,7 +2130,7 @@ but you (agents are not mentioned: they get no notifications), matched on a word
 start of the name or email; ↑↓ move, Enter or Tab picks, Escape closes it.
 Picking puts the person's token `user:<id>` and a space in place of `@query`:
 the box shows the raw token (the leanest that works), the sent comment the
-"@Name" chip. Replies, reactions and attachments are not built.
+"@Name" chip. Replies and reactions are not built.
 
 **Inbox** (`InboxPage`, `pages/inbox/`, `/{ws}/inbox`): your notifications
 in the workspace, newest first, a blocks page titled "Inbox" with one flat list
@@ -2508,7 +2549,7 @@ the top bar, then the page (optional cover, title, people row, body), the
 right panel and the floating chat.
 
 - **Task:** see Task page (Page anatomy): the title in place, "Created by", the
-  description (markdown editor with `/` blocks), then Comments. Panel:
+  description (markdown editor with `/` blocks), then Activity. Panel:
   Properties, Links, Time.
 - **Project:** see Project page (Page anatomy): 32px tabs with muted counts
   (Overview, Tasks, Documents, Files) in `?tab=`; Overview is the description,
@@ -2619,7 +2660,7 @@ blur, like the dialog's.
 One pattern for every form we build; copy `components/ui/rename-dialog.tsx`.
 
 - **What is a form.** A dialog or screen with fields and an explicit Cancel / Submit
-  (New project, New task, New link, Invite member, Rename). Autosaved fields (the task
+  (New project, New task, New time entry, Invite member, Rename; a link is added through the composer). Autosaved fields (the task
   title, a document, a setting that saves as you go) are never forms: they stay
   `useAutosave` (see Autosave). The comment composer and the chat input are send boxes,
   not forms.
@@ -2930,7 +2971,7 @@ Unknown creation outcomes disable another submission in the current form and dir
 **Empty-state rules (binding for every page).**
 
 1. Nothing exists and nothing is filtered: the header-free `EmptyPage`, with the floating chat kept. The pattern is the same everywhere (below): title "No {plural}", description one benefit-led sentence, never a vague "<Things> you add show up here." Exactly one 32px primary button, the "+ New <thing>" that prefills the floating bar (never a form); a person's own action (Upload file) sits beside it as a quiet outline button. Never a second primary button. The Inbox has no button ("No notifications yet"); Projects is the one page whose button opens its form, because nothing exists yet to ask about.
-2. Something is filtered and nothing matches: the page, header and active filter bar stay and the list area shows `NoResults` ("No results", "Try changing or clearing your filters.", Clear filters). A search or picker with no matches says "No results" too, never "No chats found".
+2. Something is filtered and nothing matches: the page, header and active filter bar stay and the list area shows `NoResults` ("No results", "Try changing or clearing your filters.", Clear filters). A search with no matches says "No results" too; a `Picker` says "No {things} found" (the owner's call, see Menus).
 3. There is no permanent toolbar. A page header holds the Filter menu (real properties and archive state), a Search icon that opens the command palette on that page's category, and "+"; never a page's own search box. Active filters show as chips in the filter bar; no search box, sort picker, order or page-size control is drawn on a page. Settings lists show only their own property filters.
 4. Inline empties (a folder, a project tab, chat messages, delivery history, settings rows) use the same `Empty` shape or a `Row`: title "No {plural} yet" (a table row or `Row` may be just that, "No labels yet"), one description line ending in a period, no action.
 5. Command palette: an entered search with no results shows a compact tile and "No results for “query”" with no period, and its category tabs are hidden when no category has results. Skeletons are stock and use the small radius.
@@ -2961,7 +3002,7 @@ A data page with no data hides its title row and its actions (Filter, "+", Searc
 | Agents | No agents yet | Give each kind of work an agent with its own instructions and tools. | New agent |
 | Archived chats | No archived chats yet | Chats you archive stay here, out of your way. | |
 | Inbox | No notifications yet | Never miss a mention or a task handed to you. | |
-| Comments (inline) | No comments yet | | |
+| Activity (inline) | No activity yet | | |
 10. A new chat has two pickers, With and Project. It is always participants-only; the project's own chat is the one open to everyone in the project.
 
 ## Craft shell

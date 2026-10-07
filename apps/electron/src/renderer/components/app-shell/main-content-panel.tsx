@@ -7,7 +7,7 @@
  * - Settings: one settings page (no index: Settings opens on General)
  * - Skills, Sources and Agents (in the settings sidebar): the grid, or the item's page
  * - Tasks, Projects, Routines and Library: the index page, or the task, project, routine or item page
- * - Inbox: your notifications
+ * - Home: the greeting, the composer and the cards; or its full list of notifications
  *
  * The NavigationState is the single source of truth for what to display.
  */
@@ -25,11 +25,12 @@ import {
   isProjectsNavigation,
   isLibraryNavigation,
   isTasksNavigation,
-  isInboxNavigation,
+  isHomeNavigation,
 } from '@/contexts/navigation-context'
 import { SourceInfoPage, ChatPage, TasksPage, TaskPage, ProjectsPage, ProjectPage, RoutinesPage, RoutinePage, LibraryPage, LibraryItemPage } from '@/pages'
 import ChatsIndexPage from '@/pages/chats-index-page'
-import { InboxPage } from '@/pages/inbox/inbox-page'
+import { HomePage } from '@/pages/home/home-page'
+import { NotificationsPage } from '@/pages/home/notifications-page'
 import SkillInfoPage from '@/pages/skill-info-page'
 import { SkillsPage } from '@/pages/skills-page'
 import { SourcesPage } from '@/pages/sources-page'
@@ -87,7 +88,7 @@ export function MainContentPanel({ className }: MainContentPanelProps) {
     return panel(navState.details ? <LibraryItemPage itemId={navState.details.itemId} /> : <LibraryPage />)
   }
 
-  if (isInboxNavigation(navState)) return panel(<InboxPage />)
+  if (isHomeNavigation(navState)) return panel(navState.notifications ? <NotificationsPage /> : <HomePage />)
 
   // Chats: the index, or the open chat.
   if (isSessionsNavigation(navState) && navState.details) {

@@ -25,14 +25,14 @@ import {
   type ChatFilters,
 } from './chat-filters'
 import {
-  normalizeInboxSearch,
+  normalizeNotificationsSearch,
   normalizeLibrarySearch,
   normalizeProjectsSearch,
   normalizeSkillsSearch,
   normalizeTasksSearch,
   parseSearch,
   stringifySearch,
-  type InboxSearch,
+  type NotificationsSearch,
   type LibrarySearch,
   type ProjectsSearch,
   type SkillsSearch,
@@ -56,7 +56,7 @@ export interface ParsedRoute {
 // Compound Route Types (new format)
 // =============================================================================
 
-export type NavigatorType = 'sessions' | 'sources' | 'skills' | 'agents' | 'automations' | 'projects' | 'library' | 'tasks' | 'inbox' | 'settings'
+export type NavigatorType = 'sessions' | 'sources' | 'skills' | 'agents' | 'automations' | 'projects' | 'library' | 'tasks' | 'home' | 'settings'
 
 export interface ParsedCompoundRoute {
   /** The navigator type */
@@ -69,8 +69,8 @@ export interface ParsedCompoundRoute {
   sourceFilter?: SourceFilter
   /** Automation filter (only for automations navigator) */
   automationFilter?: AutomationFilter
-  /** The search of the tasks, projects, library, skills and inbox views (see section-search.ts) */
-  search?: TasksSearch | ProjectsSearch | LibrarySearch | SkillsSearch | InboxSearch
+  /** The search of the tasks, projects, library, skills and notifications views (see section-search.ts) */
+  search?: TasksSearch | ProjectsSearch | LibrarySearch | SkillsSearch | NotificationsSearch
   /** Details page info (null for empty state) */
   details: {
     type: string
@@ -86,7 +86,7 @@ export interface ParsedCompoundRoute {
  * Known prefixes that indicate a compound route
  */
 const COMPOUND_ROUTE_PREFIXES = [
-  'allSessions', 'flagged', 'archived', 'state', 'label', 'sources', 'skills', 'agents', 'automations', 'projects', 'library', 'tasks', 'inbox', 'settings'
+  'allSessions', 'flagged', 'archived', 'state', 'label', 'sources', 'skills', 'agents', 'automations', 'projects', 'library', 'tasks', 'home', 'settings'
 ]
 
 /** The detail segment and the search of the sections that have them. */
@@ -195,9 +195,13 @@ export function parseCompoundRoute(route: string): ParsedCompoundRoute | null {
     return null
   }
 
-  // Inbox: one page, `inbox?unread=1`
-  if (first === 'inbox') {
-    return segments.length === 1 ? { navigator: 'inbox', search: normalizeInboxSearch(parseSearch(queryPart ?? '')), details: null } : null
+  // Home, and its full list of notifications (`home/notifications?unread=1`)
+  if (first === 'home') {
+    if (segments.length === 1) return { navigator: 'home', details: null }
+    if (segments.length === 2 && segments[1] === 'notifications') {
+      return { navigator: 'home', search: normalizeNotificationsSearch(parseSearch(queryPart ?? '')), details: { type: 'notifications', id: 'notifications' } }
+    }
+    return null
   }
 
   // Automations navigator - supports type filters (scheduled, event, agentic)
@@ -330,7 +334,7 @@ export function buildCompoundRoute(parsed: ParsedCompoundRoute): string {
     return `${base}/automation/${parsed.details.id}`
   }
 
-  if (parsed.navigator === 'inbox') return `inbox${stringifySearch(parsed.search ?? {})}`
+  if (parsed.navigator === 'home') return parsed.details ? `home/notifications${stringifySearch(parsed.search ?? {})}` : 'home'
 
   if (parsed.navigator === 'agents') return parsed.details ? `agents/agent/${parsed.details.id}` : 'agents'
 
@@ -496,7 +500,9 @@ function convertCompoundToNavigationState(compound: ParsedCompoundRoute): Naviga
     }
   }
 
-  if (compound.navigator === 'inbox') return { navigator: 'inbox', search: compound.search as InboxSearch }
+  if (compound.navigator === 'home') {
+    return { navigator: 'home', notifications: !!compound.details, search: compound.details ? (compound.search as NotificationsSearch) ?? {} : {} }
+  }
 
   // Sessions
   const filter = compound.sessionFilter || { kind: 'allSessions' as const }
@@ -561,7 +567,11 @@ function navigationStateToCompoundRoute(state: NavigationState): ParsedCompoundR
   if (state.navigator === 'library') {
     return { navigator: 'library', search: state.search, details: state.details ? { type: 'item', id: state.details.itemId } : null }
   }
-  if (state.navigator === 'inbox') return { navigator: 'inbox', search: state.search, details: null }
+  if (state.navigator === 'home') {
+    return state.notifications
+      ? { navigator: 'home', search: state.search, details: { type: 'notifications', id: 'notifications' } }
+      : { navigator: 'home', details: null }
+  }
 
   // Sessions
   return {

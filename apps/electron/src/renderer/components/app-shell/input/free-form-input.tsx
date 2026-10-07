@@ -2,15 +2,14 @@
  * FreeFormInput - the ONE composer: the chat input (Craft's, kept: rich text with `@` mention badges, `/` commands,
  * files, Send and Stop, Arrow Up to stop and recall, the chat's events) refactored to v1's look, with the compact
  * floating bar as one of its MODES. `ShellComposer` hosts the single instance in the page frame's composer slot,
- * mounted once, so opening a chat, the new chat or the Inbox grows the SAME instance into the full composer (and
+ * mounted once, so opening a chat, the new chat or Home grows the SAME instance into the full composer (and
  * leaving shrinks it) with the text and files kept. It reads the page's context (`useComposerContext`), keeps a
  * browser draft per context, runs the compact bar's state machine (`composerReducer`), takes files (+, drop, paste:
  * the attachment rail), dictates (`useDictation`, `transcription:create`), and sends: the page's own `onSend` (the
  * chat), else the default, a new chat whose first line is the page's entity token, opened at once. While
- * something needs you (`useAttention`) and nothing is written, the bar has the Inbox button; it (or ⌥I / ⌘I,
- * `nav.inbox`) opens the Inbox list above the text in the same surface (Escape, the button again or a click
- * outside closes it). Its one shortcut, the focus key (`Kbd`), shows only while ⌘/Ctrl or Option/Alt is held
- * (`useModifierHeld`), in the Inbox's place. The chat draws an instance of its own, not hosted, when the shell has
+ * something needs you (`useAttention`) and nothing is written, the bar has the Notifications button; it opens the
+ * Notifications list above the text in the same surface (Escape, the button again or a click outside closes it). Its one shortcut, the focus key (`Kbd`), shows only while ⌘/Ctrl or Option/Alt is held
+ * (`useModifierHeld`), in the Notifications button's place. The chat draws an instance of its own, not hosted, when the shell has
  * no composer. See docs/composer.md.
  */
 
@@ -39,7 +38,7 @@ import { AttachmentRail } from '@/components/composer/attachment-rail'
 import { useComposerCommands } from '@/components/composer/composer-commands'
 import type { ComposerHandle } from '@/components/composer/composer-provider'
 import { attentionSlot, buildFirstMessage, composerReducer, mainAction, resolveShellSurface, sendKeyAction, type ComposerContext, type SendKey } from '@/components/composer/composer-state'
-import { InboxButton, InboxList } from '@/components/composer/inbox-button'
+import { NotificationsButton, NotificationsList } from '@/components/composer/notifications-button'
 import { useAttention } from '@/components/composer/use-attention'
 import { useComposerDraft } from '@/components/composer/use-composer-draft'
 import { useComposerFiles } from '@/components/composer/use-composer-files'
@@ -64,7 +63,7 @@ export function FreeFormInput({ context, handleRef }: {
   const pickerRef = React.useRef<HTMLInputElement>(null)
   const held = useModifierHeld()
   const attention = useAttention()
-  const [inboxOpen, setInboxOpen] = React.useState(false)
+  const [listOpen, setListOpen] = React.useState(false)
   const formRef = React.useRef<HTMLFormElement>(null)
   const surface = resolveShellSurface(context, view)
   const full = surface === 'full'
@@ -76,7 +75,7 @@ export function FreeFormInput({ context, handleRef }: {
   const contextKey = context?.key
   React.useEffect(() => {
     dispatch({ type: 'collapse' })
-    setInboxOpen(false)
+    setListOpen(false)
   }, [contextKey])
 
   // The chat input's settings: the send key, auto-capitalisation and spell check.
@@ -145,16 +144,12 @@ export function FreeFormInput({ context, handleRef }: {
   useAction('composer.focus', () => focusAt(), { enabled: () => hosted && inputRef.current !== null })
   const focusKey = useHotkeyLabel('composer.focus')
 
-  // The Inbox list: over the bar (compact or expanded) while something needs you, never in full mode or while
-  // dictating. The Inbox key toggles it there; anywhere else (a full page, nothing to show) it opens the page.
-  const inboxShown = inboxOpen && attention.count > 0 && !full && !listening && !!context
-  useAction('nav.inbox', () => {
-    if (context && !full && attention.count > 0) setInboxOpen((open) => !open)
-    else navigate(routes.view.inbox())
-  }, { enabled: () => hosted })
+  // The Notifications list: over the bar (compact or expanded) while something needs you, never in full mode or
+  // while dictating.
+  const listShown = listOpen && attention.count > 0 && !full && !listening && !!context
   React.useEffect(() => {
-    if (!inboxShown) return
-    const close = () => setInboxOpen(false)
+    if (!listShown) return
+    const close = () => setListOpen(false)
     const onPointer = (event: PointerEvent) => {
       if (!formRef.current?.contains(event.target as Node)) close()
     }
@@ -171,7 +166,7 @@ export function FreeFormInput({ context, handleRef }: {
       document.removeEventListener('pointerdown', onPointer)
       window.removeEventListener('keydown', onKey, true)
     }
-  }, [inboxShown])
+  }, [listShown])
 
   const hasContent = text.trim() !== '' || files.items.length > 0 || !!context?.canSendEmpty
   const canSend = hasContent && files.ready && !sending && !context?.disabled && !listening && !dictation.transcribing
@@ -409,10 +404,10 @@ export function FreeFormInput({ context, handleRef }: {
         tools={listening ? <Dictation /> : dictation.transcribing ? <Transcribing /> : surface === 'compact' ? null : context.tools}
         attention={{
           key: focusKey ? <span className="flex h-8 min-w-8 items-center justify-center"><Kbd>{focusKey}</Kbd></span> : null,
-          inbox: <InboxButton count={attention.count} open={inboxShown} onToggle={() => setInboxOpen((open) => !open)} />,
+          notifications: <NotificationsButton count={attention.count} open={listShown} onToggle={() => setListOpen((open) => !open)} />,
           none: null,
         }[attentionSlot({ held, listening: dictating, empty, count: attention.count }) ?? 'none']}
-        panel={inboxShown ? <InboxList attention={attention} onPick={() => setInboxOpen(false)} /> : null}
+        panel={listShown ? <NotificationsList attention={attention} onPick={() => setListOpen(false)} /> : null}
         main={main}
       >
         <ComposerInput>

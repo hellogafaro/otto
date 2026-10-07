@@ -18,7 +18,7 @@
 import { DEFAULT_SETTINGS_SUBPAGE, type SettingsSubpage } from './settings-registry'
 import type { PermissionMode } from '@otto/shared/agent/mode-types'
 import { chatFiltersToQuery, normalizeChatFilters, type ChatFiltersInput } from './chat-filters'
-import { stringifySearch, type InboxSearch, type LibrarySearch, type ProjectsSearch, type SkillsSearch, type TasksSearch } from './section-search'
+import { stringifySearch, type NotificationsSearch, type LibrarySearch, type ProjectsSearch, type SkillsSearch, type TasksSearch } from './section-search'
 
 // Helper to build query strings from params
 function toQueryString(params?: Record<string, string | undefined>): string {
@@ -175,8 +175,11 @@ export const routes = {
     /** Library view (library navigator): the grid on a `tab` and `folder`, or the file or document `itemId` open. */
     library: ({ itemId, ...search }: { itemId?: string } & LibrarySearch = {}) => sectionRoute('library', 'item', itemId, search),
 
-    /** Inbox: your notifications, `unread` keeps the unread ones. */
-    inbox: (search: InboxSearch = {}) => `inbox${stringifySearch(search)}` as const,
+    /** Home: the greeting, the composer and the cards. */
+    home: () => 'home' as const,
+
+    /** Home's full list of your notifications, `unread` keeps the unread ones. */
+    notifications: (search: NotificationsSearch = {}) => `home/notifications${stringifySearch(search)}` as const,
   },
 } as const
 

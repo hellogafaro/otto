@@ -1,7 +1,7 @@
 /**
- * InboxWallpaper - the Inbox's full-window photo (the sidebar included), dithered and slowly animated (`photo.ts`),
+ * HomeWallpaper - Home's full-window photo (the sidebar included), dithered and slowly animated (`photo.ts`),
  * under one overlay (uniform, BB's bottom fade and a soft top-left scrim). Clouds in light, the night sky in dark. Mounted by the shell only
- * on the Inbox and gone when you leave it (no canvas, no WebGL context elsewhere). While it shows it sets
+ * on Home (and its full list of notifications) and gone when you leave it (no canvas, no WebGL context elsewhere). While it shows it sets
  * `data-wallpaper` on <html>: the sidebar drops its fill and the page's surfaces turn to glass (globals.css, where
  * the scrim is styled too). It fades in once the photo is decoded. Photos: Viktor Mogilat and Raphael Koh on
  * Unsplash (see NOTICE).
@@ -13,7 +13,7 @@ import nightSky from '@/assets/wallpaper/night-sky.avif'
 import { useTheme } from '@/context/theme-context'
 import { animatePhoto } from './photo'
 
-export function InboxWallpaper() {
+export function HomeWallpaper() {
   const { isDark } = useTheme()
   const photo = isDark ? nightSky : clouds
   const canvasRef = useRef<HTMLCanvasElement>(null)
