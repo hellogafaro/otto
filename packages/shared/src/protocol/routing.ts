@@ -189,7 +189,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.sessions.GET_MESSAGES,
   RPC_CHANNELS.sessions.SEND_MESSAGE,
   RPC_CHANNELS.sessions.CANCEL,
-  RPC_CHANNELS.sessions.KILL_SHELL,
   RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION,
   RPC_CHANNELS.sessions.RESPOND_TO_CREDENTIAL,
   RPC_CHANNELS.sessions.COMMAND,
@@ -217,9 +216,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.transfer.CHUNK,
   RPC_CHANNELS.transfer.COMMIT,
   RPC_CHANNELS.transfer.ABORT,
-
-  // tasks — workspace content (background task output)
-  RPC_CHANNELS.tasks.GET_OUTPUT,
 
   // file — workspace files (not openDialog which is native)
   RPC_CHANNELS.file.READ,
@@ -268,8 +264,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   // chatgpt — OAuth via capability passthrough
   RPC_CHANNELS.chatgpt.START_OAUTH,
   RPC_CHANNELS.chatgpt.CANCEL_OAUTH,
-  RPC_CHANNELS.chatgpt.GET_AUTH_STATUS,
-  RPC_CHANNELS.chatgpt.LOGOUT,
   RPC_CHANNELS.chatgpt.DEVICE_CODE,
 
   // claudeCode — the `claude` CLI of the machine the workspace's server runs on
@@ -278,8 +272,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   // copilot — OAuth via capability passthrough
   RPC_CHANNELS.copilot.START_OAUTH,
   RPC_CHANNELS.copilot.CANCEL_OAUTH,
-  RPC_CHANNELS.copilot.GET_AUTH_STATUS,
-  RPC_CHANNELS.copilot.LOGOUT,
   RPC_CHANNELS.copilot.DEVICE_CODE,
 
   // settings — workspace-level settings
@@ -350,11 +342,18 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
 
   // statuses — workspace metadata
   RPC_CHANNELS.statuses.LIST,
+  RPC_CHANNELS.statuses.CREATE,
+  RPC_CHANNELS.statuses.UPDATE,
+  RPC_CHANNELS.statuses.DELETE,
   RPC_CHANNELS.statuses.REORDER,
+  RPC_CHANNELS.statuses.SET_DEFAULT,
 
   // labels — workspace metadata
   RPC_CHANNELS.labels.LIST,
   RPC_CHANNELS.labels.CREATE,
+  RPC_CHANNELS.labels.UPDATE,
+  RPC_CHANNELS.labels.MOVE,
+  RPC_CHANNELS.labels.REORDER,
   RPC_CHANNELS.labels.DELETE,
 
   // toolIcons — workspace config
@@ -399,11 +398,12 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
   RPC_CHANNELS.timesheets.CREATE,
   RPC_CHANNELS.timesheets.DELETE,
 
-  // comments, notifications and the change push — live in the workspace's server
+  // search, comments, notifications and the change push — live in the workspace's server
   RPC_CHANNELS.comments.GET,
   RPC_CHANNELS.comments.CREATE,
   RPC_CHANNELS.comments.UPDATE,
   RPC_CHANNELS.comments.DELETE,
+  RPC_CHANNELS.search.RUN,
   RPC_CHANNELS.notifications.GET,
   RPC_CHANNELS.notifications.SET_STATUS,
   RPC_CHANNELS.notifications.CLEAR,
@@ -412,10 +412,6 @@ export const REMOTE_ELIGIBLE_CHANNELS = new Set<string>([
 
   // git — workspace filesystem
   RPC_CHANNELS.git.GET_BRANCH,
-
-  // resources — workspace resource export/import
-  RPC_CHANNELS.resources.EXPORT,
-  RPC_CHANNELS.resources.IMPORT,
 
   // messaging — gateway channels run on workspace server
   RPC_CHANNELS.messaging.WA_REGISTER,

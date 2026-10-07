@@ -193,7 +193,7 @@ describe('the guard on every registered channel', () => {
       expect(OWNER_CHANNELS.has(channel)).toBe(false)
       expect(await codeOf(bob.invoke(channel, A))).toBe('ok')
     }
-    for (const channel of [labels.CREATE, labels.DELETE, statuses.REORDER]) {
+    for (const channel of [labels.CREATE, labels.UPDATE, labels.MOVE, labels.REORDER, labels.DELETE, statuses.CREATE, statuses.UPDATE, statuses.DELETE, statuses.REORDER, statuses.SET_DEFAULT]) {
       expect(OWNER_CHANNELS.has(channel)).toBe(true)
       expect(await codeOf(bob.invoke(channel, A))).toBe('forbidden')
       expect(await codeOf(alice.invoke(channel, A))).toBe('ok')

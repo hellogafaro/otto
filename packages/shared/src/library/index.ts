@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { getWorkspaceByNameOrId } from '../config/storage.ts'
 import { isActor } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
+import { likeContains, likeRank } from '../db/like.ts'
 import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
 import type { FileStore } from './file-store.ts'
@@ -216,6 +217,20 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
         .map(toItem)
     },
 
+    /** Items (folders too) whose title contains `query` (plain LIKE; content is not searched): a title that starts with it first, then most recently updated. Every item of a workspace is visible to its members. */
+    searchLibraryItems(workspaceId: string, query: string, limit = 20): LibraryItem[] {
+      const text = query.trim()
+      if (!text) return []
+      return db
+        .select()
+        .from(library)
+        .where(and(eq(library.workspaceId, workspaceId), likeContains(library.title, text)))
+        .orderBy(likeRank(library.title, text), desc(library.updatedAt), sql`rowid desc`)
+        .limit(limit)
+        .all()
+        .map(toItem)
+    },
+
     /** The folders from the root down to the folder `id` (the folder itself last). */
     getLibraryFolderPath(workspaceId: string, id: string): LibraryItem[] {
       return folderChain(workspaceId, id).map(toItem)
@@ -324,6 +339,7 @@ export const initChatAttachmentsFolder: Store['initChatAttachmentsFolder'] = (wo
 export const createLibraryItem: Store['createLibraryItem'] = (input) => defaultStore().createLibraryItem(input)
 export const getLibraryItem: Store['getLibraryItem'] = (workspaceId, id) => defaultStore().getLibraryItem(workspaceId, id)
 export const getLibraryItems: Store['getLibraryItems'] = (workspaceId, filter) => defaultStore().getLibraryItems(workspaceId, filter)
+export const searchLibraryItems: Store['searchLibraryItems'] = (workspaceId, query, limit) => defaultStore().searchLibraryItems(workspaceId, query, limit)
 export const getLibraryFolderPath: Store['getLibraryFolderPath'] = (workspaceId, id) => defaultStore().getLibraryFolderPath(workspaceId, id)
 export const readLibraryContent: Store['readLibraryContent'] = (workspaceId, id) => defaultStore().readLibraryContent(workspaceId, id)
 export const readLibraryText: Store['readLibraryText'] = (workspaceId, id) => defaultStore().readLibraryText(workspaceId, id)

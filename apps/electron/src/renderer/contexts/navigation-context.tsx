@@ -95,6 +95,7 @@ import { sessionMetaMapAtom, updateSessionMetaAtom } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
 import { agentsAtom } from '@/atoms/agents'
+import { getNewChatAgentId } from '@/lib/new-chat-agent'
 import { routinesAtom } from '@/atoms/routines'
 import { getVisibleRoutines } from '@/pages/routines/routine-items'
 import { sessionListOrderAtom } from '@/atoms/list-context'
@@ -371,7 +372,8 @@ export function NavigationProvider({
 
       switch (parsed.name) {
         case 'new-session': {
-          const createOptions: import('../../shared/types').CreateSessionOptions = {}
+          // A new chat starts with the agent last picked in this workspace (else the default agent).
+          const createOptions: import('../../shared/types').CreateSessionOptions = { agentId: getNewChatAgentId(workspaceId) }
           if (parsed.params.mode) {
             const parsedMode = parsePermissionMode(parsed.params.mode)
             if (parsedMode) {

@@ -1,6 +1,7 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { isActor, userIdOf } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
+import { likeContains } from '../db/like.ts'
 import { createId } from '../id.ts'
 import { createNotification, deleteEntityNotifications } from '../notifications/index.ts'
 import { ENTITY_TOKEN, isEntity } from '../entities.ts'
@@ -87,6 +88,20 @@ export function getCommentsById(workspaceId: string, ids: string[], db: Db | Tx 
     .select()
     .from(comments)
     .where(and(eq(comments.workspaceId, workspaceId), inArray(comments.id, ids)))
+    .all()
+    .map(toComment)
+}
+
+/** The workspace's comments whose text contains `query` (plain LIKE), newest first; the caller drops those of entities it may not show. */
+export function searchComments(workspaceId: string, query: string, limit = 20, db: Db | Tx = initDb()): Comment[] {
+  const text = query.trim()
+  if (!text) return []
+  return db
+    .select()
+    .from(comments)
+    .where(and(eq(comments.workspaceId, workspaceId), likeContains(comments.content, text)))
+    .orderBy(desc(comments.createdAt), sql`rowid desc`)
+    .limit(limit)
     .all()
     .map(toComment)
 }

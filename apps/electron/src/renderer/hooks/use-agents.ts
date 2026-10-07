@@ -4,7 +4,10 @@
  */
 
 import { useMemo } from 'react'
+import { useAtomValue } from 'jotai'
 import { agentsAtom } from '@/atoms/agents'
+import { listFor } from '@/atoms/workspace-list'
+import { useAppShellContext } from '@/context/app-shell-context'
 import type { Agent, AgentUpdate } from '../../shared/types'
 import { useWorkspaceList } from './use-workspace-list'
 
@@ -24,3 +27,12 @@ export function useAgents() {
 
   return { agents: agents as Agent[], loaded, refresh, ...actions }
 }
+
+/** The workspace's agents as already loaded, the default first; never fetches (the shell composer's `useAgents` loads them). */
+export function useLoadedAgents(): Agent[] {
+  const { activeWorkspaceId } = useAppShellContext()
+  return listFor(useAtomValue(agentsAtom), activeWorkspaceId).items
+}
+
+/** The agent with this id, else (none, or deleted) the default agent, the first; undefined until they have loaded. */
+export const agentOf = (agents: Agent[], agentId?: string | null): Agent | undefined => agents.find((agent) => agent.id === agentId) ?? agents[0]

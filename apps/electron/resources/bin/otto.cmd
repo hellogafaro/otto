@@ -1,7 +1,4 @@
 @echo off
 set "OTTO_BUN_BIN=%OTTO_BUN%"
 if "%OTTO_BUN_BIN%"=="" set "OTTO_BUN_BIN=bun"
-set "OTTO_COMMANDS_BIN=%OTTO_COMMANDS_ENTRY%"
-if "%OTTO_COMMANDS_BIN%"=="" set "OTTO_COMMANDS_BIN=%OTTO_CLI_ENTRY%"
-if "%OTTO_CLI_JSON_ONLY%"=="" set "OTTO_CLI_JSON_ONLY=1"
-"%OTTO_BUN_BIN%" run "%OTTO_COMMANDS_BIN%" %*
+"%OTTO_BUN_BIN%" "%~dp0..\scripts\otto.mjs" %*

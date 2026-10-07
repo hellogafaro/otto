@@ -177,7 +177,6 @@ DevTools opens automatically (configured in `index.ts`). Remove `mainWindow.webC
 - **Subagent support** - Load and apply agent definitions from documents
 - **Shell integration** - Open URLs in browser, open files in default apps
 - **Permission modes** - Three-level permission system (Explore, Ask to Edit, Auto)
-- **Background tasks** - Run long-running tasks in background with progress tracking
 - **Multi-file diff** - VS Code-style window for viewing all file changes in a turn
 - **Dynamic statuses** - Workspace-customizable session workflow states
 - **Theme system** - Cascading themes (app → workspace → agent)
@@ -238,7 +237,6 @@ See `CLAUDE.md` for complete route reference.
 | `renderer/contexts/navigation-context.tsx` | Type-safe routing and navigation handler |
 | `renderer/lib/navigate.ts` | Global navigate() function |
 | `renderer/hooks/useAgentState.ts` | Agent activation state machine (IPC-based) |
-| `renderer/hooks/use-background-tasks.ts` | Background task tracking |
 | `renderer/hooks/use-statuses.ts` | Workspace status configuration |
 | `renderer/hooks/use-theme.ts` | Cascading theme resolution |
 | `renderer/components/chat/Chat.tsx` | Main chat layout with resizable panels |

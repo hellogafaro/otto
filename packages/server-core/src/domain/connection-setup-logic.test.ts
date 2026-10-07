@@ -72,7 +72,7 @@ describe('createConnectionForSetup', () => {
 
   it("a Claude subscription is the claude-code provider, 'steer', with the Claude models and no secret", () => {
     const conn = make('claude-code', 'cli_login')
-    expect(conn).toMatchObject({ type: 'claude-code', authType: 'cli_login', name: 'T', midStreamBehavior: 'steer', modelSelectionMode: 'automaticallySyncedFromProvider' })
+    expect(conn).toMatchObject({ type: 'claude-code', authType: 'cli_login', name: 'T', midStreamBehavior: 'steer' })
   })
 
   it('an Anthropic API key and ChatGPT are their Pi providers', () => {
@@ -80,11 +80,10 @@ describe('createConnectionForSetup', () => {
     expect(make('openai-codex', 'oauth')).toMatchObject({ type: 'openai-codex', midStreamBehavior: 'steer' })
   })
 
-  it('a custom endpoint lists no models of its own and keeps the 3-tier mode unset', () => {
+  it('a custom endpoint lists no models of its own', () => {
     const conn = make('custom', 'api_key_with_endpoint')
     expect(conn.models).toEqual([])
     expect(conn.defaultModel).toBe('')
-    expect(conn.modelSelectionMode).toBeUndefined()
     expect(conn.midStreamBehavior).toBe('steer')
   })
 })

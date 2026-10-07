@@ -348,7 +348,7 @@ export type SystemPromptPreset = 'default' | 'mini';
  */
 export function getMiniAgentSystemPrompt(workspaceRootPath?: string): string {
   const workspaceContext = workspaceRootPath
-    ? `\n## Workspace\nConfig files are in: \`${workspaceRootPath}\`\nLabels, statuses, the workspace permission rules, agents and routines are not files: change them with \`labels_edit\`, \`statuses_edit\`, \`permissions_edit\`, \`agents_edit\` and \`routines_edit\`.\n`
+    ? `\n## Workspace\nConfig files are in: \`${workspaceRootPath}\`\nLabels, statuses, agents and routines are not files: change them with the \`otto\` command (its skill lists the commands); the workspace permission rules with \`permissions_edit\`.\n`
     : '';
 
   return `You are a focused assistant for quick configuration edits in ${PRODUCT_NAME}.
@@ -672,19 +672,9 @@ Read relevant context files using the Read tool - they contain architecture info
 | Markdown Preview | \`${DOC_REFS.markdownPreview}\` | When displaying rendered .md files inline |
 | Browser Tools | \`${DOC_REFS.browserTools}\` | When using in-app browser tools (\`browser_tool\`) |
 | LLM Tool | \`${DOC_REFS.llmTool}\` | When using \`call_llm\` for subtasks |${decideToolActive ? `
-| Decision Model | \`${DOC_REFS.decisions}\` | When using \`decide\` to classify, route or score items |` : ''}${FEATURE_FLAGS.ottoCli ? `
-| ${PRODUCT_NAME} CLI | \`${DOC_REFS.ottoCli}\` | When managing labels/sources/skills via \`otto\` |` : ''}
+| Decision Model | \`${DOC_REFS.decisions}\` | When using \`decide\` to classify, route or score items |` : ''}
 
-**IMPORTANT:** Always read the relevant doc file BEFORE making changes. Do NOT guess schemas - these have specific patterns that differ from standard approaches.${FEATURE_FLAGS.ottoCli ? `
-
-## ${PRODUCT_NAME} CLI
-
-Prefer \`otto\` CLI over direct file edits for labels, sources and skills.
-
-- Labels help: \`otto label --help\`
-- Sources help: \`otto source --help\`
-- Skills help: \`otto skill --help\`
-- Canonical reference: \`${DOC_REFS.ottoCli}\`` : ''}
+**IMPORTANT:** Always read the relevant doc file BEFORE making changes. Do NOT guess schemas - these have specific patterns that differ from standard approaches.
 
 ## User preferences
 
@@ -832,15 +822,14 @@ Use session tools to inspect or update ${PRODUCT_NAME} sessions/tasks:
 - \`set_session_labels\`: replace labels; valued labels use \`id::value\` and must match the configured type.
 - \`set_session_status\`: set an open workflow status. Never move work into closed statuses such as \`done\`/\`cancelled\`; use \`needs-review\` when ready.
 - \`list_sessions\`: query with filters first; then call \`get_session_info\` for details.
-- \`list_background_tasks\`: the authoritative status source for background work. Report exactly what it returns.
 - \`send_agent_message\`: coordinate with another session; queued means not read yet.
 - \`archive_session\`: archive another idle session by explicit ID only.
 
-Setting labels/statuses can trigger routines. Do not guess task closure or background-task outcomes.
+Setting labels/statuses can trigger routines. Do not guess task closure.
 
 ## Routines
 
-Routines run prompts, webhooks, or workspace-local scripts on a schedule or when an event happens. They are database rows: change them with \`routines_edit\`, never a file.
+Routines run prompts, webhooks, or workspace-local scripts on a schedule or when an event happens. They are database rows: change them with the \`otto routines\` commands, never a file.
 
 Rules:
 - Read \`${DOC_REFS.routines}\` before creating or modifying routines.

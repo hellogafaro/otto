@@ -9,16 +9,15 @@ import type { HandlerDeps } from '../handler-deps'
  * the chat; `guardSessionChannels` enforces it in one place, and the test in `session-guard.test.ts`
  * fails when a handler takes a `sessionId` first and is not listed here.
  *
- * Not listed because they take a workspace or a task, not a chat, and filter on their own:
+ * Not listed because they take a workspace, not a chat, and filter on their own:
  * sessions:get, getUnreadSummary, markAllRead, searchContent, create, import, importRemoteTransfer,
- * tasks:getOutput, server:getActiveSessions, drafts:getAll.
+ * server:getActiveSessions, drafts:getAll.
  */
 export const SESSION_ID_CHANNELS: ReadonlySet<string> = new Set([
   RPC_CHANNELS.sessions.GET_MESSAGES,
   RPC_CHANNELS.sessions.DELETE,
   RPC_CHANNELS.sessions.SEND_MESSAGE,
   RPC_CHANNELS.sessions.CANCEL,
-  RPC_CHANNELS.sessions.KILL_SHELL,
   RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION,
   RPC_CHANNELS.sessions.RESPOND_TO_CREDENTIAL,
   RPC_CHANNELS.sessions.COMMAND,

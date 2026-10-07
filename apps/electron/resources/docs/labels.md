@@ -2,20 +2,18 @@
 
 Labels are additive tags that can be applied to sessions. Unlike statuses (which are exclusive — one per session), labels are multi-select (many per session). They form a tree.
 
-Labels live in the workspace database, not in files. Read and change them with the `labels_edit` tool (this tool will be replaced by the Python `otto` CLI, `otto labels`). Only workspace owners can change labels; members can list them.
+Labels live in the workspace database, not in files. Read and change them with the `otto labels` commands (see `otto.md` for all of them). Only workspace owners can change labels; members can list them.
 
-## The `labels_edit` Tool
+| Command | Arguments |
+|---------|-----------|
+| `otto labels list` | none (returns the label tree) |
+| `otto labels create <label>` | `{ name, color?, parentId?, valueType?, autoRules? }` |
+| `otto labels update <id> <patch>` | any of `name`, `color`, `valueType` (`""` makes it a plain label again), `autoRules` (replaces the rules, `[]` clears them) |
+| `otto labels delete <id>` | removes the label, its children, and every session's use of them |
+| `otto labels move <id> [parentId]` | no parent = top level |
+| `otto labels reorder <ids> [parentId]` | `ids`: the JSON list of the siblings in the new order; `parentId` = the level to reorder |
 
-| Action | Arguments |
-|--------|-----------|
-| `list` | none (returns the label tree) |
-| `create` | `name`, optional `color`, `parentId`, `valueType`, `autoRules` |
-| `update` | `id`, any of `name`, `color`, `valueType` (`""` makes it a plain label again), `autoRules` (replaces the rules, `[]` clears them) |
-| `delete` | `id` (removes the label, its children, and every session's use of them) |
-| `move` | `id`, `parentId` (omit or `null` = top level) |
-| `reorder` | `orderedIds` (sibling ids in the new order), `parentId` = the level to reorder |
-
-Example: `labels_edit({ action: "create", name: "Alpha", color: "info", parentId: "project" })`.
+Example: `otto labels create '{"name":"Alpha","color":"info","parentId":"project"}'`.
 
 ## Hierarchy
 
@@ -161,11 +159,11 @@ A semantic rule is a yes/no question instead of a regex. The decision model (Jev
 
 Auto-tag deadlines and budgets:
 
-```
-labels_edit({ action: "create", name: "Deadline", color: "orange", valueType: "date",
-  autoRules: [{ "pattern": "(\\d{4}-\\d{2}-\\d{2})", "valueTemplate": "$1", "description": "ISO dates" }] })
-labels_edit({ action: "create", name: "Budget", color: "green", valueType: "number",
-  autoRules: [{ "pattern": "\\$([\\d,.]+[kKmMbB]?)", "valueTemplate": "$1", "description": "Dollar amounts" }] })
+```bash
+otto labels create '{"name":"Deadline","color":"orange","valueType":"date",
+  "autoRules":[{"pattern":"(\\d{4}-\\d{2}-\\d{2})","valueTemplate":"$1","description":"ISO dates"}]}'
+otto labels create '{"name":"Budget","color":"green","valueType":"number",
+  "autoRules":[{"pattern":"\\$([\\d,.]+[kKmMbB]?)","valueTemplate":"$1","description":"Dollar amounts"}]}'
 ```
 
 ## Sidebar Behavior

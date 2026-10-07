@@ -4,7 +4,7 @@ import { createId } from '../id.ts'
 import { initSecretsStore, type createSecretsStore } from '../secrets/index.ts'
 import { getSetting, INSTALL, updateSetting, userEntity } from '../settings/index.ts'
 import { getFirstUser } from '../users/queries.ts'
-import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, type CustomEndpointConfig, type LlmAuthType, type MidStreamBehavior, type ModelSelectionMode } from '../config/llm-connections.ts'
+import { CLAUDE_CODE_CONNECTION_TYPE, CUSTOM_CONNECTION_TYPE, type CustomEndpointConfig, type LlmAuthType, type MidStreamBehavior } from '../config/llm-connections.ts'
 import type { ModelDefinition } from '../config/models.ts'
 import { connections } from './schema.ts'
 
@@ -75,7 +75,6 @@ export type Credential = {
 }
 
 export type ConnectionConfig = {
-  modelSelectionMode?: ModelSelectionMode
   customEndpoint?: CustomEndpointConfig
   midStreamBehavior?: MidStreamBehavior
 }

@@ -30,7 +30,7 @@ import {
 } from './handlers/source-oauth.ts';
 import { handleCredentialPrompt } from './handlers/credential-prompt.ts';
 import { handleUpdatePreferences } from './handlers/update-preferences.ts';
-import { handleAgentsEdit, handleLabelsEdit, handleStatusesEdit, handlePermissionsEdit, handleRoutinesEdit } from './handlers/workspace-config.ts';
+import { handlePermissionsEdit } from './handlers/permissions-edit.ts';
 import { handleTransformData } from './handlers/transform-data.ts';
 import { handleScriptSandbox } from './handlers/script-sandbox.ts';
 import { handleRenderTemplate } from './handlers/render-template.ts';
@@ -39,7 +39,6 @@ import { handleSetSessionLabels } from './handlers/set-session-labels.ts';
 import { handleSetSessionStatus } from './handlers/set-session-status.ts';
 import { handleGetSessionInfo } from './handlers/get-session-info.ts';
 import { handleListSessions } from './handlers/list-sessions.ts';
-import { handleListBackgroundTasks } from './handlers/list-background-tasks.ts';
 import { handleArchiveSession } from './handlers/archive-session.ts';
 import { handleSendAgentMessage } from './handlers/send-agent-message.ts';
 import { handleListMessagingChannels, handleUnbindMessagingChannel } from './handlers/messaging.ts';
@@ -59,54 +58,9 @@ export const ConfigValidateSchema = z.object({
   sourceSlug: z.string().optional().describe('Validate a specific source by slug'),
 });
 
-const colorSchema = z.union([z.string(), z.object({ light: z.string(), dark: z.string().optional() })]).describe('A system color ("accent", "foreground/50", "info/80") or { light: "#EF4444", dark: "#F87171" }');
-
-export const LabelsEditSchema = z.object({
-  action: z.enum(['list', 'create', 'update', 'delete', 'move', 'reorder']).describe('list: the label tree. create: needs name. update/delete/move: need id. reorder: needs orderedIds.'),
-  id: z.string().optional().describe('The label id (slug, e.g. "bug") for update, delete and move'),
-  name: z.string().optional().describe('Display name (create, update)'),
-  color: colorSchema.optional(),
-  parentId: z.string().nullable().optional().describe('Parent label id for create and move (null or omitted = top level); the level to reorder'),
-  valueType: z.enum(['string', 'number', 'date', 'link', '']).optional().describe('Makes it a valued label ("priority::3"); "" makes it a plain label again'),
-  autoRules: z.array(z.record(z.string(), z.unknown())).optional().describe('Auto-apply rules, each { pattern, flags?, valueTemplate?, description? } (regex) or { semantic, threshold?, value?, description? } (a yes/no question); replaces the label\'s rules, [] clears them'),
-  orderedIds: z.array(z.string()).optional().describe('Sibling label ids in the new order (reorder)'),
-});
-
-export const StatusesEditSchema = z.object({
-  action: z.enum(['list', 'create', 'update', 'delete', 'reorder', 'set_default']).describe('list: the statuses. create: needs label and category. update/delete/set_default: need id. reorder: needs orderedIds.'),
-  id: z.string().optional().describe('The status id (slug, e.g. "in-progress")'),
-  label: z.string().optional().describe('Display name (create, update)'),
-  color: colorSchema.optional(),
-  icon: z.string().optional().describe('An emoji, or an image data URL of at most 16 KB (a web address is not accepted)'),
-  category: z.enum(['open', 'closed']).optional().describe('open = inbox, closed = archive; cannot change for the fixed statuses todo, done, cancelled'),
-  orderedIds: z.array(z.string()).optional().describe('Status ids in the new order (reorder)'),
-});
-
 export const PermissionsEditSchema = z.object({
   action: z.enum(['get', 'update']).describe('get: the workspace\'s Explore-mode rules. update: replaces all of them with rules.'),
   rules: z.record(z.string(), z.unknown()).optional().describe('The whole rule set for update: { allowedBashPatterns?, allowedMcpPatterns?, allowedApiEndpoints?, allowedWritePaths?, blockedTools?, blockedCommandHints? } (see the permissions doc)'),
-});
-
-export const AgentsEditSchema = z.object({
-  action: z.enum(['list', 'get', 'create', 'update', 'delete']).describe('list: the workspace\'s agents (without instructions). get: one agent in full. create: needs title. update/delete: need id.'),
-  id: z.string().optional().describe('The agent id (get, update, delete)'),
-  title: z.string().optional().describe('The agent\'s name, at most 80 characters (create, update)'),
-  instructions: z.string().optional().describe('What this agent should always do or know, at most 20,000 characters; added after the workspace\'s instructions. Replaces the old text on update.'),
-  provider: z.string().optional().describe('Which provider\'s connection runs it (create: the creator\'s default provider when left out)'),
-  model: z.string().nullable().optional().describe('A model id; null or "" = the connection\'s default'),
-  thinkingLevel: z.enum(['off', 'low', 'medium', 'high', 'xhigh', 'max']).optional(),
-  skills: z.array(z.string()).optional().describe('Skill ids it may use; [] = every skill. Replaces the list on update.'),
-  sources: z.array(z.string()).optional().describe('Source ids it may use; [] = every source. Replaces the list on update.'),
-  avatar: z.string().optional().describe('Empty = a generated avatar; or "library:<id>" of an uploaded image'),
-});
-
-export const RoutinesEditSchema = z.object({
-  action: z.enum(['list', 'get', 'create', 'update', 'pause', 'resume', 'run', 'delete']).describe('list: the workspace\'s routines (without their runs). get: one with its recent runs. create: needs title and config. update/pause/resume/run/delete: need id.'),
-  id: z.string().optional().describe('The routine id'),
-  title: z.string().optional().describe('Its name, at most 120 characters (create, update)'),
-  config: z.record(z.string(), z.unknown()).optional().describe('When it runs and what it does: { type: "schedule" | "event", schedule?: { cron, timezone? }, event?, matcher?, conditions?, semanticCondition?, permissionMode?, telegramTopic?, actions: [{ type: "prompt" | "webhook" | "script", ... }] } (see the routines doc). Replaces the whole config on update.'),
-  agentId: z.string().nullable().optional().describe('The agent its chats talk to; null = the workspace\'s default agent (create, update)'),
-  paused: z.boolean().optional().describe('Start paused (create)'),
 });
 
 export const SkillValidateSchema = z.object({
@@ -282,10 +236,6 @@ export const ListSessionsSchema = z.object({
   offset: z.number().optional().describe('Skip first N results (for pagination)'),
 });
 
-export const ListBackgroundTasksSchema = z.object({
-  sessionId: z.string().optional().describe('Session ID to query. Omit to list background tasks for the current session.'),
-});
-
 // Inter-session messaging
 export const SendAgentMessageSchema = z.object({
   sessionId: z.string().describe('Target session ID to send the message to'),
@@ -411,12 +361,6 @@ The user will see a secure input UI with appropriate fields based on the auth mo
 
   update_user_preferences: `Update stored user preferences. Use this when you learn information about the user that would be helpful to remember for future conversations. This includes their name, timezone, location, or any other relevant notes. Only update fields you have confirmed information about - don't guess.`,
 
-  labels_edit: `Read or change the workspace's labels (nested, colored tags with optional values and auto-apply rules). Actions: list, create, update, delete, move, reorder. Labels are database rows, not files: do not edit labels/config.json. Only workspace owners can change them. Deleting a label removes it, its children and every chat's use of it.`,
-
-  statuses_edit: `Read or change the workspace's chat statuses. Actions: list, create, update, delete, reorder, set_default. Statuses are database rows, not files: do not edit statuses/config.json. Only workspace owners can change them. The statuses todo, done and cancelled are fixed; the default one cannot be deleted; deleting a status moves its chats to todo.`,
-
-  agents_edit: `Read, create, change or delete the workspace's agents (each has a name, instructions, a provider and model, and the skills and sources it may use). Actions: list, get, create, update, delete. Agents are database rows. Any member can create one; only an agent's creator or a workspace owner can update or delete it. The last agent of a workspace cannot be deleted; chats of a deleted agent move to the default agent (the oldest).`,
-  routines_edit: `Read, create, change, pause, resume, run or delete the workspace's routines: prompts, webhooks or workspace scripts that run on a schedule or an event. Actions: list, get, create, update, pause, resume, run, delete. Routines are database rows: automations.json is no longer read. Any member can create one; only a routine's creator or a workspace owner can change, pause, resume, run or delete it. A routine runs as its creator, so a change by anyone else makes it theirs, and run runs it as you. Read the routines doc before creating one.`,
   permissions_edit: `Read or change the workspace's Explore-mode permission rules (extra allowed bash patterns, MCP patterns, API endpoints, write paths, blocked tools, command hints). Actions: get, update (replaces the whole rule set). These rules are stored in the database, not in permissions.json; a source's own rules stay in its permissions.json. Only workspace owners can change them.`,
 
   transform_data: `Transform data files using a script and write structured output for datatable/spreadsheet blocks, or extract HTML content for html-preview blocks.
@@ -576,21 +520,6 @@ Call with no arguments to introspect your own session state.`,
 Use filters (status, label, search) to narrow results instead of fetching everything. Default limit is 20 sessions.
 Use get_session_info for full details on a specific session (list-then-detail pattern).`,
 
-  list_background_tasks: `List background agents/tasks tracked for a session (running, finished, or orphaned).
-
-This is the authoritative way to answer a "what background work is running / what's the status?" question.
-It reads the main-process registry, which tracks tasks ACROSS turns — unlike the SDK's in-subprocess task tools,
-which only see tasks launched in the current subprocess and lose visibility of tasks from prior turns.
-
-Status meanings:
-- running: backgrounded and not yet reported finished.
-- completed / failed / stopped: a terminal notification was received.
-- orphaned: the turn that launched the task ended before it finished, so it was terminated with that turn's subprocess.
-
-kind is agent, workflow, shell (a background Bash command) or task (Monitor, MCP...). untracked: true marks a completion for a task this session's agent did not launch (typically a subagent's own background command). Tasks without startTime have an unknown start.
-
-Never guess or claim "the app restarted" — report exactly what this tool returns. Omit sessionId for the current session.`,
-
   send_agent_message: `Send a message to another session. The message is delivered with your session ID so the target can reply back.
 
 Use this to coordinate with spawned sessions, send follow-up instructions, or relay information between sessions.
@@ -658,10 +587,6 @@ export const SESSION_TOOL_DEFS: SessionToolDef[] = [
   { name: 'source_slack_oauth_trigger', description: TOOL_DESCRIPTIONS.source_slack_oauth_trigger, inputSchema: SourceOAuthTriggerSchema, executionMode: 'registry', safeMode: 'block', handler: handleSlackOAuthTrigger },
   { name: 'source_microsoft_oauth_trigger', description: TOOL_DESCRIPTIONS.source_microsoft_oauth_trigger, inputSchema: SourceOAuthTriggerSchema, executionMode: 'registry', safeMode: 'block', handler: handleMicrosoftOAuthTrigger },
   { name: 'source_credential_prompt', description: TOOL_DESCRIPTIONS.source_credential_prompt, inputSchema: CredentialPromptSchema, executionMode: 'registry', safeMode: 'block', handler: handleCredentialPrompt },
-  { name: 'labels_edit', description: TOOL_DESCRIPTIONS.labels_edit, inputSchema: LabelsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleLabelsEdit },
-  { name: 'statuses_edit', description: TOOL_DESCRIPTIONS.statuses_edit, inputSchema: StatusesEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleStatusesEdit },
-  { name: 'agents_edit', description: TOOL_DESCRIPTIONS.agents_edit, inputSchema: AgentsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleAgentsEdit },
-  { name: 'routines_edit', description: TOOL_DESCRIPTIONS.routines_edit, inputSchema: RoutinesEditSchema, executionMode: 'registry', safeMode: 'block', handler: handleRoutinesEdit },
   { name: 'permissions_edit', description: TOOL_DESCRIPTIONS.permissions_edit, inputSchema: PermissionsEditSchema, executionMode: 'registry', safeMode: 'block', handler: handlePermissionsEdit },
   { name: 'update_user_preferences', description: TOOL_DESCRIPTIONS.update_user_preferences, inputSchema: UpdatePreferencesSchema, executionMode: 'registry', safeMode: 'block', handler: handleUpdatePreferences },
   { name: 'transform_data', description: TOOL_DESCRIPTIONS.transform_data, inputSchema: TransformDataSchema, executionMode: 'registry', safeMode: 'allow', handler: handleTransformData },
@@ -681,7 +606,6 @@ export const SESSION_TOOL_DEFS: SessionToolDef[] = [
   { name: 'archive_session', description: TOOL_DESCRIPTIONS.archive_session, inputSchema: ArchiveSessionSchema, executionMode: 'registry', safeMode: 'block', handler: handleArchiveSession },
   { name: 'get_session_info', description: TOOL_DESCRIPTIONS.get_session_info, inputSchema: GetSessionInfoSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleGetSessionInfo },
   { name: 'list_sessions', description: TOOL_DESCRIPTIONS.list_sessions, inputSchema: ListSessionsSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleListSessions },
-  { name: 'list_background_tasks', description: TOOL_DESCRIPTIONS.list_background_tasks, inputSchema: ListBackgroundTasksSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleListBackgroundTasks },
   // Inter-session messaging
   { name: 'send_agent_message', description: TOOL_DESCRIPTIONS.send_agent_message, inputSchema: SendAgentMessageSchema, executionMode: 'registry', safeMode: 'block', handler: handleSendAgentMessage },
   // Messaging gateway tools

@@ -364,7 +364,7 @@ export class AutomationSystem implements AutomationsConfigProvider {
   // ============================================================================
 
   /**
-   * Build SDK hook callbacks from automations.json definitions.
+   * Build SDK hook callbacks from the workspace's event routines.
    *
    * Command execution has been removed — all automation actions now go through prompt-based
    * execution (creating agent sessions via PromptHandler). Agent event automations are not

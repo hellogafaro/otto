@@ -70,20 +70,9 @@ export function attachSessionSelfManagementBindings(
     enumerable: true,
   });
 
-  // listBackgroundTasks defaults sid → sessionId (like getSessionInfo)
-  Object.defineProperty(context, 'listBackgroundTasks', {
+  Object.defineProperty(context, 'editPermissions', {
     get() {
-      const fn = getSessionScopedToolCallbacks(sessionId)?.listBackgroundTasksFn;
-      if (!fn) return undefined;
-      return (sid?: string) => fn(sid ?? sessionId);
-    },
-    configurable: true,
-    enumerable: true,
-  });
-
-  Object.defineProperty(context, 'editWorkspaceConfig', {
-    get() {
-      return getSessionScopedToolCallbacks(sessionId)?.editWorkspaceConfigFn;
+      return getSessionScopedToolCallbacks(sessionId)?.editPermissionsFn;
     },
     configurable: true,
     enumerable: true,

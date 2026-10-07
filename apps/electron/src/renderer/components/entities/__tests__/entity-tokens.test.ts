@@ -9,6 +9,7 @@ const lists: EntityLists = {
   tasks: [{ id: T, title: 'Fix login' }],
   projects: [],
   library: [{ id: 'doc000000001', type: 'document', title: 'Plan.md' }],
+  agents: [{ id: 'agent0000001', title: 'Otto', avatar: '' }],
 }
 
 describe('splitEntityTokens', () => {
@@ -42,6 +43,8 @@ describe('describeEntity', () => {
     expect(describeEntity(`user:${U}`, lists)).toMatchObject({ title: 'Maria', missing: false, route: null })
     expect(describeEntity(`task:${T}`, lists)).toMatchObject({ title: 'Fix login', route: `tasks/task/${T}` })
     expect(describeEntity('library:doc000000001', lists)).toMatchObject({ title: 'Plan', route: 'library/item/doc000000001' })
+    expect(describeEntity('agent:agent0000001', lists)).toMatchObject({ type: 'agent', title: 'Otto', route: 'agents/agent/agent0000001' })
+    expect(describeEntity('agent:agent0000002', lists)).toMatchObject({ title: null, missing: true })
   })
 
   it('is missing once its list has loaded without it, unknown while it loads', () => {

@@ -11,7 +11,7 @@ export const ENTITY_TYPES = ['task', 'project', 'comment']
  * rename shows everywhere. The server finds mentions (`user:`) with it, the renderer draws every match
  * as a chip. Global: use it with `matchAll` or `replace`, never `test` or `exec`.
  */
-export const ENTITY_TOKEN = /\b(user|task|project|library|comment):([a-z0-9]{12})\b/g
+export const ENTITY_TOKEN = /\b(user|task|project|library|agent|comment):([a-z0-9]{12})\b/g
 
 export const isEntity = (value: unknown): value is string =>
   typeof value === 'string' && /^[a-z]+:[a-z0-9]{12}$/.test(value) && ENTITY_TYPES.includes(value.slice(0, value.indexOf(':')))

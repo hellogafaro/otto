@@ -102,10 +102,7 @@ import { getDefaultStatusId, getStatuses } from '@otto/shared/statuses/storage'
 import { AutomationSystem, createPromptHistoryEntry, appendAutomationHistoryEntry, type PendingPrompt } from '@otto/shared/automations'
 import { buildBackendRuntimeSignature, buildRestartRequiredSignature, filterAttachmentsForModelInput } from './runtime-config'
 import { validateArchiveTarget } from './archive-guards'
-import { runWorkspaceConfigAction } from './workspace-config-tool'
-import { routineRunnerDeps } from '../handlers/rpc/routines'
-import { runRoutine } from '@otto/shared/automations/routine-runner'
-import type { Routine } from '@otto/shared/automations/routine-types'
+import { runPermissionsAction } from './permissions-tool'
 import { getFirstUser } from '@otto/shared/users/queries'
 import { getAgent, getAgentRunConfig } from '@otto/shared/agents'
 
@@ -428,11 +425,7 @@ async function resolveToolDisplayMeta(
           'transform_data': 'Transform Data',
           'render_template': 'Render Template',
           'update_user_preferences': 'Update Preferences',
-          'labels_edit': 'Edit Labels',
-          'statuses_edit': 'Edit Statuses',
           'permissions_edit': 'Edit Permissions',
-          'agents_edit': 'Edit Agents',
-          'routines_edit': 'Edit Routines',
           'send_developer_feedback': 'Send Feedback',
           'browser_tool': 'Browser',
         },
@@ -578,49 +571,6 @@ async function resolveToolDisplayMeta(
 /** Agent type - unified backend interface for all providers */
 type AgentInstance = PiAgent
 
-/**
- * Status of a background task in the main-process registry.
- * - `running`   — backgrounded and no terminal notification seen yet.
- * - `completed`/`failed`/`stopped` — a real SDK task_notification arrived.
- * - `orphaned`  — the turn that owned the task ended before a terminal
- *   notification arrived. With the (default) per-turn subprocess model the task
- *   almost certainly died with the subprocess, so reporting it as still
- *   "running" would be a lie. Once WS2 keep-alive is enabled these are no longer
- *   produced because the query outlives the turn.
- */
-type BackgroundTaskStatus = 'running' | 'completed' | 'failed' | 'stopped' | 'orphaned'
-
-/** A background task tracked from launch, for cross-subprocess status queries. */
-interface RunningBackgroundTask {
-  taskId: string
-  toolUseId?: string
-  intent?: string
-  /** ms timestamp when the task was backgrounded */
-  startTime: number
-  /** ms timestamp of the last task_progress notification, if any */
-  lastProgressAt?: number
-  /** elapsed seconds from the most recent progress notification, if any */
-  elapsedSeconds?: number
-  status: BackgroundTaskStatus
-  /** ms timestamp when the task reached a terminal/orphaned status */
-  completedAt?: number
-  /** turn that launched the task (used to orphan on that turn's completion) */
-  turnId?: string
-  /** Workflow run id (wf_...) — set when this task is a Workflow launch. */
-  workflowId?: string
-  /** Count of workflow sub-agents completed so far (Workflow tasks only). */
-  agentsCompleted?: number
-  /** What the session's agent launched: a background agent, a Workflow, a Bash command, or another task (Monitor, MCP...). */
-  kind?: 'agent' | 'workflow' | 'shell' | 'task'
-  /**
-   * A completion for a task this session's agent did not launch (typically a subagent's own
-   * background task). Its start time is unknown, and it never wakes the session.
-   */
-  untracked?: boolean
-  /** The session's own task, but its launch was not seen: the start time is unknown. */
-  startUnknown?: boolean
-}
-
 interface ManagedSession {
   id: string
   workspace: Workspace
@@ -748,18 +698,6 @@ interface ManagedSession {
     /** Mid-turn messages: the pending continuation check that may set `mergeWith`. */
     continuationCheck?: Promise<void>
   }>
-  // Map of shellId -> command for killing background shells
-  backgroundShellCommands: Map<string, string>
-  // Map of taskId -> output info for background task results
-  backgroundTaskOutputs: Map<string, { outputFile: string; summary: string; status: string; completedAt: number }>
-  // Registry of background tasks (running + recently-terminal) for this session.
-  // Unlike backgroundTaskOutputs (which only stores COMPLETED tasks for output
-  // retrieval), this tracks tasks from the moment they are backgrounded, so a
-  // cross-subprocess "status?" query can enumerate what is actually live. The
-  // SDK's in-subprocess task tools cannot answer this: their state dies with the
-  // subprocess at turn end, so this main-process registry is the real source of
-  // truth for background-task status. See RunningBackgroundTask.
-  backgroundTaskRegistry: Map<string, RunningBackgroundTask>
   // Whether every message of the chat is in `messages` (loaded from the database on demand; see LOADED_CHATS_LIMIT)
   messagesLoaded: boolean
   // Pending auth request tracking (for unified auth flow)
@@ -974,9 +912,6 @@ export function createManagedSession(
     processingGeneration: 0,
     isFlagged: (s.isFlagged ?? false) as boolean,
     messageQueue: [],
-    backgroundShellCommands: new Map(),
-    backgroundTaskOutputs: new Map(),
-    backgroundTaskRegistry: new Map(),
     messagesLoaded: false,
     tokenRefreshManager: new TokenRefreshManager(getSourceCredentialManager(), {
       log: (msg) => sessionLog.debug(msg),
@@ -1184,8 +1119,6 @@ export class SessionManager implements ISessionManager {
   private activeViewingSession: Map<string, string> = new Map()
   /** Coordinates startup initialization waiters from IPC handlers. */
   private initGate = new InitGate()
-  // O(1) index: taskId → sessionId for background task output lookup (avoids O(n) session scan)
-  private taskOutputIndex: Map<string, string> = new Map()
   /**
    * Per-session in-flight runtime-refresh promise. Ensures `updateRuntimeConfig`
    * (or a dispose) cannot overlap with another refresh OR with a send-path
@@ -2034,8 +1967,8 @@ export class SessionManager implements ISessionManager {
     this.eventSink(RPC_CHANNELS.sources.CHANGED, { to: 'workspace', workspaceId }, workspaceId, sources)
   }
 
-  /** Tells the clients of a workspace that its labels, statuses, permissions, agents, routines, skills or sources changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations). */
-  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'statuses' | 'permissions' | 'agents' | 'routines' | 'skills' | 'sources'): void {
+  /** Tells the clients of a workspace that its labels, permissions, skills or sources changed (`domain:changed`), for the edits that do not come through a client's own call (agent tools, automations, the watcher). */
+  private broadcastDomainChanged(workspaceId: string, domain: 'labels' | 'permissions' | 'skills' | 'sources'): void {
     if (!this.eventSink) return
     this.eventSink(RPC_CHANNELS.domain.CHANGED, { to: 'workspace', workspaceId }, { domain, workspaceId } satisfies DomainChange)
   }
@@ -4420,47 +4353,10 @@ export class SessionManager implements ISessionManager {
             })),
           }
         },
-        listBackgroundTasksFn: (sessionId?: string) => {
-          const targetId = ownChat(sessionId ?? managed.id).id
-          const now = Date.now()
-          return this.listBackgroundTasks(targetId).map((t) => {
-            // No known start (someone else's task, or an unseen launch): report that instead of "0 s".
-            if (t.untracked || t.startUnknown) {
-              return {
-                taskId: t.taskId,
-                ...(t.intent ? { intent: t.intent } : {}),
-                ...(t.kind ? { kind: t.kind } : {}),
-                status: t.status,
-                completedAt: t.completedAt,
-                ...(t.untracked ? { untracked: true } : {}),
-              }
-            }
-            // Prefer wall-clock elapsed; running tasks tick off startTime, terminal
-            // tasks freeze at completion. Fall back to the last progress value.
-            const anchorEnd = t.status === 'running' ? now : (t.completedAt ?? now)
-            const wallElapsed = Math.max(0, Math.round((anchorEnd - t.startTime) / 1000))
-            return {
-              taskId: t.taskId,
-              intent: t.intent,
-              ...(t.kind ? { kind: t.kind } : {}),
-              status: t.status,
-              startTime: t.startTime,
-              elapsedSeconds: t.elapsedSeconds ?? wallElapsed,
-              completedAt: t.completedAt,
-            }
-          })
-        },
-        // labels_edit / statuses_edit / permissions_edit / agents_edit / routines_edit: the chat's user edits the workspace's
-        // labels, statuses, permission rules, agents or routines, through the domain functions (runWorkspaceConfigAction
-        // holds the rules); a routine run is the routines RPC's Run now (no decision-model verdict: it was asked for)
-        editWorkspaceConfigFn: async (domain, args) => {
-          const notifyRoutines = (workspaceId: string) => this.broadcastDomainChanged(workspaceId, 'routines')
-          const runNow = (routine: Routine) => runRoutine(routine, routineRunnerDeps({ sessionManager: this }, notifyRoutines, { judge: false }))?.run
-          const { result, wrote } = runWorkspaceConfigAction(managed.workspace.id, userIdOf(managed.createdBy) ?? getFirstUser()?.id ?? null, domain, args, runNow)
-          if (wrote) {
-            this.broadcastDomainChanged(managed.workspace.id, domain)
-            if (domain === 'labels') this.emitLabelConfigChange(managed.workspace.id)
-          }
+        // permissions_edit: the chat's user reads or replaces the workspace's permission rules (runPermissionsAction holds the rule)
+        editPermissionsFn: async (args) => {
+          const { result, wrote } = runPermissionsAction(managed.workspace.id, userIdOf(managed.createdBy) ?? getFirstUser()?.id ?? null, args)
+          if (wrote) this.broadcastDomainChanged(managed.workspace.id, 'permissions')
           return result
         },
         resolveLabelsFn: (labels: string[]) => {
@@ -5843,7 +5739,7 @@ export class SessionManager implements ISessionManager {
         attachments: storedAttachments,
         badges: options?.badges,
         // Hidden system-generated messages reach the model but never render as a
-        // transcript bubble (e.g. background-task-completion nudge).
+        // transcript bubble (e.g. an automatic resend).
         ...(options?.hidden ? { hidden: true } : {}),
       }
       managed.messages.push(userMessage)
@@ -5920,7 +5816,7 @@ export class SessionManager implements ISessionManager {
         attachments: storedAttachments, // Include for persistence (has thumbnailBase64)
         badges: options?.badges,  // Include content badges (sources, skills with embedded icons)
         // Hidden system-generated messages reach the model but never render as a
-        // transcript bubble (e.g. background-task-completion nudge).
+        // transcript bubble (e.g. an automatic resend).
         ...(options?.hidden ? { hidden: true } : {}),
       }
       managed.messages.push(userMessage)
@@ -6630,13 +6526,6 @@ export class SessionManager implements ISessionManager {
     // The request is over unless a source activation is about to re-send it.
     if (!managed.autoRetryTimer && managed.pendingActivationResend === undefined) this.finishSuggestionTrace(managed)
 
-    // 1b. Orphan backstop: with the default per-turn subprocess model, any
-    // background sub-agent still marked `running` dies when this turn's
-    // subprocess is torn down. Flip those registry entries to `orphaned` so a
-    // later "status?" query never reports a dead task as running. Suppressed
-    // when WS2 keep-alive keeps the query alive across turns.
-    this.markOrphanedBackgroundTasks(sessionId)
-
     const turnStartFinalMessageId = managed.turnStartFinalMessageId
     managed.turnStartFinalMessageId = undefined
 
@@ -6816,182 +6705,6 @@ export class SessionManager implements ISessionManager {
         this.onProcessingStopped(sessionId, 'error')
       })
     })
-  }
-
-  async killShell(sessionId: string, shellId: string): Promise<{ success: boolean; error?: string }> {
-    const managed = this.sessions.get(sessionId)
-    if (!managed) {
-      return { success: false, error: 'Session not found' }
-    }
-
-    sessionLog.info(`Killing shell ${shellId} for session: ${sessionId}`)
-
-    // Try to kill the actual process using the stored command
-    const command = managed.backgroundShellCommands.get(shellId)
-    if (command) {
-      try {
-        // Use pkill to find and kill processes matching the command
-        // The -f flag matches against the full command line
-        const { exec } = await import('child_process')
-        const { promisify } = await import('util')
-        const execAsync = promisify(exec)
-
-        // Escape the command for use in pkill pattern
-        // We search for the unique command string in process args
-        const escapedCommand = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
-        sessionLog.info(`Attempting to kill process with command: ${command.slice(0, 100)}...`)
-
-        // Use pgrep first to find the PID, then kill it
-        // This is safer than pkill -f which can match too broadly
-        try {
-          const { stdout } = await execAsync(`pgrep -f "${escapedCommand}"`)
-          const pids = stdout.trim().split('\n').filter(Boolean)
-
-          if (pids.length > 0) {
-            sessionLog.info(`Found ${pids.length} process(es) to kill: ${pids.join(', ')}`)
-            // Kill each process
-            for (const pid of pids) {
-              try {
-                await execAsync(`kill -TERM ${pid}`)
-                sessionLog.info(`Sent SIGTERM to process ${pid}`)
-              } catch (killErr) {
-                // Process may have already exited
-                sessionLog.warn(`Failed to kill process ${pid}: ${killErr}`)
-              }
-            }
-          } else {
-            sessionLog.info(`No processes found matching command`)
-          }
-        } catch (pgrepErr) {
-          // pgrep returns exit code 1 when no processes found, which is fine
-          sessionLog.info(`No matching processes found (pgrep returned no results)`)
-        }
-
-        // Clean up the stored command
-        managed.backgroundShellCommands.delete(shellId)
-      } catch (err) {
-        sessionLog.error(`Error killing shell process: ${err}`)
-      }
-    } else {
-      sessionLog.warn(`No command stored for shell ${shellId}, cannot kill process`)
-    }
-
-    // Always emit shell_killed to remove from UI regardless of process kill success
-    this.sendEvent({
-      type: 'shell_killed',
-      sessionId,
-      shellId,
-    }, managed.workspace.id)
-
-    return { success: true }
-  }
-
-  /**
-   * Evict stale entries from both background-task maps to bound memory.
-   * - backgroundTaskOutputs: completed outputs older than 1h (existing behavior).
-   * - backgroundTaskRegistry: terminal/orphaned entries older than 1h. Running
-   *   entries are never evicted here (they are resolved on completion or orphaned
-   *   at turn end).
-   */
-  private evictStaleBackgroundTasks(managed: ManagedSession): void {
-    const ONE_HOUR = 3_600_000
-    const now = Date.now()
-    for (const [tid, info] of managed.backgroundTaskOutputs) {
-      if (now - info.completedAt > ONE_HOUR) {
-        managed.backgroundTaskOutputs.delete(tid)
-        this.taskOutputIndex.delete(tid)
-      }
-    }
-    for (const [tid, info] of managed.backgroundTaskRegistry) {
-      if (info.status !== 'running' && info.completedAt && now - info.completedAt > ONE_HOUR) {
-        managed.backgroundTaskRegistry.delete(tid)
-      }
-    }
-  }
-
-  /**
-   * Mark still-running background tasks for a session as `orphaned`.
-   *
-   * Called when a turn finishes (onProcessingStopped). With the default per-turn
-   * subprocess model, background sub-agents die when the query/subprocess is torn
-   * down at turn end, but their terminal notifications may never arrive (or arrive
-   * only on a later turn's subprocess). Marking them `orphaned` here keeps a
-   * "status?" query truthful — it must never report a dead task as "running".
-   */
-  private markOrphanedBackgroundTasks(sessionId: string): void {
-    const managed = this.sessions.get(sessionId)
-    if (!managed) return
-    const now = Date.now()
-    let orphaned = 0
-    for (const info of managed.backgroundTaskRegistry.values()) {
-      if (info.status === 'running') {
-        info.status = 'orphaned'
-        info.completedAt = now
-        orphaned++
-      }
-    }
-    if (orphaned > 0) {
-      sessionLog.info(`[bg-lifecycle] turn ended — orphaned ${orphaned} still-running background task(s)`, {
-        sessionId,
-      })
-    }
-  }
-
-  /**
-   * Enumerate background tasks for a session for a "status?" query.
-   * Returns the main-process registry snapshot — the real source of truth across
-   * subprocess boundaries (the SDK's in-subprocess task tools cannot see tasks
-   * from a prior, torn-down subprocess).
-   */
-  listBackgroundTasks(sessionId: string): RunningBackgroundTask[] {
-    const managed = this.sessions.get(sessionId)
-    if (!managed) return []
-    return Array.from(managed.backgroundTaskRegistry.values())
-      .map((t) => ({ ...t }))
-      .sort((a, b) => b.startTime - a.startTime)
-  }
-
-  /**
-   * Get output from a background task
-   *
-   * Looks up the output file stored when a task_completed event was received,
-   * reads its contents, and returns them. Falls back to the SDK-provided summary
-   * if the file cannot be read.
-   *
-   * @param taskId - The task or shell ID
-   * @returns Task output content, or null if task not found
-   */
-  async getTaskOutput(taskId: string, viewerId?: string | null): Promise<string | null> {
-    // O(1) lookup via taskOutputIndex
-    const sessionId = this.taskOutputIndex.get(taskId)
-    // A task of a chat the viewer cannot see has no output for them.
-    if (sessionId && viewerId !== undefined && !this.canSeeSession(sessionId, viewerId)) return null
-    if (!sessionId) {
-      sessionLog.info(`No output found for task: ${taskId} (task may still be running)`)
-      return null
-    }
-
-    const managed = this.sessions.get(sessionId)
-    const info = managed?.backgroundTaskOutputs.get(taskId)
-    if (!info) {
-      // Index out of sync — clean up stale entry
-      this.taskOutputIndex.delete(taskId)
-      return null
-    }
-
-    sessionLog.info(`Found output for task ${taskId}: file=${info.outputFile}, status=${info.status}`)
-    try {
-      const content = await readFile(info.outputFile, 'utf-8')
-      // Delete after successful read to prevent memory leak
-      managed!.backgroundTaskOutputs.delete(taskId)
-      this.taskOutputIndex.delete(taskId)
-      return content
-    } catch (err) {
-      sessionLog.error(`Failed to read task output file: ${info.outputFile}`, err)
-      // Fall back to SDK-provided summary
-      return info.summary || null
-    }
   }
 
   /**
@@ -7841,170 +7554,6 @@ export class SessionManager implements ISessionManager {
             originalError: event.error.originalError,
           },
           timestamp: typedErrorMessage.timestamp,
-        }, workspaceId)
-        break
-
-      case 'task_backgrounded':
-        // Record in the running-task registry so a cross-subprocess "status?"
-        // query can enumerate live tasks (WS3). The renderer still shows the
-        // chip via its own atom; this is the main-process source of truth.
-        if (managed) {
-          managed.backgroundTaskRegistry.set(event.taskId, {
-            taskId: event.taskId,
-            toolUseId: event.toolUseId,
-            intent: event.intent,
-            startTime: Date.now(),
-            status: 'running',
-            turnId: event.turnId,
-            kind: event.kind === 'workflow' ? 'workflow' : event.kind === 'task' ? 'task' : 'agent',
-            // Workflow launches carry a wf_ id + a live sub-agent completion count.
-            ...(event.workflowId ? { workflowId: event.workflowId } : {}),
-            ...(event.kind === 'workflow' ? { agentsCompleted: 0 } : {}),
-          })
-          sessionLog.info(`[bg-lifecycle] task backgrounded`, {
-            sessionId,
-            taskId: event.taskId,
-            intent: event.intent,
-            turnId: event.turnId,
-          })
-        }
-        // Forward background task event directly to renderer
-        this.sendEvent({
-          ...event,
-          sessionId,
-        }, workspaceId)
-        break
-
-      case 'workflow_agent_completed':
-        // One sub-agent of a running Workflow finished (SubagentStop, attributed
-        // by wf_ id). Bump the owning workflow chip's completed count so the user
-        // sees live fan-out progress. Lightweight: registry counter + renderer
-        // forward, no persistence (this can fire dozens of times per workflow).
-        if (managed) {
-          for (const info of managed.backgroundTaskRegistry.values()) {
-            if (info.workflowId && info.workflowId === event.workflowId) {
-              info.agentsCompleted = (info.agentsCompleted ?? 0) + 1
-              break
-            }
-          }
-        }
-        this.sendEvent({
-          ...event,
-          sessionId,
-        }, workspaceId)
-        break
-
-      case 'task_progress':
-        // Update elapsed/last-progress on the registry entry (best-effort — the
-        // async-by-default path may not emit progress; the renderer derives
-        // elapsed from startTime as a fallback).
-        if (managed) {
-          // task_progress is keyed by toolUseId, not taskId — find the entry.
-          for (const info of managed.backgroundTaskRegistry.values()) {
-            if (info.toolUseId && info.toolUseId === event.toolUseId) {
-              info.elapsedSeconds = event.elapsedSeconds
-              info.lastProgressAt = Date.now()
-              break
-            }
-          }
-        }
-        // Forward background task event directly to renderer
-        this.sendEvent({
-          ...event,
-          sessionId,
-        }, workspaceId)
-        break
-
-      case 'task_completed': {
-        // Store output for later retrieval via getTaskOutput()
-        if (managed) {
-          managed.backgroundTaskOutputs.set(event.taskId, {
-            outputFile: event.outputFile || '',
-            summary: event.summary || '',
-            status: event.status,
-            completedAt: Date.now(),
-          })
-          // O(1) index for getTaskOutput() — avoids scanning all sessions
-          this.taskOutputIndex.set(event.taskId, sessionId)
-
-          // Resolve the running-task registry entry to its terminal status so a
-          // later "status?" query reflects reality instead of a stale "running".
-          // Match by taskId, or by workflowId (a workflow may complete under its
-          // wf_ run id rather than the returned Task ID).
-          const running = managed.backgroundTaskRegistry.get(event.taskId)
-            ?? [...managed.backgroundTaskRegistry.values()].find(t => t.workflowId === event.taskId)
-          if (running) {
-            running.status = event.status
-            running.completedAt = Date.now()
-          } else {
-            // Terminal notification for a task whose launch this session never registered: a
-            // subagent's own background task (untracked), or the agent's own task whose launch went
-            // unseen. Record it so status queries stay truthful, without inventing a start time.
-            const now = Date.now()
-            managed.backgroundTaskRegistry.set(event.taskId, {
-              taskId: event.taskId,
-              ...(event.toolUseId ? { toolUseId: event.toolUseId } : {}),
-              startTime: now,
-              status: event.status,
-              completedAt: now,
-              ...(event.launchedHere ? { startUnknown: true } : { untracked: true }),
-            })
-          }
-          sessionLog.info(`[bg-lifecycle] task completed`, {
-            sessionId,
-            taskId: event.taskId,
-            status: event.status,
-          })
-
-          this.evictStaleBackgroundTasks(managed)
-        }
-        // Forward to renderer for UI update
-        this.sendEvent({
-          ...event,
-          sessionId,
-        }, workspaceId)
-
-        break
-      }
-
-      case 'shell_backgrounded':
-        // Store the command for later process killing
-        if (event.command && managed) {
-          managed.backgroundShellCommands.set(event.shellId, event.command)
-          sessionLog.info(`Stored command for shell ${event.shellId}: ${event.command.slice(0, 50)}...`)
-        }
-        // Track the agent's background command like a background agent (its shell id is the task
-        // id its completion notification carries): real start time and intent in status queries,
-        // and its completion can wake an idle session.
-        if (managed) {
-          const known = managed.backgroundTaskRegistry.get(event.shellId)
-          const intent = event.intent ?? event.command?.slice(0, 120)
-          if (known) {
-            // It already finished (fast command): keep the terminal status, fill in what we know.
-            // It is the agent's own after all, but its real start time was not seen.
-            known.kind = 'shell'
-            known.toolUseId ??= event.toolUseId
-            known.intent ??= intent
-            if (known.untracked) {
-              known.untracked = false
-              known.startUnknown = true
-            }
-          } else {
-            managed.backgroundTaskRegistry.set(event.shellId, {
-              taskId: event.shellId,
-              toolUseId: event.toolUseId,
-              ...(intent ? { intent } : {}),
-              startTime: Date.now(),
-              status: 'running',
-              turnId: event.turnId,
-              kind: 'shell',
-            })
-          }
-        }
-        // Forward to renderer
-        this.sendEvent({
-          ...event,
-          sessionId,
         }, workspaceId)
         break
 

@@ -32,10 +32,6 @@ function createFullMessage(): Message {
     toolDisplayName: 'Read File',
     toolDisplayMeta: { displayName: 'Read', category: 'native' },
     parentToolUseId: 'tu-parent-456',
-    taskId: 'task-789',
-    shellId: 'shell-012',
-    elapsedSeconds: 42,
-    isBackground: true,
     isError: false,
     attachments: [{ id: 'att-1', type: 'text', name: 'file.txt', mimeType: 'text/plain', size: 100, storedPath: '/path' }],
     badges: [{ type: 'source', label: 'Linear', rawText: '@linear', start: 0, end: 7 }],
@@ -117,7 +113,6 @@ describe('messageToStored/storedToMessage round-trip', () => {
       'toolName', 'toolUseId', 'toolInput', 'toolResult', 'toolStatus',
       'toolDuration', 'toolIntent', 'toolDisplayName', 'toolDisplayMeta',
       'parentToolUseId',
-      'taskId', 'shellId', 'elapsedSeconds', 'isBackground',
       'isError', 'attachments', 'badges', 'annotations',
       'isIntermediate', 'turnId', 'infoLevel',
       'errorCode', 'errorTitle', 'errorDetails', 'errorOriginal', 'errorCanRetry',
@@ -153,10 +148,6 @@ describe('messageToStored/storedToMessage round-trip', () => {
     expect(restored.toolDisplayName).toBe(original.toolDisplayName)
     expect(restored.toolDisplayMeta).toEqual(original.toolDisplayMeta)
     expect(restored.parentToolUseId).toBe(original.parentToolUseId)
-    expect(restored.taskId).toBe(original.taskId)
-    expect(restored.shellId).toBe(original.shellId)
-    expect(restored.elapsedSeconds).toBe(original.elapsedSeconds)
-    expect(restored.isBackground).toBe(original.isBackground)
     expect(restored.isError).toBe(original.isError)
     expect(restored.attachments).toEqual(original.attachments)
     expect(restored.badges).toEqual(original.badges)

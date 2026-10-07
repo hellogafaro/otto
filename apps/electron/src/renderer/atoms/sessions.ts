@@ -55,6 +55,8 @@ export interface SessionMeta {
   isRegeneratingTitle?: boolean
   /** Model override for this session */
   model?: string
+  /** The agent the chat talks to (an `agents` row id; absent or deleted = the default agent) */
+  agentId?: string
   /** LLM connection slug for this session */
   llmConnection?: string
   /** Token usage stats (from JSONL header, available without loading messages) */
@@ -292,7 +294,6 @@ export const initializeSessionsAtom = atom(
     for (const oldId of oldIds) {
       if (!newIdSet.has(oldId)) {
         sessionAtomFamily.remove(oldId)
-        backgroundTasksAtomFamily.remove(oldId)
       }
     }
     // Reset loaded sessions tracking — new workspace needs fresh lazy loading. A session already loaded keeps its
@@ -465,10 +466,6 @@ export const removeSessionAtom = atom(
     const newLoadedSessions = new Set(loadedSessions)
     newLoadedSessions.delete(sessionId)
     set(loadedSessionsAtom, newLoadedSessions)
-
-    // Clean up additional atom families to prevent memory leaks
-    // These store per-session UI state that should be garbage collected
-    backgroundTasksAtomFamily.remove(sessionId)
   }
 )
 
@@ -716,60 +713,6 @@ export const forceSessionMessagesReloadAtom = atom(
   async (get, set, sessionId: string): Promise<Session | null> => {
     return loadSessionMessages(get, set, sessionId, { force: true })
   }
-)
-
-/**
- * Background task for ActiveTasksBar display
- */
-/**
- * Lifecycle status of a background task chip.
- * - `running`  — backgrounded, no terminal signal yet (chip shows a spinner + live elapsed).
- * - `stale` — no lifecycle signal arrived within the renderer timeout. The task may
- *   still be running, so the chip shows an unknown state and remains recoverable.
- * - `completed`/`failed`/`stopped` — a real task_completed notification arrived.
- * - `orphaned` — the turn that owned the task ended before it finished, so it was
- *   terminated with that turn's subprocess. Shown distinctly instead of a false
- *   "running". Not produced once WS2 keep-alive is enabled.
- */
-export type BackgroundTaskStatus = 'running' | 'stale' | 'completed' | 'failed' | 'stopped' | 'orphaned'
-
-export interface BackgroundTask {
-  /** Task or shell ID */
-  id: string
-  /** Task type. 'workflow' = a fan-out Workflow launch (many sub-agents). */
-  type: 'agent' | 'shell' | 'workflow'
-  /** Tool use ID for correlation with messages */
-  toolUseId: string
-  /** Workflow run id (wf_...) — set for type 'workflow'; correlates agent-completed updates. */
-  workflowId?: string
-  /** Count of sub-agents that have completed so far (type 'workflow' only). */
-  agentsCompleted?: number
-  /** When the task started */
-  startTime: number
-  /** Elapsed seconds (from progress events; the chip also derives it from startTime) */
-  elapsedSeconds: number
-  /** Last renderer-observed lifecycle/progress signal; falls back to startTime. */
-  lastSignalAt?: number
-  /** Task intent/description */
-  intent?: string
-  /** Lifecycle status; defaults to 'running' when added */
-  status: BackgroundTaskStatus
-  /** ms timestamp when the task reached a terminal/orphaned status */
-  completedAt?: number
-  /** Output file for click-through, set when task_completed arrives */
-  outputFile?: string
-  /** Short summary, set when task_completed arrives */
-  summary?: string
-}
-
-/**
- * Atom family for tracking active background tasks per session
- * Updated on task_backgrounded, shell_backgrounded, task_progress events
- * Cleared when tasks complete or are killed
- */
-export const backgroundTasksAtomFamily = atomFamily(
-  (_sessionId: string) => atom<BackgroundTask[]>([]),
-  (a, b) => a === b
 )
 
 /**

@@ -8,7 +8,7 @@ Explore mode is a read-only mode that blocks potentially destructive operations.
 Custom permission rules let you allow specific operations that would otherwise be blocked.
 
 Rules exist at two levels:
-- **Workspace rules** are stored in the workspace database, not in a file. Read and change them with the `permissions_edit` tool (this tool will be replaced by the Python `otto` CLI, `otto permissions`). Only workspace owners can change them; members can read them.
+- **Workspace rules** are stored in the workspace database, not in a file. Read and change them with the `permissions_edit` tool (a typed tool on purpose, not an `otto` command: these rules gate you, so a change goes through the permission handshake). Only workspace owners can change them; members can read them.
 - **Source rules** are a file: `~/.otto/workspaces/{slug}/sources/{source}/permissions.json`. Edit it directly and check it with `config_validate` (target `permissions`).
 
 ## The `permissions_edit` Tool

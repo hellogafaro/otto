@@ -14,7 +14,7 @@
 
 import type { SessionState, AgentEvent, ProcessResult } from './types'
 import { handleTextDelta, handleTextComplete, handleTextDiscard } from './handlers/text'
-import { handleToolStart, handleToolResult, handleTaskBackgrounded, handleShellBackgrounded, handleTaskProgress, handleTaskCompleted } from './handlers/tool'
+import { handleToolStart, handleToolResult } from './handlers/tool'
 import {
   handleComplete,
   handleError,
@@ -92,31 +92,6 @@ export function processEvent(
       const newState = handleToolResult(state, event)
       return { state: newState, effects: [] }
     }
-
-    case 'task_backgrounded': {
-      const newState = handleTaskBackgrounded(state, event)
-      return { state: newState, effects: [] }
-    }
-
-    case 'shell_backgrounded': {
-      const newState = handleShellBackgrounded(state, event)
-      return { state: newState, effects: [] }
-    }
-
-    case 'task_progress': {
-      const newState = handleTaskProgress(state, event)
-      return { state: newState, effects: [] }
-    }
-
-    case 'task_completed': {
-      const newState = handleTaskCompleted(state, event)
-      return { state: newState, effects: [] }
-    }
-
-    case 'workflow_agent_completed':
-      // Live workflow fan-out progress — the chip counter is updated in app.tsx's
-      // handleBackgroundTaskEvent; nothing to change in message/session state here.
-      return { state, effects: [] }
 
     case 'complete':
       return handleComplete(state, event)

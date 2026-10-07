@@ -10,8 +10,8 @@ import { registerLabelsHandlers } from './labels'
 import { registerLibraryHandlers } from './library'
 import { registerLlmConnectionsHandlers } from './llm-connections'
 import { registerOAuthHandlers } from './oauth'
-import { registerResourcesHandlers } from './resources'
 import { registerRoutinesHandlers } from './routines'
+import { registerSearchHandlers } from './search'
 import { registerOnboardingHandlers } from './onboarding'
 import { registerSessionsHandlers } from './sessions'
 export { registerSessionsHandlers, cleanupSessionFileWatchForClient } from './sessions'
@@ -53,7 +53,6 @@ export function registerCoreRpcHandlers(
   registerLlmConnectionsHandlers(server, deps)
   registerOAuthHandlers(server, deps)
   registerOnboardingHandlers(server, deps)
-  registerResourcesHandlers(server, deps)
   registerRoutinesHandlers(server, deps)
   registerSessionsHandlers(server, deps)
   if (serverCtx) registerServerHandlers(server, deps, serverCtx)
@@ -61,6 +60,7 @@ export function registerCoreRpcHandlers(
   registerProjectsHandlers(server, deps)
   registerTasksHandlers(server, deps)
   registerCommentsHandlers(server, deps)
+  registerSearchHandlers(server, deps)
   registerNotificationsHandlers(server, deps)
   registerSkillsHandlers(server, deps)
   registerSourcesHandlers(server, deps)

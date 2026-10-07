@@ -1,8 +1,7 @@
 /**
  * Automation System Validation
  *
- * Validators for an automations config (the shape of the old `automations.json`): the routines importer and the
- * resource bundles read it.
+ * Validators for an automations config (the shape of the old `automations.json`): read by the routines importer.
  */
 
 import { AUTOMATIONS_CONFIG_FILE } from './constants.ts';

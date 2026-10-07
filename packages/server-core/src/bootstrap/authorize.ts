@@ -26,12 +26,11 @@ import { getMemberRole, type WorkspaceRole } from '@otto/shared/workspaces'
 export const WORKSPACE_ARG_CHANNELS = new Map<string, number>([
   ...[
     C.llmConnections.SET_WORKSPACE_DEFAULT,
-    C.labels.LIST, C.labels.CREATE, C.labels.DELETE,
-    C.resources.EXPORT, C.resources.IMPORT,
+    C.labels.LIST, C.labels.CREATE, C.labels.UPDATE, C.labels.MOVE, C.labels.REORDER, C.labels.DELETE,
     C.sessions.CREATE, C.sessions.IMPORT, C.sessions.IMPORT_REMOTE_TRANSFER, C.sessions.MARK_ALL_READ, C.sessions.SEARCH_CONTENT,
     C.skills.GET, C.skills.GET_FILES, C.skills.DELETE, C.skills.OPEN_EDITOR, C.skills.OPEN_FINDER,
     C.sources.GET, C.sources.CREATE, C.sources.DELETE, C.sources.GET_MCP_TOOLS, C.sources.GET_PERMISSIONS, C.sources.SAVE_CREDENTIALS,
-    C.statuses.LIST, C.statuses.REORDER,
+    C.statuses.LIST, C.statuses.CREATE, C.statuses.UPDATE, C.statuses.DELETE, C.statuses.REORDER, C.statuses.SET_DEFAULT,
     C.window.SWITCH_WORKSPACE,
     C.workspace.GET_PERMISSIONS, C.workspace.READ_IMAGE, C.workspace.WRITE_IMAGE, C.workspace.SETTINGS_GET, C.workspace.SETTINGS_UPDATE,
     C.workspaces.UPDATE_REMOTE, C.workspaces.GET_MEMBERS, C.workspaces.GET_INVITATIONS, C.workspaces.INVITE,
@@ -52,8 +51,15 @@ export const OWNER_CHANNELS = new Set<string>([
   C.workspaces.UPDATE_REMOTE,
   C.llmConnections.SET_WORKSPACE_DEFAULT,
   C.labels.CREATE,
+  C.labels.UPDATE,
+  C.labels.MOVE,
+  C.labels.REORDER,
   C.labels.DELETE,
+  C.statuses.CREATE,
+  C.statuses.UPDATE,
+  C.statuses.DELETE,
   C.statuses.REORDER,
+  C.statuses.SET_DEFAULT,
 ])
 
 /**
@@ -122,10 +128,8 @@ export const CONNECTION_WRITE_CHANNELS = new Map<string, number>([
   [C.llmConnections.REFRESH_MODELS, 0],
   [C.chatgpt.START_OAUTH, 0],
   [C.chatgpt.CANCEL_OAUTH, 0],
-  [C.chatgpt.LOGOUT, 0],
   [C.copilot.START_OAUTH, 0],
   [C.copilot.CANCEL_OAUTH, 0],
-  [C.copilot.LOGOUT, 0],
 ])
 
 /** Channels that address any settings entity by name: `(entity, key, ...)`. */

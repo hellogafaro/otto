@@ -1,11 +1,10 @@
 import { describe, it, expect, afterEach } from 'bun:test';
-import { isDevRuntime, isDeveloperFeedbackEnabled, isOttoCliEnabled, isEmbeddedServerEnabled } from '../feature-flags.ts';
+import { isDevRuntime, isDeveloperFeedbackEnabled, isEmbeddedServerEnabled } from '../feature-flags.ts';
 
 const ORIGINAL_ENV = {
   NODE_ENV: process.env.NODE_ENV,
   OTTO_DEBUG: process.env.OTTO_DEBUG,
   OTTO_FEATURE_DEVELOPER_FEEDBACK: process.env.OTTO_FEATURE_DEVELOPER_FEEDBACK,
-  OTTO_FEATURE_CLI: process.env.OTTO_FEATURE_CLI,
   OTTO_FEATURE_EMBEDDED_SERVER: process.env.OTTO_FEATURE_EMBEDDED_SERVER,
 };
 
@@ -18,9 +17,6 @@ afterEach(() => {
 
   if (ORIGINAL_ENV.OTTO_FEATURE_DEVELOPER_FEEDBACK === undefined) delete process.env.OTTO_FEATURE_DEVELOPER_FEEDBACK;
   else process.env.OTTO_FEATURE_DEVELOPER_FEEDBACK = ORIGINAL_ENV.OTTO_FEATURE_DEVELOPER_FEEDBACK;
-
-  if (ORIGINAL_ENV.OTTO_FEATURE_CLI === undefined) delete process.env.OTTO_FEATURE_CLI;
-  else process.env.OTTO_FEATURE_CLI = ORIGINAL_ENV.OTTO_FEATURE_CLI;
 
   if (ORIGINAL_ENV.OTTO_FEATURE_EMBEDDED_SERVER === undefined) delete process.env.OTTO_FEATURE_EMBEDDED_SERVER;
   else process.env.OTTO_FEATURE_EMBEDDED_SERVER = ORIGINAL_ENV.OTTO_FEATURE_EMBEDDED_SERVER;
@@ -62,24 +58,6 @@ describe('feature-flags runtime helpers', () => {
     delete process.env.OTTO_FEATURE_DEVELOPER_FEEDBACK;
 
     expect(isDeveloperFeedbackEnabled()).toBe(true);
-  });
-
-  it('isOttoCliEnabled defaults to false when no override is set', () => {
-    delete process.env.OTTO_FEATURE_CLI;
-
-    expect(isOttoCliEnabled()).toBe(false);
-  });
-
-  it('isOttoCliEnabled honors explicit override true', () => {
-    process.env.OTTO_FEATURE_CLI = '1';
-
-    expect(isOttoCliEnabled()).toBe(true);
-  });
-
-  it('isOttoCliEnabled honors explicit override false', () => {
-    process.env.OTTO_FEATURE_CLI = '0';
-
-    expect(isOttoCliEnabled()).toBe(false);
   });
 
   it('isEmbeddedServerEnabled defaults to false when no override is set', () => {

@@ -317,12 +317,13 @@ describe('extractBadges - skill qualification with workspace slug', () => {
 })
 
 describe('findMentionMatches - entity tokens', () => {
-  it('finds user, task and project tokens only when asked, and ignores other types and near misses', () => {
-    const text = 'see task:abcdefghijkl and user:123456789012, library:abcdefghijkl, project:short, xtask:abcdefghijkl'
+  it('finds user, agent, task and project tokens only when asked, and ignores other types and near misses', () => {
+    const text = 'see task:abcdefghijkl and user:123456789012, library:abcdefghijkl, project:short, xtask:abcdefghijkl, agent:zyxwvutsrqpo'
     expect(findMentionMatches(text, [], [])).toEqual([])
     expect(findMentionMatches(text, [], [], true).map(m => [m.type, m.id, m.startIndex])).toEqual([
       ['task', 'task:abcdefghijkl', 4],
       ['user', 'user:123456789012', 26],
+      ['agent', 'agent:zyxwvutsrqpo', 102],
     ])
   })
 })
@@ -331,6 +332,7 @@ describe('startsWithEntityMention', () => {
   it('is true for a token at the start only', () => {
     expect(startsWithEntityMention('task:abcdefghijkl and more')).toBe(true)
     expect(startsWithEntityMention('see task:abcdefghijkl')).toBe(false)
+    expect(startsWithEntityMention('agent:abcdefghijkl hi')).toBe(true)
     expect(startsWithEntityMention('task:short')).toBe(false)
   })
 })

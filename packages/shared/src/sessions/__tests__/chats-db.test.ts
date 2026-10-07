@@ -362,7 +362,7 @@ describe('reads', () => {
     await write(chatOf('s2', { createdBy: OTHER }), [msg('u1', 'user', 1, { content: 'café of somebody else' })])
     await write(chatOf('s3', { workspaceId: 'wsotherother' }), [msg('u1', 'user', 1, { content: 'café in another workspace' })])
 
-    expect(searchChats(W, ME, 'cafe', {}, db)).toEqual([{ sessionId: 's1', matchCount: 1, matches: [{ sessionId: 's1', lineNumber: 1, snippet: 'Le café est prêt pour Zoë' }] }])
+    expect(searchChats(W, ME, 'cafe', {}, db)).toEqual([{ sessionId: 's1', title: null, matchCount: 1, matches: [{ sessionId: 's1', lineNumber: 1, snippet: 'Le café est prêt pour Zoë' }] }])
     expect(searchChats(W, ME, 'pre zoe', {}, db).map((r) => r.sessionId)).toEqual(['s1'])
     expect(searchChats(W, ME, 'cafe "', {}, db).map((r) => r.sessionId)).toEqual(['s1'])
     expect(searchChats(W, ME, 'missing', {}, db)).toEqual([])

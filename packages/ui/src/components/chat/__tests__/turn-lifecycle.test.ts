@@ -443,9 +443,9 @@ describe('hidden messages', () => {
   it('never render as a turn but the assistant reply they trigger still does', () => {
     resetCounters()
 
-    // A hidden system-generated nudge (e.g. WS2 background-task-completion) followed
+    // A hidden system-generated nudge (e.g. an automatic resend) followed
     // by the assistant response it drives.
-    const hiddenNudge: Message = { ...createUserMessage('[background-task-completed] present it'), hidden: true }
+    const hiddenNudge: Message = { ...createUserMessage('[resend] present it'), hidden: true }
     const reply = createAssistantMessage(false, false, 'turn-reply')
 
     const turns = groupMessagesByTurn([hiddenNudge, reply])

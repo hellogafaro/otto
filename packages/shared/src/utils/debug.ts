@@ -2,10 +2,6 @@
 // Guard against browser/renderer contexts where process is undefined
 let debugEnabled = typeof process !== 'undefined' && process.env?.OTTO_DEBUG === '1';
 
-function isCliJsonOnlyMode(): boolean {
-  return typeof process !== 'undefined' && process.env?.OTTO_CLI_JSON_ONLY === '1';
-}
-
 /**
  * Runtime environment detection
  */
@@ -63,7 +59,6 @@ export function disableDebug(): void {
  * Check if debug mode is enabled.
  */
 export function isDebugEnabled(): boolean {
-  if (isCliJsonOnlyMode()) return false;
   return debugEnabled;
 }
 

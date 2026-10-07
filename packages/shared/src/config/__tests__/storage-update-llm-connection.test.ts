@@ -34,7 +34,6 @@ describe('add, get, delete', () => {
     const connection = makeConnection({
       models: ['m1', { id: 'm2', name: 'Two' } as never],
       defaultModel: 'm1',
-      modelSelectionMode: 'userDefined3Tier',
       customEndpoint: { api: 'openai-completions', supportsImages: true },
       midStreamBehavior: 'queue',
       createdAt: 1000,

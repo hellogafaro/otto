@@ -305,3 +305,18 @@ test('another workspace never sees or changes an item', async () => {
   expect(db.select().from(library).all()).toHaveLength(1)
   expect(lib.getLibraryItem(W, item.id)).toEqual(item)
 })
+
+test('search finds titles (folders too) in the workspace, a title that starts with it first, then recency', async () => {
+  const { lib } = await setup()
+  const make = (title: string, workspaceId = W) => lib.createLibraryItem({ createdBy: ME, workspaceId, title, mime: 'text/markdown', bytes: bytes(1) })
+  await make('Old brand notes.md')
+  await make('Brand guide.md')
+  await lib.createLibraryFolder({ createdBy: ME, workspaceId: W, title: 'Brand assets' })
+  await make('Taxes.md')
+  await make('Brand elsewhere.md', OTHER)
+  expect(lib.searchLibraryItems(W, ' brand ').map((item) => item.title)).toEqual(['Brand assets', 'Brand guide.md', 'Old brand notes.md'])
+  expect(lib.searchLibraryItems(W, 'brand', 1)).toHaveLength(1)
+  expect(lib.searchLibraryItems(W, '.md').map((item) => item.title)).toHaveLength(3)
+  expect(lib.searchLibraryItems(W, '%')).toEqual([])
+  expect(lib.searchLibraryItems(W, '')).toEqual([])
+})

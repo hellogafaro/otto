@@ -1,7 +1,7 @@
 /**
  * Automations Schema Definitions
  *
- * Zod schemas for validating automations.json configuration.
+ * Zod schemas for validating a routine's config (and the old `automations.json` shape the importer reads).
  * Extracted from index.ts for better separation of concerns.
  */
 

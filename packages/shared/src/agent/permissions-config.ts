@@ -25,7 +25,6 @@ import { CONFIG_DIR } from '../config/paths.ts';
 import { getBundledAssetsDir } from '../utils/paths.ts';
 import { getSourcePath } from '../sources/storage.ts';
 import { isValidPermissionsFile } from '../config/validators.ts';
-import { FEATURE_FLAGS } from '../feature-flags.ts';
 import {
   SAFE_MODE_CONFIG,
   PermissionsConfigSchema,
@@ -383,13 +382,6 @@ function compileBlockedCommandHint(hint: BlockedCommandHintRule): CompiledBlocke
   };
 }
 
-function shouldCompileBashPattern(pattern: string): boolean {
-  if (!FEATURE_FLAGS.ottoCli && pattern.startsWith('^otto\\s')) {
-    return false;
-  }
-  return true;
-}
-
 /**
  * Validate permissions config and return errors
  */
@@ -723,11 +715,6 @@ class PermissionsConfigCache {
   private applyDefaultConfig(merged: MergedPermissionsConfig, config: PermissionsCustomConfig): void {
     // Add allowed bash patterns (as CompiledBashPattern with metadata for error messages)
     for (const patternEntry of config.allowedBashPatterns) {
-      if (!shouldCompileBashPattern(patternEntry.pattern)) {
-        debug(`[Permissions] Skipping otto bash pattern (feature disabled): ${patternEntry.pattern}`);
-        continue;
-      }
-
       const regex = validateRegex(patternEntry.pattern);
       if (regex) {
         merged.readOnlyBashPatterns.push({
@@ -784,11 +771,6 @@ class PermissionsConfigCache {
   private applyCustomConfig(merged: MergedPermissionsConfig, custom: PermissionsCustomConfig): void {
     // Add allowed bash patterns (making config more permissive)
     for (const patternEntry of custom.allowedBashPatterns) {
-      if (!shouldCompileBashPattern(patternEntry.pattern)) {
-        debug(`[Permissions] Skipping otto bash pattern (feature disabled): ${patternEntry.pattern}`);
-        continue;
-      }
-
       const regex = validateRegex(patternEntry.pattern);
       if (regex) {
         merged.readOnlyBashPatterns.push({
@@ -870,11 +852,6 @@ class PermissionsConfigCache {
 
     // Bash patterns - apply normally (not source-specific)
     for (const patternEntry of custom.allowedBashPatterns) {
-      if (!shouldCompileBashPattern(patternEntry.pattern)) {
-        debug(`[Permissions] Skipping otto bash pattern (feature disabled): ${patternEntry.pattern}`);
-        continue;
-      }
-
       const regex = validateRegex(patternEntry.pattern);
       if (regex) {
         merged.readOnlyBashPatterns.push({

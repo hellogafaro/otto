@@ -72,6 +72,12 @@ describe('agentEnv', () => {
     expect(env).toEqual({ Path: 'C:\\bin', SystemRoot: 'C:\\Windows', ProgramFiles: 'C:\\pf', 'ProgramFiles(x86)': 'C:\\pf86' });
   });
 
+  it('never inherits the otto CLI pair from the host, and keeps it when passed on purpose', () => {
+    const host = { PATH: '/bin', OTTO_API_URL: 'http://127.0.0.1:1', OTTO_RUN_TOKEN: 'a.b' };
+    expect(agentEnv(undefined, host)).toEqual({ PATH: '/bin' });
+    expect(agentEnv({ OTTO_API_URL: 'u', OTTO_RUN_TOKEN: 't' }, {})).toEqual({ OTTO_API_URL: 'u', OTTO_RUN_TOKEN: 't' });
+  });
+
   it('hostEnvMatching picks only matching host vars', () => {
     expect(hostEnvMatching(/^ANTHROPIC_/, { ANTHROPIC_BASE_URL: 'u', PATH: 'p', X: undefined })).toEqual({ ANTHROPIC_BASE_URL: 'u' });
   });

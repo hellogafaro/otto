@@ -75,13 +75,6 @@ export type LlmAuthType =
   | 'none';
 
 /**
- * Ownership mode for a connection's model list.
- * - automaticallySyncedFromProvider: provider defaults are synced automatically.
- * - userDefined3Tier: user-picked Best/Balanced/Fast list is preserved.
- */
-export type ModelSelectionMode = 'automaticallySyncedFromProvider' | 'userDefined3Tier';
-
-/**
  * Protocol for custom API endpoints.
  * Determines which streaming adapter the Pi SDK uses for requests.
  */
@@ -138,13 +131,6 @@ export interface LlmConnection {
 
   /** Default model for this connection */
   defaultModel?: string;
-
-  /**
-   * Ownership mode for the model list.
-   * - automaticallySyncedFromProvider: provider defaults are kept in sync.
-   * - userDefined3Tier: preserve user-selected Best/Balanced/Fast list.
-   */
-  modelSelectionMode?: ModelSelectionMode;
 
   /**
    * Custom endpoint protocol config.

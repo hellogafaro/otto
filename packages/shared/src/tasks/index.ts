@@ -1,6 +1,7 @@
-import { and, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, notInArray, or, sql } from 'drizzle-orm'
 import { isActor, userIdOf } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
+import { likeContains, likeRank } from '../db/like.ts'
 import { createId } from '../id.ts'
 import { createNotification } from '../notifications/index.ts'
 import { domainError } from '../utils/errors.ts'
@@ -188,6 +189,23 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
     },
 
     /**
+     * Tasks that are not archived or deleted whose title or description contains `query` (plain LIKE, no FTS): a title
+     * that starts with it first, then one that contains it, then a description match; most recently updated first.
+     */
+    searchTasks(workspaceId: string, query: string, limit = 20): Task[] {
+      const text = query.trim()
+      if (!text) return []
+      return db
+        .select()
+        .from(tasks)
+        .where(and(eq(tasks.workspaceId, workspaceId), notInArray(tasks.status, ['archived', 'deleted']), or(likeContains(tasks.title, text), likeContains(tasks.description, text))))
+        .orderBy(likeRank(tasks.title, text), desc(tasks.updatedAt))
+        .limit(limit)
+        .all()
+        .map(toTask)
+    },
+
+    /**
      * Without `status`, everything but archived and deleted. Open work first (doing, todo, done,
      * then archived and deleted), the most recently updated first within a status.
      */
@@ -315,6 +333,7 @@ export const initTasksStore = (): TasksStore => (store ??= createTasksStore(init
 export const createTask: TasksStore['createTask'] = (input) => initTasksStore().createTask(input)
 export const getTask: TasksStore['getTask'] = (workspaceId, id) => initTasksStore().getTask(workspaceId, id)
 export const getTasks: TasksStore['getTasks'] = (workspaceId, filter) => initTasksStore().getTasks(workspaceId, filter)
+export const searchTasks: TasksStore['searchTasks'] = (workspaceId, query, limit) => initTasksStore().searchTasks(workspaceId, query, limit)
 export const updateTask: TasksStore['updateTask'] = (workspaceId, id, patch, actor) => initTasksStore().updateTask(workspaceId, id, patch, actor)
 export const setTaskStatus: TasksStore['setTaskStatus'] = (workspaceId, id, status) => initTasksStore().setTaskStatus(workspaceId, id, status)
 export const createTimesheet: TasksStore['createTimesheet'] = (input) => initTasksStore().createTimesheet(input)

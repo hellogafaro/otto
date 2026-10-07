@@ -1,6 +1,7 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import { isActor } from '../actors.ts'
 import { initDb, type Db, type Tx } from '../db/index.ts'
+import { likeContains, likeRank } from '../db/like.ts'
 import { createId } from '../id.ts'
 import { domainError } from '../utils/errors.ts'
 import { MAX_DESCRIPTION, MAX_MEMBERS, MAX_TITLE } from './limits.ts'
@@ -132,6 +133,20 @@ export function createProjectsStore(db: Db) {
         .map(toProject)
     },
 
+    /** Active projects whose title or description contains `query` (plain LIKE): a title that starts with it first, then one that contains it, then a description match; most recently updated first. */
+    searchProjects(workspaceId: string, query: string, limit = 20): Project[] {
+      const text = query.trim()
+      if (!text) return []
+      return db
+        .select()
+        .from(projects)
+        .where(and(eq(projects.workspaceId, workspaceId), eq(projects.status, 'active'), or(likeContains(projects.title, text), likeContains(projects.description, text))))
+        .orderBy(likeRank(projects.title, text), desc(projects.updatedAt))
+        .limit(limit)
+        .all()
+        .map(toProject)
+    },
+
     /**
      * Changes the given fields. With `expectedUpdatedAt`, a different stored `updatedAt` means
      * someone saved in between, and nothing changes (`conflict`). A deleted project cannot be changed.
@@ -198,6 +213,7 @@ export const initProjectsStore = (): ProjectsStore => (store ??= createProjectsS
 export const createProject: ProjectsStore['createProject'] = (input) => initProjectsStore().createProject(input)
 export const getProject: ProjectsStore['getProject'] = (workspaceId, id) => initProjectsStore().getProject(workspaceId, id)
 export const getProjects: ProjectsStore['getProjects'] = (workspaceId, filter) => initProjectsStore().getProjects(workspaceId, filter)
+export const searchProjects: ProjectsStore['searchProjects'] = (workspaceId, query, limit) => initProjectsStore().searchProjects(workspaceId, query, limit)
 export const updateProject: ProjectsStore['updateProject'] = (workspaceId, id, patch) => initProjectsStore().updateProject(workspaceId, id, patch)
 export const setProjectStatus: ProjectsStore['setProjectStatus'] = (workspaceId, id, status) => initProjectsStore().setProjectStatus(workspaceId, id, status)
 export const addProjectMember: ProjectsStore['addProjectMember'] = (workspaceId, projectId, actor) => initProjectsStore().addProjectMember(workspaceId, projectId, actor)

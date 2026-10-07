@@ -38,17 +38,6 @@ export function isDeveloperFeedbackEnabled(): boolean {
 }
 
 /**
- * Runtime-evaluated check for otto-cli integration.
- *
- * Defaults to disabled. Override with OTTO_FEATURE_CLI=1|0.
- */
-export function isOttoCliEnabled(): boolean {
-  const override = parseBooleanEnv(getEnv('OTTO_FEATURE_CLI'));
-  if (override !== undefined) return override;
-  return false;
-}
-
-/**
  * Runtime-evaluated check for embedded server settings page.
  *
  * Defaults to disabled. Override with OTTO_FEATURE_EMBEDDED_SERVER=1|0.
@@ -70,14 +59,6 @@ export const FEATURE_FLAGS = {
    */
   get developerFeedback(): boolean {
     return isDeveloperFeedbackEnabled();
-  },
-  /**
-   * Enable otto CLI guidance and guardrails.
-   *
-   * Defaults to disabled. Override with OTTO_FEATURE_CLI=1|0.
-   */
-  get ottoCli(): boolean {
-    return isOttoCliEnabled();
   },
   /**
    * Enable embedded server settings page.

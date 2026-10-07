@@ -1,15 +1,15 @@
 /**
- * Typed references in text (`user:<id>`, `task:<id>`, ...; `ENTITY_TOKEN`, shared with the server's mention
+ * Typed references in text (`user:<id>`, `task:<id>`, `agent:<id>`, ...; `ENTITY_TOKEN`, shared with the server's mention
  * finder) and what they point at. Pure, so the chip, the comment text and the inbox share one reading:
  * the token stays plain in storage and its title is looked up when it is drawn, so a rename shows everywhere.
  */
 
 import { ENTITY_TOKEN } from '@otto/shared/entities'
 import { routes } from '../../../shared/routes'
-import type { LibraryItem } from '../../../shared/types'
+import type { Agent, LibraryItem } from '../../../shared/types'
 import { getDisplayTitle } from '../../pages/library/library-items'
 
-export type EntityType = 'user' | 'task' | 'project' | 'library' | 'comment'
+export type EntityType = 'user' | 'task' | 'project' | 'library' | 'agent' | 'comment'
 
 /** The loaded lists a title is read from; a list is null until it has loaded. */
 export interface EntityLists {
@@ -17,6 +17,7 @@ export interface EntityLists {
   tasks: { id: string; title: string }[] | null
   projects: { id: string; title: string }[] | null
   library: Pick<LibraryItem, 'id' | 'type' | 'title'>[] | null
+  agents: Pick<Agent, 'id' | 'title' | 'avatar'>[] | null
 }
 
 export interface EntityInfo {
@@ -56,6 +57,8 @@ export function describeEntity(entity: string, lists: EntityLists): EntityInfo |
       return { type, id, ...found(lists.projects), route: routes.view.projects({ projectId: id }) }
     case 'library':
       return { type, id, ...found(lists.library, (item) => getDisplayTitle(item as LibraryItem)), route: routes.view.library({ itemId: id }) }
+    case 'agent':
+      return { type, id, ...found(lists.agents), route: routes.view.agents(id) }
     case 'comment':
       // No reader resolves a comment id to what it is on yet; the inbox opens `comment.entity` instead.
       return { type, id, title: null, missing: false, route: null }

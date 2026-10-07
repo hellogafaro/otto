@@ -46,7 +46,7 @@ export type AuthStatus = 'pending' | 'completed' | 'cancelled' | 'failed';
 /**
  * Tool execution status
  */
-export type ToolStatus = 'pending' | 'executing' | 'completed' | 'error' | 'backgrounded';
+export type ToolStatus = 'pending' | 'executing' | 'completed' | 'error';
 
 /**
  * Tool display metadata - embedded at storage time for viewer compatibility
@@ -267,11 +267,6 @@ export interface Message {
   toolDisplayMeta?: ToolDisplayMeta;
   // Parent tool ID for nested tool calls (e.g., child tools inside Task subagent)
   parentToolUseId?: string;
-  // Background task fields
-  taskId?: string;          // For Task with run_in_background
-  shellId?: string;         // For Bash with run_in_background
-  elapsedSeconds?: number;  // Live progress updates
-  isBackground?: boolean;   // Flag for UI differentiation
   // Stored attachments for user messages (persistent, no base64)
   attachments?: StoredAttachment[];
   // Content badges for inline display (sources, skills)
@@ -289,10 +284,9 @@ export interface Message {
   // Intermediate text (commentary between tool calls, not final response)
   isIntermediate?: boolean;
   // Hidden: a system-generated message that must reach the model (it drives a
-  // turn) but must NOT render as a bubble in the transcript — e.g. the WS2
-  // background-task-completion nudge that wakes an idle session to present a
-  // finished background agent's result. Filtered out in groupMessagesByTurn so
-  // it never appears as a user/assistant bubble (desktop + viewer).
+  // turn) but must NOT render as a bubble in the transcript — e.g. an automatic
+  // resend. Filtered out in groupMessagesByTurn so it never appears as a
+  // user/assistant bubble (desktop + viewer).
   hidden?: boolean;
   // Turn ID: Correlation ID from the API's message.id, groups all messages in an assistant turn
   turnId?: string;
@@ -360,11 +354,6 @@ export interface StoredMessage {
   toolDisplayMeta?: ToolDisplayMeta;
   // Parent tool ID for nested tool calls (persisted for session restore)
   parentToolUseId?: string;
-  // Background task fields (persisted)
-  taskId?: string;
-  shellId?: string;
-  elapsedSeconds?: number;
-  isBackground?: boolean;
   isError?: boolean;
   /** Stored attachments for user messages (persisted to disk) */
   attachments?: StoredAttachment[];
@@ -590,12 +579,6 @@ export type AgentEvent =
   | { type: 'typed_error'; error: TypedError }
   | { type: 'complete'; usage?: AgentEventUsage }
   | { type: 'working_directory_changed'; workingDirectory: string }
-  | { type: 'task_backgrounded'; toolUseId: string; taskId: string; intent?: string; turnId?: string; kind?: 'workflow' | 'task'; workflowId?: string }
-  | { type: 'shell_backgrounded'; toolUseId: string; shellId: string; intent?: string; command?: string; turnId?: string }
-  | { type: 'task_progress'; toolUseId: string; elapsedSeconds: number; turnId?: string }
-  | { type: 'task_completed'; taskId: string; status: 'completed' | 'failed' | 'stopped'; outputFile?: string; summary?: string; turnId?: string; toolUseId?: string; /** The session's own agent started it (a top-level tool call), not a subagent. */ launchedHere?: boolean }
-  | { type: 'workflow_agent_completed'; workflowId: string; agentId: string; turnId?: string }
-  | { type: 'shell_killed'; shellId: string; turnId?: string }
   | { type: 'source_activated'; sourceSlug: string; originalMessage: string }
   | { type: 'usage_update'; usage: Pick<AgentEventUsage, 'inputTokens' | 'contextWindow'> }
   | { type: 'context_usage'; contextUsage: ContextUsageSnapshot }

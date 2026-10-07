@@ -16,6 +16,7 @@ import { hasOpenOverlay } from '@/lib/overlay-detection'
 import { CommandPalette, type PaletteItem } from './command-palette'
 import type { PaletteCategory } from './palette-model'
 import { usePaletteData } from './use-palette-data'
+import { usePaletteSearch } from './use-palette-search'
 
 interface CommandPaletteContextValue {
   /** Open the palette, on a category (All when none is given). */
@@ -74,5 +75,6 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
 /** The panel on the app's live data; mounted only while the dialog is open. */
 function ConnectedPalette({ category, onPick }: { category: PaletteCategory; onPick: (item: PaletteItem) => void }) {
   const data = usePaletteData()
-  return <CommandPalette data={data} initialCategory={category} onPick={onPick} />
+  const { found, onSearch } = usePaletteSearch()
+  return <CommandPalette data={data} initialCategory={category} onPick={onPick} onSearch={onSearch} found={found} />
 }

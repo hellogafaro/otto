@@ -140,7 +140,6 @@ export function createConnectionForSetup(setup: {
     authType: setup.authType,
     models: getDefaultModelsForConnection(setup.type),
     defaultModel: getDefaultModelForConnection(setup.type),
-    modelSelectionMode: setup.type === CUSTOM_CONNECTION_TYPE ? undefined : 'automaticallySyncedFromProvider',
     midStreamBehavior: defaultMidStreamBehavior(),
     createdAt: Date.now(),
   }

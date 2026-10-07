@@ -3,7 +3,7 @@ import { openDb } from '../db/index.ts'
 import { pushSchema } from '../db/push.ts'
 import { getNotifications, getUnreadCount } from '../notifications/index.ts'
 import { createWorkspaceMember, updateWorkspaceMirror } from '../workspaces/members.ts'
-import { createComment, deleteComment, getComments, getCommentsById, getMentions, MAX_COMMENT, updateComment } from './index.ts'
+import { createComment, deleteComment, getComments, getCommentsById, getMentions, MAX_COMMENT, searchComments, updateComment } from './index.ts'
 
 const W = 'workspace0001'
 const OTHER_W = 'workspace0002'
@@ -112,4 +112,16 @@ test('deleting a comment deletes its notifications and no others', async () => {
   expect(getComments(W, TASK, db).map((row) => row.id)).toEqual([other.id])
   expect(getNotifications(B, W, db).map((n) => n.entity)).toEqual([`comment:${other.id}`])
   expect(getNotifications(C, W, db)).toEqual([])
+})
+
+test('search finds comment text in the workspace only, newest first, and nothing for a blank query', async () => {
+  const { say, db } = await setup()
+  const first = say({ content: 'The Budget is tight' })
+  say({ content: 'unrelated' })
+  const second = say({ content: 'budget again', entity: 'project:pppppppppppp' })
+  createComment({ workspaceId: OTHER_W, entity: TASK, createdBy: ME, content: 'budget elsewhere' }, db)
+  expect(searchComments(W, 'BUDGET', 20, db).map((comment) => comment.id)).toEqual([second.id, first.id])
+  expect(searchComments(W, 'budget', 1, db).map((comment) => comment.id)).toEqual([second.id])
+  expect(searchComments(W, '%', 20, db)).toEqual([])
+  expect(searchComments(W, ' ', 20, db)).toEqual([])
 })

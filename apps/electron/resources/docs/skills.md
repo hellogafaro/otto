@@ -2,10 +2,6 @@
 
 This guide explains how to create and configure skills in Otto.
 
-> **CLI-first workflow (recommended):** Use `otto skill ...` commands instead of editing `SKILL.md` files directly.
-> - `otto skill --help`
-> - Canonical command reference: [otto-cli.md](./otto-cli.md)
-
 ## What Are Skills?
 
 Skills are specialized instructions that extend Claude's capabilities for specific tasks. They use **the exact same SKILL.md format as the Claude Code SDK** - making skills fully compatible between systems.

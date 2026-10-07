@@ -141,3 +141,18 @@ test('members: add, remove, validation', async () => {
   for (let i = 0; i < MAX_MEMBERS; i++) if (i < MAX_MEMBERS - 1) projects.addProjectMember(W, p.id, `user:${String(i).padStart(12, 'a')}`)
   failsWith('invalid', () => projects.addProjectMember(W, p.id, ME))
 })
+
+test('search finds the titles and descriptions of active projects only, in the workspace, a title that starts with it first', async () => {
+  const projects = await setup()
+  const make = (title: string, description = '', workspaceId = W) => projects.createProject({ createdBy: ME, workspaceId, title, description })
+  make('Docs', 'the launch plan')
+  make('Pre-launch')
+  make('Launch')
+  const archived = make('Launch old')
+  projects.setProjectStatus(W, archived.id, 'archived')
+  make('Launch elsewhere', '', OTHER)
+  expect(projects.searchProjects(W, 'launch').map((project) => project.title)).toEqual(['Launch', 'Pre-launch', 'Docs'])
+  expect(projects.searchProjects(W, 'launch', 1).map((project) => project.title)).toEqual(['Launch'])
+  expect(projects.searchProjects(W, '')).toEqual([])
+  expect(projects.searchProjects(W, '_')).toEqual([])
+})

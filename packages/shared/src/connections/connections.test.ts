@@ -26,7 +26,7 @@ test('create stores every field and returns it without the secret', async () => 
       baseUrl: 'https://openrouter.ai/api/v1',
       defaultModel: 'pi/gpt',
       models: [{ id: 'pi/gpt', name: 'GPT' } as never, 'pi/other'],
-      config: { modelSelectionMode: 'userDefined3Tier', midStreamBehavior: 'queue' },
+      config: { midStreamBehavior: 'queue' },
       createdAt: new Date(1000),
     }),
     { apiKey: 'sk-very-secret' },
@@ -39,7 +39,7 @@ test('create stores every field and returns it without the secret', async () => 
     authType: 'api_key',
     baseUrl: 'https://openrouter.ai/api/v1',
     defaultModel: 'pi/gpt',
-    config: { modelSelectionMode: 'userDefined3Tier', midStreamBehavior: 'queue' },
+    config: { midStreamBehavior: 'queue' },
     hasSecret: true,
   })
   expect(created.models).toHaveLength(2)

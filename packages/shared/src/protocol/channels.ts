@@ -27,7 +27,6 @@ export const RPC_CHANNELS = {
     GET_MESSAGES: 'sessions:getMessages',
     SEND_MESSAGE: 'sessions:sendMessage',
     CANCEL: 'sessions:cancel',
-    KILL_SHELL: 'sessions:killShell',
     RESPOND_TO_PERMISSION: 'sessions:respondToPermission',
     RESPOND_TO_CREDENTIAL: 'sessions:respondToCredential',
     COMMAND: 'sessions:command',
@@ -61,8 +60,6 @@ export const RPC_CHANNELS = {
     CREATE: 'tasks:create',
     UPDATE: 'tasks:update',
     SET_STATUS: 'tasks:setStatus',
-    // Legacy: background-task output (disabled-feature remnant). Kept for back-compat; retire later.
-    GET_OUTPUT: 'tasks:getOutput',
   },
   workspaces: {
     GET: 'workspaces:get',
@@ -189,8 +186,6 @@ export const RPC_CHANNELS = {
   chatgpt: {
     START_OAUTH: 'chatgpt:startOAuth',
     CANCEL_OAUTH: 'chatgpt:cancelOAuth',
-    GET_AUTH_STATUS: 'chatgpt:getAuthStatus',
-    LOGOUT: 'chatgpt:logout',
     DEVICE_CODE: 'chatgpt:deviceCode',
   },
   claudeCode: {
@@ -199,8 +194,6 @@ export const RPC_CHANNELS = {
   copilot: {
     START_OAUTH: 'copilot:startOAuth',
     CANCEL_OAUTH: 'copilot:cancelOAuth',
-    GET_AUTH_STATUS: 'copilot:getAuthStatus',
-    LOGOUT: 'copilot:logout',
     DEVICE_CODE: 'copilot:deviceCode',
   },
   settings: {
@@ -271,11 +264,18 @@ export const RPC_CHANNELS = {
   },
   statuses: {
     LIST: 'statuses:list',
+    CREATE: 'statuses:create',
+    UPDATE: 'statuses:update',
+    DELETE: 'statuses:delete',
     REORDER: 'statuses:reorder',
+    SET_DEFAULT: 'statuses:setDefault',
   },
   labels: {
     LIST: 'labels:list',
     CREATE: 'labels:create',
+    UPDATE: 'labels:update',
+    MOVE: 'labels:move',
+    REORDER: 'labels:reorder',
     DELETE: 'labels:delete',
   },
   toolIcons: {
@@ -362,10 +362,6 @@ export const RPC_CHANNELS = {
     RESUME: 'routines:resume',
     RUN: 'routines:run',
   },
-  resources: {
-    EXPORT: 'resources:export',
-    IMPORT: 'resources:import',
-  },
   projects: {
     LIST: 'projects:list',
     GET: 'projects:get',
@@ -385,6 +381,9 @@ export const RPC_CHANNELS = {
     CREATE: 'comments:create',
     UPDATE: 'comments:update',
     DELETE: 'comments:delete',
+  },
+  search: {
+    RUN: 'search:run',
   },
   notifications: {
     GET: 'notifications:get',

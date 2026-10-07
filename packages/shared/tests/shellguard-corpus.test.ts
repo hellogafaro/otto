@@ -99,13 +99,9 @@ const TEST_MODE_CONFIG = {
       comment: 'npm read operations',
     },
 
-    // otto CLI read-only
-    { regex: /^otto\s+label\s+(list|get)\b/, source: '^otto\\s+label\\s+(list|get)\\b', comment: 'otto label read-only operations' },
-    { regex: /^otto\s+source\s+(list|get|validate|test)\b/, source: '^otto\\s+source\\s+(list|get|validate|test)\\b', comment: 'otto source read-only operations' },
-    { regex: /^otto\s+skill\s+(list|get|validate|where)\b/, source: '^otto\\s+skill\\s+(list|get|validate|where)\\b', comment: 'otto skill read-only operations' },
-    { regex: /^otto\s*$/, source: '^otto\\s*$', comment: 'otto bare invocation' },
-    { regex: /^otto\s+(label|source|skill)\s+--help\b/, source: '^otto\\s+(label|source|skill)\\s+--help\\b', comment: 'otto entity help flags' },
-    { regex: /^otto\s+--(help|version|discover)\b/, source: '^otto\\s+--(help|version|discover)\\b', comment: 'otto global flags' },
+    // otto CLI read-only (default.json)
+    { regex: /^otto(\s+help)?\s*$/, source: '^otto(\\s+help)?\\s*$', comment: 'otto: the command list' },
+    { regex: /^otto\s+(search|(tasks|projects|comments|library|chats|labels|statuses|agents|routines|notifications)\s+(list|get|read|search|count))\b/, source: '^otto\\s+(search|(tasks|projects|comments|library|chats|labels|statuses|agents|routines|notifications)\\s+(list|get|read|search|count))\\b', comment: 'otto read-only commands' },
 
     // Version checks
     { regex: /^node\s+(--version|-v)\b/, source: 'node version', comment: 'Node.js version' },
@@ -840,36 +836,26 @@ describe('ShellGuard corpus: resource exhaustion', () => {
 describe('ShellGuard corpus: otto CLI allowlist', () => {
   const shouldAllow = [
     'otto',
-    'otto --help',
-    'otto --version',
-    'otto --discover',
-    'otto label --help',
-    'otto label list',
-    'otto label get bug',
-    'otto source --help',
-    'otto source list',
-    'otto source get linear',
-    'otto source validate linear',
-    'otto source test linear',
-    'otto skill --help',
-    'otto skill list',
-    'otto skill get commit-helper',
-    'otto skill where commit-helper',
-    'otto skill validate commit-helper',
+    'otto help',
+    'otto tasks list',
+    `otto tasks list '{"status":"todo"}'`,
+    'otto tasks get t1a2b3c4d5e6',
+    'otto library read l1a2b3c4d5e6',
+    'otto chats search "quarterly plan"',
+    'otto notifications count',
+    'otto search plan',
+    'otto routines list',
   ];
 
   const shouldBlock = [
-    'otto label create --name Bug',
-    'otto label update bug --name "Bug Report"',
-    'otto label delete bug',
-    'otto label move bug --parent root',
-    'otto label reorder --parent root a b c',
-    'otto source create --name Linear --provider linear --type mcp',
-    'otto source update linear --json "{\"enabled\":false}"',
-    'otto source delete linear',
-    'otto skill create --name "Review" --description "x"',
-    'otto skill update review --json "{\"description\":\"y\"}"',
-    'otto skill delete review',
+    `otto tasks create '{"title":"x"}'`,
+    'otto tasks set-status t1 done',
+    'otto labels delete bug',
+    'otto routines run r1',
+    'otto chats send c1 hi',
+    'otto agents delete a1',
+    'otto library create -',
+    'otto tasks list > out.json',
   ];
 
   for (const cmd of shouldAllow) {

@@ -1315,7 +1315,6 @@ function toLlmConnection(c: Connection): LlmConnection {
     baseUrl: c.baseUrl ?? undefined,
     models: c.models ?? undefined,
     defaultModel: c.defaultModel ?? undefined,
-    modelSelectionMode: c.config.modelSelectionMode,
     customEndpoint: c.config.customEndpoint,
     midStreamBehavior: c.config.midStreamBehavior,
     createdAt: c.createdAt.getTime(),
@@ -1332,7 +1331,6 @@ function toPatch(c: LlmConnection): ConnectionPatch {
     defaultModel: c.defaultModel ?? null,
     models: c.models ?? null,
     config: {
-      modelSelectionMode: c.modelSelectionMode,
       customEndpoint: c.customEndpoint,
       midStreamBehavior: c.midStreamBehavior,
     },

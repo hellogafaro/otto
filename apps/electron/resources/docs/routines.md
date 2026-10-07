@@ -2,31 +2,30 @@
 
 A routine runs actions on a schedule or when something happens in the workspace: it starts a chat with a prompt, calls a webhook, or runs a workspace-local script. Each run is recorded (the newest 20 per routine).
 
-Routines live in the workspace database, not in files: `automations.json` is no longer read (an old one was imported once). Read and change them with the `routines_edit` tool (this tool will be replaced by the Python `otto` CLI). Any member can list and create routines; only a routine's creator or a workspace owner can change, pause, resume, run or delete it.
+Routines live in the workspace database, not in files: `automations.json` is no longer read (an old one was imported once). Read and change them with the `otto routines` commands (see `otto.md` for all of them). Any member can list and create routines; only a routine's creator or a workspace owner can change, pause, resume, run or delete it.
 
 A routine runs as its creator: the chats its prompts start are theirs, on their own connections. So a change by anyone else (a workspace owner) makes the routine theirs, and **Run now** runs as the person who asked.
 
-## The `routines_edit` Tool
+## Commands
 
-| Action | Arguments |
-|--------|-----------|
-| `list` | none |
-| `get` | `id` (with its recent runs) |
-| `create` | `title`, `config`, optional `agentId`, `paused` |
-| `update` | `id`, any of `title`, `config` (replaces the whole config), `agentId` |
-| `pause` / `resume` | `id` |
-| `run` | `id`: one run now, in the background (its result shows in the routine's runs) |
-| `delete` | `id` (its runs go with it) |
+| Command | Arguments |
+|---------|-----------|
+| `otto routines list` | none |
+| `otto routines get <id>` | with its recent runs |
+| `otto routines create <routine>` | `{ title, config, agentId?, paused? }` |
+| `otto routines update <id> <patch>` | any of `title`, `config` (replaces the whole config), `agentId`, `paused` |
+| `otto routines pause <id>` / `resume <id>` | |
+| `otto routines run <id>` | one run now, in the background (its result shows in the routine's runs) |
+| `otto routines delete <id>` | its runs go with it |
 
 `agentId` is the agent the routine's chats talk to; leave it out (or `null`) for the workspace's default agent.
 
 Example:
 
-```
-routines_edit({ action: "create", title: "Morning briefing", config: {
-  type: "schedule", schedule: { cron: "0 9 * * 1-5", timezone: "Europe/Budapest" },
-  actions: [{ type: "prompt", prompt: "Give me a morning briefing" }]
-} })
+```bash
+otto routines create '{"title":"Morning briefing","config":{
+  "type":"schedule","schedule":{"cron":"0 9 * * 1-5","timezone":"Europe/Budapest"},
+  "actions":[{"type":"prompt","prompt":"Give me a morning briefing"}]}}'
 ```
 
 ## Config

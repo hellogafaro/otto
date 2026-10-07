@@ -2,20 +2,18 @@
 
 Session statuses represent workflow states. Each workspace has its own statuses.
 
-Statuses live in the workspace database, not in files. Read and change them with the `statuses_edit` tool (this tool will be replaced by the Python `otto` CLI, `otto statuses`). Only workspace owners can change statuses; members can list them.
+Statuses live in the workspace database, not in files. Read and change them with the `otto statuses` commands (see `otto.md` for all of them). Only workspace owners can change statuses; members can list them.
 
-## The `statuses_edit` Tool
+| Command | Arguments |
+|---------|-----------|
+| `otto statuses list` | none |
+| `otto statuses create <status>` | `{ label, category, color?, icon? }` |
+| `otto statuses update <id> <patch>` | any of `label`, `color`, `icon`, `category` |
+| `otto statuses delete <id>` | its sessions move to `todo` |
+| `otto statuses reorder <ids>` | the JSON list of status ids in the new order (any left out follow) |
+| `otto statuses set-default <id>` | the status new chats get |
 
-| Action | Arguments |
-|--------|-----------|
-| `list` | none |
-| `create` | `label`, `category`, optional `color`, `icon` |
-| `update` | `id`, any of `label`, `color`, `icon`, `category` |
-| `delete` | `id` (its sessions move to `todo`) |
-| `reorder` | `orderedIds` (status ids in the new order; any left out follow) |
-| `set_default` | `id` (the status new chats get) |
-
-Example: `statuses_edit({ action: "create", label: "Blocked", color: "destructive", icon: "🚫", category: "open" })`.
+Example: `otto statuses create '{"label":"Blocked","color":"destructive","icon":"🚫","category":"open"}'`.
 
 ## Default Statuses
 

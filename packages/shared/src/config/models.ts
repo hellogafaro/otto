@@ -129,12 +129,6 @@ export interface ModelDefinition {
   supportsThinking?: boolean;
   /** Explicit per-model image input capability hint, primarily for custom endpoints. */
   supportsImages?: boolean;
-  /**
-   * Adaptive thinking is always on and the Messages API rejects
-   * `thinking: { type: 'disabled' }` (Fable/Mythos, Opus 5.5). Thinking depth is
-   * steered with `effort` only; see isAdaptiveThinkingAlwaysOnModel().
-   */
-  thinkingAlwaysOn?: boolean;
 }
 
 // ============================================
@@ -160,8 +154,6 @@ export const MODEL_REGISTRY: ModelDefinition[] = [
     descriptionKey: 'model.opusDesc',
     provider: 'anthropic',
     contextWindow: 1_000_000,
-    // The API returns 400 for `thinking: { type: 'disabled' }` on Opus 5.5.
-    thinkingAlwaysOn: true,
   },
   {
     id: 'claude-opus-5',
@@ -241,7 +233,6 @@ export const MODEL_REGISTRY: ModelDefinition[] = [
     descriptionKey: 'model.fableDesc',
     provider: 'anthropic',
     contextWindow: 1_000_000,
-    thinkingAlwaysOn: true,
   },
   {
     id: 'claude-fable-5',
@@ -253,7 +244,6 @@ export const MODEL_REGISTRY: ModelDefinition[] = [
     descriptionKey: 'model.fableDesc',
     provider: 'anthropic',
     contextWindow: 1_000_000,
-    thinkingAlwaysOn: true,
   },
 
   // ----------------------------------------
@@ -408,29 +398,6 @@ export function isClaudeModel(modelId: string): boolean {
   const lower = modelId.toLowerCase();
   return lower.startsWith('claude-') || lower.includes('/claude') || lower.includes('.claude');
 }
-
-/**
- * Models where adaptive thinking is ALWAYS ON and `thinking: { type: 'disabled' }`
- * is rejected by the Messages API (Claude Fable 5 / 5.1, Mythos, Opus 5.5).
- * Callers must use adaptive thinking + the `effort` parameter to control depth on
- * these models — there is no way to turn thinking off. Opus 5 and earlier,
- * Sonnet and Haiku still accept `disabled`.
- *
- * Source of truth is the registry flag `thinkingAlwaysOn`, resolved for bare,
- * pi/-prefixed and Bedrock-native id forms (mapped or region-prefixed). A pattern
- * fallback covers ids that are not registered: the Fable/Mythos family (e.g.
- * limited-availability Mythos snapshots) and any other Opus 5.5 variant, such as
- * a dated snapshot listed by /v1/models or a provider-prefixed id — the whole 5.5
- * family rejects `disabled`, so erring towards adaptive + low is always safe.
- */
-export function isAdaptiveThinkingAlwaysOnModel(modelId: string): boolean {
-  const bare = modelId.startsWith('pi/') ? modelId.slice(3) : modelId;
-  const known = getModelById(bare)
-    ?? MODEL_REGISTRY.find(m => m.thinkingAlwaysOn && bare.endsWith(`.${m.id}`));
-  if (known?.thinkingAlwaysOn !== undefined) return known.thinkingAlwaysOn;
-  return /claude-(fable|mythos)|claude-opus-5-5\b/i.test(modelId);
-}
-
 
 /**
  * Get the provider for a model ID.

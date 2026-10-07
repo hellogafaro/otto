@@ -18,7 +18,7 @@ const { getWorkspacePermissions } = await import('@otto/shared/agent')
 const { broadcastDomainChanges } = await import('./domain-changes')
 const { registerLabelsHandlers } = await import('./labels')
 const { registerStatusesHandlers } = await import('./statuses')
-const { runWorkspaceConfigAction } = await import('../../sessions/workspace-config-tool')
+const { runPermissionsAction } = await import('../../sessions/permissions-tool')
 type Handler = import('../../transport/types').HandlerFn
 type Ctx = import('../../transport/types').RequestContext
 
@@ -82,60 +82,36 @@ describe('labels and statuses handlers', () => {
   })
 })
 
-describe('the agent tools labels_edit, statuses_edit and permissions_edit', () => {
-  const run = (user: string | null, domain: 'labels' | 'statuses' | 'permissions', args: Record<string, unknown>) => runWorkspaceConfigAction(workspaceId, user, domain, args)
-  const code = (fn: () => unknown) => {
-    try {
-      fn()
-    } catch (error) {
-      return (error as { code?: string }).code
-    }
-  }
-
-  it('let an owner change the workspace and report that something was written', () => {
-    expect(run(OWNER, 'labels', { action: 'create', name: 'Ops' })).toMatchObject({ result: { id: 'ops' }, wrote: true })
-    expect(run(OWNER, 'labels', { action: 'create', name: 'Oncall', parentId: 'ops', valueType: 'string', autoRules: [{ semantic: 'Is it urgent?' }] }).wrote).toBe(true)
-    expect(run(OWNER, 'labels', { action: 'reorder', parentId: null, orderedIds: ['ops'] }).wrote).toBe(true)
-    expect(run(OWNER, 'labels', { action: 'delete', id: 'ops' })).toMatchObject({ result: { stripped: 0 }, wrote: true })
-    const created = run(OWNER, 'statuses', { action: 'create', label: 'Blocked', category: 'open', icon: '⛔' })
-    expect(created).toMatchObject({ result: { id: 'blocked', icon: '⛔' }, wrote: true })
-    expect(run(OWNER, 'statuses', { action: 'set_default', id: 'blocked' }).wrote).toBe(true)
-    expect(run(OWNER, 'statuses', { action: 'set_default', id: 'todo' }).wrote).toBe(true)
-    expect(run(OWNER, 'statuses', { action: 'delete', id: 'blocked' })).toMatchObject({ result: { migrated: 0 }, wrote: true })
-    expect(run(OWNER, 'permissions', { action: 'update', rules: { allowedBashPatterns: ['^make\\s+test'] } }).wrote).toBe(true)
-    expect(getWorkspacePermissions(workspaceId)).toEqual({ allowedBashPatterns: ['^make\\s+test'] })
+describe('label and status writes (what the otto CLI calls too)', () => {
+  it('update, move and reorder labels, and fire the label automation event', async () => {
+    labelEvents.length = 0
+    await call(RPC_CHANNELS.labels.CREATE, workspaceId, { name: 'Ops' })
+    await call(RPC_CHANNELS.labels.CREATE, workspaceId, { name: 'Oncall', parentId: 'ops' })
+    expect(await call(RPC_CHANNELS.labels.UPDATE, workspaceId, 'oncall', { name: 'On call', valueType: 'string' })).toMatchObject({ id: 'oncall', name: 'On call', valueType: 'string' })
+    await call(RPC_CHANNELS.labels.MOVE, workspaceId, 'oncall')
+    expect(getLabelsFlat(workspaceId).find((l) => l.id === 'oncall')).toBeDefined()
+    await call(RPC_CHANNELS.labels.REORDER, workspaceId, ['oncall', 'ops'])
+    expect(labelEvents).toHaveLength(5)
+    await expect(call(RPC_CHANNELS.labels.UPDATE, workspaceId, 'nope', { name: 'x' })).rejects.toMatchObject({ code: 'not_found' })
+    await call(RPC_CHANNELS.labels.DELETE, workspaceId, 'ops')
+    await call(RPC_CHANNELS.labels.DELETE, workspaceId, 'oncall')
   })
 
-  it('let a member read, never write, and a non-member nothing', () => {
-    for (const [domain, read] of [['labels', 'list'], ['statuses', 'list'], ['permissions', 'get']] as const) {
-      expect(run(MEMBER, domain, { action: read }).wrote).toBe(false)
-      expect(code(() => run(OUTSIDER, domain, { action: read }))).toBe('forbidden')
-      expect(code(() => run(null, domain, { action: read }))).toBe('forbidden')
-    }
-    expect(code(() => run(MEMBER, 'labels', { action: 'create', name: 'Nope' }))).toBe('forbidden')
-    expect(code(() => run(MEMBER, 'statuses', { action: 'reorder', orderedIds: ['done'] }))).toBe('forbidden')
-    expect(code(() => run(MEMBER, 'permissions', { action: 'update', rules: {} }))).toBe('forbidden')
-    expect(getLabelsFlat(workspaceId).some((l) => l.id === 'nope')).toBe(false)
-  })
-
-  it('refuse what the domain refuses, and say an unknown action is unknown', () => {
-    expect(code(() => run(OWNER, 'labels', { action: 'create' }))).toBe('invalid') // no name
-    expect(code(() => run(OWNER, 'labels', { action: 'update', id: 'nope', name: 'x' }))).toBe('not_found')
-    expect(code(() => run(OWNER, 'statuses', { action: 'delete', id: 'todo' }))).toBe('forbidden') // fixed
-    expect(code(() => run(OWNER, 'statuses', { action: 'create', label: 'X', category: 'open', icon: 'https://x.test/i.svg' }))).toBe('invalid')
-    expect(code(() => run(OWNER, 'permissions', { action: 'update', rules: { allowedBashPatterns: ['('] } }))).toBe('invalid')
-    expect(code(() => run(OWNER, 'labels', { action: 'explode' }))).toBe('invalid')
-  })
-
-  it('show an image icon as [image] instead of its data', () => {
-    const { result } = run(MEMBER, 'statuses', { action: 'list' }) as { result: { id: string; icon?: string }[] }
-    expect(result.find((s) => s.id === 'todo')?.icon).toBe('[image]')
+  it('create, update, set the default of and delete statuses, refusing what the domain refuses', async () => {
+    pushes.length = 0
+    expect(await call(RPC_CHANNELS.statuses.CREATE, workspaceId, { label: 'Blocked', category: 'open', icon: '⛔' })).toMatchObject({ id: 'blocked', icon: '⛔' })
+    expect(await call(RPC_CHANNELS.statuses.UPDATE, workspaceId, 'blocked', { label: 'Stuck' })).toMatchObject({ id: 'blocked', label: 'Stuck' })
+    await call(RPC_CHANNELS.statuses.SET_DEFAULT, workspaceId, 'blocked')
+    await expect(call(RPC_CHANNELS.statuses.DELETE, workspaceId, 'blocked')).rejects.toMatchObject({ code: 'forbidden' }) // the default
+    await call(RPC_CHANNELS.statuses.SET_DEFAULT, workspaceId, 'todo')
+    expect(await call(RPC_CHANNELS.statuses.DELETE, workspaceId, 'blocked')).toEqual({ migrated: 0 })
+    await expect(call(RPC_CHANNELS.statuses.DELETE, workspaceId, 'todo')).rejects.toMatchObject({ code: 'forbidden' }) // fixed
+    await expect(call(RPC_CHANNELS.statuses.CREATE, workspaceId, { label: 'X', category: 'open', icon: 'https://x.test/i.svg' })).rejects.toMatchObject({ code: 'invalid' })
+    expect(domainPushes()).toEqual(Array(5).fill({ domain: 'statuses', workspaceId }))
   })
 })
 
-describe('the agent tool routines_edit', () => {
-  const config = { type: 'event', event: 'LabelAdd', actions: [{ type: 'prompt', prompt: 'triage' }] }
-  const run = (user: string | null, args: Record<string, unknown>, runRoutine?: Parameters<typeof runWorkspaceConfigAction>[4]) => runWorkspaceConfigAction(workspaceId, user, 'routines', args, runRoutine)
+describe('the agent tool permissions_edit', () => {
   const code = (fn: () => unknown) => {
     try {
       fn()
@@ -144,29 +120,17 @@ describe('the agent tool routines_edit', () => {
     }
   }
 
-  it("lets any member create one as their own and only its creator or an owner change it; an owner's change makes it the owner's", () => {
-    const created = run(MEMBER, { action: 'create', title: 'Triage', config }) as { result: { id: string; createdBy: string }; wrote: boolean }
-    expect(created).toMatchObject({ result: { createdBy: `user:${MEMBER}` }, wrote: true })
-    const id = created.result.id
-    expect(run(MEMBER, { action: 'list' })).toMatchObject({ wrote: false })
-    expect((run(MEMBER, { action: 'get', id }).result as { runs: unknown[] }).runs).toEqual([])
-    expect(run(MEMBER, { action: 'update', id, title: 'Triage bugs' }).result).toMatchObject({ title: 'Triage bugs', createdBy: `user:${MEMBER}` })
-    expect(code(() => run(OUTSIDER, { action: 'list' }))).toBe('forbidden')
-    expect(code(() => run(MEMBER, { action: 'create', title: 'Bad', config: { type: 'event', actions: [] } }))).toBe('invalid')
-
-    expect(run(OWNER, { action: 'pause', id }).result).toMatchObject({ createdBy: `user:${OWNER}` })
-    expect(code(() => run(MEMBER, { action: 'resume', id }))).toBe('forbidden')
-    expect(code(() => run(MEMBER, { action: 'delete', id }))).toBe('forbidden')
+  it('lets an owner replace the rules, a member read them and a non-member nothing', () => {
+    expect(runPermissionsAction(workspaceId, OWNER, { action: 'update', rules: { allowedBashPatterns: ['^make\\s+test'] } }).wrote).toBe(true)
+    expect(getWorkspacePermissions(workspaceId)).toEqual({ allowedBashPatterns: ['^make\\s+test'] })
+    expect(runPermissionsAction(workspaceId, MEMBER, { action: 'get' })).toEqual({ result: { allowedBashPatterns: ['^make\\s+test'] }, wrote: false })
+    expect(code(() => runPermissionsAction(workspaceId, MEMBER, { action: 'update', rules: {} }))).toBe('forbidden')
+    expect(code(() => runPermissionsAction(workspaceId, OUTSIDER, { action: 'get' }))).toBe('forbidden')
+    expect(code(() => runPermissionsAction(workspaceId, null, { action: 'get' }))).toBe('forbidden')
   })
 
-  it('runs a routine as the caller, and deletes it', () => {
-    const id = (run(MEMBER, { action: 'create', title: 'Run me', config }).result as { id: string }).id
-    const ranAs: string[] = []
-    const result = run(MEMBER, { action: 'run', id }, (routine) => (ranAs.push(routine.createdBy), { id: 'run1', routineId: routine.id, scheduledFor: 0, status: 'running', chatId: null, error: null, startedAt: 0 }))
-    expect(result).toMatchObject({ result: { id: 'run1' }, wrote: true })
-    expect(ranAs).toEqual([`user:${MEMBER}`])
-    expect(code(() => run(MEMBER, { action: 'run', id }))).toBe('invalid') // nothing to run it with
-    expect(run(MEMBER, { action: 'delete', id })).toMatchObject({ result: { deleted: id }, wrote: true })
-    expect(code(() => run(MEMBER, { action: 'get', id }))).toBe('not_found')
+  it('refuses a bad rule and an unknown action', () => {
+    expect(code(() => runPermissionsAction(workspaceId, OWNER, { action: 'update', rules: { allowedBashPatterns: ['('] } }))).toBe('invalid')
+    expect(code(() => runPermissionsAction(workspaceId, OWNER, { action: 'explode' }))).toBe('invalid')
   })
 })

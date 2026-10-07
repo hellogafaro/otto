@@ -19,8 +19,11 @@ const DOCS_DIR = join(CONFIG_DIR, 'docs');
 // Track if docs have been initialized this session (prevents re-init on hot reload)
 let docsInitialized = false;
 
-/** Docs no longer bundled: `automations.md` (routines are database rows now, see routines.md). */
-const RETIRED_DOCS = ['automations.md'];
+/**
+ * Docs no longer bundled: `automations.md` (routines are database rows now, see routines.md), `agents.md` and
+ * `otto-cli.md` (agents and the rest of the app's data are the `otto` CLI's, see otto.md).
+ */
+const RETIRED_DOCS = ['automations.md', 'agents.md', 'otto-cli.md'];
 
 // Resolve the bundled docs assets directory using the shared asset resolver.
 // Handles all environments: dev (resources/docs), bundled (dist/resources/docs),
@@ -108,7 +111,6 @@ export const DOC_REFS = {
   permissions: `${APP_ROOT}/docs/permissions.md`,
   skills: `${APP_ROOT}/docs/skills.md`,
   themes: `${APP_ROOT}/docs/themes.md`,
-  agents: `${APP_ROOT}/docs/agents.md`,
   statuses: `${APP_ROOT}/docs/statuses.md`,
   labels: `${APP_ROOT}/docs/labels.md`,
   toolIcons: `${APP_ROOT}/docs/tool-icons.md`,
@@ -122,7 +124,6 @@ export const DOC_REFS = {
   llmTool: `${APP_ROOT}/docs/llm-tool.md`,
   browserTools: `${APP_ROOT}/docs/browser-tools.md`,
   decisions: `${APP_ROOT}/docs/decisions.md`,
-  ottoCli: `${APP_ROOT}/docs/otto-cli.md`,
   docsDir: `${APP_ROOT}/docs/`,
 } as const;
 

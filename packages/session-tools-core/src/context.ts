@@ -306,11 +306,10 @@ export interface SessionToolContext {
   // ============================================================
 
   /**
-   * Edit the workspace's labels, statuses, permission rules, agents or routines as the chat's user (owners write, members
-   * read; agents and routines: any member creates, the creator or an owner changes); returns what to show the agent.
-   * Injected by the session manager.
+   * Read or replace the workspace's permission rules as the chat's user (owners write, members read); returns what to
+   * show the agent. Injected by the session manager.
    */
-  editWorkspaceConfig?(domain: 'labels' | 'statuses' | 'permissions' | 'agents' | 'routines', args: Record<string, unknown>): Promise<unknown>;
+  editPermissions?(args: Record<string, unknown>): Promise<unknown>;
 
   /** Set labels on a session. Defaults to current session if no ID given. Injected by backend. */
   setSessionLabels?(sessionId: string | undefined, labels: string[]): void | Promise<void>;
@@ -326,14 +325,6 @@ export interface SessionToolContext {
 
   /** List sessions in the workspace with pagination. Injected by backend. */
   listSessions?(options?: ListSessionsOptions): ListSessionsResult;
-
-  /**
-   * List background tasks (running + recently-terminal) for a session from the
-   * main-process registry. Defaults to the current session if no ID given.
-   * Injected by backend (SessionManager). Returns [] in backends that don't
-   * track background tasks.
-   */
-  listBackgroundTasks?(sessionId?: string): BackgroundTaskInfo[];
 
   /** Resolve label display names to IDs against configured labels. Injected by backend. */
   resolveLabels?(labels: string[]): ResolvedLabelsResult;
@@ -578,33 +569,6 @@ export interface SendAgentMessageResult {
   delivery: 'delivered' | 'queued';
   /** Whether the target session was processing a turn when the message arrived. */
   targetBusy: boolean;
-}
-
-/**
- * A background task tracked by the main process (returned by
- * list_background_tasks). This is the cross-subprocess source of truth: the
- * SDK's in-subprocess task tools only see tasks launched in the CURRENT
- * subprocess, so they cannot report a task from a prior turn's (torn-down)
- * subprocess. `status: 'orphaned'` means the owning turn ended before a terminal
- * notification arrived — the task most likely died with its subprocess.
- */
-export interface BackgroundTaskInfo {
-  taskId: string;
-  intent?: string;
-  /** What the session's agent launched: a background agent, a Workflow, a Bash command, or another task. */
-  kind?: 'agent' | 'workflow' | 'shell' | 'task';
-  status: 'running' | 'completed' | 'failed' | 'stopped' | 'orphaned';
-  /** ms timestamp when the task was backgrounded (absent for untracked tasks) */
-  startTime?: number;
-  /** seconds elapsed since start, derived at query time (absent for untracked tasks) */
-  elapsedSeconds?: number;
-  /** ms timestamp when the task reached a terminal/orphaned status, if any */
-  completedAt?: number;
-  /**
-   * A completion seen for a task this session's agent did not launch (typically a subagent's
-   * own background task); its start time is unknown.
-   */
-  untracked?: boolean;
 }
 
 // ============================================================

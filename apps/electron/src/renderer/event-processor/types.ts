@@ -355,71 +355,6 @@ export interface CredentialRequestEvent {
 }
 
 /**
- * Task backgrounded event - background agent started
- */
-export interface TaskBackgroundedEvent {
-  type: 'task_backgrounded'
-  sessionId: string
-  toolUseId: string
-  taskId: string
-  intent?: string
-  turnId?: string
-  /** 'workflow' marks a fan-out Workflow launch (many sub-agents); undefined = a single Agent/Task. */
-  kind?: 'workflow'
-  /** Workflow run id (wf_...) — correlates workflow_agent_completed events to this chip. */
-  workflowId?: string
-}
-
-/**
- * Workflow agent completed - one sub-agent of a running Workflow finished.
- * Increments the owning workflow chip's completed-agent count.
- */
-export interface WorkflowAgentCompletedEvent {
-  type: 'workflow_agent_completed'
-  sessionId: string
-  workflowId: string
-  agentId: string
-  turnId?: string
-}
-
-/**
- * Shell backgrounded event - background bash shell started
- */
-export interface ShellBackgroundedEvent {
-  type: 'shell_backgrounded'
-  sessionId: string
-  toolUseId: string
-  shellId: string
-  intent?: string
-  turnId?: string
-}
-
-/**
- * Task progress event - live progress updates for background tasks
- */
-export interface TaskProgressEvent {
-  type: 'task_progress'
-  sessionId: string
-  toolUseId: string
-  elapsedSeconds: number
-  turnId?: string
-}
-
-/**
- * Task completed event - background task finished execution
- * Updates the tool message status and result when a background task completes.
- */
-export interface TaskCompletedEvent {
-  type: 'task_completed'
-  sessionId: string
-  taskId: string
-  status: 'completed' | 'failed' | 'stopped'
-  outputFile?: string
-  summary?: string
-  turnId?: string
-}
-
-/**
  * User message event - backend confirmation of optimistic user message
  * Used for optimistic UI: frontend shows message immediately,
  * backend confirms/updates status via this event
@@ -542,11 +477,6 @@ export type AgentEvent =
   | PermissionModeChangedEvent
   | SessionModelChangedEvent
   | LLMConnectionChangedEvent
-  | TaskBackgroundedEvent
-  | ShellBackgroundedEvent
-  | TaskProgressEvent
-  | TaskCompletedEvent
-  | WorkflowAgentCompletedEvent
   | UserMessageEvent
   | MessageAnnotationsUpdatedEvent
   | SessionSharedEvent

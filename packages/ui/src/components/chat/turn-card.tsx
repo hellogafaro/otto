@@ -209,7 +209,7 @@ export const SIZE_CONFIG = {
 // Types
 // ============================================================================
 
-export type ActivityStatus = 'pending' | 'running' | 'completed' | 'error' | 'backgrounded'
+export type ActivityStatus = 'pending' | 'running' | 'completed' | 'error'
 export type ActivityType = 'tool' | 'thinking' | 'intermediate' | 'status' | 'plan'
 export type AnnotationInteractionMode = 'interactive' | 'tooltip-only'
 
@@ -250,11 +250,6 @@ export interface ActivityItem {
   depth?: number     // Nesting level (0 = root, 1 = child, etc.)
   // Status activities (e.g., compacting)
   statusType?: string  // e.g., 'compacting'
-  // Background task fields
-  taskId?: string         // For background Task tools
-  shellId?: string        // For background Bash shells
-  elapsedSeconds?: number // Live progress updates
-  isBackground?: boolean  // Flag for UI differentiation
 }
 
 export interface ResponseContent {
@@ -527,7 +522,6 @@ function getToolDisplayName(name: string): string {
     'get_session_info': 'Get Session Info',
     'list_sessions': 'List Sessions',
     'archive_session': 'Archive Session',
-    'list_background_tasks': 'List Background Tasks',
     'send_agent_message': 'Send Agent Message',
     'spawn_session': 'Spawn Session',
   }
@@ -827,12 +821,6 @@ export function ActivityStatusIcon({
             <Spinner className={SIZE_CONFIG.spinnerSize} />
           </div>
         )
-      case 'backgrounded':
-        return (
-          <div className={cn(SIZE_CONFIG.iconSize, "flex items-center justify-center shrink-0")}>
-            <Spinner className={cn(SIZE_CONFIG.spinnerSize, "text-primary")} />
-          </div>
-        )
       case 'completed':
         // Edit and Write tools get their own icons with accent color instead of green checkmark
         if (toolName === 'Edit') {
@@ -1007,16 +995,6 @@ function ActivityRow({ activity, onOpenDetails, isLastChild, sessionFolderPath, 
   const inputSummary = formatToolInput(activity.toolInput, activity.toolName, sessionFolderPath)
   const diffStats = computeEditWriteDiffStats(activity.toolName, activity.toolInput)
   const isComplete = activity.status === 'completed' || activity.status === 'error'
-  const isBackgrounded = activity.status === 'backgrounded'
-
-  // For backgrounded tasks, show task/shell ID and elapsed time
-  const backgroundInfo = isBackgrounded
-    ? activity.taskId
-      ? `Task ID: ${activity.taskId}${activity.elapsedSeconds ? `, ${formatDuration(activity.elapsedSeconds * 1000)} elapsed` : ''}`
-      : activity.shellId
-        ? `Shell ID: ${activity.shellId}${activity.elapsedSeconds ? `, ${formatDuration(activity.elapsedSeconds * 1000)} elapsed` : ''}`
-        : null
-    : null
 
   return (
     <div className="flex items-stretch">
@@ -1030,7 +1008,7 @@ function ActivityRow({ activity, onOpenDetails, isLastChild, sessionFolderPath, 
       >
         <ActivityStatusIcon status={activity.status} toolName={activity.toolName} customIcon={toolDisplay.icon} />
         {/* MCP/API tools: Source name (shrink-0) then error badge (if any) then compound label (flex-1) */}
-        {isMcpOrApiTool && !isBackgrounded && (
+        {isMcpOrApiTool && (
           <>
             <span className="shrink-0">{sourceName}</span>
             {/* Error badge for MCP/API tools */}
@@ -1083,7 +1061,7 @@ function ActivityRow({ activity, onOpenDetails, isLastChild, sessionFolderPath, 
           <span className={cn("shrink-0", onOpenDetails && isComplete && "group-hover/row:underline")}>{displayedName}</span>
         )}
         {/* Diff stats and filename badges - after tool name */}
-        {!isMcpOrApiTool && !isBackgrounded && diffStats && (
+        {!isMcpOrApiTool && diffStats && (
           <span className="flex items-center gap-1.5 text-[10px] shrink-0">
             {diffStats.deletions > 0 && (
               <span
@@ -1121,7 +1099,7 @@ function ActivityRow({ activity, onOpenDetails, isLastChild, sessionFolderPath, 
           </span>
         )}
         {/* Filename badge for Read tool (no diff stats) */}
-        {!isMcpOrApiTool && !isBackgrounded && !diffStats && activity.toolName === 'Read' && typeof activity.toolInput?.file_path === 'string' && (
+        {!isMcpOrApiTool && !diffStats && activity.toolName === 'Read' && typeof activity.toolInput?.file_path === 'string' && (
           <span className="flex items-center gap-1.5 text-[10px] shrink-0">
             <span className="px-1.5 py-0.5 bg-muted rounded-[4px] text-[11px] text-foreground/70">
               {normalizePath(activity.toolInput.file_path).split('/').pop()}
@@ -1145,7 +1123,7 @@ function ActivityRow({ activity, onOpenDetails, isLastChild, sessionFolderPath, 
         )}
         {/* Native tools: Compound label with description + params (flex-1) */}
         {/* In informative mode, hide inputSummary (command details) - only show description */}
-        {!isMcpOrApiTool && !isBackgrounded && (intentOrDescription || (displayMode === 'detailed' && inputSummary)) && (
+        {!isMcpOrApiTool && (intentOrDescription || (displayMode === 'detailed' && inputSummary)) && (
           <span className={cn("truncate flex-1 min-w-0", onOpenDetails && isComplete && "group-hover/row:underline")}>
             {intentOrDescription && (
               <>
@@ -1160,13 +1138,6 @@ function ActivityRow({ activity, onOpenDetails, isLastChild, sessionFolderPath, 
               </>
             )}
           </span>
-        )}
-        {/* Background task info (task/shell ID + elapsed time) */}
-        {backgroundInfo && (
-          <>
-            <span className="opacity-60 shrink-0">·</span>
-            <span className="truncate min-w-0 max-w-[300px] text-primary">{backgroundInfo}</span>
-          </>
         )}
         {/* No spacer needed - both MCP/API and native tools now have flex-1 on their compound spans */}
         {/* Open details button */}

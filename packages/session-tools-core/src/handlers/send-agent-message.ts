@@ -45,8 +45,7 @@ export async function handleSendAgentMessage(
 
     // Report the real delivery status instead of an unconditional "sent". A busy
     // target queues the message behind its current turn; an idle target starts
-    // now. This is what lets the sender avoid guessing (e.g. never invent "the
-    // app restarted") — for actual task status, call list_background_tasks.
+    // now, so the sender does not have to guess.
     if (result.delivery === 'queued') {
       return successResponse(
         `Message queued for session ${args.sessionId} — it is currently processing another turn. ` +

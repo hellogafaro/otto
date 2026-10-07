@@ -47,11 +47,9 @@ import {
   sessionIdsAtom,
   loadedSessionsAtom,
   forceSessionMessagesReloadAtom,
-  backgroundTasksAtomFamily,
   extractSessionMeta,
   windowWorkspaceIdAtom,
   type SessionMeta,
-  type BackgroundTask,
 } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
@@ -76,10 +74,6 @@ import { useLinkInterceptor, type FilePreviewState } from '@/hooks/use-link-inte
 import { useTransportConnectionState } from '@/hooks/use-transport-connection-state'
 import { useStaleSessionRecovery } from '@/hooks/use-stale-session-recovery'
 import { TransportConnectionBanner, shouldShowTransportConnectionBanner } from '@/components/app-shell/transport-connection-banner'
-import {
-  markBackgroundTaskSignal,
-  markLiveBackgroundTasksOrphaned,
-} from '@/components/app-shell/background-task-chip-state'
 import { getFileManagerName, isWebUI } from '@/lib/platform'
 import { rendererLog } from '@/lib/logger'
 import { ActionRegistryProvider } from '@/actions'
@@ -114,136 +108,6 @@ function workspaceDistribution(sessions: Iterable<{ workspaceId?: string }>): Re
     distribution[key] = (distribution[key] ?? 0) + 1
   }
   return distribution
-}
-
-/**
- * Helper to handle background task events from the agent.
- * Updates the backgroundTasksAtomFamily based on event type.
- * Extracted to avoid code duplication between streaming and non-streaming paths.
- */
-function handleBackgroundTaskEvent(
-  store: JotaiStore,
-  sessionId: string,
-  event: { type: string },
-  agentEvent: unknown
-): void {
-  // Type guard for accessing properties
-  const evt = agentEvent as Record<string, unknown>
-  const backgroundTasksAtom = backgroundTasksAtomFamily(sessionId)
-
-  if (event.type === 'task_backgrounded' && 'taskId' in evt && 'toolUseId' in evt) {
-    const currentTasks = store.get(backgroundTasksAtom)
-    const exists = currentTasks.some(t => t.toolUseId === evt.toolUseId)
-    if (!exists) {
-      const isWorkflow = evt.kind === 'workflow'
-      const startTime = Date.now()
-      store.set(backgroundTasksAtom, [
-        ...currentTasks,
-        {
-          id: evt.taskId as string,
-          type: isWorkflow ? ('workflow' as const) : ('agent' as const),
-          toolUseId: evt.toolUseId as string,
-          startTime,
-          elapsedSeconds: 0,
-          lastSignalAt: startTime,
-          intent: evt.intent as string | undefined,
-          status: 'running' as const,
-          ...(isWorkflow ? { workflowId: evt.workflowId as string | undefined, agentsCompleted: 0 } : {}),
-        },
-      ])
-    }
-  } else if (event.type === 'workflow_agent_completed' && 'workflowId' in evt) {
-    // One sub-agent of a running Workflow finished — bump the owning chip's count
-    // and treat it as evidence that a stale workflow is still alive.
-    const currentTasks = store.get(backgroundTasksAtom)
-    const now = Date.now()
-    store.set(backgroundTasksAtom, currentTasks.map(t =>
-      t.type === 'workflow' && t.workflowId === evt.workflowId
-        ? { ...markBackgroundTaskSignal(t, now), agentsCompleted: (t.agentsCompleted ?? 0) + 1 }
-        : t
-    ))
-  } else if (event.type === 'shell_backgrounded' && 'shellId' in evt && 'toolUseId' in evt) {
-    const currentTasks = store.get(backgroundTasksAtom)
-    const exists = currentTasks.some(t => t.toolUseId === evt.toolUseId)
-    if (!exists) {
-      const startTime = Date.now()
-      store.set(backgroundTasksAtom, [
-        ...currentTasks,
-        {
-          id: evt.shellId as string,
-          type: 'shell' as const,
-          toolUseId: evt.toolUseId as string,
-          startTime,
-          elapsedSeconds: 0,
-          lastSignalAt: startTime,
-          intent: evt.intent as string | undefined,
-          status: 'running' as const,
-        },
-      ])
-    }
-  } else if (event.type === 'task_progress' && 'toolUseId' in evt && 'elapsedSeconds' in evt) {
-    const currentTasks = store.get(backgroundTasksAtom)
-    const now = Date.now()
-    store.set(backgroundTasksAtom, currentTasks.map(t =>
-      t.toolUseId === evt.toolUseId
-        ? { ...markBackgroundTaskSignal(t, now), elapsedSeconds: evt.elapsedSeconds as number }
-        : t
-    ))
-  } else if (event.type === 'task_completed' && 'taskId' in evt) {
-    // Transition the chip to a terminal status (keep it visible with a terminal
-    // icon + click-through to output). The ActiveTasksBar auto-expiry ticker
-    // prunes it after a short linger — we no longer remove it instantly, so the
-    // user sees that the task finished rather than the chip just vanishing.
-    const status = (evt.status as BackgroundTask['status']) ?? 'completed'
-    const currentTasks = store.get(backgroundTasksAtom)
-    store.set(backgroundTasksAtom, currentTasks.map(t =>
-      t.id === evt.taskId
-        ? {
-            ...t,
-            status,
-            completedAt: Date.now(),
-            outputFile: (evt.outputFile as string | undefined) ?? t.outputFile,
-            summary: (evt.summary as string | undefined) ?? t.summary,
-          }
-        : t
-    ))
-  } else if (event.type === 'shell_killed' && 'shellId' in evt) {
-    // Mark shell stopped (lingers briefly, then auto-expires) instead of vanishing.
-    const currentTasks = store.get(backgroundTasksAtom)
-    store.set(backgroundTasksAtom, currentTasks.map(t =>
-      t.id === evt.shellId
-        ? { ...t, status: 'stopped' as const, completedAt: Date.now() }
-        : t
-    ))
-  } else if (event.type === 'tool_result' && 'toolUseId' in evt) {
-    // Remove task when it completes - but NOT if this is the initial backgrounding result
-    // Background tasks return immediately with agentId/shell_id/backgroundTaskId,
-    // we should only remove when the task actually completes
-    const result = typeof evt.result === 'string' ? evt.result : JSON.stringify(evt.result)
-    // Older and current CLI wordings of "this task now runs in the background".
-    const isBackgroundingResult = result && (
-      /agentId:\s*[a-zA-Z0-9_-]+/.test(result) ||
-      /shell_id:\s*[a-zA-Z0-9_-]+/.test(result) ||
-      /"backgroundTaskId":\s*"[a-zA-Z0-9_-]+"/.test(result) ||
-      /running in background with ID:\s*[a-zA-Z0-9_-]+/i.test(result) ||
-      /backgrounded by user with ID:\s*[a-zA-Z0-9_-]+/i.test(result) ||
-      /moved to the background \(ID:\s*[a-zA-Z0-9_-]+\)/i.test(result) ||
-      /"resultType":\s*"task"/.test(result) ||
-      /Monitor started \(task\s+[a-zA-Z0-9_-]+/.test(result)
-    )
-    if (!isBackgroundingResult) {
-      const currentTasks = store.get(backgroundTasksAtom)
-      store.set(backgroundTasksAtom, currentTasks.filter(t => t.toolUseId !== evt.toolUseId))
-    }
-  } else if (event.type === 'complete' || event.type === 'interrupted' || event.type === 'error') {
-    // Orphan backstop: turn teardown is authoritative evidence that both running
-    // and uncertain/stale background tasks died with the turn.
-    const currentTasks = store.get(backgroundTasksAtom)
-    const nextTasks = markLiveBackgroundTasksOrphaned(currentTasks, Date.now())
-    if (nextTasks !== currentTasks) {
-      store.set(backgroundTasksAtom, nextTasks)
-    }
-  }
 }
 
 function SessionLoadErrorScreen({
@@ -938,9 +802,6 @@ export default function App() {
         // Handle side effects
         handleEffects(effects, sessionId, event.type)
 
-        // Handle background task events
-        handleBackgroundTaskEvent(store, sessionId, event, agentEvent)
-
         // For handoff events, update metadata map for list display
         // NOTE: No sessionsAtom to sync - atom and metadata are the source of truth
         if (isHandoff) {
@@ -992,9 +853,6 @@ export default function App() {
 
       // Handle side effects
       handleEffects(effects, sessionId, event.type)
-
-      // Handle background task events
-      handleBackgroundTaskEvent(store, sessionId, event, agentEvent)
 
       // Update per-session atom
       updateSessionDirect(sessionId, () => updatedSession)

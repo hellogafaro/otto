@@ -102,40 +102,12 @@
       "comment": "CLI tools: bare invocation (prints help)"
     },
     {
-      "pattern": "^otto\\s+label\\s+(list|get|auto-rule-list|auto-rule-validate)\\b",
-      "comment": "otto label read-only operations"
+      "pattern": "^otto(\\s+help)?\\s*$",
+      "comment": "otto: the command list"
     },
     {
-      "pattern": "^otto\\s+source\\s+(list|get|validate|test|auth-help)\\b",
-      "comment": "otto source read-only operations"
-    },
-    {
-      "pattern": "^otto\\s+skill\\s+(list|get|validate|where)\\b",
-      "comment": "otto skill read-only operations"
-    },
-    {
-      "pattern": "^otto\\s+permission\\s+(list|get|validate)\\b",
-      "comment": "otto permission read-only operations"
-    },
-    {
-      "pattern": "^otto\\s+theme\\s+(get|validate|list-presets|get-preset)\\b",
-      "comment": "otto theme read-only operations"
-    },
-    {
-      "pattern": "^otto\\s*$",
-      "comment": "otto bare invocation (prints help)"
-    },
-    {
-      "pattern": "^otto\\s+(label|source|skill|permission|theme)\\s*$",
-      "comment": "otto entity help"
-    },
-    {
-      "pattern": "^otto\\s+(label|source|skill|permission|theme)\\s+--help\\b",
-      "comment": "otto entity help flags"
-    },
-    {
-      "pattern": "^otto\\s+--(help|version|discover)\\b",
-      "comment": "otto global flags"
+      "pattern": "^otto\\s+(search|(tasks|projects|comments|library|chats|labels|statuses|agents|routines|notifications)\\s+(list|get|read|search|count))\\b",
+      "comment": "otto read-only commands (the read commands of AGENT_COMMANDS; they run as the chat's user)"
     },
     {
       "pattern": "^find\\b",

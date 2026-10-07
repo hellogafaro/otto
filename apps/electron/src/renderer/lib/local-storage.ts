@@ -37,6 +37,9 @@ export const KEYS = {
   // The shell composer's drafts, one per workspace and page context (suffix = `${workspaceId}:${contextKey}`)
   composerDraft: 'composer-draft',
 
+  // The agent a new chat starts with: the last one picked, per workspace (suffix = workspaceId)
+  newChatAgent: 'new-chat-agent',
+
   // TurnCard expansion state (persisted across session switches)
   turnCardExpansion: 'turncard-expansion',
 

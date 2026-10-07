@@ -3,7 +3,7 @@
  *
  * The workspace's statuses, read-only: icon, name and whether the status shows in the inbox (open) or the
  * archive (closed). Statuses live in the database; Edit prefills the composer and the agent changes them with
- * the statuses_edit tool. Reloads on `domain:changed` (useStatuses).
+ * the `otto statuses` commands. Reloads on `domain:changed` (useStatuses).
  */
 
 import { useTranslation } from 'react-i18next'

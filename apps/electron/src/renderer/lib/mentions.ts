@@ -4,7 +4,7 @@
  * Mention types:
  * - Skills:  [skill:slug]
  * - Sources: [source:slug]
- * - People, tasks, projects: the bare entity token (`user:<id>`, `task:<id>`, `project:<id>`), `entities` below
+ * - People, agents, tasks, projects: the bare entity token (`user:<id>`, `agent:<id>`, `task:<id>`, `project:<id>`), `entities` below
  *
  * Bracket syntax allows mentions anywhere in text without word boundaries.
  */
@@ -43,14 +43,14 @@ export interface MentionMatch {
 // Matching Functions (renderer-specific, use MentionItemType)
 // ============================================================================
 
-/** A person, task or project: its mention is the bare entity token. */
-export const isEntityMention = (type: MentionItemType): type is 'user' | 'task' | 'project' => type === 'user' || type === 'task' || type === 'project'
+/** A person, agent, task or project: its mention is the bare entity token. */
+export const isEntityMention = (type: MentionItemType): type is 'user' | 'agent' | 'task' | 'project' => type === 'user' || type === 'agent' || type === 'task' || type === 'project'
 
 /** The entity tokens the `@` menu produces (a library item or a comment is not mentioned from the composer). */
-const ENTITY_MENTION = /\b(?:user|task|project):[a-z0-9]{12}\b/g
+const ENTITY_MENTION = /\b(?:user|agent|task|project):[a-z0-9]{12}\b/g
 
 /** The text opens with an entity token: its first letter is not a sentence's to capitalise. */
-export const startsWithEntityMention = (text: string): boolean => /^(?:user|task|project):[a-z0-9]{12}\b/.test(text)
+export const startsWithEntityMention = (text: string): boolean => /^(?:user|agent|task|project):[a-z0-9]{12}\b/.test(text)
 
 /**
  * Find all mention matches in text with their positions

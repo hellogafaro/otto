@@ -52,6 +52,8 @@ import { EventQueue } from './backend/event-queue.ts';
 import { getSystemPrompt } from '../prompts/system.ts';
 import { PRODUCT_NAME, BACKEND_NAME } from '../branding.ts';
 import { userIdOf } from '../actors.ts';
+import { getDocPath } from '../docs/index.ts';
+import { createRunToken, deleteRunToken } from './run-tokens.ts';
 import { formatPreferencesForPrompt, getCoAuthorPreference } from '../config/preferences.ts';
 import { getProjectPromptContext } from '../projects/index.ts';
 import type { ProjectPromptContext } from '../projects/types.ts';
@@ -118,6 +120,13 @@ import { saveBinaryResponse } from '../utils/binary-detection.ts';
 
 /** Host variables a connection with `environment` auth may read: provider API keys, AWS, Azure, Google, Copilot. */
 const HOST_PROVIDER_ENV = /(_API_KEY$|^(AWS_|AZURE_|GOOGLE_|COPILOT_|ANTHROPIC_)|^(GH|GITHUB)_TOKEN$)/;
+
+/** The bundled skill that teaches the `otto` CLI (`resources/docs/otto.md`), listed on every turn that has a run token. */
+const OTTO_CLI_SKILL = {
+  name: 'otto',
+  description: `Use the ${PRODUCT_NAME} app from bash with the \`otto\` command: tasks, projects, comments, library, chats, labels, statuses, agents, routines, notifications and search, as the person you work for.`,
+  filePath: getDocPath('otto.md'),
+};
 
 /** Backend-executed session tools currently supported by PiAgent. */
 export const PI_BACKEND_SESSION_TOOL_NAMES = new Set<string>([
@@ -2100,6 +2109,8 @@ export class PiAgent extends BaseAgent {
     // A per-turn thinking override (adaptive thinking) is sent before the prompt and the
     // session level restored when the turn ends (Pi applies thinking per subprocess session).
     let turnThinkingOverride: ThinkingLevel | undefined;
+    // The turn's `otto` CLI token: minted with the prompt, deleted when the turn ends however it ends.
+    let runToken: string | undefined;
     try {
       // Ensure subprocess is spawned and ready
       try {
@@ -2262,6 +2273,15 @@ export class PiAgent extends BaseAgent {
         this.send({ type: 'set_thinking_level', level: turnThinkingOverride });
       }
 
+      // The turn's bash calls get the `otto` CLI as the chat's user (docs/final-plan.md PT), and the turn lists its skill.
+      // Not on a computer: its box cannot reach the server's loopback port yet (C1).
+      const chatId = this.config.session?.id;
+      const run = chatId && userId && !this.turnComputer
+        ? createRunToken({ chatId, workspaceId: this.config.workspace.id, userId, agentId: this.config.session?.agentId ?? null })
+        : null;
+      runToken = run?.token;
+      const skills = [...(this.turn?.skills ?? []), ...(run ? [OTTO_CLI_SKILL] : [])];
+
       // Send prompt to subprocess
       const turnId = `turn-${++this.rpcIdCounter}`;
       this.send({
@@ -2269,7 +2289,8 @@ export class PiAgent extends BaseAgent {
         id: turnId,
         message: userMessage,
         systemPrompt: fullSystemPrompt,
-        ...(this.turn?.skills.length ? { skills: this.turn.skills } : {}),
+        ...(skills.length ? { skills } : {}),
+        ...(run ? { env: run.env } : {}),
         images: images.length > 0 ? images : undefined,
         ...(this.turnComputer ? { computer: true } : {}),
       });
@@ -2281,7 +2302,7 @@ export class PiAgent extends BaseAgent {
       // up new proxy tools on the next handlePrompt, so the restart is needed
       // here too. Without the drain, sibling tool_results from parallel
       // source_test calls are lost (#790).
-      const sourceActivationDrain = new SourceActivationDrainController('fire-on-non-tool-result');
+      const sourceActivationDrain = new SourceActivationDrainController();
       for await (const event of this.eventQueue.drain()) {
         // Pre-yield check: when we're past capture and the incoming event is
         // not a tool_result, fire BEFORE yielding it (the event belongs to
@@ -2336,6 +2357,7 @@ export class PiAgent extends BaseAgent {
 
       yield { type: 'complete' };
     } finally {
+      if (runToken) deleteRunToken(runToken);
       this._isProcessing = false;
       this.turnComputer = null;
       if (turnThinkingOverride) {

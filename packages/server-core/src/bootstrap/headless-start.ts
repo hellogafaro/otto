@@ -19,7 +19,9 @@ import { initChatsImport } from '@otto/shared/sessions/import'
 import { initSkills } from '@otto/shared/skills'
 import { initSources } from '@otto/shared/sources'
 import { getWorkspaceOwnerIds } from '@otto/shared/workspaces'
+import { initAgentApiUrl } from '@otto/shared/agent'
 import { authorize } from './authorize.ts'
+import { createAgentRpcHandler } from '../webui/agent-rpc'
 import { createIdentityValidators } from './identity.ts'
 import { WsRpcServer, type WsRpcTlsOptions } from '../transport/server'
 import type { EventSink, RpcServer } from '../transport/types'
@@ -410,7 +412,14 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   }
   const rpcPort = Math.trunc(rpcPortRaw)
 
-  const wsServer = new WsRpcServer({
+  // The agents' `otto` CLI calls `/api/agent/rpc` on this port, through this server's own dispatch (same guards).
+  let wsServer: WsRpcServer
+  const httpHandler = createAgentRpcHandler({
+    invoke: (ctx, channel, args) => wsServer.invoke(ctx, channel, args),
+    audit: (line) => platform.logger.info(line),
+    next: options.httpHandler,
+  })
+  wsServer = new WsRpcServer({
     host: rpcHost,
     port: rpcPort,
     requireAuth: true,
@@ -419,7 +428,7 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
     serverId: options.serverId ?? 'headless',
     serverVersion: options.serverVersion,
     tls: options.tls,
-    httpHandler: options.httpHandler,
+    httpHandler,
     onClientConnected: options.onClientConnected,
     onClientDisconnected: (clientId) => {
       options.cleanupClientResources?.(clientId)
@@ -437,6 +446,9 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
   })
 
   await wsServer.listen()
+  // Agent turns get run tokens from here on; the CLI reaches the server on loopback when it listens on every address.
+  const agentHost = rpcHost === '0.0.0.0' || rpcHost === '::' ? '127.0.0.1' : rpcHost.includes(':') ? `[${rpcHost}]` : rpcHost
+  initAgentApiUrl(`${wsServer.protocol === 'wss' ? 'https' : 'http'}://${agentHost}:${wsServer.port}`)
 
   options.bindRpcServer?.(sessionManager, wsServer)
 
@@ -475,6 +487,7 @@ export async function bootstrapServer<TSessionManager, THandlerDeps>(
     stopped = true
 
     platform.logger.info('Shutting down...')
+    initAgentApiUrl(null)
 
     // Notify connected clients before closing connections
     try {

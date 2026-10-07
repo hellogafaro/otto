@@ -316,7 +316,7 @@ export abstract class BaseAgent {
       onDebug: (msg) => this.debug(msg),
     });
 
-    // AutomationSystem: workspace-level automations from automations.json
+    // AutomationSystem: workspace-level event routines
     this.automationSystem = config.automationSystem;
   }
 
@@ -387,7 +387,7 @@ export abstract class BaseAgent {
   }
 
   /**
-   * Fire an automation agent event (from automations.json) via AutomationSystem.
+   * Fire an automation agent event (event routines) via AutomationSystem.
    * Catches all errors — automations must never break the agent flow.
    *
    *

@@ -25,7 +25,7 @@ const config = {
   defaultLlmConnection: 'codex',
   llmConnections: [
     { slug: 'claude-max', name: 'Claude Max', providerType: 'anthropic', authType: 'oauth', models: ['claude-opus-5-5'], defaultModel: 'claude-opus-5-5', oauthAccountEmail: 'me@x.test', oauthProfileVerifiedAt: 7, createdAt: 1000, lastUsedAt: 2000 },
-    { slug: 'codex', name: 'ChatGPT Plus', providerType: 'pi', authType: 'oauth', piAuthProvider: 'openai-codex', modelSelectionMode: 'automaticallySyncedFromProvider', createdAt: 1100 },
+    { slug: 'codex', name: 'ChatGPT Plus', providerType: 'pi', authType: 'oauth', piAuthProvider: 'openai-codex', createdAt: 1100 },
     { slug: 'openrouter', name: 'OpenRouter', providerType: 'pi', authType: 'api_key', piAuthProvider: 'openrouter', midStreamBehavior: 'queue', createdAt: 1200 },
     { slug: 'bedrock', name: 'Bedrock', providerType: 'pi', authType: 'iam_credentials', piAuthProvider: 'amazon-bedrock', createdAt: 1300 },
     { slug: 'vertex', name: 'Vertex', providerType: 'pi', authType: 'service_account_file', piAuthProvider: 'google-vertex', createdAt: 1400 },

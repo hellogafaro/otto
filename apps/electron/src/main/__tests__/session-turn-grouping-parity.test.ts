@@ -114,25 +114,6 @@ describe('turn grouping stability across reload', () => {
     expect(lastReload?.response?.text).toBe(lastLive?.response?.text)
   })
 
-  it('background task turn: taskId, shellId, isBackground survive', () => {
-    const turnId = 'turn-3'
-    const messages: Message[] = [
-      createMessage('user', { content: 'Run in background' }),
-      createMessage('tool', {
-        toolName: 'Task', toolUseId: 'tu-task-1', toolStatus: 'backgrounded',
-        taskId: 'agent-123', isBackground: true, turnId,
-      }),
-      createMessage('assistant', { content: 'Task running in background.', turnId }),
-    ]
-
-    const reloaded = simulatePersistAndReload(messages)
-    const bgTool = reloaded.find(m => m.role === 'tool')
-
-    expect(bgTool?.taskId).toBe('agent-123')
-    expect(bgTool?.isBackground).toBe(true)
-    expect(bgTool?.toolStatus).toBe('backgrounded')
-  })
-
   it('nested subagent tools: parentToolUseId survives and groups correctly', () => {
     const turnId = 'turn-4'
     const messages: Message[] = [

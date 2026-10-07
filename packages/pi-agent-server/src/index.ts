@@ -136,7 +136,6 @@ interface InitMessage {
   plansFolderPath: string;
   miniModel?: string;
   agentDir?: string;
-  providerType?: string;
   authType?: string;
   workspaceId?: string;
   baseUrl?: string;
@@ -154,7 +153,6 @@ interface RuntimeConfigUpdateMessage {
   type: 'update_runtime_config';
   id: string;
   model: string;
-  providerType?: string;
   authType?: string;
   baseUrl?: string;
   customEndpoint?: { api: CustomEndpointApi; supportsImages?: boolean };
@@ -164,7 +162,7 @@ interface RuntimeConfigUpdateMessage {
 /** Messages from main process (stdin) */
 type InboundMessage =
   | InitMessage
-  | { type: 'prompt'; id: string; message: string; systemPrompt: string; skills?: PiTurnSkill[]; images?: Array<{ type: 'image'; data: string; mimeType: string }>; computer?: boolean }
+  | { type: 'prompt'; id: string; message: string; systemPrompt: string; skills?: PiTurnSkill[]; images?: Array<{ type: 'image'; data: string; mimeType: string }>; computer?: boolean; env?: Record<string, string> }
   | { type: 'register_tools'; tools: ProxyToolDef[] }
   | { type: 'tool_execute_response'; requestId: string; result: { content: string; isError: boolean } }
   | { type: 'pre_tool_use_response'; requestId: string; action: 'allow' | 'block' | 'modify'; input?: Record<string, unknown>; reason?: string }
@@ -358,6 +356,11 @@ setLargeResultSummaryGate(largeResultGate.gate);
 // Built-in tools run on the turn's computer when its prompt says so (computer-tools.ts).
 const computerExec = createComputerExecClient(send);
 let turnUsesComputer = false;
+/**
+ * What this turn's bash calls get on top of the subprocess env: the `otto` CLI's `OTTO_API_URL` and `OTTO_RUN_TOKEN`
+ * (docs/final-plan.md PT). Only bash sees them, only for the turn that sent them; never logged.
+ */
+let turnBashEnv: Record<string, string> = {};
 
 /** Find the most recent .jsonl session file in a directory. */
 function findMostRecentSessionFile(sessionDir: string): string | null {
@@ -678,7 +681,7 @@ async function ensureSession(): Promise<AgentSession> {
   const findDef = createFindToolDefinition(cwd);
   const builtinDefs = [
     routeToComputer(createReadToolDefinition(cwd), createReadToolDefinition(cwd, { operations: ops.read }), onComputer),
-    routeToComputer(createBashToolDefinition(cwd), createBashToolDefinition(cwd, { operations: ops.bash }), onComputer),
+    routeToComputer(createBashToolDefinition(cwd, { spawnHook: (spawn) => ({ ...spawn, env: { ...spawn.env, ...turnBashEnv } }) }), createBashToolDefinition(cwd, { operations: ops.bash }), onComputer),
     routeToComputer(createEditToolDefinition(cwd), createEditToolDefinition(cwd, { operations: ops.edit }), onComputer),
     routeToComputer(createWriteToolDefinition(cwd), createWriteToolDefinition(cwd, { operations: ops.write }), onComputer),
     routeToComputer(grepDef, unavailableOnComputer(grepDef), onComputer),
@@ -1406,6 +1409,7 @@ async function handleInit(msg: Extract<InboundMessage, { type: 'init' }>): Promi
 async function handlePrompt(msg: Extract<InboundMessage, { type: 'prompt' }>): Promise<void> {
   currentUserMessage = msg.message;
   turnUsesComputer = msg.computer === true;
+  turnBashEnv = msg.env ?? {};
 
   try {
     // If proxy tools changed since last session creation, dispose and recreate.
@@ -1658,7 +1662,6 @@ async function handleUpdateRuntimeConfig(msg: RuntimeConfigUpdateMessage): Promi
     initConfig = {
       ...initConfig,
       model: msg.model,
-      providerType: msg.providerType ?? initConfig.providerType,
       authType: msg.authType ?? initConfig.authType,
       baseUrl: msg.baseUrl,
       customEndpoint: msg.customEndpoint,

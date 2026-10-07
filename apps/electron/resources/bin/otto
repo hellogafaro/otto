@@ -1,4 +1,3 @@
 #!/bin/sh
-ENTRY="${OTTO_COMMANDS_ENTRY:-$OTTO_CLI_ENTRY}"
-export OTTO_CLI_JSON_ONLY="${OTTO_CLI_JSON_ONLY:-1}"
-exec "${OTTO_BUN:-bun}" run "$ENTRY" "$@"
+# The agents' otto CLI (resources/scripts/otto.mjs) on the bundled Bun.
+exec "${OTTO_BUN:-bun}" "$(dirname "$0")/../scripts/otto.mjs" "$@"

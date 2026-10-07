@@ -1,7 +1,7 @@
 /**
  * Chunked Transfer RPC Handlers
  *
- * Enables large-payload RPC calls (e.g. sessions:import, resources:import)
+ * Enables large-payload RPC calls (e.g. sessions:import)
  * to be split across multiple small WebSocket messages. This works behind
  * proxies and tunnels (Cloudflare, nginx) that have message-size limits.
  *

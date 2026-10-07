@@ -708,9 +708,9 @@ Spacing is a 4px grid on a golden scale: 4 · 8 · 12 · 20 · 32 · 52.
     is not found: they are the desktop app's (the web server has no handlers
     behind them).
     The Labels, Statuses and workspace Permissions pages are data in the
-    database, not files: the agent edits them with its `labels_edit` /
-    `statuses_edit` / `permissions_edit` tools and the pages reload when they
-    change. **Statuses** is read-only like Labels: one card of rows (the status
+    database, not files: the agent edits labels and statuses with the `otto`
+    CLI and the rules with its `permissions_edit` tool, and the pages reload
+    when they change. **Statuses** is read-only like Labels: one card of rows (the status
     icon, tinted by its color when it is an SVG, the name, and an outline Open /
     Closed / Archived badge: open shows in the inbox, closed in the archive; Archived
     is the one fixed status archiving a chat moves it to), its Edit
@@ -1731,7 +1731,7 @@ glass for the bar is gone.
   sets `--composer-clearance` to its height + `--composer-gap` (24), so a page's content ends 24px
   above it while it grows. Never the Inbox. A
   pending permission or credential request takes its place until answered;
-  the chat's background tasks and follow-ups sit as chips above the text.
+  the chat's follow-ups sit as chips above the text.
 
 **Place** (the frame's composer slot, `DS/page-frame.tsx`): ONE place for
 every look, so compact, expanded and full share the bottom gap and the side
@@ -1839,16 +1839,16 @@ a text-only custom model, the chat's image warning shows above the rail.
 the command menu: Mode (Explore, Ask, Execute, Guarded when on; the current
 one checked), Status (the workspace's), Working directory (Choose folder…,
 then the recent ones) and Compact context in a chat; Add files everywhere.
-`@` mentions people, tasks and projects (below), skills, sources (turned on
+`@` mentions people, agents, tasks and projects (below), skills, sources (turned on
 for the chat when sent) and the working directory's files. The menus open above
 the composer, out of its surface (a portal), and keep the caret in the text.
 
 **Mentions** (`@`, the menus' look). 28px rows, 280px wide, from the caret, the
 `@` at the start or after a space or an opening bracket, then letters, digits,
 `-_/.` and spaces (a space right after `@` is no mention). With nothing typed:
-a heading per kind (People, Tasks, Projects, Skills, Sources) with up to 3 rows
-each: people by name (the workspace's `user:` members, you included, agents
-have no token; the muted email after the name), tasks and projects the most
+a heading per kind (People, Agents, Tasks, Projects, Skills, Sources) with up to 3 rows
+each: people by name (the workspace's `user:` members, you included; the muted email after the name), agents
+(their 14px avatar, the default first; "No agents yet" under a loaded empty kind), tasks and projects the most
 recently updated first (tasks to do, doing or done; active projects). A kind
 that has loaded with nothing in it says so under its heading in muted text:
 "No tasks yet", "No projects yet". Typed: one list of what matches (a word's
@@ -1857,13 +1857,27 @@ most 30), the headings gone and each row ending in its kind in muted 12px
 ("Task", "Project", "Person", "Skill"). ↑↓ move (wrapping), Enter or Tab picks,
 Escape closes; with no row for what is typed the menu says "No results" and
 Enter belongs to the input again. Picking puts the bare token (`task:<id>`,
-`project:<id>`, `user:<id>`) and a space in place of `@query`. The editor
+`project:<id>`, `user:<id>`, `agent:<id>`) and a space in place of `@query`. The editor
 draws the token as a tag, the same as `EntityChip` (primary on its soft tint,
 `xs` corners, 22px tall, 12px type icon, 13px medium; a person reads "@Name"
 with no icon); it is one unit for the caret and Backspace, and its title
 follows its list (a load or a rename redraws it). A sent message draws it with
-`EntityText` in the transcript. No agent is mentioned: there is no agents list
-and no `agent:` token.
+`EntityText` in the transcript (an agent's tag shows its 14px avatar, the editor's the `Bot` icon). Mentioning an
+agent is a reference, like a task: it never switches the chat's agent.
+
+**With** (the new chat's agent picker, `components/composer/agent-picker.tsx`).
+An empty chat has a 28px chip (`ToolbarChip`) first in the composer's tools,
+before the model picker: the agent's 16px avatar, its title (truncated at 160px)
+and a chevron; its menu lists the workspace's agents (avatar, title, check on the
+current one), tooltip "Chat with". The default is the workspace's default agent,
+else the last pick (localStorage `otto-new-chat-agent:<workspace>`), which every
+new chat starts with (New chat, a send from another page). The chat's agent cannot
+change once it exists, so picking another makes an empty chat with that agent
+(`agentId` to `sessions:create`; same status, label, project, mode and folder),
+opens it and deletes the empty one. Gone once a message is sent: the chat shows
+its agent in the header (20px avatar before the title, its name in a tooltip) and
+in each Chats row (20px avatar in the metadata, before the labels), both via
+`AgentAvatar`.
 
 **Empty.** The text counts as empty once its last character is gone: after
 select-all and delete the browser leaves one stray line break, which is read as
@@ -1880,7 +1894,7 @@ and library item (`<type>:<id>` with its entity token), a routine
 `mode: 'full'`). The 404 has no shell. Placeholders: "Ask your agents about
 this task / project / document / file / routine / page", "Ask your agents
 anything" (Chats, Inbox, Settings, an empty chat), "Reply to {agent}" (a chat,
-the default agent's name). `useComposer()` gives `prefill`, `focus`, `expand`,
+its agent's name from state, the default agent's only as the fallback). `useComposer()` gives `prefill`, `focus`, `expand`,
 `collapse`, `take` to anything in the shell.
 
 **Send.** Enter sends as the chat input does (`sendMessageKey`; IME respected;
@@ -1910,7 +1924,7 @@ sidecar it stays on the column's center line.
 
 **Tags** (`EntityChip`, `components/entities/`). Everywhere a typed reference
 shows in text (comments now): the type's 14px icon (task `CircleCheck`, project
-`Folder`, library `Library`, comment `MessageSquare`) and its live title in
+`Folder`, library `Library`, comment `MessageSquare`; an agent its 14px `AgentAvatar`, no icon) and its live title in
 primary on a soft primary tint (10%, 15% dark), `xs` corners, 4px side padding,
 medium 13px; a person reads "@Name" with no icon. What is stored is the bare
 token `<type>:<id>` (`ENTITY_TOKEN` in `@otto/shared/entities`, the same regex
@@ -2338,6 +2352,18 @@ over another dialog or menu), the sidebar's Search row, or a page header's Searc
   ↑↓ do nothing while waiting. Enter while waiting only skips the wait (it shows
   the results and picks nothing), so a row is never picked from results that were
   not on screen. An empty query shows Pinned and Recent at once.
+- **Server search.** From two characters, the settled query also goes to
+  `search:run` (one RPC: the caller's own chats' messages through `messages_fts`,
+  tasks and projects by title and description, library items by title, comments
+  by text, at most 25 of each). What it finds in the Chats, Tasks, Projects and
+  Library categories is merged into the stores' rows: a row the title does not
+  explain is kept after the title matches and shows the text around the match as
+  a muted snippet after its title (the title takes at most half the row, the
+  snippet the rest, truncated, entity tokens dropped; the time or project stays at the end);
+  a comment counts for its task or project. The rows wait (skeletons) for the
+  answer as for the debounce; a failed search leaves the local rows. This is how
+  the Chats page searches content: its header Search opens the palette on Chats.
+  The page has no search box of its own (`searchActive` stays off).
 - **Categories and data** (matched on the debounced query; nothing is fetched
   for the palette itself, it reads the stores the pages use, `useTasks`,
   `useProjects`, `useLibrary`, which load on open when the page was not visited):

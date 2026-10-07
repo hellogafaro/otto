@@ -5,8 +5,13 @@
  * Matching is local and instant (no network): a name containing the query wins,
  * ranked by where it matches (the start, then a word's start, then anywhere); then
  * the query's words in any order, then the initials ("ns" finds "New session").
- * Accents and case never matter.
+ * Accents and case never matter. What the server found by content (`search:run`: a
+ * message, a description, a comment) is merged in as `found` entries, ranked after
+ * the title matches.
  */
+
+import { ENTITY_TOKEN } from '@otto/shared/entities'
+import type { SearchHit } from '@otto/shared/search'
 
 export const PALETTE_CATEGORIES = ['all', 'chats', 'tasks', 'projects', 'library', 'pages', 'settings', 'skills', 'sources', 'actions'] as const
 export type PaletteCategory = (typeof PALETTE_CATEGORIES)[number]
@@ -26,6 +31,10 @@ export interface PaletteEntry {
   title: string
   /** Other words that find it (a settings page's group, an action's synonyms). */
   keywords?: readonly string[]
+  /** The server matched what it holds (a message, a description, a comment), not the title: kept whatever the title says. */
+  found?: boolean
+  /** The text around that match, shown after the title. */
+  snippet?: string
 }
 
 export type PaletteData<T extends PaletteEntry> = Record<PaletteSection, readonly T[]> & {
@@ -78,9 +87,9 @@ export function matchRank(text: string, query: string): number {
 /** The best rank of the title and the keywords (a keyword match never beats a title's start). */
 export function entryRank(entry: PaletteEntry, query: string): number {
   const title = matchRank(entry.title, query)
-  if (!query || title >= 3 || !entry.keywords?.length) return title
-  const keyword = Math.max(0, ...entry.keywords.map((k) => Math.min(matchRank(k, query), 3)))
-  return Math.max(title, keyword)
+  if (!query || title >= 3) return title
+  const keyword = Math.max(0, ...(entry.keywords ?? []).map((k) => Math.min(matchRank(k, query), 3)))
+  return Math.max(title, keyword, entry.found ? 1 : 0)
 }
 
 /** The entries that match, best first; equal ones keep their order (chats stay newest first). */
@@ -91,6 +100,28 @@ export function filterEntries<T extends PaletteEntry>(entries: readonly T[], que
     .filter((m) => m.rank > 0)
     .sort((a, b) => b.rank - a.rank || a.index - b.index)
     .map((m) => m.entry)
+}
+
+/** The shortest query the server is asked about (one letter matches nearly everything). */
+export const MIN_SEARCH = 2
+export const isSearchable = (query: string): boolean => query.length >= MIN_SEARCH
+
+/** Item key to snippet ('' for none) of what the server found, from its results: a comment counts for the task or project it is on. The first snippet of a key stays. */
+export function foundKeys(hits: readonly SearchHit[]): Map<string, string> {
+  const keys = new Map<string, string>()
+  const add = (key: string, snippet = '') => {
+    const text = snippet.replace(ENTITY_TOKEN, '').replace(/\s+/g, ' ').trim()
+    if (!keys.get(key)) keys.set(key, text)
+  }
+  for (const hit of hits) add(hit.kind === 'comment' ? hit.entity : `${hit.kind}:${hit.id}`, 'snippet' in hit ? hit.snippet : undefined)
+  return keys
+}
+
+/** The chats, tasks, projects and library items the server found, marked `found` with their snippet. */
+export function withFound<T extends PaletteEntry>(data: PaletteData<T>, keys: ReadonlyMap<string, string>): PaletteData<T> {
+  if (keys.size === 0) return data
+  const mark = (items: readonly T[]) => items.map((item) => (keys.has(item.key) ? { ...item, found: true, snippet: keys.get(item.key) || undefined } : item))
+  return { ...data, chats: mark(data.chats), tasks: mark(data.tasks), projects: mark(data.projects), library: mark(data.library) }
 }
 
 /** All and every section that has something: an empty one gets no tab. */

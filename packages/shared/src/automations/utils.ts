@@ -292,7 +292,7 @@ export function buildEnvFromPayload(event: AutomationEvent, payload: BaseEventPa
  *   export OTTO_WH_SLACK_URL="https://hooks.slack.com/services/T.../B.../xxx"
  *   export OTTO_WH_DISCORD_TOKEN="abc123"
  *
- * Then reference them in automations.json:
+ * Then reference them in a routine's webhook action:
  *   "url": "${OTTO_WH_SLACK_URL}"
  *   "headers": { "Authorization": "Bearer ${OTTO_WH_DISCORD_TOKEN}" }
  */

@@ -2,7 +2,7 @@
  * The composer's `/` commands and `@` mentions (the chat input's machinery, kept): what the toolbar pickers did
  * is a command now (DESIGN.md, Composer, Commands). `/` offers Add files everywhere and, in a chat, its mode
  * (Explore, Ask, Execute), its status, its working directory (a recent one or Choose folder) and Compact; `@`
- * mentions people, tasks and projects (their entity tokens, drawn as chips), skills, sources and the working
+ * mentions people, agents, tasks and projects (their entity tokens, drawn as chips), skills, sources and the working
  * directory's files. The menus are portaled out of the composer (its
  * blurred glass would hold and clip a fixed menu).
  */
@@ -14,6 +14,7 @@ import { FolderOpen, Minimize2, Paperclip } from 'lucide-react'
 import { InlineMentionMenu, useInlineMention } from '@/components/ui/mention-menu'
 import { describeEntity } from '@/components/entities/entity-tokens'
 import { useEntityLabel, useEntityLists } from '@/components/entities/entity-chip'
+import { useAgents } from '@/hooks/use-agents'
 import { useProjects } from '@/hooks/use-projects'
 import { useTasks } from '@/hooks/use-tasks'
 import { useWorkspaceMemberList } from '@/hooks/use-workspace-members'
@@ -118,13 +119,14 @@ export function useComposerCommands({
 
   const slash = useInlineSlashCommand({ inputRef, sections })
 
-  // People, tasks and projects from the lists the app keeps loaded; the chip in the text reads the same lists.
+  // People, agents, tasks and projects from the lists the app keeps loaded; the chip in the text reads the same lists.
   const people = useWorkspaceMemberList()
+  const { agents, loaded: agentsLoaded } = useAgents()
   const { tasks, loaded: tasksLoaded } = useTasks()
   const { projects, loaded: projectsLoaded } = useProjects()
   const entities = React.useMemo(
-    () => buildEntitySections({ people: people.loaded ? people.items : null, tasks: tasksLoaded ? tasks : null, projects: projectsLoaded ? projects : null }, t),
-    [people.loaded, people.items, tasks, tasksLoaded, projects, projectsLoaded, t],
+    () => buildEntitySections({ people: people.loaded ? people.items : null, agents: agentsLoaded ? agents : null, tasks: tasksLoaded ? tasks : null, projects: projectsLoaded ? projects : null }, t),
+    [people.loaded, people.items, agents, agentsLoaded, tasks, tasksLoaded, projects, projectsLoaded, t],
   )
   const entityLists = useEntityLists()
   const entityLabel = useEntityLabel()

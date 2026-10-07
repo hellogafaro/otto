@@ -30,14 +30,18 @@ const HOST_ALLOW = new Set([
   'COMPUTERNAME', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS',
   // Runtime hints the app sets for its agents (never credentials)
   'OTTO_CONFIG_DIR', 'OTTO_DEBUG', 'OTTO_IS_PACKAGED', 'OTTO_RESOURCES_BASE', 'OTTO_APP_ROOT', 'OTTO_VERSION',
-  'OTTO_UV', 'OTTO_NODE', 'OTTO_BUN', 'OTTO_SCRIPTS', 'OTTO_COMMANDS_ENTRY', 'OTTO_CLI_ENTRY',
-  'OTTO_COMMANDS_DOC_PATH', 'OTTO_CLI_DOC_PATH', 'OTTO_DEV_RUNTIME', 'OTTO_VIEWER_URL', 'OTTO_LLM_CALLBACK_PORT',
+  'OTTO_UV', 'OTTO_NODE', 'OTTO_BUN', 'OTTO_SCRIPTS', 'OTTO_DEV_RUNTIME', 'OTTO_VIEWER_URL', 'OTTO_LLM_CALLBACK_PORT',
   'OTTO_INTERCEPTOR_DISABLE_AUTO_INSTALL', 'OTTO_DEBUG_FULL_BODIES', 'OTTO_DEBUG_SSE_RAW',
 ]);
 
 const HOST_ALLOW_PREFIX = ['LC_', 'XDG_', 'GIT_', 'PROGRAMFILES', 'COMMONPROGRAMFILES', 'OTTO_FEATURE_'];
 
-/** The server's own secrets: refused even when a caller passes them. */
+/**
+ * The server's own secrets: refused even when a caller passes them.
+ * Not here on purpose: `OTTO_API_URL` and `OTTO_RUN_TOKEN`, the `otto` CLI's per-turn pair. They are not host-allowed
+ * either, so no child inherits them from a host env; pi-agent-server adds them to the bash calls of the turn that
+ * minted them (`turnBashEnv`) and to nothing else.
+ */
 const DENY = /^(ENCRYPTION_KEY|BETTER_AUTH_.*|OTTO_SERVER_TOKEN|OTTO_WEBUI_.*|OTTO_OWNER_EMAIL|OTTO_RPC_.*|INFISICAL_.*)$/;
 
 export function isServerSecretEnvKey(key: string): boolean {

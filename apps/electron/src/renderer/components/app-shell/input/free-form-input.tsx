@@ -24,6 +24,7 @@ import { toast } from '@workspace/ui/components/sonner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
 import { useAction, useHotkeyLabel } from '@/actions'
 import { useAppShellContext } from '@/context/app-shell-context'
+import { getNewChatAgentId } from '@/lib/new-chat-agent'
 import { EntityChip } from '@/components/entities/entity-chip'
 import { RichTextInput, type RichTextInputHandle } from '@/components/ui/rich-text-input'
 import { shouldHandleScopedInputEvent, shouldRecallPromptOnArrowUp } from './input-event-guards'
@@ -189,7 +190,7 @@ export function FreeFormInput({ context, handleRef }: {
       } else {
         // The default: a new chat about this page, opened at once, its first message led by the page's token.
         if (!activeWorkspaceId) throw new Error('No workspace')
-        const session = await onCreateSession(activeWorkspaceId)
+        const session = await onCreateSession(activeWorkspaceId, { agentId: getNewChatAgentId(activeWorkspaceId) })
         setText('')
         files.clear()
         if (mentions.sources.length > 0) onSessionSourcesChange?.(session.id, mentions.sources)

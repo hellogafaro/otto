@@ -2,7 +2,7 @@
  * Bundle File Utilities
  *
  * Shared helpers for serializing directory trees into portable JSON bundles.
- * Used by both session bundles and resource bundles.
+ * Used by session bundles.
  *
  * BundleFile.relativePath is always forward-slash separated for cross-platform portability.
  */

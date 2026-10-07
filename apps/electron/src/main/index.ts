@@ -150,16 +150,6 @@ if (isDebugMode) {
   }
 
   process.env.OTTO_SCRIPTS = scriptsDir
-  process.env.OTTO_COMMANDS_ENTRY = app.isPackaged
-    ? join(app.getAppPath(), 'packages', 'otto-commands', 'src', 'main.ts')
-    : join(process.cwd(), 'packages', 'otto-commands', 'src', 'main.ts')
-  process.env.OTTO_CLI_ENTRY = app.isPackaged
-    ? join(app.getAppPath(), 'packages', 'otto-cli', 'src', 'cli.ts')
-    : join(process.cwd(), 'packages', 'otto-cli', 'src', 'cli.ts')
-  process.env.OTTO_COMMANDS_DOC_PATH = app.isPackaged
-    ? join(resourcesBase, 'resources', 'docs', 'otto-cli.md')
-    : join(process.cwd(), 'apps', 'electron', 'resources', 'docs', 'otto-cli.md')
-  process.env.OTTO_CLI_DOC_PATH = process.env.OTTO_COMMANDS_DOC_PATH
   process.env.OTTO_VERSION = app.getVersion()
   // Prepend both generic wrappers dir and platform uv dir:
   // - binDir exposes wrapper commands (pdf-tool, docx-tool, ...)

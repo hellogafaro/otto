@@ -303,21 +303,6 @@ describe('activity type filtering', () => {
     expect(deriveTurnPhase(turn)).toBe('awaiting')
   })
 
-  it('backgrounded tool returns awaiting', () => {
-    // Backgrounded tasks don't need active UI feedback
-    const turn = createTurn({
-      activities: [{
-        id: 'tool-1',
-        type: 'tool',
-        status: 'backgrounded',
-        toolName: 'Task',
-        timestamp: Date.now(),
-      }],
-      isComplete: false,
-    })
-    expect(deriveTurnPhase(turn)).toBe('awaiting')
-  })
-
   it('tool running + intermediate running returns tool_active', () => {
     // Tool takes precedence - show tool spinner, not just "Thinking..."
     const turn = createTurn({

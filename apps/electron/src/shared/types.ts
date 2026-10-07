@@ -26,6 +26,7 @@ import type { Agent, AgentInput, AgentUpdate } from '@otto/shared/agents/types';
 export type { Agent, AgentInput, AgentUpdate };
 import type { Routine, RoutineAction, RoutineInput, RoutineRun, RoutineUpdate } from '@otto/shared/automations/routine-types';
 export type { Routine, RoutineAction, RoutineInput, RoutineRun, RoutineUpdate };
+import type { SearchHit } from '@otto/shared/search';
 import type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate } from '@otto/shared/library/types';
 export type { LibraryContent, LibraryFilter, LibraryItem, LibraryUpdate };
 
@@ -82,10 +83,6 @@ export type { LoadedSource, FolderSourceConfig, SourceConnectionStatus };
 // Skill types
 import type { LoadedSkill, SkillMetadata } from '@otto/shared/skills/types';
 export type { LoadedSkill, SkillMetadata };
-
-// Resource bundle types (cross-workspace export/import)
-import type { ExportResourcesOptions, ExportResult, ResourceImportMode, ResourceBundle, ResourceImportResult } from '@otto/shared/resources';
-export type { ExportResourcesOptions, ExportResult, ResourceImportMode, ResourceBundle, ResourceImportResult };
 
 // LLM connection types
 import type { LlmConnection, LlmConnectionWithStatus, LlmAuthType } from '@otto/shared/config';
@@ -244,8 +241,6 @@ export interface ElectronAPI {
   deleteSession(sessionId: string): Promise<void>
   sendMessage(sessionId: string, message: string, attachments?: FileAttachment[], storedAttachments?: StoredAttachmentType[], options?: SendMessageOptions): Promise<void>
   cancelProcessing(sessionId: string, silent?: boolean): Promise<void>
-  killShell(sessionId: string, shellId: string): Promise<{ success: boolean; error?: string }>
-  getTaskOutput(taskId: string): Promise<string | null>
 
   respondToPermission(sessionId: string, requestId: string, allowed: boolean, alwaysAllow: boolean, options?: PermissionResponseOptions): Promise<boolean>
   respondToCredential(sessionId: string, requestId: string, response: CredentialResponse): Promise<boolean>
@@ -438,8 +433,6 @@ export interface ElectronAPI {
   // ChatGPT OAuth (for Codex chatgptAuthTokens mode)
   startChatGptOAuth(connectionSlug: string): Promise<{ success: boolean; error?: string }>
   cancelChatGptOAuth(): Promise<{ success: boolean }>
-  getChatGptAuthStatus(connectionSlug: string): Promise<{ authenticated: boolean; expiresAt?: number; hasRefreshToken?: boolean }>
-  chatGptLogout(connectionSlug: string): Promise<{ success: boolean }>
   onChatGptDeviceCode(callback: (data: { userCode: string; verificationUri: string }) => void): () => void
 
   /** Whether the `claude` CLI of the machine the server runs on is runnable (a Claude subscription needs it) */
@@ -448,8 +441,6 @@ export interface ElectronAPI {
   // GitHub Copilot OAuth
   startCopilotOAuth(connectionSlug: string): Promise<{ success: boolean; error?: string }>
   cancelCopilotOAuth(): Promise<{ success: boolean }>
-  getCopilotAuthStatus(connectionSlug: string): Promise<{ authenticated: boolean }>
-  copilotLogout(connectionSlug: string): Promise<{ success: boolean }>
   onCopilotDeviceCode(callback: (data: { userCode: string; verificationUri: string }) => void): () => void
 
   /** Unified LLM connection setup */
@@ -664,6 +655,9 @@ export interface ElectronAPI {
   createTimesheet(input: { taskId: string; time: number; notes?: string }): Promise<Timesheet>
   deleteTimesheet(id: string): Promise<void>
 
+  /** One search over the workspace as the signed-in user (their own chats' messages, tasks, projects, library items, comments), at most 25 per kind, kinds in `SEARCH_KINDS` order. */
+  searchWorkspace(query: string): Promise<SearchHit[]>
+
   // Comments on a task or project, and the signed-in user's notifications (docs/activity-notifications.md). An entity
   // is `task:<id>` or `project:<id>`; a mention is the token `user:<id>` in the text. Only a comment's author may edit
   // or delete it; `updateComment` may send the `updatedAt` last seen. Notifications are newest first, each with the
@@ -695,10 +689,6 @@ export interface ElectronAPI {
 
   // Language
   changeLanguage(lang: string): Promise<void>
-
-  // Resources (cross-workspace export/import)
-  exportResources(workspaceId: string, options: ExportResourcesOptions): Promise<ExportResult>
-  importResources(workspaceId: string, bundle: ResourceBundle, mode: ResourceImportMode): Promise<ResourceImportResult>
 
   // Messaging gateway — workspaceId is taken from the client handshake (ctx.workspaceId)
   getMessagingConfig(): Promise<{

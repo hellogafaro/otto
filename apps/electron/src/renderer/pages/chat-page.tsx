@@ -29,6 +29,9 @@ import { coerceInputText } from '@/lib/input-text'
 import { deriveSessionMessagesLoadState, formatSessionLoadFailure } from '@/lib/session-load'
 import { ensureSessionMessagesLoadedAtom, forceSessionMessagesReloadAtom, loadedSessionsAtom, sessionMetaMapAtom } from '@/atoms/sessions'
 import { getSessionTitle } from '@/utils/session'
+import { AgentAvatar } from '@/components/people/agent-avatar'
+import { agentOf, useLoadedAgents } from '@/hooks/use-agents'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@otto/ui'
 import { useShareCapabilities } from '@/hooks/use-share-capabilities'
 // Model resolution: connection.defaultModel (no hardcoded defaults)
 import { resolveEffectiveConnectionSlug, isSessionConnectionUnavailable } from '@config/llm-connections'
@@ -352,6 +355,21 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   // Get display title for header - use getSessionTitle for consistent fallback logic with SessionList
   // Priority: name > first user message > preview > "New chat"
   const displayTitle = session ? getSessionTitle(session) : (sessionMeta ? getSessionTitle(sessionMeta) : t('chat.session'))
+  // The agent the chat talks to leads its title (hidden until the agents have loaded).
+  const agent = agentOf(useLoadedAgents(), session?.agentId ?? sessionMeta?.agentId)
+  const headerTitle = (
+    <>
+      {agent && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="mr-1 flex shrink-0"><AgentAvatar agent={agent} size="sm" /></span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{agent.title}</TooltipContent>
+        </Tooltip>
+      )}
+      {displayTitle}
+    </>
+  )
   const sharedUrl = session?.sharedUrl || sessionMeta?.sharedUrl || null
   const { viewerConfigured } = useShareCapabilities()
   // Use isAsyncOperationOngoing for shimmer effect (sharing, updating share, revoking, title regeneration)
@@ -609,7 +627,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
       return (
         <>
           <div className="h-full flex flex-col">
-            <PageHeader density="compact" title={displayTitle} menu={sessionMenu} compactMenu={compactSessionMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
+            <PageHeader density="compact" title={headerTitle} menu={sessionMenu} compactMenu={compactSessionMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
             <div className="flex-1 flex flex-col min-h-0">
               <ChatDisplay
                 ref={chatDisplayRef}
@@ -674,7 +692,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   return (
     <>
       <div className="h-full flex flex-col">
-        <PageHeader density="compact" title={displayTitle} menu={sessionMenu} compactMenu={compactSessionMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
+        <PageHeader density="compact" title={headerTitle} menu={sessionMenu} compactMenu={compactSessionMenu} actions={headerActions} isRegeneratingTitle={isAsyncOperationOngoing} />
         <div className="flex-1 flex flex-col min-h-0">
           <ChatDisplay
             ref={chatDisplayRef}

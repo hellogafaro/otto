@@ -19,7 +19,6 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, resolve } from 'node:path';
 import { expandPath } from '../../utils/paths.ts';
 import {
   detectConfigFileType,
@@ -28,13 +27,6 @@ import {
   formatValidationResult,
   type ConfigFileDetection,
 } from '../../config/validators.ts';
-import {
-  CLI_DOMAIN_POLICIES,
-  OTTO_CLI_BASH_GUARD_SCOPE_ENTRIES,
-  OTTO_CLI_WORKSPACE_SCOPE_ENTRIES,
-  type CliDomainNamespace,
-} from '../../config/cli-domains.ts';
-import { FEATURE_FLAGS } from '../../feature-flags.ts';
 import {
   shouldAllowToolInMode,
   isReadOnlyBashCommandWithConfig,
@@ -121,9 +113,6 @@ export const FILE_PATH_TOOLS = new Set([
 
 /** Tools that can write config files */
 export const CONFIG_WRITE_TOOLS = new Set(['Write', 'Edit']);
-
-/** File tools blocked for labels domain. */
-export const LABELS_BLOCKED_FILE_TOOLS = new Set(['Read', 'Write', 'Edit']);
 
 
 // ============================================================
@@ -314,157 +303,6 @@ export function validateConfigWrite(
   return { valid: true };
 }
 
-function buildCliDomainBlockMessage(namespace: CliDomainNamespace, context: string): string {
-  const policy = CLI_DOMAIN_POLICIES[namespace]
-  const quickExamplesHeading = namespace === 'label' ? 'Quick examples:' : 'Examples:'
-
-  return [
-    `${context}`,
-    `Use \`otto ${namespace} ...\` instead.`,
-    `Run \`${policy.helpCommand}\` for the full ${namespace} command reference.`,
-    '',
-    quickExamplesHeading,
-    ...policy.quickExamples.map(example => `  ${example}`),
-  ].join('\n')
-}
-
-function getWorkspaceRelativePath(
-  filePath: string,
-  workspaceRootPath: string,
-  workingDirectory?: string,
-): string | null {
-  const normalizedWorkspaceRoot = resolve(workspaceRootPath).replace(/\\/g, '/').replace(/\/?$/, '/');
-  const resolvedPath = filePath.startsWith('/')
-    ? resolve(filePath)
-    : resolve(workingDirectory ?? workspaceRootPath, filePath);
-  const normalizedPath = resolvedPath.replace(/\\/g, '/');
-  if (!normalizedPath.startsWith(normalizedWorkspaceRoot)) return null;
-
-  return normalizedPath.slice(normalizedWorkspaceRoot.length);
-}
-
-function matchesPathScope(relativePath: string, scope: string): boolean {
-  if (scope.endsWith('/**')) {
-    const prefix = scope.slice(0, -3)
-    return relativePath === prefix || relativePath.startsWith(`${prefix}/`)
-  }
-
-  if (scope.includes('*')) {
-    const escaped = scope
-      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '[^/]+')
-    return new RegExp(`^${escaped}$`).test(relativePath)
-  }
-
-  return relativePath === scope
-}
-
-function detectCliNamespaceFromConfigDetection(detection: ConfigFileDetection): CliDomainNamespace | null {
-  if (detection.type === 'source') return 'source'
-  if (detection.type === 'skill') return 'skill'
-  return null
-}
-
-/**
- * For selected config domains, enforce CLI usage instead of direct file operations.
- * - labels/**: strict block on Read/Write/Edit
- * - sources/{slug}/config.json: redirect on Write/Edit
- * - skills/{slug}/SKILL.md: redirect on Write/Edit
- */
-export function getConfigCliRedirect(
-  toolName: string,
-  input: Record<string, unknown>,
-  workspaceRootPath: string,
-  workingDirectory?: string,
-): { message: string } | null {
-  const filePath = input.file_path as string | undefined;
-
-  if (filePath && LABELS_BLOCKED_FILE_TOOLS.has(toolName)) {
-    const relativePath = getWorkspaceRelativePath(filePath, workspaceRootPath, workingDirectory)
-    if (relativePath) {
-      const labelsScopeMatch = OTTO_CLI_WORKSPACE_SCOPE_ENTRIES.find(
-        entry => entry.namespace === 'label' && matchesPathScope(relativePath, entry.scope)
-      )
-      if (labelsScopeMatch) {
-        return {
-          message: buildCliDomainBlockMessage(
-            'label',
-            `Direct ${toolName} operations in labels/ are blocked.`
-          ),
-        }
-      }
-    }
-  }
-
-  if (!CONFIG_WRITE_TOOLS.has(toolName)) return null;
-  if (!filePath) return null;
-
-  const detection =
-    detectConfigFileType(filePath, workspaceRootPath) ?? detectAppConfigFileType(filePath);
-  if (!detection) return null;
-
-  const namespace = detectCliNamespaceFromConfigDetection(detection)
-  if (!namespace) return null
-
-  return {
-    message: buildCliDomainBlockMessage(
-      namespace,
-      `Direct ${toolName} operations in ${detection.displayFile} are blocked.`
-    ),
-  }
-}
-
-/**
- * Block bash commands that operate on guarded config paths unless they use otto commands.
- * Current guarded domains in Bash are declared in shared CLI domain policy.
- */
-export function getConfigDomainBashRedirect(
-  input: Record<string, unknown>,
-  workspaceRootPath: string,
-  workingDirectory?: string,
-): { message: string } | null {
-  const command = typeof input.command === 'string' ? input.command.trim() : '';
-  if (!command) return null;
-
-  if (/^otto\s+(label|source|skill)\b/.test(command)) {
-    return null;
-  }
-
-  const baseDir = resolve(workingDirectory ?? workspaceRootPath);
-  const tokenRegex = /'([^']+)'|"([^"]+)"|([^\s'";|&()<>]+)/g;
-  const candidates: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = tokenRegex.exec(command)) !== null) {
-    const candidate = (match[1] ?? match[2] ?? match[3] ?? '').trim();
-    if (!candidate) continue;
-    if (!candidate.includes('/') && !candidate.includes('\\') && !candidate.endsWith('.json') && !candidate.endsWith('.jsonl')) {
-      continue;
-    }
-    candidates.push(candidate);
-  }
-
-  const bashGuardEntries: Array<{ namespace: CliDomainNamespace; scope: string }> = OTTO_CLI_BASH_GUARD_SCOPE_ENTRIES
-
-  for (const candidate of candidates) {
-    const relativePath = getWorkspaceRelativePath(candidate, workspaceRootPath, baseDir);
-    if (!relativePath) continue;
-
-    for (const entry of bashGuardEntries) {
-      if (!matchesPathScope(relativePath, entry.scope)) continue
-
-      const context = entry.namespace === 'label'
-        ? 'Direct Bash operations targeting the workspace labels/ folder are blocked.'
-        : `Direct Bash operations targeting \`${relativePath}\` are blocked.`
-
-      return {
-        message: buildCliDomainBlockMessage(entry.namespace, context),
-      }
-    }
-  }
-
-  return null;
-}
-
 // ============================================================
 // CENTRALIZED PRETOOLUSE PIPELINE
 // ============================================================
@@ -518,7 +356,7 @@ export interface PreToolUseInput {
   plansFolderPath?: string;
   /** Data folder path (writes allowed in explore mode for transform_data output) */
   dataFolderPath?: string;
-  /** Working directory override (for skill resolution) */
+  /** The session's working directory (Guarded mode's risk check reads it) */
   workingDirectory?: string;
   /** Currently active source slugs */
   activeSourceSlugs: string[];
@@ -599,7 +437,6 @@ export function runPreToolUseChecks(ctx: PreToolUseInput): PreToolUseCheckResult
     workspaceId,
     plansFolderPath,
     dataFolderPath,
-    workingDirectory,
     activeSourceSlugs,
     allSourceSlugs,
     hasSourceActivation,
@@ -701,26 +538,10 @@ export function runPreToolUseChecks(ctx: PreToolUseInput): PreToolUseCheckResult
     wasModified = true;
   }
 
-  // 5b. Config-domain Bash guard (block direct labels path operations unless using otto)
-  if (FEATURE_FLAGS.ottoCli && toolName === 'Bash') {
-    const configDomainBashRedirect = getConfigDomainBashRedirect(currentInput, workspaceRootPath, workingDirectory);
-    if (configDomainBashRedirect) {
-      return { type: 'block', reason: configDomainBashRedirect.message };
-    }
-  }
-
   // 5c. Config file validation
   const configResult = validateConfigWrite(toolName, currentInput, workspaceRootPath, onDebug);
   if (!configResult.valid) {
     return { type: 'block', reason: configResult.error! };
-  }
-
-  // 5d. Config file CLI redirect (labels, sources, skills)
-  if (FEATURE_FLAGS.ottoCli) {
-    const cliRedirect = getConfigCliRedirect(toolName, currentInput, workspaceRootPath, workingDirectory);
-    if (cliRedirect) {
-      return { type: 'block', reason: cliRedirect.message };
-    }
   }
 
   // 5f. Metadata stripping

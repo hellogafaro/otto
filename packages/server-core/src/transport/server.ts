@@ -669,8 +669,7 @@ export class WsRpcServer implements RpcServer {
       return
     }
 
-    const handler = this.handlers.get(channel)
-    if (!handler) {
+    if (!this.handlers.has(channel)) {
       this.sendResponseError(client.ws, id, channel, 'CHANNEL_NOT_FOUND', `No handler for: ${channel}`)
       return
     }
@@ -683,14 +682,7 @@ export class WsRpcServer implements RpcServer {
     }
 
     try {
-      this.authorize?.(ctx, channel, args ?? [])
-      const result = await Promise.race([
-        handler(ctx, ...(args ?? [])),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Handler timeout: ${channel} (${WsRpcServer.HANDLER_TIMEOUT_MS}ms)`)),
-            WsRpcServer.HANDLER_TIMEOUT_MS),
-        ),
-      ])
+      const result = await this.invoke(ctx, channel, args ?? [])
       const response: MessageEnvelope = {
         id,
         type: 'response',
@@ -703,6 +695,28 @@ export class WsRpcServer implements RpcServer {
       const rawCode = (err as { code?: unknown } | null)?.code
       const code = isErrorCode(rawCode) || isDomainError(err) ? (rawCode as string) : 'HANDLER_ERROR'
       this.sendResponseError(client.ws, id, channel, code, message)
+    }
+  }
+
+  /**
+   * Runs a channel for a caller: the membership guard, then the registered handler (with the wrappers it was
+   * registered through, such as the session guard), under the handler timeout. A client request runs here, and so
+   * does a caller without a socket (an agent's `otto` CLI, `webui/agent-rpc.ts`), so both meet the same checks.
+   */
+  async invoke(ctx: RequestContext, channel: string, args: unknown[]): Promise<unknown> {
+    const handler = this.handlers.get(channel)
+    if (!handler) throw Object.assign(new Error(`No handler for: ${channel}`), { code: 'CHANNEL_NOT_FOUND' })
+    this.authorize?.(ctx, channel, args)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        handler(ctx, ...args),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`Handler timeout: ${channel} (${WsRpcServer.HANDLER_TIMEOUT_MS}ms)`)), WsRpcServer.HANDLER_TIMEOUT_MS)
+        }),
+      ])
+    } finally {
+      clearTimeout(timer)
     }
   }
 

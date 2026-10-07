@@ -5,17 +5,18 @@ import { cn } from '@/lib/utils'
 import { placeMenuAbove } from '@/lib/input-viewport'
 import { isEntityMention } from '@/lib/mentions'
 import { FadingText } from '@/components/ui/fading-text'
+import { AgentAvatar } from '@/components/people/agent-avatar'
 import { SkillAvatar } from '@/components/ui/skill-avatar'
 import { SourceAvatar } from '@/components/ui/source-avatar'
 import { MENU_LABEL, MENU_LIST, MENU_ROW, MENU_ROW_HIGHLIGHT, MENU_SURFACE } from './menu-styles'
-import type { LoadedSkill, LoadedSource, FileSearchResult } from '../../../shared/types'
+import type { Agent, LoadedSkill, LoadedSource, FileSearchResult } from '../../../shared/types'
 
 // ============================================================================
 // Types
 // ============================================================================
 
-/** `task`, `project` and `user` are entity mentions: the item's `id` is the token (`task:<id>`) that goes into the text. */
-export type MentionItemType = 'skill' | 'source' | 'file' | 'folder' | 'task' | 'project' | 'user'
+/** `task`, `project`, `agent` and `user` are entity mentions: the item's `id` is the token (`task:<id>`) that goes into the text. */
+export type MentionItemType = 'skill' | 'source' | 'file' | 'folder' | 'task' | 'project' | 'agent' | 'user'
 
 export interface MentionItem {
   id: string
@@ -27,6 +28,8 @@ export interface MentionItem {
   // Type-specific data
   skill?: LoadedSkill
   source?: LoadedSource
+  /** An agent's id and avatar, for its picture. */
+  agent?: Pick<Agent, 'id' | 'avatar'>
   file?: { path: string; type: 'file' | 'directory'; relativePath: string }
 }
 
@@ -343,6 +346,7 @@ export function InlineMentionMenu({
                     {item.type === 'task' && <CircleCheck className="text-muted-foreground" />}
                     {item.type === 'project' && <Folder className="text-muted-foreground" />}
                     {item.type === 'user' && <User className="text-muted-foreground" />}
+                    {item.type === 'agent' && item.agent && <AgentAvatar agent={item.agent} size="sm" className="size-3.5 data-[size=sm]:size-3.5" />}
                     {item.type === 'folder' && (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" className="text-muted-foreground">
                         <path d="M20.5 10C20.5 9.07003 20.5 8.60504 20.3978 8.22354C20.1204 7.18827 19.3117 6.37962 18.2765 6.10222C17.895 6 17.43 6 16.5 6H13.1008C12.4742 6 12.1609 6 11.8739 5.91181C11.6824 5.85298 11.5009 5.76572 11.3353 5.65295C11.0871 5.48389 10.8914 5.23926 10.5 4.75L10.4095 4.63693C10.107 4.25881 9.9558 4.06975 9.7736 3.92674C9.54464 3.74703 9.27921 3.61946 8.99585 3.55294C8.77037 3.5 8.52825 3.5 8.04402 3.5C6.60485 3.5 5.88527 3.5 5.32008 3.74178C4.61056 4.0453 4.0453 4.61056 3.74178 5.32008C3.5 5.88527 3.5 6.60485 3.5 8.04402V10M9.46502 20.5H14.535C16.9102 20.5 18.0978 20.5 18.9301 19.8113C19.7624 19.1226 19.9846 17.9559 20.429 15.6227L20.8217 13.5613C21.1358 11.9121 21.2929 11.0874 20.843 10.5437C20.393 10 19.5536 10 17.8746 10H6.12537C4.44643 10 3.60696 10 3.15704 10.5437C2.70713 11.0874 2.8642 11.9121 3.17835 13.5613L3.57099 15.6227C4.01541 17.9559 4.23763 19.1226 5.06992 19.8113C5.90221 20.5 7.08981 20.5 9.46502 20.5Z"/>

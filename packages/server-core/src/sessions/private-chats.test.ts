@@ -78,12 +78,6 @@ describe('who sees a chat', () => {
     expect(sm.getUnreadSummary().byWorkspace['ws-1']).toBe(3)
   })
 
-  it('hides the output of a background task of someone else chat', async () => {
-    const { sm } = setup()
-    ;(sm as unknown as { taskOutputIndex: Map<string, string> }).taskOutputIndex.set('task-1', 'bob-chat')
-
-    expect(await sm.getTaskOutput('task-1', 'alice')).toBeNull()
-  })
 })
 
 describe('where a chat event goes', () => {

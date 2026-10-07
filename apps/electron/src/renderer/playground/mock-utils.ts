@@ -229,11 +229,6 @@ export const mockElectronAPI = {
     return null
   },
 
-  getTaskOutput: async (taskId: string) => {
-    console.log('[Playground] getTaskOutput called:', taskId)
-    return `Output for task ${taskId}:\n\nThis is a mock output in the playground.\nIn the real app, this would show the actual task output.`
-  },
-
   // Session files API used by SessionFilesSection (Info popover)
   getSessionFiles: async (sessionId: string) => {
     console.log('[Playground] getSessionFiles called:', sessionId)

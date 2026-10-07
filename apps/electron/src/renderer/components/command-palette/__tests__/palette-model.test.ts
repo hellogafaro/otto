@@ -5,13 +5,16 @@ import {
   buildGroups,
   cleanQuery,
   filterEntries,
+  foundKeys,
   GROUP_LIMIT,
   hasAnyMatch,
+  isSearchable,
   matchRank,
   paletteView,
   resolveCategory,
   rowValue,
   stepCategory,
+  withFound,
   type PaletteData,
   type PaletteEntry,
 } from '../palette-model'
@@ -229,5 +232,50 @@ describe('paletteView', () => {
 
   it('shows settled results again at once when the typed query returns to the debounced one', () => {
     expect(paletteView('app', 'app')).toEqual({ query: 'app', pending: false })
+  })
+})
+
+describe('what the server found', () => {
+  const hits = [
+    { kind: 'chat', id: 'c1', title: 'Savannah', snippet: '...where zebras sleep...', matchCount: 2 },
+    { kind: 'task', id: 't1', title: 'Paint', status: 'todo', projectId: 'p1', snippet: 'stripes' },
+    { kind: 'task', id: 't2', title: 'Zebra', status: 'todo', projectId: 'p1' },
+    { kind: 'comment', id: 'k1', entity: 'task:t1', title: 'Paint', snippet: 'dry? user:abcdefghijkl  ok' },
+    { kind: 'comment', id: 'k2', entity: 'project:p1', title: 'Launch', snippet: 'zebra   note' },
+    { kind: 'library', id: 'l1', title: 'Zebra.md', type: 'document', parentId: null },
+  ] as const
+
+  it('keys the hits by item, a comment by what it is on, the first snippet staying, entity tokens dropped', () => {
+    expect([...foundKeys(hits)]).toEqual([
+      ['chat:c1', '...where zebras sleep...'],
+      ['task:t1', 'stripes'],
+      ['task:t2', ''],
+      ['project:p1', 'zebra note'],
+      ['library:l1', ''],
+    ])
+    expect([...foundKeys([hits[3]])]).toEqual([['task:t1', 'dry? ok']])
+  })
+
+  it('keeps a found entry whatever its title says, after the title matches, with its snippet', () => {
+    const base = data({ tasks: [entry('task:t1', 'Paint'), entry('task:t2', 'Zebra crossing'), entry('task:t3', 'Other')] })
+    const merged = withFound(base, foundKeys(hits))
+    expect(hasAnyMatch(base, 'zebra')).toBe(true)
+    expect(filterEntries(merged.tasks, 'zebra').map((task) => task.key)).toEqual(['task:t2', 'task:t1'])
+    expect(filterEntries(merged.tasks, 'zebra')[1]).toMatchObject({ found: true, snippet: 'stripes' })
+    expect(hasAnyMatch(withFound(data({ tasks: [entry('task:t1', 'Paint')] }), foundKeys(hits)), 'zebra')).toBe(true)
+    expect(hasAnyMatch(data({ tasks: [entry('task:t1', 'Paint')] }), 'zebra')).toBe(false)
+  })
+
+  it('changes nothing when nothing was found, and leaves the other sections alone', () => {
+    const base = data({ chats: chats(2), pages: [entry('page:x', 'X')] })
+    expect(withFound(base, new Map())).toBe(base)
+    const merged = withFound(base, new Map([['chat:c1', 'hi']]))
+    expect(merged.chats[1]).toMatchObject({ found: true, snippet: 'hi' })
+    expect(merged.chats[0]).toBe(base.chats[0])
+    expect(merged.pages).toBe(base.pages)
+  })
+
+  it('asks the server from two characters', () => {
+    expect([isSearchable(''), isSearchable('a'), isSearchable('ab')]).toEqual([false, false, true])
   })
 })

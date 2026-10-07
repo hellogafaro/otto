@@ -2,10 +2,6 @@
 
 This guide explains how to configure sources (MCP servers, APIs, local filesystems) in Otto.
 
-> **CLI-first workflow (recommended):** Use `otto source ...` commands instead of editing source config files directly.
-> - `otto source --help`
-> - Canonical command reference: [otto-cli.md](./otto-cli.md)
-
 ## Source Setup Process
 
 When a user wants to add a new source, follow this conversational setup process to create a tailored, well-documented integration.

@@ -11,7 +11,9 @@
  * tabs do not take it, so typing always searches.
  *
  * The field is never delayed, the results are: they follow the query after the shared
- * `DEBOUNCE_MS`, with skeleton rows meanwhile (`paletteView`). Nothing can be
+ * `DEBOUNCE_MS`, with skeleton rows meanwhile (`paletteView`). The stores' entries match
+ * on the spot; the server's search (`onSearch`, `found`: messages, descriptions, comments)
+ * adds the entries whose title does not show the query, and the rows wait for it too. Nothing can be
  * picked while they wait: ↑↓ do nothing and Enter only skips the wait (it shows the
  * results and picks nothing), so a row is only ever picked from results the user sees.
  */
@@ -37,10 +39,12 @@ import {
   buildGroups,
   cleanQuery,
   hasAnyMatch,
+  isSearchable,
   paletteView,
   resolveCategory,
   rowValue,
   stepCategory,
+  withFound,
   type PaletteCategory,
   type PaletteData,
   type PaletteEntry,
@@ -51,6 +55,8 @@ import {
 export interface PaletteItem extends PaletteEntry {
   /** A bare 14px icon, never a tile or avatar (a chat's or task's status, a page's icon, a skill's or source's own icon or its glyph). */
   icon: React.ReactNode
+  /** Muted text after the title: where the server found the query when the title does not show it (a message, a description, a comment). */
+  snippet?: string
   /** Muted text at the row's end: a chat's time, a task's project, a library item's folder. */
   meta?: string
   /** The action's key, as a `Kbd` at the row's end. */
@@ -80,9 +86,13 @@ interface CommandPaletteProps {
   /** The tab it opens on (a page's search button opens on its own). */
   initialCategory?: PaletteCategory
   onPick: (item: PaletteItem) => void
+  /** Asked with the settled query ('' when none, or too short) to search the server; its answer comes back as `found`. */
+  onSearch?: (query: string) => void
+  /** What the server found for `query` (item key to snippet): merged in once it is for the query shown. */
+  found?: { query: string; keys: ReadonlyMap<string, string> }
 }
 
-export function CommandPalette({ data, initialCategory = 'all', onPick }: CommandPaletteProps) {
+export function CommandPalette({ data: local, initialCategory = 'all', onPick, onSearch, found }: CommandPaletteProps) {
   const { t } = useTranslation()
   const [text, setText] = React.useState('')
   const [wanted, setWanted] = React.useState(initialCategory)
@@ -90,7 +100,14 @@ export function CommandPalette({ data, initialCategory = 'all', onPick }: Comman
   const [selected, setSelected] = React.useState('')
 
   const [debouncedText, , skipWait] = useDebouncedValue(cleanQuery(text))
-  const { query, pending } = paletteView(cleanQuery(text), debouncedText)
+  const { query, pending: typing } = paletteView(cleanQuery(text), debouncedText)
+  const searched = !!onSearch && isSearchable(query)
+  React.useEffect(() => {
+    onSearch?.(searched ? query : '')
+  }, [onSearch, searched, query])
+  // The server's answer for the query shown; until it comes the rows wait like they do for the debounce.
+  const pending = typing || (searched && found?.query !== query)
+  const data = React.useMemo(() => (searched && found?.query === query ? withFound(local, found.keys) : local), [local, searched, found, query])
   const available = React.useMemo(() => availableCategories(data), [data])
   const category = resolveCategory(available, wanted)
   const groups = React.useMemo(() => (pending ? [] : buildGroups(data, category, query)), [data, category, query, pending])
@@ -169,7 +186,8 @@ export function CommandPalette({ data, initialCategory = 'all', onPick }: Comman
               >
                 {/* One slot for every row's icon, so they share size, offset and gap. */}
                 <span className="flex size-3.5 shrink-0 items-center justify-center">{item.icon}</span>
-                <span className="min-w-0 truncate">{item.title}</span>
+                <span className={item.snippet ? 'max-w-[50%] shrink-0 truncate' : 'min-w-0 truncate'}>{item.title}</span>
+                {item.snippet && <span className="min-w-0 flex-1 truncate text-muted-foreground">{item.snippet}</span>}
                 {item.meta && <span className="ml-auto max-w-[40%] shrink-0 truncate pl-2 text-xs tabular-nums text-muted-foreground">{item.meta}</span>}
                 {item.hotkey && <Kbd className="ml-auto max-sm:hidden">{item.hotkey}</Kbd>}
               </CommandItem>

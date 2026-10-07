@@ -113,8 +113,6 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.sessions.GET_MESSAGES,
   RPC_CHANNELS.sessions.SEND_MESSAGE,
   RPC_CHANNELS.sessions.CANCEL,
-  RPC_CHANNELS.sessions.KILL_SHELL,
-  RPC_CHANNELS.tasks.GET_OUTPUT,
   RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION,
   RPC_CHANNELS.sessions.RESPOND_TO_CREDENTIAL,
   RPC_CHANNELS.sessions.COMMAND,
@@ -269,22 +267,6 @@ export function registerSessionsHandlers(server: RpcServer, deps: HandlerDeps): 
   // Cancel processing
   server.handle(RPC_CHANNELS.sessions.CANCEL, async (_ctx, sessionId: string, silent?: boolean) => {
     return sessionManager.cancelProcessing(sessionId, silent)
-  })
-
-  // Kill background shell
-  server.handle(RPC_CHANNELS.sessions.KILL_SHELL, async (_ctx, sessionId: string, shellId: string) => {
-    return sessionManager.killShell(sessionId, shellId)
-  })
-
-  // Get background task output
-  server.handle(RPC_CHANNELS.tasks.GET_OUTPUT, async (ctx, taskId: string) => {
-    try {
-      const output = await sessionManager.getTaskOutput(taskId, ctx.userId)
-      return output
-    } catch (err) {
-      log.error('Failed to get task output:', err)
-      throw err
-    }
   })
 
   // Respond to a permission request (bash command approval)

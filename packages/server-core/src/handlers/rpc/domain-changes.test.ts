@@ -49,7 +49,7 @@ const deps = {
 registerCoreRpcHandlers(server, deps)
 
 const inScope = (channel: string) =>
-  (/^(library|projects|tasks|timesheets|comments|notifications|labels|statuses|agents|routines):/.test(channel) && channel !== C.tasks.GET_OUTPUT) ||
+  (/^(library|projects|tasks|timesheets|comments|notifications|labels|statuses|agents|routines):/.test(channel)) ||
   (MEMBER_CHANNELS as readonly string[]).includes(channel)
 
 describe('every write of the shared data pushes domain:changed', () => {

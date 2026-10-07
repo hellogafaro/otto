@@ -1,6 +1,6 @@
 /**
  * The chat on the shell composer: the open chat (and the new chat, an empty one) registers a full composer that
- * sends into it (`onSend`), stops it, shows its model picker and status over the action row (`tools`), its
+ * sends into it (`onSend`), stops it, shows its agent picker (an empty chat only) and model picker and status over the action row (`tools`), its
  * background tasks, follow-ups and finished-elsewhere chip above the text (`chips`), a pending permission or
  * credential in place of the text (`structured`), and its `/` commands (mode, status, working directory, compact).
  */
@@ -16,9 +16,10 @@ import { useEscapeInterrupt } from '@/context/escape-interrupt-context'
 import { useAppShellContext } from '@/context/app-shell-context'
 import { getModelDisplayName } from '@config/models'
 import { isCompatProvider, modelSupportsImages, resolveEffectiveConnectionSlug } from '@config/llm-connections'
-import { DEFAULT_AGENT_ACTOR, useWorkspaceMembers } from '@/hooks/use-workspace-members'
+import { AGENT_DEFAULT_NAME } from '@otto/shared/branding'
+import { AgentPicker } from '@/components/composer/agent-picker'
+import { useNewChatAgent } from '@/components/composer/use-new-chat-agent'
 import type { FileAttachment, Session } from '../../../../shared/types'
-import { ActiveTasksBar, type BackgroundTask } from '../active-tasks-bar'
 import { BackgroundFinishedChip } from '../background-finished-chip'
 import { ImageSupportWarningBanner } from './image-support-warning-banner'
 import { ModelMenu } from './model-menu'
@@ -111,8 +112,6 @@ export function useChatComposer({
   onWorkingDirectoryChange,
   structuredInput,
   onStructuredResponse,
-  backgroundTasks,
-  onKillTask,
   followUps,
   onFollowUpClick,
   onFollowUpIndexClick,
@@ -143,20 +142,19 @@ export function useChatComposer({
   onWorkingDirectoryChange?: (path: string) => void
   structuredInput?: StructuredInputState
   onStructuredResponse: (response: StructuredResponse) => void
-  backgroundTasks: BackgroundTask[]
-  onKillTask: (taskId: string) => void
   followUps: FollowUpInputItem[]
   onFollowUpClick?: (item: FollowUpInputItem, anchor?: { x: number; y: number }) => void
   onFollowUpIndexClick?: (item: FollowUpInputItem) => void
 }) {
   const { t } = useTranslation()
-  const { nameOf } = useWorkspaceMembers()
   const { showEscapeOverlay } = useEscapeInterrupt()
   const { llmConnections, workspaceDefaultLlmConnection } = useAppShellContext()
   const toggleVision = useModelVisionToggle()
   const sessionId = session?.id ?? ''
   const isEmpty = (session?.messages.length ?? 0) === 0
   const busy = !!session?.isProcessing
+  // An empty chat picks who it is with; a chat that has started talks to the agent it was created with.
+  const { agents, agent, pick } = useNewChatAgent(session)
 
   // Stable callbacks over the latest values, so a streaming chat does not re-register on every frame.
   const latest = React.useRef({ onSubmit, onStop, onSourcesChange, enabledSourceSlugs })
@@ -189,6 +187,7 @@ export function useChatComposer({
   const tools = (
     <>
       <ToolbarStatusSlot showEscapeOverlay={busy && showEscapeOverlay} sessionId={sessionId} />
+      {isEmpty && agent && <AgentPicker agents={agents} agent={agent} onChange={pick} />}
       <ModelMenu
         {...model}
         currentConnection={session?.llmConnection}
@@ -204,13 +203,12 @@ export function useChatComposer({
     ? <ImageSupportWarningBanner modelName={stripPiPrefixForDisplay(getModelDisplayName(model.currentModel))} onEnable={() => toggleVision(connection.slug, model.currentModel, true)} />
     : undefined
 
-  const hasChips = backgroundTasks.length > 0 || followUps.length > 0
+  const hasChips = followUps.length > 0
   const chips = (
     <>
       <BackgroundFinishedChip sessionId={sessionId} />
       {hasChips && (
         <div className="flex flex-wrap items-center gap-1">
-          <ActiveTasksBar tasks={backgroundTasks} sessionId={sessionId} onKillTask={onKillTask} />
           {followUps.map((item, index) => (
             <FollowUpChip key={item.id} item={item} index={item.index ?? index + 1} onClick={onFollowUpClick} onIndexClick={onFollowUpIndexClick} />
           ))}
@@ -223,7 +221,7 @@ export function useChatComposer({
     key: session ? `chat:${session.id}` : 'none',
     mode: 'full',
     sessionId: session ? sessionId : undefined,
-    placeholder: placeholder ?? (isEmpty ? t('composer.placeholder.start') : t('composer.placeholder.reply', { agent: nameOf(DEFAULT_AGENT_ACTOR) })),
+    placeholder: placeholder ?? (isEmpty ? t('composer.placeholder.start') : t('composer.placeholder.reply', { agent: agent?.title ?? AGENT_DEFAULT_NAME })),
     onSend,
     busy,
     onStop: stop,

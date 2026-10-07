@@ -26,8 +26,6 @@ export const CHANNEL_MAP = {
   deleteSession: invoke(RPC_CHANNELS.sessions.DELETE),
   sendMessage: invoke(RPC_CHANNELS.sessions.SEND_MESSAGE),
   cancelProcessing: invoke(RPC_CHANNELS.sessions.CANCEL),
-  killShell: invoke(RPC_CHANNELS.sessions.KILL_SHELL),
-  getTaskOutput: invoke(RPC_CHANNELS.tasks.GET_OUTPUT),
 
   respondToPermission: invoke(RPC_CHANNELS.sessions.RESPOND_TO_PERMISSION),
   respondToCredential: invoke(RPC_CHANNELS.sessions.RESPOND_TO_CREDENTIAL),
@@ -147,8 +145,6 @@ export const CHANNEL_MAP = {
   // ChatGPT OAuth
   startChatGptOAuth: invoke(RPC_CHANNELS.chatgpt.START_OAUTH),
   cancelChatGptOAuth: invoke(RPC_CHANNELS.chatgpt.CANCEL_OAUTH),
-  getChatGptAuthStatus: invoke(RPC_CHANNELS.chatgpt.GET_AUTH_STATUS),
-  chatGptLogout: invoke(RPC_CHANNELS.chatgpt.LOGOUT),
   onChatGptDeviceCode: listener(RPC_CHANNELS.chatgpt.DEVICE_CODE),
 
   // Claude Code (the user's own `claude` CLI)
@@ -157,8 +153,6 @@ export const CHANNEL_MAP = {
   // GitHub Copilot OAuth
   startCopilotOAuth: invoke(RPC_CHANNELS.copilot.START_OAUTH),
   cancelCopilotOAuth: invoke(RPC_CHANNELS.copilot.CANCEL_OAUTH),
-  getCopilotAuthStatus: invoke(RPC_CHANNELS.copilot.GET_AUTH_STATUS),
-  copilotLogout: invoke(RPC_CHANNELS.copilot.LOGOUT),
   onCopilotDeviceCode: listener(RPC_CHANNELS.copilot.DEVICE_CODE),
 
   // Server info (REMOTE_ELIGIBLE)
@@ -374,6 +368,7 @@ export const CHANNEL_MAP = {
   deleteTimesheet: invoke(RPC_CHANNELS.timesheets.DELETE),
 
   // Comments and notifications
+  searchWorkspace: invoke(RPC_CHANNELS.search.RUN),
   getComments: invoke(RPC_CHANNELS.comments.GET),
   createComment: invoke(RPC_CHANNELS.comments.CREATE),
   updateComment: invoke(RPC_CHANNELS.comments.UPDATE),
@@ -394,10 +389,6 @@ export const CHANNEL_MAP = {
   pauseRoutine: invoke(RPC_CHANNELS.routines.PAUSE),
   resumeRoutine: invoke(RPC_CHANNELS.routines.RESUME),
   runRoutine: invoke(RPC_CHANNELS.routines.RUN),
-
-  // Resources (cross-workspace export/import)
-  exportResources: invoke(RPC_CHANNELS.resources.EXPORT),
-  importResources: invoke(RPC_CHANNELS.resources.IMPORT),
 
   // Messaging gateway
   getMessagingConfig: invoke(RPC_CHANNELS.messaging.GET_CONFIG),

@@ -6,7 +6,7 @@
  * 2. Auto-Apply Rules - flat table showing all regex rules across labels
  *
  * Each section has an Edit button that prefills the composer for AI-assisted editing
- * (the agent uses the labels_edit tool; labels live in the database).
+ * (the agent uses the `otto labels` commands; labels live in the database).
  *
  * Data is loaded via the useLabels hook which reloads on live changes.
  */

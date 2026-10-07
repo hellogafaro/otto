@@ -31,13 +31,9 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.llmConnections.REFRESH_MODELS,
   RPC_CHANNELS.chatgpt.START_OAUTH,
   RPC_CHANNELS.chatgpt.CANCEL_OAUTH,
-  RPC_CHANNELS.chatgpt.GET_AUTH_STATUS,
-  RPC_CHANNELS.chatgpt.LOGOUT,
   RPC_CHANNELS.claudeCode.GET_STATUS,
   RPC_CHANNELS.copilot.START_OAUTH,
   RPC_CHANNELS.copilot.CANCEL_OAUTH,
-  RPC_CHANNELS.copilot.GET_AUTH_STATUS,
-  RPC_CHANNELS.copilot.LOGOUT,
   RPC_CHANNELS.settings.SETUP_LLM_CONNECTION,
   RPC_CHANNELS.settings.TEST_LLM_CONNECTION_SETUP,
   RPC_CHANNELS.pi.GET_API_KEY_PROVIDERS,
@@ -117,9 +113,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       if (setup.models !== undefined) {
         updates.models = setup.models ?? undefined
       }
-      if (setup.modelSelectionMode !== undefined) {
-        updates.modelSelectionMode = setup.modelSelectionMode
-      }
       if (connection.type === CUSTOM_CONNECTION_TYPE) {
         if (setup.customEndpoint) updates.customEndpoint = setup.customEndpoint
         if (setup.baseUrl !== undefined || setup.credential !== undefined) {
@@ -160,14 +153,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       const pendingConnection: LlmConnection = {
         ...connection,
         ...updates,
-      }
-
-      if (connection.type !== CUSTOM_CONNECTION_TYPE && !pendingConnection.modelSelectionMode) {
-        const inferredMode = setup.models?.length
-          ? 'userDefined3Tier'
-          : 'automaticallySyncedFromProvider'
-        pendingConnection.modelSelectionMode = inferredMode
-        updates.modelSelectionMode = inferredMode
       }
 
       if (updates.models && updates.models.length > 0) {
@@ -223,7 +208,7 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       // when no models were populated during setup.
       // Awaited so the model selector shows real available models immediately.
       const pendingModels = Array.isArray(pendingConnection.models) ? pendingConnection.models : []
-      const isAutoSynced = pendingConnection.modelSelectionMode === 'automaticallySyncedFromProvider'
+      const isAutoSynced = !isCompatProvider(pendingConnection.type)
       if (!pendingModels.length || isAutoSynced) {
         try {
           await getModelRefreshService().refreshNow(setup.slug, connection.scope ?? scope)
@@ -538,47 +523,6 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
     return { success: true }
   })
 
-  // Get ChatGPT authentication status
-  server.handle(RPC_CHANNELS.chatgpt.GET_AUTH_STATUS, async (ctx, connectionSlug: string): Promise<{
-    authenticated: boolean
-    expiresAt?: number
-    hasRefreshToken?: boolean
-  }> => {
-    try {
-      const credentialManager = getCredentialManager()
-      const creds = await credentialManager.getLlmOAuth(connectionSlug, scopeOf(ctx, connectionSlug))
-
-      if (!creds) {
-        return { authenticated: false }
-      }
-
-      // Check if expired (with 5-minute buffer)
-      const isExpired = creds.expiresAt && Date.now() > creds.expiresAt - 5 * 60 * 1000
-
-      return {
-        authenticated: !isExpired || !!creds.refreshToken, // Can refresh if has refresh token
-        expiresAt: creds.expiresAt,
-        hasRefreshToken: !!creds.refreshToken,
-      }
-    } catch (error) {
-      deps.platform.logger?.error('Failed to get ChatGPT auth status:', error)
-      return { authenticated: false }
-    }
-  })
-
-  // Logout from ChatGPT (clear stored tokens)
-  server.handle(RPC_CHANNELS.chatgpt.LOGOUT, async (ctx, connectionSlug: string): Promise<{ success: boolean }> => {
-    try {
-      const credentialManager = getCredentialManager()
-      await credentialManager.deleteLlmCredentials(connectionSlug, scopeOf(ctx, connectionSlug))
-      deps.platform.logger?.info('ChatGPT credentials cleared')
-      return { success: true }
-    } catch (error) {
-      deps.platform.logger?.error('Failed to clear ChatGPT credentials:', error)
-      return { success: false }
-    }
-  })
-
   // Is the user's own `claude` runnable on the machine the server is on? (`claude --version`, no credentials)
   // The instance owner's alone (authorize.ts); a run spawns `claude`, so a call within 2 s of the last gets its answer
   let claudeCodeStatus: { at: number; status: ReturnType<typeof getClaudeCodeStatus> } | undefined
@@ -660,35 +604,5 @@ export function registerLlmConnectionsHandlers(server: RpcServer, deps: HandlerD
       deps.platform.logger?.info('GitHub Copilot OAuth cancelled')
     }
     return { success: true }
-  })
-
-  // Get GitHub Copilot authentication status
-  server.handle(RPC_CHANNELS.copilot.GET_AUTH_STATUS, async (ctx, connectionSlug: string): Promise<{
-    authenticated: boolean
-  }> => {
-    try {
-      const credentialManager = getCredentialManager()
-      const creds = await credentialManager.getLlmOAuth(connectionSlug, scopeOf(ctx, connectionSlug))
-
-      return {
-        authenticated: !!creds?.accessToken,
-      }
-    } catch (error) {
-      deps.platform.logger?.error('Failed to get GitHub auth status:', error)
-      return { authenticated: false }
-    }
-  })
-
-  // Logout from Copilot (clear stored tokens)
-  server.handle(RPC_CHANNELS.copilot.LOGOUT, async (ctx, connectionSlug: string): Promise<{ success: boolean }> => {
-    try {
-      const credentialManager = getCredentialManager()
-      await credentialManager.deleteLlmCredentials(connectionSlug, scopeOf(ctx, connectionSlug))
-      deps.platform.logger?.info('Copilot credentials cleared')
-      return { success: true }
-    } catch (error) {
-      deps.platform.logger?.error('Failed to clear Copilot credentials:', error)
-      return { success: false }
-    }
   })
 }

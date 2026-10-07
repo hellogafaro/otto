@@ -62,7 +62,6 @@ import { useComposer } from "@/components/composer/composer-provider"
 import { EntityText } from "@/components/entities/entity-text"
 import { useEntityData } from "@/components/entities/entity-chip"
 import { Button } from "@/components/ui/button"
-import { useBackgroundTasks } from "@/hooks/use-background-tasks"
 import { useTurnCardExpansion } from "@/hooks/use-turn-card-expansion"
 import { useNavigation } from "@/contexts/navigation-context"
 import { useAppShellContext } from "@/context/app-shell-context"
@@ -498,11 +497,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     focusFirst: () => {
       composer.focus()
     },
-  })
-
-  // Background tasks management
-  const { tasks: backgroundTasks, killTask } = useBackgroundTasks({
-    sessionId: session?.id ?? ''
   })
 
   // TurnCard expansion state — persisted to localStorage across session switches
@@ -1435,8 +1429,6 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
     onWorkingDirectoryChange,
     structuredInput,
     onStructuredResponse: handleStructuredResponse,
-    backgroundTasks,
-    onKillTask: (taskId) => killTask(taskId, backgroundTasks.find(task => task.id === taskId)?.type === 'shell' ? 'shell' : 'agent'),
     followUps: followUpInputItems,
     onFollowUpClick: handleFollowUpChipClick,
     onFollowUpIndexClick: handleFollowUpIndexClick,

@@ -13,7 +13,7 @@ the same server code.
 
 - **Agents and sessions**: run many agent sessions side by side, with status, labels, skills and automations.
 - **Sources**: connect MCP servers, REST APIs and local folders, and let the agent set them up.
-- **Connections**: sign in with Claude, ChatGPT/Codex or GitHub Copilot, use API keys, or point at a local model.
+- **Connections**: sign in with Claude or ChatGPT/Codex, use API keys, or point at a local model.
 - **Permission modes**: Explore, Ask to Edit and Auto, with customizable rules.
 
 Otto is under active development and being rebuilt on its own design system;

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { initDb, type Db, type Tx } from '../db/index.ts'
 import { normalizePath } from '../utils/paths.ts'
+import { snippetOf } from '../utils/snippet.ts'
 import type { StoredMessage } from './types.ts'
 
 /**
@@ -269,24 +270,10 @@ export function toSearchQuery(query: string): string {
     .join(' ')
 }
 
-/** A window of `text` around the first query word it contains, about `max` characters, newlines flattened. */
-function snippetOf(text: string, query: string, max = 150): string {
-  const flat = text.replace(/\s+/g, ' ').trim()
-  const lower = flat.toLowerCase()
-  const at = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => lower.indexOf(word))
-    .filter((index) => index >= 0)
-    .sort((a, b) => a - b)[0] ?? 0
-  const start = Math.max(0, at - Math.floor(max / 2))
-  const end = Math.min(flat.length, start + max)
-  return `${start > 0 ? '...' : ''}${flat.slice(start, end)}${end < flat.length ? '...' : ''}`
-}
-
 export interface ChatSearchResult {
   sessionId: string
+  /** The chat's title; null while it has none. */
+  title: string | null
   matchCount: number
   matches: { sessionId: string; lineNumber: number; snippet: string }[]
 }
@@ -300,8 +287,8 @@ export function searchChats(workspaceId: string, actor: string, query: string, {
   const match = toSearchQuery(query)
   if (!match) return []
   initMessages(db)
-  const hits = db.all<{ chat_id: string; position: number; content: string }>(sql`
-    SELECT m.chat_id, m.position, m.content FROM messages_fts f
+  const hits = db.all<{ chat_id: string; title: string | null; position: number; content: string }>(sql`
+    SELECT m.chat_id, c.title, m.position, m.content FROM messages_fts f
     JOIN messages m ON m.rowid = f.rowid
     JOIN chats c ON c.id = m.chat_id AND c.workspace_id = m.workspace_id
     WHERE messages_fts MATCH ${match} AND m.workspace_id = ${workspaceId} AND c.created_by = ${actor}
@@ -309,7 +296,7 @@ export function searchChats(workspaceId: string, actor: string, query: string, {
   const results = new Map<string, ChatSearchResult>()
   for (const hit of hits) {
     let result = results.get(hit.chat_id)
-    if (!result) results.set(hit.chat_id, (result = { sessionId: hit.chat_id, matchCount: 0, matches: [] }))
+    if (!result) results.set(hit.chat_id, (result = { sessionId: hit.chat_id, title: hit.title, matchCount: 0, matches: [] }))
     result.matchCount++
     if (result.matches.length < perChat) {
       const text = (JSON.parse(hit.content) as { content?: unknown }).content

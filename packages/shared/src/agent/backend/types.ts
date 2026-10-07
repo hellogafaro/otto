@@ -161,7 +161,7 @@ export interface CoreBackendConfig {
   /** System prompt preset ('default' | 'mini' | custom string) */
   systemPromptPreset?: 'default' | 'mini' | string;
 
-  /** Workspace-level automation system for user-defined automations (automations.json) */
+  /** Workspace-level automation system for the workspace's event routines */
   automationSystem?: AutomationSystem;
 
   /**
@@ -330,7 +330,7 @@ export interface BackendConfig extends CoreBackendConfig {
   /** The chat's agent names a provider its creator has no connection of: every turn ends with this error. */
   missingConnection?: string;
 
-  /** Workspace-level automation system for user-defined SDK hooks (automations.json) */
+  /** Workspace-level automation system for the workspace's event routines */
   automationSystem?: AutomationSystem;
 
   /** The Pi runtime (`BackendRuntimePayload`, built by `buildPiRuntime`). */

@@ -1,18 +1,20 @@
 /**
- * The `@` menu's people, tasks and projects, from the lists the app already loads. Pure: the composer passes
+ * The `@` menu's people, agents, tasks and projects, from the lists the app already loads. Pure: the composer passes
  * the lists (null until loaded) and gets the menu's sections; the menu ranks what is typed (prefix first, then
  * newest). Each item's id is the entity token that goes into the text (`task:<id>`).
  */
 
-import type { Project, Task } from '../../../shared/types'
+import type { Agent, Project, Task } from '../../../shared/types'
 import type { MentionSection } from '@/components/ui/mention-menu'
 
 /** How many rows of each type the menu shows before anything is typed. */
 const PREVIEW = 3
 
 interface Lists {
-  /** `user:<id>` and `agent:<id>` actors: only people are mentioned (an agent has no token). */
+  /** `user:<id>` and `agent:<id>` actors: only people here (the agents come as `agents`). */
   people: { actor: string; name: string; email?: string }[] | null
+  /** The workspace's agents, the default first. */
+  agents: Agent[] | null
   tasks: Task[] | null
   projects: Project[] | null
 }
@@ -26,6 +28,12 @@ export function buildEntitySections(lists: Lists, t: (key: string) => string): M
       .sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''))
       .map((person) => ({ id: person.actor, type: 'user' as const, label: person.name || person.email || person.actor, description: person.email }))
     if (items.length > 0) sections.push({ id: 'people', label: t('composer.mention.people'), items, preview: PREVIEW })
+  }
+
+  if (lists.agents) {
+    // The workspace's own order: the default agent first.
+    const items = lists.agents.map((agent) => ({ id: `agent:${agent.id}`, type: 'agent' as const, label: agent.title, agent }))
+    sections.push({ id: 'agents', label: t('composer.mention.agents'), items, empty: t('composer.mention.noAgents'), preview: PREVIEW })
   }
 
   if (lists.tasks) {

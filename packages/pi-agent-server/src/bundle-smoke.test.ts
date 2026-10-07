@@ -115,7 +115,6 @@ describe('pi-agent-server bundle', () => {
           sessionPath: scratchDir,
           workingDirectory: scratchDir,
           plansFolderPath: join(scratchDir, 'plans'),
-          providerType: 'pi',
           authType: 'oauth',
           piAuth: { provider: 'openai-codex', credential: { type: 'api_key', key: 'fake-not-a-jwt' } },
         },

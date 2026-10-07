@@ -27,7 +27,6 @@ yet).
 - [x] `components/app-shell/page-header.tsx`
 - [x] `components/app-shell/session-filter-menu.tsx`
 - [ ] `components/app-shell/active-option-badges.tsx`
-- [ ] `components/app-shell/active-tasks-bar.tsx`
 - [x] `components/app-shell/app-shell.tsx`
 - [ ] `components/app-shell/attachment-preview.tsx`
 - [ ] `components/app-shell/background-finished-chip.tsx`
@@ -38,7 +37,6 @@ yet).
 - [x] `components/app-shell/left-sidebar.tsx`
 - [x] `components/app-shell/main-content-panel.tsx`
 - [ ] `components/app-shell/panel.tsx`
-- [ ] `components/app-shell/send-resource-to-workspace-dialog.tsx`
 - [ ] `components/app-shell/send-to-workspace-dialog.tsx`
 - [ ] `components/app-shell/session-badges.tsx`
 - [ ] `components/app-shell/session-info-popover.tsx`
@@ -50,7 +48,6 @@ yet).
 - [ ] `components/app-shell/session-status-icon.tsx`
 - [ ] `components/app-shell/setup-auth-banner.tsx`
 - [ ] `components/app-shell/sidebar-menu.tsx`
-- [ ] `components/app-shell/task-action-menu.tsx`
 - [ ] `components/app-shell/transport-connection-banner.tsx`
 - [x] `components/app-shell/workspace-menu.tsx`
 

@@ -80,12 +80,8 @@ mock.module('../../../config/validators.ts', () => ({
   formatValidationResult: () => '',
 }));
 
-let mockOttoCliFlag = false;
 mock.module('../../../feature-flags.ts', () => ({
   FEATURE_FLAGS: {
-    get ottoCli() {
-      return mockOttoCliFlag;
-    },
     get developerFeedback() {
       return false;
     },
@@ -163,7 +159,6 @@ describe('runPreToolUseChecks', () => {
     mockValidateConfigFileContent.mockImplementation(() => null);
     mockReadOnlyBashPatterns = [];
     mockAllowedWritePaths = [];
-    mockOttoCliFlag = false;
   });
 
   // ============================================================
@@ -399,10 +394,6 @@ describe('runPreToolUseChecks', () => {
   // ============================================================
 
   describe('step 5: input transforms', () => {
-    beforeEach(() => {
-      mockOttoCliFlag = true;
-    });
-
     it('expands tilde paths and returns modify', () => {
       const result = runPreToolUseChecks(createInput({
         toolName: 'Read',
@@ -451,142 +442,6 @@ describe('runPreToolUseChecks', () => {
         expect(result.input.file_path).toBe('/Users/test/test.ts');
         expect(result.input._intent).toBeUndefined();
       }
-    });
-
-    it('blocks direct label folder reads and suggests otto label help when feature is enabled', () => {
-      mockOttoCliFlag = true;
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Read',
-        input: { file_path: '/test/workspace/labels/config.json' },
-      }));
-
-      expect(result.type).toBe('block');
-      if (result.type === 'block') {
-        expect(result.reason).toContain('otto label');
-        expect(result.reason).toContain('otto label --help');
-        expect(result.reason).toContain('labels/');
-      }
-    });
-
-    it('does not block bash commands touching automations files when feature is disabled', () => {
-      mockOttoCliFlag = false;
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Bash',
-        input: { command: 'python3 scripts/update.py automations.json' },
-        permissionMode: 'allow-all',
-      }));
-
-      expect(result.type).toBe('allow');
-    });
-
-    it('blocks direct source config edits and suggests otto source commands when feature is enabled', () => {
-      mockOttoCliFlag = true;
-      mockDetectConfigFileType.mockImplementation(() => ({
-        type: 'source',
-        slug: 'linear',
-        displayFile: 'sources/linear/config.json',
-      }));
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Edit',
-        input: {
-          file_path: '/test/workspace/sources/linear/config.json',
-          old_string: 'A',
-          new_string: 'B',
-        },
-      }));
-
-      expect(result.type).toBe('block');
-      if (result.type === 'block') {
-        expect(result.reason).toContain('otto source');
-        expect(result.reason).toContain('sources/linear/config.json');
-      }
-    });
-
-    it('blocks direct skill file edits and suggests otto skill commands when feature is enabled', () => {
-      mockOttoCliFlag = true;
-      mockDetectConfigFileType.mockImplementation(() => ({
-        type: 'skill',
-        slug: 'commit-helper',
-        displayFile: 'skills/commit-helper/SKILL.md',
-      }));
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Edit',
-        input: {
-          file_path: '/test/workspace/skills/commit-helper/SKILL.md',
-          old_string: 'A',
-          new_string: 'B',
-        },
-      }));
-
-      expect(result.type).toBe('block');
-      if (result.type === 'block') {
-        expect(result.reason).toContain('otto skill');
-        expect(result.reason).toContain('skills/commit-helper/SKILL.md');
-      }
-    });
-
-    it('blocks bash commands touching labels paths and points to otto label --help when feature is enabled', () => {
-      mockOttoCliFlag = true;
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Bash',
-        input: { command: 'python3 scripts/update.py labels/config.json' },
-        permissionMode: 'allow-all',
-      }));
-
-      expect(result.type).toBe('block');
-      if (result.type === 'block') {
-        expect(result.reason).toContain('otto label --help');
-        expect(result.reason).toContain('otto label');
-      }
-    });
-
-    it('allows bash otto label commands through labels guard', () => {
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Bash',
-        input: { command: 'otto label list' },
-        permissionMode: 'allow-all',
-      }));
-
-      expect(result.type).toBe('allow');
-    });
-
-    it('no longer guards automations.json (routines are database rows): a bash command touching it is allowed', () => {
-      mockOttoCliFlag = true;
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Bash',
-        input: { command: 'python3 scripts/update.py automations.json' },
-        permissionMode: 'allow-all',
-      }));
-
-      expect(result.type).toBe('allow');
-    });
-
-    it('does not apply config-domain bash guard when feature is disabled', () => {
-      mockOttoCliFlag = false;
-
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Bash',
-        input: { command: 'python3 scripts/update.py automations.json' },
-        permissionMode: 'allow-all',
-      }));
-
-      expect(result.type).toBe('allow');
-    });
-
-    it('does not block unrelated non-workspace labels paths in bash commands', () => {
-      const result = runPreToolUseChecks(createInput({
-        toolName: 'Bash',
-        input: { command: 'python3 script.py /tmp/labels/config.json' },
-        permissionMode: 'allow-all',
-      }));
-
-      expect(result.type).toBe('allow');
     });
   });
 
@@ -843,7 +698,6 @@ describe('shouldPromptInAskMode', () => {
     mockValidateConfigFileContent.mockImplementation(() => null);
     mockReadOnlyBashPatterns = [];
     mockAllowedWritePaths = [];
-    mockOttoCliFlag = false;
   });
 
   // --- File writes ---

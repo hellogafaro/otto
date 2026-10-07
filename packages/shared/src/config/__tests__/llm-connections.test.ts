@@ -421,7 +421,6 @@ describe('Claude Opus 5.5', () => {
     expect(opus!.shortName).toBe('Opus')
     expect(opus!.contextWindow).toBe(1_000_000)
     expect(opus!.descriptionKey).toBe('model.opusDesc')
-    expect(opus!.thinkingAlwaysOn).toBe(true)
   })
 
   it('is the default for new direct Anthropic connections, listed ahead of Opus 5 and 4.8', () => {
@@ -469,13 +468,12 @@ describe('Claude Opus 5.5', () => {
 })
 
 describe('Claude Opus 5', () => {
-  it('is registered as the previous Opus generation with 1M context and disable-able thinking', () => {
+  it('is registered as the previous Opus generation with 1M context', () => {
     const opus = ANTHROPIC_MODELS.find(m => m.id === 'claude-opus-5')
     expect(opus).toBeDefined()
     expect(opus!.name).toBe('Opus 5')
     expect(opus!.shortName).toBe('Opus')
     expect(opus!.contextWindow).toBe(1_000_000)
-    expect(opus!.thinkingAlwaysOn).toBeUndefined()
     expect(getModelDisplayName('eu.anthropic.claude-opus-5')).toBe('Opus 5')
   })
 

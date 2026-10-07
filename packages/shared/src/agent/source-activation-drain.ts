@@ -15,20 +15,11 @@
  *     for events we're only draining
  *   - whether to fire `source_activated` + `forceAbort` at a boundary
  *
- * Two policies, picked at construction:
- *
- *   - `'batch-boundary'` (Claude): the adapted-event array is the natural
- *     batch. The Claude event adapter interleaves synthetic events
- *     (`task_backgrounded`, `shell_backgrounded`, `shell_killed`) between
- *     `tool_result` events within ONE SDK user message, so we must drain
- *     the whole batch before firing. Caller drives the fire via
- *     `shouldFireAtBoundary()` at end-of-batch and end-of-stream.
- *
- *   - `'fire-on-non-tool-result'` (Pi): the adapter is 1:1 with no
- *     interleaved synthetic events, so the first non-`tool_result` event
- *     after capture marks the start of the next assistant turn and is the
- *     natural drain boundary. Caller drives the fire via
- *     `shouldFireBeforeEvent()` before yielding each event.
+ * Pi's adapter is 1:1 with no interleaved synthetic events, so the first
+ * non-`tool_result` event after capture marks the start of the next assistant
+ * turn and is the natural drain boundary. The caller drives the fire via
+ * `shouldFireBeforeEvent()` before yielding each event, and via
+ * `shouldFireAtBoundary()` at end-of-stream.
  */
 
 import type { AgentEvent } from '@otto/core/types';
@@ -44,16 +35,12 @@ export interface SourceActivatedEvent {
   originalMessage: string;
 }
 
-export type DrainPolicy = 'batch-boundary' | 'fire-on-non-tool-result';
-
 export class SourceActivationDrainController {
   private captured: PendingActivationRestart | null = null;
   private fired: boolean = false;
 
-  constructor(private readonly policy: DrainPolicy) {}
-
   /**
-   * Pre-yield check used only with `'fire-on-non-tool-result'` policy.
+   * Pre-yield check.
    *
    * If we have a captured restart AND the incoming event is not a
    * `tool_result`, we've reached the end of the parallel-tool batch.
@@ -62,11 +49,9 @@ export class SourceActivationDrainController {
    * we're about to cancel — letting it through would leak a fragment of the
    * cancelled response into the session journal).
    *
-   * Returns null in all other cases (including any call under the
-   * `'batch-boundary'` policy — Claude fires through `shouldFireAtBoundary`).
+   * Returns null in all other cases.
    */
   shouldFireBeforeEvent(event: AgentEvent): SourceActivatedEvent | null {
-    if (this.policy !== 'fire-on-non-tool-result') return null;
     if (!this.captured || this.fired) return null;
     if (event.type === 'tool_result') return null;
     return this.takeFire();
@@ -108,7 +93,7 @@ export class SourceActivationDrainController {
   }
 
   /**
-   * End-of-batch (Claude) and end-of-stream (both) check.
+   * End-of-stream check.
    *
    * Returns the `source_activated` event the caller should yield, or null
    * if there's nothing to fire. Idempotent after first non-null return.

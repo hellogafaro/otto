@@ -10,6 +10,7 @@ import { initDb } from '../../db/index.ts';
 import { createId } from '../../id.ts';
 import { getFirstUser } from '../../users/queries.ts';
 import { users } from '../../users/schema.ts';
+import { getRunByToken, initAgentApiUrl } from '../run-tokens.ts';
 
 const agents: PiAgent[] = [];
 const dirs: string[] = [];
@@ -103,6 +104,37 @@ describe('PiAgent prompt', () => {
     const prompt = await chatPrompt(agent, '[skill:deploy] ship v2');
     expect(prompt.message).toContain('- /skills/deploy/SKILL.md (skill: deploy)');
     expect(prompt.message).not.toContain(join(root, 'skills'));
+  });
+
+  it("gives the turn's bash the otto CLI as the chat's user, lists its skill, and ends the token with the turn", async () => {
+    initAgentApiUrl('http://127.0.0.1:4100');
+    try {
+      const agent = makeAgent({ session: { id: 'chat-1', workspaceRootPath: '/x', createdAt: 0, lastUsedAt: 0, createdBy: 'user:user00000001', agentId: 'agent0000001' } as any });
+      let liveRun: unknown;
+      agent.send = (msg: any) => {
+        if (msg.type !== 'prompt') return;
+        liveRun = getRunByToken(msg.env.OTTO_RUN_TOKEN);
+        prompt = msg;
+        agent.eventQueue.complete();
+      };
+      let prompt: any;
+      for await (const _ of agent.chat('hi')) { /* drain */ }
+      expect(prompt.env.OTTO_API_URL).toBe('http://127.0.0.1:4100');
+      expect(liveRun).toMatchObject({ chatId: 'chat-1', workspaceId: 'ws', userId: 'user00000001', agentId: 'agent0000001' });
+      expect(prompt.skills.map((skill: { name: string }) => skill.name)).toEqual(['otto']);
+      expect(prompt.message).not.toContain(prompt.env.OTTO_RUN_TOKEN);
+      expect(getRunByToken(prompt.env.OTTO_RUN_TOKEN)).toBeNull();
+    } finally {
+      initAgentApiUrl(null);
+    }
+  });
+
+  it('gives no token to a chat without a user, nor where no server listens for agents', async () => {
+    const withoutUser = await chatPrompt(makeAgent(), 'hi');
+    expect(withoutUser.env).toBeUndefined();
+    const withoutServer = await chatPrompt(makeAgent({ session: { id: 'chat-1', workspaceRootPath: '/x', createdAt: 0, lastUsedAt: 0, createdBy: 'user:user00000001' } as any }), 'hi');
+    expect(withoutServer.env).toBeUndefined();
+    expect(withoutServer.skills).toBeUndefined();
   });
 
   it("the agent's computer runs the turn's tools", async () => {

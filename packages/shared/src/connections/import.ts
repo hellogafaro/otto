@@ -98,7 +98,6 @@ function toInput(raw: unknown): ConnectionInput | undefined {
     defaultModel: text(raw.defaultModel),
     models: Array.isArray(raw.models) ? (raw.models as ConnectionInput['models']) : undefined,
     config: {
-      modelSelectionMode: raw.modelSelectionMode as never,
       customEndpoint: isObject(raw.customEndpoint) ? (raw.customEndpoint as never) : undefined,
       midStreamBehavior: raw.midStreamBehavior as never,
     },

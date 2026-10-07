@@ -35,7 +35,7 @@ import {
  * agent in the session header (`agentId`, absent = the default); one that was deleted falls back to the default
  * the same way (`getAgentRunConfig`), so deleting never rewrites a chat. Every function takes the workspace
  * explicitly and only sees its rows. Who may edit is `canEditAgent`, applied by the guard (`bootstrap/authorize.ts`)
- * and the `agents_edit` tool; these functions do not know users.
+ * (for the app and the agents' `otto` CLI alike); these functions do not know users.
  */
 
 export * from './instructions.ts'
