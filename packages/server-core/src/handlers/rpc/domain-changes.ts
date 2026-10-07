@@ -68,6 +68,7 @@ export const WRITE_CHANNELS: Record<string, Domain[]> = {
   [C.routines.PAUSE]: ['routines'],
   [C.routines.RESUME]: ['routines'],
   [C.routines.RUN]: ['routines'],
+  [C.routines.RESET_WEBHOOK]: ['routines'],
 }
 
 /**

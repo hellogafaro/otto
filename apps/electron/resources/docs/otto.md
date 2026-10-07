@@ -70,7 +70,7 @@ otto projects create <project>
 otto projects update <id> <patch>
     patch: any of {title, description, resources, expectedUpdatedAt}. resources REPLACES the list: to add or remove a link, `otto projects get <id>` and send its resources with the link added ({type: "url"|"library"|"chat", title, ref}) or removed.
 otto comments list <entity> [page]
-    An entity's ("task:<id>", "project:<id>", ...) comments and activity events, oldest first: {items, more} (more = older items remain). An item's type is "comment" | "event"; an event has event = {kind, ...}. page: {before? (an item id), limit? (max 500)}
+    An entity's ("task:<id>", "project:<id>", ...) comments and activity events, oldest first: {items, more, earlier} (more = older items remain, earlier = how many). An item's type is "comment" | "event"; an event has event = {kind, ...}. page: {before? (an item id), limit? (max 500)}
 otto comments create <entity> <content>
     Adds a comment as you. A "user:<id>" token in the content notifies that member.
 otto library list [filter]
