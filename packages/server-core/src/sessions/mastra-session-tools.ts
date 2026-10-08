@@ -8,6 +8,7 @@ export function createMastraSessionTools(input: {
   writesAllowed: boolean
   decideEnabled: boolean
   assertAccess: () => void
+  assertResultAccess?: (name: string, args: unknown, result: unknown) => void
   complete: (prompt: string) => Promise<string>
   spawn: (args: { prompt?: string; name?: string; help?: boolean; permissionMode?: 'safe' | 'ask' | 'guarded' | 'allow-all'; model?: string; llmConnection?: string; enabledSourceSlugs?: string[] }) => Promise<unknown>
   testSource: (slug: string, activate: boolean) => Promise<unknown>
@@ -24,6 +25,7 @@ export function createMastraSessionTools(input: {
         if (JSON.stringify(args).length > 64000) throw new Error('The session-tool input exceeds the native limit.')
         const result = await def.handler!(input.context, args)
         input.assertAccess()
+        input.assertResultAccess?.(name, args, result)
         return result
       },
     })

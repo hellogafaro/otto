@@ -14,12 +14,14 @@ import { getStatuses } from '@otto/shared/statuses'
 process.env.OTTO_MASTRA_CHAT = '1'
 let call: { name: string; args: unknown } | undefined
 let approvals = 0, expose: string[] = []
+let beforeTool: (() => Promise<void>) | undefined
 const manager = new SessionManager()
 const endpoint = Bun.serve({ port: 0, hostname: '127.0.0.1', async fetch(request) {
   const body = await request.json() as { tools?: { name: string }[]; input?: unknown }
   if (body.tools) expose = body.tools.map((tool) => tool.name)
   const selected = call
   call = undefined
+  if (selected && beforeTool) { const hook = beforeTool; beforeTool = undefined; await hook() }
   const item = selected ? { type: 'function_call', id: 'fc', call_id: crypto.randomUUID(), name: selected.name, arguments: JSON.stringify(selected.args), status: 'completed' } : { type: 'message', id: 'msg' }
   const title = JSON.stringify(body.input).includes('Reply with ONLY')
   const parts = [{ type: 'response.created', response: { id: 'fixture', created_at: 0, model: 'fixture' } }, { type: 'response.output_item.added', output_index: 0, item },
@@ -41,14 +43,61 @@ it('native canonical session callbacks preserve creator audience, human closure 
   createConnection({ scope: userScope(human), slug: 'fixture', type: 'openai', authType: 'api_key', title: 'Fixture', baseUrl: endpoint.url.href + 'v1', defaultModel: 'pi/fixture', models: ['pi/fixture'] }, { apiKey: 'controlled-key' })
   const chat = await manager.createSession(workspace.id, { name: 'Owned', agentId: agent.id, llmConnection: 'fixture', permissionMode: 'ask' }, { createdBy: actor })
   const foreign = await manager.createSession(workspace.id, { name: 'OTHER_PRIVATE_CHAT', agentId: agent.id }, { createdBy: `user:${other}` })
+  const privateCreator = await manager.createSession(workspace.id, { name: 'CREATOR_PRIVATE_MUST_NOT_DISCLOSE', agentId: agent.id }, { createdBy: actor })
+  await manager.addSessionMembers(chat.id, human, [`user:${other}`])
   manager.setEventSink((_channel, _target, event: any) => { if (event?.type === 'permission_request') { approvals++; manager.respondToPermission(chat.id, event.request.requestId, true, false) } })
-  const run = async (name: string, args: unknown) => {
+  const run = async (name: string, args: unknown, sessionId = chat.id) => {
     call = { name: 'mcp__session__' + name, args }
-    await manager.sendMessage(chat.id, 'Check session action.', undefined, undefined, { sender: actor })
-    return loadSession(workspace, chat.id)!.messages.filter((entry) => entry.type === 'tool').at(-1)!.toolResult!
+    await manager.sendMessage(sessionId, `agent:${agent.id} Check session action.`, undefined, undefined, { sender: actor })
+    return loadSession(workspace, sessionId)!.messages.filter((entry) => entry.type === 'tool').at(-1)?.toolResult ?? ''
   }
   expect(await run('list_sessions', {})).not.toContain('OTHER_PRIVATE_CHAT')
+  expect(await run('list_sessions', {})).not.toContain('CREATOR_PRIVATE_MUST_NOT_DISCLOSE')
+  expect(await run('get_session_info', { sessionId: privateCreator.id })).toContain('not found')
   expect(await run('get_session_info', { sessionId: foreign.id })).toContain('not found')
+  const filtered = JSON.parse(JSON.parse(await run('list_sessions', { search: 'CREATOR_PRIVATE' })).content[0].text)
+  expect(filtered).toEqual({ total: 0, returned: 0, sessions: [] })
+  await manager.addSessionMembers(privateCreator.id, human, [`user:${other}`])
+  expect(await run('get_session_info', { sessionId: privateCreator.id })).toContain('CREATOR_PRIVATE_MUST_NOT_DISCLOSE')
+  beforeTool = async () => manager.removeSessionMember(privateCreator.id, human, `user:${other}`)
+  expect(await run('get_session_info', { sessionId: privateCreator.id })).toContain('not found')
+  const historyChat = await manager.createSession(workspace.id, { name: 'Historical private context', agentId: agent.id, llmConnection: 'fixture' }, { createdBy: actor })
+  expect(await run('get_session_info', { sessionId: privateCreator.id }, historyChat.id)).toContain('CREATOR_PRIVATE_MUST_NOT_DISCLOSE')
+  await expect(manager.addSessionMembers(historyChat.id, human, [`user:${other}`])).rejects.toThrow('metadata already recorded')
+  expect(manager.canSeeSession(historyChat.id, other)).toBe(false)
+  await manager.addSessionMembers(privateCreator.id, human, [`user:${other}`])
+  await manager.addSessionMembers(historyChat.id, human, [`user:${other}`])
+  expect(manager.canSeeSession(historyChat.id, other)).toBe(true)
+  const aggregateChat = await manager.createSession(workspace.id, { name: 'Historical aggregate', agentId: agent.id, llmConnection: 'fixture' }, { createdBy: actor })
+  const aggregate = JSON.parse(JSON.parse(await run('list_sessions', { offset: 999 }, aggregateChat.id)).content[0].text)
+  expect(aggregate.total).toBeGreaterThan(0)
+  expect(aggregate.sessions).toEqual([])
+  await expect(manager.addSessionMembers(aggregateChat.id, human, [`user:${other}`])).rejects.toThrow('cannot be safely shared')
+  expect(manager.canSeeSession(aggregateChat.id, other)).toBe(false)
+  beforeTool = async () => {
+    const getSessions = manager.getSessions.bind(manager)
+    manager.getSessions = (...args) => {
+      const snapshot = getSessions(...args)
+      manager.getSessions = getSessions
+      queueMicrotask(() => { void manager.removeSessionMember(privateCreator.id, human, `user:${other}`) })
+      return snapshot
+    }
+  }
+  const revokedAggregate = await run('list_sessions', { offset: 999 })
+  expect(revokedAggregate).toContain('Chat access changed')
+  expect(revokedAggregate).not.toContain('"total"')
+  expect(revokedAggregate).not.toContain('CREATOR_PRIVATE_MUST_NOT_DISCLOSE')
+  const pendingChat = await manager.createSession(workspace.id, { name: 'Pending audience change', agentId: agent.id, llmConnection: 'fixture' }, { createdBy: actor })
+  let entered!: () => void, release!: () => void
+  const waiting = new Promise<void>((resolve) => { entered = resolve })
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  beforeTool = async () => { entered(); await gate }
+  const pending = run('get_session_info', { sessionId: foreign.id }, pendingChat.id)
+  await waiting
+  await manager.addSessionMembers(pendingChat.id, human, [`user:${other}`])
+  release()
+  expect(await pending).not.toContain('OTHER_PRIVATE_CHAT')
+  expect(loadSession(workspace, pendingChat.id)!.messages.some((entry) => entry.type === 'tool' && entry.toolResult?.includes('OTHER_PRIVATE_CHAT'))).toBe(false)
   const open = getStatuses(workspace.id).find((status) => status.category === 'open' && status.id !== 'todo')!
   expect(await run('set_session_status', { status: open.id })).toContain('Status set')
   expect(manager.getSessions(workspace.id, human).find((entry) => entry.id === chat.id)!.sessionStatus).toBe(open.id)
@@ -58,12 +107,12 @@ it('native canonical session callbacks preserve creator audience, human closure 
   expect(await run('mermaid_validate', { code: 'flowchart LR\nA-->B' })).toContain('valid')
   manager.setSessionPermissionMode(chat.id, 'safe')
   call = { name: 'list_work', args: {} }
-  await manager.sendMessage(chat.id, 'Read only.', undefined, undefined, { sender: actor })
+  await manager.sendMessage(chat.id, `agent:${agent.id} Read only.`, undefined, undefined, { sender: actor })
   const listed = loadSession(workspace, chat.id)!.messages.filter((message) => message.type === 'tool' && message.toolName === 'list_work').at(-1)!
   expect(listed.toolStatus).toBe('completed')
   expect(JSON.parse(listed.toolResult!)).toMatchObject({ projects: [], tasks: [], documents: [] })
   call = { name: 'list_work', args: { _intent: 'controlled invalid argument' } }
-  await manager.sendMessage(chat.id, 'Reject unadvertised input.', undefined, undefined, { sender: actor })
+  await manager.sendMessage(chat.id, `agent:${agent.id} Reject unadvertised input.`, undefined, undefined, { sender: actor })
   const invalid = loadSession(workspace, chat.id)!.messages.filter((message) => message.type === 'tool' && message.toolName === 'list_work').at(-1)!
   expect(invalid.toolStatus).toBe('error')
   expect(invalid.isError).toBe(true)
@@ -94,6 +143,6 @@ it('native canonical session callbacks preserve creator audience, human closure 
   expect(compactPrompt).not.toContain('RECENT_ARTIFACT_MUST_REMAIN')
   expect(stored.contextThroughId).not.toBe(stored.messages.find((message: any) => message.toolResult === 'RECENT_ARTIFACT_MUST_REMAIN').id)
   ;(manager as any).nativeCompletion = complete
-  await manager.sendMessage(chat.id, 'Continue with recent artifact.', undefined, undefined, { sender: actor })
+  await manager.sendMessage(chat.id, `agent:${agent.id} Continue with recent artifact.`, undefined, undefined, { sender: actor })
   expect(loadSession(workspace, chat.id)!.messages.some((message) => message.toolResult === 'RECENT_ARTIFACT_MUST_REMAIN')).toBe(true)
 })

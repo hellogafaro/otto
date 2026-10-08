@@ -3785,11 +3785,46 @@ export class SessionManager implements ISessionManager {
     const managed = this.memberChat(sessionId, callerId)
     if (managed.createdBy !== `user:${callerId}`) throw domainError('forbidden', 'Only the creator of a chat can add people to it')
     if (!Array.isArray(actors) || !actors.length) throw domainError('invalid', 'Name at least one person or agent')
+    await this.ensureMessagesLoaded(managed)
+    if (this.memberChat(sessionId, callerId) !== managed) throw chatNotFound(sessionId)
     for (const actor of actors) {
       const valid = typeof actor === 'string' && (actor.startsWith('user:')
         ? !!getMemberRole(managed.workspace.id, actor.slice('user:'.length))
         : actor.startsWith('agent:') && !!getAgent(managed.workspace.id, actor.slice('agent:'.length)))
       if (!valid) throw domainError('invalid', `${String(actor)} is not a member or an agent of this workspace`)
+    }
+    const references = new Set<string>()
+    for (const message of managed.messages) {
+      if (message.role !== 'tool' || !['mcp__session__get_session_info', 'mcp__session__list_sessions'].includes(message.toolName ?? '') || message.toolStatus !== 'completed') continue
+      try {
+        const result = JSON.parse(message.toolResult ?? '') as { content: { text: string }[] }
+        if (!Array.isArray(result.content) || !result.content.length) throw new Error('Invalid recorded metadata')
+        for (const block of result.content) {
+          const data = JSON.parse(block.text) as { id?: string; total?: number; returned?: number; sessions?: { id: string }[] }
+          if (message.toolName === 'mcp__session__get_session_info') {
+            if (typeof data.id !== 'string' || !data.id) throw new Error('Invalid recorded metadata')
+            references.add(data.id)
+          } else {
+            if (!Array.isArray(data.sessions) || data.total !== data.sessions.length || data.returned !== data.sessions.length) throw new Error('Incomplete recorded metadata')
+            for (const chat of data.sessions) {
+              if (typeof chat.id !== 'string' || !chat.id) throw new Error('Invalid recorded metadata')
+              references.add(chat.id)
+            }
+          }
+        }
+      } catch { throw domainError('forbidden', 'This chat contains prior private chat metadata that cannot be safely shared. Create a new shared chat instead.') }
+    }
+    for (const actor of actors.filter(isPersonActor)) {
+      const userId = userIdOf(actor)
+      if (!userId || [...references].some((id) => id !== managed.id && !this.canSeeSession(id, userId))) throw domainError('forbidden', 'The new member cannot access private chat metadata already recorded here. Share the referenced chats first or create a new shared chat.')
+    }
+    if (actors.some(isPersonActor) && managed.isProcessing) {
+      managed.stopEpoch = (managed.stopEpoch ?? 0) + 1
+      managed.mastraAbort?.abort()
+      managed.mastraStop?.()
+      managed.processingGeneration++
+      managed.messageQueue = []
+      this.setProcessing(managed, false)
     }
     this.addMembersInternal(managed, actors)
   }
@@ -4239,6 +4274,7 @@ export class SessionManager implements ISessionManager {
         }))]
       }
       let currentMessageId=managed.lastSentMessageIds?.at(-1)
+      const senderId = userIdOf(managed.messages.find((message) => message.id === currentMessageId)?.sender)
       abort.signal.throwIfAborted()
       const { createMastraChatModel } = await import('./mastra-chat.ts')
       const { createMastraWorkTools, MASTRA_WORK_WRITES } = await import('./mastra-work-tools.ts')
@@ -4249,6 +4285,8 @@ export class SessionManager implements ISessionManager {
         if (this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation
             || !getMemberRole(managed.workspace.id, creatorId)
             || !managed.members.some((member) => member.actor === managed.createdBy)
+            || (senderId && (!getMemberRole(managed.workspace.id, senderId) || !managed.members.some((member) => member.actor === `user:${senderId}`)))
+            || managed.members.some((member) => isPersonActor(member.actor) && (!userIdOf(member.actor) || !getMemberRole(managed.workspace.id, userIdOf(member.actor)!)))
             || !getAgent(managed.workspace.id, selectedAgent.id)
             || !managed.members.some((member) => member.actor === `agent:${selectedAgent.id}`)) {
           throw new Error('This run no longer has access to its workspace or chat.')
@@ -4297,11 +4335,25 @@ export class SessionManager implements ISessionManager {
       const ownChat = (id = managed.id) => {
         assertAccess()
         const target = this.sessions.get(id)
-        if (!target || target.workspace.id !== managed.workspace.id || !this.canSee(creatorId)(target)) throw chatNotFound(id)
+        if (!target || target.workspace.id !== managed.workspace.id || !this.canSee(creatorId)(target) || this.getAudience(managed).some((userId) => !this.canSee(userId)(target))) throw chatNotFound(id)
         return target
+      }
+      const listChats = (options?: import('@otto/session-tools-core').ListSessionsOptions) => {
+        assertAccess()
+        const chats = this.getSessions(managed.workspace.id, creatorId).filter((chat) => this.getAudience(managed).every((userId) => this.canSeeSession(chat.id, userId)) && (!options?.status || chat.sessionStatus === options.status) && (!options?.label || chat.labels?.includes(options.label)) && (!options?.search || chat.name?.toLowerCase().includes(options.search.toLowerCase())))
+        if (options?.sortBy === 'name') chats.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+        else if (options?.sortBy === 'status') chats.sort((a, b) => (a.sessionStatus ?? '').localeCompare(b.sessionStatus ?? ''))
+        const page = chats.slice(Math.max(0, Math.floor(options?.offset ?? 0)), Math.max(0, Math.floor(options?.offset ?? 0)) + Math.max(1, Math.min(100, Math.floor(options?.limit ?? 20))))
+        return { total: chats.length, returned: page.length, sessions: page.map((chat) => ({ id: chat.id, name: chat.name ?? chat.id, labels: chat.labels ?? [], status: chat.sessionStatus ?? 'todo', createdAt: chat.createdAt ?? 0, projectId: chat.projectId })) }
       }
       const sessionTools = createMastraSessionTools({
         writesAllowed: permissionMode !== 'safe', decideEnabled: this.decisionFeatureActive('decideTool'), assertAccess,
+        assertResultAccess: (name, args, result) => {
+          if (name === 'get_session_info' || name === 'set_session_labels' || name === 'set_session_status') ownChat((args as { sessionId?: string }).sessionId)
+          if (name !== 'list_sessions' || (result as { isError?: boolean }).isError) return
+          const text = (result as { content: { text: string }[] }).content[0]!.text
+          if (text !== JSON.stringify(listChats(args as import('@otto/session-tools-core').ListSessionsOptions), null, 2)) throw new Error('Chat access changed while listing sessions. Try again.')
+        },
         complete: (prompt) => this.nativeCompletion(managed, prompt, { signal: abort.signal, assertAccess }),
         testSource: async (slug, activate) => {
           assertAccess()
@@ -4344,14 +4396,7 @@ export class SessionManager implements ISessionManager {
             return source.config as unknown as import('@otto/session-tools-core').SourceConfig
           },
           getSessionInfo: (id) => { const target = ownChat(id); return { id: target.id, name: target.name ?? target.id, labels: target.labels ?? [], status: target.sessionStatus ?? 'todo', permissionMode: target.permissionMode ?? 'ask', createdAt: target.createdAt ?? 0, projectId: target.projectId, llmConnection: target.llmConnection, model: target.model, isActive: target.isProcessing } },
-          listSessions: (options) => {
-            assertAccess()
-            let chats = this.getSessions(managed.workspace.id, creatorId).filter((chat) => (!options?.status || chat.sessionStatus === options.status) && (!options?.label || chat.labels?.includes(options.label)) && (!options?.search || chat.name?.toLowerCase().includes(options.search.toLowerCase())))
-            if (options?.sortBy === 'name') chats.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
-            else if (options?.sortBy === 'status') chats.sort((a, b) => (a.sessionStatus ?? '').localeCompare(b.sessionStatus ?? ''))
-            const page = chats.slice(Math.max(0, Math.floor(options?.offset ?? 0)), Math.max(0, Math.floor(options?.offset ?? 0)) + Math.max(1, Math.min(100, Math.floor(options?.limit ?? 20))))
-            return { total: chats.length, returned: page.length, sessions: page.map((chat) => ({ id: chat.id, name: chat.name ?? chat.id, labels: chat.labels ?? [], status: chat.sessionStatus ?? 'todo', createdAt: chat.createdAt ?? 0, projectId: chat.projectId })) }
-          },
+          listSessions: listChats,
           setSessionLabels: (id, labels) => this.setSessionLabels(ownChat(id).id, labels),
           setSessionStatus: (id, status) => this.setSessionStatus(ownChat(id).id, status as SessionStatus),
           resolveLabels: (labels) => resolveSessionLabels(labels, getLabels(managed.workspace.id)),
