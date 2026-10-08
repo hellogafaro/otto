@@ -4,6 +4,7 @@ import type { MastraModelConfig } from '@mastra/core/llm'
 import type { AgentSkillsInput } from '@mastra/core/skills'
 import type { AgentEvent } from '@otto/core/types'
 import { initMastraHistory } from './mastra-history'
+import type { MastraInputFile } from './mastra-attachments'
 
 export async function runMastraSession(input: {
   chatId: string
@@ -13,7 +14,8 @@ export async function runMastraSession(input: {
   name: string
   instructions: string
   messages: { role: 'user' | 'assistant'; content: string }[]
-  history?: () => Promise<{ role: 'user' | 'assistant'; content: string }[]>
+  history?: () => Promise<{ role: 'user' | 'assistant'; content: string; files?: MastraInputFile[] }[]>
+  files?: MastraInputFile[]
   model: MastraModelConfig
   tools: ToolsInput
   skills?: AgentSkillsInput
@@ -47,7 +49,7 @@ export async function runMastraSession(input: {
               createdAt: new Date(),
               content: {
                 format: 2 as const,
-                parts: [{ type: 'text' as const, text: message.content }],
+                parts: [{ type: 'text' as const, text: message.content }, ...('files' in message && message.files ? (message.files as MastraInputFile[]).map((file) => file.mediaType.startsWith('text/') ? { type: 'text' as const, text: `[Attached file: ${file.filename}; reference data]\n${file.data}` } : { type: 'file' as const, data: file.data, mimeType: file.mediaType }) : [])],
               },
             })),
             ...messages,
@@ -221,7 +223,7 @@ export async function runMastraSession(input: {
   input.onReady(session, stop)
   try {
     input.signal.throwIfAborted()
-    await session.sendMessage({ content })
+    await session.sendMessage({ content, files: input.files })
     if (active || queued)
       await new Promise<void>((resolve) => {
         idleResolve = resolve

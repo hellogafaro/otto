@@ -17,7 +17,7 @@ export interface FileStore {
   /** The bytes, or undefined when the key is not stored. */
   get(key: string): Promise<Uint8Array | undefined>
   /** The bytes as a stream with their size, or undefined when the key is not stored. */
-  open(key: string): Promise<{ stream: ReadableStream<Uint8Array>; size: number } | undefined>
+  open(key: string, options?: { maxBytes: number; signal: AbortSignal }): Promise<{ stream: ReadableStream<Uint8Array>; size: number } | undefined>
   /** Removes the key; nothing happens when it is not stored. */
   delete(key: string): Promise<void>
   /** The stored keys that start with `prefix` (all of them without one), in no particular order. */

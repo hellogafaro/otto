@@ -2978,7 +2978,12 @@ call in that chat, not a permanent grant. Authorized remote MCP and API sources
 reuse those tool cards and per-call approvals. API calls show the explicit method,
 path and arguments, stay under the configured endpoint, and withhold unsafe errors
 or authentication material. API output is bounded text/JSON; binary downloads and
-unsupported attachments/local sources fail visibly. Shell and filesystem tools remain disabled. Pi remains
+unsupported local sources fail visibly. Native attachments keep the original uploaded
+Library object and reuse the existing thumbnail/file chip. Text, supported single images,
+PDFs and verified Office Markdown derivatives use bounded inline model input; the model
+never receives a client host path. An unavailable or changed historical attachment keeps
+its chip and tells the model to ask for reattachment, rather than removing the message or
+pretending it read the file. Current unsupported/oversized input fails visibly. Shell and filesystem tools remain disabled. Pi remains
 the default until work tools and controls are verified. API-key-only is the MVP direction;
 subscription setup is removed when the default runtime cuts over, without
 silently converting or deleting existing accounts. Document views continue to

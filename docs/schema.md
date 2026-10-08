@@ -53,13 +53,20 @@ statuses(id PK, workspace_id NN, slug NN, title NN, color json, icon, category N
 ### Work - built
 
 ```
-library(id PK, workspace_id NN, parent_id, type NN, title NN, mime, size, created_by NN, created_at ms NN, updated_at ms NN)   idx (workspace_id, parent_id)
+library(id PK, workspace_id NN, parent_id, type NN, title NN, mime, size, original_id, original_updated_at ms, created_by NN, created_at ms NN, updated_at ms NN)   idx (workspace_id, parent_id); idx (workspace_id, original_id)
 projects(id PK, workspace_id NN, title NN, description NN, status NN, members json NN, resources json NN, created_at ms NN, updated_at ms NN)   idx (workspace_id, status)
 tasks(id PK, workspace_id NN, project_id NN, title NN, description NN, status NN, due_at ms, assignees json NN, resources json NN, created_by NN, created_at ms NN, updated_at ms NN)   idx (workspace_id, project_id, status)
 timesheets(id PK, workspace_id NN, task_id NN, time NN, notes NN, created_by NN, created_at ms NN)   idx (workspace_id, task_id)
 comments(id PK, workspace_id NN, entity NN, type NN default 'comment', content NN, created_by NN, created_at ms NN, updated_at ms NN)   idx (workspace_id, entity, created_at)
 notifications(id PK, workspace_id NN, user_id NN, entity NN, type NN, created_by NN, read_at ms, created_at ms NN)   UQ (user_id, entity, type); idx (user_id, workspace_id, created_at)
 ```
+Library Markdown conversions keep `original_id` and `original_updated_at`, both nullable,
+on the derivative row. Only a server conversion creates the binding, in the same workspace
+and against the original's current version. Native Office input resolves that relation,
+not a filename or client path. Editing derivative content clears the binding; changing or
+deleting the original invalidates it. Legacy rows remain nullable and readable; an Office
+attachment with no verified binding needs reattachment, never automatic relinking.
+
 `library.type` is `file` | `document` | `folder`; `parent_id` a folder (null = root); bytes live in the FileStore under the id. `projects.status` is `active` | `archived` | `deleted`; `members` is a JSON array of actors (at most 50, the creator first) and replaces `projects_members`: there are no contributor/viewer roles. `tasks.status` is `todo` | `doing` | `done` | `archived` | `deleted`; `assignees` a JSON array of actors. `timesheets.time` is milliseconds. `notifications`: "`created_by` `type` you on `entity`"; unread = `read_at` null; a repeat of the same sentence sets `read_at` null and `created_at` now; Clear deletes.
 
 **Comments and activity events** (`S/comments`): `comments.type` is `comment` (someone wrote it; `content` is markdown, mentions notify) or `event` (a domain recorded what happened; `content` is the event JSON, `{kind, ...}`: `status`, `title`, `project` `{from, to}` strings, `due` `{from, to}` ms or null, `assignees` `{from, to}` actor lists, `links` `{added, removed}` resources, `time` `{time}` ms). Events are written only by the tasks domain's own functions (`updateTask`, `setTaskStatus`, `createTimesheet`) through `createEvent`, in the same transaction and by the actor who did it; they never notify, are never searched and cannot be edited or deleted. A change to the same value writes nothing, and a from/to event by the same actor of the same kind within 5 minutes of the entity's newest row (that row) is merged into it (deleted when it lands back on its `from`), so autosave does not flood the feed. `created` is never stored: `comments:get` synthesizes it from the task on the oldest page, which covers every older task. The `type` default is the owner's exception to rule 5, so the push adds the column to existing rows (all comments).

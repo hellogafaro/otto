@@ -33,6 +33,8 @@
     "@otto/shared": "workspace:*",
     "ws": "^8.19.0",
     "sharp": "0.34.5",
+    "pdfjs-dist": "5.4.296",
+    "@napi-rs/canvas": "0.1.88",
     "@earendil-works/pi-ai": "0.87.1"
   },
   "devDependencies": {

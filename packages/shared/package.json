@@ -22,6 +22,7 @@
     "./actors": "./src/actors.ts",
     "./db": "./src/db/index.ts",
     "./db/push": "./src/db/push.ts",
+    "./db/init-schema": "./src/db/init-schema.ts",
     "./db/mastra-tables": "./src/db/mastra-tables.ts",
     "./secrets": "./src/secrets/index.ts",
     "./secrets/import": "./src/secrets/import.ts",

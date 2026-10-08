@@ -243,7 +243,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
         }
 
         // For images: validate and resize if needed for Claude API compatibility
-        if (attachment.type === 'image') {
+        if (attachment.type === 'image' && process.env.OTTO_MASTRA_CHAT !== '1') {
           const imageInspection = await inspectImageBuffer(decoded, deps.platform.imageProcessor)
           const imageSize = imageInspection.status === 'ok'
             ? { width: imageInspection.width, height: imageInspection.height }
@@ -363,6 +363,7 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
       // 3. Convert Office files to markdown (for sending to Claude), saved as its own library item
       // This is required for Office files - Claude can't read raw Office binary
       let markdownPath: string | undefined
+      let markdownId: string | undefined
       if (attachment.type === 'office') {
         try {
           const result = await new MarkItDown().convertLocal(storedPath, { fileExtension: extname(attachment.name) })
@@ -376,9 +377,11 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
             bytes: Buffer.from(result.textContent, 'utf-8'),
             parentId,
             createdBy,
+            conversionOf: { id: item.id, updatedAt: item.updatedAt },
           })
           createdIds.push(markdown.id)
           markdownPath = getLibraryItemPath(workspace.rootPath, markdown.id)
+          markdownId = markdown.id
           deps.platform.logger.info(`Converted Office file to markdown: ${markdownPath}`)
         } catch (convertError) {
           // Conversion failed - throw so user knows the file can't be processed
@@ -398,10 +401,12 @@ export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): voi
         name: attachment.name,
         mimeType: attachment.mimeType,
         size: finalSize, // Use final size (may differ if resized)
+        updatedAt: item.updatedAt,
         originalSize: wasResized ? attachment.size : undefined, // Track original if resized
         storedPath,
         thumbnailBase64,
         markdownPath,
+        markdownId,
         wasResized,
         resizedBase64, // Only set when wasResized=true, used for Claude API
       }

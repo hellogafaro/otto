@@ -57,6 +57,7 @@ const REFERENCES = new Set([
   'project_id',
   'task_id',
   'parent_id',
+  'original_id',
   'chat_id',
   'status_id',
   'label_id',

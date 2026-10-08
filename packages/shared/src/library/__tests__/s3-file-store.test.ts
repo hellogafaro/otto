@@ -237,4 +237,19 @@ describe('the library domain on the S3 driver', () => {
     double.fail = undefined
     expect(lib.getLibraryItems('ws1')).toEqual([])
   })
+
+  test('bounded reads stream the existing object without trusting metadata or filling an unbounded cache', async () => {
+    const double = startDouble()
+    const { lib, b } = await setup(double)
+    const item = await lib.createLibraryItem({ workspaceId: 'ws1', title: 'n.txt', mime: 'text/plain', bytes: text('one'), createdBy: ME })
+    const object = double.objects.get(KEY_PREFIX + item.id)!
+    object.bytes = text('object larger than the row')
+    const before = double.requests.length
+    await expect(lib.readLibraryContent('ws1', item.id, { maxBytes: 4, signal: new AbortController().signal })).rejects.toThrow('read limit')
+    expect(double.requests.slice(before).some((request) => request.startsWith('GET '))).toBe(false)
+    object.bytes = text('one')
+    const input = await b.store.open(item.id, { maxBytes: 4, signal: new AbortController().signal })
+    expect(await new Response(input!.stream).text()).toBe('one')
+    expect(existsSync(join(b.dir, item.id))).toBe(false)
+  })
 })

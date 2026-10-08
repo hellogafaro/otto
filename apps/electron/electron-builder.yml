@@ -117,6 +117,10 @@ mac:
       to: app/node_modules/drizzle-orm
     - from: node_modules/drizzle-kit
       to: app/node_modules/drizzle-kit
+    - from: ../../node_modules/pdfjs-dist
+      to: app/node_modules/pdfjs-dist
+    - from: ../../node_modules/@napi-rs
+      to: app/node_modules/@napi-rs
     - from: node_modules/@img
       to: app/node_modules/@img
     # WhatsApp worker subprocess (self-contained; Baileys bundled in).
@@ -184,6 +188,10 @@ win:
       to: app/node_modules/drizzle-orm
     - from: node_modules/drizzle-kit
       to: app/node_modules/drizzle-kit
+    - from: ../../node_modules/pdfjs-dist
+      to: app/node_modules/pdfjs-dist
+    - from: ../../node_modules/@napi-rs
+      to: app/node_modules/@napi-rs
     - from: node_modules/@img
       to: app/node_modules/@img
     - from: vendor/bun/bun.exe
@@ -221,6 +229,10 @@ linux:
       to: app/node_modules/drizzle-orm
     - from: node_modules/drizzle-kit
       to: app/node_modules/drizzle-kit
+    - from: ../../node_modules/pdfjs-dist
+      to: app/node_modules/pdfjs-dist
+    - from: ../../node_modules/@napi-rs
+      to: app/node_modules/@napi-rs
     - from: node_modules/@img
       to: app/node_modules/@img
     # WhatsApp worker subprocess (self-contained; Baileys bundled in).

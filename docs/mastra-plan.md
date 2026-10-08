@@ -498,3 +498,47 @@ local/stdin sources, computer/browser isolation and constrained delegation remai
 Full-history search, old-data execution and remaining decision/routine callers also still
 gate default cutover and complete Pi package/transport/catalog/control deletion. No permanent
 flag or dual runtime is accepted; this bounded API checkpoint is not the finished pre-MVP.
+
+## Native attachment checkpoint
+
+Native admission resolves uploaded IDs against existing workspace Library rows and replaces
+client paths/type/name/size with server metadata. Raw client content is not model input.
+Existing chat membership guards and current run authorization apply before blobs are read.
+New Office conversions bind their original Library ID and version on the derivative row;
+client derivative IDs must match that relation. Editing derivative content clears its
+binding, and original changes/deletion invalidate it. Nullable additions preserve existing
+Library rows. Legacy Office references stay visible but need reattachment if no verified
+conversion exists; no guessed filename/path linking or history boot refusal is introduced.
+
+The native upload path preserves original image bytes and MIME rather than overwriting them
+with the legacy resized image. Unsupported originals fail during native preparation, not
+silently convert or substitute content. Model input supports UTF-8 text/JSON, verified Office
+Markdown, single PNG/JPEG/WebP/GIF images and inline PDF through pinned Session/OpenAI Responses.
+Limits are four attachments per message, 32 KiB per text/conversion, 5 MiB per image/PDF,
+2048 pixels per image edge, four PDF pages, 8 MiB per turn and a conservative 32K attachment
+allowance (UTF-8 bytes for text plus 8192 per image/PDF page and extracted PDF text bytes).
+This allowance is not a provider tokenizer or a guarantee of the model's full context fit.
+Explicit text-only catalog hints refuse image/PDF. Live account multimodal support remains
+unverified. There are no arbitrary URLs, host paths or external provider file uploads.
+
+History stores Library references/versions, not another binary transcript. Reload rebuilds
+bounded input from those references. Current attachments reserve allowance first; failed
+historical sets consume none and give an explicit unavailable/reattach marker while keeping
+their existing message/chip. Blob reads stream through the existing disk/S3 store with
+size/version checks and cancellation; S3 bounded reads do not materialize an unbounded cache.
+Native model input does not mutate originals or direct-edit Library document behavior.
+
+Actual boot/browser PDF testing exposed drizzle-kit/api's enumerable Array prototype
+extension. Schema push now runs unchanged in an isolated Bun worker, which closes its DB
+and returns before official storage initializes; failures/data-loss refusal stop boot.
+No prototype deletion or PDF.js patch is used. Desktop builds ship an explicit sibling
+schema worker and complete external PDF.js/canvas runtime packages. Mac arm64 isolated
+packaged-layout proof is not a full installer/Windows/Linux validation.
+
+Disposable tests/browser prove upload of text, a real Office conversion, image and PDF,
+inline wire parts, reload/history, foreign/forged/missing/deleted/stale references, original
+preservation, edited derivative invalidation, limits and cancellation. The model fixture
+proves provider request construction, not actual paid multimodal reasoning. Essential
+session/source callbacks are next; binary API downloads/local sources, isolated computers
+and constrained delegation, full-history search and remaining decision/routine consumers
+still gate actual native default and complete Pi deletion.

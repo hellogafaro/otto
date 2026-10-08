@@ -5541,6 +5541,13 @@ export class SessionManager implements ISessionManager {
       throw new Error(`Session ${sessionId} not found`)
     }
 
+    if (process.env.OTTO_MASTRA_CHAT === '1') {
+      if (attachments?.length && !storedAttachments?.length) throw new Error('Upload attachments into this workspace Library before sending them.')
+      const { resolveMastraAttachmentReferences } = await import('./mastra-attachments')
+      storedAttachments = resolveMastraAttachmentReferences(managed.workspace.id, storedAttachments)
+      attachments = undefined
+    }
+
     // Source-activation auto-retry dedup (otto#804). When the server
     // has just scheduled or committed a "[<slug> activated]" retry, drop a matching
     // duplicate that arrives from a legacy renderer still running the client-side
@@ -5854,7 +5861,7 @@ export class SessionManager implements ISessionManager {
 
     if (process.env.OTTO_MASTRA_CHAT === '1') {
       if (managed.agent) await this.disposeManagedAgentRuntime(managed, 'native Mastra migration slice')
-      await this.runMastraChat(managed, attachments?.length || storedAttachments?.length, myGeneration, turnStopEpoch)
+      await this.runMastraChat(managed, myGeneration, turnStopEpoch)
       return
     }
 
@@ -6268,14 +6275,13 @@ export class SessionManager implements ISessionManager {
     }
   }
 
-  private async runMastraChat(managed: ManagedSession, hasAttachments: number | undefined, generation: number, stopEpoch: number): Promise<void> {
+  private async runMastraChat(managed: ManagedSession, generation: number, stopEpoch: number): Promise<void> {
     const abort = new AbortController()
     managed.mastraAbort = abort
     const permissionMode = managed.permissionMode ?? 'ask'
     let reason: 'complete' | 'interrupted' | 'error' = 'error'
     let sourceTools:Awaited<ReturnType<typeof import('./mastra-source-tools').openMastraSourceTools>>|undefined
     try {
-      if (hasAttachments) throw new Error('Attachments are not supported by this native checkpoint yet.')
       const creatorId = userIdOf(managed.createdBy)
       const agentId = turnAgentOf(managed)
       const selectedAgent = agentId ? getAgent(managed.workspace.id, agentId) : undefined
@@ -6306,7 +6312,6 @@ export class SessionManager implements ISessionManager {
             ? this.attributed(managed, entry.content, entry.sender ?? entry.author ?? managed.createdBy)
             : entry.content,
         }))
-      const messages=projectHistory()
       let currentMessageId=managed.lastSentMessageIds?.at(-1)
       abort.signal.throwIfAborted()
       const { createMastraChatModel } = await import('./mastra-chat.ts')
@@ -6324,6 +6329,30 @@ export class SessionManager implements ISessionManager {
         }
       }
       assertAccess()
+      const { loadMastraAttachmentFiles } = await import('./mastra-attachments')
+      const modelEntry = connection.models?.find((entry) => typeof entry !== 'string' && entry.id === context.resolvedModel)
+      const supportsImages = typeof modelEntry === 'object' ? modelEntry.supportsImages !== false : true
+      const prepareHistory = async (excludeId?: string) => {
+        const budget = { bytes: 0, tokens: 0 }
+        const current = managed.messages.find((entry) => entry.id === excludeId)
+        const files = current?.attachments?.length ? await loadMastraAttachmentFiles({ workspaceId: managed.workspace.id, attachments: current.attachments, signal: abort.signal, assertAccess, supportsImages, budget }) : undefined
+        const projected: { role: 'user' | 'assistant'; content: string; files?: import('./mastra-attachments').MastraInputFile[] }[] = projectHistory(excludeId)
+        const entries = managed.messages.filter((entry) => entry.id !== excludeId && !entry.isQueued && !entry.hidden && (entry.role === 'user' || entry.role === 'assistant' || (entry.role === 'tool' && (entry.toolStatus === 'completed' || entry.toolStatus === 'error'))))
+        for (let index = 0; index < entries.length; index++) {
+          const entry = entries[index]!
+          if (!entry.attachments?.length) continue
+          try {
+            const files = await loadMastraAttachmentFiles({ workspaceId: managed.workspace.id, attachments: entry.attachments, signal: abort.signal, assertAccess, supportsImages, budget })
+            projected[index]!.files = files
+          } catch {
+            assertAccess()
+            projected[index]!.content += '\n[Historical attachment content is unavailable, changed, unverified or exceeds native input limits. Ask the user to reattach it; do not claim to have read it.]'
+          }
+        }
+        return { projected, files }
+      }
+      const initial = await prepareHistory(currentMessageId)
+      const messages = [...initial.projected, { role: 'user' as const, content: projectHistory().at(-1)?.content ?? '' }]
       if(managed.enabledSourceSlugs?.length){const {openMastraSourceTools}=await import('./mastra-source-tools');sourceTools=await openMastraSourceTools({workspaceId:managed.workspace.id,agentId:selectedAgent.id,slugs:managed.enabledSourceSlugs,sessionPath:getSessionStoragePath(managed.workspace.rootPath,managed.id),signal:abort.signal,assertAccess,mode:permissionMode,getMode:()=>managed.permissionMode??'ask',refresh:managed.tokenRefreshManager})}
       const contextForRun = getMastraContext({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, writesAllowed: managed.permissionMode !== 'safe', unattended: !!(managed.unattended || managed.triggeredBy), assertAccess, sourceSlugs:sourceTools?.slugs, onUnavailableSkill: (slug) => this.sendEvent({ type: 'info', sessionId: managed.id, message: `Skill "${slug}" is unavailable because its metadata is incompatible with the native runtime.`, level: 'warning' }, managed.workspace.id) })
       const workTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess })
@@ -6331,8 +6360,8 @@ export class SessionManager implements ISessionManager {
       await runMastraSession({
         chatId: managed.id, workspaceId: managed.workspace.id, ownerId: creatorId,
         agentId: selectedAgent.id, name: selectedAgent.title,
-        instructions: contextForRun.instructions, skills: contextForRun.skills, messages,
-        history:async()=>{assertAccess();await this.flushSession(managed.id);return projectHistory(currentMessageId)},
+        instructions: contextForRun.instructions, skills: contextForRun.skills, messages, files: initial.files,
+        history:async()=>{assertAccess();await this.flushSession(managed.id);return (await prepareHistory(currentMessageId)).projected},
         model: createMastraChatModel({ provider: connection.type, model: context.resolvedModel, apiKey, baseUrl: connection.baseUrl }),
         signal: abort.signal, assertAccess,
         tools: {...(managed.permissionMode === 'safe' ? Object.fromEntries(Object.entries(workTools).filter(([name]) => !MASTRA_WORK_WRITES.has(name))) : workTools),...sourceTools?.tools},
@@ -6362,7 +6391,7 @@ export class SessionManager implements ISessionManager {
       if (this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation) return
       reason = abort.signal.aborted ? 'interrupted' : 'error'
       if (managed.streamingTurnId) await this.processEvent(managed, { type: 'text_discard', turnId: managed.streamingTurnId })
-      if (!abort.signal.aborted) await this.processEvent(managed, { type: 'error', message: 'The native request could not complete. Check the OpenAI API-key connection and selected remote MCP/API sources. Attachments and local sources are not available yet.' })
+      if (!abort.signal.aborted) await this.processEvent(managed, { type: 'error', message: 'The native request could not complete. Check the connection, sources and attachments. Native attachments require available Library items, verified Office conversions and supported bounded text/image/PDF input; reattach missing or changed files. Local sources remain unavailable.' })
     } finally {
       if(managed.processingGeneration===generation&&this.sessions.get(managed.id)===managed){
         managed.mastraSession=undefined

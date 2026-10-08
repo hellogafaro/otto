@@ -52,7 +52,7 @@ import { LOCAL_EMAIL, LOCAL_NAME } from '@otto/shared/users/queries'
 import { getAllPiModels, getPiModelsForAuthProvider, getWorkspaces, registerPiModelResolver } from '@otto/shared/config'
 import { CONFIG_DIR } from '@otto/shared/config/paths'
 import { initDb } from '@otto/shared/db'
-import { pushSchema } from '@otto/shared/db/push'
+import { initSchema } from '@otto/shared/db/init-schema'
 import { ensureDefaultPermissions, setPowerShellValidatorRoot } from '@otto/shared/agent'
 import { RPC_CHANNELS } from '@otto/shared/protocol'
 import { createMessagingBootstrap, type MessagingBootstrapHandle } from '@otto/messaging-gateway'
@@ -128,7 +128,7 @@ registerPiModelResolver((provider) => (provider ? getPiModelsForAuthProvider(pro
 // `bun run db:push`), and refuses a change that would lose data (the server does not start; db:push --force decides).
 try {
   mkdirSync(CONFIG_DIR, { recursive: true })
-  const statements = await pushSchema(initDb())
+  const statements = await initSchema()
   if (statements.length) console.log(`Database schema: applied ${statements.length} statements`)
 } catch (err) {
   console.error(err instanceof Error ? err.message : err)

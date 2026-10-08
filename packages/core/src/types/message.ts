@@ -242,6 +242,8 @@ export interface StoredAttachment {
   storedPath: string;            // Full path to the file on disk (a library item)
   thumbnailBase64?: string;      // Base64-encoded thumbnail PNG (for renderer display)
   markdownPath?: string;         // For Office files: converted markdown for Claude
+  markdownId?: string;
+  updatedAt?: number;
   wasResized?: boolean;          // True if image was auto-resized for Claude API limits
   resizedBase64?: string;        // Base64 of resized image (only when wasResized=true, for Claude API)
 }

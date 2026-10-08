@@ -17,9 +17,11 @@ export const library = sqliteTable(
     title: text('title').notNull(),
     mime: text('mime'),
     size: integer('size'),
+    originalId: text('original_id'),
+    originalUpdatedAt: integer('original_updated_at', { mode: 'timestamp_ms' }),
     createdBy: text('created_by').notNull(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
-  (table) => [index('library_workspace_parent').on(table.workspaceId, table.parentId)],
+  (table) => [index('library_workspace_parent').on(table.workspaceId, table.parentId), index('library_workspace_original').on(table.workspaceId, table.originalId)],
 )

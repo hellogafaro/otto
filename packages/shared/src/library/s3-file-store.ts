@@ -110,7 +110,15 @@ export function createS3FileStore(options: { client: S3Client; keyPrefix: string
       return path === undefined ? undefined : new Uint8Array(await Bun.file(path).arrayBuffer())
     },
 
-    async open(key) {
+    async open(key, options) {
+      if (options) {
+        options.signal.throwIfAborted()
+        const stat = await client.stat(objectOf(key)).catch(orUndefined<Awaited<ReturnType<S3Client['stat']>>>)
+        options.signal.throwIfAborted()
+        if (!stat) return undefined
+        if (stat.size > options.maxBytes) throw new Error('The stored object exceeds the read limit')
+        return { stream: client.file(objectOf(key)).stream(), size: stat.size }
+      }
       if (!cacheDir) {
         const bytes = await readObject(key)
         return bytes && { stream: new ReadableStream<Uint8Array>({ start: (controller) => (controller.enqueue(bytes), controller.close()) }), size: bytes.length }

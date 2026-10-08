@@ -42,6 +42,8 @@ function toItem(row: Row): LibraryItem {
     title: row.title,
     mime: row.mime,
     size: row.size,
+    originalId: row.originalId,
+    originalUpdatedAt: row.originalUpdatedAt?.getTime() ?? null,
     createdBy: row.createdBy,
     createdAt: row.createdAt.getTime(),
     updatedAt: row.updatedAt.getTime(),
@@ -119,9 +121,46 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
     return toItem(db.insert(library).values({ ...row, createdAt: now, updatedAt: now }).returning().get())
   }
 
-  async function readContent(workspaceId: string, id: string): Promise<Uint8Array> {
+  async function readContent(workspaceId: string, id: string, options?: { maxBytes: number; signal: AbortSignal }): Promise<Uint8Array> {
     const row = getRow(workspaceId, id)
     if (row.type === 'folder') throw domainError('invalid', 'A folder has no content')
+    if (options) {
+      options.signal.throwIfAborted()
+      if (!Number.isSafeInteger(options.maxBytes) || options.maxBytes <= 0 || !row.size || row.size > options.maxBytes) throw domainError('too_large', 'The file exceeds the input limit')
+      const opened = await storeFor(workspaceId).open(id, options)
+      if (options.signal.aborted) {
+        await opened?.stream.cancel()
+        options.signal.throwIfAborted()
+      }
+      if (!opened) throw domainError('not_found', 'The file content is missing')
+      if (opened.size !== row.size || opened.size > options.maxBytes) {
+        await opened.stream.cancel()
+        throw domainError('conflict', 'The file content differs from its stored size')
+      }
+      const reader = opened.stream.getReader()
+      const abort = () => { void reader.cancel().catch(() => {}) }
+      options.signal.addEventListener('abort', abort, { once: true })
+      if (options.signal.aborted) abort()
+      const chunks: Uint8Array[] = []
+      let size = 0
+      try {
+        while (true) {
+          options.signal.throwIfAborted()
+          const part = await reader.read()
+          options.signal.throwIfAborted()
+          if (part.done) break
+          size += part.value.byteLength
+          if (size > options.maxBytes) throw domainError('too_large', 'The file exceeds the input limit')
+          chunks.push(part.value)
+        }
+        if (size !== row.size || getRow(workspaceId, id).updatedAt.getTime() !== row.updatedAt.getTime()) throw domainError('conflict', 'The file changed while it was read')
+        return new Uint8Array(Buffer.concat(chunks, size))
+      } finally {
+        options.signal.removeEventListener('abort', abort)
+        await reader.cancel().catch(() => {})
+        reader.releaseLock()
+      }
+    }
     const bytes = await storeFor(workspaceId).get(id)
     if (!bytes) throw domainError('not_found', `The content of ${id} is missing`)
     return bytes
@@ -142,6 +181,8 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       title,
       mime: null,
       size: null,
+      originalId: null,
+      originalUpdatedAt: null,
       createdBy,
     })
   }
@@ -167,6 +208,7 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       bytes: Uint8Array
       parentId?: string | null
       createdBy: string
+      conversionOf?: { id: string; updatedAt: number }
     }): Promise<LibraryItem> {
       const title = assertTitle(input.title)
       const createdBy = assertActor(input.createdBy)
@@ -175,9 +217,12 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
       folderChain(input.workspaceId, parentId)
       const mime = input.mime.trim() || 'application/octet-stream'
       const id = crypto.randomUUID()
+      const original = input.conversionOf ? getRow(input.workspaceId, input.conversionOf.id) : undefined
+      if (original && (original.type === 'folder' || original.updatedAt.getTime() !== input.conversionOf!.updatedAt || mime !== 'text/markdown')) throw domainError('conflict', 'The original changed before conversion')
       const store = storeFor(input.workspaceId)
       await store.put(id, input.bytes)
       try {
+        if (original && getRow(input.workspaceId, original.id).updatedAt.getTime() !== original.updatedAt.getTime()) throw domainError('conflict', 'The original changed during conversion')
         return insert({
           id,
           workspaceId: input.workspaceId,
@@ -186,6 +231,8 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
           title,
           mime,
           size: input.bytes.length,
+          originalId: original?.id ?? null,
+          originalUpdatedAt: original?.updatedAt ?? null,
           createdBy,
         })
       } catch (error) {
@@ -197,6 +244,13 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
     getLibraryItem(workspaceId: string, id: string): LibraryItem | undefined {
       const row = find(workspaceId, id)
       return row && toItem(row)
+    },
+
+    getLibraryConversion(workspaceId: string, originalId: string): LibraryItem | undefined {
+      const original = getRow(workspaceId, originalId)
+      const row = db.select().from(library).where(and(eq(library.workspaceId, workspaceId), eq(library.originalId, originalId))).orderBy(desc(library.createdAt)).get()
+      if (!row || row.originalUpdatedAt?.getTime() !== original.updatedAt.getTime()) return undefined
+      return toItem(row)
     },
 
     /** Folders first, then the most recently updated. */
@@ -276,6 +330,8 @@ export function createLibraryStore(db: Db, storeFor: (workspaceId: string) => Fi
         }
         assertSize(content)
         changes.size = content.length
+        changes.originalId = null
+        changes.originalUpdatedAt = null
       }
 
       // Strictly after the stored value, so two saves in one millisecond still tell apart.
@@ -337,10 +393,11 @@ export const createLibraryFolder: Store['createLibraryFolder'] = (input) => defa
 export const initChatAttachmentsFolder: Store['initChatAttachmentsFolder'] = (workspaceId, createdBy) => defaultStore().initChatAttachmentsFolder(workspaceId, createdBy)
 export const createLibraryItem: Store['createLibraryItem'] = (input) => defaultStore().createLibraryItem(input)
 export const getLibraryItem: Store['getLibraryItem'] = (workspaceId, id) => defaultStore().getLibraryItem(workspaceId, id)
+export const getLibraryConversion: Store['getLibraryConversion'] = (workspaceId, id) => defaultStore().getLibraryConversion(workspaceId, id)
 export const getLibraryItems: Store['getLibraryItems'] = (workspaceId, filter) => defaultStore().getLibraryItems(workspaceId, filter)
 export const searchLibraryItems: Store['searchLibraryItems'] = (workspaceId, query, limit) => defaultStore().searchLibraryItems(workspaceId, query, limit)
 export const getLibraryFolderPath: Store['getLibraryFolderPath'] = (workspaceId, id) => defaultStore().getLibraryFolderPath(workspaceId, id)
-export const readLibraryContent: Store['readLibraryContent'] = (workspaceId, id) => defaultStore().readLibraryContent(workspaceId, id)
+export const readLibraryContent: Store['readLibraryContent'] = (workspaceId, id, options) => defaultStore().readLibraryContent(workspaceId, id, options)
 export const readLibraryText: Store['readLibraryText'] = (workspaceId, id) => defaultStore().readLibraryText(workspaceId, id)
 export const updateLibraryItem: Store['updateLibraryItem'] = (workspaceId, id, patch) => defaultStore().updateLibraryItem(workspaceId, id, patch)
 export const deleteLibraryItem: Store['deleteLibraryItem'] = (workspaceId, id) => defaultStore().deleteLibraryItem(workspaceId, id)

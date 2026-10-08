@@ -277,6 +277,11 @@ async function buildWhatsAppWorker(): Promise<void> {
 // when bundled (its lazily initialised dialects), so electron-builder.yml ships both under app/node_modules.
 async function buildServer(): Promise<void> {
   console.log("🗄️  Building the server...");
+  const worker = spawn({
+    cmd: ["bun", "run", "esbuild", join(ROOT_DIR, "packages/shared/src/db/push-worker.ts"), "--bundle", "--platform=node", "--format=esm", "--target=esnext", `--outfile=${join(DIST_DIR, "schema-worker.js")}`, "--external:bun", "--external:bun:*", "--external:drizzle-orm", "--external:drizzle-kit", "--log-level=error"],
+    cwd: ROOT_DIR, stdout: "inherit", stderr: "inherit",
+  });
+  if ((await worker.exited) !== 0 || !existsSync(join(DIST_DIR, "schema-worker.js"))) throw new Error("Schema worker build failed");
   const proc = spawn({
     cmd: [
       "bun", "run", "esbuild",
@@ -290,6 +295,7 @@ async function buildServer(): Promise<void> {
       "--external:bun:*",
       "--external:drizzle-orm",
       "--external:drizzle-kit",
+      "--external:pdfjs-dist",
       // markitdown-js default-imports xlsx, whose ESM build has no default export: take its CommonJS build
       "--alias:xlsx=./node_modules/xlsx/xlsx.js",
       "--log-level=error",
