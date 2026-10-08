@@ -1,4 +1,23 @@
 # syntax=docker/dockerfile:1
+ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.8
+ARG BUN_IMAGE=oven/bun:1.4.2-slim
+FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS task
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git ripgrep \
+ && rm -rf /var/lib/apt/lists/* \
+ && userdel -r node \
+ && useradd --create-home --uid 1000 --shell /bin/bash agent
+USER agent
+WORKDIR /home/agent
+ENV HOME=/home/agent
+RUN mkdir -p chats \
+ && node -e 'if(Number(process.versions.node.split(".")[0])!==22)process.exit(1)' \
+ && bash --version >/dev/null \
+ && git --version >/dev/null \
+ && rg --version >/dev/null
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["sleep", "infinity"]
+
 # The agent's computer: a desktop (Xvfb + Openbox), the agent's browser (Fortress, a stealth Chromium fork, with CDP
 # on the box's loopback), noVNC for people, and the CLI tools an agent shell needs, including the `otto` CLI on Bun.
 # DockerComputer (packages/shared/src/computer/docker.ts) runs it; see docs/computers.md. Build from the repo root:
@@ -8,8 +27,6 @@
 # The browser is always Fortress: the build fails when its release cannot be downloaded or its checksum differs;
 # there is no stock Chromium in the image to fall back to.
 
-ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.8
-ARG BUN_IMAGE=oven/bun:1.4.2-slim
 FROM ${UV_IMAGE} AS uv
 FROM ${BUN_IMAGE} AS bun
 

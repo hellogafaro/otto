@@ -8,7 +8,7 @@ import { createMastraComputerTools } from './mastra-computer-tools.ts'
 const enabled = process.env.OTTO_TEST_CHAT_COMPUTER_DOCKER === '1'
 it.skipIf(!enabled)('proves real independent container volumes, offline network, tool IO and Stop of owned background descendants', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'otto-chat-computer-'))
-  const image = `otto-chat-proof:${crypto.randomUUID()}`
+  const image = process.env.OTTO_TEST_TASK_IMAGE ?? `otto-chat-proof:${crypto.randomUUID()}`
   const docker = async (...args: string[]) => {
     const process = Bun.spawn(['docker', ...args], { stdout: 'pipe', stderr: 'pipe', stdin: 'ignore' })
     const [stdout, stderr, code] = await Promise.all([new Response(process.stdout).text(), new Response(process.stderr).text(), process.exited])
@@ -19,9 +19,11 @@ it.skipIf(!enabled)('proves real independent container volumes, offline network,
   let second: ChatComputer | undefined
   let built = false
   try {
+    if (!process.env.OTTO_TEST_TASK_IMAGE) {
     writeFileSync(join(directory, 'Dockerfile'), 'FROM rift-rift:latest\nUSER root\nRUN printf "agent:x:17731:17731::/home/agent:/bin/bash\\n" >> /etc/passwd && printf "agent:x:17731:\\n" >> /etc/group && mkdir /home/agent && chown 17731:17731 /home/agent\nUSER agent\nWORKDIR /home/agent\nHEALTHCHECK NONE\nENTRYPOINT ["/bin/sh", "-c", "exec sleep 3600"]\n')
     await docker('build', '--pull=false', '-t', image, directory)
     built = true
+    }
     const { addWorkspace, saveConfig } = await import('../../../shared/src/config/storage.ts')
     const { getLibraryItems, readLibraryContent } = await import('../../../shared/src/library/index.ts')
     saveConfig({ workspaces: [] })

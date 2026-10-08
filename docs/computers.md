@@ -1,5 +1,43 @@
 # Computers: where an agent runs commands and browses
 
+## Current native offline task image
+
+Build only the `task` target for native coding/task execution; it does not download or
+include Fortress, a desktop, browser CLI or exposed ports:
+
+```sh
+docker build --target task --pull=false -t otto-task:latest docker/otto-agent
+SKIP_BUILD=1 bash scripts/task-image-smoke-test.sh otto-task:latest
+```
+
+The Node22/bookworm-slim base is pinned by multi-platform digest in the Dockerfile.
+Bash/coreutils already belong to that base; the target installs only Debian git and
+ripgrep plus their runtime dependencies. Node22 satisfies native `edit`/`publish_file`
+filesystem/TextDecoder scripts; no Bun, Python/uv, compiler or npm tool is added ahead
+of an existing consumer. Debian packages resolve from the distro repositories at build
+time, so base pinning is exact but apt dependency resolution is not an immutable snapshot.
+Rebuild intentionally for security updates; record the resulting local image ID.
+
+Set `OTTO_COMPUTER=docker` on the server; native task allocations default to
+`otto-task:latest`. `OTTO_COMPUTER_IMAGE` can select an explicitly built alternative.
+Each independently writing task/child uses a fresh UUID container/home volume,
+`--network none`, no host mounts/ports/aliases, no model/source credentials and nonroot
+uid1000. Scratch disappears with exact owned cleanup; explicit `publish_file` creates
+the durable artifact in existing Library and its chat link. Stop terminates the entire
+owned container, including background descendants, without terminating sibling tasks.
+The image is kept locally for user testing; no registry push is required.
+
+Verified on Pro linux/arm64 image: Node22.23.3, git2.39.5, ripgrep13.0.0;
+actual fresh-allocation read/write/edit/bash/publication/Stop/sibling isolation tests
+pass against this target, not the earlier unrelated proof image. Website browsing is
+separate: the offline target has no browser or outbound network, and building it does
+not resolve remote-browser ownership/screens/Stop or license decisions.
+
+## Historical desktop computer implementation
+
+The earlier desktop/Fortress target and sections below are historical non-MVP context.
+They are not the native task default and must not be used as evidence of browser approval.
+
 Plan: [final-plan](final-plan.md) 2.5, phases C1 and C2; background in [harness-plan](harness-plan.md) "The computer (H2)" and [agent-computers](agent-computers.md). Code: `packages/shared/src/computer/` (`@otto/shared/computer`), `packages/shared/src/browser/` (`@otto/shared/browser`). Image: `docker/otto-agent/`. Built 7 Oct 2026, not committed.
 
 ## Modes

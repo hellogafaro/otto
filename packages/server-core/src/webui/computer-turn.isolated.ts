@@ -18,7 +18,7 @@ const usage = { inputTokens: 2, outputTokens: 1, totalTokens: 3 }
 
 it.skipIf(!enabled)('native Session uses only its task computer, publishes explicit Library output, and Stop kills owned descendants without harming a sibling', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'otto-native-computer-turn-'))
-  const image = `otto-chat-proof:${crypto.randomUUID()}`
+  const image = process.env.OTTO_TEST_TASK_IMAGE ?? `otto-chat-proof:${crypto.randomUUID()}`
   let built = false
   let computer: ChatComputer | undefined
   let sibling: ChatComputer | undefined
@@ -29,9 +29,11 @@ it.skipIf(!enabled)('native Session uses only its task computer, publishes expli
     return stdout.trim()
   }
   try {
+    if (!process.env.OTTO_TEST_TASK_IMAGE) {
     writeFileSync(join(directory, 'Dockerfile'), 'FROM rift-rift:latest\nUSER root\nRUN printf "agent:x:17731:17731::/home/agent:/bin/bash\\n" >> /etc/passwd && printf "agent:x:17731:\\n" >> /etc/group && mkdir /home/agent && chown 17731:17731 /home/agent\nUSER agent\nWORKDIR /home/agent\nHEALTHCHECK NONE\nENTRYPOINT ["/bin/sh", "-c", "exec sleep 3600"]\n')
     await docker('build', '--pull=false', '-t', image, directory)
     built = true
+    }
     saveConfig({ workspaces: [] })
     const workspace = addWorkspace({ name: 'Native computer fixture', rootPath: join(directory, 'workspace') })
     const scope = { workspaceId: workspace.id, agentId: crypto.randomUUID(), chatId: crypto.randomUUID() }

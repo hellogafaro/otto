@@ -20,7 +20,7 @@ export class ChatComputer implements Computer {
     }
     const allocationId = crypto.randomUUID()
     this.docker = options.docker ?? 'docker'
-    this.computer = new DockerComputer({ agentId: allocationId, workspaceId: scope.workspaceId, network: 'none', hostAccess: false, publishPorts: false, ...options })
+    this.computer = new DockerComputer({ agentId: allocationId, workspaceId: scope.workspaceId, network: 'none', hostAccess: false, publishPorts: false, ...options, image: options.image ?? 'otto-task:latest' })
     this.id = this.computer.id
     this.cwd = boxChatDir(scope.chatId)
   }
