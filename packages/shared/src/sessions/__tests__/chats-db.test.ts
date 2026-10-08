@@ -147,7 +147,7 @@ describe('initChatsImport', () => {
     expect((chats['260102-routine-run'] as SessionConfig).triggeredBy).toMatchObject({ automationName: 'Digest', automationId: 'aaaaaa', depth: 1 })
 
     // messages: status dropped, missing timestamp inherited, the last line of a duplicate id wins, truncated line skipped
-    const stored = loadSession(ws, '260105-vital-zenith', db)!
+    const stored = getMessagesPage(W, '260105-vital-zenith', getSessionPath(ws.rootPath, '260105-vital-zenith'), {}, db)
     expect(stored.messages.map((m) => m.id)).toEqual(['m1', 'm2', 'm3', 'm4', 'm5'])
     expect(stored.messages[4]!.timestamp).toBe(3000)
     // paths: the chat folder is stored as the token and read back as this folder
@@ -250,7 +250,7 @@ describe('write path', () => {
     messages[2] = { ...messages[2]!, timestamp: 30, isQueued: false } // replayed: re-stamped
     await write(chat, messages)
     expect(positions(db, 'w1').map((row) => row.id)).toEqual(['u1', 'a1', 'q1'])
-    expect(loadSession({ id: W, rootPath: '/tmp/w' }, 'w1', db)!.messages.find((m) => m.id === 'a1')!.content).toBe('two, edited')
+    expect(getMessagesPage(W, 'w1', getSessionPath('/tmp/w', 'w1'), {}, db).messages.find((m) => m.id === 'a1')!.content).toBe('two, edited')
   })
 
   it('deletes rows that left, with their search entries; a header-only write keeps every message', async () => {
@@ -550,7 +550,7 @@ describe('durability', () => {
     await write(chatOf('r2'), [msg('u1', 'user', 1, { content: 'idle chat' })])
 
     expect(runChatsRecovery(db)).toEqual({ chats: 1, partial: 1, tools: 1 })
-    const messages = loadSession({ id: W, rootPath: '/tmp/w' }, 'r1', db)!.messages as Array<StoredMessage & Record<string, unknown>>
+    const messages = getMessagesPage(W, 'r1', getSessionPath('/tmp/w', 'r1'), {}, db).messages as Array<StoredMessage & Record<string, unknown>>
     expect(messages.find((m) => m.id === 't1')).toMatchObject({ toolStatus: 'error', isError: true, interrupted: true })
     expect(messages.find((m) => m.id === 't0')).toMatchObject({ toolStatus: 'completed' })
     expect(messages.find((m) => m.id === 'partial-x')).toMatchObject({ content: 'half a giraffe', interrupted: true })

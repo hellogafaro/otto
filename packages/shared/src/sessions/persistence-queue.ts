@@ -9,6 +9,7 @@ import {
 } from './messages.ts'
 import type { StoredMessage } from './types.ts'
 import { assertHistoryRuntime } from './native-messages.ts'
+import { updateChatMemberRead, type ChatMember } from './members.ts'
 
 /** What a chat looks like at flush time: the queue asks for it then, so a burst of changes is one batch. */
 export interface ChatWrite {
@@ -18,6 +19,7 @@ export interface ChatWrite {
   /** Every message the server holds for the chat; absent when they are not loaded (only the chat row is written). */
   messages?: StoredMessage[]
   writeNativeMessages?: (messages: StoredMessage[]) => Promise<void>
+  memberReads?: ChatMember[]
 }
 
 interface WrittenRow {
@@ -185,7 +187,7 @@ export class ChatPersistenceQueue {
 
   private write(
     chatId: string,
-    { chat, sessionDir, messages }: ChatWrite,
+    { chat, sessionDir, messages, memberReads }: ChatWrite,
   ): void {
     const db = this.db()
     initMessages(db)
@@ -235,6 +237,7 @@ export class ChatPersistenceQueue {
           newestAt,
           labels: labelsChanged ? (chat.labels ?? []) : undefined,
         })
+        for (const member of memberReads ?? []) updateChatMemberRead(chat.workspaceId, chatId, member.actor, member.readAt, tx)
       },
       { behavior: 'immediate' },
     )

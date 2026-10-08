@@ -53,7 +53,6 @@ import {
   getChatsMembers,
   addChatMembers,
   removeChatMember,
-  updateChatMemberRead,
   clearChatDmKey,
   getDmChatId,
   toDmKey,
@@ -1921,7 +1920,8 @@ export class SessionManager implements ISessionManager {
       running: managed.isProcessing,
       agents: managed.agents,
     } as ChatWrite['chat']
-    if (!managed.messagesLoaded) return { chat, sessionDir }
+    const memberReads = managed.members.filter((member) => isPersonActor(member.actor)).map((member) => ({ actor: member.actor, readAt: member.readAt }))
+    if (!managed.messagesLoaded) return { chat, sessionDir, memberReads }
     const messages = managed.messages.filter(m => m.role !== 'status').map(messageToStored)
     if (managed.streamingText) {
       messages.push({
@@ -1933,7 +1933,7 @@ export class SessionManager implements ISessionManager {
         partial: true,
       } as StoredMessage & { partial: true })
     }
-    return { chat, sessionDir, messages, ...({writeNativeMessages:(snapshot:StoredMessage[])=>writeMastraHistory({workspaceId:managed.workspace.id,chatId:managed.id,title:managed.name,sessionDir,messages:snapshot})}) }
+    return { chat, sessionDir, messages, memberReads, ...({writeNativeMessages:(snapshot:StoredMessage[])=>writeMastraHistory({workspaceId:managed.workspace.id,chatId:managed.id,title:managed.name,sessionDir,messages:snapshot})}) }
   }
 
   // Write a chat's queued changes now. Rejects when the write fails (the queue keeps them and retries).
@@ -3178,7 +3178,7 @@ export class SessionManager implements ISessionManager {
     const member = managed.members.find((entry) => entry.actor === `user:${userId}`)
     if (!member || member.readAt === readAt) return false
     member.readAt = readAt
-    updateChatMemberRead(managed.workspace.id, managed.id, member.actor, readAt)
+    this.persistSession(managed)
     return true
   }
 
@@ -3196,7 +3196,9 @@ export class SessionManager implements ISessionManager {
       managed.lastReadMessageId = lastFinalId
       this.persistSession(managed)
     }
-    if (hasUnreadFor(managed, viewer) && this.setReadAt(managed, viewer, Math.max(Date.now(), managed.lastMessageAt))) this.emitUnreadSummaryChanged()
+    const changed = hasUnreadFor(managed, viewer) && this.setReadAt(managed, viewer, Math.max(Date.now(), managed.lastMessageAt))
+    await this.flushSession(sessionId)
+    if (changed) this.emitUnreadSummaryChanged()
   }
 
   /** Marks a chat unread for a person (their `read_at` cleared); "Mark unread" in the menus. */
@@ -3207,18 +3209,22 @@ export class SessionManager implements ISessionManager {
     if (!viewer) return
     managed.lastReadMessageId = undefined
     this.persistSession(managed)
-    if (this.setReadAt(managed, viewer, null)) this.emitUnreadSummaryChanged()
+    const changed = this.setReadAt(managed, viewer, null)
+    await this.flushSession(sessionId)
+    if (changed) this.emitUnreadSummaryChanged()
   }
 
   /** Marks every non-archived chat of a workspace that `viewerId` sees read for them (omitted: each chat's creator). */
   async markAllSessionsRead(workspaceId: string, viewerId?: string | null): Promise<void> {
     let changed = false
+    const writes: string[] = []
     const visible = viewerId === undefined ? () => true : this.canSee(viewerId)
     for (const managed of this.sessions.values()) {
       if (managed.workspace.id !== workspaceId || !visible(managed) || managed.isArchived || managed.isProcessing) continue
       const viewer = viewerId === undefined ? userIdOf(managed.createdBy) : viewerId
-      if (viewer && hasUnreadFor(managed, viewer)) changed = this.setReadAt(managed, viewer, Math.max(Date.now(), managed.lastMessageAt)) || changed
+      if (viewer && hasUnreadFor(managed, viewer) && this.setReadAt(managed, viewer, Math.max(Date.now(), managed.lastMessageAt))) { changed = true; writes.push(managed.id) }
     }
+    await Promise.all(writes.map((id) => this.flushSession(id)))
     if (changed) this.emitUnreadSummaryChanged()
   }
 
