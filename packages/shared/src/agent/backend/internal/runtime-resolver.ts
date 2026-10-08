@@ -66,28 +66,6 @@ function resolveBundledRuntimePath(hostRuntime: BackendHostRuntimeContext): stri
   return undefined;
 }
 
-function resolveInterceptorBundlePath(hostRuntime: BackendHostRuntimeContext): string | undefined {
-  if (hostRuntime.interceptorBundlePath && existsSync(hostRuntime.interceptorBundlePath)) {
-    return hostRuntime.interceptorBundlePath;
-  }
-
-  // In dev / monorepo runs, prefer the TypeScript source so changes are
-  // picked up without a manual `bun run build:interceptor`. Bun handles
-  // `--require <file>.ts` natively. Packaged builds always go through the
-  // pre-built `dist/interceptor.cjs` bundle.
-  if (!hostRuntime.isPackaged) {
-    const source = resolveUpwards(
-      hostRuntime.appRootPath,
-      join('packages', 'shared', 'src', 'unified-network-interceptor.ts'),
-      10,
-    );
-    if (source) return source;
-  }
-
-  return resolveUpwards(hostRuntime.appRootPath, join('dist', 'interceptor.cjs'))
-    ?? resolveUpwards(hostRuntime.appRootPath, join('apps', 'electron', 'dist', 'interceptor.cjs'));
-}
-
 function resolveServerPath(hostRuntime: BackendHostRuntimeContext, serverName: string): string | undefined {
   if (hostRuntime.isPackaged) {
     return firstExistingPath([
@@ -138,7 +116,6 @@ export function resolveBackendRuntimePaths(hostRuntime: BackendHostRuntimeContex
   const bundledRuntimePath = hostRuntime.nodeRuntimePath || resolveBundledRuntimePath(hostRuntime);
 
   return {
-    interceptorBundlePath: resolveInterceptorBundlePath(hostRuntime),
     nodeRuntimePath: hostRuntime.nodeRuntimePath || bundledRuntimePath || process.execPath,
     bundledRuntimePath,
   };

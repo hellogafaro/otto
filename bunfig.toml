@@ -1,8 +1,7 @@
-preload = ["./packages/shared/src/unified-network-interceptor.ts"]
 
 # Tests never touch ~/.otto: the preload points OTTO_CONFIG_DIR at a temp dir.
 [test]
-preload = ["./packages/shared/src/unified-network-interceptor.ts", "./scripts/test-preload.ts"]
+preload = ["./scripts/test-preload.ts"]
 
 # Use the hoisted linker so transitive deps resolve at top-level node_modules.
 # Vite + esbuild bundling expects this layout; bun's default isolated linker

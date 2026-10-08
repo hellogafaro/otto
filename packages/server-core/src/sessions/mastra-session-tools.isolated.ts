@@ -62,6 +62,13 @@ it('native canonical session callbacks preserve creator audience, human closure 
   const listed = loadSession(workspace, chat.id)!.messages.filter((message) => message.type === 'tool' && message.toolName === 'list_work').at(-1)!
   expect(listed.toolStatus).toBe('completed')
   expect(JSON.parse(listed.toolResult!)).toMatchObject({ projects: [], tasks: [], documents: [] })
+  call = { name: 'list_work', args: { _intent: 'controlled invalid argument' } }
+  await manager.sendMessage(chat.id, 'Reject unadvertised input.', undefined, undefined, { sender: actor })
+  const invalid = loadSession(workspace, chat.id)!.messages.filter((message) => message.type === 'tool' && message.toolName === 'list_work').at(-1)!
+  expect(invalid.toolStatus).toBe('error')
+  expect(invalid.isError).toBe(true)
+  expect(invalid.toolResult).toContain('Tool input validation failed')
+  expect(invalid.toolResult).not.toContain('controlled invalid argument')
   expect(expose).toContain('mcp__session__get_session_info')
   expect(expose).not.toContain('mcp__session__set_session_status')
   expect(expose).not.toContain('mcp__session__source_credential_prompt')

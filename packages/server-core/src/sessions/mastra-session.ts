@@ -174,11 +174,15 @@ export async function runMastraSession(input: {
         turnId,
       })
     } else if (event.type === 'tool_end') {
+      const result = event.result
+      const envelope = result && typeof result === 'object' ? result as { error?: unknown; isError?: unknown; validationErrors?: unknown } : undefined
+      const invalidInput = envelope?.error === true && envelope.validationErrors !== undefined
+      const isError = event.isError || event.denied === true || envelope?.isError === true || (envelope?.error !== undefined && envelope.error !== false && envelope.error !== null)
       emit({
         type: 'tool_result',
         toolUseId: event.toolCallId,
-        result: JSON.stringify(event.result),
-        isError: event.isError || event.denied === true,
+        result: JSON.stringify(invalidInput ? { error: 'Tool input validation failed. Use only the advertised schema fields.' } : result),
+        isError,
         turnId,
       })
     } else if (event.type === 'tool_approval_required')
