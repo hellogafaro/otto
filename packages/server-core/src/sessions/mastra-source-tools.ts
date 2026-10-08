@@ -1,4 +1,4 @@
-import { createTool } from '@mastra/core/tools'
+import { createTool, type Tool } from '@mastra/core/tools'
 import { toStandardSchema } from '@mastra/core/schema'
 import { McpClientPool } from '@otto/shared/mcp'
 import { getAgentRunConfig } from '@otto/shared/agents'
@@ -10,6 +10,7 @@ import {
 import { getWorkspaceByNameOrId } from '@otto/shared/config'
 import { buildServersFromSources } from '../sources/build-servers'
 import { shouldAllowToolInMode, type PermissionMode } from '@otto/shared/agent'
+import { createMastraApiTool } from './mastra-api-tools'
 
 export async function openMastraSourceTools(input: {
   workspaceId: string
@@ -19,6 +20,7 @@ export async function openMastraSourceTools(input: {
   signal: AbortSignal
   assertAccess: () => void
   mode: PermissionMode
+  getMode?: () => PermissionMode
   refresh?: TokenRefreshManager
 }) {
   input.assertAccess()
@@ -41,12 +43,12 @@ export async function openMastraSourceTools(input: {
   if (
     sources.some(
       (source) =>
-        source.config.type !== 'mcp' ||
+        !['mcp', 'api'].includes(source.config.type) ||
         source.config.mcp?.transport === 'stdio',
     )
   )
     throw new Error(
-      'Only remote MCP sources are supported by this native checkpoint. Local and API source execution is not yet migrated.',
+      'Only remote MCP and API sources are supported by this native checkpoint. Local source execution is not yet migrated.',
     )
   if (input.refresh) {
     const pending = await input.refresh.getSourcesNeedingRefresh(sources)
@@ -62,7 +64,7 @@ export async function openMastraSourceTools(input: {
   })
   try {
     const { mcpServers, errors } = await buildServersFromSources(
-      sources,
+      sources.filter((source) => source.config.type === 'mcp'),
       input.sessionPath,
       input.refresh,
     )
@@ -75,7 +77,7 @@ export async function openMastraSourceTools(input: {
       throw new Error(
         'A selected source could not connect. Check its connection in Sources.',
       )
-    const tools = Object.fromEntries(
+    const tools: Record<string, Tool<any>> = Object.fromEntries(
       pool
         .getProxyToolDefs()
         .filter(
@@ -96,7 +98,7 @@ export async function openMastraSourceTools(input: {
               const permission = shouldAllowToolInMode(
                 tool.name,
                 args,
-                input.mode,
+                input.getMode?.() ?? input.mode,
                 {
                   permissionsContext: {
                     workspaceRootPath: workspace.rootPath,
@@ -148,6 +150,24 @@ export async function openMastraSourceTools(input: {
           }),
         ]),
     )
+    for (const source of sources.filter((source) => source.config.type === 'api')) {
+      const [name, tool] = createMastraApiTool({
+        source, mode: input.mode, getMode: input.getMode, signal: input.signal, refresh: input.refresh,
+        activeSourceSlugs: sources.map((source) => source.config.slug),
+        assertSource: () => {
+          input.assertAccess()
+          const current = getAgentRunConfig(input.agentId, input.workspaceId)
+          const selected = getSourcesBySlugs(workspace.rootPath, [source.config.slug])[0]
+          if (!selected || selected.config.type !== 'api' || !isSourceUsable(selected) || JSON.stringify(selected.config.api) !== JSON.stringify(source.config.api)
+            || selected.config.id !== source.config.id || selected.config.provider !== source.config.provider
+            || !current || current.agent.id !== input.agentId
+            || (current.sources.length && !current.sources.includes(source.config.slug) && !current.sources.includes(source.config.id))) {
+            throw new Error('Source access or configuration changed before execution.')
+          }
+        },
+      })
+      tools[name] = tool
+    }
     return {
       tools,
       slugs: sources.map((source) => source.config.slug),

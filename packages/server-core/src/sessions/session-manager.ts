@@ -6271,6 +6271,7 @@ export class SessionManager implements ISessionManager {
   private async runMastraChat(managed: ManagedSession, hasAttachments: number | undefined, generation: number, stopEpoch: number): Promise<void> {
     const abort = new AbortController()
     managed.mastraAbort = abort
+    const permissionMode = managed.permissionMode ?? 'ask'
     let reason: 'complete' | 'interrupted' | 'error' = 'error'
     let sourceTools:Awaited<ReturnType<typeof import('./mastra-source-tools').openMastraSourceTools>>|undefined
     try {
@@ -6313,6 +6314,7 @@ export class SessionManager implements ISessionManager {
       const { getMastraContext } = await import('./mastra-context.ts')
       const assertAccess = () => {
         abort.signal.throwIfAborted()
+        if ((managed.permissionMode ?? 'ask') !== permissionMode) throw new Error('The permission mode changed during this run.')
         if (this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation
             || !getMemberRole(managed.workspace.id, creatorId)
             || !managed.members.some((member) => member.actor === managed.createdBy)
@@ -6322,7 +6324,7 @@ export class SessionManager implements ISessionManager {
         }
       }
       assertAccess()
-      if(managed.enabledSourceSlugs?.length){const {openMastraSourceTools}=await import('./mastra-source-tools');sourceTools=await openMastraSourceTools({workspaceId:managed.workspace.id,agentId:selectedAgent.id,slugs:managed.enabledSourceSlugs,sessionPath:getSessionStoragePath(managed.workspace.rootPath,managed.id),signal:abort.signal,assertAccess,mode:managed.permissionMode??'ask',refresh:managed.tokenRefreshManager})}
+      if(managed.enabledSourceSlugs?.length){const {openMastraSourceTools}=await import('./mastra-source-tools');sourceTools=await openMastraSourceTools({workspaceId:managed.workspace.id,agentId:selectedAgent.id,slugs:managed.enabledSourceSlugs,sessionPath:getSessionStoragePath(managed.workspace.rootPath,managed.id),signal:abort.signal,assertAccess,mode:permissionMode,getMode:()=>managed.permissionMode??'ask',refresh:managed.tokenRefreshManager})}
       const contextForRun = getMastraContext({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, writesAllowed: managed.permissionMode !== 'safe', unattended: !!(managed.unattended || managed.triggeredBy), assertAccess, sourceSlugs:sourceTools?.slugs, onUnavailableSkill: (slug) => this.sendEvent({ type: 'info', sessionId: managed.id, message: `Skill "${slug}" is unavailable because its metadata is incompatible with the native runtime.`, level: 'warning' }, managed.workspace.id) })
       const workTools = createMastraWorkTools({ workspaceId: managed.workspace.id, agentId: selectedAgent.id, assertAccess })
       const { runMastraSession } = await import('./mastra-session')
@@ -6360,7 +6362,7 @@ export class SessionManager implements ISessionManager {
       if (this.sessions.get(managed.id) !== managed || managed.processingGeneration !== generation) return
       reason = abort.signal.aborted ? 'interrupted' : 'error'
       if (managed.streamingTurnId) await this.processEvent(managed, { type: 'text_discard', turnId: managed.streamingTurnId })
-      if (!abort.signal.aborted) await this.processEvent(managed, { type: 'error', message: 'The text-only Mastra request could not complete. Use an OpenAI API-key connection without attachments or sources.' })
+      if (!abort.signal.aborted) await this.processEvent(managed, { type: 'error', message: 'The native request could not complete. Check the OpenAI API-key connection and selected remote MCP/API sources. Attachments and local sources are not available yet.' })
     } finally {
       if(managed.processingGeneration===generation&&this.sessions.get(managed.id)===managed){
         managed.mastraSession=undefined
@@ -6906,6 +6908,9 @@ export class SessionManager implements ISessionManager {
 
       // Update in-memory managed mode first
       managed.permissionMode = mode
+      if (previousManagedMode !== mode && managed.mastraAbort) {
+        void this.cancelProcessing(sessionId, true)
+      }
 
       // Reconcile mode-manager state for this specific session.
       if (previousEffectiveMode !== mode) {

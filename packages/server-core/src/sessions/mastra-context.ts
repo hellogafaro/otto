@@ -24,7 +24,7 @@ export function getMastraContext(input: {
       toolGuidance: [
         'You can list projects, tasks and Library documents and read document text. Use the provided workspace tools, not host paths. Read current versions before updates. Tool outcomes in the conversation are historical evidence; reuse existing artifact IDs rather than repeating completed writes.',
         input.writesAllowed ? 'You can create and update Library documents and tasks in existing projects. Mutations are attributed to your named agent and follow the current approval policy.' : 'Explore mode is read-only. You cannot create or update documents or tasks.',
-        input.sourceSlugs?.length ? `Remote MCP tools are available only from these authorized sources: ${input.sourceSlugs.join(', ')}. Use only the provided tool names. Other sources and local/API connectors are unavailable.` : 'Connected MCP services are unavailable in this run.',
+        input.sourceSlugs?.length ? `Remote MCP and API tools are available only from these authorized sources: ${input.sourceSlugs.join(', ')}. Use only the provided tool names. API tools require an explicit method and a path under the configured endpoint; binary downloads are unavailable. Other sources and local connectors are unavailable.` : 'Connected services are unavailable in this run.',
         'Shell, arbitrary filesystem access, browser/computer control and native subagent delegation are unavailable in this slice. Do not claim to use them. Skills teach procedures, not executable capabilities; scripts and bundled references are not available yet.',
       ],
       runMode: input.unattended ? 'unattended' : 'attended',

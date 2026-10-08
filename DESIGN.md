@@ -2974,14 +2974,21 @@ streaming reply, tool cards, approval prompt and reconnect history. They
 introduce no alternate chat layout. Library documents and tasks in existing
 projects are the first work actions. Explore refuses changes, Ask and Guarded
 ask for each write, and Execute allows it. Approvals apply only to the shown
-call in that chat, not a permanent grant. Unsupported attachments and connected
-sources fail visibly; shell and filesystem tools remain disabled. Pi remains
+call in that chat, not a permanent grant. Authorized remote MCP and API sources
+reuse those tool cards and per-call approvals. API calls show the explicit method,
+path and arguments, stay under the configured endpoint, and withhold unsafe errors
+or authentication material. API output is bounded text/JSON; binary downloads and
+unsupported attachments/local sources fail visibly. Shell and filesystem tools remain disabled. Pi remains
 the default until work tools and controls are verified. API-key-only is the MVP direction;
 subscription setup is removed when the default runtime cuts over, without
 silently converting or deleting existing accounts. Document views continue to
 support direct editing. Public sharing of chats, documents and other work
 artifacts is deferred and will require explicit visibility, never inherited
 workspace or agent access.
+
+Changing permission mode during a native turn stops that turn and its queued work.
+The next message starts with fresh tools and approval grants under the new mode;
+an old Execute grant cannot survive a switch to Explore or Ask.
 
 Native skills use the selected agent's existing workspace allowlist and load
 instruction bodies on demand. They expose no host files, scripts or reference

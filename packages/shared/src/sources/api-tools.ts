@@ -130,6 +130,8 @@ export interface ExecuteApiRequestOptions {
   signal?: AbortSignal;
   /** Abort automatically after this many ms (composed with `signal`) */
   timeoutMs?: number;
+  confineToBaseUrl?: boolean;
+  maxResponseBytes?: number;
 }
 
 /** Raw outcome of an API request (body not yet interpreted) */
@@ -145,8 +147,8 @@ export interface ApiRequestOutcome {
 
 /** Thrown before the body is loaded when Content-Length exceeds MAX_DOWNLOAD_SIZE */
 export class ApiResponseTooLargeError extends Error {
-  constructor(readonly sizeBytes: number) {
-    super(`Response too large: ${formatBytes(sizeBytes)} exceeds ${formatBytes(MAX_DOWNLOAD_SIZE)} limit. Use a streaming download tool for large files.`);
+  constructor(readonly sizeBytes: number, limit = MAX_DOWNLOAD_SIZE) {
+    super(`Response too large: ${formatBytes(sizeBytes)} exceeds ${formatBytes(limit)} limit. Use a streaming download tool for large files.`);
     this.name = 'ApiResponseTooLargeError';
   }
 }
@@ -169,6 +171,31 @@ export async function executeApiRequest(
   options?: ExecuteApiRequestOptions,
 ): Promise<ApiRequestOutcome> {
   const { path, method, params } = request;
+  if (options?.confineToBaseUrl) {
+    const base = new URL(config.baseUrl);
+    if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) {
+      throw new Error('Invalid API base URL.');
+    }
+    if (!path.startsWith('/') || path.startsWith('//') || /[\\\u0000-\u0020#]/.test(path)) {
+      throw new Error('API path must stay under the configured base URL.');
+    }
+    const pathOnly = path.split('?')[0]!;
+    const decoded = decodeURIComponent(pathOnly);
+    if (decoded.includes('%') || /[\\\u0000-\u0020]/.test(decoded) || decoded.split('/').some((part) => part === '.' || part === '..')) {
+      throw new Error('API path must stay under the configured base URL.');
+    }
+    const target = new URL(`${config.baseUrl.replace(/\/$/, '')}${path}`);
+    const prefix = `${base.pathname.replace(/\/$/, '')}/`;
+    if (target.origin !== base.origin || !target.pathname.startsWith(prefix)) {
+      throw new Error('API path must stay under the configured base URL.');
+    }
+    if (config.auth?.type === 'query') {
+      const key = config.auth.queryParam || 'api_key';
+      if (target.searchParams.has(key) || Object.hasOwn(params ?? {}, key)) {
+        throw new Error('API query authentication is managed by the source.');
+      }
+    }
+  }
 
   // Resolve credential — if a getter, call it to get a fresh credential.
   // A null result (vault has nothing for this source) is normalized to an
@@ -178,6 +205,7 @@ export async function executeApiRequest(
     ? await credential()
     : credential;
   const resolvedCredential: ApiCredential = rawCredential ?? '';
+  options?.signal?.throwIfAborted();
 
   const url = buildUrl(config.baseUrl, path, method, params, config.auth, resolvedCredential);
   const headers = buildHeaders(config.auth, resolvedCredential, config.defaultHeaders);
@@ -194,6 +222,7 @@ export async function executeApiRequest(
   const fetchOptions: RequestInit = {
     method,
     headers,
+    ...(options?.confineToBaseUrl ? { redirect: 'error' as const } : {}),
     ...(signals.length > 0 ? { signal: signals.length === 1 ? signals[0] : AbortSignal.any(signals) } : {}),
   };
 
@@ -214,18 +243,39 @@ export async function executeApiRequest(
   debug(`[api-tools] ${config.name}: headerNames=[${Object.keys(headers).join(', ')}], bodyLength=${fetchOptions.body ? String(fetchOptions.body).length : 0}`);
 
   const response = await fetch(url, fetchOptions);
+  const limit = options?.maxResponseBytes ?? MAX_DOWNLOAD_SIZE;
 
   // OOM safety: reject before loading into memory
   const contentLength = response.headers.get('content-length');
   if (contentLength) {
     const size = parseInt(contentLength, 10);
-    if (!isNaN(size) && size > MAX_DOWNLOAD_SIZE) {
-      throw new ApiResponseTooLargeError(size);
+    if (!isNaN(size) && size > limit) {
+      await response.body?.cancel();
+      throw new ApiResponseTooLargeError(size, limit);
     }
   }
 
   // Load response as raw buffer — callers handle binary detection
-  const buffer = Buffer.from(await response.arrayBuffer());
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  if (response.body) {
+    const reader = response.body.getReader();
+    try {
+      while (true) {
+        const part = await reader.read();
+        if (part.done) break;
+        size += part.value.byteLength;
+        if (size > limit) {
+          await reader.cancel();
+          throw new ApiResponseTooLargeError(size, limit);
+        }
+        chunks.push(part.value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  const buffer = Buffer.concat(chunks, size);
 
   return {
     ok: response.ok,

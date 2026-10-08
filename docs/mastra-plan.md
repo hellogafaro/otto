@@ -465,3 +465,36 @@ Native search now projects at most the recent 2,000 authorized messages. A 2,100
 fixture measured about 3.5 ms on Pro and proves the cap/privacy. Older matches outside
 that window are absent; this is not FTS prefix parity and remains a known cutover limit,
 not an unbounded scan or silently advertised full-history search.
+
+## Native API-source checkpoint
+
+Authorized API sources now expose native tools directly through the existing request/auth
+executor, not the Claude SDK MCP wrapper. The source guide is bounded reference context.
+Each call specifies method/path, rechecks current workspace/agent/source access, resolves
+fresh source credentials server-side and pins the original endpoint/configuration. Paths
+cannot leave the base URL; redirects and query-auth overrides are refused. Thirty-second
+cancellation and streamed 64 KiB bounds apply. Only text/JSON results are returned;
+non-success bodies, network failures and known authentication echoes (including JSON
+escaping) are withheld. This is not arbitrary binary download parity or general DLP.
+
+Existing native per-call approvals show actual API arguments. Explore evaluates the actual
+method/path before execution. Changing mode stops the active native turn and its queued
+work, so stale Execute grants cannot survive a switch to Explore or Ask. The next message
+starts under fresh mode grants. This also covers work/MCP tools through the common run guard.
+
+Serial disposable fixtures prove endpoint confinement, credential rotation/revocation,
+safe errors/echoes, output limits, cancellation, actual Session approval before one POST,
+and actual SessionManager Execute-to-Explore/Ask cancellation with zero late POST. Independent
+bounded re-review cleared mode and escaped-echo findings after regression fixes. Production
+browser proof shows full approval arguments and reloaded named-agent API card/response;
+the same fixture stores three official transcript rows and zero app messages, with no source
+credential in history. No live provider/source, paid inference or real database was used.
+
+The next essential parity boundary is attachments through workspace-scoped Library IDs/blob
+reads rather than renderer-supplied host paths. Image/PDF/text context bounds and Office
+conversion references must be proved, then useful current-session/source configuration
+tools need their existing scoped callbacks under native execution. Binary API downloads,
+local/stdin sources, computer/browser isolation and constrained delegation remain open.
+Full-history search, old-data execution and remaining decision/routine callers also still
+gate default cutover and complete Pi package/transport/catalog/control deletion. No permanent
+flag or dual runtime is accepted; this bounded API checkpoint is not the finished pre-MVP.

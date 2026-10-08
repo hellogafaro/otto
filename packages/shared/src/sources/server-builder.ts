@@ -280,7 +280,7 @@ export class SourceServerBuilder {
         config.auth = { type: 'bearer', authScheme: api.authScheme ?? 'Bearer' };
         break;
       case 'header':
-        config.auth = { type: 'header', headerName: api.headerName || 'x-api-key' };
+        config.auth = { type: 'header', headerName: api.headerName || 'x-api-key', headerNames: api.headerNames };
         break;
       case 'query':
         config.auth = { type: 'query', queryParam: api.queryParam || 'api_key' };
