@@ -3,7 +3,7 @@ import type { Resource } from '../projects/types.ts'
 import type { TaskStatus } from './types.ts'
 
 /**
- * A task belongs to one project; see ./index.ts. `status` is the archive and the soft
+ * A task can belong to one project; see ./index.ts. `status` is the archive and the soft
  * delete: rows are never removed. `assignees` is a JSON array of actors, `resources` of
  * { type, title, ref }. `createdBy` is 'user:<id>' or 'agent:<id>'.
  */
@@ -12,7 +12,7 @@ export const tasks = sqliteTable(
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    projectId: text('project_id').notNull(),
+    projectId: text('project_id'),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
     status: text('status').$type<TaskStatus>().notNull().default('todo'),

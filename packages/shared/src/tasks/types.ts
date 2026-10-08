@@ -7,7 +7,7 @@ export type TaskErrorCode = 'not_found' | 'conflict' | 'invalid'
 /** Timestamps are epoch milliseconds so a task survives JSON as is. */
 export type Task = {
   id: string
-  projectId: string
+  projectId: string | null
   title: string
   description: string
   status: TaskStatus
@@ -23,9 +23,9 @@ export type Task = {
 /** Left out means everywhere. `status` left out hides archived and deleted tasks. `assignee` is an actor. */
 export type TaskFilter = { projectId?: string; status?: TaskStatus | TaskStatus[]; assignee?: string }
 
-/** `expectedUpdatedAt` is the `updatedAt` the caller last saw; a different stored value is a `conflict`. */
+/** An omitted project stays unchanged; null unlinks it. `expectedUpdatedAt` detects a conflicting save. */
 export type TaskUpdate = {
-  projectId?: string
+  projectId?: string | null
   title?: string
   description?: string
   dueAt?: number | null

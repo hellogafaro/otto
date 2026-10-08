@@ -62,7 +62,7 @@ export function TasksPage() {
       return out
     }
     return {
-      project: tally((task) => [task.projectId]),
+      project: tally((task) => task.projectId === null ? [] : [task.projectId]),
       assignee: tally((task) => task.assignees),
       status: tally((task) => [task.status]),
       archived: tasks.length - open.length,

@@ -103,12 +103,12 @@ export function createMastraWorkTools(scope: { workspaceId: string; agentId: str
       },
     }),
     create_task: createTool({
-      id: 'create_task', description: 'Create a task in an existing project, optionally linked to a Library document. The current named agent is the creator.',
-      inputSchema: z.object({ projectId: id, title, description: text.optional(), documentId: id.optional() }).strict(),
+      id: 'create_task', description: 'Create a workspace task without requiring a project, optionally link an existing project or Library document, and record a requested due date. Creating the task does not execute the future action. The current named agent is the creator.',
+      inputSchema: z.object({ projectId: id.nullable().optional(), title, description: text.optional(), documentId: id.optional(), dueAt: z.number().int().nonnegative().nullable().optional() }).strict(),
       execute: async (input) => {
         scope.assertAccess()
         const item = input.documentId ? document(input.documentId) : undefined
-        return createTask({ workspaceId, projectId: input.projectId, title: input.title, description: input.description, createdBy: actor, resources: item ? [{ type: 'library', title: item.title, ref: item.id }] : [] })
+        return createTask({ workspaceId, projectId: input.projectId, title: input.title, description: input.description, dueAt: input.dueAt, createdBy: actor, resources: item ? [{ type: 'library', title: item.title, ref: item.id }] : [] })
       },
     }),
     update_task: createTool({

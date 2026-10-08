@@ -19,7 +19,7 @@ export function useTasks() {
   const actions = useMemo(() => {
     const api = window.electronAPI
     return {
-      createTask: (input: { projectId: string; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] }) =>
+      createTask: (input: { projectId?: string | null; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] }) =>
         mutate(() => api.createTask(input)),
       updateTask: (id: string, patch: TaskUpdate) => mutate(() => api.updateTask(id, patch)),
       /** `archived` and `deleted` are statuses too (restoring is `todo`). */

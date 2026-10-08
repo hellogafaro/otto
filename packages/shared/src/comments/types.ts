@@ -10,7 +10,7 @@ export type ActivityEvent =
   | { kind: 'status'; from: string; to: string }
   | { kind: 'title'; from: string; to: string }
   | { kind: 'due'; from: number | null; to: number | null }
-  | { kind: 'project'; from: string; to: string }
+  | { kind: 'project'; from: string | null; to: string | null }
   | { kind: 'assignees'; from: string[]; to: string[] }
   | { kind: 'links'; added: Resource[]; removed: Resource[] }
   | { kind: 'time'; time: number }

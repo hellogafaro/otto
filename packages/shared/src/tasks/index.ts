@@ -11,13 +11,13 @@ import { tasks, timesheets } from './schema.ts'
 import type { Task, TaskFilter, TaskStatus, TaskUpdate, Timesheet } from './types.ts'
 
 /**
- * Tasks: the work inside a project, and the time logged on it.
+ * Tasks: the workspace's work, optionally inside a project, and the time logged on it.
  *
  *   tasks(id, workspaceId, projectId, title, description, status, dueAt, assignees, resources, createdBy, createdAt, updatedAt)
  *   timesheets(id, workspaceId, taskId, createdBy, createdAt, time, notes)                                    (schema.ts)
  *
- * A task belongs to one project of the same workspace, which must exist and not be deleted
- * when the task is created or moved there. `status` is 'todo', 'doing', 'done', 'archived' or
+ * A task can belong to one project of the same workspace, which must exist and not be deleted
+ * when the task is created or moved there; null means no project. `status` is 'todo', 'doing', 'done', 'archived' or
  * 'deleted'; archiving and deleting only set it, rows are never removed (there is no hard
  * delete), lists hide both unless asked for with `status`, and restoring is setting 'todo'.
  * `assignees` are actors ('user:<id>' or 'agent:<id>'). A timesheet is one logged stretch of work:
@@ -180,7 +180,7 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
   return {
     createTask(input: {
       workspaceId: string
-      projectId: string
+      projectId?: string | null
       title: string
       description?: string
       dueAt?: number | null
@@ -194,7 +194,7 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
       const assignees = assertAssignees(input.assignees ?? [])
       const resources = assertResources(input.resources ?? [])
       const createdBy = assertActor(input.createdBy)
-      const projectId = assertProject(input.workspaceId, input.projectId)
+      const projectId = input.projectId == null ? null : assertProject(input.workspaceId, input.projectId)
       const now = new Date()
       return db.transaction((tx) => {
         const row = tx
@@ -270,7 +270,7 @@ export function createTasksStore(db: Db, projects: Pick<ProjectsStore, 'getProje
         throw domainError('conflict', `Task ${id} changed since it was loaded`)
       }
       const changes: Partial<Row> = {}
-      if (patch.projectId !== undefined) changes.projectId = assertProject(workspaceId, patch.projectId)
+      if (patch.projectId !== undefined) changes.projectId = patch.projectId === null ? null : assertProject(workspaceId, patch.projectId)
       if (patch.title !== undefined) changes.title = assertTitle(patch.title)
       if (patch.description !== undefined) changes.description = assertDescription(patch.description)
       if (patch.dueAt !== undefined) changes.dueAt = assertDueAt(patch.dueAt)

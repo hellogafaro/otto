@@ -572,7 +572,7 @@ export interface ElectronAPI {
   removeProjectMember(id: string, actor: string): Promise<Project>
   getTasks(filter?: TaskFilter): Promise<Task[]>
   getTask(id: string): Promise<Task | null>
-  createTask(input: { projectId: string; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] }): Promise<Task>
+  createTask(input: { projectId?: string | null; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] }): Promise<Task>
   updateTask(id: string, patch: TaskUpdate): Promise<Task>
   setTaskStatus(id: string, status: TaskStatus): Promise<Task>
   getTimesheets(taskId: string): Promise<Timesheet[]>

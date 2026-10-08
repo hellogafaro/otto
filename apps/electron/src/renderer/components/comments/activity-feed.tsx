@@ -350,7 +350,7 @@ function EventText({ event, actor }: { event: ActivityEvent; actor: string }) {
     <Trans t={t} i18nKey={key} values={values} components={{ actor: name, ...parts }} />
   )
   const day = (at: number) => <Value>{format(at, 'MMM d, yyyy', { locale })}</Value>
-  const project = (id: string) => <Value>{projects.find((p) => p.id === id)?.title ?? t('activity.unavailable')}</Value>
+  const project = (id: string | null) => <Value>{id === null ? t('sessionMenu.noProject') : projects.find((p) => p.id === id)?.title ?? t('activity.unavailable')}</Value>
   switch (event.kind) {
     case 'created': return say('activity.created')
     case 'status': return say('activity.status', { from: <StatusValue status={event.from} />, to: <StatusValue status={event.to} /> })

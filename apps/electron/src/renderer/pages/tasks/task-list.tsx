@@ -57,7 +57,7 @@ export function TaskGroups({
               <TaskRow
                 key={task.id}
                 task={task}
-                projectTitle={projectTitles?.get(task.projectId)}
+                projectTitle={task.projectId ? projectTitles?.get(task.projectId) : undefined}
                 nameOf={nameOf}
                 onOpen={onOpen}
                 onAction={onAction}

@@ -39,7 +39,7 @@ export function registerTasksHandlers(server: RpcServer, deps: HandlerDeps): voi
     RPC_CHANNELS.tasks.CREATE,
     (
       ctx,
-      input: { projectId: string; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] },
+      input: { projectId?: string | null; title: string; description?: string; dueAt?: number | null; assignees?: string[]; resources?: Resource[] },
     ) => {
       const workspaceId = workspaceOf(ctx)
       assertWorkspaceActors(workspaceId, input.assignees)

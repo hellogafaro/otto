@@ -9,7 +9,7 @@ export type SearchKind = (typeof SEARCH_KINDS)[number]
 /** One result. `snippet` is the text around the match when it is not the title (a message, a description, a comment). */
 export type SearchHit =
   | { kind: 'chat'; id: string; title: string | null; snippet: string; matchCount: number }
-  | { kind: 'task'; id: string; title: string; status: TaskStatus; projectId: string; snippet?: string }
+  | { kind: 'task'; id: string; title: string; status: TaskStatus; projectId: string | null; snippet?: string }
   | { kind: 'project'; id: string; title: string; snippet?: string }
   | { kind: 'library'; id: string; title: string; type: LibraryItemType; parentId: string | null }
   /** `entity` is the `task:<id>` or `project:<id>` the comment is on, `title` that entity's. */

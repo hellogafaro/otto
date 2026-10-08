@@ -187,7 +187,7 @@ export function usePaletteData(): PaletteData<PaletteItem> {
           key: itemKey({ type: 'task', id: task.id }),
           title: task.title,
           icon: <TaskStatusIcon status={task.status} />,
-          meta: projectTitles.get(task.projectId),
+          meta: task.projectId ? projectTitles.get(task.projectId) : undefined,
           run: go(routes.view.tasks({ taskId: task.id })),
         })),
       projects: projects
